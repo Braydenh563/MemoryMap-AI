@@ -2720,6 +2720,11 @@ async function streamChatEvents({
         throw new Error(event.message || "The answer stopped early.");
       }
 
+      //: A board tool that wrote: the open board reads it as one Undo step
+      //: (whiteboard-history.js, `wbTakeChangeFromElsewhere`; Brief 77).
+      if (event.type === "tool" && event.ok !== false && /whiteboard|board_item|map_node|mindmap|diagram/.test(String(event.name || ""))) {
+        document.dispatchEvent(new CustomEvent("mm:board-changed", { detail: { source: "Atlas" } }));
+      }
       if (event.type === "tool" && event.ok === false) {
         recordBrowserLog("WARN", [
           `[Agent tool error] ${event.label || event.name || "?"}: ${event.error || "unknown error"}`,

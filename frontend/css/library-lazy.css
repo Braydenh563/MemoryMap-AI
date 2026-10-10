@@ -3310,3 +3310,33 @@ button.ghost.doc-template-choice.wb-template-choice {
   position: absolute;
   inset: calc((var(--space-2) - 24px) / 2) 0;
 }
+
+/* The board's snapshots sheet (whiteboard-history.js, Brief 77): each row is
+   the Library card's picture, the name and when, then Restore and Delete. */
+.wb-snapshots-card #wb-snapshot-save {
+  align-self: flex-start;
+  margin-block-end: var(--space-2);
+}
+.wb-snapshot-row {
+  display: grid;
+  grid-template-columns: 6.25rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+  border-block-end: 1px solid var(--border);
+}
+.wb-snapshot-preview svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.wb-snapshot-words {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wb-snapshot-words strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

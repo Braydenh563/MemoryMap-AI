@@ -7497,6 +7497,9 @@ button.connection-row {
      account for, which is exactly how far it overlapped the top bar. */
   margin: 0;
 }
+.wb-topbar .wb-more-wrap {
+  display: none;
+}
 @media (max-width: 819.98px) {
   /* Search and Overview are also switches in the View menu; the two icons
      and their divider are what pushed the bar onto a third row. */
@@ -7524,6 +7527,9 @@ button.connection-row {
   .wb-topbar #wb-fullscreen,
   .wb-topbar .wb-board-menu-wrap:has([aria-controls="wb-arrange-menu"]) {
     display: none;
+  }
+  .wb-topbar .wb-more-wrap {
+    display: inline-flex;
   }
   /* One scrolling row of tools beats two wrapped rows on a short screen. */
   .whiteboard-floating-panel.bottom-center {
@@ -10226,6 +10232,11 @@ header#top-bar {
   #top-bar .header-controls,
   #top-bar .header-cluster {
     gap: 0;
+  }  .wb-topbar .wb-topbar-right {
+    gap: 0;
+  }
+  .wb-topbar .wb-topbar-right .wb-topbar-divider {
+    display: none;
   }
 }
 @media (min-width: 360px) and (max-width: 479.98px) {

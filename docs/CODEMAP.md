@@ -2,9 +2,9 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 4905, frontend ids 2275, CSS sections 486, backend routes 499, backend modules 3974, test files 971, tests 9042, plan headings 953.
+Counts: frontend functions 4916, frontend ids 2276, CSS sections 486, backend routes 502, backend modules 3980, test files 971, tests 9045, plan headings 953.
 
-## Frontend functions (4905)
+## Frontend functions (4916)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -331,11 +331,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `announce` | frontend/js/capture-ask.js:802 |
 | `answerFigure` | frontend/js/capture-ask.js:1962 |
 | `answerObject` | frontend/js/capture-ask.js:2055 |
-| `askAsOf` | frontend/js/capture-ask.js:3310 |
+| `askAsOf` | frontend/js/capture-ask.js:3315 |
 | `askNotesOnTheRight` | frontend/js/capture-ask.js:2177 |
-| `askQuestion` | frontend/js/capture-ask.js:2910 |
-| `askStatusBusy` | frontend/js/capture-ask.js:2880 |
-| `askStatusText` | frontend/js/capture-ask.js:2865 |
+| `askQuestion` | frontend/js/capture-ask.js:2915 |
+| `askStatusBusy` | frontend/js/capture-ask.js:2885 |
+| `askStatusText` | frontend/js/capture-ask.js:2870 |
 | `citationInsertionPoint` | frontend/js/capture-ask.js:1097 |
 | `citationKey` | frontend/js/capture-ask.js:1050 |
 | `citationMarker` | frontend/js/capture-ask.js:1216 |
@@ -349,7 +349,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `clickableResult` | frontend/js/capture-ask.js:976 |
 | `closeCitationPeek` | frontend/js/capture-ask.js:1488 |
 | `collapseCitationRuns` | frontend/js/capture-ask.js:1191 |
-| `copyAnswer` | frontend/js/capture-ask.js:3239 |
+| `copyAnswer` | frontend/js/capture-ask.js:3244 |
 | `createDocumentNamed` | frontend/js/capture-ask.js:289 |
 | `everyRowScored` | frontend/js/capture-ask.js:2409 |
 | `evidenceBlock` | frontend/js/capture-ask.js:1349 |
@@ -366,13 +366,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `groundingThumbs` | frontend/js/capture-ask.js:1739 |
 | `heldOffline` | frontend/js/capture-ask.js:565 |
 | `holdPictureTokens` | frontend/js/capture-ask.js:1956 |
-| `liveMarkdownRenderer` | frontend/js/capture-ask.js:2742 |
-| `loadAskHistoryBadge` | frontend/js/capture-ask.js:3274 |
+| `liveMarkdownRenderer` | frontend/js/capture-ask.js:2747 |
+| `loadAskHistoryBadge` | frontend/js/capture-ask.js:3279 |
 | `loadCaptureDocuments` | frontend/js/capture-ask.js:274 |
-| `loadSuggestions` | frontend/js/capture-ask.js:3245 |
-| `loadTemplates` | frontend/js/capture-ask.js:3344 |
+| `loadSuggestions` | frontend/js/capture-ask.js:3250 |
+| `loadTemplates` | frontend/js/capture-ask.js:3349 |
 | `matchReasonBadge` | frontend/js/capture-ask.js:2413 |
-| `newChat` | frontend/js/capture-ask.js:2823 |
+| `newChat` | frontend/js/capture-ask.js:2828 |
 | `notePictures` | frontend/js/capture-ask.js:1724 |
 | `noteSurfaceIfAny` | frontend/js/capture-ask.js:412 |
 | `noteTemplateForUse` | frontend/js/capture-ask.js:394 |
@@ -389,8 +389,8 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderAskAnswerFoot` | frontend/js/capture-ask.js:2123 |
 | `renderAskFollowups` | frontend/js/capture-ask.js:2194 |
 | `renderAskHint` | frontend/js/capture-ask.js:2238 |
-| `renderAskTrail` | frontend/js/capture-ask.js:2797 |
-| `renderAskedQuestion` | frontend/js/capture-ask.js:2841 |
+| `renderAskTrail` | frontend/js/capture-ask.js:2802 |
+| `renderAskedQuestion` | frontend/js/capture-ask.js:2846 |
 | `renderCaptureDocumentAdder` | frontend/js/capture-ask.js:347 |
 | `renderCaptureDocuments` | frontend/js/capture-ask.js:309 |
 | `renderCaptureTagSuggestions` | frontend/js/capture-ask.js:494 |
@@ -399,7 +399,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderRelatedElsewhere` | frontend/js/capture-ask.js:1599 |
 | `renderToolsUnsupportedNotice` | frontend/js/capture-ask.js:1704 |
 | `resetCaptureForm` | frontend/js/capture-ask.js:454 |
-| `retryAnswer` | frontend/js/capture-ask.js:3235 |
+| `retryAnswer` | frontend/js/capture-ask.js:3240 |
 | `saveEntry` | frontend/js/capture-ask.js:579 |
 | `saveEntryAsDraft` | frontend/js/capture-ask.js:704 |
 | `scheduleCaptureTagSuggestions` | frontend/js/capture-ask.js:520 |
@@ -407,12 +407,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `scheduleCitationPeekClose` | frontend/js/capture-ask.js:1373 |
 | `scrollEditingEntryIntoView` | frontend/js/capture-ask.js:826 |
 | `setAnsweredBy` | frontend/js/capture-ask.js:2268 |
-| `setAskScope` | frontend/js/capture-ask.js:3302 |
-| `setAsking` | frontend/js/capture-ask.js:2783 |
+| `setAskScope` | frontend/js/capture-ask.js:3307 |
+| `setAsking` | frontend/js/capture-ask.js:2788 |
 | `settleCaptureStatus` | frontend/js/capture-ask.js:123 |
-| `showAskAsOf` | frontend/js/capture-ask.js:3316 |
+| `showAskAsOf` | frontend/js/capture-ask.js:3321 |
 | `showCitedPassage` | frontend/js/capture-ask.js:1556 |
-| `stopAnswer` | frontend/js/capture-ask.js:2789 |
+| `stopAnswer` | frontend/js/capture-ask.js:2794 |
 | `streamChat` | frontend/js/capture-ask.js:2444 |
 | `streamChatEvents` | frontend/js/capture-ask.js:2481 |
 | `watchFiling` | frontend/js/capture-ask.js:46 |
@@ -4552,29 +4552,33 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `webFollowUp` | frontend/js/web-clip.js:189 |
 | `webFollowUpRefers` | frontend/js/web-clip.js:185 |
 
-### frontend/js/whiteboard-commands.js (19)
+### frontend/js/whiteboard-commands.js (23)
 
 | Name | File:line |
 |---|---|
-| `renderWbShortcutSheet` | frontend/js/whiteboard-commands.js:320 |
-| `wbClickId` | frontend/js/whiteboard-commands.js:86 |
-| `wbCloseHelpSheet` | frontend/js/whiteboard-commands.js:507 |
-| `wbCommandApplies` | frontend/js/whiteboard-commands.js:204 |
-| `wbCommandMenuRow` | frontend/js/whiteboard-commands.js:243 |
+| `renderWbShortcutSheet` | frontend/js/whiteboard-commands.js:323 |
+| `wbClickId` | frontend/js/whiteboard-commands.js:88 |
+| `wbCloseHelpSheet` | frontend/js/whiteboard-commands.js:604 |
+| `wbCommandApplies` | frontend/js/whiteboard-commands.js:207 |
+| `wbCommandMenuRow` | frontend/js/whiteboard-commands.js:246 |
 | `wbCommandOneSketch` | frontend/js/whiteboard-commands.js:37 |
 | `wbCommandSelectionCount` | frontend/js/whiteboard-commands.js:32 |
 | `wbCommandTextTarget` | frontend/js/whiteboard-commands.js:43 |
-| `wbCommandsLive` | frontend/js/whiteboard-commands.js:251 |
-| `wbHelpRows` | frontend/js/whiteboard-commands.js:429 |
-| `wbHelpSections` | frontend/js/whiteboard-commands.js:440 |
-| `wbOpenHelpSheet` | frontend/js/whiteboard-commands.js:495 |
-| `wbPaletteActRow` | frontend/js/whiteboard-commands.js:285 |
-| `wbPaletteCommands` | frontend/js/whiteboard-commands.js:265 |
-| `wbRenderHelpSheet` | frontend/js/whiteboard-commands.js:446 |
-| `wbRunBoardAct` | frontend/js/whiteboard-commands.js:307 |
-| `wbRunCommand` | frontend/js/whiteboard-commands.js:214 |
-| `wbSyncCommandRows` | frontend/js/whiteboard-commands.js:343 |
-| `wbTool` | frontend/js/whiteboard-commands.js:87 |
+| `wbCommandsLive` | frontend/js/whiteboard-commands.js:254 |
+| `wbHelpRows` | frontend/js/whiteboard-commands.js:526 |
+| `wbHelpSections` | frontend/js/whiteboard-commands.js:537 |
+| `wbInitMoreMenu` | frontend/js/whiteboard-commands.js:422 |
+| `wbOpenHelpSheet` | frontend/js/whiteboard-commands.js:592 |
+| `wbPaletteActRow` | frontend/js/whiteboard-commands.js:288 |
+| `wbPaletteCommands` | frontend/js/whiteboard-commands.js:268 |
+| `wbPhoneCarries` | frontend/js/whiteboard-commands.js:383 |
+| `wbPhoneReachable` | frontend/js/whiteboard-commands.js:367 |
+| `wbRenderHelpSheet` | frontend/js/whiteboard-commands.js:543 |
+| `wbRunBoardAct` | frontend/js/whiteboard-commands.js:310 |
+| `wbRunCommand` | frontend/js/whiteboard-commands.js:217 |
+| `wbSyncCommandRows` | frontend/js/whiteboard-commands.js:346 |
+| `wbSyncMoreMenu` | frontend/js/whiteboard-commands.js:397 |
+| `wbTool` | frontend/js/whiteboard-commands.js:89 |
 
 ### frontend/js/whiteboard-format.js (18)
 
@@ -4599,10 +4603,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbFormatToggle` | frontend/js/whiteboard-format.js:265 |
 | `wbSetLinkRoute` | frontend/js/whiteboard-format.js:215 |
 
-### frontend/js/whiteboard-history.js (10)
+### frontend/js/whiteboard-history.js (16)
 
 | Name | File:line |
 |---|---|
+| `wbChangeFromElsewhereSoon` | frontend/js/whiteboard-history.js:353 |
 | `wbCloseHistory` | frontend/js/whiteboard-history.js:191 |
 | `wbHistBoardParam` | frontend/js/whiteboard-history.js:41 |
 | `wbHistGuard` | frontend/js/whiteboard-history.js:64 |
@@ -4613,6 +4618,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbHistSync` | frontend/js/whiteboard-history.js:82 |
 | `wbHistWords` | frontend/js/whiteboard-history.js:53 |
 | `wbOpenHistory` | frontend/js/whiteboard-history.js:103 |
+| `wbOpenSnapshots` | frontend/js/whiteboard-history.js:473 |
+| `wbRestoreToEvent` | frontend/js/whiteboard-history.js:425 |
+| `wbSnapshotPreviewBoard` | frontend/js/whiteboard-history.js:403 |
+| `wbSnapshotRow` | frontend/js/whiteboard-history.js:434 |
+| `wbTakeChangeFromElsewhere` | frontend/js/whiteboard-history.js:315 |
 
 ### frontend/js/whiteboard-interchange.js (16)
 
@@ -5025,39 +5035,39 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbThumbSvg` | frontend/js/whiteboard-templates.js:273 |
 | `wbUntitledNames` | frontend/js/whiteboard-templates.js:335 |
 
-### frontend/js/whiteboard.js (465)
+### frontend/js/whiteboard.js (466)
 
 | Name | File:line |
 |---|---|
-| `addBoardToNote` | frontend/js/whiteboard.js:20567 |
-| `boardItemCount` | frontend/js/whiteboard.js:19670 |
-| `boardSort` | frontend/js/whiteboard.js:19674 |
-| `boardTypeFilter` | frontend/js/whiteboard.js:19717 |
+| `addBoardToNote` | frontend/js/whiteboard.js:20631 |
+| `boardItemCount` | frontend/js/whiteboard.js:19734 |
+| `boardSort` | frontend/js/whiteboard.js:19738 |
+| `boardTypeFilter` | frontend/js/whiteboard.js:19781 |
 | `clearWbSelection` | frontend/js/whiteboard.js:4669 |
-| `createConceptMap` | frontend/js/whiteboard.js:20155 |
-| `createNewBoard` | frontend/js/whiteboard.js:15014 |
+| `createConceptMap` | frontend/js/whiteboard.js:20219 |
+| `createNewBoard` | frontend/js/whiteboard.js:15077 |
 | `deleteWbSelection` | frontend/js/whiteboard.js:5153 |
-| `dragEndNode` | frontend/js/whiteboard.js:19432 |
-| `dragStart` | frontend/js/whiteboard.js:19261 |
-| `dragging` | frontend/js/whiteboard.js:19320 |
-| `drawLibraryBoardsGallery` | frontend/js/whiteboard.js:19806 |
+| `dragEndNode` | frontend/js/whiteboard.js:19495 |
+| `dragStart` | frontend/js/whiteboard.js:19324 |
+| `dragging` | frontend/js/whiteboard.js:19383 |
+| `drawLibraryBoardsGallery` | frontend/js/whiteboard.js:19870 |
 | `fetchWhiteboardState` | frontend/js/whiteboard.js:14825 |
 | `handleWbZoom` | frontend/js/whiteboard.js:496 |
 | `initWhiteboard` | frontend/js/whiteboard.js:10946 |
-| `openWhiteboardBoard` | frontend/js/whiteboard.js:20014 |
-| `pickNotesDialog` | frontend/js/whiteboard.js:20479 |
-| `redrawLibraryBoardsGallery` | frontend/js/whiteboard.js:19775 |
+| `openWhiteboardBoard` | frontend/js/whiteboard.js:20078 |
+| `pickNotesDialog` | frontend/js/whiteboard.js:20543 |
+| `redrawLibraryBoardsGallery` | frontend/js/whiteboard.js:19839 |
 | `refreshBoardList` | frontend/js/whiteboard.js:14864 |
-| `renameCurrentBoard` | frontend/js/whiteboard.js:14963 |
-| `renderBoardTypeFilter` | frontend/js/whiteboard.js:19736 |
-| `renderLibraryBoardsGallery` | frontend/js/whiteboard.js:19780 |
-| `renderWbGestureHints` | frontend/js/whiteboard.js:20086 |
+| `renameCurrentBoard` | frontend/js/whiteboard.js:14968 |
+| `renderBoardTypeFilter` | frontend/js/whiteboard.js:19800 |
+| `renderLibraryBoardsGallery` | frontend/js/whiteboard.js:19844 |
+| `renderWbGestureHints` | frontend/js/whiteboard.js:20150 |
 | `renderWbLibrary` | frontend/js/whiteboard.js:14747 |
-| `renderWbObjects` | frontend/js/whiteboard.js:18295 |
-| `renderWhiteboard` | frontend/js/whiteboard.js:17084 |
-| `renderWhiteboardNow` | frontend/js/whiteboard.js:17062 |
+| `renderWbObjects` | frontend/js/whiteboard.js:18358 |
+| `renderWhiteboard` | frontend/js/whiteboard.js:17147 |
+| `renderWhiteboardNow` | frontend/js/whiteboard.js:17125 |
 | `selectWbItem` | frontend/js/whiteboard.js:4553 |
-| `toggleWhiteboardFullscreen` | frontend/js/whiteboard.js:20234 |
+| `toggleWhiteboardFullscreen` | frontend/js/whiteboard.js:20298 |
 | `uploadToLibrary` | frontend/js/whiteboard.js:10512 |
 | `wbAddBoardToNote` | frontend/js/whiteboard.js:9493 |
 | `wbAlignGuideColor` | frontend/js/whiteboard.js:1045 |
@@ -5100,7 +5110,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbBoxCenter` | frontend/js/whiteboard.js:2354 |
 | `wbBoxRayIntersection` | frontend/js/whiteboard.js:2632 |
 | `wbBoxesOverlap` | frontend/js/whiteboard.js:5248 |
-| `wbBucketFillSketch` | frontend/js/whiteboard.js:15792 |
+| `wbBucketFillSketch` | frontend/js/whiteboard.js:15855 |
 | `wbBuildContextMenu` | frontend/js/whiteboard.js:6652 |
 | `wbBuildExportSvg` | frontend/js/whiteboard.js:9787 |
 | `wbBuildFrame` | frontend/js/whiteboard.js:9402 |
@@ -5121,7 +5131,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbClearCanvasRectCache` | frontend/js/whiteboard.js:405 |
 | `wbClearGuideBoxCache` | frontend/js/whiteboard.js:835 |
 | `wbClearSelectionOverlays` | frontend/js/whiteboard.js:200 |
-| `wbClearSketchHandles` | frontend/js/whiteboard.js:15915 |
+| `wbClearSketchHandles` | frontend/js/whiteboard.js:15978 |
 | `wbClientToBoard` | frontend/js/whiteboard.js:456 |
 | `wbClipboardText` | frontend/js/whiteboard.js:6203 |
 | `wbClippedCardCount` | frontend/js/whiteboard.js:10744 |
@@ -5141,7 +5151,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbCopySelectedStyle` | frontend/js/whiteboard.js:3787 |
 | `wbCopySelection` | frontend/js/whiteboard.js:6128 |
 | `wbCopyableSelection` | frontend/js/whiteboard.js:6097 |
-| `wbCreateBlankBoard` | frontend/js/whiteboard.js:15084 |
+| `wbCreateBlankBoard` | frontend/js/whiteboard.js:15147 |
 | `wbCreateCopies` | frontend/js/whiteboard.js:5900 |
 | `wbCreateFrame` | frontend/js/whiteboard.js:9327 |
 | `wbCreateObject` | frontend/js/whiteboard.js:8390 |
@@ -5158,11 +5168,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbDeleteBoard` | frontend/js/whiteboard.js:9541 |
 | `wbDeleteCurrentBoard` | frontend/js/whiteboard.js:9507 |
 | `wbDetachEditorMenu` | frontend/js/whiteboard.js:7906 |
-| `wbDetectArrowStyle` | frontend/js/whiteboard.js:15844 |
+| `wbDetectArrowStyle` | frontend/js/whiteboard.js:15907 |
 | `wbDistributeSelection` | frontend/js/whiteboard.js:3456 |
 | `wbDragExcludeKeys` | frontend/js/whiteboard.js:906 |
 | `wbDragIsBulkMove` | frontend/js/whiteboard.js:5403 |
-| `wbDrawSketchHandles` | frontend/js/whiteboard.js:16831 |
+| `wbDrawSketchHandles` | frontend/js/whiteboard.js:16894 |
 | `wbDropCopies` | frontend/js/whiteboard.js:5882 |
 | `wbDropUndoEntry` | frontend/js/whiteboard.js:7477 |
 | `wbDuplicateSelection` | frontend/js/whiteboard.js:6604 |
@@ -5170,9 +5180,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbEdgePoint` | frontend/js/whiteboard.js:2394 |
 | `wbEditCommentRow` | frontend/js/whiteboard.js:9197 |
 | `wbEditFrameTitle` | frontend/js/whiteboard.js:9370 |
-| `wbEditLinkLabel` | frontend/js/whiteboard.js:15711 |
+| `wbEditLinkLabel` | frontend/js/whiteboard.js:15774 |
 | `wbEditNodeText` | frontend/js/whiteboard.js:4341 |
-| `wbEditShapeLabel` | frontend/js/whiteboard.js:15565 |
+| `wbEditShapeLabel` | frontend/js/whiteboard.js:15628 |
 | `wbEditableSurface` | frontend/js/whiteboard.js:7912 |
 | `wbEditedText` | frontend/js/whiteboard.js:8029 |
 | `wbElbowCrosses` | frontend/js/whiteboard.js:2941 |
@@ -5187,8 +5197,8 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbEndGesture` | frontend/js/whiteboard.js:5644 |
 | `wbEndPanShield` | frontend/js/whiteboard.js:492 |
 | `wbEndTextEdit` | frontend/js/whiteboard.js:8091 |
-| `wbEntryBox` | frontend/js/whiteboard.js:16376 |
-| `wbEntryOutlineBox` | frontend/js/whiteboard.js:16408 |
+| `wbEntryBox` | frontend/js/whiteboard.js:16439 |
+| `wbEntryOutlineBox` | frontend/js/whiteboard.js:16471 |
 | `wbExportBoard` | frontend/js/whiteboard.js:10769 |
 | `wbExportColour` | frontend/js/whiteboard.js:9745 |
 | `wbExportDescription` | frontend/js/whiteboard.js:10499 |
@@ -5207,19 +5217,19 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbFillPaperSwatches` | frontend/js/whiteboard.js:8457 |
 | `wbFindItem` | frontend/js/whiteboard.js:8792 |
 | `wbFinishDrag` | frontend/js/whiteboard.js:5943 |
-| `wbFitToText` | frontend/js/whiteboard.js:18024 |
+| `wbFitToText` | frontend/js/whiteboard.js:18087 |
 | `wbFlushNudge` | frontend/js/whiteboard.js:3652 |
 | `wbFlushZoomFrame` | frontend/js/whiteboard.js:541 |
-| `wbFollowLiveShape` | frontend/js/whiteboard.js:16797 |
+| `wbFollowLiveShape` | frontend/js/whiteboard.js:16860 |
 | `wbForgetLinkItems` | frontend/js/whiteboard.js:2709 |
 | `wbForgetLinks` | frontend/js/whiteboard.js:7659 |
-| `wbForwardGripContextMenu` | frontend/js/whiteboard.js:15929 |
+| `wbForwardGripContextMenu` | frontend/js/whiteboard.js:15992 |
 | `wbFrameContents` | frontend/js/whiteboard.js:9347 |
 | `wbFrameDragOrigin` | frontend/js/whiteboard.js:9362 |
 | `wbFrameMapOnOpen` | frontend/js/whiteboard.js:1758 |
 | `wbFrameTitle` | frontend/js/whiteboard.js:9314 |
 | `wbFrameZ` | frontend/js/whiteboard.js:9320 |
-| `wbFramesInOrder` | frontend/js/whiteboard.js:20284 |
+| `wbFramesInOrder` | frontend/js/whiteboard.js:20348 |
 | `wbFreeCanvasRect` | frontend/js/whiteboard.js:6318 |
 | `wbGenerateMapFromNotes` | frontend/js/whiteboard.js:10211 |
 | `wbGridType` | frontend/js/whiteboard.js:761 |
@@ -5250,42 +5260,42 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbItemRotation` | frontend/js/whiteboard.js:2340 |
 | `wbItemSpokenName` | frontend/js/whiteboard.js:4608 |
 | `wbItemTransform` | frontend/js/whiteboard.js:8098 |
-| `wbKeepAspect` | frontend/js/whiteboard.js:15334 |
+| `wbKeepAspect` | frontend/js/whiteboard.js:15397 |
 | `wbKeepMenuBesideBar` | frontend/js/whiteboard.js:7036 |
 | `wbLayoutCloneGrips` | frontend/js/whiteboard.js:6575 |
-| `wbLayoutLinkLabel` | frontend/js/whiteboard.js:15680 |
-| `wbLayoutShapeLabel` | frontend/js/whiteboard.js:15463 |
-| `wbLeaveFullscreen` | frontend/js/whiteboard.js:20002 |
+| `wbLayoutLinkLabel` | frontend/js/whiteboard.js:15743 |
+| `wbLayoutShapeLabel` | frontend/js/whiteboard.js:15526 |
+| `wbLeaveFullscreen` | frontend/js/whiteboard.js:20066 |
 | `wbLineJumpsD` | frontend/js/whiteboard.js:3141 |
 | `wbLinkAdjacency` | frontend/js/whiteboard.js:4155 |
 | `wbLinkCandidateAt` | frontend/js/whiteboard.js:2763 |
 | `wbLinkCandidates` | frontend/js/whiteboard.js:2730 |
 | `wbLinkCaps` | frontend/js/whiteboard.js:2847 |
-| `wbLinkDrawnLine` | frontend/js/whiteboard.js:16201 |
+| `wbLinkDrawnLine` | frontend/js/whiteboard.js:16264 |
 | `wbLinkEnd` | frontend/js/whiteboard.js:2579 |
 | `wbLinkEndpoints` | frontend/js/whiteboard.js:2775 |
 | `wbLinkItem` | frontend/js/whiteboard.js:2713 |
-| `wbLinkLabelT` | frontend/js/whiteboard.js:16295 |
-| `wbLinkMidpoint` | frontend/js/whiteboard.js:15658 |
-| `wbLinkNearestT` | frontend/js/whiteboard.js:16302 |
+| `wbLinkLabelT` | frontend/js/whiteboard.js:16358 |
+| `wbLinkMidpoint` | frontend/js/whiteboard.js:15721 |
+| `wbLinkNearestT` | frontend/js/whiteboard.js:16365 |
 | `wbLinkPathD` | frontend/js/whiteboard.js:2868 |
 | `wbLinkRouteName` | frontend/js/whiteboard.js:3308 |
 | `wbLinkSelectionBox` | frontend/js/whiteboard.js:4810 |
 | `wbLinkShape` | frontend/js/whiteboard.js:3316 |
-| `wbLinkSketchIndex` | frontend/js/whiteboard.js:19162 |
-| `wbLinkTakesLabel` | frontend/js/whiteboard.js:15648 |
-| `wbLinkWaypoints` | frontend/js/whiteboard.js:16189 |
-| `wbLinkedSketchesFor` | frontend/js/whiteboard.js:19191 |
+| `wbLinkSketchIndex` | frontend/js/whiteboard.js:19225 |
+| `wbLinkTakesLabel` | frontend/js/whiteboard.js:15711 |
+| `wbLinkWaypoints` | frontend/js/whiteboard.js:16252 |
+| `wbLinkedSketchesFor` | frontend/js/whiteboard.js:19254 |
 | `wbLinksTouching` | frontend/js/whiteboard.js:7649 |
 | `wbLockHoverWanted` | frontend/js/whiteboard.js:8740 |
 | `wbLockSelection` | frontend/js/whiteboard.js:8573 |
 | `wbLockedItemAt` | frontend/js/whiteboard.js:8688 |
 | `wbLockedItems` | frontend/js/whiteboard.js:8541 |
 | `wbMapNodeScreenBox` | frontend/js/whiteboard.js:7088 |
-| `wbMapNodeTakeBack` | frontend/js/whiteboard.js:18217 |
+| `wbMapNodeTakeBack` | frontend/js/whiteboard.js:18280 |
 | `wbMapStripClearOfHandle` | frontend/js/whiteboard.js:4779 |
 | `wbMapStripToggles` | frontend/js/whiteboard.js:4708 |
-| `wbMapTaskTallyKey` | frontend/js/whiteboard.js:19143 |
+| `wbMapTaskTallyKey` | frontend/js/whiteboard.js:19206 |
 | `wbMenuAnchorOk` | frontend/js/whiteboard.js:7082 |
 | `wbMenuSpotBeside` | frontend/js/whiteboard.js:7194 |
 | `wbMigrateBackground` | frontend/js/whiteboard.js:1157 |
@@ -5296,8 +5306,8 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbMindMapSpanningTree` | frontend/js/whiteboard.js:4179 |
 | `wbMoveItemBy` | frontend/js/whiteboard.js:3379 |
 | `wbMultiKey` | frontend/js/whiteboard.js:1472 |
-| `wbMultiSelectionEntries` | frontend/js/whiteboard.js:16349 |
-| `wbMultiSnapshot` | frontend/js/whiteboard.js:16431 |
+| `wbMultiSelectionEntries` | frontend/js/whiteboard.js:16412 |
+| `wbMultiSnapshot` | frontend/js/whiteboard.js:16494 |
 | `wbNavigatorDragEnd` | frontend/js/whiteboard.js:2133 |
 | `wbNavigatorDragFrame` | frontend/js/whiteboard.js:2112 |
 | `wbNavigatorDragMove` | frontend/js/whiteboard.js:2105 |
@@ -5312,9 +5322,10 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbNavigatorSnapshot` | frontend/js/whiteboard.js:1840 |
 | `wbNavigatorUpdateViewport` | frontend/js/whiteboard.js:2003 |
 | `wbNearestAnchor` | frontend/js/whiteboard.js:2527 |
+| `wbNewUntitledBoard` | frontend/js/whiteboard.js:15032 |
 | `wbNudgeSelection` | frontend/js/whiteboard.js:3664 |
-| `wbNudgeShapeLabel` | frontend/js/whiteboard.js:15511 |
-| `wbObjectPaintKey` | frontend/js/whiteboard.js:19116 |
+| `wbNudgeShapeLabel` | frontend/js/whiteboard.js:15574 |
+| `wbObjectPaintKey` | frontend/js/whiteboard.js:19179 |
 | `wbOnBoardCopy` | frontend/js/whiteboard.js:6221 |
 | `wbOnLockHoverMove` | frontend/js/whiteboard.js:8748 |
 | `wbOnLockPress` | frontend/js/whiteboard.js:8762 |
@@ -5322,16 +5333,16 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbOpenComments` | frontend/js/whiteboard.js:8893 |
 | `wbOpenContextMenuFor` | frontend/js/whiteboard.js:7259 |
 | `wbOpenMapNodeMenu` | frontend/js/whiteboard.js:7121 |
-| `wbOpenSketchLabelEditor` | frontend/js/whiteboard.js:15586 |
+| `wbOpenSketchLabelEditor` | frontend/js/whiteboard.js:15649 |
 | `wbOwnsChord` | frontend/js/whiteboard.js:3627 |
 | `wbPaintCommentMarks` | frontend/js/whiteboard.js:8819 |
 | `wbPaintFrame` | frontend/js/whiteboard.js:9422 |
 | `wbPaintHidden` | frontend/js/whiteboard.js:8623 |
-| `wbPaintLinkLabel` | frontend/js/whiteboard.js:15691 |
+| `wbPaintLinkLabel` | frontend/js/whiteboard.js:15754 |
 | `wbPaintLockHover` | frontend/js/whiteboard.js:8705 |
 | `wbPaintLocks` | frontend/js/whiteboard.js:8661 |
-| `wbPaintShapeLabel` | frontend/js/whiteboard.js:15527 |
-| `wbPaintStickyDates` | frontend/js/whiteboard.js:18244 |
+| `wbPaintShapeLabel` | frontend/js/whiteboard.js:15590 |
+| `wbPaintStickyDates` | frontend/js/whiteboard.js:18307 |
 | `wbPaintTextContent` | frontend/js/whiteboard.js:7785 |
 | `wbParkContextOnRail` | frontend/js/whiteboard.js:3962 |
 | `wbPasteClipboard` | frontend/js/whiteboard.js:6184 |
@@ -5339,7 +5350,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbPastePlan` | frontend/js/whiteboard.js:6242 |
 | `wbPasteText` | frontend/js/whiteboard.js:6253 |
 | `wbPastedLines` | frontend/js/whiteboard.js:6232 |
-| `wbPathBBox` | frontend/js/whiteboard.js:15272 |
+| `wbPathBBox` | frontend/js/whiteboard.js:15335 |
 | `wbPathPolyline` | frontend/js/whiteboard.js:2361 |
 | `wbPickStyle` | frontend/js/whiteboard.js:3776 |
 | `wbPillRayIntersection` | frontend/js/whiteboard.js:2597 |
@@ -5351,8 +5362,8 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbPolylineAt` | frontend/js/whiteboard.js:3289 |
 | `wbPortFractions` | frontend/js/whiteboard.js:2456 |
 | `wbPortsForPath` | frontend/js/whiteboard.js:2469 |
-| `wbPresentShow` | frontend/js/whiteboard.js:20348 |
-| `wbPresentSteps` | frontend/js/whiteboard.js:20305 |
+| `wbPresentShow` | frontend/js/whiteboard.js:20412 |
+| `wbPresentSteps` | frontend/js/whiteboard.js:20369 |
 | `wbPublishInvZoom` | frontend/js/whiteboard.js:742 |
 | `wbPushDragUndo` | frontend/js/whiteboard.js:5935 |
 | `wbPushMoveBatch` | frontend/js/whiteboard.js:3398 |
@@ -5362,41 +5373,41 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbRecordGesture` | frontend/js/whiteboard.js:7620 |
 | `wbRedo` | frontend/js/whiteboard.js:8374 |
 | `wbRefreshHighlighterBlend` | frontend/js/whiteboard.js:1247 |
-| `wbRegenerateShapeCaps` | frontend/js/whiteboard.js:15824 |
+| `wbRegenerateShapeCaps` | frontend/js/whiteboard.js:15887 |
 | `wbRegisterCommentSurfaces` | frontend/js/whiteboard.js:9279 |
 | `wbRegisterEditorContexts` | frontend/js/whiteboard.js:7888 |
 | `wbRemapUndoIds` | frontend/js/whiteboard.js:7504 |
-| `wbRememberedBoardKind` | frontend/js/whiteboard.js:14996 |
+| `wbRememberedBoardKind` | frontend/js/whiteboard.js:15059 |
 | `wbRenderCloneGrips` | frontend/js/whiteboard.js:6530 |
-| `wbRenderLinkEndpointHandles` | frontend/js/whiteboard.js:15947 |
-| `wbRenderLinkLabelGrip` | frontend/js/whiteboard.js:16246 |
-| `wbRenderMultiSelectionHandles` | frontend/js/whiteboard.js:16482 |
+| `wbRenderLinkEndpointHandles` | frontend/js/whiteboard.js:16010 |
+| `wbRenderLinkLabelGrip` | frontend/js/whiteboard.js:16309 |
+| `wbRenderMultiSelectionHandles` | frontend/js/whiteboard.js:16545 |
 | `wbRenderNavigator` | frontend/js/whiteboard.js:1925 |
 | `wbRenderRelease` | frontend/js/whiteboard.js:4853 |
-| `wbRenderSketchHandles` | frontend/js/whiteboard.js:16809 |
-| `wbRenderWaypointHandles` | frontend/js/whiteboard.js:16095 |
-| `wbResetRotation` | frontend/js/whiteboard.js:17990 |
+| `wbRenderSketchHandles` | frontend/js/whiteboard.js:16872 |
+| `wbRenderWaypointHandles` | frontend/js/whiteboard.js:16158 |
+| `wbResetRotation` | frontend/js/whiteboard.js:18053 |
 | `wbResolveLinkEndpoints` | frontend/js/whiteboard.js:2802 |
 | `wbRestoreBox` | frontend/js/whiteboard.js:5827 |
 | `wbRestoreLinks` | frontend/js/whiteboard.js:7666 |
 | `wbRestoreMove` | frontend/js/whiteboard.js:5799 |
-| `wbRestoreMultiSnapshot` | frontend/js/whiteboard.js:16444 |
+| `wbRestoreMultiSnapshot` | frontend/js/whiteboard.js:16507 |
 | `wbReviewMapProposal` | frontend/js/whiteboard.js:10258 |
 | `wbRotatePoint` | frontend/js/whiteboard.js:2346 |
 | `wbSameSizeSelection` | frontend/js/whiteboard.js:3530 |
 | `wbSaveBulkMove` | frontend/js/whiteboard.js:6035 |
 | `wbSaveExpandedNodes` | frontend/js/whiteboard.js:260 |
 | `wbSaveMapBulkMove` | frontend/js/whiteboard.js:6009 |
-| `wbSaveMultiSnapshot` | frontend/js/whiteboard.js:16462 |
-| `wbSaveNode` | frontend/js/whiteboard.js:18147 |
-| `wbSaveObject` | frontend/js/whiteboard.js:18170 |
-| `wbSaveSketchD` | frontend/js/whiteboard.js:15783 |
-| `wbSaveSketchProps` | frontend/js/whiteboard.js:15754 |
+| `wbSaveMultiSnapshot` | frontend/js/whiteboard.js:16525 |
+| `wbSaveNode` | frontend/js/whiteboard.js:18210 |
+| `wbSaveObject` | frontend/js/whiteboard.js:18233 |
+| `wbSaveSketchD` | frontend/js/whiteboard.js:15846 |
+| `wbSaveSketchProps` | frontend/js/whiteboard.js:15817 |
 | `wbSaveToLibrary` | frontend/js/whiteboard.js:10586 |
 | `wbScheduleCardClampSync` | frontend/js/whiteboard.js:308 |
 | `wbScheduleCull` | frontend/js/whiteboard.js:580 |
-| `wbScheduleRender` | frontend/js/whiteboard.js:17047 |
-| `wbScheduleStickyDates` | frontend/js/whiteboard.js:18239 |
+| `wbScheduleRender` | frontend/js/whiteboard.js:17110 |
+| `wbScheduleStickyDates` | frontend/js/whiteboard.js:18302 |
 | `wbScreenToBoard` | frontend/js/whiteboard.js:431 |
 | `wbSearchItem` | frontend/js/whiteboard.js:2245 |
 | `wbSearchTextFor` | frontend/js/whiteboard.js:2187 |
@@ -5420,24 +5431,24 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbSetZOrder` | frontend/js/whiteboard.js:5209 |
 | `wbShaftPoints` | frontend/js/whiteboard.js:3189 |
 | `wbShapeDims` | frontend/js/whiteboard.js:1296 |
-| `wbShapeLabelArea` | frontend/js/whiteboard.js:15405 |
-| `wbShapeLabelInk` | frontend/js/whiteboard.js:15521 |
-| `wbShapeLabelKind` | frontend/js/whiteboard.js:15393 |
+| `wbShapeLabelArea` | frontend/js/whiteboard.js:15468 |
+| `wbShapeLabelInk` | frontend/js/whiteboard.js:15584 |
+| `wbShapeLabelKind` | frontend/js/whiteboard.js:15456 |
 | `wbShowAlignmentGuides` | frontend/js/whiteboard.js:1052 |
 | `wbShowAnchorHints` | frontend/js/whiteboard.js:3328 |
-| `wbShowBoardsLanding` | frontend/js/whiteboard.js:19636 |
-| `wbShowCanvasView` | frontend/js/whiteboard.js:19630 |
+| `wbShowBoardsLanding` | frontend/js/whiteboard.js:19700 |
+| `wbShowCanvasView` | frontend/js/whiteboard.js:19694 |
 | `wbShowToolSettings` | frontend/js/whiteboard.js:3727 |
 | `wbSizeItemTo` | frontend/js/whiteboard.js:3553 |
 | `wbSketchAngleFromCenterDeg` | frontend/js/whiteboard.js:8116 |
-| `wbSketchCaps` | frontend/js/whiteboard.js:15880 |
+| `wbSketchCaps` | frontend/js/whiteboard.js:15943 |
 | `wbSketchData` | frontend/js/whiteboard.js:8524 |
 | `wbSketchHiddenOnBoard` | frontend/js/whiteboard.js:8602 |
-| `wbSketchIsArrow` | frontend/js/whiteboard.js:15813 |
-| `wbSketchIsClosedShape` | frontend/js/whiteboard.js:15374 |
+| `wbSketchIsArrow` | frontend/js/whiteboard.js:15876 |
+| `wbSketchIsClosedShape` | frontend/js/whiteboard.js:15437 |
 | `wbSketchIsDrawable` | frontend/js/whiteboard.js:2668 |
-| `wbSketchParsedData` | frontend/js/whiteboard.js:15735 |
-| `wbSketchResizeTransform` | frontend/js/whiteboard.js:15339 |
+| `wbSketchParsedData` | frontend/js/whiteboard.js:15798 |
+| `wbSketchResizeTransform` | frontend/js/whiteboard.js:15402 |
 | `wbSnap` | frontend/js/whiteboard.js:777 |
 | `wbSnapOn` | frontend/js/whiteboard.js:765 |
 | `wbSpacingSeries` | frontend/js/whiteboard.js:1002 |
@@ -5445,11 +5456,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbStableDragContainer` | frontend/js/whiteboard.js:7762 |
 | `wbStampMenuRoles` | frontend/js/whiteboard.js:10930 |
 | `wbStartPanShield` | frontend/js/whiteboard.js:485 |
-| `wbStartPresenting` | frontend/js/whiteboard.js:20321 |
+| `wbStartPresenting` | frontend/js/whiteboard.js:20385 |
 | `wbStepSelectionZOrder` | frontend/js/whiteboard.js:5320 |
 | `wbStickerSize` | frontend/js/whiteboard.js:3783 |
-| `wbStickyRemind` | frontend/js/whiteboard.js:18277 |
-| `wbStopPresenting` | frontend/js/whiteboard.js:20381 |
+| `wbStickyRemind` | frontend/js/whiteboard.js:18340 |
+| `wbStopPresenting` | frontend/js/whiteboard.js:20445 |
 | `wbSvgEscape` | frontend/js/whiteboard.js:9598 |
 | `wbSvgText` | frontend/js/whiteboard.js:9629 |
 | `wbSvgWrapLines` | frontend/js/whiteboard.js:9610 |
@@ -5461,7 +5472,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbThemeBoardHex` | frontend/js/whiteboard.js:1099 |
 | `wbToggleNavigator` | frontend/js/whiteboard.js:2152 |
 | `wbTrackMapStripMenu` | frontend/js/whiteboard.js:4732 |
-| `wbTransformPathD` | frontend/js/whiteboard.js:15174 |
+| `wbTransformPathD` | frontend/js/whiteboard.js:15237 |
 | `wbTranslateSelectionChrome` | frontend/js/whiteboard.js:5524 |
 | `wbTrashDelete` | frontend/js/whiteboard.js:5758 |
 | `wbTrashHide` | frontend/js/whiteboard.js:5707 |
@@ -5472,7 +5483,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbUngroupSelection` | frontend/js/whiteboard.js:1504 |
 | `wbUnlockAll` | frontend/js/whiteboard.js:8590 |
 | `wbUpdateContextBar` | frontend/js/whiteboard.js:3993 |
-| `wbUpdateLinkedSketches` | frontend/js/whiteboard.js:19227 |
+| `wbUpdateLinkedSketches` | frontend/js/whiteboard.js:19290 |
 | `wbUpdateSearchCount` | frontend/js/whiteboard.js:2266 |
 | `wbUpdateSelectionBar` | frontend/js/whiteboard.js:4870 |
 | `wbUpdateUndoRedoButtons` | frontend/js/whiteboard.js:7462 |
@@ -5480,11 +5491,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbVisibleBounds` | frontend/js/whiteboard.js:9708 |
 | `wbVisibleCanvasRect` | frontend/js/whiteboard.js:6340 |
 | `wbWalkItems` | frontend/js/whiteboard.js:4638 |
-| `wbWaypointAddSpots` | frontend/js/whiteboard.js:16214 |
+| `wbWaypointAddSpots` | frontend/js/whiteboard.js:16277 |
 | `wbWaypointInsert` | frontend/js/whiteboard.js:3106 |
 | `wbWireContextMenu` | frontend/js/whiteboard.js:7378 |
 | `wbWithDir` | frontend/js/whiteboard.js:2571 |
-| `wbWrapShapeLabel` | frontend/js/whiteboard.js:15430 |
+| `wbWrapShapeLabel` | frontend/js/whiteboard.js:15493 |
 | `wbWrapTextSelection` | frontend/js/whiteboard.js:7800 |
 | `wbWriteZ` | frontend/js/whiteboard.js:5344 |
 | `wbZOrderPeers` | frontend/js/whiteboard.js:5199 |
@@ -5513,50 +5524,50 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `keepOfflinePage` | frontend/sw.js:72 |
 | `storable` | frontend/sw.js:64 |
 
-## Frontend ids (2275)
+## Frontend ids (2276)
 
 Every `id="..."` in `frontend/index.html`, sorted by id.
 
 | Id | File:line |
 |---|---|
-| `about-emblem` | frontend/index.html:12799 |
-| `about-force-reload` | frontend/index.html:12818 |
-| `about-install` | frontend/index.html:12828 |
-| `about-install-help` | frontend/index.html:12836 |
-| `about-install-note` | frontend/index.html:12829 |
-| `about-install-row` | frontend/index.html:12827 |
-| `about-motion` | frontend/index.html:12809 |
-| `about-restart` | frontend/index.html:12817 |
-| `about-restart-row` | frontend/index.html:12816 |
-| `about-shortcuts` | frontend/index.html:13147 |
-| `about-take-tour` | frontend/index.html:13128 |
-| `about-version` | frontend/index.html:12806 |
-| `accent-custom` | frontend/index.html:10289 |
-| `accent-custom-clear` | frontend/index.html:10290 |
-| `accent-swatches` | frontend/index.html:10280 |
-| `account-allow-lan` | frontend/index.html:12295 |
-| `account-change` | frontend/index.html:12374 |
-| `account-confirm` | frontend/index.html:12371 |
-| `account-current` | frontend/index.html:12365 |
-| `account-facts` | frontend/index.html:12219 |
-| `account-help` | frontend/index.html:12208 |
-| `account-idle-ttl` | frontend/index.html:12428 |
-| `account-lan-cert` | frontend/index.html:12306 |
-| `account-lan-cert-expiry` | frontend/index.html:12310 |
-| `account-lan-cert-names` | frontend/index.html:12309 |
-| `account-lan-download` | frontend/index.html:12312 |
-| `account-lan-fingerprint` | frontend/index.html:12308 |
-| `account-lan-regenerate` | frontend/index.html:12318 |
-| `account-lan-state` | frontend/index.html:12301 |
-| `account-lock-all` | frontend/index.html:12438 |
-| `account-new` | frontend/index.html:12368 |
-| `account-password-on-open` | frontend/index.html:12241 |
-| `account-recovery-make` | frontend/index.html:12471 |
-| `account-recovery-state` | frontend/index.html:12455 |
-| `account-recovery-status` | frontend/index.html:12472 |
-| `account-rekey` | frontend/index.html:12404 |
-| `account-rekey-status` | frontend/index.html:12405 |
-| `account-status` | frontend/index.html:12375 |
+| `about-emblem` | frontend/index.html:12801 |
+| `about-force-reload` | frontend/index.html:12820 |
+| `about-install` | frontend/index.html:12830 |
+| `about-install-help` | frontend/index.html:12838 |
+| `about-install-note` | frontend/index.html:12831 |
+| `about-install-row` | frontend/index.html:12829 |
+| `about-motion` | frontend/index.html:12811 |
+| `about-restart` | frontend/index.html:12819 |
+| `about-restart-row` | frontend/index.html:12818 |
+| `about-shortcuts` | frontend/index.html:13149 |
+| `about-take-tour` | frontend/index.html:13130 |
+| `about-version` | frontend/index.html:12808 |
+| `accent-custom` | frontend/index.html:10291 |
+| `accent-custom-clear` | frontend/index.html:10292 |
+| `accent-swatches` | frontend/index.html:10282 |
+| `account-allow-lan` | frontend/index.html:12297 |
+| `account-change` | frontend/index.html:12376 |
+| `account-confirm` | frontend/index.html:12373 |
+| `account-current` | frontend/index.html:12367 |
+| `account-facts` | frontend/index.html:12221 |
+| `account-help` | frontend/index.html:12210 |
+| `account-idle-ttl` | frontend/index.html:12430 |
+| `account-lan-cert` | frontend/index.html:12308 |
+| `account-lan-cert-expiry` | frontend/index.html:12312 |
+| `account-lan-cert-names` | frontend/index.html:12311 |
+| `account-lan-download` | frontend/index.html:12314 |
+| `account-lan-fingerprint` | frontend/index.html:12310 |
+| `account-lan-regenerate` | frontend/index.html:12320 |
+| `account-lan-state` | frontend/index.html:12303 |
+| `account-lock-all` | frontend/index.html:12440 |
+| `account-new` | frontend/index.html:12370 |
+| `account-password-on-open` | frontend/index.html:12243 |
+| `account-recovery-make` | frontend/index.html:12473 |
+| `account-recovery-state` | frontend/index.html:12457 |
+| `account-recovery-status` | frontend/index.html:12474 |
+| `account-rekey` | frontend/index.html:12406 |
+| `account-rekey-status` | frontend/index.html:12407 |
+| `account-status` | frontend/index.html:12377 |
 | `activity-empty` | frontend/index.html:850 |
 | `activity-help` | frontend/index.html:832 |
 | `activity-list` | frontend/index.html:849 |
@@ -5576,18 +5587,18 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `agent-monitor-runs` | frontend/index.html:853 |
 | `ai-answer` | frontend/index.html:2165 |
 | `ai-answer-grounding` | frontend/index.html:2170 |
-| `ai-mark` | frontend/index.html:8063 |
-| `ai-status` | frontend/index.html:8065 |
-| `ai-status-detail` | frontend/index.html:8072 |
-| `ai-status-label` | frontend/index.html:8068 |
-| `ai-status-popup` | frontend/index.html:8070 |
-| `ai-status-title` | frontend/index.html:8071 |
-| `always-available-help` | frontend/index.html:11103 |
+| `ai-mark` | frontend/index.html:8065 |
+| `ai-status` | frontend/index.html:8067 |
+| `ai-status-detail` | frontend/index.html:8074 |
+| `ai-status-label` | frontend/index.html:8070 |
+| `ai-status-popup` | frontend/index.html:8072 |
+| `ai-status-title` | frontend/index.html:8073 |
+| `always-available-help` | frontend/index.html:11105 |
 | `answered-by` | frontend/index.html:2138 |
-| `app-cache-help` | frontend/index.html:12180 |
+| `app-cache-help` | frontend/index.html:12182 |
 | `app-main` | frontend/index.html:1201 |
-| `app-quit` | frontend/index.html:11834 |
-| `appearance-reset` | frontend/index.html:10954 |
+| `app-quit` | frontend/index.html:11836 |
+| `appearance-reset` | frontend/index.html:10956 |
 | `ask` | frontend/index.html:1934 |
 | `ask-answer-foot` | frontend/index.html:2180 |
 | `ask-answer-related` | frontend/index.html:2181 |
@@ -5624,61 +5635,61 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `ask-use-ai` | frontend/index.html:1947 |
 | `ask-use-ai-row` | frontend/index.html:1946 |
 | `asked-question` | frontend/index.html:2158 |
-| `assistant-avatar` | frontend/index.html:10755 |
-| `assistant-avatar-row` | frontend/index.html:10750 |
+| `assistant-avatar` | frontend/index.html:10757 |
+| `assistant-avatar-row` | frontend/index.html:10752 |
 | `atlas-host` | frontend/index.html:494 |
-| `atlas-look` | frontend/index.html:10766 |
-| `atlas-look-row` | frontend/index.html:10761 |
-| `atlas-open` | frontend/index.html:12776 |
-| `atlas-row-help` | frontend/index.html:12779 |
-| `atlas-row-starters` | frontend/index.html:12787 |
-| `atlas-style` | frontend/index.html:10744 |
-| `atlas-style-row` | frontend/index.html:10739 |
+| `atlas-look` | frontend/index.html:10768 |
+| `atlas-look-row` | frontend/index.html:10763 |
+| `atlas-open` | frontend/index.html:12778 |
+| `atlas-row-help` | frontend/index.html:12781 |
+| `atlas-row-starters` | frontend/index.html:12789 |
+| `atlas-style` | frontend/index.html:10746 |
+| `atlas-style-row` | frontend/index.html:10741 |
 | `attach-image` | frontend/index.html:2975 |
 | `attach-note` | frontend/index.html:2896 |
-| `autonomous-ai-help` | frontend/index.html:11618 |
-| `autonomous-review` | frontend/index.html:11781 |
-| `autonomous-review-clear` | frontend/index.html:11785 |
-| `autonomous-review-list` | frontend/index.html:11783 |
-| `autonomous-review-title` | frontend/index.html:11782 |
-| `autonomous-settings-panel` | frontend/index.html:11725 |
-| `autonomous-trigger` | frontend/index.html:11772 |
-| `avatar-buddy` | frontend/index.html:10643 |
-| `avatar-buddy-actions` | frontend/index.html:10680 |
-| `avatar-buddy-actions-row` | frontend/index.html:10675 |
-| `avatar-buddy-activities` | frontend/index.html:10718 |
-| `avatar-buddy-activities-fold` | frontend/index.html:10716 |
-| `avatar-buddy-custom` | frontend/index.html:10723 |
-| `avatar-buddy-make` | frontend/index.html:10655 |
-| `avatar-buddy-make-go` | frontend/index.html:10655 |
-| `avatar-buddy-make-text` | frontend/index.html:10655 |
-| `avatar-buddy-motion` | frontend/index.html:10694 |
-| `avatar-buddy-motion-row` | frontend/index.html:10689 |
-| `avatar-buddy-motion-why` | frontend/index.html:10692 |
-| `avatar-buddy-name` | frontend/index.html:10729 |
-| `avatar-buddy-parts` | frontend/index.html:10736 |
-| `avatar-buddy-preset-name` | frontend/index.html:10712 |
-| `avatar-buddy-preset-save` | frontend/index.html:10713 |
-| `avatar-buddy-presets` | frontend/index.html:10710 |
-| `avatar-buddy-presets-fold` | frontend/index.html:10708 |
-| `avatar-buddy-recall` | frontend/index.html:10650 |
-| `avatar-buddy-row` | frontend/index.html:10637 |
-| `avatar-buddy-shuffle` | frontend/index.html:10732 |
-| `avatar-buddy-size` | frontend/index.html:10665 |
-| `avatar-buddy-size-row` | frontend/index.html:10660 |
-| `avatar-follow` | frontend/index.html:10630 |
-| `avatar-follow-row` | frontend/index.html:10629 |
-| `avatar-motion` | frontend/index.html:10621 |
-| `avatar-motion-row` | frontend/index.html:10616 |
-| `backend-config` | frontend/index.html:8879 |
-| `backend-help` | frontend/index.html:8888 |
-| `backup-list` | frontend/index.html:12138 |
-| `backup-now` | frontend/index.html:12134 |
-| `backup-retention` | frontend/index.html:12146 |
-| `backup-retention-row` | frontend/index.html:12144 |
-| `backup-retention-status` | frontend/index.html:12147 |
-| `backup-status` | frontend/index.html:12135 |
-| `backups-help` | frontend/index.html:12150 |
+| `autonomous-ai-help` | frontend/index.html:11620 |
+| `autonomous-review` | frontend/index.html:11783 |
+| `autonomous-review-clear` | frontend/index.html:11787 |
+| `autonomous-review-list` | frontend/index.html:11785 |
+| `autonomous-review-title` | frontend/index.html:11784 |
+| `autonomous-settings-panel` | frontend/index.html:11727 |
+| `autonomous-trigger` | frontend/index.html:11774 |
+| `avatar-buddy` | frontend/index.html:10645 |
+| `avatar-buddy-actions` | frontend/index.html:10682 |
+| `avatar-buddy-actions-row` | frontend/index.html:10677 |
+| `avatar-buddy-activities` | frontend/index.html:10720 |
+| `avatar-buddy-activities-fold` | frontend/index.html:10718 |
+| `avatar-buddy-custom` | frontend/index.html:10725 |
+| `avatar-buddy-make` | frontend/index.html:10657 |
+| `avatar-buddy-make-go` | frontend/index.html:10657 |
+| `avatar-buddy-make-text` | frontend/index.html:10657 |
+| `avatar-buddy-motion` | frontend/index.html:10696 |
+| `avatar-buddy-motion-row` | frontend/index.html:10691 |
+| `avatar-buddy-motion-why` | frontend/index.html:10694 |
+| `avatar-buddy-name` | frontend/index.html:10731 |
+| `avatar-buddy-parts` | frontend/index.html:10738 |
+| `avatar-buddy-preset-name` | frontend/index.html:10714 |
+| `avatar-buddy-preset-save` | frontend/index.html:10715 |
+| `avatar-buddy-presets` | frontend/index.html:10712 |
+| `avatar-buddy-presets-fold` | frontend/index.html:10710 |
+| `avatar-buddy-recall` | frontend/index.html:10652 |
+| `avatar-buddy-row` | frontend/index.html:10639 |
+| `avatar-buddy-shuffle` | frontend/index.html:10734 |
+| `avatar-buddy-size` | frontend/index.html:10667 |
+| `avatar-buddy-size-row` | frontend/index.html:10662 |
+| `avatar-follow` | frontend/index.html:10632 |
+| `avatar-follow-row` | frontend/index.html:10631 |
+| `avatar-motion` | frontend/index.html:10623 |
+| `avatar-motion-row` | frontend/index.html:10618 |
+| `backend-config` | frontend/index.html:8881 |
+| `backend-help` | frontend/index.html:8890 |
+| `backup-list` | frontend/index.html:12140 |
+| `backup-now` | frontend/index.html:12136 |
+| `backup-retention` | frontend/index.html:12148 |
+| `backup-retention-row` | frontend/index.html:12146 |
+| `backup-retention-status` | frontend/index.html:12149 |
+| `backup-status` | frontend/index.html:12137 |
+| `backups-help` | frontend/index.html:12152 |
 | `batch-bar` | frontend/index.html:2385 |
 | `batch-cancel` | frontend/index.html:2398 |
 | `batch-category-host` | frontend/index.html:2393 |
@@ -5687,73 +5698,73 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `batch-more-host` | frontend/index.html:2397 |
 | `batch-select-all` | frontend/index.html:2387 |
 | `batch-tag` | frontend/index.html:2394 |
-| `battery-mode-help` | frontend/index.html:11801 |
-| `bench-box` | frontend/index.html:9188 |
-| `bench-help` | frontend/index.html:9198 |
-| `bench-models` | frontend/index.html:9213 |
-| `bench-results` | frontend/index.html:9223 |
-| `bench-run` | frontend/index.html:9215 |
-| `bench-status` | frontend/index.html:9222 |
-| `bench-stop` | frontend/index.html:9219 |
-| `bg-art-style` | frontend/index.html:10823 |
-| `bg-art-toggle` | frontend/index.html:10804 |
-| `bg-intensity` | frontend/index.html:10857 |
-| `bg-intensity-row` | frontend/index.html:10851 |
-| `bg-intensity-value` | frontend/index.html:10859 |
-| `bg-motion` | frontend/index.html:10843 |
-| `bg-motion-hint` | frontend/index.html:10841 |
-| `bg-motion-row` | frontend/index.html:10834 |
-| `bg-style-hint` | frontend/index.html:10816 |
-| `bg-style-row` | frontend/index.html:10811 |
-| `binned-body` | frontend/index.html:13270 |
-| `binned-card` | frontend/index.html:13261 |
-| `binned-close` | frontend/index.html:13265 |
-| `binned-meta` | frontend/index.html:13269 |
-| `binned-overlay` | frontend/index.html:13259 |
-| `binned-purge` | frontend/index.html:13273 |
-| `binned-restore` | frontend/index.html:13272 |
-| `bookmark-add` | frontend/index.html:7850 |
-| `bookmark-count` | frontend/index.html:7875 |
-| `bookmark-empty` | frontend/index.html:7877 |
-| `bookmark-form` | frontend/index.html:7861 |
-| `bookmark-form-done` | frontend/index.html:7872 |
-| `bookmark-group-chips` | frontend/index.html:7874 |
-| `bookmark-group-input` | frontend/index.html:7866 |
-| `bookmark-group-manage` | frontend/index.html:7846 |
-| `bookmark-group-new` | frontend/index.html:7844 |
-| `bookmark-group-options` | frontend/index.html:7868 |
-| `bookmark-help` | frontend/index.html:7834 |
-| `bookmark-help-toggle` | frontend/index.html:7831 |
-| `bookmark-list` | frontend/index.html:7876 |
-| `bookmark-more-menu` | frontend/index.html:7837 |
-| `bookmark-no-match` | frontend/index.html:7883 |
-| `bookmark-no-match-clear` | frontend/index.html:7887 |
-| `bookmark-no-match-text` | frontend/index.html:7886 |
-| `bookmark-note-input` | frontend/index.html:7869 |
-| `bookmark-search` | frontend/index.html:7814 |
-| `bookmark-sort` | frontend/index.html:7822 |
-| `bookmark-title-input` | frontend/index.html:7864 |
-| `bookmark-url-input` | frontend/index.html:7862 |
+| `battery-mode-help` | frontend/index.html:11803 |
+| `bench-box` | frontend/index.html:9190 |
+| `bench-help` | frontend/index.html:9200 |
+| `bench-models` | frontend/index.html:9215 |
+| `bench-results` | frontend/index.html:9225 |
+| `bench-run` | frontend/index.html:9217 |
+| `bench-status` | frontend/index.html:9224 |
+| `bench-stop` | frontend/index.html:9221 |
+| `bg-art-style` | frontend/index.html:10825 |
+| `bg-art-toggle` | frontend/index.html:10806 |
+| `bg-intensity` | frontend/index.html:10859 |
+| `bg-intensity-row` | frontend/index.html:10853 |
+| `bg-intensity-value` | frontend/index.html:10861 |
+| `bg-motion` | frontend/index.html:10845 |
+| `bg-motion-hint` | frontend/index.html:10843 |
+| `bg-motion-row` | frontend/index.html:10836 |
+| `bg-style-hint` | frontend/index.html:10818 |
+| `bg-style-row` | frontend/index.html:10813 |
+| `binned-body` | frontend/index.html:13272 |
+| `binned-card` | frontend/index.html:13263 |
+| `binned-close` | frontend/index.html:13267 |
+| `binned-meta` | frontend/index.html:13271 |
+| `binned-overlay` | frontend/index.html:13261 |
+| `binned-purge` | frontend/index.html:13275 |
+| `binned-restore` | frontend/index.html:13274 |
+| `bookmark-add` | frontend/index.html:7852 |
+| `bookmark-count` | frontend/index.html:7877 |
+| `bookmark-empty` | frontend/index.html:7879 |
+| `bookmark-form` | frontend/index.html:7863 |
+| `bookmark-form-done` | frontend/index.html:7874 |
+| `bookmark-group-chips` | frontend/index.html:7876 |
+| `bookmark-group-input` | frontend/index.html:7868 |
+| `bookmark-group-manage` | frontend/index.html:7848 |
+| `bookmark-group-new` | frontend/index.html:7846 |
+| `bookmark-group-options` | frontend/index.html:7870 |
+| `bookmark-help` | frontend/index.html:7836 |
+| `bookmark-help-toggle` | frontend/index.html:7833 |
+| `bookmark-list` | frontend/index.html:7878 |
+| `bookmark-more-menu` | frontend/index.html:7839 |
+| `bookmark-no-match` | frontend/index.html:7885 |
+| `bookmark-no-match-clear` | frontend/index.html:7889 |
+| `bookmark-no-match-text` | frontend/index.html:7888 |
+| `bookmark-note-input` | frontend/index.html:7871 |
+| `bookmark-search` | frontend/index.html:7816 |
+| `bookmark-sort` | frontend/index.html:7824 |
+| `bookmark-title-input` | frontend/index.html:7866 |
+| `bookmark-url-input` | frontend/index.html:7864 |
 | `boot-splash` | frontend/index.html:91 |
 | `boot-splash-progress-fill` | frontend/index.html:105 |
-| `border-style-seg` | frontend/index.html:10423 |
+| `border-style-seg` | frontend/index.html:10425 |
 | `brand-logo` | frontend/index.html:124 |
 | `browse` | frontend/index.html:2246 |
-| `builtin-embed-note` | frontend/index.html:9356 |
-| `builtin-model-name` | frontend/index.html:9351 |
+| `builtin-embed-note` | frontend/index.html:9358 |
+| `builtin-model-name` | frontend/index.html:9353 |
 | `capture` | frontend/index.html:1409 |
-| `capture-anywhere-box` | frontend/index.html:11148 |
-| `capture-anywhere-help` | frontend/index.html:11158 |
+| `capture-anywhere-box` | frontend/index.html:11150 |
+| `capture-anywhere-help` | frontend/index.html:11160 |
 | `capture-clear` | frontend/index.html:1554 |
-| `capture-command` | frontend/index.html:11170 |
-| `capture-command-copy` | frontend/index.html:11171 |
+| `capture-command` | frontend/index.html:11172 |
+| `capture-command-copy` | frontend/index.html:11173 |
 | `capture-help` | frontend/index.html:1422 |
 | `capture-help-hint` | frontend/index.html:1439 |
 | `capture-space-hint` | frontend/index.html:1660 |
 | `category-list` | frontend/index.html:1318 |
-| `change-password-help` | frontend/index.html:12356 |
-| `changelog-body` | frontend/index.html:13121 |
-| `changelog-fold` | frontend/index.html:13119 |
+| `change-password-help` | frontend/index.html:12358 |
+| `changelog-body` | frontend/index.html:13123 |
+| `changelog-fold` | frontend/index.html:13121 |
 | `chat-actions-menu` | frontend/index.html:2750 |
 | `chat-active-model` | frontend/index.html:2614 |
 | `chat-attachments` | frontend/index.html:2835 |
@@ -5794,11 +5805,11 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `chat-main` | frontend/index.html:2538 |
 | `chat-messages` | frontend/index.html:2784 |
 | `chat-mode-seg` | frontend/index.html:3084 |
-| `chat-model-apply` | frontend/index.html:8941 |
-| `chat-model-note` | frontend/index.html:8945 |
-| `chat-model-panel` | frontend/index.html:8201 |
-| `chat-model-select` | frontend/index.html:8940 |
-| `chat-model-stop` | frontend/index.html:8943 |
+| `chat-model-apply` | frontend/index.html:8943 |
+| `chat-model-note` | frontend/index.html:8947 |
+| `chat-model-panel` | frontend/index.html:8203 |
+| `chat-model-select` | frontend/index.html:8942 |
+| `chat-model-stop` | frontend/index.html:8945 |
 | `chat-new` | frontend/index.html:2523 |
 | `chat-nudge` | frontend/index.html:2883 |
 | `chat-offline` | frontend/index.html:2830 |
@@ -5818,7 +5829,7 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `chat-uncompress` | frontend/index.html:2672 |
 | `chat-usage` | frontend/index.html:2665 |
 | `chat-web-attachment` | frontend/index.html:2871 |
-| `clear-app-cache` | frontend/index.html:12189 |
+| `clear-app-cache` | frontend/index.html:12191 |
 | `command-palette-clear` | frontend/index.html:634 |
 | `command-palette-close` | frontend/index.html:605 |
 | `command-palette-help` | frontend/index.html:609 |
@@ -5834,45 +5845,45 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `command-palette-use-note` | frontend/index.html:678 |
 | `command-palette-use-note-label` | frontend/index.html:677 |
 | `command-palette-use-note-text` | frontend/index.html:679 |
-| `composer-voice-help` | frontend/index.html:9577 |
-| `connections-card` | frontend/index.html:13233 |
-| `connections-close` | frontend/index.html:13237 |
-| `connections-list` | frontend/index.html:13243 |
-| `connections-overlay` | frontend/index.html:13231 |
-| `connections-status` | frontend/index.html:13242 |
-| `connections-subject` | frontend/index.html:13241 |
-| `connections-title` | frontend/index.html:13235 |
-| `contents-collapse` | frontend/index.html:7946 |
-| `contents-empty` | frontend/index.html:7964 |
-| `contents-expand` | frontend/index.html:7944 |
-| `contents-filter` | frontend/index.html:7914 |
-| `contents-group` | frontend/index.html:7922 |
-| `contents-help` | frontend/index.html:7934 |
-| `contents-hint` | frontend/index.html:7961 |
-| `contents-intro` | frontend/index.html:7952 |
-| `contents-more` | frontend/index.html:7941 |
-| `contents-no-match` | frontend/index.html:7963 |
-| `contents-outline` | frontend/index.html:7962 |
-| `contents-refresh` | frontend/index.html:7931 |
-| `contents-summary` | frontend/index.html:7960 |
-| `contrast-toggle` | frontend/index.html:10545 |
+| `composer-voice-help` | frontend/index.html:9579 |
+| `connections-card` | frontend/index.html:13235 |
+| `connections-close` | frontend/index.html:13239 |
+| `connections-list` | frontend/index.html:13245 |
+| `connections-overlay` | frontend/index.html:13233 |
+| `connections-status` | frontend/index.html:13244 |
+| `connections-subject` | frontend/index.html:13243 |
+| `connections-title` | frontend/index.html:13237 |
+| `contents-collapse` | frontend/index.html:7948 |
+| `contents-empty` | frontend/index.html:7966 |
+| `contents-expand` | frontend/index.html:7946 |
+| `contents-filter` | frontend/index.html:7916 |
+| `contents-group` | frontend/index.html:7924 |
+| `contents-help` | frontend/index.html:7936 |
+| `contents-hint` | frontend/index.html:7963 |
+| `contents-intro` | frontend/index.html:7954 |
+| `contents-more` | frontend/index.html:7943 |
+| `contents-no-match` | frontend/index.html:7965 |
+| `contents-outline` | frontend/index.html:7964 |
+| `contents-refresh` | frontend/index.html:7933 |
+| `contents-summary` | frontend/index.html:7962 |
+| `contrast-toggle` | frontend/index.html:10547 |
 | `conv-browse-all` | frontend/index.html:2534 |
 | `conv-empty` | frontend/index.html:2532 |
 | `conversation-list` | frontend/index.html:2533 |
 | `copy-btn` | frontend/index.html:2148 |
-| `custom-css` | frontend/index.html:10942 |
-| `custom-css-apply` | frontend/index.html:10945 |
-| `custom-css-clear` | frontend/index.html:10946 |
-| `custom-css-help` | frontend/index.html:10935 |
-| `custom-css-status` | frontend/index.html:10947 |
-| `custom-download` | frontend/index.html:9260 |
-| `custom-model-cards` | frontend/index.html:9270 |
-| `custom-model-check` | frontend/index.html:9267 |
-| `custom-model-name` | frontend/index.html:9264 |
-| `custom-model-note` | frontend/index.html:9269 |
-| `custom-theme-name` | frontend/index.html:10228 |
-| `custom-theme-save` | frontend/index.html:10232 |
-| `custom-themes` | frontend/index.html:10226 |
+| `custom-css` | frontend/index.html:10944 |
+| `custom-css-apply` | frontend/index.html:10947 |
+| `custom-css-clear` | frontend/index.html:10948 |
+| `custom-css-help` | frontend/index.html:10937 |
+| `custom-css-status` | frontend/index.html:10949 |
+| `custom-download` | frontend/index.html:9262 |
+| `custom-model-cards` | frontend/index.html:9272 |
+| `custom-model-check` | frontend/index.html:9269 |
+| `custom-model-name` | frontend/index.html:9266 |
+| `custom-model-note` | frontend/index.html:9271 |
+| `custom-theme-name` | frontend/index.html:10230 |
+| `custom-theme-save` | frontend/index.html:10234 |
+| `custom-themes` | frontend/index.html:10228 |
 | `dash-clock-date` | frontend/index.html:1233 |
 | `dash-clock-time` | frontend/index.html:1232 |
 | `dash-customise` | frontend/index.html:1274 |
@@ -5888,8 +5899,8 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `dash-hero-emblem` | frontend/index.html:1219 |
 | `dash-hero-new` | frontend/index.html:1229 |
 | `dash-hint` | frontend/index.html:1296 |
-| `dash-mark` | frontend/index.html:10790 |
-| `dash-mark-row` | frontend/index.html:10785 |
+| `dash-mark` | frontend/index.html:10792 |
+| `dash-mark-row` | frontend/index.html:10787 |
 | `dash-more` | frontend/index.html:1283 |
 | `dash-quicklinks` | frontend/index.html:1289 |
 | `dash-submessage` | frontend/index.html:1223 |
@@ -5897,16 +5908,16 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `dash-widgets-list` | frontend/index.html:1190 |
 | `dash-widgets-open` | frontend/index.html:1302 |
 | `dash-widgets-search` | frontend/index.html:1189 |
-| `dashboard-greeting-regenerate` | frontend/index.html:9601 |
-| `dashboard-greeting-status` | frontend/index.html:9604 |
-| `dashboard-persona-mark` | frontend/index.html:9599 |
-| `dashboard-persona-select` | frontend/index.html:9600 |
-| `density-seg` | frontend/index.html:10369 |
-| `desktop-advanced-fold` | frontend/index.html:13107 |
-| `desktop-console-hint` | frontend/index.html:13073 |
-| `desktop-console-row` | frontend/index.html:13069 |
-| `desktop-tray-hint` | frontend/index.html:13093 |
-| `desktop-tray-row` | frontend/index.html:13089 |
+| `dashboard-greeting-regenerate` | frontend/index.html:9603 |
+| `dashboard-greeting-status` | frontend/index.html:9606 |
+| `dashboard-persona-mark` | frontend/index.html:9601 |
+| `dashboard-persona-select` | frontend/index.html:9602 |
+| `density-seg` | frontend/index.html:10371 |
+| `desktop-advanced-fold` | frontend/index.html:13109 |
+| `desktop-console-hint` | frontend/index.html:13075 |
+| `desktop-console-row` | frontend/index.html:13071 |
+| `desktop-tray-hint` | frontend/index.html:13095 |
+| `desktop-tray-row` | frontend/index.html:13091 |
 | `doc-ai` | frontend/index.html:4697 |
 | `doc-ai-accept` | frontend/index.html:5251 |
 | `doc-ai-cancel` | frontend/index.html:5250 |
@@ -5956,18 +5967,18 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `doc-counts` | frontend/index.html:5092 |
 | `doc-crumbs` | frontend/index.html:5050 |
 | `doc-delete` | frontend/index.html:4899 |
-| `doc-dictionary-add` | frontend/index.html:8658 |
-| `doc-dictionary-close` | frontend/index.html:8623 |
-| `doc-dictionary-count` | frontend/index.html:8629 |
-| `doc-dictionary-dialog` | frontend/index.html:8603 |
-| `doc-dictionary-export` | frontend/index.html:8621 |
-| `doc-dictionary-field-hint` | frontend/index.html:8660 |
-| `doc-dictionary-file` | frontend/index.html:8662 |
-| `doc-dictionary-help` | frontend/index.html:8630 |
-| `doc-dictionary-import` | frontend/index.html:8619 |
-| `doc-dictionary-list` | frontend/index.html:8661 |
-| `doc-dictionary-search` | frontend/index.html:8655 |
-| `doc-dictionary-title` | frontend/index.html:8607 |
+| `doc-dictionary-add` | frontend/index.html:8660 |
+| `doc-dictionary-close` | frontend/index.html:8625 |
+| `doc-dictionary-count` | frontend/index.html:8631 |
+| `doc-dictionary-dialog` | frontend/index.html:8605 |
+| `doc-dictionary-export` | frontend/index.html:8623 |
+| `doc-dictionary-field-hint` | frontend/index.html:8662 |
+| `doc-dictionary-file` | frontend/index.html:8664 |
+| `doc-dictionary-help` | frontend/index.html:8632 |
+| `doc-dictionary-import` | frontend/index.html:8621 |
+| `doc-dictionary-list` | frontend/index.html:8663 |
+| `doc-dictionary-search` | frontend/index.html:8657 |
+| `doc-dictionary-title` | frontend/index.html:8609 |
 | `doc-dim-others` | frontend/index.html:4847 |
 | `doc-dock-menu` | frontend/index.html:4730 |
 | `doc-editor` | frontend/index.html:5073 |
@@ -6003,7 +6014,7 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `doc-format-toggle` | frontend/index.html:4740 |
 | `doc-format-toggle-label` | frontend/index.html:4741 |
 | `doc-goal-label` | frontend/index.html:5099 |
-| `doc-grammar-check` | frontend/index.html:8676 |
+| `doc-grammar-check` | frontend/index.html:8678 |
 | `doc-gutter` | frontend/index.html:5064 |
 | `doc-history` | frontend/index.html:4758 |
 | `doc-history-dialog` | frontend/index.html:1116 |
@@ -6043,9 +6054,9 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `doc-sidebar-list` | frontend/index.html:4444 |
 | `doc-sidebar-outline` | frontend/index.html:4469 |
 | `doc-sidebar-tabs` | frontend/index.html:4436 |
-| `doc-smart-punctuation` | frontend/index.html:8683 |
+| `doc-smart-punctuation` | frontend/index.html:8685 |
 | `doc-source-wrap` | frontend/index.html:5059 |
-| `doc-spelling-variant` | frontend/index.html:8669 |
+| `doc-spelling-variant` | frontend/index.html:8671 |
 | `doc-status` | frontend/index.html:5080 |
 | `doc-statusbar` | frontend/index.html:5091 |
 | `doc-storage-dialog` | frontend/index.html:931 |
@@ -6114,33 +6125,33 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `draft-tone` | frontend/index.html:1846 |
 | `draft-undo` | frontend/index.html:1710 |
 | `draft-versions` | frontend/index.html:1895 |
-| `duplicate-groups` | frontend/index.html:11942 |
-| `duplicate-status` | frontend/index.html:11940 |
-| `duplicate-threshold` | frontend/index.html:11936 |
-| `duplicate-threshold-value` | frontend/index.html:11938 |
-| `duplicates-help` | frontend/index.html:11925 |
-| `editor-menu` | frontend/index.html:13814 |
-| `editor-menu-list` | frontend/index.html:13815 |
-| `editor-menu-preview` | frontend/index.html:13817 |
-| `embed-choices` | frontend/index.html:9411 |
-| `embed-choices-status` | frontend/index.html:9412 |
-| `embed-found` | frontend/index.html:9417 |
-| `embed-found-empty` | frontend/index.html:9418 |
-| `embed-models-cache` | frontend/index.html:11064 |
-| `embed-models-list` | frontend/index.html:11063 |
-| `embed-models-status` | frontend/index.html:11065 |
-| `embed-pull-go` | frontend/index.html:9427 |
-| `embed-pull-name` | frontend/index.html:9424 |
-| `embed-pull-status` | frontend/index.html:9429 |
-| `embedding-apply` | frontend/index.html:9396 |
-| `embedding-error` | frontend/index.html:9284 |
-| `embedding-error-fix` | frontend/index.html:9293 |
-| `embedding-error-fix-row` | frontend/index.html:9292 |
-| `embedding-error-fix-status` | frontend/index.html:9296 |
-| `embedding-model-select` | frontend/index.html:9395 |
-| `embedding-models-help` | frontend/index.html:11054 |
-| `embedding-offline-note` | frontend/index.html:9402 |
-| `embedding-ollama-note` | frontend/index.html:9398 |
+| `duplicate-groups` | frontend/index.html:11944 |
+| `duplicate-status` | frontend/index.html:11942 |
+| `duplicate-threshold` | frontend/index.html:11938 |
+| `duplicate-threshold-value` | frontend/index.html:11940 |
+| `duplicates-help` | frontend/index.html:11927 |
+| `editor-menu` | frontend/index.html:13816 |
+| `editor-menu-list` | frontend/index.html:13817 |
+| `editor-menu-preview` | frontend/index.html:13819 |
+| `embed-choices` | frontend/index.html:9413 |
+| `embed-choices-status` | frontend/index.html:9414 |
+| `embed-found` | frontend/index.html:9419 |
+| `embed-found-empty` | frontend/index.html:9420 |
+| `embed-models-cache` | frontend/index.html:11066 |
+| `embed-models-list` | frontend/index.html:11065 |
+| `embed-models-status` | frontend/index.html:11067 |
+| `embed-pull-go` | frontend/index.html:9429 |
+| `embed-pull-name` | frontend/index.html:9426 |
+| `embed-pull-status` | frontend/index.html:9431 |
+| `embedding-apply` | frontend/index.html:9398 |
+| `embedding-error` | frontend/index.html:9286 |
+| `embedding-error-fix` | frontend/index.html:9295 |
+| `embedding-error-fix-row` | frontend/index.html:9294 |
+| `embedding-error-fix-status` | frontend/index.html:9298 |
+| `embedding-model-select` | frontend/index.html:9397 |
+| `embedding-models-help` | frontend/index.html:11056 |
+| `embedding-offline-note` | frontend/index.html:9404 |
+| `embedding-ollama-note` | frontend/index.html:9400 |
 | `empty-message` | frontend/index.html:2427 |
 | `entries-heading` | frontend/index.html:2270 |
 | `entries-heading-label` | frontend/index.html:2270 |
@@ -6159,49 +6170,49 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `entry-tags` | frontend/index.html:1569 |
 | `entry-template` | frontend/index.html:1430 |
 | `entry-title` | frontend/index.html:1496 |
-| `export-backup-password` | frontend/index.html:11869 |
-| `export-backup-zip` | frontend/index.html:11865 |
-| `export-csv` | frontend/index.html:11863 |
-| `export-help` | frontend/index.html:11854 |
-| `export-json` | frontend/index.html:11862 |
-| `export-md` | frontend/index.html:11864 |
-| `export-save-dir-row` | frontend/index.html:11891 |
-| `export-save-dir-status` | frontend/index.html:11896 |
-| `exports-empty` | frontend/index.html:11911 |
-| `exports-list` | frontend/index.html:11912 |
-| `exports-recent` | frontend/index.html:11904 |
-| `exports-refresh` | frontend/index.html:11906 |
-| `extract-cancel` | frontend/index.html:8707 |
-| `extract-close` | frontend/index.html:8697 |
-| `extract-commit` | frontend/index.html:8708 |
-| `extract-links-list` | frontend/index.html:8703 |
-| `extract-notes-list` | frontend/index.html:8702 |
-| `extract-panel` | frontend/index.html:8691 |
-| `extract-status` | frontend/index.html:8701 |
-| `extras-bulk-done` | frontend/index.html:11008 |
-| `extras-bulk-install` | frontend/index.html:11005 |
-| `extras-bulk-reinstall` | frontend/index.html:11006 |
-| `extras-bulk-remove` | frontend/index.html:11007 |
-| `extras-bundles` | frontend/index.html:11000 |
-| `extras-list` | frontend/index.html:11011 |
-| `extras-log` | frontend/index.html:11015 |
-| `extras-log-wrap` | frontend/index.html:11013 |
-| `extras-selectbar` | frontend/index.html:11002 |
-| `extras-selected-count` | frontend/index.html:11003 |
-| `extras-status` | frontend/index.html:11012 |
-| `face-look` | frontend/index.html:10778 |
-| `face-look-row` | frontend/index.html:10773 |
-| `feature-models-help` | frontend/index.html:9114 |
-| `feature-models-list` | frontend/index.html:9108 |
-| `feature-models-reset` | frontend/index.html:9110 |
-| `feature-models-reset-note` | frontend/index.html:9113 |
-| `features-card` | frontend/index.html:13699 |
-| `features-close` | frontend/index.html:13703 |
-| `features-count` | frontend/index.html:13715 |
-| `features-list` | frontend/index.html:13716 |
-| `features-overlay` | frontend/index.html:13697 |
-| `features-search` | frontend/index.html:13712 |
-| `find-duplicates` | frontend/index.html:11934 |
+| `export-backup-password` | frontend/index.html:11871 |
+| `export-backup-zip` | frontend/index.html:11867 |
+| `export-csv` | frontend/index.html:11865 |
+| `export-help` | frontend/index.html:11856 |
+| `export-json` | frontend/index.html:11864 |
+| `export-md` | frontend/index.html:11866 |
+| `export-save-dir-row` | frontend/index.html:11893 |
+| `export-save-dir-status` | frontend/index.html:11898 |
+| `exports-empty` | frontend/index.html:11913 |
+| `exports-list` | frontend/index.html:11914 |
+| `exports-recent` | frontend/index.html:11906 |
+| `exports-refresh` | frontend/index.html:11908 |
+| `extract-cancel` | frontend/index.html:8709 |
+| `extract-close` | frontend/index.html:8699 |
+| `extract-commit` | frontend/index.html:8710 |
+| `extract-links-list` | frontend/index.html:8705 |
+| `extract-notes-list` | frontend/index.html:8704 |
+| `extract-panel` | frontend/index.html:8693 |
+| `extract-status` | frontend/index.html:8703 |
+| `extras-bulk-done` | frontend/index.html:11010 |
+| `extras-bulk-install` | frontend/index.html:11007 |
+| `extras-bulk-reinstall` | frontend/index.html:11008 |
+| `extras-bulk-remove` | frontend/index.html:11009 |
+| `extras-bundles` | frontend/index.html:11002 |
+| `extras-list` | frontend/index.html:11013 |
+| `extras-log` | frontend/index.html:11017 |
+| `extras-log-wrap` | frontend/index.html:11015 |
+| `extras-selectbar` | frontend/index.html:11004 |
+| `extras-selected-count` | frontend/index.html:11005 |
+| `extras-status` | frontend/index.html:11014 |
+| `face-look` | frontend/index.html:10780 |
+| `face-look-row` | frontend/index.html:10775 |
+| `feature-models-help` | frontend/index.html:9116 |
+| `feature-models-list` | frontend/index.html:9110 |
+| `feature-models-reset` | frontend/index.html:9112 |
+| `feature-models-reset-note` | frontend/index.html:9115 |
+| `features-card` | frontend/index.html:13701 |
+| `features-close` | frontend/index.html:13705 |
+| `features-count` | frontend/index.html:13717 |
+| `features-list` | frontend/index.html:13718 |
+| `features-overlay` | frontend/index.html:13699 |
+| `features-search` | frontend/index.html:13714 |
+| `find-duplicates` | frontend/index.html:11936 |
 | `finder-close` | frontend/index.html:739 |
 | `finder-filters` | frontend/index.html:781 |
 | `finder-help` | frontend/index.html:743 |
@@ -6211,28 +6222,28 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `finder-save` | frontend/index.html:737 |
 | `finder-sort` | frontend/index.html:785 |
 | `finder-summary` | frontend/index.html:795 |
-| `font-seg` | frontend/index.html:10356 |
-| `fontsize-seg` | frontend/index.html:10338 |
-| `forgot-password-help` | frontend/index.html:12486 |
-| `glass-blur` | frontend/index.html:10526 |
-| `glass-blur-row` | frontend/index.html:10520 |
-| `glass-blur-value` | frontend/index.html:10528 |
-| `glass-opacity` | frontend/index.html:10538 |
-| `glass-opacity-row` | frontend/index.html:10532 |
-| `glass-opacity-value` | frontend/index.html:10540 |
-| `glass-row` | frontend/index.html:10485 |
-| `glass-sheen-row` | frontend/index.html:10501 |
-| `glass-sheen-strength` | frontend/index.html:10514 |
-| `glass-sheen-strength-row` | frontend/index.html:10509 |
-| `glass-sheen-strength-value` | frontend/index.html:10516 |
-| `glass-sheen-toggle` | frontend/index.html:10502 |
-| `glass-toggle` | frontend/index.html:10486 |
-| `global-find-bar` | frontend/index.html:13168 |
-| `global-find-close` | frontend/index.html:13173 |
-| `global-find-count` | frontend/index.html:13170 |
-| `global-find-input` | frontend/index.html:13169 |
-| `global-find-next` | frontend/index.html:13172 |
-| `global-find-prev` | frontend/index.html:13171 |
+| `font-seg` | frontend/index.html:10358 |
+| `fontsize-seg` | frontend/index.html:10340 |
+| `forgot-password-help` | frontend/index.html:12488 |
+| `glass-blur` | frontend/index.html:10528 |
+| `glass-blur-row` | frontend/index.html:10522 |
+| `glass-blur-value` | frontend/index.html:10530 |
+| `glass-opacity` | frontend/index.html:10540 |
+| `glass-opacity-row` | frontend/index.html:10534 |
+| `glass-opacity-value` | frontend/index.html:10542 |
+| `glass-row` | frontend/index.html:10487 |
+| `glass-sheen-row` | frontend/index.html:10503 |
+| `glass-sheen-strength` | frontend/index.html:10516 |
+| `glass-sheen-strength-row` | frontend/index.html:10511 |
+| `glass-sheen-strength-value` | frontend/index.html:10518 |
+| `glass-sheen-toggle` | frontend/index.html:10504 |
+| `glass-toggle` | frontend/index.html:10488 |
+| `global-find-bar` | frontend/index.html:13170 |
+| `global-find-close` | frontend/index.html:13175 |
+| `global-find-count` | frontend/index.html:13172 |
+| `global-find-input` | frontend/index.html:13171 |
+| `global-find-next` | frontend/index.html:13174 |
+| `global-find-prev` | frontend/index.html:13173 |
 | `graph-add-node` | frontend/index.html:3730 |
 | `graph-arrows` | frontend/index.html:4091 |
 | `graph-attachments` | frontend/index.html:4044 |
@@ -6389,23 +6400,23 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `graph-zoom-fit` | frontend/index.html:4345 |
 | `graph-zoom-in` | frontend/index.html:4343 |
 | `graph-zoom-out` | frontend/index.html:4344 |
-| `harmony-apply` | frontend/index.html:10326 |
-| `harmony-base` | frontend/index.html:10318 |
-| `harmony-kind` | frontend/index.html:10320 |
-| `harmony-note` | frontend/index.html:10328 |
-| `health-checked` | frontend/index.html:12859 |
-| `health-counts` | frontend/index.html:12903 |
-| `health-data-dir` | frontend/index.html:12872 |
-| `health-db-size` | frontend/index.html:12889 |
-| `health-files-size` | frontend/index.html:12896 |
-| `health-group` | frontend/index.html:12857 |
-| `health-integrity` | frontend/index.html:12881 |
-| `health-integrity-check` | frontend/index.html:12880 |
-| `health-jobs` | frontend/index.html:12910 |
-| `health-last-backup` | frontend/index.html:12865 |
-| `health-last-error` | frontend/index.html:12938 |
-| `health-latency` | frontend/index.html:12931 |
-| `health-search` | frontend/index.html:12924 |
+| `harmony-apply` | frontend/index.html:10328 |
+| `harmony-base` | frontend/index.html:10320 |
+| `harmony-kind` | frontend/index.html:10322 |
+| `harmony-note` | frontend/index.html:10330 |
+| `health-checked` | frontend/index.html:12861 |
+| `health-counts` | frontend/index.html:12905 |
+| `health-data-dir` | frontend/index.html:12874 |
+| `health-db-size` | frontend/index.html:12891 |
+| `health-files-size` | frontend/index.html:12898 |
+| `health-group` | frontend/index.html:12859 |
+| `health-integrity` | frontend/index.html:12883 |
+| `health-integrity-check` | frontend/index.html:12882 |
+| `health-jobs` | frontend/index.html:12912 |
+| `health-last-backup` | frontend/index.html:12867 |
+| `health-last-error` | frontend/index.html:12940 |
+| `health-latency` | frontend/index.html:12933 |
+| `health-search` | frontend/index.html:12926 |
 | `help-chat-empty` | frontend/index.html:529 |
 | `help-chat-form` | frontend/index.html:544 |
 | `help-chat-group` | frontend/index.html:495 |
@@ -6415,94 +6426,94 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `help-chat-messages` | frontend/index.html:503 |
 | `help-chat-send` | frontend/index.html:546 |
 | `help-chat-starters` | frontend/index.html:535 |
-| `help-empty` | frontend/index.html:12755 |
-| `help-search` | frontend/index.html:12719 |
-| `help-search-status` | frontend/index.html:12722 |
-| `help-topics` | frontend/index.html:12754 |
-| `history-card` | frontend/index.html:13205 |
-| `history-close` | frontend/index.html:13209 |
-| `history-list` | frontend/index.html:13214 |
-| `history-overlay` | frontend/index.html:13203 |
-| `history-status` | frontend/index.html:13213 |
-| `hud` | frontend/index.html:13183 |
-| `import-app-box` | frontend/index.html:12035 |
-| `import-app-help` | frontend/index.html:12045 |
-| `import-app-status` | frontend/index.html:12075 |
-| `import-apple` | frontend/index.html:12073 |
-| `import-apple-file` | frontend/index.html:12071 |
-| `import-dir` | frontend/index.html:12000 |
-| `import-dir-path` | frontend/index.html:11999 |
-| `import-dir-status` | frontend/index.html:12002 |
-| `import-document` | frontend/index.html:12018 |
-| `import-document-file` | frontend/index.html:12017 |
-| `import-document-help` | frontend/index.html:12022 |
-| `import-document-status` | frontend/index.html:12020 |
-| `import-evernote` | frontend/index.html:12070 |
-| `import-evernote-file` | frontend/index.html:12068 |
-| `import-md` | frontend/index.html:11988 |
-| `import-md-files` | frontend/index.html:11987 |
-| `import-md-folder` | frontend/index.html:11989 |
-| `import-md-folder-btn` | frontend/index.html:11992 |
-| `import-md-status` | frontend/index.html:11995 |
-| `import-notion` | frontend/index.html:12064 |
-| `import-notion-file` | frontend/index.html:12062 |
-| `import-obsidian` | frontend/index.html:12067 |
-| `import-obsidian-file` | frontend/index.html:12065 |
-| `improve-apply` | frontend/index.html:13438 |
+| `help-empty` | frontend/index.html:12757 |
+| `help-search` | frontend/index.html:12721 |
+| `help-search-status` | frontend/index.html:12724 |
+| `help-topics` | frontend/index.html:12756 |
+| `history-card` | frontend/index.html:13207 |
+| `history-close` | frontend/index.html:13211 |
+| `history-list` | frontend/index.html:13216 |
+| `history-overlay` | frontend/index.html:13205 |
+| `history-status` | frontend/index.html:13215 |
+| `hud` | frontend/index.html:13185 |
+| `import-app-box` | frontend/index.html:12037 |
+| `import-app-help` | frontend/index.html:12047 |
+| `import-app-status` | frontend/index.html:12077 |
+| `import-apple` | frontend/index.html:12075 |
+| `import-apple-file` | frontend/index.html:12073 |
+| `import-dir` | frontend/index.html:12002 |
+| `import-dir-path` | frontend/index.html:12001 |
+| `import-dir-status` | frontend/index.html:12004 |
+| `import-document` | frontend/index.html:12020 |
+| `import-document-file` | frontend/index.html:12019 |
+| `import-document-help` | frontend/index.html:12024 |
+| `import-document-status` | frontend/index.html:12022 |
+| `import-evernote` | frontend/index.html:12072 |
+| `import-evernote-file` | frontend/index.html:12070 |
+| `import-md` | frontend/index.html:11990 |
+| `import-md-files` | frontend/index.html:11989 |
+| `import-md-folder` | frontend/index.html:11991 |
+| `import-md-folder-btn` | frontend/index.html:11994 |
+| `import-md-status` | frontend/index.html:11997 |
+| `import-notion` | frontend/index.html:12066 |
+| `import-notion-file` | frontend/index.html:12064 |
+| `import-obsidian` | frontend/index.html:12069 |
+| `import-obsidian-file` | frontend/index.html:12067 |
+| `improve-apply` | frontend/index.html:13440 |
 | `improve-btn` | frontend/index.html:1621 |
-| `improve-card` | frontend/index.html:13404 |
-| `improve-close` | frontend/index.html:13408 |
-| `improve-custom-go` | frontend/index.html:13421 |
-| `improve-custom-input` | frontend/index.html:13419 |
-| `improve-custom-row` | frontend/index.html:13418 |
-| `improve-modes` | frontend/index.html:13412 |
-| `improve-original` | frontend/index.html:13426 |
-| `improve-overlay` | frontend/index.html:13403 |
-| `improve-result` | frontend/index.html:13430 |
-| `improve-retry` | frontend/index.html:13437 |
-| `improve-status` | frontend/index.html:13433 |
-| `installed-box` | frontend/index.html:9180 |
-| `installed-list` | frontend/index.html:9183 |
-| `integrity-notice` | frontend/index.html:12132 |
-| `job-runs-group` | frontend/index.html:11581 |
-| `job-runs-help` | frontend/index.html:11591 |
-| `job-runs-list` | frontend/index.html:11605 |
-| `lan-help` | frontend/index.html:12263 |
-| `lan-trust-help` | frontend/index.html:12320 |
-| `learned-bulk-delete` | frontend/index.html:9968 |
-| `learned-bulk-done` | frontend/index.html:9969 |
-| `learned-bulk-reset` | frontend/index.html:9967 |
-| `learned-count` | frontend/index.html:9978 |
-| `learned-empty` | frontend/index.html:9973 |
-| `learned-export` | frontend/index.html:9987 |
-| `learned-forget` | frontend/index.html:9988 |
-| `learned-from-you` | frontend/index.html:9907 |
-| `learned-help` | frontend/index.html:9908 |
-| `learned-kind` | frontend/index.html:9954 |
-| `learned-list` | frontend/index.html:9972 |
-| `learned-next` | frontend/index.html:9979 |
-| `learned-pager` | frontend/index.html:9976 |
-| `learned-paused-banner` | frontend/index.html:9935 |
-| `learned-prev` | frontend/index.html:9977 |
-| `learned-run-note` | frontend/index.html:9944 |
-| `learned-run-now` | frontend/index.html:9943 |
-| `learned-search` | frontend/index.html:9957 |
-| `learned-selectbar` | frontend/index.html:9964 |
-| `learned-selected-count` | frontend/index.html:9965 |
-| `learned-status` | frontend/index.html:9960 |
-| `learned-switches` | frontend/index.html:9936 |
-| `learned-switches-group` | frontend/index.html:9932 |
+| `improve-card` | frontend/index.html:13406 |
+| `improve-close` | frontend/index.html:13410 |
+| `improve-custom-go` | frontend/index.html:13423 |
+| `improve-custom-input` | frontend/index.html:13421 |
+| `improve-custom-row` | frontend/index.html:13420 |
+| `improve-modes` | frontend/index.html:13414 |
+| `improve-original` | frontend/index.html:13428 |
+| `improve-overlay` | frontend/index.html:13405 |
+| `improve-result` | frontend/index.html:13432 |
+| `improve-retry` | frontend/index.html:13439 |
+| `improve-status` | frontend/index.html:13435 |
+| `installed-box` | frontend/index.html:9182 |
+| `installed-list` | frontend/index.html:9185 |
+| `integrity-notice` | frontend/index.html:12134 |
+| `job-runs-group` | frontend/index.html:11583 |
+| `job-runs-help` | frontend/index.html:11593 |
+| `job-runs-list` | frontend/index.html:11607 |
+| `lan-help` | frontend/index.html:12265 |
+| `lan-trust-help` | frontend/index.html:12322 |
+| `learned-bulk-delete` | frontend/index.html:9970 |
+| `learned-bulk-done` | frontend/index.html:9971 |
+| `learned-bulk-reset` | frontend/index.html:9969 |
+| `learned-count` | frontend/index.html:9980 |
+| `learned-empty` | frontend/index.html:9975 |
+| `learned-export` | frontend/index.html:9989 |
+| `learned-forget` | frontend/index.html:9990 |
+| `learned-from-you` | frontend/index.html:9909 |
+| `learned-help` | frontend/index.html:9910 |
+| `learned-kind` | frontend/index.html:9956 |
+| `learned-list` | frontend/index.html:9974 |
+| `learned-next` | frontend/index.html:9981 |
+| `learned-pager` | frontend/index.html:9978 |
+| `learned-paused-banner` | frontend/index.html:9937 |
+| `learned-prev` | frontend/index.html:9979 |
+| `learned-run-note` | frontend/index.html:9946 |
+| `learned-run-now` | frontend/index.html:9945 |
+| `learned-search` | frontend/index.html:9959 |
+| `learned-selectbar` | frontend/index.html:9966 |
+| `learned-selected-count` | frontend/index.html:9967 |
+| `learned-status` | frontend/index.html:9962 |
+| `learned-switches` | frontend/index.html:9938 |
+| `learned-switches-group` | frontend/index.html:9934 |
 | `library-activity-export` | frontend/index.html:5617 |
 | `library-activitybar` | frontend/index.html:5614 |
 | `library-bin-empty` | frontend/index.html:5610 |
 | `library-bin-note` | frontend/index.html:5608 |
 | `library-binbar` | frontend/index.html:5607 |
-| `library-boards-empty` | frontend/index.html:6076 |
-| `library-boards-filter` | frontend/index.html:6073 |
-| `library-boards-grid` | frontend/index.html:6075 |
+| `library-boards-empty` | frontend/index.html:6077 |
+| `library-boards-filter` | frontend/index.html:6074 |
+| `library-boards-grid` | frontend/index.html:6076 |
 | `library-boards-more` | frontend/index.html:6031 |
-| `library-boards-new-map` | frontend/index.html:6085 |
-| `library-boards-no-match` | frontend/index.html:6088 |
+| `library-boards-new-map` | frontend/index.html:6086 |
+| `library-boards-no-match` | frontend/index.html:6089 |
 | `library-boards-refresh` | frontend/index.html:6005 |
 | `library-boards-search` | frontend/index.html:5960 |
 | `library-boards-sort` | frontend/index.html:5969 |
@@ -6543,32 +6554,32 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `library-grid` | frontend/index.html:5633 |
 | `library-help` | frontend/index.html:5578 |
 | `library-help-toggle` | frontend/index.html:5575 |
-| `library-images-empty` | frontend/index.html:7762 |
-| `library-images-grid` | frontend/index.html:7761 |
-| `library-images-help` | frontend/index.html:7726 |
-| `library-images-intro` | frontend/index.html:7744 |
-| `library-images-no-match` | frontend/index.html:7768 |
-| `library-images-refresh` | frontend/index.html:7725 |
-| `library-images-search` | frontend/index.html:7660 |
-| `library-images-upload` | frontend/index.html:7741 |
-| `library-images-upload-input` | frontend/index.html:7724 |
-| `library-media-bulk-delete` | frontend/index.html:7757 |
-| `library-media-clear-selection` | frontend/index.html:7758 |
-| `library-media-empty-body` | frontend/index.html:7765 |
-| `library-media-empty-icon` | frontend/index.html:7763 |
-| `library-media-empty-title` | frontend/index.html:7764 |
-| `library-media-more-menu` | frontend/index.html:7737 |
-| `library-media-origin-btn` | frontend/index.html:7694 |
-| `library-media-origin-label` | frontend/index.html:7695 |
-| `library-media-origin-menu` | frontend/index.html:7693 |
-| `library-media-origins` | frontend/index.html:7696 |
-| `library-media-read` | frontend/index.html:7678 |
-| `library-media-selectbar` | frontend/index.html:7752 |
-| `library-media-selected-count` | frontend/index.html:7754 |
-| `library-media-sort` | frontend/index.html:7703 |
-| `library-media-title` | frontend/index.html:7651 |
-| `library-media-view-preview` | frontend/index.html:7717 |
-| `library-media-view-type` | frontend/index.html:7719 |
+| `library-images-empty` | frontend/index.html:7764 |
+| `library-images-grid` | frontend/index.html:7763 |
+| `library-images-help` | frontend/index.html:7728 |
+| `library-images-intro` | frontend/index.html:7746 |
+| `library-images-no-match` | frontend/index.html:7770 |
+| `library-images-refresh` | frontend/index.html:7727 |
+| `library-images-search` | frontend/index.html:7662 |
+| `library-images-upload` | frontend/index.html:7743 |
+| `library-images-upload-input` | frontend/index.html:7726 |
+| `library-media-bulk-delete` | frontend/index.html:7759 |
+| `library-media-clear-selection` | frontend/index.html:7760 |
+| `library-media-empty-body` | frontend/index.html:7767 |
+| `library-media-empty-icon` | frontend/index.html:7765 |
+| `library-media-empty-title` | frontend/index.html:7766 |
+| `library-media-more-menu` | frontend/index.html:7739 |
+| `library-media-origin-btn` | frontend/index.html:7696 |
+| `library-media-origin-label` | frontend/index.html:7697 |
+| `library-media-origin-menu` | frontend/index.html:7695 |
+| `library-media-origins` | frontend/index.html:7698 |
+| `library-media-read` | frontend/index.html:7680 |
+| `library-media-selectbar` | frontend/index.html:7754 |
+| `library-media-selected-count` | frontend/index.html:7756 |
+| `library-media-sort` | frontend/index.html:7705 |
+| `library-media-title` | frontend/index.html:7653 |
+| `library-media-view-preview` | frontend/index.html:7719 |
+| `library-media-view-type` | frontend/index.html:7721 |
 | `library-more-menu` | frontend/index.html:5581 |
 | `library-new-doc` | frontend/index.html:5595 |
 | `library-overview` | frontend/index.html:5599 |
@@ -6589,23 +6600,23 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `library-subtabs` | frontend/index.html:5488 |
 | `library-truncated` | frontend/index.html:5634 |
 | `library-view` | frontend/index.html:5566 |
-| `library-view-contents` | frontend/index.html:7897 |
+| `library-view-contents` | frontend/index.html:7899 |
 | `library-view-docs` | frontend/index.html:5663 |
 | `library-view-documents` | frontend/index.html:5517 |
-| `library-view-links` | frontend/index.html:7776 |
-| `library-view-media` | frontend/index.html:7631 |
+| `library-view-links` | frontend/index.html:7778 |
+| `library-view-media` | frontend/index.html:7633 |
 | `library-view-skills` | frontend/index.html:5797 |
 | `library-view-whiteboard` | frontend/index.html:5918 |
 | `link-suggest-btn` | frontend/index.html:4200 |
-| `live-region` | frontend/index.html:13186 |
-| `llm-base-url` | frontend/index.html:8908 |
-| `llm-privacy-warning` | frontend/index.html:8933 |
-| `llm-provider-apply` | frontend/index.html:8909 |
-| `llm-provider-note` | frontend/index.html:8913 |
-| `llm-provider-select` | frontend/index.html:8904 |
-| `llm-provider-status` | frontend/index.html:8929 |
-| `local-only-ai` | frontend/index.html:8917 |
-| `local-only-wrap` | frontend/index.html:8916 |
+| `live-region` | frontend/index.html:13188 |
+| `llm-base-url` | frontend/index.html:8910 |
+| `llm-privacy-warning` | frontend/index.html:8935 |
+| `llm-provider-apply` | frontend/index.html:8911 |
+| `llm-provider-note` | frontend/index.html:8915 |
+| `llm-provider-select` | frontend/index.html:8906 |
+| `llm-provider-status` | frontend/index.html:8931 |
+| `local-only-ai` | frontend/index.html:8919 |
+| `local-only-wrap` | frontend/index.html:8918 |
 | `lock-btn` | frontend/index.html:293 |
 | `lock-cancel` | frontend/index.html:329 |
 | `lock-card` | frontend/index.html:302 |
@@ -6638,79 +6649,79 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `lock-setup-note` | frontend/index.html:324 |
 | `lock-submit` | frontend/index.html:325 |
 | `lock-title` | frontend/index.html:304 |
-| `log-filter` | frontend/index.html:12608 |
-| `log-follow` | frontend/index.html:12671 |
-| `log-follow-label` | frontend/index.html:12669 |
-| `log-level` | frontend/index.html:12659 |
-| `log-list` | frontend/index.html:12703 |
-| `log-live` | frontend/index.html:12603 |
-| `log-requests` | frontend/index.html:12667 |
-| `log-source` | frontend/index.html:12651 |
-| `log-terminal` | frontend/index.html:12704 |
-| `log-terminal-hint` | frontend/index.html:12698 |
-| `log-view-toggle` | frontend/index.html:12613 |
-| `logs-bundle` | frontend/index.html:12684 |
-| `logs-clear` | frontend/index.html:12681 |
-| `logs-copy` | frontend/index.html:12680 |
-| `logs-dropped` | frontend/index.html:12702 |
-| `logs-email-bundle` | frontend/index.html:12678 |
-| `logs-empty` | frontend/index.html:12706 |
-| `logs-filtered-out` | frontend/index.html:12707 |
-| `logs-help` | frontend/index.html:12624 |
-| `logs-help-toggle` | frontend/index.html:12621 |
-| `logs-more-menu` | frontend/index.html:12627 |
+| `log-filter` | frontend/index.html:12610 |
+| `log-follow` | frontend/index.html:12673 |
+| `log-follow-label` | frontend/index.html:12671 |
+| `log-level` | frontend/index.html:12661 |
+| `log-list` | frontend/index.html:12705 |
+| `log-live` | frontend/index.html:12605 |
+| `log-requests` | frontend/index.html:12669 |
+| `log-source` | frontend/index.html:12653 |
+| `log-terminal` | frontend/index.html:12706 |
+| `log-terminal-hint` | frontend/index.html:12700 |
+| `log-view-toggle` | frontend/index.html:12615 |
+| `logs-bundle` | frontend/index.html:12686 |
+| `logs-clear` | frontend/index.html:12683 |
+| `logs-copy` | frontend/index.html:12682 |
+| `logs-dropped` | frontend/index.html:12704 |
+| `logs-email-bundle` | frontend/index.html:12680 |
+| `logs-empty` | frontend/index.html:12708 |
+| `logs-filtered-out` | frontend/index.html:12709 |
+| `logs-help` | frontend/index.html:12626 |
+| `logs-help-toggle` | frontend/index.html:12623 |
+| `logs-more-menu` | frontend/index.html:12629 |
 | `manage-categories-btn` | frontend/index.html:1316 |
 | `manage-categories-foot` | frontend/index.html:1322 |
-| `mcp-config-copy` | frontend/index.html:10170 |
-| `mcp-config-group` | frontend/index.html:10144 |
-| `mcp-config-help` | frontend/index.html:10155 |
-| `mcp-config-note` | frontend/index.html:10168 |
-| `mcp-config-snippet` | frontend/index.html:10167 |
-| `meeting-card` | frontend/index.html:13586 |
-| `meeting-close` | frontend/index.html:13602 |
-| `meeting-controls` | frontend/index.html:13632 |
-| `meeting-copy` | frontend/index.html:13689 |
-| `meeting-discard` | frontend/index.html:13690 |
-| `meeting-help` | frontend/index.html:13607 |
-| `meeting-overlay` | frontend/index.html:13584 |
-| `meeting-pause` | frontend/index.html:13634 |
-| `meeting-progress` | frontend/index.html:13657 |
-| `meeting-record` | frontend/index.html:13633 |
-| `meeting-save` | frontend/index.html:13678 |
-| `meeting-save-doc` | frontend/index.html:13684 |
-| `meeting-save-row` | frontend/index.html:13674 |
-| `meeting-stage` | frontend/index.html:13631 |
-| `meeting-status` | frontend/index.html:13659 |
-| `meeting-timer` | frontend/index.html:13635 |
-| `meeting-title` | frontend/index.html:13621 |
-| `meeting-transcript` | frontend/index.html:13664 |
-| `meeting-wave` | frontend/index.html:13652 |
-| `memory-add` | frontend/index.html:9872 |
-| `memory-budget` | frontend/index.html:9866 |
-| `memory-empty` | frontend/index.html:9876 |
-| `memory-help` | frontend/index.html:9850 |
-| `memory-list` | frontend/index.html:9875 |
-| `memory-new` | frontend/index.html:9870 |
-| `memory-status` | frontend/index.html:9874 |
+| `mcp-config-copy` | frontend/index.html:10172 |
+| `mcp-config-group` | frontend/index.html:10146 |
+| `mcp-config-help` | frontend/index.html:10157 |
+| `mcp-config-note` | frontend/index.html:10170 |
+| `mcp-config-snippet` | frontend/index.html:10169 |
+| `meeting-card` | frontend/index.html:13588 |
+| `meeting-close` | frontend/index.html:13604 |
+| `meeting-controls` | frontend/index.html:13634 |
+| `meeting-copy` | frontend/index.html:13691 |
+| `meeting-discard` | frontend/index.html:13692 |
+| `meeting-help` | frontend/index.html:13609 |
+| `meeting-overlay` | frontend/index.html:13586 |
+| `meeting-pause` | frontend/index.html:13636 |
+| `meeting-progress` | frontend/index.html:13659 |
+| `meeting-record` | frontend/index.html:13635 |
+| `meeting-save` | frontend/index.html:13680 |
+| `meeting-save-doc` | frontend/index.html:13686 |
+| `meeting-save-row` | frontend/index.html:13676 |
+| `meeting-stage` | frontend/index.html:13633 |
+| `meeting-status` | frontend/index.html:13661 |
+| `meeting-timer` | frontend/index.html:13637 |
+| `meeting-title` | frontend/index.html:13623 |
+| `meeting-transcript` | frontend/index.html:13666 |
+| `meeting-wave` | frontend/index.html:13654 |
+| `memory-add` | frontend/index.html:9874 |
+| `memory-budget` | frontend/index.html:9868 |
+| `memory-empty` | frontend/index.html:9878 |
+| `memory-help` | frontend/index.html:9852 |
+| `memory-list` | frontend/index.html:9877 |
+| `memory-new` | frontend/index.html:9872 |
+| `memory-status` | frontend/index.html:9876 |
 | `mic-chat` | frontend/index.html:3001 |
 | `mic-note` | frontend/index.html:1617 |
-| `model-context-help` | frontend/index.html:8978 |
-| `model-context-note` | frontend/index.html:8977 |
-| `model-context-row` | frontend/index.html:8965 |
-| `model-context-window` | frontend/index.html:8967 |
-| `model-spec` | frontend/index.html:8951 |
-| `model-spec-health` | frontend/index.html:8952 |
-| `models-config` | frontend/index.html:8936 |
-| `models-skeleton` | frontend/index.html:8859 |
+| `model-context-help` | frontend/index.html:8980 |
+| `model-context-note` | frontend/index.html:8979 |
+| `model-context-row` | frontend/index.html:8967 |
+| `model-context-window` | frontend/index.html:8969 |
+| `model-spec` | frontend/index.html:8953 |
+| `model-spec-health` | frontend/index.html:8954 |
+| `models-config` | frontend/index.html:8938 |
+| `models-skeleton` | frontend/index.html:8861 |
 | `most-used` | frontend/index.html:1325 |
 | `most-used-box` | frontend/index.html:1323 |
-| `motion-help` | frontend/index.html:10455 |
-| `nav-group-about` | frontend/index.html:8846 |
-| `nav-group-ai` | frontend/index.html:8802 |
-| `nav-group-look` | frontend/index.html:8827 |
-| `nav-group-security` | frontend/index.html:8833 |
-| `nav-group-system` | frontend/index.html:8839 |
-| `nav-group-you` | frontend/index.html:8814 |
+| `motion-help` | frontend/index.html:10457 |
+| `nav-group-about` | frontend/index.html:8848 |
+| `nav-group-ai` | frontend/index.html:8804 |
+| `nav-group-look` | frontend/index.html:8829 |
+| `nav-group-security` | frontend/index.html:8835 |
+| `nav-group-system` | frontend/index.html:8841 |
+| `nav-group-you` | frontend/index.html:8816 |
 | `new-chat-btn` | frontend/index.html:1970 |
 | `no-match-message` | frontend/index.html:2433 |
 | `note-outbox-notice` | frontend/index.html:1485 |
@@ -6766,197 +6777,197 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `notif-mute-toggle` | frontend/index.html:224 |
 | `notif-panel` | frontend/index.html:207 |
 | `notif-unread` | frontend/index.html:221 |
-| `notifications-help` | frontend/index.html:11298 |
-| `ocr-boxes` | frontend/index.html:8419 |
-| `ocr-caption` | frontend/index.html:8452 |
-| `ocr-clean-loops` | frontend/index.html:8509 |
-| `ocr-close` | frontend/index.html:8258 |
-| `ocr-copy-all` | frontend/index.html:8530 |
-| `ocr-delete-reading` | frontend/index.html:8502 |
-| `ocr-describe` | frontend/index.html:8523 |
-| `ocr-describe-label` | frontend/index.html:8524 |
-| `ocr-dock` | frontend/index.html:8274 |
-| `ocr-edit-box` | frontend/index.html:8479 |
-| `ocr-edit-cancel` | frontend/index.html:8482 |
-| `ocr-edit-panel` | frontend/index.html:8477 |
-| `ocr-edit-save` | frontend/index.html:8481 |
-| `ocr-empty` | frontend/index.html:8488 |
-| `ocr-engine` | frontend/index.html:8353 |
-| `ocr-engine-dot` | frontend/index.html:8322 |
-| `ocr-file` | frontend/index.html:8245 |
-| `ocr-find` | frontend/index.html:8448 |
-| `ocr-find-count` | frontend/index.html:8450 |
-| `ocr-help` | frontend/index.html:8261 |
-| `ocr-help-toggle` | frontend/index.html:8360 |
-| `ocr-image` | frontend/index.html:8401 |
-| `ocr-message` | frontend/index.html:8453 |
-| `ocr-model-apply` | frontend/index.html:9069 |
-| `ocr-model-help` | frontend/index.html:9073 |
-| `ocr-model-note` | frontend/index.html:9071 |
-| `ocr-model-select` | frontend/index.html:9068 |
-| `ocr-more` | frontend/index.html:8551 |
-| `ocr-next-page` | frontend/index.html:8255 |
-| `ocr-other-readings` | frontend/index.html:8457 |
-| `ocr-page-label` | frontend/index.html:8254 |
-| `ocr-page-pane` | frontend/index.html:8399 |
-| `ocr-pager` | frontend/index.html:8251 |
-| `ocr-prev-page` | frontend/index.html:8252 |
-| `ocr-rail` | frontend/index.html:8397 |
-| `ocr-rail-switch` | frontend/index.html:8395 |
-| `ocr-rapidocr-install` | frontend/index.html:8344 |
-| `ocr-rapidocr-missing` | frontend/index.html:8342 |
-| `ocr-read-menu-slot` | frontend/index.html:8380 |
-| `ocr-read-page` | frontend/index.html:8375 |
-| `ocr-read-page-label` | frontend/index.html:8376 |
-| `ocr-read-split` | frontend/index.html:8374 |
-| `ocr-reader` | frontend/index.html:8331 |
-| `ocr-reader-menu` | frontend/index.html:8320 |
-| `ocr-reader-name` | frontend/index.html:8323 |
-| `ocr-region-cancel` | frontend/index.html:8433 |
-| `ocr-region-describe` | frontend/index.html:8431 |
-| `ocr-region-list` | frontend/index.html:8489 |
-| `ocr-region-popover` | frontend/index.html:8426 |
-| `ocr-region-read` | frontend/index.html:8429 |
-| `ocr-region-results` | frontend/index.html:8473 |
-| `ocr-region-size` | frontend/index.html:8428 |
-| `ocr-regions` | frontend/index.html:8280 |
-| `ocr-scroll` | frontend/index.html:8439 |
-| `ocr-select` | frontend/index.html:8418 |
-| `ocr-source` | frontend/index.html:8246 |
-| `ocr-stage` | frontend/index.html:8400 |
-| `ocr-stop-read` | frontend/index.html:8463 |
-| `ocr-to-chat` | frontend/index.html:8543 |
-| `ocr-to-note` | frontend/index.html:8552 |
-| `ocr-tools-more` | frontend/index.html:8367 |
-| `ocr-view` | frontend/index.html:8303 |
-| `ocr-workspace` | frontend/index.html:8225 |
-| `ocr-zoom` | frontend/index.html:8290 |
-| `ocr-zoom-fit` | frontend/index.html:8297 |
-| `ocr-zoom-in` | frontend/index.html:8295 |
-| `ocr-zoom-level` | frontend/index.html:8293 |
-| `ocr-zoom-out` | frontend/index.html:8291 |
-| `offline-indicator` | frontend/index.html:8098 |
-| `ollama-help` | frontend/index.html:8869 |
-| `ollama-status` | frontend/index.html:8856 |
-| `onboarding-actions` | frontend/index.html:13734 |
-| `onboarding-atlas` | frontend/index.html:13726 |
-| `onboarding-back` | frontend/index.html:13740 |
-| `onboarding-card` | frontend/index.html:13723 |
-| `onboarding-dots` | frontend/index.html:13736 |
-| `onboarding-emblem` | frontend/index.html:13725 |
-| `onboarding-icon` | frontend/index.html:13727 |
-| `onboarding-next` | frontend/index.html:13741 |
-| `onboarding-overlay` | frontend/index.html:13721 |
-| `onboarding-skip` | frontend/index.html:13738 |
-| `onboarding-slide` | frontend/index.html:13724 |
-| `onboarding-text` | frontend/index.html:13729 |
-| `onboarding-title` | frontend/index.html:13728 |
-| `open-exports-folder` | frontend/index.html:11878 |
-| `open-exports-row` | frontend/index.html:11877 |
-| `packages-help` | frontend/index.html:10980 |
-| `page-bg-clear` | frontend/index.html:10301 |
-| `page-bg-custom` | frontend/index.html:10300 |
-| `page-wash-row` | frontend/index.html:10493 |
-| `page-wash-toggle` | frontend/index.html:10494 |
-| `palette-card` | frontend/index.html:13189 |
-| `palette-grid` | frontend/index.html:10260 |
-| `palette-input` | frontend/index.html:13190 |
-| `palette-list` | frontend/index.html:13193 |
-| `palette-overlay` | frontend/index.html:13188 |
-| `palette-preview` | frontend/index.html:13194 |
-| `perf-mode` | frontend/index.html:10478 |
-| `perf-mode-hint` | frontend/index.html:10476 |
-| `perf-mode-row` | frontend/index.html:10472 |
-| `persona-add` | frontend/index.html:9614 |
-| `persona-export` | frontend/index.html:9621 |
-| `persona-import` | frontend/index.html:9622 |
-| `persona-import-file` | frontend/index.html:9623 |
-| `persona-list` | frontend/index.html:9547 |
-| `persona-name` | frontend/index.html:9609 |
+| `notifications-help` | frontend/index.html:11300 |
+| `ocr-boxes` | frontend/index.html:8421 |
+| `ocr-caption` | frontend/index.html:8454 |
+| `ocr-clean-loops` | frontend/index.html:8511 |
+| `ocr-close` | frontend/index.html:8260 |
+| `ocr-copy-all` | frontend/index.html:8532 |
+| `ocr-delete-reading` | frontend/index.html:8504 |
+| `ocr-describe` | frontend/index.html:8525 |
+| `ocr-describe-label` | frontend/index.html:8526 |
+| `ocr-dock` | frontend/index.html:8276 |
+| `ocr-edit-box` | frontend/index.html:8481 |
+| `ocr-edit-cancel` | frontend/index.html:8484 |
+| `ocr-edit-panel` | frontend/index.html:8479 |
+| `ocr-edit-save` | frontend/index.html:8483 |
+| `ocr-empty` | frontend/index.html:8490 |
+| `ocr-engine` | frontend/index.html:8355 |
+| `ocr-engine-dot` | frontend/index.html:8324 |
+| `ocr-file` | frontend/index.html:8247 |
+| `ocr-find` | frontend/index.html:8450 |
+| `ocr-find-count` | frontend/index.html:8452 |
+| `ocr-help` | frontend/index.html:8263 |
+| `ocr-help-toggle` | frontend/index.html:8362 |
+| `ocr-image` | frontend/index.html:8403 |
+| `ocr-message` | frontend/index.html:8455 |
+| `ocr-model-apply` | frontend/index.html:9071 |
+| `ocr-model-help` | frontend/index.html:9075 |
+| `ocr-model-note` | frontend/index.html:9073 |
+| `ocr-model-select` | frontend/index.html:9070 |
+| `ocr-more` | frontend/index.html:8553 |
+| `ocr-next-page` | frontend/index.html:8257 |
+| `ocr-other-readings` | frontend/index.html:8459 |
+| `ocr-page-label` | frontend/index.html:8256 |
+| `ocr-page-pane` | frontend/index.html:8401 |
+| `ocr-pager` | frontend/index.html:8253 |
+| `ocr-prev-page` | frontend/index.html:8254 |
+| `ocr-rail` | frontend/index.html:8399 |
+| `ocr-rail-switch` | frontend/index.html:8397 |
+| `ocr-rapidocr-install` | frontend/index.html:8346 |
+| `ocr-rapidocr-missing` | frontend/index.html:8344 |
+| `ocr-read-menu-slot` | frontend/index.html:8382 |
+| `ocr-read-page` | frontend/index.html:8377 |
+| `ocr-read-page-label` | frontend/index.html:8378 |
+| `ocr-read-split` | frontend/index.html:8376 |
+| `ocr-reader` | frontend/index.html:8333 |
+| `ocr-reader-menu` | frontend/index.html:8322 |
+| `ocr-reader-name` | frontend/index.html:8325 |
+| `ocr-region-cancel` | frontend/index.html:8435 |
+| `ocr-region-describe` | frontend/index.html:8433 |
+| `ocr-region-list` | frontend/index.html:8491 |
+| `ocr-region-popover` | frontend/index.html:8428 |
+| `ocr-region-read` | frontend/index.html:8431 |
+| `ocr-region-results` | frontend/index.html:8475 |
+| `ocr-region-size` | frontend/index.html:8430 |
+| `ocr-regions` | frontend/index.html:8282 |
+| `ocr-scroll` | frontend/index.html:8441 |
+| `ocr-select` | frontend/index.html:8420 |
+| `ocr-source` | frontend/index.html:8248 |
+| `ocr-stage` | frontend/index.html:8402 |
+| `ocr-stop-read` | frontend/index.html:8465 |
+| `ocr-to-chat` | frontend/index.html:8545 |
+| `ocr-to-note` | frontend/index.html:8554 |
+| `ocr-tools-more` | frontend/index.html:8369 |
+| `ocr-view` | frontend/index.html:8305 |
+| `ocr-workspace` | frontend/index.html:8227 |
+| `ocr-zoom` | frontend/index.html:8292 |
+| `ocr-zoom-fit` | frontend/index.html:8299 |
+| `ocr-zoom-in` | frontend/index.html:8297 |
+| `ocr-zoom-level` | frontend/index.html:8295 |
+| `ocr-zoom-out` | frontend/index.html:8293 |
+| `offline-indicator` | frontend/index.html:8100 |
+| `ollama-help` | frontend/index.html:8871 |
+| `ollama-status` | frontend/index.html:8858 |
+| `onboarding-actions` | frontend/index.html:13736 |
+| `onboarding-atlas` | frontend/index.html:13728 |
+| `onboarding-back` | frontend/index.html:13742 |
+| `onboarding-card` | frontend/index.html:13725 |
+| `onboarding-dots` | frontend/index.html:13738 |
+| `onboarding-emblem` | frontend/index.html:13727 |
+| `onboarding-icon` | frontend/index.html:13729 |
+| `onboarding-next` | frontend/index.html:13743 |
+| `onboarding-overlay` | frontend/index.html:13723 |
+| `onboarding-skip` | frontend/index.html:13740 |
+| `onboarding-slide` | frontend/index.html:13726 |
+| `onboarding-text` | frontend/index.html:13731 |
+| `onboarding-title` | frontend/index.html:13730 |
+| `open-exports-folder` | frontend/index.html:11880 |
+| `open-exports-row` | frontend/index.html:11879 |
+| `packages-help` | frontend/index.html:10982 |
+| `page-bg-clear` | frontend/index.html:10303 |
+| `page-bg-custom` | frontend/index.html:10302 |
+| `page-wash-row` | frontend/index.html:10495 |
+| `page-wash-toggle` | frontend/index.html:10496 |
+| `palette-card` | frontend/index.html:13191 |
+| `palette-grid` | frontend/index.html:10262 |
+| `palette-input` | frontend/index.html:13192 |
+| `palette-list` | frontend/index.html:13195 |
+| `palette-overlay` | frontend/index.html:13190 |
+| `palette-preview` | frontend/index.html:13196 |
+| `perf-mode` | frontend/index.html:10480 |
+| `perf-mode-hint` | frontend/index.html:10478 |
+| `perf-mode-row` | frontend/index.html:10474 |
+| `persona-add` | frontend/index.html:9616 |
+| `persona-export` | frontend/index.html:9623 |
+| `persona-import` | frontend/index.html:9624 |
+| `persona-import-file` | frontend/index.html:9625 |
+| `persona-list` | frontend/index.html:9549 |
+| `persona-name` | frontend/index.html:9611 |
 | `persona-peek` | frontend/index.html:3141 |
 | `persona-peek-panel` | frontend/index.html:3157 |
-| `persona-placeholder-hint` | frontend/index.html:9612 |
+| `persona-placeholder-hint` | frontend/index.html:9614 |
 | `persona-prompt` | frontend/index.html:3145 |
-| `persona-prompt` | frontend/index.html:9610 |
+| `persona-prompt` | frontend/index.html:9612 |
 | `persona-prompt-text` | frontend/index.html:3159 |
 | `persona-select` | frontend/index.html:3136 |
 | `persona-select-mark` | frontend/index.html:3135 |
-| `persona-status` | frontend/index.html:9615 |
-| `personas-help` | frontend/index.html:9538 |
-| `phone-more-btn` | frontend/index.html:8027 |
-| `phone-tab-dock` | frontend/index.html:8022 |
-| `power-saver-indicator` | frontend/index.html:8088 |
-| `pref-ai-first-filing` | frontend/index.html:11682 |
-| `pref-auto-caption-images` | frontend/index.html:11717 |
-| `pref-auto-capture` | frontend/index.html:11749 |
-| `pref-auto-dedupe` | frontend/index.html:11735 |
-| `pref-auto-file-sensitive` | frontend/index.html:11689 |
-| `pref-auto-link` | frontend/index.html:11731 |
-| `pref-auto-read-image-text` | frontend/index.html:11721 |
-| `pref-auto-stale-review` | frontend/index.html:11739 |
-| `pref-auto-tag` | frontend/index.html:11727 |
-| `pref-auto-update` | frontend/index.html:12983 |
-| `pref-autonomous-interval` | frontend/index.html:11764 |
-| `pref-autonomous-model` | frontend/index.html:11767 |
-| `pref-autonomous-tasks` | frontend/index.html:11634 |
-| `pref-background-filing` | frontend/index.html:11698 |
-| `pref-battery-mode` | frontend/index.html:11812 |
-| `pref-bin-days` | frontend/index.html:11270 |
-| `pref-chat-retention` | frontend/index.html:11276 |
-| `pref-close-to-tray` | frontend/index.html:13090 |
-| `pref-display-name` | frontend/index.html:11220 |
-| `pref-export-dir` | frontend/index.html:11893 |
-| `pref-export-dir-reset` | frontend/index.html:11894 |
-| `pref-filing-style` | frontend/index.html:11675 |
-| `pref-filing-wait` | frontend/index.html:11712 |
-| `pref-filing-wait-reset` | frontend/index.html:11714 |
-| `pref-new-window-on-launch` | frontend/index.html:13110 |
-| `pref-notif-mute-except-reminders` | frontend/index.html:11294 |
-| `pref-profile` | frontend/index.html:11234 |
-| `pref-profile-count` | frontend/index.html:11236 |
-| `pref-profile-enabled` | frontend/index.html:11231 |
-| `pref-search-min-sim` | frontend/index.html:9510 |
-| `pref-search-reset` | frontend/index.html:9517 |
-| `pref-search-z-margin` | frontend/index.html:9514 |
-| `pref-searxng` | frontend/index.html:11426 |
-| `pref-semantic-auto-install` | frontend/index.html:9364 |
-| `pref-show-console` | frontend/index.html:13070 |
-| `pref-show-thinking-words` | frontend/index.html:10580 |
-| `pref-simple-mode` | frontend/index.html:11325 |
-| `pref-single-keys` | frontend/index.html:11081 |
-| `pref-smart-model-routing` | frontend/index.html:9010 |
-| `pref-smart-punctuation` | frontend/index.html:11307 |
-| `pref-style` | frontend/index.html:9556 |
-| `pref-update-channel-main` | frontend/index.html:13009 |
-| `pref-update-check` | frontend/index.html:12959 |
-| `pref-voice` | frontend/index.html:9564 |
-| `pref-warm-search-model` | frontend/index.html:11704 |
-| `pref-web-search` | frontend/index.html:11403 |
-| `prefs-save` | frontend/index.html:11243 |
-| `prefs-status` | frontend/index.html:11244 |
-| `prefs-unsaved` | frontend/index.html:11245 |
-| `privacy-covers` | frontend/index.html:12525 |
-| `privacy-destinations` | frontend/index.html:12543 |
-| `privacy-empty` | frontend/index.html:12544 |
-| `privacy-help` | frontend/index.html:12524 |
-| `privacy-listening` | frontend/index.html:12555 |
-| `privacy-model` | frontend/index.html:12549 |
-| `privacy-model-meta` | frontend/index.html:12550 |
-| `privacy-range` | frontend/index.html:12537 |
-| `privacy-range-note` | frontend/index.html:12542 |
-| `privacy-refresh` | frontend/index.html:12565 |
-| `privacy-switches` | frontend/index.html:12561 |
-| `privacy-verdict` | frontend/index.html:12532 |
-| `profile-avatar` | frontend/index.html:11183 |
-| `profile-delete` | frontend/index.html:11255 |
-| `profile-head-name` | frontend/index.html:11185 |
-| `profile-look` | frontend/index.html:11189 |
-| `profile-look-parts` | frontend/index.html:11200 |
-| `profile-look-reset` | frontend/index.html:11196 |
-| `profile-look-shuffle` | frontend/index.html:11193 |
-| `progress-motion` | frontend/index.html:10568 |
-| `progress-motion-hint` | frontend/index.html:10566 |
-| `progress-motion-row` | frontend/index.html:10557 |
+| `persona-status` | frontend/index.html:9617 |
+| `personas-help` | frontend/index.html:9540 |
+| `phone-more-btn` | frontend/index.html:8029 |
+| `phone-tab-dock` | frontend/index.html:8024 |
+| `power-saver-indicator` | frontend/index.html:8090 |
+| `pref-ai-first-filing` | frontend/index.html:11684 |
+| `pref-auto-caption-images` | frontend/index.html:11719 |
+| `pref-auto-capture` | frontend/index.html:11751 |
+| `pref-auto-dedupe` | frontend/index.html:11737 |
+| `pref-auto-file-sensitive` | frontend/index.html:11691 |
+| `pref-auto-link` | frontend/index.html:11733 |
+| `pref-auto-read-image-text` | frontend/index.html:11723 |
+| `pref-auto-stale-review` | frontend/index.html:11741 |
+| `pref-auto-tag` | frontend/index.html:11729 |
+| `pref-auto-update` | frontend/index.html:12985 |
+| `pref-autonomous-interval` | frontend/index.html:11766 |
+| `pref-autonomous-model` | frontend/index.html:11769 |
+| `pref-autonomous-tasks` | frontend/index.html:11636 |
+| `pref-background-filing` | frontend/index.html:11700 |
+| `pref-battery-mode` | frontend/index.html:11814 |
+| `pref-bin-days` | frontend/index.html:11272 |
+| `pref-chat-retention` | frontend/index.html:11278 |
+| `pref-close-to-tray` | frontend/index.html:13092 |
+| `pref-display-name` | frontend/index.html:11222 |
+| `pref-export-dir` | frontend/index.html:11895 |
+| `pref-export-dir-reset` | frontend/index.html:11896 |
+| `pref-filing-style` | frontend/index.html:11677 |
+| `pref-filing-wait` | frontend/index.html:11714 |
+| `pref-filing-wait-reset` | frontend/index.html:11716 |
+| `pref-new-window-on-launch` | frontend/index.html:13112 |
+| `pref-notif-mute-except-reminders` | frontend/index.html:11296 |
+| `pref-profile` | frontend/index.html:11236 |
+| `pref-profile-count` | frontend/index.html:11238 |
+| `pref-profile-enabled` | frontend/index.html:11233 |
+| `pref-search-min-sim` | frontend/index.html:9512 |
+| `pref-search-reset` | frontend/index.html:9519 |
+| `pref-search-z-margin` | frontend/index.html:9516 |
+| `pref-searxng` | frontend/index.html:11428 |
+| `pref-semantic-auto-install` | frontend/index.html:9366 |
+| `pref-show-console` | frontend/index.html:13072 |
+| `pref-show-thinking-words` | frontend/index.html:10582 |
+| `pref-simple-mode` | frontend/index.html:11327 |
+| `pref-single-keys` | frontend/index.html:11083 |
+| `pref-smart-model-routing` | frontend/index.html:9012 |
+| `pref-smart-punctuation` | frontend/index.html:11309 |
+| `pref-style` | frontend/index.html:9558 |
+| `pref-update-channel-main` | frontend/index.html:13011 |
+| `pref-update-check` | frontend/index.html:12961 |
+| `pref-voice` | frontend/index.html:9566 |
+| `pref-warm-search-model` | frontend/index.html:11706 |
+| `pref-web-search` | frontend/index.html:11405 |
+| `prefs-save` | frontend/index.html:11245 |
+| `prefs-status` | frontend/index.html:11246 |
+| `prefs-unsaved` | frontend/index.html:11247 |
+| `privacy-covers` | frontend/index.html:12527 |
+| `privacy-destinations` | frontend/index.html:12545 |
+| `privacy-empty` | frontend/index.html:12546 |
+| `privacy-help` | frontend/index.html:12526 |
+| `privacy-listening` | frontend/index.html:12557 |
+| `privacy-model` | frontend/index.html:12551 |
+| `privacy-model-meta` | frontend/index.html:12552 |
+| `privacy-range` | frontend/index.html:12539 |
+| `privacy-range-note` | frontend/index.html:12544 |
+| `privacy-refresh` | frontend/index.html:12567 |
+| `privacy-switches` | frontend/index.html:12563 |
+| `privacy-verdict` | frontend/index.html:12534 |
+| `profile-avatar` | frontend/index.html:11185 |
+| `profile-delete` | frontend/index.html:11257 |
+| `profile-head-name` | frontend/index.html:11187 |
+| `profile-look` | frontend/index.html:11191 |
+| `profile-look-parts` | frontend/index.html:11202 |
+| `profile-look-reset` | frontend/index.html:11198 |
+| `profile-look-shuffle` | frontend/index.html:11195 |
+| `progress-motion` | frontend/index.html:10570 |
+| `progress-motion-hint` | frontend/index.html:10568 |
+| `progress-motion-row` | frontend/index.html:10559 |
 | `question` | frontend/index.html:2023 |
 | `questions` | frontend/index.html:2199 |
 | `questions-ask` | frontend/index.html:2217 |
@@ -6978,9 +6989,9 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `quick-note-text` | frontend/index.html:1085 |
 | `quick-note-title` | frontend/index.html:1061 |
 | `quit-btn` | frontend/index.html:294 |
-| `quit-help` | frontend/index.html:11827 |
-| `radius-slider` | frontend/index.html:10383 |
-| `radius-value` | frontend/index.html:10385 |
+| `quit-help` | frontend/index.html:11829 |
+| `radius-slider` | frontend/index.html:10385 |
+| `radius-value` | frontend/index.html:10387 |
 | `raw-results` | frontend/index.html:2191 |
 | `recent-questions` | frontend/index.html:2060 |
 | `recovery-key-copy` | frontend/index.html:470 |
@@ -6989,7 +7000,7 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `recovery-key-done` | frontend/index.html:474 |
 | `recovery-key-download` | frontend/index.html:471 |
 | `recovery-key-error` | frontend/index.html:477 |
-| `recovery-key-help` | frontend/index.html:12456 |
+| `recovery-key-help` | frontend/index.html:12458 |
 | `recovery-key-lead` | frontend/index.html:467 |
 | `recovery-key-make` | frontend/index.html:463 |
 | `recovery-key-offer` | frontend/index.html:459 |
@@ -6997,16 +7008,16 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `recovery-key-skip` | frontend/index.html:462 |
 | `recovery-key-title` | frontend/index.html:431 |
 | `recovery-key-value` | frontend/index.html:468 |
-| `reduce-motion-row` | frontend/index.html:10585 |
-| `reduce-motion-toggle` | frontend/index.html:10586 |
-| `reindex-blurb` | frontend/index.html:9463 |
-| `reindex-box` | frontend/index.html:9437 |
-| `reindex-help` | frontend/index.html:9446 |
-| `reindex-label` | frontend/index.html:9456 |
-| `reindex-progress` | frontend/index.html:9455 |
-| `reindex-stale` | frontend/index.html:9461 |
-| `reindex-start` | frontend/index.html:9464 |
-| `rekey-help` | frontend/index.html:12391 |
+| `reduce-motion-row` | frontend/index.html:10587 |
+| `reduce-motion-toggle` | frontend/index.html:10588 |
+| `reindex-blurb` | frontend/index.html:9465 |
+| `reindex-box` | frontend/index.html:9439 |
+| `reindex-help` | frontend/index.html:9448 |
+| `reindex-label` | frontend/index.html:9458 |
+| `reindex-progress` | frontend/index.html:9457 |
+| `reindex-stale` | frontend/index.html:9463 |
+| `reindex-start` | frontend/index.html:9466 |
+| `rekey-help` | frontend/index.html:12393 |
 | `reminder-add` | frontend/index.html:5316 |
 | `reminder-calendar` | frontend/index.html:5466 |
 | `reminder-clear-done` | frontend/index.html:5410 |
@@ -7046,22 +7057,22 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `reminders-new` | frontend/index.html:5445 |
 | `reminders-page-size` | frontend/index.html:5431 |
 | `response-mode-select` | frontend/index.html:3128 |
-| `restore-bundle` | frontend/index.html:11969 |
-| `restore-bundle-file` | frontend/index.html:11968 |
-| `restore-bundle-help` | frontend/index.html:11955 |
-| `restore-bundle-password` | frontend/index.html:11971 |
-| `restore-bundle-status` | frontend/index.html:11974 |
+| `restore-bundle` | frontend/index.html:11971 |
+| `restore-bundle-file` | frontend/index.html:11970 |
+| `restore-bundle-help` | frontend/index.html:11957 |
+| `restore-bundle-password` | frontend/index.html:11973 |
+| `restore-bundle-status` | frontend/index.html:11976 |
 | `retry-btn` | frontend/index.html:2146 |
-| `run-budget-help` | frontend/index.html:10086 |
-| `run-budget-seconds` | frontend/index.html:10118 |
-| `run-budget-status` | frontend/index.html:10121 |
-| `run-budget-tokens` | frontend/index.html:10110 |
-| `sampling-box` | frontend/index.html:9154 |
-| `sampling-help` | frontend/index.html:9162 |
-| `sampling-model` | frontend/index.html:9169 |
-| `sampling-note` | frontend/index.html:9177 |
-| `sampling-reset` | frontend/index.html:9172 |
-| `sampling-rows` | frontend/index.html:9170 |
+| `run-budget-help` | frontend/index.html:10088 |
+| `run-budget-seconds` | frontend/index.html:10120 |
+| `run-budget-status` | frontend/index.html:10123 |
+| `run-budget-tokens` | frontend/index.html:10112 |
+| `sampling-box` | frontend/index.html:9156 |
+| `sampling-help` | frontend/index.html:9164 |
+| `sampling-model` | frontend/index.html:9171 |
+| `sampling-note` | frontend/index.html:9179 |
+| `sampling-reset` | frontend/index.html:9174 |
+| `sampling-rows` | frontend/index.html:9172 |
 | `save-btn` | frontend/index.html:1674 |
 | `save-draft-btn` | frontend/index.html:1671 |
 | `save-search` | frontend/index.html:2286 |
@@ -7069,156 +7080,156 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `saved-finds` | frontend/index.html:1332 |
 | `saved-finds-box` | frontend/index.html:1330 |
 | `saved-searches` | frontend/index.html:2402 |
-| `search-engine-config` | frontend/index.html:9304 |
-| `search-engine-health` | frontend/index.html:9281 |
-| `search-engine-help` | frontend/index.html:9313 |
+| `search-engine-config` | frontend/index.html:9306 |
+| `search-engine-health` | frontend/index.html:9283 |
+| `search-engine-help` | frontend/index.html:9315 |
 | `search-help` | frontend/index.html:2314 |
 | `search-help-hint` | frontend/index.html:2405 |
 | `search-mode` | frontend/index.html:2189 |
-| `search-provider-picker` | frontend/index.html:11410 |
-| `search-provider-status` | frontend/index.html:11412 |
-| `search-relevance-group` | frontend/index.html:9480 |
-| `search-relevance-help` | frontend/index.html:9489 |
-| `search-relevance-intro` | frontend/index.html:9496 |
-| `searxng-autostart` | frontend/index.html:11497 |
-| `searxng-backend` | frontend/index.html:11465 |
-| `searxng-detect` | frontend/index.html:11428 |
-| `searxng-help` | frontend/index.html:11433 |
-| `searxng-host-help` | frontend/index.html:11459 |
-| `searxng-host-state` | frontend/index.html:11456 |
-| `searxng-host-status` | frontend/index.html:11485 |
-| `searxng-install-line` | frontend/index.html:11504 |
-| `searxng-install-progress` | frontend/index.html:11502 |
-| `searxng-output` | frontend/index.html:11509 |
-| `searxng-output-fold` | frontend/index.html:11507 |
-| `searxng-port` | frontend/index.html:11468 |
-| `searxng-reinstall` | frontend/index.html:11482 |
-| `searxng-start` | frontend/index.html:11480 |
-| `searxng-status` | frontend/index.html:11431 |
-| `searxng-stop` | frontend/index.html:11481 |
+| `search-provider-picker` | frontend/index.html:11412 |
+| `search-provider-status` | frontend/index.html:11414 |
+| `search-relevance-group` | frontend/index.html:9482 |
+| `search-relevance-help` | frontend/index.html:9491 |
+| `search-relevance-intro` | frontend/index.html:9498 |
+| `searxng-autostart` | frontend/index.html:11499 |
+| `searxng-backend` | frontend/index.html:11467 |
+| `searxng-detect` | frontend/index.html:11430 |
+| `searxng-help` | frontend/index.html:11435 |
+| `searxng-host-help` | frontend/index.html:11461 |
+| `searxng-host-state` | frontend/index.html:11458 |
+| `searxng-host-status` | frontend/index.html:11487 |
+| `searxng-install-line` | frontend/index.html:11506 |
+| `searxng-install-progress` | frontend/index.html:11504 |
+| `searxng-output` | frontend/index.html:11511 |
+| `searxng-output-fold` | frontend/index.html:11509 |
+| `searxng-port` | frontend/index.html:11470 |
+| `searxng-reinstall` | frontend/index.html:11484 |
+| `searxng-start` | frontend/index.html:11482 |
+| `searxng-status` | frontend/index.html:11433 |
+| `searxng-stop` | frontend/index.html:11483 |
 | `select-btn` | frontend/index.html:2313 |
-| `semantic-auto-install-help` | frontend/index.html:9374 |
+| `semantic-auto-install-help` | frontend/index.html:9376 |
 | `semantic-search-toggle` | frontend/index.html:2284 |
-| `sessions-help` | frontend/index.html:12419 |
-| `settings-about` | frontend/index.html:12791 |
-| `settings-account` | frontend/index.html:12196 |
-| `settings-appearance` | frontend/index.html:10176 |
+| `sessions-help` | frontend/index.html:12421 |
+| `settings-about` | frontend/index.html:12793 |
+| `settings-account` | frontend/index.html:12198 |
+| `settings-appearance` | frontend/index.html:10178 |
 | `settings-btn` | frontend/index.html:286 |
-| `settings-close` | frontend/index.html:8772 |
-| `settings-data` | frontend/index.html:11839 |
-| `settings-extras` | frontend/index.html:10967 |
-| `settings-general` | frontend/index.html:11265 |
-| `settings-guide-btn` | frontend/index.html:8753 |
-| `settings-help` | frontend/index.html:12712 |
-| `settings-learned` | frontend/index.html:9895 |
-| `settings-logs` | frontend/index.html:12570 |
-| `settings-manage-categories` | frontend/index.html:11659 |
-| `settings-manage-tags` | frontend/index.html:11666 |
-| `settings-memory` | frontend/index.html:9838 |
-| `settings-modal` | frontend/index.html:8714 |
-| `settings-modal-nav` | frontend/index.html:8755 |
-| `settings-models` | frontend/index.html:8855 |
-| `settings-nav` | frontend/index.html:8781 |
-| `settings-nav-appearance` | frontend/index.html:8829 |
-| `settings-nav-back` | frontend/index.html:8756 |
-| `settings-nav-forward` | frontend/index.html:8757 |
-| `settings-nav-help` | frontend/index.html:8848 |
-| `settings-nav-models` | frontend/index.html:8804 |
-| `settings-peek` | frontend/index.html:8768 |
-| `settings-personas` | frontend/index.html:9524 |
-| `settings-preferences` | frontend/index.html:11177 |
-| `settings-privacy` | frontend/index.html:12512 |
-| `settings-profile-btn` | frontend/index.html:8751 |
-| `settings-results` | frontend/index.html:8794 |
-| `settings-search` | frontend/index.html:8787 |
-| `settings-search-count` | frontend/index.html:8790 |
-| `settings-searchindex` | frontend/index.html:9280 |
-| `settings-shortcuts` | frontend/index.html:11070 |
-| `settings-skills` | frontend/index.html:9629 |
-| `settings-skills-help` | frontend/index.html:9646 |
-| `settings-tasks` | frontend/index.html:11533 |
-| `settings-templates` | frontend/index.html:9789 |
-| `settings-tools` | frontend/index.html:9993 |
-| `settings-websearch` | frontend/index.html:11367 |
-| `shadow-intensity` | frontend/index.html:10436 |
-| `shadow-intensity-value` | frontend/index.html:10438 |
-| `shortcut-head-whiteboard` | frontend/index.html:13350 |
-| `shortcut-list` | frontend/index.html:13310 |
-| `shortcut-list-documents` | frontend/index.html:13346 |
-| `shortcut-list-documents-note` | frontend/index.html:13347 |
-| `shortcut-list-settings` | frontend/index.html:11078 |
-| `shortcut-list-whiteboard` | frontend/index.html:13355 |
-| `shortcut-list-whiteboard-note` | frontend/index.html:13356 |
-| `shortcut-status` | frontend/index.html:13311 |
-| `shortcut-status-settings` | frontend/index.html:11079 |
-| `shortcuts-card` | frontend/index.html:13301 |
-| `shortcuts-close` | frontend/index.html:13305 |
-| `shortcuts-overlay` | frontend/index.html:13299 |
-| `shortcuts-overlay-always-help` | frontend/index.html:13325 |
-| `shortcuts-reset` | frontend/index.html:13313 |
-| `shortcuts-reset-settings` | frontend/index.html:11085 |
-| `show-guide-btn` | frontend/index.html:12737 |
+| `settings-close` | frontend/index.html:8774 |
+| `settings-data` | frontend/index.html:11841 |
+| `settings-extras` | frontend/index.html:10969 |
+| `settings-general` | frontend/index.html:11267 |
+| `settings-guide-btn` | frontend/index.html:8755 |
+| `settings-help` | frontend/index.html:12714 |
+| `settings-learned` | frontend/index.html:9897 |
+| `settings-logs` | frontend/index.html:12572 |
+| `settings-manage-categories` | frontend/index.html:11661 |
+| `settings-manage-tags` | frontend/index.html:11668 |
+| `settings-memory` | frontend/index.html:9840 |
+| `settings-modal` | frontend/index.html:8716 |
+| `settings-modal-nav` | frontend/index.html:8757 |
+| `settings-models` | frontend/index.html:8857 |
+| `settings-nav` | frontend/index.html:8783 |
+| `settings-nav-appearance` | frontend/index.html:8831 |
+| `settings-nav-back` | frontend/index.html:8758 |
+| `settings-nav-forward` | frontend/index.html:8759 |
+| `settings-nav-help` | frontend/index.html:8850 |
+| `settings-nav-models` | frontend/index.html:8806 |
+| `settings-peek` | frontend/index.html:8770 |
+| `settings-personas` | frontend/index.html:9526 |
+| `settings-preferences` | frontend/index.html:11179 |
+| `settings-privacy` | frontend/index.html:12514 |
+| `settings-profile-btn` | frontend/index.html:8753 |
+| `settings-results` | frontend/index.html:8796 |
+| `settings-search` | frontend/index.html:8789 |
+| `settings-search-count` | frontend/index.html:8792 |
+| `settings-searchindex` | frontend/index.html:9282 |
+| `settings-shortcuts` | frontend/index.html:11072 |
+| `settings-skills` | frontend/index.html:9631 |
+| `settings-skills-help` | frontend/index.html:9648 |
+| `settings-tasks` | frontend/index.html:11535 |
+| `settings-templates` | frontend/index.html:9791 |
+| `settings-tools` | frontend/index.html:9995 |
+| `settings-websearch` | frontend/index.html:11369 |
+| `shadow-intensity` | frontend/index.html:10438 |
+| `shadow-intensity-value` | frontend/index.html:10440 |
+| `shortcut-head-whiteboard` | frontend/index.html:13352 |
+| `shortcut-list` | frontend/index.html:13312 |
+| `shortcut-list-documents` | frontend/index.html:13348 |
+| `shortcut-list-documents-note` | frontend/index.html:13349 |
+| `shortcut-list-settings` | frontend/index.html:11080 |
+| `shortcut-list-whiteboard` | frontend/index.html:13357 |
+| `shortcut-list-whiteboard-note` | frontend/index.html:13358 |
+| `shortcut-status` | frontend/index.html:13313 |
+| `shortcut-status-settings` | frontend/index.html:11081 |
+| `shortcuts-card` | frontend/index.html:13303 |
+| `shortcuts-close` | frontend/index.html:13307 |
+| `shortcuts-overlay` | frontend/index.html:13301 |
+| `shortcuts-overlay-always-help` | frontend/index.html:13327 |
+| `shortcuts-reset` | frontend/index.html:13315 |
+| `shortcuts-reset-settings` | frontend/index.html:11087 |
+| `show-guide-btn` | frontend/index.html:12739 |
 | `sidebar` | frontend/index.html:1312 |
-| `sign-in-help` | frontend/index.html:12231 |
-| `simple-mode-box` | frontend/index.html:11315 |
-| `simple-mode-help` | frontend/index.html:11328 |
-| `sketch-bg-canvas` | frontend/index.html:13557 |
-| `sketch-bg-color-picker` | frontend/index.html:13551 |
+| `sign-in-help` | frontend/index.html:12233 |
+| `simple-mode-box` | frontend/index.html:11317 |
+| `simple-mode-help` | frontend/index.html:11330 |
+| `sketch-bg-canvas` | frontend/index.html:13559 |
+| `sketch-bg-color-picker` | frontend/index.html:13553 |
 | `sketch-btn` | frontend/index.html:1616 |
-| `sketch-canvas` | frontend/index.html:13558 |
-| `sketch-canvas-wrap` | frontend/index.html:13556 |
-| `sketch-caption` | frontend/index.html:13568 |
-| `sketch-card` | frontend/index.html:13473 |
-| `sketch-clear` | frontend/index.html:13549 |
-| `sketch-close` | frontend/index.html:13477 |
-| `sketch-foot` | frontend/index.html:13567 |
-| `sketch-image-input` | frontend/index.html:13555 |
-| `sketch-overlay` | frontend/index.html:13472 |
-| `sketch-redo` | frontend/index.html:13548 |
-| `sketch-save` | frontend/index.html:13570 |
-| `sketch-size` | frontend/index.html:13531 |
-| `sketch-size-value` | frontend/index.html:13532 |
-| `sketch-status` | frontend/index.html:13569 |
-| `sketch-tool-arrow` | frontend/index.html:13494 |
-| `sketch-tool-circ` | frontend/index.html:13496 |
-| `sketch-tool-eraser` | frontend/index.html:13487 |
-| `sketch-tool-highlighter` | frontend/index.html:13486 |
-| `sketch-tool-line` | frontend/index.html:13493 |
-| `sketch-tool-pen` | frontend/index.html:13485 |
-| `sketch-tool-rect` | frontend/index.html:13495 |
-| `sketch-tool-text` | frontend/index.html:13497 |
-| `sketch-toolbar` | frontend/index.html:13481 |
-| `sketch-undo` | frontend/index.html:13547 |
-| `sketch-upload-image` | frontend/index.html:13550 |
-| `skill-add` | frontend/index.html:9773 |
-| `skill-add-fold` | frontend/index.html:9673 |
-| `skill-cancel` | frontend/index.html:9774 |
-| `skill-description` | frontend/index.html:9676 |
-| `skill-export` | frontend/index.html:9781 |
-| `skill-folder-line` | frontend/index.html:9671 |
-| `skill-import` | frontend/index.html:9782 |
-| `skill-import-file` | frontend/index.html:9783 |
-| `skill-inputs` | frontend/index.html:9686 |
-| `skill-list` | frontend/index.html:9670 |
+| `sketch-canvas` | frontend/index.html:13560 |
+| `sketch-canvas-wrap` | frontend/index.html:13558 |
+| `sketch-caption` | frontend/index.html:13570 |
+| `sketch-card` | frontend/index.html:13475 |
+| `sketch-clear` | frontend/index.html:13551 |
+| `sketch-close` | frontend/index.html:13479 |
+| `sketch-foot` | frontend/index.html:13569 |
+| `sketch-image-input` | frontend/index.html:13557 |
+| `sketch-overlay` | frontend/index.html:13474 |
+| `sketch-redo` | frontend/index.html:13550 |
+| `sketch-save` | frontend/index.html:13572 |
+| `sketch-size` | frontend/index.html:13533 |
+| `sketch-size-value` | frontend/index.html:13534 |
+| `sketch-status` | frontend/index.html:13571 |
+| `sketch-tool-arrow` | frontend/index.html:13496 |
+| `sketch-tool-circ` | frontend/index.html:13498 |
+| `sketch-tool-eraser` | frontend/index.html:13489 |
+| `sketch-tool-highlighter` | frontend/index.html:13488 |
+| `sketch-tool-line` | frontend/index.html:13495 |
+| `sketch-tool-pen` | frontend/index.html:13487 |
+| `sketch-tool-rect` | frontend/index.html:13497 |
+| `sketch-tool-text` | frontend/index.html:13499 |
+| `sketch-toolbar` | frontend/index.html:13483 |
+| `sketch-undo` | frontend/index.html:13549 |
+| `sketch-upload-image` | frontend/index.html:13552 |
+| `skill-add` | frontend/index.html:9775 |
+| `skill-add-fold` | frontend/index.html:9675 |
+| `skill-cancel` | frontend/index.html:9776 |
+| `skill-description` | frontend/index.html:9678 |
+| `skill-export` | frontend/index.html:9783 |
+| `skill-folder-line` | frontend/index.html:9673 |
+| `skill-import` | frontend/index.html:9784 |
+| `skill-import-file` | frontend/index.html:9785 |
+| `skill-inputs` | frontend/index.html:9688 |
+| `skill-list` | frontend/index.html:9672 |
 | `skill-manual-toggle` | frontend/index.html:3180 |
-| `skill-name` | frontend/index.html:9675 |
-| `skill-prompt` | frontend/index.html:9678 |
-| `skill-run-cancel` | frontend/index.html:13287 |
-| `skill-run-card` | frontend/index.html:13283 |
-| `skill-run-description` | frontend/index.html:13291 |
-| `skill-run-fields` | frontend/index.html:13292 |
-| `skill-run-go` | frontend/index.html:13294 |
-| `skill-run-overlay` | frontend/index.html:13281 |
-| `skill-run-title` | frontend/index.html:13285 |
-| `skill-status` | frontend/index.html:9775 |
-| `skill-steps` | frontend/index.html:9683 |
-| `skill-tool-list` | frontend/index.html:9711 |
-| `skill-tools-help` | frontend/index.html:9702 |
-| `skill-verify-expect` | frontend/index.html:9752 |
-| `skill-verify-help` | frontend/index.html:9735 |
-| `skill-verify-tool` | frontend/index.html:9750 |
-| `skill-verify-untagged` | frontend/index.html:9762 |
-| `skill-verify-value` | frontend/index.html:9758 |
+| `skill-name` | frontend/index.html:9677 |
+| `skill-prompt` | frontend/index.html:9680 |
+| `skill-run-cancel` | frontend/index.html:13289 |
+| `skill-run-card` | frontend/index.html:13285 |
+| `skill-run-description` | frontend/index.html:13293 |
+| `skill-run-fields` | frontend/index.html:13294 |
+| `skill-run-go` | frontend/index.html:13296 |
+| `skill-run-overlay` | frontend/index.html:13283 |
+| `skill-run-title` | frontend/index.html:13287 |
+| `skill-status` | frontend/index.html:9777 |
+| `skill-steps` | frontend/index.html:9685 |
+| `skill-tool-list` | frontend/index.html:9713 |
+| `skill-tools-help` | frontend/index.html:9704 |
+| `skill-verify-expect` | frontend/index.html:9754 |
+| `skill-verify-help` | frontend/index.html:9737 |
+| `skill-verify-tool` | frontend/index.html:9752 |
+| `skill-verify-untagged` | frontend/index.html:9764 |
+| `skill-verify-value` | frontend/index.html:9760 |
 | `skills-add-new` | frontend/index.html:5863 |
 | `skills-dashboard-list` | frontend/index.html:5875 |
 | `skills-help` | frontend/index.html:5857 |
@@ -7231,9 +7242,9 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `skills-sidebar` | frontend/index.html:5907 |
 | `skills-sort` | frontend/index.html:5850 |
 | `skip-link` | frontend/index.html:120 |
-| `small-model-mode` | frontend/index.html:10063 |
-| `small-model-mode-help` | frontend/index.html:10045 |
-| `small-model-mode-status` | frontend/index.html:10070 |
+| `small-model-mode` | frontend/index.html:10065 |
+| `small-model-mode-help` | frontend/index.html:10047 |
+| `small-model-mode-status` | frontend/index.html:10072 |
 | `space-create-dialog` | frontend/index.html:867 |
 | `space-create-error` | frontend/index.html:880 |
 | `space-create-icon` | frontend/index.html:879 |
@@ -7257,37 +7268,37 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `space-menu` | frontend/index.html:144 |
 | `space-switcher-btn` | frontend/index.html:137 |
 | `speak-btn` | frontend/index.html:2150 |
-| `status-activity` | frontend/index.html:8087 |
-| `status-agent` | frontend/index.html:8112 |
-| `status-back` | frontend/index.html:8149 |
-| `status-bar` | frontend/index.html:8031 |
-| `status-bar-clock-toggle` | frontend/index.html:10911 |
-| `status-bar-items` | frontend/index.html:10897 |
-| `status-clock` | frontend/index.html:8133 |
-| `status-clock-detail` | frontend/index.html:8165 |
-| `status-clock-detail-date` | frontend/index.html:8166 |
-| `status-clock-detail-time` | frontend/index.html:8167 |
-| `status-clock-detail-zone` | frontend/index.html:8168 |
-| `status-command` | frontend/index.html:8103 |
-| `status-find` | frontend/index.html:8124 |
-| `status-forward` | frontend/index.html:8150 |
-| `status-guide` | frontend/index.html:8119 |
-| `status-nav-history` | frontend/index.html:8156 |
-| `status-nav-history-menu` | frontend/index.html:8187 |
-| `status-notes` | frontend/index.html:8075 |
-| `status-redo` | frontend/index.html:8163 |
-| `status-reminders` | frontend/index.html:8076 |
-| `status-task` | frontend/index.html:8080 |
-| `status-undo` | frontend/index.html:8162 |
-| `statusbar-help` | frontend/index.html:10889 |
+| `status-activity` | frontend/index.html:8089 |
+| `status-agent` | frontend/index.html:8114 |
+| `status-back` | frontend/index.html:8151 |
+| `status-bar` | frontend/index.html:8033 |
+| `status-bar-clock-toggle` | frontend/index.html:10913 |
+| `status-bar-items` | frontend/index.html:10899 |
+| `status-clock` | frontend/index.html:8135 |
+| `status-clock-detail` | frontend/index.html:8167 |
+| `status-clock-detail-date` | frontend/index.html:8168 |
+| `status-clock-detail-time` | frontend/index.html:8169 |
+| `status-clock-detail-zone` | frontend/index.html:8170 |
+| `status-command` | frontend/index.html:8105 |
+| `status-find` | frontend/index.html:8126 |
+| `status-forward` | frontend/index.html:8152 |
+| `status-guide` | frontend/index.html:8121 |
+| `status-nav-history` | frontend/index.html:8158 |
+| `status-nav-history-menu` | frontend/index.html:8189 |
+| `status-notes` | frontend/index.html:8077 |
+| `status-redo` | frontend/index.html:8165 |
+| `status-reminders` | frontend/index.html:8078 |
+| `status-task` | frontend/index.html:8082 |
+| `status-undo` | frontend/index.html:8164 |
+| `statusbar-help` | frontend/index.html:10891 |
 | `stop-btn` | frontend/index.html:2049 |
-| `storage-space-notice` | frontend/index.html:12131 |
-| `suggested-box` | frontend/index.html:9230 |
-| `suggested-hardware` | frontend/index.html:9239 |
-| `suggested-help` | frontend/index.html:9240 |
-| `suggested-hide-big` | frontend/index.html:9256 |
-| `suggested-hide-wrap` | frontend/index.html:9255 |
-| `suggested-list` | frontend/index.html:9259 |
+| `storage-space-notice` | frontend/index.html:12133 |
+| `suggested-box` | frontend/index.html:9232 |
+| `suggested-hardware` | frontend/index.html:9241 |
+| `suggested-help` | frontend/index.html:9242 |
+| `suggested-hide-big` | frontend/index.html:9258 |
+| `suggested-hide-wrap` | frontend/index.html:9257 |
+| `suggested-list` | frontend/index.html:9261 |
 | `suggested-questions` | frontend/index.html:2059 |
 | `tab-bar` | frontend/index.html:147 |
 | `tab-btn-chat` | frontend/index.html:152 |
@@ -7305,29 +7316,29 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `tab-notes` | frontend/index.html:1309 |
 | `tab-reminders` | frontend/index.html:5268 |
 | `tab-timeline` | frontend/index.html:3323 |
-| `task-history` | frontend/index.html:11571 |
-| `task-history-box` | frontend/index.html:11564 |
-| `task-history-clear` | frontend/index.html:11572 |
-| `task-list` | frontend/index.html:11558 |
-| `tasks-empty` | frontend/index.html:11559 |
-| `tasks-live-group` | frontend/index.html:11539 |
-| `tasks-live-help` | frontend/index.html:11549 |
-| `template-add` | frontend/index.html:9827 |
-| `template-body` | frontend/index.html:9819 |
-| `template-cancel` | frontend/index.html:9831 |
-| `template-description` | frontend/index.html:9817 |
-| `template-draft` | frontend/index.html:9829 |
-| `template-list` | frontend/index.html:9813 |
-| `template-name` | frontend/index.html:9816 |
-| `template-status` | frontend/index.html:9832 |
-| `templates-help` | frontend/index.html:9803 |
+| `task-history` | frontend/index.html:11573 |
+| `task-history-box` | frontend/index.html:11566 |
+| `task-history-clear` | frontend/index.html:11574 |
+| `task-list` | frontend/index.html:11560 |
+| `tasks-empty` | frontend/index.html:11561 |
+| `tasks-live-group` | frontend/index.html:11541 |
+| `tasks-live-help` | frontend/index.html:11551 |
+| `template-add` | frontend/index.html:9829 |
+| `template-body` | frontend/index.html:9821 |
+| `template-cancel` | frontend/index.html:9833 |
+| `template-description` | frontend/index.html:9819 |
+| `template-draft` | frontend/index.html:9831 |
+| `template-list` | frontend/index.html:9815 |
+| `template-name` | frontend/index.html:9818 |
+| `template-status` | frontend/index.html:9834 |
+| `templates-help` | frontend/index.html:9805 |
 | `theme-btn` | frontend/index.html:285 |
-| `theme-clear-overrides` | frontend/index.html:10240 |
-| `theme-override-note` | frontend/index.html:10199 |
-| `theme-presets` | frontend/index.html:10198 |
-| `theme-reset` | frontend/index.html:10237 |
-| `theme-seg` | frontend/index.html:10268 |
-| `themes-help` | frontend/index.html:10191 |
+| `theme-clear-overrides` | frontend/index.html:10242 |
+| `theme-override-note` | frontend/index.html:10201 |
+| `theme-presets` | frontend/index.html:10200 |
+| `theme-reset` | frontend/index.html:10239 |
+| `theme-seg` | frontend/index.html:10270 |
+| `themes-help` | frontend/index.html:10193 |
 | `thinking-box` | frontend/index.html:2161 |
 | `timeline-band` | frontend/index.html:3431 |
 | `timeline-band-section` | frontend/index.html:3429 |
@@ -7383,176 +7394,177 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `timeline-view-feed` | frontend/index.html:3397 |
 | `timeline-view-seg` | frontend/index.html:3396 |
 | `timeline-view-table` | frontend/index.html:3398 |
-| `toast-box` | frontend/index.html:13177 |
-| `tool-count` | frontend/index.html:10137 |
-| `tool-filter` | frontend/index.html:10135 |
-| `tool-filter-empty` | frontend/index.html:10140 |
-| `tool-focus-help` | frontend/index.html:10008 |
-| `tool-focus-status` | frontend/index.html:10027 |
-| `tool-list` | frontend/index.html:10139 |
+| `toast-box` | frontend/index.html:13179 |
+| `tool-count` | frontend/index.html:10139 |
+| `tool-filter` | frontend/index.html:10137 |
+| `tool-filter-empty` | frontend/index.html:10142 |
+| `tool-focus-help` | frontend/index.html:10010 |
+| `tool-focus-status` | frontend/index.html:10029 |
+| `tool-list` | frontend/index.html:10141 |
 | `tools-toggle` | frontend/index.html:3031 |
 | `top-bar` | frontend/index.html:123 |
-| `tour-back` | frontend/index.html:13800 |
-| `tour-block` | frontend/index.html:13778 |
-| `tour-block-bottom` | frontend/index.html:13781 |
-| `tour-block-left` | frontend/index.html:13782 |
-| `tour-block-right` | frontend/index.html:13780 |
-| `tour-block-top` | frontend/index.html:13779 |
-| `tour-card` | frontend/index.html:13785 |
-| `tour-close` | frontend/index.html:13791 |
-| `tour-count` | frontend/index.html:13790 |
-| `tour-next` | frontend/index.html:13801 |
-| `tour-replay-buttons` | frontend/index.html:12738 |
-| `tour-section` | frontend/index.html:13788 |
-| `tour-skip` | frontend/index.html:13798 |
-| `tour-spot` | frontend/index.html:13784 |
-| `tour-text` | frontend/index.html:13796 |
-| `tour-title` | frontend/index.html:13795 |
-| `ui-motion-row` | frontend/index.html:10596 |
-| `ui-motion-toggle` | frontend/index.html:10597 |
-| `undo-history-menu` | frontend/index.html:8194 |
-| `update-apply-now` | frontend/index.html:12970 |
-| `update-channel-help` | frontend/index.html:13021 |
-| `update-check-now` | frontend/index.html:12963 |
-| `update-check-row` | frontend/index.html:12962 |
-| `update-check-status` | frontend/index.html:12971 |
-| `update-install-version` | frontend/index.html:13055 |
-| `update-show-versions` | frontend/index.html:13053 |
-| `update-version-row` | frontend/index.html:13052 |
-| `update-version-select` | frontend/index.html:13054 |
-| `update-version-status` | frontend/index.html:13057 |
-| `usage-box` | frontend/index.html:11338 |
-| `usage-clear` | frontend/index.html:11359 |
-| `usage-help` | frontend/index.html:11348 |
-| `usage-most` | frontend/index.html:11356 |
-| `usage-unused` | frontend/index.html:11357 |
-| `utility-model-apply` | frontend/index.html:9002 |
-| `utility-model-help` | frontend/index.html:9015 |
-| `utility-model-note` | frontend/index.html:9007 |
-| `utility-model-select` | frontend/index.html:9001 |
-| `vision-model-apply` | frontend/index.html:9039 |
-| `vision-model-help` | frontend/index.html:9043 |
-| `vision-model-note` | frontend/index.html:9041 |
-| `vision-model-select` | frontend/index.html:9038 |
-| `voice-model-select` | frontend/index.html:11023 |
-| `voice-model-wrap` | frontend/index.html:11021 |
-| `wb-add-image` | frontend/index.html:6814 |
-| `wb-add-note` | frontend/index.html:6555 |
-| `wb-add-sticker` | frontend/index.html:6821 |
-| `wb-add-to-note` | frontend/index.html:6524 |
-| `wb-align-bottom` | frontend/index.html:7076 |
-| `wb-align-hcenter` | frontend/index.html:7072 |
-| `wb-align-left` | frontend/index.html:7071 |
-| `wb-align-right` | frontend/index.html:7073 |
-| `wb-align-top` | frontend/index.html:7074 |
-| `wb-align-vcenter` | frontend/index.html:7075 |
-| `wb-announcer` | frontend/index.html:6184 |
-| `wb-arrange-menu` | frontend/index.html:6343 |
-| `wb-arrow-style` | frontend/index.html:6969 |
-| `wb-back-to-boards` | frontend/index.html:6269 |
-| `wb-bg-color-picker` | frontend/index.html:6393 |
-| `wb-bg-color-reset` | frontend/index.html:6394 |
-| `wb-bg-image` | frontend/index.html:6395 |
-| `wb-bg-image-input` | frontend/index.html:6463 |
-| `wb-board-kind` | frontend/index.html:6501 |
-| `wb-board-kind-label` | frontend/index.html:6501 |
-| `wb-board-menu` | frontend/index.html:6467 |
-| `wb-board-select` | frontend/index.html:6271 |
+| `tour-back` | frontend/index.html:13802 |
+| `tour-block` | frontend/index.html:13780 |
+| `tour-block-bottom` | frontend/index.html:13783 |
+| `tour-block-left` | frontend/index.html:13784 |
+| `tour-block-right` | frontend/index.html:13782 |
+| `tour-block-top` | frontend/index.html:13781 |
+| `tour-card` | frontend/index.html:13787 |
+| `tour-close` | frontend/index.html:13793 |
+| `tour-count` | frontend/index.html:13792 |
+| `tour-next` | frontend/index.html:13803 |
+| `tour-replay-buttons` | frontend/index.html:12740 |
+| `tour-section` | frontend/index.html:13790 |
+| `tour-skip` | frontend/index.html:13800 |
+| `tour-spot` | frontend/index.html:13786 |
+| `tour-text` | frontend/index.html:13798 |
+| `tour-title` | frontend/index.html:13797 |
+| `ui-motion-row` | frontend/index.html:10598 |
+| `ui-motion-toggle` | frontend/index.html:10599 |
+| `undo-history-menu` | frontend/index.html:8196 |
+| `update-apply-now` | frontend/index.html:12972 |
+| `update-channel-help` | frontend/index.html:13023 |
+| `update-check-now` | frontend/index.html:12965 |
+| `update-check-row` | frontend/index.html:12964 |
+| `update-check-status` | frontend/index.html:12973 |
+| `update-install-version` | frontend/index.html:13057 |
+| `update-show-versions` | frontend/index.html:13055 |
+| `update-version-row` | frontend/index.html:13054 |
+| `update-version-select` | frontend/index.html:13056 |
+| `update-version-status` | frontend/index.html:13059 |
+| `usage-box` | frontend/index.html:11340 |
+| `usage-clear` | frontend/index.html:11361 |
+| `usage-help` | frontend/index.html:11350 |
+| `usage-most` | frontend/index.html:11358 |
+| `usage-unused` | frontend/index.html:11359 |
+| `utility-model-apply` | frontend/index.html:9004 |
+| `utility-model-help` | frontend/index.html:9017 |
+| `utility-model-note` | frontend/index.html:9009 |
+| `utility-model-select` | frontend/index.html:9003 |
+| `vision-model-apply` | frontend/index.html:9041 |
+| `vision-model-help` | frontend/index.html:9045 |
+| `vision-model-note` | frontend/index.html:9043 |
+| `vision-model-select` | frontend/index.html:9040 |
+| `voice-model-select` | frontend/index.html:11025 |
+| `voice-model-wrap` | frontend/index.html:11023 |
+| `wb-add-image` | frontend/index.html:6816 |
+| `wb-add-note` | frontend/index.html:6557 |
+| `wb-add-sticker` | frontend/index.html:6823 |
+| `wb-add-to-note` | frontend/index.html:6526 |
+| `wb-align-bottom` | frontend/index.html:7078 |
+| `wb-align-hcenter` | frontend/index.html:7074 |
+| `wb-align-left` | frontend/index.html:7073 |
+| `wb-align-right` | frontend/index.html:7075 |
+| `wb-align-top` | frontend/index.html:7076 |
+| `wb-align-vcenter` | frontend/index.html:7077 |
+| `wb-announcer` | frontend/index.html:6185 |
+| `wb-arrange-menu` | frontend/index.html:6344 |
+| `wb-arrow-style` | frontend/index.html:6971 |
+| `wb-back-to-boards` | frontend/index.html:6270 |
+| `wb-bg-color-picker` | frontend/index.html:6394 |
+| `wb-bg-color-reset` | frontend/index.html:6395 |
+| `wb-bg-image` | frontend/index.html:6396 |
+| `wb-bg-image-input` | frontend/index.html:6464 |
+| `wb-board-kind` | frontend/index.html:6503 |
+| `wb-board-kind-label` | frontend/index.html:6503 |
+| `wb-board-menu` | frontend/index.html:6468 |
+| `wb-board-select` | frontend/index.html:6272 |
 | `wb-boards-generate` | frontend/index.html:6034 |
 | `wb-boards-help` | frontend/index.html:6006 |
 | `wb-boards-import` | frontend/index.html:6035 |
-| `wb-boards-intro` | frontend/index.html:6064 |
+| `wb-boards-intro` | frontend/index.html:6065 |
 | `wb-boards-landing` | frontend/index.html:5924 |
 | `wb-boards-new` | frontend/index.html:6058 |
-| `wb-boards-new-map` | frontend/index.html:6059 |
+| `wb-boards-new-map` | frontend/index.html:6060 |
 | `wb-boards-new-menu` | frontend/index.html:6054 |
-| `wb-canvas-view` | frontend/index.html:6091 |
-| `wb-clear-board` | frontend/index.html:6505 |
-| `wb-context` | frontend/index.html:6960 |
-| `wb-context-menu` | frontend/index.html:7106 |
-| `wb-copy-link` | frontend/index.html:6541 |
-| `wb-copy-style` | frontend/index.html:7113 |
-| `wb-copy-style-row` | frontend/index.html:7110 |
-| `wb-delete-board` | frontend/index.html:6545 |
-| `wb-distribute-h` | frontend/index.html:7079 |
-| `wb-distribute-v` | frontend/index.html:7080 |
-| `wb-dock-toggle` | frontend/index.html:6448 |
-| `wb-edit-menu` | frontend/index.html:6314 |
-| `wb-empty-hint` | frontend/index.html:6229 |
-| `wb-empty-hint-actions` | frontend/index.html:6243 |
-| `wb-empty-hint-close` | frontend/index.html:6240 |
-| `wb-empty-hint-dismiss` | frontend/index.html:6247 |
-| `wb-empty-hint-keys` | frontend/index.html:6244 |
-| `wb-export` | frontend/index.html:6488 |
-| `wb-extract-notes` | frontend/index.html:7144 |
-| `wb-fill-color` | frontend/index.html:6981 |
-| `wb-fill-on` | frontend/index.html:6982 |
-| `wb-fill-opacity` | frontend/index.html:7123 |
-| `wb-fill-opacity-row` | frontend/index.html:7123 |
-| `wb-fmt-align` | frontend/index.html:7591 |
-| `wb-fmt-alpha` | frontend/index.html:7546 |
-| `wb-fmt-alpha-out` | frontend/index.html:7546 |
-| `wb-fmt-angle` | frontend/index.html:7612 |
-| `wb-fmt-bold` | frontend/index.html:7586 |
-| `wb-fmt-copy-style` | frontend/index.html:7575 |
-| `wb-fmt-dash` | frontend/index.html:7536 |
-| `wb-fmt-endcap` | frontend/index.html:7568 |
-| `wb-fmt-fill` | frontend/index.html:7543 |
-| `wb-fmt-fill-on` | frontend/index.html:7543 |
-| `wb-fmt-flip-h` | frontend/index.html:7615 |
-| `wb-fmt-flip-v` | frontend/index.html:7616 |
-| `wb-fmt-h` | frontend/index.html:7610 |
-| `wb-fmt-ink` | frontend/index.html:7583 |
-| `wb-fmt-italic` | frontend/index.html:7587 |
-| `wb-fmt-jumps` | frontend/index.html:7557 |
-| `wb-fmt-label-t` | frontend/index.html:7571 |
-| `wb-fmt-paste-style` | frontend/index.html:7576 |
-| `wb-fmt-route` | frontend/index.html:7550 |
-| `wb-fmt-save-style` | frontend/index.html:7577 |
-| `wb-fmt-shadow` | frontend/index.html:7548 |
-| `wb-fmt-size` | frontend/index.html:7582 |
-| `wb-fmt-startcap` | frontend/index.html:7565 |
-| `wb-fmt-stroke` | frontend/index.html:7533 |
-| `wb-fmt-valign` | frontend/index.html:7598 |
-| `wb-fmt-w` | frontend/index.html:7609 |
-| `wb-fmt-width` | frontend/index.html:7534 |
-| `wb-fmt-x` | frontend/index.html:7607 |
-| `wb-fmt-y` | frontend/index.html:7608 |
-| `wb-format` | frontend/index.html:7519 |
-| `wb-format-body` | frontend/index.html:7529 |
-| `wb-format-close` | frontend/index.html:7522 |
-| `wb-format-commands` | frontend/index.html:7619 |
-| `wb-format-empty` | frontend/index.html:7530 |
-| `wb-format-none` | frontend/index.html:7531 |
-| `wb-format-tab-arrange` | frontend/index.html:7527 |
-| `wb-format-tab-style` | frontend/index.html:7525 |
-| `wb-format-tab-text` | frontend/index.html:7526 |
-| `wb-format-tabs` | frontend/index.html:7524 |
-| `wb-format-title` | frontend/index.html:7521 |
-| `wb-fullscreen` | frontend/index.html:6556 |
-| `wb-gestures` | frontend/index.html:6104 |
-| `wb-gestures-dismiss` | frontend/index.html:6109 |
-| `wb-grid-select` | frontend/index.html:6400 |
-| `wb-guide-color-center` | frontend/index.html:7139 |
-| `wb-guide-color-edge` | frontend/index.html:7138 |
-| `wb-guide-color-spacing` | frontend/index.html:7140 |
-| `wb-help-about` | frontend/index.html:13386 |
-| `wb-help-btn` | frontend/index.html:6550 |
-| `wb-help-card` | frontend/index.html:13375 |
-| `wb-help-close` | frontend/index.html:13382 |
-| `wb-help-none` | frontend/index.html:13397 |
-| `wb-help-overlay` | frontend/index.html:13373 |
-| `wb-help-search` | frontend/index.html:13393 |
-| `wb-help-sections` | frontend/index.html:13396 |
-| `wb-help-title` | frontend/index.html:13377 |
-| `wb-history-bar` | frontend/index.html:6910 |
-| `wb-history-end` | frontend/index.html:6916 |
-| `wb-history-restore` | frontend/index.html:6914 |
-| `wb-history-restore-selection` | frontend/index.html:6915 |
-| `wb-history-slider` | frontend/index.html:6912 |
-| `wb-history-when` | frontend/index.html:6913 |
-| `wb-html-layer` | frontend/index.html:6205 |
-| `wb-image-file-input` | frontend/index.html:6824 |
+| `wb-boards-new-template` | frontend/index.html:6059 |
+| `wb-canvas-view` | frontend/index.html:6092 |
+| `wb-clear-board` | frontend/index.html:6507 |
+| `wb-context` | frontend/index.html:6962 |
+| `wb-context-menu` | frontend/index.html:7108 |
+| `wb-copy-link` | frontend/index.html:6543 |
+| `wb-copy-style` | frontend/index.html:7115 |
+| `wb-copy-style-row` | frontend/index.html:7112 |
+| `wb-delete-board` | frontend/index.html:6547 |
+| `wb-distribute-h` | frontend/index.html:7081 |
+| `wb-distribute-v` | frontend/index.html:7082 |
+| `wb-dock-toggle` | frontend/index.html:6449 |
+| `wb-edit-menu` | frontend/index.html:6315 |
+| `wb-empty-hint` | frontend/index.html:6230 |
+| `wb-empty-hint-actions` | frontend/index.html:6244 |
+| `wb-empty-hint-close` | frontend/index.html:6241 |
+| `wb-empty-hint-dismiss` | frontend/index.html:6248 |
+| `wb-empty-hint-keys` | frontend/index.html:6245 |
+| `wb-export` | frontend/index.html:6490 |
+| `wb-extract-notes` | frontend/index.html:7146 |
+| `wb-fill-color` | frontend/index.html:6983 |
+| `wb-fill-on` | frontend/index.html:6984 |
+| `wb-fill-opacity` | frontend/index.html:7125 |
+| `wb-fill-opacity-row` | frontend/index.html:7125 |
+| `wb-fmt-align` | frontend/index.html:7593 |
+| `wb-fmt-alpha` | frontend/index.html:7548 |
+| `wb-fmt-alpha-out` | frontend/index.html:7548 |
+| `wb-fmt-angle` | frontend/index.html:7614 |
+| `wb-fmt-bold` | frontend/index.html:7588 |
+| `wb-fmt-copy-style` | frontend/index.html:7577 |
+| `wb-fmt-dash` | frontend/index.html:7538 |
+| `wb-fmt-endcap` | frontend/index.html:7570 |
+| `wb-fmt-fill` | frontend/index.html:7545 |
+| `wb-fmt-fill-on` | frontend/index.html:7545 |
+| `wb-fmt-flip-h` | frontend/index.html:7617 |
+| `wb-fmt-flip-v` | frontend/index.html:7618 |
+| `wb-fmt-h` | frontend/index.html:7612 |
+| `wb-fmt-ink` | frontend/index.html:7585 |
+| `wb-fmt-italic` | frontend/index.html:7589 |
+| `wb-fmt-jumps` | frontend/index.html:7559 |
+| `wb-fmt-label-t` | frontend/index.html:7573 |
+| `wb-fmt-paste-style` | frontend/index.html:7578 |
+| `wb-fmt-route` | frontend/index.html:7552 |
+| `wb-fmt-save-style` | frontend/index.html:7579 |
+| `wb-fmt-shadow` | frontend/index.html:7550 |
+| `wb-fmt-size` | frontend/index.html:7584 |
+| `wb-fmt-startcap` | frontend/index.html:7567 |
+| `wb-fmt-stroke` | frontend/index.html:7535 |
+| `wb-fmt-valign` | frontend/index.html:7600 |
+| `wb-fmt-w` | frontend/index.html:7611 |
+| `wb-fmt-width` | frontend/index.html:7536 |
+| `wb-fmt-x` | frontend/index.html:7609 |
+| `wb-fmt-y` | frontend/index.html:7610 |
+| `wb-format` | frontend/index.html:7521 |
+| `wb-format-body` | frontend/index.html:7531 |
+| `wb-format-close` | frontend/index.html:7524 |
+| `wb-format-commands` | frontend/index.html:7621 |
+| `wb-format-empty` | frontend/index.html:7532 |
+| `wb-format-none` | frontend/index.html:7533 |
+| `wb-format-tab-arrange` | frontend/index.html:7529 |
+| `wb-format-tab-style` | frontend/index.html:7527 |
+| `wb-format-tab-text` | frontend/index.html:7528 |
+| `wb-format-tabs` | frontend/index.html:7526 |
+| `wb-format-title` | frontend/index.html:7523 |
+| `wb-fullscreen` | frontend/index.html:6558 |
+| `wb-gestures` | frontend/index.html:6105 |
+| `wb-gestures-dismiss` | frontend/index.html:6110 |
+| `wb-grid-select` | frontend/index.html:6401 |
+| `wb-guide-color-center` | frontend/index.html:7141 |
+| `wb-guide-color-edge` | frontend/index.html:7140 |
+| `wb-guide-color-spacing` | frontend/index.html:7142 |
+| `wb-help-about` | frontend/index.html:13388 |
+| `wb-help-btn` | frontend/index.html:6552 |
+| `wb-help-card` | frontend/index.html:13377 |
+| `wb-help-close` | frontend/index.html:13384 |
+| `wb-help-none` | frontend/index.html:13399 |
+| `wb-help-overlay` | frontend/index.html:13375 |
+| `wb-help-search` | frontend/index.html:13395 |
+| `wb-help-sections` | frontend/index.html:13398 |
+| `wb-help-title` | frontend/index.html:13379 |
+| `wb-history-bar` | frontend/index.html:6912 |
+| `wb-history-end` | frontend/index.html:6918 |
+| `wb-history-restore` | frontend/index.html:6916 |
+| `wb-history-restore-selection` | frontend/index.html:6917 |
+| `wb-history-slider` | frontend/index.html:6914 |
+| `wb-history-when` | frontend/index.html:6915 |
+| `wb-html-layer` | frontend/index.html:6206 |
+| `wb-image-file-input` | frontend/index.html:6826 |
 | `wb-import-about` | frontend/index.html:1020 |
 | `wb-import-choose` | frontend/index.html:1024 |
 | `wb-import-dialog` | frontend/index.html:1013 |
@@ -7561,182 +7573,182 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `wb-import-map-file` | frontend/index.html:6002 |
 | `wb-import-text` | frontend/index.html:1021 |
 | `wb-import-title` | frontend/index.html:1015 |
-| `wb-insert-menu` | frontend/index.html:6291 |
-| `wb-layers-tree` | frontend/index.html:7488 |
-| `wb-lib-import` | frontend/index.html:7481 |
-| `wb-lib-keys` | frontend/index.html:7480 |
-| `wb-lib-list` | frontend/index.html:7479 |
-| `wb-lib-more` | frontend/index.html:7470 |
-| `wb-lib-search` | frontend/index.html:7476 |
-| `wb-lib-status` | frontend/index.html:7478 |
-| `wb-library-list` | frontend/index.html:7485 |
-| `wb-lines-group` | frontend/index.html:6200 |
-| `wb-link-cut` | frontend/index.html:7417 |
-| `wb-link-label` | frontend/index.html:7416 |
-| `wb-link-reverse` | frontend/index.html:7415 |
-| `wb-map-add-root` | frontend/index.html:6648 |
-| `wb-map-add-sticker` | frontend/index.html:6654 |
-| `wb-map-align` | frontend/index.html:7221 |
-| `wb-map-arrow` | frontend/index.html:6193 |
-| `wb-map-bold` | frontend/index.html:7215 |
-| `wb-map-chip` | frontend/index.html:6281 |
-| `wb-map-core` | frontend/index.html:7259 |
-| `wb-map-edge-arrow` | frontend/index.html:7351 |
-| `wb-map-edge-dashed` | frontend/index.html:7345 |
-| `wb-map-edge-shape` | frontend/index.html:7336 |
-| `wb-map-edge-width` | frontend/index.html:7328 |
-| `wb-map-effect` | frontend/index.html:7303 |
-| `wb-map-empty` | frontend/index.html:6175 |
-| `wb-map-empty-add` | frontend/index.html:6179 |
-| `wb-map-expand-all` | frontend/index.html:6436 |
-| `wb-map-fill` | frontend/index.html:7290 |
-| `wb-map-filter` | frontend/index.html:6125 |
-| `wb-map-filter-clear` | frontend/index.html:6128 |
-| `wb-map-filter-item` | frontend/index.html:6437 |
-| `wb-map-filter-label` | frontend/index.html:6127 |
-| `wb-map-first-hint` | frontend/index.html:6162 |
-| `wb-map-focus` | frontend/index.html:6115 |
-| `wb-map-focus-clear` | frontend/index.html:6121 |
-| `wb-map-focus-depth` | frontend/index.html:6118 |
-| `wb-map-focus-here` | frontend/index.html:6651 |
-| `wb-map-focus-label` | frontend/index.html:6117 |
-| `wb-map-focus-less` | frontend/index.html:6119 |
-| `wb-map-focus-more` | frontend/index.html:6120 |
-| `wb-map-italic` | frontend/index.html:7216 |
-| `wb-map-layout` | frontend/index.html:6725 |
-| `wb-map-legend` | frontend/index.html:6132 |
-| `wb-map-line-menu` | frontend/index.html:7324 |
-| `wb-map-link-radial` | frontend/index.html:7414 |
-| `wb-map-numbered` | frontend/index.html:6434 |
-| `wb-map-perspective` | frontend/index.html:6419 |
-| `wb-map-picture-input` | frontend/index.html:6832 |
-| `wb-map-places-help` | frontend/index.html:6672 |
-| `wb-map-radial` | frontend/index.html:7388 |
-| `wb-map-reset` | frontend/index.html:7362 |
-| `wb-map-shape` | frontend/index.html:7264 |
-| `wb-map-shape-menu` | frontend/index.html:7250 |
-| `wb-map-spine` | frontend/index.html:7278 |
-| `wb-map-stats-item` | frontend/index.html:6438 |
-| `wb-map-strip` | frontend/index.html:7190 |
-| `wb-map-strip-color` | frontend/index.html:7191 |
-| `wb-map-strip-icon` | frontend/index.html:7230 |
-| `wb-map-study` | frontend/index.html:6537 |
-| `wb-map-template-row` | frontend/index.html:6146 |
-| `wb-map-templates` | frontend/index.html:6140 |
-| `wb-map-templates-dismiss` | frontend/index.html:6144 |
-| `wb-map-templates-title` | frontend/index.html:6142 |
-| `wb-map-text-menu` | frontend/index.html:7210 |
-| `wb-map-text-size` | frontend/index.html:7201 |
-| `wb-map-theme-item` | frontend/index.html:6435 |
-| `wb-map-tidy` | frontend/index.html:6733 |
-| `wb-map-to-doc` | frontend/index.html:6531 |
-| `wb-mapmulti-bold` | frontend/index.html:7096 |
-| `wb-mapmulti-color` | frontend/index.html:7095 |
-| `wb-mapmulti-fold` | frontend/index.html:7098 |
-| `wb-mapmulti-summary` | frontend/index.html:7099 |
-| `wb-mapmulti-task` | frontend/index.html:7097 |
-| `wb-mindmap-radial` | frontend/index.html:7149 |
-| `wb-mindmap-tree` | frontend/index.html:7148 |
-| `wb-multi-group` | frontend/index.html:7067 |
-| `wb-multi-ungroup` | frontend/index.html:7068 |
-| `wb-navigator` | frontend/index.html:7426 |
-| `wb-navigator-close` | frontend/index.html:7430 |
-| `wb-navigator-empty` | frontend/index.html:7433 |
-| `wb-navigator-fit` | frontend/index.html:7429 |
-| `wb-navigator-map` | frontend/index.html:7432 |
-| `wb-navigator-toggle` | frontend/index.html:6285 |
-| `wb-new-board` | frontend/index.html:6481 |
-| `wb-outline-tree` | frontend/index.html:7510 |
-| `wb-overlay-layer` | frontend/index.html:6217 |
-| `wb-overlay-zoom-group` | frontend/index.html:6218 |
-| `wb-pages-keys` | frontend/index.html:7493 |
-| `wb-pages-list` | frontend/index.html:7492 |
-| `wb-panel-library` | frontend/index.html:6443 |
-| `wb-panel-outline` | frontend/index.html:6444 |
-| `wb-panel-overview` | frontend/index.html:6442 |
-| `wb-panel-props` | frontend/index.html:6441 |
-| `wb-panel-search` | frontend/index.html:6445 |
-| `wb-paste-style` | frontend/index.html:7114 |
-| `wb-present-bar` | frontend/index.html:6918 |
-| `wb-present-count` | frontend/index.html:6920 |
-| `wb-present-end` | frontend/index.html:6925 |
-| `wb-present-next` | frontend/index.html:6921 |
-| `wb-present-prev` | frontend/index.html:6919 |
-| `wb-prop-align` | frontend/index.html:7055 |
-| `wb-prop-bg` | frontend/index.html:7133 |
-| `wb-prop-bg-none` | frontend/index.html:7133 |
-| `wb-prop-bold` | frontend/index.html:7053 |
-| `wb-prop-border` | frontend/index.html:7134 |
-| `wb-prop-border-none` | frontend/index.html:7134 |
-| `wb-prop-bullets` | frontend/index.html:7121 |
-| `wb-prop-bullets-row` | frontend/index.html:7119 |
-| `wb-prop-color` | frontend/index.html:6987 |
-| `wb-prop-dash` | frontend/index.html:7032 |
-| `wb-prop-endcap` | frontend/index.html:7017 |
-| `wb-prop-fontsize` | frontend/index.html:7051 |
-| `wb-prop-italic` | frontend/index.html:7054 |
-| `wb-prop-md` | frontend/index.html:7118 |
-| `wb-prop-md-row` | frontend/index.html:7118 |
-| `wb-prop-nostroke` | frontend/index.html:7117 |
-| `wb-prop-nostroke-row` | frontend/index.html:7117 |
-| `wb-prop-route` | frontend/index.html:6997 |
-| `wb-prop-shapefill` | frontend/index.html:7039 |
-| `wb-prop-shapefill-on` | frontend/index.html:7041 |
-| `wb-prop-startcap` | frontend/index.html:7004 |
-| `wb-prop-width` | frontend/index.html:6990 |
-| `wb-radial-child` | frontend/index.html:7389 |
-| `wb-radial-collapse` | frontend/index.html:7391 |
-| `wb-radial-connect` | frontend/index.html:7393 |
-| `wb-radial-delete` | frontend/index.html:7392 |
-| `wb-radial-more` | frontend/index.html:7394 |
-| `wb-radial-sibling` | frontend/index.html:7390 |
-| `wb-rail-ink` | frontend/index.html:6881 |
-| `wb-redo` | frontend/index.html:6855 |
-| `wb-rename-board` | frontend/index.html:6480 |
-| `wb-same-height` | frontend/index.html:7084 |
-| `wb-same-width` | frontend/index.html:7083 |
-| `wb-search-bar` | frontend/index.html:7441 |
-| `wb-search-close` | frontend/index.html:7447 |
-| `wb-search-count` | frontend/index.html:7444 |
-| `wb-search-input` | frontend/index.html:7443 |
-| `wb-search-next` | frontend/index.html:7446 |
-| `wb-search-prev` | frontend/index.html:7445 |
-| `wb-search-toggle` | frontend/index.html:6284 |
-| `wb-selbar-back` | frontend/index.html:7087 |
-| `wb-selbar-delete` | frontend/index.html:7103 |
-| `wb-selbar-duplicate` | frontend/index.html:7102 |
-| `wb-selbar-export` | frontend/index.html:7153 |
-| `wb-selbar-forward` | frontend/index.html:7088 |
-| `wb-shape-menu` | frontend/index.html:6768 |
-| `wb-shape-picker` | frontend/index.html:6763 |
-| `wb-shape-toggle` | frontend/index.html:6764 |
-| `wb-shape-toggle-icon` | frontend/index.html:6765 |
-| `wb-shapes-group` | frontend/index.html:6199 |
-| `wb-side-map-expand` | frontend/index.html:7502 |
-| `wb-side-map-facts` | frontend/index.html:7500 |
-| `wb-side-map-look` | frontend/index.html:7501 |
-| `wb-side-map-tidy` | frontend/index.html:7503 |
-| `wb-side-tab-layers` | frontend/index.html:7462 |
-| `wb-side-tab-library` | frontend/index.html:7460 |
-| `wb-side-tab-map` | frontend/index.html:7464 |
-| `wb-side-tab-notes` | frontend/index.html:7461 |
-| `wb-side-tab-outline` | frontend/index.html:7465 |
-| `wb-side-tab-pages` | frontend/index.html:7463 |
-| `wb-sidebar` | frontend/index.html:7458 |
-| `wb-sidebar-close` | frontend/index.html:7471 |
-| `wb-sidebar-panel` | frontend/index.html:7467 |
-| `wb-sidebar-title` | frontend/index.html:7469 |
-| `wb-snap-toggle` | frontend/index.html:6409 |
-| `wb-stroke-none` | frontend/index.html:7124 |
-| `wb-stroke-none-row` | frontend/index.html:7124 |
-| `wb-stroke-style` | frontend/index.html:6975 |
-| `wb-stroke-width` | frontend/index.html:6967 |
-| `wb-stroke-width-badge` | frontend/index.html:7158 |
-| `wb-strokes-group` | frontend/index.html:6201 |
-| `wb-study-knew` | frontend/index.html:6923 |
-| `wb-study-missed` | frontend/index.html:6924 |
-| `wb-study-show` | frontend/index.html:6922 |
-| `wb-svg-layer` | frontend/index.html:6187 |
+| `wb-insert-menu` | frontend/index.html:6292 |
+| `wb-layers-tree` | frontend/index.html:7490 |
+| `wb-lib-import` | frontend/index.html:7483 |
+| `wb-lib-keys` | frontend/index.html:7482 |
+| `wb-lib-list` | frontend/index.html:7481 |
+| `wb-lib-more` | frontend/index.html:7472 |
+| `wb-lib-search` | frontend/index.html:7478 |
+| `wb-lib-status` | frontend/index.html:7480 |
+| `wb-library-list` | frontend/index.html:7487 |
+| `wb-lines-group` | frontend/index.html:6201 |
+| `wb-link-cut` | frontend/index.html:7419 |
+| `wb-link-label` | frontend/index.html:7418 |
+| `wb-link-reverse` | frontend/index.html:7417 |
+| `wb-map-add-root` | frontend/index.html:6650 |
+| `wb-map-add-sticker` | frontend/index.html:6656 |
+| `wb-map-align` | frontend/index.html:7223 |
+| `wb-map-arrow` | frontend/index.html:6194 |
+| `wb-map-bold` | frontend/index.html:7217 |
+| `wb-map-chip` | frontend/index.html:6282 |
+| `wb-map-core` | frontend/index.html:7261 |
+| `wb-map-edge-arrow` | frontend/index.html:7353 |
+| `wb-map-edge-dashed` | frontend/index.html:7347 |
+| `wb-map-edge-shape` | frontend/index.html:7338 |
+| `wb-map-edge-width` | frontend/index.html:7330 |
+| `wb-map-effect` | frontend/index.html:7305 |
+| `wb-map-empty` | frontend/index.html:6176 |
+| `wb-map-empty-add` | frontend/index.html:6180 |
+| `wb-map-expand-all` | frontend/index.html:6437 |
+| `wb-map-fill` | frontend/index.html:7292 |
+| `wb-map-filter` | frontend/index.html:6126 |
+| `wb-map-filter-clear` | frontend/index.html:6129 |
+| `wb-map-filter-item` | frontend/index.html:6438 |
+| `wb-map-filter-label` | frontend/index.html:6128 |
+| `wb-map-first-hint` | frontend/index.html:6163 |
+| `wb-map-focus` | frontend/index.html:6116 |
+| `wb-map-focus-clear` | frontend/index.html:6122 |
+| `wb-map-focus-depth` | frontend/index.html:6119 |
+| `wb-map-focus-here` | frontend/index.html:6653 |
+| `wb-map-focus-label` | frontend/index.html:6118 |
+| `wb-map-focus-less` | frontend/index.html:6120 |
+| `wb-map-focus-more` | frontend/index.html:6121 |
+| `wb-map-italic` | frontend/index.html:7218 |
+| `wb-map-layout` | frontend/index.html:6727 |
+| `wb-map-legend` | frontend/index.html:6133 |
+| `wb-map-line-menu` | frontend/index.html:7326 |
+| `wb-map-link-radial` | frontend/index.html:7416 |
+| `wb-map-numbered` | frontend/index.html:6435 |
+| `wb-map-perspective` | frontend/index.html:6420 |
+| `wb-map-picture-input` | frontend/index.html:6834 |
+| `wb-map-places-help` | frontend/index.html:6674 |
+| `wb-map-radial` | frontend/index.html:7390 |
+| `wb-map-reset` | frontend/index.html:7364 |
+| `wb-map-shape` | frontend/index.html:7266 |
+| `wb-map-shape-menu` | frontend/index.html:7252 |
+| `wb-map-spine` | frontend/index.html:7280 |
+| `wb-map-stats-item` | frontend/index.html:6439 |
+| `wb-map-strip` | frontend/index.html:7192 |
+| `wb-map-strip-color` | frontend/index.html:7193 |
+| `wb-map-strip-icon` | frontend/index.html:7232 |
+| `wb-map-study` | frontend/index.html:6539 |
+| `wb-map-template-row` | frontend/index.html:6147 |
+| `wb-map-templates` | frontend/index.html:6141 |
+| `wb-map-templates-dismiss` | frontend/index.html:6145 |
+| `wb-map-templates-title` | frontend/index.html:6143 |
+| `wb-map-text-menu` | frontend/index.html:7212 |
+| `wb-map-text-size` | frontend/index.html:7203 |
+| `wb-map-theme-item` | frontend/index.html:6436 |
+| `wb-map-tidy` | frontend/index.html:6735 |
+| `wb-map-to-doc` | frontend/index.html:6533 |
+| `wb-mapmulti-bold` | frontend/index.html:7098 |
+| `wb-mapmulti-color` | frontend/index.html:7097 |
+| `wb-mapmulti-fold` | frontend/index.html:7100 |
+| `wb-mapmulti-summary` | frontend/index.html:7101 |
+| `wb-mapmulti-task` | frontend/index.html:7099 |
+| `wb-mindmap-radial` | frontend/index.html:7151 |
+| `wb-mindmap-tree` | frontend/index.html:7150 |
+| `wb-multi-group` | frontend/index.html:7069 |
+| `wb-multi-ungroup` | frontend/index.html:7070 |
+| `wb-navigator` | frontend/index.html:7428 |
+| `wb-navigator-close` | frontend/index.html:7432 |
+| `wb-navigator-empty` | frontend/index.html:7435 |
+| `wb-navigator-fit` | frontend/index.html:7431 |
+| `wb-navigator-map` | frontend/index.html:7434 |
+| `wb-navigator-toggle` | frontend/index.html:6286 |
+| `wb-new-board` | frontend/index.html:6482 |
+| `wb-outline-tree` | frontend/index.html:7512 |
+| `wb-overlay-layer` | frontend/index.html:6218 |
+| `wb-overlay-zoom-group` | frontend/index.html:6219 |
+| `wb-pages-keys` | frontend/index.html:7495 |
+| `wb-pages-list` | frontend/index.html:7494 |
+| `wb-panel-library` | frontend/index.html:6444 |
+| `wb-panel-outline` | frontend/index.html:6445 |
+| `wb-panel-overview` | frontend/index.html:6443 |
+| `wb-panel-props` | frontend/index.html:6442 |
+| `wb-panel-search` | frontend/index.html:6446 |
+| `wb-paste-style` | frontend/index.html:7116 |
+| `wb-present-bar` | frontend/index.html:6920 |
+| `wb-present-count` | frontend/index.html:6922 |
+| `wb-present-end` | frontend/index.html:6927 |
+| `wb-present-next` | frontend/index.html:6923 |
+| `wb-present-prev` | frontend/index.html:6921 |
+| `wb-prop-align` | frontend/index.html:7057 |
+| `wb-prop-bg` | frontend/index.html:7135 |
+| `wb-prop-bg-none` | frontend/index.html:7135 |
+| `wb-prop-bold` | frontend/index.html:7055 |
+| `wb-prop-border` | frontend/index.html:7136 |
+| `wb-prop-border-none` | frontend/index.html:7136 |
+| `wb-prop-bullets` | frontend/index.html:7123 |
+| `wb-prop-bullets-row` | frontend/index.html:7121 |
+| `wb-prop-color` | frontend/index.html:6989 |
+| `wb-prop-dash` | frontend/index.html:7034 |
+| `wb-prop-endcap` | frontend/index.html:7019 |
+| `wb-prop-fontsize` | frontend/index.html:7053 |
+| `wb-prop-italic` | frontend/index.html:7056 |
+| `wb-prop-md` | frontend/index.html:7120 |
+| `wb-prop-md-row` | frontend/index.html:7120 |
+| `wb-prop-nostroke` | frontend/index.html:7119 |
+| `wb-prop-nostroke-row` | frontend/index.html:7119 |
+| `wb-prop-route` | frontend/index.html:6999 |
+| `wb-prop-shapefill` | frontend/index.html:7041 |
+| `wb-prop-shapefill-on` | frontend/index.html:7043 |
+| `wb-prop-startcap` | frontend/index.html:7006 |
+| `wb-prop-width` | frontend/index.html:6992 |
+| `wb-radial-child` | frontend/index.html:7391 |
+| `wb-radial-collapse` | frontend/index.html:7393 |
+| `wb-radial-connect` | frontend/index.html:7395 |
+| `wb-radial-delete` | frontend/index.html:7394 |
+| `wb-radial-more` | frontend/index.html:7396 |
+| `wb-radial-sibling` | frontend/index.html:7392 |
+| `wb-rail-ink` | frontend/index.html:6883 |
+| `wb-redo` | frontend/index.html:6857 |
+| `wb-rename-board` | frontend/index.html:6481 |
+| `wb-same-height` | frontend/index.html:7086 |
+| `wb-same-width` | frontend/index.html:7085 |
+| `wb-search-bar` | frontend/index.html:7443 |
+| `wb-search-close` | frontend/index.html:7449 |
+| `wb-search-count` | frontend/index.html:7446 |
+| `wb-search-input` | frontend/index.html:7445 |
+| `wb-search-next` | frontend/index.html:7448 |
+| `wb-search-prev` | frontend/index.html:7447 |
+| `wb-search-toggle` | frontend/index.html:6285 |
+| `wb-selbar-back` | frontend/index.html:7089 |
+| `wb-selbar-delete` | frontend/index.html:7105 |
+| `wb-selbar-duplicate` | frontend/index.html:7104 |
+| `wb-selbar-export` | frontend/index.html:7155 |
+| `wb-selbar-forward` | frontend/index.html:7090 |
+| `wb-shape-menu` | frontend/index.html:6770 |
+| `wb-shape-picker` | frontend/index.html:6765 |
+| `wb-shape-toggle` | frontend/index.html:6766 |
+| `wb-shape-toggle-icon` | frontend/index.html:6767 |
+| `wb-shapes-group` | frontend/index.html:6200 |
+| `wb-side-map-expand` | frontend/index.html:7504 |
+| `wb-side-map-facts` | frontend/index.html:7502 |
+| `wb-side-map-look` | frontend/index.html:7503 |
+| `wb-side-map-tidy` | frontend/index.html:7505 |
+| `wb-side-tab-layers` | frontend/index.html:7464 |
+| `wb-side-tab-library` | frontend/index.html:7462 |
+| `wb-side-tab-map` | frontend/index.html:7466 |
+| `wb-side-tab-notes` | frontend/index.html:7463 |
+| `wb-side-tab-outline` | frontend/index.html:7467 |
+| `wb-side-tab-pages` | frontend/index.html:7465 |
+| `wb-sidebar` | frontend/index.html:7460 |
+| `wb-sidebar-close` | frontend/index.html:7473 |
+| `wb-sidebar-panel` | frontend/index.html:7469 |
+| `wb-sidebar-title` | frontend/index.html:7471 |
+| `wb-snap-toggle` | frontend/index.html:6410 |
+| `wb-stroke-none` | frontend/index.html:7126 |
+| `wb-stroke-none-row` | frontend/index.html:7126 |
+| `wb-stroke-style` | frontend/index.html:6977 |
+| `wb-stroke-width` | frontend/index.html:6969 |
+| `wb-stroke-width-badge` | frontend/index.html:7160 |
+| `wb-strokes-group` | frontend/index.html:6202 |
+| `wb-study-knew` | frontend/index.html:6925 |
+| `wb-study-missed` | frontend/index.html:6926 |
+| `wb-study-show` | frontend/index.html:6924 |
+| `wb-svg-layer` | frontend/index.html:6188 |
 | `wb-template-create` | frontend/index.html:1054 |
 | `wb-template-dialog` | frontend/index.html:1030 |
 | `wb-template-kind` | frontend/index.html:1042 |
@@ -7744,24 +7756,24 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `wb-template-name` | frontend/index.html:1047 |
 | `wb-template-preview` | frontend/index.html:1050 |
 | `wb-template-title` | frontend/index.html:1033 |
-| `wb-tool-group` | frontend/index.html:6560 |
-| `wb-tools-opener` | frontend/index.html:6895 |
-| `wb-tools-opener-label` | frontend/index.html:6898 |
-| `wb-tools-panel` | frontend/index.html:6559 |
-| `wb-topbar` | frontend/index.html:6267 |
-| `wb-undo` | frontend/index.html:6852 |
-| `wb-view-map-section` | frontend/index.html:6416 |
-| `wb-view-menu` | frontend/index.html:6381 |
-| `wb-zoom-actual` | frontend/index.html:6457 |
-| `wb-zoom-fit` | frontend/index.html:6930 |
-| `wb-zoom-group` | frontend/index.html:6198 |
-| `wb-zoom-in` | frontend/index.html:6931 |
-| `wb-zoom-out` | frontend/index.html:6929 |
-| `web-clip-bookmarklet` | frontend/index.html:12107 |
-| `web-clip-box` | frontend/index.html:12081 |
-| `web-clip-copy` | frontend/index.html:12109 |
-| `web-clip-help` | frontend/index.html:12091 |
-| `web-clip-status` | frontend/index.html:12111 |
+| `wb-tool-group` | frontend/index.html:6562 |
+| `wb-tools-opener` | frontend/index.html:6897 |
+| `wb-tools-opener-label` | frontend/index.html:6900 |
+| `wb-tools-panel` | frontend/index.html:6561 |
+| `wb-topbar` | frontend/index.html:6268 |
+| `wb-undo` | frontend/index.html:6854 |
+| `wb-view-map-section` | frontend/index.html:6417 |
+| `wb-view-menu` | frontend/index.html:6382 |
+| `wb-zoom-actual` | frontend/index.html:6458 |
+| `wb-zoom-fit` | frontend/index.html:6932 |
+| `wb-zoom-group` | frontend/index.html:6199 |
+| `wb-zoom-in` | frontend/index.html:6933 |
+| `wb-zoom-out` | frontend/index.html:6931 |
+| `web-clip-bookmarklet` | frontend/index.html:12109 |
+| `web-clip-box` | frontend/index.html:12083 |
+| `web-clip-copy` | frontend/index.html:12111 |
+| `web-clip-help` | frontend/index.html:12093 |
+| `web-clip-status` | frontend/index.html:12113 |
 | `web-engine-dot` | frontend/index.html:3250 |
 | `web-panel` | frontend/index.html:3241 |
 | `web-panel-close` | frontend/index.html:3255 |
@@ -7785,15 +7797,15 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `web-search-toggle` | frontend/index.html:3034 |
 | `web-status` | frontend/index.html:3270 |
 | `web-stop` | frontend/index.html:3267 |
-| `websearch-help` | frontend/index.html:11379 |
-| `whiteboard-container` | frontend/index.html:6185 |
+| `websearch-help` | frontend/index.html:11381 |
+| `whiteboard-container` | frontend/index.html:6186 |
 | `writing-room` | frontend/index.html:1681 |
 | `writing-room-heading` | frontend/index.html:1696 |
-| `zoom-in` | frontend/index.html:10411 |
-| `zoom-out` | frontend/index.html:10407 |
-| `zoom-reset` | frontend/index.html:10414 |
-| `zoom-slider` | frontend/index.html:10409 |
-| `zoom-value` | frontend/index.html:10413 |
+| `zoom-in` | frontend/index.html:10413 |
+| `zoom-out` | frontend/index.html:10409 |
+| `zoom-reset` | frontend/index.html:10416 |
+| `zoom-slider` | frontend/index.html:10411 |
+| `zoom-value` | frontend/index.html:10415 |
 
 ## CSS sections (486)
 
@@ -7805,9 +7817,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | "how are these connected?" | frontend/css/02-chat-graph.css:4379 |
 | 08-consistency.css - one recipe per repeated shape | frontend/css/08-consistency.css:1 |
 | 1. One menu row | frontend/css/08-consistency.css:24 |
-| 1. touch targets, one step, one block | frontend/css/07-whiteboard-misc.css:9647 |
+| 1. touch targets, one step, one block | frontend/css/07-whiteboard-misc.css:9653 |
 | 2. A disclosure inside a card is a header, not a button | frontend/css/08-consistency.css:301 |
-| 2. the safe area | frontend/css/07-whiteboard-misc.css:9686 |
+| 2. the safe area | frontend/css/07-whiteboard-misc.css:9692 |
 | 3. A dock is one bar, and its controls belong to it | frontend/css/08-consistency.css:455 |
 | 4. One gap between an icon and the label it leads | frontend/css/08-consistency.css:873 |
 | 5. The Write-with-AI footers are one row, primary on the right | frontend/css/08-consistency.css:1191 |
@@ -7819,7 +7831,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | A chip's x: a round target inset evenly (INBOX 403) | frontend/css/08-consistency.css:4775 |
 | A dialog's head: title, its '?', icon-only actions, Close last | frontend/css/08-consistency.css:9114 |
 | A diff of two versions of the same text (DOCUMENTS_PLAN Phase 5 items 2, 3) | frontend/css/09-editor.css:633 |
-| A member of a group selection shows that it is selected, not how to | frontend/css/07-whiteboard-misc.css:10749 |
+| A member of a group selection shows that it is selected, not how to | frontend/css/07-whiteboard-misc.css:10760 |
 | A note card's text leads; its metadata steps back (INBOX 505) | frontend/css/08-consistency.css:9975 |
 | A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10343 |
 | A note's time: the same corner on every card | frontend/css/08-consistency.css:8449 |
@@ -7847,11 +7859,11 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Ember: warm oranges over a dim ground. Best in the evening. | frontend/css/05-sidebars-themes.css:3207 |
 | Files as a reading list | frontend/css/library-lazy.css:1203 |
 | Files sub-tab: rows, not cards | frontend/css/library-lazy.css:1230 |
-| Find anything | frontend/css/07-whiteboard-misc.css:10799 |
+| Find anything | frontend/css/07-whiteboard-misc.css:10810 |
 | Find anything, de-vibecoded | frontend/css/08-consistency.css:3696 |
 | Find anything: group heads read as heads | frontend/css/08-consistency.css:4879 |
 | GLASS THAT DOES NOT COST WHAT IT USED TO | frontend/css/03-dashboard-widgets.css:795 |
-| GRIPS AT A CONSTANT SIZE ON SCREEN | frontend/css/07-whiteboard-misc.css:10675 |
+| GRIPS AT A CONSTANT SIZE ON SCREEN | frontend/css/07-whiteboard-misc.css:10686 |
 | Graph options: one section-head style | frontend/css/08-consistency.css:4470 |
 | Help & guide: the topics box and the "Ask the guide" box are two | frontend/css/08-consistency.css:1784 |
 | INBOX 68: the board and map previews | frontend/css/10-responsive.css:352 |
@@ -7869,7 +7881,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | On this day | frontend/css/03-dashboard-widgets.css:4546 |
 | One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10413 |
 | One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10488 |
-| PLAN.md D1: the documents dock's formatting strip hides entirely | frontend/css/07-whiteboard-misc.css:7956 |
+| PLAN.md D1: the documents dock's formatting strip hides entirely | frontend/css/07-whiteboard-misc.css:7962 |
 | Parchment: paper, ink and a little gold. Made for long writing. | frontend/css/05-sidebars-themes.css:3047 |
 | Phase 10, INBOX 100: the scroll edge effect | frontend/css/10-responsive.css:159 |
 | Phase 10, INBOX 101: concentric corners | frontend/css/10-responsive.css:185 |
@@ -7895,7 +7907,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Progress that keeps moving (INBOX 95) | frontend/css/08-consistency.css:2187 |
 | Quick access, and arranging it (INBOX 461) | frontend/css/03-dashboard-widgets.css:2011 |
 | Quiet utilitarian: the default look (UI_MODERNISATION_PLAN decisions, | frontend/css/05-sidebars-themes.css:3312 |
-| RESPONSIVE BY DEVICE (UI_MODERNISATION_PLAN.md: Phase 9) | frontend/css/07-whiteboard-misc.css:9569 |
+| RESPONSIVE BY DEVICE (UI_MODERNISATION_PLAN.md: Phase 9) | frontend/css/07-whiteboard-misc.css:9575 |
 | RESPONSIVE, CONTINUED, AND THE LIQUID GLASS ADOPTIONS | frontend/css/10-responsive.css:1 |
 | Reading and focus (DOCUMENTS_PLAN Phase 5 item 4, PLAN D9) | frontend/css/09-editor.css:787 |
 | Reminders: the time at the row's end, actions over it on hover | frontend/css/08-consistency.css:4482 |
@@ -7908,8 +7920,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | SKILLS TAB | frontend/css/07-whiteboard-misc.css:773 |
 | Sage: quiet greens. The calmest of the set. | frontend/css/05-sidebars-themes.css:3085 |
 | Sans-serif system font override (macOS fix) | frontend/css/00-tokens-shell.css:1207 |
-| Settings at phone width: nothing scrolls sideways (Phase 5.1, 390px) | frontend/css/07-whiteboard-misc.css:8038 |
-| Settings form rows share a label column (Phase 5.1) | frontend/css/07-whiteboard-misc.css:7843 |
+| Settings at phone width: nothing scrolls sideways (Phase 5.1, 390px) | frontend/css/07-whiteboard-misc.css:8044 |
+| Settings form rows share a label column (Phase 5.1) | frontend/css/07-whiteboard-misc.css:7849 |
 | Settings headings sit at one left edge | frontend/css/08-consistency.css:1431 |
 | Settings rows that wrap their actions under the title (INBOX 82) | frontend/css/08-consistency.css:2200 |
 | Settings: a section's intro sits under its heading, not above it | frontend/css/08-consistency.css:4577 |
@@ -8018,12 +8030,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | back / forward through pages | frontend/css/00-tokens-shell.css:4043 |
 | back-to-top button | frontend/css/04-chat-dock-appearance.css:2673 |
 | band 2 (820 to 1200): the tabs keep their names, set small | frontend/css/10-responsive.css:61 |
-| band 2: 820-1100, iPad landscape and small laptops | frontend/css/07-whiteboard-misc.css:9743 |
+| band 2: 820-1100, iPad landscape and small laptops | frontend/css/07-whiteboard-misc.css:9749 |
 | band 3 (600 to 820): the tab strip fits on its own row | frontend/css/10-responsive.css:20 |
-| band 3: 600-820, iPad portrait, and the sheet that band 4 inherits | frontend/css/07-whiteboard-misc.css:9830 |
+| band 3: 600-820, iPad portrait, and the sheet that band 4 inherits | frontend/css/07-whiteboard-misc.css:9836 |
 | band 4 (under 600): the editor's own targets (DOCUMENTS_PLAN Phase 6) | frontend/css/10-responsive.css:456 |
 | band 4: an icon-only chip is still a target (Phase 11) | frontend/css/10-responsive.css:506 |
-| band 4: below 600, the phone | frontend/css/07-whiteboard-misc.css:10013 |
+| band 4: below 600, the phone | frontend/css/07-whiteboard-misc.css:10019 |
 | band 4: five columns, and the fifth is a sheet | frontend/css/10-responsive.css:592 |
 | band 4: the settings sheet's head may wrap, but not be squashed | frontend/css/10-responsive.css:897 |
 | boot splash | frontend/css/00-tokens-shell.css:4065 |
@@ -8054,8 +8066,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | empty states that sit where they should | frontend/css/08-consistency.css:4346 |
 | entry actions + links (Phase 4) | frontend/css/01-forms-settings.css:2057 |
 | entry lists | frontend/css/01-forms-settings.css:1332 |
-| every control in a dock takes the touch floor | frontend/css/07-whiteboard-misc.css:10452 |
-| every menu scrolls down, never sideways, and never runs off the page | frontend/css/07-whiteboard-misc.css:7759 |
+| every control in a dock takes the touch floor | frontend/css/07-whiteboard-misc.css:10463 |
+| every menu scrolls down, never sideways, and never runs off the page | frontend/css/07-whiteboard-misc.css:7765 |
 | fields answer the pointer too | frontend/css/07-whiteboard-misc.css:3584 |
 | filter help (the list inside `#search-help-hint`, a `.help-body`) | frontend/css/05-sidebars-themes.css:567 |
 | finding a setting (§36B) | frontend/css/06-timeline-dialogs.css:1346 |
@@ -8063,7 +8075,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | first-run onboarding tour | frontend/css/04-chat-dock-appearance.css:2336 |
 | forms | frontend/css/01-forms-settings.css:220 |
 | glass reaches the floating chrome that sat outside it | frontend/css/08-consistency.css:2688 |
-| glass restraint (UI_MODERNISATION_PLAN.md, Phase 3) | frontend/css/07-whiteboard-misc.css:7829 |
+| glass restraint (UI_MODERNISATION_PLAN.md, Phase 3) | frontend/css/07-whiteboard-misc.css:7835 |
 | graph minimap | frontend/css/02-chat-graph.css:4229 |
 | graph polish | frontend/css/03-dashboard-widgets.css:3661 |
 | graph: depth, halos and legible labels | frontend/css/04-chat-dock-appearance.css:1554 |
@@ -8075,10 +8087,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | hovering a node | frontend/css/02-chat-graph.css:1384 |
 | icon-only buttons are square, everywhere | frontend/css/07-whiteboard-misc.css:3380 |
 | left-aligned button lists stay left-aligned | frontend/css/07-whiteboard-misc.css:3640 |
-| line numbers for any textarea (UI_MODERNISATION_PLAN Phase 7.2) | frontend/css/07-whiteboard-misc.css:7969 |
+| line numbers for any textarea (UI_MODERNISATION_PLAN Phase 7.2) | frontend/css/07-whiteboard-misc.css:7975 |
 | live clock (reminders tab) | frontend/css/01-forms-settings.css:3498 |
 | lock screen (Phase 4) | frontend/css/01-forms-settings.css:1961 |
-| map nodes and their edges (MINDMAP_PLAN.md §5, Phase 2) | frontend/css/07-whiteboard-misc.css:8080 |
+| map nodes and their edges (MINDMAP_PLAN.md §5, Phase 2) | frontend/css/07-whiteboard-misc.css:8086 |
 | markdown tables | frontend/css/04-chat-dock-appearance.css:1934 |
 | meeting notes (§17) | frontend/css/02-chat-graph.css:2107 |
 | model cards: the Models screen's suggested downloads (INBOX 444) | frontend/css/01-forms-settings.css:5709 |
@@ -8149,10 +8161,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the Documents editor on a phone (INBOX 430) | frontend/css/10-responsive.css:2223 |
 | the Documents editor on a small laptop (INBOX 430's re-scope) | frontend/css/10-responsive.css:2348 |
 | the Graph dock's second row, and the nine pixels that cause it | frontend/css/08-consistency.css:2343 |
-| the HUD: a momentary readout, not a notification | frontend/css/07-whiteboard-misc.css:7615 |
+| the HUD: a momentary readout, not a notification | frontend/css/07-whiteboard-misc.css:7621 |
 | the Library (§4, §36F) | frontend/css/00-tokens-shell.css:1772 |
-| the Library on a phone (BACKLOG §116.1 item 3) | frontend/css/07-whiteboard-misc.css:9179 |
-| the Library tab's floating action is not the whiteboard's | frontend/css/07-whiteboard-misc.css:10652 |
+| the Library on a phone (BACKLOG §116.1 item 3) | frontend/css/07-whiteboard-misc.css:9185 |
+| the Library tab's floating action is not the whiteboard's | frontend/css/07-whiteboard-misc.css:10663 |
 | the Library's Activity rows (library.js, `library-${item.kind}`) | frontend/css/library-lazy.css:2187 |
 | the Library, de-vibecoded (the owner: "devibecode all the ui") | frontend/css/08-consistency.css:2930 |
 | the Library, second pass: cards in reading order, one anatomy | frontend/css/08-consistency.css:3773 |
@@ -8160,12 +8172,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the Skills dropdown | frontend/css/04-chat-dock-appearance.css:1179 |
 | the Sources panel | frontend/css/02-chat-graph.css:4941 |
 | the accessible card: the title opens it (INBOX 433) | frontend/css/08-consistency.css:2990 |
-| the agent activity panel: nothing scrolls sideways, nothing folds onto | frontend/css/07-whiteboard-misc.css:10500 |
+| the agent activity panel: nothing scrolls sideways, nothing folds onto | frontend/css/07-whiteboard-misc.css:10511 |
 | the agent's run, as a timeline | frontend/css/02-chat-graph.css:575 |
 | the app emblem, reused across the UI | frontend/css/03-dashboard-widgets.css:3291 |
 | the app's one help popover | frontend/css/03-dashboard-widgets.css:4248 |
 | the app's own dropdown | frontend/css/07-whiteboard-misc.css:3693 |
-| the arrange zone, once it is inside the overflow menu | frontend/css/07-whiteboard-misc.css:9761 |
+| the arrange zone, once it is inside the overflow menu | frontend/css/07-whiteboard-misc.css:9767 |
 | the assistant's head and its three verbs (the owner, 2026-09-24: | frontend/css/04-chat-dock-appearance.css:4802 |
 | the assistant's three verbs (INBOX 192) | frontend/css/09-editor.css:845 |
 | the attachment card (INBOX 440 (2), DESIGN.md "A file attached to a | frontend/css/05-sidebars-themes.css:340 |
@@ -8174,7 +8186,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the board panel, sorted into the questions it answers | frontend/css/07-whiteboard-misc.css:4871 |
 | the board's bar takes the floor of the whole touch band, not just 600 | frontend/css/10-responsive.css:2073 |
 | the boot splash: one progress indicator, not two | frontend/css/08-consistency.css:4333 |
-| the bottom docks | frontend/css/07-whiteboard-misc.css:9713 |
+| the bottom docks | frontend/css/07-whiteboard-misc.css:9719 |
 | the chat dock follows its own width (INBOX 694) | frontend/css/10-responsive.css:2504 |
 | the chat page fills its height (§36A) | frontend/css/06-timeline-dialogs.css:1302 |
 | the chat sidebar on a phone | frontend/css/02-chat-graph.css:5455 |
@@ -8186,14 +8198,14 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the connections rail (WORLD_CLASS_PLAN D2; `renderNotesRail`) | frontend/css/04-chat-dock-appearance.css:321 |
 | the context bar (WHITEBOARD_PLAN.md Phase 2, decision 2) | frontend/css/07-whiteboard-misc.css:7087 |
 | the dashboard and the labels, de-vibecoded | frontend/css/08-consistency.css:3045 |
-| the dashboard's greeting banner, on a phone | frontend/css/07-whiteboard-misc.css:10395 |
-| the dashboard's quick actions stop wrapping | frontend/css/07-whiteboard-misc.css:10350 |
-| the dashboard's three densities | frontend/css/07-whiteboard-misc.css:11126 |
+| the dashboard's greeting banner, on a phone | frontend/css/07-whiteboard-misc.css:10406 |
+| the dashboard's quick actions stop wrapping | frontend/css/07-whiteboard-misc.css:10361 |
+| the dashboard's three densities | frontend/css/07-whiteboard-misc.css:11137 |
 | the day-one dashboard | frontend/css/05-sidebars-themes.css:3609 |
 | the desk's own rows (WORLD_CLASS_PLAN D16) | frontend/css/04-chat-dock-appearance.css:3478 |
-| the dock (UI_MODERNISATION_PLAN.md Phase 8) | frontend/css/07-whiteboard-misc.css:9227 |
+| the dock (UI_MODERNISATION_PLAN.md Phase 8) | frontend/css/07-whiteboard-misc.css:9233 |
 | the dock above the editor | frontend/css/04-chat-dock-appearance.css:4064 |
-| the dock row below 1100 | frontend/css/07-whiteboard-misc.css:9812 |
+| the dock row below 1100 | frontend/css/07-whiteboard-misc.css:9818 |
 | the document editor's instruments | frontend/css/05-sidebars-themes.css:4385 |
 | the document toolbar's two folds | frontend/css/07-whiteboard-misc.css:5160 |
 | the documents editor | frontend/css/library-lazy.css:2278 |
@@ -8206,7 +8218,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the flat looks: a selected tab is a place, not an action | frontend/css/08-consistency.css:2912 |
 | the formatting strip says what the caret is already in | frontend/css/09-editor.css:1204 |
 | the glass card | frontend/css/00-tokens-shell.css:3736 |
-| the graph node panel becomes a sheet (GRAPH_PLAN Phase 6) | frontend/css/07-whiteboard-misc.css:10033 |
+| the graph node panel becomes a sheet (GRAPH_PLAN Phase 6) | frontend/css/07-whiteboard-misc.css:10039 |
 | the graph's floating controls clear its New note (INBOX 430) | frontend/css/10-responsive.css:2209 |
 | the graph's legend: one container, not a pill in a box | frontend/css/08-consistency.css:3122 |
 | the graph's options panel | frontend/css/08-consistency.css:3325 |
@@ -8220,14 +8232,14 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the log console (§1) | frontend/css/06-timeline-dialogs.css:721 |
 | the map is the tab, and its controls float over it | frontend/css/02-chat-graph.css:5479 |
 | the mind map's outline and markers (MINDMAP_PLAN decisions 33, 34) | frontend/css/library-lazy.css:2003 |
-| the node edit strip (MINDMAP_PLAN.md §12.1 item 2) | frontend/css/07-whiteboard-misc.css:8529 |
-| the node radial (MINDMAP_PLAN.md §12.1 item 3) | frontend/css/07-whiteboard-misc.css:8789 |
+| the node edit strip (MINDMAP_PLAN.md §12.1 item 2) | frontend/css/07-whiteboard-misc.css:8535 |
+| the node radial (MINDMAP_PLAN.md §12.1 item 3) | frontend/css/07-whiteboard-misc.css:8795 |
 | the note card's metadata, ordered (§36B) | frontend/css/06-timeline-dialogs.css:1465 |
 | the notifications centre (§36E) | frontend/css/06-timeline-dialogs.css:1624 |
 | the one control in a dock that was not the dock's height | frontend/css/10-responsive.css:337 |
 | the one generating animation | frontend/css/01-forms-settings.css:4612 |
 | the one map chip (MINDMAP_PLAN.md §5 item 12) | frontend/css/05-sidebars-themes.css:690 |
-| the one popover shell (UI_MODERNISATION_PLAN.md, Phase 2) | frontend/css/07-whiteboard-misc.css:7790 |
+| the one popover shell (UI_MODERNISATION_PLAN.md, Phase 2) | frontend/css/07-whiteboard-misc.css:7796 |
 | the orphan-row pattern, everywhere else it appears (§36B) | frontend/css/06-timeline-dialogs.css:1606 |
 | the overview strip | frontend/css/00-tokens-shell.css:1834 |
 | the page scrollers scroll on the compositor | frontend/css/08-consistency.css:4364 |
@@ -8235,7 +8247,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the palette on a touch screen (INBOX 464) | frontend/css/10-responsive.css:2490 |
 | the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5624 |
 | the picker itself | frontend/css/05-sidebars-themes.css:3493 |
-| the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10244 |
+| the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10255 |
 | the quick-nav chord's guide | frontend/css/10-responsive.css:418 |
 | the reader: one scroller, the page set as prose | frontend/css/03-dashboard-widgets.css:1621 |
 | the reply head on Ask's answer, the draft and the guide (INBOX 471) | frontend/css/08-consistency.css:9566 |
@@ -8244,38 +8256,38 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the scroll container (§36A) | frontend/css/00-tokens-shell.css:1101 |
 | the selection tick in Rows (INBOX 426 z, image 91) | frontend/css/08-consistency.css:9075 |
 | the selection tick, in the app's own language | frontend/css/07-whiteboard-misc.css:4207 |
-| the settings jump list | frontend/css/07-whiteboard-misc.css:10414 |
+| the settings jump list | frontend/css/07-whiteboard-misc.css:10425 |
 | the settings sheet takes the touch floor | frontend/css/01-forms-settings.css:5364 |
 | the sketch pad's tool palette | frontend/css/02-chat-graph.css:1687 |
 | the spine | frontend/css/00-tokens-shell.css:2198 |
-| the spine on the other edge (MINDMAP_PLAN.md §13e) | frontend/css/07-whiteboard-misc.css:8332 |
+| the spine on the other edge (MINDMAP_PLAN.md §13e) | frontend/css/07-whiteboard-misc.css:8338 |
 | the status bar (§36D) | frontend/css/00-tokens-shell.css:3132 |
 | the status bar from 820 to 959: one item fewer | frontend/css/10-responsive.css:1148 |
 | the status bar on a small phone | frontend/css/00-tokens-shell.css:3441 |
 | the status line and the recent searches | frontend/css/03-dashboard-widgets.css:1401 |
 | the step group (Perplexity's "Finished N steps") | frontend/css/02-chat-graph.css:4865 |
-| the strip's three doors (MINDMAP_PLAN.md §13b) | frontend/css/07-whiteboard-misc.css:8624 |
+| the strip's three doors (MINDMAP_PLAN.md §13b) | frontend/css/07-whiteboard-misc.css:8630 |
 | the strips that appear only when they apply | frontend/css/00-tokens-shell.css:1849 |
 | the structural blocks (INBOX 421 b) | frontend/css/05-sidebars-themes.css:1200 |
 | the suggestion menu, the dictionary, and the goal | frontend/css/05-sidebars-themes.css:4900 |
-| the switch's hit target (MODERNISATION_AUDIT.md Brief 8) | frontend/css/07-whiteboard-misc.css:7935 |
-| the tab strip is centred on the window, not on whatever is left of it | frontend/css/07-whiteboard-misc.css:7658 |
+| the switch's hit target (MODERNISATION_AUDIT.md Brief 8) | frontend/css/07-whiteboard-misc.css:7941 |
+| the tab strip is centred on the window, not on whatever is left of it | frontend/css/07-whiteboard-misc.css:7664 |
 | the timeline, de-vibecoded | frontend/css/08-consistency.css:3134 |
-| the tool rail (WHITEBOARD_PLAN.md Phase 1, decision 1) | frontend/css/07-whiteboard-misc.css:10570 |
+| the tool rail (WHITEBOARD_PLAN.md Phase 1, decision 1) | frontend/css/07-whiteboard-misc.css:10581 |
 | the tools panel, sorted into what each group of icons does | frontend/css/06-timeline-dialogs.css:2671 |
 | the touch floor, for the two surfaces the dock rule cannot reach | frontend/css/03-dashboard-widgets.css:4669 |
 | the trace strip | frontend/css/04-chat-dock-appearance.css:1 |
 | the two radio-backed segmented bars | frontend/css/03-dashboard-widgets.css:3742 |
 | the two whiteboard controls that never joined the strip | frontend/css/07-whiteboard-misc.css:3298 |
 | the web-search engine picker | frontend/css/04-chat-dock-appearance.css:2556 |
-| the whiteboard top bar and the documents editor join the families | frontend/css/07-whiteboard-misc.css:7863 |
+| the whiteboard top bar and the documents editor join the families | frontend/css/07-whiteboard-misc.css:7869 |
 | the whiteboard's panels are one surface each | frontend/css/07-whiteboard-misc.css:3497 |
-| the whiteboard's tools become a bottom strip | frontend/css/07-whiteboard-misc.css:10310 |
+| the whiteboard's tools become a bottom strip | frontend/css/07-whiteboard-misc.css:10321 |
 | the writing room | frontend/css/04-chat-dock-appearance.css:3331 |
 | tools & features browser | frontend/css/03-dashboard-widgets.css:2187 |
 | top bar polish | frontend/css/05-sidebars-themes.css:4106 |
 | transcluded notes (![[note]]) | frontend/css/05-sidebars-themes.css:1345 |
-| two-up cards in tablet portrait | frontend/css/07-whiteboard-misc.css:9974 |
+| two-up cards in tablet portrait | frontend/css/07-whiteboard-misc.css:9980 |
 | user-tunable corner rounding | frontend/css/04-chat-dock-appearance.css:1963 |
 | web panel (search + reader) | frontend/css/03-dashboard-widgets.css:1237 |
 | what a wide screen is for | frontend/css/00-tokens-shell.css:3563 |
@@ -8283,7 +8295,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | what the AI remembers (ROADMAP §39B) | frontend/css/07-whiteboard-misc.css:1953 |
 | what the agent found, as things you can open | frontend/css/07-whiteboard-misc.css:5196 |
 | what the answering model is | frontend/css/02-chat-graph.css:5288 |
-| what the phone block assumed, and the sheet undoes | frontend/css/07-whiteboard-misc.css:9987 |
+| what the phone block assumed, and the sheet undoes | frontend/css/07-whiteboard-misc.css:9993 |
 | whiteboard fixes (§41) | frontend/css/07-whiteboard-misc.css:2080 |
 | whiteboard objects: images and text boxes, neither tied to a note | frontend/css/07-whiteboard-misc.css:1 |
 | widget picker modal (roadmap §26) | frontend/css/07-whiteboard-misc.css:3180 |
@@ -8299,7 +8311,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/04-chat-dock-appearance.css | 6385 |
 | frontend/css/05-sidebars-themes.css | 5964 |
 | frontend/css/06-timeline-dialogs.css | 3703 |
-| frontend/css/07-whiteboard-misc.css | 11995 |
+| frontend/css/07-whiteboard-misc.css | 12006 |
 | frontend/css/08-consistency.css | 10559 |
 | frontend/css/09-editor.css | 1375 |
 | frontend/css/10-responsive.css | 2611 |
@@ -8307,7 +8319,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/graph-lazy.css | 46 |
 | frontend/css/help-chat-lazy.css | 32 |
 | frontend/css/icon-picker.css | 100 |
-| frontend/css/library-lazy.css | 3312 |
+| frontend/css/library-lazy.css | 3342 |
 | frontend/css/nav-history-lazy.css | 89 |
 | frontend/css/quickadd-lazy.css | 35 |
 | frontend/css/recovery-lazy.css | 115 |
@@ -8315,7 +8327,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/tidy-lazy.css | 298 |
 | frontend/css/usage-lazy.css | 34 |
 
-## Backend routes (499)
+## Backend routes (502)
 
 `@router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, sorted by path. The line is the decorator's.
 
@@ -8512,8 +8524,11 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/heatmap` | GET | `heatmap` | src/memorymap/api/routes_insights.py:341 |
 | `/history` | GET | `board_history` | src/memorymap/api/routes_board_history.py:271 |
 | `/history` | GET | `tidy_history` | src/memorymap/api/routes_tidy.py:50 |
-| `/history/{event_id}` | GET | `board_at` | src/memorymap/api/routes_board_history.py:302 |
-| `/history/{event_id}/restore` | POST | `restore_board` | src/memorymap/api/routes_board_history.py:333 |
+| `/history/snapshots` | GET | `list_snapshots` | src/memorymap/api/routes_board_history.py:331 |
+| `/history/snapshots` | POST | `save_snapshot` | src/memorymap/api/routes_board_history.py:339 |
+| `/history/snapshots/{snapshot_id}` | DELETE | `delete_snapshot` | src/memorymap/api/routes_board_history.py:365 |
+| `/history/{event_id}` | GET | `board_at` | src/memorymap/api/routes_board_history.py:378 |
+| `/history/{event_id}/restore` | POST | `restore_board` | src/memorymap/api/routes_board_history.py:409 |
 | `/images` | GET | `list_images` | src/memorymap/api/routes_whiteboard.py:2262 |
 | `/import` | POST | `import_document` | src/memorymap/api/routes_documents.py:494 |
 | `/import/app` | POST | `import_app` | src/memorymap/api/routes_import.py:25 |
@@ -8821,7 +8836,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:404 |
 
-## Backend modules (3974)
+## Backend modules (3980)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -9516,21 +9531,21 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2033 |
-| `_keyword_pattern` | src/memorymap/ai/help_chat.py:1987 |
-| `_matching_topics` | src/memorymap/ai/help_chat.py:2090 |
-| `_normalise_keys` | src/memorymap/ai/help_chat.py:2010 |
-| `_prompt_for` | src/memorymap/ai/help_chat.py:2279 |
-| `answer` | src/memorymap/ai/help_chat.py:2466 |
-| `answer_stream` | src/memorymap/ai/help_chat.py:2404 |
-| `badges_for` | src/memorymap/ai/help_chat.py:2231 |
-| `help_block_for` | src/memorymap/ai/help_chat.py:2530 |
-| `help_listing` | src/memorymap/ai/help_chat.py:2202 |
-| `offline_answer` | src/memorymap/ai/help_chat.py:2363 |
-| `source_names` | src/memorymap/ai/help_chat.py:2198 |
-| `system_answer` | src/memorymap/ai/help_chat.py:2180 |
-| `topic_title` | src/memorymap/ai/help_chat.py:2166 |
-| `topics_for` | src/memorymap/ai/help_chat.py:2245 |
+| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2040 |
+| `_keyword_pattern` | src/memorymap/ai/help_chat.py:1994 |
+| `_matching_topics` | src/memorymap/ai/help_chat.py:2097 |
+| `_normalise_keys` | src/memorymap/ai/help_chat.py:2017 |
+| `_prompt_for` | src/memorymap/ai/help_chat.py:2286 |
+| `answer` | src/memorymap/ai/help_chat.py:2473 |
+| `answer_stream` | src/memorymap/ai/help_chat.py:2411 |
+| `badges_for` | src/memorymap/ai/help_chat.py:2238 |
+| `help_block_for` | src/memorymap/ai/help_chat.py:2537 |
+| `help_listing` | src/memorymap/ai/help_chat.py:2209 |
+| `offline_answer` | src/memorymap/ai/help_chat.py:2370 |
+| `source_names` | src/memorymap/ai/help_chat.py:2205 |
+| `system_answer` | src/memorymap/ai/help_chat.py:2187 |
+| `topic_title` | src/memorymap/ai/help_chat.py:2173 |
+| `topics_for` | src/memorymap/ai/help_chat.py:2252 |
 
 ### src/memorymap/ai/help_topics_more.py (1)
 
@@ -10795,25 +10810,31 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `state` | src/memorymap/api/routes_bench.py:125 |
 | `stop` | src/memorymap/api/routes_bench.py:134 |
 
-### src/memorymap/api/routes_board_history.py (15)
+### src/memorymap/api/routes_board_history.py (21)
 
 | Name | File:line |
 |---|---|
-| `RestoreBody` | src/memorymap/api/routes_board_history.py:324 |
+| `RestoreBody` | src/memorymap/api/routes_board_history.py:400 |
+| `SnapshotBody` | src/memorymap/api/routes_board_history.py:311 |
 | `_board_events` | src/memorymap/api/routes_board_history.py:106 |
 | `_board_param` | src/memorymap/api/routes_board_history.py:76 |
+| `_board_settings` | src/memorymap/api/routes_board_history.py:316 |
 | `_current_rows` | src/memorymap/api/routes_board_history.py:89 |
 | `_is_delete` | src/memorymap/api/routes_board_history.py:164 |
-| `_link_ends` | src/memorymap/api/routes_board_history.py:329 |
+| `_link_ends` | src/memorymap/api/routes_board_history.py:405 |
 | `_moments` | src/memorymap/api/routes_board_history.py:234 |
 | `_names_board` | src/memorymap/api/routes_board_history.py:81 |
 | `_require_board` | src/memorymap/api/routes_board_history.py:263 |
 | `_row_out` | src/memorymap/api/routes_board_history.py:291 |
+| `_snapshot_board` | src/memorymap/api/routes_board_history.py:324 |
 | `_state_of` | src/memorymap/api/routes_board_history.py:98 |
 | `_states_at` | src/memorymap/api/routes_board_history.py:169 |
-| `board_at` | src/memorymap/api/routes_board_history.py:303 |
+| `board_at` | src/memorymap/api/routes_board_history.py:379 |
 | `board_history` | src/memorymap/api/routes_board_history.py:272 |
-| `restore_board` | src/memorymap/api/routes_board_history.py:334 |
+| `delete_snapshot` | src/memorymap/api/routes_board_history.py:366 |
+| `list_snapshots` | src/memorymap/api/routes_board_history.py:332 |
+| `restore_board` | src/memorymap/api/routes_board_history.py:410 |
+| `save_snapshot` | src/memorymap/api/routes_board_history.py:340 |
 
 ### src/memorymap/api/routes_board_library.py (44)
 
@@ -13954,7 +13975,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (9042)
+## Tests (9045)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -14036,7 +14057,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_board_acts.py | 6 |
 | tests/test_board_background.py | 5 |
 | tests/test_board_duplicate.py | 5 |
-| tests/test_board_history.py | 11 |
+| tests/test_board_history.py | 14 |
 | tests/test_board_kind_switch.py | 5 |
 | tests/test_board_library.py | 19 |
 | tests/test_board_modified_time.py | 8 |

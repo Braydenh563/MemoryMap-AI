@@ -1525,10 +1525,10 @@ pinch.
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | The phone has 11 controls against 40: list every `WB_COMMANDS` row and the phone path to it (a sheet from the top bar's kebab) | commands with a phone path, counted, to 100% at 390 | 8, 2 |
-| 2 | fix | A new board in 3 clicks: New on the Boards landing makes "Untitled board" and opens it, renamed in place (no name dialog first) | clicks 4 to 3; time from New to a drawable canvas | 2, 13 |
-| 3 | fix | An agent's or another tab's change joins the open board's stack as one step | `boardundo.js` gains the agent row; 44/44 | 1 |
-| 4 | redesign | The History sheet as draw.io's revision list: named snapshots, a preview, restore as one undo step | restore then Ctrl+Z gives the board back object-equal | 1, 3 |
+| 1 | fix | **Built 2026-10-10 (Brief 77)**: the top bar's More kebab below 820 (`wbInitMoreMenu`) | `wbphonecmds.js`: 40 of 81 to 81 of 81 at 390 (320 and 700 too); 0 top-bar targets under 44 px | 8, 2 |
+| 2 | fix | **Built 2026-10-10 (Brief 77)**: New, Whiteboard makes "Untitled board N", renamed in place (`wbNewUntitledBoard`, `renameCurrentBoard`) | `wbnewboard77.js`: clicks 4 and a typed name to 3; 690 to 873 ms from New to a drawable canvas | 2, 13 |
+| 3 | fix | **Built 2026-10-10 (Brief 77)**: `wbTakeChangeFromElsewhere` (whiteboard-history.js), from the chat stream's board tools and a BroadcastChannel | `boardundo.js` 43/43 to 45/45 (an agent row and an another-tab row) | 1 |
+| 4 | redesign | **Built 2026-10-10 (Brief 77)**: Board, Snapshots… (`wbOpenSnapshots`, `/whiteboard/history/snapshots`), each with the Library card's picture | `wbsnap77.js`: restore then Ctrl+Z object-equal, PASS | 1, 3 |
 | 5 | expansion | The draw.io programme's ten phases (Brief 44 part 2), each gated by its own sweep | the matrix rows it names | 6, 11 |
 | 6 | optimisation | 500 objects open in 2,551 ms first (25.2): paint the visible tiles first, then the rest | first paint under 1 s at 500 objects (25g, Brief 53) | 13 |
 | 7 | fix | A failed save says what and why and retries; the board is never left half written | an offline save toast with an action; `test_never_lose.py` board row | 3, 4 |

@@ -299,6 +299,82 @@ def _row_out(kind: str, key: str, state: dict) -> dict | None:
     return {**{f: state.get(f) for f in FIELDS[kind]}, "board_id": state.get("board_id"), "id": item_id}
 
 
+#: **Named snapshots** (Brief 77, WHITEBOARD_PLAN "Deepened 2026-10-10" row
+#: 4: draw.io's revision list). A snapshot is a name on the board's newest
+#: event, kept in the board's own settings: the event log already holds the
+#: board as it was then (`board_at`) and puts it back (`restore_board`), so a
+#: name is all a revision needs. Registered before `/history/{event_id}`,
+#: which would take "snapshots" for an id.
+SNAPSHOTS_MAX = 50
+
+
+class SnapshotBody(BaseModel):
+    board_id: int
+    name: str | None = Field(default=None, max_length=120)
+
+
+def _board_settings(entry: Entry) -> dict:
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        parsed = {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _snapshot_board(db: Session, board_id: int) -> Entry:
+    entry = db.get(Entry, board_id)
+    if entry is None or entry.is_deleted:
+        raise HTTPException(status_code=404, detail="That board could not be found.")
+    return entry
+
+
+@router.get("/history/snapshots")
+def list_snapshots(board_id: int, db: Session = Depends(get_session)) -> dict:
+    """The board's named snapshots, newest first."""
+    entry = _snapshot_board(db, board_id)
+    snaps = [s for s in _board_settings(entry).get("snapshots") or [] if isinstance(s, dict)]
+    return {"snapshots": sorted(snaps, key=lambda s: s.get("event_id", 0), reverse=True)}
+
+
+@router.post("/history/snapshots", status_code=201)
+def save_snapshot(body: SnapshotBody, db: Session = Depends(get_session)) -> dict:
+    """Name the board as it is now (its newest event)."""
+    from datetime import datetime
+
+    entry = _snapshot_board(db, body.board_id)
+    current = _current_rows(db, body.board_id)
+    logs = _board_events(db, body.board_id, current)
+    newest = max((row.id for rows in logs.values() for row in rows), default=None)
+    if newest is None:
+        raise HTTPException(status_code=409, detail="This board has nothing on it yet, so there is nothing to keep.")
+    settings = _board_settings(entry)
+    snaps = [s for s in settings.get("snapshots") or [] if isinstance(s, dict)]
+    now = datetime.now()
+    snap = {
+        "id": max((int(s.get("id", 0)) for s in snaps), default=0) + 1,
+        "name": (body.name or "").strip() or f"Snapshot {now:%H:%M}",
+        "event_id": newest,
+        "at": now.isoformat(timespec="seconds"),
+    }
+    settings["snapshots"] = (snaps + [snap])[-SNAPSHOTS_MAX:]
+    entry.board_settings = json.dumps(settings)
+    db.commit()
+    return snap
+
+
+@router.delete("/history/snapshots/{snapshot_id}", status_code=204)
+def delete_snapshot(snapshot_id: int, board_id: int, db: Session = Depends(get_session)) -> None:
+    entry = _snapshot_board(db, board_id)
+    settings = _board_settings(entry)
+    snaps = [s for s in settings.get("snapshots") or [] if isinstance(s, dict)]
+    kept = [s for s in snaps if s.get("id") != snapshot_id]
+    if len(kept) == len(snaps):
+        raise HTTPException(status_code=404, detail="That snapshot could not be found.")
+    settings["snapshots"] = kept
+    entry.board_settings = json.dumps(settings)
+    db.commit()
+
+
 @router.get("/history/{event_id}")
 def board_at(event_id: int, board_id: int | None = None, db: Session = Depends(get_session)) -> dict:
     """Every item on the board as it was straight after `event_id`."""

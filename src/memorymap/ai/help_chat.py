@@ -1160,6 +1160,7 @@ HELP_TOPICS.extend(
                 "comment on a card", "comment on an item", "comments on the board", "comment thread",
                 "present", "presentation", "slides", "slideshow",
                 "drag to delete", "drop to delete", "drag onto delete", "trash an item",
+                "board on a phone", "more board commands",
             ),
             "body": (
                 "Whiteboard keys (Library, Boards & maps; Ctrl+Shift+B opens it). "
@@ -1185,13 +1186,14 @@ HELP_TOPICS.extend(
                 "for the menu, double-click a line to bend "
                 "it, and select a connector and press Enter to label it. A frame's "
                 "title drags it and what is inside it (Ctrl: the frame alone); its menu exports it. "
-                "Ctrl+Shift+L locks the selection (clicks go through); Unlock is "
+                "Ctrl+Shift+L locks the selection; Unlock is "
                 "on the board's right-click menu. Right-click an item, Comment…, starts a "
                 "thread; its count reopens it. View, Present frames: one frame "
                 "at a time. ? shows every key; Ctrl+K finds any board action by name. "
                 "Menus: Insert, Edit, Arrange (align, distribute, size, order, group, "
                 "lock), View (background, grid, snap, zoom, full screen) and Board "
-                "(rename, new, export, switch to a mind map, clear, delete, keys)."
+                "(rename, new, export, kind, clear, delete, keys). On a phone, "
+                "More has the rest."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1200,6 +1202,7 @@ HELP_TOPICS.extend(
             "keywords": (
                 "board history", "history of the board", "time machine", "earlier version of the board",
                 "go back in time", "put the board back", "restore the board", "what did the board look like",
+                "snapshot", "snapshots", "named version", "save a version of the board",
             ),
             "body": (
                 "Board, History… (or Ctrl+K, History) puts a slider at the foot of the board. Drag it "
@@ -1209,7 +1212,9 @@ HELP_TOPICS.extend(
                 "restores the whole board as it was then, and the second button only what was selected "
                 "when History opened; either is one Undo step and is in the history too. Esc, or the "
                 "slider's right end, comes back to now. Changes older than ninety days may be kept only "
-                "in summary, and such a moment cannot be shown."
+                "in summary, and such a moment cannot be shown. Board, Snapshots… names the board as it is "
+                "now (Snapshot and the time unless you type a name); each one shows its picture, and "
+                "Restore puts the board back as one Undo step."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1223,7 +1228,9 @@ HELP_TOPICS.extend(
                 "project plan", "goal breakdown", "weekly review", "essay outline",
             ),
             "body": (
-                "New board (the Boards and maps dock's New) opens one dialog: Board or Mind map in the tab "
+                "New, Whiteboard (the Boards and maps dock) opens Untitled board N, its name ready to type "
+                "over in the top bar (Enter keeps it, Escape the old one). New, From a template (or Board, "
+                "New board) opens one dialog: Board or Mind map in the tab "
                 "strip under its title, the name, then the templates grouped by purpose (Plan and track, "
                 "Weigh and decide, Find the cause, Meet and review, Study and create, then your own), each "
                 "with its picture, and the chosen one drawn larger beside the list. A click chooses; Create, "

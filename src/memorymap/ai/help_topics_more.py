@@ -1549,7 +1549,7 @@ TOPIC_META: dict[str, dict] = {
     "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards & maps"},
     "board-history": {"title": "A board's history, and putting it back", "path": "A board, Board, History…"},
     "board-library": {"title": "The board's library, layers and templates", "path": "A board, the Library button in its top bar"},
-    "board-templates": {"title": "Board and map templates", "path": "Library tab, Boards & maps, New"},
+    "board-templates": {"title": "Board and map templates", "path": "Library tab, Boards & maps, New, From a template"},
     "board-format": {"title": "The board's Format panel and connectors", "path": "A board, Ctrl+Shift+P or the selection's More menu"},
     "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards & maps"},
     "documents-controls": {"title": "Document editor keys and controls", "path": "Library tab, Documents"},

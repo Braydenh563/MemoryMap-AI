@@ -83,10 +83,12 @@ const wbCommandNeeds = {
   },
 };
 
-const wbClickId = (id) => () => document.getElementById(id)?.click();
-const wbTool = (tool) => () => {
+//: Each names what it presses (`clickId`, `tool`), so the phone's More sheet
+//: can tell whether that control is already in reach of a thumb.
+const wbClickId = (id) => Object.assign(() => document.getElementById(id)?.click(), { clickId: id });
+const wbTool = (tool) => Object.assign(() => {
   wbSelectToolRef?.(tool);
-};
+}, { tool });
 
 //: The table. `keys` is what the board already listens for ("" where the
 //: action has no key); `menu` is the shorter words a menu row uses where its
@@ -195,6 +197,7 @@ const WB_COMMANDS = [
   { id: "new-board", group: "Board", icon: "ph:plus", label: "New board", keys: "", surface: "both", run: wbClickId("wb-new-board") },
   { id: "switch-kind", group: "Board", icon: "ph:tree-structure", label: "Switch between a whiteboard and a mind map", keys: "", surface: "both", run: wbClickId("wb-board-kind") },
   { id: "clear", group: "Board", icon: "ph:eraser", label: "Clear this board", keys: "", surface: "both", run: wbClickId("wb-clear-board") },
+  { id: "snapshots", group: "Board", icon: "ph:camera", label: "Snapshots: named versions of this board", menu: "Snapshots…", keys: "", surface: "both", run: () => wbOpenSnapshots() },
   { id: "history", group: "Board", icon: "ph:clock-counter-clockwise", label: "History: see the board as it was, and put it back", menu: "History…", keys: "", surface: "both", run: () => wbOpenHistory() },
 ];
 
@@ -346,6 +349,100 @@ function wbSyncCommandRows(menu) {
     row.setAttribute("aria-disabled", applies ? "false" : "true");
     row.classList.toggle("is-muted", !applies);
   }
+}
+
+// --- The phone's More sheet (Brief 77, WORLD_CLASS 28.1 rules 8 and 2) -----
+//
+// Below 820 the bar keeps Insert, Edit, View and Board and the tools sheet;
+// Arrange, Full screen, View's zoom rows, the shape flyout's lines and every
+// context-bar row had no path a thumb could take (measured,
+// `scratchpad/ui-sweeps/wbphonecmds.js`: 40 of 81 at 390). One `kebabMenu` at
+// the bar's end lists each command the bar does not carry, in the table's
+// groups; `kebabMenu` makes it the action sheet below 600.
+
+//: Whether a control is a thumb's reach away: rendered, or behind a door
+//: that is (a top-bar menu whose toggle shows, the tools sheet's opener, a
+//: closed flyout inside either). A control the stylesheet hides at this width
+//: is not.
+function wbPhoneReachable(el) {
+  for (let node = el; node && node !== document.body; node = node.parentElement) {
+    if (node.classList.contains("wb-board-menu") && node.id) {
+      const toggle = document.querySelector(`[aria-controls="${node.id}"]`);
+      return Boolean(toggle && toggle.getClientRects().length);
+    }
+    if (node.id === "wb-tool-group") {
+      return Boolean(node.getClientRects().length || document.getElementById("wb-tools-opener")?.getClientRects().length);
+    }
+    if (node.classList.contains("hidden")) continue;
+    if (getComputedStyle(node).display === "none") return false;
+  }
+  return true;
+}
+
+//: Whether the bar, its menus or the tools sheet already carry `command`.
+function wbPhoneCarries(command) {
+  const run = command.run || {};
+  const found = [
+    ...document.querySelectorAll(`#wb-topbar [data-wb-cmd="${command.id}"], .wb-board-menu [data-wb-cmd="${command.id}"]`),
+    ...(run.tool ? document.querySelectorAll(`#wb-tool-group [data-tool="${run.tool}"]`) : []),
+    ...(run.clickId ? [document.getElementById(run.clickId)].filter(Boolean) : []),
+  ].filter((el) => !el.closest("#wb-more-menu"));
+  return found.some(wbPhoneReachable);
+}
+
+//: Shows the rows this board needs as the sheet opens: the surface's, minus
+//: what the bar carries, greyed while they do not apply (pressed anyway, a
+//: row says why, `wbRunCommand`). A hairline between two groups shows only
+//: when both sides keep a row.
+function wbSyncMoreMenu(menu) {
+  const map = wbIsMap();
+  for (const row of menu.querySelectorAll("[data-wb-cmd]")) {
+    const command = WB_COMMAND_BY_ID.get(row.dataset.wbCmd);
+    const surface = command.surface === "both" || command.surface === (map ? "map" : "board");
+    row.hidden = !surface || wbPhoneCarries(command);
+    const applies = wbCommandApplies(command);
+    row.classList.toggle("menu-item-unavailable", !applies);
+    row.setAttribute("aria-disabled", applies ? "false" : "true");
+  }
+  let shown = false;
+  let rule = null;
+  for (const child of menu.children) {
+    if (child.classList.contains("menu-sep")) {
+      child.hidden = true;
+      if (shown) rule = child;
+      continue;
+    }
+    if (child.hidden) continue;
+    if (rule) rule.hidden = false;
+    rule = null;
+    shown = true;
+  }
+}
+
+function wbInitMoreMenu() {
+  const bar = document.querySelector("#wb-topbar .wb-topbar-right");
+  if (!bar || document.getElementById("wb-more-toggle") || typeof kebabMenu !== "function") return;
+  const wrap = kebabMenu(
+    WB_COMMANDS.map((command) => ({
+      label: `${command.icon} ${command.label}`,
+      title: command.keys ? `${command.label} (${command.keys})` : command.label,
+      group: command.group,
+      run: () => wbRunCommand(command.id),
+    })),
+    "More board commands"
+  );
+  wrap.classList.add("wb-more-wrap");
+  const menu = wrap.querySelector(".action-menu");
+  menu.id = "wb-more-menu";
+  menu.querySelectorAll(".menu-item").forEach((row, i) => {
+    row.dataset.wbCmd = WB_COMMANDS[i].id;
+  });
+  const opener = wrap.querySelector(".kebab-opener");
+  opener.id = "wb-more-toggle";
+  //: Capture, so the rows are right before `kebabMenu`'s own listener opens
+  //: the menu or moves it into the sheet.
+  opener.addEventListener("click", () => wbSyncMoreMenu(menu), true);
+  bar.append(wrap);
 }
 
 // --- The board's help and shortcut sheet (INBOX 566) ------------------------
@@ -515,6 +612,7 @@ function wbCloseHelpSheet() {
 
 //: Wired once, when this file arrives with the Library bundle.
 onDomReady(() => {
+  wbInitMoreMenu();
   const overlay = document.getElementById("wb-help-overlay");
   if (!overlay) return;
   document.getElementById("wb-help-close")?.addEventListener("click", wbCloseHelpSheet);

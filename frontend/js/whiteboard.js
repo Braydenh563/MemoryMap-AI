@@ -14960,21 +14960,84 @@ function wbSyncBoardCount() {
   if (opt.textContent !== text) opt.textContent = text;
 }
 
+//: **The name is edited where it is read** (Brief 77, WHITEBOARD_PLAN
+//: "Deepened 2026-10-10" row 2): a field takes the board picker's place in
+//: the top bar, its words selected, so typing replaces them. Enter or leaving
+//: the field saves, Escape puts the name back; an empty or unchanged name
+//: writes nothing. Resolves with the saved title, or null.
 async function renameCurrentBoard() {
-  if (!window.currentBoardId) return;
-  const current = document.getElementById("wb-board-select")?.selectedOptions?.[0]?.dataset.title || "";
-  const name = await promptDialog("Rename this board:", current);
-  if (!name || !name.trim()) return;
-  try {
-    const board = await apiJson(`/whiteboard/boards/${window.currentBoardId}`, {
-      method: "PUT",
-      body: JSON.stringify({ title: name.trim() }),
+  const boardId = window.currentBoardId;
+  const select = document.getElementById("wb-board-select");
+  const bar = document.getElementById("wb-topbar");
+  if (!boardId || !select || !bar) return Promise.resolve(null);
+  document.getElementById("wb-name-field")?.blur();
+  const current = select.selectedOptions?.[0]?.dataset.title || select.selectedOptions?.[0]?.textContent?.trim() || "";
+  const field = document.createElement("input");
+  field.type = "text";
+  field.id = "wb-name-field";
+  field.className = "wb-name-field";
+  field.maxLength = 100;
+  field.autocomplete = "off";
+  field.value = current;
+  field.setAttribute("aria-label", "Board name: Enter saves, Escape keeps the old one");
+  field.title = "Enter saves, Escape keeps the old name";
+  //: In the picker's place and at its width, so the bar does not move.
+  const shell = select.closest(".select-shell") || select;
+  field.style.width = `${Math.max(96, shell.getBoundingClientRect().width)}px`;
+  shell.after(field);
+  shell.hidden = true;
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = async (save) => {
+      if (done) return;
+      done = true;
+      const name = field.value.trim();
+      field.remove();
+      shell.hidden = false;
+      if (!save || !name || name === current || window.currentBoardId !== boardId) return resolve(null);
+      try {
+        const board = await apiJson(`/whiteboard/boards/${boardId}`, {
+          method: "PUT",
+          body: JSON.stringify({ title: name }),
+        });
+        await refreshBoardList(board);
+        resolve(board.title);
+      } catch (err) {
+        toast(err.message || voiceLine("failed", { what: "rename that board" }), true);
+        resolve(null);
+      }
+    };
+    //: The board's own keys (Delete, V, N) must not see what is typed here.
+    field.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finish(true);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        finish(false);
+      }
     });
-    await refreshBoardList(board);
-    toast(`Board renamed to "${board.title}".`);
-  } catch (err) {
-    toast(err.message || voiceLine("failed", { what: "rename that board" }), true);
-  }
+    field.addEventListener("blur", () => finish(true));
+    field.focus({ preventScroll: true });
+    field.select();
+  });
+}
+
+//: **New makes the board, then asks for its name in place** (Brief 77, row
+//: 2: a new board was four presses and a typed name, behind a dialog that
+//: had to be answered before there was anything to draw on). It is "Untitled
+//: board N" (`wbUntitledNames`, INBOX 739) and open at once; the templates
+//: stay one row away in the same New menu and in the Board menu.
+async function wbNewUntitledBoard() {
+  const name = (await wbUntitledNames()).board;
+  wbShowCanvasView();
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  try {
+    localStorage.setItem(WB_LAST_BOARD_KIND, "board");
+  } catch (err) { /* see wbRememberedBoardKind */ }
+  await wbCreateBlankBoard(name, "board");
+  if (window.currentBoardId) renameCurrentBoard();
 }
 
 //: Create a board: or a map, which is the same thing with a `type` on it
@@ -19560,7 +19623,8 @@ onDomReady(() => {
   //: map tab. Bound here, not in navigation.js's empty-state table, because
   //: the empty state is drawn by this file, and the boot scripts are capped.
   $("library-boards-new-map")?.addEventListener("click", () => createNewBoard("map", { reveal: true }));
-  $("wb-boards-new")?.addEventListener("click", async () => {
+  $("wb-boards-new")?.addEventListener("click", () => wbNewUntitledBoard());
+  $("wb-boards-new-template")?.addEventListener("click", async () => {
     await createNewBoard("board", { reveal: true });
   });
   // The same dialog, opened with the Mind map segment already chosen, not a

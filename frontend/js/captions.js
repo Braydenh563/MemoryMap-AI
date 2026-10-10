@@ -194,7 +194,7 @@ async function stopLiveCaptions() {
       toast("Nothing was said, so nothing was saved.");
       return;
     }
-    await loadEntries();
+    await refreshEntries([done.entry_id]);
     flashEntry(done.entry_id);
     toastAction("Saved the captions as a note.", "Open", () => flashEntry(done.entry_id));
   } catch (error) {

@@ -35,7 +35,8 @@ def _save(session: captions.Session, db: DbSession) -> dict:
     text = session.transcript().strip()
     if not text:
         return {"entry_id": None, "text": ""}
-    stamp = datetime.now().strftime("%-d %b %Y, %H:%M")
+    now = datetime.now()
+    stamp = f"{now.day} {now:%b %Y, %H:%M}"
     entry = routes_entries.create_entry(
         EntryCreate(content=f"Live captions, {stamp}\n\n{text}", tags=[TAG], defer_filing=True), db
     )

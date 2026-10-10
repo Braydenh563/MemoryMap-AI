@@ -36,7 +36,7 @@ STRAY_OVERFLOW = ("dots-three-circle", "dots-three-outline", "dots-three-circle-
 #: markup. A new vertical one is a decision, so it is a line here.
 VERTICAL_KEBABS = {
     "categories-panel.js": 1,  # Manage categories, one row per category
-    "documents.js": 1,  # the documents rail's rows
+    "documents.js": 2,  # the documents rail's rows; a history version's row (Brief 76)
     "link-types.js": 1,  # the relation types list
     "note-cards.js": 1,  # a note's connection rows
     "note-properties.js": 1,  # the note types list

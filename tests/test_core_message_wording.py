@@ -78,6 +78,7 @@ SOURCES: tuple[Source, ...] = (
     Source("core/ocr.py", assigns=("reason", "note"), functions=("engine_status",)),
     Source("core/docview.py", returns=("editability",), keywords=("message",)),
     Source("ai/voice.py", raises=("RuntimeError",), consts=("INSTALL_HINT",)),
+    Source("ai/captions.py", raises=("CaptionsError",), consts=("NO_HELPER_HINT", "NOT_LOCAL_HINT")),
     Source("entry/importer.py", raises=("RuntimeError",), consts=("INSTALL_HINT",)),
     Source(
         "entry/manager.py",
@@ -304,6 +305,7 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_whiteboard.py", "detail"): "one of two literal sentences, chosen by what the XMind archive holds",
     ("routes_backups.py", "str(exc)"): "FileNotFoundError and ValueError from core/backup.py restore_backup",
     ("routes_categories.py", "str(exc)"): "ToolError (ai/tools/categories.py) and ValueError (entry/manager.py)",
+    ("routes_captions.py", "str(exc)"): "CaptionsError from ai/captions.py: its hint constants and literal sentences",
     ("routes_chat.py", "str(exc)"): "ToolError from validate_make_plan and summarise_turns",
     ("routes_documents.py", "str(error)"): "ValueError from core/syntaxcheck.py check",
     ("routes_documents.py", "viewed.message or 'There was no readable text in that file.'"): "ViewedFile.message in core/docview.py",

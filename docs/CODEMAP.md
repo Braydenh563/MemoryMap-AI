@@ -8965,7 +8965,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/spaces/{space_id}` | PUT | `update_space` | src/memorymap/api/routes_spaces.py:84 |
 | `/spaces/{space_id}/move-notes` | POST | `move_notes_to_space` | src/memorymap/api/routes_spaces.py:462 |
 | `/spec` | GET | `model_spec` | src/memorymap/api/routes_models.py:488 |
-| `/start` | POST | `start` | src/memorymap/api/routes_captions.py:47 |
+| `/start` | POST | `start` | src/memorymap/api/routes_captions.py:48 |
 | `/statistics` | GET | `statistics` | src/memorymap/api/routes_statistics.py:24 |
 | `/stats` | GET | `ask_history_stats` | src/memorymap/api/routes_ask_history.py:83 |
 | `/stats` | GET | `stats` | src/memorymap/api/routes_insights.py:33 |
@@ -9132,8 +9132,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{reminder_id}/export.ics` | GET | `export_one_ics` | src/memorymap/api/routes_reminders.py:357 |
 | `/{reminder_id}/purge` | DELETE | `purge_reminder` | src/memorymap/api/routes_reminders.py:629 |
 | `/{reminder_id}/restore` | POST | `restore_reminder` | src/memorymap/api/routes_reminders.py:619 |
-| `/{session_id}/audio` | POST | `audio` | src/memorymap/api/routes_captions.py:63 |
-| `/{session_id}/stop` | POST | `stop` | src/memorymap/api/routes_captions.py:82 |
+| `/{session_id}/audio` | POST | `audio` | src/memorymap/api/routes_captions.py:64 |
+| `/{session_id}/stop` | POST | `stop` | src/memorymap/api/routes_captions.py:83 |
 | `/{turn_id}` | DELETE | `delete_ask_turn` | src/memorymap/api/routes_ask_history.py:171 |
 | `/{turn_id}` | GET | `get_ask_turn` | src/memorymap/api/routes_ask_history.py:91 |
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
@@ -11356,9 +11356,9 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | Name | File:line |
 |---|---|
 | `_save` | src/memorymap/api/routes_captions.py:31 |
-| `audio` | src/memorymap/api/routes_captions.py:64 |
-| `start` | src/memorymap/api/routes_captions.py:48 |
-| `stop` | src/memorymap/api/routes_captions.py:83 |
+| `audio` | src/memorymap/api/routes_captions.py:65 |
+| `start` | src/memorymap/api/routes_captions.py:49 |
+| `stop` | src/memorymap/api/routes_captions.py:84 |
 
 ### src/memorymap/api/routes_categories.py (20)
 
@@ -16233,7 +16233,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Phases | docs/roadmap/DOCUMENTS_PLAN.md:1348 |
 | Phases 0 to 6: built | docs/roadmap/UI_MODERNISATION_PLAN.md:216 |
 | Phases, each with the gate it is finished against | docs/roadmap/MINDMAP_PLAN.md:1294 |
-| Placed (last 20, newest first) | docs/roadmap/INBOX.md:195 |
+| Placed (last 20, newest first) | docs/roadmap/INBOX.md:212 |
 | Placed from Brief 40, 2026-10-10 (does the MCP server work) | docs/roadmap/AGENT_SKILLS_REFORM.md:345 |
 | Placed from Brief 40, 2026-10-10 (research and placement) | docs/roadmap/BACKLOG.md:4175 |
 | Placed from Brief 40, 2026-10-10 (the phone over HTTPS) | docs/roadmap/WORLD_CLASS_PLAN.md:3137 |

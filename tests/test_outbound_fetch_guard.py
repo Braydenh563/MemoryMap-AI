@@ -68,6 +68,7 @@ REACHES_THE_NETWORK = {
     # Configured: the two clients above go through this, which is `requests`
     # with a redirect off the configured host and port refused (S6).
     "ai/provider_http.py": "configured",
+    "ai/captions.py": "configured",  # MEMORYMAP_CAPTIONS_URL, refused unless loopback
     # Configured: the app's own SearXNG, which it downloads and starts itself.
     "search/searxng_install.py": "configured",
     # Configured: the update feed and the installer download, both pinned to an

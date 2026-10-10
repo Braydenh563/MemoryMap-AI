@@ -378,3 +378,51 @@ def test_each_review_has_a_finds_line_and_a_description_that_names_its_change(cl
         assert len(review["finds"]) <= 60, review["finds"]
         assert "\u2014" not in review["finds"] and "!" not in review["finds"]
         assert review["finds"] != review["about"]
+
+
+def test_the_badge_count_for_uncategorised_does_not_run_the_per_note_matcher(client, session, monkeypatch):
+    """Audit 2026-10-10: `GET /tidy` (the Notes dock's badge, fetched on every
+    list redraw) took 23 s at 5,000 notes, 11.5 s of it matching each loose
+    note against the others only to count it. The count is the number of
+    uncategorised notes, whichever branch each row takes, so it needs no match;
+    the review's own list still does."""
+    from memorymap.ai import lexical_filing
+
+    for text in ("sourdough starter feeding", "sourdough loaf proving"):
+        _save(client, text, category="Baking")
+    _save(client, "sourdough starter smells sour", category="Uncategorised")
+    _save(client, "zzz qqq", category="Uncategorised")
+    listed = len(_review(client, "uncategorised")["rows"])
+
+    def refuse(*_a, **_k):
+        raise AssertionError("the badge must not match each note")
+
+    monkeypatch.setattr(lexical_filing, "lexical_category", refuse)
+    counts = {r["key"]: r["count"] for r in client.get("/tidy").json()["reviews"]}
+    assert counts["uncategorised"] == listed == 2
+
+
+def test_the_duplicates_count_is_kept_until_the_notebook_changes(client, session, monkeypatch):
+    """Audit 2026-10-10: the scan is quadratic and the badge asks on every
+    redraw, so an unchanged notebook answers from the last scan; any new note,
+    edit or deletion is a different notebook and scans again."""
+    from memorymap.entry import duplicates
+
+    calls = []
+    real = duplicates.find_duplicates
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(duplicates, "find_duplicates", counted)
+    tidy._duplicates_seen.clear()
+    first = _save(client, "Call the plumber about the kitchen leak on Monday")
+    _save(client, "Call the plumber about the kitchen leak on Monday morning")
+    assert client.get("/tidy").json()["reviews"][6]["count"] == 1
+    assert client.get("/tidy").json()["reviews"][6]["count"] == 1
+    assert len(calls) == 1, "an unchanged notebook must not be scanned twice"
+
+    client.put(f"/entries/{first['id']}", json={"content": "Something else entirely about gardening tools"})
+    assert client.get("/tidy").json()["reviews"][6]["count"] == 0
+    assert len(calls) == 2, "an edit is a different notebook"

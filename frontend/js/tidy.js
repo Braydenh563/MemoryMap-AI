@@ -33,6 +33,11 @@ const TIDY = { state: null, badgeAt: 0, badgeTimer: 0 };
 //: module arrives, after a change made here, and when the notes list redraws
 //: (debounced, at most every 20 s), so a note filed elsewhere moves it.
 async function tidyBadge(force = false) {
+  //: Not while locked. `wiring.js` loads this module 4 s after the page does,
+  //: and on a lock screen that ran `GET /tidy` with no token: a 401 and a
+  //: console error on every launch (audit 2026-10-10). The notes list redraws
+  //: after unlock and the watcher below asks again then.
+  if (!authToken()) return;
   const now = Date.now();
   if (!force && now - TIDY.badgeAt < 20000) return;
   TIDY.badgeAt = now;

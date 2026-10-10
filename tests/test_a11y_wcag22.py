@@ -142,3 +142,15 @@ def test_single_key_shortcuts_can_be_turned_off():
     assert 'singleKeys && e.key === "m" && !e.ctrlKey' in wiring
     assert 'prefs.get("singleKeys", null) !== "off"' in _function(wiring, "singleKeysOn")
     assert 'id="pref-single-keys"' in _read("index.html")
+
+
+def test_a_select_opener_name_contains_the_words_on_its_face():
+    """axe `label-content-name-mismatch` (2026-10-10, 22 findings per theme):
+    every sort and model picker was named "Sort notes" while its face read
+    "Newest first". Label in Name (2.5.3) wants the visible words inside the
+    accessible name; the opener's aria-label is rewritten with the value."""
+    selects = _read("sheets-selects.js")
+    sync = selects[selects.index("const syncValue = () => {"):]
+    sync = sync[: sync.index("opener.disabled = select.disabled;")]
+    assert 'opener.setAttribute(' in sync and '`${label}: ${shown}`' in sync
+    assert "select-opener-icon" in sync, "an icon-only opener shows no text and keeps the plain label"

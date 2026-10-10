@@ -765,6 +765,19 @@ function enhanceSelect(select) {
   const syncValue = () => {
     const chosen = select.options[select.selectedIndex];
     valueText.textContent = chosen ? chosen.textContent.trim() : "";
+    //: **The name contains what is written on the button** (WCAG 2.5.3, Label
+    //: in Name; axe `label-content-name-mismatch`, 22 findings in 2026-10-10's
+    //: sweep, every sort and model picker). "Sort notes" was the whole name
+    //: while the face read "Newest first", so a person saying the words they
+    //: can see ("click newest first") reached nothing. Now "Sort notes: Newest
+    //: first". An icon-only opener shows no text, so keeps the plain label.
+    if (!opener.classList.contains("select-opener-icon")) {
+      const shown = valueText.textContent;
+      opener.setAttribute(
+        "aria-label",
+        shown && !label.toLowerCase().includes(shown.toLowerCase()) ? `${label}: ${shown}` : label
+      );
+    }
     opener.disabled = select.disabled;
     for (const row of menu.querySelectorAll("[role='option']")) {
       const on = row.dataset.value === select.value;

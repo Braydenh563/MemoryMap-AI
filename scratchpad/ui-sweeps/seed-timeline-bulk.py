@@ -66,12 +66,25 @@ for i in range(count):
         )
     )
 
+# The column list is the schema's own, not a hand-kept string: a NOT NULL
+# column added later (`map_topic`, 2026-10) broke the old fixed INSERT, and the
+# next one would have too (audit 2026-10-10). Columns this script has a value
+# for take it; any other NOT NULL column without a default gets "" or 0.
+given = ["content", "category_id", "tags", "created_at", "updated_at"]
+fixed = {
+    "is_deleted": 0, "is_private": 0, "pinned": 0, "workspace_id": "'default'",
+    "ai_confidence": 0, "access_count": 0, "filing_state": "'done'", "user_filed": 0,
+    "is_board": 0, "is_draft": 0, "source_path": "''", "suggested_tags": "'[]'",
+    "discarded_tags": "'[]'",
+}
+for _, name, kind, notnull, default, pk in con.execute("PRAGMA table_info(entries)").fetchall():
+    if name in given or name in fixed or pk or not notnull or default is not None:
+        continue
+    fixed[name] = 0 if any(t in kind.upper() for t in ("INT", "BOOL", "FLOAT", "REAL")) else "''"
+columns = given + [k for k in fixed]
 con.executemany(
-    "INSERT INTO entries (content, category_id, tags, created_at, updated_at, "
-    "is_deleted, is_private, pinned, workspace_id, ai_confidence, access_count, "
-    "filing_state, user_filed, is_board, is_draft, source_path, suggested_tags, "
-    "discarded_tags) "
-    "VALUES (?, ?, ?, ?, ?, 0, 0, 0, 'default', 0, 0, 'done', 0, 0, 0, '', '[]', '[]')",
+    f"INSERT INTO entries ({', '.join(columns)}) VALUES (?, ?, ?, ?, ?, "
+    + ", ".join(str(fixed[k]) for k in fixed) + ")",
     rows,
 )
 con.commit()

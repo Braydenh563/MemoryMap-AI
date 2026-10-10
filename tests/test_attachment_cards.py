@@ -28,7 +28,7 @@ import io
 import re
 from pathlib import Path
 
-from _app_js import LAZY_PIECES, app_js_files
+from tests._app_js import LAZY_PIECES, app_js_files
 
 from memorymap.entry import manager
 

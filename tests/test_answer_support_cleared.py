@@ -9,7 +9,7 @@ is finished; starting the next question emptied the box and left it standing.
 
 from __future__ import annotations
 
-from _app_js import app_js_text
+from tests._app_js import app_js_text
 
 
 def test_starting_a_question_removes_the_support_notice():

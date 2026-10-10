@@ -280,6 +280,9 @@ def restore_bundle(file: UploadFile = File(...), password: str = Form(default=""
             ) from exc
     finally:
         _unlink_quietly(upload_path, zip_path)
+    # The settings the zip carried (Audit 2026-10-10, item 1), merged over the
+    # live ones: a key the zip lacks keeps its value here.
+    config.merge_preferences(result.get("preferences") or {})
     session = deps.get_db().session()
     try:
         manager.log_action(session, "restored", "data", detail="full backup file")

@@ -341,6 +341,13 @@ class ConfigManager:
         """
         return dict(self._preferences)
 
+    def merge_preferences(self, values: dict[str, Any]) -> None:
+        """Set many settings with one atomic write (a restored backup's)."""
+        if not values:
+            return
+        self._preferences.update(values)
+        atomic_write_json(self.preferences_path, self._preferences)
+
     def set_preference(self, key: str, value: Any) -> None:
         """Change a preference and persist it to disk immediately,
         so a crash never loses a settings change.

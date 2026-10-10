@@ -42,7 +42,7 @@ import time
 from dataclasses import dataclass
 from datetime import timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from memorymap.core import events
 from memorymap.core.database import AuditLog, Entry, EntryLink, Reminder, utcnow
@@ -391,6 +391,19 @@ def _rows_uncategorised(session, _level: str) -> list[dict]:  # noqa: ANN001
     return rows
 
 
+def _count_uncategorised(session) -> int:  # noqa: ANN001
+    """How many rows `_rows_uncategorised` would list, without building them.
+
+    Every uncategorised note becomes a row (one that points at a category or
+    "no clear match"), so the badge's count is the number of such notes. Making
+    the rows matches each note's words against every other note, 2.3 ms apiece:
+    11.5 s of the 23 s `GET /tidy` took at 5,000 notes (audit 2026-10-10), paid
+    on every redraw of the notes list just to print a number."""
+    entries = _live_entries(session)
+    names = manager.bulk_category_names(session, entries)
+    return sum(1 for e in entries if names.get(e.category_id, manager.UNCATEGORISED) == manager.UNCATEGORISED)
+
+
 def _rows_duplicates(session, _level: str) -> list[dict]:  # noqa: ANN001
     from memorymap.entry import duplicates
 
@@ -463,6 +476,35 @@ _RULES = {
     "short-notes": _rows_short_notes,
     "stale-reminders": _rows_stale_reminders,
 }
+
+
+#: The duplicates count last taken, with the notebook's state when it was
+#: taken. The scan is the one review whose cost grows with the square of the
+#: notebook (4.7 to 5.8 s at 5,000 notes even after ARCH-11), and the badge
+#: asks again on every redraw of the notes list. A different count of live
+#: notes, a newer edit or a new id is a different notebook; the same
+#: signature is the same answer.
+_duplicates_seen: dict = {}
+
+
+def _count_duplicates(session) -> int:  # noqa: ANN001
+    #: The database's own address leads the signature: two notebooks (a test's
+    #: throwaway one, a space switch) must never share an answer.
+    signature = (str(session.get_bind().url), *session.execute(
+        select(func.count(Entry.id), func.max(Entry.updated_at), func.max(Entry.id)).where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+        )
+    ).one())
+    if _duplicates_seen.get("signature") == signature:
+        return _duplicates_seen["count"]
+    count = len(_rows_duplicates(session, ""))
+    _duplicates_seen.update(signature=signature, count=count)
+    return count
+
+
+#: Reviews whose count is cheaper to take than their rows are to build.
+_COUNTERS = {"uncategorised": _count_uncategorised, "duplicates": _count_duplicates}
 
 
 def rows(session, key: str, level: str | None = None) -> list[dict]:  # noqa: ANN001
@@ -789,7 +831,8 @@ def summary(session, config) -> dict:  # noqa: ANN001
     out = []
     for key, review in REVIEWS.items():
         try:
-            count = len(rows(session, key))
+            counter = _COUNTERS.get(key)
+            count = counter(session) if counter else len(rows(session, key))
         except Exception:  # noqa: BLE001  # one rule failing never hides the others
             logger.warning("tidy review %s failed", key, exc_info=True)
             count = 0

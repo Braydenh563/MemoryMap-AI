@@ -1984,6 +1984,26 @@ def _migrations_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+def _safety_copy_before_migrating(cfg, current: str, db_path: Path) -> None:  # noqa: ANN001
+    """A copy of the database before a pending migration runs (audit
+    2026-10-10, item 8). A launcher update that pulls a migration used to run
+    it on the only copy of the notebook, with the nightly backup up to a day
+    old. Only when the stamped revision is behind head: an ordinary launch
+    changes nothing and copies nothing. A failed copy is logged and the
+    migration still runs, because this must never be what stops the app
+    starting (the caller's own rule)."""
+    from alembic.script import ScriptDirectory
+
+    try:
+        if current == ScriptDirectory.from_config(cfg).get_current_head():
+            return
+        from memorymap.core import backup
+
+        backup.backup_now(db_path, db_path.parent)
+    except Exception:  # noqa: BLE001
+        _logger.warning("Could not take a safety copy before migrating", exc_info=True)
+
+
 def _ensure_alembic_baseline(db_path: Path) -> None:
     """Make Alembic aware of this exact database, without ever running DDL
     against one that doesn't need it.
@@ -2079,6 +2099,7 @@ def _ensure_alembic_baseline(db_path: Path) -> None:
             if current is None:
                 command.stamp(cfg, "head")
             else:
+                _safety_copy_before_migrating(cfg, current, db_path)
                 command.upgrade(cfg, "head")
         finally:
             root_logger.handlers = saved_root_handlers

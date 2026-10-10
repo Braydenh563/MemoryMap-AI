@@ -23,13 +23,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Dropdown buttons are named with the value they show (Audit 2026-10-10): "Sort notes: Newest first" rather than "Sort notes", so voice control that says what is written on the button reaches it. The lock screen no longer asks the server for the Tidy count before you have signed in.
+- An update that changes the notebook's structure now copies the notebook to Backups first (Audit 2026-10-10): the migration used to run on the only copy, and the nightly backup could be a day old. Ordinary launches copy nothing.
+- The Notes dock's Tidy count no longer takes 23 seconds on a 5,000-note notebook (Audit 2026-10-10): it counted loose notes by matching every one against the rest, and rescanned for duplicates on every list redraw. It now takes about 1.4 seconds the first time and answers from memory until a note changes.
+- A full backup now carries your settings (Audit 2026-10-10): a restore onto a new computer brought back every note but none of the settings. The model API key and the sign-in switch are left out on purpose.
 - Answers from your notes quote your words exactly again (no added quotation marks, no rewritten "I" to "you"), and "How long is the train from Lisbon to Porto?" or "Who are we looking to hire?" are no longer read as requests to translate.
 - Small talk with only the tools extra installed and no model is answered by the app rather than handed to the tool runner.
 
 ### Removed
 
 - 15 MB of vendored libraries the app never imported (networkx, whoosh, langdetect, dateutil, pint and a Windows .exe, among others); what remains is credited in docs/THIRD_PARTY.md. Sums ("what is 12 * 4") are worked out by a small evaluator of our own.
-
 ## [0.4.1] - 2026-10-06
 
 ### Added

@@ -2493,6 +2493,33 @@ MAX_IMPORT_FILES = 500
 _APP_KEYS = {"category", "tags", "created", "updated", "pinned"}
 
 
+def _exported_created(values: list[str] | None):
+    """The `created:` the export wrote, as the naive UTC the database holds,
+    or None when it is absent, unreadable, or in the future (a vault from
+    elsewhere may use any date format; only a clean past ISO stamp is trusted)."""
+    from datetime import datetime, timezone
+
+    if not values:
+        return None
+    try:
+        parsed = datetime.fromisoformat(values[0].strip())
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed if parsed <= datetime.now(timezone.utc).replace(tzinfo=None) else None
+
+
+def _keep_exported_state(session: Session, entry, meta: dict) -> None:
+    """Put back the date and pin an exported note carried."""
+    if meta.get("created"):
+        entry.created_at = meta["created"]
+    if meta.get("pinned"):
+        entry.pinned = True
+    if meta.get("created") or meta.get("pinned"):
+        session.commit()
+
+
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
     """(metadata, content). `category` and `tags` become the note's own
     fields; `created` and `updated` are the export's and are dropped; every
@@ -2510,6 +2537,14 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
         meta["category"] = found["category"][0]
     if "tags" in found:
         meta["tags"] = [t for t in found["tags"] if t]
+    # What this app's own export wrote (audit 2026-10-10, item 1): a note
+    # exported and imported again kept its words and lost its date and pin,
+    # so the timeline reshuffled to "everything today".
+    stamp = _exported_created(found.get("created"))
+    if stamp is not None:
+        meta["created"] = stamp
+    if (found.get("pinned") or [""])[0].lower() == "true":
+        meta["pinned"] = True
     kept: list[str] = []
     skipping = False
     for line in text[:end].rstrip("\n").split("\n")[1:-1]:
@@ -2716,6 +2751,7 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
                 entry.source_path = relative
                 if meta.get("category"):
                     entry.user_filed = True
+                _keep_exported_state(session, entry, meta)
                 deps.store_quietly(session, entry)
                 imported += 1
                 made.append(entry)
@@ -2864,6 +2900,7 @@ def _import_markdown_files(files: list[UploadFile], session: Session) -> dict:
         if meta.get("category"):
             entry.user_filed = True  # the file said where it belongs
             session.commit()
+        _keep_exported_state(session, entry, meta)
         deps.store_quietly(session, entry)
         imported += 1
         ids.append(entry.id)

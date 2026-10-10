@@ -164,3 +164,11 @@ def test_a_help_popover_is_never_laid_over_its_own_trigger():
     assert "menuSidePlan(box.height, anchor, 10, margin)" in place
     assert "innerHeight - margin - box.height" not in place.replace("window.", "")
     assert 'panel.style.maxHeight = ""' in menus
+
+
+def test_the_badge_does_not_ask_the_server_while_the_app_is_locked():
+    """Audit 2026-10-10: `wiring.js` loads this module 4 s after the page, and
+    on the lock screen `GET /tidy` went out with no token: a 401 and a console
+    error on every launch."""
+    badge = _read("tidy.js").split("async function tidyBadge(", 1)[1].split("\n}\n", 1)[0]
+    assert badge.index("if (!authToken()) return;") < badge.index('apiJson("/tidy"')

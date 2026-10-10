@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 
-from _app_js import JS_DIR
+from tests._app_js import JS_DIR
 
 
 def _note(client, content: str, **extra) -> int:

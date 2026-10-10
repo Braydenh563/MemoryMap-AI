@@ -3658,8 +3658,8 @@ Link to another note with [[its first few words]]."></textarea>
                  remaining content is a decorative icon has no accessible name
                  otherwise, and `title` is a tooltip, not a name. -->
             <button id="graph-concept-maps" class="ghost small dock-link" type="button"
-              aria-label="Concept maps"
-              title="A concept map is one you draw yourself: your own cards, your own links, your own arrangement, where this map is built for you from what your notes already say."><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="dock-link-label">Concept maps</span></button>
+              aria-label="Mind maps"
+              title="A mind map is one you draw yourself: your own topics, your own links, your own arrangement, where this map is built for you from what your notes already say."><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="dock-link-label">Mind maps</span></button>
           </div>
           <div class="dock-group dock-find">
             <div class="search-field dock-search">
@@ -3766,7 +3766,7 @@ Link to another note with [[its first few words]]."></textarea>
             <strong>This map is built for you</strong> from what your notes
             already say. If you want to draw one yourself, your own cards, your
             own links, your own arrangement, that is a
-            <strong>concept map</strong>, and the button in the toolbar opens
+            <strong>mind map</strong>, and the button in the toolbar opens
             them.
           </p>
           <p class="muted">
@@ -6010,7 +6010,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="library-boards-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload" data-fold-narrow><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" data-help-for="wb-boards-intro" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
-              title="Every board and concept map you have made. Pick one to open it, or start a new whiteboard or mind map from New."
+              title="Every board and mind map you have made. Pick one to open it, or start a new whiteboard or mind map from New."
               aria-label="What is this?">
               <i class="ph ph-question" aria-hidden="true"></i>
             </button>
@@ -6068,7 +6068,7 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
         </div>
         <div class="help-body hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">
-<p>Every board and concept map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a whiteboard or a map from <strong>New</strong> above.</p>
+<p>Every board and mind map you have made. They are the same kind of thing, so a map you build here can be drawn on, and a board can be branched with Tab. Pick one to open it, or start a whiteboard or a map from <strong>New</strong> above.</p>
 </div>
         <!-- Maps / Boards / All (MINDMAP_PLAN.md §5 item 10, the user's own
              stated preference: maps live in Boards & maps behind a filter
@@ -6735,6 +6735,10 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="tree-both">Tree, both sides</option>
           <option value="tree-down">Tree, downward</option>
           <option value="radial">Radial</option>
+          <option value="logic-right">Logic chart</option>
+          <option value="timeline">Timeline</option>
+          <option value="fishbone">Fishbone</option>
+          <option value="tree-table">Tree table</option>
           <option value="free">Free</option>
         </select>
         <button id="wb-map-tidy" class="ghost icon-button" type="button" title="Lay every unpinned node out again" aria-label="Lay every unpinned node out again" hidden><i class="ph ph-broom" aria-hidden="true"></i></button>
@@ -13403,6 +13407,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="help-body hidden" id="wb-help-about" role="dialog" aria-label="About boards">
         <p>A board is a note you can draw on. Drop notes in from the Library, sketch, write in shapes and connect things: a connector follows whatever it joins, even rotated, and everything on the board stays searchable.</p>
         <p>Paste or drop an image straight onto the board. Right-click anything (or hold it on a touch screen) for its menu, and Ctrl+K finds any board action by its name.</p>
+        <p>The top bar, left to right: Boards (back to the board list), which board or map to show, find a card on this board, board overview, the Edit menu (undo, select, duplicate, delete), View (how the board looks and which panels are open), Board (export, clear, help), the sidebar: shapes, icons and frames, your notes, and the layers, and toggle full screen; on a phone, More board commands holds the rest. A selected topic: + (add a child topic), the bookmark (add a child that points at a note, document, file or link), its corner square (resize this topic; Shift scales the words), and the chevron is collapse this branch or expand this branch.</p>
       </div>
       <p class="muted wb-help-intro">Every key and gesture on a board. Ctrl+K finds any action by name.</p>
       <div class="search-field wb-help-search">

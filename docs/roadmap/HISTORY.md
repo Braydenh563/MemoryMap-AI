@@ -430,6 +430,18 @@ measured on port 8832 with 96 notes and 26 reminders, 1440 and 390
   `insert-template` (a Small tools group in Settings, Help); the Statistics
   page's '?' popover and the Templates popover's line; six
   `UTILITIES` rows in `tests/test_manual_parity.py`.
+## Moved from the plans, 2026-10-10 (MINDMAP Brief 78)
+
+The map78 agent's Built block (standing order 10); MINDMAP_PLAN 15 rows 1 to 6, 8 and 9 carry the pointer. Measured with `scratchpad/ui-sweeps/map78.js` (VW=1440 and 390; three runs where timed), `maplayouts.js`, `map78-export.js` with `scratchpad/pngpixel.py`, `boardundo.js` 45/45, `mapstrip.js` 38 against the base's 35 (its 5 fails a subset of the base's 8).
+
+- Row 1 (rules 2, 13): `wbNewUntitledBoard(kind)` (whiteboard.js) makes "Untitled map N" (`wbUntitledNames`) and opens the root in edit; what is typed there names the map while it still carries its number. New, Mind map and the empty tab's New mind map; From a template keeps the gallery. Clicks 5 to 3 as deepen72a counts.
+- Row 2 (rule 10): "concept map" retired where a person reads it (the palette, the Library create picker, the Dashboard tile, the Graph's button, the boards intro, the Guide, a graph line label); every one of those makes the mind map. `tests/test_terms.py` reads DESIGN.md's glossary: 14 to 0. `createConceptMap` has no caller left but the lazy stub list.
+- Row 3 (rules 7, 8, 9): `wbSyncMapEdgeHandles` stands the selected topic's own lines' `+` aside (`.is-aside`); a topic's grips are `visibility: hidden` until pointed at or selected; no invisible `+` under `(hover: none)`, with "Put a topic between this and its parent" a palette row; the strip dropped below a node clears its add row. Overlaps 6 to 0 at 1440, 11 to 0 at 390 on a 31-topic map.
+- Row 4 (rule 13): the adopted topic re-keys its lines (`wbRenderMapEdges`) rather than a second whole render; `wbMapAccentInk` keyed on the root's attributes and the scheme; the untitled name fetched while the canvas comes up. CDP at 390: style passes over 300 elements per add 8 to 4. Press to editable 24 to 27 ms at 1440, 140 to 159 at 390; press to server id 55 to 77 at 1440; Create to first topic 155 to 214 ms warm at 390 (725 to 851 cold). The 390 half of the 50 ms bar is not met: each remaining forced style pass restyles about 830 elements there (not the root's `:has()` rules, each dropped in turn without change).
+- Row 5 (rules 8, 2): `wbSyncMoreMapRows` (whiteboard-commands.js) adds the map palette's rows to the More sheet as it opens, minus those the table names. 6 of 33 to 40 of 40 at 390; a sheet row pressed works.
+- Row 6 (rule 6): logic chart (tree-right with elbows), timeline, fishbone and tree table (`wbMapColumnPositions`, `WB_MAP_COLUMN_LAYOUTS`, `WB_MAP_LAYOUT_EDGE`, the fishbone's rib path from the spine), `BOARD_LAYOUTS` server side, one name table `WB_MAP_LAYOUT_NAMES` for the picker and the palette (`tests/test_map_layouts.py`). Each 0 overlapping boxes at 12 and 200 topics.
+- Row 8 (rule 11): `wbExportTopicEffect` (shadow filter; glow ring and blur in the branch colour) and `wbExportTopicGlyph` (the Phosphor glyph drawn to a 16 px PNG). 4 px under the box: plain 255, shadow 242; under the glow 251,231,231; the star's slot ink 136,193,189 on 222,238,237.
+- Row 9 (rule 6): `#wb-help-about` names every top bar control and grip; WB_COMMANDS gains back to the list, the picker, sidebar, dock side, background, grid, colour by, add to a note, copy app link, delete the board, keys; the map palette the library `+` and `wbMapResetTopicSize`. No popover 9 to 0, no palette row 5 to 0.
 
 ## Moved from the plans, 2026-10-10 (WHITEBOARD Brief 77, rows 1 to 4)
 

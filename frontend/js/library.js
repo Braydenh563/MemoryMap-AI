@@ -1991,9 +1991,13 @@ const LIBRARY_CREATE_BY_KIND = {
   // export that into a visual diagram on the whiteboard", by construction:
   // the map *is* a whiteboard, so it exports through the export button that
   // is already there.
+  //: **One word, "mind map"** (MINDMAP_PLAN 15, row 2): this row made a
+  //: board of note cards under a second name for the same idea. The Library's
+  //: Mind maps filter keys its Create by `map`, so the key stays and makes
+  //: the mind map, the `mindmap` row's own run.
   map: {
-    label: "ph:graph New concept map",
-    run: () => createConceptMap(),
+    label: "ph:tree-structure New mind map",
+    run: () => LIBRARY_CREATE_BY_KIND.mindmap.run(),
   },
   //: **A board from the Library's own Create** (INBOX 266 part 1). The
   //: picker offered notes, documents, maps, chats and meetings, and a board,
@@ -2078,7 +2082,7 @@ const LIBRARY_CREATE_HINTS = {
 //: then the things that arrive from elsewhere. The picker's sentence used to
 //: say "Five kinds of thing", which went stale the day a sixth row was
 //: added; it names no count now, so it cannot drift from the rows under it.
-const LIBRARY_CREATE_ORDER = ["note", "document", "mindmap", "map", "board", "chat", "meeting", "file"];
+const LIBRARY_CREATE_ORDER = ["note", "document", "mindmap", "board", "chat", "meeting", "file"];
 
 //: The kinds that have a chord of their own, by its name in the shortcut
 //: registry: the keycap is read from the live table, so a rebinding shows.

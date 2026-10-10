@@ -85,7 +85,12 @@ DEFAULT_BOARD_TYPE = "board"
 #: both-sides is the layout Coggle is known for. A value this set does not
 #: know is refused rather than stored, so an older client asking for one of
 #: these is the only compatibility question, and it gets the default.
-BOARD_LAYOUTS = {"free", "tree-right", "tree-left", "tree-both", "tree-down", "radial"}
+#: "logic-right", "timeline", "fishbone" and "tree-table" for MINDMAP_PLAN 15
+#: row 6, XMind's structures beyond the tree; the client lays them out.
+BOARD_LAYOUTS = {
+    "free", "tree-right", "tree-left", "tree-both", "tree-down", "radial",
+    "logic-right", "timeline", "fishbone", "tree-table",
+}
 DEFAULT_BOARD_LAYOUT = "free"
 #: **A map made from text starts laid out** (audit FEAT-05, 2026-10-05). The
 #: import and the accepted AI proposal used the board default, Free, while a

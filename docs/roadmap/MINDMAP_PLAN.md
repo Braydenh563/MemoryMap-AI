@@ -1801,15 +1801,15 @@ Zen mode, pitch mode, and every topic act one undo step.
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | A new map in 3 clicks (New map on the Boards landing makes "Untitled map" and opens it with the root in edit) | clicks 5 to 3 | 2, 13 |
-| 2 | fix | One word: "mind map" in the palette, the picker, the toasts and the Guide (DESIGN.md's terms table) | a terms lint over `index.html`, the palette rows and the Guide: 0 "concept map" | 10 |
-| 3 | fix | The selected topic's grips placed so none overlaps another, each with a name | `overlap.js` 4 to 0 at 1440, 8 to 0 at 390; every grip has an accessible name | 7, 8, 9 |
-| 4 | optimisation | Add a child 102 to 424 ms and Create to first topic up to 2,148 ms under load: one render per act, not two (decision 24's add path) | under 50 ms per child, under 500 ms to the first topic at 390 | 13 |
-| 5 | fix | The phone: 24 controls against 44; every map command reachable at 390 through the top bar's kebab sheet | map commands with a phone path to 100% at 390 | 8, 2 |
-| 6 | expansion | XMind's structures that are missing: logic chart, fishbone, timeline, tree table (radial, tree right, tree down, left, right exist) | each a layout row with its sweep in `maplayouts.js` | 6 |
+| 1 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: New, Mind map makes "Untitled map N" with its root in edit (`wbNewUntitledBoard("map")`) | `map78.js`: clicks 5 to 3 as deepen72a counts (6 to 4 with the menu's opening) | 2, 13 |
+| 2 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: "mind map" everywhere a person reads, `tests/test_terms.py` from DESIGN.md's glossary | "concept map" 14 to 0 | 10 |
+| 3 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: the selected topic's lines stand their `+` aside, hidden grips leave the page, no invisible `+` on touch, the strip clears the add row | `map78.js`: overlaps 6 to 0 at 1440, 11 to 0 at 390; 0 unnamed | 7, 8, 9 |
+| 4 | optimisation | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: one render per add (the adopt re-keys its lines), the accent read once per accent | style passes over 300 elements per add 8 to 4 (CDP, 390); press to editable 24 to 27 ms at 1440, 140 to 159 at 390 (not under 50 there; see the remaining file); Create to first topic 155 to 214 ms warm at 390 | 13 |
+| 5 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: the More sheet lists the map palette's rows (`wbSyncMoreMapRows`) | `map78.js`: 6 of 33 to 40 of 40 at 390 | 8, 2 |
+| 6 | expansion | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: logic chart, timeline, fishbone, tree table (`wbMapColumnPositions`, `WB_MAP_LAYOUT_NAMES`) | `maplayouts.js`: each 0 overlaps at 12 and 200, stored, lined; 38/39 (the fail is the base's) | 6 |
 | 7 | expansion | Linked stickers, reaction stamps and voting (14.4) | 14.4's rows | 6 |
-| 8 | fix | A topic's effect and a Phosphor icon reach the PNG and SVG picture (14.4) | an export pixel check per effect | 11 |
-| 9 | optimisation | Every top bar and grip control has a `data-help-for` popover and a palette row | 0 missing | 6 |
+| 8 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: `wbExportTopicEffect`, `wbExportTopicGlyph` | `map78-export.js` + pngpixel: shadow 242 against 255, glow 251,231,231 against 255, the icon's ink in its slot | 11 |
+| 9 | optimisation | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: `#wb-help-about` names each; WB_COMMANDS and the map palette gain the missing rows | `map78.js`: no popover 9 to 0, no palette row 5 to 0 | 6 |
 
 **Briefs.** 36 (14.4), 78 (rows 1 to 6, 8, 9).
 

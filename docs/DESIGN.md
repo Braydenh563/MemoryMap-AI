@@ -1589,8 +1589,7 @@ uses them, and `tests/test_ux1005_copy.py` holds the first of them as a lint.
 | Thing | Say | Not |
 | --- | --- | --- |
 | Where deleted things wait | **the bin** ("Move to bin", "Moved to the bin.", Settings' heading "Bin") | "recycle bin", "trash" (both stay as palette keywords, so typing them still finds it) |
-| A tree of topics round one idea | **mind map** | "concept map" for this kind |
-| A board of note cards linked as a tree, each topic a note | **concept map** | "mind map" for this kind |
+| A tree of topics round one idea, each topic a note | **mind map** | "concept map" (MINDMAP_PLAN 15 row 2 retired the second name; `tests/test_terms.py` holds it over `index.html`, the palette and create rows and the Guide) |
 | Notes, Ask: an answer quoted from your notes | **Ask** | "Ask AI" for a no-model surface |
 | The tool-calling assistant over any tab (the status bar's Agent button, Ctrl+Shift+A) | **Agent** | "Ask" |
 | The app's own help assistant | **Atlas** or **the Guide** | "the agent" |

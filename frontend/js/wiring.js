@@ -293,7 +293,7 @@ $("graph-concept-maps")?.addEventListener("click", async () => {
   await switchTab("library");
   document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
   // The sub-tab click can leave the last board open on the canvas; a button
-  // called "Concept maps" has to arrive at the list of them.
+  // called "Mind maps" has to arrive at the list of them.
   wbShowBoardsLanding();
 });
 restoreDraftLocally();

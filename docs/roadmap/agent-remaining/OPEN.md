@@ -333,6 +333,19 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the map78 agent (Brief 78, merged 2026-10-10)
+
+The remaining file is in `archive/agent-remaining/`; the rows below are what it left, one line each.
+
+- Row 4 at 390: press to editable 140 to 159 ms against the 50 ms bar (1440 is 24 to 27). Each forced style pass in the add restyles about 830 elements at 390; dropping the root/body/tab-page `:has()` rules one group at a time did not change the count, so the cause is not isolated (`renderWbObjects` measure read, whiteboard.js ~19179, and `wbBeginTextEdit`'s contenteditable read, ~7859, are the two left). Measure on a quiet machine first: load was 4 to 8 on four cores.
+- VC12 (Harper on node labels) not started: the budget went to rows 1 to 9. MINDMAP_PLAN "Vendored capabilities to use" still holds it.
+- `createConceptMap` (whiteboard.js ~20240) has no caller but app.js's lazy stub list now that every "concept map" entry makes the mind map: delete it and its stub, or say why it stays.
+- The More sheet on a map is 59 to 62 rows at 390 (the table plus the map palette); grouped by hairlines but long. A search field or the palette's own filter in the sheet would shorten the walk.
+- The tree table, timeline and fishbone are column layouts that tidy the whole map on every add (`wbMapTidyBranchScope`); not timed at 200 topics.
+- The fishbone's rib runs behind its causes' boxes (lines are under nodes); the look is not compared against XMind's.
+- `maplayouts.js` "tree-left carries the branch bar on the edge the parent is on" fails on the base too (1px against 1px).
+- `mapstrip.js`: 5 fails left, all failing on the base as well (shapes stored and drawn, the ring's six slots, the grip drag, Shift scaling, the first pan within 4px).
+
 ## Left by the stats89 agent (Brief 89, merged 2026-10-10)
 
 The remaining file is in `archive/agent-remaining/`; the rows below are what it left, one line each.

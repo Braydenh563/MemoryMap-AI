@@ -118,11 +118,20 @@ def test_a_caller_already_on_the_canvas_does_not_reveal_it_again():
 
 
 def test_the_library_menu_names_its_kind_and_does_not_show_the_canvas_itself():
-    for button, kind in (("wb-boards-new", "board"), ("wb-boards-new-map", "map")):
+    """New whiteboard and New mind map make an untitled one at once (Brief 77
+    row 2, MINDMAP_PLAN 15 row 1); From a template is the dialog."""
+    for button, call in (
+        ("wb-boards-new", "wbNewUntitledBoard()"),
+        ("wb-boards-new-map", 'wbNewUntitledBoard("map")'),
+        ("library-boards-new-map", 'wbNewUntitledBoard("map")'),
+    ):
         start = WB.index(f'$("{button}")?.addEventListener("click"')
-        handler = WB[start : WB.index("\n  });", start)]
-        assert f'createNewBoard("{kind}", {{ reveal: true }})' in handler, handler
-        assert "wbShowCanvasView" not in handler, handler
+        line = WB[start : WB.index("\n", start)]
+        assert call in line, line
+        assert "wbShowCanvasView" not in line, line
+    start = WB.index('$("wb-boards-new-template")?.addEventListener("click"')
+    handler = WB[start : WB.index("\n  });", start)]
+    assert 'createNewBoard("board", { reveal: true })' in handler, handler
 
 
 # --- 733: the deleted empty card -------------------------------------------------

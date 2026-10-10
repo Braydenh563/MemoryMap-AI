@@ -106,7 +106,7 @@ const WB_COMMANDS = [
   { id: "delete", group: "Edit", icon: "ph:trash", label: "Delete", keys: "Del", surface: "both", needs: "selection", run: () => deleteWbSelection() },
   { id: "copy-style", group: "Edit", icon: "ph:eyedropper", label: "Copy style", keys: "Ctrl+Alt+C", surface: "board", needs: "one", run: () => wbCopySelectedStyle() },
   { id: "paste-style", group: "Edit", icon: "ph:paint-bucket", label: "Paste style", keys: "Ctrl+Alt+V", surface: "board", needs: "selection", run: () => wbPasteCopiedStyle() },
-  { id: "find", group: "Edit", icon: "ph:magnifying-glass", label: "Find on this board", keys: "Ctrl+F", surface: "both", run: () => wbOpenBoardSearch() },
+  { id: "find", group: "Edit", icon: "ph:magnifying-glass", label: "Find a card on this board", menu: "Find on this board", keys: "Ctrl+F", surface: "both", run: () => wbOpenBoardSearch() },
   // The item
   { id: "text", group: "Item", icon: "ph:text-aa", label: "Write in the shape or label the connector", keys: "Enter", surface: "board", needs: "shape",
     run: () => {
@@ -189,9 +189,28 @@ const WB_COMMANDS = [
   { id: "zoom-100", group: "View", icon: "ph:magnifying-glass", label: "Zoom to 100%", keys: "Ctrl+0", surface: "both", run: wbClickId("wb-zoom-actual") },
   { id: "zoom-fit", group: "View", icon: "ph:frame-corners", label: "Fit everything", keys: "Shift+1", surface: "both", run: () => wbZoomToFit() },
   { id: "overview", group: "View", icon: "ph:map-trifold", label: "Board overview", keys: "Shift+N", surface: "both", run: () => wbToggleNavigator() },
+  //: The View menu's background, grid and colour rows (row 9), each pressing
+  //: or setting the menu's own control, so the two cannot disagree.
+  { id: "bg-reset", group: "View", icon: "ph:arrow-counter-clockwise", label: "Reset the background colour to the theme default", keys: "", surface: "both", run: wbClickId("wb-bg-color-reset") },
+  { id: "bg-image", group: "View", icon: "ph:image", label: "Set a background image", keys: "", surface: "both", run: wbClickId("wb-bg-image") },
+  ...[["none", "None"], ["lines", "Lines"], ["dots", "Dots"], ["iso", "Isometric"]].map(([value, name]) => (
+    { id: `grid-${value}`, group: "View", icon: "ph:grid-four", label: `Grid: ${name.toLowerCase()}`, keys: "", surface: "both", run: () => wbSetSelectValue("wb-grid-select", value) })),
+  ...[["branch", "branch"], ["category", "category"], ["age", "age"], ["notes", "behind a note"]].map(([value, name]) => (
+    { id: `colour-by-${value}`, group: "View", icon: "ph:palette", label: `Colour by ${name}`, keys: "", surface: "map", run: () => wbSetSelectValue("wb-map-perspective", value) })),
+  { id: "dock-side", group: "View", icon: "ph:sidebar-simple", label: "Dock the tools as a sidebar or at the bottom", keys: "", surface: "both", run: wbClickId("wb-dock-toggle") },
+  { id: "sidebar", group: "View", icon: "ph:sidebar-simple", label: "Show or hide the sidebar", keys: "", surface: "both", run: wbClickId("wb-add-note") },
   { id: "fullscreen", group: "View", icon: "ph:arrows-out", label: "Full screen", keys: "", surface: "both", run: () => toggleWhiteboardFullscreen() },
   { id: "present", group: "View", icon: "ph:presentation", label: "Present frames", keys: "", surface: "board", run: () => wbStartPresenting() },
   // The board
+  //: The top bar's first two controls, by name (MINDMAP_PLAN 15 row 9: every
+  //: bar control has a palette row).
+  { id: "back-to-boards", group: "Board", icon: "ph:arrow-left", label: "Back to the board list", keys: "", surface: "both", run: wbClickId("wb-back-to-boards") },
+  { id: "switch-board", group: "Board", icon: "ph:swap", label: "Which board or map to show", menu: "Open another board or map…", keys: "", surface: "both", run: () => document.getElementById("wb-board-select")?.closest(".select-shell")?.querySelector(".select-opener")?.click() },
+  //: And the Board menu's rows that had none (row 9).
+  { id: "add-to-note", group: "Board", icon: "ph:note-pencil", label: "Put this board in a note as an object", keys: "", surface: "both", run: wbClickId("wb-add-to-note") },
+  { id: "copy-link", group: "Board", icon: "ph:link", label: "Copy this board's or mind map's address to open it in the app", menu: "Copy app link", keys: "", surface: "both", run: wbClickId("wb-copy-link") },
+  { id: "delete-board", group: "Board", icon: "ph:trash", label: "Delete this board and everything on it", keys: "", surface: "both", run: wbClickId("wb-delete-board") },
+  { id: "keys", group: "Board", icon: "ph:keyboard", label: "Every key and gesture on a board", menu: "Keys and controls", keys: "?", surface: "both", run: wbClickId("wb-help-btn") },
   { id: "export", group: "Board", icon: "ph:download-simple", label: "Export this board", keys: "", surface: "both", run: wbClickId("wb-export") },
   { id: "rename", group: "Board", icon: "ph:pencil-simple", label: "Rename this board", keys: "", surface: "both", run: wbClickId("wb-rename-board") },
   { id: "new-board", group: "Board", icon: "ph:plus", label: "New board", keys: "", surface: "both", run: wbClickId("wb-new-board") },
@@ -360,6 +379,14 @@ function wbSyncCommandRows(menu) {
 // the bar's end lists each command the bar does not carry, in the table's
 // groups; `kebabMenu` makes it the action sheet below 600.
 
+//: A menu's select set from a command, through its own change handler.
+function wbSetSelectValue(id, value) {
+  const select = document.getElementById(id);
+  if (!select) return;
+  select.value = value;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 //: Whether a control is a thumb's reach away: rendered, or behind a door
 //: that is (a top-bar menu whose toggle shows, the tools sheet's opener, a
 //: closed flyout inside either). A control the stylesheet hides at this width
@@ -396,6 +423,7 @@ function wbPhoneCarries(command) {
 //: when both sides keep a row.
 function wbSyncMoreMenu(menu) {
   const map = wbIsMap();
+  wbSyncMoreMapRows(menu, map);
   for (const row of menu.querySelectorAll("[data-wb-cmd]")) {
     const command = WB_COMMAND_BY_ID.get(row.dataset.wbCmd);
     const surface = command.surface === "both" || command.surface === (map ? "map" : "board");
@@ -416,6 +444,45 @@ function wbSyncMoreMenu(menu) {
     if (rule) rule.hidden = false;
     rule = null;
     shown = true;
+  }
+}
+
+//: **The open map's own commands, in the same sheet** (MINDMAP_PLAN 15,
+//: row 5: at 390 the bar shows 6 controls and 6 of the map palette's 33
+//: commands had a way in). The palette's rows (`mapPaletteCommands`), read
+//: as the sheet opens so the topic's rows follow the selection, minus any
+//: the table's own rows already name; not a second menu.
+function wbSyncMoreMapRows(menu, map) {
+  for (const old of menu.querySelectorAll(".wb-more-map")) old.remove();
+  if (!map || typeof mapPaletteCommands !== "function") return;
+  const words = (label) => label.replace(/^ph:[\w-]+\s+/, "").replace(/…$/, "").trim().toLowerCase();
+  const named = new Set();
+  for (const row of menu.querySelectorAll("[data-wb-cmd]")) {
+    const command = WB_COMMAND_BY_ID.get(row.dataset.wbCmd);
+    if (command && command.surface !== "board") named.add(words(command.label));
+  }
+  let group = null;
+  for (const command of mapPaletteCommands()) {
+    if (named.has(words(command.label))) continue;
+    if (command.group !== group) {
+      const rule = document.createElement("div");
+      rule.className = "menu-sep wb-more-map";
+      rule.setAttribute("role", "separator");
+      menu.append(rule);
+      group = command.group;
+    }
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "menu-item wb-more-map";
+    row.setAttribute("role", "menuitem");
+    setLabel(row, command.label);
+    if (command.keys) row.title = `${words(command.label)} (${command.keys})`;
+    row.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeActionMenus();
+      command.run();
+    });
+    menu.append(row);
   }
 }
 

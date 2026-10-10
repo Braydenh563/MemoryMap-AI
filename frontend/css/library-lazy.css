@@ -1680,6 +1680,38 @@
   opacity: 1;
 }
 
+/* The selected topic's own lines: their grips own the middle (MINDMAP_PLAN
+   15 row 3, `wbSyncMapEdgeHandles`). */
+.wb-map-edge-plus.is-aside {
+  visibility: hidden;
+  pointer-events: none;
+}
+/* With no hover to reveal it, an invisible `+` is a tap target nobody can
+   see (measured at 390: 11 of them stacked on a fitted map's fan of lines).
+   The topic's palette row and the More sheet carry the insert instead. */
+@media (hover: none) {
+  .wb-map-edge-plus {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* A topic's grips are out of the page, not merely transparent, until the
+   topic is pointed at or selected: transparent, every topic's add row was a
+   pair of named buttons a screen reader and a hit test still met, under the
+   lines' `+` (deepen72a.js counted them as overlaps). Here, in the lazy
+   sheet, because the boot sheet is at its budget; it loads after it. */
+.wb-map-actions {
+  visibility: hidden;
+}
+.wb-map-node:hover .wb-map-actions,
+.wb-map-node.wb-selected .wb-map-actions {
+  visibility: visible;
+}
+.wb-map-node.wb-radial-open .wb-map-actions {
+  visibility: hidden;
+}
+
 /* **A line you can actually point at.** The drawn edge is 2px wide, which is
    a target nobody can hit; so every edge is drawn twice, once visibly and once
    as a transparent stroke wide enough to grab. Same technique as

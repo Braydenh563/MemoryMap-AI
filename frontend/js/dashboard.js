@@ -1596,7 +1596,7 @@ function featureCatalog() {
     // share a group rather than pretending to be separate canvases.
     { group: "Boards, maps & drawing", items: [
       { name: "New board", desc: "A whiteboard of cards, drawings, images and links you arrange yourself.", reveal: "board-new" },
-      { name: "Concept maps", desc: "A mind map made of real notes: branches, links and a reason on each connection.", reveal: "map-create" },
+      { name: "Mind maps", desc: "Topics branching from one central idea, each topic a real note.", reveal: "map-create" },
       { name: "Grow a map by keyboard", desc: "Tab adds a branch off the selected topic, Enter one beside it.", reveal: "map-keyboard" },
       { name: "Map templates", desc: "Start a map from a shape: a decision, a project, a subject to revise.", reveal: "map-templates" },
       { name: "Arrange as mind map", desc: "Re-tidy a sprawling board into a readable tree in one move.", reveal: "board-arrange" },

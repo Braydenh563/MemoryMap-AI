@@ -1354,10 +1354,9 @@ function paletteCommands() {
       about: "A blank board for cards, drawings, images and links.",
     },
     {
-      //: A map is a board with a name people recognise (`createConceptMap`,
-      //: whiteboard.js), and it was reachable only from the Library's own
-      //: create picker. The same argument as the board row above it.
-      label: "ph:tree-structure New concept map",
+      //: The Library's New, Mind map, from anywhere: Untitled map N, its
+      //: root in edit (MINDMAP_PLAN 15, rows 1 and 2).
+      label: "ph:tree-structure New mind map",
       reveal: "map-create",
     },
     {

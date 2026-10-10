@@ -178,8 +178,8 @@ HELP_TOPICS: list[dict] = [
             "The Graph tab shows notes as a force-directed map, links and threads "
             "drawn between them, plus optional AI similarity lines. Search "
             "highlights matches, dragging rearranges, and the legend toggles "
-            "categories on and off. Concept maps (an authored mindmap, not the "
-            "automatic graph) are made and managed from the Library. A concept "
+            "categories on and off. Mind maps (drawn by you, not the "
+            "automatic graph) are made and managed from the Library. A mind "
             "map's topics are notes, kept out of Notes and Recently added; a "
             "search finds them. After Enter names a topic, typing renames it. "
             "The Graph's search box reads filters as well as words: "
@@ -1118,7 +1118,8 @@ HELP_TOPICS.extend(
             ),
             "body": (
                 "Mind maps live in the Library, under Boards & maps; New, then Mind "
-                "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
+                "map, opens Untitled map N with its central topic ready to type over "
+                "(what you type names the map too). Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch (onto Drop here to delete, at "
                 "the foot, deletes the topic and its branch). Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics. View, How this "
@@ -1189,8 +1190,8 @@ HELP_TOPICS.extend(
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
                 "Shift and a corner keeps proportions, [ and ] move one step back or "
                 "forward, Ctrl+[ and Ctrl+] to the back or front, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
-                "Ctrl+Alt+V copy and paste a style, Delete (or a drop on the bin at "
-                "the foot) removes, Esc cancels a "
+                "Ctrl+Alt+V copy and paste a style, Delete (or a drop on the bin) "
+                "removes, Esc cancels a "
                 "drag or goes back to Select. "
                 "Double-click empty board for a text box, double-click a closed shape "
                 "(or select it and press Enter) to write in it, right-click (or hold on touch) "
@@ -1204,7 +1205,7 @@ HELP_TOPICS.extend(
                 "Menus: Insert, Edit, Arrange (align, distribute, size, order, group, "
                 "lock), View (background, grid, snap, zoom, full screen) and Board "
                 "(rename, new, export, kind, clear, delete, keys). On a phone, "
-                "More has the rest."
+                "More has the rest, a map's too."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1384,7 +1385,7 @@ HELP_TOPICS.extend(
         {
             "id": "mind-map-features",
             "keywords": (
-                "radial", "colour by", "color by", "tidy", "layout of the map",
+                "radial", "logic chart", "timeline layout", "fishbone", "tree table", "colour by", "color by", "tidy", "layout of the map",
                 "checkbox on a topic", "topic a task", "tick a topic", "number the branches",
                 "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
                 "comment on a topic", "boundary", "summary topic", "summarise topics",
@@ -1396,8 +1397,8 @@ HELP_TOPICS.extend(
                 "grow the map", "expand from my notes", "children from notes",
             ),
             "body": (
-                "Mind map features. The layout picker lays the map out as a tree, "
-                "radial or free, and Tidy lays every unpinned topic out again. "
+                "Mind map features. The layout picker: tree, radial, logic chart, "
+                "timeline, fishbone, tree table or free; Tidy lays every unpinned topic out again. "
                 "The View menu sets Colour by (branch, category, age, or whether "
                 "a note is behind it) and opens every folded branch; View, "
                 "Present branches shows it branch by branch. A topic's menu, "
@@ -1412,7 +1413,7 @@ HELP_TOPICS.extend(
                 "] and - [x]. View, Number the branches numbers every topic by "
                 "its place (1, 1.1, 1.2), and the Markdown and OPML exports keep "
                 "the numbers. A topic's menu adds a note behind it: its mark on "
-                "the topic opens it, and Markdown keeps it. "
+                "the topic opens it. "
                 "Comment… starts a thread, counted on its corner; its Branch group draws a boundary "
                 "round the branch or summarises topics side by side. Start from a "
                 "template, import an OPML, FreeMind, XMind, Markdown or text outline "

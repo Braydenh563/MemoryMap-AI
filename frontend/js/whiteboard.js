@@ -5023,7 +5023,12 @@ function wbUpdateSelectionBar() {
   if (moving && !held) moving.origin.barMeasure = { rect, hostRect, w, h, topBar, sideEdges };
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
-  if (y < floor) y = bottom + gapBelow;
+  //: Below a topic, clear of its add row too (MINDMAP_PLAN 15 row 3): the
+  //: row hangs under the node, and the strip dropped there covered it
+  //: (measured at 390: three overlaps, the add buttons under Text and Larger).
+  const grips = mapNode && !held ? container.querySelector(`.wb-object[data-id="${mapNode.id}"] .wb-map-actions`) : null;
+  const gripsBottom = grips ? grips.getBoundingClientRect().bottom - hostRect.top : bottom;
+  if (y < floor) y = Math.max(bottom, gripsBottom) + gapBelow;
   //: **At phone width the board bar is pinned to the top of the canvas**
   //: (WHITEBOARD_PLAN section 7's open question, answered 2026-09-20 by
   //: building both and measuring them: `scratchpad/ui-sweeps/wbcontextphone.js`,
@@ -9784,6 +9789,47 @@ function wbExportPaint(el, inkEl) {
   };
 }
 
+//: A map topic's effect in the exported picture: a filter attribute for its
+//: box, with the filter defined once in `parts`. The glow's ring is a rect
+//: drawn under the box. Nothing for a topic drawn without a box.
+function wbExportTopicEffect(topicEl, colour, rx, ry, size, parts) {
+  const effect = topicEl?.dataset.shape === "none" ? null : topicEl?.dataset.effect;
+  if (effect === "shadow") {
+    if (!parts.includes(WB_EXPORT_SHADOW_DEF)) parts.push(WB_EXPORT_SHADOW_DEF);
+    return ' filter="url(#wb-export-shadow)"';
+  }
+  if (effect !== "glow") return "";
+  const ink = wbSvgEscape(colour);
+  const id = `wb-export-glow-${String(colour).replace(/[^a-z0-9]/gi, "")}`;
+  const def = `<defs><filter id="${id}" x="-40%" y="-40%" width="180%" height="180%">` +
+    `<feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="${ink}" flood-opacity="0.45"/></filter></defs>`;
+  if (!parts.includes(def)) parts.push(def);
+  parts.push(`<rect x="-3" y="-3" width="${size.w + 6}" height="${size.h + 6}" rx="${Math.round((rx + 3) * 10) / 10}" ry="${Math.round((ry + 3) * 10) / 10}" fill="${ink}" fill-opacity="0.22" />`);
+  return ` filter="url(#${id})"`;
+}
+
+//: A topic's Phosphor icon as a PNG data URL, drawn from the glyph the
+//: topic shows (its `::before` in the icon font), in the colour it is drawn
+//: in; null for no icon, an emoji (that travels as text) or a font not ready.
+function wbExportTopicGlyph(topicEl) {
+  const iconEl = topicEl?.querySelector(".wb-map-node-icon.ph");
+  if (!iconEl || iconEl.hidden) return null;
+  const before = getComputedStyle(iconEl, "::before");
+  const glyph = (before.content || "").replace(/^["']|["']$/g, "");
+  if (!glyph || glyph === "none") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = 48;
+  canvas.height = 48;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.font = `40px ${before.fontFamily}`;
+  ctx.fillStyle = getComputedStyle(iconEl).color || "#1f2430";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(glyph, 24, 26);
+  return canvas.toDataURL("image/png");
+}
+
 function wbBuildExportSvg(scope, { transparent = false } = {}) {
   const bounds = scope === "selection" ? wbSelectionBounds()
     : scope === "visible" ? wbVisibleBounds() : wbBoardBounds();
@@ -9995,9 +10041,13 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
       const pct = /%$/.test(corner) ? parseFloat(corner) / 100 : null;
       const rx = pct != null ? size.w * pct : Math.min(parseFloat(corner) || 0, size.h / 2, size.w / 2);
       const ry = pct != null ? size.h * pct : rx;
+      //: **Its effect travels too** (MINDMAP_PLAN 15, row 8): the shadow as
+      //: the board's own export shadow, the glow as a ring and a blur in the
+      //: branch colour, read off the drawn topic as the shape is.
+      const fx = wbExportTopicEffect(topicEl, colour, rx, ry, size, parts);
       parts.push(
         `<rect width="${size.w}" height="${size.h}" rx="${Math.round(rx * 10) / 10}" ry="${Math.round(ry * 10) / 10}" fill="${topicPaint?.fill || "#ffffffee"}" ` +
-          `stroke="${wbSvgEscape(topicPaint?.edge || colour)}" stroke-width="1.5" />`
+          `stroke="${wbSvgEscape(topicPaint?.edge || colour)}" stroke-width="1.5"${fx} />`
       );
       parts.push(
         `<rect width="4" height="${size.h}" rx="2" fill="${wbSvgEscape(colour)}" />`
@@ -10043,11 +10093,18 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
       //: An emoji icon is a character, so it travels (decision 46); a
       //: Phosphor one is the icon font's, which does not.
       const icon = obj.data?.icon && !/^[a-z0-9-]+$/.test(obj.data.icon) ? `${obj.data.icon} ` : "";
-      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + icon + wbMapLabel(obj), size.w - 28, 4, 7.5);
+      //: A Phosphor icon travels as its own picture (row 8): the glyph drawn
+      //: once from the font the topic is showing it in, before the label.
+      const glyph = wbExportTopicGlyph(topicEl);
+      const textLeft = glyph ? 34 : 14;
+      if (glyph) {
+        parts.push(`<image href="${glyph}" x="14" y="${labelTop - 13}" width="16" height="16" />`);
+      }
+      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + icon + wbMapLabel(obj), size.w - 28 - (textLeft - 14), 4, 7.5);
       //: In the map's own face when it has one (§13e's remainder): the file is
       //: the second place a map's text is drawn, and a serif map exported in
       //: sans-serif is two pictures of one map.
-      parts.push(wbSvgText(lines, 14, labelTop, {
+      parts.push(wbSvgText(lines, textLeft, labelTop, {
         fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17,
         fontFamily: wbMapFontStack() || "sans-serif",
       }));
@@ -15029,15 +15086,41 @@ async function renameCurrentBoard() {
 //: had to be answered before there was anything to draw on). It is "Untitled
 //: board N" (`wbUntitledNames`, INBOX 739) and open at once; the templates
 //: stay one row away in the same New menu and in the Board menu.
-async function wbNewUntitledBoard() {
-  const name = (await wbUntitledNames()).board;
+//: **A map the same way** (MINDMAP_PLAN 15, row 1: five presses and a typed
+//: name). It opens with its root topic in edit, because the root is what a
+//: person names first; what they type there names the map as well, while the
+//: map still carries the number it was given.
+async function wbNewUntitledBoard(kind = "board") {
+  //: The name is asked for while the canvas comes up, not before it: one
+  //: round trip off the press-to-first-topic time (row 4).
+  const names = wbUntitledNames();
   wbShowCanvasView();
   await new Promise((resolve) => setTimeout(resolve, 60));
+  const name = (await names)[kind];
   try {
-    localStorage.setItem(WB_LAST_BOARD_KIND, "board");
+    localStorage.setItem(WB_LAST_BOARD_KIND, kind);
   } catch (err) { /* see wbRememberedBoardKind */ }
-  await wbCreateBlankBoard(name, "board");
-  if (window.currentBoardId) renameCurrentBoard();
+  await wbCreateBlankBoard(name, kind);
+  const boardId = window.currentBoardId;
+  if (!boardId) return;
+  if (kind !== "map") {
+    renameCurrentBoard();
+    return;
+  }
+  const root = wbMapIndex().roots[0];
+  if (!root) return;
+  wbMapEditNode(root.id);
+  requestAnimationFrame(() => {
+    const label = document.querySelector(`.wb-object[data-id="${root.id}"] .wb-map-text`);
+    label?.addEventListener("blur", () => setTimeout(async () => {
+      const typed = (label.textContent || "").trim();
+      if (!typed || typed === name || window.currentBoardId !== boardId) return;
+      try {
+        const board = await apiJson(`/whiteboard/boards/${boardId}`, { method: "PUT", body: JSON.stringify({ title: typed.slice(0, 100) }) });
+        await refreshBoardList(board);
+      } catch (err) { /* the map keeps its number; the topic kept its words */ }
+    }), { once: true });
+  });
 }
 
 //: Create a board: or a map, which is the same thing with a `type` on it
@@ -19622,16 +19705,14 @@ onDomReady(() => {
   //: The empty tab's New mind map (decision 38): the gallery on its Mind
   //: map tab. Bound here, not in navigation.js's empty-state table, because
   //: the empty state is drawn by this file, and the boot scripts are capped.
-  $("library-boards-new-map")?.addEventListener("click", () => createNewBoard("map", { reveal: true }));
+  $("library-boards-new-map")?.addEventListener("click", () => wbNewUntitledBoard("map"));
   $("wb-boards-new")?.addEventListener("click", () => wbNewUntitledBoard());
   $("wb-boards-new-template")?.addEventListener("click", async () => {
     await createNewBoard("board", { reveal: true });
   });
-  // The same dialog, opened with the Mind map segment already chosen, not a
-  // second creation path with its own copy of the create-and-open sequence.
-  $("wb-boards-new-map")?.addEventListener("click", async () => {
-    await createNewBoard("map", { reveal: true });
-  });
+  //: Made at once and named "Untitled map N" (row 1 of MINDMAP_PLAN 15);
+  //: the map templates are the From a template row, one row up.
+  $("wb-boards-new-map")?.addEventListener("click", () => wbNewUntitledBoard("map"));
   //: Import (§5 item 17). The button opens the hidden input, the input does
   //: the work: the app's own file-picking pattern (`pickJsonFile`,
   //: `importMarkdown`), so a file arrives the same way here as everywhere

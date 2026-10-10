@@ -462,7 +462,8 @@ class Entry(Base, WorkspaceMixin):
     map_topic: Mapped[bool] = mapped_column(Boolean, default=False)
     #: Board-level settings, as a small JSON object, for a note being used as
     #: a board: `{"type": "board"|"map", "layout": "free"|"tree-right"|
-    #: "tree-left"|"tree-both"|"tree-down"|"radial"}`. NULL: the overwhelmingly common case, since
+    #: "tree-left"|"tree-both"|"tree-down"|"radial"|"logic-right"|"timeline"|"fishbone"|"tree-table"}`.
+    #: NULL: the overwhelmingly common case, since
     #: almost no note is a board, means "every default", never "unknown", so
     #: the auto-migrator's own NULL backfill leaves every existing board
     #: reading exactly as it did before this column existed: a free-layout

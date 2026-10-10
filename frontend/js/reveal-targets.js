@@ -391,7 +391,7 @@ const REVEAL_TARGETS = {
     el: "wb-boards-new-menu",
   },
   "board-create": { open: () => createNewBoard(), sel: ".prompt-card", built: "promptDialog", flash: false },
-  "map-create": { open: () => createConceptMap(), sel: ".prompt-card", built: "promptDialog", flash: false },
+  "map-create": { open: async () => { await revealBoardsGallery(); await wbNewUntitledBoard("map"); }, el: "whiteboard-container", flash: false },
   "map-keyboard": { open: () => revealBoard(true), el: "whiteboard-container", fallback: "wb-boards-new-menu" },
   "map-templates": { open: () => revealBoard(true), el: "wb-map-templates", fallback: "wb-boards-new-menu" },
   //: On a map, where laying the tree out again is one button; on a board

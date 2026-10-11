@@ -123,8 +123,8 @@ def test_the_eval_keeps_the_rule_in_both_voices(voice):
 
 def test_the_professional_voice_gives_a_professional_nothing_found():
     out = composer.compose("What is the capital of Peru?", NOTES, today=TODAY, voice="professional")
-    assert out["text"].startswith(composer.PHRASES["none_found_p"])
-    assert out["text"].endswith(composer.PHRASES["nothing_ask_p"])
+    assert out["text"].startswith(tuple(composer.PHRASES[k] for k in composer_tables.VOICE_VARIANTS["professional"]["none_found"]))
+    assert out["text"].endswith(tuple(composer.PHRASES[k] for k in composer_tables.VOICE_VARIANTS["professional"]["nothing_ask"]))
     assert out["text"] != composer.compose("What is the capital of Peru?", NOTES, today=TODAY)["text"]
 
 

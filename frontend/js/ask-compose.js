@@ -420,7 +420,21 @@ function digestMore(answerEl, more) {
 //: running text. A reminder goes through the same door Quick add uses
 //: (`/reminders/parse`, rules first, the person's clock); a checklist or a
 //: note is a new note. Each one says what it did, with Undo.
+//: A call's asks ("yo brotato", `vocative.py`), waiting for the Ask box's
+//: follow-up strip, which is drawn just after the offer.
+let askOfferAsks = null;
+
 function digestOffer(answerEl, offer) {
+  //: An "ask" offer is what to say next: the follow-up chips draw it, in
+  //: Chat on the answer's own bubble (kept with the turn), in Ask next.
+  if (offer?.kind === "ask") {
+    const bubble = answerEl?.closest(".msg.assistant");
+    if (bubble) {
+      renderFollowups(bubble, offer.asks);
+      saveFollowups(bubble, offer.asks);
+    } else askOfferAsks = offer.asks;
+    return;
+  }
   if (!answerEl || !offer || !offer.label) return;
   //: A choice ("That could be Export or Export chat. Which one?") is one
   //: offer a line, each its own link (`find_it.answer`).
@@ -656,6 +670,8 @@ function renderAskWhy(lines) {
 async function renderAskFollowups(question, answer, given = null) {
   const strip = $("ask-followups");
   if (!strip) return;
+  given = given || askOfferAsks;
+  askOfferAsks = null;
   strip.replaceChildren();
   strip.classList.add("hidden");
   if (!question || !answer) return;

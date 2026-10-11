@@ -278,7 +278,10 @@ SOCIAL: dict[str, str] = {
 #: Words that ride along with small talk without making it a question:
 #: "ty for the help", "thanks a lot mate".
 _SOCIAL_FILLER = frozenset(
-    "for the a lot help helping that this it again man mate bro dude buddy friend all very really much so".split()
+    "for the a lot help helping that this it again man mate bro dude buddy friend all very really much so"
+    #: "i'm tired" is tiredness and "you're useless" a complaint, not "ok"
+    #: (measured 2026-10-11: both read as an acknowledgement).
+    " i i'm im am feel feeling you're youre ur bot was today".split()
 )
 
 SLANG.update({
@@ -1861,7 +1864,7 @@ SOCIAL.update({
     "good": "compliment", "amazing": "compliment", "best": "compliment", "smart": "compliment",
     "bad": "insult", "stupid": "insult", "dumb": "insult", "useless": "insult", "idiot": "insult",
     "terrible": "insult", "awful": "insult", "worst": "insult", "tired": "emotion",
-    "stressed": "emotion", "happy": "emotion", "sad": "emotion", "angry": "emotion",
+    "stressed": "emotion", "happy": "glad", "sad": "emotion", "angry": "emotion",
     "frustrated": "emotion", "exhausted": "emotion", "based": "ack", "lit": "ack",
     "sus": "confused", "cap": "confused", "cringe": "reaction", "bruh": "reaction",
     "gyat": "reaction", "skibidi": "reaction", "slay": "reaction", "w": "reaction", "l": "reaction",
@@ -1894,6 +1897,15 @@ SOCIAL_PHRASES.update({
     "good girl": "compliment", "ur so cute": "compliment", "you know that": "ack",
     "u know that": "ack", "shut up": "insult", "fuck you": "insult", "fuck off": "insult",
     "go away": "insult",
+    "you suck": "insult", "you're great": "compliment", "you are great": "compliment",
+    "ur great": "compliment", "nice work": "compliment", "great job": "compliment",
+    "great work": "compliment", "love it": "compliment", "feeling down": "emotion",
+})
+SOCIAL.update({
+    "bored": "emotion", "anxious": "emotion", "lonely": "emotion", "sleepy": "emotion",
+    "nervous": "emotion", "upset": "emotion", "worried": "emotion", "overwhelmed": "emotion",
+    #: Good news is not sadness: "i'm happy" once got "I'm sorry to hear that".
+    "excited": "glad", "glad": "glad", "stoked": "glad", "thrilled": "glad", "relieved": "glad",
 })
 
 
@@ -1925,7 +1937,7 @@ def social_kind(message: str) -> str | None:
         else:
             return None
     #: "ok thanks" is thanks; "lol ok" is laughter: the most telling part.
-    for kind in ("confused", "thanks", "sorry", "bye", "morning", "greeting", "how", "who", "reaction", "laugh", "compliment", "insult", "emotion"):
+    for kind in ("confused", "thanks", "sorry", "bye", "morning", "greeting", "how", "who", "reaction", "laugh", "compliment", "insult", "emotion", "glad"):
         if kind in kinds:
             return kind
     return "ack"

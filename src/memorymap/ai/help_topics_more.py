@@ -2277,7 +2277,7 @@ def _act_topic() -> dict:
 MORE_TOPICS.append({
     "id": "find-a-place",
     "title": "Finding where something is",
-    "keywords": ("where is", "can't find", "cant find", "how do i get to", "show me link", "where did it go", "lost a button"),
+    "keywords": ("can't find", "cant find", "how do i get to", "show me link", "where did it go", "lost a button", "find a setting"),
     "badge": {"label": "Notes", "tab": "notes"},
     "body": (
         "Ask where something is, in Ask or Chat: \"where is the bin\", \"I can't find dark mode\", \"how do I get to backups\". "
@@ -2287,5 +2287,17 @@ MORE_TOPICS.append({
     ),
 })
 TOPIC_META["find-a-place"] = {"title": "Finding where something is", "path": "Notes tab, Ask your notebook"}
+MORE_TOPICS.append({
+    "id": "nicknames",
+    "title": "Calling Atlas by any name",
+    "keywords": ("nickname", "call you", "call atlas", "your name", "lil bro", "what can i call you"),
+    "badge": {"label": "Chat", "tab": "chat"},
+    "body": (
+        "Call Atlas whatever you like, a nickname or a word you just made up: \"hey lil bro, what's on today\", "
+        "\"what's due this week, broski\". The name is taken off before the question is read, so it is never "
+        "searched or corrected. A message that is only a name is a call: Atlas answers and offers three things to ask."
+    ),
+})
+TOPIC_META["nicknames"] = {"title": "Calling Atlas by any name", "path": "Chat tab"}
 MORE_TOPICS.append(_act_topic())
 TOPIC_META["chat-acts"] = {"title": "Things Chat does for you", "path": "Chat tab"}

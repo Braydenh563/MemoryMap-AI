@@ -1,0 +1,192 @@
+{
+ "greeting": [
+  "hi",
+  "hey",
+  "hello",
+  "yo",
+  "hiya",
+  "heyy",
+  "howdy",
+  "hii"
+ ],
+ "thanks": [
+  "thanks",
+  "ty",
+  "thx",
+  "thank you",
+  "cheers",
+  "tysm",
+  "appreciate it",
+  "much appreciated"
+ ],
+ "bye": [
+  "bye",
+  "cya",
+  "see you",
+  "ttyl",
+  "gn",
+  "later",
+  "talk later",
+  "good night"
+ ],
+ "ack": [
+  "ok",
+  "k",
+  "cool",
+  "got it",
+  "makes sense",
+  "sure",
+  "alright",
+  "fair enough"
+ ],
+ "emotion": [
+  "i'm tired",
+  "i feel sad",
+  "i'm stressed",
+  "i'm so bored",
+  "i'm upset",
+  "i'm exhausted",
+  "i'm anxious",
+  "feeling down"
+ ],
+ "reaction": [
+  "wow",
+  "omg",
+  "no way",
+  "whoa",
+  "damn",
+  "wow ok",
+  "omg wow",
+  "woah"
+ ],
+ "sorry": [
+  "sorry",
+  "my bad",
+  "soz",
+  "sry",
+  "oops sorry",
+  "sorry about that",
+  "apologies",
+  "my apologies"
+ ],
+ "confused": [
+  "?",
+  "what",
+  "huh",
+  "wait what",
+  "??",
+  "what do you mean",
+  "i don't get it",
+  "confused"
+ ],
+ "laugh": [
+  "lol",
+  "haha",
+  "lmao",
+  "hehe",
+  "rofl",
+  "hahaha",
+  "xd",
+  "lolol"
+ ],
+ "how": [
+  "how are you",
+  "how r u",
+  "wassup",
+  "hbu",
+  "how's it going",
+  "what's up",
+  "you ok?",
+  "how are things"
+ ],
+ "insult": [
+  "you're useless",
+  "shut up",
+  "you suck",
+  "stupid bot",
+  "go away",
+  "you're dumb",
+  "that was useless",
+  "useless"
+ ],
+ "compliment": [
+  "you're great",
+  "good job",
+  "nice work",
+  "you're smart",
+  "good bot",
+  "love it",
+  "you're awesome",
+  "great job"
+ ],
+ "morning": [
+  "good morning",
+  "morning",
+  "gm",
+  "morning all",
+  "good morning!",
+  "morning :)",
+  "gm gm",
+  "good morning all"
+ ],
+ "who": [
+  "who are you",
+  "what's your name",
+  "are you a bot",
+  "are you human",
+  "who are you?",
+  "your name?",
+  "are you an ai",
+  "are you real"
+ ],
+ "joke": [
+  "tell me a joke",
+  "make me laugh",
+  "say something funny",
+  "a joke please",
+  "know any jokes",
+  "joke",
+  "tell me something funny",
+  "got a joke?"
+ ],
+ "unclear": [
+  "asdf",
+  "qwerty",
+  "zxcvb",
+  "asdfgh",
+  "hjkl",
+  "sdfg",
+  "lkjh",
+  "poiu"
+ ],
+ "call": [
+  "brotatockiibidyrizzler",
+  "yo brotatockiibidyrizzler",
+  "lil bro",
+  "broski",
+  "hey brotato",
+  "Atlas",
+  "sup bro",
+  "yo zorgblat"
+ ],
+ "glad": [
+  "i'm happy",
+  "i'm so excited",
+  "feeling glad",
+  "i'm relieved",
+  "i'm stoked",
+  "i'm thrilled",
+  "so happy",
+  "i'm happy today"
+ ],
+ "about_app": [
+  "what can you do",
+  "what are you for",
+  "what do you do",
+  "how do you work",
+  "what can i ask",
+  "what are you able to do",
+  "help",
+  "what's this app"
+ ]
+}

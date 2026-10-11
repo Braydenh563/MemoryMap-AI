@@ -309,7 +309,10 @@ def test_words_no_note_found_holds_are_named_in_the_closing_line():
 def test_the_closing_line_is_left_out_when_nothing_matched_at_all():
     result = ask("What is the capital of Peru?")
     #: Engine probe P1: the no-answer names the words no note found holds.
-    assert result["text"] == composer.PHRASES["none_found"] + "“capital” or “Peru”. " + composer.PHRASES["nothing_ask"]
+    #: One of eight leads and eight questions back (the owner: "can it have more varied responses??").
+    lead = next(w for w in composer.phrase_options("none_found") if result["text"].startswith(w))
+    assert result["text"][len(lead):].startswith("“capital” or “Peru”. ")
+    assert result["text"].endswith(tuple(composer.phrase_options("nothing_ask")))
     assert result["grounding"] == [] and result["next"] == []
 
 

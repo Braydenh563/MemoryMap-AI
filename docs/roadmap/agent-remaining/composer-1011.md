@@ -8,4 +8,7 @@ Plan, in order: typos fixtures and the speller (Brief 104); UK/US spelling equiv
 
 - done: 6afaf8f3c merge gemini/composer-improvements (boot scripts 322,272 to under 320,600 by moving the answer foot to ask-compose.js)
 - done (step A): owner typos (18 new fixtures, real-word slips, long English words from the vendored list, warmed in the background); UK/US equivalence (`ai/variants.py`, search_manager, engine, composer `_stem`); INBOX 899 part 1: composer_digest, records and ask-compose.js read dates and units through `ai/recognise.py` (one-reader lint back to 1)
-- next: personal and random questions (30 gold), then tasks and routing, actions with chips, find-it nav (40 gold), the Guide (25 gold), diversity metric
+- done (step B, ffa4eeefc): find-it nav links (`ai/find_it.py`, 40/40 gold, 0/8 false links; 0 before)
+- done (step C): vocatives (`ai/vocative.py`, 38/38 gold, 14/14 controls; calls answered with three ask chips) and reply variety (`ai/phrasing.py`, `ai/composer_replies.py`; every family 8+ in both voices; over 50 replies: openers 0.82 to 1.00, shape 0.60 to 1.00, repeats 250 to 0); "glad" kind; emotion and insult readings fixed
+- done (step C): nothing found 8+ a voice; note-answer openers avoid the last three answers (`_Answer.recent`); nothing-found openers 0.25 to 1.00 over 50 turns
+- next: clarifying and confirmation families; personal and random questions (30 gold); tasks and routing (30); actions with chips (30); the Guide (25 gold); A8, B20 to B27, B40; Chromium after-run

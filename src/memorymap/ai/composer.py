@@ -77,7 +77,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from memorymap.ai import act_registry, composer_ack, composer_overview, composer_tables, grounding, question_noise, realise, utilities, variants
+from memorymap.ai import act_registry, composer_ack, composer_overview, composer_replies, composer_tables, grounding, phrasing, question_noise, realise, utilities, variants
 from memorymap.ai import when as when_words
 from memorymap.search import query as query_understanding
 
@@ -1335,6 +1335,10 @@ class _Answer:
         self.lower_next = False
         #: The answer the turn before gave, so this one opens differently.
         self.previous = ""
+        #: The last three answers, oldest first: an opener none of them
+        #: opened with is said first (`phrasing.RECENT`; the owner: "can it
+        #: have more varied responses??").
+        self.recent: list[str] = []
         #: The question as typed: a word the answer says it asked about is
         #: one of its words, never a corrected one.
         self.question = ""
@@ -1358,6 +1362,14 @@ class _Answer:
         """Whether the answer the turn before gave began with `text`."""
         return bool(self.previous) and self.previous.startswith(text.strip() or text)
 
+    def opened_lately(self, text: str) -> bool:
+        """Whether one of the last three answers began with `text`: a
+        family's wording is chosen against all three, while which family
+        opens is chosen against the last alone (measured: against three,
+        a 20-turn chat opened 13 ways rather than 15)."""
+        lead = text.strip() or text
+        return any(said.startswith(lead) for said in (self.recent or [self.previous]) if said)
+
     def voiced(self, name: str) -> str:
         """The `PHRASES` key that says what `name` says in this answer's
         voice: one of its variants, chosen by the question so the same
@@ -1369,7 +1381,7 @@ class _Answer:
         leads, mine = by_voice.get(lead), by_voice.get(name)
         if not leads or not mine:
             return name
-        usable = [i for i, key in enumerate(leads) if not self.opened_with(PHRASES[key])] or list(range(len(leads)))
+        usable = [i for i, key in enumerate(leads) if not self.opened_lately(PHRASES[key])] or list(range(len(leads)))
         #: No template twice in a conversation (decision 25): a variant an
         #: earlier answer used is left while another is unused.
         fresh = [i for i in usable if PHRASES[mine[i]] not in self.used]
@@ -3122,6 +3134,13 @@ SOCIAL["about_app"] = (
     "I'm Atlas, and I read your notes for you: ask when something happened or who said what, or tell me to pin, tag or delete a note.",
 )
 
+#: Eight phrasings or more in every family, of more than one shape
+#: (`composer_replies`; the owner: "can it have more varied responses??").
+for _kind, _more in composer_replies.SOCIAL_NATURAL.items():
+    SOCIAL[_kind] = SOCIAL.get(_kind, ()) + _more
+for _kind, _more in composer_replies.SOCIAL_PROFESSIONAL.items():
+    SOCIAL_PROFESSIONAL[_kind] = SOCIAL_PROFESSIONAL.get(_kind, ()) + _more
+
 _SOCIAL_KIND = (
     ("morning", re.compile(r"\bgood (?:morning|afternoon|evening|day)\b|^morning\b", re.I)),
     ("thanks", re.compile(r"\b(?:thanks?|thank you|ta|cheers|nice one|appreciated?)\b", re.I)),
@@ -3156,19 +3175,27 @@ def social_kind(message: str, intent: str = "smalltalk") -> str:
     )
 
 
-def social(message: str, intent: str = "smalltalk", previous: str = "", last_question: str = "", voice: str = composer_tables.DEFAULT_VOICE) -> str:
+def social(
+    message: str,
+    intent: str = "smalltalk",
+    previous: str = "",
+    last_question: str = "",
+    voice: str = composer_tables.DEFAULT_VOICE,
+    recent: list[str] | tuple = (),
+    seed: str = "",
+) -> str:
     """The app's reply to a conversational turn with no model running (INBOX
     741: "any and all conversational messages"): warm, short, of the turn's
-    kind, never the reply the turn before gave, and after an acknowledgement
-    or thanks, a next step on what was being talked about."""
+    kind, opening unlike any of the last three replies (`recent`, oldest
+    first; `previous` alone when that is all there is) and shaped unlike the
+    last (`phrasing.choose`), and after an acknowledgement or thanks, a next
+    step on what was being talked about. `seed` is the conversation's: the
+    same seed and turns give the same words."""
     kind = social_kind(message, intent)
-    before = (previous or "").strip()
+    recent = [r for r in recent if r] or ([previous] if previous else [])
     professional = composer_tables.voice_of(voice) == "professional"
     lines = (SOCIAL_PROFESSIONAL if professional else SOCIAL)[kind]
-    options = [line for line in lines if not before.startswith(line)] or list(lines)
-    #: Salted by the turn before as well as the message, so "ok" after "ok"
-    #: lands on another line.
-    line = _pick(f"{message}|{before[:40]}", f"social:{kind}", options)
+    line = phrasing.choose(lines, f"social:{kind}:{message}", recent, seed or _SESSION.get())
     subject = _asked_span(last_question, subject_terms(last_question)) if last_question else ""
     if kind in _NEXT_STEP_KINDS and subject and len(subject) <= 40:
         #: Never two questions back to back: after a line that asks, the
@@ -3177,6 +3204,30 @@ def social(message: str, intent: str = "smalltalk", previous: str = "", last_que
         step = _pick(f"{message}|{subject}", "social:next", steps).format(subject=subject)
         line = f"{line} {step}"
     return line
+
+
+def call(names: list[str] | str, recent: list[str] | tuple = (), seed: str = "", voice: str = composer_tables.DEFAULT_VOICE) -> str:
+    """The reply to a message that only called the assistant ("yo
+    brotatockiibidyrizzler", `vocative.py`): here, and what it can do. A
+    line that says the name back is one of several, so a nickname is
+    acknowledged now and then, never every time, and never "Ha" at its own
+    name."""
+    name = names if isinstance(names, str) else (names[0] if names else "")
+    lines = composer_replies.CALL[composer_tables.voice_of(voice)]
+    own = name.lower() in ("atlas", "")
+    usable = [line for line in lines if "{name}" not in line or not (own and line.startswith("Ha"))]
+    if not name:
+        usable = [line for line in usable if "{name}" not in line]
+    line = phrasing.choose(usable, f"call:{name}", [r for r in recent if r], seed or _SESSION.get())
+    return line.replace("{name}", name[:1].upper() + name[1:])
+
+
+def call_asks(seed: str = "", count: int = 3) -> list[str]:
+    """What a call offers next: `count` of `composer_replies.CALL_ASKS`,
+    a different few for a different conversation."""
+    asks = list(composer_replies.CALL_ASKS)
+    start = int(hashlib.sha1(f"asks|{seed}".encode()).hexdigest(), 16) % len(asks)
+    return [asks[(start + i) % len(asks)] for i in range(count)]
 
 
 # --- the query plan (CHAT_PLAN Phase 6, decision 31) ------------------------------
@@ -3695,20 +3746,29 @@ def _as_typed(word: str, question: str) -> str:
     return found.group(0) if found else word
 
 
-def _nothing(shape: str, unsure: list[dict] | None = None, voice: str = composer_tables.DEFAULT_VOICE, absent: list[str] | None = None) -> dict:
+def _nothing(
+    shape: str,
+    unsure: list[dict] | None = None,
+    voice: str = composer_tables.DEFAULT_VOICE,
+    absent: list[str] | None = None,
+    out: _Answer | None = None,
+) -> dict:
+    """No answer, said plainly and asked back, in one of eight wordings or
+    more a voice: never one the last three answers opened with (`out`)."""
     chips = _did_you_mean(unsure or [])
-    key = composer_tables.VOICE_VARIANTS[composer_tables.voice_of(voice)]["nothing"][0]
-    parts: list[tuple] = [("template", PHRASES[key])]
+    if out is None:
+        out = _Answer({}, date.today())
+        out.voice = composer_tables.voice_of(voice)
+    parts: list[tuple] = [("template", PHRASES[out.voiced("nothing")])]
     if absent:
         #: Measured over the notes found: the words asked about that none of
         #: them holds, said before the question back.
-        tail = "_p" if composer_tables.voice_of(voice) == "professional" else ""
-        parts = [("template", PHRASES["none_found" + tail])]
+        parts = [("template", PHRASES[out.voiced("none_found")])]
         for i, word in enumerate(absent[:3]):
             if i:
                 parts.append(("template", PHRASES["or"]))
             parts += [("template", PHRASES["open_quote"]), ("asked", word), ("template", PHRASES["close_quote"])]
-        parts += [("template", PHRASES["stop"]), ("template", PHRASES["space"]), ("template", PHRASES["nothing_ask" + tail])]
+        parts += [("template", PHRASES["stop"]), ("template", PHRASES["space"]), ("template", PHRASES[out.voiced("nothing_ask")])]
     return {
         "text": "".join(part[1] for part in parts),
         "grounding": [],
@@ -3905,6 +3965,8 @@ def _compose(
     out.said = said
     out.subject = {_stem(t) for t in subject_terms(question)}
     out.previous = (previous or "").lstrip()
+    if dialogue is not None and dialogue.history:
+        out.recent = [str(turn.get("answer") or "").lstrip() for turn in dialogue.history[-phrasing.RECENT :]]
     out.voice = voice
     out.question = question
     shape = "recent" if recent else classify(question, embed)
@@ -3951,7 +4013,7 @@ def _compose(
                 said=said,
             )
             if not chosen:
-                return _nothing(shape, unsure, voice, [_as_typed(w, question) for w in _absent(typed, views_list)])
+                return _nothing(shape, unsure, voice, [_as_typed(w, question) for w in _absent(typed, views_list)], out)
             if wish == "brief":
                 chosen = [s for s in chosen if s.note_id == chosen[0].note_id]
                 broad = False
@@ -3972,7 +4034,7 @@ def _compose(
                 _insight_close(out, question, terms, views_list)
             _missing(out, terms, views_list)
     if not out.rows:
-        return _nothing(shape, unsure, voice)
+        return _nothing(shape, unsure, voice, out=out)
     quotes = "\n\n".join(row["sentence"] for row in out.rows)
     cited = {row["note_id"] for row in out.rows}
     next_parts = (_did_you_mean(unsure) + _next_questions(question, shape, terms, views_list, cited))[:3]

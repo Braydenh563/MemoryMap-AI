@@ -99,6 +99,9 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: Settings, About, Maintenance: settings.js's showSettingsSection calls it
+    #: in the .then of ensureModule('settingsControls').
+    "renderMaintenance": "settingsControls, called in the .then of ensureModule('settingsControls') in showSettingsSection",
     #: Connections, opened in the .then of lazyScript('/js/connections.js') at its three callers.
     "openConnections": "connections, called in the .then of lazyScript('/js/connections.js')",
     #: The palette's Translate this row, in the .then of ensureModule('translate').

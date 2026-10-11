@@ -204,6 +204,8 @@ function showSettingsSection(name) {
   //: The Atlas row's starter chips, with the chat's bundle (help-chat.js).
   if (name === "help") renderAtlasStarters();
   if (name === "about") renderHealthBlock().catch(() => {});
+  //: Settings, About, Maintenance: settings-controls.js, the window's lazy file.
+  if (name === "about") ensureModule("settingsControls").then(() => renderMaintenance());
   //: The "Last run" lines on this section's controls, and the Background jobs
   //: overview (INBOX 438): one fetch fills every line on the page.
   refreshJobRuns();

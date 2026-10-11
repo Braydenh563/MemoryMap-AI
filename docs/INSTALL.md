@@ -121,6 +121,11 @@ You should now be inside the `Tessellate` folder. `ls` (macOS and Linux) or
   environment (it asks first; notes and settings are untouched), and `tools`
   is a menu of every launcher action. Each comes as `.sh` (macOS and Linux)
   and `.bat` (Windows).
+- **The same, from inside the app:** Settings, About, Maintenance has Check
+  this computer (the doctor's rows, in the installed app too), Reinstall on
+  next start (the next launch through `start` rebuilds; notes untouched),
+  Open the launcher logs, Make a desktop shortcut, and Uninstall, which shows
+  the steps and the command rather than removing anything itself.
 
 The launcher builds a virtual environment, installs everything, starts the app
 and opens <http://localhost:8000>. The first run takes a few minutes. After

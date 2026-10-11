@@ -305,7 +305,7 @@ private Python environment, installs everything and opens
 <http://localhost:8000>. Add `--doctor` to check the machine and print a fix
 for each problem. Each action is also one double-click: `doctor`, `reinstall`
 (rebuilds the Python environment; your notes are untouched) and `tools` (a
-menu of every launcher action), as `.sh` and `.bat`. [docs/INSTALL.md](docs/INSTALL.md) has a step-by-step
+menu of every launcher action), as `.sh` and `.bat`. The same actions are in the app, under Settings, About, Maintenance. [docs/INSTALL.md](docs/INSTALL.md) has a step-by-step
 version for first-time terminal users.
 
 **Then:**

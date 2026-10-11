@@ -13751,6 +13751,58 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
 
+            <!-- The launcher's actions from here (core/maintenance.py,
+                 core/doctor.py, api/routes_maintenance.py). The owner,
+                 2026-10-11: "Can you add like buttons in settings to run
+                 them in like the about page??", about doctor, reinstall,
+                 tools and uninstall. Every route is this computer only: on
+                 a phone the buttons are off and the status line says why.
+                 Wired in settings-controls.js (`renderMaintenance`). -->
+            <div class="settings-group" id="maintenance-group">
+              <div class="row help-head">
+                <h3>Maintenance</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="maintenance-help" aria-controls="maintenance-help" aria-expanded="false"
+                  title="About maintenance" aria-label="About maintenance">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">The launcher's checks and repairs, run on this computer.</p>
+              <div class="help-body hidden" id="maintenance-help" role="dialog" aria-label="About maintenance">
+                <p>
+                  Check this computer runs the checks doctor.sh and doctor.bat
+                  print (start --doctor): Python, free disk, the port, the
+                  model server, the notes folder and the last launch, plus
+                  the search model and other devices, each with what to do.
+                </p>
+                <p>
+                  Reinstall on next start rebuilds the app's Python
+                  environment the next time start.sh or start.bat opens the
+                  app, the same as reinstall.sh. Your notes, settings and
+                  models are not touched. A copy from the installer has no
+                  environment to rebuild; its Repair shortcut is the way.
+                </p>
+                <p>
+                  Uninstall is never one click: it shows the steps and the
+                  command for this computer, and Export my notes first.
+                </p>
+              </div>
+              <div class="row button-row" id="maintenance-actions">
+                <button id="maintenance-doctor" class="ghost small" type="button">Check this computer</button>
+                <button id="maintenance-reinstall" class="ghost small" type="button">Reinstall on next start</button>
+                <button id="maintenance-logs" class="ghost small" type="button">Open the launcher logs</button>
+                <button id="maintenance-shortcut" class="ghost small" type="button">Make a desktop shortcut</button>
+                <button id="maintenance-uninstall" class="ghost small" type="button">Uninstall…</button>
+              </div>
+              <div class="row hidden" id="maintenance-reinstall-row">
+                <span class="muted" id="maintenance-reinstall-note">Set: the next start rebuilds the app's Python environment. Your notes are not touched.</span>
+                <button id="maintenance-restart" class="ghost small" type="button">Restart now</button>
+                <button id="maintenance-reinstall-cancel" class="ghost small" type="button">Cancel</button>
+              </div>
+              <p class="status" id="maintenance-status" role="status"></p>
+              <div class="hidden" id="maintenance-doctor-rows" aria-label="Checks on this computer"></div>
+            </div>
+
             <div class="settings-group">
               <h3>Updates</h3>
               <!-- Off by default (core/config.py's update_check_enabled): 

@@ -238,35 +238,6 @@ def _resolving(body):  # noqa: ANN001, ANN202
     return resolved_read
 
 
-#: "list my work notes", "show me all my baking notes", "notes in Work",
-#: "my notes tagged harbor": a listing narrowed to one category or tag
-#: (ledger row 442). The name is checked against the notebook by the route.
-_FILED_LISTING = re.compile(
-    r"^(?:(?:can|could|would) you |please |pls )?(?:(?:list|show|give)(?: me)?(?: all| every)?(?: of)? )?"
-    r"(?:(?:my |the )(?P<a>[a-z][\w&-]{1,30}(?: [a-z][\w&-]{1,30})?) (?:notes|entries)"
-    r"|(?:my |the )?(?:notes|entries) (?:in|under|filed under|tagged(?: with)?|with the tag) #?(?P<b>[a-z][\w&-]{1,30}(?: [a-z][\w&-]{1,30})?))"
-    r"(?: (?:please|pls|plz))?[?.]*$",
-    re.I,
-)
-#: Words before "notes" that are not a filing: "my recent notes", "all notes".
-_NOT_FILED = frozenset({
-    "recent", "newest", "latest", "last", "old", "oldest", "all", "every", "pinned", "favourite", "favorite",
-    "starred", "new", "own", "other", "first", "untagged", "uncategorised", "uncategorized", "these", "those",
-    "my", "the", "your", "some", "any", "more", "most", "older", "earlier", "today's", "todays",
-})
-
-
-def filed_listing(text: str) -> str | None:
-    """The category or tag a listing names ("work" in "list my work notes"),
-    else None."""
-    found = _FILED_LISTING.match(" ".join((text or "").split()))
-    if not found:
-        return None
-    name = (found.group("a") or found.group("b") or "").strip()
-    name = re.sub(r"^(?:all|every|my|the) ", "", name, flags=re.I)
-    return name if name and name.split()[0].lower() not in _NOT_FILED else None
-
-
 @_resolving
 def read(text: str, *, now: datetime, context: dict | None = None) -> Reading:
     """The one reading of `text` on the person's clock `now`. `context` may
@@ -443,9 +414,7 @@ def follow(text: str, turns: list[dict] | None, now: datetime) -> tuple[str, str
     the kind: "again", "other", "pronoun", "date", "subject"), or None for a
     sentence that stands on its own. Dates are `recognise` spans, never read
     here (decision 46)."""
-    #: "thanks" between is not a turn to lean on (INBOX 741's rule).
-    turns = [t for t in (turns or []) if str(t.get("text") or "").strip()][-FOLLOW_TURNS:]
-    turns = [t for t in turns if _read(str(t["text"]), now=now).intent not in ("smalltalk", "unknown")]
+    turns = _leaned_on(turns, now)
     raw = " ".join(str(text or "").split())
     if not turns or not raw:
         return None
@@ -462,6 +431,13 @@ def follow(text: str, turns: list[dict] | None, now: datetime) -> tuple[str, str
         return _follow_pronoun(raw, pronoun, turns, now)
     same = re.match(_SAME_FOR, low) or re.match(_TOO, low)
     return _follow_same(raw[same.start("x"):same.end("x")], turns, now) if same else None
+
+
+def _leaned_on(turns: list[dict] | None, now: datetime) -> list[dict]:
+    """The last turns with words, less small talk: "thanks" between is not a
+    turn to lean on (INBOX 741's rule)."""
+    turns = [t for t in (turns or []) if str(t.get("text") or "").strip()][-FOLLOW_TURNS:]
+    return [t for t in turns if _read(str(t["text"]), now=now).intent not in ("smalltalk", "unknown")]
 
 
 def _follow_slot(raw: str, turn: dict, now: datetime) -> str | None:

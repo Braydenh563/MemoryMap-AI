@@ -774,7 +774,7 @@ def _error(tool: str, message: str, args: dict) -> Said:
     text = re.sub(rf"^{re.escape(tool)}:\s*", "", str(message or "")).strip()
     if re.search(r"turned off in Settings|is disabled in Settings", text):
         what = "Web search" if tool in ("web_search", "read_url") else "That tool"
-        return f"{what} is turned off.", "Turn it on in Settings, Tools it can use, then ask again.", _chips(("Open Settings, Tools", settings_at("tools")))
+        return f"{what} is turned off.", "Turn it on in Settings, Tools it can use, then ask again.", _chips(("Open Settings, Tools it can use", settings_at("tools")))
     if re.search(r"starts a run rather|answered by the person|hands the summary", text):
         return SAYERS[tool]({}, args) if tool in SAYERS else ("That needs you to take the next step.", "", "")
     missing = re.match(r"No (?:uploaded )?(note|document|reminder|file|board|card|skill|category|tag)\b[^\d]*(\d+)?", text, re.I)

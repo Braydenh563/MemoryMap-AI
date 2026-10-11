@@ -2184,6 +2184,30 @@ for _topic in HELP_TOPICS:
         _topic["keywords"] = _topic["keywords"] + tuple(c for c in _chords if c not in _CLAIMED_KEYS)
 
 
+#: **The Guide's gold, 2026-10-11** (`tests/fixtures/composer/guide_1011.json`,
+#: 25 questions typed the way people ask): the words that took a question to
+#: the wrong topic, edited on the topics added after the first table, which
+#: that table cannot reach. "why is the chat so slow" is speed, not Chat;
+#: "where did my deleted notes go" is the bin; "export everything to
+#: markdown" is Import & export.
+_KEYWORDS_ADD_GUIDE: dict[str, tuple[str, ...]] = {
+    "performance": ("so slow", "is slow", "running slow", "takes ages", "sluggish"),
+    "undo-bin": ("deleted", "deleted notes", "deleted note", "undo deleting", "undelete"),
+    "import-export": ("export", "markdown", "to markdown", "as markdown", "backup", "back up my notes"),
+    "meetings": ("record a meeting", "record meetings", "record the meeting"),
+    "notes-controls": ("lots of notes", "many notes", "notes at once", "all at once"),
+    "tag-manager": ("rename a tag", "rename tags", "merge tags", "delete a tag"),
+}
+_KEYWORDS_REMOVE_GUIDE: dict[str, tuple[str, ...]] = {
+    "storage": ("export everything",),
+}
+for _topic in HELP_TOPICS:
+    _drop = set(_KEYWORDS_REMOVE_GUIDE.get(_topic["id"], ()))
+    _topic["keywords"] = tuple(k for k in _topic["keywords"] if k not in _drop) + tuple(
+        k for k in _KEYWORDS_ADD_GUIDE.get(_topic["id"], ()) if k not in _topic["keywords"]
+    )
+
+
 _KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
     keyword: _keyword_pattern(_normalise_keys(keyword))
     for topic in HELP_TOPICS
@@ -2299,6 +2323,12 @@ def _reading_topics(question: str) -> list[dict]:
     return [own, *topics][:MAX_TOPICS]
 
 
+def _repaired(question: str) -> str:
+    """The question with its typos put right, once `question_noise` has
+    registered its repair (`act_registry.repair`), else as typed."""
+    return act_registry.repair(question) if act_registry.repair else question
+
+
 def _matching_topics(question: str) -> list[dict]:
     """Which `HELP_TOPICS` entries this question is about, best first.
 
@@ -2326,7 +2356,7 @@ def _matching_topics(question: str) -> list[dict]:
     #: panel", "thes ebuttons"): misspellings put right, split words joined,
     #: before the keywords are read. The keyword typo rule below stays, for a
     #: word the speller does not know.
-    lowered = _normalise_keys((act_registry.repair or str)(question).lower())
+    lowered = _normalise_keys(_repaired(question).lower())
     words = [w for w in _WORD.findall(lowered) if w not in _STOP]
     total = len(HELP_TOPICS)
     scores: dict[str, float] = {}
@@ -2628,8 +2658,29 @@ def _place(path: str) -> str:
     return f"the {path}" if path.endswith(" tab") and not path.startswith("The ") else path
 
 
+#: A full stop that ends no sentence: "(e.g. Summarise)", "etc. and", "vs.".
+_ABBREVIATION = re.compile(r"\b(?:e\.g|i\.e|etc|vs|approx|incl|cf)\.$", re.I)
+
+
+def help_sentences(body: str) -> list[str]:
+    """The sentences of a help topic of five words or more. A sentence ends
+    at a stop before a capital, a quote or a bracket, or at the end: "0.5x",
+    ".ics", "a category's ... menu" and "e.g. Summarise" end nothing (the
+    Guide's gold: "Skills are one-click requests shown above the chat box
+    (e." was a lead)."""
+    out, start = [], 0
+    for m in re.finditer(r"[.!?](?=\s+[\"“(\[*]?[A-Z0-9]|\s*$)", body):
+        chunk = body[start:m.end()]
+        if _ABBREVIATION.search(chunk) or chunk.endswith(".."):
+            continue
+        out.append(chunk.strip())
+        start = m.end()
+    #: Five words at least: "Notes keys and controls." is a topic's title.
+    return [line for line in out if len(line.split()) >= 5]
+
+
 def _help_sentences(body: str) -> list[str]:
-    return [m.group(0).strip() for m in re.finditer(r"[^.!?]+[.!?]", body) if len(m.group(0).split()) >= 4]
+    return help_sentences(body)
 
 
 def _second_sentence(question: str, body: str, said: str) -> str:
@@ -2649,8 +2700,16 @@ def _guide_lead(question: str, topics: list[dict]) -> str:
     """The help sentence that best answers `question` (`composer.help_line`).
     Before the composer is loaded (a bare import of this module), the
     topic's first sentence leads: never an answer with no answer in it."""
+    from memorymap.ai import capability
+
+    if topics[0]["id"] == "privacy" and capability.privacy_line(question):
+        return capability.privacy_line(question)
     line = act_registry.help_sentence(question, topics) if act_registry.help_sentence else None
-    return line[0] if line else next(iter(_help_sentences(topics[0]["body"])), "")
+    lead = line[0] if line else next(iter(_help_sentences(topics[0]["body"])), "")
+    #: "Or type the reminder, ...": the topic's joining word is not the
+    #: answer's first word.
+    joined = re.match(r"(?:Or|And|But|Also|So),? (?=[a-z])", lead)
+    return lead[joined.end()].upper() + lead[joined.end() + 1:] if joined else lead
 
 
 def _guide_opening(question: str, path: str, steps: tuple, lead: str) -> tuple[list[str], bool, bool]:
@@ -2667,13 +2726,51 @@ def _guide_opening(question: str, path: str, steps: tuple, lead: str) -> tuple[l
     return lines, where, walk
 
 
+#: A topic that is about a switch, and the switch: its preference, its
+#: default and its name. The Guide says which way it is set now ("how do I
+#: turn on web search" when it is on is answered "Web search is on now").
+_SWITCHES: dict[str, tuple[str, bool, str]] = {
+    "websearch": ("web_search_enabled", False, "Web search"),
+    "autonomous": ("autonomous_tasks_enabled", False, "Background AI"),
+}
+
+
+def _preference(key: str, default: bool) -> bool:
+    try:
+        from memorymap.core import deps
+
+        return bool(deps.get_config().get_preference(key, default))
+    except Exception:  # noqa: BLE001  # no config (a bare import): say nothing of the state
+        return default
+
+
+def _state_line(topic_id: str) -> str:
+    """"Web search is off now.": the switch a topic is about, as it is set."""
+    switch = _SWITCHES.get(topic_id)
+    if switch is None:
+        return ""
+    key, default, name = switch
+    return f"{name} is {'on' if _preference(key, default) else 'off'} now."
+
+
+def _stated_lead(question: str, topics: list[dict]) -> str:
+    """The lead, after the switch's state when the topic has one; a lead
+    that only gives the default ("off by default") gives way to the next
+    sentence that answers, since the state now says it."""
+    state = _state_line(topics[0]["id"])
+    lead = _guide_lead(question, topics)
+    if state and re.search(r"\bby default\b", lead):
+        lead = _second_sentence(question, topics[0]["body"], lead) or lead
+    return " ".join(x for x in (state, lead) if x)
+
+
 def composed_answer(question: str, topics: list[dict]) -> str:
     """The Guide's answer composed for `question` from the best topic."""
     first = topics[0]
     meta = TOPIC_META.get(first["id"], {})
     path = str(meta.get("path") or "").rstrip(".")
     steps = tuple(meta.get("steps") or ())
-    lead = _guide_lead(question, topics)
+    lead = _stated_lead(question, topics)
     lines, where, walk = _guide_opening(question, path, steps, lead)
     more = "" if steps else _second_sentence(question, first["body"], lead)
     lines += ["\n".join(f"{n}. {step}" for n, step in enumerate(steps, 1))] if steps else [more] if more else []

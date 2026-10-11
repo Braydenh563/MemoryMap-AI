@@ -223,6 +223,16 @@ def _place_of(key: str, group: str) -> str:
     return {"Boards, maps & drawing": "Library, Boards & maps", "Make it yours": "Settings, Appearance"}.get(group, "")
 
 
+def _row_place(m: re.Match, group: str, sections: dict[str, str]) -> tuple[str, str]:
+    """A Tools and features row's key and where it is said to be."""
+    if m.group("tab"):
+        return f"tab:{m.group('tab')}", f"the {_TAB_NAMES.get(m.group('tab'), m.group('tab'))} tab"
+    reveal = m.group("reveal")
+    if reveal.startswith("settings:"):
+        return f"settings:{reveal[9:]}", f"Settings, {sections.get(reveal[9:], m.group('name'))}"
+    return f"reveal:{reveal}" + (f":{m.group('arg')}" if m.group("arg") else ""), _place_of(reveal, group)
+
+
 @lru_cache(maxsize=1)
 def places() -> tuple[Place, ...]:
     """Every place a person can be sent to: the Tools and features rows, the
@@ -238,27 +248,18 @@ def places() -> tuple[Place, ...]:
     groups = [(m.start(), m.group(1)) for m in _GROUP.finditer(features)]
     for m in _ROW.finditer(features):
         group = next((g for at, g in reversed(groups) if at < m.start()), "")
-        if m.group("tab"):
-            key, where = f"tab:{m.group('tab')}", f"the {_TAB_NAMES.get(m.group('tab'), m.group('tab'))} tab"
-        else:
-            reveal = m.group("reveal")
-            key = f"settings:{reveal[9:]}" if reveal.startswith("settings:") else f"reveal:{reveal}" + (f":{m.group('arg')}" if m.group("arg") else "")
-            where = f"Settings, {sections.get(reveal[9:], m.group('name'))}" if reveal.startswith("settings:") else _place_of(reveal, group)
+        key, where = _row_place(m, group, sections)
         if key in seen:
             continue
         seen.add(key)
         alias = ALIASES.get(key.removeprefix("reveal:").split(":")[0] if key.startswith("reveal:") else key, "")
         out.append(Place(key, m.group("name"), m.group("desc"), where, f"{m.group('name')}, {alias}", f"{group} {m.group('desc')}"))
-    for section, label in sections.items():
-        key = f"settings:{section}"
+    rest = [(f"settings:{section}", label, f"Settings, {label}", "settings") for section, label in sections.items()]
+    rest += [(f"tab:{tab}", label, f"the {label} tab", "tab") for tab, label in _TAB_NAMES.items()]
+    for key, label, where, more in rest:
         if key not in seen:
             seen.add(key)
-            out.append(Place(key, label, "", f"Settings, {label}", f"{label}, {ALIASES.get(key, '')}", "settings"))
-    for tab, label in _TAB_NAMES.items():
-        key = f"tab:{tab}"
-        if key not in seen:
-            seen.add(key)
-            out.append(Place(key, label, "", f"the {label} tab", f"{label}, {ALIASES.get(key, '')}", "tab"))
+            out.append(Place(key, label, "", where, f"{label}, {ALIASES.get(key, '')}", more))
     out.append(Place("settings", "Settings", "", "the gear at the top right", f"Settings, {ALIASES['settings']}", ""))
     return tuple(out)
 
@@ -320,12 +321,9 @@ def target(question: str, strip: bool = True) -> str | None:
     return rest or None
 
 
-def find(words: str) -> list[tuple[float, Place]]:
-    """The places `words` names, best first, each with its score. A place
-    one of whose phrases is the words exactly scores 2; otherwise the share
-    of the words its name or aliases hold (a word only in its line counts a
-    third). Nothing when a word is in no place at all: "where is my coffee
-    note" is a note to find, not a place."""
+def _asked_stems(words: str) -> list[str]:
+    """The stems of `words` as the app's vocabulary has them, or [] when a
+    word is in no place at all."""
     asked = list(dict.fromkeys(_stems(words)))
     vocabulary = _vocabulary()
     #: "heat map" is the heatmap: two words that are one of the app's.
@@ -334,21 +332,31 @@ def find(words: str) -> list[tuple[float, Place]]:
             asked[i - 1:i + 1] = [asked[i - 1] + asked[i]]
     #: "animations" is the "animated" a row says: the same first six letters.
     asked = [s if s in vocabulary else next((v for v in sorted(vocabulary) if len(s) >= 6 and v[:6] == s[:6]), s) for s in asked]
-    if not asked or any(s not in vocabulary for s in asked):
+    return [] if any(s not in vocabulary for s in asked) else asked
+
+
+def _score(asked: list[str], wanted: frozenset, row: tuple) -> float:
+    _place, strong, weak, phrases, home = row
+    if wanted in phrases:
+        return 2.0
+    score = sum(1.0 if s in strong else 0.6 if s in home else 0.34 if s in weak else 0.0 for s in asked) / len(asked)
+    #: A phrase holding all the words and little else is nearer than a row
+    #: that holds them across its phrases.
+    score += max((0.2 - 0.05 * len(p - wanted) for p in phrases if wanted <= p), default=0.0)
+    return round(score, 3)
+
+
+def find(words: str) -> list[tuple[float, Place]]:
+    """The places `words` names, best first, each with its score. A place
+    one of whose phrases is the words exactly scores 2; otherwise the share
+    of the words its name or aliases hold (a word only in its line counts a
+    third). Nothing when a word is in no place at all: "where is my coffee
+    note" is a note to find, not a place."""
+    asked = _asked_stems(words)
+    if not asked:
         return []
     wanted = frozenset(asked)
-    scored = []
-    for place, strong, weak, phrases, home in _index():
-        if not wanted & strong:
-            continue
-        if wanted in phrases:
-            score = 2.0
-        else:
-            score = sum(1.0 if s in strong else 0.6 if s in home else 0.34 if s in weak else 0.0 for s in asked) / len(asked)
-            #: A phrase holding all the words and little else is nearer than
-            #: a row that holds them across its phrases.
-            score += max((0.2 - 0.05 * len(p - wanted) for p in phrases if wanted <= p), default=0.0)
-        scored.append((round(score, 3), place))
+    scored = [(_score(asked, wanted, row), row[0]) for row in _index() if wanted & row[1]]
     scored.sort(key=lambda pair: -pair[0])
     #: The same name twice (a catalogue row and its Settings section) is one place.
     out, names = [], set()
@@ -361,6 +369,35 @@ def find(words: str) -> list[tuple[float, Place]]:
 
 def link_label(place: Place) -> str:
     return f"Show me {place.name}"
+
+
+def _close(found: list[tuple[float, Place]]) -> list[Place]:
+    """The places near the top, at most three; one Settings section said
+    twice is one."""
+    best_score = found[0][0]
+    close = [p for s, p in found if s >= MIN_SCORE and best_score - s <= TIE_GAP]
+    if len(close) > 1 and close[0].where == close[1].where and close[0].key.split(":")[0] == close[1].key.split(":")[0] == "settings":
+        close = close[:1]
+    return close[:3]
+
+
+def _one_place(place: Place) -> dict:
+    """Where one place is, its line, and the link."""
+    name = place.name if place.name[:1].isupper() else place.name.capitalize()
+    line = place.about.rstrip(".") + "." if place.about else ""
+    if place.key == "settings":
+        lead = "Settings is the gear at the top right."
+    elif place.where and name.lower() in place.where.lower():
+        lead = f"It's in {place.where}."
+    elif place.where:
+        lead = f"You'll find {name} in {place.where}."
+    else:
+        #: "Manage tags: rename, merge ..."; a line that opens on a key
+        #: ("Ctrl/⌘-K to run ...") keeps its capital.
+        said = line[:1].lower() + line[1:] if re.match(r"[A-Z][a-z]+\b(?![/+-])", line) else line
+        lead, line = (f"{name}: {said}" if line else f"{name}."), ""
+    text = "\n\n".join(x for x in (lead, line, link_label(place)) if x)
+    return {"text": text, "offer": {"kind": "open", "label": link_label(place), "surface": place.key}, "places": [place.key]}
 
 
 def answer(question: str) -> dict | None:
@@ -381,28 +418,9 @@ def answer(question: str) -> dict | None:
         found = best(question_noise.repair(question or ""))
     if not found or found[0][0] < MIN_SCORE:
         return None
-    best_score = found[0][0]
-    close = [p for s, p in found if s >= MIN_SCORE and best_score - s <= TIE_GAP]
-    if len(close) > 1 and close[0].where == close[1].where and close[0].key.split(":")[0] == close[1].key.split(":")[0] == "settings":
-        close = close[:1]
-    close = close[:3]
+    close = _close(found)
     if len(close) == 1:
-        place = close[0]
-        name = place.name if place.name[:1].isupper() else place.name.capitalize()
-        line = place.about.rstrip(".") + "." if place.about else ""
-        if place.key == "settings":
-            lead = "Settings is the gear at the top right."
-        elif place.where and name.lower() in place.where.lower():
-            lead = f"It's in {place.where}."
-        elif place.where:
-            lead = f"You'll find {name} in {place.where}."
-        else:
-            #: "Manage tags: rename, merge ..."; a line that opens on a key
-            #: ("Ctrl/⌘-K to run ...") keeps its capital.
-            said = line[:1].lower() + line[1:] if re.match(r"[A-Z][a-z]+\b(?![/+-])", line) else line
-            lead, line = (f"{name}: {said}" if line else f"{name}."), ""
-        text = "\n\n".join(x for x in (lead, line, link_label(place)) if x)
-        return {"text": text, "offer": {"kind": "open", "label": link_label(place), "surface": place.key}, "places": [place.key]}
+        return _one_place(close[0])
     names = [p.name for p in close]
     said = ", ".join(names[:-1]) + f" or {names[-1]}"
     labels = [link_label(p) for p in close]

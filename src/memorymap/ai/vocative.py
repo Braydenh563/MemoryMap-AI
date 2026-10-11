@@ -154,30 +154,38 @@ def _head(text: str, tokens: list[re.Match], known) -> Address | None:  # noqa: 
             continue
         words = [t.group(0) for t in tokens[start:end]]
         after = text[tokens[end - 1].end() :]
-        rest = after.lstrip()
-        comma = rest.startswith(",")
         alone = not _WORD.search(after)
-        next_word = tokens[end].group(0).lower() if end < len(tokens) else ""
-        asks = next_word in ASK_START or (next_word and question_noise.nearest(next_word, ASK_START) is not None)
-        strong = bool(kind) or comma
-        if not (comma or alone or asks):
+        if not _named_here(words, tokens, end, after, known, kind):
             continue
-        if not _name(words, known, strong):
-            #: After a hail and nothing else, any word not in the notes is a
-            #: name: "hey potato".
-            if not (kind == "hail" and alone and size == 1 and words[0].lower() not in known and words[0].isalpha()):
-                continue
-        name = " ".join(words)
         greeting = text[: tokens[start].start()].strip(" ,") if start else ""
-        if alone:
-            if kind == "ack":
-                return Address(question=(greeting + after.strip(" ,")).strip(), names=[name], greeting=greeting)
-            return Address(question=greeting or "hi", names=[name], call=True, greeting=greeting)
-        question = rest.lstrip(", ").strip()
-        if kind == "ack":
-            question = f"{greeting}, {question}"
-        return Address(question=question, names=[name], greeting=greeting)
+        return _addressed(" ".join(words), greeting, after, alone, kind)
     return None
+
+
+def _named_here(words: list[str], tokens: list[re.Match], end: int, after: str, known, kind: str | None) -> bool:  # noqa: ANN001
+    """Whether `words` at the head are a name: set off by a comma, alone, or
+    before a question word; and a name, or after a hail and nothing else any
+    word not in the notes ("hey potato")."""
+    comma = after.lstrip().startswith(",")
+    alone = not _WORD.search(after)
+    next_word = tokens[end].group(0).lower() if end < len(tokens) else ""
+    asks = next_word in ASK_START or (next_word and question_noise.nearest(next_word, ASK_START) is not None)
+    if not (comma or alone or asks):
+        return False
+    if _name(words, known, bool(kind) or comma):
+        return True
+    return kind == "hail" and alone and len(words) == 1 and words[0].lower() not in known and words[0].isalpha()
+
+
+def _addressed(name: str, greeting: str, after: str, alone: bool, kind: str | None) -> Address:
+    if alone:
+        if kind == "ack":
+            return Address(question=(greeting + after.strip(" ,")).strip(), names=[name], greeting=greeting)
+        return Address(question=greeting or "hi", names=[name], call=True, greeting=greeting)
+    question = after.lstrip().lstrip(", ").strip()
+    if kind == "ack":
+        question = f"{greeting}, {question}"
+    return Address(question=question, names=[name], greeting=greeting)
 
 
 def _tail(text: str, tokens: list[re.Match], known) -> Address | None:  # noqa: ANN001

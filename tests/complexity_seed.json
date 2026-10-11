@@ -124,7 +124,6 @@
  "src/memorymap/ai/tools/whiteboard.py::_read_whiteboard": 27,
  "src/memorymap/ai/utilities.py::_dates": 17,
  "src/memorymap/ai/utilities.py::answer": 27,
- "src/memorymap/ai/utilities.py::kind_of": 21,
  "src/memorymap/ai/validate.py::maxims": 46,
  "src/memorymap/ai/vision_ocr.py::pdf_vision_ocr_and_store": 16,
  "src/memorymap/api/app.py::RevalidatedStatic._precompressed": 21,

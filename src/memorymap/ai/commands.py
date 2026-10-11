@@ -242,24 +242,7 @@ def _tag(text: str) -> dict | None:
     low = text.lower()
     if low.startswith(("tag ", "label ")):
         body = text.split(" ", 1)[1]
-        split = _split_last(body, (" with ", " as "))
-        if split:
-            target, tags = split
-            for lead in ("the tags ", "the tag ", "tags ", "tag "):
-                if tags.lower().startswith(lead):
-                    tags = tags[len(lead):]
-            found = _target(target)
-            if found and _tags(tags):
-                return {"intent": "tag", **found, "tags": _tags(tags)}
-        named = _note_then_tags(body)
-        if named:
-            return named
-        for these in sorted(_THESE, key=len, reverse=True):
-            if body.lower().startswith(these + " "):
-                tags = _tags(body[len(these):])
-                if tags:
-                    return {"intent": "tag", "these": True, "single": _THESE[these], "tags": tags}
-        return None
+        return _tag_with(body) or _note_then_tags(body) or _tag_these(body)
     for lead in ("add the tags ", "add the tag ", "add tags ", "add tag ", "add the label ", "add label "):
         if low.startswith(lead):
             split = _split_last(text[len(lead):], (" to ",))
@@ -268,6 +251,29 @@ def _tag(text: str) -> dict | None:
                 found = _target(target)
                 if found and _tags(tags):
                     return {"intent": "tag", **found, "tags": _tags(tags)}
+    return None
+
+
+def _tag_with(body: str) -> dict | None:
+    """"tag my trip notes with travel": the notes, then "with", the tags."""
+    split = _split_last(body, (" with ", " as "))
+    if not split:
+        return None
+    target, tags = split
+    for lead in ("the tags ", "the tag ", "tags ", "tag "):
+        if tags.lower().startswith(lead):
+            tags = tags[len(lead):]
+    found = _target(target)
+    return {"intent": "tag", **found, "tags": _tags(tags)} if found and _tags(tags) else None
+
+
+def _tag_these(body: str) -> dict | None:
+    """"tag these travel": the attached notes."""
+    for these in sorted(_THESE, key=len, reverse=True):
+        if body.lower().startswith(these + " "):
+            tags = _tags(body[len(these):])
+            if tags:
+                return {"intent": "tag", "these": True, "single": _THESE[these], "tags": tags}
     return None
 
 
@@ -353,6 +359,50 @@ def _note_topic(rest: str) -> bool:
     return not _ASKING.match(rest) and not _ON_THE_WEB.match(rest)
 
 
+#: "list my work notes", "show me all my baking notes", "notes in Work",
+#: "my notes tagged harbor": a listing narrowed to one category or tag
+#: (ledger row 442). The name is checked against the notebook by the route.
+#: Here, not in `reading`, so this module reads it with no import back.
+_FILED_LISTING = re.compile(
+    r"^(?:(?:can|could|would) you |please |pls )?(?:(?:list|show|give)(?: me)?(?: all| every)?(?: of)? )?"
+    r"(?:(?:my |the )(?P<a>[a-z][\w&-]{1,30}(?: [a-z][\w&-]{1,30})?) (?:notes|entries)"
+    r"|(?:my |the )?(?:notes|entries) (?:in|under|filed under|tagged(?: with)?|with the tag) #?(?P<b>[a-z][\w&-]{1,30}(?: [a-z][\w&-]{1,30})?))"
+    r"(?: (?:please|pls|plz))?[?.]*$",
+    re.I,
+)
+#: Words before "notes" that are not a filing: "my recent notes", "all notes".
+_NOT_FILED = frozenset({
+    "recent", "newest", "latest", "last", "old", "oldest", "all", "every", "pinned", "favourite", "favorite",
+    "starred", "new", "own", "other", "first", "untagged", "uncategorised", "uncategorized", "these", "those",
+    "my", "the", "your", "some", "any", "more", "most", "older", "earlier", "today's", "todays",
+})
+
+
+def filed_listing(text: str) -> str | None:
+    """The category or tag a listing names ("work" in "list my work notes"),
+    else None."""
+    found = _FILED_LISTING.match(" ".join((text or "").split()))
+    if not found:
+        return None
+    name = (found.group("a") or found.group("b") or "").strip()
+    name = re.sub(r"^(?:all|every|my|the) ", "", name, flags=re.I)
+    return name if name and name.split()[0].lower() not in _NOT_FILED else None
+
+
+def _listing(text: str, head: str, rest: str) -> dict | None:
+    """A find that is a listing: {} for "show all my notes" (the newest
+    notes, listed by the read route, not a find about "all my": the routing
+    gold, 2026-10-11); "list my work notes" the Work notes, or the notes
+    tagged work (ledger row 442); None for any other find."""
+    if _WHOLE_LISTING.fullmatch(rest):
+        return {}
+    if head in _LIST_HEADS:
+        filed = filed_listing(text)
+        if filed:
+            return {"intent": "find", "about": filed, "filed": filed}
+    return None
+
+
 def _find(text: str) -> dict | None:
     low = text.lower()
     for heads, intent in ((_OPEN_HEADS, "open"), (_FIND_HEADS, "find")):
@@ -360,28 +410,26 @@ def _find(text: str) -> dict | None:
         if head is None:
             continue
         rest = text[len(head):].strip()
-        if intent == "find" and _WHOLE_LISTING.fullmatch(rest):
-            #: "show all my notes" is the newest notes, listed by the read
-            #: route, not a find about "all my" (the routing gold, 2026-10-11).
-            return None
-        if intent == "find" and head in _LIST_HEADS:
-            from memorymap.ai import reading
+        if intent == "find":
+            listed = _listing(text, head, rest)
+            if listed is not None:
+                return listed or None
+        return _found_object(intent, head, rest)
+    return None
 
-            filed = reading.filed_listing(text)
-            if filed:
-                #: "list my work notes": the Work notes, or the notes tagged
-                #: work, when the notebook has either (ledger row 442).
-                return {"intent": "find", "about": filed, "filed": filed}
-        number = re.fullmatch(r"(?:(?:note|entry) )?#?(\d{1,9})", rest, re.IGNORECASE)
-        if number and (rest.startswith("#") or not rest.isdigit()):
-            return {"intent": intent, "note_id": int(number.group(1))}
-        found = _target(rest)
-        if found and found.get("about"):
-            return {"intent": intent, "about": found["about"]}
-        if intent == "find" and head in _FREE_FIND and rest and _note_topic(rest):
-            about = _drop_article(rest)
-            return {"intent": "find", "about": about} if about else None
-        return None
+
+def _found_object(intent: str, head: str, rest: str) -> dict | None:
+    """What an open or a find names: "#12", "note 12", a target, or for a
+    free find ("find dentist") its topic."""
+    number = re.fullmatch(r"(?:(?:note|entry) )?#?(\d{1,9})", rest, re.IGNORECASE)
+    if number and (rest.startswith("#") or not rest.isdigit()):
+        return {"intent": intent, "note_id": int(number.group(1))}
+    found = _target(rest)
+    if found and found.get("about"):
+        return {"intent": intent, "about": found["about"]}
+    if intent == "find" and head in _FREE_FIND and rest and _note_topic(rest):
+        about = _drop_article(rest)
+        return {"intent": "find", "about": about} if about else None
     return None
 
 

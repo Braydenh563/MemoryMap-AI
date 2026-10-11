@@ -452,14 +452,19 @@ def _resegment(a: str, b: str, known) -> tuple[str, str] | None:  # noqa: ANN001
             if best is None or key < best[:2]:
                 best = (*key, x, y)
     if best is None:
-        #: The space typed a letter early and the small word's letters swapped
-        #: ("infoa dn" is "info and"): a word, then a small word's anagram.
-        for cut in range(4, len(joined) - 2):
-            x, y = joined[:cut], joined[cut:]
-            small = next((w for w in FUNCTION_PRIOR if len(w) == len(y) == 3 and sorted(w) == sorted(y)), None)
-            if small and abs(cut - len(a)) <= 1 and is_word(x, known):
-                return x, small
-    return (best[2], best[3]) if best else None
+        return _swapped_small(a, joined, known)
+    return best[2], best[3]
+
+
+def _swapped_small(a: str, joined: str, known) -> tuple[str, str] | None:  # noqa: ANN001
+    """The space typed a letter early and the small word's letters swapped
+    ("infoa dn" is "info and"): a word, then a small word's anagram."""
+    for cut in range(4, len(joined) - 2):
+        x, y = joined[:cut], joined[cut:]
+        small = next((w for w in FUNCTION_PRIOR if len(w) == len(y) == 3 and sorted(w) == sorted(y)), None)
+        if small and abs(cut - len(a)) <= 1 and is_word(x, known):
+            return x, small
+    return None
 
 
 def rejoin(tokens: list[str], known=(), skip=frozenset(), changes: list | None = None) -> list[str]:  # noqa: ANN001

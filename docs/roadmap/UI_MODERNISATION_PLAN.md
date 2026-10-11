@@ -1567,16 +1567,7 @@ context-aware actions, VS Code's prefixes.
 
 **Briefs.** 47 (rows 2, 4), 66 (row 6), 90 (rows 1, 3, 5, 7).
 
-## Placed from INBOX, 2026-10-10 (the owner's morning UI reports)
-
-Owner: the uipolish agent (Sonnet), one commit per item, measured at 1440 and 390.
-
-- INBOX 776. **UI, the owner 2026-10-10 22:05Z, three screenshots.** "these highlighted borders are cut off. is agent available now when the ai isnt running?? or should the toggle option be disabled?? also on the submenu bars, can you improve the design of the hover state a bit?? like add a grey or sub colour line when hovering over other ones that arent active??" Shots: the top tab bar's focus ring on Graph clipped top and bottom; the chat composer's Ask / Agent toggle with Agent on; the Notes sub-tabs (Your notes, Capture, Writing room, Ask, Questions).
-- INBOX 777. **UI, the owner 2026-10-10 22:10Z.** "the shimmering sliding animation on the skeleton loaders is very fast and not smooth or pleasing to the eye in how fast and jittery it is"
-- INBOX 779. **UI, the owner 2026-10-10 22:15Z, two screenshots.** "on custom themes can you maybe adjust the delete bin icon a little?? and also I think the Your Themes setting section is designed awkwardly". The bin sits on the card's corner, cut by the border; the section is a left label column beside one card, the name field and Save, with the two reset buttons below the whole row.
-- INBOX 780. **UI, the owner 2026-10-10 22:18Z, screenshot.** "also can you improve the opacity of the peak function in the settings as well?" (Settings' Peek: the panel is still mostly opaque and blurred over the app.)
-- INBOX 782. **UI, the owner 2026-10-10 22:22Z, screenshot.** "can you redesign the confirm and not right buttons in the tidy popup panel?? and any other similar instances of them across the app" (Tidy's Patterns rows: two full-size bordered buttons under each sentence.)
-- INBOX 783. **Question, the owner 2026-10-10 22:23Z, screenshot.** "how do I delete a suggestion??" (Tidy, Category names: one suggestion, ticked, with All, None and Rename 1 category; no way to dismiss it for good.)
+INBOX 776 to 783 (the owner's morning UI reports) are built (uipolish): HISTORY.md, "Moved from the plans, 2026-10-11 (UI_MODERNISATION, the morning reports)".
 
 ## Placed from INBOX, 2026-10-10 (the owner's afternoon reports)
 
@@ -1598,3 +1589,9 @@ Owners: uipolish (789), polish2 (790 to 792 and 788's design fixes), DOCUMENTS_P
 Owners: the uisweep agent (Sonnet, measure and the mechanical fixes), then Briefs 57, 58 and 59 (Opus) on its findings, ahead of 61 to 63.
 
 - INBOX 800, UI, the owner 2026-10-11 02:40Z, verbatim: "Can you do another devibecoding, ui/ux modernisation and professionalisation sweep across all ui faces??" Placed: every surface at 1440 and 390, both themes, through `devibe.js`, `vibecheck.js`, `hierarchy.js`, `consistency.js`, `hoverbox.js`, `focusring.js`, `contrast.js` and `axe.js`; the findings, each with its number, go to `agent-remaining/uisweep-1011.md`; mechanical ones fixed in the sweep, design ones taken by Briefs 57 to 59 in that order.
+
+## Placed from INBOX, 2026-10-11 (the owner on buttons, OCR and the constellation)
+
+Owners: grammar57 (button families), the ownerfix agent (Sonnet) for the rest.
+
+- INBOX 803, UI and bugs, the owner 2026-10-11 03:35Z to 03:45Z, screenshots (Loose ends, While you were away, Kinds of link, the OCR workspace, the constellation in both themes), verbatim: "Im still iffy about the design use of these buttons styles in some places... also the select button in the all notes top bar is rectangular and not square, should it be square?? in the questions subtab and possibly elsewhere, the icons in the rows get underlined as well." ... "on the ocr workspace, when rapid ocr and potentially the others are reading the text, if that image already has a description or caption, it doesnt show until the image's ocr is read." ... "The ocr workspae regions are a little off, there is an awkward squashed text box at the bottom of the right text area. Should the notebook ocnstellation have an off white background on light mode like with dark?? Also when I switch back and forth between light and dark mode, the notebook constellation adjusts suddenly or jolts a bit and doesn't have a smooth fade transition. Also when I click the capture a note textbox in the capture subtab for the first time, it adjusts a bit because the line numbers werent originally showing." Recommendations, taken: outlined bordered buttons inside dashboard cards become the quiet recipe, and counted chips (link kinds, claims) become chips, not buttons; an icon-only toolbar button is square; a row link never underlines its icon; the caption shows before reading starts; the empty region editor below the read text is not drawn when it has nothing; the constellation sits on a tinted well in light too and fades between themes; the capture box reserves its line-number gutter from the first paint.

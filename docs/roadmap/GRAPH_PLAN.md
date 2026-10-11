@@ -607,3 +607,9 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 
 - INBOX 798, the owner 2026-10-10 23:27Z, screenshot: "the graph is still completely broken 😞 I miss how it used to move 😞 look at how the movement is in main and base and refine off that" (34 notes in one vertical line, topic labels stacked on it) and "there is no smooth transition, I just change views or reset it and it just suddenly changes or disappears and reappears". Owner: the graphfeel agent, round 2 (root cause of the line; main's motion as the reference; animated view changes).
 - INBOX 799, the owner 2026-10-10 23:45Z: "Alright work autonomously to fix, finish,redesign, improve and extend everything. I will be at work. Impress me! :D" (the standing order for the day: the queue in HANDOVER, three Opus agents at most, Sonnet for well-defined work).
+
+## Placed from INBOX, 2026-10-11 (the owner on dragging the force graph)
+
+Owner: the graph agent (Opus), when a slot frees.
+
+- INBOX 802, graph, the owner 2026-10-11 03:35Z, verbatim: "The graph movement is a lot closer to how it is on main and better than you had it, but I still cant move the force graph as well. Can you like copy the physics of the force graph on main?? like if cant drag parts of the graph to different areas of the graph and have it kinda settle into place there. idk but I quite like how it is on the main branch. also the resetting or re-centering of the force graph is not smooth and doesnt smoothlly pan over." Recommendation, taken: port main's force simulation and its drag (a dragged node pins while held, the simulation reheats, neighbours follow, it settles where dropped); reset and recentre ease the view transform over the motion token, never jump. Then, 03:50Z, screenshot (the graph sits right of centre, an empty minimap top left): "why's the graph so positioned to the right and not in the middle??" Fit centres on the visible canvas, reserving only what a showing panel covers.

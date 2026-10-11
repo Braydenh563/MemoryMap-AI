@@ -48348,3 +48348,18 @@ like the craft repos have". Rows from WHITEBOARD_PLAN "canvasdepth, ranked".
   ending the presentation turns it off. Measured (`wblaser.js`, 1440 and
   390): 7/7 each; the last dot within 2 px of the pointer, 0 dots 1 s after
   the pointer stops, 0 rows written. Tests: `tests/test_wb_laser.py`.
+
+## Moved from the plans, 2026-10-11 (UI_MODERNISATION, the morning reports)
+
+Built by the uipolish agent (merged 2026-10-10); the placed block, whole:
+
+### Placed from INBOX, 2026-10-10 (the owner's morning UI reports)
+
+Owner: the uipolish agent (Sonnet), one commit per item, measured at 1440 and 390.
+
+- INBOX 776. **UI, the owner 2026-10-10 22:05Z, three screenshots.** "these highlighted borders are cut off. is agent available now when the ai isnt running?? or should the toggle option be disabled?? also on the submenu bars, can you improve the design of the hover state a bit?? like add a grey or sub colour line when hovering over other ones that arent active??" Shots: the top tab bar's focus ring on Graph clipped top and bottom; the chat composer's Ask / Agent toggle with Agent on; the Notes sub-tabs (Your notes, Capture, Writing room, Ask, Questions).
+- INBOX 777. **UI, the owner 2026-10-10 22:10Z.** "the shimmering sliding animation on the skeleton loaders is very fast and not smooth or pleasing to the eye in how fast and jittery it is"
+- INBOX 779. **UI, the owner 2026-10-10 22:15Z, two screenshots.** "on custom themes can you maybe adjust the delete bin icon a little?? and also I think the Your Themes setting section is designed awkwardly". The bin sits on the card's corner, cut by the border; the section is a left label column beside one card, the name field and Save, with the two reset buttons below the whole row.
+- INBOX 780. **UI, the owner 2026-10-10 22:18Z, screenshot.** "also can you improve the opacity of the peak function in the settings as well?" (Settings' Peek: the panel is still mostly opaque and blurred over the app.)
+- INBOX 782. **UI, the owner 2026-10-10 22:22Z, screenshot.** "can you redesign the confirm and not right buttons in the tidy popup panel?? and any other similar instances of them across the app" (Tidy's Patterns rows: two full-size bordered buttons under each sentence.)
+- INBOX 783. **Question, the owner 2026-10-10 22:23Z, screenshot.** "how do I delete a suggestion??" (Tidy, Category names: one suggestion, ticked, with All, None and Rename 1 category; no way to dismiss it for good.)

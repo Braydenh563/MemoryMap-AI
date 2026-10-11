@@ -38,3 +38,8 @@ Verified already in place (no change): path containment on exports, media, backu
 - Fixed in the second commit: `/models/bench/budgets?live=true` (replays fixed GETs to 127.0.0.1 with the caller's token, so they looked local) is this computer only; the model cards' Download is dimmed and Remove toasts the reason on another device; the backup list's Restore is left out there; `#custom-download` is marked.
 - Measured (Playwright at 390, `X-Forwarded-For: 192.168.0.50` against :8893): `data-other-device=1`, 12 note lines, `#quit-btn` display none, a marked button's opacity 0.5 and its `?` 1, `desktopShell()` false; a press on Install new versions automatically left it unchecked, toasted the refusal, and sent 0 requests. The computer's own page: no attribute, 0 notes, opacity 1. `test_lan_mode_end_to_end` over a real socket and TLS: `this_computer` false and HSTS on the LAN port.
 - Not verified: a real phone on a real LAN (iPhone Safari); lansafe merged on top.
+
+## Progress
+
+- done: 6a9a34a3a (guards, /health per device, preferences, no-password, HSTS, recipe), 975d2caf9 (live bench, model cards, backup Restore), 0808fc81e (three base-drift test failures). Targeted run: the 98 test files naming a touched route, `-n 2`; 7 failed, 5 fixed in 0808fc81e, 2 (and 40 errors) were the disk filling (`out of disk space`) and pass on rerun.
+- next: nothing on this branch. Left for lansafe's merge: the looser direction of `/auth/lan-options` and `/auth/lan-networks/allow` gets `this_computer_only`.

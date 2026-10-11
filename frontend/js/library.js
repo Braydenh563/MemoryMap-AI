@@ -2664,7 +2664,7 @@ async function renderSkillsDashboard() {
   const workersHint = document.createElement("p");
   workersHint.className = "muted text-sm";
   workersHint.textContent =
-    "Lets Atlas work through your notebook on its own, on a schedule you set in Settings. Everything it changes is listed there afterwards and can be undone one item at a time.";
+    "Atlas works through your notebook on a schedule set in Settings. Each change is listed there and undoes on its own.";
   const workerToggle = (id, key, label, on) => {
     const wrap = document.createElement("label");
     // The app's own pill toggle, not the `.switch`/`.slider` markup that used

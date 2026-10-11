@@ -48,3 +48,5 @@ Port 8789, data dir `/home/user/.mmscratch/briefs-data`. Left out (owned elsewhe
 ## Log
 - done: b569ca38f triage.
 - done: Brief 3 (writes through prefs; see next commit). next: Brief 4, index.html paragraphs (help-audit count.py TOTAL 28).
+- done: Brief 4 (count.py 28 to 3, the 3 are aboutkit's Settings, About; countjs 0). next: Brief 9, B2 rest (pull, reindex, pass, autonomous onto the durable pool; the panel on the stream).
+- found, not fixed: `help-popovers.js` fails 6 triggers it cannot click (`#skill-tools-help`, `#skill-verify-help`, `#custom-css-help`, `#import-app-help`), none touched here; `test_background_registry` and `test_flaw_class_lints` fail on the base for `core/lanserve.py` and `routes_recordings.py` threads (the phone agent's area).

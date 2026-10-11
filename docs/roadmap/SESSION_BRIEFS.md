@@ -73,10 +73,7 @@ use `el.style.x =` or a class).
 
 ### Brief 3: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 
-## Brief 4 (Sonnet): the last long paragraphs behind '?' (what is left)
-
-Built (triage 2026-10-11): the Settings two-pane shell (`#settings-nav`, back and forward), the '?' popovers (`data-help-for`), `scratchpad/ui-sweeps/help-popovers.js`.
-Left: `python3 scratchpad/help-audit/count.py frontend/index.html` prints TOTAL 28 (and `countjs.py` 1 each in `dashboard.js` and `library.js`). Each keeps one line of 70 characters or fewer; the rest moves verbatim into a `.help-body` behind a `data-help-for` button (standing order 6). Done when both counters print 0 and `help-popovers.js` keeps every popover inside the viewport at 1440 and 390.
+### Brief 4: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 
 ### Brief 5: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 

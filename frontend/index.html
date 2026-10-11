@@ -433,9 +433,8 @@
         </div>
         <div id="lock-forgot-reset-pane" class="lock-forgot-pane hidden">
           <p class="muted">
-            A reset keeps your ordinary notes, documents, boards and settings.
-            Private notes stay sealed for good; a sealed backup still opens
-            with its own password.
+            A reset keeps notes, documents, boards and settings. Private notes stay
+            sealed; a sealed backup keeps its own password.
           </p>
           <p class="muted">In a terminal, in the app's folder:</p>
           <div class="row lock-forgot-command">
@@ -982,15 +981,13 @@
       </span>
     </div>
     <p class="muted">
-      Every document is saved automatically as you type, there's no
-      save button to forget. They live in your notebook's database file
-      on this machine, along with your notes:
+      Documents save as you type. They live in your notebook's database file
+      on this machine, with your notes:
     </p>
     <code id="doc-storage-path" class="storage-path">…</code>
     <p class="muted">
-      Nothing is ever uploaded. Use <strong>Download as .md</strong> to keep a copy
-      as an ordinary file anywhere you like, or Settings → Import &amp;
-      export to back up or export everything at once.
+      Nothing is uploaded. <strong>Download as .md</strong> keeps a copy as a file;
+      Settings, Import &amp; export saves everything.
     </p>
     <div class="row right space-dialog-actions">
       <button type="button" class="ghost small" data-close-dialog="doc-storage-dialog">Close</button>
@@ -1063,7 +1060,7 @@
         <button type="button" class="icon-only ghost small dialog-head-btn" data-close-dialog="wb-import-dialog" title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
       </span>
     </div>
-    <p class="muted wb-import-about" id="wb-import-about">Paste a Mermaid flowchart, state, class or sequence diagram, or choose a .mmd file, a draw.io file or an SVG a board here exported.</p>
+    <p class="muted wb-import-about" id="wb-import-about">Paste a Mermaid diagram, or choose a .mmd, a draw.io file, or an SVG a board here exported.</p>
     <textarea id="wb-import-text" class="wb-import-text" rows="8" spellcheck="false" aria-label="Mermaid diagram" aria-describedby="wb-import-about" placeholder="flowchart TD&#10;  A[Start] --> B{Ready?}&#10;  B -->|yes| C[Ship it]"></textarea>
     <input type="file" id="wb-import-file" accept=".mmd,.mermaid,.txt,.md,.svg,.drawio,.xml,text/plain,image/svg+xml" class="hidden" aria-hidden="true" tabindex="-1" aria-label="Choose a diagram file" title="Choose a diagram file">
     <div class="row right space-dialog-actions">
@@ -1168,8 +1165,8 @@
         <button type="button" class="icon-only ghost small dialog-head-btn" data-close-dialog="doc-history-dialog" title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
       </span>
     </div>
-      <p class="muted">Every version this document has had, one entry per sitting;
-        a restore keeps the version it replaced and Ctrl+Z takes it back.</p>
+      <p class="muted">Every version, one per sitting. A restore keeps the version it
+        replaced, and Ctrl+Z takes it back.</p>
       <!-- **"An AI changed this" is a filter, not a second list**
            (DOCUMENTS_PLAN Phase 5 item 2). The history already records who
            made each version; a person looking for what the model did to their
@@ -2174,10 +2171,8 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="ask-idle" class="ask-idle">
             <span class="empty-icon" aria-hidden="true"><i class="ph ph-sparkle ph-lead"></i></span>
             <p class="empty-title">Ask your own notes a question</p>
-            <p class="muted">Answers come from your notebook and cite the notes they
-              came from, and with a model on this machine nothing leaves it. The
-              matching notes appear beside the answer so you can check it against
-              the source.</p>
+            <p class="muted">Answers cite the notes they came from, shown beside them to check.
+              With a model on this machine, nothing leaves it.</p>
           </div>
           <div id="chat-results" class="chat-grid hidden">
             <div class="chat-half">
@@ -2720,7 +2715,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <p id="chat-context-pop-total" class="chat-context-pop-total"></p>
                   <div class="chat-context-pop-bar" aria-hidden="true"><span id="chat-context-pop-fill"></span></div>
                   <p id="chat-context-pop-rows" class="chat-context-pop-rows"></p>
-                  <p class="muted chat-context-pop-note">Past about 85% the next turn drops the oldest part of its prompt. Compacting summarises the earlier messages, so a long chat keeps their gist.</p>
+                  <p class="muted chat-context-pop-note">Past about 85%, the next turn drops the oldest part. Compacting summarises earlier messages so their gist stays.</p>
                   <!-- "why is the token window limit for this model soooo low :(" (the
                        owner, 2026-10-10): the size is the model file's, kept to
                        what this computer can hold, unless set by hand; said here,
@@ -5254,7 +5249,7 @@ Link to another note with [[its first few words]]."></textarea>
                     placeholder="Ask about this code…" aria-label="Ask about this code">
                   <button type="submit" id="doc-assist-send" class="small accent icon-only" title="Ask (Enter)" aria-label="Ask"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
                 </form>
-                <p id="doc-assist-model-line" class="muted text-sm hidden">No model is connected: Explain, Write tests and Refactor need one. Fix uses the quick fix, and the tools below work as they are.</p>
+                <p id="doc-assist-model-line" class="muted text-sm hidden">No model connected: Explain, Write tests and Refactor need one. Fix and the tools below work without.</p>
                 <div class="doc-assist-tools" role="group" aria-label="Tools that need no model">
                   <button type="button" class="ghost small" data-assist-tool="quick_fix" title="The quick fixes for the problem at the caret (Alt+Enter)"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Quick fix</button>
                   <button type="button" class="ghost small" data-assist-tool="format_code" title="Format the selected lines, or the file (Shift+Alt+F)"><i class="ph ph-brackets-curly ph-lead" aria-hidden="true"></i> Format</button>
@@ -7795,11 +7790,11 @@ Link to another note with [[its first few words]]."></textarea>
             <button type="button" id="wb-layers-clear" class="ghost small" title="Select nothing on the board" disabled>Clear</button>
           </div>
           <ul id="wb-layers-tree" class="wb-layers-tree" role="tree" aria-label="Layers"></ul>
-          <p class="muted wb-lib-keys">Tinted rows are selected on the board. A frame lists what it holds. Top of the list is in front. Drag a row, or Alt+Up and Alt+Down, to restack.</p>
+          <p class="muted wb-lib-keys">Tinted rows are selected. Top is in front; a frame lists what it holds. Drag, or Alt+Up and Alt+Down, to restack.</p>
         </section>
         <section class="wb-side-section" data-side-panel="pages" aria-label="Pages" hidden>
           <ol id="wb-pages-list" class="wb-pages-list" role="tree" aria-label="Pages, in presentation order" aria-describedby="wb-pages-keys"></ol>
-          <p id="wb-pages-keys" class="muted wb-lib-keys">Each frame is a page. Drag a row, or Alt+Up and Alt+Down, to change the presentation's order; P presents from it; double-click or F2 renames it, and its ⋯ menu fits, presents or deletes it.</p>
+          <p id="wb-pages-keys" class="muted wb-lib-keys">Each frame is a page. Drag, or Alt+Up and Alt+Down, to reorder. P presents, F2 renames, ⋯ has the rest.</p>
         </section>
         <!-- **This map** (INBOX 596): a map's own tab, in the place of the
              board's Notes, Layers and Pages, which do not apply to a tree.
@@ -7829,7 +7824,7 @@ Link to another note with [[its first few words]]."></textarea>
                topic in the tree's order, read-only until a double click, F2 or
                its pencil opens it, and kept in step with the canvas both ways (`wbOutlineSync`, whiteboard-map.js). -->
           <div id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-label="Outline"></div>
-          <p class="wb-outline-hint muted">Double-click or F2 renames, Enter saves, Esc cancels. Shift+Enter adds a topic, Tab and Shift+Tab move it in and out a level.</p>
+          <p class="wb-outline-hint muted">F2 renames, Enter saves, Esc cancels. Shift+Enter adds a topic; Tab and Shift+Tab change its level.</p>
         </section>
       </div>
     </aside>
@@ -10243,9 +10238,8 @@ Link to another note with [[its first few words]]."></textarea>
             <textarea id="template-body" rows="4" maxlength="2000" aria-label="Template text"
               placeholder="Book: &#10;Author: &#10;Started: &#10;Thoughts:"></textarea>
             <p class="muted">
-              Tip: <code>{date}</code> and <code>{{time}}</code> become today's
-              date and the time, <code>{{clipboard}}</code> what you copied, and
-              <code>{{cursor}}</code> is where you start typing.
+              <code>{{date}}</code> and <code>{{time}}</code> fill in now, <code>{{clipboard}}</code>
+              what you copied, <code>{{cursor}}</code> where typing starts.
             </p>
             <div class="row">
               <button id="template-add" class="small">Add template</button>
@@ -11072,7 +11066,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="setting-row" id="avatar-buddy-row">
                 <div class="setting-label">
                   <span>Corner companion</span>
-                  <small class="muted">A small character to poke, rub or carry. It finds a free spot on each page; drop it on a panel and that page keeps it there.</small>
+                  <small class="muted">A small character to poke, rub or carry. Drop it on a panel and that page keeps it there.</small>
                 </div>
                 <div class="row setting-control">
                   <select id="avatar-buddy" class="small-select" aria-label="Corner companion">
@@ -11497,9 +11491,8 @@ Link to another note with [[its first few words]]."></textarea>
             <details class="settings-group settings-fold" data-fold-key="shortcuts-yours" open>
               <summary><h3 class="inline-h3">Your shortcuts</h3></summary>
               <p class="muted">
-                Press a shortcut's keys and then the keys you want; a button
-                with a shortcut shows it when you hover it. Press
-                <kbd>?</kbd> anywhere in the app for the same list as an overlay.
+                Press a shortcut's keys, then the keys you want. <kbd>?</kbd> anywhere
+                shows this list.
               </p>
               <ul class="shortcut-list" id="shortcut-list-settings"></ul>
               <p id="shortcut-status-settings" class="status" role="status"></p>
@@ -11614,7 +11607,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <div class="settings-group profile-look" id="profile-look">
               <h3>Your look</h3>
-              <p class="muted">Drawn from your name. Shuffle keeps what the name says, like words for a mood or a costume, and any part you chose, and redraws the rest: colours, hair, clothes, smile and personality.</p>
+              <p class="muted">Drawn from your name. Shuffle keeps what the name says and the parts you chose, and redraws the rest.</p>
               <div class="row">
                 <button type="button" class="ghost small" id="profile-look-shuffle">
                   <i class="ph ph-shuffle ph-lead" aria-hidden="true"></i>Shuffle
@@ -11751,7 +11744,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="pref-autocorrect" checked>
                 <span>Autocorrect as I type</span>
               </label>
-              <p class="muted">Fixes a clear typo in notes, chat and titles as you finish the word; Backspace puts it back. Never in code, links, tags or search.</p>
+              <p class="muted">Fixes clear typos in notes, chat and titles; Backspace puts it back. Never in code, links, tags or search.</p>
             </div>
             <!-- Search (Brief 86, CHAT_PLAN decision 69): the one switch for
                  every box's suggestions; kept on this device like simple mode. -->
@@ -12051,9 +12044,8 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="task-history-box" class="hidden">
                 <h3>Recently finished</h3>
                 <p class="muted">
-                  What has stopped since the app started, and how it went; Logs
-                  opens its log. Kept in memory only: it clears itself when you
-                  restart.
+                  What stopped since the app started, and how it went; Logs opens its
+                  log. Cleared when you restart.
                 </p>
                 <ul id="task-history" class="entry-list"></ul>
                 <button id="task-history-clear" class="ghost small">Clear this list</button>
@@ -12337,7 +12329,7 @@ Link to another note with [[its first few words]]."></textarea>
                    the help keeps only what the line does not say (INBOX 437
                    (4): the help repeated the line word for word). The four
                    exports are one row, wrapping on a phone. -->
-              <p class="muted">Copies to take away, binned notes included. Full backup is the one to move to another computer, and the one Restore a full backup reads.</p>
+              <p class="muted">Copies to take away, binned notes included. Full backup is the one to move computers with.</p>
               <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
                 <p>
                   Full backup is a portable zip of the raw database, media
@@ -13402,8 +13394,7 @@ Link to another note with [[its first few words]]."></textarea>
                  theme, the same reasoning .code-block's syntax colours would
                  use if this project had any. -->
             <p class="muted hidden" id="log-terminal-hint">
-              Approximates what would print to the console window, not a byte-for-byte
-              capture, since nothing here runs a real terminal emulator.
+              Close to what the console window prints, not an exact capture.
             </p>
             <p id="logs-dropped" class="log-dropped hidden" role="status"></p>
             <ul id="log-list" class="log-list"></ul>

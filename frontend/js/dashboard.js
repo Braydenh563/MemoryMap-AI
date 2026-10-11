@@ -4905,7 +4905,7 @@ async function renderTensionsWidget(body) {
     const explain = document.createElement("p");
     explain.className = "muted dash-tension-explain";
     explain.textContent =
-      "Similar-notes search finds what belongs together. This reads pairs with your local model and looks for the opposite: claims that can't both be right.";
+      "Your local model reads pairs of related notes for claims that can't both be right.";
     body.appendChild(explain);
   }
 

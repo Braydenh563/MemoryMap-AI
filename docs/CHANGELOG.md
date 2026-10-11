@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Help text: nineteen long explanations across the app are now one or two short lines, and the long hints beside Settings menus fold behind their '?' like the others.
 - Settings kept in this browser: every saved choice is now written through one place that never throws, so a private window or a full browser storage no longer breaks the control that saved it; the quick note outbox and the notification list still say when a save was refused.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).

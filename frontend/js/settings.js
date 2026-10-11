@@ -3823,7 +3823,9 @@ function collapseLongSettingHints(root) {
   // wraps the label's text, so a direct-child selector matched none of the
   // twenty-three that exist. Checked live rather than assumed, the first
   // version of this ran, found nothing, and changed no measurement.
-  for (const hint of scope.querySelectorAll("label small.muted")) {
+  //: `.setting-label` rows (a label word beside a select) carry the same
+  //: hints; their long ones collapse the same way (Brief 4).
+  for (const hint of scope.querySelectorAll("label small.muted, .setting-label small.muted")) {
     if (hint.dataset.collapsible) continue;
     const text = (hint.textContent || "").trim();
     if (text.length <= SETTINGS_HINT_INLINE_CHARS) continue;

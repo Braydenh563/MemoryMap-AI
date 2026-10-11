@@ -1670,3 +1670,12 @@ $("meeting-overlay")?.addEventListener("keydown", (event) => {
   event.stopPropagation();
   addMeetingMarker();
 });
+
+//: The recorder overlay's buttons (§17), wired here since the overlay opens
+//: only once this file is in (they were in settings-wiring.js, at boot, until
+//: the boot scripts' gzip ratchet needed the bytes).
+$("meeting-close").addEventListener("click", closeMeetingRecorder);
+wireBackdropClose($("meeting-overlay"), () => closeMeetingRecorder());
+$("meeting-record").addEventListener("click", toggleMeetingRecording);
+$("meeting-save").addEventListener("click", saveMeetingNote);
+$("meeting-discard").addEventListener("click", resetMeetingUI);

@@ -413,6 +413,7 @@ function userMarkEl() {
 
 function addBubble(role, text, attachments = null) {
   clearChatEmptyState();
+  lazyScript("/js/chat-time.js"); // each message's time; the file stamps bubbles as they appear
   const bubble = document.createElement("div");
   bubble.className = `msg ${role}`;
   //: The words as sent, so ArrowUp in an empty composer can reopen the last

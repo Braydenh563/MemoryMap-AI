@@ -7,7 +7,7 @@ turn here: keeping the streaming path simple and the history durable.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
@@ -156,7 +156,13 @@ class PinBody(BaseModel):
 
 
 def _turn_messages(turn: TurnBody) -> list[dict]:
-    assistant = {"role": "assistant", "content": turn.answer, "thinking": turn.thinking}
+    # Stamped here, not by the page: the turn is saved when the answer ends,
+    # so the answer's time is now and the question's is now minus the
+    # wall-clock the client measured for the whole turn (`elapsed_ms`). A page
+    # in a wrong-clock browser can then never put a message in the future.
+    now = utcnow()
+    asked = now - timedelta(milliseconds=max(0, min(turn.elapsed_ms or 0, 86_400_000)))
+    assistant = {"role": "assistant", "content": turn.answer, "thinking": turn.thinking, "at": now.isoformat()}
     if turn.tools:
         assistant["tools"] = turn.tools
     if turn.steps:
@@ -197,7 +203,7 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
     persona = (turn.persona or "").strip()
     if persona:
         assistant["persona"] = persona
-    user: dict = {"role": "user", "content": turn.question}
+    user: dict = {"role": "user", "content": turn.question, "at": asked.isoformat()}
     if turn.image_media_ids:
         user["image_media_ids"] = turn.image_media_ids
     if turn.document_ids:
@@ -228,6 +234,10 @@ def _summary(conversation: Conversation) -> dict:
         "preview": first_question[:120],
         "tokens": sum(int(m.get("tokens") or 0) for m in messages),
         "archived_at": conversation.archived_at.isoformat() if conversation.archived_at else None,
+        # When the chat was last spoken in, for the sessions list: the last
+        # message's own stamp, or the row's time for a chat saved before
+        # messages carried one.
+        "last_at": (messages[-1].get("at") if messages else None) or conversation.updated_at.isoformat(),
     }
 
 

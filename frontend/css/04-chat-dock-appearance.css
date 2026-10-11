@@ -61,10 +61,6 @@
   font-weight: 600;
 }
 
-.graph-trace-arrow {
-  color: var(--muted);
-}
-
 /* The strip's own caption: redesigned twice this session (ROADMAP.md
    item 5). Round one put one row per note plus one row per connector,
    stacked vertically, and was reported back immediately as "crushes the
@@ -82,13 +78,6 @@
   font-size: var(--text-md);
 }
 
-.graph-trace-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
-
 .graph-trace-path {
   display: flex;
   flex-wrap: wrap;
@@ -101,28 +90,6 @@
   /* Inset like the panel around it: the chips sat on this box's own edges
      (the owner, 2026-09-14: "there's just no padding around the text"). */
   padding: var(--space-2) var(--space-3);
-}
-
-/* Arrow + reason, one unit between two note chips, quiet relative to the
-   chips, because the chips are what you clicked for. `white-space: nowrap`
-   keeps the arrow glued to its label; the *unit* still wraps freely with
-   the rest of the row, it just never splits mid-arrow. */
-.graph-trace-connector {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--muted);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-
-.graph-trace-arrow-icon {
-  color: var(--border);
-}
-
-.graph-trace-step {
-  color: var(--muted);
-  font-size: var(--text-sm);
 }
 
 /* A real chip: the earlier plain text-link read as a wall of underlined
@@ -1782,32 +1749,6 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   bottom: calc(-1 * var(--graph-popup-pad));
   z-index: 1;
   background: linear-gradient(var(--chip-bg) 0 0), var(--modal-bg-opaque);
-}
-
-.graph-popup-tool-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* The hairline is the only thing between two groups. Drawn by the second of
-   the pair (the chat dock's own recipe, 06-timeline-dialogs.css) so it can
-   never be left dangling at the end of the row, and in --border rather than
-   --divider for the same reason that dock uses it: --divider is the line
-   between stacked rows, faint because the rows are already apart, and two
-   groups of icons standing shoulder to shoulder need a mark you can see. */
-.graph-popup-tool-group+.graph-popup-tool-group::before {
-  content: "";
-  align-self: stretch;
-  width: 1px;
-  margin-inline: var(--space-2);
-  background: var(--border);
-}
-
-/* Bin is set apart inside its own group by a gap rather than a fourth
-   hairline: three groups is the structure. */
-.graph-popup-tool-bin {
-  margin-left: var(--space-3);
 }
 
 /* A row of icons with no words has to be tall enough to hit: 2.25rem (36px)

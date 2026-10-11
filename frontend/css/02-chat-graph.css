@@ -1097,11 +1097,6 @@ body.graph-fullscreen-on .sidebar-panel {
   stroke-dasharray: 7 4;
   stroke-width: 1.4;
 }
-.graph-edge-similar {
-  stroke-dasharray: 2 5;
-  stroke-width: 1.2;
-  stroke: var(--accent);
-}
 /* Membership of a mind map (MINDMAP_PLAN.md §5 item 13). Dotted and quiet on
    purpose: "this note is a node on that map" is a weaker statement than a link
    the user drew between two notes, and a map with twenty notes on it
@@ -1114,45 +1109,6 @@ body.graph-fullscreen-on .sidebar-panel {
   stroke-width: 1.3;
   stroke: var(--accent);
   stroke-opacity: 0.7;
-}
-/* A manual link is clickable (opens the management panel); a documented
-   reason gets its own visible weight, not just a hover tooltip, asked for
-   directly ("a visual way to see the reasons for each connection"). */
-.graph-edge-manageable {
-  cursor: pointer;
-}
-.graph-edge-reasoned {
-  stroke: var(--accent);
-  stroke-opacity: 0.8;
-  stroke-width: 2.2;
-}
-/* A `contradicts` link: the one type that means "these are at odds" rather
-   than "these belong together", produced by the Tensions review. Dashed as
-   well as coloured on purpose: colour alone would not separate it for anyone
-   who cannot tell it from the accent, and on a dense graph the dash is the
-   part that reads at a glance. Placed after `.graph-edge-reasoned` because
-   these links always carry a reason and would otherwise be overridden by it. */
-.graph-edge-contradicts {
-  stroke: var(--error);
-  stroke-opacity: 0.85;
-  stroke-width: 2.2;
-  stroke-dasharray: 6 4;
-}
-/* The invisible, much wider click target laid over each thin visible edge, 
-   reported directly: "the links are hard to click on". `stroke: transparent`
-   still hit-tests (unlike `fill: none` with no stroke at all), and only a
-   link edge (`.graph-edge-manageable`) actually wants a pointer/click; every
-   other kind stays pointer-events:none so it can't steal a click meant for
-   whatever's underneath it. */
-.graph-edge-hit {
-  fill: none;
-  stroke: transparent;
-  stroke-width: 14;
-  pointer-events: none;
-}
-.graph-edge-hit.graph-edge-manageable {
-  pointer-events: stroke;
-  cursor: pointer;
 }
 /* A line's peek (`openGraphLinkPeek`, graph.js): the popover shell at the
    pointer, parked on a one-pixel anchor where the click was. The kind, then
@@ -1169,12 +1125,6 @@ body.graph-fullscreen-on .sidebar-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-.graph-link-peek > p {
-  margin: 0;
-}
-.graph-link-peek-kind {
-  font-weight: 600;
 }
 .graph-link-peek-notes {
   display: flex;
@@ -1193,10 +1143,6 @@ body.graph-fullscreen-on .sidebar-panel {
 .graph-link-peek-notes > button.ghost:hover,
 .graph-link-peek-notes > button.ghost:is(:focus-visible, :has(:focus-visible)) {
   background: var(--hover-veil);
-}
-.graph-link-peek-actions {
-  display: flex;
-  gap: var(--space-2);
 }
 #graph-canvas.graph-edge-hover {
   cursor: pointer;
@@ -1225,36 +1171,6 @@ body.graph-fullscreen-on .sidebar-panel {
 .graph-link-panel .confirm-actions {
   justify-content: center;
 }
-.graph-link-panel-reason {
-  width: 100%;
-  resize: vertical;
-}
-/* Two note titles stacked, not run together as one sentence, see the
-   comment where this is built in app.js for the report that caused it. */
-.graph-link-panel-title {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  text-align: left;
-}
-.graph-link-panel-arrow {
-  font-size: var(--text-sm);
-}
-/* --- a traced path (§9) -----------------------------------------------------
-   Drawn as its own layer rather than by highlighting the edges underneath.
-   Two reasons, and the second is the one that decided it: a step may be a
-   *shared tag*, which the map draws no line for at all, so highlighting
-   existing edges would show a chain with gaps in it, in exactly the places the
-   explanation is most needed. And a path is a different kind of thing from a
-   connection: it is an answer to a question, so it sits on top. */
-.graph-path-line {
-  stroke: var(--accent);
-  stroke-width: 4;
-  stroke-opacity: 0.85;
-  stroke-linecap: round;
-  fill: none;
-  pointer-events: none;
-}
 /* --- more than one route between the same two notes ------------------------
    Asked for directly: "allow for multiple paths to be displayed if they
    exist." All of them are drawn at once, because "is that the only way these
@@ -1273,26 +1189,6 @@ body.graph-fullscreen-on .sidebar-panel {
 }
 .graph-path-route-2 {
   stroke: var(--warn);
-}
-/* The routes you are not reading. Thin and faint enough to read as context
-   rather than as the answer, and still visible enough to be worth drawing, 
-   a route at 0.2 opacity is a route nobody notices, which is the same as not
-   drawing it. Dashed as well as faint, because colour alone is not a signal
-   everyone can use. */
-.graph-path-line.is-dimmed {
-  stroke-width: 2;
-  stroke-opacity: 0.42;
-  stroke-dasharray: 6 5;
-}
-/* The switcher above the path. `role="tablist"` in the markup, so these are
-   tabs and read as a choice between views of one thing, which is what they
-   are: rather than as six unrelated buttons. */
-.graph-trace-routes {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
 }
 .graph-trace-route-chip {
   display: inline-flex;
@@ -1553,12 +1449,6 @@ body.graph-fullscreen-on .sidebar-panel {
     background: transparent;
     border-color: transparent;
   }
-}
-.legend-line {
-  display: inline-block;
-  width: 1.25rem;
-  height: 0;
-  border-top: 2px solid var(--muted);
 }
 .legend-line-reasoned {
   border-top-color: var(--accent);
@@ -3491,19 +3381,6 @@ html {
      content inside the scrolling flex parent. */
   margin: auto 0;
 }
-/* The picture and its two arrows, in one positioned box, this is what makes
-   the arrows centre on the *image* rather than on the viewport. */
-.lightbox-stage {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Zoom scales the image past the stage's box; without this it would
-     spill over the meta line and the actions bar below it. `auto` rather
-     than `hidden` so a zoomed-in picture can actually be panned to its
-     edges: the scrollbars are the pan control. */
-  overflow: auto;
-}
 /* The actions bar: zoom, copy text, save. One row, centred under the
    picture, sharing the meta line's muted register so it reads as chrome
    for the image rather than as content of its own. */
@@ -3521,29 +3398,6 @@ html {
 }
 .lightbox-actions.hidden {
   display: none;
-}
-/* The document half of the showcase: a page, not a picture. Sized like a
-   sheet of paper rather than stretched to the viewport, because the thing
-   being previewed is a document and a 1300px-wide line of body text is not
-   readable. Scrolls inside itself so the arrows and the actions bar stay
-   put while you read. */
-/* --- reading a scan against its own pages ---------------------------------
-   Reported directly: "when I select to read the text from the document in a
-   pdf, the pdf view disappears entirely. I want the pdf view to be on one
-   side, and the live extracted document text and visuals on the right."
-   The text is a *reading* of the pages, by markitdown, Tesseract or a
-   vision model: and hiding the pages to show it removes the only way to
-   check that reading against what is actually printed. Two columns, each
-   scrolling on its own, so a page and the paragraph it produced can be held
-   side by side. Only when there are pages to show: a .docx or a .txt has
-   nothing to put in the left column and keeps the full width. */
-.lightbox-doc.lightbox-doc-split {
-  width: min(76rem, 96vw);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: var(--space-5);
-  align-items: start;
 }
 /* The note spans both columns, it is about the file, not about one pane. */
 .lightbox-doc-split > .lightbox-doc-note {
@@ -3573,65 +3427,6 @@ html {
     grid-row: auto;
     max-height: 40vh;
   }
-}
-.lightbox-doc {
-  width: min(52rem, 92vw);
-  max-height: 74vh;
-  overflow: auto;
-  padding: var(--space-6);
-  border-radius: var(--radius-lg);
-  /* Not `var(--card)`, that token is deliberately translucent glass (a
-     card sitting on the page background), which is wrong for a reading
-     surface sitting over the lightbox's own darkened backdrop and
-     whatever image/UI is behind it. Reported directly as "somewhat
-     transparent". `--modal-bg` is the same near-opaque (96-97%) token
-     every other floating overlay in this app already reads text against. */
-  background: var(--modal-bg);
-  color: var(--ink);
-  text-align: left;
-}
-.lightbox-doc.hidden {
-  display: none;
-}
-.lightbox-doc-note {
-  margin: 0 0 var(--space-4);
-  font-size: var(--text-xs);
-}
-.lightbox-doc-pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: var(--text-sm);
-}
-/* A PDF's own rasterised pages, see `showDocument`/`pdfPages` in app.js.
-   One column, one page after another, the way a PDF actually reads. Lives
-   inside `.lightbox-doc`, so it inherits that element's own scroll and
-   near-opaque background; only the stacking is this rule's job. */
-.lightbox-pdf-pages {
-  display: flex;
-  flex-direction: column;
-  /* **`safe center`, not `center`.** Reported with a screenshot of a lecture
-     slide reading "at-bots and agents", the left of "chat-bots" scrolled off
-     and unreachable, with a horizontal scrollbar that could not get back to
-     it. A centred flex item wider than its scroll container overflows both
-     ways, and the overflow past the *start* edge is not scrollable in any
-     browser: a scroll container's origin is its left edge and there is no
-     negative scroll.
-     The `transform-origin: top left` further down this file fixed the same
-     class of bug for the zoom control and did not reach this, because the
-     page is already wider than the pane at 100% on any window narrower than
-     the slide. Same keyword, same reason, the other axis of the same box. */
-  align-items: safe center;
-  gap: var(--space-4);
-}
-.lightbox-pdf-pages.hidden {
-  display: none;
-}
-.lightbox-pdf-page {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-shadow);
 }
 /* Overrides the generic `input[type="search"]` rule (01-forms-settings.css),
    which is sized for a standalone form field, full-width padding and a
@@ -3733,26 +3528,6 @@ mark.lightbox-hit {
   color: rgba(255, 255, 255, 0.85);
 }
 .lightbox img.zoomed {
-  cursor: grab;
-}
-/* A zoomed picture pans by translate (lightbox-view.js `setZoom`), so the
-   stage must not also scroll it: two pan mechanisms would fight. */
-.lightbox-stage.zoomed-img {
-  overflow: hidden;
-}
-/* A PDF's own page column, zoomed the same way a single image is, 
-   `transform: scale()`, which Chromium/Firefox both already factor into a
-   `overflow: auto` ancestor's scrollable bounds, so the parent
-   `.lightbox-doc`'s existing scrollbars become the pan control with no
-   drag handler of its own needed. */
-.lightbox-pdf-pages {
-  /* Left, not centre, for the same reason as `.lightbox img` above: a
-     centred origin grows the page column equally to both sides, and the
-     half that goes past the container's start edge is not scrollable
-     overflow in any browser, so it can never be panned to. */
-  transform-origin: top left;
-}
-.lightbox-pdf-pages.zoomed {
   cursor: grab;
 }
 .lightbox img {

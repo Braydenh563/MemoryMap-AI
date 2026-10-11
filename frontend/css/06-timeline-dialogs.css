@@ -557,18 +557,6 @@
     display: none;
   }
 }
-/* A category heading in a tree layout, a real node in the drawing, but not
-   a note: hollow, so it never reads as something you can open. */
-.graph-core.graph-group {
-  fill-opacity: 0.25;
-  stroke: currentColor;
-  stroke-width: 2;
-}
-/* Filing edges (category → note) are quieter than a link the user made. */
-.graph-edge-filing {
-  stroke-dasharray: 3 3;
-  opacity: 0.45;
-}
 /* A tree label sits *beside* its node rather than under it, so it needs a
    thinner halo: a 3px stroke on text that starts 7px from the circle eats
    into the node itself. The anchor is set in JS as an inline style, because
@@ -3412,72 +3400,6 @@ aside[data-resizable="1"] {
   white-space: normal;
   overflow-wrap: anywhere;
   line-height: 1.3;
-}
-/* INBOX 779: the delete bin was a badge on the card's corner, half outside the
-   border. It is a small icon button in the card's own foot now, beside the name,
-   inside the padding; the foot is the card's one row of controls. */
-/* ===================== TENSIONS: THE DISAGREEMENT REVIEW ==================
-   Where the notebook disagrees with itself, see `ai/tensions.py`. Two notes
-   side by side with what the model thinks they disagree about, and the two
-   decisions a person can make about it. */
-.tensions-results {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.tension-card {
-  padding: var(--space-4);
-}
-.tension-card.is-resolved {
-  opacity: 0.6;
-}
-.tension-why {
-  margin: 0 0 var(--space-2);
-  font-weight: 600;
-}
-.tension-gap {
-  margin: 0 0 var(--space-3);
-  font-size: var(--text-xs);
-}
-.tension-pair {
-  display: grid;
-  /* Two columns where there is room, stacked where there is not. `minmax(0,
-     1fr)` rather than `1fr` so a long unbroken word cannot push the column
-     wider than its share. */
-  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
-  gap: var(--space-4);
-}
-.tension-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--inner);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.tension-side-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  margin: 0;
-}
-.tension-date {
-  font-size: var(--text-xs);
-}
-.tension-excerpt {
-  margin: 0;
-  font-size: var(--text-sm);
-}
-.tension-actions {
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  flex-wrap: wrap;
-}
-.tension-done {
-  margin: var(--space-4) 0 0;
-  font-size: var(--text-sm);
 }
 .dash-tension-explain {
   font-size: var(--text-xs);

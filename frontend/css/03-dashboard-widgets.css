@@ -1,80 +1,5 @@
 /* --- Wave N: improve-writing, link suggestions, tasks --------------------------- */
 
-#improve-overlay {
-  position: fixed;
-  inset: 0;
-  /* See #sketch-overlay's comment: same tier, same reason. Both moved to
-     1010 alongside `.modal-overlay` (01-forms-settings.css) when that tier
-     itself moved off 55 to clear #agent-monitor's z-index: 1000. */
-  z-index: 1010;
-  background: var(--scrim);
-  backdrop-filter: blur(4px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 1.5rem;
-}
-
-#improve-overlay.hidden {
-  display: none;
-}
-
-#improve-card {
-  width: min(760px, 96vw);
-  max-height: 92vh;
-  overflow-y: auto;
-  background: var(--modal-bg);
-}
-
-.improve-mode.active {
-  background: var(--accent-surface);
-  color: var(--on-accent);
-}
-
-#improve-custom-row {
-  margin-top: var(--space-4);
-  margin-bottom: var(--space-4);
-  gap: var(--space-3);
-  align-items: stretch;
-}
-
-#improve-custom-input {
-  flex: 1;
-  margin: 0;
-}
-
-#improve-custom-go {
-  margin: 0;
-  height: auto;
-}
-
-.improve-cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.8rem;
-  margin-top: var(--space-4);
-}
-
-@media (max-width: 599.98px) {
-  .improve-cols {
-    grid-template-columns: 1fr;
-  }
-}
-
-.improve-box {
-  min-height: 6rem;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--input-bg);
-  white-space: pre-wrap;
-  font-size: var(--text-lg);
-}
-
-#improve-result {
-  border-color: var(--border);
-}
-
 /* On the app's own scale, not on four numbers typed by hand. Part of the
    same report that the panel is "not consistent with the rest of the app ui
    style": every other list row in this app is spaced in `--space-*` and
@@ -93,11 +18,6 @@
   font-size: var(--text-sm);
 }
 
-.link-suggestion-text {
-  flex: 1 1 16rem;
-  min-width: 12rem;
-}
-
 /* Two note chips joined by an arrow (WORLD_CLASS_PLAN, Placed 2026-09-09
    item 92). A chip keeps its own line clamp; the pair wraps whole. */
 .link-suggestion-pair {
@@ -112,20 +32,6 @@
   min-width: 0;
 }
 
-.link-suggestion-join {
-  color: var(--muted);
-}
-
-/* The score as a short bar with its number beside it. */
-.link-suggestion-score {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-xs);
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
 .link-suggestion-bar {
   display: inline-block;
   width: 3rem;
@@ -133,12 +39,6 @@
   border-radius: var(--radius-pill);
   background: var(--border);
   overflow: hidden;
-}
-
-.link-suggestion-bar > span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
 }
 
 /* Each reason the pair was found for, with its own confidence, on a line of
@@ -228,18 +128,6 @@
   font-size: var(--text-sm);
 }
 
-.inbox-tools {
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  align-items: center;
-  margin-bottom: var(--space-3);
-}
-
-.inbox-status {
-  flex: 1 1 12rem;
-  font-size: var(--text-sm);
-}
-
 .inbox-row {
   display: flex;
   flex-direction: column;
@@ -249,12 +137,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   font-size: var(--text-sm);
-}
-
-.inbox-row-title {
-  margin: 0;
-  font-weight: 600;
-  overflow-wrap: anywhere;
 }
 
 .inbox-row .doc-backlink-context,
@@ -273,63 +155,11 @@
   margin-inline-end: auto;
 }
 
-.inbox-empty {
-  margin: var(--space-2) 0;
-  font-size: var(--text-sm);
-}
-
-/* An entity's page (GRAPH_PLAN KG5, entity-page.js): the inbox's sheet and
-   rows, in three sections, each under a quiet heading. */
-.entity-section + .entity-section {
-  margin-top: var(--space-5);
-}
-
-.entity-section-title {
-  margin: 0 0 var(--space-2);
-}
-
-.entity-section .inbox-row-title {
-  align-self: flex-start;
-  text-align: start;
-}
-
-.entity-related {
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.entity-date {
-  margin: 0 0 var(--space-1);
-  font-size: var(--text-sm);
-}
-
-.entity-count {
-  margin-inline-start: auto;
-  font-size: var(--text-sm);
-}
-
-.entity-filter {
-  flex: 0 0 auto;
-  margin: 0;
-}
-
 /* GRAPH_PLAN KG3: a link's kind on its chip, quiet, before the note's name. */
 .link-kind {
   color: var(--muted);
   font-size: var(--text-xs);
   margin-inline-end: var(--space-1);
-}
-
-.relation-type-row {
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--target-min);
-  padding-inline: var(--space-4);
-}
-
-.relation-type-name {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 /* GRAPH_PLAN KG4: a note's properties under its title, two quiet columns. */
@@ -493,64 +323,6 @@
   .note-query-bar > .muted {
     flex-basis: 100%;
   }
-}
-
-/* The query's table: the note, then its properties, one scroller. */
-.query-table-wrap {
-  overflow: auto;
-}
-
-.query-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-
-.query-table th,
-.query-table td {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border);
-  text-align: start;
-  vertical-align: top;
-}
-
-.query-table th {
-  color: var(--muted);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-/* Rollups: the footer stays in view under a long table, the kind of
-   rollup quiet beside its value. */
-.query-table tfoot td,
-.query-table tfoot th {
-  position: sticky;
-  bottom: 0;
-  background: var(--modal-bg-opaque);
-  border-top: 1px solid var(--border);
-  border-bottom: 0;
-  vertical-align: middle;
-}
-
-.query-rollup {
-  white-space: nowrap;
-}
-
-.query-rollup-value {
-  margin-inline-start: var(--space-2);
-  font-variant-numeric: tabular-nums;
-}
-
-/* The kind's name from the other end, quiet, giving way before the name. */
-.relation-type-hint {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 45%;
-  margin-inline-start: auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-sm);
 }
 
 /* --- Wave O: brand logo + a more present background ------------------------------ */
@@ -2000,15 +1772,6 @@ header#top-bar select,
   border-color: var(--quick-tint);
 }
 
-/* The highlight sheet's preview is the tile itself (quick-access.js), drawn
-   at the width a row gives it and taking no presses. */
-.quick-tint-preview {
-  display: grid;
-  max-width: 18rem;
-  margin: 0 0 var(--space-4);
-  pointer-events: none;
-}
-
 /* Thirteen swatches (the accent and the twelve hues): seven to a row on a
    wide screen and five on a phone, so no row is one swatch on its own. */
 .quick-tint-card .swatch-picker {
@@ -2068,10 +1831,6 @@ header#top-bar select,
   margin-right: auto;
 }
 
-.launch-count {
-  font-size: var(--text-sm);
-}
-
 .quick-edit-tile {
   position: relative;
   display: flex;
@@ -2091,56 +1850,6 @@ header#top-bar select,
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
-}
-
-.quick-edit-tile.dragging {
-  opacity: 0.5;
-}
-
-.quick-edit-add {
-  background: transparent;
-  border-style: dashed;
-  color: var(--muted);
-}
-
-.quick-pick-search {
-  width: 100%;
-  margin-top: var(--space-3);
-}
-
-/* The manager (INBOX 524): the Attach picker's rows (`note-picker-*`, in
-   04-chat-dock-appearance.css) in two groups, the added set first. The only
-   scroller is `.quick-manage-scroll`; a row is the row's label plus a grip and
-   two small move buttons, which appear with the pointer or focus and stay
-   under `(hover: none)`, where there is no Alt key and no drag. */
-.quick-manage-about {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-sm);
-}
-
-.quick-manage-scroll {
-  max-height: min(24rem, 50vh);
-  overflow-y: auto;
-  margin-top: var(--space-3);
-}
-
-.quick-manage-group {
-  margin: var(--space-3) 0 var(--space-1);
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-
-.quick-manage-group:first-child {
-  margin-top: 0;
-}
-
-.quick-manage-list {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .quick-manage-item {
@@ -2166,17 +1875,6 @@ header#top-bar select,
   opacity: 0.5;
 }
 
-.quick-manage-grip {
-  flex: none;
-  width: 1rem;
-  color: var(--muted);
-  cursor: grab;
-}
-
-.quick-manage-grip.is-idle {
-  visibility: hidden;
-}
-
 .quick-manage-moves {
   display: flex;
   flex: none;
@@ -2195,35 +1893,6 @@ header#top-bar select,
   .quick-manage-moves {
     opacity: 1;
   }
-}
-
-.quick-manage-warn {
-  margin: var(--space-3) 0 0;
-}
-
-.quick-manage-foot {
-  flex-wrap: nowrap;
-}
-
-/* Cancel and Done are one height (a ghost's border made one 2px taller),
-   44px under touch. */
-.quick-manage-foot > button {
-  height: max(var(--control-h-body), var(--target-min));
-}
-
-.quick-manage-foot .quick-manage-count {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-right: auto;
-  font-size: var(--text-sm);
-}
-
-.quick-pick-empty {
-  list-style: none;
-  padding: var(--space-4);
 }
 
 /* --- tools & features browser ---------------------------------------------- */
@@ -4785,65 +4454,11 @@ button.answer-figure-open {
   border-radius: var(--radius-sm);
 }
 
-/* The Loose ends widget's reading: a sentence, a meter, a caption, then a
-   short sample. The number is the finding, see the widget's own comment for
-   why this is not the list of notes it began as. */
-.dash-loose-summary {
-  margin: 0 0 var(--space-2);
-}
-
-.dash-loose-meter {
-  /* Declared here rather than only as a `var()` fallback on the fill: the
-     widget overrides it through the CSSOM on the fill element itself, and a
-     token that exists only as a fallback is a value with no home (caught by
-     `test_no_token_is_used_with_a_dead_fallback`). Declaring it means an
-     empty meter renders as a real 0% bar instead of an unstyled one. */
-  --dash-loose-pct: 0%;
-  height: var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--inner);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.dash-loose-fill {
-  /* Set through the CSSOM by the widget, an inline `style` attribute would
-     be dropped by this app's CSP. */
-  width: var(--dash-loose-pct);
-  height: 100%;
-  background: var(--accent);
-  border-radius: var(--radius-pill);
-  /* No transition on that width, deliberately (INBOX 308). There used to be
-     one, and it could never have run: `renderLooseEnds` sets the custom
-     property on this element while it is still detached and appends it
-     afterwards, so the first style it ever has is its final one, and a
-     transition has no before-change value to start from. Measured rather than
-     reasoned: replaying that exact order in the running app fires no
-     `transitionrun`, while changing the property on an element already in the
-     document fires one for `width`, which is a path nothing in the app
-     takes: the widget rebuilds the meter on every render.
-     If this ever should animate, it is the boot splash's shape and not a
-     width: full-width fill, `transform: scaleX()` from a left origin, the
-     rounded ends left to this track, which already clips. */
-}
-
-.dash-loose-caption {
-  margin: var(--space-1) 0 var(--space-3);
-  font-size: var(--text-xs);
-}
-
 /* A widget's empty state (`dashEmpty`, INBOX 464 (12)) inside a card that
    has its own padding: the page-level 2rem of air took an empty Favourites
    card from 101px to 211px, twice a full one. */
 .dash-body > .empty-state {
   padding: var(--space-3) 0;
-}
-
-/* The Loose ends widget's call to action, below its sample rows. */
-.dash-loose-actions {
-  margin-top: var(--space-3);
-  gap: var(--space-2);
-  flex-wrap: wrap;
 }
 
 /* --- On this day -------------------------------------------------------------
@@ -5137,33 +4752,6 @@ button.answer-figure-open {
   overflow: hidden;
 }
 
-/* While you were away (`renderNightWidget`, dashboard.js). One line per kind
-   of finding, a ghost disclosure whose caret turns when its review list is
-   open; the list is the dashboard's own `.dash-list`, each row the finding
-   over its facts line with two icon-only actions at the end. A finding is
-   read, not opened, so its row is not a button and keeps the default
-   cursor. */
-.night-summary {
-  margin: 0 0 var(--space-2);
-}
-
-.night-kinds {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  /* `minmax(0, 1fr)`, not the implicit `auto`: an auto track is at least as
-     wide as its longest unbroken line, and a finding's title is one, so the
-     rows ran past the card and pushed their actions out of it (measured by
-     nightcard.js before this line). */
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-1);
-}
-
-.night-kind {
-  min-width: 0;
-}
-
 .night-kind-toggle > .ph {
   transition: rotate var(--ui-fast) var(--ease-out);
 }
@@ -5204,10 +4792,6 @@ button.answer-figure-open {
 
 .dash-tensions > li.night-fact > .dash-list-text {
   flex-basis: 10rem;
-}
-
-.night-more {
-  margin-top: var(--space-1);
 }
 
 /* The open questions line under the card (row 7). */
@@ -5304,16 +4888,6 @@ button.answer-figure-open {
 
 #settings-tools .tool-filter-row {
   border-bottom-color: transparent;
-}
-
-/* The move buttons take no width of their own (the owner: "there's an
-   awkward gap on the right side where the hidden up/down arrows are").
-   Hidden, they held a 2 x 44px column beside every row. They now float
-   over the row's right end, left of its check, on a small raised plate,
-   while the row is pointed at or focused; on touch, where nothing is
-   pointed at, they keep their column. */
-.quick-manage-item {
-  position: relative;
 }
 
 @media (hover: hover) {

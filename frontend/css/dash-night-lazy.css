@@ -1,0 +1,29 @@
+/* Rules only this bundle's files use, out of the boot sheets (gzip budget, 2026-10-12). */
+
+/* While you were away (`renderNightWidget`, dashboard.js). One line per kind
+   of finding, a ghost disclosure whose caret turns when its review list is
+   open; the list is the dashboard's own `.dash-list`, each row the finding
+   over its facts line with two icon-only actions at the end. A finding is
+   read, not opened, so its row is not a button and keeps the default
+   cursor. */
+.night-summary {
+  margin: 0 0 var(--space-2);
+}
+.night-kinds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* `minmax(0, 1fr)`, not the implicit `auto`: an auto track is at least as
+     wide as its longest unbroken line, and a finding's title is one, so the
+     rows ran past the card and pushed their actions out of it (measured by
+     nightcard.js before this line). */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+}
+.night-kind {
+  min-width: 0;
+}
+.night-more {
+  margin-top: var(--space-1);
+}

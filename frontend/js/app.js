@@ -1816,12 +1816,12 @@ const LAZY_MODULES = {
   //: The app emblem as an assistant head (INBOX 463 (2)): assistant-avatar.js.
   assistantAvatar: ["/js/assistant-avatar.js"],
   //: Arranging the dashboard's Quick access row (INBOX 461): quick-access.js.
-  quickAccess: ["/js/quick-access.js"],
+  quickAccess: ["/css/quick-access-lazy.css", "/js/quick-access.js"],
   notesRail: ["/js/notes-rail-spy.js"],
   //: The dashboard's Boards & maps widget (INBOX 553(d)): see dash-boards.js.
   dashBoards: ["/js/dash-boards.js"],
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
-  inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
+  inbox: ["/css/inbox-lazy.css", "/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
   //: 2026-10-05 (gzip budget), the next seven: each file's header says why.
   reveal: ["/css/reveal-lazy.css", "/js/reveal-targets.js"],
   onboarding: ["/js/onboarding.js"],
@@ -1868,11 +1868,6 @@ const LAZY_MODULES = {
   batchSpace: ["/js/batch-space.js"],
   undoKit: ["/js/undo-kit.js"],
   //: Settings, Tasks (chat-tasks.js's header).
-  chatTasks: ["/js/chat-tasks.js"],
-  improvePanel: ["/js/improve-panel.js"],
-  lightboxActions: ["/js/lightbox-actions.js"],
-  settingsHealth: ["/js/settings-health.js"],
-  dashOrphans: ["/js/dash-orphans.js"],
   sharedIntake: ["/js/shared-intake.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
   packages: ["/js/settings-packages.js"],
@@ -2173,11 +2168,6 @@ const LAZY_ENTRY_POINTS = {
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
-  chatTasks: ["renderTasks", "renderTaskHistory"],
-  improvePanel: ["openImprove", "improveReady", "closeImprove", "runImprove", "applyImprove"],
-  lightboxActions: ["reevaluateEntry", "attachFileTo", "attachFromLibrary"],
-  settingsHealth: ["renderHealthBlock", "renderSamplingRows"],
-  dashOrphans: ["renderOrphanNotesWidget"],
   notifications: ["openNotifications"],
   sharedIntake: ["takeSharedIntake"],
   undoKit: ["pushEntryCreateUndo", "pushLinkCreateUndo", "pushRequestUndo", "pushEntriesPutUndo", "pushBinPairUndo", "pushRoutePairUndo", "pushTensionLinkUndo", "pushTokenUndo", "pushUploadUndo", "pushCorrectionUndo", "pushMadeUndo", "pushTextUndo", "pushWikiRenameUndo"],
@@ -2293,24 +2283,27 @@ const LAZY_ENTRY_POINTS = {
   ],
 };
 
-for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
-  for (const name of names) {
-    // A name this file (or another that always loads) already defines is that
-    // file's, and must not be shadowed.
-    if (typeof window[name] === "function") continue;
-    const standIn = (...args) =>
-      ensureModule(module).then(() => {
-        const real = window[name];
-        //: The module failed to load (offline, or the file is gone). Calling
-        //: the stand-in again here would recurse forever, so this is where it
-        //: stops, quietly: the control does nothing, which is what it did
-        //: before this list existed.
-        if (typeof real !== "function" || real === standIn) return undefined;
-        return real(...args);
-      });
-    window[name] = standIn;
+function installStandIns(table) {
+  for (const [module, names] of Object.entries(table)) {
+    for (const name of names) {
+      // A name this file (or another that always loads) already defines is that
+      // file's, and must not be shadowed.
+      if (typeof window[name] === "function") continue;
+      const standIn = (...args) =>
+        ensureModule(module).then(() => {
+          const real = window[name];
+          //: The module failed to load (offline, or the file is gone). Calling
+          //: the stand-in again here would recurse forever, so this is where it
+          //: stops, quietly: the control does nothing, which is what it did
+          //: before this list existed.
+          if (typeof real !== "function" || real === standIn) return undefined;
+          return real(...args);
+        });
+      window[name] = standIn;
+    }
   }
 }
+installStandIns(LAZY_ENTRY_POINTS);
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
 setTimeout(() => ["quickNote", "quickAdd", "fieldClear", "chordGuide", "notePanels", "dragEdge", "askCompose", "search"].forEach((name) => ensureModule(name)), 3000);

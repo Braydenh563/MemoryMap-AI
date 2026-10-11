@@ -84,3 +84,70 @@
     pointer-events: auto;
   }
 }
+
+.finder-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+/* The title is the only part that may shrink, and it ellipsises rather than
+   wrapping: a result list whose rows are three lines tall shows four results
+   where it could show ten. `min-width: 0` on the flex child, or it simply
+   grows past the row. */
+.finder-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.finder-row-when {
+  flex: none;
+}
+.finder-row-snippet {
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Why this is a result, as one line of facts under it: `--text-xs`, muted,
+   dot separators, one rank. DESIGN.md's `.library-file-meta` recipe, not a
+   row of chips, which read as things you could press. */
+.finder-why {
+  font-size: var(--text-xs);
+}
+/* --- Find anything, de-vibecoded ---------------------------------------------
+   A result is a row in a list, in every look, so it never takes the button
+   glow; its title is 500 (a list of forty 600s is a list of shouts); a kind
+   with nothing in it is dimmed; the dialog's own name is its heading rather
+   than a 12px label; and Sort is the size of the chips beside it (it was
+   the largest text in the header at 16px). */
+.finder-row {
+  box-shadow: none;
+}
+.finder-row-title {
+  font-weight: 500;
+}
+/* --- Find anything: group heads read as heads --- */
+/* Owner's screenshot: "notes", "documents" in 11px lowercase, and "24
+   results" sitting directly on the first of them. A head is the small 600
+   label in ink (the section-head grammar used across the app) with its
+   count muted beside it and a hairline under it, and the summary line keeps
+   a step of room above the first group. */
+.finder-group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-2) 0 var(--space-1);
+  border-bottom: 1px solid var(--divider);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+.finder-group-count {
+  color: var(--muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}

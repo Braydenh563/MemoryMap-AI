@@ -1,0 +1,51 @@
+/* Rules only this bundle's files use, out of the boot sheets (gzip budget, 2026-10-12). */
+
+/* The Loose ends widget's reading: a sentence, a meter, a caption, then a
+   short sample. The number is the finding, see the widget's own comment for
+   why this is not the list of notes it began as. */
+.dash-loose-summary {
+  margin: 0 0 var(--space-2);
+}
+.dash-loose-meter {
+  /* Declared here rather than only as a `var()` fallback on the fill: the
+     widget overrides it through the CSSOM on the fill element itself, and a
+     token that exists only as a fallback is a value with no home (caught by
+     `test_no_token_is_used_with_a_dead_fallback`). Declaring it means an
+     empty meter renders as a real 0% bar instead of an unstyled one. */
+  --dash-loose-pct: 0%;
+  height: var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--inner);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.dash-loose-fill {
+  /* Set through the CSSOM by the widget, an inline `style` attribute would
+     be dropped by this app's CSP. */
+  width: var(--dash-loose-pct);
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  /* No transition on that width, deliberately (INBOX 308). There used to be
+     one, and it could never have run: `renderLooseEnds` sets the custom
+     property on this element while it is still detached and appends it
+     afterwards, so the first style it ever has is its final one, and a
+     transition has no before-change value to start from. Measured rather than
+     reasoned: replaying that exact order in the running app fires no
+     `transitionrun`, while changing the property on an element already in the
+     document fires one for `width`, which is a path nothing in the app
+     takes: the widget rebuilds the meter on every render.
+     If this ever should animate, it is the boot splash's shape and not a
+     width: full-width fill, `transform: scaleX()` from a left origin, the
+     rounded ends left to this track, which already clips. */
+}
+.dash-loose-caption {
+  margin: var(--space-1) 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+/* The Loose ends widget's call to action, below its sample rows. */
+.dash-loose-actions {
+  margin-top: var(--space-3);
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}

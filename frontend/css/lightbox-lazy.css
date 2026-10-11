@@ -60,3 +60,119 @@
   color: var(--syntax-keyword);
   font-weight: 600;
 }
+
+/* The picture and its two arrows, in one positioned box, this is what makes
+   the arrows centre on the *image* rather than on the viewport. */
+.lightbox-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Zoom scales the image past the stage's box; without this it would
+     spill over the meta line and the actions bar below it. `auto` rather
+     than `hidden` so a zoomed-in picture can actually be panned to its
+     edges: the scrollbars are the pan control. */
+  overflow: auto;
+}
+/* The document half of the showcase: a page, not a picture. Sized like a
+   sheet of paper rather than stretched to the viewport, because the thing
+   being previewed is a document and a 1300px-wide line of body text is not
+   readable. Scrolls inside itself so the arrows and the actions bar stay
+   put while you read. */
+/* --- reading a scan against its own pages ---------------------------------
+   Reported directly: "when I select to read the text from the document in a
+   pdf, the pdf view disappears entirely. I want the pdf view to be on one
+   side, and the live extracted document text and visuals on the right."
+   The text is a *reading* of the pages, by markitdown, Tesseract or a
+   vision model: and hiding the pages to show it removes the only way to
+   check that reading against what is actually printed. Two columns, each
+   scrolling on its own, so a page and the paragraph it produced can be held
+   side by side. Only when there are pages to show: a .docx or a .txt has
+   nothing to put in the left column and keeps the full width. */
+.lightbox-doc.lightbox-doc-split {
+  width: min(76rem, 96vw);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+.lightbox-doc {
+  width: min(52rem, 92vw);
+  max-height: 74vh;
+  overflow: auto;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  /* Not `var(--card)`, that token is deliberately translucent glass (a
+     card sitting on the page background), which is wrong for a reading
+     surface sitting over the lightbox's own darkened backdrop and
+     whatever image/UI is behind it. Reported directly as "somewhat
+     transparent". `--modal-bg` is the same near-opaque (96-97%) token
+     every other floating overlay in this app already reads text against. */
+  background: var(--modal-bg);
+  color: var(--ink);
+  text-align: left;
+}
+.lightbox-doc.hidden {
+  display: none;
+}
+.lightbox-doc-note {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-xs);
+}
+.lightbox-doc-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--text-sm);
+}
+/* A PDF's own rasterised pages, see `showDocument`/`pdfPages` in app.js.
+   One column, one page after another, the way a PDF actually reads. Lives
+   inside `.lightbox-doc`, so it inherits that element's own scroll and
+   near-opaque background; only the stacking is this rule's job. */
+.lightbox-pdf-pages {
+  display: flex;
+  flex-direction: column;
+  /* **`safe center`, not `center`.** Reported with a screenshot of a lecture
+     slide reading "at-bots and agents", the left of "chat-bots" scrolled off
+     and unreachable, with a horizontal scrollbar that could not get back to
+     it. A centred flex item wider than its scroll container overflows both
+     ways, and the overflow past the *start* edge is not scrollable in any
+     browser: a scroll container's origin is its left edge and there is no
+     negative scroll.
+     The `transform-origin: top left` further down this file fixed the same
+     class of bug for the zoom control and did not reach this, because the
+     page is already wider than the pane at 100% on any window narrower than
+     the slide. Same keyword, same reason, the other axis of the same box. */
+  align-items: safe center;
+  gap: var(--space-4);
+}
+.lightbox-pdf-pages.hidden {
+  display: none;
+}
+.lightbox-pdf-page {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+}
+/* A zoomed picture pans by translate (lightbox-view.js `setZoom`), so the
+   stage must not also scroll it: two pan mechanisms would fight. */
+.lightbox-stage.zoomed-img {
+  overflow: hidden;
+}
+/* A PDF's own page column, zoomed the same way a single image is, 
+   `transform: scale()`, which Chromium/Firefox both already factor into a
+   `overflow: auto` ancestor's scrollable bounds, so the parent
+   `.lightbox-doc`'s existing scrollbars become the pan control with no
+   drag handler of its own needed. */
+.lightbox-pdf-pages {
+  /* Left, not centre, for the same reason as `.lightbox img` above: a
+     centred origin grows the page column equally to both sides, and the
+     half that goes past the container's start edge is not scrollable
+     overflow in any browser, so it can never be panned to. */
+  transform-origin: top left;
+}
+.lightbox-pdf-pages.zoomed {
+  cursor: grab;
+}

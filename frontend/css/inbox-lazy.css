@@ -1,0 +1,196 @@
+/* Rules only this bundle's files use, out of the boot sheets (gzip budget, 2026-10-12). */
+
+.link-suggestion-text {
+  flex: 1 1 16rem;
+  min-width: 12rem;
+}
+.link-suggestion-join {
+  color: var(--muted);
+}
+/* The score as a short bar with its number beside it. */
+.link-suggestion-score {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.link-suggestion-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.inbox-tools {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+.inbox-status {
+  flex: 1 1 12rem;
+  font-size: var(--text-sm);
+}
+.inbox-row-title {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.inbox-empty {
+  margin: var(--space-2) 0;
+  font-size: var(--text-sm);
+}
+/* An entity's page (GRAPH_PLAN KG5, entity-page.js): the inbox's sheet and
+   rows, in three sections, each under a quiet heading. */
+.entity-section + .entity-section {
+  margin-top: var(--space-5);
+}
+.entity-section-title {
+  margin: 0 0 var(--space-2);
+}
+.entity-section .inbox-row-title {
+  align-self: flex-start;
+  text-align: start;
+}
+.entity-related {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.entity-date {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+.entity-count {
+  margin-inline-start: auto;
+  font-size: var(--text-sm);
+}
+.entity-filter {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.relation-type-row {
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding-inline: var(--space-4);
+}
+.relation-type-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* The query's table: the note, then its properties, one scroller. */
+.query-table-wrap {
+  overflow: auto;
+}
+.query-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.query-table th,
+.query-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+.query-table th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* Rollups: the footer stays in view under a long table, the kind of
+   rollup quiet beside its value. */
+.query-table tfoot td,
+.query-table tfoot th {
+  position: sticky;
+  bottom: 0;
+  background: var(--modal-bg-opaque);
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+  vertical-align: middle;
+}
+.query-rollup {
+  white-space: nowrap;
+}
+.query-rollup-value {
+  margin-inline-start: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+/* The kind's name from the other end, quiet, giving way before the name. */
+.relation-type-hint {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 45%;
+  margin-inline-start: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+}
+/* INBOX 779: the delete bin was a badge on the card's corner, half outside the
+   border. It is a small icon button in the card's own foot now, beside the name,
+   inside the padding; the foot is the card's one row of controls. */
+/* ===================== TENSIONS: THE DISAGREEMENT REVIEW ==================
+   Where the notebook disagrees with itself, see `ai/tensions.py`. Two notes
+   side by side with what the model thinks they disagree about, and the two
+   decisions a person can make about it. */
+.tensions-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.tension-card {
+  padding: var(--space-4);
+}
+.tension-card.is-resolved {
+  opacity: 0.6;
+}
+.tension-why {
+  margin: 0 0 var(--space-2);
+  font-weight: 600;
+}
+.tension-gap {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+.tension-pair {
+  display: grid;
+  /* Two columns where there is room, stacked where there is not. `minmax(0,
+     1fr)` rather than `1fr` so a long unbroken word cannot push the column
+     wider than its share. */
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: var(--space-4);
+}
+.tension-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.tension-side-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+.tension-date {
+  font-size: var(--text-xs);
+}
+.tension-excerpt {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.tension-actions {
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  flex-wrap: wrap;
+}
+.tension-done {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+}

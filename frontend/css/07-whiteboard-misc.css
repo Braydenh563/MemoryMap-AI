@@ -2011,28 +2011,6 @@ body.scroll-top-visible .skills-split > .tab-main {
   gap: var(--space-2);
   min-width: 0;
 }
-/* The two ends, read back as chips. An unset end says what the next click
-   does rather than sitting empty, the mode's whole job is to be legible
-   halfway through. */
-.trace-chip {
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 14rem;
-}
-.trace-chip.is-set {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--ink);
-}
-.trace-chip.is-empty {
-  border-style: dashed;
-  color: var(--muted);
-}
 /* A skill's description wraps onto its own line under the chips. It used to
    share `.persona-preview`, which is a single nowrap line with an ellipsis, 
    correct for a persona, and for a skill it meant the one field that says what
@@ -10990,39 +10968,6 @@ button.finder-row:hover,
 button.finder-row:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-2);
   border-color: var(--divider);
-}
-.finder-row-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  width: 100%;
-}
-/* The title is the only part that may shrink, and it ellipsises rather than
-   wrapping: a result list whose rows are three lines tall shows four results
-   where it could show ten. `min-width: 0` on the flex child, or it simply
-   grows past the row. */
-.finder-row-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.finder-row-when {
-  flex: none;
-}
-.finder-row-snippet {
-  font-size: var(--text-sm);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-/* Why this is a result, as one line of facts under it: `--text-xs`, muted,
-   dot separators, one rank. DESIGN.md's `.library-file-meta` recipe, not a
-   row of chips, which read as things you could press. */
-.finder-why {
-  font-size: var(--text-xs);
 }
 /* The prompt before anything is typed. It is a hint, not a hero: the same
    `.empty-state` component as everywhere else, but it sits inside a list that

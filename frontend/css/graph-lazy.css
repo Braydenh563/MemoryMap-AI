@@ -162,3 +162,199 @@
   transition: none;
   animation: none;
 }
+
+.graph-edge-similar {
+  stroke-dasharray: 2 5;
+  stroke-width: 1.2;
+  stroke: var(--accent);
+}
+/* A manual link is clickable (opens the management panel); a documented
+   reason gets its own visible weight, not just a hover tooltip, asked for
+   directly ("a visual way to see the reasons for each connection"). */
+.graph-edge-manageable {
+  cursor: pointer;
+}
+.graph-edge-reasoned {
+  stroke: var(--accent);
+  stroke-opacity: 0.8;
+  stroke-width: 2.2;
+}
+/* A `contradicts` link: the one type that means "these are at odds" rather
+   than "these belong together", produced by the Tensions review. Dashed as
+   well as coloured on purpose: colour alone would not separate it for anyone
+   who cannot tell it from the accent, and on a dense graph the dash is the
+   part that reads at a glance. Placed after `.graph-edge-reasoned` because
+   these links always carry a reason and would otherwise be overridden by it. */
+.graph-edge-contradicts {
+  stroke: var(--error);
+  stroke-opacity: 0.85;
+  stroke-width: 2.2;
+  stroke-dasharray: 6 4;
+}
+/* The invisible, much wider click target laid over each thin visible edge, 
+   reported directly: "the links are hard to click on". `stroke: transparent`
+   still hit-tests (unlike `fill: none` with no stroke at all), and only a
+   link edge (`.graph-edge-manageable`) actually wants a pointer/click; every
+   other kind stays pointer-events:none so it can't steal a click meant for
+   whatever's underneath it. */
+.graph-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: none;
+}
+.graph-edge-hit.graph-edge-manageable {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.graph-link-peek > p {
+  margin: 0;
+}
+.graph-link-peek-kind {
+  font-weight: 600;
+}
+.graph-link-peek-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+.graph-link-panel-reason {
+  width: 100%;
+  resize: vertical;
+}
+/* Two note titles stacked, not run together as one sentence, see the
+   comment where this is built in app.js for the report that caused it. */
+.graph-link-panel-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+}
+.graph-link-panel-arrow {
+  font-size: var(--text-sm);
+}
+/* --- a traced path (§9) -----------------------------------------------------
+   Drawn as its own layer rather than by highlighting the edges underneath.
+   Two reasons, and the second is the one that decided it: a step may be a
+   *shared tag*, which the map draws no line for at all, so highlighting
+   existing edges would show a chain with gaps in it, in exactly the places the
+   explanation is most needed. And a path is a different kind of thing from a
+   connection: it is an answer to a question, so it sits on top. */
+.graph-path-line {
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-opacity: 0.85;
+  stroke-linecap: round;
+  fill: none;
+  pointer-events: none;
+}
+/* The routes you are not reading. Thin and faint enough to read as context
+   rather than as the answer, and still visible enough to be worth drawing, 
+   a route at 0.2 opacity is a route nobody notices, which is the same as not
+   drawing it. Dashed as well as faint, because colour alone is not a signal
+   everyone can use. */
+.graph-path-line.is-dimmed {
+  stroke-width: 2;
+  stroke-opacity: 0.42;
+  stroke-dasharray: 6 5;
+}
+/* The switcher above the path. `role="tablist"` in the markup, so these are
+   tabs and read as a choice between views of one thing, which is what they
+   are: rather than as six unrelated buttons. */
+.graph-trace-routes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.legend-line {
+  display: inline-block;
+  width: 1.25rem;
+  height: 0;
+  border-top: 2px solid var(--muted);
+}
+.graph-trace-arrow {
+  color: var(--muted);
+}
+.graph-trace-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+/* Arrow + reason, one unit between two note chips, quiet relative to the
+   chips, because the chips are what you clicked for. `white-space: nowrap`
+   keeps the arrow glued to its label; the *unit* still wraps freely with
+   the rest of the row, it just never splits mid-arrow. */
+.graph-trace-connector {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.graph-trace-arrow-icon {
+  color: var(--border);
+}
+.graph-trace-step {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.graph-popup-tool-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* The hairline is the only thing between two groups. Drawn by the second of
+   the pair (the chat dock's own recipe, 06-timeline-dialogs.css) so it can
+   never be left dangling at the end of the row, and in --border rather than
+   --divider for the same reason that dock uses it: --divider is the line
+   between stacked rows, faint because the rows are already apart, and two
+   groups of icons standing shoulder to shoulder need a mark you can see. */
+.graph-popup-tool-group+.graph-popup-tool-group::before {
+  content: "";
+  align-self: stretch;
+  width: 1px;
+  margin-inline: var(--space-2);
+  background: var(--border);
+}
+/* Bin is set apart inside its own group by a gap rather than a fourth
+   hairline: three groups is the structure. */
+.graph-popup-tool-bin {
+  margin-left: var(--space-3);
+}
+/* A category heading in a tree layout, a real node in the drawing, but not
+   a note: hollow, so it never reads as something you can open. */
+.graph-core.graph-group {
+  fill-opacity: 0.25;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+/* Filing edges (category → note) are quieter than a link the user made. */
+.graph-edge-filing {
+  stroke-dasharray: 3 3;
+  opacity: 0.45;
+}
+/* The two ends, read back as chips. An unset end says what the next click
+   does rather than sitting empty, the mode's whole job is to be legible
+   halfway through. */
+.trace-chip {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14rem;
+}
+.trace-chip.is-set {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.trace-chip.is-empty {
+  border-style: dashed;
+  color: var(--muted);
+}

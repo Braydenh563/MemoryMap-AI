@@ -289,7 +289,7 @@ function docSnippetRow(entry) {
 function docSnippetInsert(entry) {
   const view = docCmView;
   const CM = window.CM6;
-  if (!view || !CM || !currentDoc) return toast("Open a code document first.", true);
+  if (!view || !CM || !currentDoc) return toast("Open a code document first.", "info");
   const { from, to } = view.state.selection.main;
   if (entry.template) {
     CM.autocomplete.snippet(entry.template)(view, null, from, to);
@@ -321,15 +321,15 @@ function docKitSplitName(text) {
 
 async function docSnippetSave() {
   const view = docCmView;
-  if (!view || !currentDoc) return toast("Open a code document first.", true);
+  if (!view || !currentDoc) return toast("Open a code document first.", "info");
   const { from, to } = view.state.selection.main;
   const code = view.state.sliceDoc(from, to);
-  if (!code.trim()) return toast("Select some code first, then save it as a snippet.", true);
+  if (!code.trim()) return toast("Select some code first, then save it as a snippet.", "info");
   const suggested = code.trim().split("\n")[0].slice(0, 60);
   const answer = await promptDialog("Name the snippet (#words become tags)", suggested, { confirmLabel: "Save snippet" });
   if (answer === null || answer === undefined) return;
   const { name, tags } = docKitSplitName(answer);
-  if (!name) return toast("A snippet needs a name.", true);
+  if (!name) return toast("A snippet needs a name.", "info");
   const made = await apiJson("/code-snippets", {
     method: "POST",
     body: JSON.stringify({ name, tags, language: docFileType().ext, code }),
@@ -368,7 +368,7 @@ async function docSnippetRename(entry) {
   const answer = await promptDialog("Rename the snippet (#words become tags)", shown, { confirmLabel: "Rename" });
   if (answer === null || answer === undefined || answer.trim() === shown) return;
   const { name, tags } = docKitSplitName(answer);
-  if (!name) return toast("A snippet needs a name.", true);
+  if (!name) return toast("A snippet needs a name.", "info");
   const put = async (body) => {
     await apiJson(`/code-snippets/${entry.id}`, { method: "PUT", body: JSON.stringify(body) });
     await docKitFetch(true);
@@ -470,7 +470,7 @@ function docAssistSay(text, { error = false } = {}) {
 }
 
 async function docAssistAsk(action) {
-  if (!docCmView || !currentDoc) return toast("Open a code document first.", true);
+  if (!docCmView || !currentDoc) return toast("Open a code document first.", "info");
   docAssistSyncScope();
   const target = docAssistTarget();
   const diagnostic = action === "fix" ? docAssistDiagnostic(target) : "";

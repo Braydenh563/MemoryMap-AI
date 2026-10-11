@@ -1212,15 +1212,9 @@ HELP_TOPICS.extend(
         {
             "id": "whiteboard-controls",
             "keywords": (
-                "lasso", "highlighter", "eraser", "connector", "nudge", "snap to grid",
-                "align", "distribute", "snap", "grid", "bring forward", "send backward", "group",
-                "ungroup", "copy style", "paste style", "pan", "zoom", "zoom to fit",
-                "board overview", "find a card", "find and replace", "replace all", "tool", "text in a shape", "label a shape",
-                "frame", "frames", "section", "region", "lock a shape", "lock an item", "unlock all", "locked item",
-                "comment on a card", "comment on an item", "comments on the board", "comment thread",
-                "present", "presentation", "slides", "slideshow", "laser", "laser pointer",
-                "drag to delete", "drop to delete", "drag onto delete", "trash an item",
-                "board on a phone", "more board commands",
+                "lasso", "highlighter", "eraser", "connector", "snap to grid",
+                "snap", "grid", "pan", "zoom", "zoom to fit",
+                "board overview", "find a card", "find and replace", "replace all", "tool",
             ),
             "body": (
                 "Whiteboard keys (Library, Boards & maps; Ctrl+Shift+B opens it). "
@@ -1232,7 +1226,23 @@ HELP_TOPICS.extend(
                 "zooms, Space and drag pans, a drag to an edge pans, Ctrl+= and Ctrl+- zoom, "
                 "Ctrl+0 is 100%, Shift+1 fits all, Shift+N shows the "
                 "overview, / or Ctrl+F finds, Ctrl+H replaces, and Tab walks the board's "
-                "items. Selection: Shift+click adds, "
+                "items. Selection, menus and presenting are in Whiteboard selection and menus."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "whiteboard-selection",
+            "keywords": (
+                "nudge", "align", "align shapes", "align on the whiteboard", "distribute", "bring forward", "send backward", "group",
+                "ungroup", "copy style", "paste style", "text in a shape", "label a shape",
+                "frame", "frames", "section", "region", "lock a shape", "lock an item", "unlock all", "locked item",
+                "comment on a card", "comment on an item", "comments on the board", "comment thread",
+                "present", "presentation", "slides", "slideshow", "laser", "laser pointer",
+                "drag to delete", "drop to delete", "drag onto delete", "trash an item",
+                "board on a phone", "more board commands", "whiteboard keys", "whiteboard shortcuts",
+            ),
+            "body": (
+                "Whiteboard selection and menus. Selection: Shift+click adds, "
                 "Ctrl+A selects all, Ctrl+D duplicates, Alt and drag copies as you "
                 "drag, Ctrl+V pastes at the pointer, the arrows "
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
@@ -1313,12 +1323,10 @@ HELP_TOPICS.extend(
             "keywords": (
                 "object library", "shape library", "shapes", "flowchart", "flow chart", "icons", "stencil",
                 "draw.io shapes", "bpmn", "network shapes", "cloud shapes", "connection points",
-                "save to library", "save to the library", "my shapes", "custom shape", "saved style", "palette",
-                "preset", "template", "board template", "save as template", "saved branch", "import library",
-                "export library", "favourite shapes", "recent shapes", "sidebar", "layers", "pages", "named layer", "hide a layer", "lock a layer",
+                "preset", "template", "favourite shapes", "recent shapes", "sidebar", "layers", "pages", "named layer", "hide a layer", "lock a layer",
                 "page order", "presentation order", "reorder frames", "order of frames", "frame order",
                 "frames in the presentation", "locked item", "unlock",
-                "templates in the library", "drag a template", "map templates", "this map tab", "map stats",
+                "drag a template", "map templates", "this map tab", "map stats",
             ),
             "body": (
                 "A board's sidebar (the Library button in its top bar, or the rail on its left edge) has "
@@ -1335,7 +1343,20 @@ HELP_TOPICS.extend(
                 "libraries; the search field finds any of them by name or tag. Click a tile or press Enter "
                 "to place it in the middle of the view, drag it and it lands held where you grabbed it, or Shift+Enter to place "
                 "it joined to what is selected; F stars it, and Shift+F10 or a right-click opens its menu "
-                "(rename, tags, duplicate, move, delete). To save your own: select things and press "
+                "(rename, tags, duplicate, move, delete). Saving your own is in Saving to the library."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "board-library-saving",
+            "keywords": (
+                "save to library", "save to the library", "my shapes", "custom shape", "saved style", "palette",
+                "saved branch", "import library", "export library", "save as template", "board template",
+                "templates in the library", "save my own shape", "save a shape to the library",
+                "save a board as a template", "board as a template",
+            ),
+            "body": (
+                "Saving to the library. To save your own: select things and press "
                 "Ctrl+Shift+S, or right-click, Library, for a selection, a drawn shape, a style, a sticky "
                 "or text preset, a palette of the selection's colours, or on a mind map a branch; Board, "
                 "Save this board as a template keeps the whole board. New board then offers your templates "
@@ -1351,12 +1372,9 @@ HELP_TOPICS.extend(
             "keywords": (
                 "format panel", "format", "exact position", "position", "x and y", "width and height",
                 "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
-                "text size in a shape", "align text", "elbow", "right angle", "orthogonal", "connector shape",
-                "line shape", "line end", "line ends", "arrowhead", "arrow end", "diamond end", "label position", "bend", "waypoint", "crow's foot", "crows foot", "er diagram",
-                "connection point", "connection points", "port", "ports", "anchor point",
+                "text size in a shape", "align text",
+                "line shape", "line end", "line ends", "arrowhead", "arrow end", "diamond end", "label position",
                 "line jumps", "line jump", "crossing lines", "lines cross", "hop over",
-                "entity relationship", "mermaid", "subgraph", "sequence diagram", "class diagram", "state diagram", "drawio", "draw.io file", "open a drawio file", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
-                "connect it to the copy", "connect the copy",
             ),
             "body": (
                 "Ctrl+Shift+P on a board (or Format panel in the selection's More menu, or View) opens "
@@ -1366,7 +1384,22 @@ HELP_TOPICS.extend(
                 "sharp peak), its two ends (each drawn in its list) and where its label sits along it. Text: the size, colour, weight, "
                 "alignment and vertical place (top, middle, bottom) of a text box or a shape's words. Arrange: X, Y, width, height and "
                 "angle as numbers, flip, and the order, align, spacing, group and lock buttons. Every "
-                "change is one undo step. Every connector takes bends: drag the small ring in the middle "
+                "change is one undo step. Bends, connection points and imports are in Connector bends and importing."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "board-connectors",
+            "keywords": (
+                "elbow", "right angle", "orthogonal", "connector shape", "bend", "waypoint",
+                "crow's foot", "crows foot", "er diagram", "connection point", "connection points", "port", "ports",
+                "anchor point", "entity relationship", "mermaid", "subgraph", "sequence diagram", "class diagram",
+                "state diagram", "drawio", "draw.io file", "open a drawio file", "import a flowchart",
+                "clone and connect", "copy and connect", "next shape", "copy a shape",
+                "connect it to the copy", "connect the copy",
+            ),
+            "body": (
+                "Connector bends and importing. Every connector takes bends: drag the small ring in the middle "
                 "of a run (or double-click the line) to add one, drag a bend to move it, double-click it to "
                 "take it out. A straight line runs through its bends, a curved one curves smoothly through "
                 "them, and an elbow turns at right angles and goes round the shapes it joins; changing the "
@@ -1439,12 +1472,8 @@ HELP_TOPICS.extend(
                 "checkbox on a topic", "topic a task", "tick a topic", "number the branches",
                 "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
                 "comment on a topic", "boundary", "summary topic", "summarise topics",
-                "opml", "freemind", "xmind", "import a map", "export a map", "present branches",
-                "map template", "map as a document", "marker", "markers", "priority on a topic",
+                "mind map features", "layout picker", "present branches", "marker", "markers", "priority on a topic",
                 "flag a topic", "filter by marker", "map outline", "outline of the map",
-                "map the headings",
-                "map template", "map as a document", "suggest branches", "branches from my notes",
-                "grow the map", "expand from my notes", "children from notes",
             ),
             "body": (
                 "Mind map features. The layout picker: tree, radial, logic chart, "
@@ -1465,7 +1494,20 @@ HELP_TOPICS.extend(
                 "the numbers. A topic's menu adds a note behind it: its mark on "
                 "the topic opens it. "
                 "Comment… starts a thread, counted on its corner; its Branch group draws a boundary "
-                "round the branch or summarises topics side by side. Start from a "
+                "round the branch or summarises topics side by side. Templates, import and export are in Mind map import and export."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "mind-map-import-export",
+            "keywords": (
+                "opml", "an opml outline", "import an opml", "freemind", "xmind", "import a map", "export a map", "map template", "map as a document",
+                "map the headings", "suggest branches", "branches from my notes", "grow the map",
+                "expand from my notes", "children from notes", "write a map as a document",
+                "import a mind map", "export a mind map",
+            ),
+            "body": (
+                "Mind map import and export. Start from a "
                 "template, import an OPML, FreeMind, XMind, Markdown or text outline "
                 "(it opens as a tree), paste an indented "
                 "list onto a topic to add it as that topic's branch, let the "
@@ -1593,7 +1635,7 @@ HELP_TOPICS.extend(
                 "(double-click it to hand it back to the layout), drop one note "
                 "onto another to link them, double-click empty space to add a note "
                 "there, hover to spotlight a note's connections, point at a line to light "
-                "it and click it to see what it is (a link, a thread, a similarity), "
+                "it and click it to see what it is, "
                 "its reason and how sure, the two notes, and for a link Edit reason, "
                 "Two-way (no arrow) and Remove, and click a legend "
                 "colour to hide that category. Shift and drag on empty map lassos "
@@ -1601,7 +1643,7 @@ HELP_TOPICS.extend(
                 "undoable with Ctrl+Z) or make a Mind "
                 "map of them, built from their links round the picked or most "
                 "connected note, with Open on the notice that follows. Display options, the gear, opens with View: Layout "
-                "(Force, Tree, Radial or Arc), Shape (Organic, Clusters or Galaxy; the Force layout's own, dimmed under the others), Colour, Size, Trace, which finds how "
+                "(Force, Tree, Radial or Arc; the dock names a fixed one), Shape (Organic, Clusters or Galaxy; the Force layout's own, dimmed under the others), Colour, Size, Trace, which finds how "
                 "two notes connect, and Legend, which hides the key. Then Physics (Unpin all, Reshuffle layout, Gravity, Spread, Link force, Length by similarity, Group by category), the Show switches (Similarity, "
                 "Entities, Documents, Boards, Tags, Attachments, Unwritten links, Hide unlinked), "
                 "Display (Labels, Label backgrounds, Curved "

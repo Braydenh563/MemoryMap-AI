@@ -88,6 +88,15 @@ OPEN = {
     #: a Worker's fetch carries no token, and the files are public, nothing of
     #: the notebook's (Brief 83).
     "/translate/files/{name}",
+    #: A reminder notification's Done and Snooze, pressed by the service worker
+    #: after the tab is gone. It holds no session on purpose (a session token
+    #: in the notification store opened the whole notebook); it carries a token
+    #: the server minted for that one reminder and those two actions, signed
+    #: and good for 24 hours, checked before the reminder is looked at
+    #: (core/reminder_token.py; tests/test_reminder_scoped_token.py holds that
+    #: a forged, expired or other reminder's token is refused and that the
+    #: token opens no other route).
+    "/reminders/{reminder_id}/notification-act",
 }
 
 #: Prefixes, for the same reason, where the path carries a file name.

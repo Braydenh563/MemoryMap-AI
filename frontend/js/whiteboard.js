@@ -1367,6 +1367,26 @@ const WB_ER_CAPS = {
   "er-zero-many": ["zero", "many"],
 };
 
+//: **A hollow end stops the shaft at its own edge.** An outline diamond,
+//: circle or square drew the shaft on through its middle to the tip (the
+//: owner: the shaft shows through the shape). How far back from the tip the
+//: shape reaches along the line is the inset: the diamond's rear point, the
+//: circle's and the square's diameter. Solid ends and open marks need none.
+const WB_HOLLOW_INSET = { diamond: (h) => h * 1.1, circle: (h) => (h * 2) / 3, square: (h) => (h * 2) / 2.6 };
+function wbHollowInset(kind, headLen) {
+  return WB_HOLLOW_INSET[kind]?.(headLen) || 0;
+}
+
+//: `pt` moved toward `toward` by the cap's inset (never past 90% of the way, so
+//: a short segment keeps a stub), or `pt` itself under any other cap.
+function wbShaftEnd(pt, toward, cap, headLen) {
+  const inset = wbHollowInset(cap, headLen);
+  const dist = Math.hypot(toward.x - pt.x, toward.y - pt.y);
+  if (!inset || !dist) return pt;
+  const share = Math.min(inset, dist * 0.9) / dist;
+  return { x: pt.x + (toward.x - pt.x) * share, y: pt.y + (toward.y - pt.y) * share };
+}
+
 function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
   if (!kind || kind === "none") return "";
   if (kind === "arrow") return wbArrowHeadPath(tipX, tipY, approachAngle, headLen);
@@ -3132,9 +3152,10 @@ function wbLinkPathD(type, sPt, tPt, caps, width, bend, shape = null) {
   }
   if (bend && (bend.x || bend.y)) {
     const ctrl = { x: (sPt.x + tPt.x) / 2 + bend.x, y: (sPt.y + tPt.y) / 2 + bend.y };
-    let d = `M ${sPt.x} ${sPt.y} Q ${ctrl.x} ${ctrl.y}, ${tPt.x} ${tPt.y}`;
     const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
     const headLen = (width || 3) * 4 + 6;
+    const from = wbShaftEnd(sPt, ctrl, startCap, headLen), to = wbShaftEnd(tPt, ctrl, endCap, headLen);
+    let d = `M ${from.x} ${from.y} Q ${ctrl.x} ${ctrl.y}, ${to.x} ${to.y}`;
     if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, Math.atan2(tPt.y - ctrl.y, tPt.x - ctrl.x), headLen);
     if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, Math.atan2(sPt.y - ctrl.y, sPt.x - ctrl.x), headLen);
     return d;
@@ -3151,12 +3172,14 @@ function wbLinkPathD(type, sPt, tPt, caps, width, bend, shape = null) {
   const c2 = tPt.dir
     ? { x: tPt.x + tPt.dir.x * reach, y: tPt.y + tPt.dir.y * reach }
     : { x: tPt.x - dx / 2, y: tPt.y };
-  const base = straight
-    ? `M ${sPt.x} ${sPt.y} L ${tPt.x} ${tPt.y}`
-    : `M ${sPt.x} ${sPt.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${tPt.x} ${tPt.y}`;
   const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
-  if (startCap === "none" && endCap === "none") return base;
   const headLen = (width || 3) * 4 + 6;
+  const from = wbShaftEnd(sPt, straight ? tPt : c1, startCap, headLen);
+  const to = wbShaftEnd(tPt, straight ? sPt : c2, endCap, headLen);
+  const base = straight
+    ? `M ${from.x} ${from.y} L ${to.x} ${to.y}`
+    : `M ${from.x} ${from.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${to.x} ${to.y}`;
+  if (startCap === "none" && endCap === "none") return base;
   // On a straight link the chord *is* the tangent. On a curve, the tangent at
   // an end is the direction to that end's own control point, pointing away
   // from the shape, so the head is rotated by PI to point back into it.
@@ -3296,10 +3319,15 @@ function wbElbowDetour(a, b, side, sBox, tBox, pad) {
 //: The polyline as a path, with the end caps turned to the last and first
 //: segments.
 function wbElbowPathD(pts, caps, width) {
-  let d = `M ${pts[0].x} ${pts[0].y}` + pts.slice(1).map((p) => ` L ${p.x} ${p.y}`).join("");
   const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
   const headLen = (width || 3) * 4 + 6;
   const n = pts.length;
+  const run = pts.slice();
+  if (n > 1) {
+    run[0] = wbShaftEnd(pts[0], pts[1], startCap, headLen);
+    run[n - 1] = wbShaftEnd(pts[n - 1], pts[n - 2], endCap, headLen);
+  }
+  let d = `M ${run[0].x} ${run[0].y}` + run.slice(1).map((p) => ` L ${p.x} ${p.y}`).join("");
   if (endCap !== "none" && n > 1) d += " " + wbCapPath(endCap, pts[n - 1].x, pts[n - 1].y, Math.atan2(pts[n - 1].y - pts[n - 2].y, pts[n - 1].x - pts[n - 2].x), headLen);
   if (startCap !== "none" && n > 1) d += " " + wbCapPath(startCap, pts[0].x, pts[0].y, Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x), headLen);
   return d;
@@ -3341,10 +3369,14 @@ function wbCubicAt(seg, u) {
 //: The segments as a path, the caps turned along the curve's own ends.
 function wbCurvePathD(segs, caps, width) {
   if (!segs.length) return "";
-  let d = `M ${segs[0].a.x} ${segs[0].a.y}` + segs.map((s) => ` C ${s.c1.x} ${s.c1.y}, ${s.c2.x} ${s.c2.y}, ${s.b.x} ${s.b.y}`).join("");
   const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
   const headLen = (width || 3) * 4 + 6;
   const first = segs[0], last = segs[segs.length - 1];
+  const from = wbShaftEnd(first.a, first.c1, startCap, headLen), to = wbShaftEnd(last.b, last.c2, endCap, headLen);
+  let d = `M ${from.x} ${from.y}` + segs.map((s) => {
+    const end = s === last ? to : s.b;
+    return ` C ${s.c1.x} ${s.c1.y}, ${s.c2.x} ${s.c2.y}, ${end.x} ${end.y}`;
+  }).join("");
   if (endCap !== "none") d += " " + wbCapPath(endCap, last.b.x, last.b.y, Math.atan2(last.b.y - last.c2.y, last.b.x - last.c2.x), headLen);
   if (startCap !== "none") d += " " + wbCapPath(startCap, first.a.x, first.a.y, Math.atan2(first.a.y - first.c1.y, first.a.x - first.c1.x), headLen);
   return d;
@@ -20873,6 +20905,8 @@ function wbLaserTrail(event) {
   dot.style.left = `${event.clientX}px`;
   dot.style.top = `${event.clientY}px`;
   dot.addEventListener("animationend", () => dot.remove(), { once: true });
+  // Under reduced motion no animation runs, so animationend never fires.
+  setTimeout(() => dot.remove(), 800);
   layer.append(dot);
   while (layer.childElementCount > 48) layer.firstElementChild.remove();
 }

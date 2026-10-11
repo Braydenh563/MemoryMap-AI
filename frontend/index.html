@@ -3686,6 +3686,12 @@ Link to another note with [[its first few words]]."></textarea>
                  a screen reader hears the counts change; still carries the
                  layout sentence as its title. -->
             <span id="graph-stats" class="dock-chip graph-stats" role="status"></span>
+            <!-- Names the layout whenever it is not Force (a saved Tree, Radial
+                 or Arc does not settle or drag, which looks broken to someone
+                 who forgot choosing it); opens the Layout choice. Hidden
+                 under Force. graph-canvas.js `graphSyncLayoutChip`. -->
+            <button id="graph-layout-chip" class="ghost small dock-link hidden" type="button"
+              title="This map is in a fixed layout. Choose a different one."></button>
             <!-- The label is in a span so it can come off below 1200, where
                  this dock's three zones overflow their row by nine pixels and
                  the whole actions group wraps to a second line. See
@@ -3811,7 +3817,9 @@ Link to another note with [[its first few words]]."></textarea>
             spotlight its connections, scroll or use the buttons to zoom, click a
             note to edit it right here, and click a legend colour to hide that
             category. Double-click empty space to add a note there. Gravity and
-            Spread reshape whatever you have not placed yourself.
+            Spread reshape whatever you have not placed yourself. A Tree,
+            Radial or Arc layout stays still and is named in the toolbar; click
+            its name to change it.
             <strong>Drop one note onto another to link them</strong>, and use
             <strong>Trace</strong> to see how any two notes connect.
           </p>

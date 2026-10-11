@@ -1302,6 +1302,11 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_graph.router, dependencies=locked)
     app.include_router(routes_help.router, dependencies=locked)
     app.include_router(routes_reminders.router, dependencies=locked)
+    # A notification's Done and Snooze, pressed by the service worker with a
+    # token scoped to one reminder and those two actions (core/reminder_token.py)
+    # instead of a session: the one route here outside the gate, and why is in
+    # `routes_reminders.act_from_notification` and tests/test_every_route_is_locked.py.
+    app.include_router(routes_reminders.open_router)
     app.include_router(routes_bookmarks.router, dependencies=locked)
     app.include_router(routes_voice.router, dependencies=locked)
     app.include_router(routes_recordings.router, dependencies=locked)

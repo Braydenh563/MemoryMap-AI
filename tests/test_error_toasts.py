@@ -181,7 +181,6 @@ EXPECTED = {
         '"Couldn\'t copy here. Select the command and copy it."',
     ],
     'whiteboard-interchange.js': [
-        '"No flowchart found. Start with a line like: flowchart TD"',
         '"That SVG was not exported from a board here, so it has no board inside it. Insert it as a picture instead."',
     ],
     'whiteboard-library.js': [
@@ -234,6 +233,7 @@ FAULTS = {
     'documents.js': {
         '"The Word writer could not be loaded."': 'the lazy script failed to load: a file missing from the install or a broken fetch',
         '"Couldn\'t open that version."': 'fetching a saved version failed',
+        '"The code panel could not be loaded."': 'the lazy script failed to load: a file missing from the install or a broken fetch',
     },
     'graph-canvas.js': {
         '"The moved notes were not pinned where you left them."': 'the pin save after a group drag failed: the places shown are not the places kept',

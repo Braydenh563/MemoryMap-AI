@@ -2269,6 +2269,8 @@ function applyAppearance() {
   root.dataset.motion = perf ? "reduced" : appearancePref("motion");
   root.dataset.uiMotion = appearancePref("ui-motion");
   root.dataset.progressMotion = appearancePref("progress-motion");
+  // The skeleton shimmer follows the OS reduced-motion setting unless "Always move" was chosen.
+  root.toggleAttribute("data-progress-chosen", prefs.get("progress-motion", null) === "always");
   root.dataset.avatarMotion = appearancePref("avatar-motion");
   root.dataset.avatarFollow = appearancePref("avatar-follow");
   syncNameMarkBuddy();
@@ -3112,6 +3114,7 @@ $("avatar-motion").addEventListener("change", (e) => {
 $("progress-motion").addEventListener("change", (e) => {
   localStorage.setItem("progress-motion", e.target.value);
   document.documentElement.dataset.progressMotion = e.target.value;
+  document.documentElement.toggleAttribute("data-progress-chosen", e.target.value === "always");
   renderProgressMotionHint();
 });
 $("pref-show-thinking-words")?.addEventListener("change", (e) => {

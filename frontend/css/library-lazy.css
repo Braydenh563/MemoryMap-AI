@@ -2686,6 +2686,64 @@
   stroke: none;
 }
 
+/* A map picture's branches, the classic palette in creation order (the
+   server's MAP_BRANCH_PALETTE): a branch's line, box and leaves share its
+   colour; the root and the labels stay neutral. */
+.wb-lib-thumb .wb-thumb-b0 {
+  --thumb-b: #4e79a7;
+}
+
+.wb-lib-thumb .wb-thumb-b1 {
+  --thumb-b: #f28e2c;
+}
+
+.wb-lib-thumb .wb-thumb-b2 {
+  --thumb-b: #e15759;
+}
+
+.wb-lib-thumb .wb-thumb-b3 {
+  --thumb-b: #76b7b2;
+}
+
+.wb-lib-thumb .wb-thumb-b4 {
+  --thumb-b: #59a14f;
+}
+
+.wb-lib-thumb .wb-thumb-b5 {
+  --thumb-b: #edc949;
+}
+
+.wb-lib-thumb .wb-thumb-b6 {
+  --thumb-b: #af7aa1;
+}
+
+.wb-lib-thumb .wb-thumb-b7 {
+  --thumb-b: #ff9da7;
+}
+
+.wb-lib-thumb .wb-thumb-b8 {
+  --thumb-b: #9c755f;
+}
+
+.wb-lib-thumb .wb-thumb-b9 {
+  --thumb-b: #bab0ab;
+}
+
+.wb-lib-thumb .wb-thumb-line[class*="wb-thumb-b"] {
+  stroke: var(--thumb-b);
+  stroke-opacity: 0.9;
+}
+
+.wb-lib-thumb .wb-thumb-node[class*="wb-thumb-b"] {
+  fill: color-mix(in srgb, var(--thumb-b) 16%, var(--card));
+  stroke: var(--thumb-b);
+}
+
+.wb-lib-thumb :is(.wb-thumb-leaf, .wb-thumb-leafbox)[class*="wb-thumb-b"] {
+  fill: var(--thumb-b);
+  fill-opacity: 0.7;
+}
+
 .wb-lib-thumb .wb-thumb-frame {
   fill: color-mix(in srgb, var(--wb-tint) 12%, transparent);
   stroke: color-mix(in srgb, var(--wb-tint) 45%, transparent);
@@ -4768,4 +4826,18 @@ button.ghost.doc-template-choice.wb-template-choice {
   .doc-assist-form > input {
     min-height: var(--target-min);
   }
+}
+
+/* A topic renamed in the contents list: the field with Save and Cancel
+   beside it, in the heading's own place (library.js `contentsRenameTopic`). */
+.contents-topic-rename {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+}
+
+.contents-topic-rename > .graph-topic-rename {
+  flex: 1 1 auto;
+  min-width: 0;
 }

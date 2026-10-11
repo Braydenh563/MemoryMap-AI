@@ -2835,6 +2835,7 @@ async function renderGraphSvg() {
   // exists for exactly this kind of thing.
   $("graph-stats").textContent = parts.join(" · ");
   $("graph-stats").title = shape ? shape.replace(/^\s*: \s*/, "") : "";
+  graphSyncLayoutChip(layoutKind);
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
   // pipeline as search so the two never fight each other.
@@ -4173,7 +4174,7 @@ async function renderGraphPopupTopic(entry) {
   const mark = chip(`ph:circles-three ${topic.name}`, "tag", () => showTopicInGraph(entry.id));
   mark.title = `In the topic ${topic.name}, ${topic.size} notes. Show it on the map`;
   //: `members=1` above: a rename is stored by the topic's notes.
-  const rename = smallButton("ph:pencil-simple", "Rename the topic", () => gcRenameTopicInline(topic, mark));
+  const rename = smallButton("ph:pencil-simple", "Rename the topic", () => gcRenameTopicInline(topic, mark, rename));
   rename.classList.add("icon-only");
   box.append(mark, rename);
   box.classList.remove("hidden");

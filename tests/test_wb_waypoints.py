@@ -20,7 +20,7 @@ SOURCE = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8"
 FORMAT = (ROOT / "frontend" / "js" / "whiteboard-format.js").read_text(encoding="utf-8")
 INDEX = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 FUNCTIONS = (
-    "wbArrowHeadPath", "wbCapPath", "wbElbowSide", "wbElbowCrosses", "wbElbowLeg", "wbElbowDetour",
+    "wbArrowHeadPath", "wbHollowInset", "wbShaftEnd", "wbCapPath", "wbElbowSide", "wbElbowCrosses", "wbElbowLeg", "wbElbowDetour",
     "wbElbowRoute", "wbElbowFloat", "wbElbowEnds", "wbElbowPathD", "wbPolylineAt", "wbLinkPathD",
     "wbLinkShape", "wbCurveThroughSegs", "wbCubicAt", "wbCurvePathD", "wbWaypointInsert",
     "wbLinkWaypoints", "wbLinkDrawnLine", "wbSegmentCross", "wbLineJumpsD", "wbShaftPoints",
@@ -42,7 +42,7 @@ def _node(expr: str):
     node = shutil.which("node")
     if not node:
         pytest.skip("node is not installed")
-    head = "".join(_const(n) for n in ("WB_ELBOW_PAD", "WB_CAP_KINDS", "WB_ER_CAPS", "WB_JUMP_STYLES"))
+    head = "".join(_const(n) for n in ("WB_ELBOW_PAD", "WB_CAP_KINDS", "WB_ER_CAPS", "WB_JUMP_STYLES", "WB_HOLLOW_INSET"))
     script = head + "".join(_function(n) for n in FUNCTIONS) + f"\nconsole.log(JSON.stringify({expr}));\n"
     out = subprocess.run([node, "-e", script], capture_output=True, text=True, check=True)
     return json.loads(out.stdout.strip())

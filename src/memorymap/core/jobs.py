@@ -79,7 +79,11 @@ def _cpu_width() -> int:
 #: environment is a way to corrupt it (`core/extras.py`). Its own lane rather
 #: than the `cpu` one, because an install can take minutes and a laptop with
 #: one core would otherwise read no picture until pip had finished.
-LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1, "batch": 1, "install": 1}
+#:
+#: `notify` holds the desktop reminder notifier's loop (`core/reminder_notifier.py`),
+#: which runs for the life of the process: a lane of its own, so it never
+#: takes a worker a reading or a filing is waiting for.
+LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1, "batch": 1, "install": 1, "notify": 1}
 
 #: The lane each job kind belongs on. A kind missing from here lands on
 #: `DEFAULT_LANE` with a debug line rather than raising.
@@ -119,6 +123,8 @@ KIND_LANES: dict[str, str] = {
     #: Tidy's whole-notebook link reason pass (INBOX 691): no model, but a
     #: notebook-wide walk, so it waits behind nothing a person is waiting on.
     "tidy-link-reasons": "batch",
+    #: The reminder notifier's loop (`core/reminder_notifier.py`).
+    "reminder-notifier": "notify",
 }
 
 DEFAULT_LANE = "cpu"
@@ -138,7 +144,7 @@ PENDING_ROWS_PER_KIND = 10
 #: `extras` is quiet for another reason: `routes_tasks.collect` already draws
 #: an install as its own row, with pip's step and log, and a second generic
 #: "Background job" row for the same install would say the same thing twice.
-QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex", "extras", "embed-switch"})
+QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex", "extras", "embed-switch", "reminder-notifier"})
 
 
 def _start_heartbeat(target):  # noqa: ANN001, ANN202

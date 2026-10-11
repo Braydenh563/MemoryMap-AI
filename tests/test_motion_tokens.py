@@ -347,3 +347,20 @@ def test_every_interface_transition_runs_on_the_switch():
         "cannot turn off; use `--ui-fast`, `--ui-base`, `--ui-slow` or `--ui-exit`:\n"
         + "\n".join(offenders)
     )
+
+
+def test_the_skeleton_shimmer_follows_the_os_unless_always_was_chosen():
+    """The default "always" must not force the shimmer under the OS
+    reduced-motion setting: only an explicit choice (data-progress-chosen,
+    set by settings.js) or an OS that allows motion plays it."""
+    css = _blank_comments((CSS_DIR / "02-chat-graph.css").read_text(encoding="utf-8"))
+    forced = [m for m in re.finditer(r"([^{};]+)\{[^{}]*animation:\s*shimmer[^{}]*!important", css)]
+    assert forced, "no forced shimmer rule found"
+    for m in forced:
+        before = css[: m.start()]
+        in_media = before.rfind("@media") > before.rfind("}\n}") and "reduce)" in before[before.rfind("@media"):]
+        assert "data-progress-chosen" in m.group(1) or in_media, (
+            f"a forced shimmer ignores the OS reduced-motion setting: {' '.join(m.group(1).split())}"
+        )
+    settings = (JS_DIR / "settings.js").read_text(encoding="utf-8")
+    assert 'toggleAttribute("data-progress-chosen"' in settings

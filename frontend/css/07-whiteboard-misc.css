@@ -9396,6 +9396,11 @@ input[type="file"] {
   .dock-identity .dock-chip {
     display: none;
   }
+  /* ...except the map's layout chip: a fixed layout that is not named looks
+     like a broken map, and a phone has no other place that says so. */
+  .dock-identity > #graph-layout-chip:not(.hidden) {
+    display: inline-flex;
+  }
   /* The Chat thread mark is decoration: `aria-hidden`, and it says "this is a
      conversation" on a screen where the conversation is the only thing there.
      It costs 40px of a 330px row, and that is exactly what one height costs
@@ -10981,8 +10986,11 @@ button.finder-row:hover,
   text-align: left;
   cursor: text;
 }
-.dash-find:hover {
-  border-color: var(--accent);
+/* Hover is the one box every button answers with (DESIGN.md, One hover for
+   every button): the veil over the field's ground, the label to full ink. */
+.dash-find:hover,
+.dash-find:focus-visible {
+  background: linear-gradient(var(--hover-veil), var(--hover-veil)), linear-gradient(var(--surface-2), var(--surface-2)), var(--card);
   color: var(--ink);
 }
 .dash-find-text {
@@ -11648,6 +11656,12 @@ button.finder-row:hover,
 .wb-layer-row.is-hidden .wb-layer-eye,
 .wb-layer-row.is-locked .wb-layer-lock {
   opacity: 1;
+}
+/* An eye or lock the layer decides: shown, but quiet, since a press does not
+   change it. */
+.wb-layer-row .is-by-layer {
+  opacity: 0.55;
+  cursor: default;
 }
 .wb-layer-row.drop-above {
   border-top-color: var(--accent);

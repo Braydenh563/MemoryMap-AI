@@ -187,7 +187,11 @@ function renderActCard(holder, event) {
       refreshAfterToolChanges();
       return result;
     });
-  const done = (summary, undo, steps) => {
+  //: `said`: the answer above already read this sentence (a reminder, a new
+  //: note or a pin ran at once), so the card carries only Undo; drawing the
+  //: sentence again made the bubble say it twice. The words stay on the card
+  //: as its accessible name, and a run with nothing to undo draws no card.
+  const done = (summary, undo, steps, said = false) => {
     const row = document.createElement("div");
     row.className = "row";
     if (undo?.length) {
@@ -209,9 +213,15 @@ function renderActCard(holder, event) {
         )
       );
     }
+    if (said) {
+      card.setAttribute("role", "group");
+      card.setAttribute("aria-label", summary);
+      card.replaceChildren(...row.childNodes.length ? [row] : []);
+      return;
+    }
     line(`ph:check-circle ${summary}`, row);
   };
-  if (event.done) done(event.summary || event.label, event.undo, event.steps);
+  if (event.done) done(event.summary || event.label, event.undo, event.steps, true);
   else {
     const notice = document.createElement("p");
     notice.className = "muted";
@@ -224,7 +234,7 @@ function renderActCard(holder, event) {
     );
     line(`ph:warning ${event.label}`, notice, row);
   }
-  holder.appendChild(card);
+  if (card.childElementCount) holder.appendChild(card);
   chatScrollToEnd();
 }
 

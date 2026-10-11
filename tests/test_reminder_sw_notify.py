@@ -33,11 +33,13 @@ def test_the_page_shows_it_through_the_worker_with_done_and_snooze():
     assert "one && !one.early ? one.id : null" in LAZY
 
 
-def test_the_worker_does_done_and_snooze_through_the_reminder_routes():
+def test_the_worker_does_done_and_snooze_through_the_scoped_route():
+    """With the token the server minted for that reminder, never the session's
+    (`tests/test_reminder_scoped_token.py` holds the server's half)."""
     assert 'self.addEventListener("notificationclick"' in SW
-    assert "/reminders/${data.id}/complete?tz_offset_minutes=" in SW
-    assert re.search(r'method: "PUT",\s*headers,\s*body: JSON\.stringify\(\{ due_at:', SW)
-    assert '"X-Auth-Token": data.token' in SW
+    assert "/reminders/${data.id}/notification-act" in SW
+    assert re.search(r"token: data\.token \|\| \"\", action", SW)
+    assert "X-Auth-Token" not in SW
     # A refused act (the session ended) opens the app rather than failing quietly.
     assert "actOnReminder(data, action).catch(() => openReminders())" in SW
     assert 'self.clients.openWindow("/#/reminders")' in SW

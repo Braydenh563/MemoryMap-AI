@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import crypto, desktop_dialog, diskspace, netbind, password_reset, security, vault
+from memorymap.core import crypto, desktop_dialog, diskspace, netbind, password_reset, reminder_token, security, vault
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
@@ -572,6 +572,7 @@ def end_every_session() -> int:
     restored vault row could never unwrap again.
     """
     ended = len(_active_tokens)
+    reminder_token.rotate()
     _active_tokens.clear()
     _media_tickets.clear()
     _owner_seen.clear()
@@ -946,6 +947,8 @@ def lock(
     if not x_auth_token or x_auth_token not in _active_tokens:
         return {"locked": True}
     _active_tokens.pop(x_auth_token or "", None)
+    #: A notification left on screen must not act on a notebook that is locked.
+    reminder_token.rotate()
     _forget_dead_tickets()
     _revoke_media(request, response)
     vault.revoke([x_auth_token or ""])

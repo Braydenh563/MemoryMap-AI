@@ -39,16 +39,23 @@ async function showReminderNotification(title, body, reminderId) {
   if (!registration || !registration.showNotification) return notify(title, body);
   listenToReminderWorker();
   const tag = reminderId ? `reminder-${reminderId}` : "memorymap-reminders";
+  //: **A token for this reminder alone, never the session's.** Whatever is in a
+  //: notification's data sits in the browser's notification store, so the
+  //: worker's Done and Snooze carry a token the server minted for this
+  //: reminder and those two actions, good for a day (`core/reminder_token.py`).
+  //: Without one (the server did not answer) the notification has no buttons.
+  const scoped = reminderId
+    ? await apiJson(`/reminders/${reminderId}/notification-token`, { method: "POST", silent: true }).catch(() => null)
+    : null;
   try {
     await registration.showNotification(title, {
       body,
       icon: "/icon-512.png",
       tag,
-      //: The worker acts with this after the tab is gone: the session's own
-      //: token (it stays in this browser's profile, as localStorage does)
+      //: The worker acts with this after the tab is gone: the scoped token
       //: and the person's offset, for a repeat's next day.
-      data: { id: reminderId || null, token: authToken(), tz: -new Date().getTimezoneOffset() },
-      actions: reminderId
+      data: { id: reminderId || null, token: scoped?.token || null, tz: -new Date().getTimezoneOffset() },
+      actions: scoped?.token
         ? [
             { action: "done", title: "Done" },
             { action: "snooze", title: "Snooze 10 minutes" },

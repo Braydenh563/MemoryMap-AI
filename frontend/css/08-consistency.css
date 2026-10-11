@@ -621,8 +621,7 @@ details[open] > .about-whats-new::before,
 }
 .dock > * > button.ghost.dash-find:hover,
 .dock > * > button.ghost.dash-find:focus-visible {
-  border-color: var(--accent);
-  background: var(--field-inset);
+  background: linear-gradient(var(--hover-veil), var(--hover-veil)), var(--field-inset);
   color: var(--ink);
 }
 /* The one filled control per bar keeps its fill, and the radius everything

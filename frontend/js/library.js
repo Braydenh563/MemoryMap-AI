@@ -11781,14 +11781,26 @@ function contentsRenameTopic(heading, topic) {
   field.value = topic.name;
   field.setAttribute("aria-label", `Rename the topic ${topic.name}`);
   field.title = "Enter to save, Escape to keep the name; empty brings the found name back";
+  //: Save and Cancel beside the field, as on the graph's topic card; their
+  //: mousedown is kept off the field so its blur (which saves) does not fire
+  //: before the press that means Cancel.
+  const edit = document.createElement("div");
+  edit.className = "contents-topic-rename";
+  const saveBtn = smallButton("ph:check", "Save the name", () => finish(true));
+  const cancelBtn = smallButton("ph:x", "Keep the old name", () => finish(false));
+  for (const b of [saveBtn, cancelBtn]) {
+    b.classList.add("icon-only");
+    b.addEventListener("mousedown", (event) => event.preventDefault());
+  }
+  edit.append(field, saveBtn, cancelBtn);
   heading.hidden = true;
-  heading.after(field);
+  heading.after(edit);
   let done = false;
   const finish = async (save) => {
     if (done) return;
     done = true;
     const wanted = field.value.trim();
-    field.remove();
+    edit.remove();
     heading.hidden = false;
     if (!save || wanted === topic.name) {
       heading.focus();

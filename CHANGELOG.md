@@ -7,6 +7,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Reminder notifications: Done and Snooze now work with a token scoped to that one reminder and those two actions (24 hours, signed by the server), instead of your whole session token sitting in the browser's notification store.
+- The Guide's whiteboard keys, board library, board format and mind map features topics are each two shorter topics, so a question lands on the half it is about.
+- Renaming a topic from the Library's Contents list or a note's panel in the graph has Save and Cancel beside the field (Enter saves, Escape cancels).
+- Chat: a reminder (or new note, or pin) made from a chat message says what it did once, not twice; the card keeps Undo.
+- Library: a map template's picture draws each branch in its own colour (the map's branch palette) instead of one grey.
+- Whiteboard: an item on a hidden or locked layer has an eye or lock that says the layer decides (and a press says so); a link's hollow end (diamond, circle or square) stops the line at the shape's edge instead of drawing it through.
+- Graph: a Tree, Radial or Arc map is named in the toolbar with a chip that opens the Layout choice, and notes leaving the picture fade out instead of vanishing.
+- Connections: the Link button on an unlinked mention is a quiet row action (no edge, a tint on hover), the same in a document's panel.
+- The dashboard's search bar answers hover with the same quiet box as every other button, not a coloured edge.
+- The loading placeholder's shimmer follows the system's reduced-motion setting, unless Progress indicators is set to Always move on purpose.
 - Graph: changing the layout, a return to the tab or a saved view moves the notes from where they were, with the camera easing to the new frame (no more vanishing and reappearing); a tree, radial or arc fits the free space, notes new to the picture fade in, and topic outlines are drawn on the force layout only.
 - Graph: the head's '?', settings and ⋯ menus close each other when one opens, so they no longer stack on top of each other (INBOX 796).
 - Graph: a fresh open shows the layout settling again (the notes move into a frame already set on where they end, about a second, the same on a return to the tab), Fit fills the space the dock, legend, minimap, zoom strip and any open panel leave, a fitted map refits when a panel opens or closes, and a small map spreads so its dots have room (INBOX 775, 792).

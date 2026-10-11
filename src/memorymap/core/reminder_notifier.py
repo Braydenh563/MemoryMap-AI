@@ -28,11 +28,14 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 from xml.sax.saxutils import escape as xml_escape
+
+from memorymap.core.subproc import NO_WINDOW
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +137,8 @@ def _gvariant_string(text: str) -> str:
 def _notify_send_reads_actions() -> bool:
     try:
         shown = subprocess.run(
-            ["notify-send", "--help"], capture_output=True, text=True, timeout=5, check=False
+            ["notify-send", "--help"], capture_output=True, text=True, timeout=5, check=False,
+            creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError):
         return False
@@ -306,7 +310,10 @@ class ReminderNotifier:
         self.send_reads_actions = backend == "notify-send" and _notify_send_reads_actions()
         self.frozen = bool(getattr(sys, "frozen", False))
         self.stopped = threading.Event()
-        self.thread: threading.Thread | None = None
+        #: Notifications whose buttons are being listened for: (process,
+        #: give-up time, reminder id). Polled by the loop itself, so a
+        #: waiting notification holds no thread of its own.
+        self.listening: list[tuple[subprocess.Popen, float, int | None]] = []
 
     @staticmethod
     def _default_session():
@@ -353,28 +360,51 @@ class ReminderNotifier:
             frozen=self.frozen,
         )
         if listens:
-            threading.Thread(
-                target=self._post_and_listen, args=(argv, extra, reminder_id), daemon=True,
-                name="reminder-notification",
-            ).start()
+            self._listen(argv, extra, reminder_id)
         else:
             self._spawn(argv, extra, wait=10)
 
     def _spawn(self, argv: list[str], extra: dict[str, str], wait: float):
-        flags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
         try:
             return self.run(
                 argv, env={**os.environ, **extra}, capture_output=True, text=True,
-                timeout=wait, check=False, creationflags=flags,
+                timeout=wait, check=False, creationflags=NO_WINDOW,
             )
         except (OSError, subprocess.SubprocessError) as exc:
             logger.warning("the reminder notification did not show: %s", exc)
             return None
 
-    def _post_and_listen(self, argv: list[str], extra: dict[str, str], reminder_id: int | None) -> None:
-        done = self._spawn(argv, extra, wait=ACTION_WAIT_S + 30)
-        answer = (getattr(done, "stdout", "") or "").strip().splitlines()
-        self.answer(answer[-1] if answer else "", reminder_id)
+    def _listen(self, argv: list[str], extra: dict[str, str], reminder_id: int | None) -> None:
+        try:
+            proc = subprocess.Popen(  # noqa: S603  # argv is built by build_command, never from a shell string
+                argv, env={**os.environ, **extra}, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                text=True, creationflags=NO_WINDOW,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.warning("the reminder notification did not show: %s", exc)
+            return
+        self.listening.append((proc, time.monotonic() + ACTION_WAIT_S + 30, reminder_id))
+
+    def collect(self) -> None:
+        """Apply the button of each notification that has ended, and give up
+        on one nobody answered."""
+        waiting = []
+        for proc, give_up, reminder_id in self.listening:
+            if proc.poll() is None and time.monotonic() < give_up:
+                waiting.append((proc, give_up, reminder_id))
+                continue
+            if proc.poll() is None:
+                proc.kill()
+            try:
+                answer = (proc.stdout.read() if proc.stdout else "").strip().splitlines()
+            except (OSError, ValueError):
+                answer = []
+            finally:
+                if proc.stdout:
+                    proc.stdout.close()
+                proc.wait()
+            self.answer(answer[-1] if answer else "", reminder_id)
+        self.listening = waiting
 
     def answer(self, action: str, reminder_id: int | None) -> None:
         try:
@@ -386,17 +416,27 @@ class ReminderNotifier:
             logger.warning("the notification's %s did not apply: %s", action, exc)
 
     def loop(self) -> None:
-        while not self.stopped.is_set():
-            try:
-                wait = self.tick()
-            except Exception as exc:  # noqa: BLE001  # the next look may work
-                logger.warning("reminder check failed: %s", exc)
-                wait = MAX_SLEEP_S
-            self.stopped.wait(wait)
+        """Runs as a job on the pool's `notify` lane, until `stop`."""
+        try:
+            while not self.stopped.is_set():
+                try:
+                    wait = self.tick()
+                    self.collect()
+                except Exception as exc:  # noqa: BLE001  # the next look may work
+                    logger.warning("reminder check failed: %s", exc)
+                    wait = MAX_SLEEP_S
+                #: A notification being listened for is looked at every second, so a
+                #: button answers promptly.
+                self.stopped.wait(min(wait, 1.0) if self.listening else wait)
+        finally:
+            for proc, _, _ in self.listening:
+                proc.kill()
+            self.listening = []
 
     def start(self) -> "ReminderNotifier":
-        self.thread = threading.Thread(target=self.loop, daemon=True, name="reminder-notifier")
-        self.thread.start()
+        from memorymap.core import jobs
+
+        jobs.enqueue("reminder-notifier", self.loop, name="reminder notifier")
         return self
 
     def stop(self) -> None:

@@ -5699,8 +5699,28 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   gap: var(--space-2);
   padding-left: 0.25rem;
 }
-.doc-backlink-action {
+/* A list row's action is quiet (the recipe the insight verdicts and Tidy's
+   dismiss share): no edge or fill at rest, the veil on hover and focus. It was
+   a bordered ghost button, the loudest thing on a row of text. */
+.doc-backlink-foot > button.doc-backlink-action {
   flex: 0 0 auto;
+  min-height: var(--control-h-dense);
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.doc-backlink-foot > button.doc-backlink-action:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--hover-veil);
+  color: var(--ink);
+}
+@media (pointer: coarse) {
+  .doc-backlink-foot > button.doc-backlink-action {
+    min-height: var(--target-min);
+  }
 }
 /* Unlinked mentions is the backlinks section's shape exactly, so the two read
    as one panel. The help line is the section's one line of description

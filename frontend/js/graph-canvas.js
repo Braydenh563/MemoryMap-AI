@@ -1565,6 +1565,37 @@ function gcBornAlpha(node, now) {
   return Math.max(0, share);
 }
 
+//: **A note leaving the picture fades out where it stood** (a hidden
+//: category, a filter, a local view's neighbours): its halo is kept as a
+//: ghost for `GC_BORN_MS`, drawn without links, hit tests or labels. Less
+//: motion cuts, as a note arriving does.
+const GC_LEAVING_MAX = 300;
+function gcMarkLeaving(s, before, nodes) {
+  s.leaving = null;
+  if (!before?.length || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+  const now = performance.now();
+  const staying = new Set(nodes.map((n) => n.id));
+  const gone = before.filter((n) => !staying.has(n.id) && Number.isFinite(n.x) && Number.isFinite(n.y) && n.colour);
+  if (!gone.length || gone.length > GC_LEAVING_MAX) return;
+  s.leaving = gone.map((n) => ({ x: n.x, y: n.y, r: n.r || 6, colour: n.colour, at: now }));
+}
+function gcDrawLeaving(ctx, s, now) {
+  if (!s.leaving?.length) return;
+  let live = 0;
+  for (const ghost of s.leaving) {
+    const share = (now - ghost.at) / GC_BORN_MS;
+    if (share >= 1) continue;
+    live += 1;
+    ctx.globalAlpha = 0.9 * (1 - gcEaseOut(share));
+    ctx.fillStyle = ghost.colour;
+    ctx.beginPath();
+    ctx.arc(ghost.x, ghost.y, ghost.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (live) s.bornPending = true;
+  else s.leaving = null;
+}
+
 //: `1 - (1 - t)^3`: fast away from the start, settling at the end. The same
 //: shape as the `cubic-bezier(0.2, 0.8, 0.3, 1)` the stylesheet uses for the
 //: SVG renderer's version of this, so the two renderers feel the same.
@@ -2233,6 +2264,7 @@ function gcDraw(s = gcTab) {
     ctx.fill(batch.path);
   }
   s.lodNodes = lodNodes;
+  gcDrawLeaving(ctx, s, bornAt);
   //: The hovered node's halo, lit. A second fill over the one the batch
   //: already laid down, because pulling this node out of its colour batch to
   //: give it a different alpha would cost a fill per colour rather than a fill
@@ -4649,6 +4681,7 @@ async function renderGraphCanvas(s = gcTab) {
   //: glides across; on the force layout the worker carries the notes, and
   //: only a note new to the picture is marked to fade in.
   if (!s.tree && prior.size) gcTweenFromPrior(s, nodes, prior, false);
+  gcMarkLeaving(s, graphNodesRef, nodes);
   s.epoch += 1;
   s.nodes = nodes;
   s.edges = edges;
@@ -5006,6 +5039,32 @@ function graphRenderStats(data, nodes, edges, colourMode, layoutKind) {
             : "";
   line.textContent = parts.join(" · ");
   line.title = shape;
+  graphSyncLayoutChip(layoutKind);
+}
+
+//: **The map says which layout it is in when it is not Force.** A saved Tree
+//: or Arc is static by design (no drag, no settling), which read as a broken
+//: graph to someone who had forgotten choosing it. The dock's chip names it
+//: and opens the Layout choice (the gear's panel, or the phone's sheet).
+function graphSyncLayoutChip(layoutKind) {
+  const chip = document.getElementById("graph-layout-chip");
+  if (!chip) return;
+  const named = layoutKind && layoutKind !== "force";
+  chip.classList.toggle("hidden", !named);
+  if (named) setLabel(chip, `ph:tree-structure ${layoutKind[0].toUpperCase()}${layoutKind.slice(1)} layout`);
+  if (chip._wired) return;
+  chip._wired = true;
+  chip.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (window.matchMedia(PHONE_TABS).matches) {
+      if (!graphSheetClose) openGraphControlsSheet(chip);
+    } else {
+      setGraphOptionsOpen(true);
+    }
+    //: A timeout, not a frame: the wake-source ratchet counts frame loops, and
+    //: this runs once after the panel or sheet is in place.
+    setTimeout(() => document.getElementById("graph-layout")?.focus(), 0);
+  });
 }
 
 //: The time slider's bounds, recomputed every render. They used to be computed

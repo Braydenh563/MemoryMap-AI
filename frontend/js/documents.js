@@ -12584,7 +12584,7 @@ function initDocSidebarTabs() {
 //: The code panel's ways in (INBOX 788), each fetching documents-codekit.js
 //: on its first press. `keep` reopens a tab without toggling it shut.
 async function docCodeSideFrom(tab, keep = false) {
-  if (!(await lazyScript("/js/documents-codekit.js"))) return toast("The code panel could not be loaded.", true);
+  if (!(await lazyScript("/js/documents-codekit.js"))) return toast("The code panel could not be loaded.", true, { action: ["Try again", () => docCodeSideFrom(tab, keep)] });
   if (keep) docCodeSideOpen(tab, { auto: true });
   else docCodeSideToggle(tab);
 }

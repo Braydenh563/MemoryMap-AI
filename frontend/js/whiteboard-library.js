@@ -1536,6 +1536,21 @@ function wbNamedLayerOf(kind, item) {
   return kind === "object" ? item.data?.layer || null : null;
 }
 
+//: **The layer wins** over an item's own eye or lock. An item on a hidden or
+//: locked named layer is hidden or locked whatever its own flag says
+//: (`wbItemHidden`, `wbIsLocked`), so its eye changed nothing visible. Rather
+//: than a second per-item override to explain, the row says whose state it is
+//: and the toggle points at the layer. Returns that layer or null.
+function wbLayerOwning(kind, item, flag) {
+  const id = wbNamedLayerOf(kind, item);
+  return (id && (wbState.layers || []).find((l) => l.id === id && l[flag])) || null;
+}
+
+function wbLayerSaysOwner(text) {
+  toast(text);
+  wbAnnounce(text);
+}
+
 async function wbSaveNamedLayers(layers, { undo = true, said = "" } = {}) {
   const id = window.currentBoardId;
   if (!id) {
@@ -1748,8 +1763,14 @@ function wbRenderLayers() {
     li.draggable = true;
     li.setAttribute("aria-selected", selected.has(key) ? "true" : "false");
     icon.className = `ph ${wbLayerIcon(row.kind, row.item)} wb-layer-icon`;
-    const eye = wbLayerButton("wb-layer-eye", hidden ? "ph-eye-slash" : "ph-eye", hidden ? "Show it (H)" : "Hide it (H)");
-    const lock = wbLayerButton("wb-layer-lock", locked ? "ph-lock-simple" : "ph-lock-simple-open", locked ? "Unlock it (L)" : "Lock it (L)");
+    const hideLayer = wbLayerOwning(row.kind, row.item, "hidden");
+    const lockLayer = wbLayerOwning(row.kind, row.item, "locked");
+    const eye = wbLayerButton("wb-layer-eye", hidden ? "ph-eye-slash" : "ph-eye",
+      hideLayer ? `Hidden by its layer, ${hideLayer.name}. Show the layer to see it.` : hidden ? "Show it (H)" : "Hide it (H)");
+    const lock = wbLayerButton("wb-layer-lock", locked ? "ph-lock-simple" : "ph-lock-simple-open",
+      lockLayer ? `Locked by its layer, ${lockLayer.name}. Unlock the layer to edit it.` : locked ? "Unlock it (L)" : "Lock it (L)");
+    eye.classList.toggle("is-by-layer", Boolean(hideLayer));
+    lock.classList.toggle("is-by-layer", Boolean(lockLayer));
     li.classList.toggle("is-hidden", hidden);
     li.classList.toggle("is-locked", locked);
     li.append(icon, name, eye, lock);
@@ -1821,6 +1842,8 @@ async function wbLayerToggleHidden(li) {
   const entry = wbLayerEntry(li);
   if (!entry) return;
   const [kind, item] = entry;
+  const hideLayer = wbLayerOwning(kind, item, "hidden");
+  if (hideLayer) return wbLayerSaysOwner(`${wbLayerName(kind, item)} is hidden by its layer, ${hideLayer.name}. Show the layer to see it.`);
   const on = !wbItemHidden(kind, item);
   if (on && wbSelectedItem?.kind === kind && wbSelectedItem.id === item.id) clearWbSelection();
   await wbSetHidden([[kind, item]], on);
@@ -1834,6 +1857,8 @@ async function wbLayerToggleLock(li) {
   const entry = wbLayerEntry(li);
   if (!entry) return;
   const [kind, item] = entry;
+  const lockLayer = wbLayerOwning(kind, item, "locked");
+  if (lockLayer) return wbLayerSaysOwner(`${wbLayerName(kind, item)} is locked by its layer, ${lockLayer.name}. Unlock the layer to edit it.`);
   const on = !wbIsLocked(kind, item);
   if (on && wbSelectedItem?.kind === kind && wbSelectedItem.id === item.id) clearWbSelection();
   await wbSetLocked([[kind, item]], on);

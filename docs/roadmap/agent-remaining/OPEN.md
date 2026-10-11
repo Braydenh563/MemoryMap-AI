@@ -333,6 +333,15 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the followups agent (merged 2026-10-11)
+
+Detail: [followups-1011.md](../archive/agent-remaining/followups-1011.md).
+
+- Free lines and arrows (not links) still draw the shaft through hollow ends: their stored path is re-read as the endpoints, so trimming would drift the line.
+- The reminder action token's key is per process (the app has no persisted signing secret): a restart ends open notifications' buttons.
+- Still open from uipolish: the rows-view 28px meta button in a 24px line, the tool-confirm pair, lowering BOOT_CSS_CAP.
+- cifix5: a quit with the reminder notifier running can wait up to the job pool's 5 s deadline (stop_notifier runs after the pool's shutdown path).
+
 ## Left by the codedocs agent (INBOX 788, merged 2026-10-11)
 
 Detail: [codedocs-1010.md](../archive/agent-remaining/codedocs-1010.md).

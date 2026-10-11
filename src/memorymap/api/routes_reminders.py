@@ -17,13 +17,21 @@ from sqlalchemy.orm import Session
 from typing import Annotated, Literal
 
 from memorymap.ai import recognise as rec
-from memorymap.core import deps
+from memorymap.core import deps, reminder_token
 from memorymap.core.database import Document, Entry, Reminder, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import extract_title, log_action, plain_label, readable_content
 from memorymap.entry.properties import strip as strip_properties
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
+#: The one route outside the unlock gate: a notification's Done and Snooze,
+#: which act with a token scoped to that reminder (`core/reminder_token.py`),
+#: not a session. Included without `locked` in app.py; the reason is in
+#: `tests/test_every_route_is_locked.py`'s open list.
+open_router = APIRouter(prefix="/reminders", tags=["reminders"])
+
+#: What Snooze on a notification moves the time on by.
+NOTIFICATION_SNOOZE = timedelta(minutes=10)
 
 Priority = Literal["low", "normal", "high"]
 #: The three words, or a rule the reader keeps as itself (every weekday,
@@ -577,6 +585,13 @@ def complete_reminder(
     due, for the undo."""
     reminder = _existing(session, reminder_id)
     was = reminder.due_at.isoformat()
+    _complete(session, reminder, tz_offset_minutes)
+    session.commit()
+    return {**_to_out(session, reminder), "was_due_at": was}
+
+
+def _complete(session: Session, reminder: Reminder, tz_offset_minutes: int) -> None:
+    """Done, or the next time of a repeating one (see `complete_reminder`)."""
     if reminder.recurring and reminder.recurring != "none":
         shift = timedelta(minutes=tz_offset_minutes)
         due = reminder.due_at.replace(tzinfo=None) + shift
@@ -591,8 +606,48 @@ def complete_reminder(
     else:
         reminder.done = True
         log_action(session, "edited", "reminder", reminder.id, "done")
+
+
+@router.post("/{reminder_id}/notification-token")
+def notification_token(reminder_id: int, session: Session = Depends(get_session)) -> dict:
+    """A token for this reminder's notification: Done and Snooze for the next
+    24 hours, for this reminder only (`core/reminder_token.py`). The page asks
+    when it shows the notification and hands the token to the service worker,
+    so the person's session token never sits in the notification's data."""
+    _existing(session, reminder_id)
+    return reminder_token.mint(reminder_id)
+
+
+class NotificationAct(BaseModel):
+    token: str = Field(min_length=1, max_length=200)
+    action: Literal["done", "snooze"]
+    #: Minutes east of UTC, for the next day of a repeating reminder.
+    tz_offset_minutes: int = Field(default=0, ge=-840, le=840)
+
+
+@open_router.post("/{reminder_id}/notification-act")
+def act_from_notification(
+    reminder_id: int, body: NotificationAct, session: Session = Depends(get_session)
+) -> dict:
+    """Done or Snooze 10 minutes from a notification, with no session.
+
+    Outside the unlock gate on purpose: the service worker presses it after
+    the tab is gone and holds only the scoped token the page asked for
+    (`notification_token`). The token is checked **before the reminder is
+    looked at**, names this one reminder and these two actions, and expires in
+    a day; anything else answers 401 with the same words, so a stranger learns
+    nothing about which reminders exist. The answer carries no reminder."""
+    if not reminder_token.verify(body.token, reminder_id, body.action):
+        raise HTTPException(status_code=401, detail="That notification can no longer do this.")
+    reminder = _existing(session, reminder_id)
+    if body.action == "done":
+        _complete(session, reminder, body.tz_offset_minutes)
+    else:
+        reminder.due_at = utcnow() + NOTIFICATION_SNOOZE
+        reminder.done = False
+        log_action(session, "edited", "reminder", reminder.id, "snoozed")
     session.commit()
-    return {**_to_out(session, reminder), "was_due_at": was}
+    return {"ok": True, "action": body.action}
 
 
 @router.delete("/{reminder_id}")

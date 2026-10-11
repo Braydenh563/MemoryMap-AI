@@ -2698,9 +2698,19 @@ kbd {
 :root[data-progress-motion="always"] .spinner {
   animation: spinner-turn var(--spinner-turn) linear infinite !important;
 }
-:root[data-progress-motion="always"] .skeleton,
-:root[data-progress-motion="always"] .entry-list li.skeleton {
+/* The shimmer is a sweep across the whole bar, so unlike the spinner it
+   follows the OS reduced-motion setting by default: it runs under "always"
+   only when the system allows motion, or when "Always move" was chosen
+   explicitly (data-progress-chosen, settings.js). */
+:root[data-progress-chosen][data-progress-motion="always"] .skeleton,
+:root[data-progress-chosen][data-progress-motion="always"] .entry-list li.skeleton {
   animation: shimmer 2s ease-in-out infinite !important;
+}
+@media not all and (prefers-reduced-motion: reduce) {
+  :root[data-progress-motion="always"] .skeleton,
+  :root[data-progress-motion="always"] .entry-list li.skeleton {
+    animation: shimmer 2s ease-in-out infinite !important;
+  }
 }
 :root[data-progress-motion="always"] button.recording {
   animation: pulse-rec 1.2s ease-in-out infinite !important;

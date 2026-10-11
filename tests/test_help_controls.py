@@ -238,8 +238,11 @@ def _longest_offline_answer() -> str:
 
 @pytest.mark.parametrize("route", ["/help/ask", "/help/ask/stream"])
 def test_the_question_after_a_controls_answer_is_still_answered(client, route):
-    first = client.post("/help/ask", json={"question": "what are all the whiteboard shortcuts"}).json()
-    assert len(first["system"]["content"]) > help_chat.MAX_MESSAGE_CHARS, "the case this guards is a long answer"
+    #: The four entries at the reply budget were each split in two (board
+    #: library, whiteboard keys, board format, mind map features), so "all the
+    #: whiteboard shortcuts" is no longer one long answer; the case this guards
+    #: is the longest answer the Guide can still give.
+    assert len(_longest_offline_answer()) > help_chat.MAX_MESSAGE_CHARS, "the case this guards is a long answer"
     history = [
         {"role": "user", "content": "what are all the whiteboard shortcuts"},
         {"role": "assistant", "content": _longest_offline_answer()},
@@ -302,3 +305,23 @@ def test_both_guide_routes_answer_in_the_guide_preset(ai_client, fake_ollama, mo
     fake_ollama.librarian_reply = "Tab adds a child."
     assert ai_client.post("/help/ask", json={"question": "mind map keys"}).status_code == 200
     assert modes and modes[-1] == presets.GUIDE_MODE
+
+
+def test_no_guide_topic_sits_at_the_reply_budget():
+    """The four entries that sat at 1,917 to 1,919 of the 1,920 characters the
+    Guide's reply cap holds (board library, whiteboard keys, board format, mind
+    map features) are each two topics along their natural seam, so a later help
+    edit has room: every body is under 1,600."""
+    from memorymap.ai import presets
+
+    budget = presets.resolve(presets.GUIDE_MODE).max_output_tokens * 3
+    by_id = {t["id"]: len(t["body"]) for t in help_chat.HELP_TOPICS}
+    for first, second in (
+        ("board-library", "board-library-saving"),
+        ("whiteboard-controls", "whiteboard-selection"),
+        ("board-format", "board-connectors"),
+        ("mind-map-features", "mind-map-import-export"),
+    ):
+        assert first in by_id and second in by_id, (first, second)
+        assert by_id[first] < 1600 and by_id[second] < 1600, (first, by_id[first], second, by_id[second])
+    assert max(by_id.values()) < budget

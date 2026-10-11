@@ -5241,6 +5241,33 @@ def test_every_button_answers_hover_with_the_same_quiet_box() -> None:
     assert not bad, "an icon button's hover departs from the one recipe (DESIGN.md, One hover for every button):\n" + "\n".join(bad)
 
 
+def test_the_dashboards_search_doorway_answers_hover_with_the_box() -> None:
+    """`.dash-find` was the one button answering hover with its glyph and an
+    accent edge. It takes the veil box and full ink like every other button."""
+    bad = []
+    found = 0
+    for name, sels, body in _served_rules():
+        if not any("dash-find" in s and (":hover" in s or ":focus-visible" in s) for s in sels):
+            continue
+        found += 1
+        if "--hover-veil" not in body:
+            bad.append(f"{name}: {sels[0][:70]} has no veil")
+        if re.search(r"border-color\s*:\s*var\(--accent", body):
+            bad.append(f"{name}: {sels[0][:70]} answers with the accent edge")
+    assert found >= 2 and not bad, "\n".join(bad) or "the .dash-find hover rules are gone"
+
+
+def test_a_backlink_row_action_is_the_quiet_row_action() -> None:
+    """The unlinked mention's Link (Connections and a document's panel) was a
+    bordered ghost button. It is the list row's action: no edge or fill at
+    rest, the veil on hover, like the insight verdicts."""
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    m = re.search(r"\.doc-backlink-foot > button\.doc-backlink-action \{([^}]*)\}", css)
+    assert m, "the backlink action's row recipe is gone"
+    assert re.search(r"border:\s*0", m.group(1)) and "background: transparent" in m.group(1)
+    assert re.search(r"doc-backlink-action:is\(:hover, :focus-visible\):not\(:disabled\) \{\s*background: var\(--hover-veil\)", css)
+
+
 def test_every_help_trigger_is_one_shape() -> None:
     """The owner: "Some tooltip buttons are circles and some are rounded squares"."""
     round_ = []

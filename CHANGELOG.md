@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Notes: a meeting's card shows a glance (the first agenda item, the decisions, the open action items) instead of its raw headings; Show the whole note opens the text, and so does a search.
+- Dashboard: at a phone's width two Quick access tiles fit whole and the third shows its edge, instead of the second starting at the right edge.
 - Pickers: the Attach picker's five sources and the library picker's sources are a tab strip with a count on each, not a pill well; it scrolls when the words do not fit (INBOX 715).
 - Live captions: a Translate button in the bar writes each finished line in Spanish under the captions, on this computer, once the offline translator is installed. The note Stop saves keeps what was said.
 - Recordings: the Trim sheet says how much memory a long recording takes (about 12 MB a minute) before it is made, from 20 minutes up.

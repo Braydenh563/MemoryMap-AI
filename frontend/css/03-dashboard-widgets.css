@@ -2548,6 +2548,37 @@ header#top-bar select,
    and two-line clamp; at four lines it made "Show more" re-space the same
    lines (19.1px to 22.8px a line, measured), which reads as the button doing
    nothing but moving text. One line height, the paragraph's, both ways. */
+/* A meeting card (note-cards.js `meetingGlance`): the glance shows until the
+   whole note is asked for, by the toggle, a search, or the caret in rows view. */
+.meeting-card:not(.meeting-open):not(.row-expanded) > .entry-content,
+.meeting-card.meeting-open > .meeting-glance,
+.meeting-card.row-expanded > .meeting-glance {
+  display: none;
+}
+
+.meeting-glance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.meeting-glance-row {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meeting-glance-label {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.entry-list.is-rows li:not(.row-expanded) .meeting-glance-row:nth-child(n + 2) {
+  display: none;
+}
+
 #entry-list:not(.is-rows) .entry-content.entry-clamped {
   margin-bottom: 0.1rem;
 }

@@ -603,7 +603,8 @@ HELP_TOPICS: list[dict] = [
             "with no AI: Summarise then reads lines saying decided, agreed, "
             "Action or TODO, or a name taking a task, and says so; with the AI "
             "on it rewords the same list. Every meeting is under Notes, "
-            "Meetings, and sits on the Timeline at its own date."
+            "Meetings, and sits on the Timeline at its own date. Its card shows the first agenda item, "
+            "the decisions and the open action items; Show the whole note opens the text."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },

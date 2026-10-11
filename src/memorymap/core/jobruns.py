@@ -72,6 +72,9 @@ KINDS: dict[str, str] = {
     "caption": "Image captions",
     "model-download": "Model download",
     "embedding-model": "Embedding model download",
+    #: The search model fetched or fixed by the app itself on a load that
+    #: found it missing or broken (INBOX 1289).
+    "embedding-fix": "Search model fix",
     "embed-switch": "Embedding model switch",
     "maintenance": "Housekeeping",
     #: Notes saved before written-out dates were read (`entry/redate.py`).
@@ -198,6 +201,11 @@ def clear_finished() -> None:
 #: a restart ends the runs, and `mark_interrupted` settles their rows.
 _live: list["Run"] = []
 _live_lock = threading.Lock()
+
+#: The scheduled passes someone pressed Stop on (`core/passes.py` adds and
+#: clears; a pass's own loop reads it between steps). Here, below both, so
+#: `ai/embeddings.py` can read it without importing the module that imports it.
+stop_asked: set[str] = set()
 
 
 def clear_live() -> None:

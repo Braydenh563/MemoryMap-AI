@@ -2071,6 +2071,8 @@ def embedding_model_choices() -> dict:
             row["downloaded"] = row["model"] in pulled or f"{row['model']}:latest" in pulled
     return {
         "choices": choices,
+        #: Where the built-in models are kept, said in words under the list.
+        "cache": str(embedmodels.cache_root()),
         #: Already on this computer, outside the catalogue (the owner's
         #: addendum): a read-only scan, offline.
         "found": embedfind.found(deps.get_ollama()),

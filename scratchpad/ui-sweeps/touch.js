@@ -95,7 +95,11 @@ const SURFACES = [
     openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-debug.js', content: 'function f(n) {\\n  return n * 2;\\n}\\nvar x = f(1);\\n', file_type: 'js' }) }); await loadDocuments(d.id); await new Promise((r) => setTimeout(r, 800)); docDebugToggleAt(docCmView, docCmView.state.doc.line(2).from); DOC_DEBUG.watches.push('n'); await docRunCode({ mode: 'debug' }); })()" },
   ...['general', 'models', 'appearance', 'preferences', 'data', 'privacy', 'account'].map((section) => ({
     tab: 'notes', label: `Settings ${section}`, sel: `#settings-modal #settings-${section}`,
-    openFn: `openSettingsModal('${section}')`, close: '#settings-close' })),
+    //: The first open loads settings-controls.js and the section's own bundle;
+    //: 900 ms was not always enough, and a section still loading measured as "did
+    //: not open" (INBOX 1308 named appearance and privacy, then general, models,
+    //: preferences and data on a loaded machine).
+    openFn: `openSettingsModal('${section}')`, wait: 4000, close: '#settings-close' })),
 ];
 
 (async () => {

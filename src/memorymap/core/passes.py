@@ -13,7 +13,8 @@ when it runs, starting one now, and stopping one that is going.
   autonomous pass keeps its own runner, `autonomous.trigger_now`, which is
   already deduped, and its own master switch.
 - **Stop** ends a pass at its next step: the autonomous pass through its own
-  cancel, housekeeping between its steps. A pass that is one call with no
+  cancel, housekeeping between its steps, the embeddings backfill between
+  its batches. A pass that is one call with no
   step between (a backup, the fading-notes scores) says it cannot be stopped
   part way, which is the truth `core/bgtasks.py` tells for the same shape.
 """
@@ -24,17 +25,19 @@ import logging
 import threading
 from collections.abc import Callable
 
+from memorymap.core import jobruns
+
 logger = logging.getLogger("memorymap.passes")
 
 #: The scheduled passes, by their `jobruns` kind, in the overview's order.
 PASS_KINDS = ("autonomous", "night-shift", "backup", "resurface", "embeddings-backfill", "maintenance")
 
 #: Passes Stop can end part way, at their next step.
-STOPPABLE = frozenset({"autonomous", "maintenance"})
+STOPPABLE = frozenset({"autonomous", "maintenance", "embeddings-backfill"})
 
 _lock = threading.Lock()
 _running: set[str] = set()
-_stop: set[str] = set()
+_stop = jobruns.stop_asked
 
 
 def _label(kind: str) -> str:
@@ -92,6 +95,13 @@ def stop_requested(kind: str) -> bool:
     """For a pass's own loop: has someone pressed Stop?"""
     with _lock:
         return kind in _stop
+
+
+def clear_stop(kind: str) -> None:
+    """A pass that has stopped takes its Stop request with it, so a run that
+    started on its own (no `_run` to clear it) is not ended by a stale one."""
+    with _lock:
+        _stop.discard(kind)
 
 
 # -- the runners --------------------------------------------------------------

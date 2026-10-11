@@ -844,6 +844,7 @@
           <span class="muted text-sm">Sort</span>
           <select id="finder-sort" class="ghost small" aria-label="Sort results">
             <option value="best">Best match</option>
+            <option value="category">Group by category</option>
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
           </select>
@@ -9913,6 +9914,7 @@ Link to another note with [[its first few words]]."></textarea>
               <p class="muted">Pick one; search keeps working on the current model while the new one reads your notes.</p>
               <ul id="embed-choices" class="extras-list" aria-label="Embedding models"></ul>
               <p id="embed-choices-status" class="muted small" role="status"></p>
+              <p id="embed-choices-cache" class="muted extras-meta"></p>
               <!-- The owner's addenda to 700: models already on this computer
                    (core/embedfind.py, a read-only scan), and pulling one by
                    name (POST /embedding-models/pull). -->
@@ -11580,41 +11582,10 @@ Link to another note with [[its first few words]]."></textarea>
             </details>
             </div>
 
-            <!-- Embedding models. On this screen rather than its own, because
-                 the question it answers, "what has this app put on my disk,
-                 and can I have it back?", is the same question the packages
-                 above answer, and one screen that says "everything downloaded"
-                 beats two that each say half of it.
-
-                 Asked for after a look at Settings → Logs, where the hub's
-                 cache-validation requests on every start read as a re-download.
-                 They are not one; the note below says so where it will be read. -->
-            <div class="fold-help-wrap">
-              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
-                data-help-for="embedding-models-help" aria-controls="embedding-models-help" aria-expanded="false"
-                title="About embedding models" aria-label="About embedding models">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
-            <details class="settings-group settings-fold" data-fold-key="extras-embeddings">
-              <summary><div class="row help-head">
-                <h3 class="inline-h3">Embedding models</h3>
-                <span class="fold-help-slot" aria-hidden="true"></span>
-              </div></summary>
-              <p class="muted">What “search by meaning” uses to understand a note.</p>
-              <div class="help-body hidden" id="embedding-models-help" role="dialog" aria-label="About embedding models">
-                <p>
-                  What “search by meaning” uses to understand a note. The
-                  model is downloaded <strong>once</strong> and kept on this
-                  machine, the HuggingFace requests in the log on every
-                  start are checking the copy you already have, not
-                  fetching it again.
-                </p>
-              </div>
-              <ul id="embed-models-list" class="extras-list"></ul>
-              <p id="embed-models-cache" class="muted extras-meta"></p>
-              <p id="embed-models-status" class="status" role="status"></p>
-            </details>
-            </div>
+            <!-- Embedding models live in Search and index (INBOX 700): they
+                 were a second list here that did the same and less. -->
+            <p class="muted" id="packages-embed-pointer">Embedding models, what search by meaning uses, are in
+              <button type="button" class="link-button" id="packages-embed-link">Search and index</button>.</p>
           </section>
 
           <section class="settings-section hidden" id="settings-shortcuts">

@@ -275,3 +275,133 @@ def test_a_new_notebook_files_its_first_note_without_loading_the_embedding_model
     assert janitor._semantic_category(session, "the spare key is under the blue pot", emb) is None
     assert janitor._best_centroid_match(session, "the spare key", emb) is None
     assert janitor._knn_match(session, "the spare key", emb) is None
+
+
+def test_a_model_that_stalled_is_not_waited_for_again_note_after_note():
+    """INBOX 1312: twenty notes against a model that never answers each waited
+    its own 15 s in turn (about 300 s). After one miss the next ones file by
+    meaning at once."""
+    from memorymap.ai import janitor
+
+    calls = []
+
+    class _Hung:
+        def chat(self, model, messages, mode=None):
+            calls.append(1)
+            time.sleep(1.5)
+            return {"content": "{}"}
+
+    hung = _Hung()
+    with pytest.raises(TimeoutError):
+        janitor._chat_within_deadline(hung, "m", [], deadline=0.1)
+    started = time.time()
+    for _ in range(5):
+        with pytest.raises(janitor.ModelStalled):
+            janitor._chat_within_deadline(hung, "m", [], deadline=0.1)
+    assert time.time() - started < 0.5 and len(calls) == 1
+    #: A caller that chose to wait for the model (Tidy, the warm-up) still does.
+    assert issubclass(janitor.ModelStalled, TimeoutError)
+
+
+def test_a_late_answer_shows_the_model_is_alive_and_ends_the_skipping():
+    from memorymap.ai import janitor
+
+    class _Slowish:
+        def chat(self, model, messages, mode=None):
+            time.sleep(0.3)
+            return {"content": "{}"}
+
+    model = _Slowish()
+    with pytest.raises(TimeoutError):
+        janitor._chat_within_deadline(model, "m", [], deadline=0.05)
+    with pytest.raises(janitor.ModelStalled):
+        janitor._chat_within_deadline(model, "m", [], deadline=0.05)
+    time.sleep(0.6)  # the first call's answer has arrived
+    assert janitor._chat_within_deadline(model, "m", [], deadline=2) == {"content": "{}"}
+
+
+def test_a_caller_that_waits_for_the_model_is_never_skipped():
+    from memorymap.ai import janitor
+
+    class _Once:
+        n = 0
+
+        def chat(self, model, messages, mode=None):
+            _Once.n += 1
+            if _Once.n == 1:
+                time.sleep(0.4)
+            return {"content": "{}"}
+
+    model = _Once()
+    with pytest.raises(TimeoutError):
+        janitor._chat_within_deadline(model, "m", [], deadline=0.05)
+    assert janitor._chat_within_deadline(model, "m", [], deadline=janitor.BLOCKING_MODEL_DEADLINE_SECONDS) == {"content": "{}"}
+
+
+def test_only_a_few_inline_notes_wait_on_the_model_at_once(monkeypatch):
+    """INBOX 1313: twenty inline creates against a model that never answers
+    each held a database connection through its wait and filled the pool."""
+    import threading
+
+    from memorymap.ai import janitor
+
+    monkeypatch.setattr(janitor, "_model_slots", threading.BoundedSemaphore(2))
+    asked = []
+    release = threading.Event()
+
+    class _Hung:
+        def chat(self, model, messages, mode=None):
+            asked.append(1)
+            release.wait(5)
+            return {"content": "{}"}
+
+    results = []
+
+    def one():
+        try:
+            janitor._chat_within_deadline(_Hung(), "m", [], deadline=1.0)
+        except janitor.ModelStalled:
+            results.append("skipped")
+        except TimeoutError:
+            results.append("waited")
+
+    threads = [threading.Thread(target=one) for _ in range(6)]
+    for t in threads:
+        t.start()
+    time.sleep(0.4)
+    assert results.count("skipped") == 4 and len(asked) == 2
+    release.set()
+    for t in threads:
+        t.join(5)
+
+
+def test_a_client_that_cannot_be_weakly_referenced_is_simply_never_skipped():
+    from memorymap.ai import janitor
+
+    class _Slotted:
+        __slots__ = ()
+
+        def chat(self, model, messages, mode=None):
+            return {"content": "{}"}
+
+    assert janitor._chat_within_deadline(_Slotted(), "m", [], deadline=1.0) == {"content": "{}"}
+
+
+def test_a_note_filed_inline_waits_for_the_model_no_longer_than_the_wait(client, monkeypatch):
+    """INBOX 1313: an inline create (MCP, a script, an importer, the agent) held
+    its database connection for the model's whole answer, three minutes by
+    default; it now has the same bounded wait as the background pass."""
+    seen = []
+    real = routes_entries._file_entry_now
+
+    def spy(session, content, on_late_llm=None, model_deadline=None):
+        seen.append(model_deadline)
+        return real(session, content, on_late_llm=on_late_llm, model_deadline=model_deadline)
+
+    monkeypatch.setattr(routes_entries, "_file_entry_now", spy)
+    made = client.post("/entries", json={"content": "an inline note, no defer_filing"})
+    assert made.status_code == 201
+    from memorymap.ai import janitor
+
+    assert seen == [janitor.filing_deadline()]
+    assert janitor.filing_deadline() < janitor.BLOCKING_MODEL_DEADLINE_SECONDS

@@ -229,6 +229,21 @@ def test_a_pass_that_needs_confirmation_is_abandoned_not_hung(
     assert "delete_note" in entries[0]["detail"]
 
 
+def test_a_pass_with_no_model_running_says_so_instead_of_finishing(app_state, monkeypatch):
+    """INBOX 1292: with no model the agent answers once, offline, in 65 ms;
+    the pass used to read "Finished analysing and linking notes."."""
+    offline = {"type": "answer", "delta": "The model couldn't answer this.", "offline": True}
+    monkeypatch.setattr(autonomous.agent, "run_agent", lambda **kwargs: iter([offline]))
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    entries = [e for e in taskhistory.recent() if e["kind"] == "autonomous"]
+    assert entries
+    detail = entries[0]["detail"].lower()
+    assert "no model" in detail and "finished analysing" not in detail
+    assert autonomous.last_pass()["changes"] == []
+
+
 def test_the_pass_records_which_model_did_the_work(app_state, monkeypatch):
     """Settings -> Background tasks couldn't say which model answered a
     background job (BACKLOG.md §95 item A.3), the utility model here, same

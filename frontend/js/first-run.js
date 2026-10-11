@@ -41,7 +41,8 @@ function firstStepButton({ number, done, icon, label, note, doneNote, run }) {
   line.textContent = done ? doneNote : note;
   text.append(title, line);
   button.append(glyph, text);
-  if (done) button.setAttribute("aria-label", `${label}: done`);
+  //: No `aria-label` when done: its note starts "Done.", and a name that is not
+  //: the visible words fails WCAG 2.5.3 (axe label-content-name-mismatch).
   button.addEventListener("click", run);
   return button;
 }

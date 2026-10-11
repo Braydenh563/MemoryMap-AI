@@ -9,7 +9,7 @@
  "src/memorymap/ai/agent.py::_tool_sources": 30,
  "src/memorymap/ai/agent.py::build_agent_messages": 16,
  "src/memorymap/ai/agent.py::run_agent": 78,
- "src/memorymap/ai/autonomous.py::_optimization_pass": 42,
+ "src/memorymap/ai/autonomous.py::_optimization_pass": 41,
  "src/memorymap/ai/bench.py::run": 35,
  "src/memorymap/ai/commands.py::_plan_one": 17,
  "src/memorymap/ai/commands.py::_reminder": 21,

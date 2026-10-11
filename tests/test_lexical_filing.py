@@ -14,7 +14,7 @@ from memorymap.ai import lexical_filing
 from memorymap.ai.lexical_filing import tokens
 
 
-def _wait_settled(client, entry_id, timeout=90.0):
+def _wait_settled(client, entry_id, timeout=240.0):
     """Poll until the background filing pass settles the note.
 
     The ceiling is generous on purpose: it is not a speed claim (that is
@@ -137,9 +137,17 @@ def test_it_stays_fast_on_a_large_notebook(client):
         #: CPU time of this process, not the wall clock: the claim is that the
         #: pass does little work on 800 notes, and the wall clock also counts
         #: every slice the scheduler hands to other processes.
-        started = time.process_time()
-        lexical_filing.lexical_category(session, "alpha gamma note")
-        took = time.process_time() - started
+        #: The least of three cold passes (the corpus forgotten each time): a
+        #: starved machine slows a pass by whatever it takes from the cache and
+        #: the scheduler, never by less than the work, so the minimum is the work.
+        #: The bound is the same 0.5 s of CPU; it failed at 0.8 with a dozen
+        #: other test runs on four cores while the work itself was 0.1 s.
+        took = 99.0
+        for _ in range(3):
+            lexical_filing.forget_corpus()
+            started = time.process_time()
+            lexical_filing.lexical_category(session, "alpha gamma note")
+            took = min(took, time.process_time() - started)
         assert took < 0.5, took
 
 

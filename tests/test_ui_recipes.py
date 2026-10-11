@@ -5607,7 +5607,7 @@ THIS_COMPUTER_CONTROLS = {
     "llm-provider-select", "llm-provider-apply", "local-only-ai", "restore-bundle", "import-dir",
     "pref-searxng", "searxng-detect", "searxng-start", "searxng-stop", "searxng-reinstall", "searxng-autostart",
     "pref-update-check", "pref-auto-update", "pref-update-channel-main", "update-install-version",
-    "extras-list", "extras-bulk-install", "embed-models-list", "embed-choices", "embed-pull-go",
+    "extras-list", "extras-bulk-install", "embed-choices", "embed-pull-go",
     "embedding-apply", "pref-semantic-auto-install", "quit-btn", "app-quit",
 }
 

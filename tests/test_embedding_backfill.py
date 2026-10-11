@@ -159,3 +159,28 @@ def test_the_cache_is_bounded():
     for i in range(emb._EMBED_CACHE_MAX + 20):
         service.embed_text(f"note {i}")
     assert len(service._embed_cache) <= emb._EMBED_CACHE_MAX
+
+
+def test_stop_ends_the_backfill_between_batches_and_keeps_what_was_embedded(client, session, fake_embeddings, monkeypatch):
+    """INBOX 1294: the backfill was one call with no step to stop at."""
+    from memorymap.core import passes
+
+    for i in range(3):
+        client.post("/entries", json={"content": f"note {i}"})
+    session.query(EmbeddingRecord).delete()
+    session.commit()
+    monkeypatch.setattr(embeddings, "EMBED_BATCH", 1)
+    real = fake_embeddings.store_for_entries
+
+    def store_then_stop(session_, batch):
+        done = real(session_, batch)
+        passes._stop.add("embeddings-backfill")  # Stop pressed during the first batch
+        return done
+
+    monkeypatch.setattr(fake_embeddings, "store_for_entries", store_then_stop)
+    fixed = embeddings.backfill_missing(fake_embeddings, _factory(session))
+
+    assert fixed == 1
+    assert len(_embedded_ids(session)) == 1, "the batch done before Stop is kept"
+    assert not passes.stop_requested("embeddings-backfill"), "a stale Stop must not end the next run"
+    assert "embeddings-backfill" in passes.STOPPABLE

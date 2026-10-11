@@ -492,17 +492,40 @@ function clearCaptureTagSuggestions() {
   row.classList.add("hidden");
 }
 
-function renderCaptureTagSuggestions(tags, reasons) {
+//: **The filing, offered beside the tags** (INBOX 1330, "a live, inline
+//: organization suggestion while typing"): the category the notebook's own words
+//: point to, with its reason, only while Filing is left on Atlas's choice and the
+//: category is one the Filing field lists. Pressing it sets the field; nothing is
+//: saved by it.
+function captureCategoryChip(category) {
+  const select = $("entry-category");
+  if (!category?.category || !select || select.value !== "") return null;
+  const option = [...select.options].find((o) => o.value === category.category);
+  if (!option) return null;
+  const pick = chip(`ph:folder-simple File under ${category.category}`, "tag", () => {
+    select.value = option.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    pick.remove();
+    const row = $("entry-tag-suggestions");
+    if (!row.querySelector(".chip")) row.classList.add("hidden");
+  });
+  pick.title = category.reason || `File this note under ${category.category}`;
+  return pick;
+}
+
+function renderCaptureTagSuggestions(tags, reasons, category = null) {
   const row = $("entry-tag-suggestions");
   row.replaceChildren();
-  if (!tags.length) {
+  const filing = captureCategoryChip(category);
+  if (!tags.length && !filing) {
     row.classList.add("hidden");
     return;
   }
   const label = document.createElement("span");
   label.className = "muted";
-  label.textContent = "Suggested tags:";
+  label.textContent = "Suggested:";
   row.appendChild(label);
+  if (filing) row.appendChild(filing);
   for (const tag of tags) {
     const tagChip = chip(`ph:plus ${tag}`, "tag", () => {
       const box = $("entry-tags");
@@ -530,12 +553,13 @@ function scheduleCaptureTagSuggestions() {
   captureTagSuggestTimer = setTimeout(async () => {
     const seq = ++captureTagSuggestSeq;
     const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
-    const result = await apiJson("/entries/suggest-tags", {
-      method: "POST",
-      body: JSON.stringify({ content, tags, title: $("entry-title")?.value || "" }),
-    }).catch(() => ({}));
+    const draft = JSON.stringify({ content, tags, title: $("entry-title")?.value || "" });
+    const [result, category] = await Promise.all([
+      apiJson("/entries/suggest-tags", { method: "POST", body: draft }).catch(() => ({})),
+      apiJson("/entries/suggest-category", { method: "POST", body: draft, silent: true }).catch(() => null),
+    ]);
     if (seq !== captureTagSuggestSeq) return; // superseded by a later keystroke
-    renderCaptureTagSuggestions(result.suggested_tags || [], result.suggested_tag_reasons);
+    renderCaptureTagSuggestions(result.suggested_tags || [], result.suggested_tag_reasons, category);
   }, 1200);
 }
 

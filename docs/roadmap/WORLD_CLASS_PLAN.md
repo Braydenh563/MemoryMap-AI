@@ -1496,12 +1496,15 @@ FlashText; superseded by the pack below).
 4. **Merge and rename suggestions** live in Tidy: two categories whose topic
    sets overlap at least 0.6 and whose centroids are within 0.15 become a row
    "Merge Gym and Fitness?" with counts; alternate names come from the pack's
-   labels and the person's own titles. Applying asks; undo is one press.
+   labels (`entry/tidy.py` `_rows_category_names`; the person's own titles
+   were dropped, 2026-10-11: a note's title is not a name for its category).
+   Applying asks; undo is one press.
 5. **Tags** take the same candidates, capped at three, each explained; a tag is
    never proposed on a note that contains none of its words (the "Study and
    university" bug: find the vote that did it, with a test).
-6. **Sensitive topics** (health, relationships, finance, legal, identity: the
-   pack's flag) are suggested, never auto-filed, unless the person turned
+6. **Sensitive topics** (health, relationships, finance, legal, identity:
+   MemoryMap's own list of 49, `ai/data/taxonomy/memorymap_filing.json`; the
+   pack carries no flag) are suggested, never auto-filed, unless the person turned
    auto-filing on for them in Settings. Amended 2026-10-10 (INBOX 770): on
    every path, the chat model's and the embedder's included: built the same
    day (`janitor._unless_held`, `lexical_filing.holds_sensitive`).
@@ -1520,9 +1523,12 @@ FlashText; superseded by the pack below).
 
 ### Steps
 1 to 4 built 2026-10-10 (filing-1010): HISTORY.md, "Moved from the plans,
-2026-10-10 (filing-1010)", with the numbers. Open: decision 8's 0.8 top-1 with
-no model (0.417 measured; the gap is vocabulary, the strict xfail in
-`tests/test_filing_accuracy.py` stays); step 5's Built block.
+2026-10-10 (filing-1010)", with the numbers. Step 6, built 2026-10-11 (tagsearch-1011):
+`memorymap_everyday.json` adds general words to the pack's topics; no model,
+top-1 0.417 to 0.617 filed (0.792 with sensitive notes suggested), and on 48
+held-out notes 0.458 to 0.667 (0.833). Open: decision 8's 0.8 *filed* (the
+strict xfail stays; 19 of 120 are sensitive and held by decision 6, so 0.84 is
+its ceiling); the owner reviews the vocabulary file; step 5's Built block.
 
 ## Placed from INBOX, 2026-09-09
 
@@ -3885,7 +3891,8 @@ part built; sync (B6) designed only.
     route tests stay as they are and prove no behaviour changed. Extraction
     order: whiteboard, files, entries, chat.
 56. **Data is data.** Tables (`question_noise`, `composer_tables`, the help
-    topics, the taxonomy) are JSON under `src/memorymap/data/`, loaded
+    topics) are JSON under `src/memorymap/data/` (the taxonomy stays under
+    `src/memorymap/ai/data/taxonomy/`, 23.1), loaded
     lazily and cached; `tests/test_import_time.py` caps `import
     memorymap.ai.composer` at 0.2 s cold and the app's import at 1.5 s.
 57. **No silent swallow.** `except Exception` ends in a log line with the

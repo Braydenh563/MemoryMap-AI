@@ -257,6 +257,13 @@ with its owner named in the entry.
      `tests/test_brand_name.py`), step 2 the internal identifiers with
      fallbacks for existing installs, as its own last commit.
 
+1297. **Owner review, from the ledger (tagsearch-1011).** Read
+     `src/memorymap/ai/data/taxonomy/memorymap_everyday.json` (about 630 general
+     words added to 23 pack topics; the pack file is untouched) and say keep,
+     trim or drop. Recommendation: keep; no model it files 0.417 to 0.617 on the
+     120 notes and 0.458 to 0.667 on 48 held-out ones (`tests/test_everyday_vocabulary.py`).
+     Placed: WORLD_CLASS_PLAN 23 step 6.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 899 ("dont notes also already work out timewords and time references?? can the composer and agents ... pull from those") sent to atlas; 900 ("click on the lan icon in the bototm bar and easily be able to toggle it on or off ... without having to restert") folded into 896; 901 (show more and less awkward on wide paragraphs, two screenshots) sent to tags89; 902 (companion physics, entries, organic movement, no jolts, Atlas behaviours, the expanded panel's hanging arms, the arm that rises on a click) sent to throw.

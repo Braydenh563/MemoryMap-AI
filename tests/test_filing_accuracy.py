@@ -19,6 +19,7 @@ Measured (`scratchpad/filing-tools/measure.py`, leave one out, through
 | baseline, 2026-10-10 | 0.175 (8 wrong, 91 abstained) | 0.817 (18 wrong, 4 abstained) |
 | step 2, the pack replaces the Gemini map | 0.192 (8 wrong) | 0.817 |
 | step 3, the decision (decision 2), sensitive held | 0.417 (15 wrong; 0.533 with sensitive filing on) | 0.808 (20 wrong) |
+| step 6, the everyday vocabulary (`tests/test_everyday_vocabulary.py`) | 0.617 (11 wrong; 0.792 with sensitive filing on); 48 held-out notes 0.458 to 0.667 | not re-measured |
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ NOTES = json.loads((Path(__file__).parent / "fixtures" / "filing" / "notes.json"
 #: it files at least this share must be right (a wrong category is a note
 #: lost; the module's promise since INBOX 434 is "right 80% of the times it
 #: files"). Sensitive notes held back (decision 6) count as not filed.
-FLOOR_TOP1 = 0.41
+FLOOR_TOP1 = 0.60
 FLOOR_PRECISION = 0.75
 #: Decision 8: below this top-1 with no model, the step is not done.
 BAR_TOP1 = 0.8

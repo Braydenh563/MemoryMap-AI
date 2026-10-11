@@ -33,15 +33,10 @@ async function renderExtras() {
   //: Skeleton rows until the catalogue answers (INBOX 596, the owner: "some
   //: skeleton loaders are missing"): only into an empty list, so the poll
   //: that redraws it while a package installs never covers its rows.
-  const embedList = $("embed-models-list");
   showSkeletons(list, 3, "li");
-  showSkeletons(embedList, 2, "li");
   const body = await apiJson("/extras", { silent: true }).catch(() => null);
   clearSkeletons(list);
-  if (!body) {
-    clearSkeletons(embedList);
-    return;
-  }
+  if (!body) return;
   packagesUi.body = body;
   const bulk = body.bulk || { items: [], running: false };
   if (bulk.running) packagesUi.bulkSeen = true;
@@ -70,7 +65,6 @@ async function renderExtras() {
   if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
     packagesUi.poll = setTimeout(renderExtras, 1500);
   }
-  renderEmbedModels();
 
   // The model-size choice only means anything once faster-whisper is
   // actually there to load one.
@@ -500,176 +494,7 @@ $("extras-bulk-done").addEventListener("click", () => {
 });
 
 // Moved from status.js (boot gzip): Settings, Packages is its only caller.
-// --- embedding models, on the same screen as the packages ------------------------
-//
-// Reuses `.extras-row` deliberately. These are two lists of "things downloaded
-// to this machine, with a way to undo it", and giving the second one its own
-// row style would make them look like different kinds of thing when the whole
-// argument for putting them together is that they are not.
-let embedPollTimer = null;
-
-async function renderEmbedModels() {
-  const list = $("embed-models-list");
-  if (!list) return;
-  showSkeletons(list, 2, "li");
-  const body = await apiJson("/embedding-models", { silent: true }).catch(() => null);
-  clearSkeletons(list);
-  if (!body) return;
-
-  list.replaceChildren();
-  for (const model of body.models) {
-    const li = document.createElement("li");
-    li.className = "extras-row";
-
-    const head = document.createElement("div");
-    head.className = "entry-meta";
-    //: **The name and this row's status are one column; the buttons are the
-    //: other.** The same shape the packages list above already uses, and for
-    //: the reason recorded there (INBOX 107c): `.extras-row .entry-meta` is
-    //: `flex-wrap: nowrap` so the buttons never drop below the title, which
-    //: means whatever cannot shrink pushes the row off its own edge instead.
-    //:
-    //: This list was built the other way, with "✓ 1015 KB on disk" inside
-    //: `.entry-actions`, which is `flex: 0 0 auto`. Measured at 820px: the
-    //: chip 164px plus Re-download 122px plus Remove 91px made a 390px block
-    //: that would not shrink, against 458px of row holding an 80px name, so
-    //: Settings, Extras scrolled sideways (496 against 492). The status is
-    //: not an action; moving it into `.entry-title`, which is the shrinking
-    //: column and wraps inside itself, leaves the buttons 219px and lets the
-    //: name and the chip take the rest.
-    const title = document.createElement("div");
-    title.className = "entry-title";
-    const name = document.createElement("strong");
-    name.textContent = model.label + (model.default ? " · default" : "");
-    title.appendChild(name);
-    head.appendChild(title);
-
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    if (model.downloading) {
-      const busy = document.createElement("span");
-      busy.className = "muted";
-      setLabel(busy, "ph:spin Downloading…");
-      title.appendChild(busy);
-    } else if (model.installed) {
-      const done = document.createElement("span");
-      done.className = "chip item-label is-ok";
-      setLabel(done, `ph:check ${model.on_disk} on disk`);
-      title.appendChild(done);
-      // The same argument the packages' Reinstall makes: "the directory is
-      // there" is not "the model is sound". A download interrupted halfway
-      // leaves a snapshot that loads and produces nonsense, and fetching over
-      // the top of it resumes the same broken files, so this removes first.
-      if (body.can_download) {
-        actions.appendChild(
-          smallButton("ph:arrow-clockwise Re-download", `Fetch ${model.label} again from scratch`, async () => {
-            if (!(await confirmDialog(
-              `Download ${model.label} again?\n\nThe copy on this machine is ` +
-                "deleted first, so this is the fix for one that arrived broken."
-            ))) return;
-            const result = await apiJson(
-              `/embedding-models/${model.id}/download?reinstall=true`,
-              { method: "POST" }
-            ).catch((e) => ({ started: false, failed: true, message: e.message }));
-            toast(result.message, result.failed ? true : result.started ? false : "info");
-            renderEmbedModels();
-          })
-        );
-      }
-      actions.appendChild(
-        smallButton("ph:trash Remove", `Delete ${model.label} from this machine`, async () => {
-          if (!(await confirmDialog(
-            `Remove ${model.label}?\n\nIt frees ${model.on_disk}. Nothing is ` +
-              "lost that a download cannot bring back, but if this is the " +
-              "model in use, searching falls back to keywords until it returns."
-          ))) return;
-          const result = await apiJson(`/embedding-models/${model.id}`, {
-            method: "DELETE",
-          }).catch((e) => ({ removed: false, failed: true, message: e.message }));
-          toast(result.message, result.failed ? true : result.removed ? false : "info");
-          renderEmbedModels();
-        })
-      );
-    } else if (model.files_missing) {
-      //: A folder with some of the files, or none (an interrupted download,
-      //: an empty cache): not a model. The row says so and offers the fix
-      //: that removes the folder first (Brief 101c).
-      const gone = document.createElement("span");
-      gone.className = "chip item-label is-warn";
-      gone.title = `Missing: ${(model.missing || []).join(", ") || "files"}`;
-      setLabel(gone, "ph:warning Files missing");
-      title.appendChild(gone);
-      if (body.can_download) {
-        actions.appendChild(
-          smallButton("ph:arrow-clockwise Reinstall", `Delete the incomplete files and fetch ${model.label} again`, async () => {
-            if (!(await confirmDialog(
-              `Reinstall ${model.label}?\n\nIts files here are incomplete. They are deleted ` +
-                `and ${model.size} is fetched again from HuggingFace.`
-            ))) return;
-            const result = await apiJson(
-              `/embedding-models/${model.id}/download?reinstall=true`,
-              { method: "POST" }
-            ).catch((e) => ({ started: false, message: e.message }));
-            toast(result.message, !result.started);
-            renderEmbedModels();
-          })
-        );
-      }
-    } else {
-      const get = smallButton("ph:download-simple Download", `Fetch ${model.label}`, async () => {
-        if (!(await confirmDialog(
-          `Download ${model.label}?\n\n${model.size}, fetched from HuggingFace ` +
-            "to this machine. It is the one thing on this screen that needs " +
-            "the internet."
-        ))) return;
-        const result = await apiJson(`/embedding-models/${model.id}/download`, {
-          method: "POST",
-        }).catch((e) => ({ started: false, failed: true, message: e.message }));
-        toast(result.message, result.failed ? true : result.started ? false : "info");
-        renderEmbedModels();
-      });
-      // Without huggingface_hub there is nothing to download *with*, so the
-      // button says so rather than failing on an ImportError nobody can read.
-      //: Not offered in one press (INBOX 700): its licence or its loading
-      //: rules; the reason is the tooltip and Settings, Models links its terms.
-      if (!model.one_press) {
-        get.disabled = true;
-        get.title = model.why_not;
-      } else if (!body.can_download) {
-        get.disabled = true;
-        get.title =
-          "Needs the huggingface_hub library, it arrives with “Search by " +
-          "meaning” in the list above.";
-      }
-      actions.appendChild(get);
-    }
-    head.appendChild(actions);
-    li.appendChild(head);
-
-    const about = document.createElement("p");
-    about.className = "muted extras-enables";
-    about.textContent = model.about;
-    li.appendChild(about);
-
-    const meta = document.createElement("p");
-    meta.className = "muted extras-meta";
-    meta.textContent = `${model.repo} · ${model.size}`;
-    li.appendChild(meta);
-    list.appendChild(li);
-  }
-
-  // Where they are, in as many words. "Somewhere in your home directory" is
-  // the answer people are given everywhere else and it is the reason this
-  // screen had to exist.
-  $("embed-models-cache").textContent = `Kept in ${body.cache}`;
-  $("embed-models-status").textContent = body.running
-    ? body.step
-    : body.outcome
-      ? body.step
-      : "";
-
-  clearTimeout(embedPollTimer);
-  if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
-    embedPollTimer = setTimeout(renderEmbedModels, 1500);
-  }
-}
+// Embedding models are in Settings, Search and index (embed-choices.js). This
+// screen keeps a pointer to them, so "what has this app put on my disk" still
+// leads there.
+$("packages-embed-link")?.addEventListener("click", () => openSettingsModal("searchindex"));

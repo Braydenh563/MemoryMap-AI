@@ -118,6 +118,28 @@ def test_private_and_binned_notes_are_not_counted(client):
     assert (book["notes"], book["words"]) == (1, 1)
 
 
+def test_a_link_to_a_binned_or_private_note_is_not_a_link_on_the_page(client):
+    """INBOX 1280: the count of links is the links between notes that are
+    counted, so it cannot say a hidden note is joined to anything."""
+    with _session() as session:
+        a = _note(session, "seen one")
+        b = _note(session, "seen two")
+        hidden = _note(session, "private words")
+        hidden.is_private = True
+        gone = _note(session, "binned")
+        gone.deleted_at = NOW
+        session.add_all(
+            [
+                EntryLink(source_entry_id=a.id, target_entry_id=b.id),
+                EntryLink(source_entry_id=a.id, target_entry_id=hidden.id),
+                EntryLink(source_entry_id=gone.id, target_entry_id=b.id),
+            ]
+        )
+        session.commit()
+        book = notebook_stats.page(session, NOW, {})["notebook"]
+    assert (book["notes"], book["links"], book["orphans"]) == (2, 1, 0)
+
+
 def test_the_route_answers_in_one_call_with_the_usage_rows(client):
     client.post("/usage", json={"features": ["tab:chat", "tab:chat", "palette:undo"]})
     client.post("/entries", json={"content": "hello there"})

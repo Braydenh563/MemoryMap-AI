@@ -25,6 +25,8 @@ import inspect
 import json
 import logging
 import threading
+import time
+import weakref
 from dataclasses import dataclass
 from typing import Any
 
@@ -651,6 +653,9 @@ def _ask_llm(
             raw, safe_value(category, 60), confidence,
         )
         return category, confidence, "llm"
+    except ModelStalled:
+        #: Not asked at all: nothing is coming, so this is "no model" for it.
+        return UNCATEGORISED, 0, "none"
     except TimeoutError:
         # Logged where the deadline passed. "timeout" only when an answer is
         # still coming to someone (`on_late`); `categorise` turns it back
@@ -786,6 +791,53 @@ def warm_filing_model(model_manager: ModelManager, ollama: OllamaClient) -> None
         logger.log(level, "janitor: couldn't warm the filing model (%s)", safe_value(str(exc), 200))
 
 
+class ModelStalled(TimeoutError):
+    """The filing model missed the last note's wait, so this one was not asked.
+
+    A subclass of `TimeoutError` so every caller already handles it; the
+    difference is that no answer is on its way to this note (nothing was sent),
+    so it is filed by meaning for good rather than left waiting for a late one."""
+
+
+#: How long filing leaves a model alone after it missed the wait. Without it a
+#: burst of notes against a model that never answers queued on the model lane
+#: and each waited its own deadline in turn (measured, 20 notes: about 300 s
+#: for the last one; INBOX 1312). A late answer from the missed call ends it
+#: early. Callers that chose to wait for the model (Tidy, the warm-up) are
+#: never skipped.
+FILING_STALL_COOLDOWN_SECONDS = 60.0
+_stalled_until: "weakref.WeakKeyDictionary[object, float]" = weakref.WeakKeyDictionary()
+
+
+#: How many notes may wait on the model at once when the caller holds a
+#: database connection while it waits (an inline `POST /entries` from MCP, a
+#: script, an importer or the agent). Twenty at once against a model that never
+#: answered filled SQLAlchemy's pool (5 + 10) and `POST /auth/unlock` answered
+#: 500 until the model's connection was cut (INBOX 1313). The rest are filed by
+#: meaning at once; the page itself defers, so it never queues here.
+FILING_MODEL_CONCURRENCY = 4
+_model_slots = threading.BoundedSemaphore(FILING_MODEL_CONCURRENCY)
+
+
+def _stalled(ollama: object) -> bool:
+    try:
+        return _stalled_until.get(ollama, 0.0) > time.monotonic()
+    except TypeError:  # a client that cannot be weakly referenced is never skipped
+        return False
+
+
+def _stall_set(ollama: object, until: float | None) -> None:
+    #: Keyed by the client itself, so a test's or a switched provider's fresh
+    #: client starts with a clean slate and nothing leaks between them.
+    try:
+        if until is None:
+            _stalled_until.pop(ollama, None)
+        else:
+            _stalled_until[ollama] = until
+    except TypeError:  # a client that cannot be weakly referenced is never skipped
+        logger.debug("janitor: no stall memory for %r", type(ollama))
+
+
 def _chat_within_deadline(
     ollama: OllamaClient,
     model: str,
@@ -797,59 +849,76 @@ def _chat_within_deadline(
     `TimeoutError` once `deadline` seconds pass. `quick` only where the
     provider takes a mode: a filing reply is one line of JSON, and a
     reasoning model left to think first is most of the minute."""
+    waits_for_it = deadline >= BLOCKING_MODEL_DEADLINE_SECONDS
+    if not waits_for_it and _stalled(ollama):
+        raise ModelStalled("filing model stalled")
+    slot = False
+    if not waits_for_it:
+        if not _model_slots.acquire(blocking=False):
+            logger.info("janitor: %d notes are already waiting on the model; filing this one by meaning", FILING_MODEL_CONCURRENCY)
+            raise ModelStalled("filing model busy")
+        slot = True
     try:
-        takes_mode = "mode" in inspect.signature(ollama.chat).parameters
-    except (TypeError, ValueError):
-        takes_mode = False
-    outcome: dict = {}
-    lock = threading.Lock()
-
-    def settle(key: str, value: object) -> bool:
-        """Record the result; True when the caller had already given up
-        (and counted this call as a late answer in Settings)."""
-        with lock:
-            outcome[key] = value
-            return bool(outcome.get("abandoned"))
-
-    def run() -> None:
         try:
-            if takes_mode:
-                reply = ollama.chat(model, messages, mode="quick")
-            else:
-                reply = ollama.chat(model, messages)
-        except Exception as exc:  # noqa: BLE001 - re-raised on the caller's thread
-            if settle("error", exc):
-                logger.warning(
-                    "janitor: the model's late filing answer failed (%s)", safe_value(str(exc), 200)
-                )
-                _uncount_late()
-            return
-        if settle("reply", reply):
-            try:
-                if on_late is not None:
-                    on_late(reply)
-            except Exception:  # noqa: BLE001
-                logger.warning("janitor: applying a late filing answer failed", exc_info=True)
-            finally:
-                _uncount_late()
+            takes_mode = "mode" in inspect.signature(ollama.chat).parameters
+        except (TypeError, ValueError):
+            takes_mode = False
+        outcome: dict = {}
+        lock = threading.Lock()
 
-    worker = threading.Thread(target=run, name="mm-filing-chat", daemon=True)
-    worker.start()
-    worker.join(deadline)
-    with lock:
-        if "reply" not in outcome and "error" not in outcome:
-            outcome["abandoned"] = True
-            with _activity_lock:
-                _activity["late"] += 1
-    if outcome.get("abandoned"):
-        logger.info(
-            "janitor: the model took over %.0fs to file a note, filing by meaning for now",
-            deadline,
-        )
-        raise TimeoutError("filing model deadline")
-    if "error" in outcome:
-        raise outcome["error"]
-    return outcome["reply"]
+        def settle(key: str, value: object) -> bool:
+            """Record the result; True when the caller had already given up
+            (and counted this call as a late answer in Settings)."""
+            with lock:
+                outcome[key] = value
+                return bool(outcome.get("abandoned"))
+
+        def run() -> None:
+            try:
+                if takes_mode:
+                    reply = ollama.chat(model, messages, mode="quick")
+                else:
+                    reply = ollama.chat(model, messages)
+            except Exception as exc:  # noqa: BLE001 - re-raised on the caller's thread
+                if settle("error", exc):
+                    logger.warning(
+                        "janitor: the model's late filing answer failed (%s)", safe_value(str(exc), 200)
+                    )
+                    _uncount_late()
+                return
+            if settle("reply", reply):
+                _stall_set(ollama, None)  # it answered after all: ask it again
+                try:
+                    if on_late is not None:
+                        on_late(reply)
+                except Exception:  # noqa: BLE001
+                    logger.warning("janitor: applying a late filing answer failed", exc_info=True)
+                finally:
+                    _uncount_late()
+
+        worker = threading.Thread(target=run, name="mm-filing-chat", daemon=True)
+        worker.start()
+        worker.join(deadline)
+        with lock:
+            if "reply" not in outcome and "error" not in outcome:
+                outcome["abandoned"] = True
+                with _activity_lock:
+                    _activity["late"] += 1
+        if outcome.get("abandoned"):
+            logger.info(
+                "janitor: the model took over %.0fs to file a note, filing by meaning for now",
+                deadline,
+            )
+            if not waits_for_it:
+                _stall_set(ollama, time.monotonic() + FILING_STALL_COOLDOWN_SECONDS)
+            raise TimeoutError("filing model deadline")
+        _stall_set(ollama, None)
+        if "error" in outcome:
+            raise outcome["error"]
+        return outcome["reply"]
+    finally:
+        if slot:
+            _model_slots.release()
 
 
 def _extract_json(text: str) -> dict:

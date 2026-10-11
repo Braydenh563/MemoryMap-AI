@@ -10322,6 +10322,18 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   padding-block: var(--ring-room);
   margin-block: calc(-1 * var(--ring-room));
 }
+/* The quick-access tiles wrap from 600px up and nothing there clips a ring, so
+   the room above is only for the strip that scrolls under it. Kept at 600 and
+   over it made the group's scroll box 4px wider and taller than its content
+   (measured at 1440: scrollWidth 1412 for 1408, scrollHeight 101 for 97). The
+   id and two classes tie the first `:is()` above (it takes the specificity of
+   `#tab-notes .layout > .tab-main`) and come after it. */
+@media (min-width: 600px) {
+  #dash-quicklinks .launch-group > .launch-row {
+    padding: 0;
+    margin: 0;
+  }
+}
 /* **The chips' gap to what is below them** (INBOX 726, the owner: "no
    vertical gap", of the Library's Boards / Maps filter row; "reported
    twice" before). The two rules that gave the boards row and the Reminders

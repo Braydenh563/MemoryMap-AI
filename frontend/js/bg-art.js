@@ -578,7 +578,9 @@ const BG_ART_BUILDERS = {
       darkCap: 0.12,
       init() {
         W = p.width; H = p.height;
-        n = bgClamp(Math.round((W * H) / 6000 * ctx.density), 40, 260);
+        // One star per 8000 square pixels (162 at 1440x900): at 6000 the dark
+        // frame measured 2.02ms of CPU, over the 2ms every style keeps under.
+        n = bgClamp(Math.round((W * H) / 8000 * ctx.density), 40, 260);
         sx = new Float32Array(n); sy = new Float32Array(n);
         sjx = new Float32Array(n); sjy = new Float32Array(n);
         ssize = new Uint8Array(n); sph = new Float32Array(n);
@@ -1864,6 +1866,198 @@ const BG_ART_BUILDERS = {
       },
     };
   },
+
+  // **The light end** (Brief 95, INBOX 858: "varied from simple, to complex,
+  // heavy, and light"). Four styles drawn for cost first: each is a handful
+  // of canvas calls a frame into a small backing store, at a low frame rate,
+  // with every colour and sprite built in `init`. Their measured frame costs
+  // are in `BG_ART_COST` below.
+  //
+  // Dusk: a sky graded from the accent's deep to a pale horizon, and a glow
+  // that breathes and drifts along the horizon. A tenth of the pixel density
+  // (144 by 90 backing pixels at 1440x900) and ten frames a second: the
+  // compositor's upscale is the softness a sky wants, and a frame is one
+  // stretched one-pixel-wide strip and one sprite copy.
+  dusk(p, ctx) {
+    let sky = null, glow = null, W = 0, H = 0, secs = 0;
+    return {
+      background: "keep",
+      pixelDensity: 0.1,
+      fps: 10,
+      darkCap: 0.05,
+      lightFloor: 0.55,
+      init() {
+        W = p.width; H = p.height;
+        const h = ctx.baseHue;
+        sky = bgSprite(1, 64, (g) => {
+          const grad = g.createLinearGradient(0, 0, 0, 64);
+          grad.addColorStop(0, bgHsla(h + 20, ctx.dark ? 45 : 50, ctx.dark ? 9 : 93, 1));
+          grad.addColorStop(0.6, bgHsla(h, ctx.dark ? 40 : 55, ctx.dark ? 16 : 90, 1));
+          grad.addColorStop(1, bgHsla(h - 30, ctx.dark ? 50 : 65, ctx.dark ? 24 : 86, 1));
+          g.fillStyle = grad;
+          g.fillRect(0, 0, 1, 64);
+        });
+        glow = bgSprite(64, 64, (g) => {
+          const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+          grad.addColorStop(0, bgHsla(h - 40, 70, ctx.dark ? 40 : 75, ctx.dark ? 0.6 : 0.7));
+          grad.addColorStop(1, bgHsla(h - 40, 70, ctx.dark ? 40 : 75, 0));
+          g.fillStyle = grad;
+          g.fillRect(0, 0, 64, 64);
+        });
+      },
+      frame() {
+        const g = p.drawingContext;
+        secs += 1 / Math.min(10, bgArtFrameRate());
+        g.drawImage(sky, 0, 0, W + 20, H + 20);
+        const r = Math.max(W, H) * (0.35 + 0.05 * Math.sin(secs * 0.3)) * (0.7 + 0.3 * ctx.density);
+        const x = W * (0.5 + 0.3 * Math.sin(secs * 0.05));
+        g.drawImage(glow, x - r, H * 0.95 - r, r * 2, r * 2);
+      },
+    };
+  },
+
+  // Ripples: rings widening and fading from a few points, as rain on still
+  // water seen from above. At most eight at once, each three strokes of one
+  // circle; half the pixel density, twenty frames a second at most.
+  ripples(p, ctx) {
+    const N = 8;
+    const rx = new Float32Array(N), ry = new Float32Array(N), age = new Float32Array(N), life = new Float32Array(N);
+    let ink = "", W = 0, H = 0, rand = Math.random;
+    const respawn = (i) => {
+      rx[i] = rand() * W; ry[i] = rand() * H;
+      life[i] = 5 + rand() * 4; age[i] = -rand() * 3;
+    };
+    return {
+      background: "clear",
+      pixelDensity: 0.5,
+      fps: 20,
+      darkCap: 0.1,
+      lightFloor: 0.35,
+      init() {
+        W = p.width; H = p.height;
+        rand = bgRandom(Math.round(ctx.baseHue * 7) + 11);
+        ink = bgHsla(ctx.baseHue, 60, ctx.dark ? 60 : 45, 1);
+        for (let i = 0; i < N; i++) { respawn(i); age[i] = rand() * life[i]; }
+      },
+      frame() {
+        const g = p.drawingContext;
+        const n = Math.max(3, Math.round(N * ctx.density));
+        const step = 1 / Math.min(20, bgArtFrameRate());
+        g.strokeStyle = ink;
+        g.lineWidth = 1.5;
+        for (let i = 0; i < n; i++) {
+          age[i] += step;
+          if (age[i] > life[i]) respawn(i);
+          if (age[i] < 0) continue;
+          const k = age[i] / life[i];
+          for (let ring = 0; ring < 3; ring++) {
+            const r = (k * 180) - ring * 22;
+            if (r <= 2) continue;
+            g.globalAlpha = (1 - k) * (0.5 - ring * 0.13);
+            g.beginPath();
+            g.arc(rx[i], ry[i], r, 0, Math.PI * 2);
+            g.stroke();
+          }
+        }
+        g.globalAlpha = 1;
+      },
+    };
+  },
+
+  // Fireflies: soft lights wandering on a slow noise field, each pulsing on
+  // its own period. One glow sprite made once, copied per light with a
+  // `globalAlpha`; positions in typed arrays.
+  fireflies(p, ctx) {
+    const MAX = 48;
+    const fx = new Float32Array(MAX), fy = new Float32Array(MAX), fp = new Float32Array(MAX), fs = new Float32Array(MAX);
+    let sprite = null, W = 0, H = 0, n = 0, secs = 0;
+    return {
+      background: "clear",
+      pixelDensity: 0.5,
+      fps: 20,
+      darkCap: 0.12,
+      lightFloor: 0.3,
+      init() {
+        W = p.width; H = p.height;
+        const rand = bgRandom(Math.round(ctx.baseHue * 13) + 5);
+        n = Math.round(16 + 32 * ctx.density);
+        for (let i = 0; i < n; i++) {
+          fx[i] = rand() * W; fy[i] = rand() * H; fp[i] = rand() * 6.28; fs[i] = 0.6 + rand() * 0.8;
+        }
+        const hue = ctx.baseHue + 40;
+        sprite = bgSprite(32, 32, (g) => {
+          const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+          grad.addColorStop(0, bgHsla(hue, 90, ctx.dark ? 75 : 45, 1));
+          grad.addColorStop(0.25, bgHsla(hue, 90, ctx.dark ? 60 : 50, 0.6));
+          grad.addColorStop(1, bgHsla(hue, 90, ctx.dark ? 50 : 55, 0));
+          g.fillStyle = grad;
+          g.fillRect(0, 0, 32, 32);
+        });
+      },
+      frame() {
+        const g = p.drawingContext;
+        secs += 1 / Math.min(20, bgArtFrameRate());
+        for (let i = 0; i < n; i++) {
+          const a = bgFlow(i * 0.37, secs * 0.05) * 6.28;
+          fx[i] += Math.cos(a) * fs[i] * 0.8;
+          fy[i] += Math.sin(a) * fs[i] * 0.8 - 0.1;
+          if (fx[i] < -20) fx[i] += W + 40; else if (fx[i] > W + 20) fx[i] -= W + 40;
+          if (fy[i] < -20) fy[i] += H + 40; else if (fy[i] > H + 20) fy[i] -= H + 40;
+          g.globalAlpha = 0.25 + 0.75 * Math.max(0, Math.sin(secs * fs[i] + fp[i]));
+          const s = 10 + fs[i] * 10;
+          g.drawImage(sprite, fx[i] - s, fy[i] - s, s * 2, s * 2);
+        }
+        g.globalAlpha = 1;
+      },
+    };
+  },
+
+  // Rain: fine slanted streaks at two depths, the far ones slower and
+  // fainter. Every streak of a depth is one segment in one path, stroked
+  // once: two strokes a frame however many drops.
+  rain(p, ctx) {
+    const MAX = 220;
+    const dx = new Float32Array(MAX), dy = new Float32Array(MAX), dv = new Float32Array(MAX);
+    const inks = [];
+    let W = 0, H = 0, n = 0;
+    return {
+      background: "clear",
+      pixelDensity: 0.5,
+      fps: 30,
+      darkCap: 0.1,
+      lightFloor: 0.35,
+      init() {
+        W = p.width; H = p.height;
+        const rand = bgRandom(Math.round(ctx.baseHue * 17) + 3);
+        n = Math.round(80 + 140 * ctx.density);
+        for (let i = 0; i < n; i++) {
+          dx[i] = rand() * W; dy[i] = rand() * H; dv[i] = i % 2 ? 9 + rand() * 4 : 5 + rand() * 3;
+        }
+        inks.length = 0;
+        inks.push(bgHsla(ctx.baseHue, 40, ctx.dark ? 60 : 45, ctx.dark ? 0.3 : 0.28));
+        inks.push(bgHsla(ctx.baseHue, 50, ctx.dark ? 70 : 40, ctx.dark ? 0.55 : 0.45));
+      },
+      frame() {
+        const g = p.drawingContext;
+        const step = 30 / Math.min(30, bgArtFrameRate());
+        g.lineWidth = 1.2;
+        for (let depth = 0; depth < 2; depth++) {
+          g.strokeStyle = inks[depth];
+          g.beginPath();
+          for (let i = depth; i < n; i += 2) {
+            dy[i] += dv[i] * step;
+            dx[i] += dv[i] * step * 0.18;
+            if (dy[i] > H + 20) { dy[i] = -20; dx[i] = (dx[i] * 7.31) % W; }
+            if (dx[i] > W) dx[i] -= W;
+            const len = dv[i] * 2.2;
+            g.moveTo(dx[i], dy[i]);
+            g.lineTo(dx[i] - len * 0.18, dy[i] - len);
+          }
+          g.stroke();
+        }
+      },
+    };
+  },
 };
 
 // --- the runtime ------------------------------------------------------------------
@@ -1920,8 +2114,7 @@ if (typeof navigator.getBattery === "function") {
 // density (at most 1: on a 2x screen, a quarter of the pixels, for marks
 // that sit behind frosted glass at partial opacity), with the few p5 calls
 // the styles use.
-function bgArtSurface(pd, pdY = pd) {
-  const W = window.innerWidth, H = window.innerHeight;
+function bgArtSurface(pd, pdY = pd, W = window.innerWidth, H = window.innerHeight) {
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(W * pd));
   canvas.height = Math.max(1, Math.round(H * pdY));
@@ -2191,6 +2384,58 @@ function bgArtRun(o) {
   bgArtInstance = handle;
   handle.draw();
   bgArtWatch();
+}
+
+// **What each style costs, measured** (Brief 95): the CPU time of one
+// frame, the draw and the raster it causes, at 1440x900 on a CPU-backed
+// canvas in this project's four-core sandbox (bgartcpu.js: the renderer
+// thread's own time, the least of three runs of 90 frames, the larger of
+// the two themes and of two sweeps). The Settings cards grade them from it:
+// Light under 0.5ms, Medium under 1.2ms, Heavy above; none may pass 2ms.
+const BG_ART_COST = {
+  aurora: 0.91, constellation: 1.47, waves: 0.97, bubbles: 1.59, mesh: 1.09, microbes: 1.68,
+  mycelium: 0.25, dusk: 0.05, ripples: 0.18, fireflies: 0.38, rain: 0.13,
+};
+
+function bgArtTier(style) {
+  const ms = BG_ART_COST[style] ?? 2;
+  return ms < 0.5 ? "Light" : ms < 1.2 ? "Medium" : "Heavy";
+}
+
+// One still frame of a style for its Settings card, drawn into `target` (a
+// small canvas). The style is built at its own pixel density over a window
+// three times the card's size (at the window's own size a hairline, the rain
+// or a ripple, scaled down nine times, vanished), and scaled down once: a
+// preview costs one frame per style when the cards are drawn, and nothing
+// after.
+function bgArtPreview(name, o, target) {
+  const entry = BG_ART_BUILDERS[name];
+  if (!entry || entry.dom) return;
+  const shim = {};
+  const ctx = { dark: o.dark, baseHue: bgColourHue(o.accent), density: o.density, seedText: o.seedText, still: true };
+  const style = entry(shim, ctx);
+  const pd = Math.min(style.pixelDensity || 1, 1);
+  const surface = bgArtSurface(pd, Math.min(style.pixelDensityY || pd, pd), target.width * 3, target.height * 3);
+  Object.assign(shim, surface);
+  shim.twin = null;
+  bgLumCap = o.dark ? style.darkCap || 0 : 0;
+  bgLumFloor = o.dark ? 0 : style.lightFloor || 0;
+  try {
+    style.init();
+  } finally {
+    bgLumCap = 0;
+    bgLumFloor = 0;
+  }
+  const g = surface.drawingContext;
+  if (style.background === "wash") {
+    g.fillStyle = bgP5Rgba(0, 0, o.dark ? 12 : 98, 1);
+    g.fillRect(0, 0, surface.width, surface.height);
+  }
+  if (style.settle) style.settle();
+  style.frame(0);
+  const out = target.getContext("2d");
+  out.clearRect(0, 0, target.width, target.height);
+  out.drawImage(surface.canvas, 0, 0, target.width, target.height);
 }
 
 // A hidden window draws nothing. Chromium already stops requestAnimationFrame

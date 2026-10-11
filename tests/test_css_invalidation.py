@@ -153,7 +153,7 @@ def _function_body(src: str, signature: str) -> str:
 #: that reads it, or be registered `inherits: false` (as `--wb-grid-*` are)?
 ROOT_CUSTOM_PROPERTIES = {
     # settings.js and theme-boot.js, from Appearance: a setting changed.
-    "--accent", "--accent-soft", "--blob-a", "--page", "--glass-sheen-strength",
+    "--accent", "--accent-soft", "--accent-surface", "--blob-a", "--page", "--glass-sheen-strength",
     "--bg-art-opacity", "--radius", "--glass-blur", "--glass-opacity", "--zoom",
     "--border-style", "--shadow-intensity",
     # settings.js, `measureLabelOptics`: at boot, when the fonts are ready and

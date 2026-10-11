@@ -490,14 +490,17 @@ MORE_TOPICS: list[dict] = [
         "id": "background-art",
         "keywords": (
             "animated background", "background animation", "moving background",
-            "wallpaper", "background style", "constellation",
+            "wallpaper", "background style", "constellation", "fireflies",
+            "rain background", "lightest background", "background cost",
         ),
         "body": (
-            "Settings, Appearance, Animated background: Style picks the art, "
-            "Movement how much it moves and Intensity how strong it is. Page "
-            "background in Theme & colour sets the colour under it. Performance "
-            "mode and Battery-efficient mode both stop it, and so does Reduce "
-            "motion."
+            "Settings, Appearance, Animated background: Style is a card per "
+            "art, lightest first, each with a preview and its cost, Light, "
+            "Medium or Heavy, from what one frame takes; picking a card turns "
+            "the background on. Movement sets how much it moves and Intensity "
+            "how strong it is. Page background in Theme & colour sets the "
+            "colour under it. Performance mode and Battery-efficient mode both "
+            "stop it, and so does Reduce motion."
         ),
         "badge": {"label": "Animated background", "section": "appearance", "target": "bg-style-row"},
     },
@@ -511,7 +514,9 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Settings, Appearance. Themes: save and switch your own. Theme & "
             "colour: Palette, Mode (light, dark or system), Accent colour or a "
-            "custom one, Page background, and Build a scheme from one colour. "
+            "custom one (a colour a button's words cannot be read on is "
+            "offered at the nearest shade that can), Page background, and "
+            "Build a scheme from one colour. "
             "Typography & layout: Text size, Font, Density, Corner rounding, "
             "Zoom, Border style and Shadow intensity (Text size, Density and Zoom "
             "are marked On this device: a phone and a computer each keep their "

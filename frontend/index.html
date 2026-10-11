@@ -10651,14 +10651,25 @@ Link to another note with [[its first few words]]."></textarea>
                 <div id="accent-swatches" class="accent-swatches"></div>
               </div>
 
-              <div class="setting-row">
+              <div class="setting-row setting-row-stack">
                 <div class="setting-label">
                   <span>Custom accent</span>
-                  <small class="muted">Pick any colour you like.</small>
+                  <small class="muted">Pick any colour; one that a button's words cannot be read on is offered at the nearest shade that can.</small>
                 </div>
-                <div class="row setting-control">
-                  <input id="accent-custom" type="color" aria-label="Custom accent colour">
-                  <button id="accent-custom-clear" class="ghost small quiet" type="button">Clear</button>
+                <div class="accent-custom-block">
+                  <div class="row setting-control">
+                    <input id="accent-custom" type="color" aria-label="Custom accent colour">
+                    <button id="accent-custom-clear" class="ghost small quiet" type="button">Clear</button>
+                    <span class="accent-preview" id="accent-preview" aria-hidden="true">
+                      <span class="accent-preview-fill">Button</span>
+                      <span class="accent-preview-soft">Selected</span>
+                      <span class="accent-preview-text">Link</span>
+                    </span>
+                  </div>
+                  <div class="row accent-offer hidden" id="accent-offer" role="status">
+                    <span class="muted" id="accent-offer-text"></span>
+                    <button id="accent-offer-use" class="ghost small" type="button"><span class="accent-offer-dot" id="accent-offer-dot"></span><span id="accent-offer-label">Use it</span></button>
+                  </div>
                 </div>
               </div>
 
@@ -11179,27 +11190,18 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </label>
 
-              <div class="setting-row" id="bg-style-row">
+              <div class="setting-row setting-row-stack" id="bg-style-row">
                 <div class="setting-label">
                   <span>Style</span>
+                  <small class="muted">Lightest first. Each card says what one frame costs: Light, Medium or Heavy. Picking one turns the background on.</small>
                   <!-- Filled by renderBgStyleHint (settings.js) for the two
                        styles seeded from the display name. -->
                   <small class="muted hint-inline hidden" id="bg-style-hint"></small>
                 </div>
-                <!-- These values MUST match BG_ART_BUILDERS in app.js. They
-                     didn't: the list offered "constellations", "blobs" and
-                     "particles" while the code implements "constellation",
-                     "bubbles", "waves" and "mesh", so every option except
-                     Aurora failed the name check and silently fell back. -->
-                <select id="bg-art-style" aria-label="Background artwork style" title="Background artwork style" class="small-select setting-control">
-                  <option value="aurora">Aurora: curtains of light</option>
-                  <option value="constellation">Constellation: stars at three depths</option>
-                  <option value="waves">Waves: rolling lines</option>
-                  <option value="bubbles">Floating orbs: rising glass bubbles</option>
-                  <option value="mesh">Mesh gradient: slow colour fields</option>
-                  <option value="microbes">Microbes: an ecosystem grown from your name</option>
-                  <option value="mycelium">Mycelium: a network grown from your name</option>
-                </select>
+                <!-- The cards are built by renderBgStyleGrid (settings.js)
+                     from BG_ART_STYLES, which must match BG_ART_BUILDERS in
+                     bg-art.js (tests/test_bg_art_styles.py). -->
+                <div class="theme-grid bg-style-grid" id="bg-art-style" role="group" aria-label="Background artwork style"></div>
               </div>
 
               <div class="setting-row" id="bg-motion-row">

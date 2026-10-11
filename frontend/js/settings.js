@@ -1337,6 +1337,19 @@ const ACCENTS = [
   { name: "ocean", label: "Ocean", swatch: "#2563eb" },
   { name: "mint", label: "Mint", swatch: "#10b981" },
   { name: "grape", label: "Grape", swatch: "#9333ea" },
+  //: Brief 95 (INBOX 858, "add more colour options"): nine more, chosen to
+  //: fill the wheel's gaps (coral, gold, forest, navy, cyan, berry, olive,
+  //: copper, lavender). Each is a fill; `accentTone` lifts or deepens it per
+  //: mode, so none needs a CSS rule of its own.
+  { name: "coral", label: "Coral", swatch: "#e8604c" },
+  { name: "gold", label: "Gold", swatch: "#b8860b" },
+  { name: "forest", label: "Forest", swatch: "#2f7d32" },
+  { name: "navy", label: "Navy", swatch: "#1e3a8a" },
+  { name: "cyan", label: "Cyan", swatch: "#0891b2" },
+  { name: "berry", label: "Berry", swatch: "#be185d" },
+  { name: "olive", label: "Olive", swatch: "#6b7a1f" },
+  { name: "copper", label: "Copper", swatch: "#b4642d" },
+  { name: "lavender", label: "Lavender", swatch: "#8b7cf6" },
 ];
 
 function activeAccent() {
@@ -1646,6 +1659,15 @@ const THEME_PRESETS = {
   lagoon: {
     label: "Lagoon",
     values: { palette: "lagoon", glass: "on", radius: "14" },
+  },
+  //: Brief 95: two new looks, each on a palette of its own.
+  midnight: {
+    label: "Midnight",
+    values: { palette: "midnight", glass: "on", radius: "12" },
+  },
+  rosewood: {
+    label: "Rosewood",
+    values: { palette: "rosewood", font: "serif", glass: "on", radius: "16" },
   },
 };
 
@@ -2079,19 +2101,66 @@ function hexToRgbParts(hex) {
   return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
 }
 
+// **A picked accent, made safe for the mode showing** (Brief 95, INBOX 858).
+// The accent is a fill under `--on-accent` (white in light, near-black in
+// dark), and one hex cannot be right in both: measured over the fifteen
+// presets, the button text was under 4.5:1 on 14 of 30 preset and mode pairs
+// (Mint 3.2:1 in light, Slate 2.5:1 in dark). `accentTone` keeps the hue and
+// saturation and moves the lightness the least that clears 4.5:1 against the
+// mode's ink, so a pick that already reads is returned as it is.
+const ACCENT_MIN_RATIO = 4.5;
+
+function hexRatio(a, b) {
+  const lum = (hex) => {
+    const parts = hexToRgbParts(hex);
+    return parts ? bgLuma(parts.split(", ").map(Number)) : 0;
+  };
+  const [lo, hi] = [lum(a), lum(b)].sort((x, y) => x - y);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+function accentInk(dark) {
+  return dark ? "#0d1017" : "#ffffff";
+}
+
+function accentTone(hex, dark) {
+  const ink = accentInk(dark);
+  if (hexRatio(hex, ink) >= ACCENT_MIN_RATIO) return hex;
+  const hsl = hexToHsl(hex);
+  if (!hsl) return hex;
+  const [h, s, l] = hsl;
+  // Binary search on lightness between the pick and the end that passes
+  // (black's side in light, white's in dark): twelve halvings is under a
+  // hundredth of a percent, once per pick, never per frame.
+  let pass = dark ? 100 : 0, fail = l;
+  for (let i = 0; i < 12; i++) {
+    const mid = (pass + fail) / 2;
+    if (hexRatio(hslToHex(h, s, mid), ink) >= ACCENT_MIN_RATIO) pass = mid;
+    else fail = mid;
+  }
+  return hslToHex(h, s, pass);
+}
+
 // A user-chosen accent overrides the preset palette via inline custom
-// properties; clearing it falls back to the data-accent presets.
+// properties; clearing it falls back to the data-accent presets. The soft,
+// surface, hover and text tones all follow from the mode-safe tone: soft
+// and the blob here, the surface (the tone itself, so what you pick is what
+// a button wears), and hover and text from it in the stylesheet
+// (`--accent-surface-hover`, `--accent-text`).
 function applyCustomAccent(hex) {
   const root = document.documentElement;
-  const parts = hex ? hexToRgbParts(hex) : null;
+  const dark = root.dataset.mode === "dark";
+  const tone = hex && hexToRgbParts(hex) ? accentTone(hex, dark) : null;
+  const parts = tone ? hexToRgbParts(tone) : null;
   if (!parts) {
-    root.style.removeProperty("--accent");
-    root.style.removeProperty("--accent-soft");
-    root.style.removeProperty("--blob-a");
+    for (const name of ["--accent", "--accent-soft", "--accent-surface", "--blob-a"]) {
+      root.style.removeProperty(name);
+    }
     return;
   }
-  root.style.setProperty("--accent", hex);
-  root.style.setProperty("--accent-soft", `rgba(${parts}, 0.14)`);
+  root.style.setProperty("--accent", tone);
+  root.style.setProperty("--accent-surface", tone);
+  root.style.setProperty("--accent-soft", `rgba(${parts}, ${dark ? 0.18 : 0.14})`);
   root.style.setProperty("--blob-a", `rgba(${parts}, 0.30)`);
 }
 
@@ -2360,6 +2429,8 @@ function renderThemeToggle() {
 function applyResolvedMode() {
   document.documentElement.dataset.mode = resolvedTheme();
   renderThemeToggle();
+  //: A picked accent is toned per mode (`accentTone`), so it is re-toned here.
+  applyEffectiveAccent();
   // Light and dark can want different custom backgrounds, and the stored one
   // is written inline: so it has to be re-picked here rather than left to the
   // stylesheet, which cannot outrank it.
@@ -2495,7 +2566,6 @@ function renderAppearance() {
   $("reduce-motion-toggle").checked = appearancePref("motion") === "reduced";
   $("ui-motion-toggle").checked = appearancePref("ui-motion") !== "off";
   $("bg-art-toggle").checked = bgArtOn();
-  $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("progress-motion").value = appearancePref("progress-motion");
   $("pref-show-thinking-words").checked = appearancePref("show-thinking-words") !== "off";
@@ -2539,7 +2609,7 @@ function renderAppearance() {
   );
   $("bg-intensity").value = appearancePref("bg-intensity");
   $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
-  $("bg-art-style").value = appearancePref("bg-style");
+  renderBgStyleGrid();
   renderBgStyleHint();
   $("radius-slider").value = appearancePref("radius");
   $("radius-value").textContent = `${appearancePref("radius")}px`;
@@ -2560,7 +2630,6 @@ function renderAppearance() {
   $("glass-opacity-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
   // Style/intensity only matter while the background art is on.
   const artOff = !bgArtOn();
-  $("bg-style-row").classList.toggle("disabled-row", artOff);
   $("bg-intensity-row").classList.toggle("disabled-row", artOff);
   renderPaletteGrid();
   _segActive("theme-seg", "themeChoice", effectiveTheme());
@@ -2707,6 +2776,20 @@ const PALETTES = [
     dark: { page: "linear-gradient(135deg,#130d1a,#1c1226 45%,#170f20)", card: "rgba(35,26,45,0.85)", accent: "#c07df5", border: "rgba(232,212,250,0.16)" },
   },
   {
+    id: "midnight",
+    name: "Midnight",
+    note: "Deep navy and lamplight gold.",
+    light: { page: "linear-gradient(135deg,#eef1f8,#f4f2ec 45%,#eceff6)", card: "rgba(255,255,255,0.85)", accent: "#9a6a00", border: "rgba(20,28,51,0.15)" },
+    dark: { page: "linear-gradient(135deg,#0a0f1f,#0f1630 45%,#0b1226)", card: "rgba(22,30,56,0.85)", accent: "#f2c14e", border: "rgba(200,215,255,0.16)" },
+  },
+  {
+    id: "rosewood",
+    name: "Rosewood",
+    note: "Dusty rose and wine. Warm without orange.",
+    light: { page: "linear-gradient(135deg,#f8ecee,#faf1ef 45%,#f3e6ea)", card: "rgba(255,251,251,0.85)", accent: "#a3324f", border: "rgba(45,26,32,0.15)" },
+    dark: { page: "linear-gradient(135deg,#170c10,#211218 45%,#1a0e14)", card: "rgba(44,26,33,0.85)", accent: "#f08aa6", border: "rgba(250,214,224,0.16)" },
+  },
+  {
     id: "carbon",
     name: "Carbon",
     note: "Near-monochrome. Colour only where it means something.",
@@ -2821,7 +2904,98 @@ function stopBgArt() {
 
 // Which generative background to paint. Persisted like the other
 // appearance prefs (user asked for more variety of art).
-const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh", "microbes", "mycelium"];
+const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh", "microbes", "mycelium", "dusk", "ripples", "fireflies", "rain"];
+//: The cards (Brief 95): a name and one line each, shown lightest first by
+//: their measured cost (`BG_ART_COST`, bg-art.js).
+const BG_ART_INFO = {
+  aurora: ["Aurora", "Curtains of light"],
+  constellation: ["Constellation", "Stars at three depths"],
+  waves: ["Waves", "Rolling lines"],
+  bubbles: ["Floating orbs", "Rising glass bubbles"],
+  mesh: ["Mesh gradient", "Slow colour fields"],
+  microbes: ["Microbes", "An ecosystem grown from your name"],
+  mycelium: ["Mycelium", "A network grown from your name"],
+  dusk: ["Dusk", "A sky and a slow glow"],
+  ripples: ["Ripples", "Rings on still water"],
+  fireflies: ["Fireflies", "Soft lights wandering"],
+  rain: ["Rain", "Fine streaks falling"],
+};
+
+//: Built once, then only marked; the previews are drawn when the cards are
+//: on screen and again only when what they show (mode, accent, intensity,
+//: name) has changed.
+function renderBgStyleGrid() {
+  const grid = $("bg-art-style");
+  if (!grid) return;
+  if (!grid.childElementCount) {
+    const order = [...BG_ART_STYLES].sort((a, b) => BG_ART_COST[a] - BG_ART_COST[b]);
+    for (const name of order) {
+      const [label, note] = BG_ART_INFO[name];
+      const tier = bgArtTier(name);
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "theme-card bg-style-card";
+      card.dataset.bgStyle = name;
+      card.title = `${label}: ${note.toLowerCase()}. ${tier}, about ${BG_ART_COST[name].toFixed(1)}ms a frame.`;
+      const preview = document.createElement("canvas");
+      preview.className = "theme-preview bg-style-preview";
+      preview.width = 160;
+      preview.height = 90;
+      const title = document.createElement("span");
+      title.className = "theme-name";
+      title.textContent = label;
+      //: The cost is a facts row of its own, so a long name never pushes the
+      //: label onto a second line on some cards and not others.
+      const facts = document.createElement("span");
+      facts.className = "row bg-style-facts";
+      const ms = document.createElement("span");
+      ms.className = "theme-note";
+      ms.textContent = `${BG_ART_COST[name].toFixed(1)}ms a frame`;
+      facts.append(chip(tier, `item-label${tier === "Light" ? " is-ok" : tier === "Heavy" ? " is-warn" : ""}`), ms);
+      const line = document.createElement("span");
+      line.className = "theme-note";
+      line.textContent = note;
+      card.append(preview, title, facts, line);
+      card.addEventListener("click", () => {
+        localStorage.setItem("bg-style", name);
+        if (!bgArtOn()) toggleBgArt(true);
+        else startBgArt();
+        renderAppearance();
+      });
+      grid.append(card);
+    }
+  }
+  const current = bgArtStyle();
+  for (const card of grid.children) {
+    const on = card.dataset.bgStyle === current;
+    card.classList.toggle("active", on && bgArtOn());
+    card.setAttribute("aria-pressed", String(on && bgArtOn()));
+  }
+  if (!grid.closest("details")?.open) return;
+  const o = {
+    dark: document.documentElement.dataset.mode === "dark",
+    accent: currentAccentHex(),
+    density: Math.max(0.25, (Number(appearancePref("bg-intensity")) || 90) / 90),
+    seedText: bgArtSeedText(),
+  };
+  const key = JSON.stringify(o);
+  if (grid.dataset.drawn === key) return;
+  grid.dataset.drawn = key;
+  //: One preview a frame, so opening the section never holds a frame for
+  //: all eleven at once.
+  const cards = [...grid.children];
+  const next = () => {
+    const card = cards.shift();
+    if (!card || grid.dataset.drawn !== key) return;
+    try {
+      bgArtPreview(card.dataset.bgStyle, o, card.querySelector("canvas"));
+    } catch (err) {
+      console.warn("Background preview failed:", err);
+    }
+    requestAnimationFrame(next);
+  };
+  requestAnimationFrame(next);
+}
 // One source of truth for the chosen style. This used to read a "bgArtStyle"
 // key that nothing writes any more (the picker saves "bg-style"), so the
 // builder always fell back to aurora no matter what was selected.
@@ -3043,14 +3217,38 @@ $("shadow-intensity").addEventListener("input", (e) => {
   applyAppearance();
 });
 // Custom accent + page background.
-$("accent-custom").addEventListener("input", (e) => {
-  localStorage.setItem("accent-custom", e.target.value);
-  applyCustomAccent(e.target.value);
+// A pick whose button words would read under 4.5:1 in the mode showing is
+// refused, not quietly altered: the row says the ratio and offers the
+// nearest shade that reads, one press to take it (Brief 95).
+function setCustomAccent(hex) {
+  $("accent-offer").classList.add("hidden");
+  localStorage.setItem("accent-custom", hex);
+  applyCustomAccent(hex);
   renderAppearance();
   if (bgArtOn()) startBgArt();
   renderBrandLogo();
+}
+$("accent-custom").addEventListener("input", (e) => {
+  const pick = e.target.value;
+  const dark = resolvedTheme() === "dark";
+  const tone = accentTone(pick, dark);
+  if (tone === pick) return setCustomAccent(pick);
+  const ratio = hexRatio(pick, accentInk(dark)).toFixed(1);
+  $("accent-offer-text").textContent =
+    `Words on ${pick} read at ${ratio}:1 in ${dark ? "dark" : "light"} mode, under the 4.5:1 they need.`;
+  $("accent-offer-dot").style.setProperty("--swatch", tone);
+  $("accent-offer-label").textContent = `Use ${tone} (${hexRatio(tone, accentInk(dark)).toFixed(1)}:1)`;
+  $("accent-offer-use").dataset.tone = tone;
+  $("accent-offer").classList.remove("hidden");
+});
+$("accent-offer-use").addEventListener("click", (e) => {
+  const tone = e.currentTarget.dataset.tone;
+  if (!tone) return;
+  $("accent-custom").value = tone;
+  setCustomAccent(tone);
 });
 $("accent-custom-clear").addEventListener("click", () => {
+  $("accent-offer").classList.add("hidden");
   localStorage.removeItem("accent-custom");
   applyCustomAccent(null);
   renderAppearance();
@@ -3068,11 +3266,7 @@ $("page-bg-clear").addEventListener("click", () => {
   renderAppearance();
 });
 // Background art style.
-$("bg-art-style").addEventListener("change", (e) => {
-  localStorage.setItem("bg-style", e.target.value);
-  renderBgStyleHint();
-  if (bgArtOn()) startBgArt();
-});
+$("bg-art-style").closest("details")?.addEventListener("toggle", renderBgStyleGrid);
 $("avatar-follow").addEventListener("change", (e) => {
   const value = e.target.checked ? "on" : "off";
   localStorage.setItem("avatar-follow", value);

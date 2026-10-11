@@ -60,17 +60,41 @@ def _chunks() -> dict[str, str]:
 
 
 def _picker() -> list[str]:
-    html = INDEX.read_text(encoding="utf-8")
-    start = html.index('<select id="bg-art-style"')
-    select = html[start : html.index("</select>", start)]
-    return re.findall(r'<option value="([a-z]+)"', select)
+    """The cards' names (Brief 95: the select became a grid of cards built
+    from `BG_ART_INFO`, each with a preview and its measured cost)."""
+    text = SETTINGS.read_text(encoding="utf-8")
+    body = text[text.index("const BG_ART_INFO = {") :]
+    body = body[: body.index("\n};")]
+    return re.findall(r"^  ([a-z]+): \[", body, flags=re.M)
+
+
+def _costs() -> dict[str, float]:
+    text = BG_ART.read_text(encoding="utf-8")
+    body = text[text.index("const BG_ART_COST = {") :]
+    body = body[: body.index("};")]
+    return {k: float(v) for k, v in re.findall(r"([a-z]+): ([\d.]+)", body)}
 
 
 def test_the_three_lists_agree():
     styles = _styles_const()
     assert styles == _builders(), "BG_ART_STYLES and BG_ART_BUILDERS name different styles"
-    assert styles == _picker(), "the #bg-art-style picker offers a different list"
+    assert styles == _picker(), "the background cards (BG_ART_INFO) offer a different list"
     assert {"microbes", "mycelium"} <= set(styles)
+    html = INDEX.read_text(encoding="utf-8")
+    assert 'id="bg-art-style" role="group"' in html
+
+
+def test_every_style_has_a_measured_cost_under_two_milliseconds():
+    """Brief 95: each card carries its measured frame cost and the tier read
+    from it (Light under 0.5ms, Medium under 1.2ms, Heavy above), and no
+    style may cost more than 2ms a frame (bgartcpu.js at 1440x900)."""
+    costs = _costs()
+    assert sorted(costs) == sorted(_styles_const())
+    assert all(0 < ms <= 2 for ms in costs.values()), costs
+    tiers = {"Light", "Medium", "Heavy"}
+    text = BG_ART.read_text(encoding="utf-8")
+    assert all(f'"{t}"' in text for t in tiers)
+    assert any(ms < 0.5 for ms in costs.values()), "no Light style"
 
 
 def test_every_style_says_how_its_frame_begins():

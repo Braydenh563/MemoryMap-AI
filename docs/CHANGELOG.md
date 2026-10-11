@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Documents: the Python runtime loads once per session. The Python runner page is one hidden frame kept across documents and warmed when a Python document opens, so a second document runs in about 0.2 s instead of 5 to 7 s and the first run is quick once you have read the file. Another document's console never sees the last one's variables.
 - First run: optional packages picked in Setup install on the first launch as one Background task (progress, each package, Stop); a list the app could not start yet (another install running) is kept for the next launch instead of being deleted.
 - First run: an empty or partly downloaded model folder is no longer treated as installed. Settings, Search and index and Packages show "Files missing" with Reinstall, and when the search model's files are incomplete the app repairs them itself as a visible Background task ("Fixing search by meaning", with Stop, at most twice a launch) instead of failing with a broken-cache error.
 - First run: the filing warm-up only loads a model that is installed, and a fresh install first chooses its chat model from the installed ones (one rule shared with the launch step), so a default nobody chose no longer reports "llama3.2 failed".

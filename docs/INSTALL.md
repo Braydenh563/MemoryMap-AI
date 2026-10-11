@@ -41,7 +41,10 @@ reinstall that package from the same pane.
 **Optional packages.** The installer's last page offers three boxes: search by
 meaning (about 2 GB), voice notes, and document import with scanned-PDF
 reading and Word export. All are optional, and each can be installed or
-removed later from **Settings, Packages**. Downloading them needs Python from
+removed later from **Settings, Packages**. Setup finishes at once and does
+not wait on them: the app downloads the ones you ticked the first time it
+opens, as a task in **Background tasks** with its progress and a Stop button.
+Downloading them needs Python from
 [python.org](https://www.python.org/downloads/) on the same computer; the
 default options of its installer are enough. Without one, the app works and
 those features stay off.

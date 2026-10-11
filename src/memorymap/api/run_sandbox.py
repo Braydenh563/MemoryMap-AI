@@ -1248,17 +1248,41 @@ function ask(prompt) {
     return null;
   }
 }
-async function load(post) {
-  if (py) return py;
-  post({ t: "status", text: "Starting Python" });
-  const mod = await import(BASE + "pyodide.mjs");
-  py = await mod.loadPyodide({ indexURL: BASE, stdin: () => null });
-  py.runPython(RUNNER);
-  return py;
+//: One load, however many callers: a Run that arrives while the page's
+//: warm-up is still loading waits on the same promise instead of starting a
+//: second runtime (Brief 101c). A failed load is forgotten so the next try
+//: reports its own error.
+let loading = null;
+function load(post) {
+  if (py) return Promise.resolve(py);
+  if (!loading) {
+    loading = (async () => {
+      post({ t: "status", text: "Starting Python" });
+      const mod = await import(BASE + "pyodide.mjs");
+      const loaded = await mod.loadPyodide({ indexURL: BASE, stdin: () => null });
+      loaded.runPython(RUNNER);
+      py = loaded;
+      return loaded;
+    })();
+    loading.catch(() => { loading = null; });
+  }
+  return loading;
 }
 self.onmessage = async (e) => {
   const run = e.data.run;
   const post = (msg) => postMessage({ run, msg });
+  //: Warm-up (Brief 101c): load the runtime and say nothing; a failure is the
+  //: first real run's to report. Never marks the worker busy.
+  if (e.data.warm) {
+    try { await load(() => {}); } catch (err) { /* reported by the first run */ }
+    return;
+  }
+  //: A new document's panel: the console must not read the last document's
+  //: variables, and the runtime itself stays loaded.
+  if (e.data.forget) {
+    if (py) { try { py.runPython("_MM_NS.clear()"); } catch (err) { /* nothing to forget */ } }
+    return;
+  }
   shared = e.data.sab instanceof SharedArrayBuffer ? e.data.sab : null;
   current = post;
   try {
@@ -1398,6 +1422,19 @@ RUN_SANDBOX_PY_HTML = (
       return;
     }
     if (d.type === "reply") { if (d.mmRun === current) reply(d.value); return; }
+    //: Warm-up (Brief 101c): the app opens a Python document and the runtime
+    //: starts loading before Run is pressed. Only when no worker exists: one
+    //: that does exists already holds, or is loading, the runtime.
+    if (d.type === "warm") {
+      if (!worker) { boot(); worker.postMessage({ run: current, warm: true }); }
+      return;
+    }
+    //: A different document's panel took over this page: drop the namespace
+    //: the last run left, keep the loaded runtime.
+    if (d.type === "forget") {
+      if (worker && !busy) worker.postMessage({ run: current, forget: true });
+      return;
+    }
     if (d.type !== "run") return;
     //: A run still going (a `while True`) cannot be interrupted from here:
     //: the worker goes, and the new run gets a fresh one.

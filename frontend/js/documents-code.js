@@ -2526,6 +2526,60 @@ async function docRunPythonReady() {
   return Boolean(body?.extras?.find((e) => e.id === "pyodide")?.installed);
 }
 
+//: **The Python page lives for the session** (Brief 101c, the owner
+//: 2026-10-07: the runtime reloaded on every document opened, 5.9 to 7.0 s
+//: cold). The runtime loads in a worker inside the Python sandbox page, and
+//: the page used to be the panel's own frame, so each new document's panel
+//: made a new page, a new worker and a new load. Now the page is one hidden
+//: frame on the document body, made the first time a Python document opens
+//: and kept; panels talk to it and leave it alone. Stop still ends the
+//: worker, as it always did, so a stopped run's next start loads again.
+const DOC_PY_HOST = { frame: null, warm: false };
+
+function docPyHost() {
+  let frame = DOC_PY_HOST.frame;
+  if (frame && frame.isConnected) return frame;
+  frame = document.createElement("iframe");
+  frame.hidden = true;
+  frame.setAttribute("aria-hidden", "true");
+  frame.setAttribute("sandbox", "allow-scripts");
+  frame.setAttribute("allow", "cross-origin-isolated");
+  frame.title = "The Python runner";
+  frame.dataset.runner = DOC_RUN_SANDBOX_PY_URL;
+  frame.mmReady = false;
+  frame.src = DOC_RUN_SANDBOX_PY_URL;
+  document.body.appendChild(frame);
+  DOC_PY_HOST.frame = frame;
+  return frame;
+}
+
+//: Start loading the runtime before Run is pressed: a Python document is
+//: open and the extra is installed. The page ignores it when its worker
+//: already holds, or is loading, the runtime.
+function docPyWarm() {
+  const host = docPyHost();
+  if (host.mmReady) host.contentWindow?.postMessage({ type: "warm", mmRun: 0 }, "*");
+  else DOC_PY_HOST.warm = true;
+}
+
+//: Which frame the panel talks to for this runner: Python's is the shared
+//: page above, every other language has the panel's own frame, switched to
+//: the page it needs (a switch reloads it and the run waits for `ready`).
+function docRunSelectFrame(runner) {
+  if (!docRun) return;
+  if (runner === DOC_RUN_SANDBOX_PY_URL) {
+    docRun.frame = docPyHost();
+    return;
+  }
+  const own = docRun.ownFrame;
+  docRun.frame = own;
+  if (own.dataset.runner !== runner) {
+    own.mmReady = false;
+    own.dataset.runner = runner;
+    own.src = runner;
+  }
+}
+
 //: Run's state for the open type (25 row 2): a .py document with no Python
 //: installed shows Run disabled and the one line that leads to the install.
 //: Asked again on every open, so an install counts at the next document.
@@ -2537,6 +2591,7 @@ async function docRunSyncAvailability(type) {
   const ready = python ? await docRunPythonReady() : true;
   //: Another document opened while that was asked: its own call decides.
   if (docFileType().ext !== type.ext) return;
+  if (python && ready) docPyWarm();
   run.disabled = !ready;
   run.title = ready ? "Run this file in a sandbox and show its output (Ctrl+Shift+Enter)" : "Running Python needs the Python package: install it in Settings, Packages";
   why.classList.toggle("hidden", ready || !docRunnable(type));
@@ -3198,9 +3253,15 @@ function docRunPanel(view) {
   frame.title = "The page this file makes";
   //: The runner this file needs from the start, so a first run is not a
   //: switch (see the `ready` check in the message listener).
-  const runner = DOC_RUN_KINDS[docFileType().ext] === "python" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
-  frame.src = runner;
-  frame.dataset.runner = runner;
+  //: A Python document's panel has no page of its own to load: it talks to
+  //: the shared one (`docPyHost`), and this frame stays blank until a
+  //: language that needs it runs.
+  const pythonFile = DOC_RUN_KINDS[docFileType().ext] === "python";
+  frame.mmReady = false;
+  if (!pythonFile) {
+    frame.src = DOC_RUN_SANDBOX_URL;
+    frame.dataset.runner = DOC_RUN_SANDBOX_URL;
+  }
   const logList = (name) => {
     const list = document.createElement("ol");
     list.className = "cm-run-log";
@@ -3308,7 +3369,10 @@ function docRunPanel(view) {
     event.preventDefault();
     event.stopPropagation();
   });
-  docRun = { view, dom, frame, log, status, stopButton, live, stdin, stdinWrap, stdinButton, tabs, panes, problemsLog, testsLog, consoleLog, consoleInput, debugView, debug: false, tab: "output", evalId: 0, ready: false, pending: null, id: 0, rows: 0, timer: null, running: false, preview: false, liveTimer: null, options: {}, job: null, jobWait: null, jobBeat: null };
+  docRun = { view, dom, frame: pythonFile ? docPyHost() : frame, ownFrame: frame, log, status, stopButton, live, stdin, stdinWrap, stdinButton, tabs, panes, problemsLog, testsLog, consoleLog, consoleInput, debugView, debug: false, tab: "output", evalId: 0, pending: null, id: 0, rows: 0, timer: null, running: false, preview: false, liveTimer: null, options: {}, job: null, jobWait: null, jobBeat: null };
+  //: A new document's panel on the shared page: what the last document's
+  //: run left in the console's namespace is not this document's.
+  if (pythonFile && docRun.frame.mmReady) docRun.frame.contentWindow?.postMessage({ type: "forget", mmRun: 0 }, "*");
   if (typeof docIdeRunGrip === "function") docIdeRunGrip(dom, view);
   docRunShowTab(DOC_PANEL.tab);
   return {
@@ -3319,6 +3383,11 @@ function docRunPanel(view) {
         clearTimeout(docRun.timer);
         clearTimeout(docRun.liveTimer);
         docRunJobEnd(docRun);
+        //: The shared page outlives the panel, so a script still going would
+        //: run on: closing the panel ends it, as removing the frame did.
+        if (docRun.running && docRun.frame === DOC_PY_HOST.frame) {
+          docRun.frame.contentWindow?.postMessage({ type: "stop", mmRun: docRun.id }, "*");
+        }
         if (docRun.debug) {
           //: The session ends with the panel, but its lit line is cleared
           //: after: a panel is destroyed inside the editor's own update,
@@ -3451,12 +3520,7 @@ async function docConsoleEval(source) {
       return false;
     }
   }
-  const runner = lang === "python" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
-  if (docRun.frame.dataset.runner !== runner) {
-    docRun.ready = false;
-    docRun.frame.dataset.runner = runner;
-    docRun.frame.src = runner;
-  }
+  docRunSelectFrame(lang === "python" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL);
   DOC_PANEL.evalSeq += 1;
   const seq = DOC_PANEL.evalSeq;
   docRun.evalId = seq;
@@ -3838,7 +3902,7 @@ function docRunAsk(prompt) {
 
 function docRunSend(message) {
   if (!docRun) return;
-  if (!docRun.ready) {
+  if (!docRun.frame.mmReady) {
     docRun.pending = message;
     return;
   }
@@ -3991,11 +4055,7 @@ async function docRunCode(options = {}) {
   //: One frame, two pages: Python's for .py, the other for the rest. A
   //: switch reloads the frame, and the run waits for its `ready`.
   const runner = prepared.page === "python" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
-  if (docRun.frame.dataset.runner !== runner) {
-    docRun.ready = false;
-    docRun.frame.dataset.runner = runner;
-    docRun.frame.src = runner;
-  }
+  docRunSelectFrame(runner);
   docRunSetStatus(prepared.page === "python" ? "Starting Python" : prepared.debug ? "Debugging" : "Running", true);
   docRunSend({ ...prepared.message, ...(prepared.debug ? { breaks: docDebugBreaks(), watches: DOC_DEBUG.watches.slice() } : {}), type: "run", mmRun: id });
   docRunJobArm(id);
@@ -4049,6 +4109,21 @@ function docRunCell() {
 
 //: The sandbox's messages. Only from the panel's own frame, only for the run
 //: in flight; everything in them is treated as text.
+//: The shared Python page says `ready` whether or not a panel is open: it
+//: loads when a Python document does, before any panel exists, so this does
+//: not wait for one (the listener below only hears the panel's own frame).
+window.addEventListener("message", (event) => {
+  const host = DOC_PY_HOST.frame;
+  if (!host || event.source !== host.contentWindow) return;
+  const data = event.data && typeof event.data === "object" ? event.data : {};
+  if (data.t !== "ready" || data.mmRun !== 0 || data.runner !== "python") return;
+  host.mmReady = true;
+  if (DOC_PY_HOST.warm) {
+    DOC_PY_HOST.warm = false;
+    host.contentWindow.postMessage({ type: "warm", mmRun: 0 }, "*");
+  }
+});
+
 window.addEventListener("message", (event) => {
   if (!docRun || event.source !== docRun.frame.contentWindow) return;
   const data = event.data && typeof event.data === "object" ? event.data : {};
@@ -4060,7 +4135,7 @@ window.addEventListener("message", (event) => {
     //: Python page says which it is; the JavaScript page says nothing.
     const wanted = docRun.frame.dataset.runner === DOC_RUN_SANDBOX_PY_URL ? "python" : undefined;
     if (data.runner !== wanted) return;
-    docRun.ready = true;
+    docRun.frame.mmReady = true;
     if (docRun.pending) {
       const message = docRun.pending;
       docRun.pending = null;

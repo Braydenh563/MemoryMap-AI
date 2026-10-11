@@ -439,6 +439,114 @@ def update_choice(body: _ChoiceBody, request: Request) -> dict:
     }
 
 
+def _no_releases() -> dict:
+    return {
+        "checked": False,
+        "reason": "no_releases",
+        "message": (
+            "No release has been published yet, so there is nothing to "
+            "update to. You are on the newest version there is."
+        ),
+    }
+
+
+def _update_check_refused(config, manual: bool) -> dict | None:  # noqa: ANN001
+    """Why no request should be made at all: the switch is off, or this
+    source install follows main. None when the check may go ahead."""
+    #: `manual` is the Check for updates button in Settings: a click is the
+    #: person asking for this one request, so the switch (which governs the
+    #: check made by itself at sign-in) does not refuse it.
+    if not manual and not config.get_preference("update_check_enabled", False):
+        return {"checked": False, "reason": "disabled"}
+    channel = config.get_preference("update_channel", "stable")
+    #: "Track the main branch" is a launcher setting: `start.bat` and
+    #: `start.sh` pull main instead of a tag on a source install, and that
+    #: works. The packaged app has no source to pull and no nightly
+    #: installer, so for it the choice reads as stable rather than as
+    #: silence (the owner, 2026-09-14).
+    if channel == "main" and getattr(sys, "frozen", False):
+        channel = "stable"
+    if channel == "main":
+        #: **A source install on this channel is not broken, it is already
+        #: doing it.** Still `checked: false`: there is no *release* to
+        #: compare against on this channel and inventing one would be a lie.
+        return {
+            "checked": False,
+            "reason": "channel_source_main",
+            "message": (
+                "This copy follows the newest changes: start.bat and "
+                "start.sh pull them on every launch, so it is already up to "
+                "date. Turn off \"Follow the newest changes\" below to be "
+                "told about finished releases instead."
+            ),
+        }
+    return None
+
+
+def _fetch_release_answer(beta: bool):
+    """GitHub's answer for the latest release (or the recent list on the beta
+    channel), as `(response, None)`, or `(None, the dict to return)`.
+
+    **Three different failures, three different sentences.** A repository
+    with no published release answers `/releases/latest` with 404, which is
+    "nothing to update to yet", not "unreachable"; rate limiting (60 requests
+    an hour for an unauthenticated caller) is the second; no network the third.
+    """
+    try:
+        if beta:
+            response = requests.get(
+                f"{GITHUB_REPO_API}/releases",
+                params={"per_page": 10},
+                timeout=4,
+                headers=GITHUB_HEADERS,
+            )
+        else:
+            response = requests.get(
+                f"{GITHUB_REPO_API}/releases/latest", timeout=4, headers=GITHUB_HEADERS
+            )
+    except Exception:
+        logger.info("update check could not reach GitHub", exc_info=True)
+        return None, {
+            "checked": False,
+            "reason": "unreachable",
+            "message": "Couldn't reach GitHub to check for updates.",
+        }
+    if response.status_code == 404:
+        return None, _no_releases()
+    if response.status_code in (403, 429):
+        return None, {
+            "checked": False,
+            "reason": "rate_limited",
+            "message": (
+                "GitHub is rate-limiting this machine. The check will work "
+                "again within the hour."
+            ),
+        }
+    return response, None
+
+
+def _read_release(response, beta: bool):  # noqa: ANN001
+    """The release dict out of GitHub's answer, as `(release, None)`, or `(None, the dict to return)`."""
+    try:
+        response.raise_for_status()
+        release = response.json()
+        if beta:
+            listed = [r for r in release if isinstance(r, dict) and not r.get("draft") and r.get("tag_name")]
+            if not listed:
+                return None, _no_releases()
+            release = max(listed, key=lambda r: _release_key(r["tag_name"]))
+        if not isinstance(release, dict):
+            raise ValueError("GitHub did not answer with a release")
+    except Exception:
+        logger.info("update check got an answer it could not read", exc_info=True)
+        return None, {
+            "checked": False,
+            "reason": "unreachable",
+            "message": "GitHub answered with something this couldn't read.",
+        }
+    return release, None
+
+
 @router.get("/check")
 @egress.labelled("Checking GitHub for a new version")
 def check_for_update(manual: bool = False) -> dict:
@@ -457,125 +565,19 @@ def check_for_update(manual: bool = False) -> dict:
     from memorymap.core import deps
 
     config = deps.get_config()
-    #: `manual` is the Check for updates button in Settings: a click is the
-    #: person asking for this one request, so the switch (which governs the
-    #: check made by itself at sign-in) does not refuse it.
-    if not manual and not config.get_preference("update_check_enabled", False):
-        return {"checked": False, "reason": "disabled"}
-    channel = config.get_preference("update_channel", "stable")
-    #: "Track the main branch" is a launcher setting: `start.bat` and
-    #: `start.sh` pull main instead of a tag on a source install, and that
-    #: works. The packaged app has no source to pull and no nightly
-    #: installer, so for it the choice reads as stable rather than as
-    #: silence: a person who switched it on in the packaged app still hears
-    #: about a release (the owner, 2026-09-14: "make sure all of these are
-    #: actually functional and properly do as they say").
-    if channel == "main" and getattr(sys, "frozen", False):
-        channel = "stable"
-    if channel == "main":
-        #: **A source install on this channel is not broken, it is already
-        #: doing it.** Reported with a screenshot of this panel saying main
-        #: "isn't wired up to a build pipeline yet: switch back to Stable",
-        #: on a checkout launched by `start.bat`, which pulls main on every
-        #: launch. The toggle two rows below says so in its own label. The
-        #: sentence was written for the packaged app, where there is no
-        #: source to pull and no nightly installer, and telling someone to
-        #: leave the channel that is working for them is the opposite of the
-        #: advice they need.
-        #:
-        #: Still `checked: false`: there is no *release* to compare against
-        #: on this channel and inventing one would be the lie the honest
-        #: message below already avoids. What changes is which true sentence
-        #: the reader gets.
-        #: Only a source install reaches this: the line above has already
-        #: rewritten the packaged app's "main" to "stable", because it has no
-        #: source to pull and a release is the only thing it can install. So
-        #: the old sentence here, written for that case, could only ever be
-        #: read by the one kind of install it was wrong about.
-        return {
-            "checked": False,
-            "reason": "channel_source_main",
-            "message": (
-                "This copy follows the newest changes: start.bat and "
-                "start.sh pull them on every launch, so it is already up to "
-                "date. Turn off \"Follow the newest changes\" below to be "
-                "told about finished releases instead."
-            ),
-        }
-    #: **Three different failures, three different sentences.** Reported with
-    #: a screenshot of Settings saying "Couldn't reach GitHub to check for
-    #: updates" on a machine that was plainly online: every failure here
-    #: collapsed into one reason, and the most likely one by far is not a
-    #: network fault at all. A repository with no published release answers
-    #: `/releases/latest` with 404, which raised and was reported as
-    #: unreachable, so the honest message ("there is nothing to update to
-    #: yet") could never be shown. Rate limiting (60 requests an hour for an
-    #: unauthenticated caller, and this check runs on a timer) is the second.
-    #: The comment on the old log line knew all three and the reader was told
-    #: none of them.
+    refusal = _update_check_refused(config, manual)
+    if refusal:
+        return refusal
     #: Opt-in beta (OPEN ledger 302): the recent list instead of `latest`,
     #: which never holds a pre-release. Off by default.
     beta = config.get_preference("update_beta", False) is True
-    try:
-        if beta:
-            response = requests.get(
-                f"{GITHUB_REPO_API}/releases",
-                params={"per_page": 10},
-                timeout=4,
-                headers=GITHUB_HEADERS,
-            )
-        else:
-            response = requests.get(
-                f"{GITHUB_REPO_API}/releases/latest", timeout=4, headers=GITHUB_HEADERS
-            )
-    except Exception:
-        logger.info("update check could not reach GitHub", exc_info=True)
-        return {
-            "checked": False,
-            "reason": "unreachable",
-            "message": "Couldn't reach GitHub to check for updates.",
-        }
-    if response.status_code == 404:
-        return {
-            "checked": False,
-            "reason": "no_releases",
-            "message": (
-                "No release has been published yet, so there is nothing to "
-                "update to. You are on the newest version there is."
-            ),
-        }
-    if response.status_code in (403, 429):
-        return {
-            "checked": False,
-            "reason": "rate_limited",
-            "message": (
-                "GitHub is rate-limiting this machine. The check will work "
-                "again within the hour."
-            ),
-        }
-    try:
-        response.raise_for_status()
-        release = response.json()
-        if beta:
-            listed = [r for r in release if isinstance(r, dict) and not r.get("draft") and r.get("tag_name")]
-            if not listed:
-                return {
-                    "checked": False,
-                    "reason": "no_releases",
-                    "message": (
-                        "No release has been published yet, so there is nothing to "
-                        "update to. You are on the newest version there is."
-                    ),
-                }
-            release = max(listed, key=lambda r: _release_key(r["tag_name"]))
-        latest = str(release.get("tag_name") or "").lstrip("vV")
-    except Exception:
-        logger.info("update check got an answer it could not read", exc_info=True)
-        return {
-            "checked": False,
-            "reason": "unreachable",
-            "message": "GitHub answered with something this couldn't read.",
-        }
+    response, failure = _fetch_release_answer(beta)
+    if failure:
+        return failure
+    release, failure = _read_release(response, beta)
+    if failure:
+        return failure
+    latest = str(release.get("tag_name") or "").lstrip("vV")
 
     update_available = bool(latest) and _release_key(latest) > _release_key(__version__)
     asset = _windows_asset(release) if (update_available and _can_auto_apply()) else None

@@ -349,46 +349,68 @@ def _topic_text(text: str) -> str:
     return _clip(text, 120)
 
 
+def _paragraph_topics(paragraphs: list[str], title: str) -> list[dict]:
+    """A note with no headings or list items: one topic per paragraph, from its first sentence."""
+    topics = []
+    for para in paragraphs[:MAX_NOTE_MAP_NODES]:
+        first = _topic_text(re.split(r"(?<=[.!?])\s", para, maxsplit=1)[0])
+        if first and first != title:
+            topics.append({"text": first, "children": []})
+    return topics
+
+
+def _outline_line(raw: str):
+    """A note line as `(kind, level, text)`: "heading" or "item" with its level and words,
+    or ("text", 0, line) for anything else."""
+    heading = _NOTE_HEADING.match(raw.strip())
+    item = None if heading else _NOTE_LIST.match(raw)
+    if heading:
+        return "heading", len(heading.group(1)), _topic_text(heading.group(2))
+    if item:
+        return "item", 10 + len(item.group(1).expandtabs(4)), _topic_text(item.group(2))
+    return "text", 0, raw.strip()
+
+
+def _hang_topic(stack: list, roots: list, level: int, text: str) -> None:
+    """Add a topic under the nearest shallower one on the path, or as a root."""
+    node = {"text": text, "children": []}
+    while stack and stack[-1][0] >= level:
+        stack.pop()
+    (stack[-1][1]["children"] if stack else roots).append(node)
+    stack.append((level, node))
+
+
+def _outline_lines(lines: list[str]):
+    """The classified lines of a note, code fences and blank lines left out."""
+    fenced = False
+    for raw in lines:
+        if raw.lstrip().startswith("```"):
+            fenced = not fenced
+        elif not fenced and raw.strip():
+            yield _outline_line(raw)
+
+
 def note_outline(content: str) -> tuple[str, list[dict]]:
     """A note as a map's outline: (title, the topics under it). Headings are
     branches by level, list items hang under the heading above them by
     indent; a note with neither gives one topic per paragraph."""
-    lines = strip_properties(content or "").splitlines()
-    title, roots, fenced, count = "", [], False, 0
+    title, roots, count = "", [], 0
     #: (level, node): headings down the current path; list items sit below
     #: the deepest heading at 10 + indent so they never outrank one.
     stack: list[tuple[int, dict]] = []
     paragraphs: list[str] = []
-    for raw in lines:
-        if raw.lstrip().startswith("```"):
-            fenced = not fenced
-            continue
-        if fenced or not raw.strip():
-            continue
-        heading = _NOTE_HEADING.match(raw.strip())
-        item = None if heading else _NOTE_LIST.match(raw)
-        if heading and not title and not roots:
-            title = _topic_text(heading.group(2))
-            continue
-        if not heading and not item:
-            paragraphs.append(raw.strip())
-            continue
-        if count >= MAX_NOTE_MAP_NODES:
+    for kind, level, text in _outline_lines(strip_properties(content or "").splitlines()):
+        if kind == "heading" and not title and not roots:
+            title = text
+        elif kind == "text":
+            paragraphs.append(text)
+        elif count >= MAX_NOTE_MAP_NODES:
             break
-        level = len(heading.group(1)) if heading else 10 + len(item.group(1).expandtabs(4))
-        node = {"text": _topic_text((heading or item).group(2)), "children": []}
-        if not node["text"]:
-            continue
-        while stack and stack[-1][0] >= level:
-            stack.pop()
-        (stack[-1][1]["children"] if stack else roots).append(node)
-        stack.append((level, node))
-        count += 1
+        elif text:
+            _hang_topic(stack, roots, level, text)
+            count += 1
     if not roots:
-        for para in paragraphs[:MAX_NOTE_MAP_NODES]:
-            first = re.split(r"(?<=[.!?])\s", para, maxsplit=1)[0]
-            if _topic_text(first) and _topic_text(first) != title:
-                roots.append({"text": _topic_text(first), "children": []})
+        roots.extend(_paragraph_topics(paragraphs, title))
     if not title:
         title = _topic_text(paragraphs[0]) if paragraphs else ""
         roots = [r for r in roots if r["text"] != title]

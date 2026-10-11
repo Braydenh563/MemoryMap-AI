@@ -469,9 +469,10 @@ def flush(path: Path, *, create: bool = True) -> dict:
         return _flush_locked(path, create)
 
 
-def _flush_locked(path: Path, create: bool) -> dict:
-    from memorymap.core.atomic_io import atomic_write_json
-
+def _take_unflushed(path: Path):  # noqa: ANN202
+    """What the counters hold that the ledger at `path` does not: the new
+    counts by destination, their rows, and the totals added; also the flushed
+    marks (to be rolled back) as they stood before."""
     with _lock:
         flushed, flushed_totals = _flush_state.setdefault(str(path), ({}, {scope: 0 for scope in SCOPES}))
         added = {
@@ -486,27 +487,43 @@ def _flush_locked(path: Path, create: bool) -> dict:
             flushed[key] = row["count"]
         for scope in SCOPES:
             flushed_totals[scope] = _totals[scope]
-    ledger = _read_ledger(path)
-    stored_totals = ledger.get("totals") if isinstance(ledger.get("totals"), dict) else {}
-    out_totals = {scope: int(stored_totals.get(scope, 0) or 0) + added_totals[scope] for scope in SCOPES}
+    return flushed, flushed_totals, added, rows, before, added_totals
+
+
+def _stored_rows(ledger: dict) -> dict:
     stored = {}
     for item in ledger.get("destinations", []) if isinstance(ledger.get("destinations"), list) else []:
         if isinstance(item, dict) and isinstance(item.get("host"), str):
             stored[(item.get("kind", "connect"), item["host"], item.get("port"))] = item
+    return stored
+
+
+def _row_with_history(key, row: dict, count: int, previous: dict | None) -> dict:  # noqa: ANN001
+    """The ledger row for a destination: this flush's `count` added to what
+    the ledger already held (`previous`), its first time and purposes kept."""
+    out = _row_out(key, row)
+    if previous is None:
+        out["count"] = count
+        return out
+    out["count"] = int(previous.get("count", 0) or 0) + count
+    out["first"] = previous.get("first", out["first"])
+    for words in reversed([w for w in previous.get("purposes") or [] if isinstance(w, str)]):
+        if words not in out["purposes"]:
+            out["purposes"].append(words)
+    out["purposes"] = out["purposes"][:MAX_PURPOSES]
+    return out
+
+
+def _flush_locked(path: Path, create: bool) -> dict:
+    from memorymap.core.atomic_io import atomic_write_json
+
+    flushed, flushed_totals, added, rows, before, added_totals = _take_unflushed(path)
+    ledger = _read_ledger(path)
+    stored_totals = ledger.get("totals") if isinstance(ledger.get("totals"), dict) else {}
+    out_totals = {scope: int(stored_totals.get(scope, 0) or 0) + added_totals[scope] for scope in SCOPES}
+    stored = _stored_rows(ledger)
     for key, count in added.items():
-        row = rows[key]
-        out = _row_out(key, row)
-        previous = stored.get(key)
-        if previous is not None:
-            out["count"] = int(previous.get("count", 0) or 0) + count
-            out["first"] = previous.get("first", out["first"])
-            for words in reversed([w for w in previous.get("purposes") or [] if isinstance(w, str)]):
-                if words not in out["purposes"]:
-                    out["purposes"].append(words)
-            out["purposes"] = out["purposes"][:MAX_PURPOSES]
-        else:
-            out["count"] = count
-        stored[key] = out
+        stored[key] = _row_with_history(key, rows[key], count, stored.get(key))
     kept = sorted(stored.values(), key=lambda r: str(r.get("last", "")), reverse=True)[:MAX_DESTINATIONS]
     result = {
         "since": ledger.get("since") or since(),

@@ -211,6 +211,8 @@ HAND_BUILT_SHEETS = {"sidebar-sheet-open", "graph-popup-sheet"}
 # than becoming a third hand-built sheet. A new variant adds its two names here
 # and nothing else; the test below is what keeps that true.
 SHEET_RECIPE = {
+    # The Guide above 600: no scrim, presses pass through (openSheet `modal: false`).
+    "sheet-modeless",
     "sheet-overlay",
     "sheet-card",
     "sheet-head",

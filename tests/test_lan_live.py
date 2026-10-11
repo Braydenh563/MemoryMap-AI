@@ -422,7 +422,7 @@ def test_the_icon_is_a_tools_doorway_hidden_until_this_computer_answers():
 def test_the_watch_paints_the_icon_and_keeps_going_while_lan_mode_is_off():
     watch = _js("lan-watch.js")
     once = watch.split("async function lanWatchOnce(", 1)[1].split("\n}\n", 1)[0]
-    assert 'response.status === 403) return "stop"' in once
+    assert 'error?.status === 403) return "stop"' in once
     assert 'if (!state.serving) return "stop"' not in once
     assert "lanPaintIcon(lanLookFromWatch(state))" in once
     assert "lanNoticeSwitchedOff(state.switched_off)" in once

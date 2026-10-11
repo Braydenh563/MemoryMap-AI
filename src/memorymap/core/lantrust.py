@@ -144,7 +144,7 @@ def _now_text() -> str:
 def _stopped_trusting(state: dict, network: netid.Network | None) -> bool:
     """The person said Stop trusting this network."""
     return network is not None and any(
-        n["key"] == network.key and n.get("blocked") for n in state.get("untrusted") or ()
+        _same(n, network) and n.get("blocked") for n in state.get("untrusted") or ()
     )
 
 

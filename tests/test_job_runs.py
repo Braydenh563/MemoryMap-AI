@@ -168,7 +168,7 @@ def test_a_failed_reindex_shows_its_reason(client):
     )
     row = _runs(client)["reindex"]
     assert row["status"] == "failed"
-    assert row["error"] == "the embedding model went away"
+    assert row["error"] == "The re-index stopped before it finished. The log has the reason."
 
 
 def test_a_stopped_reindex_is_cancelled(client):

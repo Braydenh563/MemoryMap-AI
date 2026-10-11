@@ -84,7 +84,7 @@ def test_the_answer_names_the_place_as_read():
     from memorymap.ai import utilities
 
     out = utilities._clock("what's the time in westen australia", datetime(2026, 10, 11, tzinfo=timezone.utc))
-    assert "in Western Australia." in out[0][1]
+    assert "Perth, Western Australia" in out[0][1]
 
 
 # Row 1056: the Statistics charts' axis, unchecked at a 0 to 1,240 range.

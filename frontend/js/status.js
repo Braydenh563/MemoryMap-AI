@@ -51,12 +51,12 @@ function rememberAnnounced(ids) {
   // Bounded, and trimmed from the front: without a cap this grows forever in a
   // notebook that has been used for years.
   const kept = [...announcedReminders(), ...ids].slice(-200);
-  localStorage.setItem(ANNOUNCED_KEY, JSON.stringify(kept));
+  prefs.set(ANNOUNCED_KEY, JSON.stringify(kept));
 }
 
 // --- the notifications centre (§36E) ----------------------------------------
 //
-// MemoryMap already *produces* all of these events, a reminder comes due, a
+// Tessellate already *produces* all of these events, a reminder comes due, a
 // background task finishes, a skill run stalls, and shows each of them in its
 // own way: a system notification, a toast, a status pill, a step timeline.
 // Every one of those is a moment. Miss the moment and the event is gone.
@@ -102,9 +102,7 @@ function recordNotification({ kind, title, detail = "", key = "", action = null,
   if (key && dismissedNotificationIds().has(id)) return null;
   //: `runId` ties a "Started:" row to its run, so the ending can replace it.
   items.push({ id, kind, title, detail, at: Date.now(), action, ...(runId ? { runId } : {}) });
-  try {
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items.slice(-MAX_NOTIFICATIONS)));
-  } catch {
+  if (!prefs.set(NOTIFICATIONS_KEY, JSON.stringify(items.slice(-MAX_NOTIFICATIONS)))) {
     return null; // storage refused: the toast still shows, the row is not kept
   }
   renderNotificationBadge();
@@ -122,11 +120,7 @@ function settleNotification(id, { key, kind, title, detail = "" }) {
   if (!row) return false;
   Object.assign(row, { id: key, kind, title, detail, at: Date.now() });
   delete row.runId;
-  try {
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items));
-  } catch {
-    return false;
-  }
+  if (!prefs.set(NOTIFICATIONS_KEY, JSON.stringify(items))) return false;
   renderNotificationBadge();
   if (!$("notif-panel")?.classList.contains("hidden")) openNotifications({ keepWatermark: true });
   return true;
@@ -184,7 +178,7 @@ function setForcedUnreadIds(ids) {
     //: storage forever keeping the badge count wrong.
     const live = new Set(storedNotifications().map((item) => item.id));
     const kept = [...ids].filter((id) => live.has(id));
-    localStorage.setItem(NOTIFICATIONS_UNREAD_KEY, JSON.stringify(kept));
+    prefs.set(NOTIFICATIONS_UNREAD_KEY, JSON.stringify(kept));
   } catch {
     /* private mode: the flag just will not be remembered */
   }
@@ -211,7 +205,7 @@ function forcedReadIds() {
 function setForcedReadIds(ids) {
   try {
     const known = new Set(storedNotifications().map((n) => n.id));
-    localStorage.setItem(NOTIFICATIONS_READ_IDS_KEY, JSON.stringify([...ids].filter((id) => known.has(id))));
+    prefs.set(NOTIFICATIONS_READ_IDS_KEY, JSON.stringify([...ids].filter((id) => known.has(id))));
   } catch {
     // Storage refused: the flag is lost, the panel is not.
   }
@@ -223,23 +217,20 @@ function isNotificationUnread(item, readAt = notificationsReadAt(), forced = for
   return item.at > readAt;
 }
 
-function setNotificationUnread(id, unread) {
-  const unreadIds = forcedUnreadIds();
-  const readIds = forcedReadIds();
-  if (unread) { unreadIds.add(id); readIds.delete(id); }
-  else { unreadIds.delete(id); readIds.add(id); }
-  setForcedUnreadIds(unreadIds);
-  setForcedReadIds(readIds);
-  renderNotificationBadge();
-}
-
 //: **One row can be removed** (INBOX 508, the owner: "I cant delete
 //: individual notifications"). Only Clear all existed. A keyed row (an
-//: overdue reminder, `reminder:<id>`) is folded back in by every open of
+//: overdue reminder, `reminder:<id>@<due time>`) is folded back in by every open of
 //: the panel while it stays overdue, so its key is remembered as dismissed,
 //: or the row would come back the next time the bell is pressed. Capped:
 //: keys are per reminder, a few hundred is years of them.
 const NOTIFICATIONS_DISMISSED_KEY = "notificationsDismissed";
+
+//: **A reminder's row is keyed by its due time too**, so a reminder that was
+//: dismissed, snoozed and overdue again is a new row and comes back to the
+//: bell (a dismissal answers "this time it was due", not "never again").
+function reminderNoticeKey(reminder) {
+  return `reminder:${reminder.id}@${reminder.due_at || ""}`;
+}
 
 function dismissedNotificationIds() {
   try {
@@ -248,22 +239,6 @@ function dismissedNotificationIds() {
   } catch {
     return new Set();
   }
-}
-
-function dismissNotification(item) {
-  const all = storedNotifications().filter((n) =>
-    item.id != null ? n.id !== item.id : n.at !== item.at
-  );
-  try {
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(all));
-    if (item.id != null && /^reminder:/.test(String(item.id))) {
-      const gone = [...dismissedNotificationIds(), item.id].slice(-300);
-      localStorage.setItem(NOTIFICATIONS_DISMISSED_KEY, JSON.stringify(gone));
-    }
-  } catch {
-    // Storage refused: the row stays, which is what the list shows next.
-  }
-  renderNotificationBadge();
 }
 
 function unreadNotifications() {
@@ -383,298 +358,13 @@ function keepToastAction(message, label, run, { go = null, record = true, kind =
   };
 }
 
-//: Whether a kept action can still run from this session's closure.
-function noticeLiveValid(live) {
-  if (!live || (live.once && live.used)) return false;
-  if (live.stacked) return undoStack.includes(live.stacked);
-  return !live.until || Date.now() < live.until;
-}
-
-//: Where a stored `go` leads, found again by id when pressed: a target that
-//: has gone since says so rather than opening an empty view.
-const NOTICE_TARGETS = {
-  entry: [(id) => apiJson(`/entries/${id}`, { silent: true }), (id) => flashEntry(id), "note"],
-  conversation: [(id) => apiJson(`/conversations/${id}`, { silent: true }), (id) => { switchTab("chat"); return openConversation(id); }, "chat"],
-  doc: [(id) => apiJson(`/documents/${id}`, { silent: true }), (id) => { switchTab("documents"); return openDocument(id); }, "document"],
-  board: [(id) => apiJson("/whiteboard/boards", { silent: true }).then((all) => all.find((b) => b.id === id)), (id) => openWhiteboardBoard(id), "board"],
-  reminder: [null, (id) => { editingReminderId = id; return flashReminder(id); }, "reminder"],
-  capture: [null, () => startNewNote(), ""],
-};
-
-async function runNotificationGo(action) {
-  if (action.panel) return reopenAnswerPanel(action);
-  if (action.settings) return openSettingsModal(action.settings, action.focus);
-  if (action.exports) return openExportsFromNotification();
-  if (action.filter) return showNotesFilter(action.filter);
-  const target = NOTICE_TARGETS[action.open];
-  if (target) {
-    const found = target[0] ? await target[0](action.id).catch(() => null) : true;
-    if (!found) return toast(`That ${target[2]} is no longer there.`);
-    return target[1](action.id);
-  }
-  if (action.tab) return switchTab(action.tab);
-}
-
-function notificationGoes(action) {
-  return Boolean(action && (action.tab || action.exports || action.panel || action.settings || NOTICE_TARGETS[action.open]));
-}
-
-//: The row's own action (INBOX 585), a quiet text button at the end of its
-//: meta line (INBOX 811: a grey bordered block on a line of its own was
-//: heavier than the message). Once a one-shot action is spent or out of
-//: date there is nothing to press: the line says so in its own words ("Undo
-//: expired", "Done"), never a disabled button beside the reason.
-function notificationActionButton(item) {
-  const action = item.action;
-  if (!action || !(action.label || notificationGoes(action))) return null;
-  const live = noticeLive.get(item.id);
-  const label = action.label || (action.exports ? "Open folder" : action.filter ? "Show them" : "Open");
-  if (!noticeLiveValid(live) && (action.once || !notificationGoes(action))) {
-    const state = document.createElement("span");
-    state.className = "notif-cta-state";
-    state.textContent = live?.used || redoStack.includes(live?.stacked) ? "Done" : /^undo$/i.test(label) ? "Undo expired" : "Expired";
-    return state;
-  }
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "ghost small quiet notif-cta";
-  button.textContent = label;
-  if (noticeLiveValid(live)) {
-    button.addEventListener("click", async (event) => {
-      event.stopPropagation();
-      if (!noticeLiveValid(live)) return openNotifications({ keepWatermark: true });
-      closeNotifications();
-      //: The toast's own closure, which settles its stack entry itself
-      //: (`settleUndoFromToast`), exactly as pressing the toast did.
-      live.used = live.once;
-      await live.run();
-    });
-  } else {
-    button.addEventListener("click", (event) => {
-      event.stopPropagation();
-      closeNotifications();
-      runNotificationGo(action);
-    });
-  }
-  return button;
-}
-
-//: `keepWatermark`: a re-render from a row's own read/unread toggle must
-//: not also stamp the "seen everything" watermark: that is what made one
-//: tick mark every unread row as read (reported twice).
-async function openNotifications({ keepWatermark = false } = {}) {
-  const panel = $("notif-panel");
-  const list = $("notif-list");
-  panel.classList.remove("hidden");
-  renderNotifMuteToggle();
-  renderAgentActivityMode();
-
-  // Fold in anything currently overdue on the server. This is what makes the
-  // centre honest about time it was not running for: the event log can only
-  // know what happened while a tab was open, and the reminders table knows
-  // what is due regardless.
-  const all = await apiJson("/reminders", { silent: true }).catch(() => null);
-  for (const reminder of all || []) {
-    if (reminder.done) continue;
-    if (new Date(reminder.due_at).getTime() > Date.now()) continue;
-    recordNotification({
-      kind: "reminder",
-      title: reminder.text,
-      detail: `Due ${relativeTime(reminder.due_at)}`,
-      key: `reminder:${reminder.id}`,
-      action: { tab: "reminders" },
-    });
-  }
-
-  const items = storedNotifications().slice().reverse();
-  const readAt = notificationsReadAt();
-  //: The count, beside the word it qualifies. The bell in the header already
-  //: carries it, but the bell is what you clicked to get here, inside the
-  //: panel the number has to say how many of the rows below are new.
-  const forced = forcedUnreadIds();
-  const chip = $("notif-unread");
-  if (chip) {
-    const unread = items.filter((item) => isNotificationUnread(item, readAt, forced)).length;
-    chip.textContent = unread > 99 ? "99+" : String(unread);
-    chip.classList.toggle("hidden", unread === 0);
-    chip.title = `${unread} unread`;
-  }
-  list.replaceChildren();
-  //: **An empty state, not a paragraph.** Reported with a screenshot: three
-  //: lines of muted prose filled the panel where nothing had happened, which
-  //: reads as an error message rather than as calm. The shape every other
-  //: empty surface in this app uses, a glyph, a short line, and the
-  //: explanation underneath in small text, says the same thing in a glance.
-  if (!items.length) {
-    const empty = document.createElement("li");
-    empty.className = "notif-empty";
-    const glyph = document.createElement("span");
-    glyph.className = "notif-empty-icon";
-    setLabel(glyph, "ph:bell-simple");
-    glyph.setAttribute("aria-hidden", "true");
-    const headline = document.createElement("p");
-    headline.className = "notif-empty-title";
-    headline.textContent = "You're all caught up";
-    const sub = document.createElement("p");
-    sub.className = "muted text-sm notif-empty-sub";
-    sub.textContent =
-      "Reminders that come due, finished background jobs and runs that " +
-      "stopped early collect here.";
-    empty.append(glyph, headline, sub);
-    list.appendChild(empty);
-  }
-  for (const item of items) {
-    const row = document.createElement("li");
-    row.className = "notif-row";
-    const unread = isNotificationUnread(item, readAt, forced);
-    if (unread) row.classList.add("notif-unread");
-
-    //: **One row recipe** (INBOX 585, then 811): the icon column (the unread
-    //: dot in its leading gutter, so a read row and an unread one put their
-    //: icons on one edge), then one block: the message, its detail, and a
-    //: meta line of the time, the row's two controls beside it (shown on
-    //: hover and focus, always under a finger, never in the time's place, so
-    //: every row's time starts on one x) and the row's action at the end.
-    const dot = document.createElement("span");
-    dot.className = "notif-dot";
-    //: Named, not only drawn: a dot is a state shown by colour, so it says
-    //: "Unread" to the pointer and to a screen reader (the owner's
-    //: learnability rule, 2026-10-11).
-    if (unread) {
-      dot.setAttribute("role", "img");
-      dot.setAttribute("aria-label", "Unread");
-      dot.title = "Unread";
-    } else dot.setAttribute("aria-hidden", "true");
-    const icon = document.createElement("span");
-    icon.className = "notif-icon";
-    setLabel(icon, NOTIFICATION_ICONS[item.kind] || NOTIFICATION_ICONS.info);
-    icon.setAttribute("aria-hidden", "true");
-
-    const body = document.createElement("div");
-    body.className = "notif-body";
-    //: Title and time on one line, detail underneath. Reported with a
-    //: screenshot: the time was glued to the end of a three-line detail
-    //: and the title wrapped under a 2.25rem "mark read" button: the row
-    //: read as a paragraph with a random button, not as a notification.
-    const head = document.createElement("div");
-    head.className = "notif-row-head";
-    const title = document.createElement("span");
-    title.className = "notif-title";
-    setLabel(title, item.title);
-    const time = document.createElement("time");
-    time.className = "notif-time muted";
-    time.dateTime = new Date(item.at).toISOString();
-    time.textContent = relativeTime(time.dateTime);
-    time.title = new Date(item.at).toLocaleString();
-    head.append(title);
-    body.append(head);
-    if (item.detail) {
-      const meta = document.createElement("div");
-      meta.className = "notif-meta muted";
-      meta.textContent = item.detail;
-      body.append(meta);
-    }
-    const foot = document.createElement("div");
-    foot.className = "notif-foot";
-    body.append(foot);
-    row.append(dot, icon, body);
-
-    //: The dot is the control. A row is either new or it is not, so this is a
-    //: two-state toggle rather than a menu, and it sits where the "new"
-    //: marker already is, so pressing the thing that says "unread" is what
-    //: changes whether it is unread. `stopPropagation` because the row itself
-    //: may navigate somewhere, and "keep this for later" is the opposite of
-    //: "take me there now".
-    const readToggle = document.createElement("button");
-    readToggle.type = "button";
-    readToggle.className = "ghost small icon-only notif-read-toggle";
-    readToggle.setAttribute("aria-pressed", String(unread));
-    readToggle.title = unread ? "Mark as read" : "Mark as unread";
-    readToggle.setAttribute("aria-label", readToggle.title);
-    setLabel(readToggle, unread ? "ph:circle" : "ph:check-circle");
-    readToggle.addEventListener("click", (event) => {
-      event.stopPropagation();
-      // Reported: "the individual mark as complete buttons don't work". A
-      // row from before ids were stamped has no `item.id`, so the override
-      // set had nothing to add and the click changed nothing visible. Stamp
-      // one from its timestamp, stable across renders, unique enough.
-      if (item.id == null) {
-        item.id = `n-${item.at}`;
-        const all = storedNotifications();
-        const same = all.find((entry) => entry.at === item.at && entry.id == null);
-        if (same) { same.id = item.id; localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(all)); }
-      }
-      setNotificationUnread(item.id, !unread);
-      openNotifications({ keepWatermark: true });
-    });
-    const dismiss = document.createElement("button");
-    dismiss.type = "button";
-    dismiss.className = "ghost small icon-only notif-dismiss";
-    dismiss.title = "Remove this notification";
-    dismiss.setAttribute("aria-label", `Remove: ${item.title}`);
-    setLabel(dismiss, "ph:x");
-    dismiss.addEventListener("click", (event) => {
-      event.stopPropagation();
-      // Focus goes to the next row's remove button, or the list, so a
-      // keyboard run through the list does not drop back to the page.
-      const next = row.nextElementSibling || row.previousElementSibling;
-      dismissNotification(item);
-      openNotifications({ keepWatermark: true }).then(() => {
-        const index = next ? [...list.children].findIndex((li) => li.dataset.at === next.dataset.at) : -1;
-        (list.children[index]?.querySelector(".notif-dismiss") || $("notif-close"))?.focus();
-      });
-    });
-    const actions = document.createElement("span");
-    actions.className = "notif-row-actions";
-    actions.append(readToggle, dismiss);
-    foot.append(time, actions);
-    const cta = notificationActionButton(item);
-    if (cta) foot.append(cta);
-    row.dataset.at = String(item.at);
-
-    // A notification you cannot act on is a notification you learn to ignore.
-    // The whole row goes where its target is; a one-shot action (an Undo) is
-    // only ever its own button.
-    if (item.action && !item.action.once && notificationGoes(item.action)) {
-      row.classList.add("notif-actionable");
-      row.tabIndex = 0;
-      row.title = item.action.exports ? "Open the exports folder" : "Open";
-      const go = () => {
-        closeNotifications();
-        runNotificationGo(item.action);
-      };
-      row.addEventListener("click", go);
-      row.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          go();
-        }
-      });
-    }
-    list.appendChild(row);
-  }
-
-  // Opening the panel *is* reading them. Marked after rendering, so the
-  // unread ones are still highlighted in the list you are looking at.
-  //
-  // The overrides survive it: a row deliberately kept unread must not be
-  // cleared by looking at the panel, or "mark as unread" would last exactly
-  // until the next time the bell is opened, which is no time at all.
-  // The watermark moves on *close*, not on open (see closeNotifications):
-  // while the panel is up, an unread row stays unread, so ticking one row
-  // changes one row. Opening used to stamp it, and the next re-render, 
-  // the one a tick causes, then showed every row as read (reported twice
-  // as "mark one, all get marked").
-  renderNotificationBadge();
-}
-
 function closeNotifications() {
   const panel = $("notif-panel");
   if (panel.classList.contains("hidden")) return;
   panel.classList.add("hidden");
   // Closing the panel is reading it: everything shown is now old news,
   // except rows deliberately kept unread (the override set survives).
-  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  prefs.set(NOTIFICATIONS_READ_KEY, String(Date.now()));
   renderNotificationBadge();
 }
 
@@ -789,7 +479,7 @@ function notify(title, body) {
 
 // The count in the title bar, the one surface that works while the app is in
 // a background tab, which is where it usually is when a reminder comes due.
-const BASE_TITLE = "MemoryMap AI";
+const BASE_TITLE = "Tessellate";
 let titleCount = 0;
 //: The view and the open thing (router.js, WORLD_CLASS_PLAN 22.1 item 1):
 //: "Half marathon, week 4 · Notes", before the app's name, after the count.
@@ -877,8 +567,8 @@ async function checkDueReminders() {
     recordNotification({
       kind: "reminder",
       title: reminder.text,
-      detail: reminder.early ? "Coming up" : "Came due",
-      key: `reminder:${reminder.id}`,
+      detail: `${reminder.early ? "Coming up" : "Came due"}${reminder.target_title ? `, about ${toastName(reminder.target_title)}` : ""}`,
+      key: reminderNoticeKey(reminder),
       action: { tab: "reminders" },
     });
   }
@@ -896,9 +586,25 @@ async function checkDueReminders() {
 //: listeners each time: after four lock and unlock cycles an idle minute
 //: asked `/reminders` five times. The first call wires everything; a later
 //: one only checks now, which is what an unlock wants.
+//: The status bar's Other devices panel (INBOX 896) from the shortcut, the
+//: palette and a notice's Review: lan-watch.js draws it.
+function openLanPanel() {
+  lazyScript("/js/lan-watch.js").then((ok) => {
+    if (ok && typeof lanOpenPanel === "function") lanOpenPanel();
+  });
+}
+
 let reminderWatchStarted = false;
 function startReminderWatch() {
   checkDueReminders();
+  //: Other devices asking to sign in, and a network nobody allowed (INBOX
+  //: 867): lan-watch.js, lazy, starts itself once; it also paints the status
+  //: bar's Other devices icon (INBOX 896), and stops only on another device.
+  lazyScript("/js/lan-watch.js");
+  //: The Local chip (row 1641) asks again at each unlock too, and wires its
+  //: own timer once; it starts here so the boot sequence in app.js (capped
+  //: by test_static_compression) carries no extra step.
+  startPrivacyChip();
   if (reminderWatchStarted) return;
   reminderWatchStarted = true;
   setInterval(checkDueReminders, REMINDER_POLL_MS);
@@ -1021,27 +727,156 @@ function renderAgentActivityMode() {
 // already been read is just something left to wait out otherwise, the
 // timer clears when this fires, so a stray late setTimeout can't reach for
 // a note the click already removed.
-//: **Toasts stack smoothly** (the motion pass, 2026-10-05): a toast arriving
-//: or leaving moves the others, and they slide there by `translate` over
-//: `--ui-base` from where they were (measured, changed, played back) rather
-//: than jumping a toast's height between two frames. Interface animations
-//: off makes `--ui-base` 0 and they jump.
+//: **One stack in the corner** (the owner 2026-10-11: "lots of the same
+//: notifcations dont neatly stack when they appear fast in the corner").
+//: Measured before: ten identical toasts in 500 ms drew six cards (a 400 ms
+//: repeat guard let every other one through), each slid in on its own
+//: keyframe while the others slid by `translate`, so a card arriving at the
+//: corner crossed the one it pushed away for about 120 ms.
+//: The rules, each held by tests/test_toast_stack_1011.py and
+//: `scratchpad/ui-sweeps/toaststack.js`:
+//: - the same words of the same kind (and, with an action, the same action)
+//:   within `TOAST_MERGE_MS` are one card with a count ("×3"), its timer
+//:   restarted; an Undo merges only with the same Undo, never another's;
+//: - the newest is nearest the corner (the bottom on a desktop, the top
+//:   below 1100 where the box hangs from the header), the gap is the box's
+//:   `--space-2`;
+//: - positions come from the stack: measured, changed, played back by
+//:   `translate` (FLIP), and an arrival rides in by the same distance the
+//:   others move, on the same curve, so two cards never cross;
+//: - three show; the rest fold into one "+N more" card that opens the bell,
+//:   and a folded notice is written to the bell so it is not lost;
+//: - reduced motion fades and never slides; interface animations off jumps.
+const TOAST_MERGE_MS = 4000;
+const TOAST_VISIBLE = 3;
+let toastBorn = 0;
+
+function toastAtTop(box) {
+  return box.getBoundingClientRect().top < window.innerHeight / 2;
+}
+
+function toastLive(box) {
+  return [...box.children]
+    //: Only cards `toastMark` stamped: the server-down banner and the
+    //: semantic notice stay up whatever arrives after them.
+    .filter((t) => t.toastBorn && !t.classList.contains("is-leaving"))
+    .sort((a, b) => (b.toastBorn || 0) - (a.toastBorn || 0));
+}
+
+//: Folds all but the newest `TOAST_VISIBLE` into one "+N more" card at the
+//: far end of the stack, away from the corner.
+function toastLayout(box) {
+  const live = toastLive(box);
+  const folded = live.slice(TOAST_VISIBLE);
+  for (const t of live) t.classList.toggle("is-folded", folded.includes(t));
+  for (const t of folded) {
+    if (t.toastKept || t.toastFiled) continue;
+    t.toastFiled = true;
+    recordNotification({ kind: t.classList.contains("error") ? "error" : "done", title: t.toastText || t.textContent.trim() });
+  }
+  let more = box.querySelector(":scope > .toast-more");
+  if (!folded.length) {
+    more?.remove();
+    return;
+  }
+  if (!more) {
+    more = document.createElement("div");
+    more.className = "toast toast-more";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "ghost small toast-more-open";
+    open.addEventListener("click", () => $("notif-btn")?.click());
+    more.append(open);
+  }
+  const open = more.firstElementChild;
+  open.textContent = `+${folded.length} more`;
+  open.title = "Open the notifications";
+  open.setAttribute("aria-label", `${folded.length} more notifications. Open the notifications`);
+  if (toastAtTop(box)) box.append(more);
+  else box.prepend(more);
+}
+
+//: The same notice again: the card it is already on counts it and starts its
+//: time again. Returns whether it merged.
+function toastMerge(box, key, act = null) {
+  const now = Date.now();
+  const same = [...box.children].find((t) => t.toastKey === key && t.toastAct === act && !t.classList.contains("is-leaving") && now - t.toastAt < TOAST_MERGE_MS);
+  if (!same) return false;
+  same.toastAt = now;
+  same.toastCount = (same.toastCount || 1) + 1;
+  const msg = same.querySelector(":scope > .toast-msg");
+  let badge = msg?.querySelector(":scope > .toast-count");
+  if (msg && !badge) {
+    badge = document.createElement("span");
+    badge.className = "toast-count";
+    msg.append(badge);
+  }
+  if (badge) {
+    badge.textContent = `×${same.toastCount}`;
+    badge.setAttribute("aria-label", `${same.toastCount} times`);
+  }
+  if (same.toastLife) {
+    clearTimeout(same.toastTimer);
+    same.toastTimer = setTimeout(() => dismissToast(same), same.toastLife);
+  }
+  return true;
+}
+
+//: Stamps a card for the stack: when it was born, what merges with it, how
+//: long it lives.
+function toastMark(note, key, { act = null, life = 0, text = "" } = {}) {
+  note.toastBorn = ++toastBorn;
+  note.toastKey = key;
+  note.toastAct = act;
+  note.toastAt = Date.now();
+  note.toastLife = life;
+  note.toastText = text;
+}
+
+//: Reduced motion (the system's, or Appearance's Reduce motion) keeps the
+//: fades, which are the polish set's and follow Interface animations, but
+//: never slides the stack (the owner 2026-10-11).
+function toastReduced() {
+  return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
+    || document.documentElement.dataset.motion === "reduced";
+}
+
 function toastStack(box, change) {
-  const was = [...box.children].map((t) => [t, t.getBoundingClientRect().top]);
+  if (!box) return change();
+  const shown = (t) => t.getClientRects().length > 0;
+  const was = new Map([...box.children].filter(shown).map((t) => [t, t.getBoundingClientRect().top]));
+  const before = new Set(box.children);
   change();
+  const top = toastAtTop(box);
+  //: Newest nearest the corner: a card the caller appended goes first when
+  //: the stack hangs from the top.
+  for (const t of [...box.children]) if (!before.has(t) && top) box.prepend(t);
+  toastLayout(box);
   const cs = getComputedStyle(box);
   const ms = parseFloat(cs.getPropertyValue("--ui-base")) * 1000;
-  for (const [t, top] of ms ? was : []) {
-    const dy = top - t.getBoundingClientRect().top;
-    if (dy && t.isConnected) t.animate([{ translate: `0 ${dy}px` }, { translate: "0 0" }], { duration: ms, easing: cs.getPropertyValue("--ease-out") });
+  if (!ms || toastReduced()) return;
+  const ease = cs.getPropertyValue("--ease-out");
+  let shift = 0;
+  for (const [t, at] of was) {
+    if (!t.isConnected || !shown(t)) continue;
+    const dy = at - t.getBoundingClientRect().top;
+    if (!dy) continue;
+    shift = dy;
+    t.animate([{ translate: `0 ${dy}px` }, { translate: "0 0" }], { duration: ms, easing: ease });
+  }
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const step = (parseFloat(cs.getPropertyValue("--space-4")) || 1) * rem * (top ? -1 : 1);
+  for (const t of box.children) {
+    if (was.has(t) || !shown(t) || t.classList.contains("toast-more")) continue;
+    t.animate([{ translate: `0 ${shift || step}px` }, { translate: "0 0" }], { duration: ms, easing: ease });
   }
 }
 
-//: **A toast leaves the way it came** (INBOX 399 (4)): it fades and drops
-//: 4px on the same curve it arrived on (`.toast.is-leaving`,
-//: 01-forms-settings.css) rather than vanishing between two frames, which
-//: read as the corner of the window glitching. Removed on `animationend`, with
-//: a timer behind it for the case where no animation runs at all.
+//: **A toast leaves in place** (INBOX 399 (4)): it fades and shrinks on the
+//: exit curve (`.toast.is-leaving`, 01-forms-settings.css) without moving,
+//: so it never crosses a neighbour, and the stack then closes the gap.
+//: Removed on `animationend`, with a timer behind it for the case where no
+//: animation runs at all.
 function dismissToast(note) {
   if (!note.isConnected || note.classList.contains("is-leaving")) return;
   note.classList.add("is-leaving");
@@ -1090,7 +925,7 @@ async function emailSupportReport(about) {
   //: The version is read off the page's own stamped script URL, the one
   //: thing every build carries without another request.
   const stamp = (document.querySelector('script[src*="app.js?v="]')?.getAttribute("src") || "").split("?v=")[1] || "";
-  const subject = encodeURIComponent(`MemoryMap AI report${stamp ? ` (${stamp.split("-")[0]})` : ""}`);
+  const subject = encodeURIComponent(`Tessellate report${stamp ? ` (${stamp.split("-")[0]})` : ""}`);
   const body = encodeURIComponent(
     (about ? `What happened: ${about}\n\n` : "What happened: \n\n") +
       "Please attach memorymap-support-bundle.zip, which was just saved to your downloads.\n"
@@ -1171,12 +1006,14 @@ function plainHttpError(status, detail, fallback = "") {
   if (status === 404) return "That could not be found. It may have been deleted.";
   if (status === 400 || status === 405 || status === 422) return "That was not accepted. Try again.";
   if (status === 403) return "That is not allowed.";
-  if (status >= 500) return "Something went wrong inside MemoryMap. Try again; if it keeps happening, Settings > Logs has the details.";
+  if (status >= 500) return "Something went wrong inside Tessellate. Try again; if it keeps happening, Settings > Logs has the details.";
   return "That did not work. Try again.";
 }
 
+//: One gesture that fires two handlers (CM6's dispatch and a DOM listener on
+//: one click) shows one notice: the same words in the same task are dropped.
+//: A repeat in a later task is a real repeat and merges with a count.
 let lastToastKey = "";
-let lastToastAt = 0;
 //: **An error toast is for a fault; a situation the app expects is a plain one**
 //: (the owner's end-to-end pass: Dictate without the voice add-on, Compress on
 //: an empty chat, Add on an empty reminder all showed red and "Report this",
@@ -1207,6 +1044,25 @@ const VOICE = {
   failed_why: "Couldn't {what}: {why}",
 };
 
+//: **A toast names the thing** (CHAT_PLAN section 1 row 3): `“Passport
+//: renewal”`, cut to a short run, so "Moved to the bin." says what moved.
+//: **One shape for a date and its time** (WORLD_CLASS_PLAN: "every date and time
+//: follows one setting"): the reader's locale, to the minute. The bare
+//: `toLocaleString()` printed seconds on version lists, notes' hovers and run
+//: logs while the Timeline and the reminders printed none, and 12 or 24 hours
+//: follows the locale's own rule everywhere.
+const WHEN_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+function whenText(value = new Date()) {
+  const moment = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(moment.getTime()) ? "" : WHEN_FORMAT.format(moment);
+}
+
+function toastName(text, fallback = "it", limit = 48) {
+  const flat = String(text || "").replace(/\s+/g, " ").trim();
+  if (!flat) return fallback;
+  return `“${flat.length > limit ? `${flat.slice(0, limit - 1).trimEnd()}…` : flat}”`;
+}
+
 function voiceLine(key, slots = {}) {
   const why = slots.why ? String(slots.why).trim() : "";
   const shape = VOICE[key === "failed" && why ? "failed_why" : key] || "";
@@ -1220,11 +1076,13 @@ function toast(message, isError = false, { exempt = false, action = null } = {})
   }
   if (!exempt && !isError && notificationsMuted()) return;
   const key = `${isError ? "1" : "0"}:${message}`;
-  const now = Date.now();
-  if (key === lastToastKey && now - lastToastAt < 400) return;
+  if (key === lastToastKey) return;
   lastToastKey = key;
-  lastToastAt = now;
+  setTimeout(() => {
+    if (lastToastKey === key) lastToastKey = "";
+  }, 0);
   const box = toastHost();
+  if (toastMerge(box, key, action?.[1] || null)) return;
   //: An error makes the companion jump (avatars.js).
   if (isError && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("startle", "error");
   const note = document.createElement("div");
@@ -1238,10 +1096,10 @@ function toast(message, isError = false, { exempt = false, action = null } = {})
   //: with the message already in it. Plain toasts stay plain.
   if (isError) {
     const [label, run] = action || ["Open the logs", () => openSettingsModal("logs")];
-    note.appendChild(toastActionButton(note, label, () => {
+    const act = toastActionButton(note, label, () => {
       clearTimeout(timer);
       run();
-    }));
+    });
     const help = document.createElement("button");
     help.type = "button";
     help.className = "ghost small toast-help";
@@ -1252,9 +1110,11 @@ function toast(message, isError = false, { exempt = false, action = null } = {})
       dismissToast(note);
       emailSupportReport(message);
     });
-    note.appendChild(help);
+    note.appendChild(toastActions(act, help));
   }
   const timer = setTimeout(() => dismissToast(note), isError ? 9000 : 5500);
+  toastMark(note, key, { act: action?.[1] || null, life: isError ? 9000 : 5500, text: String(message) });
+  note.toastTimer = timer;
   note.appendChild(toastCloseButton(note, timer));
   //: A tap on the words dismisses it, the way a phone's own banners go
   //: (below 1100 a toast comes down from the top, over the head of a list,
@@ -1291,6 +1151,7 @@ function toastProgress(message) {
   text.className = "toast-msg";
   setLabel(text, `ph:spin ${message}`);
   note.append(text);
+  toastMark(note, null, { text: String(message) });
   toastStack(box, () => box.appendChild(note));
   return {
     say(next) {
@@ -1305,12 +1166,24 @@ function toastProgress(message) {
       text.textContent = finalMessage;
       note.classList.toggle("error", Boolean(isError));
       if (actionLabel && onAction) {
-        note.appendChild(toastActionButton(note, actionLabel, keepToastAction(finalMessage, actionLabel, onAction, { go, record })));
+        note.appendChild(toastActions(toastActionButton(note, actionLabel, keepToastAction(finalMessage, actionLabel, onAction, { go, record }))));
       }
       note.toastTimer = setTimeout(() => dismissToast(note), 5500);
       note.appendChild(toastCloseButton(note, note.toastTimer));
     },
   };
+}
+
+//: **A notification's actions are their own row** (INBOX 847: "notification
+//: buttons are still in line with the x close button ... it looks weird"): the
+//: message and the close button are the first row, the actions sit under the
+//: message, left-aligned with its words (`.toast-actions`, 02-chat-graph.css),
+//: so the close X is alone in its corner.
+function toastActions(...buttons) {
+  const row = document.createElement("div");
+  row.className = "toast-actions";
+  row.append(...buttons);
+  return row;
 }
 
 //: One action on a toast (INBOX 584): a small button after the message,
@@ -1336,8 +1209,10 @@ function toastActionButton(note, label, run) {
 //: keeps the one action it always had. `ms` is how long it stays (8 s by
 //: default; a clear that can be undone passes 10 s).
 function toastAction(message, actionLabel, onAction, opts = {}) {
-  const run = keepToastAction(message, actionLabel, onAction, opts);
   const box = toastHost();
+  const key = `a:${message}:${actionLabel}`;
+  if (toastMerge(box, key, onAction)) return;
+  const run = keepToastAction(message, actionLabel, onAction, opts);
   const note = document.createElement("div");
   note.className = "toast";
   const text = document.createElement("span");
@@ -1348,7 +1223,9 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   note.toastTimer = opts.sticky ? null : setTimeout(() => dismissToast(note), opts.ms || 8000);
   const buttons = [toastActionButton(note, actionLabel, run)];
   if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
-  note.append(text, ...buttons, toastCloseButton(note, note.toastTimer));
+  note.append(text, toastActions(...buttons), toastCloseButton(note, note.toastTimer));
+  toastMark(note, key, { act: onAction, life: opts.sticky ? 0 : opts.ms || 8000, text: String(message) });
+  note.toastKept = true;
   toastStack(box, () => box.appendChild(note));
 }
 
@@ -1405,12 +1282,12 @@ function showServerDownBanner() {
   note.className = "toast error server-down-toast";
   const text = document.createElement("span");
   text.className = "toast-msg";
-  text.textContent = "Can't reach MemoryMap. Retrying…";
+  text.textContent = "Can't reach Tessellate. Retrying…";
   const button = document.createElement("button");
   button.className = "small toast-action";
   button.textContent = "Retry";
   button.addEventListener("click", () => retryServerNow());
-  note.append(text, button, toastCloseButton(note, null));
+  note.append(text, toastActions(button), toastCloseButton(note, null));
   toastStack(box, () => box.appendChild(note));
   serverDownNote = note;
 }
@@ -1555,7 +1432,6 @@ function insightLine(insight, text, onDone, extraClass = "", send = insightSend)
   return line;
 }
 
-
 //: **Rule 1.8's one shape** (WORLD_CLASS 1.8) for an act that reached the
 //: server: an entry on the undo stack (the bar, Ctrl+Z, the history menu) and
 //: a toast whose Undo is that same entry, taken off the stack when pressed so
@@ -1622,7 +1498,11 @@ function pushEntryPutUndo(entryId, label, beforeBody, afterBody) {
 function boardHistoryActive() {
   const board = document.getElementById("library-view-whiteboard");
   const canvas = document.getElementById("wb-canvas-view");
-  return Boolean(board && !board.classList.contains("hidden") && canvas && !canvas.classList.contains("hidden") && window.wbUndo);
+  //: Showing, not merely un-hidden (INBOX 898, found by the live check): the
+  //: board's view keeps no `hidden` class when another main tab covers it, so
+  //: Ctrl+Z on Notes walked the last board's history and the app's own steps
+  //: could not be reached.
+  return Boolean(board && !board.classList.contains("hidden") && canvas && !canvas.classList.contains("hidden") && window.wbUndo && board.getClientRects().length);
 }
 
 //: **Which history a press walks** (the owner, 2026-10-05: "local undos and
@@ -1889,6 +1769,22 @@ async function loadMostUsed() {
 // --- model manager (Phase 3.5) ---------------------------------------------------
 
 let modelStatus = null; // latest /models/status payload
+
+//: **The start-up choice, said once with Change** (the owner, 2026-10-07: on
+//: a fresh install with five models it ran a llama3.2 it did not have). Once
+//: per chosen model in this browser; Settings, Models keeps the why.
+function sayChatModelChosen(status) {
+  const why = status?.chat_model_chosen_why;
+  if (!why || typeof toastAction !== "function") return;
+  const key = `chatModelChosen:${status.chat_model}`;
+  try {
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+  } catch {
+    return;
+  }
+  toastAction(`${aiNameNow()} now runs ${status.chat_model}: ${why}.`, "Change", () => openSettingsModal("models", "chat-model-select"));
+}
 // Has the status endpoint ever answered? "We haven't asked yet" and "we asked
 // and got nothing" are both `modelStatus === null`, but they mean opposite
 // things to the user: the first is normal for the first second of every
@@ -2021,9 +1917,14 @@ async function refreshModelStatus() {
     statusEverAnswered = true;
     modelStatusProblem = null;
   } catch (err) {
-    modelStatus = null; // locked or unreachable: pill shows the worst case
+    //: **A slow answer keeps the last good status** (OPEN ledger 1520): the
+    //: Agent panel and the pill used to grey on every timeout and flicker
+    //: back on the next poll. Only "slow" is flagged (`modelStatusProblem`),
+    //: and Settings still says so. A fault or an unreachable server drops the
+    //: status as before, so the pill shows the worst case.
     if (err?.name === "TimeoutError" || err?.name === "AbortError") modelStatusProblem = "slow";
     else {
+      modelStatus = null; // locked or unreachable: pill shows the worst case
       const up = await fetch("/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false);
       modelStatusProblem = up ? "error" : "down";
     }
@@ -2039,6 +1940,7 @@ async function refreshModelStatus() {
   syncFeatureModelSelects();
   renderAiPill();
   syncModelGatedControls();
+  sayChatModelChosen(modelStatus);
   // The status bar's job slot rides this loop rather than starting one of its
   // own, so it inherits the whole cadence: one second while something is
   // running, thirty when idle, two minutes behind a hidden tab. Idle, `/tasks`
@@ -2104,8 +2006,15 @@ const AI_OFFLINE_HINT = "Connect a model in Settings";
 
 //: Unknown status (locked, still loading) is available: better to let a click
 //: fail than to grey out a working button on a slow start.
+//:
+//: **Off means no model can answer, not only no server** (ledger 1521;
+//: INBOX 778: a reachable server with no chat model installed answers
+//: nothing). `model_ready` is the server's own verdict; the Needle engine
+//: (`tools_engine`) answers without one, so it keeps the gate open.
 function aiIsOff() {
-  return modelStatus ? modelStatus.ollama_running === false : false;
+  if (!modelStatus) return false;
+  if (modelStatus.ollama_running === false) return true;
+  return modelStatus.model_ready === false && !modelStatus.tools_engine;
 }
 
 //: **Why this restores rather than enables.** The status poll runs this every
@@ -2254,6 +2163,16 @@ function syncModelGatedControls(status = modelStatus) {
   );
   //: UX-12: any other AI-only widget names its own line.
   for (const line of document.querySelectorAll("[data-offline-line]")) renderAiOfflineNotice(line, line.dataset.offlineLine);
+  //: A field that still works with no model says what it does then.
+  for (const field of document.querySelectorAll("[data-offline-placeholder]")) {
+    if (field.dataset.onlinePlaceholder === undefined) field.dataset.onlinePlaceholder = field.placeholder;
+    field.placeholder = off ? field.dataset.offlinePlaceholder : field.dataset.onlinePlaceholder;
+  }
+  //: Surfaces built in script (the inline AI bar) follow the change live.
+  if (syncModelGatedControls.off !== off) {
+    syncModelGatedControls.off = off;
+    document.dispatchEvent(new CustomEvent("mm-model-gate", { detail: { off } }));
+  }
   syncAgentPaletteAvailability();
   renderChatModeSeg();
 }
@@ -2376,7 +2295,7 @@ function aiStatusState() {
     }
     return {
       level: "error",
-      title: "Can't reach MemoryMap",
+      title: "Can't reach Tessellate",
       detail:
         "The app can't read its own status, which usually means the server " +
         "stopped. Your notes are safe on disk.",
@@ -2613,6 +2532,9 @@ function paintStatusItem(id, { icon, value, label, title, tone = "", shortcut = 
     button.appendChild(strong);
   }
   if (label) {
+    //: A space between the number and its word, not drawn (a flex row drops
+    //: it) but read: "29notes" is what a tool takes the visible text to be.
+    if (value !== undefined && value !== null) button.append(" ");
     const text = document.createElement("span");
     text.textContent = label;
     button.appendChild(text);
@@ -2623,7 +2545,11 @@ function paintStatusItem(id, { icon, value, label, title, tone = "", shortcut = 
   // Commands) announce as a bare "button" to a screen reader. The ones that
   // also paint a `value`/`label` have real text and do not need it, but
   // setting it uniformly keeps the two from drifting apart.
-  if (title) button.setAttribute("aria-label", title);
+  //: WCAG 2.5.3, the visible words are part of the name ("29 notes: Your
+  //: notebook..."), which axe's label-content-name-mismatch found on the
+  //: notes and reminders counts.
+  const shown = [value, label].filter((part) => part !== undefined && part !== null && part !== "").join(" ");
+  if (title) button.setAttribute("aria-label", shown ? `${shown}: ${title}` : title);
   else button.removeAttribute("aria-label");
   button.classList.toggle("status-due", tone === "due");
 }
@@ -2975,7 +2901,7 @@ function renderSettings() {
       {
         slow: "The model server is slow to answer. Checking again…",
         error: "Couldn't read the models' status. Checking again…",
-        down: "Can't reach the MemoryMap server.",
+        down: "Can't reach the Tessellate server.",
       }[modelStatusProblem] || "Checking the models…";
     ollamaLine.className = `status ${modelStatusProblem === "down" ? "off" : "is-checking"}`;
     //: The pane's shape under the line while it waits, never the line alone
@@ -3000,6 +2926,12 @@ function renderSettings() {
     ? `${backend} is running`
     : status.unreachable_hint || `${backend} isn't running`;
   ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
+  //: A slow poll keeps the last answer on screen (see refreshModelStatus), so
+  //: the line says so instead of presenting a stale answer as fresh.
+  if (modelStatusProblem === "slow") {
+    ollamaLine.textContent = "The model server is slow to answer. Showing the last answer.";
+    ollamaLine.className = "status is-checking";
+  }
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);
@@ -3061,10 +2993,13 @@ function renderSettings() {
   // built-in one, which needs no Ollama. Only the Ollama half of it depends
   // on Ollama being up.
   renderEmbeddingPicker(status);
+  //: Always, not only while a backend answers: the rows come from saved
+  //: settings, and a person with the server down still needs to see and clear
+  //: an override (WORLD_CLASS_PLAN 20, "Still open").
+  renderFeatureModels(status);
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
-    renderFeatureModels(status);
     renderVisionModelPicker(status);
   renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);
@@ -3110,8 +3045,11 @@ async function refreshBackgroundTasks() {
   renderStatusBar();
   // One fetch, not two: the panel renders from this payload rather than asking
   // again a few milliseconds later.
-  if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks(body);
-  else renderTaskHistory((body && body.history) || []);
+  //: While the panel's stream is open it paints the rows (ai-tools.js
+  //: `followTaskLines`); the poll then only keeps the bar current.
+  if (settingsModalOpen() && currentSettingsSection === "tasks") {
+    if (!taskLineStream.controller) renderTasks(body);
+  } else renderTaskHistory((body && body.history) || []);
 }
 
 // --- a background job starting and finishing, said out loud --------------------
@@ -3248,3 +3186,50 @@ function noticeTaskTransitions(running, history) {
 }
 
 // --- optional extras and embedding models: Settings, Packages, is settings-packages.js (lazy, INBOX 595) ---
+
+// --- The Local chip (row 1641, WORLD_CLASS_PLAN 22.1 item 9) -----------------
+//: The privacy receipt's verdict for this launch (`GET /privacy/verdict`, the
+//: receipt's own answer without its lists), as one word in the top bar and a
+//: row of the phone's header menu. It asks again every five minutes, and
+//: whenever Settings, Privacy has just read the full record.
+const PRIVACY_CHIP_WORDS = {
+  stayed_on_this_computer: ["shield-check", "Local", "Nothing left this computer since the app started."],
+  local_network: ["wifi-high", "Local network", "Only devices on your own network were contacted since the app started."],
+  internet: ["globe-hemisphere-west", "Online", "This app connected to the internet since it started."],
+};
+const PRIVACY_CHIP_MS = 5 * 60 * 1000;
+
+function paintPrivacyChip(verdictKey) {
+  const chip = $("privacy-chip");
+  if (!chip) return;
+  const [icon, word, sentence] = PRIVACY_CHIP_WORDS[verdictKey] || PRIVACY_CHIP_WORDS.stayed_on_this_computer;
+  chip.classList.remove("hidden");
+  chip.classList.toggle("is-online", verdictKey === "internet");
+  chip.querySelector("i").className = `ph ph-${icon} ph-lead`;
+  chip.querySelector(".privacy-chip-word").textContent = word;
+  chip.title = `${sentence} Open the privacy record.`;
+  chip.setAttribute("aria-label", `${word}: ${sentence} Open the privacy record`);
+  //: The phone's header row reads these (phone-shell.js, `live` rows).
+  chip.dataset.menuLabel = `ph:${icon} ${word}: privacy record`;
+}
+
+async function refreshPrivacyChip() {
+  try {
+    const body = await apiJson("/privacy/verdict", { silent: true });
+    paintPrivacyChip(body?.verdict);
+  } catch {
+    //: No answer is no claim: the chip stays as it was (hidden before the
+    //: first answer), never "Local" on a guess.
+  }
+}
+
+function startPrivacyChip() {
+  const chip = $("privacy-chip");
+  if (!chip) return;
+  refreshPrivacyChip();
+  if (chip.dataset.wired) return;
+  chip.dataset.wired = "1";
+  chip.addEventListener("click", () => openSettingsModal("privacy"));
+  setInterval(refreshPrivacyChip, PRIVACY_CHIP_MS);
+}
+

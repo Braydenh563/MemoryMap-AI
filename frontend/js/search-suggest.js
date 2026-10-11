@@ -19,7 +19,7 @@
 //
 // Scopes (the `data-search-scope` of each box): "notes" boxes share their
 // recents and complete from notes; every other scope keeps its own recents and
-// has nothing to complete from but them. "web" is the web panel, whose own
+// completes from the titles of its own list (`SEARCH_SUGGEST_LISTS`). "web" is the web panel, whose own
 // search records its recents once a search has answered.
 
 //: **Recent searches, one store for every search box** (the owner, 2026-10-11:
@@ -51,8 +51,7 @@ const SEARCH_SUGGEST_PREF = "searchSuggest";
 
 let searchSuggest = null;
 //: The pool of note words, rebuilt when the list of notes changes.
-let searchSuggestPoolFor = null;
-let searchSuggestPool = { titles: [], tags: new Map(), categories: new Map() };
+const searchSuggestCache = { poolFor: null, pool: { titles: [], tags: new Map(), categories: new Map() }, measure: null };
 
 function searchSuggestEnabled() {
   return prefs.get(SEARCH_SUGGEST_PREF, "on") !== "off";
@@ -66,7 +65,7 @@ function searchSuggestScopeOf(input) {
 //: archive, not a private note (they are kept out of search on purpose).
 function searchSuggestWords() {
   const entries = typeof allEntries !== "undefined" && Array.isArray(allEntries) ? allEntries : [];
-  if (searchSuggestPoolFor === entries && searchSuggestPool.size === entries.length) return searchSuggestPool;
+  if (searchSuggestCache.poolFor === entries && searchSuggestCache.pool.size === entries.length) return searchSuggestCache.pool;
   const titles = [];
   const tags = new Map();
   const categories = new Map();
@@ -76,9 +75,9 @@ function searchSuggestWords() {
     for (const tag of entry.tags || []) tags.set(tag, (tags.get(tag) || 0) + 1);
     if (entry.category) categories.set(entry.category, (categories.get(entry.category) || 0) + 1);
   }
-  searchSuggestPool = { titles: [...new Set(titles.filter(Boolean))], tags, categories, size: entries.length };
-  searchSuggestPoolFor = entries;
-  return searchSuggestPool;
+  searchSuggestCache.pool = { titles: [...new Set(titles.filter(Boolean))], tags, categories, size: entries.length };
+  searchSuggestCache.poolFor = entries;
+  return searchSuggestCache.pool;
 }
 
 //: Starts with the words (rank 0), or has a word that does (rank 1), or not (-1).
@@ -98,6 +97,44 @@ function searchSuggestToken(value) {
   return { head, word, op: op ? op[1] : "", bare: op ? word.slice(op[1].length).replace(/^"/, "") : word };
 }
 
+//: A Library list's own titles (OPEN row 552: its box suggested recents only):
+//: read from the rows drawn under the box, plus every title seen there before,
+//: so a list already narrowed by the box still completes a shorter word.
+const SEARCH_SUGGEST_LISTS = {
+  documents: "#library-docs-list .doc-list-title",
+  boards: "#library-boards-grid .library-card-title",
+  library: "#library-grid .library-card-title",
+  bookmarks: "#bookmark-list .bookmark-title",
+  recordings: "#recordings-list .recording-title",
+  skills: "#library-skills-section .skill-card-title",
+};
+const SEARCH_SUGGEST_ABOUT = { documents: "Document", boards: "Board", library: "Library item", bookmarks: "Bookmark", recordings: "Recording", skills: "Skill", images: "File" };
+const searchSuggestSeenTitles = new Map();
+
+function searchSuggestListTitles(scope) {
+  const seen = searchSuggestSeenTitles.get(scope) || new Set();
+  const selector = SEARCH_SUGGEST_LISTS[scope];
+  const drawn = selector ? [...document.querySelectorAll(selector)].map((el) => el.textContent) : [];
+  //: Images and files keep their names in the page's cache, not in a title row.
+  if (scope === "images" && typeof libraryImagesCache !== "undefined") drawn.push(...libraryImagesCache.map((i) => i.original_name || ""));
+  for (const text of drawn) {
+    const title = String(text || "").trim();
+    if (title && title !== "Untitled") seen.add(title);
+  }
+  searchSuggestSeenTitles.set(scope, seen);
+  return [...seen];
+}
+
+//: Titles that start with the box's text (or have a word that does), best first.
+function searchSuggestTitleHits(titles, query, seen) {
+  return titles
+    .map((title) => ({ title, rank: searchSuggestRank(title, query) }))
+    .filter((hit) => hit.rank >= 0 && !seen.has(hit.title.toLowerCase()))
+    .sort((a, b) => a.rank - b.rank || a.title.localeCompare(b.title))
+    .slice(0, SEARCH_SUGGEST_LIMITS.title)
+    .map((hit) => hit.title);
+}
+
 //: The suggestions for what is in the box now: [{kind, label, value, about}].
 function searchSuggestItems(input) {
   const scope = searchSuggestScopeOf(input);
@@ -114,6 +151,12 @@ function searchSuggestItems(input) {
     if (query && !lower.startsWith(query)) continue;
     items.push({ kind: "recent", label: text, value: text, about: "Recent search" });
     if (items.length >= (query ? SEARCH_SUGGEST_LIMITS.recent : 5)) break;
+  }
+  if (query && scope !== "notes") {
+    for (const item of items) seen.add(item.value.toLowerCase());
+    for (const title of searchSuggestTitleHits(searchSuggestListTitles(scope), query, seen)) {
+      items.push({ kind: "item", label: title, value: title, about: SEARCH_SUGGEST_ABOUT[scope] || "Item" });
+    }
   }
   if (!query || scope !== "notes") return items;
   for (const item of items) seen.add(item.value.toLowerCase());
@@ -157,8 +200,8 @@ function searchSuggestItems(input) {
   return items;
 }
 
-const SEARCH_SUGGEST_ICONS = { recent: "ph:clock-counter-clockwise", title: "ph:note", tag: "ph:hash", category: "ph:folder-simple" };
-const SEARCH_SUGGEST_GROUPS = { recent: "Recent searches", title: "Notes", tag: "Tags", category: "Categories" };
+const SEARCH_SUGGEST_ICONS = { recent: "ph:clock-counter-clockwise", item: "ph:list-magnifying-glass", title: "ph:note", tag: "ph:hash", category: "ph:folder-simple" };
+const SEARCH_SUGGEST_GROUPS = { recent: "Recent searches", item: "In this list", title: "Notes", tag: "Tags", category: "Categories" };
 
 function closeSearchSuggest() {
   if (!searchSuggest) return;
@@ -199,7 +242,6 @@ function placeSearchSuggest() {
   placeSearchGhost();
 }
 
-let searchSuggestMeasure = null;
 
 //: The grey remainder of the best completion, laid over the box's own text
 //: line: where the typed text ends, measured with the box's own font.
@@ -213,10 +255,10 @@ function placeSearchGhost() {
   }
   const rest = ghostItem.value.slice(typed.length);
   const style = getComputedStyle(input);
-  searchSuggestMeasure = searchSuggestMeasure || document.createElement("canvas").getContext("2d");
-  searchSuggestMeasure.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  searchSuggestCache.measure = searchSuggestCache.measure || document.createElement("canvas").getContext("2d");
+  searchSuggestCache.measure.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
   const rect = input.getBoundingClientRect();
-  const left = rect.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft) + searchSuggestMeasure.measureText(typed).width - input.scrollLeft;
+  const left = rect.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft) + searchSuggestCache.measure.measureText(typed).width - input.scrollLeft;
   const right = rect.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight);
   if (left >= right - 4) {
     ghost.classList.add("hidden");
@@ -305,21 +347,13 @@ function fillSearchSuggest() {
 //: **The box can move after the list opens**: a dock re-flowing as a tab
 //: arrives, or as the list of notes it filters changes length (measured: the
 //: ghost text stood 60px right of the caret after a filter shortened the label
-//: beside the field). So while the list is open the box's own position is
-//: watched each frame, and the list and the ghost are placed again whenever it
-//: moved or resized.
-function watchSearchSuggest() {
+//: beside the field). The list and the ghost are placed again shortly after
+//: it opens and after each keystroke, which is when that happens, and on a
+//: resize or scroll. No frame loop: the app counts every one it runs
+//: (tests/test_frontend_wake_sources.py), and an open list is idle.
+function placeSearchSuggestSoon() {
   const state = searchSuggest;
-  const tick = () => {
-    if (searchSuggest !== state) return;
-    const r = state.input.getBoundingClientRect();
-    if (r.left !== state.seen.left || r.top !== state.seen.top || r.width !== state.seen.width || r.height !== state.seen.height) {
-      state.seen = { left: r.left, top: r.top, width: r.width, height: r.height };
-      placeSearchSuggest();
-    }
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
+  for (const ms of [120, 400]) setTimeout(() => searchSuggest === state && placeSearchSuggest(), ms);
 }
 
 //: Put a suggestion in the box. `commit` is a press: the box's own search
@@ -433,6 +467,7 @@ function openSearchSuggest(input) {
     if (!searchSuggest || searchSuggest.accepting) return;
     searchSuggest.quiet = false;
     fillSearchSuggest();
+    placeSearchSuggestSoon();
   };
   const onKey = (event) => {
     const state = searchSuggest;
@@ -471,9 +506,9 @@ function openSearchSuggest(input) {
   input.addEventListener("blur", onBlur);
   window.addEventListener("resize", onWindow);
   window.addEventListener("scroll", onWindow, true);
-  searchSuggest = { input, box, list, foot, ghost, items: [], rows: [], active: -1, moved: false, quiet: false, accepting: false, ghostItem: null, announced: 0, seen: {}, onInput, onKey, onBlur, onWindow };
+  searchSuggest = { input, box, list, foot, ghost, items: [], rows: [], active: -1, moved: false, quiet: false, accepting: false, ghostItem: null, announced: 0, onInput, onKey, onBlur, onWindow };
   fillSearchSuggest();
-  watchSearchSuggest();
+  placeSearchSuggestSoon();
 }
 
 //: Escape closes the list before it closes anything behind it (Find anything

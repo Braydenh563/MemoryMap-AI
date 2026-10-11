@@ -226,7 +226,7 @@ and every run ends with a verification line and an Undo.
     read as a request for a label, and a label is what it got.
     An atlas is a book of maps: the thing you open to find your way around a
     place you are already standing in, which is what this chat is for an app
-    called MemoryMap, and it is already drawn with a compass in the status
+    called Tessellate, and it is already drawn with a compass in the status
     bar. It also keeps decision 13's actual objection intact, which was never
     to names as such but to a name that claims a personality: a reference work
     has no personality to claim, does not pretend to know the reader, and does
@@ -1018,14 +1018,14 @@ Sources were read with WebFetch on 2026-10-10. Where a page gave only titles or
 did not describe a mechanism, the row says so rather than filling the gap from
 memory. "MemoryMap has it" is checked against the code (section 0); "Partial"
 names what exists. The columns are capability, what it does well, mechanism,
-what it means here, whether MemoryMap has it, and cost.
+what it means here, whether Tessellate has it, and cost.
 
 #### ChatScript (pattern and topic engine)
 
 Source: https://github.com/ChatScript/ChatScript/blob/master/WIKI/ChatScript-Basic-User-Manual.md
 (the page does not describe spell checking or a POS pipeline).
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Concept sets, nestable | One rule covers every wording of an idea | `concept: ~name [words]`, `~name` in patterns | Synonym groups become named concepts the planner, the fact layer and acts share ("~reminder_verbs") | Partial: 148 groups plus extras in `composer_tables.py`, `_build_synonyms`; flat, not referenced by rules | S per pack |
 | Canonical forms before matching | Rules are written once | Contractions expanded, number words to digits, plurals to singular, verbs to infinitive, interjections and texting remapped | One `normalise()` stage ahead of `plan()` that every rule reads | Partial: Porter `_stem`, 11 contractions, `question_noise.repair`, SLANG 847; number words become digits only inside `when.py`, `timewords.py`, `reminder_parser.py` | S |
@@ -1039,7 +1039,7 @@ Source: https://github.com/ChatScript/ChatScript/blob/master/WIKI/ChatScript-Bas
 
 Source: https://www.pandorabots.com/docs/aiml-reference/
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | `srai` reduction | Thousands of phrasings, one answer | Rewrite the input and match again | `rephrase()` stripping wrappers and trailers, then re-plan; also the typo and slang route | Yes: `composer.rephrase`, 35 trailers, `question_noise` | none |
 | `that` and `thatstar` | "yes", "no", "the second" mean something | Match only if the bot's previous sentence matches | Answer short replies against the last answer's open offer | Partial: ordinal and "did you mean"; no yes or no | S |
@@ -1053,7 +1053,7 @@ Source: https://www.pandorabots.com/docs/aiml-reference/
 Sources: https://legacy-docs-oss.rasa.com/docs/rasa/rules and
 https://legacy-docs-oss.rasa.com/docs/rasa/forms (the pages redirect there).
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | One-turn rules | A greeting is answered the same way anywhere | `rule: intent, then action`, always followed by listening | The social acts (15 kinds) as rules, each a test row | Yes: `composer.social`, `question_noise.social_kind` | none |
 | `conversation_start` | A rule that only applies on the first turn | Condition on the conversation | The first turn of a session greets by time of day; later turns do not | No | S |
@@ -1070,7 +1070,7 @@ https://mycroft-ai.gitbook.io/docs/mycroft-technologies/adapt (these pages do
 not document Adapt's confidence formula, `one_of`, context handling or Padatious'
 treatment of typos; only what is stated is used).
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Intent = required plus optional entities | Small, explicit, offline, Apache-2.0 | `IntentBuilder.require(...).optionally(...)`, returns intent, confidence and tagged entities | `plan()` picks the kind from required cue words and optional ones and returns a confidence so a weak plan asks | Partial: first-match `_SHAPE_RULES`; `question_noise.guess_kind` (trigram floor 0.40, embedding 0.62, margin 0.06) when no rule fires | M |
 | Vocabulary registered from the user's data | Station names come from the user's account | `register_vocab` at runtime | Tags, categories, titles, people and places become vocabulary for object resolution in acts and for typo repair | Partial: `_fit_terms` and `Did you mean` repair against the notebook's words | S |
@@ -1083,7 +1083,7 @@ Sources: https://snips-nlu.readthedocs.io/en/latest/ and
 https://snips-nlu.readthedocs.io/en/latest/data_model.html (the overview page
 does not explain its pipeline; the data model page was read).
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | An implicit None intent | Knows what it does not know | Any input matching no intent is classified None | A measured out-of-domain class: weather, sport scores, "what is the capital of France" answered by decision 24's plain no-answer, with an eval group | Partial: `_nothing`; no out-of-domain score or set | S |
 | Slot = type, name, raw value, range | Every extracted value has a span | `rawValue`, resolved `value`, `range` | Fact schema's `start`, `end` and `attrs` (decision 30) | Planned (step 1) | L |
@@ -1095,7 +1095,7 @@ does not explain its pipeline; the data model page was read).
 
 Source: https://en.wikipedia.org/wiki/ELIZA
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Ranked keywords, decomposition and reassembly | A reply built from the person's own words | Keystack, highest rank wins; fragment around the keyword, reassemble from a template | Reflective next questions from the person's note ("You wrote about the move on 3 March; what came after?") | Partial: `_next_questions` (tag, leftover note, the question the other way in time) | S |
 | Pronoun reflection | "my" becomes "your" | High-rank substitution words | Step 3 | Partial: `_rewrite_quote` | M |
@@ -1109,7 +1109,7 @@ Sources: https://www.wolframalpha.com/examples and https://www.wolframalpha.com/
 so that row is this plan's own rule; the tour page says answers come from
 curated data and over 50,000 algorithm types).
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Domains as calculators: elementary math, units and measures, dates and times, words and linguistics, money and finance, food and nutrition, household math | One box, many tools | Curated data plus algorithms | A small set of owned calculators (section 2, utilities): arithmetic, percent, units, dates, word counts. Not nutrition or finance data | Partial: Gemini-branch `math`, `convert` shapes exist and are invisible (finding 1) | M |
 | Show how the input was read | The person can catch a misreading | An interpretation line before the answer | Proposed rule: every utility answer opens "Read as: 15% of 80." and is marked measured | No | S |
@@ -1121,7 +1121,7 @@ curated data and over 50,000 algorithm types).
 Sources: https://support.apple.com/guide/shortcuts/welcome/ios and
 https://support.google.com/assistant/answer/7672035
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Ordered actions with content flowing between them | A recipe, not a prompt | Get, Transform, Share groups; output feeds the next action | A saved act sequence ("my Friday review": find this week's notes, summarise, make a reminder) run with no model, each step a tool | Partial: agent skills run through `skill_runner`; none run by rule | M |
 | If, repeat, choose from menu, ask for input | Branching and clarifying | Control-flow actions | Clarifying question with chips is "choose from menu" | Partial: chips | S |
@@ -1137,7 +1137,7 @@ pages on errors were not readable),
 https://developer.amazon.com/en-US/docs/alexa/custom-skills/standard-built-in-intents.html,
 https://developer.amazon.com/en-US/docs/alexa/custom-skills/dialog-interface-reference.html
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Built-in conversation controls | Every skill answers "help", "stop", "repeat", "start over", "next", "previous", "yes", "no" | Fixed intents: Help, Cancel, Stop, Yes, No, Repeat, StartOver, Next, Previous, Select (with anaphor and list position) | A conversation-controls table: "say that again", "shorter", "go back", "next one", "start over", "stop" | Partial: `_MORE`, `_ORDINAL`; no repeat, back, shorter, start over, stop | S |
 | Fallback that teaches | A no-match explains what the skill can do | `AMAZON.FallbackIntent` from an out-of-domain model | `CAPABILITY_LINE` plus one example the person can tap | Partial: `_nothing`, clarifying question; capability line only on the wip branch | S |
@@ -1149,7 +1149,7 @@ https://developer.amazon.com/en-US/docs/alexa/custom-skills/dialog-interface-ref
 Source: https://www.notion.com/help/guides/category/ai (this page lists guide
 titles only; no mechanism is described there).
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Q&A over the workspace with citations | "Get answers, instantly, with citations" | Retrieval plus a model | Already the core, with stricter grounding (decision 25) | Yes | none |
 | Autofill of database properties | Structured fields from prose | Not described | Property suggestions from facts: a date fact fills `due`, a person fact fills `with`, a decision fact fills `status` | Partial: `entry/properties.py` types and fields; filing is lexical; no autofill from facts | M |
@@ -1161,7 +1161,7 @@ titles only; no mechanism is described there).
 Source: https://blacksmithgu.github.io/obsidian-dataview/ (the page names
 SORT, GROUP BY, FLATTEN and LIMIT without detail).
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | The notebook as a queryable index | "All meetings with status open" as a live list | LIST, TABLE, TASK, CALENDAR over indexed metadata; FROM, WHERE | `plan()` emits constraints that `entry/query.py` already evaluates; the answer is the list plus a measured count | Partial: `entry.query` grammar (`type:`, `prop:`, `links:`, `rel:`, `entity:`, `tag:`, text) serves the Notes list, table and graph; Chat does not call it | S |
 | Date and duration functions in queries | "older than 30 days" | `date(now).year - published` | Date arithmetic utility and the `drift` insight | Partial: `when.days_since` | S |
@@ -1175,7 +1175,7 @@ Sources: https://silentvoid13.github.io/Templater/ and
 https://quickadd.obsidian.guide/docs/ (Templater's page did not cover folder
 templates or cursor jumps).
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Templates with computed values | A note starts with today's date, the weekday, a counter | `<% tp.date.now() %>`, `tp.file`, `tp.frontmatter` | Template variables `{date}`, `{weekday}`, `{week}`, `{title}`, `{n}` filled by `when.py`; no code in templates | Partial: four built-in templates, a daily-note route (`routes_entries.py` ~810 to 835); no variables beyond the date heading | M |
 | Capture to a named file, created if missing | One line into the journal or a log | QuickAdd Capture | The act "add X to today's note", "log X to Gym log" through the daily route and `edit_note` append | Partial: daily route and `edit_note` exist; no chat act (the wip `commands.py` has `new_note`, not "add to") | S |
@@ -1187,7 +1187,7 @@ templates or cursor jumps).
 Source: https://raw.githubusercontent.com/logseq/docs/master/pages/Queries.md
 (the raw source of docs.logseq.com, whose rendered page was too large to fetch).
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | and, or, not over filters | Combine without a language | `(and [[a]] (not [[b]]))` | The planner's constraints are ANDed; "not" and "except" negate one | Partial: `entry.query` supports `-term`; Chat negation not read | S |
 | task, priority, between, page-tags, property | "Tasks due this week" in one line | Typed filters | What is due and what is open as plan kinds over checklists, reminders and `due` properties | Partial: checklist units in `read_note`; `list_reminders` tool | M |
@@ -1206,7 +1206,7 @@ search reaches handwriting and scanned documents, and a 2017 article
 (https://www.macworld.com/article/230522/ios-11-the-notes-app-and-how-it-works.html)
 says it once did not, so treat that row as unverified.
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Scope narrowing and widening | Search this note, this space, everything | A scope dropdown and a shortcut to widen | The answer says its scope and offers "search everything" when the narrow scope found nothing | Partial: Ask scope chips, spaces; no automatic widen offer | S |
 | Search inside pictures and handwriting | Text in images is findable | OCR indexed with the page | Picture captions and OCR text are content (owner: "Note captions arent counted as note content??") | Partial: `vision_ocr.py`, `captioning.py`; captions not in retrieval or facts (step 5) | M |
@@ -1217,7 +1217,7 @@ says it once did not, so treat that row as unverified.
 Sources: https://support.apple.com/guide/mac-help/search-with-spotlight-mchlp1008/mac
 and https://learn.microsoft.com/en-us/windows/powertoys/run
 
-| Capability | Does well | Mechanism | Means here | MemoryMap has it | Cost |
+| Capability | Does well | Mechanism | Means here | Tessellate has it | Cost |
 | --- | --- | --- | --- | --- | --- |
 | Inline calculator | "15% of 85", roots, implied multiplication `2(3+4)`, ceil, floor, round, max, min, abs, log, ln, sqrt, pow, factorial, constants | Parsed expression; `=` direct prefix in PowerToys | An owned evaluator (an `ast` walk, policy 1), percent-of phrases, words ("times", "plus", "squared") | Partial: simple_eval on a digit-only regex, invisible (finding 1) | M |
 | Unit conversion with `to` and `in` | 13 types: acceleration, angle, area, duration, energy, information, length, mass, power, pressure, speed, temperature, volume | A units table | Our own table (about 150 units, plain data), "5 miles in km" | Partial: Gemini-branch pint path, to be removed (policy 1) | M |
@@ -1235,7 +1235,7 @@ What the research changes, in order of how often it recurs:
    stage, shared by plan, acts and utilities, is the highest-value structure.
 2. Every one ships a small fixed set of conversation controls (Alexa's built-in
    intents, Rasa's one-turn rules): repeat, shorter, next, back, stop, yes,
-   no, help. MemoryMap has three of them.
+   no, help. Tessellate has three of them.
 3. Acts are slot filling with confirmation (Rasa forms, Alexa dialog model):
    ask for exactly the missing slot, explain why on request, confirm, allow
    cancel, survive one interruption.
@@ -1252,7 +1252,7 @@ What the research changes, in order of how often it recurs:
 
 Every row has an id (U understanding, A answering, X acting, C conversing, T
 utilities, P proactive) so section 5 and the eval sets can name it. Columns:
-what MemoryMap has now and where, the gap (measured where it could be), the
+what Tessellate has now and where, the gap (measured where it could be), the
 deterministic rule or data that closes it, the cost, and the Phase 6 step. A
 rule that changes what the engine states as fact is held to decisions 25 and
 30: quoted from a note with a span, or measured and re-derivable; a computed

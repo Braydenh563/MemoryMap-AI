@@ -540,7 +540,8 @@ def test_hover_docs_are_our_own_words_and_on_the_hover_card():
     hover = _function("docHoverDocs")
     assert "CM.view.hoverTooltip" in hover
     assert '{ PropertyName: "css", TagName: "html", AttributeName: "attr" }' in hover
-    assert '["css", "html"].includes(type.ext) ? docHoverDocs(CM) : []' in _function("docCompletionExtras")
+    #: Python joined for its standard library signatures (OPEN 1070).
+    assert '["css", "html", "py"].includes(type.ext) ? docHoverDocs(CM) : []' in _function("docCompletionExtras")
     theme = source.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
     assert '".cm-hover-doc-values": { color: "var(--muted)"' in theme
 
@@ -564,7 +565,8 @@ def test_js_beautify_is_vendored_with_its_licence_and_loaded_on_demand():
     assert "js-beautify" not in html and "js-beautify" not in app
     assert 'DOC_BEAUTIFY_BUNDLE = "/vendor/js-beautify/beautify.min.js"' in _source()
     fmt = _function("docFormatCode")
-    assert "!selection && DOC_BEAUTIFY_TYPES.has(type.ext) && (await docLoadBeautify())" in fmt
+    assert "DOC_BEAUTIFY_TYPES.has(type.ext) && (await docLoadBeautify())" in fmt
+    assert "else if (selection && beautify) {" in fmt and "indent_level: level" in _function("docBeautifyText")
     assert "else if (beautify) result = docBeautifyText(text, type.ext, unit);" in fmt
 
 
@@ -585,3 +587,16 @@ def test_js_beautify_formats_in_the_documents_own_indent_unit():
     assert out[1] == "a {\n\tcolor: red\n}\n"
     assert out[2] == "<ul>\n    <li>a</li>\n</ul>\n"
     assert out[3] is False
+
+
+@node
+def test_js_beautify_formats_a_selection_at_its_own_indent_level_with_no_trailing_newline():
+    """Ledger 1565: a selection of whole lines keeps the level of its first line."""
+    script = (
+        "const fs = require('fs'); const vm = require('vm');"
+        f"vm.runInThisContext(fs.readFileSync({json.dumps(str(BEAUTIFY_JS))}, 'utf8') + ';globalThis.JSBEAUTIFY = JSBEAUTIFY;');"
+        f"vm.runInThisContext({json.dumps(_function('docBeautifyText') + chr(10) + '}')});"
+        "process.stdout.write(JSON.stringify(docBeautifyText('if(a){b()}', 'js', '  ', {level: 2, endWithNewline: false}).text));"
+    )
+    out = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True, timeout=60).stdout)
+    assert out == "    if (a) {\n      b()\n    }"

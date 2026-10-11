@@ -268,11 +268,8 @@ async function submitLockForm() {
     return;
   }
   try {
-    const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
-      method: "POST",
-      body: JSON.stringify({ password }),
-    });
-    localStorage.setItem("token", body.token);
+    const body = await lockRequest(mode, password, errorLine);
+    prefs.set("token", body.token);
     if (body.warning) toast(body.warning, "info");
     vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
     lockedByHand = false;
@@ -307,6 +304,46 @@ async function submitLockForm() {
     if (mode === "setup") offerRecoveryKey(password);
   } catch (error) {
     errorLine.textContent = error.message;
+  }
+}
+
+//: **A new device waits for Allow by itself** (lansafe-1011's leftover): the
+//: server holds an unlock from an unknown phone 45 s for this computer's
+//: Allow, then answers 403 with `device_pending`. Asking again at once picks
+//: the same held request back up, so the phone keeps waiting, up to
+//: `LOCK_DEVICE_WAIT_MS`, instead of telling its owner to press Unlock again
+//: after walking to the computer. Editing the field stops it.
+const LOCK_DEVICE_WAIT_MS = 180_000;
+async function lockRequest(mode, password, errorLine) {
+  const until = Date.now() + LOCK_DEVICE_WAIT_MS;
+  for (;;) {
+    try {
+      const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
+        method: "POST",
+        body: JSON.stringify({ password }),
+        //: A 401 here is "that password is wrong", said under the field. Left
+        //: unclaimed, apiJson read it as an expired session and the field said
+        //: "Locked".
+        ownsAuthErrors: true,
+        silent: true,
+      });
+      errorLine.textContent = "";
+      return body;
+    } catch (error) {
+      const waiting = error.body?.device_pending && Date.now() < until && $("lock-password").value === password;
+      if (!waiting) {
+        setBusy($("lock-submit"), false);
+        throw error;
+      }
+      errorLine.textContent = "Waiting for the computer to allow this device. Choose Allow in the notice there.";
+      setBusy($("lock-submit"), true, "Waiting…");
+      //: A full wait queue answers at once; a pause keeps that from spinning.
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      if ($("lock-password").value !== password) {
+        setBusy($("lock-submit"), false);
+        throw error;
+      }
+    }
   }
 }
 
@@ -627,7 +664,9 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "Escape" && !$("palette-overlay").classList.contains("hidden")) {
-    closePalette();
+    //: A '?' open on the palette (its foot) takes this Escape for itself; the
+    //: next one closes the palette (`menus.js` marks the press as spent).
+    if (!e.helpPopoverSpent) closePalette();
     return;
   }
   if (e.key === "Escape" && !$("sketch-overlay").classList.contains("hidden")) {
@@ -777,7 +816,7 @@ document.addEventListener("keydown", (e) => {
       && !boardOwns
     ) {
       tabJumpArmedAt = performance.now();
-      //: Asked for: "m" rather than "g" (m for MemoryMap, and "g" collided
+      //: Asked for: "m" rather than "g" (m for Tessellate, and "g" collided
       //: with Graph's own letter), and "some visual assistance and guides":
       //: the first key shows the chord's targets for as long as it is armed,
       //: so the second key is never a guess.
@@ -864,8 +903,8 @@ function maybeShowOnboarding() {
   if (prefs.get("tourDone", null)) return;
   if (typeof openTour !== "function") return;
   if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;
-  localStorage.setItem("tourDone", "1");
-  toastAction("There is a guided tour of MemoryMap now.", "Take the tour", () => {
+  prefs.set("tourDone", "1");
+  toastAction("There is a guided tour of Tessellate now.", "Take the tour", () => {
     openTour("basics");
   });
 }
@@ -1000,6 +1039,9 @@ const DEFAULT_SHORTCUTS = {
   //: for the reason `askAgent` records: collisions are checked here, and the
   //: shortcuts sheet is built from this table.
   toggleCompanion: { keys: "Ctrl+Shift+Y", label: "Show or hide the companion" },
+  //: INBOX 896, the owner: "add a hotkey" for the status bar's Other devices
+  //: panel. Alt+L was free here and in the browsers this runs in; L for LAN.
+  lanPanel: { keys: "Alt+L", label: "Other devices on this network: open the switch and the trusted networks" },
   navigateBack: { keys: "Alt+ArrowLeft", label: "Go back to the previous page or view" },
   navigateForward: { keys: "Alt+ArrowRight", label: "Go forward again" },
 };
@@ -1074,7 +1116,7 @@ restampShortcutHints();
 // establishes the disabled state the HTML already carries, not a real render.
 renderUndoBar();
 
-// "m" then a letter jumps tabs (m for MemoryMap), GitHub and Gmail's own "go to" chord, and
+// "m" then a letter jumps tabs (m for Tessellate), GitHub and Gmail's own "go to" chord, and
 // the reason it isn't in DEFAULT_SHORTCUTS/rebindable above: a chord needs
 // somewhere to hold the first keypress while it waits for the second, and
 // that's state this file has to own regardless, so it lives beside the
@@ -1116,6 +1158,10 @@ const CHORD_ACTIONS = {
   //: the same word the status bar's button uses. The key stays `a`.
   a: { label: "Guide", icon: "ph:compass", run: () => askAtlasAbout("") },
   p: { label: "Popup agent", icon: "ph:strategy", run: () => toggleAgentPalette() },
+  //: A place, not an act (the owner: "add the ocr workspace to the 'm' quick
+  //: nav"): `group: "go"` draws it under "Go to", and it opens the way the
+  //: Library's own door does, through the reveal target.
+  o: { label: "OCR workspace", icon: "ph:scan", group: "go", run: () => revealFeature("page-reader") },
 };
 let tabJumpArmedAt = 0;
 
@@ -1159,7 +1205,7 @@ function saveShortcutOverrides() {
   for (const [id, def] of Object.entries(DEFAULT_SHORTCUTS)) {
     if (shortcuts[id].keys !== def.keys) overrides[id] = shortcuts[id].keys;
   }
-  localStorage.setItem(SHORTCUT_STORE, JSON.stringify(overrides));
+  prefs.set(SHORTCUT_STORE, JSON.stringify(overrides));
   restampShortcutHints();
 }
 
@@ -1288,6 +1334,7 @@ function runShortcut(id) {
       switchTab("chat");
       openNotePicker();
     },
+    lanPanel: () => openLanPanel(),
     // Same call the status bar's own Back/Forward buttons already make.
     navigateBack: () => stepTabHistory(-1),
     navigateForward: () => stepTabHistory(1),
@@ -1296,7 +1343,7 @@ function runShortcut(id) {
 }
 
 function resetShortcuts() {
-  localStorage.removeItem(SHORTCUT_STORE);
+  prefs.remove(SHORTCUT_STORE);
   shortcuts = loadShortcuts();
   restampShortcutHints();
   renderShortcutList();
@@ -1386,6 +1433,8 @@ function buildShortcutList(list) {
     }
     list.appendChild(li);
   }
+  //: Thirty-one rows: typed to (row 1643, `listFilter`).
+  if (typeof listFilter === "function") listFilter(list, { label: "Filter shortcuts" })?.refresh();
 }
 
 // While rebinding, this handler runs before everything else and swallows the
@@ -1546,7 +1595,7 @@ if (noteSort === "forgotten") loadForgottenOrder().then(() => renderEntries());
 $("note-sort").addEventListener("change", async (e) => {
   noteSort = e.target.value;
   try {
-    localStorage.setItem("notes-sort", noteSort);
+    prefs.set("notes-sort", noteSort);
   } catch {
     /* storage blocked: this session only */
   }
@@ -1560,7 +1609,7 @@ $("note-sort").addEventListener("change", async (e) => {
 $("notes-page-size").value = notesPageSize;
 $("notes-page-size").addEventListener("change", (e) => {
   notesPageSize = e.target.value;
-  localStorage.setItem("notes-page-size", notesPageSize);
+  prefs.set("notes-page-size", notesPageSize);
   notesCurrentPage = 1;
   renderEntries();
 });
@@ -1653,8 +1702,8 @@ $("entry-content").addEventListener("input", (e) => {
   //: back holding three blank lines after a reload, which hid the empty
   //: placeholder). Newlines left behind by a removed image or a stray Enter
   //: must not be kept and restored as if they were writing.
-  if (e.target.value.trim()) localStorage.setItem("captureDraft", e.target.value);
-  else localStorage.removeItem("captureDraft");
+  if (e.target.value.trim()) prefs.set("captureDraft", e.target.value);
+  else prefs.remove("captureDraft");
   renderEntryAttachmentChips();
   // The "go to it" link belongs to the note you just saved, not the one you
   // are now writing: drop it as soon as typing starts.
@@ -1683,7 +1732,7 @@ const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
   //: a staged image can leave nothing else) restores as nothing, so the
   //: box stays empty and its placeholder shows.
   if (!draft.trim()) {
-    localStorage.removeItem("captureDraft");
+    prefs.remove("captureDraft");
     if (lostImages) toast("Your restored draft only held images that were never uploaded, so it was cleared.");
     return;
   }
@@ -1716,8 +1765,8 @@ for (const [id, key] of [["entry-title", "captureDraftTitle"], ["entry-tags", "c
   } catch {}
   field.addEventListener("input", () => {
     try {
-      if (field.value.trim()) localStorage.setItem(key, field.value);
-      else localStorage.removeItem(key);
+      if (field.value.trim()) prefs.set(key, field.value);
+      else prefs.remove(key);
     } catch {}
   });
 }
@@ -1733,14 +1782,6 @@ $("mic-chat").addEventListener("click", () =>
   toggleDictation($("mic-chat"), $("chat-input"))
 );
 $("speak-btn").addEventListener("click", () => speakText($("ai-answer").textContent));
-
-// Meeting notes (§17).
-$("meeting-close").addEventListener("click", closeMeetingRecorder);
-wireBackdropClose($("meeting-overlay"), () => closeMeetingRecorder());
-$("meeting-record").addEventListener("click", toggleMeetingRecording);
-$("meeting-save").addEventListener("click", saveMeetingNote);
-$("meeting-discard").addEventListener("click", resetMeetingUI);
-//: Copy and the transcript box grow with the sheet (and Pause and Save as document: meetings.js wires them: the overlay opens only once it is in).
 
 // PWA (WORLD_CLASS_PLAN decision 49): sw.js caches stamped files, vendored
 // libraries and icons, and shows offline.html when the server is not
@@ -1863,6 +1904,12 @@ function fileDropBox(el) {
   const host = el?.closest?.(".note-surface")?.noteSurfaceHost;
   return host instanceof HTMLTextAreaElement ? host : null;
 }
+
+//: Files dragged in from outside the window load the drop-to-Library module
+//: (file-drop.js), which starts itself and takes only the drops nothing else did.
+document.addEventListener("dragenter", (e) => {
+  if (Array.from(e.dataTransfer?.types || []).includes("Files")) ["/css/file-drop-lazy.css", "/js/file-drop.js"].forEach(lazyScript);
+});
 
 document.addEventListener("drop", async (e) => {
   const box = fileDropBox(e.target);
@@ -2084,6 +2131,7 @@ async function handleFileUpload(textarea, files) {
   textarea.value = originalText.substring(0, cursorPosition) + textToInsert + originalText.substring(selectionEnd);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
+  let added = 0;
   for (const file of files) {
     const formData = new FormData();
     formData.append("file", file);
@@ -2104,6 +2152,7 @@ async function handleFileUpload(textarea, files) {
         : `[${res.filename}](${res.url})\n`;
       textarea.value = textarea.value.replace(`![Uploading ${file.name}…]()\n`, fileMarkdown);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      added += 1;
     } catch (err) {
       // Reported directly (§89 item 2): an upload failure rendered as if it
       // were the AI's own message: literal error text left sitting in the
@@ -2118,6 +2167,7 @@ async function handleFileUpload(textarea, files) {
       toast(err.message || `Couldn't upload "${file.name}".`, true);
     }
   }
+  if (added) pushTextUndo("Added a file", textarea, originalText, textarea.value);
 }
 
 // ROADMAP.md Tier 2 §16c: paste and drag-drop already reached Capture (the

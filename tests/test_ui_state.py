@@ -80,7 +80,7 @@ def test_the_frontend_watches_the_keys_it_promises_to(client):
     extras = re.search(r"const MIRRORED_UI_EXTRAS = \[(.*?)\];", source, re.S)
     assert extras, "MIRRORED_UI_EXTRAS not found in app.js"
     assert "onboardingDone" in extras.group(1)
-    assert "return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS];" in source, (
+    assert "return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS].filter(" in source, (
         "the appearance half of the watched list must be derived from "
         "LOOK_KEYS rather than re-typed"
     )

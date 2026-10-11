@@ -271,7 +271,7 @@ def test_with_the_server_down_a_navigation_gets_the_offline_page_not_the_app(tmp
     out = run_worker(
         tmp_path,
         """
-        net.routes["/offline.html"] = () => new Response("<h1>MemoryMap is not running on this computer</h1>");
+        net.routes["/offline.html"] = () => new Response("<h1>Tessellate is not running on this computer</h1>");
         await lifecycle("install");
         net.down = true;
         const home = await (await fire("/", { mode: "navigate", destination: "document" })).text();
@@ -334,7 +334,7 @@ def test_activate_drops_the_old_version_and_the_retired_shell_caches(tmp_path):
 
 def test_the_offline_page_says_the_one_true_thing_and_has_a_retry():
     html = OFFLINE.read_text(encoding="utf-8")
-    assert "MemoryMap is not running on this computer" in html
+    assert "Tessellate is not running on this computer" in html
     assert "Start menu" in html and "launcher" in html
     assert 'id="offline-retry"' in html and ">Retry<" in html
     assert "!" not in re.sub(r"<!--.*?-->|<!DOCTYPE[^>]*>", "", html, flags=re.S), "no exclamation marks"
@@ -384,9 +384,7 @@ def test_the_offline_page_is_on_the_locked_routes_allowlist():
     ],
 )
 def test_a_share_query_becomes_one_capture(tmp_path, query, expected):
-    from tests._app_js import app_js_text
-
-    app = app_js_text()
+    app = (FRONTEND / "js" / "shared-intake.js").read_text(encoding="utf-8")
     start = app.index("function sharedCaptureText(")
     end = app.index("\n}\n", start) + 3
     probe = tmp_path / "probe.js"
@@ -403,9 +401,7 @@ def test_the_share_query_survives_the_worker_and_lands_in_capture():
     passes it through untouched (asserted above), and app.js switches to the
     Capture box before filling it. The installed app's share action is the
     manifest's `/`, inside the worker's scope."""
-    from tests._app_js import app_js_text
-
-    app = app_js_text()
+    app = (FRONTEND / "js" / "shared-intake.js").read_text(encoding="utf-8")
     intake = app[app.index("function takeSharedIntake()") :][:1800]
     assert 'showNotesSection("capture")' in intake and 'box = $("entry-content")' in intake
     manifest = json.loads((FRONTEND / "manifest.webmanifest").read_text(encoding="utf-8"))

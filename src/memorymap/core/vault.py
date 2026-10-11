@@ -232,11 +232,6 @@ def rewrap(session: Session, new_password: str) -> bool:
 # column, never a log line, never an audit detail.
 
 
-def has_recovery(session: Session) -> bool:
-    row = _row(session)
-    return bool(row is not None and row.recovery_wrapped_dek)
-
-
 def recovery_created_at(session: Session):  # noqa: ANN201  # datetime | None
     row = _row(session)
     return row.recovery_created_at if row is not None and row.recovery_wrapped_dek else None

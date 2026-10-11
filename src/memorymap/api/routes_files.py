@@ -11,6 +11,7 @@ import binascii
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -21,7 +22,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from memorymap.core import activity
 from memorymap.api import paging
@@ -42,6 +43,7 @@ from memorymap.core import (
     ocr,
     pdfpages,
     reading_bin,
+    undo_bin,
 )
 from memorymap.core.database import Attachment, Entry, MediaUpload, PageRead
 from memorymap.core.deps import get_session
@@ -903,7 +905,7 @@ def attached_file_html_preview(
     )
 
 
-@router.delete("/files/{attachment_id}", response_model=EntryOut)
+@router.delete("/files/{attachment_id}")
 def delete_file(
     attachment_id: int,
     strip_references: bool = False,
@@ -915,10 +917,52 @@ def delete_file(
     markdown behind forever."""
     attachment = _existing_attachment(session, attachment_id)
     entry = _existing_entry(session, attachment.entry_id)
+    config = deps.get_config()
+    changed: dict = {}
     if strip_references:
-        _strip_embeds(session, f"/files/{attachment.id}")
-    manager.delete_attachment(session, attachment, deps.get_config().uploads_dir)
-    return _to_out(session, entry)
+        _strip_embeds(session, f"/files/{attachment.id}", changed)
+    #: Kept in the undo bin first (`core/undo_bin.py`): the row and its bytes,
+    #: so Undo's `POST /files/restore` can put the file back (INBOX 898).
+    token = undo_bin.stash(
+        config.data_dir,
+        "attachment",
+        {"row": undo_bin.row_dict(attachment), "notes": changed},
+        {"bytes": config.uploads_dir / attachment.stored_name},
+    )
+    manager.delete_attachment(session, attachment, config.uploads_dir)
+    out = _to_out(session, entry)
+    return JSONResponse({**out.model_dump(mode="json"), "undo_token": token})
+
+
+class RestoreBody(BaseModel):
+    token: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/files/restore")
+def restore_file(body: RestoreBody, session: Session = Depends(get_session)) -> dict:
+    """Put back a file `DELETE /files/{id}` took away (INBOX 898)."""
+    config = deps.get_config()
+    payload, kept = undo_bin.take(config.data_dir, "attachment", body.token)
+    row = payload["row"]
+    _existing_entry(session, row["entry_id"])
+    if session.get(Attachment, row["id"]) is not None:
+        raise HTTPException(status_code=409, detail="That file is already back.")
+    config.uploads_dir.mkdir(parents=True, exist_ok=True)
+    if "bytes" in kept and kept["bytes"].is_file():
+        shutil.move(str(kept["bytes"]), str(config.uploads_dir / row["stored_name"]))
+    session.add(undo_bin.row_from(Attachment, row))
+    _put_notes_back(session, payload.get("notes") or {})
+    session.commit()
+    undo_bin.finish(config.data_dir, body.token)
+    return {"id": row["id"], "entry_id": row["entry_id"]}
+
+
+def _put_notes_back(session: Session, changed: dict) -> None:
+    """Undo `_strip_embeds`: a note still reading what that left is given its embeds back."""
+    for note_id, (before, after) in changed.items():
+        entry = session.get(Entry, int(note_id))
+        if entry is not None and not entry.is_private and (entry.content or "") == (after or ""):
+            entry.content = before
 
 
 class AttachmentRenameBody(BaseModel):
@@ -1082,7 +1126,7 @@ def _within_dir(base_dir: Path, name: str) -> Path:
     return Path(candidate)
 
 
-@router.post("/files/save")
+@router.post("/files/save", dependencies=[Depends(this_computer_only)])
 def save_generated_file(body: SaveFileBody) -> dict:
     """Write a generated export next to the notes and say where it went."""
     try:
@@ -1197,29 +1241,36 @@ def open_exports_folder() -> dict:
             status_code=409, detail="Only the desktop app can open a file manager window."
         )
     exports = _exports_dir()
-    exports.mkdir(parents=True, exist_ok=True)
+    reveal_folder(exports, "the exports folder")
+    return {"path": str(exports)}
+
+
+def reveal_folder(folder: Path, what: str) -> None:
+    """Open `folder` in the OS file manager, creating it first; a 500 that
+    names the path when the OS refuses. Shared with Settings, About,
+    Maintenance's launcher logs (routes_maintenance.py)."""
+    folder.mkdir(parents=True, exist_ok=True)
     try:
         if sys.platform == "win32":
             # Safe even though the path can now be user-configured: passed as
             # a single argument, never through a shell, and _validated_export_dir
             # already refused anything that isn't a real, writable directory.
-            os.startfile(exports)
+            os.startfile(folder)
         elif sys.platform == "darwin":
             # Popen, not run(): the launcher forks its own file-manager window
             # and normally returns at once, but this request must not hang
             # waiting on a GUI process either way, same reasoning as
             # `restart_in_console_mode` being fire-and-forget rather than
             # something this response waits on.
-            subprocess.Popen(["open", str(exports)])
+            subprocess.Popen(["open", str(folder)])
         else:
-            subprocess.Popen(["xdg-open", str(exports)])
+            subprocess.Popen(["xdg-open", str(folder)])
     except OSError as exc:
-        logger.warning("couldn't open the exports folder", exc_info=True)
+        logger.warning("couldn't open %s", what, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Couldn't open the exports folder. You can find it at {exports}.",
+            detail=f"Couldn't open {what}. You can find it at {folder}.",
         ) from exc
-    return {"path": str(exports)}
 
 
 #: What `/media/` will accept and, more to the point, what it will serve.
@@ -1745,7 +1796,7 @@ def _embed_pattern(url: str) -> re.Pattern[str]:
     return re.compile(r"!\[[^\]\n]{0,200}\]\(" + re.escape(url) + title + r"\)")
 
 
-def _strip_embeds(session: Session, url: str) -> list[int]:
+def _strip_embeds(session: Session, url: str, changed: dict | None = None) -> list[int]:
     """Remove every `![...](url)` from the notes that hold one.
 
     Reported directly: *"notes still mention removed images"*. Deleting the
@@ -1756,6 +1807,9 @@ def _strip_embeds(session: Session, url: str) -> list[int]:
     Only the **embed** is removed, never a link: `[see the scan](/media/x.png)`
     is a sentence the author wrote and would be a hole in their prose if it
     vanished. And only exact-url matches, so nothing else in the note moves.
+
+    `changed`, when given, is filled with `{note id: [text before, text after]}`
+    so the undo bin can put the embeds back (INBOX 898).
     """
     pattern = _embed_pattern(url)
     touched: list[int] = []
@@ -1776,7 +1830,10 @@ def _strip_embeds(session: Session, url: str) -> list[int]:
             continue
         #: The blank line the embed used to sit on goes with it, otherwise a
         #: note loses a picture and gains a gap where it was.
+        before = entry.content
         entry.content = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+        if changed is not None:
+            changed[str(entry.id)] = [before, entry.content]
         touched.append(entry.id)
     if touched:
         session.commit()
@@ -1799,17 +1856,48 @@ def delete_media(
     has to be chosen: the caller asks, the UI offers it in the confirm.
     """
     upload = deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
-    media_dir = (deps.get_config().data_dir / "media").resolve()
+    config = deps.get_config()
+    media_dir = (config.data_dir / "media").resolve()
     candidate = (media_dir / upload.filename).resolve()
     cleaned: list[int] = []
+    changed: dict = {}
     if strip_references:
         #: Before the row goes: the url is built from `upload.filename`.
-        cleaned = _strip_embeds(session, f"/media/{upload.filename}")
-    if candidate.is_relative_to(media_dir):
-        candidate.unlink(missing_ok=True)
+        cleaned = _strip_embeds(session, f"/media/{upload.filename}", changed)
+    #: The row and its bytes go to the undo bin, not to nowhere (INBOX 898):
+    #: `POST /media/restore` with this token puts both back.
+    token = undo_bin.stash(
+        config.data_dir,
+        "media",
+        {"row": undo_bin.row_dict(upload), "notes": changed},
+        {"bytes": candidate} if candidate.is_relative_to(media_dir) else {},
+    )
     session.delete(upload)
     session.commit()
-    return {"status": "ok", "cleaned_notes": cleaned}
+    return {"status": "ok", "cleaned_notes": cleaned, "undo_token": token}
+
+
+@router.post("/media/restore", response_model=MediaUploadOut)
+def restore_media(body: RestoreBody, session: Session = Depends(get_session)) -> MediaUploadOut:
+    """Put back a Library file `DELETE /media/{id}` took away (INBOX 898).
+
+    The same id when it is free, so a note that still points at the file works
+    again; a new one when it is not.
+    """
+    config = deps.get_config()
+    payload, kept = undo_bin.take(config.data_dir, "media", body.token)
+    row = payload["row"]
+    media_dir = config.data_dir / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    if "bytes" in kept and kept["bytes"].is_file():
+        shutil.move(str(kept["bytes"]), str(media_dir / row["filename"]))
+    upload = undo_bin.row_from(MediaUpload, row, keep_id=session.get(MediaUpload, row["id"]) is None)
+    session.add(upload)
+    _put_notes_back(session, payload.get("notes") or {})
+    session.commit()
+    session.refresh(upload)
+    undo_bin.finish(config.data_dir, body.token)
+    return MediaUploadOut(id=upload.id, url=f"/media/{upload.filename}", original_name=upload.original_name)
 
 
 class MediaRenameBody(BaseModel):
@@ -1858,7 +1946,7 @@ class CaptionBody(BaseModel):
     #: Who wrote `text` (the owner, 2026-09-24). "hand" is a person at a caption field,
     #: which is every caller but one. "app" is the app describing a picture
     #: it made itself, a board export's "Part of the mind map ..., exported
-    #: from MemoryMap" line: stored as written by `APP_CAPTION_AUTHOR` and not
+    #: from Tessellate" line: stored as written by `APP_CAPTION_AUTHOR` and not
     #: as edited, so the lightbox and the Library card stop saying "typed by
     #: hand" about text nobody typed, and a vision model that later replaces
     #: it is credited alone rather than read as a person's edit. Kept in
@@ -1868,7 +1956,9 @@ class CaptionBody(BaseModel):
 
 
 #: The name the app's own captions are credited to (see `CaptionBody.source`).
-APP_CAPTION_AUTHOR = "MemoryMap"
+#: A stored sentinel, not copy: captions written before the rename to
+#: Tessellate carry it, so it stays; the lightbox shows the current name.
+APP_CAPTION_AUTHOR = "MemoryMap"  # brand: keep
 
 
 @router.post("/media/{upload_id}/caption", response_model=MediaUploadOut)
@@ -2287,7 +2377,21 @@ def _stored_regions(key: tuple[str, int] | None, page: int) -> OcrRegionsOut | N
         blob = (row[0] if row else "") or ""
         if not blob.strip():
             return None
-        return OcrRegionsOut(**json.loads(blob))
+        stored = json.loads(blob)
+        out = OcrRegionsOut(**stored)
+        #: **A cache stored before words were kept has boxes and no `words`
+        #: key at all**, so Live Text stays empty with no reason (libr-1011
+        #: row 1228). A read since then writes the key, empty or not, which is
+        #: how an old cache is told from a reader that found no words. Said in
+        #: the line the workspace already shows; reading again replaces it.
+        if (
+            out.source == "tesseract"
+            and out.regions
+            and not out.message
+            and any("words" not in region for region in stored.get("regions", []))
+        ):
+            out.message = "Read this page again to select its words on the picture."
+        return out
     except Exception:  # noqa: BLE001 - an unreadable cache is an empty one
         logger.debug("could not load the stored regions for a page", exc_info=True)
         return None

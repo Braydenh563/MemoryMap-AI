@@ -54,7 +54,7 @@ function applySimpleMode(on) {
   if (on) document.documentElement.dataset.simple = "on";
   else delete document.documentElement.dataset.simple;
   try {
-    localStorage.setItem("simpleMode", on ? "1" : "0");
+    prefs.set("simpleMode", on ? "1" : "0");
   } catch {
     // A private window can refuse storage; the mode still applies for now.
   }

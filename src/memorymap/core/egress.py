@@ -83,7 +83,12 @@ FEATURES = {
     "memorymap.core.extra_downloads": "Optional downloads",
     "memorymap.core.embedmodels": "Embedding model download",
     "memorymap.ai.embeddings": "Embedding model",
+    #: Not a reach out: a device on this network opening the app (INBOX 894).
+    "memorymap.core.lanserve": "Other devices",
 }
+
+#: What an incoming row is for, in the receipt's "For:" line.
+INCOMING_PURPOSE = "A device on this network opened the app"
 
 #: Modules that look a name up on a feature's behalf (the address guard
 #: resolves before every fetch): the feature that called them is named, not
@@ -243,10 +248,27 @@ def _caller() -> str | None:
     return helper
 
 
-def _record(kind: str, host: str, port: int | None) -> None:
-    scope = scope_of(host)
+def record_incoming(address: str) -> None:
+    """A device on this network connected to the LAN port (INBOX 894).
+
+    The audit hook sees `connect`, never `accept`, so core/lanserve.py calls
+    this for each connection it lets in. One row per device address (its
+    port changes with every connection and is left out), always in the
+    local-network total: lanserve accepts only nearby clients, including a
+    phone's global IPv6 address in this network's /64, which `scope_of`
+    alone would count as the internet. Never what the device asked for."""
+    if not isinstance(address, str) or not address:
+        return
+    host = address.split("%", 1)[0]
+    _record("incoming", host, None, scope="local_network", via="memorymap.core.lanserve", why=INCOMING_PURPOSE)
+
+
+def _record(  # noqa: PLR0913
+    kind: str, host: str, port: int | None, *, scope: str | None = None, via: str | None = None, why: str | None = None
+) -> None:
+    scope = scope or scope_of(host)
     now = time.time()
-    via = _caller() if scope != "this_computer" else None
+    via = via or (_caller() if scope != "this_computer" else None)
     name = None
     if kind == "connect":
         looked = getattr(_last_lookup, "value", None)
@@ -261,7 +283,7 @@ def _record(kind: str, host: str, port: int | None) -> None:
             _totals[scope] += 1
         return
     key = (kind, host, port)
-    why = _current_purpose()
+    why = why or _current_purpose()
     with _lock:
         _totals[scope] += 1
         row = _destinations.get(key)
@@ -369,7 +391,7 @@ def _row_out(key: tuple, row: dict) -> dict:
         "host": host,
         "port": port,
         "name": row.get("name"),
-        "scope": scope_of(host),
+        "scope": "local_network" if kind == "incoming" else scope_of(host),
         "count": row["count"],
         "first": _now_iso(row["first"]) if isinstance(row["first"], (int, float)) else row["first"],
         "last": _now_iso(row["last"]) if isinstance(row["last"], (int, float)) else row["last"],
@@ -469,9 +491,10 @@ def flush(path: Path, *, create: bool = True) -> dict:
         return _flush_locked(path, create)
 
 
-def _flush_locked(path: Path, create: bool) -> dict:
-    from memorymap.core.atomic_io import atomic_write_json
-
+def _take_unflushed(path: Path):  # noqa: ANN202
+    """What the counters hold that the ledger at `path` does not: the new
+    counts by destination, their rows, and the totals added; also the flushed
+    marks (to be rolled back) as they stood before."""
     with _lock:
         flushed, flushed_totals = _flush_state.setdefault(str(path), ({}, {scope: 0 for scope in SCOPES}))
         added = {
@@ -486,27 +509,43 @@ def _flush_locked(path: Path, create: bool) -> dict:
             flushed[key] = row["count"]
         for scope in SCOPES:
             flushed_totals[scope] = _totals[scope]
-    ledger = _read_ledger(path)
-    stored_totals = ledger.get("totals") if isinstance(ledger.get("totals"), dict) else {}
-    out_totals = {scope: int(stored_totals.get(scope, 0) or 0) + added_totals[scope] for scope in SCOPES}
+    return flushed, flushed_totals, added, rows, before, added_totals
+
+
+def _stored_rows(ledger: dict) -> dict:
     stored = {}
     for item in ledger.get("destinations", []) if isinstance(ledger.get("destinations"), list) else []:
         if isinstance(item, dict) and isinstance(item.get("host"), str):
             stored[(item.get("kind", "connect"), item["host"], item.get("port"))] = item
+    return stored
+
+
+def _row_with_history(key, row: dict, count: int, previous: dict | None) -> dict:  # noqa: ANN001
+    """The ledger row for a destination: this flush's `count` added to what
+    the ledger already held (`previous`), its first time and purposes kept."""
+    out = _row_out(key, row)
+    if previous is None:
+        out["count"] = count
+        return out
+    out["count"] = int(previous.get("count", 0) or 0) + count
+    out["first"] = previous.get("first", out["first"])
+    for words in reversed([w for w in previous.get("purposes") or [] if isinstance(w, str)]):
+        if words not in out["purposes"]:
+            out["purposes"].append(words)
+    out["purposes"] = out["purposes"][:MAX_PURPOSES]
+    return out
+
+
+def _flush_locked(path: Path, create: bool) -> dict:
+    from memorymap.core.atomic_io import atomic_write_json
+
+    flushed, flushed_totals, added, rows, before, added_totals = _take_unflushed(path)
+    ledger = _read_ledger(path)
+    stored_totals = ledger.get("totals") if isinstance(ledger.get("totals"), dict) else {}
+    out_totals = {scope: int(stored_totals.get(scope, 0) or 0) + added_totals[scope] for scope in SCOPES}
+    stored = _stored_rows(ledger)
     for key, count in added.items():
-        row = rows[key]
-        out = _row_out(key, row)
-        previous = stored.get(key)
-        if previous is not None:
-            out["count"] = int(previous.get("count", 0) or 0) + count
-            out["first"] = previous.get("first", out["first"])
-            for words in reversed([w for w in previous.get("purposes") or [] if isinstance(w, str)]):
-                if words not in out["purposes"]:
-                    out["purposes"].append(words)
-            out["purposes"] = out["purposes"][:MAX_PURPOSES]
-        else:
-            out["count"] = count
-        stored[key] = out
+        stored[key] = _row_with_history(key, rows[key], count, stored.get(key))
     kept = sorted(stored.values(), key=lambda r: str(r.get("last", "")), reverse=True)[:MAX_DESTINATIONS]
     result = {
         "since": ledger.get("since") or since(),

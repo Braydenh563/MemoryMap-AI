@@ -133,6 +133,7 @@ function syncDocFileType({ prose = true } = {}) {
   if (!type.previewable && !DOC_VIEWS_UNRENDERED.includes(docView)) setDocView("source");
   //: The engine's own language and wrapping, where it is mounted.
   docCmSyncFileType();
+  docCmApplySpellcheck();
 
   // The formatting toolbar is markdown syntax. In a .py file every button on
   // it inserts something wrong.
@@ -651,7 +652,7 @@ function setDocView(mode) {
   if (!type.previewable && !DOC_VIEWS_UNRENDERED.includes(mode)) mode = "source";
   docView = DOC_VIEWS.includes(mode) ? mode : "source";
   try {
-    localStorage.setItem(DOC_VIEW_KEY, docView);
+    prefs.set(DOC_VIEW_KEY, docView);
   } catch {
     // A private window with storage blocked is not a reason to refuse to
     // change view: the choice just does not survive the reload.
@@ -1007,7 +1008,7 @@ function docPositionsWrite(map) {
     for (const stale of keys.slice(DOC_POSITIONS_MAX)) delete map[stale];
   }
   try {
-    localStorage.setItem(DOC_POSITIONS_KEY, JSON.stringify(map));
+    prefs.set(DOC_POSITIONS_KEY, JSON.stringify(map));
   } catch {
     // Storage blocked or full: the document just opens at the top, as before.
   }
@@ -1159,6 +1160,7 @@ function docMentionsHost(create = false) {
     host = document.createElement("div");
     host.className = "doc-outline-wrap doc-mentions-wrap";
     const heading = document.createElement("h3");
+    heading.className = "doc-outline-title";
     heading.append(
       document.createTextNode("Unlinked mentions "),
       docSectionCount("doc-mentions-count")
@@ -1263,6 +1265,15 @@ async function docLinkMention(row, button) {
       return;
     }
     const next = content.slice(0, row.start) + `[[${title}]]` + content.slice(row.end);
+    const mentionUndo = () =>
+      pushRequestUndo(
+        `Linked a mention in ${row.title}`,
+        row.kind === "note" ? `/entries/${row.id}` : `/documents/${row.id}`,
+        "PUT",
+        { content },
+        { content: next },
+        () => (row.kind === "note" ? loadEntries() : loadDocuments(currentDoc?.id))
+      );
     if (row.kind === "note") {
       await apiJson(`/entries/${row.id}`, {
         method: "PUT",
@@ -1276,6 +1287,7 @@ async function docLinkMention(row, button) {
       });
       await loadDocuments(currentDoc?.id);
     }
+    mentionUndo();
     toast(`Linked from ${row.title}.`);
   } catch (error) {
     toast(error.message, true);
@@ -2108,6 +2120,7 @@ async function expandNoteIntoDocument(entry) {
         content: `${body}\n\n---\n\nExpanded from note #${entry.id}.\n`,
       }),
     });
+    offerCreateUndo(doc);
     switchTab("documents");
     await loadDocuments(doc.id);
     toast(`Started a document from this note, the note itself is untouched.`);
@@ -2134,9 +2147,9 @@ function getDocWordGoal(id) {
 function setDocWordGoal(id, goal) {
   if (!id) return;
   if (goal > 0) {
-    localStorage.setItem(docWordGoalKey(id), String(goal));
+    prefs.set(docWordGoalKey(id), String(goal));
   } else {
-    localStorage.removeItem(docWordGoalKey(id));
+    prefs.remove(docWordGoalKey(id));
   }
 }
 
@@ -2503,7 +2516,7 @@ function docOutlineSetFolds(folds) {
   const store = docOutlineFoldStore();
   if (!store) return;
   try {
-    localStorage.setItem(store, JSON.stringify([...folds]));
+    prefs.set(store, JSON.stringify([...folds]));
   } catch {
     //: Nothing to do and nothing worth saying: the fold still applies to the
     //: outline on screen, it just will not survive a reload.
@@ -2812,6 +2825,8 @@ const DOC_COMMANDS = [
     code: true, run: () => docPanelToggle(null) },
   { id: "console", icon: "ph:terminal", label: "Open the console: a line of Python or JavaScript in what the last run left", keys: "Ctrl+Shift+Y",
     code: true, run: () => docPanelToggle("console") },
+  { id: "debug-panel", icon: "ph:bug", label: "Open the Debug tab: variables, watches, the call stack and breakpoints", keys: "Ctrl+Shift+D",
+    code: true, run: () => docPanelToggle("debug") },
   { id: "command-palette", icon: "ph:command", label: "Run an editor command by name (also F1)", keys: "Ctrl+Shift+P",
     code: true, run: () => docIdeOpenPalette() },
   { id: "split", icon: "ph:columns", label: "Split the editor: this file again, beside itself", keys: "Ctrl+\\",
@@ -3859,11 +3874,23 @@ const DOC_GUTTER_BASELINE = 0.43;
 //: 200 and the gutter stuck at 139, which is two and a half lines of drift
 //: that grows the further down you scroll. Same height, same content height,
 //: same range, and the assignment is then exact.
+//: **Every read, then every write** (OPEN 1076, perfpolish): a write and a
+//: layout read per gutter forced one layout per gutter; read all of them
+//: first and the writes cost one layout after.
 function syncDocGutterMetrics(only = null) {
+  const jobs = [];
   for (const { gutter, box } of docGutters()) {
     if (only && box !== only) continue;
     if (gutter.classList.contains("hidden")) continue;
     const metrics = getComputedStyle(box);
+    jobs.push({
+      gutter,
+      metrics: Object.fromEntries([...DOC_GUTTER_PROPS, "fontSize"].map((prop) => [prop, metrics[prop]])),
+      own: parseFloat(getComputedStyle(gutter).fontSize),
+      height: box.offsetHeight,
+    });
+  }
+  for (const { gutter, metrics, own, height } of jobs) {
     for (const prop of DOC_GUTTER_PROPS) gutter.style[prop] = metrics[prop];
     //: **On the text's baseline, not its centre** (INBOX 590). A smaller
     //: figure in the same line box is centred on the row, which puts its
@@ -3871,12 +3898,12 @@ function syncDocGutterMetrics(only = null) {
     //: (measured 2.1px for 11.2px figures beside 16px text, `gutter.js`).
     //: The figures move down by that much and the bottom padding gives it
     //: back, so the column's scroll range stays the box's.
-    const drop = DOC_GUTTER_BASELINE * (parseFloat(metrics.fontSize) - parseFloat(getComputedStyle(gutter).fontSize));
+    const drop = DOC_GUTTER_BASELINE * (parseFloat(metrics.fontSize) - own);
     if (drop > 0) {
       gutter.style.paddingTop = `calc(${metrics.paddingTop} + ${drop.toFixed(2)}px)`;
       gutter.style.paddingBottom = `max(0px, calc(${metrics.paddingBottom} - ${drop.toFixed(2)}px))`;
     }
-    gutter.style.height = `${box.offsetHeight}px`;
+    gutter.style.height = `${height}px`;
   }
 }
 
@@ -3901,9 +3928,11 @@ function watchDocGutter(box) {
 }
 
 function renderDocGutter(only = null) {
-  for (const { gutter, box } of docGutters()) {
-    if (only && box !== only) continue;
-    if (gutter.classList.contains("hidden")) continue;
+  const pairs = docGutters().filter(({ gutter, box }) => (!only || box === only) && !gutter.classList.contains("hidden"));
+  //: The layout reads first, for the reason `syncDocGutterMetrics` gives.
+  const heights = pairs.map(({ box }) => box.offsetHeight);
+  const tops = pairs.map(({ box }) => box.scrollTop);
+  for (const [index, { gutter, box }] of pairs.entries()) {
     const lines = box.value.split("\n").length;
     // One text node of numbers, not one element per line: a 5,000-line file
     // is 5,000 elements to build and lay out on every keystroke otherwise,
@@ -3924,8 +3953,8 @@ function renderDocGutter(only = null) {
     //: Height on every paint, not only on mount: the textarea grows and
     //: shrinks with the pane, with the chat dock, and with its own resize
     //: handle, and none of those tells this code anything.
-    gutter.style.height = `${box.offsetHeight}px`;
-    gutter.scrollTop = box.scrollTop;
+    gutter.style.height = `${heights[index]}px`;
+    gutter.scrollTop = tops[index];
   }
 }
 
@@ -5172,7 +5201,11 @@ function docHtmlToMarkdown(html) {
         if (inner) out.push(inner.split("\n").map((line) => `> ${line}`.trimEnd()).join("\n"));
       } else if (tag === "PRE") {
         const code = child.textContent.replace(/\n$/, "");
-        out.push("```\n" + code + "\n```");
+        //: A block's language, when the page names it (`language-js` on the
+        //: pre or its code, as GitHub and a Word import write it).
+        const inner = child.querySelector("code");
+        const lang = (/(?:^|\s)language-([\w+#-]+)/.exec(`${child.className} ${inner?.className || ""}`) || [])[1] || "";
+        out.push("```" + lang + "\n" + code + "\n```");
       } else if (tag === "TABLE") {
         const grid = [...child.querySelectorAll("tr")].map((tr) =>
           [...tr.children].map((cell) => inline(cell).replace(/\s+/g, " ").replace(/\|/g, "\\|").trim())
@@ -10051,11 +10084,11 @@ const MD_ACTIONS = {
   h1: { line: "# " },
   h2: { line: "## " },
   h3: { line: "### " },
-  bold: { wrap: "**", placeholder: "bold text" },
-  italic: { wrap: "*", placeholder: "italic text" },
-  strike: { wrap: "~~", placeholder: "struck through" },
-  code: { wrap: "`", placeholder: "code" },
-  highlight: { wrap: "==", placeholder: "highlighted" },
+  bold: { wrap: MD_INLINE_MARKS.bold, placeholder: "bold text" },
+  italic: { wrap: MD_INLINE_MARKS.italic, placeholder: "italic text" },
+  strike: { wrap: MD_INLINE_MARKS.strike, placeholder: "struck through" },
+  code: { wrap: MD_INLINE_MARKS.code, placeholder: "code" },
+  highlight: { wrap: MD_INLINE_MARKS.highlight, placeholder: "highlighted" },
   clearformat: { custom: "clearformat" },
   //: The one icon and emoji picker (MINDMAP_PLAN decision 46).
   emoji: { custom: "emoji" },
@@ -10645,7 +10678,7 @@ function docExportHtmlDocument(title, bodyHtml, savedOn) {
 // DOC-EXPORT-HTML-END
 
 //: What comes out of the app and what does not. Everything in this list is
-//: something that works only inside a running MemoryMap: a button with a
+//: something that works only inside a running Tessellate: a button with a
 //: listener that no longer exists, an icon whose font is not in the file, a
 //: link to `/documents/12`. Shipped as-is they would be an empty square, a
 //: dead control and a 404; dropped, the page reads.
@@ -11026,7 +11059,7 @@ function docPrintSetupDialog() {
   }).then((setup) => {
     if (!setup) return null;
     try {
-      localStorage.setItem(DOC_PRINT_KEY, JSON.stringify(setup));
+      prefs.set(DOC_PRINT_KEY, JSON.stringify(setup));
     } catch {
       /* this print still uses it */
     }
@@ -11084,13 +11117,13 @@ async function deleteDocumentWithUndo(doc) {
       await loadDocuments();
     }
   );
-  toastAction("Document moved to the bin.", "Undo", async () => {
+  toastAction(`Moved ${toastName(title, "the document")} to the bin.`, "Undo", async () => {
     await action.undo();
     //: `settleUndoFromToast`, not a bare stack pop: the toast's Undo and the
     //: status bar's Undo are the same action, and without this a later Ctrl+Z
     //: would run the same restore a second time.
     settleUndoFromToast(action);
-    toast("Document restored.");
+    toast(`Restored ${toastName(title, "the document")}.`);
   });
 }
 
@@ -11151,6 +11184,20 @@ function offerCreateUndo(doc) {
       await loadDocuments(doc.id);
     }
   );
+}
+
+//: Several documents made by one act (an import): one step that bins them all
+//: and, on redo, brings the same ones back.
+function offerCreatedDocsUndo(docs) {
+  if (docs.length === 1) return offerCreateUndo(docs[0]);
+  const each = (verb) => async () => {
+    for (const doc of docs) {
+      if (verb === "bin") await apiJson(`/documents/${doc.id}`, { method: "DELETE" });
+      else await apiJson(`/documents/${doc.id}/restore`, { method: "POST" });
+    }
+    await loadDocuments(currentDoc?.id);
+  };
+  return pushUndo(`Imported ${docs.length} documents`, each("bin"), each("restore"));
 }
 
 //: A note's link to this document, either way round. The server answers with
@@ -11232,7 +11279,7 @@ async function restoreDocVersionWithUndo(entry) {
     docShowSaved(await apiJson(`/documents/${docId}/revisions/${entry.id}/restore`, { method: "POST" }));
   await restore();
   offerUndo(
-    `Restored the version from ${new Date(entry.created_at).toLocaleString()}`,
+    `Restored the version from ${whenText(entry.created_at)}`,
     "Restored. Undo puts back the version you had.",
     async () => docShowSaved(await docPutFields(docId, before)),
     restore
@@ -11671,7 +11718,7 @@ async function openDocAiHistory() {
       line.textContent = entry.instruction || (entry.verb === "remove" ? "Removed a selection" : "AI edit");
       const meta = document.createElement("p");
       meta.className = "muted text-sm";
-      const when = new Date(entry.created_at).toLocaleString();
+      const when = whenText(entry.created_at);
       meta.textContent = entry.selection_excerpt
         ? `${when} · “${entry.selection_excerpt}”`
         : when;
@@ -12181,7 +12228,7 @@ function docHistoryRow(entry) {
   }
   const meta = document.createElement("p");
   meta.className = "muted text-sm";
-  meta.textContent = `${new Date(entry.created_at).toLocaleString()} · ${entry.words} words`;
+  meta.textContent = `${whenText(entry.created_at)} · ${entry.words} words`;
   //: The opening of the version itself. A row saying only "You, 20 May,
   //: +140 words" makes you open every entry to find the one you want, which
   //: is the work this list is supposed to save.
@@ -12221,7 +12268,7 @@ function docHistoryRow(entry) {
     openLightbox(
       [
         {
-          filename: `${full.title || "Untitled"}, ${new Date(full.created_at).toLocaleString()}`,
+          filename: `${full.title || "Untitled"}, ${whenText(full.created_at)}`,
           kind: currentDoc.file_type === "md" ? "markdown" : "code",
           text: full.content || "",
           addedAt: full.created_at || "",
@@ -12278,7 +12325,7 @@ function docHistoryRowMenu(entry) {
     items.push(
       makeMenuItem("ph:git-diff Compare in the editor", "Show this version against the editor's text, change by change", () => {
         $("doc-history-dialog").close();
-        docIdeCompareWith(entry.id, new Date(entry.created_at).toLocaleString());
+        docIdeCompareWith(entry.id, whenText(entry.created_at));
       })
     );
   }
@@ -12384,7 +12431,7 @@ async function toggleDocHistoryDiff(entry, row, button, box) {
     const head = document.createElement("p");
     head.className = "muted text-sm doc-diff-head";
     const against = newer
-      ? `the version from ${new Date(newer.created_at).toLocaleString()}`
+      ? `the version from ${whenText(newer.created_at)}`
       : "the document as it is now";
     head.textContent = `+${stat.added} −${stat.removed} lines, against ${against}.`;
     const view = document.createElement("div");
@@ -12439,12 +12486,10 @@ async function openDocReplace() {
 //: The documents a replace would change, read fresh: the list's own rows hold
 //: no text, and a count from stale text would promise a change it cannot make.
 async function docReplaceScan(pattern) {
-  const list = await apiJson("/documents");
   const out = [];
-  for (const doc of list) {
-    const full = await apiJson(`/documents/${doc.id}`);
-    const count = (full.content || "").match(pattern)?.length || 0;
-    if (count) out.push({ id: full.id, title: full.title, content: full.content || "", count });
+  for (const doc of await apiJson("/documents/contents")) {
+    const count = doc.content.match(pattern)?.length || 0;
+    if (count) out.push({ ...doc, count });
   }
   return out;
 }
@@ -12540,7 +12585,7 @@ function showDocSidebarSection(name) {
     button.setAttribute("aria-selected", String(active));
     button.tabIndex = active ? 0 : -1;
   }
-  localStorage.setItem(DOC_SIDEBAR_STORE, wanted);
+  prefs.set(DOC_SIDEBAR_STORE, wanted);
   //: A hidden list has no scroll position to correct, so the mark made while
   //: the Documents tab was showing could not bring its row into view. Asked
   //: again on the way in, when the outline has a box.
@@ -13273,6 +13318,11 @@ function noteSurfaceUpdate(host, update) {
   //: never raises for a typed character (the same call `docCmUpdate` makes
   //: for the document, and for the same reason).
   if (typeof editorHandleInput === "function") editorHandleInput(surface);
+  //: Autocorrect (autocorrect.js, Brief 94) hears a typed change as an event,
+  //: a microtask later: it may dispatch, which an update in progress refuses.
+  if (update.transactions.some((tr) => tr.isUserEvent("input.type"))) {
+    queueMicrotask(() => host.dispatchEvent(new CustomEvent("note-typed", { bubbles: true, detail: surface })));
+  }
 }
 
 function noteSurfaceMirror(host, view) {
@@ -13389,6 +13439,11 @@ async function mountNoteSurface(host, options = {}) {
     return textareaSurface(host);
   }
   if (!CM || noteSurfaceViews.has(host)) return noteSurfaceFor(host) || textareaSurface(host);
+  //: **The box can be gone by the time the editor has loaded.** A board
+  //: card's editor closed with Escape while CodeMirror was still loading
+  //: (measured at 390 under load, cardarrows sweep) left `host.parentNode`
+  //: null and threw at the `insertBefore` below.
+  if (!host.parentNode) return textareaSurface(host);
   //: Read before the wrapper below moves the textarea: moving a focused
   //: element in the DOM blurs it, so by the time the view exists the answer
   //: is always "no".
@@ -13623,7 +13678,7 @@ function applyDocWidth(wide) {
 
 function setDocWidth(wide) {
   try {
-    localStorage.setItem(DOC_WIDTH_KEY, wide ? "wide" : "measure");
+    prefs.set(DOC_WIDTH_KEY, wide ? "wide" : "measure");
   } catch {
     // A private window can refuse storage; the mode still applies for now.
   }
@@ -13774,7 +13829,7 @@ function applyDocSerif(on) {
 
 function docRememberReading(key, on, apply) {
   try {
-    localStorage.setItem(key, on ? "1" : "0");
+    prefs.set(key, on ? "1" : "0");
   } catch {
     // A private window can refuse storage; the mode still applies for now.
   }
@@ -14332,6 +14387,7 @@ $("doc-find-next").addEventListener("click", () => docFindStep(1));
 $("doc-find-prev").addEventListener("click", () => docFindStep(-1));
 $("doc-replace-one").addEventListener("click", docReplaceOne);
 $("doc-replace-all").addEventListener("click", docReplaceAll);
+$("doc-replace-everywhere").addEventListener("click", () => openDocReplace());
 
 //: Leaving with unsaved edits would lose them; autosave hasn't fired yet.
 //: The `beforeunload` guard for this is centralised in navigation.js
@@ -14365,8 +14421,8 @@ function docToolbarMode() {
   try {
     const stored = prefs.get(DOC_TOOLBAR_MODE_KEY, null);
     if (stored === "row" && !prefs.get(DOC_TOOLBAR_MODE_MIGRATED_KEY, null)) {
-      localStorage.removeItem(DOC_TOOLBAR_MODE_KEY);
-      localStorage.setItem(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
+      prefs.remove(DOC_TOOLBAR_MODE_KEY);
+      prefs.set(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
       return "wrap";
     }
     return stored === "row" ? "row" : "wrap";
@@ -14403,12 +14459,12 @@ function applyDocToolbarMode(mode) {
 
 function setDocToolbarMode(mode) {
   try {
-    localStorage.setItem(DOC_TOOLBAR_MODE_KEY, mode);
+    prefs.set(DOC_TOOLBAR_MODE_KEY, mode);
     //: A choice made now is never the pre-2026-09-09 default the migration
     //: in `docToolbarMode` clears. Without the flag, the first read after
     //: choosing "row" cleared it back to "wrap": the next press chose "row"
     //: again (the toggle could not go back) and a reload lost it.
-    localStorage.setItem(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
+    prefs.set(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -14469,7 +14525,7 @@ function docGutterWanted(isCode) {
 
 function setDocGutter(on) {
   try {
-    localStorage.setItem(DOC_GUTTER_KEY, on ? "1" : "0");
+    prefs.set(DOC_GUTTER_KEY, on ? "1" : "0");
   } catch {
     /* private mode: the choice holds for this session only */
   }
@@ -14582,7 +14638,7 @@ function applyDocToolbarCollapsed(collapsed, only = null) {
 
 function setDocToolbarCollapsed(collapsed) {
   try {
-    localStorage.setItem(DOC_TOOLBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+    prefs.set(DOC_TOOLBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -14593,7 +14649,7 @@ function setDocToolbarCollapsed(collapsed) {
     let told = false;
     try {
       told = prefs.get(DOC_TOOLBAR_HINT_KEY, null) === "1";
-      localStorage.setItem(DOC_TOOLBAR_HINT_KEY, "1");
+      prefs.set(DOC_TOOLBAR_HINT_KEY, "1");
     } catch {
       /* private mode: said every time, which is the safe side */
     }
@@ -15266,6 +15322,14 @@ function renderDocToolbarState() {
   }
 }
 
+//: The lines a reader sees: `textCounts(...).lines` is `wc -l` (newlines), so a
+//: last line with no newline after it is one more, and an empty text has none.
+function docLineCount(text) {
+  const value = String(text || "");
+  if (!value) return 0;
+  return textCounts(value).lines + (value.endsWith("\n") ? 0 : 1);
+}
+
 //: The counts. A whole-document pass, which is why it is scheduled rather
 //: than run on the keystroke (see `scheduleDocFacts`).
 function renderDocCounts() {
@@ -15278,12 +15342,17 @@ function renderDocCounts() {
   //: Counted by `textCounts` (settings-wiring.js), the one count the
   //: composer, this bar and the server share: characters are code points, as
   //: `wc -m` counts them, so an emoji is one, not two.
-  const { words, chars, read } = textCounts(docCommentStrip(docText()));
+  const stripped = docCommentStrip(docText());
+  const { words, chars, read } = textCounts(stripped);
+  const lines = docLineCount(stripped);
   //: Characters first, because that is the one the existing header line never
-  //: showed and the one that was asked for by name.
+  //: showed and the one that was asked for by name. Lines (OPEN ledger 299)
+  //: come before the reading time, which is what a phone's ellipsis drops
+  //: first.
   counts.textContent = [
     `${chars.toLocaleString()} char${chars === 1 ? "" : "s"}`,
     `${words.toLocaleString()} word${words === 1 ? "" : "s"}`,
+    lines ? `${lines.toLocaleString()} line${lines === 1 ? "" : "s"}` : "",
     read,
   ]
     .filter(Boolean)
@@ -15558,7 +15627,7 @@ function docSpellable(text, word, start, end) {
   if (word.length < 2) return false;
   //: An acronym (API, HTTP, NASA) is not in any word list and is not a typo.
   if (word === word.toUpperCase()) return false;
-  //: An internal capital means an identifier or a product name: MemoryMap,
+  //: An internal capital means an identifier or a product name: Tessellate,
   //: docSurface, YouTube. Splitting and checking the halves would flag half
   //: the identifiers in any technical note.
   if (/[A-Z]/.test(word.slice(1))) return false;
@@ -15566,8 +15635,13 @@ function docSpellable(text, word, start, end) {
   //: more letters is part of something that is not prose: utf-8, app.js,
   //: me@example.com, C:\\Users. The word regex stops at those characters, so
   //: the only way to see them is to look at what is on either side.
-  const before = start > 0 ? text[start - 1] : "";
-  const after = end < text.length ? text[end] : "";
+  //: A suggestion's marker is a boundary, not a symbol (OPEN 1088): `{++`
+  //: before and `++}` after (and the other CriticMarkup pairs) left
+  //: `{++faque++}` with no finding while `{++the faque ++}` had one.
+  const opened = /(?:\{\+\+|\{--|\{~~|\{==|\{>>|~>)$/.test(text.slice(Math.max(0, start - 3), start));
+  const closed = /^(?:\+\+\}|--\}|~~\}|==\}|<<\}|~>)/.test(text.slice(end, end + 3));
+  const before = start > 0 && !opened ? text[start - 1] : "";
+  const after = end < text.length && !closed ? text[end] : "";
   if (/[0-9_/@\\#$%&*+=<>~]/.test(before) || /[0-9_/@\\#$%&*+=<>~]/.test(after)) return false;
   if (after === "." && /[A-Za-z]/.test(text[end + 1] || "")) return false;
   if (before === "." && /[A-Za-z]/.test(text[start - 2] || "")) return false;
@@ -15919,6 +15993,84 @@ function docProseFindings(text) {
     .sort((a, b) => a.start - b.start);
 }
 
+//: **Spelling in a code file: comments and the words inside strings, never
+//: code** (the owner, 2026-10-11: `is_leap`, `urFucked` and the `f"The` of an
+//: f-string were underlined). The squiggles were the browser's own, on because
+//: the word list loads only on a prose pass and a code file never made one.
+//: Now the browser's checker is off in a code file (`docCmSpellcheck`) and
+//: this draws the app's own marks, which open the same suggestion popover as
+//: prose. The text is masked to the comment and string nodes of the syntax
+//: tree, everything else blanked at the same length so every offset still
+//: names the document's characters: a string's prefix (f, r, b, u) and quotes
+//: and a comment's marker are blanked too, and so is an f-string's `{expr}`.
+function docCodeProseMask(text) {
+  const CM = window.CM6;
+  if (!CM || !docCmView || docCmView.state.doc.length !== text.length) return "";
+  const state = docCmView.state;
+  const tree = CM.language.ensureSyntaxTree(state, state.doc.length, 50) || CM.language.syntaxTree(state);
+  const keep = new Uint8Array(text.length);
+  const blank = (from, length) => keep.fill(0, from, from + length);
+  tree.iterate({
+    enter(node) {
+      if (/Interpolation|Escape|FormatReplacement/i.test(node.name)) {
+        blank(node.from, node.to - node.from);
+        return false;
+      }
+      const string = /string|template/i.test(node.name);
+      const comment = /comment/i.test(node.name);
+      if (!string && !comment) return undefined;
+      keep.fill(1, node.from, node.to);
+      if (string) {
+        const head = /^[rRbBuUfF]{0,3}(?:"""|'''|"|'|`)/.exec(text.slice(node.from, node.from + 6));
+        if (head) blank(node.from, head[0].length);
+        const tail = /(?:"""|'''|"|'|`)$/.exec(text.slice(Math.max(node.from, node.to - 3), node.to));
+        if (tail) blank(node.to - tail[0].length, tail[0].length);
+      } else {
+        const head = /^(?:\/\/+|\/\*+|#+|--|<!--|;+|%+)/.exec(text.slice(node.from, node.from + 5));
+        if (head) blank(node.from, head[0].length);
+        const tail = /(?:\*+\/|-->)$/.exec(text.slice(Math.max(node.from, node.to - 4), node.to));
+        if (tail) blank(node.to - tail[0].length, tail[0].length);
+      }
+      return undefined;
+    },
+  });
+  let masked = "";
+  for (let i = 0; i < text.length; i += 1) masked += keep[i] || text[i] === "\n" ? text[i] : " ";
+  return masked;
+}
+
+function docCodeSpellFindings(text) {
+  if (!text.trim()) return [];
+  docLoadWordlist();
+  if (!docWordlistReady()) return [];
+  const masked = docCodeProseMask(text);
+  if (!masked.trim()) return [];
+  const found = [];
+  const dictionary = docDictionary();
+  const word = /[A-Za-z']+/g;
+  let hit;
+  while ((hit = word.exec(masked)) !== null) {
+    const lower = hit[0].toLowerCase();
+    if (dictionary.has(lower)) continue;
+    const at = hit.index;
+    const base = { start: at, end: at + hit[0].length, text: hit[0], rule: "spelling" };
+    const better = DOC_AUTOCORRECT[lower];
+    if (better) {
+      found.push({ ...base, message: `“${hit[0]}” is probably “${better}”`, replacement: docMatchCase(hit[0], better) });
+      continue;
+    }
+    if (!docSpellable(masked, hit[0], at, at + hit[0].length)) continue;
+    const looked = docSpellLookup(hit[0]);
+    if (looked.known) continue;
+    found.push({
+      ...base,
+      message: looked.sure ? `“${hit[0]}” is probably “${looked.sure}”` : `“${hit[0]}” is not in the dictionary`,
+      replacement: looked.sure ? docMatchCase(hit[0], looked.sure) : null,
+    });
+  }
+  return found.filter((finding) => !docProseIgnored.has(docProseKey(finding)));
+}
+
 let docProseFound = [];
 
 function renderDocProse() {
@@ -15936,7 +16088,7 @@ function renderDocProse() {
   //: And Check with AI's findings (`docAiFindings`), located afresh in the
   //: text as it is now, so an applied or edited-away one simply goes.
   docProseFound = isCode
-    ? []
+    ? docCodeSpellFindings(text)
     : docProseExtras(text, docProseFindings(text)).concat(docAiFindings(text)).sort((a, b) => a.start - b.start);
   chip.hidden = isCode;
   count.textContent = docProseFound.length
@@ -16861,7 +17013,7 @@ function docToolPref(name, fallback) {
 
 function docSaveToolPref(name, on) {
   try {
-    localStorage.setItem(DOC_TOOL_KEYS[name], on ? "1" : "0");
+    prefs.set(DOC_TOOL_KEYS[name], on ? "1" : "0");
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -17327,6 +17479,28 @@ if (typeof wireLongPress === "function") {
   });
 }
 
+//: **Hover opens it too, in a code file** (the owner, 2026-10-11): a squiggle
+//: under a comment's or a string's word answers a pause of the pointer as it
+//: answers a click or a right-click, with the same popover. A pause, not a
+//: pass: moving across a line must not open a menu per word. Not focused, like
+//: the plain click, so typing carries on; prose keeps click and right-click.
+const DOC_HOVER_SUGGEST_MS = 450;
+const docHoverSuggest = { timer: 0, mark: null };
+document.addEventListener("mouseover", (event) => {
+  const mark = event.target instanceof Element ? event.target.closest(".cm-finding") : null;
+  if (mark === docHoverSuggest.mark) return;
+  clearTimeout(docHoverSuggest.timer);
+  docHoverSuggest.mark = mark;
+  if (!mark || docFileType().previewable || !docToolsBoxFor(mark)) return;
+  const point = { x: event.clientX, y: event.clientY };
+  docHoverSuggest.timer = setTimeout(() => {
+    if (docHoverSuggest.mark !== mark || !mark.isConnected) return;
+    const finding = docFindingOfMark(mark);
+    if (!finding || docSuggestOpenFor === finding) return;
+    docOpenSuggestFor(finding, false, point);
+  }, DOC_HOVER_SUGGEST_MS);
+});
+
 //: Anywhere else closes it, the rule every menu in this app follows.
 document.addEventListener("mousedown", (event) => {
   const menu = $("doc-suggest-menu");
@@ -17530,7 +17704,7 @@ function docProseApplyWidth(width) {
   //: padding beside it read the same property (07-whiteboard-misc.css).
   ($("tab-documents") || panel).style.setProperty("--doc-prose-w", `${clamped}px`);
   try {
-    localStorage.setItem(DOC_PROSE_WIDTH_KEY, String(clamped));
+    prefs.set(DOC_PROSE_WIDTH_KEY, String(clamped));
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -17626,7 +17800,7 @@ function applyDocProseDock() {
 function toggleDocProseDock() {
   const next = docProseDockChoice() === "right" ? "bottom" : "right";
   try {
-    localStorage.setItem(DOC_PROSE_DOCK_KEY, next);
+    prefs.set(DOC_PROSE_DOCK_KEY, next);
   } catch {
     /* private mode: it moves for this session only */
   }
@@ -18139,7 +18313,7 @@ function docFindingAnswerRows(finding) {
     kind: "action",
     id: "ignore",
     label: "ph:eye-slash Ignore in this document",
-    title: "Stop flagging this wording in this document until MemoryMap is restarted",
+    title: "Stop flagging this wording in this document until Tessellate is restarted",
     run: (close = () => {}) => {
       close();
       docProseIgnore(finding);
@@ -19096,7 +19270,7 @@ function loadCodeMirror() {
     //: Said out loud once. Silence here would be the "policy silently
     //: refusing the work" shape: the editor would quietly stay a textarea and
     //: nobody would know why the new features were missing.
-    console.warn(`MemoryMap: ${error.message}. The plain editor is still available.`);
+    console.warn(`Tessellate: ${error.message}. The plain editor is still available.`);
     return null;
   });
   return docCmLoad;
@@ -19695,6 +19869,12 @@ function docCmTheme(CM) {
       ".cm-debug-name": { flex: "none", maxWidth: "45%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--accent-text)" },
       ".cm-debug-value": { flex: "1", minWidth: "0", whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: "var(--text)" },
       ".cm-debug-row.is-error .cm-debug-value": { color: "var(--error)" },
+      ".cm-debug-row.has-children": { display: "block" },
+      ".cm-debug-tree > summary": { display: "flex", alignItems: "baseline", gap: "var(--space-2)", minWidth: "0", cursor: "pointer", listStyle: "none" },
+      ".cm-debug-tree > summary::-webkit-details-marker": { display: "none" },
+      ".cm-debug-tree > summary::before": { content: '"\\25B8"', flex: "none", color: "var(--muted)" },
+      ".cm-debug-tree[open] > summary::before": { content: '"\\25BE"' },
+      ".cm-debug-children": { paddingInlineStart: "var(--space-3)", borderInlineStart: "1px solid var(--border)", marginInlineStart: "var(--space-1)" },
       ".cm-debug-sub": { marginTop: "var(--space-1)", color: "var(--muted)", fontSize: "var(--text-xs)" },
       ".cm-debug-empty": { color: "var(--muted)" },
       ".cm-debug-go": { minWidth: "0", textAlign: "start", fontFamily: "var(--mono, ui-monospace, monospace)" },
@@ -20624,7 +20804,8 @@ function docCmExtensions(CM) {
 //: while this app has no dictionary of its own to check against.
 function docCmSpellcheck(CM) {
   return CM.view.EditorView.contentAttributes.of({
-    spellcheck: docWordlistReady() ? "false" : "true",
+    //: A code file never takes the browser's squiggles (`docCodeSpellFindings`).
+    spellcheck: docWordlistReady() || !docFileType().previewable ? "false" : "true",
   });
 }
 
@@ -20813,7 +20994,7 @@ async function ensureDocEditor() {
   } catch (error) {
     docCmBroken = true;
     console.warn(
-      `MemoryMap: the editor could not start (${error.message}). The plain editor is still available.`
+      `Tessellate: the editor could not start (${error.message}). The plain editor is still available.`
     );
     return null;
   }

@@ -358,7 +358,11 @@
 .timeline-table {
   width: 100%;
   table-layout: fixed;
-  border-collapse: collapse;
+  /* Separate with no spacing, not collapse: a collapsed table ignores
+     `border-radius` on its cells, so a hovered row's ground had square ends.
+     The cells carry only a bottom border, so the look is the same. */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--text-md);
 }
 .timeline-table th,
@@ -456,8 +460,22 @@
 .timeline-table tbody tr {
   cursor: pointer;
 }
-.timeline-table tbody tr:hover td,
-.timeline-table tbody tr:is(:focus-visible, :has(:focus-visible)) td {
+.timeline-table tbody tr:hover td {
+  background: var(--surface-2);
+}
+/* The ends of a hovered or selected row follow the radius every row ground has. */
+.timeline-table tbody tr:is(:hover, [aria-selected="true"]) td:first-child {
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+.timeline-table tbody tr:is(:hover, [aria-selected="true"]) td:last-child {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+/* The keyboard's veil is on the row, which the transparent cells show: a
+   `:has(:focus-visible)` before a bare `td` is an unkeyed rule
+   (tests/test_has_invalidation.py). */
+.timeline-table tbody tr:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-2);
 }
 .timeline-trow:focus-visible {
@@ -584,10 +602,6 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
-}
-#doc-notes .outline-link {
-  flex: 1 1 auto;
-  min-width: 0;
 }
 /* The chat box grows with the question (capped by AUTOGROW_MAX_PX in JS).
    It replaced an <input>, so it has to keep an input's shape: one line to
@@ -1826,14 +1840,19 @@
    "Expired"). Two columns: the icon, on the title's line, with the unread
    dot in the row's leading gutter so read and unread rows put their icons
    on one edge; then one block of the message, its detail, and the meta line
-   (`.notif-foot`): the time first, so every row's time starts on one x, the
-   two controls beside it, and the row's action as quiet text at the end. */
+   (`.notif-foot`): the time first, so every row's time starts on one x and
+   the row's action as quiet text at the end. The two controls (read state,
+   remove) are a third column at the row's right edge, centred on the row
+   (INBOX 874, the owner: "should the x and tick buttons ... be at the
+   bottom of the notification?? I thought they were in the middle or top
+   right??"): always drawn, so the column is a designed edge rather than the
+   invisible gap INBOX 523 removed. */
 .notif-row {
   --notif-dot: 0.5rem;
   --notif-line: 1.5rem;
   position: relative;
   display: grid;
-  grid-template-columns: var(--notif-line) minmax(0, 1fr);
+  grid-template-columns: var(--notif-line) minmax(0, 1fr) auto;
   align-items: start;
   column-gap: var(--space-3);
   padding: var(--space-3);
@@ -1907,14 +1926,16 @@
 #notif-panel .notif-row .notif-read-toggle:focus-visible {
   color: var(--accent-text);
 }
-/* The row's two controls, read state then remove (INBOX 508), as one cell of
-   the row's grid. Remove is the same quiet circle as the toggle, and quiet
-   until the row is pointed at, like it. */
+/* The row's two controls, read state then remove (INBOX 508), as the row's
+   third column, centred on the row (INBOX 874). Remove is the same quiet
+   circle as the toggle, both in the muted ink until aimed at. */
 .notif-row-actions {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   align-self: center;
+  grid-column: 3;
+  grid-row: 1;
 }
 #notif-panel .notif-row .notif-dismiss {
   width: 1.5rem;
@@ -1924,22 +1945,10 @@
   border-color: transparent;
   background: transparent;
   color: var(--muted);
-  opacity: 0;
-  transition: opacity var(--ui-fast) var(--ease-out);
-}
-#notif-panel .notif-row:hover .notif-dismiss,
-#notif-panel .notif-row:focus-within .notif-dismiss {
-  opacity: 1;
 }
 #notif-panel .notif-row .notif-dismiss:hover,
 #notif-panel .notif-row .notif-dismiss:focus-visible {
   color: var(--text);
-}
-@media (hover: none) {
-  #notif-panel .notif-row .notif-dismiss,
-  .notif-read-toggle {
-    opacity: 1;
-  }
 }
 .notif-list>li:first-child {
   border-top: none;
@@ -2038,6 +2047,36 @@
 .header-cluster > .menu-wrap > button:focus-visible {
   background: var(--surface-2);
   box-shadow: none;
+}
+/* **The Local chip** (row 1641, DESIGN.md "The notebook's privacy verdict in
+   the top bar"): the header's one worded control, a quiet icon and word at
+   the bar's height, muted like a status word rather than a command; the
+   icon takes `--warn` once something reached the internet. The word goes
+   below 1100px, where the tab strip needs the room, and the icon carries it
+   (its name is on `aria-label` and `title`). */
+#top-bar .header-cluster > .privacy-chip {
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 500;
+  white-space: nowrap;
+}
+#top-bar .privacy-chip.is-online > .ph {
+  color: var(--warn);
+}
+@media (max-width: 1099.98px) {
+  #top-bar .privacy-chip-word {
+    display: none;
+  }
+  #top-bar .header-cluster > .privacy-chip {
+    width: var(--header-control-h);
+    padding-inline: 0;
+    justify-content: center;
+  }
+  #top-bar .privacy-chip > .ph-lead {
+    margin: 0;
+  }
 }
 /* The phone's one menu (`initPhoneHeaderMore`, app.js) is in the markup at
    every width and shown by 10-responsive.css below 600 only, where the four
@@ -2833,7 +2872,6 @@
   pointer-events: none;
 }
 .wb-shape-caret {
-  pointer-events: none;
   margin-left: -2px;
 }
 .wb-shape-menu {
@@ -3141,10 +3179,17 @@
    sibling, inheriting .wb-card's own padding rather than bleeding to the
    card's edge: simplest fix, and consistent with how the card's text
    content is already inset the same way. */
+/* **It scales with the card, whole** (INBOX 825 item 3): the card's width,
+   its own ratio, never cropped; at most 60% of a card that has a height, so
+   the note's words keep the rest. */
 .wb-card-thumb {
   width: 100%;
-  max-height: 140px;
-  object-fit: cover;
+  height: auto;
+  max-height: 60%;
+  min-height: 0;
+  flex-shrink: 0;
+  object-fit: contain;
+  object-position: left top;
   border-radius: var(--radius-sm);
   display: block;
 }
@@ -3439,20 +3484,11 @@ aside[data-resizable="1"] {
   margin: var(--space-2) 0 var(--space-3);
 }
 /* The per-row read/unread toggle. Asked for directly: "also allow marking
-   notifications as unread as well." It sits at the end of the row where the
-   "new" state is already being read, quiet until the row is hovered or
-   focused so a list of ten does not become a list of ten buttons. */
+   notifications as unread as well." It sits in the row's right-edge column
+   (`.notif-row-actions`), where the "new" state is already being read. */
 .notif-read-toggle {
-  margin-left: auto;
   flex: 0 0 auto;
   align-self: center;
-  opacity: 0;
-  transition: opacity var(--ui-fast) var(--ease-out);
-}
-.notif-row:hover .notif-read-toggle,
-.notif-row:focus-within .notif-read-toggle,
-.notif-read-toggle:focus-visible {
-  opacity: 1;
 }
 /* An unread row keeps its marker visible without hovering: the dot *is* the
    "new" flag, and hiding the thing that says a row is new until you point at
@@ -3469,32 +3505,15 @@ aside[data-resizable="1"] {
   font-weight: 600;
   color: var(--ink);
 }
-/* --- A notification's two controls take no width of their own (INBOX 523) ---
-   The owner: "the notification read/unread circle and individual x delete
-   buttons when invisible cause an empty gap on the right of all
-   notification in the panel". They sit on the meta line beside the time
-   (INBOX 811), shown while the row is pointed at or holds the focus and
-   always on touch; the time never gives its place up to them. */
-.notif-row-actions {
-  height: var(--notif-line);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--ui-fast) var(--ease-out);
-}
-.notif-row:hover .notif-row-actions,
-.notif-row:focus-within .notif-row-actions {
-  opacity: 1;
-  pointer-events: auto;
-}
+/* --- A notification's two controls are a column of their own (INBOX 874) ---
+   They were hidden until the row was pointed at and then drawn on the meta
+   line beside the time (INBOX 523, 811), which put them at the bottom of a
+   multi-line row. The owner expected them "in the middle or top right": they
+   are the row's right-edge column, centred on the row, drawn at rest so the
+   column is a designed edge and not a gap that appears on hover. The read
+   toggle keeps its accent when the row is unread. */
 .notif-row.notif-unread .notif-read-toggle {
-  opacity: 1;
-}
-@media (hover: none) {
-  .notif-row-actions,
-  .notif-row .notif-read-toggle {
-    opacity: 1;
-    pointer-events: auto;
-  }
+  color: var(--accent-text);
 }
 /* The calendar strip under the Timeline's dock (WORLD_CLASS_PLAN D6; INBOX
    543). One header row: the month between its two arrows (one group, so

@@ -235,7 +235,7 @@ def effective_url(download: Download) -> str:
 def _open_url(url: str):
     """The one place a download extra touches the network. Proxies come from
     the environment, as they do for pip, so a machine behind one works."""
-    request = urllib.request.Request(url, headers={"User-Agent": "MemoryMap"})
+    request = urllib.request.Request(url, headers={"User-Agent": "Tessellate"})
     return urllib.request.urlopen(request, timeout=60)  # noqa: S310  # scheme checked by url_allowed
 
 
@@ -273,7 +273,7 @@ REASONS = {
     "bad_archive": "The archive could not be read.",
     "network_code": (
         "{label}: this engine contains network code, so it was not installed. "
-        "MemoryMap only runs engines that cannot reach the network."
+        "Tessellate only runs engines that cannot reach the network."
     ),
     "unreadable_engine": (
         "{label}: the engine could not be checked for network code, so it was "

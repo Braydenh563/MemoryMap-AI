@@ -339,6 +339,10 @@ def _kind_of(question: str) -> str | None:
     text = _clean(question)
     if not text:
         return None
+    return _calculation_kind(question, text) or _date_kind(text) or _other_kind(text)
+
+
+def _calculation_kind(question: str, text: str) -> str | None:
     if _sum_of(question, text):
         return "sum"
     if _list_of(text):
@@ -359,6 +363,10 @@ def _kind_of(question: str) -> str | None:
         return "units"
     if any(p.match(text) for p in _patterns("money")):
         return "currency"
+    return None
+
+
+def _date_kind(text: str) -> str | None:
     asked = recognise.days_question(text)
     if asked:
         #: "how many days until the dentist": the date is in a note, which
@@ -366,6 +374,10 @@ def _kind_of(question: str) -> str | None:
         return "dates" if when_words.span(asked[1], now_day(), asked[0]) else "until_note"
     if recognise.offset_question(text) or (_WEEKDAY_OF.match(text) and when_words.span(_WEEKDAY_OF.match(text).group(1), now_day(), "future")):
         return "dates"
+    return None
+
+
+def _other_kind(text: str) -> str | None:
     if _DIE.match(text) or _COIN.match(text) or _PICK.match(text):
         return "chance"
     if _TRANSLATE.match(text):
@@ -416,6 +428,27 @@ PLACE_ZONES: dict[str, str] = {
     "utc": "UTC", "gmt": "UTC",
 }
 
+#: A country that keeps several mainland zones is answered with each, west to
+#: east, rather than with its capital's alone (OPEN row 555: "the time in
+#: Australia" said Sydney's, two hours out for Perth). A region the person
+#: names ("western australia") keeps its one zone above.
+SEVERAL_ZONES: dict[str, tuple[tuple[str, str], ...]] = {
+    "australia": (("Perth", "Australia/Perth"), ("Adelaide", "Australia/Adelaide"),
+                  ("Brisbane", "Australia/Brisbane"), ("Sydney", "Australia/Sydney")),
+    "usa": (("Los Angeles", "America/Los_Angeles"), ("Denver", "America/Denver"),
+            ("Chicago", "America/Chicago"), ("New York", "America/New_York")),
+    "canada": (("Vancouver", "America/Vancouver"), ("Edmonton", "America/Edmonton"),
+               ("Winnipeg", "America/Winnipeg"), ("Toronto", "America/Toronto"), ("Halifax", "America/Halifax")),
+    "russia": (("Kaliningrad", "Europe/Kaliningrad"), ("Moscow", "Europe/Moscow"),
+               ("Yekaterinburg", "Asia/Yekaterinburg"), ("Novosibirsk", "Asia/Novosibirsk"),
+               ("Vladivostok", "Asia/Vladivostok")),
+    "brazil": (("Manaus", "America/Manaus"), ("Sao Paulo", "America/Sao_Paulo")),
+    "indonesia": (("Jakarta", "Asia/Jakarta"), ("Makassar", "Asia/Makassar"), ("Jayapura", "Asia/Jayapura")),
+    "mexico": (("Tijuana", "America/Tijuana"), ("Mexico City", "America/Mexico_City"), ("Cancun", "America/Cancun")),
+}
+for _alias in ("us", "america", "united states", "united states of america"):
+    SEVERAL_ZONES[_alias] = SEVERAL_ZONES["usa"]
+
 _CLOCK_IN = re.compile(
     r"^(?:what(?:'s| is) the (?:current )?time|what time is it|whats the time|(?:the |current )?time)"
     r"(?: now| right now)? (?:in|at|over in) (?:the )?(?P<place>[a-z][a-z .'-]{1,40}?)(?: now| right now)?$",
@@ -436,16 +469,52 @@ def _zone_cities() -> dict[str, str]:
     return {z.rsplit("/", 1)[-1].replace("_", " ").lower(): z for z in sorted(zones) if "/" in z}
 
 
-def zone_for(place: str) -> str | None:
-    """The IANA zone for a place's name ("western australia", "Tokyo",
-    "Europe/Paris"), or None."""
+def place_name_for(place: str) -> str | None:
+    """The name `zone_for` reads a place as: the table's or the zone
+    database's own spelling, or the nearest one to a misspelling
+    ("westen australia" is "western australia"), or None."""
     raw = " ".join(str(place or "").replace(".", "").split())
     key = raw.lower()
-    if key in PLACE_ZONES:
-        return PLACE_ZONES[key]
+    if key in PLACE_ZONES or key in _zone_cities():
+        return key
     if "/" in raw and raw in _zone_cities().values():
         return raw
-    return _zone_cities().get(key)
+    #: A misspelling is read only for a name of five letters or more, and only
+    #: within one edit (two from nine letters; a swapped pair is one), so "wz"
+    #: or "cat" never becomes a zone. A tie goes to the table, read first.
+    if len(key) < 5:
+        return None
+    allowed = 2 if len(key) >= 9 else 1
+    best = None
+    for name in (*PLACE_ZONES, *_zone_cities()):
+        if len(name) < 5 or abs(len(name) - len(key)) > allowed:
+            continue
+        cost = _edits(key, name)
+        if cost <= allowed and (best is None or cost < best[0]):
+            best = (cost, name)
+    return best[1] if best else None
+
+
+def _edits(a: str, b: str) -> int:
+    """Edits between two names: insert, delete, change, or swap two letters."""
+    prev2, prev = None, list(range(len(b) + 1))
+    for i in range(1, len(a) + 1):
+        row = [i] + [0] * len(b)
+        for j in range(1, len(b) + 1):
+            row[j] = min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1]))
+            if prev2 is not None and i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                row[j] = min(row[j], prev2[j - 2] + 1)
+        prev2, prev = prev, row
+    return prev[-1]
+
+
+def zone_for(place: str) -> str | None:
+    """The IANA zone for a place's name ("western australia", "Tokyo",
+    "Europe/Paris", "westen australia"), or None."""
+    name = place_name_for(place)
+    if name is None:
+        return None
+    return PLACE_ZONES.get(name) or _zone_cities().get(name) or name
 
 
 def _is_clock(text: str) -> bool:
@@ -491,6 +560,13 @@ def _clock(text: str, now: datetime) -> list[tuple]:
         from zoneinfo import ZoneInfo
 
         place = match.group("place").strip()
+        several = SEVERAL_ZONES.get(" ".join(place.replace(".", "").lower().split()))
+        if several:
+            base = now if now.tzinfo else datetime.now(timezone.utc)
+            times = ", ".join(f"{base.astimezone(ZoneInfo(z)):%H:%M} in {city}" for city, z in several)
+            return [("computed", f"{_place_said(place)} has several time zones. It is {times}."),
+                    ("computed", "\nRead from this computer's clock; name a state or city for one of them.")]
+        place = place_name_for(place) or place
         zone = zone_for(place)
         there = (now if now.tzinfo else datetime.now(timezone.utc)).astimezone(ZoneInfo(zone))
         return [("computed", f"It's {there:%H:%M}{_other_day(there, now)} in {_where(place, zone)} ({_zone_said(there)})."),

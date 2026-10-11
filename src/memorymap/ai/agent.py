@@ -1568,7 +1568,7 @@ def _recent_text(history: list[dict] | None) -> str:
 _CANVAS_TOOLS = frozenset(
     {
         "read_whiteboard", "search_whiteboard", "add_whiteboard_card", "add_whiteboard_link",
-        "generate_diagram", "read_mindmap", "create_mindmap", "add_map_node", "link_map_nodes",
+        "generate_diagram", "read_mindmap", "create_mindmap", "map_from_note", "add_map_node", "link_map_nodes",
     }
 )
 #: Words that ask for a board to be changed, which keep the board tools.
@@ -2371,9 +2371,16 @@ def _run_and_record(
     the branch's own: the taint, the ledgers, the write's change, the advice
     on an error, then the event.
     """
-    result = tools.execute_tool(
-        session, name, arguments, context_tokens=plan.window, model=plan.agent_model
-    )
+    spend = run_budget.current()
+    if name in _WRITE_TOOLS and spend is not None and spend.stop_requested():
+        #: Stop landed while the model was answering; the generator cannot be
+        #: interrupted there, so the write it asked for is refused here
+        #: instead of running before the next yield notices (Brief 101b).
+        result = {"error": "Stopped before this ran: you pressed Stop."}
+    else:
+        result = tools.execute_tool(
+            session, name, arguments, context_tokens=plan.window, model=plan.agent_model
+        )
     _count_call()
     # SEC-02: the result carries a clipped or imported note's words (or an
     # imported document's): from here on the turn is tainted, exactly as

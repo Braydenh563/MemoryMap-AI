@@ -804,7 +804,7 @@ function revealTab(name) {
   revealActiveTab?.();
   // And on a phone three of the seven are not in the strip at all.
   syncPhoneMoreButton?.(activeTabName);
-  localStorage.setItem("activeTab", name); // reopen where you left off
+  prefs.set("activeTab", name); // reopen where you left off
   // A new tab starts at its own top, and the back-to-top button re-evaluates
   // (it stays off the graph). Each page keeps its own scroll position now, so
   // this is a deliberate reset rather than a side effect of one shared one.
@@ -1705,8 +1705,17 @@ function hasUnsavedWork() {
 //: something", not one per surface). Native browsers ignore the string and
 //: show their own wording; `returnValue` is set for the ones that still read
 //: it.
+//: A chat answer still coming is lost by a reload or a close (the thread
+//: keeps the question and an unfinished answer), so it asks too. Not in
+//: `hasUnsavedWork`: a tab switch leaves the stream running (chat-attach.js),
+//: so only a departure from the page itself loses it. `typeof`: the chat
+//: file loads lazily.
+function chatMidStream() {
+  return typeof chatStreaming !== "undefined" && !!chatStreaming;
+}
+
 window.addEventListener("beforeunload", (event) => {
-  if (!hasUnsavedWork()) return;
+  if (!hasUnsavedWork() && !chatMidStream()) return;
   event.preventDefault();
   event.returnValue = "";
 });
@@ -2135,13 +2144,13 @@ function stripMarkdownPreview(text) {
     .replace(/__/g, "")
     .replace(/~~/g, "")
     .replace(/[*_](?=\S)|(?<=\S)[*_]/g, "")
-    .replace(/!?\[([^\]]*)\]\([^)]*\)?/g, "$1");
+    .replace(/!?\[([^[\]\n]*)\]\([^()\n]*\)?/g, "$1");
 }
 
 // Layout picker (§9). Stored, because which shape suits a notebook is a
 // property of the notebook rather than of one visit.
 $("graph-layout").addEventListener("change", async (event) => {
-  localStorage.setItem("graph-layout", event.target.value);
+  prefs.set("graph-layout", event.target.value);
   //: The picker is drawn at boot and graph.js is not (`switchTab`'s `inert`
   //: covers a person's press; this covers a change made from script, a saved
   //: view or the palette, before the first visit). `setGraphPhysicsEnabled`
@@ -2207,7 +2216,7 @@ function resetNavigationForNewSession() {
     // behaviour rather than resetting on every single navigation.
     return false;
   }
-  for (const key of NAVIGATION_KEYS) localStorage.removeItem(key);
+  for (const key of NAVIGATION_KEYS) prefs.remove(key);
   return true;
 }
 
@@ -2217,7 +2226,7 @@ function resetNavigationForNewSession() {
 resetNavigationForNewSession();
 
 function resetNavigationToDefaults() {
-  for (const key of NAVIGATION_KEYS) localStorage.removeItem(key);
+  for (const key of NAVIGATION_KEYS) prefs.remove(key);
   // The Library's switcher keeps its state in the DOM (which button carries
   // `.active`), not in storage, so clearing a key cannot reach it. Clicking
   // its default button reuses the real handler, which also shows the right
@@ -2281,7 +2290,7 @@ function showNotesSection(name, { focus = false } = {}) {
     button.tabIndex = active ? 0 : -1;
     if (active && focus) button.focus();
   }
-  localStorage.setItem(NOTES_SECTION_STORE, wanted);
+  prefs.set(NOTES_SECTION_STORE, wanted);
   //: Ask's answer and the draft carry static assistant heads (INBOX 471).
   paintAssistantHeads();
   //: The connections rail belongs to the list (notes-list.js): it leaves with
@@ -2688,134 +2697,6 @@ if (chatTabNode) {
 // element that might), that ancestor silently becomes the containing block
 // for `position: fixed` too, and the button would jump to being positioned
 // relative to *that* instead of the viewport again.
-
-// --- what the AI remembers (ROADMAP §39B) ------------------------------------------
-//
-// The list `save_user_preference` writes into, and the only place the user can
-// see it. Worth the screen: this tool's output becomes part of the model's own
-// system prompt on every later turn, so without this the assistant's behaviour
-// could change permanently for a reason nobody could look up, edit or undo.
-//
-// The budget line is not decoration. Only active preferences reach the model,
-// newest first, and only until the character budget runs out, so a long list
-// quietly stops including its oldest entries. Saying so beats letting someone
-// wonder why the rule they saved first is being ignored.
-async function renderMemorySettings() {
-  const list = $("memory-list");
-  const empty = $("memory-empty");
-  const budget = $("memory-budget");
-  if (!list) return;
-
-  //: Placeholders while the first answer is on its way, so a slow disk never
-  //: reads as "nothing saved yet" (DESIGN.md's list recipe; only into an
-  //: empty list, so a refresh never covers rows already there).
-  showSkeletons(list, 3);
-  const data = await apiJson("/memory").catch(() => null);
-  clearSkeletons(list);
-  if (!data) {
-    list.replaceChildren();
-    budget.textContent = "Couldn't load what Atlas has remembered.";
-    return;
-  }
-
-  const active = data.preferences.filter((p) => p.active).length;
-  budget.textContent = active
-    ? `${active} in use, about ${data.in_prompt} of ${data.budget_chars} characters. ` +
-      "The newest are kept when this runs out."
-    : "";
-  empty.classList.toggle("hidden", data.preferences.length > 0);
-
-  // Pending suggestions first. They are the only rows that need an answer,
-  // and a proposal buried below thirty settled ones is a proposal nobody
-  // sees: which was the whole complaint about the silent version of this
-  // feature. Order is otherwise unchanged (newest first, from the API).
-  const ordered = [
-    ...data.preferences.filter((p) => p.proposed),
-    ...data.preferences.filter((p) => !p.proposed),
-  ];
-
-  list.replaceChildren(
-    ...ordered.map((pref) => {
-      const row = document.createElement("div");
-      row.className =
-        "memory-row" + (pref.proposed ? " is-proposed" : pref.active ? "" : " is-off");
-
-      const text = document.createElement("span");
-      text.className = "memory-text";
-      text.textContent = pref.content;
-      text.title = pref.created_at
-        ? `Saved ${new Date(pref.created_at).toLocaleString()}`
-        : "";
-
-      // A suggestion is a question, not a switch someone flipped: it gets
-      // yes/no rather than on/off, and it is not in the prompt either way
-      // until it is answered.
-      if (pref.proposed) {
-        const tag = document.createElement("span");
-        tag.className = "memory-proposed-tag";
-        setLabel(tag, "ph:sparkle Suggested by Atlas");
-
-        const answer = async (accept) => {
-          await apiJson(`/memory/${pref.id}/answer`, {
-            method: "POST",
-            body: JSON.stringify({ accept }),
-          }).catch((error) => toast(error.message || "Couldn't save that answer.", true));
-          renderMemorySettings();
-        };
-        const yes = document.createElement("button");
-        yes.type = "button";
-        yes.className = "small";
-        yes.textContent = "Remember it";
-        yes.addEventListener("click", () => answer(true));
-
-        const no = document.createElement("button");
-        no.type = "button";
-        no.className = "ghost small";
-        no.textContent = "No thanks";
-        no.addEventListener("click", () => answer(false));
-
-        row.append(text, tag, yes, no);
-        return row;
-      }
-
-      const toggle = document.createElement("button");
-      toggle.type = "button";
-      toggle.className = "ghost small";
-      toggle.textContent = pref.active ? "Turn off" : "Turn on";
-      toggle.addEventListener("click", async () => {
-        toggle.disabled = true;
-        await apiJson(`/memory/${pref.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ active: !pref.active }),
-        }).catch((error) => toast(error.message || "Couldn't change that.", true));
-        renderMemorySettings();
-      });
-
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "ghost small danger";
-      remove.textContent = "Forget";
-      remove.addEventListener("click", async () => {
-        const ok = await confirmDialog(
-          `Forget this?\n\n“${pref.content}”\n\nThe AI will stop applying it.`,
-          { confirmLabel: "Forget it" }
-        );
-        if (!ok) return;
-        //: Said when it fails (audit 2026-10-05, FE-12): a silent catch
-        //: redrew the list with the memory still in it and no reason why.
-        try {
-          await apiJson(`/memory/${pref.id}`, { method: "DELETE" });
-        } catch (error) {
-          toast(error.message || "Couldn't forget that.", true);
-        }
-        renderMemorySettings();
-      });
-
-      row.append(text, toggle, remove);
-      return row;
-    })
-  );
-}
 
 // --- overlay focus-return, scroll lock, autogrow textareas -----------------
 // SETTINGS_SECTIONS and the settings-modal shell itself moved to

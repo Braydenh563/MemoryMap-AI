@@ -7,7 +7,7 @@
 // 17.5 on its own, so over17 counts the jitter and over20 the missed frames, and the long tasks at rest
 // are the figure to trust.
 //
-// Surfaces: whiteboard and mind map (a seeded board id and map id, a drag on
+// Surfaces: notes and documents (a wheel sweep), whiteboard and mind map (a seeded board id and map id, a drag on
 // one object), graph (a drag on the canvas), companion (the Atlas companion on
 // the dashboard; it has no drag, so the phase is a pointer sweep and wheel
 // steps, which is what moves it).
@@ -118,6 +118,27 @@ async function centre(page, selector) {
       await page.waitForSelector("#graph-canvas", { timeout: 20000 });
       await page.waitForTimeout(2500);
       return () => centre(page, "#graph-canvas");
+    }],
+    //: The notes list and a document (OPEN 857): measured with a wheel and
+    //: pointer sweep, as the companion is. No rest budget until a run on an
+    //: idle machine sets one (the rest of this file's budgets came that way).
+    ["notes", async () => {
+      await page.evaluate(() => switchTab("notes"));
+      await page.waitForTimeout(2500);
+      return null;
+    }],
+    ["documents", async () => {
+      const opened = await page.evaluate(async () => {
+        const list = await apiJson("/documents").catch(() => null);
+        const docs = Array.isArray(list) ? list : list?.documents || list?.items || [];
+        switchTab("documents");
+        if (!docs.length) return false;
+        await openDocument(docs[0].id);
+        return true;
+      });
+      if (!opened) console.log("documents: no document to open, the empty tab is measured");
+      await page.waitForTimeout(2500);
+      return null;
     }],
     ["companion", async () => {
       await page.evaluate(() => {

@@ -17,7 +17,7 @@
 const ONBOARDING_SLIDES = [
   {
     icon: "ph:sparkle",
-    title: "Welcome to MemoryMap",
+    title: "Welcome to Tessellate",
     //: **"Out of the box", not "ever".** Measured 2026-09-21: two features
     //: make outbound requests, web search and the update check, and both are
     //: off by default (`core/config.py`), so the claim is exactly true until
@@ -48,7 +48,7 @@ const ONBOARDING_SLIDES = [
   // both shorter to read and the only version that can point at anything.
   //
   // What stays here is what an anchored card cannot do. The welcome says what
-  // MemoryMap is before there is any interface to point at, and the setup
+  // Tessellate is before there is any interface to point at, and the setup
   // slide is a live check of Ollama and the notebook's folder with its two
   // one-click offers (pull a model, seed example notes) on it: a card the size
   // of a sentence, hung off a control, is the wrong place for either. So the
@@ -80,7 +80,7 @@ async function loadOnboardingDiagnostics(forSlide) {
   lines.push(
     models && models.ollama_running
       ? "Ollama is running, so Atlas will file your notes and answer questions."
-      : "No model is running yet, and MemoryMap works without one: notes are " +
+      : "No model is running yet, and Tessellate works without one: notes are " +
           "searched by keyword, and filing catches up once a model is on."
   );
   //: A first install needs the internet once (BACKLOG, Brief 40): said where
@@ -88,7 +88,7 @@ async function loadOnboardingDiagnostics(forSlide) {
   if (models?.builtin_embedding_installed === false && models.builtin_embedding_download_mb) {
     lines.push(
       "The first setup downloads the search model and the packages you chose " +
-        `(about ${models.builtin_embedding_download_mb} MB); after that MemoryMap works offline.`
+        `(about ${models.builtin_embedding_download_mb} MB); after that Tessellate works offline.`
     );
   }
   if (storage) {
@@ -110,7 +110,7 @@ async function loadOnboardingDiagnostics(forSlide) {
       lines.push(
         "That folder isn't writable right now, so new notes and edits won't " +
           "save. Check its permissions, or move the notebook somewhere " +
-          "MemoryMap can write to (Settings → Account & security)."
+          "Tessellate can write to (Settings → Account & security)."
       );
     }
   } else {
@@ -161,9 +161,12 @@ function renderOnboardingActions(models, notebook) {
       smallButton(
         "ph:plugs Connect a model",
         "Close the welcome and open Settings at Models, where a model is connected",
+        //: Settings first, the welcome closes once it is up: Settings loads
+        //: lazily, and closing first let the first-run queue see a clear
+        //: screen and draw the recovery offer over the page this button had
+        //: just opened (scan 2026-10-11).
         () => {
-          closeOnboarding();
-          openSettingsModal("models");
+          Promise.resolve(openSettingsModal("models")).catch(() => {}).then(() => closeOnboarding());
         }
       )
     );
@@ -212,6 +215,19 @@ function renderOnboardingActions(models, notebook) {
         },
         false
       )
+    );
+  }
+
+  //: **"I have 4,000 notes in Obsidian, now what"** (BACKLOG 112.4 item 4):
+  //: an empty notebook is also offered the way in for notes kept elsewhere,
+  //: Settings, Import & export, whose Import files takes Markdown folders as
+  //: they are. The welcome closes first so the two never overlap.
+  if (notebook && notebook.count === 0) {
+    offers.push(
+      smallButton("ph:file-arrow-up Bring in your notes", "Import Markdown files or a folder, such as an Obsidian vault", () => {
+        closeOnboarding(false);
+        openSettingsModal("data", "import-md");
+      })
     );
   }
 
@@ -291,14 +307,32 @@ function renderOnboardingSlide() {
 //: the update question. `show` returns a promise that settles when its surface is done;
 //: the next turn also waits until nothing modal is on screen, so a surface
 //: that forgets to say when it closed cannot open the next one on top of it.
-const firstRun = { chain: Promise.resolve() };
+//: **A fixed order, not first come** (the owner, 2026-10-11, from the Windows
+//: app: "popup panels appearing at the start on a new install are messy and
+//: clash/overlap a lot"). The chain this replaced ran turns in the order they
+//: were asked for, and two first-run surfaces never asked at all: the desktop
+//: app's "Keep a console window open" question went straight to the screen
+//: on the same `looksReady` as the welcome, so in the Windows app it opened
+//: over the welcome card (the one surface a headless sweep cannot see unless
+//: it fakes `/health`'s `desktop`). Now every surface names its slot in
+//: `FIRST_RUN_ORDER`, the queue shows the lowest slot waiting, and on a first
+//: run (no `onboardingDone`) nothing opens until the welcome has had its turn.
+const FIRST_RUN_ORDER = ["welcome", "recovery", "console", "updates"];
+//: How long the queue holds the others for a welcome that never arrives (its
+//: module failed to load): a stuck queue would hide the recovery offer for good.
+const FIRST_RUN_WELCOME_WAIT_MS = 15000;
+const firstRun = { waiting: [], running: false, clearSince: 0 };
 
 function firstRunSurfaceOpen() {
   const shown = (id) => {
     const el = $(id);
     return Boolean(el && !el.classList.contains("hidden"));
   };
-  return shown("onboarding-overlay") || shown("tour-card") ||
+  //: Settings too: the welcome's "Connect a model" opens it, and the recovery
+  //: offer used to draw over it (scan 2026-10-11), on top of the very page the
+  //: person had just been sent to. It takes its turn when Settings closes.
+  //: The lock screen too: a surface queued at setup waits for the notebook.
+  return shown("lock-overlay") || shown("onboarding-overlay") || shown("tour-card") || shown("settings-modal") ||
     Boolean(document.querySelector("dialog[open], .confirm-overlay"));
 }
 
@@ -309,10 +343,63 @@ function whenFirstRunClear() {
   });
 }
 
-function firstRunTurn(show) {
-  const turn = firstRun.chain.then(whenFirstRunClear).then(() => show()).catch(() => {});
-  firstRun.chain = turn.then(whenFirstRunClear);
-  return turn;
+function firstRunToastsGone(capMs) {
+  const until = Date.now() + capMs;
+  return new Promise((resolve) => {
+    const tick = () => {
+      const up = [...document.querySelectorAll(".toast")].some((t) => t.getClientRects().length);
+      return up && Date.now() < until ? setTimeout(tick, 250) : resolve();
+    };
+    tick();
+  });
+}
+
+//: `show` opens one surface and returns a promise that settles when it is
+//: done; `slot` is its name in `FIRST_RUN_ORDER`. Resolves to what `show`
+//: resolved to (the update and console questions read their answer from it).
+function firstRunTurn(show, slot) {
+  return new Promise((resolve) => {
+    firstRun.waiting.push({ show, rank: FIRST_RUN_ORDER.indexOf(slot), resolve, slot });
+    firstRunPump();
+  });
+}
+
+function firstRunWelcomeDue() {
+  if (prefs.get("onboardingDone", null)) return false;
+  if (firstRun.waiting.some((item) => item.slot === "welcome")) return false;
+  //: Counted from the first clear screen, not from the module's load: the
+  //: lock's opening curtain can outlast the wait on a slow machine.
+  return Date.now() - firstRun.clearSince < FIRST_RUN_WELCOME_WAIT_MS;
+}
+
+async function firstRunPump() {
+  if (firstRun.running) return;
+  firstRun.running = true;
+  try {
+    while (firstRun.waiting.length) {
+      await whenFirstRunClear();
+      firstRun.clearSince ||= Date.now();
+      //: A beat for whatever the same boot step is about to queue, so the
+      //: slot order, not the arrival order, decides who goes next.
+      await new Promise((r) => setTimeout(r, 300));
+      //: And the last surface's own toast read first ("That is the tour",
+      //: "You can make a recovery key later"): at 390 they drew over the
+      //: next question's card (337x47 px). Six seconds at most.
+      await firstRunToastsGone(6000);
+      if (firstRunWelcomeDue()) continue;
+      firstRun.waiting.sort((a, b) => a.rank - b.rank);
+      const item = firstRun.waiting.shift();
+      let answer;
+      try {
+        answer = await item.show();
+      } catch {
+        answer = undefined;
+      }
+      item.resolve(answer);
+    }
+  } finally {
+    firstRun.running = false;
+  }
 }
 
 //: The welcome's turn ends when the welcome closes and, when its last button
@@ -336,7 +423,7 @@ function showOnboardingTurn() {
 
 //: A first run's welcome waits its turn; "Replay the welcome" opens at once.
 function openOnboarding() {
-  if (!prefs.get("onboardingDone", null)) return firstRunTurn(showOnboardingTurn);
+  if (!prefs.get("onboardingDone", null)) return firstRunTurn(showOnboardingTurn, "welcome");
   showOnboarding();
 }
 
@@ -350,13 +437,13 @@ function showOnboarding() {
 
 function closeOnboarding(withTour = false) {
   $("onboarding-overlay").classList.add("hidden");
-  localStorage.setItem("onboardingDone", "1");
+  prefs.set("onboardingDone", "1");
   // Skipping the welcome is also an answer about the tour: whoever closed this
   // card has been offered the introduction and said no, so nothing may open
   // the tour at them by itself afterwards. `tourClose` writes the same key
   // when the tour itself ends, and Settings, help and guide is the way back to
   // either of them.
-  localStorage.setItem("tourDone", "1");
+  prefs.set("tourDone", "1");
   overlayReturnFocus?.focus?.();
   //: Whatever waited for the welcome (the first start's update question).
   //: `tour` says the tour is opening next, so the first-run queue
@@ -405,15 +492,17 @@ $("onboarding-skip").addEventListener("click", () => closeOnboarding(false));
 async function maybeShowConsoleViewIntro() {
   if (!(await desktopShell())) return;
   if (!prefsCache || prefsCache.console_view_intro_seen) return;
-  const wantsDevView = await confirmDialog(
-    "Keep a console window open when MemoryMap AI starts?\n\n" +
+  //: A first-run surface, so it takes its turn (`firstRunTurn`, above): it
+  //: used to open over the welcome card in the Windows app.
+  const wantsDevView = await firstRunTurn(() => confirmDialog(
+    "Keep a console window open when Tessellate starts?\n\n" +
       "Dev view shows a terminal window alongside the app, useful for " +
       "logs and troubleshooting. User view runs quietly in the background " +
       "with no console window at all, just this app window and a system " +
       "tray icon. Either way, you can switch any time from Settings or " +
       "the tray icon's own menu.\n\nTakes effect next launch.",
     { confirmLabel: "Dev view", cancelLabel: "User view", danger: false }
-  );
+  ), "console");
   try {
     prefsCache = await apiJson("/preferences", {
       method: "PUT",

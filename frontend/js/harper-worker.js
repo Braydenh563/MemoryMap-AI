@@ -1,4 +1,4 @@
-// MemoryMap AI: grammar and style checking, off the main thread (INBOX 401).
+// Tessellate: grammar and style checking, off the main thread (INBOX 401).
 //
 // Harper (Automattic, Apache-2.0, vendored in `frontend/vendor/harper/` with
 // its licence) is a grammar checker compiled to WebAssembly. It runs here, in

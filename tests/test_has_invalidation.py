@@ -26,7 +26,7 @@ CSS = sorted((ROOT / "frontend" / "css").glob("*.css"))
 
 #: Selectors with a `:has()` before a rightmost compound that names no class
 #: or id. Only ever lowered.
-CEILING = 10
+CEILING = 9
 
 
 def _split_top(text: str, sep: str) -> list[str]:

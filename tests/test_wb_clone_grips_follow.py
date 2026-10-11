@@ -56,3 +56,20 @@ def test_clone_and_connect_joins_fixed_ports():
 
 def test_the_bar_stands_clear_of_the_top_arrow():
     assert 'document.getElementById("wb-clone-grips") ? 58 : 44' in WB
+
+
+def test_a_note_card_gets_the_arrows_and_they_make_a_new_note():
+    """WHITEBOARD_PLAN decision E1 (INBOX 826, the owner: "what happened to
+    those edge triangle arrows??" over a selected note card). A card's arrow
+    makes a new note joined to it, never a copy of the note, and says so."""
+    source = _fn("wbCloneSource")
+    assert 'kind === "node") return null' not in source and "wbIsMap()" in source
+    connect = _fn("wbCloneConnect")
+    assert 'source.kind === "node"' in connect and "wbCloneNoteCard(source, dirName)" in connect
+    made = _fn("wbCloneNoteCard")
+    assert '"/entries"' in made and '"noteMade"' in made and "wbRecordGesture" in made
+    assert "sourceAnchor" in made and 'endCap: "arrow"' in made and "wbEditNodeText(made.id)" in made
+    assert "New note ${dir.words}, joined (Alt+Shift+Arrow)" in WB
+    from memorymap.ai import help_chat
+
+    assert any("a note card's arrows make a new note" in t["body"] for t in help_chat.HELP_TOPICS)

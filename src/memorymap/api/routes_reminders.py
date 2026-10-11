@@ -341,7 +341,7 @@ def _ics_event(session: Session, reminder: Reminder, stamp: str) -> list[str]:
 
 def _ics_response(session: Session, reminders: list[Reminder], filename: str) -> Response:
     stamp = _ics_time(utcnow())
-    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//MemoryMap AI//Reminders//EN", "CALSCALE:GREGORIAN"]
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Tessellate//Reminders//EN", "CALSCALE:GREGORIAN"]
     for reminder in reminders:
         lines += _ics_event(session, reminder, stamp)
     lines.append("END:VCALENDAR")
@@ -600,6 +600,13 @@ def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_sessio
     return _to_out(session, reminder)
 
 
+def _naive_utc(moment: datetime) -> datetime:
+    """A moment as naive UTC, to tell whether an edit moved the due time."""
+    if moment.tzinfo is not None:
+        moment = moment.astimezone(timezone.utc).replace(tzinfo=None)
+    return moment
+
+
 @router.put("/{reminder_id}")
 def update_reminder(
     reminder_id: int, body: ReminderUpdate, session: Session = Depends(get_session)
@@ -610,10 +617,14 @@ def update_reminder(
     if body.due_at is not None:
         if not body.restore:
             _reject_if_in_the_past(body.due_at)
+        if _naive_utc(body.due_at) != _naive_utc(reminder.due_at):
+            reminder.repeat_day = None
         reminder.due_at = body.due_at
     if body.priority is not None:
         reminder.priority = body.priority
     if body.recurring is not None:
+        if body.recurring != reminder.recurring:
+            reminder.repeat_day = None
         reminder.recurring = body.recurring
     if body.alert_minutes is not None:
         reminder.alert_minutes = body.alert_minutes or None
@@ -655,11 +666,13 @@ def _complete(session: Session, reminder: Reminder, tz_offset_minutes: int) -> N
         shift = timedelta(minutes=tz_offset_minutes)
         due = reminder.due_at.replace(tzinfo=None) + shift
         now = utcnow().replace(tzinfo=None) + shift
-        reminder.recurring = rec.anchored(reminder.recurring, due.date())
+        # A 31st clamped to the 28th remembers it was a 31st (Brief 101b).
+        anchor = reminder.repeat_day or due.day
         for _ in range(1000):
-            due = rec.next_occurrence(reminder.recurring, due)
+            due = rec.next_occurrence(reminder.recurring, due, anchor)
             if due > now:
                 break
+        reminder.repeat_day = anchor if anchor > 28 else None
         reminder.due_at = due - shift
         reminder.done = False
         log_action(session, "edited", "reminder", reminder.id, "rolled on")
@@ -675,7 +688,7 @@ def notification_token(reminder_id: int, session: Session = Depends(get_session)
     when it shows the notification and hands the token to the service worker,
     so the person's session token never sits in the notification's data."""
     _existing(session, reminder_id)
-    return reminder_token.mint(reminder_id)
+    return reminder_token.mint(reminder_id, data_dir=deps.get_config().data_dir)
 
 
 class NotificationAct(BaseModel):
@@ -697,7 +710,7 @@ def act_from_notification(
     looked at**, names this one reminder and these two actions, and expires in
     a day; anything else answers 401 with the same words, so a stranger learns
     nothing about which reminders exist. The answer carries no reminder."""
-    if not reminder_token.verify(body.token, reminder_id, body.action):
+    if not reminder_token.verify(body.token, reminder_id, body.action, data_dir=deps.get_config().data_dir):
         raise HTTPException(status_code=401, detail="That notification can no longer do this.")
     reminder = _existing(session, reminder_id)
     if body.action == "done":

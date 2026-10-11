@@ -99,6 +99,13 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: Settings, About, Maintenance: settings.js's showSettingsSection calls it
+    #: in the .then of ensureModule('settingsControls').
+    "renderMaintenance": "settingsControls, called in the .then of ensureModule('settingsControls') in showSettingsSection",
+    #: The history row's Logs button: it sits in Settings, whose window loads settingsControls first.
+    "openTaskLog": "settingsControls, the Settings window awaits it before any row in it can be pressed",
+    #: Background jobs, Report: the click awaits ensureModule('appImport') first.
+    "openImportReport": "appImport, called after `await ensureModule('appImport')` in the Report button's click",
     #: Connections, opened in the .then of lazyScript('/js/connections.js') at its three callers.
     "openConnections": "connections, called in the .then of lazyScript('/js/connections.js')",
     #: The palette's Translate this row, in the .then of ensureModule('translate').
@@ -145,10 +152,12 @@ REACHED_AFTER_LOAD = {
     "showWebReader": "webClip, called in the .then of ensureModule('webClip') in openWebReader",
     "askAgainMenu": "askHistory, called in the .then of ensureModule('askHistory') in loadRecentQuestions",
     "answerSuggestedTags": "tagSuggest, called in the .then of ensureModule('tagSuggest') by answerTags",
+    "openNoteTagPopover": "tagSuggest, called in the .then of ensureModule('tagSuggest') by the \"+ Tag\" chip (note-cards.js)",
     "settingsPrefsSeen": "settingsData, called in the .then of ensureModule('settingsData') by the apiJson wrapper (status.js)",
     "clearRecentSearches": "searchSuggest, called in the .then of ensureModule('searchSuggest') by the web panel's Clear (chat.js)",
     "renderSettingsHistory": "settingsData, called in the .then of ensureModule('settingsData') when Data opens (settings.js)",
     "renderSettingsClear": "settingsData, called in the .then of ensureModule('settingsData') when Data opens (settings.js)",
+    "renderStorageBreakdown": "settingsData, called in the .then of ensureModule('settingsData') when About's health block draws (settings.js)",
     "openSearchSuggest": "searchSuggest, called in the .then of ensureModule('searchSuggest') by the focus listener (capture-ask.js)",
     "questionsForNote": "questionsView, called in the .then of ensureModule('questionsView') by a card's question count",
     "webFollowUp": "webClip, called in sendChatMessage after `await ensureModule('webClip')` in the same condition",
@@ -167,6 +176,9 @@ REACHED_AFTER_LOAD = {
     #: INBOX 644: saveMeetingNote (media.js) awaits ensureModule("meetings")
     #: and calls only when it loaded, as openNavHistoryMenu does.
     "meetingSaveTranscript": "meetings, called by saveMeetingNote after awaiting ensureModule('meetings')",
+    #: Brief 101a: the recorder's Escape (settings-wiring.js) runs only while
+    #: `#meeting-overlay` is showing, and meetings.js is what shows it.
+    "closeMeetingRecorder": "meetings, the Escape handler in settings-wiring.js runs it only while #meeting-overlay is open, which only meetings.js opens",
     "renderAskChart": "askHistory, called from ensureModule('askHistory').then in askQuestion",
     #: The 2026-10-10 triage: a composed answer's cited names are linked
     #: once ask-compose.js is in (`addInlineCitations`, capture-ask.js).
@@ -213,8 +225,10 @@ REACHED_AFTER_LOAD = {
     #: drawn, which is the intended degradation.
     "settingsIndexWatchSection": "settingsUi, awaited by openSettingsModal before a section is shown",
     "renderHelpTopics": "settingsUi, awaited by openSettingsModal on the line before the call",
+    "renderCredits": "settingsUi, awaited by openSettingsModal two lines before the call",
     "renderSettingResults": "settingsUi, called from the search field inside the open dialog",
     "settingQueryAlts": "settingsUi, called from filterSettings, the search field inside the open dialog (an empty query returns before it)",
+    "meaningHolds": "settingsUi (meaning.js), called from filterSettings beside settingQueryAlts; without the bundle the plain substring rule runs",
     "settingResultsKey": "settingsUi, called from the search field inside the open dialog",
     "renderSuggested": "settingsUi, called from the status poll only while Settings is open (renderSettings), and Settings awaits the bundle first",
     #: The installed models moved beside it (op4-1005): the same poll branch,

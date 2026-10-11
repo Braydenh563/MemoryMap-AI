@@ -39,7 +39,7 @@ from memorymap.core.subproc import NO_WINDOW
 
 logger = logging.getLogger(__name__)
 
-APP_NAME = "MemoryMap AI"
+APP_NAME = "Tessellate"
 #: The id the launcher gives its process (`_run_desktop`) and both installers
 #: give the Start menu shortcut; Windows shows a desktop app's toast only
 #: under an id a shortcut carries.
@@ -443,6 +443,16 @@ class ReminderNotifier:
         self.stopped.set()
         if _running["notifier"] is self:
             _running["notifier"] = None
+
+
+def stop_running() -> None:
+    """Stop this process's notifier, if one runs. The app's shutdown calls it
+    before the job pool's, because the notifier's loop is a job on that pool:
+    left to the launcher's own stop (which runs once the window is gone) a
+    quit waited the pool's whole deadline for a loop nothing had told to end."""
+    notifier = _running["notifier"]
+    if notifier is not None:
+        notifier.stop()
 
 
 def active() -> bool:

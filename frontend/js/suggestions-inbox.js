@@ -89,6 +89,11 @@ async function openSuggestionsInbox(kind = "links") {
   inboxShow(kind);
   inboxTensionsPane();
   for (const key of ["links", "names", "types"]) setLabel(state.lists[key], "ph:spin Looking…");
+  await inboxLoad(state);
+}
+
+//: The lists, read again: the first open, and an Undo or Redo of a decision.
+async function inboxLoad(state) {
   const [links, rest] = await Promise.all([
     apiJson("/entries/link-suggestions", { silent: true }).catch(() => []),
     apiJson("/suggestions", { silent: true }).catch(() => ({ merges: [], types: [] })),
@@ -187,8 +192,13 @@ function inboxDone(kind, row) {
   next?.querySelector("button")?.focus();
 }
 
-function inboxCorrection(kind, subject) {
-  return apiJson("/learned/corrections", { method: "POST", silent: true, body: JSON.stringify({ kind, subject }) }).catch(() => {});
+async function inboxCorrection(kind, subject, undoLabel) {
+  const body = { kind, subject };
+  const made = await apiJson("/learned/corrections", { method: "POST", silent: true, body: JSON.stringify(body) }).catch(() => null);
+  //: A verdict that dismisses is a step of its own; one that accompanies a
+  //: link or a merge rides on that act's step.
+  if (made && undoLabel) pushCorrectionUndo(undoLabel, body, made, () => (inboxState ? inboxLoad(inboxState) : null));
+  return made;
 }
 
 /** The reasons under a row, each with its own percentage. */
@@ -250,11 +260,11 @@ function inboxMergeRow(m) {
     if (!done) return;
     //: Undo puts the pair back as two names; the row stays gone, since the
     //: suggestion was answered.
-    toastEntityMerge(done, m.merge_id, m.keep_id);
+    toastEntityMerge(done, m.merge_id, m.keep_id, null, { kind: "accept_merge", subject: { a: m.keep_id, b: m.merge_id, signals } });
     inboxDone("names", row);
   });
   const dismiss = smallButton("ph:x", "Not the same: never suggest this pair again", () => {
-    inboxCorrection("dismiss_merge", { a: m.keep_id, b: m.merge_id, signals });
+    inboxCorrection("dismiss_merge", { a: m.keep_id, b: m.merge_id, signals }, "Dismissed a name merge");
     inboxDone("names", row);
   });
   const actions = document.createElement("div");
@@ -288,14 +298,28 @@ function inboxTypeRow(t) {
     set.disabled = false;
     if (!done) return;
     toast(`Link type set: ${t.type_label}.`);
+    //: Undo takes the type off and the correction it taught; Redo does both again.
+    let learnedId = done.correction_id;
+    const redraw = () => Promise.all([refreshEntries([t.source_id, t.target_id]).catch(() => {}), inboxState && inboxLoad(inboxState)]);
+    const linkPath = `/entries/${t.source_id}/links/${t.link_id}`;
+    const learned = { kind: "accept_link_type", subject: { link_id: t.link_id, link_type: t.link_type, signals: [t.link_type] } };
+    pushUndo(
+      `Gave a link the type ${t.type_label}`,
+      async () => {
+        await apiJson(linkPath, { method: "PATCH", body: JSON.stringify({ link_type: null }) });
+        if (learnedId != null) await api(`/learned/corrections/${learnedId}`, { method: "DELETE" });
+        await redraw();
+      },
+      async () => {
+        await apiJson(linkPath, { method: "PATCH", body: JSON.stringify({ link_type: t.link_type }) });
+        learnedId = (await apiJson("/learned/corrections", { method: "POST", body: JSON.stringify(learned) }))?.id ?? learnedId;
+        await redraw();
+      }
+    );
     inboxDone("types", row);
   });
   const dismiss = smallButton("ph:x", "Not this type: never suggest it for this link again", () => {
-    apiJson("/suggestions/types/dismiss", {
-      method: "POST",
-      silent: true,
-      body: JSON.stringify({ link_id: t.link_id, link_type: t.link_type }),
-    }).catch(() => {});
+    inboxCorrection("dismiss_link_type", { link_id: t.link_id, link_type: t.link_type, signals: [t.link_type] }, "Dismissed a link type suggestion");
     inboxDone("types", row);
   });
   const actions = document.createElement("div");
@@ -402,7 +426,8 @@ function tensionCard(tension) {
     //: Only a write that happened says so (audit 2026-10-05, FE-12): the
     //: card used to read "Linked as contradicting." when the POST had failed.
     try {
-      await apiJson("/entries/tensions/accept", { method: "POST", body: ids });
+      const done = await apiJson("/entries/tensions/accept", { method: "POST", body: ids });
+      pushTensionLinkUndo(tension.earlier_id, tension.later_id, "accept", done?.created !== false);
     } catch (error) {
       toast(error.message || "Couldn't link these notes.", true);
       return;
@@ -416,6 +441,7 @@ function tensionCard(tension) {
   dismiss.addEventListener("click", async () => {
     try {
       await apiJson("/entries/tensions/dismiss", { method: "POST", body: ids });
+      pushTensionLinkUndo(tension.earlier_id, tension.later_id, "dismiss");
     } catch (error) {
       toast(error.message || "Couldn't dismiss this pair.", true);
       return;
@@ -653,6 +679,7 @@ function inboxLinkRow(s, rowReasons) {
       return null;
     });
     if (!made) return false;
+    pushLinkCreateUndo(s.source_id, s.target_id, made, body, "Linked two suggested notes");
     inboxCorrection("accept_link", { a: s.source_id, b: s.target_id, signals });
     if (!quiet) {
       toast(typed ? "Linked, with your reason." : "Linked.");
@@ -669,7 +696,7 @@ function inboxLinkRow(s, rowReasons) {
     }
   });
   const dismiss = smallButton("ph:x", "Dismiss this suggestion", () => {
-    inboxCorrection("dismiss_link", { a: s.source_id, b: s.target_id, signals });
+    inboxCorrection("dismiss_link", { a: s.source_id, b: s.target_id, signals }, "Dismissed a link suggestion");
     inboxDone("links", row);
   });
   row.append(text, addReason, reason, inboxScoreBar(s.confidence ?? s.similarity), link, dismiss);

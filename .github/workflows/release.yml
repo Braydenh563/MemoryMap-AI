@@ -141,7 +141,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install build dependencies
         # The base app's own deps, minus sentence-transformers/torch:
@@ -253,7 +253,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       # pywebview's Linux backend needs GTK/WebKit as system packages —
       # pip alone can't provide them.
@@ -322,8 +322,8 @@ jobs:
         # here by mistake.
         run: |
           cd dist
-          tar -czf "../MemoryMap-AI-${VERSION}-linux-x86_64.tar.gz" "MemoryMap AI"
-          zip -qr "../MemoryMap-AI-${VERSION}-linux-x86_64.zip" "MemoryMap AI"
+          tar -czf "../MemoryMap-AI-${VERSION}-linux-x86_64.tar.gz" "MemoryMap AI"  # brand: keep, the bundle folder
+          zip -qr "../MemoryMap-AI-${VERSION}-linux-x86_64.zip" "MemoryMap AI"  # brand: keep, the bundle folder
 
       - name: Upload package to the release
         uses: softprops/action-gh-release@v3

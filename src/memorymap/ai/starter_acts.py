@@ -23,7 +23,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import commands, day_digest, lexical_filing, realise, recognise, tagging, utilities
-from memorymap.core.database import Entry, EntryLink, Reminder
+from memorymap.core.database import Document, Entry, EntryLink, Reminder
 
 #: Each starter's reading, first match wins. The text is folded to lower case
 #: with the closing punctuation off before it is matched.
@@ -38,6 +38,14 @@ _READS = (
         r"^(?:summari[sz]e|sum up) (?:the|this) (?:note|document|doc|board|document or board)"
         r"(?: (?:i have|i've got|that is|that's) open| on screen)?$")),
     ("tag_untagged", re.compile(r"^tag (?:my |all |all my |the )?untagged notes$")),
+    #: The other tabs' starters (palette.js AGENT_TAB_STARTERS, OPEN row 562).
+    ("tag_open", re.compile(r"^(?:suggest tags for|tag) (?:the|this) note(?: i have open| i've got open| on screen)?$")),
+    ("save_answer", re.compile(r"^(?:save|file|keep) (?:the|that|your) (?:last )?answer(?: as a note)?$")),
+    ("open_links", re.compile(r"^what(?:'s| is) linked to (?:the|this) note(?: i have open| on screen)?$")),
+    ("open_board", re.compile(r"^what(?:'s| is) (?:in|on) (?:the|this) (?:board|map|board or map|mind map)(?: i have open| on screen)?$")),
+    ("open_note", re.compile(
+        r"^(?:list|give me|what are) the key points (?:of|in) (?:the|this) (?:document|doc|note)"
+        r"(?: i have open| on screen)?$")),
     ("link_related", re.compile(r"^link (?:the )?(?:related notes|notes that (?:belong|go) together)$")),
 )
 
@@ -80,11 +88,12 @@ def _original_tail(text: str, length: int) -> str:
 
 
 def events(session: Session, kind: str, slots: dict, now: datetime, note_ids: list[int] | None,
-           history: list[dict]) -> list[dict]:
+           history: list[dict], document_ids: list[int] | None = None, board_ids: list[int] | None = None) -> list[dict]:
     """The stream events for one starter: an answer line, then a card when
     the starter writes."""
     handler = _HANDLERS[kind]
-    line, card = handler(session, slots=slots, now=now, note_ids=note_ids or [], history=history or [])
+    line, card = handler(session, slots=slots, now=now, note_ids=note_ids or [], history=history or [],
+                         document_ids=document_ids or [], board_ids=board_ids or [])
     out = [{"type": "answer", "delta": line}]
     if card:
         out.append(card)
@@ -145,21 +154,65 @@ def _conversation(session: Session, *, history: list[dict], **_: object) -> tupl
     return _list_answer(head, rows), None
 
 
-def _open_note(session: Session, *, note_ids: list[int], **_: object) -> tuple[str, None]:
-    entry = session.get(Entry, note_ids[0]) if note_ids else None
-    if entry is None or entry.is_deleted or entry.is_private:
-        return ("Nothing is open to summarise. Open a note and tick “Use the open note”, "
-                "or name it: “summarise my notes about the boiler”."), None
-    text = entry.content or ""
+def _outline_answer(title: str, text: str) -> str:
     counts = utilities.counts(text)
-    title = realise.cut_title(day_digest._first_line(text), 80) or f"Note #{entry.id}"
     rows = [f"{realise.count_noun(counts['words'], 'word')}, {utilities.reading_time(counts['words'])}"]
     heads = [h["text"] for h in utilities.outline(text, max_level=3, limit=7) if h["text"] != title][:6]
     if heads:
         rows.append("Sections: " + ", ".join(heads))
     sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", re.sub(r"^#.*$", "", text, flags=re.M).strip()) if s.strip()]
     rows.extend(f"“{realise.cut_title(s, 140)}”" for s in sentences[:2])
-    return _list_answer(f"“{title}”:", rows), None
+    return _list_answer(f"“{title}”:", rows)
+
+
+def _open_note(session: Session, *, note_ids: list[int], document_ids: list[int] = (), board_ids: list[int] = (),
+               **_: object) -> tuple[str, None]:
+    """The open note, document or board: what it holds, without a model."""
+    if not note_ids and document_ids:
+        doc = session.get(Document, document_ids[0])
+        if doc is not None and not getattr(doc, "deleted_at", None):
+            return _outline_answer(realise.cut_title(doc.title or "Untitled", 80), doc.content or ""), None
+    if not note_ids and board_ids:
+        return _open_board(session, board_ids=board_ids)
+    entry = session.get(Entry, note_ids[0]) if note_ids else None
+    if entry is None or entry.is_deleted or entry.is_private:
+        return ("Nothing is open to summarise. Open a note and tick “Use the open note”, "
+                "or name it: “summarise my notes about the boiler”."), None
+    if entry.is_board:
+        return _open_board(session, board_ids=[entry.id])
+    text = entry.content or ""
+    title = realise.cut_title(day_digest._first_line(text), 80) or f"Note #{entry.id}"
+    return _outline_answer(title, text), None
+
+
+#: `routes_chat._attached_boards`, set by routes_chat when it loads (it
+#: imports this module, so importing it here would be a cycle).
+ATTACHED_BOARDS = lambda session, ids: []  # noqa: E731
+
+
+def _open_board(session: Session, *, board_ids: list[int] = (), note_ids: list[int] = (), **_: object) -> tuple[str, None]:
+    """The open board or map's topics, from the outline Chat attaches."""
+    found = ATTACHED_BOARDS(session, list(board_ids or note_ids)[:1])
+    if not found:
+        return "No board or map is open. Open one and tick “Use the open board”.", None
+    head, _, outline = found[0]["content"].partition("\n\n")
+    rows = [line.strip() for line in outline.splitlines() if line.strip()][:12]
+    return _list_answer(head.replace("\n", " "), rows), None
+
+
+def _open_links(session: Session, *, note_ids: list[int], **_: object) -> tuple[str, None]:
+    entry = session.get(Entry, note_ids[0]) if note_ids else None
+    if entry is None or entry.is_deleted or entry.is_private:
+        return "Nothing is open. Open a note and tick “Use the open note”.", None
+    from memorymap.entry import manager
+
+    others = [other for _link, other in manager.links_for_entry(session, entry)
+              if not other.is_deleted and not other.is_private]
+    title = commands._title(entry)
+    if not others:
+        return f"Nothing is linked to “{title}” yet.", None
+    rows = [f"#{other.id} {commands._title(other)}" for other in others[:12]]
+    return _list_answer(f"{realise.count_noun(len(others), 'note').capitalize()} linked to “{title}”:", rows), None
 
 
 # --- writes, as act cards ------------------------------------------------------------
@@ -197,6 +250,33 @@ def _tag_untagged(session: Session, **_: object) -> tuple[str, dict | None]:
         return f"{realise.count_noun(len(bare), 'note').capitalize()} without a tag, and none has a word that matches a tag you use.", None
     label = f"Tag {realise.count_noun(len(steps), 'untagged note')} with tags you already use"
     return commands._confirm(label) + left, commands._card(label, steps, items=items)
+
+
+def _tag_open(session: Session, *, note_ids: list[int], **_: object) -> tuple[str, dict | None]:
+    entry = session.get(Entry, note_ids[0]) if note_ids else None
+    if entry is None or entry.is_deleted or entry.is_private:
+        return "Nothing is open. Open a note and tick “Use the open note”.", None
+    have = _tags_of(entry)
+    tags = [t for t in tagging.suggest(session, entry.content or "", have, exclude_entry_id=entry.id) if t not in have]
+    title = commands._title(entry)
+    if not tags:
+        return f"No tag you already use fits “{title}”; it keeps {', '.join(have) or 'no tags'}.", None
+    label = f"Tag “{commands._clip(title, 60)}” {', '.join(tags)}"
+    steps = [{"name": "tag_note", "arguments": {"note_id": entry.id, "add": tags}}]
+    return f"{label}. Confirm to do it.", commands._card(label, steps, items=[f"#{entry.id} {title}"])
+
+
+def _save_answer(session: Session, *, history: list[dict], **_: object) -> tuple[str, dict | None]:
+    turns = [t for t in history if str(t.get("answer") or "").strip()]
+    if not turns:
+        return "There is no answer in this conversation yet to save.", None
+    last = turns[-1]
+    question = str(last.get("question") or "").strip()
+    body = str(last["answer"]).strip()
+    content = (f"# {realise.cut_title(question, 80)}\n\n" if question else "") + body
+    label = f"Save the last answer as a note{f' titled “{realise.cut_title(question, 60)}”' if question else ''}"
+    steps = [{"name": "create_note", "arguments": {"content": content}}]
+    return f"{label}. Confirm to do it.", commands._card(label, steps)
 
 
 def _vectors(entries: list[Entry]) -> dict[int, dict[str, float]]:
@@ -278,6 +358,10 @@ _HANDLERS = {
     "due": _due,
     "conversation": _conversation,
     "open_note": _open_note,
+    "open_board": _open_board,
+    "open_links": _open_links,
+    "tag_open": _tag_open,
+    "save_answer": _save_answer,
     "tag_untagged": _tag_untagged,
     "link_related": _link_related,
     "append_today": _append_today,

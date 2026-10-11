@@ -1,6 +1,6 @@
 ---
 name: orient
-description: Start a MemoryMap AI session or agent task with the fewest tokens. Use at the start of every session and every agent brief before reading any plan or source file.
+description: Start a Tessellate session or agent task with the fewest tokens. Use at the start of every session and every agent brief before reading any plan or source file.
 ---
 
 # Orient (read this, then only what it points at)

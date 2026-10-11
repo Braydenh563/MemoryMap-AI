@@ -53,6 +53,7 @@ class Job:
         on_stop: Callable[[], object] | None,
         stoppable: bool,
         lease: float | None = None,
+        stop_event: threading.Event | None = None,
     ) -> None:
         self.id = f"job-{next(_ids)}"
         self.kind = kind
@@ -62,7 +63,9 @@ class Job:
         self.started = time.time()
         self.on_stop = on_stop
         self.stoppable = stoppable or on_stop is not None
-        self._stop = threading.Event()
+        #: Shared with the work it tracks when that work must see Stop mid-call
+        #: (a skill run's budget, `ai/budget.py`), not only at its next yield.
+        self._stop = stop_event or threading.Event()
         #: A job run somewhere else (a code run in the browser's sandbox)
         #: holds a lease it renews with `touch`; one not renewed in time is
         #: gone, so a closed tab does not leave a row that never ends.
@@ -131,10 +134,11 @@ def start(
     lease: float | None = None,
     title: str = "",
     ledger: bool = True,
+    stop_event: threading.Event | None = None,
 ) -> Job:
     """`ledger=False` for a job that already opens its own `jobruns` run
     (an import), so the ledger lists it once."""
-    job = Job(kind, label, on_stop, stoppable, lease)
+    job = Job(kind, label, on_stop, stoppable, lease, stop_event)
     if ledger:
         from memorymap.core import jobruns
 
@@ -192,10 +196,11 @@ def track(
     stoppable: bool = True,
     title: str = "",
     ledger: bool = True,
+    stop_event: threading.Event | None = None,
 ) -> Iterator[Job]:
     """Register for the length of the block. `stoppable` defaults to True
     because a block that loops is expected to read `job.stopped`."""
-    job = start(kind, label, on_stop=on_stop, stoppable=stoppable, title=title, ledger=ledger)
+    job = start(kind, label, on_stop=on_stop, stoppable=stoppable, title=title, ledger=ledger, stop_event=stop_event)
     try:
         yield job
     except GeneratorExit:
@@ -211,17 +216,51 @@ def track(
         finish(job)
 
 
-def tracked_stream(kind: str, label: str, lines: Iterator, *, title: str = "") -> Iterator:
+#: The job whose stream this thread is advancing right now. A streamed run is a
+#: sync generator, advanced one `next()` at a time on whichever worker thread
+#: the server picks, and one `next()` can hold a model call and the writes that
+#: follow it. Stop only lands between yields, so a call that returned after
+#: Stop would still write; `current_stopped` lets the one door writes go
+#: through (`tools.execute_tool`) see that Stop came in meanwhile.
+_bound = threading.local()
+
+
+@contextmanager
+def bind(job: Job) -> Iterator[None]:
+    """Make `job` this thread's current job for the length of the block."""
+    previous = getattr(_bound, "job", None)
+    _bound.job = job
+    try:
+        yield
+    finally:
+        _bound.job = previous
+
+
+def current_stopped() -> bool:
+    """Whether the job this thread is advancing has been asked to stop."""
+    job = getattr(_bound, "job", None)
+    return bool(job is not None and job.stopped)
+
+
+def tracked_stream(
+    kind: str, label: str, lines: Iterator, *, title: str = "", stop_event: threading.Event | None = None
+) -> Iterator:
     """A streamed response that shows in Activity and ends on Stop.
 
     Closing the inner generator runs its `finally`, which is what closes the
     HTTP stream to the model, so the runner stops generating too. Each line
     the stream sends is read by a `StreamNarrator`, so the run's log says
     what the answer did (searched, called a tool, wrote) in words."""
-    with track(kind, label, title=title) as job:
+    with track(kind, label, title=title, stop_event=stop_event) as job:
         narrator = StreamNarrator()
         try:
-            for line in lines:
+            source = iter(lines)
+            while True:
+                with bind(job):  # the step that follows may write; Stop must reach it
+                    try:
+                        line = next(source)
+                    except StopIteration:
+                        break
                 said = narrator(line)
                 if said and job.run is not None:
                     job.run.say(said)
@@ -278,6 +317,7 @@ class StreamNarrator:
         self.text = ""
         self.tools = 0
         self.failed = 0
+        self.thought = False
 
     def __call__(self, line: object) -> str:
         try:
@@ -287,40 +327,72 @@ class StreamNarrator:
         if not isinstance(event, dict):
             return ""
         kind = event.get("type")
-        if kind == "status":
-            stage = str(event.get("stage") or "")
-            return "Searching your notes." if stage == "searching" else stage.replace("_", " ").capitalize()
-        if kind == "meta":
-            found = len(event.get("raw_results") or [])
-            mode = event.get("search_mode") or "search"
-            lines = [f"Found {found} note{'' if found == 1 else 's'} ({mode})."]
-            if event.get("composed"):
-                lines.append("Composing the answer from your notes, no model.")
-            elif event.get("answered_by"):
-                lines.append(f"Answering with {event['answered_by']}.")
-            return " ".join(lines)
-        if kind == "tool":
-            self.tools += 1
-            name = event.get("tool") or _no_icon(event.get("label")) or "a tool"
-            if event.get("ok") is False:
-                self.failed += 1
-                return f"{name} did not run: {event.get('error') or 'no reason given'}."
-            return f"Called {name}: {tool_arguments_in_words(event.get('arguments'))}."
-        if kind in ("plan", "step"):
-            return str(event.get("text") or "")
-        if kind == "web_sources":
-            pages = len(event.get("sources") or [])
-            return f"Read {pages} web page{'' if pages == 1 else 's'}."
-        if kind == "answer":
-            delta = str(event.get("delta") or "")
-            first = self.chars == 0 and bool(delta)
-            self.chars += len(delta)
-            if len(self.text) < 20000:
-                self.text += delta
-            return "Writing the answer." if first else ""
-        if kind == "done":
-            return f"Done: {self.summary()}."
-        return ""
+        handler = self._HANDLERS.get(kind) if isinstance(kind, str) else None
+        return handler(self, event) if handler else ""
+
+    def _status_line(self, event: dict) -> str:
+        stage = str(event.get("stage") or "")
+        return "Searching your notes." if stage == "searching" else stage.replace("_", " ").capitalize()
+
+    def _text_line(self, event: dict) -> str:
+        return str(event.get("text") or "")
+
+    def _web_line(self, event: dict) -> str:
+        pages = len(event.get("sources") or [])
+        return f"Read {pages} web page{'' if pages == 1 else 's'}."
+
+    def _done_line(self, event: dict) -> str:
+        return f"Done: {self.summary()}."
+
+    def _found_line(self, event: dict) -> str:
+        found = len(event.get("raw_results") or [])
+        mode = event.get("search_mode") or "search"
+        lines = [f"Found {found} note{'' if found == 1 else 's'} ({mode})."]
+        if event.get("composed"):
+            lines.append("Composing the answer from your notes, no model.")
+        elif event.get("answered_by"):
+            lines.append(f"Answering with {event['answered_by']}.")
+        return " ".join(lines)
+
+    def _tool_line(self, event: dict) -> str:
+        self.tools += 1
+        name = event.get("tool") or _no_icon(event.get("label")) or "a tool"
+        if event.get("ok") is False:
+            self.failed += 1
+            return f"{name} did not run: {event.get('error') or 'no reason given'}."
+        return f"Called {name}: {tool_arguments_in_words(event.get('arguments'))}."
+
+    def _thinking_line(self, event: dict) -> str:
+        first = not self.thought
+        self.thought = True
+        return "Thinking." if first else ""
+
+    def _item_line(self, event: dict) -> str:
+        reason = " ".join(str(event.get("reason") or "").split())[:_ARG_CHARS].rstrip(".")
+        return f"Suggested a change: {reason}." if reason else "Suggested a change."
+
+    def _answer_line(self, event: dict) -> str:
+        #: Chat sends `delta`; the Guide and drafting send `text` (OPEN row 553).
+        delta = str(event.get("delta") or event.get("text") or "")
+        first = self.chars == 0 and bool(delta)
+        self.chars += len(delta)
+        if len(self.text) < 20000:
+            self.text += delta
+        return "Writing the answer." if first else ""
+
+    _HANDLERS = {
+        "status": _status_line,
+        "meta": _found_line,
+        "tool": _tool_line,
+        "plan": _text_line,
+        "step": _text_line,
+        "web_sources": _web_line,
+        "answer": _answer_line,
+        "delta": _answer_line,
+        "thinking": _thinking_line,
+        "item": _item_line,
+        "done": _done_line,
+    }
 
     def summary(self) -> str:
         words = len(self.text.split())
@@ -361,6 +433,9 @@ def snapshot() -> list[dict]:
 
 def clear() -> None:
     """Tests only: the registry is process-global, like `taskhistory`."""
+    from memorymap.core import jobruns
+
     with _lock:
         _jobs.clear()
         _recent.clear()
+    jobruns.clear_live()

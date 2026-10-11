@@ -126,12 +126,42 @@ def _naive(value):  # noqa: ANN001, ANN202
     return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
+def _streak(days: set[int]) -> int:
+    """Consecutive days with a note, counting back from today (or yesterday)."""
+    streak = 0
+    day = 0 if 0 in days else -1
+    while day in days:
+        streak += 1
+        day -= 1
+    return streak
+
+
+def _recent_category(session, live, midnight: datetime) -> str:  # noqa: ANN001
+    """The category written in most of the last fortnight, if it is a real topic."""
+    from sqlalchemy import func, select
+
+    from memorymap.core.database import Category, Entry
+
+    recent = session.execute(
+        select(Category.name, func.count(Entry.id))
+        .join(Entry, Entry.category_id == Category.id)
+        .where(*live, Entry.created_at >= midnight - timedelta(days=13))
+        .group_by(Category.name)
+        .order_by(func.count(Entry.id).desc())
+        .limit(1)
+    ).first()
+    if not (recent and recent[1] >= 3 and str(recent[0]).strip().lower() not in _PLAIN_CATEGORIES):
+        return ""
+    name = str(recent[0]).strip()
+    return name[:1].upper() + name[1:] if len(name.split()) <= 3 else ""
+
+
 def gather(session, now: datetime) -> NotebookFacts:  # noqa: ANN001  # a Session
     """The few numbers `compose` reads, from the notes themselves (drafts and
     boards left out, as the dashboard's count does)."""
     from sqlalchemy import func, select
 
-    from memorymap.core.database import Category, Entry
+    from memorymap.core.database import Entry
 
     live = (Entry.is_deleted == False, Entry.is_draft == False, Entry.is_board == False)  # noqa: E712
     total = session.scalar(select(func.count(Entry.id)).where(*live)) or 0
@@ -147,22 +177,7 @@ def gather(session, now: datetime) -> NotebookFacts:  # noqa: ANN001  # a Sessio
     week = sum(1 for s in stamps if s is not None and s >= midnight - timedelta(days=6))
     last = _naive(session.scalar(select(func.max(Entry.created_at)).where(*live)))
     days_since = None if last is None else max(0, (midnight - last).days + (0 if last >= midnight else 1))
-    streak = 0
-    day = 0 if 0 in days else -1
-    while day in days:
-        streak += 1
-        day -= 1
-    recent = session.execute(
-        select(Category.name, func.count(Entry.id))
-        .join(Entry, Entry.category_id == Category.id)
-        .where(*live, Entry.created_at >= midnight - timedelta(days=13))
-        .group_by(Category.name)
-        .order_by(func.count(Entry.id).desc())
-        .limit(1)
-    ).first()
-    category = ""
-    if recent and recent[1] >= 3 and str(recent[0]).strip().lower() not in _PLAIN_CATEGORIES:
-        name = str(recent[0]).strip()
-        category = name[:1].upper() + name[1:] if len(name.split()) <= 3 else ""
+    streak = _streak(days)
+    category = _recent_category(session, live, midnight)
     return NotebookFacts(total=total, today=today, this_week=week, days_since_last=days_since,
                          streak=streak, recent_category=category)

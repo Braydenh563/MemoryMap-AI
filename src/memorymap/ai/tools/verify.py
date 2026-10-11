@@ -110,6 +110,15 @@ def _mindmap_created(session: Session, args: dict, result: dict) -> str | None:
     return None
 
 
+def _map_from_note_made(session: Session, args: dict, result: dict) -> str | None:
+    if _row(session, Entry, result.get("board_id")) is None:
+        return f"map {result.get('board_id')} was not saved"
+    on = session.scalar(select(func.count()).select_from(WhiteboardObject).where(WhiteboardObject.board_id == result.get("board_id"))) or 0
+    if on != result.get("nodes"):
+        return f"the map holds {on} topics, not the {result.get('nodes')} it reported"
+    return None
+
+
 def _map_node_added(session: Session, args: dict, result: dict) -> str | None:
     node = _row(session, WhiteboardObject, result.get("node_id"))
     if node is None or node.board_id != result.get("board_id"):
@@ -199,6 +208,7 @@ VERIFIERS: dict[str, Verifier] = {
     "link_map_nodes": _link_drawn,
     "generate_diagram": _diagram_placed,
     "create_mindmap": _mindmap_created,
+    "map_from_note": _map_from_note_made,
     "add_map_node": _map_node_added,
     "move_board_item": _item_moved,
     "edit_board_item": _item_present,

@@ -109,3 +109,37 @@ def test_quick_add_by_words_keeps_the_rule_and_the_alert(client):
     assert made.status_code in (200, 201), made.text
     body = made.json()
     assert body["recurring"] == "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO" and body["alert_minutes"] == 60
+
+
+def test_a_monthly_repeat_from_the_31st_goes_back_to_31_when_the_month_allows(client):
+    """Brief 101b: the clamp is per month, not forever. Ticking a reminder
+    off on 31 January lands it on 28 February, then on 31 March, 30 April."""
+    made = client.post("/reminders", json={"text": "Pay rent", "due_at": "2030-01-31T09:00:00Z", "recurring": "monthly"}).json()
+    seen = []
+    for _ in range(4):
+        seen.append(client.post(f"/reminders/{made['id']}/complete").json()["due_at"][:10])
+    assert seen == ["2030-02-28", "2030-03-31", "2030-04-30", "2030-05-31"]
+
+
+def test_editing_the_due_day_moves_the_anchor(client):
+    made = client.post("/reminders", json={"text": "Pay rent", "due_at": "2030-01-31T09:00:00Z", "recurring": "monthly"}).json()
+    first = client.post(f"/reminders/{made['id']}/complete").json()
+    assert first["due_at"][:10] == "2030-02-28"
+    # The person moves it to the 15th: that is the day it keeps from now on.
+    client.put(f"/reminders/{made['id']}", json={"due_at": "2030-03-15T09:00:00Z"})
+    after = client.post(f"/reminders/{made['id']}/complete").json()
+    assert after["due_at"][:10] == "2030-04-15"
+
+
+def test_an_alert_can_be_changed_and_cleared_by_the_edit(client):
+    """The reminder edit form sends `alert_minutes` with every save: a number
+    sets it, 0 clears it, and leaving it out leaves it as it is."""
+    made = client.post("/reminders", json={"text": "Dentist", "due_at": "2030-01-25T12:30:00Z", "alert_minutes": 1440}).json()
+    changed = client.put(f"/reminders/{made['id']}", json={"alert_minutes": 60}).json()
+    assert (changed["alert_minutes"], changed["alert_words"]) == (60, "1 hour before")
+    kept = client.put(f"/reminders/{made['id']}", json={"text": "Dentist at 12"}).json()
+    assert kept["alert_minutes"] == 60
+    cleared = client.put(f"/reminders/{made['id']}", json={"alert_minutes": 0}).json()
+    assert cleared["alert_minutes"] is None and not cleared.get("alert_words")
+    added = client.put(f"/reminders/{made['id']}", json={"alert_minutes": 10080}).json()
+    assert added["alert_minutes"] == 10080

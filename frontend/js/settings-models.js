@@ -277,7 +277,7 @@ function modelMenuItems(model, state) {
       disabled: busy,
       danger: true,
       group: "remove",
-      run: () => (busy ? toast(`${state.installed} is in use for ${state.roles.join(" and ")}. Choose another model there first.`, "info") : modelRemove(state.installed)),
+      run: () => (onOtherDevice() ? toast(THIS_COMPUTER_ONLY, "info") : busy ? toast(`${state.installed} is in use for ${state.roles.join(" and ")}. Choose another model there first.`, "info") : modelRemove(state.installed)),
     });
   }
   return items;
@@ -408,6 +408,7 @@ function buildModelCard(model, state) {
   } else {
     const label = state.kind === "failed" ? "Retry" : "Download";
     primary = smallButton(label, `Download ${model.name} with Ollama`, (event) => modelDownload(model, event.currentTarget), !filled || model.fit === "too_big");
+    primary.dataset.thisComputer = "";
   }
   if (primary) {
     primary.classList.add("model-card-primary");
@@ -576,7 +577,7 @@ function renderSuggested(status) {
       section.open = modelGroupOpen(group.kind, group.shown, status);
       section.addEventListener("toggle", () => {
         try {
-          localStorage.setItem(`modelGroup:${group.kind}`, section.open ? "1" : "0");
+          prefs.set(`modelGroup:${group.kind}`, section.open ? "1" : "0");
         } catch (error) {
           /* the choice just does not persist */
         }
@@ -711,7 +712,7 @@ $("custom-model-name")?.addEventListener("input", () => {
 });
 $("suggested-hide-big")?.addEventListener("change", (event) => {
   try {
-    localStorage.setItem("hideBigModels", event.target.checked ? "1" : "0");
+    prefs.set("hideBigModels", event.target.checked ? "1" : "0");
   } catch (error) {
     /* the choice just does not persist */
   }

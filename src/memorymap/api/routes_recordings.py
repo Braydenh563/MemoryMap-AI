@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse
@@ -23,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import speakers, voice
 from memorymap.api import paging
-from memorymap.core import activity, deps, recordings, transcript
+from memorymap.core import activity, background, deps, recordings, transcript
 from memorymap.core.database import Entry, Recording, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import bin as other_bin
@@ -46,17 +47,20 @@ class RecordingCreate(BaseModel):
     entry_id: int | None = None
     #: A trim's original (row 6): the new object says where it came from.
     source_id: int | None = None
+    #: "trim" or "enhanced" (V3) when made from `source_id`.
+    derived: Literal["", "trim", "enhanced"] = ""
 
 
 class RecordingFinish(BaseModel):
     duration_ms: int = Field(default=0, ge=0, le=24 * 3600 * 1000)
     peaks: list[float] = Field(default_factory=list, max_length=recordings.PEAKS_MAX)
-    markers: list[float] = Field(default_factory=list, max_length=recordings.MARKERS_MAX)
+    markers: list[float | dict] = Field(default_factory=list, max_length=recordings.MARKERS_MAX)
 
 
 class RecordingPatch(BaseModel):
     title: str | None = Field(default=None, max_length=200)
-    markers: list[float] | None = Field(default=None, max_length=recordings.MARKERS_MAX)
+    #: A number, or `{at, note}` for a mark with a comment (Brief 96).
+    markers: list[float | dict] | None = Field(default=None, max_length=recordings.MARKERS_MAX)
     entry_id: int | None = None
 
 
@@ -122,6 +126,7 @@ def create_recording(body: RecordingCreate, session: Session = Depends(get_sessi
         filename=recordings.new_filename(mime),
         entry_id=body.entry_id,
         source_id=body.source_id,
+        derived=body.derived,
         state="recording",
     )
     session.add(row)
@@ -259,6 +264,92 @@ def transcribe_recording(recording_id: int, session: Session = Depends(get_sessi
     return {"text": " ".join(seg["text"] for seg in kept), "segments": kept}
 
 
+@router.post("/recordings/{recording_id}/transcribe/start", status_code=202)
+def start_transcription(recording_id: int, session: Session = Depends(get_session)) -> dict:
+    """The same transcription as a background run (UI_MODERNISATION V1): it
+    returns at once, closing the dialog or the tab never stops it, the row
+    and the running panel show how far it is, and Stop ends it between two
+    segments, keeping nothing. 409 while one is already running."""
+    row = _get(session, recording_id)
+    if not voice.whisper_available():
+        raise HTTPException(status_code=503, detail=voice.INSTALL_HINT)
+    path = recordings.path_of(row)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="That recording's audio is missing.")
+    name = row.title or "a recording"
+    job = activity.start("transcription", f"Transcribing “{name}”", stoppable=True)
+    if not recordings.begin_transcription(row.id, job.id):
+        activity.finish(job)
+        raise HTTPException(status_code=409, detail="That recording is already being transcribed.")
+    work = (row.id, Path(path), row.duration_ms, deps.get_config().get_preference("voice_model", "base"),
+            session.info.get("workspace_id"), job)
+    #: Registered (core/background.py, decision 58); the Stop route ends it between
+    #: two segments, so the registry entry has no stopper of its own.
+    background.start(f"transcribe-{row.id}", lambda: _transcribe_in_background(*work))
+    return {"id": row.id, "job_id": job.id, "transcription": recordings.transcription_of(row.id)}
+
+
+@router.post("/recordings/{recording_id}/transcribe/stop")
+def stop_transcription(recording_id: int, session: Session = Depends(get_session)) -> dict:
+    _get(session, recording_id)
+    run = recordings.transcription_of(recording_id)
+    if not run or run.get("state") != "running":
+        return {"stopped": False, "detail": "Nothing is transcribing that recording."}
+    stopped, detail = activity.stop(run["job_id"])
+    return {"stopped": stopped, "detail": detail}
+
+
+def _transcribe_in_background(
+    recording_id: int, path: Path, duration_ms: int, model_size: str, workspace: str | None, job: activity.Job
+) -> None:
+    kept: list[dict] = []
+    state, error = "done", ""
+    try:
+        for segment in voice.iter_segments(path, model_size=model_size):
+            if job.stopped:
+                state = "stopped"
+                break
+            kept.append(segment)
+            if duration_ms:
+                job.update(done=min(segment["end"], duration_ms), total=duration_ms)
+                recordings.note_progress(recording_id, job.progress)
+            job.update(detail=f"{len(kept)} lines heard")
+        if state == "done" and job.stopped:
+            state = "stopped"
+        if state == "done":
+            _keep_segments(recording_id, kept, workspace)
+    except RuntimeError as exc:
+        state, error = "failed", str(exc)
+    except Exception:  # noqa: BLE001  # a bad clip is a row that says so, never a dead thread
+        logger.warning("background transcription failed", exc_info=True)
+        state, error = "failed", "Couldn't transcribe that recording. Try recording it again."
+    finally:
+        words = sum(len(seg["text"].split()) for seg in kept) if state == "done" else 0
+        if job.run is not None and state == "failed":
+            job.run.fail(error)
+        job.result = {"done": f"{words} words", "stopped": "stopped", "failed": error}[state]
+        activity.finish(job)
+        recordings.end_transcription(recording_id, state, error, words)
+
+
+def _keep_segments(recording_id: int, segments: list[dict], workspace: str | None) -> None:
+    session = deps.get_db().session()
+    if workspace:
+        session.info["workspace_id"] = workspace
+    try:
+        row = session.query(Recording).filter(Recording.id == recording_id).first()
+        if row is None:
+            raise RuntimeError("That recording was deleted while it was transcribed.")
+        kept = transcript.clean(segments)
+        if deps.get_ollama().is_running():
+            kept = _named(session, row, kept)
+        row.segments = transcript.dumps(kept)
+        log_action(session, "transcribed", "recording", row.id)
+        session.commit()
+    finally:
+        session.close()
+
+
 def _people_at(session: Session, row: Recording) -> list[str]:
     """The attendees of the meeting it was recorded into: names the model
     may use, read from the note, never guessed."""
@@ -306,6 +397,28 @@ def name_speakers(recording_id: int, session: Session = Depends(get_session)) ->
     row.segments = transcript.dumps(named)
     session.commit()
     return {"segments": named, "speakers": any(seg["speaker"] for seg in named)}
+
+
+class RenameSpeakerBody(BaseModel):
+    from_name: str = Field(min_length=1, max_length=transcript.MAX_SPEAKER)
+    to_name: str = Field(max_length=transcript.MAX_SPEAKER)
+
+
+@router.put("/recordings/{recording_id}/speakers")
+def rename_speaker(recording_id: int, body: RenameSpeakerBody, session: Session = Depends(get_session)) -> dict:
+    """Rename one speaker everywhere in a transcript (ledger 1514): the model's
+    "Speaker A" becomes "Priya", or a wrong guess is corrected. An empty new
+    name drops the label from those turns. No model needed."""
+    _row, segments = _segments_of(session, recording_id)
+    old = " ".join(body.from_name.split())
+    new = " ".join(body.to_name.split()) or None
+    if not any(seg["speaker"] == old for seg in segments):
+        raise HTTPException(status_code=404, detail="No turn in this transcript has that speaker.")
+    renamed = [{**seg, "speaker": new} if seg["speaker"] == old else seg for seg in segments]
+    _row.segments = transcript.dumps(renamed)
+    log_action(session, "edited", "recording", recording_id, f"speaker {old} renamed")
+    session.commit()
+    return {"segments": transcript.loads(_row.segments), "speakers": any(seg["speaker"] for seg in renamed)}
 
 
 def _subtitles(session: Session, recording_id: int, ext: str) -> Response:

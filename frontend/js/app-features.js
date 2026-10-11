@@ -145,7 +145,7 @@ function featureCatalog() {
     { group: "Plan & focus", items: [
       { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", tab: "reminders" },
       { name: "Magic add", desc: "Type “call mum tomorrow evening” and Atlas schedules it.", reveal: "reminder-magic" },
-      { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", reveal: "widget-focus" },
+      { name: "Focus timer", desc: "A ring timer with 5 to 50 minute lengths, optional breaks, a chime at the end and today's focused minutes.", reveal: "widget-focus" },
       { name: "Digest", desc: "Your day from the notes with no AI, and an AI recap of the week on request.", reveal: "widget-digest" },
       { name: "Tensions", desc: "Find where your notes contradict each other, a decision reversed, a date that moved.", reveal: "tensions" },
       // Resurfacing had shipped on two surfaces (the sort and the widget) and
@@ -197,7 +197,7 @@ function featureCatalog() {
       { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", reveal: "shortcuts" },
       { name: "Help", desc: "How the parts of the app fit together, in the app itself.", reveal: "settings:help" },
       { name: "Updates", desc: "Which version you are on, and whether a newer one is out.", reveal: "set-updates" },
-      { name: "Welcome tour", desc: "Replay the introduction to MemoryMap.", reveal: "onboarding" },
+      { name: "Welcome tour", desc: "Replay the introduction to Tessellate.", reveal: "onboarding" },
     ]},
     //: Each row declares where it goes (`tab`, `reveal` or `act`) and
     //: `catalogueRun` (settings-panes.js) makes the `run` the dialog calls, so every row

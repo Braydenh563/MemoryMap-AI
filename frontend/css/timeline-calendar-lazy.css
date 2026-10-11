@@ -119,6 +119,20 @@
 .timeline-cal-item.is-reminder {
   background: var(--accent-soft);
 }
+/* What was written, as a chip with its title; a reminder and a meeting keep
+   their own looks. Measured to fit by timelineCalFit, hidden past that. */
+.timeline-cal-cell .ghost.small.timeline-cal-item.is-note {
+  background: var(--surface-2);
+}
+.timeline-cal-cell .ghost.small.timeline-cal-item[hidden],
+.timeline-cal-cell .ghost.small.timeline-cal-more[hidden] {
+  display: none;
+}
+/* A note's later date: the same chip, quieter, because the note sits elsewhere. */
+.timeline-cal-cell .ghost.small.timeline-cal-item.is-also {
+  color: var(--muted);
+  background: none;
+}
 .timeline-cal-item.is-done .ph-text {
   text-decoration: line-through;
   color: var(--muted);
@@ -154,6 +168,15 @@
   height: var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--accent);
+}
+/* Chips carry the titles, so the dots show only where a cell is too short
+   for them (timelineCalFit adds .is-dots). */
+.timeline-cal-cell:not(.is-dots) .timeline-cal-dots {
+  display: none;
+}
+.timeline-cal-monthcell,
+.timeline-cal-alldaycell {
+  cursor: pointer;
 }
 .timeline-cal-dotcount {
   font-variant-numeric: tabular-nums;
@@ -213,6 +236,10 @@
 /* The all-day row holds its head (the day page and dots) and two rows. */
 .timeline-cal-alldaycell {
   height: var(--cal-allday);
+}
+/* The day has the room: its all-day row holds the day's written notes. */
+.timeline-cal-weekwrap.is-day .timeline-cal-alldaycell {
+  height: calc(var(--cal-allday) * 1.8);
 }
 .timeline-cal-cell.timeline-cal-hourcell {
   height: var(--cal-hour);

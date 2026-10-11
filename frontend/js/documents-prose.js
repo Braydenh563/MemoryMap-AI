@@ -84,12 +84,12 @@ async function docGrammarWhy() {
   if (typeof WebAssembly !== "object") found.push("this browser has no WebAssembly");
   for (const file of DOC_GRAMMAR_FILES) {
     try {
-      const response = await fetch(file, { cache: "no-store" });
+      //: `api()` throws on a refusal and carries its status, so a 404 here reads as one.
+      const response = await api(file, { cache: "no-store", silent: true });
       const type = (response.headers.get("content-type") || "").split(";")[0].trim();
-      if (!response.ok) found.push(`${file} answered ${response.status}`);
-      else if (!/javascript/i.test(type)) found.push(`${file} came as ${type || "no type"}, not JavaScript`);
+      if (!/javascript/i.test(type)) found.push(`${file} came as ${type || "no type"}, not JavaScript`);
     } catch (error) {
-      found.push(`${file} did not load: ${error && error.message ? error.message : error}`);
+      found.push(error && error.status ? `${file} answered ${error.status}` : `${file} did not load: ${error && error.message ? error.message : error}`);
     }
   }
   return found.join("; ") || "every file it loads answered as JavaScript";
@@ -754,7 +754,7 @@ function setDocSuggestMode(on) {
   if (on) modes[currentDoc.id] = true;
   else delete modes[currentDoc.id];
   try {
-    localStorage.setItem(DOC_SUGGEST_KEY, JSON.stringify(modes));
+    prefs.set(DOC_SUGGEST_KEY, JSON.stringify(modes));
   } catch {
     /* the mode still holds for this session through the checkbox */
   }
@@ -984,9 +984,9 @@ function docSpeakable(text) {
     .replace(/\{--[\s\S]*?--\}/g, "")
     .replace(/\{\+\+|\+\+\}/g, "")
     .replace(/%%[^%\n]*%%/g, "")
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/!\[([^[\]\n]*)\]\([^()\n]*\)/g, "$1")
     .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^[\]\n]*)\]\([^()\n]*\)/g, "$1")
     .replace(/^\s{0,3}(?:#{1,6}|>|[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, "")
     .replace(/\^[A-Za-z0-9-]+$/, "")
     .replace(/<[^>]+>/g, "")
@@ -1323,7 +1323,7 @@ function docFillToc(text, slug) {
   if (!heads.length) return null;
   const top = Math.min(...heads.map(([l]) => l));
   const taken = new Set();
-  const plain = (t) => t.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[`*_~]/g, "");
+  const plain = (t) => t.replace(/\[([^[\]\n]*)\]\([^()\n]*\)/g, "$1").replace(/[`*_~]/g, "");
   const lines = heads.map(([l, t]) => `${"  ".repeat(l - top)}- [${plain(t)}](#${slug(t, taken)})`);
   return `${lines.join("\n")}\n`;
 }

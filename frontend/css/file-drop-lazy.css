@@ -1,0 +1,45 @@
+/* The drop veil (file-drop.js; DESIGN.md "A drop target"): a dashed edge and a
+   tint over the whole window while files are dragged in, with one line saying
+   what a drop does. It takes no press (`pointer-events: none`), so the drag
+   keeps reaching what is under it, and it filters nothing behind it (the
+   glass-off list). */
+.drop-veil {
+  position: fixed;
+  inset: var(--space-3);
+  z-index: 1010;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+}
+
+.drop-veil.hidden {
+  display: none;
+}
+
+.drop-veil-card {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: calc(100% - var(--space-6));
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+  color: var(--ink);
+  font-weight: 600;
+  text-align: center;
+}
+
+.drop-veil {
+  animation: drop-veil-in var(--ui-fast) var(--ease-out);
+}
+
+@keyframes drop-veil-in {
+  from {
+    opacity: 0;
+  }
+}

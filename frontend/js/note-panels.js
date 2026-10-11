@@ -290,10 +290,11 @@ function similarNoteRow(entry, other, onLinked) {
     if (relChip.getAttribute("aria-disabled") === "true") return;
     relChip.setAttribute("aria-disabled", "true");
     try {
-      await apiJson(`/entries/${entry.id}/links`, {
+      const made = await apiJson(`/entries/${entry.id}/links`, {
         method: "POST",
         body: JSON.stringify({ target_id: other.id }),
       });
+      pushLinkCreateUndo(entry.id, other.id, made, { target_id: other.id });
       toast("Linked.");
       wrap.remove();
       onLinked?.();

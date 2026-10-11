@@ -41,7 +41,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from memorymap.core import egress
@@ -53,7 +53,7 @@ logger = logging.getLogger("memorymap.update")
 
 DOWNLOAD_TIMEOUT = 300  # a ~150MB installer on a slow connection, generously
 CHUNK_SIZE = 1 << 16
-GITHUB_REPO_API = "https://api.github.com/repos/Braydenh563/MemoryMap-AI"
+GITHUB_REPO_API = "https://api.github.com/repos/Braydenh563/Tessellate"
 GITHUB_HEADERS = {"Accept": "application/vnd.github+json"}
 ASSET_PREFIX = "MemoryMap-AI-Setup-"
 ASSET_SUFFIX = ".exe"
@@ -128,6 +128,15 @@ def _version_tuple(text: str) -> tuple[int, ...]:
         digits = "".join(ch for ch in piece if ch.isdigit())
         parts.append(int(digits) if digits else 0)
     return tuple(parts) or (0,)
+
+
+def _release_key(text: str) -> tuple:
+    """A sortable key for a release tag: the numbers, then final above any
+    pre-release of the same numbers, then the pre-release's own parts
+    (`beta.2` below `rc.1`, `beta.10` above `beta.9`)."""
+    base, _, pre = str(text).strip().lstrip("vV").partition("-")
+    parts = tuple((0, int(p)) if p.isdigit() else (1, p) for p in pre.split(".") if p)
+    return (_version_tuple(base), 0 if pre else 1, parts)
 
 
 def _windows_asset(release: dict) -> dict | None:
@@ -347,7 +356,7 @@ def _run_apply(download_url: str, asset_name: str) -> None:
         )
         _state.outcome = "launched"
         _state.step = (
-            "Installing in the background. MemoryMap AI closes now and reopens "
+            "Installing in the background. Tessellate closes now and reopens "
             "by itself in a minute or two, on the new version."
         )
         logger.info("update installer launched (%s), exiting to let it run", asset_name)
@@ -412,9 +421,14 @@ class _ChoiceBody(BaseModel):
 
 
 @router.post("/choice")
-def update_choice(body: _ChoiceBody) -> dict:
-    """The app's one-time question, answered (update-dialogs.js)."""
+def update_choice(body: _ChoiceBody, request: Request) -> dict:
+    """The app's one-time question, answered (update-dialogs.js). Yes turns
+    on reaching GitHub and installing what it finds: this computer's call,
+    so another device may only answer no."""
     from memorymap.core import deps
+
+    if body.check:
+        this_computer_only(request)
 
     config = deps.get_config()
     record_update_choice(config, body.check)
@@ -499,10 +513,21 @@ def check_for_update(manual: bool = False) -> dict:
     #: unauthenticated caller, and this check runs on a timer) is the second.
     #: The comment on the old log line knew all three and the reader was told
     #: none of them.
+    #: Opt-in beta (OPEN ledger 302): the recent list instead of `latest`,
+    #: which never holds a pre-release. Off by default.
+    beta = config.get_preference("update_beta", False) is True
     try:
-        response = requests.get(
-            f"{GITHUB_REPO_API}/releases/latest", timeout=4, headers=GITHUB_HEADERS
-        )
+        if beta:
+            response = requests.get(
+                f"{GITHUB_REPO_API}/releases",
+                params={"per_page": 10},
+                timeout=4,
+                headers=GITHUB_HEADERS,
+            )
+        else:
+            response = requests.get(
+                f"{GITHUB_REPO_API}/releases/latest", timeout=4, headers=GITHUB_HEADERS
+            )
     except Exception:
         logger.info("update check could not reach GitHub", exc_info=True)
         return {
@@ -531,6 +556,18 @@ def check_for_update(manual: bool = False) -> dict:
     try:
         response.raise_for_status()
         release = response.json()
+        if beta:
+            listed = [r for r in release if isinstance(r, dict) and not r.get("draft") and r.get("tag_name")]
+            if not listed:
+                return {
+                    "checked": False,
+                    "reason": "no_releases",
+                    "message": (
+                        "No release has been published yet, so there is nothing to "
+                        "update to. You are on the newest version there is."
+                    ),
+                }
+            release = max(listed, key=lambda r: _release_key(r["tag_name"]))
         latest = str(release.get("tag_name") or "").lstrip("vV")
     except Exception:
         logger.info("update check got an answer it could not read", exc_info=True)
@@ -540,7 +577,7 @@ def check_for_update(manual: bool = False) -> dict:
             "message": "GitHub answered with something this couldn't read.",
         }
 
-    update_available = bool(latest) and _version_tuple(latest) > _version_tuple(__version__)
+    update_available = bool(latest) and _release_key(latest) > _release_key(__version__)
     asset = _windows_asset(release) if (update_available and _can_auto_apply()) else None
 
     return {
@@ -548,7 +585,12 @@ def check_for_update(manual: bool = False) -> dict:
         "current": __version__,
         "latest": latest,
         "update_available": update_available,
-        "url": "https://github.com/Braydenh563/MemoryMap-AI/releases/latest",
+        "prerelease": bool(release.get("prerelease")) or "-" in latest,
+        "url": (
+            release.get("html_url")
+            if beta and str(release.get("html_url") or "").startswith("https://github.com/")
+            else "https://github.com/Braydenh563/Tessellate/releases/latest"
+        ),
         "can_auto_apply": asset is not None and bool(asset.get("download_url")),
         "asset": asset,
     }

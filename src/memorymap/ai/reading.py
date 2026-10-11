@@ -28,6 +28,7 @@ from datetime import date, datetime
 
 from memorymap.ai import act_registry
 from memorymap.ai import recognise as rec
+from memorymap.ai.filed_name import filed_listing  # noqa: F401  (re-exported: routes_chat reads it here)
 
 #: The bands of decision 48, highest first: a reading is in the first band
 #: whose floor its confidence reaches. Set 2026-10-10 by the eval
@@ -462,7 +463,9 @@ def _follow_other(raw: str, low: str, turns: list[dict], now: datetime) -> tuple
     for turn in reversed(turns):
         objects = [str(o) for o in turn.get("objects") or []]
         named = _turn_object(turn, now)
-        others = [o for o in objects if not named or o.lower() != named.lower()]
+        #: The chat sends whole titles ("Passport renewal") where the turn
+        #: named a subject ("passport"): a title holding it is the named one.
+        others = [o for o in objects if not named or named.lower() not in o.lower()]
         if len(objects) < 2 or not others:
             continue
         standing = re.sub(r"^(?:and |what about |how about )?" + _OTHER + r"[?.]*$", "", low).strip()

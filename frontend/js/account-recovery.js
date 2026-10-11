@@ -142,7 +142,7 @@ async function submitRecovery() {
     setBusy(button, false);
   }
   closeForgotPassword();
-  localStorage.setItem("token", body.token);
+  prefs.set("token", body.token);
   vaultOpen = true;
   lockedByHand = false;
   $("lock-password").blur();
@@ -178,7 +178,7 @@ async function submitPasswordReset() {
     setBusy(button, false);
   }
   closeForgotPassword();
-  localStorage.removeItem("token");
+  prefs.remove("token");
   vaultOpen = false;
   purgeLockedContent();
   $("lock-btn").classList.add("hidden");
@@ -240,11 +240,11 @@ function wireRecoveryDialog() {
     const key = $("recovery-key-value").textContent;
     if (!key) return;
     const text = [
-      "MemoryMap recovery key",
+      "Tessellate recovery key",
       "",
       key,
       "",
-      `Made ${new Date().toLocaleString()}.`,
+      `Made ${whenText()}.`,
       'If you forget your password, choose "Forgot your password?" on the lock',
       "screen, then \"I have my recovery key\". Your private notes are kept.",
       "",
@@ -288,7 +288,7 @@ async function showRecoveryKey(key, { title = "Your recovery key", lead = RECOVE
 //: Measured before: this dialog drew over the welcome card, 478x172 px.
 async function offerRecoveryKey(password) {
   await ensureModule("onboarding");
-  return firstRunTurn(() => showRecoveryOffer(password));
+  return firstRunTurn(() => showRecoveryOffer(password), "recovery");
 }
 
 async function showRecoveryOffer(password) {
@@ -352,7 +352,7 @@ async function makeRecoveryKey() {
   let key = null;
   const done = await askPasswordPrompt({
     title: replacing ? "Replace your recovery key" : "Make a recovery key",
-    message: "Enter your current password or PIN.",
+    message: "Enter your current password.",
     submitLabel: replacing ? "Replace" : "Make key",
     submit: async (password) => {
       const body = await apiJson("/auth/recovery-key", {

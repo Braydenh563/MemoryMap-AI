@@ -143,7 +143,7 @@ def start(backend: str, model: str) -> tuple[bool, str]:
         with _lock:
             _state.running = False
             _state.outcome = "failed"
-            _state.message = "MemoryMap is shutting down, so nothing was started."
+            _state.message = "Tessellate is shutting down, so nothing was started."
         return False, _state.message
     return True, f"Switching search to {_state.label}. Search keeps working on the old model until it finishes."
 
@@ -243,7 +243,7 @@ def _prepare(target, backend: str, model: str) -> None:  # noqa: ANN001
                 if update.get("total"):
                     _state.total = int(update["total"])
                     _state.done = int(update.get("completed", _state.done))
-    if target.embed_text("MemoryMap") is None:
+    if target.embed_text("Tessellate") is None:
         raise RuntimeError(target.last_error or f"{_state.label} did not answer")
 
 

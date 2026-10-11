@@ -72,8 +72,13 @@ KINDS: dict[str, str] = {
     "caption": "Image captions",
     "model-download": "Model download",
     "embedding-model": "Embedding model download",
+    #: The search model fetched or fixed by the app itself on a load that
+    #: found it missing or broken (INBOX 1289).
+    "embedding-fix": "Search model fix",
     "embed-switch": "Embedding model switch",
     "maintenance": "Housekeeping",
+    #: Notes saved before written-out dates were read (`entry/redate.py`).
+    "redate": "Reading dates in notes",
     "extra": "Package install",
     "searxng": "SearXNG setup",
 }
@@ -197,6 +202,20 @@ def clear_finished() -> None:
 _live: list["Run"] = []
 _live_lock = threading.Lock()
 
+#: The scheduled passes someone pressed Stop on (`core/passes.py` adds and
+#: clears; a pass's own loop reads it between steps). Here, below both, so
+#: `ai/embeddings.py` can read it without importing the module that imports it.
+stop_asked: set[str] = set()
+
+
+def clear_live() -> None:
+    """Tests only: forget the runs in flight. A test that clears the activity
+    registry (`activity.clear`) would otherwise leave each listed job's run
+    here, and `/tasks` in the next test on the worker would list it."""
+    with _live_lock:
+        _live.clear()
+    _bump()
+
 
 def live() -> list[dict]:
     """Every run in flight as a `/tasks`-shaped dict, oldest first."""
@@ -287,6 +306,7 @@ class Run:
         text = _clip(line)
         if text:
             self._log.append((time.time(), text))
+            logger.info("[%s] %s", self.id, text)
             _bump()
 
     def lines(self) -> list[dict]:
@@ -348,6 +368,9 @@ class Run:
             if self not in _live:
                 _live.append(self)
         _bump()
+        #: In the app log under its run id, so Settings, Logs can show this
+        #: run's lines (the Logs button filters on "[run-12]").
+        logger.info("[%s] %s started", self.id, self.title)
         if self._db is None:
             return
         try:
@@ -381,6 +404,8 @@ class Run:
             if self in _live:
                 _live.remove(self)
         self._to_ledger()
+        if not self._skipped and not self._finished:
+            logger.info("[%s] %s %s", self.id, self.title, "failed" if self._status == "failed" else "finished")
         if self._db is None or self._finished:
             return
         self._finished = True

@@ -33,7 +33,7 @@ $("sketch-bg-color-picker").addEventListener("input", (e) => {
   sketchDirty = true; // a background colour is as much a change as a stroke
 });
 $("sketch-bg-color-picker").addEventListener("change", (e) => {
-  localStorage.setItem(SKETCH_BG_KEY, e.target.value);
+  prefs.set(SKETCH_BG_KEY, e.target.value);
 });
 for (const button of document.querySelectorAll(".sketch-color")) {
   button.addEventListener("click", () => {

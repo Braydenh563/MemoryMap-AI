@@ -10,6 +10,13 @@
 // already returned, so the picker appears a moment late on the first use of a
 // session and on time after that.
 
+//: A picture by its name, for the one store (`/media`) that also holds PDFs.
+const NOTE_PICKER_IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i;
+
+// The picker's value for "one that doesn't exist yet". A string, so it can
+// never collide with a document id.
+const NEW_DOCUMENT = "new";
+
 //: **Put this note on a whiteboard or a mind map** (INBOX 246). The note goes
 //: on the board as a card: a `WhiteboardNode` row written from the note's
 //: side, the reference a board already stores, so "Referenced by" reads it
@@ -73,15 +80,17 @@ async function renderAttachToBoard(entry, wrap) {
         const id = Number(picker.value);
         const title = picker.selectedOptions[0]?.dataset.title || "that board";
         try {
-          await apiJson("/whiteboard/nodes", {
+          const card = { entry_id: entry.id, board_id: id, x: 80, y: 80, z: 1 };
+          const made = await apiJson("/whiteboard/nodes", {
             method: "POST",
             //: Placed rather than dropped at the origin: every board already
             //: has something at 0,0 sooner or later, and a card that lands
             //: exactly under another one reads as "nothing happened". This is
             //: the same offset the board's own "add a card" starts from, and
             //: the card is draggable the moment it is there.
-            body: JSON.stringify({ entry_id: entry.id, board_id: id, x: 80, y: 80, z: 1 }),
+            body: JSON.stringify(card),
           });
+          pushMadeUndo(`Put a note on “${title}”`, ["/whiteboard/nodes", "POST", card], made, (node) => `/whiteboard/nodes/${node.id}`, () => refreshEntries([entry.id]));
           inlineAction = null;
           await refreshEntries([entry.id]);
           toastAction(`Put on \u201c${title}\u201d.`, "Open", () => {
@@ -167,6 +176,17 @@ async function renderAttachToDocument(entry, wrap) {
             method: "POST",
             body: JSON.stringify({ entry_id: entry.id }),
           });
+          pushUndo(
+            `Added a note to “${title}”`,
+            async () => {
+              await apiJson(`/documents/${id}/notes/${entry.id}`, { method: "DELETE" });
+              await refreshEntries([entry.id]);
+            },
+            async () => {
+              await apiJson(`/documents/${id}/notes`, { method: "POST", body: JSON.stringify({ entry_id: entry.id }) });
+              await refreshEntries([entry.id]);
+            }
+          );
           inlineAction = null;
           await refreshEntries([entry.id]);
           toastAction(`Added to “${title}”.`, "Open", () =>

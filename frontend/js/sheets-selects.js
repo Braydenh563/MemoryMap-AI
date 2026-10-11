@@ -105,7 +105,7 @@ function applySidebarWidth(aside, width, { remember = true } = {}) {
   // with no way to notice it had happened. Widening the window restores it.
   // `remember: false` is for the re-fit on resize, which is the app
   // reacting rather than the user choosing.
-  if (remember) localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
+  if (remember) prefs.set(`sidebarWidth:${aside.id}`, String(clamped));
   aside.style.setProperty("--saved-width", `${clamped}px`);
 
   if (layoutIsStacked()) {
@@ -364,7 +364,7 @@ function makeSidebarResizable(aside) {
     aside.parentElement.classList.toggle("layout-sidebar-collapsed", folded);
     //: Remembered, like its width (INBOX 432: a reload unfolded it).
     try {
-      localStorage.setItem(`sidebarCollapsed:${aside.id}`, folded ? "1" : "0");
+      prefs.set(`sidebarCollapsed:${aside.id}`, folded ? "1" : "0");
     } catch {
       /* storage blocked: this session only */
     }
@@ -506,7 +506,7 @@ function webPanelMaxWidth(panel) {
 function applyWebPanelWidth(panel, width) {
   const clamped = Math.min(Math.max(Math.round(width), WEB_PANEL_MIN), webPanelMaxWidth(panel));
   try {
-    localStorage.setItem("webPanelWidth", String(clamped));
+    prefs.set("webPanelWidth", String(clamped));
   } catch {
     /* blocked storage: the width holds for this session */
   }
@@ -522,7 +522,7 @@ function applyWebPanelWidth(panel, width) {
 }
 
 function resetWebPanelWidth(panel) {
-  localStorage.removeItem("webPanelWidth");
+  prefs.remove("webPanelWidth");
   panel.style.removeProperty("flex");
   panel.style.removeProperty("width");
 }
@@ -657,6 +657,7 @@ function labelledMenu(label, items, ariaLabel, openerClass = "ghost small") {
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
     if (item.title) button.title = item.title;
+    menuRowFits(button, item.title || "");
     button.addEventListener("click", async (event) => {
       event.stopPropagation();
       closeActionMenus();
@@ -1194,6 +1195,7 @@ function openKebabSheet(menu, opener, label) {
 //: (`label`, `title`, `run`, `danger`), so a row moves between the two shapes
 //: without its caller changing.
 function rowActions(actions, ariaLabel) {
+  actions = actions.filter(Boolean); // an action left out on this device is null
   const wrap = document.createElement("span");
   wrap.className = "entry-actions row-actions";
   const button = (action) => {
@@ -1205,6 +1207,104 @@ function rowActions(actions, ariaLabel) {
   if (actions.length < 3) wrap.append(...actions.map(button));
   else wrap.append(button(actions[0]), kebabMenu(actions.slice(1), ariaLabel));
   return wrap;
+}
+
+//: **Type to filter a long list** (row 1643, WORLD_CLASS_PLAN 22.2: "every
+//: list with more than 20 rows can be filtered by typing"; DESIGN.md's
+//: recipe row). One `.search-field.list-filter` before `list`, shown only
+//: while the list holds more than `threshold` rows, hiding the rows whose
+//: words do not hold what is typed and saying so in one muted row when none
+//: do. Escape in the field clears it before it closes anything. The list's
+//: owner calls `refresh()` after each redraw, so a filter typed survives a
+//: re-render; rows are `rows` (a selector run on the list), by default its
+//: direct `li` children. `inside` puts the field at the head of the list
+//: itself, for a popup that is its own list (the space menu).
+function listFilter(list, { label, threshold = 12, rows = ":scope > li", inside = false } = {}) {
+  if (!list) return null;
+  if (list._listFilter) return list._listFilter;
+  const field = document.createElement("div");
+  field.className = "search-field list-filter hidden";
+  const glyph = document.createElement("i");
+  glyph.className = "ph ph-magnifying-glass search-field-icon";
+  glyph.setAttribute("aria-hidden", "true");
+  const input = document.createElement("input");
+  input.type = "search";
+  input.className = "search-field-input";
+  input.placeholder = label;
+  input.setAttribute("aria-label", label);
+  input.autocomplete = "off";
+  if (list.id) input.setAttribute("aria-controls", list.id);
+  field.append(glyph, input);
+  if (!inside) list.before(field);
+  const empty = document.createElement(list.tagName === "UL" || list.tagName === "OL" ? "li" : "div");
+  empty.className = "muted list-filter-empty hidden";
+  const refresh = () => {
+    if (inside && field.parentElement !== list) list.prepend(field);
+    const all = [...list.querySelectorAll(rows)].filter((row) => row !== empty);
+    field.classList.toggle("hidden", all.length <= threshold && !input.value);
+    const needle = input.value.trim().toLowerCase();
+    let shown = 0;
+    for (const row of all) {
+      const match = !needle || row.textContent.toLowerCase().includes(needle);
+      // The `hidden` attribute, because a list's own row rule (`display:
+      // flex`) outranks a class; `[hidden]` is the one rule that wins. A row
+      // some other code had hidden keeps that state when the filter clears.
+      if (!match && !row.classList.contains("list-filter-miss")) {
+        row.classList.add("list-filter-miss");
+        if (row.hidden) row.dataset.listFilterWasHidden = "1";
+        row.hidden = true;
+      } else if (match && row.classList.contains("list-filter-miss")) {
+        row.classList.remove("list-filter-miss");
+        row.hidden = row.dataset.listFilterWasHidden === "1";
+        delete row.dataset.listFilterWasHidden;
+      }
+      if (match) shown += 1;
+    }
+    empty.textContent = `Nothing here matches "${input.value.trim()}".`;
+    empty.classList.toggle("hidden", !needle || shown > 0);
+    if (empty.parentElement !== list) list.append(empty);
+    else if (empty.nextElementSibling) list.append(empty);
+  };
+  input.addEventListener("input", refresh);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && input.value) {
+      event.preventDefault();
+      event.stopPropagation();
+      input.value = "";
+      refresh();
+    }
+  });
+  list._listFilter = { field, input, refresh };
+  refresh();
+  return list._listFilter;
+}
+
+//: **A menu row's words end inside its padding** (the owner 2026-10-11, in
+//: the mono font: "there's some overflowing text in some places on
+//: different fonts like mono"; the dashboard ⋯'s "Continue: Here are some
+//: refined, non-corny..." ran into the menu's right padding). The words are
+//: always a `.ph-text` span, which 08-consistency.css lets shrink and end in
+//: an ellipsis, and a row whose words are cut carries them whole in its
+//: title, with the row's own hint after them.
+function menuRowFits(row, hint) {
+  if (!row.querySelector(".ph-text") && row.childElementCount === 0 && row.textContent) {
+    const words = document.createElement("span");
+    words.className = "ph-text";
+    words.textContent = row.textContent;
+    row.replaceChildren(words);
+  }
+  const check = () => {
+    const words = row.querySelector(".ph-text");
+    if (!words) return;
+    const cut = words.scrollWidth > words.clientWidth + 1;
+    const said = words.textContent;
+    //: A label the caller already shortened ends in "…": no full stop after it.
+    const join = /[.?!…:]$/.test(said) ? " " : ". ";
+    row.title = cut ? (hint ? `${said}${join}${hint}` : said) : hint;
+    if (!row.title) row.removeAttribute("title");
+  };
+  row.addEventListener("pointerenter", check);
+  row.addEventListener("focus", check);
 }
 
 function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
@@ -1289,6 +1389,7 @@ function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
     if (item.title) button.title = item.title;
+    menuRowFits(button, item.title || "");
     // Muted, not `disabled`, a native disabled button also blocks its own
     // title tooltip on some platforms, which is the one piece of information
     // this state actually needs to deliver (why the button can't do its
@@ -1703,7 +1804,7 @@ async function loadConversationList() {
     setLabel(name, `${conversation.pinned ? "ph:push-pin " : ""}${conversation.title}`);
     const meta = document.createElement("span");
     meta.className = "conv-meta muted";
-    const bits = [relativeTime(conversation.updated_at)];
+    const bits = [relativeTime(conversation.last_at)];
     if (conversation.turns) {
       bits.push(`${conversation.turns} ${conversation.turns === 1 ? "turn" : "turns"}`);
     }
@@ -1763,6 +1864,7 @@ async function loadConversationList() {
           return null;
         });
         if (!named) return;
+        if (named.title !== conversation.title) chatWriteRecord("chatTitleUndo", conversation.id, conversation.title, named.title);
         if (chatConv.id === conversation.id) $("chat-title").textContent = named.title;
         toast(named.ai_named ? `Named “${named.title}”.` : "Kept the first question as the title.");
         //: The AI naming a conversation is activity, not something the user
@@ -1846,6 +1948,8 @@ function editChatAnswer(handles, turnIndex, current) {
       return;
     }
     if (chatConv.id) {
+      const priorAnswer = chatConv.turns[turnIndex]?.answer;
+      const chatId = chatConv.id;
       try {
         await apiJson(`/conversations/${chatConv.id}/turns/${turnIndex}/answer`, {
           method: "PUT",
@@ -1854,6 +1958,16 @@ function editChatAnswer(handles, turnIndex, current) {
       } catch (error) {
         toast(error.message, true);
         return; // leave the editor open rather than losing the edit
+      }
+      if (priorAnswer != null) {
+        pushRequestUndo(
+          "Edited an answer",
+          `/conversations/${chatId}/turns/${turnIndex}/answer`,
+          "PUT",
+          { content: priorAnswer },
+          { content: next },
+          () => (chatConv?.id === chatId ? openConversation(chatId) : null)
+        );
       }
     }
     if (chatConv.turns[turnIndex]) chatConv.turns[turnIndex].answer = next;
@@ -2101,6 +2215,7 @@ async function openConversation(id) {
     renderChatEmptyState();
   }
   if (lastQuestionText) lastChatQuestion = lastQuestionText;
+  lazyScript("/js/chat-time.js").then(() => stampChatTimes(full.messages));
   loadConversationList();
   //: Where it was left, not always its end (Placed 2026-09-09 item 99 (b)).
   if (isStreamingConversation(full.id)) chatScrollToEnd();

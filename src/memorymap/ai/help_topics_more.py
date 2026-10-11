@@ -38,11 +38,19 @@ MORE_TOPICS: list[dict] = [
             "You, The chat's persona, Atlas, or Your own character (a name and "
             "parts of its own). Companion size is Small, Medium or Large, or "
             "drag the handle at its corner (double-click or double-tap the handle "
-            "for Medium again). Drag it onto a panel and that page "
-            "keeps it there. Move the pointer back and forth over it to rub it "
+            "for Medium again); the size is marked On this device, so a phone "
+            "keeps its own. Drag it onto a panel and that page "
+            "keeps it there on this device; throw it (let go while moving fast) and it flies, "
+            "bounces off the window's edges and stays where it lands. Move the pointer back and forth over it to rub it "
             "and it leans into your hand; shake it up and down while you carry "
             "it and it turns upside down, then lands a little dizzy (each has a "
-            "switch in Appearance, under What it does on its own). Right-click it, or press Shift+F10 on it, for its "
+            "switch in Appearance, under What it does on its own). When it has "
+            "something on (headphones while a sound plays, a bell for a "
+            "reminder, a moon on its ear as it rests), rest the pointer on it and its "
+            "tooltip says what and why. Its large view (double-click it) has a "
+            "row of things to ask of it: wave, cheer, hop, stretch, shrug or "
+            "wiggle, and Atlas also juggles stars, reads its map and "
+            "meditates. Right-click it, or press Shift+F10 on it, for its "
             "menu: Say hello, Enlarge, Stay here on every page, Let it choose "
             "its spot here, a size, Call back and reset its place, and Hide. "
             "Ctrl+Shift+Y shows or hides it from anywhere, and the command "
@@ -69,8 +77,9 @@ MORE_TOPICS: list[dict] = [
             "it is used everywhere Atlas appears, the dashboard mark and the "
             "chat's replies included. Assistant avatar, in the same place, swaps "
             "the face on the assistant's chat replies, the popup agent and the "
-            "guide between Atlas and the app's animated emblem (it stays still "
-            "under Reduce motion); other personas keep their own faces. "
+            "guide between Atlas and the app's animated emblem (it holds still "
+            "under Reduce motion or with Interface animations off); other "
+            "personas keep their own faces. "
             "Atlas's face follows the app's mood: "
             "thinking while an answer runs, happy when it lands, worried at an "
             "error, sleepy late at night. Enlarge, in the companion's menu or "
@@ -130,7 +139,8 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Settings, Tools it can use also has Use these tools from another "
             "app: a snippet to paste into an MCP client such as Claude Desktop, "
-            "with a Copy button. "
+            "with a Copy button; that client can also read your notes (never "
+            "a private one) and use your skills as prompts. "
             "A number Atlas would work out (a sum, a percentage, a conversion, a "
             "count of days) comes from the app's own calculator, Calculate, and a "
             "date in your words from Read text, so a small model computes "
@@ -239,39 +249,37 @@ MORE_TOPICS: list[dict] = [
             "embedding models", "multilingual search", "change embedding model",
             "pull a model", "pull a model by name", "found on this computer",
             "uninstall embedding model", "reinstall embedding model", "cached models",
+            "files missing", "model files incomplete",
             "rebuild search index", "search index", "search is wrong",
             "too many results", "too few results", "search feels too strict",
             "install search by meaning automatically", "dont install", "refuse install",
             "cancel install", "sentence-transformers", "2 gb download",
         ),
         "body": (
-            "Settings, Search and index. Search engine: the built-in one "
-            "(recommended, about 650 MB of memory while the app is open) or an "
-            "Ollama embedding model such as nomic-embed-text. The built-in one "
-            "needs the sentence-transformers package (about 2 GB with PyTorch), "
-            "which MemoryMap installs in the background the first time it is "
-            "needed, with a notice that says so and a Don't install button; "
-            "the switch Install search by meaning automatically turns that "
-            "off, and search then uses keywords until you press Install in "
-            "Settings, Packages. Changing the engine "
-            "re-reads every note in the background (Background tasks shows it, "
-            "with Stop) and search keeps using the current model until the new "
-            "one has read every note. Embedding models lists the choices, from "
-            "MiniLM (smallest, fastest) and BGE Small (the default) to "
-            "multilingual ones (Multilingual E5, BGE M3, Qwen3), with each "
-            "one's size, languages, context and licence: Use switches in one "
-            "press, and a model under other terms (EmbeddingGemma) links to "
-            "them instead; each row's ⋮ has Use, Install or Reinstall, and "
-            "Uninstall (refused on the model in use). Found on this computer "
-            "lists embedding models already here (the Hugging Face cache, "
-            "Ollama, LM Studio), with Use where MemoryMap can load them and "
-            "why not where it cannot. Pull a model by name takes a Hugging Face "
-            "repo (owner/name) or an Ollama name and checks it online only when "
-            "you press Pull. Search index: Rebuild search index after an "
-            "update or a restore, or if search stops finding notes you know "
-            "are there. Search relevance: Minimum similarity and Above-average "
-            "margin; raise them for fewer, surer results, lower them if search "
-            "feels too strict, and Reset to default undoes both."
+            (
+                "Settings, Search and index. Search engine: the built-in one (recommended, about 650 MB "
+                "of memory while the app is open) or an Ollama embedding model such as nomic-embed-text. "
+                "The built-in one needs the sentence-transformers package (about 2 GB with PyTorch), "
+                "which Tessellate installs in the background the first time it is needed, with a notice "
+                "that says so and a Don't install button; the switch Install search by meaning "
+                "automatically turns that off, and search then uses keywords until you press Install in "
+                "Settings, Packages. Changing the engine re-reads every note in the background "
+                "(Background tasks shows it, with Stop) and search keeps using the current model until "
+                "the new one has read every note. Embedding models lists the choices, from MiniLM "
+                "(smallest, fastest) and BGE Small (the default) to multilingual ones (Multilingual E5, "
+                "BGE M3, Qwen3), with each one's size, languages, context and licence, and its state "
+                "(Downloaded with its size on disk, Not downloaded, or Files missing, with Reinstall; "
+                "Settings, Packages points here): Use switches in one press, and a model under other "
+                "terms (EmbeddingGemma) links to them instead; each row's ⋮ has Use, Install or "
+                "Reinstall, and Uninstall (refused on the model in use). Found on this computer lists "
+                "embedding models already here (the Hugging Face cache, Ollama, LM Studio), with Use "
+                "where Tessellate can load them and why not where it cannot. Pull a model by name takes a"
+                " Hugging Face repo (owner/name) or an Ollama name and checks it online only when you "
+                "press Pull. Search index: Rebuild search index after an update or a restore, or if "
+                "search stops finding notes you know are there. Search relevance: Minimum similarity and "
+                "Above-average margin; raise them for fewer, surer results, lower them if search feels "
+                "too strict, and Reset to default undoes both."
+            )
         ),
         "badge": {"label": "Search and index", "section": "searchindex"},
     },
@@ -302,11 +310,11 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "background tasks", "running now", "what is it doing", "job", "jobs",
             "battery", "battery-efficient", "save power", "quit the app",
-            "quit memorymap", "stop the server", "close the app properly",
+            "quit tessellate", "quit memorymap", "stop the server", "close the app properly",
             "last run", "last ran", "background jobs", "job history", "did it run",
             "run now", "night shift", "stop a job", "cancel a job", "scheduled pass",
-            "what ran overnight", "when did i last back up",
             "process log", "what did it do", "who started it",
+            "what ran overnight", "when did i last back up",
         ),
         "body": (
             "Settings, Background tasks shows what the app is doing right now "
@@ -329,7 +337,7 @@ MORE_TOPICS: list[dict] = [
             "records, with times. Autonomous background AI is here "
             "too. Battery-efficient "
             "mode pauses background AI, heavy graph work and the moving "
-            "artwork. Quit MemoryMap stops the app and its server properly, so "
+            "artwork. Quit Tessellate stops the app and its server properly, so "
             "the next start finds its port free."
         ),
         "badge": {"label": "Background tasks", "section": "tasks"},
@@ -343,7 +351,7 @@ MORE_TOPICS: list[dict] = [
         ),
         "body": (
             "Settings, About, Health says how the notebook is, each line dated: "
-            "the last backup and when it was taken, the data folder's size, what "
+            "the last backup and when it was taken, the data folder's size, Files on disk (a bar of the notebook, attached files, pictures, backups and optional features), what "
             "is running now, the last error in the log, and Integrity, whose "
             "Check now has the database check itself and counts the search index "
             "beside your notes. The palette's Health goes straight there. The "
@@ -352,6 +360,33 @@ MORE_TOPICS: list[dict] = [
             "Settings, Import & export."
         ),
         "badge": {"label": "About", "section": "about"},
+    },
+    {
+        "id": "maintenance",
+        "keywords": (
+            "maintenance", "check this computer", "doctor", "doctor.sh", "doctor.bat", "start --doctor",
+            "reinstall", "reinstall on next start", "rebuild", "venv", "reinstall.sh", "tools.sh",
+            "launcher logs", "open the launcher logs", "desktop shortcut", "make a desktop shortcut",
+            "uninstall", "remove the app", "how do i uninstall",
+        ),
+        "body": (
+            "Settings, About, Maintenance runs the launcher's own actions from "
+            "the app. Check this computer runs the checks doctor.sh and "
+            "doctor.bat print (Python, free disk, the port, the model server, "
+            "the notes folder, the last launch) plus the search model and other "
+            "devices, each row with a tick, a warning or a cross and what to do. "
+            "Reinstall on next start rebuilds the app's Python environment the "
+            "next time start.sh or start.bat opens the app, the same as "
+            "reinstall.sh; your notes, settings and models are not touched, and "
+            "Cancel takes it back. A copy from the installer has no environment "
+            "to rebuild: its Repair shortcut is the way. Open the launcher logs "
+            "opens the folder the launcher writes to, and Make a desktop "
+            "shortcut makes the one start --shortcut makes. Uninstall… never "
+            "removes anything itself: it shows the steps and the command for "
+            "this computer with Copy, and Export my notes first. These work "
+            "only on the computer the app runs on; on a phone they are off."
+        ),
+        "badge": {"label": "About", "section": "about", "target": "maintenance-group"},
     },
     {
         "id": "activity",
@@ -382,7 +417,7 @@ MORE_TOPICS: list[dict] = [
             "bundle", "bundles", "reinstall", "uninstall", "install several",
         ),
         "body": (
-            "Settings, Packages lists what MemoryMap can do with one more "
+            "Settings, Packages lists what Tessellate can do with one more "
             "package installed: nothing there is needed to write, search, tag "
             "or organise notes, each one switches on a feature that is "
             "otherwise off, downloaded from PyPI to this machine. Bundles "
@@ -396,7 +431,10 @@ MORE_TOPICS: list[dict] = [
             "(for a feature that is on but not working) and Remove, and its "
             "row shows its version and size on disk. What pip is "
             "doing shows an install as it runs. Dictation model size runs from "
-            "Tiny (fastest) to Medium (most accurate). Embedding models lists "
+            "Tiny (fastest) to Medium (most accurate). Skip silence before "
+            "transcribing (on) stops Whisper writing words into the quiet around "
+            "a clip; Dictation language skips the guess; Words to expect lists "
+            "names and terms it should spell your way. Embedding models lists "
             "the built-in models on this machine, each downloaded once and kept; "
             "which one search uses is chosen in Settings, Search and index."
         ),
@@ -425,7 +463,10 @@ MORE_TOPICS: list[dict] = [
             "Library, Documents, the more menu, Import a file as a document. "
             "Backups: Back up now, and how many to keep; one is also taken "
             "each day the app starts, and restoring snapshots first, so even a "
-            "restore can be undone. Each backup row says when in words, marks "
+            "restore can be undone. A line above the list gives the schedule, when "
+            "it last ran and whether that worked, and when the next is due; in the "
+            "desktop app, Also copy each backup to sends a second copy to a folder "
+            "you choose, such as an external drive. Each backup row says when in words, marks "
             "the newest Latest, and says what made it (the daily backup, Back "
             "up now, before an update or a restore), its size and whether it "
             "was checked. App cache, at the bottom: Clear app cache "
@@ -444,14 +485,16 @@ MORE_TOPICS: list[dict] = [
             "A setting changed from its default shows a bar at its left edge and "
             "a reset button at the end of its row, which puts that one setting "
             "back; Reset N changes, in the section's title bar, puts back every "
-            "changed setting in that section. Performance mode, marked This "
-            "browser, is kept only in the browser you set it in; the rest, your "
-            "look included, are kept in your notebook and follow you to every "
+            "changed setting in that section. Performance mode, Text size, "
+            "Density, Zoom and the companion's size, marked On this device, are "
+            "kept only on the device you set them on (a phone and a computer "
+            "each have their own zoom); the rest, your colours and fonts "
+            "included, are kept in your notebook and follow you to every "
             "browser you sign in from. Settings, "
             "Import & export, Your settings: Export settings saves every setting "
             "as one .json file (no notes in it); Import settings reads one back, "
-            "applies each setting it can, says which it skipped and why, and "
-            "offers Undo."
+            "applies each setting it can, adds its skills, personas and templates "
+            "to yours by name, says which it skipped and why, and offers Undo."
         ),
         "badge": {"label": "Import & export", "section": "data"},
     },
@@ -480,7 +523,9 @@ MORE_TOPICS: list[dict] = [
             "Find anything (Ctrl+P, or the magnifying glass in the status bar) searches notes, "
             "files, documents, chats and actions in one box as you type: Enter opens "
             "the top result, the arrows move, Esc closes, and the star keeps the "
-            "search as a row under Saved searches in the Notes sidebar. Its '?' lists "
+            "search as a row under Saved searches in the Notes sidebar. Sort has Best "
+            "match, Group by category (a note under its category, the rest under "
+            "their kind), Newest first and Oldest first. Its '?' lists "
             "the operators. It lists the command "
             "palette's actions too, so \"dark\" finds Toggle light/dark, after the "
             "notes and files. The command palette (Ctrl+K) sends what you type "
@@ -495,14 +540,17 @@ MORE_TOPICS: list[dict] = [
         "id": "background-art",
         "keywords": (
             "animated background", "background animation", "moving background",
-            "wallpaper", "background style", "constellation",
+            "wallpaper", "background style", "constellation", "fireflies",
+            "rain background", "lightest background", "background cost",
         ),
         "body": (
-            "Settings, Appearance, Animated background: Style picks the art, "
-            "Movement how much it moves and Intensity how strong it is. Page "
-            "background in Theme & colour sets the colour under it. Performance "
-            "mode and Battery-efficient mode both stop it, and so does Reduce "
-            "motion."
+            "Settings, Appearance, Animated background: Style is a card per "
+            "art, lightest first, each with a preview and its cost, Light, "
+            "Medium or Heavy, from what one frame takes; picking a card turns "
+            "the background on. Movement sets how much it moves and Intensity "
+            "how strong it is. Page background in Theme & colour sets the "
+            "colour under it. Performance mode and Battery-efficient mode both "
+            "stop it, and so does Reduce motion."
         ),
         "badge": {"label": "Animated background", "section": "appearance", "target": "bg-style-row"},
     },
@@ -514,11 +562,17 @@ MORE_TOPICS: list[dict] = [
             "build a scheme", "border style", "shadow", "interface animations",
         ),
         "body": (
-            "Settings, Appearance. Themes: save and switch your own. Theme & "
+            "Settings, Appearance. Themes: hover a theme to see it on the whole app, "
+            "press Surprise me for a random one, save and switch your own. Theme & "
             "colour: Palette, Mode (light, dark or system), Accent colour or a "
-            "custom one, Page background, and Build a scheme from one colour. "
-            "Typography & layout: Text size, Font, Density, Corner rounding, "
-            "Zoom, Border style and Shadow intensity. Effects & accessibility: "
+            "custom one (a colour a button's words cannot be read on is "
+            "offered at the nearest shade that can), Page background, and "
+            "Build a scheme from one colour. "
+            "Typography & layout: Text size, Font (System, Serif, Mono, Arial, "
+            "or Readable, the Atkinson Hyperlegible face), Density, Corner rounding, "
+            "Zoom, Border style and Shadow intensity (Text size, Density and Zoom "
+            "are marked On this device: a phone and a computer each keep their "
+            "own, while colours and fonts follow you). Effects & accessibility: "
             "Performance mode, the glass's sheen, blur and opacity, Progress "
             "indicators, Reduce motion (stills Atlas, the background art, the "
             "graph and the whiteboard) and Interface animations (on by default: "
@@ -533,18 +587,18 @@ MORE_TOPICS: list[dict] = [
         "id": "tabs-overview",
         "keywords": (
             "tabs", "what tabs", "overview", "getting started", "where do i start",
-            "what is memorymap", "what does this app do", "tour of the app",
+            "what is tessellate", "what is memorymap", "what does this app do", "tour of the app",
             "parts of the app",
         ),
         "body": (
-            "MemoryMap has seven tabs along the top. Dashboard: your day at a "
+            "Tessellate has seven tabs along the top. Dashboard: your day at a "
             "glance and quick actions. Notes: capture and your notes list. "
             "Chat: ask and let the agent act on your notes. Graph: how notes "
             "connect. Library: documents, whiteboards, mind maps, files and "
             "everything else in one place. Timeline: everything by date. "
             "Reminders: what is due. Settings (the gear, or Ctrl+,) holds the "
             "rest, and Atlas the guide (this chat) answers how-to questions "
-            "from any tab. Press m then a letter to jump between tabs, and "
+            "from any tab. Press m then a letter to jump between tabs (o opens the OCR workspace), and "
             "Settings, Help starts the guided tour."
         ),
         "badge": {"label": "Help", "section": "help"},
@@ -553,7 +607,8 @@ MORE_TOPICS: list[dict] = [
         "id": "settings-overview",
         "keywords": (
             "settings", "where are the settings", "open settings", "find a setting",
-            "search settings", "preferences",
+            "search settings", "preferences", "cant remember what its called",
+            "find by meaning",
         ),
         "body": (
             "Settings opens from the gear in the top bar or Ctrl+,. Its sections "
@@ -565,8 +620,12 @@ MORE_TOPICS: list[dict] = [
             "Logs) and Help and About. The search box at the top of the list "
             "finds a setting by any word in it or by what it does, with words "
             "that mean the same (\"night\" or \"darker\" finds the theme, "
-            "\"battery\" the battery-efficient mode, \"back up\" Backups), and "
-            "lists the matching settings under it, each opening where it sits. A long section lists its "
+            "\"battery\" the battery-efficient mode, \"back up\" Backups, "
+            "\"the little guy in the corner\" the companion, and a slip such as "
+            "\"chnage pasword\" the password), and "
+            "lists the matching settings under it, each opening where it sits; with "
+            "an embedding model on (Settings, Search and index), up to three more found by "
+            "meaning follow under Close in meaning. A long section lists its "
             "groups under its own name in that list: press one to go to it, and "
             "the one you are reading is marked as you scroll. On a phone the "
             "section picker holds the same groups under the section you are in."
@@ -585,10 +644,14 @@ MORE_TOPICS: list[dict] = [
             "Settings, Account & security. Signing in: ask for a password when "
             "the app opens (private notes and other devices always ask). Other "
             "devices: let a phone or computer on your network open the app, "
-            "always with your password, over https on port 8443. The first "
+            "always with your password, over https on port 8443, and only on "
+            "networks you trusted (the wifi icon in the status bar, Alt+L). "
+            "Ask before a new device signs in holds one until you Allow; "
+            "Allowed devices have Remove. Loosening "
+            "needs your password. The first "
             "visit warns that the certificate is not trusted: compare its "
             "SHA-256 fingerprint with the one under the switch before you "
-            "continue, and Regenerate certificate makes a new one. Under the fingerprint are the names the certificate carries and when it expires; Trust this certificate on your phone downloads it, and its ? says how to install it on iPhone and Android. If this computer's address changes, the app makes a new certificate at the next start. Change your password or PIN (private "
+            "continue, and Regenerate certificate makes a new one. Under the fingerprint are the names the certificate carries and when it expires; Trust this certificate on your phone downloads it, and its ? says how to install it on iPhone and Android. If this computer's address changes, the app makes a new certificate straight away. Change your password (private "
             "notes move across; a new one needs at least 8 characters, and an "
             "easy one gets a warning). Re-encrypt private notes (Settings, Account & security) makes "
             "a new encryption key and moves every private note onto it, so an old "
@@ -653,15 +716,15 @@ MORE_TOPICS: list[dict] = [
     {
         "id": "web-clipper-bookmark",
         "keywords": (
-            "bookmarklet", "clip to memorymap", "clip a page from my browser", "browser extension",
+            "bookmarklet", "clip to tessellate", "clip to memorymap", "clip a page from my browser", "browser extension",
             "save this page", "clipper bookmark", "keep a web page", "clip a web page",
             "from my browser", "clip from the browser",
         ),
         "body": (
             "Settings, Import & export, Web clipper has a bookmark called Clip to "
-            "MemoryMap. Drag it to your browser's bookmarks bar (or press Copy the "
+            "Tessellate. Drag it to your browser's bookmarks bar (or press Copy the "
             "bookmark and make a bookmark with it as the address). On any page, "
-            "press it: a small MemoryMap window opens beside the page with its "
+            "press it: a small Tessellate window opens beside the page with its "
             "title and address, and Save as a note keeps the page's main text, or "
             "only the text you had selected. Your own browser sends the page, so "
             "nothing is fetched from the web: it works with web search off and on "
@@ -685,7 +748,7 @@ MORE_TOPICS: list[dict] = [
             "From Obsidian (choose the vault folder), From Evernote (choose the "
             ".enex files you exported), From Apple Notes (choose the folder an "
             "exporter app wrote, one HTML, Markdown or text file per note) and "
-            "From a MemoryMap folder (the zip Export notebook folder writes, every "
+            "From a Tessellate folder (the zip Export notebook folder writes, every "
             "field back as it was). "
             "Choosing starts the import and the toast's Undo moves exactly those "
             "notes to the recycle bin. Folders and notebooks become categories, "
@@ -769,14 +832,18 @@ MORE_TOPICS: list[dict] = [
             "stop the timer", "time how long",
         ),
         "body": (
-            "Type timer in the command palette (Ctrl+K) for Start a timer (25 "
+            "Type timer in the command palette (Ctrl+K; its ? at the foot lists "
+            "the timer, the stopwatch and Count words) for Start a timer (25 "
             "minutes) and Start a stopwatch, or type a length, such as timer 10 "
             "minutes, 90s timer or countdown 2h, and press Enter. The time runs "
             "on the status bar (on a phone the bar comes back while it runs); "
             "press that timer chip in the status bar to stop it. When a timer "
             "runs out it says so in a message and a notification. The "
-            "Dashboard's Focus timer widget is a separate timer with its own "
-            "Start and Reset."
+            "Dashboard's Focus timer widget is a separate timer: a ring with "
+            "the time, lengths of 5, 15, 25 or 50 minutes (or minus and plus "
+            "for any other), one Start that becomes Pause, a chime and a "
+            "notification at the end, Breaks for a five-minute break after "
+            "each session, and the minutes focused today."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -812,7 +879,9 @@ MORE_TOPICS: list[dict] = [
             "The manual is every topic Atlas answers from, on one page: Settings, "
             "Help, Open the manual, or Open the manual in the Guide's ... menu. "
             "The contents on the left jump to a group, the search box keeps only "
-            "the topics that hold every word you type, and the printer button "
+            "the topics that hold every word you type or what the words mean "
+            "(\"trash\" keeps the bin's topic), those whose name holds them "
+            "first, and the printer button "
             "prints what is shown (or saves it as a PDF). It is made from the "
             "Guide's own topics, so the two never disagree. What changed in each "
             "version is under Settings, About, What's new."
@@ -824,16 +893,27 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "live captions", "captions", "subtitles", "live transcription", "transcribe live",
             "write what i say", "speech to text live", "stop the captions",
+            "how do i get live captions", "where are live captions", "open live captions",
         ),
         "body": (
-            "Type captions in the command palette (Ctrl+K) for Live captions: a "
-            "bar appears over whatever you are looking at and writes what the "
-            "microphone hears, on this computer, never over the internet. The "
-            "bottom line is still being written; the three above it are done. "
-            "Copy takes everything said so far, and Stop (or the palette row "
-            "again) saves it as a note tagged captions. Captions need a local "
-            "speech helper; its row in Settings, Packages says what is "
-            "missing, and without one the row says so and nothing is recorded."
+            "Press Captions in Library, Recordings, or Live captions in a Voice "
+            "note before you record; it is also in Tools and features, Audio, "
+            "and in the command palette (Ctrl+K, type captions); Edit quick access "
+            "can add it to the Dashboard as a tile. A bar appears "
+            "over whatever you are looking at and writes what the microphone "
+            "hears, on this computer, never over the internet. The bottom line "
+            "is still being written; the three above it are done. Copy takes "
+            "everything said so far, and Stop (or the palette row again) saves "
+            "it as a note tagged captions. Translate, once the offline translator is "
+            "installed (Settings, Packages), writes each finished line in Spanish "
+            "under the captions; the note keeps what was said. Keep the audio of live "
+            "captions (Settings, General, Microphone, off until you turn it on) makes Stop "
+            "save the audio too, in Library, Recordings, with the lines as its transcript. "
+            "While a voice note records, the same "
+            "captions write its words into the dialog as you speak, and the "
+            "full transcript replaces them after. Captions need a local speech "
+            "helper; its row in Settings, Packages says what is missing, and "
+            "without one the row says so and nothing is recorded."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -900,8 +980,8 @@ MORE_TOPICS: list[dict] = [
             "settings: on Windows a desktop shortcut with it as the target and a "
             "Shortcut key, on macOS a Shortcuts action, on Linux a custom keyboard "
             "shortcut. Pressing the key over any app opens a one-line box on the "
-            "MemoryMap that is already running; Enter saves the note, filed like "
-            "any other, and the box closes. On a phone, Share to MemoryMap does "
+            "Tessellate that is already running; Enter saves the note, filed like "
+            "any other, and the box closes. On a phone, Share to Tessellate does "
             "the same."
         ),
         "badge": {"label": "Capture from anywhere", "section": "shortcuts", "target": "capture-anywhere-box"},
@@ -911,18 +991,18 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "install", "install the app", "install as an app", "add to home screen",
             "home screen", "pwa", "own window", "app icon", "share sheet",
-            "share to memorymap", "not running on this computer", "offline page",
+            "share to tessellate", "share to memorymap", "not running on this computer", "offline page",
         ),
         "body": (
-            "Settings, About, Install as an app gives MemoryMap its own window "
+            "Settings, About, Install as an app gives Tessellate its own window "
             "and icon, and adds it to your phone's share sheet, so a page or a "
             "selection shared to it lands in Capture. The button appears only "
             "when your browser offers the install and the app is not installed "
             "yet; on an iPhone, tap Share, then Add to Home Screen. It is the "
             "same app, still served by the copy running on this computer. When "
             "that copy is not running, the installed app shows a page saying "
-            "MemoryMap is not running on this computer, with a Retry button, "
-            "never an empty notebook: open MemoryMap from the Start menu or "
+            "Tessellate is not running on this computer, with a Retry button, "
+            "never an empty notebook: open Tessellate from the Start menu or "
             "the launcher, then press Retry."
         ),
         "badge": {"label": "Install as an app", "section": "about", "target": "about-install"},
@@ -969,17 +1049,18 @@ MORE_TOPICS.extend(
             "id": "editor-offers",
             "keywords": (
                 "offers under the note", "offers while i write", "remind me from a note",
-                "sum checked", "check my sums", "wrong sum", "link suggestion", "suggest a link",
+                "sum checked", "check my sums", "wrong sum", "wrong total", "check the total", "link suggestion", "suggest a link",
                 "filing suggestion", "why this category", "chips under the note",
             ),
             "body": (
                 "While you write a note (Capture, or a note's Edit form), offers show as "
                 "chips under the box when you pause: a day in the text becomes Remind me "
                 "(press it to set the reminder, with Undo), a sum written with a wrong "
-                "answer shows the right one (press it to put it in), a name another note "
+                "answer shows the right one (press it to put it in), and so does a Total: "
+                "line under a column of amounts that does not add up; a name another note "
                 "opens with becomes a [[link]], and File in names the category with its "
                 "reason beside it. Nothing is offered on quoted words: text in quotation "
-                "marks, a code span or a quote line. At most five show at once. It all "
+                "marks, a code span or block, or a quote line. At most five show at once. It all "
                 "works with no AI model."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
@@ -1016,7 +1097,7 @@ MORE_TOPICS.extend(
                 "save while offline", "saved offline", "connection lost", "try now",
             ),
             "body": (
-                "A note saved while the MemoryMap server is not answering (from "
+                "A note saved while the Tessellate server is not answering (from "
                 "Capture, Save as draft, Quick note or the dashboard's Quick "
                 "capture) is kept on this device rather than lost, and is sent by "
                 "itself when the server is back. It sits at the top of the notes "
@@ -1086,7 +1167,9 @@ MORE_TOPICS.extend(
                 "hand teaches the filing where things go. In Settings, Background tasks, Load "
                 "the search model when the app starts chooses when filing by "
                 "meaning gets ready: at launch, or on the first note, which then "
-                "waits a few seconds. Filing style (Settings, Background tasks) files by topic, "
+                "waits a few seconds. Let the search model go after an idle hour "
+                "frees its memory when nothing has been searched or filed for an "
+                "hour; the next search loads it again. Filing style (Settings, Background tasks) files by topic, "
                 "by project or by time. Filings Atlas was unsure of wait in "
                 "is:review, with Accept the filing on the note's menu."
             ),
@@ -1096,7 +1179,7 @@ MORE_TOPICS.extend(
             "id": "suggested-tags",
             "keywords": (
                 "suggested tag", "suggested tags", "plus tag", "plus tags", "+ tag",
-                "tag suggestion", "stop suggesting", "dismiss a tag", "tag with atlas",
+                "tag suggestion", "stop suggesting", "don't suggest tags", "dont suggest tags", "add tag chip", "dismiss a tag", "tag with atlas",
                 "why is this tag suggested", "why this tag", "turned down", "offer again",
             ),
             "body": (
@@ -1111,7 +1194,12 @@ MORE_TOPICS.extend(
                 "only when the note has a word for it, at most three, and "
                 "pointing at one says which word. A tag turned down on three notes is offered "
                 "less everywhere; Manage tags lists it under Turned down, with Offer again. "
-                "Tag and file with Atlas and Capture, while you type, suggest the same way."
+                "Tag and file with Atlas and Capture, while you type, suggest the same way. "
+                "A note with fewer than three tags shows a quiet \"+ Tag\" after them: it opens up to "
+                "three suggested tags as one-press chips above a field for your own. Its ... menu "
+                "has \"Don't suggest tags for this note\", which stops the suggestions on that "
+                "note alone (Undo in the notice brings them back, as does \"Suggest tags for this "
+                "note again\" in the same menu)."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1156,35 +1244,30 @@ MORE_TOPICS.extend(
                 "dismiss a suggestion", "delete a suggestion", "hide a suggestion",
             ),
             "body": (
-                "Tidy is the broom in the Notes dock, beside the search help; the "
-                "number on it is how many things its reviews found. It opens on an "
-                "overview of all eleven reviews, each a rule that needs no AI, with "
-                "its count and one line on what it finds, the ones with nothing to "
-                "tidy last; press a row to open that review and its back button to "
-                "return to the overview. The reviews: Links to explain (Add reasons "
-                "gives a link that only says similar in meaning what the two notes "
-                "share, a tag, a name or a week), Weak automatic links (Remove "
-                "links), Tags Atlas added (tags written by Atlas or a background "
-                "pass, never changed by you, that fit their note poorly; Remove "
-                "tags), Tags used once (Remove tags), Tags that look alike (Merge "
-                "tags), Notes without a category (Move notes, to the category their "
-                "words point to), Near-duplicate notes (Merge notes), Categories "
-                "that overlap (Merge categories), Category names (Rename), Empty or very "
-                "short notes (Move to bin) and Reminders long past (Mark done). "
-                "Each review's description says what its button will change. A row's "
-                "cross dismisses it for good (Undo restores it). Tick "
-                "the rows (each says why it is listed and what the button will do), "
-                "then press the button; one Undo puts the batch back, from the "
-                "toast, Ctrl+Z or Recent runs. Apply automatically runs a review "
-                "after each note is filed; merging, renaming, binning and removing "
-                "tags used once never run on their own. Links to explain also has Add "
-                "reasons to all in the background, a job you can stop in Settings, "
-                "Background tasks. The command palette and Tools and features open "
-                "Tidy too, and new links already say what their notes share when "
-                "they can. Under the overview, Patterns says what the notes measure "
-                "(golf 4 times since 5 September), each with Confirm, which keeps it "
-                "as your own word from then on, and Not right, which never shows it "
-                "or anything like it again; Chat, Ask and the dashboard's ⋯ offer the same."
+                (
+                    "Tidy is the broom in the Notes dock, beside the search help; the number on it is how "
+                    "many things its reviews found. It opens on an overview of all eleven reviews, each a "
+                    "rule that needs no AI, with its count and one line on what it finds, the ones with "
+                    "nothing to tidy last; press a row to open that review and its back button to return to "
+                    "the overview. The reviews: Links to explain (Add reasons gives a link that only says "
+                    "similar in meaning what the two notes share, a tag, a name or a week), Weak automatic "
+                    "links (Remove links), Tags Atlas added (tags written by Atlas or a background pass, "
+                    "never changed by you, that fit their note poorly; Remove tags), Tags used once (Remove "
+                    "tags), Tags that look alike (Merge tags), Notes without a category (Move notes, to the "
+                    "category their words point to), Near-duplicate notes (Merge notes), Categories that "
+                    "overlap (Merge categories), Category names (Rename), Empty or very short notes (Move to "
+                    "bin) and Reminders long past (Mark done). Each review's description says what its button"
+                    " will change. A row's cross dismisses it for good (Undo restores it). Tick the rows "
+                    "(each says why it is listed and what the button will do), then press the button; one "
+                    "Undo puts the batch back, from the toast, Ctrl+Z or Recent runs. Apply automatically "
+                    "runs a review after each note is filed; merging, renaming, binning and removing tags "
+                    "used once never run on their own. Links to explain also has Add reasons to all in the "
+                    "background, a job you can stop in Settings, Background tasks. The command palette and "
+                    "Tools and features open Tidy too, and new links already say what their notes share when "
+                    "they can. Under the overview, Patterns says what the notes measure (golf 4 times since 5"
+                    " September), each with Confirm, which keeps it as your own word from then on, and Not "
+                    "right, which never shows it or anything like it again;"
+                )
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1383,36 +1466,30 @@ MORE_TOPICS.extend(
                 "save answer as document", "answer as mind map", "keep the answer",
             ),
             "body": (
-                "Ask on the Notes tab has a Use AI switch beside its title. On, your "
-                "model writes the answer; off, the answer is From your notes, with "
-                "no AI. It opens with the answer, or for a topic with how many "
-                "notes and over which days (You have four notes about uni, 17 July "
-                "to 4 August), then tells each note in a sentence (In your first "
-                "psych lecture you learned ...) or under a bold label, one "
-                "source mark that lights its note. It says what the "
-                "notes do not cover yet (Nothing yet on due dates), how alone or "
-                "stale a fact is (Nothing on bench since September), and can end "
-                "with one offer you press (a reminder, a checklist or a note, "
-                "with Undo); next week is said as the day it meant. A joke or a "
-                "quote stays whole. A count leads with its figure, a person is a "
-                "card, a comparison a table, what is left a checklist; past five "
-                "lines, Show more. The ... by Copy keeps it as a note, a "
-                "document or a mind map. Asked what it can do (can you "
-                "search the web?), it says whether and how; it never searches. Tell me more, or the second one, "
-                "follows on from the answer before. The Chat tab answers the same "
-                "way whenever no model is running: its box stays open, and Agent "
-                "mode is greyed unless the Needle extra can run it (the app's "
-                "own tools go first). Every "
-                "line comes from a note and is cited; the app adds only labels, "
-                "joining words, counts and dates; it never answers yes or no for you. In Ask the answer's chip reads From your notes; in "
-                "Chat the reply's head reads Atlas, from your notes (Atlas and the "
-                "model's name when a model wrote it). The "
-                "choice is kept on this device; with no model running it is the "
-                "answer and Use AI is greyed, with the reason on it, until a model runs. "
-                "The No model connected line above the Chat box and the Ask box "
-                "has a close button (the small x at its end): it hides that line "
-                "until the next time you start the app, a new session, and "
-                "connecting a model in Settings, Models always brings the answers back."
+                (
+                    "Ask on the Notes tab has a Use AI switch beside its title. On, your model writes the "
+                    "answer; off, the answer is From your notes, with no AI. It opens with the answer, or for"
+                    " a topic with how many notes and over which days (You have four notes about uni, 17 July"
+                    " to 4 August), then tells each note in a sentence (In your first psych lecture you "
+                    "learned ...) or under a bold label, one source mark that lights its note. It says what "
+                    "the notes do not cover yet (Nothing yet on due dates), how alone or stale a fact is "
+                    "(Nothing on bench since September), and can end with one offer you press (a reminder, a "
+                    "checklist or a note, with Undo); next week is said as the day it meant. A count leads "
+                    "with its figure, a person is a card, a comparison a table, what is left a checklist; "
+                    "past five lines, Show more. The ... by Copy keeps it as a note, a document or a mind "
+                    "map. Asked what it can do (can you search the web?), it says whether and how; it never "
+                    "searches. Tell me more, or the second one, follows on from the answer before. The Chat "
+                    "tab answers the same way whenever no model is running: its box stays open, and Agent "
+                    "mode is greyed unless the Needle extra can run it (the app's own tools go first). Every "
+                    "sentence is quoted from a note and cited like any answer; the app adds only the joining "
+                    "words and the counts and dates it measured, names two notes that may disagree, and says "
+                    "which of your words none of the notes found mention. In Ask the chip over the answer "
+                    "reads From your notes; in Chat the reply's head reads Atlas, from your notes (Atlas and "
+                    "the model's name when a model wrote it). The No model connected line above the Chat box "
+                    "and the Ask box has a close button (the small x at its end): it hides that line until "
+                    "the next time you start the app, a new session, and connecting a model in Settings, "
+                    "Models always brings the answers back."
+                )
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1725,15 +1802,18 @@ MORE_TOPICS.extend(
                 "run code", "run a file", "run python", "run javascript", "run typescript",
                 "typescript", "sql", "sqlite", "query", "p5", "p5.js", "sketch", "preview css",
                 "preview svg", "svg", "unit test", "unit tests", "run tests", "unittest",
-                "input()", "run selection", "run cell", "output panel", "pyodide",
+                "input()", "csv table", "query a csv", "run selection", "run cell", "output panel", "pyodide",
             ),
             "body": (
                 "Run (Ctrl+Shift+Enter, beside Format) runs a code document in a "
                 "sandbox with no network and none of your notes, and shows what it "
                 "prints, its errors and their lines in the Output panel under the "
-                "editor. JavaScript runs as it is; TypeScript runs with its types "
-                "removed, not checked; SQL runs against an empty SQLite database "
-                "made for the run, each statement's result a table; Python runs "
+                "editor. JavaScript runs as it is (JSX in it becomes React.createElement "
+                "calls); TypeScript runs with its types "
+                "removed, not checked; SQL runs against a SQLite database made for "
+                "the run, each statement's result a table, and a CSV document the "
+                "query names is a table in it (Sales 2026.csv is sales_2026, its "
+                "first row the columns); Python runs "
                 "once Python is installed in Settings, Packages (until then Run is "
                 "greyed and the line beside it goes there), and input() reads its "
                 "lines from the panel's Input box. HTML, CSS (over a sample page), "
@@ -1768,15 +1848,19 @@ MORE_TOPICS.extend(
                 "Debug runs a JavaScript, TypeScript or Python document to its "
                 "first breakpoint and stops there. Click beside a line number (or "
                 "press F9 on the line) for a breakpoint; right-click it to add a "
-                "condition, and it stops only when that is true. Press F5, or "
+                "condition, and it stops only when that is true. A document keeps "
+                "its breakpoints on this device after a reload. Press F5, or "
                 "Start debugging in the run panel's Debug tab; the stopped line is lit, and "
-                "the Debug tab shows Variables (the frame's names, then Globals), "
+                "the Debug tab shows Variables (the frame's names, then Globals; a "
+                "list, dict or object opens into its items), "
                 "Watch (type an expression under it; each stop evaluates it), the "
                 "Call stack (a row goes to its line) and Breakpoints. F10 steps "
                 "over a line, F11 into a call, Shift+F11 out of the function, F5 "
                 "continues and Shift+F5 stops; the same five are buttons at the "
                 "top of the tab. An error nothing catches stops on the line that "
-                "raised it, with its traceback and the frame's variables. Python's "
+                "raised it, with its traceback and the frame's variables. A Python "
+                "file of tests debugs through its tests: a breakpoint inside one "
+                "stops there, and the Tests tab lists each result. Python's "
                 "input() asks in the panel mid-run. Python debugging needs a window "
                 "that gives SharedArrayBuffer (the app's own does); JavaScript is "
                 "stepped by an interpreter that reads ES5, so let, const, arrow "
@@ -1805,9 +1889,12 @@ MORE_TOPICS.extend(
                 "the editor, where one Ctrl+Z takes it out, and Reject leaves the "
                 "file alone. With no model, Fix applies the quick fix, the tools "
                 "row (Quick fix, Format, Run tests, Find usages) works as it is, "
-                "and a question goes to the needle extra when it is installed, "
-                "which picks one of those tools; otherwise the panel says what "
-                "needs a model. The Snippets tab lists the "
+                "a question those tools answer (format, run the tests, where a name "
+                "is used, the symbols) runs the tool, and any other goes to the "
+                "needle extra when it is installed; otherwise a Needs a model line "
+                "links to Settings. Explain, Write tests, Refactor and the inline "
+                "Ask bar (Ctrl+J) stay on screen, disabled, and a press says why. "
+                "The Snippets tab lists the "
                 "built-in library and your own snippets, this file's language "
                 "first (Show every language for the rest); the search matches "
                 "names, tags and languages, and #io matches the tag io. A row "
@@ -1857,7 +1944,7 @@ TOPIC_META: dict[str, dict] = {
     "timer": {"title": "Timer and stopwatch", "path": "Command palette, timer"},
     "manual": {"title": "The manual", "path": "Settings, Help, Open the manual"},
     "first-steps": {"title": "First steps and the sample notebook", "path": "Dashboard, Start in three steps"},
-    "live-captions": {"title": "Live captions", "path": "Command palette, Live captions"},
+    "live-captions": {"title": "How do I get live captions", "path": "Library, Recordings, Captions"},
     "count-words": {"title": "Count words", "path": "Command palette, Count words"},
     "translate-offline": {"title": "Translate this, offline", "path": "Command palette, Translate this"},
     "insert-template": {"title": "Insert a template", "path": "Command palette, insert template"},
@@ -1878,6 +1965,7 @@ TOPIC_META: dict[str, dict] = {
     "personas": {"title": "Personas", "path": "Settings, Personas"},
     "templates": {"title": "Templates", "path": "Settings, Templates"},
     "updates": {"title": "Updates", "path": "Settings, About"},
+    "name": {"title": "The name, formerly MemoryMap AI", "path": "Settings, About"},
     "notifications": {"title": "Notifications", "path": "The bell in the top bar"},
     "companion": {"title": "The corner companion", "path": "Settings, Appearance, Atlas and faces, Corner companion", "steps": (
         "Open Settings, Appearance, Atlas and faces.", "Pick who it is under Corner companion.", "Right-click it on the page for its menu; Ctrl+Shift+Y shows or hides it.")},
@@ -1891,6 +1979,8 @@ TOPIC_META: dict[str, dict] = {
     "answer-style": {"title": "Answer style", "path": "Settings, Personas, Answer style"},
     "background-tasks": {"title": "Background tasks", "path": "Settings, Background tasks"},
     "health": {"title": "Health", "path": "Settings, About, Health"},
+    "maintenance": {"title": "Maintenance", "path": "Settings, About, Maintenance", "steps": (
+        "Open Settings, About and find Maintenance.", "Check this computer shows one row per check, each with what to do.", "Reinstall on next start rebuilds the app's Python environment when the launcher next opens it; your notes are not touched.", "Uninstall… shows the steps and the command, with Export my notes first.")},
     "activity": {"title": "Activity", "path": "The status bar's job slot, or the palette, Activity"},
     "packages": {"title": "Packages", "path": "Settings, Packages"},
     "import-export": {"title": "Import and export", "path": "Settings, Import & export"},
@@ -2002,10 +2092,10 @@ TOPIC_META: dict[str, dict] = {
 HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Getting started", (
         "tabs-overview", "first-steps", "tour", "guide", "manual", "hidden-features", "shortcuts",
-        "command-palette", "find-anything", "find-a-place", "search", "addresses", "settings-overview", "settings-reset", "install-app",
+        "command-palette", "find-anything", "find-a-place", "search", "addresses", "settings-overview", "settings-reset", "install-app", "name",
     )),
     ("Writing notes", (
-        "capture", "quick-note", "quick-add", "editor-offers", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
+        "capture", "quick-note", "quick-add", "editor-offers", "autocorrect", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
         "write-with-atlas", "translate", "translate-offline", "extract-notes", "voice", "live-captions", "meetings",
     )),
@@ -2023,7 +2113,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "whiteboard-selection", "board-history", "board-library", "board-library-saving", "board-templates", "board-format", "board-connectors", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-import-export", "mind-map-study", "mind-map-look", "emoji-and-icons",
         "board-comments", "sticky-notes",
-        "mind-map-structure", "mind-map-callouts", "board-current-layer", "board-hand-drawn", "board-tables", "board-edit-data",
+        "mind-map-structure", "mind-map-callouts", "board-current-layer", "board-hand-drawn", "board-tables", "board-edit-data", "board-colours",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",
@@ -2045,10 +2135,10 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "search-index", "packages",
     )),
     ("Privacy and your data", (
-        "privacy", "security", "encryption", "lock", "phone", "two-computers", "delete-data", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
+        "privacy", "security", "encryption", "lock", "phone", "lan-networks", "two-computers", "delete-data", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
     )),
     ("Settings and support", (
-        "profile", "general-settings", "updates", "logs", "troubleshooting",
+        "profile", "general-settings", "updates", "maintenance", "logs", "troubleshooting", "credits",
     )),
 ]
 
@@ -2064,21 +2154,33 @@ MORE_TOPICS.extend([
     {
         "id": "phone",
         "keywords": ("phone", "on my phone", "mobile", "iphone", "android", "tablet", "ipad", "use it on my phone",
-                     "open it on my phone", "install on my phone", "phone storage", "runs on my phone"),
+                     "open it on my phone", "install on my phone", "phone storage", "runs on my phone",
+                     "public wifi", "public network", "allow a device", "new device"),
         "body": (
-            "Your phone opens this computer's notebook over your own network: turn "
-            "on Allow other devices on this network (Settings, Account & security, "
-            "Other devices), then open the address it shows on the phone (https, "
-            "port 8443) and sign in with your password. The first visit warns that "
-            "the certificate is not trusted: compare the fingerprint shown under the "
-            "switch, or use Trust this certificate on your phone, whose ? has the "
-            "iPhone and Android steps. Typing the address without https still "
-            "works: the app sends the phone on to https. If the phone cannot connect, "
-            "both must be on the same Wi-Fi (not a guest one) and this computer's "
-            "firewall must let the app in. The phone reads and writes the same "
-            "notebook; nothing goes through the internet, so the computer has to be on. "
-            "Nothing installs on the phone: it is only a browser window, and search, "
-            "the models and the notes all run and stay on this computer."
+            (
+                "Your phone opens this computer's notebook over your own network: turn on Allow other "
+                "devices on this network (Settings, Account & security, Other devices), then open the "
+                "large address it shows (Copy is beside it, and QR code shows a code the phone's camera "
+                "opens; Other addresses folds the rest) on the phone and sign in with your password. On "
+                "an iPhone, press Install the certificate on the lock screen, then, in the iPhone's own "
+                "Settings app, General, VPN and Device Management to install it and About, Certificate "
+                "Trust Settings to trust it; its ? has the steps. The phone's first sign-in waits until "
+                "you choose Allow on this computer (a notice with Allow and Deny); allowed devices are "
+                "listed with Remove. On a network you have not trusted (a cafe, an airport) nothing can "
+                "reach the notebook until you trust it: the wifi icon in the status bar (Alt+L) says "
+                "open, closed or off, and its panel has the switch, the address and the trusted and "
+                "untrusted networks. A phone's hotspot works too, with no restart. If the phone cannot "
+                "connect, both must be on the same Wi-Fi (not a guest one), this computer's firewall must"
+                " let the app in (on Windows, Other devices shows the one line to paste into an "
+                "administrator Command Prompt, for private networks only), and on an iPhone the browser "
+                "needs Local Network on (the iPhone's Settings app, Privacy & Security, Local Network) "
+                "with any VPN or ad-blocking app (AdGuard's local VPN) paused. The phone reads and writes"
+                " the same notebook, and a note changed on one shows on the other within seconds; nothing"
+                " goes through the internet, so the computer has to be on. A phone never makes this "
+                "computer act: installing, downloading a model, restoring a backup, quitting, opening a "
+                "folder and the settings that point this computer elsewhere say Not available on this "
+                "device, and an export downloads to the phone itself."
+            )
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },
@@ -2139,7 +2241,35 @@ MORE_TOPICS.extend([
         "badge": {"label": "Import & export", "section": "data"},
     },
 ])
+#: INBOX 896, 900: the status bar's Other devices icon and its networks,
+#: a topic of its own so "lock" stays under the reply budget.
+MORE_TOPICS.append({
+    "id": "lan-networks",
+    "keywords": ("wifi icon", "lan icon", "lan mode", "trusted network", "untrusted network",
+                 "trust a network", "trust this network", "stop trusting", "forget a network",
+                 "turn off other devices", "other devices off", "lan off"),
+    "body": (
+        "The wifi icon in the status bar, on this computer only, says whether other "
+        "devices on your network can open the app: green open, amber closed on this "
+        "network (one you have not trusted, or no network at all), plain off. Press "
+        "it, or Alt+L, for its panel (a sheet on a phone-sized window): the switch, "
+        "the address to type, Trust this network, and two lists, one row per "
+        "network, named by its Wi-Fi name where this computer can read it, its "
+        "address range under it. Trusted networks have Stop trusting and Forget; "
+        "Untrusted networks, every network the app saw and stayed closed on, have "
+        "Trust (asks your password) and Forget, always on the row. The "
+        "switch applies at once, with no restart: off closes the port and signs "
+        "every other device out, and when the wifi drops or you join a network you "
+        "have not trusted the port closes by itself. Left on and unused for 14 days, "
+        "it turns itself off and says so in the bell. Each time a phone opens the "
+        "app, the privacy receipt lists it as a connection coming in, with its "
+        "address only. A phone can never turn it on, trust a network or loosen a "
+        "setting: those say Not available on this device."
+    ),
+    "badge": {"label": "Account & security", "section": "account"},
+})
 TOPIC_META.update({
+    "lan-networks": {"title": "Other devices and networks", "path": "The wifi icon in the status bar, or Settings, Account & security, Other devices"},
     "phone": {"title": "On your phone", "path": "Settings, Account & security, Other devices"},
     "two-computers": {"title": "Two computers", "path": "Settings, Import & export"},
     "settings-reset": {"title": "Resetting and moving your settings", "path": "Settings, Import & export, Your settings",
@@ -2257,9 +2387,33 @@ MORE_TOPICS.extend([
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
+    {
+        "id": "board-colours",
+        "keywords": (
+            "border colour", "border color", "fill colour", "fill color", "same colour",
+            "same colour as the fill", "match the border", "swap colours", "recent colours",
+            "eyedropper", "eye dropper", "pick a colour from the board", "colour picker",
+            "change the colour of a shape", "outline colour",
+        ),
+        "body": (
+            "Colours on a board: every colour button (a shape's Fill and Border on its "
+            "bar and in the Format panel, text, and the draw colour) opens one menu. "
+            "For a shape it names both, Fill and Border, with a dot of each: press "
+            "the other to set it instead. Same as fill (or Same as border) makes "
+            "them one colour and Swap trades them, each one Undo step. Recent "
+            "holds your last eight picks on this device, above the board's colours; "
+            "More colours opens any colour by number. Pick from the board is the "
+            "eyedropper: the next click takes a colour instead of doing what it "
+            "would, from a shape (its fill, or its border with Alt or Take a shape's border), "
+            "a line, a text box or any colour button, and Escape stops it. A fill "
+            "that is off shows dimmed; picking a colour turns it on."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
 ])
 TOPIC_META.update({
     "board-edit-data": {"title": "Edit data on a board item", "path": "A board's Format panel, Data"},
+    "board-colours": {"title": "Fill, border and recent colours on a board", "path": "A shape's bar, Fill or Border"},
     "board-tables": {"title": "Tables on a board", "path": "A board's Insert menu, Table"},
     "board-hand-drawn": {"title": "The hand-drawn look", "path": "A board's View menu, Hand-drawn look"},
     "board-current-layer": {"title": "The current layer", "path": "A board's sidebar, Layers"},
@@ -2301,3 +2455,45 @@ MORE_TOPICS.append({
 TOPIC_META["nicknames"] = {"title": "Calling Atlas by any name", "path": "Chat tab"}
 MORE_TOPICS.append(_act_topic())
 TOPIC_META["chat-acts"] = {"title": "Things Chat does for you", "path": "Chat tab"}
+
+
+#: Autocorrect outside the editor (Brief 94, INBOX 850): autocorrect.js.
+MORE_TOPICS.append({
+    "id": "autocorrect",
+    "keywords": (
+        "autocorrect", "auto correct", "autocorrection", "turn off autocorrect",
+        "fix my typos", "it changed my word", "undo a correction", "corrected my word",
+    ),
+    "body": (
+        "Autocorrect fixes a clear typo, such as teh, as you finish the "
+        "word, in the note boxes, the chat and Ask composers and the titles. "
+        "The corrected word is underlined for five seconds: click it to put "
+        "back what you typed, or press Backspace or Ctrl+Z straight after, and "
+        "the toast carries Undo too. A word you put back is left alone for the "
+        "rest of the session, and a word in your dictionary never changes. It "
+        "never runs in code, links, tags or search boxes. Turn it off in "
+        "Settings, General, Writing; a document has its own switch in the "
+        "editor's ... menu."
+    ),
+    "badge": {"label": "General", "section": "general", "target": "pref-autocorrect"},
+})
+TOPIC_META["autocorrect"] = {"title": "Autocorrect", "path": "Settings, General, Writing", "target": "pref-autocorrect"}
+
+
+#: The credits (uiset, 2026-10-11): Settings, Help, Credits, drawn from
+#: frontend/credits.json, which scripts/build_credits.py writes from THIRD_PARTY.md.
+MORE_TOPICS.append({
+    "id": "credits",
+    "keywords": (
+        "credits", "open source", "libraries", "third party", "third-party",
+        "attribution", "built with", "what is it built on", "licences", "licenses",
+    ),
+    "body": (
+        "Settings, Help, Credits lists the libraries and data Tessellate is "
+        "built on, each with its licence and a link to its source: the ones in "
+        "the server, the ones in the app, the optional downloads and the "
+        "whiteboard's shapes. Tessellate itself is AGPL-3.0."
+    ),
+    "badge": {"label": "Help", "section": "help", "target": "credits-fold"},
+})
+TOPIC_META["credits"] = {"title": "Credits and licences", "path": "Settings, Help, Credits", "target": "credits-fold"}

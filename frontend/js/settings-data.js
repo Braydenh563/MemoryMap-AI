@@ -5,9 +5,11 @@
 // pressed. Their state and their button wiring stay at boot, and reach these
 // through LAZY_ENTRY_POINTS.
 
+let privacyReceipt = null;
+
 function privacyWhen(iso) {
   if (!iso) return "";
-  return typeof relativeTime === "function" ? relativeTime(iso) : new Date(iso).toLocaleString();
+  return typeof relativeTime === "function" ? relativeTime(iso) : whenText(iso);
 }
 
 //: **One row per place, saying what it was for** (INBOX 807, the owner: "it
@@ -36,7 +38,9 @@ function privacyGroups(rows) {
 
 function privacyAddressLine(row) {
   const address = row.port ? `${row.host}:${row.port}` : row.host;
-  const verb = row.kind === "lookup" ? "Looked up" : "Connected to";
+  //: INBOX 894: a device on this network opening the app is a row too,
+  //: by its address only; it came in, nothing here reached out to it.
+  const verb = row.kind === "lookup" ? "Looked up" : row.kind === "incoming" ? "Came in from" : "Connected to";
   return `${verb} ${address}, ${row.count} time${row.count === 1 ? "" : "s"}, last ${privacyWhen(row.last)}`;
 }
 
@@ -63,7 +67,8 @@ function privacyDestinationRow(group) {
   const connects = group.rows.filter((row) => row.kind !== "lookup");
   const counted = connects.length ? connects : group.rows;
   const count = counted.reduce((sum, row) => sum + (row.count || 0), 0);
-  const verb = connects.length ? "connected" : "looked up";
+  const incoming = connects.length && connects.every((row) => row.kind === "incoming");
+  const verb = incoming ? "came in" : connects.length ? "connected" : "looked up";
   const what = group.roles.length ? group.roles.join(", ") : "No feature named";
   const meta = document.createElement("p");
   meta.className = "library-file-meta privacy-row-meta";
@@ -119,7 +124,7 @@ function renderPrivacyRange() {
   const totals = (ledger ? receipt.ledger?.totals : receipt.totals) || {};
   const local = totals.this_computer || 0;
   $("privacy-range-note").textContent =
-    `Since ${since ? new Date(since).toLocaleString() : "this launch"}. ` +
+    `Since ${since ? whenText(since) : "this launch"}. ` +
     `${local.toLocaleString()} connection${local === 1 ? "" : "s"} stayed on this computer ` +
     "(your model and the app's own window) and are counted, not listed.";
   const all = (ledger ? receipt.ledger?.destinations : receipt.destinations) || [];
@@ -165,9 +170,16 @@ async function renderPrivacyReceipt() {
   ].filter(Boolean).join(" · ");
 
   const listening = receipt.listening || {};
+  //: A short sentence, then the address block Settings, Other devices draws
+  //: (INBOX 867: the run-on list of four addresses was hard to read).
   $("privacy-listening").textContent = listening.other_devices
-    ? `Other devices on your network can open it, with the password: ${(listening.addresses || []).join(", ") || listening.host}.`
-    : "Only this computer. Nothing on your network can reach it.";
+    ? "Other devices on your network can open it, with your password, at:"
+    : listening.held
+      ? "Only this computer for now: other devices are kept out on this network."
+      : "Only this computer. Nothing on your network can reach it.";
+  const where = $("privacy-lan-addresses");
+  if (typeof renderLanAddresses === "function") renderLanAddresses(where, listening.other_devices ? listening : {});
+  else where?.classList.add("hidden");
 
   const switches = $("privacy-switches");
   switches.replaceChildren();
@@ -184,12 +196,134 @@ async function renderPrivacyReceipt() {
   }
 }
 
+//: **Where the disk went** (BACKLOG section 26, the owner: "can the user see a
+//: visual depiction of the storage size the application takes up"). One bar,
+//: a segment per kind as wide as its share, and the same numbers as a legend,
+//: which is also the bar's accessible name. `GET /storage` is a cached walk on
+//: the server, so opening About costs one request and no tree walk.
+const STORAGE_KINDS = [
+  ["database_bytes", "Notebook"],
+  ["uploads_bytes", "Attached files"],
+  ["media_bytes", "Pictures"],
+  ["backups_bytes", "Backups"],
+  ["extras_bytes", "Optional features"],
+];
+
+async function renderStorageBreakdown() {
+  const bar = $("storage-bar");
+  const legend = $("storage-legend");
+  if (!bar || !legend) return;
+  lazyScript("/css/settings-data-lazy.css");
+  const storage = await apiJson("/storage", { silent: true }).catch(() => null);
+  bar.replaceChildren();
+  legend.replaceChildren();
+  if (!storage) {
+    bar.setAttribute("aria-label", "Storage could not be read");
+    legend.textContent = "Could not read the sizes.";
+    return;
+  }
+  const kinds = STORAGE_KINDS.map(([key, label]) => ({ key, label, bytes: Number(storage[key]) || 0 }));
+  const total = kinds.reduce((sum, kind) => sum + kind.bytes, 0);
+  for (const kind of kinds.filter((k) => k.bytes > 0)) {
+    const segment = document.createElement("span");
+    segment.className = "storage-seg";
+    segment.dataset.kind = kind.key;
+    segment.style.flexGrow = String(kind.bytes);
+    bar.appendChild(segment);
+  }
+  for (const kind of kinds) {
+    const item = document.createElement("li");
+    const swatch = document.createElement("span");
+    swatch.className = "storage-swatch";
+    swatch.dataset.kind = kind.key;
+    swatch.setAttribute("aria-hidden", "true");
+    item.append(swatch, `${kind.label} ${humanBytes(kind.bytes)}`);
+    legend.appendChild(item);
+  }
+  const words = `${kinds.map((k) => `${k.label} ${humanBytes(k.bytes)}`).join(", ")}. Together ${humanBytes(total)}.`;
+  bar.setAttribute("aria-label", `Storage by kind: ${words}`);
+  const sum = document.createElement("li");
+  sum.className = "storage-total";
+  sum.textContent = `Together ${humanBytes(total)}`;
+  legend.appendChild(sum);
+}
+
+//: The schedule with its last success (WORLD_CLASS 25e, the Backups row): what
+//: the automatic backup is, when it last ran and whether that worked, and when
+//: the next is due. The daily rule is the server's (`passes.schedule`,
+//: `backup.BACKUP_EVERY_HOURS`), so the words come from `/jobs/last-runs` and
+//: the due time is the newest backup plus a day.
+function backupScheduleWords(run, newest) {
+  const parts = [run?.schedule || "Once a day, at the first start of the day."];
+  const day = (iso) =>
+    parseServerTime(iso)?.toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }) || "";
+  if (run?.ran && run.status === "failed") {
+    parts.push(`The last try failed${run.error ? `: ${run.error}` : ""}.`);
+  } else if (run?.ran && run.finished_at) {
+    parts.push(`Last ran ${day(run.finished_at)}${run.status === "ok" ? ", and it worked" : ""}.`);
+  } else {
+    parts.push("It has not run on this notebook yet.");
+  }
+  const at = newest ? parseServerTime(newest.created_at) : null;
+  if (at) {
+    const due = new Date(at.getTime() + 24 * 3600 * 1000);
+    parts.push(due.getTime() <= Date.now() ? "Due at the next start." : `Next due ${day(due.toISOString())}, at the first start after that.`);
+  }
+  return parts.join(" ");
+}
+
+async function renderBackupSchedule(backups) {
+  const line = $("backup-schedule");
+  if (!line) return;
+  const runs = await apiJson("/jobs/last-runs", { silent: true }).catch(() => null);
+  const run = runs?.jobs?.find((job) => job.kind === "backup");
+  line.textContent = backupScheduleWords(run, backups[0]);
+}
+
+//: The second place each backup goes (`backup_copy_dir`): a path on the server's
+//: own disk, so the row is the desktop app's, like "Save exports to". Saved on
+//: blur or Enter; a bad folder is refused with the server's words and the field
+//: goes back to what it was.
+async function renderBackupCopyRow() {
+  const row = $("backup-copy-row");
+  if (!row) return;
+  const desktop = await desktopShell();
+  row.classList.toggle("hidden", !desktop);
+  if (!desktop) return;
+  const stored = prefsCache || (await apiJson("/preferences", { silent: true }).catch(() => ({})));
+  $("pref-backup-copy-dir").value = stored.backup_copy_dir || "";
+}
+
+async function saveBackupCopyDir(value) {
+  const input = $("pref-backup-copy-dir");
+  if (value === (prefsCache?.backup_copy_dir || "")) return;
+  try {
+    prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ backup_copy_dir: value }) });
+    input.value = prefsCache.backup_copy_dir;
+    toast(value ? `Each backup is also copied to ${prefsCache.backup_copy_dir}` : "Backups stay on this computer only.");
+  } catch (error) {
+    input.value = prefsCache?.backup_copy_dir || "";
+    toast(error.message || "Couldn't use that folder.", true);
+  }
+}
+
+$("pref-backup-copy-dir")?.addEventListener("blur", (event) => saveBackupCopyDir(event.target.value.trim()));
+$("pref-backup-copy-dir")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") event.target.blur();
+});
+$("pref-backup-copy-clear")?.addEventListener("click", () => {
+  $("pref-backup-copy-dir").value = "";
+  saveBackupCopyDir("");
+});
+
 async function renderBackups() {
   const list = $("backup-list");
+  renderBackupCopyRow().catch(() => {});
   showSkeletons(list, 2, "li");
   const backups = await apiJson("/backups").catch(() => []);
   clearSkeletons(list);
   list.replaceChildren();
+  renderBackupSchedule(backups).catch(() => {});
   for (const item of backups) {
     const li = document.createElement("li");
     const row = document.createElement("div");
@@ -207,7 +341,7 @@ async function renderBackups() {
     size.className = "muted";
     size.textContent = relativeTime(item.created_at);
     const actions = rowActions([
-      {
+      onOtherDevice() ? null : {
         label: "Restore",
         title: "Roll the notebook back to this backup",
         run: async () => {
@@ -255,8 +389,9 @@ async function renderBackups() {
       item.origin_words || "Made before backups recorded why",
       humanBytes(item.size),
       item.checked ? "checked: it opens and reads back" : "not checked",
+      item.copied_to ? `also copied to ${item.copied_to}` : item.copy_error ? `not copied: ${item.copy_error}` : "",
       item.name,
-    ].join(" · ");
+    ].filter(Boolean).join(" · ");
     li.appendChild(facts);
     list.appendChild(li);
   }
@@ -605,6 +740,7 @@ function dismissedWords(dismissed) {
     return settingsClearCount(n, one, many);
   });
   if (dismissed.tension_pairs) parts.push(settingsClearCount(dismissed.tension_pairs, "contradiction pair", "contradiction pairs"));
+  if (dismissed.note_tags) parts.push(settingsClearCount(dismissed.note_tags, "tag turned down on a note", "tags turned down on notes"));
   return parts.join(", ");
 }
 
@@ -674,7 +810,7 @@ $("clear-dismissed")?.addEventListener("click", async () => {
     const done = await apiJson("/suggestions/dismissed/clear", { method: "POST" });
     if (!done.cleared) return;
     settingsClearDone(
-      { kind: "dismissed", changes: [], words: "Cleared dismissed suggestions", data: { ids: done.ids, tensions: done.tensions } },
+      { kind: "dismissed", changes: [], words: "Cleared dismissed suggestions", data: { ids: done.ids, tensions: done.tensions, note_tags: done.note_tags } },
       `Cleared ${settingsClearCount(done.cleared, "dismissed suggestion", "dismissed suggestions")}: they can be offered again.`
     );
   } catch (error) {
@@ -751,7 +887,7 @@ function settingsPrefsSeen(before, data) {
 }
 
 //: The change a coalescing tick continues, and the toast that will offer its Undo.
-let settingFresh = null;
+const settingFresh = { last: null };
 
 //: `change`: {kind, changes: [{key, old, new}], ...}; `words` overrides the
 //: line; `quiet` keeps it off the toast (the caller raised its own Undo).
@@ -760,7 +896,7 @@ function noteSettingChange(change, { quiet = false } = {}) {
   change.sig = `${change.kind}:${change.words || ""}:${change.changes.map((c) => c.key).sort().join(",")}`;
   //: A slider or a typed field is one change, however many ticks: the first
   //: value it had stays the way back.
-  const last = settingFresh;
+  const last = settingFresh.last;
   if (last && last.change.sig === change.sig && change.at - last.change.at < 2500) {
     change.changes.forEach((c, i) => {
       const before = last.change.changes.find((p) => p.key === c.key);
@@ -769,13 +905,13 @@ function noteSettingChange(change, { quiet = false } = {}) {
     clearTimeout(last.timer);
   }
   change.label = settingChangeWords(change);
-  settingFresh = { change, timer: 0 };
+  settingFresh.last = { change, timer: 0 };
   settingsHistoryAdd(change);
   if (quiet) return;
   //: One notice, with the Undo and long enough to use: the toast the control
   //: raised for its own change (a "Saved", found by its enter animation still
   //: running) makes way for this one, which waits for it.
-  settingFresh.timer = setTimeout(() => {
+  settingFresh.last.timer = setTimeout(() => {
     for (const note of toastHost().querySelectorAll(".toast:not(.error)")) {
       if (note.getAnimations().some((a) => a.currentTime < 700)) note.remove();
     }
@@ -811,6 +947,8 @@ const SETTINGS_HISTORY_MAX = 20;
 //: The largest stored entry; past it the way back is dropped and the row says so.
 const SETTINGS_HISTORY_ENTRY_BYTES = 12000;
 
+const settingsHistoryBigKept = new Map();
+
 function settingsHistoryLoad() {
   return prefs.json(SETTINGS_HISTORY_KEY, []).filter((entry) => entry && typeof entry === "object" && entry.id);
 }
@@ -824,10 +962,15 @@ function settingsHistorySave(list) {
 //: that would fail.
 function settingsHistoryEntry(change) {
   const entry = { ...change, id: change.id || `${change.at}-${Math.random().toString(36).slice(2, 6)}` };
-  const unknown = (entry.changes || []).some((c) => c.old === undefined);
+  //: A setting that was never set has no old value to send back: Undo asks the
+  //: notebook to unset it (`unset` on PUT /preferences), so every row can undo.
+  if (entry.kind === "prefs") entry.changes = (entry.changes || []).map((c) => (c.old === undefined ? { ...c, old: null, unset: true } : c));
   const big = JSON.stringify(entry).length > SETTINGS_HISTORY_ENTRY_BYTES;
-  if (unknown || big) {
-    entry.noUndo = true;
+  if (big) {
+    //: Too big for the browser's store: the way back is held in memory, so it
+    //: undoes until the page reloads, and the row says so after that.
+    settingsHistoryBigKept.set(entry.id, { changes: entry.changes, data: entry.data });
+    entry.big = true;
     entry.changes = (entry.changes || []).map((c) => ({ key: c.key }));
     entry.data = null;
   }
@@ -854,17 +997,24 @@ function settingsHistoryFind(change) {
 //: Reapply one side of a change: "old" is Undo, "new" is Redo.
 async function settingsHistoryApply(change, side) {
   const kept = settingsHistoryFind(change) || change;
-  if (kept.noUndo || change.noUndo) throw new Error("That change can't be undone: its old value was not kept.");
+  const held = kept.big ? settingsHistoryBigKept.get(kept.id) : null;
+  if (held) Object.assign(kept, held);
+  if (kept.noUndo || change.noUndo || (kept.big && !held)) throw new Error("That change can't be undone: its old value was not kept.");
   settingsHistoryBusy = true;
   try {
     if (kept.kind === "prefs") {
       const body = {};
-      for (const c of kept.changes) body[c.key] = c[side];
+      const unset = [];
+      for (const c of kept.changes) {
+        if (side === "old" && c.unset) unset.push(c.key);
+        else body[c.key] = c[side];
+      }
+      if (unset.length) body.unset = unset;
       prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify(body) });
     } else if (kept.kind === "look") {
       for (const c of kept.changes) {
-        if (c[side] == null) localStorage.removeItem(c.key);
-        else localStorage.setItem(c.key, c[side]);
+        if (c[side] == null) prefs.remove(c.key);
+        else prefs.set(c.key, c[side]);
       }
       //: The path a fresh load applies the look by (the saved themes' own Apply).
       applyThemeChoice(prefs.get("theme", "system"), false);
@@ -893,6 +1043,11 @@ async function settingsHistoryApply(change, side) {
     else settingsHistoryBusy = false;
   }
   kept.undone = side === "old";
+  if (held) {
+    settingsHistoryBigKept.set(kept.id, { changes: kept.changes, data: kept.data });
+    kept.changes = kept.changes.map((c) => ({ key: c.key }));
+    kept.data = null;
+  }
   const list = settingsHistoryLoad().map((entry) => (entry.id === kept.id ? kept : entry));
   settingsHistorySave(list);
   change.undone = kept.undone;
@@ -904,6 +1059,11 @@ async function settingsHistoryApply(change, side) {
 async function settingsHistoryUndo(change) {
   try {
     await settingsHistoryApply(change, "old");
+    //: Through the one undo contract (status.js, rule 1.8): an undone change
+    //: waits on the redo side, so Redo and Ctrl+Y reach it like any other.
+    const action = pushUndo(change.label, () => settingsHistoryApply(change, "old"), () => settingsHistoryApply(change, "new"));
+    action.settingChange = change;
+    settleUndoFromToast(action);
     toast(`Undone: ${change.label}`);
   } catch (error) {
     toast(error.message || "Couldn't undo that.", true);
@@ -913,6 +1073,10 @@ async function settingsHistoryUndo(change) {
 async function settingsHistoryRedo(change) {
   try {
     await settingsHistoryApply(change, "new");
+    //: Done again here, so the redo that waited for it (above) is spent.
+    const waiting = redoStack.findIndex((action) => action.settingChange === change);
+    if (waiting !== -1) redoStack.splice(waiting, 1);
+    renderUndoBar();
     toast(`Done again: ${change.label}`);
   } catch (error) {
     toast(error.message || "Couldn't do that again.", true);
@@ -931,10 +1095,11 @@ function settingsHistoryRow(entry) {
   const when = document.createElement("small");
   when.className = "muted";
   const ago = typeof relativeTime === "function" ? relativeTime(new Date(entry.at).toISOString()) : new Date(entry.at).toLocaleString();
-  when.textContent = entry.undone ? `${ago} · undone` : entry.noUndo ? `${ago} · can't be undone` : ago;
+  const gone = entry.noUndo || (entry.big && !settingsHistoryBigKept.has(entry.id));
+  when.textContent = entry.undone ? `${ago} · undone` : gone ? `${ago} · can't be undone` : ago;
   words.append(label, when);
   li.appendChild(words);
-  if (!entry.noUndo) {
+  if (!gone) {
     //: The row-actions recipe (DESIGN.md): a quiet text action, not a bordered
     //: tonal button (INBOX 848).
     const again = entry.undone;

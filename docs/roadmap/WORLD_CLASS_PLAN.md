@@ -3,7 +3,7 @@
 **Status: written by direct instruction, for the sessions after this one
 (Opus and Sonnet, with a Fable review when one is available).** The
 instruction, condensed: research the competitors, find what they have that
-MemoryMap does not, find how MemoryMap can stand out, and plan every aspect
+Tessellate does not, find how Tessellate can stand out, and plan every aspect
 of the frontend, the backend, the missing features, the poor utility and the
 small things that make an app feel professional rather than like a demo; make
 the backend revolutionary; revolutionise UI design, backend structure,
@@ -222,14 +222,14 @@ the editors' histories and the board history module, unless it calls
 `inlineAiUndo`) are the ratchet's starting list and fold into `pushUndo`
 in Brief 51.
 
-## 2. Competitors: what they have that MemoryMap does not (checked, not
+## 2. Competitors: what they have that Tessellate does not (checked, not
 assumed)
 
 `§114.1` has the positioning teardown. This is the feature-level gap list,
 organised by what a switcher would miss on day one. "Have" means shipped
 and used, as of mid-2026.
 
-| Capability | Obsidian | Notion | OneNote | Kortex | Logseq | Capacities | Reflect | MemoryMap today | Gap |
+| Capability | Obsidian | Notion | OneNote | Kortex | Logseq | Capacities | Reflect | Tessellate today | Gap |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Block editor with slash commands | plugin | yes | no | yes | yes | yes | yes | textarea + toolbar | DOCUMENTS_PLAN Phases 2 to 4 |
 | Wiki-links with autocomplete and backlinks pane | yes | yes | no | yes | yes | yes | yes | links exist, no `[[` autocomplete, no pane | Dossier D2 |
@@ -253,7 +253,7 @@ and used, as of mid-2026.
 | Command palette | yes | yes | no | yes | yes | yes | yes | yes | keep; make it complete |
 | Plugin / extension API | yes | limited | no | no | yes | no | no | MCP server | Dossier B8 |
 
-**Where MemoryMap can stand out** (the things no one on that table has, all
+**Where Tessellate can stand out** (the things no one on that table has, all
 of which the code is already half way to):
 
 1. **The checkable answer.** Every sentence of an AI answer carries the
@@ -283,6 +283,12 @@ recall cards (§114 A1), sync (B6), importers beyond Markdown (H6), and a
 plugin surface beyond the MCP server (B8). Of the six standouts, 2 and 4 are
 built, 1 and 3 are half built (I6, B4), and 5 (a privacy receipt page) and 6
 (the offline studio) are not built: no code names either.
+
+**State 2026-10-11 (by grep):** built since: typed properties (`entry/properties.py`),
+the web clipper (`clip.html`), importers for notion, obsidian, evernote and
+apple (`routes_import.py`), and the privacy receipt (5) as Settings, "Where
+your data went" (`core/egress.py`). Still gaps: sync (B6), PDF annotation
+(D10), recall cards (A1), the offline studio (6), a plugin surface (B8).
 
 ---
 
@@ -687,26 +693,7 @@ too much routes through the model. Each of these is pure code:
 10. **A real trash** with restore and 30-day purge (exists as bin; make it
     consistent for every kind).
 
-**State 2026-09-24:** item by item, read against the code (not driven):
-
-1. (a) built: the Notes box parses `tag:`, `is:`, `before:` and the rest
-   (app.js ~9894) and `search/engine.py` answers the same operators;
-   whether the Library, Timeline and palette share the parser was not checked.
-2. (a) built (saved searches, `routes_settings.py` and app.js).
-3. (a) built: notes have unlinked mentions too (GRAPH_PLAN KG1, 2026-10-04).
-4. (a) built 2026-10-05 for note templates (the user-editable ones):
-   `{{clipboard}}`, `{{cursor}}`, `{{time}}`; the document templates are
-   built-in and use none of them.
-5. (a) built 2026-10-05: Move to space and Export as Markdown on the
-   selection bar's ⋯.
-6. (a) built: JSON, CSV, Markdown and zip export, OPML for maps, the print
-   stylesheet for documents.
-7. (a) built 2026-10-05: Notion, Obsidian, Evernote and Apple Notes import, idempotent by source (HISTORY, "row 25, the importers and the keyboard").
-8. (a) built: `DEFAULT_SHORTCUTS` and the shortcut sheet.
-9. (a) built 2026-10-05: a note's edit form shows its words and reading time.
-10. (a) built 2026-10-05: documents and reminders go to the bin too.
-
-Rows 3, 4, 5, 9 and 10 moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".
+**State 2026-09-24:** all ten built; the item-by-item read moved to HISTORY.md, "Moved from the plans, 2026-10-11 (rows agent)". Still not checked: whether the Library, Timeline and palette share the Notes box's query parser.
 
 ---
 
@@ -802,7 +789,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
 | 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; ~~LAN mode over IPv6~~ built 2026-10-04 (`netbind.listening_socket`, one dual-stack socket; the `[::1]` launcher test skips where the machine has no IPv6) | done | HISTORY |
-| 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); left: the other kinds onto it, the panel on the stream | M | HISTORY; B2 |
+| 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); the other kinds and the panel on the stream built 2026-10-11 (Brief 9, briefs-1011); left: the folder import (SESSION_BRIEFS Brief 9) | S | HISTORY; B2 |
 | 4 | ~~D2, 261~~ | ~~the connections rail always visible on desktop, which is also where `GET /resurface/near` would show~~ built 2026-09-27 (`#notes-rail` at 1280 and wider, the sheet below, by decision); re-measured 2026-10-04 with `notesrail.js` on the showcase notebook, 30/30 light and 30/30 dark at 1440, 1280, 1024 and 390 | done | HISTORY; D2 |
 | 5 | ~~I1, H1~~ | ~~the tension and answered-question passes~~ built 2026-10-04 (`facts._pair_passes`, `tests/test_night_pairs.py`); 2,000 notes, a first run 39 to 57 s with no model, 130 to 215 s with a fake judge (gate 5 min), card 39 to 84 ms; left: pass 2's kinds (dates, duplicates, entities) as derived facts | done | HISTORY |
 | 6 | ~~§14.3, I6, H2~~ | ~~chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view~~ built 2026-10-04 (`chunk_vectors`, `search/chunks.py`, `tests/test_chunk_vectors.py`, `tests/test_evidence_spec.py`); seeded 1,000 notes, recall@5 0.01 to 0.42; left: "wrong" on a card as a correction (I7) | done | HISTORY |
@@ -823,7 +810,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 21 | ~~I8, H3~~ | ~~the model bench~~ built 2026-10-05: `ai/bench.py`, `/models/bench`, Settings, Models, Test my models (`tests/test_bench_spec.py`); left: a run against a real model for the 30-minute and rerun gates | done | HISTORY |
 | 22 | ~~I2, H8~~ | ~~the margin reader~~ built 2026-10-05 for documents: `ai/margin.py`, `POST /editor/read`, `margin-reader.js` (`tests/test_margin_reader_spec.py`); left: the note editor, typing latency in Chromium | S | HISTORY; I2 |
 | 23 | ~~I5, H8~~ | ~~time travel: `as_of` on chat, then-and-now~~ built 2026-10-05 (`ai/timetravel.py`; 200 candidates rewound in under a second); left: a model's judgement over the pairs, past texts re-embedded, cards grouped by month | done | HISTORY |
-| 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to MemoryMap bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
+| 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to Tessellate bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
 | 25 | H6, §5.7 | ~~Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; a first-run path timed to a first answer~~ built 2026-10-05 (HISTORY); left: multi-window | M | H6 |
 | 26 | ~~H7~~ | ~~boot JS under 1 MB~~ built (691,724 bytes as served, `tests/test_boot_budget.py` gates it; the corrected 2026-10-05 measure, H7); every list over 200 rows measured 2026-10-05 (chunk-on-scroll, scroll p95 under 25 ms, `ui-sweeps/s2-1005.js` MODE=rows); first paint measured 2026-10-05 (`boottime.js`, fresh data dir, 1440, five cold loads, load average 10 on four cores): DOMContentLoaded median 585 ms, first contentful paint median 272 ms, dashboard panel readable (text in it, splash gone) median 974 ms (920 to 1,326); not optimised; left: the 300 ms line on the reference laptop with a quiet machine, and the 974 ms to the dashboard's text | S | `boottime.js` |
 | 27 | ~~H9~~ | ~~usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval~~ built 2026-10-05 (HISTORY); left: `boottime.js` in the CI workflow | S | HISTORY |
@@ -977,7 +964,7 @@ Each of these was found by measuring and deferred with evidence; the
   a copy decision for the owner. Owner: responsive.md.
 - Notes (8) and Graph (9) docks are over the seven-control ceiling. Owner:
   docks.md; the fix is a second "more" group, not hiding.
-- `#wb-topbar` is 104px at 390. Owner: responsive.md.
+- ~~`#wb-topbar` is 104px at 390.~~ One row, 54px, since 2026-10-11 (WHITEBOARD_PLAN decision 39).
 - ~~The whiteboard's five menus were restyled but never driven.~~ Driven:
   `kebab-viewport.js` opens all five at three window sizes (15 cases OK) and
   `wbtopbar.js` gates their keyboard and ARIA (WHITEBOARD_PLAN 43; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)").
@@ -1072,7 +1059,7 @@ explicit; the order at the end respects them.
 ### The asymmetry these exploit
 
 Every cloud notebook rations model calls, because each call costs money.
-MemoryMap's model is local, idle 99% of the time, and free per token. That
+Tessellate's model is local, idle 99% of the time, and free per token. That
 is the one thing a cloud product cannot copy: **the notebook can spend
 hours of model time on itself while nobody is watching**, and show its
 work in the morning. Inventions 1, 3, 5 and 8 are built on that. The
@@ -1509,12 +1496,15 @@ FlashText; superseded by the pack below).
 4. **Merge and rename suggestions** live in Tidy: two categories whose topic
    sets overlap at least 0.6 and whose centroids are within 0.15 become a row
    "Merge Gym and Fitness?" with counts; alternate names come from the pack's
-   labels and the person's own titles. Applying asks; undo is one press.
+   labels (`entry/tidy.py` `_rows_category_names`; the person's own titles
+   were dropped, 2026-10-11: a note's title is not a name for its category).
+   Applying asks; undo is one press.
 5. **Tags** take the same candidates, capped at three, each explained; a tag is
    never proposed on a note that contains none of its words (the "Study and
    university" bug: find the vote that did it, with a test).
-6. **Sensitive topics** (health, relationships, finance, legal, identity: the
-   pack's flag) are suggested, never auto-filed, unless the person turned
+6. **Sensitive topics** (health, relationships, finance, legal, identity:
+   Tessellate's own list of 49, `ai/data/taxonomy/memorymap_filing.json`; the
+   pack carries no flag) are suggested, never auto-filed, unless the person turned
    auto-filing on for them in Settings. Amended 2026-10-10 (INBOX 770): on
    every path, the chat model's and the embedder's included: built the same
    day (`janitor._unless_held`, `lexical_filing.holds_sensitive`).
@@ -1533,9 +1523,12 @@ FlashText; superseded by the pack below).
 
 ### Steps
 1 to 4 built 2026-10-10 (filing-1010): HISTORY.md, "Moved from the plans,
-2026-10-10 (filing-1010)", with the numbers. Open: decision 8's 0.8 top-1 with
-no model (0.417 measured; the gap is vocabulary, the strict xfail in
-`tests/test_filing_accuracy.py` stays); step 5's Built block.
+2026-10-10 (filing-1010)", with the numbers. Step 6, built 2026-10-11 (tagsearch-1011):
+`memorymap_everyday.json` adds general words to the pack's topics; no model,
+top-1 0.417 to 0.617 filed (0.792 with sensitive notes suggested), and on 48
+held-out notes 0.458 to 0.667 (0.833). Open: decision 8's 0.8 *filed* (the
+strict xfail stays; 19 of 120 are sensitive and held by decision 6, so 0.84 is
+its ceiling); the owner reviews the vocabulary file; step 5's Built block.
 
 ## Placed from INBOX, 2026-09-09
 
@@ -1785,7 +1778,7 @@ Built 2026-10-05 with I8: moved to HISTORY.md, "Moved from the plans, 2026-10-05
 ### H4 The notebook as a local service for other agents (B7 and B8; M, Opus)
 
 The next year's local agents (coding agents, desktop assistants) will want
-a memory. MemoryMap already has the tools (58 in `ai/tools/`), the
+a memory. Tessellate already has the tools (58 in `ai/tools/`), the
 permission gates and the audit log. Build: a versioned `/api/v1` contract
 generated from the routers (schema behind auth, B7), and an MCP server in
 `src/memorymap/mcp/` exposing the same tools with the same "asks first"
@@ -2333,9 +2326,9 @@ mobile first, as the owner's web design class teaches. Measured with
    it, and the strip centred (INBOX 430). S, Sonnet.
 4. **Leaving with unsaved work.** Built 2026-09-27 for the note edit form,
    the Capture box and a document mid-autosave, the three surfaces with a
-   plain dirty flag (HISTORY.md, "Moved from the plans, 2026-09-27"). Left:
-   a board mid-drag and a chat mid-stream, which have no such flag yet. S,
-   Sonnet.
+   plain dirty flag (HISTORY.md, "Moved from the plans, 2026-09-27"), and a
+   chat mid-stream (2026-10-11, `chatMidStream`). Left: a board mid-drag, which
+   has no such flag yet. S, Sonnet.
 5. **Two windows, one note.** Built 2026-09-27 for the note edit form and
    the document editor (HISTORY.md, "Moved from the plans, 2026-09-27").
    Left: the other note writers (a card's checkbox, the graph's tag edit,
@@ -2354,9 +2347,7 @@ mobile first, as the owner's web design class teaches. Measured with
    "Export", "Back up now". Target: version history in every note and
    document menu with a diff, a "Last backup" line in Settings and on the
    About page, and a first-run prompt to choose a backup folder. M, Opus.
-9. **Offline promise, visible.** The Privacy receipt now exists; the top
-   bar should say "Local" with the same verdict, one click to the receipt.
-   S, Sonnet.
+9. ~~**Offline promise, visible.**~~ Built 2026-10-11 (row 1641): the Local chip; HISTORY.md, "Moved from the plans, 2026-10-11 (rows agent)".
 
 ### 22.2 Small things people expect (each S, Sonnet unless noted)
 
@@ -2697,7 +2688,7 @@ Open, moved whole from INBOX so the tray stays under twenty; each is worked from
     `/media/{id}/ocr-clean-loops`, which runs `cut_reading_loops` over
     whichever of `vision_ocr_text`/`ocr_text` are set and saves what
     changed; the panel repaints from the response. `tests/test_ocr_clean_loops.py`,
-    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()` took any MemoryMap on the port for this one: built
+    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()` took any Tessellate on the port for this one: built
     (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)", 423(g)). (h) Chat replies saved before
     2026-09-24 always show Atlas's mark (their persona was never stored).
     (i) The server-mode process takes 5 to 9s to exit after uvicorn
@@ -3778,7 +3769,7 @@ World class for a local notebook is five things, each measurable:
 | Settings | VS Code settings: searchable, each with a description and a default, reset per item | measured: `PreferencesBody` 72 fields; 105 help popovers (69 in the Settings modal); 10 keys with a control and no help; a settings search box already exists (`settings-find.js`) (24.6b) | built 2026-10-11 (25f): rows, reset, the settings file | 25f |
 | Help and guide | a searchable manual with a "?" on every control | 51 plus 35 Guide topics; `test_manual_parity` | no offline manual page with search; no "what changed" | 25c |
 | First run | Linear: value in 60 seconds, the model optional and said so | `first-run.spec.js`, `gettingStartedCard`, the name nudge | no sample notebook; the three-step path is implicit | 25c |
-| Import and export | Obsidian, Notion, Evernote, Apple Notes in; a markdown folder out | `app_import.py` (five sources, a MemoryMap folder the fifth), `export_folder.py` (the whole notebook as a markdown folder with sidecars and attachments, `GET /export/folder`), the import report page, web clip, media upload; export per note `.md`, per document md, zip, docx; backups and a bundle | built 2026-10-10 (25b); left: a 5,000-note write is 45.9 s on the loaded sandbox (one commit per note) | 25b |
+| Import and export | Obsidian, Notion, Evernote, Apple Notes in; a markdown folder out | `app_import.py` (five sources, a Tessellate folder the fifth), `export_folder.py` (the whole notebook as a markdown folder with sidecars and attachments, `GET /export/folder`), the import report page, web clip, media upload; export per note `.md`, per document md, zip, docx; backups and a bundle | built 2026-10-10 (25b); left: a 5,000-note write is 45.9 s on the loaded sandbox (one commit per note) | 25b |
 | Data safety | never lose a note | measured: bundle is `memorymap.db` (all 57 tables) plus `media/` and `uploads/`; per-note history is `EntryRevision`, 20 per note, with a panel; `versioning.py` is the `/api/v1` middleware (24.6b) | restore is not verified by a test; no integrity check at boot; versions not visible per note; crash recovery of a draft unmeasured | 25e |
 | Phone and PWA | installable, an offline shell, a share target | `phone-shell.js` 2,139 lines; `sw.js` 59 lines and by design no cache (a transparent worker) | no offline shell; the hashed asset URLs make a safe cache possible now (decision 49) | 25d, Brief 40 |
 | Performance | VS Code: boot under a second on old hardware | measured: boot 10.5 s DOMContentLoaded and 4.5 s to interactive on a saturated machine; idle server 63 to 66% of a core with the dashboard open, 2 to 16% on Notes; 319,799 bytes gzipped over 27 scripts (24.6b) | budgets exist for weight only; none for interaction time | 25g |
@@ -3900,7 +3891,8 @@ part built; sync (B6) designed only.
     route tests stay as they are and prove no behaviour changed. Extraction
     order: whiteboard, files, entries, chat.
 56. **Data is data.** Tables (`question_noise`, `composer_tables`, the help
-    topics, the taxonomy) are JSON under `src/memorymap/data/`, loaded
+    topics) are JSON under `src/memorymap/data/` (the taxonomy stays under
+    `src/memorymap/ai/data/taxonomy/`, 23.1), loaded
     lazily and cached; `tests/test_import_time.py` caps `import
     memorymap.ai.composer` at 0.2 s cold and the app's import at 1.5 s.
 57. **No silent swallow.** `except Exception` ends in a log line with the
@@ -3927,9 +3919,9 @@ part built; sync (B6) designed only.
 | --- | --- | --- | --- |
 | 26.0 Measure | decision 63's complexity and per-frame census; import times, resident memory with and without the embedder, the index audit (every FK and hot `WHERE`), the 54 untested routes listed, the 21 swallows listed, the 32 thread sites classified | numbers in this section | 60, built 2026-10-10 (26.4 and 26.5 hold the numbers) |
 | 26a Lints | decisions 57, 58, 59 as ratchets; the prints folded | all three green with their seeds | 60, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 26.0 and 26a, Brief 60)"): seeds 21, 49, 26; complexity 260 over 15; wake sources 97 rows |
-| 26b Services | decision 55 for whiteboard and files | route tests unchanged and green; `routes_whiteboard.py` under 1,500 lines | 61 (Opus, high) |
+| 26b Services | decision 55 for whiteboard and files | route tests unchanged and green; `routes_whiteboard.py` under 1,500 lines | 61, built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)"): 5,808 to 1,438 lines; files 4,028 to 1,905; entries and chat left |
 | 26c Data | decision 56 for the four tables; the import-time test | `test_import_time.py` green; the composer eval unchanged (grounded 1.0) | 62 (Opus, high) |
-| 26d Runners | decision 61; the embedder's lazy load (62) | the agent and skill tests unchanged; the resident number recorded | 63 (Opus, high) |
+| 26d Runners | decision 61; the embedder's lazy load (62) | the agent and skill tests unchanged; the resident number recorded | 63 (Opus, high); 62 built 2026-10-11: 491 MB loaded, 376 MB after the idle unload, reload 3.2 s (HISTORY "Brief 63 part 1, the embedder") |
 
 ### 26.4 Measured, 2026-10-10 (Brief 60, numbers only)
 
@@ -4003,7 +3995,7 @@ sources; three export shapes per document and one per note.
 | Settings | 75 keys, panes, help on 105; search, reset, modified, export built (25f) | appearance keys kept per browser (see agent-remaining/settings52-1011.md) | Brief 52 |
 | Import | Notion, Obsidian, Evernote, Apple Notes, web clip, media | the report page, progress, a markdown folder in, the round trip (25b) | Brief 48 |
 | Export | per note `.md`, per document md, zip, docx, the bundle | the whole notebook as a folder (25b); boards and maps as SVG and PNG with the notes they link; a document as PDF | Brief 48 |
-| Backups | create, list, restore, bundle | the tested restore, the boot check, a schedule shown with the last success (25e) | Brief 51 |
+| Backups | create, list, restore, bundle, schedule line, second-copy folder | the tested restore, the boot check (25e, built) | Brief 51 |
 | Help | Guide chat, popovers, manual parity, the manual (25c) | none open here | Brief 49, built |
 | Skills and tools | 67 tools, 30 skills, MCP | Phase E; one file per tool family (26) | Briefs 54, 63 |
 | Spaces | create, edit, delete dialogs, the space guard | a space's own dashboard line and its export; moving a note between spaces with its links kept | Brief 59 row |
@@ -4168,11 +4160,13 @@ Translate (offline language packs).
 | 7 | expansion | **Built 2026-10-10 (Brief 81; HISTORY "WORLD_CLASS 28.5, Brief 81")**: a timestamped transcript: a line seeks the audio, SRT and VTT out | every line within 0.27 s, 1440 and 390; SRT and VTT byte for byte | 6 |
 | 8 | fix | Transcription is a job with progress and Stop (decision 70) | a 60-minute file lists, reports, stops | 5 |
 | 9 | expansion | Live captions: built against a fake helper; open: the packaged helper download and a run on the reference laptop | Built by Brief 82; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (WORLD_CLASS 28.5 row 9, live captions, Brief 82)"); the open rows are in archive/agent-remaining/caption82-1010.md | |
-| 10 | expansion | **Built 2026-10-10 (Brief 83; HISTORY "WORLD_CLASS 28.5, Brief 83")**: Translate this, offline (Bergamot, MPL-2.0, in a page Worker; English to Spanish as the package "Translate offline"); documents, notes, readings; a caption is a selection like any other (live translated captions not built) | 94-word paragraph warm in Chromium: median 591 ms, 27 of 29 runs under 1 s (load 6 to 9 on 4 shared cores); 27.2 MB download, 41.8 MB on disk | 12 |
+| 10 | expansion | **Built 2026-10-10 (Brief 83; HISTORY "WORLD_CLASS 28.5, Brief 83")**: Translate this, offline (Bergamot, MPL-2.0, in a page Worker; English to Spanish as the package "Translate offline"); documents, notes, readings; a caption is a selection like any other; live captions translate under the dock's Translate button (libr-1011, fake translator in tests, needs device) | 94-word paragraph warm in Chromium: median 591 ms, 27 of 29 runs under 1 s (load 6 to 9 on 4 shared cores); 27.2 MB download, 41.8 MB on disk | 12 |
 | 11 | expansion | **Built 2026-10-10 (Brief 81; HISTORY "WORLD_CLASS 28.5, Brief 81")**: speaker labels behind the model gate (ANALYSIS keeps it) | 2 speakers labelled on the sample (fake transport) | 12 |
 
 Briefs: 73 (row 8), 80 (rows 1, 3 to 6), 81 (rows 2, 7, 11), 82 (row 9),
 83 (row 10).
+
+Decisions made (libr-1011, 2026-10-11): a recording is a search kind (`recording`, title plus transcript lines), and a note reaches it through `entry_id`, not an embed syntax; the meeting note keeps plain transcript text and the timed lines stay on the recording; a trim of a long take warns about memory and stays in the page until the app ships a container writer; a second translation pair brings its own picker, none before; RapidOCR stays an optional extra (it runs on this computer once installed).
 
 ### Vendored capabilities to use, 2026-10-10 (Brief 75)
 
@@ -4190,3 +4184,12 @@ Brief 74 measured rules 1, 2 and 7 on 12 surfaces (`undo.js`, `reach.js`, `overl
 ## Placed from the settings agent, 2026-10-11 (a decision taken by standing order 3)
 
 - 25f: the 14 appearance settings kept only in this browser do not follow the person to a second browser. Decision, taken: mirror them all to the notebook's preferences except `perf` (performance mode is a property of the machine). Owner: a Sonnet brief after the running ones.
+
+## Decided by the rows agent, 2026-10-11 (standing order 3; house2 ledger rows)
+
+- 1586, panel heads: `h3.panel-head` and the board's `h3.wb-sidebar-title` name a whole card or column, so they are titles (`--text-body`, 600, ink, the dialog title's voice); a label over one group inside a panel (`.doc-outline-title`) stays the eyebrow. Built, DESIGN.md's panel-head row.
+- 1641, the Local chip: the receipt's verdict for this launch (`GET /privacy/verdict`, the same `egress.verdict` the receipt prints) sits in the header's first cluster as an icon and one word (Local, Local network, Online in `--warn`); one press opens Settings, Privacy. Below 1100 it is the icon alone; below 600 it leaves the bar for the phone's More menu (a live row carrying its word). Refreshed every five minutes, never a stream. DESIGN.md's Local chip row.
+- 1643, type to filter: one recipe, `listFilter` (sheets-selects.js), shown past twelve rows, hiding misses with an empty-state row and Escape to clear; applied to the two longest lists that had none (the keyboard shortcuts, 31 rows; the space menu). The eight hand-built filters stay as they are, named in `HAND_BUILT_FILTERS` so a ninth must use the recipe.
+- 1595, readable font: Font's fifth choice, Readable, is Atkinson Hyperlegible (SIL OFL 1.1, latin, 400 and 700 with italics, about 80 KB vendored under `frontend/vendor/atkinson/` with its licence), served from the app's own origin so it works offline and under `font-src 'self'`. It sets `--ui-font` only; documents keep their own face.
+- 1588, dependency audit: `.github/workflows/dependency-audit.yml` runs `pip-audit` over `requirements.txt` on a weekly cron, on a change to the requirements and by hand; `continue-on-error` until a first clean run is seen, then it blocks. CI only: the app makes no request.
+- 1661, memory growth: measured, no leak found, nothing changed. The server under a seeded session (`scratchpad/ui-sweeps/memserver.py`: three notes and every path the app's boot and tab switches ask for, per lap) went 446 to 600 MB resident over 10 minutes (78 notes, 1,300 requests) and was back at 509 MB idle; with no seeding, 6,150 requests over 10 minutes held 503 to 521 MB (509 to 507). The 8.5 GB of the first report did not recur. The browser half (`scratchpad/ui-sweeps/memgrowth.js`, heap after a forced GC and DOM nodes per lap) read 12.6 to 14.4 MB and 16,566 to 17,900 nodes over two laps before the sandbox's memory limit killed the renderer, three times; a 10-minute browser run on a machine with memory to spare is the open half.

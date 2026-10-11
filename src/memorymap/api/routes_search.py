@@ -108,12 +108,30 @@ def search(
         #: The query the hits are for when it is not `query`: the view says
         #: "Showing results for ..." rather than letting a typo look matched.
         "corrected": corrected,
-        "hits": [hit.as_dict() for hit in hits[(page - 1) * limit : page * limit]],
+        "hits": _with_categories(session, hits[(page - 1) * limit : page * limit]),
         "page": page,
         "limit": limit,
         "more": len(hits) > page * limit,
         "counts": engine.index_counts(session),
     }
+
+
+def _with_categories(session: Session, hits: list) -> list[dict]:
+    """The page's hits as JSON, each with the name of the category its note is
+    filed under (`null` for anything that is not a note), one query for the
+    page: a Group by category in Find anything needs it (INBOX 1332)."""
+    from sqlalchemy import select
+
+    from memorymap.core.database import Category, Entry
+
+    ids = [hit.ref_id for hit in hits if hit.kind == "note"]
+    names: dict[int, str] = {}
+    if ids:
+        rows = session.execute(
+            select(Entry.id, Category.name).join(Category, Category.id == Entry.category_id).where(Entry.id.in_(ids))
+        )
+        names = {entry_id: name for entry_id, name in rows}
+    return [{**hit.as_dict(), "category": names.get(hit.ref_id) if hit.kind == "note" else None} for hit in hits]
 
 
 _PLAIN_WORD = re.compile(r"[^\W\d_][\w'-]*")

@@ -203,10 +203,6 @@ const SPACE_ICONS = [
 
 let spacesCache = [];
 
-function activeSpaceId() {
-  return prefs.get("spaceId", null) || SPACE_ALL;
-}
-
 //: The two headers every hand-built request needs, for a call that has to
 //: replace `api()`'s defaults (a FormData body must not carry its JSON
 //: Content-Type). Passing a headers object holding only the token replaced
@@ -221,7 +217,7 @@ function authHeaders() {
 }
 
 function setActiveSpace(id) {
-  localStorage.setItem("spaceId", id);
+  prefs.set("spaceId", id);
   // A full reload rather than a re-fetch of everything on the page. Every list,
   // count, graph and sidebar in the app is scoped by the header, so a partial
   // refresh would leave whichever one we forgot showing the old space, and a
@@ -337,6 +333,18 @@ async function toggleSpaceHidden(id, hidden) {
       method: "PUT",
       body: JSON.stringify({ hidden_from_all: hidden }),
     });
+    pushRequestUndo(
+      hidden ? "Hid a space from All spaces" : "Showed a space in All spaces",
+      `/spaces/${id}`,
+      "PUT",
+      { hidden_from_all: !hidden },
+      { hidden_from_all: hidden },
+      async () => {
+        await loadSpaces();
+        renderSpaceMenu();
+        if (activeSpaceId() === SPACE_ALL) await loadEntries();
+      }
+    );
     await loadSpaces();
     renderSpaceMenu();
     toast(
@@ -406,6 +414,10 @@ function renderSpaceMenu() {
     nameEl.title = current ? current.name : "All spaces";
   }
   if (iconEl) iconEl.className = `ph ${current ? current.icon : "ph-circles-four"}`;
+  //: Past twelve spaces the menu is typed to (row 1643, `listFilter`).
+  if (typeof listFilter === "function") {
+    listFilter(menu, { label: "Filter spaces", inside: true, rows: ":scope > .space-option:not(#space-create-open)" })?.refresh();
+  }
 }
 
 function closeSpaceMenu() {
@@ -430,6 +442,7 @@ function openSpaceEdit(id, name, icon) {
   $("space-edit-id").value = id;
   $("space-edit-name").value = name;
   $("space-edit-icon").value = icon;
+  $("space-edit-dialog").dataset.was = JSON.stringify({ name, icon });
   $("space-edit-error").textContent = "";
   spaceIconPicker($("space-edit-icon-picker"), $("space-edit-icon"));
   $("space-edit-dialog").showModal();
@@ -546,7 +559,25 @@ function initSpaceSwitcher() {
         body: JSON.stringify({ name, icon: $("space-create-icon").value }),
       });
       $("space-create-dialog").close();
-      setActiveSpace(space.id);
+      //: Made in place, with no reload: a reload empties the session's Undo.
+      //: Undo moves anything put in it meanwhile to the default space, then
+      //: removes it; Redo makes it again under the id the server gives next.
+      const made = { name, icon: $("space-create-icon").value };
+      let live = space;
+      pushUndo(
+        `Made the space “${name}”`,
+        async () => {
+          await api(`/spaces/${encodeURIComponent(live.id)}?move_to=default`, { method: "DELETE" });
+          if (activeSpaceId() === live.id) setActiveSpace("all");
+          else await loadSpaces();
+        },
+        async () => {
+          live = await apiJson("/spaces", { method: "POST", body: JSON.stringify(made) });
+          await loadSpaces();
+        }
+      );
+      await loadSpaces();
+      toastAction(`Made the space “${name}”.`, "Open it", () => setActiveSpace(live.id));
     } catch (err) {
       error.textContent = err.message;
     }
@@ -562,10 +593,12 @@ function initSpaceSwitcher() {
       return;
     }
     try {
+      const now = { name, icon: $("space-edit-icon").value };
       await apiJson(`/spaces/${encodeURIComponent(id)}`, {
         method: "PUT",
-        body: JSON.stringify({ name, icon: $("space-edit-icon").value }),
+        body: JSON.stringify(now),
       });
+      pushRequestUndo(`Renamed the space to “${name}”`, `/spaces/${encodeURIComponent(id)}`, "PUT", JSON.parse($("space-edit-dialog").dataset.was || "{}"), now, loadSpaces);
       $("space-edit-dialog").close();
       await loadSpaces();
       toast(`Renamed to “${name}”.`);
@@ -758,7 +791,7 @@ $("chat-jump-latest")?.addEventListener("click", () => {
 //: The panel-wide half of "mark as unread": one gesture that puts every row
 //: back to read, overrides included. See `forcedUnreadIds`.
 $("notif-mark-all-read")?.addEventListener("click", () => {
-  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  prefs.set(NOTIFICATIONS_READ_KEY, String(Date.now()));
   setForcedUnreadIds(new Set());
   setForcedReadIds(new Set());
   openNotifications();

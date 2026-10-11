@@ -299,22 +299,39 @@ function wireHelpPopover(trigger, panel) {
       if (!openHelpPopovers.has(entry)) return;
       openHelpPopovers.delete(entry);
       panel.classList.add("hidden");
-      panel.classList.remove("help-popover", "help-popover-above");
-      panel.style.left = "";
-      panel.style.top = "";
-      panel.style.maxHeight = "";
-      //: Cleared with the rest of the inline placement: an element left
-      //: `visibility: hidden` in its home tree is an element some other
-      //: feature will one day show and find invisible.
-      panel.style.visibility = "";
-      if (homeParent) homeParent.insertBefore(panel, homeNext);
       trigger.setAttribute("aria-expanded", "false");
+      //: **After the exit, not now** (motion-1005: "Help popovers close at
+      //: once"): moving the node home cancelled its fade, so the placement
+      //: and the move wait for `.help-popover.hidden`'s transition, as an
+      //: escaped menu does (`afterMenuExit`). Skipped when it opened again.
+      afterMenuExit(panel, () => {
+        if (openHelpPopovers.has(entry)) return;
+        panel.classList.remove("help-popover", "help-popover-above");
+        panel.style.left = "";
+        panel.style.top = "";
+        panel.style.maxHeight = "";
+        //: Cleared with the rest of the inline placement: an element left
+        //: `visibility: hidden` in its home tree is an element some other
+        //: feature will one day show and find invisible.
+        panel.style.visibility = "";
+        if (homeParent && panel.parentElement !== homeParent) homeParent.insertBefore(panel, homeNext);
+      });
     },
   };
   const open = () => {
     closeHelpPopovers();
-    homeParent = panel.parentElement;
-    homeNext = panel.nextSibling;
+    //: Still leaving from the last close: its home is the one already known.
+    clearTimeout(panel._exitTimer);
+    //: The '?' stops its click (below), so the page's outside-click close
+    //: never reaches an open menu: they stacked (INBOX 796, app-wide as
+    //: ledger 936). Opening one shuts the others.
+    if (!trigger.closest(".action-menu")) closeActionMenus();
+    const home = trigger.closest(".doc-dock-menu-list")?._escapedHome?.parent;
+    for (const menu of document.querySelectorAll("details.dock-menu[open]")) if (menu !== home && !menu.contains(trigger)) menu.open = false;
+    if (!panel.classList.contains("help-popover")) {
+      homeParent = panel.parentElement;
+      homeNext = panel.nextSibling;
+    }
     //: **Into the open modal, not `<body>`, when the "?" is inside one**
     //: (INBOX 667: the Quick note's "?" showed nothing). A `showModal()`
     //: dialog is in the top layer, above the whole document whatever the
@@ -1178,6 +1195,11 @@ async function toggleEntryPrivacy(entry) {
       method: "POST",
       body: JSON.stringify({ private: makingPrivate }),
     });
+    const setPrivacy = (value) => async () => {
+      await apiJson(`/entries/${entry.id}/privacy`, { method: "POST", body: JSON.stringify({ private: value }) });
+      await refreshEntries([entry.id]);
+    };
+    pushUndo(makingPrivate ? "Made a note private" : "Made a note readable", setPrivacy(!makingPrivate), setPrivacy(makingPrivate));
     toast(makingPrivate ? "Note encrypted." : "Note is readable again.");
     await refreshEntries([entry.id]);
   } catch (error) {
@@ -1354,6 +1376,7 @@ function buildMenuGroupButton(label, subItems) {
   // "Connect", "Add") were the one label sink the sweep missed, so the note
   // kebab menu rendered the literal text "ph:sparkle AI actions".
   setLabel(labelSpan, label);
+  labelSpan.className = "menu-item-words";
   const arrow = document.createElement("span");
   arrow.className = "menu-submenu-arrow";
   arrow.setAttribute("aria-hidden", "true");
@@ -1773,6 +1796,7 @@ function entryOverflowMenu(entry) {
               }),
             });
             await loadEntries();
+            pushEntryCreateUndo(copy, "Duplicated a note");
             // Open the new note in edit mode straight away.
             if (copy && copy.id) {
               flashEntry(copy.id);
@@ -1784,13 +1808,34 @@ function entryOverflowMenu(entry) {
           }
         },
       },
+      //: OPEN row 566: the note's headings and lists as a mind map, the same
+      //: build as the agent's `map_from_note`, so no model is needed.
+      ...(entry.is_private ? [] : [{
+        label: "ph:tree-structure Make a mind map",
+        title: "A mind map of this note: its title in the centre, its headings and lists as branches",
+        run: async () => {
+          try {
+            const board = await apiJson(`/whiteboard/maps/from-note/${entry.id}`, { method: "POST" });
+            await openWhiteboardBoard(board.id);
+          } catch (err) {
+            toast(err.message || "Couldn't make a mind map of this note.", true);
+          }
+        },
+      }]),
       //: Section 17 row 1: settle a filing from the note itself.
       ...(entryNeedsReview(entry)
         ? [{
           label: "ph:check-circle Accept the filing",
           title: `Keep it in ${entry.category}; it leaves the review queue`,
           run: async () => {
-            await apiJson(`/review-queue/${entry.id}/accept`, { method: "POST" }).catch((e) => toast(e.message, true));
+            const accepted = await apiJson(`/review-queue/${entry.id}/accept`, { method: "POST" }).catch((e) => toast(e.message, true));
+            if (accepted !== undefined) {
+              const settle = (value) => async () => {
+                await apiJson(`/entries/${entry.id}/filing`, { method: "POST", body: JSON.stringify({ accepted: value }) });
+                await refreshEntries([entry.id]);
+              };
+              pushUndo(`Kept a note in ${entry.category}`, settle(false), settle(true));
+            }
             await refreshEntries([entry.id]);
             toast(`Kept in ${entry.category}.`);
           },
@@ -1835,6 +1880,7 @@ function entryOverflowMenu(entry) {
           title: "Bring this note back into your notebook",
           run: async () => {
             await apiJson(`/entries/${entry.id}/unarchive`, { method: "POST" });
+            pushRoutePairUndo("Unarchived a note", [`/entries/${entry.id}/archive`, "POST"], [`/entries/${entry.id}/unarchive`, "POST"], () => refreshEntries([entry.id]));
             await refreshEntries([entry.id]);
             toast("Unarchived.");
           },

@@ -261,7 +261,7 @@ def test_a_download_that_produces_no_project_is_named_before_pip_sees_it(
 
     _install_and_wait(data_dir)
 
-    assert "laid out the way MemoryMap expects" in searxng_manager._install_state["error"]
+    assert "laid out the way Tessellate expects" in searxng_manager._install_state["error"]
     assert commands.pip_target == [], "pip should never be asked to install that"
 
 
@@ -659,7 +659,7 @@ def test_the_pwd_shim_lands_in_the_virtualenv(app_state, tmp_path, monkeypatch):
 
     assert searxng_manager._write_pwd_shim("python") is True
     written = (site / "pwd.py").read_text()
-    assert "written by MemoryMap" in written
+    assert "written by Tessellate" in written
     assert "valkeydb" in written, "it has to say what it is standing in for"
 
 

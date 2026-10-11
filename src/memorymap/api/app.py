@@ -23,7 +23,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -77,6 +77,7 @@ from memorymap.api import (
     routes_help,
     routes_insights,
     routes_library,
+    routes_maintenance,
     routes_models,
     routes_recordings,
     routes_reminders,
@@ -101,6 +102,7 @@ from memorymap.api import (
     routes_map_from_notes,
 )
 from memorymap.api.routes_auth import require_unlock
+from memorymap.api.this_computer import is_another_device
 from memorymap.core import (
     backup,
     bgtasks,
@@ -111,6 +113,8 @@ from memorymap.core import (
     jobruns,
     jobs,
     logbuffer,
+    netbind,
+    origin,
     passes,
     security,
     startup_status,
@@ -246,13 +250,21 @@ def asset_stamps() -> dict[str, str]:
     return stamps
 
 
-def served_offline_html() -> bytes:
+#: The pages of their own whose local stamps are rewritten as they are
+#: served. `clip.html` and `capture.html` joined (OPEN 1101): a plain
+#: `?v=<version>` let an edit inside one version be served stale from the
+#: immutable HTTP cache.
+STAMPED_PAGES = ("offline.html", "clip.html", "capture.html")
+
+
+def served_offline_html(name: str = "offline.html") -> bytes:
     """`offline.html` as served: the page the service worker shows when the
     server cannot be reached (frontend/sw.js), with its local stamps given
     each file's hash exactly as `index.html`'s are, so the stylesheets it
-    links are the same URLs (and the same cache entries) the app loaded."""
-    page = FRONTEND_DIR / "offline.html"
-    stripped = asset_strip.strip_for_path("offline.html", page.read_bytes())
+    links are the same URLs (and the same cache entries) the app loaded.
+    The same for the other `STAMPED_PAGES`."""
+    page = FRONTEND_DIR / name
+    stripped = asset_strip.strip_for_path(name, page.read_bytes())
     return _STAMPED_URL.sub(
         lambda m: m.group(1) + b"?v=" + _stamp_for(m.group(1).decode()).encode(), stripped
     )
@@ -377,11 +389,15 @@ class RevalidatedStatic(StaticFiles):
             raise StarletteHTTPException(status_code=405)
         if path in self._INDEX_PATHS:
             body = await run_in_threadpool(served_index_html)
+            #: INBOX 867: a page reached over the network says so, and the
+            #: lock card shows "Install the certificate" by CSS alone.
+            if not netbind.arrived_on_loopback(scope.get("server")):
+                body = body.replace(b"<html ", b'<html data-lan="1" ', 1)
             response = HTMLResponse(content=body)
             response.headers["Cache-Control"] = "no-cache"
             return response
-        if path == "offline.html" and scope["method"] in ("GET", "HEAD"):
-            response = HTMLResponse(content=await run_in_threadpool(served_offline_html))
+        if path in STAMPED_PAGES and scope["method"] in ("GET", "HEAD"):
+            response = HTMLResponse(content=await run_in_threadpool(served_offline_html, path))
             response.headers["Cache-Control"] = "no-cache"
             return response
         strip = self._strippable(path)
@@ -638,13 +654,20 @@ def _install_pending_extras() -> None:
     if not pending.is_file():
         return
     ids = [part.strip() for part in pending.read_text(encoding="utf-8").split(",") if part.strip()]
-    pending.unlink(missing_ok=True)
     #: A retired id (python-docx, `docx`, went in Brief 42) from a Setup older
     #: than this app would otherwise fail the whole list with "No such extra".
     ids = [extra_id for extra_id in ids if extra_id in extras.EXTRAS_BY_ID]
-    if ids:
-        started, message = extras.start_bulk("install", ids)
-        logging.getLogger("memorymap.startup").info("packages picked in Setup %s: %s", ids, message)
+    if not ids:
+        pending.unlink(missing_ok=True)
+        return
+    started, message = extras.start_bulk("install", ids)
+    logging.getLogger("memorymap.startup").info("packages picked in Setup %s: %s", ids, message)
+    #: Only once the job is running: another install in hand at launch refuses
+    #: the list, and a list deleted before it was accepted was a pick lost
+    #: (Brief 101c). The next launch asks again; a package already there is
+    #: skipped, and a Stop on the job is the person's answer for this run.
+    if started:
+        pending.unlink(missing_ok=True)
 
 
 def _choose_chat_model_if_missing() -> None:
@@ -655,15 +678,7 @@ def _choose_chat_model_if_missing() -> None:
     config, ollama = deps.get_config(), deps.get_ollama()
     if ollama is None or not ollama.is_running():
         return
-    installed = ollama.list_models()
-    names = {m.get("name") for m in installed}
-    current = config.get_preference("chat_model", "llama3.2")
-    if current in names or f"{current}:latest" in names:
-        return
-    chosen = mm.choose_installed_chat_model(installed)
-    if chosen:
-        config.set_preference("chat_model", chosen)
-        logging.getLogger("memorymap.startup").info("chat model %s is not installed; using %s", current, chosen)
+    mm.choose_chat_model_if_missing(config, ollama.list_models())
 
 
 def _startup_maintenance() -> None:
@@ -681,6 +696,7 @@ def _startup_maintenance() -> None:
             ("_backup_if_due", "Back up if today's is due"),
             ("_choose_chat_model_if_missing", "Choose a chat model you have"),
             ("_install_pending_extras", "Install the packages picked in Setup"),
+            ("_read_note_dates", "Queue reading the dates written in your notes"),
         )
         run.plan([words for _, words in steps])
         for index, (step, words) in enumerate(steps):
@@ -692,6 +708,14 @@ def _startup_maintenance() -> None:
                 run.say(f"That step did not finish: {words.lower()}. The server log has the detail.")
             run.step(index + 1)
         run.result = "at start"
+
+
+def _read_note_dates() -> None:
+    """Notes saved before written-out dates were read get them read once, as
+    a background job that resumes where it stopped (`entry/redate.py`)."""
+    from memorymap.entry import redate
+
+    redate.enqueue_if_pending()
 
 
 def _check_notebook_file() -> None:
@@ -742,7 +766,7 @@ def _start_searxng_if_asked() -> None:
     app should do to a machine without being asked. In a thread, because the
     start can take tens of seconds pulling an image and a slow engine must not
     be a slow app, and inside a try, for the reason the two functions above
-    give: a failure here must never stop MemoryMap from opening.
+    give: a failure here must never stop Tessellate from opening.
     """
     try:
         config = deps.get_config()
@@ -971,7 +995,7 @@ def _register_error_handlers(app: FastAPI) -> None:
             status_code=500,
             content={
                 "detail": (
-                    "Something went wrong inside MemoryMap. Try again, and if it "
+                    "Something went wrong inside Tessellate. Try again, and if it "
                     "keeps happening, check Settings > Logs."
                 ),
                 "code": "internal",
@@ -1086,6 +1110,10 @@ def _content_length(scope) -> int | None:  # noqa: ANN001
 _JOB_SHUTDOWN_SECONDS = 3.0
 
 
+#: A request that changes something: someone at this computer acting.
+_ACTS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
 class RequestPulse:
     """Pure ASGI, one line of work per request: tells the embedding warm-up
     that the app is busy, so the model load waits for a quiet moment rather
@@ -1096,9 +1124,17 @@ class RequestPulse:
         self.app = app
 
     async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001
-        if scope.get("type") == "http":
-            embeddings.note_request()
-        await self.app(scope, receive, send)
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        embeddings.note_request()
+        #: Which device this request is for (core/origin.py): carried into
+        #: the jobs it queues, so a phone's save cannot start an install here.
+        another = is_another_device(Request(scope))
+        if not another and scope.get("method") in _ACTS and origin.has_deferred():
+            origin.run_deferred(jobs.enqueue)
+        with origin.acting_for(another):
+            await self.app(scope, receive, send)
 
 
 def _start_services() -> Path:
@@ -1151,7 +1187,8 @@ def _start_services() -> Path:
     if deps.get_config().get_preference("warm_search_model_at_launch", True):
         embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
         #: The speller's lists and the UK/US pairs (INBOX 895), about a
-        #: second built once, so the first question does not wait for them.
+        #: second built once on the job pool, so the first question does not
+        #: wait for them.
         from memorymap.ai import spelling
 
         spelling.warm_in_background()
@@ -1263,6 +1300,7 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_ask_history.router, dependencies=locked)
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
+    app.include_router(routes_maintenance.router, dependencies=locked)
     # The browser's own crash reports, which have to reach the log *before*
     # unlock: that is when the failure they describe happens. One route, and
     # `routes_settings.open_router`'s own comment says why it is separate.
@@ -1366,35 +1404,42 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
         return {"cleared": True, "files": clear_static_cache()}
 
     @app.get("/health", tags=["system"])
-    def health() -> dict[str, str | bool]:
+    def health(request: Request) -> dict[str, str | bool]:
         from memorymap.core import reminder_notifier
 
+        #: The desktop shell and its notifier belong to this computer. A phone
+        #: that read `desktop: true` saved its exports onto this disk and
+        #: offered "Open folder", which opened Explorer here (the owner,
+        #: 2026-10-11); now it downloads to itself like any browser tab.
+        here = not is_another_device(request)
         return {
             "status": "ok",
-            "app": "MemoryMap AI",
+            "app": "Tessellate",
             "version": __version__,
             # Whether we are being viewed through the pywebview window rather
             # than a browser tab. The frontend needs to know because a
             # `<a download>` click does nothing there, pywebview has no
             # download handler: so exports have to be written by the server
             # instead (§35E). Set by `python -m memorymap --desktop`.
-            "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
+            "desktop": here and os.getenv("MEMORYMAP_DESKTOP") == "1",
             # The launcher posts the system notification for a due reminder
             # (core/reminder_notifier.py), so the page does not post a second.
-            "os_notify": reminder_notifier.active(),
+            "os_notify": here and reminder_notifier.active(),
+            #: Whether controls that act on this computer apply to this page.
+            "this_computer": here,
         }
 
     @app.get("/instance", tags=["system"])
     def instance() -> dict[str, str]:
         """Which notebook this server is serving, for a launch deciding
-        whether a MemoryMap already on its port is *this* one (WORLD_CLASS 423
+        whether a Tessellate already on its port is *this* one (WORLD_CLASS 423
         g). Open like `/health`: the asking process has no session. It carries
         a hash of the resolved data directory (`instance_lock.data_dir_id`),
         never the path."""
         from memorymap.core import instance_lock
 
         return {
-            "app": "MemoryMap AI",
+            "app": "Tessellate",
             "data_dir_id": instance_lock.data_dir_id(deps.get_config().data_dir),
         }
 
@@ -1492,6 +1537,11 @@ def create_app() -> FastAPI:
         # shutdown that fails to shut down is worse than one that leaves a
         # line in the log.
         bgtasks.stop_all()
+        # The reminder notifier's loop is a job on that pool, so it is told to
+        # end first: otherwise a quit waits the pool's whole deadline for it.
+        from memorymap.core import reminder_notifier
+
+        reminder_notifier.stop_running()
         # The bounded pool (core/jobs.py) is the other half: `stop_all`
         # handles the jobs that own something interruptible, and this one
         # drops the queue of captions and OCR passes behind it. A deadline
@@ -1514,7 +1564,7 @@ def create_app() -> FastAPI:
     # in that audit not already handled. The schema is mounted again below,
     # behind the same `locked` dependency every data route carries.
     app = FastAPI(
-        title="MemoryMap AI",
+        title="Tessellate",
         version=__version__,
         lifespan=lifespan,
         docs_url=None,

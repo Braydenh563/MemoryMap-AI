@@ -1,0 +1,131 @@
+/* lan-lazy.css: where another device opens the notebook (INBOX 867; the
+   owner: "can this be better styled and easier to read??"). Settings, Other
+   devices and the privacy receipt draw one block (`renderLanAddresses`,
+   settings-controls.js, which loads this): the address a phone types on a
+   line of its own, large and monospaced like a secret shown once
+   (`.recovery-key-value`), with Copy beside it; the rest folded under a
+   disclosure row. */
+
+.lan-addresses {
+  margin: var(--space-2) 0 var(--space-3);
+}
+.lan-address-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.lan-address {
+  flex: 1 1 16rem;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-h3);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+/* A phone's width: one size down, so an IPv4 address and its port stay on
+   one line (measured: 18.4px broke "...107:" from "8443" at 390); the phone break from Phase 9's set. */
+@media (max-width: 599.98px) {
+  .lan-address {
+    font-size: var(--text-lg);
+  }
+}
+/* The address as a QR code (`showLanQr`): black on white whatever the
+   theme, since a camera reads dark on light; the server's SVG carries its
+   own white quiet zone. */
+.lan-qr {
+  margin: var(--space-2) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.lan-qr img {
+  width: 11rem;
+  aspect-ratio: 1;
+  border-radius: var(--radius-inner);
+  image-rendering: pixelated;
+}
+.lan-qr figcaption {
+  flex: 1 1 10rem;
+}
+.lan-address-more {
+  margin-top: var(--space-2);
+}
+.lan-address-more > .ph {
+  transition: rotate var(--ui-fast) var(--ease-out);
+}
+.lan-address-more[aria-expanded="true"] > .ph {
+  rotate: 90deg;
+}
+.lan-address-list {
+  margin: var(--space-1) 0 0;
+  padding-inline-start: var(--space-4);
+}
+.lan-address-small {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+/* --- the status bar's Other devices icon and panel (INBOX 896) -------------
+   The owner: "a lan icon in the bottom status bar" that says "whether it is
+   open or closed or off". Loaded by lan-watch.js before it shows the icon.
+   Open takes the success ink and closed the warning ink; off keeps the
+   bar's own muted ink, so the bar is quiet while nothing can reach it. The
+   panel is a help popover (`wireHelpPopover`), and a sheet on a phone. */
+#status-lan[data-lan-state="open"] > .ph {
+  color: var(--ok);
+}
+#status-lan:is([data-lan-state="closed"], [data-lan-state="restart"]) > .ph {
+  color: var(--warn);
+}
+#lan-popover {
+  width: min(24rem, calc(100vw - var(--space-8)));
+}
+.lan-panel .lan-panel-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.lan-panel .lan-panel-line {
+  margin: 0;
+}
+.lan-panel-head[data-lan-state="open"] .lan-panel-line > .ph {
+  color: var(--ok);
+}
+.lan-panel-head:is([data-lan-state="closed"], [data-lan-state="restart"]) .lan-panel-line > .ph {
+  color: var(--warn);
+}
+.lan-panel .lan-panel-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+}
+.lan-panel .lan-panel-actions {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+}
+.lan-panel .setting-subhead {
+  margin: var(--space-4) 0 var(--space-1);
+}
+.lan-panel .entry-list {
+  margin: 0;
+}
+/* A network row's Stop trusting, Trust and Forget are always on screen
+   (the owner: "wierd empty gap where buttons are when no hover"). The
+   notes list's rule hides an `.entry-list` row's actions until hover and
+   keeps their room, which here read as a gap under the name, and a finger
+   has no hover at all. */
+.entry-list li.lan-network-row .entry-actions {
+  opacity: 1;
+}

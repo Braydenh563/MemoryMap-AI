@@ -14,7 +14,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import bindparam, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import inbox, learning
@@ -149,9 +149,9 @@ def accept_merge(body: MergeAccept, session: Session = Depends(get_session)) -> 
     if keep.id == gone.id:
         raise HTTPException(status_code=400, detail="That is one name already.")
     moved, undo_id = merge_with_undo(session, keep, gone)
-    learning.record(session, kind="accept_merge", subject={"a": keep.id, "b": gone.id, "signals": body.signals})
+    made = learning.record(session, kind="accept_merge", subject={"a": keep.id, "b": gone.id, "signals": body.signals})
     session.commit()
-    return {"kept": keep.id, "name": keep.name, "aliases": keep.aliases or [], "moved": moved, "undo_id": undo_id}
+    return {"kept": keep.id, "name": keep.name, "aliases": keep.aliases or [], "moved": moved, "undo_id": undo_id, "correction_id": made.id}
 
 
 @router.post("/merges/dismiss")
@@ -174,13 +174,13 @@ def accept_type(body: TypeDecision, session: Session = Depends(get_session)) -> 
         raise HTTPException(status_code=404, detail="That link could not be found. Refresh the list.")
     if body.link_type not in LINK_TYPES:
         raise HTTPException(status_code=422, detail="That isn't a kind of link this notebook knows.")
-    learning.record(
+    made = learning.record(
         session,
         kind="accept_link_type",
         subject={"link_id": link.id, "link_type": body.link_type, "signals": [body.link_type]},
     )
     manager.set_link_type(session, link, body.link_type)
-    return {"link_id": link.id, "link_type": link.link_type}
+    return {"link_id": link.id, "link_type": link.link_type, "correction_id": made.id}
 
 
 @router.post("/types/dismiss")
@@ -205,6 +205,29 @@ def dismiss_type(body: TypeDecision, session: Session = Depends(get_session)) ->
 class DismissedRestore(BaseModel):
     ids: list[int] = Field(default_factory=list, max_length=100_000)
     tensions: list[str] = Field(default_factory=list, max_length=100_000)
+    #: Each note's "Not suggested" tags, keyed by its id, as they were.
+    note_tags: dict[str, list[str]] = Field(default_factory=dict, max_length=100_000)
+
+
+def _turned_down_on_notes(session: Session) -> dict[int, list[str]]:
+    """The tags turned down on notes (the edit form's "Not suggested" line)."""
+    import json
+
+    from sqlalchemy import text
+
+    found: dict[int, list[str]] = {}
+    rows = session.execute(
+        text("SELECT id, discarded_tags FROM entries WHERE is_deleted = 0 AND discarded_tags NOT IN ('', '[]')")
+    ).all()
+    for entry_id, raw in rows:
+        try:
+            tags = json.loads(raw or "[]")
+        except (TypeError, ValueError):
+            continue
+        tags = [str(tag) for tag in tags if tag] if isinstance(tags, list) else []
+        if tags:
+            found[int(entry_id)] = tags
+    return found
 
 
 def _tension_keys() -> list[str]:
@@ -219,7 +242,13 @@ def dismissed_suggestions(session: Session = Depends(get_session)) -> dict:
     """How many suggestions the person has said no to, by kind."""
     by_kind = learning.dismissal_counts(session)
     pairs = len(_tension_keys())
-    return {"total": sum(by_kind.values()) + pairs, "by_kind": by_kind, "tension_pairs": pairs}
+    note_tags = sum(len(tags) for tags in _turned_down_on_notes(session).values())
+    return {
+        "total": sum(by_kind.values()) + pairs + note_tags,
+        "by_kind": by_kind,
+        "tension_pairs": pairs,
+        "note_tags": note_tags,
+    }
 
 
 @router.post("/dismissed/clear")
@@ -228,12 +257,25 @@ def clear_dismissed_suggestions(session: Session = Depends(get_session)) -> dict
     from memorymap.api.routes_entries import TENSION_DISMISSED_KEY
     from memorymap.core import deps
 
+    from sqlalchemy import text
+
     tensions = _tension_keys()
     ids = learning.revive_dismissals(session)
+    on_notes = _turned_down_on_notes(session)
+    if on_notes:
+        # Raw SQL: forgetting a verdict is not an edit, so no note's updated_at moves.
+        clear = text("UPDATE entries SET discarded_tags = '[]' WHERE id IN :ids").bindparams(bindparam("ids", expanding=True))
+        session.execute(clear, {"ids": list(on_notes)})
     session.commit()
     if tensions:
         deps.get_config().set_preference(TENSION_DISMISSED_KEY, [])
-    return {"cleared": len(ids) + len(tensions), "ids": ids, "tensions": tensions}
+    count = len(ids) + len(tensions) + sum(len(tags) for tags in on_notes.values())
+    return {
+        "cleared": count,
+        "ids": ids,
+        "tensions": tensions,
+        "note_tags": {str(entry_id): tags for entry_id, tags in on_notes.items()},
+    }
 
 
 @router.post("/dismissed/restore")
@@ -241,7 +283,19 @@ def restore_dismissed_suggestions(body: DismissedRestore, session: Session = Dep
     from memorymap.api.routes_entries import TENSION_DISMISSED_KEY
     from memorymap.core import deps
 
+    import json
+
+    from sqlalchemy import text
+
     restored = learning.restore_dismissals(session, body.ids)
+    for raw_id, tags in body.note_tags.items():
+        if not raw_id.isdigit() or not tags:
+            continue
+        done = session.execute(
+            text("UPDATE entries SET discarded_tags = :tags WHERE id = :id AND is_deleted = 0 AND discarded_tags IN ('', '[]')"),
+            {"tags": json.dumps([str(tag) for tag in tags][-200:]), "id": int(raw_id)},
+        )
+        restored += len(tags) if done.rowcount else 0
     session.commit()
     if body.tensions:
         have = _tension_keys()

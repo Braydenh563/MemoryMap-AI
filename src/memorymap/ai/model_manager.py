@@ -883,12 +883,48 @@ def start_reindex(db: DatabaseManager, embeddings: Embedder) -> bool:
     # job's own (`reindex_status`), so the pool keeps it off its list.
     from memorymap.core import jobs
 
-    if not jobs.enqueue("reindex", _run_reindex, db, embeddings, job, name="reindex"):
+    #: Durable (Brief 9) when it is the app's own notebook and embedder: the
+    #: row then names `reindex_notebook`, which a launch after a kill runs
+    #: again (re-embedding is idempotent: each note's vector is replaced).
+    #: Any other pair (a test's fake, a script's database) runs as before
+    #: and is not remembered, since a resumed row could not find it.
+    if _is_app_pair(db, embeddings):
+        queued = jobs.enqueue("reindex", reindex_notebook, name="reindex", dedupe_key="reindex")
+    else:
+        queued = jobs.enqueue("reindex", _run_reindex, db, embeddings, job, name="reindex")
+    if not queued:
         with _lock:
             job.status = "error"
             job.error = "The app is shutting down."
         return False
     return True
+
+
+#: The running app's own db, embedder and model client, filled in by
+#: `core/deps.py` when it loads (this module cannot import deps: deps imports
+#: it, and the import-cycle lint counts a function-body import too).
+APP_GETTERS: dict = {}
+
+
+def _is_app_pair(db: object, embeddings: object) -> bool:
+    """True when `db` and `embeddings` are the running app's own, the only
+    ones a durable job can find again by name after a restart."""
+    try:
+        return db is APP_GETTERS["db"]() and embeddings is APP_GETTERS["embeddings"]()
+    except Exception:  # noqa: BLE001  # no app state: a script or a test
+        return False
+
+
+def reindex_notebook() -> None:
+    """The durable re-index (Brief 9, `jobstore.HANDLERS["reindex"]`): the
+    app's notebook and embedder, looked up when it runs. A row resumed at
+    launch has no registry entry yet, so it makes one for the panel."""
+    global _reindex_job
+    with _lock:
+        if _reindex_job is None or _reindex_job.status != "running":
+            _reindex_job = Job(kind="reindex")
+        job = _reindex_job
+    _run_reindex(APP_GETTERS["db"](), APP_GETTERS["embeddings"](), job)
 
 
 def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
@@ -984,7 +1020,9 @@ def _reindex_pass(
         logging.getLogger("memorymap.search").warning("re-index failed", exc_info=True)
         job.status = "error"
         job.error = str(exc)
-        run.fail(exc)
+        #: A sentence on the last-run line, not the exception: its text can carry
+        #: a path or a library's wording (ledger 1547). The log has the traceback.
+        run.fail("The re-index stopped before it finished. The log has the reason.")
         # The ending that mattered most and was hardest to see: a re-index that
         # dies halfway used to leave exactly the same empty screen as one that
         # finished, with the reason only in the log console.
@@ -1008,10 +1046,39 @@ def start_pull(client: OllamaClient, name: str) -> bool:
             return False
         job = Job(kind="pull", name=name)
         _pull_jobs[name] = job
-    threading.Thread(
-        target=_run_pull, args=(client, name, job), name=f"pull-{name}", daemon=True
-    ).start()
+    #: On the pool's `download` lane, not a thread of its own (Brief 9).
+    #: Durable when the client is the app's own: a launch after a quit
+    #: mid-download pulls again, and Ollama keeps the layers it has, so the
+    #: second pull carries on rather than starting over.
+    from memorymap.core import jobs
+
+    if _is_app_client(client):
+        queued = jobs.enqueue("pull", pull_model, name, name=name, dedupe_key=("pull", name))
+    else:
+        queued = jobs.enqueue("pull", _run_pull, client, name, job, name=name)
+    if not queued:
+        with _lock:
+            job.status = "error"
+            job.error = "The app is shutting down."
+        return False
     return True
+
+
+def _is_app_client(client: object) -> bool:
+    try:
+        return client is APP_GETTERS["ollama"]()
+    except Exception:  # noqa: BLE001  # no app state: a script or a test
+        return False
+
+
+def pull_model(name: str) -> None:
+    """The durable pull (Brief 9, `jobstore.HANDLERS["pull"]`): the app's
+    own model client, looked up when it runs."""
+    with _lock:
+        job = _pull_jobs.get(name)
+        if job is None or job.status != "running":
+            job = _pull_jobs[name] = Job(kind="pull", name=name)
+    _run_pull(APP_GETTERS["ollama"](), name, job)
 
 
 def _run_pull(client: OllamaClient, name: str, job: Job) -> None:
@@ -1079,3 +1146,28 @@ def choose_installed_chat_model(installed: list[dict]) -> str | None:
     if not fits:
         return None
     return max(fits, key=lambda m: int(m.get("size") or 0))["name"]
+
+
+def is_installed_name(name: str, installed: list[dict]) -> bool:
+    """Whether `name` is among the installed models, `llama3.2` matching an
+    installed `llama3.2:latest` as Ollama itself resolves it."""
+    if not name:
+        return False
+    names = {str(m.get("name") or "") for m in installed}
+    return name in names or f"{name}:latest" in names
+
+
+def choose_chat_model_if_missing(config: ConfigManager, installed: list[dict]) -> str | None:
+    """The stored chat model is not installed (a fresh install's default
+    `llama3.2`): store the best one that is, and return its name. None when
+    the stored one is installed, or nothing installed fits. The one rule
+    behind the launch step and the filing warm-up (101c), so neither loads a
+    name the person never chose."""
+    current = config.get_preference("chat_model", "llama3.2")
+    if is_installed_name(current, installed):
+        return None
+    chosen = choose_installed_chat_model(installed)
+    if chosen:
+        config.set_preference("chat_model", chosen)
+        logging.getLogger("memorymap.startup").info("chat model %s is not installed; using %s", current, chosen)
+    return chosen

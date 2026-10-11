@@ -353,7 +353,7 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
   - ~~live-preview editing where the markup renders in place instead of in a
     second pane~~ **Built (the CodeMirror 6 engine, DOCUMENTS_PLAN Phase 2 and section 17, `doclivemd.js`)**, the one that would change the feel and also the one that
     means giving up the textarea; worth doing deliberately, and last
-  - **Sub-pages.** **Next:** not in DOCUMENTS_PLAN and `documents` still has no `parent_id` (`core/database.py:1205`); needs a decision row there first, then an Alembic revision, `routes_documents.py` list/move routes and the sidebar tree in `documents.js`. Docs area, so it waits for the documents agent. Notion's documents nest into a tree; MemoryMap's are
+  - **Sub-pages.** **Next:** not in DOCUMENTS_PLAN and `documents` still has no `parent_id` (`core/database.py:1205`); needs a decision row there first, then an Alembic revision, `routes_documents.py` list/move routes and the sidebar tree in `documents.js`. Docs area, so it waits for the documents agent. Notion's documents nest into a tree; Tessellate's are
     flat. Worth deciding this one early rather than late, since it's a data
     model question (`documents` would need a `parent_id`) that every other
     item in this list is easier to build on top of than to retrofit under.
@@ -1295,6 +1295,7 @@ are now done** (§85, §86):
 - **Async httpx client**: **Next:** section 78 says the sync routes are correct, so this is optional; measure first with `scratchpad/ui-sweeps/apibench.js`, then switch only `ai/ollama_client.py`'s streaming read (nothing in `src/` uses `httpx.AsyncClient`, checked 2026-10-05). Touches the streaming path, which is what makes chat
   feel responsive, so a subtle regression wouldn't show up in tests. Do it with
   §6.
+  **Decided 2026-10-11 (data-1011): not built.** Section 78 stands (the sync routes are correct); the streaming read is the one path that would change, a regression there would not show in tests, and nothing measured asks for it.
 - ~~**Alembic migrations**: the additive auto-migrator cannot rename or drop, and
   won't survive a real schema change~~ **Built.** `migrations/` (Alembic),
   `_ensure_alembic_baseline()` (`core/database.py`) stamps any pre-existing
@@ -1762,7 +1763,7 @@ thing anywhere in the app.
   mostly already exist. **(needs Opus)**: checked 2026-10-04, `GET /storage`
   still returns only `database_bytes`; the walk, the cache and the Settings
   line with its '?' are one design.
-  **Partly built 2026-10-05** (HISTORY.md, "backlog-1005"): `GET /storage` reports `uploads_bytes`, `media_bytes` and `backups_bytes` from a cached walk (`diskspace.dir_bytes`), and Settings, About, Health has a Files on disk row. **Next:** the per-extra footprint (`core/extras.py`: bytes of each installed extra's folder, beside its Remove button).
+  **Built 2026-10-11 (data-1011).** `GET /storage` reports `uploads_bytes`, `media_bytes`, `backups_bytes` and `extras_bytes` (`extras.installed_bytes`, the installed extras' own files); each extra's `disk_bytes` already sat beside its Remove button; Settings, About, Health draws Files on disk as one bar and a legend (DESIGN.md recipe `.storage-bar`, `scratchpad/ui-sweeps/storagebar.js`).
 - **One actual "your data" page, not the pieces scattered.** **Partly built:** Settings, Privacy, "Where your data went" (`frontend/index.html:11095`, `core/egress.py`) is the receipt. **Next:** a head line stating what is stored and where, with links to Export and the wipe above once it exists. The individual
   facts already exist: where the data lives and how big it is (README),
   what's in the audit log (Settings → Activity), what export and wipe do
@@ -1788,6 +1789,7 @@ thing anywhere in the app.
   likely solving a problem that doesn't exist yet at any realistic notebook
   size: worth measuring an actual `data/memorymap.db` before writing any
   compression code, not assuming it's needed. **(needs owner)**: see 79b.
+  **Measured and decided 2026-10-11 (data-1011): not built.** A 2,000-note notebook is a 4.2 MB file; the notes table is 426 KB of it (10%), the audit log and its indexes 1.2 MB (30%), the search index 0.6 MB. Compressing note text saves a tenth at most, and the log is already compacted (`events.compact`). Revisit only when a real notebook shows note text above 40% of the file.
 - **A synthesised export, not just a raw one.** **Skill built 2026-10-05** (HISTORY.md, "backlog-1005"): "Write a document from a tag" in `ai/skills.py`; the button on a graph or list selection is still open (it needs a place in the selection bar, a design call). Same item as sections 102 item 10 and 109.3 item 5. Export today (JSON/CSV/MD)
   is a dump of what's selected; Gemini's grounded suggestion was a step
   beyond that: pick a tag or a cluster and have the AI *compile* it into
@@ -1843,7 +1845,7 @@ don't have a shape yet, recorded so they aren't lost, not because any of
 them are close to being built:
 
 - **MCP tool support**: **Pointer:** WORLD_CLASS_PLAN B8 "Extensions" and PLAN.md harness row A7 ("MCP in and out"); the consume half waits on the trust model. "an in-built browser with MCP tool abilities to
-  accompany the web search". The Model Context Protocol would let MemoryMap
+  accompany the web search". The Model Context Protocol would let Tessellate
   either expose its own tools (§7 of `ARCHITECTURE.md`'s 58-tool registry) to
   other MCP clients, or consume external MCP servers as more tools for its
   own agent. Either direction is a real integration, not a checkbox, it
@@ -2003,7 +2005,7 @@ there as colliding with the no-torch constraint).
 - ~~**Orphaned media garbage collection**~~ **Built, see `core/media_gc.py:196` (`find_orphaned_media`, dry run first); it misses board backgrounds (`scratchpad/audit1005/features.md` FEAT-06).** Confirmed still genuinely
   missing (no `clean_orphaned_media`-shaped function anywhere), unlike the
   card-cascade claim above which turned out to already be fixed.
-- Smaller polish items: **Pointer:** `scratchpad/audit1005/features.md` section 4 rows C3 (resize from centre, flip), C9 (whole-object opacity) and C13 (status bar); the contextual quick bar is built (`.wb-context`). The spec's Part C lists and a live check didn't
+- Smaller polish items: **Decided 2026-10-11, WHITEBOARD_PLAN decision 40** (Alt resizes from the centre; flip, opacity and the status bar recorded with reasons). **Pointer:** `scratchpad/audit1005/features.md` section 4 rows C3 (resize from centre, flip), C9 (whole-object opacity) and C13 (status bar); the contextual quick bar is built (`.wb-context`). The spec's Part C lists and a live check didn't
   contradict, kept for reference rather than re-verified line by line:
   resize-from-center, flip h/v, whole-object opacity, a status bar
   (zoom/tool/item-count), a contextual quick-action bar near a fresh
@@ -2105,6 +2107,7 @@ clippings.
   capture surface, so a design call.
 - **A Readwise/Kindle importer**: **Pointer:** the imports agent (section 115 row 1 is the importer set; Readwise is not on it, so size it there first). It is a genuine integration and should be sized
   separately before anyone commits to it. **(needs owner)**
+  **Sized 2026-10-11 (data-1011), still needs the owner:** two readers in `entry/app_import.py` (`readwise`: the CSV with Highlight, Book Title, Book Author, Note, Location, Highlighted at; `kindle`: `My Clippings.txt`, blocks split on `==========`), a note per book keyed by a hash of title and author, a button each in Settings, Import & export, about 150 lines and two test files. The open question is a re-import: the clippings file only grows, and the rule that a note already here is left alone would skip a book that gained highlights. Recommendation: a note per book, and a re-import appends only the highlights not already in it, which needs the writer to merge into a source-keyed note (a new capability).
 
 ## 75. Voice memos: capture, storage, playback, and a dedicated library page
 
@@ -2815,7 +2818,7 @@ preview is read-only because the text is *extracted*, `core/docview.py`'s
 own docstring makes the point that editing would mean writing text back into
 a format it was never in. Editing a .docx in place is not a feature this app
 can honestly offer. What it *can* offer, and what is probably meant: **import
-the extracted text as a real MemoryMap document**, which is then editable
+the extracted text as a real Tessellate document**, which is then editable
 like any other, with the original file kept as the source. That is a
 different feature from "edit the upload", and much more achievable, scope
 it as import, not as in-place editing.
@@ -2939,7 +2942,7 @@ laziness.
    raising the full window is small, purely local, and matches a pattern
    several competitors treat as table stakes.
 6. ~~**Inline citations in chat answers that point back to a specific note**~~ **Built (section 109.3 table row 6), see `ai/grounding.py` (numbered citations resolved against the retrieved notes) and CHAT_PLAN Phase 1.**
-   clickable to jump there. MemoryMap's retrieval already knows which
+   clickable to jump there. Tessellate's retrieval already knows which
    notes it drew on (`search_manager.retrieve_detailed`); what's unclear
    without a live model to check is whether the *rendered answer text*
    itself carries a per-claim link back to its source note, versus only a
@@ -3698,11 +3701,7 @@ anything already built is named as such so nobody rebuilds it.
   reversed. Now a preference (`ai_first_filing`), so this is a *choice*
   rather than a cost, but it is worth measuring on a slow model before
   assuming the default suits everyone.
-- **Three places independently decide what markdown means**: **Next:** one grammar module under `frontend/js/` (a table of token, open, close, label) read by `MD_ACTIONS` (`documents.js:8833`), `INLINE_MD` (`markdown.js`) and editor.js's "/" menu, load order per `tests/test_frontend_load_order.py`; `tests/test_highlight_colours.py` already pins the colour lists. `MD_ACTIONS`
-  (toolbars), `INLINE_MD`/`INLINE_MD_LEGACY` (the renderer), and editor.js's
-  "/" menu. The Red/Grey highlight bug (§110) lived precisely in the gap
-  between two of them. `tests/test_highlight_colours.py` pins the colour
-  lists, but the general fix is one grammar module the three consume.
+- **Three places independently decide what markdown means**: built 2026-10-11, DOCUMENTS_PLAN decision 13 (`MD_INLINE_MARKS`, read back through `INLINE_MD` by `tests/test_docs_1011.py`).
 
 ### 111.2 Features worth building, ranked by value per unit of work
 
@@ -3768,7 +3767,7 @@ Every competitor in this category is either cloud-first with AI (Notion AI, Mem,
 Reflect, Tana, NotebookLM, Saner) or local-first without it (Obsidian, Logseq,
 Anytype, Zettlr). The first group cannot promise privacy because the model is
 somebody else's server; the second cannot promise intelligence because there is
-nothing to ask. **MemoryMap is local-first *and* has a model**, and that is not a
+nothing to ask. **Tessellate is local-first *and* has a model**, and that is not a
 feature list: it is a category of its own, and almost nothing in the product
 currently *says* so.
 
@@ -3842,9 +3841,7 @@ Ranked by the gap between what it costs to build and what it would be worth.
   `dashboard.js`, `settings.js`, `documents.js`) worked and stopped. The next
   natural seams are chat (~6k lines), the lightbox (~1.2k) and the notifications
   centre. Each is a session's work and each makes the next bug cheaper to find.
-- **Three grammars for markdown** (§111.1): **Next:** section 111.1 carries the brief. `MD_ACTIONS`, `INLINE_MD`, and
-  editor.js's "/" menu each decide independently what the syntax means. Every
-  bug in the gap between them has been a real reported bug. One module.
+- **Three grammars for markdown** (§111.1): built 2026-10-11, see the entry above (DOCUMENTS_PLAN decision 13).
 - **The suite is 2,700 tests and ~8 minutes.** Still fine; worth watching. The
   lints (`test_style_scale`, `test_frontend_ids`, `test_icon_only_buttons`,
   `test_icon_label_gap`) are the cheapest tests in the file and have caught the

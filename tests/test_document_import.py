@@ -89,3 +89,30 @@ def test_importing_is_recorded_in_the_audit_log(client):
     _post(client, "traceable.txt", b"something worth keeping")
     actions = client.get("/audit").json()
     assert any("import" in str(a).lower() and "document" in str(a).lower() for a in actions)
+
+
+def test_a_diff_a_patch_and_a_visual_basic_file_import_as_code(client):
+    """These were 415 (OPEN ledger 298): .diff and .patch are what a reviewer
+    pastes into a library, .vb and .vbs are plain source."""
+    for name in ("fix.diff", "fix.patch", "Module1.vb", "setup.vbs"):
+        response = _post(client, name, b"--- a\n+++ b\n@@ -1 +1 @@\n-x\n+y\n")
+        assert response.status_code == 201, name
+        assert "+y" in response.json()["content"], name
+
+
+def test_a_file_named_dockerfile_or_makefile_imports_as_code(client):
+    """No suffix at all: the name is the type (OPEN ledger 298)."""
+    for name in ("Dockerfile", "Makefile", "dockerfile"):
+        response = _post(client, name, b"FROM python:3.12\nRUN echo hi\n")
+        assert response.status_code == 201, name
+        assert "FROM python" in response.json()["content"], name
+
+
+def test_the_suffix_of_a_bare_name_is_the_one_the_viewer_knows():
+    from memorymap.core import docview
+
+    assert docview.effective_suffix("Dockerfile") == ".dockerfile"
+    assert docview.effective_suffix("makefile") == ".mk"
+    assert docview.effective_suffix("notes.TXT") == ".txt"
+    assert docview.effective_suffix("README") == ""
+    assert docview.kind_for(docview.effective_suffix("Dockerfile")) == "code"

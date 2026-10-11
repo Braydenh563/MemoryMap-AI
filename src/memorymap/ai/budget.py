@@ -39,6 +39,7 @@ run.
 """
 from __future__ import annotations
 
+import threading
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -117,6 +118,11 @@ class RunBudget:
     steps_run: int = 0
     started_at: float = field(default_factory=time.monotonic)
     stopped: str = ""
+    #: Set by Stop (the run's Activity job shares it). The loop reads it between
+    #: rounds, and a write tool reads it before it runs, because the thread
+    #: cannot be interrupted mid-call: a model reply that returned just after
+    #: Stop must not still write (Brief 101b).
+    stop_event: threading.Event | None = field(default=None, repr=False, compare=False)
 
     def charge(self, stats: dict | None) -> None:
         """Count one model round against this run."""
@@ -169,6 +175,10 @@ class RunBudget:
             return 0
         return self.tokens * max(1, self.steps)
 
+    def stop_requested(self) -> bool:
+        """Whether Stop was pressed on the run this budget belongs to."""
+        return self.stop_event is not None and self.stop_event.is_set()
+
     def exceeded(self) -> str:
         """`""` while there is room, else the sentence saying what ran out.
 
@@ -178,6 +188,12 @@ class RunBudget:
         allowed to".
         """
         if self.stopped:
+            return self.stopped
+        if self.stop_requested():
+            self.stopped = (
+                "you pressed Stop. Its changes so far are kept and can be undone; "
+                "Resume picks up from here."
+            )
             return self.stopped
         self.stopped = self._over_count()
         if self.stopped:

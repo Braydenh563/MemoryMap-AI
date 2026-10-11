@@ -60,3 +60,12 @@ def test_auth_headers_helper_sends_both():
     body = text[text.index("function authHeaders()") :][:300]
     assert '"X-Auth-Token": authToken()' in body
     assert '"X-Workspace-ID"' in body and "activeSpaceId()" in body
+
+
+def test_active_space_id_is_defined_in_the_app_head_for_the_first_request():
+    """`api()` calls `activeSpaceId()` on every request and the first is made
+    at load, before the later classic scripts run (a boot error on GET /health)."""
+    app = (JS / "app.js").read_text(encoding="utf-8")
+    assert re.search(r"^function activeSpaceId\(", app, re.M)
+    assert app.index("function activeSpaceId(") < app.index("async function api(")
+    assert not re.search(r"^function activeSpaceId\(", (JS / "spaces-find.js").read_text(encoding="utf-8"), re.M)

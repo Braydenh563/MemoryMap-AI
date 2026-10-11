@@ -292,7 +292,7 @@ def test_light_and_dark_and_its_size() -> None:
     # handle; kept; scaled about the point it touches its perch, and its
     # shape and sampled points with it (companionlife.js measures it).
     assert "const NMB_SIZES = { small: 0.8, medium: 1, large: 1.3 };" in AV
-    assert 'localStorage.setItem("avatar-buddy-size"' in _fn("nameMarkBuddySetSize")
+    assert 'prefs.set("avatar-buddy-size"' in _fn("nameMarkBuddySetSize")
     assert "nameMarkBuddyScaled(nameMarkBuddyShapeAt1(" in _fn("nameMarkBuddyShape")
     assert "ox + (qx - ox) * size" in _fn("nameMarkBuddyCovers")
     assert 'label: "ph:resize Size",' in _fn("nameMarkBuddyMenu")  # a flyout since round 7
@@ -417,19 +417,17 @@ def test_it_notices_the_app_rate_limited_and_never_under_reduced_motion() -> Non
 
 def test_it_can_be_petted_tossed_and_watches_a_near_pointer() -> None:
     # Round 5 (companioninteract.js): the pointer resting on it gets a happy
-    # wiggle, once in 15s; let go at speed it flies on and lands on a perch
-    # near where it comes down (measured 19px), a slow let-go is a drop;
-    # its eyes stay on a near pointer, and with Faces follow the pointer off
-    # a pointer passing is not followed.
+    # wiggle, once in 15s; let go at speed it is thrown (INBOX 882: a flight
+    # with gravity and bounces, tests/test_companion_throw.py), a slow
+    # let-go is a drop; its eyes stay on a near pointer, and with Faces
+    # follow the pointer off a pointer passing is not followed.
     build = _fn("nameMarkBuddyBuild")
-    assert "}, NMB_PET_MS);" in build and "nameMarkBuddyToss(buddy, vx, vy);" in build
-    assert "Math.hypot(vx, vy) > NMB_TOSS_SPEED" in build
+    assert "}, NMB_PET_MS);" in build and "nameMarkBuddyThrow(buddy, v[0], v[1]);" in build
+    assert "Math.hypot(v[0], v[1]) > NMB_TOSS_SPEED" in build
     pet = _fn("nameMarkBuddyPet")
     assert "nameMarkBuddyStill()" in pet and "15000" in pet
-    toss = _fn("nameMarkBuddyToss")
-    assert "[aimX, aimY], 4)" in toss and "spots[tab] = nameMarkBuddySpotFor(spot);" in toss
+    assert "spots[tab] = nameMarkBuddySpotFor(spot);" in _fn("nameMarkBuddyThrowLand")
     assert "nameMarkBuddyPerches(tab, near && per < 12 ? near[0] : null)" in _fn("nameMarkBuddyChoose")
-    assert "if (spot.tossed) {" in _fn("nameMarkBuddyGo")
     notice = _fn("nameMarkBuddyNotice")
     assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
     assert "const near = follows && dist < NMB_EYES_NEAR * reach;" in notice
@@ -458,7 +456,7 @@ def test_a_walk_is_paced_too() -> None:
     assert 'const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging") || !!nmb.visit;' in tempo
     assert "nmb-walking" not in tempo[tempo.index("const busy") : tempo.index("const still")]
     move = _fn("nameMarkBuddyGo")
-    walk = move[move.index('buddy.classList.add("nmb-walking");') :]
+    walk = move[move.index('nameMarkBuddyBlend(buddy, () => buddy.classList.add("nmb-walking"), NMB_BLEND_IN_MS);') :]
     assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]
 
 
@@ -470,7 +468,8 @@ def test_every_way_to_a_note_counts_as_opening_it() -> None:
     ask = (ROOT / "frontend" / "js" / "capture-ask.js").read_text(encoding="utf-8")
     flash = ask[ask.index("function flashEntry(") :]
     flash = flash[: flash.index("\n}\n")]
-    assert 'if (typeof nameMarkBuddyNoteOpened === "function") nameMarkBuddyNoteOpened(id);' in flash
+    # Unguarded since Brief 86 dropped the redundant typeof guards on eager-file functions (avatars.js is eager).
+    assert "nameMarkBuddyNoteOpened(id);" in flash and "typeof nameMarkBuddyNoteOpened" not in flash
 
 
 def test_the_large_view_enlarges_the_figure_with_scale_not_transform() -> None:
@@ -516,7 +515,7 @@ def test_the_companion_shows_and_hides_from_anywhere() -> None:
     assert "Show companion\", chord: \"toggleCompanion\", act: () => nameMarkBuddyToggle()" in panes
     toggle = _fn("nameMarkBuddyToggle")
     assert 'prefs.get("nm-buddy-last", null)' in toggle
-    assert 'localStorage.setItem("nm-buddy-last", was)' in _fn("nameMarkBuddyHide")
+    assert 'prefs.set("nm-buddy-last", was)' in _fn("nameMarkBuddyHide")
 
 
 def test_it_gets_out_of_a_popups_way() -> None:
@@ -694,9 +693,9 @@ def test_every_change_of_place_is_travelled_by_its_body() -> None:
     # frame, speed changing at most 5.5px a frame, every move ending on its
     # place.
     go = _fn("nameMarkBuddyGo") + _fn("nameMarkBuddyRoute")
-    for way in ("if (nameMarkBuddyNoTravel()) {", "if (spot.tossed) {", "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)",
+    for way in ("if (nameMarkBuddyNoTravel()) {", "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)",
                 "if (route === \"float\") {", "if (d < size * NMB_HOP_SIZES && !poseChanged)",
-                'buddy.classList.add("nmb-walking");'):
+                'nameMarkBuddyBlend(buddy, () => buddy.classList.add("nmb-walking"), NMB_BLEND_IN_MS);'):
         assert way in go, way
     # Distances are in its own size, not pixels.
     assert "const size = NMB_W * Math.max(0.7, nmb.scale || 1);" in go
@@ -942,7 +941,7 @@ def test_a_variant_is_never_the_one_it_played_last() -> None:
 def test_acts_have_variants_and_their_own_tempo_each_time() -> None:
     act = _fn("nameMarkBuddyAct")
     assert "const v = nameMarkBuddyPickVariant(variants, nmb.variant?.[act] ?? -1);" in act
-    assert "if (!NMB_RESTING_ACTS.has(act)) nameMarkBuddyVary(buddy);" in act
+    assert "if (!NMB_RESTING_ACTS.has(act)) nameMarkBuddyVary(buddy, act, ms || spec?.ms || 1200);" in act
     assert "anim.playbackRate = rate;" in _fn("nameMarkBuddyVary")
     for rule in ('&.nmb-act-wave[data-variant="1"]', '&.nmb-act-hop[data-variant="2"]', '&.nmb-act-nap[data-variant="2"]'):
         assert rule in CSS08, rule
@@ -1378,7 +1377,7 @@ def test_the_way_there_is_chosen_by_the_shape_of_the_move() -> None:
     # The side it glides in from is the tab's it left (INBOX 501 lets it
     # glide in from the nearer edge at a start too).
     assert "const fromLeft = side ? side < 0 : x < innerWidth / 2;" in enter
-    assert 'else if (reach < innerWidth * 0.5) ways = ["glide", "materialise"];' in enter
+    assert 'else if (reach < innerWidth * 0.5) ways = ["glide", "materialise", "fall"];' in enter
 
 
 def test_its_limbs_move_with_it() -> None:
@@ -1487,8 +1486,8 @@ def test_it_comes_on_screen_a_way_that_suits_the_place_and_not_the_same_twice():
     last one is left out when there is another, and the climb fades up over
     its first half."""
     enter = _fn("nameMarkBuddyEnter")
-    assert 'ways = ["down", "materialise"]' in enter and 'ways = ["up", "materialise"]' in enter
-    assert 'ways = ["walk", "glide", "materialise"]' in enter
+    assert 'ways = ["down", "materialise"]' in enter and 'ways = ["up", "materialise", "tumble"]' in enter
+    assert 'ways = ["walk", "glide", "materialise", "tumble"]' in enter
     assert "const fresh = ways.filter((w) => w !== nmb.lastEnter);" in enter and "nmb.lastEnter = how;" in enter
     assert "opacity: 1, offset: 0.5 }" in enter
     # Reduced motion still fades in where it is.
@@ -1606,12 +1605,15 @@ def test_inbox_669_a_lean_held_by_a_rule_is_eased_back_too() -> None:
     # end the bob came back over the rule's transition and the lean went in
     # a frame (the head 9px). The blend reads the body before and after.
     blend = _fn("nameMarkBuddyBlend")
-    before = blend.index('el.querySelector(".nm-buddy-char")')
-    after = blend.index("change();\n  const eased")
+    # The body and, since the jolts pass (2026-10-11), its limbs.
+    before = blend.index("querySelectorAll(NMB_BLEND_PARTS)")
+    assert ".nm-buddy-char" in AV[AV.index("const NMB_BLEND_PARTS") :][:200]
+    after = blend.index("change();\n  for (const { anim, el, from } of held)")
     assert before < after
     tail = blend[after:]
     assert "BODY.filter((key) => style[key] !== from[key])" in tail and "el.animate([{ ...moved, offset: 0 }]" in tail
-    assert "if (eased.has(el)) continue;" in tail
+    # A part the held loop eased is read again for what else moved.
+    assert "if (eased.has(el)) continue;" not in tail and "A part eased above is read again" in tail
 
 
 def test_the_first_entrance_after_an_unlock_is_a_drop_once() -> None:

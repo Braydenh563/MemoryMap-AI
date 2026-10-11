@@ -357,24 +357,6 @@
 .wb-link-endpoint-handle:is(:focus-visible, :has(:focus-visible)) {
   fill: var(--accent);
 }
-/* **A group selection's own eight handles and its rotate dot, which live in
-   the overlay layer for the same reason the endpoints above do.** Reported:
-   "the group selection box missing a rotate node, not being able to drag the
-   edges of a group selection". The handles were drawn all along, in the base
-   SVG, which paints under the card layer: measured with `elementFromPoint` at
-   each handle's own centre, 6 of the 8 returned a card's own
-   `.wb-resize-handle` instead, because a group box's corners are the union of
-   its members' corners and so sit on a member by definition.
-   Moving them up a layer is only half of it: that root is
-   `pointer-events: none` so it can never block a card, so each control opts
-   back in, exactly as `.wb-link-endpoint-handle` does.
-   The outline itself deliberately does not: it covers everything in the
-   selection, and a rectangle that swallowed every press inside it would make
-   the group undraggable. */
-#wb-overlay-layer .wb-sketch-resize-handle,
-#wb-overlay-layer .wb-sketch-rotate-handle {
-  pointer-events: auto;
-}
 
 
 .wb-resize-handle[data-handle="nw"] {
@@ -675,9 +657,6 @@
 #wb-html-layer > .wb-card {
   contain-intrinsic-size: auto 250px auto 44px;
 }
-#wb-html-layer > .wb-culled {
-  content-visibility: hidden;
-}
 /* **A long list's rows off screen are not styled either** (INBOX 400).
    The page's scrollers are plain overflow boxes, so the browser's own
    on-screen test works here where it could not on the board's transform:
@@ -709,6 +688,22 @@
   height: 6.5rem;
   break-inside: avoid;
   margin-bottom: var(--space-6);
+}
+/* The Images and Files placeholders are their tiles' height (measured at 1440:
+   an image tile 188px), so the swap to the real tiles moves
+   nothing: the default 3.2rem bars were a layout shift of 0.226 on the first
+   switch to Files (INBOX 852). */
+.library-image-grid > .skeleton {
+  height: 11.75rem;
+  margin-bottom: 0;
+}
+/* While placeholders are up the grid keeps the tile layout whichever kind is
+   chosen: a press on Files before the first answer flipped the six
+   placeholders from a grid to a column (a shift of 0.44). */
+.library-image-grid.library-file-rows[aria-busy="true"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--space-6);
 }
 .timeline-feed > .skeleton {
   height: 2.6rem;
@@ -1385,15 +1380,11 @@ body.has-agent-monitor #timeline-scroll {
   gap: var(--space-1);
   margin-left: auto;
 }
-/* **The size here is the card's, not this panel's.** `font-size: var(--text-lg)`
-   was declared and never applied: `.card h3` is the app's eyebrow recipe
-   (01-forms-settings.css, 12px/600/uppercase/muted) at (0,1,1), and a bare
-   `.monitor-title` at (0,1,0) loses to it, measured at 12px before and after
-   this line came out. Removed rather than out-specified: every other card and
-   dialog head in the app is that eyebrow, including the dialogs beside this
-   one, and a panel title in its own size would be the odd one. What stays is
-   the margin, which `.card .row > h3` already zeroes for a head row but which
-   this panel would otherwise inherit for its own reasons. */
+/* The title's type is the panel head's (`h3.panel-head`, 08-consistency.css,
+   row 1586: 16px like every dialog title, where it measured 12px as the
+   `.card h3` eyebrow). What stays here is the margin, which `.card .row > h3`
+   already zeroes for a head row but which this panel would otherwise inherit
+   for its own reasons. */
 .monitor-title {
   margin: 0;
 }
@@ -4729,12 +4720,18 @@ summary:not(.icon-only):not(.icon-button) {
 .library-board-card:hover .board-minimap path,
 .library-board-card:hover .board-minimap ellipse,
 .library-board-card:hover .board-minimap polygon,
-.library-board-card:hover .board-minimap line,
-.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap rect:not(.board-minimap-paper, .board-minimap-branch),
-.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap path,
-.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap ellipse,
-.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap polygon,
-.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap line {
+.library-board-card:hover .board-minimap line {
+  opacity: 0.8;
+}
+/* The keyboard's lift names the minimap's marks by class: a
+   `:has(:focus-visible)` before a bare `rect` or `path` is an unkeyed rule
+   (tests/test_has_invalidation.py). The empty board's ghost is not lifted. */
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-card,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-object,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-image,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-image-mark,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-edge,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-sketch {
   opacity: 0.8;
 }
 /* --- Capture: three families, three rows --------------------------------
@@ -6255,11 +6252,6 @@ button.connection-row:is(:hover, :focus-visible) {
   box-shadow: var(--shadow-md);
   overflow-y: auto;
 }
-/* Neither the grip nor the bottom/right choice means anything while the
-   panel is this side panel, so neither is offered. */
-#tab-documents.doc-focus .doc-prose-resize {
-  display: none;
-}
 /* On a phone the page has no room to give up: the panel is the width of the
    window less its gutters, over the page, whatever the grip set on a wider
    screen (half of a 360 window is a 180px column of wrapped words). */
@@ -6883,16 +6875,49 @@ button.connection-row:is(:hover, :focus-visible) {
   flex-direction: column;
   width: 19rem;
 }
-/* **One column, and the groups carry it** (INBOX 793). The View menu was two
-   columns because its eighteen rows were 714px tall (the owner's third report
-   about its height); the answer now is fewer shapes, not a second column: a
-   head over each group, every row one height and one inset, and a menu that
-   is capped to the window and scrolls inside it where it is still taller
-   (`escapeAndCapMenu`). */
+/* **Groups parted by one hairline** (INBOX 793): every row one height and
+   one inset, and a menu that is capped to the window and scrolls inside it
+   where it is still taller (`escapeAndCapMenu`). */
 .wb-board-menu .wb-menu-section + .wb-menu-section {
   margin-top: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--divider);
+}
+/* **The View menu is two columns** (the map's was 785px tall in one, past
+   the 450px `mapviewmenu.js` holds it to): each `.wb-menu-col` keeps its own
+   hairlines between groups, and below 600 the columns stack, the second
+   parted from the first by the same hairline. Full screen is a row only
+   where the top bar's own button is hidden (below 820); beside that button
+   it was a second copy and the twentieth row (467px, measured). */
+.wb-board-menu.wb-menu-two-col {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-4);
+  width: 38rem;
+  max-width: calc(100vw - var(--space-4) * 2);
+}
+.wb-menu-two-col > .wb-menu-col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+@media (min-width: 820px) {
+  .wb-board-menu .wb-menu-item[data-wb-click="wb-fullscreen"] {
+    display: none;
+  }
+}
+@media (max-width: 599.98px) {
+  .wb-board-menu.wb-menu-two-col {
+    flex-direction: column;
+    align-items: stretch;
+    width: 19rem;
+  }
+  .wb-menu-two-col > .wb-menu-col + .wb-menu-col {
+    border-top: 1px solid var(--divider);
+    padding-top: var(--space-2);
+  }
 }
 .wb-board-menu .wb-panel-group-label {
   font-size: var(--text-xs);
@@ -7035,17 +7060,6 @@ button.connection-row:is(:hover, :focus-visible) {
   stroke: var(--accent);
   cursor: crosshair;
 }
-/* The overview used to step left of the properties drawer while the drawer
-   was open (reported: "it clashes with the board overview which I also can't
-   manage"). Phase 2 removed the drawer: the context bar floats over the
-   selection instead of holding a column of the board open, so the overview
-   keeps its own corner at every width and the rule that moved it is gone.
-   The Panels switch for the bar: off means it never shows, whatever is
-   selected. The class name follows the surface; the stored key does not, so
-   a person who turned the drawer off keeps that answer. */
-#library-view-whiteboard.wb-hide-context #wb-context {
-  display: none !important;
-}
 /* Board menu rows: name left, control right, one height. */
 .wb-menu-section {
   display: flex;
@@ -7123,6 +7137,11 @@ button.connection-row:is(:hover, :focus-visible) {
   align-items: center;
   gap: var(--space-1);
   align-self: stretch;
+  /* A group wider than the bar (the two ends and their sizes, about 640px)
+     wraps inside itself too, so at 390 the End pair takes a second row
+     rather than running past the bar's edge (wbs-1011, ends.js). */
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
 }
 .wb-context-group:not(.hidden) ~ .wb-context-group:not(.hidden) {
   border-left: 1px solid var(--divider);
@@ -7510,8 +7529,8 @@ button.connection-row:is(:hover, :focus-visible) {
      anything: the menu's own rows are labelled "2+ selected" and "3+
      selected". A phone that has managed to select two objects has the context
      bar in front of it already.
-     Insert, Edit, View and Board stay, because each of those is the only way
-     to what it holds. */
+     Insert, Edit and View stay, because each of those is the only way to
+     what it holds; Board leaves below 600 (the rule after this block). */
   .wb-topbar #wb-fullscreen,
   .wb-topbar .wb-board-menu-wrap:has([aria-controls="wb-arrange-menu"]) {
     display: none;
@@ -7538,6 +7557,46 @@ button.connection-row:is(:hover, :focus-visible) {
      pinch and in the View menu's Zoom rows. */
   .whiteboard-floating-panel.bottom-right {
     display: none;
+  }
+}
+/* **One row on a phone** (row 1637, WHITEBOARD_PLAN decision 39). Measured
+   at 390 before it (`wbbar.js`): 348x104 in two rows, eight controls, the
+   right half wrapped under the left because a wrapping row breaks on each
+   half's own width (the picker asked for 224px). Below 600 the bar is the
+   back arrow, the picker, Insert, Edit, View and More: the Board menu's rows
+   (rename, new, export, switch kind, add to a note, copy link, keys, clear,
+   delete) are all `WB_COMMANDS` rows, so More lists them the moment their
+   toggle is gone (`wbPhoneCarries`); the Library is Insert's Shapes, icons
+   and frames and View's Library switch; the dividers and the back button's
+   word go (the word stays for a screen reader). The left half asks for
+   7.5rem, so at 320 it still wraps rather than crushing the picker. */
+@media (max-width: 599.98px) {
+  .wb-topbar .wb-board-menu-wrap:has([aria-controls="wb-board-menu"]),
+  .wb-topbar #wb-add-note,
+  .wb-topbar .wb-topbar-divider {
+    display: none;
+  }
+  .wb-topbar .wb-back-label {
+    position: absolute;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .wb-topbar #wb-back-to-boards {
+    min-width: var(--target-min);
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .wb-topbar #wb-back-to-boards .ph-lead {
+    margin: 0;
+  }
+  .wb-topbar-left {
+    flex: 1 1 7.5rem;
+  }
+  .wb-topbar #wb-board-select,
+  .wb-topbar .select-shell {
+    min-width: 0;
+    flex: 1 1 auto;
   }
 }
 /* Every floating surface on the board is a `.card`, and `.card` carries a
@@ -7571,11 +7630,6 @@ button.connection-row:is(:hover, :focus-visible) {
   border-radius: var(--radius-sm);
   background: var(--inner);
   font-size: var(--text-sm);
-}
-/* A text box showing rendered markdown: the app's own markdown body rules
-   apply, at the box's own font size and colour rather than the page's. */
-.wb-text-content.wb-text-md {
-  overflow: auto;
 }
 .wb-text-content.wb-text-md > :first-child {
   margin-top: 0;
@@ -8005,11 +8059,6 @@ header#top-bar > #tab-bar {
 .gutter-wrap:has(textarea.hidden),
 .note-surface:has(> textarea.hidden) {
   display: none;
-}
-.gutter-wrap > .doc-gutter:not(.hidden) + textarea,
-textarea.has-gutter {
-  white-space: pre;
-  overflow-x: auto;
 }
 /* **The numbers' column is held from the first paint** (INBOX 803, the owner:
    "when I click the capture a note textbox ... for the first time, it adjusts
@@ -8456,20 +8505,6 @@ input[type="file"] {
   opacity: 0;
   pointer-events: none;
 }
-/* **Where the buttons are 44px the row hangs wholly below the node** (below 820
-   or on a touch screen: the same band as `--target-min`'s floor). Anchored
-   `bottom: -space-5`, a 44px button reaches 24px back up into the node: measured at 390x844 with the pointer on
-   a topic, the two buttons covered 998px2 of its label row from the left edge
-   to 59px in, so pressing the left of a selected topic's text added a child
-   instead (`mindmapcurve.js` timed out on exactly that click, and the probe
-   was right: `mapaddcover.js` measures it). The row starts a hairline under
-   the node instead, so nothing of the label is under a button. */
-@media (max-width: 819.98px), (pointer: coarse) {
-  .wb-map-actions {
-    bottom: auto;
-    top: calc(100% + var(--space-1));
-  }
-}
 .wb-map-node:hover .wb-map-actions,
 .wb-map-node.wb-selected .wb-map-actions,
 .wb-map-actions:focus-within,
@@ -8711,9 +8746,6 @@ input[type="file"] {
   align-items: start;
   row-gap: var(--space-2);
 }
-.wb-map-strip-menu .wb-menu-row.has-map-pick-grid > :first-child {
-  line-height: var(--wb-map-pick);
-}
 .wb-map-strip-menu .wb-map-icon-more {
   grid-row: 2;
   justify-self: stretch;
@@ -8780,9 +8812,6 @@ input[type="file"] {
   .wb-map-strip-menu .wb-menu-row.has-map-picks {
     grid-template-columns: minmax(0, 1fr);
     row-gap: var(--space-1);
-  }
-  .wb-map-strip-menu .wb-menu-row.has-map-picks > :not(:first-child) {
-    grid-column: 1;
   }
   .wb-map-strip-menu .wb-menu-row > .wb-map-picks {
     grid-row: 2;
@@ -9067,19 +9096,6 @@ input[type="file"] {
 .wb-map-core .wb-map-progress.wb-map-progress-complete,
 .wb-map-filled .wb-map-progress.wb-map-progress-complete {
   color: inherit;
-}
-/* What a connect drag is about to make (MINDMAP_PLAN §13c, `wbMapLinkCue`):
-   the drop target's own ring when the release joins the tree, a dashed muted
-   ring and a dashed preview line when it will be a cross-link. As specific as
-   the link tool's own hover ring (above, the same shape of selector), and
-   after it, so the cue is what the hovered topic shows. */
-#whiteboard-container[data-current-tool] .wb-object.wb-map-link-cue-branch {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-#whiteboard-container[data-current-tool] .wb-object.wb-map-link-cue-cross {
-  outline: 2px dashed var(--muted);
-  outline-offset: 3px;
 }
 
 /* A pinned node keeps the place it was dragged to when the map is tidied
@@ -10078,6 +10094,24 @@ header#top-bar {
     row-gap: var(--space-3);
   }
 }
+/* The compact row (Open, Link, ⋯; `renderGraphPopupActions`): one line at any
+   width that gets it, the ⋯ at the far end so the two worded buttons sit
+   together and the menu sits where a thumb rests. */
+.graph-popup-actions.is-compact {
+  justify-content: stretch;
+  flex-wrap: nowrap;
+}
+.graph-popup-actions.is-compact .graph-popup-tool-shown {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--space-2);
+}
+.graph-popup-actions.is-compact .graph-popup-tool-shown > .menu-wrap {
+  margin-left: auto;
+}
+.graph-popup-actions.is-compact .graph-popup-tool-shown > button:not(.icon-only) {
+  padding-inline: var(--space-4);
+}
 @media (max-width: 599.98px) {
   :root {
     /* A control-height family member, not a spacing step: it is the size of
@@ -10414,8 +10448,13 @@ header#top-bar {
   .launch-row-start {
     display: flex;
   }
+  /* **Two tiles fit, the third shows its edge** (libr-1011: "the second
+     tile sits past the viewport"). It was `min(15rem, 82%)`, so at 390 the
+     second tile started at 259px and showed 105 of its 240; 44% puts two whole
+     tiles in the 364px row and 28px of the third, which is still the only
+     thing that says sideways is a direction. */
   .launch-row-start > * {
-    flex: 0 0 min(15rem, 82%);
+    flex: 0 0 min(15rem, 44%);
   }
 }
 /* --- the dashboard's greeting banner, on a phone --------------------------
@@ -10766,10 +10805,6 @@ header#top-bar {
   font-family: var(--font-sans);
   font-size: var(--text-md);
   user-select: none;
-}
-.sketch-group.wb-shape-label-editing .sketch-label,
-.sketch-group.wb-shape-label-editing .wb-link-label {
-  visibility: hidden;
 }
 /* --- Find anything -----------------------------------------------------------
    The universal search dialog (app.js, `openFinder`). INBOX 270. It shares the
@@ -11641,12 +11676,11 @@ button.finder-row:is(:focus-visible, :has(:focus-visible)) {
   gap: var(--space-1);
   flex: none;
 }
+/* Its type is the panel title's (08-consistency.css, row 1586). */
 .wb-sidebar-title {
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-size: var(--text-md);
-  font-weight: 600;
 }
 .wb-side-section {
   flex: 1 1 auto;
@@ -11674,14 +11708,6 @@ button.finder-row:is(:focus-visible, :has(:focus-visible)) {
   margin: 0;
   font-size: var(--text-xs);
   flex: none;
-}
-/* A quiet head, not a button: the group's name, its count and the one
-   caret, on no ground and no edge (the app's `summary` box is for a fold in
-   a form, not a run of tiles). */
-#wb-sidebar .wb-lib-group-head {
-  border: none;
-  background: transparent;
-  box-shadow: none;
 }
 .wb-lib-more {
   margin-top: var(--space-1);
@@ -11770,11 +11796,6 @@ button.finder-row:is(:focus-visible, :has(:focus-visible)) {
 }
 .wb-layer-row.drop-below {
   border-bottom-color: var(--accent);
-}
-/* Hidden from the board (decision 27): drawn nowhere, so nothing on it can
-   be pressed or seen; the Layers tab is the way back. */
-#whiteboard-container .wb-hidden {
-  display: none;
 }
 /* The template gallery's name field: its word over the field, as every
    dialog field is, with the focus ring's reach added to the gap (INBOX 715:

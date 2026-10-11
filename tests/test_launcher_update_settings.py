@@ -330,7 +330,7 @@ class TestTheFirstLaunchOfAFreshInstall:
             timeout=180,
         )
         assert result.returncode in (0, 1), (result.returncode, result.stdout, result.stderr)
-        assert "MemoryMap AI - checks" in result.stdout, result.stdout
+        assert "Tessellate - checks" in result.stdout, result.stdout
 
 
 def test_preferences_are_written_one_key_per_line_for_start_bat(tmp_path):

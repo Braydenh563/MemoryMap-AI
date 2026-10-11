@@ -96,3 +96,20 @@ def test_with_no_model_nothing_is_labelled(client, monkeypatch) -> None:
     assert all(s["speaker"] is None for s in body["segments"])
     response = client.post(f"/recordings/{rid}/speakers")
     assert response.status_code == 503 and "local AI" in response.json()["detail"]
+
+
+def test_a_speaker_is_renamed_everywhere_without_a_model(app_state, fake_ollama, monkeypatch) -> None:
+    """Ledger 1514: PUT /recordings/{id}/speakers changes one label on every turn it names."""
+    from memorymap.api.app import create_app
+
+    monkeypatch.setattr(voice, "whisper_available", lambda: True)
+    monkeypatch.setattr(voice, "transcribe_segments", lambda path, model_size="base": SEGMENTS)
+    fake_ollama.librarian_reply = "1 | Sam\n2 | Priya\n3 | Sam"
+    client = TestClient(create_app())
+    rid = _recording(client)
+    client.post(f"/recordings/{rid}/transcribe")
+    renamed = client.put(f"/recordings/{rid}/speakers", json={"from_name": "Sam", "to_name": "Samir"})
+    assert renamed.status_code == 200
+    assert [s["speaker"] for s in renamed.json()["segments"]] == ["Samir", "Samir", "Priya", "Priya", "Samir"]
+    missing = client.put(f"/recordings/{rid}/speakers", json={"from_name": "Nobody", "to_name": "X"})
+    assert missing.status_code == 404

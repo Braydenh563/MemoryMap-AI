@@ -1413,7 +1413,7 @@
      "query": "how do I back up"
     },
     "result": {
-     "guide_text": "From MemoryMap's own help (use this if the question is about how the app works; it is not one of my notes):\n- Where your data lives: Everything lives in a data folder you control: the notebook database, uploads, and daily local backups. Settings, Import & export shows exactly where it is on disk, and lets you export as JSON, CSV or Markdown, export the whole notebook as a folder (Export notebook folder: each note as markdown with its attachments and a .json file of every field, plus documents and boards, which From a MemoryMap folder reads back), save a full backup (sealed with a password if you like) and restore one from a file, and manage or restore backups.\n\n",
+     "guide_text": "From Tessellate's own help (use this if the question is about how the app works; it is not one of my notes):\n- Where your data lives: Everything lives in a data folder you control: the notebook database, uploads, and daily local backups. Settings, Import & export shows exactly where it is on disk, and lets you export as JSON, CSV or Markdown, export the whole notebook as a folder (Export notebook folder: each note as markdown with its attachments and a .json file of every field, plus documents and boards, which From a Tessellate folder reads back), save a full backup (sealed with a password if you like) and restore one from a file, and manage or restore backups.\n\n",
      "label": "ph:book-open Read the guide on “how do I back up”"
     }
    }
@@ -2246,6 +2246,39 @@
     "result": {
      "title": "Launch checklist",
      "label": "ph:trash Deleted the document “Launch checklist”"
+    }
+   }
+  ],
+  "map_from_note": [
+   {
+    "args": {
+     "note_id": 3
+    },
+    "result": {
+     "board_id": 9,
+     "title": "Trip plan",
+     "nodes": 6,
+     "label": "ph:tree-structure Made the mind map “Trip plan” from the note"
+    }
+   }
+  ],
+  "move_notes": [
+   {
+    "args": {
+     "ids": [
+      1,
+      2
+     ],
+     "category": "Travel"
+    },
+    "result": {
+     "moved": 2,
+     "category": "Travel",
+     "ids": [
+      1,
+      2
+     ],
+     "label": "ph:folder Moved 2 notes to “Travel”"
     }
    }
   ]

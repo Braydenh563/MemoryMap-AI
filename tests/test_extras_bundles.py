@@ -229,7 +229,7 @@ def test_a_loaded_voice_model_fails_its_row_and_not_the_batch(client, fake_pip, 
     extras.start_bulk("reinstall", ["voice", "rapidocr"])
     items = {item["id"]: item for item in extras.bulk_status()["items"]}
     assert items["voice"]["outcome"] == "failed"
-    assert "Restart MemoryMap" in items["voice"]["message"]
+    assert "Restart Tessellate" in items["voice"]["message"]
     assert items["rapidocr"]["outcome"] == "completed"
 
 

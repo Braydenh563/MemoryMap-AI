@@ -63,7 +63,7 @@ RELEASE_WITH_ASSET = {
             # pointing at example.com would exercise the refusal rather than
             # the apply path it means to test.
             "browser_download_url": (
-                "https://github.com/Braydenh563/MemoryMap-AI/releases/download"
+                "https://github.com/Braydenh563/Tessellate/releases/download"
                 "/v9.9.9/MemoryMap-AI-Setup-9.9.9.exe"
             ),
             "size": 12,
@@ -517,7 +517,7 @@ def test_apply_with_a_specific_tag_hits_the_tagged_release_not_latest(
             {
                 "name": "MemoryMap-AI-Setup-8.8.8.exe",
                 "browser_download_url": (
-                    "https://github.com/Braydenh563/MemoryMap-AI/releases/download"
+                    "https://github.com/Braydenh563/Tessellate/releases/download"
                     "/v8.8.8/MemoryMap-AI-Setup-8.8.8.exe"
                 ),
                 "size": 12,

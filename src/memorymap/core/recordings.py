@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import threading
 from datetime import timedelta
 from pathlib import Path
 
@@ -39,6 +40,7 @@ STALE_AFTER = timedelta(seconds=45)
 
 PEAKS_MAX = 2000
 MARKERS_MAX = 500
+MARK_NOTE_MAX = 500
 
 
 def container(mime: str) -> str | None:
@@ -78,13 +80,94 @@ def clean_peaks(values: object) -> str:
 
 
 def clean_markers(values: object, duration_ms: int | None = None) -> str:
-    out = sorted({max(0, int(v)) for v in values if isinstance(v, (int, float))}) if isinstance(values, list) else []
-    if duration_ms:
-        out = [v for v in out if v <= duration_ms]
-    return json.dumps(out[:MARKERS_MAX])
+    """Marks as stored: a plain number of milliseconds, or `{at, note}` when
+    the mark carries a comment (Brief 96). A number is what every recording
+    saved before comments holds, so both read back the same way."""
+    notes: dict[int, str] = {}
+    for value in values if isinstance(values, list) else []:
+        if isinstance(value, dict):
+            at, note = value.get("at"), value.get("note")
+        else:
+            at, note = value, ""
+        if not isinstance(at, (int, float)) or isinstance(at, bool):
+            continue
+        notes[max(0, int(at))] = str(note or "").strip()[:MARK_NOTE_MAX]
+    times = sorted(t for t in notes if not duration_ms or t <= duration_ms)[:MARKERS_MAX]
+    return json.dumps([{"at": t, "note": notes[t]} if notes[t] else t for t in times])
+
+
+def marks_of(recording: Recording) -> list[dict]:
+    out = []
+    for value in json.loads(recording.markers or "[]"):
+        if isinstance(value, dict):
+            out.append({"at": int(value.get("at", 0)), "note": str(value.get("note", ""))})
+        elif isinstance(value, (int, float)):
+            out.append({"at": int(value), "note": ""})
+    return out
+
+
+# --- transcription in the background (UI_MODERNISATION V1, INBOX 828) ----------
+#
+# A run per recording, in memory and for this process: closing the dialog or
+# the Recordings tab never stops it, and the row reads its state and progress
+# from here. The run itself is an `activity` job, so the running panel lists it
+# with Stop, and the ledger keeps it after it ends.
+
+_runs_lock = threading.Lock()
+_runs: dict[int, dict] = {}
+_done: dict[int, threading.Event] = {}
+
+
+def transcription_of(recording_id: int) -> dict | None:
+    with _runs_lock:
+        run = _runs.get(recording_id)
+        return dict(run) if run else None
+
+
+def begin_transcription(recording_id: int, job_id: str) -> bool:
+    """False when one is already running for this recording."""
+    with _runs_lock:
+        if (_runs.get(recording_id) or {}).get("state") == "running":
+            return False
+        _runs[recording_id] = {"state": "running", "progress": 0.0, "job_id": job_id, "error": "", "words": 0}
+        _done[recording_id] = threading.Event()
+        return True
+
+
+def note_progress(recording_id: int, progress: float | None) -> None:
+    with _runs_lock:
+        if recording_id in _runs and progress is not None:
+            _runs[recording_id]["progress"] = round(max(0.0, min(1.0, progress)), 3)
+
+
+def end_transcription(recording_id: int, state: str, error: str = "", words: int = 0) -> None:
+    with _runs_lock:
+        run = _runs.setdefault(recording_id, {"job_id": ""})
+        run.update(state=state, error=error, words=words, progress=1.0 if state == "done" else run.get("progress"))
+        event = _done.pop(recording_id, None)
+    if event is not None:
+        event.set()
+
+
+def wait_transcription(recording_id: int, timeout: float) -> bool:
+    """For tests and shutdown: True once the run has ended (or none ran)."""
+    with _runs_lock:
+        event = _done.get(recording_id)
+    return True if event is None else event.wait(timeout)
+
+
+def _forget_runs() -> None:
+    """A fresh data dir starts with no runs; its ids are reused."""
+    with _runs_lock:
+        _runs.clear()
+        _done.clear()
+
+
+deps.register_cache_reset(_forget_runs)
 
 
 def as_dict(recording: Recording) -> dict:
+    marks = marks_of(recording)
     return {
         "id": recording.id,
         "title": recording.title,
@@ -92,12 +175,16 @@ def as_dict(recording: Recording) -> dict:
         "size_bytes": recording.size_bytes,
         "duration_ms": recording.duration_ms,
         "peaks": json.loads(recording.peaks or "[]"),
-        "markers": json.loads(recording.markers or "[]"),
+        "markers": [mark["at"] for mark in marks],
+        #: The same moments with their comments (Brief 96).
+        "marks": marks,
         #: The lines themselves are read on their own route: an hour is
         #: about 700 of them, and the shelf lists 500 recordings.
         "transcribed": (recording.segments or "[]") != "[]",
+        "transcription": transcription_of(recording.id),
         "entry_id": recording.entry_id,
         "source_id": recording.source_id,
+        "derived": recording.derived or "",
         "state": recording.state,
         "recovered": recording.recovered,
         "created_at": recording.created_at.isoformat() if recording.created_at else None,

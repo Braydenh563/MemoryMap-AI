@@ -577,9 +577,9 @@ def engine_status() -> dict:
     elif not binary and not package:
         reason = "Tesseract isn't installed."
     elif not binary:
-        reason = "The Tesseract program isn't installed, though the part that connects it to MemoryMap is."
+        reason = "The Tesseract program isn't installed, though the part that connects it to Tessellate is."
     else:
-        reason = "The part that connects Tesseract to MemoryMap isn't installed."
+        reason = "The part that connects Tesseract to Tessellate isn't installed."
     languages = installed_languages() if binary else []
     saved = saved_language()
     chosen = effective_language()

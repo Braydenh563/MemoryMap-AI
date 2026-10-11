@@ -141,7 +141,7 @@ _LOADING_HTML = """<!doctype html>
   }
 </style></head>
 <body>
-  <div class="mark"><svg viewBox="0 0 100 100" role="img" aria-label="MemoryMap AI">
+  <div class="mark"><svg viewBox="0 0 100 100" role="img" aria-label="Tessellate">
     <defs>
       <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0%" stop-color="#5b7cff"/><stop offset="55%" stop-color="#4664f0"/>
@@ -165,7 +165,7 @@ _LOADING_HTML = """<!doctype html>
     </g>
     <circle cx="50" cy="50" r="13" fill="#4664f0"/>
     <circle cx="50" cy="50" r="9.5" fill="#ffffff"/>
-  </svg><span>MemoryMap AI</span></div>
+  </svg><span>Tessellate</span></div>
   <ul class="steps" id="steps"></ul>
   <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
   <div id="status">Starting…</div>
@@ -498,19 +498,16 @@ def _run_server() -> None:
         uvicorn.run(app, host=env_bind, port=PORT, log_level="info")
         _stop_lingering_worker_threads()
         return
-    bind = netbind.bind_host(config, has_password=has_password)
     if netbind.lan_enabled(config) and not has_password:
         # SEC-01: never an open notebook on the network. The switch stays as
-        # it is; it takes effect once a password is set and the app restarts.
+        # it is; the network opens once a password is set (core/lanlive.py
+        # reads both every few seconds).
         logger.warning(
             "Other devices on this network are not let in until a password is set: "
             "listening on this computer only."
         )
-    if bind == HOST:
-        netbind.set_current(bind)
-        uvicorn.run(app, host=bind, port=PORT, log_level="info")
-    else:
-        _serve_with_lan(uvicorn, app, config, bind)
+    netbind.set_current(HOST)
+    _serve_with_lan(uvicorn, app, config)
     # **The process used to sit here for 5 to 9 seconds after "Finished
     # server process" was already logged** (INBOX 423i). Every synchronous
     # route in this app (almost all of them: `def`, not `async def`) is run
@@ -536,117 +533,59 @@ def _run_server() -> None:
     _stop_lingering_worker_threads()
 
 
-def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
-    """LAN mode: plain http on loopback as always, HTTPS for the network.
+def _serve_with_lan(uvicorn, app, config) -> None:  # noqa: ANN001
+    """Plain http on loopback as always, and LAN mode beside it, live.
 
     The owner, 2026-10-05: "Yes, self-signed HTTPS" (WORLD_CLASS_PLAN 12,
     "Decisions made"; SEC-08). This computer keeps `http://127.0.0.1:PORT`,
     which the launcher's health checks, the desktop window and every saved
     tab use, and a browser treats as trustworthy anyway. Other devices get
-    TLS on `netbind.lan_port(PORT)` (8443 beside 8000) with the certificate
-    `core/lancert.py` made on this computer: two listeners, one app, one event
+    TLS on `netbind.lan_port(PORT)` from a second server in the same event
     loop, because one socket cannot speak both and a wildcard bind beside a
     loopback bind on the same port conflicts on Linux.
 
-    If the HTTPS port is taken, the notebook stays on this computer only and
-    says so, rather than failing to start.
+    INBOX 900: that second server is started and stopped while the app runs
+    (core/lanlive.py `supervise`), whenever the switch is turned on or off,
+    so neither direction needs a restart. With the switch off it costs one
+    coroutine that looks every two seconds.
     """
     import asyncio
-    import contextlib
-    import socket as socket_module
 
-    from memorymap.core import lancert, lanserve, netbind
-
-    lan_port = netbind.lan_port(PORT)
-    info = lancert.ensure(config.data_dir)
-    #: LAN mode over IPv6 (WORLD_CLASS_PLAN §12, row 2): "::" is one
-    #: dual-stack socket made here, since uvicorn's own bind of "::" is IPv6
-    #: only on Windows. If it cannot be made, LAN mode binds IPv4 as before.
-    sock = netbind.listening_socket(bind, lan_port)
-    if bind == netbind.ALL_INTERFACES_V6 and sock is None:
-        bind = netbind.ALL_INTERFACES
-    if sock is None:
-        #: A second notebook on this computer (another person's account)
-        #: already holds 8443: take the next free port rather than going
-        #: local-only; Settings shows whichever address was taken.
-        first_error: OSError | None = None
-        for candidate in netbind.lan_port_candidates(lan_port):
-            try:
-                sock = socket_module.create_server((bind, candidate))
-            except OSError as exc:
-                first_error = first_error or exc
-                continue
-            lan_port = candidate
-            break
-        if sock is None:
-            logger.warning(
-                "Other devices can't reach this notebook: port %s and the next %s are taken (%s). "
-                "Listening on this computer only.", lan_port, netbind.LAN_PORT_TRIES - 1, first_error,
-            )
-            netbind.set_current(HOST)
-            uvicorn.run(app, host=HOST, port=PORT, log_level="info")
-            return
-    netbind.set_current(bind)
-    netbind.set_lan_port(lan_port)
-    addresses = ", ".join(
-        f"https://{netbind.url_host(a)}:{lan_port}"
-        for a in netbind.lan_addresses(include_v6=sock.family == socket_module.AF_INET6)
-    ) or bind
-    # Printed, not only logged: the terminal is where the person starting the
-    # app looks, and the fingerprint is what they compare on the phone.
-    print(
-        f"Other devices on this network can open this notebook (with the password, over HTTPS): {addresses}\n"
-        f"The certificate's fingerprint, to compare on the other device: {info.fingerprint}",
-        flush=True,
-    )
-
-    class _NoSignals(uvicorn.Server):
-        """The second listener leaves Ctrl+C and SIGTERM to the first, which
-        `serve_both` then passes on, so one signal ends both."""
-
-        def capture_signals(self):  # noqa: ANN202
-            return contextlib.nullcontext()
+    from memorymap.core import deps, lanlive, netbind
 
     local = uvicorn.Server(uvicorn.Config(app, host=HOST, port=PORT, log_level="info"))
-    lan_config = uvicorn.Config(
-        app,
-        host=bind,
-        port=lan_port,
-        log_level="info",
-        lifespan="off",  # the app starts and stops once, with the first listener
-        ssl_certfile=str(info.cert_path),
-        ssl_keyfile=str(info.key_path),
-    )
-    lan_config.load()
-    # "Regenerate certificate" in Settings reaches this context (lancert.reload).
-    lancert.set_live_context(lan_config.ssl)
-    lan = _NoSignals(lan_config)
+    listener = lanlive.Listener(uvicorn, app, config, local_port=PORT)
+
+    def wanted() -> bool:
+        return netbind.lan_enabled(config) and _password_exists(deps.get_db())
 
     async def serve_both() -> None:
         first = asyncio.ensure_future(local.serve())
         while not local.started and not first.done():
             await asyncio.sleep(0.05)
         if first.done():
-            sock.close()
             #: Done already, so its result is ready: re-raise whatever stopped
-            #: the local server rather than start the LAN one.
+            #: the local server rather than open the network.
             first.result()
             return
-        #: Plain http on this port gets a redirect to https (core/lanserve.py).
-        second = asyncio.ensure_future(lanserve.serve(lan, sock))
-        while not first.done() and not second.done():
-            if local.should_exit or lan.should_exit:
-                local.should_exit = lan.should_exit = True
-            await asyncio.sleep(0.2)
-        local.should_exit = lan.should_exit = True
-        await asyncio.gather(first, second, return_exceptions=True)
+        second = asyncio.ensure_future(
+            lanlive.supervise(listener, wanted=wanted, should_exit=lambda: local.should_exit)
+        )
+        #: The loopback server decides when the app ends; a LAN failure
+        #: never takes this computer's own window down with it.
+        await asyncio.gather(first, return_exceptions=True)
+        local.should_exit = True
+        results = await asyncio.gather(second, return_exceptions=True)
+        if isinstance(results[0], BaseException):
+            logger.warning("Other devices: LAN mode ended with an error: %s", results[0])
+        if not first.cancelled():
+            first.result()  # whatever stopped the loopback server, as before
 
     try:
         asyncio.run(serve_both())
     except KeyboardInterrupt:
         logger.debug("server stopped by Ctrl+C")
     finally:
-        lancert.set_live_context(None)
         netbind.set_lan_port(None)
 
 
@@ -890,7 +829,7 @@ def _port_holder(port: int) -> str:
     """Who has `port` on HOST: "free", "memorymap" (another copy of this
     app on this launch's data directory, which answers `/health` with its
     name and `/instance` with the folder) or "other" (anything else, a
-    MemoryMap on a different data directory included).
+    Tessellate on a different data directory included).
 
     A bind first, not a connect: on Windows a connect to a closed local port
     is retried for about two seconds before it is refused, and this runs on
@@ -920,13 +859,15 @@ def _port_holder(port: int) -> str:
                 return "other"
         except OSError:
             return "free"
-    if isinstance(body, dict) and body.get("app") == "MemoryMap AI":
+    from memorymap.core.instance_lock import APP_NAMES
+
+    if isinstance(body, dict) and body.get("app") in APP_NAMES:
         return "memorymap" if _serves_this_notebook(port) else "other"
     return "other"
 
 
 def _serves_this_notebook(port: int) -> bool:
-    """Whether the MemoryMap on `port` serves *this* launch's data directory
+    """Whether the Tessellate on `port` serves *this* launch's data directory
     (WORLD_CLASS 423 g). `/health` only carries the app's name, so a second
     copy pointed at a different folder used to be taken for this one and the
     window opened onto the wrong notebook. `/instance` reports a hash of the
@@ -948,8 +889,8 @@ def _desktop_port() -> int:
 
     **Why.** The window waits for *something* to answer on the port and then
     opens it. Port 8000 is the default of half the development servers in
-    existence, and with one of them running, the MemoryMap window opened that
-    program's page, with the MemoryMap server failing to bind behind it and
+    existence, and with one of them running, the Tessellate window opened that
+    program's page, with the Tessellate server failing to bind behind it and
     nothing on screen saying so. Another copy of this app on the port is
     left alone: a second launch opening a window onto the first copy's
     server is what a second double-click has always done.
@@ -1132,7 +1073,7 @@ def _pythonw_path() -> Path | None:
     return candidate if candidate.is_file() else None
 
 
-def _spawn_desktop(hidden: bool):
+def _spawn_desktop(hidden: bool, restart_after: int | None = None):
     """Start a fresh `memorymap --desktop` process in the given console
     mode, independent of whatever process/window is calling this, the one
     spawn primitive `_maybe_relaunch_hidden` (startup), the tray's live
@@ -1140,9 +1081,13 @@ def _spawn_desktop(hidden: bool):
     `/system/console-mode`) all share, so the three call sites can't drift
     into three slightly different flag combinations. Returns the `Popen`,
     or None if this isn't win32 or (for hidden) no pythonw.exe was found.
+
+    `restart_after` is this process's pid when it is about to exit: the new
+    process waits for it to be gone before anything else (`--restart-after`).
     """
     if sys.platform != "win32":
         return None
+    after = ["--restart-after", str(restart_after)] if restart_after else []
     try:
         import subprocess
 
@@ -1154,7 +1099,7 @@ def _spawn_desktop(hidden: bool):
             DETACHED_PROCESS = 0x00000008
             CREATE_NEW_PROCESS_GROUP = 0x00000200
             return subprocess.Popen(
-                [sys.executable, "--desktop"],
+                [sys.executable, "--desktop", *after],
                 creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
                 close_fds=True,
                 cwd=os.getcwd(),
@@ -1178,7 +1123,7 @@ def _spawn_desktop(hidden: bool):
             CREATE_NO_WINDOW = 0x08000000
             DETACHED_PROCESS = 0x00000008
             return subprocess.Popen(
-                [str(pythonw), "-m", "memorymap", "--desktop", "--hidden-relaunch"],
+                [str(pythonw), "-m", "memorymap", "--desktop", "--hidden-relaunch", *after],
                 creationflags=CREATE_NO_WINDOW | DETACHED_PROCESS,
                 close_fds=True,
                 cwd=os.getcwd(),
@@ -1190,7 +1135,7 @@ def _spawn_desktop(hidden: bool):
         # offer it.
         CREATE_NEW_CONSOLE = 0x00000010
         return subprocess.Popen(
-            [sys.executable, "-m", "memorymap", "--desktop"],
+            [sys.executable, "-m", "memorymap", "--desktop", *after],
             creationflags=CREATE_NEW_CONSOLE,
             close_fds=True,
             cwd=os.getcwd(),
@@ -1210,12 +1155,105 @@ def restart_in_console_mode(hidden: bool) -> bool:
     Windows refused the spawn) leaves the running app running rather than
     killing it for nothing.
     """
-    process = _spawn_desktop(hidden)
+    process = _spawn_desktop(hidden, restart_after=os.getpid())
     if process is None:
         return False
     _stop_background_work()
     os._exit(0)
     return True  # unreachable: os._exit() never returns; keeps every path explicit
+
+
+#: Arguments a relaunch never carries over: a restart is not a repair, and
+#: the pid to wait for is this process's own, added fresh.
+_NOT_CARRIED = ("--reinstall", "--hidden-relaunch")
+
+
+def _relaunch_argv() -> list[str]:
+    """This launch's command line, for a fresh copy of it."""
+    rest: list[str] = []
+    skip = False
+    for arg in sys.argv[1:]:
+        if skip:
+            skip = False
+            continue
+        if arg == "--restart-after":
+            skip = True
+            continue
+        if arg in _NOT_CARRIED or arg.startswith("--restart-after="):
+            continue
+        rest.append(arg)
+    head = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, "-m", "memorymap"]
+    return [*head, *rest, "--restart-after", str(os.getpid())]
+
+
+def _spawn_detached(argv: list[str]):  # noqa: ANN202  # a Popen, or None
+    """Start `argv` free of this process, which is about to exit.
+
+    Windows: the packaged app detached (it has no console); a source launch
+    in a console of its own, as `start.bat` gave it. Elsewhere: a session of
+    its own, so the terminal closing does not end it, with its output in the
+    data folder's `restart.log` rather than a terminal it no longer owns.
+    """
+    import subprocess
+
+    try:
+        if sys.platform == "win32":
+            if getattr(sys, "frozen", False):
+                flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            else:
+                flags = 0x00000010  # CREATE_NEW_CONSOLE
+            return subprocess.Popen(argv, creationflags=flags, close_fds=True, cwd=os.getcwd())  # noqa: S603
+        from memorymap.core.config import resolved_data_dir
+        from memorymap.core.subproc import NO_WINDOW
+
+        log_path = Path(resolved_data_dir()) / "restart.log"
+        with open(log_path, "ab") as log:
+            return subprocess.Popen(  # noqa: S603
+                argv, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                start_new_session=True, close_fds=True, cwd=os.getcwd(), creationflags=NO_WINDOW,
+            )
+    except OSError as exc:
+        logger.warning("couldn't start a new copy to restart into: %s", exc)
+        return None
+
+
+def restart_app() -> bool:
+    """Settings' Restart, in every way the app runs (INBOX 872).
+
+    It used to work only in the desktop app on Windows, and there it raced:
+    the new process started while this one still answered, read the notebook
+    as open, handed off to it and closed, and then this one exited, so the
+    restart ended with nothing running or a long wait. Now the new process is
+    told this pid (`--restart-after`) and waits for it to be gone first.
+    The desktop app on Windows keeps its console choice; every other launch
+    (browser or desktop, any system, source or packaged) restarts as it was
+    started. False when no new copy could be started: this one keeps running.
+    """
+    if os.getenv("MEMORYMAP_DESKTOP") == "1" and sys.platform == "win32":
+        from memorymap.core.config import ConfigManager
+
+        show = bool(ConfigManager().get_preference("show_console_on_startup", True))
+        return restart_in_console_mode(not show)
+    if _spawn_detached(_relaunch_argv()) is None:
+        return False
+    _stop_background_work()
+    os._exit(0)
+    return True  # unreachable: os._exit() never returns
+
+
+def _wait_for_exit(pid: int, timeout: float = 30.0) -> bool:
+    """Wait for the process this one replaces to be gone (its port and the
+    notebook's lock with it). True when it went; after `timeout` the launch
+    carries on and the single-instance check decides, as it always did."""
+    from memorymap.core import instance_lock
+
+    deadline = time.monotonic() + timeout
+    while instance_lock.pid_alive(pid):
+        if time.monotonic() > deadline:
+            logger.warning("the copy being restarted (pid %s) is still running", pid)
+            return False
+        time.sleep(0.1)
+    return True
 
 
 def _maybe_relaunch_hidden(show_on_startup: bool, already_relaunched: bool):
@@ -1556,15 +1594,15 @@ def _warn_webview2_missing() -> None:
     problem has made the problem worse, not explained it.
     """
     message = (
-        "MemoryMap AI needs the Microsoft Edge WebView2 Runtime to show its "
+        "Tessellate needs the Microsoft Edge WebView2 Runtime to show its "
         "window, and this machine does not have it installed.\n\n"
         "Opening the Microsoft installer page now. Run the installer, then "
-        "start MemoryMap AI again."
+        "start Tessellate again."
     )
     try:
         import ctypes
 
-        ctypes.windll.user32.MessageBoxW(0, message, "MemoryMap AI", 0x30)  # MB_ICONWARNING
+        ctypes.windll.user32.MessageBoxW(0, message, "Tessellate", 0x30)  # MB_ICONWARNING
     except Exception as exc:  # noqa: BLE001
         logger.warning("could not show the WebView2 message box: %s", exc)
     try:
@@ -1602,7 +1640,7 @@ def _existing_instance():
 
     state, lock = instance_lock.find_running(resolved_data_dir())
     if state == "starting":
-        _splash_status("MemoryMap is already starting...")
+        _splash_status("Tessellate is already starting...")
         state = "live" if instance_lock.wait_until_answering(lock.port) else "stale"
     return state, lock
 
@@ -1634,7 +1672,7 @@ def _hand_off_to_running(lock, action: str) -> None:
             except Exception as exc:  # noqa: BLE001 - best effort
                 logger.debug("AllowSetForegroundWindow failed: %s", exc)
         if instance_lock.request_focus(lock):
-            print(f"MemoryMap is already running (port {lock.port}); brought its window forward.")
+            print(f"Tessellate is already running (port {lock.port}); brought its window forward.")
             return
     _open_window_onto(lock.port)
 
@@ -1650,13 +1688,13 @@ def _open_window_onto(port: int) -> None:
     except ImportError:
         import webbrowser
 
-        print(f"MemoryMap is already running; opening {url}")
+        print(f"Tessellate is already running; opening {url}")
         webbrowser.open(url)
         return
     from memorymap.core.config import resolved_data_dir
 
     window = webview.create_window(
-        "MemoryMap AI", url=url, width=1200, height=800, min_size=(420, 500), text_select=True
+        "Tessellate", url=url, width=1200, height=800, min_size=(420, 500), text_select=True
     )
     storage = resolved_data_dir() / "webview"
     storage.mkdir(parents=True, exist_ok=True)
@@ -1766,7 +1804,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     _claim_notebook()
     _splash_status("Opening the window...")
     window = webview.create_window(
-        "MemoryMap AI",
+        "Tessellate",
         html=_loading_html(),
         width=1200,
         height=800,
@@ -1939,7 +1977,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
                             "Still running here. Click the icon to bring the "
                             "window back, or right-click → Quit to close it "
                             "properly.",
-                            "MemoryMap AI",
+                            "Tessellate",
                         )
                     except Exception as exc:  # noqa: BLE001  # balloons are optional
                         logger.debug("couldn't show the tray balloon: %s", exc)
@@ -2226,9 +2264,10 @@ def _start_tray(
         # the user clicks Restart, the window closes, and nothing comes back.
         argv = list(sys.argv) if getattr(sys, "frozen", False) else [sys.executable, *sys.argv]
         # A Restart is not a repair: launched from the Start Menu's "Repair
-        # MemoryMap AI", the argv carries --reinstall, and restarting with it
+        # Tessellate", the argv carries --reinstall, and restarting with it
         # cleared the window's saved sign-in and theme a second time.
         argv = [argv[0], *(arg for arg in argv[1:] if arg != "--reinstall")]
+        argv = [*argv, "--restart-after", str(os.getpid())]
         _stop_background_work()
         icon.stop()
         window.destroy()
@@ -2291,7 +2330,7 @@ def _start_tray(
     # on the app, get to the settings that matter. Each item lands on the
     # feature rather than on the tab that contains it, see `_go`.
     menu_items = [
-        pystray.MenuItem("Open MemoryMap AI", _open, default=True),
+        pystray.MenuItem("Open Tessellate", _open, default=True),
         pystray.MenuItem("New note", _new_note),
         pystray.MenuItem(
             "Ask a question",
@@ -2342,11 +2381,33 @@ def _start_tray(
     icon = pystray.Icon(
         "memorymap",
         image,
-        "MemoryMap AI",
+        "Tessellate",
         pystray.Menu(*menu_items),
     )
     threading.Thread(target=icon.run, daemon=True).start()
     return icon
+
+
+def _run_mcp() -> int:
+    """The stdio MCP server (`mcp_server.serve`) for the packaged app, which
+    cannot run `python -m memorymap.mcp_server` (its exe is the interpreter).
+
+    The protocol lives on file descriptors 0 and 1, opened here rather than
+    read from `sys.stdin`/`sys.stdout`: a windowed build has no console, so
+    `_ensure_std_streams` has already pointed `sys.stdout` at a log file, and
+    an MCP client launches the exe with pipes on those descriptors. If they
+    are not there the client gets a message on stderr and a non-zero exit
+    instead of a hang. Live behaviour of a windowed exe is "needs device"."""
+    try:
+        stdin = open(0, encoding="utf-8", closefd=False)  # noqa: SIM115
+        stdout = open(1, "w", encoding="utf-8", newline="\n", closefd=False)  # noqa: SIM115
+    except OSError:
+        print("Tessellate --mcp needs standard input and output from an MCP client.", file=sys.stderr)
+        return 2
+    from memorymap import mcp_server
+
+    mcp_server.serve(stdin=stdin, stdout=stdout)
+    return 0
 
 
 def _export_markdown(destination: str) -> int:
@@ -2472,7 +2533,7 @@ def _reset_password() -> int:
 
 
 def _repair_install() -> None:
-    """What the "Repair MemoryMap AI" shortcut (packaging/windows/
+    """What the "Repair Tessellate" shortcut (packaging/windows/
     installer.iss, beside the ordinary Start Menu one) runs, and what
     `--reinstall` means on a packaged build: INBOX 253, "automatically
     recoverable and revivable for the user with one click."
@@ -2512,7 +2573,7 @@ def _repair_install() -> None:
 
 def _capture() -> int:
     """`memorymap --capture`: open the one-line capture window onto the copy
-    of MemoryMap already running on this notebook (WORLD_CLASS_PLAN H9, quick
+    of Tessellate already running on this notebook (WORLD_CLASS_PLAN H9, quick
     capture from anywhere). Bound to a key in the system's own keyboard
     settings, it is a global capture hotkey with no hook of this app's in the
     operating system and no new dependency: the window is a page in the
@@ -2522,7 +2583,7 @@ def _capture() -> int:
 
     state, running = _existing_instance()
     if state != "live":
-        print("MemoryMap is not running on this notebook. Start it, then capture again.")
+        print("Tessellate is not running on this notebook. Start it, then capture again.")
         return 1
     webbrowser.open(f"http://{HOST}:{running.port}/capture.html", new=1)
     return 0
@@ -2530,17 +2591,24 @@ def _capture() -> int:
 
 def main() -> None:
     _ensure_std_streams()
-    parser = argparse.ArgumentParser(prog="memorymap", description="MemoryMap AI")
+    parser = argparse.ArgumentParser(prog="memorymap", description="Tessellate")
     parser.add_argument(
         "--desktop",
         action="store_true",
-        help="open MemoryMap in its own app window (needs pywebview)",
+        help="open Tessellate in its own app window (needs pywebview)",
     )
     parser.add_argument(
         "--export",
         metavar="PATH",
         help="write your notes to PATH as a Markdown zip and exit "
         "(the same archive Settings downloads)",
+    )
+    parser.add_argument(
+        "--mcp",
+        action="store_true",
+        help="serve this notebook's tools, notes and skills to an MCP client "
+        "(Claude Desktop) over standard input and output, then exit when it "
+        "closes; Settings, Tools shows the config to paste",
     )
     parser.add_argument(
         "--reset-password",
@@ -2552,13 +2620,13 @@ def main() -> None:
         "--reinstall",
         action="store_true",
         help="one-click repair: clear the cached window profile, then start "
-        "normally (what the installer's \"Repair MemoryMap AI\" shortcut runs; "
+        "normally (what the installer's \"Repair Tessellate\" shortcut runs; "
         "notes and preferences are never touched)",
     )
     parser.add_argument(
         "--capture",
         action="store_true",
-        help="open a one-line capture window on the running MemoryMap and exit "
+        help="open a one-line capture window on the running Tessellate and exit "
         "(bind it to a key in your system's keyboard settings)",
     )
     # Internal: set by _maybe_relaunch_hidden's own pythonw.exe relaunch to
@@ -2569,8 +2637,15 @@ def main() -> None:
     # Internal: the Windows installer's optional-packages page (installer.iss)
     # runs this after copying the app, with the ids the person ticked.
     parser.add_argument("--install-extras", metavar="IDS", help=argparse.SUPPRESS)
+    # Internal: a restart's new copy, told the pid it replaces (`restart_app`).
+    parser.add_argument("--restart-after", type=int, metavar="PID", help=argparse.SUPPRESS)
     args = parser.parse_args()
-    _splash_status("Loading MemoryMap AI...")
+    if args.restart_after:
+        _wait_for_exit(args.restart_after)
+    #: Settings' Restart can only restart a copy this launcher started (not a
+    #: bare `uvicorn --factory`, not the tests): this says it was.
+    os.environ["MEMORYMAP_LAUNCHED"] = "1"
+    _splash_status("Loading Tessellate...")
     from memorymap.core import extras
 
     extras.activate_frozen_extras()
@@ -2584,6 +2659,9 @@ def main() -> None:
     if args.capture:
         _close_bootloader_splash()
         raise SystemExit(_capture())
+    if args.mcp:
+        _close_bootloader_splash()
+        raise SystemExit(_run_mcp())
     if args.export:
         _close_bootloader_splash()
         raise SystemExit(_export_markdown(args.export))
@@ -2600,7 +2678,7 @@ def main() -> None:
         state, _running = _existing_instance()
         if state in ("live", "starting"):
             print(
-                "MemoryMap is open, so its window cache is in use and was not "
+                "Tessellate is open, so its window cache is in use and was not "
                 "cleared. Quit it from the tray icon, then run Repair again."
             )
         else:
@@ -2614,7 +2692,7 @@ def main() -> None:
             # One server per data directory in browser mode as well: the
             # launcher scripts already open a browser onto a copy on their
             # own port, and this covers a copy on another port.
-            print(f"MemoryMap is already running on this notebook: http://{HOST}:{running.port}")
+            print(f"Tessellate is already running on this notebook: http://{HOST}:{running.port}")
             return
         _run_server_holding_lock()
 

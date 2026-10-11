@@ -582,7 +582,7 @@
   opacity: 1;
 }
 
-.emblem-mark canvas {
+.emblem-mark .emblem-art {
   width: 24px !important;
   height: 24px !important;
 }
@@ -1174,6 +1174,13 @@ header#top-bar select,
 
 .msg-meta-icon {
   font-size: var(--text-xs);
+}
+
+/* When the message was written (chat-time.js): the last item of the row, flush
+   right so the times of a conversation line up, and alone in its own row under
+   a question or an answer saved before the cost line existed. */
+.msg-meta-when {
+  margin-inline-start: auto;
 }
 
 /* How full the window got, as a meter. A percentage in prose is a number you
@@ -1980,6 +1987,7 @@ header#top-bar select,
   --quick-tint-ink: var(--accent-text);
   background: color-mix(in oklab, var(--quick-tint) 14%, var(--card));
   border-color: color-mix(in oklab, var(--quick-tint) 55%, transparent);
+  border-radius: var(--radius-md);
 }
 
 .quick-link-tinted .quick-link-icon {
@@ -2540,6 +2548,37 @@ header#top-bar select,
    and two-line clamp; at four lines it made "Show more" re-space the same
    lines (19.1px to 22.8px a line, measured), which reads as the button doing
    nothing but moving text. One line height, the paragraph's, both ways. */
+/* A meeting card (note-cards.js `meetingGlance`): the glance shows until the
+   whole note is asked for, by the toggle, a search, or the caret in rows view. */
+.meeting-card:not(.meeting-open):not(.row-expanded) > .entry-content,
+.meeting-card.meeting-open > .meeting-glance,
+.meeting-card.row-expanded > .meeting-glance {
+  display: none;
+}
+
+.meeting-glance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.meeting-glance-row {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meeting-glance-label {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.entry-list.is-rows li:not(.row-expanded) .meeting-glance-row:nth-child(n + 2) {
+  display: none;
+}
+
 #entry-list:not(.is-rows) .entry-content.entry-clamped {
   margin-bottom: 0.1rem;
 }
@@ -2552,6 +2591,11 @@ header#top-bar select,
      strut), which is what quietly kept a roughly 24px-tall gap here even
      after every other property below was tightened. */
   display: block;
+  /* Sized to its label and flush with the text's left edge (INBOX 901: a
+     block button spanned the card, so "Show more" sat centred far from the
+     text and its focus ring was card-wide). */
+  width: fit-content;
+  text-align: start;
   margin-top: 0;
   padding: 0.05rem 0;
   line-height: 1;
@@ -2708,32 +2752,98 @@ button.chat-trail-link {
   background: var(--surface-2);
 }
 
-/* The no-model line (INBOX 767): `.notice` is the box and does not wrap, so this
-   is one row; a phone gets a grid so the close stays on the first row. */
+/* The no-model line (INBOX 767): one row where it fits; a phone gets a grid so
+   the close stays on the first row. In a narrow card the words keep 12rem and
+   the action steps to a second row at the end (the owner 2026-10-11, mono:
+   the words were squeezed to 14px beside the button and ran out of the card). */
 .ai-offline-note.notice {
+  flex-wrap: wrap;
   align-items: center;
   margin-block: var(--space-3);
 }
 
 .ai-offline-text {
-  flex: 1;
+  flex: 1 1 12rem;
   min-width: 0;
+}
+
+/* Before the phone grid's rule, at its specificity, so the phone keeps its own. */
+.ai-offline-note > .ghost:not(.icon-only) {
+  margin-inline-start: auto;
+}
+
+/* A phone: the words and the close share the first row, the action is the
+   second row under the words, and the close spans both rows so its 44px
+   target does not stretch the first. Measured at 390 in the chat dock (INBOX
+   887, "the no model connected popup looks completely off"): the action's
+   label sat 13px right of the words (its own padding), 13.6px beside 12px
+   words, with a 44px close holding row one open under a two-line sentence. */
+/* The action keeps the ghost button's hairline and fill (the owner: "the
+   connect a model button should have a border just to make it evident it is
+   a button"). The notice sits in a card, and a card quiets its ghost buttons
+   to edgeless; this one is the notice's only call to act. */
+.ai-offline-note > button.ghost:not(.icon-only) {
+  border-color: var(--ghost-btn-border);
+  background: var(--btn-quiet-bg);
+}
+
+/* A notice in a dashboard card (306px at 1440) is the phone's grid too: the
+   words share the first row with the close and the action sits under them.
+   One row left the words a 52px column nine lines tall (157px, measured with
+   overlap.js), and the notice recipe's one row is for the width of a tab. */
+#dash-grid .ai-offline-note.notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: var(--space-2);
+  row-gap: 0;
+  align-items: start;
+}
+
+#dash-grid .ai-offline-note > .ghost:not(.icon-only) {
+  grid-area: 2 / 2 / 3 / 3;
+  justify-self: start;
+  margin-inline-start: calc(-1 * (var(--space-5) + 1px));
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+#dash-grid .ai-offline-note > .icon-only {
+  grid-area: 1 / 3 / 3 / 4;
+  align-self: start;
+  margin-block: calc(-1 * var(--space-1));
 }
 
 @media (max-width: 599.98px) {
   .ai-offline-note.notice {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: var(--space-2);
+    row-gap: 0;
     align-items: start;
   }
 
   .ai-offline-note > .ghost:not(.icon-only) {
-    grid-area: 2 / 2;
+    grid-area: 2 / 2 / 3 / 3;
     justify-self: start;
+    /* The label lines up with the words above it: pull the button left by its
+       own padding, so the tint on press still has room around the text. */
+    margin-inline-start: calc(-1 * (var(--space-5) + 1px));
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--accent-text);
   }
 
   .ai-offline-note > .icon-only {
-    grid-area: 1 / 3;
+    grid-area: 1 / 3 / 3 / 4;
+    align-self: start;
+    margin-block: calc(-1 * var(--space-1));
+  }
+
+  /* With the keyboard up the composer is what matters: the line steps aside
+     (it is back the moment the keyboard goes), so the field keeps its room. */
+  html.keyboard-open .chat-dock .ai-offline-note {
+    display: none;
   }
 }
 
@@ -3334,36 +3444,191 @@ button.answer-figure-open {
   line-height: 0;
 }
 
-.emblem canvas {
+.emblem .emblem-art {
   display: block;
 }
 
-/* The emblem turns by CSS: drawn once (renderEmblem, app.js) and rotated
-   by the compositor, one turn in 43.6s, the speed the old per-frame redraw
-   had. It follows the app's own Reduce motion switch, which leaves the
-   class off, and not the system hint: instructed directly, "make sure the
-   animations run even with prefer reduced motion on, like the rotating
-   generated logos". `:root` and `!important` outrank the reduced-motion
-   blankets in 02-chat-graph.css, as the progress indicators do. */
-@keyframes emblem-spin {
-  to { transform: rotate(360deg); }
+/* The app's mark (renderEmblem and emblemArt, phone-shell.js): the favicon's
+   tile is the box's own background, its gradient and sheen in the accent's
+   colours, set by the script; each cell and the shadow is a layer of its own
+   (`#emblem-template`, index.html), stacked over it. Every motion below animates `transform` or `opacity` of
+   one layer, so the compositor runs it and no frame repaints
+   (`scratchpad/ui-sweeps/emblemcost.js`). */
+.emblem-art {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  border-radius: 23%;
 }
 
-:root canvas.emblem-spin {
-  animation: emblem-spin 43.6s linear infinite !important;
+.emblem-art > span,
+.emblem-art > span > span,
+.emblem-art > span > span > span {
+  position: absolute;
+  inset: 0;
 }
 
-:root canvas.emblem-spin.is-paused {
-  animation-play-state: paused !important;
+.emblem-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* The system hint does not stop the emblem (see above): restated here so
-     the media blanket's one-iteration rule cannot end the turn. */
-  :root canvas.emblem-spin {
-    animation-iteration-count: infinite !important;
-    animation-duration: 43.6s !important;
+/* The lifted cell and its shadow move about the cell's own centre, (55,
+   31.5) of favicon.svg's 100 (tests/test_brand_mark.py). */
+.emblem-cell-c,
+.emblem-shadow {
+  transform-origin: 55% 31.5%;
+}
+
+/* **The motion** (brief "logo", 2026-10-11). It plays unless the person has
+   asked this app for a still UI, by Reduce motion or by Interface
+   animations off; either holds the final frame, which is the favicon. The
+   system's reduced-motion hint alone does not still it, as it never stilled
+   the old emblem's turn (the owner: "make sure the animations run even with
+   prefer reduced motion on, like the rotating generated logos"): the
+   hint's blanket in 02-chat-graph.css exempts `.emblem-art *` while
+   Interface animations is on, and under the hint the breath is slower and
+   the lift lower (the media block below).
+
+   The landing, once, when first shown: the third cell drifts in from
+   further along its lift, turns the last 10 degrees to its tilt, passes its
+   place by a hair and settles back; its shadow fades in under it as it
+   lands. The two settled cells do not move. */
+@keyframes emblem-arrive {
+  0% {
+    opacity: 0;
+    transform: translate(7%, -7%) rotate(-10deg);
+    animation-timing-function: var(--ease-out);
   }
+  20% {
+    opacity: 1;
+  }
+  72% {
+    transform: translate(-0.8%, 0.8%) rotate(1.5deg);
+    animation-timing-function: var(--ease-in-out);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes emblem-shadow-arrive {
+  0% {
+    opacity: 0;
+    transform: translate(7%, -4%);
+    animation-timing-function: var(--ease-out);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* At rest, a slow breath: the lifted cell rises a hair and sinks again over
+   seven seconds and its shadow thins as it rises. Under a pixel at 76px, so
+   it reads as alive without pulling the eye. */
+@keyframes emblem-breathe {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: translateY(-1.6%);
+  }
+}
+
+@keyframes emblem-shadow-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* While the AI works (`syncEmblemBusy`): each cell lifts and resettles in
+   turn, one round in 2.4s, each cell in its own third of it, so only one is
+   ever up and all three are at rest where a round begins (the class comes
+   off there, never mid-lift). */
+@keyframes emblem-lift {
+  0% {
+    transform: none;
+    animation-timing-function: var(--ease-in-out);
+  }
+  15% {
+    transform: translateY(-5%);
+    animation-timing-function: var(--ease-in-out);
+  }
+  30%,
+  100% {
+    transform: none;
+  }
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art:not(.is-still) .emblem-float {
+  animation: emblem-breathe 7s var(--ease-in-out) infinite;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art:not(.is-still) .emblem-shadow-breathe {
+  animation: emblem-shadow-breathe 7s var(--ease-in-out) infinite;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-arriving:not(.is-still) .emblem-cell-c {
+  animation: emblem-arrive 1.4s both;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-arriving:not(.is-still) .emblem-shadow {
+  animation: emblem-shadow-arrive 1.4s both;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-busy:not(.is-still) .emblem-rise {
+  animation: emblem-lift 2.4s infinite;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-busy:not(.is-still) .emblem-rise.emblem-cell-b {
+  animation-delay: 0.8s;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-busy:not(.is-still) .emblem-rise.emblem-lift {
+  animation-delay: 1.6s;
+}
+
+/* Half the lift, for the system's reduced-motion hint (below). */
+@keyframes emblem-lift-soft {
+  0% {
+    transform: none;
+    animation-timing-function: var(--ease-in-out);
+  }
+  15% {
+    transform: translateY(-2.5%);
+    animation-timing-function: var(--ease-in-out);
+  }
+  30%,
+  100% {
+    transform: none;
+  }
+}
+
+/* Under the system's reduced-motion hint the mark still moves (above), but
+   gently: the breath is slower and the lift half as high, so they keep
+   saying what they say with less movement. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art:not(.is-still) :is(.emblem-float, .emblem-shadow-breathe) {
+    animation-duration: 10s;
+  }
+  :root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-busy:not(.is-still) .emblem-rise {
+    animation-name: emblem-lift-soft;
+  }
+}
+
+/* Off screen, held where it is (`watchEmblemVisibility`). Last, and as
+   specific as the rules above, so it wins over their shorthand. */
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-paused:not(.is-still) :is(.emblem-float, .emblem-shadow-breathe, .emblem-rise, .emblem-cell-c, .emblem-shadow) {
+  animation-play-state: paused;
 }
 
 .emblem-centred {
@@ -3403,10 +3668,11 @@ button.answer-figure-open {
 }
 
 /* The app emblem as an assistant's head (Appearance, Assistant avatar;
-   assistant-avatar.js). The canvas is the head's own copy of one sketch, in
-   the box `assistantAvatar` asked for; the turn is `canvas.emblem-spin`
-   above. In an Atlas mark's disc (the guide and help heads) it sits at three
-   quarters of the disc, centred by the mark's own flex. */
+   assistant-avatar.js): the mark (`emblemArt`) filling the box
+   `assistantAvatar` asked for, breathing like every emblem and left out of
+   the lift while the AI works (`.is-head`). In an Atlas mark's disc (the
+   guide and help heads) it sits at three quarters of the disc, centred by
+   the mark's own flex. */
 .assistant-emblem {
   --emblem-size: 20px; /* the head sets its own, inline */
   display: block;
@@ -3417,15 +3683,6 @@ button.answer-figure-open {
 .atlas-mark > .assistant-emblem {
   width: 75%;
   height: 75%;
-}
-
-/* The scratch box the sketch is drawn in before it is copied: out of sight,
-   out of flow, never read by anything. */
-.assistant-emblem-scratch {
-  position: fixed;
-  inset-block-start: 0;
-  inset-inline-start: -100vw;
-  pointer-events: none;
 }
 
 /* Both roles line up the same way now that the user has an avatar too, one

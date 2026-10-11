@@ -3,7 +3,7 @@
 services:
   memorymap:
     build:
-      context: ../..
+      context: ..
       dockerfile: docker/Dockerfile
       args:
         WITH_EMBEDDER: "0"
@@ -17,6 +17,9 @@ services:
       # Used only while no password is set; remove it from this file after the
       # first start, the password lives in the notebook from then on.
       MEMORYMAP_FIRST_PASSWORD: ${MEMORYMAP_FIRST_PASSWORD:-}
+      # Behind a reverse proxy, the public name it forwards (comma-separated);
+      # without it the app answers 421 to a Host that is not this container.
+      MEMORYMAP_ALLOWED_HOSTS: ${MEMORYMAP_ALLOWED_HOSTS:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Linux needs this line
     restart: unless-stopped

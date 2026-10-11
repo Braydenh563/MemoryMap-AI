@@ -21,7 +21,7 @@
 //
 //   BASE=http://127.0.0.1:8810 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     node scratchpad/ui-sweeps/pickers.js
-const { boot } = require('./lib.js');
+const { boot, openBoardsTab } = require('./lib.js');
 
 (async () => {
   let fails = 0;
@@ -219,7 +219,9 @@ const { boot } = require('./lib.js');
     const esc = await page.evaluate(() => ({ v: window.__pick, open: !!document.querySelector('.entry-pick-card') }));
     check(`${w} ${theme} note picker: Escape closes with nothing`, esc.v === null && !esc.open, esc);
 
-    // 3. Several notes.
+    // 3. Several notes. `pickNotesDialog` lives in the whiteboard bundle, so
+    // the bundle is loaded first (OPEN 843: "pickNotesDialog is not defined").
+    if (await page.evaluate(() => typeof pickNotesDialog !== 'function')) await openBoardsTab(page, ['pickNotesDialog']);
     await open("pickNotesDialog('Make a map of these notes', { confirmLabel: 'Propose a map' })");
     await page.waitForTimeout(500);
     m = await measure();

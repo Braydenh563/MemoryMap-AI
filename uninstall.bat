@@ -1,7 +1,7 @@
 @echo off
-title MemoryMap AI - Uninstall
+title Tessellate - Uninstall
 REM ===================================================================
-REM  MemoryMap AI - uninstaller for Windows
+REM  Tessellate - uninstaller for Windows
 REM
 REM  Removes the virtual environment (.venv) that start.bat built, plus
 REM  the caches that came with it, so the app stops being runnable from
@@ -126,7 +126,7 @@ endlocal
 exit /b 2
 :export_ok
 
-echo !ESC![1;38;5;73mMemoryMap AI - uninstall!ESC![0m
+echo !ESC![1;38;5;73mTessellate - uninstall!ESC![0m
 echo.
 
 REM --- Is the app running? ----------------------------------------------
@@ -136,7 +136,7 @@ REM  makes no sense. Only "busy with us" stops this script; a stranger on
 REM  the port is none of an uninstaller's business.
 call :port_check
 if not defined MM_PORT_MINE goto :not_running
-echo  !ESC![1;31m[x]!ESC![0m MemoryMap is still running on port !MM_PORT!.
+echo  !ESC![1;31m[x]!ESC![0m Tessellate is still running on port !MM_PORT!.
 echo         Close the app window, or press Ctrl+C in the window running it,
 echo         then run this again. Nothing was changed.
 pause
@@ -182,6 +182,9 @@ call :line ".env" "settings"
 
 echo.
 set /a FREES_MB=VENV_MB
+REM  The notes are part of what is freed only when they are being deleted:
+REM  the dry run said "about 300 MB" for a 305 MB removal that included them.
+if "!DELETE_DATA!"=="1" set /a FREES_MB+=DATA_MB
 echo  That frees about !FREES_MB! MB.
 
 if not "!DRY_RUN!"=="1" goto :not_dry
@@ -254,7 +257,11 @@ echo  !ESC![1;38;5;73m[done]!ESC![0m Removed the build caches.
 REM --- 2. The shortcut --------------------------------------------------
 if not "!SHORTCUTS!"=="1" goto :notes
 call :desktop_dir
-set "MM_LNK=!MM_DESKTOP!\MemoryMap AI.lnk"
+REM  The shortcut from before the rename to Tessellate too. brand: keep-next
+set "MM_OLD_LNK=!MM_DESKTOP!\MemoryMap AI.lnk"
+if exist "!MM_OLD_LNK!" del /q "!MM_OLD_LNK!" >nul 2>nul
+if exist "!MM_OLD_LNK!" echo  !ESC![1;31m[x]!ESC![0m Could not remove !MM_OLD_LNK!
+set "MM_LNK=!MM_DESKTOP!\Tessellate.lnk"
 if not exist "!MM_LNK!" goto :no_shortcut
 del /q "!MM_LNK!" >nul 2>nul
 echo  !ESC![1;38;5;73m[done]!ESC![0m Removed !MM_LNK!
@@ -317,7 +324,7 @@ endlocal
 exit /b 0
 
 :print_help
-echo MemoryMap AI uninstaller
+echo Tessellate uninstaller
 echo.
 echo Usage: uninstall.bat [options]
 echo.
@@ -364,7 +371,9 @@ REM  uninstaller that guesses at desktop files is one that deletes somebody
 REM  else's launcher.
 :list_shortcut
 call :desktop_dir
-set "MM_LNK=!MM_DESKTOP!\MemoryMap AI.lnk"
+REM  brand: keep-next
+if exist "!MM_DESKTOP!\MemoryMap AI.lnk" call :line "shortcut" "!MM_DESKTOP!\MemoryMap AI.lnk"
+set "MM_LNK=!MM_DESKTOP!\Tessellate.lnk"
 if exist "!MM_LNK!" call :line "shortcut" "!MM_LNK!"
 if not exist "!MM_LNK!" call :line "shortcut" "none found"
 exit /b 0
@@ -394,5 +403,6 @@ for /f "delims=" %%L in ('netstat -an -p TCP 2^>nul ^| findstr /C:":!MM_PORT! " 
 if not defined MM_PORT_BUSY exit /b 0
 where curl >nul 2>nul
 if errorlevel 1 exit /b 0
-for /f "delims=" %%H in ('curl -fsS --max-time 3 "http://127.0.0.1:!MM_PORT!/health" 2^>nul ^| findstr /C:"MemoryMap AI"') do set "MM_PORT_MINE=1"
+REM  Tessellate, or a copy started before the rename (brand: keep-next)
+for /f "delims=" %%H in ('curl -fsS --max-time 3 "http://127.0.0.1:!MM_PORT!/health" 2^>nul ^| findstr /C:"Tessellate" /C:"MemoryMap AI"') do set "MM_PORT_MINE=1"
 exit /b 0

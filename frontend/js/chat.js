@@ -1188,7 +1188,7 @@ function buildWebResultRow(result) {
         {
           group: "read",
           label: "ph:book-open-text Read here",
-          title: "Read this page as text, inside MemoryMap",
+          title: "Read this page as text, inside Tessellate",
           run: () => openWebReader(result.url),
         },
         {
@@ -1257,6 +1257,17 @@ async function bookmarkWebResult(result) {
         note: (result.snippet || "").slice(0, 2000),
       }),
     });
+    if (saved && !saved.duplicate_of && saved.id != null) {
+      let liveId = saved.id;
+      pushUndo(
+        `Bookmarked “${clipText(saved.title || saved.url, 40)}”`,
+        () => apiJson(`/bookmarks/${liveId}`, { method: "DELETE" }),
+        async () => {
+          const again = await apiJson("/bookmarks", { method: "POST", body: JSON.stringify({ url: saved.url, title: saved.title || "", note: saved.note || "" }) });
+          liveId = again.id ?? liveId;
+        }
+      );
+    }
     toast(
       saved && saved.duplicate_of
         ? "Already in your bookmarks."
@@ -1296,7 +1307,7 @@ function pushWebSearchHistory(query) {
     WEB_SEARCH_HISTORY_MAX
   );
   try {
-    localStorage.setItem(WEB_SEARCH_HISTORY_KEY, JSON.stringify(history));
+    prefs.set(WEB_SEARCH_HISTORY_KEY, JSON.stringify(history));
   } catch {
     /* storage full or blocked, the search itself still worked */
   }

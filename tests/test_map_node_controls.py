@@ -161,7 +161,7 @@ def test_a_tools_kind_popover_is_lifted_clear_of_its_options_bar():
 def test_layers_says_what_a_tinted_row_means_and_nests_a_frames_items():
     """INBOX 824 (the owner asked whether the tint meant "in the frame"). The
     head counts the board's selection with a Clear, and a frame's items are
-    nested under its row (`scratchpad/ui-sweeps/layersnest.js`: head "2
+    nested under its row (measured by the mapfix sweep, since removed: head "2
     selected on the board", 3 nested rows indented 4 to 12.8px, folded to 0,
     Clear back to "Nothing selected", at 1440 and 390)."""
     html = _html()

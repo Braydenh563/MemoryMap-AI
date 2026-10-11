@@ -7,7 +7,7 @@ turn here: keeping the streaming path simple and the history durable.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
@@ -155,8 +155,30 @@ class PinBody(BaseModel):
     pinned: bool
 
 
+def _user_message(turn: TurnBody, asked: datetime) -> dict:
+    user: dict = {"role": "user", "content": turn.question, "at": asked.isoformat()}
+    if turn.image_media_ids:
+        user["image_media_ids"] = turn.image_media_ids
+    if turn.document_ids:
+        user["document_ids"] = turn.document_ids
+    if turn.file_ids:
+        user["file_ids"] = turn.file_ids
+    if turn.note_ids:
+        user["note_ids"] = turn.note_ids
+    followup_of = (turn.followup_of or "").strip()
+    if followup_of:
+        user["followup_of"] = followup_of
+    return user
+
+
 def _turn_messages(turn: TurnBody) -> list[dict]:
-    assistant = {"role": "assistant", "content": turn.answer, "thinking": turn.thinking}
+    # Stamped here, not by the page: the turn is saved when the answer ends,
+    # so the answer's time is now and the question's is now minus the
+    # wall-clock the client measured for the whole turn (`elapsed_ms`). A page
+    # in a wrong-clock browser can then never put a message in the future.
+    now = utcnow()
+    asked = now - timedelta(milliseconds=max(0, min(turn.elapsed_ms or 0, 86_400_000)))
+    assistant = {"role": "assistant", "content": turn.answer, "thinking": turn.thinking, "at": now.isoformat()}
     if turn.tools:
         assistant["tools"] = turn.tools
     if turn.steps:
@@ -197,19 +219,7 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
     persona = (turn.persona or "").strip()
     if persona:
         assistant["persona"] = persona
-    user: dict = {"role": "user", "content": turn.question}
-    if turn.image_media_ids:
-        user["image_media_ids"] = turn.image_media_ids
-    if turn.document_ids:
-        user["document_ids"] = turn.document_ids
-    if turn.file_ids:
-        user["file_ids"] = turn.file_ids
-    if turn.note_ids:
-        user["note_ids"] = turn.note_ids
-    followup_of = (turn.followup_of or "").strip()
-    if followup_of:
-        user["followup_of"] = followup_of
-    return [user, assistant]
+    return [_user_message(turn, asked), assistant]
 
 
 def _summary(conversation: Conversation) -> dict:
@@ -228,6 +238,10 @@ def _summary(conversation: Conversation) -> dict:
         "preview": first_question[:120],
         "tokens": sum(int(m.get("tokens") or 0) for m in messages),
         "archived_at": conversation.archived_at.isoformat() if conversation.archived_at else None,
+        # When the chat was last spoken in, for the sessions list: the last
+        # message's own stamp, or the row's time for a chat saved before
+        # messages carried one.
+        "last_at": (messages[-1].get("at") if messages else None) or conversation.updated_at.isoformat(),
     }
 
 
@@ -697,16 +711,43 @@ def truncate_conversation(
         return {**_summary(conversation), "removed": 0}
 
     removed = (len(messages) - len(keep)) // 2
+    #: What Undo sends back (INBOX 898): the cut-off messages, or the whole row
+    #: when the cut took the chat with it.
+    cut = messages[len(keep):]
     if not keep:
+        kept = _restore_row(conversation)
         log_action(session, "deleted", "conversation", conversation.id)
         session.delete(conversation)
         session.commit()
-        return {"removed": removed, "conversation_deleted": True, "turns": 0}
+        return {"removed": removed, "conversation_deleted": True, "turns": 0, "restore": kept}
 
     conversation.messages = json.dumps(keep)
     conversation.updated_at = utcnow()
     session.commit()
-    return {**_summary(conversation), "removed": removed, "conversation_deleted": False}
+    return {**_summary(conversation), "removed": removed, "conversation_deleted": False, "removed_messages": cut}
+
+
+class TruncateRestoreBody(BaseModel):
+    from_turn: int = Field(ge=0)
+    messages: list[dict] = Field(min_length=1, max_length=2000)
+
+
+@router.post("/{conversation_id}/truncate/restore")
+def restore_truncated(
+    conversation_id: int, body: TruncateRestoreBody, session: Session = Depends(get_session)
+) -> dict:
+    """Undo of `truncate`: the cut-off messages put back from `from_turn` on (INBOX 898)."""
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    start = body.from_turn * 2
+    if start != len(messages):
+        raise HTTPException(status_code=409, detail="That chat has moved on since, so the messages can't go back.")
+    if any(m.get("role") not in ("user", "assistant") for m in body.messages):
+        raise HTTPException(status_code=422, detail="Only questions and answers can be put back.")
+    conversation.messages = json.dumps(messages + body.messages)
+    conversation.updated_at = utcnow()
+    session.commit()
+    return _summary(conversation)
 
 
 class ForkBody(BaseModel):

@@ -66,7 +66,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install build dependencies (the same set release.yml uses)
         shell: bash
@@ -107,11 +107,9 @@ jobs:
           sleep 2
           # A traceback in the app's own output is a failure even when every
           # request answered: it is what a support bundle would show first.
-          for log in "$RUNNER_TEMP/smoke-stdio.log" "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log"; do
-            if [ -f "$log" ] && grep -q "Traceback" "$log"; then
-              echo "FAIL a traceback in $log:"; grep -n -A12 "Traceback" "$log" | head -60; failed=1
-            fi
-          done
+          # packaging/traceback_check.py skips a traceback named in
+          # packaging/benign_tracebacks.txt (empty today) and fails the rest.
+          python packaging/traceback_check.py "$RUNNER_TEMP/smoke-stdio.log" "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" || failed=1
           # The running app must not write inside its own bundle: the
           # uninstaller removes only what it installed, and a per-machine
           # install folder is read-only to the person anyway.
@@ -202,7 +200,27 @@ jobs:
       # the latest published release goes in first, into a folder whose path
       # has a space and a non-ASCII letter (a username like "José" puts both
       # in every per-user path), and writes a note.
+      # A fork, or a repository that has published nothing yet, has no
+      # installer to upgrade from: that skips the three steps below with a
+      # notice. The upstream repository must have one, so there it stays a
+      # loud failure.
+      - name: Find the previous release
+        id: previous
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $count = gh release list --repo $env:GITHUB_REPOSITORY --limit 1 --json tagName --jq 'length'
+          if ($LASTEXITCODE -ne 0) { throw "could not list this repository's releases" }
+          if ($count -eq "0" -and $env:GITHUB_REPOSITORY -ne "Braydenh563/Tessellate") {
+            Write-Host "::notice::This repository has no published release, so the upgrade check is skipped."
+            "found=false" >> $env:GITHUB_OUTPUT
+          } else {
+            "found=true" >> $env:GITHUB_OUTPUT
+          }
+
       - name: Install the previous release and write a note in it
+        if: steps.previous.outputs.found == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -213,7 +231,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "could not download the latest release's installer" }
           $setup = Get-ChildItem "previous\MemoryMap-AI-Setup-*.exe" | Select-Object -First 1
           Write-Host "previous release: $($setup.Name)"
-          $dir = Join-Path $env:RUNNER_TEMP "MemoryMap Jos$([char]0x00E9) test"
+          $dir = Join-Path $env:RUNNER_TEMP "Tessellate Jos$([char]0x00E9) test"
           $p = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=`"$dir`"" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "the previous release's setup exited $($p.ExitCode)" }
           $exe = Join-Path $dir "MemoryMap AI.exe"
@@ -234,13 +252,14 @@ jobs:
       # in %APPDATA%\MemoryMap AI, and hold no file the previous release had
       # and this build does not ([InstallDelete] in installer.iss).
       - name: Upgrade over it, and the note, the version and the schema are right
+        if: steps.previous.outputs.found == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           Remove-Item Env:MEMORYMAP_DATA_DIR -ErrorAction SilentlyContinue
           $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
           $setup = "dist\installer\MemoryMap-AI-Setup-$version-windows-x86_64.exe"
-          $dir = Join-Path $env:RUNNER_TEMP "MemoryMap Jos$([char]0x00E9) test"
+          $dir = Join-Path $env:RUNNER_TEMP "Tessellate Jos$([char]0x00E9) test"
           $p = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "setup exited $($p.ExitCode)" }
           $exe = Join-Path $dir "MemoryMap AI.exe"
@@ -256,7 +275,7 @@ jobs:
 
           $programs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
           $shell = New-Object -ComObject WScript.Shell
-          foreach ($pair in @(@("MemoryMap AI.lnk", "--desktop"), @("MemoryMap AI\Repair MemoryMap AI.lnk", "--desktop --reinstall"))) {
+          foreach ($pair in @(@("Tessellate.lnk", "--desktop"), @("Tessellate\Repair Tessellate.lnk", "--desktop --reinstall"))) {
             $lnk = Join-Path $programs $pair[0]
             if (-not (Test-Path $lnk)) { throw "no Start Menu shortcut $lnk" }
             $link = $shell.CreateShortcut($lnk)
@@ -264,8 +283,12 @@ jobs:
               throw "the shortcut $lnk runs '$($link.TargetPath)' '$($link.Arguments)', expected '$exe' '$($pair[1])'"
             }
           }
+          # The previous release's shortcuts, from before the rename, are gone (brand: keep-next)
+          foreach ($old in @("MemoryMap AI.lnk", "MemoryMap AI")) {
+            if (Test-Path (Join-Path $programs $old)) { throw "the upgrade left the old Start Menu entry $old" }
+          }
 
-          $data = Join-Path $env:APPDATA "MemoryMap AI"
+          $data = Join-Path $env:APPDATA "MemoryMap AI"  # brand: keep, the notes stay in the old folder
           $env:MEMORYMAP_PORT = "8767"
           $app = Start-Process -FilePath $exe -WorkingDirectory $env:RUNNER_TEMP -PassThru
           python packaging/frozen_smoke.py --base http://127.0.0.1:8767 --only api --expect-note --data-dir "$data" --log (Join-Path $data "logs\desktop-stdio.log")
@@ -279,11 +302,12 @@ jobs:
           }
 
       - name: Uninstall, and the program goes whole and the notes stay
+        if: steps.previous.outputs.found == 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $dir = Join-Path $env:RUNNER_TEMP "MemoryMap Jos$([char]0x00E9) test"
-          $data = Join-Path $env:APPDATA "MemoryMap AI"
+          $dir = Join-Path $env:RUNNER_TEMP "Tessellate Jos$([char]0x00E9) test"
+          $data = Join-Path $env:APPDATA "MemoryMap AI"  # brand: keep, the notes stay in the old folder
           Start-Sleep 2
           Start-Process -FilePath (Join-Path $dir "unins000.exe") -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
           # The uninstaller hands off to a copy of itself in %TEMP% and
@@ -294,7 +318,7 @@ jobs:
             throw "the uninstaller left the install folder $dir behind"
           }
           $programs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
-          foreach ($left in @("MemoryMap AI.lnk", "MemoryMap AI")) {
+          foreach ($left in @("Tessellate.lnk", "Tessellate", "MemoryMap AI.lnk", "MemoryMap AI")) {  # brand: keep
             if (Test-Path (Join-Path $programs $left)) { throw "the uninstaller left the Start Menu entry $left" }
           }
           if (-not (Test-Path (Join-Path $data "memorymap.db"))) { throw "the uninstaller deleted the notebook" }

@@ -1,6 +1,8 @@
 """Single-user unlock.
 
-One password (or PIN), bcrypt-hashed in the `users` table. Unlocking
+One password, bcrypt-hashed in the `users` table, and an optional PIN that
+unlocks this computer only (`core/pinstore.py`, kept by the OS, never in the
+notebook). Unlocking
 issues a random token the frontend sends back as X-Auth-Token; tokens
 live in memory only, so restarting the app locks it again, and they
 expire on their own after a spell unused, see _SESSION_IDLE_TTL.
@@ -18,21 +20,36 @@ import ipaddress
 import logging
 import os
 import secrets
+import threading
 import time
 from pathlib import Path
 
 import bcrypt
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import crypto, desktop_dialog, diskspace, netbind, password_reset, reminder_token, security, vault
+from memorymap.core import (
+    crypto,
+    desktop_dialog,
+    diskspace,
+    lanlive,
+    lantrust,
+    netbind,
+    password_reset,
+    pinstore,
+    reminder_token,
+    security,
+    vault,
+)
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
 from memorymap.entry import manager
 from memorymap.entry.manager import log_action
+from memorymap.api.this_computer import REFUSAL, is_another_device, this_computer_only
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -404,6 +421,8 @@ def _bcrypt_input(password: str) -> bytes:
     # hash in front of bcrypt reads to a scanner (CodeQL, py/weak-sensitive-
     # data-hashing) as the password's only hash. A fixed salt is right here:
     # this only fits the input to bcrypt's 72 bytes, bcrypt salts the result.
+    # The salt keeps the app's old name for good, through the rename to
+    # Tessellate: a new one would fail every stored long password.
     return b"mm-pbkdf2:" + base64.b64encode(hashlib.pbkdf2_hmac("sha256", raw, b"memorymap-bcrypt-input", 10_000))
 
 
@@ -476,7 +495,9 @@ def password_warning(password: str) -> str | None:
 
 class PasswordBody(BaseModel):
     password: str = Field(
-        min_length=4, max_length=MAX_PASSWORD_CHARS, description="Password or PIN, 4+ characters"
+        min_length=4,
+        max_length=MAX_PASSWORD_CHARS,
+        description="Your password, or on this computer only, the PIN set up here",
     )
 
 
@@ -523,13 +544,36 @@ def notebook_open(session: Session, config: ConfigManager) -> bool:
     return bool(_active_tokens)
 
 
+def _no_password_yet(request: Request, session: Session) -> bool:
+    """No password, so nothing to check: true only at this computer.
+
+    The network port binds only once a password exists, but it stays open
+    until the next launch, and "I don't have it" (`/auth/reset`) or a restored
+    backup with no password could leave a notebook with none behind a live
+    LAN listener: every route answered any device then (measured: `/entries`
+    200 and a `/auth/setup` that took the notebook, from a 192.168 client).
+    A container's published port (Brief 40) is the exception: no window
+    there to set up from.
+    """
+    if _password_set(session):
+        return False
+    if is_another_device(request) and not netbind.explicit_bind():
+        raise HTTPException(status_code=401, detail=NO_PASSWORD_ELSEWHERE)
+    return True
+
+
+#: What another device is told while this notebook has no password.
+NO_PASSWORD_ELSEWHERE = "Set a password on the computer Tessellate runs on first."
+
+
 def require_unlock(
+    request: Request,
     session: Session = Depends(get_session),
     config: ConfigManager = Depends(get_config),
     x_auth_token: str | None = Header(default=None),
 ) -> None:
     """Dependency that gates every data route once a password exists."""
-    if not _password_set(session):
+    if _no_password_yet(request, session):
         return  # setup not done yet, nothing to protect
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
     if not _token_valid(x_auth_token, idle_ttl):
@@ -537,6 +581,7 @@ def require_unlock(
 
 
 def require_unlock_media(
+    request: Request,
     session: Session = Depends(get_session),
     config: ConfigManager = Depends(get_config),
     x_auth_token: str | None = Header(default=None),
@@ -553,7 +598,7 @@ def require_unlock_media(
     header. **A `?token=` query parameter is no longer read**: it was the
     fallback here until 2026-09-24, and it was the leak S1 describes.
     """
-    if not _password_set(session):
+    if _no_password_yet(request, session):
         return
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
     token = x_auth_token or _media_tickets.get(memorymap_media or "")
@@ -572,12 +617,16 @@ def end_every_session() -> int:
     restored vault row could never unwrap again.
     """
     ended = len(_active_tokens)
-    reminder_token.rotate()
+    reminder_token.rotate(get_config().data_dir)
     _active_tokens.clear()
     _media_tickets.clear()
     _owner_seen.clear()
     vault.revoke_all()
     vault.close()
+    # The PIN is bound to the vault row being replaced (`pinstore.binding`):
+    # it could open nothing now, so it goes rather than lingering as five
+    # strikes' worth of guesses at a record that is already dead.
+    pinstore.forget(get_config().data_dir)
     return ended
 
 
@@ -609,14 +658,20 @@ def status(
         "setup_required": _get_user(session) is None,
         "auto_session": _auto_session_allowed(request, session, config),
         "reset_here": _from_this_computer(request),
+        # Whether this caller may type a PIN: set, and this computer. Any
+        # other device is told False whether or not there is one.
+        "pin_here": _from_this_computer(request) and pinstore.is_set(config.data_dir),
     }
 
 
 @router.post("/setup")
 def setup(body: PasswordBody, request: Request, response: Response, session: Session = Depends(get_session)) -> dict:
-    """First run: create the single user. Refuses to run twice."""
+    """First run: create the single user. Refuses to run twice, and to any
+    other device (`_no_password_yet`): whoever sets it owns the notebook."""
     if _get_user(session) is not None:
         raise HTTPException(status_code=400, detail="A password is already set.")
+    if is_another_device(request) and not netbind.explicit_bind():
+        raise HTTPException(status_code=403, detail=NO_PASSWORD_ELSEWHERE)
     problem = _new_password_problem(body.password)
     if problem:
         raise HTTPException(status_code=400, detail=problem)
@@ -633,24 +688,166 @@ def setup(body: PasswordBody, request: Request, response: Response, session: Ses
     return {"token": token, "warning": password_warning(body.password)}
 
 
+# --- new devices wait for this computer (INBOX 867, core/lantrust.py) --------------
+
+#: How long one sign-in from a new device waits for Allow before answering.
+#: Long enough for the person holding the phone to reach the computer;
+#: pressing Unlock again waits once more.
+DEVICE_WAIT_SECONDS = 45.0
+#: Waiting holds a worker thread, so only this many wait at once; any more
+#: are told to press Unlock again.
+_device_waits = threading.BoundedSemaphore(4)
+#: Which device each LAN session belongs to, so Remove signs it out.
+_device_tokens: dict[str, str] = {}
+#: Every token handed to another device, whether or not it had a device
+#: cookie: switching LAN mode off ends them all (INBOX 900).
+_network_tokens: set[str] = set()
+
+
+def _end_network_sessions() -> int:
+    """Sign out every other device now: LAN mode was switched off."""
+    ended = [t for t in _network_tokens if t in _active_tokens]
+    for token in ended:
+        _active_tokens.pop(token, None)
+        _device_tokens.pop(token, None)
+    if ended:
+        vault.revoke(ended)
+    _network_tokens.clear()
+    _forget_dead_tickets()
+    return len(ended)
+
+
+def _device_cookie(request: Request) -> str:
+    raw = request.cookies.get(lantrust.DEVICE_COOKIE, "")
+    return raw if 20 <= len(raw) <= 100 and raw.replace("-", "").replace("_", "").isalnum() else ""
+
+
+def _set_device_cookie(response: Response, raw: str) -> None:
+    #: Only the LAN port is https, and only a device on the network has one.
+    response.set_cookie(
+        lantrust.DEVICE_COOKIE, raw, max_age=400 * 24 * 3600, path="/auth",
+        httponly=True, secure=True, samesite="strict",
+    )
+
+
+def _from_the_network(request: Request) -> bool:
+    """A numeric client address off loopback: a phone or another computer.
+    A name (the test client's `testclient`) is nothing to judge."""
+    host = request.client.host if request.client else ""
+    try:
+        ipaddress.ip_address((host or "").split("%", 1)[0])
+    except ValueError:
+        return False
+    return not _is_loopback_address(host)
+
+
+def _device_must_wait(request: Request, config: ConfigManager) -> bool:
+    """Loopback never waits, nor a container's published port (Brief 40: no
+    window there to answer), nor anyone once "Ask before a new device signs
+    in" is off."""
+    if not _from_the_network(request) or netbind.explicit_bind():
+        return False
+    if not lantrust.load(config.data_dir)["ask_new_devices"]:
+        return False
+    return not lantrust.device_known(config.data_dir, _device_cookie(request))
+
+
+def _hold_new_device(request: Request, device: str, config: ConfigManager) -> JSONResponse | None:
+    """Hold this sign-in until this computer answers; None once allowed."""
+    raw = device or secrets.token_urlsafe(32)
+    lantrust.hold(raw, lantrust.device_name(request.headers.get("user-agent")), _client_key(request))
+    decision = None
+    if _device_waits.acquire(blocking=False):
+        try:
+            decision = lantrust.wait_decision(raw, DEVICE_WAIT_SECONDS)
+        finally:
+            _device_waits.release()
+    if decision == "allowed":
+        lantrust.settle(raw)
+        request.cookies[lantrust.DEVICE_COOKIE] = raw  # this unlock goes on as that device
+        return None
+    if decision == "denied":
+        lantrust.settle(raw)
+        detail = "The computer this notebook is on said no to this device."
+    else:
+        detail = (
+            "This device is new, so the computer this notebook is on has to allow it first. "
+            "Choose Allow in the notice there, then press Unlock again."
+        )
+    refused = JSONResponse(status_code=403, content={"detail": detail, "device_pending": decision is None})
+    _set_device_cookie(refused, raw)
+    return refused
+
+
+def _pin_binding(session: Session, user: User) -> bytes | None:
+    row = session.scalar(select(Vault))
+    if row is None:
+        return None
+    return pinstore.binding(user.password_hash, bytes(row.kdf_salt), bytes(row.wrapped_dek))
+
+
+def _unlock_with_pin(
+    request: Request, session: Session, user: User, typed: str, config: ConfigManager
+) -> bytes | None:
+    """The data key a right PIN unwraps, or None after counting the failure.
+
+    Only after the password has already failed, and only from this computer
+    (`_from_this_computer`: loopback, no forwarding header, a loopback Host).
+    From anywhere else a PIN is just a wrong password and costs no strike,
+    so a device on the network can neither use it nor wipe it. A wrong PIN
+    is also a wrong guess for the address's waits, like any other.
+    """
+    client = _client_key(request)
+    if not _from_this_computer(request) or not pinstore.valid_pin(typed):
+        _unlock_failed(client)
+        return None
+    bound = _pin_binding(session, user)
+    outcome, dek = pinstore.unlock(config.data_dir, typed, bound) if bound else ("none", None)
+    if outcome == "ok":
+        return dek
+    _unlock_failed(client)
+    if outcome == "wiped":
+        log_action(session, "edited", "user", user.id, "PIN removed after five wrong tries")
+        session.commit()
+        raise HTTPException(
+            status_code=401,
+            detail="That PIN was wrong five times, so it has been removed. Use your password.",
+        )
+    if outcome == "wrong":
+        raise HTTPException(status_code=401, detail="That PIN or password is wrong.")
+    return None
+
+
 @router.post("/unlock")
 def unlock(
     body: PasswordBody,
     request: Request,
     response: Response,
     session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
 ) -> dict:
     client = _client_key(request)
     _refuse_if_throttled(client)
     user = _get_user(session)
     if user is None:
         raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
+    pin_dek = None
     if not _password_matches(body.password, user.password_hash):
-        _unlock_failed(client)
-        raise HTTPException(status_code=401, detail="That password is wrong.")
+        pin_dek = _unlock_with_pin(request, session, user, body.password, config)
+        if pin_dek is None:
+            raise HTTPException(status_code=401, detail="That password is wrong.")
     _unlock_succeeded(client)
+    device = _device_cookie(request)
+    if pin_dek is None and _device_must_wait(request, config):
+        refused = _hold_new_device(request, device, config)
+        if refused is not None:
+            return refused
     # Unwrap the data key so private notes are readable for this session.
-    vault_open = vault.open_with(session, body.password)
+    if pin_dek is not None:
+        vault.set_key(pin_dek)  # bound to this very vault row (`_pin_binding`)
+        vault_open = True
+    else:
+        vault_open = vault.open_with(session, body.password)
     #: **A full disk must not lock you out of your own notebook.** Measured
     #: (INBOX 266, item 6) on a data dir filled to 100%: this route answered
     #: 507 and the app became unopenable, while every read endpoint behind it
@@ -686,6 +883,14 @@ def unlock(
     if vault_open:
         vault.grant(token)
     _grant_media(request, response, token)
+    if is_another_device(request):
+        _network_tokens.intersection_update(_active_tokens)
+        _network_tokens.add(token)
+    if device:
+        lantrust.settle(device)
+        _device_tokens[token] = lantrust.device_hash(device)
+        _set_device_cookie(response, device)
+        lantrust.touch_device(config.data_dir, device, _client_key(request))
     return {"token": token, "vault_open": vault_open}
 
 
@@ -809,6 +1014,9 @@ def set_password_on_open(
     if user is None:
         raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
     if not body.enabled:
+        # Off lets the next person at this keyboard in without it: this
+        # computer's own decision, never a phone's.
+        this_computer_only(request)
         client = _client_key(request)
         _refuse_if_throttled(client)
         if not body.current_password or not _password_matches(
@@ -838,11 +1046,42 @@ def _lan_state(config: ConfigManager, request: Request) -> dict:
     from memorymap.core import lancert
 
     info = lancert.read(config.data_dir)
+    trust = lantrust.load(config.data_dir)
+    here = _from_this_computer(request)
+    here_key = _current_network_key(config)
     return {
         "allow_lan": netbind.lan_enabled(config),
         **netbind.describe(config, request.url.port),
         "certificate": info.public() if info else None,
+        #: INBOX 867: the overrides, the remembered networks and devices, and
+        #: who is waiting. Devices and requests are this computer's to see.
+        "any_network": trust["any_network"],
+        "ask_new_devices": trust["ask_new_devices"],
+        #: One row per network (`lantrust.listed`): a Wi-Fi name over its
+        #: subnet, whichever of its records were read more or less fully.
+        "networks": lantrust.listed(trust["networks"], here_key),
+        "devices": lantrust.devices(config.data_dir) if here else [],
+        "pending": lantrust.pending() if here else [],
+        #: INBOX 896: networks the port stayed closed on, and those the
+        #: person stopped trusting (`blocked`), to trust or forget.
+        "untrusted": [
+            {**n, "blocked": bool(n.get("blocked"))}
+            for n in lantrust.listed([{**n, "blocked": bool(n.get("blocked"))} for n in trust["untrusted"]], here_key)
+        ],
+        "current_network": here_key,
+        #: INBOX 900: the switch applies while the app runs.
+        "live": lanlive.attached(),
+        #: When LAN mode last switched itself off for lack of use (a date).
+        "switched_off": trust["switched_off"],
+        "unused_days": lantrust.UNUSED_DAYS,
     }
+
+
+def _current_network_key(config: ConfigManager) -> str:
+    network = lantrust.current_network() if not netbind.is_loopback_bind() else None
+    if network is None and netbind.lan_enabled(config):
+        network = lantrust.network_for_display()
+    return network.key if network is not None else ""
 
 
 @router.get("/lan-access", dependencies=[Depends(require_unlock)])
@@ -872,7 +1111,7 @@ def download_lan_certificate(config: ConfigManager = Depends(get_config)) -> Res
     )
 
 
-@router.post("/lan-certificate", dependencies=[Depends(require_unlock)])
+@router.post("/lan-certificate", dependencies=[Depends(require_unlock), Depends(this_computer_only)])
 def regenerate_lan_certificate(
     request: Request,
     session: Session = Depends(get_session),
@@ -889,6 +1128,197 @@ def regenerate_lan_certificate(
     log_action(session, "edited", "user", None, "made a new certificate for other devices")
     session.commit()
     return _lan_state(config, request)
+
+
+def _check_password_for_lan(request: Request, session: Session, password: str | None) -> User:
+    """Every loosening of LAN mode asks for the password, like the switch."""
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="Set a password first.")
+    client = _client_key(request)
+    _refuse_if_throttled(client)
+    if not password or not _password_matches(password, user.password_hash):
+        if password:
+            _unlock_failed(client)
+        raise HTTPException(status_code=401, detail="That isn't your current password.")
+    _unlock_succeeded(client)
+    return user
+
+
+class LanPasswordBody(BaseModel):
+    current_password: str | None = Field(default=None, max_length=MAX_PASSWORD_CHARS)
+
+
+class LanOptionBody(BaseModel):
+    name: str = Field(pattern="^(any_network|ask_new_devices)$")
+    enabled: bool
+    current_password: str | None = Field(default=None, max_length=MAX_PASSWORD_CHARS)
+
+
+def _require_this_computer(request: Request) -> None:
+    """Stricter than `this_computer_only` (the Host is checked too), and the
+    same sentence, so a phone reads one refusal whichever guard said no."""
+    if not _from_this_computer(request):
+        raise HTTPException(status_code=403, detail=REFUSAL)
+
+
+@router.post("/lan-networks/allow", dependencies=[Depends(require_unlock)])
+def allow_this_network(
+    body: LanPasswordBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """"Allow on this network": remembered, and the LAN port opens now.
+    Only ever a loosening, so only from this computer (secscan-1011): a
+    phone with the password must not open the port on a network the person
+    at the computer never chose."""
+    _require_this_computer(request)
+    user = _check_password_for_lan(request, session, body.current_password)
+    trust = lantrust.allow_current(config.data_dir)
+    label = (trust.get("network") or {}).get("label") or "an unknown network"
+    log_action(session, "edited", "user", user.id, f"allowed other devices on {label}")
+    session.commit()
+    return _lan_state(config, request)
+
+
+@router.delete("/lan-networks/{key}", dependencies=[Depends(require_unlock)])
+def forget_network(key: str, request: Request, config: ConfigManager = Depends(get_config)) -> dict:
+    """Forget a network, trusted or not: only ever lets fewer in, so no
+    password, but the lists are this computer's to manage (INBOX 896), as
+    Stop trusting is: a phone never edits them."""
+    _require_this_computer(request)
+    if not lantrust.forget_network(config.data_dir, key):
+        raise HTTPException(status_code=404, detail="That network is not on the list.")
+    return _lan_state(config, request)
+
+
+@router.post("/lan-networks/{key}/trust", dependencies=[Depends(require_unlock)])
+def trust_network(
+    key: str,
+    body: LanPasswordBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """Trust a network from the untrusted list (INBOX 896): a loosening, so
+    this computer only and with the password, like "Allow on this network"."""
+    _require_this_computer(request)
+    user = _check_password_for_lan(request, session, body.current_password)
+    if not lantrust.trust_network(config.data_dir, key):
+        raise HTTPException(status_code=404, detail="That network is not on the list.")
+    log_action(session, "edited", "user", user.id, "trusted a network for other devices")
+    session.commit()
+    return _lan_state(config, request)
+
+
+@router.post("/lan-networks/{key}/untrust", dependencies=[Depends(require_unlock)])
+def untrust_network(key: str, request: Request, config: ConfigManager = Depends(get_config)) -> dict:
+    """"Stop trusting" (INBOX 896): only ever lets fewer in, so no password,
+    but this computer's list is managed from this computer."""
+    _require_this_computer(request)
+    if not lantrust.untrust_network(config.data_dir, key):
+        raise HTTPException(status_code=404, detail="That network is not on the list.")
+    return _lan_state(config, request)
+
+
+@router.post("/lan-notice/dismiss", dependencies=[Depends(require_unlock)])
+def dismiss_lan_notice(request: Request, config: ConfigManager = Depends(get_config)) -> dict:
+    """The "switched itself off after 14 days" notice was read."""
+    _require_this_computer(request)
+    lantrust.clear_switched_off(config.data_dir)
+    return _lan_state(config, request)
+
+
+@router.post("/lan-options", dependencies=[Depends(require_unlock)])
+def set_lan_option(
+    body: LanOptionBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """"Allow on any network" and "Ask before a new device signs in". The
+    looser setting of each asks for the password; the safer needs nothing."""
+    looser = body.enabled if body.name == "any_network" else not body.enabled
+    if looser:
+        # The looser direction is this computer's call (secscan-1011), as
+        # `answer_device` is; the safer one is open to any signed-in device.
+        _require_this_computer(request)
+        user = _check_password_for_lan(request, session, body.current_password)
+        log_action(session, "edited", "user", user.id, f"other devices: {body.name.replace('_', ' ')} {'on' if body.enabled else 'off'}")
+        session.commit()
+    lantrust.set_flag(config.data_dir, body.name, body.enabled)
+    return _lan_state(config, request)
+
+
+@router.post("/lan-devices/{device_id}/{verdict}", dependencies=[Depends(require_unlock)])
+def answer_device(
+    device_id: str,
+    verdict: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """Allow or Deny a device waiting to sign in: this computer only, since
+    the point is that someone here says yes."""
+    _require_this_computer(request)
+    if verdict not in ("allow", "deny"):
+        raise HTTPException(status_code=404, detail="Allow or deny.")
+    held = {p["id"]: p for p in lantrust.pending()}.get(device_id)
+    if held is None or not lantrust.decide(config.data_dir, device_id, verdict == "allow"):
+        raise HTTPException(status_code=404, detail="That device is no longer waiting.")
+    log_action(session, "edited", "user", None, f"{'allowed' if verdict == 'allow' else 'refused'} {held['name']} at {held['address']}")
+    session.commit()
+    return _lan_state(config, request)
+
+
+@router.delete("/lan-devices/{device_id}", dependencies=[Depends(require_unlock)])
+def forget_device(device_id: str, request: Request, config: ConfigManager = Depends(get_config)) -> dict:
+    """Remove an allowed device: it asks again next time, and its open
+    sessions end now."""
+    if not lantrust.forget_device(config.data_dir, device_id):
+        raise HTTPException(status_code=404, detail="That device is not on the list.")
+    for token in [t for t, owner in _device_tokens.items() if owner == device_id]:
+        _device_tokens.pop(token, None)
+        _active_tokens.pop(token, None)
+        vault.revoke([token])
+    _forget_dead_tickets()
+    return _lan_state(config, request)
+
+
+WATCH_SECONDS = 25.0
+
+
+@router.get("/lan-watch", dependencies=[Depends(require_unlock)])
+async def lan_watch(request: Request, since: int = -1, config: ConfigManager = Depends(get_config)) -> dict:
+    """This computer's window waits here for a device to ask, or the network
+    to change, so its notice comes at once rather than at the next poll. No
+    thread is held while it waits."""
+    import asyncio
+
+    _require_this_computer(request)
+    deadline = time.monotonic() + WATCH_SECONDS
+    while lantrust.version() == since and time.monotonic() < deadline:
+        if await request.is_disconnected():
+            break
+        await asyncio.sleep(0.5)
+    trust = lantrust.status()
+    serving = not netbind.is_loopback_bind() and trust["reason"] != "off"
+    return {
+        "version": lantrust.version(),
+        "serving": serving,
+        "held": None if trust["open"] or not serving else trust,
+        "pending": lantrust.pending(),
+        #: The status bar's LAN icon (INBOX 896): on, open, the reason it is
+        #: closed, and a switched-off notice; the window waits here, so a
+        #: network change reaches the icon within the watch's own beat.
+        "allow_lan": netbind.lan_enabled(config),
+        "live": lanlive.attached(),
+        "error": lanlive.last_error(),
+        "network": (trust["network"] or {}).get("label", "") if serving else "",
+        "reason": trust["reason"] if serving else "",
+        "switched_off": lantrust.load(config.data_dir)["switched_off"],
+    }
 
 
 @router.post("/lan-access", dependencies=[Depends(require_unlock)])
@@ -911,6 +1341,7 @@ def set_lan_access(
     if user is None:
         raise HTTPException(status_code=400, detail="Set a password first.")
     if body.enabled:
+        this_computer_only(request)  # opening the network is this computer's call
         client = _client_key(request)
         _refuse_if_throttled(client)
         if not body.current_password or not _password_matches(
@@ -920,16 +1351,39 @@ def set_lan_access(
                 _unlock_failed(client)
             raise HTTPException(status_code=401, detail="That isn't your current password.")
         _unlock_succeeded(client)
+        # A password from before the eight-character floor can be a 4-digit
+        # PIN, which the throttle slows but a network full of strangers (a
+        # campus wifi) has all day to try. The password is in hand only here.
+        if len(body.current_password) < NEW_PASSWORD_MIN_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Change your password to at least {NEW_PASSWORD_MIN_CHARS} characters before letting other devices in.",
+            )
     config.set_preference(netbind.LAN_PREF, body.enabled)
+    ended = 0
     if body.enabled:
-        # Made now rather than at the next launch, so Settings can show the
-        # fingerprint before a phone ever connects (core/lancert.py).
+        # Made now, so Settings can show the fingerprint before a phone ever
+        # connects (core/lancert.py).
         from memorymap.core import lancert
 
         lancert.ensure(config.data_dir)
+        # INBOX 867: the network it was turned on in is the one it opens on.
+        lantrust.remember_current(config.data_dir)
+        lantrust.mark_turned_on(config.data_dir)
+    else:
+        # Off means off now: every other device is signed out, and the
+        # listener below drops their connections (INBOX 900).
+        ended = _end_network_sessions()
+    #: INBOX 900: the launcher's supervisor opens or closes the LAN port now;
+    #: the answer waits for it, so `restart_required` says what is true.
+    live = lanlive.attached()
+    if live:
+        lanlive.wait_pass(lanlive.wake())
     log_action(
         session, "edited", "user", user.id,
-        f"allow other devices on this network: {'on' if body.enabled else 'off'} (from the next launch)",
+        f"allow other devices on this network: {'on' if body.enabled else 'off'}"
+        + ("" if live else " (from the next launch)")
+        + (f", {ended} other device(s) signed out" if ended else ""),
     )
     session.commit()
     return _lan_state(config, request)
@@ -954,7 +1408,7 @@ def lock(
         return {"locked": True}
     _active_tokens.pop(x_auth_token or "", None)
     #: A notification left on screen must not act on a notebook that is locked.
-    reminder_token.rotate()
+    reminder_token.rotate(get_config().data_dir)
     _forget_dead_tickets()
     _revoke_media(request, response)
     vault.revoke([x_auth_token or ""])
@@ -969,12 +1423,13 @@ def lock(
 class ChangePasswordBody(BaseModel):
     current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_CHARS)
     new_password: str = Field(
-        min_length=4, max_length=MAX_PASSWORD_CHARS, description="Password or PIN, 4+ characters"
+        min_length=4, max_length=MAX_PASSWORD_CHARS, description="The new password, 8+ characters"
     )
 
 
 @router.get("/account", dependencies=[Depends(require_unlock)])
 def account(
+    request: Request,
     session: Session = Depends(get_session),
     config: ConfigManager = Depends(get_config),
 ) -> dict:
@@ -998,6 +1453,13 @@ def account(
         # When the recovery key was made, or None: Settings says which button
         # to show (INBOX 663). Behind the lock, unlike `/auth/status`.
         "recovery_key_created_at": _iso(vault.recovery_created_at(session)),
+        # Settings > Security: whether this computer can keep a PIN, whether
+        # one is set, and whether the caller is this computer (only it may).
+        "pin": {
+            "available": pinstore.available(config.data_dir),
+            "set": pinstore.is_set(config.data_dir),
+            "here": _from_this_computer(request),
+        },
     }
 
 
@@ -1063,6 +1525,9 @@ def change_password(
     user.password_hash = _hash_password(body.new_password)
     log_action(session, "edited", "user", user.id, "password changed")
     session.commit()
+    # The PIN record is bound to the old hash, so it could open nothing now;
+    # it is cleared rather than re-wrapped, since re-wrapping needs the PIN.
+    pin_cleared = pinstore.forget(get_config().data_dir)
 
     # Every other session is invalidated: a password change is exactly when
     # you want anything already open elsewhere to stop working. The caller
@@ -1080,7 +1545,93 @@ def change_password(
         "token": token,
         "other_sessions_ended": signed_out,
         "warning": password_warning(body.new_password),
+        "pin_cleared": pin_cleared,
     }
+
+
+# --- the PIN for this computer (owner, 2026-10-12; core/pinstore.py) ---------------
+
+
+class PinBody(BaseModel):
+    current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_CHARS)
+    pin: str = Field(min_length=4, max_length=12, description="4 to 12 digits")
+
+
+class ForgetPinBody(BaseModel):
+    current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_CHARS)
+
+
+def _check_current_password(request: Request, session: Session, typed: str) -> User:
+    """The password, never the PIN: throttled and counted like an unlock."""
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
+    client = _client_key(request)
+    _refuse_if_throttled(client)
+    if not _password_matches(typed, user.password_hash):
+        _unlock_failed(client)
+        raise HTTPException(status_code=401, detail="That isn't your current password.")
+    _unlock_succeeded(client)
+    return user
+
+
+@router.post("/pin", dependencies=[Depends(require_unlock), Depends(this_computer_only)])
+def set_pin(
+    body: PinBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+    x_auth_token: str | None = Header(default=None),
+) -> dict:
+    """Set up or replace the PIN for this computer, behind the password.
+
+    `this_computer_only` refuses other devices; `_from_this_computer` also
+    refuses a tunnel on this machine, since a PIN set there is one only a
+    tunnel could use, and a tunnel never may.
+    """
+    if not _from_this_computer(request):
+        raise HTTPException(status_code=403, detail=REFUSAL)
+    if not pinstore.valid_pin(body.pin):
+        raise HTTPException(status_code=400, detail="A PIN is 4 to 12 digits.")
+    user = _check_current_password(request, session, body.current_password)
+    if not pinstore.available(config.data_dir):
+        raise HTTPException(
+            status_code=409,
+            detail="This computer has no protected store for a PIN, so the password is the only way in here.",
+        )
+    if vault.key() is None:
+        vault.open_with(session, body.current_password)
+        session.commit()  # the vault row, when open_with had to create one
+        vault.grant(x_auth_token)
+    dek, bound = vault.key(), _pin_binding(session, user)
+    if dek is None or bound is None:
+        raise HTTPException(status_code=409, detail="Unlock your private notes before setting up a PIN.")
+    try:
+        pinstore.save(config.data_dir, body.pin, dek, bound)
+    except pinstore.StoreError:
+        raise HTTPException(
+            status_code=409,
+            detail="This computer's protected store did not keep the PIN. The password still works.",
+        ) from None
+    log_action(session, "edited", "user", user.id, "PIN set up on this computer")
+    session.commit()
+    return {"set": True}
+
+
+@router.post("/pin/forget", dependencies=[Depends(require_unlock), Depends(this_computer_only)])
+def forget_pin(
+    body: ForgetPinBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """Settings > Security, "Forget PIN": the password, then it is gone."""
+    user = _check_current_password(request, session, body.current_password)
+    forgotten = pinstore.forget(config.data_dir)
+    if forgotten:
+        log_action(session, "edited", "user", user.id, "PIN removed from this computer")
+        session.commit()
+    return {"forgotten": forgotten}
 
 
 class RotateVaultKeyBody(BaseModel):
@@ -1210,6 +1761,8 @@ def rotate_vault_key(
 
     # Only now, after the commit that made it real, does memory follow.
     vault.set_key(new_key)
+    # The PIN wraps the old key, which is what a re-key exists to retire.
+    pinstore.forget(get_config().data_dir)
 
     # Same reasoning as change-password: rotating a key you suspect is
     # compromised should not leave anything already open still trusted on
@@ -1337,7 +1890,7 @@ class SaveRecoveryKeyBody(BaseModel):
 RECOVERY_KEY_FILE = "memorymap-recovery-key.txt"
 
 
-@router.post("/recovery-key/save", dependencies=[Depends(require_unlock)])
+@router.post("/recovery-key/save", dependencies=[Depends(require_unlock), Depends(this_computer_only)])
 def save_recovery_key(body: SaveRecoveryKeyBody, config: ConfigManager = Depends(get_config)) -> dict:
     """Download .txt in the desktop window: a native Save dialog (INBOX 671).
 
@@ -1410,6 +1963,7 @@ def recover(
     log_action(session, "edited", "user", user.id, "password reset with the recovery key")
     session.commit()
     vault.set_key(dek)  # only after the commit, as `rotate_vault_key` does
+    pinstore.forget(get_config().data_dir)  # bound to the old password hash
     _owner_seen.clear()
     token = _end_sessions_and_issue(request, response)
     return {

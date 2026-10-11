@@ -15,6 +15,44 @@
 // only in this module-level array, it survives a tab switch (this module
 // never reloads) but not a page reload, exactly as specified.
 
+//: The three offered before anything is asked. Here rather than in settings.js
+//: so every piece of Atlas copy is in one file, and read from there.
+//:
+//: **Answerable, and about where you are** (INBOX 304, the owner: "the help
+//: bot is useless, or the suggested questions are bad or both"). Two faults,
+//: both measured. The first starter was "Where do reminders live?" and the
+//: corpus could not reach its own reminders entry, so the panel's opening
+//: offer was a question it answered with "I'm not sure": that half is fixed
+//: in `help_chat.py`, and `test_every_question_the_app_offers_to_ask_atlas_is_answerable`
+//: now reads both tables here against the corpus so it cannot come back. The
+//: second is these three themselves: a fixed set on every tab, two of which
+//: asked how to turn something off, which is a strange thing for an app to
+//: suggest you ask about it first. The generic three now say what the guide
+//: is, where a surface lives, and what the app keeps, and `ATLAS_TAB_STARTERS`
+//: below puts the tab you are actually on first.
+const ATLAS_STARTERS = [
+  "What can you help me with?",
+  "Where do reminders live?",
+  "What does the app remember about me?",
+];
+
+//: Keyed exactly as `AGENT_TAB_STARTERS` is, and read through the same
+//: `agentCurrentTab()`, because the two chat surfaces sit over the same tabs
+//: and a second way of naming them is a second thing to keep in step. The
+//: difference is what they offer: the agent's starters act on your notebook,
+//: these ask what the surface in front of you is for. A tab with no entry
+//: here simply shows the generic three.
+const ATLAS_TAB_STARTERS = {
+  dashboard: ["What can the dashboard show me?", "How do I change the widgets?"],
+  notes: ["How does the app file a note?", "What is the writing room for?"],
+  chat: ["What can the popup agent do that Chat cannot?", "What are skills?"],
+  graph: ["What do entity and board nodes add to the graph?", "What is the graph for?"],
+  library: ["What goes in the library?", "How does the whiteboard work?"],
+  documents: ["Where do my documents live?", "How do I see a document's history?"],
+  timeline: ["What does the timeline show?", "What can I do from the timeline?"],
+  reminders: ["Where do reminders live?", "How do I make a reminder recurring?"],
+};
+
 let helpChatHistory = [];
 let helpChatBusy = false;
 
@@ -750,6 +788,7 @@ function openHelpChat() {
     //: lines at 1440. The variant is a class on the recipe, so every other
     //: sheet in the app is untouched.
     variant: "corner",
+    modal: false,
     build: (card) => {
       card.appendChild(group);
       group.classList.add("atlas-docked");
@@ -826,4 +865,22 @@ function atlasStartersFor(tab) {
     if (!out.includes(question)) out.push(question);
   }
   return out;
+}
+
+//: **The reply head of surfaces that are not a Chat bubble** (INBOX 471): the
+//: guide's rows build one (`assistantHeadRow`), Ask's answer and the writing
+//: room's draft carry static `[data-assistant-head]` holders that
+//: `paintAssistantHeads` fills once; all paint through `paintAssistantAvatar`,
+//: so the Appearance setting and its live repaint reach them.
+function assistantHeadRow(name = aiNameNow()) {
+  const row = document.createElement("div");
+  row.className = "msg-role msg-role-assistant";
+  const avatar = document.createElement("span");
+  avatar.className = "msg-avatar";
+  avatar.setAttribute("aria-hidden", "true");
+  const who = document.createElement("span");
+  who.textContent = name;
+  row.append(avatar, who);
+  paintAssistantAvatar(avatar, 20);
+  return row;
 }

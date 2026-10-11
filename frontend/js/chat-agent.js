@@ -112,7 +112,7 @@ function noteChatPosition(element, atEnd) {
     const keys = Object.keys(map).sort((a, b) => map[b].at - map[a].at);
     for (const stale of keys.slice(40)) delete map[stale];
     try {
-      localStorage.setItem(CHAT_POSITIONS_KEY, JSON.stringify(map));
+      prefs.set(CHAT_POSITIONS_KEY, JSON.stringify(map));
     } catch {
       // Storage full or refused: the thread opens at its end, as before.
     }
@@ -413,6 +413,7 @@ function userMarkEl() {
 
 function addBubble(role, text, attachments = null) {
   clearChatEmptyState();
+  lazyScript("/js/chat-time.js"); // each message's time; the file stamps bubbles as they appear
   const bubble = document.createElement("div");
   bubble.className = `msg ${role}`;
   //: The words as sent, so ArrowUp in an empty composer can reopen the last
@@ -795,7 +796,21 @@ function agentTimeline(holder, options = {}) {
         //: wrote, as one plan to confirm (`undoSkillRun`, note-history.js).
         //: One change has its row's own Undo, so it is offered from two.
         if (span && changes.length > 1) {
-          const all = smallButton("ph:arrow-counter-clockwise Undo the run", "Put back every note this run changed", () => undoSkillRun(span, all));
+          //: The run's Undo puts everything back at once, so the per-write
+          //: entries on the app's stack and the rows' own Undo buttons come
+          //: off too: left, a later Ctrl+Z (or a row's Undo) would run an
+          //: inverse that is already applied (Brief 101b).
+          const settleRun = () => {
+            for (const change of changes) {
+              const action = change.undo ? agentUndoActions.get(JSON.stringify(change.undo)) : null;
+              if (action && undoStack.includes(action)) settleUndoFromToast(action);
+            }
+            for (const row of box.querySelectorAll(".skill-change")) {
+              row.classList.add("skill-change-undone");
+              row.querySelectorAll("[data-change-undo]").forEach((button) => button.remove());
+            }
+          };
+          const all = smallButton("ph:arrow-counter-clockwise Undo the run", "Put back every note this run changed", () => undoSkillRun(span, all, settleRun));
           title.append(" ", all);
         }
         box.appendChild(title);
@@ -1075,19 +1090,19 @@ function paintPersonaAvatar(holder, persona, size = 20) {
 //: icon (`atlasDraw`'s tiny level, a miniature bust, 115 nodes), the same Atlas
 //: the bust shows larger. The bust itself at 20px drew the whole figure to
 //: crop it, 218 nodes a reply: 32,700 nodes in a 150-turn chat, and the first
-//: paint went from 580 to 981ms (chatheads.js). The emblem is the p5 logo
-//: drawn once and copied (assistant-avatar.js, lazy), so a 150-turn chat
-//: holds one sketch, never 150. No Atlas to draw (the faces script failing to
+//: paint went from 580 to 981ms (chatheads.js). The emblem is the app's
+//: mark as a few SVG layers (assistant-avatar.js, lazy; `emblemArt`), about
+//: 20 nodes a head. No Atlas to draw (the faces script failing to
 //: load): the emblem, never an empty box.
 function assistantAvatar(size = 20) {
   const emblem = typeof atlasAvatar !== "function" || (typeof appearancePref === "function" && appearancePref("assistant-avatar", "atlas") === "emblem");
   if (emblem) {
-    const canvas = document.createElement("canvas");
-    canvas.className = "assistant-emblem";
-    canvas.setAttribute("aria-hidden", "true");
-    canvas.style.setProperty("--emblem-size", `${size}px`);
-    assistantEmblemInto(canvas, size);
-    return canvas;
+    const box = document.createElement("span");
+    box.className = "assistant-emblem";
+    box.setAttribute("aria-hidden", "true");
+    box.style.setProperty("--emblem-size", `${size}px`);
+    assistantEmblemInto(box, size);
+    return box;
   }
   const key = chatHeadKey("", size);
   let face = chatHeadSources.get(key);
@@ -1110,24 +1125,6 @@ function repaintAssistantAvatars(emblemsOnly = false) {
     if (emblemsOnly && !holder.querySelector(".assistant-emblem")) continue;
     if (holder.isConnected) paintAssistantAvatar(holder, Number(holder.dataset.assistantAvatar) || 20);
   }
-}
-
-//: **The reply head of surfaces that are not a Chat bubble** (INBOX 471): the
-//: guide's rows build one (`assistantHeadRow`), Ask's answer and the writing
-//: room's draft carry static `[data-assistant-head]` holders that
-//: `paintAssistantHeads` fills once; all paint through `paintAssistantAvatar`,
-//: so the Appearance setting and its live repaint reach them.
-function assistantHeadRow(name = aiNameNow()) {
-  const row = document.createElement("div");
-  row.className = "msg-role msg-role-assistant";
-  const avatar = document.createElement("span");
-  avatar.className = "msg-avatar";
-  avatar.setAttribute("aria-hidden", "true");
-  const who = document.createElement("span");
-  who.textContent = name;
-  row.append(avatar, who);
-  paintAssistantAvatar(avatar, 20);
-  return row;
 }
 
 function paintAssistantHeads() {
@@ -1273,6 +1270,7 @@ function changeRow(change, options = {}) {
         toast(error.message || "Couldn't undo that.", true);
       }
     });
+    undo.dataset.changeUndo = "1";
     row.appendChild(undo);
   }
   if (change.diff) row.appendChild(changeDiff(change.diff));
@@ -1491,10 +1489,7 @@ const CARD_KINDS = {
         : [
             smallButton("ph:check-circle Mark done", "Complete this reminder", async () => {
               try {
-                await apiJson(`/reminders/${item.id}`, {
-                  method: "PUT",
-                  body: JSON.stringify({ done: true }),
-                });
+                await reminderPutUndoably(item.id, "Completed a reminder", { done: false }, { done: true });
                 item.done = true;
                 toast("Reminder marked done.");
                 //: Only when the tab is actually showing them, `loadReminders`
@@ -1512,7 +1507,7 @@ const CARD_KINDS = {
       line.className = "tool-preview-body";
       const due = item.due_at ? new Date(item.due_at) : null;
       line.textContent = due && !Number.isNaN(due.valueOf())
-        ? `${item.done ? "Done" : "Due"} ${due.toLocaleString()}`
+        ? `${item.done ? "Done" : "Due"} ${whenText(due)}`
         : item.done
           ? "Done"
           : "No due date.";
@@ -1885,6 +1880,7 @@ function renderMemoryProposal(holder, proposal) {
         method: "POST",
         body: JSON.stringify({ accept }),
       });
+      pushRequestUndo(accept ? "Remembered a preference" : "Declined a preference", `/memory/${proposal.id}`, "PATCH", { proposed: true, active: false }, { proposed: false, active: accept }, () => renderMemorySettings());
     } catch (error) {
       answered = false;
       toast(error.message, true);
@@ -2445,7 +2441,7 @@ const DRAFT_MAX_SOURCES = 6;
 
 function saveDraftLocally() {
   try {
-    localStorage.setItem(
+    prefs.set(
       DRAFT_STORE,
       JSON.stringify({
         thoughts: $("draft-thoughts").value,
@@ -2781,17 +2777,6 @@ function undoDraft() {
 // reloading the page. Each now runs against an AbortController so it can be
 // cancelled, and shows that it's working while it does.
 let draftController = null;
-
-function setDraftBusy(busy) {
-  $("draft-compose").classList.toggle("hidden", busy);
-  $("draft-cancel").classList.toggle("hidden", !busy);
-  $("draft-undo").disabled = busy || draftUndoStack.length === 0;
-  // The draft box is being written into while this runs, so editing it would
-  // be editing something that is about to be overwritten by the next chunk.
-  $("draft-text").readOnly = busy;
-  $("draft-refine").disabled = busy;
-  $("writing-room").classList.toggle("draft-writing", busy);
-}
 
 function cancelDraft() {
   draftController?.abort();

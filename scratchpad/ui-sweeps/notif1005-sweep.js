@@ -105,7 +105,9 @@ const fail = (m) => { fails.push(m); console.log('FAIL', m); };
         const acts = row.querySelector('.notif-row-actions');
         const visible = (el) => el && getComputedStyle(el).opacity !== '0' && getComputedStyle(el).visibility !== 'hidden';
         const body = row.querySelector('.notif-body').getBoundingClientRect();
-        const side = row.querySelector('.notif-side').getBoundingClientRect();
+        // `.notif-side` is gone (OPEN 1107): the text's right edge is the row
+        // actions' left when they show, else the body's own.
+        const side = visible(acts) ? acts.getBoundingClientRect() : { left: body.right };
         const textOver = [...row.querySelectorAll('.notif-title, .notif-meta')].some((el) => el.scrollWidth > el.clientWidth + 1 || el.getBoundingClientRect().right > side.left + 0.5);
         const toggle = row.querySelector('.notif-read-toggle');
         const ab = acts.getBoundingClientRect();

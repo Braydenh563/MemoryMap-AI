@@ -57,6 +57,10 @@ START_SH = ROOT / "start.sh"
 START_BAT = ROOT / "start.bat"
 START_DESKTOP_SH = ROOT / "start-desktop.sh"
 START_DESKTOP_BAT = ROOT / "start-desktop.bat"
+#: One-double-click files for the launcher's actions (the owner 2026-10-11:
+#: "I just need easy ways to run the set scripts and actions").
+ACTION_SH = [ROOT / n for n in ("doctor.sh", "reinstall.sh", "tools.sh")]
+ACTION_BAT = ["doctor.bat", "reinstall.bat", "tools.bat"]
 UNINSTALL_SH = ROOT / "uninstall.sh"
 UNINSTALL_BAT = ROOT / "uninstall.bat"
 
@@ -113,7 +117,8 @@ class TestPortFromEnv:
 
 class TestTheShellScriptsParse:
     @pytest.mark.parametrize(
-        "script", ["start.sh", "start-desktop.sh", "uninstall.sh"]
+        "script",
+        ["start.sh", "start-desktop.sh", "uninstall.sh", "doctor.sh", "reinstall.sh", "tools.sh"],
     )
     def test_bash_n(self, script):
         result = subprocess.run(
@@ -122,7 +127,7 @@ class TestTheShellScriptsParse:
         assert result.returncode == 0, result.stderr
 
     def test_they_are_executable(self):
-        for script in (START_SH, START_DESKTOP_SH, UNINSTALL_SH):
+        for script in (START_SH, START_DESKTOP_SH, UNINSTALL_SH, *ACTION_SH):
             assert os.access(script, os.X_OK), script
 
 
@@ -160,8 +165,8 @@ class TestOneLauncherTwoSpellings:
     """`start --doctor` has to be the same sentence on both platforms."""
 
     def test_the_help_texts_list_the_same_flags_in_the_same_order(self):
-        sh = _help_flags(_read(START_SH), "MemoryMap AI launcher", "MM_HELP\n}")
-        bat = _help_flags(_read(START_BAT), "echo MemoryMap AI launcher", "\n:log")
+        sh = _help_flags(_read(START_SH), "Tessellate launcher", "MM_HELP\n}")
+        bat = _help_flags(_read(START_BAT), "echo Tessellate launcher", "\n:log")
         assert sh == FLAG_ORDER, sh
         assert bat == FLAG_ORDER, bat
 
@@ -226,7 +231,7 @@ class TestBatchFileRules:
         out = re.sub(r"(?i)\becho\(", "echo ", out)
         return out.replace("^(", "").replace("^)", "")
 
-    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat"])
+    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat", *ACTION_BAT])
     def test_no_parenthesis_inside_an_echo_within_a_block(self, name):
         """cmd reads the ) as the end of the block and the script dies."""
         depth = 0
@@ -242,7 +247,7 @@ class TestBatchFileRules:
             depth += unquoted.count("(") - unquoted.count(")")
         assert not offenders, offenders
 
-    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat"])
+    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat", *ACTION_BAT])
     def test_the_blocks_balance(self, name):
         depth = 0
         for ln in self._lines(ROOT / name):
@@ -252,7 +257,7 @@ class TestBatchFileRules:
             assert depth >= 0, ln
         assert depth == 0
 
-    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat"])
+    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", *ACTION_BAT])
     def test_every_goto_and_call_target_exists(self, name):
         text = _read(ROOT / name)
         labels = {
@@ -415,7 +420,7 @@ class TestTheDoctorRunsHere:
         # under a full suite running beside it, and did not reproduce in
         # forty runs afterwards, so the next occurrence needs to arrive
         # with its own evidence rather than a bare label name.
-        assert "MemoryMap AI - checks" in out, out + result.stderr
+        assert "Tessellate - checks" in out, out + result.stderr
         for label in ("Python", ".venv", "Disk", "Port", "Updates", "Notes", "Last run"):
             assert label in out, f"{label} missing from:\n{out}"
         assert "[ok]" in out or "[x]" in out, out
@@ -458,7 +463,7 @@ class TestTheDoctorRunsHere:
             timeout=60,
         )
         assert result.returncode == 0
-        assert "MemoryMap AI" in result.stdout
+        assert "Tessellate" in result.stdout
         assert "Your notes:" in result.stdout
 
 
@@ -1054,7 +1059,7 @@ class TestAFlagMissingItsValue:
         result = self._run("start.sh", ["--port"], tmp_path)
         assert result.returncode == 2, result.stdout + result.stderr
         assert "--port needs a number" in result.stdout
-        assert "MemoryMap AI launcher" in result.stdout
+        assert "Tessellate launcher" in result.stdout
 
     def test_uninstall_sh_export_with_no_value(self, tmp_path):
         result = self._run("uninstall.sh", ["--export"], tmp_path)
@@ -1081,7 +1086,7 @@ class TestTheDesktopShortcut:
         env = dict(os.environ)
         env["HOME"] = str(home)
         env["MEMORYMAP_DATA_DIR"] = str(tmp_path / "data")
-        # Nothing must be able to look like a running MemoryMap and stop the
+        # Nothing must be able to look like a running Tessellate and stop the
         # uninstaller half way through this test.
         env["MEMORYMAP_PORT"] = "9"
         return env
@@ -1171,7 +1176,7 @@ class TestBothUninstallersRejectAnExportWithNoPath:
 def test_the_self_update_relaunch_cannot_run_an_empty_command():
     """Reported with a screenshot: "Checking for updates..." then
     `'""' is not recognized as an internal or external command` and
-    "MemoryMap AI has stopped".
+    "Tessellate has stopped".
 
     That is the self-update relaunch with `MM_SELF` empty: cmd reports the
     empty program name and the script exits, so the app never starts. The
@@ -1348,7 +1353,7 @@ def test_the_windows_shortcut_lands_on_the_desktop_the_shell_shows():
     for name, text in (("start.bat", start_bat), ("uninstall.bat", uninstall_bat)):
         assert "%USERPROFILE%\\Desktop\\MemoryMap AI.lnk" not in text, name
         assert "[Environment]::GetFolderPath('Desktop')" in text, name
-        assert 'set "MM_LNK=!MM_DESKTOP!\\MemoryMap AI.lnk"' in text, name
+        assert 'set "MM_LNK=!MM_DESKTOP!\\Tessellate.lnk"' in text, name
     sub = start_bat.split("\n:desktop_dir", 1)[1].split("exit /b 0", 1)[0]
     assert "GetFolderPath" in sub
     assert sub == uninstall_bat.split("\n:desktop_dir", 1)[1].split("exit /b 0", 1)[0]
@@ -1362,3 +1367,39 @@ def test_a_path_with_an_apostrophe_survives_the_shortcut_powershell():
     assert "'!MM_PS_LNK!'" in line and "'!MM_PS_HOME!start.bat'" in line
     assert "!MM_LNK!'" not in line and "'!MM_HOME!" not in line
     assert 'set "MM_PS_HOME=!MM_HOME:\'=\'\'!"' in text
+
+
+class TestTheActionFiles:
+    """Each action file runs the launcher's own flag, so an action has one
+    implementation; read, never run (reinstall deletes `.venv`)."""
+
+    @pytest.mark.parametrize(
+        "name,flag",
+        [("doctor.sh", "--doctor"), ("doctor.bat", "--doctor"),
+         ("reinstall.sh", "--reinstall"), ("reinstall.bat", "--reinstall")],
+    )
+    def test_it_calls_the_launcher_flag(self, name, flag):
+        assert re.search(r"start\.(sh|bat)\"? " + re.escape(flag), _read(ROOT / name))
+
+    @pytest.mark.parametrize("name", ["reinstall.sh", "reinstall.bat"])
+    def test_reinstall_asks_first(self, name):
+        text = _read(ROOT / name)
+        assert "Continue?" in text and "--yes" in text
+
+    @pytest.mark.parametrize("name", ["tools.sh", "tools.bat"])
+    def test_the_menu_offers_every_launcher_action(self, name):
+        text = _read(ROOT / name)
+        for flag in ("--doctor", "--logs", "--shortcut", "--version"):
+            assert flag in text, flag
+        for script in ("start-desktop", "reinstall", "uninstall"):
+            assert script in text, script
+
+    def test_the_menu_quits_on_q(self):
+        out = subprocess.run(
+            ["bash", str(ROOT / "tools.sh")], input="q\n", capture_output=True, text=True, timeout=30
+        )
+        assert out.returncode == 0 and "Tessellate tools" in out.stdout
+
+    @pytest.mark.parametrize("name", ACTION_BAT)
+    def test_bat_files_are_crlf_on_disk(self, name):
+        assert b"\r\n" in (ROOT / name).read_bytes()

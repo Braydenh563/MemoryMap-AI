@@ -100,7 +100,7 @@
     say(
       "Something failed while starting: " +
         (event.message || "a script error") +
-        ". Close MemoryMap and start it again. If it keeps happening this is " +
+        ". Close Tessellate and start it again. If it keeps happening this is " +
         "a bug, and the message above is the useful part of the report."
     );
   });
@@ -118,8 +118,8 @@
     say(
       "The app blocked one of its own scripts (" +
         (event.violatedDirective || "script-src") +
-        "). This usually means the MemoryMap server is still running from " +
-        "before an update. Close MemoryMap completely and start it again."
+        "). This usually means the Tessellate server is still running from " +
+        "before an update. Close Tessellate completely and start it again."
     );
   });
 
@@ -177,7 +177,7 @@
   setTimeout(function () {
     say(
       "This is taking longer than it should. Try again, and if it still " +
-        "doesn't finish, close MemoryMap completely and start it again."
+        "doesn't finish, close Tessellate completely and start it again."
     );
     var splash = document.getElementById("boot-splash");
     if (splash && !splash.classList.contains("boot-splash-leaving")) offerReload(splash);

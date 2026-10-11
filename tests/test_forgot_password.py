@@ -43,6 +43,18 @@ def _clean():
     vault.close()
 
 
+@pytest.fixture(autouse=True)
+def _devices_already_allowed(client):
+    """These tests are about sessions and the vault, so the phone here is one
+    this computer already allowed; holding a new device is test_lan_trust.py's."""
+    from memorymap.core import deps
+    from memorymap.core import lantrust
+
+    lantrust.set_flag(deps.get_config().data_dir, "ask_new_devices", False)
+    yield
+    lantrust.reset_for_tests()
+
+
 def _local(client) -> TestClient:
     return TestClient(client.app, base_url="http://127.0.0.1:8795", client=("127.0.0.1", 50000))
 
@@ -279,7 +291,9 @@ def test_both_open_routes_refuse_another_device(client):
 def test_the_open_status_says_nothing_about_the_notebook(client):
     _notebook(client)
     status = _local(client).get("/auth/status").json()
-    assert set(status) == {"setup_required", "auto_session", "reset_here"}
+    # `pin_here` is about this caller and this computer (core/pinstore.py),
+    # like `reset_here`: never note counts or whether a recovery key exists.
+    assert set(status) == {"setup_required", "auto_session", "reset_here", "pin_here"}
 
 
 # --- the reset without a key ---------------------------------------------------

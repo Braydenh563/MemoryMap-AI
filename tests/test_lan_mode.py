@@ -31,7 +31,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from memorymap.api import routes_auth
-from memorymap.core import netbind, vault
+from memorymap.core import lantrust, netbind, vault
 
 ROOT = Path(__file__).resolve().parent.parent
 PASSWORD = "the owner's password"
@@ -418,6 +418,28 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         lan = _Http(network_address, _lan_port(port), cafile=cert)
         here = _Http("127.0.0.1", port)
 
+        # INBOX 867: the switch was never turned on in this network (it was
+        # written to the file), so the LAN port is not even bound until this
+        # computer says "Allow on this network", with the password.
+        with pytest.raises(OSError):
+            _Http(network_address, _lan_port(port)).call("GET", "/health")
+        status, body, _ = here.call("POST", "/auth/unlock", {"password": PASSWORD})
+        owner = {"X-Auth-Token": body["token"]}
+        status, state, _ = here.call("GET", "/auth/lan-access", headers=owner)
+        if state["held"] == "unknown_network":
+            pytest.skip("this machine's network cannot be told apart (no router hardware address)")
+        assert state["held"] == "new_network" and state["other_devices"] is False
+        assert here.call("POST", "/auth/lan-networks/allow", {"current_password": "a guess"}, owner)[0] == 401
+        status, state, _ = here.call("POST", "/auth/lan-networks/allow", {"current_password": PASSWORD}, owner)
+        assert status == 200 and state["held"] is None and len(state["networks"]) == 1
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            try:
+                _Http(network_address, _lan_port(port)).call("GET", "/health")
+                break
+            except OSError:
+                time.sleep(0.2)
+
         # The network gets HTTPS only (the owner, 2026-10-05; SEC-08): the
         # plain http port answers on this computer alone, and the HTTPS one
         # answers a plain request only with a redirect to itself over https
@@ -431,9 +453,6 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         # It listens on the network address, and says so on the receipt.
         status, body, _ = lan.call("GET", "/auth/status")
         assert status == 200 and body["setup_required"] is False
-        status, body, _ = here.call("POST", "/auth/unlock", {"password": PASSWORD})
-        assert status == 200
-        owner = {"X-Auth-Token": body["token"]}
         status, receipt, _ = here.call("GET", "/privacy/receipt", headers=owner)
         assert receipt["listening"]["other_devices"] is True
         assert f"https://{network_address}:{_lan_port(port)}" in receipt["listening"]["addresses"]
@@ -452,9 +471,28 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         assert here.call("POST", "/auth/auto-session")[0] == 200
         assert lan.call("GET", "/entries")[0] == 401
 
+        # INBOX 867: a new device waits until this computer allows it. The
+        # phone's sign-in is held open; the computer's window hears of it at
+        # once (/auth/lan-watch) and Allow lets the same sign-in through.
+        import threading
+
+        result = {}
+        asking = threading.Thread(
+            target=lambda: result.update(r=lan.call("POST", "/auth/unlock", {"password": PASSWORD}))
+        )
+        asking.start()
+        status, watch, _ = here.call("GET", "/auth/lan-watch?since=-1", headers=owner)
+        deadline = time.time() + 10
+        while not watch["pending"] and time.time() < deadline:
+            status, watch, _ = here.call("GET", f"/auth/lan-watch?since={watch['version']}", headers=owner)
+        assert watch["pending"] and watch["pending"][0]["address"] == network_address
+        assert lan.call("GET", "/auth/lan-watch", headers={"X-Auth-Token": owner["X-Auth-Token"]})[0] == 403
+        assert here.call("POST", f"/auth/lan-devices/{watch['pending'][0]['id']}/allow", {}, owner)[0] == 200
+        asking.join(30)
+
         # The media cookie, not the session token, opens pictures; over
         # HTTPS it is Secure, as well as HttpOnly and SameSite=Strict.
-        status, body, headers = lan.call("POST", "/auth/unlock", {"password": PASSWORD})
+        status, body, headers = result["r"]
         assert status == 200
         phone = body["token"]
         cookies = [value for name, value in headers if name.lower() == "set-cookie"]
@@ -464,21 +502,31 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         assert lan.call("GET", f"/media/nothing.png?token={phone}")[0] == 401
         assert lan.call("GET", "/media/nothing.png", headers={"Cookie": ticket})[0] == 404
 
-        # The import is confined to home and the data folder from anywhere.
+        # Importing a folder of this computer's files is this computer's own
+        # act (this_computer_only): a phone is refused outright, and from here
+        # the import is still confined to home and the data folder.
         status, _, _ = lan.call(
             "POST", "/import/directory", {"path": "/etc"}, {"X-Auth-Token": phone}
         )
-        assert status == 400
+        assert status == 403
+        assert here.call("POST", "/import/directory", {"path": "/etc"}, owner)[0] == 400
+        # The phone is not the desktop app, whatever this computer is.
+        assert lan.call("GET", "/health")[1]["this_computer"] is False
+        assert "max-age" in dict(lan.call("GET", "/health")[2]).get("strict-transport-security", "")
 
         # The web reader refuses this machine and the local network, and the
-        # receipt shows nothing was connected to.
+        # receipt shows nothing was connected to: what it counts on the local
+        # network is the phone coming in (INBOX 894), never a reach out.
         for url in (f"http://127.0.0.1:{port}/", "http://10.0.0.1/"):
             status, body, _ = lan.call(
                 "GET", f"/websearch/read?url={url}", headers={"X-Auth-Token": phone}
             )
             assert status == 502, (url, status, body)
         status, receipt, _ = lan.call("GET", "/privacy/receipt", headers={"X-Auth-Token": phone})
-        assert receipt["totals"]["local_network"] == 0
+        outgoing = [d for d in receipt["destinations"] if d["scope"] == "local_network" and d["kind"] != "incoming"]
+        assert outgoing == []
+        incoming = sum(d["count"] for d in receipt["destinations"] if d["kind"] == "incoming")
+        assert receipt["totals"]["local_network"] == incoming > 0
         assert not [d for d in receipt["destinations"] if d["host"] == "10.0.0.1"]
 
         # DNS rebinding: a name that is not this computer is refused.
@@ -518,8 +566,18 @@ def test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server(tmp_path):
         assert _Http("127.0.0.1", port).call("POST", "/auth/setup", {"password": PASSWORD})[0] == 200
     finally:
         _stop(proc)
+    #: The port opens only on a network the person allowed (core/lantrust.py):
+    #: this test is about the sockets, so every network is allowed here.
+    (tmp_path / "data" / lantrust.FILE_NAME).write_text(json.dumps({"any_network": True, "ask_new_devices": False}))
     proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True})
     try:
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            try:
+                socket.create_connection(("::1", _lan_port(port)), timeout=0.5).close()
+                break
+            except OSError:
+                time.sleep(0.3)
         # The dual-stack socket is the HTTPS one (loopback http is 127.0.0.1).
         cert = tmp_path / "data" / "lan-tls" / "cert.pem"
         here_v6 = _Http("::1", _lan_port(port), cafile=cert)

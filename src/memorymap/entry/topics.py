@@ -18,8 +18,12 @@ Cost is the edges times the rounds plus one set intersection per edge.
 tag, an entity, a title word) scores its share of the topic's notes times its
 inverse document frequency over the notebook; a term every note has scores
 nothing. Tags win ties over entities and entities over words, because a tag
-is a name somebody chose. A topic nothing distinguishes is "Topic 3", never
-an invented word, and a local model's summary is a separate, on-demand step.
+is a name somebody chose. A topic nothing names that way is named, in turn,
+by the best term two of its notes share at any share, then by its most
+linked note's title ("Around Kiln notes"); only a topic of private or
+untitled notes is "Topic 3" (the owner, 2026-10-11: a chip reading "Topic 2"
+says nothing). Never an invented word; a local model's summary is a
+separate, on-demand step.
 """
 
 from __future__ import annotations
@@ -75,11 +79,16 @@ def _display(kind: str, term: str) -> str:
     return f"#{term}" if kind == "tag" else term
 
 
-def build(index: Connections, terms_of: dict[int, set[tuple[str, str]]]) -> list[dict]:
+def build(
+    index: Connections,
+    terms_of: dict[int, set[tuple[str, str]]],
+    titles: dict[int, str] | None = None,
+) -> list[dict]:
     """The topics of `MIN_TOPIC_NOTES` or more, largest first, each named.
 
     `terms_of` is note id -> `{(kind, term)}`, kind one of tag, entity, word;
-    a note missing from it (a private one) lends nothing to a name.
+    a note missing from it (a private one) lends nothing to a name. `titles`
+    is note id -> the title a person reads, for a topic no term names.
     """
     labels = detect(index)
     groups: dict[int, list[int]] = defaultdict(list)
@@ -102,12 +111,15 @@ def build(index: Connections, terms_of: dict[int, set[tuple[str, str]]]) -> list
             for term in terms_of.get(node, ()):
                 counts[term] += 1
         scored = []
+        weak = []
         for (kind, term), notes in counts.items():
-            if notes < 2 or notes / len(members) < MIN_TERM_SHARE:
+            if notes < 2:
                 continue
             score = (notes / len(members)) * math.log(total / document_frequency[(kind, term)])
-            if score > 0:
-                scored.append((-score, _KIND_ORDER.get(kind, 3), term, kind, notes))
+            if score <= 0:
+                continue
+            row = (-score, _KIND_ORDER.get(kind, 3), term, kind, notes)
+            (weak if notes / len(members) < MIN_TERM_SHARE else scored).append(row)
         scored.sort()
         terms = [
             {"term": _display(kind, term), "kind": kind, "notes": notes}
@@ -116,12 +128,32 @@ def build(index: Connections, terms_of: dict[int, set[tuple[str, str]]]) -> list
         out.append({
             "id": position,
             "size": len(members),
-            "name": terms[0]["term"] if terms else f"Topic {position + 1}",
+            "name": terms[0]["term"] if terms else _fallback_name(index, members, weak, titles or {}, position),
             "terms": terms,
             "ids": members,
             "core_id": max(members, key=lambda node: (degree(index, node), -node)),
         })
     return out
+
+
+#: A title that names a topic is cut to this many characters.
+TITLE_NAME_CHARS = 40
+
+
+def _fallback_name(index: Connections, members: list[int], weak: list, titles: dict, position: int) -> str:
+    """A topic no term names at `MIN_TERM_SHARE`: the best term two of its
+    notes share, then its most linked note's title, then "Topic N". The
+    caller leaves a private note out of `titles`, so it never lends one."""
+    if weak:
+        _, _, term, kind, _ = min(weak)
+        return _display(kind, term)
+    for node in sorted(members, key=lambda n: (-degree(index, n), n)):
+        title = (titles.get(node) or "").strip()
+        if title:
+            if len(title) > TITLE_NAME_CHARS:
+                title = title[: TITLE_NAME_CHARS - 1].rstrip() + "\u2026"
+            return f"Around {title}"
+    return f"Topic {position + 1}"
 
 
 def terms_sentence(size: int, terms: list[str]) -> str:

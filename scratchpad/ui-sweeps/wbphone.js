@@ -26,7 +26,22 @@ async function touch(cdp, type, points) {
   });
 }
 
+// A fresh data dir shows two first-run prompts after unlock: the recovery-key
+// dialog, and the update-check confirm ("Don't check"). Both sit over the
+// tabs, so each is answered the way a person would before the sweep starts.
+async function dismissRecovery(page) {
+  await page.evaluate(() => {
+    const d = document.getElementById('recovery-key-dialog');
+    if (d && d.open) d.close();
+    for (const b of document.querySelectorAll('.confirm-overlay:not(.hidden) button')) {
+      if (b.textContent.trim() === "Don't check") { b.click(); break; }
+    }
+  });
+  await page.waitForTimeout(300);
+}
+
 async function newBoard(page, name, type) {
+  await dismissRecovery(page);
   await page.click('[data-tab="library"]');
   await page.waitForTimeout(600);
   // On a phone an open board hides the Library's sub-tabs (INBOX 392); its
@@ -37,8 +52,21 @@ async function newBoard(page, name, type) {
   }
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(800);
-  await page.evaluate(() => document.getElementById("wb-boards-new").click());
-  await page.waitForTimeout(800);
+  // `wb-boards-new` is now "Whiteboard", which makes an empty board at once
+  // with no dialog. The template dialog is the menu's "From a template" row.
+  // The library's scripts load lazily and bind this button when they arrive,
+  // so a click that lands before that does nothing (seen on 1 run in ~5).
+  // Click until the gallery opens, rather than sleep for a fixed time.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await page.evaluate(() => document.getElementById("wb-boards-new-template").click());
+    try {
+      await page.waitForSelector('#wb-template-dialog[open]', { timeout: 4000 });
+      break;
+    } catch (e) {
+      if (attempt === 4) throw e;
+    }
+  }
+  await dismissRecovery(page);
   await page.fill('#wb-template-name', name);
   if (type === 'map') await page.click('#wb-template-kind button[data-value="map"]');
   await page.click('#wb-template-create');
@@ -71,6 +99,7 @@ async function newBoard(page, name, type) {
   await page.click('#lock-submit');
   await page.waitForTimeout(3000);
   await page.evaluate(() => document.getElementById('onboarding-overlay')?.classList.add('hidden'));
+  await dismissRecovery(page);
   const cdp = await ctx.newCDPSession(page);
 
   await newBoard(page, 'Phone board ' + Date.now(), 'board');

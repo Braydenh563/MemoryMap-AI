@@ -231,6 +231,26 @@
 .doc-dock-menu-list .menu-item.has-submenu {
   justify-content: space-between;
 }
+/* **A row's words end inside its padding, in every font** (the owner
+   2026-10-11, of the mono face: "there's some overflowing text in some
+   places"). The menu is capped at 24rem and the row is `nowrap`, so a long
+   label ran past the row's right padding and the menu's. The row and its
+   words may shrink; the words end in an ellipsis and `menuRowFits`
+   (sheets-selects.js) puts them whole in the row's title. */
+.menu-item,
+.menu-item > .menu-item-words {
+  min-width: 0;
+}
+.menu-item > .menu-item-words {
+  display: flex;
+  align-items: center;
+}
+.menu-item .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* Danger and unavailable are colour changes on the one row, not other rows.
    Restated at 0,3,0 because the shared rule above sets `color` at 0,2,0 and
    would otherwise put the ink colour back on "Move to bin". */
@@ -1083,36 +1103,14 @@ summary > .ph-lead,
   white-space: nowrap;
   box-shadow: none;
 }
-.skill-card .skill-card-facts > :is(.chip, button).skill-fact > .ph-lead {
-  margin-inline-end: 0;
-}
-.skill-card .skill-card-facts > button.skill-fact-toggle {
-  cursor: pointer;
-}
 /* The caret says which way it will go, by turning, never by colour alone. */
 .skill-card .skill-fact-toggle > .ph-trail {
   margin-inline-start: 0;
   transition: rotate var(--ui-fast) var(--ease-out);
 }
-.skill-card .skill-fact-toggle[aria-expanded="true"] > .ph-trail {
-  rotate: 180deg;
-}
 .skill-card .skill-card-facts > button.skill-fact-toggle:is(:hover, :focus-visible, [aria-expanded="true"]) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
-}
-/* The facts row's hit target on a touch screen: the box keeps the row's
-   height and a transparent band above and below it takes the press, so the
-   row is not three 44px slabs beside two 24px chips. */
-@media (pointer: coarse) {
-  .skill-card .skill-card-facts > button.skill-fact-toggle {
-    position: relative;
-  }
-  .skill-card .skill-card-facts > button.skill-fact-toggle::after {
-    content: "";
-    position: absolute;
-    inset: calc((var(--skill-fact-h) - var(--target-min)) / 2) 0;
-  }
 }
 /* What a toggle opens: the card's full width, under the row. The panel adds
    no box of its own; the list inside is the steps' bordered panel or the
@@ -1125,9 +1123,6 @@ summary > .ph-lead,
 .skill-fact-list-tools {
   align-items: center;
   padding: 0;
-}
-.skill-fact-list-tools > li {
-  display: flex;
 }
 .skill-fact-list-tools .skill-tool-token {
   display: inline-flex;
@@ -1154,12 +1149,6 @@ summary > .ph-lead,
 .skill-card > .skill-card-desc,
 .skill-card > .skill-card-when {
   margin: 0;
-}
-/* Its menu beside Run is Run's height, not the 28px of a lone icon; never
-   under the touch floor, which is the larger of the two on a phone. */
-.skill-card-footer .skill-card-more > button {
-  min-width: max(var(--control-h-lg), var(--target-min));
-  min-height: max(var(--control-h-lg), var(--target-min));
 }
 /* The card's own "Built-in" marker is the same fact the persona list states,
    so it says it the same way. `--accent-soft` is this app's *selected* tone
@@ -1831,6 +1820,17 @@ summary > .ph-lead,
   justify-content: flex-end;
   padding: 0;
 }
+/* A modeless sheet (`openSheet({modal: false})`, the Guide above 600) has no
+   scrim and lets presses through to the app around its card. */
+.sheet-overlay.sheet-modeless {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+}
+.sheet-modeless > .sheet-card {
+  pointer-events: auto;
+}
 .sheet-card.sheet-card-corner {
   width: min(28rem, 100%);
   max-width: min(28rem, 100%);
@@ -2108,12 +2108,13 @@ summary > .ph-lead,
    one instrument rather than a box next to a badge. */
 .atlas-composer > #help-chat-input,
 .atlas-composer > button {
-  height: 2.5rem;
-  min-height: 2.5rem;
+  /* The touch floor under a finger (phone-1011: 40px at 390). */
+  height: max(2.5rem, var(--target-min));
+  min-height: max(2.5rem, var(--target-min));
   border-radius: var(--radius-md);
 }
 .atlas-composer > button.icon-only {
-  width: 2.5rem;
+  width: max(2.5rem, var(--target-min));
 }
 /* In the sheet the head carries the mark, the name and the line, so the intro
    block that repeated all three is not shown there. It is not shown anywhere
@@ -2391,50 +2392,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     display: none;
   }
 }
-/* **The fold on a picture card is a chip, not a bar** (INBOX 118: the
-   full-width tinted disclosure "is the heaviest element on the card").
-   The decision it is bent around is not being remade: a `<summary>` rests
-   with a ground and a hairline (`summary:not(.icon-only):not(.icon-button)`,
-   07-whiteboard-misc.css) because "a disclosure that looks like a line of
-   text is a control nobody finds", and that holds here too. What the owner
-   is looking at is not the ground, it is the *span* of it. Measured at 1440
-   dark on a 180.3px tile: the bar ran 159.1px by 32.8px, so a control
-   holding one folded-away reading covered the full width of the card at the
-   weight of a filled button, directly under a 12px description, and it was
-   the first thing the eye landed on in a gallery of twenty.
-   Sized to its words instead, and one step down the type scale so it sits
-   below the prose it belongs to rather than over it. `max-width: 100%` and
-   no `nowrap`: past the card's width the label wraps rather than clipping,
-   which is what a 390px card does not need and a narrow tile might.
-   (0,3,1) against that rule's (0,2,1), and later in the cascade, so it wins
-   on specificity rather than on file order alone. Images only: the fold on a
-   Files row heads a full-width row and stays a full-width bar. */
-.library-image-card-fold > summary:not(.icon-only):not(.icon-button) {
-  width: fit-content;
-  max-width: 100%;
-  font-size: var(--text-xs);
-  /* The chip tier of ground rather than the button tier, which is both half
-     of what made it read as heavy and the only way the label passes AA here.
-     Sampled from the rendered pixels (`scratchpad/pngpixel.py`, not a
-     composite guess, since every surface under this one is translucent over
-     the page's art): on dark the label painted rgb(168,176,189) on a
-     rgb(74,80,93) ground, 3.70:1 at 11.2px against the 4.5 it owes. The same
-     text on `--chip-bg` measures 5.10:1, and light was already 5.71:1 and
-     goes up. The hover fill is untouched, so the control still answers the
-     pointer with the app's own ghost tone.
-     The *edge* carries what the fill gives up. With the ground this quiet the
-     hairline is most of what says "control", and a quieter ground is also a
-     quieter border, since a border paints over its own element's fill:
-     measured off the pixels, the chip's edge against the card fell to 2.48:1
-     in dark on the way down to `--chip-bg`, under the 3:1 a control's
-     boundary owes. One step up the same ladder of tokens puts it at 3.30:1
-     dark and 2.19:1 light, against 3.2 and 1.97 before any of this: better in
-     both themes without putting the slab back. Light stays under 3:1 because
-     every tonal control in this app does there; that is the button ramp's
-     business, not this card's. */
-  background: var(--chip-bg);
-  border-color: var(--ghost-btn-border-hover);
-}
 /* ---------------------------------------------------------------------------
    8. A panel head is identity, one fact, then the actions, and it does not
       wrap
@@ -2641,21 +2598,10 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
      44px and its words ran out of its box (the owner, with a screenshot). */
   flex: 0 0 auto;
 }
-/* On a narrow window the message takes a line of its own and the actions sit
-   under it at the right, so the words get the width and the button its own. */
-@media (max-width: 819.98px) {
-  .toast.error {
-    flex-wrap: wrap;
-    row-gap: var(--space-2);
-  }
-  .toast.error > span:first-child {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-  .toast.error > .toast-help {
-    margin-left: auto;
-  }
-}
+/* The message and the close button are one row and the actions another at
+   every width (INBOX 847, `.toast-actions`, 02-chat-graph.css), so the old
+   narrow-window rule that gave an error toast's message a line of its own is
+   gone. */
 /* A file chip rendered inline in a note's body (the Ask sub-tab's source
    cards, `fileChip` in compact mode) sat flush against the badges row under
    it: the chip is the body's last child and the meta row carries no top
@@ -3489,9 +3435,10 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   visibility: hidden;
 }
 /* The head's hover fill stays under the '?' while the pointer is on it, as
-   it did when the '?' was inside the head. */
-.fold-help-wrap:has(> .fold-help:hover) > details > summary:not(.icon-only):not(.icon-button),
-.fold-help-wrap:has(> .fold-help:focus-visible) > details > summary:not(.icon-only):not(.icon-button) {
+   it did when the '?' was inside the head. No keyboard twin: the '?' shows its
+   own focus ring, and a `:has(> .fold-help:focus-visible)` before a bare
+   `summary` is an unkeyed rule (tests/test_has_invalidation.py). */
+.fold-help-wrap:has(> .fold-help:hover) > details > summary:not(.icon-only):not(.icon-button) {
   background: var(--ghost-btn-bg);
 }
 /* The shortcut rows are ruled rows, so the divider is their separation: the
@@ -3507,7 +3454,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #settings-modal .setting-check .setting-hint-toggle {
   margin-inline-end: calc(-1 * var(--space-3));
 }
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .setting-hint-toggle:not(:hover):not([aria-expanded="true"]) {
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .setting-hint-toggle:not(:hover):not(:focus-visible):not([aria-expanded="true"]) {
   background: transparent;
   box-shadow: none;
   color: var(--muted);
@@ -3805,40 +3752,8 @@ body .chip.item-label,
      the lock screen's one action gets a finger's floor like every other. */
   min-height: var(--target-min);
 }
-/* --- the Library, second pass: cards in reading order, one anatomy ----------
-   docs/roadmap/agent-remaining/pass2.md, findings 1 to 4, measured at 1440 in
-   Quiet on a seeded notebook.
-   1. The cards are dealt into columns in order (library.js
-      `libraryColumnCount`): the grid is a row of `.library-col`s, each a
-      column of cards with the grid's own gap, and the incremental
-      renderer's sentinel takes a line of its own under them, or it would
-      sit at the top of the row and ask for the next chunk forever.
-   2. The picture on a card bleeds to the card's three top edges. Two rules
-      had disagreed: one bled it with a negative margin, a later one set its
-      width to 100%, and together they drew it 48px narrower than the card,
-      flush left, with a hole on the right.
-   3. A category is the note meta row's: a dot in the category's colour and
-      the name in ink. An unset one is left out (library.js). */
-#library-grid.library-columns {
-  columns: unset;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  row-gap: 0;
-}
-#library-grid.library-columns > .library-col {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
 #library-grid.library-columns > .library-col > .library-card {
   margin-bottom: 0;
-}
-#library-grid.library-columns > .list-window-sentinel {
-  flex: 0 0 100%;
-  list-style: none;
 }
 .library-grid:not(.library-list) .library-card > .library-card-thumb {
   width: calc(100% + var(--space-6) * 2);
@@ -3863,15 +3778,6 @@ body .chip.item-label,
   height: 0.5em;
   border-radius: var(--radius-pill);
   background: var(--category-dot);
-}
-/* 4. A board or map card put its kind icon on a row of its own above the
-      title, a 20px line that said nothing the picture under it does not.
-      The icon leads the title, as it does on every other card. */
-.library-grid:not(.library-list) .library-board-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: baseline;
-  column-gap: var(--space-3);
 }
 .library-grid:not(.library-list) .library-board-card > .library-card-top {
   padding-right: 0;
@@ -3935,12 +3841,6 @@ body .chip.item-label,
     grid-row: 1;
     justify-self: center;
   }
-  .bookmark-row > .bookmark-main {
-    grid-column: 2;
-  }
-  .bookmark-row > .bookmark-actions {
-    grid-column: 3;
-  }
   :is(.doc-list-top, .bookmark-row) > .doc-list-tick,
   .library-image-tile > .library-tile-tick {
     opacity: 0;
@@ -3970,15 +3870,6 @@ body .chip.item-label,
   margin: 0 0 var(--space-4);
   font-size: var(--text-sm);
 }
-/* 9. A link's mark was the tinted accent square, the metric-card tell the
-      first pass took off the chat list and the dashboard. In the flat looks
-      it is the glyph in muted ink, and a row's pin and menu arrive with the
-      pointer as every other Library row's menu does (the mark already says
-      which links are pinned). */
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .bookmark-mark {
-  background: transparent;
-  color: var(--muted);
-}
 @media (hover: hover) {
   .bookmark-row > .bookmark-actions {
     opacity: 0;
@@ -4007,16 +3898,6 @@ body .chip.item-label,
   font-size: var(--text-lg);
   font-weight: 600;
 }
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-image-tile .chip.library-read-badge {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  font-size: var(--text-sm);
-  font-weight: 400;
-}
-.library-file-rows .library-image-reading > summary {
-  width: fit-content;
-}
 /* --- a Files row's facts line, one register (INBOX 421 f) -------------------
    The owner: "this ui needs a bit more modern and ui refinement and the
    second row elements arent aligned and dont really match". Measured at 1440
@@ -4030,17 +3911,6 @@ body .chip.item-label,
   column-gap: 0;
   font-size: var(--text-sm);
   line-height: 1.5;
-}
-.library-file-rows .library-image-tile > .library-file-facts :is(.library-file-meta, .library-read-strip, .library-read-badge, .library-image-usage, .library-image-usage > .muted) {
-  font-size: inherit;
-  line-height: inherit;
-}
-/* Each group's own gap is the space after its dot: the dot is a flex item
-   of the group it opens, so the group's gap already stands between the two,
-   and a symmetric margin put 15px after the dot against 8px before it. */
-.library-file-rows .library-image-tile > .library-file-facts > :is(.library-read-strip, .library-image-usage) {
-  padding-top: 0;
-  column-gap: var(--space-2);
 }
 .library-file-rows .library-image-tile > .library-file-facts > * + *::before {
   content: "\00b7";
@@ -4274,6 +4144,47 @@ body .chip.item-label,
 #entry-list > li.selectable {
   user-select: none;
 }
+/* 19. In card view the Select tick sits in the card's left gutter, on the
+       first line of the text, instead of being a flow child that stacked a
+       28px row above the title (INBOX 851: "the selection boxes on notes are
+       weirdly positioned above the note content"; measured, every card grew
+       28px in Select mode). A `--space-7` box (20px at the default density), the radius token; the whole card is
+       still the hit target (note-cards.js). Rows view (the default) had the
+       same fault in a worse form: the tick took a grid row of its own under
+       the title, 45px rows became 73px. There the tick sits between the
+       chevron and the title, on the chevron's own centre line, and
+       `grid-column: auto` takes it out of the full-width placement the rule
+       for "anything else a row grows" would give it. */
+/* `input[type="checkbox"]` in the selector: the list-wide checkbox recipe
+   (07-whiteboard-misc.css) is (1,3,1) and would win on size otherwise. */
+#entry-list > li.selectable > input[type="checkbox"].select-check {
+  position: absolute;
+  width: var(--space-7);
+  height: var(--space-7);
+  min-width: var(--space-7);
+  min-height: var(--space-7);
+  border-radius: var(--radius-sm);
+}
+#entry-list:not(.is-rows) > li.selectable {
+  position: relative;
+  padding-left: calc(var(--space-3) + var(--space-7) + var(--space-3));
+}
+#entry-list:not(.is-rows) > li.selectable > .select-check {
+  left: var(--space-3);
+  /* The card's top padding plus half the gap between the box and a 1.3 title
+     line, so the box and the first line share a centre. */
+  top: calc(var(--space-2) - 0.5px);
+}
+#entry-list.is-rows > li.selectable:not(:has(textarea)) {
+  padding-left: calc(var(--target-min) + var(--space-2) + 0.8rem + var(--space-7) + var(--space-3));
+}
+#entry-list.is-rows > li.selectable > .select-check {
+  grid-column: auto;
+  grid-row: auto;
+  left: calc(0.4rem + var(--target-min) + var(--space-1));
+  top: var(--row-anchor);
+  transform: translateY(-50%);
+}
 /* --- dashboard widgets, de-vibecoded -------------------------------------------
    1. In the Boards & maps widget a map's name was a bold accent pill (the
       shared `mapChip`) while a plain board's name was plain text, one list
@@ -4431,14 +4342,6 @@ body .chip.item-label,
   .skill-card
 ) {
   transition: none;
-}
-/* 19. A Files row's name was muted ink (rgb 102, 100, 95 measured), the
-       colour of the facts under it, so the row had no title; and the name
-       started at x 178 while its facts and its fold started at 191, three
-       left edges in one column. The name is ink, and the column's three
-       blocks share one inset. */
-.library-file-rows .library-image-tile > figcaption {
-  color: var(--ink);
 }
 .library-file-rows .library-image-tile > :is(figcaption, .library-file-facts, .library-image-fields) {
   padding-inline-start: var(--space-2);
@@ -5252,6 +5155,7 @@ body .chip.item-label,
    (avatars.js, `nameMarkViewerFit`) reach to the drawing's lowest point at
    rest, and a mood's loop dips a few px below that. */
 .nm-viewer-reading { margin: var(--space-2) 0 0; }
+.nm-viewer-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin: var(--space-3) 0 0; }
 /* The speech bubble a poked face says its line in. */
 .nm-say {
   position: absolute;
@@ -5514,6 +5418,25 @@ body .chip.item-label,
 }
 #nm-buddy:is([data-pose="stand"], [data-pose="sit"]) .nmb-size-grip { pointer-events: auto; }
 #nm-buddy .nm-buddy-face:active { cursor: grabbing; }
+/* **Its focus is a glow round the figure, not a box** (the owner,
+   2026-10-11: a blue rounded rectangle round the sleeping companion in its
+   large view). No ring from a click, and none of the base `:focus-visible`
+   outline (the button's 64 by 92 box, not the figure); from the keyboard a
+   soft accent glow behind the figure, an ellipse its own size. A gradient
+   on a still pseudo-element, not a `drop-shadow` on the moving drawing
+   (the "no filter on the figure" rule below). */
+#nm-buddy .nm-buddy-face:is(:focus, :focus-visible) { outline: none; }
+#nm-buddy .nm-buddy-face::before {
+  content: "";
+  position: absolute;
+  inset: -10px -14px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 42%, transparent), color-mix(in srgb, var(--accent) 16%, transparent) 70%, transparent);
+  opacity: 0;
+  transition: opacity var(--ui-fast) var(--ease-out);
+  pointer-events: none;
+}
+#nm-buddy .nm-buddy-face:focus-visible::before { opacity: 1; }
 /* **Its size** (avatars.js, `nameMarkBuddySetSize`): the figure scaled
    about the point it touches its perch, so it keeps its place on it: its
    soles standing, its seat sitting (`--nmb-edge`), its hands hanging, its
@@ -7736,15 +7659,16 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   from { rotate: -0.6deg; }
   to { rotate: 0.7deg; }
 }
-/* The system's reduced motion: slowed right down, as the legs are (the
-   companion's own reduced-motion block above; `!important` for the same
-   reason, the rules above out-rank this one). */
+/* The system's reduced motion keeps the pose and stops the loop (INBOX 772,
+   ledger 669: the figure's float, bob and glide were slowed to 6s, not
+   stopped). An act (`nmb-act-*`) still plays: it is one gesture that ends,
+   and it is what says the companion answered: so the loops are named (a
+   walk, a carry, the float), not "anything but an act". `!important`
+   because the loops' motion gates out-rank this selector. */
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy .atl-layer-lower,
-  #nm-buddy .nm-live .nm-atlas.atl-layer-lower,
-  #nm-buddy .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"] { animation-duration: 6s !important; }
-  #nm-buddy:has(.atl-figure) .nm-buddy-char,
-  #nm-buddy:has(.atl-figure[data-atlas-look="masculine"]) .nm-buddy-char { animation-duration: 6s !important; }
+  #nm-buddy:is(.nmb-walking, .nm-buddy-dragging) .nm-live .nm-atlas.atl-layer-lower,
+  #nm-buddy.nmb-walking .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"],
+  #nm-buddy:has(.atl-figure):is(.nmb-walking, [data-pose="float"]) .nm-buddy-char { animation: none !important; }
 }
 /* A slow turn and lift about her middle, the compositor's (a box). */
 @keyframes atl-float {
@@ -8022,6 +7946,16 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-prop-string { fill: none; stroke: var(--atl-line); stroke-width: 0.8; }
 .nm-atlas .atl-prop-link { fill: none; stroke: var(--atl-md); stroke-width: 1.6; stroke-linecap: round; }
 .nm-atlas .atl-prop-zap { fill: none; stroke: var(--atl-gold-line); stroke-width: 0.9; stroke-linecap: round; }
+/* **A prop reads against the body** (Brief 88 a, the owner: "sometimes
+   when icons appear on atlas it is hard to see them or make them out").
+   Gold and pale light on a pale blue body measured 1.8 to 2.3 to 1
+   (atlasprops.js): a bell, a moon, lenses, pages and stars that were
+   there and could not be made out. Each prop now has a dark keyline under
+   its own colour, 3 to 1 or more against the body in both looks, and the
+   moon on its ear, 9px, is drawn at 14px. */
+.nm-atlas :is(.atl-prop-bell, .atl-prop-moon, .atl-prop-page, .atl-juggle-star) { stroke: var(--atl-navy); stroke-width: 1.1; stroke-linejoin: round; paint-order: stroke fill; }
+.nm-atlas :is(.atl-prop-zap, .atl-prop-link, .atl-prop-rim, .atl-prop-lens) { stroke: var(--atl-line); }
+.nm-atlas .nmp-nightcap:has(> .atl-prop-moon) { transform-box: fill-box; transform-origin: 50% 50%; scale: 1.6; }
 /* Atlas's side of the companion's states. Drowsy and asleep: the orbit
    dims and slows and the crest droops. Night: heavier lids, the crest
    hung with its moon. Reading a long answer: eyes down the page. Offline:
@@ -8592,10 +8526,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    **Smaller, never gone** (INBOX 426 h: "the one from the new chat interface
    is missing"). This used to hide the emblem, and a 1280x720 window is short
    (pane 304px, welcome 326px), so the laptop most people have never saw it.
-   The box is 2rem tall and the 52px canvas is centred in it and drawn at
-   32/52 with the `scale` property rather than `transform`, because
-   `transform` is what the turn animates (`canvas.emblem-spin`) and the two
-   would overwrite each other. Measured at 1280x720: welcome 210px to 250px,
+   The box is 2rem tall and the 52px mark is centred in it and drawn at
+   32/52 with the `scale` property rather than `transform`, so no animation
+   of the mark's own layers (`.emblem-art`) can overwrite it. Measured at 1280x720: welcome 210px to 250px,
    still inside the 304px pane. */
 .chat-empty.is-short {
   gap: var(--space-2);
@@ -8606,7 +8539,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   height: 2rem;
   margin-bottom: 0;
 }
-.chat-empty.is-short #chat-empty-emblem canvas {
+.chat-empty.is-short #chat-empty-emblem .emblem-art {
   scale: calc(32 / 52);
 }
 .chat-empty.is-short #chat-suggest {
@@ -8695,12 +8628,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .wb-export-overlay .seg.wb-export-seg > button:not(.active):not(:disabled):hover,
 .wb-export-overlay .seg.wb-export-seg > button:not(.active):not(:disabled):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
-}
-.wb-export-overlay .seg.wb-export-seg > button.active {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-  color: var(--ink);
 }
 /* The same fault in every icon-only button, smaller. Measured by
    scratchpad/ui-sweeps/inkcentre.js (each button photographed at 4x with its
@@ -9073,28 +9000,6 @@ input[type="file"]:active::file-selector-button {
 #settings-modal .settings-section .prefs-save-row:not(:has(> :not(.hidden):not(:empty))) {
   margin-top: 0;
 }
-/* --- Library Activity, one line per record (INBOX 426 z, images 89, 90) -----
-   when, what, the detail, on three tracks that are the same on every row.
-   In Rows the generic list tracks applied as well: the meta's
-   `margin-left: auto` (there to push a row's date to its right edge) sat
-   on the time, which is drawn first here, so on every row without a detail
-   the time and the title slid across to the right, x 1227 against 173 on
-   the row above. The time keeps its 7rem at the start in both views, the
-   title a fixed track, and the detail takes the rest. */
-@media (min-width: 600px) {
-  .library-grid .library-card.library-activity > .library-card-meta {
-    order: -1;
-    flex: 0 0 7rem;
-    margin-left: 0;
-    justify-content: flex-start;
-  }
-  /* No room kept for a tick: a record of the past has none to offer. */
-  .library-grid .library-card.library-activity > .library-card-top {
-    flex: 0 0 16rem;
-    min-width: 0;
-    padding-right: 0;
-  }
-}
 /* --- the selection tick in Rows (INBOX 426 z, image 91) ---------------------
    The tick's corner (top right, one ⋯ in from the edge) is the grid card's
    corner. In Rows the ⋯ sits in the flow at the row's end and the date
@@ -9231,6 +9136,25 @@ input[type="file"]:active::file-selector-button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* **A panel's head is a title; a group's label is the eyebrow** (row 1586).
+   `h3.panel-head` names the whole card or column it heads (Local map, the
+   Ask answer, Matching records, the notes rail's Connections, Activity), as
+   do the board sidebar's and Format panel's heads: measured at 12px (the
+   `.card h3` eyebrow) beside the Web panel's and every dialog's 16px. They
+   take the dialog title's voice. A label over one group inside a panel (the
+   document sidebar's Linked from, Notes it draws on, References) stays the
+   eyebrow, as Settings' group labels are. Two classes and a type, so the
+   eyebrow (0,1,1) loses in every look. */
+.card h3.panel-head,
+h3.panel-head,
+.card h3.wb-sidebar-title,
+h3.wb-sidebar-title {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: -0.005em;
 }
 .dialog-head-actions {
   display: inline-flex;
@@ -10289,7 +10213,8 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    the ring lost 4px of its underside to the clip (focus-ring sweep,
    2026-10-11: 3.8 to 4.1px on the last rows of the page and of a widget). */
 .tab-page,
-.dash-body {
+.dash-body,
+.library-view-section {
   scroll-padding-block: var(--ring-room);
 }
 /* The Settings nav scrolls on its own and its last section button stood on
@@ -10369,6 +10294,15 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   min-height: var(--target-min);
   padding-inline-end: calc(var(--target-min) * 5);
 }
+/* An opened row with no title starts with its text, and that first line is
+   shorter than the chevron's (14.7px text, 22.8px line against the 28px
+   chevron: centres 19.4 and 22, 2.6px apart, ledger 1548). Give the text's
+   first line the same height a title line has, `--target-min`, so both
+   centres are the anchor. `::first-line` takes `line-height` and follows the
+   user's text size; no number per font size. */
+#entry-list.is-rows > li.row-expanded:not(:has(> .entry-title)) > .entry-content::first-line {
+  line-height: var(--target-min);
+}
 /* A collapsed row's preview is one line in its own grid column, nowhere near
    the strip, so the float that keeps an opened card's first line out from
    under it (`.entry-content::before`, above) would only cut 104px off the
@@ -10419,6 +10353,18 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 :is(.launch-row, .library-filters, #chat-suggest) {
   padding-block: var(--ring-room);
   margin-block: calc(-1 * var(--ring-room));
+}
+/* The quick-access tiles wrap from 600px up and nothing there clips a ring, so
+   the room above is only for the strip that scrolls under it. Kept at 600 and
+   over it made the group's scroll box 4px wider and taller than its content
+   (measured at 1440: scrollWidth 1412 for 1408, scrollHeight 101 for 97). The
+   id and two classes tie the first `:is()` above (it takes the specificity of
+   `#tab-notes .layout > .tab-main`) and come after it. */
+@media (min-width: 600px) {
+  #dash-quicklinks .launch-group > .launch-row {
+    padding: 0;
+    margin: 0;
+  }
 }
 /* **The chips' gap to what is below them** (INBOX 726, the owner: "no
    vertical gap", of the Library's Boards / Maps filter row; "reported
@@ -10615,4 +10561,51 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
     -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
     mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
   }
+}
+/* DESIGN.md, "A control that acts on the computer Tessellate runs on": on
+   another device (skills.js `markOtherDevice`), dimmed like `button:disabled`
+   beside its one note line, or gone where it is `="hide"`. Help toggles stay. */
+html[data-other-device] [data-this-computer] :is(button, input, select, textarea):not([data-help-for]),
+html[data-other-device] button[data-this-computer] {
+  opacity: 0.5;
+  cursor: default;
+}
+html[data-other-device] [data-this-computer="hide"] {
+  display: none;
+}
+
+/* --- type to filter a long list (row 1643, `listFilter` in sheets-selects.js)
+   The field is the search field's well; a row it hides takes the `hidden`
+   attribute (a list's own `display: flex` row rule outranks a class), and
+   the one muted row says when nothing is left. */
+.list-filter {
+  margin-bottom: var(--space-2);
+}
+.list-filter-empty {
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+}
+#space-menu > .list-filter {
+  margin: var(--space-1) var(--space-1) var(--space-2);
+}
+
+
+/* **Counts and totals hold still** (WORLD_CLASS_PLAN 7, "Numbers: tabular
+   figures"). A number that changes while you watch (a count beside a title, a
+   find tally, a total) must not shift its neighbours as digits change width.
+   One rule for the whole naming family instead of one declaration in each of
+   forty classes; `:where` keeps its specificity at zero so a rule that sets
+   its own figures still wins. */
+:where([class$="-count"], [class*="-count "], [class$="-total"], [class*="-total "]) {
+  font-variant-numeric: tabular-nums;
+}
+
+/* **A note that arrives after the list is drawn fades in** (ledger 1538).
+   `row-enter` is set by `entryItem` on a card whose id was not on screen at the
+   previous render; the duration is `--ui-slow`, which is 0s under reduced motion. */
+@keyframes row-enter {
+  from { opacity: 0; }
+}
+#entry-list li.row-enter {
+  animation: row-enter var(--ui-slow) ease-out;
 }

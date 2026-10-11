@@ -3,6 +3,8 @@
 // the panel or a category's menu is used, so they stay off the boot
 // scripts' gzip budget (tests/test_static_compression.py).
 
+let manageCategoriesRedraw = null;
+
 //: **The panel, redesigned** (the owner, of the first draft: "needs some ui
 //: redesign and modernisation/professionalisation refinement ... can you
 //: also do those button redesigns like the ai assistant panel in the
@@ -307,8 +309,15 @@ function drawCategoryTidy(box, state) {
     merge.setAttribute("aria-label", `Merge ${text}`);
     const no = smallButton("Not these", "Never suggest this pair again", async () => {
       //: The person's own choice: a refusal says so and keeps the row.
-      const ok = await apiJson("/tidy-proposals/dismiss", { method: "POST", body: JSON.stringify({ a: m.keep.name, b: m.merge.name }) }).then(
-        () => true,
+      const pair = { a: m.keep.name, b: m.merge.name };
+      const ok = await apiJson("/tidy-proposals/dismiss", { method: "POST", body: JSON.stringify(pair) }).then(
+        () => {
+          pushRoutePairUndo("Dismissed a merge suggestion", ["/tidy-proposals/undismiss", "POST", pair], ["/tidy-proposals/dismiss", "POST", pair], async () => {
+            state.tidy = (await apiJson("/tidy-proposals", { silent: true }).catch(() => null)) || state.tidy;
+            drawCategoryTidy(box, state);
+          });
+          return true;
+        },
         (error) => {
           toast(error.message, true);
           return false;
@@ -544,6 +553,19 @@ async function createCategoryFromPanel() {
   if (!name || !name.trim()) return;
   try {
     const made = await apiJson("/categories", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
+    if (made.created) {
+      pushUndo(
+        `Made the category “${made.name}”`,
+        async () => {
+          await dropEmptyCategory(made.name);
+          await refreshAfterCategoryChange();
+        },
+        async () => {
+          await apiJson("/categories", { method: "POST", body: JSON.stringify({ name: made.name }) });
+          await refreshAfterCategoryChange();
+        }
+      );
+    }
     toast(made.created ? `Made "${made.name}".` : `"${made.name}" already exists.`);
     await refreshAfterCategoryChange();
   } catch (error) {
@@ -948,7 +970,9 @@ function swatchPicker({ label, value, onChange, onChoose, palette = CATEGORY_PAL
   group.className = "swatch-picker";
   group.setAttribute("role", "radiogroup");
   group.setAttribute("aria-label", label);
-  const keys = [...Object.keys(palette), null];
+  //: `none: null` leaves the worded choice out: a row of colours only (the
+  //: board's Recent row, which has nothing to clear).
+  const keys = none === null ? Object.keys(palette) : [...Object.keys(palette), null];
   const radios = keys.map((key) => {
     const radio = document.createElement("button");
     radio.type = "button";
@@ -984,7 +1008,7 @@ function swatchPicker({ label, value, onChange, onChoose, palette = CATEGORY_PAL
     mark(keys[to]);
   });
   group.append(...radios);
-  mark(keys.includes(value) ? value : undefined);
+  if (radios.length) mark(keys.includes(value) ? value : undefined);
   return group;
 }
 

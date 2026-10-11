@@ -57,3 +57,18 @@ def test_the_safety_copy_before_a_restore_says_so(client):
     client.post("/backups/restore", json={"name": name})
     words = {b["origin_words"] for b in backup.list_backups(config.data_dir)}
     assert "Before a restore" in words
+
+
+def test_the_backups_group_shows_its_schedule_with_the_last_success():
+    """The schedule line (WORLD_CLASS 25e, data-1011): above the list, filled
+    from the job record, saying whether the last run worked and when the next
+    is due."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    page = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    script = (root / "frontend" / "js" / "settings-data.js").read_text(encoding="utf-8")
+    assert page.index('id="backup-schedule"') < page.index('id="backup-list"')
+    assert "function backupScheduleWords" in script and "/jobs/last-runs" in script
+    assert "The last try failed" in script and "Next due" in script
+    assert "the line above the list says when the last one" in page  # the ? popover names it

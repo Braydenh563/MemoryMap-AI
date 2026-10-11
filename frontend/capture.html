@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Capture to MemoryMap</title>
+  <title>Capture to Tessellate</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <!-- Quick capture from anywhere (WORLD_CLASS_PLAN H9, row 27): what
        `memorymap --capture` opens, bound to a key in the system's own
@@ -27,16 +27,17 @@
 </head>
 <body class="clip-page">
   <main class="clip-card" aria-labelledby="capture-heading">
-    <h1 id="capture-heading" class="clip-heading">Capture to MemoryMap</h1>
+    <h1 id="capture-heading" class="clip-heading">Capture to Tessellate</h1>
     <label class="visually-hidden" for="capture-text">Your note</label>
     <input id="capture-text" type="text" maxlength="2000" autocomplete="off" placeholder="A thought, a link, a reminder…">
     <p id="capture-status" class="status" role="status" aria-live="polite">Enter saves it, Escape closes.</p>
     <div class="row gap clip-actions">
       <button id="capture-save" type="button">Save</button>
       <button id="capture-close" type="button" class="ghost">Close</button>
-      <a id="capture-open" class="ghost hidden" href="/" target="_blank" rel="noopener">Open MemoryMap</a>
+      <a id="capture-open" class="ghost hidden" href="/" target="_blank" rel="noopener">Open Tessellate</a>
     </div>
   </main>
+  <script src="/js/standalone-undo.js?v=0.4.1"></script>
   <script src="/js/capture.js?v=0.4.1"></script>
 </body>
 </html>

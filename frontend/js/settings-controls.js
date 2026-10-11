@@ -65,25 +65,31 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
   const box = event.target;
   const wanted = box.checked;
   box.checked = !wanted; // the server's answer decides what it shows
+  const state = await lanSwitch(wanted);
+  if (state) renderLanState(state);
+});
+
+//: **The switch, in one place** (INBOX 896): Settings and the status bar's
+//: Other devices panel (lan-watch.js) both call this. On asks for the
+//: password, off asks nothing; the answer is the new state, or null. Since
+//: INBOX 900 the launcher's supervisor opens or closes the LAN port while
+//: the app runs and the route waits for it, so `restart_required` is true
+//: only for a server started without it (a `MEMORYMAP_BIND` run).
+async function lanSwitch(wanted) {
   try {
     if (!wanted) {
       const off = await apiJson("/auth/lan-access", {
         method: "POST",
         body: JSON.stringify({ enabled: false }),
       });
-      renderLanState(off);
-      //: The bind itself doesn't drop until the next launch (`netbind`'s own
-      //: comment on `restart_required`), the same as turning it on: this
-      //: computer's own access never depended on it, but another device
-      //: already in can still reach the app until the app is restarted.
       if (off.restart_required) {
         toastAction("Restart to close the app to other devices now.", "Restart now", () =>
           restartMemoryMap({ confirm: false })
         );
       } else {
-        toast("Only this computer will be able to open the app.");
+        toast("Only this computer can open the app now.");
       }
-      return;
+      return off;
     }
     let reply = null;
     const done = await askPasswordPrompt({
@@ -99,20 +105,24 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
         return reply;
       },
     });
-    if (done && reply) {
-      renderLanState(reply);
-      if (reply.restart_required) {
-        toastAction("Other devices can open the app after a restart.", "Restart now", () =>
-          restartMemoryMap({ confirm: false })
-        );
-      } else {
-        toast("Other devices can already open the app at this address.");
-      }
+    if (!done || !reply) return null;
+    if (reply.restart_required) {
+      toastAction("Other devices can open the app after a restart.", "Restart now", () =>
+        restartMemoryMap({ confirm: false })
+      );
+    } else if (reply.other_devices) {
+      toast("Other devices on this network can open the app now, with your password.");
+    } else {
+      toast("On, and closed on this network until you trust it.");
     }
+    return reply;
   } catch (error) {
     toast(error.message, true);
+    return null;
   }
-});
+}
+
+$("account-lan-restart")?.addEventListener("click", () => restartMemoryMap({ confirm: false }));
 
 $("account-lan-download")?.addEventListener("click", () => {
   window.location.assign("/auth/lan-certificate.pem");
@@ -161,6 +171,61 @@ $("embedding-error-fix").addEventListener("click", runEmbeddingFallback);
 
 $("account-change").addEventListener("click", changePassword);
 
+//: "Set up a PIN for this computer" / "Change PIN": the PIN typed twice
+//: here, then the password on the lock card in prompt mode, like the
+//: recovery key. The server checks the digits again and keeps the PIN in the
+//: OS store (core/pinstore.py).
+$("account-pin-set").addEventListener("click", async () => {
+  const status = $("account-pin-status");
+  status.classList.remove("error");
+  const pin = $("account-pin-new").value;
+  const fail = (text) => {
+    status.classList.add("error");
+    status.textContent = text;
+  };
+  if (!/^[0-9]{4,12}$/.test(pin)) return fail("A PIN is 4 to 12 digits.");
+  if (pin !== $("account-pin-confirm").value) return fail("The two PINs don't match.");
+  status.textContent = "";
+  const done = await askPasswordPrompt({
+    title: "Set up a PIN",
+    message: "Enter your password to let a PIN unlock this computer.",
+    submitLabel: "Set PIN",
+    submit: (password) =>
+      apiJson("/auth/pin", {
+        method: "POST",
+        body: JSON.stringify({ current_password: password, pin }),
+        ownsAuthErrors: true,
+      }),
+  });
+  if (!done) return;
+  $("account-pin-new").value = "";
+  $("account-pin-confirm").value = "";
+  status.textContent = "PIN set for this computer.";
+  renderAccount().catch(() => {});
+});
+
+//: "Forget PIN": the password too (removing it is a change to how this
+//: computer opens the notebook).
+$("account-pin-forget").addEventListener("click", async () => {
+  const status = $("account-pin-status");
+  status.classList.remove("error");
+  status.textContent = "";
+  const done = await askPasswordPrompt({
+    title: "Forget PIN",
+    message: "Enter your password to remove the PIN from this computer.",
+    submitLabel: "Forget PIN",
+    submit: (password) =>
+      apiJson("/auth/pin/forget", {
+        method: "POST",
+        body: JSON.stringify({ current_password: password }),
+        ownsAuthErrors: true,
+      }),
+  });
+  if (!done) return;
+  status.textContent = "PIN removed. The lock screen asks for your password.";
+  renderAccount().catch(() => {});
+});
+
 //: Re-encrypt private notes (WORLD_CLASS_PLAN, Placed 2026-09-09, 261's
 //: vault re-key, `POST /auth/rotate-vault-key`): a new key for every private
 //: note. Like Change password it ends every other session and hands this tab
@@ -176,7 +241,7 @@ $("account-rekey").addEventListener("click", async () => {
   let result = null;
   const done = await askPasswordPrompt({
     title: "Re-encrypt private notes",
-    message: "Enter your current password or PIN to give every private note a new key.",
+    message: "Enter your current password to give every private note a new key.",
     submitLabel: "Re-encrypt",
     submit: async (password) => {
       // 401 here is "wrong password", said beside the field.
@@ -189,7 +254,7 @@ $("account-rekey").addEventListener("click", async () => {
     },
   });
   if (!done || !result) return;
-  localStorage.setItem("token", result.token);
+  prefs.set("token", result.token);
   const n = result.notes_reencrypted;
   status.textContent = `Done: ${n} private note${n === 1 ? "" : "s"} on a new key.`;
   //: Sealed by a reset without the recovery key: left as they were (INBOX 663).
@@ -258,7 +323,7 @@ $("account-lock-all").addEventListener("click", async () => {
     : "You'll need your password to get back in.";
   if (!(await confirmDialog(`End every session, including this one? ${back}`))) return;
   await apiJson("/auth/lock-all", { method: "POST" }).catch(() => {});
-  localStorage.removeItem("token");
+  prefs.remove("token");
   location.reload();
 });
 
@@ -274,7 +339,7 @@ $("local-only-ai").addEventListener("change", async (e) => {
   toast(
     on
       ? "Atlas is locked to this machine."
-      : "Off: MemoryMap will now let you point Atlas at a server on the internet."
+      : "Off: Tessellate will now let you point Atlas at a server on the internet."
   );
   refreshModelStatus();
 });
@@ -329,6 +394,10 @@ $("pref-update-channel-main").addEventListener("change", (e) =>
   setPreference("update_channel", e.target.checked ? "main" : "stable")
 );
 
+$("pref-update-beta").addEventListener("change", (e) =>
+  setPreference("update_beta", e.target.checked)
+);
+
 // "Choose a specific version…" fetches the release list only on demand, 
 // not on every Settings open, so leaving this tab open doesn't mean
 // repeated GitHub calls, same restraint as the rest of this app's opt-in
@@ -374,7 +443,7 @@ $("update-install-version").addEventListener("click", async () => {
   if (!tag) return;
   if (
     !(await confirmDialog(
-      `Download and install ${tag} now? MemoryMap AI will close once the installer starts.`,
+      `Download and install ${tag} now? Tessellate will close once the installer starts.`,
       { confirmLabel: "Install" }
     ))
   ) {
@@ -455,8 +524,8 @@ $("pref-close-to-tray")?.addEventListener("change", (e) => {
   setPreference("close_to_tray", checked);
   toast(
     checked
-      ? "Closing the window will keep MemoryMap in the tray."
-      : "Closing the window will quit MemoryMap."
+      ? "Closing the window will keep Tessellate in the tray."
+      : "Closing the window will quit Tessellate."
   );
 });
 
@@ -503,6 +572,7 @@ $("pref-semantic-auto-install").addEventListener("change", (e) =>
 $("pref-warm-search-model").addEventListener("change", (e) =>
   setPreference("warm_search_model_at_launch", e.target.checked)
 );
+$("pref-week-start").addEventListener("change", (e) => setPreference("week_start", e.target.value));
 //: The voice's live sample (CHAT_PLAN decision 72): the same three lines
 //: `composer_digest.sample` writes, kept equal by tests/test_answer_voice.py.
 const VOICE_SAMPLES = {
@@ -636,6 +706,16 @@ $("autonomous-trigger").addEventListener("click", () => {
 $("voice-model-select").addEventListener("change", (e) =>
   setPreference("voice_model", e.target.value)
 );
+$("voice-skip-silence").addEventListener("change", (e) =>
+  setPreference("voice_skip_silence", e.target.checked)
+);
+$("voice-language-select").addEventListener("change", (e) =>
+  setPreference("voice_language", e.target.value)
+);
+//: On change, not on input: one save when the field is left, not one a key.
+$("voice-vocabulary").addEventListener("change", (e) =>
+  setPreference("voice_vocabulary", e.target.value.trim())
+);
 
 // ---- from wiring.js ----
 
@@ -735,7 +815,7 @@ $("searxng-autostart").addEventListener("change", async (event) => {
   });
   toast(
     on
-      ? "SearXNG will start with MemoryMap from now on."
+      ? "SearXNG will start with Tessellate from now on."
       : "SearXNG will only start when you press Start."
   );
 });
@@ -910,7 +990,7 @@ $("settings-nav-forward")?.addEventListener("click", () => stepTabHistory(1));
 // nothing at all (found by listing every id in index.html that no JS file and
 // no stylesheet mentions), and wiring both to the same call then made the
 // About one say "tour" and open the welcome card instead. They are not the
-// same thing: the card is five slides about what MemoryMap is, the tour is
+// same thing: the card is five slides about what Tessellate is, the tour is
 // anchored cards on the real controls. So the welcome button opens the
 // welcome and the tour button opens the tour.
 $("show-guide-btn")?.addEventListener("click", () => {
@@ -932,7 +1012,7 @@ $("about-take-tour")?.addEventListener("click", () => {
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 //: The whole notebook as a folder (WORLD_CLASS 25b): notes, attachments,
-//: documents and boards, which From a MemoryMap folder reads back whole.
+//: documents and boards, which From a Tessellate folder reads back whole.
 $("export-folder").addEventListener("click", async () => saveFile("memorymap-notebook.zip", await (await api("/export/folder")).blob()));
 
 //: One step (INBOX 464 (18)): the button opens its picker and choosing
@@ -965,7 +1045,7 @@ $("backup-now").addEventListener("click", backupNow);
 
 $("pref-single-keys").addEventListener("change", (event) => {
   try {
-    localStorage.setItem("singleKeys", event.target.checked ? "on" : "off");
+    prefs.set("singleKeys", event.target.checked ? "on" : "off");
   } catch {
     // Storage blocked: the switch holds for this session only.
   }
@@ -1499,7 +1579,7 @@ async function saveWebSearchSettings() {
   }
 }
 
-//: **Shared with the About panel's own "Restart MemoryMap" button**
+//: **Shared with the About panel's own "Restart Tessellate" button**
 //: (`#about-restart`, phone-shell.js): one restart mechanism, `/system/restart`
 //: (Windows desktop only; everywhere else it answers `restarting: false` and
 //: this says so), so the LAN switch's own restart offer below reuses it
@@ -1511,7 +1591,7 @@ async function restartMemoryMap({ confirm = true } = {}) {
   if (
     confirm &&
     !(await confirmDialog(
-      "Restart MemoryMap?\n\nThe app closes and reopens. Your notes are already saved."
+      "Restart Tessellate?\n\nThe app closes and reopens. Your notes are already saved."
     ))
   ) {
     return;
@@ -1520,12 +1600,37 @@ async function restartMemoryMap({ confirm = true } = {}) {
     const result = await apiJson("/system/restart", { method: "POST" });
     if (result.restarting) {
       toast("Restarting…");
+      waitForRestart();
     } else {
-      toast("Restart isn't available in this build, close and reopen MemoryMap by hand.", "info");
+      toast("Restart isn't available in this build, close and reopen Tessellate by hand.", "info");
     }
   } catch (error) {
     toast(error.message || "Couldn't restart.", true);
   }
+}
+
+//: The page waits out a restart and reloads onto the new copy (INBOX 872):
+//: in a browser tab nothing else would, and the old page sat on a dead
+//: server. It must see the server go away first, so a refused restart
+//: (the old copy still answering after 20 s) is said rather than reloaded.
+async function waitForRestart() {
+  const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const started = Date.now();
+  let wentAway = false;
+  while (Date.now() - started < 90000) {
+    await pause(600);
+    try {
+      await apiJson("/auth/status", { silent: true });
+      if (wentAway) {
+        window.location.reload();
+        return;
+      }
+      if (Date.now() - started > 20000) break;
+    } catch {
+      wentAway = true;
+    }
+  }
+  toast(wentAway ? "The app hasn't come back yet. Start it again by hand." : "The app didn't restart. Close and reopen it by hand.", true, { action: ["Try again", () => restartMemoryMap({ confirm: false })] });
 }
 
 // ---- from wiring.js (search-boot-1005): findDuplicates ----
@@ -1581,7 +1686,22 @@ async function addMemoryByHand() {
   status.classList.remove("error");
   if (!text) return;
   try {
-    await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+    const made = await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+    if (made?.id != null) {
+      let liveId = made.id;
+      pushUndo(
+        "Added a memory",
+        async () => {
+          await api(`/memory/${liveId}`, { method: "DELETE" });
+          renderMemorySettings();
+        },
+        async () => {
+          const again = await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+          liveId = again?.id ?? liveId;
+          renderMemorySettings();
+        }
+      );
+    }
     input.value = "";
     renderMemorySettings();
   } catch (error) {
@@ -1920,6 +2040,12 @@ const STATUS_SLOTS = [
     label: "Find anything",
     hint: "Search your notes, documents, files and the app itself",
   },
+  //: INBOX 896. Shown on this computer only; another device never sees it.
+  {
+    key: "lan",
+    label: "Other devices",
+    hint: "Whether a phone on this network can open the app: open, closed or off",
+  },
 ];
 
 function renderStatusBarSettings() {
@@ -2015,17 +2141,22 @@ function renderLanState(state) {
     words = state.allow_lan
       ? "Restart the app to let other devices in."
       : "Restart the app to close it to other devices.";
-    if (state.allow_lan && addresses.length) {
-      words += ` Then open ${addresses.join(" or ")} on the other device.`;
-    }
   } else if (state.other_devices) {
     icon = "ph:wifi-high";
+    //: The address is its own block below (INBOX 867, the owner: "can this
+    //: be better styled and easier to read??"), not a run-on sentence.
     words = addresses.length
-      ? `Open ${addresses.join(" or ")} on the other device.`
+      ? "Other devices on this network can open it, with your password, at:"
       : "Other devices can open the app at this computer's network address.";
+  } else if (!state.allow_lan && state.switched_off) {
+    //: The 14-day rule (lantrust.UNUSED_DAYS): said here as well as in the
+    //: bell, since this is where a person goes to turn it back on.
+    words = `Turned itself off on ${state.switched_off}: no other device opened the app for ${state.unused_days || 14} days.`;
   }
   line.classList.toggle("hidden", !words);
   if (words) setLabel(line, `${icon} ${words}`);
+  renderLanTrust(state);
+  $("account-lan-restart")?.classList.toggle("hidden", !state.restart_required);
   //: The certificate the network is served with (core/lancert.py), shown
   //: while the switch is on so a phone's one-time warning can be checked.
   const cert = $("account-lan-cert");
@@ -2043,6 +2174,305 @@ function renderLanState(state) {
   }
 }
 
+//: **The address as a QR code** (WORLD_CLASS_PLAN "Placed from Brief 40" fix
+//: 2): typing `https://192.168.x.y:8443` on a phone is the step people get
+//: wrong, and a phone's camera opens a QR code. Drawn by the server
+//: (`GET /privacy/lan-qr.svg`, core/qrsvg.py, only for an address it shows),
+//: fetched with the session header and shown from a blob. Which address is
+//: open is kept, so a repaint of the block (a state refresh) draws it again.
+let lanQrShown = "";
+async function showLanQr(holder, address, button, open) {
+  holder.querySelector(".lan-qr")?.remove();
+  button.setAttribute("aria-expanded", String(open));
+  lanQrShown = open ? address : "";
+  if (!open) return;
+  let blob;
+  try {
+    blob = await (await api(`/privacy/lan-qr.svg?address=${encodeURIComponent(address)}`, { silent: true })).blob();
+  } catch (error) {
+    toast(`Couldn't draw the QR code: ${error.message}`, true);
+    button.setAttribute("aria-expanded", "false");
+    lanQrShown = "";
+    return;
+  }
+  if (!button.isConnected || button.getAttribute("aria-expanded") !== "true") return;
+  const figure = document.createElement("figure");
+  figure.className = "lan-qr";
+  const img = document.createElement("img");
+  img.src = URL.createObjectURL(blob);
+  img.alt = `QR code for ${address}`;
+  img.addEventListener("load", () => URL.revokeObjectURL(img.src), { once: true });
+  const caption = document.createElement("figcaption");
+  caption.className = "muted text-sm";
+  caption.textContent = "Point the phone's camera at it to open this address.";
+  figure.append(img, caption);
+  holder.querySelector(".lan-address-main")?.after(figure);
+}
+
+//: **Where a phone opens the notebook** (INBOX 867): one address, the one on
+//: the network's own interface, large and monospaced with Copy, and the rest
+//: folded under "Other addresses" (IPv6 last, virtual adapters already left
+//: out by the server, `netbind.order_addresses`). Settings, Other devices and
+//: the privacy receipt draw the same block from the same state.
+function renderLanAddresses(holder, state) {
+  if (!holder) return;
+  lazyScript("/css/lan-lazy.css");
+  const addresses = (state.addresses || []).filter(Boolean);
+  holder.replaceChildren();
+  holder.classList.toggle("hidden", !addresses.length);
+  if (!addresses.length) return;
+  const [first, ...rest] = addresses;
+  const main = document.createElement("div");
+  main.className = "lan-address-main";
+  const value = document.createElement("code");
+  value.className = "lan-address";
+  value.textContent = first;
+  const copy = smallButton("ph:copy Copy", "Copy this address", () => copyToClipboard(first, copy));
+  const qr = smallButton("ph:qr-code QR code", "Show a QR code the phone's camera opens", () =>
+    showLanQr(holder, first, qr, qr.getAttribute("aria-expanded") !== "true"));
+  qr.setAttribute("aria-expanded", "false");
+  main.append(value, copy, qr);
+  holder.appendChild(main);
+  if (lanQrShown === first) showLanQr(holder, first, qr, true);
+  if (!rest.length) return;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "ghost disclosure-row lan-address-more";
+  toggle.setAttribute("aria-expanded", "false");
+  setLabel(toggle, `ph:caret-right Other addresses (${rest.length})`);
+  const list = document.createElement("ul");
+  list.className = "lan-address-list hidden";
+  list.id = `${holder.id}-more`;
+  toggle.setAttribute("aria-controls", list.id);
+  for (const address of rest) {
+    const li = document.createElement("li");
+    const code = document.createElement("code");
+    code.className = "lan-address-small";
+    code.textContent = address;
+    li.appendChild(code);
+    list.appendChild(li);
+  }
+  toggle.addEventListener("click", () => {
+    const open = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(open));
+    list.classList.toggle("hidden", !open);
+  });
+  holder.append(toggle, list);
+}
+
+//: The Windows firewall line (OPEN ledger 315 and 316): the server sends it
+//: only on Windows with the switch on, so everywhere else this stays hidden.
+function renderLanFirewall(state) {
+  const holder = $("account-lan-firewall");
+  if (!holder) return;
+  const command = state.firewall?.command || "";
+  holder.classList.toggle("hidden", !command);
+  $("account-lan-firewall-command").textContent = command;
+  const copy = $("account-lan-firewall-copy");
+  copy.onclick = () => copyToClipboard(command, copy);
+}
+
+const LAN_HELD_REASONS = {
+  new_network: "it is not a network you allowed",
+  unknown_network: "this network could not be identified",
+  public_network: "Windows calls this network public",
+  untrusted_network: "you stopped trusting it",
+  no_network: "this computer is not on a network",
+};
+
+function lanListRow(title, facts, actions) {
+  const li = document.createElement("li");
+  //: Its actions stay on screen (lan-lazy.css): an `.entry-list` hides a
+  //: row's actions until hover, which left a blank where they wait and
+  //: nothing at all to a finger.
+  li.className = "lan-network-row";
+  const row = document.createElement("div");
+  row.className = "entry-meta";
+  const name = document.createElement("strong");
+  name.textContent = title;
+  row.append(name, rowActions(actions, `More for ${title}`));
+  const detail = document.createElement("p");
+  detail.className = "muted task-detail";
+  detail.textContent = facts.filter(Boolean).join(" · ");
+  li.append(row, detail);
+  return li;
+}
+
+function lanEmptyRow(words) {
+  const li = document.createElement("li");
+  li.className = "muted empty-line";
+  li.textContent = words;
+  return li;
+}
+
+async function lanCall(path, options) {
+  try {
+    renderLanState(await apiJson(path, options));
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+//: The held notice, the address block, the two overrides and the three lists.
+function renderLanTrust(state) {
+  const held = $("account-lan-held");
+  if (!held) return;
+  held.classList.toggle("hidden", !state.held);
+  if (state.held) {
+    const where = state.network?.network?.label || "this network";
+    setLabel(
+      $("account-lan-held-text"),
+      `ph:shield-warning Other devices can't open the notebook on ${where}: ${LAN_HELD_REASONS[state.held] || "it is not allowed"}.`
+    );
+  }
+  renderLanAddresses($("account-lan-addresses"), state.other_devices ? state : { addresses: [] });
+  renderLanFirewall(state);
+  const trust = $("account-lan-trust");
+  trust.classList.toggle("hidden", !state.allow_lan);
+  $("account-lan-ask").checked = state.ask_new_devices !== false;
+  $("account-lan-any").checked = state.any_network === true;
+  const pending = state.pending || [];
+  $("account-lan-pending-wrap").classList.toggle("hidden", !pending.length);
+  $("account-lan-pending").replaceChildren(
+    ...pending.map((device) =>
+      lanListRow(device.name, [device.address, "gave the right password"], [
+        { label: "Allow", title: "Let this device sign in", run: () => lanCall(`/auth/lan-devices/${encodeURIComponent(device.id)}/allow`, { method: "POST" }) },
+        { label: "Deny", title: "Do not let it in", danger: true, run: () => lanCall(`/auth/lan-devices/${encodeURIComponent(device.id)}/deny`, { method: "POST" }) },
+      ])
+    )
+  );
+  const devices = state.devices || [];
+  $("account-lan-devices").replaceChildren(
+    ...(devices.length
+      ? devices.map((device) =>
+          lanListRow(device.name, [device.address, device.last_seen && `last seen ${device.last_seen}`, device.added && `allowed ${device.added}`], [
+            { label: "Remove", title: "Sign it out; it asks again next time", danger: true, run: () => lanCall(`/auth/lan-devices/${encodeURIComponent(device.id)}`, { method: "DELETE" }) },
+          ])
+        )
+      : [lanEmptyRow("None yet. A phone is added when you allow its first sign-in.")])
+  );
+  const rows = lanNetworkRows(state, renderLanState);
+  $("account-lan-networks").replaceChildren(
+    ...(rows.trusted.length ? rows.trusted : [lanEmptyRow("None yet. Turning other devices on trusts the network you are on.")])
+  );
+  $("account-lan-untrusted-wrap").classList.toggle("hidden", !rows.untrusted.length);
+  $("account-lan-untrusted").replaceChildren(...rows.untrusted);
+}
+
+//: **Trusted and untrusted networks, as rows** (INBOX 896), for Settings and
+//: the status bar's panel; `paint(state)` redraws whichever asked. Trust is
+//: a loosening, so it asks for the password (the server also refuses it from
+//: another device); Stop trusting and Forget only ever let fewer in.
+function lanNetworkRows(state, paint) {
+  const send = async (path, options) => {
+    try {
+      paint(await apiJson(path, options));
+    } catch (error) {
+      toast(error.message, true);
+    }
+  };
+  const here = state.current_network || "";
+  //: A row starts with a capital ("Network with router 192.168.0.1"); the
+  //: label itself stays lower case for the sentences it sits inside.
+  const name = (network) => {
+    const label = network.label.charAt(0).toUpperCase() + network.label.slice(1);
+    return network.key === here ? `${label} (this network)` : label;
+  };
+  const path = (network, verb = "") => `/auth/lan-networks/${encodeURIComponent(network.key)}${verb && `/${verb}`}`;
+  const forget = (network) => ({
+    label: "Forget",
+    title: "Forget: take it off both lists; it comes back untrusted if the app sees it again",
+    danger: true,
+    run: () => send(path(network), { method: "DELETE" }),
+  });
+  const trusted = (state.networks || []).map((network) =>
+    lanListRow(name(network), [network.subnet, network.added && `trusted ${network.added}`], [
+      { label: "Stop trusting", title: "Stop trusting: keep other devices out on this network", run: () => send(path(network, "untrust"), { method: "POST" }) },
+      forget(network),
+    ])
+  );
+  const untrusted = (state.untrusted || []).map((network) =>
+    lanListRow(name(network), [network.subnet, network.blocked ? "you stopped trusting it" : network.added && `seen ${network.added}`], [
+      { label: "Trust", title: "Trust: let other devices in on this network; asks for your password", run: () => lanTrustNetwork(network, paint) },
+      forget(network),
+    ])
+  );
+  return { trusted, untrusted };
+}
+
+async function lanTrustNetwork(network, paint) {
+  let reply = null;
+  const done = await askPasswordPrompt({
+    title: `Trust ${network.label}`,
+    message: "Enter your password to let devices on this network open the app. It is remembered for next time.",
+    submitLabel: "Trust",
+    submit: async (password) => {
+      reply = await apiJson(`/auth/lan-networks/${encodeURIComponent(network.key)}/trust`, {
+        method: "POST",
+        body: JSON.stringify({ current_password: password }),
+        ownsAuthErrors: true,
+      });
+      return reply;
+    },
+  });
+  if (done && reply) {
+    paint(reply);
+    toast(`${network.label} is trusted. Other devices there can open the app with your password.`);
+  }
+}
+
+//: A looser setting asks for the password, like the switch; a safer one
+//: does not (routes_auth `set_lan_option`).
+async function setLanOption(box, name, looser) {
+  const wanted = box.checked;
+  box.checked = !wanted;
+  if (!looser(wanted)) return lanCall("/auth/lan-options", { method: "POST", body: JSON.stringify({ name, enabled: wanted }) });
+  let reply = null;
+  const done = await askPasswordPrompt({
+    title: name === "any_network" ? "Allow on any network" : "Stop asking about new devices",
+    message: "Enter your password to change how other devices get in.",
+    submitLabel: "Change",
+    submit: async (password) => {
+      reply = await apiJson("/auth/lan-options", {
+        method: "POST",
+        body: JSON.stringify({ name, enabled: wanted, current_password: password }),
+        ownsAuthErrors: true,
+      });
+      return reply;
+    },
+  });
+  if (done && reply) renderLanState(reply);
+}
+
+$("account-lan-ask")?.addEventListener("change", (event) => setLanOption(event.target, "ask_new_devices", (on) => !on));
+$("account-lan-any")?.addEventListener("change", (event) => setLanOption(event.target, "any_network", (on) => on));
+
+$("account-lan-allow-here")?.addEventListener("click", () => lanAllowHere(renderLanState));
+
+//: Allow on this network (`/auth/lan-networks/allow`), password first:
+//: Settings' button, and the status bar panel's Trust this network for a
+//: network the app has not listed yet (INBOX 896).
+async function lanAllowHere(paint) {
+  let reply = null;
+  const done = await askPasswordPrompt({
+    title: "Trust this network",
+    message: "Enter your password to let devices on this network open the app. It is remembered for next time.",
+    submitLabel: "Trust",
+    submit: async (password) => {
+      reply = await apiJson("/auth/lan-networks/allow", {
+        method: "POST",
+        body: JSON.stringify({ current_password: password }),
+        ownsAuthErrors: true,
+      });
+      return reply;
+    },
+  });
+  if (done && reply) {
+    paint(reply);
+    toast("Other devices can open the app on this network now.");
+  }
+}
+
 async function renderLanAccess() {
   if (!$("account-allow-lan")) return;
   try {
@@ -2051,3 +2481,442 @@ async function renderLanAccess() {
     $("account-lan-state").classList.add("hidden");
   }
 }
+
+// Open a picker, parse the chosen file, hand the object to `apply`.
+function pickJsonFile(inputId, apply) {
+  const input = $(inputId);
+  input.onchange = async () => {
+    const file = input.files[0];
+    input.value = "";
+    if (!file) return;
+    try {
+      apply(JSON.parse(await file.text()));
+    } catch {
+      toast("That file isn't valid JSON.", "info");
+    }
+  };
+  input.click();
+}
+
+function textToSteps(text) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function textToInputs(text) {
+  return textToSteps(text).map((line) => {
+    const [name, ...rest] = line.split(":");
+    return { name: name.trim(), label: rest.join(":").trim(), required: true };
+  });
+}
+//: Settings, General, Microphone (UI_MODERNISATION V2): drawn by the
+//: recorder's bundle, so the two copies are one set of controls.
+ensureModule("meetings").then((ok) => {
+  if (ok && $("mic-settings-controls")) micControlsInto($("mic-settings-controls"));
+});
+
+//: Moved from navigation.js (boot) on 2026-10-11 for the boot scripts' gzip
+//: ratchet: Settings is its only door, and `renderMemorySettings` is a stand-in
+//: (app.js `LAZY_ENTRY_POINTS.settingsControls`) until this file is in.
+// --- what the AI remembers (ROADMAP §39B) ------------------------------------------
+//
+// The list `save_user_preference` writes into, and the only place the user can
+// see it. Worth the screen: this tool's output becomes part of the model's own
+// system prompt on every later turn, so without this the assistant's behaviour
+// could change permanently for a reason nobody could look up, edit or undo.
+//
+// The budget line is not decoration. Only active preferences reach the model,
+// newest first, and only until the character budget runs out, so a long list
+// quietly stops including its oldest entries. Saying so beats letting someone
+// wonder why the rule they saved first is being ignored.
+async function renderMemorySettings() {
+  const list = $("memory-list");
+  const empty = $("memory-empty");
+  const budget = $("memory-budget");
+  if (!list) return;
+
+  //: Placeholders while the first answer is on its way, so a slow disk never
+  //: reads as "nothing saved yet" (DESIGN.md's list recipe; only into an
+  //: empty list, so a refresh never covers rows already there).
+  showSkeletons(list, 3);
+  const data = await apiJson("/memory").catch(() => null);
+  clearSkeletons(list);
+  if (!data) {
+    list.replaceChildren();
+    budget.textContent = "Couldn't load what Atlas has remembered.";
+    return;
+  }
+
+  const active = data.preferences.filter((p) => p.active).length;
+  budget.textContent = active
+    ? `${active} in use, about ${data.in_prompt} of ${data.budget_chars} characters. ` +
+      "The newest are kept when this runs out."
+    : "";
+  empty.classList.toggle("hidden", data.preferences.length > 0);
+
+  // Pending suggestions first. They are the only rows that need an answer,
+  // and a proposal buried below thirty settled ones is a proposal nobody
+  // sees: which was the whole complaint about the silent version of this
+  // feature. Order is otherwise unchanged (newest first, from the API).
+  const ordered = [
+    ...data.preferences.filter((p) => p.proposed),
+    ...data.preferences.filter((p) => !p.proposed),
+  ];
+
+  list.replaceChildren(
+    ...ordered.map((pref) => {
+      const row = document.createElement("div");
+      row.className =
+        "memory-row" + (pref.proposed ? " is-proposed" : pref.active ? "" : " is-off");
+
+      const text = document.createElement("span");
+      text.className = "memory-text";
+      text.textContent = pref.content;
+      text.title = pref.created_at
+        ? `Saved ${new Date(pref.created_at).toLocaleString()}`
+        : "";
+
+      // A suggestion is a question, not a switch someone flipped: it gets
+      // yes/no rather than on/off, and it is not in the prompt either way
+      // until it is answered.
+      if (pref.proposed) {
+        const tag = document.createElement("span");
+        tag.className = "memory-proposed-tag";
+        setLabel(tag, "ph:sparkle Suggested by Atlas");
+
+        const answer = async (accept) => {
+          await apiJson(`/memory/${pref.id}/answer`, {
+            method: "POST",
+            body: JSON.stringify({ accept }),
+          }).catch((error) => toast(error.message || "Couldn't save that answer.", true));
+          renderMemorySettings();
+        };
+        const yes = document.createElement("button");
+        yes.type = "button";
+        yes.className = "small";
+        yes.textContent = "Remember it";
+        yes.addEventListener("click", () => answer(true));
+
+        const no = document.createElement("button");
+        no.type = "button";
+        no.className = "ghost small";
+        no.textContent = "No thanks";
+        no.addEventListener("click", () => answer(false));
+
+        row.append(text, tag, yes, no);
+        return row;
+      }
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "ghost small";
+      toggle.textContent = pref.active ? "Turn off" : "Turn on";
+      toggle.addEventListener("click", async () => {
+        toggle.disabled = true;
+        const flipped = await apiJson(`/memory/${pref.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ active: !pref.active }),
+        }).catch((error) => toast(error.message || "Couldn't change that.", true));
+        if (flipped) {
+          pushRequestUndo(pref.active ? "Turned a memory off" : "Turned a memory on", `/memory/${pref.id}`, "PATCH", { active: pref.active }, { active: !pref.active }, () => renderMemorySettings());
+        }
+        renderMemorySettings();
+      });
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost small danger";
+      remove.textContent = "Forget";
+      remove.addEventListener("click", async () => {
+        const ok = await confirmDialog(
+          `Forget this?\n\n“${pref.content}”\n\nThe AI will stop applying it.`,
+          { confirmLabel: "Forget it" }
+        );
+        if (!ok) return;
+        //: Said when it fails (audit 2026-10-05, FE-12): a silent catch
+        //: redrew the list with the memory still in it and no reason why.
+        try {
+          await apiJson(`/memory/${pref.id}`, { method: "DELETE" });
+          let liveId = null;
+          pushUndo(
+            "Forgot a memory",
+            async () => {
+              const again = await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: pref.content }) });
+              liveId = again?.id ?? null;
+              if (liveId != null && !pref.active) await apiJson(`/memory/${liveId}`, { method: "PATCH", body: JSON.stringify({ active: false }) });
+              renderMemorySettings();
+            },
+            async () => {
+              if (liveId != null) await apiJson(`/memory/${liveId}`, { method: "DELETE" });
+              renderMemorySettings();
+            }
+          );
+        } catch (error) {
+          toast(error.message || "Couldn't forget that.", true);
+        }
+        renderMemorySettings();
+      });
+
+      row.append(text, toggle, remove);
+      return row;
+    })
+  );
+}
+// ---- Settings, About, Maintenance (core/maintenance.py, core/doctor.py) ----
+//: The owner, 2026-10-11: "Can you add like buttons in settings to run them
+//: in like the about page??", about doctor, reinstall, tools and uninstall.
+//: Every route is this computer only (api/this_computer.py): on a phone the
+//: first read is refused, the buttons go off and the status line carries the
+//: server's own sentence.
+const MAINTENANCE_MARKS = {
+  ok: ["check-circle", "Passed"],
+  warn: ["warning", "Worth a look"],
+  x: ["x-circle", "Needs fixing"],
+};
+
+function maintenanceSay(text) {
+  $("maintenance-status").textContent = text;
+}
+
+async function renderMaintenance() {
+  const buttons = [...$("maintenance-actions").querySelectorAll("button")];
+  let state;
+  try {
+    state = await apiJson("/system/maintenance");
+  } catch (error) {
+    for (const button of buttons) button.disabled = true;
+    $("maintenance-reinstall-row").classList.add("hidden");
+    maintenanceSay(error.message || "Couldn't read this computer's state.");
+    return;
+  }
+  for (const button of buttons) button.disabled = false;
+  //: The installer's copy has no .venv to rebuild: no button, and the '?'
+  //: says its Repair shortcut is the way.
+  $("maintenance-reinstall").classList.toggle("hidden", !state.source);
+  $("maintenance-reinstall-row").classList.toggle("hidden", !(state.source && state.reinstall_pending));
+  $("maintenance-uninstall").dataset.plan = JSON.stringify(state.uninstall || {});
+  maintenanceSay("");
+}
+
+function maintenanceDoctorRow(row) {
+  const el = document.createElement("div");
+  el.className = "setting-row doctor-row";
+  const label = document.createElement("div");
+  label.className = "setting-label";
+  const name = document.createElement("span");
+  const [icon, words] = MAINTENANCE_MARKS[row.status] || MAINTENANCE_MARKS.warn;
+  const mark = document.createElement("i");
+  mark.className = `ph ph-${icon} doctor-mark is-${row.status in MAINTENANCE_MARKS ? row.status : "warn"}`;
+  mark.setAttribute("role", "img");
+  mark.setAttribute("aria-label", words);
+  name.append(mark, document.createTextNode(` ${row.label}`));
+  label.appendChild(name);
+  if (row.fix) {
+    const fix = document.createElement("small");
+    fix.className = "muted";
+    fix.textContent = row.fix;
+    label.appendChild(fix);
+  }
+  const value = document.createElement("span");
+  value.className = "setting-control muted";
+  value.textContent = row.value;
+  el.append(label, value);
+  return el;
+}
+
+async function runMaintenanceDoctor() {
+  const button = $("maintenance-doctor");
+  const box = $("maintenance-doctor-rows");
+  button.disabled = true;
+  maintenanceSay("Checking…");
+  try {
+    const result = await apiJson("/system/doctor");
+    box.replaceChildren(...result.rows.map(maintenanceDoctorRow));
+    box.classList.remove("hidden");
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const worth = result.rows.filter((row) => row.status === "warn").length;
+    maintenanceSay(
+      result.failed
+        ? `Checked at ${time}. Something below needs fixing: each cross says what to do.`
+        : worth
+          ? `Checked at ${time}. Nothing is broken; ${worth} worth a look.`
+          : `Checked at ${time}. Everything checks out.`
+    );
+  } catch (error) {
+    maintenanceSay(error.message || "Couldn't run the checks.");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function setMaintenanceReinstall(enabled) {
+  try {
+    const result = await apiJson("/system/reinstall-on-start", {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    });
+    $("maintenance-reinstall-row").classList.toggle("hidden", !result.reinstall_pending);
+    maintenanceSay(result.reinstall_pending ? "" : "Reinstall cancelled. The next start is an ordinary one.");
+  } catch (error) {
+    maintenanceSay(error.message || "Couldn't set the reinstall.");
+  }
+}
+
+async function openMaintenanceFolder() {
+  try {
+    const result = await apiJson("/system/open-logs-folder", { method: "POST" });
+    maintenanceSay(`Opened ${result.path}`);
+  } catch (error) {
+    maintenanceSay(error.message || "Couldn't open the launcher logs.");
+  }
+}
+
+async function makeMaintenanceShortcut() {
+  try {
+    const result = await apiJson("/system/desktop-shortcut", { method: "POST" });
+    maintenanceSay(`Shortcut made: ${result.desktop_copy || result.path}`);
+  } catch (error) {
+    maintenanceSay(error.message || "Couldn't make the shortcut.");
+  }
+}
+
+//: **Uninstall is never one click** (the brief): a dialog with the steps,
+//: the command for this computer with Copy, and Export my notes first.
+function openUninstallSteps() {
+  let plan = {};
+  try {
+    plan = JSON.parse($("maintenance-uninstall").dataset.plan || "{}");
+  } catch {
+    plan = {};
+  }
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Uninstall");
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card uninstall-card";
+  const returnFocus = document.activeElement;
+  const onKey = (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+  };
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    returnFocus?.focus?.();
+  };
+  const blurb = document.createElement("p");
+  blurb.className = "muted";
+  blurb.textContent = "Nothing is removed from here. These are the steps for this computer.";
+  const steps = document.createElement("ol");
+  steps.className = "uninstall-steps";
+  for (const step of plan.steps || []) {
+    const li = document.createElement("li");
+    li.textContent = step;
+    steps.appendChild(li);
+  }
+  card.append(dialogHead("Uninstall", close), blurb, steps);
+  if (plan.command) {
+    const row = document.createElement("div");
+    row.className = "row uninstall-command-row";
+    const code = document.createElement("code");
+    code.className = "uninstall-command";
+    code.textContent = plan.command;
+    const copy = smallButton("ph:copy Copy", "Copy the command", () => copyToClipboard(plan.command, copy));
+    row.append(code, copy);
+    card.appendChild(row);
+  }
+  const footer = document.createElement("div");
+  footer.className = "row confirm-actions";
+  footer.append(
+    smallButton("Close", "Close", close),
+    smallButton("ph:export Export my notes first", "Open Settings, Import & export", () => {
+      close();
+      openSettingsModal("data", "export-folder");
+    }, false)
+  );
+  card.appendChild(footer);
+  overlay.appendChild(card);
+  wireBackdropClose(overlay, close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  footer.querySelector("button:last-child")?.focus();
+}
+
+$("maintenance-doctor")?.addEventListener("click", runMaintenanceDoctor);
+$("maintenance-reinstall")?.addEventListener("click", () => setMaintenanceReinstall(true));
+$("maintenance-reinstall-cancel")?.addEventListener("click", () => setMaintenanceReinstall(false));
+//: One restart mechanism (`restartMemoryMap`, `#about-restart`'s).
+$("maintenance-restart")?.addEventListener("click", () => restartMemoryMap());
+$("maintenance-logs")?.addEventListener("click", openMaintenanceFolder);
+$("maintenance-shortcut")?.addEventListener("click", makeMaintenanceShortcut);
+$("maintenance-uninstall")?.addEventListener("click", openUninstallSteps);
+//: Settings, Appearance, Themes (ledger 1451, 1452): a theme shows on the
+//: whole app while the pointer or focus rests on its card, and "Surprise me"
+//: applies one you are not using. The preview is `themePreview` (settings.js),
+//: read ahead of the manual layer and never stored.
+let themePreviewTimer = 0;
+function previewTheme(name) {
+  clearTimeout(themePreviewTimer);
+  themePreviewTimer = setTimeout(() => {
+    if (themePreview === name) return;
+    themePreview = name;
+    applyAppearance();
+    applyThemeChoice(appearancePref("theme"), false);
+    applyPalette(appearancePref("palette"), false);
+  }, name ? 120 : 0);
+}
+(() => {
+  const holder = $("theme-presets");
+  if (!holder) return;
+  const card = (event) => event.target.closest?.(".theme-card");
+  holder.addEventListener("pointerover", (event) => {
+    if (event.pointerType === "touch") return;
+    const c = card(event);
+    if (c) previewTheme(c.dataset.preset);
+  });
+  holder.addEventListener("pointerleave", () => previewTheme(""));
+  holder.addEventListener("focusin", (event) => {
+    const c = card(event);
+    if (c && c.matches(":focus-visible")) previewTheme(c.dataset.preset);
+  });
+  holder.addEventListener("focusout", () => previewTheme(""));
+  //: Capture: the preview is gone before the card's own click applies the theme.
+  holder.addEventListener("click", () => {
+    clearTimeout(themePreviewTimer);
+    themePreview = "";
+  }, true);
+})();
+$("theme-surprise")?.addEventListener("click", () => {
+  const active = activeThemePreset();
+  const names = Object.keys(THEME_PRESETS).filter((n) => n !== active);
+  const pick = names[Math.floor(Math.random() * names.length)];
+  applyThemePreset(pick, true);
+  renderAppearance();
+  toast(`${THEME_PRESETS[pick].label} theme. Press Surprise me again for another.`, "info");
+});
+
+//: Logs, from a job history row and the empty log (moved out of boot code, the
+//: gzip budget): the row's button awaits this file through openSettingsModal.
+async function openTaskLog(item) {
+  await openSettingsModal("logs");
+  const filter = $("log-filter");
+  //: The run's id, which its log lines carry in brackets (jobruns.py), so the
+  //: lines shown are this run's. An older entry without one falls back to words.
+  logFilterFromRun = !!item.run_id;
+  filter.value = item.run_id ? `[${item.run_id}]` : /\(([^)]+)\)/.exec(item.label || "")?.[1] || item.name || item.label || "";
+  filter.dispatchEvent(new Event("input"));
+}
+
+$("logs-empty-clear").addEventListener("click", () => {
+  logFilterFromRun = false;
+  $("log-filter").value = "";
+  $("log-level").value = "all";
+  $("log-source").value = "all";
+  renderActiveLogView();
+});

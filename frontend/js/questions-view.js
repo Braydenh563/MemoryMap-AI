@@ -6,8 +6,9 @@
 // 2026-10-06 (INBOX 688) to keep the boot scripts under their gzip total:
 // nothing here runs until the Questions sub-tab is shown, which calls
 // `initQuestionsView` and `loadQuestions` through their stand-ins
-// (`LAZY_ENTRY_POINTS`). The Ask scope (`askScope`, `setAskScope`) stays in
-// capture-ask.js, since `askQuestion` reads it.
+// (`LAZY_ENTRY_POINTS`). The Ask scope variable (`askScope`) stays in
+// capture-ask.js, since `askQuestion` reads it; its setter, `setAskScope`, is
+// at the end of this file, the only place that calls it.
 
 const questionsView = { state: "open", offset: 0, ready: false, entry: null, last: null };
 
@@ -43,10 +44,17 @@ function questionRow(item) {
     text.append(answer);
   }
   const actions = evidenceSpan("night-fact-actions");
-  const move = (state, entry_id = null) =>
-    apiJson(`/questions/${item.id}`, { method: "POST", body: JSON.stringify({ state, entry_id }) })
-      .then(() => loadQuestions())
+  const send = (state, entry_id = null) =>
+    apiJson(`/questions/${item.id}`, { method: "POST", body: JSON.stringify({ state, entry_id }) });
+  const move = (state, entry_id = null) => {
+    const was = item.state;
+    return send(state, entry_id)
+      .then(() => {
+        pushUndo(`Marked a question ${state}`, () => send(was).then(() => loadQuestions()), () => send(state, entry_id).then(() => loadQuestions()));
+        return loadQuestions();
+      })
       .catch((error) => toast(error.message || "Couldn't change that question.", true));
+  };
   actions.append(questionButton("ph:arrow-square-out", "Open the note that asks it", () => flashEntry(item.entry_id)));
   if (item.state === "open") {
     actions.append(
@@ -63,11 +71,43 @@ function questionRow(item) {
   return li;
 }
 
+//: Icon, title, sentence per state: the empty state recipe (`.empty-state`,
+//: 02-chat-graph.css), as Recordings uses it. Open also gets the one action.
 const QUESTIONS_EMPTY = {
-  open: "No open questions. Read notes now finds the questions your notes ask.",
-  answered: "Nothing answered yet. When a later note answers a question, it moves here.",
-  dropped: "Nothing dropped.",
+  open: ["ph-question", "No open questions", "Read notes now finds the questions your notes ask."],
+  answered: ["ph-check-circle", "Nothing answered yet", "When a later note answers a question, it moves here."],
+  dropped: ["ph-minus-circle", "Nothing dropped", "A question you drop because it no longer matters is kept here."],
 };
+
+function questionsEmpty(state) {
+  const [glyph, heading, sentence] = QUESTIONS_EMPTY[state];
+  const li = document.createElement("li");
+  li.className = "empty-state questions-empty";
+  const icon = document.createElement("span");
+  icon.className = "empty-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const mark = document.createElement("i");
+  mark.className = `ph ${glyph} ph-lead`;
+  icon.appendChild(mark);
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  title.textContent = heading;
+  const line = document.createElement("p");
+  line.textContent = sentence;
+  li.append(icon, title, line);
+  if (state === "open") {
+    const read = document.createElement("button");
+    read.type = "button";
+    read.className = "ghost small";
+    const spin = document.createElement("i");
+    spin.className = "ph ph-arrow-clockwise ph-lead";
+    spin.setAttribute("aria-hidden", "true");
+    read.append(spin, " Read notes now");
+    read.addEventListener("click", () => $("questions-refresh").click());
+    li.appendChild(read);
+  }
+  return li;
+}
 
 async function loadQuestions({ more = false } = {}) {
   const list = $("questions-list");
@@ -124,7 +164,8 @@ async function loadQuestions({ more = false } = {}) {
   ask.disabled = !counts.open;
   ask.title = counts.open ? "Ask about the questions you have not answered yet" : "No open questions to ask about";
   const lead = $("questions-lead");
-  lead.replaceChildren(reply.total ? "" : QUESTIONS_EMPTY[questionsView.state]);
+  lead.replaceChildren();
+  if (!reply.total && !questionsView.entry) list.appendChild(questionsEmpty(questionsView.state));
   //: Kept to one note (its card's count): said, with the way back to all.
   if (questionsView.entry) {
     const all = document.createElement("button");
@@ -132,7 +173,7 @@ async function loadQuestions({ more = false } = {}) {
     all.className = "ghost small";
     setLabel(all, "ph:x Show every note's");
     all.addEventListener("click", () => questionsForNote(null));
-    lead.replaceChildren(`Only the questions in “${questionsView.entry.title}”. `, all);
+    lead.replaceChildren(`Only the questions in “${questionsView.entry.title}”. ${reply.total ? "" : "None here. "}`, all);
   }
 }
 
@@ -177,4 +218,9 @@ function initQuestionsView() {
     setAskScope(null);
     $("question")?.focus();
   });
+}
+
+function setAskScope(scope) {
+  askScope = scope || null;
+  $("ask-scope")?.classList.toggle("hidden", !askScope);
 }

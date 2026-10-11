@@ -10,8 +10,9 @@
 //    A reset sets the control and fires its own event, so the save is the one
 //    the control already makes: there is no second way to write a setting.
 // 2. **Where it is kept, said so.** A look setting the notebook does not keep
-//    (it is not in `mirroredUiKeys`, ai-tools.js) is marked "This browser".
-//    Only `perf` is: performance mode is the machine's, the rest follow the person.
+//    (it is not in `mirroredUiKeys`, ai-tools.js) is marked "On this device".
+//    Performance mode is the machine's, and sizes (`DEVICE_ONLY_KEYS`) are the
+//    screen's; the rest follow the person.
 // 3. **The settings as a file**: Settings, Import and export, Your settings.
 //
 // The registries are walked by tests/test_settings_rows.py against every key
@@ -29,8 +30,10 @@ const SETTING_ROWS = [
   { key: "search_relative_z_margin", id: "pref-search-z-margin" },
   { key: "communication_style", id: "pref-style" },
   { key: "composer_voice", id: "pref-voice" },
+  { key: "week_start", id: "pref-week-start" },
   { key: "insight_level", id: "pref-insight" },
   { key: "smart_punctuation", id: "pref-smart-punctuation" },
+  { key: "autocorrect", id: "pref-autocorrect" },
   { key: "profile_enabled", id: "pref-profile-enabled" },
   { key: "notifications_muted_except_reminders", id: "pref-notif-mute-except-reminders" },
   { key: "session_idle_ttl_minutes", id: "account-idle-ttl" },
@@ -64,7 +67,11 @@ const SETTING_ROWS = [
   { key: "update_check_enabled", id: "pref-update-check" },
   { key: "auto_update_enabled", id: "pref-auto-update" },
   { key: "update_channel", id: "pref-update-channel-main", on: "main", off: "stable" },
+  { key: "update_beta", id: "pref-update-beta" },
   { key: "voice_model", id: "voice-model-select" },
+  { key: "voice_skip_silence", id: "voice-skip-silence" },
+  { key: "voice_language", id: "voice-language-select" },
+  { key: "voice_vocabulary", id: "voice-vocabulary" },
   { key: "show_console_on_startup", id: "pref-show-console" },
   { key: "close_to_tray", id: "pref-close-to-tray" },
   { key: "new_window_on_launch", id: "pref-new-window-on-launch" },
@@ -72,7 +79,7 @@ const SETTING_ROWS = [
 ];
 
 //: Appearance, kept in `localStorage` and mirrored to the notebook (every key
-//: in `mirroredUiKeys`; `perf` alone stays in this browser). The default is the active theme's value, else
+//: in `mirroredUiKeys`; `perf` and the sizes in `DEVICE_ONLY_KEYS` stay on the device). The default is the active theme's value, else
 //: APPEARANCE_DEFAULTS (settings.js), else `base`. `seg` names a segmented
 //: group's data attribute. Zoom, the accent and the palette are left out:
 //: each already has its own reset beside it.
@@ -96,7 +103,7 @@ const LOOK_ROWS = [
   { key: "border-style", id: "border-style-seg", seg: "borderChoice" },
   { key: "shadow-intensity", id: "shadow-intensity" },
   { key: "bgArt", id: "bg-art-toggle", on: "on", base: "off" },
-  { key: "bg-style", id: "bg-art-style" },
+  { key: "bg-style", id: "bg-art-style", seg: "bgStyle" },
   { key: "bg-motion", id: "bg-motion" },
   { key: "bg-intensity", id: "bg-intensity" },
   { key: "avatar-motion", id: "avatar-motion" },
@@ -265,8 +272,8 @@ function settingResetButton(row, rowEl) {
 function settingScopeChip(row, rowEl) {
   if (!row.look || rowEl.querySelector(".setting-scope")) return;
   if (mirroredUiKeys().includes(row.key)) return;
-  const scope = chip("This browser", "setting-scope");
-  scope.title = "Kept in this browser only: another browser or computer has its own";
+  const scope = chip("On this device", "setting-scope");
+  scope.title = "Kept on this device only: another browser, computer or phone has its own";
   const place = settingMarkHost(rowEl);
   place.host.insertBefore(scope, place.before);
 }
@@ -391,7 +398,7 @@ function browserOnlySettings() {
   const mirrored = new Set(mirroredUiKeys());
   const out = {};
   for (const row of LOOK_ROWS) {
-    if (mirrored.has(row.key)) continue;
+    if (mirrored.has(row.key) || DEVICE_ONLY_KEYS.includes(row.key)) continue;
     const value = prefs.get(row.key, null);
     if (value != null) out[row.key] = String(value).slice(0, 400);
   }
@@ -424,10 +431,10 @@ function applyLookSettings(file) {
   const fromNotebook = file.preferences?.ui_state || {};
   const fromBrowser = file.this_browser || {};
   for (const [key, value] of Object.entries(fromNotebook)) {
-    if (mirrored.has(key) && typeof value === "string") localStorage.setItem(key, value);
+    if (mirrored.has(key) && typeof value === "string") prefs.set(key, value);
   }
   for (const [key, value] of Object.entries(fromBrowser)) {
-    if (local.has(key) && typeof value === "string") localStorage.setItem(key, value);
+    if (local.has(key) && !DEVICE_ONLY_KEYS.includes(key) && typeof value === "string") prefs.set(key, value);
   }
   applyAppearance();
   if (currentSettingsSection === "appearance") renderAppearance();
@@ -458,7 +465,8 @@ async function importSettingsFile(fileHandle) {
     offerUndo(
       "Import settings",
       `Settings imported: ${settingsImportWords(result)}`,
-      () => applySettingsFile(before).then(() => scheduleSettingRowsPaint(currentSettingsSection, [0])),
+      //: Undo replaces the lists whole: the import merged them by name.
+      () => applySettingsFile({ ...before, replace_lists: true }).then(() => scheduleSettingRowsPaint(currentSettingsSection, [0])),
       () => applySettingsFile(file).then(() => scheduleSettingRowsPaint(currentSettingsSection, [0]))
     );
     scheduleSettingRowsPaint(currentSettingsSection, [0, 500]);

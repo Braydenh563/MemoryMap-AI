@@ -23,6 +23,8 @@
 /* Step one is a name field in the tile: the tile, not a button. */
 .start-step-form {
   cursor: default;
+  /* A hover ground is a shape: the tile's own corner (INBOX 856). */
+  border-radius: var(--radius-md);
 }
 .start-step-form:hover,
 .start-step-form:is(:focus-visible, :has(:focus-visible)) {

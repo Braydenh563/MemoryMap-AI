@@ -83,12 +83,13 @@ def test_a_plain_activity_row_beside_button_rows_is_not_a_stray_list_item():
 #
 # DESIGN.md "One hover for every button": the quiet fill is "the same under
 # :focus-visible". The sweep found 216 selectors whose hover rule changes a
-# fill, ink, edge or shadow with no :focus rule on the same selector. A keyboard
-# user still gets the 2px ring on every stop (focusring.js: 0 weak), so this is
-# parity, not a missing ring, and editing 216 rules is Brief 57's one recipe
-# decision. Until then the count may only fall: a new component's hover rule
-# names its :focus-visible beside it (`:is(:hover, :focus-visible)`).
-HOVER_WITHOUT_FOCUS_BASELINE = 214
+# fill, ink, edge or shadow with no :focus rule on the same selector (216, until
+# Brief 57's grammar pass wrote the twin beside each as
+# `:is(:focus-visible, :has(:focus-visible))`, a form the first normaliser could
+# not read; it now can, and 7 remain: `:not(:hover)` rest states and the two
+# native pseudo-elements). The count may only fall: a new component's hover rule
+# names its :focus-visible beside it.
+HOVER_WITHOUT_FOCUS_BASELINE = 7
 
 
 def _split_top(selector: str) -> list[str]:
@@ -108,7 +109,7 @@ def _split_top(selector: str) -> list[str]:
 
 
 def _hover_only_selectors() -> set[tuple[str, str]]:
-    from _css_paths import CSS_FILES
+    from tests._css_paths import CSS_FILES
 
     rules = []
     for path in CSS_FILES:
@@ -118,6 +119,9 @@ def _hover_only_selectors() -> set[tuple[str, str]]:
 
     def norm(part: str) -> str:
         part = re.sub(r":(hover|focus-visible|focus-within|focus|active)\b", "", part)
+        #: `:is(:focus-visible, :has(:focus-visible))` is the repo's focus twin (the keyboard
+        #: reaching a control's child); with the pseudo-classes gone it leaves `:has()` empty.
+        part = re.sub(r":has\(\s*\)", "", part)
         part = re.sub(r":is\(\s*(,\s*)*\)", "", part)
         part = re.sub(r":is\(([^(),]*)\)", r"\1", part)
         return re.sub(r"\s+", " ", part).strip()

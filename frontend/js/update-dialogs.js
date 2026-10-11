@@ -79,29 +79,18 @@ async function checkForUpdate(silent = false) {
 //: About holds the switch and the Check for updates button either way.
 //: start.sh may already have asked in the terminal, and then this never runs.
 async function askUpdateChoiceOnce() {
-  //: Never over the welcome: on a first start both open together and the
-  //: question took the welcome's Skip from under the pointer (the E2E smoke
-  //: run's first step timed out on it). It waits for the welcome to close.
-  let welcoming = false;
-  try {
-    welcoming = !prefs.get("onboardingDone", null);
-  } catch {
-    welcoming = false;
-  }
-  //: And never over the tour the welcome hands on to, nor the recovery-key
-  //: offer: the first-run queue gives it its turn after those
-  //: (`firstRunTurn`, onboarding.js). Measured before: the question and
-  //: the tour's first card opened in the same 0.4 s.
-  if (welcoming) {
-    await new Promise((resolve) => document.addEventListener("onboarding-closed", resolve, { once: true }));
-    await ensureModule("onboarding");
-    await new Promise((resolve) => firstRunTurn(() => resolve()));
-  }
-  const yes = await confirmDialog(
-    "Check for updates automatically?\n\nMemoryMap AI can look for a newer version each time it starts. " +
+  //: Never over the welcome, the tour it hands on to, the recovery-key offer
+  //: or the desktop's console question: the first-run queue holds its slot,
+  //: last in `FIRST_RUN_ORDER` (onboarding.js). Measured before: on a first
+  //: start it took the welcome's Skip from under the pointer, and it opened
+  //: with the tour's first card in the same 0.4 s.
+  const ask = () => confirmDialog(
+    "Check for updates automatically?\n\nTessellate can look for a newer version each time it starts. " +
       "Nothing about your notes is sent. You can change this in Settings, About.",
     { confirmLabel: "Check automatically", cancelLabel: "Don't check", danger: false }
   );
+  await ensureModule("onboarding").catch(() => {});
+  const yes = typeof firstRunTurn === "function" ? await firstRunTurn(ask, "updates") : await ask();
   try {
     const saved = await apiJson("/update/choice", { method: "POST", body: JSON.stringify({ check: Boolean(yes) }) });
     if (prefsCache) Object.assign(prefsCache, saved);
@@ -161,11 +150,11 @@ function showUpdateAvailableDialog(result) {
   const text = document.createElement("p");
   text.className = "confirm-text";
   text.textContent = result.can_auto_apply
-    ? `MemoryMap AI ${result.latest} is out: you're on ${result.current}. ` +
-      "Update automatically (downloads and installs it, then closes MemoryMap " +
+    ? `Tessellate ${result.latest} is out: you're on ${result.current}. ` +
+      "Update automatically (downloads and installs it, then closes Tessellate " +
       "AI: reopen it in a minute or two to start using the new version), or " +
       "download it yourself from the release page."
-    : `MemoryMap AI ${result.latest} is out: you're on ${result.current}. ` +
+    : `Tessellate ${result.latest} is out: you're on ${result.current}. ` +
       "This app never updates itself without asking: download the new " +
       "version yourself whenever you're ready.";
   const progress = document.createElement("p");
@@ -179,7 +168,7 @@ function showUpdateAvailableDialog(result) {
     dismissed = true;
     document.removeEventListener("keydown", onKey, true);
     overlay.remove();
-    localStorage.setItem(UPDATE_SEEN_KEY, result.latest);
+    prefs.set(UPDATE_SEEN_KEY, result.latest);
   };
   const onKey = (event) => {
     if (event.key === "Escape") {
@@ -244,12 +233,12 @@ function showSourceUpdatedDialog(result) {
   overlay.className = "modal-overlay confirm-overlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "MemoryMap AI was updated");
+  overlay.setAttribute("aria-label", "Tessellate was updated");
 
   const card = document.createElement("div");
   card.className = "card modal-card confirm-card";
   const heading = document.createElement("h3");
-  heading.textContent = "MemoryMap AI was updated";
+  heading.textContent = "Tessellate was updated";
   const text = document.createElement("p");
   text.className = "confirm-text";
   text.textContent = result.from

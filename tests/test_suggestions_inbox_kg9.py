@@ -157,6 +157,10 @@ def test_the_inbox_offers_a_merge_and_accepting_it_moves_every_mention(client, s
     assert client.get("/suggestions").json()["merges"] == []
     kinds = [c["kind"] for c in client.get("/learned/corrections").json()]
     assert "accept_merge" in kinds
+    # Undo removes the correction the accept taught (INBOX 898): the answer names it.
+    cid = made.json()["correction_id"]
+    assert client.delete(f"/learned/corrections/{cid}").status_code in (200, 204)
+    assert "accept_merge" not in [c["kind"] for c in client.get("/learned/corrections").json()]
 
 
 def test_a_dismissed_merge_stays_dismissed(client, session):
@@ -197,6 +201,9 @@ def test_a_type_suggestion_lands_on_the_link_and_teaches(client, session):
     assert client.get("/suggestions").json()["types"] == []
     kinds = [c["kind"] for c in client.get("/learned/corrections").json()]
     assert "accept_link_type" in kinds
+    cid = made.json()["correction_id"]
+    assert client.delete(f"/learned/corrections/{cid}").status_code in (200, 204)
+    assert "accept_link_type" not in [c["kind"] for c in client.get("/learned/corrections").json()]
 
 
 def test_a_dismissed_type_stays_dismissed_and_a_private_end_is_never_offered(client, session):

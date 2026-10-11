@@ -1339,6 +1339,7 @@ async function publishDraft(entry) {
   try {
     await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ is_draft: false }) });
     entry.is_draft = false;
+    pushEntryPutUndo(entry.id, "Published a draft", { is_draft: true }, { is_draft: false });
     await refreshEntries([entry.id]);
     toast("Published.");
   } catch (error) {
@@ -1365,9 +1366,58 @@ function noteMetaMore(entry) {
   return more;
 }
 
+//: Brief 89: which add-tags chip a card draws. "add" is the empty note's
+//: "Add tags" (the edit form, cursor in the tags field), "more" the quiet
+//: "+ Tag" for a note with one or two tags, or with none but suggestions
+//: showing; null from three tags up, on a board or draft, and on a read-only
+//: row (a fact only, drawn by the empty-state branch).
+const TAG_ADD_BELOW = 3;
+function tagAddChipKind(entry, options) {
+  if (!options.actions || entry.is_board || entry.is_draft) return null;
+  const tags = (entry.tags || []).length;
+  if (tags >= TAG_ADD_BELOW) return null;
+  return !tags && !(entry.suggested_tags || []).length ? "add" : "more";
+}
+
+//: **A meeting card shows what the meeting settled, not its raw headings**
+//: (libr-1011 row 1238: `## Agenda` and `## Notes` printed as text). The four
+//: sections of `entry/meetings.py` read for one line each: the first agenda
+//: item, the decisions, and the action items still open. Null for anything
+//: that is not a meeting, so every other card is unchanged.
+const MEETING_GLANCE_SECTIONS = {
+  agenda: "agenda", notes: "notes", discussion: "notes", transcript: "notes",
+  decisions: "decisions", decided: "decisions",
+  "action items": "actions", actions: "actions", "action points": "actions", "to do": "actions", todo: "actions", "next steps": "actions",
+};
+
+function meetingGlance(entry) {
+  const types = (entry?.properties?.type || []).map((value) => String(value).toLowerCase());
+  if (!types.includes("meeting")) return null;
+  const sections = { agenda: [], decisions: [], actions: [] };
+  let current = "";
+  for (const line of stripFrontmatter(entry.content || "").split("\n")) {
+    const heading = /^#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/.exec(line);
+    if (heading) {
+      current = MEETING_GLANCE_SECTIONS[heading[1].toLowerCase()] || "";
+      continue;
+    }
+    if (current && sections[current] && line.trim()) sections[current].push(line);
+  }
+  const plain = (line) => line.replace(/^[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]+(?:\[[ xX]\][ \t]*)?/, "").trim();
+  const rows = [];
+  if (sections.agenda.length) rows.push({ label: "Agenda", text: plain(sections.agenda[0]) + (sections.agenda.length > 1 ? ` (+${sections.agenda.length - 1})` : "") });
+  if (sections.decisions.length) rows.push({ label: "Decisions", text: `${sections.decisions.length}: ${plain(sections.decisions[0])}` });
+  const open = sections.actions.filter((line) => /^[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]+\[ \]/.test(line));
+  const done = sections.actions.filter((line) => /\[[xX]\]/.test(line)).length;
+  if (open.length) rows.push({ label: "Open actions", text: `${open.length}: ${plain(open[0])}` });
+  else if (done) rows.push({ label: "Actions", text: `all ${done} done` });
+  return rows.length ? rows : [{ label: "", text: "Nothing written yet." }];
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
+  if (rowEnterIds && rowEnterIds.size && !rowEnterIds.has(String(entry.id))) li.classList.add("row-enter");
   if (entry.id === linkSource) li.classList.add("link-source");
   // The phone's swipe underlays read their words from the row (`initRowSwipe`,
   // 10-responsive.css): what a swipe right and a swipe left will do to it.
@@ -1537,9 +1587,10 @@ function entryItem(entry, options = {}) {
     .split("\n")
     .filter((line) => line.trim() && !/^\s*!?\[[^\]]*\]\([^)]*\)\s*$/.test(line))
     .join("\n");
-  const isLong =
+  const glance = meetingGlance(entry);
+  const isLong = !glance && (
     textOnly.length > LONG_NOTE_CHARS ||
-    textOnly.split("\n").length > LONG_NOTE_LINES;
+    textOnly.split("\n").length > LONG_NOTE_LINES);
   if (isLong && !expandedNotes.has(entry.id)) content.classList.add("entry-clamped");
   // Mark the matched words while filtering, so it's obvious WHY a note is in
   // the list. Built with createElement/textContent rather than innerHTML, 
@@ -1557,9 +1608,11 @@ function entryItem(entry, options = {}) {
   content.addEventListener("remove-inline-image", async (e) => {
     e.stopPropagation();
     if (!(await confirmDialog("Remove this image from the note?"))) return;
+    const contentBefore = entry.content;
     entry.content = entry.content.replace(e.detail.originalText, "").replace(/\n{3,}/g, "\n\n").trim();
     try {
       await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ content: entry.content }) });
+      pushEntryPutUndo(entry.id, "Removed an image from a note", { content: contentBefore }, { content: entry.content });
       await refreshEntries([entry.id]);
       flashEntry(entry.id);
       toast("Image removed.");
@@ -1567,7 +1620,42 @@ function entryItem(entry, options = {}) {
       toast(err.message || "Failed to remove image", true);
     }
   });
-  li.appendChild(content);
+  if (glance) {
+    //: The glance and the body are both in the card; the card's class says
+    //: which shows (note-cards CSS), so a search, the caret in rows view and
+    //: "Show the whole note" all land on the body.
+    const box = document.createElement("div");
+    box.className = "meeting-glance";
+    for (const row of glance) {
+      const line = document.createElement("p");
+      line.className = "meeting-glance-row";
+      if (row.label) {
+        const label = document.createElement("span");
+        label.className = "meeting-glance-label";
+        label.textContent = row.label;
+        line.append(label, " ");
+      }
+      line.append(row.text);
+      box.appendChild(line);
+    }
+    li.classList.add("meeting-card");
+    li.classList.toggle("meeting-open", expandedNotes.has(entry.id) || searchHighlightTerms().length > 0);
+    li.append(box, content);
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "entry-more";
+    const sayMore = () => (li.classList.contains("meeting-open") ? "Show the glance" : "Show the whole note");
+    more.textContent = sayMore();
+    more.addEventListener("click", () => {
+      const open = li.classList.toggle("meeting-open");
+      if (open) expandedNotes.add(entry.id);
+      else expandedNotes.delete(entry.id);
+      more.textContent = sayMore();
+    });
+    li.appendChild(more);
+  } else {
+    li.appendChild(content);
+  }
   if (isLong) {
     const toggle = document.createElement("button");
     toggle.type = "button";
@@ -1794,8 +1882,22 @@ function entryItem(entry, options = {}) {
   }
   //: **A note with no tags says so, where the tags would be** (INBOX 162),
   //: and the chip is the fix: the edit form, cursor in the tags field.
-  if (!entry.tags.length && !suggestions.length && !entry.is_board && !entry.is_draft
-      && (options.actions || options.facts)) {
+  //: **Fewer than three tags: a quiet "+ Tag" after them** (brief 89, the
+  //: owner: "should add tags show for notes with 0-2/3 tags on them??"). It
+  //: opens a small popover with up to three suggested tags, the field, and a
+  //: menu that turns suggestions off for this note (tag-suggest.js).
+  if (tagAddChipKind(entry, options) === "more") {
+    const more = chip("ph:plus Tag", "untagged tag-add", (event) => {
+      event.stopPropagation();
+      ensureModule("tagSuggest").then(() => openNoteTagPopover(entry, more));
+    });
+    more.title = "Add a tag to this note, or pick a suggested one";
+    more.setAttribute("aria-haspopup", "dialog");
+    more.setAttribute("aria-expanded", "false");
+    meta.appendChild(more);
+  }
+  if (tagAddChipKind(entry, options) === "add"
+      || (!options.actions && options.facts && !entry.tags.length && !entry.is_board && !entry.is_draft)) {
     //: On a read-only row it is a fact only (INBOX 297).
     const untagged = options.actions
       ? chip("ph:tag Add tags", "untagged", (event) => {
@@ -1889,6 +1991,7 @@ function entryItem(entry, options = {}) {
       unlink.addEventListener("click", async (event) => {
         event.stopPropagation(); // the chip itself opens the document
         await api(`/documents/${doc.id}/notes/${entry.id}`, { method: "DELETE" });
+        pushRoutePairUndo(`Detached from “${doc.title}”`, [`/documents/${doc.id}/notes`, "POST", { entry_id: entry.id }], [`/documents/${doc.id}/notes/${entry.id}`, "DELETE"], () => loadEntries());
         await loadEntries();
         toast(`Detached from “${doc.title}”.`);
       });
@@ -1994,8 +2097,8 @@ function entryItem(entry, options = {}) {
   const edited = entry.edited_at && entry.edited_at !== stamp ? entry.edited_at : null;
   const byEdit = edited && noteSort === "edited";
   date.textContent = byEdit ? `edited ${relativeTime(edited)}` : relativeTime(stamp);
-  date.title = `Written ${new Date(stamp).toLocaleString()}` + // exact on hover
-    (edited ? `, edited ${new Date(edited).toLocaleString()}` : "");
+  date.title = `Written ${whenText(stamp)}` + // exact on hover
+    (edited ? `, edited ${whenText(edited)}` : "");
   //: **The time ends the details line, on every card** (INBOX 446: the
   //: corner faded it whenever the card was pointed at; INBOX 455 (1): a line
   //: that wrapped put it on a line of its own). The line never wraps now
@@ -2186,7 +2289,7 @@ function entryItem(entry, options = {}) {
       linkChip.appendChild(linkPreview);
       const reasonNote = link.reason
         ? link.reason_confidence != null
-          ? `${link.reason} (${Math.round(link.reason_confidence * 100)}% confidence, deduced)`
+          ? `${link.reason} (deduced, ${deducedStrength(link.reason_confidence)})`
           : link.reason
         : null;
       const wayRound = outgoing ? "This note links to" : "Links to this note";
@@ -2209,21 +2312,24 @@ function entryItem(entry, options = {}) {
       //: circles with the labels reading as captions between them. They are
       //: the `kebabMenu` recipe now (DESIGN.md, standing order 11), which also
       //: gives the label the width the buttons took.
-      const editReason = async () => {
-        const next = await promptDialog("Why are these notes connected?", link.reason || "");
-        if (!next) return;
+      const putReason = async (reason) => {
         await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
           method: "PUT",
-          body: JSON.stringify({ reason: next }),
+          body: JSON.stringify({ reason }),
         });
         await refreshEntries([entry.id, link.entry_id]);
       };
+      const editReason = async () => {
+        const next = await promptDialog("Why are these notes connected?", link.reason || "");
+        if (!next) return;
+        const was = link.reason || null;
+        await putReason(next);
+        pushUndo("Edited why two notes are connected", () => putReason(was), () => putReason(next));
+      };
       const clearReason = async () => {
-        await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
-          method: "PUT",
-          body: JSON.stringify({ reason: null }),
-        });
-        await refreshEntries([entry.id, link.entry_id]);
+        const was = link.reason || null;
+        await putReason(null);
+        pushUndo("Cleared why two notes are connected", () => putReason(was), () => putReason(null));
       };
       const unlink = async () => {
         const otherId = link.entry_id;
@@ -2418,4 +2524,13 @@ function makeUnlinkAccessible(span) {
       span.click();
     }
   });
+}
+
+//: A deduced link reason's confidence as a word, not a percentage (ledger
+//: 943): a percentage claimed a precision the guess does not have. Used
+//: by the card's link chips and the graph's line tooltip and peek.
+function deducedStrength(confidence) {
+  if (confidence >= 0.75) return "a strong guess";
+  if (confidence >= 0.5) return "a fair guess";
+  return "a loose guess";
 }

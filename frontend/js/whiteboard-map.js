@@ -461,7 +461,7 @@ function wbMapPerspective() {
 
 function wbMapSetPerspective(key) {
   try {
-    localStorage.setItem("wbMapPerspective", key);
+    prefs.set("wbMapPerspective", key);
   } catch {
     // A browser with storage switched off still gets the view it asked for
     // for this session; it just will not be remembered.
@@ -880,7 +880,13 @@ const WB_MAP_THEME_GROUPS = [
 //: topic is painted rather than written onto every topic: that is what makes
 //: it reversible, and what makes a deliberate per-topic choice impossible to
 //: overwrite with it.
-async function wbMapSetTheme(patch) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapSetTheme(...args) {
+  return wbRecordGesture(wbMapSetThemeNow, args);
+}
+
+async function wbMapSetThemeNow(patch) {
   const boardId = window.currentBoardId;
   if (!boardId || !wbIsMap()) return false;
   try {
@@ -917,7 +923,13 @@ async function wbMapSetTheme(patch) {
 //: One endpoint and one transaction, `move-many`'s own reason: a reset that
 //: is one request per topic leaves a two-hundred-topic map half done if any
 //: one of them fails.
-async function wbMapClearEveryTopic() {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapClearEveryTopic(...args) {
+  return wbRecordGesture(wbMapClearEveryTopicNow, args);
+}
+
+async function wbMapClearEveryTopicNow() {
   const boardId = window.currentBoardId;
   if (!boardId || !wbIsMap()) return;
   const ok = await confirmDialog(
@@ -1347,7 +1359,7 @@ function wbSyncMapFirstHint(index) {
   if (!done && index && index.nodes.length > 1) {
     done = true;
     try {
-      localStorage.setItem(WB_MAP_FIRST_HINT_KEY, "1");
+      prefs.set(WB_MAP_FIRST_HINT_KEY, "1");
     } catch {
       // Same reason as above.
     }
@@ -1358,7 +1370,7 @@ function wbSyncMapFirstHint(index) {
 function wbDismissMapTemplates() {
   try {
     if (window.currentBoardId) {
-      localStorage.setItem(wbMapTemplatesDismissedKey(window.currentBoardId), "1");
+      prefs.set(wbMapTemplatesDismissedKey(window.currentBoardId), "1");
     }
   } catch {
     // Not remembering the dismissal is a smaller failure than refusing to
@@ -2278,7 +2290,13 @@ function wbMapNumberOf(index, id) {
 
 //: Turn the numbering on or off for this map: one `PUT`, then a render,
 //: because every topic's prefix changes with it.
-async function wbMapSetNumbered(on) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapSetNumbered(...args) {
+  return wbRecordGesture(wbMapSetNumberedNow, args);
+}
+
+async function wbMapSetNumberedNow(on) {
   const boardId = window.currentBoardId;
   if (!boardId || !wbIsMap()) return false;
   try {
@@ -2752,12 +2770,11 @@ function wbMapBranchDragOrigin(d, alone) {
 function wbMapDropTargetAt(d, clientX, clientY) {
   const container = document.getElementById("whiteboard-container");
   if (!container || !wbIsMap() || !WB_MAP_KINDS.has(d.kind)) return null;
-  //: The shared, per-gesture box rather than a fresh measurement: this runs
-  //: on every frame of a branch drag, after that frame has already written
-  //: every moved edge's geometry. See `wbCanvasOriginRect`.
-  const rect = wbCanvasOriginRect();
-  const t = d3.zoomTransform(container);
-  const [bx, by] = t.invert([clientX - rect.left, clientY - rect.top]);
+  //: The one conversion every pointer read shares (`wbClientToBoard`): its
+  //: origin is the per-gesture box, not a fresh measurement, since this runs
+  //: on every frame of a branch drag after that frame wrote every moved
+  //: edge's geometry, and it counts a scaled canvas as the hand-made sum did not.
+  const [bx, by] = wbClientToBoard(clientX, clientY);
   const index = wbMapIndex();
   const forbidden = new Set(wbMapSubtree(index, d.id).map((o) => o.id));
   const hidden = wbMapConcealed(index);
@@ -4499,6 +4516,7 @@ async function wbMapWriteDocument() {
     toast(err.message || voiceLine("failed", { what: "make that document" }), true);
     return null;
   }
+  pushBinPairUndo(`Wrote “${title}” as a document`, `/documents/${doc.id}`, `/documents/${doc.id}/restore`, true, () => (typeof loadDocuments === "function" ? loadDocuments() : null));
   switchTab("documents");
   await openDocument(doc.id);
   toast(`Wrote “${title}” as a document.`);
@@ -4605,7 +4623,20 @@ function wbMapFreshPlace(row, parent) {
     return;
   }
   const siblings = index.childrenOf.get(parent.id) || [];
-  row.x = siblings.length ? Math.min(...siblings.map((n) => n.x)) : parent.x + size(parent).w + wbMapGapDepth();
+  //: **A branch grows away from its trunk** (the owner, 2026-10-11: a child
+  //: added under a left-hand topic landed on its right, back toward the
+  //: trunk, and on a Free map that is where it stayed). The side is the one
+  //: the parent is drawn on, read from its centre against its trunk's.
+  let trunk = parent;
+  for (let hops = 0; trunk.parent_id != null && index.byId.get(trunk.parent_id) && hops < 200; hops++) trunk = index.byId.get(trunk.parent_id);
+  const mid = (node) => node.x + size(node).w / 2;
+  const leftward = trunk !== parent && mid(parent) < mid(trunk);
+  const width = row.width || WB_MAP_NODE_W;
+  if (leftward) {
+    row.x = (siblings.length ? Math.max(...siblings.map((n) => n.x + size(n).w)) : parent.x - wbMapGapDepth()) - width;
+  } else {
+    row.x = siblings.length ? Math.min(...siblings.map((n) => n.x)) : parent.x + size(parent).w + wbMapGapDepth();
+  }
   row.y = siblings.length ? below(siblings) + wbMapGapBreadth() : parent.y;
 }
 
@@ -4959,7 +4990,13 @@ function wbMapRefuseLastTopic() {
 //: Deleting the roots is enough to delete the map: `DELETE
 //: /whiteboard/objects/{id}` takes a node's whole subtree with it (§9.1), so
 //: one request per root removes every descendant too.
-async function wbMapClearToOneTopic() {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapClearToOneTopic(...args) {
+  return wbRecordGesture(wbMapClearToOneTopicNow, args);
+}
+
+async function wbMapClearToOneTopicNow() {
   if (!wbIsMap()) return;
   const roots = wbMapIndex().roots;
   for (const root of roots) {
@@ -5018,8 +5055,14 @@ async function wbMapDeleteSubtree(id) {
   //: the delete instead. The toast's Undo is now the same entry, taken off
   //: the stack wherever it sits, so the two can never restore it twice.
   const entry = { action: "subtree", kind: "object", rows: deleted, links };
-  wbPushUndo(entry);
   const count = deleted.length;
+  //: Inside a recorded gesture the gesture pushes the one step for the whole
+  //: act; the toast's Undo is then the board's own.
+  if (wbRecordDepth > 0) {
+    toastAction(`Deleted ${count} node${count === 1 ? "" : "s"}.`, "Undo", () => wbUndo());
+    return;
+  }
+  wbPushUndo(entry);
   toastAction(
     `Deleted ${count} node${count === 1 ? "" : "s"}.`,
     "Undo",
@@ -5815,8 +5858,19 @@ function wbMapTidyOrigin(onlyBranch, layout = wbMapLayout()) {
     // still take their tidy positions, the fold is in the branch, not the
     // whole map.
     if (obj.data?.pinned) continue;
-    if (Math.abs(obj.x - pos.x) < 0.5 && Math.abs(obj.y - pos.y) < 0.5) continue;
-    origin.set(wbMultiKey("object", id), { kind: "object", id, item: obj, x: pos.x, y: pos.y });
+    //: **A branch under a pinned topic is tidied where that topic sits** (the
+    //: owner, 2026-10-11: a child added under a dragged topic took the
+    //: layout's own column, 1,400px away, with its line across the map). Its
+    //: tidy place is shifted by how far the nearest pinned ancestor was
+    //: dragged from its own, so the branch keeps its shape beside it.
+    let ancestor = obj.parent_id != null ? index.byId.get(obj.parent_id) : null;
+    for (let hops = 0; ancestor && !ancestor.data?.pinned && hops < 200; hops++) {
+      ancestor = ancestor.parent_id != null ? index.byId.get(ancestor.parent_id) : null;
+    }
+    const home = ancestor ? positions.get(ancestor.id) : null;
+    const to = home ? { x: pos.x + (ancestor.x - home.x), y: pos.y + (ancestor.y - home.y) } : pos;
+    if (Math.abs(obj.x - to.x) < 0.5 && Math.abs(obj.y - to.y) < 0.5) continue;
+    origin.set(wbMultiKey("object", id), { kind: "object", id, item: obj, x: to.x, y: to.y });
   }
   return origin;
 }
@@ -6718,7 +6772,7 @@ function wbSyncMapStrip(node) {
         blank.after(pin);
       }
       const named = [...el.options].find((o) => o.value === String(value));
-      const said = `As the map draws (${(named ? named.textContent : String(value)).toLowerCase()})`;
+      const said = `As the map draws (${(named ? named.textContent : field === "font_size" ? `${value}px` : String(value)).toLowerCase()})`;
       if (blank.textContent !== said) blank.textContent = said;
     };
     for (const [id, field] of [
@@ -6744,6 +6798,13 @@ function wbSyncMapStrip(node) {
     //: pin's own row only while the map themes the field (that row exists
     //: only then) and as the blank row, which draws the same, otherwise.
     const shown = (field) => {
+      //: **A topic that was never told follows the map, and says so the same
+      //: way for every field** (OPEN row 1370): the blank row, which the pick
+      //: row rings as the look the map gives. Setting the themed value onto
+      //: the select instead pressed it where the value had an option (a
+      //: shape) and rang it where it had none (the 17px size).
+      const own = node?.data?.[field];
+      if (own === undefined || own === null || own === "") return "";
       const value = data[field];
       if (value === WB_MAP_APP_DEFAULT_PINS[field]) {
         return wbMapThemeDefault(field) == null ? "" : String(value);
@@ -7716,7 +7777,13 @@ async function wbMapSetExtra(node, patch, said) {
 //: that runs the cycle check (`wbMapOutdent`'s own comment), and children
 //: first so a failure leaves the branch attached to something rather than
 //: orphaned under a node that no longer exists.
-async function wbMapRemoveKeepingBranch(id) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapRemoveKeepingBranch(...args) {
+  return wbRecordGesture(wbMapRemoveKeepingBranchNow, args);
+}
+
+async function wbMapRemoveKeepingBranchNow(id) {
   const boardId = window.currentBoardId;
   const index = wbMapIndex();
   const node = index.byId.get(id);
@@ -7763,7 +7830,13 @@ async function wbMapRemoveKeepingBranch(id) {
 //: of its own, branch and all. `parent_id: null` is a move the endpoint
 //: already supports; floating topics are allowed by §12.0 ("multiple roots
 //: are allowed"), so this needs no new rule, only a way to ask for it.
-async function wbMapSever(id) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapSever(...args) {
+  return wbRecordGesture(wbMapSeverNow, args);
+}
+
+async function wbMapSeverNow(id) {
   const boardId = window.currentBoardId;
   const index = wbMapIndex();
   const node = index.byId.get(id);
@@ -7789,19 +7862,7 @@ async function wbMapSever(id) {
   if (node.data?.color) await wbMapSetNodeStyle(node, { color: null });
   await wbMapTidyBranch(oldParent);
   renderWhiteboardNow();
-  toastAction("Cut free as its own trunk.", "Put it back", async () => {
-    try {
-      const back = await apiJson(`/whiteboard/boards/${boardId}/nodes/${id}/move`, {
-        method: "PUT",
-        body: JSON.stringify({ parent_id: oldParent }),
-      });
-      Object.assign(node, back);
-      await wbMapTidyBranch(oldParent);
-      renderWhiteboardNow();
-    } catch (err) {
-      toast(err.message || voiceLine("failed", { what: "put it back" }), true);
-    }
-  });
+  toastAction("Cut free as its own trunk.", "Put it back", () => wbUndo());
 }
 
 //: What the line into a topic says. Stored on the child, which is the end of
@@ -8242,7 +8303,13 @@ function wbSyncMapLinkRadial(child, index) {
 //: it: a cross-link is not stored on either topic, so nothing in the tree
 //: moves and nothing has to be tidied. The anchors swap with them, or a line
 //: turned around would leave from the edge its far end used to arrive at.
-async function wbMapReverseCrossLink(sketchId) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapReverseCrossLink(...args) {
+  return wbRecordGesture(wbMapReverseCrossLinkNow, args);
+}
+
+async function wbMapReverseCrossLinkNow(sketchId) {
   const info = wbMapCrossLinkInfo(sketchId);
   if (!info) return;
   const data = {
@@ -8282,7 +8349,13 @@ async function wbMapReverseCrossLink(sketchId) {
 //: this is the way back for the case it guessed wrong. The far end moves
 //: under the near one, its own branch comes with it, and the cross-link row
 //: goes: keeping it would draw a dashed line over the branch it just became.
-async function wbMapCrossLinkToBranch(sketchId) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapCrossLinkToBranch(...args) {
+  return wbRecordGesture(wbMapCrossLinkToBranchNow, args);
+}
+
+async function wbMapCrossLinkToBranchNow(sketchId) {
   const info = wbMapCrossLinkInfo(sketchId);
   if (!info) return;
   const { source, target, index } = info;
@@ -8304,7 +8377,13 @@ async function wbMapCrossLinkToBranch(sketchId) {
 
 //: Cut a cross-link: the row goes and neither topic is touched, which is the
 //: difference between this and cutting a branch (that one re-parents).
-async function wbMapCutCrossLink(sketchId) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapCutCrossLink(...args) {
+  return wbRecordGesture(wbMapCutCrossLinkNow, args);
+}
+
+async function wbMapCutCrossLinkNow(sketchId) {
   const info = wbMapCrossLinkInfo(sketchId);
   if (!info) return;
   try {
@@ -8326,7 +8405,13 @@ async function wbMapCutCrossLink(sketchId) {
 //: exactly the ring `/move`'s cycle check refuses, so the child is lifted to
 //: the parent's own parent first: after that neither is a descendant of the
 //: other and the second move is an ordinary re-parent.
-async function wbMapReverseEdge(childId) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapReverseEdge(...args) {
+  return wbRecordGesture(wbMapReverseEdgeNow, args);
+}
+
+async function wbMapReverseEdgeNow(childId) {
   const boardId = window.currentBoardId;
   const index = wbMapIndex();
   const child = index.byId.get(childId);
@@ -8448,7 +8533,13 @@ function wbSyncMapChrome() {
 //: applying it would leave the picker saying "tree-down" over a map still
 //: arranged sideways, which is a control that reports a state the screen
 //: disagrees with: the shape of bug this app has been bitten by repeatedly.
-async function wbMapSetLayout(layout) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapSetLayout(...args) {
+  return wbRecordGesture(wbMapSetLayoutNow, args);
+}
+
+async function wbMapSetLayoutNow(layout) {
   const boardId = window.currentBoardId;
   if (!boardId || !wbIsMap()) return;
   try {
@@ -8806,7 +8897,7 @@ function wbMapStudyLoad() {
 
 function wbMapStudySave() {
   try {
-    localStorage.setItem(wbMapStudyKey(), JSON.stringify(wbStudy.marks));
+    prefs.set(wbMapStudyKey(), JSON.stringify(wbStudy.marks));
   } catch {
     // storage blocked (a private window): the run still works, unremembered
   }
@@ -9413,7 +9504,8 @@ function wbMapDueRow(node, parts, set) {
         return;
       }
       try {
-        await apiJson("/reminders", { method: "POST", body: JSON.stringify({ text: wbMapLabel(node) || "Map topic", due_at: at.toISOString() }) });
+        const made = await apiJson("/reminders", { method: "POST", body: JSON.stringify({ text: wbMapLabel(node) || "Map topic", due_at: at.toISOString() }) });
+        reminderMadeUndo(made);
         toast(`Reminder set for ${wbMapDueWords(parts.due).words}, 9:00.`);
       } catch (error) {
         toast(error.message || voiceLine("failed", { what: "set that reminder" }), true);
@@ -9463,6 +9555,33 @@ function wbMapMarkerSeg(label, options, current, choose) {
     b.addEventListener("click", () => choose(value));
     row.appendChild(b);
   }
+  wrap.append(name, row);
+  return wrap;
+}
+
+//: A marker that is only on or off is one pressed-state button, not two
+//: previews (ledger 1546): it shows the mark it puts on the topic, and a press
+//: flips it. Same row, label and button class as `wbMapMarkerSeg`'s picks.
+function wbMapMarkerToggle(label, on, choose) {
+  const wrap = document.createElement("div");
+  wrap.className = "wb-map-markers-row";
+  const name = document.createElement("span");
+  name.className = "wb-map-markers-label";
+  name.textContent = label;
+  const row = document.createElement("div");
+  row.className = "wb-map-picks";
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", label);
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "ghost small icon-only wb-map-pick";
+  b.append(wbMapMarkerGlyph(label, true));
+  b.setAttribute("aria-label", `${label} ${on ? "on" : "off"}`);
+  b.title = on ? `${label} on, press to clear` : `Mark with a ${label.toLowerCase()}`;
+  b.classList.toggle("active", on);
+  b.setAttribute("aria-pressed", String(on));
+  b.addEventListener("click", () => choose(!on));
+  row.appendChild(b);
   wrap.append(name, row);
   return wrap;
 }
@@ -9554,7 +9673,7 @@ function wbMapOpenMarkers(id, anchor = null) {
         parts.priority, (value) => set({ priority: value })),
       wbMapMarkerSeg("Progress", [[null, "None"], [0, "0%"], [25, "25%"], [50, "50%"], [75, "75%"], [100, "Done"]],
         parts.progress, (value) => set({ progress: value })),
-      wbMapMarkerSeg("Flag", [[false, "Off"], [true, "On"]], parts.flag, (value) => set({ flag: value || null })),
+      wbMapMarkerToggle("Flag", Boolean(parts.flag), (value) => set({ flag: value || null })),
       wbMapDueRow(live, parts, set),
       iconRow,
       hint,
@@ -9758,6 +9877,7 @@ async function wbMapFromDocument(doc, text) {
   }
   await openWhiteboardBoard(board.id);
   await wbMapTidyFresh();
+  wbBoardMadeStep(board);
   toast(`Mapped the headings of “${doc.title || "this document"}”.`);
   return board;
 }

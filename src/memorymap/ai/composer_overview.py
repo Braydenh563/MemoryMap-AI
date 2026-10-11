@@ -38,6 +38,11 @@ _ASKS = (
     re.compile(r"^\s*(?:what(?:'s|\s+is)\s+there|is\s+there\s+anything)\s+(?:about|on)\s+(?:my\s+)?(?P<t>.+?)\s*\??$", re.I),
     re.compile(r"^\s*(?:what\s+are\s+)?(?:my\s+|some\s+|any\s+)?(?P<t>ideas\s+(?:for|about)\s+.+?)\s*\??$", re.I),
     re.compile(r"^\s*(?:all\s+)?(?:my\s+|the\s+)?(?P<t>[\w'][\w' -]{1,40}?)\s+notes\s*\??$", re.I),
+    #: "what is there about X" (decision 64): the overview, not one quoted line.
+    re.compile(
+        r"^\s*(?:what(?:'s|\s+is|s)\s+there|(?:is\s+there\s+)?anything|what\s+have\s+i\s+got)\s+(?:in\s+my\s+notes\s+)?(?:about|on)\s+(?:my\s+)?(?P<t>.+?)\s*\??$",
+        re.I,
+    ),
     re.compile(r"^\s*(?:who\s+is|who's)\s+(?P<t>[A-Z][\w'-]+)\s*\??$"),
     re.compile(r"^\s*what\s+(?:did|does|has)\s+(?P<t>[A-Z][\w'-]+)\s+(?:say|said|want|think|thinks?|tell\s+me)\b.{0,30}?\??$"),
     re.compile(r"^\s*how\s+many\s+(?:of\s+my\s+)?notes\s+(?:are\s+|do\s+i\s+have\s+)?(?:about|on|mention(?:ing)?)\s+(?P<t>.+?)\s*\??$", re.I),

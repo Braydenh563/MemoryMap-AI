@@ -111,12 +111,9 @@ let libraryKind = "all";
 //: matching", because the client filtered a list that never held it.
 let libraryTruncated = {};
 //: What the last draw showed, and when (see loadLibrary).
-let librarySignature = "";
-let libraryDrawnAt = 0;
+let librarySignature = "", libraryDrawnAt = 0;
 //: Which `renderLibrary` call is the newest (see its `updateDOM`).
-let libraryRenderGen = 0;
-let libraryBaseItems = [];
-let libraryServerQuery = "";
+let libraryRenderGen = 0, libraryBaseItems = [], libraryServerQuery = "";
 
 //: Same pattern as Notes' and the Library Documents sub-tab's own paging: 
 //: "all" (the default) leaves renderIncrementally's chunked scroll untouched;
@@ -406,8 +403,7 @@ function librarySorted(items) {
 // question finds. The hits are only read as a set of note ids here, so the
 // index holding a binned or archived note (flagged) changes nothing: the
 // filter below keeps only rows whose kind is still "note".
-let librarySemanticIds = null;
-let librarySemanticQuery = "";
+let librarySemanticIds = null, librarySemanticQuery = "";
 
 async function refreshLibrarySemantic() {
   const query = ($("library-search")?.value || "").trim();
@@ -448,8 +444,7 @@ async function refreshLibrarySemantic() {
 // so the count of columns at every width is what it was. One column in Rows,
 // and below 600, where the phone band has always drawn a single column.
 const LIBRARY_CARD_MIN_REM = 17;
-let libraryColumnsShown = 1;
-let libraryColumnsObserver = null;
+let libraryColumnsShown = 1, libraryColumnsObserver = null;
 
 function libraryColumnCount(grid) {
   if (libraryView() === "list" || window.innerWidth < 600) return 1;
@@ -764,10 +759,11 @@ function libraryActions(item) {
         item.pinned ? "ph:push-pin-slash Unpin" : "ph:push-pin Pin",
         item.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
         async () => {
-          await apiJson(`/conversations/${item.id}/pin`, {
+          const pinned = await apiJson(`/conversations/${item.id}/pin`, {
             method: "PUT",
             body: JSON.stringify({ pinned: !item.pinned }),
           }).catch((e) => toast(e.message, true));
+          if (pinned) chatWriteRecord("chatPinUndo", item.id, !item.pinned);
           reload();
         }
       ),
@@ -810,10 +806,7 @@ function libraryActions(item) {
       makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
         const next = await promptDialog("Rename this document:", item.title);
         if (!next) return;
-        await apiJson(`/documents/${item.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ title: next }),
-        }).catch((e) => toast(e.message, true));
+        await renameDocumentWithUndo(item, next).catch((e) => toast(e.message, true));
         reload();
       }),
       makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
@@ -833,10 +826,7 @@ function libraryActions(item) {
         remindAbout({ title: item.title, documentId: item.id })
       ),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
-        await apiJson(`/documents/${item.id}/archive`, { method: "PUT" }).catch((e) =>
-          toast(e.message, true)
-        );
-        toast("Archived.");
+        await archiveDocumentWithUndo(item).catch((e) => toast(e.message, true));
         reload();
       }),
       makeMenuItem("ph:trash Delete", "Delete this document", async () => {
@@ -857,7 +847,10 @@ function libraryActions(item) {
     const bin = binRoutes(item);
     return [
       makeMenuItem("ph:arrow-u-up-left Restore", `Put this ${bin.noun} back`, async () => {
-        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        const back = await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        if (back && item.subtype !== "reading") {
+          pushBinPairUndo(`Restored “${item.title}” from the bin`, bin.restore.replace(/\/restore$/, ""), bin.restore, true, () => Promise.all([loadLibrary(), bin.reload()]));
+        }
         toast("Restored.");
         reload();
         bin.reload();
@@ -887,7 +880,11 @@ function libraryActions(item) {
         "ph:arrow-u-up-left Unarchive",
         `Bring this ${target.noun} back into your notebook`,
         async () => {
-          await apiJson(target.url, { method: target.method }).catch((e) => toast(e.message, true));
+          const done = await apiJson(target.url, { method: target.method }).catch((e) => toast(e.message, true));
+          if (done !== undefined) {
+            const archive = target.url.replace(/unarchive$/, "archive");
+            pushRoutePairUndo(`Unarchived a ${target.noun}`, [archive, target.method], [target.url, target.method], () => Promise.all([loadLibrary(), target.reload()]));
+          }
           toast("Unarchived.");
           reload();
           target.reload();
@@ -919,9 +916,12 @@ function libraryActions(item) {
         downloadFromApi(`/entries/${item.id}/export.md`, "note.md");
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not the bin", async () => {
-        await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
+        const archived = await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
           toast(e.message, true)
         );
+        if (archived !== undefined) {
+          pushRoutePairUndo("Archived a note", [`/entries/${item.id}/unarchive`, "POST"], [`/entries/${item.id}/archive`, "POST"], () => Promise.all([loadLibrary(), refreshEntries([item.id])]));
+        }
         toast("Archived.");
         reload();
         loadEntries();
@@ -949,10 +949,10 @@ function libraryActions(item) {
           loadEntries();
         };
         const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
-        toastAction("Moved to the bin.", "Undo", async () => {
+        toastAction(`Moved ${toastName(item.title, "the note")} to the bin.`, "Undo", async () => {
           settleUndoFromToast(action);
           await restoreIt();
-          toast("Note restored.");
+          toast(`Restored ${toastName(item.title, "the note")}.`);
         }, { also: GO_TO_BIN });
       }),
     ];
@@ -962,23 +962,14 @@ function libraryActions(item) {
       makeMenuItem("ph:pencil-simple Rename", "Rename this tag everywhere (merge if it exists)", async () => {
         const next = await promptDialog(`Rename tag “${item.title}” to:`, item.title);
         if (!next || next === item.title) return;
-        const result = await apiJson("/tags/rename", {
-          method: "POST",
-          body: JSON.stringify({ old: item.title, new: next }),
-        }).catch((e) => {
-          toast(e.message, true);
-          return null;
-        });
-        if (result) toast(`Renamed on ${result.changed} note${result.changed === 1 ? "" : "s"}.`);
+        if (!(await ensureModule("tagManager"))) return;
+        await runTagEdit(`Renamed “${item.title}” to “${next}”`, "/tags/rename", { old: item.title, new: next }, { [item.title]: next });
         reload();
         loadEntries();
       }),
       makeMenuItem("ph:trash Remove everywhere", "Take this tag off every note", async () => {
-        if (!(await confirmDialog(`Remove the tag “${item.title}” from every note?\n\nThe notes are untouched.`))) return;
-        await apiJson("/tags/delete", {
-          method: "POST",
-          body: JSON.stringify({ name: item.title }),
-        }).catch((e) => toast(e.message, true));
+        if (!(await ensureModule("tagManager"))) return;
+        await removeTagsEverywhere([item.title]);
         reload();
         loadEntries();
       }),
@@ -1013,8 +1004,9 @@ function libraryActions(item) {
       // (`library-bulk-delete` already has a `file` branch), but nothing
       // offered it from the one place someone looks first.
       makeMenuItem("ph:trash Delete", "Remove this file permanently", async () => {
-        if (!(await confirmDialog(`Delete "${item.title}"?\n\nThis cannot be undone.`))) return;
-        await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+        if (!(await confirmDialog(`Delete "${item.title}"?\n\nIt moves out of the Library; Undo brings it back.`))) return;
+        const gone = await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+        if (gone) pushTokenUndo(`Deleted “${item.title}”`, [{ del: [`/files/${item.id}`, "DELETE"], restore: "/files/restore", token: gone.undo_token }], reload);
         toast("Deleted.");
         reload();
       }),
@@ -1055,7 +1047,8 @@ async function linkNoteFromLibrary(item) {
     return;
   }
   try {
-    await apiJson(`/entries/${item.id}/links`, { method: "POST", body: JSON.stringify({ target_id: other.id }) });
+    const made = await apiJson(`/entries/${item.id}/links`, { method: "POST", body: JSON.stringify({ target_id: other.id }) });
+    pushLinkCreateUndo(item.id, other.id, made, { target_id: other.id });
   } catch (error) {
     toast(error.message, true);
     return;
@@ -1441,7 +1434,7 @@ function libraryCard(item) {
   const when = document.createElement("span");
   when.className = "library-card-when";
   when.textContent = relativeTime(item.updated_at);
-  when.title = new Date(item.updated_at).toLocaleString();
+  when.title = whenText(item.updated_at);
   foot.append(detail, when);
   card.appendChild(foot);
 
@@ -1566,7 +1559,10 @@ function openLibraryItem(item) {
       const bin = binRoutes(item);
       confirmDialog(`“${item.title}” is in the bin. Restore it?`, { confirmLabel: "Restore" }).then(async (yes) => {
         if (!yes) return;
-        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        const back = await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        if (back && item.subtype !== "reading") {
+          pushBinPairUndo(`Restored “${item.title}” from the bin`, bin.restore.replace(/\/restore$/, ""), bin.restore, true, () => Promise.all([loadLibrary(), bin.reload()]));
+        }
         loadLibrary();
         bin.reload();
         if (item.subtype === "document") openDocumentFromNote(item.id);
@@ -1629,6 +1625,7 @@ $("binned-restore").addEventListener("click", async () => {
   if (!id) return;
   try {
     await apiJson(`/entries/${id}/restore`, { method: "POST" });
+    pushBinPairUndo("Restored a note from the bin", `/entries/${id}`, `/entries/${id}/restore`, true, () => Promise.all([refreshEntries([id]), loadLibrary()]));
     toast("Restored.");
   } catch (error) {
     toast(voiceLine("failed", { what: "restore that note", why: error.message }), true);
@@ -1785,7 +1782,7 @@ const LIBRARY_SORT_KEY = "library-sort";
   if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
 })();
 $("library-sort").addEventListener("change", (event) => {
-  try { localStorage.setItem(LIBRARY_SORT_KEY, event.target.value); } catch { /* a private window */ }
+  try { prefs.set(LIBRARY_SORT_KEY, event.target.value); } catch { /* a private window */ }
   libraryCurrentPage = 1;
   renderLibrary();
 });
@@ -1804,7 +1801,7 @@ $("library-show-binned").addEventListener("change", () => {
 });
 for (const button of document.querySelectorAll("#library-view button, #library-boards-view button")) {
   button.addEventListener("click", () => {
-    localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);
+    prefs.set(LIBRARY_VIEW_KEY, button.dataset.libraryView);
     renderLibraryView();
     renderLibrary();
     //: The boards gallery lives in whiteboard.js and renders from its own
@@ -1870,13 +1867,23 @@ $("library-bulk-restore").addEventListener("click", async () => {
   // every item *attempted*: a per-item 404/500 was silently swallowed and
   // still counted as a success. Track real outcomes instead.
   let restored = 0;
+  const back = [];
   for (const item of chosen) {
     try {
       await apiJson(binRoutes(item).restore, { method: "POST" });
       restored++;
+      if (item.subtype !== "reading") back.push(item);
     } catch {
       // counted below
     }
+  }
+  if (back.length) {
+    pushRoutePairUndo(
+      `Restored ${back.length} item${back.length === 1 ? "" : "s"} from the bin`,
+      back.map((item) => [binRoutes(item).restore.replace(/\/restore$/, ""), "DELETE"]),
+      back.map((item) => [binRoutes(item).restore, "POST"]),
+      () => Promise.all([loadLibrary(), loadEntries(), loadReminders()])
+    );
   }
   if (restored) toast(`Restored ${restored} item${restored === 1 ? "" : "s"}.`);
   const failed = chosen.length - restored;
@@ -1903,6 +1910,9 @@ $("library-bulk-delete").addEventListener("click", async () => {
   // be swallowed by `.catch(() => {})` and still counted toward the
   // unconditional "Deleted N items." toast. Track what actually succeeded.
   let deleted = 0;
+  //: What each recoverable delete needs to come back (INBOX 898): a note or a
+  //: document its bin's restore, a chat the row its DELETE answered with.
+  const comeBack = [];
   for (const item of chosen) {
     const route =
       item.kind === "archived"
@@ -1918,11 +1928,34 @@ $("library-bulk-delete").addEventListener("click", async () => {
                 : null;
     if (!route) continue;
     try {
-      await apiJson(route[0], { method: route[1] });
+      const answer = await apiJson(route[0], { method: route[1] });
       deleted++;
+      if (item.kind === "note") comeBack.push({ route, back: [`/entries/${item.id}/restore`, "POST"] });
+      else if (item.kind === "document") comeBack.push({ route, back: [`/documents/${item.id}/restore`, "POST"] });
+      else if (item.kind === "chat" && answer?.restore) comeBack.push({ route, chat: answer.restore });
     } catch {
       // counted below
     }
+  }
+  if (comeBack.length) {
+    const live = comeBack.map((c) => ({ ...c }));
+    pushUndo(
+      `Deleted ${comeBack.length} item${comeBack.length === 1 ? "" : "s"} from the Library`,
+      async () => {
+        for (const c of live) {
+          if (c.chat) await apiJson("/conversations/restore", { method: "POST", body: JSON.stringify(c.chat) });
+          else await apiJson(c.back[0], { method: c.back[1] });
+        }
+        await Promise.all([loadLibrary(), loadEntries()]);
+      },
+      async () => {
+        for (const c of live) {
+          const answer = await apiJson(c.route[0], { method: c.route[1] });
+          if (c.chat && answer?.restore) c.chat = answer.restore;
+        }
+        await Promise.all([loadLibrary(), loadEntries()]);
+      }
+    );
   }
   if (deleted) toast(`Deleted ${deleted} item${deleted === 1 ? "" : "s"}.`);
   const failed = chosen.length - deleted;
@@ -2353,7 +2386,7 @@ function skillCard(skill, lastRun) {
     const outcome = (lastRun.detail || "").split(", ").slice(1).join(", ");
     const glyph = /^completed/.test(outcome) ? "check-circle" : /^stopped/.test(outcome) ? "warning" : "pause-circle";
     when.dataset.state = glyph === "check-circle" ? "ok" : glyph === "warning" ? "stopped" : "paused";
-    when.title = new Date(lastRun.created_at).toLocaleString();
+    when.title = whenText(lastRun.created_at);
     setLabel(when, `ph:${glyph} Ran ${relativeTime(lastRun.created_at)}${outcome ? `: ${outcome}` : ""}`);
   } else {
     setLabel(when, "ph:clock-countdown Never run");
@@ -2615,7 +2648,7 @@ onDomReady(() => {
     sort.value = skillSort();
     sort.addEventListener("change", () => {
       try {
-        localStorage.setItem(SKILL_SORT_KEY, sort.value);
+        prefs.set(SKILL_SORT_KEY, sort.value);
       } catch {
         // Kept for this visit only.
       }
@@ -2669,7 +2702,7 @@ async function renderSkillsDashboard() {
   const workersHint = document.createElement("p");
   workersHint.className = "muted text-sm";
   workersHint.textContent =
-    "Lets Atlas work through your notebook on its own, on a schedule you set in Settings. Everything it changes is listed there afterwards and can be undone one item at a time.";
+    "Atlas works through your notebook on a schedule set in Settings. Each change is listed there and undoes on its own.";
   const workerToggle = (id, key, label, on) => {
     const wrap = document.createElement("label");
     // The app's own pill toggle, not the `.switch`/`.slider` markup that used
@@ -2837,7 +2870,7 @@ async function renderSkillLogs() {
     action.textContent = (log.detail || "").split(", ")[0] || log.action;
     const when = document.createElement("span");
     when.className = "muted text-sm";
-    when.textContent = new Date(log.created_at).toLocaleString();
+    when.textContent = whenText(log.created_at);
     head.append(action, when);
 
     const detail = document.createElement("div");
@@ -3060,7 +3093,7 @@ onDomReady(() => {
   if (!select) return;
   select.value = libraryDocSort();
   select.addEventListener("change", () => {
-    localStorage.setItem(LIBRARY_DOC_SORT_KEY, select.value);
+    prefs.set(LIBRARY_DOC_SORT_KEY, select.value);
     //: Back to page one: staying on page four of a list that has just been
     //: reordered shows a slice of rows nobody asked to look at.
     libraryDocsCurrentPage = 1;
@@ -3082,8 +3115,9 @@ async function importLibraryDocuments(files) {
     try {
       //: A Word file is read here by Mammoth (documents-word.js, Brief 42),
       //: which keeps its headings, lists and tables; the server's extraction
-      //: keeps only the words.
-      const word = /\.docx$/i.test(file.name) && (await lazyScript("/js/documents-word.js"))
+      //: keeps only the words. One with tracked changes goes to the server,
+      //: whose reader keeps them as suggestions (`docWordHasRevisions`).
+      const word = /\.docx$/i.test(file.name) && (await lazyScript("/js/documents-word.js")) && !(await docWordHasRevisions(file))
         ? await docWordImport(file)
         : null;
       const document_ = word
@@ -3099,6 +3133,7 @@ async function importLibraryDocuments(files) {
     }
   }
   if (!made.length) return;
+  offerCreatedDocsUndo(made);
   await renderLibraryDocuments();
   // The list is already on screen and redrawn, so "Show them" would be a
   // button that does nothing; only a single import has somewhere to go.
@@ -3326,10 +3361,7 @@ async function renderLibraryDocuments() {
         makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
           const next = await promptDialog("Rename this document:", doc.title || "");
           if (!next) return;
-          await apiJson(`/documents/${doc.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ title: next }),
-          }).catch((e) => toast(e.message, true));
+          await renameDocumentWithUndo(doc, next).catch((e) => toast(e.message, true));
           renderLibraryDocuments();
         }),
         makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
@@ -3395,13 +3427,23 @@ $("library-docs-bulk-delete")?.addEventListener("click", async () => {
   );
   if (!ok) return;
   let deleted = 0;
+  const gone = [];
   for (const id of ids) {
     try {
       await apiJson(`/documents/${id}`, { method: "DELETE" });
       deleted++;
+      gone.push(id);
     } catch {
       // counted below, same as the "All" view's own bulk delete
     }
+  }
+  if (gone.length) {
+    pushRoutePairUndo(
+      `Deleted ${gone.length} document${gone.length === 1 ? "" : "s"}`,
+      gone.map((id) => [`/documents/${id}/restore`, "POST"]),
+      gone.map((id) => [`/documents/${id}`, "DELETE"]),
+      () => renderLibraryDocuments()
+    );
   }
   libraryDocsSelection.clear();
   if (deleted) toast(`Deleted ${deleted} document${deleted === 1 ? "" : "s"}.`);
@@ -3439,6 +3481,12 @@ let libraryImagesCache = [];
 //: and comparing those would make this test always fail, which is the bug
 //: again with extra steps.
 let libraryImagesSignature = "";
+//: INBOX 852: a render only paints if it is still the newest (a press that
+//: lands while an older fetch is out would otherwise let the older answer
+//: redraw the grid after the newer one), and a sub-tab switch repaints from
+//: the cache at once when there is one, so the previous kind's tiles are never
+//: on screen under the new heading while the fetch is out.
+let libraryImagesGen = 0, libraryImagesLoaded = false;
 function libraryImagesFingerprint(rows) {
   return JSON.stringify(
     (rows || []).map((row) => [
@@ -3554,7 +3602,7 @@ function applyLibraryMediaView() {
 
 function setLibraryMediaView(mode) {
   libraryMediaView = mode === "type" ? "type" : "preview";
-  localStorage.setItem(LIBRARY_MEDIA_VIEW_KEY, libraryMediaView);
+  prefs.set(LIBRARY_MEDIA_VIEW_KEY, libraryMediaView);
   applyLibraryMediaView();
 }
 
@@ -3801,13 +3849,10 @@ const ocrUi = {
   //: Which file `ocrWorkspacePages` was counted for (`ocrBuildPageRail`).
   pagesFor: "",
 };
-let ocrWorkspaceImages = [];
-let ocrWorkspaceCurrent = null;
-let ocrWorkspaceRegions = [];
+let ocrWorkspaceImages = [], ocrWorkspaceCurrent = null, ocrWorkspaceRegions = [];
 //: Which page of a multi-page document is on the stage, and how many there
 //: are. 0/1 for an image, which is a one-page document with no rail.
-let ocrWorkspacePage = 0;
-let ocrWorkspacePages = 1;
+let ocrWorkspacePage = 0, ocrWorkspacePages = 1;
 //: **Whether that count is a fact or a placeholder.** `ocrWorkspacePages`
 //: starts at 1 for a document of unknown length, which is indistinguishable
 //: from a document that really has one page, and the two want opposite
@@ -4579,16 +4624,18 @@ function ocrSelectImage() {
   return ocrSelectStage()?.querySelector("img") || null;
 }
 
-//: Keep the two overlays together. `#ocr-boxes` is moved into the current
+//: Keep the overlays together. `#ocr-boxes` is moved into the current
 //: page's stage in continuous mode (see `ocrLoadPage`); the select layer has
 //: to follow it or a drag would be measured against a stage that is not on
-//: screen: and `ocrTearDownScroll` has to bring both home again.
+//: screen: and `ocrTearDownScroll` has to bring them home again. Live Text
+//: goes too (OPEN 1068): it is the current page's words, and it stayed on the
+//: single-page stage, so the scroll layout had none.
 function ocrMoveOverlays(target) {
   if (!target) return;
-  const boxes = $("ocr-boxes");
-  const select = $("ocr-select");
-  if (select && select.parentElement !== target) target.appendChild(select);
-  if (boxes && boxes.parentElement !== target) target.appendChild(boxes);
+  for (const id of ["ocr-select", "ocr-boxes", "ocr-live-text"]) {
+    const layer = $(id);
+    if (layer && layer.parentElement !== target) target.appendChild(layer);
+  }
 }
 
 function ocrClearRegionSelection() {
@@ -5957,8 +6004,7 @@ const OCR_VIEW_KEY = "memorymap.ocr.view";
 let ocrViewMode = "page";
 //: Set while the code is doing the scrolling, so the observer that watches
 //: which page is on screen does not answer its own scroll by scrolling again.
-let ocrScrollSyncing = false;
-let ocrScrollObserver = null;
+let ocrScrollSyncing = false, ocrScrollObserver = null;
 
 function ocrStoredViewMode() {
   try {
@@ -5988,7 +6034,7 @@ function ocrSyncViewButtons(effective = ocrViewMode) {
 function ocrSetViewMode(mode, image, opts = {}) {
   ocrViewMode = mode === "scroll" ? "scroll" : "page";
   try {
-    localStorage.setItem(OCR_VIEW_KEY, ocrViewMode);
+    prefs.set(OCR_VIEW_KEY, ocrViewMode);
   } catch {
     //: See ocrStoredViewMode: not remembering is not a failure worth showing.
   }
@@ -6372,7 +6418,10 @@ function ocrRefusedPress(button) {
   if (button?.getAttribute("aria-disabled") !== "true") return false;
   toast(button.title, "info");
   const menu = $("ocr-reader-menu");
-  if (menu && button.id !== "ocr-region-describe") menu.open = true;
+  //: After this press has bubbled to the document: navigation.js closes every
+  //: `details.dock-menu` the press landed outside of, which shut this one the
+  //: instant it opened (ocrflow.js, 2026-10-11).
+  if (menu && button.id !== "ocr-region-describe") setTimeout(() => { menu.open = true; }, 0);
   return true;
 }
 
@@ -6504,19 +6553,57 @@ function ocrRevealRegionsForPage(page) {
   }, 300);
 }
 
+//: **Every match is marked in the text** (INBOX 853, the owner: "when
+//: searching in the ocr workspace extracted text, I feel it should highlight
+//: the key words"). The filter kept the rows that held the word and said
+//: "3 of 8 rows"; now each occurrence in a region's words is a `<mark>` on
+//: the app's one find-highlight recipe (`mark.global-find-hit`), the current
+//: one stronger (`.global-find-current`) and scrolled into view, and the count
+//: is of occurrences: "3 of 15". Enter and Shift+Enter, or the two buttons
+//: beside the count, step through them. A region's words are editable, so the
+//: marks are taken out by writing its text back (never while it is being
+//: typed in: only the find box's own input, a step or a redraw gets here).
+let ocrFindHits = [], ocrFindCurrent = -1;
+
+function ocrFindMarkRegion(text, query) {
+  if (text.querySelector("mark.global-find-hit")) text.textContent = text.textContent;
+  if (!query || text.classList.contains("ocr-region-text-empty")) return [];
+  const source = text.textContent;
+  const lower = source.toLowerCase();
+  const marks = [];
+  const frag = document.createDocumentFragment();
+  let at = 0;
+  for (let hit = lower.indexOf(query); hit !== -1; hit = lower.indexOf(query, at)) {
+    if (hit > at) frag.appendChild(document.createTextNode(source.slice(at, hit)));
+    const mark = document.createElement("mark");
+    mark.className = "global-find-hit";
+    mark.textContent = source.slice(hit, hit + query.length);
+    frag.appendChild(mark);
+    marks.push(mark);
+    at = hit + query.length;
+  }
+  if (!marks.length) return [];
+  if (at < source.length) frag.appendChild(document.createTextNode(source.slice(at)));
+  text.replaceChildren(frag);
+  return marks;
+}
+
 function ocrApplyFind() {
   const query = ($("ocr-find")?.value || "").trim().toLowerCase();
   const rows = [...document.querySelectorAll("#ocr-region-list .ocr-region")];
-  let hits = 0;
+  ocrFindHits = [];
   for (const row of rows) {
-    const text = (row.textContent || "").toLowerCase();
-    const match = !query || text.includes(query);
+    const text = row.querySelector(".ocr-region-text");
+    const marks = text ? ocrFindMarkRegion(text, query) : [];
+    const match = !query || marks.length > 0;
     row.classList.toggle("hidden", !match);
     row.classList.toggle("is-found", Boolean(query) && match);
-    if (query && match) hits += 1;
+    ocrFindHits.push(...marks);
   }
-  const count = $("ocr-find-count");
-  if (count) count.textContent = query ? `${hits} of ${rows.length}` : "";
+  //: Stays on the match the person was at when the same word is still found
+  //: (a redraw after a page load), else starts at the first.
+  ocrFindCurrent = ocrFindHits.length ? 0 : -1;
+  ocrFindShowCurrent(false);
   //: The boxes on the picture follow the filter, so "find" answers *where* as
   //: well as *what*: the one thing this workspace can do that a text search
   //: over a transcription cannot.
@@ -6526,6 +6613,41 @@ function ocrApplyFind() {
     );
     box.classList.toggle("is-dimmed", Boolean(query) && row?.classList.contains("hidden"));
   }
+}
+
+function ocrFindShowCurrent(scroll) {
+  const query = ($("ocr-find")?.value || "").trim();
+  const count = $("ocr-find-count");
+  for (const mark of ocrFindHits) mark.classList.remove("global-find-current");
+  const current = ocrFindHits[ocrFindCurrent];
+  if (count) {
+    count.textContent = !query ? "" : current ? `${ocrFindCurrent + 1} of ${ocrFindHits.length}` : "No matches";
+  }
+  for (const id of ["ocr-find-prev", "ocr-find-next"]) {
+    const button = $(id);
+    if (button) button.disabled = ocrFindHits.length < 2;
+    button?.classList.toggle("hidden", !query);
+  }
+  if (!current) return;
+  current.classList.add("global-find-current");
+  if (!scroll) return;
+  //: The nearest scrolling ancestor's own scrollTop, not `scrollIntoView`,
+  //: which walks every scroller up the page (DESIGN.md, a list that says
+  //: where you are).
+  let box = current.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) {
+    box = box.parentElement;
+  }
+  if (!box) return;
+  const at = current.getBoundingClientRect();
+  const frame = box.getBoundingClientRect();
+  box.scrollTop += at.top - frame.top - (frame.height - at.height) / 2;
+}
+
+function ocrFindStep(delta) {
+  if (!ocrFindHits.length) return;
+  ocrFindCurrent = (ocrFindCurrent + delta + ocrFindHits.length) % ocrFindHits.length;
+  ocrFindShowCurrent(true);
 }
 
 //: Reading a *picture*, as opposed to a page of a document. Deliberately the
@@ -7131,7 +7253,17 @@ onDomReady(() => {
   }
   $("ocr-prev-page")?.addEventListener("click", () => ocrStepPage(-1));
   $("ocr-next-page")?.addEventListener("click", () => ocrStepPage(1));
-  $("ocr-find")?.addEventListener("input", () => ocrApplyFind());
+  $("ocr-find")?.addEventListener("input", () => {
+    ocrApplyFind();
+    ocrFindShowCurrent(true);
+  });
+  $("ocr-find")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    ocrFindStep(event.shiftKey ? -1 : 1);
+  });
+  $("ocr-find-prev")?.addEventListener("click", () => ocrFindStep(-1));
+  $("ocr-find-next")?.addEventListener("click", () => ocrFindStep(1));
   //: A reader is a claim about *who read this*, so switching it clears the
   //: reading rather than leaving one reader's words under the other's name.
   $("ocr-reader")?.addEventListener("change", () => {
@@ -7666,8 +7798,9 @@ onDomReady(() => {
       const body = `${heading}\n\n${picture}${text}`;
       const created = await apiJson("/entries", {
         method: "POST",
-        body: JSON.stringify({ content: body }),
+        body: JSON.stringify({ content: body, defer_filing: true }),
       });
+      pushEntryCreateUndo(created, "Saved a picture's text as a note");
       toast("Saved as a note.");
       $("ocr-workspace").classList.add("hidden");
       flashEntry(created.id);
@@ -8038,6 +8171,18 @@ function mediaRowDeleteEndpoint(image) {
   return `/media/${image.id}`;
 }
 
+//: A deleted Library file in the undo kit's shape (INBOX 898): the server kept
+//: its row and bytes under `gone.undo_token`.
+function libraryMediaBinItem(image, endpoint, gone) {
+  return { del: [endpoint, "DELETE"], restore: `${image._isAttachment ? "/files" : "/media"}/restore`, token: gone.undo_token };
+}
+
+//: What shows the Library's files, drawn again after a delete's Undo or Redo.
+const libraryMediaRepaint = (notesToo) => async () => {
+  await renderLibraryImagesGallery();
+  if (notesToo) loadEntries().catch(() => {});
+};
+
 function syncLibraryMediaSelectbar() {
   const bar = document.getElementById("library-media-selectbar");
   const count = document.getElementById("library-media-selected-count");
@@ -8068,14 +8213,17 @@ async function bulkDeleteLibraryMedia() {
     },
   );
   if (!answer.ok) return;
+  const kept = [];
   for (const image of rows) {
     const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
-    await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
+    const gone = await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
       toast(err.message, true)
     );
+    if (gone) kept.push(libraryMediaBinItem(image, endpoint, gone));
     const idx = libraryImagesCache.indexOf(image);
     if (idx !== -1) libraryImagesCache.splice(idx, 1);
   }
+  pushTokenUndo(rows.length === 1 ? `Deleted “${rows[0].original_name}”` : `Deleted ${rows.length} files`, kept, libraryMediaRepaint(answer.checked));
   libraryMediaSelection.clear();
   syncLibraryMediaSelectbar();
   filterLibraryImagesGallery();
@@ -8091,6 +8239,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   if (!grid) return;
+  const gen = ++libraryImagesGen;
   //: The grid is rebuilt from scratch on every render, so the view class has
   //: to be re-applied with it, the toggle is a property of the list, not of
   //: the tiles that happen to be in it right now.
@@ -8110,6 +8259,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   //: back when the gallery really is empty.
   if (grid.querySelector(":scope > .skeleton")) empty?.classList.add("hidden");
   const images = await apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => null);
+  if (gen !== libraryImagesGen) return;
   // A note's own attached file (`Attachment`, not `MediaUpload`) never came
   // from `/media` at all: reported directly, twice: "a pdf I uplaoded to a
   // note doesnt show in the libary" and "my uploaded pdf file isnt shown in
@@ -8125,6 +8275,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   // `/media/{name}.ext` row: would silently call every attachment a "file"
   // regardless of its real mime.
   const attachments = await apiPagedList("/files/gallery", 200, { silent: true }).catch(() => []);
+  if (gen !== libraryImagesGen) return;
   clearSkeletons(grid);
   // **These two loops are load-bearing and were once silently lost.**
   // Reported: "none of the images and sketches are in the images library
@@ -8149,6 +8300,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
     item.vision_ocr_text = item.vision_ocr_text || "";
   }
   libraryImagesCache = [...(images || []), ...(attachments || [])];
+  libraryImagesLoaded = true;
   const fingerprint = libraryImagesFingerprint(libraryImagesCache);
   const unchanged = fingerprint === libraryImagesSignature;
   libraryImagesSignature = fingerprint;
@@ -8206,7 +8358,7 @@ onDomReady(() => {
   if (select) {
     select.value = libraryMediaSort();
     select.addEventListener("change", () => {
-      localStorage.setItem(LIBRARY_MEDIA_SORT_KEY, select.value);
+      prefs.set(LIBRARY_MEDIA_SORT_KEY, select.value);
       filterLibraryImagesGallery();
     });
   }
@@ -8520,9 +8672,10 @@ function filterLibraryImagesGallery() {
       // would either 404 or, worse, delete an unrelated MediaUpload row
       // that happened to share the same numeric id.
       const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
-      await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
+      const gone = await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
         toast(err.message, true)
       );
+      if (gone) pushTokenUndo(`Deleted “${image.original_name}”`, [libraryMediaBinItem(image, endpoint, gone)], libraryMediaRepaint(answer.checked));
       //: The notes on screen are now out of date by exactly the edit the
       //: server just made, so they are refetched rather than left showing a
       //: picture that is gone from both the disk and the note.
@@ -8619,6 +8772,17 @@ function filterLibraryImagesGallery() {
           const savedName = image._isAttachment
             ? (saved.attachments || []).find((a) => a.id === image.id)?.filename || next
             : saved.original_name;
+          const wasName = image.original_name;
+          if (savedName !== wasName) {
+            pushRequestUndo(
+              "Renamed a file",
+              image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`,
+              "PUT",
+              image._isAttachment ? { filename: wasName } : { original_name: wasName },
+              image._isAttachment ? { filename: savedName } : { original_name: savedName },
+              () => renderLibraryImagesGallery()
+            );
+          }
           image.original_name = savedName;
           cap.replaceChildren(document.createTextNode(savedName));
           img.alt = savedName;
@@ -9916,7 +10080,16 @@ onDomReady(() => {
         librarySectionShownAt[targetId] = now;
         if (targetId === "library-view-media") {
           setLibraryMediaKind(btn.dataset.mediaKind);
-          renderLibraryImagesGallery();
+          //: Images and Files share one grid: with the cache in hand the new
+          //: kind is drawn in this same frame and the fetch only redraws when
+          //: the answer differs, so the other kind's tiles (or placeholders)
+          //: never show under this heading (INBOX 852).
+          if (libraryImagesLoaded) {
+            filterLibraryImagesGallery();
+            renderLibraryImagesGallery({ ifUnchanged: "skip" });
+          } else {
+            renderLibraryImagesGallery();
+          }
           startLibraryImagesPoll();
         } else if (fresh) {
           stopLibraryImagesPoll();
@@ -10004,7 +10177,7 @@ onDomReady(() => {
     docsPageSizeSelect.value = libraryDocsPageSize;
     docsPageSizeSelect.addEventListener("change", (e) => {
       libraryDocsPageSize = e.target.value;
-      localStorage.setItem("library-docs-page-size", libraryDocsPageSize);
+      prefs.set("library-docs-page-size", libraryDocsPageSize);
       libraryDocsCurrentPage = 1;
       renderLibraryDocuments();
     });
@@ -10023,7 +10196,7 @@ onDomReady(() => {
     libraryPageSizeSelect.value = libraryPageSize;
     libraryPageSizeSelect.addEventListener("change", (e) => {
       libraryPageSize = e.target.value;
-      localStorage.setItem("library-page-size", libraryPageSize);
+      prefs.set("library-page-size", libraryPageSize);
       libraryCurrentPage = 1;
       renderLibrary();
     });
@@ -10060,7 +10233,8 @@ onDomReady(() => {
         //: decoration: a new row takes its space from it, and this upload,
         //: hand-rolled without it, once landed in "default" rather than the
         //: space being worked in. A refusal throws the server's sentence.
-        await api.upload("/media/upload", form);
+        const made = await (await api.upload("/media/upload", form)).json().catch(() => null);
+        pushUploadUndo(`Uploaded “${file.name}”`, "/media", made, renderLibraryImagesGallery);
         uploaded++;
       } catch (error) {
         toast(`${file.name}: ${error.message}`, true);
@@ -10093,6 +10267,22 @@ onDomReady(() => {
       groupInput.value = "";
       if ($("bookmark-note-input")) $("bookmark-note-input").value = "";
       urlInput.focus();
+      if (!created.duplicate_of && created.id != null) {
+        let liveId = created.id;
+        const body = { url, title: created.title || "", group_name: created.group_name || "", note: created.note || "" };
+        pushUndo(
+          `Added the bookmark “${clipText(created.title || url, 40)}”`,
+          async () => {
+            await apiJson(`/bookmarks/${liveId}`, { method: "DELETE" });
+            await renderBookmarks();
+          },
+          async () => {
+            const again = await apiJson("/bookmarks", { method: "POST", body: JSON.stringify(body) });
+            liveId = again.id ?? liveId;
+            await renderBookmarks();
+          }
+        );
+      }
       if (created.duplicate_of) {
         toast(`Saved: you already had this bookmark (${created.title || created.url}).`);
       }
@@ -10152,7 +10342,7 @@ onDomReady(() => {
     contentsGroup.addEventListener("change", () => {
       contentsMode = CONTENTS_GROUPS.includes(contentsGroup.value) ? contentsGroup.value : "category";
       try {
-        localStorage.setItem(CONTENTS_GROUP_KEY, contentsMode);
+        prefs.set(CONTENTS_GROUP_KEY, contentsMode);
       } catch {
         // A blocked storage only forgets the choice.
       }
@@ -10554,20 +10744,41 @@ async function bulkDeleteLibraryLinks() {
 //: body of a `PUT /bookmarks/{id}`; the selection survives (it is pruned by
 //: `renderBookmarks`), so "Move to group" then "Mark read" is two presses, not
 //: a re-select.
+//: Bookmarks written in bulk are one step on the stack (INBOX 898): Undo puts
+//: each one's old fields back, Redo writes the new ones again.
+function pushBookmarksPutUndo(label, items) {
+  const putEach = async (key) => {
+    for (const item of items) {
+      await apiJson(`/bookmarks/${item.id}`, { method: "PUT", body: JSON.stringify(item[key]) }).catch((e) => toast(e.message, true));
+    }
+    await renderBookmarks();
+  };
+  return pushUndo(label, () => putEach("before"), () => putEach("after"));
+}
+
 async function bulkUpdateLibraryLinks(changes, done) {
   const links = [...libraryLinksSelection.values()];
   if (!links.length) return;
   let changed = 0;
+  const written = [];
   for (const bookmark of links) {
     try {
       await apiJson(`/bookmarks/${bookmark.id}`, { method: "PUT", body: JSON.stringify(changes) });
+      written.push({
+        id: bookmark.id,
+        before: Object.fromEntries(Object.keys(changes).map((key) => [key, bookmark[key] ?? (typeof changes[key] === "boolean" ? false : "")])),
+        after: changes,
+      });
       changed++;
     } catch (err) {
       toast(err.message, true);
     }
   }
   libraryLinksSelection.clear();
-  if (changed) toast(done(changed));
+  if (changed) {
+    toast(done(changed));
+    pushBookmarksPutUndo(`Changed ${changed} bookmark${changed === 1 ? "" : "s"}`, written);
+  }
   await renderBookmarks();
 }
 
@@ -10617,7 +10828,7 @@ function emptyBookmarkGroups() {
 
 function setEmptyBookmarkGroups(groups) {
   try {
-    localStorage.setItem(BOOKMARK_EMPTY_GROUPS_KEY, JSON.stringify([...new Set(groups)].sort()));
+    prefs.set(BOOKMARK_EMPTY_GROUPS_KEY, JSON.stringify([...new Set(groups)].sort()));
   } catch {
     /* storage full or blocked: the group just won't survive a reload. */
   }
@@ -10641,12 +10852,14 @@ function allBookmarkGroups() {
 //: a rename is rare and a moment of latency is cheaper than a thundering herd.
 async function renameBookmarkGroup(from, to) {
   let moved = 0;
+  const written = [];
   for (const bookmark of bookmarksCache.filter((b) => b.group_name === from)) {
     try {
       await apiJson(`/bookmarks/${bookmark.id}`, {
         method: "PUT",
         body: JSON.stringify({ group_name: to }),
       });
+      written.push({ id: bookmark.id, before: { group_name: from }, after: { group_name: to } });
       moved++;
     } catch (error) {
       toast(error.message || voiceLine("failed", { what: "move that bookmark" }), true);
@@ -10656,6 +10869,7 @@ async function renameBookmarkGroup(from, to) {
   if (to) empties.push(to);
   setEmptyBookmarkGroups(empties);
   if (bookmarkGroupFilter === from) bookmarkGroupFilter = to || null;
+  if (written.length) pushBookmarksPutUndo(to ? `Renamed the group “${from}”` : `Deleted the group “${from}”`, written);
   return moved;
 }
 
@@ -10896,7 +11110,7 @@ onDomReady(() => {
   if (!select) return;
   select.value = bookmarkSort();
   select.addEventListener("change", () => {
-    localStorage.setItem(BOOKMARK_SORT_KEY, select.value);
+    prefs.set(BOOKMARK_SORT_KEY, select.value);
     filterBookmarks();
   });
 });
@@ -11210,15 +11424,15 @@ function bookmarkRow(bookmark) {
       }
       save.disabled = true;
       try {
-        await apiJson(`/bookmarks/${bookmark.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            title: titleInput.value.trim(),
-            url,
-            group_name: groupInput.value.trim(),
-            note: noteInput.value.trim(),
-          }),
-        });
+        const edited = {
+          title: titleInput.value.trim(),
+          url,
+          group_name: groupInput.value.trim(),
+          note: noteInput.value.trim(),
+        };
+        const wasFields = { title: bookmark.title || "", url: bookmark.url, group_name: bookmark.group_name || "", note: bookmark.note || "" };
+        await apiJson(`/bookmarks/${bookmark.id}`, { method: "PUT", body: JSON.stringify(edited) });
+        pushBookmarksPutUndo("Edited a bookmark", [{ id: bookmark.id, before: wasFields, after: edited }]);
         renderBookmarks();
       } catch (error) {
         save.disabled = false;
@@ -11248,6 +11462,7 @@ function bookmarkRow(bookmark) {
       method: "PUT",
       body: JSON.stringify({ group_name: value }),
     });
+    pushBookmarksPutUndo("Moved a bookmark to another group", [{ id: bookmark.id, before: { group_name: bookmark.group_name || "" }, after: { group_name: value } }]);
     renderBookmarks();
   };
 
@@ -11258,6 +11473,7 @@ function bookmarkRow(bookmark) {
       method: "PUT",
       body: JSON.stringify({ is_read: !bookmark.is_read }),
     });
+    pushBookmarksPutUndo(bookmark.is_read ? "Marked a bookmark unread" : "Marked a bookmark read", [{ id: bookmark.id, before: { is_read: Boolean(bookmark.is_read) }, after: { is_read: !bookmark.is_read } }]);
     renderBookmarks();
   };
 
@@ -11445,7 +11661,7 @@ function contentsGroups(entries) {
       //: them??"*, three fair questions, and the label answered none of
       //: them. It is not a folder you can make: folders in this app are the
       //: directories of an imported Obsidian vault, and a note typed into
-      //: MemoryMap has no path at all. The heading now says that.
+      //: Tessellate has no path at all. The heading now says that.
       addTo(path ? folder || CONTENTS_VAULT_ROOT : CONTENTS_NO_FOLDER, entry);
     }
   } else if (contentsMode === "topic") {
@@ -11465,7 +11681,7 @@ function contentsGroups(entries) {
 //: The two synthetic folder headings. Named constants because three places
 //: need to agree on them, the grouper, the ordering (they sort last) and the
 //: explanation shown when they are all there is.
-const CONTENTS_NO_FOLDER = "Written in MemoryMap (no folder)";
+const CONTENTS_NO_FOLDER = "Written in Tessellate (no folder)";
 const CONTENTS_VAULT_ROOT = "Top level of the vault";
 
 function contentsSectionLabel(key) {
@@ -11839,8 +12055,12 @@ function contentsRenameTopic(heading, topic) {
     const row = await rename()
       .catch((e) => { toast(`The topic was not renamed: ${e?.message || e}.`, true, { action: ["Try again", rename] }); return null; });
     if (!row) return;
-    if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
-    renderContents();
+    const repaint = () => {
+      if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
+      return renderContents();
+    };
+    pushRequestUndo(`Renamed the topic “${topic.name}”`, "/graph/topics/name", "PUT", { ids: topic.ids, name: topic.name }, { ids: topic.ids, name: wanted }, repaint);
+    repaint();
   };
   field.addEventListener("keydown", (event) => {
     event.stopPropagation();
@@ -11928,7 +12148,7 @@ async function renderContents() {
   if (hint && contentsMode === "folder" && groups.size === 1 && groups.has(CONTENTS_NO_FOLDER)) {
     hint.textContent =
       "Folders come from an imported Obsidian vault, they are not created in "
-      + "MemoryMap. Nothing has been imported yet, so every note is grouped "
+      + "Tessellate. Nothing has been imported yet, so every note is grouped "
       + "here. Import a vault from Settings → Import & export to see its folder tree.";
     hint.classList.remove("hidden");
   }
@@ -12164,4 +12384,38 @@ async function remindAbout({ title, entryId = null, documentId = null }) {
     toast(error.message, true);
     return false;
   });
+}
+
+//: **The first image a note actually shows** (moved here from shell-reminders.js
+//: with its only caller, `noteAnyImage`, to leave boot room; libr-1011), for surfaces that want to put a
+//: face on a row rather than a filename. Reported against the Contents tab,
+//: which rendered every note as `noteLabel` text: so a note that *is* a photo
+//: appeared as "20251018_OHR.SilburyHill….jpg", or as the bare word "image"
+//: when the alt text was empty.
+//:
+//: Reads the markdown rather than any stored field, because that is where a
+//: note's images live: pasted, dropped and AI-attached pictures all end up as
+//: `![alt](/media/…)` in the body, and there is no column that mirrors them.
+//:
+//: Only this app's own stored files. An external `https://` image in a note is
+//: skipped on purpose: the CSP blocks it (`img-src 'self' data: blob:`), so a
+//: thumbnail built from one would be a guaranteed broken frame, which is worse
+//: than no thumbnail at all.
+
+function noteFirstImage(content) {
+  const match = /!\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\n]{1,500})\)/.exec(content || "");
+  if (!match) return null;
+  return { alt: match[1] || "", url: match[2] };
+}
+
+//: A note's picture, wherever it lives, the markdown, or the attachments
+//: table. See `noteRowImage` in dashboard.js for the report behind this: an
+//: *attached* image appears nowhere in the note's text, so every surface that
+//: looked for `![](…)` alone showed nothing for a note whose only picture was
+//: attached rather than pasted.
+function noteAnyImage(entry) {
+  const embedded = noteFirstImage(entry?.content);
+  if (embedded) return embedded;
+  const attached = (entry?.attachments || []).find((file) => file.is_image);
+  return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
 }

@@ -77,7 +77,7 @@ function semanticInstallNotice(task) {
   if (SEMANTIC_NOTICE.shown || semanticNoticeSeenBefore()) return;
   SEMANTIC_NOTICE.shown = true;
   try {
-    localStorage.setItem(SEMANTIC_NOTICE_KEY, "1");
+    prefs.set(SEMANTIC_NOTICE_KEY, "1");
   } catch (error) {
     // The in-memory flag still holds for this page.
   }
@@ -96,7 +96,7 @@ function semanticInstallNotice(task) {
     SEMANTIC_NOTICE.note = null;
     semanticDecline(task);
   });
-  note.append(text, decline, toastCloseButton(note, null));
+  note.append(text, toastActions(decline), toastCloseButton(note, null));
   const host = toastHost();
   toastStack(host, () => host.appendChild(note));
   SEMANTIC_NOTICE.note = note;

@@ -165,14 +165,28 @@ function atlasRigRead(arm) {
   if (+cs.opacity < 0.5 && arm.hold && +getComputedStyle(arm.hold).opacity > 0.5) ang = -158 * arm.sgn;
   return { ang, sy };
 }
+//: **A raised forearm lifts, it never droops** (the owner, 2026-10-11:
+//: clicked, "its arms ... just start rising ... and it stays bent
+//: downwards, then falls again"). The bend is a turn about the elbow, and
+//: with the upper arm out level the old inward turn (the same way as a
+//: hanging arm's) pointed the forearm at the floor: clickarm.js measured
+//: a wave's hand 7 to 15 units below the shoulder at its height. Raised
+//: out, the forearm now turns up towards the head (a negative bend, down
+//: to `ATLAS_EL_UP`), most for a wave, a little for any lifted arm.
+const ATLAS_EL_UP = -70;
 function atlasRigGesture(arm, raise, buddy) {
   const has = (c) => !!buddy && buddy.classList.contains(c);
-  let el = raise < -8 ? Math.min(80, 0.9 * (-raise - 8)) : 14 * Math.sin((Math.min(raise, 180) * Math.PI) / 180);
+  //: The turn of the bend goes over from in to up between 20 and 70
+  //: degrees of raise, smoothly, so no target jumps on the way up.
+  const up = 1 - 2 * Math.max(0, Math.min(1, (raise - 20) / 50));
+  let el = raise < -8 ? Math.min(80, 0.9 * (-raise - 8)) : 14 * up * Math.sin((Math.min(raise, 180) * Math.PI) / 180);
   let wr = 0;
-  if (arm.side === "r" && has("nmb-act-wave")) [el, wr] = [40, 12];
+  //: A wave holds the forearm about upright whatever the upper arm does
+  //: (his swings to 102 degrees, hers to 146), never over the head.
+  if (arm.side === "r" && has("nmb-act-wave")) [el, wr] = [-Math.max(10, Math.min(60, 175 - raise)), -12];
   else if (arm.side === "r" && has("nmb-act-map")) [el, wr] = [-10, -8];
   else if (arm.side === "r" && (has("nmb-act-bell") || has("nmb-act-lantern") || has("nmb-act-carry"))) [el, wr] = [-8, 0];
-  return [Math.max(-14, Math.min(135, el)), wr];
+  return [Math.max(ATLAS_EL_UP, Math.min(135, el)), wr];
 }
 //: A damped spring toward `target`; a jump in the target sets its time.
 //: **No joint turns faster than `ATLAS_RIG_MAX_SPEED`** (INBOX 669, the
@@ -272,7 +286,7 @@ function atlasRigFrame(rig, now) {
       atlasRigSpring(j.el, elT, dt, ATLAS_RIG_ZETA.el);
       atlasRigSpring(j.wr, wrT, dt, ATLAS_RIG_ZETA.wr);
       atlasRigSpring(j.sy, syT, dt, ATLAS_RIG_ZETA.sy);
-      j.el.x = Math.max(-14, Math.min(135, j.el.x));
+      j.el.x = Math.max(ATLAS_EL_UP, Math.min(135, j.el.x));
       j.wr.x = Math.max(-35, Math.min(35, j.wr.x));
     }
     //: Within 0.15 degrees and slower than 3 a second, a joint has

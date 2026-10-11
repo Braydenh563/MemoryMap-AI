@@ -23,6 +23,8 @@
     blueprint: { palette: "ocean", font: "mono", glass: "off", radius: "4", density: "compact" },
     graphite: { palette: "carbon", glass: "off", radius: "4" },
     lagoon: { palette: "lagoon", glass: "on", radius: "14" },
+    midnight: { palette: "midnight", glass: "on", radius: "12" },
+    rosewood: { palette: "rosewood", font: "serif", glass: "on", radius: "16" },
   };
   // No look chosen means the default look, Quiet utilitarian (settings.js
   // `DEFAULT_THEME_PRESET`); an explicit choice, "default" (Classic)

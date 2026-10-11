@@ -23,7 +23,13 @@ is invisible here too, the same as it already is to the in-app chat model.
 
 Run with `python -m memorymap.mcp_server`, with `MEMORYMAP_DATA_DIR` set the
 same way the main app expects, it operates on the same notebook, not a
-second one.
+second one. The packaged app runs the same loop as `Tessellate --mcp`.
+
+Besides tools it serves **resources** (notes, `memorymap://note/<id>`, read
+through the `list_notes` and `get_note` tools so the private-note guard and the
+Settings switches apply unchanged) and **prompts** (the saved skills, filled
+the way a skill run fills them). Both stay stdio and read-only: a prompt is
+text for the client's model to act on with the tools listed above, never a run.
 """
 
 from __future__ import annotations
@@ -85,6 +91,142 @@ def _annotations(spec: tools.ToolSpec) -> dict:
         "destructiveHint": bool(spec.destructive),
         "openWorldHint": spec.name in ("web_search", "read_url"),
     }
+
+
+NOTE_URI = re.compile(r"^memorymap://note/(\d+)$")
+#: Notes per `resources/list` page (the registry's own page maximum), and the
+#: JSON-RPC code the spec gives a resource that is not there.
+RESOURCE_PAGE = 25
+RESOURCE_NOT_FOUND = -32002
+INVALID_PARAMS = -32602
+
+
+def _resources_offered() -> bool:
+    names = {spec.name for spec in offered_tools()}
+    return {"list_notes", "get_note"} <= names
+
+
+def _run_tool(name: str, arguments: dict) -> dict:
+    """One offered tool, run against a fresh session, its plain result."""
+    session = deps.get_db().session()
+    try:
+        return tools.execute_tool(session, name, arguments, agent=_client["name"] or "mcp client")
+    finally:
+        session.close()
+
+
+def _first_line(text: str, limit: int = 80) -> str:
+    line = next((row.strip() for row in str(text).splitlines() if row.strip()), "")
+    line = line.lstrip("#").strip()
+    return line[:limit] or "Untitled note"
+
+
+def _resources_list(params: dict) -> dict:
+    if not _resources_offered():
+        return {"resources": []}
+    try:
+        offset = max(0, int((params or {}).get("cursor") or 0))
+    except (TypeError, ValueError):
+        offset = 0
+    result = _run_tool("list_notes", {"limit": RESOURCE_PAGE, "offset": offset})
+    resources = [
+        {
+            "uri": f"memorymap://note/{note['id']}",
+            "name": _first_line(note.get("content", "")),
+            "description": " · ".join(
+                part for part in (f"Note #{note['id']}", note.get("category") or "") if part
+            ),
+            "mimeType": "text/markdown",
+        }
+        for note in result.get("notes", [])
+    ]
+    page = {"resources": resources}
+    if result.get("has_more") and result.get("next_offset") is not None:
+        page["nextCursor"] = str(result["next_offset"])
+    return page
+
+
+def _resource_templates() -> dict:
+    if not _resources_offered():
+        return {"resourceTemplates": []}
+    return {
+        "resourceTemplates": [
+            {
+                "uriTemplate": "memorymap://note/{id}",
+                "name": "A note",
+                "description": "One note in full, by its number.",
+                "mimeType": "text/markdown",
+            }
+        ]
+    }
+
+
+def _resources_read(params: dict) -> tuple[dict | None, str]:
+    """(`result`, "") or (None, why)."""
+    uri = str((params or {}).get("uri") or "")
+    match = NOTE_URI.match(uri)
+    if not match or not _resources_offered():
+        return None, f"No resource at {uri or 'that address'}."
+    note = _run_tool("get_note", {"id": int(match.group(1))})
+    if not isinstance(note, dict) or "error" in note or "content" not in note:
+        return None, f"No resource at {uri}."
+    tags = ", ".join(note.get("tags") or [])
+    head = [f"Note #{note['id']}"]
+    if note.get("category"):
+        head.append(f"category: {note['category']}")
+    if tags:
+        head.append(f"tags: {tags}")
+    text = f"<!-- {' · '.join(head)} -->\n\n{note['content']}"
+    return {"contents": [{"uri": uri, "mimeType": "text/markdown", "text": text}]}, ""
+
+
+def _skills() -> list[dict]:
+    from memorymap.ai import skills
+
+    return skills.catalog(deps.get_config(), set(tools.TOOLS))
+
+
+def _prompts_list() -> dict:
+    return {
+        "prompts": [
+            {
+                "name": skill["name"],
+                "description": skill.get("description") or skill.get("when_to_use") or skill.get("prompt", "")[:120],
+                "arguments": [
+                    {
+                        "name": item["name"],
+                        "description": item.get("label", ""),
+                        "required": bool(item.get("required")) and not item.get("default"),
+                    }
+                    for item in skill.get("inputs") or []
+                ],
+            }
+            for skill in _skills()
+        ]
+    }
+
+
+def _prompts_get(params: dict) -> tuple[dict | None, str]:
+    from memorymap.ai import skills
+
+    name = str((params or {}).get("name") or "")
+    skill = next((s for s in _skills() if s["name"] == name), None)
+    if skill is None:
+        return None, f"There is no skill called '{name}'."
+    given = (params or {}).get("arguments")
+    given = given if isinstance(given, dict) else {}
+    missing = skills.missing_inputs(skill, given)
+    if missing:
+        return None, "Missing: " + ", ".join(missing) + "."
+    text = skills.run_instruction(skill, skills.input_values(skill, given))
+    return {
+        "description": skill.get("description", ""),
+        "messages": [{"role": "user", "content": {"type": "text", "text": text}}],
+    }, ""
+
+
+def _error(msg_id, code: int, message: str) -> dict:
+    return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
 
 
 def _tool_list_payload() -> list[dict]:
@@ -157,9 +299,12 @@ def handle_request(message: dict) -> dict | None:
             version = SUPPORTED_PROTOCOLS[0]
         else:
             version = PROTOCOL_VERSION
+        capabilities: dict = {"tools": {}, "prompts": {}}
+        if _resources_offered():
+            capabilities["resources"] = {}
         result = {
             "protocolVersion": version,
-            "capabilities": {"tools": {}},
+            "capabilities": capabilities,
             "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
         }
     elif method in ("notifications/initialized", "notifications/cancelled"):
@@ -171,6 +316,20 @@ def handle_request(message: dict) -> dict | None:
     elif method == "tools/call":
         params = message.get("params") or {}
         result = _call_tool(params.get("name", ""), params.get("arguments") or {})
+    elif method == "resources/list":
+        result = _resources_list(message.get("params") or {})
+    elif method == "resources/templates/list":
+        result = _resource_templates()
+    elif method == "resources/read":
+        result, why = _resources_read(message.get("params") or {})
+        if result is None:
+            return None if is_notification else _error(msg_id, RESOURCE_NOT_FOUND, why)
+    elif method == "prompts/list":
+        result = _prompts_list()
+    elif method == "prompts/get":
+        result, why = _prompts_get(message.get("params") or {})
+        if result is None:
+            return None if is_notification else _error(msg_id, INVALID_PARAMS, why)
     else:
         if is_notification:
             return None

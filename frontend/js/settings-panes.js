@@ -369,7 +369,7 @@ function initComposerResize() {
   //: automatic size and a drag is remembered only until the box is emptied
   //: (see autoGrow). The key is still cleared here for profiles that have
   //: one from before.
-  try { localStorage.removeItem(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
+  try { prefs.remove(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
 
   //: **Double-tap the grabber to put it back.** Asked for directly: "allow
   //: double tapping the bottom expansion corner of the chat text box to reset
@@ -392,7 +392,7 @@ function initComposerResize() {
     event.preventDefault();
     delete box.dataset.maxPx;
     try {
-      localStorage.removeItem(COMPOSER_HEIGHT_KEY);
+      prefs.remove(COMPOSER_HEIGHT_KEY);
     } catch {
       /* private mode: there was nothing stored to remove */
     }
@@ -417,7 +417,7 @@ function initComposerResize() {
     const automatic = Number(box.dataset.autoHeight || 0);
     if (!height || Math.abs(height - automatic) <= 2) return;
     box.dataset.maxPx = String(height);
-    try { localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height)); } catch { /* private mode */ }
+    try { prefs.set(COMPOSER_HEIGHT_KEY, String(height)); } catch { /* private mode */ }
     requestAnimationFrame(() => autoGrow(box));
   };
   box.addEventListener("pointerdown", (event) => {
@@ -519,6 +519,7 @@ async function renderAccount() {
   ];
   if (typeof info.vault_open === "boolean") vaultOpen = info.vault_open;
   $("account-password-on-open").checked = info.password_on_open !== false;
+  renderPinSettings(info.pin);
   renderLanAccess().catch(() => {});
   for (const [label, value] of rows) {
     //: A label column and a value column (`.account-facts`), not "Label: value"
@@ -531,6 +532,28 @@ async function renderAccount() {
     text.textContent = value;
     li.append(name, text);
     facts.appendChild(li);
+  }
+}
+
+//: "PIN for this computer" (owner, 2026-10-12): the fields show only where a
+//: PIN can be set, which is this computer with an OS protected store; the
+//: line under the heading says why when it cannot.
+function renderPinSettings(pin) {
+  const state = $("account-pin-state");
+  if (!state || !pin) return;
+  const usable = pin.available && pin.here;
+  $("account-pin-fields").classList.toggle("hidden", !usable);
+  $("account-pin-set").classList.toggle("hidden", !usable);
+  $("account-pin-set").textContent = pin.set ? "Change PIN" : "Set up a PIN for this computer";
+  $("account-pin-forget").classList.toggle("hidden", !(pin.set && pin.here));
+  if (!pin.here) {
+    state.textContent = "A PIN can be set up only on the computer this notebook runs on.";
+  } else if (!pin.available) {
+    state.textContent = "This computer has no protected store for a PIN, so the password is the only way in here.";
+  } else {
+    state.textContent = pin.set
+      ? "A PIN is set: the lock screen takes it or your password, on this computer only."
+      : "Unlock on this computer with a few digits instead of your password.";
   }
 }
 
@@ -551,7 +574,6 @@ async function renderAccount() {
 // since the ledger on disk began. Nothing here can change a setting: the
 // switches listed at the bottom are facts, each set where it lives.
 
-let privacyReceipt = null;
 let privacyRange = "launch";
 
 for (const button of document.querySelectorAll("#privacy-range [data-range]")) {
@@ -597,11 +619,12 @@ async function changePassword() {
     // Changing the password invalidates every token, including this tab's.
     // The server hands back a fresh one so the change doesn't log you out of
     // the screen you just used to make it. Key must match authToken().
-    localStorage.setItem("token", result.token);
+    prefs.set("token", result.token);
     $("account-current").value = "";
     $("account-new").value = "";
     $("account-confirm").value = "";
     status.textContent = result.warning || "Password changed.";
+    if (result.pin_cleared) status.textContent += " Your PIN was removed; set it up again if you want one.";
     toast(
       result.other_sessions_ended
         ? `Password changed. ${result.other_sessions_ended} other session(s) were signed out.`
@@ -649,10 +672,25 @@ async function reportTimezone() {
   //: zone the server already had on every single cold start. With the shared
   //: reader the comparison has something to compare.
   await loadPreferences().catch(() => null);
-  if (!zone || (prefsCache && prefsCache.timezone === zone)) return;
+  //: The locale's first day of the week, as a Python weekday (Intl says 1 for
+  //: Monday to 7 for Sunday). `weekInfo` is missing in older engines, and
+  //: then the server's Monday stands. Reported with the zone, only on change.
+  let weekDay = null;
+  try {
+    const info = new Intl.Locale(navigator.language).weekInfo;
+    if (info && Number.isInteger(info.firstDay)) weekDay = (info.firstDay - 1) % 7;
+  } catch {
+    weekDay = null;
+  }
+  const body = {};
+  if (zone && !(prefsCache && prefsCache.timezone === zone)) body.timezone = zone;
+  if (weekDay !== null && !(prefsCache && prefsCache.week_start_locale === weekDay)) {
+    body.week_start_locale = weekDay;
+  }
+  if (!Object.keys(body).length) return;
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
-    body: JSON.stringify({ timezone: zone }),
+    body: JSON.stringify(body),
     silent: true,
   }).catch(() => prefsCache);
 }
@@ -714,6 +752,7 @@ async function renderPrefs() {
   $("pref-search-z-margin").value = prefsCache.search_relative_z_margin;
   $("pref-style").value = prefsCache.communication_style;
   $("pref-voice").value = prefsCache.composer_voice;
+  $("pref-week-start").value = prefsCache.week_start || "auto";
   $("pref-insight").value = prefsCache.insight_level || "one";
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
@@ -726,6 +765,7 @@ async function renderPrefs() {
     prefsCache.notifications_muted_except_reminders
   );
   $("pref-smart-punctuation").checked = prefsCache.smart_punctuation === true;
+  $("pref-autocorrect").checked = prefsCache.autocorrect !== false;
   $("prefs-status").textContent = "";
   //: The fields now hold what the server holds, so nothing is unsaved: this
   //: also covers the reopen, since `showSettingsSection` re-renders.
@@ -844,7 +884,6 @@ async function checkForSourceUpdateNotice() {
   showSourceUpdatedDialog(result);
 }
 
-
 //: Which checkbox in Settings mirrors which one elsewhere in the app. Two
 //: controls for one preference is a reasonable convenience and a reliable way
 //: to get them out of step; this is the list that keeps them honest.
@@ -910,6 +949,7 @@ async function savePrefs(options = {}) {
       notifications_muted_except_reminders:
         $("pref-notif-mute-except-reminders").checked,
       smart_punctuation: $("pref-smart-punctuation").checked,
+      autocorrect: $("pref-autocorrect").checked,
     };
     // INBOX 73: "'Mute notifications except reminders' toggle disables
     // itself when the settings close." Reproduced two ways with Playwright
@@ -1015,7 +1055,7 @@ const PREFS_FIELD_IDS = [
   "pref-display-name", "pref-bin-days", "pref-chat-retention",
   "pref-search-min-sim", "pref-search-z-margin", "pref-style",
   "pref-profile", "pref-profile-enabled", "pref-notif-mute-except-reminders",
-  "pref-smart-punctuation",
+  "pref-smart-punctuation", "pref-autocorrect",
 ];
 
 function wirePrefsDirtyMarks() {
@@ -1068,7 +1108,6 @@ async function downloadExport(kind) {
 
 // --- Wave F: command palette (Ctrl/Cmd-K) -------------------------------------------
 
-
 // Static commands; note search results are appended live as you type.
 //: Interface zoom, in one place so the slider, the +/- buttons, the keyboard
 //: shortcut and the command palette cannot drift apart. Asked for directly:
@@ -1087,7 +1126,7 @@ function currentZoom() {
 
 function setZoom(percent) {
   const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(percent / ZOOM_STEP) * ZOOM_STEP));
-  localStorage.setItem("zoom", String(next));
+  prefs.set("zoom", String(next));
   const slider = $("zoom-slider");
   if (slider) slider.value = next;
   const readout = $("zoom-value");
@@ -1456,14 +1495,14 @@ function paletteCommands() {
     { label: "ph:shield-check Settings → Account & security", reveal: "settings:account", about: "The password, the lock and when it asks for it." },
     { label: "ph:globe-hemisphere-west Settings → Privacy", reveal: "settings:privacy", about: "The two things that can go online, both off by default." },
     { label: "ph:list-checks Settings → Background tasks", reveal: "settings:tasks", about: "What the app is working on while you write." },
-    { label: "ph:heartbeat Health", reveal: "settings:about", keywords: "integrity check last backup last error data folder size status", about: "How the notebook is: last backup, last error, what is running, size, integrity." },
+    { label: "ph:heartbeat Health", reveal: "settings:about", keywords: "integrity check last backup last error data folder size status storage disk space files", about: "How the notebook is: last backup, last error, what is running, size, integrity." },
     { label: "ph:chart-bar Statistics", keywords: "stats numbers counts usage week review growth", about: "Your notebook, reminders and usage, counted, with this week against last.", act: () => openStatistics() },
     //: The small tools (Brief 89, UI_MODERNISATION utilities rows 2 to 4):
     //: "timer 10 minutes" and "insert template ..." also build their own rows
     //: from the words (`utilityPaletteRows`, app-palette.js).
     { label: "ph:timer Start a timer", keywords: "timer countdown pomodoro minutes alarm", about: "25 minutes on the status bar, or type “timer 10 minutes”. Press it to stop.", act: () => ensureModule("utilities").then(() => startUtilityTimer(25)) },
     { label: "ph:timer Start a stopwatch", keywords: "stopwatch count up how long time it", about: "Counts up on the status bar. Press it to stop.", act: () => ensureModule("utilities").then(() => startStopwatch()) },
-    { label: "ph:closed-captioning Live captions", keywords: "live captions subtitles transcribe speech microphone listen real time stop", about: "Write what the microphone hears as you go, on this computer. Run it again to stop and save a note.", act: () => toggleLiveCaptions() },
+    { label: "ph:closed-captioning Live captions", quick: "captions", keywords: "live captions subtitles transcribe speech microphone listen real time stop", about: "Write what the microphone hears as you go, on this computer. Run it again to stop and save a note.", act: () => toggleLiveCaptions() },
     { label: "ph:text-aa Count words", keywords: "word count characters letters reading time selection length", about: "Words, characters and reading time of the selected text, or of the editor.", act: () => ensureModule("utilities").then(() => countSelection(paletteCaught)) },
     { label: "ph:translate Translate this", keywords: "translate translation spanish language offline selection passage", about: "The selected passage into Spanish, offline (a package).", act: () => { const caught = { ...paletteCaught }; ensureModule("translate").then(() => translateCaught(caught)); } },
     { label: "ph:activity Activity", keywords: "running jobs stop background model unload memory agent runs", about: "Every job running now, with Stop, and the agent's runs.", act: () => openActivity("running") },
@@ -1479,13 +1518,19 @@ function paletteCommands() {
     //: the row says which it will do, since this list is built per query.
     { label: nameMarkBuddyShowing() ? "ph:eye-slash Hide companion" : "ph:person-simple Show companion", chord: "toggleCompanion", act: () => nameMarkBuddyToggle() },
     { label: "ph:keyboard Keyboard shortcuts", reveal: "shortcuts", chord: "help" },
+    //: INBOX 896: the status bar's wifi icon, by name, from anywhere.
+    { label: "ph:wifi-high Other devices", keywords: "lan network wifi phone open close trusted networks address", about: "Whether a phone on this network can open the app, with the switch and the trusted networks.", chord: "lanPanel", act: () => openLanPanel() },
     { label: "ph:arrow-left Go back", about: "To the page or view you were on before.", chord: "navigateBack", act: () => stepTabHistory(-1) },
     { label: "ph:arrow-right Go forward", about: "Forward again, after going back.", chord: "navigateForward", act: () => stepTabHistory(1) },
     { label: "ph:arrows-clockwise Reload the app", about: "Clears cached files first, so the newest version loads.", chord: "forceReload", act: () => forceReloadApp() },
-    { label: "ph:lock Lock MemoryMap", about: "Close the notebook until the password is typed again.", act: lockNow },
+    { label: "ph:lock Lock Tessellate", about: "Close the notebook until the password is typed again.", act: lockNow },
+    //: The top bar's other controls, so each is in the palette too (ledger 1410).
+    { label: "ph:gear Open Settings", chord: "settings", act: () => openSettingsModal() },
+    { label: "ph:bell Open notifications", keywords: "bell", act: () => openNotifications() },
+    { label: "ph:squares-four Switch space", act: () => $("space-switcher-btn")?.click() },
+    { label: "ph:power Quit Tessellate", act: () => quitApp() },
   ].map(catalogueRun);
 }
-
 
 //: **A row's keycap: the way to run it without the palette.** A chord the
 //: row declares by its registry name (`chord`, read from the live

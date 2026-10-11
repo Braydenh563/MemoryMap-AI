@@ -35,6 +35,11 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # a lost file. Asked for directly, alongside the "Open exports folder"
     # button: "a configurable save location for exported images."
     "export_save_dir": "",
+    # A second place each backup is copied to (an external drive, a synced
+    # folder), so one disk failing does not take the notebook and every backup
+    # with it. Empty means backups stay in `data_dir/backups` only. Validated
+    # at save time like `export_save_dir`.
+    "backup_copy_dir": "",
     # Semantic search relevance (search_manager.py). Defaults match that
     # module's own MIN_SIMILARITY/RELATIVE_Z_MARGIN constants, kept here
     # too, as plain values rather than an import, so Settings -> Preferences
@@ -97,6 +102,9 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # actually saved, since a source checkout already tracks main for real
     # via start.sh/start.bat's own `git pull` on every launch.
     "update_channel": "stable",
+    # Also offer pre-releases (a beta or release candidate) when checking for
+    # a new version. Off: only finished releases (routes_update.check).
+    "update_beta": False,
     # Bring the user's own SearXNG up with the app. Off by default: starting a
     # container is not something a local-first app does unasked.
     "searxng_autostart": False,
@@ -107,6 +115,12 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # means it is never started, search stays on keywords, and Settings,
     # Packages keeps its manual Install.
     "semantic_auto_install": True,
+    # Whisper's options (ai/voice.py `options_from`, Brief 87 step 2): skip
+    # the silence and hum around a clip (Silero VAD, no download); a language
+    # ("" detects it); names and terms to expect, as Whisper's prompt.
+    "voice_skip_silence": True,
+    "voice_language": "",
+    "voice_vocabulary": "",
     "searxng_url": "",
     "search_provider": "auto",
     # Which dialect the chat backend speaks (§6). "ollama" is the native
@@ -221,7 +235,9 @@ def _default_data_dir() -> str:
         base = str(Path.home() / "Library" / "Application Support")
     else:
         base = os.getenv("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-    return str(Path(base) / "MemoryMap AI")
+    # Installs made before the rename to Tessellate keep their notes in the
+    # old folder; it moves only with a fallback (rebrand step 2).
+    return str(Path(base) / "MemoryMap AI")  # brand: keep
 
 
 def resolved_data_dir() -> Path:
@@ -236,7 +252,7 @@ def resolved_data_dir() -> Path:
     and nothing sets the variable. The packaged build's log and window
     profile landed in `data\\` under whatever folder Windows started it in
     (the install folder, or `System32`, which a standard account cannot
-    write), and the Start Menu's "Repair MemoryMap AI" cleared a folder that
+    write), and the Start Menu's "Repair Tessellate" cleared a folder that
     held nothing, so the repair repaired nothing. Every packaging smoke set
     the variable, which is why none of them saw it.
     """
@@ -358,6 +374,12 @@ class ConfigManager:
         self._preferences.update(values)
         atomic_write_json(self.preferences_path, self._preferences)
 
+    def unset_preference(self, key: str) -> None:
+        """Put a setting back to never set, so its default applies again."""
+        if key in self._preferences:
+            del self._preferences[key]
+            atomic_write_json(self.preferences_path, self._preferences)
+
     def set_preference(self, key: str, value: Any) -> None:
         """Change a preference and persist it to disk immediately,
         so a crash never loses a settings change.
@@ -383,6 +405,25 @@ def days_from_today(day, today) -> str:  # noqa: ANN001
     if gap in (1, -1):
         return "tomorrow" if gap == 1 else "yesterday"
     return f"in {gap} days" if gap > 0 else f"{-gap} days ago"
+
+
+_WEEK_CHOICES = {"monday": 0, "saturday": 5, "sunday": 6}
+
+
+def week_first_day(config: "ConfigManager") -> int:
+    """The person's first day of the week as Python's weekday (0 Monday).
+
+    Their choice in Settings wins; on "auto" it is the day the browser's
+    locale reports (`week_start_locale`), and Monday when it reported none.
+    """
+    choice = str(config.get_preference("week_start", "auto") or "auto")
+    if choice in _WEEK_CHOICES:
+        return _WEEK_CHOICES[choice]
+    try:
+        reported = int(config.get_preference("week_start_locale", 0))
+    except (TypeError, ValueError):
+        return 0
+    return reported if 0 <= reported <= 6 else 0
 
 
 def user_now(config: "ConfigManager") -> datetime:

@@ -2,7 +2,7 @@
 is allowed to load.
 
 Both exist for the same reason, and it is not the one people expect of a
-local-only app. Binding 127.0.0.1 stops the *network* reaching MemoryMap. It
+local-only app. Binding 127.0.0.1 stops the *network* reaching Tessellate. It
 does nothing about the browser already running on this machine: any page in
 any other tab can ask that browser to send a request to http://localhost:8000,
 and the browser will, because it is the target's job to say no, not the
@@ -74,6 +74,14 @@ def _is_same_site(candidate: str, host_header: str | None, scheme: str) -> bool:
     # are one machine, and which one appears depends on what the user typed.
     if mine is not None and host in _LOOPBACK_HOSTS and mine[1] in _LOOPBACK_HOSTS:
         return port == mine[2]
+    #: Behind a reverse proxy that ends TLS the app sees http and the page's
+    #: Origin is https on 443: the same name the operator listed in
+    #: MEMORYMAP_ALLOWED_HOSTS, on a standard port, is this app's own page.
+    #: Only a name the operator chose, and never an odd port.
+    if mine is not None and host == mine[1] and port in (80, 443):
+        from memorymap.core import netbind
+
+        return host in netbind.extra_allowed_hosts()
     return False
 
 
@@ -334,7 +342,7 @@ class OriginCheckMiddleware:
                     status_code=403,
                     content={
                         "detail": (
-                            "This request came from another site. MemoryMap "
+                            "This request came from another site. Tessellate "
                             "only answers its own pages."
                         )
                     },
@@ -354,7 +362,7 @@ class OriginCheckMiddleware:
                         status_code=403,
                         content={
                             "detail": (
-                                "This request came from another site. MemoryMap "
+                                "This request came from another site. Tessellate "
                                 "only answers its own pages."
                             )
                         },
@@ -483,10 +491,10 @@ def build_csp(script_hashes: list[str]) -> str:
         # Stops injected content re-pointing every relative URL on the page.
         "base-uri": "'self'",
         "form-action": "'self'",
-        # Nothing may frame MemoryMap: clickjacking a notebook that is already
+        # Nothing may frame Tessellate: clickjacking a notebook that is already
         # unlocked is the cheapest attack on it.
         "frame-ancestors": "'none'",
-        # **What MemoryMap may frame, the other direction, and it is narrow.**
+        # **What Tessellate may frame, the other direction, and it is narrow.**
         # `blob:` only, for the HTML preview pane (REDESIGN.md §R7.1 item 4):
         # the viewer builds a Blob from a file's own text and points an iframe
         # at it. Without this the directive falls back to `default-src 'self'`
@@ -584,7 +592,7 @@ class SecurityHeadersMiddleware:
                 # Never leak a notebook's URLs to a third party.
                 headers.setdefault("Referrer-Policy", "no-referrer")
                 # This app needs none of these, and saying so stops an injected
-                # iframe or script asking the user for them in MemoryMap's name.
+                # iframe or script asking the user for them in Tessellate's name.
                 headers.setdefault(
                     "Permissions-Policy", "geolocation=(), camera=(), payment=(), usb=()"
                 )
@@ -598,6 +606,12 @@ class SecurityHeadersMiddleware:
                 # policy, and the sandbox's runtime files say `cross-origin`.
                 headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
                 headers.setdefault("Cross-Origin-Embedder-Policy", "require-corp")
+                # Only the network port speaks https (core/lanserve.py), and
+                # it speaks nothing else, so a phone that has seen it once
+                # never sends the password over plain http to that name
+                # again. Loopback is plain http and is never told this.
+                if scope.get("scheme") == "https":
+                    headers.setdefault("Strict-Transport-Security", "max-age=15552000")
                 headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
             await send(message)
 
@@ -815,7 +829,7 @@ def check_backend_url(url: str, local_only: bool = False) -> tuple[bool, str, bo
 
 
 _LOCKED_REASON = (
-    "“{host}” is not on this computer or your own network, and MemoryMap is "
+    "“{host}” is not on this computer or your own network, and Tessellate is "
     "set to keep the AI local, so your notes are never sent anywhere. To use "
     "an online AI service anyway, turn off “Keep the AI on this machine” in "
     "Settings, Models first."

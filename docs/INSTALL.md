@@ -1,4 +1,4 @@
-# Installing and running MemoryMap AI
+# Installing and running Tessellate
 
 There are four ways in. Pick the one that fits.
 
@@ -23,13 +23,13 @@ There are four ways in. Pick the one that fits.
 No terminal and no Python install are needed to run the app.
 
 1. Download the latest `MemoryMap-AI-Setup-*.exe` from
-   [Releases](https://github.com/Braydenh563/MemoryMap-AI/releases/latest).
+   [Releases](https://github.com/Braydenh563/Tessellate/releases/latest).
 2. Run it. Windows shows a blue "Windows protected your PC" screen, because
    this build is not code-signed yet. Click **More info**, then **Run anyway**.
    The installer copies the app into your own user folder: nothing
    system-wide, and no administrator prompt.
 3. It adds a Start Menu shortcut, an optional desktop shortcut and a "Repair
-   MemoryMap AI" shortcut, then offers to start the app.
+   Tessellate" shortcut, then offers to start the app.
 
 The app opens in its own window. A tray icon keeps it running when you close
 the window. The tray menu brings it back, starts a note, a question or a search,
@@ -41,7 +41,10 @@ reinstall that package from the same pane.
 **Optional packages.** The installer's last page offers three boxes: search by
 meaning (about 2 GB), voice notes, and document import with scanned-PDF
 reading and Word export. All are optional, and each can be installed or
-removed later from **Settings, Packages**. Downloading them needs Python from
+removed later from **Settings, Packages**. Setup finishes at once and does
+not wait on them: the app downloads the ones you ticked the first time it
+opens, as a task in **Background tasks** with its progress and a Stop button.
+Downloading them needs Python from
 [python.org](https://www.python.org/downloads/) on the same computer; the
 default options of its installer are enough. Without one, the app works and
 those features stay off.
@@ -59,12 +62,14 @@ terms stopped the release build, so releases carry the `.exe` only.
 **The installer is a snapshot.** It does not update itself, and nothing
 contacts GitHub until you ask: see [Updating](#updating).
 
+**What the setup file is, and what it costs.** `MemoryMap-AI-Setup-<version>-windows-x86_64.exe` is an ordinary Windows setup program, built with [Inno Setup](https://jrsoftware.org/isinfo.php), a free tool whose licence allows free and commercial use. You never need Inno Setup yourself: it is used once, on the build machine, to make the file, and nothing in the installed app calls it. The app does use the file: Settings, About, Check for updates downloads the next release's setup program and runs it silently over the old one, and `/VERYSILENT` is how a fleet install runs it. The file is unsigned, so Windows asks you to click through once.
+
 ## Linux package
 
 1. Download `MemoryMap-AI-*-linux-x86_64.tar.gz` from the same
-   [Releases](https://github.com/Braydenh563/MemoryMap-AI/releases/latest)
+   [Releases](https://github.com/Braydenh563/Tessellate/releases/latest)
    page and unpack it with `tar -xzf`.
-2. Run `MemoryMap AI` from the unpacked folder.
+2. Run `MemoryMap AI` from the unpacked folder (the program keeps its file name from before the rename). <!-- brand: keep -->
 
 Use the tarball, not the `.zip` beside it. A zip does not reliably keep the
 executable bit, so some archive managers unpack a launcher that will not
@@ -87,25 +92,25 @@ these steps exactly. Every code block is a command to copy and paste.
 
 ### 2. Get the app
 
-Either way ends in a folder called `MemoryMap-AI`.
+Either way ends in a folder called `Tessellate` (a copy cloned before the rename is called `MemoryMap-AI` and works the same).
 
 **With git:**
 
 ```
 cd ~
-git clone https://github.com/Braydenh563/MemoryMap-AI.git
-cd MemoryMap-AI
+git clone https://github.com/Braydenh563/Tessellate.git
+cd Tessellate
 ```
 
 **Without git:**
 
-1. Open <https://github.com/Braydenh563/MemoryMap-AI> in your browser.
+1. Open <https://github.com/Braydenh563/Tessellate> in your browser.
 2. Click the green **Code** button, then **Download ZIP**.
 3. Unzip it wherever you like.
 4. In your terminal, type `cd ` (with a trailing space), drag the unzipped
    folder into the terminal window so it fills in the path, then press Enter.
 
-You should now be inside the `MemoryMap-AI` folder. `ls` (macOS and Linux) or
+You should now be inside the `Tessellate` folder. `ls` (macOS and Linux) or
 `dir` (Windows) lists `start.sh`, `start-desktop.sh`, `start.bat`,
 `start-desktop.bat` and `README.md`.
 
@@ -116,6 +121,16 @@ You should now be inside the `MemoryMap-AI` folder. `ls` (macOS and Linux) or
   browser tab instead.
 - **macOS and Linux:** run `./start-desktop.sh` for the app's own window, or
   `./start.sh` for a browser tab.
+- **The other actions, one double-click each:** `doctor` checks the machine
+  and prints a fix for each problem, `reinstall` rebuilds the app's Python
+  environment (it asks first; notes and settings are untouched), and `tools`
+  is a menu of every launcher action. Each comes as `.sh` (macOS and Linux)
+  and `.bat` (Windows).
+- **The same, from inside the app:** Settings, About, Maintenance has Check
+  this computer (the doctor's rows, in the installed app too), Reinstall on
+  next start (the next launch through `start` rebuilds; notes untouched),
+  Open the launcher logs, Make a desktop shortcut, and Uninstall, which shows
+  the steps and the command rather than removing anything itself.
 
 The launcher builds a virtual environment, installs everything, starts the app
 and opens <http://localhost:8000>. The first run takes a few minutes. After
@@ -125,11 +140,11 @@ that it goes straight to launching, and reinstalls only when
 Every launch prints where it is running from, so you can find your way back:
 
 ```
-Installed at: /home/you/MemoryMap-AI
+Installed at: /home/you/Tessellate
 Next time:    open a terminal there and run ./start.sh again
 ```
 
-**A first install needs the internet once.** The first setup downloads the search model and the packages you chose; after that MemoryMap works offline.
+**A first install needs the internet once.** The first setup downloads the search model and the packages you chose; after that Tessellate works offline.
 
 **The first launch also fetches the search model's package.** The built-in
 search model (filing and search by meaning) needs `sentence-transformers`.
@@ -161,14 +176,14 @@ model in the same place.
 | `--version` | Print the version and exit |
 | `--help` | Show the list and exit |
 
-**Sharing the system's packages (opt-in, Linux and macOS).** `MEMORYMAP_SYSTEM_SITE_PACKAGES=1 ./start.sh --reinstall` builds `.venv` with `--system-site-packages`, so a torch you already installed system-wide is not downloaded again. It is refused, with the reason printed, when that torch is outside the range in `requirements.txt`.
+**Sharing the system's packages (opt-in).** On Windows, `set MEMORYMAP_SYSTEM_SITE_PACKAGES=1` and then `start.bat --reinstall` (the Windows launcher is checked as text only; it needs a run on a Windows machine). On Linux and macOS, `MEMORYMAP_SYSTEM_SITE_PACKAGES=1 ./start.sh --reinstall` builds `.venv` with `--system-site-packages`, so a torch you already installed system-wide is not downloaded again. It is refused, with the reason printed, when that torch is outside the range in `requirements.txt`.
 The risk is that a system package shadows the one the app was tested with and fails later in a way that looks unrelated; if anything misbehaves, run `./start.sh --reinstall` without the variable.
 
 **If it does not start, run `--doctor` first.** It prints one row per thing
 that can stop a launch, with a tick or a cross and, for a cross, one line on
 what to do: Python's version and path, whether the virtual environment can
 import what the server needs, free disk where your notes are, whether the port
-is free or already has MemoryMap on it, the update setting and whether its
+is free or already has Tessellate on it, the update setting and whether its
 remote answers, your model provider, where your notes are and how big, and the
 last error from the previous run's log. It exits 0 when everything checks out
 and 1 when something needs fixing, and it works on a machine where the app
@@ -229,9 +244,10 @@ For a server or a NAS. From the repository root, `MEMORYMAP_FIRST_PASSWORD=choos
 - `MEMORYMAP_FIRST_PASSWORD` is used only while no password is set, is never logged and is removed from the process once read. Take it out of your compose file after the first start.
 - Two volumes: `/data` (database, files, certificate, backups) and `/models` (downloaded models), so resetting a notebook never downloads a model again.
 - The compose file publishes the port on the host's loopback only. For other devices, put a reverse proxy with TLS in front.
+- Behind a reverse proxy, set `MEMORYMAP_ALLOWED_HOSTS` to the public name it forwards (`memory.example.com`; several are comma-separated, names only). Without it the app answers 421 to a Host that is not the container's own. A page on that name, on port 443 or 80, is then treated as the app's own page.
 - The default image has no torch (about 400 MB on disk): search by keyword and an Ollama embedder on the host (`OLLAMA_URL`). `--build-arg WITH_EMBEDDER=1` adds the built-in search model and CPU torch (about 1.6 GB).
 - What a container cannot do: the desktop window and tray, native file dialogs, the Start menu shortcuts and Repair, and the "Allow other devices" switch (use the port mapping instead).
-- Not built in the sandbox it was written in; report what the first build says.
+- Not built in the sandbox it was written in (no Docker daemon, needs device); `tests/test_docker_files.py` reads the files as text. Report what the first build says.
 
 ## Running it
 
@@ -254,7 +270,8 @@ Other commands:
 | `python -m memorymap --reset-password` | Clear a forgotten password so you can set a new one; private notes stay sealed (the lock screen's "Forgot your password?" does the same, or keeps them with a recovery key) |
 | `python -m memorymap --reinstall` | One-click repair: clears the app window's cached profile, then starts normally; what the installer's Repair shortcut runs, and your notes and settings are never touched |
 | `python -m memorymap --capture` | Open a one-line capture window on the running app: bind it to a key in your system settings |
-| `python -m memorymap.mcp_server` | A stdio MCP server over the app's own non-destructive tools, for another program on this computer (a source checkout only: the packaged app has no Python to run it with) |
+| `python -m memorymap.mcp_server` | A stdio MCP server for another program on this computer: the app's non-destructive tools, your notes as readable resources (`memorymap://note/<id>`, never a private note) and your skills as prompts |
+| `Tessellate --mcp` | The same server from the packaged app, which has no Python to run the line above with (live behaviour of the windowed exe: needs device) |
 
 ### Environment variables
 
@@ -302,7 +319,7 @@ place, and your notes are not touched. You never need to delete
 
 ## Uninstalling
 
-**The Windows installer:** Windows Settings, Apps, MemoryMap AI, Uninstall. That
+**The Windows installer:** Windows Settings, Apps, Tessellate, Uninstall. That
 removes the program and its Start Menu entries and leaves your notes and
 settings in `%APPDATA%\MemoryMap AI`. It then asks whether to delete the
 optional packages you downloaded (the `python-extras` and `extras` folders,
@@ -323,7 +340,7 @@ everything that would go, with a size against each, and changes nothing.
 | `--yes` | Skip the "remove the virtual environment?" prompts |
 | `--help` | Show the list and exit |
 
-It stops rather than delete under a MemoryMap that is still running, so close
+It stops rather than delete under a Tessellate that is still running, so close
 the app first. `--delete-data` asks you to type DELETE at its own prompt,
 which `--yes` does not skip.
 

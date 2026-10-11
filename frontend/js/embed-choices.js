@@ -35,6 +35,10 @@ async function renderEmbedChoices() {
   $("embed-found-empty").classList.toggle("hidden", found.length > 0);
   const done = body.switch || {};
   $("embed-choices-status").textContent = done.running ? "" : done.message || "";
+  //: Where they are, in as many words ("somewhere in your home directory" is
+  //: the answer the old Packages list existed to replace).
+  const where = $("embed-choices-cache");
+  if (where) where.textContent = body.cache ? `Kept in ${body.cache}` : "";
   clearTimeout(embedChoicesUi.poll);
   if (done.running && settingsModalOpen() && currentSettingsSection === "searchindex") {
     embedChoicesUi.poll = setTimeout(renderEmbedChoices, 2000);
@@ -59,6 +63,15 @@ function embedChoiceRow(choice, body, now) {
   title.append(name, chip(choice.backend === "ollama" ? "Through Ollama" : "Runs in the app", "item-label"));
   if (inUse) title.appendChild(chip("ph:check-circle In use", "item-label is-ok"));
   else if (choice.default) title.appendChild(chip("Default", "item-label"));
+  //: **The row's real state** (the owner, 2026-10-07): Downloaded with its size
+  //: on disk, Not downloaded, or Files missing with a Reinstall one press away.
+  //: Only for a model the app runs itself; an Ollama row's state is Ollama's.
+  const partial = choice.backend !== "ollama" && choice.files_missing;
+  if (choice.backend !== "ollama" && choice.one_press) {
+    if (partial) title.appendChild(chip("ph:warning Files missing", "item-label is-warn"));
+    else if (choice.downloaded) title.appendChild(chip(`ph:hard-drives Downloaded, ${choice.on_disk || "on disk"}`, "item-label"));
+    else title.appendChild(chip("Not downloaded", "item-label"));
+  }
   head.appendChild(title);
 
   const actions = document.createElement("span");
@@ -80,17 +93,20 @@ function embedChoiceRow(choice, body, now) {
             run: () => (inUse || moving || busy ? toast(inUse ? "Search uses it now." : busy || "It is switching now.", "info") : embedChoiceUse(choice)),
           },
           {
-            label: choice.downloaded ? "ph:arrow-clockwise Reinstall" : "ph:download-simple Install",
+            label: choice.downloaded || choice.files_missing ? "ph:arrow-clockwise Reinstall" : "ph:download-simple Install",
             disabled: moving,
             run: () => (moving ? toast("It is switching now.", "info") : embedChoiceInstall(choice)),
           },
           {
             label: "ph:trash Uninstall",
             danger: true,
-            disabled: !choice.downloaded || Boolean(usedHere),
-            title: usedHere || (choice.downloaded ? "" : "It is not on this computer."),
+            //: A part-filled folder can be cleared too ("Files missing").
+            disabled: !(choice.downloaded || choice.files_missing) || Boolean(usedHere),
+            title: usedHere || (choice.downloaded || choice.files_missing ? "" : "It is not on this computer."),
             run: () =>
-              usedHere || !choice.downloaded ? toast(usedHere || "It is not on this computer.", "info") : embedChoiceUninstall(choice),
+              usedHere || !(choice.downloaded || choice.files_missing)
+                ? toast(usedHere || "It is not on this computer.", "info")
+                : embedChoiceUninstall(choice),
           },
         ],
         `More for ${choice.label}`
@@ -102,6 +118,11 @@ function embedChoiceRow(choice, body, now) {
         window.open(safeHref(choice.terms_url), "_blank", "noopener,noreferrer")
       )
     );
+  }
+  if (partial && !moving) {
+    const fix = smallButton("ph:arrow-clockwise Reinstall", `Fetch ${choice.label} again; its files on this computer are incomplete`, () => embedChoiceInstall(choice));
+    fix.classList.add("quiet");
+    actions.prepend(fix);
   }
   head.appendChild(actions);
   li.appendChild(head);
@@ -151,7 +172,7 @@ function embedChoiceRow(choice, body, now) {
 //: list uses (verified once it lands), an Ollama one through Ollama's pull.
 //: Both are Background tasks with their progress.
 async function embedChoiceInstall(choice) {
-  const again = choice.downloaded;
+  const again = choice.downloaded || choice.files_missing;
   if (!(await confirmDialog(
     `${again ? "Download" : "Install"} ${choice.label}${again ? " again" : ""}?\n\n${choice.size}, from ` +
       (choice.backend === "ollama" ? "the Ollama library" : "Hugging Face") + ". It needs the internet.",

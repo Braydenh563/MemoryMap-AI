@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Callable
 from functools import lru_cache
 
 from memorymap.ai import variants
@@ -42,10 +43,23 @@ KNOWN_SHORT = frozenset(
 #: Small words a one-letter slip in a short token is read towards, with how
 #: common each is: the prior that makes "odf the" "of" and not "off".
 FUNCTION_PRIOR = {
-    "of": 0.6, "in": 0.4, "on": 0.4, "to": 0.4, "and": 0.6, "the": 0.6, "for": 0.3, "with": 0.3, "from": 0.3,
+    "of": 0.6, "be": 0.3, "its": 0.0, "in": 0.4, "on": 0.4, "to": 0.4, "and": 0.6, "the": 0.6, "for": 0.3, "with": 0.3, "from": 0.3,
     "but": 0.3, "not": 0.3, "you": 0.3, "are": 0.3, "was": 0.3, "can": 0.3, "all": 0.1, "or": 0.3, "is": 0.3,
     "it": 0.3, "at": 0.2, "by": 0.2, "an": 0.2, "my": 0.2, "me": 0.2, "if": 0.2, "so": 0.2, "do": 0.2,
     "must": 0.2, "will": 0.2, "that": 0.3, "this": 0.3, "have": 0.3, "what": 0.3, "when": 0.3, "how": 0.3,
+}
+#: The app's own subject words: a near tie goes to them ("typeos" is "typos",
+#: not "types"), because this is the notebook people type their typos into.
+OWN_WORDS = frozenset({"typo", "typos", "ocr"})
+#: Phrases a near tie is settled by: (before, reading, after) -> a bonus.
+#: "a loit of" is "a lot of", "on tis own" is "on its own".
+CONTEXT_READINGS = {("a", "lot", "of"): 0.6, ("", "lot", "of"): 0.4, ("on", "its", "own"): 0.8, ("its", "own", ""): 0.0}
+#: A mistyped acronym is read as itself when the next word is one it leads:
+#: "cor workspace" is "ocr workspace" (not "for").
+ACRONYM_LEADS = {
+    "ocr": frozenset("workspace scan scans reading reader text engine".split()),
+    "pdf": frozenset("file files page pages document reader".split()),
+    "url": frozenset("link links address field".split()),
 }
 #: Words that are not the head of a phrase after an article ("the suer" is
 #: "the user", not "the sure"): a near tie goes to the other reading.
@@ -69,7 +83,7 @@ _ENDINGS = (
     ("isations", ("",)), ("isation", ("",)), ("izations", ("",)), ("ization", ("",)),
     ("ising", ("",)), ("izing", ("",)), ("ised", ("",)), ("ized", ("",)), ("ises", ("",)), ("izes", ("",)),
     ("ise", ("",)), ("ize", ("",)),
-    ("ings", ("", "e")), ("ing", ("", "e")), ("ies", ("y",)), ("ied", ("y",)), ("ed", ("", "e")), ("es", ("",)), ("s", ("",)),
+    ("ings", ("", "e")), ("ing", ("", "e")), ("ies", ("y",)), ("ied", ("y",)), ("ves", ("f", "fe")), ("ed", ("", "e")), ("es", ("",)), ("s", ("",)),
     ("ers", ("", "e")), ("er", ("", "e")), ("est", ("", "e")), ("ly", ("",)), ("ness", ("",)), ("ment", ("",)),
     ("ments", ("",)), ("ful", ("",)), ("less", ("",)), ("able", ("", "e")),
 )
@@ -94,18 +108,30 @@ def _limit(n: int) -> float:
     return 2.0
 
 
+#: Returns the help topics (dicts); help_chat registers it when it loads. A
+#: registry rather than an import: help_chat imports the speller's callers, so
+#: the speller naming it back was an import cycle.
+_topic_source: Callable[[], list] | None = None
+
+
+def set_topic_source(source: Callable[[], list]) -> None:
+    """Hand the speller the app's help topics, and drop what it cached from
+    the word list alone."""
+    global _topic_source  # noqa: PLW0603
+    _topic_source = source
+    _app_counts.cache_clear()
+    _dictionary.cache_clear()
+
+
 @lru_cache(maxsize=1)
 def _app_counts() -> Counter:
     """Word counts over the app's own help text: its vocabulary, and what
     breaks a tie between two readings. Empty when the help is not loadable
     (the speller then runs on the word list alone)."""
     try:
-        from memorymap.ai import help_chat
-        from memorymap.ai.help_topics_more import MORE_TOPICS
-
         text = " ".join(
             " ".join([str(t.get("title", "")), str(t.get("body", "")), " ".join(t.get("keywords") or [])])
-            for t in [*help_chat.HELP_TOPICS, *MORE_TOPICS]
+            for t in (_topic_source() if _topic_source else [])
             if isinstance(t, dict)
         )
     except Exception:  # noqa: BLE001 - a missing help must not stop a question being read
@@ -189,7 +215,7 @@ def _stems(word: str):
             for back in backs:
                 if back == "" and dropped_e:
                     continue
-                yield "", core + back, ending, "e" if back == "e" else "y" if back == "y" else ""
+                yield "", core + back, ending, {"e": "e", "y": "y", "f": "f", "fe": "f"}.get(back, "")
             #: A doubled last letter is the stopped/planning rule, which only
             #: those endings follow ("propper" is not "prop" + per).
             if len(core) >= 4 and core[-1] == core[-2] and ending in ("ing", "ings", "ed"):
@@ -232,9 +258,20 @@ def _rebuild(prefix: str, base: str, ending: str, how: str) -> str:
         base = base[:-1]
     elif how == "y" and base.endswith("y"):
         base = base[:-1]
+    elif how == "f" and base.endswith(("fe", "f")):
+        #: "knives" is "knife" + ves: the stem's last "f" or "fe" gives way.
+        base = base[: -2 if base.endswith("fe") else -1]
     elif how == "dbl":
         base = base + base[-1]
     return prefix + base + ending
+
+
+def _vowel_slip(typed: str, base: str) -> bool:
+    """One vowel for another in a word of six or more: the commonest slip."""
+    if len(typed) != len(base) or len(base) < 6:
+        return False
+    odd = [(x, y) for x, y in zip(typed, base) if x != y]
+    return len(odd) == 1 and odd[0][0] in "aeiou" and odd[0][1] in "aeiou"
 
 
 def _accept(typed: str, base: str, d: float) -> bool:
@@ -248,7 +285,7 @@ def _accept(typed: str, base: str, d: float) -> bool:
     if d == 0:
         return False
     if len(typed) == len(base):
-        return d <= _limit(n) and (d <= _CHEAP or (n >= 9 and d <= 1.0))
+        return d <= _limit(n) and (d <= _CHEAP or _vowel_slip(typed, base) or (n >= 9 and d <= 1.0))
     #: A letter dropped or added: a long word within its allowance, a short
     #: one when its first letter (and, under six letters, its last) is kept
     #: and a whole edit is allowed ("ahnd" is "and", "pasta" is not "past").
@@ -290,6 +327,44 @@ def _own(stem: str, known, distance):  # noqa: ANN001
     return out
 
 
+def _ending_fits(base: str, ending: str, how: str) -> bool:
+    """Whether `ending` can go on the list word `base` the way `how` says
+    ("generateing" cannot; "comess" cannot)."""
+    if (how == "y" and not base.endswith("y")) or (how == "e" and not base.endswith("e")):
+        return False
+    if how == "" and ending[:1] in ("i", "e") and ending not in ("es", "ies", "ied") and base.endswith("e") and not base.endswith("ee"):
+        return False
+    #: A plural "s" is not put on a word that already ends where "es" goes: "chess"
+    #: is not "comes" + s ("comess").
+    return not (ending == "s" and base.endswith(("s", "x", "z", "ch", "sh")))
+
+
+def _reading_row(word: str, before: str, after: str, prefix: str, ending: str, how: str, d: float, negw: float, base: str, distance):  # noqa: ANN001, ANN202
+    """One scored reading `(score, rebuilt word, weight)` of `word` as the list
+    word `base` with its ending put back, or None when the stem and ending do
+    not fit or it is the typed word itself."""
+    if not _ending_fits(base, ending, how):
+        return None
+    rebuilt = _rebuild(prefix, base, ending, how)
+    if rebuilt == word:
+        return None
+    #: After an article the head is a noun: adverbs lose a near tie.
+    penalty = 0.5 if before in DETERMINERS and base in NOT_AFTER_ARTICLE else 0.0
+    #: Ranked by the whole word, not the stem: "professionaly" is one
+    #: doubled letter from "professionally", two edits from "professionly".
+    whole = d if rebuilt == base else distance(word, rebuilt)
+    #: A vowel for a vowel is the commonest slip in a long word
+    #: ("restert" is "restart"); a prefix reading ("restreet") loses to it.
+    if _vowel_slip(word, rebuilt):
+        whole = min(whole, 0.6)
+    if prefix:
+        penalty += 0.3
+    if rebuilt in OWN_WORDS:
+        penalty -= 0.3
+    penalty -= CONTEXT_READINGS.get((before, rebuilt, after), 0.0)
+    return whole + penalty - 0.8 * FUNCTION_PRIOR.get(rebuilt, 0.0), rebuilt, -negw
+
+
 def _fix(word: str, after: str, before: str, distance, known=()):  # noqa: ANN001
     """The chosen reading of a misspelt word and the other reading it was near,
     as (chosen, alternative) or None. `known` are the person's own words (their
@@ -301,21 +376,11 @@ def _fix(word: str, after: str, before: str, distance, known=()):  # noqa: ANN00
         if len(stem) < 4:
             continue
         for d, negw, base in [*_candidates(stem, distance), *_own(stem, known, distance)]:
-            #: After an article the head is a noun: adverbs lose a near tie.
-            penalty = 0.5 if before in DETERMINERS and base in NOT_AFTER_ARTICLE else 0.0
-            if (how == "y" and not base.endswith("y")) or (how == "e" and not base.endswith("e")):
-                continue
-            if how == "" and ending[:1] in ("i", "e") and ending not in ("es", "ies", "ied") and base.endswith("e") and not base.endswith("ee"):
-                continue
-            rebuilt = _rebuild(prefix, base, ending, how)
-            if rebuilt == word:
-                continue
-            #: Ranked by the whole word, not the stem: "professionaly" is one
-            #: doubled letter from "professionally", two edits from "professionly".
-            whole = d if rebuilt == base else distance(word, rebuilt)
-            scored.append((whole + penalty - 0.8 * FUNCTION_PRIOR.get(rebuilt, 0.0), rebuilt, -negw))
+            row = _reading_row(word, before, after, prefix, ending, how, d, negw, base, distance)
+            if row:
+                scored.append(row)
     if not scored:
-        return None
+        return _one_off(word) or _hidden_small(word, after)
     scored.sort(key=lambda row: (round(row[0] / 0.2), -row[2], row[0]))
     best = scored[0]
     pool = [row for row in scored if row[1] != best[1]]
@@ -325,32 +390,63 @@ def _fix(word: str, after: str, before: str, distance, known=()):  # noqa: ANN00
     return best[1], (other[1] if other else None)
 
 
+def _one_off(word: str):
+    """A five-letter non-word one letter from exactly one list word ("linal"
+    is "final"): a whole substitution is allowed only when nothing else is
+    that near, which is what keeps "hallway" from being "halfway"."""
+    if len(word) != 5:
+        return None
+    from memorymap.ai.common_words import WORDS  # noqa: PLC0415 - the lists cost import time
+
+    #: Only an everyday word is a target ("tacos" is not "macos").
+    found = [
+        base for base, _ in _index().get(5, ())
+        if base in WORDS and sum(1 for x, y in zip(word, base) if x != y) == 1 and base[0] != "" and base[-1] == word[-1]
+    ]
+    return (found[0], None) if len(found) == 1 else None
+
+
+def _hidden_small(word: str, after: str = ""):
+    """A small word with one stray letter at an end, or in the wrong order
+    ("ehte" is "the", "ist" is "is"): read as the small word, when no list
+    word is near."""
+    if len(word) not in (3, 4):
+        return None
+    for cand in sorted(FUNCTION_PRIOR, key=lambda c: -FUNCTION_PRIOR[c]):
+        if len(cand) != len(word) - 1:
+            continue
+        for rest in (word[1:], word[:-1]):
+            if rest == cand or (len(cand) == 3 and sorted(rest) == sorted(cand)):
+                return cand, None
+    return None
+
+
 def _same_shape(a: str, b: str, typed: str) -> bool:
     """Two readings of one typed word that differ in length by at most a
     letter: the second is offered only then (not "calendarer" for "calender")."""
     return abs(len(a) - len(b)) <= 1
 
 
-def _fix_short(word: str, after: str, before: str, distance):  # noqa: ANN001
-    """A two- or three-letter token that is no word: read as a small word only
-    when a letter was dropped or swapped, and between words (not alone)."""
-    if len(word) < 2 or word in KNOWN_SHORT or not (after or before):
-        return None
-    if len(word) == 2:
-        #: Two letters are read only as a small word with its first letter
-        #: dropped ("nd" is "and", "dn" is the same letters swapped), its
-        #: letters swapped ("ro" is "or") or one key off ("od" is "of").
-        pool = [
-            cand for cand in FUNCTION_PRIOR
-            if (len(cand) == 3 and sorted(cand[1:]) == sorted(word))
-            or (len(cand) == 2 and cand != word and (cand == word[::-1] or distance(word, cand) <= 0.5))
-        ]
-        #: Before an article a small word is a preposition ("od the" is "of the").
-        pool.sort(key=lambda c: -(FUNCTION_PRIOR[c] + (0.5 if after in DETERMINERS and c in PREPOSITIONS else 0.0)))
-        return (pool[0], pool[1] if len(pool) > 1 else None) if pool else None
-    context_prep = after in DETERMINERS
-    pool = PREPOSITIONS if context_prep else frozenset(FUNCTION_PRIOR)
-    limit = 1.0 if (context_prep or len(word) == 2) else _CHEAP
+def _two_letter_reading(word: str, after: str, distance):  # noqa: ANN001, ANN202
+    """Two letters are read only as a small word with its first letter
+    dropped ("nd" is "and", "dn" is the same letters swapped), its letters
+    swapped ("ro" is "or") or one key off ("od" is "of")."""
+    pool = [
+        cand for cand in FUNCTION_PRIOR
+        if (len(cand) == 3 and sorted(cand[1:]) == sorted(word))
+        or (len(cand) == 2 and cand != word and (cand == word[::-1] or distance(word, cand) <= 0.5))
+    ]
+    #: Before an article a small word is a preposition ("od the" is "of the").
+    #: Before "to" a preposition cannot stand ("ot to" is "it to", not "of to").
+    pool.sort(key=lambda c: -(
+        FUNCTION_PRIOR[c]
+        + (0.5 if after in DETERMINERS and c in PREPOSITIONS else 0.0)
+        + (0.5 if after == "to" and c == "it" else -0.5 if after == "to" and c in PREPOSITIONS else 0.0)
+    ))
+    return (pool[0], pool[1] if len(pool) > 1 else None) if pool else None
+
+
+def _short_candidates(word: str, before: str, after: str, pool, limit: float, distance) -> list[tuple[float, str]]:  # noqa: ANN001
     scored = []
     for cand in pool:
         if abs(len(cand) - len(word)) > 1:
@@ -359,26 +455,65 @@ def _fix_short(word: str, after: str, before: str, distance):  # noqa: ANN001
         #: A letter dropped from a small word that keeps its first and last
         #: letters ("mut" for "must") costs a whole edit but is the commonest slip.
         dropped = len(cand) == len(word) + 1 and cand[0] == word[0] and cand[-1] == word[-1]
+        #: A stray last letter ("ist" for "is") is a cheap slip too.
+        if cand == word[:-1]:
+            d, dropped = min(d, 0.6), True
         if 0 < d <= (1.0 if dropped else limit) and (cand[0] == word[0] or cand[-1] == word[-1] or sorted(cand) == sorted(word)):
-            scored.append((d - FUNCTION_PRIOR.get(cand, 0.0), cand))
-    if not scored:
+            scored.append((d - FUNCTION_PRIOR.get(cand, 0.0) - CONTEXT_READINGS.get((before, cand, after), 0.0), cand))
+    return scored
+
+
+def _fix_short(word: str, after: str, before: str, distance):  # noqa: ANN001
+    """A two- or three-letter token that is no word: read as a small word only
+    when a letter was dropped or swapped, and between words (not alone)."""
+    if len(word) < 2 or word in KNOWN_SHORT or not (after or before):
         return None
+    if len(word) == 2:
+        return _two_letter_reading(word, after, distance)
+    context_prep = after in DETERMINERS
+    scored = _short_candidates(
+        word, before, after, PREPOSITIONS if context_prep else frozenset(FUNCTION_PRIOR), 1.0 if context_prep else _CHEAP, distance
+    )
+    if not scored:
+        return _hidden_small(word, after)
     scored.sort()
     best = scored[0]
     other = next((row for row in scored[1:] if row[0] - best[0] <= 0.35), None)
     return best[1], (other[1] if other else None)
 
 
-def fix(word: str, *, distance, after: str = "", before: str = "", known=()):  # noqa: ANN001
+def _fixed_phrase(word: str, after: str) -> tuple[str, None] | None:
+    """The readings that need no scoring: the article run into a noun
+    ("abutton"), "the" before a date, and a mistyped acronym before a word it leads."""
+    if len(word) >= 6 and word[0] == "a" and _is_word(word[1:]):
+        return "a " + word[1:], None
+    #: "as ther 17th": no "there" is followed by a date, so it is "the".
+    if word in ("ther", "thre", "teh", "hte") and after[:1].isdigit():
+        return "the", None
+    for acronym, leads in ACRONYM_LEADS.items():
+        if len(word) == 3 and word != acronym and sorted(word) == sorted(acronym) and after.lower() in leads:
+            return acronym, None
+    return None
+
+
+def fix(word: str, *, after: str = "", before: str = "", known=(), distance=None):  # noqa: ANN001
     """`(chosen, alternative)` for a misspelt lower-case word, else None.
     A word the list knows, the person's notes hold, or that carries a digit or
-    apostrophe is never changed. `distance` is question_noise's, passed in:
-    that module imports this one (`tests/test_no_import_cycles.py`)."""
+    apostrophe is never changed."""
     if not word.isalpha() or word in known or word in KNOWN_SHORT:
         return None
+    if distance is None:
+        distance = _default_distance
     if _is_word(word):
         return _respelt(word, distance) or _rare_real(word, distance)
-    return _fix(word, after.lower(), before.lower(), distance, known)
+    special = _fixed_phrase(word, after)
+    if special:
+        return special
+    read = _fix(word, after.lower(), before.lower(), distance, known)
+    #: "it liks" is "it likes": a verb after a third-person subject.
+    if read and read[0] == "like" and word.startswith("lik") and before.lower() in ("it", "he", "she", "who", "that", "everyone", "nobody"):
+        return "likes", "like"
+    return read
 
 
 #: Words the app is written in that neither list has yet: targets like the
@@ -467,6 +602,23 @@ def _swapped_small(a: str, joined: str, known) -> tuple[str, str] | None:  # noq
     return None
 
 
+def _joined_or_cut(a: str, b: str, known) -> tuple[list[str], tuple[str, str]] | None:  # noqa: ANN001
+    """The two lower-case alphabetic neighbours `a b` as one word ("a nd" is
+    "and"), or re-cut into two ("thes ebuttons"): the pieces and the change
+    to report, else None. Only where at least one piece is no word."""
+    if (is_word(a, known) and is_word(b, known)) or a in known or b in known:
+        return None
+    whole = a + b
+    #: A word only the general English list holds ("otto") is not a join:
+    #: "ot to" is "it to".
+    if len(whole) >= 3 and is_word(whole, known) and (whole in known or whole not in english() or whole in _dictionary()):
+        return [whole], (f"{a} {b}", whole)
+    #: A run-on pair is re-cut only when neither piece is a word
+    #: ("thes ebuttons"); "the mantis" is a word and a rare word.
+    cut = None if is_word(a, known) or is_word(b, known) else _resegment(a, b, known)
+    return ([cut[0], cut[1]], (f"{a} {b}", f"{cut[0]} {cut[1]}")) if cut else None
+
+
 def rejoin(tokens: list[str], known=(), skip=frozenset(), changes: list | None = None) -> list[str]:  # noqa: ANN001
     """Split words put back together and run-on pairs re-cut: "a nd" is "and",
     "whena ny" is "when any". Only where at least one piece is no word, and
@@ -478,26 +630,18 @@ def rejoin(tokens: list[str], known=(), skip=frozenset(), changes: list | None =
         b = tokens[i + 1] if i + 1 < len(tokens) else ""
         core_b = b.rstrip("?!.,:;")
         tail = b[len(core_b):]
+        done = None
         if b and a.islower() and core_b.islower() and a.isalpha() and core_b.isalpha() and a not in skip and core_b not in skip:
-            if not (is_word(a, known) and is_word(core_b, known)) and a not in known and core_b not in known:
-                whole = a + core_b
-                if len(whole) >= 3 and is_word(whole, known):
-                    if changes is not None:
-                        changes.append((f"{a} {core_b}", whole))
-                    out.append(whole + tail)
-                    i += 2
-                    continue
-                #: A run-on pair is re-cut only when neither piece is a word
-                #: ("thes ebuttons"); "the mantis" is a word and a rare word.
-                cut = None if is_word(a, known) or is_word(core_b, known) else _resegment(a, core_b, known)
-                if cut:
-                    if changes is not None:
-                        changes.append((f"{a} {core_b}", f"{cut[0]} {cut[1]}"))
-                    out.extend([cut[0], cut[1] + tail])
-                    i += 2
-                    continue
-        out.append(a)
-        i += 1
+            done = _joined_or_cut(a, core_b, known)
+        if done is None:
+            out.append(a)
+            i += 1
+            continue
+        pieces, change = done
+        if changes is not None:
+            changes.append(change)
+        out.extend([*pieces[:-1], pieces[-1] + tail])
+        i += 2
     return out
 
 
@@ -531,6 +675,62 @@ def split_run_on(word: str, known=()) -> tuple[str, str] | None:  # noqa: ANN001
         if (head in small or tail in small) and is_word(head, known) and is_word(tail, known) and min(len(head), len(tail)) >= 2:
             return head, tail
     return None
+
+
+#: QWERTY neighbours: a slip to the next key is a cheaper edit than any other.
+_ROWS = ("qwertyuiop", "asdfghjkl", "zxcvbnm")
+_NEAR: dict[str, set[str]] = {}
+for _r, _row in enumerate(_ROWS):
+    for _c, _key in enumerate(_row):
+        near = _NEAR.setdefault(_key, set())
+        for dr in (-1, 0, 1):
+            rr = _r + dr
+            if 0 <= rr < len(_ROWS):
+                for dc in (-1, 0, 1):
+                    cc = _c + dc
+                    if (dr or dc) and 0 <= cc < len(_ROWS[rr]):
+                        near.add(_ROWS[rr][cc])
+
+
+_SOUNDS = frozenset(frozenset(pair) for pair in ("dt", "bp", "gk", "sz", "ck", "cs", "fv"))
+
+
+def _sub_cost(a: str, b: str) -> float:
+    if a == b:
+        return 0.0
+    if b in _NEAR.get(a, ()):
+        return 0.5
+    #: Letters that sound alike are mixed up by ear ("instand", "bolier" no, "seperate").
+    return 0.6 if frozenset((a, b)) in _SOUNDS else 1.0
+
+
+def _gap_cost(word: str, i: int) -> float:
+    """The cost of adding or dropping the i-th letter (1-based)."""
+    return 0.4 if i > 1 and word[i - 1] == word[i - 2] else 0.5 if word[i - 1] in "aeiou" else 1.0
+
+
+def distance(a: str, b: str) -> float:
+    """Weighted edit distance: a neighbouring key 0.5, a swap of two letters
+    0.6, a doubled letter added or dropped 0.4, a vowel 0.5, anything else 1."""
+    a, b = a.lower(), b.lower()
+    rows = [[0.0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(1, len(a) + 1):
+        rows[i][0] = i * 1.0
+    for j in range(1, len(b) + 1):
+        rows[0][j] = j * 1.0
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            #: A doubled letter, or a vowel dropped as people do when they
+            #: type fast ("lng", "whn", "mny"), is cheaper than other edits.
+            drop, add = _gap_cost(a, i), _gap_cost(b, j)
+            best = min(rows[i - 1][j] + drop, rows[i][j - 1] + add, rows[i - 1][j - 1] + _sub_cost(a[i - 1], b[j - 1]))
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                best = min(best, rows[i - 2][j - 2] + 0.6)
+            rows[i][j] = best
+    return rows[-1][-1]
+
+
+_default_distance = distance
 
 
 _WARMED = {"started": False}

@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, UploadFile
@@ -34,13 +34,13 @@ from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
 from memorymap.api.routes_categories import CATEGORY_PALETTE_KEYS
-from memorymap.core import backup_bundle, deps, embedmodels, events, extras, jobruns, logbuffer, security
+from memorymap.core import backup, backup_bundle, deps, embedmodels, events, extras, jobruns, logbuffer, security
 from memorymap.core.config import default_preferences
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
 from memorymap.search import searxng_manager, websearch
-from memorymap.api.this_computer import this_computer_only
+from memorymap.api.this_computer import REFUSAL, is_another_device, this_computer_only
 
 router = APIRouter(tags=["settings"])
 
@@ -299,6 +299,9 @@ class SkillItem(BaseModel):
 
 
 class PreferencesBody(BaseModel):
+    #: Settings to put back to "never set" (their default), which a value cannot
+    #: say: Settings, Recent changes uses it to undo a first change (INBOX 898).
+    unset: list[Annotated[str, Field(min_length=1, max_length=80)]] | None = Field(default=None, max_length=64)
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
     # 0 means "keep everything", which is the default, see
     # `autonomous.purge_old_conversations` for why this is opt-in rather than
@@ -310,12 +313,22 @@ class PreferencesBody(BaseModel):
     # existing, writable directory, checked at save time rather than at
     # export time when a bad path means a lost file.
     export_save_dir: str | None = Field(default=None, max_length=500)
+    backup_copy_dir: str | None = Field(default=None, max_length=500)
     search_min_similarity: float | None = Field(default=None, ge=0, le=1)
     search_relative_z_margin: float | None = Field(default=None, ge=0, le=3)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
     #: The register the composer writes its connecting words in when no model
     #: answers (`ai/composer_tables.py`): plain and friendly, or formal.
     composer_voice: Literal["natural", "professional", "playful", "plain"] | None = None
+    #: The first day of the week for the Statistics page: the person's pick,
+    #: or "auto" to follow the locale the browser reports (`week_start_locale`,
+    #: a Python weekday, 0 Monday to 6 Sunday).
+    week_start: Literal["auto", "monday", "saturday", "sunday"] | None = None
+    week_start_locale: int | None = Field(default=None, ge=0, le=6)
+    #: Minutes of no use after which the search-by-meaning model is dropped from
+    #: memory (decision 62; it loads again on the next search or save). 0 keeps it.
+    embedder_idle_unload_minutes: int | None = Field(default=None, ge=0, le=1440)
+
     #: What Atlas volunteers past the answer (CHAT_PLAN decision 73).
     insight_level: Literal["off", "one", "all"] | None = None
     #: **The writing checker's own two settings.** Both belong on the server
@@ -344,6 +357,11 @@ class PreferencesBody(BaseModel):
     #: changes what was typed without being asked is the thing people turn off
     #: first, so this one asks.
     smart_punctuation: bool | None = None
+    #: Autocorrect in the note boxes, the chat and Ask composers and the
+    #: titles (Brief 94, autocorrect.js). On by default, unlike the line above:
+    #: it changes only strings that are not words, says so, and puts each back
+    #: with one key.
+    autocorrect: bool | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
     # Optional context about the user for the librarian.
@@ -414,6 +432,7 @@ class PreferencesBody(BaseModel):
     # without asking each time", see core.config's own comment.
     auto_update_enabled: bool | None = None
     update_channel: Literal["stable", "main"] | None = None
+    update_beta: bool | None = None
     searxng_autostart: bool | None = None
     # Whether the app may install search by meaning itself: see core.config.
     semantic_auto_install: bool | None = None
@@ -522,6 +541,7 @@ class PreferencesBody(BaseModel):
     #: INBOX 509: the search model loads at launch (the first note files at
     #: once) or on first use (a lighter start; the first note waits for it).
     warm_search_model_at_launch: bool | None = None
+    #: Decision 62: the search model goes after an idle hour (default on).
     battery_efficient_mode: bool | None = None
     smart_model_routing_enabled: bool | None = None
     # Asked directly: a way to quiet toasts and the notifications panel for
@@ -547,6 +567,14 @@ class PreferencesBody(BaseModel):
     # it, so every install has silently run "base" regardless of the box's
     # speed or the length of what's being dictated.
     voice_model: Literal["tiny", "base", "small", "medium"] | None = None
+    #: Brief 87 step 2: Whisper's options (ai/voice.py `options_from`).
+    voice_skip_silence: bool | None = None
+    #: "" detects the language; the codes are `voice.LANGUAGES`.
+    voice_language: Literal[
+        "", "en", "es", "fr", "de", "it", "pt", "nl", "pl", "sv", "da", "no", "fi",
+        "ru", "uk", "tr", "ar", "hi", "ja", "zh", "ko",
+    ] | None = None
+    voice_vocabulary: str | None = Field(default=None, max_length=200)
     # The user's IANA timezone, reported by the browser at startup. Anything
     # the AI reasons about in time ("in 10 minutes", "tomorrow at 9") is
     # resolved against this, because the server may be running in UTC while
@@ -747,15 +775,20 @@ def _preferences_from(config) -> dict:
         "warm_search_model_at_launch": config.get_preference("warm_search_model_at_launch", True),
         "conversation_retention_days": config.get_preference("conversation_retention_days", 0),
         "export_save_dir": config.get_preference("export_save_dir", ""),
+        "backup_copy_dir": config.get_preference("backup_copy_dir", ""),
         "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
         "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
         "composer_voice": config.get_preference("composer_voice", "natural"),
+        "week_start": config.get_preference("week_start", "auto"),
+        "week_start_locale": config.get_preference("week_start_locale", 0),
+        "embedder_idle_unload_minutes": config.get_preference("embedder_idle_unload_minutes", 60),
         "insight_level": config.get_preference("insight_level", "one"),
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),
         "smart_punctuation": config.get_preference("smart_punctuation", False),
+        "autocorrect": config.get_preference("autocorrect", True),
         "display_name": config.get_preference("display_name", ""),
         #: Echoed so Settings can draw the boxes with what is in them rather
         #: than empty, which is the bug this file's other comments keep
@@ -797,6 +830,7 @@ def _preferences_from(config) -> dict:
         "auto_update_enabled": config.get_preference("auto_update_enabled", False),
         "update_choice_made": config.get_preference("update_choice_made", False) is True,
         "update_channel": config.get_preference("update_channel", "stable"),
+        "update_beta": config.get_preference("update_beta", False) is True,
         "searxng_url": config.get_preference("searxng_url", ""),
         "searxng_autostart": config.get_preference("searxng_autostart", False),
         "semantic_auto_install": config.get_preference("semantic_auto_install", True),
@@ -806,6 +840,9 @@ def _preferences_from(config) -> dict:
         "response_mode": config.get_preference("response_mode", presets.DEFAULT_MODE),
         "disabled_tools": config.get_preference("disabled_tools", []),
         "voice_model": config.get_preference("voice_model", "base"),
+        "voice_skip_silence": config.get_preference("voice_skip_silence", True),
+        "voice_language": config.get_preference("voice_language", ""),
+        "voice_vocabulary": config.get_preference("voice_vocabulary", ""),
         "saved_searches": config.get_preference("saved_searches", []),
         "saved_finds": config.get_preference("saved_finds", []),
         # Echoed back so the browser can tell whether the zone it just
@@ -977,29 +1014,78 @@ def _validated_context_windows(value: object) -> dict[str, int | None]:
     return cleaned
 
 
+#: Preferences that point this computer somewhere, start or install
+#: something on it, let it go online, or change how its own window behaves.
+#: Another device may move one only the safe way (the value given), or not at
+#: all (None): the owner, 2026-10-11, "I need maximum trust ... proper
+#: security for the lan". `searxng_url` aims this computer at any address on
+#: its own network; `export_save_dir` picks where files land on its disk.
+_THIS_COMPUTER_PREFERENCES: dict[str, object] = {
+    "export_save_dir": None,
+    "searxng_url": None,
+    "update_channel": None,
+    "show_console_on_startup": None,
+    "close_to_tray": None,
+    "new_window_on_launch": None,
+    "searxng_autostart": False,
+    "semantic_auto_install": False,
+    "auto_update_enabled": False,
+    "update_check_enabled": False,
+    "web_search_enabled": False,
+    "local_only_ai": True,
+    "session_idle_ttl_minutes": "shorter",
+}
+
+
+def _refused_elsewhere(request: Request | None, key: str, value: object, current: dict) -> bool:
+    """Whether another device is asking to loosen a this-computer setting."""
+    if key not in _THIS_COMPUTER_PREFERENCES or request is None or not is_another_device(request):
+        return False
+    before = current.get(key)
+    if value == before:
+        return False
+    safe = _THIS_COMPUTER_PREFERENCES[key]
+    if safe == "shorter":
+        try:
+            return int(value) > int(before or 720)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return True
+    return safe is None or value != safe
+
+
+def _validated_preference(key: str, value):  # noqa: ANN001, ANN202
+    """The value as it is stored. A skill saved from the editor goes through
+    exactly what `save_skill` goes through, so a skill the AI can write is a
+    skill the UI can write, and neither can store one that won't run."""
+    check = {
+        "skills": _validated_skills,
+        "custom_templates": _validated_templates,
+        "export_save_dir": _validated_export_dir,
+        "backup_copy_dir": _validated_backup_copy_dir,
+        "dashboard_quick_access": _validated_quick_access,
+        "dashboard_quick_tints": _validated_quick_tints,
+        "model_context_windows": _validated_context_windows,
+    }.get(key)
+    return check(value) if check else value
+
+
 @router.put("/preferences")
 def update_preferences(
-    body: PreferencesBody, session: Session = Depends(get_session)
+    body: PreferencesBody, request: Request, session: Session = Depends(get_session)
 ) -> dict:
     config = deps.get_config()
+    current = get_preferences()
+    if any(_refused_elsewhere(request, k, v, current) for k, v in body.model_dump(exclude_none=True).items()):
+        raise HTTPException(status_code=403, detail=REFUSAL)
     changed_keys = set()
-    for key, value in body.model_dump(exclude_none=True).items():
-        if key == "skills":
-            # One validator for both ways in. A skill saved from the editor
-            # goes through exactly what `save_skill` goes through, so a skill
-            # the AI can write is a skill the UI can write, and neither can
-            # store one that won't run.
-            value = _validated_skills(value)
-        if key == "custom_templates":
-            value = _validated_templates(value)
-        if key == "export_save_dir":
-            value = _validated_export_dir(value)
-        if key == "dashboard_quick_access":
-            value = _validated_quick_access(value)
-        if key == "dashboard_quick_tints":
-            value = _validated_quick_tints(value)
-        if key == "model_context_windows":
-            value = _validated_context_windows(value)
+    values = body.model_dump(exclude_none=True)
+    for key in values.pop("unset", None) or []:
+        if key in values:
+            continue
+        config.unset_preference(key)
+        changed_keys.add(key)
+    for key, value in values.items():
+        value = _validated_preference(key, value)
         config.set_preference(key, value)
         changed_keys.add(key)
         if key in ("update_check_enabled", "auto_update_enabled"):
@@ -1061,8 +1147,24 @@ SETTINGS_FILE_VERSION = 1
 #: not a choice a person would carry to another one: the detected time zone, a
 #: folder path on this disk, and the one-time "seen it" flags.
 _NOT_EXPORTED = frozenset(
-    {"timezone", "export_save_dir", "console_view_intro_seen", "tray_hide_explained"}
+    {"timezone", "week_start_locale", "export_save_dir", "backup_copy_dir", "console_view_intro_seen", "tray_hide_explained"}
 )
+
+
+#: Lists a settings file adds to rather than replaces (OPEN row 558): an
+#: item with the same name is the file's, every other one stays. Undo sends
+#: `replace_lists` so the list it puts back is the one that was there.
+_MERGED_LISTS = {"skills": 30, "personas": 20, "custom_templates": 20}
+
+
+def _merged_list(current: object, incoming: list, cap: int) -> list:
+    names = {str(item.get("name") or "").strip().lower() for item in incoming if isinstance(item, dict)}
+    kept = [
+        item
+        for item in (current if isinstance(current, list) else [])
+        if isinstance(item, dict) and str(item.get("name") or "").strip().lower() not in names
+    ]
+    return [*incoming, *kept][:cap]
 
 
 def _exportable_keys() -> list[str]:
@@ -1083,7 +1185,7 @@ def export_preferences() -> dict:
 
 
 @router.post("/preferences/import")
-def import_preferences(payload: dict, session: Session = Depends(get_session)) -> dict:
+def import_preferences(payload: dict, request: Request, session: Session = Depends(get_session)) -> dict:
     """Apply a settings file, key by key, and say what was skipped and why.
 
     Each key is validated alone: one bad value (a file edited by hand, a key a
@@ -1092,12 +1194,12 @@ def import_preferences(payload: dict, session: Session = Depends(get_session)) -
     so an imported value is cleaned exactly as one typed into Settings is.
     """
     if payload.get("kind") != SETTINGS_FILE_KIND:
-        raise HTTPException(status_code=422, detail="That file is not a MemoryMap settings file.")
+        raise HTTPException(status_code=422, detail="That file is not a Tessellate settings file.")
     version = payload.get("version")
     if not isinstance(version, int) or version > SETTINGS_FILE_VERSION:
         raise HTTPException(
             status_code=422,
-            detail="That settings file is from a newer version of MemoryMap; update this one first.",
+            detail="That settings file is from a newer version of Tessellate; update this one first.",
         )
     incoming = payload.get("preferences")
     if not isinstance(incoming, dict):
@@ -1108,7 +1210,9 @@ def import_preferences(payload: dict, session: Session = Depends(get_session)) -
     skipped: list[dict[str, str]] = []
     unchanged = 0
     for key, value in list(incoming.items())[:400]:
-        if key in _NOT_EXPORTED:
+        if _refused_elsewhere(request, key, value, current):
+            skipped.append({"key": key, "reason": "only the computer Tessellate runs on can change this"})
+        elif key in _NOT_EXPORTED:
             skipped.append({"key": key, "reason": "belongs to the computer it came from"})
         elif key not in exportable:
             skipped.append({"key": key, "reason": "not a setting this version has"})
@@ -1118,12 +1222,14 @@ def import_preferences(payload: dict, session: Session = Depends(get_session)) -
             except ValueError:
                 skipped.append({"key": key, "reason": "not a value this setting takes"})
                 continue
+            if key in _MERGED_LISTS and isinstance(value, list) and not payload.get("replace_lists"):
+                value = _merged_list(current.get(key), value, _MERGED_LISTS[key])
             if value is not None and current.get(key) != value:
                 valid[key] = value
             else:
                 unchanged += 1
     if valid:
-        update_preferences(body=PreferencesBody.model_validate(valid), session=session)
+        update_preferences(body=PreferencesBody.model_validate(valid), request=request, session=session)
     return {
         "applied": sorted(valid),
         "unchanged": unchanged,
@@ -1211,18 +1317,15 @@ def restart_app(background_tasks: BackgroundTasks) -> dict:
     caller. This is the second: same mechanism, current console visibility
     preserved rather than flipped.
 
-    Same platform gate as /system/console-mode, for the same reason, this
-    can only ever work in the packaged desktop app on Windows (the one
-    platform `_spawn_desktop` knows how to relaunch). Everywhere else,
-    "restart" means the user's own means of doing that (Ctrl+C and rerun,
-    close and reopen the browser tab), which this app cannot do for them.
+    `restart_app` in `__main__.py` starts a new copy that waits for this
+    one to exit, then this one exits; the page waits for it and reloads.
     """
-    if os.getenv("MEMORYMAP_DESKTOP") != "1" or sys.platform != "win32":
+    #: Every launch the launcher made (INBOX 872: browser or desktop, any
+    #: system, source or packaged), not only the desktop app on Windows. A bare
+    #: `uvicorn --factory` or the tests have no launcher to start a new copy.
+    if os.getenv("MEMORYMAP_LAUNCHED") != "1" and os.getenv("MEMORYMAP_DESKTOP") != "1":
         return {"restarting": False}
-    restart_in_console_mode = _desktop_entry().restart_in_console_mode  # same cycle break
-
-    show_console = bool(deps.get_config().get_preference("show_console_on_startup", True))
-    background_tasks.add_task(restart_in_console_mode, not show_console)
+    background_tasks.add_task(_desktop_entry().restart_app)  # same cycle break
     return {"restarting": True}
 
 
@@ -1299,18 +1402,20 @@ def _validated_export_dir(raw: str) -> str:
     return str(path)
 
 
+def _validated_backup_copy_dir(raw: str) -> str:
+    """The second place a backup is copied to: the export folder's checks
+    (absolute, exists, writable; empty clears it), and not the app's own
+    backups folder, which would copy each file onto itself."""
+    value = _validated_export_dir(raw)
+    if value:
+        own = os.path.realpath(backup.backups_dir(deps.get_config().data_dir))
+        if os.path.realpath(value) == own:
+            raise HTTPException(status_code=422, detail="That is already where backups are kept. Choose another folder.")
+    return value
+
+
 def _small_class(config) -> bool:
-    """Whether skill runs get the small-model treatment now: the setting's
-    On, or Auto with a chat model whose name says it is small."""
-    setting = str(config.get_preference("small_model_mode", "auto") or "auto").lower()
-    if setting in ("on", "true", "always"):
-        return True
-    if setting != "auto":
-        return False
-    try:
-        return deps.get_model_manager().chat_model_is_small() is True
-    except Exception:  # noqa: BLE001  # a label is not worth failing the list over
-        return False
+    return skills.small_class(config)
 
 
 @router.get("/skills")
@@ -1383,6 +1488,9 @@ def list_skills() -> dict:
 class PreferenceBody(BaseModel):
     content: str | None = Field(default=None, max_length=200)
     active: bool | None = None
+    #: Undo of answering a proposal (INBOX 898) puts the question back; Redo
+    #: answers it again by sending `proposed: false` with the verdict.
+    proposed: bool | None = None
 
 
 class ProposalAnswer(BaseModel):
@@ -1544,6 +1652,8 @@ def update_memory(
         row.content = text_
     if body.active is not None:
         row.active = body.active
+    if body.proposed is not None and hasattr(row, "proposed"):
+        row.proposed = body.proposed
     session.commit()
     session.refresh(row)
     return _preference_out(row)
@@ -1981,6 +2091,8 @@ def embedding_model_choices() -> dict:
             row["downloaded"] = row["model"] in pulled or f"{row['model']}:latest" in pulled
     return {
         "choices": choices,
+        #: Where the built-in models are kept, said in words under the list.
+        "cache": str(embedmodels.cache_root()),
         #: Already on this computer, outside the catalogue (the owner's
         #: addendum): a read-only scan, offline.
         "found": embedfind.found(deps.get_ollama()),
@@ -1989,7 +2101,7 @@ def embedding_model_choices() -> dict:
     }
 
 
-@router.post("/embedding-models/use")
+@router.post("/embedding-models/use", dependencies=[Depends(this_computer_only)])
 def use_embedding_model(body: EmbeddingChoiceBody) -> dict:
     """Switch search to one catalogue entry, in the background. An entry
     whose licence or loading rules forbid one press is refused here too,
@@ -2012,7 +2124,7 @@ class EmbeddingPullBody(BaseModel):
     name: str = Field(max_length=200)
 
 
-@router.post("/embedding-models/pull")
+@router.post("/embedding-models/pull", dependencies=[Depends(this_computer_only)])
 def pull_embedding_model(body: EmbeddingPullBody) -> dict:
     """Pull a model by name (INBOX 700, the owner's second addendum).
 
@@ -2049,7 +2161,7 @@ def pull_embedding_model(body: EmbeddingPullBody) -> dict:
     return {"started": True, "message": f"Pulling {name} into Ollama. Background tasks shows its progress.", "source": "ollama"}
 
 
-@router.post("/embedding-models/{model_id}/download")
+@router.post("/embedding-models/{model_id}/download", dependencies=[Depends(this_computer_only)])
 def download_embedding_model(model_id: str, reinstall: bool = False) -> dict:
     """Fetch one model **from the allowlist** in `core/embedmodels.py`.
 
@@ -2063,12 +2175,13 @@ def download_embedding_model(model_id: str, reinstall: bool = False) -> dict:
     broken snapshot.
     """
     if reinstall:
-        embedmodels.remove(model_id)
-    started, message = embedmodels.start(model_id)
+        started, message = embedmodels.reinstall(model_id)
+    else:
+        started, message = embedmodels.start(model_id)
     return {"started": started, "message": message}
 
 
-@router.delete("/embedding-models/{model_id}")
+@router.delete("/embedding-models/{model_id}", dependencies=[Depends(this_computer_only)])
 def remove_embedding_model(model_id: str) -> dict:
     """Delete one model from the cache, by the same allowlist id."""
     removed, message = embedmodels.remove(model_id)
@@ -2265,6 +2378,7 @@ DIAGNOSTIC_PREFERENCES = frozenset(
         "recycle_bin_days",
         "conversation_retention_days",
         "timezone",
+        "week_start",
         "web_search_enabled",
         "searxng_autostart",
         "search_provider",
@@ -2303,7 +2417,7 @@ def _redacted_preferences(preferences: dict) -> dict:
     return {"included": kept, "withheld": withheld}
 
 
-BUNDLE_README = """MemoryMap AI: support bundle
+BUNDLE_README = """Tessellate: support bundle
 =============================
 
 What this is
@@ -2468,7 +2582,7 @@ def export_backup(background_tasks: BackgroundTasks):
 def export_json(session: Session = Depends(get_session)) -> Response:
     categories, entries, links = _export_rows(session)
     payload = {
-        "app": "MemoryMap AI",
+        "app": "Tessellate",
         "version": __version__,
         "exported_at": utcnow().isoformat(),
         "categories": [{"id": c.id, "name": c.name} for c in categories],

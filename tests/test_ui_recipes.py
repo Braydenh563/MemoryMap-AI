@@ -211,6 +211,8 @@ HAND_BUILT_SHEETS = {"sidebar-sheet-open", "graph-popup-sheet"}
 # than becoming a third hand-built sheet. A new variant adds its two names here
 # and nothing else; the test below is what keeps that true.
 SHEET_RECIPE = {
+    # The Guide above 600: no scrim, presses pass through (openSheet `modal: false`).
+    "sheet-modeless",
     "sheet-overlay",
     "sheet-card",
     "sheet-head",
@@ -735,6 +737,11 @@ def test_every_board_tool_names_its_own_cursor() -> None:
     assert len(tools) >= 18, tools
     body = js[js.index("function wbCursorForTool(") : js.index("// The visible half of Select")]
     brushes = set(re.findall(r'"([a-z]+)"', js[js.index("const WB_BRUSH_TOOLS"):js.index("const WB_HIGHLIGHTER_ALPHA")]))
+    # The flyout's further shapes are brushes by the spread of their table's
+    # keys; the keys are read off the table, so a new one is still checked.
+    if "...Object.keys(WB_MORE_SHAPES)" in js[js.index("const WB_BRUSH_TOOLS"):js.index("const WB_HIGHLIGHTER_ALPHA")]:
+        more = js[js.index("const WB_MORE_SHAPES"):js.index("const WB_BRUSH_TOOLS")]
+        brushes |= set(re.findall(r'^  "(shape-[a-z-]+)": \{', more, re.M))
     # Pan is the one tool that deliberately returns "": the container's own
     # grab/grabbing pair is its cursor, and the comment on that line says so.
     assert 'return ""; // pan' in body
@@ -2226,9 +2233,30 @@ def test_every_right_click_menu_has_a_long_press_twin():
     for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js", "whiteboard-map.js"):
         text = frontend_text(name)
         right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
+        #: The selection bubble's return is not a menu: a finger already has the
+        #: system's own selection bar, and the helper steps aside for touch.
+        right_clicks -= text.count('addEventListener("contextmenu", selectionRestoreOnContextMenu)')
         calls = len(re.findall(r"\bwireLongPress\(", text))
         holds = calls - (1 if name == "app.js" else 0)  # app.js holds the definition
         assert right_clicks == holds, f"{name}: {right_clicks} right-click menus, {holds} long-press twins"
+
+def test_a_selection_bubble_returns_on_one_right_click_helper():
+    """Owner 2026-10-11: a dismissed selection bubble comes back on a right-click
+    of the selection. One helper owns it; a bubble is built in two files only."""
+    selection = frontend_text("selection.js")
+    assert len(re.findall(r'addEventListener\(\s*"contextmenu"', selection)) == 1
+    assert 'addEventListener("contextmenu", selectionRestoreOnContextMenu)' in selection
+    body = selection[selection.index("function selectionRestoreOnContextMenu(") :][:1800]
+    for needle in ("defaultPrevented", '"touch"', "selectionBarShow(", "syncSelectionPopup()", "event.preventDefault()"):
+        assert needle in body, needle
+    builders = sorted(
+        p.name
+        for p in (ROOT / "frontend" / "js").glob("*.js")
+        if re.search(r'className = "selection-(?:popup|bar) ', p.read_text(encoding="utf-8"))
+    )
+    assert builders == ["editor.js", "selection.js"], f"a new selection bubble must be shown by selectionRestoreOnContextMenu: {builders}"
+    assert "selectionRestoreOnContextMenu" in (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+
 
 # A `<details>` in index.html that heads no named family: prose disclosures in
 # the Help guide, the chat's thinking boxes and the like, which take their
@@ -2842,14 +2870,11 @@ def _seg_track_names() -> set[str]:
 #: of four or more choices written in index.html, each with where its
 #: conversion is placed (archive/agent-remaining/seg665-1006.md). The list may only
 #: shrink: a new well of four is a `<select>` or previews (DESIGN.md).
-SEG_OF_FOUR_PLACED = {
-    #: The one that stays (INBOX 670): the Attach picker's five sources, each
-    #: carrying the count of what is attached from it, are the picker dialog's
-    #: strip, which DESIGN.md's picker rows pin as equal segments across the
-    #: dialog (tabs with a count on each, one Tab stop, arrows between them),
-    #: and `test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog`
-    #: holds that shape. A list there would hide the counts and add a click.
-    "note-picker-sources": "five sources in the picker dialog; DESIGN.md's picker row spans them as equal segments, pinned",
+SEG_OF_FOUR_PLACED: dict[str, str] = {
+    #: Empty since libr-1011 (ledger row 1234): the Attach picker's five sources
+    #: were the one well of four that stayed (INBOX 670); INBOX 715 ("i dont
+    #: like pills like that in popups") is later, and they are a
+    #: `.tabs-line.popup-kinds` strip carrying their counts now.
 }
 
 
@@ -2910,12 +2935,12 @@ def test_font_and_density_are_lists_that_keep_their_handlers() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     font = html[html.index('<select id="font-seg"') :]
     font = font[: font.index("</select>")]
-    assert re.findall(r'value="(\w+)"', font) == ["system", "serif", "mono", "arial"]
+    assert re.findall(r'value="(\w+)"', font) == ["system", "serif", "mono", "arial", "readable"]
     density = html[html.index('<select id="density-seg"') :]
     density = density[: density.index("</select>")]
     assert re.findall(r'value="(\w+)"', density) == ["auto", "comfortable", "compact", "spacious"]
     js = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
-    assert '$("font-seg").addEventListener("change"' in js and 'localStorage.setItem("font", e.target.value)' in js
+    assert '$("font-seg").addEventListener("change"' in js and 'prefs.set("font", e.target.value)' in js
     assert '$("density-seg").addEventListener("change"' in js
     assert '$("font-seg").value = appearancePref("font")' in js
     assert '$("density-seg").value = prefs.get("density", null) || "auto"' in js
@@ -3300,20 +3325,21 @@ def test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog() -> None:
     a column flex box of one fixed height, so with more rows than fit every
     row shrank to the target floor (28px measured with 25 notes) while its
     32px tile stayed whole and hung over the next row's title. A row never
-    shrinks and has one height; the sources are a full-width `.seg` of
-    equal segments carrying their counts; the source is remembered; a title
+    shrinks and has one height; the sources are a full-width `.tabs-line.popup-kinds`
+    strip carrying their counts; the source is remembered; a title
     is clipped by the row's width (CSS), never by a character count."""
     rows = _css_block(".entry-pick-card > .entry-pick-list > li")
     assert "flex: none" in rows
     rich = _css_block(".entry-pick-list > .entry-pick-row")
     assert "height: var(--pick-row-h)" in rich
-    seg = _css_block(".entry-pick-card > .seg")
-    assert "align-self: stretch" in seg and "flex-wrap: nowrap" in seg
-    tab = _css_block(".entry-pick-card > .seg > button")
-    assert "flex: 1 1 0" in tab and "min-width: 0" in tab
+    seg = _css_block(".entry-pick-card > .picker-kinds")
+    assert "align-self: stretch" in seg and "overflow-x: auto" in seg
+    tab = _css_block(".entry-pick-card > .picker-kinds > button")
+    assert "flex: 1 1 auto" in tab and "min-width: 0" in tab
     source = frontend_text("selection.js")
     body = _function_body(source, "pickLibraryItemDialog")
     assert "seg-count" in body and "pickerRememberedSource" in body
+    assert 'seg.className = "tabs-line popup-kinds picker-kinds"' in body
     assert "noteLabel(row, 70)" not in _function_body(source, "libraryPickLabel")
 
 
@@ -3638,7 +3664,7 @@ def test_the_attach_picker_is_a_panel_on_the_dialog_recipe() -> None:
     start = html.index('id="note-picker-panel"')
     panel = html[start : html.index('id="chat-model-panel"', start) if 'id="chat-model-panel"' in html[start:] else start + 6000]
     assert 'class="dialog-head"' in panel and "dialog-head-btn" in panel
-    assert 'class="seg seg-compact note-picker-sources"' in panel
+    assert 'class="tabs-line popup-kinds note-picker-sources"' in panel
     assert 'class="row space-dialog-actions note-picker-foot"' in panel
     assert 'id="note-picker-clear" class="ghost"' in panel and 'id="note-picker-done" class="accent"' in panel
     js = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
@@ -4017,7 +4043,8 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     assert re.search(r'class="answer-title msg-role msg-role-assistant">\s*<span class="msg-avatar" data-assistant-head', index_html)
     assert re.search(r'<label for="draft-text"[^>]*>.{0,80}msg-avatar" data-assistant-head', index_html)
     assert "paintAssistantAvatar(holder, 20)" in chat[chat.index("function paintAssistantHeads") :][:200]
-    assert "paintAssistantAvatar(avatar, 20)" in chat[chat.index("function assistantHeadRow") :][:600]
+    #: `assistantHeadRow` moved to help-chat.js (lazy) with its only callers (Brief 101a).
+    assert "paintAssistantAvatar(avatar, 20)" in js["help-chat.js"][js["help-chat.js"].index("function assistantHeadRow") :][:600]
     assert "paintAssistantHeads()" in js["navigation.js"], "a section change fills the static heads"
     guide = js["help-chat.js"]
     assert guide.count("assistantHeadRow(GUIDE_NAME)") == 4, "a guide row, its pending row, the streamed one and the revealed one each open with the head"
@@ -4027,8 +4054,9 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     assert "repaintAssistantAvatars()" in settings[settings.index('$("assistant-avatar").addEventListener') :][:300]
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="assistant-avatar"' in index and '<option value="emblem">App emblem</option>' in index
-    #: The emblem is the logo's own renderer, copied rather than drawn per reply.
-    assert "renderEmblem(scratch, size, { animate: true })" in js["assistant-avatar.js"]
+    #: The emblem is the logo's own builder (`emblemArt`), never a second
+    #: drawing of the mark, and a head is left out of the lift.
+    assert "emblemArt(size, { head: true })" in js["assistant-avatar.js"]
     assert "renderEmblem(" not in chat
 
 
@@ -4898,15 +4926,14 @@ SEG_IN_POPUPS = {
     "border-style-seg": "Settings: a value",
     "privacy-range": "Settings: a value",
     "log-view-toggle": "Settings: a view of one log",
-    "note-picker-sources": "PLACED: the Attach picker's sources, a kind switch",
 }
 SEG_BUILT_IN_SCRIPT = {
     ("app.js", "seg seg-compact confirm-seg"): "promptDialog's `segment`, a value",
     ("documents.js", "seg"): "the print setup's values",
     ("skills.js", "seg seg-compact chat-skill-pace"): "a skill's pace, a value",
     ("whiteboard.js", "seg seg-compact wb-export-seg"): "Export this board: the format, a value",
-    ("selection.js", "seg"): "PLACED: pickLibraryItemDialog's sources, a kind switch",
     ("timeline-calendar.js", "seg seg-compact timeline-cal-span"): "not a popup: the calendar head's view mode (Month, Week, Day)",
+    ("dashboard.js", "seg focus-presets-seg"): "not a popup: the focus timer's length, a value (UI_MODERNISATION V8)",
 }
 
 
@@ -5135,12 +5162,13 @@ def test_the_no_model_notice_is_one_row_on_the_notice_recipe() -> None:
     css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
     row = re.search(r"\n\.ai-offline-note\.notice \{(.*?)\n\}", css, re.S)
     assert row and "align-items: center" in row.group(1), ".ai-offline-note.notice has no row rule"
-    assert re.search(r"\n\.ai-offline-text \{[^}]*flex: 1;[^}]*min-width: 0", css), (
+    assert re.search(r"\n\.ai-offline-text \{[^}]*flex: 1 1 12rem;[^}]*min-width: 0", css), (
         "the sentence takes the spare width and can shrink, or the button is pushed out of the box"
     )
-    #: `.notice` does not wrap, which is what keeps it one row at desktop width.
+    #: `.notice` does not wrap; this row alone wraps, so the action steps to a
+    #: second row when the words would be squeezed under 12rem (mono, a narrow card).
     notice = re.search(r"\n\.notice \{(.*?)\n\}", css, re.S).group(1)
-    assert "flex-wrap" not in notice and "flex-wrap" not in row.group(1)
+    assert "flex-wrap" not in notice and "flex-wrap: wrap" in row.group(1)
     phone = re.search(r"@media \(max-width: 599\.98px\) \{\s*\.ai-offline-note\.notice \{(.*?)\n  \}(.*?)\n\}\n", css, re.S)
     assert phone and "display: grid" in phone.group(1), "under 600px (599.98px) the row is a grid"
     assert re.search(r"\.icon-only\) \{[^}]*grid-area: 2 / 2", phone.group(2)), "the button sits under the sentence"
@@ -5342,6 +5370,12 @@ def test_one_calendar_grid_of_dom_cells() -> None:
     rather than drawing a month of its own."""
     cal = (ROOT / "frontend" / "js" / "timeline-calendar.js").read_text(encoding="utf-8")
     assert "const TIMELINE_CAL_ROWS = 3;" in cal
+    #: A press on a day opens it, and the written notes are chips with titles
+    #: wherever the cell has the room (the owner, 2026-10-11): fitted by
+    #: measuring, never by a count that ignores the cell's height.
+    assert "function timelineCalPick(" in cal and "timelineCalPick(cell.dataset.calDay)" in cal
+    assert 'event.key === "Enter" || event.key === " "' in cal
+    assert "timelineCalFit(grid)" in cal and "cell.clientHeight" in cal
     assert "<svg" not in cal and "createElementNS" not in cal, "the calendar is DOM cells, not SVG"
     assert cal.count('className = "timeline-cal-cell"') == 1, "every day is built by timelineCalCell"
     for event in ("keydown", "dragstart", "dragover", "drop"):
@@ -5579,3 +5613,212 @@ def test_a_menu_has_no_gap_at_its_ends() -> None:
     assert re.search(r"\.dock-menu-list > \.dock-menu-section:last-child \{\s*padding-bottom: 0;", css)
     sweep = (ROOT / "scratchpad" / "ui-sweeps" / "menus.js").read_text(encoding="utf-8")
     assert "inset top" in sweep and ".dock-menu-check" in sweep
+
+
+def test_an_address_for_another_device_is_one_block_drawn_by_one_renderer() -> None:
+    """INBOX 867, the owner of the receipt's run-on list of four addresses:
+    "can this be better styled and easier to read??". Settings, Other
+    devices and the privacy receipt draw one block, from one function: the
+    first address large with Copy, the rest behind a disclosure row."""
+    js = ROOT / "frontend" / "js"
+    controls = (js / "settings-controls.js").read_text(encoding="utf-8")
+    body = controls.split("function renderLanAddresses(", 1)[1].split("\n}\n", 1)[0]
+    assert '"lan-address"' in body and "copyToClipboard(" in body
+    assert "disclosure-row" in body and "aria-expanded" in body
+    assert 'renderLanAddresses($("account-lan-addresses")' in controls
+    assert 'renderLanAddresses(where' in (js / "settings-data.js").read_text(encoding="utf-8")
+    for name in ("settings-controls.js", "settings-data.js"):
+        text = (js / name).read_text(encoding="utf-8")
+        assert 'addresses.join(" or ")' not in text and '.join(", ") || listening.host' not in text, name
+def test_note_card_show_more_hugs_its_label():
+    """INBOX 901: a `display: block` button spans the card, so "Show more"
+    sat centred far from the text with a card-wide focus ring."""
+    css = (ROOT / "frontend" / "css" / "03-dashboard-widgets.css").read_text()
+    m = re.search(r"#entry-list:not\(\.is-rows\) \.entry-more \{([^}]*)\}", css)
+    assert m, "card-view .entry-more rule missing"
+    body = m.group(1)
+    assert "width: fit-content" in body
+    assert "text-align: start" in body
+    assert "width: 100%" not in body
+
+
+def test_assistant_tools_are_an_even_grid():
+    """The owner: the code assistant's four tool buttons wrapped 3+1."""
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text()
+    assert re.search(r"\.doc-assist-tools \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)", css)
+    assert not re.search(r"\.doc-assist-tools,\s*\.doc-assist-apply", css)
+
+
+def test_no_model_notice_action_keeps_its_border():
+    """The owner: the Connect a model action must read as a button. A card
+    quiets its ghost buttons to edgeless, so the notice restores the edge."""
+    css = (ROOT / "frontend" / "css" / "03-dashboard-widgets.css").read_text()
+    m = re.search(r"\.ai-offline-note > button\.ghost:not\(\.icon-only\) \{([^}]*)\}", css)
+    assert m, "no-model notice action rule missing"
+    assert "border-color: var(--ghost-btn-border)" in m.group(1)
+    assert "transparent" not in m.group(1)
+
+
+def test_file_reading_text_fits_up_to_a_page():
+    """The owner: the extracted text in a Files row was quite short."""
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text()
+    m = re.search(r"\.library-file-reading-text \{([^}]*)\}", css)
+    assert m and "max-height: min(28rem, 55vh)" in m.group(1)
+    shell = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text()
+    assert re.search(r"\.library-image-card-fold > \.library-image-reading-body \{\s*max-height: 11rem", shell)
+#: DESIGN.md, "A control that acts on the computer Tessellate runs on". Every
+#: static control that reaches a `this_computer_only` route or a this-computer
+#: preference (routes_settings `_THIS_COMPUTER_PREFERENCES`).
+THIS_COMPUTER_CONTROLS = {
+    "llm-provider-select", "llm-provider-apply", "local-only-ai", "restore-bundle", "import-dir",
+    "pref-searxng", "searxng-detect", "searxng-start", "searxng-stop", "searxng-reinstall", "searxng-autostart",
+    "pref-update-check", "pref-auto-update", "pref-update-channel-main", "update-install-version",
+    "extras-list", "extras-bulk-install", "embed-choices", "embed-pull-go",
+    "embedding-apply", "pref-semantic-auto-install", "quit-btn", "app-quit",
+}
+
+
+class _ThisComputerScan(HTMLParser):
+    VOID = {"input", "img", "br", "hr", "meta", "link", "source", "wbr", "area", "col", "embed", "track"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack: list[bool] = []
+        self.marked: set[str] = set()
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        inside = (bool(self.stack) and self.stack[-1]) or "data-this-computer" in attrs
+        if inside and attrs.get("id"):
+            self.marked.add(attrs["id"])
+        if tag not in self.VOID:
+            self.stack.append(inside)
+
+    def handle_endtag(self, tag):
+        if tag not in self.VOID and self.stack:
+            self.stack.pop()
+
+
+def test_a_control_that_acts_on_this_computer_says_so_elsewhere() -> None:
+    from memorymap.api.this_computer import REFUSAL
+
+    scan = _ThisComputerScan()
+    scan.feed((ROOT / "frontend" / "index.html").read_text(encoding="utf-8"))
+    assert not THIS_COMPUTER_CONTROLS - scan.marked, sorted(THIS_COMPUTER_CONTROLS - scan.marked)
+    skills = (ROOT / "frontend" / "js" / "skills.js").read_text(encoding="utf-8")
+    assert f'const THIS_COMPUTER_ONLY = "{REFUSAL}";' in skills
+    assert "markOtherDevice().catch" in skills
+
+
+def test_a_panel_head_is_a_title_and_not_the_eyebrow() -> None:
+    """Row 1586: `h3.panel-head` (and the board sidebar's and Format panel's
+    `h3.wb-sidebar-title`) names a whole card or column, so it draws in the
+    dialog title's voice; `.card h3` (the eyebrow, 12px) is for a label over
+    one group. Measured: five panel heads and both board panel heads at 12px
+    beside the Web panel's 16px."""
+    consistency = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    rule = next(
+        body for sel, body in _rules(consistency)
+        if ".card h3.panel-head" in sel and "h3.wb-sidebar-title" in sel
+    )
+    assert "font-size: var(--text-body)" in rule
+    assert "text-transform: none" in rule
+    assert "color: var(--ink)" in rule
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    heads = re.findall(r'<(\w+) class="panel-head\b', html)
+    assert heads and set(heads) == {"h3"}, f"a panel head left the h3 recipe: {sorted(set(heads))}"
+
+
+#: Filters built by hand before `listFilter` existed (row 1643): each keeps
+#: its own field because its list does more than hide rows (a sort, a scope,
+#: a count). May only shrink; a new long list calls `listFilter`.
+HAND_BUILT_FILTERS = {
+    "Filter widgets…", "Filter notes", "Filter headings…", "Filter this index…",
+    "Filter logs", "Filter tags", "Filter categories", "Filter names",
+}
+
+
+def test_a_long_list_is_typed_to_through_the_one_recipe() -> None:
+    """Row 1643 (WORLD_CLASS_PLAN 22.2, "every list with more than 20 rows
+    can be filtered by typing"): `listFilter` is the one builder, the
+    shortcut list (31 rows) and the space menu use it, and no new
+    hand-built "Filter ..." field joins the eight that predate it."""
+    selects = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    body = selects.split("function listFilter(", 1)[1][:3000]
+    assert 'field.className = "search-field list-filter hidden"' in body
+    assert 'event.key === "Escape"' in body and "list-filter-empty" in body
+    wiring = (ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8")
+    assert "listFilter(list, { label: \"Filter shortcuts\" })" in wiring.split("function buildShortcutList", 1)[1][:4000]
+    spaces = (ROOT / "frontend" / "js" / "spaces-find.js").read_text(encoding="utf-8")
+    assert "listFilter(menu," in spaces.split("function renderSpaceMenu", 1)[1][:3000]
+    found = set()
+    for path in [ROOT / "frontend" / "index.html", *sorted((ROOT / "frontend" / "js").glob("*.js"))]:
+        found |= set(re.findall(r'placeholder\s*=\s*"(Filter[^"]*)"', path.read_text(encoding="utf-8")))
+    assert found <= HAND_BUILT_FILTERS, f"a hand-built filter field: {sorted(found - HAND_BUILT_FILTERS)}; call listFilter"
+    assert found == HAND_BUILT_FILTERS, "a hand-built filter moved to listFilter: shrink HAND_BUILT_FILTERS"
+
+
+def test_the_local_chip_shows_the_privacy_verdict_and_opens_the_record() -> None:
+    """Row 1641 (WORLD_CLASS_PLAN 22.1 item 9): the top bar's Local chip reads
+    `/privacy/verdict`, opens Settings, Privacy, stays hidden until it has an
+    answer, and is a row of the phone's header menu below 600."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    header = re.search(r'<header id="top-bar">(.*?)</header>', html, re.S).group(1)
+    chip = re.search(r'<button id="privacy-chip"[^>]*>', header)
+    assert chip and "hidden" in chip.group(0), "the Local chip left the top bar, or shows before it knows"
+    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    assert '"/privacy/verdict"' in status
+    assert 'openSettingsModal("privacy")' in status.split("function startPrivacyChip", 1)[1][:600]
+    # Its one call site: every unlock, beside the reminder watch.
+    assert "startPrivacyChip();" in status.split("function startReminderWatch(", 1)[1][:900]
+    phone = (ROOT / "frontend" / "js" / "phone-shell.js").read_text(encoding="utf-8")
+    rows = re.search(r"const PHONE_STATUS_ROWS = \[(.*?)\];", phone, re.S).group(1)
+    assert '"privacy-chip"' in rows
+    responsive = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    assert "#top-bar #privacy-chip" in responsive
+
+
+def test_the_flag_marker_is_one_toggle_not_two_previews():
+    """Ledger 1546 (seg665 item 5): an on/off marker is a single pressed-state button."""
+    wm = frontend_text("whiteboard-map.js")
+    assert 'wbMapMarkerToggle("Flag"' in wm
+    assert 'wbMapMarkerSeg("Flag"' not in wm
+    toggle = wm[wm.index("function wbMapMarkerToggle("):]
+    toggle = toggle[: toggle.index("\n}\n")]
+    assert "aria-pressed" in toggle and "choose(!on)" in toggle
+def test_a_check_result_row_is_the_health_row_with_a_mark():
+    """DESIGN.md, "The result of a check on this computer": Settings, About,
+    Maintenance's rows are the Health group's `.setting-row`, the label led by
+    one `.doctor-mark` whose glyph and tone both carry the result, built in
+    one place."""
+    js = frontend_text("settings-controls.js")
+    build = js[js.index("function maintenanceDoctorRow(row) {"):]
+    build = build[: build.index("\n}\n")]
+    assert 'el.className = "setting-row doctor-row";' in build and "doctor-mark is-" in build
+    assert 'label.className = "setting-label";' in build and 'value.className = "setting-control muted";' in build
+    for tone, glyph in (("ok", "check-circle"), ("warn", "warning"), ("x", "x-circle")):
+        assert f'{tone}: ["{glyph}",' in js
+    builders = [p.name for p in JS if "doctor-mark" in p.read_text(encoding="utf-8")]
+    assert builders == ["settings-controls.js"], builders
+    css = _css_all()
+    for tone, token in (("ok", "--ok"), ("warn", "--warn"), ("x", "--error")):
+        assert re.search(rf"\.doctor-mark\.is-{tone} \{{\s*color: var\({token}\);", css), tone
+def test_the_drop_veil_takes_no_press_and_has_no_blur() -> None:
+    """DESIGN.md "A drop target" (ledger libr-1011 row 1266): the veil laid over
+    the window while files are dragged in must not catch the drag, and a blurred
+    full-window surface is the cost the glass-off list exists to avoid."""
+    css = (ROOT / "frontend" / "css" / "file-drop-lazy.css").read_text(encoding="utf-8")
+    veil = _css_block_in(css, ".drop-veil")
+    assert "pointer-events: none" in veil and "position: fixed" in veil
+    assert "backdrop-filter" not in css and "blur(" not in css
+    assert "var(--accent-soft)" in veil and "var(--accent)" in veil
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "**The drop veil**" in design
+    for path in JS:
+        if path.name != "file-drop.js":
+            assert "drop-veil" not in path.read_text(encoding="utf-8"), f"{path.name} builds its own drop veil"
+
+
+def _css_block_in(css: str, selector: str) -> str:
+    start = css.index(selector + " {")
+    return css[start : css.index("}", start)]

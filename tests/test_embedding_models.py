@@ -184,8 +184,28 @@ def test_the_size_on_disk_ignores_the_cache_symlinks(tmp_path, monkeypatch):
     snap.mkdir(parents=True)
     (snap / "weights").symlink_to(real)
     row = next(m for m in embedmodels.status() if m["id"] == "bge-small")
-    assert row["installed"] is True
+    #: One file is not a model (101c), but the bytes are still counted once.
+    assert row["installed"] is False and row["files_missing"] is True
     assert row["on_disk"] == "2 KB"
+
+
+def test_the_size_on_disk_counts_weights_kept_in_a_shared_blob_store(tmp_path, monkeypatch):
+    """INBOX 1290, measured on a running app: a newer huggingface_hub keeps the
+    weights in `<cache>/blobs/` and links them into the model's folder, so a
+    row read "Downloaded, 1015 KB" over a 127 MB model."""
+    monkeypatch.setattr(embedmodels, "cache_root", lambda: tmp_path)
+    shared = tmp_path / "blobs" / "f3"
+    shared.mkdir(parents=True)
+    weights = shared / "abc123"
+    weights.write_bytes(b"x" * (3 * 1024 * 1024))
+    model = tmp_path / "models--BAAI--bge-small-en-v1.5"
+    (model / "blobs").mkdir(parents=True)
+    (model / "blobs" / "abc123").symlink_to(weights)
+    snap = model / "snapshots" / "abc"
+    snap.mkdir(parents=True)
+    (snap / "model.safetensors").symlink_to(weights)
+    (snap / "config.json").write_text("{}", encoding="utf-8")
+    assert embedmodels.disk_size_of("BAAI/bge-small-en-v1.5") == "3 MB"
 
 
 def test_a_dropped_connection_is_retried_and_then_explained(monkeypatch):

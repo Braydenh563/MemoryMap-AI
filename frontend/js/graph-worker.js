@@ -1,4 +1,4 @@
-// MemoryMap AI: the graph's force simulation, off the main thread.
+// Tessellate: the graph's force simulation, off the main thread.
 //
 // GRAPH_PLAN.md §4 ("Simulation off the main thread") and §5 Phase 1. The SVG
 // renderer this replaces ran `d3.forceSimulation` on the main thread and wrote
@@ -27,7 +27,8 @@
 //   {type:"params", params:{gravity,spread}}      re-tune without a rebuild
 //   {type:"drag", phase:"start"|"move"|"end", id, x, y, keep}
 //       start -> alphaTarget(0.3) and pin; move -> move the pin; end ->
-//       alphaTarget(0) and, unless `keep`, release the pin.
+//       alphaTarget(0) and, unless `keep`, release the pin at once into a
+//       low heat (`RELEASE_ALPHA`), so the note settles near where it was put.
 //   {type:"freeze", ids:[...]} / {type:"thaw"}
 //       Hold everything else still for the length of a drag, the same
 //       "aiming at a moving target is not a gesture" fix the SVG renderer
@@ -65,6 +66,17 @@ let indexById = new Map();
 let world = null;
 let timer = null;
 let dragging = false;
+//: **A dropped note settles near where it was put** (INBOX 802, the owner:
+//: "drag parts of the graph to different areas of the graph and have it kinda
+//: settle into place there"). Released at the drop's full heat, its links
+//: and its category's pull took it straight back (a note dropped 286px away
+//: was 268px back within a second); held until rest, it never moved again
+//: (2026-10-11). It is let go on release into a low heat instead.
+//: The heat a released drag leaves the layout at: enough for the dropped
+//: note and its neighbours to ease into place, too little for its links to
+//: haul it back across the map.
+const RELEASE_ALPHA = 0.02;
+const RELEASE_ALPHA_MIN = 0.01;
 // Performance mode (init.perf): the loop rests twice as long between ticks.
 let perf = false;
 let ticks = 0;
@@ -1545,6 +1557,16 @@ self.onmessage = (event) => {
         group: n.group || "",
         degree: 0,
       }));
+      //: A restored view's saved notes, held where they were seeded from the
+      //: first step and released by the page's `thaw` once the notes it never
+      //: saved have settled (graph-canvas.js, `held`).
+      (message.nodes || []).forEach((n, i) => {
+        const node = nodes[i];
+        if (!n.held || node.fx != null || node.x === undefined) return;
+        node.fx = node.x;
+        node.fy = node.y;
+        node.frozenByDrag = true;
+      });
       indexById = new Map(nodes.map((n, i) => [n.id, i]));
       world = message.world || null;
       orbit.reach = null;
@@ -1722,9 +1744,19 @@ self.onmessage = (event) => {
         // which is what makes the neighbourhood settle after you let go
         // instead of freezing mid-rearrangement.
         simulation.alphaTarget(0);
+        //: **Moved is not pinned** (the owner, 2026-10-11: "moving nodes
+        //: keeps them stuck there, they should only be stuck in place if I
+        //: double click on them ... if the user moves them, they should
+        //: settle into place in that general position"; GRAPH_PLAN decision
+        //: 2026-10-11). Held at the drop until the map rested, it was
+        //: let go into a layout with no heat left and never moved again.
+        //: Now it is let go on release into a layout cooled to a low heat
+        //: (`RELEASE_ALPHA`): its links settle it near the drop, not back
+        //: where it came from (graphdragsettle.js: under 60px from the drop).
         if (!message.keep) {
           node.fx = null;
           node.fy = null;
+          simulation.alpha(Math.min(Math.max(simulation.alpha(), RELEASE_ALPHA_MIN), RELEASE_ALPHA));
         }
       }
       run();

@@ -187,7 +187,7 @@ def restore_zip(archive_path: Path, db_path: Path, data_dir: Path, keep: int) ->
     try:
         archive = zipfile.ZipFile(archive_path)
     except zipfile.BadZipFile as exc:
-        raise BundleError("That file is not a MemoryMap backup.") from exc
+        raise BundleError("That file is not a Tessellate backup.") from exc
     with archive:
         names = archive.namelist()
         if "memorymap.db" not in names:

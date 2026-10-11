@@ -79,7 +79,7 @@ function statsWeekCard(week) {
   span.textContent = `This week, ${statsDay(week.this.start)} to ${statsDay(week.this.end)}, against ${statsDay(week.last.start)} to ${statsDay(week.last.end)}`;
   const list = document.createElement("ul");
   list.className = "stats-week-list";
-  for (const [key, label] of [["notes", "Notes made"], ["words", "Words written"], ["reminders_done", "Reminders done"]]) {
+  for (const [key, label] of [["notes", "Notes made"], ["words", "Words written"], ["edited_words", "Words added to older notes"], ["reminders_done", "Reminders done"]]) {
     const now = week.this[key] || 0;
     const before = week.last[key] || 0;
     const li = document.createElement("li");

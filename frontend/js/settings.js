@@ -73,7 +73,7 @@ let settingsNavWalking = false;
 
 function ensureSettingsPaneTitle(box, name) {
   //: Not "any `.help-head` child": Background tasks ends on one (Quit
-  //: MemoryMap), which used to count as its title and left the pane with none.
+  //: Tessellate), which used to count as its title and left the pane with none.
   if (!box || box.querySelector(":scope > .settings-pane-title, :scope > .dock")) return;
   const label = document.querySelector(`#settings-nav [data-section="${name}"]`)?.textContent.trim();
   if (!label) return;
@@ -204,6 +204,8 @@ function showSettingsSection(name) {
   //: The Atlas row's starter chips, with the chat's bundle (help-chat.js).
   if (name === "help") renderAtlasStarters();
   if (name === "about") renderHealthBlock().catch(() => {});
+  //: Settings, About, Maintenance: settings-controls.js, the window's lazy file.
+  if (name === "about") ensureModule("settingsControls").then(() => renderMaintenance());
   //: The "Last run" lines on this section's controls, and the Background jobs
   //: overview (INBOX 438): one fetch fills every line on the page.
   refreshJobRuns();
@@ -288,6 +290,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
   $("pref-auto-update").checked = Boolean(prefsCache?.auto_update_enabled);
   $("pref-update-channel-main").checked = prefsCache?.update_channel === "main";
+  $("pref-update-beta").checked = prefsCache?.update_beta === true;
   $("update-check-status").textContent = "";
   $("update-version-select").classList.add("hidden");
   $("update-install-version").classList.add("hidden");
@@ -334,6 +337,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   await ensureModule("settingsUi");
   //: Settings, Help's topics, from the Guide's own table (settings-find.js).
   if (typeof renderHelpTopics === "function") renderHelpTopics();
+  if (typeof renderCredits === "function") renderCredits();
   showSettingsSection(section);
   // Re-read every open, not cached: the panel shows what the *currently
   // selected* model recommends, and changing the chat model is the most likely
@@ -496,26 +500,13 @@ async function renderHealthBlock() {
     // build, a locked notebook mid-request), a dash across the board reads
     // as "couldn't check", not "empty", so nothing here claims a zero it
     // never actually measured.
-    for (const el of [dbSize, counts, jobs, lastError, latency, $("health-files-size")]) if (el) el.textContent = ", ";
+    for (const el of [dbSize, counts, jobs, lastError, latency]) if (el) el.textContent = ", ";
     return;
   }
   dbSize.textContent = `${formatFileSize(health.db?.size_bytes) || "0 B"} · ${health.data_dir}`;
-  //: What the folders beside the database weigh, from `GET /storage` (a
-  //: cached walk on the server). A second request, kept apart from health so
-  //: a slow walk never delays the numbers above; a dash when it cannot say.
-  const files = $("health-files-size");
-  if (files) {
-    apiJson("/storage", { silent: true })
-      .then((storage) => {
-        const size = (n) => formatFileSize(n) || "0 B";
-        files.textContent =
-          `Attached files ${size(storage.uploads_bytes)} · pictures ${size(storage.media_bytes)}` +
-          ` · backups ${size(storage.backups_bytes)}`;
-      })
-      .catch(() => {
-        files.textContent = ", ";
-      });
-  }
+  //: Where the space goes, as a bar (settings-data.js): a second request, kept
+  //: apart from health so a slow walk never delays the numbers above.
+  ensureModule("settingsData").then(() => renderStorageBreakdown());
   const c = health.counts || {};
   //: Each kind counted as the rest of the app counts it: notes are the
   //: dashboard's notes (no boards, no drafts), and boards and drafts are
@@ -532,7 +523,7 @@ async function renderHealthBlock() {
   counts.textContent = parts.join(" · ");
   //: Rule 14 (WORLD_CLASS_PLAN 28.1): each field present and dated.
   const trust = health.trust || {};
-  const when = (iso) => (iso ? `${relativeTime(iso)} (${new Date(iso).toLocaleString()})` : "");
+  const when = (iso) => (iso ? `${relativeTime(iso)} (${whenText(iso)})` : "");
   const asOf = ` as of ${new Date(trust.checked_at || Date.now()).toLocaleTimeString()}`;
   $("health-checked").textContent = `Checked${asOf}.`;
   const backup = trust.last_backup || {};
@@ -668,9 +659,12 @@ function filterSettings(term) {
   let matches = 0;
   //: Each word, or a word meaning the same thing (settings-find.js
   //: `settingQueryAlts`, once that file has loaded): "night" keeps the
-  //: section with the theme in it.
+  //: section with the theme in it. Held at a word start (meaning.js,
+  //: `meaningHolds`, Brief 94): "bin" is not in "binding".
   const alts = typeof settingQueryAlts === "function" ? settingQueryAlts(query) : [[query]];
-  const holds = (text) => text.includes(query) || alts.every((said) => said.some((w) => text.includes(w)));
+  const holds = (text) =>
+    text.includes(query) ||
+    (typeof meaningHolds === "function" ? meaningHolds(alts, text) : alts.every((said) => said.some((w) => text.includes(w))));
   for (const button of buttons) {
     const section = $(`settings-${button.dataset.section}`);
     const hit =
@@ -924,12 +918,29 @@ function scrollLogToBottom() {
 // Shared by both views: the empty state, the "N hidden by filters" note, and
 // the copy-button label all describe the filtered set, not how it is drawn.
 function renderLogSharedUI(visibleCount) {
-  $("logs-empty").classList.toggle("hidden", logRecords.length > 0);
-  // "Nothing matches" and "nothing happened" are different answers, and only
-  // the first one is fixed by changing the filter.
+  //: The empty state recipe (Library, Bookmarks): shown instead of an empty
+  //: bar, in place of the list and the terminal. "Nothing matches" and
+  //: "nothing happened" are different answers, and only the first one is
+  //: fixed by changing the filter.
+  const none = visibleCount === 0;
   const hiddenCount = logRecords.length - visibleCount;
+  $("log-list").classList.toggle("log-none", none);
+  $("log-terminal").classList.toggle("log-none", none);
+  $("logs-empty").classList.toggle("hidden", !none);
+  if (none) {
+    const nothing = logRecords.length === 0;
+    $("logs-empty-title").textContent = nothing
+      ? "No log records yet"
+      : logFilterFromRun ? "This job wrote no log lines" : "No log lines match";
+    $("logs-empty-text").textContent = nothing
+      ? "Records appear here as the app runs."
+      : logFilterFromRun
+        ? "Only runs since the app last started write lines here. Clear the filters to see every record."
+        : "Nothing fits the filters above.";
+    $("logs-empty-clear").classList.toggle("hidden", nothing);
+  }
   const filtered = $("logs-filtered-out");
-  if (hiddenCount > 0) {
+  if (hiddenCount > 0 && !none) {
     filtered.textContent = `${hiddenCount.toLocaleString()} record${hiddenCount === 1 ? "" : "s"} hidden by the filters above.`;
     filtered.classList.remove("hidden");
   } else {
@@ -1297,13 +1308,13 @@ function toggleTheme() {
     root.dataset.theme ||
     (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   const next = current === "dark" ? "light" : "dark";
-  localStorage.setItem("theme", next); // remembered across restarts
+  prefs.set("theme", next); // remembered across restarts
 
   repaintThemeAtOnce(() => {
     root.dataset.theme = next;
     // Clear any custom background colour that would otherwise override the new theme
-    localStorage.removeItem("page-bg");
-    localStorage.removeItem("page-bg-dark");
+    prefs.remove("page-bg");
+    prefs.remove("page-bg-dark");
     applyPageBackground(null);
     if (document.getElementById("page-bg-custom")) {
       document.getElementById("page-bg-custom").value = "#f5f7fb";
@@ -1334,6 +1345,19 @@ const ACCENTS = [
   { name: "ocean", label: "Ocean", swatch: "#2563eb" },
   { name: "mint", label: "Mint", swatch: "#10b981" },
   { name: "grape", label: "Grape", swatch: "#9333ea" },
+  //: Brief 95 (INBOX 858, "add more colour options"): nine more, chosen to
+  //: fill the wheel's gaps (coral, gold, forest, navy, cyan, berry, olive,
+  //: copper, lavender). Each is a fill; `accentTone` lifts or deepens it per
+  //: mode, so none needs a CSS rule of its own.
+  { name: "coral", label: "Coral", swatch: "#e8604c" },
+  { name: "gold", label: "Gold", swatch: "#b8860b" },
+  { name: "forest", label: "Forest", swatch: "#2f7d32" },
+  { name: "navy", label: "Navy", swatch: "#1e3a8a" },
+  { name: "cyan", label: "Cyan", swatch: "#0891b2" },
+  { name: "berry", label: "Berry", swatch: "#be185d" },
+  { name: "olive", label: "Olive", swatch: "#6b7a1f" },
+  { name: "copper", label: "Copper", swatch: "#b4642d" },
+  { name: "lavender", label: "Lavender", swatch: "#8b7cf6" },
 ];
 
 function activeAccent() {
@@ -1362,7 +1386,7 @@ function applyAccent(name, remember = true) {
   // applyThemePreset re-applies the theme's accent without recording it as a
   // manual choice: otherwise merely picking a theme would pin its colour as
   // an override and the next theme couldn't change it.
-  if (remember) localStorage.setItem("accent", name);
+  if (remember) prefs.set("accent", name);
   applyEffectiveAccent();
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
   refreshArtForTheme(); // its wash is painted from the accent as well
@@ -1413,7 +1437,7 @@ function contrastOn() {
 function applyContrast(on) {
   if (on) document.documentElement.dataset.contrast = "on";
   else delete document.documentElement.dataset.contrast;
-  localStorage.setItem("contrast", on ? "on" : "off");
+  prefs.set("contrast", on ? "on" : "off");
 }
 
 // --- Wave O: expanded appearance controls -------------------------------------------
@@ -1644,6 +1668,15 @@ const THEME_PRESETS = {
     label: "Lagoon",
     values: { palette: "lagoon", glass: "on", radius: "14" },
   },
+  //: Brief 95: two new looks, each on a palette of its own.
+  midnight: {
+    label: "Midnight",
+    values: { palette: "midnight", glass: "on", radius: "12" },
+  },
+  rosewood: {
+    label: "Rosewood",
+    values: { palette: "rosewood", font: "serif", glass: "on", radius: "16" },
+  },
 };
 
 // The two colours a theme card shows: the page it sits on and the accent it
@@ -1656,7 +1689,11 @@ function themeSwatch(preset) {
   return [set.page, set.accent];
 }
 
+//: A theme under the pointer in Settings (settings-controls.js previewTheme):
+//: read before the manual layer, because a click would clear that layer.
+let themePreview = "";
 function activeThemePreset() {
+  if (themePreview) return themePreview;
   //: No look chosen yet means the default look, not "no look": the default is
   //: a look like any other now (Quiet utilitarian), and theme-boot.js reads
   //: the same fallback so the first paint agrees.
@@ -1684,6 +1721,7 @@ function appearancePref(key, fallback) {
   // means forgetting it degrades to the caller's intent rather than to
   // "undefined".
   return (
+    (themePreview ? THEME_PRESETS[themePreview].values[key] : undefined) ??
     prefs.get(key, null) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key] ?? fallback
   );
 }
@@ -1702,22 +1740,22 @@ function applyThemePreset(name, chosenByUser = false) {
   // Lagoon should not also throw away a font size it says nothing about.
   if (chosenByUser && THEME_PRESETS[name]) {
     for (const key of Object.keys(THEME_PRESETS[name].values)) {
-      localStorage.removeItem(key);
+      prefs.remove(key);
     }
     // The accent and page background are painted from stored values rather
     // than read through `appearancePref`, so they need clearing by hand or a
     // custom accent outlives the palette it was picked against.
     if (THEME_PRESETS[name].values.palette) {
-      localStorage.removeItem("accent");
-      localStorage.removeItem("accent-custom");
-      localStorage.removeItem("page-bg");
-      localStorage.removeItem("page-bg-dark");
+      prefs.remove("accent");
+      prefs.remove("accent-custom");
+      prefs.remove("page-bg");
+      prefs.remove("page-bg-dark");
       applyCustomAccent(null);
       applyPageBackground(null);
     }
   }
-  if (THEME_PRESETS[name]) localStorage.setItem("themePreset", name);
-  else localStorage.removeItem("themePreset");
+  if (THEME_PRESETS[name]) prefs.set("themePreset", name);
+  else prefs.remove("themePreset");
   applyAppearance();
   // `false` on both: re-applying what the theme says must not record it as a
   // manual choice, or merely picking a theme would pin its values as
@@ -1735,7 +1773,7 @@ function manualOverrides() {
 // Drop the manual layer, keeping the chosen theme, the counterpart to
 // "reset the theme" below.
 function clearManualOverrides() {
-  for (const key of manualOverrides()) localStorage.removeItem(key);
+  for (const key of manualOverrides()) prefs.remove(key);
   applyCustomAccent(null);
   applyPageBackground(null);
   applyThemePreset(activeThemePreset());
@@ -1747,7 +1785,7 @@ function clearManualOverrides() {
 // default because I want my own colours instead" does exactly that, rather
 // than wiping the colours too (user request).
 function resetThemeOnly() {
-  localStorage.removeItem("themePreset");
+  prefs.remove("themePreset");
   applyThemePreset("");
   renderAppearance();
   toast("Theme reset to the app default. Your own changes are still applied.");
@@ -1843,7 +1881,7 @@ function applyHarmony() {
     note.textContent = "That colour didn't parse: try picking it again.";
     return;
   }
-  localStorage.setItem("accent-custom", scheme.accent);
+  prefs.set("accent-custom", scheme.accent);
   // A scheme's background is worked out *for a mode*, the same accent wants a
   // near-white page in light and a near-black one in dark. Storing only the one
   // for whichever mode happened to be on is what made the light/dark toggle
@@ -1854,8 +1892,8 @@ function applyHarmony() {
   // picks the right one whenever the mode changes.
   const dark = harmonyScheme(base, kind, true);
   const light = harmonyScheme(base, kind, false);
-  localStorage.setItem("page-bg", light ? light.page : scheme.page);
-  localStorage.setItem("page-bg-dark", dark ? dark.page : scheme.page);
+  prefs.set("page-bg", light ? light.page : scheme.page);
+  prefs.set("page-bg-dark", dark ? dark.page : scheme.page);
   applyCustomAccent(scheme.accent);
   applyPageBackground(currentPageBackground());
   renderAppearance();
@@ -1943,10 +1981,12 @@ function applySavedTheme(theme) {
   // alone rather than reset, so applying a saved look never silently changes a
   // setting the snapshot had nothing to say about.
   for (const [key, value] of Object.entries(theme.values || {})) {
-    localStorage.setItem(key, value);
+    // A look saved before sizes became the device's own may still carry them.
+    if (DEVICE_ONLY_KEYS.includes(key)) continue;
+    prefs.set(key, value);
   }
-  if (theme.preset) localStorage.setItem("themePreset", theme.preset);
-  else localStorage.removeItem("themePreset");
+  if (theme.preset) prefs.set("themePreset", theme.preset);
+  else prefs.remove("themePreset");
   // The same function startup uses, so a restored look is applied by exactly
   // the path that would have applied it on a fresh load.
   applyThemeChoice(theme.values?.theme || "system", false);
@@ -2074,19 +2114,66 @@ function hexToRgbParts(hex) {
   return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
 }
 
+// **A picked accent, made safe for the mode showing** (Brief 95, INBOX 858).
+// The accent is a fill under `--on-accent` (white in light, near-black in
+// dark), and one hex cannot be right in both: measured over the fifteen
+// presets, the button text was under 4.5:1 on 14 of 30 preset and mode pairs
+// (Mint 3.2:1 in light, Slate 2.5:1 in dark). `accentTone` keeps the hue and
+// saturation and moves the lightness the least that clears 4.5:1 against the
+// mode's ink, so a pick that already reads is returned as it is.
+const ACCENT_MIN_RATIO = 4.5;
+
+function hexRatio(a, b) {
+  const lum = (hex) => {
+    const parts = hexToRgbParts(hex);
+    return parts ? bgLuma(parts.split(", ").map(Number)) : 0;
+  };
+  const [lo, hi] = [lum(a), lum(b)].sort((x, y) => x - y);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+function accentInk(dark) {
+  return dark ? "#0d1017" : "#ffffff";
+}
+
+function accentTone(hex, dark) {
+  const ink = accentInk(dark);
+  if (hexRatio(hex, ink) >= ACCENT_MIN_RATIO) return hex;
+  const hsl = hexToHsl(hex);
+  if (!hsl) return hex;
+  const [h, s, l] = hsl;
+  // Binary search on lightness between the pick and the end that passes
+  // (black's side in light, white's in dark): twelve halvings is under a
+  // hundredth of a percent, once per pick, never per frame.
+  let pass = dark ? 100 : 0, fail = l;
+  for (let i = 0; i < 12; i++) {
+    const mid = (pass + fail) / 2;
+    if (hexRatio(hslToHex(h, s, mid), ink) >= ACCENT_MIN_RATIO) pass = mid;
+    else fail = mid;
+  }
+  return hslToHex(h, s, pass);
+}
+
 // A user-chosen accent overrides the preset palette via inline custom
-// properties; clearing it falls back to the data-accent presets.
+// properties; clearing it falls back to the data-accent presets. The soft,
+// surface, hover and text tones all follow from the mode-safe tone: soft
+// and the blob here, the surface (the tone itself, so what you pick is what
+// a button wears), and hover and text from it in the stylesheet
+// (`--accent-surface-hover`, `--accent-text`).
 function applyCustomAccent(hex) {
   const root = document.documentElement;
-  const parts = hex ? hexToRgbParts(hex) : null;
+  const dark = root.dataset.mode === "dark";
+  const tone = hex && hexToRgbParts(hex) ? accentTone(hex, dark) : null;
+  const parts = tone ? hexToRgbParts(tone) : null;
   if (!parts) {
-    root.style.removeProperty("--accent");
-    root.style.removeProperty("--accent-soft");
-    root.style.removeProperty("--blob-a");
+    for (const name of ["--accent", "--accent-soft", "--accent-surface", "--blob-a"]) {
+      root.style.removeProperty(name);
+    }
     return;
   }
-  root.style.setProperty("--accent", hex);
-  root.style.setProperty("--accent-soft", `rgba(${parts}, 0.14)`);
+  root.style.setProperty("--accent", tone);
+  root.style.setProperty("--accent-surface", tone);
+  root.style.setProperty("--accent-soft", `rgba(${parts}, ${dark ? 0.18 : 0.14})`);
   root.style.setProperty("--blob-a", `rgba(${parts}, 0.30)`);
 }
 
@@ -2355,6 +2442,8 @@ function renderThemeToggle() {
 function applyResolvedMode() {
   document.documentElement.dataset.mode = resolvedTheme();
   renderThemeToggle();
+  //: A picked accent is toned per mode (`accentTone`), so it is re-toned here.
+  applyEffectiveAccent();
   // Light and dark can want different custom backgrounds, and the stored one
   // is written inline: so it has to be re-picked here rather than left to the
   // stylesheet, which cannot outrank it.
@@ -2374,8 +2463,8 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () 
 
 function applyThemeChoice(choice, remember = true) {
   if (remember) {
-    if (choice === "system") localStorage.removeItem("theme");
-    else localStorage.setItem("theme", choice);
+    if (choice === "system") prefs.remove("theme");
+    else prefs.set("theme", choice);
   }
   //: The attribute that changes every colour in the app is set INSIDE the
   //: repaint (INBOX 202), not before it: set outside, the transitions it
@@ -2387,8 +2476,8 @@ function applyThemeChoice(choice, remember = true) {
     // otherwise the user thinks the theme toggle is broken because the custom
     // colour is overriding the new theme's native background.
     if (remember) {
-      localStorage.removeItem("page-bg");
-      localStorage.removeItem("page-bg-dark");
+      prefs.remove("page-bg");
+      prefs.remove("page-bg-dark");
       applyPageBackground(null);
       if ($("page-bg-custom")) $("page-bg-custom").value = "#f5f7fb";
     }
@@ -2417,6 +2506,7 @@ function renderThemePresets() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "theme-card";
+    button.dataset.preset = name;
     button.title = `Apply the ${preset.label} theme`;
     button.setAttribute("aria-pressed", String(name === active));
     const swatch = document.createElement("span");
@@ -2472,7 +2562,7 @@ function renderAppearance() {
     const customSet = Boolean(prefs.get("accent-custom", null));
     button.classList.toggle("active", !customSet && accent.name === activeAccent());
     button.addEventListener("click", () => {
-      localStorage.removeItem("accent-custom"); // presets clear a custom colour
+      prefs.remove("accent-custom"); // presets clear a custom colour
       applyAccent(accent.name); // re-derives the inline colour from scratch
       renderAppearance();
     });
@@ -2490,7 +2580,6 @@ function renderAppearance() {
   $("reduce-motion-toggle").checked = appearancePref("motion") === "reduced";
   $("ui-motion-toggle").checked = appearancePref("ui-motion") !== "off";
   $("bg-art-toggle").checked = bgArtOn();
-  $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("progress-motion").value = appearancePref("progress-motion");
   $("pref-show-thinking-words").checked = appearancePref("show-thinking-words") !== "off";
@@ -2534,7 +2623,7 @@ function renderAppearance() {
   );
   $("bg-intensity").value = appearancePref("bg-intensity");
   $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
-  $("bg-art-style").value = appearancePref("bg-style");
+  renderBgStyleGrid();
   renderBgStyleHint();
   $("radius-slider").value = appearancePref("radius");
   $("radius-value").textContent = `${appearancePref("radius")}px`;
@@ -2555,7 +2644,6 @@ function renderAppearance() {
   $("glass-opacity-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
   // Style/intensity only matter while the background art is on.
   const artOff = !bgArtOn();
-  $("bg-style-row").classList.toggle("disabled-row", artOff);
   $("bg-intensity-row").classList.toggle("disabled-row", artOff);
   renderPaletteGrid();
   _segActive("theme-seg", "themeChoice", effectiveTheme());
@@ -2702,6 +2790,20 @@ const PALETTES = [
     dark: { page: "linear-gradient(135deg,#130d1a,#1c1226 45%,#170f20)", card: "rgba(35,26,45,0.85)", accent: "#c07df5", border: "rgba(232,212,250,0.16)" },
   },
   {
+    id: "midnight",
+    name: "Midnight",
+    note: "Deep navy and lamplight gold.",
+    light: { page: "linear-gradient(135deg,#eef1f8,#f4f2ec 45%,#eceff6)", card: "rgba(255,255,255,0.85)", accent: "#9a6a00", border: "rgba(20,28,51,0.15)" },
+    dark: { page: "linear-gradient(135deg,#0a0f1f,#0f1630 45%,#0b1226)", card: "rgba(22,30,56,0.85)", accent: "#f2c14e", border: "rgba(200,215,255,0.16)" },
+  },
+  {
+    id: "rosewood",
+    name: "Rosewood",
+    note: "Dusty rose and wine. Warm without orange.",
+    light: { page: "linear-gradient(135deg,#f8ecee,#faf1ef 45%,#f3e6ea)", card: "rgba(255,251,251,0.85)", accent: "#a3324f", border: "rgba(45,26,32,0.15)" },
+    dark: { page: "linear-gradient(135deg,#170c10,#211218 45%,#1a0e14)", card: "rgba(44,26,33,0.85)", accent: "#f08aa6", border: "rgba(250,214,224,0.16)" },
+  },
+  {
     id: "carbon",
     name: "Carbon",
     note: "Near-monochrome. Colour only where it means something.",
@@ -2754,7 +2856,7 @@ function renderPaletteGrid() {
       // below is still there to deviate from the palette afterwards.
       const hadAccent =
         activeAccent() !== "indigo" || prefs.get("accent-custom", null);
-      localStorage.removeItem("accent-custom");
+      prefs.remove("accent-custom");
       applyCustomAccent(null);
       applyAccent("indigo");
       applyPalette(palette.id);
@@ -2776,7 +2878,7 @@ function resetAppearance() {
     "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
   ]) {
-    localStorage.removeItem(key);
+    prefs.remove(key);
   }
   delete document.documentElement.dataset.accent;
   delete document.documentElement.dataset.contrast;
@@ -2816,7 +2918,98 @@ function stopBgArt() {
 
 // Which generative background to paint. Persisted like the other
 // appearance prefs (user asked for more variety of art).
-const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh", "microbes", "mycelium"];
+const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh", "microbes", "mycelium", "dusk", "ripples", "fireflies", "rain"];
+//: The cards (Brief 95): a name and one line each, shown lightest first by
+//: their measured cost (`BG_ART_COST`, bg-art.js).
+const BG_ART_INFO = {
+  aurora: ["Aurora", "Curtains of light"],
+  constellation: ["Constellation", "Stars at three depths"],
+  waves: ["Waves", "Rolling lines"],
+  bubbles: ["Floating orbs", "Rising glass bubbles"],
+  mesh: ["Mesh gradient", "Slow colour fields"],
+  microbes: ["Microbes", "An ecosystem grown from your name"],
+  mycelium: ["Mycelium", "A network grown from your name"],
+  dusk: ["Dusk", "A sky and a slow glow"],
+  ripples: ["Ripples", "Rings on still water"],
+  fireflies: ["Fireflies", "Soft lights wandering"],
+  rain: ["Rain", "Fine streaks falling"],
+};
+
+//: Built once, then only marked; the previews are drawn when the cards are
+//: on screen and again only when what they show (mode, accent, intensity,
+//: name) has changed.
+function renderBgStyleGrid() {
+  const grid = $("bg-art-style");
+  if (!grid) return;
+  if (!grid.childElementCount) {
+    const order = [...BG_ART_STYLES].sort((a, b) => BG_ART_COST[a] - BG_ART_COST[b]);
+    for (const name of order) {
+      const [label, note] = BG_ART_INFO[name];
+      const tier = bgArtTier(name);
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "theme-card bg-style-card";
+      card.dataset.bgStyle = name;
+      card.title = `${label}: ${note.toLowerCase()}. ${tier}, about ${BG_ART_COST[name].toFixed(1)}ms a frame.`;
+      const preview = document.createElement("canvas");
+      preview.className = "theme-preview bg-style-preview";
+      preview.width = 160;
+      preview.height = 90;
+      const title = document.createElement("span");
+      title.className = "theme-name";
+      title.textContent = label;
+      //: The cost is a facts row of its own, so a long name never pushes the
+      //: label onto a second line on some cards and not others.
+      const facts = document.createElement("span");
+      facts.className = "row bg-style-facts";
+      const ms = document.createElement("span");
+      ms.className = "theme-note";
+      ms.textContent = `${BG_ART_COST[name].toFixed(1)}ms a frame`;
+      facts.append(chip(tier, `item-label${tier === "Light" ? " is-ok" : tier === "Heavy" ? " is-warn" : ""}`), ms);
+      const line = document.createElement("span");
+      line.className = "theme-note";
+      line.textContent = note;
+      card.append(preview, title, facts, line);
+      card.addEventListener("click", () => {
+        prefs.set("bg-style", name);
+        if (!bgArtOn()) toggleBgArt(true);
+        else startBgArt();
+        renderAppearance();
+      });
+      grid.append(card);
+    }
+  }
+  const current = bgArtStyle();
+  for (const card of grid.children) {
+    const on = card.dataset.bgStyle === current;
+    card.classList.toggle("active", on && bgArtOn());
+    card.setAttribute("aria-pressed", String(on && bgArtOn()));
+  }
+  if (!grid.closest("details")?.open) return;
+  const o = {
+    dark: document.documentElement.dataset.mode === "dark",
+    accent: currentAccentHex(),
+    density: Math.max(0.25, (Number(appearancePref("bg-intensity")) || 90) / 90),
+    seedText: bgArtSeedText(),
+  };
+  const key = JSON.stringify(o);
+  if (grid.dataset.drawn === key) return;
+  grid.dataset.drawn = key;
+  //: One preview a frame, so opening the section never holds a frame for
+  //: all eleven at once.
+  const cards = [...grid.children];
+  const next = () => {
+    const card = cards.shift();
+    if (!card || grid.dataset.drawn !== key) return;
+    try {
+      bgArtPreview(card.dataset.bgStyle, o, card.querySelector("canvas"));
+    } catch (err) {
+      console.warn("Background preview failed:", err);
+    }
+    requestAnimationFrame(next);
+  };
+  requestAnimationFrame(next);
+}
 // One source of truth for the chosen style. This used to read a "bgArtStyle"
 // key that nothing writes any more (the picker saves "bg-style"), so the
 // builder always fell back to aurora no matter what was selected.
@@ -2891,7 +3084,7 @@ function startBgArt() {
 }
 
 function toggleBgArt(on) {
-  localStorage.setItem("bgArt", on ? "on" : "off");
+  prefs.set("bgArt", on ? "on" : "off");
   applyAppearance(); // updates data-bg-art so the cards adjust with it
   if (on) startBgArt();
   else stopBgArt();
@@ -2919,25 +3112,25 @@ for (const b of document.querySelectorAll("#theme-seg button")) {
 }
 for (const b of document.querySelectorAll("#fontsize-seg button")) {
   b.addEventListener("click", () => {
-    localStorage.setItem("fontsize", b.dataset.fontsize);
+    prefs.set("fontsize", b.dataset.fontsize);
     applyAppearance();
     renderAppearance();
   });
 }
 $("font-seg").addEventListener("change", (e) => {
-  localStorage.setItem("font", e.target.value);
+  prefs.set("font", e.target.value);
   applyAppearance();
   renderAppearance();
 });
 $("density-seg").addEventListener("change", (e) => {
   //: Auto is no choice at all: the window's height decides.
-  if (e.target.value === "auto") localStorage.removeItem("density");
-  else localStorage.setItem("density", e.target.value);
+  if (e.target.value === "auto") prefs.remove("density");
+  else prefs.set("density", e.target.value);
   applyAppearance();
   renderAppearance();
 });
 $("perf-mode").addEventListener("change", (e) => {
-  localStorage.setItem("perf", e.target.value);
+  prefs.set("perf", e.target.value);
   applyAppearance();
   renderAppearance();
 });
@@ -2948,30 +3141,30 @@ window.matchMedia("(prefers-reduced-transparency: reduce)").addEventListener("ch
 });
 $("glass-toggle").addEventListener("change", (e) => {
   const turningOn = e.target.checked && appearancePref("glass") !== "on";
-  localStorage.setItem("glass", e.target.checked ? "on" : "off");
+  prefs.set("glass", e.target.checked ? "on" : "off");
   // Asked for directly: switching glassmorphism on from off also turns the
   // sheen on, so the full look shows up in one action, the sheen's own
   // checkbox can still turn it back off afterward without touching this.
-  if (turningOn) localStorage.setItem("glass-sheen", "on");
+  if (turningOn) prefs.set("glass-sheen", "on");
   applyAppearance();
   renderAppearance();
 });
 $("page-wash-toggle")?.addEventListener("change", (e) => {
-  localStorage.setItem("page-wash", e.target.checked ? "on" : "off");
+  prefs.set("page-wash", e.target.checked ? "on" : "off");
   applyAppearance();
 });
 $("glass-sheen-toggle").addEventListener("change", (e) => {
-  localStorage.setItem("glass-sheen", e.target.checked ? "on" : "off");
+  prefs.set("glass-sheen", e.target.checked ? "on" : "off");
   applyAppearance();
   $("glass-sheen-strength-row")?.classList.toggle("disabled-row", !e.target.checked);
 });
 $("glass-sheen-strength").addEventListener("input", (e) => {
-  localStorage.setItem("glass-sheen-strength", e.target.value);
+  prefs.set("glass-sheen-strength", e.target.value);
   $("glass-sheen-strength-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
 $("reduce-motion-toggle").addEventListener("change", (e) => {
-  localStorage.setItem("motion", e.target.checked ? "reduced" : "auto");
+  prefs.set("motion", e.target.checked ? "reduced" : "auto");
   // The background-art picker has its own "Moving" override so someone can
   // ask for motion despite the OS-level reduced-motion hint (see
   // startBgArt()'s comment: that fix was reported missing once already).
@@ -2981,9 +3174,9 @@ $("reduce-motion-toggle").addEventListener("change", (e) => {
   // clears that if we're the ones who set it, so an independent "Moving"
   // choice made before or after isn't clobbered.
   if (e.target.checked) {
-    localStorage.setItem("bg-motion", "still");
+    prefs.set("bg-motion", "still");
   } else if (appearancePref("bg-motion") === "still") {
-    localStorage.setItem("bg-motion", "auto");
+    prefs.set("bg-motion", "auto");
   }
   if ($("bg-motion")) $("bg-motion").value = appearancePref("bg-motion");
   renderBgMotionHint();
@@ -2993,28 +3186,28 @@ $("reduce-motion-toggle").addEventListener("change", (e) => {
   renderBrandLogo(); // start/stop the emblem's rotation to match
 });
 $("ui-motion-toggle").addEventListener("change", (e) => {
-  localStorage.setItem("ui-motion", e.target.checked ? "on" : "off");
+  prefs.set("ui-motion", e.target.checked ? "on" : "off");
   applyAppearance();
 });
 $("bg-intensity").addEventListener("input", (e) => {
-  localStorage.setItem("bg-intensity", e.target.value);
+  prefs.set("bg-intensity", e.target.value);
   $("bg-intensity-value").textContent = `${e.target.value}%`;
   applyAppearance();
   if (bgArtOn()) startBgArt(); // intensity also drives particle density
 });
 // Corner rounding + glass blur: live sliders over CSS custom properties.
 $("radius-slider").addEventListener("input", (e) => {
-  localStorage.setItem("radius", e.target.value);
+  prefs.set("radius", e.target.value);
   $("radius-value").textContent = `${e.target.value}px`;
   applyAppearance();
 });
 $("glass-blur").addEventListener("input", (e) => {
-  localStorage.setItem("glass-blur", e.target.value);
+  prefs.set("glass-blur", e.target.value);
   $("glass-blur-value").textContent = `${e.target.value}px`;
   applyAppearance();
 });
 $("glass-opacity").addEventListener("input", (e) => {
-  localStorage.setItem("glass-opacity", e.target.value);
+  prefs.set("glass-opacity", e.target.value);
   $("glass-opacity-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
@@ -3027,54 +3220,74 @@ $("zoom-out")?.addEventListener("click", () => nudgeZoom(-1));
 $("zoom-reset")?.addEventListener("click", () => setZoom(100));
 for (const btn of document.querySelectorAll("#border-style-seg button")) {
   btn.addEventListener("click", () => {
-    localStorage.setItem("border-style", btn.dataset.borderChoice);
+    prefs.set("border-style", btn.dataset.borderChoice);
     applyAppearance();
     renderAppearance();
   });
 }
 $("shadow-intensity").addEventListener("input", (e) => {
-  localStorage.setItem("shadow-intensity", e.target.value);
+  prefs.set("shadow-intensity", e.target.value);
   $("shadow-intensity-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
 // Custom accent + page background.
-$("accent-custom").addEventListener("input", (e) => {
-  localStorage.setItem("accent-custom", e.target.value);
-  applyCustomAccent(e.target.value);
+// A pick whose button words would read under 4.5:1 in the mode showing is
+// refused, not quietly altered: the row says the ratio and offers the
+// nearest shade that reads, one press to take it (Brief 95).
+function setCustomAccent(hex) {
+  $("accent-offer").classList.add("hidden");
+  prefs.set("accent-custom", hex);
+  applyCustomAccent(hex);
   renderAppearance();
   if (bgArtOn()) startBgArt();
   renderBrandLogo();
+}
+$("accent-custom").addEventListener("input", (e) => {
+  const pick = e.target.value;
+  const dark = resolvedTheme() === "dark";
+  const tone = accentTone(pick, dark);
+  if (tone === pick) return setCustomAccent(pick);
+  const ratio = hexRatio(pick, accentInk(dark)).toFixed(1);
+  $("accent-offer-text").textContent =
+    `Words on ${pick} read at ${ratio}:1 in ${dark ? "dark" : "light"} mode, under the 4.5:1 they need.`;
+  $("accent-offer-dot").style.setProperty("--swatch", tone);
+  $("accent-offer-label").textContent = `Use ${tone} (${hexRatio(tone, accentInk(dark)).toFixed(1)}:1)`;
+  $("accent-offer-use").dataset.tone = tone;
+  $("accent-offer").classList.remove("hidden");
+});
+$("accent-offer-use").addEventListener("click", (e) => {
+  const tone = e.currentTarget.dataset.tone;
+  if (!tone) return;
+  $("accent-custom").value = tone;
+  setCustomAccent(tone);
 });
 $("accent-custom-clear").addEventListener("click", () => {
-  localStorage.removeItem("accent-custom");
+  $("accent-offer").classList.add("hidden");
+  prefs.remove("accent-custom");
   applyCustomAccent(null);
   renderAppearance();
   if (bgArtOn()) startBgArt();
   renderBrandLogo();
 });
 $("page-bg-custom").addEventListener("input", (e) => {
-  localStorage.setItem("page-bg", e.target.value);
+  prefs.set("page-bg", e.target.value);
   applyPageBackground(e.target.value);
 });
 $("page-bg-clear").addEventListener("click", () => {
-  localStorage.removeItem("page-bg");
-  localStorage.removeItem("page-bg-dark");
+  prefs.remove("page-bg");
+  prefs.remove("page-bg-dark");
   applyPageBackground(null);
   renderAppearance();
 });
 // Background art style.
-$("bg-art-style").addEventListener("change", (e) => {
-  localStorage.setItem("bg-style", e.target.value);
-  renderBgStyleHint();
-  if (bgArtOn()) startBgArt();
-});
+$("bg-art-style").closest("details")?.addEventListener("toggle", renderBgStyleGrid);
 $("avatar-follow").addEventListener("change", (e) => {
   const value = e.target.checked ? "on" : "off";
-  localStorage.setItem("avatar-follow", value);
+  prefs.set("avatar-follow", value);
   document.documentElement.dataset.avatarFollow = value;
 });
 $("avatar-buddy").addEventListener("change", (e) => {
-  localStorage.setItem("avatar-buddy", e.target.value);
+  prefs.set("avatar-buddy", e.target.value);
   mountBuddyCustom();
   syncNameMarkBuddy();
   nameMarkBuddySizeSelect();
@@ -3082,7 +3295,7 @@ $("avatar-buddy").addEventListener("change", (e) => {
 $("avatar-buddy-size").addEventListener("change", (e) => nameMarkBuddySetSize(Number(e.target.value)));
 $("avatar-buddy-motion").addEventListener("change", (e) => {
   try {
-    localStorage.setItem("avatar-buddy-motion", e.target.value);
+    prefs.set("avatar-buddy-motion", e.target.value);
   } catch (err) {
     // For this visit only.
   }
@@ -3090,7 +3303,7 @@ $("avatar-buddy-motion").addEventListener("change", (e) => {
 });
 $("avatar-buddy-actions").addEventListener("change", (e) => {
   try {
-    localStorage.setItem("avatar-buddy-actions", e.target.value);
+    prefs.set("avatar-buddy-actions", e.target.value);
   } catch (err) {
     // This visit only.
   }
@@ -3102,54 +3315,54 @@ try {
 }
 $("avatar-buddy-recall").addEventListener("click", () => nameMarkBuddyCallBack());
 $("atlas-style").addEventListener("change", (e) => {
-  localStorage.setItem("atlas-style", e.target.value);
+  prefs.set("atlas-style", e.target.value);
   atlasRepaint();
 });
 $("assistant-avatar").addEventListener("change", (e) => {
-  localStorage.setItem("assistant-avatar", e.target.value);
+  prefs.set("assistant-avatar", e.target.value);
   repaintAssistantAvatars();
 });
 $("atlas-look").addEventListener("change", (e) => {
-  localStorage.setItem("atlas-look", e.target.value);
+  prefs.set("atlas-look", e.target.value);
   atlasRepaint();
 });
 $("face-look").addEventListener("change", (e) => {
-  localStorage.setItem("face-look", e.target.value);
+  prefs.set("face-look", e.target.value);
   nameMarkRepaintAll();
   //: An Atlas on Auto takes its look from here (`atlasLook`).
   atlasRepaint();
 });
 $("dash-mark").addEventListener("change", (e) => {
-  localStorage.setItem("dash-mark", e.target.value);
+  prefs.set("dash-mark", e.target.value);
   paintDashEmblem();
 });
 $("avatar-motion").addEventListener("change", (e) => {
-  localStorage.setItem("avatar-motion", e.target.value);
+  prefs.set("avatar-motion", e.target.value);
   document.documentElement.dataset.avatarMotion = e.target.value;
 });
 $("progress-motion").addEventListener("change", (e) => {
-  localStorage.setItem("progress-motion", e.target.value);
+  prefs.set("progress-motion", e.target.value);
   document.documentElement.dataset.progressMotion = e.target.value;
   document.documentElement.toggleAttribute("data-progress-chosen", e.target.value === "always");
   renderProgressMotionHint();
 });
 $("pref-show-thinking-words")?.addEventListener("change", (e) => {
-  localStorage.setItem("show-thinking-words", e.target.checked ? "on" : "off");
+  prefs.set("show-thinking-words", e.target.checked ? "on" : "off");
 });
 $("bg-motion").addEventListener("change", (e) => {
-  localStorage.setItem("bg-motion", e.target.value);
+  prefs.set("bg-motion", e.target.value);
   // Still vs moving is decided in setup, so the sketch has to be rebuilt.
   if (bgArtOn()) startBgArt();
 });
 // Custom CSS (advanced).
 $("custom-css-apply").addEventListener("click", () => {
   const css = $("custom-css").value;
-  localStorage.setItem("custom-css", css);
+  prefs.set("custom-css", css);
   applyCustomCss(css);
   $("custom-css-status").textContent = "Applied.";
 });
 $("custom-css-clear").addEventListener("click", () => {
-  localStorage.removeItem("custom-css");
+  prefs.remove("custom-css");
   $("custom-css").value = "";
   applyCustomCss("");
   $("custom-css-status").textContent = "Cleared.";
@@ -3291,18 +3504,14 @@ $("log-requests").addEventListener("change", renderActiveLogView);
 //: model it names, else its label. A log line names what it worked on, not
 //: the sentence the row says, so the brackets are tried first.
 function taskLogButton(item) {
-  return smallButton("ph:scroll Logs", "Open the log, filtered to this task", () => openTaskLog(item));
+  return rowActions([{ label: "ph:scroll Logs", title: "Open the log, filtered to this run", run: () => openTaskLog(item) }], "Logs");
 }
 
-async function openTaskLog(item) {
-  await openSettingsModal("logs");
-  const filter = $("log-filter");
-  filter.value = /\(([^)]+)\)/.exec(item.label || "")?.[1] || item.name || item.label || "";
-  filter.dispatchEvent(new Event("input"));
-}
 
 let logFilterDebounceTimeout;
-$("log-filter").addEventListener("input", () => {
+let logFilterFromRun = false;
+$("log-filter").addEventListener("input", (event) => {
+  if (event.isTrusted) logFilterFromRun = false;
   clearTimeout(logFilterDebounceTimeout);
   logFilterDebounceTimeout = setTimeout(renderActiveLogView, 150);
 });
@@ -3332,7 +3541,7 @@ for (const id of ["log-list", "log-terminal"]) {
 for (const button of document.querySelectorAll("#log-view-toggle button")) {
   button.addEventListener("click", () => {
     logView = button.dataset.view;
-    localStorage.setItem("logView", logView);
+    prefs.set("logView", logView);
     for (const b of document.querySelectorAll("#log-view-toggle button")) {
       b.classList.toggle("active", b === button);
     }
@@ -3368,7 +3577,7 @@ function noticePerfMode() {
   if (appearancePref("perf") !== "auto" || !perfModeOn()) return;
   if (prefs.get("perf-noticed", null) === "yes") return;
   if (typeof toastAction !== "function") return;
-  localStorage.setItem("perf-noticed", "yes");
+  prefs.set("perf-noticed", "yes");
   toastAction(
     "Performance mode is on for this machine: flat panels, no animations.",
     "Change",
@@ -3624,7 +3833,9 @@ function collapseLongSettingHints(root) {
   // wraps the label's text, so a direct-child selector matched none of the
   // twenty-three that exist. Checked live rather than assumed, the first
   // version of this ran, found nothing, and changed no measurement.
-  for (const hint of scope.querySelectorAll("label small.muted")) {
+  //: `.setting-label` rows (a label word beside a select) carry the same
+  //: hints; their long ones collapse the same way (Brief 4).
+  for (const hint of scope.querySelectorAll("label small.muted, .setting-label small.muted")) {
     if (hint.dataset.collapsible) continue;
     const text = (hint.textContent || "").trim();
     if (text.length <= SETTINGS_HINT_INLINE_CHARS) continue;
@@ -3794,7 +4005,7 @@ const LEARNED_SWITCH_COPY = {
   margin_reader: ["Margin reader", "Adds notes in the margin of a note as you read it."],
   open_questions: ["Open questions", "Collects the questions your notes leave unanswered."],
   resurfacing: ["Resurfacing", "Brings notes you have not looked at in a while back to the dashboard."],
-  evidence_checks: ["Evidence checks", "Looks for what in your notes supports or contradicts a claim."],
+  evidence_checks: ["Evidence checks", "Shows each sentence of an answer beside the passage in your notes it came from."],
   corrections: ["Learning from corrections", "Remembers when you refile a note or dismiss a suggestion, and stops repeating it."],
   model_bench: ["Model bench", "Compares your installed models on your own notes."],
 };
@@ -3940,6 +4151,8 @@ async function learnedSetSwitch(name, value) {
   //: Re-read rather than trust the click: the master turns the other seven
   //: off in the *reply*, not in the request, so the only correct picture of
   //: the switches after any write is the one the server just sent back.
+  //: The answers' evidence view reads Evidence checks again too.
+  if (typeof evidenceSwitchReset === "function") evidenceSwitchReset();
   await renderLearnedSwitches();
 }
 
@@ -3971,10 +4184,29 @@ async function learnedBulk(action) {
     if (!ok) return;
   }
   try {
+    const picked = [...learnedSelected.values()];
     const reply = await apiJson("/learned/bulk", {
       method: "POST",
       body: JSON.stringify({ ids, action }),
     });
+    const bulk = (what) => ["/learned/bulk", "POST", { ids, action: what }];
+    if (action === "delete") {
+      pushRoutePairUndo(`Deleted ${ids.length} learned thing${ids.length === 1 ? "" : "s"}`, bulk("restore"), bulk("delete"), () => renderLearnedList());
+    } else {
+      //: A reset puts the model's words back; Undo writes each edited text again.
+      const edited = picked.filter((fact) => fact.edited_by_user);
+      pushUndo(
+        `Reset ${edited.length} learned thing${edited.length === 1 ? "" : "s"}`,
+        async () => {
+          for (const fact of edited) await apiJson(`/learned/${fact.id}`, { method: "PATCH", body: JSON.stringify({ text: fact.text }) });
+          renderLearnedList();
+        },
+        async () => {
+          await apiJson("/learned/bulk", { method: "POST", body: JSON.stringify({ ids: edited.map((fact) => fact.id), action: "reset" }) });
+          renderLearnedList();
+        }
+      );
+    }
     const verb = action === "delete" ? "Deleted" : "Reset";
     const gone = reply.missing?.length ? `, ${reply.missing.length} already gone` : "";
     toast(`${verb} ${reply.done}${gone}.`);
@@ -4122,6 +4354,7 @@ async function learnedEdit(fact) {
       method: "PATCH",
       body: JSON.stringify({ text: next.trim() }),
     });
+    pushRequestUndo("Edited a learned claim", `/learned/${fact.id}`, "PATCH", { text: fact.text }, { text: next.trim() }, () => renderLearnedList());
     toast("Saved. No later run will overwrite it.");
     renderLearnedList();
   } catch (error) {
@@ -4132,6 +4365,17 @@ async function learnedEdit(fact) {
 async function learnedReset(fact) {
   try {
     await apiJson(`/learned/${fact.id}/reset`, { method: "POST" });
+    pushUndo(
+      "Put the model's words back",
+      async () => {
+        await apiJson(`/learned/${fact.id}`, { method: "PATCH", body: JSON.stringify({ text: fact.text }) });
+        renderLearnedList();
+      },
+      async () => {
+        await apiJson(`/learned/${fact.id}/reset`, { method: "POST" });
+        renderLearnedList();
+      }
+    );
     toast("Put the model's own words back.");
     renderLearnedList();
   } catch (error) {
@@ -4147,6 +4391,7 @@ async function learnedDelete(fact) {
   if (!ok) return;
   try {
     await api(`/learned/${fact.id}`, { method: "DELETE" });
+    pushRoutePairUndo("Deleted a learned thing", [`/learned/${fact.id}/restore`, "POST"], [`/learned/${fact.id}`, "DELETE"], () => { renderLearnedList(); renderLearnedSwitches(); });
     //: The page can be left holding nothing if the last row of the last page
     //: went, which reads as a bug ("it deleted everything"). Step back one
     //: page first, exactly as the note list does.
@@ -4162,15 +4407,16 @@ async function learnedDelete(fact) {
 
 async function learnedForget() {
   const ok = await confirmDialog(
-    "Forget everything the notebook has worked out?\n\nEvery derived claim, question and learned preference goes. Your notes, their history and everything you told it to remember are untouched. This cannot be undone.",
+    "Forget everything the notebook has worked out?\n\nEvery derived claim, question and learned preference goes. Your notes, their history and everything you told it to remember are untouched. Undo brings it all back.",
     { confirmLabel: "Forget it all" }
   );
   if (!ok) return;
   try {
-    await api("/learned", {
+    const gone = await apiJson("/learned", {
       method: "DELETE",
       body: JSON.stringify({ confirm: true }),
     });
+    pushTokenUndo("Forgot everything learned", [{ del: ["/learned", "DELETE", { confirm: true }], restore: "/learned/unforget", token: gone.undo_token }], renderLearned);
     learnedOffset = 0;
     toast("Forgotten. Your notes are exactly as they were.");
     renderLearned();
@@ -4335,7 +4581,7 @@ function wireSettingsFolds() {
       const now = settingsFoldState();
       now[key] = fold.open;
       try {
-        localStorage.setItem(SETTINGS_FOLDS_KEY, JSON.stringify(now));
+        prefs.set(SETTINGS_FOLDS_KEY, JSON.stringify(now));
       } catch {
         // A private window: the fold still works, it just is not remembered.
       }
@@ -4438,14 +4684,14 @@ function jobRunLine(run, bare) {
   if (run.status === "running") {
     return {
       text: "ph:spin Running…",
-      title: run.started_at ? `Started ${new Date(run.started_at).toLocaleString()}` : "",
+      title: run.started_at ? `Started ${whenText(run.started_at)}` : "",
       failed: false,
       running: true,
     };
   }
   const when = relativeTime(run.finished_at || run.started_at) || "at an unknown time";
   const head = bare ? when.charAt(0).toUpperCase() + when.slice(1) : `Last run ${when}`;
-  const stamp = new Date(run.finished_at || run.started_at).toLocaleString();
+  const stamp = whenText(run.finished_at || run.started_at);
   const took = jobDurationWords(run.duration_ms);
   const title = took ? `${stamp}, took ${took}` : stamp;
   if (run.status === "failed") {
@@ -4489,6 +4735,13 @@ function jobLineEl(kind) {
 }
 
 async function refreshJobRuns() {
+  //: Not while locked: the 2 s poll outlived a lock and was refused with a
+  //: 401 once or twice per lock (OPEN, forgotpw-1006). `lockNow` drops the
+  //: token, so no token means no poll, and the timer is not re-armed.
+  if (!authToken()) {
+    clearTimeout(jobRunsTimer);
+    return;
+  }
   if (jobRunsInFlight) return;
   jobRunsInFlight = true;
   try {
@@ -4504,7 +4757,7 @@ async function refreshJobRuns() {
   for (const el of lines) paintJobLine(el);
   clearTimeout(jobRunsTimer);
   const running = lines.some((el) => el.offsetParent !== null && el.dataset.jobRunning === "1");
-  if (running) jobRunsTimer = setTimeout(refreshJobRuns, 2000);
+  if (running && authToken()) jobRunsTimer = setTimeout(refreshJobRuns, 2000);
 }
 
 // Settings → Background tasks → Background jobs: every kind in one column,
@@ -4513,7 +4766,9 @@ async function refreshJobRuns() {
 function renderJobOverview() {
   const list = $("job-runs-list");
   if (!list || !jobRunsList) return;
-  if (list.children.length === jobRunsList.length) return;
+  const reports = jobRunsList.map((run) => run.report || "").join();
+  if (list.children.length === jobRunsList.length && list.dataset.reports === reports) return;
+  list.dataset.reports = reports;
   list.replaceChildren();
   for (const run of jobRunsList) {
     const li = document.createElement("li");
@@ -4525,6 +4780,14 @@ function renderJobOverview() {
     line.dataset.jobLine = run.kind;
     line.dataset.jobBare = "1";
     li.append(name, line);
+    //: The last import's page of counts and skipped items (ledger 1406).
+    if (run.report) {
+      const page = smallButton("ph:file-text Report", `Open the report of the last ${run.label.toLowerCase()}`, async () => {
+        if (await ensureModule("appImport")) openImportReport(run.report);
+      });
+      page.classList.add("quiet");
+      li.append(page);
+    }
     //: A scheduled pass says when it runs and has Run now (INBOX 713, the
     //: owner: "is it possible to manually run them").
     if (run.can_run) {

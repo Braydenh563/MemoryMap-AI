@@ -222,6 +222,15 @@ async function commitExtractPreview() {
       }),
     });
     closeExtractPreview();
+    const madeIds = result.notes.map((n) => n.id).filter((id) => id != null);
+    if (madeIds.length) {
+      pushRoutePairUndo(
+        `Saved ${madeIds.length} extracted note${madeIds.length === 1 ? "" : "s"}`,
+        madeIds.map((id) => [`/entries/${id}`, "DELETE"]),
+        madeIds.map((id) => [`/entries/${id}/restore`, "POST"]),
+        () => loadEntries()
+      );
+    }
     toast(`Saved ${result.notes.length} note${result.notes.length === 1 ? "" : "s"}.`);
     await loadEntries();
   } catch (error) {
@@ -460,6 +469,7 @@ async function importChatDocuments(files) {
     }
   }
   if (!made.length) return;
+  offerCreatedDocsUndo(made);
   // **Staged on the message, not just imported and announced.** The toast
   // below still says where the file went, but a toast is a moment and the
   // report was about what is left behind: "images and files uploaded into a
@@ -835,6 +845,14 @@ function attachedNotes() {
     .filter(Boolean);
 }
 
+//: The notes an answer named, as short titles, sent back on its history turn
+//: so "delete the other one" can name the note (`reading.follow`, decision 57).
+function chatTurnObjects(sources) {
+  return (sources || []).filter((s) => s.kind === "note").slice(0, 5)
+    .map((s) => String(s.label || "").replace(/…$/, "").split(/[:.!?]/)[0].trim().slice(0, 80))
+    .filter(Boolean);
+}
+
 function noteLabel(entry, length = 40) {
   const text = notePreviewText(entry.content).replace(/\s+/g, " ").trim();
   return text.length > length ? `${text.slice(0, length - 1)}…` : text || "(empty note)";
@@ -988,9 +1006,6 @@ let notePickerSource = "notes";
 //: never, so a document written after the first opening was not offered
 //: until a reload.
 const notePickerCache = { documents: null, files: null, images: null, maps: null };
-
-//: A picture by its name, for the one store (`/media`) that also holds PDFs.
-const NOTE_PICKER_IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i;
 
 //: "In Weekly review", or "In Weekly review and 2 more": where a file or a
 //: picture is used, which places it better than a generated filename does.
@@ -1510,11 +1525,18 @@ function appendRunResumeControls(bubble, spec) {
   }
 }
 
+//: A stray key typed against the last word ("dentist\\") goes before the bubble
+//: shows it, as the server already reads it (question_noise); an emoticon
+//: (":\\") and a lone key stay.
+function chatTidyTyped(text) {
+  const m = /([\w?.!)"'])[\\|`~^]+\s*$/.exec(text);
+  return m ? text.slice(0, m.index + 1) : text;
+}
 
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
-  const typed = (preset ?? input.value).trim();
+  const typed = chatTidyTyped((preset ?? input.value).trim());
   if (!typed) return;
 
   // Plan mode is applied here, on the way out, rather than by whatever control
@@ -1821,6 +1843,8 @@ async function sendChatMessage(preset, opts = {}) {
   const touchedItems = new Map();
   chatController = new AbortController();
   const controller = chatController;
+  //: The app's mark lifts its cells while a turn runs (phone-shell.js).
+  if (typeof syncEmblemBusy === "function") syncEmblemBusy();
   //: Atlas looks up to think while a turn runs (avatars.js).
   if (typeof setAtlasMood === "function") setAtlasMood("thinking");
 
@@ -2294,6 +2318,7 @@ async function sendChatMessage(preset, opts = {}) {
     if (chatController === controller) {
       chatController = null;
       stopChatTimer();
+      if (typeof syncEmblemBusy === "function") syncEmblemBusy();
       // The turn is over: it is saved (or about to be) and a reload of this
       // thread will render it like any other. Re-attaching these nodes after
       // that point would show it twice.
@@ -2508,9 +2533,9 @@ async function sendChatMessage(preset, opts = {}) {
 
   // Regenerate replaces the last turn; a normal send appends a new one.
   if (opts.replaceLast && convRef.turns.length) {
-    convRef.turns[convRef.turns.length - 1] = { question, answer: answerRaw };
+    convRef.turns[convRef.turns.length - 1] = { question, answer: answerRaw, objects: chatTurnObjects(turnSources) };
   } else {
-    convRef.turns.push({ question, answer: answerRaw });
+    convRef.turns.push({ question, answer: answerRaw, objects: chatTurnObjects(turnSources) });
   }
   // Persist the finished turn so the chat survives restarts. A checkpoint
   // still on its way is let land first, so this sees its id and replaces its

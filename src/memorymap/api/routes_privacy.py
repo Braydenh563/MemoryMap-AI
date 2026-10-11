@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
-from memorymap.core import egress, netbind, security
+from memorymap.core import egress, netbind, qrsvg, security
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import DEFAULT_BASE_URLS, get_config
 
@@ -92,6 +92,14 @@ def _label(rows: list[dict], model: dict) -> list[dict]:
     return rows
 
 
+@router.get("/verdict")
+def verdict() -> dict:
+    """The top bar's Local chip (row 1641): this launch's one-word answer,
+    the receipt's own `verdict`, without the ledger flush and the lists the
+    receipt builds, because the chip asks every few minutes."""
+    return {"verdict": egress.verdict(egress.totals()), "watching": egress.installed()}
+
+
 @router.get("/receipt")
 def receipt(config: ConfigManager = Depends(get_config)) -> dict:
     ledger = egress.flush(config.data_dir / egress.LEDGER_NAME)
@@ -119,3 +127,19 @@ def receipt(config: ConfigManager = Depends(get_config)) -> dict:
         ],
         "covers": _COVERS,
     }
+
+
+@router.get("/lan-qr.svg")
+def lan_qr(
+    request: Request,
+    address: str = Query(min_length=1, max_length=200),
+    config: ConfigManager = Depends(get_config),
+) -> Response:
+    """**The address as a QR code**, for the phone's camera (WORLD_CLASS_PLAN
+    "Placed from Brief 40" fix 2). Only an address this notebook itself
+    shows (`netbind.describe`, the same list Settings and the receipt draw),
+    so the route draws nothing a caller chose. SVG, black on white."""
+    shown = netbind.describe(config, request.url.port).get("addresses") or []
+    if address not in shown:
+        raise HTTPException(status_code=404, detail="That is not an address this notebook shows.")
+    return Response(qrsvg.svg(address), media_type="image/svg+xml", headers={"Cache-Control": "no-store"})

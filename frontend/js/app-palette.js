@@ -162,6 +162,7 @@ function paletteMatches(query) {
   const pool = palettePool(base, lowered);
   const commands = paletteRanked(pool, lowered);
   if (!commands.length) commands.push(...paletteNearestRows(pool, lowered));
+  commands.push(...paletteNearRows(pool, lowered, commands));
 
   //: **A question typed into the palette is a question** (INBOX 224). The
   //: palette is a jump list, so "how do I turn off web search?" matches
@@ -257,7 +258,7 @@ function utilityPaletteRows(lowered) {
 
 //: The acts and the Settings index arrive after the palette opens: the acts
 //: are the server's table, the index is in the lazy Settings bundle.
-const paletteGen = { acts: null, actsAsked: false, settings: false, settingsAsked: false };
+const paletteGen = { acts: null, actsAsked: false, settings: false, settingsAsked: false, near: null, nearAsked: "" };
 
 //: Other words for a row, by where it lands: the words people type that the
 //: row's own name does not use. A key is a reveal target, `tab:<tab>` or
@@ -306,6 +307,9 @@ function paletteTarget(row) {
   if (row.reveal) return row.reveal;
   return row.tab ? `tab:${row.tab}` : "";
 }
+
+//: The meaning tables (meaning.js) arriving after the first keystroke.
+document.addEventListener("meaning-ready", () => paletteRefresh());
 
 //: Re-draw an open palette when a generated set arrives after the first draw.
 function paletteRefresh() {
@@ -401,13 +405,31 @@ function paletteWords(lowered) {
 //: (4: "timeline" is as much "Go to Timeline" as "Timeline bands") or its
 //: name holding them (3), its other words (2: keywords and aliases), its line of
 //: what it does (1). 0 is no match.
-function paletteScore(row, phrase, words) {
+//: `things` is the query read by meaning (meaning.js, Brief 94): "trash" is
+//: the bin's other word, "keybord" a slip of "keyboard". A row its name or
+//: other words hold that way scores as another word for it (2).
+function paletteScore(row, phrase, words, things = null) {
   const label = paletteText(row.label).replace(/(^|\s)ph:[\w-]+\s*/g, " ").trim();
   if (label.startsWith(phrase) || label.includes(` ${phrase}`)) return 4;
   if (label.includes(phrase)) return 3;
   const named = `${label} ${paletteText(row.keywords)} ${PALETTE_ALIASES[paletteTarget(row)] || ""}`;
   if (named.includes(phrase) || words.every((w) => named.includes(w))) return 2;
-  return words.every((w) => `${named} ${paletteText(row.about)}`.includes(w)) ? 1 : 0;
+  if (things && meaningHolds(things, named)) return 2;
+  const about = `${named} ${paletteText(row.about)}`;
+  if (words.every((w) => about.includes(w)) || (things && meaningHolds(things, about))) return 1;
+  //: All but one of two or more things in its name ("what the ai remembers
+  //: about me" is What it remembers): loose, so three at most, last.
+  return things && things.length > 1 && meaningMissing(things, named) <= 1 ? 1 : 0;
+}
+
+//: The words every row's name, other words and aliases use: what a slip is
+//: read against.
+function paletteVocab(rows) {
+  const out = new Set();
+  for (const row of rows) {
+    for (const w of meaningWords(`${paletteText(row.label).replace(/(^|\s)ph:[\w-]+/g, " ")} ${paletteText(row.keywords)} ${PALETTE_ALIASES[paletteTarget(row)] || ""}`)) out.add(w);
+  }
+  return out;
 }
 
 //: The matching rows, best first, each group's heading once: groups in the
@@ -416,16 +438,20 @@ function paletteScore(row, phrase, words) {
 //: is in half the app's descriptions.
 function paletteRanked(rows, lowered) {
   const words = paletteWords(lowered);
-  const picks = palettePicks()[lowered] || {};
+  const picks = palettePrefixPicks(lowered);
+  const things = meaningAlts(lowered, paletteVocab(rows));
   const scored = [];
   let loose = 0;
   rows.forEach((row, index) => {
-    const score = paletteScore(row, lowered, words);
+    const score = paletteScore(row, lowered, words, things);
     if (!score || (score === 1 && ++loose > 3)) return;
     const name = paletteFeature(row);
-    scored.push({ row, score, index, picked: picks[name] || 0, used: paletteUsage.get(name) || 0 });
+    //: Between rows of one score, the one nearer the words typed (meaning.js):
+    //: "change password" is the password row before the lock.
+    const near = 2 * meaningCloseness(things, paletteText(row.label)) + meaningCloseness(things, paletteText(row.keywords));
+    scored.push({ row, score, index, near, picked: picks[name] || 0, used: paletteUsage.get(name) || 0 });
   });
-  scored.sort((a, b) => b.picked - a.picked || b.score - a.score || b.used - a.used || a.index - b.index);
+  scored.sort((a, b) => b.picked - a.picked || b.score - a.score || b.near - a.near || b.used - a.used || a.index - b.index);
   const groups = [...new Set(scored.map((s) => s.row.group))];
   return groups.flatMap((g) => scored.filter((s) => s.row.group === g).map((s) => ({ ...s.row, why: paletteWhy(s, lowered) })));
 }
@@ -436,6 +462,21 @@ function paletteRanked(rows, lowered) {
 //: prefs module, the 80 most recent queries, each the counts of what was run.
 function palettePicks() {
   return prefs.json("palette-picks", {});
+}
+
+//: **Prefixes count too, at half weight** (OPEN, the palette row:
+//: "Raycast also learns prefixes"; the recommendation taken): "se" lifts
+//: what was run for "settings", below what was run for "se" itself. Two
+//: letters at least, so one letter does not reorder everything.
+function palettePrefixPicks(typed) {
+  const all = palettePicks();
+  const out = { ...(all[typed] || {}) };
+  if (typed.length < 2) return out;
+  for (const [query, counts] of Object.entries(all)) {
+    if (query === typed || !query.startsWith(typed)) continue;
+    for (const [name, n] of Object.entries(counts)) out[name] = (out[name] || 0) + n / 2;
+  }
+  return out;
 }
 
 function palettePick(typed, name) {
@@ -503,6 +544,28 @@ function paletteNearestRows(rows, typed) {
   if (!near) return [];
   const { text } = richPickerSplitLabel(near.row.label);
   return [{ ...near.row, group: "Nearest", about: `Nothing here is called “${typed}”; the nearest is ${text}.` }];
+}
+
+//: **Close in meaning** (Brief 94): with an embedding model on, up to three
+//: rows nearest the words by meaning that the words did not reach, under
+//: their own head. Asked once per query (`meaningNear`, meaning.js); the
+//: answer redraws the open palette when it lands.
+function paletteNearRows(pool, lowered, listed) {
+  if (paletteGen.near?.q !== lowered) {
+    if (paletteGen.nearAsked !== lowered) {
+      paletteGen.nearAsked = lowered;
+      meaningNear(lowered, pool.map((row) => `${richPickerSplitLabel(row.label).text}. ${row.about || ""}`)).then((picked) => {
+        paletteGen.near = { q: lowered, rows: picked.map((i) => pool[i]).filter(Boolean) };
+        if (picked.length) paletteRefresh();
+      });
+    }
+    return [];
+  }
+  const shown = new Set(listed.map((row) => row.label));
+  return paletteGen.near.rows
+    .filter((row) => !shown.has(row.label))
+    .slice(0, 3)
+    .map((row) => ({ ...row, group: "Close in meaning", why: "Close in meaning to what you typed, by the search model." }));
 }
 
 //: Find anything's door into the same rows (search.js): its action rows, and

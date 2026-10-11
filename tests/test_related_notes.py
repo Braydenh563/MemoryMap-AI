@@ -499,3 +499,20 @@ def test_notes_sharing_an_uppercase_tag_are_still_neighbours(session):
     result = tools.execute_tool(session, "related_notes", {"note_id": first.id})
     blob = json.dumps(result).lower()
     assert "the second" in blob
+
+
+def test_related_leaves_out_a_note_that_is_already_linked(ai_client):
+    """INBOX 1295: a press on a suggestion answered 400 "already linked"."""
+    joke = ai_client.post("/entries", json={"content": "a funny scarecrow joke"}).json()
+    pun = ai_client.post("/entries", json={"content": "another funny pun"}).json()
+    ai_client.post("/entries", json={"content": "a funny limerick"})
+    before = [e["id"] for e in ai_client.get(f"/entries/{joke['id']}/related").json()]
+    assert pun["id"] in before
+
+    linked = ai_client.post(f"/entries/{joke['id']}/links", json={"target_id": pun["id"]})
+    assert linked.status_code == 200
+    for subject in (joke, pun):
+        after = [e["id"] for e in ai_client.get(f"/entries/{subject['id']}/related").json()]
+        other = pun if subject is joke else joke
+        assert other["id"] not in after
+    assert len(after) <= len(before)

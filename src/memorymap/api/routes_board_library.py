@@ -61,7 +61,7 @@ from memorymap.api.routes_whiteboard import (
     _store_board_theme,
     BoardBackground,
 )
-from memorymap.core import events
+from memorymap.core import deps, events, undo_bin
 from memorymap.core.database import (
     BoardLibrary,
     BoardLibraryItem,
@@ -564,6 +564,32 @@ def delete_library_item(item_id: int, db: Session = Depends(get_session)) -> dic
     return {"id": row.id, "deleted": True}
 
 
+#: Declared before `/{item_id}/restore`, which would take `libraries` for an id.
+class LibraryRestoreBody(BaseModel):
+    token: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/board-library/libraries/restore", status_code=201)
+def restore_library(body: LibraryRestoreBody, db: Session = Depends(get_session)) -> dict:
+    """Undo of `DELETE /board-library/libraries/{id}`: the library, and the items it held, back (INBOX 898)."""
+    config = deps.get_config()
+    saved, _ = undo_bin.take(config.data_dir, "board-library", body.token)
+    data = saved["library"]
+    library = undo_bin.row_from(BoardLibrary, data, keep_id=db.get(BoardLibrary, data["id"]) is None)
+    db.add(library)
+    db.flush()
+    for item in saved["items"]:
+        existing = db.get(BoardLibraryItem, item["id"])
+        if existing is not None:
+            existing.library_id = library.id
+        elif saved["with_items"]:
+            db.add(undo_bin.row_from(BoardLibraryItem, {**item, "library_id": library.id}))
+    db.commit()
+    db.refresh(library)
+    undo_bin.finish(config.data_dir, body.token)
+    return _library_out(library)
+
+
 @router.post("/board-library/{item_id}/restore")
 @events.writes("library_item", "restored")
 def restore_library_item(item_id: int, db: Session = Depends(get_session)) -> dict:
@@ -631,19 +657,33 @@ def rename_library(library_id: int, body: LibraryBody, db: Session = Depends(get
 
 
 @router.delete("/board-library/libraries/{library_id}")
-def delete_library(library_id: int, db: Session = Depends(get_session)) -> dict:
-    """A library goes; what it held moves to Yours, so nothing saved is lost."""
+def delete_library(library_id: int, with_items: bool = False, db: Session = Depends(get_session)) -> dict:
+    """A library goes; what it held moves to Yours, so nothing saved is lost.
+
+    `with_items` takes the items with it: Undo of an import (INBOX 898), whose
+    library should not leave its contents behind in Yours. Either way the
+    answer carries the token `POST /board-library/libraries/restore` takes.
+    """
     row = _library_or_404(db, library_id)
     if row.kind == "yours":
         raise HTTPException(status_code=409, detail="Yours is where everything you save goes; it stays.")
-    yours = _yours(db)
+    held = db.scalars(select(BoardLibraryItem).where(BoardLibraryItem.library_id == row.id)).all()
+    saved = {"library": undo_bin.row_dict(row), "with_items": with_items, "items": [undo_bin.row_dict(i) for i in held]}
     moved = 0
-    for item in db.scalars(select(BoardLibraryItem).where(BoardLibraryItem.library_id == row.id)).all():
-        item.library_id = yours.id
-        moved += 1
+    if with_items:
+        for item in held:
+            db.delete(item)
+        db.flush()  # the items go before the library they point at
+    else:
+        yours = _yours(db)
+        for item in held:
+            item.library_id = yours.id
+            moved += 1
+    db.flush()
     db.delete(row)
+    token = undo_bin.stash(deps.get_config().data_dir, "board-library", saved)
     db.commit()
-    return {"deleted": library_id, "moved": moved}
+    return {"deleted": library_id, "moved": moved, "undo_token": token}
 
 
 @router.get("/board-library/export")
@@ -685,7 +725,7 @@ def import_library(body: ImportBody, db: Session = Depends(get_session)) -> dict
     """A library file into a new library named from it. New ids throughout;
     a picture this notebook does not have is dropped and counted."""
     if body.format != EXPORT_FORMAT or body.version != 1:
-        raise _fail("This is not a MemoryMap library file.")
+        raise _fail("This is not a Tessellate library file.")
     if len(body.items) > 2000:
         raise _fail("A library file holds at most 2,000 items.")
     have = {f"/media/{name}" for name in db.scalars(select(MediaUpload.filename)).all()}

@@ -3,8 +3,9 @@
 A thread nobody can list or stop is the bug behind "the app would not quit"
 and "a second embedding pass started under the first". Decision 58 puts the
 registry in `core/background.py`, with `core/jobs.py` and `core/jobruns.py`
-as the only modules allowed to start work themselves. That module is not
-built yet (Brief 63's neighbour), so until it is this test holds the line:
+as the only modules allowed to start work themselves. That module is
+built (`start`, `running`, `stop_all`; the embedding warm-up is its first
+entry), and this test holds the line for the rest:
 the sites below are the 26 found on 2026-10-10, each keyed by file, enclosing
 function, kind and position. A new `Thread(`, `Timer(`, executor,
 `create_task`, `ensure_future`, `run_in_executor` or `add_task` outside the
@@ -40,11 +41,8 @@ __main__.py::_serve_with_lan.serve_both::task::1
 __main__.py::_serve_with_lan.serve_both::task::2
 __main__.py::_start_tray::thread::1
 ai/autonomous.py::start::thread::1
-ai/autonomous.py::trigger_now::thread::1
 ai/embeddings.py::EmbeddingService._maybe_auto_install_missing_package::thread::1
-ai/embeddings.py::start_warmup::thread::1
 ai/janitor.py::_chat_within_deadline::thread::1
-ai/model_manager.py::start_pull::thread::1
 ai/tools/__init__.py::prefetch_web::executor::1
 api/app.py::_start_searxng_if_asked::thread::1
 api/routes_backups.py::export_bundle::request-task::1
@@ -62,6 +60,23 @@ core/jobstore.py::_schedule::timer::1
 core/security.py::_backend_addresses::thread::1
 search/searxng_install.py::install_source::thread::1
 search/searxng_manager.py::_run_streaming::thread::1
+""".strip().splitlines()
+) | frozenset(
+    #: Registered 2026-10-11 with the work that started them, each one named in
+    #: its module: the LAN listener's accept loop, its one first-byte watcher
+    #: and its peek executor (core/lanserve.py, core/lanlive.py: infrastructure
+    #: that must outlive any one request), and a recording's transcription,
+    #: which is also listed in the activity panel (api/routes_recordings.py).
+    """
+core/lanlive.py::Listener.start::executor::1
+core/lanlive.py::Listener.start::task::1
+core/lanlive.py::supervise::executor::1
+core/lanserve.py::<module>::executor::1
+core/lanserve.py::_FirstByteWatcher.wait::thread::1
+core/lanserve.py::_route::executor::1
+core/lanserve.py::serve::executor::1
+core/lanserve.py::serve::task::1
+core/lanserve.py::serve::task::2
 """.strip().splitlines()
 )
 

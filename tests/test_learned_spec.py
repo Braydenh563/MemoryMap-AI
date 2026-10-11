@@ -236,7 +236,7 @@ def test_forget_everything_leaves_notes_and_revisions_byte_identical(ai_client, 
     # here per this file's header: the route is the thing under test and it
     # does require the body, which is why this goes through `request`.
     forgotten = ai_client.request("DELETE", "/learned", json={"confirm": True})
-    assert forgotten.status_code == 204
+    assert forgotten.status_code == 200
     assert ai_client.get("/learned").json()["items"] == []
     assert ai_client.get("/learned/corrections").json() == []
     session.expire_all()

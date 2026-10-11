@@ -37,30 +37,32 @@ API_VERSION = 1
 def _mcp() -> dict:
     """The stdio MCP server, as far as this install can run it.
 
-    `python -m memorymap.mcp_server` needs a Python that can import this
-    package: a source checkout has one, the packaged app does not (its exe
-    is the interpreter, and it takes only its own flags). The packaged app
-    said "installed" with that command anyway, and an outside client set up
-    from it failed to start."""
+    A source checkout runs `python -m memorymap.mcp_server`. The packaged app
+    cannot (its exe is the interpreter and takes only its own flags), so it
+    answers with its own `--mcp` flag instead of a Python command it does not
+    have; the earlier answer, "installed" with the Python command, made an
+    outside client set up from it fail to start."""
     import sys
 
-    if getattr(sys, "frozen", False):
-        return {
-            "installed": False,
-            "reason": "The packaged app cannot start the MCP server; it runs from a source checkout.",
-        }
     from memorymap.core.config import resolved_data_dir
 
     #: The snippet an outside client's config takes (Settings, Tools it can
     #: use): this interpreter, because the client's own `python` rarely has the
     #: app's packages, and this notebook's folder, so it opens the same notes.
+    env = {"MEMORYMAP_DATA_DIR": str(resolved_data_dir())}
+    if getattr(sys, "frozen", False):
+        return {
+            "installed": True,
+            "command": "Tessellate --mcp",
+            "config": {"command": sys.executable, "args": ["--mcp"], "env": env},
+        }
     return {
         "installed": True,
         "command": "python -m memorymap.mcp_server",
         "config": {
             "command": sys.executable,
             "args": ["-m", "memorymap.mcp_server"],
-            "env": {"MEMORYMAP_DATA_DIR": str(resolved_data_dir())},
+            "env": env,
         },
     }
 

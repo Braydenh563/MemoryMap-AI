@@ -172,10 +172,12 @@ function paintTaskRunLines(fold, lines) {
   }
 }
 
-//: **Live lines from the jobs stream** (`GET /jobs/stream`, its `runs`
-//: event), not a poll of their own: while Settings, Running jobs is open,
-//: each running row's lines move as the run says them. Fetch, not
-//: EventSource, for the auth header (settings.js `startLogStream` says why).
+//: **The panel reads the jobs stream** (`GET /jobs/stream`), not a poll of
+//: its own: while Settings, Running jobs is open, its `tasks` event repaints
+//: the rows (one recipe, `renderTasks`) when they change, and its `runs`
+//: event moves each running row's lines as the run says them (Brief 9).
+//: Fetch, not EventSource, for the auth header (settings.js
+//: `startLogStream` says why).
 const taskLineStream = { controller: null };
 
 function taskLinesWanted() {
@@ -200,9 +202,12 @@ async function followTaskLines() {
         const blocks = buffered.split("\n\n");
         buffered = blocks.pop();
         for (const block of blocks) {
-          if (!block.startsWith("event: runs\n")) continue;
+          const isRuns = block.startsWith("event: runs\n");
+          if (!isRuns && !block.startsWith("event: tasks\n")) continue;
           try {
-            paintLiveRunLines(JSON.parse(block.slice(block.indexOf("data: ") + 6)));
+            const body = JSON.parse(block.slice(block.indexOf("data: ") + 6));
+            if (isRuns) paintLiveRunLines(body);
+            else renderTasks(body);
           } catch {
             /* a torn block is not worth dropping the stream over */
           }
@@ -414,10 +419,14 @@ function renderChatModelPicker(status) {
   //: was the one place it went back to naming the machinery. Both halves are
   //: here on purpose, "which model" is the question this line exists to
   //: answer and the name alone would not answer it.
+  //: Never chosen (a fresh install's default) is not "was running" (the
+  //: owner, 2026-10-07); a start-up choice says why, once more, here.
   $("chat-model-note").textContent =
     status.chat_model_installed === false
-      ? `${aiNameNow()} was running “${status.chat_model}”, which is not installed any more. Pick another or download it below.`
-      : `${aiNameNow()}, running ${status.chat_model}`;
+      ? status.chat_model_chosen === false
+        ? "No chat model is chosen yet. Pick one you have, or download one below."
+        : `${aiNameNow()} was running “${status.chat_model}”, which is not installed any more. Pick another or download it below.`
+      : `${aiNameNow()}, running ${status.chat_model}${status.chat_model_chosen_why ? ` (chosen at start: ${status.chat_model_chosen_why})` : ""}`;
   //: Whether it is in memory now, beside its Stop (rule 5).
   apiJson("/activity", { silent: true })
     .then((body) => {
@@ -854,7 +863,8 @@ function renderFeatureModels(status) {
 function openFeatureModelSheet(key) {
   const row = featureModelRow(key);
   if (!row) {
-    toast("Models aren't available yet. Open Settings, Models to check.", "info");
+    //: The words named the place; the button goes there (a toast action, not a link in prose).
+    toastAction("Models aren't available yet.", "Open Settings, Models", () => openSettingsModal("models"));
     return;
   }
   openSheet({
@@ -1459,6 +1469,26 @@ function clearEmbeddingBackendLatch() {
 // localStorage on load when the local one is empty, so a shell that loses it
 // gets it back, and a browser that keeps it never notices.
 
+//: Sizes and places on the screen belong to the device they were chosen on
+//: (INBOX 897: "if I change the size of say the companion and the zoom on my
+//: computer, it shouldnt affect my phone"). Never written to `ui_state`, and a
+//: notebook that still holds them from an older version is not applied:
+//: `mirroredUiKeys()` leaves them out, so the save, the seed and the settings
+//: file all skip them. Colours, themes, fonts and motion still follow the
+//: person. A saved look leaves them out too: a look is colours (`LOOK_KEYS`).
+const DEVICE_ONLY_KEYS = [
+  "zoom",
+  "fontsize",
+  "density",
+  "avatar-buddy-size",
+  "nm-buddy-spots",
+  "chat-composer-height",
+  "wb-panel-pos-board",
+  "wb-panel-pos-library",
+  "wb-panel-pos-tools",
+  "wb-panel-pos-zoom",
+];
+
 //: The keys worth surviving a restart. Explicit rather than "everything in
 //: localStorage": this is written to the notebook's own preferences file, and
 //: scroll positions and one-visit UI state have no business in there.
@@ -1512,12 +1542,7 @@ const MIRRORED_UI_EXTRAS = [
   "graph-fold-graph-groups-section",
   "graph-fold-graph-minimap-section",
   "graph-fold-graph-display",
-  "chat-composer-height",
   "wb-bg-color",
-  "wb-panel-pos-board",
-  "wb-panel-pos-library",
-  "wb-panel-pos-tools",
-  "wb-panel-pos-zoom",
 ];
 
 // A function rather than a `const` array, because `LOOK_KEYS` is declared
@@ -1525,7 +1550,7 @@ const MIRRORED_UI_EXTRAS = [
 // read before its initialiser had run, a temporal-dead-zone error at load,
 // which in a file with no bundler means a blank app.
 function mirroredUiKeys() {
-  return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS];
+  return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS].filter((key) => !DEVICE_ONLY_KEYS.includes(key));
 }
 
 let uiStateSaveTimer = null;
@@ -1657,18 +1682,26 @@ function watchMirroredUiKeys() {
 // one computer reaches the next. A value that differs from what was agreed is
 // this browser's own unsent change (a reload inside the 800 ms save delay, a
 // server that was down) and keeps winning, so two windows never overwrite
-// each other's last word with an old copy.
+// each other's last word with an old copy. A browser with no mark at all has
+// agreed on nothing yet, so the notebook wins every key there.
 function seedUiStateFromServer(state) {
   if (!state || typeof state !== "object") return false;
   const synced = prefs.json("ui-synced", {});
+  //: A browser that has never agreed with the notebook (the first load after
+  //: the upgrade that added the mark, or a cleared profile) has no way to tell
+  //: its own unsent change from an old copy. Its differing values are almost
+  //: always the old copy: an unsent change lives for 800 ms. So the notebook
+  //: wins there, rather than a stale second browser pushing its look over a
+  //: newer one once.
+  const marked = prefs.has("ui-synced");
   let restored = 0;
   for (const key of mirroredUiKeys()) {
     if (state[key] == null) continue;
     const remote = String(state[key]);
     const local = prefs.has(key) ? prefs.get(key, "") : null;
     if (local === remote) continue;
-    if (local == null || local === synced[key]) {
-      localStorage.setItem(key, remote);
+    if (local == null || !marked || local === synced[key]) {
+      prefs.set(key, remote);
       restored += 1;
     }
   }
@@ -1680,6 +1713,13 @@ function seedUiStateFromServer(state) {
   //: have still differs here, and still writes.
   uiStateOnServer = uiStateFingerprint(state);
   uiStateRememberSynced(state);
+  //: A notebook written by an older version still holds this device's sizes.
+  //: They are ignored above; one save replaces the map without them, so the
+  //: copy does not carry a stale zoom for a phone to be tempted by.
+  if (DEVICE_ONLY_KEYS.some((key) => state[key] != null)) {
+    uiStateOnServer = null;
+    saveUiState();
+  }
   return restored > 0;
 }
 
@@ -1690,6 +1730,56 @@ function uiStateRememberSynced(state) {
   for (const key of mirroredUiKeys()) if (state[key] != null) agreed[key] = String(state[key]);
   prefs.setJSON("ui-synced", agreed);
 }
+
+//: Repaint after the look in localStorage changed underneath the page (the
+//: notebook's copy was taken at boot, or another window changed it). The same
+//: three calls the theme picker makes, in the same order: the root attributes,
+//: then the light/dark choice and the palette, neither of which re-records
+//: itself as a manual override.
+function applyRestoredLook() {
+  applyAppearance();
+  applyThemeChoice(appearancePref("theme"), false);
+  applyPalette(appearancePref("palette"), false);
+  renderBrandLogo();
+  if (bgArtOn()) startBgArt();
+}
+
+//: **Live sync between two open windows** (OPEN ledger 286). A change in one
+//: window used to show in the other only after a reload. Two cases:
+//: - the same browser profile: `storage` fires in the other windows, so they
+//:   repaint from their own localStorage at once;
+//: - another browser or computer: the window asks the notebook for its copy
+//:   when it regains focus or becomes visible, at most every 5 seconds, and
+//:   repaints only when `seedUiStateFromServer` took a key. An unsent change
+//:   of its own still wins, as at boot.
+let lookPulledAt = 0;
+let lookPulling = false;
+let lookEchoTimer = 0;
+async function pullLookFromNotebook() {
+  if (!uiStateSeeded || lookPulling || document.hidden || !authToken()) return;
+  if (Date.now() - lookPulledAt < 5000) return;
+  lookPulling = true;
+  lookPulledAt = Date.now();
+  try {
+    const fresh = await apiJson("/preferences", { silent: true });
+    if (fresh && seedUiStateFromServer(fresh.ui_state)) applyRestoredLook();
+  } catch {
+    // A missed pull is retried the next time the window is looked at.
+  } finally {
+    lookPulling = false;
+  }
+}
+function lookFromOtherWindow(event) {
+  if (event.storageArea !== localStorage || !event.key || !uiStateSeeded) return;
+  if (!mirroredUiKeys().includes(event.key)) return;
+  clearTimeout(lookEchoTimer);
+  lookEchoTimer = setTimeout(applyRestoredLook, 120);
+}
+window.addEventListener("focus", pullLookFromNotebook);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) pullLookFromNotebook();
+});
+window.addEventListener("storage", lookFromOtherWindow);
 
 // Which manual overrides are currently sitting on top of the theme. Shown in
 // the UI so "why isn't the theme's colour showing?" has a visible answer.
@@ -1707,7 +1797,7 @@ const OVERRIDABLE_KEYS = [
 // reason (LOOK_KEYS is built from it). settings.js's saveCurrentLook() and
 // friends read both across the file boundary, which is safe: they only ever
 // run from a user's own click, long after every script has loaded.
-const LOOK_KEYS = [...OVERRIDABLE_KEYS, "bgArt"];
+const LOOK_KEYS = [...OVERRIDABLE_KEYS, "bgArt"].filter((key) => !DEVICE_ONLY_KEYS.includes(key));
 
 function applyPalette(id, remember = true) {
   const root = document.documentElement;
@@ -1715,7 +1805,7 @@ function applyPalette(id, remember = true) {
   // than shipping a block that restates the base :root values.
   if (id && id !== "default") root.dataset.palette = id;
   else delete root.dataset.palette;
-  if (remember) localStorage.setItem("palette", id || "default");
+  if (remember) prefs.set("palette", id || "default");
   // The generative background paints from the accent, so it has to be rebuilt, 
   // and so does the dashboard constellation, for the same reason.
   if (bgArtOn()) startBgArt();

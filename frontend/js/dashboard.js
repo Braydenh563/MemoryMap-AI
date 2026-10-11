@@ -74,7 +74,7 @@ const DASH_WIDGETS = {
   digest: { title: "ph:newspaper Digest", description: "Your day from the notes: what is due, open questions, what changed and quiet topics; Atlas writes the week on request.", render: renderDigestWidget },
   capture: { title: "ph:pencil-simple Quick capture", description: "A one-line box to jot a note without leaving the dashboard.", render: renderQuickCaptureWidget },
   reminders: { title: "ph:alarm Reminders", description: "Upcoming and overdue reminders, soonest first.", render: renderRemindersWidget },
-  focus: { title: "ph:timer Focus timer", description: "A start/stop timer for focused writing sessions.", render: renderFocusTimerWidget },
+  focus: { title: "ph:timer Focus timer", description: "A focus timer with breaks, a chime at the end and today's minutes.", render: renderFocusTimerWidget },
   heatmap: { title: "ph:calendar-check Activity heatmap", description: "A calendar-style heatmap of note activity over the past months.", render: renderHeatmapWidget },
   "tag-cloud": { title: "ph:cloud Tag cloud", description: "All your tags sized by how often they're used.", render: renderTagCloudWidget },
   categories: { title: "ph:folders Categories", description: "Every category with its note count, click to filter.", render: renderCategoriesWidget },
@@ -311,7 +311,7 @@ async function refreshAiGreeting(forced = false) {
   if (!phrase) return false;
   const punctuation = (body && body.punctuation) || ".";
   const appendName = !(body && body.append_name === false);
-  localStorage.setItem(
+  prefs.set(
     "greetingCache",
     JSON.stringify({ slot: greetingCacheSlot(now), phrase, punctuation, appendName })
   );
@@ -759,7 +759,7 @@ function renderNameNudge(greetingEl) {
   dismiss.title = "Don't ask again";
   dismiss.setAttribute("aria-label", "Dismiss the name suggestion");
   dismiss.addEventListener("click", () => {
-    localStorage.setItem("nameNudgeDismissed", "1");
+    prefs.set("nameNudgeDismissed", "1");
     wrap.remove();
   });
   wrap.append(add, dismiss);
@@ -979,7 +979,7 @@ function noteSkillRun(name) {
     recent = [];
   }
   recent = [name, ...recent.filter((n) => n !== name)].slice(0, 8);
-  localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(recent));
+  prefs.set(RECENT_SKILLS_KEY, JSON.stringify(recent));
   // The time goes in beside it, pruned to the names still on the list so the
   // map cannot grow forever in a profile that tries a lot of skills.
   const times = skillRunTimes();
@@ -987,7 +987,7 @@ function noteSkillRun(name) {
   for (const key of Object.keys(times)) {
     if (!recent.includes(key)) delete times[key];
   }
-  localStorage.setItem(SKILL_RUN_TIMES_KEY, JSON.stringify(times));
+  prefs.set(SKILL_RUN_TIMES_KEY, JSON.stringify(times));
 }
 
 //: A skill's name usually starts with its own emoji, "stethoscope Notebook health
@@ -1032,7 +1032,7 @@ function recentSkillLinks() {
   // one load repairs the profile permanently.
   const clean = recent.filter((n) => typeof n === "string" && n);
   if (clean.length !== recent.length) {
-    localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(clean));
+    prefs.set(RECENT_SKILLS_KEY, JSON.stringify(clean));
   }
   const times = skillRunTimes();
   return clean.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
@@ -1161,7 +1161,7 @@ function dashMarkMenu(x, y) {
     title: `Show ${label.toLowerCase()} here`,
     run: () => {
       try {
-        localStorage.setItem("dash-mark", value);
+        prefs.set("dash-mark", value);
       } catch {
         // This session only.
       }
@@ -1190,7 +1190,7 @@ function applyDashDensity(value, { persist = true } = {}) {
   const density = DASH_DENSITIES.includes(value) ? value : "full";
   //: Stored only when chosen: the wiring's own first call used to write
   //: "full" for every install, which made the default look like a choice.
-  if (persist) localStorage.setItem(DASH_DENSITY_KEY, density);
+  if (persist) prefs.set(DASH_DENSITY_KEY, density);
   const page = document.getElementById("tab-dashboard");
   //: A data attribute on the page, and every rule keyed off it in CSS. The
   //: alternative, adding and removing classes on six elements from here, is
@@ -1297,7 +1297,9 @@ function quickCatalogue() {
     // A command that cannot be built must not take the dashboard with it.
   }
   for (const row of rows) {
-    const key = row.keys ? "" : row.tab ? `tab:${row.tab}` : row.reveal ? `reveal:${row.reveal}` : "";
+    //: A row that is an act (no tab, no reveal) is a tile only when it says so
+    //: with `quick`, a short stable name: Live captions is one (libr-1011 1220).
+    const key = row.keys ? "" : row.tab ? `tab:${row.tab}` : row.reveal ? `reveal:${row.reveal}` : row.quick ? `act:${row.quick}` : "";
     const parts = key && paletteRowParts(row, abouts);
     if (parts && parts.about && !out.has(key)) out.set(key, { id: key, icon: parts.icon.replace(/^(ph:)?/, "ph:"), label: parts.label, hint: parts.about, run: row.run });
   }
@@ -1589,7 +1591,7 @@ function renderFeatures(query) {
 
   $("features-count").textContent = q
     ? `${shown} match${shown === 1 ? "" : "es"}`
-    : `${shown} things MemoryMap can do`;
+    : `${shown} things Tessellate can do`;
   if (!shown) {
     const none = document.createElement("p");
     none.className = "muted";
@@ -1872,11 +1874,18 @@ async function renderDashboard({ refresh = false } = {}) {
   //: the widgets the same way, in view (0.26 on 300 notes, measured).
   const settled = (window.dashSettled = Promise.race([Promise.allSettled(drawing), new Promise((r) => setTimeout(r, 1200))]));
   const outline = dashFillingSkeleton(grid, drawing.length);
-  settled.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+  settled.then(() => afterFrames(() => {
     if (window.dashSettled !== settled) return;
     grid.classList.remove("dash-filling");
     dashFillingSkeletonDone(outline);
-  })));
+  }));
+}
+
+//: `fn` once `count` animation frames have passed: the first has painted what
+//: was just changed. The one frame loop for "after it has drawn" in this file
+//: (tests/test_frontend_wake_sources.py counts them).
+function afterFrames(fn, count = 2) {
+  requestAnimationFrame(() => (count > 1 ? afterFrames(fn, count - 1) : fn()));
 }
 
 //: **While the grid fills unseen, its outline shows** (INBOX 596, the owner:
@@ -2273,11 +2282,11 @@ function refreshArtForTheme() {
     holder.appendChild(veil);
     const lift = () => {
       //: Two frames on, so the new sky has been drawn under it before it goes.
-      requestAnimationFrame(() => requestAnimationFrame(() => {
+      afterFrames(() => {
         veil.classList.add("is-leaving");
         veil.addEventListener("transitionend", () => veil.remove(), { once: true });
         setTimeout(() => veil.remove(), 1000);
-      }));
+      });
     };
     startArt(holder).then(lift, lift);
     return;
@@ -2334,6 +2343,21 @@ function buildArtParticles(p, categories, total, width, height) {
 //: busy machine's late frames did the same mid-glide. Hence the glide's own
 //: clock below. `scratchpad/ui-sweeps/constellation686.js` measures it.
 const ART_GLIDE_MS = 800;
+//: A light-theme star's core lightness: 40, or darker until it is 3:1 on the
+//: well (ledger 934: yellow was 2.1:1, cyan 2.0). Saturation 80, as drawn.
+const artCoreLights = new Map();
+function artCoreLight(hue) {
+  if (artCoreLights.has(hue)) return artCoreLights.get(hue);
+  const lum = (l) => {
+    const a = 0.8 * Math.min(l, 1 - l);
+    const c = (n) => { const k = (n + hue / 30) % 12; const v = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * c(0) + 0.7152 * c(8) + 0.0722 * c(4);
+  };
+  let l = 40;
+  while (l > 20 && 0.83 / (lum(l / 100) + 0.05) < 3) l -= 2;
+  artCoreLights.set(hue, l);
+  return l;
+}
 const ART_GLIDE_FPS = 60;
 //: The most of the glide's clock one frame may spend: 25 ms is three fifths
 //: of an eighth of the journey even at the ease's fastest, its first frame.
@@ -2574,7 +2598,7 @@ async function startArt(holder) {
         const twinkle = (0.6 + 0.4 * Math.sin(t * 2 + dot.phase)) * dot.vis;
         p.fill(dot.hue, 75, dark ? 65 : 55, 0.14 * twinkle);
         p.circle(dot.x, dot.y, dot.drawSize * 4); // glow
-        p.fill(dot.hue, 80, dark ? 78 : 40, twinkle);
+        p.fill(dot.hue, 80, dark ? 78 : artCoreLight(dot.hue), twinkle);
         p.circle(dot.x, dot.y, dot.drawSize); // core
       }
       if (fade && !settled) {
@@ -3078,7 +3102,7 @@ function generateDigest(onDelta) {
     digestPromise = streamDigest(onDelta)
       .then((result) => {
         if (result.cacheable !== false) {
-          localStorage.setItem(
+          prefs.set(
             DIGEST_KEY,
             JSON.stringify({ text: result.text, date: todayStamp() })
           );
@@ -3204,7 +3228,7 @@ async function renderDigestWidget(outer) {
     controls.className = "row";
     controls.appendChild(
       smallButton("ph:arrows-clockwise Regenerate", "Rebuild this week's digest now", () => {
-        localStorage.removeItem(DIGEST_KEY);
+        prefs.remove(DIGEST_KEY);
         runGeneration();
       })
     );
@@ -3305,6 +3329,7 @@ async function renderQuickCaptureWidget(body) {
         const saved = result.saved;
         status.textContent = saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`;
         if (saved.filing_state === "pending") watchFiling(saved);
+        pushEntryCreateUndo(saved, "Saved a note from the dashboard");
         loadEntries();
       } catch (error) {
         status.textContent = error.message;
@@ -3624,10 +3649,9 @@ function paintFadedNotes(body, items) {
     const dismiss = smallButton("ph:x", "Never again: stop showing this note here", async () => {
       dismiss.disabled = true;
       try {
-        await apiJson("/learned/corrections", {
-          method: "POST",
-          body: JSON.stringify({ kind: "dismiss_resurface", subject: { entry_id: item.id } }),
-        });
+        const said = { kind: "dismiss_resurface", subject: { entry_id: item.id } };
+        const made = await apiJson("/learned/corrections", { method: "POST", body: JSON.stringify(said) });
+        pushCorrectionUndo("Hid a note from Rediscover", said, made, () => renderRandomNoteWidget(body));
         card.remove();
         // Emptied by dismissals: ask again rather than leaving a blank panel,
         // the next three are already ranked.
@@ -3770,7 +3794,20 @@ async function renderTagCloudWidget(body) {
 // --- focus timer (dashboard widget) -----------------------------------------
 // State lives at module level so it keeps running while the widget re-renders
 // (e.g. when you switch away and back to the dashboard).
-let focusTimer = { remaining: 0, total: 25 * 60, running: false, handle: null };
+//
+// **Redesigned** (UI_MODERNISATION V8, INBOX 829): a ring that empties as the
+// time runs, the time large inside it; the lengths as one segmented control
+// with a stepper for any other; Start and Pause one filled button; at the end
+// a chime, a notification (the bell and the system's) and, when Breaks is on,
+// a five-minute break that starts by itself; and today's focused minutes,
+// kept per day in this browser.
+//: `unsaved`: seconds focused since the last save to today's count, written
+//: on every pause and end rather than every second.
+let focusTimer = { remaining: 0, total: 25 * 60, running: false, handle: null, mode: "focus", focusTotal: 25 * 60, unsaved: 0 };
+const FOCUS_PRESETS = [5, 15, 25, 50];
+const FOCUS_BREAK_MIN = 5;
+const FOCUS_SVG = "http://www.w3.org/2000/svg";
+const FOCUS_RING_R = 52;
 
 function focusTimeLabel(seconds) {
   const m = Math.floor(seconds / 60);
@@ -3778,26 +3815,119 @@ function focusTimeLabel(seconds) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function paintFocusTimer() {
-  const display = $("focus-timer-display");
-  if (display) {
-    const shown = focusTimer.remaining || focusTimer.total;
-    display.textContent = focusTimeLabel(shown);
+//: Seconds focused today, in this browser: "YYYY-MM-DD:seconds".
+function focusTodaySeconds(add = 0) {
+  const day = new Date().toLocaleDateString("en-CA");
+  const [stored, seconds] = String(prefs.get("focusToday", "")).split(":");
+  let total = stored === day ? Number(seconds) || 0 : 0;
+  if (add) {
+    total += add;
+    prefs.set("focusToday", `${day}:${total}`);
   }
+  return total;
+}
+
+function focusRing() {
+  const svg = document.createElementNS(FOCUS_SVG, "svg");
+  svg.setAttribute("viewBox", "0 0 120 120");
+  svg.setAttribute("class", "focus-ring-svg");
+  svg.setAttribute("aria-hidden", "true");
+  for (const name of ["focus-ring-track", "focus-ring-fill"]) {
+    const circle = document.createElementNS(FOCUS_SVG, "circle");
+    circle.setAttribute("cx", "60");
+    circle.setAttribute("cy", "60");
+    circle.setAttribute("r", String(FOCUS_RING_R));
+    circle.setAttribute("class", name);
+    if (name === "focus-ring-fill") {
+      circle.id = "focus-ring-fill";
+      const length = 2 * Math.PI * FOCUS_RING_R;
+      circle.setAttribute("stroke-dasharray", String(length));
+    }
+    svg.appendChild(circle);
+  }
+  return svg;
+}
+
+function paintFocusTimer() {
+  const shown = focusTimer.remaining || focusTimer.total;
+  const display = $("focus-timer-display");
+  if (display) display.textContent = focusTimeLabel(shown);
+  const mode = $("focus-ring-mode");
+  if (mode) mode.textContent = focusTimer.mode === "break" ? "Break" : focusTimer.running || focusTimer.remaining ? "Focus" : `${Math.round(focusTimer.total / 60)} min`;
+  const fill = $("focus-ring-fill");
+  if (fill) {
+    const length = 2 * Math.PI * FOCUS_RING_R;
+    fill.style.strokeDashoffset = String(length * (1 - shown / focusTimer.total));
+  }
+  $("focus-ring")?.classList.toggle("is-break", focusTimer.mode === "break");
   const toggle = $("focus-timer-toggle");
-  if (toggle) toggle.textContent = focusTimer.running ? "Pause" : "Start";
+  if (toggle) setLabel(toggle, focusTimer.running ? "ph:pause Pause" : focusTimer.remaining ? "ph:play Resume" : "ph:play Start");
+  for (const button of document.querySelectorAll(".focus-presets-seg button")) {
+    button.setAttribute("aria-pressed", String(focusTimer.mode === "focus" && Number(button.dataset.minutes) * 60 === focusTimer.focusTotal));
+  }
+  const step = $("focus-step-value");
+  if (step) step.textContent = `${Math.round(focusTimer.focusTotal / 60)} min`;
+  const today = $("focus-today");
+  if (today) {
+    const seconds = focusTodaySeconds() + focusTimer.unsaved;
+    const minutes = Math.floor(seconds / 60);
+    today.textContent = minutes ? `${minutes} min focused today` : seconds ? "Under a minute focused today" : "Nothing focused yet today";
+  }
 }
 
 function focusTimerTick() {
   if (focusTimer.remaining > 0) {
     focusTimer.remaining -= 1;
+    if (focusTimer.mode === "focus") focusTimer.unsaved += 1;
     paintFocusTimer();
-    if (focusTimer.remaining === 0) {
-      stopFocusTimer();
-      toast("Focus session complete. Nice work.");
-      notify("MemoryMap", "Focus session complete. Nice work.");
-    }
+    if (focusTimer.remaining === 0) focusTimerEnded();
   }
+}
+
+//: Two soft notes from Web Audio: no file to fetch, and quiet enough for a
+//: library. The context is made here, after the Start press that allows it.
+function focusChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [880, 660].forEach((hz, i) => {
+      const tone = ctx.createOscillator();
+      const gain = ctx.createGain();
+      tone.frequency.value = hz;
+      const at = ctx.currentTime + i * 0.35;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.2, at + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.6);
+      tone.connect(gain).connect(ctx.destination);
+      tone.start(at);
+      tone.stop(at + 0.65);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 1500);
+  } catch {
+    // No Web Audio: the notification still says it.
+  }
+}
+
+function focusTimerEnded() {
+  stopFocusTimer();
+  focusChime();
+  const wasBreak = focusTimer.mode === "break";
+  const minutes = Math.round(focusTimer.total / 60);
+  const title = wasBreak ? "Break over" : `Focus session done: ${minutes} min`;
+  const detail = wasBreak ? "Start the next session when you are ready." : `${Math.floor(focusTodaySeconds() / 60)} min focused today.`;
+  notify("Tessellate", `${title}. ${detail}`);
+  recordNotification({ kind: "task", title, detail, key: `focus:${Date.now()}` });
+  toast(`${title}. ${detail}`);
+  if (!wasBreak && prefs.bool("focusBreaks", false)) {
+    focusTimer.mode = "break";
+    focusTimer.total = FOCUS_BREAK_MIN * 60;
+    focusTimer.remaining = 0;
+    startFocusTimer();
+    return;
+  }
+  focusTimer.mode = "focus";
+  focusTimer.total = focusTimer.focusTotal;
+  focusTimer.remaining = 0;
+  paintFocusTimer();
 }
 
 function startFocusTimer() {
@@ -3813,56 +3943,108 @@ function stopFocusTimer() {
   focusTimer.running = false;
   if (focusTimer.handle) clearInterval(focusTimer.handle);
   focusTimer.handle = null;
+  if (focusTimer.unsaved) {
+    focusTodaySeconds(focusTimer.unsaved);
+    focusTimer.unsaved = 0;
+  }
   paintFocusTimer();
 }
 
 function setFocusTimer(minutes) {
   stopFocusTimer();
-  focusTimer.total = Math.max(1, Math.round(minutes)) * 60;
+  focusTimer.mode = "focus";
+  focusTimer.focusTotal = Math.max(1, Math.min(180, Math.round(minutes))) * 60;
+  focusTimer.total = focusTimer.focusTotal;
   focusTimer.remaining = 0;
   paintFocusTimer();
+}
+
+//: The stepper: five minutes at a time, from 5 to 180.
+function focusStep(by) {
+  const now = Math.round(focusTimer.focusTotal / 60);
+  setFocusTimer(Math.max(5, Math.min(180, (by > 0 ? Math.floor(now / 5) : Math.ceil(now / 5)) * 5 + by)));
 }
 
 // async to match the widget contract in renderDashboard (render() must
 // return a promise).
 async function renderFocusTimerWidget(body) {
+  const ring = document.createElement("div");
+  ring.id = "focus-ring";
+  ring.className = "focus-ring";
+  const face = document.createElement("div");
+  face.className = "focus-ring-face";
+  const mode = document.createElement("span");
+  mode.id = "focus-ring-mode";
+  mode.className = "focus-ring-mode";
   const display = document.createElement("div");
   display.id = "focus-timer-display";
-  display.className = "focus-timer-display";
-  body.appendChild(display);
+  display.className = "focus-timer-display focus-ring-time";
+  display.setAttribute("role", "timer");
+  face.append(mode, display);
+  ring.append(focusRing(), face);
+  body.appendChild(ring);
 
   const presets = document.createElement("div");
   presets.className = "row focus-presets";
-  for (const mins of [5, 15, 25]) {
-    presets.appendChild(smallButton(`${mins}m`, `${mins} minutes`, () => setFocusTimer(mins)));
+  const seg = document.createElement("div");
+  seg.className = "seg focus-presets-seg";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", "Session length");
+  for (const mins of FOCUS_PRESETS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.minutes = String(mins);
+    button.textContent = `${mins}`;
+    button.title = `${mins} minutes`;
+    button.addEventListener("click", () => setFocusTimer(mins));
+    seg.appendChild(button);
   }
-  const custom = document.createElement("input");
-  custom.type = "number";
-  custom.min = "1";
-  custom.max = "180";
-  custom.placeholder = "min";
-  custom.className = "focus-custom";
-  custom.setAttribute("aria-label", "Custom minutes");
-  custom.addEventListener("change", () => {
-    const value = Number(custom.value);
-    if (value >= 1) setFocusTimer(value);
-  });
-  presets.appendChild(custom);
+  const stepper = document.createElement("div");
+  stepper.className = "focus-stepper";
+  stepper.setAttribute("role", "group");
+  stepper.setAttribute("aria-label", "Any length");
+  const value = document.createElement("span");
+  value.id = "focus-step-value";
+  value.className = "focus-step-value";
+  stepper.append(
+    smallButton("ph:minus", "Five minutes shorter", () => focusStep(-5)),
+    value,
+    smallButton("ph:plus", "Five minutes longer", () => focusStep(5))
+  );
+  presets.append(seg, stepper);
   body.appendChild(presets);
 
   const controls = document.createElement("div");
-  controls.className = "row";
-  const toggle = smallButton("Start", "Start or pause the timer", () => {
+  controls.className = "row focus-controls";
+  const toggle = smallButton("ph:play Start", "Start or pause the timer", () => {
     if (focusTimer.running) stopFocusTimer();
     else startFocusTimer();
   }, false);
   toggle.id = "focus-timer-toggle";
-  const reset = smallButton("Reset", "Reset the timer", () => {
+  const reset = smallButton("ph:arrow-counter-clockwise", "Reset the timer", () => {
     focusTimer.remaining = 0;
+    focusTimer.mode = "focus";
+    focusTimer.total = focusTimer.focusTotal;
     stopFocusTimer();
   });
-  controls.append(toggle, reset);
+  reset.classList.add("quiet");
+  const breaks = document.createElement("label");
+  breaks.className = "check-row focus-breaks";
+  breaks.title = `A ${FOCUS_BREAK_MIN}-minute break starts by itself after each session`;
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = prefs.bool("focusBreaks", false);
+  box.addEventListener("change", () => prefs.set("focusBreaks", box.checked ? "1" : "0"));
+  const words = document.createElement("span");
+  words.textContent = "Breaks";
+  breaks.append(box, words);
+  controls.append(toggle, reset, breaks);
   body.appendChild(controls);
+
+  const today = document.createElement("p");
+  today.id = "focus-today";
+  today.className = "muted focus-today";
+  body.appendChild(today);
 
   paintFocusTimer();
 }
@@ -4074,10 +4256,11 @@ function nightFactRow(fact, onGone) {
     keep.addEventListener("click", async () => {
       keep.disabled = true;
       try {
-        await apiJson("/entries/tensions/accept", {
+        const done = await apiJson("/entries/tensions/accept", {
           method: "POST",
           body: JSON.stringify({ earlier_id: fact.pair.entry_id, later_id: fact.entry_id }),
         });
+        pushTensionLinkUndo(fact.pair.entry_id, fact.entry_id, "accept", done?.created !== false);
         toast("Linked as disagreeing");
       } catch (error) {
         keep.disabled = false;
@@ -4103,6 +4286,7 @@ function nightFactRow(fact, onGone) {
     dismiss.disabled = true;
     try {
       await api(`/learned/${fact.id}`, { method: "DELETE" });
+      pushRoutePairUndo("Dismissed a learned thing", [`/learned/${fact.id}/restore`, "POST"], [`/learned/${fact.id}`, "DELETE"], () => renderDashboard({ refresh: true }));
       li.remove();
       onGone();
     } catch (error) {
@@ -4185,7 +4369,9 @@ async function renderNightWidget(body) {
   line.className = "muted night-questions";
   const oldest = summary.oldest;
   const words = `${summary.open} open question${summary.open === 1 ? "" : "s"}`;
-  line.textContent = oldest ? `${words}. The oldest: “${oldest.text}”` : `${words}.`;
+  //: `display` is the question without its markdown, as the Questions view
+  //: shows it; `text` printed "**why**" with its stars (OPEN 1114's audit).
+  line.textContent = oldest ? `${words}. The oldest: “${oldest.display || oldest.text}”` : `${words}.`;
   const open = document.createElement("button");
   open.type = "button";
   open.className = "ghost small";
@@ -4740,7 +4926,7 @@ async function renderTensionsWidget(body) {
     const explain = document.createElement("p");
     explain.className = "muted dash-tension-explain";
     explain.textContent =
-      "Similar-notes search finds what belongs together. This reads pairs with your local model and looks for the opposite: claims that can't both be right.";
+      "Your local model reads pairs of related notes for claims that can't both be right.";
     body.appendChild(explain);
   }
 
@@ -4793,7 +4979,8 @@ function dashTensionRow(tension, onGone) {
     const pressed = event.currentTarget;
     pressed.disabled = true;
     try {
-      await apiJson(path, { method: "POST", body: ids });
+      const done = await apiJson(path, { method: "POST", body: ids });
+      pushTensionLinkUndo(tension.earlier_id, tension.later_id, path.endsWith("/accept") ? "accept" : "dismiss", done?.created !== false);
       toast(done);
       li.remove();
       onGone();

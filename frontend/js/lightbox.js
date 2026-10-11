@@ -63,6 +63,7 @@ function renderReevaluateResult(entry, wrap) {
             method: "PUT",
             body: JSON.stringify({ tags: [...entry.tags, tag] }),
           });
+          pushEntryPutUndo(entry.id, `Tagged a note “${tag}”`, { tags: [...entry.tags] }, { tags: [...entry.tags, tag] });
           tagChip.remove();
           toast(`Tagged “${tag}”.`);
           loadEntries();
@@ -402,15 +403,17 @@ async function attachmentObjectUrl(attachment) {
 //: **Who wrote a caption, in words** (the owner, 2026-09-24). `caption_model` names the
 //: author of a caption: a vision or utility model, or `APP_CAPTION_AUTHOR`
 //: when the app wrote it itself (a board export's "Part of the mind map ...,
-//: exported from MemoryMap", stored with `source: "app"` by routes_files.py).
+//: exported from Tessellate", stored with `source: "app"` by routes_files.py).
 //: That one is "Written by", not "Described by": nothing looked at the
 //: picture. The lightbox byline and the Library card both read this, so the
 //: same picture says the same thing in both places. `short` is the Library
 //: card's own shortener for a long model name.
-const APP_CAPTION_AUTHOR = "MemoryMap";
+//: The sentinel is stored, so it keeps the name it was stored under; the
+//: credit shows the product's current name (rebrand-1011).
+const APP_CAPTION_AUTHOR = "MemoryMap"; // brand: keep
 function captionCredit(model, short = (name) => name) {
   return model === APP_CAPTION_AUTHOR
-    ? `Written by ${APP_CAPTION_AUTHOR}`
+    ? "Written by Tessellate"
     : `Described by ${short(model)}`;
 }
 

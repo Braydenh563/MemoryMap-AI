@@ -106,6 +106,7 @@ const WB_COMMANDS = [
   { id: "delete", group: "Edit", icon: "ph:trash", label: "Delete", keys: "Del", surface: "both", needs: "selection", run: () => deleteWbSelection() },
   { id: "copy-style", group: "Edit", icon: "ph:eyedropper", label: "Copy style", keys: "Ctrl+Alt+C", surface: "board", needs: "one", run: () => wbCopySelectedStyle() },
   { id: "paste-style", group: "Edit", icon: "ph:paint-bucket", label: "Paste style", keys: "Ctrl+Alt+V", surface: "board", needs: "selection", run: () => wbPasteCopiedStyle() },
+  { id: "reset-style", group: "Edit", icon: "ph:arrow-counter-clockwise", label: "Reset style", surface: "both", needs: "selection", run: () => wbResetSelectedStyle() },
   { id: "find", group: "Edit", icon: "ph:magnifying-glass", label: "Find on this board", menu: "Find on this board", keys: "Ctrl+F", surface: "both", run: () => wbOpenBoardSearch() },
   { id: "replace", group: "Edit", icon: "ph:swap", label: "Find and replace on this board", menu: "Find and replace", keys: "Ctrl+H", surface: "board", run: () => wbOpenBoardSearch({ replace: true }) },
   // The item
@@ -185,6 +186,9 @@ const WB_COMMANDS = [
   { id: "tool-circle", group: "Tools", icon: "ph:circle", label: "Circle", keys: "O", surface: "board", run: wbTool("circle") },
   { id: "tool-triangle", group: "Tools", icon: "ph:triangle", label: "Triangle", keys: "G", surface: "board", run: wbTool("triangle") },
   { id: "tool-diamond", group: "Tools", icon: "ph:diamond", label: "Diamond", keys: "D", surface: "board", run: wbTool("diamond") },
+  //: The more shapes (2026-10-11), from their own table, so a shape added
+  //: there is in the palette and the phone's sheet with no second list.
+  ...Object.entries(WB_MORE_SHAPES).map(([tool, shape]) => ({ id: `tool-${tool}`, group: "Tools", icon: shape.icon, label: shape.label, keys: "", surface: "board", run: wbTool(tool) })),
   { id: "tool-connector", group: "Tools", icon: "ph:line-segment", label: "Connector", keys: "C", surface: "both", run: wbTool("link-straight") },
   { id: "tool-connector-curved", group: "Tools", icon: "ph:bezier-curve", label: "Curved connector", keys: "Shift+C", surface: "both", run: wbTool("link-curved") },
   { id: "tool-delete", group: "Tools", icon: "ph:trash", label: "Delete tool", keys: "X", surface: "board", run: wbTool("delete") },
@@ -575,7 +579,7 @@ const WB_HELP_SECTIONS = [
     { icon: "ph:x", label: "Cancel a drag, back to Select", keys: ["Esc"] },
     { icon: "ph:text-t", label: "A text box on the empty board", keys: ["double-click"] },
     { cmd: "text" },
-    { cmd: "copy-style" }, { cmd: "paste-style" },
+    { cmd: "copy-style" }, { cmd: "paste-style" }, { cmd: "reset-style" },
     { icon: "ph:dots-three", label: "The item's or the board's menu", keys: ["right-click", "hold"] },
   ] },
   { title: "Arrange", surface: "board", rows: [
@@ -584,6 +588,7 @@ const WB_HELP_SECTIONS = [
     { icon: "ph:lock-simple-open", label: "Unlock everything", keys: ["Ctrl+Shift+L with nothing selected"] },
     { icon: "ph:arrows-left-right", label: "Keep to one axis", keys: ["Shift+drag"] },
     { icon: "ph:corners-out", label: "Keep proportions", keys: ["Shift+corner"] },
+    { icon: "ph:arrows-out", label: "Resize from the centre", keys: ["Alt+handle"] },
     { icon: "ph:arrows-in-simple", label: "Fit the box to its text", keys: ["double-click a corner"] },
     { icon: "ph:arrow-clockwise", label: "Rotate, upright again", keys: ["the handle above it", "double-click it"] },
     { icon: "ph:bezier-curve", label: "Bend a line", keys: ["double-click it"] },

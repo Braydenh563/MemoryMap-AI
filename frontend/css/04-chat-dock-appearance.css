@@ -1773,6 +1773,15 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
      (DESIGN.md, "Control height"). 36px, above the app's 28px floor,
      because these carry no label to widen them. */
   --control-h: var(--control-h-lg);
+  /* **Pinned at the panel's foot** (the owner, 2026-10-11: "the graph
+     popups get cut off now at the bottom"): a long note scrolls under it,
+     so the dock is always whole and in reach. Sticky against the panel's
+     own scrollport; the chip tint over the panel's opaque ground, so text
+     scrolling under it does not show through. */
+  position: sticky;
+  bottom: calc(-1 * var(--graph-popup-pad));
+  z-index: 1;
+  background: linear-gradient(var(--chip-bg) 0 0), var(--modal-bg-opaque);
 }
 
 .graph-popup-tool-group {
@@ -2053,7 +2062,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 /* Task #40: the restart row (`#about-restart-row`, added after this
    `.about-hero p` override was written) is a `.row`, not a `<p>`, so the
    centred `text-align` above still reached it, measured before this fix,
-   "Restart MemoryMap" wrapped to two lines that each centred independently
+   "Restart Tessellate" wrapped to two lines that each centred independently
    (57px vs 73px wide, left edges 8px apart) and the muted hint beside it did
    the same. `.row` covers the hint (`text-align` inherits into its `<span>`
    fine), but a `<button>` does not take an inherited `text-align`, the UA
@@ -4996,42 +5005,51 @@ span > .chip {
   --pick-row-h: 3.5rem;
 }
 
-/* **The sources are the in-dialog segmented control** (`.confirm-seg`, the
-   New board dialog's recipe): the track spans the dialog and the segments
-   share it equally, one height. It was `align-self: flex-start`, a well
-   wider than its pills on one side and empty on the other (INBOX 572). The
-   count after each name is the `.seg-count`, quiet text. */
-.entry-pick-card > .seg {
+/* **The sources are a tab strip under the head** (INBOX 715, superseding the
+   segmented well of INBOX 572/670: "i dont like pills like that in popups").
+   `.tabs-line.popup-kinds` spans the dialog; a tab shares the strip, and the
+   strip scrolls when the words do not fit rather than cutting one. The count
+   after each name is the `.seg-count`, quiet text. */
+.entry-pick-card > .picker-kinds {
   align-self: stretch;
-  flex-wrap: nowrap;
   max-width: 100%;
   margin: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.entry-pick-card > .seg > button {
+.entry-pick-card > .picker-kinds > button {
   display: inline-flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   min-width: 0;
-  height: var(--control-h-lg);
-  padding-inline: var(--space-2);
+  padding-inline: var(--space-3);
   white-space: nowrap;
   font-size: var(--text-sm);
 }
 
-/* A phone's quarter of the track holds the name or the name and its count,
-   not both on one line: the count goes under the name, smaller, and every
-   segment keeps the one (touch) height. */
+.picker-kinds .seg-count {
+  margin-left: var(--space-1);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.picker-kinds .seg-count:empty {
+  display: none;
+}
+
+/* A phone's strip holds the name or the name and its count, not both on one
+   line: the count goes under the name, smaller. */
 @media (max-width: 599.98px) {
-  .entry-pick-card > .seg > button {
+  .entry-pick-card > .picker-kinds > button {
     flex-direction: column;
-    height: var(--target-min);
-    padding-inline: var(--space-1);
+    justify-content: center;
+    padding-inline: var(--space-2);
     line-height: 1.15;
   }
 
-  .entry-pick-card > .seg .seg-count {
+  .entry-pick-card > .picker-kinds .seg-count {
     margin-left: 0;
     font-size: var(--text-xs);
   }
@@ -5523,18 +5541,25 @@ input.doc-title-input::placeholder {
 
 
 /* The picker's source strip. It sits above the search box because it decides
-   what that box searches -- reading order and cause order agree here. A `.seg`
-   rather than a bespoke row so it is the same control the Notes sub-tabs and
-   the Library sub-tabs already are, which is what makes it read as navigation
-   instead of as four more filters. */
+   what that box searches -- reading order and cause order agree here. A
+   `.tabs-line.popup-kinds` (INBOX 715), the strip the Notes and Library
+   sub-tabs already are, so it reads as navigation instead of as five more
+   filters. */
 .note-picker-sources {
   flex: 0 0 auto;
   align-self: stretch;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.note-picker-sources button {
-  flex: 1 1 0;
+.note-picker-sources.tabs-line > button {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
   gap: var(--space-2);
+  padding-inline: var(--space-3);
 }
 
 /* How many of this source are attached, on its own tab, so the other four
@@ -5561,7 +5586,7 @@ input.doc-title-input::placeholder {
     flex-wrap: nowrap;
   }
 
-  .note-picker-sources button {
+  .note-picker-sources.tabs-line > button {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;

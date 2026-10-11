@@ -205,7 +205,7 @@ def _stop_source(data_dir: Path) -> dict:
         logging.getLogger("memorymap.searxng").warning(
             "Couldn't stop SearXNG: %s", safe_value(str(exc), 300)
         )
-        raise SearxngError("Couldn't stop SearXNG. Closing MemoryMap will stop it.") from exc
+        raise SearxngError("Couldn't stop SearXNG. Closing Tessellate will stop it.") from exc
     # Give it a moment to close its socket before anything rebinds the port.
     for _ in range(20):
         if not _alive(pid):
@@ -287,7 +287,7 @@ def _start_from_source(data_dir: Path, on_ready=None) -> dict:
             #: name says it: "names them all and the way out"): a person with
             #: every port taken needs to know a port can be chosen.
             raise SearxngError(
-                "Every port MemoryMap tried for SearXNG was already in use "
+                "Every port Tessellate tried for SearXNG was already in use "
                 f"({', '.join(str(p) for p in tried)}). Free one of them, or "
                 "choose another port with the MEMORYMAP_SEARXNG_PORT setting, "
                 "and press Start again."

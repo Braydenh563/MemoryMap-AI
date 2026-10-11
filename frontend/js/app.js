@@ -1,4 +1,4 @@
-// MemoryMap AI frontend: plain JS, no framework (locked decision, plan §2).
+// Tessellate frontend: plain JS, no framework (locked decision, plan §2).
 // All DOM nodes are built with createElement/textContent, never innerHTML,
 // so a note containing <script> is just text, not code.
 //
@@ -49,10 +49,8 @@ function recordBrowserLog(level, parts) {
   // own startup would take, and it already degrades to "skip the live
   // push" rather than throwing, same as before the split.
   if (typeof logRecords !== "undefined" && typeof logScreenOpen !== "undefined") {
-    const liveRecord = { ...record, source: "browser", logger: "browser",
-      key: `b-live-${Date.now()}-${Math.random()}` };
-    logRecords.push(liveRecord);
-    //: These four are settings.js's own, like the two names tested above.
+    logRecords.push({ ...record, source: "browser", logger: "browser", key: `b-live-${Math.random()}` });
+    //: The four are settings.js's, beside `logRecords`.
     sortLogRecords();
     if (logScreenOpen) {
       renderActiveLogView();
@@ -387,13 +385,21 @@ document.addEventListener(
 // is in the temporal dead zone until its own declaration executes, so the
 // very first request the app ever made threw `ReferenceError: Cannot access
 // 'SPACE_ALL' before initialization`, caught by api()'s own try/catch and
-// surfaced only as "Can't reach the MemoryMap server", the lock screen
+// surfaced only as "Can't reach the Tessellate server", the lock screen
 // never appeared, with no console error and no failed network request,
 // because the fetch was never reached. `node --check` cannot catch this: the
 // file is syntactically valid, only wrong in execution order. Declared here,
 // before `api()` is ever callable, so this cannot happen again regardless of
 // what gets appended below.
 const SPACE_ALL = "all";
+
+//: Here and not with the spaces code: `api()` calls it on every request, and
+//: the first one is made at load, before spaces-find.js (a later classic
+//: script) has run ("activeSpaceId is not defined" on GET /health). prefs.js
+//: also loads after this file, so its absence reads as the default space.
+function activeSpaceId() {
+  return (typeof prefs !== "undefined" && prefs.get("spaceId", null)) || SPACE_ALL;
+}
 
 async function api(path, options = {}) {
   // `silent`: a background poll (model status, reminders): a 401 must not
@@ -467,7 +473,7 @@ async function api(path, options = {}) {
       noteServerDown();
     }
     //: "Failed to fetch" and its kin go to the log above; the toast gets a sentence.
-    if (networkErr instanceof TypeError) networkErr.message = "MemoryMap is not answering. Is it still running?";
+    if (networkErr instanceof TypeError) networkErr.message = "Tessellate is not answering. Is it still running?";
     throw networkErr;
   } finally {
     if (timer) clearTimeout(timer);
@@ -477,7 +483,9 @@ async function api(path, options = {}) {
   //: the retry poll's own backoff.
   noteServerUp();
   if (response.status === 401 && !ownsAuthErrors) {
-    if (!silent) showLockScreen(false); // token expired (e.g. app restarted)
+    //: A silent read stays quiet, but a silent write (a setting changed after
+    //: the server restarted) got "Locked" in a toast with no lock screen.
+    if (!silent || fetchOptions.method) showLockScreen(false); // token expired (e.g. app restarted)
     const locked = new Error("Locked");
     // Marked, so `startApp()`'s bootstrap loop can tell "the session expired"
     // apart from "this one endpoint failed". Reported: *"before signing in, a
@@ -520,6 +528,7 @@ async function api(path, options = {}) {
     error.status = response.status;
     if (response.status < 500) toast.refused.add(errMsg);
     error.detail = detail.detail;
+    error.body = detail;
     throw error;
   }
   //: A write that can leave a model running on a background thread gets the
@@ -768,6 +777,7 @@ function askPasswordPrompt({ title, message, submitLabel, submit }) {
     $("lock-password").value = "";
     $("lock-password").setAttribute("type", "password");
     $("lock-password").setAttribute("aria-label", "Password");
+    $("lock-password").placeholder = "Password"; // a prompt never takes the PIN
     $("lock-password").autocomplete = "current-password";
     overlay.classList.remove("hidden");
     $("lock-password").focus();
@@ -796,7 +806,7 @@ new MutationObserver(() => {
 function showLockScreen(setupMode) {
   settleLockPrompt(false);
   $("lock-overlay").classList.remove("hidden");
-  $("lock-title").textContent = setupMode ? "Welcome to MemoryMap" : "Unlock MemoryMap";
+  $("lock-title").textContent = setupMode ? "Welcome to Tessellate" : "Unlock Tessellate";
   //: **The trust moment, and it used to say nothing about trust.** This is the
   //: first screen of the app and it asks for a credential; a person deciding
   //: whether to hand one over is deciding whether to believe the product, and
@@ -821,13 +831,40 @@ function showLockScreen(setupMode) {
   }
   $("lock-submit").textContent = setupMode ? "Set password & start" : "Unlock";
   $("lock-overlay").dataset.mode = setupMode ? "setup" : "unlock";
+  lockFieldForPin(setupMode ? false : pinHere);
   // One field in two modes (no separate setup form), autocomplete has to
   // switch with it, or a password manager offers to fill an *existing*
   // saved password into a first-run "choose a new one" field.
-  $("lock-password").setAttribute("aria-label", setupMode ? "Choose a password" : "Password");
+  if (setupMode) $("lock-password").setAttribute("aria-label", "Choose a password");
   $("lock-password").autocomplete = setupMode ? "new-password" : "current-password";
   $("lock-password").focus();
   if (!setupMode && autoSessionOffered && !lockedByHand) resumeWithoutPassword();
+  //: A PIN set or forgotten since the last look (Settings, or five wrong
+  //: tries) changes what the field asks for, so the lock asks again.
+  if (!setupMode) {
+    apiJson("/auth/status", { silent: true })
+      .then((status) => {
+        pinHere = Boolean(status?.pin_here);
+        if ($("lock-overlay").dataset.mode === "unlock") lockFieldForPin(pinHere);
+      })
+      .catch(() => {});
+  }
+}
+
+//: Owner, 2026-10-12: "Password", or "PIN or password" only where a PIN is
+//: set on this computer (`/auth/status` `pin_here`, which is False for any
+//: other device). One field takes either; the server tries the password
+//: first and the PIN only from this computer.
+let pinHere = false;
+function lockFieldForPin(pin) {
+  const label = pin ? "PIN or password" : "Password";
+  $("lock-password").placeholder = label;
+  $("lock-password").setAttribute("aria-label", label);
+  if ($("lock-overlay").dataset.mode === "unlock") {
+    $("lock-message").textContent = pin
+      ? "Enter your PIN or password to unlock your notebook."
+      : "Enter your password to unlock your notebook.";
+  }
 }
 
 //: **The containers that hold the user's own words**, cleared when the
@@ -933,8 +970,8 @@ async function initAuth() {
   //: a start lifts it with the shell (`curtainShell`).
   if (!status || status.setup_required || (!status.auto_session && !authToken())) hideBootSplash();
   if (!status) {
-    $("save-status").textContent = "Can't reach the MemoryMap server. Is it running?";
-    toast("Can't reach the MemoryMap server. Is it running?", true, { action: ["Reload", () => location.reload()] });
+    $("save-status").textContent = "Can't reach the Tessellate server. Is it running?";
+    toast("Can't reach the Tessellate server. Is it running?", true, { action: ["Reload", () => location.reload()] });
     return;
   }
   if (status.setup_required) {
@@ -942,6 +979,7 @@ async function initAuth() {
     return;
   }
   $("lock-btn").classList.remove("hidden");
+  pinHere = Boolean(status.pin_here);
   // Sign-in off, on this computer: straight in, no lock screen. A token
   // still live is kept by the server; a stale one is replaced.
   autoSessionOffered = Boolean(status.auto_session);
@@ -970,52 +1008,6 @@ async function initAuth() {
   }
   const opening = startApp();
   curtainShell(opening);
-}
-
-// --- a share from the phone's share sheet lands in Capture -------------------
-// UI_MODERNISATION_PLAN Phase 11 item 5, "upload from the share sheet". The
-// installed app is a Web Share Target (manifest.webmanifest): a page, a
-// link or a selection shared to MemoryMap opens the app at `/` with
-// `share_title`, `share_text` and `share_url` in the query, the GET form,
-// which needs no service worker and works on a locked notebook because the
-// query survives the lock screen (this runs once the entries have loaded,
-// which is after the unlock). The pieces become one capture: the title as
-// a heading, the text, the link on its own line, so the link stays a link.
-// The query is then cleared from the address bar, or a reload would share
-// it again. Files (an image shared from the camera roll) need the POST form
-// and a service worker and are not taken here.
-const SHARE_PARAMS = ["share_title", "share_text", "share_url"];
-
-function sharedCaptureText(params) {
-  const title = (params.get("share_title") || "").trim();
-  const text = (params.get("share_text") || "").trim();
-  const url = (params.get("share_url") || "").trim();
-  const lines = [];
-  if (title && title !== text) lines.push(`# ${title}`);
-  if (text) lines.push(text);
-  if (url && !text.includes(url)) lines.push(url);
-  return lines.join("\n\n");
-}
-
-function takeSharedIntake() {
-  const params = new URLSearchParams(window.location.search);
-  if (!SHARE_PARAMS.some((key) => params.has(key))) return;
-  const content = sharedCaptureText(params);
-  for (const key of SHARE_PARAMS) params.delete(key);
-  const rest = params.toString();
-  history.replaceState(null, "", `${location.pathname}${rest ? `?${rest}` : ""}${location.hash}`);
-  if (!content) return;
-  const box = $("entry-content");
-  if (!box) return;
-  switchTab("notes");
-  showNotesSection("capture");
-  box.value = box.value ? `${box.value}\n\n${content}` : content;
-  box.dispatchEvent(new Event("input", { bubbles: true }));
-  box.focus();
-  const mounted =
-    typeof mountNoteSurface === "function" ? mountNoteSurface(box) : Promise.resolve(null);
-  mounted.then((surface) => surface?.focus()).catch(() => {});
-  toast("Shared to your notebook. Save it when it reads right.");
 }
 
 function startApp() {
@@ -1085,16 +1077,8 @@ function startApp() {
     //: below rather than after it, so a throw in any of those five calls cannot
     //: leave the session unable to back up a setting.
     uiStateSeeded = true;
-    if (restored) {
-      // The same three calls the theme picker makes, in the same order: the
-      // root attributes, then the light/dark choice and the palette, neither
-      // of which re-records itself as a manual override.
-      applyAppearance();
-      applyThemeChoice(appearancePref("theme"), false);
-      applyPalette(appearancePref("palette"), false);
-      renderBrandLogo();
-      if (bgArtOn()) startBgArt();
-    }
+    // The same repaint a second window does when it pulls a newer look.
+    if (restored) applyRestoredLook();
     // A seeded background (microbes, mycelium) started before the
     // preferences arrived grew from the placeholder name; regrow it from the
     // real one. A no-op for every other style and when nothing changed.
@@ -1146,7 +1130,9 @@ function startApp() {
   // session, on every fresh start. This is the same shape as the comment
   // below about switchTab painting from a pile of 401s.
   step("load spaces", loadSpaces);
-  entriesReady.then(() => step("take what was shared to it", takeSharedIntake));
+  //: Only a page opened from the share sheet carries `share_*`; the rest of the
+  //: intake is a lazy file (shared-intake.js).
+  entriesReady.then(() => step("take what was shared to it", () => /[?&]share_/.test(location.search) && takeSharedIntake()));
   step("tell the server your timezone", reportTimezone);
   // Fires only if the user opted in (Settings -> About); the endpoint itself
   // also checks the preference server-side, but skipping the call here means
@@ -1473,7 +1459,7 @@ function confirmDialog(message, options = {}) {
     // usually the consequence ("This cannot be undone"), which is the part
     // worth reading, so it is not run together with the first.
     //: With more than one paragraph the first is the question ("Quit
-    //: MemoryMap?", "Delete this note?") and is set as the dialog's title,
+    //: Tessellate?", "Delete this note?") and is set as the dialog's title,
     //: the consequence under it in the body voice, the shape every native
     //: confirm has. One paragraph stays one paragraph.
     const parts = String(message).split(/\n{2,}/);
@@ -1751,8 +1737,6 @@ function wireBackdropClose(overlay, close, alsoBackdrop = "") {
 }
 
 function smallButton(label, title, onClick, ghost = true) {
-  // (Wave I) icon-only buttons need a name for screen readers, the
-  // title doubles as one.
   const button = document.createElement("button");
   button.className = ghost ? "ghost small" : "small";
   setLabel(button, label);
@@ -1765,7 +1749,8 @@ function smallButton(label, title, onClick, ghost = true) {
     button.classList.add("icon-only");
   }
   button.title = title;
-  if (title) button.setAttribute("aria-label", title);
+  //: The title names a glyph only; words name themselves (WCAG 2.5.3).
+  if (title && button.classList.contains("icon-only")) button.setAttribute("aria-label", title);
   button.addEventListener("click", onClick);
   return button;
 }
@@ -1814,7 +1799,7 @@ const LAZY_MODULES = {
   //: Notes, Questions (questions-view.js), behind two stand-ins.
   questionsView: ["/css/questions-lazy.css", "/js/questions-view.js"],
   settingsData: ["/js/settings-data.js"],
-  settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
+  settingsUi: ["/js/meaning.js", "/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
   searchSuggest: ["/js/search-suggest.js"],
   //: The writing desk's model passes (compose, title, save as note); see writing-desk.js.
@@ -1843,7 +1828,7 @@ const LAZY_MODULES = {
   tour: ["/js/tour.js"],
   updates: ["/js/update-dialogs.js"],
   //: With the feature rows it lists (app-features.js).
-  appPalette: ["/js/app-features.js", "/js/app-palette.js"],
+  appPalette: ["/js/meaning.js", "/js/app-features.js", "/js/app-palette.js"],
   notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js", "/js/note-pick-preview.js"],
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],
@@ -1856,11 +1841,8 @@ const LAZY_MODULES = {
   webClip: ["/js/web-clip.js"],
   appImport: ["/js/app-import.js"],
   usageLedger: ["/css/usage-lazy.css", "/js/usage-ledger.js"],
-  //: The Library tab's list without the editors (audit FE-03(c)): one click
-  //: on Library fetched both editors, d3 and the whiteboard, about 900 KB
-  //: gzipped, to draw a list. `library` below still holds library.js, so
-  //: a document or a board brings the whole surface; `lazyScript` fetches
-  //: library.js once whichever asks first.
+  //: The Library list without the editors (audit FE-03(c)): they were about
+  //: 900 KB gzipped. A document or a board brings the whole `library` surface.
   libraryList: ["/css/library-lazy.css", "/js/library.js"],
   //: The Capture box's template picker (note-templates.js's header).
   noteTemplates: ["/js/note-templates.js"],
@@ -1884,6 +1866,8 @@ const LAZY_MODULES = {
   atlasFaces: ["/css/atlas-lazy.css"],
   //: A selection's Move to space (batch-space.js's header).
   batchSpace: ["/js/batch-space.js"],
+  undoKit: ["/js/undo-kit.js"],
+  sharedIntake: ["/js/shared-intake.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
   packages: ["/js/settings-packages.js"],
   //: Settings, Search and index's embedding models (INBOX 700, embed-choices.js).
@@ -1900,6 +1884,8 @@ const LAZY_MODULES = {
   navHistory: ["/css/nav-history-lazy.css", "/js/nav-history.js"],
   //: "Forgot your password?" and the recovery key (INBOX 663): account-recovery.js.
   accountRecovery: ["/css/recovery-lazy.css", "/js/account-recovery.js"],
+  //: The bell's panel and what a row's action does (notifications.js's header).
+  notifications: ["/js/notifications.js"],
   //: Tidy, the reviews with no AI (INBOX 691): tidy.js's header.
   tidy: ["/css/tidy-lazy.css", "/js/tidy.js"],
   semanticNotice: ["/js/semantic-notice.js"],
@@ -2162,7 +2148,7 @@ const LAZY_ENTRY_POINTS = {
   //: The icon and emoji picker: reached through `pickIconOrEmoji` (editor.js).
   iconPicker: ["openIconPicker"],
   //: Async, and reached from a Settings pane drawn before the window's own await.
-  settingsControls: ["refreshSearxngHost", "renderStatusBarSettings", "renderMcpSnippet", "renderLanAccess"],
+  settingsControls: ["refreshSearxngHost", "renderStatusBarSettings", "renderMcpSnippet", "renderLanAccess", "renderMemorySettings"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",
@@ -2181,6 +2167,9 @@ const LAZY_ENTRY_POINTS = {
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
+  notifications: ["openNotifications"],
+  sharedIntake: ["takeSharedIntake"],
+  undoKit: ["pushEntryCreateUndo", "pushLinkCreateUndo", "pushRequestUndo", "pushEntriesPutUndo", "pushBinPairUndo", "pushRoutePairUndo", "pushTensionLinkUndo", "pushTokenUndo", "pushUploadUndo", "pushCorrectionUndo", "pushMadeUndo", "pushTextUndo", "pushWikiRenameUndo"],
   tidy: ["openTidySheet"],
   semanticNotice: ["semanticInstallNotice", "semanticOnboardingOffer"],
   questionsView: ["initQuestionsView", "loadQuestions"],
@@ -2199,7 +2188,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened by a gesture; the closers are called only once it is open.
   search: ["openFinder"],
   statistics: ["openStatistics", "renderWeekWidget"],
-  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "saveMeetingNote", "resetMeetingUI"],
+  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",
@@ -2277,6 +2266,9 @@ const LAZY_ENTRY_POINTS = {
     "wireMdFormatShortcuts",
     "openWhiteboardBoard",
     "deleteDocumentWithUndo",
+    "offerCreateUndo",
+    "offerCreatedDocsUndo",
+    "renameDocumentWithUndo",
     "jumpToDocLine",
     "renderLibraryBoardsGallery",
   ],

@@ -98,17 +98,73 @@ def test_the_pass_lowers_es2015_and_keeps_every_line():
 
 def test_what_the_pass_cannot_lower_is_named_with_its_line():
     out = _node({
-        "class": ["lower", "var a = 1;\nclass A {}\n"],
-        "forof": ["lower", "for (const v of [1]) {}"],
+        "getter": ["lower", "var a = 1;\nclass A {\n  get x() { return 1; }\n}\n"],
+        "field": ["lower", "class A {\n  x = 1;\n}"],
+        "computed": ["lower", "class A { [k]() {} }"],
         "destructure": ["lower", "\n\nconst {a} = b;"],
-        "default": ["lower", "function f(a = 1) {}"],
+        "forofpattern": ["lower", "for (const [k, v] of pairs) {}"],
+        "default": ["lower", "function f(a = g()) {}"],
+        "arrowdefault": ["lower", "var f = (a = 1) => a;"],
         "async": ["lower", "async function f() { await 1; }"],
+        "optional": ["lower", "var a = b?.c;"],
     })
-    assert out["class"] == {"error": "Debug cannot step classes yet (line 2): Run runs this file as it is.", "line": 2}
-    assert "for...of loops" in out["forof"]["error"]
+    assert out["getter"] == {"error": "Debug cannot step getters and setters yet (line 3): Run runs this file as it is.", "line": 3}
+    assert "class fields" in out["field"]["error"]
+    assert "computed or quoted names" in out["computed"]["error"]
     assert out["destructure"]["line"] == 3 and "destructuring" in out["destructure"]["error"]
-    assert "default parameter values" in out["default"]["error"]
+    assert "destructuring" in out["forofpattern"]["error"]
+    assert "default parameter values other than a plain value" in out["default"]["error"]
+    assert "arrow function with no braces" in out["arrowdefault"]["error"]
     assert "async functions" in out["async"]["error"]
+    assert "optional chaining" in out["optional"]["error"]
+
+
+_MODERN = (
+    "class Animal {\n  constructor(name) { this.name = name; }\n  speak() { return this.name + ' makes a sound'; }\n"
+    "  static kind() { return 'animal'; }\n}\n"
+    "class Dog extends Animal {\n  constructor(name) { super(name); this.tricks = 0; }\n"
+    "  speak() { return super.speak() + ', woof'; }\n  static kind() { return super.kind() + '/dog'; }\n}\n"
+    "class Cat extends Animal {}\n"
+    "function greet(who, punct = '!', times = 1) { return who + punct + times; }\n"
+    "let seen = [];\n"
+    "for (const n of [1, 2, 3]) seen.push(n ** 2);\n"
+    "for (const ch of 'ab') { seen.push(ch); }\n"
+    "const none = null;\n"
+    "console.log(new Dog('Rex').speak(), Dog.kind(), new Cat('Tom').speak());\n"
+    "console.log(greet('hi'), greet('hi', '?', 2), none ?? 'fallback', 0 ?? 'zero', 2 ** 3 ** 2);\n"
+    "console.log(seen.join(','), new Dog('a') instanceof Animal);\n"
+)
+
+
+def test_classes_defaults_for_of_power_and_nullish_are_lowered_and_keep_every_line():
+    lowered = _node({"m": ["lower", _MODERN]})["m"]
+    assert "error" not in lowered, lowered
+    assert lowered["code"].count("\n") == _MODERN.count("\n")
+    for gone in ("class ", "extends", "super", "**", "??", " of "):
+        assert gone not in lowered["code"].replace("Animal", "").replace("Dog", ""), gone
+
+
+def test_the_lowered_program_stepped_by_the_interpreter_says_what_node_says():
+    out = _node({"s": ["session", _MODERN, [], [], []]})["s"]
+    logs = [m["text"] for m in out if m["t"] == "log"]
+    assert logs == [
+        "Rex makes a sound, woof animal/dog Tom makes a sound",
+        "hi!1 hi?2 fallback 0 512",
+        "1,4,9,a,b true",
+    ], logs
+    assert out[-1] == {"t": "done", "ended": "finished"} or out[-1]["t"] == "done"
+
+
+def test_for_of_over_something_that_is_not_an_array_stops_and_says_so():
+    out = _node({"s": ["session", "for (const x of 5) {}\n", [], [], []]})["s"]
+    assert any("array or a string only" in m.get("text", "") for m in out), out
+
+
+def test_a_breakpoint_inside_a_lowered_method_lands_on_its_own_line():
+    src = "class A {\n  go(n) {\n    const m = n * 2;\n    return m;\n  }\n}\nconsole.log(new A().go(4));\n"
+    out = _node({"s": ["session", src, [{"line": 3}], [], [{"cmd": "continue"}]]})["s"]
+    stops = [m for m in out if m["t"] == "stop"]
+    assert stops and stops[0]["line"] == 3 and {"name": "n", "value": "4", "type": "number"} in stops[0]["locals"]
 
 
 def test_a_session_breaks_steps_watches_and_stops_on_the_throw():
@@ -148,3 +204,17 @@ def test_a_dom_script_debugs_against_a_stand_in():
     })["dom"]
     assert {"t": "log", "level": "log", "text": "out hi", "line": 3} in out
     assert out[-1] == {"t": "done", "ended": "done"}
+
+
+def test_a_list_or_an_object_opens_into_its_children():
+    """OPEN row 1058: Variables showed one level, a repr, as the only view."""
+    src = "var xs = [1, 'a'];\nvar o = {k: 2, f: function () {}};\nvar n = 3;\nn;\n"
+    out = _node({"s": ["session", src, [{"line": 4}], [], [{"cmd": "stop"}]]})["s"]
+    stop = next(m for m in out if m["t"] == "stop")
+    by = {row["name"]: row for row in stop["locals"]}
+    assert by["n"] == {"name": "n", "value": "3", "type": "number"}
+    assert by["xs"]["children"] == [
+        {"name": "[0]", "value": "1", "type": "number"},
+        {"name": "[1]", "value": '"a"', "type": "string"},
+    ]
+    assert [c["name"] for c in by["o"]["children"]] == ["k", "f"]

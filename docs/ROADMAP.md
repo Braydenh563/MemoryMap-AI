@@ -1,4 +1,4 @@
-# MemoryMap AI: the work plan
+# Tessellate: the work plan
 
 This file is the entry point to the plans. It is short on purpose: the
 detail lives in `docs/roadmap/`, and what is finished lives in
@@ -38,7 +38,7 @@ are the agent briefs. Decisions here are taken (standing order 3).
 
 ### The thesis
 
-MemoryMap is a local-first second brain whose intelligence is **two
+Tessellate is a local-first second brain whose intelligence is **two
 engines, one answer**: a deterministic engine that always runs (reads,
 files, links, answers, acts, explains; every sentence traced to a note or a
 measurement) and an optional local model that adds fluency and judgement
@@ -78,18 +78,18 @@ companion) is a surface onto the same notebook and the same engine.
    from repos like draw.io not directly the same but truly part of this
    app and uniquely fitted and redesigned and altered to be part of this
    app"). What a reference gives is the behaviour and the data (a mechanic's
-   thresholds, a shape library, an algorithm); what MemoryMap gives is the
+   thresholds, a shape library, an algorithm); what Tessellate gives is the
    form: DESIGN.md's recipes, tokens and copy, the notebook's object model
    (a shape can hold a note, a connector can be a link with a reason, a
    board can be filed and cited), and the keyboard and help conventions of
    the rest of the app. A ported feature is done when a person who knows
-   draw.io recognises how it behaves and a person who knows MemoryMap
+   draw.io recognises how it behaves and a person who knows Tessellate
    recognises how it looks and where it lives. No reference's panel, icon
    set, menu structure or copy is reproduced; a converted asset (a stencil
    set) is restyled to the board's tokens (stroke, radius, palette) at
    load. Each parity row therefore has a "fitted as" column before it is
    built.
-3. **The taxonomy pack** (Perplexity, "MemoryMap final consolidated
+3. **The taxonomy pack** (Perplexity, "MemoryMap final consolidated <!-- brand: keep, a document title -->
    taxonomy pack", 5.0.0: 527 categories, 6,478 keyword assignments, 1,109
    role concepts, facets, 30 context rules as a spec, 64 passing lexical
    tests) is adopted as **seed data**, not as the classifier: its JSON
@@ -151,7 +151,7 @@ Taken as a programme, in this shape:
    OCR workspace against pdfcraft; image notes and the Library against
    photocraft and lightcraft; audio notes and meetings against soundcraft;
    presentations from boards and maps against deckcraft. Each row: the
-   feature, whether MemoryMap has it (checked in the app), the gap, the
+   feature, whether Tessellate has it (checked in the app), the gap, the
    cost, a keep or drop.
 2. **Integration before breadth**: a board, a map, a document, a note, a
    reminder and a web clip are one object model with one properties panel,
@@ -225,7 +225,7 @@ The owner's words, moved here from INBOX whole:
 
 643. **The owner, 2026-10-05, verbatim.** "Can we take anything from
      Microsoft onenote??" Placed: with 641, as a research pass over notes,
-     pages, sections, ink and tags, compared with what MemoryMap has.
+     pages, sections, ink and tags, compared with what Tessellate has.
 
 644. **The owner, 2026-10-05, verbatim.** "Can you also redesign and expand
      and improve the meeting notes feature?? I feel like it is neglected and a

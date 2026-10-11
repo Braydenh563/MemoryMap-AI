@@ -136,3 +136,64 @@ def test_a_plain_run_asks_too_when_it_can_wait():
     rows.clear()
     space["_mm_run"]("input('x')\n", lambda *row: rows.append(row), 0, "")
     assert "Input box" in rows[-1][1]
+
+
+TESTS = """import unittest
+
+
+class MathTest(unittest.TestCase):
+    def test_adds(self):
+        total = 1 + 1
+        self.assertEqual(total, 2)
+
+    def test_fails(self):
+        self.assertEqual(3, 4)
+
+
+def test_plain():
+    value = 5
+    assert value == 5
+"""
+
+
+def _test_session(actions, breaks):
+    space: dict = {}
+    exec(run_sandbox.PY_RUNNER, space)  # noqa: S102  # the runner is this repo's own text
+    stops: list[dict] = []
+    tests: list[tuple] = []
+    script = list(actions)
+
+    def exchange(message):
+        stops.append(json.loads(message))
+        return json.dumps(script.pop(0)) if script else json.dumps({"cmd": "stop"})
+
+    trace = sys.gettrace()
+    try:
+        ended = space["_mm_debug"](TESTS, lambda *row: None, exchange, 0, "", json.dumps(breaks), "[]", lambda *row: tests.append(row))
+    finally:
+        sys.settrace(trace)
+    return ended, stops, tests, space["_MM_DEBUG_TESTS"][0]
+
+
+def test_debug_on_a_file_of_tests_runs_them_and_stops_in_one():
+    """OPEN row 563: a breakpoint in a test stops there, every test reports, the totals come back."""
+    ended, stops, tests, totals = _test_session([{"cmd": "continue"}, {"cmd": "continue"}], [{"line": 7}, {"line": 15}])
+    assert ended == "done"
+    assert [s["line"] for s in stops if s["t"] == "stop"] == [7, 15]
+    assert {"name": "total", "value": "2", "type": "int"} in stops[0]["locals"]
+    assert [(name, state) for name, state, *_ in tests] == [("MathTest.test_adds", "pass"), ("MathTest.test_fails", "fail"), ("test_plain", "pass")]
+    assert totals == {"passed": 2, "failed": 1, "skipped": 0}
+
+
+def test_stop_in_a_test_runs_no_more_tests():
+    ended, _stops, tests, _totals = _test_session([{"cmd": "stop"}], [{"line": 7}])
+    assert ended == "stopped"
+    assert tests == []
+
+
+def test_debug_sends_tests_for_a_python_file_of_tests():
+    from pathlib import Path
+
+    core = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "run-core.js").read_text("utf-8")
+    assert 'tests: runLooksLikeTests("py", String(request.source || ""))' in core
+    assert "e.data.tests ? emitTest : null" in run_sandbox._PY_WORKER

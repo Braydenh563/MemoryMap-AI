@@ -1,7 +1,7 @@
 @echo off
-title MemoryMap AI
+title Tessellate
 REM ===================================================================
-REM  MemoryMap AI - one-click launcher for Windows
+REM  Tessellate - one-click launcher for Windows
 REM
 REM  Double-click this file, or run "start.bat" in a terminal. It sets
 REM  everything up the first time, then just runs the app after that:
@@ -234,7 +234,7 @@ goto :after_version
 call :read_version MM_VERSION
 set MM_VERSION=!MM_VERSION:"=!
 if not defined MM_VERSION set "MM_VERSION=unknown"
-echo MemoryMap AI !MM_VERSION!
+echo Tessellate !MM_VERSION!
 echo Installed at: !CD!
 echo Your notes:   !MM_DATA_DIR!
 endlocal
@@ -393,6 +393,14 @@ REM  --reinstall is the one-line answer to every "delete .venv and try
 REM  again" support reply this project has ever sent. Done here, before the
 REM  venv check below, so the rebuild is the ordinary first-run path rather
 REM  than a second code path that can rot.
+REM  Settings, About, Maintenance's "Reinstall on next start" leaves this
+REM  file (core/maintenance.py REINSTALL_MARKER): the app cannot rebuild the
+REM  environment it is running from. It counts as --reinstall once.
+if exist "!MM_DATA_DIR!\reinstall-on-next-start" (
+  set "MM_REINSTALL=1"
+  del /q "!MM_DATA_DIR!\reinstall-on-next-start" >nul 2>nul
+  call :log "reinstall-on-next-start found, rebuilding .venv"
+)
 if "!MM_REINSTALL!"=="1" if exist ".venv" (
   echo  !ESC![1;38;5;73m[..]!ESC![0m Removing .venv to rebuild it from scratch...
   call :log "removing .venv for --reinstall"
@@ -519,7 +527,7 @@ REM
 REM  **A relaunch with nothing to relaunch carries on instead of dying.**
 REM  Reported with a screenshot: "Checking for updates..." and then
 REM  '""' is not recognized as an internal or external command, followed by
-REM  "MemoryMap AI has stopped." That is this line with MM_SELF empty: cmd
+REM  "Tessellate has stopped." That is this line with MM_SELF empty: cmd
 REM  sees `call "" ` and reports the empty program name, the script exits,
 REM  and the app never starts at all. MM_SELF is captured from %~f0 at the
 REM  top and nothing after :parse_args may read %~f0 again (the test holds
@@ -555,13 +563,12 @@ call :status !MM_STEP_UPDATE! "Update" "Off in Settings" "done"
 :after_update
 
 echo.
-echo !ESC![1;38;5;73m    __  ___                                __  ___               ___    ____
-echo    /  ^|/  /__  ____ ___  ____  _______  __/  ^|/  /___ _____    /   ^|  /  _/
-echo   / /^|_/ / _ \/ __ `__ \/ __ \/ ___/ / / / /^|_/ / __ `/ __ \  / /^| ^|  / /
-echo  / /  / /  __/ / / / / / /_/ / /  / /_/ / /  / / /_/ / /_/ / / ___ ^|_/ /
-echo /_/  /_/\___/_/ /_/ /_/\____/_/   \__, /_/  /_/\__,_/ .___/ /_/  ^|_/___/
-echo                                  /____/            /_/
-echo             your notebook, on your machine!ESC![0m
+echo !ESC![1;38;5;73m  ______                    ____      __
+echo  /_  __/__  _____________  / / /___ _/ /____
+echo   / / / _ \/ ___/ ___/ _ \/ / / __ `/ __/ _ \
+echo  / / /  __(__  ^|__  )  __/ / / /_/ / /_/  __/
+echo /_/  \___/____/____/\___/_/_/\__,_/\__/\___/
+echo          your notes, pieced together!ESC![0m
 echo.
 
 set "VENV_PY=.venv\Scripts\python.exe"
@@ -594,12 +601,31 @@ if not exist "%VENV_PY%" (
   if errorlevel 1 (
     for /f "delims=" %%V in ('!PYTHON! --version 2^>^&1') do set "PYVER=%%V"
     call :status !MM_STEP_PYTHON! "Python" "Too old" "failed"
-    set "MM_FAIL_MSG=Found !PYVER!, but MemoryMap AI needs Python 3.11 or newer."
+    set "MM_FAIL_MSG=Found !PYVER!, but Tessellate needs Python 3.11 or newer."
     set "MM_FAIL_FIX=Install a newer Python from https://www.python.org/downloads/ and run this again."
     goto :fail
   )
   echo        Using !PYTHON! to create the virtual environment...
-  !PYTHON! -m venv .venv
+  REM  Opt-in only: share the system's packages (a CUDA torch already installed)
+  REM  instead of a second copy. An environment variable, not a flag, as in
+  REM  start.sh: the flag-order lint wants both launchers to carry the same flags.
+  REM  Refused with a reason when the system torch is outside requirements.txt's
+  REM  range; scripts\system_site_packages.py decides.
+  set "MM_VENV_ARGS="
+  if "%MEMORYMAP_SYSTEM_SITE_PACKAGES%"=="1" (
+    set "MM_SSP_ANSWER="
+    for /f "usebackq delims=" %%A in (`!PYTHON! scripts\system_site_packages.py 2^>nul`) do set "MM_SSP_ANSWER=%%A"
+    !PYTHON! scripts\system_site_packages.py >nul 2>nul
+    if errorlevel 1 (
+      set "MM_SSP_REASON=!MM_SSP_ANSWER:refuse: =!"
+      echo        Not sharing the system packages: !MM_SSP_REASON!.
+      echo        Building the usual self-contained environment instead.
+    ) else (
+      set "MM_VENV_ARGS=--system-site-packages"
+      echo        Sharing this computer's installed packages ^(MEMORYMAP_SYSTEM_SITE_PACKAGES=1^).
+    )
+  )
+  !PYTHON! -m venv !MM_VENV_ARGS! .venv
   if errorlevel 1 (
     call :status !MM_STEP_PYTHON! "Python" "Could not create .venv" "failed"
     set "MM_FAIL_MSG=Could not create the virtual environment."
@@ -667,7 +693,7 @@ if "!NEED_INSTALL!"=="0" (
 if "!NEED_INSTALL!"=="1" (
   call :status !MM_STEP_DEPS! "Dependencies" "Installing, this can take a few minutes" "active"
   echo  !ESC![1;38;5;73m[2/4]!ESC![0m Installing dependencies - this can take a few minutes for heavy AI models.
-  echo         First setup only: this needs the internet once. After that MemoryMap works offline.
+  echo         First setup only: this needs the internet once. After that Tessellate works offline.
   echo         pip's own progress prints below as it happens:
 
   REM  `--timeout 5 --retries 0` makes pip give up on a dead connection in
@@ -808,7 +834,7 @@ if defined MM_CANCELLED goto :cancelled
 call :status !MM_STEP_START! "Start" "Starting the app" "active"
 
 if defined MM_DESKTOP (
-  echo  !ESC![1;38;5;73m[4/4]!ESC![0m Starting MemoryMap AI in its own window.
+  echo  !ESC![1;38;5;73m[4/4]!ESC![0m Starting Tessellate in its own window.
   echo        Close the app window to stop it.
   echo.
   REM Asked for directly: "guide the user to where the application location
@@ -836,7 +862,7 @@ if defined MM_DESKTOP (
     exit /b 0
   )
 ) else (
-  echo  !ESC![1;38;5;73m[4/4]!ESC![0m Starting MemoryMap AI at !MM_URL!
+  echo  !ESC![1;38;5;73m[4/4]!ESC![0m Starting Tessellate at !MM_URL!
   if "!MM_NO_BROWSER!"=="1" echo        No browser will be opened, --no-browser. Close THIS window to stop the app.
   if "!MM_NO_BROWSER!"=="0" echo        A browser tab opens in a moment. Close THIS window, or press Ctrl+C in it, to stop the app.
   echo.
@@ -881,7 +907,7 @@ REM  gives up on its own after MaxMinutes for the case where this script is
 REM  killed outright and never runs this line at all.
 if defined MM_SPLASH_FILE del /q "!MM_SPLASH_FILE!" >nul 2>nul
 call :log "the app has stopped"
-echo  MemoryMap AI has stopped.
+echo  Tessellate has stopped.
 pause
 endlocal
 goto :eof
@@ -893,9 +919,9 @@ REM ====================================================================
 :already_running
 REM  The commonest support message in this whole project, "it says the
 REM  address is in use", turned into an answer rather than an error: the
-REM  right thing to do about a MemoryMap that is already running is to open
+REM  right thing to do about a Tessellate that is already running is to open
 REM  it, not to report a conflict.
-echo  !ESC![1;38;5;73m[ok]!ESC![0m MemoryMap is already running on port !MM_PORT! - opening it.
+echo  !ESC![1;38;5;73m[ok]!ESC![0m Tessellate is already running on port !MM_PORT! - opening it.
 call :log "already running on port !MM_PORT!, opened it"
 if "!MM_NO_BROWSER!"=="0" start "" "!MM_URL!"
 if defined MM_SPLASH_FILE del /q "!MM_SPLASH_FILE!" >nul 2>nul
@@ -939,10 +965,13 @@ REM  The paths go into PowerShell inside single quotes, where a quote is
 REM  written twice: a checkout under C:\Users\O'Brien ended the string at
 REM  the apostrophe and the shortcut was never made.
 call :desktop_dir
-set "MM_LNK=!MM_DESKTOP!\MemoryMap AI.lnk"
+REM  A shortcut made before the rename to Tessellate goes, so the Desktop
+REM  holds one name for one app. brand: keep-next
+if exist "!MM_DESKTOP!\MemoryMap AI.lnk" del /q "!MM_DESKTOP!\MemoryMap AI.lnk" >nul 2>nul
+set "MM_LNK=!MM_DESKTOP!\Tessellate.lnk"
 set "MM_PS_LNK=!MM_LNK:'=''!"
 set "MM_PS_HOME=!MM_HOME:'=''!"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('!MM_PS_LNK!'); $s.TargetPath='!MM_PS_HOME!start.bat'; $s.Arguments='--desktop'; $s.WorkingDirectory='!MM_PS_HOME!'; $s.IconLocation='!MM_PS_HOME!frontend\icon.ico'; $s.Description='MemoryMap AI'; $s.Save()" >nul 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('!MM_PS_LNK!'); $s.TargetPath='!MM_PS_HOME!start.bat'; $s.Arguments='--desktop'; $s.WorkingDirectory='!MM_PS_HOME!'; $s.IconLocation='!MM_PS_HOME!frontend\icon.ico'; $s.Description='Tessellate'; $s.Save()" >nul 2>nul
 if exist "!MM_LNK!" goto :do_shortcut_ok
 set "MM_FAIL_MSG=Could not create the shortcut on your Desktop."
 set "MM_FAIL_FIX=Check that your Desktop folder exists and that PowerShell is allowed to run."
@@ -985,7 +1014,7 @@ REM  carry paths and URLs, and a label chain keeps every ECHO out of
 REM  parentheses where a bracket in a path cannot end a block early.
 REM ====================================================================
 :do_doctor
-echo !ESC![1;38;5;73mMemoryMap AI - checks!ESC![0m
+echo !ESC![1;38;5;73mTessellate - checks!ESC![0m
 echo.
 set "MM_DOCTOR_FAILED="
 
@@ -1049,6 +1078,14 @@ if not defined MM_FREE_MB goto :doctor_disk_unknown
 if !MM_FREE_MB! LSS 1024 goto :doctor_disk_low
 call :row ok "Disk" "!MM_FREE_MB! MB free on !MM_DATA_DIR!"
 goto :doctor_port
+REM  MEMORYMAP_DOCTOR_OFFLINE=1 (the splash's Copy diagnostics): the rows that
+REM  would touch the port the app is about to bind, the git remote or the model
+REM  server are not run. An environment variable rather than a flag, because
+REM  the flag-order lint wants both launchers' help to list the same flags.
+if "%MEMORYMAP_DOCTOR_OFFLINE%"=="1" (
+  call :row ok "Port !MM_PORT!" "not checked in offline diagnostics"
+  goto :doctor_updates
+)
 :doctor_disk_low
 call :row x "Disk" "!MM_FREE_MB! MB free on !MM_DATA_DIR!" "Under 1 GB. Free some space before the first install, which needs about 300 MB."
 goto :doctor_port
@@ -1070,7 +1107,7 @@ if defined MM_PORT_MINE goto :doctor_port_mine
 call :row x "Port !MM_PORT!" "in use by something else" "Close that program, or start on another port: start.bat --port 8010"
 goto :doctor_updates
 :doctor_port_mine
-call :row ok "Port !MM_PORT!" "MemoryMap is already running, open !MM_URL!"
+call :row ok "Port !MM_PORT!" "Tessellate is already running, open !MM_URL!"
 
 REM  5. The update path. The same low-speed flags the pull itself uses, so
 REM  this row cannot be slower than the thing it describes. cmd has no
@@ -1083,9 +1120,13 @@ if "!MM_UPDATE_PLAN!"=="off" goto :doctor_updates_off
 if not exist ".git" goto :doctor_updates_nogit
 where git >nul 2>nul
 if errorlevel 1 goto :doctor_updates_nobin
+if "%MEMORYMAP_DOCTOR_OFFLINE%"=="1" goto :doctor_updates_offline
 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 ls-remote --exit-code origin HEAD >nul 2>nul
 if errorlevel 1 goto :doctor_updates_quiet
 call :row ok "Updates" "the git remote answered"
+goto :doctor_provider
+:doctor_updates_offline
+call :row ok "Updates" "the git remote is not asked in offline diagnostics"
 goto :doctor_provider
 :doctor_updates_ask
 call :row ok "Updates" "not chosen yet, so nothing is checked until you answer the one-time question"
@@ -1130,6 +1171,10 @@ if /i "!MM_PROVIDER!"=="ollama" goto :doctor_ollama
 call :row ok "Provider" "!MM_PROVIDER! at !MM_LLM_URL!"
 goto :doctor_notes
 :doctor_ollama
+if "%MEMORYMAP_DOCTOR_OFFLINE%"=="1" (
+  call :row ok "Ollama" "not asked in offline diagnostics"
+  goto :doctor_notes
+)
 where curl >nul 2>nul
 if errorlevel 1 goto :doctor_ollama_nocurl
 set "MM_MODELS="
@@ -1215,7 +1260,7 @@ REM  Subroutines
 REM ====================================================================
 
 :help
-echo MemoryMap AI launcher
+echo Tessellate launcher
 echo.
 echo Usage: start.bat [options]
 echo.
@@ -1296,7 +1341,8 @@ for /f "delims=" %%L in ('netstat -an -p TCP 2^>nul ^| findstr /C:":!MM_PORT! " 
 if not defined MM_PORT_BUSY exit /b 0
 where curl >nul 2>nul
 if errorlevel 1 exit /b 0
-for /f "delims=" %%H in ('curl -fsS --max-time 3 "http://127.0.0.1:!MM_PORT!/health" 2^>nul ^| findstr /C:"MemoryMap AI"') do set "MM_PORT_MINE=1"
+REM  Tessellate, or a copy started before the rename (brand: keep-next)
+for /f "delims=" %%H in ('curl -fsS --max-time 3 "http://127.0.0.1:!MM_PORT!/health" 2^>nul ^| findstr /C:"Tessellate" /C:"MemoryMap AI"') do set "MM_PORT_MINE=1"
 exit /b 0
 
 REM  One doctor row: %1 ok, x or warn, %2 label, %3 value, %4 what to try.

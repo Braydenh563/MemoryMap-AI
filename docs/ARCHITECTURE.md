@@ -1,6 +1,6 @@
-# MemoryMap AI: Architecture & Project Guide
+# Tessellate: Architecture & Project Guide
 
-> What MemoryMap AI is, how it is built, and where everything lives. Read this
+> What Tessellate is, how it is built, and where everything lives. Read this
 > once and you can find your way around the codebase.
 >
 > To install and use the app, see [INSTALL.md](INSTALL.md) and the
@@ -10,7 +10,7 @@
 
 ## 1. What it is
 
-MemoryMap AI is a **100% offline, local-first personal notebook**. You type a
+Tessellate is a **100% offline, local-first personal notebook**. You type a
 thought; a local AI files it into a category automatically. Later you ask a
 question in plain English and get back **both** a conversational answer **and**
 the raw notes that matched. Everything (your notes, the search index, the AI
@@ -136,7 +136,7 @@ Checked against the tree on 2026-10-05. One line per module; the first
 line of each module's docstring says the same thing at greater length.
 
 ```
-MemoryMap-AI/
+Tessellate/
 ├── src/memorymap/
 │   ├── __main__.py          # entry point: `python -m memorymap [--desktop |
 │   │                        #   --export | --reset-password | --capture |
@@ -207,7 +207,7 @@ MemoryMap-AI/
 │   ├── entry/               # notes
 │   │   ├── manager.py       # create/read/update/soft-delete, links, audit
 │   │   ├── tagnames.py      # the one rule for what a list of tags may hold
-│   │   ├── app_import.py    # Notion, Obsidian, Evernote, Apple Notes and a MemoryMap folder in
+│   │   ├── app_import.py    # Notion, Obsidian, Evernote, Apple Notes and a Tessellate folder in
 │   │   ├── export_folder.py # the whole notebook as a markdown folder, and back
 │   │   ├── import_report.py # what an import read, wrote and left out, kept as a page
 │   │   ├── properties.py    # a note's `---` properties block (KG4)
@@ -454,7 +454,7 @@ gate** (`routes_auth.require_unlock`). Routers are grouped by feature area:
 | `routes_entities` | `/entities`, `/entities/{id}`, `/entities/{id}/merge` | the entity layer: the list, an entity's page (mentions in context, co-mentions, dates), kind, rename, other names and a merge by hand (GRAPH_PLAN KG5) |
 | `routes_relations` | `/relation-types`, `/relation-types/{key}` | kinds of link: the six built-ins (code) and a person's own (`RelationType`), each with its name from the other end; a deleted kind leaves its links untyped (GRAPH_PLAN KG3) |
 | `routes_properties` | `/entries/{id}/properties`, `/note-types` | a note's properties (the `---` block in its text, `entry/properties.py`; `EntryProperty` is the index) and note types with fields (GRAPH_PLAN KG4) |
-| `routes_import` | `/import/app`, `/import/reports/{id}`, `/export/folder` | notes from Notion, Obsidian, Evernote, Apple Notes or a MemoryMap folder (a job with Stop and a kept report); the readers and the writer are `entry/app_import.py` and `entry/export_folder.py` |
+| `routes_import` | `/import/app`, `/import/reports/{id}`, `/export/folder` | notes from Notion, Obsidian, Evernote, Apple Notes or a Tessellate folder (a job with Stop and a kept report); the readers and the writer are `entry/app_import.py` and `entry/export_folder.py` |
 | `routes_questions` | `/questions` | open questions: the list and its states |
 | `routes_editor` | `/editor` | `POST /editor/read`: the margin reader's one route |
 | `routes_vision` | `/review-queue`, `/most-opened`, `/tidy-proposals`, `/charts/question` | the original vision's open rows: the review queue, most opened notes, tidy proposals and a chart from a counting question |
@@ -553,7 +553,8 @@ library and place from it; `edit_board_item` ⚠️ (words, line colour, fill) �
 
 *Mind maps* (a board that is a tree, `ai/tools/whiteboard.py` alongside the
 whiteboard tools above): `create_mindmap` · `read_mindmap` ·
-`add_map_node` · `link_map_nodes`
+`add_map_node` · `link_map_nodes` · `map_from_note` (a whole map from one
+note's headings and lists, in one call)
 
 *Planning and structure:* `make_plan`: a ticked-step plan shown in the chat
 timeline; `notebook_structure` and `path_between`: the same graph traversal
@@ -1003,7 +1004,7 @@ be worth writing down:
   and WAL mode lets readers carry on during a write, so it does not bite
   here. A multi-user server would change the answer.
 - **Multi-device sync.** Two machines editing one SQLite file over a synced
-  folder is a corruption story, not a sync story. If MemoryMap ever syncs,
+  folder is a corruption story, not a sync story. If Tessellate ever syncs,
   the answer is a sync protocol over the row history, not a different
   database; nothing about SQLite is what blocks it.
 - **A notebook far past the sizes above**, or a vector search that has to
@@ -1510,7 +1511,7 @@ it is WORLD_CLASS_PLAN's B1, and it is a refactor rather than a fix.
 
 ### One process, and why more is not an option
 
-**MemoryMap runs with exactly one worker, and refuses to start with more.**
+**Tessellate runs with exactly one worker, and refuses to start with more.**
 `core/deps.refuse_multiple_workers()` runs at the top of `create_app()` and
 raises on `--workers N` (N > 1) or `WEB_CONCURRENCY`.
 

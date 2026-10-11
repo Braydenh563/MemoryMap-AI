@@ -105,6 +105,9 @@
 .select-option.select-face-arial {
   font-family: Arial, Helvetica, sans-serif;
 }
+.select-option.select-face-readable {
+  font-family: "Atkinson Hyperlegible", system-ui, sans-serif;
+}
 /* --- sidebar ------------------------------------------------------------ */
 /* Keep the Notes category sidebar pinned to the left while the notes
    scroll (user request). It sits just below the sticky top bar; a long
@@ -940,7 +943,7 @@ input[type="checkbox"] {
 /* **A button gets a floor, not a ceiling**, and the difference broke a
    real control. The first version of this rule gave buttons the same fixed
    `height` as the fields beside them, which is right until a label wraps:
-   "Restart MemoryMap" is two lines in its column, so a 2.2rem box squashed
+   "Restart Tessellate" is two lines in its column, so a 2.2rem box squashed
    it, reported with a screenshot as the button being broken. A field is
    single-line by nature and can be pinned; a button has to be able to grow
    to its own text. `min-height` still lines the row up, a one-line button
@@ -1168,8 +1171,8 @@ progress {
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   padding: var(--space-2) var(--space-3);
 }
-.thinking-fold[open] > .fold-summary:not(.icon-only):not(.icon-button):not(:hover),
-.why-fold[open] > .fold-summary:not(.icon-only):not(.icon-button):not(:hover, :focus-visible) {
+.thinking-fold[open] > .fold-summary:not(.icon-only):not(.icon-button):not(:hover):not(:focus-visible),
+.why-fold[open] > .fold-summary:not(.icon-only):not(.icon-button):not(:hover):not(:focus-visible) {
   background: transparent;
 }
 /* "Why this answer" (B30): a job's lines, the seconds in a fixed column so
@@ -2133,6 +2136,20 @@ button:not(.ghost) > .spinner {
     min-height: 44px;
   }
 }
+/* The lock card over the network (INBOX 867): the certificate link and its
+   '?' on one centred row; nowhere else and in no other mode. */
+.lock-lan-cert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lock-lan-cert .lock-forgot {
+  margin: 0;
+}
+:root:not([data-lan]) .lock-lan-cert,
+#lock-overlay:not([data-mode="unlock"]) .lock-lan-cert {
+  display: none;
+}
 /* On the unlock only: setup has nothing to forget, and a prompt for one
    action has "Not now". The card, while open, takes the lock card's place
    (account-recovery.js opens and closes it), and never shows in another
@@ -3036,8 +3053,11 @@ li.link-source {
   bottom: calc(var(--status-bar-h) + var(--space-3));
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  z-index: 1050;
+  gap: var(--space-2);
+  /* Above the confirm dialog (2100): a toast with an action (the first-run
+     "Allow") sat under the dialog it was asking about and could not be pressed
+     until the dialog closed. Phones set their own, above every sheet. */
+  z-index: 2150;
   /* The box spans the width below 1100px: only its toasts take clicks, so
      the strip beside a narrow toast does not eat clicks meant for the page. */
   pointer-events: none;
@@ -3054,7 +3074,7 @@ li.link-source {
   bottom: calc(var(--status-bar-h) + var(--space-3));
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
   pointer-events: none;
   z-index: 1;
 }
@@ -3095,19 +3115,39 @@ li.link-source {
   animation: toast-out var(--ui-exit) var(--ease-out) forwards;
   pointer-events: none;
 }
-/* From the edge it lives on (the bottom), a step rather than 4px, so the
-   arrival reads; the others make room by sliding (`toastStack`, status.js). */
+/* The fade is CSS; the travel is `toastStack` (status.js), which moves an
+   arrival by the distance the others move so no two cards cross. A card
+   leaves in place, fading and shrinking, and the stack closes the gap. */
 @keyframes toast-in {
   from {
     opacity: 0;
-    translate: 0 var(--space-4);
   }
 }
 @keyframes toast-out {
   to {
     opacity: 0;
-    translate: 0 var(--space-4);
+    scale: 0.96;
   }
+}
+/* Past three, the oldest fold into one "+N more" card (`toastLayout`). */
+.toast.is-folded {
+  display: none;
+}
+.toast.toast-more {
+  display: flex;
+  padding: var(--space-1);
+  border-left-width: 1px;
+}
+.toast-more > .toast-more-open {
+  flex: 1;
+  justify-content: flex-start;
+}
+/* The count on a notice that came again ("×3"), after its words. */
+.toast-msg > .toast-count {
+  margin-inline-start: var(--space-2);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 /* Ctrl+F on any tab except Documents (app.js). Docked under the header
    rather than centred, so it never sits on top of the exact content it is
@@ -4017,20 +4057,77 @@ html.modal-open body {
 #reminder-magic {
   flex: 1;
 }
-/* Focus timer widget */
-.focus-timer-display {
-  font-size: 2.4rem;
+/* Focus timer widget (V8): a ring that empties as the time runs, the time
+   large inside it, then the lengths, the one filled Start, and today. */
+.focus-ring {
+  position: relative;
+  width: min(10rem, 70%);
+  aspect-ratio: 1;
+  margin: var(--space-2) auto var(--space-3);
+}
+.focus-ring-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.focus-ring-track,
+.focus-ring-fill {
+  fill: none;
+  stroke-width: 8;
+}
+.focus-ring-track {
+  stroke: var(--border);
+}
+.focus-ring-fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--ui-base) linear;
+}
+.focus-ring.is-break .focus-ring-fill {
+  stroke: var(--ok);
+}
+.focus-ring-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}
+.focus-ring-mode {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.focus-ring-time {
+  font-size: calc(var(--text-h1) * 1.35);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  text-align: center;
-  margin: 0.25rem 0 0.4rem;
+  line-height: 1;
 }
-.focus-presets {
+.focus-presets,
+.focus-controls {
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
 }
-.focus-custom {
-  width: 4.5rem;
+.focus-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.focus-step-value {
+  min-width: 3.5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+}
+.focus-today {
+  margin: var(--space-2) 0 0;
+  text-align: center;
+  font-size: var(--text-sm);
 }
 /* In-chat toggles that are ON. Plan joins Web here rather than getting its own
    look: they are the same kind of control, a mode that stays armed across
@@ -4195,7 +4292,7 @@ html.modal-open body {
 /* **The app's own mark, not three generic dots.** Asked for: "can you add to
    the thinking dots animation with a themed animation unique to the
    application?"
-   MemoryMap's emblem is a small constellation, nodes joined by edges, which
+   Tessellate's emblem is a small constellation, nodes joined by edges, which
    is what a notebook of linked notes looks like from above. So the indicator
    is that: three nodes on a hairline edge, with the signal travelling along
    the edge and lighting each node as it passes, read as a graph rather than
@@ -5060,7 +5157,7 @@ select {
   box-sizing: border-box;
 }
 /* A fixed height and a wrapping label cannot both be right. Reported with a
-   screenshot of the About page: "Restart MemoryMap" and "Reload the app"
+   screenshot of the About page: "Restart Tessellate" and "Reload the app"
    each broke onto two lines inside a 36px box, so the second line sat over
    the button's own bottom border. Widening is the correct give here -- these
    rows wrap, so a wider button moves to the next line instead of pushing
@@ -5675,6 +5772,11 @@ select {
   color: var(--muted);
   font-size: var(--text-xs);
 }
+/* "Close in meaning" (Brief 94): the head over the rows an embedding model
+   found that the words did not, aligned with the rows' text. */
+.settings-result-head {
+  padding: var(--space-2) var(--space-4) 0;
+}
 /* The pane's dock is sticky at the top of the pane (INBOX 599). The ground
    is the dialog's opaque ground, never a tint alone: a translucent bar reads
    right at rest and turns into a window once the pane scrolls under it (the
@@ -5769,10 +5871,14 @@ select {
   }
 }
 /* The strip is a row below 820 (the nav is one), so the results would sit in
-   it as one more cell. They get the width of the pane instead. */
+   it as one more cell. They get the width of the pane instead, and no more:
+   a flex item's floor is its longest row's one line, so "Auto-clear binned
+   notes, documents, reminders and OCR readings after" made the list 496px in
+   a 308px strip at 390 (Brief 94, measured) until `min-width: 0`. */
 @media (max-width: 819.98px) {
   .modal-nav .settings-results {
     flex: 0 0 100%;
+    min-width: 0;
   }
 }
 /* --- model cards: the Models screen's suggested downloads (INBOX 444) -------
@@ -6102,4 +6208,86 @@ select {
 }
 .recent-change-empty {
   list-style: none;
+}
+
+/* --- Settings, About, Maintenance (settings-controls.js, renderMaintenance).
+   A check's row is the Health group's `.setting-row`, its label led by a
+   mark whose glyph and tone both say the result (DESIGN.md, "The result of
+   a check on this computer"). A value is a path or a sentence, so it takes
+   the row's remaining width and wraps rather than running past the column.
+   The uninstall dialog's command is one selectable line beside its Copy. */
+.doctor-mark.is-ok {
+  color: var(--ok);
+}
+.doctor-mark.is-warn {
+  color: var(--warn);
+}
+.doctor-mark.is-x {
+  color: var(--error);
+}
+.doctor-row > .setting-control {
+  flex: 1 1 16rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.uninstall-steps {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+.uninstall-command-row {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.uninstall-command {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+/* Settings, Help, Credits (`renderCredits`, settings-find.js): a row per
+   library, its name a link and its licence after it. */
+.credits-rows {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.credits-rows > li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+
+/* A Settings section fades in when its nav button shows it (ledger 1420): the
+   section is shown by dropping `.hidden`, so the animation restarts each time.
+   CSS only; Interface animations off and reduced motion zero it globally. */
+#settings-modal .settings-section:not(.hidden) {
+  animation: settings-pane-in var(--motion-slow) var(--ease-out);
+}
+@keyframes settings-pane-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* A finished job's Logs button sits at the row's right end, on the title line,
+   so it is at the same x on every row (the row-actions recipe). */
+#task-history .entry-meta > .row-actions {
+  margin-inline-start: auto;
+}
+/* No lines to show: the empty state takes the list's place, not an empty bar. */
+.log-none {
+  display: none;
 }

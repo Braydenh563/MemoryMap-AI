@@ -49,6 +49,10 @@ OPEN = {
     # tests/test_forgot_password.py holds all three.
     "/auth/recover",
     "/auth/reset",
+    # The LAN authority's public certificate (INBOX 866): iOS installs a
+    # profile only from a plain navigation, which carries no token, and every
+    # TLS handshake on the LAN port already sends it. Never a key.
+    "/auth/lan-certificate.pem",
     # Liveness, deliberately: the launcher polls it before the vault exists.
     "/health",
     # Which notebook this server serves, as a hash of its data dir, so a

@@ -96,7 +96,7 @@ def test_restart_never_hands_windows_an_unquoted_argv(monkeypatch):
 
 
 def test_the_menu_has_the_items_it_advertises():
-    for label in ("Open MemoryMap AI", "New note", "View Logs", "Restart", "Quit"):
+    for label in ("Open Tessellate", "New note", "View Logs", "Restart", "Quit"):
         assert f'pystray.MenuItem("{label}"' in SOURCE, label
 
 

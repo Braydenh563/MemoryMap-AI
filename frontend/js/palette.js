@@ -165,7 +165,7 @@ function rememberAgentStarter(text) {
   if (!AGENT_STARTERS.some((starter) => starter.text === text)) return;
   const kept = [text, ...agentStarterRecents().map((s) => s.text).filter((t) => t !== text)];
   try {
-    localStorage.setItem(
+    prefs.set(
       AGENT_STARTERS_RECENT_KEY,
       JSON.stringify(kept.slice(0, AGENT_STARTERS_RECENT_MAX))
     );
@@ -533,6 +533,18 @@ async function cmdPaletteSaveAsChat() {
     //: the conversation, the button opens it, and nothing switches tab
     //: underneath a panel that is still open unless it is pressed.
     setLabel(status, "ph:check-circle Saved as a chat");
+    let savedRow = null;
+    pushUndo(
+      `Saved a chat as “${conversation.title}”`,
+      async () => {
+        savedRow = (await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" })).restore;
+        loadConversationList().catch(() => {});
+      },
+      async () => {
+        if (savedRow) await apiJson("/conversations/restore", { method: "POST", body: JSON.stringify(savedRow) });
+        loadConversationList().catch(() => {});
+      }
+    );
     toastAction(`Saved as "${conversation.title}"`, "Open it", () => {
       toggleAgentPalette();
       switchTab("chat");

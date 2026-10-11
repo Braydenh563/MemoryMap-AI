@@ -319,6 +319,20 @@ description of what they wanted.
 The group drag this entry left open is built: moved to HISTORY.md ("Moved
 from the plans, 2026-09-23", GRAPH_PLAN.md).
 
+## Decision made, 2026-10-11: a drag moves, a double-click pins
+
+The owner: "moving nodes keeps them stuck there, they should only be stuck
+in place if I double click on them to freez their position. though if the
+user moves them, they should settle into place in that general position".
+INBOX 802's hold (a dropped note held at the drop until the layout rested,
+then let go into a map with no heat left) read as a pin. Now the drag holds
+the note under the pointer only while dragging; on release `fx`/`fy` clear
+and the layout is left at a low heat (`RELEASE_ALPHA` 0.02, graph-worker.js),
+so the note eases into place near the drop (a 360-unit drop: 58 from it at
+rest, `test_graph_feel_100.py`). Double-click toggles a real pin with its
+held ring; Shift and drag still pins; Unpin all clears only real pins; a
+pinned note dragged stays pinned. Help says drag moves, double-click pins.
+
 ## Placed from INBOX, 2026-09-13
 
 - **Hovering a node grows it into its own halo** (INBOX 149, the owner: "can
@@ -353,6 +367,21 @@ this: it is set and released by the code that already owns it.
 Read this where the code carries it out: `graphCaptureView`/`graphApplyView`
 (`frontend/js/graph.js`) and `renderGraphCanvas`/`gcStartWorker`
 (`frontend/js/graph-canvas.js`, the default renderer).
+
+Claim #238 (2026-10-11): the hold was a separate `freeze` after `init`, and a
+view re-picks its layout, which clears the fit, so the init warmed for 450ms
+first and moved every saved note. The hold now rides in the init (`held`), a
+restore never warms or plays an intro, and graphviewpos.js compares with what
+the view stored, not a snapshot taken mid-settle.
+
+## Decision made, 2026-10-11: the drawn map is for reading
+
+BACKLOG's "decide what the graph is *for*" (a picture for a person, or a
+thing the AI walks): the picture. A person wants few, meaningful lines, so
+the map draws links and, on a toggle, each note's two closest matches; the
+AI's retrieval walks the links table and the index, weighted, and never
+needs a line drawn to use it. Typed links and strength serve both without
+the picture growing denser.
 
 
 ## Decision made, 2026-09-24: similarity is each note's two closest matches
@@ -577,8 +606,18 @@ wide?? How are they different from categories??"
   of them shared), so it survives a recompute.
 - **Neither writes the other.** A topic never files a note, and filing never
   reads topics. A topic whose notes sit in three categories is the useful
-  disagreement; turning a topic into a category is Brief 39b's (the
-  taxonomy), not the graph's.
+  disagreement. Turning a topic into a category is a person's own act
+  (2026-10-11, ledger 945; Brief 39b's steps did not carry it): the topic's
+  card has File as a category, the batch bar's one move with one Undo, the
+  name offered being the topic's.
+- **A topic is never "Topic 2" while its notes say something** (2026-10-11,
+  the owner on a "Topic 2" chip): below the share bar the best term two of
+  its notes share names it, then its most linked readable note's title
+  ("Around ..."); "Topic N" is left for private or untitled notes.
+- **Three notes stay at the fit's zoom clamp** (2026-10-11, ledger 967): at
+  1440x900 they fill 0.80 of the free height, not more, because past
+  `GRAPH_FIT_MAX_ZOOM` (2.5) the nodes and names grow cartoonish; a tiny
+  map reads as tiny.
 - **Integration is the same object shown everywhere, not a second taxonomy.**
   The note card and the note's panel on the map carry its topic as a chip that
   opens the graph on it; the name is renamed in place wherever it is written
@@ -590,7 +629,7 @@ wide?? How are they different from categories??"
 Every entry is built (the graph agent, 2026-10-10): the owner's words, the
 recommendations and what was built moved to HISTORY.md, "Moved from the
 plans, 2026-10-10 (graph-1010)". The categories-versus-topics answer is the
-decision above; turning a topic into a category is Brief 39b's.
+decision above; turning a topic into a category is the card's File as a category.
 
 ### Vendored capabilities to use, 2026-10-10 (Brief 75)
 
@@ -613,3 +652,7 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 Owner: the graph agent (Opus), when a slot frees.
 
 - INBOX 802, graph, the owner 2026-10-11 03:35Z, verbatim: "The graph movement is a lot closer to how it is on main and better than you had it, but I still cant move the force graph as well. Can you like copy the physics of the force graph on main?? like if cant drag parts of the graph to different areas of the graph and have it kinda settle into place there. idk but I quite like how it is on the main branch. also the resetting or re-centering of the force graph is not smooth and doesnt smoothlly pan over." Recommendation, taken: port main's force simulation and its drag (a dragged node pins while held, the simulation reheats, neighbours follow, it settles where dropped); reset and recentre ease the view transform over the motion token, never jump. Then, 03:50Z, screenshot (the graph sits right of centre, an empty minimap top left): "why's the graph so positioned to the right and not in the middle??" Fit centres on the visible canvas, reserving only what a showing panel covers.
+
+## Placed from the owner, 2026-10-11: a tessellation view (next PR)
+
+The owner: "I'm thinking next pr we should add another graph view which better resembles the essence of the name tessellate". A third view beside the force graph and the map: every note owns one cell of a plane tiled with no gaps (a Voronoi tessellation over the existing 2D layout, or a hexagon grid placed by it), neighbours are related notes, categories are coloured regions with a heavier border, and a new note settles into its cell the way the logo's third cell does. First step: mock three variants (Voronoi, hexagon grid, hexagon clusters per category) at 50, 500 and 2,000 notes for the owner to pick from, then a brief here.

@@ -36,7 +36,6 @@ JS = ROOT / "frontend" / "js"
 #: Keyed by file, then the first argument's source text (whitespace folded).
 EXPECTED = {
     'ai-tools.js': [
-        '"Models aren\'t available yet. Open Settings, Models to check."',
         '"Write something first, then improve it."',
         '"Pick an embedding model first, e.g. nomic-embed-text."',
     ],
@@ -136,7 +135,7 @@ EXPECTED = {
     'settings-controls.js': [
         '"No skills found in that file."',
         '"No personas found in that file."',
-        '"Restart isn\'t available in this build, close and reopen MemoryMap by hand."',
+        '"Restart isn\'t available in this build, close and reopen Tessellate by hand."',
     ],
     'settings-models.js': [
         '"Couldn\'t copy it from here."',
@@ -167,7 +166,6 @@ EXPECTED = {
     ],
     'skills.js': [
         '`“${skill.name}” needs ${item.label || item.name}.`',
-        '"That file isn\'t valid JSON."',
         '"Tick some notes first."',
     ],
     'suggestions-inbox.js': [
@@ -185,7 +183,7 @@ EXPECTED = {
     ],
     'whiteboard-library.js': [
         '"That file is too large to be a library (8 MB at most)."',
-        '"That file is not a MemoryMap library."',
+        '"That file is not a Tessellate library."',
     ],
     'whiteboard-map.js': [
         '"That topic\'s link is not a web address."',
@@ -220,7 +218,7 @@ for _name, _messages in EXPECTED_RULE4.items():
 #: `.message` has to appear here.
 FAULTS = {
     'app.js': {
-        '"Can\'t reach the MemoryMap server. Is it running?"': 'network failure: the server cannot be reached',
+        '"Can\'t reach the Tessellate server. Is it running?"': 'network failure: the server cannot be reached',
     },
     'chat-attach.js': {
         '"Couldn\'t save this chat turn."': 'saving a chat turn failed after the model answered: lost data',
@@ -262,6 +260,7 @@ FAULTS = {
     'settings-controls.js': {
         '(status && status.textContent) || "Couldn\'t apply the update."': "the update step failed; the text is the step's own error",
         'status.textContent || "Couldn\'t install that version."': "the install step failed; the text is the step's own error",
+        'wentAway ? "The app hasn\'t come back yet. Start it again by hand." : "The app didn\'t restart. Close and reopen it by hand."': "the restart did not happen or the app did not return; Try again restarts it",
     },
     'settings.js': {
         '"Couldn\'t save that setting."': 'saving a setting failed',
@@ -269,8 +268,8 @@ FAULTS = {
         '"Couldn\'t reset those settings."': 'resetting settings failed',
     },
     'shell-reminders.js': {
-        "`Couldn't delete ${failed} of the reminders.`": 'a bulk delete partly failed',
-        "`Couldn't bring back ${failed} of the reminders.`": 'a bulk restore partly failed',
+        "`Couldn't delete ${left.length} of the reminders.`": 'a bulk delete partly failed',
+        "`Couldn't bring back ${left.length} of the reminders.`": 'a bulk restore partly failed',
     },
     'update-dialogs.js': {
         'progress.textContent || "Couldn\'t apply the update."': "the update step failed; the text is the step's own error",
@@ -287,7 +286,8 @@ FAULTS = {
 DYNAMIC = {
     "status.js": {"isError"},  # agentActivityNotice and toast(): passes the caller's flag through
     "ai-tools.js": {'!/already running/i.test(error.message || "")'},  # a 409 "already running" is plain
-    "settings-packages.js": {"!result.started", "!result.removed"},  # the server's own started/removed answer
+    #: A failed request is red; the server's own refusal (started or removed false) is a plain notice.
+    "settings-packages.js": {'result.failed ? true : result.started ? false : "info"', 'result.failed ? true : result.removed ? false : "info"'},
     "suggestions-inbox.js": {"linked < sure.length"},  # a partial link run
     "whiteboard.js": {"Boolean(left)"},  # a clear that left items behind
     "library.js": {'described?.caption ? false : "info"'},  # no caption written is plain

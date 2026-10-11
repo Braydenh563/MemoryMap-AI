@@ -48,7 +48,7 @@ from urllib.parse import unquote
 
 SOURCES = ("notion", "obsidian", "evernote", "apple", "memorymap")
 LABELS = {"notion": "Notion", "obsidian": "Obsidian", "evernote": "Evernote", "apple": "Apple Notes",
-          "memorymap": "a MemoryMap folder"}
+          "memorymap": "a Tessellate folder"}
 
 #: Per file, and over a whole archive once unpacked: a zip bomb stops here.
 MAX_FILE_BYTES = 5 * 1024 * 1024
@@ -76,7 +76,7 @@ class Imported:
     created: datetime | None = None
     #: Front matter keys other than category and tags, kept in the text.
     path: str = ""
-    #: A MemoryMap folder's sidecar, every field (`export_folder.read`).
+    #: A Tessellate folder's sidecar, every field (`export_folder.read`).
     record: dict | None = None
     #: Its attachments, by the file name the sidecar gives.
     files: dict = field(default_factory=dict)
@@ -87,7 +87,7 @@ class ReadResult:
     notes: list[Imported] = field(default_factory=list)
     #: "name: reason", one per file or note left out: the import report lists them.
     skipped: list[str] = field(default_factory=list)
-    #: What a source carries besides notes (a MemoryMap folder's documents).
+    #: What a source carries besides notes (a Tessellate folder's documents).
     extra: dict = field(default_factory=dict)
 
 
@@ -476,6 +476,8 @@ def _make(session, note: Imported, key: str):  # noqa: ANN001, ANN202
         category_name=note.category or manager.UNCATEGORISED,
         tags=note.tags,
         ai_confidence=100 if note.category else 0,
+        commit=False,
+        dates=False,
     )
     entry.source_path = key
     if note.category:
@@ -483,9 +485,9 @@ def _make(session, note: Imported, key: str):  # noqa: ANN001, ANN202
     created = note.created or written_on(note.title, note.body)
     if created is not None:
         entry.created_at = created
-        #: "Tomorrow" in a note from 2024 meant a day in 2024: the dated
-        #: mentions are read again on the day the note was written.
-        manager.record_dates(session, entry)
+    #: "Tomorrow" in a note from 2024 meant a day in 2024: the dated mentions
+    #: are read once, on the day the note was written (`dates=False` above).
+    manager.record_dates(session, entry)
     return entry
 
 
@@ -493,8 +495,8 @@ def write(session, source: str, notes: list[Imported], progress=None) -> dict:  
     """Make the notes that are not already here. Returns the counts and ids.
 
     `progress` (`export_folder.Progress`) is told every hundred notes and
-    asked before each one whether to stop; each note is committed as it is
-    made (`create_entry`), so a stop keeps what was written."""
+    asked before each one whether to stop; every hundred notes are
+    committed (and the rest at the end or on a stop), so a stop keeps what was written."""
     from memorymap.entry import export_folder
 
     progress = progress or export_folder.Progress()
@@ -521,6 +523,8 @@ def write(session, source: str, notes: list[Imported], progress=None) -> dict:  
             named[kind].update(names)
         ids.append(entry.id)
         made.append(entry)
+        if done % progress.every == 0:
+            session.commit()  # in batches, not one fsync per note
     session.commit()
     return {"imported": len(ids), "already": already, "ids": ids, "entries": made, "stopped": stopped,
             "people": sorted(named["people"])[:50], "places": sorted(named["places"])[:50]}

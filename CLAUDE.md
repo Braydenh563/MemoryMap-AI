@@ -1,7 +1,9 @@
-# MemoryMap AI: read this first
+# Tessellate: read this first
 
-A 100% offline, local-first notebook where a local AI files your notes and
-answers questions about them. Python and FastAPI backend, vanilla JS
+Tessellate (formerly MemoryMap AI; the package, env vars and data folder
+keep the old name where existing installs depend on it) is a 100% offline,
+local-first notebook where a local AI files your notes and answers
+questions about them. Python and FastAPI backend, vanilla JS
 frontend, SQLite. No build step: `frontend/js/*.js` and `frontend/css/*.css`
 are served as-is.
 

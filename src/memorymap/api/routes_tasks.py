@@ -35,7 +35,8 @@ from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
 from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, jobruns, jobstore, taskhistory
 from memorymap.core import jobs as bgpool
-from memorymap.api.this_computer import this_computer_only
+from memorymap.api.this_computer import is_another_device, this_computer_only
+from memorymap.entry import import_report
 
 router = APIRouter(tags=["tasks"])
 
@@ -247,7 +248,9 @@ def collect() -> list[dict]:
             {
                 "kind": "embedding-model",
                 "name": embed_download.model_id,
-                "label": f"Downloading {model.label if model else embed_download.label or 'an embedding model'}",
+                "label": embedmodels.repair_title(model.label if model else embed_download.label or "the embedding model")
+                if embed_download.repair
+                else f"Downloading {model.label if model else embed_download.label or 'an embedding model'}",
                 "detail": embed_download.step or "starting…",
                 # No fraction reported for the same reason pip's isn't below:
                 # snapshot_download doesn't hand back one worth trusting.
@@ -538,6 +541,9 @@ def jobs_last_runs() -> dict:
     extra = passes.overview()
     for run in runs:
         run.update(extra.get(run["kind"], {}))
+        #: An import that kept a page: the overview offers it (ledger 1406).
+        if run["kind"] == "import" and run.get("ran"):
+            run["report"] = import_report.latest(deps.get_config().data_dir)
     return {"jobs": runs}
 
 
@@ -580,6 +586,9 @@ def cancel_job(job_id: int) -> dict:
 _STREAM_POLL_SECONDS = 0.5
 _STREAM_PING_SECONDS = 15.0
 _STREAM_MAX_SECONDS = 60.0
+#: The panel's rows are looked at every second (two polls of the counter),
+#: the rate the status bar's own poll had while the panel was open.
+_STREAM_TASKS_EVERY = 2
 
 
 @router.get("/jobs/stream")
@@ -604,15 +613,34 @@ async def jobs_stream(
         body = {"running": jobruns.live(), "now": time.time()}
         return f"event: runs\ndata: {json.dumps(body)}\n\n"
 
+    def tasks_body() -> tuple[str, str]:
+        """The running-now panel's rows, the `/tasks` body (Brief 9): the
+        panel paints from the stream while it is open instead of a poll.
+        Compared without `now`, so an idle list is not resent each look."""
+        body = list_tasks()
+        key = json.dumps({"tasks": body["tasks"], "history": body["history"]}, sort_keys=True, default=str)
+        return key, f"event: tasks\ndata: {json.dumps(body, default=str)}\n\n"
+
     async def events():
         seen = jobstore.version()
         seen_runs = jobruns.version()
-        yield "retry: 3000\n\n" + await asyncio.to_thread(snapshot) + runs()
+        seen_tasks, first_tasks = await asyncio.to_thread(tasks_body)
+        yield "retry: 3000\n\n" + await asyncio.to_thread(snapshot) + runs() + first_tasks
         started = last_sent = time.monotonic()
+        ticks = 0
         while time.monotonic() - started < seconds:
             await asyncio.sleep(_STREAM_POLL_SECONDS)
             if await request.is_disconnected():
                 return
+            ticks += 1
+            #: Every `_STREAM_TASKS_EVERY` looks: the rows are built from
+            #: every kind's own state, so there is no one counter to watch.
+            if ticks % _STREAM_TASKS_EVERY == 0:
+                key, message = await asyncio.to_thread(tasks_body)
+                if key != seen_tasks:
+                    seen_tasks = key
+                    last_sent = time.monotonic()
+                    yield message
             now_version = jobstore.version()
             if now_version != seen:
                 seen = now_version
@@ -760,14 +788,17 @@ def clear_history() -> dict:
 
 
 @router.get("/desktop/fullscreen")
-def desktop_fullscreen_state() -> dict:
+def desktop_fullscreen_state(request: Request) -> dict:
     """Whether this app runs in a window that can fill the screen itself.
 
     `available` is false in a browser tab, where the page uses the browser's
     own Fullscreen API (see `core.window_hook` for why the desktop window
-    cannot)."""
+    cannot), and on any other device, whose page is a browser tab: told
+    true, a phone pressed full screen and got the 403 the toggle answers it."""
     from memorymap.core import window_hook
 
+    if is_another_device(request):
+        return {"available": False, "fullscreen": False}
     return {"available": window_hook.available(), "fullscreen": window_hook.is_fullscreen()}
 
 

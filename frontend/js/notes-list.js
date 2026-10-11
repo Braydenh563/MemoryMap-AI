@@ -96,7 +96,6 @@ async function openNoteEditor(id, { focusTags = false } = {}) {
   return true;
 }
 
-
 // Category <select> shared by capture (guided mode) and the edit form.
 function fillCategoryOptions(select, selected) {
   select.replaceChildren();
@@ -445,6 +444,20 @@ function matchesSearch(entry) {
   // Every word must appear somewhere, in any order.
   return query.words.every((word) => haystack.includes(word));
 }
+
+// The inline marks the writing side inserts (MD_ACTIONS' toolbars in
+// documents.js, which editor.js's "/" menu reuses) and INLINE_MD below reads
+// back. One table, so a mark cannot be written that the renderer does not
+// draw: the Red/Grey highlight bug lived in the gap between the two.
+// tests/test_docs_1011.py runs each mark through INLINE_MD. `$` math is
+// drawn by documents.js's docMathTree; `%%` comments are never rendered.
+const MD_INLINE_MARKS = {
+  bold: "**",
+  italic: "*",
+  strike: "~~",
+  code: "`",
+  highlight: "==",
+};
 
 // Inline markdown in note text, deliberately only the inline kind: block
 // markdown (headings, tables, lists) makes a list of notes very tall, and
@@ -2092,7 +2105,7 @@ function toggleExpandAllRows() {
 
 function setNotesViewMode(mode) {
   notesViewMode = mode === "cards" ? "cards" : "rows";
-  localStorage.setItem("notesViewMode", notesViewMode);
+  prefs.set("notesViewMode", notesViewMode);
   applyNotesViewMode();
 }
 
@@ -2230,6 +2243,10 @@ function libraryVisibleRows() {
   return matched;
 }
 
+//: Ids on screen before this render, or null outside the second after one.
+let rowEnterIds = null;
+let rowEnterTimer = 0;
+
 function renderEntries() {
   closeNotePageIfGone();
   notesRailSync();
@@ -2240,6 +2257,13 @@ function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
   const noMatch = $("no-match-message");
+  //: **A row that arrives after the first render fades in** (ledger 1538). The
+  //: list redraws whole, so what was on screen is remembered by id and a card
+  //: whose id was not there is marked (`entryItem` reads `rowEnterIds`). The
+  //: first render, and a render after the list was empty, mark nothing.
+  rowEnterIds = new Set([...list.querySelectorAll(":scope > li[data-id]")].map((li) => li.dataset.id));
+  clearTimeout(rowEnterTimer);
+  rowEnterTimer = setTimeout(() => { rowEnterIds = null; }, 1000);
   list.replaceChildren();
   // Re-applied on every render, not just on a click: `replaceChildren`
   // above leaves the class alone, but a later render that rebuilt the <ul>
@@ -2728,8 +2752,6 @@ function wireSidebarRowKeys(li) {
 //: batch bar), or by dragging a note's category label onto a category in
 //: the sidebar.
 
-let manageCategoriesRedraw = null;
-
 function categoryMenuItems(meta, { inPanel = false } = {}) {
   const items = [
     { label: "ph:pencil-simple Rename…", title: `Rename ${meta.name}`, run: () => renameCategory(meta, meta.name) },
@@ -2978,6 +3000,10 @@ function entryListOrder(a, b) {
 
 async function refreshEntries(ids) {
   const wanted = [...new Set((ids || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  //: The sidebar's Most used follows a write at once (OPEN: "keeps a binned
+  //: note for up to 30 s"): the write emptied the read cache, so this is one
+  //: fresh GET, not the 30 s copy.
+  if (typeof loadMostUsed === "function") loadMostUsed().catch(() => {});
   const semantic = $("semantic-search-toggle")?.checked && noteSearch;
   if (!wanted.length || wanted.length > REFRESH_ENTRIES_MAX || !entriesComplete || semantic) {
     return loadEntries();
@@ -3017,6 +3043,48 @@ async function refreshEntries(ids) {
   loadCategories();
   fillCategoryOptions($("entry-category"), null);
 }
+
+//: **A change made on another device shows here** (INBOX 881, the owner
+//: 2026-10-11: "what if I make a change on my phone?? does it live
+//: update??"). Every `NOTE_CHANGES_MS` while the page is visible, and at once
+//: when it comes back (the phone's browser brought forward), the list asks
+//: `GET /entries/changes` which notes moved since its last answer and
+//: patches those in with `refreshEntries`. The note being edited is left
+//: alone: its Save sends `base_hash`, so a newer text from elsewhere still
+//: gets the Keep mine / Take theirs prompt rather than being overwritten
+//: under the person's cursor. `seen` drops an id already refreshed at the
+//: same `updated_at` (the server's stamp overlaps by two seconds).
+const NOTE_CHANGES_MS = 15_000;
+const noteChanges = { since: "", seen: new Map(), timer: 0, busy: false };
+async function followNoteChanges() {
+  clearTimeout(noteChanges.timer);
+  if (document.hidden) return;
+  noteChanges.timer = setTimeout(followNoteChanges, noteChanges.since ? NOTE_CHANGES_MS : 2000);
+  //: The first stamp is taken as soon as there is a session, before the list
+  //: has finished loading, so a change made while it loads is not missed.
+  if (noteChanges.busy || !authToken() || (noteChanges.since && !entriesComplete)) return;
+  noteChanges.busy = true;
+  try {
+    const body = await apiJson(`/entries/changes?since=${encodeURIComponent(noteChanges.since)}`, { silent: true });
+    const first = !noteChanges.since;
+    noteChanges.since = body.since;
+    if (first) return;
+    //: More than one answer holds: an empty patch is `refreshEntries`'s full read.
+    if (body.more) return void refreshEntries([]);
+    const ids = body.ids.filter((id) => id !== editingId && noteChanges.seen.get(id) !== body.stamps[id]);
+    if (noteChanges.seen.size > 500) noteChanges.seen.clear();
+    for (const id of body.ids) noteChanges.seen.set(id, body.stamps[id]);
+    if (!ids.length) return;
+    await refreshEntries(ids);
+    if (typeof refreshNotePage === "function") refreshNotePage(ids);
+  } catch {
+    /* offline or locked: the next tick asks again */
+  } finally {
+    noteChanges.busy = false;
+  }
+}
+document.addEventListener("visibilitychange", followNoteChanges);
+followNoteChanges();
 
 //: **What the note list needs to draw a `[[map]]` as a map chip**, fetched
 //: once and only for a notebook that has one.
@@ -3128,9 +3196,18 @@ function reminderCountChip(entry, options = {}) {
 const noteTopicsCache = new Map();
 const _noteTopicsInFlight = new Set();
 
+//: A topic the graph named after a tag repeats the tag chip already on the
+//: card, so it is left off there; case, a leading # and separators do not count.
+function topicRepeatsTag(name, tags) {
+  const key = (text) => String(text || "").toLowerCase().replace(/^#/, "").replace(/[\s_-]+/g, " ").trim();
+  const topic = key(name);
+  return Boolean(topic) && (tags || []).some((tag) => key(tag) === topic);
+}
+
 function noteTopicChip(entry) {
   const topic = noteTopicsCache.get(entry.id);
   if (!topic || entry.is_board || entry.is_draft) return null;
+  if (topicRepeatsTag(topic.name, entry.tags)) return null;
   const mark = chip(`ph:circles-three ${topic.name}`, "refs topic", async (event) => {
     event.stopPropagation();
     await switchTab("graph");
@@ -3514,7 +3591,7 @@ function dockConnectionsInRail(id) {
 
 function setNotesRailHidden(hidden) {
   try {
-    localStorage.setItem(NOTES_RAIL_KEY, hidden ? "off" : "on");
+    prefs.set(NOTES_RAIL_KEY, hidden ? "off" : "on");
   } catch {
     /* private mode: the choice lasts this visit */
   }
@@ -3597,6 +3674,7 @@ function offerWikiRename(entryId, saved) {
   toastAction(`${who} to [[${offer.old}]].`, `Rename to [[${offer.new}]]`, async () => {
     try {
       const done = await apiJson(`/entries/${entryId}/wiki-rename`, { method: "POST", body: JSON.stringify({ old: offer.old }) });
+      pushWikiRenameUndo(entryId, offer.old, done);
       toast(`Updated ${done.rewritten} note${done.rewritten === 1 ? "" : "s"}.`);
       await loadEntries().catch(() => {});
     } catch (error) {

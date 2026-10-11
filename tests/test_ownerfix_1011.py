@@ -33,6 +33,7 @@ def test_a_link_row_underlines_its_words_not_its_icon():
     assert "text-decoration" not in hover
     consistency = _css("08-consistency.css")
     assert ".library-read-open:hover .ph-text" in consistency
+    #: The hover rule shares its block with the focus twin (the uisweep pass), so it ends in a comma.
     plain = consistency[consistency.index(".library-read-open:hover,"):].split("}", 1)[0]
     assert "text-decoration" not in plain
     # An always-underlined link that holds an icon is not a flex row.

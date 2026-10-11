@@ -392,19 +392,19 @@ def test_a_hand_typed_caption_overwrites_an_existing_one_without_force(ai_client
 def test_a_caption_the_app_wrote_is_credited_to_the_app(ai_client, fake_ollama):
     """The owner, 2026-09-24: a board export's caption said "typed by hand" in the
     lightbox. The app wrote it (`wbExportDescription`), so it is stored as
-    written by MemoryMap and not as edited, and needs no model."""
+    written by Tessellate and not as edited, and needs no model."""
     fake_ollama.capabilities_declared = []
     upload_id = ai_client.post(
         "/media/upload", files={"file": ("board.png", b"\x89PNG\r\n\x1a\n", "image/png")}
     ).json()["id"]
     response = ai_client.post(
         f"/media/{upload_id}/caption",
-        json={"text": "The mind map \"Plans\", exported from MemoryMap.", "source": "app"},
+        json={"text": "The mind map \"Plans\", exported from Tessellate.", "source": "app"},
     )
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["caption"].startswith("The mind map")
-    assert body["caption_model"] == "MemoryMap"
+    assert body["caption_model"] == "MemoryMap"  # brand: keep (the stored sentinel, APP_CAPTION_AUTHOR)
     assert body["caption_edited"] is False
     assert len(fake_ollama.chat_calls) == 0
 
@@ -419,19 +419,19 @@ def test_a_model_replacing_the_apps_caption_is_not_an_edit(ai_client, fake_ollam
     ai_client.post(f"/media/{upload_id}/caption", json={"text": "Part of a board.", "source": "app"})
     response = ai_client.post(f"/media/{upload_id}/caption", json={"force": True})
     body = response.json()
-    assert body["caption_model"] and body["caption_model"] != "MemoryMap"
+    assert body["caption_model"] and body["caption_model"] != "MemoryMap"  # brand: keep
     assert body["caption_edited"] is False
 
 
 def test_a_person_editing_the_apps_caption_keeps_its_author(ai_client, fake_ollama):
-    """Edited by hand after the app wrote it: "Written by MemoryMap · edited",
+    """Edited by hand after the app wrote it: "Written by Tessellate · edited",
     the same history a model's caption keeps when someone fixes a typo."""
     upload_id = ai_client.post(
         "/media/upload", files={"file": ("board.png", b"\x89PNG\r\n\x1a\n", "image/png")}
     ).json()["id"]
     ai_client.post(f"/media/{upload_id}/caption", json={"text": "Part of a board.", "source": "app"})
     body = ai_client.post(f"/media/{upload_id}/caption", json={"text": "My board"}).json()
-    assert body["caption_model"] == "MemoryMap"
+    assert body["caption_model"] == "MemoryMap"  # brand: keep (the stored sentinel, APP_CAPTION_AUTHOR)
     assert body["caption_edited"] is True
 
 

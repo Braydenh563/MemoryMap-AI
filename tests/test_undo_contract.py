@@ -26,9 +26,11 @@ OWNERS = {
     "undo-store.js",  # the stack's store across a reload
     "whiteboard.js",  # the board's own history (wbUndo and its stack)
     "whiteboard-history.js",
+    "settings-data.js",  # Settings' own Recent changes list with Undo and Redo (Brief 86)
 }
-#: Names that are an editor's own history inside a larger file.
-EDITOR_HISTORY = re.compile(r"^docUndo")
+#: Names that are an editor's own history inside a larger file: a document's undo stack, and
+#: autocorrect putting back the word just typed (the text box's own Ctrl+Z, not a notebook change).
+EDITOR_HISTORY = re.compile(r"^(docUndo|autocorrectUndo)")
 
 #: Starting list 2026-10-10 (Brief 51), each with why it is not folded yet.
 #: Remove a name when it goes through the contract; never add one.

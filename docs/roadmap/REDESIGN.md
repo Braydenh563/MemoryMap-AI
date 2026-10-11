@@ -233,18 +233,18 @@ What each part earns:
 
 - **A left rail instead of a top tab bar.** Kortex has no top tabs at all.
   Destinations are a short list at the top of the rail; everything below is
-  *the user's own content* as a tree. MemoryMap's seven top tabs plus seven
+  *the user's own content* as a tree. Tessellate's seven top tabs plus seven
   Library sub-tabs plus four Notes sub-tabs is three levels of tab bar for
   what is one hierarchy.
 - **Per-pane back/forward and breadcrumbs.** Each pane owns its own history
-  (`← → Newsletters / … / February 2025 / Dead Internet Theory`). MemoryMap
+  (`← → Newsletters / … / February 2025 / Dead Internet Theory`). Tessellate
   has one global nav-history popup for the whole app, which is why it has
   been reported and re-reported: it is trying to be per-pane history in a
   single-pane app.
 - **Independently scrolling panes.** The direct fix for C1.
 - **A narrow measure for prose.** Kortex's document column is roughly 700px
-  in a 1460px window. MemoryMap's note cards are 1037px wide.
-- **Dark, low-chroma chrome; content is the only bright thing.** MemoryMap's
+  in a 1460px window. Tessellate's note cards are 1037px wide.
+- **Dark, low-chroma chrome; content is the only bright thing.** Tessellate's
   default light theme paints a lilac gradient across the whole background
   behind translucent cards. It is pretty in a screenshot and it is why
   nothing reads as foreground.
@@ -285,12 +285,12 @@ naming, because each is a small, self-contained "feels capable" win:
 
 - **A selection toolbar.** Selecting text raises a small floating bar,
   bold, italic, underline, strike, link, highlight, alignment, `Aa`,
-  overflow. MemoryMap has *no formatting toolbar at all*, and the
+  overflow. Tessellate has *no formatting toolbar at all*, and the
   `==highlight==` syntax added recently has no button. HANDOVER.md already
   identifies this as where it belongs (BACKLOG §109.4).
 - **`+ Add context` above the composer, and `@` to mention.** The chat
   composer names what it is about to read *before* you send, as removable
-  chips. MemoryMap's chat decides its own context and tells you afterwards.
+  chips. Tessellate's chat decides its own context and tells you afterwards.
 - **A chats list as a pane, not a screen.** The right pane can hold the list
   of past chats with a one-line preview of the last reply and a turn count,
   and switch to one in place.
@@ -881,7 +881,7 @@ menu, a `#hash` route, an already-open second tab, has not been checked.
 Everything above is a list of repairs. This is the shape they are repairs
 *toward*, so the next session is not just working a queue.
 
-**The organising idea: one workspace, many panes.** MemoryMap today is seven
+**The organising idea: one workspace, many panes.** Tessellate today is seven
 screens that each own the whole window, and switching loses everything about
 where you were. Every unresolved complaint in §R7 is downstream of that:
 cross-linking is hard because you cannot see two things at once (§R7.3); the
@@ -893,7 +893,7 @@ navigation because there was no persistent way to get anywhere.
 Kortex's answer, in the screenshots supplied, is the one to take:
 
 - **A left rail that is content, not chrome.** Destinations at the top;
-  below them, the user's own tree. MemoryMap has seven top tabs, seven
+  below them, the user's own tree. Tessellate has seven top tabs, seven
   Library sub-tabs and four Notes sub-tabs, three levels of tab bar over
   one hierarchy.
 - **Panes, each with its own back/forward and breadcrumbs.** This also

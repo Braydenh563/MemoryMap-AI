@@ -52,6 +52,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -59,7 +60,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.core import jobruns, model_gate
+from memorymap.core import jobruns, model_gate, undo_bin
 from memorymap.core.database import DerivedFact, Entry, utcnow
 from memorymap.core.logbuffer import safe_value
 
@@ -816,10 +817,11 @@ class _Similar:
     def nearest(self, text: str, allowed, k: int = PAIR_NEIGHBOURS) -> list[tuple[float, DerivedFact]]:  # noqa: ANN001
         """Up to `k` pool rows for which `allowed(row)` holds, best first."""
         terms = _terms(text)
-        shared: dict[int, int] = {}
+        #: `Counter.update` counts in C; the per-posting dict get and set was
+        #: the next biggest cost in this loop (ledger 1542).
+        shared: Counter[int] = Counter()
         for term in terms:
-            for index in self._postings.get(term, ()):
-                shared[index] = shared.get(index, 0) + 1
+            shared.update(self._postings.get(term, ()))
         by_words = []
         #: **The same sentence again is not a neighbour.** A notebook that
         #: says "the rent is 950" in three notes has three identical claims,
@@ -829,8 +831,12 @@ class _Similar:
         #: copy of each wording, and never the query's own.
         seen_texts = {" ".join(text.lower().split())}
         for index, count in shared.items():
-            union = len(terms | self._terms[index])
-            score = count / union if union else 0.0
+            #: `count` is the size of the intersection (one posting hit per
+            #: shared term), so the union is a sum, not a new set per
+            #: candidate: the set built here was most of the pairing phase
+            #: (ledger 1542, 4.4 of 7.4 s at 800 claims).
+            union = len(terms) + len(self._terms[index]) - count
+            score = count / union if union > 0 else 0.0
             if score >= self.PREFILTER and allowed(self._pool[index]):
                 by_words.append((score, self._pool[index]))
         by_words.sort(key=lambda pair: (-pair[0], pair[1].id))
@@ -1281,6 +1287,81 @@ def remove(session: Session, row: DerivedFact, at: datetime | None = None) -> No
     """Tombstone a fact so no later run brings it back."""
     row.deleted_at = at or utcnow()
     session.flush()
+
+
+def tombstoned(session: Session, fact_id: int) -> DerivedFact | None:
+    """A deleted fact the person could have opened before it went (Undo's way back)."""
+    return session.scalars(
+        select(DerivedFact)
+        .join(Entry, Entry.id == DerivedFact.entry_id)
+        .where(
+            DerivedFact.id == fact_id,
+            DerivedFact.deleted_at.is_not(None),
+            Entry.is_deleted.is_(False),
+            Entry.is_private.is_(False),
+        )
+    ).first()
+
+
+def restore(session: Session, row: DerivedFact) -> None:
+    """Undo of `remove`: the fact is live again, and the next run may keep it."""
+    row.deleted_at = None
+    session.flush()
+
+
+def _forgotten_event_type() -> str:
+    import sys
+
+    tensions = sys.modules.get("memorymap.ai.tensions")
+    return tensions.EVENT_TYPE if tensions is not None else "tension"
+
+
+def snapshot(session: Session) -> dict[str, list[dict]]:
+    """Every row `forget` is about to delete, as plain dicts (INBOX 898), so
+    `unforget` can put them back. Taken before, in the same transaction."""
+    from sqlalchemy import or_
+
+    from memorymap.core.database import AuditLog, DerivedTension, NightRun, NoteScore
+
+    def rows(model, *where):  # noqa: ANN001, ANN202
+        return [undo_bin.row_dict(row) for row in session.scalars(select(model).where(*where))]
+
+    return {
+        "facts": rows(DerivedFact),
+        "runs": rows(NightRun),
+        "scores": rows(NoteScore),
+        "tensions": rows(DerivedTension),
+        "events": rows(
+            AuditLog, or_(AuditLog.action == "correction", AuditLog.entity_type == _forgotten_event_type())
+        ),
+    }
+
+
+def unforget(session: Session, saved: dict[str, list[dict]]) -> dict[str, int]:
+    """Put back what `snapshot` took. A row whose id is taken again is left alone."""
+    import sys
+
+    from memorymap.core.database import AuditLog, DerivedTension, NightRun, NoteScore
+
+    put: dict[str, int] = {}
+    for key, model in (
+        ("runs", NightRun),
+        ("facts", DerivedFact),
+        ("scores", NoteScore),
+        ("events", AuditLog),
+        ("tensions", DerivedTension),
+    ):
+        count = 0
+        for data in saved.get(key, []):
+            if session.get(model, data["id"]) is None:
+                session.add(undo_bin.row_from(model, data))
+                count += 1
+        session.flush()
+        put[key] = count
+    tensions = sys.modules.get("memorymap.ai.tensions")
+    if tensions is not None:
+        tensions._built.clear()
+    return put
 
 
 def forget(session: Session) -> dict[str, int]:

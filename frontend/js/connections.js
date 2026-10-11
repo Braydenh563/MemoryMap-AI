@@ -110,10 +110,18 @@ function withBacklinks(data, back, id) {
 async function linkNoteMention(subjectId, row, button) {
   button.disabled = true;
   try {
+    //: The source's text is read before and after, because the server rewrites
+    //: it in place and Undo puts the old words back (INBOX 898).
+    const sourcePath = row.kind === "note" ? `/entries/${row.id}` : `/documents/${row.id}`;
+    const textBefore = (await apiJson(sourcePath).catch(() => null))?.content;
     await apiJson(`/entries/${subjectId}/mentions/link`, {
       method: "POST",
       body: JSON.stringify({ kind: row.kind, id: row.id, start: row.start, end: row.end }),
     });
+    const textAfter = (await apiJson(sourcePath).catch(() => null))?.content;
+    if (typeof textBefore === "string" && typeof textAfter === "string" && textBefore !== textAfter) {
+      pushRequestUndo(`Linked a mention in ${row.title}`, sourcePath, "PUT", { content: textBefore }, { content: textAfter }, () => loadEntries());
+    }
     toast(`Linked from ${row.title}.`);
   } catch (error) {
     toast(error.message, true);

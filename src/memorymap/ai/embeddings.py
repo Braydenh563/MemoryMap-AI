@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
+from memorymap.core import background
 from memorymap.core.database import Attachment, Category, ChunkVector, EmbeddingRecord, Entry
 from memorymap.core.logbuffer import safe_value
 
@@ -217,7 +218,7 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
     # process, it runs once at startup, and putting it on the shared queue
     # would make the first search of a session wait behind whatever OCR a
     # bulk import had already queued. One is not a concurrency problem.
-    threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
+    background.start("embedding-warmup", run)
 
 
 # How many gaps to close per startup. Bounded so a huge notebook doesn't spend
@@ -302,6 +303,7 @@ def backfill_missing(
 def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa: ANN001
     from sqlalchemy import select
 
+    from memorymap.core import jobruns
     from memorymap.core.database import EmbeddingRecord, Entry
 
     fixed = 0
@@ -326,17 +328,28 @@ def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa
             if missing
             else "Every note already has a vector."
         )
+        stopped = False
         for start in range(0, len(missing), EMBED_BATCH):
+            #: Stop (Settings, Background jobs) is honoured between batches, so
+            #: a long backfill is no longer one call with nothing to stop at.
+            if "embeddings-backfill" in jobruns.stop_asked:
+                stopped = True
+                break
             fixed += service.store_for_entries(session, missing[start : start + EMBED_BATCH])
             run.step(min(start + EMBED_BATCH, len(missing)), len(missing), "Embedding notes")
             run.say(f"Embedded {min(start + EMBED_BATCH, len(missing))} of {len(missing)} notes.")
-        run.say("Checking long notes for paragraph vectors.")
-        chunked = _backfill_chunks(service, session, limit, run)
+        chunked = 0
+        if not stopped:
+            run.say("Checking long notes for paragraph vectors.")
+            chunked = _backfill_chunks(service, session, limit, run)
         if fixed:
             session.commit()
             logging.getLogger("memorymap.embeddings").info(
                 "backfilled %d note(s) that had no embedding", fixed
             )
+        if stopped:
+            run.cancel(f"stopped after {fixed} of {len(missing)} notes; the rest are done at the next start")
+            return fixed
         run.result = (
             f"embedded {fixed} note{'' if fixed == 1 else 's'} that had no vector"
             if fixed
@@ -344,11 +357,14 @@ def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa
         )
         if chunked:
             run.result += f"; {chunked} long note{'' if chunked == 1 else 's'} got paragraph vectors"
-    except Exception as exc:  # noqa: BLE001  # a failed backfill must not stop startup
+    except Exception:  # noqa: BLE001  # a failed backfill must not stop startup
         session.rollback()
-        run.fail(exc)
+        #: A sentence, not `str(exc)` (ledger 1547); the traceback goes to the log.
+        logger.warning("embedding backfill failed", exc_info=True)
+        run.fail("Couldn't finish adding the missing search vectors. The log has the reason.")
     finally:
         session.close()
+        jobruns.stop_asked.discard("embeddings-backfill")
     return fixed
 
 
@@ -647,15 +663,38 @@ def similar_pairs(
     return found
 
 
+#: How many times a model whose files would not load is fetched again before
+#: the person is asked to reinstall it themselves.
+REPAIR_ATTEMPTS = 2
+
+
+def _fetch_model_as_a_task(loader, repo: str, title: str):  # noqa: ANN001, ANN202
+    """`loader(repo)` online, as a run the Activity list shows by `title`, so a
+    download or a fix is something a person can see happening (INBOX 1289)."""
+    from memorymap.core import jobruns
+
+    with jobruns.job_run("embedding-fix", title=title) as run:
+        run.say(f"{title}: fetching {repo}.")
+        return loader(repo)
+
+
 class EmbeddingService:
     # After a failed model load, wait this long before trying again, 
     # each attempt can hit the network and stall a save otherwise.
     RETRY_AFTER_SECONDS = 300
+    #: How many times a process fixes an incomplete model cache by itself.
+    REPAIR_ATTEMPTS = 2
 
     def __init__(self, model_manager: ModelManager, ollama_client: OllamaClient) -> None:
         self._models = model_manager
         self._ollama = ollama_client
-        self._st_model = None  # loaded lazily, exactly once
+        self._st_model = None  # loaded lazily; dropped after an idle hour (`unload_if_idle`)
+        #: When the model last encoded something, and whether it ever loaded:
+        #: an unloaded model is still "ready" (a reload from the disk cache,
+        #: seconds, not a first-time download), so the status pill and the
+        #: keyword-only notice do not flip on an idle hour.
+        self._last_used = 0.0
+        self._was_loaded = False
         self._load_failed_at: float | None = None
         # Why the last embed failed, for the Models screen, None = fine.
         self.last_error: str | None = None
@@ -753,7 +792,54 @@ class EmbeddingService:
         Drives the UI's status pill."""
         if self._models.embedding_backend() == "ollama":
             return self._ollama.is_running()
-        return self._st_model is not None
+        return self._st_model is not None or self._was_loaded
+
+    #: Idle time after which the model is dropped, in seconds (decision 62; the
+    #: `embedder_idle_unload_minutes` preference, 0 turns it off). Torch holds
+    #: about 430 MB resident once loaded (WORLD_CLASS_PLAN 19.1).
+    IDLE_UNLOAD_SECONDS = 3600
+    _idle_watch_started = False
+
+    def unload_if_idle(self, now: float | None = None) -> bool:
+        """Drop the sentence-transformers model when nothing has used it for the
+        idle window. True when it was dropped. The next embed loads it again."""
+        if self._st_model is None:
+            return False
+        try:
+            minutes = float(self._models._config.get_preference("embedder_idle_unload_minutes", 60))
+        except (TypeError, ValueError, AttributeError):
+            minutes = 60.0
+        if minutes <= 0:
+            return False
+        moment = time.monotonic() if now is None else now
+        if moment - self._last_used < minutes * 60:
+            return False
+        self._st_model = None
+        import gc
+
+        gc.collect()
+        logger.info("embedding model unloaded after %.0f minutes idle", minutes)
+        return True
+
+    def _watch_idle(self) -> None:
+        """One registered thread per loaded model: checks every five minutes and
+        ends when it has unloaded (the next load starts a new one)."""
+        from memorymap.core import background
+
+        if self._idle_watch_started:
+            return
+        self._idle_watch_started = True
+        stop = threading.Event()
+
+        def run() -> None:
+            try:
+                while not stop.wait(300):
+                    if self.unload_if_idle() or self._st_model is None:
+                        return
+            finally:
+                self._idle_watch_started = False
+
+        background.start("embedder-idle-watch", run, stop=stop.set)
 
     def embed_text(self, text: str) -> np.ndarray | None:
         """Vector for one text, or None if the backend is unavailable.
@@ -827,21 +913,32 @@ class EmbeddingService:
         except Exception as exc:  # noqa: BLE001  # not cached, stale or corrupt
             from memorymap.core import embedmodels
 
+            health = embedmodels.cache_health(repo)
+            if health["state"] == "incomplete":
+                self._mend_incomplete_cache(repo, health, exc)
             if embedmodels.is_downloaded(repo):
                 #: **Repaired, not handed over** (the owner, 2026-10-07: "things
                 #: should be auto fixed for the user"; a fresh install had a
-                #: folder with no files). One online fetch fills what is
-                #: missing, once a process, unless the person switched
-                #: automatic installs off (`semantic_auto_install`).
+                #: folder with no files). An online fetch fills what is
+                #: missing, as a visible task ("Fixing search by meaning"),
+                #: up to twice a process, unless the person switched
+                #: automatic installs off (`semantic_auto_install`); search
+                #: runs on keywords meanwhile, and the person is told to
+                #: reinstall only once two fixes have failed (INBOX 1289).
                 models = getattr(self, "_models", None)
                 allowed = models is None or models._config.get_preference("semantic_auto_install", True)
-                if allowed and not getattr(self, "_repair_tried", False):
-                    self._repair_tried = True
+                tried = getattr(self, "_repair_attempts", 0)
+                if allowed and tried < REPAIR_ATTEMPTS:
+                    self._repair_attempts = tried + 1
                     logger.warning("%s is on this computer but would not load (%s); fetching its files again", repo, safe_value(str(exc), 200))
                     try:
-                        return SentenceTransformer(repo)
+                        return _fetch_model_as_a_task(SentenceTransformer, repo, "Fixing search by meaning")
                     except Exception as again:  # noqa: BLE001  # offline, or the Hub refused
                         logger.warning("%s could not be fetched again (%s)", repo, safe_value(str(again), 200))
+                    if self._repair_attempts < REPAIR_ATTEMPTS:
+                        raise EmbeddingCacheBroken(
+                            "Search by meaning is fixing its files; search uses keywords until it has."
+                        ) from exc
                 else:
                     logger.warning("%s is on this computer but would not load (%s); staying offline", repo, safe_value(str(exc), 200))
                 raise EmbeddingCacheBroken(
@@ -849,7 +946,55 @@ class EmbeddingService:
                     "Reinstall it from Settings, Models."
                 ) from exc
         logger.info("%s is not on this computer yet: downloading it once", repo)
-        return SentenceTransformer(repo)
+        return _fetch_model_as_a_task(SentenceTransformer, repo, "Downloading the search model")
+
+    def _mend_incomplete_cache(self, repo: str, health: dict, cause: Exception) -> None:
+        """The folder is there but its files are not all (an empty folder, an
+        interrupted download): mend it as a visible task and say so. Always
+        raises `EmbeddingCacheBroken` (Brief 101c, the owner 2026-10-07).
+
+        **Visible, not inline.** The hidden fetch that used to run here showed
+        nowhere and, offline, ended as a bare "would not load". The repair is
+        a Background task with Quit (`embedmodels.repair`), at most twice a process,
+        unless automatic installs are off; when it lands, `_after_repair` lets
+        the model load without waiting out the retry interval."""
+        from memorymap.core import embedmodels
+
+        models = getattr(self, "_models", None)
+        allowed = models is None or models._config.get_preference("semantic_auto_install", True)
+        running = embedmodels.current()
+        mending = bool(running.running and running.repair)
+        #: Two fixes a process (the owner: "ask the person only after two
+        #: failed fixes"); each waits for the retry interval after the last.
+        attempts = getattr(self, "_repair_attempts", 0)
+        if not mending and allowed and attempts < self.REPAIR_ATTEMPTS:
+            self._repair_attempts = attempts + 1
+            mending, _ = embedmodels.repair(repo)
+        logger.warning(
+            "%s is on this computer but its files are incomplete (%s); %s",
+            repo,
+            safe_value(", ".join(health["missing"]), 200),
+            "repairing it" if mending else "staying offline",
+        )
+        if mending:
+            embedmodels.on_download_finished(self._after_repair)
+            raise EmbeddingCacheBroken(
+                "The search-by-meaning model's files were incomplete. They are being repaired "
+                "(Background tasks); search uses keywords until that finishes."
+            ) from cause
+        raise EmbeddingCacheBroken(
+            "The search-by-meaning model's files on this computer are incomplete. "
+            "Reinstall it from Settings, Models."
+        ) from cause
+
+    def _after_repair(self, repo: str) -> None:
+        """A repair landed: forget the failure and load the model now, so
+        search by meaning returns without a restart."""
+        if repo != self.st_repo():
+            return
+        self._load_failed_at = None
+        self.last_error = None
+        self._embed_with_sentence_transformers("warm up")
 
     def _prefixed(self, text: str) -> str:
         """`text` with the prefix its model was trained with (E5, nomic)."""
@@ -866,6 +1011,7 @@ class EmbeddingService:
                 # Heavy import (pulls in torch): deferred so the app
                 # starts fast and still runs if the package is missing.
                 self._st_model = self._load_st_model()
+                self._was_loaded = True
                 self._load_failed_at = None
             import numpy as np
 
@@ -876,6 +1022,8 @@ class EmbeddingService:
                 self._st_model.encode(self._prefixed(text), show_progress_bar=False), dtype="float32"
             )
             self.last_error = None
+            self._last_used = time.monotonic()
+            self._watch_idle()
             return result
         except Exception as exc:
             # No semantic features right now; the rest of the app must
@@ -950,6 +1098,13 @@ class EmbeddingService:
         if not self._models._config.get_preference("semantic_auto_install", True):
             logger.info("sentence-transformers is missing and the auto-install is switched off")
             return
+        #: Never started for another device (core/origin.py, secscan-1011's
+        #: decision): a note saved from a phone waits for this computer.
+        from memorymap.core import origin
+
+        if origin.from_another_device():
+            origin.defer("semantic-install", lambda: self._maybe_auto_install_missing_package(exc))
+            return
         self._auto_install_attempted = True
         from memorymap.core import extras
 
@@ -977,7 +1132,7 @@ class EmbeddingService:
                 # there: invalidate_caches() is the documented fix
                 # (importlib docs, "Caching and invalidation"), and is what
                 # makes this an actual same-process fix rather than a
-                # "restart MemoryMap" instruction in different words.
+                # "restart Tessellate" instruction in different words.
                 import importlib
 
                 importlib.invalidate_caches()

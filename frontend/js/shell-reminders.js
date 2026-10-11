@@ -685,38 +685,6 @@ function safeMdSlice(text, maxChars) {
 // (dashboard.js) render real markdown instead, via `safeMdSlice` +
 // `renderInlineMarkdown`'s `compact` mode, the same as every other
 // label-sized surface in this app.
-//: **The first image a note actually shows**, for surfaces that want to put a
-//: face on a row rather than a filename. Reported against the Contents tab,
-//: which rendered every note as `noteLabel` text: so a note that *is* a photo
-//: appeared as "20251018_OHR.SilburyHill….jpg", or as the bare word "image"
-//: when the alt text was empty.
-//:
-//: Reads the markdown rather than any stored field, because that is where a
-//: note's images live: pasted, dropped and AI-attached pictures all end up as
-//: `![alt](/media/…)` in the body, and there is no column that mirrors them.
-//:
-//: Only this app's own stored files. An external `https://` image in a note is
-//: skipped on purpose: the CSP blocks it (`img-src 'self' data: blob:`), so a
-//: thumbnail built from one would be a guaranteed broken frame, which is worse
-//: than no thumbnail at all.
-//: A note's picture, wherever it lives, the markdown, or the attachments
-//: table. See `noteRowImage` in dashboard.js for the report behind this: an
-//: *attached* image appears nowhere in the note's text, so every surface that
-//: looked for `![](…)` alone showed nothing for a note whose only picture was
-//: attached rather than pasted.
-function noteAnyImage(entry) {
-  const embedded = noteFirstImage(entry?.content);
-  if (embedded) return embedded;
-  const attached = (entry?.attachments || []).find((file) => file.is_image);
-  return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
-}
-
-function noteFirstImage(content) {
-  const match = /!\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\n]{1,500})\)/.exec(content || "");
-  if (!match) return null;
-  return { alt: match[1] || "", url: match[2] };
-}
-
 //: **A `[[link]]`'s visible words, without the syntax its target happens to
 //: start with.** Reported: *"note links have inline md not rendered or
 //: suppressed, when an ai mentions a note that starts with a note that has a
@@ -1002,22 +970,23 @@ async function clearDoneReminders() {
   }
   //: One Undo for the lot (INBOX 537): they go to the recycle bin and come
   //: back from it (WORLD_CLASS_PLAN 5 item 10).
-  const drop = async () => {
-    //: Every delete is tried; how many failed is said once (audit
-    //: 2026-10-05, FE-12), where a silent catch let them come back unexplained.
+  //: Every delete is tried; how many failed is said once (audit 2026-10-05,
+  //: FE-12), where a silent catch let them come back unexplained, with a Try
+  //: again for just those rows.
+  const drop = async (rows = done) => {
     const results = await Promise.all(
-      done.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
+      rows.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
     );
-    const failed = results.filter((ok) => !ok).length;
-    if (failed) toast(`Couldn't delete ${failed} of the reminders.`, true);
+    const left = rows.filter((_, i) => !results[i]);
+    if (left.length) toast(`Couldn't delete ${left.length} of the reminders.`, true, { action: ["Try again", () => drop(left)] });
     loadReminders();
   };
-  const remake = async () => {
+  const remake = async (rows = done) => {
     const results = await Promise.all(
-      done.map((r) => api(`/reminders/${r.id}/restore`, { method: "POST" }).then(() => true, () => false))
+      rows.map((r) => api(`/reminders/${r.id}/restore`, { method: "POST" }).then(() => true, () => false))
     );
-    const failed = results.filter((ok) => !ok).length;
-    if (failed) toast(`Couldn't bring back ${failed} of the reminders.`, true);
+    const left = rows.filter((_, i) => !results[i]);
+    if (left.length) toast(`Couldn't bring back ${left.length} of the reminders.`, true, { action: ["Try again", () => remake(left)] });
     loadReminders();
   };
   await drop();
@@ -1067,7 +1036,7 @@ function reminderItem(reminder, label) {
       };
       pushUndo("Rescheduled a reminder", put(before), put({ due_at: rolled.due_at, done: false }));
       loadReminders();
-      toast(`Rescheduled to ${new Date(rolled.due_at).toLocaleString()}.`);
+      toast(`Rescheduled to ${whenText(rolled.due_at)}.`);
       return;
     }
     await reminderPutUndoably(reminder.id, checkbox.checked ? "Completed a reminder" : "Reopened a reminder", before, { done: checkbox.checked });
@@ -1109,7 +1078,7 @@ function reminderItem(reminder, label) {
   const due = document.createElement("span");
   due.className = "entry-date";
   due.textContent = relativeWhen(reminder.due_at); // "in 2 hours" / "3 days ago"
-  due.title = new Date(reminder.due_at).toLocaleString(); // exact on hover
+  due.title = whenText(reminder.due_at); // exact on hover
   row.appendChild(due);
 
   const actions = document.createElement("span");
@@ -1150,10 +1119,10 @@ function reminderItem(reminder, label) {
       loadReminders();
     };
     const action = pushUndo("Moved a reminder to the bin", restore, rebin);
-    toastAction("Reminder moved to the bin.", "Undo", async () => {
+    toastAction(`Moved ${toastName(reminder.text, "the reminder")} to the bin.`, "Undo", async () => {
       settleUndoFromToast(action);
       await restore().catch((e) => toast(e.message, true));
-      toast("Reminder restored.");
+      toast(`Restored ${toastName(reminder.text, "the reminder")}.`);
     });
   };
   const menuItems = [];
@@ -1418,7 +1387,7 @@ async function snoozeReminderTo(reminder, when) {
     await put({ due_at: when.toISOString(), done: false });
     loadReminders();
   });
-  toastAction(`Snoozed to ${when.toLocaleString()}.`, "Undo", async () => {
+  toastAction(`Snoozed to ${whenText(when)}.`, "Undo", async () => {
     settleUndoFromToast(action);
     await back();
   });
@@ -1456,6 +1425,15 @@ function reminderEditForm(reminder) {
     reminder.recurring || "none"
   );
   recurringSelect.title = "Repeat";
+  //: The early alert was only ever settable when a reminder was made (the
+  //: quick add reads "1 day before"); the edit form had no way to change or
+  //: clear it. 0 is the API's word for "no alert".
+  const alertPresets = [[0, "No alert"], [10, "10 minutes before"], [30, "30 minutes before"], [60, "1 hour before"], [1440, "1 day before"], [10080, "1 week before"]];
+  const alertNow = Number(reminder.alert_minutes) || 0;
+  if (!alertPresets.some(([minutes]) => minutes === alertNow)) alertPresets.push([alertNow, reminder.alert_words || `${alertNow} minutes before`]);
+  const alertSelect = buildSelect(alertPresets.map(([minutes, label]) => [String(minutes), label]), String(alertNow));
+  alertSelect.title = "Alert";
+  alertSelect.setAttribute("aria-label", "Alert");
   const row = document.createElement("div");
   row.className = "row";
   row.appendChild(
@@ -1466,12 +1444,13 @@ function reminderEditForm(reminder) {
         return;
       }
       editingReminderId = null;
-      const before = { text: reminder.text, due_at: reminder.due_at, priority: reminder.priority || "normal", recurring: reminder.recurring || "none" };
+      const before = { text: reminder.text, due_at: reminder.due_at, priority: reminder.priority || "normal", recurring: reminder.recurring || "none", alert_minutes: alertNow };
       await reminderPutUndoably(reminder.id, "Edited a reminder", before, {
         text,
         due_at: new Date(dueInput.value).toISOString(),
         priority: prioritySelect.value,
         recurring: recurringSelect.value,
+        alert_minutes: Number(alertSelect.value),
       });
     }, false)
   );
@@ -1481,7 +1460,7 @@ function reminderEditForm(reminder) {
       loadReminders();
     })
   );
-  wrap.append(textInput, dueInput, prioritySelect, recurringSelect, row);
+  wrap.append(textInput, dueInput, prioritySelect, recurringSelect, alertSelect, row);
   //: Enter saves and Escape cancels, from any field in the form: the two
   //: keys every inline editor answers. Only the buttons did before.
   wrap.addEventListener("keydown", (event) => {
@@ -1525,7 +1504,8 @@ function reminderMadeUndo(reminder) {
 
 async function addReminder(text, dueValue, entryId = null, opts = {}) {
   if (!text || !dueValue) {
-    toast("A reminder needs text and a due time.");
+    //: Names the one that is missing (not an error: an expected condition).
+    toast(!text && !dueValue ? "A reminder needs text and a due time." : !text ? "Write what to be reminded of." : "Pick a due time for this reminder.");
     return false;
   }
   const made = await apiJson("/reminders", {

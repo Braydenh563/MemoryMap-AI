@@ -672,10 +672,13 @@ def jsbeautify_report(scripts: dict[str, str]) -> Report:
     paths: set[str] = set()
     for text in scripts.values():
         paths |= qualified_uses(text, ("JSBEAUTIFY",))
-    # A selection is formatted by the conservative re-indent, not the library
-    # (its `indent_level` would let it take one): the capability not yet used.
+    # A selection of whole lines is formatted by the library at the indent level of
+    # its first line (`indent_level`, documents-code.js `docBeautifyText`; ledger 1565).
     available = exports + ["selection"]
-    return Report("jsbeautify", "js-beautify", available, _called(available, paths), {"functions": exports})
+    called = _called(available, paths)
+    if any("indent_level" in text for text in scripts.values()):
+        called.append("selection")
+    return Report("jsbeautify", "js-beautify", available, called, {"functions": exports})
 
 
 def _class_methods(source: str, class_re: str) -> list[str]:

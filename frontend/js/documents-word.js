@@ -30,11 +30,30 @@ async function docWordLib(name) {
 //: (`DOC_WORD_CODE_STYLE`) and the two Word and pandoc write. Mammoth turns
 //: each run of them into one `<pre>`, which the paste converter fences.
 const DOC_WORD_CODE_STYLE = "Code";
+//: A fenced block's language rides in its style's name, "Code js" (OPEN
+//: 1097): Word shows it in the styles list, and the import maps each one to
+//: `pre.language-js`, which the paste converter fences as ```js. A style map
+//: cannot match a pattern, so the languages are a list; any other language
+//: is written in plain "Code" and comes back as a bare fence, as before.
+const DOC_WORD_CODE_LANGS = [
+  "bash", "c", "cpp", "cs", "css", "diff", "go", "html", "java", "js", "json", "jsx", "kotlin", "lua",
+  "md", "mermaid", "php", "py", "python", "r", "rb", "ruby", "rust", "sh", "shell", "sql", "swift",
+  "text", "toml", "ts", "tsx", "xml", "yaml", "yml",
+];
 const DOC_WORD_STYLE_MAP = [
+  ...DOC_WORD_CODE_LANGS.map((lang) => `p[style-name='${DOC_WORD_CODE_STYLE} ${lang}'] => pre.language-${lang}:separator('\\n')`),
   "p[style-name='Code'] => pre:separator('\\n')",
   "p[style-name='Source Code'] => pre:separator('\\n')",
   "p[style-name='HTML Preformatted'] => pre:separator('\\n')",
 ];
+
+//: The language a rendered block was fenced with, when the list has it.
+function docWordCodeLang(pre) {
+  const code = pre.querySelector("code");
+  const named = code?.getAttribute("data-lang") || (/(?:^|\s)language-([\w+#-]+)/.exec(`${pre.className} ${code?.className || ""}`) || [])[1] || "";
+  const lang = named.toLowerCase();
+  return DOC_WORD_CODE_LANGS.includes(lang) ? lang : "";
+}
 
 //: A picture inside the .docx goes to the media store, as a pasted one
 //: does, so the imported document links it rather than losing it (the
@@ -51,6 +70,51 @@ async function docWordUploadPicture(image) {
   } catch {
     return { src: "" };
   }
+}
+
+//: **A .docx with tracked changes goes to the server's reader** (OPEN 1096).
+//: Mammoth takes an insertion as written and drops a deletion, accepting a
+//: reviewer's changes on the reader's behalf; `docview.docx_to_markdown`
+//: keeps them as suggestion mode's marks to accept or reject. So the import
+//: looks first: the zip's central directory, then `word/document.xml`
+//: inflated by the browser's own `DecompressionStream`, for a `w:ins` or a
+//: `w:del` (the server's `docx_has_revisions` asks the same). Anything it
+//: cannot read is "no revisions", which is the old path.
+async function docWordHasRevisions(file) {
+  try {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    let end = -1;
+    for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i -= 1) {
+      if (view.getUint32(i, true) === 0x06054b50) {
+        end = i;
+        break;
+      }
+    }
+    if (end < 0) return false;
+    const names = new TextDecoder();
+    let at = view.getUint32(end + 16, true);
+    for (let n = view.getUint16(end + 10, true); n > 0; n -= 1) {
+      if (view.getUint32(at, true) !== 0x02014b50) return false;
+      const method = view.getUint16(at + 10, true);
+      const size = view.getUint32(at + 20, true);
+      const nameLength = view.getUint16(at + 28, true);
+      const name = names.decode(buf.subarray(at + 46, at + 46 + nameLength));
+      if (name === "word/document.xml") {
+        const local = view.getUint32(at + 42, true);
+        const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+        const data = buf.subarray(start, start + size);
+        const xml = method === 0
+          ? names.decode(data)
+          : await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+        return /<w:(?:ins|del)[\s>]/.test(xml);
+      }
+      at += 46 + nameLength + view.getUint16(at + 30, true) + view.getUint16(at + 32, true);
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 //: A .docx to a title and markdown: Mammoth's HTML (headings, nested lists,
@@ -139,7 +203,7 @@ async function docWordBlob(D, title, text) {
     const picture = await docWordPicture(img);
     if (picture) pictures.set(img, picture);
   }
-  const ctx = { mode: "", revision: 1, date: new Date().toISOString(), pictures, lists: 0, lines: marked.split("\n") };
+  const ctx = { mode: "", revision: 1, date: new Date().toISOString(), pictures, lists: 0, lines: marked.split("\n"), langs: new Set() };
   const children = docWordBlocks(D, holder, 0, ctx);
   const levels = Array.from({ length: 9 }, (_, level) => ({
     level,
@@ -149,10 +213,13 @@ async function docWordBlob(D, title, text) {
     style: { paragraph: { indent: { left: 720 * (level + 1), hanging: 360 } } },
   }));
   const doc = new D.Document({
-    creator: "MemoryMap",
+    creator: "Tessellate",
     title: title || "Document",
     styles: {
-      paragraphStyles: [{ id: DOC_WORD_CODE_STYLE, name: DOC_WORD_CODE_STYLE, basedOn: "Normal", run: { font: "Consolas" }, paragraph: { spacing: { before: 0, after: 0 } } }],
+      paragraphStyles: [
+        { id: DOC_WORD_CODE_STYLE, name: DOC_WORD_CODE_STYLE, basedOn: "Normal", run: { font: "Consolas" }, paragraph: { spacing: { before: 0, after: 0 } } },
+        ...[...ctx.langs].map((lang) => ({ id: `${DOC_WORD_CODE_STYLE}-${lang}`, name: `${DOC_WORD_CODE_STYLE} ${lang}`, basedOn: DOC_WORD_CODE_STYLE })),
+      ],
     },
     numbering: { config: [{ reference: "mm-numbered", levels }] },
     sections: [{ children: children.length ? children : [new D.Paragraph("")] }],
@@ -184,7 +251,7 @@ function docWordText(D, text, style, ctx) {
     else if (piece && !ctx.mode) runs.push(new D.TextRun({ text: piece, ...style }));
     else if (piece) {
       const Run = ctx.mode === "ins" ? D.InsertedTextRun : D.DeletedTextRun;
-      runs.push(new Run({ text: piece, id: ctx.revision, author: "MemoryMap", date: ctx.date, ...style }));
+      runs.push(new Run({ text: piece, id: ctx.revision, author: "Tessellate", date: ctx.date, ...style }));
       ctx.revision += 1;
     }
   }
@@ -252,8 +319,11 @@ function docWordBlocks(D, root, depth, ctx, instance = 0) {
     else if (tag === "pre") {
       //: One paragraph per line in the code style, so Word keeps the lines
       //: and the import (`DOC_WORD_STYLE_MAP`) reads them back as one block.
+      const lang = docWordCodeLang(el);
+      if (lang) ctx.langs.add(lang);
+      const style = lang ? `${DOC_WORD_CODE_STYLE}-${lang}` : DOC_WORD_CODE_STYLE;
       for (const line of el.textContent.replace(/\n$/, "").split("\n")) {
-        out.push(new D.Paragraph({ style: DOC_WORD_CODE_STYLE, children: [new D.TextRun({ text: line })] }));
+        out.push(new D.Paragraph({ style, children: [new D.TextRun({ text: line })] }));
       }
     } else if (tag === "blockquote") {
       for (const p of docWordBlocks(D, el, depth, ctx, instance)) out.push(p);

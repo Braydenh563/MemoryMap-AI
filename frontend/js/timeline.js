@@ -155,6 +155,8 @@ function timelineRow(entry) {
     //: has quietly moved someone's notes: "mentioned" means the row sits on a
     //: date the note *talks about*, and `phrase` is the words that did it.
     placedBy: entry.placed_by,
+    //: The other days the note names (the row sits on the first): the calendar draws an "also on" chip there.
+    alsoOn: entry.also_on || [],
     phrase: entry.phrase || "",
     tags: Array.isArray(entry.tags) ? entry.tags : [],
     category: entry.category || "",
@@ -263,7 +265,9 @@ function timelineBucketLabel(key, scale) {
 //: to agree, and three copies of a list of four is how they stop agreeing.
 const TIMELINE_KINDS = [
   { key: "note", label: "Notes", glyph: "ph-note" },
-  { key: "board", label: "Boards", glyph: "ph-tree-structure" },
+  //: A map is a board too (its row says "Map" and opens it as one), so the
+  //: kind names both rather than leaving a map under "Boards" alone.
+  { key: "board", label: "Boards and maps", glyph: "ph-tree-structure" },
   { key: "document", label: "Documents", glyph: "ph-file-text" },
   { key: "reminder", label: "Reminders", glyph: "ph-bell" },
 ];
@@ -415,7 +419,7 @@ async function toggleTimelineKind(key) {
   const next = chosen.includes(key) ? chosen.filter((k) => k !== key) : [...chosen, key];
   if (!next.length) return;
   try {
-    localStorage.setItem(TIMELINE_KINDS_STORE, JSON.stringify(next));
+    prefs.set(TIMELINE_KINDS_STORE, JSON.stringify(next));
   } catch {
     /* a browser refusing storage still gets the filter for this visit */
   }
@@ -510,7 +514,9 @@ const timelineRenders = { n: 0 };
 // what the scrubber draws.
 let timelineDensity = {};
 let timelineNextCursor = null;
-let timelinePaging = false;
+//: The render a page is being fetched for (0: none). A page in flight for a
+//: superseded range must not stop the new range asking for its own.
+let timelinePagingFor = 0;
 let timelineRows = [];
 // By id, so a row that continues another can name it without a scan per row:
 // `find` per row is the shape that turns 1,500 rows into a million comparisons
@@ -681,15 +687,15 @@ function syncTimelineYears(range) {
 //: (`created_at|id`, base64url), so a note saved while someone is reading
 //: cannot shift the page under them.
 //:
-//: One request at a time, and the flag is cleared in a `finally`: a rejected
+//: One request at a time per range, and the flag is cleared in a `finally`: a rejected
 //: fetch that left it set would stop the feed paging for the rest of the
 //: session, and the only symptom would be a timeline that ends early.
 async function timelineLoadMore(limit = TIMELINE_PAGE) {
-  if (!timelineNextCursor || timelinePaging) return;
-  timelinePaging = true;
+  if (!timelineNextCursor || timelinePagingFor === timelineRenders.n) return;
+  const render = timelineRenders.n;
+  timelinePagingFor = render;
   try {
     const url = `${timelineQuery()}&limit=${limit}&cursor=${encodeURIComponent(timelineNextCursor)}`;
-    const render = timelineRenders.n;
     const body = await apiJson(url).catch(() => null);
     if (!body || render !== timelineRenders.n) return;
     timelineNextCursor = body.next_cursor || null;
@@ -708,7 +714,7 @@ async function timelineLoadMore(limit = TIMELINE_PAGE) {
     else appendTimelineRows(fresh);
     drawTimelineScrubber();
   } finally {
-    timelinePaging = false;
+    if (timelinePagingFor === render) timelinePagingFor = 0;
   }
 }
 
@@ -2413,7 +2419,7 @@ $("timeline-view-seg").addEventListener("click", (event) => {
   if (!button) return;
   const mode = button.dataset.timelineView;
   if (mode === timelineViewMode()) return;
-  localStorage.setItem("timeline-view", mode);
+  prefs.set("timeline-view", mode);
   syncTimelineViewSeg();
   // A repaint, not a reload: `timelineRows` is already in memory and both
   // views render from it.
@@ -2435,7 +2441,7 @@ function syncTimelineViewSeg() {
 //: any other choice, so a notebook that grows past the day threshold re-cuts
 //: its own headers without anyone touching the control.
 $("timeline-scale").addEventListener("change", (event) => {
-  localStorage.setItem("timeline-scale", event.target.value);
+  prefs.set("timeline-scale", event.target.value);
   paintTimeline();
 });
 
@@ -2456,7 +2462,7 @@ const TIMELINE_GROUP_KEY = "timeline-group";
   if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
 })();
 $("timeline-group").addEventListener("change", (event) => {
-  try { localStorage.setItem(TIMELINE_GROUP_KEY, event.target.value); } catch { /* a private window */ }
+  try { prefs.set(TIMELINE_GROUP_KEY, event.target.value); } catch { /* a private window */ }
   timelineFilter = null;
   fillTimelineBandOptions();
   paintTimeline();

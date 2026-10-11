@@ -86,6 +86,9 @@ async function showReminderNotification(title, body, reminderId) {
 async function announceReminders(fresh) {
   const one = fresh.length === 1 ? fresh[0] : null;
   const text = one ? one.text : `${fresh.length} reminders are due`;
-  await showReminderNotification(one ? "Reminder" : "MemoryMap", text, one && !one.early ? one.id : null);
+  //: Why it matters, from what it is about (CHAT_PLAN section 1 row 6): a
+  //: reminder made from a note or a document says so under its words.
+  const about = one && one.target_title ? `\nAbout ${toastName(one.target_title)}` : "";
+  await showReminderNotification(one ? "Reminder" : "Tessellate", text + about, one && !one.early ? one.id : null);
   toast(text, false, { exempt: true });
 }

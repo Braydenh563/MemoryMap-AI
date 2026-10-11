@@ -53,6 +53,8 @@ const FINDER_KINDS = [
   { key: "reminder", icon: "ph:alarm", one: "reminder", many: "reminders" },
   //: A saved chat and an Ask turn, both `chat` in the index (decision 46).
   { key: "chat", icon: "ph:chat-circle", one: "chat", many: "chats" },
+  //: A kept recording, found by its name and by what was said in it.
+  { key: "recording", icon: "ph:microphone", one: "recording", many: "recordings" },
   { key: "action", icon: "ph:lightning", one: "action", many: "actions" },
 ];
 
@@ -87,6 +89,7 @@ const FINDER_OPEN = {
   file: (hit) => flashLibraryItem("file", hit.id),
   bookmark: (hit) => flashLibraryItem("link", hit.id),
   reminder: () => switchTab("reminders"),
+  recording: (hit) => ensureModule("meetings").then(() => openRecordings(hit.id)),
   //: A chat opens in Chat; an Ask turn where a live answer renders, the Ask
   //: section of Notes (`viewAskHistoryTurn`, ask-history.js).
   chat: (hit) => {
@@ -212,7 +215,7 @@ async function finderSearch(append = false) {
 function finderSorted() {
   const rows = [...finderHits];
   const sort = document.getElementById("finder-sort")?.value || "best";
-  if (sort === "best") return rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+  if (sort === "best" || sort === "category") return rows.sort((a, b) => (b.score || 0) - (a.score || 0));
   const dir = sort === "newest" ? -1 : 1;
   return rows.sort((a, b) => {
     //: An action has no date, and an undated row sorted as the empty string
@@ -473,27 +476,36 @@ function finderRender() {
   //: grouping it by kind would break exactly the order that was asked for.
   const sortMode = document.getElementById("finder-sort")?.value || "best";
   const kinds = [...new Set(rows.map((hit) => hit.kind))];
-  const grouped = sortMode === "best" && kinds.length > 1;
-  if (grouped) {
+  //: **Or by category** (INBOX 1332, "Sort, Group by category"): a note under
+  //: the category it is filed in, anything else under its kind, in the order of
+  //: each group's best row, which is the order `finderSorted` left them in.
+  const byCategory = sortMode === "category";
+  const groupOf = (hit) => (byCategory && hit.kind === "note" ? `c:${hit.category || "Uncategorised"}` : `k:${hit.kind}`);
+  const grouped = (sortMode === "best" && kinds.length > 1) || (byCategory && new Set(rows.map(groupOf)).size > 1);
+  if (grouped && !byCategory) {
     //: By kind in the chips' own order, and within a kind by the score the
     //: sort already put them in. A stable sort is what keeps that second
     //: half true without sorting twice.
     const rank = Object.fromEntries(FINDER_KINDS.map((k, i) => [k.key, i]));
     rows = [...rows].sort((a, b) => (rank[a.kind] ?? 99) - (rank[b.kind] ?? 99));
+  } else if (grouped) {
+    const first = new Map();
+    rows.forEach((hit) => first.has(groupOf(hit)) || first.set(groupOf(hit), first.size));
+    rows = [...rows].sort((a, b) => first.get(groupOf(a)) - first.get(groupOf(b)));
   }
   let lastKind = null;
   rows.forEach((hit, index) => {
-    if (grouped && hit.kind !== lastKind) {
-      lastKind = hit.kind;
+    if (grouped && groupOf(hit) !== lastKind) {
+      lastKind = groupOf(hit);
       const head = document.createElement("p");
       head.className = "finder-group muted";
-      const many = rows.filter((row) => row.kind === hit.kind).length;
+      const many = rows.filter((row) => groupOf(row) === lastKind).length;
       const kind = names[hit.kind];
       //: A heading, so it starts with a capital: the names are the in-sentence
       //: nouns ("3 notes"), and printed alone they read as lowercase labels
       //: once the uppercase transform went (the owner: "all lowercase and
       //: hard to see"). The group's size beside it, muted.
-      const word = kind ? (many === 1 ? kind.one : kind.many) : hit.kind;
+      const word = byCategory && hit.kind === "note" ? hit.category || "Uncategorised" : kind ? (many === 1 ? kind.one : kind.many) : hit.kind;
       const label = document.createElement("span");
       label.textContent = word.charAt(0).toUpperCase() + word.slice(1);
       const count = document.createElement("span");

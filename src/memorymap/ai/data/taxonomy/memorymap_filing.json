@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "about": "MemoryMap's own filing data beside the pack (WORLD_CLASS_PLAN 23): which pack topics are sensitive (decision 6: suggested, never auto-filed unless Settings allows), and everyday category names the pack's phrases do not cover, each to the topics it names (decision 2: 'Gym' is Fitness). Every topic named here is a pack topic (tests/test_filing_decision.py).",
+  "about": "Tessellate's own filing data beside the pack (WORLD_CLASS_PLAN 23): which pack topics are sensitive (decision 6: suggested, never auto-filed unless Settings allows), and everyday category names the pack's phrases do not cover, each to the topics it names (decision 2: 'Gym' is Fitness). Every topic named here is a pack topic (tests/test_filing_decision.py).",
   "sensitive_topics": [
     "Adoption & Foster Care",
     "Aged Care",

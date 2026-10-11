@@ -264,7 +264,7 @@ async function saveDraftAsNote() {
       // straight into Notes.
       entry = await apiJson("/entries", {
         method: "POST",
-        body: JSON.stringify({ content, tags, is_draft: true }),
+        body: JSON.stringify({ content, tags, is_draft: true, defer_filing: true }),
       });
     }
     const wroteBack = draftNoteId !== null;
@@ -291,4 +291,15 @@ async function saveDraftAsNote() {
     status.classList.add("error");
     status.textContent = error.message;
   }
+}
+
+function setDraftBusy(busy) {
+  $("draft-compose").classList.toggle("hidden", busy);
+  $("draft-cancel").classList.toggle("hidden", !busy);
+  $("draft-undo").disabled = busy || draftUndoStack.length === 0;
+  // The draft box is being written into while this runs, so editing it would
+  // be editing something that is about to be overwritten by the next chunk.
+  $("draft-text").readOnly = busy;
+  $("draft-refine").disabled = busy;
+  $("writing-room").classList.toggle("draft-writing", busy);
 }

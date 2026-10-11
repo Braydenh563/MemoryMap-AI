@@ -37,6 +37,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import reminder_parser, when
 from memorymap.ai.act_registry import CONFIRM_INTENTS
+from memorymap.ai.filed_name import filed_listing
 
 #: The verbs of the grammar (decision 38), as said in `Command.verb`.
 VERBS = ("remind", "tag", "untag", "file", "rename", "pin", "unpin", "link", "unlink", "delete", "create", "add", "summarise", "find", "open")
@@ -357,36 +358,6 @@ def _note_topic(rest: str) -> bool:
     and not the web ("search the web for trains" is a web search, not a note
     find about "web", INBOX 801)."""
     return not _ASKING.match(rest) and not _ON_THE_WEB.match(rest)
-
-
-#: "list my work notes", "show me all my baking notes", "notes in Work",
-#: "my notes tagged harbor": a listing narrowed to one category or tag
-#: (ledger row 442). The name is checked against the notebook by the route.
-#: Here, not in `reading`, so this module reads it with no import back.
-_FILED_LISTING = re.compile(
-    r"^(?:(?:can|could|would) you |please |pls )?(?:(?:list|show|give)(?: me)?(?: all| every)?(?: of)? )?"
-    r"(?:(?:my |the )(?P<a>[a-z][\w&-]{1,30}(?: [a-z][\w&-]{1,30})?) (?:notes|entries)"
-    r"|(?:my |the )?(?:notes|entries) (?:in|under|filed under|tagged(?: with)?|with the tag) #?(?P<b>[a-z][\w&-]{1,30}(?: [a-z][\w&-]{1,30})?))"
-    r"(?: (?:please|pls|plz))?[?.]*$",
-    re.I,
-)
-#: Words before "notes" that are not a filing: "my recent notes", "all notes".
-_NOT_FILED = frozenset({
-    "recent", "newest", "latest", "last", "old", "oldest", "all", "every", "pinned", "favourite", "favorite",
-    "starred", "new", "own", "other", "first", "untagged", "uncategorised", "uncategorized", "these", "those",
-    "my", "the", "your", "some", "any", "more", "most", "older", "earlier", "today's", "todays",
-})
-
-
-def filed_listing(text: str) -> str | None:
-    """The category or tag a listing names ("work" in "list my work notes"),
-    else None."""
-    found = _FILED_LISTING.match(" ".join((text or "").split()))
-    if not found:
-        return None
-    name = (found.group("a") or found.group("b") or "").strip()
-    name = re.sub(r"^(?:all|every|my|the) ", "", name, flags=re.I)
-    return name if name and name.split()[0].lower() not in _NOT_FILED else None
 
 
 def _listing(text: str, head: str, rest: str) -> dict | None:

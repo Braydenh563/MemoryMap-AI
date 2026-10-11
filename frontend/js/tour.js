@@ -2,7 +2,7 @@
 //
 // The app already had a welcome (`#onboarding-overlay`, app.js): a card in the
 // middle of the screen with an icon, a title and a paragraph. It says what
-// MemoryMap is, and it is the right shape for that, but it cannot say WHERE
+// Tessellate is, and it is the right shape for that, but it cannot say WHERE
 // anything is, because it covers the thing it is talking about. That gap is
 // what this file fills, and the owner named it: "there is no guided tour and
 // introduction, with positioned popup cards with back, next, skip, card
@@ -89,7 +89,7 @@ const TOUR_SECTIONS = [
         target: "#tab-bar",
         side: "bottom",
         title: "Your tabs",
-        text: "Every part of MemoryMap is one of these. Notes is where you write, the others read what you wrote.",
+        text: "Every part of Tessellate is one of these. Notes is where you write, the others read what you wrote.",
       },
       {
         target: "#space-switcher-btn",
@@ -1809,7 +1809,7 @@ function tourClose(finished) {
   // app.js's MIRRORED_UI_EXTRAS, because a desktop shell that loses its
   // profile is exactly how "onboarding shows every time" was reported.
   try {
-    localStorage.setItem("tourDone", "1");
+    prefs.set("tourDone", "1");
   } catch (error) {
     // A browser with storage blocked still gets the tour, it just cannot
     // remember that it did. Refusing to run would be the worse failure.

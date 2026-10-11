@@ -218,11 +218,33 @@ _JS_DEBUG_WORKER = r"""
     if (v instanceof I.Object) return v.class === "Function" ? "function" : v.class === "Array" ? "array" : "object";
     return typeof v;
   }
+  //: A list or an object opens one level into its children (OPEN row 1058),
+  //: CHILDREN at most; a child's own children are its short form.
+  var CHILDREN = 50;
+  function children(v) {
+    if (!(v instanceof I.Object) || (v.class !== "Array" && v.class !== "Object")) return null;
+    var p = v.properties || {}, rows = [], total = 0;
+    if (v.class === "Array") {
+      total = Number(p.length) || 0;
+      for (var i = 0; i < Math.min(total, CHILDREN); i++) rows.push({ name: "[" + i + "]", value: clip(show(p[i], 1)), type: kind(p[i]) });
+    } else {
+      for (var k in p) {
+        if (!own(p, k)) continue;
+        total++;
+        if (rows.length < CHILDREN) rows.push({ name: k, value: clip(show(p[k], 1)), type: kind(p[k]) });
+      }
+    }
+    if (total > CHILDREN) rows.push({ name: "...", value: (total - CHILDREN) + " more", type: "" });
+    return rows.length ? rows : null;
+  }
   function names(props, skip) {
     var rows = [];
     for (var k in props) {
       if (!own(props, k) || (skip && skip[k])) continue;
-      rows.push({ name: k, value: clip(show(props[k])), type: kind(props[k]) });
+      var row = { name: k, value: clip(show(props[k])), type: kind(props[k]) };
+      var kids = children(props[k]);
+      if (kids) row.children = kids;
+      rows.push(row);
       if (rows.length >= NAMES) break;
     }
     return rows;
@@ -915,11 +937,13 @@ def _mm_line(exc):
     return line
 
 
-def _mm_tests(code, emit, emit_test, offset=0):
+def _mm_tests(code, emit, emit_test, offset=0, stopped=None):
     """Tests are a kind of run (D7): every `unittest.TestCase` in the
     document, and every plain `test*` function (pytest's shape, bare
     `assert`, without pytest), in the order they are written. Each sends
-    `emit_test(name, state, ms, text, line)`; the totals come back."""
+    `emit_test(name, state, ms, text, line)`; the totals come back.
+    Under Debug, `stopped()` says Stop was pressed: the test it stopped in
+    is not reported and the rest do not run."""
     import time
     import unittest
 
@@ -991,12 +1015,16 @@ def _mm_tests(code, emit, emit_test, offset=0):
                 state, text, where = "pass", "", None
                 try:
                     test()
+                except bdb.BdbQuit:
+                    break
                 except BaseException as exc:  # a plain test fails on anything it raises
                     state, where = "fail", _mm_line(exc)
                     text = "".join(traceback.format_exception_only(type(exc), exc)).strip()
                     if isinstance(exc, AssertionError) and not str(exc):
                         text = "AssertionError: the assert on this line was false."
             out.flush(); err.flush()
+            if stopped and stopped():
+                break
             ms = round((time.perf_counter() - start) * 1000)
             counts[{"pass": "passed", "fail": "failed", "skip": "skipped"}[state]] += 1
             emit_test(name, state, ms, text, where or line or None)
@@ -1021,12 +1049,46 @@ def _mm_show(value):
     return text if len(text) <= _MM_REPR else text[: _MM_REPR - 3] + "..."
 
 
+#: A container opens one level into this many children (VS Code's tree,
+#: OPEN row 1058); a child's own children are its repr.
+_MM_CHILDREN = 50
+
+
+def _mm_children(value):
+    import itertools
+    import types
+
+    try:
+        if isinstance(value, (str, bytes, bytearray, type, types.ModuleType)) or callable(value):
+            return None
+        if isinstance(value, dict):
+            pairs = ((repr(k), v) for k, v in value.items())
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            pairs = ((f"[{i}]", v) for i, v in enumerate(value))
+        elif hasattr(value, "__dict__") and isinstance(vars(value), dict):
+            pairs = ((str(k), v) for k, v in vars(value).items() if not str(k).startswith("__"))
+        else:
+            return None
+        rows = [{"name": n, "value": _mm_show(v), "type": type(v).__name__}
+                for n, v in itertools.islice(pairs, _MM_CHILDREN)]
+        more = len(value) - _MM_CHILDREN if hasattr(value, "__len__") and not hasattr(value, "__dict__") else 0
+    except BaseException:  # a container that cannot be walked shows its repr only
+        return None
+    if more > 0:
+        rows.append({"name": "...", "value": f"{more} more", "type": ""})
+    return rows or None
+
+
 def _mm_names(space, skip=()):
     rows = []
     for name, value in list(space.items()):
         if (name.startswith("__") and name.endswith("__")) or name in skip:
             continue
-        rows.append({"name": str(name), "value": _mm_show(value), "type": type(value).__name__})
+        row = {"name": str(name), "value": _mm_show(value), "type": type(value).__name__}
+        children = _mm_children(value)
+        if children:
+            row["children"] = children
+        rows.append(row)
         if len(rows) >= _MM_NAMES:
             break
     return rows
@@ -1136,11 +1198,18 @@ class _MMDebugger(bdb.Bdb):
             return
 
 
-def _mm_debug(code, emit, exchange, offset=0, stdin="", breaks="[]", watches="[]"):
+#: The totals of the last file of tests run under Debug, for the worker's
+#: `tests-done` row.
+_MM_DEBUG_TESTS = [None]
+
+
+def _mm_debug(code, emit, exchange, offset=0, stdin="", breaks="[]", watches="[]", emit_test=None):
     """Run the document under `_MMDebugger`. An exception nothing caught
     stops at the line that raised it, in the frame that raised it, with the
     traceback's text, before the run ends (the frame's locals are kept by
-    the traceback). Returns how the run ended: done, stopped or error."""
+    the traceback). Returns how the run ended: done, stopped or error.
+    With `emit_test`, a file of tests runs through `_mm_tests` under the
+    debugger, so a breakpoint in a test stops there (OPEN row 563)."""
     import io
     import json
     import linecache
@@ -1162,10 +1231,14 @@ def _mm_debug(code, emit, exchange, offset=0, stdin="", breaks="[]", watches="[]
         return value.get("line") if isinstance(value, dict) else None
 
     _MM_ASK[0] = ask
+    _MM_DEBUG_TESTS[0] = None
     debugger = _MMDebugger(exchange, json.loads(breaks or "[]"), json.loads(watches or "[]"))
     try:
         # `Bdb.run` swallows the BdbQuit that Stop raises, so it is asked.
-        debugger.run(compile(source, "<document>", "exec"), {"__name__": "__main__", "input": _mm_input})
+        if emit_test is not None:
+            _MM_DEBUG_TESTS[0] = debugger.runcall(_mm_tests, code, emit, emit_test, offset, lambda: debugger.ended_by_stop)
+        else:
+            debugger.run(compile(source, "<document>", "exec"), {"__name__": "__main__", "input": _mm_input})
         return "stopped" if debugger.ended_by_stop else "done"
     except SystemExit as stop:
         out.flush(); err.flush()
@@ -1224,6 +1297,7 @@ _PY_WORKER = (
     + f"const MAX_LINES = {MAX_LINES};\n"
     + r"""
 let py = null;
+let interruptSet = false;
 //: D2's buffer, from the page when it is cross-origin isolated: [0] is the
 //: flag this worker waits on, [1] the reply's length, the reply's bytes
 //: after. `exchange` posts a stop (or an input() prompt) and blocks on
@@ -1248,21 +1322,49 @@ function ask(prompt) {
     return null;
   }
 }
-async function load(post) {
-  if (py) return py;
-  post({ t: "status", text: "Starting Python" });
-  const mod = await import(BASE + "pyodide.mjs");
-  py = await mod.loadPyodide({ indexURL: BASE, stdin: () => null });
-  py.runPython(RUNNER);
-  return py;
+//: One load, however many callers: a Run that arrives while the page's
+//: warm-up is still loading waits on the same promise instead of starting a
+//: second runtime (Brief 101c). A failed load is forgotten so the next try
+//: reports its own error.
+let loading = null;
+function load(post) {
+  if (py) return Promise.resolve(py);
+  if (!loading) {
+    loading = (async () => {
+      post({ t: "status", text: "Starting Python" });
+      const mod = await import(BASE + "pyodide.mjs");
+      const loaded = await mod.loadPyodide({ indexURL: BASE, stdin: () => null });
+      loaded.runPython(RUNNER);
+      py = loaded;
+      return loaded;
+    })();
+    loading.catch(() => { loading = null; });
+  }
+  return loading;
 }
 self.onmessage = async (e) => {
   const run = e.data.run;
   const post = (msg) => postMessage({ run, msg });
+  //: Warm-up (Brief 101c): load the runtime and say nothing; a failure is the
+  //: first real run's to report. Never marks the worker busy.
+  if (e.data.warm) {
+    try { await load(() => {}); } catch (err) { /* reported by the first run */ }
+    return;
+  }
+  //: A new document's panel: the console must not read the last document's
+  //: variables, and the runtime itself stays loaded.
+  if (e.data.forget) {
+    if (py) { try { py.runPython("_MM_NS.clear()"); } catch (err) { /* nothing to forget */ } }
+    return;
+  }
   shared = e.data.sab instanceof SharedArrayBuffer ? e.data.sab : null;
   current = post;
   try {
     const p = await load(post);
+    if (e.data.interrupt instanceof SharedArrayBuffer && !interruptSet) {
+      p.setInterruptBuffer(new Uint8Array(e.data.interrupt));
+      interruptSet = true;
+    }
     post({ t: "started" });
     //: The app stops a run at 500 lines, but only once it has read 500:
     //: measured in Chromium, a `while True: print(i)` posted lines far
@@ -1287,13 +1389,13 @@ self.onmessage = async (e) => {
       postMessage({ run, idle: true });
       return;
     }
-    if (e.data.tests) {
+    const t0 = performance.now();
+    const emitTest = (name, state, ms, text, line) => post({
+      t: "test", name: String(name), state: String(state), ms: Number(ms) || 0,
+      text: String(text || ""), line: line == null ? null : Number(line),
+    });
+    if (e.data.tests && !e.data.debug) {
       //: Tests (D7): one `test` row per test, then the totals.
-      const t0 = performance.now();
-      const emitTest = (name, state, ms, text, line) => post({
-        t: "test", name: String(name), state: String(state), ms: Number(ms) || 0,
-        text: String(text || ""), line: line == null ? null : Number(line),
-      });
       const tester = p.globals.get("_mm_tests");
       let counts = null;
       try {
@@ -1310,7 +1412,17 @@ self.onmessage = async (e) => {
       let ended = "done";
       try {
         ended = String(debug(String(e.data.source || ""), emit, exchange, Number(e.data.lineOffset) || 0,
-          String(e.data.stdin || ""), JSON.stringify(e.data.breaks || []), JSON.stringify(e.data.watches || [])));
+          String(e.data.stdin || ""), JSON.stringify(e.data.breaks || []), JSON.stringify(e.data.watches || []),
+          e.data.tests ? emitTest : null));
+        //: A file of tests debugged (row 563) ends with its totals, as Run's does.
+        const held = p.globals.get("_MM_DEBUG_TESTS");
+        const totals = e.data.tests ? held.get(0) : null;
+        held.destroy();
+        if (totals) {
+          const t = totals.toJs({ dict_converter: Object.fromEntries });
+          post({ t: "tests-done", passed: t.passed, failed: t.failed, skipped: t.skipped, ms: Math.round(performance.now() - t0) });
+          totals.destroy();
+        }
       } finally { debug.destroy(); }
       post({ t: "done", ended });
       postMessage({ run, idle: true });
@@ -1346,6 +1458,11 @@ RUN_SANDBOX_PY_HTML = (
   //: a run still runs, and the app says Debug cannot.
   var REPLY_MAX = 65536;
   var shared = self.crossOriginIsolated && typeof SharedArrayBuffer === "function" ? new SharedArrayBuffer(8 + REPLY_MAX) : null;
+  //: Pyodide's interrupt buffer (OPEN row 1065): a 2 written here raises
+  //: KeyboardInterrupt in the line that is running, so a console line that
+  //: never ends is stopped and the namespace the last run left is kept.
+  //: Without isolation the only stop is the worker going.
+  var interrupt = shared ? new Uint8Array(new SharedArrayBuffer(1)) : null;
   function reply(value) {
     if (!shared) return;
     var bytes = new TextEncoder().encode(JSON.stringify(value == null ? null : value));
@@ -1384,6 +1501,7 @@ RUN_SANDBOX_PY_HTML = (
     var d = e.data || {};
     if (e.source !== parent || typeof d.mmRun !== "number") return;
     if (d.type === "stop") { stop(); return; }
+    if (d.type === "interrupt") { if (interrupt && busy && worker) interrupt[0] = 2; else stop(); return; }
     //: The console (D8): one line in the namespace the last run left, in
     //: the same worker (a fresh one, and a fresh namespace, after a Stop).
     if (d.type === "eval") {
@@ -1394,10 +1512,24 @@ RUN_SANDBOX_PY_HTML = (
       evalId = Number(d.mmEval) || 0;
       if (!worker) boot();
       busy = true;
-      worker.postMessage({ run: current, eval: true, source: String(d.source || "") });
+      if (interrupt) interrupt[0] = 0;
+      worker.postMessage({ run: current, eval: true, source: String(d.source || ""), interrupt: interrupt && interrupt.buffer });
       return;
     }
     if (d.type === "reply") { if (d.mmRun === current) reply(d.value); return; }
+    //: Warm-up (Brief 101c): the app opens a Python document and the runtime
+    //: starts loading before Run is pressed. Only when no worker exists: one
+    //: that does exists already holds, or is loading, the runtime.
+    if (d.type === "warm") {
+      if (!worker) { boot(); worker.postMessage({ run: current, warm: true }); }
+      return;
+    }
+    //: A different document's panel took over this page: drop the namespace
+    //: the last run left, keep the loaded runtime.
+    if (d.type === "forget") {
+      if (worker && !busy) worker.postMessage({ run: current, forget: true });
+      return;
+    }
     if (d.type !== "run") return;
     //: A run still going (a `while True`) cannot be interrupted from here:
     //: the worker goes, and the new run gets a fresh one.
@@ -1405,8 +1537,10 @@ RUN_SANDBOX_PY_HTML = (
     current = d.mmRun;
     if (!worker) boot();
     busy = true;
+    if (interrupt) interrupt[0] = 0;
     worker.postMessage({
       run: current,
+      interrupt: interrupt && interrupt.buffer,
       source: String(d.source != null ? d.source : d.code || ""),
       lineOffset: Number(d.lineOffset) || 0,
       tests: Boolean(d.tests),

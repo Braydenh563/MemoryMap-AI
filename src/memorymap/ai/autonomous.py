@@ -564,6 +564,13 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
                         logger.info("stopped mid-pass: someone quit this job")
                         outcome, detail = "cancelled", "Stopped part-way through."
                         break
+                    if event.get("offline"):
+                        #: The agent answered once, offline, and did no work:
+                        #: say so, rather than "Finished analysing and linking
+                        #: notes." over a pass that never reached a model.
+                        logger.info("autonomous pass: no model is running")
+                        outcome, detail = "completed", NO_MODEL_DETAIL
+                        break
                     if event.get("type") == "confirm":
                         logger.info(
                             "paused for confirmation on %s with nobody to ask, abandoning run",
@@ -595,12 +602,7 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
 
         from memorymap.core import taskhistory
 
-        if changes:
-            detail = f"{detail} Changed {len(changes)} thing(s)."
-        elif outcome == "completed":
-            #: "Finished analysing and linking notes." with nothing changed read
-            #: as work done (the owner, 2026-10-07: "what did it do tho??").
-            detail = "Looked over your notes and found nothing to change."
+        detail = _settled_detail(outcome, detail, changes)
         _remember_pass(outcome, changes)
         if outcome == "failed":
             run.fail(detail)
@@ -619,6 +621,21 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
         logger.info("autonomous optimisation %s, %d change(s)", outcome, len(changes))
     finally:
         _working.clear()
+
+
+#: What a pass says when the agent answered once, offline, and did no work.
+NO_MODEL_DETAIL = "Skipped: no model is running, so nothing was analysed or linked."
+
+
+def _settled_detail(outcome: str, detail: str, changes: list[dict]) -> str:
+    """The line a finished pass leaves in the task history."""
+    if changes:
+        return f"{detail} Changed {len(changes)} thing(s)."
+    if outcome == "completed" and detail != NO_MODEL_DETAIL:
+        #: "Finished analysing and linking notes." with nothing changed read
+        #: as work done (the owner, 2026-10-07: "what did it do tho??").
+        return "Looked over your notes and found nothing to change."
+    return detail
 
 
 def _remember_pass(outcome: str, changes: list[dict]) -> None:
@@ -779,17 +796,15 @@ def _loop(stop_event: threading.Event, wake_event: threading.Event) -> None:
             # off it until the hold expires, including when `wake()` cut the
             # sleep short, which is the case that made this necessary.
             logger.info("skipped: a quit pass holds the scheduler for %ds more", held)
+        elif _working.is_set():
+            logger.info("skipped: a pass is already running")
         else:
+            #: The loop is the scheduler, the pool runs the pass (Brief 9):
+            #: one worker on the `agent` lane, a durable row, a Stop that
+            #: reaches it like any other job.
             _working.set()
-            try:
-                _run_optimization()
-            except Exception:  # noqa: BLE001  # the loop outlives one bad pass
-                logger.error("autonomous loop error", exc_info=True)
+            if not _enqueue_pass(scheduled=True):
                 _working.clear()
-            try:
-                _vacuum()
-            except Exception:  # noqa: BLE001
-                logger.error("database maintenance error", exc_info=True)
 
         try:
             hours = int(config.get_preference("autonomous_tasks_interval_hours") or 6)
@@ -871,7 +886,39 @@ def trigger_now() -> bool:
     # Set before the thread starts, not inside it: two clicks in the same
     # millisecond would both see a clear flag and both start a run otherwise.
     _working.set()
-    threading.Thread(
-        target=_run_optimization, daemon=True, name="autonomous-manual"
-    ).start()
+    if not _enqueue_pass(scheduled=False):
+        _working.clear()
+        return False
     return True
+
+
+def _enqueue_pass(scheduled: bool) -> bool:
+    from memorymap.core import jobs
+
+    return bool(
+        jobs.enqueue("autonomous", run_pass, scheduled, name="Autonomous pass", dedupe_key="autonomous")
+    )
+
+
+def run_pass(scheduled: bool = False) -> None:
+    """One pass as a pool job (Brief 9, `jobstore.HANDLERS["autonomous"]`).
+
+    Both entry points set `_working` before they queue this. A row resumed
+    at launch after a kill arrives without it, and only then is the master
+    switch read here: a pass someone switched off since must not run because
+    the last one was interrupted. A scheduled pass is followed by the
+    database's own tidy (`_vacuum`), as the loop did inline."""
+    if not _working.is_set():
+        if not deps.get_config().get_preference("autonomous_tasks_enabled", False):
+            return
+        _working.set()
+    try:
+        _run_optimization()
+    except Exception:  # noqa: BLE001  # one bad pass is a log line
+        logger.error("autonomous pass error", exc_info=True)
+        _working.clear()
+    if scheduled:
+        try:
+            _vacuum()
+        except Exception:  # noqa: BLE001
+            logger.error("database maintenance error", exc_info=True)

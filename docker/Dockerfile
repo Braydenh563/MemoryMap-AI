@@ -1,4 +1,5 @@
-# Not built in the sandbox (no Docker daemon); the sizes in ANALYSIS.md come
+# Not built in the sandbox (no Docker daemon); tests/test_docker_files.py reads
+# these files as text. The sizes in ANALYSIS.md come
 # from a venv measured with pip. Build from the repo root:
 #   docker build -f docker/Dockerfile -t memorymap .
 #
@@ -27,7 +28,9 @@ COPY alembic.ini ./
 RUN /venv/bin/pip install --no-deps -e .
 
 FROM python:3.13-slim
-RUN useradd --create-home --uid 1000 mm
+RUN useradd --create-home --uid 1000 mm \
+ && mkdir -p /data /models \
+ && chown mm:mm /data /models
 COPY --from=build /venv /venv
 COPY --from=build /app /app
 WORKDIR /app
@@ -46,7 +49,8 @@ USER mm
 # MEMORYMAP_BIND widens the bind inside the container (the bridge is not
 # loopback) and MEMORYMAP_FIRST_PASSWORD seeds a password when none is set.
 # Publish the port on the host's loopback (compose.yaml) and put TLS in front
-# for other devices.
+# for other devices. Behind a proxy that forwards its own name, list it in
+# MEMORYMAP_ALLOWED_HOSTS (comma-separated, names only) or the app answers 421.
 ENV MEMORYMAP_BIND=0.0.0.0 \
     MEMORYMAP_PORT=8000
 CMD ["python", "-m", "memorymap"]

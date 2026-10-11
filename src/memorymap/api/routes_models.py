@@ -274,14 +274,27 @@ def warm_filing() -> dict:
     from memorymap.api import routes_entries
     from memorymap.core import jobs
 
-    jobs.enqueue(
-        "warm-filing",
-        janitor.warm_filing_model,
-        deps.get_model_manager(),
-        deps.get_ollama(),
-        dedupe_key="warm-filing",
-    )
-    jobs.enqueue("file-entry", routes_entries.retry_stand_ins, dedupe_key="retry-stand-ins")
+    ollama = deps.get_ollama()
+    #: Only when a model answers: with none the job returned at once, yet
+    #: still showed "Warming up the filing model" in the bell and Activity on
+    #: every launch (scan 2026-10-11).
+    try:
+        reachable = bool(ollama.is_running())
+    except Exception:  # noqa: BLE001 - a probe that fails is "not reachable"
+        reachable = False
+    if reachable:
+        jobs.enqueue(
+            "warm-filing",
+            janitor.warm_filing_model,
+            deps.get_model_manager(),
+            ollama,
+            dedupe_key="warm-filing",
+        )
+    #: Only when a note is waiting: queued unconditionally, a launch with no
+    #: notes still showed "Filing a note" in Activity and in the bell (scan
+    #: 2026-10-11, one more row per page load).
+    if routes_entries.stand_ins_waiting():
+        jobs.enqueue("file-entry", routes_entries.retry_stand_ins, dedupe_key="retry-stand-ins")
     return {"status": "ok"}
 
 def _embedding_coverage(session: Session) -> dict:
@@ -397,6 +410,11 @@ def status(session: Session = Depends(get_session)) -> dict:
         "chat_model": chat_model,
         # None = unknown because Ollama is off (don't warn about nothing)
         "chat_model_installed": _name_matches(chat_model, installed) if running else None,
+        #: False on a fresh install that never chose one (the stored default
+        #: "llama3.2"): Settings says no model is chosen rather than that the
+        #: one it "was running" is gone. The why is the start-up choice's.
+        "chat_model_chosen": manager._config.get_preference("chat_model") is not None,
+        "chat_model_chosen_why": manager._config.get_preference("chat_model_chosen_why", ""),
         # **The model that actually answers** (owner, packaged app: "it said in
         # the chat header that I had llama3.2 set when it was a completely
         # different model and I didnt even have llama3.2 installed"). An
@@ -703,6 +721,7 @@ def set_chat_model(body: ChatModelBody, session: Session = Depends(get_session))
             detail=f"'{body.name}' isn't available on {_backend_label()}.",
         )
     deps.get_model_manager().set_chat_model(body.name)
+    deps.get_config().set_preference("chat_model_chosen_why", "")
     log_action(session, "edited", "preferences", detail=f"chat_model={body.name}")
     session.commit()
     return {"chat_model": body.name}
@@ -912,7 +931,7 @@ def cancel_job(kind: str, name: str = "") -> dict:
     return {"cancelling": True, "kind": kind, "name": name}
 
 
-@router.post("/embedding-backend")
+@router.post("/embedding-backend", dependencies=[Depends(this_computer_only)])
 def set_embedding_backend(
     body: EmbeddingBackendBody, session: Session = Depends(get_session)
 ) -> dict:
@@ -1001,7 +1020,7 @@ def rebuild_search_index() -> dict:  # noqa: D401  # see the long docstring belo
     return {"reindex_started": bool(started)}
 
 
-@router.post("/delete")
+@router.post("/delete", dependencies=[Depends(this_computer_only)])
 def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dict:
     """Uninstall a model from Ollama to reclaim disk. Refuses to remove a
     model that's currently in use (chat, utility, or Ollama embeddings), so
@@ -1035,7 +1054,7 @@ def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dic
     return {"deleted": True, "name": body.name}
 
 
-@router.post("/pull")
+@router.post("/pull", dependencies=[Depends(this_computer_only)])
 def pull_model(body: PullBody, session: Session = Depends(get_session)) -> dict:
     #: A pasted Hugging Face link becomes ``hf.co/owner/repo:QUANT``, and a name
     #: Ollama could not pull is refused here with the reason, not by a failed

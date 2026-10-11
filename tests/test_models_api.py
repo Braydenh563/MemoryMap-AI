@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 from sqlalchemy import select
 
@@ -430,6 +431,44 @@ def test_warm_filing_is_served_where_the_page_asks_for_it(client):
     assert client.post("/models/warm-filing").json() == {"status": "ok"}
 
 
+def test_a_launch_with_no_waiting_notes_queues_no_filing_row(client, monkeypatch):
+    # Every page load queued the stand-in retry as a "Filing a note" job even
+    # on an empty notebook, so the bell and Activity said a note was being
+    # filed when there was none (scan 2026-10-11).
+    from memorymap.core import jobs
+
+    queued: list[str] = []
+    monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))
+    monkeypatch.setattr(deps.get_ollama().__class__, "is_running", lambda self: True, raising=False)
+    client.post("/models/warm-filing")
+    assert queued == ["warm-filing"]
+
+
+def test_a_launch_with_no_model_running_does_not_queue_a_warm_up_row(client, monkeypatch):
+    # "Warming up the filing model" showed in the bell and Activity on every
+    # launch of a notebook with no model, for a job that returned at once.
+    from memorymap.core import jobs
+
+    queued: list[str] = []
+    monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))
+    monkeypatch.setattr(deps.get_ollama().__class__, "is_running", lambda self: False, raising=False)
+    client.post("/models/warm-filing")
+    assert queued == []
+
+
+def test_a_launch_with_a_stand_in_note_retries_its_filing(client, monkeypatch):
+    from memorymap.core import jobs
+
+    queued: list[str] = []
+    monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))
+    from memorymap.api import routes_entries
+
+    monkeypatch.setattr(routes_entries, "stand_ins_waiting", lambda: 2)
+    monkeypatch.setattr(deps.get_ollama().__class__, "is_running", lambda self: True, raising=False)
+    client.post("/models/warm-filing")
+    assert queued == ["warm-filing", "file-entry"]
+
+
 def test_status_serves_the_last_answer_while_the_runner_is_slow(client, monkeypatch):
     """`GET /models/status: signal timed out` again, with the capability probe
     already off the request path: what is left is the poll waiting on the
@@ -502,3 +541,28 @@ def test_status_reports_a_runner_that_goes_away_when_it_answers(client, monkeypa
     state["up"] = False
     body = client.get("/models/status").json()
     assert body["ollama_running"] is False and body["installed_models"] == []
+
+
+def test_a_start_up_choice_is_said_with_its_reason_until_one_is_picked(client, monkeypatch):
+    """The owner, 2026-10-07: a fresh install with models present said Atlas
+    "was running llama3.2, which is not installed any more". Never chosen
+    reads as never chosen; a start-up choice carries its why until a model
+    is picked by hand."""
+    from memorymap.api import app as app_module
+    from memorymap.core import deps
+
+    ollama = deps.get_ollama()
+    monkeypatch.setattr(ollama, "is_running", lambda: True)
+    monkeypatch.setattr(ollama, "list_models", lambda: [{"name": "granite4.1:3b", "size": 2 * 1024**3}])
+    #: A fresh install: nothing stored, so the default name stands in.
+    deps.get_config()._preferences.pop("chat_model", None)
+    body = client.get("/models/status").json()
+    assert body["chat_model_chosen"] is False and body["chat_model_chosen_why"] == ""
+    app_module._choose_chat_model_if_missing()
+    body = client.get("/models/status").json()
+    assert body["chat_model"] == "granite4.1:3b" and body["chat_model_chosen"] is True
+    assert "llama3.2 is not installed" in body["chat_model_chosen_why"]
+    assert client.post("/models/chat-model", json={"name": "granite4.1:3b"}).status_code == 200
+    assert client.get("/models/status").json()["chat_model_chosen_why"] == ""
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    assert "sayChatModelChosen(modelStatus);" in js and '"Change"' in js.split("function sayChatModelChosen", 1)[1][:900]

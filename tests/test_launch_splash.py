@@ -80,7 +80,7 @@ def test_every_exit_path_takes_the_splash_down():
     # Browser mode closes it itself; the end-of-script backstop covers the
     # error paths that fall through.
     assert text.count('del /q "!MM_SPLASH_FILE!"') >= 2
-    tail = text[text.index("MemoryMap AI has stopped") - 700 :]
+    tail = text[text.index("Tessellate has stopped") - 700 :]
     assert 'del /q "!MM_SPLASH_FILE!"' in tail
 
 

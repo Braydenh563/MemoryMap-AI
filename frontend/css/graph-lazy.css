@@ -24,6 +24,13 @@
   position: absolute;
   z-index: 3;
   box-shadow: var(--shadow-sm);
+  /* Its height comes from the plate (gcRenameTopicInline), so nothing here
+     may add to it: no floor, no vertical padding, the plate's type size. */
+  min-height: 0;
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 /* A topic's card (KG6): the trace result's shell (02-chat-graph.css),
@@ -116,4 +123,42 @@
 
 .graph-popup-props .note-props {
   margin: 0;
+}
+
+/* **The first map's wait** (Brief 100, `gcArriving` in graph-canvas.js): a
+   faint glow of the accent breathes in the middle of the card from the
+   render's start until the canvas fades in, and fades as it does, so the
+   card is never an empty frame between the tab's skeleton and the map. */
+#graph-box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity calc(var(--ui-slow) * 2) var(--ease-out);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 12%, transparent), transparent) center / min(70%, 32rem) min(70%, 32rem) no-repeat;
+}
+#graph-box.graph-arriving::after {
+  opacity: 1;
+  animation: graph-arriving 1.6s var(--ease-in-out) infinite alternate;
+}
+@keyframes graph-arriving {
+  from {
+    scale: 0.9;
+  }
+  to {
+    scale: 1.05;
+  }
+}
+/* Less motion asked for: no breathing, and the glow goes with the map's cut. */
+@media (prefers-reduced-motion: reduce) {
+  #graph-box::after,
+  #graph-box.graph-arriving::after {
+    transition: none;
+    animation: none;
+  }
+}
+:root[data-motion="reduced"] #graph-box::after {
+  transition: none;
+  animation: none;
 }

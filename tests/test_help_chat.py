@@ -79,7 +79,7 @@ def test_help_chat_answer_function_is_grounded_in_app_guidance_only():
 
 
 def test_ask_grounds_the_model_in_the_matching_reference_notes(ai_client, fake_ollama):
-    # The model has no idea what MemoryMap is on its own, item 40's whole
+    # The model has no idea what Tessellate is on its own, item 40's whole
     # "never invent a feature" instruction is only followable if the prompt
     # actually hands it real facts. Assert the reference text lands in the
     # messages sent to the model, not just that the reply looks plausible.

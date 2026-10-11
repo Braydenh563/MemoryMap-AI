@@ -1480,11 +1480,13 @@ def _build_topics(session: Session) -> dict:
 
     index = paths.build(session)
     terms_of: dict[int, set[tuple[str, str]]] = {}
+    titles: dict[int, str] = {}
     for entry in index.entries.values():
         if entry.is_private:
             continue
         terms = {("tag", tag.lower()) for tag in _tags_of(entry)}
-        for word in _TITLE_WORD.findall(manager.plain_label(entry.content, 80).lower()):
+        titles[entry.id] = manager.plain_label(entry.content, 80)
+        for word in _TITLE_WORD.findall(titles[entry.id].lower()):
             if word not in STOPWORDS:
                 terms.add(("word", word))
         terms_of[entry.id] = terms
@@ -1493,7 +1495,7 @@ def _build_topics(session: Session) -> dict:
     ):
         if entry_id in terms_of and name and name.strip():
             terms_of[entry_id].add(("entity", name.strip()))
-    found = topic_finder.build(index, terms_of)
+    found = topic_finder.build(index, terms_of, titles)
     topic_of = {str(node): topic["id"] for topic in found for node in topic["ids"]}
     return {"topics": found, "topic_of": topic_of}
 

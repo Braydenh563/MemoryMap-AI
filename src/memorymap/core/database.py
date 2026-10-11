@@ -323,6 +323,10 @@ class Entry(Base, WorkspaceMixin):
     #: JSON string arrays like `tags`; additive, so old rows backfill to [].
     suggested_tags: Mapped[str] = mapped_column(Text, default="[]")
     discarded_tags: Mapped[str] = mapped_column(Text, default="[]")
+    #: "Don't suggest tags for this note" (brief 89): no suggestion is made,
+    #: kept or shown while it is set, and what was kept comes back when it is
+    #: cleared. Additive scalar, so old rows backfill to false.
+    tag_suggest_off: Mapped[bool] = mapped_column(Boolean, default=False)
     #: Where this note is in the filing queue: `done` (the only state a note
     #: filed synchronously is ever in), `pending` (saved, category not
     #: decided yet), or `failed` (the background pass raised and gave up, 
@@ -1170,6 +1174,11 @@ class Reminder(Base, WorkspaceMixin):
     #: An early alert, minutes before `due_at` ("1 day before"); None for none.
     #: Additive: `_add_missing_columns` puts it on an existing database.
     alert_minutes: Mapped[int | None] = mapped_column(Integer, default=None)
+    #: The day of the month a monthly or yearly repeat means (29 to 31), kept
+    #: when a short month clamps `due_at` to the 28th, so the next long month
+    #: goes back to the 31st. Null: the due day is the day. Cleared when the
+    #: person moves the due time (Brief 101b).
+    repeat_day: Mapped[int | None] = mapped_column(Integer, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     #: In the recycle bin since then (WORLD_CLASS_PLAN 5 item 10); null is live.
     #: Hidden from every read by `_hide_binned`.
@@ -1683,6 +1692,11 @@ class Recording(Base, WorkspaceMixin):
     #: note may be binned and purged while the recording is kept).
     entry_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
     source_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    #: What a row made from `source_id` is: "trim", or "enhanced" (the
+    #: high-pass and loudness normalise on save, UI_MODERNISATION V3); "" for
+    #: a recording as it was made. A scalar default, so the additive
+    #: auto-migrator backfills old rows.
+    derived: Mapped[str] = mapped_column(String(16), default="")
     state: Mapped[str] = mapped_column(String(16), default="recording")
     #: Set when a stale recording was finished by recovery, so the app can
     #: say "Recording recovered" once.
@@ -2606,6 +2620,14 @@ class DatabaseManager:
         ("ix_whiteboard_sketches_board", "whiteboard_sketches (board_id)"),
         ("ix_reminders_entry", "reminders (entry_id)"),
         ("ix_entry_bookmarks_entry", "entry_bookmarks (entry_id)"),
+        # The last five foreign keys with no index leading on them (the
+        # Brief 60 census, WORLD_CLASS_PLAN 26.4): deleting an entry, an
+        # entity, a document or a bookmark scanned these join tables.
+        ("ix_entry_bookmarks_bookmark", "entry_bookmarks (bookmark_id)"),
+        ("ix_document_bookmarks_document", "document_bookmarks (document_id)"),
+        ("ix_document_bookmarks_bookmark", "document_bookmarks (bookmark_id)"),
+        ("ix_entity_mentions_entry", "entity_mentions (entry_id)"),
+        ("ix_entity_mentions_entity", "entity_mentions (entity_id)"),
         # **The all-spaces orders** (WORLD_CLASS_PLAN 19.3, the whole
         # `EXPLAIN QUERY PLAN` pass, 2026-10-05: scratchpad/
         # plat1005_query_plans.py over every GET route at 5,000 notes). Every

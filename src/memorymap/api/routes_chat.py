@@ -16,13 +16,14 @@ import json
 import logging
 import mimetypes
 import re
+import threading
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timezone
 from itertools import chain
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -145,7 +146,7 @@ def _recent_questions(session: Session, limit: int = 5) -> list[str]:
     rows = session.scalars(
         select(AuditLog)
         .where(
-            AuditLog.action.in_(("queried", "forgot", "cleared")),
+            AuditLog.action.in_(("queried", "forgot", "cleared", "remembered")),
             AuditLog.entity_type == ASK_SURFACE,
         )
         .order_by(AuditLog.id.desc())
@@ -153,7 +154,15 @@ def _recent_questions(session: Session, limit: int = 5) -> list[str]:
     )
     questions: list[str] = []
     forgotten: set[str] = set()
+    #: A `remembered` row is Undo of a `forgot` or `cleared` one (INBOX 898):
+    #: it names that row's id, and walking back, the row it names no longer counts.
+    lifted: set[str] = set()
     for row in rows:
+        if row.action == "remembered":
+            lifted.add(row.detail or "")
+            continue
+        if str(row.id) in lifted:
+            continue
         if row.action == "cleared":
             break
         if row.action == "forgot":
@@ -174,9 +183,28 @@ def recent_questions(session: Session = Depends(get_session)) -> list[str]:
 @router.delete("/recent")
 def forget_recent_question(question: str, session: Session = Depends(get_session)) -> dict:
     """Take one question off the Ask again row (see `_recent_questions`)."""
-    manager.log_action(session, "forgot", ASK_SURFACE, detail=question)
+    marker = manager.log_action(session, "forgot", ASK_SURFACE, detail=question)
     session.commit()
-    return {"forgotten": question}
+    return {"forgotten": question, "marker_id": marker.id if marker else None}
+
+
+class RememberBody(BaseModel):
+    marker_id: int
+
+
+@router.post("/recent/restore")
+def remember_recent_question(body: RememberBody, session: Session = Depends(get_session)) -> dict:
+    """Undo `DELETE /chat/recent`: the chip is offered again (INBOX 898).
+
+    Writes a `remembered` row naming the `forgot` one rather than editing the
+    log, which is a history.
+    """
+    marker = session.get(AuditLog, body.marker_id)
+    if marker is None or marker.action != "forgot" or marker.entity_type != ASK_SURFACE:
+        raise HTTPException(status_code=404, detail="That question was not forgotten.")
+    manager.log_action(session, "remembered", ASK_SURFACE, detail=str(marker.id))
+    session.commit()
+    return {"remembered": marker.detail}
 
 
 def _asked_key(question: str) -> str:
@@ -234,14 +262,21 @@ def _about(name: str) -> str:
 
     Lower-cased word by word as a noun in running text ("Travel plans" to
     "travel plans"), but a word with capitals inside it is a name and keeps
-    them ("MemoryMap"), and a category already named "About X" gives "X":
-    the seeded notebook's "About MemoryMap" came out as "What have I saved
-    about about memorymap?" (the devibe pass, a 1440 still of the empty chat).
+    them ("iPhone"), as does the app's own name, and a category already named
+    "About X" gives "X": the seeded notebook's "About Tessellate" came out as
+    "What have I saved about about ..." (the devibe pass, a 1440 still of the
+    empty chat).
     """
     words = name.split()
     if len(words) > 1 and words[0].lower() == "about":
         words = words[1:]
-    return " ".join(w if any(c.isupper() for c in w[1:]) else w.lower() for w in words)
+    return " ".join(
+        w if w in _NAMES or any(c.isupper() for c in w[1:]) else w.lower() for w in words
+    )
+
+
+#: Proper nouns `_about` keeps capitalised although they have no inner capital.
+_NAMES = frozenset({"Tessellate"})
 
 
 @router.get("/suggestions", response_model=list[str])
@@ -316,6 +351,10 @@ def chat_followups(body: FollowupBody) -> list[str]:
 class ChatTurn(BaseModel):
     question: str
     answer: str
+    #: The notes the answer named, by title, for a spoken follow-up such as
+    #: "delete the other one" (`reading.follow`, decision 57). Optional, and
+    #: dropped from the dump when absent, so a turn without it is unchanged.
+    objects: list[Annotated[str, Field(max_length=200)]] | None = Field(default=None, max_length=8)
 
 
 class PlanRun(BaseModel):
@@ -971,6 +1010,9 @@ def _attached_boards(session: Session, board_ids: list[int]) -> list[dict]:
             }
         )
     return found
+
+
+starter_acts.ATTACHED_BOARDS = _attached_boards
 
 
 def _outline_into(nodes: list[dict], depth: int, out: list[str]) -> None:
@@ -1680,7 +1722,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     shared = {
         "style": prepared["style"],
         "profile": prepared["profile"],
-        "history": [turn.model_dump() for turn in body.history],
+        "history": [turn.model_dump(exclude_none=True) for turn in body.history],
         "persona_prompt": _resolve_persona(body.persona, session),
     }
     if prepared["stats"] is not None:
@@ -1928,6 +1970,9 @@ class _StreamRequest:
     #: The skill's own instruction when there is one, else what the user asked.
     question: str
     allowed_tools: list[str] | None
+    #: Set by Stop in Activity. The run's Activity job and its budget share it,
+    #: so a write the model asked for as Stop landed is refused (Brief 101b).
+    stop: threading.Event = field(default_factory=threading.Event)
     #: What the message called the assistant ("hey lil bro, ..."), taken off
     #: `question` (`vocative.split`); `call` when that was all it said.
     address: vocative.Address | None = None
@@ -2693,7 +2738,8 @@ def _starter_events(req: _StreamRequest, starter: tuple[str, dict]) -> Iterator[
     """The starter's answer line, then its act card (`ai/starter_acts.py`)."""
     kind, slots = starter
     yield from starter_acts.events(
-        req.session, kind, slots, user_now(deps.get_config()), req.body.note_ids, req.history
+        req.session, kind, slots, user_now(deps.get_config()), req.body.note_ids, req.history,
+        document_ids=req.body.document_ids, board_ids=req.body.board_ids,
     )
 
 
@@ -2757,7 +2803,7 @@ def _agent_events(req: _StreamRequest, prepared: dict, tools_provider) -> Iterat
             #: step, and a nine-step skill held to one step's worth is how
             #: a correct run came to stop after three of them.
             #: And the skill's own declared caps on top (Phase E, decision 3).
-            budget=run_budget.for_skill(deps.get_config(), req.skill["skill"]),
+            budget=_stoppable(run_budget.for_skill(deps.get_config(), req.skill["skill"]), req),
             **shared,
         )
     else:
@@ -3278,7 +3324,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     #: loop included, goes on asking for `chat_model()` and gets this
     #: surface's answer without knowing features exist.
     model_manager = deps.get_model_manager().for_feature(_feature_for(body))
-    history = [turn.model_dump() for turn in body.history]
+    history = [turn.model_dump(exclude_none=True) for turn in body.history]
     persona_prompt = _resolve_persona(body.persona, session)
     mode = _resolve_mode(body.mode)
     images_raw = _resolve_chat_images(session, body.image_media_ids)
@@ -3344,6 +3390,12 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     )
 
 
+def _stoppable(spend, req):  # noqa: ANN001, ANN202
+    """The run's budget, wired to this turn's Stop."""
+    spend.stop_event = req.stop
+    return spend
+
+
 def _interactive_lines(req):  # noqa: ANN001, ANN202
     """`_stream_lines`, marked as an interactive model call while it runs, so
     background model work waits between its calls (`core/model_gate.py`,
@@ -3352,7 +3404,9 @@ def _interactive_lines(req):  # noqa: ANN001, ANN202
     #: Listed in Activity while it streams, and Stop there ends it (rule 5).
     label = "Running a skill" if req.skill else "Answering in Chat"
     with model_gate.interactive():
-        yield from activity.tracked_stream("generation", label, _stream_lines(req), title=_run_title(req))
+        yield from activity.tracked_stream(
+            "generation", label, _stream_lines(req), title=_run_title(req), stop_event=req.stop
+        )
 
 
 def _run_title(req) -> str:  # noqa: ANN001

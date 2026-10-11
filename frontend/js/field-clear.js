@@ -82,19 +82,27 @@ function fieldClearRun(spec) {
     boxes[0]?.focus();
     fieldClearSync(spec);
   };
+  const redo = () => {
+    for (const box of boxes) fieldClearWrite(box, "");
+    fieldClearSync(spec);
+  };
+  //: On the app's Undo stack too (INBOX 898), so Ctrl+Z brings the words back
+  //: after the notice has gone and Ctrl+Shift+Z clears the box again.
+  const step = pushUndo("Cleared a box", undo, redo);
   const line = spec.status && document.getElementById(spec.status);
-  if (!line) return toastAction("Cleared.", "Undo", undo);
-  const redo = document.createElement("button");
-  redo.type = "button";
-  redo.className = "link-button";
-  redo.textContent = "Undo";
+  if (!line) return toastAction("Cleared.", "Undo", () => { settleUndoFromToast(step); undo(); });
+  const undoButton = document.createElement("button");
+  undoButton.type = "button";
+  undoButton.className = "link-button";
+  undoButton.textContent = "Undo";
   line.classList.remove("error");
-  line.replaceChildren("Cleared. ", redo);
+  line.replaceChildren("Cleared. ", undoButton);
   const gone = () => line.replaceChildren();
   const timer = setTimeout(gone, 8000);
-  redo.addEventListener("click", () => {
+  undoButton.addEventListener("click", () => {
     clearTimeout(timer);
     gone();
+    settleUndoFromToast(step);
     undo();
   });
   boxes[0].addEventListener("input", () => { clearTimeout(timer); gone(); }, { once: true });

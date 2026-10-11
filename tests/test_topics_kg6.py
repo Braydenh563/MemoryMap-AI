@@ -116,3 +116,20 @@ def test_a_private_note_lends_no_words_to_a_name(client, session):
     session.commit()
     body = client.get("/graph/structure?topics=1").json()
     assert all("zebra" not in t["name"].lower() for t in body["topics"])
+
+
+def test_a_topic_no_strong_term_names_takes_a_weak_one_then_its_core_title():
+    """The owner, 2026-10-11: a cluster chip read "Topic 2". A term two notes
+    share names it below the share bar; with none, its most linked note's
+    title does; "Topic N" is left for notes with no readable title."""
+    index = _index(8, _clique([1, 2, 3, 4, 5, 6, 7, 8]) + [(1, 3), (1, 5)])
+    weak = {i: {("word", f"own{i}")} for i in range(1, 9)}
+    weak[2] |= {("tag", "kiln")}
+    weak[3] |= {("tag", "kiln")}
+    assert topics.build(index, weak)[0]["name"] == "#kiln"
+    plain = {i: {("word", f"own{i}")} for i in range(1, 9)}
+    found = topics.build(index, plain, {i: f"Note {i}" for i in range(1, 9)})
+    assert found[0]["name"] == "Around Note 1"
+    long = topics.build(index, plain, {1: "A" * 60})
+    assert long[0]["name"] == "Around " + "A" * 39 + "…"
+    assert topics.build(index, plain, {})[0]["name"] == "Topic 1"

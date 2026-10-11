@@ -500,6 +500,32 @@ class ContentBatch(BaseModel):
     documents: list[ContentItem] = Field(max_length=1000)
 
 
+#: The most documents `GET /contents` reads, the same bound the write takes.
+CONTENTS_READ_MAX = 1000
+
+
+@router.get("/contents")
+def read_contents(
+    file_type: str | None = Query(default=None, max_length=40),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """Every live document's id, title and text in one response, for Replace
+    in every document's scan (OPEN row 1055). It read `GET ""` (one page)
+    and then each document by its own request, so past the first page it
+    missed documents, and at fifty it cost fifty-one requests. The pattern is
+    matched in the browser because it may be a regular expression.
+    `file_type` narrows it to one kind: a SQL run reads the CSV documents
+    its query names as tables (OPEN row 1069)."""
+    query = select(Document).where(Document.archived_at.is_(None))
+    if file_type:
+        query = query.where(Document.file_type == filetypes.normalise(file_type))
+    rows = session.scalars(query.order_by(Document.updated_at.desc(), Document.id.desc()).limit(CONTENTS_READ_MAX))
+    return [
+        {"id": d.id, "title": d.title, "file_type": filetypes.normalise(d.file_type), "content": d.content or ""}
+        for d in rows
+    ]
+
+
 @router.post("/contents")
 def write_contents(body: ContentBatch, session: Session = Depends(get_session)) -> dict:
     """Many documents' text in one transaction (DOCUMENTS 24 row 9): Replace in
@@ -548,7 +574,7 @@ def import_document(
     order and "import" is not an int, the same trap `/file-types` sits above.
     """
     name = (file.filename or "file").strip() or "file"
-    suffix = Path(name).suffix[:12].lower()
+    suffix = docview.effective_suffix(name)
     if suffix not in docview.VIEWABLE_SUFFIXES:
         raise HTTPException(
             status_code=415,
@@ -578,7 +604,10 @@ def import_document(
         # rasteriser it needs are the "optionally customisable" half. Costs
         # nothing for every other file type: `docview` only consults a reader
         # once a PDF has turned out to have no text layer.
-        viewed = docview.extract(staged, vision_reader=vision_ocr.pdf_reader_or_none())
+        #: Listed while it reads (OPEN 1095, the activity contract's rule 5):
+        #: a 50 MB PDF or a scan read by the vision model takes a while.
+        with activity.track("import", f"Importing {name[:80]}", stoppable=False):
+            viewed = docview.extract(staged, vision_reader=vision_ocr.pdf_reader_or_none())
 
     #: **A saved web page becomes prose here, and only here** (Phase 7).
     #: `docview.extract` hands back an .html file's own markup, because the

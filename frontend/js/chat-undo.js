@@ -72,3 +72,49 @@ function chatTurnUndo(id, index, gone) {
     }
   );
 }
+
+//: **Editing a question and resending it** (INBOX 898): the old wording and
+//: its replies were cut off (`cut`, the truncate's answer) and a new tail
+//: written. Undo swaps the tails back and Redo swaps them again, each side
+//: kept as the server's own record of what it just removed. When the cut took
+//: the whole chat, the new chat is another row and the two rows swap instead.
+function chatEditUndo(id, turnIndex, cut, newId) {
+  const whole = Boolean(cut.conversation_deleted);
+  const post = (path, body) => apiJson(`/conversations/${path}`, { method: "POST", body: JSON.stringify(body) });
+  const cutAt = async () => (await post(`${id}/truncate`, { from_turn: turnIndex })).removed_messages || [];
+  const putBack = (messages) => (messages.length ? post(`${id}/truncate/restore`, { from_turn: turnIndex, messages }) : null);
+  const reopen = async (open) => {
+    loadConversationList();
+    if (open == null) newChatConversation();
+    else await openConversation(open);
+  };
+  let oldRow = cut.restore;
+  let oldTail = cut.removed_messages || [];
+  let newRow = null;
+  let newTail = [];
+  pushUndo(
+    "Edited a question and resent it",
+    async () => {
+      if (whole) {
+        if (newId != null) newRow = (await apiJson(`/conversations/${newId}`, { method: "DELETE" })).restore;
+        await post("restore", oldRow);
+        await reopen(oldRow.id);
+      } else {
+        newTail = await cutAt();
+        await putBack(oldTail);
+        await reopen(id);
+      }
+    },
+    async () => {
+      if (whole) {
+        oldRow = (await apiJson(`/conversations/${oldRow.id}`, { method: "DELETE" })).restore;
+        if (newRow) await post("restore", newRow);
+        await reopen(newRow?.id ?? null);
+      } else {
+        oldTail = await cutAt();
+        await putBack(newTail);
+        await reopen(id);
+      }
+    }
+  );
+}

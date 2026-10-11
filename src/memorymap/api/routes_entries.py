@@ -132,6 +132,7 @@ def _to_out(
         ai_confidence=filing_certainty.shown(
             entry.ai_confidence, user_filed=bool(getattr(entry, "user_filed", False))
         ),
+        tag_suggest_off=bool(getattr(entry, "tag_suggest_off", False)),
         suggested_tags=(offered := _open_suggestions(entry)),
         suggested_tag_reasons=_tag_reasons(content, offered),
         #: Never a private note's: derived from its text, as its suggestions
@@ -211,7 +212,11 @@ def _json_tags(raw: str | None) -> list[str]:
 
 def _open_suggestions(entry) -> list[str]:  # noqa: ANN001
     """The kept suggestions still worth showing: not on the note already and
-    not discarded (a tag added by hand since filing drops out by itself)."""
+    not discarded (a tag added by hand since filing drops out by itself).
+    None while the note is set to "Don't suggest tags" (brief 89); what was
+    kept is still on the row and comes back when that is cleared."""
+    if getattr(entry, "tag_suggest_off", False):
+        return []
     have = {tag.casefold() for tag in manager.entry_tags(entry)}
     gone = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
     return [
@@ -242,7 +247,7 @@ def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  #
     from ciphertext or the locked placeholder when the vault is shut. What it
     already holds (a note made private after filing) is handled like its
     tags: kept, shown where they are, nowhere else."""
-    if getattr(entry, "is_private", False):
+    if getattr(entry, "is_private", False) or getattr(entry, "tag_suggest_off", False):
         return
     have = manager.entry_tags(entry)
     discarded = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
@@ -577,6 +582,14 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
             logger.warning("couldn't mark entry %s as failed", entry_id, exc_info=True)
 
 
+def stand_ins_waiting() -> int:
+    """How many notes are stand-ins (the model's answer was still coming when
+    the app last closed). A count only: the launch asks it before queueing
+    the retry, so a notebook with none shows no "Filing a note" row."""
+    with deps.get_db().session() as session:
+        return session.query(Entry).filter(Entry.filing_state == manager.STAND_IN).count()
+
+
 def retry_stand_ins() -> int:
     """Ask the model again for every note left as a stand-in: its answer was
     still coming when the app closed. Runs once per launch on the model lane
@@ -727,7 +740,12 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         # dies with the process is still exactly where a user can find it.
         category, confidence, filed_by = manager.UNCATEGORISED, 0, "pending"
     else:
-        category, confidence, filed_by = _file_entry_now(session, body.content)
+        #: The wait is bounded like the background pass's (INBOX 1313): this
+        #: request holds a database connection while the model thinks, and the
+        #: unbounded wait it had (three minutes) let twenty at once fill the pool.
+        category, confidence, filed_by = _file_entry_now(
+            session, body.content, model_deadline=janitor.filing_deadline()
+        )
 
     tags = normalise_tags([*body.tags, *inline_tags(body.content)]) if body.inline_tags else body.tags
     content = body.content
@@ -1261,6 +1279,34 @@ class SuggestTagsBody(BaseModel):
 _SAID_ONCE: set[str] = set()
 
 
+@router.post("/suggest-category")
+def suggest_category_for_draft(body: SuggestTagsBody, session: Session = Depends(get_session)) -> dict:
+    """The category the notebook's own words point to for a note that is not
+    saved yet, with the reason (INBOX 1330: "a live, inline organization
+    suggestion while typing"). The words only, no model and no write: the
+    same decision filing makes with no model, so what is offered here is what
+    saving would have done. Nothing comes back where it has no reason to give
+    (a recently used category is a filing fallback, not a suggestion), and a
+    sensitive topic is offered like any other: it is a chip to press, and
+    pressing is the person filing it (decision 6)."""
+    from memorymap.ai import lexical_filing
+
+    content = body.content.strip()
+    if body.title.strip() and content:
+        content = f"# {body.title.strip()}\n\n{content}"
+    if not content:
+        return {"category": None, "reason": ""}
+    try:
+        decision = lexical_filing.decide(session, content)
+    except Exception:  # noqa: BLE001 - a hint never fails the form
+        logger.debug("no category suggestion for a draft", exc_info=True)
+        return {"category": None, "reason": ""}
+    pick = decision.filed or next((c for c in decision.ranked if c.score > 0 and c.why), None)
+    if pick is None or not pick.why:
+        return {"category": None, "reason": ""}
+    return {"category": pick.name, "reason": pick.why}
+
+
 @router.post("/suggest-tags")
 def suggest_tags_for_draft(
     body: SuggestTagsBody, session: Session = Depends(get_session)
@@ -1309,6 +1355,20 @@ class SuggestedTagsBody(BaseModel):
     #: way to undo it or see the list"): off `discarded_tags`, back into the
     #: suggestions.
     restore: list[str] = Field(default_factory=list, max_length=20)
+    #: True stops suggesting tags for this note, False starts again (brief 89).
+    mute: bool | None = None
+
+
+def _discard_tags(entry, body) -> dict[str, str]:  # noqa: ANN001
+    """Remember the tags turned down on this note (the last 200), and return the
+    ones taken back, keyed by their folded form."""
+    gone = _json_tags(entry.discarded_tags)
+    gone_folded = {tag.casefold() for tag in gone}
+    gone += [tag.strip() for tag in body.discard if tag.strip() and tag.strip().casefold() not in gone_folded]
+    restored = {tag.strip().casefold(): tag.strip() for tag in body.restore if tag.strip()}
+    gone = [tag for tag in gone if tag.casefold() not in restored]
+    entry.discarded_tags = json.dumps(gone[-200:])
+    return restored
 
 
 @router.post("/{entry_id}/suggested-tags", response_model=EntryOut)
@@ -1319,18 +1379,15 @@ def answer_suggested_tags(
     added like one typed by hand; a discarded one is remembered so no later
     filing pass offers it on this note again."""
     entry = _existing_entry(session, entry_id)
+    if body.mute is not None:
+        entry.tag_suggest_off = body.mute
     offered = {tag.casefold(): tag for tag in _json_tags(entry.suggested_tags)}
     take = [offered.get(tag.casefold(), tag.strip()) for tag in body.take if tag.strip()]
     if take:
         have = manager.entry_tags(entry)
         folded = {tag.casefold() for tag in have}
         manager.update_entry(session, entry, tags=have + [tag for tag in take if tag.casefold() not in folded])
-    gone = _json_tags(entry.discarded_tags)
-    gone_folded = {tag.casefold() for tag in gone}
-    gone += [tag.strip() for tag in body.discard if tag.strip() and tag.strip().casefold() not in gone_folded]
-    restored = {tag.strip().casefold(): tag.strip() for tag in body.restore if tag.strip()}
-    gone = [tag for tag in gone if tag.casefold() not in restored]
-    entry.discarded_tags = json.dumps(gone[-200:])
+    restored = _discard_tags(entry, body)
     answered = {tag.casefold() for tag in [*take, *body.discard]}
     kept = [tag for tag in _json_tags(entry.suggested_tags) if tag.casefold() not in answered]
     kept_folded = {tag.casefold() for tag in kept}
@@ -1476,10 +1533,10 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
             )
         else:
             refiling.fail("No filing model or embeddings were available.")
-    except Exception as exc:
+    except Exception:
         logger.warning("re-evaluation's filing step failed", exc_info=True)
         filed_by = None  # AI down, keep the note exactly as it was
-        refiling.fail(exc)
+        refiling.fail("The filing step stopped before it finished. The log has the reason.")
     refiling.finish()
 
     # 2. Suggest tags (best effort: never blocks the re-evaluation).
@@ -1997,6 +2054,42 @@ def dismiss_tension(body: TensionPair, session: Session = Depends(get_session)) 
     return {"dismissed": key}
 
 
+class TensionReopen(TensionPair):
+    #: The accept made the `contradicts` link (it was not there before), so
+    #: Undo takes it away; a link the person already had is left alone.
+    remove_link: bool = False
+
+
+@router.post("/tensions/reopen")
+def reopen_tension(body: TensionReopen, session: Session = Depends(get_session)) -> dict:
+    """Undo of accepting or dismissing a tension: the pair is offered again (INBOX 898).
+
+    The event log is a history, so this writes a `tension_reopened` event
+    rather than editing the earlier one, and drops the correction the
+    decision taught the learning loop (it was a slip, not a lesson).
+    """
+    pair = {body.earlier_id, body.later_id}
+    config = deps.get_config()
+    stored = [k for k in (config.get_preference(TENSION_DISMISSED_KEY, []) or []) if k != _tension_key(body.earlier_id, body.later_id)]
+    config.set_preference(TENSION_DISMISSED_KEY, stored)
+    removed_link = False
+    if body.remove_link:
+        for link in session.scalars(select(EntryLink).where(EntryLink.link_type == "contradicts")).all():
+            if {link.source_entry_id, link.target_entry_id} == pair:
+                manager.delete_link(session, link)
+                removed_link = True
+    for kind in ("accept_tension", "dismiss_tension"):
+        for item in reversed(learning.corrections(session, kind=kind)):
+            if {item.subject.get("a"), item.subject.get("b")} == pair:
+                row = session.get(AuditLog, item.id)
+                if row is not None:
+                    session.delete(row)
+                break
+    tensions_module.record_event(session, tensions_module.REOPENED, body.earlier_id, body.later_id)
+    session.commit()
+    return {"reopened": _tension_key(body.earlier_id, body.later_id), "removed_link": removed_link}
+
+
 class LinkSuggestionReasonPair(BaseModel):
     source_id: int
     target_id: int
@@ -2134,12 +2227,24 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
     wanted = [other_id for other_id, score in neighbours if score >= RELATED_MIN_SIMILARITY]
     if not wanted:
         return []
+    #: Each row is a press that links the two notes, so a note already linked
+    #: (either way round) is left out, and so is a draft against a committed
+    #: note (`manager.create_link` refuses both with a 400).
+    linked = {
+        other_id
+        for pair in session.execute(
+            select(EntryLink.source_entry_id, EntryLink.target_entry_id).where(
+                or_(EntryLink.source_entry_id == entry.id, EntryLink.target_entry_id == entry.id)
+            )
+        )
+        for other_id in pair
+    }
     found = {
         other.id: other
         for other in session.scalars(
             select(Entry).where(Entry.id.in_(wanted), Entry.is_deleted == False)  # noqa: E712
         )
-        if not other.is_private
+        if not other.is_private and other.id not in linked and bool(other.is_draft) == bool(entry.is_draft)
     }
     ordered = [found[other_id] for other_id in wanted if other_id in found]
     return [_to_out(session, e) for e in ordered[:3]]
@@ -2384,6 +2489,61 @@ def most_accessed(session: Session = Depends(get_session)) -> list[EntryOut]:
 @router.get("/count")
 def count_entries(session: Session = Depends(get_session)) -> dict:
     return {"count": session.scalar(select(func.count(Entry.id))) or 0}
+
+
+#: The most ids one `/entries/changes` answer carries; past it, `more` says
+#: re-read the list (a bulk retag or an import touched more than a patch is
+#: worth).
+CHANGES_IDS_MAX = 60
+#: How far behind the newest change the next stamp starts (see below).
+CHANGES_OVERLAP_SECONDS = 2.0
+
+
+@router.get("/changes")
+def entry_changes(
+    since: str = Query(default="", max_length=40),
+    session: Session = Depends(get_session),
+) -> dict:
+    """**Which notes changed since `since`** (INBOX 881, the owner: "what if I
+    make a change on my phone?? does it live update??"). The notes list on
+    another device asks every few seconds and patches those ids in with
+    `refreshEntries`. With no `since` it is only a stamp to ask from next.
+
+    By `updated_at`, which every write moves (an edit, a filing, a bin, an
+    archive, an open too: a refresh of an unchanged row costs one small read
+    and is the price of not missing a change made by a path that forgot
+    `edited_at`). Boards are left out, as the list leaves them out. The stamp
+    sent back is two seconds behind now, so a write whose
+    transaction committed a moment after this read is asked about again
+    rather than missed (and never further back than the newest change, so a
+    change is not sent for ever); the client drops ids it has already seen at
+    the same `updated_at`, which `stamps` carries."""
+    now = utcnow()
+    overlap = timedelta(seconds=CHANGES_OVERLAP_SECONDS)
+    if not since:
+        return {"since": (now - overlap).isoformat(), "ids": [], "stamps": {}, "more": False}
+    try:
+        after = datetime.fromisoformat(since)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="since is not a time this app wrote.") from exc
+    if after.tzinfo is None:
+        after = after.replace(tzinfo=now.tzinfo)
+    rows = session.execute(
+        select(Entry.id, Entry.updated_at)
+        .where(Entry.updated_at > after, Entry.is_board.is_(False))
+        .order_by(Entry.updated_at.desc())
+        .limit(CHANGES_IDS_MAX + 1)
+    ).all()
+    more = len(rows) > CHANGES_IDS_MAX
+    rows = rows[:CHANGES_IDS_MAX]
+    newest = max((r.updated_at for r in rows), default=None)
+    stamp = max(after, min(newest, now - overlap) if newest is not None else now - overlap)
+    return {
+        "since": stamp.isoformat(),
+        "ids": [r.id for r in rows],
+        "stamps": {str(r.id): r.updated_at.isoformat() for r in rows},
+        "more": more,
+    }
 
 
 @router.post("/seed-examples")
@@ -2689,7 +2849,9 @@ def wiki_rename(entry_id: int, body: WikiRenameIn, session: Session = Depends(ge
     new_name = re.sub(r"^\s{0,3}#{1,6}\s+", "", first).strip()
     if not new_name or len(new_name) > 120 or "]" in new_name or "[" in new_name:
         raise HTTPException(status_code=422, detail="This note's first line can't be a [[name]].")
-    return {"rewritten": manager.rewrite_wiki_name(session, entry, body.old, new_name)}
+    notes: list[dict] = []
+    rewritten = manager.rewrite_wiki_name(session, entry, body.old, new_name, notes)
+    return {"rewritten": rewritten, "notes": notes}
 
 
 @router.delete("/{entry_id}", response_model=EntryOut)

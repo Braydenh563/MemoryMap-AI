@@ -156,6 +156,41 @@ def _inside(item, frame) -> bool:
     return frame.x <= x <= frame.x + (frame.width or 0) and frame.y <= y <= frame.y + (frame.height or 0)
 
 
+def board_outline(title: str, cards: list[dict], frames: list[dict], text_boxes: list[dict], shapes: list[dict], links: list[dict]) -> str:
+    """A board as flat indented text: the form a small model reads best and a
+    person can paste anywhere (OPEN row 1379, the "outline-text export"). Cards
+    sit under the frame that covers them, then the loose ones; every link is a
+    line naming both ends by card id, so a later call can act on them."""
+    lines = [f"Board: {title}"]
+    in_frame: set[int] = set()
+    by_card = {card["card_id"]: card for card in cards}
+
+    def card_line(card: dict, indent: str) -> str:
+        first = (card["preview"].strip().splitlines() or [""])[0]
+        return f"{indent}- card {card['card_id']} (note {card['note_id']}): {first}"
+
+    for frame in frames:
+        lines.append(f"Frame: {frame['title'] or '(untitled)'}")
+        for card_id in frame["card_ids"]:
+            if card_id in by_card:
+                in_frame.add(card_id)
+                lines.append(card_line(by_card[card_id], "  "))
+    loose = [card for card in cards if card["card_id"] not in in_frame]
+    if loose:
+        lines.append("Cards:" if frames else "Cards")
+        lines.extend(card_line(card, "  ") for card in loose)
+    if text_boxes:
+        lines.append("Text boxes")
+        lines.extend(f"  - {box['text']}" for box in text_boxes)
+    if shapes:
+        lines.append("Shapes")
+        lines.extend(f"  - {shape['shape']} {shape['shape_id']}: {shape['text']}" for shape in shapes)
+    if links:
+        lines.append("Links")
+        lines.extend(f"  - card {link['from_card_id']} -> card {link['to_card_id']}" for link in links)
+    return "\n".join(lines)
+
+
 def _read_whiteboard(session: Session, args: dict) -> dict:
     """The read half of ROADMAP item 11's AI+whiteboard integration: lets the
     agent answer "what's on my project-planning board?" without a human
@@ -261,24 +296,32 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
         "frames": frames,
         "image_count": image_count,
         "links": links,
+        "outline": board_outline(board_title, cards, frames, text_boxes, shapes, links),
         "label": f"ph:folders Read whiteboard board “{board_title}”",
     }
 
 
 def _search_whiteboard(session: Session, args: dict) -> dict:
     """The search half of ROADMAP item 11's AI+whiteboard integration:
-    "whiteboard content becomes searchable the same way notes are." A real
-    embedding index over sketch/text-box content is a bigger lift (a new
-    table, a backfill, a place in the embedding-refresh cycle) than this
-    session's remaining scope: a keyword scan across every board's card
-    previews and text boxes still answers "which board did I put that on?",
-    which is the actual question this was asked for.
+    "whiteboard content becomes searchable the same way notes are." Words,
+    not meaning: an embedding index over text-box content needs a table, a
+    backfill and a place in the embedding-refresh cycle, and nothing measured
+    asks for it (data-1011 decision: not built; the notes the cards stand for
+    are already searched by meaning). A keyword scan across every board's card
+    previews and text boxes answers "which board did I put that on?".
     """
     from memorymap.core.database import WhiteboardNode, WhiteboardObject
 
     term = str(args.get("query") or "").strip().lower()
     if not term:
         raise ToolError("query is required")
+    #: Every word, anywhere in the text, in any order: "budget meeting" finds a
+    #: card that says "meeting about the budget". A one-word query is unchanged.
+    words = term.split()
+
+    def hit(text: str) -> bool:
+        lowered = text.lower()
+        return all(word in lowered for word in words)
     limit = _limit_arg(args, default=DEFAULT_LIST_LIMIT)
 
     matches = []
@@ -292,7 +335,7 @@ def _search_whiteboard(session: Session, args: dict) -> dict:
         # accident, and a match on the raw column is not one this tool may
         # report back to the model regardless. Same guard as `_read_whiteboard`'s
         # `_card_preview` above.
-        if entry is not None and not entry.is_private and term in entry.content.lower():
+        if entry is not None and not entry.is_private and hit(entry.content):
             if manager.came_from_outside(entry):
                 mark_outside()  # SEC-02
             matches.append({
@@ -308,7 +351,7 @@ def _search_whiteboard(session: Session, args: dict) -> dict:
         except (TypeError, ValueError):
             continue
         text = str(data.get("content") or "")
-        if term in text.lower():
+        if hit(text):
             matches.append({
                 "board_id": obj.board_id,
                 "object_id": obj.id,
@@ -504,24 +547,61 @@ def _generate_diagram(session: Session, args: dict) -> dict:
             raise ToolError(f"Node '{ref}' needs exactly one of 'title' (new note) or 'note_id' (existing note).")
         by_ref[ref] = {"title": title, "note_id": note_id, "parent_ref": raw.get("parent_ref") or None}
 
+    #: A parent can be a card already on the board, written `card:<card_id>`
+    #: (the ids `read_whiteboard` lists): the new nodes then grow out of it
+    #: instead of starting a diagram of their own (OPEN row 1379).
+    attach: dict[str, int] = {}
+    for ref, node in by_ref.items():
+        parent_ref = node["parent_ref"]
+        if isinstance(parent_ref, str) and parent_ref.startswith("card:"):
+            try:
+                attach[ref] = int(parent_ref[5:])
+            except ValueError as exc:
+                raise ToolError(f"Node '{ref}' has parent_ref '{parent_ref}': after card: put the card's number.") from exc
     roots = [ref for ref, node in by_ref.items() if not node["parent_ref"]]
-    if len(roots) != 1:
+    if attach and roots:
+        raise ToolError("Either one node has no 'parent_ref' (a new diagram) or every top node hangs from a card:<id>, not both.")
+    if not attach and len(roots) != 1:
         raise ToolError(
             "Exactly one node must have no 'parent_ref' (the diagram's root): "
             f"found {len(roots)}."
         )
-    root_ref = roots[0]
+    root_ref = roots[0] if roots else next(iter(attach))
 
     children_of: dict[str, list[str]] = {}
     for ref, node in by_ref.items():
         parent_ref = node["parent_ref"]
         if parent_ref is None:
             continue
+        if ref in attach:
+            children_of.setdefault(f"__card:{attach[ref]}", []).append(ref)
+            continue
         if parent_ref not in by_ref:
             raise ToolError(f"Node '{ref}' has parent_ref '{parent_ref}', which isn't in this call's own nodes.")
         children_of.setdefault(parent_ref, []).append(ref)
 
-    positions = _diagram_tree_positions(root_ref, children_of, layout)
+    anchors: dict[int, WhiteboardNode] = {}
+    if attach:
+        layout = "tree"
+        positions = {}
+        for card_id in dict.fromkeys(attach.values()):
+            anchor = session.scalar(
+                select(WhiteboardNode).where(WhiteboardNode.id == card_id, _whiteboard_board_filter(WhiteboardNode, board_id))
+            )
+            if anchor is None:
+                raise ToolError(f"There is no card {card_id} on that board. read_whiteboard lists the card ids.")
+            anchors[card_id] = anchor
+            virtual = f"__card:{card_id}"
+            laid = _diagram_tree_positions(virtual, children_of, "tree")
+            shift = (anchor.y or 0.0) - laid[virtual][1]
+            for ref, (px, py) in laid.items():
+                if ref != virtual:
+                    positions[ref] = ((anchor.x or 0.0) + px, py + shift)
+    else:
+        positions = _diagram_tree_positions(root_ref, children_of, layout)
+    unreached = [ref for ref in by_ref if ref not in positions]
+    if unreached:
+        raise ToolError(f"Node '{unreached[0]}' cannot be reached from the root: check parent_ref for a cycle.")
 
     # Resolve every ref to a real Entry, creating one for a bare title,
     # reusing (and permission-checking, same as any other tool) one already
@@ -561,7 +641,7 @@ def _generate_diagram(session: Session, args: dict) -> dict:
             continue
         data = {
             "type": "link-straight",
-            "sourceId": cards[parent_ref].id,
+            "sourceId": anchors[attach[ref]].id if ref in attach else cards[parent_ref].id,
             "targetId": cards[ref].id,
             "color": "#8899ff",
         }
@@ -591,6 +671,7 @@ def _generate_diagram(session: Session, args: dict) -> dict:
     return {
         "board_id": board_id,
         "root_card_id": cards[root_ref].id,
+        "extended_cards": sorted(anchors),
         "cards": [
             {"ref": ref, "card_id": card.id, "note_id": entries[ref].id, "x": card.x, "y": card.y}
             for ref, card in cards.items()
@@ -751,6 +832,35 @@ def _create_mindmap(session: Session, args: dict) -> dict:
         "title": title,
         "next": "Add nodes with add_map_node, passing this board_id and parent_id.",
         "label": f"ph:tree-structure Created the mindmap “{_clip(title, 40)}”",
+    }
+
+
+def _map_from_note(session: Session, args: dict) -> dict:
+    """A mind map made from one note in one call: its title the centre topic
+    (which opens the note), its headings and lists the branches.
+
+    One tool rather than `create_mindmap` and a call per node, because a
+    small model asked for "a map of this note" stalls after the third node
+    (WHITEBOARD_PLAN row 9). The same build as the note menu's Make a mind
+    map (`routes_map_from_notes.map_from_note_entry`), so it is the same map
+    with or without a model."""
+    from memorymap.api.routes_map_from_notes import map_from_note_entry
+
+    if args.get("note_id") is None:
+        raise ToolError("note_id is required: which note should the map be made from?")
+    entry = _require_note(session, args)
+    if entry.is_board:
+        raise ToolError(f"#{entry.id} is already a board; read it with read_whiteboard or read_mindmap.")
+    try:
+        board, count = map_from_note_entry(session, entry, str(args.get("title") or ""))
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    name = board.content[2:]
+    return {
+        "board_id": board.id,
+        "title": name,
+        "nodes": count,
+        "label": f"ph:tree-structure Made the mind map “{_clip(name, 40)}” from the note",
     }
 
 

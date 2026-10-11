@@ -223,13 +223,168 @@ async function openTagSuggest(input) {
 //: "Not suggested" line (note-edit-panels.js).
 async function answerSuggestedTags(entry, body) {
   try {
+    const wasTags = [...(entry.tags || [])];
     await apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(body) });
     await refreshEntries([entry.id]);
     const tag = (body.take || body.discard || body.restore || [])[0];
-    if (body.take) toast(`Tagged #${tag}.`);
-    else if (body.restore) toast(`#${tag} can be suggested for this note again.`);
-    else toastAction(`Won't suggest #${tag} for this note again.`, "Undo", () => answerSuggestedTags(entry, { restore: [tag] }), { record: false });
+    //: Each answer is a step on the stack (INBOX 898); its undo and redo post
+    //: the opposite answer directly, so they do not push steps of their own.
+    const post = (answer) => () => apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(answer) }).then(() => refreshEntries([entry.id]));
+    if (body.mute === true) {
+      offerUndo("Turned off tag suggestions for a note", "Won't suggest tags for this note.", post({ mute: false }), post(body), { record: false });
+    } else if (body.mute === false) {
+      toast("Tags can be suggested for this note again.");
+    } else if (body.take) {
+      pushEntryPutUndo(entry.id, `Tagged a note #${tag}`, { tags: wasTags }, { tags: [...new Set([...wasTags, ...body.take])] });
+      toast(`Tagged #${tag}.`);
+    } else if (body.restore) {
+      pushUndo(`Allowed #${tag} to be suggested again`, post({ discard: body.restore }), post(body));
+      toast(`#${tag} can be suggested for this note again.`);
+    } else {
+      offerUndo(`Turned down #${tag}`, `Won't suggest #${tag} for this note again.`, post({ restore: [tag] }), post(body), { record: false });
+    }
   } catch (error) {
     toast(error.message || "Couldn't change the tags.", true);
   }
+}
+
+//: **The "+ Tag" chip's popover** (brief 89, the owner: "should add tags show
+//: for notes with 0-2/3 tags on them?? with suggested tags as well?? and also
+//: an option for dont suggest tags for this note"). Up to three suggested tags
+//: as one-click chips above the field (the ones kept on the note first, then
+//: the notebook's own ranking from `/entries/suggest-tags`), the field, and a
+//: menu that turns suggestions off for this note and back on. A private note
+//: gets no live suggestions: they would be derived from its text.
+let noteTagPop = null;
+
+function closeNoteTagPopover({ restoreFocus = false } = {}) {
+  if (!noteTagPop) return;
+  const { panel, anchor, outside } = noteTagPop;
+  document.removeEventListener("pointerdown", outside, true);
+  if (typeof closeHelpPopovers === "function") closeHelpPopovers();
+  closeActionMenus();
+  panel.remove();
+  anchor.setAttribute("aria-expanded", "false");
+  noteTagPop = null;
+  if (restoreFocus && anchor.isConnected) anchor.focus({ preventScroll: true });
+}
+
+async function noteTagChoices(entry) {
+  if (entry.tag_suggest_off) return [];
+  const have = new Set((entry.tags || []).map((t) => t.toLowerCase()));
+  const gone = new Set((entry.discarded_tags || []).map((t) => t.toLowerCase()));
+  const picked = [];
+  const add = (tag) => {
+    const key = String(tag).toLowerCase();
+    if (picked.length < 3 && !have.has(key) && !gone.has(key) && !picked.some((t) => t.toLowerCase() === key)) picked.push(tag);
+  };
+  (entry.suggested_tags || []).forEach(add);
+  if (picked.length < 3 && !entry.is_private && entry.content) {
+    const more = await apiJson("/entries/suggest-tags", {
+      method: "POST", silent: true, body: JSON.stringify({ content: entry.content.slice(0, 4000), tags: entry.tags || [] }),
+    }).catch((e) => console.warn("Tag suggestions were not fetched:", e.message) || null);
+    for (const tag of more?.suggested_tags || []) add(tag);
+    for (const [tag, why] of Object.entries(more?.suggested_tag_reasons || {})) entry.suggested_tag_reasons = { ...entry.suggested_tag_reasons, [tag]: why };
+  }
+  return picked;
+}
+
+async function openNoteTagPopover(entry, anchor) {
+  if (noteTagPop?.anchor === anchor) {
+    closeNoteTagPopover({ restoreFocus: true });
+    return;
+  }
+  closeNoteTagPopover();
+  const choices = await noteTagChoices(entry);
+  if (!anchor.isConnected) return;
+  const panel = document.createElement("div");
+  panel.className = "help-popover note-tag-pop";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Add tags to this note");
+  const head = document.createElement("div");
+  head.className = "note-tag-pop-head";
+  const title = document.createElement("strong");
+  title.textContent = "Add tags";
+  const help = document.createElement("button");
+  help.type = "button";
+  help.className = "icon-only ghost small";
+  help.setAttribute("data-help-for", "note-tag-pop-help");
+  help.setAttribute("aria-controls", "note-tag-pop-help");
+  help.setAttribute("aria-expanded", "false");
+  help.setAttribute("aria-label", "About adding tags");
+  help.title = "About adding tags";
+  help.append(Object.assign(document.createElement("i"), { className: "ph ph-question" }));
+  help.firstChild.setAttribute("aria-hidden", "true");
+  const helpBody = document.createElement("div");
+  helpBody.className = "help-body hidden";
+  helpBody.id = "note-tag-pop-help";
+  helpBody.setAttribute("role", "dialog");
+  helpBody.setAttribute("aria-label", "About adding tags");
+  helpBody.textContent = "A note with fewer than three tags shows + Tag. The suggested tags come from the words in the note and from your own tags; one press adds one. Don't suggest tags for this note stops the suggestions on this card only, and the same menu turns them back on.";
+  const off = Boolean(entry.tag_suggest_off);
+  const menu = kebabMenu(
+    [off
+      ? { label: "ph:arrow-counter-clockwise Suggest tags for this note again", title: "Show suggested tags on this note again", run: () => { closeNoteTagPopover(); answerSuggestedTags(entry, { mute: false }); } }
+      : { label: "ph:bell-slash Don't suggest tags for this note", title: "Stop suggesting tags on this note; you can turn them back on from this menu", run: () => { closeNoteTagPopover(); answerSuggestedTags(entry, { mute: true }); } }],
+    "Tag suggestions for this note"
+  );
+  head.append(title, help, menu);
+  panel.append(head, helpBody);
+  const suggestions = document.createElement("div");
+  suggestions.className = "note-tag-pop-suggested";
+  suggestions.setAttribute("role", "group");
+  suggestions.setAttribute("aria-label", "Suggested tags");
+  if (off) {
+    suggestions.append(Object.assign(document.createElement("p"), { className: "muted note-tag-pop-line", textContent: "Suggestions are off for this note." }));
+  } else if (choices.length) {
+    for (const tag of choices) {
+      const reason = entry.suggested_tag_reasons?.[tag];
+      const pick = chip(`ph:plus ${tag}`, "tag suggested-tag", () => {
+        closeNoteTagPopover();
+        answerSuggestedTags(entry, { take: [tag] });
+      });
+      pick.title = reason ? `Add #${tag}. ${reason}` : `Add #${tag}`;
+      suggestions.append(pick);
+    }
+  } else {
+    suggestions.append(Object.assign(document.createElement("p"), { className: "muted note-tag-pop-line", textContent: "No suggestions for this note yet." }));
+  }
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "note-tag-pop-input";
+  input.placeholder = "Type a tag and press Enter";
+  input.setAttribute("aria-label", "New tag");
+  input.autocomplete = "off";
+  input.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeNoteTagPopover({ restoreFocus: true });
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const typed = input.value.split(",").map((t) => t.replace(/^#/, "").trim()).filter(Boolean);
+      if (!typed.length) return;
+      closeNoteTagPopover();
+      answerSuggestedTags(entry, { take: typed });
+    }
+  });
+  panel.append(suggestions, input);
+  const outside = (event) => {
+    const t = event.target;
+    if (panel.contains(t) || anchor.contains(t) || t.closest?.(".help-popover, .action-menu, .sheet-overlay")) return;
+    closeNoteTagPopover();
+  };
+  panel.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !event.defaultPrevented) {
+      event.stopPropagation();
+      closeNoteTagPopover({ restoreFocus: true });
+    }
+  });
+  document.addEventListener("pointerdown", outside, true);
+  document.body.appendChild(panel);
+  noteTagPop = { panel, anchor, outside };
+  anchor.setAttribute("aria-expanded", "true");
+  wireHelpPopover(help, helpBody);
+  placeHelpPopover(panel, anchor);
+  input.focus({ preventScroll: true });
 }

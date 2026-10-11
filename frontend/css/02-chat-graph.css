@@ -1635,7 +1635,19 @@ body.graph-fullscreen-on .sidebar-panel {
 }
 .palette-hint {
   font-size: var(--text-sm);
-  margin: 0.5rem 0 0;
+  margin: 0;
+}
+/* The key hints and the '?' on one line; on a phone the hints go and the '?'
+   stays, pushed to the right. */
+.palette-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.palette-foot .graph-help-toggle {
+  margin-left: auto;
 }
 /* --- Wave F: whiteboard-lite ---------------------------------------------------- */
 #sketch-overlay {
@@ -2252,9 +2264,11 @@ kbd {
    concerned. `tests/test_emblem_turns.py` holds it there.
    The polish set's own animations (a menu's or popover's grow, a toast)
    are exempt too while Interface animations is on: the owner's switch, not
-   this hint, decides them (DESIGN.md, "Interface animations"). */
+   this hint, decides them (DESIGN.md, "Interface animations"); so are the
+   app mark's layers (`.emblem-art *`), which the owner asked to keep moving
+   under the hint and which follow the same switch. */
 @media (prefers-reduced-motion: reduce) {
-  *:where(:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *, [data-ui-motion="on"] :is(.action-menu, .dock-menu-list, .help-popover, .toast))),
+  *:where(:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *, [data-ui-motion="on"] :is(.action-menu, .dock-menu-list, .help-popover, .toast, .emblem-art *))),
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
@@ -2300,6 +2314,45 @@ kbd {
   height: auto;
   display: block;
   border-radius: var(--radius-lg);
+}
+/* **The sky keeps its room and arrives over a fade** (Brief 100, the owner:
+   "it kinda just appears after the page loads"). Measured on a reload
+   (scratchpad/g100 load.js): the holder sat empty at 0px for 2.8s while p5
+   and the stats came, then took 220px and full opacity in one frame,
+   pushing the dashboard down (DESIGN.md motion: "a script-drawn mark its
+   room"). It now holds the sketch's own height (`startArt`, 220) as the
+   skeleton's soft ground, and a first sky fades in over it. A theme
+   change's sky mounts under the old one's veil, which does that fade, so
+   the starting style asks for no veil. */
+.art-holder {
+  min-block-size: 220px;
+}
+.art-holder:empty {
+  background: linear-gradient(100deg, transparent 25%, color-mix(in srgb, var(--ink) 7%, transparent) 50%, transparent 75%) var(--card);
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+.art-holder > canvas:not(.art-veil) {
+  transition: opacity calc(var(--ui-slow) * 2) var(--ease-out);
+}
+@starting-style {
+  .art-holder:not(:has(> .art-veil)) > canvas:not(.art-veil) {
+    opacity: 0;
+  }
+}
+/* Less motion asked for, by the system or the app: the sky is cut in, as
+   the sketch itself holds still (`startArt`). */
+@media (prefers-reduced-motion: reduce) {
+  .art-holder > canvas:not(.art-veil) {
+    transition: none;
+  }
+  /* The wait keeps its ground, without the sheen. */
+  .art-holder:empty {
+    animation: none;
+  }
+}
+:root[data-motion="reduced"] .art-holder > canvas:not(.art-veil) {
+  transition: none;
 }
 /* The old sky over the new one for a theme change, fading out (dashboard.js,
    refreshArtForTheme). Three times `--ui-slow`, which is 0 with interface
@@ -2410,21 +2463,25 @@ kbd {
 /* One toast recipe (INBOX 584, the owner: "no spacing between the message
    and show it link"; measured before: 0px between "...final.png." and its
    Show it, because the progress toast's action was a bare link with no
-   margin and every other part carried its own). The message, its actions,
-   then the close, spaced by one gap. Every control is `--toast-ctl` tall and
-   the message's first line is padded to centre on it, so a one-line toast
-   is one centre line and a wrapped message keeps its actions beside its
+   margin and every other part carried its own). Then INBOX 847 (the owner:
+   "notification buttons are still in line with the x close button ... it
+   looks weird"): two rows. The message and the close button are the first,
+   the actions (`.toast-actions`, one wrapper from `toastActions`) sit under
+   the message on their own row, so the X is alone in its corner. Every
+   control is `--toast-ctl` tall and the message's first line is padded to
+   centre on the close button, so a wrapped message keeps the X beside its
    first line rather than floating to the middle of the paragraph. */
 .toast {
   --toast-ctl: var(--target-min);
   --toast-line: 1.375rem;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-1) var(--space-3);
 }
 .toast > .toast-msg {
-  flex: 1 1 auto;
+  grid-column: 1;
+  grid-row: 1;
   min-width: 0;
   /* A wrapped notice breaks evenly rather than leaving one word alone on
      its second line ("Moved 3 notes to / the bin."). */
@@ -2433,14 +2490,31 @@ kbd {
   padding-block: calc((var(--toast-ctl) - var(--toast-line)) / 2);
   overflow-wrap: anywhere;
 }
-.toast.toast > button {
-  flex: 0 0 auto;
+.toast > .toast-actions {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  /* The quiet action's own side padding is pulled back so its word starts on
+     the message's left edge. */
+  margin-inline-start: calc(var(--space-2) * -1);
+}
+/* `button.small` (01-forms-settings.css) outranks `.toast-action`'s own
+   padding, so the side padding the pull-back above assumes is set here. */
+.toast > .toast-actions > button {
+  padding-inline: var(--space-2);
+}
+.toast.toast button {
   height: var(--toast-ctl);
   min-height: var(--toast-ctl);
   margin: 0;
   white-space: nowrap;
 }
 .toast.toast > .toast-close {
+  grid-column: 2;
+  grid-row: 1;
   min-width: var(--toast-ctl);
   display: inline-flex;
   align-items: center;
@@ -2616,6 +2690,76 @@ kbd {
   border-color: var(--ink);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+/* The custom accent's block (Brief 95): the picker, a three-part preview of
+   the tones it derives (a fill under the button ink, the soft selection
+   ground, words in the accent), and the offer of the nearest readable shade
+   when a pick is refused. */
+.accent-custom-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.accent-custom-block .setting-control {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.accent-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+.accent-preview > span {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+}
+.accent-preview-fill {
+  background: var(--accent-surface);
+  color: var(--on-accent);
+}
+.accent-preview-soft {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.accent-preview-text {
+  color: var(--accent-text);
+}
+.accent-offer {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+/* The background cards (Brief 95): the palette card's recipe, a still frame
+   of the style as its preview (over the page, as the art sits), and the
+   cost as a status label beside the name. */
+#bg-style-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+#bg-style-row > .setting-label {
+  flex: 0 0 auto;
+}
+.bg-style-grid {
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  width: 100%;
+}
+.bg-style-preview {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  background: var(--page);
+}
+.bg-style-facts {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.accent-offer-dot {
+  width: 0.9rem;
+  aspect-ratio: 1;
+  border-radius: var(--radius-pill);
+  background: var(--swatch);
+}
 /* --- Wave K: empty states, mobile tap targets, high-contrast -------------------- */
 .empty-state {
   text-align: center;
@@ -2639,6 +2783,11 @@ kbd {
   display: block;
   margin-bottom: 0.5rem;
   opacity: 0.85;
+}
+/* An icon with nothing after it has no gap to leave: `.ph-lead`'s end margin
+   pushed the glyph 8px off the block's centre (measured). */
+.empty-icon > .ph-lead {
+  margin-inline-end: 0;
 }
 .empty-title {
   margin: 0 0 0.25rem;

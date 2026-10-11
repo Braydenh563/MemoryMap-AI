@@ -64,7 +64,14 @@ def _read(name: str) -> Any:
 
 @lru_cache(maxsize=1)
 def _data() -> dict:
-    return _read("memorymap_taxonomy.json")
+    """The pack, with Tessellate's reviewed everyday vocabulary merged into its
+    topics (`memorymap_everyday.json`: words the pack's formal phrases miss,
+    INBOX 1297). The pack file itself is never edited."""
+    pack = _read("memorymap_taxonomy.json")
+    extra = _read("memorymap_everyday.json")
+    pack["taxonomy"] = merge_taxonomy(pack["taxonomy"], extra["terms"])
+    pack["weak_terms"] = list(dict.fromkeys([*pack["weak_terms"], *extra.get("weak", [])]))
+    return pack
 
 
 def taxonomy_map() -> dict[str, list[str]]:
@@ -473,7 +480,7 @@ def merge_reviewed_topic_terms(existing: dict, reviewed_entries: list[dict]) -> 
 
 
 # --- what filing reads (WORLD_CLASS_PLAN 23, decisions 2, 5 and 6) ----------
-# `memorymap_filing.json` is MemoryMap's own, beside the pack: the topics
+# `memorymap_filing.json` is Tessellate's own, beside the pack: the topics
 # that are sensitive, and everyday category names the pack's phrases miss.
 
 

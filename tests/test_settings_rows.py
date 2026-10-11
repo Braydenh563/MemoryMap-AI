@@ -41,7 +41,7 @@ def test_export_names_itself_and_leaves_this_computer_out(client):
     assert body["version"] == 1
     prefs = body["preferences"]
     assert prefs["recycle_bin_days"] == 9
-    for local in ("timezone", "export_save_dir", "console_view_intro_seen", "tray_hide_explained"):
+    for local in ("timezone", "export_save_dir", "backup_copy_dir", "console_view_intro_seen", "tray_hide_explained"):
         assert local not in prefs
     assert set(prefs) <= set(PreferencesBody.model_fields)
 
@@ -97,6 +97,8 @@ def test_import_refuses_a_file_that_is_not_settings(client):
 #: Preferences with no row of their own, each with why. A key added to
 #: PreferencesBody lands in the registry or here; the test below fails otherwise.
 NO_ROW = {
+    "embedder_idle_unload_minutes": "an advanced key (decision 62), set by hand; 0 keeps the model loaded",
+    "week_start_locale": "reported by the browser at startup; the First day of the week row overrides it",
     # Edited as lists or documents in their own panes, not one control.
     "writing_dictionary": "the dictionary editor (Documents)",
     "model_context_windows": "one box per model in Models",
@@ -127,6 +129,7 @@ NO_ROW = {
     "console_view_intro_seen": "a one-time intro",
     "tray_hide_explained": "a one-time notice",
     "export_save_dir": "a path with its own Reset to default button",
+    "backup_copy_dir": "a path on this computer, set beside the backups list",
     "update_choice_made": "the answer to the ask-once update question",
     # The person's own words, not a choice with a default to go back to.
     "display_name": "your name, typed",
@@ -180,3 +183,29 @@ def test_registry_is_valid_json_shape():
     block = ROWS_JS[ROWS_JS.index("const SETTING_ROWS"):ROWS_JS.index("];", ROWS_JS.index("const SETTING_ROWS"))]
     assert block.count("key:") == len(_registry_keys())
     json.dumps(_registry_keys())
+
+
+def test_import_merges_personas_and_templates_by_name(client):
+    """OPEN row 558: a settings file replaced each list whole, so importing a
+    file with one persona dropped every other persona this notebook had."""
+    client.put("/preferences", json={"personas": [
+        {"name": "Coach", "prompt": "Be encouraging."},
+        {"name": "Editor", "prompt": "Be strict."},
+    ]})
+    exported = client.get("/preferences/export").json()
+    exported["preferences"] = {"personas": [
+        {"name": "Editor", "prompt": "Be gentle."},
+        {"name": "Poet", "prompt": "Rhyme."},
+    ]}
+    result = client.post("/preferences/import", json=exported).json()
+    assert result["applied"] == ["personas"]
+    names = {p["name"]: p["prompt"] for p in client.get("/preferences").json()["personas"]}
+    assert names == {"Coach": "Be encouraging.", "Editor": "Be gentle.", "Poet": "Rhyme."}
+    # Undo puts the list back whole, which a merge alone could not.
+    exported["preferences"] = {"personas": [
+        {"name": "Coach", "prompt": "Be encouraging."},
+        {"name": "Editor", "prompt": "Be strict."},
+    ]}
+    exported["replace_lists"] = True
+    client.post("/preferences/import", json=exported)
+    assert [p["name"] for p in client.get("/preferences").json()["personas"]] == ["Coach", "Editor"]

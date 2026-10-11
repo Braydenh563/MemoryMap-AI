@@ -1,4 +1,4 @@
-<!-- Thanks for contributing to MemoryMap AI! Keep this short. -->
+<!-- Thanks for contributing to Tessellate! Keep this short. -->
 
 ## What & why
 

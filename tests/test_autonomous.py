@@ -71,6 +71,10 @@ def test_wake_interrupts_the_sleep_instead_of_waiting_out_the_interval(
 
     ran = threading.Event()
     monkeypatch.setattr(autonomous, "_run_optimization", ran.set)
+    #: The pass runs on the pool (Brief 9): a fresh one, as below.
+    from memorymap.core import jobs
+
+    jobs.shutdown(deadline=0.5)
 
     autonomous.start()
     try:
@@ -99,6 +103,11 @@ def test_a_second_run_is_refused_while_one_is_going(app_state, monkeypatch):
         autonomous._working.clear()
 
     monkeypatch.setattr(autonomous, "_run_optimization", slow_pass)
+    #: Run now queues the pass on the pool (Brief 9); a fresh one, since an
+    #: earlier test's app may have left a pass on the lane.
+    from memorymap.core import jobs
+
+    jobs.shutdown(deadline=0.5)
 
     assert autonomous.trigger_now() is True
     assert running.wait(timeout=5)
@@ -227,6 +236,21 @@ def test_a_pass_that_needs_confirmation_is_abandoned_not_hung(
     entries = [e for e in taskhistory.recent() if e["kind"] == "autonomous"]
     assert entries and entries[0]["outcome"] == "failed"
     assert "delete_note" in entries[0]["detail"]
+
+
+def test_a_pass_with_no_model_running_says_so_instead_of_finishing(app_state, monkeypatch):
+    """INBOX 1292: with no model the agent answers once, offline, in 65 ms;
+    the pass used to read "Finished analysing and linking notes."."""
+    offline = {"type": "answer", "delta": "The model couldn't answer this.", "offline": True}
+    monkeypatch.setattr(autonomous.agent, "run_agent", lambda **kwargs: iter([offline]))
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    entries = [e for e in taskhistory.recent() if e["kind"] == "autonomous"]
+    assert entries
+    detail = entries[0]["detail"].lower()
+    assert "no model" in detail and "finished analysing" not in detail
+    assert autonomous.last_pass()["changes"] == []
 
 
 def test_the_pass_records_which_model_did_the_work(app_state, monkeypatch):

@@ -59,7 +59,11 @@ BOOT_JS_CAP = 588_400
 #: 2026-10-10 INBOX 767: the no-model notice's row and phone grid cost 58
 #: gzipped bytes, paid for by the blank lines of 08-consistency.css (61), so
 #: the cap holds; the next CSS goes in a lazy file.
-BOOT_CSS_CAP = 183_300
+#: 2026-10-11, uiset (OPEN: "BOOT_CSS_CAP can be lowered now that strip_css
+#: drops comment-leftover lines"): measured 178,351, so the cap comes down
+#: from 183,300. The same session's menu row fit, toast stack and credits
+#: rows took it to 178,530; the cap is that with 470 bytes of room.
+BOOT_CSS_CAP = 179_000
 
 
 def _served_gzip(url: str) -> int:

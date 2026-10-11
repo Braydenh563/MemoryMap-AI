@@ -70,12 +70,15 @@ function editAndResend(bubble, text) {
     const turnIndex = Math.floor(bubbles.indexOf(bubble) / 2);
 
     // Server first: if this fails, nothing on screen has been thrown away yet.
+    const wasId = chatConv.id;
+    let cut = null;
     if (chatConv.id !== null) {
       try {
         const result = await apiJson(`/conversations/${chatConv.id}/truncate`, {
           method: "POST",
           body: JSON.stringify({ from_turn: turnIndex }),
         });
+        cut = result;
         if (result.conversation_deleted) chatConv.id = null;
       } catch (error) {
         toast(`Couldn't edit that: ${error.message}`, true);
@@ -87,7 +90,9 @@ function editAndResend(bubble, text) {
     chatConv.turns = chatConv.turns.slice(0, turnIndex);
     close();
     loadConversationList();
-    sendChatMessage(edited);
+    await sendChatMessage(edited);
+    //: Once the new answer is in, so the step knows the chat it landed in.
+    if (cut) chatWriteRecord("chatEditUndo", wasId, turnIndex, cut, chatConv.id);
   });
 
   body.classList.add("hidden");

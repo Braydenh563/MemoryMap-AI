@@ -53,6 +53,11 @@ def _page_references() -> set[str]:
     found: set[str] = set()
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
     for url in re.findall(r'(?:src|href)="(/[^"#?]+)', html):
+        #: `/auth/...` is the server's own route (the lock screen's "Install the
+        #: certificate" link answers from `routes_auth.py`), not a file under
+        #: frontend/ to bundle.
+        if url.startswith("/auth/"):
+            continue
         found.add(url.lstrip("/"))
     app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     lazy = re.search(r"const LAZY_MODULES = \{(.*?)\n\};", app, re.S)

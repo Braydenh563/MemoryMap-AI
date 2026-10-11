@@ -73,7 +73,9 @@ logger = logging.getLogger("memorymap.search.index")
 #: `chat` came with the search box (decision 46): a saved chat and an Ask
 #: turn are both something the person wrote and read, and "where did I ask
 #: about that" was the one question the box could not answer.
-KINDS = ("note", "document", "board", "map", "file", "bookmark", "reminder", "chat")
+#: `recording` came with the audio set (ledger libr-1011 row 1218): a kept
+#: take is found by its title and by what was said in it.
+KINDS = ("note", "document", "board", "map", "file", "bookmark", "reminder", "chat", "recording")
 
 #: The kinds whose `ref_id` is an `entries.id`: the ones the embedding matrix
 #: and the link graph know, so the only ones cosine and graph distance can
@@ -661,6 +663,7 @@ def _register_all() -> None:
         Document,
         Entry,
         MediaUpload,
+        Recording,
         Reminder,
     )
 
@@ -778,6 +781,18 @@ def _register_all() -> None:
             read=_ask_turn_row,
             scan=lambda session: (
                 (turn.id, _ask_turn_row(turn)) for turn in session.scalars(select(AskTurn))
+            ),
+        )
+    )
+    register(
+        Source(
+            name="recordings",
+            kind="recording",
+            slot=11,
+            model=Recording,
+            read=_recording_row,
+            scan=lambda session: (
+                (rec.id, _recording_row(rec)) for rec in session.scalars(select(Recording))
             ),
         )
     )
@@ -908,10 +923,30 @@ def _ask_turn_row(turn) -> Row | None:  # noqa: ANN001
     )
 
 
+def _recording_row(rec) -> Row | None:  # noqa: ANN001
+    """A kept recording: its name and the lines said in it.
+
+    A take still being made (`state` "recording") and one in the bin are out,
+    as a binned document is; the transcript lines are joined without their
+    timings, which a search has no use for (the recording's own sheet seeks)."""
+    if rec is None or getattr(rec, "deleted_at", None) is not None or rec.state != "saved":
+        return None
+    from memorymap.core import transcript
+
+    spoken = " ".join(str(seg.get("text") or "").strip() for seg in transcript.loads(rec.segments))
+    return Row(
+        title=rec.title or "Recording",
+        body=spoken.strip(),
+        tags=rec.derived or "",
+        space=getattr(rec, "workspace_id", "default") or "default",
+        written=_written(getattr(rec, "created_at", None)),
+    )
+
+
 #: Sources added after notebooks had already been indexed. The write path only
 #: sees what changes from now on, so a chat saved before chats were a kind
 #: would never be found; `reconcile_sources` fills each one once.
-_LATE_SOURCES = ("conversations", "ask_turns")
+_LATE_SOURCES = ("conversations", "ask_turns", "recordings")
 
 
 def reconcile_sources(session: Session) -> bool:

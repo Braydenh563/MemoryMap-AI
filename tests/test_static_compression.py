@@ -95,6 +95,11 @@ PIECE_CAP = 32_000
 #: quote, the undo call at each chat write; its helpers moved to the lazy
 #: chat-undo.js first, -442): 320,554. A raise to win back (OPEN.md, bootdiet:
 #: the meeting overlay's listeners in settings-wiring.js are the next lever).
+#: And with undo on every write (INBOX 898; its helpers are the lazy
+#: undo-kit.js, the call sites and the stand-ins are not): 321,387, which was
+#: won back, not raised for: the share-sheet intake (`takeSharedIntake`) is the
+#: lazy shared-intake.js and `renderMemorySettings` is in settings-controls.js,
+#: behind stand-ins. App.js 14,045, total 319,920.
 TOTAL_CAP = 320_600
 
 

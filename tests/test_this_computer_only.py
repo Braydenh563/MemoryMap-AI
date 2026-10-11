@@ -15,11 +15,16 @@ from starlette.requests import Request
 from memorymap.api.this_computer import is_another_device, this_computer_only
 
 HOST_ONLY = {
+    "routes_auth": {"/lan-certificate", "/recovery-key/save"},
     "routes_backups": {"/backups/restore", "/backups/bundle/restore"},
-    "routes_files": {"/files/open-exports-folder"},
-    "routes_models": {"/provider"},
+    "routes_files": {"/files/open-exports-folder", "/files/save"},
+    "routes_maintenance": {"/system/maintenance", "/system/doctor", "/system/reinstall-on-start",
+                           "/system/open-logs-folder", "/system/desktop-shortcut"},
+    "routes_models": {"/provider", "/pull", "/delete", "/embedding-backend"},
     "routes_settings": {"/system/console-mode", "/system/restart", "/extras/bulk", "/extras/{extra_id}/install",
-                        "/extras/{extra_id}/uninstall", "/import/directory"},
+                        "/extras/{extra_id}/uninstall", "/import/directory", "/embedding-models/use",
+                        "/embedding-models/pull", "/embedding-models/{model_id}/download",
+                        "/embedding-models/{model_id}"},
     "routes_tasks": {"/desktop/fullscreen", "/shutdown"},
     "routes_update": {"/apply"},
     "routes_websearch": {"/websearch/detect-searxng", "/websearch/searxng/start", "/websearch/searxng/reinstall",

@@ -82,6 +82,10 @@ CSS_FILES = [
     CSS_DIR / "first-run-lazy.css",
     #: The Timeline's calendar (timeline-calendar.js loads it, TIMELINE_PLAN 9).
     CSS_DIR / "timeline-calendar-lazy.css",
+    #: Where another device opens the notebook (settings-controls.js, INBOX 867).
+    CSS_DIR / "lan-lazy.css",
+    #: The storage bar in Settings, About (settings-data.js, data-1011).
+    CSS_DIR / "settings-data-lazy.css",
 ]
 
 

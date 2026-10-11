@@ -84,16 +84,16 @@ function runBase(request, kind) {
 //: document's. `import` and `export` become the CommonJS names the runner
 //: defines, only when the file has them (the pass adds "use strict"). A
 //: parse error throws with its line, which the panel links.
-async function runStripTypes(source, { jsx = false } = {}) {
+async function runStripTypes(source, { jsx = false, types = true } = {}) {
   const sucrase = await runVendorScript("/vendor/sucrase/sucrase.min.js", "SUCRASE");
-  const transforms = ["typescript"];
+  const transforms = types ? ["typescript"] : [];
   if (jsx) transforms.push("jsx");
   if (/^\s*(?:import|export)\b/m.test(source)) transforms.push("imports");
   try {
     return sucrase.transform(source, { transforms, production: true }).code;
   } catch (error) {
     const where = /\((\d+):(\d+)\)/.exec(String(error?.message || ""));
-    const failure = new Error(`Could not read this as TypeScript: ${String(error?.message || error).replace(/\s*\(\d+:\d+\)$/, "")}`);
+    const failure = new Error(`Could not read this as ${types ? "TypeScript" : "JSX"}: ${String(error?.message || error).replace(/\s*\(\d+:\d+\)$/, "")}`);
     if (where) failure.line = Number(where[1]);
     throw failure;
   }
@@ -118,16 +118,31 @@ async function runDebugScript(request, source) {
   return { ...runBase(request, "jsdebug"), source: lowered.code, lib: { interp }, dom: lowered.dom };
 }
 
+//: JSX in a .js document (the jsx alias, OPEN 1072): a .jsx title, or
+//: markup where an expression starts (after =, (, a comma, :, ?, => or
+//: return). Only that pass runs: the file is JavaScript, so no types are
+//: stripped. A comparison (`a < b`) has a name before its `<`, so it is not
+//: taken for markup.
+const RUN_JSX_MARKUP = /(?:^|[=(,:?]|=>|\breturn)\s*<(?:[A-Za-z][\w.]*[\s/>]|>)/m;
+function runIsJsx(request) {
+  return /\.jsx$/i.test(String(request.path || "")) || RUN_JSX_MARKUP.test(String(request.source || ""));
+}
+
+async function runJsRequest(request) {
+  const base = runBase(request, "js");
+  return runIsJsx(request) ? { ...base, source: await runStripTypes(base.source, { jsx: true, types: false }) } : base;
+}
+
 //: The languages. `page`: which sandbox page; `shows`: the run makes a page
 //: to look at rather than (only) output rows; `debug`: what Debug sends.
 const RUN_LANGS = {
   js: {
     label: "JavaScript",
     page: "main",
-    test: (request) => ({ ...runBase(request, "js"), tests: true, harness: runTestHarnessSource() }),
-    debug: (request) => runDebugScript(request, String(request.source || "")),
+    test: async (request) => ({ ...(await runJsRequest(request)), tests: true, harness: runTestHarnessSource() }),
+    debug: async (request) => runDebugScript(request, (await runJsRequest(request)).source),
     run: async (request) => {
-      if (!runIsP5(request.source)) return runBase(request, "js");
+      if (!runIsP5(request.source)) return runJsRequest(request);
       const p5 = await runVendorFetch("/vendor/p5.min.js");
       return { ...runBase(request, "p5"), lib: { p5 }, shows: true, preview: true };
     },
@@ -151,7 +166,8 @@ const RUN_LANGS = {
         runVendorFetch("/vendor/sqljs/sql-wasm.js"),
         runVendorFetch("/vendor/sqljs/sql-wasm.wasm", "bytes"),
       ]);
-      return { ...runBase(request, "sql"), lib: { js, wasm } };
+      const tables = (Array.isArray(request.tables) ? request.tables : []).map(({ name, columns, rows }) => ({ name, columns, rows }));
+      return { ...runBase(request, "sql"), lib: { js, wasm }, tables };
     },
   },
   html: {
@@ -182,7 +198,12 @@ const RUN_LANGS = {
     run: (request) => ({ ...runBase(request, "py"), stdin: String(request.stdin || "") }),
     test: (request) => ({ ...RUN_LANGS.py.run(request), tests: true }),
     //: D2: `bdb` in the Pyodide worker, which needs the page isolated.
-    debug: (request) => ({ ...RUN_LANGS.py.run(request), debug: true }),
+    //: A file of tests debugs through the harness, so a breakpoint in a
+    //: test stops there (OPEN row 563).
+    debug: (request) => ({
+      ...RUN_LANGS.py.run(request), debug: true,
+      tests: runLooksLikeTests("py", String(request.source || "")),
+    }),
   },
 };
 
@@ -208,7 +229,8 @@ async function runPrepare(request, mode = "run") {
     shows: Boolean(shows ?? lang.shows),
     //: A preview refreshes itself while "Live" is on (D6).
     preview: Boolean(preview ?? lang.preview),
-    tests: mode === "test",
+    //: Debug on a Python file of tests lists them too (row 563).
+    tests: mode === "test" || Boolean(message.tests),
     debug: mode === "debug",
     notice: lang.notice || "",
     message,

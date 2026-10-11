@@ -717,7 +717,7 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    - **The share sheet: built** (2026-09-20). The installed app is a Web
      Share Target (`manifest.webmanifest`, the GET form: no service worker,
      and the query survives the lock screen). A page, a link or a
-     selection shared to MemoryMap opens it at `/` with `share_title`,
+     selection shared to Tessellate opens it at `/` with `share_title`,
      `share_text` and `share_url`; once the entries have loaded
      (`takeSharedIntake`, a boot step) the three become one capture (the
      title as a heading, the text, the link on its own line), Capture
@@ -1244,8 +1244,7 @@ Entries are the owner's words, then the recommendation. Bugs come first, then de
 
 ### Bugs
 
-- "popup panels appearing at the start on a new install are messy and clash/overlap a lot"
-  Recommendation: one first-run queue with no overlapping panels, measured with getBoundingClientRect on a fresh profile. Also carried by Brief 37 (the first-run queue).
+- The first-run popups bullet is built (uiset): HISTORY.md, "Moved from the plans, 2026-10-11 (uiset, the first-run queue)".
 - "I pressed done and it just didnt give me the tour at all??"
   Recommendation: Done starts the tour or closes it cleanly, with the handoff in Brief 37 (INBOX 745 (d)). Also carried by Brief 37 (tour handoff).
 - "says done but the bar is still there??"

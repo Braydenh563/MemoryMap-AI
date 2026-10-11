@@ -1,4 +1,4 @@
-"""In-app guidance chat: "how do I..." answers about MemoryMap itself.
+"""In-app guidance chat: "how do I..." answers about Tessellate itself.
 
 ROADMAP.md item 40's "mini AI chat half", deliberately its own path,
 separate from `librarian.converse`/`librarian.answer`, because those two
@@ -23,7 +23,7 @@ the three cases rather than leaving it to be read off this sentence.
 
 **Grounded, not just instructed.** A first version of this module told the
 model "don't invent a feature you're not sure exists" and gave it nothing
-else to go on, for a small local model that has never heard of MemoryMap,
+else to go on, for a small local model that has never heard of Tessellate,
 that is an instruction with no way to follow it: refusing to guess and
 guessing wrong look identical from inside the prompt. `HELP_TOPICS` below is
 the fix: a short, factual reference entry per feature area, and what
@@ -42,6 +42,7 @@ handed on each call.
 
 from __future__ import annotations
 
+import functools
 import math
 from datetime import datetime
 import re
@@ -49,7 +50,7 @@ from collections.abc import Iterator
 
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
-from memorymap.ai import act_registry, presets
+from memorymap.ai import act_registry, presets, spelling
 from memorymap.ai.help_topics_more import HELP_GROUPS, MORE_TOPICS, TOPIC_META
 from typing import TYPE_CHECKING
 
@@ -63,7 +64,7 @@ if TYPE_CHECKING:  # annotations only: the speller reads this module's topics,
 #: capabillity and knowledge"; CHAT_PLAN.md section 4 decision 15, which
 #: supersedes decision 13's naming half). An atlas is a book of maps, the thing
 #: you open to find your way around a place you are already standing in, which
-#: is exactly what this chat is for an app called MemoryMap. It is a name for a
+#: is exactly what this chat is for an app called Tessellate. It is a name for a
 #: reference work rather than for a person, so decision 13's actual objection
 #: still holds: nothing here claims a personality, or to know the reader, or to
 #: have read a word of their notebook.
@@ -74,11 +75,11 @@ if TYPE_CHECKING:  # annotations only: the speller reads this module's topics,
 GUIDE_NAME = AI_NAME  # one name for the notebook's AI (INBOX 225), spelt once in ai/__init__
 
 SYSTEM_PROMPT = (
-    f"You are {GUIDE_NAME}, the in-app guide to MemoryMap, a local-first "
+    f"You are {GUIDE_NAME}, the in-app guide to Tessellate (formerly MemoryMap AI), a local-first "
     "notebook. Your name is the name of a book of maps: you are a reference "
     "the person opens to find their way around the app, and you say so if "
     "asked who you are. You answer ONLY questions "
-    "about how to use the MemoryMap app itself: its features, tabs, and "
+    "about how to use the Tessellate app itself: its features, tabs, and "
     "settings. You have no access to the user's notes or documents, so if "
     "asked a question about their notebook's own content, say plainly that "
     "this chat is for app guidance only and point them to the Chat or Ask "
@@ -142,7 +143,6 @@ HELP_TOPICS: list[dict] = [
             "why?, shorter, no, the gym one) read against the question before; "
             "a cited board, map or document opens in its own place. With no "
             "model, Chat also acts (remind me to..., pin or delete the X note), with Undo. "
-            "Ask again lists your last questions; its ... menu forgets one or clears your question history. "
             "A counting "
             "question in Ask (how many notes per category this month) also gets "
             "a chart from your notes, with its numbers and Save as PNG. A note's "
@@ -158,8 +158,7 @@ HELP_TOPICS: list[dict] = [
             "While an answer is coming, "
             "the line under it says what is happening: Reaching Atlas, Reading "
             "your notes, Waking the model, Atlas is thinking, Atlas is writing, "
-            "or Atlas followed by the tool's name (a persona's name replaces "
-            "Atlas), or with no model Working it out without a model; with "
+            "or Atlas followed by the tool's name, or with no model Working it out without a model; with "
             "Progress indicators set to Still, without the dots."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
@@ -255,7 +254,9 @@ HELP_TOPICS: list[dict] = [
             "hand over. Events about private notes are left out of it. The "
             "Library's search reads the same filters as the Graph's: "
             "\"connected to Harbor\", \"untouched since June\", \"tagged "
-            "work\", \"pinned\", \"filed under Cooking\"."
+            "work\", \"pinned\", \"filed under Cooking\". Drop files anywhere in "
+            "the app to add them: pictures and PDFs go to Images, anything "
+            "else becomes a document."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -270,13 +271,13 @@ HELP_TOPICS: list[dict] = [
             "commenting. \"Check with AI\" reviews a document for wording issues "
             "a spellchecker can't catch. The menu's Map the headings turns its "
             "headings into a new mind map. A mermaid code block (flowchart TD, "
-            "A --> B) draws as a diagram in Read and Live and in a print; press "
+            "A --> B, or the \"/\" menu's Flowchart) draws as a diagram in Read and Live and in a print; press "
             "it to edit its text, and any other Mermaid stays as code. Print or "
             "save as PDF first asks for the page size, orientation, margins and "
             "page numbers, and a plain Ctrl+P uses the last choice. In Live, drag "
             "the corner of a picture to resize it (or focus the corner and use the "
             "arrow keys), and its align button puts it left, centre or right. "
-            "The status bar counts characters, words and reading time the way "
+            "The status bar counts characters, words, lines and reading time the way "
             "the note composer does (an emoji is one character). Search "
             "documents reads a window: \"harbor last week\" finds the ones "
             "about the harbor edited in the last week."
@@ -328,7 +329,7 @@ HELP_TOPICS: list[dict] = [
             "The Timeline tab lists what you wrote newest first, grouped by day, "
             "week, month or year (Auto picks the finest that reads well), as a "
             "feed, as a sortable table or as a calendar of a month, a week or a "
-            "day. Kinds chooses notes, boards, documents "
+            "day. Kinds chooses notes, boards and maps, documents "
             "and reminders; Options sets the grouping, Group by (category, tag "
             "or thread) and Show group, and the Time range, where On this day "
             "shows today's date in earlier months and years. In the feed, Ctrl and "
@@ -344,7 +345,7 @@ HELP_TOPICS: list[dict] = [
         "id": "memory",
         "keywords": ("remember", "passive capture", "auto capture", "learn about me"),
         "body": (
-            "MemoryMap can pick up small facts and preferences as you write and "
+            "Tessellate can pick up small facts and preferences as you write and "
             "chat, always asking first, never assumed. Accept or decline each "
             "suggestion right in the chat, and review or forget anything it has "
             "learned in Settings, What it remembers."
@@ -380,6 +381,9 @@ HELP_TOPICS: list[dict] = [
             "keeps the short fades and slides of menus, dialogs and tabs and a "
             "button's press even then; turn it off and they are instant. "
             "Font and Density (Typography & layout) are lists you pick from. "
+            "Font's Readable is Atkinson Hyperlegible, a face drawn so that "
+            "letters easily mistaken for each other (l, I and 1; O and 0) "
+            "look different; it ships with the app and works offline. "
             "Density's Auto, the default, is Compact on a window "
             "700px tall or less and the look's own spacing on a taller one. "
             "Performance mode (Effects & accessibility) turns off "
@@ -413,7 +417,10 @@ HELP_TOPICS: list[dict] = [
             "Commands with its Ctrl/Cmd+K hint, and three icons: the agent's "
             "mark (crosses, a circle and an arrow, a play drawn up) for the popup agent, the "
             "compass for Atlas the guide, and the magnifying glass for Find "
-            "anything (hover one for its name and keys). The offline "
+            "anything (hover one for its name and keys). On this computer a wifi "
+            "icon says whether other devices on your network can open the app: "
+            "green open, amber closed on this network, plain off; press it (or "
+            "Alt+L) for the switch, the address and the trusted networks. The offline "
             "badge, the power-saver badge and the running-job slot appear only "
             "when there is something to say. Settings, Appearance, Status "
             "bar chooses which of the rest to show."
@@ -430,7 +437,8 @@ HELP_TOPICS: list[dict] = [
         #: months, and the guide was the one place still teaching the old key.
         "body": (
             "Press ? for the full list; Settings, Keyboard shortcuts rebinds any of "
-            "them (press a shortcut's keys, then the keys you want), and on a Mac "
+            "them (press a shortcut's keys, then the keys you want; type in the "
+            "field above the list to find one), and on a Mac "
             "Cmd works in place of Ctrl. A button with a "
             "shortcut shows it in its tooltip, in your own binding. Everywhere: Ctrl+K "
             "the command palette, Ctrl+P find anything, Ctrl+F find on this "
@@ -443,11 +451,11 @@ HELP_TOPICS: list[dict] = [
             "cached files. Make: Ctrl+Shift+N a new note, Alt+N a quick note saved "
             "without leaving the page, Ctrl+Shift+D a new "
             "document, Ctrl+D today's note, Ctrl+Shift+V paste what you copied as a "
-            "new note, Ctrl+Shift+R record a meeting, "
+            "new note, Ctrl+Shift+R record a meeting, Alt+L the other devices panel, "
             "Ctrl+Shift+K the quick sketch pad, Ctrl+Shift+B the whiteboard. "
             "Writing: Ctrl+S save, Ctrl+/ the blocks and commands menu (in a "
             "document it comments the line instead), Ctrl+J Atlas writes at the "
-            "cursor, Ctrl+Shift+E actions for the selected text. AI: "
+            "cursor, Ctrl+Shift+E actions for the selected text (a right-click on the selection brings its popup back). AI: "
             "Ctrl+Shift+A the popup agent, Ctrl+Shift+H ask Atlas about the app, "
             "Ctrl+Shift+O a new chat, Ctrl+Shift+G agent mode on or off, Ctrl+. "
             "stop the answer, Ctrl+Shift+P clip a note to your next question. "
@@ -479,7 +487,7 @@ HELP_TOPICS: list[dict] = [
             "exactly where it is on disk, and lets you export as JSON, CSV or "
             "Markdown, export the whole notebook as a folder (Export notebook "
             "folder: each note as markdown with its attachments and a .json file of "
-            "every field, plus documents and boards, which From a MemoryMap folder "
+            "every field, plus documents and boards, which From a Tessellate folder "
             "reads back), save a full backup (sealed with a password if you like) and "
             "restore one from a file, and manage or restore backups."
         ),
@@ -503,7 +511,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "privacy",
-        "keywords": ("private note", "encrypt", "password", "lock", "security", "offline", "online", "internet", "cloud", "telemetry", "tracking"),
+        "keywords": ("private note", "encrypt", "password", "lock", "security", "offline", "online", "internet", "cloud", "telemetry", "tracking", "local chip"),
         "body": (
             "Private notes are encrypted at rest with a key derived from your "
             "unlock password. The app binds to localhost, has no account or "
@@ -512,7 +520,10 @@ HELP_TOPICS: list[dict] = [
             "every connection the app made, recorded as it happened, Since "
             "launch or All time, one row per place with what it was for (the "
             "file downloaded, the search words); its addresses are under "
-            "Addresses. \"Nothing left this computer.\" means none."
+            "Addresses. \"Nothing left this computer.\" means none. The "
+            "Local chip in the top bar says the same for this launch (Local, "
+            "Local network or Online) and opens that record; on a phone it "
+            "is a row in the top bar's More menu."
         ),
         "badge": {"label": "Privacy", "section": "privacy"},
     },
@@ -533,22 +544,24 @@ HELP_TOPICS: list[dict] = [
         "id": "undo-bin",
         "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
         "body": (
-            "Deleting a note, a board, a document, a reminder or an OCR reading "
-            "goes to the bin, not gone for good: restore it from the Library (Filter, "
-            "Include the bin, or Open the bin from Ctrl+K), or use the Undo "
-            "toast that appears right after deleting, which also has a Go to bin "
-            "button for a note. Ctrl/Cmd+Z undoes and "
-            "Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's Undo and Redo "
-            "buttons do the same by click. Which history they walk depends on "
-            "where you are: an open board or mind map has its own, an open "
-            "document has its own, and both are kept while you switch away "
-            "and back during the session; everywhere else it is the app's "
-            "(notes, tags, categories, links, reminders, deleted chats, note "
-            "types, kinds of link, a note's references and the OCR workspace's "
-            "readings). A deleted space "
-            "comes back with Undo when it was empty or its contents were "
-            "moved; deleting everything in it is final. Inside a text box "
-            "Ctrl+Z undoes your typing."
+            "Undo and Redo cover everything you change in your notebook. A deleted "
+            "note, board, document, reminder or OCR reading goes to the bin, not gone "
+            "for good: restore it from the Library (Filter, Include the bin, or Open "
+            "the bin from Ctrl+K), or press Undo in the toast right after, which also "
+            "has a Go to bin button for a note. A deleted picture or file, a past "
+            "question, what the notebook learned (even Forget everything), a board "
+            "library and a space are kept for two weeks, so Undo brings them back. "
+            "Ctrl/Cmd+Z undoes and Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's "
+            "Undo and Redo buttons do the same by click, and every step has a "
+            "working Redo. Which history they walk depends on where you are: an "
+            "open board or mind map has its own, an open document has its own, and "
+            "both are kept while you switch away and back; everywhere else it is the "
+            "app's (notes, tags, categories, links, files, bookmarks, renames, "
+            "settings, chats, pins and the rest). Four things have no Undo, "
+            "on purpose: Delete for good and Empty bin, which ask first; sending a "
+            "chat message (the chat keeps its own history); asking the model "
+            "something (it changes nothing until you accept); and sign-in, lock and "
+            "background work. Inside a text box Ctrl+Z undoes your typing."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -563,12 +576,23 @@ HELP_TOPICS: list[dict] = [
             "local Whisper: nothing sent anywhere. \"Record a meeting or "
             "lecture\" (the command palette, Ctrl+Shift+R, or a meeting's Record "
             "into it) and \"Voice note\" keep the audio as a recording, saved "
-            "every 10 seconds, even with no add-on; with the Voice notes add-on "
-            "the transcript is offered to save. Library, Recordings plays them "
-            "at 0.5 to 2x, with markers (M while recording) and Trim; a "
+            "every 10 seconds, even with no add-on; closing the recorder keeps "
+            "it recording in a bar with Pause and Stop. The recorder's "
+            "Microphone fold (and Settings, General, Microphone) chooses the "
+            "input, noise suppression, echo cancellation and automatic gain, "
+            "with a three-second test; Enhance on save there cuts rumble and "
+            "evens the loudness, keeping the original until the transcript is "
+            "saved. With the captions helper the words appear as you speak. "
+            "With the Voice notes add-on it transcribes in the background (a "
+            "notification says when it is done; Stop ends it) and the "
+            "transcript is offered to save; saved, the recorder shows its "
+            "first lines with Open. "
+            "Library, Recordings plays them "
+            "at 0.5 to 2x with a playhead and the time; drag the waveform to "
+            "seek, press M to mark a moment with a comment, and Trim; a "
             "transcribed one lists its lines with their times (press one to "
             "play from it) and downloads them as SRT or VTT subtitles; with "
-            "the AI on, each turn is labelled with who spoke. "
+            "the AI on, each turn is labelled with who spoke, and a recording's menu has Rename a speaker to correct a name everywhere. "
             "Read-aloud plays a note or answer back to you."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
@@ -599,7 +623,8 @@ HELP_TOPICS: list[dict] = [
             "with no AI: Summarise then reads lines saying decided, agreed, "
             "Action or TODO, or a name taking a task, and says so; with the AI "
             "on it rewords the same list. Every meeting is under Notes, "
-            "Meetings, and sits on the Timeline at its own date."
+            "Meetings, and sits on the Timeline at its own date. Its card shows the first agenda item, "
+            "the decisions and the open action items; Show the whole note opens the text."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -648,7 +673,7 @@ HELP_TOPICS: list[dict] = [
         ),
         "body": (
             "Atlas is this app's in-app guide, named for a book of maps. It "
-            "answers how-to questions about MemoryMap itself from the app's "
+            "answers how-to questions about Tessellate itself from the app's "
             "own help: where a feature lives, what a setting does, which tab "
             "to be on. It answers on the utility model in Settings, Models "
             "while smart model routing is on, on the chat model while that is "
@@ -678,8 +703,9 @@ HELP_TOPICS: list[dict] = [
             "for, opens Find anything (Ctrl/Cmd+P) with the words already "
             "searched. Typed words also find every feature in Tools and "
             "features, every act Chat does (it opens Chat with the words "
-            "started) and the matching settings; a word a letter out offers "
-            "the nearest, and what you ran for the same words comes first "
+            "started) and the matching settings, by what the words mean too "
+            "(\"trash\" finds the bin, \"keybord\" the shortcuts); a word a "
+            "letter out offers the nearest, and what you ran for the same words comes first "
             "next time (hover a row to see why it is where it is). "
             "It's a different box from the popup agent "
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "
@@ -733,7 +759,8 @@ HELP_TOPICS: list[dict] = [
             "Quick access (search ocr). A pinch, two fingers on a touch screen "
             "or Ctrl and the wheel zooms the page about the pointer. Where "
             "Tesseract or RapidOCR read it, drag across the words on the page "
-            "to select them; Ctrl+C copies them in reading order. Saving an "
+            "to select them; Ctrl+C copies them in reading order. Find in what "
+            "was read marks every match, and Enter or its arrows step through them. Saving an "
             "edit, deleting, cleaning up and reading again all undo with Ctrl+Z, "
             "and a deleted reading goes to the bin. The reader button in the tool row (its dot is "
             "green when it can read) picks the AI document "
@@ -841,7 +868,7 @@ HELP_TOPICS: list[dict] = [
             "inconsistent", "changed my mind", "out of date",
         ),
         "body": (
-            "MemoryMap can look for places where two of your notes disagree, a "
+            "Tessellate can look for places where two of your notes disagree, a "
             "decision you reversed, a fact you later corrected, and show them "
             "side by side with the dates, so you can see which is current. It "
             "runs on demand rather than constantly, because it is a real pass "
@@ -933,7 +960,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "security",
-            "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "recovery key", "idle"),
+            "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "recovery key", "idle", "pin", "quick unlock", "windows hello"),
             "body": (
                 "Settings, Account & security: set a password and the notebook "
                 "asks for it when it opens. The lock button in the top bar locks it "
@@ -945,7 +972,13 @@ HELP_TOPICS.extend(
                 "Press Forgot your password? on the lock screen, on this computer: "
                 "with a recovery key (made at setup or in Account & security) you "
                 "set a new one and keep private notes; without it, a reset keeps "
-                "everything else and leaves private notes sealed."
+                "everything else and leaves private notes sealed. PIN for this "
+                "computer: Set up a PIN for this computer (your password, then a "
+                "PIN of 4 to 12 digits twice) lets the lock screen take the PIN "
+                "or your password, on this computer only; phones always need the "
+                "password. The computer's own protected store keeps it, never the "
+                "notebook or a backup. Five wrong PINs, a password change or "
+                "Forget PIN remove it."
             ),
             "badge": {"label": "Account & security", "section": "account"},
         },
@@ -954,8 +987,8 @@ HELP_TOPICS.extend(
             "keywords": ("search", "find", "find anything", "look for", "filter", "where did", "locate", "ctrl p", "operator", "search my notes", "saved search", "search chats"),
             "body": (
                 "Find anything (Ctrl+P, or the search box on the dashboard) looks "
-                "through notes, documents, boards, mind maps, files, links, reminders "
-                "and chats at once, by your words and by meaning; each result wears "
+                "through notes, documents, boards, mind maps, files, links, reminders, "
+                "chats and recordings (by title and by what was said) at once, by your words and by meaning; each result wears "
                 "its kind, and the chips narrow it to one. Operators: tag:work, "
                 "in:work for a space, kind:chat, before:2026-01, after:2025-06-30, "
                 "has:image, is:pinned, a \"quoted phrase\", and -word to leave something "
@@ -966,8 +999,8 @@ HELP_TOPICS.extend(
                 "spelling, or the nearest feature. To narrow only the "
                 "notes list, use Filter notes on the Your notes tab. Every search box "
                 "suggests as you type: your recent searches first, then note titles, "
-                "tags and categories that start with your words, with the best match "
-                "in grey (Tab or Right takes it, Down and Up walk the list, Esc closes it). "
+                "tags and categories that start with your words (a Library list's box: "
+                "that list's own titles), with the best match in grey (Tab or Right takes it, Down and Up walk the list, Esc closes it). "
                 "A recent search has its own x, the list's foot clears them, Settings, "
                 "Import & export, Clear and forget clears every box's at once, and Settings, "
                 "General, Search turns the suggestions off."
@@ -1038,7 +1071,7 @@ HELP_TOPICS.extend(
                 "Appearance: it switches off the glass, the background art and most "
                 "animation. The built-in search engine uses about 650 MB of memory "
                 "while the app is open; choosing Ollama's nomic-embed-text for "
-                "embeddings in Settings, Search and index keeps MemoryMap itself near 100 MB."
+                "embeddings in Settings, Search and index keeps Tessellate itself near 100 MB."
             ),
             "badge": {"label": "Appearance", "section": "appearance"},
         },
@@ -1051,8 +1084,8 @@ HELP_TOPICS.extend(
                 "guide: Start the tour for all of it, or a part's row, its name over "
                 "what it covers, to start there and carry on to the "
                 "next; Back and Next move through it, and Finish ends it whenever you "
-                "like. The search box at the top of Settings, Help keeps only the "
-                "topics that hold every word you type, with the words marked; Esc "
+                "like. The search box under Welcome and tours in Settings, Help keeps "
+                "only the topics that hold every word you type, with the words marked; Esc "
                 "clears it."
             ),
             "badge": {"label": "Help", "section": "help"},
@@ -1108,7 +1141,9 @@ HELP_TOPICS.extend(
                 "field completes from the tags you use (the arrows, then Enter or "
                 "Tab, take one). Change "
                 "either from the note's own row (press the category or Add tags), or "
-                "choose a category yourself in Capture's Filing menu. The categories "
+                "choose a category yourself in Capture's Filing menu; while you type, "
+                "Capture offers File under a category (with the reason on hover) "
+                "beside the suggested tags, and pressing it sets the Filing menu. The categories "
                 "are the sidebar of Your notes. Settings, Skills has Reorganise my "
                 "categories and Clean up my tags for a bigger tidy."
             ),
@@ -1125,7 +1160,20 @@ HELP_TOPICS.extend(
                 "you answer. A copy started with start.sh or start.bat then "
                 "updates itself when it starts, following the same setting, and "
                 "turning automatic updates off stops it. The Check for updates "
-                "button checks once, whatever the switch says."
+                "button checks once, whatever the switch says. Also tell me about "
+                "beta versions (off by default) makes a check offer a beta or "
+                "release candidate when it is the highest version."
+            ),
+            "badge": {"label": "About", "section": "about"},
+        },
+        {
+            "id": "name",
+            "keywords": ("memorymap", "memory map", "old name", "former name", "new name", "why the name changed", "tessellate", "called before"),
+            "body": (
+                "Tessellate, formerly MemoryMap AI, is the same app under a new "
+                "name. Only the name changed: your notes, settings, password and "
+                "the folder they are kept in stay where they were, and an update "
+                "keeps all of it. Settings, About shows the name and the version."
             ),
             "badge": {"label": "About", "section": "about"},
         },
@@ -1139,7 +1187,7 @@ HELP_TOPICS.extend(
                 "A pop-up with a button (Undo, Open it, Show it) is kept here with "
                 "the same button: an opener still works after a restart, an Undo "
                 "only while it can still be undone, then its line says Undo expired. "
-                "Point at a row for its two controls beside the time: the circle "
+                "Each row has two controls at its right edge: the circle "
                 "marks it read or unread, the cross removes just that one; the bin at the bottom "
                 "clears them all. "
                 "Reminders also pop up on their own while a tab or the "
@@ -1159,10 +1207,8 @@ HELP_TOPICS.extend(
                 "A document can be code: give it the extension (fix.py, index.html). "
                 "You get syntax colours, error underlines listed in the Problems "
                 "panel, hover notes, colour swatches, indent guides and brackets "
-                "that close themselves. Completions open as you type (Enter or Tab "
-                "takes one, and the grey ghost text is taken with Tab); snippets "
-                "expand short words such as for, if, try, class, main or sout, and "
-                "Tab walks their stops. HTML and CSS have Emmet: type ! or ul>li*3 "
+                "that close themselves. Spelling covers comments and strings only. Completions and snippets open as you type "
+                "(the Code completions topic). HTML and CSS have Emmet: type ! or ul>li*3 "
                 "and press Enter or Tab; the command palette (Ctrl+K) has Emmet "
                 "wrap and balance inward or outward. Keys: Shift+Alt+F formats, "
                 "Ctrl+/ toggles a line comment, Shift+Alt+A a block comment, Alt+Z "
@@ -1177,8 +1223,7 @@ HELP_TOPICS.extend(
                 "stops); Stop ends it, and the panel's top edge drags its height "
                 "(kept for each tab). Blocks fold from the "
                 "gutter (Ctrl+Shift+[ and Ctrl+Shift+] fold and unfold, Ctrl+Alt+[ "
-                "and Ctrl+Alt+] all of them), sticky scroll pins the enclosing "
-                "function at the top, and Show whitespace draws spaces and tabs. "
+                "and Ctrl+Alt+] all of them). "
                 "Its tabs: Output, Problems, Tests, Console (Python or JavaScript, "
                 "in what the run left) and Debug. Ctrl+J shows it, Ctrl+Shift+M "
                 "Problems, Ctrl+Shift+Y the Console, Ctrl+Shift+D Debug; "
@@ -1191,16 +1236,39 @@ HELP_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "code-completions",
+            "keywords": (
+                "completion", "completions", "autocomplete", "auto complete", "intellisense", "snippet",
+                "snippets", "ghost text", "standard library", "stdlib", "signature", "p5 completions",
+            ),
+            #: Split from `code-files` when that entry passed the Guide's reply
+            #: cap; written from `docCodeEditing`'s sources (documents-code.js).
+            "body": (
+                "Completions open as you type in a code document: Enter or Tab "
+                "takes one, and the grey ghost text is taken with Tab. Snippets "
+                "expand short words such as for, if, try, class, main or sout, and "
+                "Tab walks their stops. In Python, a standard library module the "
+                "file imports offers its names after the dot (math., os.path.), "
+                "each with its signature, and pointing at one shows it. In a p5.js "
+                "sketch (a file with setup or draw), p5's own names are offered "
+                "with their arguments."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
             "id": "mind-maps",
             "keywords": (
                 "mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm",
                 "branch colours", "branch colors", "map font", "map theme", "palette",
                 "from the library", "point a topic at a note", "link a note to a topic", "reference node",
+                "make a mind map", "map from a note",
             ),
             "body": (
                 "Mind maps live in the Library, under Boards & maps; New, then Mind "
                 "map, opens Untitled map N with its central topic ready to type over "
-                "(what you type names the map too). Tab adds a child, Enter a sibling, and dragging a topic "
+                "(what you type names the map too). A note's ⋮ menu, Make a mind map, "
+                "builds one from that note: its title in the centre, its headings and "
+                "lists as branches. Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch (onto Drop here to delete, at "
                 "the foot, deletes the topic and its branch). Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics. View, How this "
@@ -1254,7 +1322,9 @@ HELP_TOPICS.extend(
                 "Tools: V or S select, H hand, K lasso, P pen, M highlighter, E "
                 "eraser, B fill, L line, A arrow, R rectangle, O circle, G "
                 "triangle, D diamond, T text, N sticky note, F frame, C connector (Shift+C "
-                "curved), I image, X delete. Moving around: the wheel or two "
+                "curved), I image, X delete. The Shapes button's flyout also has a rounded "
+                "rectangle, ellipse, hexagon, parallelogram, star, cylinder, cloud, speech "
+                "bubble and block arrow. Moving around: the wheel or two "
                 "fingers pan, Shift+wheel pans sideways, Ctrl+wheel or a pinch "
                 "zooms, Space and drag pans, a drag to an edge pans, Ctrl+= and Ctrl+- zoom, "
                 "Ctrl+0 is 100%, Shift+1 fits all, Shift+N shows the "
@@ -1272,32 +1342,31 @@ HELP_TOPICS.extend(
                 "comment on a card", "comment on an item", "comments on the board", "comment thread",
                 "present", "presentation", "slides", "slideshow", "laser", "laser pointer",
                 "drag to delete", "drop to delete", "drag onto delete", "trash an item",
+                "alignment guides", "smart guides", "size while drawing",
                 "board on a phone", "more board commands", "whiteboard keys", "whiteboard shortcuts",
             ),
             "body": (
-                "Whiteboard selection and menus. Selection: Shift+click adds, "
-                "Ctrl+A selects all, Ctrl+D duplicates, Alt and drag copies as you "
-                "drag, Ctrl+V pastes at the pointer, the arrows "
-                "nudge (Shift for further), Shift and drag keeps to one axis, "
-                "Shift and a corner keeps proportions, [ and ] move one step back or "
-                "forward, Ctrl+[ and Ctrl+] to the back or front, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
-                "Ctrl+Alt+V copy and paste a style, Delete (or a drop on the bin) "
-                "removes, Esc cancels a "
-                "drag or goes to Select. "
-                "Double-click empty board for a text box, double-click a closed shape "
-                "(or select it and press Enter) to write in it, right-click (or hold on touch) "
-                "for the menu, double-click a line to bend "
-                "it, and select a connector and press Label in its bar (or Enter) to label it. A frame's "
-                "title drags it and what is inside it (Ctrl: the frame alone); its menu exports it or fits it to its contents, and a double-click on one of "
-                "its resize handles fits that edge (a corner, two) to what it holds, with a margin. "
-                "Ctrl+Shift+L locks the selection; Unlock is "
-                "on the board's right-click menu. Right-click an item, Comment…, starts a "
-                "thread; its count reopens it. View, Present frames: one frame "
-                "at a time; L, a laser. ? shows every key; Ctrl+K finds any board action by name. "
-                "Menus: Insert, Edit, Arrange (align, distribute, size, order, group, "
-                "lock), View (background, grid, snap, zoom, full screen) and Board "
-                "(rename, new, export, kind, clear, delete, keys). On a phone, "
-                "More has the rest, a map's too."
+                (
+                    "Whiteboard selection and menus. Selection: Shift+click adds, Ctrl+A selects all, Ctrl+D "
+                    "duplicates, Alt and drag copies as you drag, Ctrl+V pastes at the pointer, the arrows "
+                    "nudge (Shift for further), Shift and drag keeps to one axis, Shift and a corner keeps "
+                    "proportions, Alt resizes from the centre; a move, resize or box drawn out shows guides "
+                    "and its size (Alt: none), [ and ] move one step back or forward, Ctrl+[ and Ctrl+] to "
+                    "the back or front, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and Ctrl+Alt+V copy "
+                    "and paste a style, Delete (or a drop on the bin) removes, Esc cancels a drag or goes to "
+                    "Select. Double-click empty board for a text box, double-click a closed shape (or select "
+                    "it and press Enter) to write in it, right-click (or hold on touch) for the menu, double-"
+                    "click a line to bend it, and select a connector and press Label in its bar (or Enter) to"
+                    " label it. A frame's title drags it and what is inside it (Ctrl: the frame alone); its "
+                    "menu exports it or fits it to its contents, and a double-click on one of its resize "
+                    "handles fits that edge (a corner, two) to what it holds, with a margin. Ctrl+Shift+L "
+                    "locks the selection; Unlock is on the board's right-click menu. Right-click an item, "
+                    "Comment…, starts a thread; its count reopens it. View, Present frames: one frame at a "
+                    "time; ? shows every key; Ctrl+K finds any board action by name. Menus: Insert, Edit, "
+                    "Arrange (align, distribute, size, order, group, lock), View (panels, background, grid, "
+                    "snap, zoom; full screen on a phone) and Board (rename, new, export, kind, clear, delete,"
+                    " keys)."
+                )
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1410,6 +1479,8 @@ HELP_TOPICS.extend(
                 "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
                 "text size in a shape", "align text",
                 "line shape", "line end", "line ends", "arrowhead", "arrow end", "diamond end", "label position",
+                "arrow size", "end size", "bigger arrowhead", "stealth arrow", "memorymap arrow", "signature arrow",
+                "reset style", "default style", "reset an object", "back to default",
                 "line jumps", "line jump", "crossing lines", "lines cross", "hop over",
             ),
             "body": (
@@ -1417,10 +1488,15 @@ HELP_TOPICS.extend(
                 "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
                 "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
                 "its line jumps (where it crosses a line under it, it hops over with an arc, a gap or a "
-                "sharp peak), its two ends (each drawn in its list) and where its label sits along it. Text: the size, colour, weight, "
+                "sharp peak), its two ends (twenty-one marks, from the Tessellate end, the mark's node dot ahead of a chevron, through open, "
+                "filled, stealth, half and double arrows, circles and diamonds to a cross, a bar and a crow's foot, each drawn in its "
+                "list, each small, medium or large in the menu beside it; a plain line takes them too) and where its label sits along it. Text: the size, colour, weight, "
                 "alignment and vertical place (top, middle, bottom) of a text box or a shape's words. Arrange: X, Y, width, height and "
-                "angle as numbers, flip, and the order, align, spacing, group and lock buttons. Every "
-                "change is one undo step. Bends, connection points and imports are in Connector bends and importing."
+                "angle as numbers, flip, and the order, align, spacing, group and lock buttons. With "
+                "several items selected it shows what they all share, and a value they differ on reads Mixed. Every "
+                "change is one undo step, across the whole selection. Reset style (the item's right-click menu, its ... menu "
+                "or Ctrl+K) puts colour, fill, line and text back to the defaults, its words, place and ends kept. "
+                "Colours are in Fill, border and recent colours. Bends, connection points and imports are in Connector bends and importing."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1432,7 +1508,7 @@ HELP_TOPICS.extend(
                 "anchor point", "entity relationship", "mermaid", "subgraph", "sequence diagram", "class diagram",
                 "state diagram", "drawio", "draw.io file", "open a drawio file", "import a flowchart",
                 "clone and connect", "copy and connect", "next shape", "copy a shape",
-                "connect it to the copy", "connect the copy",
+                "connect it to the copy", "connect the copy", "new note next to", "arrows round a card",
             ),
             "body": (
                 "Connector bends and importing. Every connector takes bends: drag the small ring in the middle "
@@ -1446,7 +1522,8 @@ HELP_TOPICS.extend(
                 "Drag the square on a connector's label to slide "
                 "it along the line. The ends include the entity-relationship marks (one, zero or one, many, "
                 "one or many, zero or many). With one shape or text box selected, the four arrows round it "
-                "(or Alt+Shift and an arrow key) copy it that way and join facing sides with an elbow. "
+                "(or Alt+Shift and an arrow key) copy it that way and join facing sides with an elbow; "
+                "a note card's arrows make a new note there instead, joined and ready to type. "
                 "Insert, Mermaid, draw.io or board SVG brings in a Mermaid flowchart, state, class or "
                 "sequence diagram, a .drawio file (pages and swimlanes as frames) or an SVG a board "
                 "here exported, as shapes and connectors; Export writes an Outline and a Mermaid flowchart."
@@ -1582,7 +1659,7 @@ HELP_TOPICS.extend(
                 "Alt+Down moves a section from the outline, and typing / opens "
                 "the blocks menu. Ctrl+F finds and replaces (Enter next, "
                 "Shift+Enter previous, Esc closes), Ctrl+Shift+F finds in every "
-                "document, and Replace in every document (Ctrl+K) replaces across "
+                "document, and Replace in every document (the ⋯ menu or Ctrl+K) replaces across "
                 "them all, plain or a regular expression, as one undo step. Views: Edit, where Live renders as you write, Source "
                 "is the markdown and Split puts a preview beside it, or Read. The "
                 "sidebar's Outline lists the headings (with a filter when there "
@@ -1628,10 +1705,12 @@ HELP_TOPICS.extend(
                 "all at once), Read aloud (Esc stops), autocorrect, and word "
                 "suggestions (Tab accepts). Word: Download as .docx is written in "
                 "the app, nothing to install, and keeps headings, emphasis, "
-                "links, nested lists, tables, code, pictures, and suggested "
-                "changes as Word's tracked changes; a .docx added in the Library "
-                "is read with its headings, nested lists, tables, code blocks "
-                "and pictures kept; other downloads are .md, .html, a .zip "
+                "links, nested lists, tables, code (with its language), pictures, "
+                "and suggested changes as Word's tracked changes; a .docx added "
+                "in the Library is read with its headings, nested lists, tables, "
+                "code blocks and pictures kept, and one with tracked changes "
+                "keeps them as suggestions to accept or reject; other downloads "
+                "are .md, .html, a .zip "
                 "with images, and print or save as PDF."
             ),
             "badge": {"label": "Library", "tab": "library"},
@@ -1664,33 +1743,30 @@ HELP_TOPICS.extend(
                 "zoom", "pan", "link reason", "why linked", "connection",
             ),
             "body": (
-                "Graph keys and controls. Click the map, then the arrow keys move "
-                "between notes, N steps to the next connected note, Enter or Space "
-                "opens one, + and - zoom, 0 fits the whole map, Shift and the "
-                "arrows pan, Esc leaves. Drag a note to pin it where you put it "
-                "(double-click it to hand it back to the layout), drop one note "
-                "onto another to link them, double-click empty space to add a note "
-                "there, hover to spotlight a note's connections, point at a line to light "
-                "it and click it to see what it is, "
-                "its reason and how sure, the two notes, and for a link Edit reason, "
-                "Two-way (no arrow) and Remove, and click a legend "
-                "colour to hide that category. Shift and drag on empty map lassos "
-                "notes, and the selection bar can Tag, Link together, Unlink (both "
-                "undoable with Ctrl+Z) or make a Mind "
-                "map of them, built from their links round the picked or most "
-                "connected note, with Open on the notice that follows. Display options, the gear, opens with View: Layout "
-                "(Force, Tree, Radial or Arc; the dock names a fixed one), Shape (Organic, Clusters or Galaxy; the Force layout's own, dimmed under the others), Colour, Size, Trace, which finds how "
-                "two notes connect, and Legend, which hides the key. Then Physics (Unpin all, Reshuffle layout, Gravity, Spread, Link force, Length by similarity, Group by category), the Show switches (Similarity, "
-                "Entities, Documents, Boards, Tags, Attachments, Unwritten links, Hide unlinked), "
-                "Display (Labels, Label backgrounds, Curved "
-                "links, Cluster glow, Arrows), the similarity Strength "
-                "slider (raise it to keep only the closest matches), a Time filter "
-                "you can play, Groups that paint notes matching some words one "
-                "colour, the minimap's position and size, and Reset, which puts the "
-                "layout, colours, physics, switches, time filter and minimap back "
-                "and keeps groups and saved views. Saved views keep the layout, "
-                "filters and position under a name; Export as PNG saves what is on "
-                "screen."
+                (
+                    "Graph keys and controls. Click the map, then the arrow keys move between notes, N steps "
+                    "to the next connected note, Enter or Space opens one, + and - zoom, 0 fits the whole "
+                    "map, Shift and the arrows pan, Esc leaves. Drag a note to move it (it settles near the "
+                    "drop); double-click it to pin it, again to free it. Drop one note onto another to link "
+                    "them, double-click empty space to add a note there, hover to spotlight a note's "
+                    "connections, point at a line to light it and click it to see what it is, its reason and "
+                    "how sure, the two notes, and for a link Edit reason, Two-way (no arrow) and Remove, and "
+                    "click a legend colour to hide that category. Shift and drag on empty map lassos notes, "
+                    "and the selection bar can Tag, Link together, Unlink (both undoable with Ctrl+Z) or make"
+                    " a Mind map of them, built from their links round the picked or most connected note, "
+                    "with Open on the notice that follows. Display options, the gear, opens with View: Layout"
+                    " (Force, Tree, Radial or Arc; the dock names a fixed one), Shape (Organic, Clusters or "
+                    "Galaxy; the Force layout's own, dimmed under the others), Colour, Size, Trace, which "
+                    "finds how two notes connect, and Legend, which hides the key. Then Physics (Unpin all, "
+                    "Reshuffle layout, Gravity, Spread, Link force, Length by similarity, Group by category),"
+                    " the Show switches (Similarity, Entities, Documents, Boards, Tags, Attachments, "
+                    "Unwritten links, Hide unlinked), Display (Labels, Label backgrounds, Curved links, "
+                    "Cluster glow, Arrows), the similarity Strength slider (raise it to keep only the closest"
+                    " matches), a Time filter you can play, Groups that paint notes matching some words one "
+                    "colour, the minimap's position and size, and Reset, which puts the layout, colours, "
+                    "physics, switches, time filter and minimap back and keeps groups and saved views. Saved "
+                    "views keep the layout, filters and position under a name."
+                )
             ),
             "badge": {"label": "Graph", "tab": "graph"},
         },
@@ -1725,8 +1801,9 @@ HELP_TOPICS.extend(
                 "Colour: Topic outlines each subject inside a cluster, names it by "
                 "the tag, person or word its notes share most, and its legend entry "
                 "finds those notes and opens its card, where Summarise asks your "
-                "local model for one sentence (with no model, what they share) "
-                "and the pencil renames it in place (the arrow brings the found name back). "
+                "local model for one sentence (with no model, what they share), "
+                "File as a category files its notes under one category, "
+                "and the pencil renames it (the arrow brings the found name back). "
                 "On the map, drag a topic's name to move all its notes together "
                 "(they stay put; Unpin all releases them), double-click it to rename, "
                 "click it for its card. A note's card and its panel show its topic; "
@@ -1818,10 +1895,10 @@ HELP_TOPICS.extend(
                 "to your next question, and Ctrl+Shift+A opens the same agent over "
                 "any tab. Typing / in the box opens the chat menu: attach a note, a "
                 "document, a file or an image, upload one, Web search, "
-                "Plan first (the agent shows its steps before it starts), Skills, "
+                "Plan first, Skills, "
                 "and Agent or Ask mode. The note button beside the box opens Attach: "
-                "a tab each for notes, documents, files, images and mind maps, one "
-                "search, a count per tab of what is held; the arrows move, Space "
+                "a tab each for notes, documents, files, images and mind maps, with "
+                "a search; the arrows move, Space "
                 "ticks, Enter is Done. Each message's menu can copy it, edit your "
                 "question, regenerate from here, save it as a note or read it "
                 "aloud. The header can fork the conversation, compress the earlier "
@@ -1875,7 +1952,9 @@ HELP_TOPICS.extend(
                 "selection bar's Tags adds or removes tags on every selected note, "
                 "and its ... menu adds to or removes from Favourites, archives, "
                 "publishes drafts, removes a tag, moves them to another space or "
-                "exports them as Markdown, each undoable. Editing a note shows "
+                "exports them as Markdown, each undoable. In Agent mode, Atlas can "
+                "move chosen notes to a category or a space once you confirm, "
+                "and Undo puts them back. Editing a note shows "
                 "its words and reading time beside Save."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
@@ -1900,33 +1979,29 @@ HELP_TOPICS.extend(
             "id": "timeline-controls",
             "keywords": ("time bucket", "feed view", "table view", "calendar view", "month view", "week view", "reschedule", "jump to today", "density strip", "group by"),
             "body": (
-                "Timeline controls. Feed shows the newest first, grouped by date; "
-                "Table shows every column, sortable; Calendar shows a month, a week "
-                "(hour rows) or a day: reminders and meetings at their time, a day's "
-                "page at the top of its day and a dot per note. Drag a reminder to "
-                "another day or hour to move it, or press Alt and an arrow on it "
-                "(Undo puts it back); the arrows walk "
-                "the days, Page Up and Page Down the months, T is today, Enter opens "
-                "the day in the feed and N starts a reminder on it. Below a tablet's "
-                "width the calendar is the month's rows as a list. Pick the time bucket (Auto, "
-                "Day, Week, Month or Year; Auto takes the finest one that keeps "
-                "the headers few and filled: days for a few weeks of notes, weeks "
-                "for a year, months for several years), what rows are grouped by (Category, "
-                "Tag, Thread, None or Everything) and show only one group, how far "
-                "back (the last 3 months, the last year, everything or a custom "
-                "range), and which kinds of thing it shows; Jump to today returns. "
-                "A note that names a date (\"the deadline is next Friday\") sits on "
-                "that day, marked with a clock. The arrow keys walk the rows, Home "
-                "and End jump to the ends, Enter opens a row where it sits and Esc "
-                "closes it; in Select mode Space ticks a row, and the bar moves, "
-                "tags or deletes them. The density strip beside the feed shows how "
-                "much was written when: click or drag it to go there. Above the "
-                "feed, the calendar strip shows the last seven days with a dot "
-                "under each day that has a page: press a day to open its page or "
-                "start it (the arrows beside the month move a week, the arrow keys "
-                "walk the days, and the month opens a calendar to jump to any "
-                "earlier day). A note titled with its date "
-                "has the day before and the day after as buttons under its title."
+                (
+                    "Timeline controls. Feed shows the newest first, grouped by date; Table shows every "
+                    "column, sortable; Calendar shows a month, a week (hour rows) or a day: reminders and "
+                    "meetings at their time, a day's page at the top of its day and a chip with its title for"
+                    " each note (a dot each where a day is too short). Press a day to open it as a Day view; "
+                    "a +n opens the day in the feed. Drag a reminder to another day or hour to move it, or "
+                    "press Alt and an arrow on it (Undo puts it back); the arrows walk the days, Page Up and "
+                    "Page Down the months, T is today, Enter or Space opens the day (from a Day view, in the "
+                    "feed) and N starts a reminder on it. Below a tablet's width the calendar is the month's "
+                    "rows as a list. Pick the time bucket (Auto, Day, Week, Month or Year; Auto takes the "
+                    "finest one that keeps the headers few and filled: days for a few weeks of notes, weeks "
+                    "for a year, months for several years), what rows are grouped by (Category, Tag, Thread, "
+                    "None or Everything) and show only one group, how far back (the last 3 months, the last "
+                    "year, everything or a custom range), and which kinds of thing it shows; Jump to today "
+                    'returns. A note that names a date ("the deadline is next Friday", "2026-10-25") sits on '
+                    "that day, marked with a clock; a second date shows an arrow chip in the calendar. The "
+                    "arrow keys walk the rows, Home and End jump to the ends, Enter opens a row where it sits"
+                    " and Esc closes it; in Select mode Space ticks a row, and the bar moves, tags or deletes"
+                    " them. The density strip beside the feed shows how much was written when: click or drag "
+                    "it to go there. Above the feed, the calendar strip shows the last seven days with a dot "
+                    "under each day that has a page: press a day to open its page or start it (the arrows "
+                    "beside the month move a week, the month opens a calendar to jump to any earlier day)."
+                )
             ),
             "badge": {"label": "Timeline", "tab": "timeline"},
         },
@@ -1945,7 +2020,7 @@ HELP_TOPICS.extend(
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "
                 "snoozed one hour or to tomorrow 9am (ten minutes is on its menu; Undo in the toast puts the time back), "
-                "edited in place, or ticked "
+                "edited in place (its early alert too), or ticked "
                 "done; completed ones page at the foot. Add to calendar (.ics), on "
                 "a reminder's menu, saves it as a calendar file, and Add all to "
                 "calendar (.ics) in the More menu saves every upcoming one; Import a "
@@ -2006,11 +2081,11 @@ HELP_TOPICS.extend(
                 "files and actions), and ? lists every shortcut, which Settings, "
                 "Keyboard shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
                 "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
-                "(Reminders); or to act: s (Settings), q (Quick sketch), v (Record "
+                "(Reminders), o (OCR workspace); or to act: s (Settings), q (Quick sketch), v (Record "
                 "a meeting), a (Guide), p (Popup agent). A second m or Esc closes the panel. "
                 "Ctrl+Shift+A opens the agent over any tab, Ctrl+Shift+H asks Atlas "
                 "about the app, Ctrl+J writes at the cursor, Ctrl+Shift+E acts on "
-                "selected text, Ctrl+Shift+K opens the quick sketch pad, and "
+                "selected text (so does a right-click on the selection), Ctrl+Shift+K opens the quick sketch pad, and "
                 "Ctrl+Alt+R reloads the app clearing cached files. Every menu works "
                 "from the keyboard: the arrows move, Home and End jump, Enter picks "
                 "and Esc closes. Select in Notes, the Timeline and the Library acts "
@@ -2027,6 +2102,8 @@ HELP_TOPICS.extend(
 #: (INBOX 430): the second half of the reference, in its own module
 #: (help_topics_more.py) so this one stays about how an answer is found.
 HELP_TOPICS.extend(MORE_TOPICS)
+# The speller reads the help text for the app's own vocabulary (see spelling.set_topic_source).
+spelling.set_topic_source(lambda: [*HELP_TOPICS, *MORE_TOPICS])
 
 #: **Which entry answers "the keys of" a surface.** A question that names a
 #: surface and asks about its keys, controls or hidden corners is about that
@@ -2208,11 +2285,19 @@ for _topic in HELP_TOPICS:
     )
 
 
-_KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
-    keyword: _keyword_pattern(_normalise_keys(keyword))
-    for topic in HELP_TOPICS
-    for keyword in topic["keywords"]
-}
+@functools.lru_cache(maxsize=None)
+def _keyword_regex(keyword: str) -> re.Pattern[str]:
+    return _keyword_pattern(_normalise_keys(keyword))
+
+
+def _keyword_in(keyword: str, lowered: str) -> bool:
+    """`_keyword_pattern(keyword)` found in `lowered`, compiled only when it can
+    match. All 2,200 patterns were compiled at import (about 0.5 s of the app's
+    start, INBOX 1307); a pattern can only match where its literal stem occurs,
+    so a substring test settles almost every keyword without a regex at all."""
+    normal = _normalise_keys(keyword)
+    stem = normal[:-1] if len(normal) > 3 and normal.endswith("y") and normal[-2] not in "aeiou" else normal
+    return stem in lowered and _keyword_regex(keyword).search(lowered) is not None
 
 
 def _edit_distance_at_most_one(a: str, b: str) -> bool:
@@ -2364,7 +2449,7 @@ def _matching_topics(question: str) -> list[dict]:
         score = 0.0
         for keyword in topic["keywords"]:
             rarity = 1.0 + math.log(total / _KEYWORD_TOPICS.get(keyword, 1))
-            if _KEYWORD_PATTERNS[keyword].search(lowered):
+            if _keyword_in(keyword, lowered):
                 score += len(keyword.split()) * rarity
             elif (
                 " " not in keyword
@@ -2375,7 +2460,7 @@ def _matching_topics(question: str) -> list[dict]:
         if score > 0:
             scores[topic["id"]] = score
     if not scores:
-        return []
+        return _meaning_topics(question)
     #: **A surface's controls entry** (INBOX 410, see `_CONTROLS_FOR`). With
     #: a word asking for keys or controls, the named surface's controls entry
     #: goes above everything the words alone reached, the surface's own score
@@ -2404,6 +2489,29 @@ def _matching_topics(question: str) -> list[dict]:
         body = _BODY_WORDS[topic["id"]]
         score += 0.15 * sum(1 for w in words if w in body)
         scored.append((score, order, topic))
+    scored.sort(key=lambda row: (-row[0], row[1]))
+    best = scored[0][0]
+    return [topic for score, _, topic in scored[:MAX_TOPICS] if score >= best * _RUNNER_UP_SHARE]
+
+
+def _meaning_topics(question: str) -> list[dict]:
+    """**By meaning, when no keyword matched** (Brief 94, INBOX 857): the
+    words read as the things they name (`meaning.alts`: "too much moving
+    stuff" is motion, "the robot" is the companion), held by a topic's title
+    and keywords, the nearest first. A fallback only, so the question bank's
+    keyword answers are unchanged."""
+    from memorymap.ai import meaning
+
+    things = meaning.alts(question)
+    if not things or all(len(group) == 1 for group in things):
+        return []
+    scored = []
+    for order, topic in enumerate(HELP_TOPICS):
+        named = f"{topic_title(topic)} {' '.join(topic['keywords'])}"
+        if meaning.holds(things, named):
+            scored.append((meaning.closeness(things, named), order, topic))
+    if not scored:
+        return []
     scored.sort(key=lambda row: (-row[0], row[1]))
     best = scored[0][0]
     return [topic for score, _, topic in scored[:MAX_TOPICS] if score >= best * _RUNNER_UP_SHARE]
@@ -2978,6 +3086,6 @@ def help_block_for(question: str) -> str:
     if len(text) > HELP_BLOCK_MAX_CHARS:
         text = text[: HELP_BLOCK_MAX_CHARS - 1].rstrip() + "…"
     return (
-        "From MemoryMap's own help (use this if the question is about how the "
+        "From Tessellate's own help (use this if the question is about how the "
         f"app works; it is not one of my notes):\n{text}\n\n"
     )

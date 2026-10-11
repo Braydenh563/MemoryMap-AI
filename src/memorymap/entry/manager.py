@@ -262,12 +262,19 @@ def create_entry(
     tags: list[str] | None = None,
     ai_confidence: int = 0,
     client_key: str | None = None,
+    commit: bool = True,
+    dates: bool = True,
 ) -> Entry:
     """Store one thought. Commits the transaction.
 
     `client_key` is the offline queue's name for this save; the unique index
     on it makes a second save with the same key raise `IntegrityError`, which
-    the route answers with the note the first one made."""
+    the route answers with the note the first one made.
+
+    `commit=False` only flushes, for a bulk writer (an import) that commits
+    in batches. `dates=False` leaves the date phrases to a caller that sets
+    `created_at` first and calls `record_dates` itself (an import), so the
+    note is not read for dates twice."""
     category = get_or_create_category(session, category_name)
     entry = Entry(
         content=content,
@@ -280,7 +287,8 @@ def create_entry(
     )
     session.add(entry)
     session.flush()
-    record_dates(session, entry)
+    if dates:
+        record_dates(session, entry)
     reindex_properties(session, entry)
     log_action(
         session,
@@ -289,7 +297,10 @@ def create_entry(
         entry.id,
         payload={"after": events.entry_state(entry)},
     )
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return entry
 
 
@@ -708,7 +719,12 @@ def reindex_properties(session: Session, entry: Entry) -> None:
     from memorymap.entry import properties as note_properties
 
     try:
-        session.execute(delete(EntryProperty).where(EntryProperty.entry_id == entry.id))
+        #: "fetch", not the default "auto": auto tries "evaluate" first, which
+        #: walks every object the session holds, so an import's second note
+        #: cost more than its first (an N-squared 5,000-note write).
+        session.execute(
+            delete(EntryProperty).where(EntryProperty.entry_id == entry.id).execution_options(synchronize_session="fetch")
+        )
         if entry.is_private or entry.is_deleted:
             return
         found, _ = note_properties.split(entry.content or "")
@@ -732,13 +748,16 @@ def reindex_properties(session: Session, entry: Entry) -> None:
 
 
 @events.writes("entry", "dated")
-def record_dates(session: Session, entry: Entry) -> None:
+def record_dates(session: Session, entry: Entry, now: datetime | None = None) -> None:
     """Resolve the relative time phrases in a note and store what they meant.
 
     Best-effort by design (principle 2): a note must save even if this cannot
     run at all, so every failure here is logged and swallowed. Private notes
     are skipped: their text is encrypted at rest, and lifting phrases out of
     it into a plain table would leak the one thing encryption is for.
+
+    `now` is the day the phrases are read against; the default is today (the
+    reader's clock). `entry/redate.py` passes the note's own day.
     """
     try:
         if entry.is_private:
@@ -752,17 +771,18 @@ def record_dates(session: Session, entry: Entry) -> None:
         # module-level ones).
         deps = importlib.import_module("memorymap.core.deps")
 
-        try:
-            now = user_now(deps.get_config())
-        except Exception:  # noqa: BLE001  # no app state (a script, a test)
-            now = datetime.now()
+        if now is None:
+            try:
+                now = user_now(deps.get_config())
+            except Exception:  # noqa: BLE001  # no app state (a script, a test)
+                now = datetime.now()
         #: An imported note's words were written on its own day, not today:
         #: "tomorrow" in a 2024 export is a day in 2024 (CHAT_PLAN section 2,
         #: the import row). `app_import.write` sets that day and calls this
         #: again.
         if entry.source_path and entry.created_at is not None and entry.created_at.date() < now.date():
             now = entry.created_at
-        session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id))
+        session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id).execution_options(synchronize_session="fetch"))
         resolved = []
         for mention in timewords.find(entry.content or "", now):
             session.add(
@@ -3367,15 +3387,23 @@ def wiki_holders(session: Session, entry: Entry, name: str) -> list[Entry]:
     return [row for row in rows if pattern.search(row.content or "")]
 
 
-def rewrite_wiki_name(session: Session, entry: Entry, old: str, new: str) -> int:
+def rewrite_wiki_name(
+    session: Session, entry: Entry, old: str, new: str, saved: list[dict] | None = None
+) -> int:
     """Rewrite `[[old]]` as `[[new]]` in every note that names it (GRAPH_PLAN
     518: a renamed note offers this). Each note keeps its alias and part, gets
     a revision first so it can be undone from its history, and is synced so
-    its links point where the names now do. Returns how many notes changed."""
+    its links point where the names now do. Returns how many notes changed.
+
+    `saved`, when given, gets `{"id", "revision_id"}` for each note changed:
+    the version each held before, which is how Undo puts the old name back
+    (`POST /entries/{id}/history/{revision_id}/restore`, INBOX 898)."""
     pattern = _wiki_name_pattern(old)
     changed = 0
     for holder in wiki_holders(session, entry, old):
-        record_revision(session, holder)
+        revision = record_revision(session, holder)
+        if saved is not None:
+            saved.append({"id": holder.id, "revision_id": revision.id})
         update_entry(session, holder, content=pattern.sub(lambda _m: f"[[{new.strip()}", holder.content))
         sync_wiki_links(session, holder)
         changed += 1
@@ -3395,15 +3423,15 @@ def rewrite_wiki_name(session: Session, entry: Entry, old: str, new: str) -> int
 #: what makes the two real [[links]] below actually resolve.
 _EXAMPLE_NOTES = [
     (
-        "About MemoryMap",
+        "About Tessellate",
         ["welcome"],
-        "Local-first, always: MemoryMap keeps everything on this machine, "
+        "Local-first, always: Tessellate keeps everything on this machine, "
         "notes, search, even the AI, if you point it at a local model. "
         "Nothing is sent anywhere unless you explicitly turn on web search.",
         9,
     ),
     (
-        "About MemoryMap",
+        "About Tessellate",
         ["welcome", "graph"],
         "Linking notes together: type [[Local-first, always]] and it "
         "becomes a real link, click it, or see it drawn on the Graph tab. "
@@ -3411,7 +3439,7 @@ _EXAMPLE_NOTES = [
         7,
     ),
     (
-        "About MemoryMap",
+        "About Tessellate",
         ["welcome", "ai"],
         "Try asking a question: open the Ask tab and try something like "
         "\"what's in my notebook about being local-first?\" The answer will "
@@ -3428,7 +3456,7 @@ _EXAMPLE_NOTES = [
         3,
     ),
     (
-        "About MemoryMap",
+        "About Tessellate",
         ["welcome"],
         "Delete these whenever: these five notes are just here so the "
         "Graph, Timeline and Dashboard have something to show on a "
@@ -3475,8 +3503,8 @@ MAX_REVISIONS = 20
 
 
 @events.writes("entry", "revised")
-def record_revision(session: Session, entry: Entry) -> None:
-    """Save the note as it is now, before it's changed.
+def record_revision(session: Session, entry: Entry):  # noqa: ANN201
+    """Save the note as it is now, before it's changed. Returns the revision.
 
     Private notes store their ciphertext, which is what's in the column, a
     revision must never be the one place a private note sits in the clear.
@@ -3508,8 +3536,9 @@ def record_revision(session: Session, entry: Entry) -> None:
             .offset(MAX_REVISIONS)
         )
     )
-    for revision in stale:
-        session.delete(revision)
+    for old_revision in stale:
+        session.delete(old_revision)
+    return revision
 
 
 def revisions_for(session: Session, entry: Entry) -> list:

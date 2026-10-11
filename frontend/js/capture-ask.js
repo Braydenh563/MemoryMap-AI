@@ -282,10 +282,6 @@ async function loadCaptureDocuments() {
   renderCaptureDocuments(documents);
 }
 
-// The picker's value for "one that doesn't exist yet". A string, so it can
-// never collide with a document id.
-const NEW_DOCUMENT = "new";
-
 // Ask for a title and start an empty document. Shared by the capture box and
 // the note card's "Add to a document", so both offer the same thing.
 async function createDocumentNamed(suggestion = "") {
@@ -296,6 +292,7 @@ async function createDocumentNamed(suggestion = "") {
       method: "POST",
       body: JSON.stringify({ title, content: `# ${title}\n\n` }),
     });
+    offerCreateUndo(doc);
     return doc; // the documents tab refetches on switch, so nothing to sync
   } catch (error) {
     toast(error.message, true);
@@ -463,7 +460,7 @@ function resetCaptureForm(contentBox, titleBox) {
   renderEntryAttachmentChips();
   autoGrow(contentBox); // the box shrinks back with its content
   // It's saved for real now: the words, the title and the tags.
-  for (const key of ["captureDraft", "captureDraftTitle", "captureDraftTags"]) localStorage.removeItem(key);
+  for (const key of ["captureDraft", "captureDraftTitle", "captureDraftTags"]) prefs.remove(key);
   $("entry-count").textContent = "0 words";
   $("entry-tags").value = "";
   $("entry-category").value = "";
@@ -495,17 +492,40 @@ function clearCaptureTagSuggestions() {
   row.classList.add("hidden");
 }
 
-function renderCaptureTagSuggestions(tags, reasons) {
+//: **The filing, offered beside the tags** (INBOX 1330, "a live, inline
+//: organization suggestion while typing"): the category the notebook's own words
+//: point to, with its reason, only while Filing is left on Atlas's choice and the
+//: category is one the Filing field lists. Pressing it sets the field; nothing is
+//: saved by it.
+function captureCategoryChip(category) {
+  const select = $("entry-category");
+  if (!category?.category || !select || select.value !== "") return null;
+  const option = [...select.options].find((o) => o.value === category.category);
+  if (!option) return null;
+  const pick = chip(`ph:folder-simple File under ${category.category}`, "tag", () => {
+    select.value = option.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    pick.remove();
+    const row = $("entry-tag-suggestions");
+    if (!row.querySelector(".chip")) row.classList.add("hidden");
+  });
+  pick.title = category.reason || `File this note under ${category.category}`;
+  return pick;
+}
+
+function renderCaptureTagSuggestions(tags, reasons, category = null) {
   const row = $("entry-tag-suggestions");
   row.replaceChildren();
-  if (!tags.length) {
+  const filing = captureCategoryChip(category);
+  if (!tags.length && !filing) {
     row.classList.add("hidden");
     return;
   }
   const label = document.createElement("span");
   label.className = "muted";
-  label.textContent = "Suggested tags:";
+  label.textContent = "Suggested:";
   row.appendChild(label);
+  if (filing) row.appendChild(filing);
   for (const tag of tags) {
     const tagChip = chip(`ph:plus ${tag}`, "tag", () => {
       const box = $("entry-tags");
@@ -533,12 +553,13 @@ function scheduleCaptureTagSuggestions() {
   captureTagSuggestTimer = setTimeout(async () => {
     const seq = ++captureTagSuggestSeq;
     const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
-    const result = await apiJson("/entries/suggest-tags", {
-      method: "POST",
-      body: JSON.stringify({ content, tags, title: $("entry-title")?.value || "" }),
-    }).catch(() => ({}));
+    const draft = JSON.stringify({ content, tags, title: $("entry-title")?.value || "" });
+    const [result, category] = await Promise.all([
+      apiJson("/entries/suggest-tags", { method: "POST", body: draft }).catch(() => ({})),
+      apiJson("/entries/suggest-category", { method: "POST", body: draft, silent: true }).catch(() => null),
+    ]);
     if (seq !== captureTagSuggestSeq) return; // superseded by a later keystroke
-    renderCaptureTagSuggestions(result.suggested_tags || [], result.suggested_tag_reasons);
+    renderCaptureTagSuggestions(result.suggested_tags || [], result.suggested_tag_reasons, category);
   }, 1200);
 }
 
@@ -606,7 +627,7 @@ async function saveEntry() {
   // continuing in the backend with a popup notification so I dont have to
   // wait twiddling my thumbs". Choosing a category yourself skips it
   // either way: there is nothing to wait for.
-  const deferFiling = !category && (prefsCache.background_filing ?? true);
+  const deferFiling = !category && (prefsCache?.background_filing ?? true);
 
   button.disabled = true;
   status.classList.remove("error");
@@ -736,6 +757,7 @@ async function saveEntryAsDraft() {
         document_ids: [...captureDocuments],
         is_draft: true,
         inline_tags: true,
+        defer_filing: true,
       }),
     });
     clearStagedImages();
@@ -747,6 +769,7 @@ async function saveEntryAsDraft() {
     // keeps that function from having to know which of its two callers has
     // already taken the list, see its own comment.
     uploadStagedFiles(saved.id);
+    pushEntryCreateUndo(saved, "Saved a draft note");
     await refreshEntries([saved.id]);
   } catch (error) {
     if (await heldOffline(error, { content, tags, document_ids: [...captureDocuments], is_draft: true }, contentBox, titleBox)) return;
@@ -1889,8 +1912,34 @@ function renderAnswerGrounding(
   const foot = document.createElement("div");
   foot.className = "ev-foot";
   foot.appendChild(evidenceToggle(target, sentences, rawResults, answerEl, support, numberFor));
+  //: Settings, What the notebook learned, Evidence checks (WORLD_CLASS I6,
+  //: OPEN 1073): off, the answer has no evidence view to open.
+  foot.classList.toggle("hidden", evidenceChecksKnown === false);
+  evidenceChecksOn().then((on) => foot.classList.toggle("hidden", !on));
   target.appendChild(foot);
   target.classList.remove("hidden");
+}
+
+//: The Evidence checks switch, read once and again after Settings writes it
+//: (`evidenceSwitchReset`). Unknown counts as on: the view is the default.
+let evidenceSwitchLoad = null;
+let evidenceChecksKnown = null;
+
+function evidenceChecksOn() {
+  if (!evidenceSwitchLoad) {
+    evidenceSwitchLoad = apiJson("/learned/switches")
+      .then((switches) => (evidenceChecksKnown = switches?.evidence_checks !== false))
+      .catch(() => {
+        evidenceSwitchLoad = null;
+        return true;
+      });
+  }
+  return evidenceSwitchLoad;
+}
+
+function evidenceSwitchReset() {
+  evidenceSwitchLoad = null;
+  evidenceChecksKnown = null;
 }
 
 //: Show the evidence (I6, row 6): each sentence beside its passages, the
@@ -2226,6 +2275,16 @@ function askNotesOnTheRight() {
   return new Set([...rows].map((row) => row.dataset.id));
 }
 
+//: **A follow-up is a question that keeps the answer above it** (decision 8:
+//: "'Ask again' chips become follow-ups that carry the previous answer as
+//: context"). The chips themselves are `/chat/followups`, the same second
+//: model call the Chat tab makes after a turn is on screen, and clicking one
+//: calls `askQuestion`, which sends `conversation` as history: so the context
+//: is carried by the path every Ask turn already takes, not by a second one
+//: built for chips.
+//:
+//: Silent on every failure, including the AI not running: an answer that
+//: arrived is not made worse by having nothing to offer after it.
 //: **The answer, kept** (CHAT_PLAN B12): a note, a document, or a mind map
 //: of the notes it cites, from the ⋯ beside Copy; each goes on the undo
 //: stack. Built on first use in ask-compose.js (lazy).
@@ -3317,9 +3376,6 @@ async function loadSuggestions() {
 // this is read, search, pin, delete and "reopen" only. ---------------------
 
 let askHistoryOpen = false;
-let askHistoryOffset = 0;
-let askHistoryTotal = 0;
-const ASK_HISTORY_PAGE = 20;
 
 async function loadAskHistoryBadge() {
   const badge = $("ask-history-badge");
@@ -3353,11 +3409,6 @@ for (const type of ["focusin", "input", "click"]) {
 //: questions-view.js, lazy (INBOX 688 moved it to make room for the Ask box's
 //: answer switch). The Ask scope it sets stays here: `askQuestion` reads it.
 let askScope = null;
-
-function setAskScope(scope) {
-  askScope = scope || null;
-  $("ask-scope")?.classList.toggle("hidden", !askScope);
-}
 
 //: Time travel on Ask (WORLD_CLASS_PLAN I5, row 23): the day the next answer
 //: reads the notebook as of, or null. Only while the line is showing, so
@@ -3394,7 +3445,6 @@ const BUILTIN_TEMPLATES = [
   { name: "Contact", content: "Contact: \nPhone/email: \nWhere we met: \nNotes: " },
   { name: "Meeting", content: "---\ntype: Meeting\n---\n## Agenda\n\n1. {{cursor}}\n\n## Notes\n\n## Decisions\n\n- \n\n## Action items\n\n- [ ] \n" },
 ];
-
 
 async function loadTemplates() {
   // Built-ins + the user's own (kept in preferences). Shared with the two

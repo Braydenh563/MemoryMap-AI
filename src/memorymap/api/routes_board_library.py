@@ -53,6 +53,7 @@ from memorymap.api.routes_whiteboard import (
     WhiteboardObjectData,
     _board_settings,
     _object_state,
+    _on_current_layer,
     _object_to_out,
     _sketch_state,
     _store_board_background,
@@ -972,6 +973,13 @@ def _place_branch(db: Session, board_id: int | None, payload: dict, body: PlaceB
     return {"sketches": [], "objects": made}
 
 
+def _onto_current_layer(db: Session, board_id: int | None, made: dict) -> None:
+    """Placed rows go on the board's current layer, as anything drawn by hand
+    does (canvasdepth2, `_on_current_layer`)."""
+    for row in made["sketches"] + made["objects"]:
+        row.data = json.dumps(_on_current_layer(db, board_id, json.loads(row.data)))
+
+
 @router.post("/whiteboard/boards/{board_id}/place", status_code=201)
 def place_library_item(board_id: int, body: PlaceBody, db: Session = Depends(get_session)) -> dict:
     """Make a library item's rows on a board, in one transaction: one board
@@ -1004,6 +1012,7 @@ def place_library_item(board_id: int, body: PlaceBody, db: Session = Depends(get
             made = {"sketches": [], "objects": []}
     else:
         raise _fail("A style or a palette is applied to what is selected, not placed.")
+    _onto_current_layer(db, target, made)
     events.record(
         db, "placed", "board", target, f"{entry_data.get('name', 'item')} placed"[:80],
         payload={"after": {"library_ref": ref, "sketches": [{"id": s.id, **_sketch_state(s)} for s in made["sketches"]],

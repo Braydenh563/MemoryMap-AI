@@ -90,3 +90,18 @@ def test_the_import_dialog_takes_drawio_files() -> None:
     assert ".drawio" in accept
     body = SOURCE[SOURCE.index("async function wbImportText(") :]
     assert "wbImportDrawio(" in body[: body.index("\n}\n")]
+
+
+def test_every_page_comes_in_each_in_a_frame() -> None:
+    """canvasdepth2: pages after the first come in too, each in a frame named
+    after its page, side by side (decision 22: a board's pages are its
+    frames); a one-page file has no frame round it. The browser half is
+    `scratchpad/ui-sweeps/wbdrawiopages.js`."""
+    cells = SOURCE[SOURCE.index("async function wbDrawioCells(") :]
+    cells = cells[: cells.index("\n}\n")]
+    assert "all.push({ name:" in cells and "return { cells: all[0].cells, pages:" in cells
+    imp = SOURCE[SOURCE.index("async function wbImportDrawio(") :]
+    imp = imp[: imp.index("\n}\n")]
+    assert "const framed = pages.length > 1;" in imp
+    assert imp.index('wbCreateObject("frame", { content: page.name') < imp.index("wbDrawioPlace(page.plan")
+    assert "wbRecordGesture(" in imp

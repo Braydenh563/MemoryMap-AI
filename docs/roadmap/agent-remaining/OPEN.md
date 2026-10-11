@@ -333,6 +333,13 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the canvasdepth2 agent (canvas depth round 2, merged 2026-10-11)
+
+Full list: [archive/agent-remaining/canvasdepth2-1011.md](../archive/agent-remaining/canvasdepth2-1011.md).
+- Not driven: dark theme for the hand-drawn look, tables, the Data tab and the current layer; a real touch double-tap into a table cell; an .xmind opened in XMind; a real multi-page draw.io file; callouts, labels and stamps in the map's PNG and SVG.
+- maplayouts.js "tree-left carries the branch bar" fails on base too (it measures the centre topic).
+- Tables lack column widths and merged cells; Edit data lacks `%name%` placeholders; .drawio export is not built; a hidden named layer's item eye and layer order are still open.
+
 ## Left by the calendar55 agent (Brief 55, merged 2026-10-11)
 
 Full list: [archive/agent-remaining/calendar55-1011.md](../archive/agent-remaining/calendar55-1011.md).

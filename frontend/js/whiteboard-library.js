@@ -1617,6 +1617,30 @@ async function wbNewNamedLayer() {
   }
 }
 
+//: **The current layer** (draw.io's; canvasdepth2): new things land on it,
+//: set by the server on every create (`_on_current_layer`). An item brought
+//: back by Undo says `layer: ""` when it had none, so it comes back where it
+//: was rather than onto whichever layer is current now.
+function wbKeepOwnLayer(kind, payload) {
+  if (kind === "object" && payload?.data && !payload.data.layer) return { ...payload, data: { ...payload.data, layer: "" } };
+  if (kind === "sketch" && typeof payload?.data === "string") {
+    try {
+      const data = JSON.parse(payload.data);
+      if (data && typeof data === "object" && !data.layer) return { ...payload, data: JSON.stringify({ ...data, layer: "" }) };
+    } catch {
+      return payload;
+    }
+  }
+  return payload;
+}
+
+//: Make a layer the current one, or none (`null`), one Undo step.
+function wbSetCurrentLayer(id) {
+  const name = (wbState.layers || []).find((x) => x.id === id)?.name;
+  return wbSaveNamedLayers((wbState.layers || []).map((x) => ({ ...x, current: x.id === id })),
+    { said: name ? `New things go on ${name}.` : "New things go on no layer." });
+}
+
 function wbNamedLayerSet(id, patch, said) {
   return wbSaveNamedLayers((wbState.layers || []).map((x) => (x.id === id ? { ...x, ...patch } : x)), { said });
 }
@@ -1632,6 +1656,9 @@ function wbNamedLayerItems(id) {
 function wbNamedLayerMenu(layer) {
   return kebabMenu([
     { label: "ph:arrow-square-in Move the selection here", run: () => wbMoveSelectionToLayer(layer.id) },
+    layer.current
+      ? { label: "ph:pencil-slash Stop drawing on it", title: "New things go on no layer", run: () => wbSetCurrentLayer(null) }
+      : { label: "ph:pencil-simple-line Draw on this layer", title: "New things go on it: its name is pressed", run: () => wbSetCurrentLayer(layer.id) },
     { label: "ph:selection-all Select what is on it", run: () => {
       clearWbSelection();
       for (const [kind, item] of wbNamedLayerItems(layer.id)) wbMultiSelection.add(wbMultiKey(kind, item.id));
@@ -1690,9 +1717,15 @@ function wbRenderNamedLayers(tree) {
     const lock = smallButton(layer.locked ? "ph:lock-simple" : "ph:lock-simple-open", `${layer.locked ? "Unlock" : "Lock"} the layer ${layer.name}`,
       () => wbNamedLayerSet(layer.id, { locked: !layer.locked }, `${layer.name} ${layer.locked ? "unlocked" : "locked"}.`));
     lock.setAttribute("aria-pressed", String(layer.locked));
-    const name = document.createElement("span");
-    name.className = "wb-layer-name";
+    //: The name is the layer's "draw here" switch, draw.io's current layer.
+    const name = document.createElement("button");
+    name.type = "button";
+    name.className = "wb-layer-name wb-named-layer-current";
     name.textContent = layer.name;
+    name.setAttribute("aria-pressed", String(Boolean(layer.current)));
+    name.title = layer.current ? `New things go on ${layer.name}; press to draw on no layer` : `Draw on ${layer.name}: new things go on it`;
+    name.addEventListener("click", () => wbSetCurrentLayer(layer.current ? null : layer.id));
+    if (layer.current) li.setAttribute("aria-current", "true");
     const count = document.createElement("span");
     count.className = "muted wb-lib-count";
     count.textContent = String(wbNamedLayerItems(layer.id).length);
@@ -1702,7 +1735,7 @@ function wbRenderNamedLayers(tree) {
   if (!(wbState.layers || []).length) {
     const none = document.createElement("li");
     none.className = "muted wb-lib-note";
-    none.textContent = "None yet. Select things and press + to put them on a layer you can hide or lock.";
+    none.textContent = "None yet. Select things and press + to put them on a layer you can hide or lock; press a layer's name to draw on it.";
     list.append(none);
   }
   box.append(list);

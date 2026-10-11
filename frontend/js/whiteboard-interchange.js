@@ -981,25 +981,38 @@ function wbOpenImportDialog() {
   field?.focus();
 }
 
-//: The first page of a `.drawio` file as cells, and how many pages it has.
-//: A page is either its `mxGraphModel` as XML or, from older draw.io, that
-//: XML deflated, base64'd and URI-encoded; `DecompressionStream` undoes it.
-//: A `.drawio.svg` carries the file in its root's `content` attribute.
+//: Every page of a `.drawio` file as cells, with its name (canvasdepth2;
+//: the first page alone before). A page is either its `mxGraphModel` as XML
+//: or, from older draw.io, that XML deflated, base64'd and URI-encoded;
+//: `DecompressionStream` undoes it. A `.drawio.svg` carries the file in its
+//: root's `content` attribute. `cells` and `pages` stay the first page's
+//: and the count, for the callers that read only those.
 async function wbDrawioCells(text) {
   const xml = (s) => new DOMParser().parseFromString(s, "text/xml");
   let doc = xml(text);
   const svgContent = doc.documentElement?.localName === "svg" ? doc.documentElement.getAttribute("content") : null;
   if (svgContent) doc = xml(svgContent);
-  const pages = [...doc.getElementsByTagName("diagram")];
-  let model = doc.getElementsByTagName("mxGraphModel")[0] || null;
-  if (!model && pages.length) {
-    const packed = pages[0].textContent.trim();
+  const diagrams = [...doc.getElementsByTagName("diagram")];
+  const modelOf = async (diagram) => {
+    const own = diagram ? diagram.getElementsByTagName("mxGraphModel")[0] : doc.getElementsByTagName("mxGraphModel")[0];
+    if (own || !diagram) return own || null;
+    const packed = diagram.textContent.trim();
+    if (!packed) return null;
     const bytes = Uint8Array.from(atob(packed), (ch) => ch.charCodeAt(0));
     const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
     const inflated = await new Response(stream).text();
-    model = xml(decodeURIComponent(inflated)).getElementsByTagName("mxGraphModel")[0] || null;
+    return xml(decodeURIComponent(inflated)).getElementsByTagName("mxGraphModel")[0] || null;
+  };
+  const all = [];
+  for (const [i, diagram] of (diagrams.length ? diagrams : [null]).entries()) {
+    const model = await modelOf(diagram);
+    if (model) all.push({ name: diagram?.getAttribute("name") || `Page ${i + 1}`, cells: wbDrawioModelCells(model) });
   }
-  if (!model) return null;
+  if (!all.length) return null;
+  return { cells: all[0].cells, pages: Math.max(1, diagrams.length), all };
+}
+
+function wbDrawioModelCells(model) {
   const point = (el, as) => {
     const p = [...el.children].find((n) => n.localName === "mxPoint" && n.getAttribute("as") === as);
     return p ? { x: Number(p.getAttribute("x")) || 0, y: Number(p.getAttribute("y")) || 0 } : null;
@@ -1018,13 +1031,62 @@ async function wbDrawioCells(text) {
       sourcePoint: geo ? point(geo, "sourcePoint") : null, targetPoint: geo ? point(geo, "targetPoint") : null, points,
     });
   }
-  return { cells, pages: Math.max(1, pages.length) };
+  return cells;
 }
+
+//: A page's box: where its items reach.
+function wbDrawioBox(plan) {
+  const minX = Math.min(...plan.items.map((i) => i.x)), minY = Math.min(...plan.items.map((i) => i.y));
+  const maxX = Math.max(...plan.items.map((i) => i.x + i.w)), maxY = Math.max(...plan.items.map((i) => i.y + i.h));
+  return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
+}
+
+//: One page's items and connectors onto the board, moved by `dx, dy`.
+async function wbDrawioPlace(plan, dx, dy, ink) {
+  const ids = new Map();
+  for (const f of plan.items.filter((i) => i.kind === "frame").reverse()) {
+    const made = await wbCreateObject("frame", { content: f.label || "Lane" }, Math.round(f.x + dx), Math.round(f.y + dy), Math.round(f.w), Math.round(f.h), wbFrameZ());
+    if (made) ids.set(f.id, ["object", made.id]);
+  }
+  for (const item of plan.items.filter((i) => i.kind === "text")) {
+    const made = await wbCreateObject("text", { content: item.label, ...item.look }, Math.round(item.x + dx), Math.round(item.y + dy), Math.round(Math.max(40, item.w)), Math.round(Math.max(24, item.h)));
+    if (made) ids.set(item.id, ["object", made.id]);
+  }
+  for (const item of plan.items.filter((i) => i.kind === "shape")) {
+    const data = { d: wbDrawioPath(item.shape, item.x + dx, item.y + dy, item.w, item.h), shape: item.shape === "ellipse" ? "circle" : item.shape === "diamond" ? "diamond" : item.shape === "rect" ? "rect" : "custom", color: ink, ...item.look };
+    if (item.label) data.label = item.label;
+    const made = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z: 2, board_id: window.currentBoardId ?? null }) });
+    wbState.sketches.push(made);
+    ids.set(item.id, ["sketch", made.id]);
+  }
+  for (const link of plan.links) {
+    const data = { type: link.type, color: ink, ...link.data };
+    const s = link.source ? ids.get(link.source) : null, t = link.target ? ids.get(link.target) : null;
+    if (link.source && !s) continue;
+    if (link.target && !t) continue;
+    if (s) Object.assign(data, { sourceKind: s[0], sourceId: s[1] });
+    if (t) Object.assign(data, { targetKind: t[0], targetId: t[1] });
+    for (const key of ["sourcePoint", "targetPoint"]) if (data[key]) data[key] = { x: data[key].x + dx, y: data[key].y + dy };
+    if (data.points) data.points = data.points.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+    const made = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z: 1, board_id: window.currentBoardId ?? null }) });
+    wbState.sketches.push(made);
+  }
+}
+
+//: Room round a page inside its frame, and between two page frames.
+const WB_DRAWIO_PAGE_PAD = 48;
+const WB_DRAWIO_PAGE_GAP = 160;
 
 //: A `.drawio` file onto this board, centred in the view, one undo step:
 //: swimlanes as frames, text as text boxes, the rest as shapes with their
 //: labels, edges as connectors joined to what they join. What has no
 //: counterpart is named in the report rather than dropped silently.
+//:
+//: **Every page comes in, each in a frame named after it, side by side**
+//: (canvasdepth2). Frames rather than a board per page because a board's
+//: pages are its frames (WHITEBOARD_PLAN decision 22): the Pages tab lists
+//: them, Present walks them, and the whole file stays one board and one Undo
+//: step. A one-page file comes in as before, with no frame round it.
 async function wbImportDrawio(text, at = wbViewCentre()) {
   let read = null;
   try {
@@ -1036,52 +1098,40 @@ async function wbImportDrawio(text, at = wbViewCentre()) {
     toast("That draw.io file could not be read.", "info");
     return 0;
   }
-  const plan = wbDrawioPlan(read.cells);
-  if (!plan.items.length) {
-    toast("That draw.io page has no shapes to bring in.", "info");
+  const pages = read.all.map((page) => ({ ...page, plan: wbDrawioPlan(page.cells) })).filter((page) => page.plan.items.length);
+  if (!pages.length) {
+    toast("That draw.io file has no shapes to bring in.", "info");
     return 0;
   }
-  const minX = Math.min(...plan.items.map((i) => i.x)), minY = Math.min(...plan.items.map((i) => i.y));
-  const maxX = Math.max(...plan.items.map((i) => i.x + i.w)), maxY = Math.max(...plan.items.map((i) => i.y + i.h));
-  const dx = at[0] - (minX + maxX) / 2, dy = at[1] - (minY + maxY) / 2;
+  const framed = pages.length > 1;
+  const pad = framed ? WB_DRAWIO_PAGE_PAD : 0;
+  for (const page of pages) page.box = wbDrawioBox(page.plan);
+  const rowW = pages.reduce((sum, page) => sum + page.box.w + pad * 2, 0) + WB_DRAWIO_PAGE_GAP * (pages.length - 1);
+  const rowH = Math.max(...pages.map((page) => page.box.h + pad * 2));
   const ink = window.currentStrokeColor && /^#[0-9a-f]{6}$/i.test(window.currentStrokeColor) ? window.currentStrokeColor : "#335599";
-  const ids = new Map();
+  let left = at[0] - rowW / 2;
+  const top = at[1] - rowH / 2;
   await wbRecordGesture(async () => {
-    for (const f of plan.items.filter((i) => i.kind === "frame").reverse()) {
-      const made = await wbCreateObject("frame", { content: f.label || "Lane" }, Math.round(f.x + dx), Math.round(f.y + dy), Math.round(f.w), Math.round(f.h), wbFrameZ());
-      if (made) ids.set(f.id, ["object", made.id]);
-    }
-    for (const item of plan.items.filter((i) => i.kind === "text")) {
-      const made = await wbCreateObject("text", { content: item.label, ...item.look }, Math.round(item.x + dx), Math.round(item.y + dy), Math.round(Math.max(40, item.w)), Math.round(Math.max(24, item.h)));
-      if (made) ids.set(item.id, ["object", made.id]);
-    }
-    for (const item of plan.items.filter((i) => i.kind === "shape")) {
-      const data = { d: wbDrawioPath(item.shape, item.x + dx, item.y + dy, item.w, item.h), shape: item.shape === "ellipse" ? "circle" : item.shape === "diamond" ? "diamond" : item.shape === "rect" ? "rect" : "custom", color: ink, ...item.look };
-      if (item.label) data.label = item.label;
-      const made = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z: 2, board_id: window.currentBoardId ?? null }) });
-      wbState.sketches.push(made);
-      ids.set(item.id, ["sketch", made.id]);
-    }
-    for (const link of plan.links) {
-      const data = { type: link.type, color: ink, ...link.data };
-      const s = link.source ? ids.get(link.source) : null, t = link.target ? ids.get(link.target) : null;
-      if (link.source && !s) continue;
-      if (link.target && !t) continue;
-      if (s) Object.assign(data, { sourceKind: s[0], sourceId: s[1] });
-      if (t) Object.assign(data, { targetKind: t[0], targetId: t[1] });
-      for (const key of ["sourcePoint", "targetPoint"]) if (data[key]) data[key] = { x: data[key].x + dx, y: data[key].y + dy };
-      if (data.points) data.points = data.points.map((p) => ({ x: p.x + dx, y: p.y + dy }));
-      const made = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z: 1, board_id: window.currentBoardId ?? null }) });
-      wbState.sketches.push(made);
+    for (const page of pages) {
+      if (framed) {
+        await wbCreateObject("frame", { content: page.name.slice(0, 120) }, Math.round(left), Math.round(top),
+          Math.round(page.box.w + pad * 2), Math.round(page.box.h + pad * 2), wbFrameZ());
+      }
+      await wbDrawioPlace(page.plan, left + pad - page.box.minX, top + pad - page.box.minY, ink);
+      left += page.box.w + pad * 2 + WB_DRAWIO_PAGE_GAP;
     }
   });
   renderWhiteboardNow();
-  const left = Object.entries(plan.dropped).map(([k, n]) => `${k} ${n}`).join(", ");
-  const said = `Brought in ${plan.items.length} shapes and ${plan.links.length} connectors from draw.io`
-    + `${read.pages > 1 ? ` (the first of ${read.pages} pages)` : ""}${left ? `; not kept: ${left}` : ""}.`;
+  const items = pages.reduce((n, page) => n + page.plan.items.length, 0);
+  const links = pages.reduce((n, page) => n + page.plan.links.length, 0);
+  const dropped = {};
+  for (const page of pages) for (const [k, n] of Object.entries(page.plan.dropped)) dropped[k] = (dropped[k] || 0) + n;
+  const kept = Object.entries(dropped).map(([k, n]) => `${k} ${n}`).join(", ");
+  const said = `Brought in ${items} shapes and ${links} connectors from draw.io`
+    + `${framed ? `, ${pages.length} pages each in a frame of its own` : ""}${kept ? `; not kept: ${kept}` : ""}.`;
   wbAnnounce(said);
   toast(said);
-  return plan.items.length;
+  return items;
 }
 
 async function wbImportText(text) {

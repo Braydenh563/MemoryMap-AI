@@ -1416,7 +1416,7 @@ HELP_TOPICS.extend(
                 "one or many, zero or many). With one shape or text box selected, the four arrows round it "
                 "(or Alt+Shift and an arrow key) copy it that way and join facing sides with an elbow. "
                 "Insert, Mermaid, draw.io or board SVG brings in a Mermaid flowchart, state, class or "
-                "sequence diagram, a .drawio file (first page; swimlanes as frames) or an SVG a board "
+                "sequence diagram, a .drawio file (pages and swimlanes as frames) or an SVG a board "
                 "here exported, as shapes and connectors; Export writes an Outline and a Mermaid flowchart."
             ),
             "badge": {"label": "Library", "tab": "library"},
@@ -1518,7 +1518,7 @@ HELP_TOPICS.extend(
                 "local AI propose a map from notes you pick, or on a topic choose "
                 "Add, Branches from my notes… for up to five children found in your "
                 "notes, each saying which note it came from; export it as "
-                "OPML, FreeMind, Markdown or plain text as well as a picture, or write it as "
+                "OPML, FreeMind, XMind, Markdown or text as well as a picture, or write it as "
                 "a document (the board menu's Write as a document: branches "
                 "become headings, deeper topics lists, notes paragraphs); a "
                 "document's menu, Map the headings, goes the other way. With a "

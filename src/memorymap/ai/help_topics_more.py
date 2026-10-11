@@ -1957,6 +1957,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "whiteboard-selection", "board-history", "board-library", "board-library-saving", "board-templates", "board-format", "board-connectors", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-import-export", "mind-map-study", "mind-map-look", "emoji-and-icons",
         "board-comments", "sticky-notes",
+        "mind-map-structure", "mind-map-callouts", "board-current-layer", "board-hand-drawn", "board-tables", "board-edit-data",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",
@@ -2075,6 +2076,123 @@ TOPIC_META.update({
     "encryption": {"title": "What is encrypted", "path": "Settings, Account & security"},
     "delete-data": {"title": "Deleting your data", "path": "Settings, General, Bin"},
     "share-note": {"title": "Sharing a note", "path": "A note's menu, Download .md"},
+})
+
+
+#: canvasdepth2 (INBOX 797, round 2): the map's and the board's newer tools,
+#: in topics of their own because `mind-map-features` and the board's own
+#: entries are at the reply budget.
+MORE_TOPICS.extend([
+    {
+        "id": "mind-map-structure",
+        "keywords": (
+            "structure of a branch", "branch structure", "branch layout", "org chart branch",
+            "fishbone branch", "one branch as", "lay out one branch", "logic chart branch",
+            "different layout for a branch", "xmind structure",
+        ),
+        "body": (
+            "A branch can have its own structure, as in XMind: a topic's menu, "
+            "Structure, lays the branch under it out as a logic chart, an org chart, "
+            "a tree table, a timeline, a fishbone, both sides, a tree to the right "
+            "or left, or radial, while the rest of the map keeps its layout. The "
+            "branch is laid out as one block, so nothing else overlaps it; Follow "
+            "the map's layout takes it back. Ctrl+Z undoes it in one step."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
+    {
+        "id": "mind-map-callouts",
+        "keywords": (
+            "callout", "callout on a topic", "bubble over a topic", "speech bubble on a map",
+            "add a callout", "remove the callout", "labels on a topic", "label a topic",
+            "tags on a topic", "labels under a topic", "vote", "votes", "voting", "stamp",
+            "stamps", "reaction", "thumbs up a topic",
+        ),
+        "body": (
+            "A callout is a few words in a bubble over a topic, as in XMind: a "
+            "topic's menu, Topic, Add a callout… writes it; double-click the bubble "
+            "to change it, or Remove the callout in the same menu. Add labels… in "
+            "the same group writes up to eight short tags, separated by commas, "
+            "drawn as a row under the topic's words; double-click the row to "
+            "change them. Stamps, in the topic's menu, adds a vote, a heart, a "
+            "star, an agree, a question or a hot, each with its count after the "
+            "labels; press a stamp on the topic to add one more, and Clear the "
+            "stamps takes them off. The map makes room for all three when it is "
+            "laid out, and the exports keep them."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
+    {
+        "id": "board-current-layer",
+        "keywords": (
+            "current layer", "draw on a layer", "draw on this layer", "new things on a layer",
+            "active layer", "which layer", "layer new items go on",
+        ),
+        "body": (
+            "The current layer, as in draw.io: in a board's sidebar, Layers, press a "
+            "named layer's name and everything new (drawn, typed, pasted, imported "
+            "or placed from the library) goes on it; the row is tinted while it is "
+            "current. Press the name again, or its ⋯ menu's Stop drawing on it, "
+            "for no layer. A hidden or locked layer takes nothing new. Undo brings "
+            "a deleted item back on the layer it was on."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
+    {
+        "id": "board-hand-drawn",
+        "keywords": (
+            "hand-drawn", "hand drawn", "sketchy", "rough lines", "excalidraw look",
+            "sketch style", "drawn by hand", "wobbly lines",
+        ),
+        "body": (
+            "The hand-drawn look, as in Excalidraw: a board's View menu, Hand-drawn "
+            "look, draws every shape and connector with rough strokes, the same "
+            "each time it is drawn. One shape can differ: its Format panel's Style "
+            "tab has Hand-drawn. The pen and the highlighter are drawn as you drew "
+            "them, and a mind map keeps its own lines. Exports keep the look."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
+    {
+        "id": "board-tables",
+        "keywords": (
+            "table", "tables", "add a table", "table on a board", "rows and columns",
+            "add a row", "add a column", "delete a row", "delete a column", "grid of cells",
+        ),
+        "body": (
+            "A table on a board, as in draw.io: Insert, Table places three rows of "
+            "three cells, the first a header. Double-click a cell to type in it; "
+            "Tab and Shift+Tab go to the next and previous cell, Enter keeps the "
+            "words, Escape drops them. Right-click the table for Add a row below or "
+            "above, Add a column to the right or left, Delete this row or column "
+            "(at the cell you pressed last) and First row as a header. Resize it "
+            "by its handles; every cell keeps an equal share."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
+    {
+        "id": "board-edit-data",
+        "keywords": (
+            "edit data", "custom properties", "properties on a shape", "data on a shape",
+            "named values", "metadata on a shape", "shape data", "add a property",
+        ),
+        "body": (
+            "Edit data, as in draw.io: select one shape, line, connector, text box, "
+            "picture, frame or table and open the Format panel's Data tab (or Edit "
+            "data in the command palette). Add a property gives a name and a "
+            "value; a name starts with a letter. Changes save as you leave a field, "
+            "each one Undo step, and the values stay with the item."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
+])
+TOPIC_META.update({
+    "board-edit-data": {"title": "Edit data on a board item", "path": "A board's Format panel, Data"},
+    "board-tables": {"title": "Tables on a board", "path": "A board's Insert menu, Table"},
+    "board-hand-drawn": {"title": "The hand-drawn look", "path": "A board's View menu, Hand-drawn look"},
+    "board-current-layer": {"title": "The current layer", "path": "A board's sidebar, Layers"},
+    "mind-map-structure": {"title": "A structure per branch", "path": "A map topic's menu, Structure"},
+    "mind-map-callouts": {"title": "Callouts, labels and stamps on a topic", "path": "A map topic's menu, Topic"},
 })
 
 

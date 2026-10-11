@@ -48368,3 +48368,132 @@ Owner: the uipolish agent (Sonnet), one commit per item, measured at 1440 and 39
 - INBOX 780. **UI, the owner 2026-10-10 22:18Z, screenshot.** "also can you improve the opacity of the peak function in the settings as well?" (Settings' Peek: the panel is still mostly opaque and blurred over the app.)
 - INBOX 782. **UI, the owner 2026-10-10 22:22Z, screenshot.** "can you redesign the confirm and not right buttons in the tidy popup panel?? and any other similar instances of them across the app" (Tidy's Patterns rows: two full-size bordered buttons under each sentence.)
 - INBOX 783. **Question, the owner 2026-10-10 22:23Z, screenshot.** "how do I delete a suggestion??" (Tidy, Category names: one suggestion, ticked, with All, None and Rename 1 category; no way to dismiss it for good.)
+
+## Moved from the plans, 2026-10-11 (canvasdepth2)
+
+INBOX 797, round 2: the ranked rows round 1 left in MINDMAP_PLAN and
+WHITEBOARD_PLAN "canvasdepth, ranked".
+
+- **A structure per branch (XMind).** `data.branch_layout` on a topic (nine
+  layouts, the map's own list less Free), a content field carried by both XML
+  exports as `_branch_layout`. `wbMapTidyPositions` lays each structured
+  branch out alone, innermost first (`wbMapStructuredPositions`), then stands
+  it in the map as one folded topic its box's size (`_block`, read by
+  `wbMapNodeSize`), so nothing outside overlaps it; a fishbone whose parent is
+  to its left is turned round. `wbMapIndex` marks each topic inside with its
+  branch's layout (`_bl`, `_blTop`), which the lines, the line style and the
+  branch bar read. On a Free map only the structured branches are laid out.
+  The topic menu's Structure group sets it, one Undo step with its tidy.
+  Measured (`mapbranchstructure.js`, 1440 and 390): 14/14 each; 0 overlapping
+  pairs with an org chart and a fishbone inside tree-right, tree-both, radial,
+  timeline and tree-table maps. Guide: `mind-map-structure`. Tests:
+  `tests/test_map_branch_structure.py`.
+- **A callout on a topic (XMind).** `data.callout` (200 characters, content,
+  `_callout` in both XML exports): a bubble over the topic's words, a row of
+  the card's own flow (`.wb-map-callout`, `order: -1`, the card wraps while it
+  has one, `data-extras`), so a tidy measures it. The Topic group adds,
+  changes and removes it; double-click the bubble changes it. The field and
+  its tidy are one Undo step (`wbMapSetExtra`, through `wbRecordGesture`).
+  Also: the paint key carries a topic's branch structure (`_bl`), so a change
+  of structure repaints its branch bars. Measured (`mapcallout.js`, 1440 and
+  390, light and dark): 8/8 each; the card 44 to 89 px tall, 0 overlapping
+  pairs after the tidy, the words on the bubble 14.4:1 light, 12.1:1 dark. Guide:
+  `mind-map-callouts`. Tests: `tests/test_map_callout.py`.
+- **Labels under a topic (XMind).** `data.labels`, up to eight tags of 30
+  characters with no comma (written as one `_labels` attribute by both XML
+  exports and split again on import, as markers are): a wrapping row of chips
+  under the words, the card's last row (`.wb-map-tags`, `order: 1`), rebuilt
+  only when the list changes. The Topic group adds, changes and removes them
+  in one comma-separated answer; double-click the row changes them; one Undo
+  step with the tidy (`wbMapSetExtra`). Measured (`maplabels.js`, 1440 and
+  390, light and dark): 7/7 each; "booked, paid ,  receipt, booked" gives
+  three chips, the card 44 to 63 px, 0 overlapping pairs, the chips 14.0:1
+  light, 11.8:1 dark. Guide: `mind-map-callouts`. Tests:
+  `tests/test_map_callout.py`.
+- **`.xmind` export, and a fuller `.xmind` import.** `GET
+  /boards/{id}/export?format=xmind` writes XMind Zen's zip (`_export_xmind`:
+  `content.json` with one sheet, `metadata.json`, `manifest.json`): titles,
+  plain notes, links, labels, callouts (`children.callout`), priority and task
+  markers, each branch's structure and the map's layout as `structureClass`
+  (`XMIND_STRUCTURES`, both ways), cross-links as relationships; several trunks
+  go under one topic named after the map. The import (`_xmind_style`,
+  `_xmind_marks`) now reads the same back, the link held to http, https and
+  mailto. In the export dialog and the map's palette rows. Measured
+  (`mapxmind.js`, 1440 and 390): 6/6 each; a 585-byte zip named `.xmind`, read
+  back as the same four topics. Tests: `tests/test_map_xmind_export.py`.
+- **Reaction stamps and votes on a topic (Miro; 14.4).** `data.stamps`, a
+  count of 1 to 999 per stamp from six (`up`, `heart`, `star`, `check`,
+  `question`, `fire`; Phosphor glyphs, decision 34's reason), one `_stamps`
+  attribute (`up:3,star:1`) in both XML exports. Drawn as buttons after the
+  labels in the card's last row; a press adds one without starting a drag
+  (the row stops `pointerdown` on a stamp), the topic menu's Stamps group adds
+  each and clears them, one Undo step each (`wbMapAddStamp`, `wbMapSetExtra`).
+  Measured (`mapstamps.js`, 1440 and 390, light and dark): 11/11 each; a press
+  on the chip 1 to 2 with the topic unmoved, the chip 20 board px tall on a
+  desktop and 44 under touch, its count 13.7:1 light, 11.5:1 dark. Guide:
+  `mind-map-callouts`. Tests: `tests/test_map_callout.py`.
+- **The current layer (draw.io's).** `BoardLayer.current`, at most one per
+  board (`_store_board_layers` keeps the first). Every create, the object and
+  sketch routes and the library's `/place`, puts a new item without a `layer`
+  on the current one (`_on_current_layer`, `current_layer`), unless that layer
+  is hidden or locked; `layer: ""` says "none, on purpose", which Undo's
+  re-create sends for an item that had none (`wbKeepOwnLayer`). The layer's
+  name in the Layers tab is the switch (`aria-pressed`, the row tinted with an
+  accent bar), and its menu has Draw on this layer / Stop drawing on it
+  (`wbSetCurrentLayer`, one Undo step). Measured (`wbcurrentlayer.js`, 1440
+  and 390): 9/9 each; a text box, a drawn shape and a placed library item all
+  land on the current layer, the name a 28 px target on a desktop and 44
+  under touch. Guide: `board-current-layer`. Tests:
+  `tests/test_board_current_layer.py`.
+- **The hand-drawn look (Excalidraw's).** `background.rough` (only `true`
+  stored) and a sketch's own `rough` over it (stored only when it differs from
+  the board). `wbRoughD` samples each subpath every 6 px along its length
+  (`getPointAtLength` on a hidden probe path), adds a slow wobble from a
+  mulberry32 generator seeded by the item's id, and draws it twice through a
+  Catmull-Rom spline; cached by id and path. Only the visible line: the hit
+  band, ports and label keep the true shape. The pen, the highlighter and a
+  map's lines are spared (`wbDrawsRough`). The View menu's Hand-drawn look and
+  the Format panel's Hand-drawn row set it, each one Undo step. Measured
+  (`wbrough.js`, 1440 and 390): 11/11 each; the same path on a second render
+  and after a reopen, the rough rectangle within 4 px of the true one, 200 new
+  rectangles roughened in 209 to 228 ms (then cached). Guide:
+  `board-hand-drawn`. Tests: `tests/test_wb_hand_drawn.py`.
+- **A table on the board (draw.io's).** Object kind `table`: `data.cells` (1
+  to 50 rows of 1 to 20 cells, every row as long, 500 characters a cell,
+  `_require_table_cells`) and `data.header`. A CSS grid fills the object's box,
+  each row and column an equal share, so the object's own resize resizes it;
+  rebuilt only when the cells change and never under a cell being typed in
+  (`wbPaintTable`). Double-click a cell to type; Tab and Shift+Tab move on (the
+  next cell takes the keyboard before the last is saved), Enter keeps, Escape
+  drops (`wbEditTableCell`). The item menu adds a row or column on either side
+  of the cell pressed last, deletes its row or column, and toggles the header
+  (`wbTableMenuRows`, `wbTableReshape`), the box growing or shrinking by one
+  share; each one Undo step. Insert, Table and the command palette's Table
+  place a 3 by 3 one (`wbInsertTable`). Measured (`wbtable.js`, 1440 and 390):
+  11/11 each; 9 cells filling the box, "Name" Tab "Owner" typed straight on,
+  a row and a column in at the pressed cell (16 cells, the box 40 px taller and
+  120 px wider), a 600 px table's cells wider in proportion. Guide:
+  `board-tables`. Tests: `tests/test_wb_table.py`.
+- **Edit data (draw.io's custom properties).** `data.props`, up to 30 named
+  values (a name starts with a letter, 40 characters; a value 200) on a
+  shape, line, connector, text box, picture, frame or table. The Format panel
+  has a fourth tab, Data: a row per value (name, value, remove), Add a
+  property; a change is read off every row and written as one Undo step,
+  one save at a time (`wbFmtSaveProps`, `wbFmtWriteProps`); a bad name is
+  refused with a toast. The palette's Edit data opens it. The four tabs share
+  the panel's width (four at the line's 4.5rem floor scrolled 41 px).
+  Measured (`wbeditdata.js`, 1440 and 390, twice each): 8/8; the tabs 41 to 0
+  px of scroll, the remove button 28 px on a desktop. Guide:
+  `board-edit-data`. Tests: `tests/test_wb_edit_data.py`.
+- **Every page of a `.drawio` file.** `wbDrawioCells` reads every
+  `<diagram>` (plain or deflated) with its name (`all`), and
+  `wbImportDrawio` places each page with shapes in a frame named after it,
+  side by side 160 px apart with 48 px round each, in one Undo step
+  (`wbDrawioPlace`, `wbDrawioBox`); a one-page file comes in as before, with
+  no frame. Frames rather than a board per page because a board's pages are
+  its frames (WHITEBOARD_PLAN decision 22): the Pages tab lists them and
+  Present walks them. Measured (`wbdrawiopages.js`, 1440 and 390): 8/8 each;
+  three pages (one compressed, one empty) gave two frames, Plan and Ship,
+  not overlapping, each holding its own two shapes, two joined connectors, one
+  Undo to an empty board; `wbdrawio.js` 11/11 still. Tests:
+  `tests/test_wb_drawio_import.py`.

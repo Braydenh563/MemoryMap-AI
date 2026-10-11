@@ -1083,7 +1083,8 @@ header#top-bar[data-scrolled="1"],
   #top-bar #theme-btn,
   #top-bar #settings-btn,
   #top-bar #lock-btn,
-  #top-bar #quit-btn {
+  #top-bar #quit-btn,
+  #top-bar #privacy-chip {
     display: none;
   }
   #top-bar #header-more {

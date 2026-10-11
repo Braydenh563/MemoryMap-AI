@@ -687,26 +687,7 @@ too much routes through the model. Each of these is pure code:
 10. **A real trash** with restore and 30-day purge (exists as bin; make it
     consistent for every kind).
 
-**State 2026-09-24:** item by item, read against the code (not driven):
-
-1. (a) built: the Notes box parses `tag:`, `is:`, `before:` and the rest
-   (app.js ~9894) and `search/engine.py` answers the same operators;
-   whether the Library, Timeline and palette share the parser was not checked.
-2. (a) built (saved searches, `routes_settings.py` and app.js).
-3. (a) built: notes have unlinked mentions too (GRAPH_PLAN KG1, 2026-10-04).
-4. (a) built 2026-10-05 for note templates (the user-editable ones):
-   `{{clipboard}}`, `{{cursor}}`, `{{time}}`; the document templates are
-   built-in and use none of them.
-5. (a) built 2026-10-05: Move to space and Export as Markdown on the
-   selection bar's ⋯.
-6. (a) built: JSON, CSV, Markdown and zip export, OPML for maps, the print
-   stylesheet for documents.
-7. (a) built 2026-10-05: Notion, Obsidian, Evernote and Apple Notes import, idempotent by source (HISTORY, "row 25, the importers and the keyboard").
-8. (a) built: `DEFAULT_SHORTCUTS` and the shortcut sheet.
-9. (a) built 2026-10-05: a note's edit form shows its words and reading time.
-10. (a) built 2026-10-05: documents and reminders go to the bin too.
-
-Rows 3, 4, 5, 9 and 10 moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".
+**State 2026-09-24:** all ten built; the item-by-item read moved to HISTORY.md, "Moved from the plans, 2026-10-11 (rows agent)". Still not checked: whether the Library, Timeline and palette share the Notes box's query parser.
 
 ---
 
@@ -2354,9 +2335,7 @@ mobile first, as the owner's web design class teaches. Measured with
    "Export", "Back up now". Target: version history in every note and
    document menu with a diff, a "Last backup" line in Settings and on the
    About page, and a first-run prompt to choose a backup folder. M, Opus.
-9. **Offline promise, visible.** The Privacy receipt now exists; the top
-   bar should say "Local" with the same verdict, one click to the receipt.
-   S, Sonnet.
+9. ~~**Offline promise, visible.**~~ Built 2026-10-11 (row 1641): the Local chip; HISTORY.md, "Moved from the plans, 2026-10-11 (rows agent)".
 
 ### 22.2 Small things people expect (each S, Sonnet unless noted)
 
@@ -4194,3 +4173,4 @@ Brief 74 measured rules 1, 2 and 7 on 12 surfaces (`undo.js`, `reach.js`, `overl
 ## Decided by the rows agent, 2026-10-11 (standing order 3; house2 ledger rows)
 
 - 1586, panel heads: `h3.panel-head` and the board's `h3.wb-sidebar-title` name a whole card or column, so they are titles (`--text-body`, 600, ink, the dialog title's voice); a label over one group inside a panel (`.doc-outline-title`) stays the eyebrow. Built, DESIGN.md's panel-head row.
+- 1641, the Local chip: the receipt's verdict for this launch (`GET /privacy/verdict`, the same `egress.verdict` the receipt prints) sits in the header's first cluster as an icon and one word (Local, Local network, Online in `--warn`); one press opens Settings, Privacy. Below 1100 it is the icon alone; below 600 it leaves the bar for the phone's More menu (a live row carrying its word). Refreshed every five minutes, never a stream. DESIGN.md's Local chip row.

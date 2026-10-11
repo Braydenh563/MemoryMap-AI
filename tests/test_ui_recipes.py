@@ -5616,3 +5616,24 @@ def test_a_panel_head_is_a_title_and_not_the_eyebrow() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     heads = re.findall(r'<(\w+) class="panel-head\b', html)
     assert heads and set(heads) == {"h3"}, f"a panel head left the h3 recipe: {sorted(set(heads))}"
+
+
+
+def test_the_local_chip_shows_the_privacy_verdict_and_opens_the_record() -> None:
+    """Row 1641 (WORLD_CLASS_PLAN 22.1 item 9): the top bar's Local chip reads
+    `/privacy/verdict`, opens Settings, Privacy, stays hidden until it has an
+    answer, and is a row of the phone's header menu below 600."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    header = re.search(r'<header id="top-bar">(.*?)</header>', html, re.S).group(1)
+    chip = re.search(r'<button id="privacy-chip"[^>]*>', header)
+    assert chip and "hidden" in chip.group(0), "the Local chip left the top bar, or shows before it knows"
+    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    assert '"/privacy/verdict"' in status
+    assert 'openSettingsModal("privacy")' in status.split("function startPrivacyChip", 1)[1][:600]
+    # Its one call site: every unlock, beside the reminder watch.
+    assert "startPrivacyChip();" in status.split("function startReminderWatch(", 1)[1][:900]
+    phone = (ROOT / "frontend" / "js" / "phone-shell.js").read_text(encoding="utf-8")
+    rows = re.search(r"const PHONE_STATUS_ROWS = \[(.*?)\];", phone, re.S).group(1)
+    assert '"privacy-chip"' in rows
+    responsive = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    assert "#top-bar #privacy-chip" in responsive

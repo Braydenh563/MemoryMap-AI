@@ -496,7 +496,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "privacy",
-        "keywords": ("private note", "encrypt", "password", "lock", "security", "offline", "online", "internet", "cloud", "telemetry", "tracking"),
+        "keywords": ("private note", "encrypt", "password", "lock", "security", "offline", "online", "internet", "cloud", "telemetry", "tracking", "local chip"),
         "body": (
             "Private notes are encrypted at rest with a key derived from your "
             "unlock password. The app binds to localhost, has no account or "
@@ -505,7 +505,10 @@ HELP_TOPICS: list[dict] = [
             "every connection the app made, recorded as it happened, Since "
             "launch or All time, one row per place with what it was for (the "
             "file downloaded, the search words); its addresses are under "
-            "Addresses. \"Nothing left this computer.\" means none."
+            "Addresses. \"Nothing left this computer.\" means none. The "
+            "Local chip in the top bar says the same for this launch (Local, "
+            "Local network or Online) and opens that record; on a phone it "
+            "is a row in the top bar's More menu."
         ),
         "badge": {"label": "Privacy", "section": "privacy"},
     },

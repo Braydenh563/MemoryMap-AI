@@ -48710,3 +48710,36 @@ the decision waits.
 > Decisions: (a) a note with fewer than three tags shows a quiet "+ Tag" chip after its tags; (b) opening it lists up to three suggested tags (tag-suggest.js's ranking) as one-click chips above the input; (c) its menu has "Don't suggest tags for this note", stored on the note (a property), undoable, and reversible from the same menu; the Guide and the chip's `data-help-for` say so.
 >
 > **Built** (branch agent/tags89-1011). `tagAddChipKind` (note-cards.js): the card's chip is "Add tags" on an untagged note with nothing suggested, a quiet "+ Tag" (`.chip.untagged.tag-add`) on a note with one or two tags or suggestions showing, and none from three tags (`TAG_ADD_BELOW`), on a board or draft, or on a read-only row. "+ Tag" opens `openNoteTagPopover` (tag-suggest.js, lazy): up to three suggested tags (the ones kept on the note first, then `/entries/suggest-tags`, none for a private note) as one-press chips above a field, a '?' and a `kebabMenu` with "Don't suggest tags for this note" or "Suggest tags for this note again". The flag is `Entry.tag_suggest_off` (additive column), set through `POST /entries/{id}/suggested-tags` with `mute`; while set `_open_suggestions` offers nothing and `_keep_suggestions` makes none, and what was kept returns when it is cleared. Turning it off says so with Undo. Guide: the `suggested-tags` topic. Tests: `tests/test_tags89.py`. Measured on port 8794 (Chromium): the chip on the 1- and 2-tag notes and not the 3-tag one; three suggestions in the popover; muted, the card shows none and the popover says "Suggestions are off for this note." after a reload.
+
+## Moved from the plans, 2026-10-11 (rows agent)
+
+From WORLD_CLASS_PLAN 22.1, built 2026-10-11 (row 1641):
+
+9. **Offline promise, visible.** The Privacy receipt now exists; the top
+   bar should say "Local" with the same verdict, one click to the receipt.
+   S, Sonnet.
+
+Built as the top bar's Local chip (`#privacy-chip`, `GET /privacy/verdict`, `startPrivacyChip` in status.js; `test_the_local_chip_shows_the_privacy_verdict_and_opens_the_record`).
+
+From WORLD_CLASS_PLAN's professional baseline list, every item built:
+
+**State 2026-09-24:** item by item, read against the code (not driven):
+
+1. (a) built: the Notes box parses `tag:`, `is:`, `before:` and the rest
+   (app.js ~9894) and `search/engine.py` answers the same operators;
+   whether the Library, Timeline and palette share the parser was not checked.
+2. (a) built (saved searches, `routes_settings.py` and app.js).
+3. (a) built: notes have unlinked mentions too (GRAPH_PLAN KG1, 2026-10-04).
+4. (a) built 2026-10-05 for note templates (the user-editable ones):
+   `{{clipboard}}`, `{{cursor}}`, `{{time}}`; the document templates are
+   built-in and use none of them.
+5. (a) built 2026-10-05: Move to space and Export as Markdown on the
+   selection bar's ⋯.
+6. (a) built: JSON, CSV, Markdown and zip export, OPML for maps, the print
+   stylesheet for documents.
+7. (a) built 2026-10-05: Notion, Obsidian, Evernote and Apple Notes import, idempotent by source (HISTORY, "row 25, the importers and the keyboard").
+8. (a) built: `DEFAULT_SHORTCUTS` and the shortcut sheet.
+9. (a) built 2026-10-05: a note's edit form shows its words and reading time.
+10. (a) built 2026-10-05: documents and reminders go to the bin too.
+
+Rows 3, 4, 5, 9 and 10 moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".

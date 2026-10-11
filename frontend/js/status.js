@@ -592,6 +592,10 @@ function startReminderWatch() {
   //: 867): lan-watch.js, lazy, starts itself once; it stops at once when
   //: LAN mode is off.
   lazyScript("/js/lan-watch.js");
+  //: The Local chip (row 1641) asks again at each unlock too, and wires its
+  //: own timer once; it starts here so the boot sequence in app.js (capped
+  //: by test_static_compression) carries no extra step.
+  startPrivacyChip();
   if (reminderWatchStarted) return;
   reminderWatchStarted = true;
   setInterval(checkDueReminders, REMINDER_POLL_MS);
@@ -2950,3 +2954,50 @@ function noticeTaskTransitions(running, history) {
 }
 
 // --- optional extras and embedding models: Settings, Packages, is settings-packages.js (lazy, INBOX 595) ---
+
+// --- The Local chip (row 1641, WORLD_CLASS_PLAN 22.1 item 9) -----------------
+//: The privacy receipt's verdict for this launch (`GET /privacy/verdict`, the
+//: receipt's own answer without its lists), as one word in the top bar and a
+//: row of the phone's header menu. It asks again every five minutes, and
+//: whenever Settings, Privacy has just read the full record.
+const PRIVACY_CHIP_WORDS = {
+  stayed_on_this_computer: ["shield-check", "Local", "Nothing left this computer since the app started."],
+  local_network: ["wifi-high", "Local network", "Only devices on your own network were contacted since the app started."],
+  internet: ["globe-hemisphere-west", "Online", "This app connected to the internet since it started."],
+};
+const PRIVACY_CHIP_MS = 5 * 60 * 1000;
+
+function paintPrivacyChip(verdictKey) {
+  const chip = $("privacy-chip");
+  if (!chip) return;
+  const [icon, word, sentence] = PRIVACY_CHIP_WORDS[verdictKey] || PRIVACY_CHIP_WORDS.stayed_on_this_computer;
+  chip.classList.remove("hidden");
+  chip.classList.toggle("is-online", verdictKey === "internet");
+  chip.querySelector("i").className = `ph ph-${icon} ph-lead`;
+  chip.querySelector(".privacy-chip-word").textContent = word;
+  chip.title = `${sentence} Open the privacy record.`;
+  chip.setAttribute("aria-label", `${word}: ${sentence} Open the privacy record`);
+  //: The phone's header row reads these (phone-shell.js, `live` rows).
+  chip.dataset.menuLabel = `ph:${icon} ${word}: privacy record`;
+}
+
+async function refreshPrivacyChip() {
+  try {
+    const body = await apiJson("/privacy/verdict", { silent: true });
+    paintPrivacyChip(body?.verdict);
+  } catch {
+    //: No answer is no claim: the chip stays as it was (hidden before the
+    //: first answer), never "Local" on a guess.
+  }
+}
+
+function startPrivacyChip() {
+  const chip = $("privacy-chip");
+  if (!chip) return;
+  refreshPrivacyChip();
+  if (chip.dataset.wired) return;
+  chip.dataset.wired = "1";
+  chip.addEventListener("click", () => openSettingsModal("privacy"));
+  setInterval(refreshPrivacyChip, PRIVACY_CHIP_MS);
+}
+

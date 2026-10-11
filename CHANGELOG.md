@@ -129,6 +129,9 @@ below). Versioning is `0.x` while the app stabilises.
 - Help text: nineteen long explanations across the app are now one or two short lines, and the long hints beside Settings menus fold behind their '?' like the others.
 - Settings kept in this browser: every saved choice is now written through one place that never throws, so a private window or a full browser storage no longer breaks the control that saved it; the quick note outbox and the notification list still say when a save was refused.
 - Mind map: a topic added under one on a left-hand branch now starts to its left, under its last sibling, instead of back on the trunk side (it stayed there on a Free map). Launcher banners in `start.sh` and `start.bat` read Tessellate.
+- The tagline under the Tessellate name in the launchers, the Windows splash and the Linux desktop entry reads "your notes, pieced together".
+
+- Mind map: a topic added under one you had dragged (on any layout, Timeline included) is placed beside it instead of in the layout's own column far across the map. A topic added under one on a left-hand branch now starts to its left, under its last sibling, instead of back on the trunk side (it stayed there on a Free map). Launcher banners in `start.sh` and `start.bat` read Tessellate.
 
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).

@@ -568,7 +568,7 @@ echo  /_  __/__  _____________  / / /___ _/ /____
 echo   / / / _ \/ ___/ ___/ _ \/ / / __ `/ __/ _ \
 echo  / / /  __(__  ^|__  )  __/ / / /_/ / /_/  __/
 echo /_/  \___/____/____/\___/_/_/\__,_/\__/\___/
-echo             your notebook, on your machine!ESC![0m
+echo          your notes, pieced together!ESC![0m
 echo.
 
 set "VENV_PY=.venv\Scripts\python.exe"

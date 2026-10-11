@@ -868,7 +868,7 @@ mm_shortcut() {
     echo "[Desktop Entry]"
     echo "Type=Application"
     echo "Name=Tessellate"
-    echo "Comment=Your notebook, on your own machine"
+    echo "Comment=Your notes, pieced together"
     echo "Exec=$here/start.sh --desktop"
     echo "Path=$here"
     # icon-512.png, not icon.png, which has never existed in this repo: the
@@ -1062,7 +1062,7 @@ cat <<'MM_LOGO'
  / / /  __(__  |__  )  __/ / / /_/ / /_/  __/
 /_/  \___/____/____/\___/_/_/\__,_/\__/\___/
 MM_LOGO
-printf '            your notebook, on your machine%s\n\n' "$RESET"
+printf '         your notes, pieced together%s\n\n' "$RESET"
 
 VENV_PY=".venv/bin/python"
 

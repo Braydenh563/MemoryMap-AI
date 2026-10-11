@@ -186,7 +186,7 @@ try {
   $title.Size      = New-Object System.Drawing.Size(380, 32)
 
   $tag             = New-Object System.Windows.Forms.Label
-  $tag.Text        = "Your notebook, on your own machine"
+  $tag.Text        = "Your notes, pieced together"
   $tag.ForeColor   = $muted
   $tag.Font        = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]9)
   $tag.Location    = New-Object System.Drawing.Point(110, 66)

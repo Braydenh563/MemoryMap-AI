@@ -1513,15 +1513,15 @@ const NM_CHAR_PAIRS = [
   { name: "peach", body: "#f6b89a", cloth: ["#2f8582", "#5569c0"] },
   { name: "sky", body: "#8fc9f2", cloth: ["#f2b547", "#e5705f"] },
   { name: "mint", body: "#96dbbb", cloth: ["#e8747c", "#7a64c8"] },
-  { name: "lilac", body: "#c3aef0", cloth: ["#f39b73", "#2f8582"] },
-  { name: "butter", body: "#f6d87e", cloth: ["#4f7fd9", "#2f8582"] },
+  { name: "lilac", body: "#c3aef0", cloth: ["#f39b73", "#8c6d1f"] },
+  { name: "butter", body: "#f6d87e", cloth: ["#4f7fd9", "#b5532e"] },
   { name: "coral", body: "#f7a397", cloth: ["#3b6fb6", "#2f9e75"] },
   { name: "rose", body: "#f5afcc", cloth: ["#3fa37e", "#5569c0"] },
   { name: "aqua", body: "#86d6d2", cloth: ["#ef8a5b", "#e8747c"] },
   { name: "apricot", body: "#f9c38c", cloth: ["#3f6fb5", "#8a5cc2"] },
   { name: "periwinkle", body: "#a8b6f4", cloth: ["#f2b547", "#2f9e75"] },
   { name: "pistachio", body: "#bfe08f", cloth: ["#e5705f", "#5569c0"] },
-  { name: "sand", body: "#e9c9a6", cloth: ["#2f8582", "#c9577a"] },
+  { name: "sand", body: "#e9c9a6", cloth: ["#6b7f2a", "#c9577a"] },
 ];
 const NM_CHAR_SKINS = [
   { name: "porcelain", skin: "#fde4d4", hair: ["black", "espresso", "brown", "chestnut", "auburn", "copper", "honey"] },

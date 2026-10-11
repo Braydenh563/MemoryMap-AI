@@ -1231,9 +1231,11 @@ avatars.js.
   Face looks and Your look and never read from a name, and two traits per
   face from its hash. The rules are in `nameMood`'s header; the sheets come
   from `scratchpad/ui-sweeps/facesheet.js`. See the commits "Faces: ...".
-  Open: `namemarks.js` finds one pair of 23 names under its 15% floor
-  (13.9%), since neighbouring natural skin tones differ less than the gel
-  colours did.
+  Open: `namemarks.js` found 9 pairs of 23 names under its 15% floor on
+  2026-10-12 (worst Chloe/Olivia 3.7%: the same teal beanie, as teal was the
+  cloth of four colour pairs). Teal now belongs to one pair only (lilac,
+  butter and sand take olive-gold, rust and olive): 2 pairs remain under the
+  floor (Jade/Maya 10.4%, Analyst/Jade 14.2%), no pair under 10%.
 
 ## Briefs 35 to 42 (2026-10-10, Fable orchestrating): the owner's list, the engine, the direction
 

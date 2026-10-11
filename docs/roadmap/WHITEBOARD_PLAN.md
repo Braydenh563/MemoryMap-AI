@@ -1647,3 +1647,15 @@ Rows (owner: canvasdepth3, Opus, next free slot after transparency):
 - C3. Decision E3: the signature end, three candidates measured at 1x and 2x, one taken.
 - C4. Decision E4: guides, corner snap and the size readout while drawing.
 - C5. Decision E5: the audit table here, then its top five per surface.
+
+## Placed from INBOX, 2026-10-11 (board and map previews)
+
+- INBOX 829, the owner 2026-10-11, verbatim (a board card's preview: grey blocks and squiggles): "board map previews need a lot of work, redesigning and maybe even reimagining."
+
+Decisions made:
+- P1. A preview is the board itself, drawn small: the real colours, shapes, connectors and the first words of each card, rendered off-screen to an image when the board changes (debounced, cached by revision), never a schematic of grey blocks.
+- P2. A map's preview is its real tree: the central topic's title legible, branches in their colours, two levels deep.
+- P3. The card shows the preview cropped to the content's bounds, the title, items and last edited; an empty board shows an empty-state line, not a blank frame.
+
+Rows (owner: canvasdepth3, after C5): P1 to P3, each a commit with a test and a measured render time on the budget fixture's 500-object board.
+

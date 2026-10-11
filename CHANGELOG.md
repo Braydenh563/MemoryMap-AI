@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
+- Attach: a picture's selection circle sits inside its corner.
 - Ask: a question about notes in one category stays inside that category rather than widening into another.
 - Backups: every start holds the backups folder to the number you keep, so a safety copy before an update no longer leaves one too many.
 - Settings: the bar that marks a changed setting sits in the margin beside the row rather than on the text.

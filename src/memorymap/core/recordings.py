@@ -184,6 +184,7 @@ def as_dict(recording: Recording) -> dict:
         "transcription": transcription_of(recording.id),
         "entry_id": recording.entry_id,
         "source_id": recording.source_id,
+        "derived": recording.derived or "",
         "state": recording.state,
         "recovered": recording.recovered,
         "created_at": recording.created_at.isoformat() if recording.created_at else None,

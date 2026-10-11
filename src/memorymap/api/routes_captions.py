@@ -14,6 +14,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
+from pydantic import BaseModel
 from sqlalchemy.orm import Session as DbSession
 
 from memorymap.ai import captions
@@ -80,9 +81,17 @@ async def audio(session_id: str, request: Request, db: DbSession = Depends(get_s
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+class StopBody(BaseModel):
+    #: False when the words were a live view of something kept elsewhere (the
+    #: recorder's live transcript, UI_MODERNISATION V5): nothing is saved.
+    save: bool = True
+
+
 @router.post("/{session_id}/stop")
-def stop(session_id: str, db: DbSession = Depends(get_session)) -> dict:
+def stop(session_id: str, body: StopBody | None = None, db: DbSession = Depends(get_session)) -> dict:
     session = captions.end(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Live captions already ended.")
+    if body is not None and not body.save:
+        return {"entry_id": None, "text": session.transcript().strip()}
     return _save(session, db)

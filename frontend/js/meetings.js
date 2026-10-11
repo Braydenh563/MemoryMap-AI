@@ -525,16 +525,8 @@ async function meetingSaveTranscript(content, title, target) {
   try {
     const saved = target !== null ? await meetingAppendUndoable(target, content) : await meetingCreateUndoable(content, title);
     await loadEntries();
-    // The overlay is about to close, so this jumps straight to the note
-    // rather than leaving an "offer" button behind in a dialog nobody is
-    // looking at anymore; `flashEntry` handles its own navigation.
-    closeMeetingRecorder();
-    flashEntry(saved.id);
-    toastAction(
-      target !== null ? "Transcript added under Notes." : "Saved as a meeting. Summarise finds its decisions and action items.",
-      "Open the meeting",
-      () => openMeetingSheet(saved.id)
-    );
+    meetingAcceptOriginal();
+    meetingShowSaved(content, "Open the meeting", () => openMeetingSheet(saved.id), target !== null ? "Added under the meeting's Notes." : "Saved as a meeting. Summarise finds its decisions and action items.");
   } catch (error) {
     status.textContent = error.message;
     status.classList.add("error");
@@ -705,6 +697,8 @@ const MEETING_WAVE_POINTS = 140;
 //: Frames between samples. Every frame would fill the window in two seconds
 //: and spend a redraw on a difference nobody can see.
 const MEETING_WAVE_EVERY = 3;
+//: With reduced motion (V4): a level bar stepping four times a second at 60 fps.
+const MEETING_WAVE_STILL_EVERY = 15;
 
 //: Kept at module level so `closeMeetingRecorder` can stop a draw loop that
 //: `toggleMeetingRecording` started: the two are different user actions and
@@ -749,6 +743,23 @@ function startMeetingWave(stream) {
   let frame = null;
   let ticks = 0;
   let stopped = false;
+  //: **Reduced motion is a still meter** (V4): no line scrolling past, one
+  //: bar from the middle whose length is the level now.
+  const still = reducedMotionWanted();
+  canvas.dataset.mode = still ? "meter" : "line";
+  const ink = () => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#4664f0";
+
+  function drawStill(level) {
+    const { width, height } = canvas;
+    paint.clearRect(0, 0, width, height);
+    const bar = Math.max(4, height * 0.18);
+    const length = Math.max(bar, level * width);
+    paint.fillStyle = ink();
+    paint.globalAlpha = 0.18;
+    paint.fillRect(0, (height - bar) / 2, width, bar);
+    paint.globalAlpha = 1;
+    paint.fillRect((width - length) / 2, (height - bar) / 2, length, bar);
+  }
 
   function draw() {
     const { width, height } = canvas;
@@ -756,10 +767,7 @@ function startMeetingWave(stream) {
     paint.clearRect(0, 0, width, height);
     // The accent, read from the live stylesheet rather than hard-coded, so
     // the line follows whatever theme is set, including a custom one.
-    const accent =
-      getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
-      "#4664f0";
-    paint.strokeStyle = accent;
+    paint.strokeStyle = ink();
     paint.lineWidth = 2;
     paint.lineJoin = "round";
     paint.lineCap = "round";
@@ -779,7 +787,7 @@ function startMeetingWave(stream) {
 
   function tick() {
     if (stopped) return;
-    if (ticks % MEETING_WAVE_EVERY === 0) {
+    if (ticks % (still ? MEETING_WAVE_STILL_EVERY : MEETING_WAVE_EVERY) === 0) {
       analyser.getByteTimeDomainData(samples);
       // RMS around the 128 midpoint, the honest measure of loudness, and
       // steadier than a peak, which flickers on consonants.
@@ -794,9 +802,14 @@ function startMeetingWave(stream) {
       const level = Math.min(1, Math.sqrt(rms) * 1.6);
       levels.push(level);
       levels.shift();
-      //: Every level, not only the window drawn: the saved waveform (row 6).
-      if (meetingRecorder?.state === "recording") meetingTake.peaks.push(level);
-      draw();
+      //: Every level, not only the window drawn: the saved waveform (row 6),
+      //: repeated while the meter is still, so the saved density matches.
+      if (meetingRecorder?.state === "recording") {
+        for (let i = 0; i < (still ? MEETING_WAVE_STILL_EVERY / MEETING_WAVE_EVERY : 1); i++) meetingTake.peaks.push(level);
+      }
+      canvas.dataset.level = level.toFixed(3);
+      if (still) drawStill(level);
+      else draw();
     }
     ticks++;
     frame = requestAnimationFrame(tick);
@@ -838,14 +851,18 @@ function stopMeetingTimer() {
 function setMeetingState(state) {
   $("meeting-card").dataset.state = state;
   const live = state === "recording" || state === "paused";
-  $("meeting-stage").classList.toggle("hidden", state === "review");
+  $("meeting-stage").classList.toggle("hidden", state === "review" || state === "done");
+  $("meeting-done")?.classList.toggle("hidden", state !== "done");
   $("meeting-controls").classList.toggle("hidden", !(live || state === "ready" || state === "saved"));
   $("meeting-pause").classList.toggle("hidden", !live);
   $("meeting-marker").classList.toggle("hidden", !live);
   $("meeting-timer").classList.toggle("hidden", !live);
   $("meeting-progress").classList.toggle("hidden", state !== "transcribing");
+  //: The live words stay up while the full pass runs, then review replaces them (V5).
+  $("meeting-live")?.classList.toggle("hidden", !(live || state === "transcribing") || !$("meeting-live").textContent);
   $("meeting-stop-transcribe")?.classList.toggle("hidden", state !== "transcribing");
   $("meeting-discard-take")?.classList.toggle("hidden", !live);
+  $("meeting-captions")?.classList.toggle("hidden", live || state === "transcribing");
   const review = state === "review";
   $("meeting-transcript").classList.toggle("hidden", !review);
   $("meeting-save-row").classList.toggle("hidden", !review);
@@ -885,6 +902,7 @@ function resetMeetingUI() {
   $("meeting-status").textContent = "";
   $("meeting-status").classList.remove("error");
   $("meeting-transcript").value = "";
+  if ($("meeting-live")) $("meeting-live").textContent = "";
   $("meeting-record").disabled = false;
   $("meeting-record").classList.remove("recording");
   setLabel($("meeting-record"), "ph:record Record");
@@ -1034,12 +1052,53 @@ function meetingRecordingStarted(button) {
   };
   setMeetingState("recording");
   meetingSay("Recording. Saved as it goes.");
+  meetingLiveWordsStart();
+}
+
+// --- live words while recording (UI_MODERNISATION V5) ------------------------
+//
+// The captions pipeline (captions.js) borrows the recorder's stream and
+// paints its last lines here as they are spoken; nothing is saved from it.
+// The full pass after Stop replaces them in review. Without the captions
+// helper the line says where to get it, once, muted.
+
+const meetingLive = { on: false };
+
+function meetingLiveWords(lines, running) {
+  const box = $("meeting-live");
+  box.classList.remove("muted");
+  box.textContent = [...lines.slice(-2), running].filter(Boolean).join(" ") || "Listening…";
+}
+
+async function meetingLiveWordsStart() {
+  const box = $("meeting-live");
+  box.textContent = "";
+  box.classList.remove("hidden");
+  if (!(await ensureModule("captions")) || !meetingStream) return;
+  const ok = await startLiveCaptions({ stream: meetingStream, into: meetingLiveWords, save: false, quiet: true });
+  if (ok === true) {
+    meetingLive.on = true;
+    if (!meetingRecorder) meetingLiveWordsStop();
+    return;
+  }
+  box.classList.add("muted");
+  box.textContent = `Live words while recording: ${ok}`;
+}
+
+function meetingLiveWordsStop() {
+  if (!meetingLive.on) return;
+  meetingLive.on = false;
+  stopRecorderWords();
 }
 
 //: Stop: the object is finished first, so the audio is kept whatever the
 //: transcription does; then the add-on transcribes it, or the sheet says
 //: how long the kept recording is.
 async function meetingRecordingStopped(recorder, button) {
+  if (meetingLive.on) {
+    meetingLive.on = false;
+    stopRecorderWords();
+  }
   meetingStream?.getTracks().forEach((t) => t.stop());
   stopMeetingWave();
   stopMeetingWave = () => {};
@@ -1061,6 +1120,7 @@ async function meetingRecordingStopped(recorder, button) {
     meetingSay(error.message || "Couldn't save the recording.", true);
     return;
   }
+  saved = await meetingEnhanceTake(saved);
   const length = meetingClockText(saved.duration_ms);
   const away = $("meeting-overlay").classList.contains("hidden");
   if (!voiceStatus?.available) {
@@ -1116,6 +1176,124 @@ async function meetingTranscribeTake(saved, length) {
   }
 }
 
+// --- enhancement on save (UI_MODERNISATION V3, INBOX 828) -------------------
+//
+// The kept audio, cleaned in the page: a 80 Hz high-pass for rumble and
+// handling noise, then one gain that brings speech to about -20 dBFS RMS,
+// never past -1 dBFS peak nor by more than 20 dB. Written as 16 kHz mono
+// wav (what Whisper reads, and the one container a page can write) to a new
+// object pointing at the original, which is binned when the transcript is
+// saved and kept otherwise. Takes over ENHANCE_MAX_MS are left as recorded:
+// decoding an hour in the page would hold about 700 MB.
+
+const ENHANCE_RATE = 16000;
+const ENHANCE_TARGET_RMS = 0.1;
+const ENHANCE_PEAK = 0.89;
+const ENHANCE_MAX_GAIN = 10;
+const ENHANCE_MAX_MS = 30 * 60 * 1000;
+
+//: The gain for one channel of samples: the RMS of the frames above a
+//: -50 dBFS gate (so silence does not pull speech up too far), bounded.
+function enhanceGain(data) {
+  const frame = 1600;
+  let sum = 0;
+  let count = 0;
+  let peak = 0;
+  for (let at = 0; at < data.length; at += frame) {
+    let local = 0;
+    const end = Math.min(data.length, at + frame);
+    for (let i = at; i < end; i++) {
+      local += data[i] * data[i];
+      peak = Math.max(peak, Math.abs(data[i]));
+    }
+    if (Math.sqrt(local / (end - at)) > 0.003) {
+      sum += local;
+      count += end - at;
+    }
+  }
+  if (!count || !peak) return 1;
+  const rms = Math.sqrt(sum / count);
+  return Math.min(ENHANCE_TARGET_RMS / rms, ENHANCE_PEAK / peak, ENHANCE_MAX_GAIN);
+}
+
+async function enhanceRecording(rec) {
+  const buffer = await (await api(`/media/recordings/${rec.id}`)).arrayBuffer();
+  const probe = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
+  const decoded = await probe.decodeAudioData(buffer);
+  const offline = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, Math.ceil(decoded.duration * ENHANCE_RATE), ENHANCE_RATE);
+  const source = offline.createBufferSource();
+  source.buffer = decoded;
+  const filter = offline.createBiquadFilter();
+  filter.type = "highpass";
+  filter.frequency.value = 80;
+  filter.Q.value = Math.SQRT1_2;
+  source.connect(filter);
+  filter.connect(offline.destination);
+  source.start();
+  const rendered = await offline.startRendering();
+  const data = rendered.getChannelData(0);
+  const gain = enhanceGain(data);
+  for (let i = 0; i < data.length; i++) data[i] *= gain;
+  const wav = recordingWav(rendered, 0, rendered.duration);
+  const made = await apiJson("/recordings", {
+    method: "POST",
+    body: JSON.stringify({ title: rec.title, mime: "audio/wav", source_id: rec.id, entry_id: rec.entry_id, derived: "enhanced" }),
+  });
+  const form = new FormData();
+  form.append("file", wav, "enhanced.wav");
+  form.append("duration_ms", String(rec.duration_ms));
+  await api.upload(`/recordings/${made.id}/chunk`, form);
+  const done = await apiJson(`/recordings/${made.id}/finish`, {
+    method: "POST",
+    body: JSON.stringify({ duration_ms: rec.duration_ms, peaks: rec.peaks, markers: rec.marks || rec.markers }),
+  });
+  done.enhanceGain = gain;
+  return done;
+}
+
+//: After Stop: the cleaned copy becomes the take, the original is held
+//: (`meetingTake.originalId`) until the transcript is saved. Any failure
+//: keeps the recording as it was made and says so in the status line.
+async function meetingEnhanceTake(saved) {
+  meetingTake.originalId = null;
+  if (!prefs.bool("micEnhance", true) || !saved.duration_ms || saved.duration_ms > ENHANCE_MAX_MS) return saved;
+  meetingSay("Enhancing the audio…");
+  try {
+    const clean = await enhanceRecording(saved);
+    meetingTake.originalId = saved.id;
+    meetingTake.id = clean.id;
+    return clean;
+  } catch {
+    meetingSay("Couldn't enhance the audio; it is kept as recorded.");
+    return saved;
+  }
+}
+
+//: The transcript is saved: the original of an enhanced take goes to the bin.
+function meetingAcceptOriginal() {
+  const id = meetingTake.originalId;
+  meetingTake.originalId = null;
+  if (id) apiJson(`/recordings/${id}`, { method: "DELETE", silent: true }).catch(() => {});
+}
+
+// --- after saving (UI_MODERNISATION V7) --------------------------------------
+//
+// A save no longer drops the dialog on whatever was behind it: it shows what
+// was kept, the transcript's first lines, with Open and Record another.
+
+const MEETING_DONE_LINES = 3;
+
+function meetingShowSaved(text, label, open, said = "Saved. The audio is kept in Recordings.") {
+  const lines = String(text).split(/\n+|(?<=[.?])\s+/).map((line) => line.trim()).filter(Boolean);
+  const shown = lines.slice(0, MEETING_DONE_LINES).join(" ");
+  $("meeting-done-lines").textContent = lines.length > MEETING_DONE_LINES ? `${shown} …` : shown;
+  setLabel($("meeting-done-open"), `ph:arrow-square-out ${label}`);
+  $("meeting-done").openSaved = open;
+  setMeetingState("done");
+  meetingSay(said);
+  $("meeting-done-open").focus();
+}
+
 //: The dialog's Stop while transcribing.
 async function stopMeetingTranscription() {
   if (meetingTake.id) await stopRecordingTranscription(meetingTake.id);
@@ -1150,6 +1328,7 @@ function toggleMeetingPause() {
   const button = $("meeting-pause");
   if (meetingRecorder.state === "recording") {
     meetingRecorder.pause();
+    if (meetingLive.on) holdLiveCaptions(true);
     meetingPausedAt = Date.now();
     stopMeetingTimer();
     setLabel(button, "ph:play Resume");
@@ -1157,6 +1336,7 @@ function toggleMeetingPause() {
     $("meeting-status").textContent = "Paused. Resume to keep recording, or stop to transcribe.";
   } else if (meetingRecorder.state === "paused") {
     meetingRecorder.resume();
+    if (meetingLive.on) holdLiveCaptions(false);
     // Push the start forward by however long the pause lasted, so the timer
     // keeps reading as the length of the audio rather than of the sitting.
     meetingStartedAt += Date.now() - meetingPausedAt;
@@ -1189,15 +1369,11 @@ async function saveMeetingDocument() {
     });
     const binned = meetingBinPair("document", document_.id);
     pushUndo("Saved a transcript as a document", binned.undo, binned.redo);
-    closeMeetingRecorder();
-    switchTab("documents");
-    openDocument(document_.id);
-    //: The toast carries the Undo too: on the Documents tab Ctrl+Z is the
-    //: editor's own history, not the app's undo bar.
-    toastAction(`Saved “${title}” to your documents.`, "Undo", async () => {
-      await binned.undo();
-      switchTab("library");
-    });
+    meetingAcceptOriginal();
+    meetingShowSaved(content, "Open the document", () => {
+      switchTab("documents");
+      openDocument(document_.id);
+    }, `Saved “${title}” to your documents.`);
   } catch (error) {
     status.textContent = error.message || "Couldn't save that.";
     status.classList.add("error");
@@ -1236,10 +1412,9 @@ async function saveVoiceNoteText(text, title) {
     const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: title ? `${title}\n\n${text}` : text }) });
     const binned = meetingBinPair("note", made.id);
     pushUndo("Saved a voice note", binned.undo, binned.redo);
-    closeMeetingRecorder();
+    meetingAcceptOriginal();
     await refreshEntries([made.id]).catch(() => {});
-    flashEntry(made.id);
-    toast("Saved as a note. The audio is kept in Recordings.");
+    meetingShowSaved(text, "Open the note", () => flashEntry(made.id));
   } catch (error) {
     meetingSay(error.message || "Couldn't save that.", true);
   } finally {
@@ -1301,7 +1476,8 @@ function recordingsEmpty(text) {
 function recordingFacts(rec) {
   const when = parseServerTime(rec.created_at) || new Date(rec.created_at);
   const facts = [when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }), meetingClockText(rec.duration_ms), recordingTranscriptState(rec)];
-  if (rec.source_id) facts.push("trimmed");
+  if (rec.derived === "enhanced") facts.push("enhanced");
+  else if (rec.source_id) facts.push("trimmed");
   if (rec.recovered) facts.push("recovered");
   return facts.join(" · ");
 }
@@ -1954,7 +2130,7 @@ async function trimRecording(rec, startMs, endMs) {
   const wav = recordingWav(decoded, startMs / 1000, endMs / 1000);
   const made = await apiJson("/recordings", {
     method: "POST",
-    body: JSON.stringify({ title: `${rec.title || "Recording"} (trimmed)`, mime: "audio/wav", source_id: rec.id, entry_id: rec.entry_id }),
+    body: JSON.stringify({ title: `${rec.title || "Recording"} (trimmed)`, mime: "audio/wav", source_id: rec.id, entry_id: rec.entry_id, derived: "trim" }),
   });
   const form = new FormData();
   form.append("file", wav, "trim.wav");
@@ -2014,6 +2190,26 @@ function addMeetingMarker() {
 //: bundle, so it is in before either can be pressed (and app.js's boot
 //: budget carries no stand-in for them).
 $("recordings-record")?.addEventListener("click", () => openVoiceNote());
+
+//: **Live captions from where a person looks for them** (V6): the voice
+//: note's Live captions and the Recordings bar's Captions. The dialog makes
+//: way for the floating bar; a recording in hand already writes its words.
+function openLiveCaptionsFrom() {
+  if (meetingRecorder) return toast("This recording already writes its words in the dialog as you speak.", "info");
+  if (!$("meeting-overlay").classList.contains("hidden")) closeMeetingRecorder();
+  ensureModule("captions").then((ok) => ok && startLiveCaptions());
+}
+$("meeting-captions")?.addEventListener("click", openLiveCaptionsFrom);
+$("meeting-done-open")?.addEventListener("click", () => {
+  const open = $("meeting-done").openSaved;
+  closeMeetingRecorder();
+  open?.();
+});
+$("meeting-done-again")?.addEventListener("click", () => {
+  resetMeetingUI();
+  $("meeting-record").focus();
+});
+$("recordings-captions")?.addEventListener("click", openLiveCaptionsFrom);
 $("meeting-copy")?.addEventListener("click", (event) =>
   copyToClipboard($("meeting-transcript").value, event.currentTarget)
 );
@@ -2059,6 +2255,7 @@ const MIC_SWITCHES = [
   ["micNoise", "Noise suppression", "Quietens steady background noise: fans, hum, traffic"],
   ["micEcho", "Echo cancellation", "Removes the speakers' sound coming back into the microphone"],
   ["micGain", "Automatic gain", "Evens out loud and quiet speech"],
+  ["micEnhance", "Enhance on save", "Cuts low rumble and evens the loudness of the kept audio, on this machine; the original is kept until the transcript is saved"],
 ];
 const MIC_TEST_MS = 3000;
 
@@ -2194,7 +2391,7 @@ function micLevelInto(stream, level) {
   ctx.createMediaStreamSource(stream).connect(analyser);
   const samples = new Uint8Array(analyser.fftSize);
   const fill = level.querySelector(".mic-level-fill");
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const still = reducedMotionWanted();
   level.dataset.peak = "0";
   let stopped = false;
   let last = 0;

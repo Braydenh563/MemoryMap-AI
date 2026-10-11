@@ -16,6 +16,7 @@ import logging
 import re
 import threading
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse
@@ -47,6 +48,8 @@ class RecordingCreate(BaseModel):
     entry_id: int | None = None
     #: A trim's original (row 6): the new object says where it came from.
     source_id: int | None = None
+    #: "trim" or "enhanced" (V3) when made from `source_id`.
+    derived: Literal["", "trim", "enhanced"] = ""
 
 
 class RecordingFinish(BaseModel):
@@ -124,6 +127,7 @@ def create_recording(body: RecordingCreate, session: Session = Depends(get_sessi
         filename=recordings.new_filename(mime),
         entry_id=body.entry_id,
         source_id=body.source_id,
+        derived=body.derived,
         state="recording",
     )
     session.add(row)

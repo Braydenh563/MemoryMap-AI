@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Voice notes: Enhance on save (on by default, in the Microphone fold and Settings) cuts low rumble and evens the loudness of the kept audio on this computer; the original is kept until the transcript is saved.
+- Voice notes: the level line is the microphone's real signal, and with reduced motion it is a still level bar.
+- Voice notes: with the captions helper, the words appear in the recorder as you speak; the full transcript replaces them after.
+- Live captions: a Captions button in Library, Recordings and a Live captions button in the voice note, and the Guide answers "how do I get live captions".
+- Voice notes: the recorder is one large Record and Stop control with the clock beside it and the microphone as a chip; after saving it shows the transcript's first lines with Open.
 - Microphone: choose the input, and switch noise suppression, echo cancellation and automatic gain, with a live level and a three-second test, in the recorder and in Settings, General; dictation, recordings and live captions all use them.
 - Recordings: each recording is a card with a playhead, the time ("1:12 / 4:30") and drag to seek; M or the pin marks a moment with a comment, listed under the player and linked to the transcript.
 - Voice notes: closing the recorder keeps recording in a small bar with the clock, Pause, Stop and Open; transcription runs in the background with its progress on the card, a Stop, and a notification when it is done or fails.

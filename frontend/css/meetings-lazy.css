@@ -402,11 +402,76 @@
   font-size: var(--text-sm);
 }
 
-.meeting-mic > summary {
-  color: var(--muted);
+/* **The device as a chip** (V7): the microphone in use, pressed to fold
+   out its controls, rather than a line of grey text. By id: the fold
+   recipe's own summary rule (08-consistency.css) is three classes deep. */
+#meeting-mic > summary {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  color: var(--text);
   font-size: var(--text-sm);
 }
 
 .meeting-mic[open] > summary {
   margin-bottom: var(--space-2);
+}
+
+/* The words as they are spoken (V5): the last lines, held to three so the
+   dialog does not grow while you talk. */
+.meeting-live {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  max-height: 4.5em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* **One large control** (V7): Record, then Stop, the size of the moment it
+   is for, with the clock large beside it; Pause, Marker and Discard stay
+   ghost buttons at the dialog's control height. */
+#meeting-controls {
+  align-items: center;
+  gap: var(--space-3);
+}
+#meeting-controls > #meeting-record {
+  height: calc(var(--control-h-lg) * 1.4);
+  min-width: calc(var(--control-h-lg) * 3);
+  padding-inline: var(--space-5);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-lg);
+}
+#meeting-overlay .meeting-timer {
+  font-size: var(--text-h2);
+  font-weight: 600;
+  margin-left: 0;
+}
+#meeting-controls > .meeting-discard {
+  margin-left: auto;
+}
+
+/* After saving (V7): the first lines on the card tier, then Open. */
+.meeting-done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.meeting-done-lines {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  line-height: 1.5;
+}
+#meeting-done button {
+  height: var(--control-h-lg);
+  padding-block: 0;
 }

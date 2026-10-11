@@ -814,16 +814,21 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "live captions", "captions", "subtitles", "live transcription", "transcribe live",
             "write what i say", "speech to text live", "stop the captions",
+            "how do i get live captions", "where are live captions", "open live captions",
         ),
         "body": (
-            "Type captions in the command palette (Ctrl+K) for Live captions: a "
-            "bar appears over whatever you are looking at and writes what the "
-            "microphone hears, on this computer, never over the internet. The "
-            "bottom line is still being written; the three above it are done. "
-            "Copy takes everything said so far, and Stop (or the palette row "
-            "again) saves it as a note tagged captions. Captions need a local "
-            "speech helper; its row in Settings, Packages says what is "
-            "missing, and without one the row says so and nothing is recorded."
+            "Press Captions in Library, Recordings, or Live captions in a Voice "
+            "note before you record; it is also in Tools and features, Audio, "
+            "and in the command palette (Ctrl+K, type captions). A bar appears "
+            "over whatever you are looking at and writes what the microphone "
+            "hears, on this computer, never over the internet. The bottom line "
+            "is still being written; the three above it are done. Copy takes "
+            "everything said so far, and Stop (or the palette row again) saves "
+            "it as a note tagged captions. While a voice note records, the same "
+            "captions write its words into the dialog as you speak, and the "
+            "full transcript replaces them after. Captions need a local speech "
+            "helper; its row in Settings, Packages says what is missing, and "
+            "without one the row says so and nothing is recorded."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -1801,7 +1806,7 @@ TOPIC_META: dict[str, dict] = {
     "timer": {"title": "Timer and stopwatch", "path": "Command palette, timer"},
     "manual": {"title": "The manual", "path": "Settings, Help, Open the manual"},
     "first-steps": {"title": "First steps and the sample notebook", "path": "Dashboard, Start in three steps"},
-    "live-captions": {"title": "Live captions", "path": "Command palette, Live captions"},
+    "live-captions": {"title": "How do I get live captions", "path": "Library, Recordings, Captions"},
     "count-words": {"title": "Count words", "path": "Command palette, Count words"},
     "translate-offline": {"title": "Translate this, offline", "path": "Command palette, Translate this"},
     "insert-template": {"title": "Insert a template", "path": "Command palette, insert template"},

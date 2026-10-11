@@ -8147,6 +8147,9 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
         </div>
         <div class="dock-actions">
+          <!-- Live captions' door where a person looks for audio (V6). -->
+          <button id="recordings-captions" class="small ghost" type="button" title="Live captions: what the microphone hears, written as it is said">
+            <i class="ph ph-closed-captioning ph-lead" aria-hidden="true"></i> Captions</button>
           <button type="button" class="icon-only ghost small graph-help-toggle"
             data-help-for="recordings-help" aria-controls="recordings-help" aria-expanded="false"
             title="About recordings" aria-label="About recordings"><i class="ph ph-question" aria-hidden="true"></i></button>
@@ -11646,7 +11649,7 @@ Link to another note with [[its first few words]]."></textarea>
                  `micControlsInto` when this section first opens. -->
             <div class="settings-group" id="mic-settings">
               <h3>Microphone</h3>
-              <p class="muted">Which input records and how the browser cleans it up, for dictation, voice notes, meetings and live captions.</p>
+              <p class="muted">Which input records and how it is cleaned up, for dictation, voice notes, meetings and live captions.</p>
               <div id="mic-settings-controls"></div>
             </div>
             <!-- Simple mode and the usage ledger (WORLD_CLASS_PLAN H9, row 27):
@@ -14043,12 +14046,17 @@ Link to another note with [[its first few words]]."></textarea>
           Microphone, under the name, chooses the input and switches the
           browser's noise suppression, echo cancellation and automatic gain;
           Test records three seconds and plays them back (the same controls
-          are in Settings, General). Close this while recording and it keeps recording in a small bar at
+          are in Settings, General), and Enhance on save cuts low rumble and
+          evens the loudness of the kept audio, keeping the original until the
+          transcript is saved. With the captions helper the words appear under
+          the level line as you speak; the full transcript replaces them after.
+          Live captions, before you record, writes what is said without
+          recording it. Close this while recording and it keeps recording in a small bar at
           the bottom with the clock, Pause, Stop and Open; Discard throws the
           take away. Transcribing runs in the background: close this and a
           notification says when it is done, with Open; Stop transcribing ends
           it. The transcript comes back for you to read and trim before anything is
-          saved. Saved, it is a meeting note with the transcript under Notes, or,
+          saved. Saved, this shows its first lines with Open. It is a meeting note with the transcript under Notes, or,
           opened from a meeting's Record into it, it goes under that meeting's
           Notes. An hour of talking can be a document instead.
         </p>
@@ -14077,6 +14085,8 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- A moment marked while recording (28.5 row 6): the button, or M. -->
           <button id="meeting-marker" type="button" class="ghost hidden" title="Mark this moment (M)"><i class="ph ph-push-pin ph-lead" aria-hidden="true"></i> Marker</button>
           <span id="meeting-timer" class="meeting-timer hidden" role="timer">0:00</span>
+          <!-- Captions without recording (V6): the floating bar, this closed. -->
+          <button id="meeting-captions" type="button" class="ghost meeting-captions" title="Live captions without recording: the words on screen as they are said"><i class="ph ph-closed-captioning ph-lead" aria-hidden="true"></i> Live captions</button>
           <!-- Throws the take away (to the bin); closing the dialog keeps it
                recording in the dock (V1). -->
           <button id="meeting-discard-take" type="button" class="ghost hidden meeting-discard" title="Stop and put this recording in the bin">Discard</button>
@@ -14098,6 +14108,9 @@ Link to another note with [[its first few words]]."></textarea>
              bar meter's own comment already warns about. -->
         <canvas id="meeting-wave" class="meeting-wave hidden" width="960" height="120"
           aria-hidden="true"></canvas>
+        <!-- The words as they are spoken (V5): the captions pipeline on the
+             recorder's own stream; the full pass after Stop replaces them. -->
+        <p id="meeting-live" class="meeting-live hidden" aria-live="polite"></p>
         <!-- Transcribing: no way to know how far along the engine is, so the
              bar is the browser's own indeterminate one (a `progress` with no
              value), under a status line that says how much audio is in it. -->
@@ -14138,6 +14151,14 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="meeting-actions-more">
         <button id="meeting-copy" class="ghost" title="Copy the transcript">Copy</button>
         <button id="meeting-discard" class="ghost meeting-discard">Discard</button>
+        </div>
+      </div>
+      <!-- After saving (V7): what was kept, its first lines, and Open. -->
+      <div id="meeting-done" class="meeting-done hidden">
+        <p id="meeting-done-lines" class="meeting-done-lines"></p>
+        <div class="row">
+          <button id="meeting-done-open" type="button"><i class="ph ph-arrow-square-out ph-lead" aria-hidden="true"></i> Open</button>
+          <button id="meeting-done-again" type="button" class="ghost"><i class="ph ph-record ph-lead" aria-hidden="true"></i> Record another</button>
         </div>
       </div>
     </div>

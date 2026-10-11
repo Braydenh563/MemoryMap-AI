@@ -370,13 +370,13 @@
    "n": 16,
    "surface": "ask",
    "kind": "notes",
-   "from": "CHAT_PLAN decision 71",
+   "from": "CHAT_PLAN decision 71 (a comparison is a table)",
    "question": "Logitech or Razer?",
    "cites": [
     "mouse1",
     "mouse2"
    ],
-   "gold": "The Logitech, by your own notes: you're leaning towards it after the Viper felt too small for your hand.\n\n**Logitech G Pro X Superlight:** about $230.\n**Razer Viper V3:** $200, $30 less, but too small when you tried it.\n\nYou want either wireless and under 60 grams; nothing says which one meets that.\n\nNote the Logitech as your pick?",
+   "gold": "The Logitech, by your own notes: you're leaning towards it after the Viper felt too small for your hand.\n\n| | Logitech G Pro X Superlight | Razer Viper V3 |\n| --- | --- | --- |\n| Price | about $230 | $200, $30 less |\n| When you tried it | not yet | too small for your hand |\n\nYou want either wireless and under 60 grams; nothing says which one meets that.\n\nNote the Logitech as your pick?",
    "type": "compare"
   },
   {
@@ -395,12 +395,12 @@
    "n": 18,
    "surface": "ask",
    "kind": "notes",
-   "from": "INBOX 810",
+   "from": "INBOX 810; CHAT_PLAN decision 71 (what is left is a checklist)",
    "question": "what do I need to buy?",
    "cites": [
     "groceries"
    ],
-   "gold": "Five groceries, from your list of 5 October: oat milk, eggs, spinach, rice and chicken thighs.\n\n**Also still open:** the Lisbon flights, and the gaming mouse.\n\nMake it a checklist?",
+   "gold": "Five groceries, from your list of 5 October:\n- [ ] oat milk\n- [ ] eggs\n- [ ] spinach\n- [ ] rice\n- [ ] chicken thighs\n\n**Also still open:** the Lisbon flights, and the gaming mouse.\n\nSave it as a checklist note?",
    "type": "left"
   },
   {

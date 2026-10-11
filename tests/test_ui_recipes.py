@@ -5376,3 +5376,20 @@ def test_web_results_are_one_fold_read_in_place():
     assert "/websearch/read?url=" in body and "innerHTML" not in body and "iframe" not in body
     builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "web-fold" in p.read_text(encoding="utf-8")]
     assert builders == ["ask-compose.js"], builders
+
+
+def test_answer_shape_is_lifted_in_one_place():
+    """CHAT_PLAN decision 71: a count's figure and a who card are lifted from
+    the rendered answer in one function, on tokens, without markup strings."""
+    text = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    body = text[text.index("function digestShape"):text.index("//: The digest's one offer")]
+    assert 'className = "digest-figure"' in body and 'className = "digest-card"' in body
+    assert "innerHTML" not in body and "setLabel(head" in body
+    css = (ROOT / "frontend/css/ask-compose-lazy.css").read_text(encoding="utf-8")
+    card = css[css.index(".digest-card {"):css.index("}", css.index(".digest-card {"))]
+    for token in ("var(--surface-2)", "var(--border)", "var(--radius-md)", "var(--space-3)"):
+        assert token in card, token
+    builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "digest-card" in p.read_text(encoding="utf-8")]
+    assert builders == ["ask-compose.js"], builders
+    ask = (ROOT / "frontend/js/capture-ask.js").read_text(encoding="utf-8")
+    assert "digestShape(answerEl, support.shape)" in ask

@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Ask and Chat with no model: an answer's shape now follows its question. A count leads with its figure drawn large, "who is Sam?" is a card, "Logitech or Razer?" is a table of price, what you found and your notes, and "what do I need to buy?" is a checklist you can save as a note.
 - Settings, Personas: How Atlas sounds with no model is now Warm and concise (the default), Neutral, Playful or Plain, with a live sample; the facts are the same in each, and a chat no longer opens five answers the same way.
 - Ask and Chat with no model: an answer now ends with what the facts mean ("It's the only week you've written down", "Nothing on bench since September") and one offer for its kind you press to do (a reminder, a weekly reminder, a list or a table as a note), with Undo; "this week" in an old note is said as the week it meant.
 - Chat with web search on: a search that found pages always answers, a line a page; the pages sit in a Web results fold under the answer, each with its site and one line, and a title opens the page to read right there.

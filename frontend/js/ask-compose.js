@@ -339,6 +339,46 @@ async function readWebPage(fold, list, reader, source) {
   }
 }
 
+//: **The answer's shape follows its kind** (CHAT_PLAN decision 71): a count
+//: leads with its number drawn large (`.digest-figure`), and a who answer
+//: is a card (`.digest-card`: the person's name over what the notes say).
+//: A comparison is a table and what is left a checklist already, in the
+//: Markdown the answer arrives as; the table is set to fit and read in the
+//: body's type (`.digest-table`), not the model table's export bar. Built from the text, so the citation
+//: marks inside it keep their places.
+function digestShape(answerEl, shape) {
+  if (!answerEl) return;
+  const first = answerEl.querySelector("p");
+  if (shape === "count" && first && first.firstChild?.nodeType === Node.TEXT_NODE) {
+    const lead = first.firstChild;
+    const m = lead.textContent.match(/^(You spent |You've spent |)(\$?\d[\d,.]*(?:\s?(?:kg|km|%))?)/);
+    if (!m) return;
+    const rest = lead.splitText(m[1].length);
+    rest.splitText(m[2].length);
+    const figure = document.createElement("span");
+    figure.className = "digest-figure";
+    figure.textContent = rest.textContent;
+    rest.replaceWith(figure);
+  } else if (shape === "who" && first) {
+    const name = (first.textContent.match(/^([A-Z][\w'-]*(?: [A-Z][\w'-]*)?) /) || [])[1];
+    if (!name) return;
+    const card = document.createElement("div");
+    card.className = "digest-card";
+    const head = document.createElement("div");
+    head.className = "digest-card-head";
+    setLabel(head, `ph:user ${name}`);
+    const offer = answerEl.querySelector("p:last-of-type");
+    const body = [...answerEl.children].filter((el) => el.tagName === "P" && !(el === offer && el.textContent.trim().endsWith("?")));
+    first.before(card);
+    card.append(head, ...body);
+  } else if (shape === "compare") {
+    const block = answerEl.querySelector(".md-table-block");
+    if (!block) return;
+    block.classList.add("digest-table");
+    block.dataset.tableView = "fit";
+  }
+}
+
 //: The digest's one offer (CHAT_PLAN decision 70, B12): its last line, a
 //: question the answer asks ("Remind you to ask the tutor on Thursday?"),
 //: made the button that does it. Plain tier (`.linklike`): an action in

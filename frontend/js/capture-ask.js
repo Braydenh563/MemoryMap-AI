@@ -1788,7 +1788,10 @@ function renderAnswerGrounding(
     numberMatchingRecords(target, citationNumbers(sentences, orderedSources));
     target.replaceChildren();
     target.classList.add("hidden");
-    ensureModule("askCompose").then(() => digestOffer(answerEl, support.offer)).catch(() => {});
+    ensureModule("askCompose").then(() => {
+      digestShape(answerEl, support.shape);
+      digestOffer(answerEl, support.offer);
+    }).catch(() => {});
     return;
   }
   renderAnswerSupport(answerEl, support);

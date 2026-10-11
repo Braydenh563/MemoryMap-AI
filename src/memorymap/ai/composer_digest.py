@@ -54,7 +54,7 @@ _BASE = {
     "more_right": "{count} more on the right.",
     "nothing_yet": "Nothing yet on {facets}.",
     "remind": "Remind you to {action}?",
-    "checklist": "Make it a checklist?",
+    "checklist": "Save it as a checklist note?",
     "pick_note": "Note the {side} as your pick?",
     "start_list": "Start a list of {noun}s to watch next?",
     "gather": "Gather them into one note?",
@@ -114,7 +114,6 @@ VOICES: dict[str, dict[str, str | tuple[str, ...]]] = {
         "from_note": "{fact}, says your note of {day}.",
         "nothing_yet": "No word yet on {facets}.",
         "remind": "Want a nudge to {action}?",
-        "checklist": "Turn it into a checklist?",
         "only_week": "That's the only week you've jotted down so far.",
         "none_own": "None of them has its own note yet, so they're all still ideas.",
         "gone_quiet": "{Word} has gone quiet since {month}.",
@@ -847,15 +846,31 @@ def _compare(out: _Out, a: str, b: str, views, today: date, names: set[str]) -> 
     out.lines.append(PHRASES["pick"].format(side=winner[:1].upper() + winner[1:], why=why))
     out.offer = _note_offer(PHRASES["pick_note"].format(side=winner[:1].upper() + winner[1:]), f"My pick: the {full[winner]}")
     out.rows.append({"sentence": why, "note_id": why_view.note.get("source_id", why_view.id), "source": why, "score": 1.0, "digest": True})
+    #: Decision 71: a comparison is a table, a column a side, a row a thing
+    #: the notes say of both (the price, what you found, how often it comes
+    #: up), so the two can be read across rather than one after the other.
+    cells: dict[str, dict[str, str]] = {"Price": {}, "What you found": {}, "In your notes": {}}
     for side in (a, b):
-        bits = []
-        for v, s in sentences:
-            for clause in re.split(r"\s+and\s+(?=the\s)|;\s*", s.text.strip().rstrip(".")):
+        named = [(v, s) for v, s in sentences if about(side, s.text)]
+        for v, s in named:
+            for clause in re.split(r"\s+and\s+(?=the\s)|;\s*|:\s+", s.text.strip().rstrip(".")):
+                alone = about(side, clause) and not any(about(o, clause) for o in (a, b) if o != side)
                 price = re.search(r"\$\s?\d[\d,.]*", clause)
-                if price and about(side, clause) and not any(about(o, clause) for o in (a, b) if o != side):
-                    bits.append(("about " if "about" in clause else "") + price.group(0))
-        if bits:
-            out.lines.append(f"**{full[side]}:** {bits[0]}.")
+                if alone and price and side not in cells["Price"]:
+                    cells["Price"][side] = ("about " if "about" in clause else "") + price.group(0)
+                elif alone and not price and not lean.search(clause) and side not in cells["What you found"]:
+                    said = _tidy(_second_person(clause), v.written)
+                    said = re.sub(rf"^.*?\b(?:it|{re.escape(side)}\w*)\s+", "", said, count=1, flags=re.I) if len(said.split()) > 8 else said
+                    cells["What you found"][side] = said
+        days = sorted(v.written for v in {v.id: v for v, _ in named}.values() if v.written)
+        count = len({v.id for v, _ in named})
+        cells["In your notes"][side] = f"{_count(count)}, last on {_day(days[-1], today)}" if days else _count(count)
+    #: A row the same on both sides compares nothing; it is left out.
+    rows = [(name, got) for name, got in cells.items() if got and not (len(got) == 2 and got[a] == got[b])]
+    if rows:
+        head = f"| | {full[a]} | {full[b]} |"
+        body = [f"| {name} | {got.get(a, 'nothing yet')} | {got.get(b, 'nothing yet')} |" for name, got in rows]
+        out.lines.append("\n".join([head, "| --- | --- | --- |", *body]))
     return True
 
 
@@ -1009,8 +1024,12 @@ def _left(out: _Out, question: str, members, views, names: set[str], today: date
     v, s, head = lists[-1]
     items = [i.strip().rstrip(".") for i in head.group(2).split(",") if i.strip()]
     what = head.group(1).strip().lower()
-    out.lines.append(f"{realise.count_word(len(items)).capitalize()} {what}, from your list of {_day(v.written, today)}: {realise.join_items(items)}.")
-    out.rows.append({"sentence": realise.join_items(items), "note_id": v.note.get("source_id", v.id), "source": s.text, "score": 1.0, "digest": True})
+    #: Decision 71: what is left is a checklist, the opening then a box an
+    #: item, so the list reads down rather than along one sentence.
+    opening = f"{realise.count_word(len(items)).capitalize()} {what}, from your list of {_day(v.written, today)}"
+    out.lines.append(opening + ":\n" + "\n".join(f"- [ ] {item}" for item in items))
+    out.rows.append({"sentence": opening, "note_id": v.note.get("source_id", v.id), "source": s.text,
+                     "start": s.start, "end": s.end, "score": 1.0, "digest": True})
     open_bits = []
     for w in views:
         for t in w.sentences:
@@ -1038,7 +1057,7 @@ def _result(out: _Out, kind: str, question: str) -> dict:
         #: `digest` and `offer` ride on the support too: it is what the Ask
         #: box hands its grounding renderer, which then draws one mark a line
         #: and no chips or count under the answer.
-        "support": {"supported": n, "sentences": n, "unsupported": [], "digest": True, "offer": out.offer},
+        "support": {"supported": n, "sentences": n, "unsupported": [], "digest": True, "offer": out.offer, "shape": kind},
         "shape": f"digest:{kind}",
         "parts": [("template", text)],
         "next": [],

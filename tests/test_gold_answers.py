@@ -113,7 +113,45 @@ def test_progress_is_said_as_the_change():
 def test_a_comparison_names_the_one_the_notes_lean_to():
     result = composer_digest.answer("Logitech or Razer?", NOTES, today=TODAY)
     assert result["text"].startswith("The Logitech, by your notes: you're leaning towards it")
-    assert "**Razer Viper V3:** $200." in result["text"]
+    assert "| Price | about $230 | $200 |" in result["text"]
+
+
+def test_a_comparison_is_a_table_of_the_two():
+    """Decision 71: a comparison is a table, one column a thing, a row a
+    point the notes make, an empty cell said rather than left blank."""
+    result = composer_digest.answer("Logitech or Razer?", NOTES, today=TODAY)
+    rows = [line for line in result["text"].splitlines() if line.startswith("|")]
+    assert rows[0] == "| | Logitech G Pro X Superlight | Razer Viper V3 |"
+    assert rows[1] == "| --- | --- | --- |"
+    assert [r.split("|")[1].strip() for r in rows[2:]] == ["Price", "What you found"]
+    assert all(cell.strip() for r in rows[2:] for cell in r.strip("|").split("|")), rows
+    assert result["support"]["shape"] == "compare"
+
+
+def test_what_is_left_is_a_checklist():
+    result = composer_digest.answer("what do I need to buy?", NOTES, today=TODAY)
+    lines = result["text"].splitlines()
+    assert lines[0] == "Five groceries, from your list of 5 October:"
+    assert lines[1:6] == ["- [ ] oat milk", "- [ ] eggs", "- [ ] spinach", "- [ ] rice", "- [ ] chicken thighs"]
+    assert result["support"]["shape"] == "left"
+    assert result["support"]["offer"]["label"] == "Save it as a checklist note?"
+
+
+@pytest.mark.parametrize(("question", "shape"), [
+    ("how much did I spend on groceries?", "count"),
+    ("who is Sam?", "who"),
+    ("Logitech or Razer?", "compare"),
+    ("what do I need to buy?", "left"),
+])
+def test_the_answer_names_its_shape_for_the_page(question, shape):
+    """`support.shape` is what `digestShape` lifts: the count's figure, the
+    who card. A count still opens with its figure, a who with the name."""
+    result = composer_digest.answer(question, NOTES, today=TODAY)
+    assert result["support"]["shape"] == shape
+    if shape == "count":
+        assert result["text"].startswith("You spent $84 ")
+    if shape == "who":
+        assert result["text"].startswith("Sam ")
 
 
 @pytest.mark.parametrize(("text", "said"), [

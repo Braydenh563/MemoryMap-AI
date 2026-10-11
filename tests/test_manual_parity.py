@@ -128,6 +128,11 @@ UTILITIES = {
     "count words": ("utility-tools.js", "function countSelection(caught)", "the palette's Count words", "count-words"),
     "live captions": ("captions.js", "function startLiveCaptions()", "the palette's Live captions", "live-captions"),
     "translate this": ("translate.js", "async function translateCaught(caught)", "the palette's Translate this", "translate-offline"),
+    "check this computer": ("settings-controls.js", "async function runMaintenanceDoctor()", "Settings, About, Maintenance, Check this computer", "maintenance"),
+    "reinstall on next start": ("settings-controls.js", "async function setMaintenanceReinstall(enabled)", "Settings, About, Maintenance, Reinstall on next start", "maintenance"),
+    "launcher logs": ("settings-controls.js", 'apiJson("/system/open-logs-folder"', "Settings, About, Maintenance, Open the launcher logs", "maintenance"),
+    "desktop shortcut": ("settings-controls.js", 'apiJson("/system/desktop-shortcut"', "Settings, About, Maintenance, Make a desktop shortcut", "maintenance"),
+    "uninstall steps": ("settings-controls.js", "function openUninstallSteps()", "Settings, About, Maintenance, Uninstall", "maintenance"),
     "insert template": ("app-palette.js", "label: `ph:note-blank Insert template: ${template.name}`,", "the palette's insert template", "insert-template"),
 }
 

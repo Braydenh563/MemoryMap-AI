@@ -5537,3 +5537,22 @@ def test_a_menu_has_no_gap_at_its_ends() -> None:
     assert re.search(r"\.dock-menu-list > \.dock-menu-section:last-child \{\s*padding-bottom: 0;", css)
     sweep = (ROOT / "scratchpad" / "ui-sweeps" / "menus.js").read_text(encoding="utf-8")
     assert "inset top" in sweep and ".dock-menu-check" in sweep
+
+
+def test_a_check_result_row_is_the_health_row_with_a_mark():
+    """DESIGN.md, "The result of a check on this computer": Settings, About,
+    Maintenance's rows are the Health group's `.setting-row`, the label led by
+    one `.doctor-mark` whose glyph and tone both carry the result, built in
+    one place."""
+    js = frontend_text("settings-controls.js")
+    build = js[js.index("function maintenanceDoctorRow(row) {"):]
+    build = build[: build.index("\n}\n")]
+    assert 'el.className = "setting-row doctor-row";' in build and "doctor-mark is-" in build
+    assert 'label.className = "setting-label";' in build and 'value.className = "setting-control muted";' in build
+    for tone, glyph in (("ok", "check-circle"), ("warn", "warning"), ("x", "x-circle")):
+        assert f'{tone}: ["{glyph}",' in js
+    builders = [p.name for p in JS if "doctor-mark" in p.read_text(encoding="utf-8")]
+    assert builders == ["settings-controls.js"], builders
+    css = _css_all()
+    for tone, token in (("ok", "--ok"), ("warn", "--warn"), ("x", "--error")):
+        assert re.search(rf"\.doctor-mark\.is-{tone} \{{\s*color: var\({token}\);", css), tone

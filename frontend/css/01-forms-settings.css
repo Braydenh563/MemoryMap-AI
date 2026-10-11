@@ -6078,3 +6078,46 @@ select {
 .recent-change-empty {
   list-style: none;
 }
+
+/* --- Settings, About, Maintenance (settings-controls.js, renderMaintenance).
+   A check's row is the Health group's `.setting-row`, its label led by a
+   mark whose glyph and tone both say the result (DESIGN.md, "The result of
+   a check on this computer"). A value is a path or a sentence, so it takes
+   the row's remaining width and wraps rather than running past the column.
+   The uninstall dialog's command is one selectable line beside its Copy. */
+.doctor-mark.is-ok {
+  color: var(--ok);
+}
+.doctor-mark.is-warn {
+  color: var(--warn);
+}
+.doctor-mark.is-x {
+  color: var(--error);
+}
+.doctor-row > .setting-control {
+  flex: 1 1 16rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.uninstall-steps {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+.uninstall-command-row {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.uninstall-command {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+  user-select: all;
+}

@@ -2034,3 +2034,196 @@ async function renderLanAccess() {
     $("account-lan-state").classList.add("hidden");
   }
 }
+
+// ---- Settings, About, Maintenance (core/maintenance.py, core/doctor.py) ----
+//: The owner, 2026-10-11: "Can you add like buttons in settings to run them
+//: in like the about page??", about doctor, reinstall, tools and uninstall.
+//: Every route is this computer only (api/this_computer.py): on a phone the
+//: first read is refused, the buttons go off and the status line carries the
+//: server's own sentence.
+const MAINTENANCE_MARKS = {
+  ok: ["check-circle", "Passed"],
+  warn: ["warning", "Worth a look"],
+  x: ["x-circle", "Needs fixing"],
+};
+
+function maintenanceSay(text) {
+  $("maintenance-status").textContent = text;
+}
+
+async function renderMaintenance() {
+  const buttons = [...$("maintenance-actions").querySelectorAll("button")];
+  let state;
+  try {
+    state = await apiJson("/system/maintenance");
+  } catch (error) {
+    for (const button of buttons) button.disabled = true;
+    $("maintenance-reinstall-row").classList.add("hidden");
+    maintenanceSay(error.message || "Couldn't read this computer's state.");
+    return;
+  }
+  for (const button of buttons) button.disabled = false;
+  //: The installer's copy has no .venv to rebuild: no button, and the '?'
+  //: says its Repair shortcut is the way.
+  $("maintenance-reinstall").classList.toggle("hidden", !state.source);
+  $("maintenance-reinstall-row").classList.toggle("hidden", !(state.source && state.reinstall_pending));
+  $("maintenance-uninstall").dataset.plan = JSON.stringify(state.uninstall || {});
+  maintenanceSay("");
+}
+
+function maintenanceDoctorRow(row) {
+  const el = document.createElement("div");
+  el.className = "setting-row doctor-row";
+  const label = document.createElement("div");
+  label.className = "setting-label";
+  const name = document.createElement("span");
+  const [icon, words] = MAINTENANCE_MARKS[row.status] || MAINTENANCE_MARKS.warn;
+  const mark = document.createElement("i");
+  mark.className = `ph ph-${icon} doctor-mark is-${row.status in MAINTENANCE_MARKS ? row.status : "warn"}`;
+  mark.setAttribute("role", "img");
+  mark.setAttribute("aria-label", words);
+  name.append(mark, document.createTextNode(` ${row.label}`));
+  label.appendChild(name);
+  if (row.fix) {
+    const fix = document.createElement("small");
+    fix.className = "muted";
+    fix.textContent = row.fix;
+    label.appendChild(fix);
+  }
+  const value = document.createElement("span");
+  value.className = "setting-control muted";
+  value.textContent = row.value;
+  el.append(label, value);
+  return el;
+}
+
+async function runMaintenanceDoctor() {
+  const button = $("maintenance-doctor");
+  const box = $("maintenance-doctor-rows");
+  button.disabled = true;
+  maintenanceSay("Checking…");
+  try {
+    const result = await apiJson("/system/doctor");
+    box.replaceChildren(...result.rows.map(maintenanceDoctorRow));
+    box.classList.remove("hidden");
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const worth = result.rows.filter((row) => row.status === "warn").length;
+    maintenanceSay(
+      result.failed
+        ? `Checked at ${time}. Something below needs fixing: each cross says what to do.`
+        : worth
+          ? `Checked at ${time}. Nothing is broken; ${worth} worth a look.`
+          : `Checked at ${time}. Everything checks out.`
+    );
+  } catch (error) {
+    maintenanceSay(error.message || "Couldn't run the checks.");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function setMaintenanceReinstall(enabled) {
+  try {
+    const result = await apiJson("/system/reinstall-on-start", {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    });
+    $("maintenance-reinstall-row").classList.toggle("hidden", !result.reinstall_pending);
+    maintenanceSay(result.reinstall_pending ? "" : "Reinstall cancelled. The next start is an ordinary one.");
+  } catch (error) {
+    maintenanceSay(error.message || "Couldn't set the reinstall.");
+  }
+}
+
+async function openMaintenanceFolder() {
+  try {
+    const result = await apiJson("/system/open-logs-folder", { method: "POST" });
+    maintenanceSay(`Opened ${result.path}`);
+  } catch (error) {
+    maintenanceSay(error.message || "Couldn't open the launcher logs.");
+  }
+}
+
+async function makeMaintenanceShortcut() {
+  try {
+    const result = await apiJson("/system/desktop-shortcut", { method: "POST" });
+    maintenanceSay(`Shortcut made: ${result.desktop_copy || result.path}`);
+  } catch (error) {
+    maintenanceSay(error.message || "Couldn't make the shortcut.");
+  }
+}
+
+//: **Uninstall is never one click** (the brief): a dialog with the steps,
+//: the command for this computer with Copy, and Export my notes first.
+function openUninstallSteps() {
+  let plan = {};
+  try {
+    plan = JSON.parse($("maintenance-uninstall").dataset.plan || "{}");
+  } catch {
+    plan = {};
+  }
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Uninstall");
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card uninstall-card";
+  const returnFocus = document.activeElement;
+  const onKey = (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+  };
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    returnFocus?.focus?.();
+  };
+  const blurb = document.createElement("p");
+  blurb.className = "muted";
+  blurb.textContent = "Nothing is removed from here. These are the steps for this computer.";
+  const steps = document.createElement("ol");
+  steps.className = "uninstall-steps";
+  for (const step of plan.steps || []) {
+    const li = document.createElement("li");
+    li.textContent = step;
+    steps.appendChild(li);
+  }
+  card.append(dialogHead("Uninstall", close), blurb, steps);
+  if (plan.command) {
+    const row = document.createElement("div");
+    row.className = "row uninstall-command-row";
+    const code = document.createElement("code");
+    code.className = "uninstall-command";
+    code.textContent = plan.command;
+    const copy = smallButton("ph:copy Copy", "Copy the command", () => copyToClipboard(plan.command, copy));
+    row.append(code, copy);
+    card.appendChild(row);
+  }
+  const footer = document.createElement("div");
+  footer.className = "row confirm-actions";
+  footer.append(
+    smallButton("Close", "Close", close),
+    smallButton("ph:export Export my notes first", "Open Settings, Import & export", () => {
+      close();
+      openSettingsModal("data", "export-folder");
+    }, false)
+  );
+  card.appendChild(footer);
+  overlay.appendChild(card);
+  wireBackdropClose(overlay, close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  footer.querySelector("button:last-child")?.focus();
+}
+
+$("maintenance-doctor")?.addEventListener("click", runMaintenanceDoctor);
+$("maintenance-reinstall")?.addEventListener("click", () => setMaintenanceReinstall(true));
+$("maintenance-reinstall-cancel")?.addEventListener("click", () => setMaintenanceReinstall(false));
+//: One restart mechanism (`restartMemoryMap`, `#about-restart`'s).
+$("maintenance-restart")?.addEventListener("click", () => restartMemoryMap());
+$("maintenance-logs")?.addEventListener("click", openMaintenanceFolder);
+$("maintenance-shortcut")?.addEventListener("click", makeMaintenanceShortcut);
+$("maintenance-uninstall")?.addEventListener("click", openUninstallSteps);

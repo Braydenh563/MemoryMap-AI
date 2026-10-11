@@ -346,6 +346,33 @@ MORE_TOPICS: list[dict] = [
         "badge": {"label": "About", "section": "about"},
     },
     {
+        "id": "maintenance",
+        "keywords": (
+            "maintenance", "check this computer", "doctor", "doctor.sh", "doctor.bat", "start --doctor",
+            "reinstall", "reinstall on next start", "rebuild", "venv", "reinstall.sh", "tools.sh",
+            "launcher logs", "open the launcher logs", "desktop shortcut", "make a desktop shortcut",
+            "uninstall", "remove the app", "how do i uninstall",
+        ),
+        "body": (
+            "Settings, About, Maintenance runs the launcher's own actions from "
+            "the app. Check this computer runs the checks doctor.sh and "
+            "doctor.bat print (Python, free disk, the port, the model server, "
+            "the notes folder, the last launch) plus the search model and other "
+            "devices, each row with a tick, a warning or a cross and what to do. "
+            "Reinstall on next start rebuilds the app's Python environment the "
+            "next time start.sh or start.bat opens the app, the same as "
+            "reinstall.sh; your notes, settings and models are not touched, and "
+            "Cancel takes it back. A copy from the installer has no environment "
+            "to rebuild: its Repair shortcut is the way. Open the launcher logs "
+            "opens the folder the launcher writes to, and Make a desktop "
+            "shortcut makes the one start --shortcut makes. Uninstall… never "
+            "removes anything itself: it shows the steps and the command for "
+            "this computer with Copy, and Export my notes first. These work "
+            "only on the computer the app runs on; on a phone they are off."
+        ),
+        "badge": {"label": "About", "section": "about", "target": "maintenance-group"},
+    },
+    {
         "id": "activity",
         "keywords": (
             "activity", "activity panel", "what is running", "stop a job", "stop it",
@@ -1837,6 +1864,8 @@ TOPIC_META: dict[str, dict] = {
     "answer-style": {"title": "Answer style", "path": "Settings, Personas, Answer style"},
     "background-tasks": {"title": "Background tasks", "path": "Settings, Background tasks"},
     "health": {"title": "Health", "path": "Settings, About, Health"},
+    "maintenance": {"title": "Maintenance", "path": "Settings, About, Maintenance", "steps": (
+        "Open Settings, About and find Maintenance.", "Check this computer shows one row per check, each with what to do.", "Reinstall on next start rebuilds the app's Python environment when the launcher next opens it; your notes are not touched.", "Uninstall… shows the steps and the command, with Export my notes first.")},
     "activity": {"title": "Activity", "path": "The status bar's job slot, or the palette, Activity"},
     "packages": {"title": "Packages", "path": "Settings, Packages"},
     "import-export": {"title": "Import and export", "path": "Settings, Import & export"},
@@ -1992,7 +2021,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "privacy", "security", "encryption", "lock", "phone", "two-computers", "delete-data", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
     )),
     ("Settings and support", (
-        "profile", "general-settings", "updates", "logs", "troubleshooting",
+        "profile", "general-settings", "updates", "maintenance", "logs", "troubleshooting",
     )),
 ]
 

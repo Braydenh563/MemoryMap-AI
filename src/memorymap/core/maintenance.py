@@ -84,7 +84,7 @@ def uninstall_plan(platform: str | None = None, frozen: bool | None = None, root
             "steps": [
                 "Export your notes first if you want to keep a copy elsewhere.",
                 "Quit the app.",
-                "Open Windows Settings, Apps, find MemoryMap AI and choose Uninstall.",
+                "In Windows, press Start, type Installed apps, find MemoryMap AI and choose Uninstall.",
                 "Your notes folder stays unless you choose to delete it there.",
             ],
         }

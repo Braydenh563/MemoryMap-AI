@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Live captions: a switch, Keep the audio of live captions (Settings, General, Microphone, off by default), makes Stop save the audio as a recording beside the note, with the captions as its timed transcript. Off, nothing but the note is kept and no audio file is written.
+- Library: drop files anywhere in the app to add them. A dashed edge and one line show while you drag; pictures and PDFs go to Images and anything else is imported as a document. A textarea, the whiteboard and the note rows still take their own drops.
 - Notes: a meeting's card shows a glance (the first agenda item, the decisions, the open action items) instead of its raw headings; Show the whole note opens the text, and so does a search.
 - Dashboard: at a phone's width two Quick access tiles fit whole and the third shows its edge, instead of the second starting at the right edge.
 - Pickers: the Attach picker's five sources and the library picker's sources are a tab strip with a count on each, not a pill well; it scrolls when the words do not fit (INBOX 715).

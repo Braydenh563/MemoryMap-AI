@@ -251,7 +251,9 @@ HELP_TOPICS: list[dict] = [
             "hand over. Events about private notes are left out of it. The "
             "Library's search reads the same filters as the Graph's: "
             "\"connected to Harbor\", \"untouched since June\", \"tagged "
-            "work\", \"pinned\", \"filed under Cooking\"."
+            "work\", \"pinned\", \"filed under Cooking\". Drop files anywhere in "
+            "the app to add them: pictures and PDFs go to Images, anything "
+            "else becomes a document."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

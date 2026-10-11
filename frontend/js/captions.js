@@ -217,7 +217,9 @@ async function startLiveCaptions(opts = {}) {
   }
   let started;
   try {
-    started = await apiJson("/voice/captions/start", { method: "POST", body: "{}" });
+    //: The audio is kept only when asked for (Settings, General, Microphone) and only for a run of
+    //: the captions' own: the recorder lends its stream and keeps its own recording.
+    started = await apiJson("/voice/captions/start", { method: "POST", body: JSON.stringify({ keep_audio: !opts.stream && prefs.bool("captionsKeepAudio", false) }) });
   } catch (error) {
     if (!opts.stream) stream.getTracks().forEach((t) => t.stop());
     if (opts.quiet) return error.message;
@@ -290,7 +292,11 @@ async function stopLiveCaptions() {
     }
     await refreshEntries([done.entry_id]);
     flashEntry(done.entry_id);
-    toastAction("Saved the captions as a note.", "Open", () => flashEntry(done.entry_id));
+    toastAction(
+      done.recording_id ? "Saved the captions as a note, and the audio in Recordings." : "Saved the captions as a note.",
+      "Open",
+      () => flashEntry(done.entry_id)
+    );
   } catch (error) {
     toast(error.message || "Couldn't save the captions.", true);
   }

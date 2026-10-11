@@ -2281,6 +2281,8 @@ const MIC_SWITCHES = [
   ["micEcho", "Echo cancellation", "Removes the speakers' sound coming back into the microphone"],
   ["micGain", "Automatic gain", "Evens out loud and quiet speech"],
   ["micEnhance", "Enhance on save", "Cuts low rumble and evens the loudness of the kept audio, on this machine; the original is kept until the transcript is saved"],
+  //: Off unless chosen, because it stores speech: the fourth element is the default (libr-1011 row 1226).
+  ["captionsKeepAudio", "Keep the audio of live captions", "Stop saves the captions as a note and the audio as a recording, with the lines as its transcript; off keeps only the note", false],
 ];
 const MIC_TEST_MS = 3000;
 
@@ -2303,14 +2305,14 @@ function micControlsInto(host) {
   label.textContent = "Microphone";
   deviceRow.append(label, select);
   host.appendChild(deviceRow);
-  for (const [key, name, hint] of MIC_SWITCHES) {
+  for (const [key, name, hint, fallback = true] of MIC_SWITCHES) {
     const row = document.createElement("label");
     row.className = "check-row";
     row.title = hint;
     const box = document.createElement("input");
     box.type = "checkbox";
     box.dataset.micPref = key;
-    box.checked = prefs.bool(key, true);
+    box.checked = prefs.bool(key, fallback);
     box.addEventListener("change", () => {
       prefs.set(key, box.checked ? "1" : "0");
       document.querySelectorAll(`input[data-mic-pref="${key}"]`).forEach((other) => (other.checked = box.checked));

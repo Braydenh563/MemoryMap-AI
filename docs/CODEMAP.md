@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5660, frontend ids 2425, CSS sections 490, backend routes 562, backend modules 4769, test files 1090, tests 9961, plan headings 996.
+Counts: frontend functions 5669, frontend ids 2425, CSS sections 490, backend routes 562, backend modules 4772, test files 1092, tests 9973, plan headings 996.
 
-## Frontend functions (5660)
+## Frontend functions (5669)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -23,18 +23,18 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `clearApiCache` | frontend/js/app.js:631 |
 | `confirmDialog` | frontend/js/app.js:1453 |
 | `confirmVerb` | frontend/js/app.js:1446 |
-| `ensureModule` | frontend/js/app.js:2023 |
+| `ensureModule` | frontend/js/app.js:2025 |
 | `enterWithoutPassword` | frontend/js/app.js:710 |
 | `hide` | frontend/js/app.js:168 |
 | `hideBootSplash` | frontend/js/app.js:913 |
 | `initAuth` | frontend/js/app.js:926 |
 | `kickBackgroundTaskPoll` | frontend/js/app.js:600 |
-| `lazyAssetStamp` | frontend/js/app.js:1962 |
-| `lazyScript` | frontend/js/app.js:2003 |
+| `lazyAssetStamp` | frontend/js/app.js:1964 |
+| `lazyScript` | frontend/js/app.js:2005 |
 | `lockNow` | frontend/js/app.js:887 |
 | `mediaSrc` | frontend/js/app.js:255 |
-| `mountNoteSurfaceNow` | frontend/js/app.js:2058 |
-| `onDomReady` | frontend/js/app.js:1994 |
+| `mountNoteSurfaceNow` | frontend/js/app.js:2060 |
+| `onDomReady` | frontend/js/app.js:1996 |
 | `promptDialog` | frontend/js/app.js:1563 |
 | `purgeLockedContent` | frontend/js/app.js:873 |
 | `recordBrowserLog` | frontend/js/app.js:23 |
@@ -56,7 +56,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `startApp` | frontend/js/app.js:1019 |
 | `startWithoutPassword` | frontend/js/app.js:695 |
 | `takeSharedIntake` | frontend/js/app.js:998 |
-| `whenScriptsLoaded` | frontend/js/app.js:1943 |
+| `whenScriptsLoaded` | frontend/js/app.js:1945 |
 | `wireBackdropClose` | frontend/js/app.js:1739 |
 | `zoomWheelDelta` | frontend/js/app.js:249 |
 
@@ -1284,14 +1284,14 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `buildShortcutList` | frontend/js/settings-wiring.js:1343 |
 | `captureCountText` | frontend/js/settings-wiring.js:1646 |
 | `captureShortcutKey` | frontend/js/settings-wiring.js:1398 |
-| `clearStagedImages` | frontend/js/settings-wiring.js:1987 |
+| `clearStagedImages` | frontend/js/settings-wiring.js:1993 |
 | `closeOverlaysForChord` | frontend/js/settings-wiring.js:1132 |
 | `closeShortcuts` | frontend/js/settings-wiring.js:1460 |
 | `comboFromEvent` | frontend/js/settings-wiring.js:1171 |
-| `commitCaptureImages` | frontend/js/settings-wiring.js:1972 |
+| `commitCaptureImages` | frontend/js/settings-wiring.js:1978 |
 | `fileDropBox` | frontend/js/settings-wiring.js:1857 |
 | `flashSaved` | frontend/js/settings-wiring.js:400 |
-| `handleFileUpload` | frontend/js/settings-wiring.js:2019 |
+| `handleFileUpload` | frontend/js/settings-wiring.js:2025 |
 | `hideChordGuide` | frontend/js/settings-wiring.js:1152 |
 | `loadForgottenOrder` | frontend/js/settings-wiring.js:1532 |
 | `loadShortcuts` | frontend/js/settings-wiring.js:1009 |
@@ -1308,7 +1308,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderShortcutList` | frontend/js/settings-wiring.js:1331 |
 | `resetShortcuts` | frontend/js/settings-wiring.js:1302 |
 | `restampShortcutHints` | frontend/js/settings-wiring.js:1062 |
-| `rewriteStagedUrls` | frontend/js/settings-wiring.js:1960 |
+| `rewriteStagedUrls` | frontend/js/settings-wiring.js:1966 |
 | `runShortcut` | frontend/js/settings-wiring.js:1194 |
 | `saveCurrentSearch` | frontend/js/settings-wiring.js:61 |
 | `saveShortcutOverrides` | frontend/js/settings-wiring.js:1159 |
@@ -1316,12 +1316,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `savedSearches` | frontend/js/settings-wiring.js:13 |
 | `setShortcutStatus` | frontend/js/settings-wiring.js:1318 |
 | `setShortcutStatusError` | frontend/js/settings-wiring.js:1325 |
-| `singleKeysOn` | frontend/js/settings-wiring.js:2155 |
-| `stagedImageUrl` | frontend/js/settings-wiring.js:1937 |
+| `singleKeysOn` | frontend/js/settings-wiring.js:2161 |
+| `stagedImageUrl` | frontend/js/settings-wiring.js:1943 |
 | `stampShortcutTitles` | frontend/js/settings-wiring.js:1038 |
 | `submitLockForm` | frontend/js/settings-wiring.js:247 |
 | `textCounts` | frontend/js/settings-wiring.js:1636 |
-| `uploadStagedFiles` | frontend/js/settings-wiring.js:1996 |
+| `uploadStagedFiles` | frontend/js/settings-wiring.js:2002 |
 
 ### frontend/js/spaces-find.js (27)
 
@@ -2481,20 +2481,20 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `captionDecimate` | frontend/js/captions.js:104 |
-| `captionOfferTranslate` | frontend/js/captions.js:258 |
+| `captionOfferTranslate` | frontend/js/captions.js:260 |
 | `captionPaint` | frontend/js/captions.js:123 |
-| `captionRelease` | frontend/js/captions.js:264 |
+| `captionRelease` | frontend/js/captions.js:266 |
 | `captionRunMerge` | frontend/js/captions.js:189 |
 | `captionSendNext` | frontend/js/captions.js:137 |
 | `captionToggleTranslate` | frontend/js/captions.js:76 |
 | `captionTranslatePump` | frontend/js/captions.js:58 |
 | `captionTranslatedText` | frontend/js/captions.js:54 |
 | `captionsText` | frontend/js/captions.js:96 |
-| `holdLiveCaptions` | frontend/js/captions.js:305 |
+| `holdLiveCaptions` | frontend/js/captions.js:311 |
 | `startLiveCaptions` | frontend/js/captions.js:199 |
-| `stopLiveCaptions` | frontend/js/captions.js:272 |
-| `stopRecorderWords` | frontend/js/captions.js:301 |
-| `toggleLiveCaptions` | frontend/js/captions.js:309 |
+| `stopLiveCaptions` | frontend/js/captions.js:274 |
+| `stopRecorderWords` | frontend/js/captions.js:307 |
+| `toggleLiveCaptions` | frontend/js/captions.js:315 |
 
 ### frontend/js/categories-panel.js (27)
 
@@ -3567,6 +3567,20 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `fieldClearWatchValue` | frontend/js/field-clear.js:109 |
 | `fieldClearWrite` | frontend/js/field-clear.js:59 |
 
+### frontend/js/file-drop.js (9)
+
+| Name | File:line |
+|---|---|
+| `fileDragHasFiles` | frontend/js/file-drop.js:22 |
+| `fileDropArm` | frontend/js/file-drop.js:74 |
+| `fileDropEnter` | frontend/js/file-drop.js:92 |
+| `fileDropHide` | frontend/js/file-drop.js:56 |
+| `fileDropImport` | frontend/js/file-drop.js:100 |
+| `fileDropLocked` | frontend/js/file-drop.js:26 |
+| `fileDropOver` | frontend/js/file-drop.js:61 |
+| `fileDropShow` | frontend/js/file-drop.js:51 |
+| `fileDropVeil` | frontend/js/file-drop.js:31 |
+
 ### frontend/js/first-run.js (8)
 
 | Name | File:line |
@@ -4293,7 +4307,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `editRecordingMark` | frontend/js/meetings.js:1790 |
 | `enhanceGain` | frontend/js/meetings.js:1197 |
 | `enhanceRecording` | frontend/js/meetings.js:1219 |
-| `fillMicDevices` | frontend/js/meetings.js:2347 |
+| `fillMicDevices` | frontend/js/meetings.js:2349 |
 | `meetingAcceptOriginal` | frontend/js/meetings.js:1273 |
 | `meetingActionRow` | frontend/js/meetings.js:265 |
 | `meetingAppendUndoable` | frontend/js/meetings.js:539 |
@@ -4326,9 +4340,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `meetingTick` | frontend/js/meetings.js:891 |
 | `meetingTranscribeTake` | frontend/js/meetings.js:1140 |
 | `meetingWhenText` | frontend/js/meetings.js:29 |
-| `micControlsInto` | frontend/js/meetings.js:2287 |
-| `micLevelInto` | frontend/js/meetings.js:2407 |
-| `nameMeetingMic` | frontend/js/meetings.js:2448 |
+| `micControlsInto` | frontend/js/meetings.js:2289 |
+| `micLevelInto` | frontend/js/meetings.js:2409 |
+| `nameMeetingMic` | frontend/js/meetings.js:2450 |
 | `nameRecordingSpeakers` | frontend/js/meetings.js:1899 |
 | `noteRecoveredRecordings` | frontend/js/meetings.js:1401 |
 | `openLiveCaptionsFrom` | frontend/js/meetings.js:2213 |
@@ -4373,9 +4387,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `stopMeetingTimer` | frontend/js/meetings.js:832 |
 | `stopMeetingTranscription` | frontend/js/meetings.js:1298 |
 | `stopRecordingTranscription` | frontend/js/meetings.js:1972 |
-| `syncMicSelects` | frontend/js/meetings.js:2359 |
+| `syncMicSelects` | frontend/js/meetings.js:2361 |
 | `syncRecordingDock` | frontend/js/meetings.js:876 |
-| `testMicrophone` | frontend/js/meetings.js:2368 |
+| `testMicrophone` | frontend/js/meetings.js:2370 |
 | `toggleMeetingPause` | frontend/js/meetings.js:1326 |
 | `toggleMeetingRecording` | frontend/js/meetings.js:985 |
 | `transcribeRecording` | frontend/js/meetings.js:1934 |
@@ -9340,6 +9354,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/ask-compose-lazy.css | 33 |
 | frontend/css/atlas-lazy.css | 52 |
 | frontend/css/captions-lazy.css | 95 |
+| frontend/css/file-drop-lazy.css | 47 |
 | frontend/css/first-run-lazy.css | 41 |
 | frontend/css/graph-lazy.css | 157 |
 | frontend/css/help-chat-lazy.css | 32 |
@@ -9748,7 +9763,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/spaces/{space_id}` | PUT | `update_space` | src/memorymap/api/routes_spaces.py:84 |
 | `/spaces/{space_id}/move-notes` | POST | `move_notes_to_space` | src/memorymap/api/routes_spaces.py:462 |
 | `/spec` | GET | `model_spec` | src/memorymap/api/routes_models.py:507 |
-| `/start` | POST | `start` | src/memorymap/api/routes_captions.py:49 |
+| `/start` | POST | `start` | src/memorymap/api/routes_captions.py:96 |
 | `/statistics` | GET | `statistics` | src/memorymap/api/routes_statistics.py:24 |
 | `/stats` | GET | `ask_history_stats` | src/memorymap/api/routes_ask_history.py:83 |
 | `/stats` | GET | `stats` | src/memorymap/api/routes_insights.py:33 |
@@ -9921,14 +9936,14 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{reminder_id}/notification-token` | POST | `notification_token` | src/memorymap/api/routes_reminders.py:670 |
 | `/{reminder_id}/purge` | DELETE | `purge_reminder` | src/memorymap/api/routes_reminders.py:743 |
 | `/{reminder_id}/restore` | POST | `restore_reminder` | src/memorymap/api/routes_reminders.py:733 |
-| `/{session_id}/audio` | POST | `audio` | src/memorymap/api/routes_captions.py:65 |
-| `/{session_id}/stop` | POST | `stop` | src/memorymap/api/routes_captions.py:90 |
+| `/{session_id}/audio` | POST | `audio` | src/memorymap/api/routes_captions.py:112 |
+| `/{session_id}/stop` | POST | `stop` | src/memorymap/api/routes_captions.py:137 |
 | `/{turn_id}` | DELETE | `delete_ask_turn` | src/memorymap/api/routes_ask_history.py:171 |
 | `/{turn_id}` | GET | `get_ask_turn` | src/memorymap/api/routes_ask_history.py:91 |
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4769)
+## Backend modules (4772)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10166,25 +10181,26 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `page_caption_text` | src/memorymap/ai/captioning.py:201 |
 | `running_captions` | src/memorymap/ai/captioning.py:50 |
 
-### src/memorymap/ai/captions.py (15)
+### src/memorymap/ai/captions.py (16)
 
 | Name | File:line |
 |---|---|
-| `CaptionsError` | src/memorymap/ai/captions.py:79 |
-| `Session` | src/memorymap/ai/captions.py:156 |
-| `_clean` | src/memorymap/ai/captions.py:145 |
-| `_http` | src/memorymap/ai/captions.py:101 |
-| `_is_local` | src/memorymap/ai/captions.py:91 |
-| `_rms` | src/memorymap/ai/captions.py:127 |
-| `begin` | src/memorymap/ai/captions.py:299 |
-| `end` | src/memorymap/ai/captions.py:325 |
-| `expired` | src/memorymap/ai/captions.py:334 |
-| `get` | src/memorymap/ai/captions.py:320 |
-| `helper_url` | src/memorymap/ai/captions.py:83 |
-| `infer` | src/memorymap/ai/captions.py:269 |
-| `model_label` | src/memorymap/ai/captions.py:87 |
-| `status` | src/memorymap/ai/captions.py:108 |
-| `wav_of` | src/memorymap/ai/captions.py:135 |
+| `CaptionsError` | src/memorymap/ai/captions.py:80 |
+| `Session` | src/memorymap/ai/captions.py:157 |
+| `_clean` | src/memorymap/ai/captions.py:146 |
+| `_http` | src/memorymap/ai/captions.py:102 |
+| `_is_local` | src/memorymap/ai/captions.py:92 |
+| `_rms` | src/memorymap/ai/captions.py:128 |
+| `_sweep_spools` | src/memorymap/ai/captions.py:355 |
+| `begin` | src/memorymap/ai/captions.py:368 |
+| `end` | src/memorymap/ai/captions.py:400 |
+| `expired` | src/memorymap/ai/captions.py:409 |
+| `get` | src/memorymap/ai/captions.py:395 |
+| `helper_url` | src/memorymap/ai/captions.py:84 |
+| `infer` | src/memorymap/ai/captions.py:322 |
+| `model_label` | src/memorymap/ai/captions.py:88 |
+| `status` | src/memorymap/ai/captions.py:109 |
+| `wav_of` | src/memorymap/ai/captions.py:136 |
 
 ### src/memorymap/ai/cards.py (16)
 
@@ -10752,37 +10768,37 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_of` | src/memorymap/ai/help_chat.py:2270 |
-| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2201 |
-| `_guide_lead` | src/memorymap/ai/help_chat.py:2678 |
-| `_guide_opening` | src/memorymap/ai/help_chat.py:2686 |
-| `_help_sentences` | src/memorymap/ai/help_chat.py:2661 |
-| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2155 |
-| `_matching_topics` | src/memorymap/ai/help_chat.py:2309 |
-| `_meaning_topics` | src/memorymap/ai/help_chat.py:2389 |
-| `_normalise_keys` | src/memorymap/ai/help_chat.py:2178 |
-| `_place` | src/memorymap/ai/help_chat.py:2656 |
-| `_prompt_for` | src/memorymap/ai/help_chat.py:2529 |
-| `_reading_topics` | src/memorymap/ai/help_chat.py:2292 |
-| `_second_sentence` | src/memorymap/ai/help_chat.py:2665 |
-| `answer` | src/memorymap/ai/help_chat.py:2822 |
-| `answer_stream` | src/memorymap/ai/help_chat.py:2760 |
-| `badges_for` | src/memorymap/ai/help_chat.py:2477 |
-| `composed_answer` | src/memorymap/ai/help_chat.py:2700 |
-| `help_block_for` | src/memorymap/ai/help_chat.py:2886 |
-| `help_listing` | src/memorymap/ai/help_chat.py:2448 |
-| `offline_answer` | src/memorymap/ai/help_chat.py:2718 |
-| `social_reply` | src/memorymap/ai/help_chat.py:2629 |
-| `source_names` | src/memorymap/ai/help_chat.py:2444 |
-| `system_answer` | src/memorymap/ai/help_chat.py:2426 |
-| `topic_title` | src/memorymap/ai/help_chat.py:2412 |
-| `topics_for` | src/memorymap/ai/help_chat.py:2491 |
+| `_act_of` | src/memorymap/ai/help_chat.py:2272 |
+| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2203 |
+| `_guide_lead` | src/memorymap/ai/help_chat.py:2680 |
+| `_guide_opening` | src/memorymap/ai/help_chat.py:2688 |
+| `_help_sentences` | src/memorymap/ai/help_chat.py:2663 |
+| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2157 |
+| `_matching_topics` | src/memorymap/ai/help_chat.py:2311 |
+| `_meaning_topics` | src/memorymap/ai/help_chat.py:2391 |
+| `_normalise_keys` | src/memorymap/ai/help_chat.py:2180 |
+| `_place` | src/memorymap/ai/help_chat.py:2658 |
+| `_prompt_for` | src/memorymap/ai/help_chat.py:2531 |
+| `_reading_topics` | src/memorymap/ai/help_chat.py:2294 |
+| `_second_sentence` | src/memorymap/ai/help_chat.py:2667 |
+| `answer` | src/memorymap/ai/help_chat.py:2824 |
+| `answer_stream` | src/memorymap/ai/help_chat.py:2762 |
+| `badges_for` | src/memorymap/ai/help_chat.py:2479 |
+| `composed_answer` | src/memorymap/ai/help_chat.py:2702 |
+| `help_block_for` | src/memorymap/ai/help_chat.py:2888 |
+| `help_listing` | src/memorymap/ai/help_chat.py:2450 |
+| `offline_answer` | src/memorymap/ai/help_chat.py:2720 |
+| `social_reply` | src/memorymap/ai/help_chat.py:2631 |
+| `source_names` | src/memorymap/ai/help_chat.py:2446 |
+| `system_answer` | src/memorymap/ai/help_chat.py:2428 |
+| `topic_title` | src/memorymap/ai/help_chat.py:2414 |
+| `topics_for` | src/memorymap/ai/help_chat.py:2493 |
 
 ### src/memorymap/ai/help_topics_more.py (1)
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/memorymap/ai/help_topics_more.py:2282 |
+| `_act_topic` | src/memorymap/ai/help_topics_more.py:2285 |
 
 ### src/memorymap/ai/inbox.py (7)
 
@@ -12436,15 +12452,17 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_mcp` | src/memorymap/api/routes_capabilities.py:37 |
 | `capabilities` | src/memorymap/api/routes_capabilities.py:76 |
 
-### src/memorymap/api/routes_captions.py (5)
+### src/memorymap/api/routes_captions.py (7)
 
 | Name | File:line |
 |---|---|
-| `StopBody` | src/memorymap/api/routes_captions.py:84 |
-| `_save` | src/memorymap/api/routes_captions.py:32 |
-| `audio` | src/memorymap/api/routes_captions.py:66 |
-| `start` | src/memorymap/api/routes_captions.py:50 |
-| `stop` | src/memorymap/api/routes_captions.py:91 |
+| `StartBody` | src/memorymap/api/routes_captions.py:90 |
+| `StopBody` | src/memorymap/api/routes_captions.py:131 |
+| `_keep_audio` | src/memorymap/api/routes_captions.py:56 |
+| `_save` | src/memorymap/api/routes_captions.py:34 |
+| `audio` | src/memorymap/api/routes_captions.py:113 |
+| `start` | src/memorymap/api/routes_captions.py:97 |
+| `stop` | src/memorymap/api/routes_captions.py:138 |
 
 ### src/memorymap/api/routes_categories.py (20)
 
@@ -16016,7 +16034,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9961)
+## Tests (9973)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16130,6 +16148,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_canvasui_1010.py | 9 |
 | tests/test_captioning.py | 16 |
 | tests/test_captions.py | 16 |
+| tests/test_captions_keep_audio.py | 6 |
 | tests/test_captions_live.py | 2 |
 | tests/test_captions_translate.py | 5 |
 | tests/test_capture_draft_blank.py | 2 |
@@ -16366,6 +16385,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_feature_models.py | 39 |
 | tests/test_fence_scrub.py | 4 |
 | tests/test_field_clear.py | 8 |
+| tests/test_file_drop.py | 5 |
 | tests/test_file_editing.py | 20 |
 | tests/test_file_read_tasks.py | 6 |
 | tests/test_file_save.py | 21 |
@@ -17007,7 +17027,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_translate_offline.py | 7 |
 | tests/test_tray.py | 18 |
 | tests/test_ui_batch_726.py | 8 |
-| tests/test_ui_recipes.py | 193 |
+| tests/test_ui_recipes.py | 194 |
 | tests/test_ui_signatures.py | 2 |
 | tests/test_ui_state.py | 6 |
 | tests/test_uisweep_1011.py | 11 |

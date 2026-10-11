@@ -39,6 +39,7 @@ import threading
 import time
 import wave
 from dataclasses import dataclass, field
+from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
@@ -172,6 +173,51 @@ class Session:
     stopped: bool = False
     job: activity.Job | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
+    #: **Keeping the audio** (ledger libr-1011 row 1226), only when the page
+    #: asked: every chunk is appended to `spool` (a raw 16 kHz mono file beside
+    #: the recordings), and each committed line remembers when it began and
+    #: ended, so Stop can write a Recording whose transcript seeks the audio.
+    keep_audio: bool = False
+    spool: Path | None = None
+    line_start: int = 0
+    timings: list[tuple[int, int]] = field(default_factory=list)
+
+    def segments(self) -> list[dict]:
+        """The lines with their times, for a Recording's transcript: committed
+        lines as they were, the one still running ending where the audio does."""
+        out = []
+        for text, (start, end) in zip(self.lines, self.timings, strict=False):
+            out.append({"start": start, "end": max(end, start + 1), "text": text, "speaker": ""})
+        if self.running.strip():
+            out.append({"start": self.line_start, "end": max(self.heard_ms, self.line_start + 1), "text": self.running, "speaker": ""})
+        return out
+
+    def write_wav(self, dest: Path, bins: int = 200) -> tuple[int, list[int]]:
+        """The spool as a WAV at `dest`, streamed (an hour is 115 MB), with the
+        waveform the Recordings shelf draws. Returns (size in bytes, peaks)."""
+        if self.spool is None or not self.spool.is_file():
+            return 0, []
+        total = self.spool.stat().st_size // 2 * 2
+        per_bin = max(2, total // bins // 2 * 2)
+        peaks: list[int] = []
+        with self.spool.open("rb") as src, wave.open(str(dest), "wb") as out:
+            out.setnchannels(1)
+            out.setsampwidth(2)
+            out.setframerate(SAMPLE_RATE)
+            left = total
+            while left > 0:
+                block = src.read(min(left, per_bin))
+                if not block:
+                    break
+                left -= len(block)
+                out.writeframes(block[: len(block) // 2 * 2])
+                peaks.append(min(100, int(_rms(block) / 32768 * 100 * 6)))
+        return dest.stat().st_size, peaks
+
+    def discard_audio(self) -> None:
+        """Drop the spool: Stop without saving, a failure, or after the WAV."""
+        if self.spool is not None:
+            self.spool.unlink(missing_ok=True)
 
     def transcript(self) -> str:
         parts = [*self.lines, self.running] if self.running else list(self.lines)
@@ -194,6 +240,7 @@ class Session:
     def _commit(self) -> None:
         if self.running:
             self.lines.append(self.running)
+            self.timings.append((self.line_start, self.heard_ms))
             self.running = ""
         self._trim()
         self.voiced = False
@@ -204,8 +251,14 @@ class Session:
         if self.job is not None:
             self.job.touch()
         self.pcm += chunk
+        before = self.heard_ms
         self.heard_ms += len(chunk) // BYTES_PER_MS
+        if self.spool is not None:
+            with self.spool.open("ab") as out:
+                out.write(chunk)
         if _rms(chunk) >= SILENCE_RMS:
+            if not self.voiced:
+                self.line_start = before
             self.silent_ms = 0
             self.voiced = self.dirty = True
         else:
@@ -296,13 +349,35 @@ _sessions: dict[str, Session] = {}
 _registry_lock = threading.Lock()
 
 
-def begin() -> Session:
+SPOOL_PREFIX = ".captions-"
+
+
+def _sweep_spools() -> None:
+    """A run killed with the app leaves its spool; one a day old is nobody's."""
+    from memorymap.core import recordings
+
+    cutoff = time.time() - 24 * 3600
+    for stale in recordings.directory().glob(f"{SPOOL_PREFIX}*.pcm"):
+        try:
+            if stale.stat().st_mtime < cutoff:
+                stale.unlink()
+        except OSError:
+            logger.debug("could not remove a stale captions spool", exc_info=True)
+
+
+def begin(keep_audio: bool = False) -> Session:
     """A new session, the only one: a second microphone stream would double
-    every caption. Raises CaptionsError when the helper is not there."""
+    every caption. Raises CaptionsError when the helper is not there.
+    `keep_audio` is the page's switch (Settings, General, Microphone)."""
     info = status()
     if not info["available"]:
         raise CaptionsError(info["hint"] or NO_HELPER_HINT)
-    session = Session()
+    session = Session(keep_audio=keep_audio)
+    if keep_audio:
+        from memorymap.core import recordings
+
+        _sweep_spools()
+        session.spool = recordings.directory() / f"{SPOOL_PREFIX}{session.id}.pcm"
     with _registry_lock:
         if _sessions:
             raise CaptionsError("Live captions are already running.")

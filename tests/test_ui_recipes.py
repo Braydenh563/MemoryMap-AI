@@ -5593,3 +5593,24 @@ def test_file_reading_text_fits_up_to_a_page():
     assert m and "max-height: min(28rem, 55vh)" in m.group(1)
     shell = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text()
     assert re.search(r"\.library-image-card-fold > \.library-image-reading-body \{\s*max-height: 11rem", shell)
+
+
+def test_the_drop_veil_takes_no_press_and_has_no_blur() -> None:
+    """DESIGN.md "A drop target" (ledger libr-1011 row 1266): the veil laid over
+    the window while files are dragged in must not catch the drag, and a blurred
+    full-window surface is the cost the glass-off list exists to avoid."""
+    css = (ROOT / "frontend" / "css" / "file-drop-lazy.css").read_text(encoding="utf-8")
+    veil = _css_block_in(css, ".drop-veil")
+    assert "pointer-events: none" in veil and "position: fixed" in veil
+    assert "backdrop-filter" not in css and "blur(" not in css
+    assert "var(--accent-soft)" in veil and "var(--accent)" in veil
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "**The drop veil**" in design
+    for path in JS:
+        if path.name != "file-drop.js":
+            assert "drop-veil" not in path.read_text(encoding="utf-8"), f"{path.name} builds its own drop veil"
+
+
+def _css_block_in(css: str, selector: str) -> str:
+    start = css.index(selector + " {")
+    return css[start : css.index("}", start)]

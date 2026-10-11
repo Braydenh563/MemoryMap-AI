@@ -1646,7 +1646,7 @@ Rows (owner: canvasdepth3, Opus, next free slot after transparency):
 - C2. Decision E2: the six ends and the end size, in the Start and End menus, the map's link menu and the export.
 - C3. Decision E3: the signature end, three candidates measured at 1x and 2x, one taken.
 - C4. Decision E4: guides, corner snap and the size readout while drawing.
-- C5. Decision E5: the audit table here, then its top five per surface.
+- C5. Decision E5: the audit table here, then its top five per surface; it lists the small taken-for-granted things too (Brief 87's list).
 
 ## Placed from INBOX, 2026-10-11 (board and map previews)
 

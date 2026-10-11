@@ -10,7 +10,6 @@ repaired questions in a row do not hear the same sentence twice.
 from __future__ import annotations
 
 import hashlib
-import re
 
 #: What an acknowledgement opens with, per voice; the repaired question
 #: follows in quotes, then `END`. Every variant is a fixed phrase
@@ -75,4 +74,7 @@ def acknowledge(repaired: str, *, voice: str, seed: str, history: list[dict] | N
 
 def reading_of(repaired: str) -> str:
     """The repaired question as quoted: without its closing stop."""
-    return re.sub(r"[?.!\s]+$", "", repaired.strip())
+    text = repaired.strip()
+    while text and (text[-1] in "?.!" or text[-1].isspace()):
+        text = text[:-1]
+    return text

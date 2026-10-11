@@ -282,7 +282,8 @@ def test_trust_and_untrust_from_the_list_are_this_computers(lan_app):
     assert here.post("/auth/lan-networks/nothing/untrust").status_code == 404
     refused = phone.delete(f"/auth/lan-networks/{CAFE.key}")
     assert refused.status_code == 403 and refused.json()["detail"] == REFUSAL
-    assert here.delete(f"/auth/lan-networks/{CAFE.key}").status_code == 200
+    removed = here.delete(f"/auth/lan-networks/{CAFE.key}")
+    assert removed.status_code == 200
 
 
 def test_switching_off_signs_every_other_device_out(lan_app):

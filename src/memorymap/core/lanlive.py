@@ -254,8 +254,8 @@ class Listener:
             await asyncio.wait_for(asyncio.shield(task), STOP_SECONDS * 3)
         except asyncio.TimeoutError:
             task.cancel()
-            with contextlib.suppress(BaseException):
-                await task
+            #: Wait for the cancelled task to finish; `wait` does not re-raise what it ended with.
+            await asyncio.wait([task])
         except Exception:  # noqa: BLE001  # a listener that had failed is stopped all the same
             log.debug("the LAN listener ended with an error", exc_info=True)
         self.server = self.task = None

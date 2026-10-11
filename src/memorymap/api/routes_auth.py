@@ -19,6 +19,7 @@ import hashlib
 import ipaddress
 import logging
 import os
+import re
 import secrets
 import threading
 import time
@@ -724,6 +725,9 @@ def _device_cookie(request: Request) -> str:
 
 def _set_device_cookie(response: Response, raw: str) -> None:
     #: Only the LAN port is https, and only a device on the network has one.
+    #: Only the shape `_device_cookie` and the trust store issue is ever written back.
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,100}", raw or ""):
+        return
     response.set_cookie(
         lantrust.DEVICE_COOKIE, raw, max_age=400 * 24 * 3600, path="/auth",
         httponly=True, secure=True, samesite="strict",

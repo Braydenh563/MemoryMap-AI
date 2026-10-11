@@ -140,4 +140,4 @@ def test_a_browser_launch_restarts_for_real(tmp_path):
             try:
                 os.kill(new_pid, 15)
             except OSError:
-                pass
+                pass  # already gone: nothing to stop

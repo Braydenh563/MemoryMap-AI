@@ -184,7 +184,7 @@ def test_a_refused_client_is_closed_before_any_handshake(lan, monkeypatch):
             raw.sendall(b"GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
             assert raw.recv(100) == b""
         except ConnectionError:
-            pass
+            pass  # a reset: the request beat the close, which is the same refusal
 
 
 def test_the_gate_closes_and_reopens_the_port(tmp_path):

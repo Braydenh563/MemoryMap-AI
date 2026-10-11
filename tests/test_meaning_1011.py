@@ -149,7 +149,7 @@ def test_close_in_meaning_says_when_no_model_is_on(client, monkeypatch):
 def test_close_in_meaning_ranks_the_rows_by_cosine(client, monkeypatch):
     from memorymap.core import deps
 
-    monkeypatch.setattr(deps, "get_embeddings", lambda: _Letters())
+    monkeypatch.setattr(deps, "get_embeddings", _Letters)
     token = client.post("/auth/setup", json={"password": "first-pass"}).json()["token"]
     texts = ["Zoom in", "Keyboard shortcuts", "Keyboard shortcut list"]
     got = client.post("/read/near", json={"q": "keyboard shortcuts", "texts": texts}, headers={"X-Auth-Token": token}).json()

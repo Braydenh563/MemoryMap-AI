@@ -262,7 +262,8 @@ def test_removing_a_device_signs_it_out_and_it_asks_again(lan_app):
     here.post(f"/auth/lan-devices/{held['id']}/allow")
     token = phone.post("/auth/unlock", json={"password": PASSWORD}).json()["token"]
     assert phone.get("/auth/lan-access", headers={"X-Auth-Token": token}).status_code == 200
-    assert here.delete(f"/auth/lan-devices/{held['id']}").status_code == 200
+    removed = here.delete(f"/auth/lan-devices/{held['id']}")
+    assert removed.status_code == 200
     assert phone.get("/auth/lan-access", headers={"X-Auth-Token": token}).status_code == 401
     assert phone.post("/auth/unlock", json={"password": PASSWORD}).status_code == 403
 
@@ -310,7 +311,8 @@ def test_any_network_and_allow_here_need_the_password(lan_app):
     assert here.post("/auth/lan-networks/allow", json={}).status_code == 401
     state = here.post("/auth/lan-networks/allow", json={"current_password": PASSWORD}).json()
     assert [n["key"] for n in state["networks"]] == [HOME.key]
-    assert here.delete(f"/auth/lan-networks/{HOME.key}").json()["networks"] == []
+    forgotten = here.delete(f"/auth/lan-networks/{HOME.key}")
+    assert forgotten.json()["networks"] == []
     assert here.post(
         "/auth/lan-options", json={"name": "any_network", "enabled": True, "current_password": PASSWORD}
     ).json()["any_network"] is True

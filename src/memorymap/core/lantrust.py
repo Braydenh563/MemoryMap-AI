@@ -251,7 +251,8 @@ def refresh(data_dir: Path, network=_UNREAD, *, online: bool | None = None) -> d
         if allowance is not None and network is not None and allowance.get("gateway") in ("", network.gateway):
             _remember(state, network)
             save(data_dir, state)
-            _run_allowance = allowance = None
+            _run_allowance = None
+            allowance = None
         opened, reason = evaluate(state, network, allowance, online=online)
         if reason in ("new_network", "public_network") and network is not None and _note_untrusted(state, network):
             save(data_dir, state)

@@ -5,10 +5,10 @@ Merged the interrupted open-ledger pass (`worktree-agent-aaa5f777494d6b48c`, doc
 ## Done
 
 - Built: the `open_questions` switch gates the night pass (`ai/facts.py`, `tests/test_night_pairs.py`); a Library document card's Show in graph (`note-cards.js`, `library.js`, `docingraph.js`, `tests/test_object_actions.py`).
-- Closed as built or stale (verified, each with how): the `#doc-ai-verb` and `#graph-layout` radius row, Phase 11 item 9's other half, Phase 11 items 2 to 8, uitrio.md, the Packages gap, the Take tour again row, arch.md's pruning clause, backend-0926's IPv6 and night-pass clauses, world-class-rows-1-2-9's LAN test, toggle and receipt clauses, guideia.md's Show in graph and Try asking clauses.
+- Closed as built or stale (verified, each with how): the `#doc-ai-verb` and `#graph-layout` radius row, Phase 11 item 9's other half, Phase 11 items 2 to 8, uitrio.md, the Packages gap, the Take tour again row, arch.md (removed 2026-10-12, recoverable from git history)'s pruning clause, backend-0926's IPv6 and night-pass clauses, world-class-rows-1-2-9's LAN test, toggle and receipt clauses, guideia.md's Show in graph and Try asking clauses.
 - Rewritten to current state: the search-surfaces row, the four-switches row (now `evidence_checks` only), I1's later passes.
 - Every remaining open row outside Whiteboard and Atlas ends in "Needs:" (or "Left:" for a recorded decision).
-- Sweeps: `segradius.js` follows the `.tabs-line` table (0 findings, was 4); new `focusedhead.js`, `packagesgap.js`, `docingraph.js`.
+- Sweeps: `segradius.js` follows the `.tabs-line` table (0 findings, was 4); new `focusedhead.js`, `packagesgap.js` (removed 2026-10-12, recoverable from git history), `docingraph.js`.
 
 ## Left
 

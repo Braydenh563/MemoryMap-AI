@@ -70,7 +70,7 @@
 - Everything mapux2.md lists under its own "Found, not fixed" is unchanged:
   the Insert and Arrange markup still in a map's top bar, the right-click on
   a cross-link's bend grip, no live cue of which kind a connect drag will
-  make, and `mapstyle.js`'s "radial slot" check failing on the base branch.
+  make, and `mapstyle.js` (removed 2026-10-12, recoverable from git history)'s "radial slot" check failing on the base branch.
 
 - **An `<arrowlink>` written by FreeMind itself is untested.** The round-trip
   is this app's own file both ways; a real `.mm` from FreeMind or Freeplane,

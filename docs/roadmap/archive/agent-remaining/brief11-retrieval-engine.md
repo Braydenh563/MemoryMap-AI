@@ -3,7 +3,7 @@
 > Companions: [HISTORY.md](../../HISTORY.md) ("From WORLD_CLASS_PLAN.md B3 and
 > SESSION_BRIEFS Brief 11") · [SESSION_BRIEFS.md](../../SESSION_BRIEFS.md)
 > Brief 11 · the spec, `tests/test_search_engine_spec.py` · the measurement,
-> `scratchpad/search/measure_engine.py`
+> `scratchpad/search/measure_engine.py` (removed 2026-10-12, recoverable from git history)
 
 Built this session: `src/memorymap/search/index.py` (one FTS5 index over six
 kinds, an `after_flush` write path, a source registry that raises on an
@@ -66,7 +66,7 @@ added in `tests/test_search_engine.py`.
    4-dimensional fake; a real backend is 384-dimensional, anisotropic, and
    its `embed_text` per query is the cost this engine does not measure.
    **Next step:** WORLD_CLASS_PLAN §9's dev-only llama.cpp script, then
-   re-run `scratchpad/search/measure_engine.py` against it.
+   re-run `scratchpad/search/measure_engine.py` (removed 2026-10-12, recoverable from git history) against it.
 
 7. **The graph signal needs an open note, and the Notes list rarely has
    one.** `file: frontend/app.js`, `id: search-open-note`. The list passes

@@ -8,13 +8,13 @@ Four items, all done; the accounts are in HISTORY.md, "Moved from the plans,
 2. Meta chips: 13 rules to 0; a pressable chip is styled through
    `.chip-interactive`; `META_EDGED` keeps two edges by name.
 3. The viewport popups with the background art on: measured clean
-   (`scratchpad/ui-sweeps/popupsart.js`), no app change.
+   (`scratchpad/ui-sweeps/popupsart.js` (removed 2026-10-12, recoverable from git history)), no app change.
 4. The document's first line on a phone: Read view 255 to 199 at 390x844
    (`scratchpad/ui-sweeps/docphonetop.js`).
 
 ## Still open, in the order to take them
 
-1. **The chat model panel with a model connected.** `popupsart.js` cannot
+1. **The chat model panel with a model connected.** `popupsart.js` (removed 2026-10-12, recoverable from git history) cannot
    open `#chat-model-panel` without a configured chat model
    (`openChatModelPanel` returns); it is a child of body, so no card can trap
    it, but its rows were not measured. Sonnet, with `scratchpad/llama-dev.sh`.
@@ -35,7 +35,7 @@ Four items, all done; the accounts are in HISTORY.md, "Moved from the plans,
 
 ## Not verified
 
-- A real phone: `popupsart.js` and `docphonetop.js` run Chromium's touch
+- A real phone: `popupsart.js` (removed 2026-10-12, recoverable from git history) and `docphonetop.js` run Chromium's touch
   emulation at 390x844.
 - The art's actual pixels behind a popup: every popup measured has an
   opaque ground (alpha 1), so contrast is the ground's, not the art's.

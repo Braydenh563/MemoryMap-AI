@@ -1355,7 +1355,7 @@ topic: a control that wide has nowhere to go.
   each the board menu bar's own recipe; the strip is **314 x 38** at 1440,
   1024 and 820 (0.22, 0.31 and 0.38 of the window, against a gate of a half)
   and 314 x 54 at 390, against 959.4 x 38 and 348.4 x 150 before. `mapstrip.js`
-  39/39, `mapnarrow.js` 3/3, and `mapline.js`, `mapcore.js` and `mapspine.js`
+  39/39, `mapnarrow.js` 3/3, and `mapline.js`, `mapcore.js` (removed 2026-10-12, recoverable from git history) and `mapspine.js`
   untouched at 13/13, 16/16 and 9/9. ~~**What is left of 13b**: whether the
   strip still covers the handle of the line into its own topic~~ **measured
   and fixed 2026-10-04**, recorded in HISTORY.md ("Moved from the plans,
@@ -1410,7 +1410,7 @@ topic: a control that wide has nowhere to go.
   decision 9's narrow case~~ **built 2026-10-04**, recorded in HISTORY.md
   ("Moved from the plans, 2026-10-04 (the map's palette, font and the app's
   own default)"): one palette list on the server read by canvas and
-  thumbnail, a map font, and a pin per themed select; `mappalette.js` 13/13
+  thumbnail, a map font, and a pin per themed select; `mappalette.js` (removed 2026-10-12, recoverable from git history) 13/13
   in light, dark and 390. 13e is closed.
 - ~~**13f. The doors that are built and shut.**~~ **Withdrawn 2026-09-21, and
   a different thing built in its place**, recorded in HISTORY.md ("Moved from

@@ -44,7 +44,7 @@ the live view's code fence (15), a "Today" button in the documents dock (14).
    already: `SELECTION_POPUP_EXCLUDED` is
    `"input, textarea, [contenteditable], .selection-popup"`, so the selection
    popup cannot be raised from a form field at all.
-3. ~~**`docexports.js` is stale and fails on a click timeout.**~~ Fixed
+3. ~~**`docexports.js` (removed 2026-10-12, recoverable from git history) is stale and fails on a click timeout.**~~ Fixed
    2026-09-21. The cause was the one named here: the five download rows are
    written inside the ⋯ menu's `<details>`, but `foldDocMenuGroup` moves
    them at load into a "Download or print" group whose flyout is reparented

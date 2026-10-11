@@ -606,7 +606,7 @@ Plan and ROADMAP rows by file: WORLD_CLASS_PLAN 114, UI_MODERNISATION_PLAN 91, C
 | 570 | guideia.md: the Guide is a modal sheet whose scrim dims the app, so "Open the Reminders tab" cannot be read against the tab. [guideia] *Needs: a... | docs/roadmap/agent-remaining/OPEN.md:2796 | S | unassigned |
 | 571 | uipolish-0924.md: the surface-by-surface pass (its item D) is already a row above. Triaged: deadbtn.js's findings for Chat's #chat-export and... | docs/roadmap/agent-remaining/OPEN.md:2841 | M | unassigned |
 | 572 | Help audit's remainder: menus drawn on press (the chat "/" menu, a message's menu, the board menus, the notes list's menus) are checked by source... | docs/roadmap/agent-remaining/OPEN.md:2986 | M | unassigned |
-| 573 | Chat panels not measured: #chat-model-panel with a model connected (popupsart.js cannot open it without one; use scratchpad/llama-dev.sh) and the... | docs/roadmap/agent-remaining/OPEN.md:2993 | S | unassigned |
+| 573 | Chat panels not measured: #chat-model-panel with a model connected (popupsart.js (removed 2026-10-12, recoverable from git history) cannot open it without one; use scratchpad/llama-dev.sh) and the... | docs/roadmap/agent-remaining/OPEN.md:2993 | S | unassigned |
 | 574 | The popup agent's results pane with a conversation in it. Everything was measured on the empty state, since this sandbox has no model... | docs/roadmap/agent-remaining/OPEN.md:3252 | L | unassigned |
 | 575 | The .skill-fact-reads chip reads dy +4px in one of four identical instances on the Skills sub-tab at 1440 (badgealign.js); the instance is not... | docs/roadmap/agent-remaining/OPEN.md:3309 | S | unassigned |
 | 576 | Owner (2026-10-07): the janitor warmed a default chat model it never checked ("Chat with 'llama3.2' failed"). warm_filing_model (janitor.py:741)... | docs/roadmap/agent-remaining/OPEN.md:3336 | M | unassigned |
@@ -722,7 +722,7 @@ Plan and ROADMAP rows by file: WORLD_CLASS_PLAN 114, UI_MODERNISATION_PLAN 91, C
 | 686 | Under the system's reduce-motion hint Atlas keeps its calm CSS loops (an earlier decision, 08-consistency.css:5056): 1,579 style recalcs a minute.... | docs/roadmap/agent-remaining/OPEN.md:3626 | S | unassigned |
 | 687 | The owner's "arm movements ... permanently in a downward arc": the arm hold now changes on idle ticks (45%), but the arm angle range over a walk... | docs/roadmap/agent-remaining/OPEN.md:3628 | S | unassigned |
 | 688 | Tail, rings, nebula and lower-body "subtle animations that are all cheap" (owner's list): not changed; they exist (atlas-life.js) and are the cost... | docs/roadmap/agent-remaining/OPEN.md:3629 | S | unassigned |
-| 689 | Face sheet (facesheet.js, 12 names, light): one silhouette, one outline, readable at 104; crowns spill 6 px past the card's top edge; the gaming... | docs/roadmap/agent-remaining/OPEN.md:3630 | S | unassigned |
+| 689 | Face sheet (facesheet.js (removed 2026-10-12, recoverable from git history), 12 names, light): one silhouette, one outline, readable at 104; crowns spill 6 px past the card's top edge; the gaming... | docs/roadmap/agent-remaining/OPEN.md:3630 | S | unassigned |
 | 690 | Companion bubbles: what the companion says about the notebook (a resurfaced note, a pattern this week, a reminder due, an empty day) is composed from... | docs/roadmap/CHAT_PLAN.md:727 | M | unassigned |
 | 691 | Voice: Atlas's by default, changeable. Warm and brief in openings and companion bubbles, plain in answers; a setting offers plain and playful too... | docs/roadmap/CHAT_PLAN.md:829 | S | unassigned |
 | 692 | Two functions here are among the ten most complex in src (WORLD_CLASS 26.5): api/routes_chat.py::_stream_lines cx 105 over 321 lines and... | docs/roadmap/CHAT_PLAN.md:1763 | M | unassigned |
@@ -738,11 +738,11 @@ Plan and ROADMAP rows by file: WORLD_CLASS_PLAN 114, UI_MODERNISATION_PLAN 91, C
 | 702 | Section: Section 13: the six complaints, phases open | docs/roadmap/MINDMAP_PLAN.md:604 | L | unassigned |
 | 703 | Section: 14.4 What is open (core nodes, linked symbols, layer effects, reactions) | docs/roadmap/MINDMAP_PLAN.md:1755 | M | unassigned |
 | 704 | The mind map's own leftover list was re-checked item by item, 2026-09-20 (archive/agent-remaining/mindmap.md, "Left to do", rewritten with what a run... | docs/roadmap/agent-remaining/OPEN.md:2087 | L | unassigned |
-| 705 | Pre-existing sweep failures on the base scripts: mapcore.js 14/16 (a core node's spine and size), mindmap.js three FAILs (the Mind map segment's... | docs/roadmap/agent-remaining/OPEN.md:2119 | M | unassigned |
+| 705 | Pre-existing sweep failures on the base scripts: mapcore.js (removed 2026-10-12, recoverable from git history) 14/16 (a core node's spine and size), mindmap.js three FAILs (the Mind map segment's... | docs/roadmap/agent-remaining/OPEN.md:2119 | M | unassigned |
 | 706 | Mind map gaps open: a structure per branch, callouts, labels under a topic, .xmind export, stickers and votes. | docs/roadmap/agent-remaining/OPEN.md:2380 | S | unassigned |
 | 707 | Mind map library schematics (wbMapThumbSpec) are monochrome, not tinted with branch colours; a hollow diamond draws the shaft through it. | docs/roadmap/agent-remaining/OPEN.md:2414 | S | unassigned |
 | 708 | createConceptMap (whiteboard.js ~20240) has no caller but app.js's lazy stub list now that every "concept map" entry makes the mind map: delete it... | docs/roadmap/agent-remaining/OPEN.md:2551 | S | unassigned |
-| 709 | mindmap2.md: mindmapimage.js passes 12 of 12 at 390x844 (measured 2026-10-04); a picture node does not resize to its picture; mindmap3.js times out... | docs/roadmap/agent-remaining/OPEN.md:2821 | L | unassigned |
+| 709 | mindmap2.md: mindmapimage.js (removed 2026-10-12, recoverable from git history) passes 12 of 12 at 390x844 (measured 2026-10-04); a picture node does not resize to its picture; mindmap3.js times out... | docs/roadmap/agent-remaining/OPEN.md:2821 | L | unassigned |
 | 710 | Frames and the map plan's rest: MINDMAP_PLAN 12.2's rest (a boundary round a lassoed set that is not one branch, priority, progress, flags and due... | docs/roadmap/agent-remaining/OPEN.md:2952 | M | unassigned |
 | 711 | The size stepper reads "17px" on a main branch and "22px" on the centre, and Classic's level sizes have no S, M, L or XL word, so the well showed... | docs/roadmap/agent-remaining/OPEN.md:3399 | M | unassigned |
 | 712 | Mind map "Add a top-level topic": the board stack grows by one, Ctrl+Z leaves the lists differing (/whiteboard/ state not equal to before)... | docs/roadmap/agent-remaining/OPEN.md:3549 | S | unassigned |
@@ -1247,7 +1247,7 @@ Plan and ROADMAP rows by file: WORLD_CLASS_PLAN 114, UI_MODERNISATION_PLAN 91, C
 | 1211 | The Gemini misspelling table looks drawn from Wikipedia's lists (CC BY-SA); its origin is unrecorded (docs/THIRD_PARTY.md, Data). | docs/roadmap/agent-remaining/triage-1010.md:33 | S | unassigned |
 | 1212 | Section: Audio in the notebook: architecture decided, build deferred (partly built by Brief 80, 82, 83, voiceup) | docs/roadmap/WORLD_CLASS_PLAN.md:2135 | L | unassigned |
 | 1213 | Section: 28.4 and 28.5 deepened: OCR workspace and audio set rows (Briefs 79, 80 landed; rest open) | docs/roadmap/WORLD_CLASS_PLAN.md:4106 | L | unassigned |
-| 1214 | The README's OCR shot is the 0.3.2 capture, in dark: seed-ocr.js needs a Tesseract binary this sandbox does not have, so it was not retaken with the... | docs/roadmap/agent-remaining/OPEN.md:1962 | S | unassigned |
+| 1214 | The README's OCR shot is the 0.3.2 capture, in dark: seed-ocr.js (removed 2026-10-12, recoverable from git history) needs a Tesseract binary this sandbox does not have, so it was not retaken with the... | docs/roadmap/agent-remaining/OPEN.md:1962 | S | unassigned |
 | 1215 | INBOX 803 item 4 (the OCR workspace's empty squashed box): not reproduced in five states; needs the owner's screenshot or state. | docs/roadmap/agent-remaining/OPEN.md:2267 | S | unassigned |
 | 1216 | The recorder saves plain transcript text into the meeting note; the timed lines live only on the recording. /voice/transcribe-meeting still returns... | docs/roadmap/agent-remaining/OPEN.md:2356 | S | unassigned |
 | 1217 | The attached-image thumbnail path in the preview (attachmentObjectUrl) was not driven, only inline images. | docs/roadmap/agent-remaining/OPEN.md:2466 | S | unassigned |
@@ -1326,7 +1326,7 @@ Plan and ROADMAP rows by file: WORLD_CLASS_PLAN 114, UI_MODERNISATION_PLAN 91, C
 | 1290 | Owner (2026-10-07): each embedding row shows its real state (Downloaded with its size on disk, Not downloaded, or Files missing with Reinstall). The... | docs/roadmap/agent-remaining/OPEN.md:3339 | M | unassigned |
 | 1291 | renderAutonomousSettings fills the Models-pane checkboxes only when Background tasks or Web search opens (settings.js, per the file, about line 158)... | docs/roadmap/agent-remaining/OPEN.md:3340 | M | unassigned |
 | 1292 | Autonomous with no model running ends "Finished analysing and linking notes." in 65 ms; it should say it had no model (check agent.run_agent for a... | docs/roadmap/agent-remaining/OPEN.md:3341 | S | unassigned |
-| 1293 | Older sweeps that expect note rows in the palette (grep palette-input): ux1005-palette.js and search1005-lazy.js read command rows only, and... | docs/roadmap/agent-remaining/OPEN.md:3380 | S | unassigned |
+| 1293 | Older sweeps that expect note rows in the palette (grep palette-input): ux1005-palette.js (removed 2026-10-12, recoverable from git history) and search1005-lazy.js read command rows only, and... | docs/roadmap/agent-remaining/OPEN.md:3380 | S | unassigned |
 | 1294 | Stop part way: the night shift, the backup, resurfacing and the embeddings backfill are each one call with no step to stop at. Only housekeeping... | docs/roadmap/agent-remaining/OPEN.md:3381 | M | unassigned |
 | 1295 | /entries/{id}/related lists notes that are already linked, so a press on one answers 400 "already linked" (pre-existing). (from tidy691-1006.md) | docs/roadmap/agent-remaining/OPEN.md:3404 | S | unassigned |
 | 1296 | Notes keep the old updated_at rule (any write moves it): edited_at answers "when a person changed it", but lexical_filing... | docs/roadmap/agent-remaining/OPEN.md:3433 | M | unassigned |
@@ -1448,7 +1448,7 @@ Plan and ROADMAP rows by file: WORLD_CLASS_PLAN 114, UI_MODERNISATION_PLAN 91, C
 | 1412 | 110 distinct controls show no change on keyboard focus (a11yname.js, 312 stops over 14 surfaces): every .status-item, the .ghost.small buttons, the... | docs/roadmap/agent-remaining/OPEN.md:2673 | M | unassigned |
 | 1413 | The markup has 18 overlays plus the built confirm and the tour card, not the plan's 15; $S/design/hierarchy.json lists each with its size (Brief 59... | docs/roadmap/agent-remaining/OPEN.md:2676 | S | unassigned |
 | 1414 | mapread.md and maprender.md: 13g, the haywire middle-button pan, needs the owner (it never reproduced headless; do not fix blind); the 50-topic open... | docs/roadmap/agent-remaining/OPEN.md:2811 | M | unassigned |
-| 1415 | The frontend audit's leftovers (scratchpad/audit1005/frontend.md): FE-09 unused CSS (no coverage-driven deletion started); FE-10 Settings panes'... | docs/roadmap/agent-remaining/OPEN.md:3052 | M | unassigned |
+| 1415 | The frontend audit's leftovers (scratchpad/audit1005/frontend.md (removed 2026-10-12, recoverable from git history)): FE-09 unused CSS (no coverage-driven deletion started); FE-10 Settings panes'... | docs/roadmap/agent-remaining/OPEN.md:3052 | M | unassigned |
 | 1416 | Not verified: Quit's 0.72 opacity contrast is computed (about 3.1:1 light, 5:1 dark), not read from pixels; the line numbers' baseline drop is... | docs/roadmap/agent-remaining/OPEN.md:3089 | S | unassigned |
 | 1417 | How the dark palette reads on an OLED panel or at another display gamma, and the luminance column glassdepth.js takes, which was not re-run after the... | docs/roadmap/agent-remaining/OPEN.md:3229 | S | unassigned |
 | 1418 | Write with AI was measured with the model off, so "Draft it" is disabled and the draft box is empty in every measurement. The column heights are the... | docs/roadmap/agent-remaining/OPEN.md:3256 | M | unassigned |
@@ -1562,11 +1562,11 @@ Plan and ROADMAP rows by file: WORLD_CLASS_PLAN 114, UI_MODERNISATION_PLAN 91, C
 | 1526 | D1's folder: the brief and D1 say frontend/js/run/; the files are frontend/js/run-*.js because 65 lints (test_frontend_symbols, the em-dash and... | docs/roadmap/agent-remaining/OPEN.md:2658 | S | unassigned |
 | 1527 | input() is answered before the run (the Input box), not interactively mid-run: that needs SharedArrayBuffer and the COOP/COEP headers, which are D2's... | docs/roadmap/agent-remaining/OPEN.md:2664 | S | unassigned |
 | 1528 | netbind.host_allowed("localhost.") and a trailing-dot own name are refused (fail closed, as intended; noted so nobody reads a 421 on localhost. as a... | docs/roadmap/agent-remaining/OPEN.md:2688 | S | unassigned |
-| 1529 | arch.md: INBOX 266's usability and lightweight items belong to nobody. [arch] (The emblem's idle cost is built: HISTORY.md, "OPEN.md rows closed... | docs/roadmap/agent-remaining/OPEN.md:2772 | S | unassigned |
+| 1529 | arch.md (removed 2026-10-12, recoverable from git history): INBOX 266's usability and lightweight items belong to nobody. [arch] (The emblem's idle cost is built: HISTORY.md, "OPEN.md rows closed... | docs/roadmap/agent-remaining/OPEN.md:2772 | S | unassigned |
 | 1530 | writing-desk.md: Stop mid-pass is unverified (the stand-in answers in about 150ms; a slow backend behind an env var in fake_openai_server.py would... | docs/roadmap/agent-remaining/OPEN.md:2863 | M | unassigned |
 | 1531 | Prose tools: Harper's lint config per kind in the dictionary dialog (harper-worker.js, setLintConfig; about 200 rules, all or nothing today)... | docs/roadmap/agent-remaining/OPEN.md:2910 | L | unassigned |
 | 1532 | Map render and persistence: (the wbMapNodeSize 94px row is closed, HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps... | docs/roadmap/agent-remaining/OPEN.md:2957 | M | unassigned |
-| 1533 | The rest of the architecture audit (scratchpad/audit1005/arch.md): ARCH-04's client half (the cursor exists, after and X-Next-Cursor, but... | docs/roadmap/agent-remaining/OPEN.md:3040 | L | unassigned |
+| 1533 | The rest of the architecture audit (scratchpad/audit1005/arch.md (removed 2026-10-12, recoverable from git history)): ARCH-04's client half (the cursor exists, after and X-Next-Cursor, but... | docs/roadmap/agent-remaining/OPEN.md:3040 | L | unassigned |
 | 1534 | Nothing in the learning loop was measured past a test-sized notebook. The pass is O(notes) with one query per note for the already-known... | docs/roadmap/agent-remaining/OPEN.md:3200 | M | unassigned |
 | 1535 | The desktop window was never run (start-desktop.sh); every visual claim on this branch is a browser tab. [prose-intelligence.md, visual-c.md] | docs/roadmap/agent-remaining/OPEN.md:3218 | S | unassigned |
 | 1536 | Timings vary two to four times between runs (the machine was shared with other agents; map add-a-child 102 to 424 ms); the blocks give ranges. Rerun... | docs/roadmap/agent-remaining/OPEN.md:3295 | S | unassigned |
@@ -1959,7 +1959,7 @@ two decisions only the owner can take are INBOX 427.
   closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)").
   [ui-426]
   *Needs: a surface-by-surface design pass.*
-- **The README's OCR shot is the 0.3.2 capture, in dark**: `seed-ocr.js`
+- **The README's OCR shot is the 0.3.2 capture, in dark**: `seed-ocr.js` (removed 2026-10-12, recoverable from git history)
   needs a Tesseract binary this sandbox does not have, so it was not retaken
   with the rest (`SKIP=ocr`). [docs-0.3.3]
   *Needs: a Tesseract binary.*
@@ -2013,7 +2013,7 @@ being written by running agents stay beside this one.
 
 ## Documents
 
-- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that; Found, not fixed: scratchpad/ui-sweeps/docexports.js fails on a click timeout; The document surface's aliases have no lint; The table cell menu is a kebabMenu with ten items and no grouping; Atomic ranges, the Mod+click affordance and the toolbar's own state; Outline rows are 24 to 25.2px, under the app's own 28px floor; clampToolbarMenu's comment says the trigger cannot be reproduced here, and that is now out of date; The writing-suggestion underline is the only surface with no hover affordance; docFindingAtPoint walks every mark on every pointer event; The three finding kinds are named in two places.
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that; Found, not fixed: scratchpad/ui-sweeps/docexports.js (removed 2026-10-12, recoverable from git history) fails on a click timeout; The document surface's aliases have no lint; The table cell menu is a kebabMenu with ten items and no grouping; Atomic ranges, the Mod+click affordance and the toolbar's own state; Outline rows are 24 to 25.2px, under the app's own 28px floor; clampToolbarMenu's comment says the trigger cannot be reproduced here, and that is now out of date; The writing-suggestion underline is the only surface with no hover affordance; docFindingAtPoint walks every mark on every pointer event; The three finding kinds are named in two places.
 - Closed here, accounts in HISTORY.md, "Moved from the plans, 2026-10-04 (design-1004)": The rest of the app's viewport popups have not been measured with the background art on.
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": A finding below the editor's visible box gets a menu drawn over its own word.
 
@@ -2090,13 +2090,13 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
   them by decisions taken after the list was written: the dock's Layout
   section exists and MINDMAP_PLAN §12.5 decided a map shows no Insert or
   Arrange menu at all, both sweeps take `VIEWPORT`, `mapstrip.js` runs 39/39
-  on `#wb-context`, `mapperspective.js` measures every Colour by on a map of
+  on `#wb-context`, `mapperspective.js` (removed 2026-10-12, recoverable from git history) measures every Colour by on a map of
   twenty notes 12/12 (category 5 colours, 4.59:1 to 9.13:1 against the card),
   and `wbrail.js` reads the rail against the bar recipe 6/6. Of what that
   re-check found actually left, ~~**curve control points on a tree edge**~~ and
   ~~**an image in a node**~~ were built 2026-09-21 (MINDMAP_PLAN §12.1 items 2
   and 5, moved whole to HISTORY.md, "Moved from the plans, 2026-09-21";
-  `scratchpad/ui-sweeps/mindmapcurve.js` 14/14 and `mindmapimage.js` 12/12, light and dark,
+  `scratchpad/ui-sweeps/mindmapcurve.js` 14/14 and `mindmapimage.js` (removed 2026-10-12, recoverable from git history) 12/12, light and dark,
   both now in `scripts/gate.sh`'s sweep list). What is left of that list is the
   AI half, which no sandbox here can exercise.
   *Blocked here: the AI half needs a model.*
@@ -2116,7 +2116,7 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 - The frame-preview clip was reproduced only as the selection canvas lagging a container that grew mid-drag (fixed); the owner's exact trigger is not known.
 - "spacing is really close ... bunched up" on insert: gaps measured 26px before and after on both layouts; only the branch's jump to the end was found and fixed. A screenshot if it recurs.
 - WHITEBOARD_PLAN "Placed from INBOX, 2026-10-07 (next PR)": 740's frame hint has no edit path and its connector arrow-head set (none, open, triangle, circle, diamond, bar) is not built; 747's "Reset style" for a board object is not built.
-- Pre-existing sweep failures on the base scripts: `mapcore.js` 14/16 (a core node's spine and size), `mindmap.js` three FAILs (the Mind map segment's active mark, "an ordinary board shows no map chrome", the P5 template tile click timing out), `mapstyle.js` "Aa grip overlaps the actions".
+- Pre-existing sweep failures on the base scripts: `mapcore.js` (removed 2026-10-12, recoverable from git history) 14/16 (a core node's spine and size), `mindmap.js` three FAILs (the Mind map segment's active mark, "an ordinary board shows no map chrome", the P5 template tile click timing out), `mapstyle.js` (removed 2026-10-12, recoverable from git history) "Aa grip overlaps the actions".
 - `errors.js` at 390 stops on its own second login check (`#lock-password` reads visible after the unlock); 1440, 1024 and 820 report 0 errors.
 
 ## Timeline
@@ -2718,7 +2718,7 @@ Code editor (Brief 69, I1 built):
 ## Sweeps and tooling
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": `scratchpad/ui-sweeps/editor.js` still describes the retired editor; `contrast.js` never visits the Documents tab.
-- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": `menus.js` timing out at its last step; `notessubtabs.js` counting the hidden native selects.
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": `menus.js` timing out at its last step; `notessubtabs.js` (removed 2026-10-12, recoverable from git history) counting the hidden native selects.
 - **A check that cannot tell "nothing matched" from "labels are broken" cries
   wolf on every small fixture.** Two of `graph2.js`'s five failures were
   exactly that, measured on a scratch profile holding a single note. The
@@ -2757,7 +2757,7 @@ are named in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 the head, so they carry no row of their own.
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": anim.md.
-- **arch.md**: INBOX 266's usability and lightweight items belong to nobody.
+- **arch.md (removed 2026-10-12, recoverable from git history)**: INBOX 266's usability and lightweight items belong to nobody.
   [arch] (The emblem's idle cost is built: HISTORY.md, "OPEN.md rows closed,
   2026-10-05 (docs hygiene before 0.4.0)".)
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": askcite.md.
@@ -2806,7 +2806,7 @@ the head, so they carry no row of their own.
   carried; an `<arrowlink>` written by FreeMind itself is untested. [maptheme]
   *Needs: schema and export design.* (The palette, the font and the pin back to
   the app's default are built, MINDMAP_PLAN 13e.)
-- **mindmap2.md**: `mindmapimage.js` passes 12 of 12 at 390x844 (measured
+- **mindmap2.md**: `mindmapimage.js` (removed 2026-10-12, recoverable from git history) passes 12 of 12 at 390x844 (measured
   2026-10-04); a picture node does not resize to its picture; `mindmap3.js`
   times out at `#wb-boards-generate` (the AI half); `mindmapcurve.js` at
   390x844 passes 11 of 14 (its map is laid out wider than a phone, so the
@@ -2831,7 +2831,7 @@ the head, so they carry no row of their own.
   `#chat-delete` are visually-hidden, `aria-hidden` proxies the ⋯ rows click
   (index.html ~2335), the sweep's finding and not a dead control; the
   Packages rows' title-to-description gap measures 12.8px at 1440, 1024, 820
-  and 390 (`packagesgap.js`), not the 16px reported. [uipolish-0924]
+  and 390 (`packagesgap.js` (removed 2026-10-12, recoverable from git history)), not the 16px reported. [uipolish-0924]
   *Needs: item D, a design pass per surface.*
 - **wbtopbar.md**: `#wb-search-toggle` and `#wb-navigator-toggle` duplicate View
   menu switches (UI_MODERNISATION_PLAN Phase 8 names them as the bar's find
@@ -2912,7 +2912,7 @@ pane's name, the errors sweep's aside clipping at 390.
 - **The Writing Room's stretch**: measured at 1440x900 light on the two
   `NOTE_SURFACES` boxes only, the graph's two note boxes not opened. (The table
   full view's X is built: 28x28 at 1440 and 44x44 at 390, each equal to
-  `--target-min`; `tablefullclose.js` asserts it. Its phone width and the Writing
+  `--target-min`; `tablefullclose.js` (removed 2026-10-12, recoverable from git history) asserts it. Its phone width and the Writing
   Room's are closed, HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0
   buildable rows, sweeps on port 8815)".) [notes]
 
@@ -2948,7 +2948,7 @@ pane's name, the errors sweep's aside clipping at 390.
   after a tidy (a decision: frame after a tidy that pushed content off the
   canvas, or rely on Fit); tidy, copy branch and
   "open every folded branch" persist one node per request (a bulk endpoint if
-  any ever matters); `mapstyle.js`'s "radial slot" check reads `w: 0` on the
+  any ever matters); `mapstyle.js` (removed 2026-10-12, recoverable from git history)'s "radial slot" check reads `w: 0` on the
   base too. [mindmap, mapux2]
 - **The Boards and maps dashboard widget's tall maps**: a 25-topic tree-right
   map draws a 20x40 paper in the 72x40 row box. Cropping a tall map or a
@@ -2979,7 +2979,7 @@ pane's name, the errors sweep's aside clipping at 390.
   runs at 1440 only, so a control a narrow window moves into a menu is named for
   the wide layout. [helpaudit-1005]
 - **Chat panels not measured**: `#chat-model-panel` with a model connected
-  (`popupsart.js` cannot open it without one; use `scratchpad/llama-dev.sh`)
+  (`popupsart.js` (removed 2026-10-12, recoverable from git history) cannot open it without one; use `scratchpad/llama-dev.sh`)
   and the chat dock's select menus opened from inside the How it answers sheet
   at 390. Status chips: WORLD_CLASS_PLAN 1.2's wording and DESIGN.md's label
   recipe disagree (taken: the label recipe, `META_EDGED`; if the owner wants
@@ -3014,26 +3014,26 @@ pane's name, the errors sweep's aside clipping at 390.
 
 - **ARCH-02, the save at 5,000 notes**: `POST /entries` p50 210 ms (one line)
   and 345 ms (400 words), not under 150; 390 to 615 ms with 384-wide vectors
-  against 61 to 96 ms at 500. The profile (`scratchpad/perf2-1005-prof.py`):
+  against 61 to 96 ms at 500. The profile (`scratchpad/perf2-1005-prof.py` (removed 2026-10-12, recoverable from git history)):
   the lexical pass walks all 4,000 kept docs per save, `nearest` reads up to
   4,000 postings, `janitor._knn_match` takes 52 ms over the matrix. Tried and
   reverted: a test instead of a list and per-category counts in the corpus
   (exact, removed the walks, not the time). Next: a smaller postings budget
   measured with `scratchpad/filing_eval.py`, or the k nearest read from the
   engine's matrix once per save. [arch1005, perf2-1005]
-- **The rest of the architecture audit** (`scratchpad/audit1005/arch.md`):
+- **The rest of the architecture audit** (`scratchpad/audit1005/arch.md` (removed 2026-10-12, recoverable from git history)):
   ARCH-04's client half (the cursor exists, `after` and `X-Next-Cursor`, but
   `notes-list.js` still reads every page by offset into `allEntries`); ARCH-13
   (response models for the busiest routes and one paging helper; the shape lint
   is built); ARCH-16 (follow-ups are skipped while a turn streams but there is
   no preference and no hardware probe saying "CPU only"); ARCH-22
   (`skill_runner._run_one_step`, 425 lines, and `agent.run_agent`, 416, need a
-  state object before they split; `scratchpad/perf2-1005-longfns.py`); ARCH-10
+  state object before they split; `scratchpad/perf2-1005-longfns.py` (removed 2026-10-12, recoverable from git history)); ARCH-10
   (the import-cycle ratchet holds 15 and 3); ARCH-25 (the pool size, a chat
   stream holding its connection, `restore_backup` with sessions open: read, not
   reproduced). ARCH-09 stays as built: `file-entry` shares the one-wide model
   lane with captions on purpose. [arch1005, perf2-1005]
-- **The frontend audit's leftovers** (`scratchpad/audit1005/frontend.md`):
+- **The frontend audit's leftovers** (`scratchpad/audit1005/frontend.md` (removed 2026-10-12, recoverable from git history)):
   FE-09 unused CSS (no coverage-driven deletion started); FE-10 Settings panes'
   markup is not fetched on first open (a `<template>` is still parsed and boot
   code reads Settings ids; a real gain moves every boot reader behind it);
@@ -3043,7 +3043,7 @@ pane's name, the errors sweep's aside clipping at 390.
   (34px reached). [perf2-1005]
 - **Retrieval and the learned loop, plan rows whose half-built parts live in
   the scratchpad**: "most opened this month" is parked in
-  `scratchpad/wc1005b-most-opened.md` (`core/opens.py`, `GET
+  `scratchpad/wc1005b-most-opened.md` (removed 2026-10-12, recoverable from git history) (`core/opens.py`, `GET
   /entries/most-accessed?period=month`, hooks on `flashEntry` and
   `openNotePage`, the Most used widget's seg, then the HISTORY block and a
   CHANGELOG line); the "wrong" correction on an evidence card (I7's second
@@ -3138,7 +3138,7 @@ Held by the Atlas motion agent; each closes when its sweep measures it.
   adds `.sheet-leaving` (opacity and a short drop, `--motion-fast`) and removes
   the overlay after the computed transition, at once under the OS hint or
   Interface animations "reduced"; the ⋯ sheet sends its menu home in the new
-  `onGone`. `sheetexit.js`: gone at 178 and 180ms on Escape and an outside
+  `onGone`. `sheetexit.js` (removed 2026-10-12, recoverable from git history): gone at 178 and 180ms on Escape and an outside
   press, first frame still drawn and pointer-events none, 0ms under both
   reduced-motion routes, menu home and hidden after.
 - **Four sweeps repaired** (447d6fb, e4c1b76, and the commit that records this).
@@ -3190,7 +3190,7 @@ Held by the Atlas motion agent; each closes when its sweep measures it.
   fake.** A real backend is 384-dimensional, anisotropic, and its `embed_text`
   per query is the cost the engine does not measure. Next step:
   WORLD_CLASS_PLAN 9's runner, then re-run
-  `scratchpad/search/measure_engine.py`. [brief11-retrieval-engine.md]
+  `scratchpad/search/measure_engine.py` (removed 2026-10-12, recoverable from git history). [brief11-retrieval-engine.md]
 - **Chromium only, mostly 1440x900, no second browser and no real touch
   device.** The graph's world constant in `gcWorldFor` (1.6 to 1.25) is
   reasoned above about a thousand notes; touch and pinch on the map are
@@ -3224,7 +3224,7 @@ Held by the Atlas motion agent; each closes when its sweep measures it.
   documents outline. [doc-sidebar.md]
 - **IME composition inside the editor engine**, and the fallback path reached
   by a genuinely blocked request rather than by setting `docCmBroken` by hand.
-  (The fallback surface itself was verified in 2026-09-13's `docfallback.js`
+  (The fallback surface itself was verified in 2026-09-13's `docfallback.js` (removed 2026-10-12, recoverable from git history)
   run, 8 of 8.) [documents-engine.md, documents-phases.md]
 - **The whiteboard's PDF export** goes through the browser's print dialog,
   which Playwright cannot complete, so it is the one pair of the
@@ -3359,7 +3359,7 @@ Thirty-nine finished agent files moved to [`../archive/agent-remaining/`](../arc
 - `ocrflow.js` still reads `#ocr-engine` as a line and clicks `#ocr-more`; it was not re-run, and its engine checks may need the popover opened first. The region drag (outlining a rectangle) was not re-measured after the Regions toggle became a button. (from ocr717-1006.md)
 - README `docs/screenshots/palette.png` (and `docs/index.html`'s copy) still shows notes, a document and a board in the palette. Retake it with `scratchpad/ui-sweeps/readmeshots.js` so the picture matches the alt text. (from palette666-1006.md)
 - `tests-e2e/specs/shell.spec.js` has a handoff test that has only had `node --check`; Playwright's runner has not run it. (from palette666-1006.md)
-- Older sweeps that expect note rows in the palette (grep `palette-input`): `ux1005-palette.js` and `search1005-lazy.js` read command rows only, and `readmeshots.js` types "launch". (from palette666-1006.md)
+- Older sweeps that expect note rows in the palette (grep `palette-input`): `ux1005-palette.js` (removed 2026-10-12, recoverable from git history) and `search1005-lazy.js` read command rows only, and `readmeshots.js` types "launch". (from palette666-1006.md)
 - Stop part way: the night shift, the backup, resurfacing and the embeddings backfill are each one call with no step to stop at. Only housekeeping reads `passes.stop_requested` (passes.py:184); the backfill's loop could check it. (from progress696-1006.md)
 - Settings, Packages has its own Embedding models list beside Search and index's, which does the same and more. Recommendation: Packages keeps a single line pointing to Search and index. (from progress696-1006.md)
 - Not verified: a real model load for the new built-in embedding models (no sentence-transformers here); Pull a model by name is tested against a mocked Hub; Ollama pulls and the found scan against a real Ollama; the dark theme for the new rows. (from progress696-1006.md)
@@ -3602,7 +3602,7 @@ Taken up by the companion2 agent (Brief 34 continues, INBOX 772 and 773).
 - Brief 34 second part (INBOX 752): snapping transitions per minute (60 Hz joint sampling), 12 distinct idle motions per ten minutes and reaction latency under 100 ms were not measured; the latency bar conflicts with the 1.5s reaction debounce the owner asked for ("atlas startles a lot"). [companion-1010]
 - The owner's "arm movements ... permanently in a downward arc": the arm hold now changes on idle ticks (45%), but the arm angle range over a walk cycle and at rest was not measured (atlasarms.js has the probe). [companion-1010]
 - Tail, rings, nebula and lower-body "subtle animations that are all cheap" (owner's list): not changed; they exist (atlas-life.js) and are the cost above. [companion-1010]
-- Face sheet (facesheet.js, 12 names, light): one silhouette, one outline, readable at 104; crowns spill 6 px past the card's top edge; the gaming controller reads as a black block at 104. [companion-1010]
+- Face sheet (facesheet.js (removed 2026-10-12, recoverable from git history), 12 names, light): one silhouette, one outline, readable at 104; crowns spill 6 px past the card's top edge; the gaming controller reads as a black block at 104. [companion-1010]
 
 Not verified: Every "Done when" face site was read in code (`nameMark` goes through `characterRendererFor` first), not driven one by one this round. Context reactions (drowsy, sleep, headphones, glasses, nightcap, bell, offline, wave on focus) are present in avatars.js and were measured by earlier sweeps; not re-driven. Timings: other agents held the load at 6 to 10 on four cores; counts (layouts, recalcs) are load-free, milliseconds are not. A WebView2 or WebKitGTK window; a touch rub (mouse and pen only by design).
 

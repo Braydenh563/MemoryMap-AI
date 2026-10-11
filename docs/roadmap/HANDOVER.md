@@ -431,7 +431,7 @@ phone, Library, Notes and Documents chrome, Opus). Next: refresh
 made them stale), then 437 and 434's open parts. `gate.sh --staged` now
 includes the gzip boot budget (CI went red by 141 bytes once). Gate with
 `grep -q "^failed:  none"` before every commit. `smoke.js`,
-`selmenu-items.js`, `captureaudit.js` are the quick feature checks; run
+`selmenu-items.js` (removed 2026-10-12, recoverable from git history), `captureaudit.js` are the quick feature checks; run
 `zoom.js` one tab at a time (`ONLY=`).
 
 **Before that (2026-10-03 morning, PR 162, branch `claude/notes-flow-rebuild`):** the note
@@ -509,7 +509,7 @@ computer, the Documents toolbar and focus-mode fixes, Library Activity, the
 tour's per-frame follow, the `--accent-text` token, and the app.js split
 into 23 files (warm boot about 28ms slower, cold the same, 3.6% more bytes on
 the wire). The README has Atlas at its title and 25 screenshots retaken on
-this head (`readmeshots.js`, `atlasreadme.js`, `pngshrink.py`).
+this head (`readmeshots.js`, `atlasreadme.js` (removed 2026-10-12, recoverable from git history), `pngshrink.py` (removed 2026-10-12, recoverable from git history)).
 
 **Next:** INBOX 427, the owner's two calls (Atlas's anatomy after rounds 3
 and 4; the companion's pin near an edge). Then `agent-remaining/OPEN.md`,

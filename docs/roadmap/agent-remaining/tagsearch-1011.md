@@ -24,7 +24,7 @@ id | status | evidence or commit
 1290 | built | each built-in row says Downloaded, <size on disk> / Not downloaded / Files missing + Reinstall (embed-choices.js, catalogue state and on_disk); size counts weights kept in the shared blob store (was 1015 KB for a 127 MB model); measured 1440 and 390: no overflow, 44px targets at 390
 1291 | closed-informational | settings.js:159 fills the Models-pane checkboxes when Background tasks or Web search opens; the note records where the code is, not a defect
 1292 | built | autonomous.NO_MODEL_DETAIL: a pass whose agent answered offline says "Skipped: no model is running"; tests/test_autonomous.py; _optimization_pass complexity 42 to 41 (seed lowered)
-1293 | done-already | ux1005-palette.js, search1005-lazy.js and readmeshots.js read command rows only (palette is commands and places, INBOX 666)
+1293 | done-already | ux1005-palette.js (removed 2026-10-12, recoverable from git history), search1005-lazy.js and readmeshots.js read command rows only (palette is commands and places, INBOX 666)
 1294 | built | embeddings backfill honours Stop between batches (passes.STOPPABLE, jobruns.stop_asked); Settings, Packages keeps one line pointing to Search and index in place of its second embedding list; tests/test_embedding_backfill.py::test_stop_ends_the_backfill_between_batches_and_keeps_what_was_embedded
 1295 | built | GET /entries/{id}/related leaves out notes already linked and a draft against a committed note; tests/test_related_notes.py::test_related_leaves_out_a_note_that_is_already_linked
 1296 | closed-decision | notes keep the updated_at rule on purpose (the board-only guard stays); lexical_filing keys on updated_at; nothing to change

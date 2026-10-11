@@ -302,11 +302,11 @@ the same thing.
    sidebar's Outline tab rather than in a right panel, with the measurement
    that decided it.
 2. **Version history UI**: built (revisions, diff, Restore, the "AI edits"
-   filter). Re-run 2026-10-04, `dochistory.js` all pass; see HISTORY.md
+   filter). Re-run 2026-10-04, `dochistory.js` (removed 2026-10-12, recoverable from git history) all pass; see HISTORY.md
    ("Moved from the plans, 2026-10-04 (the documents phone pass)").
 3. **AI edit with a diff preview, per hunk; Check with AI as findings**:
    built (the per-hunk diff; INBOX 410's in-place findings). Re-run
-   2026-10-04, `docaidiff.js` all pass; same HISTORY entry.
+   2026-10-04, `docaidiff.js` (removed 2026-10-12, recoverable from git history) all pass; same HISTORY entry.
 4. **Focus and typewriter modes, reading typography, a print stylesheet**:
    built. The record is in HISTORY.md ("Moved from the plans, 2026-09-20",
    DOCUMENTS_PLAN.md Phase 5 item 4).
@@ -800,7 +800,7 @@ That is one assertion and everything below follows from it.
 
 **What holds the line**: `tests/test_document_export_html.py` runs the document
 shell in node and fails on a host name, a `<link>`, an `@import`, a `url()` or a
-`<script>` anywhere in it, and `scratchpad/ui-sweeps/docexporthtml.js` exports a
+`<script>` anywhere in it, and `scratchpad/ui-sweeps/docexporthtml.js` (removed 2026-10-12, recoverable from git history) exports a
 real document, opens the saved file in a second browser context with every
 network request refused, and measures what renders: 0 network attempts, 1
 decoded inline image, the table, the disabled task boxes and the reading

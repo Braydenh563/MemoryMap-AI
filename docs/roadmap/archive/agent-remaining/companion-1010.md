@@ -47,7 +47,7 @@ line each below.
 - Tail, rings, nebula and lower-body "subtle animations that are all cheap"
   (owner's list): not changed; they exist (atlas-life.js) and are the cost
   above.
-- Face sheet (facesheet.js, 12 names, light): one silhouette, one outline,
+- Face sheet (facesheet.js (removed 2026-10-12, recoverable from git history), 12 names, light): one silhouette, one outline,
   readable at 104; crowns spill 6 px past the card's top edge; the gaming
   controller reads as a black block at 104.
 

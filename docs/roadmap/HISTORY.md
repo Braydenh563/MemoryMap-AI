@@ -181,7 +181,7 @@ Each row was checked against the head before anything was built.
   with the value cut to 16px (89, 65 and 59px needed). Below 600 the row wraps
   and what to write takes its own line: 89, 65 and 59 of 89, 65 and 59 px
   shown. `phonecapture.js` now measures the three values and the page overflow
-  at 390; `tablefullclose.js` asserts the full view stays in the window and the
+  at 390; `tablefullclose.js` (removed 2026-10-12, recoverable from git history) asserts the full view stays in the window and the
   page does not scroll sideways at the width it runs at (1440 and 390).
   Found, not fixed: at 360 with Large text and Spacious the whole shell is 368
   wide (the header controls and five tab buttons of 74px), 8px of sideways page
@@ -252,7 +252,7 @@ Each row below was checked against the head before anything was built.
   7.96:1 on a sticky, a text box and a dark box.
 - **The table full view's X is 28x28, "under `--target-min`"**: it is equal to
   it. `--target-min` is 28px with a pointer and 44px on touch, and the X
-  measured 28x28 at 1440 and 44x44 at 390. `tablefullclose.js` now asserts
+  measured 28x28 at 1440 and 44x44 at 390. `tablefullclose.js` (removed 2026-10-12, recoverable from git history) now asserts
   the X is at least the token's pixels (`WIDTH=390 PHONE=1` for the phone).
 - **Settings, Tools it can use at 390: a tall gap between "Tokens per step"'s
   description and its field**: not reproduced. The gap is the row's own 16px
@@ -775,7 +775,7 @@ The whole brief, closed with its last row (2026-10-12: the name-mark pairs under
 >   natural skin and hand-drawn hair (twenty styles), presentation chosen in
 >   Face looks and Your look and never read from a name, and two traits per
 >   face from its hash. The rules are in `nameMood`'s header; the sheets come
->   from `scratchpad/ui-sweeps/facesheet.js`. See the commits "Faces: ...".
+>   from `scratchpad/ui-sweeps/facesheet.js` (removed 2026-10-12, recoverable from git history). See the commits "Faces: ...".
 >   Open: `namemarks.js` found 9 pairs of 23 names under its 15% floor on
 >   2026-10-12 (worst Chloe/Olivia 3.7%: the same teal beanie, as teal was the
 >   cloth of four colour pairs). Teal now belongs to one pair only (lilac,
@@ -2203,10 +2203,10 @@ Rows of `agent-remaining/OPEN.md` (and one of `op4-1005.md`) that were listed as
 - **Lists have no edge auto-scroll for a drag selection** (INBOX 608's list half). Built: `frontend/js/drag-edge.js` (`DRAG_EDGE`, a lazy module in `app.js`'s `LAZY_MODULES.dragEdge`) scrolls `#entry-list` and `.library-view-section` for a held mouse drag from 56px out to the edge; boards and maps were built before (`wbEdgePan`).
 - **Skeletons for a board's Library and Notes tabs** (INBOX 596). Built, 5c1389d: `wbLoadLibrary` draws six skeletons and `renderWbLibrary` five before the data lands (`whiteboard-library.js`, `whiteboard.js`); `bm1005-sidebar.js` check 7 measured 0 skeletons before, 6 after, then 51 tiles; `tests/test_board_sidebar_596.py`. Open, and kept in OPEN.md: the Library and Documents views read blank at 1440 and 390.
 - **The badge target** (INBOX 503 and 592). Built, 4a2dfaf: `badgealign.js` and `.py` measure the words' cap-height centre, the recipe's one target (DESIGN.md records it); `inkalign.js` retired; `tests/test_badge_recipe.py`.
-- **"Most opened this month"** (retrieval row). Built: `GET /most-opened` (`routes_vision.py`, over `EntryOpen`, written by `entry/opens.py`), the Dashboard's "Most opened this month" widget (`dashboard.js`, `renderMostOpenedWidget`), `tests/test_vision_rows_row11.py`; WORLD_CLASS_PLAN row 11 is struck. The scratchpad's parked design (`wc1005b-most-opened.md`) was not used and is superseded. Open, kept: the "wrong" correction on an evidence card (I7's second half) and I1 pass 2's derived-fact kinds.
-- **arch.md: the Dashboard emblem's idle cost** (5.55% of a core). Built, b944d2c (WORLD_CLASS_PLAN 424(j)): the emblem is drawn once and turned by CSS, 0ms of script idle on Dashboard and Chat, `perf5/idleprof.js`; the frame-rate question no longer exists. INBOX 266's other items stay as a row.
+- **"Most opened this month"** (retrieval row). Built: `GET /most-opened` (`routes_vision.py`, over `EntryOpen`, written by `entry/opens.py`), the Dashboard's "Most opened this month" widget (`dashboard.js`, `renderMostOpenedWidget`), `tests/test_vision_rows_row11.py`; WORLD_CLASS_PLAN row 11 is struck. The scratchpad's parked design (`wc1005b-most-opened.md` (removed 2026-10-12, recoverable from git history)) was not used and is superseded. Open, kept: the "wrong" correction on an evidence card (I7's second half) and I1 pass 2's derived-fact kinds.
+- **arch.md (removed 2026-10-12, recoverable from git history): the Dashboard emblem's idle cost** (5.55% of a core). Built, b944d2c (WORLD_CLASS_PLAN 424(j)): the emblem is drawn once and turned by CSS, 0ms of script idle on Dashboard and Chat, `perf5/idleprof.js`; the frame-rate question no longer exists. INBOX 266's other items stay as a row.
 - **guideia.md: Remind me beyond notes, the Library note card's Remind me and Link to.** Built (WORLD_CLASS_PLAN row 15): `remindAbout` (`shell-reminders.js`) is called from `library.js` (document and note menus, "Link to..." beside it via `linkNoteFromLibrary`) and `whiteboard.js` (a board's menu); the reminder carries `target_kind` (`routes_reminders.py`) and `Reminder.document_id`; `tests/test_reminder_targets_row15.py`. The non-modal Guide stays open.
-- **maptheme.md: the branch palette and font are map-level facts; a topic cannot be pulled back to the app's default** (MINDMAP_PLAN 13e). Built 2026-10-04: `MAP_BRANCH_PALETTES` server-side with `wbMapColors` reading it, `font`, and the per-field app-default pins (`MAP_APP_DEFAULT_PINS`); `mappalette.js` 13/13; the record is "Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)". Open, kept: the theme resolved into each node on export, an untested FreeMind `<arrowlink>`.
+- **maptheme.md: the branch palette and font are map-level facts; a topic cannot be pulled back to the app's default** (MINDMAP_PLAN 13e). Built 2026-10-04: `MAP_BRANCH_PALETTES` server-side with `wbMapColors` reading it, `font`, and the per-field app-default pins (`MAP_APP_DEFAULT_PINS`); `mappalette.js` (removed 2026-10-12, recoverable from git history) 13/13; the record is "Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)". Open, kept: the theme resolved into each node on export, an untested FreeMind `<arrowlink>`.
 - **Summarise this branch** (Draw.io phase 2's tail; MINDMAP_PLAN 12.3 item 2's half). Built, 3a27c00: `POST /whiteboard/boards/{b}/nodes/{n}/summary` (`routes_map_suggest.py`), `wbMapSummariseBranch`, `tests/test_map_summary.py`, `bm1005-mapmulti.js` check 6. Expand from my notes stays open.
 - **op4-1005: `test_every_route_that_pages_by_offset_takes_a_cursor` red** (found, not fixed). Fixed on the head: `routes_settings.py` takes `cursor` through `paging.cursor_param()`; `tests/test_api_contract_b7.py` passes 10 of 10 (run alone, this pass).
 
@@ -3293,9 +3293,9 @@ The third pass over `agent-remaining/OPEN.md` (Whiteboard and mind map and Atlas
 - **Phase 11 item 9's other half** (hover-only and long-press). Built: `hoveronly.js` (UI_MODERNISATION_PLAN Phase 11, item 9) and `tests/test_ui_recipes.py` `test_every_right_click_menu_has_a_long_press_twin` (`wireLongPress`, 23 call sites).
 - **Phase 11 items 2 to 8** (per-surface phone shapes). Built or decided, each with its gate named in UI_MODERNISATION_PLAN Phase 11 (Capture is the sub-tab behind the +, Documents open Rendered below 600, the whiteboard's tools are a sheet, Settings keeps its phone shape).
 - **uitrio.md: the focused head's `flex: 1 1 20rem` breakpoint, and the density picker hidden below 600.** The row's premise is gone: Focused is now a banner over a full-width search (07-whiteboard-misc.css, "Do not remake the one-row head"); `scratchpad/ui-sweeps/focusedhead.js` measures it at 1440, 1024, 820, 599 and 390, no sideways scroll at any width. The phone is decided in `dashCustomiseItems` ("Below 600 the view is not offered: a phone's Full is already compact").
-- **Settings Packages rows leave a 16px gap** (uipolish-0924). Measured, not so: 12.8px at 1440, 1024, 820 and 390 (`scratchpad/ui-sweeps/packagesgap.js`).
+- **Settings Packages rows leave a 16px gap** (uipolish-0924). Measured, not so: 12.8px at 1440, 1024, 820 and 390 (`scratchpad/ui-sweeps/packagesgap.js` (removed 2026-10-12, recoverable from git history)).
 - **The About pane's "Take tour again" greyed out with the tour off.** Closed: `TOUR_ENABLED` is pinned `true` by `tests/test_ui_recipes.py` (so the disabled branch cannot be reached), and the guard's load order that was the real fault is held by `tests/test_frontend_load_order.py`.
-- **arch.md: `entry_revisions` and `audit_log` never pruned.** Built: `EntryRevision` keeps the last `MAX_REVISIONS` (`entry/manager.py`) and `events.compact` (`COMPACT_AFTER_DAYS`, `COMPACT_KEEP_LAST`) runs at startup as `_compact_event_log` (`api/app.py`); `tests/test_events.py`.
+- **arch.md (removed 2026-10-12, recoverable from git history): `entry_revisions` and `audit_log` never pruned.** Built: `EntryRevision` keeps the last `MAX_REVISIONS` (`entry/manager.py`) and `events.compact` (`COMPACT_AFTER_DAYS`, `COMPACT_KEEP_LAST`) runs at startup as `_compact_event_log` (`api/app.py`); `tests/test_events.py`.
 - **backend-0926: LAN mode binds `0.0.0.0` only (no IPv6).** Built: one dual-stack socket (`netbind.listening_socket`); `tests/test_lan_mode.py` `test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server`.
 - **backend-0926: night passes for tensions and answered questions as fact kinds.** Built: passes 4 and 5 (`ai/facts.py` `_pair_passes`; `tests/test_night_pairs.py`).
 - **world-class-rows-1-2-9: `tests/test_lan_mode.py`, the "Allow other devices" toggle, S6's model address on the receipt.** Built: the test file runs the launcher in a subprocess (`test_lan_mode_end_to_end`), the toggle is `settings-panes.js` ("Allow other devices on this network"), and `tests/test_privacy_receipt.py` `test_the_model_server_address_is_on_the_receipt`.
@@ -4263,7 +4263,7 @@ app's own default for a field the map themes).
 - The View menu's row is now "How this map looks", with "The whole map"
   (Branch colours, Font) first; the Guide's mind map controls topic says so.
 
-Measured: `mappalette.js`, new, **13/13** at 1440 light, 1440 dark and
+Measured: `mappalette.js` (removed 2026-10-12, recoverable from git history), new, **13/13** at 1440 light, 1440 dark and
 390x844 (Branch 1 `#4e79a7` on canvas and thumbnail, `#1b9e77` on both after
 Deep; topic text `system-ui` to `Georgia`, the SVG export the same face; a
 pinned topic draws no `data-shape` at 13.6px while its sibling draws pill at
@@ -4389,7 +4389,7 @@ in a document's panel after a reload.
 Every open row in the plan was checked against the running app first. 17a to
 17e, the phone formatting bar (Phase 6 item 1), Phase 5 items 2 and 3, Phase
 7's python-docx row and Phase 8c's board card were all already built; the
-first two re-measured (`docnarrow.js` PASS, `dochistory.js` and `docaidiff.js`
+first two re-measured (`docnarrow.js` PASS, `dochistory.js` (removed 2026-10-12, recoverable from git history) and `docaidiff.js` (removed 2026-10-12, recoverable from git history)
 all pass), the plan's stale rows now point here. What the measurement found, at
 390x844 with touch, light and dark (`docphonebar.js`, `doctaskbox.js`):
 
@@ -7088,9 +7088,9 @@ selection moves to another topic, so a menu about the topic just left is never
 left open over the topic just chosen.
 
 Two things measured on the way and left alone: `mapline.js` (13/13),
-`mapcore.js` (16/16) and `mapspine.js` (9/9) drive these controls by id and
+`mapcore.js` (removed 2026-10-12, recoverable from git history) (16/16) and `mapspine.js` (9/9) drive these controls by id and
 pass untouched, which is what says the listeners did not move; and
-`mapstyle.js`'s "radial slot" check fails on the base branch as well as on
+`mapstyle.js` (removed 2026-10-12, recoverable from git history)'s "radial slot" check fails on the base branch as well as on
 this one, so it is not this work's (recorded in `archive/agent-remaining/mapux2.md`).
 
 ### From MINDMAP_PLAN.md section 13a: the drag pick-up
@@ -7244,7 +7244,7 @@ off-origin url would come through, and `/media/../../../etc/passwd` passes a
 Drawn as a second node shape rather than a thumbnail beside a label:
 `data-body="picture"` turns the node body from a row into a column, the
 picture takes the card's full width inside its padding and the label becomes
-the caption under it. Measured (`scratchpad/ui-sweeps/mindmapimage.js`, 12 of
+the caption under it. Measured (`scratchpad/ui-sweeps/mindmapimage.js` (removed 2026-10-12, recoverable from git history), 12 of
 12, light and dark): a 160x90 PNG uploaded through the file chooser the topic's own menu opens
 comes back at `natural 160x90`, draws at 182.2x102.5 inside a 200x137.8 card
 at the aspect it was sent at, the caption's top (441.7) is below the picture's
@@ -14017,7 +14017,7 @@ route keeps the title's case.
 Measured: `tests/test_docexport_bundle.py` and `tests/test_docview_import.py`,
 14 tests with 2 skipped on an install without python-docx (which is the
 contract: the suite must not need the extra), plus
-`scratchpad/ui-sweeps/docexports.js` in a browser, 6 of 6, including the five
+`scratchpad/ui-sweeps/docexports.js` (removed 2026-10-12, recoverable from git history) in a browser, 6 of 6, including the five
 rows of the export menu in order and the 501 message reaching the status line.
 
 **The Word writer was then measured for real**, in a scratch virtualenv with
@@ -29667,7 +29667,7 @@ Where: `frontend/index.html` from line 586 (`#tab-notes`): `#capture`
 (the form from 732), `#writing-room` (849), `#ask`; the handlers in
 `frontend/app.js` (`loadCaptureDocuments` 9973, the `#entry-document`
 change handler 24941, `NOTES_SECTIONS`); CSS by grep on `capture-`,
-`writing-room`, `ask-`. Sweep: `scratchpad/ui-sweeps/notessubtabs.js`
+`writing-room`, `ask-`. Sweep: `scratchpad/ui-sweeps/notessubtabs.js` (removed 2026-10-12, recoverable from git history)
 (1440x900, dark), which prints every control row per sub-tab.
 
 Measured on `f4b22d4`, so the work starts at the change:
@@ -29704,7 +29704,7 @@ in the report); each row holds one family; the combobox is gone and the
 adder is measured (pick two documents, two chips, no select showing a
 value it does not hold); the two draft columns share a height; errors.js,
 contrast.js (dark and light) and touch.js at 1440 and 390 clean; the
-row list from `notessubtabs.js` before and after in the commit message.
+row list from `notessubtabs.js` (removed 2026-10-12, recoverable from git history) before and after in the commit message.
 Copy in sentence case, no em-dashes, no exclamation marks. New UI from
 the recipe index only (`tests/test_ui_recipes.py`); a shape the index
 does not cover gets its recipe and lint in the same commit. Never pkill
@@ -30209,7 +30209,7 @@ waiting. Three `select(EmbeddingRecord…).all()` scans are gone from
 every pair, but no longer re-read and re-parse blobs this process holds).
 
 **Measured on the sandbox**, 5,000 entries with a vector each,
-`scratchpad/search/measure_engine.py`, median of seven:
+`scratchpad/search/measure_engine.py` (removed 2026-10-12, recoverable from git history), median of seven:
 
 | | before | after | gate |
 | --- | --- | --- | --- |
@@ -34732,7 +34732,7 @@ line that carried a dash.
     topic is a link-tool candidate (`wbLinkCandidates` offered only
     `kind === "text"` objects, so on a map the link tools found nothing to
     start from, which is why they "didnt work"). Measured
-    (`scratchpad/ui-sweeps/mapstyle.js`, dark): stroke-width 3, opacity 1,
+    (`scratchpad/ui-sweeps/mapstyle.js` (removed 2026-10-12, recoverable from git history), dark): stroke-width 3, opacity 1,
     marker-end url(#wb-map-arrow), an opaque slot with a colour-mixed ring,
     grip at left 4px with no overlap, a topic returned as a candidate.
     **Open**, placed in MINDMAP_PLAN.md: core nodes with their own shapes,
@@ -35461,7 +35461,7 @@ line that carried a dash.
     view.** "I opened up the table full view but there was no way to close
     it so I had to hard refresh the app." Owner: notes agent (documents).
     **Fixed 3dc956e.** Two faults, measured on :8802 with
-    `scratchpad/ui-sweeps/tablefullclose.js`: the only drawn way out was the ⋯
+    `scratchpad/ui-sweeps/tablefullclose.js` (removed 2026-10-12, recoverable from git history): the only drawn way out was the ⋯
     menu's Back row, and `kebabMenu` reparents its dropdown to `<body>` at
     `z-index: 1020` while the panel is a fixed surface at 2400, so the row drew
     at 1166,248 with `elementFromPoint` returning `DIV.md-table-wrap` and a real
@@ -37644,7 +37644,7 @@ told to open first.
     (13.6px to 15.64px against a plain sibling) and a star before the label.
     The ink on the fill is computed per colour by WCAG luminance, so the
     label clears 4.5:1 on all ten palette entries in both themes (worst
-    4.62:1 on `#4e79a7`). `scratchpad/ui-sweeps/mapcore.js`, 16/16 light and
+    4.62:1 on `#4e79a7`). `scratchpad/ui-sweeps/mapcore.js` (removed 2026-10-12, recoverable from git history), 16/16 light and
     16/16 dark at 1440x900.
 
 200. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
@@ -41151,10 +41151,10 @@ width, 47% of the column at 1440.
      and indicators as well". Placed: (6) Save as a note says "Saving…" at
      once, then where it went with Open, and refreshes the list: **fixed**;
      every other item in that menu swept for a visible answer
-     (`selmenu-items.js`): the orchestrator; (7) note edit history: a version
+     (`selmenu-items.js` (removed 2026-10-12, recoverable from git history)): the orchestrator; (7) note edit history: a version
      on every manual save too, each marked as yours, Atlas's or both, with
      its time, restorable: an agent. **All fixed**: (2) model cards and
-     "Download another model"; (3) `smoke.js` and `selmenu-items.js`, green;
+     "Download another model"; (3) `smoke.js` and `selmenu-items.js` (removed 2026-10-12, recoverable from git history), green;
      (5) the density pass (top bar 56 to 48px, controls 36 to 32px, 5 note
      cards above the fold, was 4); (7) You, Atlas, You and Atlas on every
      history row. (4) continues as INBOX 434.
@@ -42350,9 +42350,9 @@ offer to 0, 0 open offers to 1 ("Today's document"), the calendar glyph on
 the row. Not built, deliberately: a "Today" button in the documents dock, a
 third door onto one page. [documents-phase4.md]
 
-### Found, not fixed: scratchpad/ui-sweeps/docexports.js fails on a click timeout
+### Found, not fixed: scratchpad/ui-sweeps/docexports.js (removed 2026-10-12, recoverable from git history) fails on a click timeout
 
-~~**Found, not fixed: `scratchpad/ui-sweeps/docexports.js` fails on a click
+~~**Found, not fixed: `scratchpad/ui-sweeps/docexports.js` (removed 2026-10-12, recoverable from git history) fails on a click
 timeout.**~~ **Fixed 2026-09-21**, and the diagnosis above was right about
 everything but the opener. The control that opens that submenu is the
 group's own trigger: `foldDocMenuGroup` (documents.js) moves the five
@@ -43218,11 +43218,11 @@ shown only over a selection with an edited row.
 ticked, "2 selected", sticky, one request for both, 4 rows to 2).
 [learning-loop.md]
 
-### `notessubtabs.js` counting the hidden native selects
+### `notessubtabs.js` (removed 2026-10-12, recoverable from git history) counting the hidden native selects
 
 Fixed in the sweep, 2026-10-04: `select.select-native-hidden` is no control.
 
-**`notessubtabs.js` counts the hidden native selects.** `#entry-template`
+**`notessubtabs.js` (removed 2026-10-12, recoverable from git history) counts the hidden native selects.** `#entry-template`
 24x1 and `#entry-category` 1x40 are invisible by construction (absolute,
 clipped) and no sweep should count them as controls, which is why its height
 set reads `[1, 36, 40, 176]` rather than `[36, 40, 176]`. Cosmetic, in the
@@ -43345,7 +43345,7 @@ reading them, 2026-10-04:
   (`scratchpad/ui-sweeps/guidescroll.js`, 3 of 3: the list is the scroller, scrollTop
   3404 at its end, the card around it does not scroll); the whiteboard's align and
   distribute actions never driven (`whiteboard.js` section 6 drives them, 24 of 24);
-  `mindmapimage.js` at 390x844 (12 of 12).
+  `mindmapimage.js` (removed 2026-10-12, recoverable from git history) at 390x844 (12 of 12).
 - **Found and fixed from them, each with a test and a sweep:** the Write with AI draft
   box could be typed into while a pass streamed into it, because `readOnly` only reached
   the hidden textarea behind the mounted editor (`draftreadonly.js`,
@@ -44338,7 +44338,7 @@ border or answering hover). Both are strict now.
   a hashtag tone; link chips change ink; heights 24px, unchanged.
 ### From OPEN.md (Documents): the viewport popups with the background art on
 
-Measured, not changed: nothing failed. `scratchpad/ui-sweeps/popupsart.js`
+Measured, not changed: nothing failed. `scratchpad/ui-sweeps/popupsart.js` (removed 2026-10-12, recoverable from git history)
 opens each popup through its own opener with `bgArt` on and `GLASS=on` (the
 default look has glass off, and then no `.card` carries a backdrop-filter at
 all, so a run without it measures nothing), and reports the parent, the first
@@ -46349,7 +46349,7 @@ The text as it stood in the plan:
      MINDMAP_PLAN.md §12.1 items 2 and 5): a picture is `data.image`, a
      `/media/upload` url, drawn as a second node shape (`data-body="picture"`,
      measured 182x102 inside a 200x138 card, 12/12 in
-     `scratchpad/ui-sweeps/mindmapimage.js`); a bend is `edge_bend` and
+     `scratchpad/ui-sweeps/mindmapimage.js` (removed 2026-10-12, recoverable from git history)); a bend is `edge_bend` and
      `edge_slide` on the child, two fractions of the line's own length, with a
      handle measured 0.2 to 0.4 board units off the path for all three line
      shapes (14/14 in `scratchpad/ui-sweeps/mindmapcurve.js`).
@@ -46468,7 +46468,7 @@ with an arrowhead, the "Aa" grip's placement, topics as link-tool
 candidates. Placed here:
 
 - **Core nodes**: built. The strip's crown writes `core` on the node and the
-  shape picker gained `ellipse`. Measured, `scratchpad/ui-sweeps/mapcore.js`,
+  shape picker gained `ellipse`. Measured, `scratchpad/ui-sweeps/mapcore.js` (removed 2026-10-12, recoverable from git history),
   10/10 at 1440 light, 1440 dark and 390x844: the spine goes 4px to 6px, the
   outline 1px to 2px and the type 400 to 600 against a plain sibling, the
   ellipse computes a 50% radius with centred text, and the round trip through
@@ -50030,7 +50030,7 @@ and auto-naming, rounded rectangles on the map, branch colour and spacing on
 insert, Enter as newline, appearance options) with WHITEBOARD_PLAN "Placed
 from INBOX, 2026-10-07". Files: `whiteboard.js`, `whiteboard-map.js`,
 `07-whiteboard-misc.css`. Sweeps: wbregress.sh, wbrotatelinks.js, wbports.js,
-mapcore.js, mindmap.js. Running as the `boardmap` agent.
+mapcore.js (removed 2026-10-12, recoverable from git history), mindmap.js. Running as the `boardmap` agent.
 
 #### Brief 37 (Opus, high): Chat, Ask, first run and the owner's UI bugs
 Goal: model gating per CHAT_PLAN decision 22; the first-run queue with zero

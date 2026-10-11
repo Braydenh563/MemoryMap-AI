@@ -153,7 +153,7 @@ One branch drag over 300 link sketches, the fixture that had never existed:
   failure shows is a topic that stops following a change, which is what
   `mapstrip.js`, `maptheme.js`, `mapline.js`, `maprejoin.js`, `maplayouts.js`,
   `mapribbon.js`, `mapspine.js`, `maplabel.js`, `mindmapcurve.js`,
-  `mindmapimage.js`, `maptwokinds.js` and `mapbranchdrag.js` each ask about
+  `mindmapimage.js` (removed 2026-10-12, recoverable from git history), `maptwokinds.js` and `mapbranchdrag.js` each ask about
   directly; all twelve pass. `tests/test_map_render_cost.py` fails if the key
   stops naming one of the five map inputs, and the one thing deliberately left
   out of it (a map node's height, which the measure pass writes back) is named

@@ -40,7 +40,7 @@
 
 ## The three cards, before and after
 
-`scratchpad/ui-sweeps/notessubtabs.js`, :8895, 1440x900, dark. The before
+`scratchpad/ui-sweeps/notessubtabs.js` (removed 2026-10-12, recoverable from git history), :8895, 1440x900, dark. The before
 column is where this sitting started (the two commits of the first sitting
 already in), the after is the branch as it stands.
 
@@ -106,7 +106,7 @@ the sweep rather than by the eye.
 - **The `.select-native-hidden` shadow selects report odd boxes**
   (`#entry-template` 24x1, `#entry-category` 1x40). They are invisible by
   construction (absolute, clipped) and no sweep should count them as
-  controls; `notessubtabs.js` still does, which is why its height set reads
+  controls; `notessubtabs.js` (removed 2026-10-12, recoverable from git history) still does, which is why its height set reads
   `[1, 36, 40, 176]` rather than `[36, 40, 176]`. Cosmetic, in the sweep.
 - **The note edit form's strip is a clone taken at open time**, so anything
   stateful in the capture strip is cloned with its state. The Preview button

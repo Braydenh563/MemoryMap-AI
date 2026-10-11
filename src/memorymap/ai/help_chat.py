@@ -42,6 +42,7 @@ handed on each call.
 
 from __future__ import annotations
 
+import functools
 import math
 from datetime import datetime
 import re
@@ -2192,11 +2193,19 @@ for _topic in HELP_TOPICS:
         _topic["keywords"] = _topic["keywords"] + tuple(c for c in _chords if c not in _CLAIMED_KEYS)
 
 
-_KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
-    keyword: _keyword_pattern(_normalise_keys(keyword))
-    for topic in HELP_TOPICS
-    for keyword in topic["keywords"]
-}
+@functools.lru_cache(maxsize=None)
+def _keyword_regex(keyword: str) -> re.Pattern[str]:
+    return _keyword_pattern(_normalise_keys(keyword))
+
+
+def _keyword_in(keyword: str, lowered: str) -> bool:
+    """`_keyword_pattern(keyword)` found in `lowered`, compiled only when it can
+    match. All 2,200 patterns were compiled at import (about 0.5 s of the app's
+    start, INBOX 1307); a pattern can only match where its literal stem occurs,
+    so a substring test settles almost every keyword without a regex at all."""
+    normal = _normalise_keys(keyword)
+    stem = normal[:-1] if len(normal) > 3 and normal.endswith("y") and normal[-2] not in "aeiou" else normal
+    return stem in lowered and _keyword_regex(keyword).search(lowered) is not None
 
 
 def _edit_distance_at_most_one(a: str, b: str) -> bool:
@@ -2342,7 +2351,7 @@ def _matching_topics(question: str) -> list[dict]:
         score = 0.0
         for keyword in topic["keywords"]:
             rarity = 1.0 + math.log(total / _KEYWORD_TOPICS.get(keyword, 1))
-            if _KEYWORD_PATTERNS[keyword].search(lowered):
+            if _keyword_in(keyword, lowered):
                 score += len(keyword.split()) * rarity
             elif (
                 " " not in keyword

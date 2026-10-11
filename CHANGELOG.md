@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Find anything: Sort has Group by category (a note under the category it is filed in, with a count, the rest under their kind), and GET /search now names each note hit's category.
 - Accessibility: the status bar's notes and reminders counts are named by what they show ("29 notes: Your notebook..."), and a finished first step by its own words, so an assistive tool hears the visible text (WCAG 2.5.3); axe on the dashboard (light, 1440) goes from 1 finding on 3 controls to none.
 - Dashboard: the no-model notice in the digest card (306px wide) puts its Connect a model button under the words, as on a phone, instead of leaving them a 52px column nine lines tall; it is 82px tall, was 157px. Wide notices (Chat, Ask, Writing room) are unchanged, one row of 47px.
 - Filing and tags: with no model, notes are filed by a larger everyday vocabulary (boiler, payslip, parents evening, brake fluid, hand luggage and about 600 more, in memorymap_everyday.json beside the taxonomy pack). On the 120-note test notebook the share filed right went from 42% to 62% (79% when sensitive notes are suggested, not filed); on 48 notes written beforehand and never used to choose a word, 46% to 67%, and wrongly filed notes fell from 6 to 3. The pack file is untouched.

@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Whiteboard on a phone: pinching to zoom no longer moves a note. A second finger puts any drag back where it started and hands over to the zoom (a pinch that began on a note now zooms; before, the note moved up to 373px and a pinch from the note itself did not zoom at all), and a finger must travel 8px before it carries a note, text box or shape; a mouse is unchanged.
 - Phone: the chat composer stays above the keyboard. The keyboard strip is read again as a field takes focus (iOS sometimes sends no resize), a pinch zoom no longer counts as a keyboard, and the no-model line steps aside while the keyboard is up; on a phone that line is tidier too (its action lines up with the words, 93px tall instead of 109). The viewport also asks for resizes-content, which Chrome on Android honours.
 - Other devices: a second notebook on the same computer (another person's account) takes the next free port for phones (8444 and up) instead of staying on that computer only; Settings shows the address it took.
 - Companion: it steps off a dock's open "more" menu (Notes' Reload, Manage tags and the rest), and any open menu or list, instead of standing over it.

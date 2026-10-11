@@ -6046,6 +6046,51 @@ function wbCancelGesture() {
   return true;
 }
 
+//: **A finger carries nothing until it has travelled, and a second finger
+//: carries nothing at all** (INBOX 888, the owner: "I tried pinching to zoom
+//: out on my phone when on the whiteboard and instead I accidentally started
+//: moving a note"). Measured at 390x844 with real two-finger touch events
+//: (`scratchpad/ui-sweeps/wbpinch.js`): the first finger of a pinch landed on
+//: a note, the card's drag began on the touch-start and followed it, and the
+//: second finger either started a second drag (on the same note, so the pinch
+//: never reached the zoom: scale 1 to 1) or went to the zoom while the first
+//: finger kept dragging (a note moved 12px and 61px, a text box 206px and
+//: 373px away). Three parts:
+//:   1. `wbTouchSlopStep`: a touch drag only starts to move its item once the
+//:      finger has travelled `WB_TOUCH_SLOP` screen pixels, and then moves it
+//:      by the whole distance so far, so nothing is lost. A mouse and a pen
+//:      keep their instant drag.
+//:   2. `wbIsSecondTouch`, in the three item drags' filters: a touch-start
+//:      with two fingers down is never a drag, so the event reaches d3-zoom
+//:      (which registers every finger on the screen, not only the new one).
+//:   3. The window's touch-start listener in `initWhiteboard`: a second finger
+//:      puts any drag in flight back (`wbCancelGesture`, the same restore
+//:      Escape uses), so the first finger's travel before the second landed
+//:      leaves no trace.
+const WB_TOUCH_SLOP = 8;
+
+//: `gesture` is `d._gesture`, the object `wbBeginGesture` made for this drag, so
+//: the running total starts at zero with every drag. `unit` is how many screen
+//: pixels one of the event's units is: 1 for a card (screen pixels), the zoom
+//: scale for a shape (its drag measures in board units). Returns the movement
+//: to apply, or null while the finger is still inside the slop.
+function wbTouchSlopStep(gesture, event, unit = 1, slop = WB_TOUCH_SLOP) {
+  const { dx, dy } = event;
+  const touch = String(event.sourceEvent?.type || "").startsWith("touch");
+  if (!gesture || !touch || gesture.slopDone) return { dx, dy };
+  gesture.slopX = (gesture.slopX || 0) + dx;
+  gesture.slopY = (gesture.slopY || 0) + dy;
+  if (Math.hypot(gesture.slopX, gesture.slopY) * unit < slop) return null;
+  gesture.slopDone = true;
+  return { dx: gesture.slopX, dy: gesture.slopY };
+}
+
+//: True for the touch-start of a second finger (or a third). d3-drag's filter
+//: gets the touch-start itself as `event`.
+function wbIsSecondTouch(event) {
+  return String(event?.type || "").startsWith("touch") && (event.touches?.length || 0) > 1;
+}
+
 //: **Drag to delete** (INBOX 660, the owner: "I want to be able to drag
 //: elements on the whiteboard and mindmap onto a popup delete button to
 //: delete them"; Miro, Freeform and every phone home screen do it). While a
@@ -11543,6 +11588,31 @@ async function initWhiteboard() {
   //: paste. A hand tool drag says "grabbing" the whole time; this now says the
   //: same thing through the same class the held-space pan uses, so the three
   //: ways to pan look identical while they run.
+  //: A second finger on the board puts any drag in flight back and leaves the
+  //: gesture to the zoom (INBOX 888; `wbIsSecondTouch` above). Capture, on the
+  //: window, for the reason the middle-button listener below gives.
+  //: **And the zoom has to be able to hear the first finger.** d3-drag listens
+  //: for a touch's moves and ends on the element the touch began on, and ends
+  //: each with `stopImmediatePropagation`, so with the first finger on a card
+  //: its moves never reach d3-zoom on the container: measured, a pinch from a
+  //: note moved the scale 1 to 1 (`wbpinch.js`) because the zoom only ever
+  //: heard the second finger. For as long as two fingers are down the events
+  //: are told not to stop, which leaves d3-drag's own bookkeeping to run its
+  //: course (it ends its gesture on the finger's lift, and its handlers read
+  //: the cancelled gesture and save nothing).
+  let wbPinching = false;
+  window.addEventListener("touchstart", (event) => {
+    if (event.touches.length < 2 || !event.target?.closest?.("#library-view-whiteboard")) return;
+    wbPinching = true;
+    wbCancelGesture();
+  }, { capture: true, passive: true });
+  for (const type of ["touchmove", "touchend", "touchcancel"]) {
+    window.addEventListener(type, (event) => {
+      if (!wbPinching) return;
+      Object.defineProperty(event, "stopImmediatePropagation", { value() {}, configurable: true });
+      if (type !== "touchmove" && event.touches.length === 0) wbPinching = false;
+    }, { capture: true, passive: true });
+  }
   const midPanClass = (on) => {
     wbMidPanHeld = on;
     document.getElementById("whiteboard-container")?.classList.toggle("wb-mid-pan", on);
@@ -17880,7 +17950,7 @@ function renderWhiteboard() {
   // pan in particular, since the canvas's own zoom/pan drag needs an
   // unclaimed pointerdown to reach it.
   const sketchDrag = d3.drag()
-    .filter((event) => !event.button && (window.currentTool === "select" || Boolean(window.currentTool?.startsWith("link-"))))
+    .filter((event) => !wbIsSecondTouch(event) && !event.button && (window.currentTool === "select" || Boolean(window.currentTool?.startsWith("link-"))))
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
       // A link tool drags a *link* out of the shape, not the shape, the same
@@ -17917,6 +17987,8 @@ function renderWhiteboard() {
     .on("drag", function (event, d) {
       if (d._linkKind === "sketch") return dragging.call(this, event, d);
       if (d._dragOriginalD == null || d._gesture?.cancelled) return;
+      const step = wbTouchSlopStep(d._gesture, event, d3.zoomTransform(document.getElementById("whiteboard-container")).k);
+      if (!step) return;
       // First real movement of this gesture, decide once whether this is
       // a solo move or a bulk move of the whole multi-selection. Deferred
       // to here rather than "start" (see its own comment) specifically so
@@ -17931,8 +18003,8 @@ function renderWhiteboard() {
       // endpoint handle's own note). A shape dragged at 2x followed the
       // pointer at half speed until this was measured: 30px of travel for a
       // 60px drag, against the card beside it, which moved the full 60.
-      d._dragRawDX += event.dx;
-      d._dragRawDY += event.dy;
+      d._dragRawDX += step.dx;
+      d._dragRawDY += step.dy;
       const bypassSnap = event.sourceEvent?.altKey;
       const lock = wbAxisLock(d._dragRawDX, d._dragRawDY, event.sourceEvent?.shiftKey);
       let dx = lock === "y" ? 0 : wbSnap(d._dragRawDX, bypassSnap);
@@ -18455,7 +18527,7 @@ function renderWhiteboard() {
       // exclusion its pointerdown started a card drag the same way a resize
       // handle's did before it was excluded (see that comment above), so the
       // click never registered and the toggle silently did nothing.
-      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-card-more"))
+      .filter((event) => !wbIsSecondTouch(event) && !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-card-more"))
       .on("start", dragStart)
       .on("drag", dragging)
       .on("end", dragEndNode))
@@ -19098,6 +19170,8 @@ function renderWbObjects(canvas) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     if (window.currentTool?.startsWith("link-")) return dragging.call(this, event, d);
     if (d._gesture?.cancelled) return;
+    const step = wbTouchSlopStep(d._gesture, event);
+    if (!step) return;
     if (d._bulkOrigin === undefined) {
       //: **A map node drags its branch with it** (MINDMAP_PLAN.md §12.1 item
       //: 8). Decided on the first real drag frame, like the marquee case
@@ -19124,8 +19198,8 @@ function renderWbObjects(canvas) {
     // this reason; a plain drag has to as well, or a card/object moves
     // faster than the cursor when zoomed out and slower when zoomed in.
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
-    d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
+    d._rawX = (d._rawX ?? d.x) + step.dx / transform.k;
+    d._rawY = (d._rawY ?? d.y) + step.dy / transform.k;
     const bypassSnap = event.sourceEvent?.altKey;
     //: **Snapped by how far it moved, not by where it is** (the owner:
     //: "dragging a objects doesnt stay on the mouse and goes off to the side
@@ -19280,7 +19354,7 @@ function renderWbObjects(canvas) {
       //: saw it (measured, `midpanwheel.js`: a 200px middle drag started on
       //: the root moved the board 0px). The middle button is the pan from
       //: anywhere, which is what `wbZoomFilter` promises.
-      if (event.button) return false;
+      if (event.button || wbIsSecondTouch(event)) return false;
       if (WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "lasso") return false;
       if (event.target.closest(
         ".wb-resize-handle, .wb-rotate-handle, .wb-object-grip"
@@ -19318,7 +19392,7 @@ function renderWbObjects(canvas) {
   const gripDrag = d3.drag()
     // The grip sits inside the box it moves, see `wbStableDragContainer`.
     .container(wbStableDragContainer(".wb-object"))
-    .filter((event) => !event.button && !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
+    .filter((event) => !wbIsSecondTouch(event) && !event.button && !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
       objDragStart.call(this, event, d);
@@ -20079,6 +20153,8 @@ function dragging(event, d) {
     // the same reason. Without it, a card dragged while zoomed moved faster
     // than the cursor when zoomed out and slower when zoomed in, and snap
     // would round a wrongly-scaled delta.
+    const step = wbTouchSlopStep(d._gesture, event);
+    if (!step) return;
     if (d._bulkOrigin === undefined) {
       d._bulkOrigin = wbDragIsBulkMove("node", d.id)
         ? wbCaptureBulkMoveOrigin(wbMultiKey("node", d.id))
@@ -20104,8 +20180,8 @@ function dragging(event, d) {
       d._raised = true;
     }
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
-    d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
+    d._rawX = (d._rawX ?? d.x) + step.dx / transform.k;
+    d._rawY = (d._rawY ?? d.y) + step.dy / transform.k;
     // Asked for directly: Alt held during a drag temporarily releases the
     // grid lock, the same convention Figma/Illustrator use, a per-call
     // bypass rather than touching the snap toggle itself.

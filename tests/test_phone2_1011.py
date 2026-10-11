@@ -5,8 +5,13 @@ sweeps named in each docstring (`scratchpad/ui-sweeps/`)."""
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONT = ROOT / "frontend"
@@ -44,3 +49,80 @@ def test_no_model_notice_steps_aside_for_the_keyboard_and_aligns_its_action():
     assert "html.keyboard-open .chat-dock .ai-offline-note" in block
     assert "grid-area: 1 / 3 / 3 / 4" in block
     assert "margin-inline-start" in block
+
+
+# --- 888: a pinch on the whiteboard must not carry a note ----------------------
+
+WB = (FRONT / "js" / "whiteboard.js").read_text(encoding="utf-8")
+needs_node = pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+
+
+def _function(source: str, head: str) -> str:
+    start = source.index(head)
+    return source[start : source.index("\n}\n", start) + 3]
+
+
+def _slop(script: str) -> dict:
+    body = (
+        "const WB_TOUCH_SLOP = 8;\n"
+        + _function(WB, "function wbTouchSlopStep(")
+        + _function(WB, "function wbIsSecondTouch(")
+        + script
+    )
+    result = subprocess.run(["node", "-e", body], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout.strip().splitlines()[-1])
+
+
+@needs_node
+def test_a_touch_drag_waits_for_the_slop_then_carries_the_whole_distance():
+    out = _slop(
+        """
+const touch = (dx, dy) => ({ dx, dy, sourceEvent: { type: "touchmove" } });
+const mouse = (dx, dy) => ({ dx, dy, sourceEvent: { type: "mousemove" } });
+const g = {};
+const steps = [touch(2, 1), touch(3, 2), touch(3, 3), touch(1, 1)].map((e) => wbTouchSlopStep(g, e));
+const mg = {};
+console.log(JSON.stringify({
+  steps,
+  mouseInstant: wbTouchSlopStep(mg, mouse(1, 0)),
+  noGesture: wbTouchSlopStep(null, touch(1, 1)),
+  zoomedShape: [wbTouchSlopStep({}, touch(5, 0), 0.5), wbTouchSlopStep({}, touch(20, 0), 0.5)],
+}));
+"""
+    )
+    # 2,1 and 5,3 are inside 8px; 8,6 (10px) crosses and releases the whole run so far; then live
+    assert out["steps"][:2] == [None, None]
+    assert out["steps"][2] == {"dx": 8, "dy": 6}
+    assert out["steps"][3] == {"dx": 1, "dy": 1}
+    assert out["mouseInstant"] == {"dx": 1, "dy": 0}, "a mouse keeps its instant drag"
+    assert out["noGesture"] == {"dx": 1, "dy": 1}
+    # a shape measures in board units: 5 units at 0.5 scale is 2.5 screen px, 20 is 10
+    assert out["zoomedShape"] == [None, {"dx": 20, "dy": 0}]
+
+
+@needs_node
+def test_only_a_two_finger_touch_start_is_a_second_touch():
+    out = _slop(
+        """
+console.log(JSON.stringify([
+  wbIsSecondTouch({ type: "touchstart", touches: [{}] }),
+  wbIsSecondTouch({ type: "touchstart", touches: [{}, {}] }),
+  wbIsSecondTouch({ type: "mousedown" }),
+]));
+"""
+    )
+    assert out == [False, True, False]
+
+
+def test_every_item_drag_refuses_a_second_finger_and_a_second_finger_cancels_the_gesture():
+    """wbpinch.js: before, a pinch from a note moved the note 12px and 61px and a text
+    box 206px and 373px, and a pinch from the item itself never zoomed (scale 1 to 1)."""
+    assert WB.count("wbIsSecondTouch(event)") >= 4, "card, shape, text box and grip drags"
+    assert "wbTouchSlopStep(d._gesture, event" in WB
+    for used in ("step.dx / transform.k", "d._dragRawDX += step.dx"):
+        assert used in WB
+    listener = WB[WB.index("let wbPinching = false;"):]
+    listener = listener[: listener.index("const midPanClass")]
+    assert "wbCancelGesture()" in listener
+    assert "stopImmediatePropagation" in listener, "d3-drag's per-touch listeners would starve the zoom"

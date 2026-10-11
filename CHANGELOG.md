@@ -7,7 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-- First run: an empty or partly downloaded model folder is no longer treated as installed. Settings, Search and index and Packages show "Files missing" with Reinstall, and when the search model's files are incomplete the app repairs them itself as a visible Background task ("Repairing ...", with Stop) instead of failing with a broken-cache error.
+- First run: optional packages picked in Setup install on the first launch as one Background task (progress, each package, Stop); a list the app could not start yet (another install running) is kept for the next launch instead of being deleted.
+- First run: an empty or partly downloaded model folder is no longer treated as installed. Settings, Search and index and Packages show "Files missing" with Reinstall, and when the search model's files are incomplete the app repairs them itself as a visible Background task ("Fixing search by meaning", with Stop, at most twice a launch) instead of failing with a broken-cache error.
 - First run: the filing warm-up only loads a model that is installed, and a fresh install first chooses its chat model from the installed ones (one rule shared with the launch step), so a default nobody chose no longer reports "llama3.2 failed".
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Security: a phone or another computer on the network can no longer make this computer act. Opening a folder, restarting or quitting the app, installing or running software (extras, updates, SearXNG), importing a folder of this computer's files, changing the model server and restoring a whole backup now answer "Only this computer can do that" to any other device.

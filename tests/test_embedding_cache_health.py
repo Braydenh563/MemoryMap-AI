@@ -170,14 +170,14 @@ def test_an_incomplete_cache_is_repaired_as_a_visible_task_not_inline(fake_st, t
     assert state.running and state.repair is True
 
 
-def test_the_repair_row_in_the_task_list_says_repairing(client, tmp_path, monkeypatch):
+def test_the_repair_row_in_the_task_list_says_fixing_search_by_meaning(client, tmp_path, monkeypatch):
     (tmp_path / "hub" / "models--BAAI--bge-small-en-v1.5").mkdir(parents=True)
     monkeypatch.setattr(embedmodels, "_spawn_download", lambda model: None)
     monkeypatch.setattr(embedmodels, "can_download", lambda: True)
     started, _ = embedmodels.repair(BGE)
     assert started is True
     job = next(t for t in client.get("/tasks").json()["tasks"] if t["kind"] == "embedding-model")
-    assert job["label"].startswith("Repairing ") and job["cancellable"] is True
+    assert job["label"].startswith("Fixing search by meaning") and job["cancellable"] is True
 
 
 def test_a_repair_may_clear_the_model_search_uses_because_it_is_broken(tmp_path, monkeypatch, app_state):
@@ -258,3 +258,19 @@ def test_a_whole_model_in_use_is_not_deleted_by_reinstall(tmp_path, monkeypatch,
     monkeypatch.setattr(embedmodels, "can_download", lambda: True)
     embedmodels.reinstall("bge-small")
     assert (root / "snapshots").exists()
+
+
+def test_a_process_fixes_an_incomplete_cache_twice_and_then_asks_the_person(fake_st, tmp_path, monkeypatch):
+    """The owner: ask only after two failed fixes. Each failed fix leaves the
+    folder incomplete; the third load says Reinstall and starts nothing."""
+    (tmp_path / "hub" / "models--BAAI--bge-small-en-v1.5").mkdir(parents=True)
+    spawned = []
+    monkeypatch.setattr(embedmodels, "_spawn_download", lambda model: spawned.append(model.id))
+    monkeypatch.setattr(embedmodels, "can_download", lambda: True)
+    service = _service()
+    for expected in ("repaired", "repaired", "Reinstall"):
+        embedmodels.reset_for_tests()  # the previous fix has ended, unsuccessfully
+        (tmp_path / "hub" / "models--BAAI--bge-small-en-v1.5").mkdir(parents=True, exist_ok=True)
+        with pytest.raises(embeddings.EmbeddingCacheBroken, match=expected):
+            service._load_st_model()
+    assert spawned == ["bge-small", "bge-small"]

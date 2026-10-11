@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4635, test files 1066, tests 9776, plan headings 995.
+Counts: frontend functions 5514, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4636, test files 1067, tests 9787, plan headings 995.
 
-## Frontend functions (5511)
+## Frontend functions (5514)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -2574,45 +2574,45 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `dateFieldShift` | frontend/js/date-field.js:11 |
 | `dateFieldWire` | frontend/js/date-field.js:13 |
 
-### frontend/js/documents-code.js (158)
+### frontend/js/documents-code.js (161)
 
 | Name | File:line |
 |---|---|
 | `DOC_CSS_COLORS` | frontend/js/documents-code.js:728 |
-| `docApplyCodeFix` | frontend/js/documents-code.js:5742 |
+| `docApplyCodeFix` | frontend/js/documents-code.js:5817 |
 | `docBalanceRange` | frontend/js/documents-code.js:1012 |
 | `docBeautifyText` | frontend/js/documents-code.js:1428 |
 | `docBracketColours` | frontend/js/documents-code.js:2086 |
 | `docBracketDepths` | frontend/js/documents-code.js:2069 |
 | `docCmSyncCodeTools` | frontend/js/documents-code.js:677 |
-| `docCodeActions` | frontend/js/documents-code.js:5757 |
+| `docCodeActions` | frontend/js/documents-code.js:5832 |
 | `docCodeCompletionData` | frontend/js/documents-code.js:636 |
 | `docCodeCompletionSource` | frontend/js/documents-code.js:607 |
-| `docCodeEditing` | frontend/js/documents-code.js:5494 |
-| `docCodeFixNow` | frontend/js/documents-code.js:5724 |
-| `docCodeFixes` | frontend/js/documents-code.js:5219 |
-| `docCodeIndentAt` | frontend/js/documents-code.js:5479 |
-| `docCodeIndentLevel` | frontend/js/documents-code.js:4767 |
-| `docCodeInsertPoint` | frontend/js/documents-code.js:5210 |
-| `docCodeInsertPointForString` | frontend/js/documents-code.js:5297 |
-| `docCodeLastCodeBefore` | frontend/js/documents-code.js:5280 |
-| `docCodeLineOf` | frontend/js/documents-code.js:4756 |
+| `docCodeEditing` | frontend/js/documents-code.js:5569 |
+| `docCodeFixNow` | frontend/js/documents-code.js:5799 |
+| `docCodeFixes` | frontend/js/documents-code.js:5294 |
+| `docCodeIndentAt` | frontend/js/documents-code.js:5554 |
+| `docCodeIndentLevel` | frontend/js/documents-code.js:4842 |
+| `docCodeInsertPoint` | frontend/js/documents-code.js:5285 |
+| `docCodeInsertPointForString` | frontend/js/documents-code.js:5372 |
+| `docCodeLastCodeBefore` | frontend/js/documents-code.js:5355 |
+| `docCodeLineOf` | frontend/js/documents-code.js:4831 |
 | `docCodeLintSource` | frontend/js/documents-code.js:340 |
-| `docCodePairs` | frontend/js/documents-code.js:5468 |
-| `docCodeProblemMessage` | frontend/js/documents-code.js:4782 |
-| `docCodeProfile` | frontend/js/documents-code.js:4241 |
-| `docCodeScan` | frontend/js/documents-code.js:4329 |
+| `docCodePairs` | frontend/js/documents-code.js:5543 |
+| `docCodeProblemMessage` | frontend/js/documents-code.js:4857 |
+| `docCodeProfile` | frontend/js/documents-code.js:4316 |
+| `docCodeScan` | frontend/js/documents-code.js:4404 |
 | `docCodeSnippetOptions` | frontend/js/documents-code.js:577 |
 | `docCodeSymbols` | frontend/js/documents-code.js:2128 |
 | `docCodeTools` | frontend/js/documents-code.js:647 |
 | `docColorAt` | frontend/js/documents-code.js:1827 |
 | `docColorSwatches` | frontend/js/documents-code.js:1867 |
 | `docCompleteTab` | frontend/js/documents-code.js:1688 |
-| `docCompletionExtras` | frontend/js/documents-code.js:4175 |
-| `docConsoleEval` | frontend/js/documents-code.js:3429 |
-| `docConsoleKey` | frontend/js/documents-code.js:3495 |
-| `docConsoleLang` | frontend/js/documents-code.js:3421 |
-| `docConsoleMessage` | frontend/js/documents-code.js:3475 |
+| `docCompletionExtras` | frontend/js/documents-code.js:4250 |
+| `docConsoleEval` | frontend/js/documents-code.js:3498 |
+| `docConsoleKey` | frontend/js/documents-code.js:3559 |
+| `docConsoleLang` | frontend/js/documents-code.js:3490 |
+| `docConsoleMessage` | frontend/js/documents-code.js:3539 |
 | `docCssColorFormat` | frontend/js/documents-code.js:1103 |
 | `docCssCompletionSource` | frontend/js/documents-code.js:1644 |
 | `docCssInBlock` | frontend/js/documents-code.js:1484 |
@@ -2621,24 +2621,24 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docCssValueContext` | frontend/js/documents-code.js:935 |
 | `docCssValueOptions` | frontend/js/documents-code.js:976 |
 | `docCssValueTable` | frontend/js/documents-code.js:947 |
-| `docDebugAct` | frontend/js/documents-code.js:2628 |
-| `docDebugBegin` | frontend/js/documents-code.js:2598 |
-| `docDebugBreakMenu` | frontend/js/documents-code.js:2802 |
-| `docDebugBreaks` | frontend/js/documents-code.js:2666 |
-| `docDebugEmpty` | frontend/js/documents-code.js:2931 |
-| `docDebugEnded` | frontend/js/documents-code.js:2616 |
-| `docDebugExtension` | frontend/js/documents-code.js:2686 |
-| `docDebugHere` | frontend/js/documents-code.js:2828 |
-| `docDebugKey` | frontend/js/documents-code.js:2656 |
-| `docDebugLineButton` | frontend/js/documents-code.js:2939 |
-| `docDebugOn` | frontend/js/documents-code.js:2567 |
-| `docDebugRemoveButton` | frontend/js/documents-code.js:2952 |
-| `docDebugRender` | frontend/js/documents-code.js:2968 |
-| `docDebugStopped` | frontend/js/documents-code.js:2585 |
-| `docDebugToggleAt` | frontend/js/documents-code.js:2781 |
-| `docDebugToggleHere` | frontend/js/documents-code.js:2795 |
-| `docDebugValueRow` | frontend/js/documents-code.js:2917 |
-| `docDebugView` | frontend/js/documents-code.js:2841 |
+| `docDebugAct` | frontend/js/documents-code.js:2683 |
+| `docDebugBegin` | frontend/js/documents-code.js:2653 |
+| `docDebugBreakMenu` | frontend/js/documents-code.js:2857 |
+| `docDebugBreaks` | frontend/js/documents-code.js:2721 |
+| `docDebugEmpty` | frontend/js/documents-code.js:2986 |
+| `docDebugEnded` | frontend/js/documents-code.js:2671 |
+| `docDebugExtension` | frontend/js/documents-code.js:2741 |
+| `docDebugHere` | frontend/js/documents-code.js:2883 |
+| `docDebugKey` | frontend/js/documents-code.js:2711 |
+| `docDebugLineButton` | frontend/js/documents-code.js:2994 |
+| `docDebugOn` | frontend/js/documents-code.js:2622 |
+| `docDebugRemoveButton` | frontend/js/documents-code.js:3007 |
+| `docDebugRender` | frontend/js/documents-code.js:3023 |
+| `docDebugStopped` | frontend/js/documents-code.js:2640 |
+| `docDebugToggleAt` | frontend/js/documents-code.js:2836 |
+| `docDebugToggleHere` | frontend/js/documents-code.js:2850 |
+| `docDebugValueRow` | frontend/js/documents-code.js:2972 |
+| `docDebugView` | frontend/js/documents-code.js:2896 |
 | `docDefinitionsOf` | frontend/js/documents-code.js:2363 |
 | `docDiagnosticRange` | frontend/js/documents-code.js:82 |
 | `docEmmetAt` | frontend/js/documents-code.js:872 |
@@ -2655,13 +2655,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docEmmetWrap` | frontend/js/documents-code.js:1569 |
 | `docEmmetWrapText` | frontend/js/documents-code.js:1033 |
 | `docFindInDocuments` | frontend/js/documents-code.js:2454 |
-| `docFormatChanges` | frontend/js/documents-code.js:5599 |
-| `docFormatCode` | frontend/js/documents-code.js:5623 |
-| `docFormatCodeText` | frontend/js/documents-code.js:4819 |
-| `docFormatJsonText` | frontend/js/documents-code.js:5136 |
-| `docFormatMarkupText` | frontend/js/documents-code.js:4899 |
-| `docFormatRemoteRefusal` | frontend/js/documents-code.js:5578 |
-| `docFormatTreeRefusal` | frontend/js/documents-code.js:5564 |
+| `docFormatChanges` | frontend/js/documents-code.js:5674 |
+| `docFormatCode` | frontend/js/documents-code.js:5698 |
+| `docFormatCodeText` | frontend/js/documents-code.js:4894 |
+| `docFormatJsonText` | frontend/js/documents-code.js:5211 |
+| `docFormatMarkupText` | frontend/js/documents-code.js:4974 |
+| `docFormatRemoteRefusal` | frontend/js/documents-code.js:5653 |
+| `docFormatTreeRefusal` | frontend/js/documents-code.js:5639 |
 | `docGhostPlugin` | frontend/js/documents-code.js:1700 |
 | `docGhostSuffix` | frontend/js/documents-code.js:994 |
 | `docGoToDefinition` | frontend/js/documents-code.js:2407 |
@@ -2670,58 +2670,61 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docHtmlDiagnostics` | frontend/js/documents-code.js:270 |
 | `docHtmlTextAt` | frontend/js/documents-code.js:1450 |
 | `docIndentGuides` | frontend/js/documents-code.js:2008 |
-| `docIndentMixFixes` | frontend/js/documents-code.js:5383 |
+| `docIndentMixFixes` | frontend/js/documents-code.js:5458 |
 | `docIndentSteps` | frontend/js/documents-code.js:1989 |
 | `docJsonDiagnostics` | frontend/js/documents-code.js:221 |
 | `docJsonErrorAt` | frontend/js/documents-code.js:103 |
-| `docJsonFixes` | frontend/js/documents-code.js:5307 |
+| `docJsonFixes` | frontend/js/documents-code.js:5382 |
 | `docJsxChildAt` | frontend/js/documents-code.js:1461 |
 | `docLoadBeautify` | frontend/js/documents-code.js:1409 |
 | `docLoadEmmet` | frontend/js/documents-code.js:1383 |
 | `docNativeSnippets` | frontend/js/documents-code.js:591 |
-| `docOpenCodeFixes` | frontend/js/documents-code.js:5772 |
-| `docOpenSymbols` | frontend/js/documents-code.js:4154 |
-| `docPanelChord` | frontend/js/documents-code.js:3376 |
-| `docPanelToggle` | frontend/js/documents-code.js:3360 |
+| `docOpenCodeFixes` | frontend/js/documents-code.js:5847 |
+| `docOpenSymbols` | frontend/js/documents-code.js:4229 |
+| `docPanelChord` | frontend/js/documents-code.js:3445 |
+| `docPanelToggle` | frontend/js/documents-code.js:3429 |
 | `docPickDefinition` | frontend/js/documents-code.js:2396 |
-| `docProblemsRender` | frontend/js/documents-code.js:3397 |
-| `docPythonColonFix` | frontend/js/documents-code.js:5360 |
+| `docProblemsRender` | frontend/js/documents-code.js:3466 |
+| `docPyHost` | frontend/js/documents-code.js:2539 |
+| `docPyWarm` | frontend/js/documents-code.js:2559 |
+| `docPythonColonFix` | frontend/js/documents-code.js:5435 |
 | `docPythonDefines` | frontend/js/documents-code.js:2352 |
 | `docReferencesOf` | frontend/js/documents-code.js:2328 |
 | `docRemoteDiagnostics` | frontend/js/documents-code.js:300 |
 | `docRgbToHex` | frontend/js/documents-code.js:1093 |
-| `docRunAfterSave` | frontend/js/documents-code.js:3551 |
-| `docRunArmTimeout` | frontend/js/documents-code.js:3885 |
-| `docRunAsk` | frontend/js/documents-code.js:3798 |
-| `docRunCell` | frontend/js/documents-code.js:4028 |
-| `docRunClear` | frontend/js/documents-code.js:3632 |
-| `docRunClearTab` | frontend/js/documents-code.js:3386 |
-| `docRunClose` | frontend/js/documents-code.js:3859 |
-| `docRunCode` | frontend/js/documents-code.js:3900 |
-| `docRunExtension` | frontend/js/documents-code.js:3558 |
-| `docRunJobArm` | frontend/js/documents-code.js:3600 |
-| `docRunJobCall` | frontend/js/documents-code.js:3593 |
-| `docRunJobEnd` | frontend/js/documents-code.js:3623 |
-| `docRunLiveOn` | frontend/js/documents-code.js:3529 |
-| `docRunLiveSchedule` | frontend/js/documents-code.js:3542 |
-| `docRunOpenPythonExtra` | frontend/js/documents-code.js:2546 |
-| `docRunPanel` | frontend/js/documents-code.js:3090 |
-| `docRunPythonMissing` | frontend/js/documents-code.js:3867 |
+| `docRunAfterSave` | frontend/js/documents-code.js:3615 |
+| `docRunArmTimeout` | frontend/js/documents-code.js:3949 |
+| `docRunAsk` | frontend/js/documents-code.js:3862 |
+| `docRunCell` | frontend/js/documents-code.js:4088 |
+| `docRunClear` | frontend/js/documents-code.js:3696 |
+| `docRunClearTab` | frontend/js/documents-code.js:3455 |
+| `docRunClose` | frontend/js/documents-code.js:3923 |
+| `docRunCode` | frontend/js/documents-code.js:3964 |
+| `docRunExtension` | frontend/js/documents-code.js:3622 |
+| `docRunJobArm` | frontend/js/documents-code.js:3664 |
+| `docRunJobCall` | frontend/js/documents-code.js:3657 |
+| `docRunJobEnd` | frontend/js/documents-code.js:3687 |
+| `docRunLiveOn` | frontend/js/documents-code.js:3593 |
+| `docRunLiveSchedule` | frontend/js/documents-code.js:3606 |
+| `docRunOpenPythonExtra` | frontend/js/documents-code.js:2601 |
+| `docRunPanel` | frontend/js/documents-code.js:3145 |
+| `docRunPythonMissing` | frontend/js/documents-code.js:3931 |
 | `docRunPythonReady` | frontend/js/documents-code.js:2523 |
-| `docRunRow` | frontend/js/documents-code.js:3641 |
-| `docRunSelection` | frontend/js/documents-code.js:4017 |
-| `docRunSend` | frontend/js/documents-code.js:3839 |
-| `docRunSetLive` | frontend/js/documents-code.js:3533 |
-| `docRunSetStatus` | frontend/js/documents-code.js:3578 |
-| `docRunShowStdin` | frontend/js/documents-code.js:3519 |
-| `docRunShowTab` | frontend/js/documents-code.js:3340 |
-| `docRunShowTestMarks` | frontend/js/documents-code.js:3784 |
-| `docRunStop` | frontend/js/documents-code.js:3848 |
-| `docRunSyncAvailability` | frontend/js/documents-code.js:2532 |
-| `docRunTable` | frontend/js/documents-code.js:3681 |
-| `docRunTestDiagnostics` | frontend/js/documents-code.js:3750 |
-| `docRunTestRow` | frontend/js/documents-code.js:3719 |
-| `docRunTestsDone` | frontend/js/documents-code.js:3763 |
+| `docRunRow` | frontend/js/documents-code.js:3705 |
+| `docRunSelectFrame` | frontend/js/documents-code.js:2568 |
+| `docRunSelection` | frontend/js/documents-code.js:4077 |
+| `docRunSend` | frontend/js/documents-code.js:3903 |
+| `docRunSetLive` | frontend/js/documents-code.js:3597 |
+| `docRunSetStatus` | frontend/js/documents-code.js:3642 |
+| `docRunShowStdin` | frontend/js/documents-code.js:3583 |
+| `docRunShowTab` | frontend/js/documents-code.js:3409 |
+| `docRunShowTestMarks` | frontend/js/documents-code.js:3848 |
+| `docRunStop` | frontend/js/documents-code.js:3912 |
+| `docRunSyncAvailability` | frontend/js/documents-code.js:2586 |
+| `docRunTable` | frontend/js/documents-code.js:3745 |
+| `docRunTestDiagnostics` | frontend/js/documents-code.js:3814 |
+| `docRunTestRow` | frontend/js/documents-code.js:3783 |
+| `docRunTestsDone` | frontend/js/documents-code.js:3827 |
 | `docRunnable` | frontend/js/documents-code.js:2516 |
 | `docShowReferences` | frontend/js/documents-code.js:2428 |
 | `docStickyHeaders` | frontend/js/documents-code.js:2201 |
@@ -2729,13 +2732,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docTagLink` | frontend/js/documents-code.js:1758 |
 | `docTagRename` | frontend/js/documents-code.js:1044 |
 | `docTreeDiagnostics` | frontend/js/documents-code.js:244 |
-| `docTreeHasJsx` | frontend/js/documents-code.js:5549 |
+| `docTreeHasJsx` | frontend/js/documents-code.js:5624 |
 | `docWordAt` | frontend/js/documents-code.js:2317 |
 | `docXmlAutoClose` | frontend/js/documents-code.js:1793 |
 | `docXmlOpenedBy` | frontend/js/documents-code.js:1067 |
 | `docXmlTextAt` | frontend/js/documents-code.js:1471 |
 | `docXmlUnclosed` | frontend/js/documents-code.js:1074 |
-| `docYamlBlockLines` | frontend/js/documents-code.js:5109 |
+| `docYamlBlockLines` | frontend/js/documents-code.js:5184 |
 
 ### frontend/js/documents-codekit.js (32)
 
@@ -9172,8 +9175,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |  | POST | `start` | src/memorymap/api/routes_bench.py:196 |
 | `/` | GET | `get_whiteboard_state` | src/memorymap/api/routes_whiteboard.py:927 |
 | `/account` | GET | `account` | src/memorymap/api/routes_auth.py:976 |
-| `/activity` | GET | `list_activity` | src/memorymap/api/routes_tasks.py:892 |
-| `/activity/{job_id:path}/stop` | POST | `stop_activity` | src/memorymap/api/routes_tasks.py:901 |
+| `/activity` | GET | `list_activity` | src/memorymap/api/routes_tasks.py:894 |
+| `/activity/{job_id:path}/stop` | POST | `stop_activity` | src/memorymap/api/routes_tasks.py:903 |
 | `/all` | GET | `ranked` | src/memorymap/api/routes_resurface.py:119 |
 | `/apply` | POST | `apply_update` | src/memorymap/api/routes_update.py:663 |
 | `/apply/status` | GET | `apply_status` | src/memorymap/api/routes_update.py:758 |
@@ -9227,7 +9230,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/bulk` | POST | `bulk_edit_tags` | src/memorymap/api/routes_tags.py:104 |
 | `/capabilities` | GET | `capabilities` | src/memorymap/api/routes_capabilities.py:75 |
 | `/change-password` | POST | `change_password` | src/memorymap/api/routes_auth.py:1008 |
-| `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1413 |
+| `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1420 |
 | `/charts/question` | POST | `chart_for_question` | src/memorymap/api/routes_vision.py:380 |
 | `/chat-model` | POST | `set_chat_model` | src/memorymap/api/routes_models.py:692 |
 | `/check` | GET | `check_for_update` | src/memorymap/api/routes_update.py:428 |
@@ -9256,8 +9259,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/day` | GET | `day_digest_lines` | src/memorymap/api/routes_insights.py:384 |
 | `/delete` | POST | `delete_model` | src/memorymap/api/routes_models.py:1004 |
 | `/delete` | POST | `delete_tag` | src/memorymap/api/routes_tags.py:95 |
-| `/desktop/fullscreen` | GET | `desktop_fullscreen_state` | src/memorymap/api/routes_tasks.py:762 |
-| `/desktop/fullscreen` | POST | `desktop_fullscreen_toggle` | src/memorymap/api/routes_tasks.py:774 |
+| `/desktop/fullscreen` | GET | `desktop_fullscreen_state` | src/memorymap/api/routes_tasks.py:764 |
+| `/desktop/fullscreen` | POST | `desktop_fullscreen_toggle` | src/memorymap/api/routes_tasks.py:776 |
 | `/digest` | POST | `weekly_digest` | src/memorymap/api/routes_insights.py:714 |
 | `/digest/stream` | POST | `weekly_digest_stream` | src/memorymap/api/routes_insights.py:646 |
 | `/dismiss` | POST | `dismiss_insight` | src/memorymap/api/routes_insights.py:437 |
@@ -9265,7 +9268,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/dismissed/clear` | POST | `clear_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:225 |
 | `/dismissed/restore` | POST | `restore_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:239 |
 | `/documents/run-sandbox` | GET | `run_sandbox` | src/memorymap/api/run_sandbox.py:713 |
-| `/documents/run-sandbox/python` | GET | `run_sandbox_python` | src/memorymap/api/run_sandbox.py:1428 |
+| `/documents/run-sandbox/python` | GET | `run_sandbox_python` | src/memorymap/api/run_sandbox.py:1465 |
 | `/documents/{document_id}/code-assist` | POST | `code_assist_route` | src/memorymap/api/routes_code_assist.py:34 |
 | `/embedding-backend` | POST | `set_embedding_backend` | src/memorymap/api/routes_models.py:915 |
 | `/embedding-models` | GET | `list_embedding_models` | src/memorymap/api/routes_settings.py:1930 |
@@ -9335,7 +9338,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/greeting` | GET | `greeting` | src/memorymap/api/routes_insights.py:161 |
 | `/hardware` | GET | `hardware_memory` | src/memorymap/api/routes_models.py:647 |
 | `/health` | GET | `debug_health` | src/memorymap/api/routes_debug.py:79 |
-| `/health` | GET | `health` | src/memorymap/api/app.py:1355 |
+| `/health` | GET | `health` | src/memorymap/api/app.py:1362 |
 | `/health/integrity` | POST | `integrity_check` | src/memorymap/api/routes_debug.py:186 |
 | `/heatmap` | GET | `heatmap` | src/memorymap/api/routes_insights.py:349 |
 | `/history` | GET | `board_history` | src/memorymap/api/routes_board_history.py:271 |
@@ -9355,14 +9358,14 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/import/reports/{report_id}` | GET | `import_report_page` | src/memorymap/api/routes_import.py:112 |
 | `/improve` | POST | `improve_writing` | src/memorymap/api/routes_entries.py:1548 |
 | `/inspect` | POST | `inspect_model` | src/memorymap/api/routes_models.py:664 |
-| `/instance` | GET | `instance` | src/memorymap/api/app.py:1374 |
-| `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1388 |
-| `/jobs` | GET | `list_jobs` | src/memorymap/api/routes_tasks.py:558 |
+| `/instance` | GET | `instance` | src/memorymap/api/app.py:1381 |
+| `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1395 |
+| `/jobs` | GET | `list_jobs` | src/memorymap/api/routes_tasks.py:560 |
 | `/jobs/cancel` | POST | `cancel_job` | src/memorymap/api/routes_models.py:900 |
-| `/jobs/last-runs` | GET | `jobs_last_runs` | src/memorymap/api/routes_tasks.py:524 |
-| `/jobs/passes/{kind}/run` | POST | `run_pass_now` | src/memorymap/api/routes_tasks.py:544 |
-| `/jobs/stream` | GET | `jobs_stream` | src/memorymap/api/routes_tasks.py:585 |
-| `/jobs/{job_id}/cancel` | POST | `cancel_job` | src/memorymap/api/routes_tasks.py:566 |
+| `/jobs/last-runs` | GET | `jobs_last_runs` | src/memorymap/api/routes_tasks.py:526 |
+| `/jobs/passes/{kind}/run` | POST | `run_pass_now` | src/memorymap/api/routes_tasks.py:546 |
+| `/jobs/stream` | GET | `jobs_stream` | src/memorymap/api/routes_tasks.py:587 |
+| `/jobs/{job_id}/cancel` | POST | `cancel_job` | src/memorymap/api/routes_tasks.py:568 |
 | `/lan-access` | GET | `lan_access` | src/memorymap/api/routes_auth.py:848 |
 | `/lan-access` | POST | `set_lan_access` | src/memorymap/api/routes_auth.py:894 |
 | `/lan-certificate` | POST | `regenerate_lan_certificate` | src/memorymap/api/routes_auth.py:875 |
@@ -9433,7 +9436,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3205 |
 | `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3254 |
 | `/on-this-day` | GET | `on_this_day` | src/memorymap/api/routes_insights.py:461 |
-| `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1338 |
+| `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1345 |
 | `/outline` | GET | `documents_outline` | src/memorymap/api/routes_documents.py:438 |
 | `/parse` | POST | `magic_add_reminder` | src/memorymap/api/routes_reminders.py:529 |
 | `/password-on-open` | POST | `set_password_on_open` | src/memorymap/api/routes_auth.py:793 |
@@ -9499,7 +9502,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/sampling` | PUT | `save_sampling_settings` | src/memorymap/api/routes_models.py:591 |
 | `/seed-examples` | POST | `seed_example_entries` | src/memorymap/api/routes_entries.py:2389 |
 | `/setup` | POST | `setup` | src/memorymap/api/routes_auth.py:615 |
-| `/shutdown` | POST | `shutdown` | src/memorymap/api/routes_tasks.py:786 |
+| `/shutdown` | POST | `shutdown` | src/memorymap/api/routes_tasks.py:788 |
 | `/sketches` | POST | `create_sketch` | src/memorymap/api/routes_whiteboard.py:2918 |
 | `/sketches/{sketch_id}` | DELETE | `delete_sketch` | src/memorymap/api/routes_whiteboard.py:2973 |
 | `/sketches/{sketch_id}` | PUT | `update_sketch` | src/memorymap/api/routes_whiteboard.py:2948 |
@@ -9534,16 +9537,16 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/support-bundle` | GET | `support_bundle` | src/memorymap/api/routes_settings.py:2340 |
 | `/switches` | GET | `get_switches` | src/memorymap/api/routes_learned.py:197 |
 | `/switches` | PUT | `put_switches` | src/memorymap/api/routes_learned.py:203 |
-| `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1348 |
+| `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1355 |
 | `/system/console-mode` | POST | `set_console_mode` | src/memorymap/api/routes_settings.py:1132 |
 | `/system/restart` | POST | `restart_app` | src/memorymap/api/routes_settings.py:1201 |
 | `/tag-cloud` | GET | `tag_cloud` | src/memorymap/api/routes_insights.py:450 |
-| `/tasks` | GET | `list_tasks` | src/memorymap/api/routes_tasks.py:510 |
-| `/tasks/autonomous/last` | GET | `last_autonomous_pass` | src/memorymap/api/routes_tasks.py:721 |
-| `/tasks/autonomous/last/clear` | POST | `clear_last_autonomous_pass` | src/memorymap/api/routes_tasks.py:738 |
-| `/tasks/cancel` | POST | `cancel_task` | src/memorymap/api/routes_tasks.py:645 |
-| `/tasks/history/clear` | POST | `clear_history` | src/memorymap/api/routes_tasks.py:747 |
-| `/tasks/trigger-autonomous` | POST | `trigger_autonomous` | src/memorymap/api/routes_tasks.py:684 |
+| `/tasks` | GET | `list_tasks` | src/memorymap/api/routes_tasks.py:512 |
+| `/tasks/autonomous/last` | GET | `last_autonomous_pass` | src/memorymap/api/routes_tasks.py:723 |
+| `/tasks/autonomous/last/clear` | POST | `clear_last_autonomous_pass` | src/memorymap/api/routes_tasks.py:740 |
+| `/tasks/cancel` | POST | `cancel_task` | src/memorymap/api/routes_tasks.py:647 |
+| `/tasks/history/clear` | POST | `clear_history` | src/memorymap/api/routes_tasks.py:749 |
+| `/tasks/trigger-autonomous` | POST | `trigger_autonomous` | src/memorymap/api/routes_tasks.py:686 |
 | `/templates/draft` | POST | `draft_template` | src/memorymap/api/routes_settings.py:216 |
 | `/tensions` | GET | `find_tensions` | src/memorymap/api/routes_entries.py:1803 |
 | `/tensions/accept` | POST | `accept_tension` | src/memorymap/api/routes_entries.py:1955 |
@@ -9690,9 +9693,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}` | DELETE | `delete_ask_turn` | src/memorymap/api/routes_ask_history.py:171 |
 | `/{turn_id}` | GET | `get_ask_turn` | src/memorymap/api/routes_ask_history.py:91 |
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
-| `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
+| `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1495 |
 
-## Backend modules (4635)
+## Backend modules (4636)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10290,7 +10293,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 |---|---|
 | `EmbeddingCacheBroken` | src/memorymap/ai/embeddings.py:50 |
 | `EmbeddingService` | src/memorymap/ai/embeddings.py:650 |
-| `_PinnedModels` | src/memorymap/ai/embeddings.py:1168 |
+| `_PinnedModels` | src/memorymap/ai/embeddings.py:1173 |
 | `_backfill_chunks` | src/memorymap/ai/embeddings.py:360 |
 | `_backfill_missing` | src/memorymap/ai/embeddings.py:302 |
 | `_digest` | src/memorymap/ai/embeddings.py:546 |
@@ -11837,35 +11840,35 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `RequestPulse` | src/memorymap/api/app.py:1081 |
+| `RequestPulse` | src/memorymap/api/app.py:1088 |
 | `RevalidatedStatic` | src/memorymap/api/app.py:308 |
-| `SpaceGuard` | src/memorymap/api/app.py:1012 |
+| `SpaceGuard` | src/memorymap/api/app.py:1019 |
 | `_UnversionedStatic` | src/memorymap/api/app.py:299 |
-| `_add_middleware` | src/memorymap/api/app.py:1153 |
-| `_add_system_routes` | src/memorymap/api/app.py:1334 |
-| `_backup_if_due` | src/memorymap/api/app.py:697 |
-| `_check_notebook_file` | src/memorymap/api/app.py:689 |
-| `_choose_chat_model_if_missing` | src/memorymap/api/app.py:650 |
-| `_code_for_status` | src/memorymap/api/app.py:799 |
+| `_add_middleware` | src/memorymap/api/app.py:1160 |
+| `_add_system_routes` | src/memorymap/api/app.py:1341 |
+| `_backup_if_due` | src/memorymap/api/app.py:704 |
+| `_check_notebook_file` | src/memorymap/api/app.py:696 |
+| `_choose_chat_model_if_missing` | src/memorymap/api/app.py:657 |
+| `_code_for_status` | src/memorymap/api/app.py:806 |
 | `_compact_event_log` | src/memorymap/api/app.py:575 |
 | `_compact_step` | src/memorymap/api/app.py:621 |
-| `_content_length` | src/memorymap/api/app.py:1064 |
-| `_include_routers` | src/memorymap/api/app.py:1239 |
+| `_content_length` | src/memorymap/api/app.py:1071 |
+| `_include_routers` | src/memorymap/api/app.py:1246 |
 | `_install_pending_extras` | src/memorymap/api/app.py:629 |
 | `_purge_expired_bin_entries` | src/memorymap/api/app.py:551 |
 | `_purge_step` | src/memorymap/api/app.py:617 |
-| `_register_error_handlers` | src/memorymap/api/app.py:810 |
+| `_register_error_handlers` | src/memorymap/api/app.py:817 |
 | `_stamp_for` | src/memorymap/api/app.py:222 |
-| `_start_autonomous_loop` | src/memorymap/api/app.py:754 |
-| `_start_searxng_if_asked` | src/memorymap/api/app.py:722 |
-| `_start_services` | src/memorymap/api/app.py:1096 |
-| `_startup_maintenance` | src/memorymap/api/app.py:661 |
+| `_start_autonomous_loop` | src/memorymap/api/app.py:761 |
+| `_start_searxng_if_asked` | src/memorymap/api/app.py:729 |
+| `_start_services` | src/memorymap/api/app.py:1103 |
+| `_startup_maintenance` | src/memorymap/api/app.py:668 |
 | `_static_gzip` | src/memorymap/api/app.py:490 |
 | `asset_hash` | src/memorymap/api/app.py:198 |
 | `asset_stamps` | src/memorymap/api/app.py:227 |
 | `clear_static_cache` | src/memorymap/api/app.py:531 |
-| `create_app` | src/memorymap/api/app.py:1449 |
-| `out_of_space_body` | src/memorymap/api/app.py:982 |
+| `create_app` | src/memorymap/api/app.py:1456 |
+| `out_of_space_body` | src/memorymap/api/app.py:989 |
 | `pin_static_mime_types` | src/memorymap/api/app.py:165 |
 | `served_index_html` | src/memorymap/api/app.py:264 |
 | `served_offline_html` | src/memorymap/api/app.py:249 |
@@ -13290,30 +13293,30 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `CancelTaskBody` | src/memorymap/api/routes_tasks.py:636 |
-| `_ledger_rows` | src/memorymap/api/routes_tasks.py:413 |
-| `_model_state` | src/memorymap/api/routes_tasks.py:833 |
+| `CancelTaskBody` | src/memorymap/api/routes_tasks.py:638 |
+| `_ledger_rows` | src/memorymap/api/routes_tasks.py:415 |
+| `_model_state` | src/memorymap/api/routes_tasks.py:835 |
 | `_percent` | src/memorymap/api/routes_tasks.py:43 |
-| `_stamp_started` | src/memorymap/api/routes_tasks.py:474 |
-| `_stop_filing` | src/memorymap/api/routes_tasks.py:500 |
-| `activity_rows` | src/memorymap/api/routes_tasks.py:846 |
-| `cancel_job` | src/memorymap/api/routes_tasks.py:567 |
-| `cancel_task` | src/memorymap/api/routes_tasks.py:646 |
-| `clear_history` | src/memorymap/api/routes_tasks.py:748 |
-| `clear_last_autonomous_pass` | src/memorymap/api/routes_tasks.py:739 |
+| `_stamp_started` | src/memorymap/api/routes_tasks.py:476 |
+| `_stop_filing` | src/memorymap/api/routes_tasks.py:502 |
+| `activity_rows` | src/memorymap/api/routes_tasks.py:848 |
+| `cancel_job` | src/memorymap/api/routes_tasks.py:569 |
+| `cancel_task` | src/memorymap/api/routes_tasks.py:648 |
+| `clear_history` | src/memorymap/api/routes_tasks.py:750 |
+| `clear_last_autonomous_pass` | src/memorymap/api/routes_tasks.py:741 |
 | `collect` | src/memorymap/api/routes_tasks.py:51 |
-| `desktop_fullscreen_state` | src/memorymap/api/routes_tasks.py:763 |
-| `desktop_fullscreen_toggle` | src/memorymap/api/routes_tasks.py:775 |
-| `jobs_last_runs` | src/memorymap/api/routes_tasks.py:525 |
-| `jobs_stream` | src/memorymap/api/routes_tasks.py:586 |
-| `last_autonomous_pass` | src/memorymap/api/routes_tasks.py:722 |
-| `list_activity` | src/memorymap/api/routes_tasks.py:893 |
-| `list_jobs` | src/memorymap/api/routes_tasks.py:559 |
-| `list_tasks` | src/memorymap/api/routes_tasks.py:511 |
-| `run_pass_now` | src/memorymap/api/routes_tasks.py:545 |
-| `shutdown` | src/memorymap/api/routes_tasks.py:787 |
-| `stop_activity` | src/memorymap/api/routes_tasks.py:902 |
-| `trigger_autonomous` | src/memorymap/api/routes_tasks.py:685 |
+| `desktop_fullscreen_state` | src/memorymap/api/routes_tasks.py:765 |
+| `desktop_fullscreen_toggle` | src/memorymap/api/routes_tasks.py:777 |
+| `jobs_last_runs` | src/memorymap/api/routes_tasks.py:527 |
+| `jobs_stream` | src/memorymap/api/routes_tasks.py:588 |
+| `last_autonomous_pass` | src/memorymap/api/routes_tasks.py:724 |
+| `list_activity` | src/memorymap/api/routes_tasks.py:895 |
+| `list_jobs` | src/memorymap/api/routes_tasks.py:561 |
+| `list_tasks` | src/memorymap/api/routes_tasks.py:513 |
+| `run_pass_now` | src/memorymap/api/routes_tasks.py:547 |
+| `shutdown` | src/memorymap/api/routes_tasks.py:789 |
+| `stop_activity` | src/memorymap/api/routes_tasks.py:904 |
+| `trigger_autonomous` | src/memorymap/api/routes_tasks.py:687 |
 
 ### src/memorymap/api/routes_tidy.py (15)
 
@@ -13617,7 +13620,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `RunJobBody` | src/memorymap/api/run_sandbox.py:1514 |
+| `RunJobBody` | src/memorymap/api/run_sandbox.py:1551 |
 | `_MMDebugger` | src/memorymap/api/run_sandbox.py:1035 |
 | `_MMFrameAt` | src/memorymap/api/run_sandbox.py:1202 |
 | `_MMOut` | src/memorymap/api/run_sandbox.py:784 |
@@ -13629,14 +13632,14 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_mm_run` | src/memorymap/api/run_sandbox.py:846 |
 | `_mm_show` | src/memorymap/api/run_sandbox.py:1016 |
 | `_mm_tests` | src/memorymap/api/run_sandbox.py:918 |
-| `_run_job` | src/memorymap/api/run_sandbox.py:1518 |
-| `beat_run_job` | src/memorymap/api/run_sandbox.py:1540 |
-| `end_run_job` | src/memorymap/api/run_sandbox.py:1548 |
-| `pyodide_file` | src/memorymap/api/run_sandbox.py:1459 |
+| `_run_job` | src/memorymap/api/run_sandbox.py:1555 |
+| `beat_run_job` | src/memorymap/api/run_sandbox.py:1577 |
+| `end_run_job` | src/memorymap/api/run_sandbox.py:1585 |
+| `pyodide_file` | src/memorymap/api/run_sandbox.py:1496 |
 | `python_csp` | src/memorymap/api/run_sandbox.py:760 |
 | `run_sandbox` | src/memorymap/api/run_sandbox.py:714 |
-| `run_sandbox_python` | src/memorymap/api/run_sandbox.py:1429 |
-| `start_run_job` | src/memorymap/api/run_sandbox.py:1528 |
+| `run_sandbox_python` | src/memorymap/api/run_sandbox.py:1466 |
+| `start_run_job` | src/memorymap/api/run_sandbox.py:1565 |
 
 ### src/memorymap/api/schemas.py (12)
 
@@ -13994,7 +13997,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `resolve` | src/memorymap/core/embedfind.py:216 |
 | `usable_repo` | src/memorymap/core/embedfind.py:211 |
 
-### src/memorymap/core/embedmodels.py (37)
+### src/memorymap/core/embedmodels.py (38)
 
 | Name | File:line |
 |---|---|
@@ -14002,12 +14005,12 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `EmbedModel` | src/memorymap/core/embedmodels.py:50 |
 | `OllamaEmbedModel` | src/memorymap/core/embedmodels.py:209 |
 | `_begin_download` | src/memorymap/core/embedmodels.py:747 |
-| `_clear_directory` | src/memorymap/core/embedmodels.py:928 |
+| `_clear_directory` | src/memorymap/core/embedmodels.py:934 |
 | `_declared_bytes` | src/memorymap/core/embedmodels.py:411 |
 | `_dir_size` | src/memorymap/core/embedmodels.py:501 |
 | `_file_size` | src/memorymap/core/embedmodels.py:420 |
 | `_human_size` | src/memorymap/core/embedmodels.py:517 |
-| `_in_use` | src/memorymap/core/embedmodels.py:976 |
+| `_in_use` | src/memorymap/core/embedmodels.py:982 |
 | `_log` | src/memorymap/core/embedmodels.py:592 |
 | `_looks_like_a_dropped_connection` | src/memorymap/core/embedmodels.py:626 |
 | `_model_dir` | src/memorymap/core/embedmodels.py:380 |
@@ -14020,20 +14023,21 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `cancel` | src/memorymap/core/embedmodels.py:570 |
 | `catalogue` | src/memorymap/core/embedmodels.py:271 |
 | `current` | src/memorymap/core/embedmodels.py:566 |
-| `hub_metadata` | src/memorymap/core/embedmodels.py:819 |
-| `hub_refusal` | src/memorymap/core/embedmodels.py:849 |
+| `hub_metadata` | src/memorymap/core/embedmodels.py:825 |
+| `hub_refusal` | src/memorymap/core/embedmodels.py:855 |
 | `is_downloaded` | src/memorymap/core/embedmodels.py:388 |
 | `on_download_finished` | src/memorymap/core/embedmodels.py:709 |
-| `parse_typed_name` | src/memorymap/core/embedmodels.py:803 |
+| `parse_typed_name` | src/memorymap/core/embedmodels.py:809 |
 | `prefix_for` | src/memorymap/core/embedmodels.py:265 |
 | `reinstall` | src/memorymap/core/embedmodels.py:714 |
-| `remove` | src/memorymap/core/embedmodels.py:904 |
-| `repair` | src/memorymap/core/embedmodels.py:768 |
-| `reset_for_tests` | src/memorymap/core/embedmodels.py:983 |
+| `remove` | src/memorymap/core/embedmodels.py:910 |
+| `repair` | src/memorymap/core/embedmodels.py:774 |
+| `repair_title` | src/memorymap/core/embedmodels.py:768 |
+| `reset_for_tests` | src/memorymap/core/embedmodels.py:989 |
 | `resolve_choice` | src/memorymap/core/embedmodels.py:325 |
-| `set_in_use_check` | src/memorymap/core/embedmodels.py:971 |
+| `set_in_use_check` | src/memorymap/core/embedmodels.py:977 |
 | `start` | src/memorymap/core/embedmodels.py:731 |
-| `start_typed` | src/memorymap/core/embedmodels.py:876 |
+| `start_typed` | src/memorymap/core/embedmodels.py:882 |
 | `status` | src/memorymap/core/embedmodels.py:536 |
 
 ### src/memorymap/core/embedswitch.py (17)
@@ -15631,7 +15635,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9776)
+## Tests (9787)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -15918,7 +15922,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_embedding_backfill.py | 10 |
 | tests/test_embedding_batches.py | 5 |
 | tests/test_embedding_batches_reindex.py | 2 |
-| tests/test_embedding_cache_health.py | 18 |
+| tests/test_embedding_cache_health.py | 19 |
 | tests/test_embedding_errors.py | 6 |
 | tests/test_embedding_found.py | 9 |
 | tests/test_embedding_models.py | 14 |
@@ -15967,7 +15971,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_exports_list.py | 5 |
 | tests/test_extract_notes.py | 21 |
 | tests/test_extractive_answer.py | 9 |
-| tests/test_extras.py | 44 |
+| tests/test_extras.py | 47 |
 | tests/test_extras_bundles.py | 29 |
 | tests/test_extras_download.py | 22 |
 | tests/test_f7_pool_moves.py | 2 |
@@ -16393,6 +16397,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_provider_sockets.py | 8 |
 | tests/test_providers.py | 70 |
 | tests/test_pwa_shell.py | 25 |
+| tests/test_python_host.py | 7 |
 | tests/test_qa_1005_polish.py | 10 |
 | tests/test_quadratic_scans.py | 6 |
 | tests/test_query_plans.py | 2 |

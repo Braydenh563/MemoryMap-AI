@@ -686,7 +686,7 @@ def _run_download(model: EmbedModel) -> None:
 
         taskhistory.record(
             "embedding-model",
-            f"{'Repairing' if _state.repair else 'Downloading'} {model.label}",
+            repair_title(model.label) if _state.repair else f"Downloading {model.label}",
             _state.outcome,
             _state.step,
             name=model.id,
@@ -758,11 +758,17 @@ def _begin_download(model: EmbedModel, repair: bool = False) -> tuple[bool, str]
         _state.started = time.time()
         _state.cancel_requested = False
     _spawn_download(model)
-    return True, f"{'Repairing' if repair else 'Downloading'} {model.label}."
+    return True, f"{repair_title(model.label) if repair else 'Downloading ' + model.label}."
 
 
 def _spawn_download(model: EmbedModel) -> None:
     threading.Thread(target=_run_download, args=(model,), daemon=True).start()
+
+
+def repair_title(label: str) -> str:
+    """What a self-repair is called in Background tasks and the history: the
+    owner's words (2026-10-07, "Fixing search by meaning...") and the model."""
+    return f"Fixing search by meaning ({label})"
 
 
 def repair(repo: str) -> tuple[bool, str]:

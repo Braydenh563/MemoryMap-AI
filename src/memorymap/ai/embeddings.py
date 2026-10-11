@@ -651,6 +651,8 @@ class EmbeddingService:
     # After a failed model load, wait this long before trying again, 
     # each attempt can hit the network and stall a save otherwise.
     RETRY_AFTER_SECONDS = 300
+    #: How many times a process fixes an incomplete model cache by itself.
+    REPAIR_ATTEMPTS = 2
 
     def __init__(self, model_manager: ModelManager, ollama_client: OllamaClient) -> None:
         self._models = model_manager
@@ -847,7 +849,7 @@ class EmbeddingService:
 
         **Visible, not inline.** The hidden fetch that used to run here showed
         nowhere and, offline, ended as a bare "would not load". The repair is
-        a Background task with Quit (`embedmodels.repair`), once a process,
+        a Background task with Quit (`embedmodels.repair`), at most twice a process,
         unless automatic installs are off; when it lands, `_after_repair` lets
         the model load without waiting out the retry interval."""
         from memorymap.core import embedmodels
@@ -856,8 +858,11 @@ class EmbeddingService:
         allowed = models is None or models._config.get_preference("semantic_auto_install", True)
         running = embedmodels.current()
         mending = bool(running.running and running.repair)
-        if not mending and allowed and not getattr(self, "_repair_tried", False):
-            self._repair_tried = True
+        #: Two fixes a process (the owner: "ask the person only after two
+        #: failed fixes"); each waits for the retry interval after the last.
+        attempts = getattr(self, "_repair_attempts", 0)
+        if not mending and allowed and attempts < self.REPAIR_ATTEMPTS:
+            self._repair_attempts = attempts + 1
             mending, _ = embedmodels.repair(repo)
         logger.warning(
             "%s is on this computer but its files are incomplete (%s); %s",

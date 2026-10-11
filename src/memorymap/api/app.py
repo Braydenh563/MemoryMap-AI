@@ -638,13 +638,20 @@ def _install_pending_extras() -> None:
     if not pending.is_file():
         return
     ids = [part.strip() for part in pending.read_text(encoding="utf-8").split(",") if part.strip()]
-    pending.unlink(missing_ok=True)
     #: A retired id (python-docx, `docx`, went in Brief 42) from a Setup older
     #: than this app would otherwise fail the whole list with "No such extra".
     ids = [extra_id for extra_id in ids if extra_id in extras.EXTRAS_BY_ID]
-    if ids:
-        started, message = extras.start_bulk("install", ids)
-        logging.getLogger("memorymap.startup").info("packages picked in Setup %s: %s", ids, message)
+    if not ids:
+        pending.unlink(missing_ok=True)
+        return
+    started, message = extras.start_bulk("install", ids)
+    logging.getLogger("memorymap.startup").info("packages picked in Setup %s: %s", ids, message)
+    #: Only once the job is running: another install in hand at launch refuses
+    #: the list, and a list deleted before it was accepted was a pick lost
+    #: (Brief 101c). The next launch asks again; a package already there is
+    #: skipped, and a Stop on the job is the person's answer for this run.
+    if started:
+        pending.unlink(missing_ok=True)
 
 
 def _choose_chat_model_if_missing() -> None:

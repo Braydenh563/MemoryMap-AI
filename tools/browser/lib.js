@@ -17,8 +17,24 @@ async function boot(opts={}) {
   if (await page.$('#lock-password') && await page.isVisible('#lock-password')) {
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(3000);
   }
+  //: Close the welcome through its own Skip so the first-run queue advances (hiding the overlay by class
+  //: leaves the recovery-key offer waiting behind it for ever); hide by class only if Skip is missing.
+  if (await page.isVisible('#onboarding-skip').catch(()=>false)) await page.click('#onboarding-skip');
   await page.evaluate(()=>{ const o=document.getElementById('onboarding-overlay'); if(o) o.classList.add('hidden'); });
   await page.waitForTimeout(800);
+  //: A first unlock queues a recovery-key offer (a modal <dialog>) behind the welcome and the tour; once
+  //: it draws it blocks every click. Wait briefly for it, then take "Skip for now". Absent on later unlocks.
+  try {
+    await page.waitForSelector('#recovery-key-dialog[open] #recovery-key-skip', {state:'visible', timeout: 4000});
+    await page.click('#recovery-key-skip');
+    await page.waitForSelector('#recovery-key-dialog[open]', {state:'detached', timeout: 2000});
+  } catch (e) { /* no offer this run */ }
+  //: The last turn of the first-run queue is the update question, another blocking modal.
+  try {
+    const no = page.locator('.confirm-overlay button', {hasText: "Don't check"});
+    await no.waitFor({state:'visible', timeout: 2500});
+    await no.click(); await page.waitForTimeout(300);
+  } catch (e) { /* not asked this run */ }
   return {browser, ctx, page, OUT};
 }
 module.exports = {boot, OUT, PW, BASE};

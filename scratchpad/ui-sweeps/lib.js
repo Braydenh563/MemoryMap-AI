@@ -182,6 +182,11 @@ async function boot(opts={}) {
       return true;
     }, null, {timeout: 4000, polling: 200}).catch(() => {});
   }
+  //: A fresh data dir shows the recovery-key dialog after the first password;
+  //: closed here so it cannot intercept a sweep's clicks. RECOVERY_ASK=1 keeps it.
+  if (!process.env.RECOVERY_ASK) {
+    await page.evaluate(() => { const d = document.getElementById('recovery-key-dialog'); if (d && d.open) d.close(); });
+  }
   //: `signIn` says which way it came in: 'lock' or 'app' (sign-in off).
   return {browser, ctx, page, OUT, signIn: way};
 }

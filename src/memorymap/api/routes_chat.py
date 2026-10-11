@@ -1583,7 +1583,7 @@ def _prepare(
         #: prompt below hands it to the model as ground truth rather than
         #: asking it to work the numbers out.
         "stats": (
-            {"kind": stats.kind, "text": stats.text, "facts": stats.facts}
+            {"kind": stats.kind, "text": stats.text, "facts": stats.facts, "offer": stats.offer}
             if stats is not None
             else None
         ),
@@ -2176,6 +2176,9 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         drawn = _stats_chart(prepared["stats"])
         if drawn is not None:
             out.append({"type": "chart", "chart": drawn})
+        if prepared["stats"].get("offer"):
+            #: Its one acting offer (decision 70), drawn as a link on its line.
+            out.append({"type": "offer", "offer": prepared["stats"]["offer"]})
         return out
     if not ollama_running:
         shown = prepared["tool_read"] if "tool_read" in prepared else _tool_read_events(req)

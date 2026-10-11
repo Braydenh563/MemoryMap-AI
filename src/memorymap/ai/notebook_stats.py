@@ -63,6 +63,8 @@ class StatAnswer:
     kind: str
     text: str
     facts: list[dict] = field(default_factory=list)
+    #: One acting offer under the answer ({"kind": "open", "label", "surface"}).
+    offer: dict | None = None
 
 
 def _visible(query):
@@ -648,8 +650,9 @@ def _tag_pairs(session: Session) -> StatAnswer:
 
 
 def _general_stats(session: Session) -> StatAnswer:
-    """"Show me my stats": the four counts the rest of this module answers
-    one at a time, in one line."""
+    """"Notebook stats" (INBOX 801, decision 70's gold Q3): the count and
+    span in one opening sentence, the most filed category and the busiest
+    month under bold labels, the rest in one line, and Statistics offered."""
     note_total = session.scalar(_visible(select(func.count(Entry.id)))) or 0
     cat_total = session.scalar(_visible(select(func.count(func.distinct(Entry.category_id))))) or 0
     #: Documents are not entries, so not filtered as entries are (the same
@@ -657,17 +660,48 @@ def _general_stats(session: Session) -> StatAnswer:
     doc_total = session.scalar(select(func.count(Document.id))) or 0
     rows = session.scalars(_visible(select(Entry.tags))).all()
     distinct_tags = len({tag for raw in rows for tag in _tags_of(raw)})
+    made = sorted(value for value in session.scalars(_visible(select(Entry.created_at))).all() if value)
+    top = session.execute(
+        _visible(select(Category.name, func.count(Entry.id)).join(Category, Category.id == Entry.category_id).group_by(Category.name))
+        .order_by(func.count(Entry.id).desc()).limit(1)
+    ).first()
+    in_cats = f" in {_plural(cat_total, 'category')}" if cat_total else ""
+    lines = [f"You have {_plural(note_total, 'note')}{in_cats}{_span_words(made)}."]
+    labelled = []
+    if top:
+        labelled.append(f"**Most filed:** {top[0]}, with {top[1]}.")
+    months = Counter((value.year, value.month) for value in made)
+    if len(months) > 1:
+        (year, month), n = months.most_common(1)[0]
+        labelled.append(f"**Busiest month:** {_MONTHS[month - 1]}{'' if year == made[-1].year else f' {year}'}, with {_plural(n, 'note')}.")
+    labelled.append(f"**Also:** {_plural(doc_total, 'document')} and {_plural(distinct_tags, 'distinct tag')}.")
+    offer = {"kind": "open", "label": "Open Statistics for the full picture?", "surface": "statistics"}
     return StatAnswer(
         "overview",
-        f"You have {_plural(note_total, 'note')} and {_plural(doc_total, 'document')} "
-        f"across {_plural(cat_total, 'category')}, using {_plural(distinct_tags, 'distinct tag')}.",
+        "\n\n".join([lines[0], "\n".join(labelled), offer["label"]]),
         [
             {"label": "notes", "count": note_total},
             {"label": "documents", "count": doc_total},
             {"label": "categories", "count": cat_total},
             {"label": "tags", "count": distinct_tags},
         ],
+        offer,
     )
+
+
+_MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+
+
+def _span_words(made: list[datetime]) -> str:
+    """", 17 July to 9 October"; the year said when the span crosses one."""
+    if not made:
+        return ""
+    first, last = made[0], made[-1]
+    if first.date() == last.date():
+        return f", all from {first.day} {_MONTHS[first.month - 1]}"
+    year = first.year != last.year
+    said = [f"{d.day} {_MONTHS[d.month - 1]}{f' {d.year}' if year else ''}" for d in (first, last)]
+    return f", {said[0]} to {said[1]}"
 
 
 # --- the Statistics page (UI_MODERNISATION statistics rows 1 and 2) ----------

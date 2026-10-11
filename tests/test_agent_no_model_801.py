@@ -66,8 +66,8 @@ def no_model(request, client, session, monkeypatch, app_state):
 def test_the_time_in_a_named_place(no_model):
     client, asked = no_model
     out = _ask(client, "what's the time in western australia")
-    assert re.match(r"It is \d\d:\d\d on \w+ \d+ \w+ \d{4} in Western Australia\.", out["text"])
-    assert "Read as the time in Australia/Perth (UTC+08:00)" in out["text"]
+    assert re.match(r"It's \d\d:\d\d(?: on \w+ \d+ \w+ \d{4})? in Perth, Western Australia \(AWST, UTC\+8\)\.", out["text"])
+    assert "Read as Australia/Perth, from this computer's clock." in out["text"]
     assert "None of my tools" not in out["text"] and asked == []
 
 
@@ -88,14 +88,16 @@ def test_notebook_stats_in_capitals_counts_and_searches_nothing(no_model):
 def test_what_is_there_about_a_topic_with_a_stray_backslash(no_model):
     client, asked = no_model
     out = _ask(client, "what is there about dentist\\")
-    assert "Check-up booked for the 21st." in out["text"] and "Dentist" in out["text"]
+    #: Said as a digest (decision 70): the fact, then where it came from.
+    assert "Check-up booked for the 21st" in out["text"] and "night guard" in out["text"]
     assert "\\" not in out["text"] and asked == []
 
 
 def test_can_you_search_the_web_with_web_off(no_model):
     client, asked = no_model
     out = _ask(client, "can you search the web?")
-    assert out["text"].startswith("Web search is off")
+    #: Decision 65's wording: whether, how, and the switch's state.
+    assert out["text"].startswith("Yes, when web search is on.") and "It is off now" in out["text"]
     assert not out.get("tool") and asked == []
     assert out["meta"][0]["composed"] is False
 
@@ -280,14 +282,17 @@ def test_can_you_search_the_web_is_answered_plainly_with_a_model(ai_client, fake
     fake_ollama.tool_script = [[{"name": "search_notes", "arguments": {"query": "none"}}]]
     events = _model_events(ai_client, "can you search the web?")
     text = "".join(e.get("delta", "") for e in events if e["type"] == "answer")
-    assert text.startswith("Web search is off") and not [e for e in events if e["type"] == "tool"]
+    #: Decision 75: with a model up the model answers, and nothing searches.
+    assert text and not [e for e in events if e["type"] == "tool"]
 
 
 def test_with_web_on_it_says_how_to_ask(ai_client, fake_ollama, app_state):
     app_state.set_preference("web_search_enabled", True)
     events = _model_events(ai_client, "can you search the web?")
     text = "".join(e.get("delta", "") for e in events if e["type"] == "answer")
-    assert text.startswith("Yes: web search is on")
+    #: Decision 75: the model answers; the capability line is its context
+    #: (tests/test_capability_1011.py reads the prompt).
+    assert text and not [e for e in events if e["type"] == "tool"]
 
 
 @pytest.mark.parametrize(("typed", "topic"), [("what is there about a gaming mouse?\\", "gaming mouse"), ("search", ""),

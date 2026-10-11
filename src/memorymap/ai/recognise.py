@@ -1269,8 +1269,11 @@ def says_ahead(text: str) -> bool:
 # The question's shape is read here, with the date words in it, so the
 # utilities that answer them read no time words themselves (decision 46).
 
-_DAYS_UNTIL = re.compile(r"^how (?:many|long) (days|weeks|months)?\s*(?:is it )?(?:until|till|til|to|before)\s+(.+)$", re.I)
-_DAYS_SINCE = re.compile(r"^how (?:many|long) (days|weeks|months)?\s*(?:has it been |is it |ago was |)?(?:since)\s+(.+)$", re.I)
+#: "how many days until X", and the short forms people type (CHAT_PLAN A1):
+#: "days until 25 Dec", "number of days till christmas", "countdown to X".
+_HOW_MANY = r"^(?:how (?:many|long) (?P<unit>days|weeks|months)?|(?:the )?(?:number of |count of )?(?P<bare>days|weeks|months)|countdown)"
+_DAYS_UNTIL = re.compile(_HOW_MANY + r"\s*(?:is it |are there |left )?(?:until|till|til|to|before)\s+(?P<what>.+)$", re.I)
+_DAYS_SINCE = re.compile(_HOW_MANY + r"\s*(?:has it been |is it |ago was |have passed |)?(?:since)\s+(?P<what>.+)$", re.I)
 _DATE_FROM_NOW = re.compile(
     r"^what (?:day|date)(?: of the week)? (?:is|will it be|was)\s+(?:it\s+)?(?:in\s+)?(\d{1,3}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|months?|years?)(?:\s+(from now|from today|ago))?$",
     re.I,
@@ -1283,7 +1286,7 @@ def days_question(text: str) -> tuple[str, str] | None:
     for pattern, tense in ((_DAYS_UNTIL, "future"), (_DAYS_SINCE, "past")):
         found = pattern.match(text)
         if found:
-            return tense, found.group(2)
+            return tense, found.group("what")
     return None
 
 

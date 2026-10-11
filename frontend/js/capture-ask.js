@@ -2736,6 +2736,7 @@ async function streamChatEvents({
   onUnsupported,
   onWebSources,
   onWhy,
+  onOffer,
   attempt,
 }) {
   const body = { question, history: history || [] };
@@ -2903,6 +2904,8 @@ async function streamChatEvents({
       else if (event.type === "web_sources" && onWebSources) onWebSources(event);
       //: How the answer was made, as a job's lines (B30), just before `done`.
       else if (event.type === "why" && onWhy) onWhy(event);
+      //: A counted answer's one acting offer ("Open Statistics ..."), decision 70.
+      else if (event.type === "offer" && onOffer) onOffer(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
       else if (event.type === "run_plan" && onRunPlan) onRunPlan(event);
@@ -3218,6 +3221,7 @@ async function askQuestion(preset) {
   let groundedSupport = null; // how much of the answer the notes backed
   let groundedInsights = []; // the lines it volunteered (decision 73)
   let answerWhy = []; // how it was made (B30)
+  let answerOffer = null; // a counted answer's offer (decision 70)
   let composedNext = []; // a composed answer's own next questions (INBOX 725)
   //: Kept beyond the callback that receives them, because the answer element
   //: is rebuilt after the stream ends and the markers have to be put back.
@@ -3352,6 +3356,9 @@ async function askQuestion(preset) {
         groundedInsights = Array.isArray(event.insights) ? event.insights : [];
         composedNext = Array.isArray(event.next) ? event.next : [];
       },
+      onOffer: (event) => {
+        answerOffer = event.offer || null;
+      },
       onWhy: (event) => {
         answerWhy = Array.isArray(event.lines) ? event.lines : [];
       },
@@ -3430,6 +3437,7 @@ async function askQuestion(preset) {
       renderAskAnswerFoot(answer, answerMeta);
       renderAskInsights(groundedInsights);
       renderAskWhy(answerWhy);
+      if (answerOffer) ensureModule("askCompose").then(() => digestOffer(answerBox, answerOffer)).catch(() => {});
       //: Not awaited: it is a second model call, and the answer is already on
       //: screen. The same contract `offerFollowups` has in the Chat tab. An
       //: answer composed from the notes brings its own (INBOX 725), built

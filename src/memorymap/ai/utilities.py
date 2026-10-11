@@ -229,7 +229,9 @@ def _dates(text: str, now: datetime) -> list[tuple] | None:
         if found is None or found[2] != "day":
             return None
         verb = "was" if found[0] < today else "is"
-        return [("computed", f"{found[0].day} {_MONTH_NAMES[found[0].month - 1]} {found[0].year} {verb} a {_WEEKDAY_NAMES[found[0].weekday()]}.")]
+        which = "" if re.search(r"\d{4}", match.group(1)) else ", the next one from today"
+        return [("computed", f"{found[0].day} {_MONTH_NAMES[found[0].month - 1]} {found[0].year} {verb} a {_WEEKDAY_NAMES[found[0].weekday()]}."),
+                ("computed", f"\nRead as {match.group(1)}{which}.")]
     return None
 
 
@@ -247,8 +249,72 @@ def until_subject(question: str) -> tuple[str, str] | None:
     return None
 
 
+#: A sum said in words (CHAT_PLAN A1): "5 plus 5", "12 times 7", "100
+#: divided by 4", "2 to the power of 8", read as its symbols, which the
+#: answer's "Read as" line then shows.
+_SAID_OPS = (
+    (r"\bmultiplied by\b|\btimes\b", "*"), (r"\bdivided by\b|\bover\b", "/"), (r"\bplus\b|\badded to\b", "+"),
+    (r"\bminus\b|\btake away\b", "-"), (r"\bto the power of\b|\bto the\b", "^"), (r"\bsquared\b", "^ 2"), (r"\bcubed\b", "^ 3"),
+)
+
+
+def _in_symbols(text: str) -> str:
+    text = re.sub(r"^(?:how much is|what(?:'?s| is| does)|calculate|compute|work out)\s+", "", text, flags=re.I)
+    text = re.sub(r"\s+(?:equal|make|come to)$", "", text, flags=re.I)
+    for words, symbol in _SAID_OPS:
+        text = re.sub(words, symbol, text, flags=re.I)
+    return text
+
+
 def _sum_of(question: str, text: str) -> str | None:
-    return arithmetic.sum_in(question) or arithmetic.sum_in(text)
+    said = arithmetic.sum_in(question) or arithmetic.sum_in(text)
+    if said:
+        return said
+    symbols = _in_symbols(text)
+    return arithmetic.sum_in(symbols) if symbols != text and re.search(r"\d", symbols) else None
+
+
+#: A list's average and friends (CHAT_PLAN A1): "average of 3, 8, 10",
+#: "what's the median of 1, 5, 9 and 12", "add up 10, 20, 30".
+_LIST_OF = re.compile(
+    r"^(?:what(?:'?s| is) )?(?:the )?(?P<what>average|mean|median|sum|total|biggest|largest|smallest|max(?:imum)?|min(?:imum)?|range)"
+    r"(?: number)? (?:of|in|for) (?P<nums>.+)$|^add (?:up |together )?(?P<add>.+)$",
+    re.I,
+)
+_LIST_WORDS = {"average": "mean", "biggest": "largest", "max": "largest", "maximum": "largest", "smallest": "smallest", "min": "smallest", "minimum": "smallest", "total": "sum"}
+_ROOT = re.compile(r"^(?:what(?:'?s| is) )?(?:the )?(square|cube) root of (-?\d+(?:\.\d+)?)$", re.I)
+_MONTH_DAYS = re.compile(r"^how many days (?:are )?(?:there )?in (?P<month>[a-z]+)(?: (?P<year>\d{4}))?$", re.I)
+_BORN = re.compile(r"^how old (?:is (?:someone|somebody|a person)|would i be|am i|are you)(?: if (?:i was|you were))? born in (?P<year>\d{4})$", re.I)
+_CLOCK_SWAP = re.compile(
+    r"^(?:what(?:'?s| is) )?(?P<time>\d{1,2}(?::\d{2})?\s*(?:am|pm)?|noon|midnight)\s+(?:in\s+)?(?P<a>[a-z][a-z .'-]{1,40}?)(?: time)?\s+(?:in|to|for)\s+(?P<b>[a-z][a-z .'-]{1,40}?)(?: time)?$",
+    re.I,
+)
+
+
+def _numbers(raw: str) -> list[float] | None:
+    parts = [p for p in re.split(r"\s*(?:,|\band\b|\s)\s*", raw.strip()) if p]
+    try:
+        values = [float(p) for p in parts]
+    except ValueError:
+        return None
+    return values if len(values) >= 2 else None
+
+
+def _list_of(text: str) -> tuple[str, list[float]] | None:
+    found = _LIST_OF.match(text)
+    if not found:
+        return None
+    what = "sum" if found.group("add") else _LIST_WORDS.get(found.group("what").lower(), found.group("what").lower())
+    values = _numbers(found.group("add") or found.group("nums"))
+    return (what, values) if values else None
+
+
+def _clock_swap(text: str) -> tuple | None:
+    found = _CLOCK_SWAP.match(text)
+    if not found:
+        return None
+    a, b = zone_for(found.group("a").strip()), zone_for(found.group("b").strip())
+    return (found, a, b) if a and b else None
 
 
 def kind_of(question: str) -> str | None:
@@ -259,6 +325,16 @@ def kind_of(question: str) -> str | None:
         return None
     if _sum_of(question, text):
         return "sum"
+    if _list_of(text):
+        return "list"
+    if _ROOT.match(text):
+        return "root"
+    if _MONTH_DAYS.match(text) and _MONTH_DAYS.match(text).group("month").lower()[:3] in {m[:3].lower() for m in _MONTH_NAMES}:
+        return "month_days"
+    if _BORN.match(text):
+        return "age"
+    if _clock_swap(text):
+        return "clock_swap"
     if _PERCENT.match(text):
         return "percent"
     if _is_clock(text):
@@ -369,6 +445,29 @@ def _place_said(place: str) -> str:
     return " ".join(w.upper() if len(words) == 1 and len(w) <= 3 else w[:1].upper() + w[1:] for w in words)
 
 
+def _zone_said(there: datetime) -> str:
+    """"AWST, UTC+8", "IST, UTC+5:30"; a zone with no letters of its own
+    ("+04") is its offset alone."""
+    offset = there.strftime("%z")
+    hours, minutes = int(offset[1:3]), offset[3:]
+    utc = "UTC" if offset[1:] == "0000" else f"UTC{offset[0]}{hours}{'' if minutes == '00' else ':' + minutes}"
+    name = there.strftime("%Z")
+    return utc if not name or name[0] in "+-" or name == "UTC" else f"{name}, {utc}"
+
+
+def _where(place: str, zone: str) -> str:
+    """The place as asked, with the city its clock is read from when that
+    is not the same name ("Perth, Western Australia"; "Tokyo")."""
+    said = _place_said(place)
+    city = zone.rsplit("/", 1)[-1].replace("_", " ")
+    return said if city.lower() in said.lower() or "/" not in zone else f"{city}, {said}"
+
+
+def _other_day(there: datetime, now: datetime) -> str:
+    here = now.date() if not now.tzinfo else now.astimezone().date()
+    return "" if there.date() == here else f" on {_day_words(there.date())}"
+
+
 def _clock(text: str, now: datetime) -> list[tuple]:
     match = _CLOCK_IN.match(text)
     if match:
@@ -378,10 +477,8 @@ def _clock(text: str, now: datetime) -> list[tuple]:
         place = match.group("place").strip()
         zone = zone_for(place)
         there = (now if now.tzinfo else datetime.now(timezone.utc)).astimezone(ZoneInfo(zone))
-        offset = there.strftime("%z")
-        utc = "UTC" if offset in ("+0000", "-0000") else f"UTC{offset[:3]}:{offset[3:]}"
-        return [("computed", f"It is {there:%H:%M} on {_day_words(there.date())} in {_place_said(place)}."),
-                ("computed", f"\nRead as the time in {zone} ({utc}), from this computer's clock.")]
+        return [("computed", f"It's {there:%H:%M}{_other_day(there, now)} in {_where(place, zone)} ({_zone_said(there)})."),
+                ("computed", f"\nRead as {zone}, from this computer's clock.")]
     if _CLOCK.match(text):
         return [("computed", f"It is {now:%H:%M} on {_day_words(now.date())}."), _CLOCK_READ]
     if _YEAR.match(text):
@@ -440,7 +537,29 @@ def answer(question: str, now: datetime | None = None, salt: str = "", rates: di
     if kind == "sum":
         expr = _sum_of(question, text)
         value = arithmetic.spoken(arithmetic.evaluate(expr))
-        return [("computed", f"{expr.strip()} is {value}.")]
+        read = " ".join(expr.replace("*", " × ").replace("/", " ÷ ").replace("^", " to the power of ").split())
+        said = [("computed", f"{expr.strip()} is {value}.")]
+        #: A sum typed in symbols is its own reading; one said in words is shown as read.
+        return said if arithmetic.sum_in(question) or arithmetic.sum_in(text) else [*said, ("computed", f"\nRead as {read}.")]
+    if kind == "list":
+        return _list_answer(*_list_of(text))
+    if kind == "root":
+        which, raw = _ROOT.match(text).groups()
+        number = float(raw)
+        if which.lower() == "square" and number < 0:
+            return None
+        value = abs(number) ** (1 / 2 if which.lower() == "square" else 1 / 3) * (-1 if number < 0 else 1)
+        return [("computed", f"The {which.lower()} root of {raw} is {_said(value)}."), ("computed", f"\nRead as the {which.lower()} root of {raw}.")]
+    if kind == "month_days":
+        return _month_days(_MONTH_DAYS.match(text), now)
+    if kind == "age":
+        year = int(_BORN.match(text).group("year"))
+        if not 1900 <= year <= now.year:
+            return None
+        age = now.year - year
+        return [("computed", f"{age} this year, or {age - 1} until their birthday."), ("computed", f"\nRead as the years from {year} to {now.year}.")]
+    if kind == "clock_swap":
+        return _swap_answer(*_clock_swap(text), now)
     if kind == "percent":
         share, whole = _PERCENT.match(text).groups()
         worked = arithmetic.evaluate(f"{share} / 100 * {whole.replace(',', '')}")
@@ -475,6 +594,53 @@ def answer(question: str, now: datetime | None = None, salt: str = "", rates: di
     if kind == "web":
         return [("phrase", "utility_web_on" if web_on() else "utility_web_off")]
     return [("phrase", "utility_weather")]
+
+
+def _list_answer(what: str, values: list[float]) -> list[tuple]:
+    import statistics
+
+    worked = {
+        "mean": statistics.fmean, "median": statistics.median, "sum": sum,
+        "largest": max, "smallest": min, "range": lambda v: max(v) - min(v),
+    }[what](values)
+    listed = ", ".join(_said(v) for v in values)
+    name = {"mean": "average", "sum": "total"}.get(what, what)
+    return [("computed", f"The {name} of {listed} is {_said(worked)}."),
+            ("computed", f"\nRead as the {what} of {len(values)} numbers{', added and divided by ' + str(len(values)) if what == 'mean' else ''}.")]
+
+
+def _month_days(found: re.Match, now: datetime) -> list[tuple] | None:
+    import calendar
+
+    month = next(i for i, m in enumerate(_MONTH_NAMES, 1) if m[:3].lower() == found.group("month").lower()[:3])
+    year = int(found.group("year") or now.year)
+    days = calendar.monthrange(year, month)[1]
+    return [("computed", f"{_MONTH_NAMES[month - 1]} {year} has {days} days."), ("computed", f"\nRead as the days in {_MONTH_NAMES[month - 1]} {year}{', a leap year' if calendar.isleap(year) and month == 2 else ''}.")]
+
+
+def _swap_answer(found: re.Match, a: str, b: str, now: datetime) -> list[tuple] | None:
+    from zoneinfo import ZoneInfo
+
+    raw = found.group("time").lower().replace(" ", "")
+    clock = re.match(r"(\d{1,2})(?::(\d{2}))?(am|pm)?$", raw)
+    if raw in ("noon", "midnight"):
+        hour, minute = (12 if raw == "noon" else 0), 0
+    elif clock:
+        hour, minute = int(clock.group(1)), int(clock.group(2) or 0)
+        if clock.group(3) == "pm" and hour < 12:
+            hour += 12
+        if clock.group(3) == "am" and hour == 12:
+            hour = 0
+    else:
+        return None
+    if hour > 23 or minute > 59:
+        return None
+    there = datetime(now.year, now.month, now.day, hour, minute, tzinfo=ZoneInfo(a))
+    here = there.astimezone(ZoneInfo(b))
+    day = "" if here.date() == there.date() else (" the next day" if here.date() > there.date() else " the day before")
+    first, second = _place_said(found.group("a").strip()), _place_said(found.group("b").strip())
+    return [("computed", f"{there:%H:%M} in {first} is {here:%H:%M}{day} in {second}."),
+            ("computed", f"\nRead as {there:%H:%M} today in {a} ({there:%Z}), in {b} ({here:%Z}).")]
 
 
 # --- a text's counts and outline (CHAT_PLAN section 2, the documents row) -------------

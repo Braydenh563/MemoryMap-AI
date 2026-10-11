@@ -426,6 +426,13 @@ function digestOffer(answerEl, offer) {
     try {
       let undo = null;
       let said = "";
+      if (offer.kind === "open") {
+        //: A page, not a thing made: nothing to undo, and the line stays.
+        if (offer.surface === "statistics") openStatistics();
+        else actNavigate(offer.surface);
+        button.disabled = false;
+        return;
+      }
       if (offer.kind === "reminder") {
         const made = await apiJson("/reminders/parse", {
           method: "POST",

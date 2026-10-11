@@ -13395,6 +13395,11 @@ async function mountNoteSurface(host, options = {}) {
     return textareaSurface(host);
   }
   if (!CM || noteSurfaceViews.has(host)) return noteSurfaceFor(host) || textareaSurface(host);
+  //: **The box can be gone by the time the editor has loaded.** A board
+  //: card's editor closed with Escape while CodeMirror was still loading
+  //: (measured at 390 under load, cardarrows sweep) left `host.parentNode`
+  //: null and threw at the `insertBefore` below.
+  if (!host.parentNode) return textareaSurface(host);
   //: Read before the wrapper below moves the textarea: moving a focused
   //: element in the DOM blurs it, so by the time the view exists the answer
   //: is always "no".

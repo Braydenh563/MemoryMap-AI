@@ -98,3 +98,16 @@ def test_a_panel_frame_s_hint_line_edits_in_place():
     assert 'const isHint = field === "hint";' in edit and "(!name && !isHint)" in edit and "delete frame.data.hint" in edit
     rule = re.search(r"\.wb-frame-panel \.wb-frame-hint:not\(\[hidden\]\)\s*\{([^}]*)\}", _css("library-lazy.css")).group(1)
     assert "pointer-events: none" not in rule
+
+
+def test_a_note_box_gone_before_the_editor_loads_is_not_mounted():
+    """cardarrows sweep at 390: a card's editor closed with Escape while
+    CodeMirror loaded threw "Cannot read properties of null (reading
+    'insertBefore')" in `mountNoteSurface`. After the load, a box with no
+    parent gets the plain surface and nothing is inserted."""
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
+    start = docs.index("async function mountNoteSurface(")
+    body = docs[start : docs.index("\n}\n", start)]
+    loaded = body.index("await loadCodeMirror()")
+    guard = body.index("if (!host.parentNode) return textareaSurface(host);")
+    assert loaded < guard < body.index("host.parentNode.insertBefore(wrap, host)")

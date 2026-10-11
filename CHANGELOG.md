@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Fixed: closing a board card's editor while the text editor was still loading no longer throws.
 - Chat: "what is there about X" and "what have I got on X" answer as the topic overview with no model; a pasted wall of brackets no longer stalls a document read aloud or the plain-text strip (linear link stripping); a panel frame's hint takes a double-click again.
 - Whiteboard: a note card gets the four edge arrows, each making a new note joined to it and open for typing; Reset style (right-click, the ... menu or Ctrl+K) puts an item's colour, fill, line and text back to the defaults; a panel frame's hint line edits on double-click; the Shapes caret opens its list. A folder export and import keep connectors joined to their items and a map's note references pointing at their notes. The assistant can fold or flatten a sticky's corner. The Timeline names its board kind "Boards and maps", and the graph's topic rename field is the size of its plate.
 - Whiteboard: five more line ends (stealth, cross, half and double arrow, and the MemoryMap end: the mark's node dot ahead of a chevron, first in the lists) and a Small, Medium, Large size beside each end in the bar and the Format panel; draw.io's cross, async and double-block ends come in as these.

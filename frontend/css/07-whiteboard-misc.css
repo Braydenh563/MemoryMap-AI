@@ -242,7 +242,11 @@
 #whiteboard-container[data-current-tool="select"] .wb-object:hover:not(.wb-in-group) .wb-rotate-handle,
 #whiteboard-container[data-current-tool="select"] .wb-object.wb-selected:not(.wb-in-group) .wb-rotate-handle,
 #whiteboard-container[data-current-tool="select"] .node-card:hover:not(.wb-in-group) .wb-rotate-handle,
-#whiteboard-container[data-current-tool="select"] .node-card.wb-selected:not(.wb-in-group) .wb-rotate-handle {
+#whiteboard-container[data-current-tool="select"] .node-card.wb-selected:not(.wb-in-group) .wb-rotate-handle,
+#whiteboard-container[data-current-tool="select"] .wb-object:is(:focus-visible, :has(:focus-visible)):not(.wb-in-group) .wb-resize-handle,
+#whiteboard-container[data-current-tool="select"] .node-card:is(:focus-visible, :has(:focus-visible)):not(.wb-in-group) .wb-resize-handle,
+#whiteboard-container[data-current-tool="select"] .wb-object:is(:focus-visible, :has(:focus-visible)):not(.wb-in-group) .wb-rotate-handle,
+#whiteboard-container[data-current-tool="select"] .node-card:is(:focus-visible, :has(:focus-visible)):not(.wb-in-group) .wb-rotate-handle {
   display: block;
   opacity: 1;
   pointer-events: auto;
@@ -262,7 +266,11 @@
   #whiteboard-container[data-current-tool="select"] .wb-object:hover:not(.wb-in-group) .wb-rotate-handle,
   #whiteboard-container[data-current-tool="select"] .wb-object.wb-selected:not(.wb-in-group) .wb-rotate-handle,
   #whiteboard-container[data-current-tool="select"] .node-card:hover:not(.wb-in-group) .wb-rotate-handle,
-  #whiteboard-container[data-current-tool="select"] .node-card.wb-selected:not(.wb-in-group) .wb-rotate-handle {
+  #whiteboard-container[data-current-tool="select"] .node-card.wb-selected:not(.wb-in-group) .wb-rotate-handle,
+  #whiteboard-container[data-current-tool="select"] .wb-object:is(:focus-visible, :has(:focus-visible)):not(.wb-in-group) .wb-resize-handle,
+  #whiteboard-container[data-current-tool="select"] .node-card:is(:focus-visible, :has(:focus-visible)):not(.wb-in-group) .wb-resize-handle,
+  #whiteboard-container[data-current-tool="select"] .wb-object:is(:focus-visible, :has(:focus-visible)):not(.wb-in-group) .wb-rotate-handle,
+  #whiteboard-container[data-current-tool="select"] .node-card:is(:focus-visible, :has(:focus-visible)):not(.wb-in-group) .wb-rotate-handle {
     opacity: 0;
   }
 }
@@ -276,7 +284,7 @@
   left: calc(50% - 6px);
   width: 12px;
   height: 12px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   border: 1px solid var(--card-bg);
   /* A curved-arrow rotate cursor, not a plain grab hand, asked for
@@ -345,7 +353,8 @@
      card underneath it): each handle opts back in individually. */
   pointer-events: auto;
 }
-.wb-link-endpoint-handle:hover {
+.wb-link-endpoint-handle:hover,
+.wb-link-endpoint-handle:is(:focus-visible, :has(:focus-visible)) {
   fill: var(--accent);
 }
 /* **A group selection's own eight handles and its rotate dot, which live in
@@ -431,10 +440,11 @@
   justify-content: center;
   /* Explicit properties, not `all`, only `background`/`color` change, on
      `:hover` just below. */
-  transition: background var(--ui-slow) var(--ease-out), color var(--ui-slow) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out), color var(--ui-fast) var(--ease-out);
   padding: 0;
 }
-.sidebar-collapse-toggle:hover {
+.sidebar-collapse-toggle:hover,
+.sidebar-collapse-toggle:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
@@ -485,7 +495,8 @@
   transition: opacity var(--ui-fast) var(--ease-out);
 }
 /* Hover-peek */
-.layout-sidebar-collapsed>.sidebar-collapsed:hover {
+.layout-sidebar-collapsed>.sidebar-collapsed:hover,
+.layout-sidebar-collapsed>.sidebar-collapsed:is(:focus-visible, :has(:focus-visible)) {
   width: var(--saved-width) !important;
   box-shadow: var(--glass-shadow);
   z-index: 100;
@@ -498,17 +509,21 @@
    reserve (--sidebar-toggle-lane) is measured from the pinned spot, and the
    4px further in left the head's last button 2px from the toggle (INBOX 495,
    Skill logs' Clear measured at -5.6px with the shift in 08-consistency.css). */
-.layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-collapse-toggle {
+.layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-collapse-toggle,
+.layout-sidebar-collapsed>.sidebar-collapsed:is(:focus-visible, :has(:focus-visible)) .sidebar-collapse-toggle {
   right: 1rem;
   left: auto;
 }
-.layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-collapse-toggle .icon-collapsed {
+.layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-collapse-toggle .icon-collapsed,
+.layout-sidebar-collapsed>.sidebar-collapsed:is(:focus-visible, :has(:focus-visible)) .sidebar-collapse-toggle .icon-collapsed {
   display: none;
 }
-.layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-collapse-toggle .icon-peek {
+.layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-collapse-toggle .icon-peek,
+.layout-sidebar-collapsed>.sidebar-collapsed:is(:focus-visible, :has(:focus-visible)) .sidebar-collapse-toggle .icon-peek {
   display: block;
 }
-.layout-sidebar-collapsed>.sidebar-collapsed:hover>*:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
+.layout-sidebar-collapsed>.sidebar-collapsed:hover>*:not(.sidebar-collapse-toggle):not(.sidebar-resize),
+.layout-sidebar-collapsed>.sidebar-collapsed:is(:focus-visible, :has(:focus-visible))>*:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
   opacity: 1;
   pointer-events: auto;
   transition: opacity var(--ui-slow) var(--ease-out) var(--ui-fast);
@@ -521,7 +536,8 @@
    directly: "New chat" clashes with the collapse toggle specifically while
    collapsed-but-hover-expanded, which a session that only tested the
    always-expanded and always-collapsed states would not have caught. */
-.layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-head {
+.layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-head,
+.layout-sidebar-collapsed>.sidebar-collapsed:is(:focus-visible, :has(:focus-visible)) .sidebar-head {
   padding-right: var(--sidebar-toggle-lane);
 }
 /* The folded sidebar as a rail, not an empty panel (INBOX 425, the owner:
@@ -561,14 +577,17 @@
   color: var(--muted);
   cursor: pointer;
 }
-.sidebar-collapsed > .sidebar-rail-name:hover {
+.sidebar-collapsed > .sidebar-rail-name:hover,
+.sidebar-collapsed > .sidebar-rail-name:is(:focus-visible, :has(:focus-visible)) {
   color: var(--ink);
   background: var(--ghost-btn-bg);
 }
-.layout-sidebar-collapsed > .sidebar-collapsed:hover {
+.layout-sidebar-collapsed > .sidebar-collapsed:hover,
+.layout-sidebar-collapsed > .sidebar-collapsed:is(:focus-visible, :has(:focus-visible)) {
   background-image: none;
 }
-.layout-sidebar-collapsed > .sidebar-collapsed:hover > .sidebar-rail-name {
+.layout-sidebar-collapsed > .sidebar-collapsed:hover > .sidebar-rail-name,
+.layout-sidebar-collapsed > .sidebar-collapsed:is(:focus-visible, :has(:focus-visible)) > .sidebar-rail-name {
   display: none;
 }
 /* Ensure the layout container creates a positioning context for the absolute peek */
@@ -584,7 +603,8 @@
    would push the peek off the right side of the window instead of over the
    content beside it. Anchoring the right edge explicitly keeps it growing
    the one direction that makes sense for a sidebar on this side. */
-.layout-sidebar-collapsed > #skills-sidebar.sidebar-collapsed:hover {
+.layout-sidebar-collapsed > #skills-sidebar.sidebar-collapsed:hover,
+.layout-sidebar-collapsed > #skills-sidebar.sidebar-collapsed:is(:focus-visible, :has(:focus-visible)) {
   right: 0;
   left: auto;
 }
@@ -613,11 +633,13 @@
 .wb-card,
 .library-chip {
   transition: transform var(--motion-slow) var(--ease-out),
-    border-color var(--motion-slow) var(--ease-out);
+    border-color var(--motion-fast) var(--ease-out);
 }
 @media (hover: hover) {
   .wb-card:hover,
-  .library-chip:hover {
+  .library-chip:hover,
+  .wb-card:is(:focus-visible, :has(:focus-visible)),
+  .library-chip:is(:focus-visible, :has(:focus-visible)) {
     will-change: transform, box-shadow;
   }
 }
@@ -712,7 +734,9 @@
 }
 @media (hover: hover) {
   .card.interactive:hover,
-  .wb-card:hover:not(.dragging) {
+  .wb-card:hover:not(.dragging),
+  .card.interactive:is(:focus-visible, :has(:focus-visible)),
+  .wb-card:is(:focus-visible, :has(:focus-visible)):not(.dragging) {
     /* Tone and edge, never a lift: a card that moves 4px on hover is the
        "things that move when they should not" cause in UI_MODERNISATION_PLAN,
        and on a board it shifts every link attached to it. */
@@ -747,10 +771,11 @@
   background: var(--inner);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  transition: transform var(--ui-slow) var(--ease-out), border-color var(--ui-slow) var(--ease-out);
+  transition: transform var(--ui-slow) var(--ease-out), border-color var(--ui-fast) var(--ease-out);
 }
 @media (hover: hover) {
-  .skill-card:hover {
+  .skill-card:hover,
+  .skill-card:is(:focus-visible, :has(:focus-visible)) {
     border-color: var(--accent);
   }
 }
@@ -817,7 +842,7 @@ textarea.drag-over {
   z-index: 1000;
   padding: var(--space-4);
   box-shadow: var(--shadow-md);
-  animation: slide-up 0.3s ease-out;
+  animation: slide-up var(--ui-slow) ease-out;
   /* **Opaque, and `.glass` is exactly why it has to be said here.** This
      panel carries `card glass`, which is a translucent background, measured
      on the Chat tab at `alpha 0.62`. It is `position: fixed` over the chat
@@ -978,7 +1003,7 @@ body.has-agent-monitor #timeline-scroll {
    can't currently see in the list is one scroll or one click on "New" away,
    not a broken control. */
 .monitor-log-item {
-  animation: fade-in 0.2s ease-out;
+  animation: fade-in var(--ui-slow) ease-out;
   border-left: 3px solid var(--accent);
   padding-left: 8px;
 }
@@ -1278,7 +1303,8 @@ body.has-agent-monitor #timeline-scroll {
   font-size: var(--text-md);
   font-weight: 500;
 }
-.command-palette-examples > button.starter:hover {
+.command-palette-examples > button.starter:hover,
+.command-palette-examples > button.starter:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-3);
   border-color: var(--divider);
 }
@@ -1434,7 +1460,7 @@ body.has-agent-monitor #timeline-scroll {
 }
 .agent-run-icon {
   grid-column: 2;
-  font-size: 1rem;
+  font-size: var(--text-body);
   line-height: 1;
   color: var(--muted);
 }
@@ -2395,7 +2421,8 @@ body.scroll-top-visible .skills-split > .tab-main {
   color: var(--muted);
 }
 #top-bar .space-switcher-btn.ghost:hover,
-#top-bar .space-switcher-btn.ghost[aria-expanded="true"] {
+#top-bar .space-switcher-btn.ghost[aria-expanded="true"],
+#top-bar .space-switcher-btn.ghost:is(:focus-visible, :has(:focus-visible)) {
   background: var(--hover-veil);
   border-color: transparent;
   color: var(--ink);
@@ -3426,7 +3453,8 @@ summary:not(.icon-only):not(.icon-button) {
   transition: background var(--ui-fast) var(--ease-out), color var(--ui-fast) var(--ease-out),
     outline-color var(--ui-fast) var(--ease-out);
 }
-summary:not(.icon-only):not(.icon-button):hover {
+summary:not(.icon-only):not(.icon-button):hover,
+summary:not(.icon-only):not(.icon-button):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
@@ -3720,7 +3748,8 @@ input[type="url"]:hover:not(:focus) {
   text-align: left;
   box-shadow: inset 0 1px 2px var(--field-inset);
 }
-.select-opener:hover:not([disabled]) {
+.select-opener:hover:not([disabled]),
+.select-opener:is(:focus-visible, :has(:focus-visible)):not([disabled]) {
   border-color: color-mix(in srgb, var(--accent-text) 60%, var(--control-edge));
 }
 .select-opener[disabled] {
@@ -3948,7 +3977,9 @@ button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not
    up the same tonal pair `.ghost` uses. The document toolbar paints its own
    (below), so it is left to it. */
 button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary):not(.doc-toolbar *):hover:not(:disabled),
-button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary):not(.doc-toolbar *):hover:not(:disabled) {
+button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary):not(.doc-toolbar *):hover:not(:disabled),
+button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary):not(.doc-toolbar *):is(:focus-visible, :has(:focus-visible)):not(:disabled),
+button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary):not(.doc-toolbar *):is(:focus-visible, :has(:focus-visible)):not(:disabled) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
@@ -3996,7 +4027,9 @@ button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not
 .doc-toolbar summary:not(.icon-only):not(.icon-button):focus-visible,
 .doc-toolbar button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):hover,
 .doc-toolbar button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):hover,
-.doc-toolbar .doc-toolbar-menu[open] > summary:not(.icon-only):not(.icon-button) {
+.doc-toolbar .doc-toolbar-menu[open] > summary:not(.icon-only):not(.icon-button),
+.doc-toolbar button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):is(:focus-visible, :has(:focus-visible)),
+.doc-toolbar button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   border-color: transparent;
   color: var(--ink);
@@ -4032,7 +4065,8 @@ button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not
   background: var(--ghost-btn-bg);
   transition: background var(--ui-fast) var(--ease-out), color var(--ui-fast) var(--ease-out);
 }
-.unlink:hover {
+.unlink:hover,
+.unlink:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg-hover);
   color: var(--error);
 }
@@ -4246,7 +4280,12 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:hover,
 .select-check:hover,
 .doc-list-tick:hover,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)):hover {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)):hover,
+.library-card-tick:is(:focus-visible, :has(:focus-visible)),
+.library-tile-tick:is(:focus-visible, :has(:focus-visible)),
+.select-check:is(:focus-visible, :has(:focus-visible)),
+.doc-list-tick:is(:focus-visible, :has(:focus-visible)),
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)):is(:focus-visible, :has(:focus-visible)) {
   border-color: var(--accent);
 }
 .library-card-tick:checked,
@@ -4690,7 +4729,12 @@ summary:not(.icon-only):not(.icon-button) {
 .library-board-card:hover .board-minimap path,
 .library-board-card:hover .board-minimap ellipse,
 .library-board-card:hover .board-minimap polygon,
-.library-board-card:hover .board-minimap line {
+.library-board-card:hover .board-minimap line,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap rect:not(.board-minimap-paper, .board-minimap-branch),
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap path,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap ellipse,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap polygon,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap line {
   opacity: 0.8;
 }
 /* --- Capture: three families, three rows --------------------------------
@@ -5942,7 +5986,8 @@ button.connection-row:is(:hover, :focus-visible) {
   border-color: color-mix(in srgb, var(--warn) 40%, transparent);
   background: var(--warn-soft);
 }
-.entry-actions button.is-favourite:hover {
+.entry-actions button.is-favourite:hover,
+.entry-actions button.is-favourite:is(:focus-visible, :has(:focus-visible)) {
   border-color: color-mix(in srgb, var(--warn) 60%, transparent);
 }
 /* A filled star for an active favourite (INBOX 790): Phosphor here is the regular weight only, so the glyph becomes a masked box. The mask's star has round joins, as the outline star's points do; a clip-path polygon drew it sharp beside its rounded outline (the owner, 2026-10-11). */
@@ -6976,14 +7021,17 @@ button.connection-row:is(:hover, :focus-visible) {
    possible end, and says so on hover, reported: "only notes light up".
    The anchor dots themselves come from wbShowAnchorHints during the drag. */
 #whiteboard-container[data-current-tool^="link-"] .node-card:hover,
-#whiteboard-container[data-current-tool^="link-"] .wb-object:hover {
+#whiteboard-container[data-current-tool^="link-"] .wb-object:hover,
+#whiteboard-container[data-current-tool^="link-"] .node-card:is(:focus-visible, :has(:focus-visible)),
+#whiteboard-container[data-current-tool^="link-"] .wb-object:is(:focus-visible, :has(:focus-visible)) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   cursor: crosshair;
 }
 /* The stroke takes the accent, the same answer the cards' outline gives; a
    `drop-shadow` glow here was a filter on hover (INBOX 405). */
-#whiteboard-container[data-current-tool^="link-"] .sketch-group:hover .sketch-path {
+#whiteboard-container[data-current-tool^="link-"] .sketch-group:hover .sketch-path,
+#whiteboard-container[data-current-tool^="link-"] .sketch-group:is(:focus-visible, :has(:focus-visible)) .sketch-path {
   stroke: var(--accent);
   cursor: crosshair;
 }
@@ -7226,7 +7274,9 @@ button.connection-row:is(:hover, :focus-visible) {
 /* A command row that does not apply yet (`wbSyncCommandRows`) stays
    pressable so its toast can say why; it reads as the disabled row does. */
 .wb-menu-item:disabled:hover,
-.wb-menu-item[aria-disabled="true"]:hover {
+.wb-menu-item[aria-disabled="true"]:hover,
+.wb-menu-item:disabled:is(:focus-visible, :has(:focus-visible)),
+.wb-menu-item[aria-disabled="true"]:is(:focus-visible, :has(:focus-visible)) {
   background: transparent;
 }
 .wb-menu-item kbd,
@@ -8422,7 +8472,8 @@ input[type="file"] {
 }
 .wb-map-node:hover .wb-map-actions,
 .wb-map-node.wb-selected .wb-map-actions,
-.wb-map-actions:focus-within {
+.wb-map-actions:focus-within,
+.wb-map-node:is(:focus-visible, :has(:focus-visible)) .wb-map-actions {
   opacity: 1;
   pointer-events: auto;
 }
@@ -8471,7 +8522,8 @@ input[type="file"] {
 }
 /* The focus ring is the app's own (every button has it). */
 #whiteboard-container[data-current-tool="select"] .wb-map-node:is(:hover, .wb-selected):not(.wb-in-group) .wb-map-resize-grip,
-.wb-map-resize-grip:focus-visible {
+.wb-map-resize-grip:focus-visible,
+#whiteboard-container[data-current-tool="select"] .wb-map-node:is(:is(:focus-visible, :has(:focus-visible)), .wb-selected):not(.wb-in-group) .wb-map-resize-grip {
   display: block;
 }
 /* --- the node edit strip (MINDMAP_PLAN.md §12.1 item 2) ---------------------
@@ -8704,7 +8756,9 @@ input[type="file"] {
   margin-inline-start: var(--space-1);
 }
 .wb-map-strip-menu .wb-menu-row .wb-map-pick-follow:not(:disabled):hover,
-#wb-map-reset:hover {
+.wb-map-strip-menu .wb-menu-row .wb-map-pick-follow:not(:disabled):is(:focus-visible, :has(:focus-visible)),
+#wb-map-reset:hover,
+#wb-map-reset:is(:focus-visible, :has(:focus-visible)) {
   color: var(--ink);
 }
 .wb-map-strip-menu .wb-menu-row .wb-map-pick-follow:disabled {
@@ -8946,7 +9000,8 @@ input[type="file"] {
   background: color-mix(in srgb, var(--error) 10%, var(--modal-bg-opaque));
 }
 @media (hover: hover) {
-  .wb-map-radial .wb-map-radial-slot.wb-map-radial-danger:hover {
+  .wb-map-radial .wb-map-radial-slot.wb-map-radial-danger:hover,
+  .wb-map-radial .wb-map-radial-slot.wb-map-radial-danger:is(:focus-visible, :has(:focus-visible)) {
     background: color-mix(in srgb, var(--error) 20%, var(--modal-bg-opaque));
   }
 }
@@ -9087,7 +9142,8 @@ input[type="file"] {
    behind. */
 .wb-map-edge-group:hover .wb-map-edge-handle,
 .wb-map-edge-handle.is-shown,
-.wb-map-edge-handle.is-dragging {
+.wb-map-edge-handle.is-dragging,
+.wb-map-edge-group:is(:focus-visible, :has(:focus-visible)) .wb-map-edge-handle {
   opacity: 1;
   pointer-events: auto;
   /* `move`, the cursor the link's own bend grip already uses: this drags a
@@ -9366,6 +9422,20 @@ input[type="file"] {
 .dock-menu-section + .dock-menu-section {
   border-top: 1px solid var(--divider);
 }
+/* **No gap at a menu's ends** (INBOX, the owner: "some dropdown menus across
+   the app have wierd gaps at the start and end"). The section's own padding
+   spaces it from the hairline between sections; at the menu's first and
+   last edge the menu's padding already does that, and the two together put
+   the Library's More and the Timeline's options 13.8 and 14.4px from their
+   edges against a menu padding of 6.4 (`menus.js`, inset). A leading label
+   is the same case: the "Sort and view" label a phone folds in first put
+   the Library's More 15.4px from its top. */
+.dock-menu-list > :is(.dock-menu-section, .dock-arrange-label):first-child {
+  padding-top: 0;
+}
+.dock-menu-list > .dock-menu-section:last-child {
+  padding-bottom: 0;
+}
 .dock-menu-label {
   font-size: var(--text-sm);
 }
@@ -9466,7 +9536,8 @@ input[type="file"] {
   white-space: nowrap;
   font-size: var(--text-md);
 }
-.dock-menu-check:hover {
+.dock-menu-check:hover,
+.dock-menu-check:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-2);
 }
 .dock-menu-check > input {
@@ -10938,7 +11009,8 @@ button.finder-row {
    arrives with the pointer rather than an edge being drawn around every row
    (DESIGN.md, "A row in a list"). */
 button.finder-row:hover,
-.finder-row.is-active {
+.finder-row.is-active,
+button.finder-row:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-2);
   border-color: var(--divider);
 }
@@ -11358,7 +11430,8 @@ button.finder-row:hover,
   border-color: transparent;
   padding: var(--space-3) var(--space-4);
 }
-.dash-glance .quick-link:hover {
+.dash-glance .quick-link:hover,
+.dash-glance .quick-link:is(:focus-visible, :has(:focus-visible)) {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
@@ -11878,7 +11951,8 @@ button.finder-row:hover,
   pointer-events: auto;
   transition: fill-opacity var(--motion-fast) var(--ease-out);
 }
-.wb-clone-grip:hover {
+.wb-clone-grip:hover,
+.wb-clone-grip:is(:focus-visible, :has(:focus-visible)) {
   fill-opacity: 1;
 }
 

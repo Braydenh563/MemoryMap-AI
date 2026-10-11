@@ -1331,36 +1331,48 @@ function renderShortcutList() {
   }
 }
 
+//: **The key chip is the button** (INBOX 810, Row actions): a column of
+//: thirty-one bordered "Change" buttons was the heaviest thing in the pane,
+//: louder than the keys it changes. Pressing the keys starts the rebind and
+//: pressing them again cancels it; its words say which ("Change" or
+//: "Cancel"), and the back-to-default is a quiet icon after the words.
 function buildShortcutList(list) {
   list.replaceChildren();
   for (const [id, def] of Object.entries(shortcuts)) {
     const li = document.createElement("li");
-    const combo = document.createElement("kbd");
-    combo.textContent = capturingShortcut === id ? "Press keys…" : def.keys;
-    if (capturingShortcut === id) combo.classList.add("capturing");
-
-    const label = document.createElement("span");
-    label.textContent = def.label;
-
+    const capturing = capturingShortcut === id;
     const change = document.createElement("button");
-    change.className = "ghost small";
+    change.className = "ghost small quiet shortcut-key";
     change.type = "button";
-    change.textContent = capturingShortcut === id ? "Cancel" : "Change";
-    change.setAttribute("aria-label", `Change the shortcut for: ${def.label}`);
+    const combo = document.createElement("kbd");
+    combo.textContent = capturing ? "Press keys…" : def.keys;
+    if (capturing) combo.classList.add("capturing");
+    change.append(combo);
+    change.title = capturing ? "Cancel" : "Change";
+    change.setAttribute(
+      "aria-label",
+      capturing ? `Cancel changing the shortcut for: ${def.label}` : `Change the shortcut for: ${def.label}, now ${def.keys}`
+    );
     change.addEventListener("click", () => {
       capturingShortcut = capturingShortcut === id ? null : id;
       setShortcutStatus(
         capturingShortcut ? "Press the keys you want, or Escape to cancel." : ""
       );
       renderShortcutList();
+      //: The list was redrawn: the focus goes back to the same row's keys.
+      list.querySelector(`[data-shortcut="${id}"] .shortcut-key`)?.focus();
     });
+
+    const label = document.createElement("span");
+    label.textContent = def.label;
+    li.dataset.shortcut = id;
+    li.append(change, label);
 
     // Only offer "default" when it isn't already the default.
     const changed = def.keys !== DEFAULT_SHORTCUTS[id].keys;
-    li.append(combo, label, change);
     if (changed) {
       const revert = document.createElement("button");
-      revert.className = "ghost small";
+      revert.className = "ghost small quiet icon-only";
       revert.type = "button";
       setLabel(revert, "ph:arrow-counter-clockwise");
       revert.title = `Back to ${DEFAULT_SHORTCUTS[id].keys}`;

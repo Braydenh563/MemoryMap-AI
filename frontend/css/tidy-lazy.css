@@ -134,7 +134,9 @@
 .tidy-card .setting-check.tidy-auto,
 .tidy-card .setting-check.tidy-auto:hover,
 .tidy-card .setting-check.tidy-auto:has(input:checked),
-.tidy-card .setting-check.tidy-auto:has(input:checked):hover {
+.tidy-card .setting-check.tidy-auto:has(input:checked):hover,
+.tidy-card .setting-check.tidy-auto:is(:focus-visible, :has(:focus-visible)),
+.tidy-card .setting-check.tidy-auto:has(input:checked):is(:focus-visible, :has(:focus-visible)) {
   background: transparent;
   padding-inline: 0;
 }

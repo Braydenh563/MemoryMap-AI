@@ -1937,10 +1937,13 @@ function tourReflow() {
 window.addEventListener("resize", tourReflow);
 window.addEventListener("scroll", tourReflow, true);
 
-//: Settings, help and guide: one filled button for the whole tour and one
-//: ghost per section, built from TOUR_SECTIONS so a section added to that
-//: table arrives here on its own. The settings modal is closed first, because
-//: the tour points at controls the modal is covering.
+//: Settings, help and guide: one filled button for the whole tour, then one
+//: row per section, built from TOUR_SECTIONS so a section added to that
+//: table arrives here on its own. **A row, not a wall** (INBOX 804, the
+//: owner: fourteen tinted, bordered buttons in one block): each section is a
+//: quiet `button.tour-row`, its name over its one-line blurb, in a list, so a
+//: section says what it covers before it is pressed. The settings modal is
+//: closed first, because the tour points at controls the modal is covering.
 function renderTourReplay() {
   const box = document.getElementById("tour-replay-buttons");
   if (!box) return;
@@ -1952,24 +1955,28 @@ function renderTourReplay() {
     // rectangle is measured against the page the modal was covering.
     requestAnimationFrame(() => openTour(sectionId));
   };
-  const all = document.createElement("button");
-  all.type = "button";
-  all.className = "small";
-  all.textContent = "Start the tour";
-  all.addEventListener("click", () => start(null));
-  box.appendChild(all);
-  if (!TOUR_ENABLED) {
-    for (const button of [all]) tourDisable(button);
+  const all = document.getElementById("tour-start-btn");
+  if (all && !all.dataset.wired) {
+    all.dataset.wired = "1";
+    all.addEventListener("click", () => start(null));
   }
+  if (all && !TOUR_ENABLED) tourDisable(all);
   for (const section of TOUR_SECTIONS) {
+    const li = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "ghost small";
-    button.textContent = section.label;
-    button.title = section.blurb;
+    button.className = "ghost small tour-row";
+    const name = document.createElement("span");
+    name.className = "tour-row-name";
+    name.textContent = section.label;
+    const blurb = document.createElement("span");
+    blurb.className = "tour-row-blurb";
+    blurb.textContent = section.blurb;
+    button.append(name, blurb);
     button.addEventListener("click", () => start(section.id));
     if (!TOUR_ENABLED) tourDisable(button);
-    box.appendChild(button);
+    li.append(button);
+    box.appendChild(li);
   }
 }
 

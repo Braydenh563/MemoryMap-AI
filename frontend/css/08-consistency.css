@@ -415,7 +415,12 @@ details[open] > .about-whats-new::before,
 .settings-group > summary:not(.icon-only):not(.icon-button):hover,
 .settings-fold > summary:not(.icon-only):not(.icon-button):hover,
 .advanced-css > summary:not(.icon-only):not(.icon-button):hover,
-.task-log > summary:not(.icon-only):not(.icon-button):hover {
+.task-log > summary:not(.icon-only):not(.icon-button):hover,
+.help-accordion details > summary:not(.icon-only):not(.icon-button):is(:focus-visible, :has(:focus-visible)),
+.settings-group > summary:not(.icon-only):not(.icon-button):is(:focus-visible, :has(:focus-visible)),
+.settings-fold > summary:not(.icon-only):not(.icon-button):is(:focus-visible, :has(:focus-visible)),
+.advanced-css > summary:not(.icon-only):not(.icon-button):is(:focus-visible, :has(:focus-visible)),
+.task-log > summary:not(.icon-only):not(.icon-button):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
 }
 /* The accordion is one group, not eight boxes. `--surface-2` with no border
@@ -552,10 +557,14 @@ details[open] > .about-whats-new::before,
    height, and the same quiet edge as the search field beside it (INBOX 621:
    a bordered sort select next to an edgeless field was two answers again).
    Three of these (search, the select opener, the native select behind it)
-   drew three radii while sitting side by side. */
+   drew three radii while sitting side by side. The Ask composer and the
+   chat strip are bars too (INBOX 813: one bar select), so their pickers take
+   the same inset at their own bar's height rather than a form field's edge. */
 .dock input:not([type="checkbox"]):not([type="radio"]):not(.search-field-input),
 .dock select:not(.select-native-hidden):not(.dock-native-hidden),
-.dock .select-shell > .select-opener {
+.dock .select-shell > .select-opener,
+.ask-composer .select-shell > .select-opener,
+.chat-dock-controls .select-shell > .select-opener {
   height: var(--control-h);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -604,7 +613,9 @@ details[open] > .about-whats-new::before,
 .dock > * > details[open] > summary:not(.icon-only):not(.icon-button),
 .dock > * > details[open] > summary,
 .dock > * > .menu-wrap > button.ghost:hover,
-.dock .dock-link:hover {
+.dock .dock-link:hover,
+.dock > * > .menu-wrap > button.ghost:is(:focus-visible, :has(:focus-visible)),
+.dock .dock-link:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
@@ -851,7 +862,9 @@ details[open] > .about-whats-new::before,
   background: none;
 }
 .check-row:has(input[type="checkbox"]:checked):hover,
-.setting-check:has(input[type="checkbox"]:checked):hover {
+.setting-check:has(input[type="checkbox"]:checked):hover,
+.check-row:has(input[type="checkbox"]:checked):is(:focus-visible, :has(:focus-visible)),
+.setting-check:has(input[type="checkbox"]:checked):is(:focus-visible, :has(:focus-visible)) {
   background: var(--row-hover-bg);
 }
 /* One stack, one line between its rows. The negative margin that used to
@@ -1402,7 +1415,7 @@ summary > .ph-lead,
   #mic-note > .ph,
   #improve-btn > .ph {
     margin-inline-end: 0;
-    font-size: 1.15rem;
+    font-size: var(--text-h3);
   }
 }
 /* ---------------------------------------------------------------------------
@@ -1561,7 +1574,8 @@ summary > .ph-lead,
   width: var(--control-h-lg);
 }
 .dash-widget-row-controls button:hover:not(:disabled),
-.dash-widget-row-controls button:focus-visible {
+.dash-widget-row-controls button:focus-visible,
+.dash-widget-row-controls button:is(:focus-visible, :has(:focus-visible)):not(:disabled) {
   background: var(--ghost-btn-bg);
 }
 /* Remove keeps the danger colour on its glyph and loses the resting tint that
@@ -1579,7 +1593,9 @@ summary > .ph-lead,
 .dash-widget-row-controls button.danger:hover:not(:disabled),
 .dash-widget-row-controls button.danger:focus-visible,
 .entry-actions.dash-widget-row-controls button.danger:hover:not(:disabled),
-.entry-actions.dash-widget-row-controls button.danger:focus-visible {
+.entry-actions.dash-widget-row-controls button.danger:focus-visible,
+.dash-widget-row-controls button.danger:is(:focus-visible, :has(:focus-visible)):not(:disabled),
+.entry-actions.dash-widget-row-controls button.danger:is(:focus-visible, :has(:focus-visible)):not(:disabled) {
   background: var(--error-soft);
 }
 /* On, and only on: the toggle's state is the one fill in the row. */
@@ -1646,7 +1662,8 @@ summary > .ph-lead,
 .wb-topbar button:hover:not(:disabled),
 .wb-topbar button:focus-visible,
 .wb-topbar summary:hover,
-.wb-topbar summary:focus-visible {
+.wb-topbar summary:focus-visible,
+.wb-topbar button:is(:focus-visible, :has(:focus-visible)):not(:disabled) {
   background: var(--ghost-btn-bg);
 }
 /* On stays visible: a toggle that is doing something says so, and this is the
@@ -2619,7 +2636,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    43px control in a 65px toast (measured, scratchpad/ui-sweeps/toasthelp.js);
    a toast action is a small ghost, the same height as its close button. */
 .toast .toast-help {
-  padding: 0 var(--space-3);
   white-space: nowrap;
   /* Never squeezed by the message: at 390 the flex row shrank this button to
      44px and its words ran out of its box (the owner, with a screenshot). */
@@ -2798,7 +2814,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 /* A click on it opens its menu (INBOX 432, 447): a `.chip-interactive`,
    so it tones under the pointer (the veil over its own fill) and stays a
    pill at rest. */
-.entry-meta.note-meta > .chip-interactive.category:hover {
+.entry-meta.note-meta > .chip-interactive.category:hover,
+.entry-meta.note-meta > .chip-interactive.category:is(:focus-visible, :has(:focus-visible)) {
   background: linear-gradient(var(--hover-veil), var(--hover-veil)) var(--chip-bg);
 }
 .entry-meta.note-meta > .chip.category.is-action:focus-visible {
@@ -2822,7 +2839,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   content: "#";
   opacity: 0.6;
 }
-.entry-meta.note-meta > .chip-interactive:hover {
+.entry-meta.note-meta > .chip-interactive:hover,
+.entry-meta.note-meta > .chip-interactive:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
   color: var(--ink);
 }
@@ -2914,7 +2932,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--muted);
   font-weight: 400;
 }
-.entry-links > .chip-interactive.link:hover {
+.entry-links > .chip-interactive.link:hover,
+.entry-links > .chip-interactive.link:is(:focus-visible, :has(:focus-visible)) {
   color: var(--ink);
   background: var(--chip-bg);
 }
@@ -3087,7 +3106,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   box-shadow: none;
   color: var(--muted);
 }
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #dash-name-nudge button:hover {
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #dash-name-nudge button:hover,
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #dash-name-nudge button:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
   color: var(--ink);
 }
@@ -3120,7 +3140,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
      desktop look is unchanged. Measured at 390 touch: 28px before. */
   min-height: var(--target-min);
 }
-:is(#chat-suggest, #suggested-questions, #recent-questions) > .chip-interactive:hover {
+:is(#chat-suggest, #suggested-questions, #recent-questions) > .chip-interactive:hover,
+:is(#chat-suggest, #suggested-questions, #recent-questions) > .chip-interactive:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
 }
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .chat-thread-mark {
@@ -3137,7 +3158,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   background: transparent;
   border-color: transparent;
 }
-.graph-legend-row .legend-item:hover {
+.graph-legend-row .legend-item:hover,
+.graph-legend-row .legend-item:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
 }
 /* --- the timeline, de-vibecoded ---------------------------------------------
@@ -3200,7 +3222,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   height: 0.5em;
   margin-inline-end: var(--space-2);
   border: 1.5px solid var(--muted);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   vertical-align: 0.1em;
 }
 /* Still finding out (INBOX 435): the same dot, breathing, so the line says
@@ -3211,7 +3233,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   width: 0.5em;
   height: 0.5em;
   margin-inline-end: var(--space-2);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--muted);
   vertical-align: 0.1em;
   animation: status-checking 1.2s ease-in-out infinite alternate;
@@ -3235,7 +3257,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   width: 0.5em;
   height: 0.5em;
   margin-inline-end: var(--space-2);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--ok);
   vertical-align: 0.1em;
 }
@@ -3315,7 +3337,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   box-shadow: none;
   color: var(--muted);
 }
-#entry-list .link-connection > .menu-wrap > button:hover {
+#entry-list .link-connection > .menu-wrap > button:hover,
+#entry-list .link-connection > .menu-wrap > button:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
   color: var(--ink);
 }
@@ -3361,7 +3384,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 }
 /* With no inset a hover fill would hug the word; the head and the panel's
    menu rows answer the pointer in ink instead. */
-#graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button):hover {
+#graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button):hover,
+#graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button):is(:focus-visible, :has(:focus-visible)) {
   background: none;
   color: var(--accent-text);
 }
@@ -3466,7 +3490,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 }
 /* The head's hover fill stays under the '?' while the pointer is on it, as
    it did when the '?' was inside the head. */
-.fold-help-wrap:has(> .fold-help:hover) > details > summary:not(.icon-only):not(.icon-button) {
+.fold-help-wrap:has(> .fold-help:hover) > details > summary:not(.icon-only):not(.icon-button),
+.fold-help-wrap:has(> .fold-help:focus-visible) > details > summary:not(.icon-only):not(.icon-button) {
   background: var(--ghost-btn-bg);
 }
 /* The shortcut rows are ruled rows, so the divider is their separation: the
@@ -3699,7 +3724,8 @@ body .chip.item-label,
    this at the base rule's own weight, so a focus ring or any deliberate
    shadow set by a class still wins. Classic keeps its glow. */
 :where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button,
-:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button:hover {
+:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button:hover,
+:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button:is(:focus-visible, :has(:focus-visible)) {
   box-shadow: none;
 }
 /* --- Find anything, de-vibecoded ---------------------------------------------
@@ -3835,7 +3861,7 @@ body .chip.item-label,
   flex: 0 0 auto;
   width: 0.5em;
   height: 0.5em;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--category-dot);
 }
 /* 4. A board or map card put its kind icon on a row of its own above the
@@ -4041,11 +4067,13 @@ body .chip.item-label,
   color: var(--accent-text);
   gap: var(--space-1);
 }
-.library-file-rows .library-image-tile .library-read-open:hover {
+.library-file-rows .library-image-tile .library-read-open:hover,
+.library-file-rows .library-image-tile .library-read-open:is(:focus-visible, :has(:focus-visible)) {
   background: none;
 }
 /* On the words only: a decoration on the flex row reaches its icon too. */
-.library-file-rows .library-image-tile .library-read-open:hover .ph-text {
+.library-file-rows .library-image-tile .library-read-open:hover .ph-text,
+.library-file-rows .library-image-tile .library-read-open:is(:focus-visible, :has(:focus-visible)) .ph-text {
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
@@ -4211,7 +4239,8 @@ body .chip.item-label,
   box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .dock > * > details.dock-menu > summary.dock-menu-primary:not(.icon-only):not(.icon-button):hover,
-.dock > * > details.dock-menu[open] > summary.dock-menu-primary:not(.icon-only):not(.icon-button) {
+.dock > * > details.dock-menu[open] > summary.dock-menu-primary:not(.icon-only):not(.icon-button),
+.dock > * > details.dock-menu > summary.dock-menu-primary:not(.icon-only):not(.icon-button):is(:focus-visible, :has(:focus-visible)) {
   --button-ground: var(--accent-surface-hover);
   background: var(--button-ground);
   color: var(--on-accent);
@@ -4976,7 +5005,8 @@ body .chip.item-label,
    edge and accent ink: a state you can see, over nothing that shows
    through, with no filter. */
 .scroll-top:hover,
-.chat-jump-latest:hover {
+.chat-jump-latest:hover,
+.chat-jump-latest:is(:focus-visible, :has(:focus-visible)) {
   background: color-mix(in srgb, var(--accent) 18%, var(--modal-bg-opaque));
   border-color: var(--accent);
   color: var(--accent-text);
@@ -5065,6 +5095,13 @@ body .chip.item-label,
     :root[data-buddy-motion="full"]:not([data-avatar-motion="off"]) #nm-buddy .nm-live .name-mark,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) :is(li, .msg, .persona-picker, button, label, [role="option"]):hover .name-mark,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) .name-mark:hover
+  ),
+  :is(
+    :root[data-avatar-motion="always"]:not([data-motion="reduced"]) .name-mark[data-nm-on],
+    :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live .name-mark,
+    :root[data-buddy-motion="full"]:not([data-avatar-motion="off"]) #nm-buddy .nm-live .name-mark,
+    :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) :is(li, .msg, .persona-picker, button, label, [role="option"]):is(:focus-visible, :has(:focus-visible)) .name-mark,
+    :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) .name-mark:is(:focus-visible, :has(:focus-visible))
   ) {
     & .nm-body { animation: nm-breathe 3.6s ease-in-out var(--nm-delay) infinite; }
     & .nm-blinks { animation: nm-blink 5.2s linear var(--nm-delay) infinite; }
@@ -8051,6 +8088,13 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     :root[data-buddy-motion="full"]:not([data-avatar-motion="off"]) #nm-buddy .nm-live .nm-atlas,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) :is(li, .msg, .persona-picker, button, label, [role="option"]):hover .nm-atlas,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) .nm-atlas:hover
+  ),
+  :is(
+    :root[data-avatar-motion="always"]:not([data-motion="reduced"]) .nm-atlas[data-nm-on],
+    :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live .nm-atlas,
+    :root[data-buddy-motion="full"]:not([data-avatar-motion="off"]) #nm-buddy .nm-live .nm-atlas,
+    :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) :is(li, .msg, .persona-picker, button, label, [role="option"]):is(:focus-visible, :has(:focus-visible)) .nm-atlas,
+    :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) .nm-atlas:is(:focus-visible, :has(:focus-visible))
   ) {
     & .atl-rig { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
     /* INBOX 540: a blink is the lid sweeping down over the eye and back,
@@ -8648,7 +8692,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .wb-export-overlay .seg.wb-export-seg:has(> button:nth-child(3):last-child) {
   grid-template-columns: repeat(3, 1fr);
 }
-.wb-export-overlay .seg.wb-export-seg > button:not(.active):not(:disabled):hover {
+.wb-export-overlay .seg.wb-export-seg > button:not(.active):not(:disabled):hover,
+.wb-export-overlay .seg.wb-export-seg > button:not(.active):not(:disabled):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
 }
 .wb-export-overlay .seg.wb-export-seg > button.active {
@@ -8774,7 +8819,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   border-color: transparent;
   color: var(--muted);
 }
-.finder-filters .library-chip:not(.active):hover {
+.finder-filters .library-chip:not(.active):hover,
+.finder-filters .library-chip:not(.active):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
@@ -8828,7 +8874,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   border-color: transparent;
   box-shadow: none;
 }
-:root .seg > button.icon-only:not(.active):not(.ghost):not(.status-item):not(.tool-btn):not(.wb-tool):hover {
+:root .seg > button.icon-only:not(.active):not(.ghost):not(.status-item):not(.tool-btn):not(.wb-tool):hover,
+:root .seg > button.icon-only:not(.active):not(.ghost):not(.status-item):not(.tool-btn):not(.wb-tool):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
 }
 /* **The person's mark, where it is a holder rather than a badge**: the
@@ -9351,7 +9398,8 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
   background: transparent;
   color: var(--muted);
 }
-#entry-list .entry-links .unlink:hover {
+#entry-list .entry-links .unlink:hover,
+#entry-list .entry-links .unlink:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
@@ -9417,7 +9465,8 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
   font-weight: 500;
   box-shadow: none;
 }
-#improve-modes > .improve-mode:not(.active):hover {
+#improve-modes > .improve-mode:not(.active):hover,
+#improve-modes > .improve-mode:not(.active):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
 }
 #improve-modes > .improve-mode.active {
@@ -9536,7 +9585,9 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
 .check-row:has(input[type="radio"]:checked),
 .provider-option:has(input[type="radio"]:checked),
 .check-row:has(input[type="radio"]:checked):hover,
-.provider-option:has(input[type="radio"]:checked):hover {
+.provider-option:has(input[type="radio"]:checked):hover,
+.check-row:has(input[type="radio"]:checked):is(:focus-visible, :has(:focus-visible)),
+.provider-option:has(input[type="radio"]:checked):is(:focus-visible, :has(:focus-visible)) {
   box-shadow: inset 0 0 0 1px var(--accent-text);
 }
 /* --- the reply head on Ask's answer, the draft and the guide (INBOX 471) -----
@@ -9728,7 +9779,9 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   transform: translateX(var(--space-3));
 }
 .layout-sidebar-collapsed > aside[data-resizable].sidebar-collapsed:hover > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name),
-.layout-sidebar-collapsed > #skills-sidebar[data-resizable].sidebar-collapsed:hover > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
+.layout-sidebar-collapsed > #skills-sidebar[data-resizable].sidebar-collapsed:hover > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name),
+.layout-sidebar-collapsed > aside[data-resizable].sidebar-collapsed:is(:focus-visible, :has(:focus-visible)) > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name),
+.layout-sidebar-collapsed > #skills-sidebar[data-resizable].sidebar-collapsed:is(:focus-visible, :has(:focus-visible)) > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
   /* The id rule above out-ranks this one, so Skill logs' head stayed shifted
      8px toward its edge while peeked, under the toggle (INBOX 495): the
      second selector matches it. */
@@ -10333,7 +10386,8 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   border-color: transparent;
   color: var(--muted);
 }
-#entry-list li > .row-expand.ghost.ghost:hover {
+#entry-list li > .row-expand.ghost.ghost:hover,
+#entry-list li > .row-expand.ghost.ghost:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
@@ -10440,7 +10494,8 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   border-radius: var(--radius-md);
   box-shadow: none;
 }
-:is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button:hover {
+:is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button:hover,
+:is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
 }
 /* --- A row is a pointer target (INBOX 719) ---
@@ -10515,7 +10570,8 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 :is(button, summary).kebab-opener.icon-only:not(:hover, [aria-expanded="true"]) {
   background: transparent;
 }
-:is(button, summary).kebab-opener.icon-only:is(:hover, [aria-expanded="true"]):not(:disabled) {
+:is(button, summary).kebab-opener.icon-only:is(:hover, [aria-expanded="true"]):not(:disabled),
+:is(button, summary).kebab-opener.icon-only:is(:is(:focus-visible, :has(:focus-visible)), [aria-expanded="true"]):not(:disabled) {
   background: var(--ghost-btn-bg);
 }
 /* --- A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) ---

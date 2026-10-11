@@ -379,20 +379,26 @@ function notificationGoes(action) {
   return Boolean(action && (action.tab || action.exports || action.panel || action.settings || NOTICE_TARGETS[action.open]));
 }
 
-//: The row's own button for its action (INBOX 585): the toast's label, or a
-//: plain one for the rows that only ever had a target. Disabled, with the
-//: reason beside it, once a one-shot action is spent or out of date.
+//: The row's own action (INBOX 585), a quiet text button at the end of its
+//: meta line (INBOX 811: a grey bordered block on a line of its own was
+//: heavier than the message). Once a one-shot action is spent or out of
+//: date there is nothing to press: the line says so in its own words ("Undo
+//: expired", "Done"), never a disabled button beside the reason.
 function notificationActionButton(item) {
   const action = item.action;
   if (!action || !(action.label || notificationGoes(action))) return null;
   const live = noticeLive.get(item.id);
+  const label = action.label || (action.exports ? "Open folder" : action.filter ? "Show them" : "Open");
+  if (!noticeLiveValid(live) && (action.once || !notificationGoes(action))) {
+    const state = document.createElement("span");
+    state.className = "notif-cta-state";
+    state.textContent = live?.used || redoStack.includes(live?.stacked) ? "Done" : /^undo$/i.test(label) ? "Undo expired" : "Expired";
+    return state;
+  }
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "small toast-action notif-cta";
-  button.textContent = action.label || (action.exports ? "Open folder" : action.filter ? "Show them" : "Open");
-  const wrap = document.createElement("div");
-  wrap.className = "notif-cta-row";
-  wrap.append(button);
+  button.className = "ghost small quiet notif-cta";
+  button.textContent = label;
   if (noticeLiveValid(live)) {
     button.addEventListener("click", async (event) => {
       event.stopPropagation();
@@ -403,20 +409,14 @@ function notificationActionButton(item) {
       live.used = live.once;
       await live.run();
     });
-  } else if (!action.once && notificationGoes(action)) {
+  } else {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       closeNotifications();
       runNotificationGo(action);
     });
-  } else {
-    button.disabled = true;
-    const state = document.createElement("span");
-    state.className = "notif-cta-state muted";
-    state.textContent = live?.used || redoStack.includes(live?.stacked) ? "Done" : "Expired";
-    wrap.append(state);
   }
-  return wrap;
+  return button;
 }
 
 //: `keepWatermark`: a re-render from a row's own read/unread toggle must
@@ -489,14 +489,22 @@ async function openNotifications({ keepWatermark = false } = {}) {
     const unread = isNotificationUnread(item, readAt, forced);
     if (unread) row.classList.add("notif-unread");
 
-    //: **One row recipe** (INBOX 585: "clashing, misaligned, and/or poorly
-    //: spaced"): the unread dot, the icon, the text column, then one side
-    //: column holding the time, which the row's two controls replace while
-    //: it is pointed at. Every column's first line is the title's line
-    //: (06-timeline-dialogs.css), and nothing is laid over the text.
+    //: **One row recipe** (INBOX 585, then 811): the icon column (the unread
+    //: dot in its leading gutter, so a read row and an unread one put their
+    //: icons on one edge), then one block: the message, its detail, and a
+    //: meta line of the time, the row's two controls beside it (shown on
+    //: hover and focus, always under a finger, never in the time's place, so
+    //: every row's time starts on one x) and the row's action at the end.
     const dot = document.createElement("span");
     dot.className = "notif-dot";
-    dot.setAttribute("aria-hidden", "true");
+    //: Named, not only drawn: a dot is a state shown by colour, so it says
+    //: "Unread" to the pointer and to a screen reader (the owner's
+    //: learnability rule, 2026-10-11).
+    if (unread) {
+      dot.setAttribute("role", "img");
+      dot.setAttribute("aria-label", "Unread");
+      dot.title = "Unread";
+    } else dot.setAttribute("aria-hidden", "true");
     const icon = document.createElement("span");
     icon.className = "notif-icon";
     setLabel(icon, NOTIFICATION_ICONS[item.kind] || NOTIFICATION_ICONS.info);
@@ -526,8 +534,9 @@ async function openNotifications({ keepWatermark = false } = {}) {
       meta.textContent = item.detail;
       body.append(meta);
     }
-    const cta = notificationActionButton(item);
-    if (cta) body.append(cta);
+    const foot = document.createElement("div");
+    foot.className = "notif-foot";
+    body.append(foot);
     row.append(dot, icon, body);
 
     //: The dot is the control. A row is either new or it is not, so this is a
@@ -578,11 +587,10 @@ async function openNotifications({ keepWatermark = false } = {}) {
     const actions = document.createElement("span");
     actions.className = "notif-row-actions";
     actions.append(readToggle, dismiss);
-    const side = document.createElement("span");
-    side.className = "notif-side";
-    side.append(time, actions);
+    foot.append(time, actions);
+    const cta = notificationActionButton(item);
+    if (cta) foot.append(cta);
     row.dataset.at = String(item.at);
-    row.append(side);
 
     // A notification you cannot act on is a notification you learn to ignore.
     // The whole row goes where its target is; a one-shot action (an Undo) is

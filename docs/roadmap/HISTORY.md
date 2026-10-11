@@ -353,6 +353,19 @@ The noagent agent's Built block (standing order 10); CHAT_PLAN's "Placed from IN
 - Measured in Chromium at 1440 (port 8867, a stand-in Needle, no model): the five turns answered in 75 to 778 ms, phases seen "Reaching Atlas…", "Reading your notes…", "Working it out without a model…", "Atlas is writing…", never "Waking the model…"; no "step above" or "Couldn't ask" text. Tests: `tests/test_agent_no_model_801.py`.
 - Help moved with it: the Agent button's title, the Guide's progress line and composed-answer topics.
 
+## Moved from the plans, 2026-10-11 (UI_MODERNISATION 13a, Brief 57, the stylesheet's grammar)
+
+The grammar57 agent's built decisions, moved from UI_MODERNISATION_PLAN 13.4's 13a row at its step boundary (standing order 10). What is left is in `archive/agent-remaining/grammar57-1011.md` and the row. Substitutions from `$S/grammar57-subst.py` (re-runnable), each committed apart from its lint.
+
+- **9, tokens:** nine declared custom properties nothing read deleted, 432 to 423; `test_every_declared_token_is_read`, `TOKEN_BUDGET`.
+- **10, colour:** the fourteen accent presets moved whole to 05-sidebars-themes.css, 240 to 198 literals outside the colour files; `COLOUR_LITERALS_LEFT` per file only falls.
+- **11, type:** 152 font-size rem literals to their `--text-*` token of the same value, 0 left; `test_a_font_size_on_the_ramp_is_written_as_its_token`.
+- **14, motion:** colour, ground and edge transitions never run slow (five hovers 200 to 120ms), one-shot animations on motion tokens; two lints in `test_motion_tokens.py`.
+- **15, hover and focus:** 253 hover selectors without a keyboard twin to 0 (`X:is(:focus-visible, :has(:focus-visible))` in the same rule); one hover and one press for every button family (INBOX 789); `tests/test_hover_focus_pairs.py`, `scratchpad/ui-sweeps/focusbox.js`.
+- **17, circles:** 31 square `50%` boxes to `--radius-pill`, 58 to 27 at 50%, the rest faces, colours and drawn shapes plus six named in `CIRCLES_LEFT`.
+- **12, 13, 16** are ratchets only (115 literal layers, 19 hand-written drop shadows, 128 `!important`); the row keeps them open.
+- Placed with the brief: INBOX 803 (quiet ghosts in cards, disclosure rows, counted chips), 804 and 808 to 811 (row actions and `rowActions`, Help's tour rows, the notification block, the toast's quiet action, the documents assistant's composer, the console ring), 813 (bar controls) and the menu-end gaps; each recipe is a DESIGN.md row with its lint in `test_ui_recipes.py`.
+
 ## Moved from the plans, 2026-10-11 (WORLD_CLASS 25f, Brief 52)
 
 The settings52 agent's Built block, moved whole from WORLD_CLASS_PLAN 25.4 at its step boundary (standing order 10). Decision 52: a setting is a row with a name, its default and a reset; the panes stay.

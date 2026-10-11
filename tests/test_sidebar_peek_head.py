@@ -25,7 +25,7 @@ def _css(name: str) -> str:
 def test_the_peeked_toggle_sits_where_the_pinned_one_does():
     css = _css("07-whiteboard-misc.css")
     rule = re.search(
-        r"\.layout-sidebar-collapsed>\.sidebar-collapsed:hover \.sidebar-collapse-toggle\s*\{([^}]*)\}",
+        r"\.layout-sidebar-collapsed>\.sidebar-collapsed:hover \.sidebar-collapse-toggle(?:,\s*[^{,]+)*\s*\{([^}]*)\}",
         css,
     )
     assert rule, "the hover-peek toggle rule is gone"

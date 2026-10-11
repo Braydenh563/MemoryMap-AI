@@ -4166,9 +4166,9 @@ Link to another note with [[its first few words]]."></textarea>
                (`gcRenderFilterChips`, graph-canvas.js). -->
           <details class="dock-menu-section settings-fold graph-options-fold" id="graph-filter-section">
             <summary><span class="muted dock-menu-label" id="graph-filter-label">Filter</span></summary>
-            <p class="muted graph-filter-head">Kinds of link</p>
+            <p class="muted graph-filter-head">Kinds of link: press one to hide it; a struck-through kind is hidden</p>
             <div id="graph-link-kinds" class="library-filters graph-filter-chips" role="group" aria-label="Kinds of link drawn on the map"></div>
-            <p class="muted graph-filter-head">Properties</p>
+            <p class="muted graph-filter-head">Properties: press one to light its notes; the lit one is outlined</p>
             <div id="graph-prop-chips" class="library-filters graph-filter-chips" role="group" aria-label="Light the notes with a property"></div>
           </details>
           <div class="dock-menu-section graph-temporal" id="graph-temporal"
@@ -4766,8 +4766,9 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- Run (INBOX 404, Brief 69): a code document in the sandbox
                  through the one run protocol (run-core.js), its output in a
                  panel under the editor. Shown for the types that run or
-                 preview (DOC_RUN_KINDS, syncDocFileType). -->
-            <button id="doc-code-run" class="ghost small hidden" type="button"
+                 preview (DOC_RUN_KINDS, syncDocFileType). The bar's one
+                 filled action (INBOX 803): a code file is for running. -->
+            <button id="doc-code-run" class="small hidden" type="button"
               title="Run this file in a sandbox and show its output (Ctrl+Shift+Enter)"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Run</button>
             <!-- A .py document before Python is installed: Run is disabled
                  and this one line says what it needs and goes there
@@ -5200,8 +5201,10 @@ Link to another note with [[its first few words]]."></textarea>
                     data-needs-model="Refactoring needs a model" data-model-offer="Format below works without one."
                     title="Make the selected lines, or the file, clearer">Refactor</button>
                 </div>
-                <form id="doc-assist-form" class="doc-assist-form">
-                  <input id="doc-assist-question" type="text" maxlength="2000" autocomplete="off"
+                <!-- One composer row (INBOX 804): the field's well holds the
+                     question and its send, at the asks' height. -->
+                <form id="doc-assist-form" class="search-field doc-assist-form">
+                  <input id="doc-assist-question" class="search-field-input" type="text" maxlength="2000" autocomplete="off"
                     placeholder="Ask about this code…" aria-label="Ask about this code">
                   <button type="submit" id="doc-assist-send" class="small accent icon-only" title="Ask (Enter)" aria-label="Ask"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
                 </form>
@@ -5726,7 +5729,7 @@ Link to another note with [[its first few words]]."></textarea>
                   aria-label="Search the library">
               </div>
               <details class="doc-dock-menu dock-menu" id="library-filter-menu">
-                <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, include the bin"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> Filter <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+                <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, include the bin"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> <span class="dock-word">Filter</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">
                   <label class="dock-menu-check"
                     title="Also match notes by meaning, not just the words you typed. Documents, chats and images still match on their words.">
@@ -5749,8 +5752,8 @@ Link to another note with [[its first few words]]."></textarea>
               </select>
               <div class="seg seg-compact library-view" id="library-view" role="group"
                 aria-label="How to show the library">
-                <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
                 <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-rows" aria-hidden="true"></i></button>
+                <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Cards"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               </div>
             </div>
             <div class="dock-actions">
@@ -6165,8 +6168,8 @@ Link to another note with [[its first few words]]."></textarea>
                  set it. -->
             <div class="seg seg-compact library-view" id="library-boards-view" role="group"
               aria-label="How to show boards">
-              <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-rows" aria-hidden="true"></i></button>
+              <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Cards"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
             </div>
           </div>
           <div class="dock-actions">
@@ -10587,7 +10590,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
                 <div class="row setting-control">
                   <input id="accent-custom" type="color" aria-label="Custom accent colour">
-                  <button id="accent-custom-clear" class="ghost small">Clear</button>
+                  <button id="accent-custom-clear" class="ghost small quiet" type="button">Clear</button>
                 </div>
               </div>
 
@@ -10598,7 +10601,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
                 <div class="row setting-control">
                   <input id="page-bg-custom" type="color" aria-label="Page background colour">
-                  <button id="page-bg-clear" class="ghost small">Clear</button>
+                  <button id="page-bg-clear" class="ghost small quiet" type="button">Clear</button>
                 </div>
               </div>
 
@@ -11243,7 +11246,7 @@ Link to another note with [[its first few words]]."></textarea>
                   placeholder=".card { border-width: 2px; }"></textarea>
                 <div class="row">
                   <button id="custom-css-apply" class="ghost small">Apply CSS</button>
-                  <button id="custom-css-clear" class="ghost small">Clear</button>
+                  <button id="custom-css-clear" class="ghost small quiet" type="button">Clear</button>
                   <span id="custom-css-status" class="status" role="status"></span>
                 </div>
               </details>
@@ -11371,7 +11374,7 @@ Link to another note with [[its first few words]]."></textarea>
             <details class="settings-group settings-fold" data-fold-key="shortcuts-yours" open>
               <summary><h3 class="inline-h3">Your shortcuts</h3></summary>
               <p class="muted">
-                Click <strong>Change</strong> and press the keys you want; a button
+                Press a shortcut's keys and then the keys you want; a button
                 with a shortcut shows it when you hover it. Press
                 <kbd>?</kbd> anywhere in the app for the same list as an overlay.
               </p>
@@ -13105,9 +13108,12 @@ Link to another note with [[its first few words]]."></textarea>
               <h3>Welcome and tours</h3>
               <p class="muted">See the welcome again, or take the guided tour of the whole app or one part of it.</p>
               <div class="row wrap tour-replay-row">
-                <button id="show-guide-btn" class="ghost small" type="button"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Replay the welcome</button>
-                <div id="tour-replay-buttons" class="tour-replay-buttons"></div>
+                <button id="tour-start-btn" class="small" type="button">Start the tour</button>
+                <button id="show-guide-btn" class="ghost small quiet" type="button"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Replay the welcome</button>
               </div>
+              <!-- One row per part of the app, its name over what it covers
+                   (INBOX 804: it was a wall of fourteen bordered buttons). -->
+              <ul id="tour-replay-buttons" class="tour-replay-buttons" aria-label="Tour one part of the app"></ul>
             </div>
             <!-- **Every help topic, drawn from the Guide's own table** (INBOX
                  448 (1), the owner: "the help settings as well as the help
@@ -13684,7 +13690,7 @@ Link to another note with [[its first few words]]."></textarea>
             title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         </span>
       </div>
-      <p class="muted">Click <strong>Change</strong> and press the keys you want.</p>
+      <p class="muted">Press a shortcut's keys, then the keys you want.</p>
       <ul class="shortcut-list" id="shortcut-list"></ul>
       <p id="shortcut-status" class="status" role="status"></p>
       <div class="row">

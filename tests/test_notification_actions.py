@@ -84,8 +84,8 @@ def test_an_undo_is_kept_only_while_it_is_valid():
     assert "undoStack" in keep, "an Undo on the app's stack is valid while it is still on it"
     assert "NOTICE_UNDO_MS" in keep, "an Undo off the stack has a time limit"
     row = _body(STATUS, "function notificationActionButton(")
-    assert '"Expired"' in row and '"Done"' in row
-    assert "disabled = true" in row
+    assert '"Undo expired"' in row and '"Done"' in row
+    assert "disabled = true" not in row, "a spent action is words, never a disabled button (INBOX 811)"
 
 
 def test_an_opener_resolves_its_target_by_id_when_pressed():
@@ -135,15 +135,23 @@ def test_openers_carry_a_target_that_survives_a_reload():
 def test_a_row_shows_its_action_as_a_button():
     body = _body(STATUS, "async function openNotifications(")
     assert "notificationActionButton(item)" in body
-    assert "notif-dot" in body, "the unread dot is an element in its own column"
-    assert "notif-side" in body, "time and the row's controls share one column"
+    assert "notif-dot" in body, "the unread dot is an element, in the icon's gutter"
+    assert "foot.append(time, actions)" in body, (
+        "the time leads the meta line and the controls sit beside it, never in its place (INBOX 811)"
+    )
+    assert '"ghost small quiet notif-cta"' in _body(STATUS, "function notificationActionButton("), (
+        "the row's action is quiet text, not a bordered block (INBOX 811)"
+    )
 
 
 def test_the_row_is_one_grid_with_no_overlaid_controls():
     rule = re.search(r"/\* One notification row.*?\*/\s*\.notif-row\s*\{([^}]*)\}", CSS, re.S)
     assert rule, "the row recipe block"
-    assert "grid-template-columns: var(--notif-dot) var(--notif-line) minmax(0, 1fr) auto" in rule.group(1)
+    assert "grid-template-columns: var(--notif-line) minmax(0, 1fr)" in rule.group(1)
     tail = CSS[rule.start():]
     assert not re.search(r"\.notif-row-actions\s*\{[^}]*position:\s*absolute", tail), (
         "the controls float over the title again (INBOX 585)"
+    )
+    assert not re.search(r"\.notif-row:(hover|focus-within) \.notif-time\s*\{[^}]*opacity:\s*0", tail), (
+        "the time gives its place up to the controls again (INBOX 811)"
     )

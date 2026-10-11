@@ -45,6 +45,15 @@ below). Versioning is `0.x` while the app stabilises.
 - Mind map: the progress count ("3/7") on a solid topic reads in the topic's own ink instead of grey on blue (1:1 before).
 - Chat: the chosen Ask or Agent mode keeps a visible keyboard focus ring in the Utilitarian, Paper and Mono looks; a scrolling page and widget body leave room for the ring at their bottom edge; Settings, Background tasks, Run now keeps its ring inside its row on a phone.
 - Dashboard: the day digest and the recent activity list read as lists to a screen reader; a task box on a note card says why it cannot be ticked there.
+- Menus with settings in them (the Library's More, the Timeline's options) no longer have a wider gap at their top and bottom than at their sides.
+- Pop-up notices: Undo and the other actions are quiet words in the accent colour rather than grey boxes, and a notice with its Undo stays on one line on a desktop.
+- Help, Welcome and tours: each part of the app is a row with its name over what it covers, under one Start the tour button, instead of fourteen boxed buttons.
+- Settings, Shortcuts: press a shortcut's keys to change it; the column of Change buttons is gone. Actions repeated on every row (Run now, Restore, a learned fact's Edit) are quiet text buttons, a Delete stays grey until you point at it, and a row of three or more keeps its first and puts the rest under ⋯.
+- The notifications panel: each notice is one block, its time with read and remove beside it and its Undo at the end of the same line; a lapsed Undo says Undo expired; the unread dot is named for screen readers.
+- The code editor: the assistant's question box, its send and its suggestion chips are one height, and the Python console's focus ring no longer touches the line above it. When the grammar checker cannot start, its message names the file that failed and why.
+- Bars: the Ask box's and the chat strip's model pickers take the bar's quiet fill, the Library's Filter collapses to its icon on a phone as Notes' does, its view switch reads Rows then Cards, and the graph's filter headings say what a struck-through or outlined chip means.
+- Buttons inside a card (the dashboard's widgets, the code editor's toolbar and its assistant's tools) are quiet: no box or edge until you point at or Tab to them; the code editor's Run is its one filled button; the night pass's "36 claims" lines are rows; the graph's link and property filters are chips, a hidden kind struck through.
+- Every hover now shows the same way when you reach the control with Tab, and colour changes on hover run at the quick speed.
 - Reminder notifications: Done and Snooze now work with a token scoped to that one reminder and those two actions (24 hours, signed by the server), instead of your whole session token sitting in the browser's notification store.
 - The Guide's whiteboard keys, board library, board format and mind map features topics are each two shorter topics, so a question lands on the half it is about.
 - Renaming a topic from the Library's Contents list or a note's panel in the graph has Save and Cancel beside the field (Enter saves, Escape cancels).

@@ -333,6 +333,15 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the grammar57 agent (Brief 57, the stylesheet's grammar, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/grammar57-1011.md`.
+
+- Decisions 12 (layers, 115 literals), 13 (19 drop shadows), 16 (128 `!important`) are ratchets only; 13.R not started.
+- Row actions (`rowActions`) not yet in meetings, the suggestions inbox, the tag manager; "Kinds: all" triggers and the chat strip's pill toggles a different family.
+- Logs More menu `.dock-menu-check` rows 34.9px/8px against 32px/12.8px items; the board's Start and End menus not measured for end gaps.
+- The Windows grammar worker failure not reproduced (now names its reason).
+
 ## Left by the mapfix agent (the topic's tools and the board's frames, merged 2026-10-11)
 
 File: `docs/roadmap/archive/agent-remaining/mapfix-1011.md`.

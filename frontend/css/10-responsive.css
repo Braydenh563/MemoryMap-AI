@@ -1386,7 +1386,8 @@ header#top-bar[data-scrolled="1"],
     padding-inline-end: calc(0.5rem + 0.6rem + var(--target-min));
   }
   @media (hover: hover) {
-    #sidebar ul#category-list > li:hover {
+    #sidebar ul#category-list > li:hover,
+    #sidebar ul#category-list > li:is(:focus-visible, :has(:focus-visible)) {
       background: var(--accent-soft);
     }
   }
@@ -2437,8 +2438,11 @@ header#top-bar[data-scrolled="1"],
     flex: 0 0 auto;
   }
   /* Customise keeps its glyph on a phone (INBOX 488); the word stays its
-     accessible name through the button's own label. */
-  .dash-customise .dock-word {
+     accessible name through the button's own label. A dock's Filter does the
+     same (INBOX 813: one filter trigger, icon and word, the icon alone on a
+     phone), so Notes and Library collapse alike. */
+  .dash-customise .dock-word,
+  .dock .dock-menu > summary .dock-word {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -2448,7 +2452,8 @@ header#top-bar[data-scrolled="1"],
   }
   /* Its words are hidden here, so its icon is alone: centred in its
      control rather than moved onto words (INBOX 592). */
-  .dash-customise .ph-lead:has(~ .dock-word) {
+  .dash-customise .ph-lead:has(~ .dock-word),
+  .dock .dock-menu > summary .ph-lead:has(~ .dock-word) {
     translate: none;
   }
   .dash-customise .menu-wrap > button {

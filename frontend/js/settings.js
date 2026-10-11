@@ -2044,7 +2044,7 @@ function savedThemeCard(theme) {
   const remove = smallButton("ph:trash", `Delete “${theme.name}”`, () => {
     deleteSavedTheme(theme.name).catch((e) => toast(e.message, true));
   });
-  remove.classList.add("ghost", "icon-button", "saved-look-delete");
+  remove.classList.add("ghost", "icon-button", "quiet", "danger", "saved-look-delete");
   foot.append(name, remove);
 
   card.append(preview, foot);
@@ -4016,29 +4016,32 @@ function learnedRow(fact) {
   meta.textContent = parts.join(" · ");
   li.appendChild(meta);
 
-  const actions = document.createElement("div");
-  actions.className = "row entry-actions";
+  const acts = [];
   if (fact.entry_id) {
-    actions.appendChild(
-      smallButton("ph:arrow-square-out Open the note", "Open the note this came from", () => {
+    acts.push({
+      label: "ph:arrow-square-out Open the note",
+      title: "Open the note this came from",
+      run: () => {
         closeSettingsModal();
         flashEntry(fact.entry_id);
-      })
-    );
+      },
+    });
   }
-  actions.appendChild(
-    smallButton("ph:pencil-simple Edit", "Correct what this says", () => learnedEdit(fact))
-  );
+  acts.push({ label: "ph:pencil-simple Edit", title: "Correct what this says", run: () => learnedEdit(fact) });
   if (fact.edited_by_user) {
-    actions.appendChild(
-      smallButton("ph:arrow-counter-clockwise Reset", "Put the model's own words back", () =>
-        learnedReset(fact)
-      )
-    );
+    acts.push({
+      label: "ph:arrow-counter-clockwise Reset",
+      title: "Put the model's own words back",
+      run: () => learnedReset(fact),
+    });
   }
-  actions.appendChild(
-    smallButton("ph:trash Delete", "Delete this, and never work it out again", () => learnedDelete(fact))
-  );
+  acts.push({
+    label: "ph:trash Delete",
+    title: "Delete this, and never work it out again",
+    run: () => learnedDelete(fact),
+    danger: true,
+  });
+  const actions = rowActions(acts, "More for this fact");
   li.appendChild(actions);
   return li;
 }
@@ -4518,7 +4521,7 @@ function renderJobOverview() {
         else toast(result.message, "info");
         refreshBackgroundTasks();
       });
-      go.classList.add("job-run-now");
+      go.classList.add("job-run-now", "quiet");
       li.append(when, go);
     }
     list.appendChild(li);

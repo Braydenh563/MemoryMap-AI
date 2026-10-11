@@ -426,7 +426,8 @@ HELP_TOPICS: list[dict] = [
         #: months, and the guide was the one place still teaching the old key.
         "body": (
             "Press ? for the full list; Settings, Keyboard shortcuts rebinds any of "
-            "them, and on a Mac Cmd works in place of Ctrl. A button with a "
+            "them (press a shortcut's keys, then the keys you want), and on a Mac "
+            "Cmd works in place of Ctrl. A button with a "
             "shortcut shows it in its tooltip, in your own binding. Everywhere: Ctrl+K "
             "the command palette, Ctrl+P find anything, Ctrl+F find on this "
             "page, / jump to search (the chat box on Chat), Ctrl+Z undo, "
@@ -1021,7 +1022,8 @@ HELP_TOPICS.extend(
             "body": (
                 "The guided tour walks through the whole app a section at a time, "
                 "pointing at the real controls. Start it from Settings, Help and "
-                "guide. Each section's own button starts there and carries on to the "
+                "guide: Start the tour for all of it, or a part's row, its name over "
+                "what it covers, to start there and carry on to the "
                 "next; Back and Next move through it, and Finish ends it whenever you "
                 "like. The search box at the top of Settings, Help keeps only the "
                 "topics that hold every word you type, with the words marked; Esc "
@@ -1110,9 +1112,9 @@ HELP_TOPICS.extend(
                 "Atlas's suggestions. The number on it is what you have not seen. "
                 "A pop-up with a button (Undo, Open it, Show it) is kept here with "
                 "the same button: an opener still works after a restart, an Undo "
-                "only while it can still be undone, then it says Expired. "
-                "Point at a row for its two controls: the circle marks it read or "
-                "unread, the cross removes just that one; the bin at the bottom "
+                "only while it can still be undone, then its line says Undo expired. "
+                "Point at a row for its two controls beside the time: the circle "
+                "marks it read or unread, the cross removes just that one; the bin at the bottom "
                 "clears them all. "
                 "Reminders also pop up on their own while a tab or the "
                 "desktop app is open."

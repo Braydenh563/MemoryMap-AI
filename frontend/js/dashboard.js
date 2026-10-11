@@ -4118,7 +4118,7 @@ function nightKindLine(host, runId, kind, count) {
   li.className = "night-kind";
   const toggle = document.createElement("button");
   toggle.type = "button";
-  toggle.className = "ghost small night-kind-toggle";
+  toggle.className = "ghost small disclosure-row night-kind-toggle";
   toggle.setAttribute("aria-expanded", "false");
   const label = () => setLabel(toggle, `ph:caret-right ${nightKindWords(kind, count)}`);
   label();

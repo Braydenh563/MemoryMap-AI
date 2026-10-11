@@ -179,7 +179,8 @@
   cursor: pointer;
 }
 
-.doc-editor .cm-search .cm-button:hover {
+.doc-editor .cm-search .cm-button:hover,
+.doc-editor .cm-search .cm-button:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg-hover);
 }
 
@@ -356,7 +357,8 @@
   border: 0;
 }
 
-.doc-prop-btn:hover {
+.doc-prop-btn:hover,
+.doc-prop-btn:is(:focus-visible, :has(:focus-visible)) {
   color: var(--text);
   background: none;
 }
@@ -551,7 +553,8 @@
     border-color var(--ui-fast) var(--ease-out);
 }
 
-.cm-md-task-hit > .cm-md-task:hover {
+.cm-md-task-hit > .cm-md-task:hover,
+.cm-md-task-hit > .cm-md-task:is(:focus-visible, :has(:focus-visible)) {
   border-color: var(--accent);
 }
 

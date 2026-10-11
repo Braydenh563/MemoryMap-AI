@@ -70,7 +70,8 @@
 }
 
 .icon-picker-tile:hover,
-.icon-picker-tile.active {
+.icon-picker-tile.active,
+.icon-picker-tile:is(:focus-visible, :has(:focus-visible)) {
   background: var(--accent-soft);
 }
 

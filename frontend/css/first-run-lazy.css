@@ -24,7 +24,8 @@
 .start-step-form {
   cursor: default;
 }
-.start-step-form:hover {
+.start-step-form:hover,
+.start-step-form:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-2);
 }
 .start-step-form input {

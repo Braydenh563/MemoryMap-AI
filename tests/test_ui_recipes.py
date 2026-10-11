@@ -3738,8 +3738,10 @@ def test_a_hovered_row_keeps_its_hint_readable():
     tokens = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
     assert tokens.count("--row-hover-bg:") == 3, "light, dark and the system-dark block"
     for selector in ('.setting-check:has(input[type="checkbox"]:checked):hover', "  .check-row:hover", "  .setting-check:hover"):
-        at = text.index(selector + " {")
-        body = text[at : text.index("}", at)]
+        #: The rule may carry the hover's focus twin after it (Phase 13 decision 15).
+        m = re.search(re.escape(selector) + r"(?:,\s*[^{,]+)*\s*\{([^}]*)\}", text)
+        assert m, selector
+        body = m.group(1)
         assert "var(--row-hover-bg)" in body and "--ghost-btn-bg-hover" not in body, selector
 
 
@@ -4888,7 +4890,7 @@ def test_every_rail_is_a_known_rail() -> None:
 def test_a_rail_rows_menu_is_a_plain_ghost_icon_that_fills_on_its_own_hover() -> None:
     css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
     plain = [body for selector, body in _rules(css) if all(menu in selector for menu in RAIL_MENUS) and selector.endswith("button")]
-    hover = [body for selector, body in _rules(css) if all(menu in selector for menu in RAIL_MENUS) and selector.endswith("button:hover")]
+    hover = [body for selector, body in _rules(css) if all(menu in selector for menu in RAIL_MENUS) and re.search(r"button:hover(,|$)", selector)]
     assert plain and hover, "the rail ⋯ recipe rule (08-consistency.css) is missing or no longer names every rail's menu"
     assert _rail_background(plain[0]) == "transparent", "a rail ⋯ has no fill at rest or while its row is hovered"
     assert _rail_background(hover[0]) == "var(--ghost-btn-bg)", "a rail ⋯ fills only under its own pointer"
@@ -5406,3 +5408,148 @@ def test_note_name_plain_is_defined_once_and_used_by_the_name_sites() -> None:
     used = {p.name for p in JS if "noteNamePlain(" in p.read_text(encoding="utf-8")}
     for name in ("whiteboard.js", "dashboard.js", "graph.js", "menus.js", "palette.js", "notes-list.js", "phone-shell.js", "note-cards.js"):
         assert name in used, name
+
+
+# --- INBOX 803: the quiet tier in a card, a disclosure row, a counted chip -----------
+
+
+def _forms_css() -> str:
+    return (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+
+
+def test_a_ghost_in_a_card_is_quiet() -> None:
+    """The owner (INBOX 803): "Im still iffy about the design use of these
+    buttons styles in some places", three times over, each a tinted bordered
+    box inside a card or a panel. One rule draws the quiet tier for every
+    ghost in a card that is not a dialog, at the tonal rule's own weight
+    (`:where`), with the same tint under the pointer and the keyboard."""
+    css = _forms_css()
+    head = ":where(.card) button.ghost:where(:not(:is(dialog, .modal-card, .modal) *))"
+    rest = re.search(re.escape(head) + r" \{([^}]*)\}", css)
+    assert rest and "border-color: transparent" in rest.group(1) and "background: none" in rest.group(1)
+    assert re.search(
+        re.escape(head) + r":hover,\s*" + re.escape(head) + r":is\(:focus-visible, :has\(:focus-visible\)\) \{[^}]*--ghost-btn-bg",
+        css,
+    )
+    assert css.index(head) > css.index("button.ghost:hover,"), "after the tonal rule, so it wins on order"
+
+
+def test_a_disclosure_is_a_row_not_a_boxed_button() -> None:
+    css = _forms_css()
+    assert re.search(r"button\.ghost\.disclosure-row \{[^}]*width: 100%[^}]*border-color: transparent[^}]*background: none", css)
+    assert re.search(r"button\.ghost\.disclosure-row:hover,\s*button\.ghost\.disclosure-row:is\(:focus-visible", css)
+    assert '"ghost small disclosure-row night-kind-toggle"' in (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+
+
+def test_a_counted_filter_is_a_chip() -> None:
+    body = _function_body((ROOT / "frontend" / "js" / "graph-canvas.js").read_text(encoding="utf-8"), "gcFilterChip")
+    assert 'chip(label, "tag graph-filter-chip", onClick)' in body
+    assert "library-chip" not in body.replace("library-chip-count", "")
+
+
+# --- INBOX 804/810/813: row actions, a set to start, bar controls -------------------
+
+
+def _css_all() -> str:
+    return "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+
+
+def test_a_rows_repeated_action_is_quiet_and_three_fold_into_its_menu() -> None:
+    """DESIGN.md, Row actions (INBOX 810): a column of thirty-one bordered
+    "Change" buttons was the loudest thing in the Shortcuts pane. A repeated
+    action is a quiet text button, a destructive one is muted until aimed at,
+    and a row of three or more keeps its first and folds the rest into ⋯."""
+    body = _function_body((ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8"), "rowActions")
+    assert 'b.classList.add("quiet")' in body and 'b.classList.add("danger")' in body
+    assert "actions.length < 3" in body and "kebabMenu(actions.slice(1), ariaLabel)" in body
+    css = _forms_css()
+    assert re.search(r"button\.ghost\.quiet \{[^}]*border-color: transparent;[^}]*background: none", css)
+    assert re.search(r"button\.ghost\.quiet\.danger \{[^}]*color: var\(--muted\)", css)
+    assert re.search(
+        r"button\.ghost\.quiet\.danger:hover,\s*button\.ghost\.quiet\.danger:is\(:focus-visible, :has\(:focus-visible\)\) \{[^}]*color: var\(--error\)",
+        css,
+    )
+    for name, needle in (("settings.js", "rowActions(acts, "), ("settings-data.js", "rowActions([")):
+        assert needle in (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8"), name
+
+
+def test_a_shortcuts_keys_are_its_rebind_button() -> None:
+    """The key chip is the button (title "Change"); no column of Change."""
+    body = _function_body((ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8"), "buildShortcutList")
+    assert '"ghost small quiet shortcut-key"' in body and "change.append(combo)" in body
+    assert 'change.title = capturing ? "Cancel" : "Change"' in body
+    assert "textContent = capturingShortcut === id ? \"Cancel\" : \"Change\"" not in body
+    assert re.search(r"\.shortcut-list button\.shortcut-key \{[^}]*min-height: var\(--target-min\)", _css_all())
+
+
+def test_a_set_to_start_is_rows_with_their_descriptions_not_a_wall() -> None:
+    """DESIGN.md, "A set of things to start" (INBOX 804): Help's fourteen tour
+    buttons became one row each, the section's name over its one-line blurb,
+    under the pane's one filled button (Start the tour) and a quiet second."""
+    tour = _function_body((ROOT / "frontend" / "js" / "tour.js").read_text(encoding="utf-8"), "renderTourReplay")
+    assert '"ghost small tour-row"' in tour and "tour-row-blurb" in tour and "section.blurb" in tour
+    assert 'createElement("li")' in tour
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<ul id="tour-replay-buttons"' in html
+    assert '<button id="tour-start-btn" class="small" type="button">' in html
+    assert re.search(r'<button id="show-guide-btn" class="ghost small quiet"', html)
+    css = _css_all()
+    assert re.search(r"button\.ghost\.tour-row \{[^}]*border-color: transparent;[^}]*background: none", css)
+
+
+def test_a_bar_has_one_select_one_filter_trigger_and_one_view_order() -> None:
+    """DESIGN.md, Bar controls (INBOX 813). One bar select: the dock's
+    edgeless inset, also in the Ask composer and the chat strip. One filter
+    trigger: icon and word, the word a `.dock-word` that leaves on a phone.
+    One view order: list, then grid."""
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    rule = re.search(
+        r"\.dock \.select-shell > \.select-opener,\s*\.ask-composer \.select-shell > \.select-opener,\s*"
+        r"\.chat-dock-controls \.select-shell > \.select-opener \{([^}]*)\}",
+        css,
+    )
+    assert rule and "border: 1px solid transparent" in rule.group(1) and "var(--field-inset)" in rule.group(1)
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for summary in re.findall(r"<summary[^>]*>\s*<i class=\"ph ph-funnel-simple[^\n]*", html):
+        assert '<span class="dock-word">Filter</span>' in summary, summary[:120]
+    assert re.search(r"\.dock \.dock-menu > summary \.dock-word", _css_all())
+    for seg in re.findall(r'<div class="seg[^"]*"[^>]*>(.*?)</div>', html, re.S):
+        if "ph-rows" in seg and "ph-squares-four" in seg:
+            assert seg.index("ph-rows") < seg.index("ph-squares-four"), "a view switch is list, then grid"
+
+
+def test_the_documents_assistant_is_one_composer_at_one_height() -> None:
+    """INBOX 804: the asks, the field and its send were three heights and
+    three looks. The field is the search well with the send inside it; the
+    asks and tools are quiet chips; all at `--control-h`."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<form id="doc-assist-form" class="search-field doc-assist-form">' in html
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    assert re.search(r"\.search-field\.doc-assist-form \{[^}]*height: var\(--control-h\)", css)
+    chips = re.search(r"\.doc-assist-asks > button\.ghost,\s*\.doc-assist-tools > button\.ghost \{([^}]*)\}", css)
+    assert chips and "height: var(--control-h)" in chips.group(1) and "border-color: transparent" in chips.group(1)
+    line = re.search(r"\.cm-console-line \{([^}]*)\}", css)
+    assert line and "padding: var(--space-1) var(--space-3)" in line.group(1), "the ring keeps clear of the rule above"
+
+
+def test_a_toasts_action_is_a_quiet_text_action() -> None:
+    """INBOX 811, the owner of a toast's bordered grey Undo: the action is
+    the accent's text on no face and no edge; the toast is wide enough that
+    a one-sentence notice and its Undo stay one line."""
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    rule = re.search(r"\.toast-action,\s*\.toast \.toast-help \{([^}]*)\}", css)
+    assert rule and "background: none" in rule.group(1) and "color: var(--accent-text)" in rule.group(1)
+    assert "border: 1px solid transparent" in rule.group(1)
+    assert re.search(r"\.toast > \.toast-msg \{[^}]*text-wrap: pretty", css)
+    assert re.search(r"\.toast \{[^}]*max-width: 30rem", _forms_css())
+
+
+def test_a_menu_has_no_gap_at_its_ends() -> None:
+    """The owner: "some dropdown menus across the app have wierd gaps at the
+    start and end". A dock menu's section pads itself from the hairline
+    between sections, never from the menu's own first and last edge."""
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert re.search(r"\.dock-menu-list > :is\(\.dock-menu-section, \.dock-arrange-label\):first-child \{\s*padding-top: 0;", css)
+    assert re.search(r"\.dock-menu-list > \.dock-menu-section:last-child \{\s*padding-bottom: 0;", css)
+    sweep = (ROOT / "scratchpad" / "ui-sweeps" / "menus.js").read_text(encoding="utf-8")
+    assert "inset top" in sweep and ".dock-menu-check" in sweep

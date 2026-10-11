@@ -1186,6 +1186,27 @@ function openKebabSheet(menu, opener, label) {
 //: passes the `vertical` option; the default stays the horizontal one, and
 //: nothing else draws an overflow glyph (DESIGN.md's recipe index, pinned by
 //: `tests/test_icon_conventions.py`).
+//: **Row actions** (DESIGN.md, INBOX 810): an action repeated on every row of
+//: a list is a quiet text button (no edge, no face at rest; the ghost tint,
+//: the ring and a 24px floor under the pointer or the keyboard), a
+//: destructive one waits in the muted ink until it is aimed at, and three or
+//: more fold into the row's ⋯ behind the first. `actions` are kebabMenu items
+//: (`label`, `title`, `run`, `danger`), so a row moves between the two shapes
+//: without its caller changing.
+function rowActions(actions, ariaLabel) {
+  const wrap = document.createElement("span");
+  wrap.className = "entry-actions row-actions";
+  const button = (action) => {
+    const b = smallButton(action.label, action.title, () => action.run());
+    b.classList.add("quiet");
+    if (action.danger) b.classList.add("danger");
+    return b;
+  };
+  if (actions.length < 3) wrap.append(...actions.map(button));
+  else wrap.append(button(actions[0]), kebabMenu(actions.slice(1), ariaLabel));
+  return wrap;
+}
+
 function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";

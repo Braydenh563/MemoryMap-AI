@@ -154,41 +154,46 @@ async function renderBackups() {
     const size = document.createElement("span");
     size.className = "muted";
     size.textContent = `${(item.size / 1024).toFixed(0)} KB`;
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    actions.appendChild(
-      smallButton("Restore", "Roll the notebook back to this backup", async () => {
-        if (
-          !(await confirmDialog(
-            "Restore this backup? Your current notebook is snapshotted first, " +
-              "then replaced by the backup."
-          ))
-        )
-          return;
-        try {
-          await apiJson("/backups/restore", {
-            method: "POST",
-            body: JSON.stringify({ name: item.name }),
-          });
-          toast("Backup restored. Unlock it to carry on.");
-          loadEntries().catch(() => {});
+    const actions = rowActions([
+      {
+        label: "Restore",
+        title: "Roll the notebook back to this backup",
+        run: async () => {
+          if (
+            !(await confirmDialog(
+              "Restore this backup? Your current notebook is snapshotted first, " +
+                "then replaced by the backup."
+            ))
+          )
+            return;
+          try {
+            await apiJson("/backups/restore", {
+              method: "POST",
+              body: JSON.stringify({ name: item.name }),
+            });
+            toast("Backup restored. Unlock it to carry on.");
+            loadEntries().catch(() => {});
+            renderBackups();
+          } catch (error) {
+            toast(error.message, true);
+          }
+        },
+      },
+      {
+        label: "ph:trash",
+        title: "Delete this backup",
+        danger: true,
+        run: async () => {
+          if (!(await confirmDialog("Delete this backup file?"))) return;
+          try {
+            await apiJson(`/backups/${item.name}`, { method: "DELETE" });
+          } catch (error) {
+            toast(error.message || "Couldn't delete that backup.", true);
+          }
           renderBackups();
-        } catch (error) {
-          toast(error.message, true);
-        }
-      })
-    );
-    actions.appendChild(
-      smallButton("ph:trash", "Delete this backup", async () => {
-        if (!(await confirmDialog("Delete this backup file?"))) return;
-        try {
-          await apiJson(`/backups/${item.name}`, { method: "DELETE" });
-        } catch (error) {
-          toast(error.message || "Couldn't delete that backup.", true);
-        }
-        renderBackups();
-      })
-    );
+        },
+      },
+    ], "More for this backup");
     row.append(name, size, actions);
     li.appendChild(row);
     list.appendChild(li);

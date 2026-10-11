@@ -26,7 +26,7 @@ import io
 import pytest
 
 from memorymap.api import routes_files
-from memorymap.files import service as files_service
+from memorymap.api import routes_files as files_service
 from memorymap.core import pdfpages
 
 ONE_PAGE_PDF = (

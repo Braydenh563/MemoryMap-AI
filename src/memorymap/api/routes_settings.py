@@ -1069,6 +1069,54 @@ def _validated_preference(key: str, value):  # noqa: ANN001, ANN202
     return check(value) if check else value
 
 
+def _apply_preference(config, session: Session, key: str, value) -> None:
+    """One validated preference written, with the side effects its key carries."""
+    value = _validated_preference(key, value)
+    config.set_preference(key, value)
+    if key in ("update_check_enabled", "auto_update_enabled"):
+        # Either switch is an answer to the ask-once question (routes_update).
+        config.set_preference("update_choice_made", True)
+    if key == "warm_search_model_at_launch" and value:
+        # Switched on mid-session: load it now rather than at the next
+        # launch. Idempotent, so a model already warm costs nothing.
+        from memorymap.ai import embeddings
+
+        embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
+    if key in _QUIET_PREFERENCE_KEYS:
+        return
+    manager.log_action(session, "edited", "preferences", detail=_preference_detail(key, value))
+
+
+def _wake_autonomous(config, changed_keys: set) -> None:
+    """Wake the librarian after one of its settings changed; stop a pass that was switched off."""
+    from memorymap.ai import autonomous
+
+    #: **Switching it off stops the pass that is running, not only the next
+    #: one.** Reported: "autonomous background agent tasks need to be fixed
+    #: as I have accidentally turned them on multiple times and then I cant
+    #: quit them, and then I turn battery saver mode on to try and stop
+    #: them". Both are true of the code as it was: `wake()` only shortens
+    #: the *sleep* between passes, and the enabled/battery checks run at the
+    #: top of a pass, so a pass already walking the notebook read neither
+    #: until it finished, which for a large notebook is many minutes of an
+    #: agent the user has just told to stop.
+    #:
+    #: `request_stop()` sets the same flag the Quit button in the tasks
+    #: panel sets, and `_run_optimization` checks it between every step, so
+    #: the pass ends at its next checkpoint. Only on the way *off*: turning
+    #: the librarian on, or changing its interval, should not kill a pass
+    #: that is midway through being useful.
+    turned_off = "autonomous_tasks_enabled" in changed_keys and not config.get_preference(
+        "autonomous_tasks_enabled", False
+    )
+    battery_on = "battery_efficient_mode" in changed_keys and config.get_preference(
+        "battery_efficient_mode", False
+    )
+    if turned_off or battery_on:
+        autonomous.request_stop()
+    autonomous.wake()
+
+
 @router.put("/preferences")
 def update_preferences(
     body: PreferencesBody, request: Request, session: Session = Depends(get_session)
@@ -1085,50 +1133,11 @@ def update_preferences(
         config.unset_preference(key)
         changed_keys.add(key)
     for key, value in values.items():
-        value = _validated_preference(key, value)
-        config.set_preference(key, value)
+        _apply_preference(config, session, key, value)
         changed_keys.add(key)
-        if key in ("update_check_enabled", "auto_update_enabled"):
-            # Either switch is an answer to the ask-once question (routes_update).
-            config.set_preference("update_choice_made", True)
-        if key == "warm_search_model_at_launch" and value:
-            # Switched on mid-session: load it now rather than at the next
-            # launch. Idempotent, so a model already warm costs nothing.
-            from memorymap.ai import embeddings
-
-            embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
-        if key in _QUIET_PREFERENCE_KEYS:
-            continue
-        detail = _preference_detail(key, value)
-        manager.log_action(session, "edited", "preferences", detail=detail)
     session.commit()
     if changed_keys & _AUTONOMOUS_PREFS:
-        from memorymap.ai import autonomous
-
-        #: **Switching it off stops the pass that is running, not only the next
-        #: one.** Reported: "autonomous background agent tasks need to be fixed
-        #: as I have accidentally turned them on multiple times and then I cant
-        #: quit them, and then I turn battery saver mode on to try and stop
-        #: them". Both are true of the code as it was: `wake()` only shortens
-        #: the *sleep* between passes, and the enabled/battery checks run at the
-        #: top of a pass, so a pass already walking the notebook read neither
-        #: until it finished, which for a large notebook is many minutes of an
-        #: agent the user has just told to stop.
-        #:
-        #: `request_stop()` sets the same flag the Quit button in the tasks
-        #: panel sets, and `_run_optimization` checks it between every step, so
-        #: the pass ends at its next checkpoint. Only on the way *off*: turning
-        #: the librarian on, or changing its interval, should not kill a pass
-        #: that is midway through being useful.
-        turned_off = "autonomous_tasks_enabled" in changed_keys and not config.get_preference(
-            "autonomous_tasks_enabled", False
-        )
-        battery_on = "battery_efficient_mode" in changed_keys and config.get_preference(
-            "battery_efficient_mode", False
-        )
-        if turned_off or battery_on:
-            autonomous.request_stop()
-        autonomous.wake()
+        _wake_autonomous(config, changed_keys)
     return get_preferences()
 
 
@@ -1184,15 +1193,8 @@ def export_preferences() -> dict:
     }
 
 
-@router.post("/preferences/import")
-def import_preferences(payload: dict, request: Request, session: Session = Depends(get_session)) -> dict:
-    """Apply a settings file, key by key, and say what was skipped and why.
-
-    Each key is validated alone: one bad value (a file edited by hand, a key a
-    newer version added) is reported and skipped rather than failing the whole
-    file, so the rest still arrives. The writes go through `update_preferences`,
-    so an imported value is cleaned exactly as one typed into Settings is.
-    """
+def _settings_file_preferences(payload: dict) -> dict:
+    """The `preferences` of a settings file, or the 422 saying why it is not one."""
     if payload.get("kind") != SETTINGS_FILE_KIND:
         raise HTTPException(status_code=422, detail="That file is not a Tessellate settings file.")
     version = payload.get("version")
@@ -1204,30 +1206,50 @@ def import_preferences(payload: dict, request: Request, session: Session = Depen
     incoming = payload.get("preferences")
     if not isinstance(incoming, dict):
         raise HTTPException(status_code=422, detail="That settings file holds no settings.")
+    return incoming
+
+
+def _import_skip_reason(request: Request, key: str, value, current: dict, exportable: set) -> str:
+    """Why an imported key is left out, or "" when it may be applied."""
+    if _refused_elsewhere(request, key, value, current):
+        return "only the computer Tessellate runs on can change this"
+    if key in _NOT_EXPORTED:
+        return "belongs to the computer it came from"
+    if key not in exportable:
+        return "not a setting this version has"
+    try:
+        PreferencesBody.model_validate({key: value})
+    except ValueError:
+        return "not a value this setting takes"
+    return ""
+
+
+@router.post("/preferences/import")
+def import_preferences(payload: dict, request: Request, session: Session = Depends(get_session)) -> dict:
+    """Apply a settings file, key by key, and say what was skipped and why.
+
+    Each key is validated alone: one bad value (a file edited by hand, a key a
+    newer version added) is reported and skipped rather than failing the whole
+    file, so the rest still arrives. The writes go through `update_preferences`,
+    so an imported value is cleaned exactly as one typed into Settings is.
+    """
+    incoming = _settings_file_preferences(payload)
     exportable = set(_exportable_keys())
     current = get_preferences()
     valid: dict[str, object] = {}
     skipped: list[dict[str, str]] = []
     unchanged = 0
     for key, value in list(incoming.items())[:400]:
-        if _refused_elsewhere(request, key, value, current):
-            skipped.append({"key": key, "reason": "only the computer Tessellate runs on can change this"})
-        elif key in _NOT_EXPORTED:
-            skipped.append({"key": key, "reason": "belongs to the computer it came from"})
-        elif key not in exportable:
-            skipped.append({"key": key, "reason": "not a setting this version has"})
+        why = _import_skip_reason(request, key, value, current, exportable)
+        if why:
+            skipped.append({"key": key, "reason": why})
+            continue
+        if key in _MERGED_LISTS and isinstance(value, list) and not payload.get("replace_lists"):
+            value = _merged_list(current.get(key), value, _MERGED_LISTS[key])
+        if value is not None and current.get(key) != value:
+            valid[key] = value
         else:
-            try:
-                PreferencesBody.model_validate({key: value})
-            except ValueError:
-                skipped.append({"key": key, "reason": "not a value this setting takes"})
-                continue
-            if key in _MERGED_LISTS and isinstance(value, list) and not payload.get("replace_lists"):
-                value = _merged_list(current.get(key), value, _MERGED_LISTS[key])
-            if value is not None and current.get(key) != value:
-                valid[key] = value
-            else:
-                unchanged += 1
+            unchanged += 1
     if valid:
         update_preferences(body=PreferencesBody.model_validate(valid), request=request, session=session)
     return {

@@ -206,8 +206,9 @@
     "homework",
     "piece of cake"
    ],
-   "gold": "You have four notes about uni this semester, 17 July to 4 August.\n\n**Your subjects:** Intro to Psychology and Data Structures.\n**Your week:** classes on Tuesdays and Thursdays, the library on Wednesday afternoons, flashcards on the bus.\n**Where you're up to:** chapters 1 to 3 of the Myers textbook for psych; linked lists work, big O is still shaky.\n\nNothing yet on assessments or due dates.\n\nRemind you to ask your tutor about big O on Thursday?",
-   "type": "overview"
+   "gold": "You have four notes about uni this semester, 17 July to 4 August.\n\n**Your subjects:** Intro to Psychology and Data Structures.\n**Your week:** classes on Tuesdays and Thursdays, the library on Wednesday afternoons, flashcards on the bus, and you're going to try 25 minutes on, 5 off.\n**Where you're up to:** chapters 1 to 3 of the Myers textbook for psych; a week later, you got linked lists working, though you're still shaky on big O.\n\nNothing yet on assessments or due dates.\n\nThe newest of these is about two months old, so things may have moved on since.\n\nRemind you to ask your tutor about big O on Thursday?",
+   "type": "overview",
+   "from_also": "INBOX 870"
   },
   {
    "n": 2,
@@ -219,8 +220,9 @@
     "mouse1",
     "mouse2"
    ],
-   "gold": "You have two notes about a new gaming mouse, 18 to 25 September.\n\n**What you want:** wireless and under 60 grams.\n**The two you're weighing:** the Logitech G Pro X Superlight at about $230 and the Razer Viper V3 at $200.\n**Where you landed:** the Viper felt too small in the shop, so you're leaning towards the Logitech.\n\nNothing yet on where or when you'll buy it.\n\nNote the Logitech as your pick?",
-   "type": "overview"
+   "gold": "You have two notes about a new gaming mouse, 18 to 25 September, and you're leaning towards the Logitech.\n\n**What you want:** wireless and under 60 grams.\n**The two you're weighing:** the Logitech G Pro X Superlight at about $230 and the Razer Viper V3 at $200, about $30 apart.\n**What settled it:** a week later, you tried the Viper in the shop and it felt too small for your hand.\n\nNothing yet on where or when you'll buy it.\n\nBoth came within a week, the newest two weeks ago.\n\nNote the Logitech as your pick?",
+   "type": "overview",
+   "from_also": "INBOX 870"
   },
   {
    "n": 3,
@@ -289,8 +291,9 @@
     "golf1",
     "golf2"
    ],
-   "gold": "It looks that way: you've been to the driving range twice after work, 14 August and 2 September.\n\n**How it's going:** slicing everything the first time, straighter the second, with Sam.\n\nNothing yet about a full round on a course.\n\nRemind you to book a range session?",
-   "type": "fact"
+   "gold": "It looks that way: you've been to the driving range twice after work, 14 August and 2 September.\n\n**How it's going:** slicing everything the first time; three weeks later, straighter, with Sam.\n\nNothing yet about a full round on a course.\n\nThe newest is about a month old, so things may have moved on since.\n\nRemind you to book a range session?",
+   "type": "fact",
+   "from_also": "INBOX 870"
   },
   {
    "n": 10,
@@ -301,8 +304,9 @@
    "cites": [
     "movie"
    ],
-   "gold": "You gave Dune Part Two 7 out of 10 on 12 September.\n\n**Loved:** the sound design.\n**Didn't:** the middle dragged.\n\nIt's your only film review so far.\n\nStart a list of films to watch next?",
-   "type": "fact"
+   "gold": "You gave Dune Part Two 7 out of 10 on 12 September.\n\n**Loved:** the sound design.\n**Didn't:** the middle dragged.\n\nIt's your only film review so far.\n\nSo a mixed 7: one thing you loved, one that let it down.\n\nStart a list of films to watch next?",
+   "type": "fact",
+   "from_also": "INBOX 870"
   },
   {
    "n": 11,
@@ -326,8 +330,9 @@
     "lisbon1",
     "lisbon2"
    ],
-   "gold": "You planned Lisbon for May; the hotel is booked. Two notes, 30 August to 20 September.\n\n**Booked:** five nights in Alfama.\n**Still to do:** the flights.\n**Ideas:** tram 28, pasteis de Belem and a day trip to Sintra.\n\nNothing yet on the dates in May or a budget.\n\nRemind you to book the flights?",
-   "type": "overview"
+   "gold": "You planned Lisbon for May, seven months from now, and the hotel is booked; one thing is still open. Two notes, 30 August to 20 September.\n\n**Booked:** five nights in Alfama.\n**Still to do:** the flights.\n**Ideas:** tram 28, pasteis de Belem and a day trip to Sintra.\n\nNothing yet on the dates in May or a budget.\n\nThe newest is three weeks old, so things may have moved on since.\n\nRemind you to book the flights?",
+   "type": "overview",
+   "from_also": "INBOX 870"
   },
   {
    "n": 13,

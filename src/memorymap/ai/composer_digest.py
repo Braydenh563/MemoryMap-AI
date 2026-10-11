@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import re
 import sys
+import zlib
 from collections import Counter
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -81,6 +82,37 @@ _BASE = {
     "also": "Also",
     "only_note": "It's your only note on that so far.",
     "only_kind": "It's your only {noun} so far.",
+    #: The joins between lines and the closing pattern (INBOX 870: "one or
+    #: two words between directly giving me what I can see from the notes
+    #: on the right ... feels like the response is completely useless").
+    #: Each a full clause, each from the dates or the notes, never a guess;
+    #: several wordings, picked by the question, so answers do not all read
+    #: the same.
+    "gap": ("{gap} later, ", "{gap} on, ", "after {gap}, "),
+    "landed": ("{opening}, and you're {landed}.", "{opening}. For now you're {landed}."),
+    "open_count": ("{opening}, with {left} still open.", "{opening}, and {left} still to settle."),
+    "stale": (
+        "The newest of these is {age} old, so things may have moved on since.",
+        "You last wrote about it {age} ago, which is a while; a fresh note would bring it up to date.",
+        "Nothing new on it for {age}, so this is where it stood then rather than now.",
+    ),
+    "burst": (
+        "All {count} came within {span} of each other, the newest {age} ago.",
+        "They were written close together, within {span}, the newest {age} ago.",
+    ),
+    "cadence": (
+        "That's about one every {every}, the newest {age} ago.",
+        "You've come back to it roughly every {every}, most recently {age} ago.",
+    ),
+    "fresh": ("The newest is from {age} ago, so it's current.", "The latest is only {age} old."),
+    "aim_under": ("{said}, under your aim of {aim}.", "{said}, which keeps you inside your {aim}."),
+    "aim_over": ("{said}, over your aim of {aim}.", "{said}, which is more than the {aim} you were aiming for."),
+    "price_gap": ", a gap of {gap} between them",
+    "months_away": (", which is {away} from now", ", {away} away"),
+    "mixed": (
+        "So a mixed {score}: one thing you loved, one that let it down.",
+        "That makes it a {score} with a clear high and a clear low.",
+    ),
 }
 
 #: The voices (CHAT_PLAN decision 72): Warm and concise (the default,
@@ -147,6 +179,35 @@ VOICES: dict[str, dict[str, str | tuple[str, ...]]] = {
 #: The voice and the turn of the answer being written.
 _VOICE: ContextVar[str] = ContextVar("digest_voice", default="natural")
 _TURN: ContextVar[int] = ContextVar("digest_turn", default=0)
+#: The question's own number (INBOX 870): picks among a phrase's wordings,
+#: so two questions in a row are not joined the same way.
+_SEED: ContextVar[int] = ContextVar("digest_seed", default=0)
+
+
+def _vary(key: str) -> _Capitals:
+    said = VOICES.get(_VOICE.get(), {}).get(key) or _BASE[key]
+    if isinstance(said, tuple):
+        said = said[(_SEED.get() + _TURN.get()) % len(said)]
+    return _Capitals(said)
+
+
+def _gap(days: int) -> str:
+    """Days as a person says them: "a day", "a few days", "a week",
+    "three weeks", "nearly two months"."""
+    if days <= 1:
+        return "a day"
+    if days == 2:
+        return "two days"
+    if days <= 5:
+        return "a few days"
+    if days <= 9:
+        return "a week"
+    if days <= 24:
+        return f"{realise.count_word(round(days / 7))} weeks"
+    if days <= 45:
+        return "about a month"
+    months = round(days / 30)
+    return f"about {realise.count_word(months)} months" if months < 12 else "over a year"
 
 
 class _Phrases(dict):
@@ -640,7 +701,7 @@ def _topic(question: str, members: list[composer.NoteView]) -> str:
 MORE_LINES = 8
 
 
-def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = None, by_day: date | None = None, more: bool = False) -> int:
+def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = None, by_day: date | None = None, more: bool = False, weave: bool = False) -> int:
     """Facts grouped under their labels, oldest note first, one line a label;
     the line carries its first note for its one citation mark."""
     groups: dict[str, list[Fact]] = {}
@@ -657,13 +718,80 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
             label = _day(f.view.written, by_day)
         groups.setdefault(label or PHRASES["also"], []).append(f)
     shown = 0
+    before: date | None = None
     for i, (label, held) in enumerate(list(groups.items())[: limit + (MORE_LINES if more else 0)]):
         bodies = list(dict.fromkeys(_lower_first(f.body.replace(f" on {label}", ""), _NAMES.get()) for f in held))
-        line_body = "; ".join(bodies)
-        (out.lines if i < limit else out.more).append(f"**{label}:** {line_body}.")
+        line_body = _join(bodies)
+        said = line_body + (_relate(line_body, by_day) if weave else "")
+        written = held[0].view.written
+        #: How this line stands to the one before (INBOX 870): the time
+        #: between them, said as a clause, when they are days apart.
+        #: Only before a clause of the person's own ("you tried ..."): "a
+        #: week later, tram 28, pasteis de Belem" joins nothing.
+        if weave and i and before and written and (written - before).days >= 2 and re.match(r"you\b|you're\b|your\b", line_body):
+            said = _vary("gap").format(gap=_gap((written - before).days)) + line_body
+        before = written or before
+        (out.lines if i < limit else out.more).append(f"**{label}:** {said}.")
         out.rows.append(_row(line_body, held[0]))
         shown += 1
     return shown
+
+
+#: The joins inside a line (INBOX 870): "; still shaky on big O" reads as
+#: a list; ", though you're still shaky on big O" reads as a thought.
+_STILL_VERB = re.compile(r"^still (need|have|want|haven't|hasn't|don't|to)\b", re.I)
+
+
+def _join(bodies: list[str]) -> str:
+    out = bodies[0] if bodies else ""
+    for body in bodies[1:]:
+        if _STILL_VERB.match(body):
+            out += ", but you " + body
+        elif body.lower().startswith("still "):
+            out += ", though you're " + body
+        elif body.lower().startswith("going to "):
+            out += ", and you're " + body
+        else:
+            out += "; " + body
+    return out
+
+
+_MONTHS = ("january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december")
+_FOR_MONTH = re.compile(r"\b(?:for|in|by|until) (" + "|".join(m.capitalize() for m in _MONTHS) + r")\b")
+
+
+def _relate(body: str, today: date | None) -> str:
+    """A clause the line's own note does not say (INBOX 870): the gap
+    between two prices, or how far off a month it is planned for."""
+    prices = re.findall(r"\$\s?(\d+(?:\.\d+)?)", body)
+    if len(prices) == 2 and prices[0] != prices[1]:
+        gap = abs(float(prices[0]) - float(prices[1]))
+        return PHRASES["price_gap"].format(gap=("about " if "about $" in body else "") + f"${gap:g}")
+    month = _FOR_MONTH.search(body)
+    if month and today:
+        ahead = (_MONTHS.index(month.group(1).lower()) + 1 - today.month) % 12
+        if ahead >= 2:
+            return _vary("months_away").format(away=f"{realise.count_word(ahead)} months")
+    return ""
+
+
+def _pattern(members: list[composer.NoteView], today: date) -> str:
+    """One closing sentence the notes on the right cannot show (INBOX 870):
+    how the notes sit in time: stale, one burst, or a steady habit."""
+    days = sorted(v.written for v in members if v.written)
+    #: Jokes and quotes are kept, not kept up: "may have moved on" is no
+    #: thing to say of them.
+    if len(days) < 2 or any(_context_note(v) for v in members):
+        return ""
+    age = (today - days[-1]).days
+    span = (days[-1] - days[0]).days
+    if age >= 21:
+        return _vary("stale").format(age=_gap(age))
+    if span <= 9:
+        return _vary("burst").format(count=realise.count_word(len(days)), span=_gap(max(span, 1)), age=_gap(max(age, 1)))
+    if len(days) >= 3:
+        return _vary("cadence").format(every=_gap(max(1, round(span / (len(days) - 1)))), age=_gap(max(age, 1)))
+    return _vary("fresh").format(age=_gap(max(age, 1)))
 
 
 def _row(said: str, fact: Fact) -> dict:
@@ -724,9 +852,24 @@ def _overview(out: _Out, question: str, members, facts, today: date, kind: str) 
         times = "once" if len(members) == 1 else ("twice" if len(members) == 2 else f"{realise.count_word(len(members))} times")
         out.lines.append(PHRASES["likes"].format(topic=topic, times=times, span=_span(members, today)))
     else:
-        out.lines.append(PHRASES["overview"].format(count=_count(len(members)), topic=topic, span=_span(members, today)))
+        opening = PHRASES["overview"].format(count=_count(len(members)), topic=topic, span=_span(members, today))
+        #: The opening answers in the person's terms (INBOX 870): where they
+        #: have got to, or how much is still open, not only how many notes.
+        landed = next((f for f in facts if f.label == "Where you landed"), None)
+        left = [f for f in facts if f.label == "Still to do"]
+        if landed:
+            opening = _vary("landed").format(opening=opening.rstrip("."), landed=_lower_first(landed.body, _NAMES.get()))
+            #: Said once, up front, as the answer; not again as a line.
+            facts = [f for f in facts if f is not landed]
+        elif left:
+            opening = _vary("open_count").format(opening=opening.rstrip("."), left="one thing" if len(left) == 1 else f"{realise.count_word(len(left))} things")
+        out.lines.append(opening)
     shown_notes = {f.view.id for f in facts}
-    _lines(out, facts, LINES[kind], by_day=today, more=kind == "overview")
+    _lines(out, facts, LINES[kind], by_day=today, more=kind == "overview", weave=True)
+    if not moved:
+        pattern = _pattern(members, today)
+        if pattern:
+            out.closing.append(pattern)
     hidden = len(members) - len({r["note_id"] for r in out.rows})
     if kind == "overview" and hidden > 0 and len(shown_notes) > LINES[kind]:
         out.lines.append(PHRASES["more_right"].format(count=_count(hidden).capitalize()))
@@ -855,7 +998,16 @@ def _single(out: _Out, kind: str, question: str, members, facts, today: date) ->
         said = _second_person(main)
         said = re.sub(r"\bthis week\b", f"in the week of {_day(lead.view.written, today)}", said)
         said = _tidy(said, lead.view.written)
-        out.lines.append(said[0].upper() + said[1:] + ".")
+        #: Against the aim the notes set (INBOX 870): "$84 ..., under your
+        #: aim of $100 a week", which no one note says.
+        spent = re.search(r"\$\s?(\d+(?:\.\d+)?)", said)
+        aim = next((m for f in facts for m in [re.search(r"\bunder \$\s?(\d+(?:\.\d+)?)((?: a| per) (?:week|month|day))?", f.sentence.text)] if m), None)
+        line = said[0].upper() + said[1:]
+        if spent and aim:
+            key = "aim_under" if float(spent.group(1)) <= float(aim.group(1)) else "aim_over"
+            line = _vary(key).format(said=line, aim=f"${aim.group(1)}{aim.group(2) or ''}")
+            facts = [f for f in facts if not re.search(r"\bunder \$", f.sentence.text) or f is lead]
+        out.lines.append(line if line.endswith(".") else line + ".")
         out.rows.append(_row(said, lead))
         if "week of" in said and len(members) == 1:
             out.closing.append(PHRASES["only_week"])
@@ -866,6 +1018,11 @@ def _single(out: _Out, kind: str, question: str, members, facts, today: date) ->
         _say_fact(out, lead, today, question)
         rest = [f for f in rest if f.view.id == lead.view.id]
     _lines(out, rest, LINES.get(kind, 2))
+    labels = {f.label for f in rest}
+    score = re.search(r"You gave .+? (\d+(?:\.\d+)?) out of", out.lines[0]) if out.lines else None
+    if kind == "opinion" and score and {"Loved", "Didn't"} <= labels:
+        #: The verdict the two lines add up to (INBOX 870).
+        out.closing.append(_vary("mixed").format(score=score.group(1)))
     if len(members) == 1 and kind in ("fact", "opinion"):
         noun = "film review" if kind == "opinion" else "note"
         out.lines.append(PHRASES["only_note"] if noun == "note" else PHRASES["only_kind"].format(noun=noun))
@@ -1026,6 +1183,7 @@ def answer(question: str, notes: list[dict], *, today: date | None = None, voice
     _TODAY.set(today)
     _VOICE.set(voice if voice in VOICES else "natural")
     _TURN.set(turn)
+    _SEED.set(zlib.crc32(asked.lower().encode()))
     _VIEWS.set(views)
     _ASKS_WORDS.set(bool(re.search(r"\b(?:says?|said|reads?|written|text|words?|wording)\b", question, re.I)))
     wants_context = bool(set(composer._words(asked)) & {composer._stem(t) for t in CONTEXT_TAGS})
@@ -1278,7 +1436,7 @@ def _more(out: _Out) -> dict | None:
 def _result(out: _Out, kind: str, question: str) -> dict:
     #: One paragraph a line: a single newline inside a paragraph is a space
     #: to every markdown reader, so the labelled lines ran together.
-    paragraphs = list(out.lines) + out.more + out.closing[:1]
+    paragraphs = list(out.lines) + out.more + out.closing[:2]
     if out.offer:
         paragraphs.append(out.offer["label"])
     text = "\n\n".join(paragraphs)

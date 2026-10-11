@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5401, frontend ids 2345, CSS sections 489, backend routes 550, backend modules 4510, test files 1041, tests 9547, plan headings 964.
+Counts: frontend functions 5401, frontend ids 2345, CSS sections 489, backend routes 550, backend modules 4510, test files 1041, tests 9548, plan headings 967.
 
 ## Frontend functions (5401)
 
@@ -8952,7 +8952,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | File | Lines |
 |---|---|
 | frontend/css/00-tokens-shell.css | 4260 |
-| frontend/css/01-forms-settings.css | 5928 |
+| frontend/css/01-forms-settings.css | 5938 |
 | frontend/css/02-chat-graph.css | 5882 |
 | frontend/css/03-dashboard-widgets.css | 5132 |
 | frontend/css/04-chat-dock-appearance.css | 6433 |
@@ -9078,7 +9078,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/bulk` | POST | `bulk_edit_tags` | src/memorymap/api/routes_tags.py:104 |
 | `/capabilities` | GET | `capabilities` | src/memorymap/api/routes_capabilities.py:75 |
 | `/change-password` | POST | `change_password` | src/memorymap/api/routes_auth.py:1002 |
-| `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1416 |
+| `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1421 |
 | `/charts/question` | POST | `chart_for_question` | src/memorymap/api/routes_vision.py:380 |
 | `/chat-model` | POST | `set_chat_model` | src/memorymap/api/routes_models.py:691 |
 | `/check` | GET | `check_for_update` | src/memorymap/api/routes_update.py:425 |
@@ -9183,7 +9183,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/greeting` | GET | `greeting` | src/memorymap/api/routes_insights.py:161 |
 | `/hardware` | GET | `hardware_memory` | src/memorymap/api/routes_models.py:646 |
 | `/health` | GET | `debug_health` | src/memorymap/api/routes_debug.py:79 |
-| `/health` | GET | `health` | src/memorymap/api/app.py:1358 |
+| `/health` | GET | `health` | src/memorymap/api/app.py:1363 |
 | `/health/integrity` | POST | `integrity_check` | src/memorymap/api/routes_debug.py:186 |
 | `/heatmap` | GET | `heatmap` | src/memorymap/api/routes_insights.py:341 |
 | `/history` | GET | `board_history` | src/memorymap/api/routes_board_history.py:271 |
@@ -9203,8 +9203,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/import/reports/{report_id}` | GET | `import_report_page` | src/memorymap/api/routes_import.py:110 |
 | `/improve` | POST | `improve_writing` | src/memorymap/api/routes_entries.py:1548 |
 | `/inspect` | POST | `inspect_model` | src/memorymap/api/routes_models.py:663 |
-| `/instance` | GET | `instance` | src/memorymap/api/app.py:1377 |
-| `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1391 |
+| `/instance` | GET | `instance` | src/memorymap/api/app.py:1382 |
+| `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1396 |
 | `/jobs` | GET | `list_jobs` | src/memorymap/api/routes_tasks.py:499 |
 | `/jobs/cancel` | POST | `cancel_job` | src/memorymap/api/routes_models.py:899 |
 | `/jobs/last-runs` | GET | `jobs_last_runs` | src/memorymap/api/routes_tasks.py:465 |
@@ -9281,7 +9281,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3204 |
 | `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3253 |
 | `/on-this-day` | GET | `on_this_day` | src/memorymap/api/routes_insights.py:453 |
-| `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1341 |
+| `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1346 |
 | `/outline` | GET | `documents_outline` | src/memorymap/api/routes_documents.py:438 |
 | `/parse` | POST | `magic_add_reminder` | src/memorymap/api/routes_reminders.py:529 |
 | `/password-on-open` | POST | `set_password_on_open` | src/memorymap/api/routes_auth.py:793 |
@@ -9382,7 +9382,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/support-bundle` | GET | `support_bundle` | src/memorymap/api/routes_settings.py:2338 |
 | `/switches` | GET | `get_switches` | src/memorymap/api/routes_learned.py:197 |
 | `/switches` | PUT | `put_switches` | src/memorymap/api/routes_learned.py:203 |
-| `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1351 |
+| `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1356 |
 | `/system/console-mode` | POST | `set_console_mode` | src/memorymap/api/routes_settings.py:1131 |
 | `/system/restart` | POST | `restart_app` | src/memorymap/api/routes_settings.py:1200 |
 | `/tag-cloud` | GET | `tag_cloud` | src/memorymap/api/routes_insights.py:442 |
@@ -11604,35 +11604,35 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `RequestPulse` | src/memorymap/api/app.py:1084 |
+| `RequestPulse` | src/memorymap/api/app.py:1089 |
 | `RevalidatedStatic` | src/memorymap/api/app.py:308 |
-| `SpaceGuard` | src/memorymap/api/app.py:1015 |
+| `SpaceGuard` | src/memorymap/api/app.py:1020 |
 | `_UnversionedStatic` | src/memorymap/api/app.py:299 |
-| `_add_middleware` | src/memorymap/api/app.py:1156 |
-| `_add_system_routes` | src/memorymap/api/app.py:1337 |
+| `_add_middleware` | src/memorymap/api/app.py:1161 |
+| `_add_system_routes` | src/memorymap/api/app.py:1342 |
 | `_backup_if_due` | src/memorymap/api/app.py:705 |
 | `_check_notebook_file` | src/memorymap/api/app.py:697 |
 | `_choose_chat_model_if_missing` | src/memorymap/api/app.py:650 |
-| `_code_for_status` | src/memorymap/api/app.py:802 |
+| `_code_for_status` | src/memorymap/api/app.py:807 |
 | `_compact_event_log` | src/memorymap/api/app.py:575 |
 | `_compact_step` | src/memorymap/api/app.py:621 |
-| `_content_length` | src/memorymap/api/app.py:1067 |
-| `_include_routers` | src/memorymap/api/app.py:1242 |
+| `_content_length` | src/memorymap/api/app.py:1072 |
+| `_include_routers` | src/memorymap/api/app.py:1247 |
 | `_install_pending_extras` | src/memorymap/api/app.py:629 |
 | `_purge_expired_bin_entries` | src/memorymap/api/app.py:551 |
 | `_purge_step` | src/memorymap/api/app.py:617 |
-| `_register_error_handlers` | src/memorymap/api/app.py:813 |
+| `_register_error_handlers` | src/memorymap/api/app.py:818 |
 | `_stamp_for` | src/memorymap/api/app.py:222 |
-| `_start_autonomous_loop` | src/memorymap/api/app.py:757 |
-| `_start_searxng_if_asked` | src/memorymap/api/app.py:725 |
-| `_start_services` | src/memorymap/api/app.py:1099 |
+| `_start_autonomous_loop` | src/memorymap/api/app.py:762 |
+| `_start_searxng_if_asked` | src/memorymap/api/app.py:730 |
+| `_start_services` | src/memorymap/api/app.py:1104 |
 | `_startup_maintenance` | src/memorymap/api/app.py:669 |
 | `_static_gzip` | src/memorymap/api/app.py:490 |
 | `asset_hash` | src/memorymap/api/app.py:198 |
 | `asset_stamps` | src/memorymap/api/app.py:227 |
 | `clear_static_cache` | src/memorymap/api/app.py:531 |
-| `create_app` | src/memorymap/api/app.py:1452 |
-| `out_of_space_body` | src/memorymap/api/app.py:985 |
+| `create_app` | src/memorymap/api/app.py:1457 |
+| `out_of_space_body` | src/memorymap/api/app.py:990 |
 | `pin_static_mime_types` | src/memorymap/api/app.py:165 |
 | `served_index_html` | src/memorymap/api/app.py:264 |
 | `served_offline_html` | src/memorymap/api/app.py:249 |
@@ -15329,7 +15329,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (9547)
+## Tests (9548)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -15407,7 +15407,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_backlog_status_rows.py | 6 |
 | tests/test_backup_bundle.py | 8 |
 | tests/test_backup_roundtrip_full.py | 2 |
-| tests/test_backups_api.py | 12 |
+| tests/test_backups_api.py | 13 |
 | tests/test_badge_recipe.py | 14 |
 | tests/test_bars_618.py | 7 |
 | tests/test_bench_spec.py | 7 |
@@ -16377,7 +16377,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (964)
+## Plan headings (967)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -17099,7 +17099,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Phases | docs/roadmap/DOCUMENTS_PLAN.md:1348 |
 | Phases 0 to 6: built | docs/roadmap/UI_MODERNISATION_PLAN.md:216 |
 | Phases, each with the gate it is finished against | docs/roadmap/MINDMAP_PLAN.md:1294 |
-| Placed (last 20, newest first) | docs/roadmap/INBOX.md:159 |
+| Placed (last 20, newest first) | docs/roadmap/INBOX.md:277 |
 | Placed from Brief 40, 2026-10-10 (does the MCP server work) | docs/roadmap/AGENT_SKILLS_REFORM.md:345 |
 | Placed from Brief 40, 2026-10-10 (research and placement) | docs/roadmap/BACKLOG.md:4175 |
 | Placed from Brief 40, 2026-10-10 (the phone over HTTPS) | docs/roadmap/WORLD_CLASS_PLAN.md:3137 |
@@ -17170,9 +17170,12 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from INBOX, 2026-10-10 (the owner on feature depth) | docs/roadmap/MINDMAP_PLAN.md:1826 |
 | Placed from INBOX, 2026-10-10 (the owner on feature depth) | docs/roadmap/WHITEBOARD_PLAN.md:1552 |
 | Placed from INBOX, 2026-10-10 (the owner on the graph, again) | docs/roadmap/GRAPH_PLAN.md:606 |
-| Placed from INBOX, 2026-10-10 (the owner's afternoon reports) | docs/roadmap/UI_MODERNISATION_PLAN.md:1581 |
-| Placed from INBOX, 2026-10-10 (the owner's morning UI reports) | docs/roadmap/UI_MODERNISATION_PLAN.md:1570 |
-| Placed from INBOX, 2026-10-11 (the owner's sweep request) | docs/roadmap/UI_MODERNISATION_PLAN.md:1596 |
+| Placed from INBOX, 2026-10-10 (the owner's afternoon reports) | docs/roadmap/UI_MODERNISATION_PLAN.md:1572 |
+| Placed from INBOX, 2026-10-11 (the owner on Agent mode with no model) | docs/roadmap/CHAT_PLAN.md:1751 |
+| Placed from INBOX, 2026-10-11 (the owner on buttons, OCR and the constellation) | docs/roadmap/UI_MODERNISATION_PLAN.md:1593 |
+| Placed from INBOX, 2026-10-11 (the owner on dragging the force graph) | docs/roadmap/GRAPH_PLAN.md:611 |
+| Placed from INBOX, 2026-10-11 (the owner's sweep request) | docs/roadmap/UI_MODERNISATION_PLAN.md:1587 |
+| Placed from INBOX, 2026-10-11 (the owner: Atlas as the app's assistant) | docs/roadmap/CHAT_PLAN.md:1757 |
 | Placed from INBOX: 107d, the segmented mini bars | docs/roadmap/DOCUMENTS_PLAN.md:589 |
 | Placed from INBOX: the composer everywhere (the owner, 2026-10-06) | docs/roadmap/CHAT_PLAN.md:702 |
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/BACKLOG.md:4161 |

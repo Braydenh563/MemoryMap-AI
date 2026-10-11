@@ -5743,7 +5743,7 @@ body .chip.item-label,
 /* `data-pose` on the figure is a copy of the companion's (`nameMarkBuddyVisit`
    keeps it). It is not `.nm-viewer-figure:has(> #nm-buddy[data-pose])`:
    that :has() made every change of the companion's `data-pose`, with the
-   view closed, restyle 968 elements (companioncost.js, 2026-10-04). */
+   view closed, restyle 968 elements (companiondepth2.js companioncost, 2026-10-04). */
 .nm-viewer-figure[data-pose="sit"] .nm-viewer-ledge { opacity: 1; }
 /* Its lines, said from its head's upper corner (its box is the size of
    its perch, its drawing 2.2 times that). */
@@ -6048,7 +6048,7 @@ body .chip.item-label,
    a moving act (a sloth sway, a peek, a toss) animates `rotate` itself
    and takes over while it runs. */
 #nm-buddy .nm-buddy-char { rotate: calc(var(--nmb-tilt) * 4deg); }
-/* **`--nmb-tilt` and `--nmb-lean` do not inherit** (companionrecalcorder.js,
+/* **`--nmb-tilt` and `--nmb-lean` do not inherit** (companiondepth2.js companionrecalcorder,
    2026-10-04): avatars.js writes them inline on `#nm-buddy` when a walk
    starts, and as inherited properties each write restyled all 528
    descendants (28ms) though only `.nm-buddy-char` (both: the tilt's
@@ -6806,7 +6806,7 @@ body .chip.item-label,
 @property --atl-lean-dir { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --nmb-lean-pose { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 @property --nmb-lie-shift { syntax: "<length>+"; inherits: false; initial-value: 0 0; }
-/* **None of the three inherits** (companioncost.js, companionattrcost.js
+/* **None of the three inherits** (companiondepth2.js companioncost, companionattrcost.js
    and the trace of one change, 2026-10-04): as inherited properties each
    change of `data-lean` on `#nm-buddy`, and of `data-pose` (the figure's
    two), restyled all 528 descendants, 15 to 25ms a time, and a float sets
@@ -7478,7 +7478,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 @property --atl-sx { syntax: "<number>"; inherits: false; initial-value: 1; }
 @property --atl-sy { syntax: "<number>"; inherits: false; initial-value: 1; }
 @property --atl-tail { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
-/* **The pose's four numbers do not inherit** (companioncost.js, 2026-10-04):
+/* **The pose's four numbers do not inherit** (companiondepth2.js companioncost, 2026-10-04):
    a pose, a mood or an act on `#nm-buddy` writes `--atl-lean`, `--atl-sx`,
    `--atl-sy` and `--atl-tail` on each drawing's root, and as inherited
    properties every one of them restyled the root's whole subtree, 492
@@ -7606,7 +7606,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     /* `.nm-live .nm-atlas` in each: the idle drift below is written in an
        `:is()` whose most specific branch names #nm-buddy, (1,6,0), and it
        out-ranked every one of these (1,5,0) rules, so the skirt never swung
-       in a walk, a carry or a kick (atlasgait.js: the lower layer ran
+       in a walk, a carry or a kick (atlasdepth2.js atlasgait: the lower layer ran
        atl-skirt-idle while walking). */
     &.nmb-walking .nm-live .nm-atlas.atl-layer-lower { animation: atl-lower-sway 0.68s ease-in-out infinite alternate; }
     &.nm-buddy-dragging .nm-live .nm-atlas.atl-layer-lower { animation: atl-lower-flick 0.42s ease-in-out infinite alternate; }
@@ -8140,7 +8140,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    softer and slower on her own, the tail flows out of step with its swish,
    the nebula lifts and settles. They are `rotate` and `translate`, which
    Chromium runs on the compositor for a box and never for an `<svg>` root,
-   where each restyled the page every frame (companioncost.js). The same
+   where each restyled the page every frame (companiondepth2.js companioncost). The same
    gates as the figure's other loops; the happy tail's wag has none. */
 @media all {
   :is(
@@ -9899,7 +9899,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
       row's hover fill has room around the switch; at rest the fill is gone
       (a checkbox row draws no resting fill, section 3 above), so what is
       left is the switch 9px inside the edge every head, label, field and
-      hint in the group stands on: measured (switchalign.js, 1440) on all
+      hint in the group stands on: measured (switchdepth2.js switchalign, 1440) on all
       130 switch rows, 34 `.check-row`, 33 `.setting-check`, 29 in Tools.
       The row hangs its padding and edge outside the column instead, so the
       switch takes the column's edge and the hover fill bleeds into the

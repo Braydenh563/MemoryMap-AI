@@ -10,7 +10,7 @@ Measured with scratchpad/ui-sweeps/atlaswisps.js (6x, animations stopped):
   3.28;
 - the body's edge glow stopped at the hips; the tail now carries it.
 The masculine look is pixel-identical in six poses and both themes
-(scratchpad/ui-sweeps/atlasstill.js).
+(scratchpad/ui-sweeps/atlasdepth2.js atlasstill).
 """
 
 from __future__ import annotations

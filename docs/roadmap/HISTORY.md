@@ -958,7 +958,7 @@ The companion2 agent's Built block (standing order 10); the first round is below
 - Faces at small sizes (step 1): one mood sign beside the head and bold brows
   at 28 and 20 px, from a lazy sheet (`frontend/css/atlas-lazy.css`, atlas.js
   `ATLAS_CUES`, `atlasCue`, `atlasSheet`). Distinct faces of 15 by pixel diff
-  (atlasfacediff.js and .py, DIFF=96 FRAC=0.03, any channel): light 28px 2 to
+  (atlasdepth2.js atlasfacediff and .py, DIFF=96 FRAC=0.03, any channel): light 28px 2 to
   15, 20px 1 to 15; dark 28px 11-13 to 15, 20px 10-11 to 15; both looks.
 - Tail at rest on the compositor (step 2): path draws a minute at rest 900
   (15 a second) to 83 (taildraws probe, 88% of the time resting); Atlas idle
@@ -969,7 +969,7 @@ The companion2 agent's Built block (standing order 10); the first round is below
   Reduce, new `x:appreduce` state), layouts 36 and 9.
 - Calm's arms (step 4): angle off straight down, full size, both looks: 0 to
   5 degrees in all three variants before, -34 to 56 after (atlasarms.js).
-- Smoothness (step 5, atlassmooth.js): reaction latency from the end of the
+- Smoothness (step 5, atlasdepth2.js atlassmooth): reaction latency from the end of the
   debounce to the first frame with the mood: 47, 53, 86, 90 and 169 ms
   (load 5 on four cores, errors.js running); snaps in ten minutes at 60 Hz:
   one (both hands at once, hanging, 261s); distinct in ten minutes: 7 acts,
@@ -1033,7 +1033,7 @@ The companion agent's Built block (standing order 10); the rest of Brief 34 runs
   does on its own. Driven at 1440 for You and Atlas, 0 page errors.
 - Right-click in the enlarged view (owner's list): verified, the menu opens at
   the pointer with Companion, Atlas look and Size (fixed by chatui-1010).
-- Face changes in a 3-minute scripted session (companionmoods.js): Atlas 4 to
+- Face changes in a 3-minute scripted session (companiondepth2.js companionmoods): Atlas 4 to
   12, faces 2 to 5, longest still 78s to 63s; You 7 to 12, faces 4 to 6.
 - Idle cost (companionperf.js IDLE=1, ms of script a minute, loaded machine):
   You 737 to 130, Atlas 3,780 to 2,050 (task 34,952 to 14,992, layouts 1,399
@@ -3993,7 +3993,7 @@ theme's deeper violet (median contrast 1.13 to 1.33, p90 1.40 to 3.28,
 `scratchpad/ui-sweeps/atlaswisps.js`), the waist and tail wisps turned with
 the tail in every pose (offset from the tail lying 7.6 to 14.0 units, 14.0
 standing), the body's edge glow carried down the tail as a fill; masculine
-pixel-identical in six poses and both themes (`atlasstill.js`).
+pixel-identical in six poses and both themes (`atlasdepth2.js atlasstill`).
 `test_atlas_wisps_pose.py`.
 
 ## Moved from the plans, 2026-10-04 (the top bar mode and the glass recipe)
@@ -45603,7 +45603,7 @@ loading page.
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).
      **Fixed** (verified 2026-10-05): Graph, gear, Display, Label
-     backgrounds; `scratchpad/ui-sweeps/graphplates.js` counts 72 plates on,
+     backgrounds; `scratchpad/ui-sweeps/graphdepth2.js graphplates` counts 72 plates on,
      0 off, and still 0 after a reload (kept on this device). With it the
      spec's last open KG rows: rollups on the query table and a searching
      picker for a note field (GRAPH_PLAN, "Still open after KG1 to KG9").
@@ -47130,7 +47130,7 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      glide had not moved `x`/`y` yet) and glided from k 1; it now snaps the glide,
      is instant while hidden, and a fresh layout is warmed in the worker first.
      First visible frame k 1.21 (worst 2.5) to 0.785, settled 0.788
-     (`scratchpad/ui-sweeps/graphfirstframe.js`, 60 notes).
+     (`scratchpad/ui-sweeps/graphdepth2.js graphfirstframe`, 60 notes).
 
 748. **The owner, 2026-10-10, verbatim**: "I also need a major major improvement
      and expansion of the code editor, it needs to have everything and more that
@@ -48406,7 +48406,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   branch's layout (`_bl`, `_blTop`), which the lines, the line style and the
   branch bar read. On a Free map only the structured branches are laid out.
   The topic menu's Structure group sets it, one Undo step with its tidy.
-  Measured (`mapbranchstructure.js`, 1440 and 390): 14/14 each; 0 overlapping
+  Measured (`mapdepth2.js mapbranchstructure`, 1440 and 390): 14/14 each; 0 overlapping
   pairs with an org chart and a fishbone inside tree-right, tree-both, radial,
   timeline and tree-table maps. Guide: `mind-map-structure`. Tests:
   `tests/test_map_branch_structure.py`.
@@ -48417,7 +48417,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   changes and removes it; double-click the bubble changes it. The field and
   its tidy are one Undo step (`wbMapSetExtra`, through `wbRecordGesture`).
   Also: the paint key carries a topic's branch structure (`_bl`), so a change
-  of structure repaints its branch bars. Measured (`mapcallout.js`, 1440 and
+  of structure repaints its branch bars. Measured (`mapdepth2.js mapcallout`, 1440 and
   390, light and dark): 8/8 each; the card 44 to 89 px tall, 0 overlapping
   pairs after the tidy, the words on the bubble 14.4:1 light, 12.1:1 dark. Guide:
   `mind-map-callouts`. Tests: `tests/test_map_callout.py`.
@@ -48427,7 +48427,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   under the words, the card's last row (`.wb-map-tags`, `order: 1`), rebuilt
   only when the list changes. The Topic group adds, changes and removes them
   in one comma-separated answer; double-click the row changes them; one Undo
-  step with the tidy (`wbMapSetExtra`). Measured (`maplabels.js`, 1440 and
+  step with the tidy (`wbMapSetExtra`). Measured (`mapdepth2.js maplabels`, 1440 and
   390, light and dark): 7/7 each; "booked, paid ,  receipt, booked" gives
   three chips, the card 44 to 63 px, 0 overlapping pairs, the chips 14.0:1
   light, 11.8:1 dark. Guide: `mind-map-callouts`. Tests:
@@ -48441,7 +48441,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   go under one topic named after the map. The import (`_xmind_style`,
   `_xmind_marks`) now reads the same back, the link held to http, https and
   mailto. In the export dialog and the map's palette rows. Measured
-  (`mapxmind.js`, 1440 and 390): 6/6 each; a 585-byte zip named `.xmind`, read
+  (`mapdepth2.js mapxmind`, 1440 and 390): 6/6 each; a 585-byte zip named `.xmind`, read
   back as the same four topics. Tests: `tests/test_map_xmind_export.py`.
 - **Reaction stamps and votes on a topic (Miro; 14.4).** `data.stamps`, a
   count of 1 to 999 per stamp from six (`up`, `heart`, `star`, `check`,
@@ -48450,7 +48450,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   labels in the card's last row; a press adds one without starting a drag
   (the row stops `pointerdown` on a stamp), the topic menu's Stamps group adds
   each and clears them, one Undo step each (`wbMapAddStamp`, `wbMapSetExtra`).
-  Measured (`mapstamps.js`, 1440 and 390, light and dark): 11/11 each; a press
+  Measured (`mapdepth2.js mapstamps`, 1440 and 390, light and dark): 11/11 each; a press
   on the chip 1 to 2 with the topic unmoved, the chip 20 board px tall on a
   desktop and 44 under touch, its count 13.7:1 light, 11.5:1 dark. Guide:
   `mind-map-callouts`. Tests: `tests/test_map_callout.py`.
@@ -48462,7 +48462,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   re-create sends for an item that had none (`wbKeepOwnLayer`). The layer's
   name in the Layers tab is the switch (`aria-pressed`, the row tinted with an
   accent bar), and its menu has Draw on this layer / Stop drawing on it
-  (`wbSetCurrentLayer`, one Undo step). Measured (`wbcurrentlayer.js`, 1440
+  (`wbSetCurrentLayer`, one Undo step). Measured (`wbdepth2.js wbcurrentlayer`, 1440
   and 390): 9/9 each; a text box, a drawn shape and a placed library item all
   land on the current layer, the name a 28 px target on a desktop and 44
   under touch. Guide: `board-current-layer`. Tests:
@@ -48476,7 +48476,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   band, ports and label keep the true shape. The pen, the highlighter and a
   map's lines are spared (`wbDrawsRough`). The View menu's Hand-drawn look and
   the Format panel's Hand-drawn row set it, each one Undo step. Measured
-  (`wbrough.js`, 1440 and 390): 11/11 each; the same path on a second render
+  (`wbdepth2.js wbrough`, 1440 and 390): 11/11 each; the same path on a second render
   and after a reopen, the rough rectangle within 4 px of the true one, 200 new
   rectangles roughened in 209 to 228 ms (then cached). Guide:
   `board-hand-drawn`. Tests: `tests/test_wb_hand_drawn.py`.
@@ -48491,7 +48491,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   of the cell pressed last, deletes its row or column, and toggles the header
   (`wbTableMenuRows`, `wbTableReshape`), the box growing or shrinking by one
   share; each one Undo step. Insert, Table and the command palette's Table
-  place a 3 by 3 one (`wbInsertTable`). Measured (`wbtable.js`, 1440 and 390):
+  place a 3 by 3 one (`wbInsertTable`). Measured (`wbdepth2.js wbtable`, 1440 and 390):
   11/11 each; 9 cells filling the box, "Name" Tab "Owner" typed straight on,
   a row and a column in at the pressed cell (16 cells, the box 40 px taller and
   120 px wider), a 600 px table's cells wider in proportion. Guide:
@@ -48504,7 +48504,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   one save at a time (`wbFmtSaveProps`, `wbFmtWriteProps`); a bad name is
   refused with a toast. The palette's Edit data opens it. The four tabs share
   the panel's width (four at the line's 4.5rem floor scrolled 41 px).
-  Measured (`wbeditdata.js`, 1440 and 390, twice each): 8/8; the tabs 41 to 0
+  Measured (`wbdepth2.js wbeditdata`, 1440 and 390, twice each): 8/8; the tabs 41 to 0
   px of scroll, the remove button 28 px on a desktop. Guide:
   `board-edit-data`. Tests: `tests/test_wb_edit_data.py`.
 - **Every page of a `.drawio` file.** `wbDrawioCells` reads every
@@ -48514,7 +48514,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   (`wbDrawioPlace`, `wbDrawioBox`); a one-page file comes in as before, with
   no frame. Frames rather than a board per page because a board's pages are
   its frames (WHITEBOARD_PLAN decision 22): the Pages tab lists them and
-  Present walks them. Measured (`wbdrawiopages.js`, 1440 and 390): 8/8 each;
+  Present walks them. Measured (`wbdepth2.js wbdrawiopages`, 1440 and 390): 8/8 each;
   three pages (one compressed, one empty) gave two frames, Plan and Ship,
   not overlapping, each holding its own two shapes, two joined connectors, one
   Undo to an empty board; `wbdrawio.js` 11/11 still. Tests:

@@ -9,7 +9,7 @@ CHANGELOG; one line each below.
 - Faces at small sizes (step 1): one mood sign beside the head and bold brows
   at 28 and 20 px, from a lazy sheet (`frontend/css/atlas-lazy.css`, atlas.js
   `ATLAS_CUES`, `atlasCue`, `atlasSheet`). Distinct faces of 15 by pixel diff
-  (atlasfacediff.js and .py, DIFF=96 FRAC=0.03, any channel): light 28px 2 to
+  (atlasdepth2.js atlasfacediff and .py, DIFF=96 FRAC=0.03, any channel): light 28px 2 to
   15, 20px 1 to 15; dark 28px 11-13 to 15, 20px 10-11 to 15; both looks.
 - Tail at rest on the compositor (step 2): path draws a minute at rest 900
   (15 a second) to 83 (taildraws probe, 88% of the time resting); Atlas idle
@@ -20,7 +20,7 @@ CHANGELOG; one line each below.
   Reduce, new `x:appreduce` state), layouts 36 and 9.
 - Calm's arms (step 4): angle off straight down, full size, both looks: 0 to
   5 degrees in all three variants before, -34 to 56 after (atlasarms.js).
-- Smoothness (step 5, atlassmooth.js): reaction latency from the end of the
+- Smoothness (step 5, atlasdepth2.js atlassmooth): reaction latency from the end of the
   debounce to the first frame with the mood: 47, 53, 86, 90 and 169 ms
   (load 5 on four cores, errors.js running); snaps in ten minutes at 60 Hz:
   one (both hands at once, hanging, 261s); distinct in ten minutes: 7 acts,
@@ -43,7 +43,7 @@ CHANGELOG; one line each below.
 - Step 5 not built: one curve table for every joint (120 to 400 ms), the
   idle pool's never-within-five rule and a reaction budget a minute beyond
   the existing 6s gap (avatars.js `NMB_REACT_GAP`). The one snap (both hands
-  jumping over 4px out of stillness while hanging, atlassmooth.js) is likely
+  jumping over 4px out of stillness while hanging, atlasdepth2.js atlassmooth) is likely
   the held arms' crossfade (`atlasRigRead`, -158 degrees); one latency trial
   of five was over 100 ms, the frame wait under load.
 - Arm angle over a walk cycle not measured (atlasarms.js measures still

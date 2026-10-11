@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5436, frontend ids 2350, CSS sections 489, backend routes 550, backend modules 4544, test files 1050, tests 9613, plan headings 981.
+Counts: frontend functions 5436, frontend ids 2350, CSS sections 489, backend routes 550, backend modules 4545, test files 1050, tests 9614, plan headings 983.
 
 ## Frontend functions (5436)
 
@@ -9580,7 +9580,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4544)
+## Backend modules (4545)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10834,27 +10834,28 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `post` | src/memorymap/ai/provider_http.py:83 |
 | `refuse_off_host_redirect` | src/memorymap/ai/provider_http.py:52 |
 
-### src/memorymap/ai/question_noise.py (17)
+### src/memorymap/ai/question_noise.py (18)
 
 | Name | File:line |
 |---|---|
-| `_at_asking_place` | src/memorymap/ai/question_noise.py:2126 |
-| `_cosine` | src/memorymap/ai/question_noise.py:2177 |
-| `_split` | src/memorymap/ai/question_noise.py:2065 |
-| `_sub_cost` | src/memorymap/ai/question_noise.py:1975 |
-| `_trigrams` | src/memorymap/ai/question_noise.py:2172 |
-| `_vector_cosine` | src/memorymap/ai/question_noise.py:2188 |
-| `allowance` | src/memorymap/ai/question_noise.py:2003 |
-| `alternative` | src/memorymap/ai/question_noise.py:2050 |
-| `distance` | src/memorymap/ai/question_noise.py:1981 |
-| `guess_kind` | src/memorymap/ai/question_noise.py:2195 |
-| `nearest` | src/memorymap/ai/question_noise.py:2021 |
-| `repair` | src/memorymap/ai/question_noise.py:2078 |
-| `social_kind` | src/memorymap/ai/question_noise.py:1876 |
-| `strip_strays` | src/memorymap/ai/question_noise.py:414 |
-| `strip_symbols` | src/memorymap/ai/question_noise.py:435 |
-| `tidy` | src/memorymap/ai/question_noise.py:421 |
-| `topic_of` | src/memorymap/ai/question_noise.py:452 |
+| `_at_asking_place` | src/memorymap/ai/question_noise.py:2148 |
+| `_cosine` | src/memorymap/ai/question_noise.py:2199 |
+| `_split` | src/memorymap/ai/question_noise.py:2087 |
+| `_strip_stray_tail` | src/memorymap/ai/question_noise.py:415 |
+| `_sub_cost` | src/memorymap/ai/question_noise.py:1997 |
+| `_trigrams` | src/memorymap/ai/question_noise.py:2194 |
+| `_vector_cosine` | src/memorymap/ai/question_noise.py:2210 |
+| `allowance` | src/memorymap/ai/question_noise.py:2025 |
+| `alternative` | src/memorymap/ai/question_noise.py:2072 |
+| `distance` | src/memorymap/ai/question_noise.py:2003 |
+| `guess_kind` | src/memorymap/ai/question_noise.py:2217 |
+| `nearest` | src/memorymap/ai/question_noise.py:2043 |
+| `repair` | src/memorymap/ai/question_noise.py:2100 |
+| `social_kind` | src/memorymap/ai/question_noise.py:1898 |
+| `strip_strays` | src/memorymap/ai/question_noise.py:436 |
+| `strip_symbols` | src/memorymap/ai/question_noise.py:457 |
+| `tidy` | src/memorymap/ai/question_noise.py:443 |
+| `topic_of` | src/memorymap/ai/question_noise.py:474 |
 
 ### src/memorymap/ai/questions.py (12)
 
@@ -15403,7 +15404,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (9613)
+## Tests (9614)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16158,7 +16159,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_query_plans.py | 2 |
 | tests/test_query_rollups_kg7.py | 4 |
 | tests/test_query_understanding.py | 20 |
-| tests/test_question_noise.py | 26 |
+| tests/test_question_noise.py | 27 |
 | tests/test_questions_own.py | 8 |
 | tests/test_questions_spec.py | 9 |
 | tests/test_quick_access.py | 26 |
@@ -16460,7 +16461,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (981)
+## Plan headings (983)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -16942,6 +16943,8 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Brief 8: W1-4: the three 18.4px switches, and making DESIGN.md true | docs/roadmap/MODERNISATION_AUDIT.md:1392 |
 | Brief 9 (Fri, Opus): the job runtime (B2) and thread isolation | docs/roadmap/SESSION_BRIEFS.md:358 |
 | Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837) | docs/roadmap/SESSION_BRIEFS.md:1759 |
+| Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842) | docs/roadmap/SESSION_BRIEFS.md:1764 |
+| Brief 92 (Opus, after the queue): the whole-app pass the owner asked for (INBOX 843) | docs/roadmap/SESSION_BRIEFS.md:1773 |
 | Briefs 25 to 31: the plans the owner asked to see finished | docs/roadmap/SESSION_BRIEFS.md:744 |
 | Briefs 35 to 42 (2026-10-10, Fable orchestrating): the owner's list, the engine, the direction | docs/roadmap/SESSION_BRIEFS.md:1238 |
 | Briefs 46 to 55 (2026-10-10, Fable): the whole app against world class | docs/roadmap/SESSION_BRIEFS.md:1520 |

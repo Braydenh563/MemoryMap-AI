@@ -14,7 +14,7 @@ Built: f83ca306f structure per branch; 76335486e callouts; 71e416864 labels;
 Open, one line each:
 
 - Structure per branch: the sideways trees keep one column per depth across the map, so a wide structured branch pushes its depth's siblings' children right (`wbMapLayoutPositions`, offsets per depth); XMind spaces per branch.
-- Structure per branch: a fishbone or timeline branch on a radial map lays out, but its lines into the block run from the ring; not measured for looks, only for overlap (`mapbranchstructure.js`).
+- Structure per branch: a fishbone or timeline branch on a radial map lays out, but its lines into the block run from the ring; not measured for looks, only for overlap (`mapdepth2.js mapbranchstructure`).
 - Callouts, labels, stamps: the map's PNG and SVG pictures not checked for them (`wbExportPng` path); the AI's map tools (`ai/whiteboard_tools`) do not read or set them.
 - `.xmind` export: boundaries, summaries, markers other than priority and task, pictures and the map's theme are not written (`_xmind_topic`); not opened in XMind itself (none here).
 - Stamps on a board card (MINDMAP_PLAN 14.4 row "Reaction stamps and voting", the card half); linked stickers (14.4).

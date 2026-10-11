@@ -96,7 +96,7 @@ def test_every_page_comes_in_each_in_a_frame() -> None:
     """canvasdepth2: pages after the first come in too, each in a frame named
     after its page, side by side (decision 22: a board's pages are its
     frames); a one-page file has no frame round it. The browser half is
-    `scratchpad/ui-sweeps/wbdrawiopages.js`."""
+    `scratchpad/ui-sweeps/wbdepth2.js wbdrawiopages`."""
     cells = SOURCE[SOURCE.index("async function wbDrawioCells(") :]
     cells = cells[: cells.index("\n}\n")]
     assert "all.push({ name:" in cells and "return { cells: all[0].cells, pages:" in cells

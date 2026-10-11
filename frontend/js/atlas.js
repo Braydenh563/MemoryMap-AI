@@ -2040,7 +2040,7 @@ function atlasHandProps(armR, armL, look) {
 //: **The mood cue** (Brief 34 continues, the owner: "I barely get to see
 //: atlas change expression"): at 28px the face is about 8px and at 20px
 //: about 6px, so a mood carried by a lid or a brow is one face to the eye
-//: (atlasfacediff.js measured 2 distinct of 15 at 28px, 1 at 20px). Real
+//: (atlasdepth2.js atlasfacediff measured 2 distinct of 15 at 28px, 1 at 20px). Real
 //: mascot work adds one bold sign beside the head that survives the size:
 //: a note, sparkles, a heart, Zs, a mark. Drawn once at the head and tiny
 //: levels, every sign hidden by its own attribute until atlas-lazy.css
@@ -3664,7 +3664,7 @@ function atlasOn(event) {
 //: **A calm Atlas does not hold one face for minutes** (INBOX 742, the
 //: owner: "atlas doesnt seem to change emotions alot if at all"; 2026-10-10:
 //: "I barely get to see atlas change expression"). Measured before
-//: (companionmoods.js, three minutes as the companion with a save, an error
+//: (companiondepth2.js companionmoods, three minutes as the companion with a save, an error
 //: and the chat box in them): see the commit. Its moods came only from app
 //: events, so a session of reading and browsing showed one face. Now, every
 //: 35 to 75 seconds while it is calm, seen and has not changed for 20

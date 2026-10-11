@@ -695,7 +695,7 @@ The companion (Brief 34, second round: faces at 28 and 20 px, the tail on the co
 - Step 5 not built: one curve table for every joint (120 to 400 ms), the
   idle pool's never-within-five rule and a reaction budget a minute beyond
   the existing 6s gap (avatars.js `NMB_REACT_GAP`). The one snap (both hands
-  jumping over 4px out of stillness while hanging, atlassmooth.js) is likely
+  jumping over 4px out of stillness while hanging, atlasdepth2.js atlassmooth) is likely
   the held arms' crossfade (`atlasRigRead`, -158 degrees); one latency trial
   of five was over 100 ms, the frame wait under load.
 - Arm angle over a walk cycle not measured (atlasarms.js measures still

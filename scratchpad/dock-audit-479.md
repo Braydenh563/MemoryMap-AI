@@ -31,7 +31,7 @@ Case, bottom navigation of five) DESIGN.md wins.
   the 1440 dark pages were looked at.
 - `scratchpad/ui-sweeps/dockseams.js` (new): zones that begin a wrapped line and
   still draw the hairline that separates them from the zone before.
-- `scratchpad/ui-sweeps/graphcorner.js` (new): overlap of the graph's zoom
+- `scratchpad/ui-sweeps/graphdepth2.js graphcorner` (new): overlap of the graph's zoom
   stack, legend and minimap. 0 overlaps at 390 and 820; not a finding.
 - A census of the inventory (`census.py` in the session scratchpad): distinct
   radius, weight, font size and height per kind of control across all bars.

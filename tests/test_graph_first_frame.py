@@ -2,7 +2,7 @@
 
 The owner: "the graph always loads in really zoomed in before it rights itself
 with the fitted zoom". Measured on 60 notes (scratchpad/ui-sweeps/
-graphfirstframe.js, every animation frame's zoom and the canvas opacity):
+graphdepth2.js graphfirstframe, every animation frame's zoom and the canvas opacity):
 the first visible frame was at k 1.21, the worst at k 2.5 (the fit's clamp),
 against a settled fit of 0.79, and 104 visible frames were more than 10% off
 it. Three causes, three fixes, checked here:

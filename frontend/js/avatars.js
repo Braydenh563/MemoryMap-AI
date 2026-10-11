@@ -8672,6 +8672,28 @@ const nmbSounds = new Set();
 //: The props these show are drawn by the figure (`drawCharacter`'s prop
 //: slots); a renderer without them simply shows nothing for them.
 const NMB_PROPS_DRAWN = true;
+//: **A prop says what it is** (Brief 88 a, the owner: "what is this on
+//: the atlas companion??"). Hovered, the companion's tooltip names what it
+//: has on and why, read from the classes that show each one; with none,
+//: no tooltip (its name and what a click does are its label already).
+const NMB_PROP_WORDS = [
+  ["nmb-music", "headphones on: something is playing"],
+  ["nmb-reading", "reading glasses on: you are reading"],
+  ["nmb-act-read", "reading a book"],
+  ["nmb-act-bell", "ringing a bell: a reminder"],
+  ["nmb-act-lantern", "holding up a star: it got dark"],
+  ["nmb-act-carry", "carrying a note it just filed"],
+  ["nmb-act-juggle", "juggling stars"],
+  ["nmb-act-map", "reading its star map"],
+  ["nmb-offline", "holding a broken link: you are offline"],
+];
+function nameMarkBuddyNameProps(buddy, face) {
+  const words = NMB_PROP_WORDS.filter(([cls]) => buddy.classList.contains(cls)).map(([, said]) => said);
+  const cap = buddy.querySelector(".nmp-nightcap");
+  if (cap && Number(getComputedStyle(cap).opacity) > 0.5) words.push(nameMarkBuddyHasAtlas(buddy) ? "a moon on its ear: it is resting" : "a night cap: it is resting");
+  if (words.length) face.title = `${buddy.dataset.seed || "Your companion"}: ${words.join("; ")}`;
+  else face.removeAttribute("title");
+}
 function nameMarkBuddySound(source, playing) {
   if (playing) nmbSounds.add(source);
   else nmbSounds.delete(source);
@@ -9358,6 +9380,7 @@ function nameMarkBuddyBuild() {
     pet = 0;
   };
   face.addEventListener("pointerenter", (event) => {
+    nameMarkBuddyNameProps(buddy, face);
     if (event.pointerType !== "mouse" || drag) return;
     unpet();
     nameMarkBuddyHover(0);

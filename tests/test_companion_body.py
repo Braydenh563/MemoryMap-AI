@@ -145,3 +145,30 @@ console.log(JSON.stringify(counts));
 """
     out = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=30, check=True)
     assert min(json.loads(out.stdout)) > 60
+
+
+CSS = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+
+
+def test_atlas_props_have_a_keyline_and_say_what_they_are() -> None:
+    # Brief 88 (a), the owner: "sometimes when icons appear on atlas it is
+    # hard to see them or make them out". atlasprops.js read each prop's
+    # best edge against the body at 1.8 to 2.3 to 1 (a bell, the moon, the
+    # lenses, the pages, the stars) and the moon at 9px; after, every prop
+    # 4 to 1 or more and 14px or more, in both themes.
+    rule = CSS[CSS.index("/* **A prop reads against the body**") :]
+    rule = rule[: rule.index("\n/*", 10)]
+    assert "stroke: var(--atl-navy); stroke-width: 1.1;" in rule
+    for prop in (".atl-prop-bell", ".atl-prop-moon", ".atl-prop-page", ".atl-juggle-star"):
+        assert prop in rule, prop
+    assert "paint-order: stroke fill;" in rule
+    for line in (".atl-prop-zap", ".atl-prop-link", ".atl-prop-rim", ".atl-prop-lens"):
+        assert line in rule, line
+    assert ".nmp-nightcap:has(> .atl-prop-moon)" in rule and "scale: 1.6;" in rule
+    # Hovered, the tooltip names what it has on; with nothing, none.
+    name = _fn(AV, "nameMarkBuddyNameProps")
+    assert "face.title = " in name and 'face.removeAttribute("title");' in name
+    words = AV[AV.index("const NMB_PROP_WORDS") :][:900]
+    for cls in ("nmb-music", "nmb-reading", "nmb-act-bell", "nmb-act-lantern", "nmb-act-carry", "nmb-offline"):
+        assert f'["{cls}", ' in words, cls
+    assert "nameMarkBuddyNameProps(buddy, face);" in AV

@@ -8022,6 +8022,16 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-prop-string { fill: none; stroke: var(--atl-line); stroke-width: 0.8; }
 .nm-atlas .atl-prop-link { fill: none; stroke: var(--atl-md); stroke-width: 1.6; stroke-linecap: round; }
 .nm-atlas .atl-prop-zap { fill: none; stroke: var(--atl-gold-line); stroke-width: 0.9; stroke-linecap: round; }
+/* **A prop reads against the body** (Brief 88 a, the owner: "sometimes
+   when icons appear on atlas it is hard to see them or make them out").
+   Gold and pale light on a pale blue body measured 1.8 to 2.3 to 1
+   (atlasprops.js): a bell, a moon, lenses, pages and stars that were
+   there and could not be made out. Each prop now has a dark keyline under
+   its own colour, 3 to 1 or more against the body in both looks, and the
+   moon on its ear, 9px, is drawn at 14px. */
+.nm-atlas :is(.atl-prop-bell, .atl-prop-moon, .atl-prop-page, .atl-juggle-star) { stroke: var(--atl-navy); stroke-width: 1.1; stroke-linejoin: round; paint-order: stroke fill; }
+.nm-atlas :is(.atl-prop-zap, .atl-prop-link, .atl-prop-rim, .atl-prop-lens) { stroke: var(--atl-line); }
+.nm-atlas .nmp-nightcap:has(> .atl-prop-moon) { transform-box: fill-box; transform-origin: 50% 50%; scale: 1.6; }
 /* Atlas's side of the companion's states. Drowsy and asleep: the orbit
    dims and slows and the crest droops. Night: heavier lids, the crest
    hung with its moon. Reading a long answer: eyes down the page. Offline:

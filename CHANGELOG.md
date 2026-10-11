@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Atlas: what it holds or wears reads against its body: each prop (a bell, the moon on its ear, its lenses, a book's pages, juggled stars, the broken link) has a dark keyline, 4 to 1 or more, the moon is drawn larger, and resting the pointer on the companion names what it has on and why.
 - Companion: no snap as a move starts or stops: a walk's legs, body and head ease into their stride and out of it, a move cut short in a landing or a float's lean eases out of it, and an act's start no longer drops the body's lean in one frame.
 - Companion: every act has three manners (brisk, easy with its weight on one foot, full with a give at the knees) and every walk or float three strides, never the same as the last time.
 - The companion's large view opens on its own resting limbs: Atlas hanging from a panel no longer shows both arms up in the large view while they swing down.

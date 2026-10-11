@@ -161,7 +161,7 @@ def gather(session, now: datetime) -> NotebookFacts:  # noqa: ANN001  # a Sessio
     boards left out, as the dashboard's count does)."""
     from sqlalchemy import func, select
 
-    from memorymap.core.database import Category, Entry
+    from memorymap.core.database import Entry
 
     live = (Entry.is_deleted == False, Entry.is_draft == False, Entry.is_board == False)  # noqa: E712
     total = session.scalar(select(func.count(Entry.id)).where(*live)) or 0

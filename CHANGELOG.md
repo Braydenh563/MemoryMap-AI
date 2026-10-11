@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
+- Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Security: a phone or another computer on the network can no longer make this computer act. Opening a folder, restarting or quitting the app, installing or running software (extras, updates, SearXNG), importing a folder of this computer's files, changing the model server and restoring a whole backup now answer "Only this computer can do that" to any other device.
 - Other devices: on a network you have not allowed (a cafe, a hotel, or one this computer cannot identify), other devices stay out until you choose Allow on this network; turning the switch on remembers the network you are on, Windows' public networks are never opened without asking, and Allow on any network (off, password-gated) restores the old behaviour. Only addresses on your own network can reach the port at all.
 - Other devices: a phone signing in for the first time waits for this computer to say yes: a notice with Allow and Deny appears here and in the bell, and Settings, Other devices lists the allowed devices and networks with Remove. Ask before a new device signs in is on by default.

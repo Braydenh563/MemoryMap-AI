@@ -1752,8 +1752,7 @@ Decisions: (a) a prop or icon on Atlas (`atlasPropsFrame`, atlas-life.js; the pr
 
 ## Brief 89 (Sonnet): Add tags on lightly tagged notes (INBOX 836)
 
-The owner 2026-10-11, verbatim: "also should \"add tags\" show for notes with 0-2/3 tags on them?? with suggested tags as well?? and also an option for \"dont suggest tags\" for this note or smth." Measured: the "Add tags" chip (`note-cards.js` near 1801) shows only on an untagged note; suggestions live in tag-suggest.js and the capture form.
-Decisions: (a) a note with fewer than three tags shows a quiet "+ Tag" chip after its tags; (b) opening it lists up to three suggested tags (tag-suggest.js's ranking) as one-click chips above the input; (c) its menu has "Don't suggest tags for this note", stored on the note (a property), undoable, and reversible from the same menu; the Guide and the chip's `data-help-for` say so.
+Built: HISTORY.md, "Moved from the plans, 2026-10-11 (Brief 89)".
 
 ## Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837)
 

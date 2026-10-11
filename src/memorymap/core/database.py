@@ -323,6 +323,10 @@ class Entry(Base, WorkspaceMixin):
     #: JSON string arrays like `tags`; additive, so old rows backfill to [].
     suggested_tags: Mapped[str] = mapped_column(Text, default="[]")
     discarded_tags: Mapped[str] = mapped_column(Text, default="[]")
+    #: "Don't suggest tags for this note" (brief 89): no suggestion is made,
+    #: kept or shown while it is set, and what was kept comes back when it is
+    #: cleared. Additive scalar, so old rows backfill to false.
+    tag_suggest_off: Mapped[bool] = mapped_column(Boolean, default=False)
     #: Where this note is in the filing queue: `done` (the only state a note
     #: filed synchronously is ever in), `pending` (saved, category not
     #: decided yet), or `failed` (the background pass raised and gave up, 

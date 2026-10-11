@@ -892,6 +892,36 @@ button.map-chip:focus-visible {
   min-height: 0;
   flex: 1 1 auto;
 }
+/* The "+ Tag" chip's popover (tag-suggest.js `openNoteTagPopover`, brief 89),
+   in the help popover's shell: a head with the title, its '?' and the
+   suggestions menu; up to three suggested tags; the field. */
+.help-popover.note-tag-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  width: min(20rem, calc(100vw - var(--space-6)));
+}
+.note-tag-pop-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.note-tag-pop-head > strong {
+  flex: 1 1 auto;
+}
+.note-tag-pop-suggested {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.note-tag-pop-line {
+  margin: 0;
+}
+/* The "+ Tag" chip after a note's tags: the quiet untagged look. */
+.entry-meta.note-meta > .chip.tag-add {
+  margin-inline-start: calc(var(--space-3) - var(--space-6) - var(--space-1));
+}
 /* Every search box's suggestions (search-suggest.js, LAZY_MODULES.searchSuggest;
    Brief 86). The list is the rich picker's rows in a box lifted to <body> and
    placed under (or over) the search field, at the escaped menus' tier like the

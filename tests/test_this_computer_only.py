@@ -36,7 +36,7 @@ def _request(client: str, headers: dict[str, str] | None = None) -> Request:
 def test_another_device_is_refused(client):
     with pytest.raises(HTTPException) as caught:
         this_computer_only(_request(client))
-    assert caught.value.status_code == 403 and "Only this computer" in caught.value.detail
+    assert caught.value.status_code == 403 and "Not available on this device" in caught.value.detail
 
 
 @pytest.mark.parametrize("client", ["127.0.0.1", "::1", "::ffff:127.0.0.1"])

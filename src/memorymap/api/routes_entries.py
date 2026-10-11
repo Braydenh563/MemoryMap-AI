@@ -132,6 +132,7 @@ def _to_out(
         ai_confidence=filing_certainty.shown(
             entry.ai_confidence, user_filed=bool(getattr(entry, "user_filed", False))
         ),
+        tag_suggest_off=bool(getattr(entry, "tag_suggest_off", False)),
         suggested_tags=(offered := _open_suggestions(entry)),
         suggested_tag_reasons=_tag_reasons(content, offered),
         #: Never a private note's: derived from its text, as its suggestions
@@ -211,7 +212,11 @@ def _json_tags(raw: str | None) -> list[str]:
 
 def _open_suggestions(entry) -> list[str]:  # noqa: ANN001
     """The kept suggestions still worth showing: not on the note already and
-    not discarded (a tag added by hand since filing drops out by itself)."""
+    not discarded (a tag added by hand since filing drops out by itself).
+    None while the note is set to "Don't suggest tags" (brief 89); what was
+    kept is still on the row and comes back when that is cleared."""
+    if getattr(entry, "tag_suggest_off", False):
+        return []
     have = {tag.casefold() for tag in manager.entry_tags(entry)}
     gone = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
     return [
@@ -242,7 +247,7 @@ def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  #
     from ciphertext or the locked placeholder when the vault is shut. What it
     already holds (a note made private after filing) is handled like its
     tags: kept, shown where they are, nowhere else."""
-    if getattr(entry, "is_private", False):
+    if getattr(entry, "is_private", False) or getattr(entry, "tag_suggest_off", False):
         return
     have = manager.entry_tags(entry)
     discarded = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
@@ -1317,6 +1322,8 @@ class SuggestedTagsBody(BaseModel):
     #: way to undo it or see the list"): off `discarded_tags`, back into the
     #: suggestions.
     restore: list[str] = Field(default_factory=list, max_length=20)
+    #: True stops suggesting tags for this note, False starts again (brief 89).
+    mute: bool | None = None
 
 
 @router.post("/{entry_id}/suggested-tags", response_model=EntryOut)
@@ -1327,6 +1334,8 @@ def answer_suggested_tags(
     added like one typed by hand; a discarded one is remembered so no later
     filing pass offers it on this note again."""
     entry = _existing_entry(session, entry_id)
+    if body.mute is not None:
+        entry.tag_suggest_off = body.mute
     offered = {tag.casefold(): tag for tag in _json_tags(entry.suggested_tags)}
     take = [offered.get(tag.casefold(), tag.strip()) for tag in body.take if tag.strip()]
     if take:

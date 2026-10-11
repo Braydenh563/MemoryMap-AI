@@ -167,7 +167,7 @@ def _routes(root: Path, trees: dict[Path, ast.Module]) -> list[tuple[str, str, s
                     and isinstance(decorator.func, ast.Attribute)
                     and decorator.func.attr in HTTP_METHODS
                     and isinstance(decorator.func.value, ast.Name)
-                    and decorator.func.value.id in ROUTER_NAMES
+                    and (decorator.func.value.id in ROUTER_NAMES or decorator.func.value.id.endswith("_router"))
                 ):
                     continue
                 route = decorator.args[0] if decorator.args else None
@@ -303,7 +303,7 @@ def build(root: Path, date: str) -> str:
     out += [
         f"## Backend routes ({len(routes)})",
         "",
-        ("`@router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, "
+        ("`@router.<method>(`, `@<name>_router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, "
         "sorted by path. The line is the decorator's."),
         "",
     ]

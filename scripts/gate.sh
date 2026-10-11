@@ -31,7 +31,7 @@ PY="${PY:-$ROOT/.venv/bin/python}"
 RUFF="$ROOT/.venv/bin/ruff"
 [ -x "$RUFF" ] || RUFF="$MAIN/.venv/bin/ruff"
 LOG="${GATE_LOG:-$ROOT/.gate}"
-mkdir -p "$LOG"
+mkdir -p "$LOG"; : > "$LOG/timings.txt"
 FULL=0; SWEEPS=0; CHANGED=0; STAGED=0
 for arg in "$@"; do
   case "$arg" in
@@ -69,8 +69,12 @@ ran=(); passed=(); failed=(); skipped=()
 step() {  # name, command...
   local name="$1" rc; shift
   ran+=("$name")
+  local t0=$SECONDS
   "$@" > "$LOG/$name.log" 2>&1
   rc=$?
+  # Seconds per step, beside the logs and not in the five lines: the slowest
+  # step is what to measure before trimming a gate (OPEN ledger row 1663).
+  echo "$name $((SECONDS - t0))s" >> "$LOG/timings.txt"
   if [ "$rc" = 0 ]; then passed+=("$name")
   elif [ "$rc" = 5 ]; then failed+=("$name (exit 5: no tests collected)")
   else failed+=("$name"); fi
@@ -118,7 +122,7 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # comment, so the changed-test heuristic (a test naming a changed source
   # file) never selects it, and the first new string written after it landed
   # broke it. Caught by a full local run rather than by any gate that day.
-  tests/test_ai_name.py tests/test_frontend_symbols.py
+  tests/test_ai_name.py tests/test_frontend_symbols.py tests/test_codemap_fresh.py
   # The Guide's controls entries against the markup and the shortcut tables:
   # it reads `ai/help_chat.py` and the frontend together, so a help or a
   # control edit never names it. A help edit once put the Guide's whiteboard

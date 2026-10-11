@@ -486,19 +486,18 @@ and 27 (features and popups; its rows name Briefs 42, 47 to 55 and 59).
 
 ### Brief 60: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 
-### Brief 61 (Opus, high): services for whiteboard and files (26b)
-`api/routes_whiteboard.py` to `whiteboard/service.py`, `api/routes_files.py`
-to `files/service.py`; no behaviour change; route tests prove it.
+### Brief 61: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 
 ### Brief 62 (Opus, high): data out of code (26c)
 `ai/question_noise.py`, `ai/composer_tables.py`, the help topics and the
 taxonomy as JSON under `src/memorymap/data/`, lazy and cached;
 `tests/test_import_time.py`; the composer eval unchanged.
 
-### Brief 63 (Opus, high): the runners and the embedder (26d)
-`ai/agent.py` `run_agent` and `ai/skill_runner.py` `_run_one_step` as state
-machines; `ai/embeddings.py` lazy load and idle unload with its setting;
-`ai/tools/` one file per family.
+### Brief 63 (Opus, high): the runners (26d)
+`ai/agent.py` `run_agent` (complexity 78, line 2843 to the end) and
+`ai/skill_runner.py` `_run_one_step` (line 882 to 1313) as state machines
+(decision 61); `ai/tools/__init__.py` (4,986 lines) one file per family. The
+embedder half is built (HISTORY "Brief 63 part 1, the embedder").
 
 ## Briefs 64 to 68: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 

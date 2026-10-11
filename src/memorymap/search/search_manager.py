@@ -352,7 +352,9 @@ def warm(session: Session, query: str, embeddings: EmbeddingService) -> bool:
     the first answer. The Ask box asks for this as soon as it is typed in, so
     the load overlaps the person's typing instead of following their Enter.
     """
-    if not embeddings.is_ready():
+    #: `is_loaded`, not `is_ready`: a model let go for being idle is ready
+    #: (the next embed loads it) and is exactly the one to start loading now.
+    if not getattr(embeddings, "is_loaded", embeddings.is_ready)():
         if not getattr(embeddings, "_warm_loading", False):
             try:
                 embeddings._warm_loading = True

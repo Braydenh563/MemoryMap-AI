@@ -32,6 +32,7 @@ import pytest
 
 from memorymap.ai import captioning
 from memorymap.api import routes_files
+from memorymap.files import service as files_service
 from memorymap.core import deps, pdfpages
 from memorymap.core.database import PageRead
 
@@ -153,7 +154,7 @@ def test_a_description_does_not_overwrite_that_page_s_reading(client, monkeypatc
     if not pdfpages.available():
         pytest.skip("the PDF rasteriser extra is not installed here")
     monkeypatch.setattr(
-        routes_files,
+        files_service,
         "_vision_read_page",
         lambda path, index, reader="vision": routes_files.OcrPageReadOut(
             page=index, text="The words on the page.", model="stub-reader"

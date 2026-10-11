@@ -81,6 +81,9 @@ async function renderExtras() {
     if (voiceExtra?.installed) {
       if (!prefsCache) prefsCache = await apiJson("/preferences").catch(() => null);
       $("voice-model-select").value = prefsCache?.voice_model || "base";
+      $("voice-skip-silence").checked = prefsCache?.voice_skip_silence ?? true;
+      $("voice-language-select").value = prefsCache?.voice_language || "";
+      $("voice-vocabulary").value = prefsCache?.voice_vocabulary || "";
     }
   }
 }

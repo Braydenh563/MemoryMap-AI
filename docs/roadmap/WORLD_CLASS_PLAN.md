@@ -3927,9 +3927,9 @@ part built; sync (B6) designed only.
 | --- | --- | --- | --- |
 | 26.0 Measure | decision 63's complexity and per-frame census; import times, resident memory with and without the embedder, the index audit (every FK and hot `WHERE`), the 54 untested routes listed, the 21 swallows listed, the 32 thread sites classified | numbers in this section | 60, built 2026-10-10 (26.4 and 26.5 hold the numbers) |
 | 26a Lints | decisions 57, 58, 59 as ratchets; the prints folded | all three green with their seeds | 60, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 26.0 and 26a, Brief 60)"): seeds 21, 49, 26; complexity 260 over 15; wake sources 97 rows |
-| 26b Services | decision 55 for whiteboard and files | route tests unchanged and green; `routes_whiteboard.py` under 1,500 lines | 61 (Opus, high) |
+| 26b Services | decision 55 for whiteboard and files | route tests unchanged and green; `routes_whiteboard.py` under 1,500 lines | 61, built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)"): 5,808 to 1,438 lines; files 4,028 to 1,905; entries and chat left |
 | 26c Data | decision 56 for the four tables; the import-time test | `test_import_time.py` green; the composer eval unchanged (grounded 1.0) | 62 (Opus, high) |
-| 26d Runners | decision 61; the embedder's lazy load (62) | the agent and skill tests unchanged; the resident number recorded | 63 (Opus, high) |
+| 26d Runners | decision 61; the embedder's lazy load (62) | the agent and skill tests unchanged; the resident number recorded | 63 (Opus, high); 62 built 2026-10-11: 491 MB loaded, 376 MB after the idle unload, reload 3.2 s (HISTORY "Brief 63 part 1, the embedder") |
 
 ### 26.4 Measured, 2026-10-10 (Brief 60, numbers only)
 

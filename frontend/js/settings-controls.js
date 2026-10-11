@@ -502,6 +502,9 @@ $("pref-background-filing").addEventListener("change", (e) =>
 $("pref-semantic-auto-install").addEventListener("change", (e) =>
   setPreference("semantic_auto_install", e.target.checked)
 );
+$("pref-embedding-idle-unload").addEventListener("change", (e) =>
+  setPreference("embedding_idle_unload", e.target.checked)
+);
 $("pref-warm-search-model").addEventListener("change", (e) =>
   setPreference("warm_search_model_at_launch", e.target.checked)
 );
@@ -620,6 +623,16 @@ $("autonomous-trigger").addEventListener("click", () => {
 
 $("voice-model-select").addEventListener("change", (e) =>
   setPreference("voice_model", e.target.value)
+);
+$("voice-skip-silence").addEventListener("change", (e) =>
+  setPreference("voice_skip_silence", e.target.checked)
+);
+$("voice-language-select").addEventListener("change", (e) =>
+  setPreference("voice_language", e.target.value)
+);
+//: On change, not on input: one save when the field is left, not one a key.
+$("voice-vocabulary").addEventListener("change", (e) =>
+  setPreference("voice_vocabulary", e.target.value.trim())
 );
 
 // ---- from wiring.js ----

@@ -107,6 +107,16 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # means it is never started, search stays on keywords, and Settings,
     # Packages keeps its manual Install.
     "semantic_auto_install": True,
+    # Let the built-in search model go after an hour with no embed and load it
+    # again on the next search (WORLD_CLASS_PLAN decision 62, ai/embeddings.py
+    # `unload_if_idle`). Off keeps it in memory for as long as the app runs.
+    "embedding_idle_unload": True,
+    # Whisper's options (ai/voice.py `options_from`, Brief 87 step 2): skip
+    # the silence and hum around a clip (Silero VAD, no download); a language
+    # ("" detects it); names and terms to expect, as Whisper's prompt.
+    "voice_skip_silence": True,
+    "voice_language": "",
+    "voice_vocabulary": "",
     "searxng_url": "",
     "search_provider": "auto",
     # Which dialect the chat backend speaks (§6). "ollama" is the native

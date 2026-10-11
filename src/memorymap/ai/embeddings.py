@@ -16,6 +16,7 @@ import logging
 import os
 import threading
 import time
+import weakref
 from typing import TYPE_CHECKING
 
 from sqlalchemy import delete as sa_delete
@@ -81,10 +82,45 @@ _pulse = {"at": 0.0}
 _idle_wait = threading.Event()
 
 
+#: **The model is let go after an idle hour** (WORLD_CLASS_PLAN decision 62,
+#: Brief 63). The built-in model is most of the app's resident memory (647 MB
+#: measured with `bge-small` against 130 MB without, 26.4), and a notebook
+#: left open all day holds it for one search in the morning. An hour with no
+#: embed lets it go; the next search or save loads it again, a few seconds.
+#: `embedding_idle_unload`, on by default, keeps it.
+IDLE_UNLOAD_SECONDS = 3600.0
+#: How often a request looks. The look is a clock read per loaded service.
+IDLE_CHECK_EVERY_SECONDS = 60.0
+_idle_check = {"at": 0.0}
+#: The services holding a loaded model, so a request can find them without
+#: naming the dependency container (the cycle this module stays out of).
+_loaded: "weakref.WeakSet[EmbeddingService]" = weakref.WeakSet()
+
+
 def note_request() -> None:
     """Called for every HTTP request; the warm-up reads it to stay out of the
-    way while a page is loading."""
-    _pulse["at"] = time.monotonic()
+    way while a page is loading, and once a minute it looks for a model that
+    has sat unused for an hour."""
+    now = time.monotonic()
+    _pulse["at"] = now
+    if now - _idle_check["at"] >= IDLE_CHECK_EVERY_SECONDS:
+        _idle_check["at"] = now
+        _queue_idle_unloads(now)
+
+
+def _queue_idle_unloads(now: float) -> None:
+    """Queue the unload rather than doing it: this runs on the event loop, and
+    letting go of a model is a garbage collection."""
+    idle = [service for service in list(_loaded) if service.idle_for(now) >= IDLE_UNLOAD_SECONDS]
+    if not idle:
+        return
+    from memorymap.core import jobs
+
+    for service in idle:
+        jobs.enqueue(
+            "warm", service.unload_if_idle, name="let the idle search model go",
+            dedupe_key=("embed-unload", id(service)),
+        )
 
 
 def _wait_for_idle() -> None:
@@ -647,6 +683,20 @@ def similar_pairs(
     return found
 
 
+def _release_freed_memory() -> None:
+    """Hand the freed model's pages back to the system. glibc keeps a freed
+    heap for reuse, so without this the resident number barely moves after
+    an unload; elsewhere there is nothing to call and nothing to do."""
+    try:
+        import ctypes
+        import sys
+
+        if sys.platform.startswith("linux"):
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError, AttributeError):
+        logger.debug("malloc_trim is not available here; the memory returns as it is reused")
+
+
 class EmbeddingService:
     # After a failed model load, wait this long before trying again, 
     # each attempt can hit the network and stall a save otherwise.
@@ -655,7 +705,12 @@ class EmbeddingService:
     def __init__(self, model_manager: ModelManager, ollama_client: OllamaClient) -> None:
         self._models = model_manager
         self._ollama = ollama_client
-        self._st_model = None  # loaded lazily, exactly once
+        self._st_model = None  # loaded lazily, again after an idle unload
+        #: When the model last encoded (monotonic), and whether it was let go
+        #: for being idle: a rested model still counts as ready, since the
+        #: next embed loads it (`unload_if_idle`).
+        self._last_used = 0.0
+        self._idle_unloaded = False
         self._load_failed_at: float | None = None
         # Why the last embed failed, for the Models screen, None = fine.
         self.last_error: str | None = None
@@ -723,6 +778,7 @@ class EmbeddingService:
         loading it again would cost the first search after the switch."""
         if other._st_model is not None:
             self._st_model = other._st_model
+            self._mark_used()
         self.clear_embed_cache()
         self.reset_failure_state()
 
@@ -736,10 +792,50 @@ class EmbeddingService:
 
     def is_ready(self) -> bool:
         """Can we embed right now without a long first-time load?
-        Drives the UI's status pill."""
+        Drives the UI's status pill. A model let go for being idle counts:
+        it loaded once and the next embed loads it again, so a search keeps
+        its meaning half rather than dropping to keywords."""
+        if self._models.embedding_backend() == "ollama":
+            return self._ollama.is_running()
+        return self._st_model is not None or self._idle_unloaded
+
+    def is_loaded(self) -> bool:
+        """Whether the model is in memory now (`is_ready`, without the rest)."""
         if self._models.embedding_backend() == "ollama":
             return self._ollama.is_running()
         return self._st_model is not None
+
+    def _mark_used(self) -> None:
+        self._last_used = time.monotonic()
+        _loaded.add(self)
+
+    def idle_for(self, now: float | None = None) -> float:
+        """Seconds since the loaded model last encoded; 0 with none loaded."""
+        if self._st_model is None:
+            return 0.0
+        return (time.monotonic() if now is None else now) - self._last_used
+
+    def _idle_unload_on(self) -> bool:
+        config = getattr(self._models, "_config", None)
+        if config is None:  # a pinned service mid-switch: short-lived
+            return False
+        return bool(config.get_preference("embedding_idle_unload", True))
+
+    def unload_if_idle(self, now: float | None = None) -> bool:
+        """Let the model go when it has not encoded for `IDLE_UNLOAD_SECONDS`
+        and the setting allows it. True when it went."""
+        if self.idle_for(now) < IDLE_UNLOAD_SECONDS or not self._idle_unload_on():
+            return False
+        idle_minutes = self.idle_for(now) / 60
+        self._st_model = None
+        self._idle_unloaded = True
+        _loaded.discard(self)
+        import gc
+
+        gc.collect()
+        _release_freed_memory()
+        logger.info("search model unloaded after %.0f minutes unused", idle_minutes)
+        return True
 
     def embed_text(self, text: str) -> np.ndarray | None:
         """Vector for one text, or None if the backend is unavailable.
@@ -848,18 +944,23 @@ class EmbeddingService:
             if time.monotonic() - self._load_failed_at < self.RETRY_AFTER_SECONDS:
                 return None  # don't re-stall every save while it's broken
         try:
-            if self._st_model is None:
+            # One read: an idle unload between the check and the encode would
+            # otherwise leave `None.encode`.
+            model = self._st_model
+            if model is None:
                 # Heavy import (pulls in torch): deferred so the app
                 # starts fast and still runs if the package is missing.
-                self._st_model = self._load_st_model()
+                model = self._st_model = self._load_st_model()
                 self._load_failed_at = None
+                self._idle_unloaded = False
+            self._mark_used()
             import numpy as np
 
             _limit_torch_threads()
             # No progress bar: a tqdm "Batches" bar on stderr for every one
             # note is log noise in a packaged app and a little work besides.
             result = np.asarray(
-                self._st_model.encode(self._prefixed(text), show_progress_bar=False), dtype="float32"
+                model.encode(self._prefixed(text), show_progress_bar=False), dtype="float32"
             )
             self.last_error = None
             return result
@@ -868,6 +969,7 @@ class EmbeddingService:
             # keep working: but record and LOG why, or a broken install
             # looks like it's "warming up" forever (user-reported bug).
             self._load_failed_at = time.monotonic()
+            self._idle_unloaded = False
             self._maybe_auto_install_missing_package(exc)
             if isinstance(exc, ModuleNotFoundError) and "sentence_transformers" in str(exc):
                 #: **Not installed is a state, not a crash** (owner's packaged-app
@@ -1045,17 +1147,19 @@ class EmbeddingService:
     def embed_many(self, texts: list[str]) -> list[np.ndarray | None]:
         """Vectors for several texts: one batched encode where the backend
         has one (sentence-transformers), one call each otherwise."""
+        model = self._st_model
         if (
             texts
             and self._models is not None
             and self._models.embedding_backend() != "ollama"
-            and self._st_model is not None
+            and model is not None
         ):
             try:
                 import numpy as np
 
+                self._mark_used()
                 _limit_torch_threads()
-                batch = self._st_model.encode([self._prefixed(text) for text in texts], show_progress_bar=False)
+                batch = model.encode([self._prefixed(text) for text in texts], show_progress_bar=False)
                 return [np.asarray(row, dtype="float32") for row in batch]
             except Exception:  # noqa: BLE001  # fall back to one at a time
                 logger.debug("batched encode failed; embedding one at a time", exc_info=True)

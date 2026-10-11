@@ -3585,6 +3585,8 @@ function renderGraphPopupHeader(entry, node) {
 async function openGraphPopup(event, node) {
   event.stopPropagation();
   graphPopupId = node.id;
+  //: The open note wears the focus ring (graph-canvas.js `openId`).
+  if (typeof gcTab !== "undefined" && gcTab.canvas) gcRequestDraw(gcTab);
   const popup = $("graph-popup");
   const status = $("graph-popup-status");
   status.textContent = "";
@@ -4445,6 +4447,7 @@ function renderGraphPopupActions(entry) {
 
 function closeGraphPopup() {
   graphPopupId = null;
+  if (typeof gcTab !== "undefined" && gcTab.canvas) gcRequestDraw(gcTab);
   $("graph-popup").classList.add("hidden");
   clearGraphKeyboardFocus();
 }

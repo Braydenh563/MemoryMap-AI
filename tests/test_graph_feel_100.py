@@ -178,3 +178,41 @@ def test_a_frame_of_a_hover_fade_builds_no_style_objects_or_keys():
     assert "edge._keys[slot] ||" in draw
     assert "gcBowPoint(a, b, gcBowScratch, edge._side)" in draw
     assert "node._spritePx !== px" in draw
+
+
+#: The bloom block exactly as it stood before Brief 100: the owner said "keep
+#: the glow the same", so its text is pinned (the pixel check, glow.js against
+#: the base sprite, measured a 0 difference on the glow ring).
+GLOW = """  if (gcHexToRgb(colour)) {
+    const bloom = c.createRadialGradient(half, half, r * 0.9, half, half, half);
+    const rgb = gcHexToRgb(colour).join(", ");
+    bloom.addColorStop(0, `rgba(${rgb}, ${hub ? 0.15 : 0.09})`);
+    bloom.addColorStop(1, `rgba(${rgb}, 0)`);"""
+
+
+@needs_node
+def test_the_node_gets_a_shaded_core_and_a_rim_and_the_glow_is_unchanged():
+    sprite = _fn("gcNodeSprite")
+    assert GLOW in sprite
+    assert "const glow = hub ? Math.round(r * 0.8) + 3 : Math.round(r * 0.45) + 2;" in sprite
+    assert sprite.index(GLOW) < sprite.index("gcPaintCore(c, half, r, colour);")
+    core = _fn("gcPaintCore")
+    assert "createRadialGradient" in core and "c.stroke()" in core
+    out = _node(
+        _fn("gcHexToRgb")
+        + _fn("gcMixRgb")
+        + """
+        console.log(JSON.stringify([gcMixRgb([100, 200, 0], 255, 0.08), gcMixRgb([100, 200, 0], 0, 0.25)]));
+        """
+    )
+    assert out == ["rgb(112, 204, 20)", "rgb(75, 150, 0)"]
+
+
+def test_the_note_whose_card_is_open_wears_the_focus_ring():
+    draw = _fn("gcDraw")
+    assert 'const openId = s.size === "full" && typeof graphPopupId !== "undefined" ? graphPopupId : null;' in draw
+    assert "node.id === gcKeyboardId(s) || node.id === openId" in draw
+    graph = (ROOT / "frontend" / "js" / "graph.js").read_text(encoding="utf-8")
+    for fn in ("openGraphPopup", "closeGraphPopup"):
+        body = re.search(rf"(?:async )?function {fn}\(.*?\n}}\n", graph, re.S).group(0)
+        assert "gcRequestDraw(gcTab)" in body

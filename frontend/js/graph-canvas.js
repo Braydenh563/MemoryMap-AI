@@ -1005,6 +1005,40 @@ function gcHexToRgb(colour) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+//: **The node itself** (Brief 100 (c), the owner: "improve the visual look
+//: of nodes (keep the glow the same). just change the nodes themnselves").
+//: Still flat in spirit (a gradient body read as "fake or too realistic", a
+//: highlight dot as "a bowling ball"): the category colour with the faintest
+//: shade across it, 8% lighter at the upper left to 8% deeper at the far
+//: edge, which gives the disc a surface without a light source, and a crisp
+//: one-pixel rim a quarter deeper in its own colour, so a dot on a dot or on
+//: a line keeps its edge. A colour that is not a hex code keeps the flat
+//: disc. The glow, drawn before this, is untouched.
+function gcMixRgb(rgb, toward, share) {
+  return `rgb(${rgb.map((v) => Math.round(v + (toward - v) * share)).join(", ")})`;
+}
+function gcPaintCore(c, half, r, colour) {
+  const rgb = gcHexToRgb(colour);
+  c.beginPath();
+  c.arc(half, half, r, 0, Math.PI * 2);
+  if (!rgb || r < 3) {
+    c.fillStyle = colour;
+    c.fill();
+    return;
+  }
+  const shade = c.createRadialGradient(half - r * 0.35, half - r * 0.35, 0, half, half, r);
+  shade.addColorStop(0, gcMixRgb(rgb, 255, 0.08));
+  shade.addColorStop(0.6, colour);
+  shade.addColorStop(1, gcMixRgb(rgb, 0, 0.08));
+  c.fillStyle = shade;
+  c.fill();
+  c.beginPath();
+  c.arc(half, half, r - 0.5, 0, Math.PI * 2);
+  c.lineWidth = 1;
+  c.strokeStyle = gcMixRgb(rgb, 0, 0.25);
+  c.stroke();
+}
+
 function gcNodeSprite(colour, radiusPx, hub) {
   const r = Math.max(2, Math.round(radiusPx));
   const key = `${colour}|${r}|${hub ? 1 : 0}|${gcTokens.card}`;
@@ -1012,7 +1046,8 @@ function gcNodeSprite(colour, radiusPx, hub) {
   if (sprite) return sprite;
   if (gcSpriteCache.size > 600) gcSpriteCache.clear();
   //: Flat, like every other mark in the app (DESIGN.md: one fill, one edge,
-  //: no rendered light): the category colour as a disc, a ring in the
+  //: no rendered light): the category colour as a disc (shaded a breath by
+  //: `gcPaintCore`, Brief 100 (c)), a ring in the
   //: card's own colour so a node reads clear of the links it sits on, and
   //: for a hub only, a soft bloom of its colour behind it. A gradient body
   //: was tried and read as "fake or too realistic"; a highlight dot as "a
@@ -1045,10 +1080,7 @@ function gcNodeSprite(colour, radiusPx, hub) {
   c.beginPath();
   c.arc(half, half, r + ring, 0, Math.PI * 2);
   c.fill();
-  c.fillStyle = colour;
-  c.beginPath();
-  c.arc(half, half, r, 0, Math.PI * 2);
-  c.fill();
+  gcPaintCore(c, half, r, colour);
   sprite = { canvas, half };
   gcSpriteCache.set(key, sprite);
   return sprite;
@@ -2055,14 +2087,13 @@ function gcDraw(s = gcTab) {
   //: pointed at, else the one the keyboard is on, else the one whose panel is
   //: open. Its lines are the ones not dimmed, so the numbers sit on the only
   //: lines still in full view.
+  const openId = s.size === "full" && typeof graphPopupId !== "undefined" ? graphPopupId : null;
   const scoreFor =
     s.hoveredId != null
       ? s.hoveredId
       : gcKeyboardId(s) != null
         ? gcKeyboardId(s)
-        : s.size === "full" && typeof graphPopupId !== "undefined"
-          ? graphPopupId
-          : null;
+        : openId;
   s.simScoreLabels = [];
   const arrows = !s.tree && gcArrows(s);
   //: A spark drifts along the pointed-at note's arrowed links, unless motion
@@ -2230,7 +2261,9 @@ function gcDraw(s = gcTab) {
     halo.nodes.push(node);
     drawn.push(node);
     node._dim = dim;
-    const focused = node.id === s.hoveredId || node.id === gcKeyboardId(s);
+    //: The note whose popup is open keeps the focus ring (Brief 100 (c), a
+    //: ring on the selected node), so the map says which dot the card is for.
+    const focused = node.id === s.hoveredId || node.id === gcKeyboardId(s) || node.id === openId;
     //: The node the pointer just left keeps its ring while it shrinks back,
     //: fading with it, and the one it arrived on fades its ring in.
     const leaving = !focused && node.id === s.hoverFrom && heat > 0;

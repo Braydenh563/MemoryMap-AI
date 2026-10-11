@@ -4,7 +4,7 @@ Ratchets: `tests/test_undo_coverage.py` (EXEMPT only shrinks; no GAP class left;
 
 Numbers: GAP entries 89 to 0. EXEMPT keeps only auth, read, send, settings, telemetry, job, inverse, board and purge, a reason each.
 
-Not verified in a browser: see the live sweep `scratchpad/ui-sweeps/undoall.js` and its numbers in the report. A board "call" step is not persisted across a reload by design.
+Live: `scratchpad/ui-sweeps/undoall.js`, 21 acts on a fresh data dir (port 8797), Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y, again: 21 pass. 13 press the control, 8 call the handler the control calls. Not driven live: chat edit and resend, graph pins, the lightbox reading delete, a Forget everything, map branch cuts (their steps are held by the coverage test and the route tests). A board "call" step is not persisted across a reload by design.
 
 Left, found while doing it:
 - `tests/test_no_import_cycles.py` fails on main too (`question_noise` -> `spelling` -> `question_noise`), not from this work.

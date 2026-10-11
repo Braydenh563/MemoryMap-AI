@@ -472,7 +472,7 @@ def test_the_walks_tilt_and_way_do_not_inherit_either():
     assert 'querySelectorAll(".atl-layer-lower")' in way and 'el.style.setProperty("--nmb-lean", way)' in way
     # Nothing else writes the way straight onto the buddy.
     assert AVATARS.count('.setProperty("--nmb-lean"') == 2
-    assert AVATARS.count("nameMarkBuddyWay(buddy,") == 4  # its definition and the three walks that set it
+    assert AVATARS.count("nameMarkBuddyWay(buddy,") == 5  # its definition, the three walks and the tumble in that set it
 
 
 ATLAS_MOOD_NAMES = re.findall(r"^  (\w+): \{ words:", ATLAS[ATLAS.index("const ATLAS_MOODS = {"):], re.M)

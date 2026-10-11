@@ -204,3 +204,28 @@ def test_the_large_view_asks_for_an_act() -> None:
     assert 'row.setAttribute("role", "group");' in acts
     assert 'if (home) card.appendChild(nameMarkViewerActs(document.getElementById("nm-buddy")));' in MENU
     assert ".nm-viewer-acts { display: flex; flex-wrap: wrap;" in CSS
+
+
+def test_it_comes_in_three_ways_or_more_wherever_it_stands() -> None:
+    """Brief 88, the owner: "screen entries". Each place but a hang under a
+    bar has three ways in or more, so the never-the-last rule always has a
+    choice; the two new ones end on the perch, upright, with a squash on
+    landing (measured by `scratchpad/ui-sweeps/entries.js`: every way
+    settles within 1px of the perch, no way twice running, both kinds)."""
+    src = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
+    enter = _fn(src, "nameMarkBuddyEnter")
+    lists = re.findall(r"ways = \[([^\]]*)\]", enter)
+    assert len(lists) == 5
+    assert sorted(len(w.split(",")) for w in lists) == [2, 2, 3, 3, 4]
+    assert 'if (spot.kind === "hang" || spot.pose === "hang") ways = ["down", "materialise"];' in enter
+    for how in ("fall", "tumble"):
+        branch = enter[enter.index(f'if (how === "{how}") {{') :]
+        branch = branch[: branch.index("return how;")]
+        # It ends where it stands, upright, and lands with weight.
+        assert '{ translate: "0px 0px" },\n    ]' in branch
+        assert "nameMarkBuddySquash(char," in branch and "nameMarkBuddyLimbs(buddy," in branch
+    # Atlas drifts down rather than dropping, swaying as it floats.
+    fall = enter[enter.index('if (how === "fall") {') :]
+    assert 'atlas ? "float" : "leap"' in fall and "if (!atlas) nameMarkBuddySquash" in fall
+    tumble = enter[enter.index('if (how === "tumble") {') :]
+    assert '{ rotate: "0deg" },\n    ], { duration, easing: "ease-out" })' in tumble

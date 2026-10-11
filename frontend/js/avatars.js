@@ -7005,12 +7005,17 @@ function nameMarkBuddyEnter(buddy, spot) {
   //: gathering out of starlight; on the bottom bar, up over it or
   //: gathering; near a side, walking on, gliding in or gathering; further
   //: in, gliding in from the side it came from or gathering.
+  //: **And two more ways in** (Brief 88, the owner: "screen entries"):
+  //: dropping in from above the window onto its perch (Atlas drifts down
+  //: instead, swaying, as it floats), and tumbling in from the nearer side
+  //: in a roll and a bounce. Three ways or more wherever it stands; one
+  //: hanging under a bar keeps its two, since nothing falls up under a bar.
   let ways;
   if (spot.kind === "hang" || spot.pose === "hang") ways = ["down", "materialise"];
-  else if (spot.kind === "bar" || y + NMB_H > innerHeight - 110) ways = ["up", "materialise"];
-  else if (reach < edge) ways = ["walk", "glide", "materialise"];
-  else if (reach < innerWidth * 0.5) ways = ["glide", "materialise"];
-  else ways = ["materialise"];
+  else if (spot.kind === "bar" || y + NMB_H > innerHeight - 110) ways = ["up", "materialise", "tumble"];
+  else if (reach < edge) ways = ["walk", "glide", "materialise", "tumble"];
+  else if (reach < innerWidth * 0.5) ways = ["glide", "materialise", "fall"];
+  else ways = ["materialise", "fall"];
   const fresh = ways.filter((w) => w !== nmb.lastEnter);
   const pick = fresh.length ? fresh : ways;
   //: The first entrance of an unlock is never the bare fade: a hanging one climbs down, one on a bar climbs up.
@@ -7052,6 +7057,51 @@ function nameMarkBuddyEnter(buddy, spot) {
     };
     walk.onfinish = done;
     walk.oncancel = done;
+    return how;
+  }
+  if (how === "fall") {
+    //: From just above the window, under gravity (an ease-in), a squash on
+    //: landing and one small bounce; Atlas drifts down, slower, swaying.
+    const atlas = nameMarkBuddyHasAtlas(buddy);
+    const dy = -(y + NMB_H + 16);
+    const duration = Math.round(Math.min(atlas ? 1500 : 1000, (atlas ? 700 : 420) + Math.abs(dy) * (atlas ? 1.1 : 0.6)));
+    const hit = atlas ? 0.86 : 0.7;
+    nmb.anim = buddy.animate(atlas ? [
+      { translate: `0px ${dy}px`, easing: "cubic-bezier(0.3, 0.2, 0.4, 1)" },
+      { translate: "0px 3px", offset: hit, easing: "ease-in-out" },
+      { translate: "0px 0px" },
+    ] : [
+      { translate: `0px ${dy}px`, easing: "cubic-bezier(0.55, 0, 1, 0.45)" },
+      { translate: "0px 0px", offset: hit, easing: "cubic-bezier(0, 0.55, 0.45, 1)" },
+      { translate: "0px -9px", offset: 0.83, easing: "cubic-bezier(0.55, 0, 1, 0.45)" },
+      { translate: "0px 0px" },
+    ], { duration });
+    const sway = Math.random() < 0.5 ? -1 : 1;
+    nmb.hopAnim = atlas ? char?.animate([
+      { rotate: `${sway * 8}deg` }, { rotate: `${-sway * 6}deg`, offset: 0.35 }, { rotate: `${sway * 4}deg`, offset: 0.65 }, { rotate: "0deg" },
+    ], { duration, easing: "ease-in-out" }) || null : null;
+    if (!atlas) nameMarkBuddySquash(char, Math.round(duration * hit) - 50, true);
+    nameMarkBuddyLimbs(buddy, atlas ? "float" : "leap", duration, 0, sway);
+    return how;
+  }
+  if (how === "tumble") {
+    //: In from the nearer side in a roll, a bounce, and onto its feet.
+    const dx = fromLeft ? -(x + NMB_W + 12) : innerWidth - x + 12;
+    const way = dx > 0 ? -1 : 1;
+    const duration = Math.round(Math.min(1200, 620 + Math.abs(dx) * 0.6));
+    nameMarkBuddyWay(buddy, String(way));
+    nmb.anim = buddy.animate([
+      { translate: `${dx}px -46px`, easing: "cubic-bezier(0.3, 0, 0.7, 1)" },
+      { translate: `${Math.round(dx * 0.35)}px 0px`, offset: 0.5, easing: "cubic-bezier(0.2, 0.6, 0.4, 1)" },
+      { translate: `${Math.round(dx * 0.12)}px -14px`, offset: 0.72, easing: "cubic-bezier(0.6, 0, 0.8, 0.6)" },
+      { translate: "0px 0px" },
+    ], { duration });
+    nmb.hopAnim = char?.animate([
+      { rotate: `${-way * 360}deg`, easing: "cubic-bezier(0.3, 0, 0.5, 1)" }, { rotate: `${-way * 20}deg`, offset: 0.5 },
+      { rotate: `${way * 6}deg`, offset: 0.85 }, { rotate: "0deg" },
+    ], { duration, easing: "ease-out" }) || null;
+    nameMarkBuddySquash(char, Math.round(duration * 0.5) - 50, true);
+    nameMarkBuddyLimbs(buddy, "leap", duration, 0, way);
     return how;
   }
   if (how === "down" || how === "up") {

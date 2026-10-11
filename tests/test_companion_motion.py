@@ -1376,7 +1376,7 @@ def test_the_way_there_is_chosen_by_the_shape_of_the_move() -> None:
     # The side it glides in from is the tab's it left (INBOX 501 lets it
     # glide in from the nearer edge at a start too).
     assert "const fromLeft = side ? side < 0 : x < innerWidth / 2;" in enter
-    assert 'else if (reach < innerWidth * 0.5) ways = ["glide", "materialise"];' in enter
+    assert 'else if (reach < innerWidth * 0.5) ways = ["glide", "materialise", "fall"];' in enter
 
 
 def test_its_limbs_move_with_it() -> None:
@@ -1485,8 +1485,8 @@ def test_it_comes_on_screen_a_way_that_suits_the_place_and_not_the_same_twice():
     last one is left out when there is another, and the climb fades up over
     its first half."""
     enter = _fn("nameMarkBuddyEnter")
-    assert 'ways = ["down", "materialise"]' in enter and 'ways = ["up", "materialise"]' in enter
-    assert 'ways = ["walk", "glide", "materialise"]' in enter
+    assert 'ways = ["down", "materialise"]' in enter and 'ways = ["up", "materialise", "tumble"]' in enter
+    assert 'ways = ["walk", "glide", "materialise", "tumble"]' in enter
     assert "const fresh = ways.filter((w) => w !== nmb.lastEnter);" in enter and "nmb.lastEnter = how;" in enter
     assert "opacity: 1, offset: 0.5 }" in enter
     # Reduced motion still fades in where it is.

@@ -3,53 +3,22 @@
 // Lazy (app.js, `LAZY_MODULES.assistantAvatar`): only a person who sets
 // Appearance, Assistant avatar to "App emblem" ever needs it. Entered through
 // `assistantEmblemInto`, a `LAZY_ENTRY_POINTS` stand-in, from
-// `assistantAvatar` (chat-agent.js), which hands over an empty canvas of the
-// right box and keeps going.
+// `assistantAvatar` (chat-agent.js), which hands over an empty box of the
+// right size and keeps going.
 //
-// **Drawn once per colour and size, copied into every head.** The emblem is a
-// p5 sketch (`renderEmblem`, phone-shell.js: the same ring of linked notes as
-// the tab strip's mark and the welcome), and a chat of 150 replies must not
-// hold 150 sketches (chatheads.js measured that for the p5 heads this replaced:
-// 939ms against 410ms to open). So the sketch is drawn into a scratch box
-// off the page, its canvas kept, and each head's own canvas takes a copy of
-// the pixels. It turns by CSS like every emblem (`canvas.emblem-spin`,
-// 03-dashboard-widgets.css) unless Reduce motion is set, which leaves the
-// class off and the head still. A change of accent redraws the heads where
-// they stand (`renderBrandLogo` calls `repaintAssistantAvatars`), and the new
-// colour is a new key.
-const assistantEmblemShots = new Map();
-
-function assistantEmblemShot(size) {
-  const accent = typeof currentAccentHex === "function" ? currentAccentHex() : "";
-  const key = `${size}|${accent}`;
-  let shot = assistantEmblemShots.get(key);
-  if (!shot) {
-    //: After the page's scripts have run, as when this waited for p5: the
-    //: copy below reads settings.js (`appearancePref`), which loads later.
-    shot = whenScriptsLoaded().then(() => {
-      const scratch = document.createElement("div");
-      scratch.className = "assistant-emblem-scratch";
-      document.body.appendChild(scratch);
-      //: Animated like every emblem (tests/test_emblem_turns.py); the copy
-      //: each head gets carries its own `emblem-spin` below.
-      renderEmblem(scratch, size, { animate: true });
-      const canvas = scratch.querySelector("canvas");
-      releaseEmblem(scratch);
-      scratch.remove();
-      return canvas;
-    });
-    assistantEmblemShots.set(key, shot);
-  }
-  return shot;
-}
-
-async function assistantEmblemInto(target, size) {
-  const shot = await assistantEmblemShot(size);
-  if (!shot) return;
-  target.width = shot.width;
-  target.height = shot.height;
-  target.getContext("2d").drawImage(shot, 0, 0);
-  //: The same rule `renderEmblem` has: the app's own motion switch, not the
-  //: system hint, decides whether it turns.
-  target.classList.toggle("emblem-spin", appearancePref("motion") !== "reduced");
+// **The mark itself, not a copy of its pixels.** The emblem was a sketch
+// drawn once into a scratch box and copied into every head, so a chat of 150
+// replies did not hold 150 sketches. The tessellation mark (brief "logo",
+// 2026-10-11) is a handful of SVG layers (`emblemArt`, phone-shell.js), so
+// each head gets its own: 20 nodes, against Atlas's 115 a head. A head
+// breathes like every emblem and is still under Reduce motion or with
+// Interface animations off (CSS, `.emblem-art`), and it is left out of the
+// lift while the AI works (`head`). A change of accent redraws the heads
+// where they stand (`renderBrandLogo` calls `repaintAssistantAvatars`).
+function assistantEmblemInto(target, size) {
+  const art = emblemArt(size, { head: true });
+  //: The head's box decides its size (75% of an Atlas mark's disc).
+  art.style.width = "100%";
+  art.style.height = "100%";
+  target.replaceChildren(art);
 }

@@ -8483,10 +8483,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    **Smaller, never gone** (INBOX 426 h: "the one from the new chat interface
    is missing"). This used to hide the emblem, and a 1280x720 window is short
    (pane 304px, welcome 326px), so the laptop most people have never saw it.
-   The box is 2rem tall and the 52px canvas is centred in it and drawn at
-   32/52 with the `scale` property rather than `transform`, because
-   `transform` is what the turn animates (`canvas.emblem-spin`) and the two
-   would overwrite each other. Measured at 1280x720: welcome 210px to 250px,
+   The box is 2rem tall and the 52px mark is centred in it and drawn at
+   32/52 with the `scale` property rather than `transform`, so no animation
+   of the mark's own layers (`.emblem-art`) can overwrite it. Measured at 1280x720: welcome 210px to 250px,
    still inside the 304px pane. */
 .chat-empty.is-short {
   gap: var(--space-2);
@@ -8497,7 +8496,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   height: 2rem;
   margin-bottom: 0;
 }
-.chat-empty.is-short #chat-empty-emblem canvas {
+.chat-empty.is-short #chat-empty-emblem .emblem-art {
   scale: calc(32 / 52);
 }
 .chat-empty.is-short #chat-suggest {

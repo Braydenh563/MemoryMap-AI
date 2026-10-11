@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9938, plan headings 996.
+Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1087, tests 9945, plan headings 996.
 
 ## Frontend functions (5655)
 
@@ -16008,7 +16008,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9938)
+## Tests (9945)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16293,6 +16293,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_edit_conflicts.py | 7 |
 | tests/test_edit_conflicts_ui.py | 1 |
 | tests/test_edit_embeds_off_request.py | 3 |
+| tests/test_egress_call_sites.py | 2 |
 | tests/test_egress_ledger_writes.py | 7 |
 | tests/test_egress_purposes.py | 9 |
 | tests/test_embedding_backfill.py | 10 |
@@ -16833,6 +16834,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_ring_room.py | 5 |
 | tests/test_round2_sweep_fixes.py | 3 |
 | tests/test_router.py | 13 |
+| tests/test_routes_batch_housekeeping.py | 5 |
 | tests/test_routes_named.py | 2 |
 | tests/test_rows_676.py | 6 |
 | tests/test_run_caps.py | 7 |

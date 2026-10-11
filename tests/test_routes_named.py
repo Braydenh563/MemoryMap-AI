@@ -9,7 +9,7 @@ name `/entries/export`. A literal ending in `/` is a prefix with one
 segment to come (`"/documents/" + id`). Methods are not compared: the rule
 is the path, which is what the decision says.
 
-The seed is the 49 routes found on 2026-10-10 (the census counted 54 with a
+The seed began as the 49 routes found on 2026-10-10 (the census counted 54 with a
 looser match). A route not in it and not named fails; a seeded route that a
 test now names fails too, so the list only shrinks. Add a test that calls the
 path, or delete the route, then delete its line.
@@ -27,12 +27,9 @@ SEED = frozenset(
 DELETE /board-library/libraries/{library_id}
 DELETE /documents/{document_id}/bookmarks/{bookmark_id}
 DELETE /documents/{document_id}/notes/{entry_id}
-DELETE /documents/{document_id}/purge
 DELETE /entries/{entry_id}/bookmarks/{bookmark_id}
-DELETE /reminders/{reminder_id}/purge
 GET /documents/{document_id}/connections
 GET /documents/{document_id}/export.md
-GET /questions/summary
 POST /board-library/libraries
 POST /board-library/{item_id}/duplicate
 POST /board-library/{item_id}/restore
@@ -43,7 +40,6 @@ POST /documents/{document_id}/ai-check
 POST /documents/{document_id}/ai-edit
 POST /documents/{document_id}/ai-edit-log/{entry_id}/revert
 POST /documents/{document_id}/notes
-POST /documents/{document_id}/restore
 POST /documents/{document_id}/revisions/{revision_id}/restore
 POST /entries/{entry_id}/filing/stop
 POST /entries/{entry_id}/history/{revision_id}/restore
@@ -55,20 +51,14 @@ POST /entries/{entry_id}/mentions/link
 POST /learned/{fact_id}/reset
 POST /media/{upload_id}/ocr-range-read
 POST /models/bench/stop
-POST /reminders/{reminder_id}/restore
 POST /review-queue/{entry_id}/accept
 POST /tidy/link-reasons/run
 POST /tidy/link-reasons/stop
 POST /whiteboard/boards/{board_id}/nodes/clear-style
 POST /whiteboard/boards/{board_id}/nodes/outline
 PUT /board-library/libraries/{library_id}
-PUT /conversations/{conversation_id}/archive
-PUT /conversations/{conversation_id}/pin
 PUT /conversations/{conversation_id}/turns/{index}/answer
 PUT /conversations/{conversation_id}/turns/{index}/followups
-PUT /conversations/{conversation_id}/unarchive
-PUT /documents/{document_id}/archive
-PUT /documents/{document_id}/unarchive
 PUT /entries/{entry_id}/links/{link_id}/reason
 PUT /whiteboard/boards/{board_id}/nodes/{node_id}/move
 """.strip().splitlines()

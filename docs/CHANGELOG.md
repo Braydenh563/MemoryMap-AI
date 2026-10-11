@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Settings, Recent changes: every row can be undone. A setting that was never set is put back to its default (the notebook now accepts `unset` on a settings save), and a value too big for the browser to store is held for as long as the page stays open.
 - Making a space no longer reloads the page: the menu updates in place and the step goes on the Undo bar (Undo moves anything put in it to the default space and removes it; Redo makes it again), with an "Open it" action on the notice.
 - Undo after accepting a link type or a name merge from the suggestions inbox now also takes away what the accept taught the notebook, and Redo teaches it again.
 - Fixed: Ctrl+Z on the Notes tab (or any tab but the board) walked the last board's history instead of the app's steps, and Ctrl+Z, Ctrl+Shift+Z, Ctrl+Z on a Mermaid import or any several-shape step left a shape behind, because items brought back reuse the ids just deleted.

@@ -37,7 +37,9 @@ function sql(statement) {
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
   //: kind: 'ui' | 'handler'. act runs once; state() reads the server.
+  let phaseNew = false;
   async function check(name, kind, { act, state, redoKey = 'Control+Shift+z', wait = 1600 }) {
+    if (process.env.NEW_ONLY && !phaseNew) return;
     const row = { name, kind, ok: false, note: '' };
     try {
       const before = await state();
@@ -348,6 +350,62 @@ function sql(statement) {
     },
     state: async () => ((await call('/spaces')).find?.((x) => x.id === space.id) || {}).name,
   });
+
+  // ---- undo3: the acts not yet checked live ----
+  phaseNew = true;
+  await page.evaluate(() => switchTab('notes'));
+  await settle(800);
+
+  // 22. Forget everything learned (the confirm dialog's own button).
+  const fh = await call('/entries', { method: 'POST', body: { content: `Forget holder ${tag} the cache is warm.` } });
+  sql(`INSERT INTO derived_facts (entry_id, kind, text, span_start, span_end, model, confidence, computed_at, edited_by_user) VALUES (${fh.id}, 'claim', 'Cache warm ${tag}', 0, 10, 'local', 0.9, datetime('now'), 0)`);
+  await check('Forget everything learned', 'handler', {
+    act: async () => {
+      const pending = page.evaluate(() => learnedForget());
+      await answer();
+      await pending;
+    },
+    state: async () => (await call('/learned?kind=claim&limit=200')).items.filter((f) => f.text.includes(tag)).length,
+  });
+
+  // 23. [[name]] rewrite offered after a rename: press the toast's own button.
+  const wt = await call('/entries', { method: 'POST', body: { content: `# Wold ${tag}\n\nbody` } });
+  const wl = await call('/entries', { method: 'POST', body: { content: `# Wlink ${tag}\n\nsee [[Wold ${tag}]]` } });
+  await call(`/entries/${wt.id}`, { method: 'PUT', body: { content: `# Wnew ${tag}\n\nbody` } });
+  await check('wiki rename via the toast button', 'ui', {
+    act: async () => {
+      await page.evaluate(({ id, old, nw }) => offerWikiRename(id, { wiki_rename: { old, new: nw, notes: 1 } }), { id: wt.id, old: `Wold ${tag}`, nw: `Wnew ${tag}` });
+      await page.locator('.toast button', { hasText: 'Rename to' }).first().click();
+    },
+    state: async () => (await call(`/entries/${wl.id}`)).content,
+  });
+
+  // 24. A file dropped into a note box (the real drop listener; Quick note's box
+  // takes the upload path, the one that records a step).
+  await page.evaluate(() => { document.getElementById('quick-note-text').value = 'before the drop '; });
+  await check('file dropped into a note box', 'ui', {
+    act: async () => {
+      await page.evaluate(async (b64) => {
+        const box = document.getElementById('quick-note-text');
+        const dt = new DataTransfer();
+        dt.items.add(new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], 'dropped.png', { type: 'image/png' }));
+        box.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+      }, png.toString('base64'));
+    },
+    state: async () => page.evaluate(() => document.getElementById('quick-note-text').value.replace(/\(\/[^)]*\)/, '(url)')),
+  });
+
+  // 25. A space made in the New space dialog: no reload, one Undo step.
+  const spaceCount = async () => (await call('/spaces')).filter((x) => x.name === `Made ${tag}`).length;
+  await check('space created (no reload)', 'ui', {
+    act: async () => {
+      await page.evaluate(() => { window.__noReload = true; openSpaceCreate(); });
+      await page.fill('#space-create-name', `Made ${tag}`);
+      await page.click('#space-create-submit');
+    },
+    state: spaceCount,
+  });
+  console.log('page kept (no reload):', await page.evaluate(() => window.__noReload === true));
 
   console.log('\nRESULTS');
   for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'}  [${r.kind}] ${r.name}  ${r.note}`);

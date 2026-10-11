@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, UploadFile
@@ -299,6 +299,9 @@ class SkillItem(BaseModel):
 
 
 class PreferencesBody(BaseModel):
+    #: Settings to put back to "never set" (their default), which a value cannot
+    #: say: Settings, Recent changes uses it to undo a first change (INBOX 898).
+    unset: list[Annotated[str, Field(min_length=1, max_length=80)]] | None = Field(default=None, max_length=64)
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
     # 0 means "keep everything", which is the default, see
     # `autonomous.purge_old_conversations` for why this is opt-in rather than
@@ -980,7 +983,13 @@ def update_preferences(
 ) -> dict:
     config = deps.get_config()
     changed_keys = set()
-    for key, value in body.model_dump(exclude_none=True).items():
+    values = body.model_dump(exclude_none=True)
+    for key in values.pop("unset", None) or []:
+        if key in values:
+            continue
+        config.unset_preference(key)
+        changed_keys.add(key)
+    for key, value in values.items():
         if key == "skills":
             # One validator for both ways in. A skill saved from the editor
             # goes through exactly what `save_skill` goes through, so a skill

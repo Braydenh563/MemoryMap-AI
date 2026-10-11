@@ -49,8 +49,10 @@ SCRIPT = "\n".join(
     [
         _function(GRAPH, "graphMinimapFinite"),
         _function(GRAPH, "frameTree"),
+        _function(GRAPH, "graphGlideMs"),
         """
 let got = null;
+const gcStill = () => false;
 const d3 = { zoomIdentity: { translate(x, y) { return { scale(k) { return { x, y, k }; } }; } } };
 const svg = { transition() { return { duration() { return { call(_f, t) { got = t; } }; } }; } };
 // A ring of twelve notes round (600, 400), every one at radius 150.

@@ -216,3 +216,109 @@ def test_the_note_whose_card_is_open_wears_the_focus_ring():
     for fn in ("openGraphPopup", "closeGraphPopup"):
         body = re.search(rf"(?:async )?function {fn}\(.*?\n}}\n", graph, re.S).group(0)
         assert "gcRequestDraw(gcTab)" in body
+
+
+GRAPH_JS = (ROOT / "frontend" / "js" / "graph.js").read_text(encoding="utf-8")
+
+
+def test_a_fit_centres_on_the_canvas_not_round_the_corner_widgets():
+    # INBOX 802: "why's the graph so positioned to the right and not in the
+    # middle??" Measured (scratchpad/g100 fitc.js): the minimap's corner box
+    # reserved a 190px left column, margins 418 against 286; now 352 and 352.
+    overlays = _const_block("GC_FIT_OVERLAYS")
+    assert '"#graph-minimap"' not in overlays and '"#graph-zoom"' not in overlays
+    assert '"#graph-options"' in overlays
+
+
+def _const_block(name: str) -> str:
+    start = CANVAS.index(f"const {name} = [")
+    return CANVAS[start : CANVAS.index("];", start)]
+
+
+@needs_node
+def test_every_camera_move_glides_on_the_token_and_cuts_with_less_motion():
+    moves = re.findall(r"\.transition\(\)\.duration\(([^)]*\)?)\)\.call\((?:zoomBehavior|graphZoom|s\.zoom)", GRAPH_JS + CANVAS)
+    assert len(moves) >= 7 and all(m.startswith("graphGlideMs(") for m in moves), moves
+    assert "const sel = animate ? graphSvg.transition().duration(graphGlideMs(250)) : graphSvg;" in GRAPH_JS
+    glide = re.search(r"^function graphGlideMs\(.*?^\}", GRAPH_JS, re.S | re.M).group(0)
+    out = _node(
+        glide
+        + """
+        let still = false; const gcStill = () => still; let gcTokens = {};
+        const a = graphGlideMs(500);
+        gcTokens = { hoverMs: 100 }; const b = graphGlideMs(500);
+        gcTokens = { hoverMs: 0 }; const c = graphGlideMs(500);
+        gcTokens = { hoverMs: 200 }; still = true; const d = graphGlideMs(500);
+        console.log(JSON.stringify([a, b, c, d]));
+        """
+    )
+    assert out == [500, 250, 0, 0]
+    assert "s.glideMs = Math.max(1, graphGlideMs(GC_LAYOUT_MS));" in CANVAS
+
+
+DROP = r"""
+const fs = require("fs"), path = require("path"), vm = require("vm");
+const root = process.argv[1];
+const timers = [], sent = [];
+const sandbox = { console, Math, Date, Float32Array, Map, Set,
+  setTimeout: (fn) => { timers.push(fn); return timers.length; }, clearTimeout: () => {},
+  setInterval: () => 0, clearInterval: () => {}, performance: { now: () => Date.now() },
+  postMessage: (m) => sent.push(m) };
+sandbox.self = sandbox;
+vm.createContext(sandbox);
+sandbox.importScripts = (url) => { const f = path.join(root, url.replace(/^\//, "")); vm.runInContext(fs.readFileSync(f, "utf8"), sandbox); };
+vm.runInContext(fs.readFileSync(path.join(root, "js", "graph-worker.js"), "utf8"), sandbox);
+const n = 15;
+const nodes = Array.from({ length: n }, (_, i) => ({ id: i, r: 7, group: "g" + (i % 3) }));
+const edges = Array.from({ length: n }, (_, i) => i).filter((i) => i % 5).map((i) => ({ source: i, target: Math.floor(i / 5) * 5, kind: "link" }));
+const send = (data) => sandbox.onmessage({ data });
+// As the main thread does: read the last posted positions, hand each buffer back.
+let last = null, ended = false;
+const drain = () => {
+  for (const m of sent) {
+    if (m.type === "tick") last = Array.from(m.positions);
+    if (m.type === "end") ended = true;
+  }
+  sent.length = 0;
+  sandbox.onmessage({ data: { type: "recycle", buffer: new Float32Array(n * 2).buffer } });
+};
+const spin = (most) => { for (let i = 0; i < most && timers.length; i++) { timers.shift()(); drain(); } drain(); };
+const at = (id) => [last[id * 2], last[id * 2 + 1]];
+send({ type: "init", epoch: 1, nodes, edges, params: { gravity: 50, spread: 50, lengthByScore: true, groupBy: true, orbit: true }, world: { left: -900, top: -900, right: 900, bottom: 900, aspect: 0.5 }, alpha: 1 });
+spin(2000);
+const from = at(3);
+const drop = [from[0] + 300, from[1] - 200];
+send({ type: "drag", phase: "start", id: 3, x: from[0], y: from[1] });
+send({ type: "drag", phase: "move", id: 3, x: drop[0], y: drop[1] });
+spin(20);
+send({ type: "drag", phase: "end", id: 3, keep: false });
+ended = false;
+spin(40);
+const mid = at(3);
+const midEnded = ended;
+spin(6000);
+const end = at(3);
+// After rest the note is free again: a pin it never asked for is not left on it.
+send({ type: "reheat", alpha: 0.5 });
+spin(30);
+const freed = at(3);
+console.log(JSON.stringify({ from, drop, mid, midEnded, end, ended, freed }));
+"""
+
+
+@needs_node
+def test_a_dropped_note_settles_where_it_was_put_and_is_free_at_rest():
+    # INBOX 802: measured in the app (scratchpad/g100 drag.js), a note dropped
+    # 286px away came 268px back within a second; held until rest, 0.
+    out = _node_args(DROP, str(ROOT / "frontend"))
+    dist = lambda a, b: ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5  # noqa: E731
+    assert not out["midEnded"] and dist(out["mid"], out["drop"]) < 1, out
+    assert out["ended"] and dist(out["end"], out["drop"]) < 1, out
+    assert dist(out["freed"], out["drop"]) > 0.5, out
+    worker = (ROOT / "frontend" / "js" / "graph-worker.js").read_text(encoding="utf-8")
+    assert "  if (settled) {\n    releaseDropped();" in worker
+
+
+def _node_args(script: str, *args: str) -> dict:
+    out = subprocess.run(["node", "-e", script, *args], capture_output=True, text=True, check=True, timeout=60).stdout
+    return json.loads(out)

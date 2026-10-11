@@ -1559,23 +1559,25 @@ function gcBalanceFit(s, placed, passes = 0) {
   if (still || s.canvas?.style.opacity === "0") {
     s.svg.interrupt().call(s.zoom.transform, framed);
     again();
-  } else s.svg.transition().duration(220).call(s.zoom.transform, framed).on("end", again);
+  } else s.svg.transition().duration(graphGlideMs(220)).call(s.zoom.transform, framed).on("end", again);
 }
 
 //: The overlays a fit keeps the notes out from under, as the depth each one
 //: takes from an edge of the map, in screen pixels (`graphFitFrame`): the
-//: dock along the top, the legend along the bottom, the minimap and the zoom
-//: strip in their corners, and whichever panel is open over the map (the
-//: owner, INBOX 792: fitting "should be based on what panels are currently
-//: showing and the screen resolution/size"). Each is counted against the
-//: edge it costs the least of the map's width or height to clear; a corner
-//: box goes to the side, so a wide map gives up width it has spare rather
-//: than height. A closed panel has no box and costs nothing.
+//: dock along the top, the legend along the bottom, and whichever panel is
+//: open over the map (the owner, INBOX 792: fitting "should be based on what
+//: panels are currently showing and the screen resolution/size"). Each is
+//: counted against the edge it costs the least of the map's width or height
+//: to clear. A closed panel has no box and costs nothing.
+//: **Not the minimap or the zoom strip** (INBOX 802, "why's the graph so
+//: positioned to the right and not in the middle??"): a 178px corner box
+//: reserved a 190px column down the whole left side, so a fitted map sat
+//: 132px right of centre (margins 418 and 286 on a 1406px canvas). They are
+//: small corner furniture, not panels; a map centred on the canvas clears
+//: them except at its very corners, as in every other graph view.
 const GC_FIT_OVERLAYS = [
   "#graph-card > .graph-overlay > .dock",
   "#graph-card .graph-legend-row",
-  "#graph-minimap",
-  "#graph-zoom",
   "#graph-options",
   "#graph-help-panel",
   "#graph-selection-dock",
@@ -1649,7 +1651,9 @@ function gcTweenFromPrior(s, nodes, prior, move = true) {
   }
   if (!moved) return;
   s.glideFrom = now;
-  s.glideMs = GC_LAYOUT_MS;
+  //: On the same token as `frameTree`'s camera, so frame and notes arrive
+  //: together; 1ms, not 0, is a cut (0 means "glide by tick").
+  s.glideMs = Math.max(1, graphGlideMs(GC_LAYOUT_MS));
   s.gliding = true;
   s.pathsStale = true;
 }

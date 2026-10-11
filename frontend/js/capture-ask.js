@@ -2145,6 +2145,8 @@ function clearAskAnswerFoot() {
   $("ai-answer")?.parentElement?.querySelector(":scope > .answer-support")?.remove();
   $("ask-answer-related")?.replaceChildren();
   $("ask-answer-sources")?.replaceChildren();
+  $("ask-why")?.replaceChildren();
+  $("ask-why")?.classList.add("hidden");
   const strip = $("ask-followups");
   if (strip) {
     strip.replaceChildren();
@@ -2315,6 +2317,40 @@ function renderAskInsights(found) {
     );
   }
   if (open.length) $("ask-answer-foot")?.classList.remove("hidden");
+}
+
+//: **Why this answer** (CHAT_PLAN B30, INBOX 805): how the answer was made,
+//: as a job's lines (what the question was read as, what was searched and
+//: matched, who wrote it and in what shape, what it cited, how long it
+//: took), each stamped with the seconds since the question. Folded under
+//: the answer in the Thinking fold's look (`.why-fold`), shut until wanted.
+function renderAskWhy(lines) {
+  const holder = $("ask-why");
+  if (!holder) return;
+  holder.replaceChildren();
+  holder.classList.toggle("hidden", !(lines || []).length);
+  if (!(lines || []).length) return;
+  const fold = document.createElement("details");
+  fold.className = "agent-step why-fold";
+  const summary = document.createElement("summary");
+  summary.className = "fold-summary";
+  setLabel(summary, "ph:path Why this answer");
+  const list = document.createElement("ol");
+  list.className = "why-lines";
+  list.setAttribute("aria-label", "How this answer was made");
+  for (const line of lines) {
+    const item = document.createElement("li");
+    const at = document.createElement("span");
+    at.className = "why-at";
+    at.textContent = `${Number(line.at || 0).toFixed(2)} s`;
+    const text = document.createElement("span");
+    text.textContent = line.text || "";
+    item.append(at, text);
+    list.appendChild(item);
+  }
+  fold.append(summary, list);
+  holder.appendChild(fold);
+  $("ask-answer-foot")?.classList.remove("hidden");
 }
 
 async function renderAskFollowups(question, answer, given = null) {
@@ -2660,6 +2696,7 @@ async function streamChatEvents({
   onRelated,
   onUnsupported,
   onWebSources,
+  onWhy,
   attempt,
 }) {
   const body = { question, history: history || [] };
@@ -2825,6 +2862,8 @@ async function streamChatEvents({
       else if ((event.type === "confirm" || event.type === "act") && onConfirm) onConfirm(event);
       else if (event.type === "navigate") actNavigate(event.surface);
       else if (event.type === "web_sources" && onWebSources) onWebSources(event);
+      //: How the answer was made, as a job's lines (B30), just before `done`.
+      else if (event.type === "why" && onWhy) onWhy(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
       else if (event.type === "run_plan" && onRunPlan) onRunPlan(event);
@@ -3139,6 +3178,7 @@ async function askQuestion(preset) {
   let groundingRawResults = []; // set by onMeta, read by onGrounding
   let groundedSupport = null; // how much of the answer the notes backed
   let groundedInsights = []; // the lines it volunteered (decision 73)
+  let answerWhy = []; // how it was made (B30)
   let composedNext = []; // a composed answer's own next questions (INBOX 725)
   //: Kept beyond the callback that receives them, because the answer element
   //: is rebuilt after the stream ends and the markers have to be put back.
@@ -3273,6 +3313,9 @@ async function askQuestion(preset) {
         groundedInsights = Array.isArray(event.insights) ? event.insights : [];
         composedNext = Array.isArray(event.next) ? event.next : [];
       },
+      onWhy: (event) => {
+        answerWhy = Array.isArray(event.lines) ? event.lines : [];
+      },
     });
 
     //: **The live renderer's armed paint is cancelled before anything else**
@@ -3347,6 +3390,7 @@ async function askQuestion(preset) {
       placeAnswerFigures(answerBox, answerMeta, question);
       renderAskAnswerFoot(answer, answerMeta);
       renderAskInsights(groundedInsights);
+      renderAskWhy(answerWhy);
       //: Not awaited: it is a second model call, and the answer is already on
       //: screen. The same contract `offerFollowups` has in the Chat tab. An
       //: answer composed from the notes brings its own (INBOX 725), built

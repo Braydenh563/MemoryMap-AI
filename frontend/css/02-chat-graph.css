@@ -4940,7 +4940,8 @@ mark.lightbox-hit {
   color: var(--ink);
 }
 .agent-step-group[open] > .agent-step-group-summary,
-.thinking-fold[open] > .fold-summary {
+.thinking-fold[open] > .fold-summary,
+.why-fold[open] > .fold-summary {
   color: var(--ink);
 }
 /* While the group is still collecting steps its summary carries the `.spinner`

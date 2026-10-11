@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Ask: Why this answer, under every answer, opens the lines that made it with the seconds each landed at: what the question was read as, what was searched and how many notes matched, who wrote it (Atlas from your notes, or the model by name and whether it was handed the app's own answer), its shape, how many notes it cites and how long it took.
 - Ask and Chat with a model running: "can you search the web?" and "Summarise this" are answered by the model, with the app's own line or the open note handed to it as context; the app answers them itself only with no model, or when Ask is set to From your notes. Nothing searches the web for the question either way.
 - Ask: the ... beside Copy keeps an answer as a note, a document titled with the question, or a mind map of the notes it cites; each goes on the undo stack.
 - Settings, Personas: What Atlas adds of its own is Nothing, One line (the default) or Everything it finds. With no model, an answer about a topic can end with a pattern measured in your notes (a plan no later note picks up, a subject that keeps coming up, a change of mind), never one the answer already said; Ask now shows Confirm and Not right under it, as Chat does, and each Not right raises the bar for the next.

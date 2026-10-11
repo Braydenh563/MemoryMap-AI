@@ -5378,6 +5378,17 @@ def test_web_results_are_one_fold_read_in_place():
     assert builders == ["ask-compose.js"], builders
 
 
+def test_why_this_answer_is_one_fold_built_once():
+    """CHAT_PLAN B30: how an answer was made is one fold in the Thinking
+    fold's look, its lines text (never markup), built in one place."""
+    text = (ROOT / "frontend/js/capture-ask.js").read_text(encoding="utf-8")
+    body = text[text.index("function renderAskWhy"):text.index("async function renderAskFollowups")]
+    assert 'fold.className = "agent-step why-fold"' in body and 'summary.className = "fold-summary"' in body
+    assert "innerHTML" not in body and "textContent" in body
+    builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "why-fold" in p.read_text(encoding="utf-8")]
+    assert builders == ["capture-ask.js"], builders
+
+
 def test_answer_shape_is_lifted_in_one_place():
     """CHAT_PLAN decision 71: a count's figure and a who card are lifted from
     the rendered answer in one function, on tokens, without markup strings."""

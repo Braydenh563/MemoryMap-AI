@@ -16,6 +16,7 @@ import json
 import logging
 import mimetypes
 import re
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date, timezone
@@ -29,7 +30,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, capability, composer, composer_digest, glossary
+from memorymap.ai import budget as run_budget, capability, composer, composer_digest, glossary, why
 from memorymap.ai import (
     acts,
     agent,
@@ -2759,6 +2760,9 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     # its "typing…" indicator keeps animating instead of looking frozen
     # while the whole request blocks (user-reported lag).
     yield event({"type": "status", "stage": "searching"})
+    #: B30: the seconds each stage landed at, for "Why this answer".
+    started = time.perf_counter()
+    marks: dict[str, float] = {}
 
     # Retrieval happens INSIDE the stream now, not before it, that's the
     # whole latency win. Nothing before this line touches the model.
@@ -2788,6 +2792,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         as_of=None if req.skill else req.body.as_of,
     )
     prepared["follow_on"] = follow
+    marks["read"] = marks["searched"] = time.perf_counter() - started
     ollama_running = req.ollama.is_running()
     if prepared["intent"] == intent.ACT and ollama_running and req.use_tools and not req.body.notes_only:
         #: With a model in Agent mode, an act is the agent's: its tools are the
@@ -2926,12 +2931,17 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: Rows an answer brought with it, exact by construction (the composed
     #: and the extractive answers): kept, saved, and never re-grounded.
     exact_grounding: list[dict] | None = None
+    shape: str | None = None
     try:
         for payload in events:
             kind = payload.get("type")
             live_rows: list[dict] = []
             if kind == "grounding" and payload.get("exact"):
                 exact_grounding = payload.get("sentences") or []
+            if kind == "grounding":
+                shape = (payload.get("support") or {}).get("shape") or shape
+            if kind == "answer" and "answered" not in marks:
+                marks["answered"] = time.perf_counter() - started
             if kind == "answer":
                 payload = {**payload, "delta": scrubber.feed(payload.get("delta") or "")}
                 if not payload["delta"]:
@@ -3055,8 +3065,28 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             })
     if req.body.notes_only and answer_text:
         _save_ask_turn(req.session, req.question, answer_text, prepared, grounding)
+    if answer_text:
+        marks["done"] = time.perf_counter() - started
+        yield event({"type": "why", "lines": _why(req, prepared, grounding, composing, will_answer, tools_only, ollama_running, shape, marks)})
     yield event({"type": "done"})
 
+
+
+def _why(req, prepared, grounding, composing, will_answer, tools_only, ollama_running, shape, marks) -> list[dict]:
+    """B30's lines for this turn (`ai/why.py`)."""
+    return why.lines(
+        intent=prepared["intent"],
+        mode=prepared.get("search_mode"),
+        matched=len(prepared.get("raw_results") or []),
+        used=len({row.get("note_id") for row in grounding if isinstance(row.get("note_id"), int)}),
+        when=prepared.get("when_phrase"),
+        scoped=bool(req.body.attached_notes_only or req.body.note_ids),
+        composed=composing,
+        model=("Atlas's tools" if tools_only else req.model_manager.chat_model()) if will_answer else None,
+        shape=shape,
+        context=will_answer and ollama_running and _asks_capability(req, prepared),
+        marks=marks,
+    )
 
 
 @router.post("/stream")

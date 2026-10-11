@@ -1432,6 +1432,25 @@ MORE_TOPICS.extend(
             "badge": {"label": "Chat", "tab": "chat"},
         },
         {
+            "id": "why-this-answer",
+            "keywords": (
+                "why this answer", "how was this answered", "how did you get that",
+                "where did this answer come from", "which model answered",
+                "how long did it take", "what did it search", "explain the answer",
+                "transparent", "process lines",
+            ),
+            "body": (
+                "Under an answer in Ask, Why this answer opens the lines that "
+                "made it, each with the seconds since you asked: what the "
+                "question was read as, what was searched and how many notes "
+                "matched, who wrote it (Atlas from your notes with no model, "
+                "or the model by name, and whether it was handed the app's "
+                "own answer as a fact), the shape it took, how many of the "
+                "matching notes it cites, and how long it took."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
             "id": "library-skills",
             "keywords": (
                 "ai skills", "built-in skill", "built in skill", "copy a skill",
@@ -1931,6 +1950,7 @@ TOPIC_META: dict[str, dict] = {
     "answers-from-notes": {"title": "Answers from your notes, no AI", "path": "Notes tab, Ask, the Use AI switch", "steps": (
         "Open Ask on the Notes tab.", "Turn Use AI off beside the title.", "Ask: the answer is quoted from your notes, with no AI.")},
     "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
+    "why-this-answer": {"title": "Why this answer", "path": "Notes tab, Ask, under an answer"},
     "answer-pictures": {"title": "Pictures in answers", "path": "Chat tab, or Ask in the Notes tab, Grounded in"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},
     "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, the reader button"},
@@ -1960,7 +1980,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories", "tidy",
     )),
     ("Asking Atlas", (
-        "ask-chat", "answers-from-notes", "chat-controls", "chat-acts", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
+        "ask-chat", "answers-from-notes", "chat-controls", "chat-acts", "follow-up-trail", "why-this-answer", "answer-pictures", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (

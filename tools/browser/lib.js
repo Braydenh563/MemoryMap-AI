@@ -29,6 +29,12 @@ async function boot(opts={}) {
     await page.click('#recovery-key-skip');
     await page.waitForSelector('#recovery-key-dialog[open]', {state:'detached', timeout: 2000});
   } catch (e) { /* no offer this run */ }
+  //: The last turn of the first-run queue is the update question, another blocking modal.
+  try {
+    const no = page.locator('.confirm-overlay button', {hasText: "Don't check"});
+    await no.waitFor({state:'visible', timeout: 2500});
+    await no.click(); await page.waitForTimeout(300);
+  } catch (e) { /* not asked this run */ }
   return {browser, ctx, page, OUT};
 }
 module.exports = {boot, OUT, PW, BASE};

@@ -315,6 +315,20 @@ def _post_tag_gone(session: Session, args: dict, result: dict) -> str | None:
     return None
 
 
+def _post_moved(session: Session, args: dict, result: dict) -> str | None:
+    """Each note the call says it moved is under the category it was sent to."""
+    name = str(args.get("category") or "").strip()
+    ids = result.get("ids") or []
+    if not name or not ids or args.get("restore_categories"):
+        return None
+    session.expire_all()
+    for note_id in ids:
+        entry = session.get(Entry, int(note_id))
+        if entry is not None and manager.category_name_for(session, entry) != name:
+            return f"note #{note_id} is not under “{name}”"
+    return None
+
+
 #: tool name -> (preconditions, postconditions). The order inside a tuple is
 #: the order they run; the first refusal wins.
 CONTRACTS: dict[str, tuple[tuple[Pre, ...], tuple[Post, ...]]] = {
@@ -334,6 +348,7 @@ CONTRACTS: dict[str, tuple[tuple[Pre, ...], tuple[Post, ...]]] = {
     "rename_category": ((_pre_rename_differs,), (_post_category_present("name"), _post_category_gone("old"))),
     "merge_categories": ((), (_post_category_present("into"), _post_category_gone("from"))),
     "delete_category": ((), (_post_category_gone("name"),)),
+    "move_notes": ((), (_post_moved,)),
 }
 
 

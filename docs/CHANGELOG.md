@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Agent mode: a new Move notes tool (71 tools) files chosen notes under a category or sends them to another space. The app asks first and shows what will move, and Undo puts every note back in its old category or space. The Move to a category and Move to space buttons use the same code.
+- Agent mode: Stop now also cancels the write a step was about to make. A step whose model call came back after you pressed Stop used to write anyway; it is refused, and reads still run.
+- Agent mode, whiteboards: reading a board also returns it as a flat outline (frames with their cards, text boxes, shapes, links); searching boards matches every word in any order; a diagram can grow from a card already on the board (parent_ref card:<id>) instead of starting a new one.
+- Debug (JavaScript): classes (methods, static methods, extends, super), `**`, `??`, simple default parameters and `for...of` over an array or string now step; what is left (getters and setters, class fields, destructuring, `?.`, async, generators) is still named with its line.
+- Backups: a backup is one file. Reading a copy back no longer leaves `-wal` and `-shm` files beside it, in the backups folder or in the second-copy folder.
 - Settings, General: the Bin row reads "Auto-clear the bin after" with the list of what it covers on a line below, so changing the value no longer makes the row taller.
 - Backups: in the desktop app, "Also copy each backup to" sends a second copy of every backup to a folder you choose (an external drive, a synced folder), keeps the same number there, and notes on the backup when the drive was not connected. Each backup row says where it was also copied.
 - Settings, About: Files on disk is a bar with a legend (the notebook, attached files, pictures, backups, optional features) and a total, so you can see what is taking the space and what an optional feature costs.

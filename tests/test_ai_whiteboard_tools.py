@@ -337,3 +337,76 @@ def test_read_whiteboard_names_its_frames_and_the_cards_under_them(session):
     result = tools.TOOLS["read_whiteboard"].handler(session, {})
     assert result["frames"] == [{"object_id": frame.id, "title": "Ideas", "card_ids": [node_in.id]}]
     assert result["text_boxes"] == []
+
+
+# --- AI-readability (OPEN row 1379) -----------------------------------------
+
+
+def test_read_whiteboard_also_gives_the_board_as_a_flat_outline(session):
+    a = _note(session, "Kickoff plan\nmore")
+    b = _note(session, "Budget draft")
+    node_a = WhiteboardNode(entry_id=a.id, x=0, y=0)
+    node_b = WhiteboardNode(entry_id=b.id, x=500, y=500)
+    session.add_all([node_a, node_b])
+    session.commit()
+    session.add(WhiteboardSketch(data=json.dumps({"type": "link-straight", "sourceId": node_a.id, "targetId": node_b.id})))
+    session.add(WhiteboardObject(kind="text", data=json.dumps({"content": "milestone"})))
+    session.add(WhiteboardObject(kind="frame", x=-10, y=-10, width=100, height=100, data=json.dumps({"content": "Ideas"})))
+    session.commit()
+    outline = tools.TOOLS["read_whiteboard"].handler(session, {})["outline"]
+    lines = outline.splitlines()
+    assert lines[0] == "Board: Default board"
+    assert lines[lines.index("Frame: Ideas") + 1] == f"  - card {node_a.id} (note {a.id}): Kickoff plan"
+    assert f"  - card {node_b.id} (note {b.id}): Budget draft" in lines  # loose, under Cards:
+    assert "  - milestone" in lines
+    assert f"  - card {node_a.id} -> card {node_b.id}" in lines
+
+
+def test_search_whiteboard_matches_every_word_in_any_order(session):
+    note = _note(session, "the meeting about the budget")
+    session.add(WhiteboardNode(entry_id=note.id, x=0, y=0))
+    session.add(WhiteboardObject(kind="text", data=json.dumps({"content": "Budget review on Friday"})))
+    session.commit()
+    found = tools.TOOLS["search_whiteboard"].handler(session, {"query": "budget meeting"})
+    assert found["total_matching"] == 1 and found["matches"][0]["note_id"] == note.id
+    assert tools.TOOLS["search_whiteboard"].handler(session, {"query": "budget friday"})["total_matching"] == 1
+    assert tools.TOOLS["search_whiteboard"].handler(session, {"query": "budget nothing"})["total_matching"] == 0
+
+
+def test_generate_diagram_can_grow_from_a_card_already_on_the_board(session):
+    root = tools.TOOLS["generate_diagram"].handler(
+        session, {"nodes": [{"ref": "r", "title": "Trip"}, {"ref": "a", "title": "Flights", "parent_ref": "r"}]}
+    )
+    flights = next(c for c in root["cards"] if c["ref"] == "a")
+    before = session.query(WhiteboardNode).count()
+    grown = tools.TOOLS["generate_diagram"].handler(
+        session,
+        {"nodes": [
+            {"ref": "x", "title": "Window seat", "parent_ref": f"card:{flights['card_id']}"},
+            {"ref": "y", "title": "Aisle seat", "parent_ref": f"card:{flights['card_id']}"},
+            {"ref": "z", "title": "Seat 12A", "parent_ref": "x"},
+        ]},
+    )
+    assert grown["extended_cards"] == [flights["card_id"]] and grown["links_created"] == 3
+    assert session.query(WhiteboardNode).count() == before + 3
+    placed = {c["ref"]: c for c in grown["cards"]}
+    assert placed["x"]["x"] > flights["x"] and placed["z"]["x"] > placed["x"]["x"]  # grows to the right
+    assert abs((placed["x"]["y"] + placed["y"]["y"]) / 2 - flights["y"]) < 1  # centred on its parent
+    links = [json.loads(s.data) for s in session.query(WhiteboardSketch)]
+    assert any(l.get("sourceId") == flights["card_id"] and l.get("targetId") == placed["x"]["card_id"] for l in links)
+
+
+def test_generate_diagram_refuses_a_missing_card_or_a_mix_of_root_and_card(session):
+    with pytest.raises(tools.ToolError, match="no card 99999"):
+        tools.TOOLS["generate_diagram"].handler(session, {"nodes": [{"ref": "x", "title": "T", "parent_ref": "card:99999"}]})
+    made = tools.TOOLS["generate_diagram"].handler(session, {"nodes": [{"ref": "r", "title": "Root"}]})
+    with pytest.raises(tools.ToolError, match="not both"):
+        tools.TOOLS["generate_diagram"].handler(
+            session,
+            {"nodes": [{"ref": "a", "title": "A"}, {"ref": "b", "title": "B", "parent_ref": f"card:{made['root_card_id']}"}]},
+        )
+    with pytest.raises(tools.ToolError, match="cannot be reached"):
+        tools.TOOLS["generate_diagram"].handler(
+            session,
+            {"nodes": [{"ref": "r", "title": "R"}, {"ref": "p", "title": "P", "parent_ref": "q"}, {"ref": "q", "title": "Q", "parent_ref": "p"}]},
+        )

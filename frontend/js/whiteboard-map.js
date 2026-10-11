@@ -6718,7 +6718,7 @@ function wbSyncMapStrip(node) {
         blank.after(pin);
       }
       const named = [...el.options].find((o) => o.value === String(value));
-      const said = `As the map draws (${(named ? named.textContent : String(value)).toLowerCase()})`;
+      const said = `As the map draws (${(named ? named.textContent : field === "font_size" ? `${value}px` : String(value)).toLowerCase()})`;
       if (blank.textContent !== said) blank.textContent = said;
     };
     for (const [id, field] of [
@@ -6744,6 +6744,13 @@ function wbSyncMapStrip(node) {
     //: pin's own row only while the map themes the field (that row exists
     //: only then) and as the blank row, which draws the same, otherwise.
     const shown = (field) => {
+      //: **A topic that was never told follows the map, and says so the same
+      //: way for every field** (OPEN row 1370): the blank row, which the pick
+      //: row rings as the look the map gives. Setting the themed value onto
+      //: the select instead pressed it where the value had an option (a
+      //: shape) and rang it where it had none (the 17px size).
+      const own = node?.data?.[field];
+      if (own === undefined || own === null || own === "") return "";
       const value = data[field];
       if (value === WB_MAP_APP_DEFAULT_PINS[field]) {
         return wbMapThemeDefault(field) == null ? "" : String(value);

@@ -34,7 +34,7 @@ from memorymap.ai.tools.categories import _create_category, _merge_categories
 from memorymap.core.database import Category, Entry
 from memorymap.core import deps
 from memorymap.core.deps import get_session
-from memorymap.entry import manager
+from memorymap.entry import manager, moving
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -126,18 +126,8 @@ def _ids_in(session: Session, category_id: int) -> list[int]:
 
 
 def _move(session: Session, entries: list, name: str, user_filed: bool | None = None) -> list[dict]:
-    """Move notes into a category by name (made if new); each note's old one
-    back, and whether a person had filed it, so the undo can say so again."""
-    previous = []
-    for entry in entries:
-        before = manager.category_name_for(session, entry)
-        if before != name:
-            previous.append({"id": entry.id, "category": before, "user_filed": bool(entry.user_filed)})
-            manager.update_entry(session, entry, category_name=name)
-        if user_filed is not None:
-            entry.user_filed = user_filed
-    session.commit()
-    return previous
+    """Move notes into a category by name (made if new); `entry/moving.py`."""
+    return moving.to_category(session, entries, name, user_filed)
 
 
 #: Same reasoning as the tag list: this feeds the sidebar and every filing

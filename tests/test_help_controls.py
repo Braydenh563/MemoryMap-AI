@@ -326,3 +326,13 @@ def test_no_guide_topic_sits_at_the_reply_budget():
         assert first in by_id and second in by_id, (first, second)
         assert by_id[first] < 1600 and by_id[second] < 1600, (first, by_id[first], second, by_id[second])
     assert max(by_id.values()) < budget
+
+
+def test_no_guide_topic_sits_within_twenty_characters_of_the_reply_budget():
+    """Five topics sat at 1,905 to 1,918 of the 1,920 characters the Guide's
+    reply cap holds (ask-chat, chat-controls, lock, answers-from-notes,
+    code-files), so any help edit for a new control had to cut something
+    first. Trimmed to under 1,900 (OPEN row 1368); the next help edit that
+    needs room takes it from a topic's second half into a topic of its own."""
+    over = {t["id"]: len(t["body"]) for t in help_chat.HELP_TOPICS if len(t["body"]) >= 1900}
+    assert not over, over

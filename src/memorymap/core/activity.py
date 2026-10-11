@@ -211,6 +211,32 @@ def track(
         finish(job)
 
 
+#: The job whose stream this thread is advancing right now. A streamed run is a
+#: sync generator, advanced one `next()` at a time on whichever worker thread
+#: the server picks, and one `next()` can hold a model call and the writes that
+#: follow it. Stop only lands between yields, so a call that returned after
+#: Stop would still write; `current_stopped` lets the one door writes go
+#: through (`tools.execute_tool`) see that Stop came in meanwhile.
+_bound = threading.local()
+
+
+@contextmanager
+def bind(job: Job) -> Iterator[None]:
+    """Make `job` this thread's current job for the length of the block."""
+    previous = getattr(_bound, "job", None)
+    _bound.job = job
+    try:
+        yield
+    finally:
+        _bound.job = previous
+
+
+def current_stopped() -> bool:
+    """Whether the job this thread is advancing has been asked to stop."""
+    job = getattr(_bound, "job", None)
+    return bool(job is not None and job.stopped)
+
+
 def tracked_stream(kind: str, label: str, lines: Iterator, *, title: str = "") -> Iterator:
     """A streamed response that shows in Activity and ends on Stop.
 
@@ -221,7 +247,13 @@ def tracked_stream(kind: str, label: str, lines: Iterator, *, title: str = "") -
     with track(kind, label, title=title) as job:
         narrator = StreamNarrator()
         try:
-            for line in lines:
+            source = iter(lines)
+            while True:
+                with bind(job):  # the step that follows may write; Stop must reach it
+                    try:
+                        line = next(source)
+                    except StopIteration:
+                        break
                 said = narrator(line)
                 if said and job.run is not None:
                     job.run.say(said)

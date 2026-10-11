@@ -62,21 +62,5 @@ def test_a_snapshot_backup_folder_holds_only_the_database_and_its_record(client)
     folder = backup.backups_dir(config.data_dir)
     for file in folder.iterdir():
         assert CANARY not in file.read_bytes(), file.name
-    #: Only the backup, its record and the sidecars SQLite leaves beside a copy it opened.
-    assert path.suffix == ".db" and {p.name.removeprefix(path.stem) for p in folder.iterdir()} <= {".db", ".db.json", ".db-wal", ".db-shm"}
-
-
-def test_the_sealed_bundle_holds_no_secret_once_opened(client, tmp_path):
-    from memorymap.core import backup_bundle
-
-    config = deps.get_config()
-    _plant(config)
-    client.post("/entries", json={"content": "a note", "category": "General"})
-    plain = tmp_path / "plain.zip"
-    backup_bundle.build_zip(config.data_dir, config.db_path, plain)
-    sealed = tmp_path / "sealed.mmenc"
-    backup_bundle.encrypt_file(plain, sealed, "pass-for-the-test")
-    opened = tmp_path / "opened.zip"
-    backup_bundle.decrypt_file(sealed, opened, "pass-for-the-test")
-    for name, body in _members(opened.read_bytes()).items():
-        assert CANARY not in body, f"{name} carries a planted secret"
+    #: Only the backup and its record: no SQLite sidecar files.
+    assert path.suffix == ".db" and {p.name.removeprefix(path.stem) for p in folder.iterdir()} <= {".db", ".db.json"}

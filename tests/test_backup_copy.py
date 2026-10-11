@@ -120,3 +120,22 @@ def test_the_setting_travels_with_no_settings_file(client, tmp_path):
     folder.mkdir()
     client.put("/preferences", json={"backup_copy_dir": str(folder)})
     assert "backup_copy_dir" not in client.get("/preferences/export").json()["preferences"]
+
+
+def test_a_backup_is_one_file_with_no_sqlite_sidecars_here_or_in_the_copy_folder(client, tmp_path):
+    """The copy inherited WAL mode, so reading it back left `-wal` and `-shm`
+    beside it (and the second copy was a file that needed them)."""
+    folder = tmp_path / "drive"
+    folder.mkdir()
+    _make_notebook(client)
+    client.put("/preferences", json={"backup_copy_dir": str(folder)})
+    config = deps.get_config()
+    path = backup.backup_now(config.db_path, config.data_dir, origin="manual")
+    for where in (path.parent, folder):
+        names = sorted(p.name for p in where.iterdir())
+        assert not [n for n in names if n.endswith(("-wal", "-shm"))], names
+    with sqlite3.connect(path) as db:
+        assert db.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
+    # Reading it back (what a restore does) still leaves nothing behind.
+    backup.verify_copy(path)
+    assert not [p for p in path.parent.iterdir() if p.name.endswith(("-wal", "-shm"))]

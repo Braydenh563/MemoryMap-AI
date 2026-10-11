@@ -191,6 +191,11 @@ def snapshot(db_path: Path, destination: Path) -> None:
         target = sqlite3.connect(destination)
         try:
             source.backup(target)
+            #: The copy inherits the live file's WAL mode from its header, so
+            #: opening it (the check below, a restore, a second copy) would
+            #: leave `-wal` and `-shm` files beside it. A backup is one file:
+            #: back to the rollback journal before it is cleaned and closed.
+            target.execute("PRAGMA journal_mode=DELETE")
             strip_leftovers(target)
         finally:
             target.close()

@@ -492,7 +492,7 @@ the gesture guard moved onto the surface first; see HISTORY.md ("From OPEN.md,
 
 ## Moved from the plans, 2026-10-12 (Brief 34)
 
-The whole brief, closed with its last row (2026-10-12: the name-mark pairs under the 15% floor, 9 down to 0 on the default and feminine looks by teal cloth in one colour pair and the garment joining the hair and cloth rolls; the masculine look still has one pair under it, as it had). The idle-cost step is still in OPEN.md. The brief, as it stood:
+The whole brief, closed with its last row (2026-10-12: the name-mark pairs under the 15% floor, 9 down to 2 on the default look (Jade/Maya 11.5%, You/Chloe 11.8%) and 0 on the feminine, by teal cloth in one colour pair and the hair style and garment joining the hair and cloth rolls; the masculine look keeps its one pair under the floor (Chloe/Quinn 9.6%, unchanged); 15% on all three looks was not reachable in this step). The idle-cost step is still in OPEN.md. The brief, as it stood:
 
 > ## Brief 34 (Opus, two agents): characters, the faces, the companion and Atlas, to the end
 >

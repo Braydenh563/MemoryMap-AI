@@ -550,6 +550,22 @@ const MIC_BAR_SPEECH_BIN_FRACTION = 0.25;
 // actually leaves. Raised so the resting state itself is visible.
 const MIC_BAR_MIN_SCALE = 0.3;
 
+//: **The microphone as chosen** (UI_MODERNISATION V2, INBOX 828: "noise
+//: supression, voice enhancement, audio input devices ... need to be
+//: managable"): the device and the browser's own three cleanups, kept on
+//: this computer, asked for by every recorder (dictation, a voice note, a
+//: meeting, live captions). `ideal`, not `exact`: a microphone unplugged
+//: since falls back to the default rather than refusing to record.
+function micAudioConstraints() {
+  const device = prefs.get("micDevice", "");
+  return {
+    ...(device ? { deviceId: { ideal: device } } : {}),
+    noiseSuppression: prefs.bool("micNoise", true),
+    echoCancellation: prefs.bool("micEcho", true),
+    autoGainControl: prefs.bool("micGain", true),
+  };
+}
+
 function startMicLevelMeter(stream, button) {
   let ctx;
   try {
@@ -645,7 +661,7 @@ async function toggleDictation(button, targetInput) {
   }
   let stream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: micAudioConstraints() });
   } catch {
     toast("Microphone access was blocked, allow it in your browser.", "info");
     return;

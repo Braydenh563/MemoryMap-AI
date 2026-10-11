@@ -525,16 +525,8 @@ async function meetingSaveTranscript(content, title, target) {
   try {
     const saved = target !== null ? await meetingAppendUndoable(target, content) : await meetingCreateUndoable(content, title);
     await loadEntries();
-    // The overlay is about to close, so this jumps straight to the note
-    // rather than leaving an "offer" button behind in a dialog nobody is
-    // looking at anymore; `flashEntry` handles its own navigation.
-    closeMeetingRecorder();
-    flashEntry(saved.id);
-    toastAction(
-      target !== null ? "Transcript added under Notes." : "Saved as a meeting. Summarise finds its decisions and action items.",
-      "Open the meeting",
-      () => openMeetingSheet(saved.id)
-    );
+    meetingAcceptOriginal();
+    meetingShowSaved(content, "Open the meeting", () => openMeetingSheet(saved.id), target !== null ? "Added under the meeting's Notes." : "Saved as a meeting. Summarise finds its decisions and action items.");
   } catch (error) {
     status.textContent = error.message;
     status.classList.add("error");
@@ -705,6 +697,8 @@ const MEETING_WAVE_POINTS = 140;
 //: Frames between samples. Every frame would fill the window in two seconds
 //: and spend a redraw on a difference nobody can see.
 const MEETING_WAVE_EVERY = 3;
+//: With reduced motion (V4): a level bar stepping four times a second at 60 fps.
+const MEETING_WAVE_STILL_EVERY = 15;
 
 //: Kept at module level so `closeMeetingRecorder` can stop a draw loop that
 //: `toggleMeetingRecording` started: the two are different user actions and
@@ -749,6 +743,23 @@ function startMeetingWave(stream) {
   let frame = null;
   let ticks = 0;
   let stopped = false;
+  //: **Reduced motion is a still meter** (V4): no line scrolling past, one
+  //: bar from the middle whose length is the level now.
+  const still = reducedMotionWanted();
+  canvas.dataset.mode = still ? "meter" : "line";
+  const ink = () => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#4664f0";
+
+  function drawStill(level) {
+    const { width, height } = canvas;
+    paint.clearRect(0, 0, width, height);
+    const bar = Math.max(4, height * 0.18);
+    const length = Math.max(bar, level * width);
+    paint.fillStyle = ink();
+    paint.globalAlpha = 0.18;
+    paint.fillRect(0, (height - bar) / 2, width, bar);
+    paint.globalAlpha = 1;
+    paint.fillRect((width - length) / 2, (height - bar) / 2, length, bar);
+  }
 
   function draw() {
     const { width, height } = canvas;
@@ -756,10 +767,7 @@ function startMeetingWave(stream) {
     paint.clearRect(0, 0, width, height);
     // The accent, read from the live stylesheet rather than hard-coded, so
     // the line follows whatever theme is set, including a custom one.
-    const accent =
-      getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
-      "#4664f0";
-    paint.strokeStyle = accent;
+    paint.strokeStyle = ink();
     paint.lineWidth = 2;
     paint.lineJoin = "round";
     paint.lineCap = "round";
@@ -779,7 +787,7 @@ function startMeetingWave(stream) {
 
   function tick() {
     if (stopped) return;
-    if (ticks % MEETING_WAVE_EVERY === 0) {
+    if (ticks % (still ? MEETING_WAVE_STILL_EVERY : MEETING_WAVE_EVERY) === 0) {
       analyser.getByteTimeDomainData(samples);
       // RMS around the 128 midpoint, the honest measure of loudness, and
       // steadier than a peak, which flickers on consonants.
@@ -794,9 +802,14 @@ function startMeetingWave(stream) {
       const level = Math.min(1, Math.sqrt(rms) * 1.6);
       levels.push(level);
       levels.shift();
-      //: Every level, not only the window drawn: the saved waveform (row 6).
-      if (meetingRecorder?.state === "recording") meetingTake.peaks.push(level);
-      draw();
+      //: Every level, not only the window drawn: the saved waveform (row 6),
+      //: repeated while the meter is still, so the saved density matches.
+      if (meetingRecorder?.state === "recording") {
+        for (let i = 0; i < (still ? MEETING_WAVE_STILL_EVERY / MEETING_WAVE_EVERY : 1); i++) meetingTake.peaks.push(level);
+      }
+      canvas.dataset.level = level.toFixed(3);
+      if (still) drawStill(level);
+      else draw();
     }
     ticks++;
     frame = requestAnimationFrame(tick);
@@ -838,16 +851,47 @@ function stopMeetingTimer() {
 function setMeetingState(state) {
   $("meeting-card").dataset.state = state;
   const live = state === "recording" || state === "paused";
-  $("meeting-stage").classList.toggle("hidden", state === "review");
+  $("meeting-stage").classList.toggle("hidden", state === "review" || state === "done");
+  $("meeting-done")?.classList.toggle("hidden", state !== "done");
   $("meeting-controls").classList.toggle("hidden", !(live || state === "ready" || state === "saved"));
   $("meeting-pause").classList.toggle("hidden", !live);
   $("meeting-marker").classList.toggle("hidden", !live);
   $("meeting-timer").classList.toggle("hidden", !live);
   $("meeting-progress").classList.toggle("hidden", state !== "transcribing");
+  //: The live words stay up while the full pass runs, then review replaces them (V5).
+  $("meeting-live")?.classList.toggle("hidden", !(live || state === "transcribing") || !$("meeting-live").textContent);
+  $("meeting-stop-transcribe")?.classList.toggle("hidden", state !== "transcribing");
+  $("meeting-discard-take")?.classList.toggle("hidden", !live);
+  $("meeting-captions")?.classList.toggle("hidden", live || state === "transcribing");
   const review = state === "review";
   $("meeting-transcript").classList.toggle("hidden", !review);
   $("meeting-save-row").classList.toggle("hidden", !review);
   stagePrimary("meeting-record", "meeting-save", review);
+  syncRecordingDock();
+}
+
+//: **A recording outlives its dialog** (UI_MODERNISATION V1, INBOX 828):
+//: closed while recording, the dialog folds into this dock over every
+//: surface, with the clock, Pause and Stop, and Open to bring it back.
+function syncRecordingDock() {
+  const dock = $("recording-dock");
+  if (!dock) return;
+  const state = $("meeting-card").dataset.state;
+  const live = state === "recording" || state === "paused";
+  const shown = live && $("meeting-overlay").classList.contains("hidden");
+  //: Its place over every surface is the captions dock's rule (captions-lazy.css).
+  if (shown) ensureModule("captions");
+  dock.classList.toggle("hidden", !shown);
+  dock.classList.toggle("is-paused", state === "paused");
+  setLabel($("recording-dock-pause"), state === "paused" ? "ph:play Resume" : "ph:pause Pause");
+  $("recording-dock-title").textContent = ($("meeting-title")?.value || "").trim() || "Recording";
+}
+
+//: The clock in the dialog and the dock, from one place.
+function meetingTick() {
+  const text = meetingElapsedText();
+  $("meeting-timer").textContent = text;
+  if ($("recording-dock-time")) $("recording-dock-time").textContent = text;
 }
 
 // Resets the overlay to "ready to record", whether it's opening fresh or
@@ -858,6 +902,7 @@ function resetMeetingUI() {
   $("meeting-status").textContent = "";
   $("meeting-status").classList.remove("error");
   $("meeting-transcript").value = "";
+  if ($("meeting-live")) $("meeting-live").textContent = "";
   $("meeting-record").disabled = false;
   $("meeting-record").classList.remove("recording");
   setLabel($("meeting-record"), "ph:record Record");
@@ -874,6 +919,9 @@ function resetMeetingUI() {
 //: global-scope ratchet).
 
 async function openMeetingRecorder() {
+  //: A recording folded into the dock is brought back, not reset.
+  if (meetingRecorder) return showMeetingRecorder();
+  nameMeetingMic();
   overlayReturnFocus = document.activeElement;
   delete $("meeting-overlay").dataset.target;
   $("meeting-overlay").classList.remove("meeting-into", "voice-note");
@@ -892,10 +940,32 @@ function openVoiceNote() {
   $("meeting-overlay").classList.add("voice-note");
 }
 
-// Recording is stopped (discarded, not transcribed) rather than left running
-// in the background: a MediaRecorder with no owner is a live microphone
-// nobody is looking at.
+function showMeetingRecorder() {
+  $("meeting-overlay").classList.remove("hidden");
+  syncRecordingDock();
+  $("meeting-record").focus();
+}
+
+//: Closed while recording, the recording goes on in the dock (V1): a live
+//: microphone is never ownerless, because the dock says it is listening and
+//: stops it. Discard is the way to throw a take away
+//: (`discardMeetingTake`). Closed in any other state the dialog just goes;
+//: a transcription carries on in the background.
 function closeMeetingRecorder() {
+  if (meetingRecorder && meetingRecorder.state !== "inactive") {
+    $("meeting-overlay").classList.add("hidden");
+    syncRecordingDock();
+    overlayReturnFocus?.focus?.();
+    overlayReturnFocus = null;
+    return;
+  }
+  $("meeting-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
+}
+
+//: Discard while recording: what was sent goes to the bin, not nowhere.
+function discardMeetingTake() {
   if (meetingRecorder && meetingRecorder.state !== "inactive") {
     // A discard is not transcribed: the stop listener reads this (`onstop = null`
     // here removed nothing, the listener is an `addEventListener` one).
@@ -908,9 +978,8 @@ function closeMeetingRecorder() {
   meetingRecorder = null;
   meetingStream = null;
   stopMeetingTimer();
-  $("meeting-overlay").classList.add("hidden");
-  overlayReturnFocus?.focus?.();
-  overlayReturnFocus = null;
+  resetMeetingUI();
+  meetingSay("Discarded. The audio is in the bin.");
 }
 
 async function toggleMeetingRecording() {
@@ -934,7 +1003,7 @@ async function toggleMeetingRecording() {
     voiceStatus = await apiJson("/voice/status").catch(() => ({ available: false }));
   }
   try {
-    meetingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    meetingStream = await navigator.mediaDevices.getUserMedia({ audio: micAudioConstraints() });
   } catch {
     meetingSay("Microphone access was blocked, allow it in your browser.", true);
     return;
@@ -969,9 +1038,7 @@ function meetingSay(text, error = false) {
 function meetingRecordingStarted(button) {
   meetingStartedAt = Date.now();
   $("meeting-timer").textContent = meetingElapsedText();
-  meetingTimerHandle = setInterval(() => {
-    $("meeting-timer").textContent = meetingElapsedText();
-  }, 1000);
+  meetingTimerHandle = setInterval(meetingTick, 1000);
   button.classList.add("recording");
   setLabel(button, "ph:stop Stop");
   // Appended after setLabel, not before: setLabel's replaceChildren() wipes
@@ -985,12 +1052,53 @@ function meetingRecordingStarted(button) {
   };
   setMeetingState("recording");
   meetingSay("Recording. Saved as it goes.");
+  meetingLiveWordsStart();
+}
+
+// --- live words while recording (UI_MODERNISATION V5) ------------------------
+//
+// The captions pipeline (captions.js) borrows the recorder's stream and
+// paints its last lines here as they are spoken; nothing is saved from it.
+// The full pass after Stop replaces them in review. Without the captions
+// helper the line says where to get it, once, muted.
+
+const meetingLive = { on: false };
+
+function meetingLiveWords(lines, running) {
+  const box = $("meeting-live");
+  box.classList.remove("muted");
+  box.textContent = [...lines.slice(-2), running].filter(Boolean).join(" ") || "Listening…";
+}
+
+async function meetingLiveWordsStart() {
+  const box = $("meeting-live");
+  box.textContent = "";
+  box.classList.remove("hidden");
+  if (!(await ensureModule("captions")) || !meetingStream) return;
+  const ok = await startLiveCaptions({ stream: meetingStream, into: meetingLiveWords, save: false, quiet: true });
+  if (ok === true) {
+    meetingLive.on = true;
+    if (!meetingRecorder) meetingLiveWordsStop();
+    return;
+  }
+  box.classList.add("muted");
+  box.textContent = `Live words while recording: ${ok}`;
+}
+
+function meetingLiveWordsStop() {
+  if (!meetingLive.on) return;
+  meetingLive.on = false;
+  stopRecorderWords();
 }
 
 //: Stop: the object is finished first, so the audio is kept whatever the
 //: transcription does; then the add-on transcribes it, or the sheet says
 //: how long the kept recording is.
 async function meetingRecordingStopped(recorder, button) {
+  if (meetingLive.on) {
+    meetingLive.on = false;
+    stopRecorderWords();
+  }
   meetingStream?.getTracks().forEach((t) => t.stop());
   stopMeetingWave();
   stopMeetingWave = () => {};
@@ -1012,34 +1120,183 @@ async function meetingRecordingStopped(recorder, button) {
     meetingSay(error.message || "Couldn't save the recording.", true);
     return;
   }
+  saved = await meetingEnhanceTake(saved);
   const length = meetingClockText(saved.duration_ms);
+  const away = $("meeting-overlay").classList.contains("hidden");
   if (!voiceStatus?.available) {
     setMeetingState("saved");
     meetingSay(`Saved a ${length} recording (${meetingContainerName(saved.mime)}). Transcribing it needs the Voice notes add-on, in Settings, Packages.`);
+    //: Stopped from the dock: the dialog is not on screen to say so.
+    if (away) toastAction(`Saved “${saved.title || "Recording"}”, ${length}.`, "Open", () => openRecordings(saved.id));
     return;
   }
   return meetingTranscribeTake(saved, length);
 }
 
+//: **Transcribed in the background** (V1): the run is the server's, so
+//: closing this dialog never stops it. While it is open the bar shows how far
+//: it is and Stop ends it; done with the dialog still on this take, the
+//: transcript comes back here to review; otherwise a notification says so.
 async function meetingTranscribeTake(saved, length) {
-  meetingSay(`Saved a ${length} recording. Transcribing it; a long recording can take a while on CPU.`);
+  meetingSay(`Saved a ${length} recording. Transcribing it in the background: close this if you like, you will be told when it is done.`);
+  const progress = $("meeting-progress");
+  progress.removeAttribute("value");
   try {
-    const body = await apiJson(`/recordings/${saved.id}/transcribe`, { method: "POST" });
-    const text = (body.text || "").trim();
-    if (!text) {
-      setMeetingState("saved");
-      meetingSay(`Nothing was heard in that recording. The ${length} of audio is kept in Recordings.`);
-      return;
-    }
-    meetingSay(`Transcript of ${length}. Read it, trim it, then save. The audio is kept in Recordings.`);
-    $("meeting-transcript").value = text;
-    setMeetingState("review");
-    autoGrow($("meeting-transcript"));
-    $("meeting-transcript").focus();
+    await startRecordingTranscription(saved, {
+      progress: (run) => {
+        if (meetingTake.id !== saved.id || run.progress == null) return;
+        progress.max = 1;
+        progress.value = run.progress;
+        meetingSay(`Transcribing ${length}: ${Math.round(run.progress * 100)}%. Close this if you like; you will be told when it is done.`);
+      },
+      here: () => meetingTake.id === saved.id && !$("meeting-overlay").classList.contains("hidden") && $("meeting-card").dataset.state === "transcribing",
+      done: async (run) => {
+        const body = await apiJson(`/recordings/${saved.id}/transcript`).catch(() => ({ segments: [] }));
+        const text = body.segments.map((seg) => seg.text).join(" ").trim();
+        if (!text) {
+          setMeetingState("saved");
+          return meetingSay(`Nothing was heard in that recording. The ${length} of audio is kept in Recordings.`);
+        }
+        meetingSay(`Transcript of ${length}. Read it, trim it, then save. The audio is kept in Recordings.`);
+        $("meeting-transcript").value = text;
+        setMeetingState("review");
+        autoGrow($("meeting-transcript"));
+        $("meeting-transcript").focus();
+      },
+      ended: (run) => {
+        if (meetingTake.id !== saved.id) return;
+        setMeetingState("saved");
+        if (run.state === "failed") meetingSay(`Saved a ${length} recording, but it couldn't be transcribed: ${run.error}`, true);
+        else meetingSay(`Stopped transcribing. The ${length} of audio is kept in Recordings; Transcribe from its ⋯ starts again.`);
+      },
+    });
   } catch (error) {
     setMeetingState("saved");
     meetingSay(`Saved a ${length} recording, but it couldn't be transcribed: ${error.message}`, true);
   }
+}
+
+// --- enhancement on save (UI_MODERNISATION V3, INBOX 828) -------------------
+//
+// The kept audio, cleaned in the page: a 80 Hz high-pass for rumble and
+// handling noise, then one gain that brings speech to about -20 dBFS RMS,
+// never past -1 dBFS peak nor by more than 20 dB. Written as 16 kHz mono
+// wav (what Whisper reads, and the one container a page can write) to a new
+// object pointing at the original, which is binned when the transcript is
+// saved and kept otherwise. Takes over ENHANCE_MAX_MS are left as recorded:
+// decoding an hour in the page would hold about 700 MB.
+
+const ENHANCE_RATE = 16000;
+const ENHANCE_TARGET_RMS = 0.1;
+const ENHANCE_PEAK = 0.89;
+const ENHANCE_MAX_GAIN = 10;
+const ENHANCE_MAX_MS = 30 * 60 * 1000;
+
+//: The gain for one channel of samples: the RMS of the frames above a
+//: -50 dBFS gate (so silence does not pull speech up too far), bounded.
+function enhanceGain(data) {
+  const frame = 1600;
+  let sum = 0;
+  let count = 0;
+  let peak = 0;
+  for (let at = 0; at < data.length; at += frame) {
+    let local = 0;
+    const end = Math.min(data.length, at + frame);
+    for (let i = at; i < end; i++) {
+      local += data[i] * data[i];
+      peak = Math.max(peak, Math.abs(data[i]));
+    }
+    if (Math.sqrt(local / (end - at)) > 0.003) {
+      sum += local;
+      count += end - at;
+    }
+  }
+  if (!count || !peak) return 1;
+  const rms = Math.sqrt(sum / count);
+  return Math.min(ENHANCE_TARGET_RMS / rms, ENHANCE_PEAK / peak, ENHANCE_MAX_GAIN);
+}
+
+async function enhanceRecording(rec) {
+  const buffer = await (await api(`/media/recordings/${rec.id}`)).arrayBuffer();
+  const probe = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
+  const decoded = await probe.decodeAudioData(buffer);
+  const offline = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, Math.ceil(decoded.duration * ENHANCE_RATE), ENHANCE_RATE);
+  const source = offline.createBufferSource();
+  source.buffer = decoded;
+  const filter = offline.createBiquadFilter();
+  filter.type = "highpass";
+  filter.frequency.value = 80;
+  filter.Q.value = Math.SQRT1_2;
+  source.connect(filter);
+  filter.connect(offline.destination);
+  source.start();
+  const rendered = await offline.startRendering();
+  const data = rendered.getChannelData(0);
+  const gain = enhanceGain(data);
+  for (let i = 0; i < data.length; i++) data[i] *= gain;
+  const wav = recordingWav(rendered, 0, rendered.duration);
+  const made = await apiJson("/recordings", {
+    method: "POST",
+    body: JSON.stringify({ title: rec.title, mime: "audio/wav", source_id: rec.id, entry_id: rec.entry_id, derived: "enhanced" }),
+  });
+  const form = new FormData();
+  form.append("file", wav, "enhanced.wav");
+  form.append("duration_ms", String(rec.duration_ms));
+  await api.upload(`/recordings/${made.id}/chunk`, form);
+  const done = await apiJson(`/recordings/${made.id}/finish`, {
+    method: "POST",
+    body: JSON.stringify({ duration_ms: rec.duration_ms, peaks: rec.peaks, markers: rec.marks || rec.markers }),
+  });
+  done.enhanceGain = gain;
+  return done;
+}
+
+//: After Stop: the cleaned copy becomes the take, the original is held
+//: (`meetingTake.originalId`) until the transcript is saved. Any failure
+//: keeps the recording as it was made and says so in the status line.
+async function meetingEnhanceTake(saved) {
+  meetingTake.originalId = null;
+  if (!prefs.bool("micEnhance", true) || !saved.duration_ms || saved.duration_ms > ENHANCE_MAX_MS) return saved;
+  meetingSay("Enhancing the audio…");
+  try {
+    const clean = await enhanceRecording(saved);
+    meetingTake.originalId = saved.id;
+    meetingTake.id = clean.id;
+    return clean;
+  } catch {
+    meetingSay("Couldn't enhance the audio; it is kept as recorded.");
+    return saved;
+  }
+}
+
+//: The transcript is saved: the original of an enhanced take goes to the bin.
+function meetingAcceptOriginal() {
+  const id = meetingTake.originalId;
+  meetingTake.originalId = null;
+  if (id) apiJson(`/recordings/${id}`, { method: "DELETE", silent: true }).catch(() => {});
+}
+
+// --- after saving (UI_MODERNISATION V7) --------------------------------------
+//
+// A save no longer drops the dialog on whatever was behind it: it shows what
+// was kept, the transcript's first lines, with Open and Record another.
+
+const MEETING_DONE_LINES = 3;
+
+function meetingShowSaved(text, label, open, said = "Saved. The audio is kept in Recordings.") {
+  const lines = String(text).split(/\n+|(?<=[.?])\s+/).map((line) => line.trim()).filter(Boolean);
+  const shown = lines.slice(0, MEETING_DONE_LINES).join(" ");
+  $("meeting-done-lines").textContent = lines.length > MEETING_DONE_LINES ? `${shown} …` : shown;
+  setLabel($("meeting-done-open"), `ph:arrow-square-out ${label}`);
+  $("meeting-done").openSaved = open;
+  setMeetingState("done");
+  meetingSay(said);
+  $("meeting-done-open").focus();
+}
+
+//: The dialog's Stop while transcribing.
+async function stopMeetingTranscription() {
+  if (meetingTake.id) await stopRecordingTranscription(meetingTake.id);
 }
 
 //: Closed while recording: what was sent goes to the bin, not nowhere, so
@@ -1071,6 +1328,7 @@ function toggleMeetingPause() {
   const button = $("meeting-pause");
   if (meetingRecorder.state === "recording") {
     meetingRecorder.pause();
+    if (meetingLive.on) holdLiveCaptions(true);
     meetingPausedAt = Date.now();
     stopMeetingTimer();
     setLabel(button, "ph:play Resume");
@@ -1078,12 +1336,11 @@ function toggleMeetingPause() {
     $("meeting-status").textContent = "Paused. Resume to keep recording, or stop to transcribe.";
   } else if (meetingRecorder.state === "paused") {
     meetingRecorder.resume();
+    if (meetingLive.on) holdLiveCaptions(false);
     // Push the start forward by however long the pause lasted, so the timer
     // keeps reading as the length of the audio rather than of the sitting.
     meetingStartedAt += Date.now() - meetingPausedAt;
-    meetingTimerHandle = setInterval(() => {
-      $("meeting-timer").textContent = meetingElapsedText();
-    }, 1000);
+    meetingTimerHandle = setInterval(meetingTick, 1000);
     setLabel(button, "ph:pause Pause");
     setMeetingState("recording");
     $("meeting-status").textContent = "Recording.";
@@ -1112,15 +1369,11 @@ async function saveMeetingDocument() {
     });
     const binned = meetingBinPair("document", document_.id);
     pushUndo("Saved a transcript as a document", binned.undo, binned.redo);
-    closeMeetingRecorder();
-    switchTab("documents");
-    openDocument(document_.id);
-    //: The toast carries the Undo too: on the Documents tab Ctrl+Z is the
-    //: editor's own history, not the app's undo bar.
-    toastAction(`Saved “${title}” to your documents.`, "Undo", async () => {
-      await binned.undo();
-      switchTab("library");
-    });
+    meetingAcceptOriginal();
+    meetingShowSaved(content, "Open the document", () => {
+      switchTab("documents");
+      openDocument(document_.id);
+    }, `Saved “${title}” to your documents.`);
   } catch (error) {
     status.textContent = error.message || "Couldn't save that.";
     status.classList.add("error");
@@ -1159,10 +1412,9 @@ async function saveVoiceNoteText(text, title) {
     const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: title ? `${title}\n\n${text}` : text, defer_filing: true }) });
     const binned = meetingBinPair("note", made.id);
     pushUndo("Saved a voice note", binned.undo, binned.redo);
-    closeMeetingRecorder();
+    meetingAcceptOriginal();
     await refreshEntries([made.id]).catch(() => {});
-    flashEntry(made.id);
-    toast("Saved as a note. The audio is kept in Recordings.");
+    meetingShowSaved(text, "Open the note", () => flashEntry(made.id));
   } catch (error) {
     meetingSay(error.message || "Couldn't save that.", true);
   } finally {
@@ -1223,15 +1475,27 @@ function recordingsEmpty(text) {
 
 function recordingFacts(rec) {
   const when = parseServerTime(rec.created_at) || new Date(rec.created_at);
-  const facts = [meetingClockText(rec.duration_ms), meetingContainerName(rec.mime), when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })];
-  if (rec.markers.length) facts.push(`${rec.markers.length} ${rec.markers.length === 1 ? "marker" : "markers"}`);
-  if (rec.source_id) facts.push("trimmed");
+  const facts = [when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }), meetingClockText(rec.duration_ms), recordingTranscriptState(rec)];
+  if (rec.derived === "enhanced") facts.push("enhanced");
+  else if (rec.source_id) facts.push("trimmed");
   if (rec.recovered) facts.push("recovered");
   return facts.join(" · ");
 }
 
-//: One recording: the row recipe (mark, content, one actions cell), the
-//: waveform under its name, its markers as moments to jump to.
+//: The transcript's state in words, on the card's one line of facts.
+function recordingTranscriptState(rec) {
+  const run = rec.transcription;
+  if (run?.state === "running") return run.progress == null ? "transcribing" : `transcribing ${Math.round(run.progress * 100)}%`;
+  if (rec.transcribed) return "transcribed";
+  if (run?.state === "failed") return "transcription failed";
+  return "not transcribed";
+}
+
+//: **One recording, one card** (Brief 96, INBOX 859: "its hard to see the
+//: audio progress ... no vertical line ... or a time stamp"). The head is
+//: the name and its facts on one line with the actions at its end; under it
+//: the player: play, the waveform with a playhead and the marks as ticks,
+//: and "1:12 / 4:30"; then the marks as a list, each a time and a comment.
 function recordingRow(rec) {
   const li = document.createElement("li");
   li.className = "recording-row";
@@ -1239,7 +1503,8 @@ function recordingRow(rec) {
   const audio = document.createElement("audio");
   audio.preload = "none";
   audio.src = `/media/recordings/${rec.id}`;
-  const play = smallButton("ph:play", `Play ${rec.title || "this recording"}`, async () => {
+  const label = rec.title || "this recording";
+  const play = smallButton("ph:play", `Play ${label}`, async () => {
     if (!audio.paused) return audio.pause();
     await recordingReady(audio);
     audio.play();
@@ -1247,26 +1512,52 @@ function recordingRow(rec) {
   play.classList.add("recording-play");
   audio.addEventListener("play", () => setLabel(play, "ph:pause"));
   audio.addEventListener("pause", () => setLabel(play, "ph:play"));
-  const main = document.createElement("div");
-  main.className = "recording-main";
+  const head = document.createElement("div");
+  head.className = "recording-head";
   const name = document.createElement("span");
   name.className = "recording-title";
   name.textContent = rec.title || "Recording";
+  name.title = `${rec.title || "Recording"} (${meetingContainerName(rec.mime)})`;
   const facts = document.createElement("span");
   facts.className = "muted recording-facts";
   facts.textContent = recordingFacts(rec);
-  const wave = recordingWave(rec, audio);
-  main.append(name, facts, wave, recordingMarkers(rec, audio));
-  if (rec.transcribed) main.append(...recordingTranscript(rec, audio));
   const act = document.createElement("div");
   act.className = "recording-act";
   const speed = recordingSpeed(audio);
-  act.append(speed, kebabMenu(recordingMenu(rec), `More actions for ${rec.title || "this recording"}`));
+  act.append(speed, kebabMenu(recordingMenu(rec), `More actions for ${label}`));
+  head.append(name, facts, act);
+  const player = document.createElement("div");
+  player.className = "recording-player";
+  const time = document.createElement("span");
+  time.className = "muted recording-time";
+  const wave = recordingWave(rec, audio, time);
+  const mark = smallButton("ph:push-pin", `Mark this moment in ${label} (M)`, () => addRecordingMark(li));
+  mark.classList.add("recording-mark-add");
+  player.append(play, wave, time, mark);
+  const marks = document.createElement("ol");
+  marks.className = "recording-marks";
+  marks.setAttribute("aria-label", "Marks");
+  li.recording = { rec, audio, wave, marks, facts };
+  li.append(head, player, marks);
+  if (rec.transcribed) li.append(...recordingTranscript(rec, audio));
+  li.append(audio);
+  recordingMarksFill(li);
+  recordingRunLine(li);
+  if (rec.transcription?.state === "running" && !recordingWatches.has(rec.id)) watchRecordingTranscription(rec, {});
+  //: M on the card marks the playhead, as M marks the moment while
+  //: recording; stopped here because M also opens the app's chords.
+  li.addEventListener("keydown", (event) => {
+    if (event.key.toLowerCase() !== "m" || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.target.closest("input, textarea, select, [contenteditable]")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    addRecordingMark(li);
+  });
   //: After it has a parent: the restyled opener goes beside it.
   enhanceSelect(speed);
-  li.append(play, main, act, audio);
   return li;
 }
+
 
 //: **Seekable before the first seek.** A MediaRecorder file carries no
 //: length and no index, so Chromium reads its duration as Infinity and seeks
@@ -1313,33 +1604,68 @@ function recordingSpeed(audio) {
   return select;
 }
 
-//: The saved peaks as bars, the played part in the accent, a tick per
-//: marker; pressing it seeks. A canvas, as the recorder's own line is.
-function recordingWave(rec, audio) {
+//: The saved peaks as bars, the played part in the accent, the playhead as
+//: a line in the ink, a tick per mark; a press or a drag seeks, the arrows
+//: step five seconds. A canvas, as the recorder's own line is.
+function recordingWave(rec, audio, time) {
   const canvas = document.createElement("canvas");
   canvas.className = "recording-wave";
   canvas.setAttribute("role", "slider");
   canvas.setAttribute("aria-label", "Position");
+  canvas.setAttribute("aria-valuemin", "0");
   canvas.tabIndex = 0;
   const total = () => (Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : rec.duration_ms / 1000);
-  const draw = () => recordingPaint(canvas, rec, audio.currentTime / (total() || 1));
+  const draw = () => {
+    const length = total();
+    const now = Math.min(audio.currentTime, length || 0);
+    recordingPaint(canvas, rec, now / (length || 1));
+    const text = `${meetingClockText(now * 1000)} / ${meetingClockText(length * 1000)}`;
+    time.textContent = text;
+    canvas.setAttribute("aria-valuemax", String(Math.round(length)));
+    canvas.setAttribute("aria-valuenow", String(Math.round(now)));
+    canvas.setAttribute("aria-valuetext", text);
+  };
   const seek = async (fraction) => {
     await recordingReady(audio);
     audio.currentTime = Math.max(0, Math.min(1, fraction)) * total();
     draw();
   };
-  canvas.addEventListener("click", (event) => {
+  const at = (event) => {
     const box = canvas.getBoundingClientRect();
-    seek((event.clientX - box.left) / box.width);
+    return (event.clientX - box.left) / (box.width || 1);
+  };
+  //: Press and drag: the pointer is captured so a drag past the end still
+  //: seeks, and the playhead follows the finger before the audio has caught up.
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    canvas.setPointerCapture?.(event.pointerId);
+    canvas.dataset.dragging = "true";
+    seek(at(event));
   });
+  canvas.addEventListener("pointermove", (event) => {
+    if (canvas.dataset.dragging !== "true") return;
+    const fraction = Math.max(0, Math.min(1, at(event)));
+    recordingPaint(canvas, rec, fraction);
+    time.textContent = `${meetingClockText(fraction * total() * 1000)} / ${meetingClockText(total() * 1000)}`;
+  });
+  const drop = (event) => {
+    if (canvas.dataset.dragging !== "true") return;
+    delete canvas.dataset.dragging;
+    seek(at(event));
+  };
+  canvas.addEventListener("pointerup", drop);
+  canvas.addEventListener("pointercancel", () => delete canvas.dataset.dragging);
   canvas.addEventListener("keydown", (event) => {
-    const step = event.key === "ArrowRight" ? 5 : event.key === "ArrowLeft" ? -5 : 0;
-    if (!step) return;
+    const keys = { ArrowRight: 5, ArrowLeft: -5, Home: -Infinity, End: Infinity };
+    if (!(event.key in keys)) return;
     event.preventDefault();
-    seek((audio.currentTime + step) / (total() || 1));
+    const step = keys[event.key];
+    seek(Number.isFinite(step) ? (audio.currentTime + step) / (total() || 1) : step > 0 ? 1 : 0);
   });
   audio.addEventListener("timeupdate", draw);
+  audio.addEventListener("durationchange", draw);
   canvas.recordingSeek = seek;
+  canvas.recordingDraw = draw;
   requestAnimationFrame(draw);
   return canvas;
 }
@@ -1354,32 +1680,134 @@ function recordingPaint(canvas, rec, played) {
   const style = getComputedStyle(document.documentElement);
   const accent = style.getPropertyValue("--accent").trim() || "#4664f0";
   const rest = style.getPropertyValue("--muted").trim() || "#888";
+  const ink = style.getPropertyValue("--text").trim() || "#222";
   const peaks = rec.peaks.length ? rec.peaks : [8];
   const bar = canvas.width / peaks.length;
   const mid = canvas.height / 2;
+  //: Bars no thinner than 2 device pixels with a gap, so a long recording
+  //: reads as a shape rather than a grey slab.
+  const width = Math.max(ratio, bar * 0.6);
   peaks.forEach((peak, i) => {
-    const h = Math.max(2 * ratio, (peak / 100) * (canvas.height - 4 * ratio));
+    const h = Math.max(2 * ratio, (peak / 100) * (canvas.height - 8 * ratio));
+    paint.globalAlpha = i / peaks.length < played ? 1 : 0.55;
     paint.fillStyle = i / peaks.length < played ? accent : rest;
-    paint.fillRect(i * bar, mid - h / 2, Math.max(1, bar * 0.7), h);
+    paint.fillRect(i * bar, mid - h / 2, width, h);
   });
+  paint.globalAlpha = 1;
+  //: A mark is a short tick from the top with a dot, so it never reads as
+  //: the playhead, which runs the full height.
   paint.fillStyle = accent;
-  for (const ms of rec.markers) {
-    const x = (ms / (rec.duration_ms || 1)) * canvas.width;
-    paint.fillRect(x - ratio, 0, 2 * ratio, canvas.height);
+  for (const mark of rec.marks || []) {
+    const x = (mark.at / (rec.duration_ms || 1)) * canvas.width;
+    paint.fillRect(x - ratio / 2, 0, ratio, canvas.height * 0.35);
+    paint.beginPath();
+    paint.arc(x, 3 * ratio, 3 * ratio, 0, Math.PI * 2);
+    paint.fill();
   }
+  const x = Math.max(ratio, Math.min(canvas.width - ratio, played * canvas.width));
+  paint.fillStyle = ink;
+  paint.fillRect(x - ratio, 0, 2 * ratio, canvas.height);
 }
 
-function recordingMarkers(rec, audio) {
-  const row = document.createElement("div");
-  row.className = "recording-markers";
-  for (const ms of rec.markers) {
-    row.appendChild(smallButton(`ph:push-pin ${meetingClockText(ms)}`, `Play from the marker at ${meetingClockText(ms)}`, async () => {
-      await recordingReady(audio);
-      audio.currentTime = ms / 1000;
-      audio.play();
-    }));
+//: The marks under the player: each its time and its comment, pressing it
+//: plays from there and lights the transcript line said at that moment.
+function recordingMarksFill(li) {
+  const { rec, audio, marks } = li.recording;
+  marks.replaceChildren(...(rec.marks || []).map((mark, i) => {
+    const item = document.createElement("li");
+    item.className = "recording-mark";
+    const go = document.createElement("button");
+    go.type = "button";
+    go.className = "recording-mark-go";
+    go.title = `Play from ${meetingClockText(mark.at)}`;
+    const at = document.createElement("span");
+    at.className = "recording-mark-at";
+    at.textContent = meetingClockText(mark.at);
+    const note = document.createElement("span");
+    note.className = mark.note ? "recording-mark-note" : "recording-mark-note muted";
+    note.textContent = mark.note || `Mark ${i + 1}`;
+    go.append(at, note);
+    go.addEventListener("click", () => playRecordingFrom(li, mark.at));
+    item.append(go, rowActions([
+      { label: mark.note ? "Edit" : "Comment", title: mark.note ? "Change this mark's comment" : "Add a comment to this mark", run: () => editRecordingMark(li, mark) },
+      { label: "Remove", title: "Remove this mark", danger: true, run: () => removeRecordingMark(li, mark) },
+    ], `Actions for the mark at ${meetingClockText(mark.at)}`));
+    return item;
+  }));
+}
+
+async function playRecordingFrom(li, ms) {
+  const { audio } = li.recording;
+  await recordingReady(audio);
+  audio.currentTime = ms / 1000;
+  audio.play();
+  recordingShowLine(li, ms);
+}
+
+//: A mark links into the transcript: the fold opens on the line being said
+//: at that moment.
+async function recordingShowLine(li, ms) {
+  const toggle = li.querySelector(".recording-transcript-toggle");
+  const list = li.querySelector(".recording-transcript");
+  if (!toggle || !list) return;
+  if (toggle.getAttribute("aria-expanded") !== "true") await toggle.recordingOpen();
+  const lines = [...list.querySelectorAll(".recording-line")];
+  const line = lines.findLast((button) => Number(button.dataset.start) <= ms) || lines[0];
+  if (!line) return;
+  lines.forEach((button) => button.classList.toggle("is-now", button === line));
+  line.scrollIntoView({ block: "nearest" });
+}
+
+//: The marks saved as the server keeps them: a number, or `{at, note}`.
+async function saveRecordingMarks(li, marks) {
+  const { rec } = li.recording;
+  const body = await apiJson(`/recordings/${rec.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ markers: marks.map((m) => (m.note ? { at: m.at, note: m.note } : m.at)) }),
+  });
+  Object.assign(rec, { markers: body.markers, marks: body.marks });
+  recordingMarksFill(li);
+  li.recording.wave.recordingDraw();
+  li.recording.facts.textContent = recordingFacts(rec);
+}
+
+//: M or the pin: a mark at the playhead, with a comment if one is typed.
+async function addRecordingMark(li) {
+  const { rec, audio } = li.recording;
+  const at = Math.round(audio.currentTime * 1000);
+  const note = await promptDialog(`Comment on the mark at ${meetingClockText(at)} (optional)`, "", { confirmLabel: "Add the mark" });
+  if (note === null || note === undefined) return;
+  const before = (rec.marks || []).map((m) => ({ ...m }));
+  const after = [...before.filter((m) => m.at !== at), { at, note: note.trim() }];
+  try {
+    await saveRecordingMarks(li, after);
+  } catch (error) {
+    return toast(error.message || "Couldn't add that mark.", true);
   }
-  return row;
+  pushUndo("Added a mark", () => saveRecordingMarks(li, before), () => saveRecordingMarks(li, after));
+}
+
+async function editRecordingMark(li, mark) {
+  const { rec } = li.recording;
+  const note = await promptDialog(`Comment on the mark at ${meetingClockText(mark.at)}`, mark.note, { confirmLabel: "Save" });
+  if (note === null || note === undefined || note.trim() === mark.note) return;
+  const before = rec.marks.map((m) => ({ ...m }));
+  const after = before.map((m) => (m.at === mark.at ? { ...m, note: note.trim() } : m));
+  await saveRecordingMarks(li, after).catch((error) => toast(error.message, true));
+  pushUndo("Changed a mark", () => saveRecordingMarks(li, before), () => saveRecordingMarks(li, after));
+}
+
+async function removeRecordingMark(li, mark) {
+  const { rec } = li.recording;
+  const before = rec.marks.map((m) => ({ ...m }));
+  const after = before.filter((m) => m.at !== mark.at);
+  try {
+    await saveRecordingMarks(li, after);
+  } catch (error) {
+    return toast(error.message || "Couldn't remove that mark.", true);
+  }
+  pushUndo("Removed a mark", () => saveRecordingMarks(li, before), () => saveRecordingMarks(li, after));
+  toastAction(`Removed the mark at ${meetingClockText(mark.at)}.`, "Undo", () => saveRecordingMarks(li, before));
 }
 
 //: **The transcript under its recording** (28.5 row 7): each line a button
@@ -1389,12 +1817,14 @@ function recordingMarkers(rec, audio) {
 function recordingTranscript(rec, audio) {
   const list = document.createElement("ol");
   list.className = "recording-transcript hidden";
-  const toggle = smallButton("ph:caret-down Transcript", "Show the transcript; a line plays from its moment", async () => {
-    const open = toggle.getAttribute("aria-expanded") !== "true";
+  const flip = async (open) => {
     toggle.setAttribute("aria-expanded", String(open));
     list.classList.toggle("hidden", !open);
     if (open && !list.childElementCount) await recordingTranscriptFill(rec, audio, list);
-  });
+  };
+  const toggle = smallButton("ph:caret-down Transcript", "Show the transcript; a line plays from its moment", () => flip(toggle.getAttribute("aria-expanded") !== "true"));
+  //: A mark opens it on its line (`recordingShowLine`).
+  toggle.recordingOpen = () => flip(true);
   toggle.classList.add("recording-transcript-toggle");
   toggle.setAttribute("aria-expanded", "false");
   return [toggle, list];
@@ -1498,21 +1928,131 @@ async function binRecording(rec) {
   toastAction(`“${rec.title || "Recording"}” is in the bin.`, "Undo", undo);
 }
 
+//: The ⋯'s Transcribe: a background run (V1), its progress on the card and
+//: in the running panel; when it ends the transcript is saved as a note and
+//: a notification says so, with Open.
 async function transcribeRecording(rec) {
-  toast("Transcribing; a long recording can take a while on this computer.", "info");
   try {
-    const body = await apiJson(`/recordings/${rec.id}/transcribe`, { method: "POST" });
-    //: Its lines, with their times, now sit under the recording.
-    renderRecordings();
-    const text = (body.text || "").trim();
-    if (!text) return toast("Nothing was heard in that recording.", "info");
-    const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${rec.title || "Recording"}\n\n${text}`, defer_filing: true }) });
-    const binned = meetingBinPair("note", made.id);
-    pushUndo("Saved a transcript as a note", binned.undo, binned.redo);
-    await refreshEntries([made.id]).catch(() => {});
-    toastAction("Transcript saved as a note.", "Open", () => flashEntry(made.id));
+    await startRecordingTranscription(rec, {
+      done: async () => {
+        const body = await apiJson(`/recordings/${rec.id}/transcript`).catch(() => ({ segments: [] }));
+        const text = body.segments.map((seg) => seg.text).join(" ").trim();
+        if (!text) return toast(`Nothing was heard in “${rec.title || "Recording"}”.`, "info");
+        const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${rec.title || "Recording"}\n\n${text}`, defer_filing: true }) });
+        const binned = meetingBinPair("note", made.id);
+        pushUndo("Saved a transcript as a note", binned.undo, binned.redo);
+        await refreshEntries([made.id]).catch(() => {});
+      },
+    });
+    toast("Transcribing in the background; you will be told when it is done.", "info");
   } catch (error) {
     toast(error.message || "Couldn't transcribe that recording.", true);
+  }
+}
+
+// --- background transcription (UI_MODERNISATION V1, INBOX 828) ---------------
+//
+// The run is the server's (`POST /recordings/{id}/transcribe/start`); this
+// page watches it, once per recording, from the moment it starts until it
+// ends, whatever is on screen. Every card of that recording shows its
+// progress and a Stop; the ending is a notification with Open, so it is
+// found after the dialog, the tab or the panel that started it has gone.
+// A reload loses the watch, not the run: the card still reads its state.
+
+const RECORDING_WATCH_MS = 1500;
+const recordingWatches = new Map();
+
+async function startRecordingTranscription(rec, hooks = {}) {
+  const body = await apiJson(`/recordings/${rec.id}/transcribe/start`, { method: "POST" });
+  watchRecordingTranscription(rec, hooks);
+  recordingCardsRun(rec.id, body.transcription);
+  return body;
+}
+
+async function stopRecordingTranscription(id) {
+  try {
+    const body = await apiJson(`/recordings/${id}/transcribe/stop`, { method: "POST" });
+    if (!body.stopped) toast(body.detail, "info");
+  } catch (error) {
+    toast(error.message || "Couldn't stop that.", true);
+  }
+}
+
+function watchRecordingTranscription(rec, hooks) {
+  clearTimeout(recordingWatches.get(rec.id));
+  const poll = async () => {
+    const now = await apiJson(`/recordings/${rec.id}`, { silent: true }).catch(() => null);
+    const run = now?.transcription;
+    if (!run || run.state === "running") {
+      if (run) {
+        hooks.progress?.(run);
+        recordingCardsRun(rec.id, run);
+      }
+      recordingWatches.set(rec.id, setTimeout(poll, RECORDING_WATCH_MS));
+      return;
+    }
+    recordingWatches.delete(rec.id);
+    await recordingTranscriptionEnded(now, run, hooks);
+  };
+  recordingWatches.set(rec.id, setTimeout(poll, RECORDING_WATCH_MS));
+}
+
+async function recordingTranscriptionEnded(rec, run, hooks) {
+  const name = rec.title || "Recording";
+  for (const li of document.querySelectorAll(`#recordings-list [data-recording-id="${Number(rec.id)}"]`)) {
+    if (li.recording) li.recording.rec.transcribed = rec.transcribed;
+  }
+  recordingCardsRun(rec.id, run);
+  const here = hooks.here?.() || false;
+  if (run.state === "done") {
+    await hooks.done?.(run);
+    if (!here) {
+      recordNotification({ kind: "task", title: `Transcript ready: “${name}”`, detail: `${run.words} words`, key: `transcription:${rec.id}:${Date.now()}`, action: { open: "recording", id: rec.id } });
+      toastAction(`Transcript ready: “${name}”.`, "Open", () => openRecordings(rec.id));
+    }
+  } else if (run.state === "failed") {
+    hooks.ended?.(run);
+    recordNotification({ kind: "error", title: `Couldn't transcribe “${name}”`, detail: run.error, key: `transcription:${rec.id}:${Date.now()}`, action: { open: "recording", id: rec.id } });
+    if (!here) toastAction(`Couldn't transcribe “${name}”: ${run.error}`, "Open", () => openRecordings(rec.id));
+  } else {
+    hooks.ended?.(run);
+    if (!here) toast(`Stopped transcribing “${name}”.`, "info");
+  }
+  if (!$("library-view-recordings")?.classList.contains("hidden")) renderRecordings();
+}
+
+//: Every card of the recording, told how its run is going: the facts line,
+//: and a bar with Stop while it runs.
+function recordingCardsRun(id, run) {
+  for (const li of document.querySelectorAll(`#recordings-list [data-recording-id="${Number(id)}"]`)) {
+    if (!li.recording) continue;
+    li.recording.rec.transcription = run;
+    li.recording.facts.textContent = recordingFacts(li.recording.rec);
+    recordingRunLine(li);
+  }
+}
+
+function recordingRunLine(li) {
+  const { rec } = li.recording;
+  const running = rec.transcription?.state === "running";
+  let line = li.querySelector(".recording-run");
+  if (!running) return line?.remove();
+  if (!line) {
+    line = document.createElement("div");
+    line.className = "recording-run";
+    const bar = document.createElement("progress");
+    bar.className = "recording-run-bar";
+    bar.setAttribute("aria-label", `Transcribing ${rec.title || "this recording"}`);
+    const stop = smallButton("ph:stop Stop", "Stop transcribing; nothing is kept", () => stopRecordingTranscription(rec.id));
+    stop.classList.add("quiet");
+    line.append(bar, stop);
+    li.querySelector(".recording-player").after(line);
+  }
+  const bar = line.querySelector("progress");
+  if (rec.transcription.progress == null) bar.removeAttribute("value");
+  else {
+    bar.max = 1;
+    bar.value = rec.transcription.progress;
   }
 }
 
@@ -1590,7 +2130,7 @@ async function trimRecording(rec, startMs, endMs) {
   const wav = recordingWav(decoded, startMs / 1000, endMs / 1000);
   const made = await apiJson("/recordings", {
     method: "POST",
-    body: JSON.stringify({ title: `${rec.title || "Recording"} (trimmed)`, mime: "audio/wav", source_id: rec.id, entry_id: rec.entry_id }),
+    body: JSON.stringify({ title: `${rec.title || "Recording"} (trimmed)`, mime: "audio/wav", source_id: rec.id, entry_id: rec.entry_id, derived: "trim" }),
   });
   const form = new FormData();
   form.append("file", wav, "trim.wav");
@@ -1598,7 +2138,7 @@ async function trimRecording(rec, startMs, endMs) {
   await api.upload(`/recordings/${made.id}/chunk`, form);
   const span = rec.duration_ms || 1;
   const peaks = rec.peaks.slice(Math.floor((startMs / span) * rec.peaks.length), Math.ceil((endMs / span) * rec.peaks.length));
-  const markers = rec.markers.filter((ms) => ms >= startMs && ms <= endMs).map((ms) => ms - startMs);
+  const markers = (rec.marks || []).filter((m) => m.at >= startMs && m.at <= endMs).map((m) => (m.note ? { at: m.at - startMs, note: m.note } : m.at - startMs));
   const done = await apiJson(`/recordings/${made.id}/finish`, { method: "POST", body: JSON.stringify({ duration_ms: endMs - startMs, peaks, markers }) });
   const binned = { undo: () => apiJson(`/recordings/${made.id}`, { method: "DELETE" }).then(renderRecordings), redo: () => apiJson(`/recordings/${made.id}/restore`, { method: "POST" }).then(renderRecordings) };
   pushUndo("Trimmed a recording", binned.undo, binned.redo);
@@ -1650,6 +2190,26 @@ function addMeetingMarker() {
 //: bundle, so it is in before either can be pressed (and app.js's boot
 //: budget carries no stand-in for them).
 $("recordings-record")?.addEventListener("click", () => openVoiceNote());
+
+//: **Live captions from where a person looks for them** (V6): the voice
+//: note's Live captions and the Recordings bar's Captions. The dialog makes
+//: way for the floating bar; a recording in hand already writes its words.
+function openLiveCaptionsFrom() {
+  if (meetingRecorder) return toast("This recording already writes its words in the dialog as you speak.", "info");
+  if (!$("meeting-overlay").classList.contains("hidden")) closeMeetingRecorder();
+  ensureModule("captions").then((ok) => ok && startLiveCaptions());
+}
+$("meeting-captions")?.addEventListener("click", openLiveCaptionsFrom);
+$("meeting-done-open")?.addEventListener("click", () => {
+  const open = $("meeting-done").openSaved;
+  closeMeetingRecorder();
+  open?.();
+});
+$("meeting-done-again")?.addEventListener("click", () => {
+  resetMeetingUI();
+  $("meeting-record").focus();
+});
+$("recordings-captions")?.addEventListener("click", openLiveCaptionsFrom);
 $("meeting-copy")?.addEventListener("click", (event) =>
   copyToClipboard($("meeting-transcript").value, event.currentTarget)
 );
@@ -1663,6 +2223,16 @@ $("meeting-pause")?.addEventListener("click", toggleMeetingPause);
 //: its name field is the same; stopped here, because M is also the first key
 //: of the app's chords (m then s), and while recording it is the marker.
 $("meeting-marker")?.addEventListener("click", addMeetingMarker);
+$("meeting-discard-take")?.addEventListener("click", discardMeetingTake);
+$("meeting-stop-transcribe")?.addEventListener("click", stopMeetingTranscription);
+//: The dock (V1) is in the page from boot but shows only once this bundle
+//: has started a recording, so its handlers are this bundle's.
+$("recording-dock-open")?.addEventListener("click", showMeetingRecorder);
+$("recording-dock-pause")?.addEventListener("click", () => {
+  toggleMeetingPause();
+  syncRecordingDock();
+});
+$("recording-dock-stop")?.addEventListener("click", () => toggleMeetingRecording());
 $("meeting-overlay")?.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() !== "m" || event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.target.closest("input, textarea") || $("meeting-marker").classList.contains("hidden")) return;
@@ -1679,3 +2249,200 @@ wireBackdropClose($("meeting-overlay"), () => closeMeetingRecorder());
 $("meeting-record").addEventListener("click", toggleMeetingRecording);
 $("meeting-save").addEventListener("click", saveMeetingNote);
 $("meeting-discard").addEventListener("click", resetMeetingUI);
+
+// --- the microphone, chosen and tested (UI_MODERNISATION V2, INBOX 828) -------
+//
+// One set of controls, drawn into the recorder's Microphone fold and into
+// Settings, General, Microphone: which input, the browser's noise
+// suppression, echo cancellation and automatic gain (each a switch, on by
+// default, kept on this computer and read by `micAudioConstraints`), a live
+// level and a three-second test that plays back what it heard. A device
+// list carries names only once the browser has been allowed the microphone,
+// so the test also fills them in.
+
+const MIC_SWITCHES = [
+  ["micNoise", "Noise suppression", "Quietens steady background noise: fans, hum, traffic"],
+  ["micEcho", "Echo cancellation", "Removes the speakers' sound coming back into the microphone"],
+  ["micGain", "Automatic gain", "Evens out loud and quiet speech"],
+  ["micEnhance", "Enhance on save", "Cuts low rumble and evens the loudness of the kept audio, on this machine; the original is kept until the transcript is saved"],
+];
+const MIC_TEST_MS = 3000;
+
+function micControlsInto(host) {
+  host.replaceChildren();
+  host.classList.add("mic-controls");
+  const id = `mic-device-${host.id || Math.random().toString(36).slice(2, 7)}`;
+  const select = document.createElement("select");
+  select.id = id;
+  select.className = "mic-device";
+  select.setAttribute("aria-label", "Microphone");
+  select.addEventListener("change", () => {
+    prefs.set("micDevice", select.value);
+    syncMicSelects(select);
+  });
+  const deviceRow = document.createElement("div");
+  deviceRow.className = "row space-between setting-row";
+  const label = document.createElement("label");
+  label.htmlFor = id;
+  label.textContent = "Microphone";
+  deviceRow.append(label, select);
+  host.appendChild(deviceRow);
+  for (const [key, name, hint] of MIC_SWITCHES) {
+    const row = document.createElement("label");
+    row.className = "check-row";
+    row.title = hint;
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.dataset.micPref = key;
+    box.checked = prefs.bool(key, true);
+    box.addEventListener("change", () => {
+      prefs.set(key, box.checked ? "1" : "0");
+      document.querySelectorAll(`input[data-mic-pref="${key}"]`).forEach((other) => (other.checked = box.checked));
+    });
+    const words = document.createElement("span");
+    words.textContent = name;
+    row.append(box, words);
+    host.appendChild(row);
+  }
+  const test = document.createElement("div");
+  test.className = "mic-test";
+  const level = document.createElement("div");
+  level.className = "mic-level";
+  level.setAttribute("role", "meter");
+  level.setAttribute("aria-label", "Microphone level");
+  level.setAttribute("aria-valuemin", "0");
+  level.setAttribute("aria-valuemax", "100");
+  level.setAttribute("aria-valuenow", "0");
+  const fill = document.createElement("span");
+  fill.className = "mic-level-fill";
+  level.appendChild(fill);
+  const status = document.createElement("p");
+  status.className = "muted mic-test-status";
+  status.setAttribute("role", "status");
+  status.textContent = "Test records three seconds and plays them back.";
+  const button = smallButton("ph:microphone Test", "Record three seconds with these settings and play them back", () => testMicrophone(level, status, button));
+  button.classList.add("mic-test-button");
+  test.append(button, level);
+  host.append(test, status);
+  enhanceSelect(select);
+  fillMicDevices(select);
+}
+
+async function fillMicDevices(select) {
+  const chosen = prefs.get("micDevice", "");
+  const all = (await navigator.mediaDevices?.enumerateDevices?.().catch(() => [])) || [];
+  const inputs = all.filter((d) => d.kind === "audioinput" && d.deviceId !== "default" && d.deviceId !== "communications");
+  const options = [new Option("The system default", "", !chosen, !chosen)];
+  inputs.forEach((d, i) => options.push(new Option(d.label || `Microphone ${i + 1}`, d.deviceId, false, d.deviceId === chosen)));
+  //: Remembered but not plugged in now: kept, said so, still chosen.
+  if (chosen && !inputs.some((d) => d.deviceId === chosen)) options.push(new Option("The last microphone chosen (not connected)", chosen, true, true));
+  select.replaceChildren(...options);
+}
+
+//: Every other copy of the controls follows a change made in one.
+function syncMicSelects(from) {
+  document.querySelectorAll("select.mic-device").forEach((other) => {
+    if (other === from) return;
+    other.value = from.value;
+  });
+}
+
+//: Three seconds through the chosen settings: the level moves while it
+//: listens, then it plays back. Names the device it used.
+async function testMicrophone(level, status, button) {
+  let stream = null;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: micAudioConstraints() });
+  } catch {
+    status.textContent = "Microphone access was blocked; allow it in your browser.";
+    return;
+  }
+  button.disabled = true;
+  const used = stream.getAudioTracks()[0]?.label || "the microphone";
+  document.querySelectorAll("select.mic-device").forEach(fillMicDevices);
+  const stopLevel = micLevelInto(stream, level);
+  const chunks = [];
+  const recorder = new MediaRecorder(stream);
+  recorder.addEventListener("dataavailable", (e) => e.data.size && chunks.push(e.data));
+  const stopped = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
+  recorder.start();
+  status.textContent = `Listening on ${used}: say something…`;
+  await new Promise((r) => setTimeout(r, MIC_TEST_MS));
+  recorder.stop();
+  await stopped;
+  stopLevel();
+  stream.getTracks().forEach((t) => t.stop());
+  const peak = Number(level.dataset.peak || 0);
+  const audio = document.createElement("audio");
+  audio.src = URL.createObjectURL(new Blob(chunks, { type: recorder.mimeType }));
+  status.textContent = peak < 4 ? `Heard almost nothing on ${used}. Check it is not muted, or choose another microphone.` : `Playing back what ${used} heard.`;
+  audio.addEventListener("ended", () => {
+    URL.revokeObjectURL(audio.src);
+    button.disabled = false;
+    if (peak >= 4) status.textContent = `${used} works. Its loudest moment reached ${peak}%.`;
+  });
+  audio.play().catch(() => (button.disabled = false));
+}
+
+//: The live level as a bar (the evidence track's recipe: a track and a fill
+//: whose width is set): RMS, square-rooted as the recorder's line is so
+//: ordinary speech sits mid-bar. With reduced motion it steps four times a
+//: second rather than every frame.
+function micLevelInto(stream, level) {
+  let ctx = null;
+  try {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    return () => {};
+  }
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 1024;
+  ctx.createMediaStreamSource(stream).connect(analyser);
+  const samples = new Uint8Array(analyser.fftSize);
+  const fill = level.querySelector(".mic-level-fill");
+  const still = reducedMotionWanted();
+  level.dataset.peak = "0";
+  let stopped = false;
+  let last = 0;
+  const tick = (now) => {
+    if (stopped) return;
+    if (!still || now - last > 250) {
+      last = now;
+      analyser.getByteTimeDomainData(samples);
+      let sum = 0;
+      for (const v of samples) sum += ((v - 128) / 128) ** 2;
+      const pct = Math.round(Math.min(1, Math.sqrt(Math.sqrt(sum / samples.length)) * 1.6) * 100);
+      fill.style.width = `${pct}%`;
+      level.setAttribute("aria-valuenow", String(pct));
+      level.dataset.peak = String(Math.max(pct, Number(level.dataset.peak)));
+    }
+    requestAnimationFrame(tick);
+  };
+  ctx.resume().then(() => requestAnimationFrame(tick), () => requestAnimationFrame(tick));
+  return () => {
+    stopped = true;
+    fill.style.width = "0%";
+    level.setAttribute("aria-valuenow", "0");
+    ctx.close().catch(() => {});
+  };
+}
+
+//: The recorder's Microphone fold, drawn when first opened; its summary
+//: names the input in use, so a wrong microphone is seen before recording.
+async function nameMeetingMic() {
+  const chosen = prefs.get("micDevice", "");
+  let name = "the system default";
+  if (chosen) {
+    const all = (await navigator.mediaDevices?.enumerateDevices?.().catch(() => [])) || [];
+    name = all.find((d) => d.deviceId === chosen)?.label || "the one chosen";
+  }
+  if ($("meeting-mic-name")) $("meeting-mic-name").textContent = `Microphone: ${name}`;
+}
+
+$("meeting-mic")?.addEventListener("toggle", () => {
+  const host = $("meeting-mic-controls");
+  if ($("meeting-mic").open && !host.childElementCount) micControlsInto(host);
+});
+$("meeting-mic")?.addEventListener("change", (event) => {
+  if (event.target.matches("select.mic-device")) nameMeetingMic();
+});

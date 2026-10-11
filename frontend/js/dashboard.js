@@ -74,7 +74,7 @@ const DASH_WIDGETS = {
   digest: { title: "ph:newspaper Digest", description: "Your day from the notes: what is due, open questions, what changed and quiet topics; Atlas writes the week on request.", render: renderDigestWidget },
   capture: { title: "ph:pencil-simple Quick capture", description: "A one-line box to jot a note without leaving the dashboard.", render: renderQuickCaptureWidget },
   reminders: { title: "ph:alarm Reminders", description: "Upcoming and overdue reminders, soonest first.", render: renderRemindersWidget },
-  focus: { title: "ph:timer Focus timer", description: "A start/stop timer for focused writing sessions.", render: renderFocusTimerWidget },
+  focus: { title: "ph:timer Focus timer", description: "A focus timer with breaks, a chime at the end and today's minutes.", render: renderFocusTimerWidget },
   heatmap: { title: "ph:calendar-check Activity heatmap", description: "A calendar-style heatmap of note activity over the past months.", render: renderHeatmapWidget },
   "tag-cloud": { title: "ph:cloud Tag cloud", description: "All your tags sized by how often they're used.", render: renderTagCloudWidget },
   categories: { title: "ph:folders Categories", description: "Every category with its note count, click to filter.", render: renderCategoriesWidget },
@@ -3777,7 +3777,20 @@ async function renderTagCloudWidget(body) {
 // --- focus timer (dashboard widget) -----------------------------------------
 // State lives at module level so it keeps running while the widget re-renders
 // (e.g. when you switch away and back to the dashboard).
-let focusTimer = { remaining: 0, total: 25 * 60, running: false, handle: null };
+//
+// **Redesigned** (UI_MODERNISATION V8, INBOX 829): a ring that empties as the
+// time runs, the time large inside it; the lengths as one segmented control
+// with a stepper for any other; Start and Pause one filled button; at the end
+// a chime, a notification (the bell and the system's) and, when Breaks is on,
+// a five-minute break that starts by itself; and today's focused minutes,
+// kept per day in this browser.
+//: `unsaved`: seconds focused since the last save to today's count, written
+//: on every pause and end rather than every second.
+let focusTimer = { remaining: 0, total: 25 * 60, running: false, handle: null, mode: "focus", focusTotal: 25 * 60, unsaved: 0 };
+const FOCUS_PRESETS = [5, 15, 25, 50];
+const FOCUS_BREAK_MIN = 5;
+const FOCUS_SVG = "http://www.w3.org/2000/svg";
+const FOCUS_RING_R = 52;
 
 function focusTimeLabel(seconds) {
   const m = Math.floor(seconds / 60);
@@ -3785,26 +3798,119 @@ function focusTimeLabel(seconds) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function paintFocusTimer() {
-  const display = $("focus-timer-display");
-  if (display) {
-    const shown = focusTimer.remaining || focusTimer.total;
-    display.textContent = focusTimeLabel(shown);
+//: Seconds focused today, in this browser: "YYYY-MM-DD:seconds".
+function focusTodaySeconds(add = 0) {
+  const day = new Date().toLocaleDateString("en-CA");
+  const [stored, seconds] = String(prefs.get("focusToday", "")).split(":");
+  let total = stored === day ? Number(seconds) || 0 : 0;
+  if (add) {
+    total += add;
+    prefs.set("focusToday", `${day}:${total}`);
   }
+  return total;
+}
+
+function focusRing() {
+  const svg = document.createElementNS(FOCUS_SVG, "svg");
+  svg.setAttribute("viewBox", "0 0 120 120");
+  svg.setAttribute("class", "focus-ring-svg");
+  svg.setAttribute("aria-hidden", "true");
+  for (const name of ["focus-ring-track", "focus-ring-fill"]) {
+    const circle = document.createElementNS(FOCUS_SVG, "circle");
+    circle.setAttribute("cx", "60");
+    circle.setAttribute("cy", "60");
+    circle.setAttribute("r", String(FOCUS_RING_R));
+    circle.setAttribute("class", name);
+    if (name === "focus-ring-fill") {
+      circle.id = "focus-ring-fill";
+      const length = 2 * Math.PI * FOCUS_RING_R;
+      circle.setAttribute("stroke-dasharray", String(length));
+    }
+    svg.appendChild(circle);
+  }
+  return svg;
+}
+
+function paintFocusTimer() {
+  const shown = focusTimer.remaining || focusTimer.total;
+  const display = $("focus-timer-display");
+  if (display) display.textContent = focusTimeLabel(shown);
+  const mode = $("focus-ring-mode");
+  if (mode) mode.textContent = focusTimer.mode === "break" ? "Break" : focusTimer.running || focusTimer.remaining ? "Focus" : `${Math.round(focusTimer.total / 60)} min`;
+  const fill = $("focus-ring-fill");
+  if (fill) {
+    const length = 2 * Math.PI * FOCUS_RING_R;
+    fill.style.strokeDashoffset = String(length * (1 - shown / focusTimer.total));
+  }
+  $("focus-ring")?.classList.toggle("is-break", focusTimer.mode === "break");
   const toggle = $("focus-timer-toggle");
-  if (toggle) toggle.textContent = focusTimer.running ? "Pause" : "Start";
+  if (toggle) setLabel(toggle, focusTimer.running ? "ph:pause Pause" : focusTimer.remaining ? "ph:play Resume" : "ph:play Start");
+  for (const button of document.querySelectorAll(".focus-presets-seg button")) {
+    button.setAttribute("aria-pressed", String(focusTimer.mode === "focus" && Number(button.dataset.minutes) * 60 === focusTimer.focusTotal));
+  }
+  const step = $("focus-step-value");
+  if (step) step.textContent = `${Math.round(focusTimer.focusTotal / 60)} min`;
+  const today = $("focus-today");
+  if (today) {
+    const seconds = focusTodaySeconds() + focusTimer.unsaved;
+    const minutes = Math.floor(seconds / 60);
+    today.textContent = minutes ? `${minutes} min focused today` : seconds ? "Under a minute focused today" : "Nothing focused yet today";
+  }
 }
 
 function focusTimerTick() {
   if (focusTimer.remaining > 0) {
     focusTimer.remaining -= 1;
+    if (focusTimer.mode === "focus") focusTimer.unsaved += 1;
     paintFocusTimer();
-    if (focusTimer.remaining === 0) {
-      stopFocusTimer();
-      toast("Focus session complete. Nice work.");
-      notify("MemoryMap", "Focus session complete. Nice work.");
-    }
+    if (focusTimer.remaining === 0) focusTimerEnded();
   }
+}
+
+//: Two soft notes from Web Audio: no file to fetch, and quiet enough for a
+//: library. The context is made here, after the Start press that allows it.
+function focusChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [880, 660].forEach((hz, i) => {
+      const tone = ctx.createOscillator();
+      const gain = ctx.createGain();
+      tone.frequency.value = hz;
+      const at = ctx.currentTime + i * 0.35;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.2, at + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.6);
+      tone.connect(gain).connect(ctx.destination);
+      tone.start(at);
+      tone.stop(at + 0.65);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 1500);
+  } catch {
+    // No Web Audio: the notification still says it.
+  }
+}
+
+function focusTimerEnded() {
+  stopFocusTimer();
+  focusChime();
+  const wasBreak = focusTimer.mode === "break";
+  const minutes = Math.round(focusTimer.total / 60);
+  const title = wasBreak ? "Break over" : `Focus session done: ${minutes} min`;
+  const detail = wasBreak ? "Start the next session when you are ready." : `${Math.floor(focusTodaySeconds() / 60)} min focused today.`;
+  notify("MemoryMap", `${title}. ${detail}`);
+  recordNotification({ kind: "task", title, detail, key: `focus:${Date.now()}` });
+  toast(`${title}. ${detail}`);
+  if (!wasBreak && prefs.bool("focusBreaks", false)) {
+    focusTimer.mode = "break";
+    focusTimer.total = FOCUS_BREAK_MIN * 60;
+    focusTimer.remaining = 0;
+    startFocusTimer();
+    return;
+  }
+  focusTimer.mode = "focus";
+  focusTimer.total = focusTimer.focusTotal;
+  focusTimer.remaining = 0;
+  paintFocusTimer();
 }
 
 function startFocusTimer() {
@@ -3820,56 +3926,108 @@ function stopFocusTimer() {
   focusTimer.running = false;
   if (focusTimer.handle) clearInterval(focusTimer.handle);
   focusTimer.handle = null;
+  if (focusTimer.unsaved) {
+    focusTodaySeconds(focusTimer.unsaved);
+    focusTimer.unsaved = 0;
+  }
   paintFocusTimer();
 }
 
 function setFocusTimer(minutes) {
   stopFocusTimer();
-  focusTimer.total = Math.max(1, Math.round(minutes)) * 60;
+  focusTimer.mode = "focus";
+  focusTimer.focusTotal = Math.max(1, Math.min(180, Math.round(minutes))) * 60;
+  focusTimer.total = focusTimer.focusTotal;
   focusTimer.remaining = 0;
   paintFocusTimer();
+}
+
+//: The stepper: five minutes at a time, from 5 to 180.
+function focusStep(by) {
+  const now = Math.round(focusTimer.focusTotal / 60);
+  setFocusTimer(Math.max(5, Math.min(180, (by > 0 ? Math.floor(now / 5) : Math.ceil(now / 5)) * 5 + by)));
 }
 
 // async to match the widget contract in renderDashboard (render() must
 // return a promise).
 async function renderFocusTimerWidget(body) {
+  const ring = document.createElement("div");
+  ring.id = "focus-ring";
+  ring.className = "focus-ring";
+  const face = document.createElement("div");
+  face.className = "focus-ring-face";
+  const mode = document.createElement("span");
+  mode.id = "focus-ring-mode";
+  mode.className = "focus-ring-mode";
   const display = document.createElement("div");
   display.id = "focus-timer-display";
-  display.className = "focus-timer-display";
-  body.appendChild(display);
+  display.className = "focus-timer-display focus-ring-time";
+  display.setAttribute("role", "timer");
+  face.append(mode, display);
+  ring.append(focusRing(), face);
+  body.appendChild(ring);
 
   const presets = document.createElement("div");
   presets.className = "row focus-presets";
-  for (const mins of [5, 15, 25]) {
-    presets.appendChild(smallButton(`${mins}m`, `${mins} minutes`, () => setFocusTimer(mins)));
+  const seg = document.createElement("div");
+  seg.className = "seg focus-presets-seg";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", "Session length");
+  for (const mins of FOCUS_PRESETS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.minutes = String(mins);
+    button.textContent = `${mins}`;
+    button.title = `${mins} minutes`;
+    button.addEventListener("click", () => setFocusTimer(mins));
+    seg.appendChild(button);
   }
-  const custom = document.createElement("input");
-  custom.type = "number";
-  custom.min = "1";
-  custom.max = "180";
-  custom.placeholder = "min";
-  custom.className = "focus-custom";
-  custom.setAttribute("aria-label", "Custom minutes");
-  custom.addEventListener("change", () => {
-    const value = Number(custom.value);
-    if (value >= 1) setFocusTimer(value);
-  });
-  presets.appendChild(custom);
+  const stepper = document.createElement("div");
+  stepper.className = "focus-stepper";
+  stepper.setAttribute("role", "group");
+  stepper.setAttribute("aria-label", "Any length");
+  const value = document.createElement("span");
+  value.id = "focus-step-value";
+  value.className = "focus-step-value";
+  stepper.append(
+    smallButton("ph:minus", "Five minutes shorter", () => focusStep(-5)),
+    value,
+    smallButton("ph:plus", "Five minutes longer", () => focusStep(5))
+  );
+  presets.append(seg, stepper);
   body.appendChild(presets);
 
   const controls = document.createElement("div");
-  controls.className = "row";
-  const toggle = smallButton("Start", "Start or pause the timer", () => {
+  controls.className = "row focus-controls";
+  const toggle = smallButton("ph:play Start", "Start or pause the timer", () => {
     if (focusTimer.running) stopFocusTimer();
     else startFocusTimer();
   }, false);
   toggle.id = "focus-timer-toggle";
-  const reset = smallButton("Reset", "Reset the timer", () => {
+  const reset = smallButton("ph:arrow-counter-clockwise", "Reset the timer", () => {
     focusTimer.remaining = 0;
+    focusTimer.mode = "focus";
+    focusTimer.total = focusTimer.focusTotal;
     stopFocusTimer();
   });
-  controls.append(toggle, reset);
+  reset.classList.add("quiet");
+  const breaks = document.createElement("label");
+  breaks.className = "check-row focus-breaks";
+  breaks.title = `A ${FOCUS_BREAK_MIN}-minute break starts by itself after each session`;
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = prefs.bool("focusBreaks", false);
+  box.addEventListener("change", () => prefs.set("focusBreaks", box.checked ? "1" : "0"));
+  const words = document.createElement("span");
+  words.textContent = "Breaks";
+  breaks.append(box, words);
+  controls.append(toggle, reset, breaks);
   body.appendChild(controls);
+
+  const today = document.createElement("p");
+  today.id = "focus-today";
+  today.className = "muted focus-today";
+  body.appendChild(today);
 
   paintFocusTimer();
 }

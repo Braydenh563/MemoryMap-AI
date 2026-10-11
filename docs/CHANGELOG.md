@@ -57,6 +57,16 @@ below). Versioning is `0.x` while the app stabilises.
 - Search by meaning: Settings, the command palette, Help, the manual and the Guide find a thing by another word for it or a slip in its name ("trash" is the bin, "the little guy in the corner" the companion, "chnage pasword" the password); with an embedding model on, Settings and the palette add a Close in meaning list.
 - Settings: on a phone, a long matching setting no longer widens the results list past the screen.
 - Autocorrect in notes, chat, Ask and titles: a clear typo is fixed as you finish the word, underlined for five seconds (click it to put the word back), Backspace or Ctrl+Z straight after undoes it and the toast carries Undo; never in code, links, tags or search; one switch in Settings, General, Writing.
+- Tidy: a review opens under a quiet back link with its name as the heading; an empty review is one line with no selection bar; Recent runs is a quiet disclosure row instead of a bordered box.
+- Focus timer: a ring with the time large, 5, 15, 25 and 50 minute lengths plus a stepper, one Start and Pause button, a chime and a notification at the end, optional breaks, and today's focused minutes.
+- Voice notes: Enhance on save (on by default, in the Microphone fold and Settings) cuts low rumble and evens the loudness of the kept audio on this computer; the original is kept until the transcript is saved.
+- Voice notes: the level line is the microphone's real signal, and with reduced motion it is a still level bar.
+- Voice notes: with the captions helper, the words appear in the recorder as you speak; the full transcript replaces them after.
+- Live captions: a Captions button in Library, Recordings and a Live captions button in the voice note, and the Guide answers "how do I get live captions".
+- Voice notes: the recorder is one large Record and Stop control with the clock beside it and the microphone as a chip; after saving it shows the transcript's first lines with Open.
+- Microphone: choose the input, and switch noise suppression, echo cancellation and automatic gain, with a live level and a three-second test, in the recorder and in Settings, General; dictation, recordings and live captions all use them.
+- Recordings: each recording is a card with a playhead, the time ("1:12 / 4:30") and drag to seek; M or the pin marks a moment with a comment, listed under the player and linked to the transcript.
+- Voice notes: closing the recorder keeps recording in a small bar with the clock, Pause, Stop and Open; transcription runs in the background with its progress on the card, a Stop, and a notification when it is done or fails.
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
 - Attach: a picture's selection circle sits inside its corner.
 - Running jobs and Activity: every answer, agent turn and background job is listed with a plain title, who started it and how long it took; each opens to its own timed lines, live while it runs.

@@ -1683,6 +1683,11 @@ class Recording(Base, WorkspaceMixin):
     #: note may be binned and purged while the recording is kept).
     entry_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
     source_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    #: What a row made from `source_id` is: "trim", or "enhanced" (the
+    #: high-pass and loudness normalise on save, UI_MODERNISATION V3); "" for
+    #: a recording as it was made. A scalar default, so the additive
+    #: auto-migrator backfills old rows.
+    derived: Mapped[str] = mapped_column(String(16), default="")
     state: Mapped[str] = mapped_column(String(16), default="recording")
     #: Set when a stale recording was finished by recovery, so the app can
     #: say "Recording recovered" once.

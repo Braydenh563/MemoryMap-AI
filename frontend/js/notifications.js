@@ -21,6 +21,8 @@ const NOTICE_TARGETS = {
   board: [(id) => apiJson("/whiteboard/boards", { silent: true }).then((all) => all.find((b) => b.id === id)), (id) => openWhiteboardBoard(id), "board"],
   reminder: [null, (id) => { editingReminderId = id; return flashReminder(id); }, "reminder"],
   capture: [null, () => startNewNote(), ""],
+  //: A transcription that ended while nobody was looking (V1).
+  recording: [(id) => apiJson(`/recordings/${id}`, { silent: true }), (id) => ensureModule("meetings").then(() => openRecordings(id)), "recording"],
 };
 
 async function runNotificationGo(action) {

@@ -49,11 +49,8 @@ function recordBrowserLog(level, parts) {
   // own startup would take, and it already degrades to "skip the live
   // push" rather than throwing, same as before the split.
   if (typeof logRecords !== "undefined" && typeof logScreenOpen !== "undefined") {
-    const liveRecord = { ...record, source: "browser", logger: "browser",
-      key: `b-live-${Date.now()}-${Math.random()}` };
-    logRecords.push(liveRecord);
-    //: The four are settings.js's, beside `logRecords`, so the check above
-    //: answers for them too (Brief 94 took the guards for the gzip budget).
+    logRecords.push({ ...record, source: "browser", logger: "browser", key: `b-live-${Math.random()}` });
+    //: The four are settings.js's, beside `logRecords`.
     sortLogRecords();
     if (logScreenOpen) {
       renderActiveLogView();
@@ -1857,11 +1854,8 @@ const LAZY_MODULES = {
   webClip: ["/js/web-clip.js"],
   appImport: ["/js/app-import.js"],
   usageLedger: ["/css/usage-lazy.css", "/js/usage-ledger.js"],
-  //: The Library tab's list without the editors (audit FE-03(c)): one click
-  //: on Library fetched both editors, d3 and the whiteboard, about 900 KB
-  //: gzipped, to draw a list. `library` below still holds library.js, so
-  //: a document or a board brings the whole surface; `lazyScript` fetches
-  //: library.js once whichever asks first.
+  //: The Library list without the editors (audit FE-03(c)): they were about
+  //: 900 KB gzipped. A document or a board brings the whole `library` surface.
   libraryList: ["/css/library-lazy.css", "/js/library.js"],
   //: The Capture box's template picker (note-templates.js's header).
   noteTemplates: ["/js/note-templates.js"],

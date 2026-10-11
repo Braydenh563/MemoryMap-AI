@@ -776,8 +776,11 @@ MORE_TOPICS: list[dict] = [
             "on the status bar (on a phone the bar comes back while it runs); "
             "press that timer chip in the status bar to stop it. When a timer "
             "runs out it says so in a message and a notification. The "
-            "Dashboard's Focus timer widget is a separate timer with its own "
-            "Start and Reset."
+            "Dashboard's Focus timer widget is a separate timer: a ring with "
+            "the time, lengths of 5, 15, 25 or 50 minutes (or minus and plus "
+            "for any other), one Start that becomes Pause, a chime and a "
+            "notification at the end, Breaks for a five-minute break after "
+            "each session, and the minutes focused today."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -827,16 +830,21 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "live captions", "captions", "subtitles", "live transcription", "transcribe live",
             "write what i say", "speech to text live", "stop the captions",
+            "how do i get live captions", "where are live captions", "open live captions",
         ),
         "body": (
-            "Type captions in the command palette (Ctrl+K) for Live captions: a "
-            "bar appears over whatever you are looking at and writes what the "
-            "microphone hears, on this computer, never over the internet. The "
-            "bottom line is still being written; the three above it are done. "
-            "Copy takes everything said so far, and Stop (or the palette row "
-            "again) saves it as a note tagged captions. Captions need a local "
-            "speech helper; its row in Settings, Packages says what is "
-            "missing, and without one the row says so and nothing is recorded."
+            "Press Captions in Library, Recordings, or Live captions in a Voice "
+            "note before you record; it is also in Tools and features, Audio, "
+            "and in the command palette (Ctrl+K, type captions). A bar appears "
+            "over whatever you are looking at and writes what the microphone "
+            "hears, on this computer, never over the internet. The bottom line "
+            "is still being written; the three above it are done. Copy takes "
+            "everything said so far, and Stop (or the palette row again) saves "
+            "it as a note tagged captions. While a voice note records, the same "
+            "captions write its words into the dialog as you speak, and the "
+            "full transcript replaces them after. Captions need a local speech "
+            "helper; its row in Settings, Packages says what is missing, and "
+            "without one the row says so and nothing is recorded."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -1814,7 +1822,7 @@ TOPIC_META: dict[str, dict] = {
     "timer": {"title": "Timer and stopwatch", "path": "Command palette, timer"},
     "manual": {"title": "The manual", "path": "Settings, Help, Open the manual"},
     "first-steps": {"title": "First steps and the sample notebook", "path": "Dashboard, Start in three steps"},
-    "live-captions": {"title": "Live captions", "path": "Command palette, Live captions"},
+    "live-captions": {"title": "How do I get live captions", "path": "Library, Recordings, Captions"},
     "count-words": {"title": "Count words", "path": "Command palette, Count words"},
     "translate-offline": {"title": "Translate this, offline", "path": "Command palette, Translate this"},
     "insert-template": {"title": "Insert a template", "path": "Command palette, insert template"},

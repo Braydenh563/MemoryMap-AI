@@ -192,3 +192,16 @@ def test_an_abandoned_run_is_saved_when_the_next_one_starts(client, helper):
     assert reply.status_code == 200
     notes = client.get("/entries?limit=5").json()
     assert any("hello world" in n["content"] for n in (notes if isinstance(notes, list) else notes.get("items", [])))
+
+
+def test_live_words_in_the_recorder_are_not_saved_as_a_note(client, helper):
+    """V5: while a voice note records, the captions pipeline writes its words
+    into the dialog; the recording's own transcript is the record, so the
+    run's stop is asked not to save a note."""
+    sid = client.post("/voice/captions/start").json()["id"]
+    _post_all(client, sid, fake.tone_words([2, 3]) + b"\x00\x00" * 16000)
+    before = client.get("/entries").json()
+    done = client.post(f"/voice/captions/{sid}/stop", json={"save": False}).json()
+    after = client.get("/entries").json()
+    assert done["entry_id"] is None and done["text"].split() == ["this", "is"]
+    assert len(after) == len(before)

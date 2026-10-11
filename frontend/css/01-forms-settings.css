@@ -5587,6 +5587,10 @@ select {
 .privacy-row-head > .chip {
   flex: none;
 }
+.privacy-row-why {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
 .privacy-row-meta {
   margin: var(--space-1) 0 0;
 }

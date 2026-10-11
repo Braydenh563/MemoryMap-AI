@@ -21,6 +21,7 @@ import threading
 import time
 from pathlib import Path
 
+from memorymap.core import egress
 from memorymap.core.extras import find_system_python
 from memorymap.core.logbuffer import safe_value
 from memorymap.search import searxng_manager
@@ -215,6 +216,7 @@ def _unsafe_member(name: str) -> bool:
     return any(char in _UNSAFE_CHARS for part in parts for char in part)
 
 
+@egress.labelled(lambda url, *a, **k: f"Installing SearXNG: {egress.short(url.rsplit('/', 1)[-1])}")
 def _download(url: str, destination: Path, on_progress=None) -> None:
     """Fetch the archive to disk. Streamed: it is tens of megabytes.
 

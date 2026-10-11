@@ -38,9 +38,10 @@ async function renderTasks(payload) {
     if (job.started && body.now) {
       const took = document.createElement("span");
       took.className = "muted task-elapsed";
-      took.textContent = `${job.queued ? "waiting " : ""}${taskElapsed(body.now - job.started)}`;
+      took.textContent = `${job.queued ? "waiting " : ""}${taskElapsed(body.now - job.started)}${taskOriginWords(job.origin)}`;
       row.appendChild(took);
     }
+    if (job.run_id) li.dataset.runId = job.run_id;
 
     if (job.cancellable) {
       const actions = document.createElement("span");
@@ -103,39 +104,125 @@ async function renderTasks(payload) {
     // is the thing that keeps changing, so it is the real answer to "has it
     // frozen?". Open by default while a job is running; there is nothing to
     // be spared from here.
-    if ((job.log || []).length) {
-      const fold = document.createElement("details");
-      fold.className = "task-log";
-      fold.open = taskLogsOpen.has(job.kind);
-      fold.addEventListener("toggle", () => {
-        if (fold.open) taskLogsOpen.add(job.kind);
-        else taskLogsOpen.delete(job.kind);
-      });
-      const summary = document.createElement("summary");
-      summary.textContent = `What it's doing (${job.log.length} lines)`;
-      const pre = document.createElement("pre");
-      pre.className = "task-log-lines";
-      pre.textContent = job.log.join("\n");
-      fold.append(summary, pre);
-      li.appendChild(fold);
-
-      // Listen for scroll events to track if the user has scrolled up from the bottom
-      pre.addEventListener("scroll", () => {
-        const isAtBottom = Math.abs(pre.scrollHeight - pre.scrollTop - pre.clientHeight) < 5;
-        taskLogScrollStates.set(job.kind, isAtBottom);
-      });
-
-      // Follow the tail, the way a terminal does, unless the user scrolled up
-      if (fold.open && taskLogScrollStates.get(job.kind) !== false) {
-        // Use a slight timeout to ensure rendering is complete before scrolling
-        requestAnimationFrame(() => {
-          pre.scrollTop = pre.scrollHeight;
-        });
-      }
-    }
+    const lines = job.lines || (job.log || []).map((text) => ({ text }));
+    if (lines.length) li.appendChild(taskRunFold(job.run_id || job.kind, lines, job.started, "running"));
     list.appendChild(li);
   }
   renderTaskHistory((body && body.history) || []);
+  followTaskLines();
+}
+
+//: Who started a run, after its time: ", you started it" (INBOX 805).
+const TASK_ORIGIN_WORDS = {
+  you: "you started it",
+  schedule: "on its schedule",
+  "start-up": "at start-up",
+  app: "the app",
+};
+function taskOriginWords(origin) {
+  return TASK_ORIGIN_WORDS[origin] ? `, ${TASK_ORIGIN_WORDS[origin]}` : "";
+}
+
+//: One run's lines as text, each with when it was said from the run's start
+//: ("+3 s  Called search_notes: ..."), the way a terminal log reads.
+function taskRunLinesText(lines, started) {
+  return lines
+    .map((line) => (line.at && started ? `+${taskElapsed(line.at - started)}  ${line.text}` : line.text))
+    .join("\n");
+}
+
+//: The disclosure under a run (DESIGN.md list row with a `.task-log` fold):
+//: open while it runs if it was open before, closed once finished. Keyed on
+//: the run, so a fold someone opened stays open across the re-render, and
+//: `data-run-lines` lets the jobs stream refresh just its text.
+function taskRunFold(key, lines, started, state) {
+  const fold = document.createElement("details");
+  fold.className = "task-log";
+  fold.open = taskLogsOpen.has(key);
+  fold.addEventListener("toggle", () => {
+    if (fold.open) taskLogsOpen.add(key);
+    else taskLogsOpen.delete(key);
+  });
+  const summary = document.createElement("summary");
+  const pre = document.createElement("pre");
+  pre.className = "task-log-lines";
+  pre.dataset.runLines = key;
+  pre.dataset.started = started || "";
+  fold.dataset.state = state;
+  fold.append(summary, pre);
+  paintTaskRunLines(fold, lines);
+  pre.addEventListener("scroll", () => {
+    const isAtBottom = Math.abs(pre.scrollHeight - pre.scrollTop - pre.clientHeight) < 5;
+    taskLogScrollStates.set(key, isAtBottom);
+  });
+  return fold;
+}
+
+function paintTaskRunLines(fold, lines) {
+  const pre = fold.querySelector("pre");
+  const key = pre.dataset.runLines;
+  const verb = fold.dataset.state === "running" ? "What it's doing" : "What it did";
+  fold.querySelector("summary").textContent = `${verb} (${lines.length} line${lines.length === 1 ? "" : "s"})`;
+  pre.textContent = taskRunLinesText(lines, Number(pre.dataset.started) || 0);
+  //: Follow the tail, the way a terminal does, unless the reader scrolled up.
+  if (fold.open && taskLogScrollStates.get(key) !== false) {
+    requestAnimationFrame(() => {
+      pre.scrollTop = pre.scrollHeight;
+    });
+  }
+}
+
+//: **Live lines from the jobs stream** (`GET /jobs/stream`, its `runs`
+//: event), not a poll of their own: while Settings, Running jobs is open,
+//: each running row's lines move as the run says them. Fetch, not
+//: EventSource, for the auth header (settings.js `startLogStream` says why).
+const taskLineStream = { controller: null };
+
+function taskLinesWanted() {
+  return settingsModalOpen() && currentSettingsSection === "tasks" && !document.hidden;
+}
+
+async function followTaskLines() {
+  if (taskLineStream.controller || !taskLinesWanted()) return;
+  const controller = new AbortController();
+  taskLineStream.controller = controller;
+  try {
+    while (taskLinesWanted() && !controller.signal.aborted) {
+      const response = await api.stream("/jobs/stream?seconds=60", { silent: true, signal: controller.signal });
+      if (!response.body) break;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffered = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done || !taskLinesWanted()) break;
+        buffered += decoder.decode(value, { stream: true });
+        const blocks = buffered.split("\n\n");
+        buffered = blocks.pop();
+        for (const block of blocks) {
+          if (!block.startsWith("event: runs\n")) continue;
+          try {
+            paintLiveRunLines(JSON.parse(block.slice(block.indexOf("data: ") + 6)));
+          } catch {
+            /* a torn block is not worth dropping the stream over */
+          }
+        }
+      }
+      reader.cancel().catch(() => {});
+    }
+  } catch {
+    /* closed on purpose, or the server went: the poll still paints the rows */
+  } finally {
+    controller.abort();
+    if (taskLineStream.controller === controller) taskLineStream.controller = null;
+  }
+}
+
+function paintLiveRunLines(body) {
+  for (const run of body.running || []) {
+    const pre = document.querySelector(`#task-list pre[data-run-lines="${CSS.escape(run.id)}"]`);
+    if (pre && (run.lines || []).length) paintTaskRunLines(pre.closest("details"), run.lines);
+  }
 }
 
 // "45 s", "3 min 05 s", "1 h 12 min".
@@ -198,13 +285,21 @@ function renderTaskHistory(history) {
   // that you had to know to open. Recorded first, so it happens even when the
   // Tasks panel is not on screen and the two elements below are missing.
   for (const item of history) {
+    //: A turn the person watched in its own surface (a chat answer) is in
+    //: the list below, not announced: one notification per question asked
+    //: would bury the ones that matter.
+    if (item.origin === "you" && WATCHED_RUN_KINDS.has(item.kind)) continue;
+    const key = `task:${item.kind || item.label}:${item.at}`;
+    //: Its "Started:" row becomes the ending (INBOX 811 item 4): one row
+    //: per run, never a stale "Started" left behind.
+    if (settleStartedNotification(item, key)) continue;
     recordNotification({
       kind: item.outcome === "failed" ? "error" : "task",
       title: item.label,
       detail: item.detail || "",
       // Keyed on the job and when it stopped, so the three-second re-render
       // does not add the same finished job over and over.
-      key: `task:${item.kind || item.label}:${item.at}`,
+      key,
     });
   }
   if (!box || !list) return;
@@ -226,9 +321,17 @@ function renderTaskHistory(history) {
     // `name` param) but never shown here, so "which model answered this"
     // was answerable only by opening the log console. Asked about
     // directly (BACKLOG.md §95 item A.3).
-    when.textContent = item.name
-      ? `${relativeTime(item.at)} · ${item.name}`
-      : relativeTime(item.at);
+    //: When, how long, how many times and who started it (INBOX 805).
+    const took = typeof jobDurationWords === "function" ? jobDurationWords(item.duration_ms) : "";
+    when.textContent = [
+      relativeTime(item.at),
+      took ? `took ${took}` : "",
+      item.count > 1 ? `${item.count} times` : "",
+      TASK_ORIGIN_WORDS[item.origin] || "",
+      item.name || "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
     //: Its log (the owner, 2026-10-10: "no way to view logs of bg
     //: processes"): Settings, Logs, filtered to this task (settings.js).
     row.append(name, when, taskLogButton(item));
@@ -242,9 +345,14 @@ function renderTaskHistory(history) {
       setLabel(detail, item.detail);
       li.appendChild(detail);
     }
+    if ((item.lines || []).length) li.appendChild(taskRunFold(item.run_id || item.at, item.lines, item.started, "finished"));
     list.appendChild(li);
   }
 }
+
+//: Run kinds a person starts and watches where they started them (an answer
+//: streaming in the chat): `routes_tasks.WATCHED_KINDS`.
+const WATCHED_RUN_KINDS = new Set(["generation", "transcription", "ocr", "run"]);
 
 // Which task logs the user has opened, kept across the 3-second re-render so
 // a fold doesn't slam shut under them.

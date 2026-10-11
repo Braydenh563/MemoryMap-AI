@@ -11868,9 +11868,12 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>
                   Everything the app is doing in the background right now,
                   re-indexing your notes, downloading a model, loading the
-                  embedding model, setting up SearXNG. Jobs that can be stopped
+                  embedding model, setting up SearXNG, and every chat answer
+                  and Agent turn. Each says who started it and has its lines
+                  in a fold, live while it runs. Jobs that can be stopped
                   safely have a Stop button, here and in Activity (the status
-                  bar's job slot opens it); the rest are left to finish.
+                  bar's job slot, "2 running" and the newest by name, opens
+                  it); the rest are left to finish.
                 </p>
               </div>
               <ul id="task-list" class="entry-list"></ul>
@@ -12529,6 +12532,13 @@ Link to another note with [[its first few words]]."></textarea>
                   data folder, they never leave this computer.
                 </p>
                 <p>
+                  Each row says when it was taken, marks the newest Latest,
+                  and says what made it (the daily backup, Back up now, or a
+                  safety copy before an update or a restore), its size, and
+                  whether it was checked: opened and read back after the copy.
+                  Backups from before this say only their size.
+                </p>
+                <p>
                   Each start, the app gives the notebook file a quick check
                   before anything writes to it. If the check fails, a notice
                   says so when the app opens and here: restore the newest
@@ -12900,6 +12910,12 @@ Link to another note with [[its first few words]]."></textarea>
                 The interpreter itself reports every connection and every name
                 lookup this app makes, whatever part of it asks, so nothing can
                 leave without appearing here.
+              </p>
+              <p>
+                Each place is one row: what it was for, in words (the file
+                downloaded, the search words, the update checked), which
+                feature reached it, and how often. Its exact addresses are
+                under Addresses.
               </p>
             </div>
 

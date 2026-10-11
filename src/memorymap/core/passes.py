@@ -114,7 +114,7 @@ def _backup() -> None:
     config = deps.get_config()
     keep = int(config.get_preference("backup_retention_count", backup.KEEP_BACKUPS))
     with jobruns.job_run("backup") as run:
-        path = backup.backup_now(config.db_path, config.data_dir, keep, run)
+        path = backup.backup_now(config.db_path, config.data_dir, keep, run, origin="manual")
         run.result = f"saved {path.name} (Run now)"
 
 
@@ -203,9 +203,13 @@ RUNNERS: dict[str, Callable[[], object]] = {
 
 
 def _run(kind: str) -> None:
-    """The pool job: the pass, with its running mark around it."""
+    """The pool job: the pass, with its running mark around it. Only Run
+    now queues it, so its run says the person started it."""
+    from memorymap.core import jobruns
+
     try:
-        RUNNERS[kind]()
+        with jobruns.started_by("you"):
+            RUNNERS[kind]()
     finally:
         with _lock:
             _running.discard(kind)

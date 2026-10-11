@@ -118,7 +118,7 @@ def tidy_undismiss(key: str, body: DismissBody) -> dict:
 @router.post("/{key}/apply")
 def tidy_apply(key: str, body: ApplyBody, session: Session = Depends(get_session)) -> dict:
     review = _review(key)
-    with jobruns.job_run("tidy") as run:
+    with jobruns.job_run("tidy", origin="you") as run:
         result = tidy.apply(session, key, body.ids, _level(review, body.level))
         run.result = result["message"]
     return result

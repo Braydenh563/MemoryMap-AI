@@ -38,6 +38,7 @@ run.
 
 from __future__ import annotations
 
+import itertools
 import logging
 import threading
 import time
@@ -127,6 +128,68 @@ def peek_database(db=None):  # noqa: ANN001, ANN201
 #: Lines a running job keeps for its row's "What it's doing" fold.
 LOG_LINES = 50
 
+#: Finished runs the ledger keeps, with their lines (INBOX 805, the owner:
+#: "all things that use the ai or composer and all background processes need
+#: to be logged ... with their individual logs and process lines"). Process
+#: memory, like `taskhistory`: "what ran while the app was open". A ring, so
+#: a busy day of chat answers cannot grow it.
+FINISHED_KEEP = 60
+
+#: Two runs of one kind and title ending this close together are one row
+#: with a count ("Updating a note's search vector, 12 times"), so a bulk
+#: upload's 200 small jobs do not push the morning's backup out of the ring.
+MERGE_WITHIN_S = 120.0
+
+#: Who started a run, in the words the panel shows.
+ORIGINS: dict[str, str] = {
+    "you": "you started it",
+    "schedule": "on its schedule",
+    "start-up": "at start-up",
+    "app": "the app",
+}
+
+_finished: deque[dict] = deque(maxlen=FINISHED_KEEP)
+_ids = itertools.count(1)
+#: Bumped on every start, line and finish, for `/jobs/stream` (the panel's
+#: lines are live without a second poll).
+_version = 0
+_origin = threading.local()
+
+
+def _bump() -> None:
+    global _version
+    _version += 1
+
+
+def version() -> int:
+    return _version
+
+
+@contextmanager
+def started_by(origin: str):  # noqa: ANN201
+    """Runs opened on this thread inside the block say who started them,
+    without an `origin=` at every call (a pool job runs a pass that opens
+    its own run three calls down)."""
+    before = getattr(_origin, "value", "")
+    _origin.value = origin
+    try:
+        yield
+    finally:
+        _origin.value = before
+
+
+def finished(limit: int = FINISHED_KEEP) -> list[dict]:
+    """Finished runs, newest first, each with its lines."""
+    with _live_lock:
+        return [dict(item) for item in list(_finished)[-limit:][::-1]]
+
+
+def clear_finished() -> None:
+    """The history's Clear, and between tests."""
+    with _live_lock:
+        _finished.clear()
+    _bump()
+
 #: Runs that have started and not finished, for `live()` (INBOX 1006: the
 #: owner asked for "actual progress feedback and a log" on the background
 #: passes, which ran without ever appearing in `/tasks`). Process memory only:
@@ -163,8 +226,28 @@ class Run:
     and a traceback belongs in the server log).
     """
 
-    def __init__(self, kind: str, db) -> None:  # noqa: ANN001  # DatabaseManager or None
+    def __init__(
+        self,
+        kind: str,
+        db,  # noqa: ANN001  # DatabaseManager or None
+        *,
+        title: str = "",
+        origin: str = "",
+        ledger: bool = True,
+    ) -> None:
         self.kind = kind
+        self.id = f"run-{next(_ids)}"
+        #: The plain words for this one run ("Answering 'what is a mouse'"),
+        #: where the kind's label says only what sort of job it is.
+        self.title = _clip(title) or KINDS.get(kind, kind)
+        self.origin = origin or getattr(_origin, "value", "")
+        #: False for a run seen only at its end (`note_finished`): its
+        #: ending is already in `taskhistory`, and the ledger would list it twice.
+        self._ledger = ledger
+        self._ledgered = False
+        #: True when another row on the running list already shows this
+        #: run (a pool job's): `/tasks` then adds its lines, not a second row.
+        self.listed = False
         self.result = ""
         self.started_at = datetime.now(timezone.utc)
         self._t0 = time.monotonic()
@@ -180,7 +263,8 @@ class Run:
         self._total = 0
         self._what = ""
         self._plan: list[str] = []
-        self._log: deque[str] = deque(maxlen=LOG_LINES)
+        #: (when, words): the time is what makes a line a process line.
+        self._log: deque[tuple[float, str]] = deque(maxlen=LOG_LINES)
 
     # -- live progress ---------------------------------------------------------
 
@@ -202,7 +286,11 @@ class Run:
         """Add one plain sentence to the log; only the last `LOG_LINES` stay."""
         text = _clip(line)
         if text:
-            self._log.append(text)
+            self._log.append((time.time(), text))
+            _bump()
+
+    def lines(self) -> list[dict]:
+        return [{"at": at, "text": text} for at, text in list(self._log)]
 
     def snapshot(self) -> dict:
         total = self._total
@@ -222,12 +310,17 @@ class Run:
             for i, label in enumerate(self._plan)
         ]
         return {
+            "id": self.id,
             "kind": self.kind,
             "label": KINDS.get(self.kind, self.kind),
+            "title": self.title,
+            "origin": self.origin,
             "started": self._started_epoch,
             "progress": progress,
             "detail": detail,
-            "log": list(self._log),
+            "log": [text for _, text in list(self._log)],
+            "lines": self.lines(),
+            "listed": self.listed,
             "steps": steps,
         }
 
@@ -254,6 +347,7 @@ class Run:
         with _live_lock:
             if self not in _live:
                 _live.append(self)
+        _bump()
         if self._db is None:
             return
         try:
@@ -286,6 +380,7 @@ class Run:
         with _live_lock:
             if self in _live:
                 _live.remove(self)
+        self._to_ledger()
         if self._db is None or self._finished:
             return
         self._finished = True
@@ -323,23 +418,92 @@ class Run:
             logger.debug("could not record the end of %r", self.kind, exc_info=True)
 
 
-def begin(kind: str, db=None) -> Run:  # noqa: ANN001
+    def _to_ledger(self) -> None:
+        """Keep the ending, with its lines, in the finished ring. Once."""
+        _bump()
+        if not self._ledger or self._skipped or self._ledgered:
+            return
+        self._ledgered = True
+        outcome = {"failed": "failed", "cancelled": "cancelled"}.get(self._status, "completed")
+        ended = time.time()
+        entry = {
+            "run_id": self.id,
+            "kind": self.kind,
+            "name": "",
+            "label": self.title,
+            "title": self.title,
+            "origin": self.origin,
+            "outcome": outcome,
+            "detail": self._error if outcome == "failed" else _clip(self.result),
+            "started": self._started_epoch,
+            "ended": ended,
+            "at": datetime.fromtimestamp(ended, timezone.utc).isoformat(),
+            "duration_ms": round((time.monotonic() - self._t0) * 1000, 1),
+            "lines": self.lines(),
+            "count": 1,
+        }
+        with _live_lock:
+            last = _finished[-1] if _finished else None
+            if (
+                last is not None
+                and last["kind"] == entry["kind"]
+                and last["title"] == entry["title"]
+                and last["outcome"] == entry["outcome"] == "completed"
+                and entry["ended"] - last["ended"] <= MERGE_WITHIN_S
+            ):
+                entry["count"] = last["count"] + 1
+                _finished.pop()
+            _finished.append(entry)
+
+
+def merged_history(entries: list[dict], limit: int = FINISHED_KEEP) -> list[dict]:
+    """`taskhistory`'s endings and the ledger's, newest first, one row per run.
+
+    A job that records its own ending in `taskhistory` (a re-index, the
+    autonomous pass) and also opens a run would be listed twice; the ledger's
+    lines and origin go onto the history row instead.
+    """
+    ledger = finished()
+    out: list[dict] = []
+    for item in entries:
+        row = dict(item)
+        try:
+            at = datetime.fromisoformat(str(row.get("at"))).timestamp()
+        except ValueError:
+            at = 0.0
+        twin = next(
+            (run for run in ledger if run["kind"] == row.get("kind") and abs(run["ended"] - at) <= 5.0),
+            None,
+        )
+        if twin is not None:
+            ledger.remove(twin)
+            row.update({key: twin[key] for key in ("run_id", "origin", "lines", "started", "count")})
+        row.setdefault("ended", at)
+        out.append(row)
+    out.extend(ledger)
+    out.sort(key=lambda row: row.get("ended") or 0.0, reverse=True)
+    return out[:limit]
+
+
+def begin(kind: str, db=None, *, title: str = "", origin: str = "") -> Run:  # noqa: ANN001
     """Start a run you will `finish()` yourself, for a job whose body is too
     long to indent into a `with` (a route that already has three try blocks).
     The caller owns calling `finish()` on every way out."""
-    run = Run(kind, _database(db))
+    run = Run(kind, _database(db), title=title, origin=origin)
     run.start()
     return run
 
 
 @contextmanager
-def job_run(kind: str, db=None):  # noqa: ANN001, ANN201
+def job_run(kind: str, db=None, *, title: str = "", origin: str = "", persist: bool = True):  # noqa: ANN001, ANN201
     """Record one run of `kind`: started now, finished when the block leaves.
 
     `db` is only for a caller that already holds the `DatabaseManager`
     (a worker thread); everyone else gets the app's own, if it has one.
+    `persist=False` keeps the run in the live list and the ledger only: a
+    chat answer is a run worth seeing, not a "last run" row per kind.
     """
-    run = Run(kind, _database(db))
+    run = Run(kind, _database(db) if persist else None, title=title, origin=origin)
     run.start()
     try:
         yield run
@@ -367,7 +531,7 @@ def note_finished(
     the last-run record cannot disagree about whether something worked.
     `outcome` is taskhistory's vocabulary: completed, failed, cancelled.
     """
-    run = Run(kind, _database(db))
+    run = Run(kind, _database(db), ledger=False)
     if isinstance(duration_ms, (int, float)) and duration_ms >= 0:
         run.started_at = datetime.now(timezone.utc) - timedelta(milliseconds=duration_ms)
         run._t0 = time.monotonic() - duration_ms / 1000

@@ -71,7 +71,7 @@ def run_now(body: RunBody, session: Session = Depends(get_session)) -> dict:
         # be every row saying `local` and nobody knowing why.
         logger.info("night pass: no model to narrow with (%s)", exc)
         provider = None
-    with jobruns.job_run("night-shift") as run:
+    with jobruns.job_run("night-shift", origin="you") as run:
         result = facts.run(
             session, budget=budget, force=body.force, provider=provider, model=model, config=config,
             embeddings=deps.get_embeddings(),

@@ -37,6 +37,7 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 
+from memorymap.core import egress
 from memorymap.core.privacy_http import PRIVACY_HEADERS, PinnedAdapter, pin_url, strip_tracking
 from memorymap.core.security import UnsafeUrl, public_addresses
 
@@ -78,6 +79,7 @@ def clean_url(url: str) -> str:
     return strip_tracking((url or "").strip())
 
 
+@egress.labelled(lambda url, *a, **k: f"Clipping a page: {egress.short(url, 80)}")
 def fetch_page(url: str) -> dict:
     """GET one public page, checking every hop. Returns
     `{"url": final_url, "html": text}` or raises `ClipRefused`."""

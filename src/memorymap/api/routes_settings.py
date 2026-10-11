@@ -2774,7 +2774,7 @@ def _inside(root: Path, f: Path) -> bool:
 def _run_directory_import(directory_path: str):
     """The background task: the import, recorded as the last "import" run
     (INBOX 438), because a 202 Accepted answers nobody about how it went."""
-    with jobruns.job_run("import") as run:
+    with jobruns.job_run("import", origin="you") as run:
         _import_directory_files(directory_path, run)
 
 
@@ -2958,7 +2958,7 @@ def import_markdown(
             detail=f"{len(files)} files at once is more than one import handles "
             f"({MAX_IMPORT_FILES} max): split it into smaller batches.",
         )
-    with jobruns.job_run("import") as run:
+    with jobruns.job_run("import", origin="you") as run:
         result = _import_markdown_files(files, session)
         run.result = f"imported {result['imported']} note{'' if result['imported'] == 1 else 's'}" + (
             f", skipped {len(result['skipped'])}" if result["skipped"] else ""
@@ -3107,7 +3107,7 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
         )
     sections = all_sections[:MAX_DOCUMENT_IMPORT_NOTES]
 
-    with jobruns.job_run("import") as run:
+    with jobruns.job_run("import", origin="you") as run:
         ids = _create_document_notes(session, sections, Path(file.filename or "document").name)
         imported = len(ids)
         run.result = f"imported {imported} note{'' if imported == 1 else 's'} from {file.filename or 'a document'}"

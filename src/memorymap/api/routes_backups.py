@@ -120,8 +120,8 @@ def backup_now(session: Session = Depends(get_session)) -> dict:
     #: OSError became. `job_run` has already recorded the failure by the time
     #: this catches it, so the last-run line says the same thing.
     try:
-        with jobruns.job_run("backup") as run:
-            path = backup.backup_now(config.db_path, config.data_dir, _retention(config), run)
+        with jobruns.job_run("backup", origin="you") as run:
+            path = backup.backup_now(config.db_path, config.data_dir, _retention(config), run, origin="manual")
             run.result = f"saved {path.name}"
     except OSError as exc:
         raise HTTPException(
@@ -189,6 +189,7 @@ def delete_backup(name: str) -> dict:
     if path is None or not path.is_file():
         raise HTTPException(status_code=404, detail="That backup could not be found.")
     path.unlink()
+    backup.forget_record(path)
     return {"deleted": name}
 
 

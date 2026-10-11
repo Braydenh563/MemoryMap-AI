@@ -2151,7 +2151,7 @@ def _safety_copy_before_migrating(cfg, current: str, db_path: Path) -> None:  # 
             return
         from memorymap.core import backup
 
-        backup.backup_now(db_path, db_path.parent)
+        backup.backup_now(db_path, db_path.parent, origin="update")
     except Exception:  # noqa: BLE001
         _logger.warning("Could not take a safety copy before migrating", exc_info=True)
 

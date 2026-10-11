@@ -673,7 +673,7 @@ def _startup_maintenance() -> None:
     module = sys.modules[__name__]
     #: Recorded as "Housekeeping" (INBOX 713), so Background jobs can say
     #: when it last ran beside its Run now (`core/passes.py`).
-    with jobruns.job_run("maintenance") as run:
+    with jobruns.started_by("start-up"), jobruns.job_run("maintenance") as run:
         steps = (
             ("_check_notebook_file", "Check the notebook file"),
             ("_purge_expired_bin_entries", "Clear expired notes from the bin"),
@@ -710,7 +710,7 @@ def _backup_if_due() -> None:
         keep = int(config.get_preference("backup_retention_count", backup.KEEP_BACKUPS))
         if backup.backup_is_due(config.db_path, config.data_dir):
             with jobruns.job_run("backup") as run:
-                path = backup.backup_now(config.db_path, config.data_dir, keep, run)
+                path = backup.backup_now(config.db_path, config.data_dir, keep, run, origin="daily")
                 run.result = f"saved {path.name} (the daily backup at start)"
         #: Every start holds the folder to the retention number, not only a
         #: day with a backup due: the safety copy before a migration

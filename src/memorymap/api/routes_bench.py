@@ -172,7 +172,7 @@ def _last_report() -> dict | None:
 def _run(models: list[str], size: int, budget_seconds: float) -> None:
     session = deps.get_db().session()
     try:
-        with jobruns.job_run("model-bench") as job:
+        with jobruns.job_run("model-bench", origin="you") as job:
             report = bench.run(
                 session, deps.get_ollama(), models, size=size, budget_seconds=budget_seconds,
                 stop=_stop, on_progress=lambda p: _state.__setitem__("progress", p),

@@ -503,7 +503,9 @@ HELP_TOPICS: list[dict] = [
             "telemetry, and nothing leaves your machine unless you explicitly "
             "turn on web search. Settings, Privacy, Where your data went lists "
             "every connection the app made, recorded as it happened, Since "
-            "launch or All time; \"Nothing left this computer.\" means none."
+            "launch or All time, one row per place with what it was for (the "
+            "file downloaded, the search words); its addresses are under "
+            "Addresses. \"Nothing left this computer.\" means none."
         ),
         "badge": {"label": "Privacy", "section": "privacy"},
     },

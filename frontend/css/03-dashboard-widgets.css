@@ -979,8 +979,10 @@ header#top-bar select,
   overflow-wrap: anywhere;
 }
 
-/* Stop is always shown, not on hover like a note card's actions. */
-#task-list li .entry-actions {
+/* Stop is always shown, not on hover like a note card's actions; so are a
+   backup's Restore and Delete (INBOX 805: a row's actions are always shown). */
+#task-list li .entry-actions,
+#backup-list li .entry-actions {
   opacity: 1;
 }
 

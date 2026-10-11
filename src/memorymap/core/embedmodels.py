@@ -40,6 +40,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from memorymap.core import egress
+
 logger = logging.getLogger("memorymap.embedmodels")
 
 
@@ -526,7 +528,8 @@ def _run_download(model: EmbedModel) -> None:
                     if attempt == 1
                     else f"Connection dropped: resuming ({attempt} of {DOWNLOAD_ATTEMPTS})…"
                 )
-                snapshot_download(repo_id=model.repo)
+                with egress.purpose(f"Downloading the embedding model {model.repo}"):
+                    snapshot_download(repo_id=model.repo)
                 if _state.cancel_requested:
                     _state.outcome = "cancelled"
                     _state.step = "Stopped just as it finished, the files are on disk."

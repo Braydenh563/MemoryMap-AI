@@ -94,13 +94,14 @@ function storedNotifications() {
 // runs every thirty seconds and must not add the same fired reminder twice.
 //: Returns the row's id (null when nothing was recorded), so a toast's live
 //: action can be tied to its row (`keepToastAction`).
-function recordNotification({ kind, title, detail = "", key = "", action = null }) {
+function recordNotification({ kind, title, detail = "", key = "", action = null, runId = "" }) {
   if (kind !== "reminder" && notificationsMuted()) return null;
   const items = storedNotifications();
   const id = key || `${kind}:${title}:${Date.now()}`;
   if (key && items.some((n) => n.id === id)) return null;
   if (key && dismissedNotificationIds().has(id)) return null;
-  items.push({ id, kind, title, detail, at: Date.now(), action });
+  //: `runId` ties a "Started:" row to its run, so the ending can replace it.
+  items.push({ id, kind, title, detail, at: Date.now(), action, ...(runId ? { runId } : {}) });
   try {
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items.slice(-MAX_NOTIFICATIONS)));
   } catch {
@@ -108,6 +109,45 @@ function recordNotification({ kind, title, detail = "", key = "", action = null 
   }
   renderNotificationBadge();
   return id;
+}
+
+//: **A run's "Started:" row becomes its ending** (INBOX 811 item 4, the
+//: transparency agent's half): "Finished: Warming up the filing model, took
+//: 4 s" or the failure, in the same row and place, under the history's key so
+//: the finished list does not add a second row. Returns whether it settled.
+function settleNotification(id, { key, kind, title, detail = "" }) {
+  const items = storedNotifications();
+  if (items.some((n) => n.id === key)) return true;
+  const row = items.find((n) => n.id === id);
+  if (!row) return false;
+  Object.assign(row, { id: key, kind, title, detail, at: Date.now() });
+  delete row.runId;
+  try {
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items));
+  } catch {
+    return false;
+  }
+  renderNotificationBadge();
+  if (!$("notif-panel")?.classList.contains("hidden")) openNotifications({ keepWatermark: true });
+  return true;
+}
+
+//: The history's half of the same rule: a finished run whose "Started:" row
+//: is still stored (the page reloaded mid-run, so the poll never saw it end)
+//: is settled by its run id.
+function settleStartedNotification(item, key) {
+  if (storedNotifications().some((n) => n.id === key)) return true;
+  const started = item.run_id && storedNotifications().find((n) => n.runId === item.run_id);
+  return Boolean(started) && settleNotification(started.id, { key, ...taskEndingWords(item, item.label) });
+}
+
+//: "Finished: X, took 4 s", "Failed: X" with the reason, "Stopped: X".
+function taskEndingWords(ended, label) {
+  const took = ended && typeof jobDurationWords === "function" ? jobDurationWords(ended.duration_ms) : "";
+  const name = (ended && ended.label) || label;
+  if (ended && ended.outcome === "failed") return { kind: "error", title: `Failed: ${name}`, detail: ended.detail || "" };
+  if (ended && ended.outcome === "cancelled") return { kind: "task", title: `Stopped: ${name}`, detail: ended.detail || "" };
+  return { kind: "task", title: `Finished: ${name}${took ? `, took ${took}` : ""}`, detail: (ended && ended.detail) || "" };
 }
 
 function notificationsReadAt() {
@@ -2600,13 +2640,17 @@ function renderStatusBar() {
   const slot = $("status-task");
   slot.classList.toggle("hidden", !task);
   if (task) {
-    const others = backgroundTasks.length - 1;
+    //: "2 running: Answering 'what is a mouse'" (INBOX 805): how many, and
+    //: the newest concern by name. The ring is the shared working mark
+    //: (`ph:spin`), which only breathes under reduced motion.
+    const count = backgroundTasks.length;
     paintStatusItem("status-task", {
-      icon: "ph:gear",
-      label: others > 0 ? `${task.label} (+${others})` : task.label,
+      icon: "ph:spin",
+      value: count,
+      label: `running: ${task.label}`,
       title:
-        `${task.label}${task.detail ? `, ${task.detail}` : ""}` +
-        "\n\nClick to open Activity, where it can stop.",
+        backgroundTasks.map((t) => `${t.label}${t.detail ? `, ${t.detail}` : ""}`).join("\n") +
+        "\n\nClick to open Activity, where each run shows its lines and can stop.",
     });
   }
 
@@ -3097,6 +3141,9 @@ function noticeTaskTransitions(running, history) {
   for (const [key, task] of now) {
     if (seenRunningTasks.has(key)) continue;
     seenRunningTasks.set(key, task);
+    //: A chat answer, a transcription: the person is watching it where they
+    //: started it. The status bar and Running jobs list it; nothing announces it.
+    if (task.watched) continue;
     const run = addAgentRun({
       kind: "job",
       name: task.label,
@@ -3107,10 +3154,11 @@ function noticeTaskTransitions(running, history) {
     renderAgentRunSummary(run);
     backgroundRunRows.set(key, run);
     if (!QUIET_TASK_KINDS.has(task.kind)) openPanelForRun(run);
-    recordNotification({
+    task.noticeId = recordNotification({
       kind: "task",
       title: `Started: ${task.label}`,
       detail: task.detail || "",
+      runId: task.run_id || "",
       // Keyed per *start*, not per job. It used to be `task-start:${key}`,
       // which deduped against localStorage, so the second time the
       // autonomous pass (or any recurring job) ran, its start recorded
@@ -3127,12 +3175,20 @@ function noticeTaskTransitions(running, history) {
     seenRunningTasks.delete(key);
     const row = backgroundRunRows.get(key);
     backgroundRunRows.delete(key);
+    if (task.watched) continue;
     // The outcome comes from the server's own history, on this same payload, 
     // "it stopped appearing in the running list" is true of a job that died as
     // much as one that succeeded, and a cheerful toast over a failure is how
     // people learn to ignore toasts. Newest first, so `find` takes the ending
     // that just happened rather than a previous run of the same job.
-    const ended = history.find((item) => (item.kind || "job") === (task.kind || "job"));
+    const ended =
+      history.find((item) => task.run_id && item.run_id === task.run_id) ||
+      history.find((item) => (item.kind || "job") === (task.kind || "job"));
+    //: Its "Started:" row now says how it ended (INBOX 811 item 4).
+    if (task.noticeId) {
+      const endKey = ended ? `task:${ended.kind || ended.label}:${ended.at}` : `${task.noticeId}:end`;
+      settleNotification(task.noticeId, { key: endKey, ...taskEndingWords(ended, task.label) });
+    }
     if (ended && ended.outcome === "failed") {
       endAgentRun(row, { state: "failed" });
       agentActivityNotice(`Failed: ${ended.label || task.label}`, { isError: true });

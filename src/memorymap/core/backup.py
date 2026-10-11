@@ -9,6 +9,7 @@ ones are pruned so the folder can't grow forever.
 from __future__ import annotations
 
 import logging
+import json
 import os
 import sqlite3
 import threading
@@ -23,6 +24,44 @@ KEEP_BACKUPS = 10
 # older than this: boring, reliable, and works for an app that isn't
 # running 24/7.
 BACKUP_EVERY_HOURS = 24
+
+
+#: What made a backup, in the words its row shows (INBOX 805, the owner:
+#: "the backups need more file info and details"). Kept in a small record
+#: beside the file (`<name>.json`), not in the name, so every backup taken
+#: before this stays readable and restorable: it just says nothing about
+#: where it came from.
+ORIGINS: dict[str, str] = {
+    "daily": "Daily backup at start",
+    "manual": "Back up now",
+    "update": "Before an update",
+    "restore": "Before a restore",
+}
+
+
+def _record_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.json")
+
+
+def _write_record(path: Path, origin: str, checked: bool) -> None:
+    """Best-effort: a backup without its record is still a backup."""
+    try:
+        _record_path(path).write_text(json.dumps({"origin": origin, "checked": checked}), encoding="utf-8")
+    except OSError:
+        logger.debug("could not write the record beside %s", path.name, exc_info=True)
+
+
+def _read_record(path: Path) -> dict:
+    try:
+        data = json.loads(_record_path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def forget_record(path: Path) -> None:
+    """Remove a backup's record with it (a delete, a prune)."""
+    _record_path(path).unlink(missing_ok=True)
 
 
 def backups_dir(data_dir: Path) -> Path:
@@ -67,14 +106,30 @@ def backup_files(data_dir: Path) -> list[Path]:
             # Vanished between the glob and the stat, or unreadable: either
             # way it is not something a restore list should promise.
             continue
-    return sorted(found, reverse=True)
+    return sorted(found, key=_newest_key, reverse=True)
+
+
+def _newest_key(path: Path) -> tuple[str, int]:
+    """Order by the name's stamp, then its same-second counter: by spelling,
+    `...-051358.db` sorts after `...-051358-1.db` (a dot is after a dash),
+    which put the older of two same-second backups first, and marked it
+    "Latest"."""
+    stem = path.name.removesuffix(".db")
+    head, _, tail = stem.rpartition("-")
+    if tail.isdigit() and len(tail) < 6 and head.count("-") == 2:
+        return head, int(tail)
+    return stem, 0
 
 
 def list_backups(data_dir: Path) -> list[dict]:
-    """Newest first."""
+    """Newest first; the first is `latest`. `origin` and `checked` come from
+    the record beside the file, empty and None for a backup taken before
+    there were records."""
     entries = []
-    for path in backup_files(data_dir):
+    for index, path in enumerate(backup_files(data_dir)):
         stat = path.stat()
+        record = _read_record(path)
+        origin = str(record.get("origin") or "")
         entries.append(
             {
                 "name": path.name,
@@ -82,6 +137,10 @@ def list_backups(data_dir: Path) -> list[dict]:
                 "created_at": datetime.fromtimestamp(
                     stat.st_mtime, tz=timezone.utc
                 ).isoformat(),
+                "latest": index == 0,
+                "origin": origin,
+                "origin_words": ORIGINS.get(origin, ""),
+                "checked": True if record.get("checked") is True else None,
             }
         )
     return entries
@@ -134,7 +193,7 @@ def snapshot(db_path: Path, destination: Path) -> None:
         source.close()
 
 
-def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None) -> Path:  # noqa: ANN001
+def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None, origin: str = "") -> Path:  # noqa: ANN001
     """Take one consistent snapshot and prune old ones.
 
     `keep` was a hard-coded 10 until asked about directly ("backup retention
@@ -173,12 +232,16 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None
         if run is not None:
             run.step(1)
             run.say("Checking the copy.")
-            try:
-                verify_copy(destination)
-            except OSError:
-                destination.unlink(missing_ok=True)
-                raise
+        #: Every copy is checked now, not only one with a run to report to,
+        #: so every row can say "checked" (INBOX 805).
+        try:
+            verify_copy(destination)
+        except OSError:
+            destination.unlink(missing_ok=True)
+            raise
+        if run is not None:
             run.step(2)
+        _write_record(destination, origin, checked=True)
     except BaseException:
         for stray in (partial, Path(f"{partial}-wal"), Path(f"{partial}-shm")):
             try:
@@ -297,6 +360,7 @@ def prune(data_dir: Path, keep: int = KEEP_BACKUPS) -> int:
     stale = backup_files(data_dir)[max(0, keep) :]
     for path in stale:
         path.unlink(missing_ok=True)
+        forget_record(path)
     _sweep_partials(data_dir)
     return len(stale)
 
@@ -343,7 +407,7 @@ def backup_if_due(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Pa
     """Startup hook: back up unless a recent backup already exists."""
     if not backup_is_due(db_path, data_dir):
         return None
-    return backup_now(db_path, data_dir, keep)
+    return backup_now(db_path, data_dir, keep, origin="daily")
 
 
 logger = logging.getLogger(__name__)
@@ -377,7 +441,7 @@ def restore_file(
     check on a temp copy before the atomic swap."""
     name = label or source_path.name
     if db_path.exists():
-        backup_now(db_path, data_dir, keep)  # the pre-restore safety copy
+        backup_now(db_path, data_dir, keep, origin="restore")  # the pre-restore safety copy
 
     # Restore into a temp file that sits beside db_path (same filesystem, so
     # the os.replace below is atomic) instead of streaming pages straight

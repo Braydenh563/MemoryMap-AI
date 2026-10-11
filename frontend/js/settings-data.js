@@ -10,32 +10,78 @@ function privacyWhen(iso) {
   return typeof relativeTime === "function" ? relativeTime(iso) : new Date(iso).toLocaleString();
 }
 
-function privacyDestinationRow(row) {
+//: **One row per place, saying what it was for** (INBOX 807, the owner: "it
+//: isnt really clear exactly what these were for"). A name lookup and the
+//: connects to the addresses it returned are one place, grouped under the
+//: name a person recognises; the purposes the code named as it reached out
+//: ("Downloading the English OCR data", "Web search for 'gaming mouse'")
+//: lead, and the raw addresses sit behind the `.task-log` fold.
+const PRIVACY_SCOPE_ORDER = ["internet", "local_network", "this_computer"];
+
+function privacyGroups(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const key = row.name || row.host;
+    const group = groups.get(key) || { label: key, rows: [], purposes: [], roles: [], scope: row.scope, last: "" };
+    group.rows.push(row);
+    for (const words of row.purposes || []) if (!group.purposes.includes(words)) group.purposes.push(words);
+    const role = row.role && row.role !== "unattributed" ? row.role : "";
+    if (role && !group.roles.includes(role)) group.roles.push(role);
+    if (PRIVACY_SCOPE_ORDER.indexOf(row.scope) < PRIVACY_SCOPE_ORDER.indexOf(group.scope)) group.scope = row.scope;
+    if (String(row.last || "") > group.last) group.last = String(row.last || "");
+    groups.set(key, group);
+  }
+  return [...groups.values()].sort((a, b) => b.last.localeCompare(a.last));
+}
+
+function privacyAddressLine(row) {
+  const address = row.port ? `${row.host}:${row.port}` : row.host;
+  const verb = row.kind === "lookup" ? "Looked up" : "Connected to";
+  return `${verb} ${address}, ${row.count} time${row.count === 1 ? "" : "s"}, last ${privacyWhen(row.last)}`;
+}
+
+function privacyDestinationRow(group) {
   const li = document.createElement("li");
   li.className = "entry-item privacy-row";
   const head = document.createElement("div");
   head.className = "row align-center privacy-row-head";
   const where = document.createElement("span");
   where.className = "privacy-host";
-  const address = row.port ? `${row.host}:${row.port}` : row.host;
-  //: A connect names the address it reached; the name it was probably for
-  //: (the lookup just before it) is what a person recognises, so it leads.
-  where.textContent = row.name ? `${row.name} (${address})` : address;
+  where.textContent = group.label;
   head.appendChild(where);
   const scope = document.createElement("span");
   scope.className = "chip";
-  chipWords(scope, PRIVACY_SCOPE_WORDS[row.scope] || row.scope);
+  chipWords(scope, PRIVACY_SCOPE_WORDS[group.scope] || group.scope);
   head.appendChild(scope);
   li.appendChild(head);
+  if (group.purposes.length) {
+    const why = document.createElement("p");
+    why.className = "privacy-row-why";
+    why.textContent = `For: ${group.purposes.join("; ")}`;
+    li.appendChild(why);
+  }
+  const connects = group.rows.filter((row) => row.kind !== "lookup");
+  const counted = connects.length ? connects : group.rows;
+  const count = counted.reduce((sum, row) => sum + (row.count || 0), 0);
+  const verb = connects.length ? "connected" : "looked up";
+  const what = group.roles.length ? group.roles.join(", ") : "No feature named";
   const meta = document.createElement("p");
   meta.className = "library-file-meta privacy-row-meta";
-  const what = row.role && row.role !== "unattributed" ? row.role : "No feature named";
-  const verb = row.kind === "lookup" ? "looked up" : "connected";
-  const times = `${verb} ${row.count} time${row.count === 1 ? "" : "s"}`;
-  meta.textContent = [what.charAt(0).toUpperCase() + what.slice(1), times, `last ${privacyWhen(row.last)}`]
-    .filter(Boolean)
-    .join(" · ");
+  meta.textContent = [
+    what.charAt(0).toUpperCase() + what.slice(1),
+    `${verb} ${count} time${count === 1 ? "" : "s"}`,
+    `last ${privacyWhen(group.last)}`,
+  ].join(" · ");
   li.appendChild(meta);
+  const fold = document.createElement("details");
+  fold.className = "task-log";
+  const summary = document.createElement("summary");
+  summary.textContent = `Addresses (${group.rows.length})`;
+  const pre = document.createElement("pre");
+  pre.className = "task-log-lines";
+  pre.textContent = group.rows.map(privacyAddressLine).join("\n");
+  fold.append(summary, pre);
+  li.appendChild(fold);
   return li;
 }
 
@@ -78,14 +124,13 @@ function renderPrivacyRange() {
     "(your model and the app's own window) and are counted, not listed.";
   const all = (ledger ? receipt.ledger?.destinations : receipt.destinations) || [];
   //: A name lookup followed by a connect to the address it returned is one
-  //: visit, and the connect row already carries the name: the lookup is only
-  //: listed on its own when nothing connected under that name (a lookup that
-  //: led nowhere is still a question that left the machine).
-  const named = new Set(all.filter((row) => row.kind !== "lookup" && row.name).map((row) => row.name));
-  const rows = all.filter((row) => row.kind !== "lookup" || !named.has(row.host));
+  //: visit, and the connect row carries the name: `privacyGroups` puts them
+  //: in one row, and a lookup that led nowhere still has its own (it is a
+  //: question that left the machine).
+  const groups = privacyGroups(all);
   const list = $("privacy-destinations");
-  list.replaceChildren(...rows.map(privacyDestinationRow));
-  $("privacy-empty").classList.toggle("hidden", rows.length > 0);
+  list.replaceChildren(...groups.map(privacyDestinationRow));
+  $("privacy-empty").classList.toggle("hidden", groups.length > 0);
 }
 
 async function renderPrivacyReceipt() {
@@ -149,11 +194,18 @@ async function renderBackups() {
     const li = document.createElement("li");
     const row = document.createElement("div");
     row.className = "entry-meta";
-    const name = document.createElement("span");
-    setLabel(name, item.name);
+    //: Which is newest, when in words, what made it, its size and whether it
+    //: was checked (INBOX 804 and 805, the owner: "it is unclear which backup
+    //: is the latest, and also the backups need more file info").
+    const name = document.createElement("strong");
+    const at = parseServerTime(item.created_at);
+    name.textContent = at
+      ? at.toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit" })
+      : item.name;
+    name.title = item.name;
     const size = document.createElement("span");
     size.className = "muted";
-    size.textContent = `${(item.size / 1024).toFixed(0)} KB`;
+    size.textContent = relativeTime(item.created_at);
     const actions = rowActions([
       {
         label: "Restore",
@@ -194,8 +246,18 @@ async function renderBackups() {
         },
       },
     ], "More for this backup");
+    if (item.latest) row.append(chip("Latest", "item-label is-yours"));
     row.append(name, size, actions);
     li.appendChild(row);
+    const facts = document.createElement("p");
+    facts.className = "muted task-detail";
+    facts.textContent = [
+      item.origin_words || "Made before backups recorded why",
+      humanBytes(item.size),
+      item.checked ? "checked: it opens and reads back" : "not checked",
+      item.name,
+    ].join(" · ");
+    li.appendChild(facts);
     list.appendChild(li);
   }
 }

@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
 - Attach: a picture's selection circle sits inside its corner.
+- Running jobs and Activity: every answer, agent turn and background job is listed with a plain title, who started it and how long it took; each opens to its own timed lines, live while it runs.
+- Status bar: one indicator says how many things are running and names the newest; it opens Activity.
+- Notifications: a job's "Started" notice becomes its ending (finished, failed or stopped) in the same row.
+- Backups: each backup says when in words, marks the newest Latest, and says what made it (the daily backup, Back up now, before an update or a restore), its size and whether it was checked; Restore and Delete are always shown.
+- Where your data went: one row per place, saying what it was for (the file downloaded, the search words, the page clipped) and which feature reached it; the exact addresses are under Addresses.
+
 - Ask: a question about notes in one category stays inside that category rather than widening into another.
 - Board: a selected connector's bar has a Label button, so a connector's label no longer depends on knowing to press Enter.
 - Board: a page in the Pages sidebar renames in place (double-click or F2, Enter keeps, Esc cancels, one Undo step) and its row has a menu with Rename, Fit to contents, Present from here and Delete.

@@ -300,14 +300,17 @@ MORE_TOPICS: list[dict] = [
             "quit memorymap", "stop the server", "close the app properly",
             "last run", "last ran", "background jobs", "job history", "did it run",
             "run now", "night shift", "stop a job", "cancel a job", "scheduled pass",
+            "process log", "what did it do", "who started it",
         ),
         "body": (
             "Settings, Background tasks shows what the app is doing right now "
             "(re-indexing, downloading a model, installing packages, setting up "
             "search), each running job with a progress bar (a moving one when "
-            "it cannot count its steps) and how long it has run, with Stop on "
-            "the jobs that can stop safely, and what has finished since it "
-            "started. Background jobs lists every kind of job, the never-run "
+            "it cannot count its steps), how long it has run and who started it, "
+            "with Stop on the jobs that can stop safely, and what has finished "
+            "since it started, with how long it took. Every run, a chat answer "
+            "or an Agent turn too, has its lines in a fold: what it searched, "
+            "each tool it called, done; live while it runs. Background jobs lists every kind of job, the never-run "
             "ones too, with when it last ran and how it went; each scheduled "
             "pass (autonomous background AI, the night shift, the daily backup, "
             "resurfacing, the embeddings backfill, housekeeping) also says when "
@@ -352,8 +355,9 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Activity lists every job running now: indexing, a model loading or "
             "answering, imports, reading text, transcribing, backups and the "
-            "agent's passes, each with a bar and Stop where it can stop part way. "
-            "Open it from the status bar's job slot, its agent runs count, or the "
+            "agent's passes, each with a bar, its lines and Stop where it can stop "
+            "part way. While anything runs, the status bar's job slot says how "
+            "many and names the newest. Open Activity from it, its agent runs count, or the "
             "palette (Activity). Its Agent runs tab lists each run this session "
             "with its steps, and the log is in its menu. Stop the model, in the "
             "menu and in Settings, Models beside Use this model, stops any answer "
@@ -413,7 +417,10 @@ MORE_TOPICS: list[dict] = [
             "Library, Documents, the more menu, Import a file as a document. "
             "Backups: Back up now, and how many to keep; one is also taken "
             "each day the app starts, and restoring snapshots first, so even a "
-            "restore can be undone. App cache, at the bottom: Clear app cache "
+            "restore can be undone. Each backup row says when in words, marks "
+            "the newest Latest, and says what made it (the daily backup, Back "
+            "up now, before an update or a restore), its size and whether it "
+            "was checked. App cache, at the bottom: Clear app cache "
             "reloads the app with fresh files and never touches your notes."
         ),
         "badge": {"label": "Import & export", "section": "data"},

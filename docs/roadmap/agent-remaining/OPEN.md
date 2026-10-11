@@ -333,6 +333,14 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the transparency agent (one ledger, the running panel, backups, where your data went, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/transparency-1011.md`.
+
+- No lint makes a new outbound call site name its purpose (`egress.purpose`, nine sites do).
+- The Guide, drafting and document review get a ledger run but no narrated lines; chat and agent turns are never announced.
+- Measured on synthetic rows and one real destination; the status ring under "auto" motion not measured.
+
 ## Left by the grammar57 agent (Brief 57, the stylesheet's grammar, merged 2026-10-11)
 
 File: `docs/roadmap/archive/agent-remaining/grammar57-1011.md`.

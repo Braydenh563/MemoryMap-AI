@@ -195,6 +195,7 @@ REACHED_AFTER_LOAD = {
     "renderHelpTopics": "settingsUi, awaited by openSettingsModal on the line before the call",
     "renderSettingResults": "settingsUi, called from the search field inside the open dialog",
     "settingQueryAlts": "settingsUi, called from filterSettings, the search field inside the open dialog (an empty query returns before it)",
+    "meaningHolds": "settingsUi (meaning.js), called from filterSettings beside settingQueryAlts; without the bundle the plain substring rule runs",
     "settingResultsKey": "settingsUi, called from the search field inside the open dialog",
     "renderSuggested": "settingsUi, called from the status poll only while Settings is open (renderSettings), and Settings awaits the bundle first",
     #: The installed models moved beside it (op4-1005): the same poll branch,

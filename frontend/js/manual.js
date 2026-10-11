@@ -22,10 +22,19 @@ function manualWords(query) {
 
 //: A topic matches when every word is in it: its title, where it is, its text
 //: and the Guide's keywords for it. `tests/test_manual_parity.py` runs this
-//: very function over every control the manual paths name.
-function manualMatches(topic, words) {
+//: very function over every control the manual paths name. `things` is the
+//: query read by meaning (meaning.js, Brief 94: "bin" finds the topic on the
+//: trash), when the layer is in the page; the words as typed always count.
+function manualMatches(topic, words, things = null) {
   const hay = `${topic.title} ${topic.path} ${topic.body} ${topic.find}`.toLowerCase();
-  return words.every((word) => hay.includes(word));
+  return words.every((word) => hay.includes(word)) || manualByName(topic, words, things);
+}
+
+//: Held by its title and keywords, the words or (meaning.js) the things they
+//: name. When any topic is, only those are listed: a body names half the app.
+function manualByName(topic, words, things) {
+  const named = `${topic.title} ${topic.find}`.toLowerCase();
+  return words.every((word) => named.includes(word)) || Boolean(things && meaningHolds(things, named));
 }
 
 //: The open manual's closer, or null: a const holder rather than a top-level
@@ -109,11 +118,15 @@ function manualBuild(listing) {
 
 function manualFilter(parts, query, count, empty) {
   const words = manualWords(query);
+  //: meaning.js is fetched by `openManual` before the box can be typed in.
+  const things = words.length ? meaningAlts(query) : null;
+  const named = words.length ? meaningNamed(query) : words;
+  const byName = parts.sections.some(({ rows }) => rows.some((row) => manualByName(row.topic, named, things)));
   let shown = 0;
   for (const { section, jump, rows } of parts.sections) {
     let inGroup = 0;
     for (const row of rows) {
-      const hit = manualMatches(row.topic, words);
+      const hit = byName ? manualByName(row.topic, named, things) : manualMatches(row.topic, words, things);
       row.el.hidden = !hit;
       if (hit) inGroup += 1;
     }
@@ -132,6 +145,8 @@ function manualFilter(parts, query, count, empty) {
 async function openManual(topicId = "") {
   if (manualOpen.close) return;
   lazyScript("/css/manual-lazy.css");
+  //: The search box's meaning layer (Brief 94), in the page before the box is.
+  await lazyScript("/js/meaning.js");
   let listing;
   try {
     listing = await apiJson("/help/topics");

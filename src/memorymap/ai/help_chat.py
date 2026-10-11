@@ -671,8 +671,9 @@ HELP_TOPICS: list[dict] = [
             "for, opens Find anything (Ctrl/Cmd+P) with the words already "
             "searched. Typed words also find every feature in Tools and "
             "features, every act Chat does (it opens Chat with the words "
-            "started) and the matching settings; a word a letter out offers "
-            "the nearest, and what you ran for the same words comes first "
+            "started) and the matching settings, by what the words mean too "
+            "(\"trash\" finds the bin, \"keybord\" the shortcuts); a word a "
+            "letter out offers the nearest, and what you ran for the same words comes first "
             "next time (hover a row to see why it is where it is). "
             "It's a different box from the popup agent "
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "
@@ -2317,7 +2318,7 @@ def _matching_topics(question: str) -> list[dict]:
         if score > 0:
             scores[topic["id"]] = score
     if not scores:
-        return []
+        return _meaning_topics(question)
     #: **A surface's controls entry** (INBOX 410, see `_CONTROLS_FOR`). With
     #: a word asking for keys or controls, the named surface's controls entry
     #: goes above everything the words alone reached, the surface's own score
@@ -2346,6 +2347,29 @@ def _matching_topics(question: str) -> list[dict]:
         body = _BODY_WORDS[topic["id"]]
         score += 0.15 * sum(1 for w in words if w in body)
         scored.append((score, order, topic))
+    scored.sort(key=lambda row: (-row[0], row[1]))
+    best = scored[0][0]
+    return [topic for score, _, topic in scored[:MAX_TOPICS] if score >= best * _RUNNER_UP_SHARE]
+
+
+def _meaning_topics(question: str) -> list[dict]:
+    """**By meaning, when no keyword matched** (Brief 94, INBOX 857): the
+    words read as the things they name (`meaning.alts`: "too much moving
+    stuff" is motion, "the robot" is the companion), held by a topic's title
+    and keywords, the nearest first. A fallback only, so the question bank's
+    keyword answers are unchanged."""
+    from memorymap.ai import meaning
+
+    things = meaning.alts(question)
+    if not things or all(len(group) == 1 for group in things):
+        return []
+    scored = []
+    for order, topic in enumerate(HELP_TOPICS):
+        named = f"{topic_title(topic)} {' '.join(topic['keywords'])}"
+        if meaning.holds(things, named):
+            scored.append((meaning.closeness(things, named), order, topic))
+    if not scored:
+        return []
     scored.sort(key=lambda row: (-row[0], row[1]))
     best = scored[0][0]
     return [topic for score, _, topic in scored[:MAX_TOPICS] if score >= best * _RUNNER_UP_SHARE]

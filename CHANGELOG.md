@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Search by meaning: Settings, the command palette, Help, the manual and the Guide find a thing by another word for it or a slip in its name ("trash" is the bin, "the little guy in the corner" the companion, "chnage pasword" the password); with an embedding model on, Settings and the palette add a Close in meaning list.
+- Settings: on a phone, a long matching setting no longer widens the results list past the screen.
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
 - Attach: a picture's selection circle sits inside its corner.
 - Running jobs and Activity: every answer, agent turn and background job is listed with a plain title, who started it and how long it took; each opens to its own timed lines, live while it runs.

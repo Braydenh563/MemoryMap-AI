@@ -73,4 +73,5 @@ def test_the_surfaces_ask_the_route():
     js = ROOT / "frontend/js"
     assert '"/read/filter?q="' in (js / "graph.js").read_text(encoding="utf-8")
     assert '"/read/filter?q="' in (js / "library.js").read_text(encoding="utf-8")
-    assert '"/read/words"' in (js / "settings-find.js").read_text(encoding="utf-8")
+    #: Every search box's meaning layer (Brief 94), in the Settings bundle.
+    assert '"/read/words"' in (js / "meaning.js").read_text(encoding="utf-8")

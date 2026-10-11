@@ -52,14 +52,16 @@ function recordBrowserLog(level, parts) {
     const liveRecord = { ...record, source: "browser", logger: "browser",
       key: `b-live-${Date.now()}-${Math.random()}` };
     logRecords.push(liveRecord);
-    if (typeof sortLogRecords === "function") sortLogRecords();
-    if (logScreenOpen && typeof renderActiveLogView === "function") {
+    //: The four are settings.js's, beside `logRecords`, so the check above
+    //: answers for them too (Brief 94 took the guards for the gzip budget).
+    sortLogRecords();
+    if (logScreenOpen) {
       renderActiveLogView();
       // Scroll to bottom so the new error is visible without manual scroll.
-      if (typeof scrollLogToBottom === "function") scrollLogToBottom();
+      scrollLogToBottom();
     }
     // Bump the error badge in the Logs button so the user knows to check.
-    if (typeof bumpLogErrorBadge === "function") bumpLogErrorBadge(record);
+    bumpLogErrorBadge(record);
   }
 }
 
@@ -1813,7 +1815,7 @@ const LAZY_MODULES = {
   //: Notes, Questions (questions-view.js), behind two stand-ins.
   questionsView: ["/css/questions-lazy.css", "/js/questions-view.js"],
   settingsData: ["/js/settings-data.js"],
-  settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
+  settingsUi: ["/js/meaning.js", "/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
   //: The writing desk's model passes (compose, title, save as note); see writing-desk.js.
   writingDesk: ["/js/writing-desk.js"],
@@ -1841,7 +1843,7 @@ const LAZY_MODULES = {
   tour: ["/js/tour.js"],
   updates: ["/js/update-dialogs.js"],
   //: With the feature rows it lists (app-features.js).
-  appPalette: ["/js/app-features.js", "/js/app-palette.js"],
+  appPalette: ["/js/meaning.js", "/js/app-features.js", "/js/app-palette.js"],
   notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js", "/js/note-pick-preview.js"],
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],

@@ -543,7 +543,8 @@ MORE_TOPICS: list[dict] = [
         "id": "settings-overview",
         "keywords": (
             "settings", "where are the settings", "open settings", "find a setting",
-            "search settings", "preferences",
+            "search settings", "preferences", "cant remember what its called",
+            "find by meaning",
         ),
         "body": (
             "Settings opens from the gear in the top bar or Ctrl+,. Its sections "
@@ -555,8 +556,12 @@ MORE_TOPICS: list[dict] = [
             "Logs) and Help and About. The search box at the top of the list "
             "finds a setting by any word in it or by what it does, with words "
             "that mean the same (\"night\" or \"darker\" finds the theme, "
-            "\"battery\" the battery-efficient mode, \"back up\" Backups), and "
-            "lists the matching settings under it, each opening where it sits. A long section lists its "
+            "\"battery\" the battery-efficient mode, \"back up\" Backups, "
+            "\"the little guy in the corner\" the companion, and a slip such as "
+            "\"chnage pasword\" the password), and "
+            "lists the matching settings under it, each opening where it sits; with "
+            "an embedding model on (Settings, Search and index), up to three more found by "
+            "meaning follow under Close in meaning. A long section lists its "
             "groups under its own name in that list: press one to go to it, and "
             "the one you are reading is marked as you scroll. On a phone the "
             "section picker holds the same groups under the section you are in."
@@ -802,7 +807,9 @@ MORE_TOPICS: list[dict] = [
             "The manual is every topic Atlas answers from, on one page: Settings, "
             "Help, Open the manual, or Open the manual in the Guide's ... menu. "
             "The contents on the left jump to a group, the search box keeps only "
-            "the topics that hold every word you type, and the printer button "
+            "the topics that hold every word you type or what the words mean "
+            "(\"trash\" keeps the bin's topic), those whose name holds them "
+            "first, and the printer button "
             "prints what is shown (or saves it as a PDF). It is made from the "
             "Guide's own topics, so the two never disagree. What changed in each "
             "version is under Settings, About, What's new."

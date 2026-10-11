@@ -9,10 +9,10 @@ gives the notes they leave. Days and stretches of days are the recogniser's
 verbs ("connected to", "untouched since") and never a date word.
 `tests/fixtures/composer/filters_1010.json` is the 40-phrase set, at 1.0.
 
-Settings are searched by what they do: `SETTING_WORDS` groups the words a
-person says for one thing ("dark", "night", "theme"), served to the Settings
-search (`GET /read/words`), which matches a setting when any word of a group
-the query names is in it.
+Settings are searched by what they do: `SETTING_WORDS` (now `meaning.GROUPS`,
+Brief 94) groups the words a person says for one thing ("dark", "night",
+"theme"), served to every search box (`GET /read/words`), which matches a row
+when any word of a group the query names is in it.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from datetime import date, datetime, time, timedelta
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import recognise
+from memorymap.ai import meaning, recognise
 
 #: `read` folds whitespace to one space before these run, so they say " " and never
 #: `\s+` (a lazy group before `\s+` is polynomial on a run of tabs; CodeQL).
@@ -222,37 +222,11 @@ def resolve(session: Session, filters: list[dict], now: datetime) -> list[int]:
     return list(session.scalars(query.order_by(Entry.id.desc()).limit(2000)))
 
 
-#: Words a person says for one thing in Settings, each group searched as one:
-#: what a setting does, not only what its label says.
-SETTING_WORDS: tuple[tuple[str, ...], ...] = (
-    ("dark", "night", "theme", "light mode", "dim", "black"),
-    ("text size", "font size", "bigger", "smaller", "zoom", "larger", "scale"),
-    ("password", "lock", "pin", "passcode", "sign in", "log in", "unlock"),
-    ("backup", "back up", "copy", "restore", "export", "save a copy"),
-    ("model", "ollama", "llm", "ai", "local model", "brain"),
-    ("battery", "power", "save power", "energy", "laptop", "unplugged"),
-    ("privacy", "private", "tracking", "telemetry", "data", "share"),
-    ("notification", "notify", "alert", "remind", "sound", "ding"),
-    ("language", "spelling", "spellcheck", "dictionary", "proofread"),
-    ("phone", "mobile", "other device", "lan", "network", "wifi"),
-    ("encrypt", "encryption", "vault", "secret", "secure"),
-    ("motion", "animation", "reduce motion", "moving", "still"),
-    ("colour", "color", "accent", "palette", "look", "appearance"),
-    ("shortcut", "keyboard", "hotkey", "keys", "key binding"),
-    ("delete", "bin", "trash", "recycle", "remove"),
-    ("import", "obsidian", "markdown files", "bring in", "vault import"),
-    ("search", "find", "similar", "semantic", "embedding"),
-    ("companion", "atlas", "buddy", "mascot", "character"),
-)
-
-
-#: Words of a request that name no setting ("how do I turn off the
-#: animations"): left out of the Settings search, so the rest must match.
-SETTING_FILLER = frozenset(
-    """a an the my me i to of for in on off how do does can where is are it
-    change set make turn stop disable enable switch want please settings
-    setting option options notes note notebook everything all""".split()
-)
+#: Words a person says for one thing, each group searched as one: what a
+#: setting does, not only what its label says. One table for every search box
+#: now (Brief 94, `ai/meaning.py`); the names stay for their callers.
+SETTING_WORDS = meaning.GROUPS
+SETTING_FILLER = meaning.FILLER
 
 
 def setting_words() -> list[list[str]]:

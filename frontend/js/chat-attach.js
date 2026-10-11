@@ -1507,10 +1507,18 @@ function appendRunResumeControls(bubble, spec) {
   }
 }
 
+//: A stray key typed against the last word ("dentist\\") goes before the bubble
+//: shows it, as the server already reads it (question_noise); an emoticon
+//: (":\\") and a lone key stay.
+function chatTidyTyped(text) {
+  const m = /([\w?.!)"'])[\\|`~^]+\s*$/.exec(text);
+  return m ? text.slice(0, m.index + 1) : text;
+}
+
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
-  const typed = (preset ?? input.value).trim();
+  const typed = chatTidyTyped((preset ?? input.value).trim());
   if (!typed) return;
 
   // Plan mode is applied here, on the way out, rather than by whatever control

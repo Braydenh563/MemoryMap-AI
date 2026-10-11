@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Skills: a skill held back from small models (its measured rate is below the bar) can no longer be started by the agent's run_skill either; the agent is told why and does the job step by step.
+- Chat: a stray key typed against the last word ("dentist\\") no longer shows in your own bubble; an emoticon such as ":\\" stays.
+- Chat with no model: "what's the time in Australia" (or the USA, Canada, Russia, Brazil, Indonesia, Mexico) names each of its time zones, west to east, rather than the capital's alone; a named state or city still gets its one zone.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
 - Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.

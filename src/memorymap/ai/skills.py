@@ -1760,6 +1760,31 @@ def larger_model_reason(name: str, rates: dict, model_class: str = "small") -> s
     return f"Finished {rate:.0%} of test runs on a small model{where}{why}."[:MAX_RATE_REASON]
 
 
+def small_class(config) -> bool:
+    """Whether skill runs get the small-model treatment now: the setting's
+    On, or Auto with a chat model whose name says it is small."""
+    setting = str(config.get_preference("small_model_mode", "auto") or "auto").lower()
+    if setting in ("on", "true", "always"):
+        return True
+    if setting != "auto":
+        return False
+    try:
+        from memorymap.core import deps
+
+        return deps.get_model_manager().chat_model_is_small() is True
+    except Exception:  # noqa: BLE001  # a label is not worth failing the list over
+        return False
+
+
+def held_back_reason(config, name: str) -> str:
+    """Why `name` should not run on the model in use now, or "" (OPEN row
+    557: the picker labelled it, the agent's run_skill ran it anyway)."""
+    if not small_class(config):
+        return ""
+    rates = measured_rates()
+    return larger_model_reason(name, rates) if rates else ""
+
+
 def builtins(known_tools: set[str] | None = None) -> list[dict]:
     """The shipped skills, normalised and marked as not editable."""
     return [

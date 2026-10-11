@@ -1300,17 +1300,7 @@ def _validated_export_dir(raw: str) -> str:
 
 
 def _small_class(config) -> bool:
-    """Whether skill runs get the small-model treatment now: the setting's
-    On, or Auto with a chat model whose name says it is small."""
-    setting = str(config.get_preference("small_model_mode", "auto") or "auto").lower()
-    if setting in ("on", "true", "always"):
-        return True
-    if setting != "auto":
-        return False
-    try:
-        return deps.get_model_manager().chat_model_is_small() is True
-    except Exception:  # noqa: BLE001  # a label is not worth failing the list over
-        return False
+    return skills.small_class(config)
 
 
 @router.get("/skills")

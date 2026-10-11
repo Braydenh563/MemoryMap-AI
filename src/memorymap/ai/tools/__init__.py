@@ -2126,6 +2126,12 @@ def validate_run_skill(arguments: dict) -> dict:
             + (f"The ones that exist are: {known}." if known else "There are none saved.")
             + " Call list_skills to see them, or don't run one."
         )
+    held = skills.held_back_reason(deps.get_config(), skill["name"])
+    if held:
+        raise ToolError(
+            f"“{skill['name']}” needs a larger model than the one in use: {held} "
+            "Do the job step by step with your tools instead, or say so."
+        )
 
     raw = arguments.get("inputs")
     if isinstance(raw, str):

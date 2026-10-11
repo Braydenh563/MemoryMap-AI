@@ -146,3 +146,21 @@ def test_the_skill_list_labels_it_only_in_small_model_mode(client, tmp_path, mon
     config.set_preference("small_model_mode", "off")
     listed = {s["name"]: s for s in client.get("/skills").json()["skills"]}
     assert listed["Fix my links"]["needs_larger_model"] == ""
+
+
+def test_the_agent_cannot_run_a_skill_held_back_from_the_small_class(app_state, tmp_path, monkeypatch):
+    """OPEN row 557: the label was only in the picker; run_skill ran it anyway."""
+    import json
+
+    from memorymap.ai import tools
+
+    table = tmp_path / "rates.json"
+    table.write_text(json.dumps(RATES), encoding="utf-8")
+    monkeypatch.setattr(skills, "RATES_FILE", table)
+    config = deps.get_config()
+    config.set_preference("small_model_mode", "on")
+    with pytest.raises(tools.ToolError, match="needs a larger model"):
+        tools.validate_run_skill({"name": "Fix my links"})
+    assert tools.validate_run_skill({"name": "Daily review"})["skill"] == "Daily review"
+    config.set_preference("small_model_mode", "off")
+    assert tools.validate_run_skill({"name": "Fix my links"})["skill"] == "Fix my links"

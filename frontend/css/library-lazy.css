@@ -5183,3 +5183,12 @@ button.ghost.doc-template-choice.wb-template-choice {
   min-width: 0;
   padding-inline: var(--space-2);
 }
+
+/* The more shapes in the Shapes flyout (the owner, 2026-10-11: "can you add
+   more shapes"): nine tools as a grid of five, so the flyout stays about as
+   wide as the four boxes and the two lines above them rather than a row of
+   nine. */
+.wb-shape-menu-more {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+}

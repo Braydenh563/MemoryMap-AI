@@ -4,7 +4,10 @@ Owner, 2026-10-11: whiteboard colours (recent row, fill and border together,
 eyedropper), multi-select shared properties, more shapes and arrow options.
 
 - [x] Step 1: arrow ends (open triangle, filled circle, crow's foot named; plain line takes ends; tool chooses the mark).
-- [ ] Step 2: more shapes in the shape flyout (whiteboard.js WB_FILLABLE_SHAPES ~1302, flyout index.html ~6955).
+- [x] Step 2: more shapes in the shape flyout (whiteboard.js WB_FILLABLE_SHAPES ~1302, flyout index.html ~6955).
 - [ ] Step 3: colour popover: Recent row, palette, Fill/Border pair, Match, Swap, eyedropper (whiteboard-format.js).
 - [ ] Step 4: Format panel on a multi-selection: shared fields, Mixed state (whiteboard-format.js wbFormatSync).
 - [ ] Step 5: help (Guide topics, manual parity), DESIGN recipe, sweeps.
+
+done: d6dc943f1 (step 1)
+next: step 2 commit, then step 3 colour popover (whiteboard-format.js end of file)

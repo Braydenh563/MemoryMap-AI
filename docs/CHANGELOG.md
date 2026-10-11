@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Whiteboard: nine more shapes in the Shapes flyout, drawn by dragging: rounded rectangle, ellipse, hexagon, parallelogram, star, cylinder, cloud, speech bubble and block arrow. Each is filled and takes text like the others, and the command palette finds them by name.
 - Whiteboard: more line ends. Open triangle and filled circle join the lists (seventeen ends, crow's foot named), a plain line shows Start and End before it has an end, the Format panel takes them for a drawn line, and the Line and Arrow tools choose the mark as well as which ends.
 - Whiteboard: an undone delete of a shape kept off every layer restores it exactly, with no empty layer field added.
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."

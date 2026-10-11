@@ -1235,7 +1235,75 @@ function wbCursorUrl(inner, { size = 26, hx = 3, hy = size - 3 } = {}) {
 // eraser; highlighter and arrow were the two genuinely missing ones (a
 // third, text, needs its own SVG element type, a `<path>` can't render
 // text: and is scoped separately rather than force-fit into this list).
-const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter", "arrow", "triangle", "diamond"]);
+//: **More shapes in the flyout** (the owner, 2026-10-11: "can you add more
+//: shapes"). Each is drawn in the dragged box, Shift for equal sides, and
+//: stored as the library's own `custom` shape (decision 25): closed,
+//: fillable, its words in `area` (fractions of its box). The outlines are the
+//: General set's (board-library/general.json), so a hexagon drawn here and
+//: one placed from the library are the same shape.
+const wbShapeAt = (x, y, w, h) => (fx, fy) => `${+(x + fx * w).toFixed(1)} ${+(y + fy * h).toFixed(1)}`;
+const wbShapePoly = (pts) => (x, y, w, h) => {
+  const at = wbShapeAt(x, y, w, h);
+  return `M ${pts.map(([fx, fy]) => at(fx, fy)).join(" L ")} Z`;
+};
+const WB_MORE_SHAPES = {
+  "shape-rounded": {
+    label: "Rounded rectangle", icon: "ph:rectangle",
+    d: (x, y, w, h) => {
+      //: Corners as curves, not arcs: the box a path is measured by
+      //: (`wbItemBBox`) reads an arc's radii as a point and grew by one.
+      const r = Math.min(16, w / 4, h / 4), k = r * 0.45;
+      const at = wbShapeAt(x, y, 1, 1);
+      return `M ${at(r, 0)} L ${at(w - r, 0)} C ${at(w - k, 0)} ${at(w, k)} ${at(w, r)} L ${at(w, h - r)} C ${at(w, h - k)} ${at(w - k, h)} ${at(w - r, h)} L ${at(r, h)} C ${at(k, h)} ${at(0, h - k)} ${at(0, h - r)} L ${at(0, r)} C ${at(0, k)} ${at(k, 0)} ${at(r, 0)} Z`;
+    },
+  },
+  "shape-ellipse": {
+    label: "Ellipse", icon: "ph:circle", area: { x: 0.15, y: 0.15, w: 0.7, h: 0.7 },
+    d: (x, y, w, h) => {
+      const rx = +(w / 2).toFixed(1), ry = +(h / 2).toFixed(1), at = wbShapeAt(x, y, w, h);
+      return `M ${at(0, 0.5)} A ${rx} ${ry} 0 1 1 ${at(1, 0.5)} A ${rx} ${ry} 0 1 1 ${at(0, 0.5)} Z`;
+    },
+  },
+  "shape-hexagon": {
+    label: "Hexagon", icon: "ph:hexagon", area: { x: 0.15, y: 0, w: 0.7, h: 1 },
+    d: wbShapePoly([[0.1875, 0], [0.8125, 0], [1, 0.5], [0.8125, 1], [0.1875, 1], [0, 0.5]]),
+  },
+  "shape-parallelogram": {
+    label: "Parallelogram", icon: "ph:parallelogram", area: { x: 0.15, y: 0, w: 0.7, h: 1 },
+    d: wbShapePoly([[0.175, 0], [1, 0], [0.825, 1], [0, 1]]),
+  },
+  "shape-star": {
+    label: "Star", icon: "ph:star", area: { x: 0.3, y: 0.35, w: 0.4, h: 0.35 },
+    d: wbShapePoly([[0.5, 0], [0.627, 0.325], [0.976, 0.346], [0.706, 0.567], [0.794, 0.904], [0.5, 0.717], [0.206, 0.904], [0.294, 0.567], [0.024, 0.346], [0.373, 0.325]].map(([fx, fy]) => [(fx - 0.024) / 0.952, fy / 0.904])),
+  },
+  "shape-cylinder": {
+    label: "Cylinder", icon: "ph:database", area: { x: 0, y: 0.25, w: 1, h: 0.65 },
+    d: (x, y, w, h) => {
+      const rx = +(w / 2).toFixed(1), ry = +Math.max(2, h * 0.133).toFixed(1), at = wbShapeAt(x, y, 1, 1);
+      return `M ${at(0, ry)} A ${rx} ${ry} 0 0 1 ${at(w, ry)} L ${at(w, h - ry)} A ${rx} ${ry} 0 0 1 ${at(0, h - ry)} Z M ${at(0, ry)} A ${rx} ${ry} 0 0 0 ${at(w, ry)}`;
+    },
+  },
+  "shape-cloud": {
+    label: "Cloud", icon: "ph:cloud", area: { x: 0.2, y: 0.35, w: 0.6, h: 0.5 },
+    d: (x, y, w, h) => {
+      //: The library's cloud, its control points read to its own bounds (8 to
+      //: 160 across, 14 to 92 down) so it fills the dragged box.
+      const at = wbShapeAt(x, y, w, h);
+      const p = (px, py) => at((px - 8) / 152, (py - 14) / 78);
+      return `M ${p(40, 90)} C ${p(12, 90)} ${p(8, 58)} ${p(32, 52)} C ${p(30, 26)} ${p(66, 18)} ${p(80, 38)} C ${p(92, 14)} ${p(136, 20)} ${p(134, 50)} C ${p(160, 54)} ${p(158, 92)} ${p(128, 90)} Z`;
+    },
+  },
+  "shape-callout": {
+    label: "Speech bubble", icon: "ph:chat-teardrop", area: { x: 0, y: 0, w: 1, h: 0.76 },
+    d: wbShapePoly([[0, 0], [1, 0], [1, 0.76], [0.4, 0.76], [0.225, 1], [0.25, 0.76], [0, 0.76]]),
+  },
+  "shape-block-arrow": {
+    label: "Block arrow", icon: "ph:arrow-fat-right", area: { x: 0, y: 0.25, w: 0.7, h: 0.5 },
+    d: wbShapePoly([[0, 0.25], [0.667, 0.25], [0.667, 0], [1, 0.5], [0.667, 1], [0.667, 0.75], [0, 0.75]]),
+  },
+};
+
+const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter", "arrow", "triangle", "diamond", ...Object.keys(WB_MORE_SHAPES)]);
 //: **The highlighter is a marker that multiplies** (WHITEBOARD_PLAN.md
 //: decision 7: "marker with `mix-blend-mode: multiply` at 40% opacity, width
 //: 12 to 24, Shift for straight"), which is what FigJam and Apple Freeform
@@ -4022,6 +4090,7 @@ const WB_TOOL_SETTINGS = {
   circle: ["size", "dash", "fill"],
   triangle: ["size", "dash", "fill"],
   diamond: ["size", "dash", "fill"],
+  ...Object.fromEntries(Object.keys(WB_MORE_SHAPES).map((tool) => [tool, ["size", "dash", "fill"]])),
 };
 
 function wbShowToolSettings(tool) {
@@ -12805,7 +12874,7 @@ async function initWhiteboard() {
   // directly ("the tool bar is getting quite long"). Kept as one list so
   // the toggle button's own icon/active-state and the arrow-style control's
   // relevance can both key off it without drifting apart.
-  const WB_SHAPE_TOOLS = new Set(["line", "arrow", "rect", "circle", "triangle", "diamond"]);
+  const WB_SHAPE_TOOLS = new Set(["line", "arrow", "rect", "circle", "triangle", "diamond", ...Object.keys(WB_MORE_SHAPES)]);
   let lastShapeTool = "line"; // what a plain click on the toggle (not the caret) selects
   const shapeToggle = document.getElementById("wb-shape-toggle");
   const shapeToggleIcon = document.getElementById("wb-shape-toggle-icon");
@@ -15127,7 +15196,7 @@ async function initWhiteboard() {
     // Fill only applies to the four closed shapes, and only when "no fill"
     // isn't checked: asked for directly ("fill colour/transparency...
     // options for no border/stroke or background").
-    if (WB_FILLABLE_SHAPES.has(window.currentTool) && !window.currentFillNone) {
+    if ((WB_FILLABLE_SHAPES.has(window.currentTool) || WB_MORE_SHAPES[window.currentTool]) && !window.currentFillNone) {
       currentDrawPath.setAttribute("fill", window.currentFillColor);
       currentDrawPath.setAttribute("fill-opacity", String(window.currentFillOpacity / 100));
     } else {
@@ -15222,6 +15291,10 @@ async function initWhiteboard() {
           "d",
           `M ${mx + w / 2} ${my} L ${mx + w} ${my + h / 2} L ${mx + w / 2} ${my + h} L ${mx} ${my + h / 2} Z`
         );
+      } else if (WB_MORE_SHAPES[window.currentTool]) {
+        const mx = Math.min(sx, x), my = Math.min(sy, y);
+        const { w, h } = wbShapeDims(x - sx, y - sy, e.shiftKey);
+        currentDrawPath.setAttribute("d", WB_MORE_SHAPES[window.currentTool].d(mx, my, Math.max(w, 1), Math.max(h, 1)));
       }
     }
   });
@@ -15262,13 +15335,15 @@ async function initWhiteboard() {
     // whatever size it was actually drawn at the moment the page reloaded).
     const d = currentDrawPath.getAttribute("d");
     const isHighlighter = window.currentTool === "highlighter";
-    const isFillable = WB_FILLABLE_SHAPES.has(window.currentTool);
+    const more = WB_MORE_SHAPES[window.currentTool];
+    const isFillable = WB_FILLABLE_SHAPES.has(window.currentTool) || Boolean(more);
     const blob = {
       d,
       color: currentStrokeColor,
       width: isHighlighter ? wbHighlighterWidth(WB_STROKE_WIDTH) : WB_STROKE_WIDTH,
-      shape: window.currentTool,
+      shape: more ? "custom" : window.currentTool,
     };
+    if (more?.area) blob.label_area = more.area;
     //: The ends are stored by kind, so the bar and the Format panel read
     //: what was drawn rather than sniffing it out of the path.
     if (window.currentTool === "line" || window.currentTool === "arrow") Object.assign(blob, wbToolCaps());

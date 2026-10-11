@@ -79,6 +79,14 @@
 .question-group-link:hover,
 .question-group-link:focus-visible {
   background: var(--surface-2);
+}
+
+/* The underline is on the words only (INBOX 803: "the icons in the rows get
+   underlined as well"). The link is a flex row, and a decoration on a flex
+   container reaches every in-flow item, the icon included; on the text span
+   it cannot. */
+.question-group-link:hover .ph-text,
+.question-group-link:focus-visible .ph-text {
   text-decoration: underline;
   text-underline-offset: 0.18em;
 }

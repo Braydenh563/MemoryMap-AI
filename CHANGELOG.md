@@ -16,6 +16,14 @@ below). Versioning is `0.x` while the app stabilises.
 - Chat: a stray backslash or a run of spaces is cleaned from the question and from every tool's one-line arguments; a search sent with no words searches the question's topic.
 - Chat: with the Needle extra, a tool's result is said as the answer (the time, the sum, the counts, the notes found with a line each), never "its result is in the step above"; Needle is never offered a question to ask you.
 - Agent: a question with only one choice is never shown and never retried; the agent answers or acts instead.
+- Notes: the Select button in the top bar is a square icon button, like its neighbours, where its word is hidden.
+- Links that hold an icon (the Questions group links, Read this in the Library, text links with an icon) underline their words and never the icon.
+- OCR workspace: an image's saved description shows as soon as it opens, before and while it is read; a document page's comes with its stored reading, asked for beside the read.
+- Dashboard: the Notebook constellation sits on an off-white well in light mode, and cross-fades when the theme changes (instant with animations off or reduced motion).
+- Capture: with Line numbers on, the note box keeps the numbers' column from the first paint, so the text no longer moves on the first click.
+- Documents: the code snippets panel's search field and Save button are one height, the button reads Save (its tooltip says what it saves), and the label no longer wraps.
+- Ask: a badge with no text (the model and the search mode, before an answer arrives) is not drawn as an empty tinted box.
+- Companion: Atlas's check for words underneath it counts only text that is drawn, so it no longer sits over the Ask answer's "You asked:" line in a notebook with a long history.
 - Skills: every change a skill or the agent makes to a document, a board, a map or a saved skill is read back before it is reported as done, as notes, tags and reminders already were.
 - Skills: a skill can cap its own tool calls and steps; a run that passes a cap stops, says which, and keeps its changes for Undo.
 - Skills: with small model mode on, a skill measured as unreliable on small models is shown as needing a larger model, with the reason.

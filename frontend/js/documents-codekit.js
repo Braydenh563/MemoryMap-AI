@@ -10,7 +10,7 @@
 // completion offers) and the person's own, saved notebook-wide through
 // `/code-snippets` (routes_code_snippets.py), by language and tag, with a
 // search. A row inserts at the caret in one editor transaction, so Ctrl+Z
-// takes it out; Save selection and Delete are each one step on the app's
+// takes it out; Save and Delete are each one step on the app's
 // undo stack.
 //
 // Lazy: fetched by documents.js on the first press of a way in
@@ -230,7 +230,7 @@ function docSnippetsRender() {
   empty.classList.toggle("hidden", shown.length > 0);
   empty.textContent = words.length
     ? "No snippet matches that. Try a language, a name or a #tag."
-    : `No snippets for ${docKitLanguageName(current)} yet. Select some code and press Save selection.`;
+    : `No snippets for ${docKitLanguageName(current)} yet. Select some code and press Save.`;
 }
 
 //: Every language, one press away when the list shows only this file's.

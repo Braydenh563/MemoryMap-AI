@@ -1749,7 +1749,7 @@ MORE_TOPICS.extend(
                 "first (Show every language for the rest); the search matches "
                 "names, tags and languages, and #io matches the tag io. A row "
                 "inserts at the caret and one Ctrl+Z takes it out; built-in rows "
-                "have stops that Tab walks. Save selection keeps the selected "
+                "have stops that Tab walks. The panel's Save keeps the selected "
                 "code: #words in the name you give become its tags. Each of your "
                 "own rows has a menu to insert, rename or retag, and delete; "
                 "saving, renaming and deleting each undo. Snippets belong to the "

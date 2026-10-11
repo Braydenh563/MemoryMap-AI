@@ -1685,6 +1685,13 @@ progress {
   background: var(--accent-soft);
   font-weight: 600;
 }
+/* A badge with nothing in it is not drawn (INBOX 812: on the first Ask after
+   boot, "Atlas" and "Matching records" showed empty tinted boxes, 19x18, until
+   the answer's meta wrote their text). `.answer-model` sets its own display
+   later, so this is two classes and wins. */
+.chip:empty {
+  display: none;
+}
 .chip.tag {
   background: var(--chip-bg);
   color: var(--muted);

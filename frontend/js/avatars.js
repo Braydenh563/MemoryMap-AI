@@ -4392,10 +4392,20 @@ function nameMarkBuddyWordsUnder(x, y, pose, legs = "") {
   for (const root of roots) {
     const scroller = nameMarkBuddyScroller(root);
     const clip = scroller ? scroller.getBoundingClientRect() : { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    //: **Only what is drawn counts toward the cap** (INBOX 812: Atlas over the
+    //: Ask answer's "You asked:" line). The walk used to count every text node,
+    //: and the Ask card holds hundreds that are not on screen (the closed
+    //: history list, the idle suggestions) ahead of the answer's own, so the
+    //: cap was spent before it got there and the words under the figure read
+    //: as 0 (measured: 1986 square px with 51 hidden nodes, 0 with 501). A
+    //: hidden subtree is skipped whole, and a node with no words is not one.
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => (node.nodeType === 1 && typeof node.checkVisibility === "function" && !node.checkVisibility() ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    });
     for (let n = walker.nextNode(); n && seen < 400; n = walker.nextNode()) {
+      if (n.nodeType !== 3 || !n.textContent.trim()) continue;
       seen += 1;
-      if (!n.textContent.trim() || n.parentElement?.closest("#nm-buddy")) continue;
+      if (n.parentElement?.closest("#nm-buddy")) continue;
       range.selectNodeContents(n);
       for (const r of range.getClientRects()) {
         const left = Math.max(r.left, clip.left);

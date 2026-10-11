@@ -2369,6 +2369,7 @@ kbd {
 }
 /* --- Wave J: generative art + note tools + undo toast --------------------------- */
 .art-holder {
+  position: relative;
   border-radius: var(--radius-lg);
   overflow: hidden;
   line-height: 0;
@@ -2379,6 +2380,19 @@ kbd {
   height: auto;
   display: block;
   border-radius: var(--radius-lg);
+}
+/* The old sky over the new one for a theme change, fading out (dashboard.js,
+   refreshArtForTheme). Three times `--ui-slow`, which is 0 with interface
+   animations off, so that case is instant. */
+.art-holder > .art-veil {
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity calc(var(--ui-slow) * 3) var(--ease-in-out);
+}
+.art-holder > .art-veil.is-leaving {
+  opacity: 0;
 }
 .art-controls {
   margin-top: 0.5rem;

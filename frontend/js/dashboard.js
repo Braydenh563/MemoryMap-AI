@@ -2242,12 +2242,43 @@ function stopArt() {
 // and it keeps `artNonce` so the sky stays the same arrangement, this is a
 // recolour, not a reshuffle, and re-rolling someone's picture because they
 // turned on dark mode would be its own bug.
+//: **A theme change cross-fades the picture, it does not swap it** (INBOX 803,
+//: the owner: "the notebook constellation adjusts suddenly or jolts a bit and
+//: doesn't have a smooth fade transition"). Rebuilding for the new mode took
+//: the old canvas away and drew the new one a frame or more later, 98% of the
+//: change landing in one frame (measured, constellationtheme.js). The old
+//: sky is copied onto a veil that stays over the holder, and fades out over
+//: the new one; with interface animations off or less motion asked for there
+//: is no veil and the change is instant, as before.
 function refreshArtForTheme() {
   if (!artHolder || !artHolder.isConnected) {
     artHolder = null;
     return;
   }
-  startArt(artHolder);
+  const holder = artHolder;
+  const old = holder.querySelector("canvas:not(.art-veil)");
+  const still = reducedMotionWanted() || window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.uiMotion === "off";
+  holder.querySelector(".art-veil")?.remove();
+  if (old && !still) {
+    const veil = document.createElement("canvas");
+    veil.className = "art-veil";
+    veil.width = old.width;
+    veil.height = old.height;
+    veil.setAttribute("aria-hidden", "true");
+    veil.getContext("2d").drawImage(old, 0, 0);
+    holder.appendChild(veil);
+    const lift = () => {
+      //: Two frames on, so the new sky has been drawn under it before it goes.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        veil.classList.add("is-leaving");
+        veil.addEventListener("transitionend", () => veil.remove(), { once: true });
+        setTimeout(() => veil.remove(), 1000);
+      }));
+    };
+    startArt(holder).then(lift, lift);
+    return;
+  }
+  startArt(holder);
 }
 
 function buildArtParticles(p, categories, total, width, height) {
@@ -2483,7 +2514,10 @@ async function startArt(holder) {
       p.noStroke();
       const washHue = p.hue(p.color(accentHex));
       for (let y = 0; y < height; y += 4) {
-        const shade = dark ? 14 + (y / height) * 10 : 250 - (y / height) * 10;
+        //: Light is an off-white well, lightness 95 down to 91, the accent's hue
+        //: faintly in it, as dark is a deep one: it was 250 to 240, which HSL
+        //: clamps to pure white, the same as the card it sat on (INBOX 803).
+        const shade = dark ? 14 + (y / height) * 10 : 95 - (y / height) * 4;
         p.fill(washHue, 30, shade, 1);
         p.rect(0, y, width, 4);
       }
@@ -2536,7 +2570,7 @@ async function startArt(holder) {
         const twinkle = (0.6 + 0.4 * Math.sin(t * 2 + dot.phase)) * dot.vis;
         p.fill(dot.hue, 75, dark ? 65 : 55, 0.14 * twinkle);
         p.circle(dot.x, dot.y, dot.drawSize * 4); // glow
-        p.fill(dot.hue, 80, dark ? 78 : 48, twinkle);
+        p.fill(dot.hue, 80, dark ? 78 : 40, twinkle);
         p.circle(dot.x, dot.y, dot.drawSize); // core
       }
       if (fade && !settled) {
@@ -2664,7 +2698,9 @@ async function startArt(holder) {
   // so an already-stacked dashboard heals on the next render rather than
   // needing a reload.
   stopArt();
-  holder.replaceChildren();
+  //: Everything but a theme change's veil (`refreshArtForTheme`).
+  for (const child of [...holder.children]) if (!child.classList.contains("art-veil")) child.remove();
+  holder.replaceChildren(...holder.querySelectorAll(":scope > .art-veil"));
   //: p5 arrives on demand (`ensureP5`, app.js); the run check above is
   //: repeated after the wait, since a second render can have superseded us.
   if (typeof p5 === "undefined") {

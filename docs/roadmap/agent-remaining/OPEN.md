@@ -333,6 +333,14 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the ownerfix agent (the owner's UI items, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/ownerfix-1011.md`.
+
+- INBOX 803 item 4 (the OCR workspace's empty squashed box): not reproduced in five states; needs the owner's screenshot or state.
+- The capture box still moves 2.4px down and 1.6px left on the first click (strip 40 to 42.4px; CodeMirror line padding).
+- Constellation yellow stars are about 2.1:1 in light; the Notes rows/cards toggle is 28x24.
+
 ## Left by the uisweep agent (the 2026-10-11 sweep and learnability, merged 2026-10-11)
 
 File: `docs/roadmap/archive/agent-remaining/uisweep-1011.md`.

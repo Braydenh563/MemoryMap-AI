@@ -7961,6 +7961,22 @@ textarea.has-gutter {
   white-space: pre;
   overflow-x: auto;
 }
+/* **The numbers' column is held from the first paint** (INBOX 803, the owner:
+   "when I click the capture a note textbox ... for the first time, it adjusts
+   a bit because the line numbers werent originally showing"). The gutter is
+   mounted by documents.js, a lazy script that the box's first focus fetches,
+   so until then the box started at the card's edge and then jumped 38.8px
+   right (measured at 1440) when `mountGutterFor` put the column in. With the
+   remembered Line numbers choice on (`data-note-gutter`, settings.js), the
+   unmounted box carries the column's own minimum width as a margin (three
+   digits at the numbers' 0.7 of the text's size, so 2.1ch of the box's, plus
+   the column's two paddings); the
+   mounted one is not a direct child of the composer, so the margin ends
+   exactly where the real column begins. */
+:root[data-note-gutter="on"] .note-composer > textarea#entry-content {
+  margin-inline-start: calc(2.1ch + var(--space-4) + var(--space-3));
+  width: calc(100% - 2.1ch - var(--space-4) - var(--space-3));
+}
 /* **Once the editor view is mounted, its own numbers are the column**
    (`noteSurfaceGutter`, documents.js; INBOX 590), so the one beside it,
    which numbered the hidden textarea, goes. */

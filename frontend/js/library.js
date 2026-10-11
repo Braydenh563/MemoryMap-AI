@@ -4943,6 +4943,46 @@ function ocrDocumentReading(body, storedPages, storedMessage) {
   };
 }
 
+//: **The description shows as soon as the picture opens, not after the read**
+//: (INBOX 803, the owner: "if that image already has a description or
+//: caption, it doesnt show until the image's ocr is read"). An image carries
+//: its caption on the row it was opened with, so there is nothing to wait for;
+//: a document page's comes with its stored reading (`ocrFillPageCaptions`),
+//: which is asked for beside the slow read and not after it.
+function ocrPaintCaption(image) {
+  const captionEl = $("ocr-caption");
+  if (!captionEl) return;
+  //: A page's own description, not the file's: `image.caption` is one
+  //: sentence about a whole document, which describes none of its pages.
+  //: `ocrPageCaptions` is filled from the same `page-reads` response the
+  //: stored panels below are built from.
+  const isImage = !ocrIsPdf(image);
+  const cap = isImage
+    ? (image.caption || "").trim()
+    : (ocrPageCaptions.get(ocrWorkspacePage)?.caption || "").trim();
+  const who = isImage
+    ? ""
+    : shortModelName(ocrPageCaptions.get(ocrWorkspacePage)?.caption_model || "");
+  captionEl.textContent = cap
+    ? (who ? `Figures on this page (${who}): ${cap}` : `Description: ${cap}`)
+    : "";
+  captionEl.classList.toggle("hidden", !cap);
+}
+
+//: Each page's description out of a stored page-reads answer, keyed by page,
+//: so the caption line above names the page on screen while the panels below
+//: name their own.
+function ocrFillPageCaptions(stored) {
+  for (const entry of stored?.pages || []) {
+    if ((entry.caption || "").trim()) {
+      ocrPageCaptions.set(Number(entry.page) || 0, {
+        caption: entry.caption.trim(),
+        caption_model: entry.caption_model || "",
+      });
+    }
+  }
+}
+
 async function ocrLoadPage(image, page = 0, opts = {}) {
   //: Another page of the same file keeps its reading on screen until the new
   //: answer replaces it (INBOX 717, measured: turning a page of a stored
@@ -4956,6 +4996,18 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
   //: returns below (a text file, a failed request) never reach that point and
   //: would leave another document's figures described under this one's page.
   ocrPageCaptions.clear();
+  //: Before any request: an image's caption is already on the row, and a
+  //: different file's description must not stay up while this one loads.
+  ocrPaintCaption(image);
+  //: A document's descriptions arrive with its stored reading, a quick read
+  //: of the database, asked for here beside the slow regions request below
+  //: rather than behind it. A failure is left to the awaited call below.
+  const storedAsked = ocrIsPdf(image) && !ocrIsTextFile(image) ? ocrStoredPageReads(image) : null;
+  storedAsked?.then((early) => {
+    if (ocrWorkspaceCurrent !== image || ocrWorkspacePage !== Math.max(0, page)) return;
+    ocrFillPageCaptions(early);
+    ocrPaintCaption(image);
+  }, () => {});
   //: A rectangle is drawn on *a page*, so changing page has to take it with
   //: it: the fractions would otherwise be reinterpreted against a different
   //: picture and the offer would read a part of the wrong page.
@@ -5110,7 +5162,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: after the regions call and preferred over it only when it has
     //: something: a Tesseract reading with real box positions is a better
     //: answer than stored text, and this must not overwrite it.
-    const stored = ocrIsPdf(image) ? await ocrStoredPageReads(image) : null;
+    const stored = ocrIsPdf(image) ? await (storedAsked || ocrStoredPageReads(image)) : null;
     //: Another file was opened while this page loaded (a PDF, then at once an
     //: image): painting this answer would put the PDF's reading and its Pages
     //: rail under the image.
@@ -5122,14 +5174,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: their own. (Cleared at the top of `ocrLoadPage`, not here: an image
     //: never reaches this branch and would otherwise keep showing the last
     //: document's page 3.)
-    for (const entry of stored?.pages || []) {
-      if ((entry.caption || "").trim()) {
-        ocrPageCaptions.set(Number(entry.page) || 0, {
-          caption: entry.caption.trim(),
-          caption_model: entry.caption_model || "",
-        });
-      }
-    }
+    ocrFillPageCaptions(stored);
     const storedPages = (stored?.pages || []).filter(
       //: A page that has only been *described* still belongs in this list, 
       //: it is something the app knows about that page, and leaving it out
@@ -5169,23 +5214,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     }
     //: Describe is a row of the reading's ⋯ (INBOX 717): offered now it shows.
     ocrSyncMoreMenu();
-    const captionEl = $("ocr-caption");
-    if (captionEl) {
-      //: A page's own description, not the file's: `image.caption` is one
-      //: sentence about a whole document, which describes none of its pages.
-      //: `ocrPageCaptions` is filled from the same `page-reads` response the
-      //: stored panels below are built from.
-      const cap = isImage
-        ? (image.caption || "").trim()
-        : (ocrPageCaptions.get(ocrWorkspacePage)?.caption || "").trim();
-      const who = isImage
-        ? ""
-        : shortModelName(ocrPageCaptions.get(ocrWorkspacePage)?.caption_model || "");
-      captionEl.textContent = cap
-        ? (who ? `Figures on this page (${who}): ${cap}` : `Description: ${cap}`)
-        : "";
-      captionEl.classList.toggle("hidden", !cap);
-    }
+    ocrPaintCaption(image);
     if (ocrIsPdf(image)) ocrBuildPageRail(image, body.pages || 1);
     ocrSyncPager(image);
     //: The mode can only be honoured once the page count is known, a

@@ -4661,6 +4661,17 @@ button.ghost.doc-template-choice.wb-template-choice {
   min-width: 0;
 }
 
+/* **The save button is the field's height and one line** (INBOX 803, the
+   owner: "Search snippets" and "Save selection" differed in height and the
+   label wrapped). Measured at a 303px panel: the field 32px, the button
+   42.8px with "Save selection" on two lines. The button keeps its words and
+   never gives them up; the field is the one that shrinks. */
+.doc-code-side-bar > button {
+  flex: 0 0 auto;
+  height: var(--control-h-lg);
+  white-space: nowrap;
+}
+
 /* Under the editor below 1100px: a column, the editor keeping at least half
    the height. Wrapping (the margin reader's way) let the editor grow to its
    text, 1,784px for a 60-line file, and pushed the panel off the screen. */

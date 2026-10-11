@@ -2651,6 +2651,18 @@ label.setting-check,
   text-decoration-thickness: 2px;
 }
 
+/* A link that holds an icon underlines its words, not the icon (INBOX 803).
+   A button is `inline-flex`, and a decoration on a flex container reaches
+   every in-flow item, the icon included. As an inline-block the words sit in
+   an inline formatting context, where an inline-block icon is atomic and the
+   decoration stops at its edge. */
+:is(.linklike, .link-button):has(> .ph) {
+  display: inline-block;
+}
+:is(.linklike, .link-button) > .ph {
+  display: inline-block;
+}
+
 /* A badge sitting *in* a sentence, rather than in a row of its own. In a row
    the parent's `gap` spaces it; in prose there is no gap, so two chips or a
    chip and a word butt straight together. Margin rather than padding, so the

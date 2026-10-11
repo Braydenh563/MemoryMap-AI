@@ -2268,6 +2268,8 @@ function applyAppearance() {
   root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = perf ? "reduced" : appearancePref("motion");
   root.dataset.uiMotion = appearancePref("ui-motion");
+  //: The Capture box holds its line-number column from first paint when this is on.
+  root.dataset.noteGutter = prefs.get("doc-gutter", null) === "1" ? "on" : "off";
   root.dataset.progressMotion = appearancePref("progress-motion");
   // The skeleton shimmer follows the OS reduced-motion setting unless "Always move" was chosen.
   root.toggleAttribute("data-progress-chosen", prefs.get("progress-motion", null) === "always");

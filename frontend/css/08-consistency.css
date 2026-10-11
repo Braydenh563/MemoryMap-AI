@@ -791,6 +791,16 @@ details[open] > .about-whats-new::before,
      control rather than moved onto words (INBOX 592). */
   [data-dock-name="notes"] .ph-lead:has(~ .dock-word) {
     translate: none;
+    margin: 0;
+  }
+  /* A worded button whose word is hidden is an icon-only button, so it is
+     square like the ones beside it (INBOX 803: Select was 43x28 here, a
+     rectangle among 28px squares). `.icon-only` cannot be on it, because
+     the word shows again at 1400px and up. */
+  [data-dock-name="notes"] .dock-actions > button:has(> .ph-lead + .dock-word) {
+    width: var(--control-h);
+    padding-inline: 0;
+    justify-content: center;
   }
 }
 /* The documents editor's head already *is* a bar - `.doc-toolbar`
@@ -4033,6 +4043,9 @@ body .chip.item-label,
 }
 .library-file-rows .library-image-tile .library-read-open:hover {
   background: none;
+}
+/* On the words only: a decoration on the flex row reaches its icon too. */
+.library-file-rows .library-image-tile .library-read-open:hover .ph-text {
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }

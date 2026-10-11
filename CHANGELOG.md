@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Other devices: a phone's page no longer stalls. Safari opens connections ahead of need and sends nothing on them, and each held one of eight waiting threads for ten seconds, so the page's real requests queued behind them; one watcher now waits on every new connection. A computer on a global IPv6 address keeps the phone's trust when that address changes within its network, and the phone help says nothing installs on the phone.
 - Other devices: a phone can now trust the notebook for good. The certificate is a small authority made on this computer, limited to your own network, signing the server certificate (an address change no longer asks the phone again); Trust this certificate on your phone downloads it without a sign-in error; and an address typed without https is sent on to https instead of failing.
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), a missing apostrophe is read ("doesn follow"), and a stray semicolon inside a word or two words run together are put right ("natura;l", "thenthe"); the Guide, the clock and the other utilities read the repaired question.
 - Graph: a small pull on a note moves its neighbours a little and settles at once, instead of reheating the whole map.

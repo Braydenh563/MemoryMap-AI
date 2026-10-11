@@ -77,6 +77,26 @@ def test_https_reaches_the_app_with_a_certificate_the_authority_vouches_for(lan)
     conn.close()
 
 
+def test_silent_connections_do_not_hold_up_the_page(lan):
+    """Safari opens connections ahead of need and sends nothing on them
+    (the owner, 2026-10-11: "it still hasnt loaded"). Twenty of them must
+    not make a real request wait."""
+    port, data_dir = lan
+    silent = [socket.create_connection(("127.0.0.1", port)) for _ in range(20)]
+    try:
+        time.sleep(0.2)
+        context = ssl.create_default_context(cadata=lancert.authority_pem(data_dir).decode())
+        started = time.monotonic()
+        conn = http.client.HTTPSConnection("127.0.0.1", port, context=context, timeout=5)
+        conn.request("GET", "/hello")
+        assert conn.getresponse().status == 200
+        conn.close()
+        assert time.monotonic() - started < 2
+    finally:
+        for s in silent:
+            s.close()
+
+
 def test_plain_http_is_sent_to_https_on_the_same_address(lan):
     port, _ = lan
     response = _plain(port, f"127.0.0.1:{port}")

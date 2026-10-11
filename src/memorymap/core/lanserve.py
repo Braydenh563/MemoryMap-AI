@@ -22,8 +22,11 @@ import asyncio
 import contextlib
 import logging
 import re
+import select
 import socket
 import ssl
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from memorymap.core import netbind
@@ -34,19 +37,92 @@ TLS_HANDSHAKE = 0x16
 #: How long a new connection may stay silent before it is dropped.
 FIRST_BYTE_SECONDS = 10.0
 HEAD_LIMIT = 8192
-#: The peeks run on threads, because the Windows event loop (Proactor) has
-#: no `add_reader` and `sock_recv` cannot peek; a client's first byte comes
-#: with its first packet, so a thread is held for microseconds.
-_PEEKERS = ThreadPoolExecutor(max_workers=8, thread_name_prefix="lan-peek")
+#: Plain-http answers run on threads, because the Windows event loop
+#: (Proactor) has no `add_reader`; their request head is already in hand.
+_PEEKERS = ThreadPoolExecutor(max_workers=4, thread_name_prefix="lan-http")
 _SAFE_PATH = re.compile(r"^/[\x21-\x7e]*$")
 
 
-def _first_byte(conn: socket.socket) -> bytes:
-    conn.settimeout(FIRST_BYTE_SECONDS)
-    try:
-        return conn.recv(1, socket.MSG_PEEK)
-    finally:
+class _FirstByteWatcher:
+    """One thread that waits for every new connection's first byte with
+    `select`, which works on every platform's sockets.
+
+    The owner, 2026-10-11, Safari on an iPhone: "its taking a very long
+    time". Safari opens connections ahead of need and sends nothing on
+    them; a thread per peek held one of eight workers for up to ten seconds
+    each, so the page's real requests queued behind silent sockets. One
+    watcher holds any number of silent sockets at no cost."""
+
+    TICK = 0.05
+    #: Windows' select takes at most 512 sockets; the rest wait a tick.
+    BATCH = 500
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._waiting: dict[socket.socket, tuple[asyncio.AbstractEventLoop, asyncio.Future, float]] = {}
+        self._thread: threading.Thread | None = None
+
+    def wait(self, conn: socket.socket, timeout: float = FIRST_BYTE_SECONDS) -> asyncio.Future:
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
         conn.setblocking(False)
+        with self._lock:
+            self._waiting[conn] = (loop, future, time.monotonic() + timeout)
+            if self._thread is None:
+                self._thread = threading.Thread(target=self._run, name="lan-first-byte", daemon=True)
+                self._thread.start()
+        return future
+
+    @staticmethod
+    def _settle(loop, future, value) -> None:  # noqa: ANN001
+        def done() -> None:
+            if future.done():
+                return
+            if isinstance(value, BaseException):
+                future.set_exception(value)
+            else:
+                future.set_result(value)
+
+        with contextlib.suppress(RuntimeError):  # the loop has closed
+            loop.call_soon_threadsafe(done)
+
+    def _run(self) -> None:
+        while True:
+            with self._lock:
+                if not self._waiting:
+                    self._thread = None
+                    return
+                socks = list(self._waiting)
+            batch = socks[: self.BATCH]
+            try:
+                ready, _, broken = select.select(batch, [], batch, self.TICK)
+            except (OSError, ValueError):  # a socket closed under us
+                ready, broken = [], [s for s in batch if s.fileno() < 0]
+            now = time.monotonic()
+            for sock in socks:
+                with self._lock:
+                    entry = self._waiting.get(sock)
+                if entry is None:
+                    continue
+                loop, future, deadline = entry
+                value: bytes | OSError
+                if sock in ready or sock in broken:
+                    try:
+                        value = sock.recv(1, socket.MSG_PEEK)
+                    except BlockingIOError:
+                        continue
+                    except OSError as exc:
+                        value = exc
+                elif now >= deadline or future.cancelled():
+                    value = b""
+                else:
+                    continue
+                with self._lock:
+                    self._waiting.pop(sock, None)
+                self._settle(loop, future, value)
+
+
+_WATCHER = _FirstByteWatcher()
 
 
 def redirect_response(head: bytes, port: int) -> bytes:
@@ -98,7 +174,7 @@ def _answer_plain_http(conn: socket.socket, port: int) -> None:
 async def _route(conn: socket.socket, make_protocol, context: ssl.SSLContext, port: int) -> None:  # noqa: ANN001
     loop = asyncio.get_running_loop()
     try:
-        first = await loop.run_in_executor(_PEEKERS, _first_byte, conn)
+        first = await _WATCHER.wait(conn)
     except OSError:
         conn.close()
         return

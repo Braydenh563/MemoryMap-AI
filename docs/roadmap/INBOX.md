@@ -257,10 +257,6 @@ with its owner named in the entry.
      Placed: SESSION_BRIEFS Brief 102 (LAN safe by default: allowed networks,
      new-device approval, private-address clients only, the iPhone flow).
 
-868. **The owner, 2026-10-11, verbatim.** "Also I think there should be a time
-     stamp on each chat message in the chat tab and sessions". Placed:
-     SESSION_BRIEFS Brief 103.
-
 869. **The owner, 2026-10-11, verbatim.** "also make sure the composer doesnt
      mistake split words or typos as slang or shortened words, it should take
      into account the context fot the sentence and maybe use pobability ro

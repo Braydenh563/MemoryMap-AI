@@ -48340,6 +48340,12 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      firewall). Tests: `test_lan_tls.py`, `test_lan_serve.py` (real
      sockets, OpenSSL verifying the chain). Not verified: a real phone.
 
+868. **The owner, 2026-10-11, verbatim.** "Also I think there should be a time
+     stamp on each chat message in the chat tab and sessions". Fixed: the
+     server stamps `at` on every message it saves, chat-time.js (lazy) shows it
+     muted at the end of each message's line with the full date on hover, and
+     the chat list reads its time from the last message (Brief 103).
+
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 
 INBOX 797, the owner: "I feel like the mindmap and whiteboard are still

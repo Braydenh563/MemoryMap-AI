@@ -1176,6 +1176,13 @@ header#top-bar select,
   font-size: var(--text-xs);
 }
 
+/* When the message was written (chat-time.js): the last item of the row, flush
+   right so the times of a conversation line up, and alone in its own row under
+   a question or an answer saved before the cost line existed. */
+.msg-meta-when {
+  margin-inline-start: auto;
+}
+
 /* How full the window got, as a meter. A percentage in prose is a number you
    have to convert; a bar is one you glance at, and this is the field that
    answers the only question anyone asks of this line, which is whether the

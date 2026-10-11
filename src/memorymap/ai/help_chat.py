@@ -1798,16 +1798,17 @@ HELP_TOPICS.extend(
                 "from your notes", "why this source",
             ),
             "body": (
-                "Chat keys and controls. Enter sends, Shift+Enter starts a new "
+                "Chat keys and controls. Each message shows its time at the end of its "
+                "line (hover for the full date). Enter sends, Shift+Enter starts a new "
                 "line; Escape or Ctrl+. stops the answer, Ctrl+Shift+O starts a new chat, "
                 "Ctrl+Shift+G turns agent mode on or off, Ctrl+Shift+P clips a note "
                 "to your next question, and Ctrl+Shift+A opens the same agent over "
                 "any tab. Typing / in the box opens the chat menu: attach a note, a "
                 "document, a file or an image, upload one, Web search, "
-                "Plan first (the agent shows its steps before it starts), Skills, "
+                "Plan first, Skills, "
                 "and Agent or Ask mode. The note button beside the box opens Attach: "
-                "a tab each for notes, documents, files, images and mind maps, one "
-                "search, a count per tab of what is held; the arrows move, Space "
+                "a tab each for notes, documents, files, images and mind maps, with "
+                "a search; the arrows move, Space "
                 "ticks, Enter is Done. Each message's menu can copy it, edit your "
                 "question, regenerate from here, save it as a note or read it "
                 "aloud. The header can fork the conversation, compress the earlier "

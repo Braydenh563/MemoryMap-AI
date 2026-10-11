@@ -420,11 +420,13 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
 
         # The network gets HTTPS only (the owner, 2026-10-05; SEC-08): the
         # plain http port answers on this computer alone, and the HTTPS one
-        # refuses a plain request.
+        # answers a plain request only with a redirect to itself over https
+        # (INBOX 866: a phone given the address without https:// got nothing).
         with pytest.raises(OSError):
             _Http(network_address, port).call("GET", "/health")
-        with pytest.raises((OSError, http.client.HTTPException)):
-            _Http(network_address, _lan_port(port)).call("GET", "/health")
+        status, data, headers = _Http(network_address, _lan_port(port)).call("GET", "/health")
+        assert status == 301 and data is None
+        assert dict(headers)["Location"] == f"https://{network_address}:{_lan_port(port)}/health"
 
         # It listens on the network address, and says so on the receipt.
         status, body, _ = lan.call("GET", "/auth/status")

@@ -12804,6 +12804,8 @@ Link to another note with [[its first few words]]."></textarea>
                 <p class="lan-fingerprint flush" id="account-lan-fingerprint"></p>
                 <p class="muted text-sm flush" id="account-lan-cert-names"></p>
                 <p class="muted text-sm flush" id="account-lan-cert-expiry"></p>
+                <p class="muted text-sm flush">Authority fingerprint, shown when the phone installs it:</p>
+                <p class="lan-fingerprint flush" id="account-lan-authority"></p>
                 <div class="row button-row">
                   <button id="account-lan-download" class="ghost small" type="button">Trust this certificate on your phone</button>
                   <button type="button" class="icon-only ghost small graph-help-toggle"
@@ -12830,10 +12832,18 @@ Link to another note with [[its first few words]]."></textarea>
                     certificate, and pick the file.
                   </p>
                   <p>
-                    If the phone says the name is wrong after this computer's
-                    address changed, the app has already made a new
-                    certificate for the new address: download and trust it
-                    again.
+                    The file is a small certificate authority made on this
+                    computer, which can only vouch for addresses on your own
+                    network. When this computer's address changes, the app
+                    makes a new certificate under the same authority, so a
+                    phone that trusts it is not asked again.
+                  </p>
+                  <p>
+                    If the phone cannot connect at all, check that both are on
+                    the same Wi-Fi (a guest network keeps devices apart), that
+                    the address starts with https, and that this computer's
+                    firewall lets the app in: Windows asks once, so choose
+                    Private networks.
                   </p>
                 </div>
               </div>

@@ -48322,6 +48322,24 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      at once while it stays selected, the popover never covers the topic it
      edits, and one selected look and one reset look in the popover.
 
+866. **The owner, 2026-10-11, verbatim.** "Can you also fix the connection
+     and and security issues when trying to access it on phone over lan??"
+     Fixed, reproduced first against the real launcher with LAN on: (1) the
+     certificate was one self-signed server certificate (CA:FALSE), which iOS
+     will not list under Certificate Trust Settings and Android will not
+     install as a CA certificate, so a phone could never trust it and every
+     visit warned; it is now a name-constrained authority (private ranges,
+     `.local`, this computer's names) signing the server certificate, and a
+     new address reissues only the server certificate; (2) "Trust this
+     certificate on your phone" was a navigation behind the lock, so a 401
+     every time; it now serves the authority's public certificate unlocked;
+     (3) the address without `https://` got an empty response from the TLS
+     port; `core/lanserve.py` reads the first byte and sends plain http a
+     301 to https, only for a Host naming this computer; (4) the help says
+     what to check when a phone cannot connect (same Wi-Fi, not guest; the
+     firewall). Tests: `test_lan_tls.py`, `test_lan_serve.py` (real
+     sockets, OpenSSL verifying the chain). Not verified: a real phone.
+
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 
 INBOX 797, the owner: "I feel like the mindmap and whiteboard are still

@@ -1365,6 +1365,19 @@ function noteMetaMore(entry) {
   return more;
 }
 
+//: Brief 89: which add-tags chip a card draws. "add" is the empty note's
+//: "Add tags" (the edit form, cursor in the tags field), "more" the quiet
+//: "+ Tag" for a note with one or two tags, or with none but suggestions
+//: showing; null from three tags up, on a board or draft, and on a read-only
+//: row (a fact only, drawn by the empty-state branch).
+const TAG_ADD_BELOW = 3;
+function tagAddChipKind(entry, options) {
+  if (!options.actions || entry.is_board || entry.is_draft) return null;
+  const tags = (entry.tags || []).length;
+  if (tags >= TAG_ADD_BELOW) return null;
+  return !tags && !(entry.suggested_tags || []).length ? "add" : "more";
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
@@ -1794,8 +1807,22 @@ function entryItem(entry, options = {}) {
   }
   //: **A note with no tags says so, where the tags would be** (INBOX 162),
   //: and the chip is the fix: the edit form, cursor in the tags field.
-  if (!entry.tags.length && !suggestions.length && !entry.is_board && !entry.is_draft
-      && (options.actions || options.facts)) {
+  //: **Fewer than three tags: a quiet "+ Tag" after them** (brief 89, the
+  //: owner: "should add tags show for notes with 0-2/3 tags on them??"). It
+  //: opens a small popover with up to three suggested tags, the field, and a
+  //: menu that turns suggestions off for this note (tag-suggest.js).
+  if (tagAddChipKind(entry, options) === "more") {
+    const more = chip("ph:plus Tag", "untagged tag-add", (event) => {
+      event.stopPropagation();
+      ensureModule("tagSuggest").then(() => openNoteTagPopover(entry, more));
+    });
+    more.title = "Add a tag to this note, or pick a suggested one";
+    more.setAttribute("aria-haspopup", "dialog");
+    more.setAttribute("aria-expanded", "false");
+    meta.appendChild(more);
+  }
+  if (tagAddChipKind(entry, options) === "add"
+      || (!options.actions && options.facts && !entry.tags.length && !entry.is_board && !entry.is_draft)) {
     //: On a read-only row it is a fact only (INBOX 297).
     const untagged = options.actions
       ? chip("ph:tag Add tags", "untagged", (event) => {

@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4625, test files 1065, tests 9754, plan headings 995.
+Counts: frontend functions 5515, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4625, test files 1066, tests 9763, plan headings 995.
 
-## Frontend functions (5511)
+## Frontend functions (5515)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -77,24 +77,24 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `appState` | frontend/js/store.js:18 |
 | `publishNotes` | frontend/js/store.js:68 |
 
-### frontend/js/note-cards.js (36)
+### frontend/js/note-cards.js (37)
 
 | Name | File:line |
 |---|---|
 | `answerTags` | frontend/js/note-cards.js:140 |
-| `askAtlasAboutNote` | frontend/js/note-cards.js:2359 |
-| `askAtlasAboutThing` | frontend/js/note-cards.js:2366 |
+| `askAtlasAboutNote` | frontend/js/note-cards.js:2386 |
+| `askAtlasAboutThing` | frontend/js/note-cards.js:2393 |
 | `binNoteWithUndo` | frontend/js/note-cards.js:1189 |
-| `entryCardControls` | frontend/js/note-cards.js:2379 |
-| `entryItem` | frontend/js/note-cards.js:1368 |
-| `entryListFocusStop` | frontend/js/note-cards.js:2392 |
-| `entryListSetStop` | frontend/js/note-cards.js:2397 |
+| `entryCardControls` | frontend/js/note-cards.js:2406 |
+| `entryItem` | frontend/js/note-cards.js:1381 |
+| `entryListFocusStop` | frontend/js/note-cards.js:2419 |
+| `entryListSetStop` | frontend/js/note-cards.js:2424 |
 | `favouriteButton` | frontend/js/note-cards.js:1149 |
 | `fitNoteMetas` | frontend/js/note-cards.js:1259 |
 | `formatFileSize` | frontend/js/note-cards.js:1103 |
 | `libraryListsBoard` | frontend/js/note-cards.js:1027 |
 | `loadMapBoardIndex` | frontend/js/note-cards.js:962 |
-| `makeUnlinkAccessible` | frontend/js/note-cards.js:2410 |
+| `makeUnlinkAccessible` | frontend/js/note-cards.js:2437 |
 | `mapBoardById` | frontend/js/note-cards.js:990 |
 | `mapBoardRows` | frontend/js/note-cards.js:1016 |
 | `mapBoardTitled` | frontend/js/note-cards.js:1002 |
@@ -111,12 +111,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `mapPreviewTextWidth` | frontend/js/note-cards.js:144 |
 | `noteIsMeeting` | frontend/js/note-cards.js:1145 |
 | `noteMetaMore` | frontend/js/note-cards.js:1351 |
-| `noteReviewActions` | frontend/js/note-cards.js:2310 |
+| `noteReviewActions` | frontend/js/note-cards.js:2337 |
 | `notesSpanSpaces` | frontend/js/note-cards.js:1210 |
 | `publishDraft` | frontend/js/note-cards.js:1338 |
 | `renderAttachmentCards` | frontend/js/note-cards.js:1223 |
 | `round2` | frontend/js/note-cards.js:242 |
-| `showNoteInGraph` | frontend/js/note-cards.js:2351 |
+| `showNoteInGraph` | frontend/js/note-cards.js:2378 |
+| `tagAddChipKind` | frontend/js/note-cards.js:1374 |
 
 ### frontend/js/menus.js (34)
 
@@ -4929,13 +4930,16 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `tagNotesWord` | frontend/js/tag-manager.js:19 |
 | `wireTagKeys` | frontend/js/tag-manager.js:651 |
 
-### frontend/js/tag-suggest.js (8)
+### frontend/js/tag-suggest.js (11)
 
 | Name | File:line |
 |---|---|
 | `answerSuggestedTags` | frontend/js/tag-suggest.js:224 |
+| `closeNoteTagPopover` | frontend/js/tag-suggest.js:248 |
 | `closeTagSuggest` | frontend/js/tag-suggest.js:25 |
 | `fillTagSuggest` | frontend/js/tag-suggest.js:58 |
+| `noteTagChoices` | frontend/js/tag-suggest.js:260 |
+| `openNoteTagPopover` | frontend/js/tag-suggest.js:280 |
 | `openTagSuggest` | frontend/js/tag-suggest.js:147 |
 | `placeTagSuggest` | frontend/js/tag-suggest.js:39 |
 | `tagSuggestSaid` | frontend/js/tag-suggest.js:121 |
@@ -8637,19 +8641,19 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Atlas, the app's guide (INBOX 224) | frontend/css/08-consistency.css:1814 |
 | Atlas, the assistant's own character (atlas.js) | frontend/css/08-consistency.css:6672 |
 | BOARD NAVIGATOR AND BOARD SEARCH | frontend/css/07-whiteboard-misc.css:6381 |
-| BREADCRUMBS: WHERE THE CARET IS | frontend/css/05-sidebars-themes.css:5932 |
+| BREADCRUMBS: WHERE THE CARET IS | frontend/css/05-sidebars-themes.css:5962 |
 | Boards, 2026-10-10 (boardmap-1010): lazy with the board, off the boot | frontend/css/library-lazy.css:3455 |
 | Capture: the add tools as a quiet toolbar (INBOX 395) | frontend/css/08-consistency.css:4613 |
 | Capture: the two labelled rows under the note box | frontend/css/07-whiteboard-misc.css:2750 |
 | Capture: three families, three rows | frontend/css/07-whiteboard-misc.css:4740 |
-| Carbon: near-monochrome, minimal colour, maximum text contrast. | frontend/css/05-sidebars-themes.css:3435 |
+| Carbon: near-monochrome, minimal colour, maximum text contrast. | frontend/css/05-sidebars-themes.css:3465 |
 | Chat sources: every card reads from the top | frontend/css/08-consistency.css:8454 |
 | Chat: the user's bubble as a quiet surface, not an accent slab | frontend/css/08-consistency.css:4946 |
 | Columns and image options (DOCUMENTS_PLAN Phase 3 item 5) | frontend/css/09-editor.css:421 |
-| Curated palettes (Settings → Appearance → Theme) | frontend/css/05-sidebars-themes.css:3196 |
+| Curated palettes (Settings → Appearance → Theme) | frontend/css/05-sidebars-themes.css:3226 |
 | Documents: focus mode | frontend/css/07-whiteboard-misc.css:6077 |
-| Editorial paper: off-white paper, black type, one red-orange for what | frontend/css/05-sidebars-themes.css:3520 |
-| Ember: warm oranges over a dim ground. Best in the evening. | frontend/css/05-sidebars-themes.css:3365 |
+| Editorial paper: off-white paper, black type, one red-orange for what | frontend/css/05-sidebars-themes.css:3550 |
+| Ember: warm oranges over a dim ground. Best in the evening. | frontend/css/05-sidebars-themes.css:3395 |
 | Files as a reading list | frontend/css/library-lazy.css:1204 |
 | Files sub-tab: rows, not cards | frontend/css/library-lazy.css:1231 |
 | Find anything | frontend/css/07-whiteboard-misc.css:10774 |
@@ -8662,20 +8666,20 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | INBOX 68: the board and map previews | frontend/css/10-responsive.css:352 |
 | Icons | frontend/css/07-whiteboard-misc.css:2312 |
 | Inline AI (editor.js) | frontend/css/07-whiteboard-misc.css:6487 |
-| Lagoon: indigo and teal together | frontend/css/05-sidebars-themes.css:3313 |
+| Lagoon: indigo and teal together | frontend/css/05-sidebars-themes.css:3343 |
 | Library -> Contents: an outline (INBOX 496) | frontend/css/01-forms-settings.css:2433 |
 | Library Activity, one line per record (INBOX 426 z, images 89, 90) | frontend/css/08-consistency.css:9076 |
 | Library → Documents | frontend/css/03-dashboard-widgets.css:4249 |
 | Library → Whiteboards | frontend/css/03-dashboard-widgets.css:4274 |
 | Live preview | frontend/css/04-chat-dock-appearance.css:4595 |
 | MICRO-ANIMATIONS | frontend/css/07-whiteboard-misc.css:611 |
-| Ocean: cool teal and deep blue. Crisp rather than cosy. | frontend/css/05-sidebars-themes.css:3278 |
+| Ocean: cool teal and deep blue. Crisp rather than cosy. | frontend/css/05-sidebars-themes.css:3308 |
 | On paper (DOCUMENTS_PLAN Phase 5 item 4, the print stylesheet) | frontend/css/09-editor.css:1087 |
 | On this day | frontend/css/03-dashboard-widgets.css:4592 |
 | One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10470 |
 | One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10546 |
 | PLAN.md D1: the documents dock's formatting strip hides entirely | frontend/css/07-whiteboard-misc.css:7938 |
-| Parchment: paper, ink and a little gold. Made for long writing. | frontend/css/05-sidebars-themes.css:3205 |
+| Parchment: paper, ink and a little gold. Made for long writing. | frontend/css/05-sidebars-themes.css:3235 |
 | Phase 10, INBOX 100: the scroll edge effect | frontend/css/10-responsive.css:159 |
 | Phase 10, INBOX 101: concentric corners | frontend/css/10-responsive.css:185 |
 | Phase 11 item 12: a dock's head is one row on a phone | frontend/css/10-responsive.css:1532 |
@@ -8694,12 +8698,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Phase 11 items 2 and 3: no rail on a phone, an opener in the head | frontend/css/10-responsive.css:1290 |
 | Phase 5: quick access + toasts | frontend/css/01-forms-settings.css:2794 |
 | Phase 5: the three things a map says about itself | frontend/css/07-whiteboard-misc.css:4381 |
-| Phones (roadmap §8: the layout had breakpoints but had never been driven at | frontend/css/05-sidebars-themes.css:3868 |
+| Phones (roadmap §8: the layout had breakpoints but had never been driven at | frontend/css/05-sidebars-themes.css:3898 |
 | Placed at the end of this file on purpose. A panel keeps its original class | frontend/css/03-dashboard-widgets.css:4285 |
-| Plum: deep violet and magenta. The most saturated. | frontend/css/05-sidebars-themes.css:3400 |
+| Plum: deep violet and magenta. The most saturated. | frontend/css/05-sidebars-themes.css:3430 |
 | Progress that keeps moving (INBOX 95) | frontend/css/08-consistency.css:2213 |
 | Quick access, and arranging it (INBOX 461) | frontend/css/03-dashboard-widgets.css:2045 |
-| Quiet utilitarian: the default look (UI_MODERNISATION_PLAN decisions, | frontend/css/05-sidebars-themes.css:3470 |
+| Quiet utilitarian: the default look (UI_MODERNISATION_PLAN decisions, | frontend/css/05-sidebars-themes.css:3500 |
 | RESPONSIVE BY DEVICE (UI_MODERNISATION_PLAN.md: Phase 9) | frontend/css/07-whiteboard-misc.css:9589 |
 | RESPONSIVE, CONTINUED, AND THE LIQUID GLASS ADOPTIONS | frontend/css/10-responsive.css:1 |
 | Reading and focus (DOCUMENTS_PLAN Phase 5 item 4, PLAN D9) | frontend/css/09-editor.css:801 |
@@ -8711,7 +8715,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | SETTINGS: spacing, hierarchy and proximity | frontend/css/01-forms-settings.css:5139 |
 | SIDEBAR COLLAPSE & PEEK | frontend/css/07-whiteboard-misc.css:420 |
 | SKILLS TAB | frontend/css/07-whiteboard-misc.css:751 |
-| Sage: quiet greens. The calmest of the set. | frontend/css/05-sidebars-themes.css:3243 |
+| Sage: quiet greens. The calmest of the set. | frontend/css/05-sidebars-themes.css:3273 |
 | Sans-serif system font override (macOS fix) | frontend/css/00-tokens-shell.css:1200 |
 | Settings at phone width: nothing scrolls sideways (Phase 5.1, 390px) | frontend/css/07-whiteboard-misc.css:8036 |
 | Settings form rows share a label column (Phase 5.1) | frontend/css/07-whiteboard-misc.css:7825 |
@@ -8724,9 +8728,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | THE QUIET SIDE OF THE BUTTON RAMP: A RUN OF ROW ACTIONS | frontend/css/08-consistency.css:2317 |
 | THE WRITE WITH AI ROW, ON A NARROW COLUMN | frontend/css/04-chat-dock-appearance.css:5633 |
 | THE WRITING PHASE: nodes, and an edge drawing itself | frontend/css/01-forms-settings.css:4858 |
-| Technical mono: a cool graphite ground, monospace for the numbers and | frontend/css/05-sidebars-themes.css:3558 |
+| Technical mono: a cool graphite ground, monospace for the numbers and | frontend/css/05-sidebars-themes.css:3588 |
 | Templates (INBOX 715) | frontend/css/library-lazy.css:2627 |
-| Text on accent-coloured surfaces (roadmap §7: colour contrast was listed as | frontend/css/05-sidebars-themes.css:3986 |
+| Text on accent-coloured surfaces (roadmap §7: colour contrast was listed as | frontend/css/05-sidebars-themes.css:4016 |
 | The Ask tab's records speak in the Notes list's voice (INBOX 510) | frontend/css/08-consistency.css:10058 |
 | The Library's hover tick says what it is (INBOX 722) | frontend/css/library-lazy.css:3427 |
 | The OCR workspace tool row (INBOX 717). Here rather than in the boot | frontend/css/library-lazy.css:2956 |
@@ -8741,7 +8745,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | The m guide: one panel of key rows | frontend/css/08-consistency.css:4670 |
 | The note surface (DOCUMENTS_PLAN Phase 8): one editor everywhere | frontend/css/09-editor.css:981 |
 | The properties panel (DOCUMENTS_PLAN Phase 3 item 4) | frontend/css/09-editor.css:202 |
-| The second level: `.tabs-line` (INBOX 522) | frontend/css/05-sidebars-themes.css:4026 |
+| The second level: `.tabs-line` (INBOX 522) | frontend/css/05-sidebars-themes.css:4056 |
 | The surface model pickers on a phone | frontend/css/10-responsive.css:2165 |
 | The thumb bar (DESIGN.md's recipe index: a bar of actions above the | frontend/css/09-editor.css:920 |
 | The two dialogs reported as off the modal recipe | frontend/css/08-consistency.css:1486 |
@@ -8779,8 +8783,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `.seg-multi`: one well, independent toggles | frontend/css/03-dashboard-widgets.css:685 |
 | `.selectbar`: the bar stays with you while the selection does | frontend/css/00-tokens-shell.css:1860 |
 | a Files row's facts line, one register (INBOX 421 f) | frontend/css/08-consistency.css:4020 |
-| a board or a map as an object in a note (INBOX 309) | frontend/css/05-sidebars-themes.css:1556 |
-| a callout that folds (REDESIGN.md §R7.3 item 3) | frontend/css/05-sidebars-themes.css:1274 |
+| a board or a map as an object in a note (INBOX 309) | frontend/css/05-sidebars-themes.css:1586 |
+| a callout that folds (REDESIGN.md §R7.3 item 3) | frontend/css/05-sidebars-themes.css:1304 |
 | a card that opens does not inflate the six beside it | frontend/css/08-consistency.css:2560 |
 | a chip lane scrolls without drawing a scrollbar | frontend/css/07-whiteboard-misc.css:3830 |
 | a chosen radio option is outlined, not only tinted (INBOX 464) | frontend/css/08-consistency.css:9576 |
@@ -8815,10 +8819,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | activity heatmap + tag cloud widgets | frontend/css/03-dashboard-widgets.css:2293 |
 | activity log | frontend/css/01-forms-settings.css:2769 |
 | activity, as a timeline rather than as cards | frontend/css/library-lazy.css:2357 |
-| an embedded document, drawn as a card (INBOX 421 b) | frontend/css/05-sidebars-themes.css:6040 |
-| and inside a small phone | frontend/css/05-sidebars-themes.css:5818 |
+| an embedded document, drawn as a card (INBOX 421 b) | frontend/css/05-sidebars-themes.css:6070 |
+| and inside a small phone | frontend/css/05-sidebars-themes.css:5848 |
 | appearance settings: grouped, scannable rows | frontend/css/04-chat-dock-appearance.css:2014 |
-| assistant message layout | frontend/css/05-sidebars-themes.css:4312 |
+| assistant message layout | frontend/css/05-sidebars-themes.css:4342 |
 | attaching notes to a chat message | frontend/css/04-chat-dock-appearance.css:2889 |
 | back / forward through pages | frontend/css/00-tokens-shell.css:4050 |
 | back-to-top button | frontend/css/04-chat-dock-appearance.css:2708 |
@@ -8832,7 +8836,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | band 4: five columns, and the fifth is a sheet | frontend/css/10-responsive.css:592 |
 | band 4: the settings sheet's head may wrap, but not be squashed | frontend/css/10-responsive.css:897 |
 | boot splash | frontend/css/00-tokens-shell.css:4072 |
-| callouts ("specialised boxes and frames") | frontend/css/05-sidebars-themes.css:1199 |
+| callouts ("specialised boxes and frames") | frontend/css/05-sidebars-themes.css:1229 |
 | category rename / delete | frontend/css/04-chat-dock-appearance.css:2777 |
 | chat dock density pass (§37C) | frontend/css/04-chat-dock-appearance.css:1336 |
 | chat page layout | frontend/css/04-chat-dock-appearance.css:542 |
@@ -8840,7 +8844,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | chat polish | frontend/css/03-dashboard-widgets.css:3482 |
 | chat tab (Wave C) | frontend/css/02-chat-graph.css:1 |
 | chat, de-vibecoded | frontend/css/08-consistency.css:3114 |
-| chat: an organised sidebar, readable code, correctable answers | frontend/css/05-sidebars-themes.css:2410 |
+| chat: an organised sidebar, readable code, correctable answers | frontend/css/05-sidebars-themes.css:2440 |
 | choice controls, the owner's 2026-09-24 pass (INBOX 409, 411) | frontend/css/08-consistency.css:8648 |
 | column-flex cards keep their full width | frontend/css/07-whiteboard-misc.css:3650 |
 | compressing a long conversation (§35I) | frontend/css/02-chat-graph.css:791 |
@@ -8849,12 +8853,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | dashboard + reminders (Wave D) | frontend/css/01-forms-settings.css:3621 |
 | dashboard quick links | frontend/css/03-dashboard-widgets.css:1831 |
 | dashboard widgets, de-vibecoded | frontend/css/08-consistency.css:4277 |
-| document formatting toolbar | frontend/css/05-sidebars-themes.css:1882 |
+| document formatting toolbar | frontend/css/05-sidebars-themes.css:1912 |
 | documents tab | frontend/css/04-chat-dock-appearance.css:3679 |
-| documents: outline, live stats, and where the file actually is | frontend/css/05-sidebars-themes.css:2758 |
-| documents: the comments panel (DOCUMENTS_PLAN Phase 5 item 1) | frontend/css/05-sidebars-themes.css:3055 |
+| documents: outline, live stats, and where the file actually is | frontend/css/05-sidebars-themes.css:2788 |
+| documents: the comments panel (DOCUMENTS_PLAN Phase 5 item 1) | frontend/css/05-sidebars-themes.css:3085 |
 | drag to delete (INBOX 660) | frontend/css/library-lazy.css:2592 |
-| duplicate tidy-up | frontend/css/05-sidebars-themes.css:1628 |
+| duplicate tidy-up | frontend/css/05-sidebars-themes.css:1658 |
 | editing a question in place | frontend/css/05-sidebars-themes.css:315 |
 | empty states that sit where they should | frontend/css/08-consistency.css:4374 |
 | entry actions + links (Phase 4) | frontend/css/01-forms-settings.css:2131 |
@@ -8900,7 +8904,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | moved from 07-whiteboard-misc.css (canvasui, the boot CSS budget): board-only rules whose class names no boot file draws and no later boot rule competes with, in their old order | frontend/css/library-lazy.css:4108 |
 | moved from the boot sheets (the boot CSS budget, test_boot_budget.py): rules only the Library | frontend/css/library-lazy.css:16 |
 | note card density (§36B) | frontend/css/06-timeline-dialogs.css:1549 |
-| note history | frontend/css/05-sidebars-themes.css:1678 |
+| note history | frontend/css/05-sidebars-themes.css:1708 |
 | notes page polish | frontend/css/03-dashboard-widgets.css:2476 |
 | nothing interactive is bare text | frontend/css/07-whiteboard-misc.css:3904 |
 | notifications | frontend/css/08-consistency.css:3754 |
@@ -8921,7 +8925,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | reminders page polish | frontend/css/03-dashboard-widgets.css:3096 |
 | reminders, de-vibecoded | frontend/css/08-consistency.css:3182 |
 | reminders: "when" is one decision, so it is one group | frontend/css/07-whiteboard-misc.css:3584 |
-| resizable sidebars | frontend/css/05-sidebars-themes.css:1709 |
+| resizable sidebars | frontend/css/05-sidebars-themes.css:1739 |
 | results: the list-row recipe | frontend/css/03-dashboard-widgets.css:1501 |
 | rich markdown blocks (tables, quotes, rules, task lists) | frontend/css/01-forms-settings.css:1232 |
 | rows instead of cards | frontend/css/00-tokens-shell.css:2247 |
@@ -8995,12 +8999,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the dashboard's greeting banner, on a phone | frontend/css/07-whiteboard-misc.css:10421 |
 | the dashboard's quick actions stop wrapping | frontend/css/07-whiteboard-misc.css:10376 |
 | the dashboard's three densities | frontend/css/07-whiteboard-misc.css:11121 |
-| the day-one dashboard | frontend/css/05-sidebars-themes.css:3768 |
+| the day-one dashboard | frontend/css/05-sidebars-themes.css:3798 |
 | the desk's own rows (WORLD_CLASS_PLAN D16) | frontend/css/04-chat-dock-appearance.css:3524 |
 | the dock (UI_MODERNISATION_PLAN.md Phase 8) | frontend/css/07-whiteboard-misc.css:9227 |
 | the dock above the editor | frontend/css/04-chat-dock-appearance.css:4111 |
 | the dock row below 1100 | frontend/css/07-whiteboard-misc.css:9832 |
-| the document editor's instruments | frontend/css/05-sidebars-themes.css:4546 |
+| the document editor's instruments | frontend/css/05-sidebars-themes.css:4576 |
 | the document history, side by side (DOCUMENTS 24 row 4, Brief 76) | frontend/css/library-lazy.css:3866 |
 | the document toolbar's two folds | frontend/css/07-whiteboard-misc.css:5195 |
 | the documents editor | frontend/css/library-lazy.css:2445 |
@@ -9041,8 +9045,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the page scrollers scroll on the compositor | frontend/css/08-consistency.css:4392 |
 | the page shell (§35L) | frontend/css/00-tokens-shell.css:3560 |
 | the palette on a touch screen (INBOX 464) | frontend/css/10-responsive.css:2495 |
-| the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5787 |
-| the picker itself | frontend/css/05-sidebars-themes.css:3651 |
+| the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5817 |
+| the picker itself | frontend/css/05-sidebars-themes.css:3681 |
 | the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10270 |
 | the quick-nav chord's guide | frontend/css/10-responsive.css:418 |
 | the reader: one scroller, the page set as prose | frontend/css/03-dashboard-widgets.css:1652 |
@@ -9064,8 +9068,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the step group (Perplexity's "Finished N steps") | frontend/css/02-chat-graph.css:4762 |
 | the strip's three doors (MINDMAP_PLAN.md §13b) | frontend/css/07-whiteboard-misc.css:8624 |
 | the strips that appear only when they apply | frontend/css/00-tokens-shell.css:1844 |
-| the structural blocks (INBOX 421 b) | frontend/css/05-sidebars-themes.css:1383 |
-| the suggestion menu, the dictionary, and the goal | frontend/css/05-sidebars-themes.css:5062 |
+| the structural blocks (INBOX 421 b) | frontend/css/05-sidebars-themes.css:1413 |
+| the suggestion menu, the dictionary, and the goal | frontend/css/05-sidebars-themes.css:5092 |
 | the switch's hit target (MODERNISATION_AUDIT.md Brief 8) | frontend/css/07-whiteboard-misc.css:7917 |
 | the tab strip is centred on the window, not on whatever is left of it | frontend/css/07-whiteboard-misc.css:7640 |
 | the timeline, de-vibecoded | frontend/css/08-consistency.css:3165 |
@@ -9081,8 +9085,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the whiteboard's tools become a bottom strip | frontend/css/07-whiteboard-misc.css:10336 |
 | the writing room | frontend/css/04-chat-dock-appearance.css:3377 |
 | tools & features browser | frontend/css/03-dashboard-widgets.css:2221 |
-| top bar polish | frontend/css/05-sidebars-themes.css:4267 |
-| transcluded notes (![[note]]) | frontend/css/05-sidebars-themes.css:1529 |
+| top bar polish | frontend/css/05-sidebars-themes.css:4297 |
+| transcluded notes (![[note]]) | frontend/css/05-sidebars-themes.css:1559 |
 | two-up cards in tablet portrait | frontend/css/07-whiteboard-misc.css:9994 |
 | user-tunable corner rounding | frontend/css/04-chat-dock-appearance.css:1981 |
 | web panel (search + reader) | frontend/css/03-dashboard-widgets.css:1242 |
@@ -9105,7 +9109,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/02-chat-graph.css | 5784 |
 | frontend/css/03-dashboard-widgets.css | 5173 |
 | frontend/css/04-chat-dock-appearance.css | 6510 |
-| frontend/css/05-sidebars-themes.css | 6150 |
+| frontend/css/05-sidebars-themes.css | 6180 |
 | frontend/css/06-timeline-dialogs.css | 3743 |
 | frontend/css/07-whiteboard-misc.css | 11986 |
 | frontend/css/08-consistency.css | 10618 |
@@ -9148,7 +9152,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |  | GET | `list_documents` | src/memorymap/api/routes_documents.py:342 |
 |  | GET | `list_duplicates` | src/memorymap/api/routes_duplicates.py:78 |
 |  | GET | `list_entities` | src/memorymap/api/routes_entities.py:68 |
-|  | GET | `list_entries` | src/memorymap/api/routes_entries.py:2223 |
+|  | GET | `list_entries` | src/memorymap/api/routes_entries.py:2232 |
 |  | GET | `list_facts` | src/memorymap/api/routes_learned.py:132 |
 |  | GET | `list_questions` | src/memorymap/api/routes_questions.py:26 |
 |  | GET | `list_reminders` | src/memorymap/api/routes_reminders.py:431 |
@@ -9166,7 +9170,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |  | POST | `create_category` | src/memorymap/api/routes_categories.py:161 |
 |  | POST | `create_conversation` | src/memorymap/api/routes_conversations.py:416 |
 |  | POST | `create_document` | src/memorymap/api/routes_documents.py:470 |
-|  | POST | `create_entry` | src/memorymap/api/routes_entries.py:701 |
+|  | POST | `create_entry` | src/memorymap/api/routes_entries.py:706 |
 |  | POST | `create_reminder` | src/memorymap/api/routes_reminders.py:476 |
 |  | POST | `create_type` | src/memorymap/api/routes_relations.py:76 |
 |  | POST | `start` | src/memorymap/api/routes_bench.py:196 |
@@ -9247,12 +9251,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/contents` | POST | `write_contents` | src/memorymap/api/routes_documents.py:503 |
 | `/corrections` | GET | `list_corrections` | src/memorymap/api/routes_learned.py:78 |
 | `/corrections` | POST | `add_correction` | src/memorymap/api/routes_learned.py:53 |
-| `/count` | GET | `count_entries` | src/memorymap/api/routes_entries.py:2384 |
+| `/count` | GET | `count_entries` | src/memorymap/api/routes_entries.py:2393 |
 | `/counts` | GET | `counts` | src/memorymap/api/routes_questions.py:45 |
 | `/counts` | GET | `reminder_counts` | src/memorymap/api/routes_reminders.py:208 |
-| `/daily` | GET | `daily_journal` | src/memorymap/api/routes_entries.py:935 |
-| `/daily/{day}` | GET | `daily_note` | src/memorymap/api/routes_entries.py:977 |
-| `/daily/{day}` | POST | `open_daily_note` | src/memorymap/api/routes_entries.py:993 |
+| `/daily` | GET | `daily_journal` | src/memorymap/api/routes_entries.py:940 |
+| `/daily/{day}` | GET | `daily_note` | src/memorymap/api/routes_entries.py:982 |
+| `/daily/{day}` | POST | `open_daily_note` | src/memorymap/api/routes_entries.py:998 |
 | `/day` | GET | `day_digest_lines` | src/memorymap/api/routes_insights.py:384 |
 | `/delete` | POST | `delete_model` | src/memorymap/api/routes_models.py:1004 |
 | `/delete` | POST | `delete_tag` | src/memorymap/api/routes_tags.py:95 |
@@ -9290,8 +9294,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/export/folder` | GET | `export_notebook_folder` | src/memorymap/api/routes_import.py:121 |
 | `/export/json` | GET | `export_json` | src/memorymap/api/routes_settings.py:2463 |
 | `/export/markdown` | GET | `export_markdown` | src/memorymap/api/routes_settings.py:2593 |
-| `/extract/commit` | POST | `extract_commit` | src/memorymap/api/routes_entries.py:3866 |
-| `/extract/preview` | POST | `extract_preview` | src/memorymap/api/routes_entries.py:3820 |
+| `/extract/commit` | POST | `extract_commit` | src/memorymap/api/routes_entries.py:3875 |
+| `/extract/preview` | POST | `extract_preview` | src/memorymap/api/routes_entries.py:3829 |
 | `/extras` | GET | `list_extras` | src/memorymap/api/routes_settings.py:1866 |
 | `/extras/bulk` | POST | `bulk_extras` | src/memorymap/api/routes_settings.py:1898 |
 | `/extras/{extra_id}/install` | POST | `install_extra` | src/memorymap/api/routes_settings.py:1907 |
@@ -9353,7 +9357,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/import/document` | POST | `import_document` | src/memorymap/api/routes_settings.py:3056 |
 | `/import/markdown` | POST | `import_markdown` | src/memorymap/api/routes_settings.py:2949 |
 | `/import/reports/{report_id}` | GET | `import_report_page` | src/memorymap/api/routes_import.py:112 |
-| `/improve` | POST | `improve_writing` | src/memorymap/api/routes_entries.py:1548 |
+| `/improve` | POST | `improve_writing` | src/memorymap/api/routes_entries.py:1557 |
 | `/inspect` | POST | `inspect_model` | src/memorymap/api/routes_models.py:664 |
 | `/instance` | GET | `instance` | src/memorymap/api/app.py:1382 |
 | `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1396 |
@@ -9371,9 +9375,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/library` | GET | `library` | src/memorymap/api/routes_library.py:1076 |
 | `/link-reasons/run` | POST | `tidy_link_reasons_run` | src/memorymap/api/routes_tidy.py:78 |
 | `/link-reasons/stop` | POST | `tidy_link_reasons_stop` | src/memorymap/api/routes_tidy.py:88 |
-| `/link-suggestions` | GET | `link_suggestions` | src/memorymap/api/routes_entries.py:1662 |
-| `/link-suggestions/reasons` | POST | `link_suggestion_reasons` | src/memorymap/api/routes_entries.py:2009 |
-| `/links/backfill-reasons` | POST | `backfill_link_reasons` | src/memorymap/api/routes_entries.py:2057 |
+| `/link-suggestions` | GET | `link_suggestions` | src/memorymap/api/routes_entries.py:1671 |
+| `/link-suggestions/reasons` | POST | `link_suggestion_reasons` | src/memorymap/api/routes_entries.py:2018 |
+| `/links/backfill-reasons` | POST | `backfill_link_reasons` | src/memorymap/api/routes_entries.py:2066 |
 | `/lock` | POST | `lock` | src/memorymap/api/routes_auth.py:938 |
 | `/lock-all` | POST | `lock_all` | src/memorymap/api/routes_auth.py:1449 |
 | `/logs` | DELETE | `clear_server_logs` | src/memorymap/api/routes_settings.py:2158 |
@@ -9415,7 +9419,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/merges/dismiss` | POST | `dismiss_merge` | src/memorymap/api/routes_inbox.py:157 |
 | `/merges/{undo_id}/undo` | POST | `undo_merge_route` | src/memorymap/api/routes_entities.py:227 |
 | `/modes` | GET | `list_modes` | src/memorymap/api/routes_chat.py:3020 |
-| `/most-accessed` | GET | `most_accessed` | src/memorymap/api/routes_entries.py:2372 |
+| `/most-accessed` | GET | `most_accessed` | src/memorymap/api/routes_entries.py:2381 |
 | `/most-opened` | GET | `most_opened` | src/memorymap/api/routes_vision.py:112 |
 | `/move` | POST | `move_notes` | src/memorymap/api/routes_categories.py:171 |
 | `/near/{entry_id}` | GET | `near` | src/memorymap/api/routes_resurface.py:145 |
@@ -9447,7 +9451,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/preview` | POST | `preview_merge` | src/memorymap/api/routes_duplicates.py:116 |
 | `/provider` | POST | `set_provider` | src/memorymap/api/routes_models.py:834 |
 | `/pull` | POST | `pull_model` | src/memorymap/api/routes_models.py:1038 |
-| `/query` | GET | `query_entries` | src/memorymap/api/routes_entries.py:1600 |
+| `/query` | GET | `query_entries` | src/memorymap/api/routes_entries.py:1609 |
 | `/read` | GET | `read_text` | src/memorymap/api/routes_read.py:36 |
 | `/read` | POST | `read` | src/memorymap/api/routes_editor.py:34 |
 | `/read/acts` | GET | `act_rows` | src/memorymap/api/routes_read.py:126 |
@@ -9480,7 +9484,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/recovery-key` | POST | `make_recovery_key` | src/memorymap/api/routes_auth.py:1293 |
 | `/recovery-key/save` | POST | `save_recovery_key` | src/memorymap/api/routes_auth.py:1340 |
 | `/recycle-bin/empty` | POST | `empty_recycle_bin` | src/memorymap/api/routes_settings.py:1851 |
-| `/reference-counts` | GET | `entry_reference_counts` | src/memorymap/api/routes_entries.py:2404 |
+| `/reference-counts` | GET | `entry_reference_counts` | src/memorymap/api/routes_entries.py:2413 |
 | `/reindex` | POST | `rebuild_search_index` | src/memorymap/api/routes_models.py:964 |
 | `/releases` | GET | `list_releases` | src/memorymap/api/routes_update.py:557 |
 | `/rename` | POST | `rename_tag` | src/memorymap/api/routes_tags.py:76 |
@@ -9497,7 +9501,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/sample-notebook` | POST | `add_sample_notebook` | src/memorymap/api/routes_help.py:127 |
 | `/sampling` | GET | `sampling_settings` | src/memorymap/api/routes_models.py:543 |
 | `/sampling` | PUT | `save_sampling_settings` | src/memorymap/api/routes_models.py:591 |
-| `/seed-examples` | POST | `seed_example_entries` | src/memorymap/api/routes_entries.py:2389 |
+| `/seed-examples` | POST | `seed_example_entries` | src/memorymap/api/routes_entries.py:2398 |
 | `/setup` | POST | `setup` | src/memorymap/api/routes_auth.py:615 |
 | `/shutdown` | POST | `shutdown` | src/memorymap/api/routes_tasks.py:786 |
 | `/sketches` | POST | `create_sketch` | src/memorymap/api/routes_whiteboard.py:2918 |
@@ -9524,7 +9528,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/stop` | POST | `stop` | src/memorymap/api/routes_bench.py:245 |
 | `/storage` | GET | `storage_location` | src/memorymap/api/routes_backups.py:43 |
 | `/stream` | POST | `chat_stream` | src/memorymap/api/routes_chat.py:2912 |
-| `/suggest-tags` | POST | `suggest_tags_for_draft` | src/memorymap/api/routes_entries.py:1264 |
+| `/suggest-tags` | POST | `suggest_tags_for_draft` | src/memorymap/api/routes_entries.py:1269 |
 | `/suggested` | GET | `suggested` | src/memorymap/api/routes_models.py:605 |
 | `/suggestions` | GET | `suggestions` | src/memorymap/api/routes_chat.py:244 |
 | `/summarize` | POST | `summarize` | src/memorymap/api/routes_voice.py:118 |
@@ -9545,10 +9549,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/tasks/history/clear` | POST | `clear_history` | src/memorymap/api/routes_tasks.py:747 |
 | `/tasks/trigger-autonomous` | POST | `trigger_autonomous` | src/memorymap/api/routes_tasks.py:684 |
 | `/templates/draft` | POST | `draft_template` | src/memorymap/api/routes_settings.py:216 |
-| `/tensions` | GET | `find_tensions` | src/memorymap/api/routes_entries.py:1803 |
-| `/tensions/accept` | POST | `accept_tension` | src/memorymap/api/routes_entries.py:1955 |
-| `/tensions/dismiss` | POST | `dismiss_tension` | src/memorymap/api/routes_entries.py:1979 |
-| `/tensions/known` | GET | `known_tensions` | src/memorymap/api/routes_entries.py:1899 |
+| `/tensions` | GET | `find_tensions` | src/memorymap/api/routes_entries.py:1812 |
+| `/tensions/accept` | POST | `accept_tension` | src/memorymap/api/routes_entries.py:1964 |
+| `/tensions/dismiss` | POST | `dismiss_tension` | src/memorymap/api/routes_entries.py:1988 |
+| `/tensions/known` | GET | `known_tensions` | src/memorymap/api/routes_entries.py:1908 |
 | `/tidy-proposals` | GET | `tidy_proposals` | src/memorymap/api/routes_vision.py:195 |
 | `/tidy-proposals/dismiss` | POST | `dismiss_tidy` | src/memorymap/api/routes_vision.py:249 |
 | `/title` | POST | `draft_title` | src/memorymap/api/routes_drafts.py:147 |
@@ -9631,42 +9635,42 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{entity_id}` | GET | `entity_page` | src/memorymap/api/routes_entities.py:103 |
 | `/{entity_id}` | PATCH | `patch_entity` | src/memorymap/api/routes_entities.py:182 |
 | `/{entity_id}/merge` | POST | `merge_into` | src/memorymap/api/routes_entities.py:215 |
-| `/{entry_id}` | DELETE | `delete_entry` | src/memorymap/api/routes_entries.py:2695 |
-| `/{entry_id}` | GET | `get_entry` | src/memorymap/api/routes_entries.py:2454 |
-| `/{entry_id}` | PUT | `update_entry` | src/memorymap/api/routes_entries.py:2562 |
-| `/{entry_id}/archive` | POST | `archive_entry` | src/memorymap/api/routes_entries.py:2723 |
+| `/{entry_id}` | DELETE | `delete_entry` | src/memorymap/api/routes_entries.py:2704 |
+| `/{entry_id}` | GET | `get_entry` | src/memorymap/api/routes_entries.py:2463 |
+| `/{entry_id}` | PUT | `update_entry` | src/memorymap/api/routes_entries.py:2571 |
+| `/{entry_id}/archive` | POST | `archive_entry` | src/memorymap/api/routes_entries.py:2732 |
 | `/{entry_id}/backlinks` | GET | `entry_backlinks` | src/memorymap/api/routes_mentions.py:155 |
-| `/{entry_id}/bookmarks` | GET | `entry_bookmarks` | src/memorymap/api/routes_entries.py:2155 |
-| `/{entry_id}/bookmarks` | POST | `attach_bookmark` | src/memorymap/api/routes_entries.py:2176 |
-| `/{entry_id}/bookmarks/{bookmark_id}` | DELETE | `detach_bookmark` | src/memorymap/api/routes_entries.py:2196 |
-| `/{entry_id}/connections` | GET | `entry_connections` | src/memorymap/api/routes_entries.py:3468 |
-| `/{entry_id}/context` | POST | `add_context` | src/memorymap/api/routes_entries.py:1342 |
-| `/{entry_id}/export.md` | GET | `export_entry` | src/memorymap/api/routes_entries.py:2531 |
-| `/{entry_id}/filing` | GET | `filing_status` | src/memorymap/api/routes_entries.py:1127 |
-| `/{entry_id}/filing` | POST | `decide_filing` | src/memorymap/api/routes_entries.py:1077 |
-| `/{entry_id}/filing/stop` | POST | `stop_filing_one` | src/memorymap/api/routes_entries.py:1058 |
-| `/{entry_id}/generate-title` | POST | `generate_entry_title` | src/memorymap/api/routes_entries.py:3383 |
-| `/{entry_id}/history` | GET | `entry_history` | src/memorymap/api/routes_entries.py:3186 |
-| `/{entry_id}/history/{revision_id}/restore` | POST | `restore_revision` | src/memorymap/api/routes_entries.py:3332 |
-| `/{entry_id}/links` | POST | `create_link` | src/memorymap/api/routes_entries.py:3686 |
-| `/{entry_id}/links/{link_id}` | DELETE | `delete_link` | src/memorymap/api/routes_entries.py:3711 |
-| `/{entry_id}/links/{link_id}` | PATCH | `patch_link` | src/memorymap/api/routes_entries.py:3723 |
-| `/{entry_id}/links/{link_id}/generate-reason` | POST | `generate_link_reason_endpoint` | src/memorymap/api/routes_entries.py:3766 |
-| `/{entry_id}/links/{link_id}/reason` | PUT | `update_link_reason` | src/memorymap/api/routes_entries.py:3745 |
+| `/{entry_id}/bookmarks` | GET | `entry_bookmarks` | src/memorymap/api/routes_entries.py:2164 |
+| `/{entry_id}/bookmarks` | POST | `attach_bookmark` | src/memorymap/api/routes_entries.py:2185 |
+| `/{entry_id}/bookmarks/{bookmark_id}` | DELETE | `detach_bookmark` | src/memorymap/api/routes_entries.py:2205 |
+| `/{entry_id}/connections` | GET | `entry_connections` | src/memorymap/api/routes_entries.py:3477 |
+| `/{entry_id}/context` | POST | `add_context` | src/memorymap/api/routes_entries.py:1351 |
+| `/{entry_id}/export.md` | GET | `export_entry` | src/memorymap/api/routes_entries.py:2540 |
+| `/{entry_id}/filing` | GET | `filing_status` | src/memorymap/api/routes_entries.py:1132 |
+| `/{entry_id}/filing` | POST | `decide_filing` | src/memorymap/api/routes_entries.py:1082 |
+| `/{entry_id}/filing/stop` | POST | `stop_filing_one` | src/memorymap/api/routes_entries.py:1063 |
+| `/{entry_id}/generate-title` | POST | `generate_entry_title` | src/memorymap/api/routes_entries.py:3392 |
+| `/{entry_id}/history` | GET | `entry_history` | src/memorymap/api/routes_entries.py:3195 |
+| `/{entry_id}/history/{revision_id}/restore` | POST | `restore_revision` | src/memorymap/api/routes_entries.py:3341 |
+| `/{entry_id}/links` | POST | `create_link` | src/memorymap/api/routes_entries.py:3695 |
+| `/{entry_id}/links/{link_id}` | DELETE | `delete_link` | src/memorymap/api/routes_entries.py:3720 |
+| `/{entry_id}/links/{link_id}` | PATCH | `patch_link` | src/memorymap/api/routes_entries.py:3732 |
+| `/{entry_id}/links/{link_id}/generate-reason` | POST | `generate_link_reason_endpoint` | src/memorymap/api/routes_entries.py:3775 |
+| `/{entry_id}/links/{link_id}/reason` | PUT | `update_link_reason` | src/memorymap/api/routes_entries.py:3754 |
 | `/{entry_id}/mentions/link` | POST | `link_mention` | src/memorymap/api/routes_mentions.py:171 |
-| `/{entry_id}/privacy` | POST | `set_entry_privacy` | src/memorymap/api/routes_entries.py:3357 |
-| `/{entry_id}/purge` | DELETE | `purge_entry` | src/memorymap/api/routes_entries.py:2742 |
-| `/{entry_id}/reevaluate` | POST | `reevaluate_entry` | src/memorymap/api/routes_entries.py:1425 |
-| `/{entry_id}/references` | GET | `entry_references` | src/memorymap/api/routes_entries.py:3140 |
-| `/{entry_id}/related` | GET | `related_entries` | src/memorymap/api/routes_entries.py:2120 |
-| `/{entry_id}/remove-title` | POST | `remove_entry_title` | src/memorymap/api/routes_entries.py:3430 |
-| `/{entry_id}/restore` | POST | `restore_entry` | src/memorymap/api/routes_entries.py:2715 |
-| `/{entry_id}/restore/{event_id}` | POST | `restore_event` | src/memorymap/api/routes_entries.py:3268 |
-| `/{entry_id}/suggested-tags` | POST | `answer_suggested_tags` | src/memorymap/api/routes_entries.py:1314 |
-| `/{entry_id}/then-and-now` | GET | `then_and_now` | src/memorymap/api/routes_entries.py:3148 |
-| `/{entry_id}/then-and-now` | POST | `then_and_now_of_text` | src/memorymap/api/routes_entries.py:3173 |
-| `/{entry_id}/unarchive` | POST | `unarchive_entry` | src/memorymap/api/routes_entries.py:2734 |
-| `/{entry_id}/wiki-rename` | POST | `wiki_rename` | src/memorymap/api/routes_entries.py:2683 |
+| `/{entry_id}/privacy` | POST | `set_entry_privacy` | src/memorymap/api/routes_entries.py:3366 |
+| `/{entry_id}/purge` | DELETE | `purge_entry` | src/memorymap/api/routes_entries.py:2751 |
+| `/{entry_id}/reevaluate` | POST | `reevaluate_entry` | src/memorymap/api/routes_entries.py:1434 |
+| `/{entry_id}/references` | GET | `entry_references` | src/memorymap/api/routes_entries.py:3149 |
+| `/{entry_id}/related` | GET | `related_entries` | src/memorymap/api/routes_entries.py:2129 |
+| `/{entry_id}/remove-title` | POST | `remove_entry_title` | src/memorymap/api/routes_entries.py:3439 |
+| `/{entry_id}/restore` | POST | `restore_entry` | src/memorymap/api/routes_entries.py:2724 |
+| `/{entry_id}/restore/{event_id}` | POST | `restore_event` | src/memorymap/api/routes_entries.py:3277 |
+| `/{entry_id}/suggested-tags` | POST | `answer_suggested_tags` | src/memorymap/api/routes_entries.py:1321 |
+| `/{entry_id}/then-and-now` | GET | `then_and_now` | src/memorymap/api/routes_entries.py:3157 |
+| `/{entry_id}/then-and-now` | POST | `then_and_now_of_text` | src/memorymap/api/routes_entries.py:3182 |
+| `/{entry_id}/unarchive` | POST | `unarchive_entry` | src/memorymap/api/routes_entries.py:2743 |
+| `/{entry_id}/wiki-rename` | POST | `wiki_rename` | src/memorymap/api/routes_entries.py:2692 |
 | `/{fact_id}` | DELETE | `delete_fact` | src/memorymap/api/routes_learned.py:313 |
 | `/{fact_id}` | GET | `get_fact` | src/memorymap/api/routes_learned.py:275 |
 | `/{fact_id}` | PATCH | `patch_fact` | src/memorymap/api/routes_learned.py:283 |
@@ -10537,7 +10541,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/memorymap/ai/help_topics_more.py:2215 |
+| `_act_topic` | src/memorymap/ai/help_topics_more.py:2220 |
 
 ### src/memorymap/ai/inbox.py (7)
 
@@ -12441,130 +12445,130 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `AttachBookmarkBody` | src/memorymap/api/routes_entries.py:2148 |
-| `BackfillReasonsBody` | src/memorymap/api/routes_entries.py:2049 |
-| `DailyDayOut` | src/memorymap/api/routes_entries.py:874 |
-| `DailyJournalOut` | src/memorymap/api/routes_entries.py:879 |
-| `ExtractCommitBody` | src/memorymap/api/routes_entries.py:3858 |
-| `ExtractLinkIn` | src/memorymap/api/routes_entries.py:3848 |
-| `ExtractNoteIn` | src/memorymap/api/routes_entries.py:3837 |
-| `ExtractPreviewBody` | src/memorymap/api/routes_entries.py:3811 |
-| `FilingDecisionBody` | src/memorymap/api/routes_entries.py:1071 |
-| `FilingStopBody` | src/memorymap/api/routes_entries.py:1054 |
-| `ImproveBody` | src/memorymap/api/routes_entries.py:1538 |
-| `LinkBody` | src/memorymap/api/routes_entries.py:2768 |
-| `LinkPatchBody` | src/memorymap/api/routes_entries.py:2809 |
-| `LinkReasonBody` | src/memorymap/api/routes_entries.py:2825 |
-| `LinkSuggestionReasonPair` | src/memorymap/api/routes_entries.py:2000 |
-| `LinkSuggestionReasonsBody` | src/memorymap/api/routes_entries.py:2005 |
-| `PrivacyBody` | src/memorymap/api/routes_entries.py:2832 |
-| `SuggestTagsBody` | src/memorymap/api/routes_entries.py:1253 |
-| `SuggestedTagsBody` | src/memorymap/api/routes_entries.py:1305 |
-| `TensionPair` | src/memorymap/api/routes_entries.py:1950 |
-| `ThenTextBody` | src/memorymap/api/routes_entries.py:3168 |
-| `WikiRenameIn` | src/memorymap/api/routes_entries.py:2679 |
-| `_LateFiling` | src/memorymap/api/routes_entries.py:364 |
-| `_LazyNoteFacts` | src/memorymap/api/routes_entries.py:1639 |
-| `_already_delivered` | src/memorymap/api/routes_entries.py:676 |
-| `_backfill_reasons` | src/memorymap/api/routes_entries.py:2094 |
-| `_board_reference_rows_batch` | src/memorymap/api/routes_entries.py:2867 |
-| `_connected_files` | src/memorymap/api/routes_entries.py:3661 |
-| `_connection_cue` | src/memorymap/api/routes_entries.py:3455 |
-| `_connection_label` | src/memorymap/api/routes_entries.py:3649 |
-| `_daily_date` | src/memorymap/api/routes_entries.py:889 |
-| `_daily_note` | src/memorymap/api/routes_entries.py:927 |
-| `_daily_notes` | src/memorymap/api/routes_entries.py:903 |
-| `_dismissed_tensions` | src/memorymap/api/routes_entries.py:1798 |
-| `_embed_entry_in_background` | src/memorymap/api/routes_entries.py:614 |
-| `_engine_tags` | src/memorymap/api/routes_entries.py:265 |
-| `_existing_entry` | src/memorymap/api/routes_entries.py:318 |
-| `_file_entry_in_background` | src/memorymap/api/routes_entries.py:460 |
-| `_file_entry_now` | src/memorymap/api/routes_entries.py:338 |
-| `_filed_by` | src/memorymap/api/routes_entries.py:1219 |
-| `_find_near_duplicate` | src/memorymap/api/routes_entries.py:300 |
-| `_first_line` | src/memorymap/api/routes_entries.py:898 |
-| `_interior_phrase` | src/memorymap/api/routes_entries.py:3099 |
-| `_json_tags` | src/memorymap/api/routes_entries.py:204 |
-| `_keep_suggestions` | src/memorymap/api/routes_entries.py:233 |
-| `_linked_entry_ids` | src/memorymap/api/routes_entries.py:1408 |
-| `_links_to` | src/memorymap/api/routes_entries.py:3122 |
-| `_open_suggestions` | src/memorymap/api/routes_entries.py:212 |
+| `AttachBookmarkBody` | src/memorymap/api/routes_entries.py:2157 |
+| `BackfillReasonsBody` | src/memorymap/api/routes_entries.py:2058 |
+| `DailyDayOut` | src/memorymap/api/routes_entries.py:879 |
+| `DailyJournalOut` | src/memorymap/api/routes_entries.py:884 |
+| `ExtractCommitBody` | src/memorymap/api/routes_entries.py:3867 |
+| `ExtractLinkIn` | src/memorymap/api/routes_entries.py:3857 |
+| `ExtractNoteIn` | src/memorymap/api/routes_entries.py:3846 |
+| `ExtractPreviewBody` | src/memorymap/api/routes_entries.py:3820 |
+| `FilingDecisionBody` | src/memorymap/api/routes_entries.py:1076 |
+| `FilingStopBody` | src/memorymap/api/routes_entries.py:1059 |
+| `ImproveBody` | src/memorymap/api/routes_entries.py:1547 |
+| `LinkBody` | src/memorymap/api/routes_entries.py:2777 |
+| `LinkPatchBody` | src/memorymap/api/routes_entries.py:2818 |
+| `LinkReasonBody` | src/memorymap/api/routes_entries.py:2834 |
+| `LinkSuggestionReasonPair` | src/memorymap/api/routes_entries.py:2009 |
+| `LinkSuggestionReasonsBody` | src/memorymap/api/routes_entries.py:2014 |
+| `PrivacyBody` | src/memorymap/api/routes_entries.py:2841 |
+| `SuggestTagsBody` | src/memorymap/api/routes_entries.py:1258 |
+| `SuggestedTagsBody` | src/memorymap/api/routes_entries.py:1310 |
+| `TensionPair` | src/memorymap/api/routes_entries.py:1959 |
+| `ThenTextBody` | src/memorymap/api/routes_entries.py:3177 |
+| `WikiRenameIn` | src/memorymap/api/routes_entries.py:2688 |
+| `_LateFiling` | src/memorymap/api/routes_entries.py:369 |
+| `_LazyNoteFacts` | src/memorymap/api/routes_entries.py:1648 |
+| `_already_delivered` | src/memorymap/api/routes_entries.py:681 |
+| `_backfill_reasons` | src/memorymap/api/routes_entries.py:2103 |
+| `_board_reference_rows_batch` | src/memorymap/api/routes_entries.py:2876 |
+| `_connected_files` | src/memorymap/api/routes_entries.py:3670 |
+| `_connection_cue` | src/memorymap/api/routes_entries.py:3464 |
+| `_connection_label` | src/memorymap/api/routes_entries.py:3658 |
+| `_daily_date` | src/memorymap/api/routes_entries.py:894 |
+| `_daily_note` | src/memorymap/api/routes_entries.py:932 |
+| `_daily_notes` | src/memorymap/api/routes_entries.py:908 |
+| `_dismissed_tensions` | src/memorymap/api/routes_entries.py:1807 |
+| `_embed_entry_in_background` | src/memorymap/api/routes_entries.py:619 |
+| `_engine_tags` | src/memorymap/api/routes_entries.py:270 |
+| `_existing_entry` | src/memorymap/api/routes_entries.py:323 |
+| `_file_entry_in_background` | src/memorymap/api/routes_entries.py:465 |
+| `_file_entry_now` | src/memorymap/api/routes_entries.py:343 |
+| `_filed_by` | src/memorymap/api/routes_entries.py:1224 |
+| `_find_near_duplicate` | src/memorymap/api/routes_entries.py:305 |
+| `_first_line` | src/memorymap/api/routes_entries.py:903 |
+| `_interior_phrase` | src/memorymap/api/routes_entries.py:3108 |
+| `_json_tags` | src/memorymap/api/routes_entries.py:205 |
+| `_keep_suggestions` | src/memorymap/api/routes_entries.py:238 |
+| `_linked_entry_ids` | src/memorymap/api/routes_entries.py:1417 |
+| `_links_to` | src/memorymap/api/routes_entries.py:3131 |
+| `_open_suggestions` | src/memorymap/api/routes_entries.py:213 |
 | `_preview` | src/memorymap/api/routes_entries.py:77 |
-| `_process_committed_media` | src/memorymap/api/routes_entries.py:325 |
-| `_queue_embedding` | src/memorymap/api/routes_entries.py:642 |
-| `_queue_filing` | src/memorymap/api/routes_entries.py:654 |
-| `_readable` | src/memorymap/api/routes_entries.py:2850 |
-| `_reevaluate_tags` | src/memorymap/api/routes_entries.py:1516 |
-| `_reference_rows` | src/memorymap/api/routes_entries.py:3130 |
-| `_reference_rows_batch` | src/memorymap/api/routes_entries.py:2956 |
-| `_remember_delivery` | src/memorymap/api/routes_entries.py:693 |
-| `_safe_filename` | src/memorymap/api/routes_entries.py:2518 |
-| `_stored_form` | src/memorymap/api/routes_entries.py:2842 |
-| `_tag_reasons` | src/memorymap/api/routes_entries.py:223 |
-| `_tag_vocabulary` | src/memorymap/api/routes_entries.py:1241 |
-| `_tension_key` | src/memorymap/api/routes_entries.py:1792 |
+| `_process_committed_media` | src/memorymap/api/routes_entries.py:330 |
+| `_queue_embedding` | src/memorymap/api/routes_entries.py:647 |
+| `_queue_filing` | src/memorymap/api/routes_entries.py:659 |
+| `_readable` | src/memorymap/api/routes_entries.py:2859 |
+| `_reevaluate_tags` | src/memorymap/api/routes_entries.py:1525 |
+| `_reference_rows` | src/memorymap/api/routes_entries.py:3139 |
+| `_reference_rows_batch` | src/memorymap/api/routes_entries.py:2965 |
+| `_remember_delivery` | src/memorymap/api/routes_entries.py:698 |
+| `_safe_filename` | src/memorymap/api/routes_entries.py:2527 |
+| `_stored_form` | src/memorymap/api/routes_entries.py:2851 |
+| `_tag_reasons` | src/memorymap/api/routes_entries.py:228 |
+| `_tag_vocabulary` | src/memorymap/api/routes_entries.py:1246 |
+| `_tension_key` | src/memorymap/api/routes_entries.py:1801 |
 | `_to_out` | src/memorymap/api/routes_entries.py:90 |
-| `_to_out_bulk` | src/memorymap/api/routes_entries.py:277 |
-| `_wiki_link_targets_of` | src/memorymap/api/routes_entries.py:3612 |
-| `accept_tension` | src/memorymap/api/routes_entries.py:1956 |
-| `add_context` | src/memorymap/api/routes_entries.py:1343 |
-| `answer_suggested_tags` | src/memorymap/api/routes_entries.py:1315 |
-| `archive_entry` | src/memorymap/api/routes_entries.py:2724 |
-| `attach_bookmark` | src/memorymap/api/routes_entries.py:2177 |
-| `backfill_link_reasons` | src/memorymap/api/routes_entries.py:2058 |
-| `check_link_props` | src/memorymap/api/routes_entries.py:2793 |
-| `count_entries` | src/memorymap/api/routes_entries.py:2385 |
-| `create_entry` | src/memorymap/api/routes_entries.py:702 |
-| `create_link` | src/memorymap/api/routes_entries.py:3687 |
-| `daily_journal` | src/memorymap/api/routes_entries.py:936 |
-| `daily_note` | src/memorymap/api/routes_entries.py:978 |
-| `decide_filing` | src/memorymap/api/routes_entries.py:1078 |
-| `delete_entry` | src/memorymap/api/routes_entries.py:2696 |
-| `delete_link` | src/memorymap/api/routes_entries.py:3712 |
-| `detach_bookmark` | src/memorymap/api/routes_entries.py:2197 |
-| `dismiss_tension` | src/memorymap/api/routes_entries.py:1980 |
-| `entry_bookmarks` | src/memorymap/api/routes_entries.py:2156 |
-| `entry_connections` | src/memorymap/api/routes_entries.py:3469 |
-| `entry_history` | src/memorymap/api/routes_entries.py:3187 |
-| `entry_reference_counts` | src/memorymap/api/routes_entries.py:2405 |
-| `entry_references` | src/memorymap/api/routes_entries.py:3141 |
-| `export_entry` | src/memorymap/api/routes_entries.py:2532 |
-| `extract_commit` | src/memorymap/api/routes_entries.py:3867 |
-| `extract_preview` | src/memorymap/api/routes_entries.py:3821 |
-| `filing_status` | src/memorymap/api/routes_entries.py:1128 |
-| `find_tensions` | src/memorymap/api/routes_entries.py:1804 |
-| `generate_entry_title` | src/memorymap/api/routes_entries.py:3384 |
-| `generate_link_reason_endpoint` | src/memorymap/api/routes_entries.py:3767 |
-| `get_entry` | src/memorymap/api/routes_entries.py:2455 |
-| `improve_writing` | src/memorymap/api/routes_entries.py:1549 |
-| `known_tensions` | src/memorymap/api/routes_entries.py:1900 |
-| `link_suggestion_reasons` | src/memorymap/api/routes_entries.py:2010 |
-| `link_suggestions` | src/memorymap/api/routes_entries.py:1663 |
-| `list_entries` | src/memorymap/api/routes_entries.py:2224 |
-| `most_accessed` | src/memorymap/api/routes_entries.py:2373 |
-| `open_daily_note` | src/memorymap/api/routes_entries.py:994 |
-| `patch_link` | src/memorymap/api/routes_entries.py:3724 |
-| `purge_entry` | src/memorymap/api/routes_entries.py:2743 |
-| `query_entries` | src/memorymap/api/routes_entries.py:1601 |
-| `reevaluate_entry` | src/memorymap/api/routes_entries.py:1426 |
-| `related_entries` | src/memorymap/api/routes_entries.py:2121 |
-| `remove_entry_title` | src/memorymap/api/routes_entries.py:3431 |
-| `restore_entry` | src/memorymap/api/routes_entries.py:2716 |
-| `restore_event` | src/memorymap/api/routes_entries.py:3269 |
-| `restore_revision` | src/memorymap/api/routes_entries.py:3333 |
-| `retry_stand_ins` | src/memorymap/api/routes_entries.py:580 |
-| `seed_example_entries` | src/memorymap/api/routes_entries.py:2390 |
-| `set_entry_privacy` | src/memorymap/api/routes_entries.py:3358 |
-| `stop_all_filing` | src/memorymap/api/routes_entries.py:1099 |
-| `stop_filing` | src/memorymap/api/routes_entries.py:1025 |
-| `stop_filing_one` | src/memorymap/api/routes_entries.py:1059 |
-| `suggest_tags_for_draft` | src/memorymap/api/routes_entries.py:1265 |
-| `then_and_now` | src/memorymap/api/routes_entries.py:3149 |
-| `then_and_now_of_text` | src/memorymap/api/routes_entries.py:3174 |
-| `unarchive_entry` | src/memorymap/api/routes_entries.py:2735 |
-| `update_entry` | src/memorymap/api/routes_entries.py:2563 |
-| `update_link_reason` | src/memorymap/api/routes_entries.py:3746 |
-| `wiki_rename` | src/memorymap/api/routes_entries.py:2684 |
+| `_to_out_bulk` | src/memorymap/api/routes_entries.py:282 |
+| `_wiki_link_targets_of` | src/memorymap/api/routes_entries.py:3621 |
+| `accept_tension` | src/memorymap/api/routes_entries.py:1965 |
+| `add_context` | src/memorymap/api/routes_entries.py:1352 |
+| `answer_suggested_tags` | src/memorymap/api/routes_entries.py:1322 |
+| `archive_entry` | src/memorymap/api/routes_entries.py:2733 |
+| `attach_bookmark` | src/memorymap/api/routes_entries.py:2186 |
+| `backfill_link_reasons` | src/memorymap/api/routes_entries.py:2067 |
+| `check_link_props` | src/memorymap/api/routes_entries.py:2802 |
+| `count_entries` | src/memorymap/api/routes_entries.py:2394 |
+| `create_entry` | src/memorymap/api/routes_entries.py:707 |
+| `create_link` | src/memorymap/api/routes_entries.py:3696 |
+| `daily_journal` | src/memorymap/api/routes_entries.py:941 |
+| `daily_note` | src/memorymap/api/routes_entries.py:983 |
+| `decide_filing` | src/memorymap/api/routes_entries.py:1083 |
+| `delete_entry` | src/memorymap/api/routes_entries.py:2705 |
+| `delete_link` | src/memorymap/api/routes_entries.py:3721 |
+| `detach_bookmark` | src/memorymap/api/routes_entries.py:2206 |
+| `dismiss_tension` | src/memorymap/api/routes_entries.py:1989 |
+| `entry_bookmarks` | src/memorymap/api/routes_entries.py:2165 |
+| `entry_connections` | src/memorymap/api/routes_entries.py:3478 |
+| `entry_history` | src/memorymap/api/routes_entries.py:3196 |
+| `entry_reference_counts` | src/memorymap/api/routes_entries.py:2414 |
+| `entry_references` | src/memorymap/api/routes_entries.py:3150 |
+| `export_entry` | src/memorymap/api/routes_entries.py:2541 |
+| `extract_commit` | src/memorymap/api/routes_entries.py:3876 |
+| `extract_preview` | src/memorymap/api/routes_entries.py:3830 |
+| `filing_status` | src/memorymap/api/routes_entries.py:1133 |
+| `find_tensions` | src/memorymap/api/routes_entries.py:1813 |
+| `generate_entry_title` | src/memorymap/api/routes_entries.py:3393 |
+| `generate_link_reason_endpoint` | src/memorymap/api/routes_entries.py:3776 |
+| `get_entry` | src/memorymap/api/routes_entries.py:2464 |
+| `improve_writing` | src/memorymap/api/routes_entries.py:1558 |
+| `known_tensions` | src/memorymap/api/routes_entries.py:1909 |
+| `link_suggestion_reasons` | src/memorymap/api/routes_entries.py:2019 |
+| `link_suggestions` | src/memorymap/api/routes_entries.py:1672 |
+| `list_entries` | src/memorymap/api/routes_entries.py:2233 |
+| `most_accessed` | src/memorymap/api/routes_entries.py:2382 |
+| `open_daily_note` | src/memorymap/api/routes_entries.py:999 |
+| `patch_link` | src/memorymap/api/routes_entries.py:3733 |
+| `purge_entry` | src/memorymap/api/routes_entries.py:2752 |
+| `query_entries` | src/memorymap/api/routes_entries.py:1610 |
+| `reevaluate_entry` | src/memorymap/api/routes_entries.py:1435 |
+| `related_entries` | src/memorymap/api/routes_entries.py:2130 |
+| `remove_entry_title` | src/memorymap/api/routes_entries.py:3440 |
+| `restore_entry` | src/memorymap/api/routes_entries.py:2725 |
+| `restore_event` | src/memorymap/api/routes_entries.py:3278 |
+| `restore_revision` | src/memorymap/api/routes_entries.py:3342 |
+| `retry_stand_ins` | src/memorymap/api/routes_entries.py:585 |
+| `seed_example_entries` | src/memorymap/api/routes_entries.py:2399 |
+| `set_entry_privacy` | src/memorymap/api/routes_entries.py:3367 |
+| `stop_all_filing` | src/memorymap/api/routes_entries.py:1104 |
+| `stop_filing` | src/memorymap/api/routes_entries.py:1030 |
+| `stop_filing_one` | src/memorymap/api/routes_entries.py:1064 |
+| `suggest_tags_for_draft` | src/memorymap/api/routes_entries.py:1270 |
+| `then_and_now` | src/memorymap/api/routes_entries.py:3158 |
+| `then_and_now_of_text` | src/memorymap/api/routes_entries.py:3183 |
+| `unarchive_entry` | src/memorymap/api/routes_entries.py:2744 |
+| `update_entry` | src/memorymap/api/routes_entries.py:2572 |
+| `update_link_reason` | src/memorymap/api/routes_entries.py:3755 |
+| `wiki_rename` | src/memorymap/api/routes_entries.py:2693 |
 
 ### src/memorymap/api/routes_files.py (121)
 
@@ -13787,68 +13791,68 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `AskTurn` | src/memorymap/core/database.py:1032 |
-| `Attachment` | src/memorymap/core/database.py:955 |
-| `AuditLog` | src/memorymap/core/database.py:2083 |
+| `AskTurn` | src/memorymap/core/database.py:1036 |
+| `Attachment` | src/memorymap/core/database.py:959 |
+| `AuditLog` | src/memorymap/core/database.py:2087 |
 | `Base` | src/memorymap/core/database.py:128 |
-| `BinnedReading` | src/memorymap/core/database.py:1616 |
-| `BoardLibrary` | src/memorymap/core/database.py:1859 |
-| `BoardLibraryItem` | src/memorymap/core/database.py:1877 |
-| `BoardLibraryMark` | src/memorymap/core/database.py:1901 |
-| `Bookmark` | src/memorymap/core/database.py:1078 |
+| `BinnedReading` | src/memorymap/core/database.py:1620 |
+| `BoardLibrary` | src/memorymap/core/database.py:1863 |
+| `BoardLibraryItem` | src/memorymap/core/database.py:1881 |
+| `BoardLibraryMark` | src/memorymap/core/database.py:1905 |
+| `Bookmark` | src/memorymap/core/database.py:1082 |
 | `Category` | src/memorymap/core/database.py:274 |
-| `ChunkVector` | src/memorymap/core/database.py:880 |
-| `Conversation` | src/memorymap/core/database.py:997 |
-| `DatabaseManager` | src/memorymap/core/database.py:2264 |
+| `ChunkVector` | src/memorymap/core/database.py:884 |
+| `Conversation` | src/memorymap/core/database.py:1001 |
+| `DatabaseManager` | src/memorymap/core/database.py:2268 |
 | `DateTime` | src/memorymap/core/database.py:90 |
-| `DerivedFact` | src/memorymap/core/database.py:1221 |
-| `DerivedTension` | src/memorymap/core/database.py:1287 |
-| `Document` | src/memorymap/core/database.py:1420 |
-| `DocumentAiEdit` | src/memorymap/core/database.py:1474 |
-| `DocumentBookmark` | src/memorymap/core/database.py:1134 |
-| `DocumentLink` | src/memorymap/core/database.py:1451 |
-| `DocumentRevision` | src/memorymap/core/database.py:1695 |
-| `DurableJob` | src/memorymap/core/database.py:2012 |
-| `EmbeddingRecord` | src/memorymap/core/database.py:865 |
-| `Entity` | src/memorymap/core/database.py:536 |
-| `EntityMention` | src/memorymap/core/database.py:576 |
+| `DerivedFact` | src/memorymap/core/database.py:1225 |
+| `DerivedTension` | src/memorymap/core/database.py:1291 |
+| `Document` | src/memorymap/core/database.py:1424 |
+| `DocumentAiEdit` | src/memorymap/core/database.py:1478 |
+| `DocumentBookmark` | src/memorymap/core/database.py:1138 |
+| `DocumentLink` | src/memorymap/core/database.py:1455 |
+| `DocumentRevision` | src/memorymap/core/database.py:1699 |
+| `DurableJob` | src/memorymap/core/database.py:2016 |
+| `EmbeddingRecord` | src/memorymap/core/database.py:869 |
+| `Entity` | src/memorymap/core/database.py:540 |
+| `EntityMention` | src/memorymap/core/database.py:580 |
 | `Entry` | src/memorymap/core/database.py:309 |
-| `EntryBookmark` | src/memorymap/core/database.py:1114 |
-| `EntryDate` | src/memorymap/core/database.py:1398 |
-| `EntryLink` | src/memorymap/core/database.py:691 |
-| `EntryOpen` | src/memorymap/core/database.py:1377 |
-| `EntryProperty` | src/memorymap/core/database.py:763 |
-| `EntryRevision` | src/memorymap/core/database.py:1359 |
-| `JobRun` | src/memorymap/core/database.py:1985 |
-| `LinkProps` | src/memorymap/core/database.py:625 |
-| `LinkReason` | src/memorymap/core/database.py:587 |
-| `MediaUpload` | src/memorymap/core/database.py:1913 |
-| `NightRun` | src/memorymap/core/database.py:1330 |
-| `NoteScore` | src/memorymap/core/database.py:1191 |
-| `NoteType` | src/memorymap/core/database.py:785 |
-| `PageRead` | src/memorymap/core/database.py:1514 |
-| `Recording` | src/memorymap/core/database.py:1649 |
-| `RelationType` | src/memorymap/core/database.py:745 |
-| `Reminder` | src/memorymap/core/database.py:1150 |
+| `EntryBookmark` | src/memorymap/core/database.py:1118 |
+| `EntryDate` | src/memorymap/core/database.py:1402 |
+| `EntryLink` | src/memorymap/core/database.py:695 |
+| `EntryOpen` | src/memorymap/core/database.py:1381 |
+| `EntryProperty` | src/memorymap/core/database.py:767 |
+| `EntryRevision` | src/memorymap/core/database.py:1363 |
+| `JobRun` | src/memorymap/core/database.py:1989 |
+| `LinkProps` | src/memorymap/core/database.py:629 |
+| `LinkReason` | src/memorymap/core/database.py:591 |
+| `MediaUpload` | src/memorymap/core/database.py:1917 |
+| `NightRun` | src/memorymap/core/database.py:1334 |
+| `NoteScore` | src/memorymap/core/database.py:1195 |
+| `NoteType` | src/memorymap/core/database.py:789 |
+| `PageRead` | src/memorymap/core/database.py:1518 |
+| `Recording` | src/memorymap/core/database.py:1653 |
+| `RelationType` | src/memorymap/core/database.py:749 |
+| `Reminder` | src/memorymap/core/database.py:1154 |
 | `Space` | src/memorymap/core/database.py:131 |
-| `StagedEmbedding` | src/memorymap/core/database.py:928 |
+| `StagedEmbedding` | src/memorymap/core/database.py:932 |
 | `User` | src/memorymap/core/database.py:239 |
-| `UserPreference` | src/memorymap/core/database.py:2055 |
+| `UserPreference` | src/memorymap/core/database.py:2059 |
 | `Vault` | src/memorymap/core/database.py:250 |
-| `WhiteboardNode` | src/memorymap/core/database.py:1737 |
-| `WhiteboardObject` | src/memorymap/core/database.py:1796 |
-| `WhiteboardSketch` | src/memorymap/core/database.py:1779 |
+| `WhiteboardNode` | src/memorymap/core/database.py:1741 |
+| `WhiteboardObject` | src/memorymap/core/database.py:1800 |
+| `WhiteboardSketch` | src/memorymap/core/database.py:1783 |
 | `WorkspaceMixin` | src/memorymap/core/database.py:153 |
 | `_add_workspace_filter` | src/memorymap/core/database.py:176 |
-| `_ensure_alembic_baseline` | src/memorymap/core/database.py:2159 |
+| `_ensure_alembic_baseline` | src/memorymap/core/database.py:2163 |
 | `_hide_binned` | src/memorymap/core/database.py:215 |
-| `_migrations_root` | src/memorymap/core/database.py:2124 |
-| `_only_a_person_moves_a_boards_time` | src/memorymap/core/database.py:676 |
-| `_safety_copy_before_migrating` | src/memorymap/core/database.py:2139 |
+| `_migrations_root` | src/memorymap/core/database.py:2128 |
+| `_only_a_person_moves_a_boards_time` | src/memorymap/core/database.py:680 |
+| `_safety_copy_before_migrating` | src/memorymap/core/database.py:2143 |
 | `_set_workspace` | src/memorymap/core/database.py:230 |
-| `_stamp_done_at` | src/memorymap/core/database.py:1184 |
+| `_stamp_done_at` | src/memorymap/core/database.py:1188 |
 | `like_escape` | src/memorymap/core/database.py:62 |
-| `link_strength` | src/memorymap/core/database.py:842 |
+| `link_strength` | src/memorymap/core/database.py:846 |
 | `utcnow` | src/memorymap/core/database.py:51 |
 | `workspace_scoped_models` | src/memorymap/core/database.py:159 |
 
@@ -15621,7 +15625,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9754)
+## Tests (9763)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16543,6 +16547,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_tag_normalisation.py | 5 |
 | tests/test_tag_suggestions.py | 13 |
 | tests/test_tag_vocabulary.py | 6 |
+| tests/test_tags89.py | 9 |
 | tests/test_task_checkbox.py | 3 |
 | tests/test_task_progress.py | 7 |
 | tests/test_tasks.py | 28 |
@@ -17087,11 +17092,11 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | B7 The API contract | docs/roadmap/WORLD_CLASS_PLAN.md:642 |
 | B8 Extensions | docs/roadmap/WORLD_CLASS_PLAN.md:654 |
 | Brief 10 (Fri, Sonnet): Library one card recipe, Dashboard widget frame | docs/roadmap/SESSION_BRIEFS.md:399 |
-| Brief 100 (Opus, graph): the graph's feel (INBOX 802, 864, 865) | docs/roadmap/SESSION_BRIEFS.md:1818 |
-| Brief 101 (Sonnet, three agents): the found-not-fixed ledger, placed (the owner: "make sure you cover all bugs and issues found and not fixed as well") | docs/roadmap/SESSION_BRIEFS.md:1823 |
-| Brief 102 (Opus, lansafe): LAN safe by default on any network (INBOX 867) | docs/roadmap/SESSION_BRIEFS.md:1832 |
-| Brief 103 (Sonnet, chattime): a time on every chat message (INBOX 868) | docs/roadmap/SESSION_BRIEFS.md:1841 |
-| Brief 104 (Opus, after atlas): typos read in context, not as slang (INBOX 869) | docs/roadmap/SESSION_BRIEFS.md:1845 |
+| Brief 100 (Opus, graph): the graph's feel (INBOX 802, 864, 865) | docs/roadmap/SESSION_BRIEFS.md:1817 |
+| Brief 101 (Sonnet, three agents): the found-not-fixed ledger, placed (the owner: "make sure you cover all bugs and issues found and not fixed as well") | docs/roadmap/SESSION_BRIEFS.md:1822 |
+| Brief 102 (Opus, lansafe): LAN safe by default on any network (INBOX 867) | docs/roadmap/SESSION_BRIEFS.md:1831 |
+| Brief 103 (Sonnet, chattime): a time on every chat message (INBOX 868) | docs/roadmap/SESSION_BRIEFS.md:1840 |
+| Brief 104 (Opus, after atlas): typos read in context, not as slang (INBOX 869) | docs/roadmap/SESSION_BRIEFS.md:1844 |
 | Brief 11: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:426 |
 | Brief 12: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:428 |
 | Brief 13 (Sun, Opus): the harness verifier, budget and corrections (B5) | docs/roadmap/SESSION_BRIEFS.md:430 |
@@ -17179,16 +17184,16 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Brief 89 (Sonnet): Add tags on lightly tagged notes (INBOX 836) | docs/roadmap/SESSION_BRIEFS.md:1753 |
 | Brief 8: W1-4: the three 18.4px switches, and making DESIGN.md true | docs/roadmap/MODERNISATION_AUDIT.md:1392 |
 | Brief 9 (Fri, Opus): the job runtime (B2) and thread isolation | docs/roadmap/SESSION_BRIEFS.md:358 |
-| Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837) | docs/roadmap/SESSION_BRIEFS.md:1758 |
-| Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842) | docs/roadmap/SESSION_BRIEFS.md:1763 |
-| Brief 92 (Opus, after the queue): the whole-app pass the owner asked for (INBOX 843) | docs/roadmap/SESSION_BRIEFS.md:1767 |
-| Brief 93 (Sonnet, ownerfix3): the owner's small UI reports, 2026-10-11 evening (INBOX 847, 851 to 856) | docs/roadmap/SESSION_BRIEFS.md:1773 |
-| Brief 94 (Opus): find by meaning everywhere, autocorrect everywhere with undo (INBOX 850, 857) | docs/roadmap/SESSION_BRIEFS.md:1783 |
-| Brief 95 (Opus): themes, dug deep (INBOX 858) | docs/roadmap/SESSION_BRIEFS.md:1789 |
-| Brief 96 (Opus, with voiceup): the recording row and player (INBOX 859) | docs/roadmap/SESSION_BRIEFS.md:1794 |
-| Brief 97 (Opus, after Atlas): the composer as the place to go, the graph maker (INBOX 860) | docs/roadmap/SESSION_BRIEFS.md:1799 |
-| Brief 98 (Opus): goals and lists (INBOX 861) | docs/roadmap/SESSION_BRIEFS.md:1807 |
-| Brief 99 (Sonnet, scan): every feature, element and action, used once (INBOX 862) | docs/roadmap/SESSION_BRIEFS.md:1813 |
+| Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837) | docs/roadmap/SESSION_BRIEFS.md:1757 |
+| Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842) | docs/roadmap/SESSION_BRIEFS.md:1762 |
+| Brief 92 (Opus, after the queue): the whole-app pass the owner asked for (INBOX 843) | docs/roadmap/SESSION_BRIEFS.md:1766 |
+| Brief 93 (Sonnet, ownerfix3): the owner's small UI reports, 2026-10-11 evening (INBOX 847, 851 to 856) | docs/roadmap/SESSION_BRIEFS.md:1772 |
+| Brief 94 (Opus): find by meaning everywhere, autocorrect everywhere with undo (INBOX 850, 857) | docs/roadmap/SESSION_BRIEFS.md:1782 |
+| Brief 95 (Opus): themes, dug deep (INBOX 858) | docs/roadmap/SESSION_BRIEFS.md:1788 |
+| Brief 96 (Opus, with voiceup): the recording row and player (INBOX 859) | docs/roadmap/SESSION_BRIEFS.md:1793 |
+| Brief 97 (Opus, after Atlas): the composer as the place to go, the graph maker (INBOX 860) | docs/roadmap/SESSION_BRIEFS.md:1798 |
+| Brief 98 (Opus): goals and lists (INBOX 861) | docs/roadmap/SESSION_BRIEFS.md:1806 |
+| Brief 99 (Sonnet, scan): every feature, element and action, used once (INBOX 862) | docs/roadmap/SESSION_BRIEFS.md:1812 |
 | Briefs 25 to 31: the plans the owner asked to see finished | docs/roadmap/SESSION_BRIEFS.md:744 |
 | Briefs 35 to 42 (2026-10-10, Fable orchestrating): the owner's list, the engine, the direction | docs/roadmap/SESSION_BRIEFS.md:1238 |
 | Briefs 46 to 55 (2026-10-10, Fable): the whole app against world class | docs/roadmap/SESSION_BRIEFS.md:1520 |

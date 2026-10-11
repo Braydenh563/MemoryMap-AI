@@ -1088,7 +1088,7 @@ MORE_TOPICS.extend(
             "id": "suggested-tags",
             "keywords": (
                 "suggested tag", "suggested tags", "plus tag", "plus tags", "+ tag",
-                "tag suggestion", "stop suggesting", "dismiss a tag", "tag with atlas",
+                "tag suggestion", "stop suggesting", "don't suggest tags", "dont suggest tags", "add tag chip", "dismiss a tag", "tag with atlas",
                 "why is this tag suggested", "why this tag", "turned down", "offer again",
             ),
             "body": (
@@ -1103,7 +1103,12 @@ MORE_TOPICS.extend(
                 "only when the note has a word for it, at most three, and "
                 "pointing at one says which word. A tag turned down on three notes is offered "
                 "less everywhere; Manage tags lists it under Turned down, with Offer again. "
-                "Tag and file with Atlas and Capture, while you type, suggest the same way."
+                "Tag and file with Atlas and Capture, while you type, suggest the same way. "
+                "A note with fewer than three tags shows a quiet \"+ Tag\" after them: it opens up to "
+                "three suggested tags as one-press chips above a field for your own. Its ... menu "
+                "has \"Don't suggest tags for this note\", which stops the suggestions on that "
+                "note alone (Undo in the notice brings them back, as does \"Suggest tags for this "
+                "note again\" in the same menu)."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

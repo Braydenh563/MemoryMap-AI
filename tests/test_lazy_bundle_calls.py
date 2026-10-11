@@ -130,6 +130,7 @@ REACHED_AFTER_LOAD = {
     "showWebReader": "webClip, called in the .then of ensureModule('webClip') in openWebReader",
     "askAgainMenu": "askHistory, called in the .then of ensureModule('askHistory') in loadRecentQuestions",
     "answerSuggestedTags": "tagSuggest, called in the .then of ensureModule('tagSuggest') by answerTags",
+    "openNoteTagPopover": "tagSuggest, called in the .then of ensureModule('tagSuggest') by the \"+ Tag\" chip (note-cards.js)",
     "settingsPrefsSeen": "settingsData, called in the .then of ensureModule('settingsData') by the apiJson wrapper (status.js)",
     "clearRecentSearches": "searchSuggest, called in the .then of ensureModule('searchSuggest') by the web panel's Clear (chat.js)",
     "renderSettingsHistory": "settingsData, called in the .then of ensureModule('settingsData') when Data opens (settings.js)",

@@ -532,9 +532,8 @@ async function openNotifications({ keepWatermark = false } = {}) {
     //: **One row recipe** (INBOX 585, then 811): the icon column (the unread
     //: dot in its leading gutter, so a read row and an unread one put their
     //: icons on one edge), then one block: the message, its detail, and a
-    //: meta line of the time, the row's two controls beside it (shown on
-    //: hover and focus, always under a finger, never in the time's place, so
-    //: every row's time starts on one x) and the row's action at the end.
+    //: meta line of the time and the row's action at the end; the row's two
+    //: controls are the right-edge column, centred (INBOX 874).
     const dot = document.createElement("span");
     dot.className = "notif-dot";
     //: Named, not only drawn: a dot is a state shown by colour, so it says
@@ -627,9 +626,12 @@ async function openNotifications({ keepWatermark = false } = {}) {
     const actions = document.createElement("span");
     actions.className = "notif-row-actions";
     actions.append(readToggle, dismiss);
-    foot.append(time, actions);
+    foot.append(time);
     const cta = notificationActionButton(item);
     if (cta) foot.append(cta);
+    //: The third column of the row, centred on it (INBOX 874): not on the
+    //: meta line, where a two-line row put them at its bottom.
+    row.append(actions);
     row.dataset.at = String(item.at);
 
     // A notification you cannot act on is a notification you learn to ignore.

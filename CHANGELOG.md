@@ -12,6 +12,9 @@ below). Versioning is `0.x` while the app stabilises.
 - Phone: Settings and every dialog fit the visible screen in Safari, with its toolbars showing, so the top, the close button and the bottom can be reached; a dialog taller than the screen scrolls instead of being centred off both edges.
 - Logs: errors from scripts that are not the app's (Safari's own helpers and browser extensions, shown as "user-script" or a bare "Script error.") are no longer logged as the app's errors.
 - Other devices: a second notebook on the same computer (another person's account) takes the next free port for phones (8444 and up) instead of staying on that computer only; Settings shows the address it took.
+- Notifications: the circle and cross on each row sit at its right edge, centred on the row, and stay drawn, instead of at the bottom beside the time.
+- Graph: tapping the settings button on a phone no longer opens the Layout dropdown by itself. A sheet that opens under a finger lands focus on the sheet, not on its first select.
+- Graph: on a phone the note panel's actions are one row (Open, Link and a ⋯ whose rows are named in words) instead of three rows of unlabelled icons, and the New note button no longer floats over the panel.
 - Companion: it steps off a dock's open "more" menu (Notes' Reload, Manage tags and the rest), and any open menu or list, instead of standing over it.
 - Other devices: a phone's page no longer stalls. Safari opens connections ahead of need and sends nothing on them, and each held one of eight waiting threads for ten seconds, so the page's real requests queued behind them; one watcher now waits on every new connection. A computer on a global IPv6 address keeps the phone's trust when that address changes within its network, and the phone help says nothing installs on the phone.
 - Settings, Help: the search box and its count sit under Welcome and tours, above the topics they filter.

@@ -10084,6 +10084,24 @@ header#top-bar {
     row-gap: var(--space-3);
   }
 }
+/* The compact row (Open, Link, ⋯; `renderGraphPopupActions`): one line at any
+   width that gets it, the ⋯ at the far end so the two worded buttons sit
+   together and the menu sits where a thumb rests. */
+.graph-popup-actions.is-compact {
+  justify-content: stretch;
+  flex-wrap: nowrap;
+}
+.graph-popup-actions.is-compact .graph-popup-tool-shown {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--space-2);
+}
+.graph-popup-actions.is-compact .graph-popup-tool-shown > .menu-wrap {
+  margin-left: auto;
+}
+.graph-popup-actions.is-compact .graph-popup-tool-shown > button:not(.icon-only) {
+  padding-inline: var(--space-4);
+}
 @media (max-width: 599.98px) {
   :root {
     /* A control-height family member, not a spacing step: it is the size of

@@ -1223,15 +1223,26 @@ function recordingsEmpty(text) {
 
 function recordingFacts(rec) {
   const when = parseServerTime(rec.created_at) || new Date(rec.created_at);
-  const facts = [meetingClockText(rec.duration_ms), meetingContainerName(rec.mime), when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })];
-  if (rec.markers.length) facts.push(`${rec.markers.length} ${rec.markers.length === 1 ? "marker" : "markers"}`);
+  const facts = [when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }), meetingClockText(rec.duration_ms), recordingTranscriptState(rec)];
   if (rec.source_id) facts.push("trimmed");
   if (rec.recovered) facts.push("recovered");
   return facts.join(" · ");
 }
 
-//: One recording: the row recipe (mark, content, one actions cell), the
-//: waveform under its name, its markers as moments to jump to.
+//: The transcript's state in words, on the card's one line of facts.
+function recordingTranscriptState(rec) {
+  const run = rec.transcription;
+  if (run?.state === "running") return run.progress == null ? "transcribing" : `transcribing ${Math.round(run.progress * 100)}%`;
+  if (rec.transcribed) return "transcribed";
+  if (run?.state === "failed") return "transcription failed";
+  return "not transcribed";
+}
+
+//: **One recording, one card** (Brief 96, INBOX 859: "its hard to see the
+//: audio progress ... no vertical line ... or a time stamp"). The head is
+//: the name and its facts on one line with the actions at its end; under it
+//: the player: play, the waveform with a playhead and the marks as ticks,
+//: and "1:12 / 4:30"; then the marks as a list, each a time and a comment.
 function recordingRow(rec) {
   const li = document.createElement("li");
   li.className = "recording-row";
@@ -1239,7 +1250,8 @@ function recordingRow(rec) {
   const audio = document.createElement("audio");
   audio.preload = "none";
   audio.src = `/media/recordings/${rec.id}`;
-  const play = smallButton("ph:play", `Play ${rec.title || "this recording"}`, async () => {
+  const label = rec.title || "this recording";
+  const play = smallButton("ph:play", `Play ${label}`, async () => {
     if (!audio.paused) return audio.pause();
     await recordingReady(audio);
     audio.play();
@@ -1247,26 +1259,50 @@ function recordingRow(rec) {
   play.classList.add("recording-play");
   audio.addEventListener("play", () => setLabel(play, "ph:pause"));
   audio.addEventListener("pause", () => setLabel(play, "ph:play"));
-  const main = document.createElement("div");
-  main.className = "recording-main";
+  const head = document.createElement("div");
+  head.className = "recording-head";
   const name = document.createElement("span");
   name.className = "recording-title";
   name.textContent = rec.title || "Recording";
+  name.title = `${rec.title || "Recording"} (${meetingContainerName(rec.mime)})`;
   const facts = document.createElement("span");
   facts.className = "muted recording-facts";
   facts.textContent = recordingFacts(rec);
-  const wave = recordingWave(rec, audio);
-  main.append(name, facts, wave, recordingMarkers(rec, audio));
-  if (rec.transcribed) main.append(...recordingTranscript(rec, audio));
   const act = document.createElement("div");
   act.className = "recording-act";
   const speed = recordingSpeed(audio);
-  act.append(speed, kebabMenu(recordingMenu(rec), `More actions for ${rec.title || "this recording"}`));
+  act.append(speed, kebabMenu(recordingMenu(rec), `More actions for ${label}`));
+  head.append(name, facts, act);
+  const player = document.createElement("div");
+  player.className = "recording-player";
+  const time = document.createElement("span");
+  time.className = "muted recording-time";
+  const wave = recordingWave(rec, audio, time);
+  const mark = smallButton("ph:push-pin", `Mark this moment in ${label} (M)`, () => addRecordingMark(li));
+  mark.classList.add("recording-mark-add");
+  player.append(play, wave, time, mark);
+  const marks = document.createElement("ol");
+  marks.className = "recording-marks";
+  marks.setAttribute("aria-label", "Marks");
+  li.recording = { rec, audio, wave, marks, facts };
+  li.append(head, player, marks);
+  if (rec.transcribed) li.append(...recordingTranscript(rec, audio));
+  li.append(audio);
+  recordingMarksFill(li);
+  //: M on the card marks the playhead, as M marks the moment while
+  //: recording; stopped here because M also opens the app's chords.
+  li.addEventListener("keydown", (event) => {
+    if (event.key.toLowerCase() !== "m" || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.target.closest("input, textarea, select, [contenteditable]")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    addRecordingMark(li);
+  });
   //: After it has a parent: the restyled opener goes beside it.
   enhanceSelect(speed);
-  li.append(play, main, act, audio);
   return li;
 }
+
 
 //: **Seekable before the first seek.** A MediaRecorder file carries no
 //: length and no index, so Chromium reads its duration as Infinity and seeks
@@ -1313,33 +1349,68 @@ function recordingSpeed(audio) {
   return select;
 }
 
-//: The saved peaks as bars, the played part in the accent, a tick per
-//: marker; pressing it seeks. A canvas, as the recorder's own line is.
-function recordingWave(rec, audio) {
+//: The saved peaks as bars, the played part in the accent, the playhead as
+//: a line in the ink, a tick per mark; a press or a drag seeks, the arrows
+//: step five seconds. A canvas, as the recorder's own line is.
+function recordingWave(rec, audio, time) {
   const canvas = document.createElement("canvas");
   canvas.className = "recording-wave";
   canvas.setAttribute("role", "slider");
   canvas.setAttribute("aria-label", "Position");
+  canvas.setAttribute("aria-valuemin", "0");
   canvas.tabIndex = 0;
   const total = () => (Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : rec.duration_ms / 1000);
-  const draw = () => recordingPaint(canvas, rec, audio.currentTime / (total() || 1));
+  const draw = () => {
+    const length = total();
+    const now = Math.min(audio.currentTime, length || 0);
+    recordingPaint(canvas, rec, now / (length || 1));
+    const text = `${meetingClockText(now * 1000)} / ${meetingClockText(length * 1000)}`;
+    time.textContent = text;
+    canvas.setAttribute("aria-valuemax", String(Math.round(length)));
+    canvas.setAttribute("aria-valuenow", String(Math.round(now)));
+    canvas.setAttribute("aria-valuetext", text);
+  };
   const seek = async (fraction) => {
     await recordingReady(audio);
     audio.currentTime = Math.max(0, Math.min(1, fraction)) * total();
     draw();
   };
-  canvas.addEventListener("click", (event) => {
+  const at = (event) => {
     const box = canvas.getBoundingClientRect();
-    seek((event.clientX - box.left) / box.width);
+    return (event.clientX - box.left) / (box.width || 1);
+  };
+  //: Press and drag: the pointer is captured so a drag past the end still
+  //: seeks, and the playhead follows the finger before the audio has caught up.
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    canvas.setPointerCapture?.(event.pointerId);
+    canvas.dataset.dragging = "true";
+    seek(at(event));
   });
+  canvas.addEventListener("pointermove", (event) => {
+    if (canvas.dataset.dragging !== "true") return;
+    const fraction = Math.max(0, Math.min(1, at(event)));
+    recordingPaint(canvas, rec, fraction);
+    time.textContent = `${meetingClockText(fraction * total() * 1000)} / ${meetingClockText(total() * 1000)}`;
+  });
+  const drop = (event) => {
+    if (canvas.dataset.dragging !== "true") return;
+    delete canvas.dataset.dragging;
+    seek(at(event));
+  };
+  canvas.addEventListener("pointerup", drop);
+  canvas.addEventListener("pointercancel", () => delete canvas.dataset.dragging);
   canvas.addEventListener("keydown", (event) => {
-    const step = event.key === "ArrowRight" ? 5 : event.key === "ArrowLeft" ? -5 : 0;
-    if (!step) return;
+    const keys = { ArrowRight: 5, ArrowLeft: -5, Home: -Infinity, End: Infinity };
+    if (!(event.key in keys)) return;
     event.preventDefault();
-    seek((audio.currentTime + step) / (total() || 1));
+    const step = keys[event.key];
+    seek(Number.isFinite(step) ? (audio.currentTime + step) / (total() || 1) : step > 0 ? 1 : 0);
   });
   audio.addEventListener("timeupdate", draw);
+  audio.addEventListener("durationchange", draw);
   canvas.recordingSeek = seek;
+  canvas.recordingDraw = draw;
   requestAnimationFrame(draw);
   return canvas;
 }
@@ -1354,32 +1425,134 @@ function recordingPaint(canvas, rec, played) {
   const style = getComputedStyle(document.documentElement);
   const accent = style.getPropertyValue("--accent").trim() || "#4664f0";
   const rest = style.getPropertyValue("--muted").trim() || "#888";
+  const ink = style.getPropertyValue("--text").trim() || "#222";
   const peaks = rec.peaks.length ? rec.peaks : [8];
   const bar = canvas.width / peaks.length;
   const mid = canvas.height / 2;
+  //: Bars no thinner than 2 device pixels with a gap, so a long recording
+  //: reads as a shape rather than a grey slab.
+  const width = Math.max(ratio, bar * 0.6);
   peaks.forEach((peak, i) => {
-    const h = Math.max(2 * ratio, (peak / 100) * (canvas.height - 4 * ratio));
+    const h = Math.max(2 * ratio, (peak / 100) * (canvas.height - 8 * ratio));
+    paint.globalAlpha = i / peaks.length < played ? 1 : 0.55;
     paint.fillStyle = i / peaks.length < played ? accent : rest;
-    paint.fillRect(i * bar, mid - h / 2, Math.max(1, bar * 0.7), h);
+    paint.fillRect(i * bar, mid - h / 2, width, h);
   });
+  paint.globalAlpha = 1;
+  //: A mark is a short tick from the top with a dot, so it never reads as
+  //: the playhead, which runs the full height.
   paint.fillStyle = accent;
-  for (const ms of rec.markers) {
-    const x = (ms / (rec.duration_ms || 1)) * canvas.width;
-    paint.fillRect(x - ratio, 0, 2 * ratio, canvas.height);
+  for (const mark of rec.marks || []) {
+    const x = (mark.at / (rec.duration_ms || 1)) * canvas.width;
+    paint.fillRect(x - ratio / 2, 0, ratio, canvas.height * 0.35);
+    paint.beginPath();
+    paint.arc(x, 3 * ratio, 3 * ratio, 0, Math.PI * 2);
+    paint.fill();
   }
+  const x = Math.max(ratio, Math.min(canvas.width - ratio, played * canvas.width));
+  paint.fillStyle = ink;
+  paint.fillRect(x - ratio, 0, 2 * ratio, canvas.height);
 }
 
-function recordingMarkers(rec, audio) {
-  const row = document.createElement("div");
-  row.className = "recording-markers";
-  for (const ms of rec.markers) {
-    row.appendChild(smallButton(`ph:push-pin ${meetingClockText(ms)}`, `Play from the marker at ${meetingClockText(ms)}`, async () => {
-      await recordingReady(audio);
-      audio.currentTime = ms / 1000;
-      audio.play();
-    }));
+//: The marks under the player: each its time and its comment, pressing it
+//: plays from there and lights the transcript line said at that moment.
+function recordingMarksFill(li) {
+  const { rec, audio, marks } = li.recording;
+  marks.replaceChildren(...(rec.marks || []).map((mark, i) => {
+    const item = document.createElement("li");
+    item.className = "recording-mark";
+    const go = document.createElement("button");
+    go.type = "button";
+    go.className = "recording-mark-go";
+    go.title = `Play from ${meetingClockText(mark.at)}`;
+    const at = document.createElement("span");
+    at.className = "recording-mark-at";
+    at.textContent = meetingClockText(mark.at);
+    const note = document.createElement("span");
+    note.className = mark.note ? "recording-mark-note" : "recording-mark-note muted";
+    note.textContent = mark.note || `Mark ${i + 1}`;
+    go.append(at, note);
+    go.addEventListener("click", () => playRecordingFrom(li, mark.at));
+    item.append(go, rowActions([
+      { label: mark.note ? "Edit" : "Comment", title: mark.note ? "Change this mark's comment" : "Add a comment to this mark", run: () => editRecordingMark(li, mark) },
+      { label: "Remove", title: "Remove this mark", danger: true, run: () => removeRecordingMark(li, mark) },
+    ], `Actions for the mark at ${meetingClockText(mark.at)}`));
+    return item;
+  }));
+}
+
+async function playRecordingFrom(li, ms) {
+  const { audio } = li.recording;
+  await recordingReady(audio);
+  audio.currentTime = ms / 1000;
+  audio.play();
+  recordingShowLine(li, ms);
+}
+
+//: A mark links into the transcript: the fold opens on the line being said
+//: at that moment.
+async function recordingShowLine(li, ms) {
+  const toggle = li.querySelector(".recording-transcript-toggle");
+  const list = li.querySelector(".recording-transcript");
+  if (!toggle || !list) return;
+  if (toggle.getAttribute("aria-expanded") !== "true") await toggle.recordingOpen();
+  const lines = [...list.querySelectorAll(".recording-line")];
+  const line = lines.findLast((button) => Number(button.dataset.start) <= ms) || lines[0];
+  if (!line) return;
+  lines.forEach((button) => button.classList.toggle("is-now", button === line));
+  line.scrollIntoView({ block: "nearest" });
+}
+
+//: The marks saved as the server keeps them: a number, or `{at, note}`.
+async function saveRecordingMarks(li, marks) {
+  const { rec } = li.recording;
+  const body = await apiJson(`/recordings/${rec.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ markers: marks.map((m) => (m.note ? { at: m.at, note: m.note } : m.at)) }),
+  });
+  Object.assign(rec, { markers: body.markers, marks: body.marks });
+  recordingMarksFill(li);
+  li.recording.wave.recordingDraw();
+  li.recording.facts.textContent = recordingFacts(rec);
+}
+
+//: M or the pin: a mark at the playhead, with a comment if one is typed.
+async function addRecordingMark(li) {
+  const { rec, audio } = li.recording;
+  const at = Math.round(audio.currentTime * 1000);
+  const note = await promptDialog(`Comment on the mark at ${meetingClockText(at)} (optional)`, "", { confirmLabel: "Add the mark" });
+  if (note === null || note === undefined) return;
+  const before = (rec.marks || []).map((m) => ({ ...m }));
+  const after = [...before.filter((m) => m.at !== at), { at, note: note.trim() }];
+  try {
+    await saveRecordingMarks(li, after);
+  } catch (error) {
+    return toast(error.message || "Couldn't add that mark.", true);
   }
-  return row;
+  pushUndo("Added a mark", () => saveRecordingMarks(li, before), () => saveRecordingMarks(li, after));
+}
+
+async function editRecordingMark(li, mark) {
+  const { rec } = li.recording;
+  const note = await promptDialog(`Comment on the mark at ${meetingClockText(mark.at)}`, mark.note, { confirmLabel: "Save" });
+  if (note === null || note === undefined || note.trim() === mark.note) return;
+  const before = rec.marks.map((m) => ({ ...m }));
+  const after = before.map((m) => (m.at === mark.at ? { ...m, note: note.trim() } : m));
+  await saveRecordingMarks(li, after).catch((error) => toast(error.message, true));
+  pushUndo("Changed a mark", () => saveRecordingMarks(li, before), () => saveRecordingMarks(li, after));
+}
+
+async function removeRecordingMark(li, mark) {
+  const { rec } = li.recording;
+  const before = rec.marks.map((m) => ({ ...m }));
+  const after = before.filter((m) => m.at !== mark.at);
+  try {
+    await saveRecordingMarks(li, after);
+  } catch (error) {
+    return toast(error.message || "Couldn't remove that mark.", true);
+  }
+  pushUndo("Removed a mark", () => saveRecordingMarks(li, before), () => saveRecordingMarks(li, after));
+  toastAction(`Removed the mark at ${meetingClockText(mark.at)}.`, "Undo", () => saveRecordingMarks(li, before));
 }
 
 //: **The transcript under its recording** (28.5 row 7): each line a button
@@ -1389,12 +1562,14 @@ function recordingMarkers(rec, audio) {
 function recordingTranscript(rec, audio) {
   const list = document.createElement("ol");
   list.className = "recording-transcript hidden";
-  const toggle = smallButton("ph:caret-down Transcript", "Show the transcript; a line plays from its moment", async () => {
-    const open = toggle.getAttribute("aria-expanded") !== "true";
+  const flip = async (open) => {
     toggle.setAttribute("aria-expanded", String(open));
     list.classList.toggle("hidden", !open);
     if (open && !list.childElementCount) await recordingTranscriptFill(rec, audio, list);
-  });
+  };
+  const toggle = smallButton("ph:caret-down Transcript", "Show the transcript; a line plays from its moment", () => flip(toggle.getAttribute("aria-expanded") !== "true"));
+  //: A mark opens it on its line (`recordingShowLine`).
+  toggle.recordingOpen = () => flip(true);
   toggle.classList.add("recording-transcript-toggle");
   toggle.setAttribute("aria-expanded", "false");
   return [toggle, list];
@@ -1598,7 +1773,7 @@ async function trimRecording(rec, startMs, endMs) {
   await api.upload(`/recordings/${made.id}/chunk`, form);
   const span = rec.duration_ms || 1;
   const peaks = rec.peaks.slice(Math.floor((startMs / span) * rec.peaks.length), Math.ceil((endMs / span) * rec.peaks.length));
-  const markers = rec.markers.filter((ms) => ms >= startMs && ms <= endMs).map((ms) => ms - startMs);
+  const markers = (rec.marks || []).filter((m) => m.at >= startMs && m.at <= endMs).map((m) => (m.note ? { at: m.at - startMs, note: m.note } : m.at - startMs));
   const done = await apiJson(`/recordings/${made.id}/finish`, { method: "POST", body: JSON.stringify({ duration_ms: endMs - startMs, peaks, markers }) });
   const binned = { undo: () => apiJson(`/recordings/${made.id}`, { method: "DELETE" }).then(renderRecordings), redo: () => apiJson(`/recordings/${made.id}/restore`, { method: "POST" }).then(renderRecordings) };
   pushUndo("Trimmed a recording", binned.undo, binned.redo);

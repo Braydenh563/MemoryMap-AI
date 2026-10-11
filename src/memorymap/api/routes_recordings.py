@@ -51,12 +51,13 @@ class RecordingCreate(BaseModel):
 class RecordingFinish(BaseModel):
     duration_ms: int = Field(default=0, ge=0, le=24 * 3600 * 1000)
     peaks: list[float] = Field(default_factory=list, max_length=recordings.PEAKS_MAX)
-    markers: list[float] = Field(default_factory=list, max_length=recordings.MARKERS_MAX)
+    markers: list[float | dict] = Field(default_factory=list, max_length=recordings.MARKERS_MAX)
 
 
 class RecordingPatch(BaseModel):
     title: str | None = Field(default=None, max_length=200)
-    markers: list[float] | None = Field(default=None, max_length=recordings.MARKERS_MAX)
+    #: A number, or `{at, note}` for a mark with a comment (Brief 96).
+    markers: list[float | dict] | None = Field(default=None, max_length=recordings.MARKERS_MAX)
     entry_id: int | None = None
 
 

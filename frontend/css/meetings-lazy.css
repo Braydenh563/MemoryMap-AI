@@ -12,9 +12,11 @@
   display: none;
 }
 
-/* A recording is a row on the row recipe (DESIGN.md, "A row in a list"):
-   mark (play), content (name, facts, waveform, markers), one actions cell
-   (speed, the menu). */
+/* A recording is a card (Brief 96, INBOX 859): a group on --surface-2 with
+   no edge of its own (DESIGN.md, "Surface tiers"). The head is the name and
+   its facts on one line with the actions at its end; under it the player
+   (play, the waveform, the time, the pin that marks the playhead); then the
+   marks and the transcript fold. */
 .recordings-list {
   display: flex;
   flex-direction: column;
@@ -25,29 +27,30 @@
 }
 
 .recording-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   min-height: var(--row-h);
   padding: var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
+  background: var(--surface-2);
 }
 
-.recording-row:hover,
 .recording-row:is(:focus-visible, :has(:focus-visible)) {
   border-color: var(--border);
 }
 
-.recording-main {
+.recording-head {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  align-items: baseline;
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .recording-title {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -55,7 +58,19 @@
 }
 
 .recording-facts {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recording-player {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .recording-wave {
@@ -66,16 +81,74 @@
   border-radius: var(--radius-sm);
   background: var(--inner);
   cursor: pointer;
+  touch-action: none;
 }
 
-.recording-markers {
+.recording-time {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.recording-marks {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recording-marks:empty {
+  display: none;
+}
+
+.recording-mark {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
 }
 
-.recording-markers:empty {
-  display: none;
+.recording-mark-go {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.recording-mark-go:hover,
+.recording-mark-go:focus-visible {
+  background: var(--hover-veil);
+}
+
+.recording-mark-at {
+  flex: none;
+  min-width: 5ch;
+  color: var(--accent-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.recording-mark .row-actions {
+  flex: none;
+  flex-wrap: nowrap;
+}
+
+.recording-mark-note {
+  min-width: 0;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The transcript (28.5 row 7): a line per segment, each a button that
@@ -139,8 +212,10 @@
 
 .recording-act {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-2);
+  margin-left: auto;
 }
 
 .recording-row audio {
@@ -166,14 +241,27 @@
   text-align: right;
 }
 
-/* A phone: the actions go under the content rather than squeezing it. */
+/* A phone: the facts go under the name, and the pin under the time. */
 @media (max-width: 599.98px) {
-  .recording-row {
-    grid-template-columns: auto minmax(0, 1fr);
+  .recording-head {
+    flex-wrap: wrap;
   }
 
-  .recording-act {
+  .recording-facts {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .recording-player {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .recording-time {
     grid-column: 2;
-    justify-content: flex-end;
+  }
+
+  .recording-mark-add {
+    grid-column: 3;
+    grid-row: 1;
   }
 }

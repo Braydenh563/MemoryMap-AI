@@ -39,6 +39,7 @@ STALE_AFTER = timedelta(seconds=45)
 
 PEAKS_MAX = 2000
 MARKERS_MAX = 500
+MARK_NOTE_MAX = 500
 
 
 def container(mime: str) -> str | None:
@@ -78,13 +79,34 @@ def clean_peaks(values: object) -> str:
 
 
 def clean_markers(values: object, duration_ms: int | None = None) -> str:
-    out = sorted({max(0, int(v)) for v in values if isinstance(v, (int, float))}) if isinstance(values, list) else []
-    if duration_ms:
-        out = [v for v in out if v <= duration_ms]
-    return json.dumps(out[:MARKERS_MAX])
+    """Marks as stored: a plain number of milliseconds, or `{at, note}` when
+    the mark carries a comment (Brief 96). A number is what every recording
+    saved before comments holds, so both read back the same way."""
+    notes: dict[int, str] = {}
+    for value in values if isinstance(values, list) else []:
+        if isinstance(value, dict):
+            at, note = value.get("at"), value.get("note")
+        else:
+            at, note = value, ""
+        if not isinstance(at, (int, float)) or isinstance(at, bool):
+            continue
+        notes[max(0, int(at))] = str(note or "").strip()[:MARK_NOTE_MAX]
+    times = sorted(t for t in notes if not duration_ms or t <= duration_ms)[:MARKERS_MAX]
+    return json.dumps([{"at": t, "note": notes[t]} if notes[t] else t for t in times])
+
+
+def marks_of(recording: Recording) -> list[dict]:
+    out = []
+    for value in json.loads(recording.markers or "[]"):
+        if isinstance(value, dict):
+            out.append({"at": int(value.get("at", 0)), "note": str(value.get("note", ""))})
+        elif isinstance(value, (int, float)):
+            out.append({"at": int(value), "note": ""})
+    return out
 
 
 def as_dict(recording: Recording) -> dict:
+    marks = marks_of(recording)
     return {
         "id": recording.id,
         "title": recording.title,
@@ -92,7 +114,9 @@ def as_dict(recording: Recording) -> dict:
         "size_bytes": recording.size_bytes,
         "duration_ms": recording.duration_ms,
         "peaks": json.loads(recording.peaks or "[]"),
-        "markers": json.loads(recording.markers or "[]"),
+        "markers": [mark["at"] for mark in marks],
+        #: The same moments with their comments (Brief 96).
+        "marks": marks,
         #: The lines themselves are read on their own route: an hour is
         #: about 700 of them, and the shelf lists 500 recordings.
         "transcribed": (recording.segments or "[]") != "[]",

@@ -41,3 +41,26 @@ def test_a_recording_is_seekable_before_its_first_seek():
 def test_the_bin_restores_a_recording():
     lib = (ROOT / "frontend/js/library.js").read_text(encoding="utf-8")
     assert 'restore: `/recordings/${item.id}/restore`' in lib
+
+
+def test_a_recording_is_a_card_with_a_playhead_and_the_time():
+    """Brief 96 (INBOX 859): the head line, the player with a playhead and
+    "1:12 / 4:30", a press or a drag seeks."""
+    row = JS.split("function recordingRow(rec) {")[1].split("\n}\n")[0]
+    for part in ('"recording-head"', '"recording-player"', '"muted recording-time"', "recordingMarksFill(li)"):
+        assert part in row
+    wave = JS.split("function recordingWave(rec, audio, time) {")[1].split("\n}\n")[0]
+    assert "setPointerCapture" in wave and '"pointermove"' in wave
+    assert "${meetingClockText(now * 1000)} / ${meetingClockText(length * 1000)}" in wave
+    assert '"aria-valuetext"' in wave
+    paint = JS.split("function recordingPaint(canvas, rec, played) {")[1].split("\n}\n")[0]
+    assert "paint.fillStyle = ink;" in paint
+
+
+def test_marks_at_the_playhead_with_a_comment_link_into_the_transcript():
+    add = JS.split("async function addRecordingMark(li) {")[1].split("\n}\n")[0]
+    assert "audio.currentTime * 1000" in add and "promptDialog(" in add and "pushUndo(" in add
+    save = JS.split("async function saveRecordingMarks(li, marks) {")[1].split("\n}\n")[0]
+    assert "{ at: m.at, note: m.note }" in save
+    assert "recordingShowLine(li, ms)" in JS
+    assert 'event.key.toLowerCase() !== "m"' in JS.split("function recordingRow(rec) {")[1].split("\n}\n")[0]

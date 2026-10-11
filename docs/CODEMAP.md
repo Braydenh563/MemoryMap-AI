@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5459, frontend ids 2354, CSS sections 489, backend routes 550, backend modules 4567, test files 1055, tests 9682, plan headings 983.
+Counts: frontend functions 5466, frontend ids 2354, CSS sections 489, backend routes 550, backend modules 4568, test files 1055, tests 9685, plan headings 989.
 
-## Frontend functions (5459)
+## Frontend functions (5466)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -4186,13 +4186,15 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `marginRender` | frontend/js/margin-reader.js:107 |
 | `marginSchedule` | frontend/js/margin-reader.js:167 |
 
-### frontend/js/meetings.js (63)
+### frontend/js/meetings.js (70)
 
 | Name | File:line |
 |---|---|
-| `addMeetingMarker` | frontend/js/meetings.js:1642 |
-| `binRecording` | frontend/js/meetings.js:1488 |
+| `addMeetingMarker` | frontend/js/meetings.js:1817 |
+| `addRecordingMark` | frontend/js/meetings.js:1520 |
+| `binRecording` | frontend/js/meetings.js:1663 |
 | `closeMeetingRecorder` | frontend/js/meetings.js:898 |
+| `editRecordingMark` | frontend/js/meetings.js:1535 |
 | `meetingActionRow` | frontend/js/meetings.js:265 |
 | `meetingAppendUndoable` | frontend/js/meetings.js:547 |
 | `meetingBinPair` | frontend/js/meetings.js:108 |
@@ -4218,41 +4220,46 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `meetingTakeFinish` | frontend/js/meetings.js:692 |
 | `meetingTranscribeTake` | frontend/js/meetings.js:1024 |
 | `meetingWhenText` | frontend/js/meetings.js:29 |
-| `nameRecordingSpeakers` | frontend/js/meetings.js:1469 |
+| `nameRecordingSpeakers` | frontend/js/meetings.js:1644 |
 | `noteRecoveredRecordings` | frontend/js/meetings.js:1148 |
 | `openMeetingRecorder` | frontend/js/meetings.js:876 |
 | `openMeetingSheet` | frontend/js/meetings.js:334 |
 | `openNewMeeting` | frontend/js/meetings.js:131 |
-| `openRecordingTrim` | frontend/js/meetings.js:1521 |
+| `openRecordingTrim` | frontend/js/meetings.js:1696 |
 | `openRecordings` | frontend/js/meetings.js:1186 |
 | `openVoiceNote` | frontend/js/meetings.js:890 |
+| `playRecordingFrom` | frontend/js/meetings.js:1484 |
 | `recordingFacts` | frontend/js/meetings.js:1224 |
-| `recordingMarkers` | frontend/js/meetings.js:1372 |
-| `recordingMenu` | frontend/js/meetings.js:1450 |
-| `recordingPaint` | frontend/js/meetings.js:1347 |
-| `recordingReady` | frontend/js/meetings.js:1278 |
-| `recordingRow` | frontend/js/meetings.js:1235 |
-| `recordingSpeed` | frontend/js/meetings.js:1300 |
-| `recordingTranscript` | frontend/js/meetings.js:1389 |
-| `recordingTranscriptFill` | frontend/js/meetings.js:1403 |
-| `recordingTranscriptNow` | frontend/js/meetings.js:1441 |
-| `recordingTrimField` | frontend/js/meetings.js:1566 |
-| `recordingWav` | frontend/js/meetings.js:1610 |
-| `recordingWave` | frontend/js/meetings.js:1318 |
+| `recordingMarksFill` | frontend/js/meetings.js:1459 |
+| `recordingMenu` | frontend/js/meetings.js:1625 |
+| `recordingPaint` | frontend/js/meetings.js:1418 |
+| `recordingReady` | frontend/js/meetings.js:1314 |
+| `recordingRow` | frontend/js/meetings.js:1246 |
+| `recordingShowLine` | frontend/js/meetings.js:1494 |
+| `recordingSpeed` | frontend/js/meetings.js:1336 |
+| `recordingTranscript` | frontend/js/meetings.js:1562 |
+| `recordingTranscriptFill` | frontend/js/meetings.js:1578 |
+| `recordingTranscriptNow` | frontend/js/meetings.js:1616 |
+| `recordingTranscriptState` | frontend/js/meetings.js:1233 |
+| `recordingTrimField` | frontend/js/meetings.js:1741 |
+| `recordingWav` | frontend/js/meetings.js:1785 |
+| `recordingWave` | frontend/js/meetings.js:1355 |
 | `recordingsEmpty` | frontend/js/meetings.js:1217 |
-| `renameRecording` | frontend/js/meetings.js:1479 |
+| `removeRecordingMark` | frontend/js/meetings.js:1545 |
+| `renameRecording` | frontend/js/meetings.js:1654 |
 | `renderRecordings` | frontend/js/meetings.js:1200 |
 | `resetMeetingUI` | frontend/js/meetings.js:855 |
 | `saveMeetingDocument` | frontend/js/meetings.js:1097 |
 | `saveMeetingNote` | frontend/js/meetings.js:1137 |
+| `saveRecordingMarks` | frontend/js/meetings.js:1507 |
 | `saveVoiceNoteText` | frontend/js/meetings.js:1155 |
 | `setMeetingState` | frontend/js/meetings.js:838 |
 | `startMeetingWave` | frontend/js/meetings.js:718 |
 | `stopMeetingTimer` | frontend/js/meetings.js:819 |
 | `toggleMeetingPause` | frontend/js/meetings.js:1069 |
 | `toggleMeetingRecording` | frontend/js/meetings.js:916 |
-| `transcribeRecording` | frontend/js/meetings.js:1501 |
-| `trimRecording` | frontend/js/meetings.js:1586 |
+| `transcribeRecording` | frontend/js/meetings.js:1676 |
+| `trimRecording` | frontend/js/meetings.js:1761 |
 
 ### frontend/js/model-bench.js (7)
 
@@ -9038,7 +9045,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/icon-picker.css | 101 |
 | frontend/css/library-lazy.css | 5177 |
 | frontend/css/manual-lazy.css | 139 |
-| frontend/css/meetings-lazy.css | 179 |
+| frontend/css/meetings-lazy.css | 267 |
 | frontend/css/nav-history-lazy.css | 89 |
 | frontend/css/questions-lazy.css | 92 |
 | frontend/css/quickadd-lazy.css | 35 |
@@ -9376,21 +9383,21 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/receipt` | GET | `receipt` | src/memorymap/api/routes_privacy.py:95 |
 | `/recent` | DELETE | `forget_recent_question` | src/memorymap/api/routes_chat.py:171 |
 | `/recent` | GET | `recent_questions` | src/memorymap/api/routes_chat.py:165 |
-| `/recordings` | GET | `list_recordings` | src/memorymap/api/routes_recordings.py:81 |
-| `/recordings` | POST | `create_recording` | src/memorymap/api/routes_recordings.py:111 |
-| `/recordings/recover` | POST | `recover_recordings` | src/memorymap/api/routes_recordings.py:103 |
-| `/recordings/{recording_id}` | DELETE | `bin_recording` | src/memorymap/api/routes_recordings.py:200 |
-| `/recordings/{recording_id}` | GET | `read_recording` | src/memorymap/api/routes_recordings.py:180 |
-| `/recordings/{recording_id}` | PATCH | `update_recording` | src/memorymap/api/routes_recordings.py:185 |
-| `/recordings/{recording_id}/chunk` | POST | `append_chunk` | src/memorymap/api/routes_recordings.py:134 |
-| `/recordings/{recording_id}/finish` | POST | `finish_recording` | src/memorymap/api/routes_recordings.py:162 |
-| `/recordings/{recording_id}/purge` | POST | `purge_recording` | src/memorymap/api/routes_recordings.py:219 |
-| `/recordings/{recording_id}/restore` | POST | `restore_recording` | src/memorymap/api/routes_recordings.py:210 |
-| `/recordings/{recording_id}/speakers` | POST | `name_speakers` | src/memorymap/api/routes_recordings.py:297 |
-| `/recordings/{recording_id}/transcribe` | POST | `transcribe_recording` | src/memorymap/api/routes_recordings.py:230 |
-| `/recordings/{recording_id}/transcript` | GET | `read_transcript` | src/memorymap/api/routes_recordings.py:289 |
-| `/recordings/{recording_id}/transcript.srt` | GET | `transcript_srt` | src/memorymap/api/routes_recordings.py:322 |
-| `/recordings/{recording_id}/transcript.vtt` | GET | `transcript_vtt` | src/memorymap/api/routes_recordings.py:327 |
+| `/recordings` | GET | `list_recordings` | src/memorymap/api/routes_recordings.py:82 |
+| `/recordings` | POST | `create_recording` | src/memorymap/api/routes_recordings.py:112 |
+| `/recordings/recover` | POST | `recover_recordings` | src/memorymap/api/routes_recordings.py:104 |
+| `/recordings/{recording_id}` | DELETE | `bin_recording` | src/memorymap/api/routes_recordings.py:201 |
+| `/recordings/{recording_id}` | GET | `read_recording` | src/memorymap/api/routes_recordings.py:181 |
+| `/recordings/{recording_id}` | PATCH | `update_recording` | src/memorymap/api/routes_recordings.py:186 |
+| `/recordings/{recording_id}/chunk` | POST | `append_chunk` | src/memorymap/api/routes_recordings.py:135 |
+| `/recordings/{recording_id}/finish` | POST | `finish_recording` | src/memorymap/api/routes_recordings.py:163 |
+| `/recordings/{recording_id}/purge` | POST | `purge_recording` | src/memorymap/api/routes_recordings.py:220 |
+| `/recordings/{recording_id}/restore` | POST | `restore_recording` | src/memorymap/api/routes_recordings.py:211 |
+| `/recordings/{recording_id}/speakers` | POST | `name_speakers` | src/memorymap/api/routes_recordings.py:298 |
+| `/recordings/{recording_id}/transcribe` | POST | `transcribe_recording` | src/memorymap/api/routes_recordings.py:231 |
+| `/recordings/{recording_id}/transcript` | GET | `read_transcript` | src/memorymap/api/routes_recordings.py:290 |
+| `/recordings/{recording_id}/transcript.srt` | GET | `transcript_srt` | src/memorymap/api/routes_recordings.py:323 |
+| `/recordings/{recording_id}/transcript.vtt` | GET | `transcript_vtt` | src/memorymap/api/routes_recordings.py:328 |
 | `/recover` | POST | `recover` | src/memorymap/api/routes_auth.py:1364 |
 | `/recovery-key` | POST | `make_recovery_key` | src/memorymap/api/routes_auth.py:1287 |
 | `/recovery-key/save` | POST | `save_recovery_key` | src/memorymap/api/routes_auth.py:1334 |
@@ -9607,7 +9614,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4567)
+## Backend modules (4568)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10402,30 +10409,30 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_of` | src/memorymap/ai/help_chat.py:2239 |
-| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2170 |
-| `_guide_lead` | src/memorymap/ai/help_chat.py:2620 |
-| `_guide_opening` | src/memorymap/ai/help_chat.py:2628 |
-| `_help_sentences` | src/memorymap/ai/help_chat.py:2603 |
-| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2124 |
-| `_matching_topics` | src/memorymap/ai/help_chat.py:2278 |
-| `_normalise_keys` | src/memorymap/ai/help_chat.py:2147 |
-| `_place` | src/memorymap/ai/help_chat.py:2598 |
-| `_prompt_for` | src/memorymap/ai/help_chat.py:2471 |
-| `_reading_topics` | src/memorymap/ai/help_chat.py:2261 |
-| `_second_sentence` | src/memorymap/ai/help_chat.py:2607 |
-| `answer` | src/memorymap/ai/help_chat.py:2764 |
-| `answer_stream` | src/memorymap/ai/help_chat.py:2702 |
-| `badges_for` | src/memorymap/ai/help_chat.py:2419 |
-| `composed_answer` | src/memorymap/ai/help_chat.py:2642 |
-| `help_block_for` | src/memorymap/ai/help_chat.py:2828 |
-| `help_listing` | src/memorymap/ai/help_chat.py:2390 |
-| `offline_answer` | src/memorymap/ai/help_chat.py:2660 |
-| `social_reply` | src/memorymap/ai/help_chat.py:2571 |
-| `source_names` | src/memorymap/ai/help_chat.py:2386 |
-| `system_answer` | src/memorymap/ai/help_chat.py:2368 |
-| `topic_title` | src/memorymap/ai/help_chat.py:2354 |
-| `topics_for` | src/memorymap/ai/help_chat.py:2433 |
+| `_act_of` | src/memorymap/ai/help_chat.py:2240 |
+| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2171 |
+| `_guide_lead` | src/memorymap/ai/help_chat.py:2621 |
+| `_guide_opening` | src/memorymap/ai/help_chat.py:2629 |
+| `_help_sentences` | src/memorymap/ai/help_chat.py:2604 |
+| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2125 |
+| `_matching_topics` | src/memorymap/ai/help_chat.py:2279 |
+| `_normalise_keys` | src/memorymap/ai/help_chat.py:2148 |
+| `_place` | src/memorymap/ai/help_chat.py:2599 |
+| `_prompt_for` | src/memorymap/ai/help_chat.py:2472 |
+| `_reading_topics` | src/memorymap/ai/help_chat.py:2262 |
+| `_second_sentence` | src/memorymap/ai/help_chat.py:2608 |
+| `answer` | src/memorymap/ai/help_chat.py:2765 |
+| `answer_stream` | src/memorymap/ai/help_chat.py:2703 |
+| `badges_for` | src/memorymap/ai/help_chat.py:2420 |
+| `composed_answer` | src/memorymap/ai/help_chat.py:2643 |
+| `help_block_for` | src/memorymap/ai/help_chat.py:2829 |
+| `help_listing` | src/memorymap/ai/help_chat.py:2391 |
+| `offline_answer` | src/memorymap/ai/help_chat.py:2661 |
+| `social_reply` | src/memorymap/ai/help_chat.py:2572 |
+| `source_names` | src/memorymap/ai/help_chat.py:2387 |
+| `system_answer` | src/memorymap/ai/help_chat.py:2369 |
+| `topic_title` | src/memorymap/ai/help_chat.py:2355 |
+| `topics_for` | src/memorymap/ai/help_chat.py:2434 |
 
 ### src/memorymap/ai/help_topics_more.py (1)
 
@@ -12889,27 +12896,27 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `RecordingCreate` | src/memorymap/api/routes_recordings.py:43 |
 | `RecordingFinish` | src/memorymap/api/routes_recordings.py:51 |
 | `RecordingPatch` | src/memorymap/api/routes_recordings.py:57 |
-| `_get` | src/memorymap/api/routes_recordings.py:63 |
-| `_named` | src/memorymap/api/routes_recordings.py:269 |
-| `_people_at` | src/memorymap/api/routes_recordings.py:262 |
-| `_segments_of` | src/memorymap/api/routes_recordings.py:281 |
-| `_subtitles` | src/memorymap/api/routes_recordings.py:311 |
-| `append_chunk` | src/memorymap/api/routes_recordings.py:135 |
-| `bin_recording` | src/memorymap/api/routes_recordings.py:201 |
-| `create_recording` | src/memorymap/api/routes_recordings.py:112 |
-| `finish_recording` | src/memorymap/api/routes_recordings.py:163 |
-| `list_recordings` | src/memorymap/api/routes_recordings.py:82 |
-| `name_speakers` | src/memorymap/api/routes_recordings.py:298 |
-| `purge_recording` | src/memorymap/api/routes_recordings.py:220 |
-| `read_recording` | src/memorymap/api/routes_recordings.py:181 |
-| `read_transcript` | src/memorymap/api/routes_recordings.py:290 |
-| `recording_audio` | src/memorymap/api/routes_recordings.py:333 |
-| `recover_recordings` | src/memorymap/api/routes_recordings.py:104 |
-| `restore_recording` | src/memorymap/api/routes_recordings.py:211 |
-| `transcribe_recording` | src/memorymap/api/routes_recordings.py:231 |
-| `transcript_srt` | src/memorymap/api/routes_recordings.py:323 |
-| `transcript_vtt` | src/memorymap/api/routes_recordings.py:328 |
-| `update_recording` | src/memorymap/api/routes_recordings.py:186 |
+| `_get` | src/memorymap/api/routes_recordings.py:64 |
+| `_named` | src/memorymap/api/routes_recordings.py:270 |
+| `_people_at` | src/memorymap/api/routes_recordings.py:263 |
+| `_segments_of` | src/memorymap/api/routes_recordings.py:282 |
+| `_subtitles` | src/memorymap/api/routes_recordings.py:312 |
+| `append_chunk` | src/memorymap/api/routes_recordings.py:136 |
+| `bin_recording` | src/memorymap/api/routes_recordings.py:202 |
+| `create_recording` | src/memorymap/api/routes_recordings.py:113 |
+| `finish_recording` | src/memorymap/api/routes_recordings.py:164 |
+| `list_recordings` | src/memorymap/api/routes_recordings.py:83 |
+| `name_speakers` | src/memorymap/api/routes_recordings.py:299 |
+| `purge_recording` | src/memorymap/api/routes_recordings.py:221 |
+| `read_recording` | src/memorymap/api/routes_recordings.py:182 |
+| `read_transcript` | src/memorymap/api/routes_recordings.py:291 |
+| `recording_audio` | src/memorymap/api/routes_recordings.py:334 |
+| `recover_recordings` | src/memorymap/api/routes_recordings.py:105 |
+| `restore_recording` | src/memorymap/api/routes_recordings.py:212 |
+| `transcribe_recording` | src/memorymap/api/routes_recordings.py:232 |
+| `transcript_srt` | src/memorymap/api/routes_recordings.py:324 |
+| `transcript_vtt` | src/memorymap/api/routes_recordings.py:329 |
+| `update_recording` | src/memorymap/api/routes_recordings.py:187 |
 
 ### src/memorymap/api/routes_relations.py (10)
 
@@ -14433,24 +14440,25 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `for_file` | src/memorymap/core/readings.py:77 |
 | `text_of` | src/memorymap/core/readings.py:96 |
 
-### src/memorymap/core/recordings.py (14)
+### src/memorymap/core/recordings.py (15)
 
 | Name | File:line |
 |---|---|
-| `_binned` | src/memorymap/core/recordings.py:129 |
-| `as_dict` | src/memorymap/core/recordings.py:87 |
-| `binned` | src/memorymap/core/recordings.py:146 |
-| `clean_markers` | src/memorymap/core/recordings.py:80 |
-| `clean_peaks` | src/memorymap/core/recordings.py:75 |
-| `container` | src/memorymap/core/recordings.py:44 |
-| `directory` | src/memorymap/core/recordings.py:61 |
-| `empty` | src/memorymap/core/recordings.py:157 |
-| `matches` | src/memorymap/core/recordings.py:56 |
-| `new_filename` | src/memorymap/core/recordings.py:67 |
-| `path_of` | src/memorymap/core/recordings.py:71 |
-| `purge` | src/memorymap/core/recordings.py:151 |
-| `purge_expired` | src/memorymap/core/recordings.py:165 |
-| `recover_stale` | src/memorymap/core/recordings.py:107 |
+| `_binned` | src/memorymap/core/recordings.py:153 |
+| `as_dict` | src/memorymap/core/recordings.py:108 |
+| `binned` | src/memorymap/core/recordings.py:170 |
+| `clean_markers` | src/memorymap/core/recordings.py:81 |
+| `clean_peaks` | src/memorymap/core/recordings.py:76 |
+| `container` | src/memorymap/core/recordings.py:45 |
+| `directory` | src/memorymap/core/recordings.py:62 |
+| `empty` | src/memorymap/core/recordings.py:181 |
+| `marks_of` | src/memorymap/core/recordings.py:98 |
+| `matches` | src/memorymap/core/recordings.py:57 |
+| `new_filename` | src/memorymap/core/recordings.py:68 |
+| `path_of` | src/memorymap/core/recordings.py:72 |
+| `purge` | src/memorymap/core/recordings.py:175 |
+| `purge_expired` | src/memorymap/core/recordings.py:189 |
+| `recover_stale` | src/memorymap/core/recordings.py:131 |
 
 ### src/memorymap/core/reminder_notifier.py (17)
 
@@ -15453,7 +15461,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9682)
+## Tests (9685)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16227,8 +16235,8 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_recency_questions.py | 9 |
 | tests/test_recent_questions_surface.py | 7 |
 | tests/test_recognise.py | 7 |
-| tests/test_recordings.py | 14 |
-| tests/test_recordings_library.py | 6 |
+| tests/test_recordings.py | 15 |
+| tests/test_recordings_library.py | 8 |
 | tests/test_recurrence_1010.py | 7 |
 | tests/test_recycle_bin.py | 18 |
 | tests/test_reevaluate.py | 4 |
@@ -16515,7 +16523,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (983)
+## Plan headings (989)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -16999,6 +17007,12 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837) | docs/roadmap/SESSION_BRIEFS.md:1759 |
 | Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842) | docs/roadmap/SESSION_BRIEFS.md:1764 |
 | Brief 92 (Opus, after the queue): the whole-app pass the owner asked for (INBOX 843) | docs/roadmap/SESSION_BRIEFS.md:1773 |
+| Brief 93 (Sonnet, ownerfix3): the owner's small UI reports, 2026-10-11 evening (INBOX 847, 851 to 856) | docs/roadmap/SESSION_BRIEFS.md:1779 |
+| Brief 94 (Opus): find by meaning everywhere, autocorrect everywhere with undo (INBOX 850, 857) | docs/roadmap/SESSION_BRIEFS.md:1789 |
+| Brief 95 (Opus): themes, dug deep (INBOX 858) | docs/roadmap/SESSION_BRIEFS.md:1795 |
+| Brief 96 (Opus, with voiceup): the recording row and player (INBOX 859) | docs/roadmap/SESSION_BRIEFS.md:1800 |
+| Brief 97 (Opus, after Atlas): the composer as the place to go, the graph maker (INBOX 860) | docs/roadmap/SESSION_BRIEFS.md:1805 |
+| Brief 98 (Opus): goals and lists (INBOX 861) | docs/roadmap/SESSION_BRIEFS.md:1811 |
 | Briefs 25 to 31: the plans the owner asked to see finished | docs/roadmap/SESSION_BRIEFS.md:744 |
 | Briefs 35 to 42 (2026-10-10, Fable orchestrating): the owner's list, the engine, the direction | docs/roadmap/SESSION_BRIEFS.md:1238 |
 | Briefs 46 to 55 (2026-10-10, Fable): the whole app against world class | docs/roadmap/SESSION_BRIEFS.md:1520 |

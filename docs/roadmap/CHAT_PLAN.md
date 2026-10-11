@@ -1763,7 +1763,7 @@ is reach and finish, not missing rows. "can you search the web?" searched
 the web for "web" and showed nothing. Each row below is the gate it must
 pass, measured in the app with no model first (decision 61).
 
-Decisions, taken (standing order 3; numbered after 64):
+Decisions, taken (standing order 3; numbered after 64; 70 added for INBOX 812):
 
 65. **A question about Atlas is answered about Atlas.** Questions about
     capability ("can you", "do you", "are you able", "what can I do here")
@@ -1795,6 +1795,29 @@ Decisions, taken (standing order 3; numbered after 64):
     engine (their tags, titles, phrases, recent searches) and the model only
     when on and idle. One recipe in DESIGN.md. Off by one switch. Never over
     a password or code field.
+
+70. **The answer is judged against gold answers, not rule counts** (INBOX
+    812: "you keep saying youve improved it but i still cant see much. I
+    feel like Im going in a loop"). Every round so far passed its own evals
+    and failed the owner's eye. The bar is a set of 20 gold answers written by
+    hand for the owner's real questions (Ask and chat; INBOX 725, 741, 801,
+    808, 810, 812), each the answer a thoughtful person would give from those
+    notes. The composer's output is shown beside each gold answer in a
+    side-by-side page, and a round is done only when it reads like the gold.
+    The shape, from the first gold answer:
+    - One opening sentence answers the question with a count and a span ("You
+      have four notes about uni this semester, 17 July to 4 August").
+    - Then grouped facts in the person's terms, each a bold label and a
+      rewritten sentence, not a quote ("**Your week:** uni on Tuesdays and
+      Thursdays").
+    - Then what the notes do not say ("Nothing yet on assessments or due
+      dates").
+    - Then one offer that acts ("Remind you before Tuesday's class?").
+    - One citation mark, a superscript that lights its card on the right. No
+      bracketed dates, no quote bars. No "Grounded in" chips and no "4 of 4"
+      count, because the right column already is the sources.
+    - Jokes, quotes and other people's words are never stated as the person's
+      facts (decision 67).
 
 | # | Ask (the owner's words) | What exists | Gate |
 | --- | --- | --- | --- |

@@ -256,6 +256,24 @@ with its owner named in the entry.
      text, "Undo expired", no button). (4) to the transparency brief (a run's
      notice updates in place when it ends).
 
+812. **The owner, 2026-10-11, verbatim.** "also the composer in the ask tab
+     and structuring of sentences and outputs needs to be cleaned up a lot. it
+     still looks messy. and the response feels, plain, boring, lifeless, and
+     doesnt give me anything more. I may as well just read the notes I made on
+     the right. the composer needs to be better but I dont know how and you
+     keep saying youve improved it but i still cant see much. I feel like Im
+     going in a loop 😞 also the first time I use the ask subtab search after
+     loading up the app, the badges next to the sub headers on each column are
+     visibly empty" (screenshots: Ask, "What have I saved about courses &
+     study?": quoted fragments with a bar, a superscript and "[your note, 27
+     July]" each, then "Grounded in" chips and "4 of 4 from your notes" that
+     repeat the right column; the corner Atlas drawn over "You asked"; empty
+     badges beside "Atlas" and "Matching records" while loading). Read: the
+     answer quotes, it does not answer; three citation marks per line; the
+     sources shown three times. Placed: CHAT_PLAN decision 70 (the answer is
+     judged against written gold answers, not rule counts), first in the
+     assistant brief; the empty badges and Atlas over the answer to ownerfix.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 801 (Agent mode and the composer with no model) placed in CHAT_PLAN; 802 (drag the force graph like main) in GRAPH_PLAN; 803 (buttons, OCR, the constellation, the capture gutter) in UI_MODERNISATION_PLAN, each "Placed from INBOX, 2026-10-11".

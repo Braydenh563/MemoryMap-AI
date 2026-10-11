@@ -5537,3 +5537,15 @@ def test_a_menu_has_no_gap_at_its_ends() -> None:
     assert re.search(r"\.dock-menu-list > \.dock-menu-section:last-child \{\s*padding-bottom: 0;", css)
     sweep = (ROOT / "scratchpad" / "ui-sweeps" / "menus.js").read_text(encoding="utf-8")
     assert "inset top" in sweep and ".dock-menu-check" in sweep
+
+
+def test_note_card_show_more_hugs_its_label():
+    """INBOX 901: a `display: block` button spans the card, so "Show more"
+    sat centred far from the text with a card-wide focus ring."""
+    css = (ROOT / "frontend" / "css" / "03-dashboard-widgets.css").read_text()
+    m = re.search(r"#entry-list:not\(\.is-rows\) \.entry-more \{([^}]*)\}", css)
+    assert m, "card-view .entry-more rule missing"
+    body = m.group(1)
+    assert "width: fit-content" in body
+    assert "text-align: start" in body
+    assert "width: 100%" not in body

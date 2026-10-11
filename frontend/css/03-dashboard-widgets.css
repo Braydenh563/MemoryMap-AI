@@ -2552,6 +2552,11 @@ header#top-bar select,
      strut), which is what quietly kept a roughly 24px-tall gap here even
      after every other property below was tightened. */
   display: block;
+  /* Sized to its label and flush with the text's left edge (INBOX 901: a
+     block button spanned the card, so "Show more" sat centred far from the
+     text and its focus ring was card-wide). */
+  width: fit-content;
+  text-align: start;
   margin-top: 0;
   padding: 0.05rem 0;
   line-height: 1;

@@ -333,6 +333,14 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the mapfix agent (the topic's tools and the board's frames, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/mapfix-1011.md`.
+
+- INBOX 819 (2): a label's look controls (size, bold, colour, chip, position); owner the cards agent.
+- At 25% zoom the 20px + overlaps its parent by about 5px; radial and tree-down layouts not driven.
+- `.wb-resize-handle` title still says "double-click fits the text" on non-frame objects; a dead `.wb-map-actions` coarse-pointer rule pinned by `test_map_actions_clear_of_label.py`.
+
 ## Left by the ownerfix agent (the owner's UI items, merged 2026-10-11)
 
 File: `docs/roadmap/archive/agent-remaining/ownerfix-1011.md`.

@@ -10,6 +10,15 @@ below). Versioning is `0.x` while the app stabilises.
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
 - Attach: a picture's selection circle sits inside its corner.
 - Ask: a question about notes in one category stays inside that category rather than widening into another.
+- Board: a selected connector's bar has a Label button, so a connector's label no longer depends on knowing to press Enter.
+- Board: a page in the Pages sidebar renames in place (double-click or F2, Enter keeps, Esc cancels, one Undo step) and its row has a menu with Rename, Fit to contents, Present from here and Delete.
+- Board: double-click a frame's edge handle to fit that edge to what it holds with a 32-unit margin (a corner fits two, "Fit to contents" in its menu fits all four, one Undo step).
+- Board: the Layers tab says how many items are selected on the board (with Clear), and a frame lists the items it holds under its own row, folded with an arrow.
+- Board: a tool's kind popover (Line or Arrow, and the other shape pickers) opens above its options bar instead of under it.
+- Mind maps: a line's label stays on the line while a topic is dragged and sits on its midpoint.
+- Mind maps: while a topic's text is edited the format bar stays on the selection through a pan or zoom and never covers the text, and the topic's + and link buttons, fold toggle and resize grip step aside.
+- Mind maps: a selected topic's + and link buttons now stand beside the topic and scale with it (28px at full size, 20px zoomed out), and only the + stays below half zoom.
+- Mind maps: a topic's Shape, Text and Branch line menus open beside, above or below the topic instead of over it, so a change shows while the topic is still selected; the chosen option in them has one look and every reset one quiet icon.
 - Backups: every start holds the backups folder to the number you keep, so a safety copy before an update no longer leaves one too many.
 - Settings: the bar that marks a changed setting sits in the margin beside the row rather than on the text.
 - Chat: with no model, Agent answers with the app's own tools first: the time in a named place ("what's the time in western australia"), a bare sum ("5 + 5"), your notebook's counts in any case, the notes on a topic, and "can you search the web?" (whether web search is on, and how to turn it on). The thinking line says "Working it out without a model…", never "Waking the model…".

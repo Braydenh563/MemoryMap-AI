@@ -642,6 +642,13 @@ function escapeMenuIfClipped(menu, opener) {
     box.bottom > bound.bottom + 1 ||
     box.top < bound.top - 1;
   if (!spills) return;
+  escapeMenuToBody(menu, opener);
+}
+
+//: The reparent itself, for a caller that decides to escape for a reason of
+//: its own (the topic strip's doors, which must not sit on their own topic).
+function escapeMenuToBody(menu, opener) {
+  if (menu._escapedHome) return;
   menu._escapedHome = { parent: menu.parentElement, next: menu.nextSibling };
   //: Read by `closeActionMenus`, which otherwise looks for the opener among
   //: the menu's siblings: and once the menu is a child of <body> that search

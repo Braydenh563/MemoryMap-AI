@@ -7182,6 +7182,10 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="straight">Straight</option>
           <option value="elbow">Elbow</option>
         </select>
+        <!-- **Said on screen** (INBOX 819, the owner: nothing on the board says a
+             connector takes a label): it was reachable only by pressing
+             Enter on a selected line. Shown for a board connector alone. -->
+        <button type="button" id="wb-prop-label" class="ghost small" title="Add a label to this connector, or change its words (Enter)" aria-label="Label this connector"><i class="ph ph-tag ph-lead" aria-hidden="true"></i><span>Label</span></button>
       </div>
       <div class="wb-context-group hidden" data-wb-ctx="caps">
         <select id="wb-prop-startcap" aria-label="Line start style" title="Line start style">
@@ -7684,12 +7688,16 @@ Link to another note with [[its first few words]]."></textarea>
           <ul id="wb-library-list" class="wb-library-list"></ul>
         </section>
         <section class="wb-side-section" data-side-panel="layers" aria-label="Layers" hidden>
+          <div class="wb-layers-selected">
+            <span id="wb-layers-selected-count" class="muted" aria-live="polite">Nothing selected</span>
+            <button type="button" id="wb-layers-clear" class="ghost small" title="Select nothing on the board" disabled>Clear</button>
+          </div>
           <ul id="wb-layers-tree" class="wb-layers-tree" role="tree" aria-label="Layers"></ul>
-          <p class="muted wb-lib-keys">Top of the list is in front. Drag a row, or Alt+Up and Alt+Down, to restack.</p>
+          <p class="muted wb-lib-keys">Tinted rows are selected on the board. A frame lists what it holds. Top of the list is in front. Drag a row, or Alt+Up and Alt+Down, to restack.</p>
         </section>
         <section class="wb-side-section" data-side-panel="pages" aria-label="Pages" hidden>
           <ol id="wb-pages-list" class="wb-pages-list" role="tree" aria-label="Pages, in presentation order" aria-describedby="wb-pages-keys"></ol>
-          <p id="wb-pages-keys" class="muted wb-lib-keys">Each frame is a page. Drag a row, or Alt+Up and Alt+Down, to change the presentation's order; P presents from it.</p>
+          <p id="wb-pages-keys" class="muted wb-lib-keys">Each frame is a page. Drag a row, or Alt+Up and Alt+Down, to change the presentation's order; P presents from it; double-click or F2 renames it, and its ⋯ menu fits, presents or deletes it.</p>
         </section>
         <!-- **This map** (INBOX 596): a map's own tab, in the place of the
              board's Notes, Layers and Pages, which do not apply to a tree.

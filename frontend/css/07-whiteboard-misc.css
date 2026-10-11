@@ -8681,19 +8681,34 @@ input[type="file"] {
   border-color: transparent;
   box-shadow: none;
 }
-/* What the map gives a topic that follows it: ringed in the accent, not
-   filled, so the look you see and a look you chose never read the same. The
-   reset beside it says it is following by its ink rather than a fill: it is
-   a way back, not one more look. */
-.wb-map-strip-menu .wb-menu-row .wb-map-pick.is-inherited:not(.active) {
-  box-shadow: inset 0 0 0 1.5px var(--accent);
+/* **One selected look and one reset look** (INBOX 814, the owner's
+   screenshot: the chosen option drawn as an accent fill, a bordered box and
+   a grey fill, the resets in two colours). The look a following topic shows
+   is the chosen one, so it takes the chosen state above (`.is-inherited` is
+   a hook, not a second look); what separates "you chose it" from "the map
+   gives it" is the reset beside the row, which can be pressed only while
+   the topic has a look of its own. Every reset in the door and on the bar
+   (`#wb-map-reset`) is the same quiet glyph in `--muted`, the row-actions
+   recipe's ink, and goes to the full ink on hover. */
+.wb-map-strip-menu .wb-menu-row .wb-map-pick.is-inherited {
+  background: var(--accent-surface);
+  color: var(--on-accent);
+  border-color: transparent;
+  box-shadow: none;
+}
+.wb-map-pick-follow,
+#wb-map-reset {
+  color: var(--muted);
 }
 .wb-map-pick-follow {
   margin-inline-start: var(--space-1);
 }
-.wb-map-strip-menu .wb-menu-row .wb-map-pick-follow.active {
-  background: transparent;
-  color: var(--accent-text);
+.wb-map-strip-menu .wb-menu-row .wb-map-pick-follow:not(:disabled):hover,
+#wb-map-reset:hover {
+  color: var(--ink);
+}
+.wb-map-strip-menu .wb-menu-row .wb-map-pick-follow:disabled {
+  opacity: 0.4;
 }
 /* The text size on the bar: the stepper recipe at the bar's own control
    height, so it does not stand taller than the round buttons beside it. */
@@ -8703,9 +8718,6 @@ input[type="file"] {
 }
 .wb-map-size-stepper .stepper-unit {
   min-width: 2rem;
-}
-.wb-map-size-stepper .stepper-unit.is-inherited {
-  color: var(--accent-text);
 }
 /* At 44px a row of six previews is 278px, which leaves no room for a name
    column inside the 21rem door: below the tablet band and under touch the

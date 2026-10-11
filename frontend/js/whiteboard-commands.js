@@ -122,6 +122,8 @@ const WB_COMMANDS = [
   { id: "clone-down", group: "Item", icon: "ph:arrow-down", label: "Copy below and join", keys: "Alt+Shift+Down", surface: "board", needs: "clone", run: () => wbCloneConnect("down") },
   { id: "comment", group: "Item", icon: "ph:chat-teardrop-text", label: "Comment on the item", keys: "", surface: "board", needs: "comment",
     run: () => wbOpenComments(wbSelectedItem.kind, wbSelectedItem.id) },
+  { id: "fit-frame", group: "Item", icon: "ph:arrows-in", label: "Fit this frame to its contents", keys: "", surface: "board", needs: "frame",
+    run: () => wbFrameFit(wbFindItem("object", wbSelectedItem.id), "nesw") },
   { id: "export-frame", group: "Item", icon: "ph:frame-corners", label: "Export this frame", keys: "", surface: "board", needs: "frame",
     run: () => wbExportFrame(wbFindItem("object", wbSelectedItem.id)) },
   // The library (decision 25, whiteboard-library.js)

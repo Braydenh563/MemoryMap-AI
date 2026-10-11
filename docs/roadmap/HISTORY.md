@@ -48291,6 +48291,15 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      sweep of every other place a note's first line is shown as a name is
      the uisweep agent's, with one helper and a lint.
 
+814. **The owner, 2026-10-11, verbatim.** "also when I change stuff in the
+     tools for a mindmap node, I cant actually see what the difference is
+     until I click off it 😅" (screenshot: a topic's Shape popover, rows Core
+     idea, Box, Edge bar, Fill, Effect; selected options drawn three ways
+     (accent fill, a bordered box, a grey fill) and the resets in two
+     colours). Placed: the Sonnet mapfix agent: a change paints the topic
+     at once while it stays selected, the popover never covers the topic it
+     edits, and one selected look and one reset look in the popover.
+
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 
 INBOX 797, the owner: "I feel like the mindmap and whiteboard are still

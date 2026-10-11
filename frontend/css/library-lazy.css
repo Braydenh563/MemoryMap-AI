@@ -1719,9 +1719,47 @@
    target is `--target-min` (28, and 44 on touch), the glyph is body size, and
    the row keeps one size to the hand at every zoom like the grips
    (`--wb-inv-zoom`, `WB_INV_ZOOM_GRIPS`). */
+/* **They scale with the topic, between 20 and 28px** (INBOX 816, the owner:
+   "should these buttons be that big??"; a zoomed-out map showed 50px squares
+   under a topic 60px wide). `--wb-inv-zoom` is 1 / zoom, so `scale(inv)` kept
+   them 28px at every zoom, and 44 under touch. The applied scale is the
+   screen scale `f = clamp(20/28, zoom, 1)` divided by the zoom, which is
+   `clamp(20/28 * inv, 1, inv)`: 28px at 100% and above, shrinking with the
+   topic to 20px at 71% and below. Under touch the same rule runs from 44px
+   (a finger's target at the normal zoom) to 20. Beside the topic, on its left,
+   a column centred on it and scaled about that centre: siblings are stacked
+   26px apart at 100% (13 at 50%) and levels 76 units apart, so a row under
+   the topic landed on the next sibling at every zoom and a row beside it on
+   the parent (measured, mapactions.js). */
 .wb-map-actions {
-  transform: scale(var(--wb-inv-zoom));
-  transform-origin: 0 0;
+  transform: scale(clamp(calc(20 / 28 * var(--wb-inv-zoom)), 1, var(--wb-inv-zoom)));
+  transform-origin: 100% 50%;
+  flex-direction: column;
+  left: auto;
+  /* The padding box ends inside the topic's own edge bar and border (about
+     4 units), so the offset is that plus 4 screen px. */
+  right: calc(100% + var(--space-1) + var(--space-1) * var(--wb-inv-zoom));
+  top: 50%;
+  bottom: auto;
+  translate: 0 -50%;
+}
+@media (pointer: coarse) {
+  .wb-map-actions {
+    transform: scale(clamp(calc(20 / 44 * var(--wb-inv-zoom)), 1, var(--wb-inv-zoom)));
+  }
+}
+/* **Away while the topic's text is edited** (INBOX 817): the + and link
+   buttons, the fold toggle and the resize grip all hang on the edges of the
+   box being typed in, over its text. The class is `wbBeginTextEdit`'s. */
+.wb-map-node.wb-text-editing .wb-map-actions,
+.wb-map-node.wb-text-editing .wb-map-collapse,
+#whiteboard-container[data-current-tool] .wb-map-node.wb-text-editing:not(.wb-in-group) .wb-map-resize-grip {
+  display: none;
+}
+/* Below half zoom only the + stays: two buttons of 20px are wider than the
+   topic they hang from. `wbPublishInvZoom` sets the attribute. */
+#whiteboard-container[data-wb-zoom-far] .wb-map-ref {
+  display: none;
 }
 
 /* `:not(#wb-map-actions-row)` lifts these over the ghost icon button's own
@@ -2036,6 +2074,19 @@
 
 .wb-page-row[aria-selected="true"] {
   background: var(--accent-soft);
+}
+/* The number, the name, Present and the row's kebab (INBOX 822). */
+.wb-page-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+.wb-page-row .wb-layer-name[contenteditable] {
+  overflow: visible;
+  text-overflow: clip;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  cursor: text;
 }
 
 /* The hover lock (decision 28): a quiet lock at a locked item's top right
@@ -4229,6 +4280,19 @@ button.ghost.doc-template-choice.wb-template-choice {
 
 .wb-layer-depth-1 {
   padding-left: var(--space-5);
+}
+/* A frame that holds items has a fold control before its glyph, and what it
+   holds is indented under it (INBOX 824). */
+.wb-layer-row.has-held {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+}
+.wb-layers-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+  font-size: var(--text-sm);
 }
 
 .wb-link-waypoint-handle,

@@ -58,6 +58,15 @@ class Network:
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
     @property
+    def router(self) -> str:
+        """The router alone (its hardware address with its address): two
+        readings of one network, one without the subnet (Windows' fallback
+        when PowerShell is slow), share it. `lantrust` treats them as one
+        network only when one of them lacks the subnet."""
+        raw = f"{self.gateway_mac}|{self.gateway}"
+        return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+    @property
     def label(self) -> str:
         if self.name:
             return self.name

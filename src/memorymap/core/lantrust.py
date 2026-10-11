@@ -162,7 +162,7 @@ def evaluate(
         if allowance is not None:
             return True, "allowed_this_run"
         return (True, "any_network") if state["any_network"] else (False, "unknown_network")
-    if any(n["key"] == network.key for n in state["networks"]):
+    if any(_same(n, network) for n in state["networks"]):
         return True, "allowed"
     if network.category == "public":
         return False, "public_network"
@@ -173,9 +173,18 @@ def evaluate(
     return False, "new_network"
 
 
+def _same(entry: dict, network: netid.Network) -> bool:
+    """A saved network and a reading are one network: the same key, or the
+    same router where one of the two was read without its subnet."""
+    if entry.get("key") == network.key:
+        return True
+    return entry.get("router") == network.router and not (entry.get("subnet") and network.subnet)
+
+
 def _entry(network: netid.Network) -> dict:
     return {
         "key": network.key,
+        "router": network.router,
         "label": network.label,
         "gateway": network.gateway,
         "subnet": network.subnet,
@@ -185,18 +194,22 @@ def _entry(network: netid.Network) -> dict:
 
 
 def _remember(state: dict, network: netid.Network) -> None:
-    state["untrusted"] = [n for n in state.get("untrusted") or () if n["key"] != network.key]
-    if any(n["key"] == network.key for n in state["networks"]):
-        return
-    state["networks"].append(_entry(network))
-    del state["networks"][:-MAX_NETWORKS]
+    state["untrusted"] = [n for n in state.get("untrusted") or () if not _same(n, network)]
+    known = next((n for n in state["networks"] if _same(n, network)), None)
+    if known is None:
+        state["networks"].append(_entry(network))
+        del state["networks"][:-MAX_NETWORKS]
+    elif network.subnet and not known.get("subnet"):
+        #: The fuller reading replaces the bare one: its key, its subnet and
+        #: the Wi-Fi name, so the list shows one row with the name.
+        known.update({k: v for k, v in _entry(network).items() if k != "added"})
 
 
 def _note_untrusted(state: dict, network: netid.Network) -> bool:
     """A network the port stayed closed on joins the untrusted list, so it
     can be trusted later from there. True when the list changed."""
     listed = state.setdefault("untrusted", [])
-    if any(n["key"] == network.key for n in listed) or any(n["key"] == network.key for n in state["networks"]):
+    if any(_same(n, network) for n in listed) or any(_same(n, network) for n in state["networks"]):
         return False
     listed.append({**_entry(network), "blocked": False})
     del listed[:-MAX_NETWORKS]
@@ -307,12 +320,68 @@ def allow_current(data_dir: Path) -> dict:
     return refresh(data_dir, network)
 
 
+def _one_network(a: dict, b: dict) -> bool:
+    """Two saved records are one network for the lists: one of them was
+    read without its subnet, and they share the router (by `router`, or by
+    its address for records saved before `router` existed). Two records
+    that both have a subnet are one network only with the same key: the
+    same address on another router is another network."""
+    if a.get("subnet") and b.get("subnet"):
+        return a["key"] == b["key"]
+    if a.get("router") and b.get("router"):
+        return a["router"] == b["router"]
+    return bool(a.get("gateway")) and a.get("gateway") == b.get("gateway")
+
+
+def _group_of(entries: list, key: str) -> set[str]:
+    """`key` and every record on the same list that is the same network."""
+    found = next((n for n in entries if n["key"] == key), None)
+    if found is None:
+        return set()
+    return {n["key"] for n in entries if n is found or _one_network(found, n)}
+
+
+def _named(label: str) -> bool:
+    return bool(label) and not label.startswith("the network with router")
+
+
+def listed(entries: list, here: str = "") -> list[dict]:
+    """The rows the lists show: one per network, named by its Wi-Fi name
+    when any record has one, its subnet as the line under it, the latest
+    date, and `keys`, every record it stands for. The row's key is the one
+    the computer is on now when it is among them, else the fullest record's."""
+    rows: list[dict] = []
+    groups: list[list[dict]] = []
+    for entry in entries:
+        group = next((g for g in groups if all(_one_network(entry, other) for other in g)), None)
+        if group is None:
+            groups.append([entry])
+        else:
+            group.append(entry)
+    for group in groups:
+        best = max(group, key=lambda n: (_named(n.get("label", "")), bool(n.get("subnet"))))
+        keys = [n["key"] for n in group]
+        row = {k: best.get(k, "") for k in ("key", "label", "gateway", "subnet", "added")}
+        row["label"] = next((n["label"] for n in group if _named(n.get("label", ""))), best.get("label", ""))
+        row["subnet"] = next((n["subnet"] for n in group if n.get("subnet")), "")
+        row["added"] = max((n.get("added") or "" for n in group), default="")
+        row["keys"] = keys
+        if here in keys:
+            row["key"] = here
+        if "blocked" in best:
+            row["blocked"] = any(n.get("blocked") for n in group)
+        rows.append(row)
+    return rows
+
+
 def forget_network(data_dir: Path, key: str) -> bool:
-    """Off both lists: a forgotten network is new again next time."""
+    """Off both lists, with every record of the same network: a forgotten
+    network is new again next time."""
     with _lock:
         state = load(data_dir)
-        kept = [n for n in state["networks"] if n["key"] != key]
-        unkept = [n for n in state["untrusted"] if n["key"] != key]
+        gone = _group_of(state["networks"], key) | _group_of(state["untrusted"], key)
+        kept = [n for n in state["networks"] if n["key"] not in gone]
+        unkept = [n for n in state["untrusted"] if n["key"] not in gone]
         if len(kept) == len(state["networks"]) and len(unkept) == len(state["untrusted"]):
             return False
         state["networks"], state["untrusted"] = kept, unkept
@@ -331,12 +400,19 @@ def trust_network(data_dir: Path, key: str) -> bool:
         if found is None and not (current is not None and current.key == key):
             return False
         if found is not None:
-            entry = {k: v for k, v in found.items() if k != "blocked"}
-            entry["added"] = _now_text()
-            state["untrusted"] = [n for n in state["untrusted"] if n["key"] != key]
-            if not any(n["key"] == key for n in state["networks"]):
-                state["networks"].append(entry)
-                del state["networks"][:-MAX_NETWORKS]
+            #: A loosening, so only records known to be the same router go
+            #: with it: one saved before `router` existed stays where it is.
+            moving = [
+                n for n in state["untrusted"]
+                if n is found or (found.get("router") and n.get("router") == found["router"] and _one_network(found, n))
+            ]
+            state["untrusted"] = [n for n in state["untrusted"] if not any(n is m for m in moving)]
+            for moved in moving:
+                entry = {k: v for k, v in moved.items() if k != "blocked"}
+                entry["added"] = _now_text()
+                if not any(n["key"] == entry["key"] for n in state["networks"]):
+                    state["networks"].append(entry)
+            del state["networks"][:-MAX_NETWORKS]
         else:
             _remember(state, current)
         save(data_dir, state)
@@ -351,16 +427,21 @@ def untrust_network(data_dir: Path, key: str) -> bool:
     current = _gate["network"]
     with _lock:
         state = load(data_dir)
-        found = next((n for n in state["networks"] if n["key"] == key), None)
-        if found is None:
-            found = next((n for n in state["untrusted"] if n["key"] == key), None)
-        if found is None and current is not None and current.key == key:
-            found = _entry(current)
-        if found is None:
+        group = _group_of(state["networks"], key) or _group_of(state["untrusted"], key)
+        records = [n for n in state["networks"] + state["untrusted"] if n["key"] in group]
+        if not records and current is not None and current.key == key:
+            records = [_entry(current)]
+        if not records:
             return False
-        state["networks"] = [n for n in state["networks"] if n["key"] != key]
-        state["untrusted"] = [n for n in state["untrusted"] if n["key"] != key]
-        state["untrusted"].append({**found, "blocked": True, "added": _now_text()})
+        #: Every record of the network: Stop trusting only ever lets fewer in.
+        gone = {n["key"] for n in records}
+        state["networks"] = [n for n in state["networks"] if n["key"] not in gone]
+        state["untrusted"] = [n for n in state["untrusted"] if n["key"] not in gone]
+        seen: set[str] = set()
+        for record in records:
+            if record["key"] not in seen:
+                seen.add(record["key"])
+                state["untrusted"].append({**record, "blocked": True, "added": _now_text()})
         del state["untrusted"][:-MAX_NETWORKS]
         save(data_dir, state)
     refresh(data_dir, current)

@@ -2227,6 +2227,10 @@ const LAN_HELD_REASONS = {
 
 function lanListRow(title, facts, actions) {
   const li = document.createElement("li");
+  //: Its actions stay on screen (lan-lazy.css): an `.entry-list` hides a
+  //: row's actions until hover, which left a blank where they wait and
+  //: nothing at all to a finger.
+  li.className = "lan-network-row";
   const row = document.createElement("div");
   row.className = "entry-meta";
   const name = document.createElement("strong");
@@ -2313,7 +2317,12 @@ function lanNetworkRows(state, paint) {
     }
   };
   const here = state.current_network || "";
-  const name = (network) => (network.key === here ? `${network.label} (this network)` : network.label);
+  //: A row starts with a capital ("Network with router 192.168.0.1"); the
+  //: label itself stays lower case for the sentences it sits inside.
+  const name = (network) => {
+    const label = network.label.charAt(0).toUpperCase() + network.label.slice(1);
+    return network.key === here ? `${label} (this network)` : label;
+  };
   const path = (network, verb = "") => `/auth/lan-networks/${encodeURIComponent(network.key)}${verb && `/${verb}`}`;
   const forget = (network) => ({
     label: "Forget",

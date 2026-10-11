@@ -59,3 +59,24 @@ def test_a_switch_topic_says_how_the_switch_is_set_now(monkeypatch):
 def test_a_privacy_question_is_answered_yes_or_no_first():
     assert _lead("is my data sent anywhere").startswith("no. your notes stay on this computer")
     assert _lead("where did my deleted notes go").startswith("it's in the bin")
+
+
+def test_how_to_use_the_app_in_chat_is_the_guide_s_even_with_a_note_word():
+    """The Chromium after-run, 2026-10-11: in Chat "how do i export everything
+    to markdown" and "why is the chat so slow" were searched for in the notes."""
+    from memorymap.ai import intent
+
+    for asked in ("how do i export everything to markdown", "why is the chat so slow", "how do i export my notes", "How do I back up my notes?"):
+        assert intent.classify(asked) == intent.ABOUT_APP, asked
+    for asked in ("how do i make sourdough", "why is the train so slow", "what did i write about the export deal"):
+        assert intent.classify(asked) != intent.ABOUT_APP, asked
+
+
+def test_why_is_the_chat_so_slow_in_chat_is_answered_by_the_guide(client):
+    import json
+
+    body = {"question": "why is the chat so slow", "use_tools": True, "history": []}
+    with client.stream("POST", "/chat/stream", json=body) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line.strip()]
+    text = "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
+    assert "Performance mode" in text, text

@@ -115,6 +115,21 @@ def _matches_any(text: str, patterns: tuple[str, ...]) -> bool:
     return any(re.fullmatch(rf"{pattern}{tail}", text) for pattern in patterns)
 
 
+#: How to use the app, asked with a note word in it ("how do i export my
+#: notes", "why is the chat so slow"): the Guide's, never a notes search
+#: (the Chromium after-run, 2026-10-11).
+_APP_FIRST = re.compile(
+    r"^how (?:do|can|would|should) i (?:export|import|back ?up|sync|install|print|restore|encrypt)\b"
+    r"|^why (?:is|does) (?:the )?(?:app|chat|search|graph|atlas|tessellate|this|it) (?:so |really |very )?(?:slow|laggy|sluggish|lag)\b"
+)
+
+
+def _about_app_first(message: str, text: str) -> bool:
+    from memorymap.ai import capability
+
+    return bool(_APP_FIRST.search(text)) or capability.asks(message)
+
+
 def classify(message: str) -> str:
     """Route one chat message. Falls back to ``notes`` whenever unsure."""
     text = _normalise(message)
@@ -128,11 +143,9 @@ def classify(message: str) -> str:
     if question_noise.social_kind(message):
         return SMALLTALK
 
-    from memorymap.ai import capability
-
     #: "can you search the web?" asks about Atlas (CHAT_PLAN decision 65):
     #: before the acts and the note words, which read "search" as a search.
-    if capability.asks(message):
+    if _about_app_first(message, text):
         return ABOUT_APP
 
     from memorymap.ai import utilities

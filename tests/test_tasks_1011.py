@@ -123,3 +123,15 @@ def test_a_note_filed_under_a_word_that_is_also_a_nickname_is_moved(client, sess
     session.commit()
     card = next(e for e in _stream(client, "file the golf note under sport") if e["type"] == "act")
     assert "sport" in card["label"].lower(), card
+
+
+def test_the_running_model_manager_is_never_its_module():
+    """The Chromium after-run, 2026-10-11: deps imported the model manager
+    module as `_model_manager`, the running manager's own name, so a real
+    server answered every chat and /models/status with a 500."""
+    import subprocess
+    import sys
+
+    code = "import types; from memorymap.core import deps; print(isinstance(deps._model_manager, types.ModuleType))"
+    ran = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True, timeout=120)
+    assert ran.stdout.strip() == "False", ran.stdout + ran.stderr

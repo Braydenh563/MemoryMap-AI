@@ -2176,7 +2176,8 @@ MODEL_STOPPED_NOTE = "The model stopped before it could answer, so this is Atlas
 
 #: A how-to about the app, answered from its Help when no model writes the
 #: answer (CHAT_PLAN decision 36, the help register).
-_HOW_TO = re.compile(r"^\s*(?:how (?:do|can|would|should) i|how to|where (?:is|are|do i find|can i find))\b", re.I)
+#: "why is the chat so slow" is a how-to too: the Guide answers it (Performance mode).
+_HOW_TO = re.compile(r"^\s*(?:how (?:do|can|would|should) i|how to|where (?:is|are|do i find|can i find)|why (?:is|does))\b", re.I)
 
 
 #: A counted answer's facts drawn as a bar of counts (decision 59, step 2):

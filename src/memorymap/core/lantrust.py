@@ -346,12 +346,8 @@ def _named(label: str) -> bool:
     return bool(label) and not label.startswith("the network with router")
 
 
-def listed(entries: list, here: str = "") -> list[dict]:
-    """The rows the lists show: one per network, named by its Wi-Fi name
-    when any record has one, its subnet as the line under it, the latest
-    date, and `keys`, every record it stands for. The row's key is the one
-    the computer is on now when it is among them, else the fullest record's."""
-    rows: list[dict] = []
+def _network_groups(entries: list) -> list[list[dict]]:
+    """The records grouped by the network they stand for."""
     groups: list[list[dict]] = []
     for entry in entries:
         group = next((g for g in groups if all(_one_network(entry, other) for other in g)), None)
@@ -359,20 +355,31 @@ def listed(entries: list, here: str = "") -> list[dict]:
             groups.append([entry])
         else:
             group.append(entry)
-    for group in groups:
-        best = max(group, key=lambda n: (_named(n.get("label", "")), bool(n.get("subnet"))))
-        keys = [n["key"] for n in group]
-        row = {k: best.get(k, "") for k in ("key", "label", "gateway", "subnet", "added")}
-        row["label"] = next((n["label"] for n in group if _named(n.get("label", ""))), best.get("label", ""))
-        row["subnet"] = next((n["subnet"] for n in group if n.get("subnet")), "")
-        row["added"] = max((n.get("added") or "" for n in group), default="")
-        row["keys"] = keys
-        if here in keys:
-            row["key"] = here
-        if "blocked" in best:
-            row["blocked"] = any(n.get("blocked") for n in group)
-        rows.append(row)
-    return rows
+    return groups
+
+
+def _listed_row(group: list[dict], here: str) -> dict:
+    """One list row for a group of records of the same network."""
+    best = max(group, key=lambda n: (_named(n.get("label", "")), bool(n.get("subnet"))))
+    keys = [n["key"] for n in group]
+    row = {k: best.get(k, "") for k in ("key", "label", "gateway", "subnet", "added")}
+    row["label"] = next((n["label"] for n in group if _named(n.get("label", ""))), best.get("label", ""))
+    row["subnet"] = next((n["subnet"] for n in group if n.get("subnet")), "")
+    row["added"] = max((n.get("added") or "" for n in group), default="")
+    row["keys"] = keys
+    if here in keys:
+        row["key"] = here
+    if "blocked" in best:
+        row["blocked"] = any(n.get("blocked") for n in group)
+    return row
+
+
+def listed(entries: list, here: str = "") -> list[dict]:
+    """The rows the lists show: one per network, named by its Wi-Fi name
+    when any record has one, its subnet as the line under it, the latest
+    date, and `keys`, every record it stands for. The row's key is the one
+    the computer is on now when it is among them, else the fullest record's."""
+    return [_listed_row(group, here) for group in _network_groups(entries)]
 
 
 def forget_network(data_dir: Path, key: str) -> bool:
@@ -391,6 +398,23 @@ def forget_network(data_dir: Path, key: str) -> bool:
     return True
 
 
+def _move_to_trusted(state: dict, found: dict) -> None:
+    """Move an untrusted record to the trusted list, with the records known to be the same router."""
+    #: A loosening, so only records known to be the same router go
+    #: with it: one saved before `router` existed stays where it is.
+    moving = [
+        n for n in state["untrusted"]
+        if n is found or (found.get("router") and n.get("router") == found["router"] and _one_network(found, n))
+    ]
+    state["untrusted"] = [n for n in state["untrusted"] if not any(n is m for m in moving)]
+    for moved in moving:
+        entry = {k: v for k, v in moved.items() if k != "blocked"}
+        entry["added"] = _now_text()
+        if not any(n["key"] == entry["key"] for n in state["networks"]):
+            state["networks"].append(entry)
+    del state["networks"][:-MAX_NETWORKS]
+
+
 def trust_network(data_dir: Path, key: str) -> bool:
     """Trust a network from the untrusted list (or the one this computer is
     on now): it moves to the trusted list. The route asks for the password."""
@@ -401,19 +425,7 @@ def trust_network(data_dir: Path, key: str) -> bool:
         if found is None and not (current is not None and current.key == key):
             return False
         if found is not None:
-            #: A loosening, so only records known to be the same router go
-            #: with it: one saved before `router` existed stays where it is.
-            moving = [
-                n for n in state["untrusted"]
-                if n is found or (found.get("router") and n.get("router") == found["router"] and _one_network(found, n))
-            ]
-            state["untrusted"] = [n for n in state["untrusted"] if not any(n is m for m in moving)]
-            for moved in moving:
-                entry = {k: v for k, v in moved.items() if k != "blocked"}
-                entry["added"] = _now_text()
-                if not any(n["key"] == entry["key"] for n in state["networks"]):
-                    state["networks"].append(entry)
-            del state["networks"][:-MAX_NETWORKS]
+            _move_to_trusted(state, found)
         else:
             _remember(state, current)
         save(data_dir, state)

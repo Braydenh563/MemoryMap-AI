@@ -2819,6 +2819,22 @@ function nameMarkBuddyVisit(host) {
   }
   host.appendChild(buddy);
   mirror();
+  //: **In the view at rest** (the owner, 2026-10-11: "if it is hanging,
+  //: the expanded companion kinda looks awkward with both it's arms up").
+  //: The view is a cut, not a move: its limbs take the float's resting
+  //: places at once (their transitions finished, Atlas's rig set in one
+  //: frame) rather than lowering from the hang's raised arms while you look.
+  if (nmb.visit.pose !== nmb.pose) {
+    for (const el of buddy.querySelectorAll(".nmb-arm, .nmb-hold, .nmb-leg")) {
+      getComputedStyle(el).transform;
+      for (const anim of el.getAnimations?.() || []) if (anim instanceof CSSTransition) anim.finish();
+    }
+    const box = buddy.querySelector(".atl-figure-box");
+    if (box?.atlasRig) {
+      box.atlasRig.fresh = true;
+      atlasRigWake(box);
+    }
+  }
   watch.observe(buddy, { attributes: true, attributeFilter: ["data-pose"] });
   //: Its own act keeps its own end; with none under way, the view's beat.
   if (!nmb.act) nameMarkBuddySchedule();

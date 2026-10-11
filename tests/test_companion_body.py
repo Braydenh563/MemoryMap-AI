@@ -53,3 +53,17 @@ console.log(JSON.stringify({
     # A wave: the forearm about upright (raise minus bend near 175), never past it.
     for raise_, el in zip([90, 102, 120, 146], got["wave"]):
         assert el < 0 and 140 <= raise_ - el <= 176, (raise_, el)
+
+
+AV = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
+
+
+def test_the_large_view_opens_on_its_resting_limbs() -> None:
+    # The owner: "if it is hanging, the expanded companion kinda looks
+    # awkward with both it's arms up". Measured (viewerpose.js): the arms
+    # were still at 150 degrees 300 ms in; now at their float's places.
+    visit = _fn(AV, "nameMarkBuddyVisit")
+    cut = visit[visit.index("if (nmb.visit.pose !== nmb.pose) {") :]
+    assert visit.index("host.appendChild(buddy);") < visit.index("if (nmb.visit.pose !== nmb.pose) {")
+    assert "anim instanceof CSSTransition) anim.finish();" in cut
+    assert "box.atlasRig.fresh = true;" in cut and "atlasRigWake(box);" in cut

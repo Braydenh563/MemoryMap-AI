@@ -333,6 +333,12 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the e2efix2 agent (CI E2E: draft recovery after a killed server, the documents count race, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/e2efix2-1011.md`.
+
+- The budgets spec flaps in CI (a different budget each run: list, search, board, first_interaction) while it shares the runner with the other specs; HEAD measured no slower than the last green E2E (list 150 vs 198 ms best of five). Recommendation: run `budgets.spec.js` alone in a second Playwright invocation in the CI job; no cap raised.
+
 ## Left by the search86 agent (Brief 86, search suggestions, Clear and forget, Recent changes, merged 2026-10-11)
 
 File: `docs/roadmap/archive/agent-remaining/search86-1011.md`.

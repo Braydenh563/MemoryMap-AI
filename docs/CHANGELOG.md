@@ -12,6 +12,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Settings: Import & export has Clear and forget (recent searches in every box, saved previews, the Guide's conversation, dismissed suggestions), each saying how much it removes and each undoable for ten seconds.
 - Settings: every change and clear is undoable from its toast and listed with its Undo in Recent changes (the last twenty).
 - Search: every search box suggests as you type (recent searches, then note titles, tags and categories) with the best match in grey; Tab or Right takes it. A recent search has its own x and a Clear recent searches, and Settings, General, Search turns suggestions off.
+- Notes: unsaved edits kept on this device are no longer dropped when the app restarts and starts up while still locked; the offer to open them comes back after you sign in.
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
 - Attach: a picture's selection circle sits inside its corner.
 - Running jobs and Activity: every answer, agent turn and background job is listed with a plain title, who started it and how long it took; each opens to its own timed lines, live while it runs.

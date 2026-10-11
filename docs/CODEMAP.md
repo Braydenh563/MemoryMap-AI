@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5505, frontend ids 2370, CSS sections 489, backend routes 553, backend modules 4603, test files 1060, tests 9719, plan headings 992.
+Counts: frontend functions 5505, frontend ids 2370, CSS sections 489, backend routes 553, backend modules 4603, test files 1060, tests 9722, plan headings 992.
 
 ## Frontend functions (5505)
 
@@ -4290,9 +4290,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `closeNoteForm` | frontend/js/note-edit-panels.js:583 |
 | `forgetNoteEditLocally` | frontend/js/note-edit-panels.js:610 |
 | `keepNoteEditLocally` | frontend/js/note-edit-panels.js:606 |
-| `noteEditToolbar` | frontend/js/note-edit-panels.js:680 |
+| `noteEditToolbar` | frontend/js/note-edit-panels.js:705 |
 | `noteFormParts` | frontend/js/note-edit-panels.js:198 |
-| `offerKeptNoteEdit` | frontend/js/note-edit-panels.js:617 |
+| `offerKeptNoteEdit` | frontend/js/note-edit-panels.js:636 |
 | `openBookmarkAttachPicker` | frontend/js/note-edit-panels.js:175 |
 | `renderEditForm` | frontend/js/note-edit-panels.js:212 |
 | `renderNoteBookmarksWhileEditing` | frontend/js/note-edit-panels.js:83 |
@@ -15569,7 +15569,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9719)
+## Tests (9722)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16211,7 +16211,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_no_tracked_symlinks.py | 3 |
 | tests/test_no_ui_emoji.py | 3 |
 | tests/test_note_backlinks_kg1.py | 11 |
-| tests/test_note_edit_kept.py | 3 |
+| tests/test_note_edit_kept.py | 6 |
 | tests/test_note_edit_strip_options.py | 1 |
 | tests/test_note_editing_api.py | 10 |
 | tests/test_note_flow_0432.py | 25 |

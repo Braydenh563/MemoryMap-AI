@@ -45,8 +45,12 @@ const VH = Number(process.env.VH || 900);
   await page.waitForTimeout(500);
   await page.evaluate(() => document.querySelector('[data-target="library-view-whiteboard"]').click());
   await page.waitForTimeout(700);
-  await page.evaluate(() => document.getElementById("wb-boards-new").click());
-  await page.waitForTimeout(700);
+  // "New board" is an empty canvas with no dialog now; the name dialog is the
+  // menu's "From a template" row (as wbphone.js does).
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await page.evaluate(() => document.getElementById("wb-boards-new-template").click());
+    try { await page.waitForSelector("#wb-template-dialog[open]", { timeout: 12000 }); break; } catch (e) { if (attempt === 4) throw e; }
+  }
   await page.fill("#wb-template-name", `Present sweep ${Date.now()}`);
   await page.click("#wb-template-create");
   await page.waitForTimeout(2500);

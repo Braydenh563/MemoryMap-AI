@@ -6369,7 +6369,10 @@ function ocrRefusedPress(button) {
   if (button?.getAttribute("aria-disabled") !== "true") return false;
   toast(button.title, "info");
   const menu = $("ocr-reader-menu");
-  if (menu && button.id !== "ocr-region-describe") menu.open = true;
+  //: After this press has bubbled to the document: navigation.js closes every
+  //: `details.dock-menu` the press landed outside of, which shut this one the
+  //: instant it opened (ocrflow.js, 2026-10-11).
+  if (menu && button.id !== "ocr-region-describe") setTimeout(() => { menu.open = true; }, 0);
   return true;
 }
 

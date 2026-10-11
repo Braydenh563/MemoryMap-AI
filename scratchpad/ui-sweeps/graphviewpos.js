@@ -39,6 +39,8 @@ const { boot } = require('./lib.js');
 
   await page.evaluate(() => switchTab('graph'));
   await page.waitForTimeout(2500); // let the worker settle the initial layout
+  await page.waitForFunction(() => (graphNodesRef || []).length >= 8, null, { timeout: 60000 }); // slow machines draw late
+  await page.waitForTimeout(1500);
 
   const captured = await page.evaluate(() => {
     const positions = {};
@@ -89,7 +91,23 @@ const { boot } = require('./lib.js');
     sel.value = 'pos sweep';
     sel.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await page.waitForTimeout(300); // right after apply: case A must already hold
+  // Since INBOX 586 a computed layout glides to its place instead of cutting, so
+  // "right after apply" at a fixed 300 ms measured the middle of the glide on a
+  // loaded machine. Wait until the nodes stop moving (a step under 0.5 px for
+  // four samples in a row, 12 s at most), then compare with what was saved.
+  const settle = async () => {
+    let prev = null, still = 0;
+    for (let i = 0; i < 48 && still < 4; i++) {
+      await page.waitForTimeout(250);
+      const cur = await page.evaluate(() => (graphNodesRef || []).map((n) => [n.id, n.x, n.y]));
+      if (prev) {
+        const step = Math.max(0, ...cur.map((c, k) => (prev[k] && prev[k][0] === c[0] ? Math.hypot(c[1] - prev[k][1], c[2] - prev[k][2]) : 99)));
+        still = step < 0.5 ? still + 1 : 0;
+      }
+      prev = cur;
+    }
+  };
+  await settle();
 
   const soonAfterApply = await page.evaluate(() => {
     const positions = {};
@@ -130,7 +148,7 @@ const { boot } = require('./lib.js');
     sel.value = 'pos sweep';
     sel.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await page.waitForTimeout(3000); // let the new note's own settle finish
+  await settle(); // let the new note's own settle finish
 
   const withNewNote = await page.evaluate((newId) => {
     const positions = {};

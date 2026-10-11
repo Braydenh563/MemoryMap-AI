@@ -97,7 +97,7 @@ async function boot(opts={}) {
   //: `clock`: the page's clock starts there and runs on (quickadd.js's phrase
   //: set is written for one "now").
   if (opts.clock) await page.clock.install({ time: new Date(opts.clock) });
-  await page.goto(BASE + '/', {waitUntil:'domcontentloaded'});
+  await page.goto(BASE + '/', {waitUntil:'domcontentloaded', timeout:Number(process.env.BOOT_MS||30000)});
   //: **Two ways in** (OPEN.md, 0.3.3): a notebook with "Ask for a password
   //: when the app opens" turned off never shows `#lock-password` on this
   //: computer, and waiting for it timed out every sweep on such a data dir.
@@ -111,7 +111,7 @@ async function boot(opts={}) {
     const settled = !splash || splash.classList.contains('hidden');
     if (settled && overlay && overlay.classList.contains('hidden') && localStorage.getItem('token')) return 'app';
     return false;
-  }, null, {timeout:20000, polling:100})).jsonValue();
+  }, null, {timeout:Number(process.env.BOOT_MS||20000), polling:100})).jsonValue();
   if (way === 'lock') {
     await page.fill('#lock-password', PW);
     await page.click('#lock-submit');
@@ -124,6 +124,10 @@ async function boot(opts={}) {
   //: was filled again as it faded.
   await page.waitForFunction(() => !document.documentElement.classList.contains('shell-curtain')
     && !document.querySelector('#lock-overlay.lock-leaving'), null, { timeout: 15000, polling: 100 }).catch(() => {});
+  //: On a loaded machine the unlock answer lands after the fixed waits above, and the
+  //: field is still on screen (disabled, "Opening…"). Refilling it then waits on a
+  //: disabled input until the timeout. Give the first unlock the time it needs.
+  if (way === 'lock') await page.waitForFunction(() => document.getElementById('lock-overlay')?.classList.contains('hidden'), null, { timeout: Number(process.env.BOOT_MS||20000), polling: 200 }).catch(() => {});
   if (way === 'lock' && await page.$('#lock-password') && await page.isVisible('#lock-password')) {
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(3000);
   }

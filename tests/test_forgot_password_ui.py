@@ -123,3 +123,14 @@ def test_the_key_file_never_goes_through_save_file():
     assert "await desktopShell()" in saver
     assert '"/auth/recovery-key/save"' in saver
     assert "downloadBlob(" in saver
+
+
+def test_a_wrong_password_on_the_lock_form_says_so_under_the_field():
+    # The server answers 401 "That password is wrong."; apiJson turns an
+    # unclaimed 401 into Error("Locked") for the expired-session case, which is
+    # what the lock form showed under the field until the call owned it
+    # (measured in a browser, scratchpad/ui-sweeps/verify1011.js, 2026-10-11).
+    form = _function(app_js_text(), "submitLockForm")
+    call = form[form.index('apiJson(`/auth/${mode'):]
+    call = call[: call.index("});")]
+    assert "ownsAuthErrors: true" in call and "silent: true" in call

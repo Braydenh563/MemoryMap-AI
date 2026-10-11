@@ -2103,10 +2103,11 @@ MORE_TOPICS.extend([
     },
     {
         "id": "mind-map-callouts",
+        #: No "votes": one typo from "notes", so "unlink two notes" read as this topic; "vote" matches its plural.
         "keywords": (
             "callout", "callout on a topic", "bubble over a topic", "speech bubble on a map",
             "add a callout", "remove the callout", "labels on a topic", "label a topic",
-            "tags on a topic", "labels under a topic", "vote", "votes", "voting", "stamp",
+            "tags on a topic", "labels under a topic", "vote", "voting", "stamp",
             "stamps", "reaction", "thumbs up a topic",
         ),
         "body": (

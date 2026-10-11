@@ -15,15 +15,23 @@
 
 const lanWatchState = { running: false, seen: new Set(), heldKey: "", offKey: "", version: -1 };
 
+//: Through `api()` like every request (tests/test_no_bare_fetch.py), silent
+//: so a 401 here never draws the lock screen: a locked session answers
+//: "locked", any other refusal (403 on another device) "stop", and a network
+//: failure throws to `lanWatch`, which waits and asks again.
 async function lanWatchOnce() {
-  const token = localStorage.getItem("token") || "";
-  const response = await fetch(`/auth/lan-watch?since=${lanWatchState.version}`, {
-    headers: token ? { "X-Auth-Token": token } : {},
-    signal: AbortSignal.timeout(40000),
-  });
-  if (response.status === 401) return "locked";
-  if (response.status === 403) return "stop";
-  if (!response.ok) return "wait";
+  let response;
+  try {
+    response = await api(`/auth/lan-watch?since=${lanWatchState.version}`, {
+      silent: true,
+      signal: AbortSignal.timeout(40000),
+    });
+  } catch (error) {
+    if (error?.isLockout || error?.status === 401) return "locked";
+    if (error?.status === 403) return "stop";
+    if (error?.status) return "wait";
+    throw error;
+  }
   const state = await response.json();
   const changed = state.version !== lanWatchState.version;
   lanWatchState.version = state.version;

@@ -439,7 +439,10 @@ MORE_TOPICS: list[dict] = [
             "(for a feature that is on but not working) and Remove, and its "
             "row shows its version and size on disk. What pip is "
             "doing shows an install as it runs. Dictation model size runs from "
-            "Tiny (fastest) to Medium (most accurate). Embedding models lists "
+            "Tiny (fastest) to Medium (most accurate). Skip silence before "
+            "transcribing (on) stops Whisper writing words into the quiet around "
+            "a clip; Dictation language skips the guess; Words to expect lists "
+            "names and terms it should spell your way. Embedding models lists "
             "the built-in models on this machine, each downloaded once and kept; "
             "which one search uses is chosen in Settings, Search and index."
         ),
@@ -1171,7 +1174,9 @@ MORE_TOPICS.extend(
                 "hand teaches the filing where things go. In Settings, Background tasks, Load "
                 "the search model when the app starts chooses when filing by "
                 "meaning gets ready: at launch, or on the first note, which then "
-                "waits a few seconds. Filing style (Settings, Background tasks) files by topic, "
+                "waits a few seconds. Let the search model go after an idle hour "
+                "frees its memory when nothing has been searched or filed for an "
+                "hour; the next search loads it again. Filing style (Settings, Background tasks) files by topic, "
                 "by project or by time. Filings Atlas was unsure of wait in "
                 "is:review, with Accept the filing on the note's menu."
             ),

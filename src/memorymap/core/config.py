@@ -115,6 +115,12 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # means it is never started, search stays on keywords, and Settings,
     # Packages keeps its manual Install.
     "semantic_auto_install": True,
+    # Whisper's options (ai/voice.py `options_from`, Brief 87 step 2): skip
+    # the silence and hum around a clip (Silero VAD, no download); a language
+    # ("" detects it); names and terms to expect, as Whisper's prompt.
+    "voice_skip_silence": True,
+    "voice_language": "",
+    "voice_vocabulary": "",
     "searxng_url": "",
     "search_provider": "auto",
     # Which dialect the chat backend speaks (§6). "ollama" is the native

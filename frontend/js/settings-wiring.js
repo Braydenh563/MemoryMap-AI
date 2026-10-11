@@ -269,7 +269,7 @@ async function submitLockForm() {
   }
   try {
     const body = await lockRequest(mode, password, errorLine);
-    localStorage.setItem("token", body.token);
+    prefs.set("token", body.token);
     if (body.warning) toast(body.warning, "info");
     vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
     lockedByHand = false;
@@ -903,7 +903,7 @@ function maybeShowOnboarding() {
   if (prefs.get("tourDone", null)) return;
   if (typeof openTour !== "function") return;
   if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;
-  localStorage.setItem("tourDone", "1");
+  prefs.set("tourDone", "1");
   toastAction("There is a guided tour of Tessellate now.", "Take the tour", () => {
     openTour("basics");
   });
@@ -1205,7 +1205,7 @@ function saveShortcutOverrides() {
   for (const [id, def] of Object.entries(DEFAULT_SHORTCUTS)) {
     if (shortcuts[id].keys !== def.keys) overrides[id] = shortcuts[id].keys;
   }
-  localStorage.setItem(SHORTCUT_STORE, JSON.stringify(overrides));
+  prefs.set(SHORTCUT_STORE, JSON.stringify(overrides));
   restampShortcutHints();
 }
 
@@ -1343,7 +1343,7 @@ function runShortcut(id) {
 }
 
 function resetShortcuts() {
-  localStorage.removeItem(SHORTCUT_STORE);
+  prefs.remove(SHORTCUT_STORE);
   shortcuts = loadShortcuts();
   restampShortcutHints();
   renderShortcutList();
@@ -1595,7 +1595,7 @@ if (noteSort === "forgotten") loadForgottenOrder().then(() => renderEntries());
 $("note-sort").addEventListener("change", async (e) => {
   noteSort = e.target.value;
   try {
-    localStorage.setItem("notes-sort", noteSort);
+    prefs.set("notes-sort", noteSort);
   } catch {
     /* storage blocked: this session only */
   }
@@ -1609,7 +1609,7 @@ $("note-sort").addEventListener("change", async (e) => {
 $("notes-page-size").value = notesPageSize;
 $("notes-page-size").addEventListener("change", (e) => {
   notesPageSize = e.target.value;
-  localStorage.setItem("notes-page-size", notesPageSize);
+  prefs.set("notes-page-size", notesPageSize);
   notesCurrentPage = 1;
   renderEntries();
 });
@@ -1702,8 +1702,8 @@ $("entry-content").addEventListener("input", (e) => {
   //: back holding three blank lines after a reload, which hid the empty
   //: placeholder). Newlines left behind by a removed image or a stray Enter
   //: must not be kept and restored as if they were writing.
-  if (e.target.value.trim()) localStorage.setItem("captureDraft", e.target.value);
-  else localStorage.removeItem("captureDraft");
+  if (e.target.value.trim()) prefs.set("captureDraft", e.target.value);
+  else prefs.remove("captureDraft");
   renderEntryAttachmentChips();
   // The "go to it" link belongs to the note you just saved, not the one you
   // are now writing: drop it as soon as typing starts.
@@ -1732,7 +1732,7 @@ const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
   //: a staged image can leave nothing else) restores as nothing, so the
   //: box stays empty and its placeholder shows.
   if (!draft.trim()) {
-    localStorage.removeItem("captureDraft");
+    prefs.remove("captureDraft");
     if (lostImages) toast("Your restored draft only held images that were never uploaded, so it was cleared.");
     return;
   }
@@ -1765,8 +1765,8 @@ for (const [id, key] of [["entry-title", "captureDraftTitle"], ["entry-tags", "c
   } catch {}
   field.addEventListener("input", () => {
     try {
-      if (field.value.trim()) localStorage.setItem(key, field.value);
-      else localStorage.removeItem(key);
+      if (field.value.trim()) prefs.set(key, field.value);
+      else prefs.remove(key);
     } catch {}
   });
 }

@@ -651,7 +651,7 @@ function setDocView(mode) {
   if (!type.previewable && !DOC_VIEWS_UNRENDERED.includes(mode)) mode = "source";
   docView = DOC_VIEWS.includes(mode) ? mode : "source";
   try {
-    localStorage.setItem(DOC_VIEW_KEY, docView);
+    prefs.set(DOC_VIEW_KEY, docView);
   } catch {
     // A private window with storage blocked is not a reason to refuse to
     // change view: the choice just does not survive the reload.
@@ -1007,7 +1007,7 @@ function docPositionsWrite(map) {
     for (const stale of keys.slice(DOC_POSITIONS_MAX)) delete map[stale];
   }
   try {
-    localStorage.setItem(DOC_POSITIONS_KEY, JSON.stringify(map));
+    prefs.set(DOC_POSITIONS_KEY, JSON.stringify(map));
   } catch {
     // Storage blocked or full: the document just opens at the top, as before.
   }
@@ -2146,9 +2146,9 @@ function getDocWordGoal(id) {
 function setDocWordGoal(id, goal) {
   if (!id) return;
   if (goal > 0) {
-    localStorage.setItem(docWordGoalKey(id), String(goal));
+    prefs.set(docWordGoalKey(id), String(goal));
   } else {
-    localStorage.removeItem(docWordGoalKey(id));
+    prefs.remove(docWordGoalKey(id));
   }
 }
 
@@ -2515,7 +2515,7 @@ function docOutlineSetFolds(folds) {
   const store = docOutlineFoldStore();
   if (!store) return;
   try {
-    localStorage.setItem(store, JSON.stringify([...folds]));
+    prefs.set(store, JSON.stringify([...folds]));
   } catch {
     //: Nothing to do and nothing worth saying: the fold still applies to the
     //: outline on screen, it just will not survive a reload.
@@ -11058,7 +11058,7 @@ function docPrintSetupDialog() {
   }).then((setup) => {
     if (!setup) return null;
     try {
-      localStorage.setItem(DOC_PRINT_KEY, JSON.stringify(setup));
+      prefs.set(DOC_PRINT_KEY, JSON.stringify(setup));
     } catch {
       /* this print still uses it */
     }
@@ -12584,7 +12584,7 @@ function showDocSidebarSection(name) {
     button.setAttribute("aria-selected", String(active));
     button.tabIndex = active ? 0 : -1;
   }
-  localStorage.setItem(DOC_SIDEBAR_STORE, wanted);
+  prefs.set(DOC_SIDEBAR_STORE, wanted);
   //: A hidden list has no scroll position to correct, so the mark made while
   //: the Documents tab was showing could not bring its row into view. Asked
   //: again on the way in, when the outline has a box.
@@ -13677,7 +13677,7 @@ function applyDocWidth(wide) {
 
 function setDocWidth(wide) {
   try {
-    localStorage.setItem(DOC_WIDTH_KEY, wide ? "wide" : "measure");
+    prefs.set(DOC_WIDTH_KEY, wide ? "wide" : "measure");
   } catch {
     // A private window can refuse storage; the mode still applies for now.
   }
@@ -13828,7 +13828,7 @@ function applyDocSerif(on) {
 
 function docRememberReading(key, on, apply) {
   try {
-    localStorage.setItem(key, on ? "1" : "0");
+    prefs.set(key, on ? "1" : "0");
   } catch {
     // A private window can refuse storage; the mode still applies for now.
   }
@@ -14420,8 +14420,8 @@ function docToolbarMode() {
   try {
     const stored = prefs.get(DOC_TOOLBAR_MODE_KEY, null);
     if (stored === "row" && !prefs.get(DOC_TOOLBAR_MODE_MIGRATED_KEY, null)) {
-      localStorage.removeItem(DOC_TOOLBAR_MODE_KEY);
-      localStorage.setItem(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
+      prefs.remove(DOC_TOOLBAR_MODE_KEY);
+      prefs.set(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
       return "wrap";
     }
     return stored === "row" ? "row" : "wrap";
@@ -14458,12 +14458,12 @@ function applyDocToolbarMode(mode) {
 
 function setDocToolbarMode(mode) {
   try {
-    localStorage.setItem(DOC_TOOLBAR_MODE_KEY, mode);
+    prefs.set(DOC_TOOLBAR_MODE_KEY, mode);
     //: A choice made now is never the pre-2026-09-09 default the migration
     //: in `docToolbarMode` clears. Without the flag, the first read after
     //: choosing "row" cleared it back to "wrap": the next press chose "row"
     //: again (the toggle could not go back) and a reload lost it.
-    localStorage.setItem(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
+    prefs.set(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -14524,7 +14524,7 @@ function docGutterWanted(isCode) {
 
 function setDocGutter(on) {
   try {
-    localStorage.setItem(DOC_GUTTER_KEY, on ? "1" : "0");
+    prefs.set(DOC_GUTTER_KEY, on ? "1" : "0");
   } catch {
     /* private mode: the choice holds for this session only */
   }
@@ -14637,7 +14637,7 @@ function applyDocToolbarCollapsed(collapsed, only = null) {
 
 function setDocToolbarCollapsed(collapsed) {
   try {
-    localStorage.setItem(DOC_TOOLBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+    prefs.set(DOC_TOOLBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -14648,7 +14648,7 @@ function setDocToolbarCollapsed(collapsed) {
     let told = false;
     try {
       told = prefs.get(DOC_TOOLBAR_HINT_KEY, null) === "1";
-      localStorage.setItem(DOC_TOOLBAR_HINT_KEY, "1");
+      prefs.set(DOC_TOOLBAR_HINT_KEY, "1");
     } catch {
       /* private mode: said every time, which is the safe side */
     }
@@ -16934,7 +16934,7 @@ function docToolPref(name, fallback) {
 
 function docSaveToolPref(name, on) {
   try {
-    localStorage.setItem(DOC_TOOL_KEYS[name], on ? "1" : "0");
+    prefs.set(DOC_TOOL_KEYS[name], on ? "1" : "0");
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -17603,7 +17603,7 @@ function docProseApplyWidth(width) {
   //: padding beside it read the same property (07-whiteboard-misc.css).
   ($("tab-documents") || panel).style.setProperty("--doc-prose-w", `${clamped}px`);
   try {
-    localStorage.setItem(DOC_PROSE_WIDTH_KEY, String(clamped));
+    prefs.set(DOC_PROSE_WIDTH_KEY, String(clamped));
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -17699,7 +17699,7 @@ function applyDocProseDock() {
 function toggleDocProseDock() {
   const next = docProseDockChoice() === "right" ? "bottom" : "right";
   try {
-    localStorage.setItem(DOC_PROSE_DOCK_KEY, next);
+    prefs.set(DOC_PROSE_DOCK_KEY, next);
   } catch {
     /* private mode: it moves for this session only */
   }

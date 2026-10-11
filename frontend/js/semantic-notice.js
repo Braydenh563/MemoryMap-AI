@@ -77,7 +77,7 @@ function semanticInstallNotice(task) {
   if (SEMANTIC_NOTICE.shown || semanticNoticeSeenBefore()) return;
   SEMANTIC_NOTICE.shown = true;
   try {
-    localStorage.setItem(SEMANTIC_NOTICE_KEY, "1");
+    prefs.set(SEMANTIC_NOTICE_KEY, "1");
   } catch (error) {
     // The in-memory flag still holds for this page.
   }

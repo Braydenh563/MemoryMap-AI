@@ -104,7 +104,7 @@ for (const id of ["draft-kind", "draft-tone", "draft-length"]) {
       //: The Translate chip goes back to the last language picked here.
       if (kind.startsWith("translate-")) {
         try {
-          localStorage.setItem("draft-translate", kind.slice("translate-".length));
+          prefs.set("draft-translate", kind.slice("translate-".length));
         } catch {
           /* storage blocked: the chip keeps its default */
         }
@@ -382,7 +382,7 @@ $("chat-new").addEventListener("click", newChatConversation);
   const sortSelect = $("chat-sidebar-sort");
   sortSelect.value = prefs.get(CHAT_SIDEBAR_SORT_KEY, null) || "recent";
   sortSelect.addEventListener("change", () => {
-    localStorage.setItem(CHAT_SIDEBAR_SORT_KEY, sortSelect.value);
+    prefs.set(CHAT_SIDEBAR_SORT_KEY, sortSelect.value);
     loadConversationList();
   });
 }
@@ -885,7 +885,7 @@ function syncNoteSourceButtons() {
 
 function setNoteSource(on) {
   try {
-    localStorage.setItem("note-source-view", on ? "1" : "0");
+    prefs.set("note-source-view", on ? "1" : "0");
   } catch {
     /* storage blocked: this box only */
   }
@@ -1031,7 +1031,7 @@ function initGraphOptionFolds() {
     }
     fold.addEventListener("toggle", () => {
       try {
-        localStorage.setItem(key, fold.open ? "1" : "0");
+        prefs.set(key, fold.open ? "1" : "0");
       } catch (error) {
         /* A browser with storage refused still folds, it just forgets. */
       }
@@ -1055,7 +1055,7 @@ function setGraphOptionsOpen(open) {
   panel.classList.toggle("hidden", !open || phone);
   toggle.setAttribute("aria-expanded", String(open && !phone));
   toggle.classList.toggle("is-on", open && !phone);
-  localStorage.setItem("graph-options-open", open ? "1" : "0");
+  prefs.set("graph-options-open", open ? "1" : "0");
 }
 
 //: The phone's one sheet of map controls (`openGraphControlsSheet`) lives in
@@ -1153,18 +1153,18 @@ $("graph-trace-clear").addEventListener("click", () => setTracePanelOpen(false))
   toggle.addEventListener("click", () => {
     const collapsed = !row.classList.contains("legend-collapsed");
     apply(collapsed);
-    localStorage.setItem("graphLegendCollapsed", collapsed ? "1" : "0");
+    prefs.set("graphLegendCollapsed", collapsed ? "1" : "0");
   });
 })();
 // What the colours mean, remembered like the layout is, it is a property of
 // how you read your notebook, not of one visit.
 $("graph-colour").addEventListener("change", (event) => {
-  localStorage.setItem("graph-colour", event.target.value);
+  prefs.set("graph-colour", event.target.value);
   renderGraph();
 });
 // What the sizes mean (INBOX 430), remembered the same way.
 $("graph-size").addEventListener("change", (event) => {
-  localStorage.setItem("graph-size", event.target.value);
+  prefs.set("graph-size", event.target.value);
   renderGraph();
 });
 $("graph-hide-orphans").addEventListener("change", renderGraph);
@@ -1192,7 +1192,7 @@ for (const key of ["gravity", "spread", "link-force"]) {
   const input = $(`graph-${key}`);
   input.value = prefs.get(`graph-${key}`, null) ?? 50;
   input.addEventListener("change", () => {
-    localStorage.setItem(`graph-${key}`, input.value);
+    prefs.set(`graph-${key}`, input.value);
     renderGraph();
   });
 }
@@ -1642,7 +1642,7 @@ $("reminder-clear-done").addEventListener("click", clearDoneReminders);
 $("reminders-page-size").value = remindersPageSize;
 $("reminders-page-size").addEventListener("change", (e) => {
   remindersPageSize = e.target.value;
-  localStorage.setItem("reminders-page-size", remindersPageSize);
+  prefs.set("reminders-page-size", remindersPageSize);
   remindersDonePage = 1;
   loadReminders();
 });

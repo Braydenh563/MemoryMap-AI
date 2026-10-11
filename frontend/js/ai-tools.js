@@ -172,10 +172,12 @@ function paintTaskRunLines(fold, lines) {
   }
 }
 
-//: **Live lines from the jobs stream** (`GET /jobs/stream`, its `runs`
-//: event), not a poll of their own: while Settings, Running jobs is open,
-//: each running row's lines move as the run says them. Fetch, not
-//: EventSource, for the auth header (settings.js `startLogStream` says why).
+//: **The panel reads the jobs stream** (`GET /jobs/stream`), not a poll of
+//: its own: while Settings, Running jobs is open, its `tasks` event repaints
+//: the rows (one recipe, `renderTasks`) when they change, and its `runs`
+//: event moves each running row's lines as the run says them (Brief 9).
+//: Fetch, not EventSource, for the auth header (settings.js
+//: `startLogStream` says why).
 const taskLineStream = { controller: null };
 
 function taskLinesWanted() {
@@ -200,9 +202,12 @@ async function followTaskLines() {
         const blocks = buffered.split("\n\n");
         buffered = blocks.pop();
         for (const block of blocks) {
-          if (!block.startsWith("event: runs\n")) continue;
+          const isRuns = block.startsWith("event: runs\n");
+          if (!isRuns && !block.startsWith("event: tasks\n")) continue;
           try {
-            paintLiveRunLines(JSON.parse(block.slice(block.indexOf("data: ") + 6)));
+            const body = JSON.parse(block.slice(block.indexOf("data: ") + 6));
+            if (isRuns) paintLiveRunLines(body);
+            else renderTasks(body);
           } catch {
             /* a torn block is not worth dropping the stream over */
           }
@@ -1696,7 +1701,7 @@ function seedUiStateFromServer(state) {
     const local = prefs.has(key) ? prefs.get(key, "") : null;
     if (local === remote) continue;
     if (local == null || !marked || local === synced[key]) {
-      localStorage.setItem(key, remote);
+      prefs.set(key, remote);
       restored += 1;
     }
   }
@@ -1800,7 +1805,7 @@ function applyPalette(id, remember = true) {
   // than shipping a block that restates the base :root values.
   if (id && id !== "default") root.dataset.palette = id;
   else delete root.dataset.palette;
-  if (remember) localStorage.setItem("palette", id || "default");
+  if (remember) prefs.set("palette", id || "default");
   // The generative background paints from the accent, so it has to be rebuilt, 
   // and so does the dashboard constellation, for the same reason.
   if (bgArtOn()) startBgArt();

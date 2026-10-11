@@ -134,7 +134,6 @@ def test_stop_the_model_stops_every_generation_first(client):
 #: `core/activity.py` or `jobruns.job_run`. Infrastructure that is not a job
 #: (the server, the tray icon, a heartbeat) says so.
 THREAD_SITES = {
-    "ai/model_manager.py": "collect: reindex, pull",
     "ai/embeddings.py": "collect: embeddings, embedding-model",
     "ai/janitor.py": "collect: filing kinds",
     "ai/autonomous.py": "collect: autonomous",

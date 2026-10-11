@@ -1809,7 +1809,7 @@ function tourClose(finished) {
   // app.js's MIRRORED_UI_EXTRAS, because a desktop shell that loses its
   // profile is exactly how "onboarding shows every time" was reported.
   try {
-    localStorage.setItem("tourDone", "1");
+    prefs.set("tourDone", "1");
   } catch (error) {
     // A browser with storage blocked still gets the tour, it just cannot
     // remember that it did. Refusing to run would be the worse failure.

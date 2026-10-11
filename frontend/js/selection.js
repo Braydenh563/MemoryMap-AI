@@ -559,7 +559,7 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
     const pick = (source, focus) => {
       choose(source, focus);
       try {
-        localStorage.setItem(PICK_SOURCE_KEY, source.kind);
+        prefs.set(PICK_SOURCE_KEY, source.kind);
       } catch {
         // A blocked store only means the next open starts on the first tab.
       }

@@ -225,7 +225,7 @@ async function openNotifications({ keepWatermark = false } = {}) {
         item.id = `n-${item.at}`;
         const all = storedNotifications();
         const same = all.find((entry) => entry.at === item.at && entry.id == null);
-        if (same) { same.id = item.id; localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(all)); }
+        if (same) { same.id = item.id; prefs.set(NOTIFICATIONS_KEY, JSON.stringify(all)); }
       }
       setNotificationUnread(item.id, !unread);
       openNotifications({ keepWatermark: true });
@@ -309,10 +309,10 @@ function dismissNotification(item) {
     item.id != null ? n.id !== item.id : n.at !== item.at
   );
   try {
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(all));
+    prefs.set(NOTIFICATIONS_KEY, JSON.stringify(all));
     if (item.id != null && /^reminder:/.test(String(item.id))) {
       const gone = [...dismissedNotificationIds(), item.id].slice(-300);
-      localStorage.setItem(NOTIFICATIONS_DISMISSED_KEY, JSON.stringify(gone));
+      prefs.set(NOTIFICATIONS_DISMISSED_KEY, JSON.stringify(gone));
     }
   } catch {
     // Storage refused: the row stays, which is what the list shows next.

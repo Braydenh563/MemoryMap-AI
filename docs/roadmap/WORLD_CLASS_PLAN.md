@@ -789,7 +789,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
 | 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; ~~LAN mode over IPv6~~ built 2026-10-04 (`netbind.listening_socket`, one dual-stack socket; the `[::1]` launcher test skips where the machine has no IPv6) | done | HISTORY |
-| 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); left: the other kinds onto it, the panel on the stream | M | HISTORY; B2 |
+| 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); the other kinds and the panel on the stream built 2026-10-11 (Brief 9, briefs-1011); left: the folder import (SESSION_BRIEFS Brief 9) | S | HISTORY; B2 |
 | 4 | ~~D2, 261~~ | ~~the connections rail always visible on desktop, which is also where `GET /resurface/near` would show~~ built 2026-09-27 (`#notes-rail` at 1280 and wider, the sheet below, by decision); re-measured 2026-10-04 with `notesrail.js` on the showcase notebook, 30/30 light and 30/30 dark at 1440, 1280, 1024 and 390 | done | HISTORY; D2 |
 | 5 | ~~I1, H1~~ | ~~the tension and answered-question passes~~ built 2026-10-04 (`facts._pair_passes`, `tests/test_night_pairs.py`); 2,000 notes, a first run 39 to 57 s with no model, 130 to 215 s with a fake judge (gate 5 min), card 39 to 84 ms; left: pass 2's kinds (dates, duplicates, entities) as derived facts | done | HISTORY |
 | 6 | ~~§14.3, I6, H2~~ | ~~chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view~~ built 2026-10-04 (`chunk_vectors`, `search/chunks.py`, `tests/test_chunk_vectors.py`, `tests/test_evidence_spec.py`); seeded 1,000 notes, recall@5 0.01 to 0.42; left: "wrong" on a card as a correction (I7) | done | HISTORY |
@@ -3919,9 +3919,9 @@ part built; sync (B6) designed only.
 | --- | --- | --- | --- |
 | 26.0 Measure | decision 63's complexity and per-frame census; import times, resident memory with and without the embedder, the index audit (every FK and hot `WHERE`), the 54 untested routes listed, the 21 swallows listed, the 32 thread sites classified | numbers in this section | 60, built 2026-10-10 (26.4 and 26.5 hold the numbers) |
 | 26a Lints | decisions 57, 58, 59 as ratchets; the prints folded | all three green with their seeds | 60, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 26.0 and 26a, Brief 60)"): seeds 21, 49, 26; complexity 260 over 15; wake sources 97 rows |
-| 26b Services | decision 55 for whiteboard and files | route tests unchanged and green; `routes_whiteboard.py` under 1,500 lines | 61 (Opus, high) |
+| 26b Services | decision 55 for whiteboard and files | route tests unchanged and green; `routes_whiteboard.py` under 1,500 lines | 61, built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)"): 5,808 to 1,438 lines; files 4,028 to 1,905; entries and chat left |
 | 26c Data | decision 56 for the four tables; the import-time test | `test_import_time.py` green; the composer eval unchanged (grounded 1.0) | 62 (Opus, high) |
-| 26d Runners | decision 61; the embedder's lazy load (62) | the agent and skill tests unchanged; the resident number recorded | 63 (Opus, high) |
+| 26d Runners | decision 61; the embedder's lazy load (62) | the agent and skill tests unchanged; the resident number recorded | 63 (Opus, high); 62 built 2026-10-11: 491 MB loaded, 376 MB after the idle unload, reload 3.2 s (HISTORY "Brief 63 part 1, the embedder") |
 
 ### 26.4 Measured, 2026-10-10 (Brief 60, numbers only)
 

@@ -246,7 +246,7 @@ function manageStored(key, fallback) {
 
 function manageStore(key, value) {
   try {
-    localStorage.setItem(key, value);
+    prefs.set(key, value);
   } catch {
     // A blocked storage only forgets the choice.
   }

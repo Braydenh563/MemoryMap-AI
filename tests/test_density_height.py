@@ -37,7 +37,7 @@ def test_auto_is_a_choice_in_appearance_and_clears_the_setting():
     seg = seg[: seg.index("</select>")]
     assert 'value="auto"' in seg
     settings = _text("settings.js")
-    assert 'if (e.target.value === "auto") localStorage.removeItem("density");' in settings
+    assert 'if (e.target.value === "auto") prefs.remove("density");' in settings
     assert "window crosses 700px tall" in settings or "DENSITY_SHORT.addEventListener" in settings
 
 
@@ -46,5 +46,5 @@ def test_the_dashboard_level_is_stored_only_when_chosen_and_follows_compact():
     assert "applyDashDensity(dashDensity(), { persist: false });" in dash
     body = dash[dash.index("function applyDashDensity(") :]
     body = body[: body.index("\n}\n")]
-    assert "if (persist) localStorage.setItem(DASH_DENSITY_KEY, density);" in body
+    assert "if (persist) prefs.set(DASH_DENSITY_KEY, density);" in body
     assert 'density === "full" && appCompact ? "compact" : density' in body

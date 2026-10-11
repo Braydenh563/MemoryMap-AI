@@ -71,8 +71,8 @@ def test_a_board_background_is_not_an_orphan(ai_client):
 
 def test_the_client_reads_the_board_not_local_storage() -> None:
     source = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
-    assert 'localStorage.setItem("wb-bg-color"' not in source
-    assert "localStorage.setItem(wbBgImageKey()" not in source
+    assert 'prefs.set("wb-bg-color"' not in source
+    assert "prefs.set(wbBgImageKey()" not in source
     assert "wbState.background" in source
     assert "function wbMigrateBackground(" in source
 

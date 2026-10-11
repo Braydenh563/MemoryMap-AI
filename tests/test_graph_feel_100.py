@@ -58,6 +58,13 @@ const localStorage = {
   getItem(k) { if (blocked) throw new Error("blocked"); return store.has(k) ? store.get(k) : null; },
   setItem(k, v) { if (blocked) throw new Error("blocked"); store.set(k, v); },
 };
+// prefs.js's promise, kept: a blocked storage reads as the fallback and a
+// refused write answers false, neither throws.
+const prefs = {
+  json(k, fallback) { try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) ?? fallback : fallback; } catch { return fallback; } },
+  set(k, v) { try { localStorage.setItem(k, String(v)); return true; } catch { return false; } },
+  remove(k) { try { store.delete(k); } catch {} },
+};
 const s = { size: "full", tree: null, layoutSeed: 0, nodes: [{ id: 7, x: 10.4, y: -3.6 }, { id: 9, x: NaN, y: 1 }] };
 gcSavePositions(s);
 const back = gcCachedPositions(s);

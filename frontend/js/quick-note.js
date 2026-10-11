@@ -40,12 +40,9 @@ function noteOutbox() {
 //: one case the outbox cannot help, and the caller then keeps the words on
 //: screen instead of clearing them.
 function writeNoteOutbox(list) {
-  try {
-    if (list.length) localStorage.setItem(NOTE_OUTBOX_KEY, JSON.stringify(list));
-    else localStorage.removeItem(NOTE_OUTBOX_KEY);
-  } catch {
-    return false;
-  }
+  if (list.length) {
+    if (!prefs.set(NOTE_OUTBOX_KEY, JSON.stringify(list))) return false;
+  } else prefs.remove(NOTE_OUTBOX_KEY);
   renderNoteOutbox();
   renderPendingNoteRows();
   return true;
@@ -239,8 +236,8 @@ function openQuickNote() {
 function keepQuickNoteDraft() {
   try {
     const text = quickNoteBox().value;
-    if (text.trim()) localStorage.setItem(QUICK_NOTE_DRAFT_KEY, text);
-    else localStorage.removeItem(QUICK_NOTE_DRAFT_KEY);
+    if (text.trim()) prefs.set(QUICK_NOTE_DRAFT_KEY, text);
+    else prefs.remove(QUICK_NOTE_DRAFT_KEY);
   } catch {
     // Storage blocked: the words are still in the box while it is open.
   }

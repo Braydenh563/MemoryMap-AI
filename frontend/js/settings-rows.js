@@ -69,6 +69,9 @@ const SETTING_ROWS = [
   { key: "update_channel", id: "pref-update-channel-main", on: "main", off: "stable" },
   { key: "update_beta", id: "pref-update-beta" },
   { key: "voice_model", id: "voice-model-select" },
+  { key: "voice_skip_silence", id: "voice-skip-silence" },
+  { key: "voice_language", id: "voice-language-select" },
+  { key: "voice_vocabulary", id: "voice-vocabulary" },
   { key: "show_console_on_startup", id: "pref-show-console" },
   { key: "close_to_tray", id: "pref-close-to-tray" },
   { key: "new_window_on_launch", id: "pref-new-window-on-launch" },
@@ -428,10 +431,10 @@ function applyLookSettings(file) {
   const fromNotebook = file.preferences?.ui_state || {};
   const fromBrowser = file.this_browser || {};
   for (const [key, value] of Object.entries(fromNotebook)) {
-    if (mirrored.has(key) && typeof value === "string") localStorage.setItem(key, value);
+    if (mirrored.has(key) && typeof value === "string") prefs.set(key, value);
   }
   for (const [key, value] of Object.entries(fromBrowser)) {
-    if (local.has(key) && !DEVICE_ONLY_KEYS.includes(key) && typeof value === "string") localStorage.setItem(key, value);
+    if (local.has(key) && !DEVICE_ONLY_KEYS.includes(key) && typeof value === "string") prefs.set(key, value);
   }
   applyAppearance();
   if (currentSettingsSection === "appearance") renderAppearance();

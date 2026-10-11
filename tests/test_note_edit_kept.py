@@ -54,6 +54,7 @@ const NOTE_EDIT_KEPT = "note-edit-draft";
 const store = {};
 const prefs = {
   setJSON: (k, v) => { store[k] = JSON.stringify(v); },
+  set: (k, v) => { store[k] = String(v); return true; },
   remove: (k) => { delete store[k]; },
   json: (k, fallback) => { try { const v = JSON.parse(store[k]); return v && typeof v === "object" ? v : fallback; } catch { return fallback; } },
 };

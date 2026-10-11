@@ -165,7 +165,7 @@ function rememberAgentStarter(text) {
   if (!AGENT_STARTERS.some((starter) => starter.text === text)) return;
   const kept = [text, ...agentStarterRecents().map((s) => s.text).filter((t) => t !== text)];
   try {
-    localStorage.setItem(
+    prefs.set(
       AGENT_STARTERS_RECENT_KEY,
       JSON.stringify(kept.slice(0, AGENT_STARTERS_RECENT_MAX))
     );

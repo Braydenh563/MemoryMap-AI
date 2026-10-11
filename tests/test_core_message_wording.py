@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_server_detail_wording import API, _pieces, collect, problems
+from tests.test_server_detail_wording import API, _pieces, collect, label, problems, route_sources
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
 
@@ -306,7 +306,7 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_board_library.py", "detail"): "_fail's callers pass literals and f-strings of counts and names, which collect() checks",
     ("routes_import.py", "str(exc)"): "TooBig from entry/app_import.py, one fixed sentence",
     ("routes_webclip.py", "NOT_A_PAGE"): "a constant in routes_webclip.py, checked below",
-    ("routes_whiteboard.py", "detail"): "one of two literal sentences, chosen by what the XMind archive holds",
+    ("whiteboard/service.py", "detail"): "one of two literal sentences, chosen by what the XMind archive holds",
     ("routes_backups.py", "str(exc)"): "FileNotFoundError and ValueError from core/backup.py restore_backup",
     ("routes_categories.py", "str(exc)"): "ToolError (ai/tools/categories.py) and ValueError (entry/manager.py)",
     ("routes_captions.py", "str(exc)"): "CaptionsError from ai/captions.py: its hint constants and literal sentences",
@@ -319,7 +319,8 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("paging.py", "_BAD"): "a fixed sentence, the constant in api/paging.py",
     ("routes_entries.py", "librarian.AI_FAILED_MESSAGE"): "a constant in ai/librarian.py, checked there",
     ("routes_files.py", "reason"): "core/ocr.py unavailable_reason",
-    ("routes_files.py", "ocr.unavailable_reason('rapidocr')"): "core/ocr.py unavailable_reason",
+    ("files/service.py", "reason"): "core/ocr.py unavailable_reason",
+    ("files/service.py", "ocr.unavailable_reason('rapidocr')"): "core/ocr.py unavailable_reason",
     ("routes_files.py", "edit_message"): "core/docview.py editability",
     ("routes_files.py", "str(exc)"): "ValueError and FileExistsError from entry/manager.py, ValueError from core/ocr.py set_language",
     ("routes_learned.py", "str(exc)"): "ValueError from ai/learning.py record and ai/facts.py set_switches",
@@ -367,7 +368,7 @@ RAW_DETAIL_OK: dict[tuple[str, str], str] = {
 
 def test_no_route_detail_carries_a_raw_exception():
     bad = []
-    for path in sorted(API.glob("*.py")):
+    for path in route_sources():
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and _name(node) in ("HTTPException", "StarletteHTTPException"):
@@ -375,8 +376,8 @@ def test_no_route_detail_carries_a_raw_exception():
                     if kw.arg != "detail":
                         continue
                     for hole in _holes(kw.value):
-                        if RAW_HOLE.search(hole) and (path.name, hole) not in RAW_DETAIL_OK:
-                            bad.append(f"{path.name}:{kw.value.lineno}")
+                        if RAW_HOLE.search(hole) and (label(path), hole) not in RAW_DETAIL_OK:
+                            bad.append(f"{label(path)}:{kw.value.lineno}")
     assert not bad, f"an f-string `detail` shows an exception's own text; log it and write a sentence: {bad}"
 
 

@@ -186,7 +186,7 @@ function applyMarginReader(on) {
 
 $("doc-margin-reader")?.addEventListener("click", () => {
   try {
-    localStorage.setItem(MARGIN_KEY, marginState.on ? "0" : "1");
+    prefs.set(MARGIN_KEY, marginState.on ? "0" : "1");
   } catch {
     // A private window can refuse storage; the switch still applies for now.
   }

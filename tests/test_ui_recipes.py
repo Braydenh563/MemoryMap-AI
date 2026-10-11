@@ -2917,7 +2917,7 @@ def test_font_and_density_are_lists_that_keep_their_handlers() -> None:
     density = density[: density.index("</select>")]
     assert re.findall(r'value="(\w+)"', density) == ["auto", "comfortable", "compact", "spacious"]
     js = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
-    assert '$("font-seg").addEventListener("change"' in js and 'localStorage.setItem("font", e.target.value)' in js
+    assert '$("font-seg").addEventListener("change"' in js and 'prefs.set("font", e.target.value)' in js
     assert '$("density-seg").addEventListener("change"' in js
     assert '$("font-seg").value = appearancePref("font")' in js
     assert '$("density-seg").value = prefs.get("density", null) || "auto"' in js

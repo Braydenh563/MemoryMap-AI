@@ -28,10 +28,10 @@ SRC = ROOT / "src" / "memorymap"
 #: thread moves onto `core/jobs.py`; never raise one, never add a module.
 THREAD_SITES = {
     "__main__.py": 2,  # the desktop window's server thread and the tray icon
-    "ai/autonomous.py": 2,
+    "ai/autonomous.py": 1,  # the scheduler loop; its passes and Run now moved onto the pool (Brief 9),
     "ai/embeddings.py": 1,
     "ai/janitor.py": 1,  # the filing deadline: runs *on* the model lane, so it cannot queue there
-    "ai/model_manager.py": 1,  # model downloads; the reindex moved onto the pool 2026-10-05
+    # ai/model_manager.py: 0 since Brief 9, model downloads run on the pool's `download` lane
     "api/app.py": 1,
     "api/routes_models.py": 1,  # the runner's model list off the request thread, one per runner (a status poll never waits on it); the capability probe moved onto the pool 2026-10-05
     "api/routes_update.py": 2,

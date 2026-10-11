@@ -170,7 +170,7 @@ def test_a_to_z_sorts_by_the_name_a_card_shows():
     notes = _read("notes-list.js")
     assert "noteSortName(a).localeCompare(noteSortName(b), undefined, { numeric: true" in _function(notes, "sortEntries")
     wiring = _read("settings-wiring.js")
-    assert 'localStorage.setItem("notes-sort", noteSort)' in wiring
+    assert 'prefs.set("notes-sort", noteSort)' in wiring
 
 
 def test_the_sidebar_lights_one_row_lists_every_category_and_takes_the_keyboard():

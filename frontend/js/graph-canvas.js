@@ -1245,7 +1245,7 @@ function gcRenderFilterChips(data) {
       if (graphHiddenLinkKinds.has(key)) graphHiddenLinkKinds.delete(key);
       else graphHiddenLinkKinds.add(key);
       try {
-        localStorage.setItem("graph-hidden-link-kinds", JSON.stringify([...graphHiddenLinkKinds]));
+        prefs.set("graph-hidden-link-kinds", JSON.stringify([...graphHiddenLinkKinds]));
       } catch {
         /* storage blocked: the choice holds for this visit */
       }
@@ -4546,7 +4546,7 @@ function gcSavePositions(s) {
     if (Number.isFinite(node.x) && Number.isFinite(node.y)) at[node.id] = [Math.round(node.x), Math.round(node.y)];
   }
   try {
-    localStorage.setItem(GC_POS_KEY, JSON.stringify({ sig: gcPositionsSig(s), at }));
+    prefs.set(GC_POS_KEY, JSON.stringify({ sig: gcPositionsSig(s), at }));
   } catch (e) {
     // A full or blocked store costs only the next open's head start.
   }
@@ -4554,7 +4554,7 @@ function gcSavePositions(s) {
 function gcCachedPositions(s) {
   if (s.size !== "full" || graphFocusModeId) return null;
   try {
-    const kept = JSON.parse(localStorage.getItem(GC_POS_KEY) || "null");
+    const kept = prefs.json(GC_POS_KEY, null);
     if (!kept || kept.sig !== gcPositionsSig(s) || !kept.at) return null;
     const out = {};
     for (const [id, xy] of Object.entries(kept.at)) {

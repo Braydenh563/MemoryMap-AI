@@ -105,7 +105,7 @@ function applySidebarWidth(aside, width, { remember = true } = {}) {
   // with no way to notice it had happened. Widening the window restores it.
   // `remember: false` is for the re-fit on resize, which is the app
   // reacting rather than the user choosing.
-  if (remember) localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
+  if (remember) prefs.set(`sidebarWidth:${aside.id}`, String(clamped));
   aside.style.setProperty("--saved-width", `${clamped}px`);
 
   if (layoutIsStacked()) {
@@ -364,7 +364,7 @@ function makeSidebarResizable(aside) {
     aside.parentElement.classList.toggle("layout-sidebar-collapsed", folded);
     //: Remembered, like its width (INBOX 432: a reload unfolded it).
     try {
-      localStorage.setItem(`sidebarCollapsed:${aside.id}`, folded ? "1" : "0");
+      prefs.set(`sidebarCollapsed:${aside.id}`, folded ? "1" : "0");
     } catch {
       /* storage blocked: this session only */
     }
@@ -506,7 +506,7 @@ function webPanelMaxWidth(panel) {
 function applyWebPanelWidth(panel, width) {
   const clamped = Math.min(Math.max(Math.round(width), WEB_PANEL_MIN), webPanelMaxWidth(panel));
   try {
-    localStorage.setItem("webPanelWidth", String(clamped));
+    prefs.set("webPanelWidth", String(clamped));
   } catch {
     /* blocked storage: the width holds for this session */
   }
@@ -522,7 +522,7 @@ function applyWebPanelWidth(panel, width) {
 }
 
 function resetWebPanelWidth(panel) {
-  localStorage.removeItem("webPanelWidth");
+  prefs.remove("webPanelWidth");
   panel.style.removeProperty("flex");
   panel.style.removeProperty("width");
 }

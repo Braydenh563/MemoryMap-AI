@@ -331,6 +331,12 @@ def peek_db() -> DatabaseManager | None:
     return _db
 
 
+def peek_config() -> ConfigManager | None:
+    """The settings if the app has them, without creating them (`peek_db`'s
+    reason: a helper run outside the app must not conjure a data folder)."""
+    return _config
+
+
 #: The job records (`core/jobruns.py`) find the database through this.
 jobruns.set_database_source(peek_db)
 

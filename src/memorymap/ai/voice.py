@@ -37,6 +37,40 @@ _loaded: tuple[str, object] | None = None
 _lock = threading.Lock()
 
 
+#: Whisper's options from Settings (Brief 87 step 2; ANALYSIS.md "Vendor
+#: candidates, 2026-10-11", rows 1 and 10). Silence skipping is Silero VAD,
+#: which faster-whisper already carries, so it costs no download: Whisper fed
+#: the hum before and after a clip writes words nobody said. The language and
+#: the words to expect are off until set; detection and no prompt are
+#: faster-whisper's own defaults.
+LANGUAGES = ("en", "es", "fr", "de", "it", "pt", "nl", "pl", "sv", "da", "no", "fi", "ru", "uk", "tr", "ar", "hi", "ja", "zh", "ko")
+#: Whisper reads at most 224 tokens of prompt; a few names and terms is the use.
+VOCABULARY_MAX = 200
+
+
+def options_from(config) -> dict:  # noqa: ANN001  # a ConfigManager
+    """`model.transcribe` keyword arguments from the three preferences."""
+    options: dict = {}
+    if config.get_preference("voice_skip_silence", True):
+        options["vad_filter"] = True
+    language = str(config.get_preference("voice_language", "") or "").strip().lower()
+    if language in LANGUAGES:
+        options["language"] = language
+    words = " ".join(str(config.get_preference("voice_vocabulary", "") or "").split())
+    if words:
+        options["initial_prompt"] = words[:VOCABULARY_MAX]
+    return options
+
+
+def _options() -> dict:
+    """The running app's options; none outside it (a script, a bare test).
+    `peek_config`, never `get_config`: that one makes a data folder."""
+    from memorymap.core import deps
+
+    config = deps.peek_config()
+    return options_from(config) if config is not None else {}
+
+
 def whisper_available() -> bool:
     return importlib.util.find_spec("faster_whisper") is not None
 
@@ -52,17 +86,17 @@ def _get_model(size: str):  # noqa: ANN202  # faster_whisper types are optional
         return _loaded[1]
 
 
-def transcribe(audio_path: Path, model_size: str = "base") -> str:
+def transcribe(audio_path: Path, model_size: str = "base", options: dict | None = None) -> str:
     """The clip's words as one line of text (see `transcribe_segments`)."""
-    return " ".join(seg["text"] for seg in transcribe_segments(audio_path, model_size)).strip()
+    return " ".join(seg["text"] for seg in transcribe_segments(audio_path, model_size, options)).strip()
 
 
-def transcribe_segments(audio_path: Path, model_size: str = "base") -> list[dict]:
+def transcribe_segments(audio_path: Path, model_size: str = "base", options: dict | None = None) -> list[dict]:
     """Every segment of one clip at once (see `iter_segments`)."""
-    return list(iter_segments(audio_path, model_size))
+    return list(iter_segments(audio_path, model_size, options))
 
 
-def iter_segments(audio_path: Path, model_size: str = "base") -> Iterator[dict]:
+def iter_segments(audio_path: Path, model_size: str = "base", options: dict | None = None) -> Iterator[dict]:
     """Turn one recorded clip into text, a segment at a time, so a background
     run can report how far it is and stop between two (UI_MODERNISATION V1). Raises RuntimeError with the
     install hint when Whisper isn't available, and RuntimeError with a
@@ -90,8 +124,10 @@ def iter_segments(audio_path: Path, model_size: str = "base") -> Iterator[dict]:
             "Couldn't load the speech model. The first use downloads it, so "
             "check your internet connection and try again."
         ) from exc
+    #: Settings' options unless the caller passed its own (`options_from`).
+    kwargs = _options() if options is None else options
     try:
-        segments, _info = model.transcribe(str(audio_path))
+        segments, _info = model.transcribe(str(audio_path), **kwargs)
     except TypeError as exc:
         #: faster-whisper 1.1 opens the file with `av.open(..., metadata_errors=...)`,
         #: an argument PyAV 14 removed, so every clip failed on a fresh install
@@ -99,7 +135,7 @@ def iter_segments(audio_path: Path, model_size: str = "base") -> Iterator[dict]:
         #: samples skips that call on any pair of versions.
         if "metadata_errors" not in str(exc):
             raise
-        segments, _info = model.transcribe(_decode_samples(audio_path))
+        segments, _info = model.transcribe(_decode_samples(audio_path), **kwargs)
     #: Each segment with its times (28.5 row 7): a transcript line seeks the
     #: player to its moment, and SRT and VTT are written from these.
     for segment in segments:

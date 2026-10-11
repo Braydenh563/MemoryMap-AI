@@ -281,7 +281,7 @@ function iconPickerRecent() {
 function iconPickerRemember(choice) {
   const list = [choice, ...iconPickerRecent().filter((r) => !(r.kind === choice.kind && r.value === choice.value))];
   try {
-    localStorage.setItem(ICON_PICKER_RECENT_KEY, JSON.stringify(list.slice(0, ICON_PICKER_RECENT_MAX)));
+    prefs.set(ICON_PICKER_RECENT_KEY, JSON.stringify(list.slice(0, ICON_PICKER_RECENT_MAX)));
   } catch {
     // Private mode: nothing remembered, the panel still works.
   }

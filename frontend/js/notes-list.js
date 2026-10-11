@@ -2105,7 +2105,7 @@ function toggleExpandAllRows() {
 
 function setNotesViewMode(mode) {
   notesViewMode = mode === "cards" ? "cards" : "rows";
-  localStorage.setItem("notesViewMode", notesViewMode);
+  prefs.set("notesViewMode", notesViewMode);
   applyNotesViewMode();
 }
 
@@ -3591,7 +3591,7 @@ function dockConnectionsInRail(id) {
 
 function setNotesRailHidden(hidden) {
   try {
-    localStorage.setItem(NOTES_RAIL_KEY, hidden ? "off" : "on");
+    prefs.set(NOTES_RAIL_KEY, hidden ? "off" : "on");
   } catch {
     /* private mode: the choice lasts this visit */
   }

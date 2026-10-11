@@ -437,13 +437,13 @@ function showOnboarding() {
 
 function closeOnboarding(withTour = false) {
   $("onboarding-overlay").classList.add("hidden");
-  localStorage.setItem("onboardingDone", "1");
+  prefs.set("onboardingDone", "1");
   // Skipping the welcome is also an answer about the tour: whoever closed this
   // card has been offered the introduction and said no, so nothing may open
   // the tour at them by itself afterwards. `tourClose` writes the same key
   // when the tour itself ends, and Settings, help and guide is the way back to
   // either of them.
-  localStorage.setItem("tourDone", "1");
+  prefs.set("tourDone", "1");
   overlayReturnFocus?.focus?.();
   //: Whatever waited for the welcome (the first start's update question).
   //: `tour` says the tour is opening next, so the first-run queue

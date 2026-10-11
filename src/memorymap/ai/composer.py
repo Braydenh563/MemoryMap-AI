@@ -498,11 +498,6 @@ def rephrase(question: str) -> str:
     return text or _respell(" ".join((question or "").split()))
 
 
-def _yes_no_wrapped(question: str) -> bool:
-    """"any idea if the hotel is booked": a yes or no the wrapper hid."""
-    return bool(_IF.match(rephrase(question)))
-
-
 def classify(question: str, embed=None) -> str:  # noqa: ANN001
     """The question's shape: one of `SHAPES`, "what" when nothing else fits.
     Read after its casual wrapper is off (`rephrase`); a question no rule

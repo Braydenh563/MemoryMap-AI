@@ -22,7 +22,7 @@ def _draft_code():
 
 def test_a_blank_draft_is_not_saved():
     code = _draft_code()
-    saved = re.search(r'^\s*if \((.*)\) localStorage\.setItem\("captureDraft"', code, re.M)
+    saved = re.search(r'^\s*if \((.*)\) prefs\.set\("captureDraft"', code, re.M)
     assert saved, "the draft save moved; update this test"
     assert ".trim()" in saved.group(1), "a whitespace-only draft must not be saved"
 
@@ -32,4 +32,4 @@ def test_a_blank_draft_is_not_restored():
     restore = code[code.index('prefs.get("captureDraft", null)') :]
     guard = restore.index("if (!draft.trim())")
     assert guard < restore.index("box.value = draft"), "blank drafts must be dropped before the box is filled"
-    assert 'localStorage.removeItem("captureDraft")' in restore[guard : guard + 200]
+    assert 'prefs.remove("captureDraft")' in restore[guard : guard + 200]

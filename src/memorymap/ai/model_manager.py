@@ -883,12 +883,46 @@ def start_reindex(db: DatabaseManager, embeddings: Embedder) -> bool:
     # job's own (`reindex_status`), so the pool keeps it off its list.
     from memorymap.core import jobs
 
-    if not jobs.enqueue("reindex", _run_reindex, db, embeddings, job, name="reindex"):
+    #: Durable (Brief 9) when it is the app's own notebook and embedder: the
+    #: row then names `reindex_notebook`, which a launch after a kill runs
+    #: again (re-embedding is idempotent: each note's vector is replaced).
+    #: Any other pair (a test's fake, a script's database) runs as before
+    #: and is not remembered, since a resumed row could not find it.
+    if _is_app_pair(db, embeddings):
+        queued = jobs.enqueue("reindex", reindex_notebook, name="reindex", dedupe_key="reindex")
+    else:
+        queued = jobs.enqueue("reindex", _run_reindex, db, embeddings, job, name="reindex")
+    if not queued:
         with _lock:
             job.status = "error"
             job.error = "The app is shutting down."
         return False
     return True
+
+
+def _is_app_pair(db: object, embeddings: object) -> bool:
+    """True when `db` and `embeddings` are the running app's own, the only
+    ones a durable job can find again by name after a restart."""
+    from memorymap.core import deps
+
+    try:
+        return db is deps.get_db() and embeddings is deps.get_embeddings()
+    except Exception:  # noqa: BLE001  # no app state: a script or a test
+        return False
+
+
+def reindex_notebook() -> None:
+    """The durable re-index (Brief 9, `jobstore.HANDLERS["reindex"]`): the
+    app's notebook and embedder, looked up when it runs. A row resumed at
+    launch has no registry entry yet, so it makes one for the panel."""
+    from memorymap.core import deps
+
+    global _reindex_job
+    with _lock:
+        if _reindex_job is None or _reindex_job.status != "running":
+            _reindex_job = Job(kind="reindex")
+        job = _reindex_job
+    _run_reindex(deps.get_db(), deps.get_embeddings(), job)
 
 
 def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
@@ -1010,10 +1044,43 @@ def start_pull(client: OllamaClient, name: str) -> bool:
             return False
         job = Job(kind="pull", name=name)
         _pull_jobs[name] = job
-    threading.Thread(
-        target=_run_pull, args=(client, name, job), name=f"pull-{name}", daemon=True
-    ).start()
+    #: On the pool's `download` lane, not a thread of its own (Brief 9).
+    #: Durable when the client is the app's own: a launch after a quit
+    #: mid-download pulls again, and Ollama keeps the layers it has, so the
+    #: second pull carries on rather than starting over.
+    from memorymap.core import jobs
+
+    if _is_app_client(client):
+        queued = jobs.enqueue("pull", pull_model, name, name=name, dedupe_key=("pull", name))
+    else:
+        queued = jobs.enqueue("pull", _run_pull, client, name, job, name=name)
+    if not queued:
+        with _lock:
+            job.status = "error"
+            job.error = "The app is shutting down."
+        return False
     return True
+
+
+def _is_app_client(client: object) -> bool:
+    from memorymap.core import deps
+
+    try:
+        return client is deps.get_ollama()
+    except Exception:  # noqa: BLE001  # no app state: a script or a test
+        return False
+
+
+def pull_model(name: str) -> None:
+    """The durable pull (Brief 9, `jobstore.HANDLERS["pull"]`): the app's
+    own model client, looked up when it runs."""
+    from memorymap.core import deps
+
+    with _lock:
+        job = _pull_jobs.get(name)
+        if job is None or job.status != "running":
+            job = _pull_jobs[name] = Job(kind="pull", name=name)
+    _run_pull(deps.get_ollama(), name, job)
 
 
 def _run_pull(client: OllamaClient, name: str, job: Job) -> None:

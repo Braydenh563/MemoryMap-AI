@@ -51,7 +51,7 @@ function rememberAnnounced(ids) {
   // Bounded, and trimmed from the front: without a cap this grows forever in a
   // notebook that has been used for years.
   const kept = [...announcedReminders(), ...ids].slice(-200);
-  localStorage.setItem(ANNOUNCED_KEY, JSON.stringify(kept));
+  prefs.set(ANNOUNCED_KEY, JSON.stringify(kept));
 }
 
 // --- the notifications centre (§36E) ----------------------------------------
@@ -102,9 +102,7 @@ function recordNotification({ kind, title, detail = "", key = "", action = null,
   if (key && dismissedNotificationIds().has(id)) return null;
   //: `runId` ties a "Started:" row to its run, so the ending can replace it.
   items.push({ id, kind, title, detail, at: Date.now(), action, ...(runId ? { runId } : {}) });
-  try {
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items.slice(-MAX_NOTIFICATIONS)));
-  } catch {
+  if (!prefs.set(NOTIFICATIONS_KEY, JSON.stringify(items.slice(-MAX_NOTIFICATIONS)))) {
     return null; // storage refused: the toast still shows, the row is not kept
   }
   renderNotificationBadge();
@@ -122,11 +120,7 @@ function settleNotification(id, { key, kind, title, detail = "" }) {
   if (!row) return false;
   Object.assign(row, { id: key, kind, title, detail, at: Date.now() });
   delete row.runId;
-  try {
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items));
-  } catch {
-    return false;
-  }
+  if (!prefs.set(NOTIFICATIONS_KEY, JSON.stringify(items))) return false;
   renderNotificationBadge();
   if (!$("notif-panel")?.classList.contains("hidden")) openNotifications({ keepWatermark: true });
   return true;
@@ -184,7 +178,7 @@ function setForcedUnreadIds(ids) {
     //: storage forever keeping the badge count wrong.
     const live = new Set(storedNotifications().map((item) => item.id));
     const kept = [...ids].filter((id) => live.has(id));
-    localStorage.setItem(NOTIFICATIONS_UNREAD_KEY, JSON.stringify(kept));
+    prefs.set(NOTIFICATIONS_UNREAD_KEY, JSON.stringify(kept));
   } catch {
     /* private mode: the flag just will not be remembered */
   }
@@ -211,7 +205,7 @@ function forcedReadIds() {
 function setForcedReadIds(ids) {
   try {
     const known = new Set(storedNotifications().map((n) => n.id));
-    localStorage.setItem(NOTIFICATIONS_READ_IDS_KEY, JSON.stringify([...ids].filter((id) => known.has(id))));
+    prefs.set(NOTIFICATIONS_READ_IDS_KEY, JSON.stringify([...ids].filter((id) => known.has(id))));
   } catch {
     // Storage refused: the flag is lost, the panel is not.
   }
@@ -370,7 +364,7 @@ function closeNotifications() {
   panel.classList.add("hidden");
   // Closing the panel is reading it: everything shown is now old news,
   // except rows deliberately kept unread (the override set survives).
-  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  prefs.set(NOTIFICATIONS_READ_KEY, String(Date.now()));
   renderNotificationBadge();
 }
 
@@ -3051,8 +3045,11 @@ async function refreshBackgroundTasks() {
   renderStatusBar();
   // One fetch, not two: the panel renders from this payload rather than asking
   // again a few milliseconds later.
-  if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks(body);
-  else renderTaskHistory((body && body.history) || []);
+  //: While the panel's stream is open it paints the rows (ai-tools.js
+  //: `followTaskLines`); the poll then only keeps the bar current.
+  if (settingsModalOpen() && currentSettingsSection === "tasks") {
+    if (!taskLineStream.controller) renderTasks(body);
+  } else renderTaskHistory((body && body.history) || []);
 }
 
 // --- a background job starting and finishing, said out loud --------------------

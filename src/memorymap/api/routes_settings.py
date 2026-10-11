@@ -541,6 +541,7 @@ class PreferencesBody(BaseModel):
     #: INBOX 509: the search model loads at launch (the first note files at
     #: once) or on first use (a lighter start; the first note waits for it).
     warm_search_model_at_launch: bool | None = None
+    #: Decision 62: the search model goes after an idle hour (default on).
     battery_efficient_mode: bool | None = None
     smart_model_routing_enabled: bool | None = None
     # Asked directly: a way to quiet toasts and the notifications panel for
@@ -566,6 +567,14 @@ class PreferencesBody(BaseModel):
     # it, so every install has silently run "base" regardless of the box's
     # speed or the length of what's being dictated.
     voice_model: Literal["tiny", "base", "small", "medium"] | None = None
+    #: Brief 87 step 2: Whisper's options (ai/voice.py `options_from`).
+    voice_skip_silence: bool | None = None
+    #: "" detects the language; the codes are `voice.LANGUAGES`.
+    voice_language: Literal[
+        "", "en", "es", "fr", "de", "it", "pt", "nl", "pl", "sv", "da", "no", "fi",
+        "ru", "uk", "tr", "ar", "hi", "ja", "zh", "ko",
+    ] | None = None
+    voice_vocabulary: str | None = Field(default=None, max_length=200)
     # The user's IANA timezone, reported by the browser at startup. Anything
     # the AI reasons about in time ("in 10 minutes", "tomorrow at 9") is
     # resolved against this, because the server may be running in UTC while
@@ -831,6 +840,9 @@ def _preferences_from(config) -> dict:
         "response_mode": config.get_preference("response_mode", presets.DEFAULT_MODE),
         "disabled_tools": config.get_preference("disabled_tools", []),
         "voice_model": config.get_preference("voice_model", "base"),
+        "voice_skip_silence": config.get_preference("voice_skip_silence", True),
+        "voice_language": config.get_preference("voice_language", ""),
+        "voice_vocabulary": config.get_preference("voice_vocabulary", ""),
         "saved_searches": config.get_preference("saved_searches", []),
         "saved_finds": config.get_preference("saved_finds", []),
         # Echoed back so the browser can tell whether the zone it just

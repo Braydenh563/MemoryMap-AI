@@ -83,7 +83,18 @@ def _cpu_width() -> int:
 #: `notify` holds the desktop reminder notifier's loop (`core/reminder_notifier.py`),
 #: which runs for the life of the process: a lane of its own, so it never
 #: takes a worker a reading or a filing is waiting for.
-LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1, "batch": 1, "install": 1, "notify": 1}
+#:
+#: `download` holds model pulls (Brief 9): network-bound, minutes long, two
+#: at once so a second model is not stuck behind a large first one, and no
+#: more, because a third only splits the same connection three ways.
+#:
+#: `agent` holds the autonomous pass (Brief 9): it can run for many minutes
+#: of model calls, and on `batch` a re-index someone asked for would wait
+#: behind a pass nobody is watching. One wide: two passes would edit the
+#: same notes.
+LANE_WIDTHS: dict[str, int] = {
+    "cpu": _cpu_width(), "model": 1, "batch": 1, "install": 1, "notify": 1, "download": 2, "agent": 1,
+}
 
 #: The lane each job kind belongs on. A kind missing from here lands on
 #: `DEFAULT_LANE` with a debug line rather than raising.
@@ -128,6 +139,9 @@ KIND_LANES: dict[str, str] = {
     "redate": "batch",
     #: The reminder notifier's loop (`core/reminder_notifier.py`).
     "reminder-notifier": "notify",
+    #: Brief 9: a model download, and an autonomous pass (see the lanes).
+    "pull": "download",
+    "autonomous": "agent",
 }
 
 DEFAULT_LANE = "cpu"
@@ -147,14 +161,20 @@ PENDING_ROWS_PER_KIND = 10
 #: `extras` is quiet for another reason: `routes_tasks.collect` already draws
 #: an install as its own row, with pip's step and log, and a second generic
 #: "Background job" row for the same install would say the same thing twice.
-QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex", "extras", "embed-switch", "reminder-notifier"})
+#:
+#: `pull` and `autonomous` (Brief 9) have their own rows too
+#: (`model_manager.pull_statuses`, `autonomous.is_running`).
+QUIET_KINDS = frozenset({
+    "ledger", "maintenance", "warm", "model-info", "reindex", "extras", "embed-switch", "reminder-notifier",
+    "pull", "autonomous",
+})
 
 #: Pool kinds whose work opens its own `jobruns` run or reports its own
 #: ending (a pass, the bench, a re-index), or never ends (the reminder
 #: loop): the pool does not open a second ledger run around them.
 OWN_RUN_KINDS = frozenset({
     "pass", "maintenance", "bench", "tidy-link-reasons", "redate", "reindex", "embed-switch", "extras",
-    "reminder-notifier", "ledger",
+    "reminder-notifier", "ledger", "pull", "autonomous",
 })
 
 #: Where a pool kind's ending is recorded in `taskhistory` under another
@@ -200,6 +220,8 @@ LABELS: dict[str, str] = {
     "pass": "Running a scheduled pass",
     "tidy-link-reasons": "Naming link reasons",
     "redate": "Reading dates in notes",
+    "pull": "Downloading a model",
+    "autonomous": "Autonomous pass",
 }
 
 

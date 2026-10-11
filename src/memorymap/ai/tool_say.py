@@ -195,25 +195,32 @@ def _count(result: dict, args: dict) -> Said:
     return lead, body, _chips(("Open your notes", NOTES))
 
 
+def _filed_lead(notes: list[dict], shown: str, filed: str, tag: str) -> str:
+    """"Here are your two Work notes, newest first" (ledger row 442)."""
+    if len(notes) > 1:
+        lead = f"Here are your {shown} {filed} notes" if filed else f"Here are your {shown} notes tagged #{tag}"
+        return lead + ", newest first"
+    return f"Here is your {filed} note" if filed else f"Here is your note tagged #{tag}"
+
+
+def _category_named(notes: list[dict], filed: str) -> str:
+    """The category as the notebook spells it ("Work" for "work")."""
+    if not filed:
+        return ""
+    return next((str(n["category"]) for n in notes if str(n.get("category") or "").lower() == filed.lower()), filed)
+
+
 def _list_notes(result: dict, args: dict) -> Said:
     notes = [n for n in result.get("notes") or [] if isinstance(n, dict)]
     total = int(result.get("total_matching") or result.get("total") or len(notes))
     shown = count_noun(min(len(notes), 8), "note").split(" ", 1)[0]
-    filed = str(args.get("category") or result.get("category") or "").strip()
-    #: The category as the notebook spells it ("Work" for "work").
-    filed = next((str(n["category"]) for n in notes if str(n.get("category") or "").lower() == filed.lower() and filed), filed)
+    filed = _category_named(notes, str(args.get("category") or result.get("category") or "").strip())
     tag = str(args.get("tag") or "").strip().lstrip("#")
     if filed or tag:
-        #: "Here are your two Work notes, newest first." (ledger row 442).
-        if len(notes) > 1:
-            lead = f"Here are your {shown} {filed} notes" if filed else f"Here are your {shown} notes tagged #{tag}"
-        else:
-            lead = f"Here is your {filed} note" if filed else f"Here is your note tagged #{tag}"
-        lead += ", newest first" if len(notes) > 1 else ""
-        lead += f", of {total} in all." if total > len(notes[:8]) else "."
-        return _found_notes(lead, notes, total, "You have no notes that fit yet.")
-    lead = f"Here are your {shown} newest notes" if len(notes) > 1 else "Here is your newest note"
-    lead += f", of {total} in all." if total > len(notes[:8]) else "."
+        lead = _filed_lead(notes, shown, filed, tag)
+    else:
+        lead = f"Here are your {shown} newest notes" if len(notes) > 1 else "Here is your newest note"
+    lead += f", of {count_word_of(total)} in all." if total > len(notes[:8]) else "."
     return _found_notes(lead, notes, total, "You have no notes that fit yet.")
 
 
@@ -226,16 +233,22 @@ def _search_notes(result: dict, args: dict) -> Said:
     about = f" about “{query}”" if query else ""
     total = int(result.get("found") or len(notes))
     if result.get("search_mode") == "recent":
-        lead = f"Nothing matched “{query}”, so here are your newest notes instead." if query else "Here are your newest notes."
+        newest = f"your {count_word_of(len(notes))} newest notes" if len(notes) > 1 else "your newest note"
+        lead = f"Nothing matched “{query}”, so here are {newest} instead." if query else f"Here are {newest}."
         return _found_notes(lead, notes, total, f"I found no notes{about}.")
     return _found_notes(f"I found {count_noun(total, 'note')}{about}.", notes, total, f"I found no notes{about}. Try other words, or browse them in Notes.")
 
 
-def _get_note(result: dict, args: dict) -> Said:
-    title = _title(result.get("content"))
+def _filed_where(result: dict) -> str:
+    """" It is in Admin, tagged #health": where a note is kept."""
     filed = result.get("category")
     tags = [str(t) for t in result.get("tags") or []]
-    where = (f" It is in {filed}" if filed else "") + (f", tagged {join_items(['#' + t for t in tags])}" if tags else "")
+    return (f" It is in {filed}" if filed else "") + (f", tagged {join_items(['#' + t for t in tags])}" if tags else "")
+
+
+def _get_note(result: dict, args: dict) -> Said:
+    title = _title(result.get("content"))
+    where = _filed_where(result)
     one_line = len([ln for ln in str(result.get("content") or "").splitlines() if ln.strip()]) <= 1
     lead = ("Here is the note." if one_line else f"Here is {link(title, note_at(result.get('id')))}.") + (where + "." if where else "")
     linked = [row for row in result.get("links") or [] if isinstance(row, dict)]
@@ -334,11 +347,11 @@ def _structure(result: dict, args: dict) -> Said:
     lead = f"Of your {count_noun(notes, 'note')}, {count_word_of(connected)} {'is' if connected == 1 else 'are'} connected to others, in {count_noun(int(result.get('cluster_count') or 0), 'group')}."
     body = _table(["Notes", "Connected", "Groups", "On their own"], [[notes, connected, result.get("cluster_count") or 0, result.get("orphan_count") or 0]])
     hubs = [h for h in result.get("hubs") or [] if isinstance(h, dict)]
-    if hubs:
-        body += "\n\nMost connected:\n" + "\n".join(_note_row(h) for h in hubs[:5])
-    if lone:
-        body += "\n\nNot linked to anything yet:\n" + "\n".join(_note_row(o) for o in lone[:5])
-    return lead, body, _chips(("Open the graph", GRAPH))
+    return lead, body + _rows_under("Most connected", hubs) + _rows_under("Not linked to anything yet", lone), _chips(("Open the graph", GRAPH))
+
+
+def _rows_under(heading: str, notes: list[dict]) -> str:
+    return f"\n\n{heading}:\n" + "\n".join(_note_row(n) for n in notes[:5]) if notes else ""
 
 
 def count_word_of(n: int) -> str:
@@ -397,12 +410,14 @@ def _chat_history(result: dict, args: dict) -> Said:
     about = f" about “{args['query']}”" if args.get("query") else ""
     if not found:
         return f"No earlier chat mentions that{about and ''}." if not about else f"No earlier chat was{about}.", "", _chips(("Open Chat", CHATS))
-    rows = []
-    for c in found[:6]:
-        excerpt = next((e.get("text") for e in c.get("excerpts") or [] if isinstance(e, dict) and e.get("text")), "")
-        at = f"#/chat/{int(c['id'])}" if _number(c.get("id")) else CHATS
-        rows.append(f"- {link(c.get('title') or 'A chat', at)}" + (f": {cut_title(str(excerpt), 90)}" if excerpt else ""))
+    rows = [_chat_row(c) for c in found[:6]]
     return f"I found {count_noun(len(found), 'earlier chat')}{about}.", "\n".join(rows), ""
+
+
+def _chat_row(chat: dict) -> str:
+    excerpt = next((e.get("text") for e in chat.get("excerpts") or [] if isinstance(e, dict) and e.get("text")), "")
+    at = f"#/chat/{int(chat['id'])}" if _number(chat.get("id")) else CHATS
+    return f"- {link(chat.get('title') or 'A chat', at)}" + (f": {cut_title(str(excerpt), 90)}" if excerpt else "")
 
 
 def _files(result: dict, args: dict) -> Said:

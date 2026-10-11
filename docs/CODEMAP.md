@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5524, frontend ids 2381, CSS sections 488, backend routes 554, backend modules 4907, test files 1089, tests 9936, plan headings 995.
+Counts: frontend functions 5524, frontend ids 2381, CSS sections 488, backend routes 554, backend modules 4912, test files 1089, tests 9939, plan headings 995.
 
 ## Frontend functions (5524)
 
@@ -9712,7 +9712,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4907)
+## Backend modules (4912)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -11682,89 +11682,94 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 |---|---|
 | `for_tools` | src/memorymap/ai/tool_fallback.py:27 |
 
-### src/memorymap/ai/tool_say.py (80)
+### src/memorymap/ai/tool_say.py (85)
 
 | Name | File:line |
 |---|---|
-| `_ask` | src/memorymap/ai/tool_say.py:689 |
-| `_audit` | src/memorymap/ai/tool_say.py:565 |
-| `_board_card` | src/memorymap/ai/tool_say.py:616 |
-| `_board_write` | src/memorymap/ai/tool_say.py:626 |
+| `_ask` | src/memorymap/ai/tool_say.py:704 |
+| `_audit` | src/memorymap/ai/tool_say.py:580 |
+| `_board_card` | src/memorymap/ai/tool_say.py:631 |
+| `_board_write` | src/memorymap/ai/tool_say.py:641 |
 | `_calculate` | src/memorymap/ai/tool_say.py:175 |
-| `_category` | src/memorymap/ai/tool_say.py:572 |
-| `_chat_history` | src/memorymap/ai/tool_say.py:395 |
-| `_check` | src/memorymap/ai/tool_say.py:479 |
+| `_category` | src/memorymap/ai/tool_say.py:587 |
+| `_category_named` | src/memorymap/ai/tool_say.py:206 |
+| `_chat_history` | src/memorymap/ai/tool_say.py:408 |
+| `_chat_row` | src/memorymap/ai/tool_say.py:417 |
+| `_check` | src/memorymap/ai/tool_say.py:494 |
 | `_chips` | src/memorymap/ai/tool_say.py:108 |
-| `_compress` | src/memorymap/ai/tool_say.py:704 |
-| `_contradictions` | src/memorymap/ai/tool_say.py:277 |
+| `_compress` | src/memorymap/ai/tool_say.py:719 |
+| `_contradictions` | src/memorymap/ai/tool_say.py:290 |
 | `_count` | src/memorymap/ai/tool_say.py:181 |
-| `_created_document` | src/memorymap/ai/tool_say.py:591 |
-| `_created_note` | src/memorymap/ai/tool_say.py:510 |
-| `_deleted_document` | src/memorymap/ai/tool_say.py:596 |
-| `_diagram` | src/memorymap/ai/tool_say.py:634 |
-| `_documents` | src/memorymap/ai/tool_say.py:348 |
-| `_edited_note` | src/memorymap/ai/tool_say.py:518 |
-| `_error` | src/memorymap/ai/tool_say.py:758 |
-| `_files` | src/memorymap/ai/tool_say.py:408 |
+| `_created_document` | src/memorymap/ai/tool_say.py:606 |
+| `_created_note` | src/memorymap/ai/tool_say.py:525 |
+| `_deleted_document` | src/memorymap/ai/tool_say.py:611 |
+| `_diagram` | src/memorymap/ai/tool_say.py:649 |
+| `_documents` | src/memorymap/ai/tool_say.py:361 |
+| `_edited_note` | src/memorymap/ai/tool_say.py:533 |
+| `_error` | src/memorymap/ai/tool_say.py:773 |
+| `_filed_lead` | src/memorymap/ai/tool_say.py:198 |
+| `_filed_where` | src/memorymap/ai/tool_say.py:242 |
+| `_files` | src/memorymap/ai/tool_say.py:423 |
 | `_found_notes` | src/memorymap/ai/tool_say.py:154 |
-| `_get_document` | src/memorymap/ai/tool_say.py:361 |
-| `_get_note` | src/memorymap/ai/tool_say.py:234 |
+| `_get_document` | src/memorymap/ai/tool_say.py:374 |
+| `_get_note` | src/memorymap/ai/tool_say.py:249 |
 | `_gist` | src/memorymap/ai/tool_say.py:77 |
-| `_help` | src/memorymap/ai/tool_say.py:384 |
-| `_library` | src/memorymap/ai/tool_say.py:468 |
-| `_linked` | src/memorymap/ai/tool_say.py:555 |
-| `_list_notes` | src/memorymap/ai/tool_say.py:198 |
-| `_lower_first` | src/memorymap/ai/tool_say.py:652 |
-| `_map_link` | src/memorymap/ai/tool_say.py:610 |
-| `_map_node` | src/memorymap/ai/tool_say.py:605 |
-| `_mindmap` | src/memorymap/ai/tool_say.py:460 |
-| `_mindmap_made` | src/memorymap/ai/tool_say.py:600 |
-| `_named_counts` | src/memorymap/ai/tool_say.py:306 |
-| `_note_deleted` | src/memorymap/ai/tool_say.py:662 |
-| `_note_restored` | src/memorymap/ai/tool_say.py:666 |
+| `_help` | src/memorymap/ai/tool_say.py:397 |
+| `_library` | src/memorymap/ai/tool_say.py:483 |
+| `_linked` | src/memorymap/ai/tool_say.py:570 |
+| `_list_notes` | src/memorymap/ai/tool_say.py:213 |
+| `_lower_first` | src/memorymap/ai/tool_say.py:667 |
+| `_map_link` | src/memorymap/ai/tool_say.py:625 |
+| `_map_node` | src/memorymap/ai/tool_say.py:620 |
+| `_mindmap` | src/memorymap/ai/tool_say.py:475 |
+| `_mindmap_made` | src/memorymap/ai/tool_say.py:615 |
+| `_named_counts` | src/memorymap/ai/tool_say.py:319 |
+| `_note_deleted` | src/memorymap/ai/tool_say.py:677 |
+| `_note_restored` | src/memorymap/ai/tool_say.py:681 |
 | `_note_row` | src/memorymap/ai/tool_say.py:86 |
 | `_number` | src/memorymap/ai/tool_say.py:60 |
-| `_overview` | src/memorymap/ai/tool_say.py:320 |
-| `_path` | src/memorymap/ai/tool_say.py:267 |
-| `_pinned` | src/memorymap/ai/tool_say.py:546 |
-| `_placed` | src/memorymap/ai/tool_say.py:642 |
+| `_overview` | src/memorymap/ai/tool_say.py:333 |
+| `_path` | src/memorymap/ai/tool_say.py:280 |
+| `_pinned` | src/memorymap/ai/tool_say.py:561 |
+| `_placed` | src/memorymap/ai/tool_say.py:657 |
 | `_plain` | src/memorymap/ai/tool_say.py:135 |
-| `_plan` | src/memorymap/ai/tool_say.py:694 |
-| `_preference` | src/memorymap/ai/tool_say.py:671 |
-| `_propose` | src/memorymap/ai/tool_say.py:486 |
+| `_plan` | src/memorymap/ai/tool_say.py:709 |
+| `_preference` | src/memorymap/ai/tool_say.py:686 |
+| `_propose` | src/memorymap/ai/tool_say.py:501 |
 | `_quoted` | src/memorymap/ai/tool_say.py:112 |
-| `_read_file` | src/memorymap/ai/tool_say.py:421 |
-| `_read_text` | src/memorymap/ai/tool_say.py:429 |
-| `_read_url` | src/memorymap/ai/tool_say.py:500 |
-| `_related` | src/memorymap/ai/tool_say.py:257 |
-| `_reminder_done` | src/memorymap/ai/tool_say.py:656 |
-| `_reminder_set` | src/memorymap/ai/tool_say.py:647 |
-| `_reminders` | src/memorymap/ai/tool_say.py:368 |
-| `_run_skill` | src/memorymap/ai/tool_say.py:700 |
-| `_screen` | src/memorymap/ai/tool_say.py:751 |
-| `_search_board` | src/memorymap/ai/tool_say.py:450 |
-| `_search_notes` | src/memorymap/ai/tool_say.py:220 |
+| `_read_file` | src/memorymap/ai/tool_say.py:436 |
+| `_read_text` | src/memorymap/ai/tool_say.py:444 |
+| `_read_url` | src/memorymap/ai/tool_say.py:515 |
+| `_related` | src/memorymap/ai/tool_say.py:270 |
+| `_reminder_done` | src/memorymap/ai/tool_say.py:671 |
+| `_reminder_set` | src/memorymap/ai/tool_say.py:662 |
+| `_reminders` | src/memorymap/ai/tool_say.py:381 |
+| `_rows_under` | src/memorymap/ai/tool_say.py:353 |
+| `_run_skill` | src/memorymap/ai/tool_say.py:715 |
+| `_screen` | src/memorymap/ai/tool_say.py:766 |
+| `_search_board` | src/memorymap/ai/tool_say.py:465 |
+| `_search_notes` | src/memorymap/ai/tool_say.py:227 |
 | `_sentence` | src/memorymap/ai/tool_say.py:143 |
-| `_similar` | src/memorymap/ai/tool_say.py:248 |
-| `_skill_deleted` | src/memorymap/ai/tool_say.py:682 |
-| `_skill_saved` | src/memorymap/ai/tool_say.py:676 |
-| `_skills` | src/memorymap/ai/tool_say.py:376 |
-| `_structure` | src/memorymap/ai/tool_say.py:331 |
-| `_summary` | src/memorymap/ai/tool_say.py:291 |
+| `_similar` | src/memorymap/ai/tool_say.py:261 |
+| `_skill_deleted` | src/memorymap/ai/tool_say.py:697 |
+| `_skill_saved` | src/memorymap/ai/tool_say.py:691 |
+| `_skills` | src/memorymap/ai/tool_say.py:389 |
+| `_structure` | src/memorymap/ai/tool_say.py:344 |
+| `_summary` | src/memorymap/ai/tool_say.py:304 |
 | `_table` | src/memorymap/ai/tool_say.py:99 |
-| `_tag` | src/memorymap/ai/tool_say.py:584 |
-| `_tagged` | src/memorymap/ai/tool_say.py:533 |
+| `_tag` | src/memorymap/ai/tool_say.py:599 |
+| `_tagged` | src/memorymap/ai/tool_say.py:548 |
 | `_time` | src/memorymap/ai/tool_say.py:169 |
 | `_title` | src/memorymap/ai/tool_say.py:70 |
-| `_web` | src/memorymap/ai/tool_say.py:491 |
+| `_web` | src/memorymap/ai/tool_say.py:506 |
 | `_when` | src/memorymap/ai/tool_say.py:125 |
-| `_whiteboard` | src/memorymap/ai/tool_say.py:437 |
+| `_whiteboard` | src/memorymap/ai/tool_say.py:452 |
 | `board_at` | src/memorymap/ai/tool_say.py:52 |
-| `count_word_of` | src/memorymap/ai/tool_say.py:344 |
+| `count_word_of` | src/memorymap/ai/tool_say.py:357 |
 | `document_at` | src/memorymap/ai/tool_say.py:48 |
 | `link` | src/memorymap/ai/tool_say.py:64 |
 | `note_at` | src/memorymap/ai/tool_say.py:44 |
-| `say` | src/memorymap/ai/tool_say.py:781 |
+| `say` | src/memorymap/ai/tool_say.py:796 |
 | `settings_at` | src/memorymap/ai/tool_say.py:56 |
 
 ### src/memorymap/ai/tools/__init__.py (91)
@@ -15978,7 +15983,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9936)
+## Tests (9939)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16951,7 +16956,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_tool_catalog_groups.py | 3 |
 | tests/test_tool_contracts.py | 14 |
 | tests/test_tool_result_summary.py | 6 |
-| tests/test_tool_say.py | 6 |
+| tests/test_tool_say.py | 9 |
 | tests/test_tool_sources.py | 9 |
 | tests/test_tool_switch_save.py | 3 |
 | tests/test_tool_verifiers.py | 8 |

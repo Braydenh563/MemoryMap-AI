@@ -52,7 +52,7 @@ def test_the_test_count_claim_is_not_stale_by_an_order() -> None:
     stale. `approx` counts `def test_` lines rather than collected cases,
     so it undercounts parametrised tests; the claim sits at or below it.
     """
-    claim = re.search(r"(\d,\d00)\+ tests", README)
+    claim = re.search(r"(\d{1,2},\d00)\+ tests", README)
     assert claim, "README should state the test count as N,N00+ tests"
     files = list((ROOT / "tests").glob("test_*.py"))
     approx = sum(len(re.findall(r"^\s*def test_", f.read_text(encoding='utf-8'), re.M)) for f in files)

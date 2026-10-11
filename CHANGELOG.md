@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- First run: the welcome, the tour, the recovery offer, the console question and the updates question take turns in a fixed order, one at a time, after any toasts have gone.
 - Recordings: an empty Recordings page shows an icon, a title, a line and a Record button.
 - Recordings: the waveform track has visibly rounded corners and its own tint, with the bars kept inside them.
 - Recordings: the playback speed menu is the same height as the menu button beside it.

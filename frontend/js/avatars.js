@@ -9296,6 +9296,14 @@ function nameMarkBuddyHint(fromAppearance = false) {
   if (nameMarkBuddySeed() || typeof toastAction !== "function") return;
   const lock = document.getElementById("lock-overlay");
   if (lock && !lock.classList.contains("hidden")) return;
+  //: Not during the welcome or the tour (first-run sweep, 2026-10-11): the
+  //: tour's Appearance step opens that pane, and the offer drew over Settings
+  //: and beside the tour's card, a second voice in the middle of the first.
+  //: Left unmarked, so it is offered the next time instead.
+  for (const id of ["tour-card", "onboarding-overlay"]) {
+    const surface = document.getElementById(id);
+    if (surface && !surface.classList.contains("hidden")) return;
+  }
   try {
     localStorage.setItem("nm-buddy-hint", "done");
   } catch (e) {

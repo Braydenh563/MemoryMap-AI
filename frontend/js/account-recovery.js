@@ -288,7 +288,7 @@ async function showRecoveryKey(key, { title = "Your recovery key", lead = RECOVE
 //: Measured before: this dialog drew over the welcome card, 478x172 px.
 async function offerRecoveryKey(password) {
   await ensureModule("onboarding");
-  return firstRunTurn(() => showRecoveryOffer(password));
+  return firstRunTurn(() => showRecoveryOffer(password), "recovery");
 }
 
 async function showRecoveryOffer(password) {

@@ -2,60 +2,61 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5866, frontend ids 2476, CSS sections 494, backend routes 602, backend modules 5270, test files 1202, tests 10741, plan headings 956.
+Counts: frontend functions 5866, frontend ids 2476, CSS sections 494, backend routes 602, backend modules 5275, test files 1203, tests 10749, plan headings 956.
 
 ## Frontend functions (5866)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
-### frontend/js/app.js (45)
+### frontend/js/app.js (46)
 
 | Name | File:line |
 |---|---|
 | `$` | frontend/js/app.js:166 |
-| `api` | frontend/js/app.js:396 |
-| `apiJson` | frontend/js/app.js:638 |
-| `apiPagedList` | frontend/js/app.js:573 |
-| `askPasswordPrompt` | frontend/js/app.js:756 |
+| `activeSpaceId` | frontend/js/app.js:400 |
+| `api` | frontend/js/app.js:404 |
+| `apiJson` | frontend/js/app.js:646 |
+| `apiPagedList` | frontend/js/app.js:581 |
+| `askPasswordPrompt` | frontend/js/app.js:764 |
 | `authToken` | frontend/js/app.js:172 |
-| `chip` | frontend/js/app.js:1316 |
-| `chipWords` | frontend/js/app.js:1311 |
-| `clearApiCache` | frontend/js/app.js:634 |
-| `confirmDialog` | frontend/js/app.js:1404 |
-| `confirmVerb` | frontend/js/app.js:1397 |
-| `ensureModule` | frontend/js/app.js:1975 |
-| `enterWithoutPassword` | frontend/js/app.js:713 |
+| `chip` | frontend/js/app.js:1324 |
+| `chipWords` | frontend/js/app.js:1319 |
+| `clearApiCache` | frontend/js/app.js:642 |
+| `confirmDialog` | frontend/js/app.js:1412 |
+| `confirmVerb` | frontend/js/app.js:1405 |
+| `ensureModule` | frontend/js/app.js:1983 |
+| `enterWithoutPassword` | frontend/js/app.js:721 |
 | `hide` | frontend/js/app.js:168 |
-| `hideBootSplash` | frontend/js/app.js:916 |
-| `initAuth` | frontend/js/app.js:929 |
-| `kickBackgroundTaskPoll` | frontend/js/app.js:603 |
-| `lazyAssetStamp` | frontend/js/app.js:1914 |
-| `lazyScript` | frontend/js/app.js:1955 |
-| `lockNow` | frontend/js/app.js:890 |
+| `hideBootSplash` | frontend/js/app.js:924 |
+| `initAuth` | frontend/js/app.js:937 |
+| `kickBackgroundTaskPoll` | frontend/js/app.js:611 |
+| `lazyAssetStamp` | frontend/js/app.js:1922 |
+| `lazyScript` | frontend/js/app.js:1963 |
+| `lockNow` | frontend/js/app.js:898 |
 | `mediaSrc` | frontend/js/app.js:255 |
-| `mountNoteSurfaceNow` | frontend/js/app.js:2010 |
-| `onDomReady` | frontend/js/app.js:1946 |
-| `promptDialog` | frontend/js/app.js:1514 |
-| `purgeLockedContent` | frontend/js/app.js:876 |
+| `mountNoteSurfaceNow` | frontend/js/app.js:2018 |
+| `onDomReady` | frontend/js/app.js:1954 |
+| `promptDialog` | frontend/js/app.js:1522 |
+| `purgeLockedContent` | frontend/js/app.js:884 |
 | `recordBrowserLog` | frontend/js/app.js:23 |
-| `refreshActiveTab` | frontend/js/app.js:1161 |
+| `refreshActiveTab` | frontend/js/app.js:1169 |
 | `refuseStagedUrls` | frontend/js/app.js:232 |
 | `replaceMissingMedia` | frontend/js/app.js:303 |
-| `resumeWithoutPassword` | frontend/js/app.js:723 |
-| `setBusy` | frontend/js/app.js:1356 |
-| `setLabel` | frontend/js/app.js:1230 |
-| `settingsModalOpen` | frontend/js/app.js:1304 |
-| `settleLockPrompt` | frontend/js/app.js:734 |
+| `resumeWithoutPassword` | frontend/js/app.js:731 |
+| `setBusy` | frontend/js/app.js:1364 |
+| `setLabel` | frontend/js/app.js:1238 |
+| `settingsModalOpen` | frontend/js/app.js:1312 |
+| `settleLockPrompt` | frontend/js/app.js:742 |
 | `show` | frontend/js/app.js:167 |
-| `showLockScreen` | frontend/js/app.js:797 |
-| `smallButton` | frontend/js/app.js:1702 |
-| `spinnerEl` | frontend/js/app.js:1347 |
-| `stagePrimary` | frontend/js/app.js:1340 |
+| `showLockScreen` | frontend/js/app.js:805 |
+| `smallButton` | frontend/js/app.js:1710 |
+| `spinnerEl` | frontend/js/app.js:1355 |
+| `stagePrimary` | frontend/js/app.js:1348 |
 | `stagedImageByUrl` | frontend/js/app.js:200 |
-| `startApp` | frontend/js/app.js:976 |
-| `startWithoutPassword` | frontend/js/app.js:698 |
-| `whenScriptsLoaded` | frontend/js/app.js:1895 |
-| `wireBackdropClose` | frontend/js/app.js:1690 |
+| `startApp` | frontend/js/app.js:984 |
+| `startWithoutPassword` | frontend/js/app.js:706 |
+| `whenScriptsLoaded` | frontend/js/app.js:1903 |
+| `wireBackdropClose` | frontend/js/app.js:1698 |
 | `zoomWheelDelta` | frontend/js/app.js:249 |
 
 ### frontend/js/prefs.js (5)
@@ -1360,37 +1361,36 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `textCounts` | frontend/js/settings-wiring.js:1681 |
 | `uploadStagedFiles` | frontend/js/settings-wiring.js:2047 |
 
-### frontend/js/spaces-find.js (27)
+### frontend/js/spaces-find.js (26)
 
 | Name | File:line |
 |---|---|
-| `activeSpaceId` | frontend/js/spaces-find.js:206 |
 | `applyStatusBarSlots` | frontend/js/spaces-find.js:25 |
 | `applyStatusClock` | frontend/js/spaces-find.js:49 |
-| `authHeaders` | frontend/js/spaces-find.js:216 |
-| `closeSpaceMenu` | frontend/js/spaces-find.js:427 |
+| `authHeaders` | frontend/js/spaces-find.js:212 |
+| `closeSpaceMenu` | frontend/js/spaces-find.js:423 |
 | `closeStatusClockDetail` | frontend/js/spaces-find.js:135 |
-| `customTemplates` | frontend/js/spaces-find.js:681 |
+| `customTemplates` | frontend/js/spaces-find.js:677 |
 | `hiddenStatusSlots` | frontend/js/spaces-find.js:14 |
-| `initSpaceSwitcher` | frontend/js/spaces-find.js:525 |
-| `loadSpaces` | frontend/js/spaces-find.js:483 |
-| `openSpaceCreate` | frontend/js/spaces-find.js:436 |
-| `openSpaceDelete` | frontend/js/spaces-find.js:456 |
-| `openSpaceEdit` | frontend/js/spaces-find.js:445 |
+| `initSpaceSwitcher` | frontend/js/spaces-find.js:521 |
+| `loadSpaces` | frontend/js/spaces-find.js:479 |
+| `openSpaceCreate` | frontend/js/spaces-find.js:432 |
+| `openSpaceDelete` | frontend/js/spaces-find.js:452 |
+| `openSpaceEdit` | frontend/js/spaces-find.js:441 |
 | `openStatusClockDetail` | frontend/js/spaces-find.js:106 |
 | `paintStatusClock` | frontend/js/spaces-find.js:40 |
 | `paintStatusClockDetail` | frontend/js/spaces-find.js:78 |
-| `renderSpaceMenu` | frontend/js/spaces-find.js:367 |
-| `renderTemplateSettings` | frontend/js/spaces-find.js:770 |
-| `saveTemplateList` | frontend/js/spaces-find.js:715 |
-| `setActiveSpace` | frontend/js/spaces-find.js:223 |
-| `spaceIconPicker` | frontend/js/spaces-find.js:232 |
-| `spaceMenuOption` | frontend/js/spaces-find.js:254 |
-| `startEditingTemplate` | frontend/js/spaces-find.js:685 |
-| `stopEditingTemplate` | frontend/js/spaces-find.js:704 |
-| `templateRow` | frontend/js/spaces-find.js:729 |
-| `toggleSpaceHidden` | frontend/js/spaces-find.js:334 |
-| `updateCaptureSpaceLabel` | frontend/js/spaces-find.js:512 |
+| `renderSpaceMenu` | frontend/js/spaces-find.js:363 |
+| `renderTemplateSettings` | frontend/js/spaces-find.js:766 |
+| `saveTemplateList` | frontend/js/spaces-find.js:711 |
+| `setActiveSpace` | frontend/js/spaces-find.js:219 |
+| `spaceIconPicker` | frontend/js/spaces-find.js:228 |
+| `spaceMenuOption` | frontend/js/spaces-find.js:250 |
+| `startEditingTemplate` | frontend/js/spaces-find.js:681 |
+| `stopEditingTemplate` | frontend/js/spaces-find.js:700 |
+| `templateRow` | frontend/js/spaces-find.js:725 |
+| `toggleSpaceHidden` | frontend/js/spaces-find.js:330 |
+| `updateCaptureSpaceLabel` | frontend/js/spaces-find.js:508 |
 
 ### frontend/js/agent-activity.js (21)
 
@@ -4924,47 +4924,47 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `deleteProfile` | frontend/js/settings-controls.js:1830 |
 | `exportFullBackup` | frontend/js/settings-controls.js:1818 |
 | `findDuplicates` | frontend/js/settings-controls.js:1584 |
-| `lanAllowHere` | frontend/js/settings-controls.js:2391 |
-| `lanCall` | frontend/js/settings-controls.js:2249 |
-| `lanEmptyRow` | frontend/js/settings-controls.js:2242 |
+| `lanAllowHere` | frontend/js/settings-controls.js:2400 |
+| `lanCall` | frontend/js/settings-controls.js:2253 |
+| `lanEmptyRow` | frontend/js/settings-controls.js:2246 |
 | `lanListRow` | frontend/js/settings-controls.js:2228 |
-| `lanNetworkRows` | frontend/js/settings-controls.js:2307 |
+| `lanNetworkRows` | frontend/js/settings-controls.js:2311 |
 | `lanSwitch` | frontend/js/settings-controls.js:78 |
-| `lanTrustNetwork` | frontend/js/settings-controls.js:2339 |
-| `maintenanceDoctorRow` | frontend/js/settings-controls.js:2639 |
-| `maintenanceSay` | frontend/js/settings-controls.js:2615 |
-| `makeMaintenanceShortcut` | frontend/js/settings-controls.js:2712 |
+| `lanTrustNetwork` | frontend/js/settings-controls.js:2348 |
+| `maintenanceDoctorRow` | frontend/js/settings-controls.js:2648 |
+| `maintenanceSay` | frontend/js/settings-controls.js:2624 |
+| `makeMaintenanceShortcut` | frontend/js/settings-controls.js:2721 |
 | `mergeDuplicateGroup` | frontend/js/settings-controls.js:1720 |
 | `mergeNamedPrompts` | frontend/js/settings-controls.js:1843 |
-| `openMaintenanceFolder` | frontend/js/settings-controls.js:2703 |
-| `openUninstallSteps` | frontend/js/settings-controls.js:2723 |
-| `pickJsonFile` | frontend/js/settings-controls.js:2422 |
+| `openMaintenanceFolder` | frontend/js/settings-controls.js:2712 |
+| `openUninstallSteps` | frontend/js/settings-controls.js:2732 |
+| `pickJsonFile` | frontend/js/settings-controls.js:2431 |
 | `refreshSearxngHost` | frontend/js/settings-controls.js:1051 |
 | `renderDuplicateGroups` | frontend/js/settings-controls.js:1662 |
-| `renderLanAccess` | frontend/js/settings-controls.js:2412 |
+| `renderLanAccess` | frontend/js/settings-controls.js:2421 |
 | `renderLanAddresses` | frontend/js/settings-controls.js:2162 |
 | `renderLanFirewall` | frontend/js/settings-controls.js:2210 |
 | `renderLanState` | frontend/js/settings-controls.js:2076 |
-| `renderLanTrust` | frontend/js/settings-controls.js:2258 |
-| `renderMaintenance` | frontend/js/settings-controls.js:2619 |
+| `renderLanTrust` | frontend/js/settings-controls.js:2262 |
+| `renderMaintenance` | frontend/js/settings-controls.js:2628 |
 | `renderMcpSnippet` | frontend/js/settings-controls.js:2052 |
-| `renderMemorySettings` | frontend/js/settings-controls.js:2470 |
+| `renderMemorySettings` | frontend/js/settings-controls.js:2479 |
 | `renderStatusBarSettings` | frontend/js/settings-controls.js:1996 |
 | `resetAllFeatureModels` | frontend/js/settings-controls.js:1334 |
 | `restartMemoryMap` | frontend/js/settings-controls.js:1535 |
 | `restoreFullBackup` | frontend/js/settings-controls.js:1781 |
 | `runEmbeddingFallback` | frontend/js/settings-controls.js:1270 |
-| `runMaintenanceDoctor` | frontend/js/settings-controls.js:2665 |
+| `runMaintenanceDoctor` | frontend/js/settings-controls.js:2674 |
 | `saveExportSaveDir` | frontend/js/settings-controls.js:1609 |
 | `saveModelContextWindow` | frontend/js/settings-controls.js:1204 |
 | `saveRunBudget` | frontend/js/settings-controls.js:1465 |
 | `saveWebSearchSettings` | frontend/js/settings-controls.js:1502 |
-| `setLanOption` | frontend/js/settings-controls.js:2362 |
-| `setMaintenanceReinstall` | frontend/js/settings-controls.js:2690 |
+| `setLanOption` | frontend/js/settings-controls.js:2371 |
+| `setMaintenanceReinstall` | frontend/js/settings-controls.js:2699 |
 | `showLanQr` | frontend/js/settings-controls.js:2129 |
 | `showVoiceSample` | frontend/js/settings-controls.js:529 |
-| `textToInputs` | frontend/js/settings-controls.js:2444 |
-| `textToSteps` | frontend/js/settings-controls.js:2437 |
+| `textToInputs` | frontend/js/settings-controls.js:2453 |
+| `textToSteps` | frontend/js/settings-controls.js:2446 |
 | `waitForRestart` | frontend/js/settings-controls.js:1561 |
 
 ### frontend/js/settings-data.js (49)
@@ -9621,7 +9621,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/graph-lazy.css | 164 |
 | frontend/css/help-chat-lazy.css | 32 |
 | frontend/css/icon-picker.css | 101 |
-| frontend/css/lan-lazy.css | 123 |
+| frontend/css/lan-lazy.css | 131 |
 | frontend/css/library-lazy.css | 6068 |
 | frontend/css/manual-lazy.css | 139 |
 | frontend/css/meetings-lazy.css | 497 |
@@ -9676,7 +9676,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |  | POST | `create_type` | src/memorymap/api/routes_relations.py:76 |
 |  | POST | `start` | src/memorymap/api/routes_bench.py:200 |
 | `/` | GET | `get_whiteboard_state` | src/memorymap/api/routes_whiteboard.py:927 |
-| `/account` | GET | `account` | src/memorymap/api/routes_auth.py:1372 |
+| `/account` | GET | `account` | src/memorymap/api/routes_auth.py:1373 |
 | `/activity` | GET | `list_activity` | src/memorymap/api/routes_tasks.py:919 |
 | `/activity/{job_id:path}/stop` | POST | `stop_activity` | src/memorymap/api/routes_tasks.py:928 |
 | `/all` | GET | `ranked` | src/memorymap/api/routes_resurface.py:119 |
@@ -9732,7 +9732,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/bulk` | POST | `bulk_action` | src/memorymap/api/routes_learned.py:282 |
 | `/bulk` | POST | `bulk_edit_tags` | src/memorymap/api/routes_tags.py:104 |
 | `/capabilities` | GET | `capabilities` | src/memorymap/api/routes_capabilities.py:77 |
-| `/change-password` | POST | `change_password` | src/memorymap/api/routes_auth.py:1404 |
+| `/change-password` | POST | `change_password` | src/memorymap/api/routes_auth.py:1405 |
 | `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1465 |
 | `/changes` | GET | `entry_changes` | src/memorymap/api/routes_entries.py:2502 |
 | `/charts/question` | POST | `chart_for_question` | src/memorymap/api/routes_vision.py:390 |
@@ -9881,20 +9881,20 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/jobs/passes/{kind}/run` | POST | `run_pass_now` | src/memorymap/api/routes_tasks.py:546 |
 | `/jobs/stream` | GET | `jobs_stream` | src/memorymap/api/routes_tasks.py:590 |
 | `/jobs/{job_id}/cancel` | POST | `cancel_job` | src/memorymap/api/routes_tasks.py:568 |
-| `/lan-access` | GET | `lan_access` | src/memorymap/api/routes_auth.py:1029 |
-| `/lan-access` | POST | `set_lan_access` | src/memorymap/api/routes_auth.py:1266 |
-| `/lan-certificate` | POST | `regenerate_lan_certificate` | src/memorymap/api/routes_auth.py:1056 |
-| `/lan-certificate.pem` | GET | `download_lan_certificate` | src/memorymap/api/routes_auth.py:1035 |
-| `/lan-devices/{device_id}` | DELETE | `forget_device` | src/memorymap/api/routes_auth.py:1217 |
-| `/lan-devices/{device_id}/{verdict}` | POST | `answer_device` | src/memorymap/api/routes_auth.py:1196 |
-| `/lan-networks/allow` | POST | `allow_this_network` | src/memorymap/api/routes_auth.py:1107 |
-| `/lan-networks/{key}` | DELETE | `forget_network` | src/memorymap/api/routes_auth.py:1127 |
-| `/lan-networks/{key}/trust` | POST | `trust_network` | src/memorymap/api/routes_auth.py:1138 |
-| `/lan-networks/{key}/untrust` | POST | `untrust_network` | src/memorymap/api/routes_auth.py:1157 |
-| `/lan-notice/dismiss` | POST | `dismiss_lan_notice` | src/memorymap/api/routes_auth.py:1167 |
-| `/lan-options` | POST | `set_lan_option` | src/memorymap/api/routes_auth.py:1175 |
+| `/lan-access` | GET | `lan_access` | src/memorymap/api/routes_auth.py:1030 |
+| `/lan-access` | POST | `set_lan_access` | src/memorymap/api/routes_auth.py:1267 |
+| `/lan-certificate` | POST | `regenerate_lan_certificate` | src/memorymap/api/routes_auth.py:1057 |
+| `/lan-certificate.pem` | GET | `download_lan_certificate` | src/memorymap/api/routes_auth.py:1036 |
+| `/lan-devices/{device_id}` | DELETE | `forget_device` | src/memorymap/api/routes_auth.py:1218 |
+| `/lan-devices/{device_id}/{verdict}` | POST | `answer_device` | src/memorymap/api/routes_auth.py:1197 |
+| `/lan-networks/allow` | POST | `allow_this_network` | src/memorymap/api/routes_auth.py:1108 |
+| `/lan-networks/{key}` | DELETE | `forget_network` | src/memorymap/api/routes_auth.py:1128 |
+| `/lan-networks/{key}/trust` | POST | `trust_network` | src/memorymap/api/routes_auth.py:1139 |
+| `/lan-networks/{key}/untrust` | POST | `untrust_network` | src/memorymap/api/routes_auth.py:1158 |
+| `/lan-notice/dismiss` | POST | `dismiss_lan_notice` | src/memorymap/api/routes_auth.py:1168 |
+| `/lan-options` | POST | `set_lan_option` | src/memorymap/api/routes_auth.py:1176 |
 | `/lan-qr.svg` | GET | `lan_qr` | src/memorymap/api/routes_privacy.py:132 |
-| `/lan-watch` | GET | `lan_watch` | src/memorymap/api/routes_auth.py:1234 |
+| `/lan-watch` | GET | `lan_watch` | src/memorymap/api/routes_auth.py:1235 |
 | `/latest` | GET | `latest` | src/memorymap/api/routes_night.py:84 |
 | `/library` | GET | `library` | src/memorymap/api/routes_library.py:1078 |
 | `/link-reasons/run` | POST | `tidy_link_reasons_run` | src/memorymap/api/routes_tidy.py:78 |
@@ -9902,8 +9902,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/link-suggestions` | GET | `link_suggestions` | src/memorymap/api/routes_entries.py:1719 |
 | `/link-suggestions/reasons` | POST | `link_suggestion_reasons` | src/memorymap/api/routes_entries.py:2102 |
 | `/links/backfill-reasons` | POST | `backfill_link_reasons` | src/memorymap/api/routes_entries.py:2150 |
-| `/lock` | POST | `lock` | src/memorymap/api/routes_auth.py:1334 |
-| `/lock-all` | POST | `lock_all` | src/memorymap/api/routes_auth.py:1845 |
+| `/lock` | POST | `lock` | src/memorymap/api/routes_auth.py:1335 |
+| `/lock-all` | POST | `lock_all` | src/memorymap/api/routes_auth.py:1846 |
 | `/logs` | DELETE | `clear_server_logs` | src/memorymap/api/routes_settings.py:2274 |
 | `/logs` | GET | `server_logs` | src/memorymap/api/routes_settings.py:2191 |
 | `/logs/client` | POST | `record_client_error` | src/memorymap/api/routes_settings.py:2210 |
@@ -10015,21 +10015,21 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/recordings/{recording_id}/transcript` | GET | `read_transcript` | src/memorymap/api/routes_recordings.py:380 |
 | `/recordings/{recording_id}/transcript.srt` | GET | `transcript_srt` | src/memorymap/api/routes_recordings.py:435 |
 | `/recordings/{recording_id}/transcript.vtt` | GET | `transcript_vtt` | src/memorymap/api/routes_recordings.py:440 |
-| `/recover` | POST | `recover` | src/memorymap/api/routes_auth.py:1766 |
-| `/recovery-key` | POST | `make_recovery_key` | src/memorymap/api/routes_auth.py:1689 |
-| `/recovery-key/save` | POST | `save_recovery_key` | src/memorymap/api/routes_auth.py:1736 |
+| `/recover` | POST | `recover` | src/memorymap/api/routes_auth.py:1767 |
+| `/recovery-key` | POST | `make_recovery_key` | src/memorymap/api/routes_auth.py:1690 |
+| `/recovery-key/save` | POST | `save_recovery_key` | src/memorymap/api/routes_auth.py:1737 |
 | `/recycle-bin/empty` | POST | `empty_recycle_bin` | src/memorymap/api/routes_settings.py:1964 |
 | `/reference-counts` | GET | `entry_reference_counts` | src/memorymap/api/routes_entries.py:2564 |
 | `/reindex` | POST | `rebuild_search_index` | src/memorymap/api/routes_models.py:983 |
 | `/releases` | GET | `list_releases` | src/memorymap/api/routes_update.py:599 |
 | `/rename` | POST | `rename_tag` | src/memorymap/api/routes_tags.py:76 |
-| `/reset` | POST | `reset` | src/memorymap/api/routes_auth.py:1819 |
+| `/reset` | POST | `reset` | src/memorymap/api/routes_auth.py:1820 |
 | `/restore` | POST | `restore_ask_turns` | src/memorymap/api/routes_ask_history.py:230 |
 | `/restore` | POST | `restore_conversation` | src/memorymap/api/routes_conversations.py:987 |
 | `/restore` | POST | `restore_tags` | src/memorymap/api/routes_tags.py:110 |
 | `/review-queue` | GET | `review_queue` | src/memorymap/api/routes_vision.py:83 |
 | `/review-queue/{entry_id}/accept` | POST | `accept_filing` | src/memorymap/api/routes_vision.py:94 |
-| `/rotate-vault-key` | POST | `rotate_vault_key` | src/memorymap/api/routes_auth.py:1486 |
+| `/rotate-vault-key` | POST | `rotate_vault_key` | src/memorymap/api/routes_auth.py:1487 |
 | `/run` | POST | `run_now` | src/memorymap/api/routes_night.py:50 |
 | `/runs/{run_id}/facts` | GET | `run_facts` | src/memorymap/api/routes_night.py:92 |
 | `/sample-notebook` | DELETE | `remove_sample_notebook` | src/memorymap/api/routes_help.py:149 |
@@ -10246,7 +10246,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:164 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1592 |
 
-## Backend modules (5270)
+## Backend modules (5275)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -11236,7 +11236,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/memorymap/ai/help_topics_more.py:2447 |
+| `_act_topic` | src/memorymap/ai/help_topics_more.py:2449 |
 
 ### src/memorymap/ai/inbox.py (7)
 
@@ -12900,29 +12900,29 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `ChangePasswordBody` | src/memorymap/api/routes_auth.py:1365 |
+| `ChangePasswordBody` | src/memorymap/api/routes_auth.py:1366 |
 | `LanAccessBody` | src/memorymap/api/routes_auth.py:981 |
-| `LanOptionBody` | src/memorymap/api/routes_auth.py:1094 |
-| `LanPasswordBody` | src/memorymap/api/routes_auth.py:1090 |
+| `LanOptionBody` | src/memorymap/api/routes_auth.py:1095 |
+| `LanPasswordBody` | src/memorymap/api/routes_auth.py:1091 |
 | `PasswordBody` | src/memorymap/api/routes_auth.py:493 |
 | `PasswordOnOpenBody` | src/memorymap/api/routes_auth.py:936 |
-| `RecoverBody` | src/memorymap/api/routes_auth.py:1661 |
-| `RecoveryKeyBody` | src/memorymap/api/routes_auth.py:1657 |
-| `ResetBody` | src/memorymap/api/routes_auth.py:1666 |
-| `RotateVaultKeyBody` | src/memorymap/api/routes_auth.py:1482 |
-| `SaveRecoveryKeyBody` | src/memorymap/api/routes_auth.py:1727 |
+| `RecoverBody` | src/memorymap/api/routes_auth.py:1662 |
+| `RecoveryKeyBody` | src/memorymap/api/routes_auth.py:1658 |
+| `ResetBody` | src/memorymap/api/routes_auth.py:1667 |
+| `RotateVaultKeyBody` | src/memorymap/api/routes_auth.py:1483 |
+| `SaveRecoveryKeyBody` | src/memorymap/api/routes_auth.py:1728 |
 | `VaultScope` | src/memorymap/api/routes_auth.py:112 |
 | `_auto_session_allowed` | src/memorymap/api/routes_auth.py:248 |
 | `_bcrypt_input` | src/memorymap/api/routes_auth.py:413 |
-| `_check_password_for_lan` | src/memorymap/api/routes_auth.py:1075 |
+| `_check_password_for_lan` | src/memorymap/api/routes_auth.py:1076 |
 | `_clear_unlock_failures` | src/memorymap/api/routes_auth.py:329 |
 | `_client_key` | src/memorymap/api/routes_auth.py:337 |
 | `_cookie_secure` | src/memorymap/api/routes_auth.py:169 |
-| `_current_network_key` | src/memorymap/api/routes_auth.py:1022 |
+| `_current_network_key` | src/memorymap/api/routes_auth.py:1023 |
 | `_device_cookie` | src/memorymap/api/routes_auth.py:708 |
 | `_device_must_wait` | src/memorymap/api/routes_auth.py:732 |
 | `_end_network_sessions` | src/memorymap/api/routes_auth.py:695 |
-| `_end_sessions_and_issue` | src/memorymap/api/routes_auth.py:1678 |
+| `_end_sessions_and_issue` | src/memorymap/api/routes_auth.py:1679 |
 | `_forget_dead_tickets` | src/memorymap/api/routes_auth.py:163 |
 | `_from_the_network` | src/memorymap/api/routes_auth.py:721 |
 | `_from_this_computer` | src/memorymap/api/routes_auth.py:225 |
@@ -12931,17 +12931,17 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_hash_password` | src/memorymap/api/routes_auth.py:426 |
 | `_hold_new_device` | src/memorymap/api/routes_auth.py:743 |
 | `_is_loopback_address` | src/memorymap/api/routes_auth.py:214 |
-| `_iso` | src/memorymap/api/routes_auth.py:1400 |
+| `_iso` | src/memorymap/api/routes_auth.py:1401 |
 | `_issue_token` | src/memorymap/api/routes_auth.py:624 |
 | `_lan_state` | src/memorymap/api/routes_auth.py:986 |
 | `_new_password_problem` | src/memorymap/api/routes_auth.py:455 |
 | `_no_password_yet` | src/memorymap/api/routes_auth.py:542 |
-| `_notebook_has_password_now` | src/memorymap/api/routes_auth.py:1856 |
+| `_notebook_has_password_now` | src/memorymap/api/routes_auth.py:1857 |
 | `_password_matches` | src/memorymap/api/routes_auth.py:430 |
 | `_password_set` | src/memorymap/api/routes_auth.py:518 |
 | `_refuse_if_throttled` | src/memorymap/api/routes_auth.py:361 |
-| `_refuse_unless_this_computer` | src/memorymap/api/routes_auth.py:1670 |
-| `_require_this_computer` | src/memorymap/api/routes_auth.py:1100 |
+| `_refuse_unless_this_computer` | src/memorymap/api/routes_auth.py:1671 |
+| `_require_this_computer` | src/memorymap/api/routes_auth.py:1101 |
 | `_revoke_media` | src/memorymap/api/routes_auth.py:278 |
 | `_set_device_cookie` | src/memorymap/api/routes_auth.py:713 |
 | `_sweep_expired` | src/memorymap/api/routes_auth.py:139 |
@@ -12949,41 +12949,41 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_unlock_failed` | src/memorymap/api/routes_auth.py:381 |
 | `_unlock_succeeded` | src/memorymap/api/routes_auth.py:390 |
 | `_wait_left` | src/memorymap/api/routes_auth.py:350 |
-| `account` | src/memorymap/api/routes_auth.py:1373 |
-| `allow_this_network` | src/memorymap/api/routes_auth.py:1108 |
-| `answer_device` | src/memorymap/api/routes_auth.py:1197 |
+| `account` | src/memorymap/api/routes_auth.py:1374 |
+| `allow_this_network` | src/memorymap/api/routes_auth.py:1109 |
+| `answer_device` | src/memorymap/api/routes_auth.py:1198 |
 | `auto_session` | src/memorymap/api/routes_auth.py:854 |
-| `change_password` | src/memorymap/api/routes_auth.py:1405 |
-| `dismiss_lan_notice` | src/memorymap/api/routes_auth.py:1168 |
-| `download_lan_certificate` | src/memorymap/api/routes_auth.py:1036 |
+| `change_password` | src/memorymap/api/routes_auth.py:1406 |
+| `dismiss_lan_notice` | src/memorymap/api/routes_auth.py:1169 |
+| `download_lan_certificate` | src/memorymap/api/routes_auth.py:1037 |
 | `end_every_session` | src/memorymap/api/routes_auth.py:604 |
-| `forget_device` | src/memorymap/api/routes_auth.py:1218 |
-| `forget_network` | src/memorymap/api/routes_auth.py:1128 |
-| `lan_access` | src/memorymap/api/routes_auth.py:1030 |
-| `lan_watch` | src/memorymap/api/routes_auth.py:1235 |
-| `lock` | src/memorymap/api/routes_auth.py:1335 |
-| `lock_all` | src/memorymap/api/routes_auth.py:1846 |
-| `make_recovery_key` | src/memorymap/api/routes_auth.py:1690 |
+| `forget_device` | src/memorymap/api/routes_auth.py:1219 |
+| `forget_network` | src/memorymap/api/routes_auth.py:1129 |
+| `lan_access` | src/memorymap/api/routes_auth.py:1031 |
+| `lan_watch` | src/memorymap/api/routes_auth.py:1236 |
+| `lock` | src/memorymap/api/routes_auth.py:1336 |
+| `lock_all` | src/memorymap/api/routes_auth.py:1847 |
+| `make_recovery_key` | src/memorymap/api/routes_auth.py:1691 |
 | `media_session` | src/memorymap/api/routes_auth.py:841 |
 | `notebook_open` | src/memorymap/api/routes_auth.py:531 |
 | `password_on_open` | src/memorymap/api/routes_auth.py:209 |
 | `password_warning` | src/memorymap/api/routes_auth.py:462 |
-| `recover` | src/memorymap/api/routes_auth.py:1767 |
-| `regenerate_lan_certificate` | src/memorymap/api/routes_auth.py:1057 |
+| `recover` | src/memorymap/api/routes_auth.py:1768 |
+| `regenerate_lan_certificate` | src/memorymap/api/routes_auth.py:1058 |
 | `require_unlock` | src/memorymap/api/routes_auth.py:564 |
 | `require_unlock_media` | src/memorymap/api/routes_auth.py:578 |
-| `reset` | src/memorymap/api/routes_auth.py:1820 |
-| `rotate_vault_key` | src/memorymap/api/routes_auth.py:1487 |
-| `save_recovery_key` | src/memorymap/api/routes_auth.py:1737 |
-| `set_lan_access` | src/memorymap/api/routes_auth.py:1267 |
-| `set_lan_option` | src/memorymap/api/routes_auth.py:1176 |
+| `reset` | src/memorymap/api/routes_auth.py:1821 |
+| `rotate_vault_key` | src/memorymap/api/routes_auth.py:1488 |
+| `save_recovery_key` | src/memorymap/api/routes_auth.py:1738 |
+| `set_lan_access` | src/memorymap/api/routes_auth.py:1268 |
+| `set_lan_option` | src/memorymap/api/routes_auth.py:1177 |
 | `set_password_on_open` | src/memorymap/api/routes_auth.py:942 |
 | `setup` | src/memorymap/api/routes_auth.py:656 |
 | `status` | src/memorymap/api/routes_auth.py:632 |
-| `trust_network` | src/memorymap/api/routes_auth.py:1139 |
+| `trust_network` | src/memorymap/api/routes_auth.py:1140 |
 | `unlock` | src/memorymap/api/routes_auth.py:771 |
 | `unlock_vault` | src/memorymap/api/routes_auth.py:893 |
-| `untrust_network` | src/memorymap/api/routes_auth.py:1158 |
+| `untrust_network` | src/memorymap/api/routes_auth.py:1159 |
 
 ### src/memorymap/api/routes_backups.py (14)
 
@@ -15514,54 +15514,59 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `refresh_own_prefixes` | src/memorymap/core/lanserve.py:126 |
 | `serve` | src/memorymap/core/lanserve.py:352 |
 
-### src/memorymap/core/lantrust.py (44)
+### src/memorymap/core/lantrust.py (49)
 
 | Name | File:line |
 |---|---|
 | `_bump` | src/memorymap/core/lantrust.py:71 |
-| `_entry` | src/memorymap/core/lantrust.py:176 |
-| `_expire` | src/memorymap/core/lantrust.py:497 |
-| `_note_untrusted` | src/memorymap/core/lantrust.py:195 |
+| `_entry` | src/memorymap/core/lantrust.py:184 |
+| `_expire` | src/memorymap/core/lantrust.py:578 |
+| `_group_of` | src/memorymap/core/lantrust.py:336 |
+| `_named` | src/memorymap/core/lantrust.py:344 |
+| `_note_untrusted` | src/memorymap/core/lantrust.py:208 |
 | `_now_text` | src/memorymap/core/lantrust.py:137 |
-| `_online` | src/memorymap/core/lantrust.py:211 |
+| `_one_network` | src/memorymap/core/lantrust.py:323 |
+| `_online` | src/memorymap/core/lantrust.py:224 |
 | `_path` | src/memorymap/core/lantrust.py:84 |
-| `_remember` | src/memorymap/core/lantrust.py:187 |
+| `_remember` | src/memorymap/core/lantrust.py:196 |
+| `_same` | src/memorymap/core/lantrust.py:176 |
 | `_stopped_trusting` | src/memorymap/core/lantrust.py:144 |
-| `allow_current` | src/memorymap/core/lantrust.py:295 |
-| `clear_switched_off` | src/memorymap/core/lantrust.py:415 |
-| `current_network` | src/memorymap/core/lantrust.py:256 |
-| `decide` | src/memorymap/core/lantrust.py:532 |
-| `device_hash` | src/memorymap/core/lantrust.py:444 |
-| `device_known` | src/memorymap/core/lantrust.py:450 |
-| `device_name` | src/memorymap/core/lantrust.py:474 |
-| `devices` | src/memorymap/core/lantrust.py:577 |
+| `allow_current` | src/memorymap/core/lantrust.py:308 |
+| `clear_switched_off` | src/memorymap/core/lantrust.py:496 |
+| `current_network` | src/memorymap/core/lantrust.py:269 |
+| `decide` | src/memorymap/core/lantrust.py:613 |
+| `device_hash` | src/memorymap/core/lantrust.py:525 |
+| `device_known` | src/memorymap/core/lantrust.py:531 |
+| `device_name` | src/memorymap/core/lantrust.py:555 |
+| `devices` | src/memorymap/core/lantrust.py:658 |
 | `evaluate` | src/memorymap/core/lantrust.py:151 |
-| `forget_device` | src/memorymap/core/lantrust.py:584 |
-| `forget_network` | src/memorymap/core/lantrust.py:310 |
-| `hold` | src/memorymap/core/lantrust.py:502 |
-| `is_open` | src/memorymap/core/lantrust.py:252 |
+| `forget_device` | src/memorymap/core/lantrust.py:665 |
+| `forget_network` | src/memorymap/core/lantrust.py:377 |
+| `hold` | src/memorymap/core/lantrust.py:583 |
+| `is_open` | src/memorymap/core/lantrust.py:265 |
+| `listed` | src/memorymap/core/lantrust.py:348 |
 | `load` | src/memorymap/core/lantrust.py:88 |
-| `mark_switched_off` | src/memorymap/core/lantrust.py:407 |
-| `mark_turned_on` | src/memorymap/core/lantrust.py:392 |
-| `network_for_display` | src/memorymap/core/lantrust.py:263 |
-| `note_used` | src/memorymap/core/lantrust.py:375 |
-| `pending` | src/memorymap/core/lantrust.py:522 |
-| `persist_use` | src/memorymap/core/lantrust.py:381 |
-| `plain_address` | src/memorymap/core/lantrust.py:455 |
-| `refresh` | src/memorymap/core/lantrust.py:225 |
-| `remember_current` | src/memorymap/core/lantrust.py:280 |
-| `reset_for_tests` | src/memorymap/core/lantrust.py:597 |
+| `mark_switched_off` | src/memorymap/core/lantrust.py:488 |
+| `mark_turned_on` | src/memorymap/core/lantrust.py:473 |
+| `network_for_display` | src/memorymap/core/lantrust.py:276 |
+| `note_used` | src/memorymap/core/lantrust.py:456 |
+| `pending` | src/memorymap/core/lantrust.py:603 |
+| `persist_use` | src/memorymap/core/lantrust.py:462 |
+| `plain_address` | src/memorymap/core/lantrust.py:536 |
+| `refresh` | src/memorymap/core/lantrust.py:238 |
+| `remember_current` | src/memorymap/core/lantrust.py:293 |
+| `reset_for_tests` | src/memorymap/core/lantrust.py:678 |
 | `save` | src/memorymap/core/lantrust.py:125 |
-| `set_flag` | src/memorymap/core/lantrust.py:431 |
-| `settle` | src/memorymap/core/lantrust.py:570 |
-| `status` | src/memorymap/core/lantrust.py:271 |
-| `touch_device` | src/memorymap/core/lantrust.py:461 |
-| `touch_version` | src/memorymap/core/lantrust.py:424 |
-| `trust_network` | src/memorymap/core/lantrust.py:324 |
-| `untrust_network` | src/memorymap/core/lantrust.py:347 |
-| `unused_since` | src/memorymap/core/lantrust.py:403 |
+| `set_flag` | src/memorymap/core/lantrust.py:512 |
+| `settle` | src/memorymap/core/lantrust.py:651 |
+| `status` | src/memorymap/core/lantrust.py:284 |
+| `touch_device` | src/memorymap/core/lantrust.py:542 |
+| `touch_version` | src/memorymap/core/lantrust.py:505 |
+| `trust_network` | src/memorymap/core/lantrust.py:393 |
+| `untrust_network` | src/memorymap/core/lantrust.py:423 |
+| `unused_since` | src/memorymap/core/lantrust.py:484 |
 | `version` | src/memorymap/core/lantrust.py:77 |
-| `wait_decision` | src/memorymap/core/lantrust.py:552 |
+| `wait_decision` | src/memorymap/core/lantrust.py:633 |
 
 ### src/memorymap/core/launch_status.py (7)
 
@@ -15698,25 +15703,25 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | Name | File:line |
 |---|---|
 | `Network` | src/memorymap/core/netid.py:40 |
-| `_default_route` | src/memorymap/core/netid.py:112 |
-| `_hex_ip` | src/memorymap/core/netid.py:108 |
-| `_linux_address` | src/memorymap/core/netid.py:184 |
-| `_linux_virtual` | src/memorymap/core/netid.py:160 |
-| `_route_subnet` | src/memorymap/core/netid.py:126 |
-| `_run` | src/memorymap/core/netid.py:94 |
-| `_subnet` | src/memorymap/core/netid.py:87 |
-| `_windows_category` | src/memorymap/core/netid.py:262 |
-| `_windows_subnet` | src/memorymap/core/netid.py:267 |
-| `normal_mac` | src/memorymap/core/netid.py:77 |
-| `parse_proc_arp` | src/memorymap/core/netid.py:150 |
-| `parse_proc_route` | src/memorymap/core/netid.py:140 |
-| `parse_route_get` | src/memorymap/core/netid.py:214 |
-| `parse_route_print` | src/memorymap/core/netid.py:298 |
-| `parse_windows_json` | src/memorymap/core/netid.py:272 |
-| `read` | src/memorymap/core/netid.py:329 |
-| `read_linux` | src/memorymap/core/netid.py:195 |
-| `read_macos` | src/memorymap/core/netid.py:225 |
-| `read_windows` | src/memorymap/core/netid.py:314 |
+| `_default_route` | src/memorymap/core/netid.py:121 |
+| `_hex_ip` | src/memorymap/core/netid.py:117 |
+| `_linux_address` | src/memorymap/core/netid.py:193 |
+| `_linux_virtual` | src/memorymap/core/netid.py:169 |
+| `_route_subnet` | src/memorymap/core/netid.py:135 |
+| `_run` | src/memorymap/core/netid.py:103 |
+| `_subnet` | src/memorymap/core/netid.py:96 |
+| `_windows_category` | src/memorymap/core/netid.py:271 |
+| `_windows_subnet` | src/memorymap/core/netid.py:276 |
+| `normal_mac` | src/memorymap/core/netid.py:86 |
+| `parse_proc_arp` | src/memorymap/core/netid.py:159 |
+| `parse_proc_route` | src/memorymap/core/netid.py:149 |
+| `parse_route_get` | src/memorymap/core/netid.py:223 |
+| `parse_route_print` | src/memorymap/core/netid.py:307 |
+| `parse_windows_json` | src/memorymap/core/netid.py:281 |
+| `read` | src/memorymap/core/netid.py:338 |
+| `read_linux` | src/memorymap/core/netid.py:204 |
+| `read_macos` | src/memorymap/core/netid.py:234 |
+| `read_windows` | src/memorymap/core/netid.py:323 |
 
 ### src/memorymap/core/ocr.py (37)
 
@@ -16945,7 +16950,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (10741)
+## Tests (10749)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17015,7 +17020,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_audio_section.py | 4 |
 | tests/test_audit_export.py | 9 |
 | tests/test_auth_hardening_1005.py | 16 |
-| tests/test_auth_headers_space.py | 3 |
+| tests/test_auth_headers_space.py | 4 |
 | tests/test_autocorrect_1011.py | 10 |
 | tests/test_autonomous.py | 28 |
 | tests/test_autonomous_state_isolation.py | 4 |
@@ -17493,6 +17498,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_lan_firewall_hint.py | 4 |
 | tests/test_lan_live.py | 20 |
 | tests/test_lan_mode.py | 22 |
+| tests/test_lan_networks_one_row.py | 7 |
 | tests/test_lan_restart_action.py | 5 |
 | tests/test_lan_serve.py | 11 |
 | tests/test_lan_tls.py | 24 |

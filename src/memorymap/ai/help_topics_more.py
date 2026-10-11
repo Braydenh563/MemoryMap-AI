@@ -277,7 +277,7 @@ MORE_TOPICS: list[dict] = [
             "press, and a model under other terms (EmbeddingGemma) links to "
             "them instead; each row's ⋮ has Use, Install or Reinstall, and "
             "Uninstall (refused on the model in use). A model whose files are "
-            "partly there says Files missing and offers Reinstall; MemoryMap "
+            "partly there says Files missing and offers Reinstall; Tessellate "
             "also mends it itself as a background task. Found on this computer "
             "lists embedding models already here (the Hugging Face cache, "
             "Ollama, LM Studio), with Use where Tessellate can load them and "
@@ -2513,10 +2513,10 @@ MORE_TOPICS.append({
         "attribution", "built with", "what is it built on", "licences", "licenses",
     ),
     "body": (
-        "Settings, Help, Credits lists the libraries and data MemoryMap is "
+        "Settings, Help, Credits lists the libraries and data Tessellate is "
         "built on, each with its licence and a link to its source: the ones in "
         "the server, the ones in the app, the optional downloads and the "
-        "whiteboard's shapes. MemoryMap itself is AGPL-3.0."
+        "whiteboard's shapes. Tessellate itself is AGPL-3.0."
     ),
     "badge": {"label": "Help", "section": "help", "target": "credits-fold"},
 })

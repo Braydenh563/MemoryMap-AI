@@ -83,7 +83,7 @@ def test_the_upgrade_steps_skip_when_the_repository_has_no_release():
     assert "steps.previous.outputs.found == 'true'" in FLOW
     assert FLOW.count("steps.previous.outputs.found == 'true'") == 3
     step = FLOW[FLOW.index("id: previous") :]
-    assert "Braydenh563/MemoryMap-AI" in step.split("- name:")[0]
+    assert "Braydenh563/Tessellate" in step.split("- name:")[0]
     for name in (
         "Install the previous release and write a note in it",
         "Upgrade over it, and the note, the version and the schema are right",

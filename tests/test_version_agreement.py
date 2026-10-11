@@ -60,4 +60,4 @@ def test_the_splash_and_the_window_title_do_not_hard_code_a_version():
         assert not VERSIONISH.search(call), call
     # The window is titled by name only; if a version is ever added to it, it
     # must come from `__version__`, which this test would then need to know.
-    assert '"MemoryMap AI"' in main
+    assert '"Tessellate"' in main

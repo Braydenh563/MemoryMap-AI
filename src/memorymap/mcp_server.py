@@ -23,7 +23,7 @@ is invisible here too, the same as it already is to the in-app chat model.
 
 Run with `python -m memorymap.mcp_server`, with `MEMORYMAP_DATA_DIR` set the
 same way the main app expects, it operates on the same notebook, not a
-second one. The packaged app runs the same loop as `MemoryMap --mcp`.
+second one. The packaged app runs the same loop as `Tessellate --mcp`.
 
 Besides tools it serves **resources** (notes, `memorymap://note/<id>`, read
 through the `list_notes` and `get_note` tools so the private-note guard and the

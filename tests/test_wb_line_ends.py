@@ -141,7 +141,7 @@ def test_decision_e2_and_e3_ends_and_the_end_size():
     assert paths["memorymap"].count("A") >= 2, "the signature end carries the mark's node dot"
     for which in ("startcap", "endcap"):
         select = INDEX[INDEX.index(f'id="wb-prop-{which}"') :]
-        assert select.index('<optgroup label="MemoryMap">') < select.index('<optgroup label="Plain ends">')
+        assert select.index('<optgroup label="Tessellate">') < select.index('<optgroup label="Plain ends">')
     assert 'window.currentArrowHead = WB_CAP_KINDS.includes(e.target.value) ? e.target.value : "arrow"' in SOURCE
     # Small, medium, large: the mark's reach scales, medium is the old length.
     small, medium, large = (_reach(_sized("arrow", s)) for s in ("s", None, "l"))

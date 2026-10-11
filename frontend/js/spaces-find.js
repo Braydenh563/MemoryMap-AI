@@ -203,10 +203,6 @@ const SPACE_ICONS = [
 
 let spacesCache = [];
 
-function activeSpaceId() {
-  return prefs.get("spaceId", null) || SPACE_ALL;
-}
-
 //: The two headers every hand-built request needs, for a call that has to
 //: replace `api()`'s defaults (a FormData body must not carry its JSON
 //: Content-Type). Passing a headers object holding only the token replaced

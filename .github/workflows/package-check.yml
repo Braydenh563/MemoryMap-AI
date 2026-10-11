@@ -212,7 +212,7 @@ jobs:
         run: |
           $count = gh release list --repo $env:GITHUB_REPOSITORY --limit 1 --json tagName --jq 'length'
           if ($LASTEXITCODE -ne 0) { throw "could not list this repository's releases" }
-          if ($count -eq "0" -and $env:GITHUB_REPOSITORY -ne "Braydenh563/MemoryMap-AI") {
+          if ($count -eq "0" -and $env:GITHUB_REPOSITORY -ne "Braydenh563/Tessellate") {
             Write-Host "::notice::This repository has no published release, so the upgrade check is skipped."
             "found=false" >> $env:GITHUB_OUTPUT
           } else {

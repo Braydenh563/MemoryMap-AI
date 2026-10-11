@@ -1485,7 +1485,7 @@ HELP_TOPICS.extend(
                 "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
                 "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
                 "its line jumps (where it crosses a line under it, it hops over with an arc, a gap or a "
-                "sharp peak), its two ends (twenty-one marks, from the MemoryMap end, the mark's node dot ahead of a chevron, through open, "
+                "sharp peak), its two ends (twenty-one marks, from the Tessellate end, the mark's node dot ahead of a chevron, through open, "
                 "filled, stealth, half and double arrows, circles and diamonds to a cross, a bar and a crow's foot, each drawn in its "
                 "list, each small, medium or large in the menu beside it; a plain line takes them too) and where its label sits along it. Text: the size, colour, weight, "
                 "alignment and vertical place (top, middle, bottom) of a text box or a shape's words. Arrange: X, Y, width, height and "

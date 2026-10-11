@@ -2402,7 +2402,7 @@ def _run_mcp() -> int:
         stdin = open(0, encoding="utf-8", closefd=False)  # noqa: SIM115
         stdout = open(1, "w", encoding="utf-8", newline="\n", closefd=False)  # noqa: SIM115
     except OSError:
-        print("MemoryMap --mcp needs standard input and output from an MCP client.", file=sys.stderr)
+        print("Tessellate --mcp needs standard input and output from an MCP client.", file=sys.stderr)
         return 2
     from memorymap import mcp_server
 

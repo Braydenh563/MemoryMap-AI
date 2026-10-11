@@ -53,7 +53,7 @@ def _mcp() -> dict:
     if getattr(sys, "frozen", False):
         return {
             "installed": True,
-            "command": "MemoryMap --mcp",
+            "command": "Tessellate --mcp",
             "config": {"command": sys.executable, "args": ["--mcp"], "env": env},
         }
     return {

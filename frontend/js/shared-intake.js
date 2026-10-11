@@ -6,7 +6,7 @@
 // --- a share from the phone's share sheet lands in Capture -------------------
 // UI_MODERNISATION_PLAN Phase 11 item 5, "upload from the share sheet". The
 // installed app is a Web Share Target (manifest.webmanifest): a page, a
-// link or a selection shared to MemoryMap opens the app at `/` with
+// link or a selection shared to Tessellate opens the app at `/` with
 // `share_title`, `share_text` and `share_url` in the query, the GET form,
 // which needs no service worker and works on a locked notebook because the
 // query survives the lock screen (this runs once the entries have loaded,

@@ -378,7 +378,7 @@ def lan_addresses(include_v6: bool | None = None) -> list[str]:
     return found + found_v6
 
 
-FIREWALL_RULE = "MemoryMap AI (private networks)"
+FIREWALL_RULE = "Tessellate (private networks)"
 
 
 def firewall_hint(port: int | None, platform: str | None = None) -> dict | None:

@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 #: The names the launchers and the uninstallers already use.
 LINUX_ENTRY = "memorymap-ai.desktop"
-MAC_LINK = "MemoryMap AI"
+MAC_LINK = "Tessellate"
 WINDOWS_LINK = "MemoryMap AI.lnk"
 
 
@@ -84,7 +84,7 @@ def uninstall_plan(platform: str | None = None, frozen: bool | None = None, root
             "steps": [
                 "Export your notes first if you want to keep a copy elsewhere.",
                 "Quit the app.",
-                "In Windows, press Start, type Installed apps, find MemoryMap AI and choose Uninstall.",
+                "In Windows, press Start, type Installed apps, find Tessellate and choose Uninstall.",
                 "Your notes folder stays unless you choose to delete it there.",
             ],
         }
@@ -118,7 +118,7 @@ def _desktop_entry(root: Path, exec_line: str, icon_root: Path | None = None) ->
     return "\n".join([
         "[Desktop Entry]",
         "Type=Application",
-        "Name=MemoryMap AI",
+        "Name=Tessellate",
         "Comment=Your notebook, on your own machine",
         f"Exec={exec_line}",
         f"Path={root}",
@@ -159,7 +159,7 @@ def make_shortcut(
             f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut({_ps_quote(link)}); "
             f"$s.TargetPath={_ps_quote(program)}; $s.Arguments='--desktop'; "
             f"$s.WorkingDirectory={_ps_quote(target.parent if frozen else root)}; "
-            f"$s.IconLocation={_ps_quote(icon)}; $s.Description='MemoryMap AI'; $s.Save()"
+            f"$s.IconLocation={_ps_quote(icon)}; $s.Description='Tessellate'; $s.Save()"
         )
         run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
             capture_output=True, timeout=30, check=False)

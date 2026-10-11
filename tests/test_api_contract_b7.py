@@ -186,7 +186,7 @@ def test_the_packaged_app_offers_its_own_mcp_flag_not_a_python_command(client, m
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     r = client.get("/capabilities")
     mcp = r.json()["features"]["mcp"]
-    assert mcp["installed"] is True and mcp["command"] == "MemoryMap --mcp"
+    assert mcp["installed"] is True and mcp["command"] == "Tessellate --mcp"
     assert mcp["config"]["args"] == ["--mcp"] and "python" not in mcp["config"]["args"]
     assert mcp["config"]["env"]["MEMORYMAP_DATA_DIR"]
     monkeypatch.delattr(sys, "frozen")

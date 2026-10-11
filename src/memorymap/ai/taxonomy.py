@@ -64,7 +64,7 @@ def _read(name: str) -> Any:
 
 @lru_cache(maxsize=1)
 def _data() -> dict:
-    """The pack, with MemoryMap's reviewed everyday vocabulary merged into its
+    """The pack, with Tessellate's reviewed everyday vocabulary merged into its
     topics (`memorymap_everyday.json`: words the pack's formal phrases miss,
     INBOX 1297). The pack file itself is never edited."""
     pack = _read("memorymap_taxonomy.json")

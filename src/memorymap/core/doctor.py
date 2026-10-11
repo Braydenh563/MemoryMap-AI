@@ -85,7 +85,7 @@ def port_row(port: int | None) -> dict:
     running" line, which that table also counts as a pass."""
     if not port:
         return _row("warn", "Port", "could not tell which port this page came in on")
-    return _row("ok", f"Port {port}", f"MemoryMap is already running, open http://localhost:{port}")
+    return _row("ok", f"Port {port}", f"Tessellate is already running, open http://localhost:{port}")
 
 
 def model_row(provider: str, client) -> dict:  # noqa: ANN001  # a Provider

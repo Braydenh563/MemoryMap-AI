@@ -393,6 +393,14 @@ document.addEventListener(
 // what gets appended below.
 const SPACE_ALL = "all";
 
+//: Here and not with the spaces code: `api()` calls it on every request, and
+//: the first one is made at load, before spaces-find.js (a later classic
+//: script) has run ("activeSpaceId is not defined" on GET /health). prefs.js
+//: also loads after this file, so its absence reads as the default space.
+function activeSpaceId() {
+  return (typeof prefs !== "undefined" && prefs.get("spaceId", null)) || SPACE_ALL;
+}
+
 async function api(path, options = {}) {
   // `silent`: a background poll (model status, reminders): a 401 must not
   // yank the user to the lock screen mid-session (Wave O fix for a

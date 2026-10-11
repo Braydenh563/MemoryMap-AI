@@ -1503,7 +1503,7 @@ FlashText; superseded by the pack below).
    never proposed on a note that contains none of its words (the "Study and
    university" bug: find the vote that did it, with a test).
 6. **Sensitive topics** (health, relationships, finance, legal, identity:
-   MemoryMap's own list of 49, `ai/data/taxonomy/memorymap_filing.json`; the
+   Tessellate's own list of 49, `ai/data/taxonomy/memorymap_filing.json`; the
    pack carries no flag) are suggested, never auto-filed, unless the person turned
    auto-filing on for them in Settings. Amended 2026-10-10 (INBOX 770): on
    every path, the chat model's and the embedder's included: built the same

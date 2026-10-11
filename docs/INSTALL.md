@@ -271,7 +271,7 @@ Other commands:
 | `python -m memorymap --reinstall` | One-click repair: clears the app window's cached profile, then starts normally; what the installer's Repair shortcut runs, and your notes and settings are never touched |
 | `python -m memorymap --capture` | Open a one-line capture window on the running app: bind it to a key in your system settings |
 | `python -m memorymap.mcp_server` | A stdio MCP server for another program on this computer: the app's non-destructive tools, your notes as readable resources (`memorymap://note/<id>`, never a private note) and your skills as prompts |
-| `MemoryMap --mcp` | The same server from the packaged app, which has no Python to run the line above with (live behaviour of the windowed exe: needs device) |
+| `Tessellate --mcp` | The same server from the packaged app, which has no Python to run the line above with (live behaviour of the windowed exe: needs device) |
 
 ### Environment variables
 

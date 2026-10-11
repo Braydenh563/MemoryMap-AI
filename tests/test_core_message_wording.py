@@ -295,6 +295,9 @@ def test_the_collector_finds_what_it_is_pointed_at():
 REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("app.py", "detail"): "the handler re-serialises an HTTPException's own detail: every raise site is checked",
     ("routes_auth.py", "problem"): "_new_password_problem in routes_auth.py, one fixed sentence",
+    ("this_computer.py", "REFUSAL"): "one fixed sentence in api/this_computer.py",
+    ("routes_settings.py", "REFUSAL"): "api/this_computer.py REFUSAL, one fixed sentence",
+    ("routes_auth.py", "NO_PASSWORD_ELSEWHERE"): "one fixed sentence in routes_auth.py",
     ("routes_bench.py", "BUSY"): "a constant in routes_bench.py, checked below",
     ("routes_bench.py", "NOT_RUNNING"): "a constant in routes_bench.py, checked below",
     ("routes_bench.py", "NO_MODELS"): "a constant in routes_bench.py, checked below",

@@ -291,6 +291,9 @@ def catalogue() -> list[dict]:
                 "why_not": model.why_not,
                 "default": model.default,
                 "downloaded": is_downloaded(model.repo),
+                #: ready, partial ("Files missing", with Reinstall) or absent.
+                "state": snapshot_state(model.repo),
+                "on_disk": disk_size_of(model.repo),
             }
         )
     for model in OLLAMA_EMBED_MODELS:
@@ -311,6 +314,8 @@ def catalogue() -> list[dict]:
                 "why_not": model.why_not,
                 "default": False,
                 "downloaded": False,
+                "state": "absent",
+                "on_disk": "",
             }
         )
     return rows
@@ -376,28 +381,62 @@ def _model_dir(model: EmbedModel) -> Path:
     return cache_root() / ("models--" + model.repo.replace("/", "--"))
 
 
+def snapshot_state(repo: str) -> str:
+    """"ready" when a snapshot holds the model's weights and its config,
+    "partial" when the cache folder exists without them (the folder an
+    interrupted first request leaves, or weights cut off before the config),
+    "absent" when there is no folder at all.
+
+    Both files, because the load runs offline once the folder is there: weights
+    alone fail with `EmbeddingCacheBroken` and the person is told to reinstall
+    (INBOX 1288)."""
+    folder = cache_root() / ("models--" + repo.replace("/", "--"))
+    if not folder.is_dir():
+        return "absent"
+    snapshots = folder / "snapshots"
+    if snapshots.is_dir():
+        for snapshot in (path for path in snapshots.iterdir() if path.is_dir()):
+            files = {path.name: path for path in snapshot.rglob("*")}
+            weights = any(
+                path.suffix in (".safetensors", ".bin") and name.startswith(("model", "pytorch_model"))
+                for name, path in files.items()
+            )
+            if weights and "config.json" in files:
+                return "ready"
+    return "partial"
+
+
 def is_downloaded(repo: str) -> bool:
-    """Whether `repo` has weights in the cache: a snapshot holding a model
-    file, not merely the folder an interrupted first request left behind."""
-    snapshots = cache_root() / ("models--" + repo.replace("/", "--")) / "snapshots"
-    if not snapshots.is_dir():
-        return False
-    for path in snapshots.rglob("*"):
-        if path.suffix in (".safetensors", ".bin") and path.name.startswith(("model", "pytorch_model")):
-            return True
-    return False
+    """Whether `repo` is complete in the cache: a snapshot holding a model
+    file and its config, not merely the folder an interrupted first request
+    left behind."""
+    return snapshot_state(repo) == "ready"
+
+
+def disk_size_of(repo: str) -> str:
+    """What the model's cache folder takes on disk, in words, or "" for none."""
+    folder = cache_root() / ("models--" + repo.replace("/", "--"))
+    return _human_size(_dir_size(folder)) if folder.is_dir() else ""
 
 
 def _dir_size(path: Path) -> int:
+    """What a model's cache folder holds on disk, each file counted once.
+
+    The hub cache is *made* of links: `snapshots/` points into `blobs/`, and a
+    newer `huggingface_hub` keeps the weights in a shared `<cache>/blobs/` store
+    that the model's own folder links to. Counting what a link points at, once
+    per target, gives the real size both ways: a walk that followed every link
+    reported double, and one that skipped them reported a 127 MB model as
+    1 MB."""
     total = 0
+    seen: set[Path] = set()
     for entry in path.rglob("*"):
         try:
-            # `is_file()` follows symlinks and the hub cache is *made* of them:
-            # `snapshots/` holds links into `blobs/`. Counting the target twice
-            # would report double the real size, so only real files count.
-            if entry.is_symlink() or not entry.is_file():
+            target = entry.resolve()
+            if target in seen or not target.is_file():
                 continue
-            total += entry.stat().st_size
+            seen.add(target)
+            total += target.stat().st_size
         except OSError:
             # A file removed underneath the walk costs its bytes, not the total.
             continue
@@ -441,6 +480,7 @@ def status() -> list[dict]:
                 "terms_url": model.terms_url,
                 "why_not": model.why_not,
                 "installed": installed,
+                "state": snapshot_state(model.repo),
                 "on_disk": _human_size(_dir_size(path)) if installed else "",
                 "downloading": _state.running and _state.model_id == model.id,
             }

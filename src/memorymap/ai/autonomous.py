@@ -564,6 +564,13 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
                         logger.info("stopped mid-pass: someone quit this job")
                         outcome, detail = "cancelled", "Stopped part-way through."
                         break
+                    if event.get("offline"):
+                        #: The agent answered once, offline, and did no work:
+                        #: say so, rather than "Finished analysing and linking
+                        #: notes." over a pass that never reached a model.
+                        logger.info("autonomous pass: no model is running")
+                        outcome, detail = "completed", NO_MODEL_DETAIL
+                        break
                     if event.get("type") == "confirm":
                         logger.info(
                             "paused for confirmation on %s with nobody to ask, abandoning run",
@@ -595,12 +602,7 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
 
         from memorymap.core import taskhistory
 
-        if changes:
-            detail = f"{detail} Changed {len(changes)} thing(s)."
-        elif outcome == "completed":
-            #: "Finished analysing and linking notes." with nothing changed read
-            #: as work done (the owner, 2026-10-07: "what did it do tho??").
-            detail = "Looked over your notes and found nothing to change."
+        detail = _settled_detail(outcome, detail, changes)
         _remember_pass(outcome, changes)
         if outcome == "failed":
             run.fail(detail)
@@ -619,6 +621,21 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
         logger.info("autonomous optimisation %s, %d change(s)", outcome, len(changes))
     finally:
         _working.clear()
+
+
+#: What a pass says when the agent answered once, offline, and did no work.
+NO_MODEL_DETAIL = "Skipped: no model is running, so nothing was analysed or linked."
+
+
+def _settled_detail(outcome: str, detail: str, changes: list[dict]) -> str:
+    """The line a finished pass leaves in the task history."""
+    if changes:
+        return f"{detail} Changed {len(changes)} thing(s)."
+    if outcome == "completed" and detail != NO_MODEL_DETAIL:
+        #: "Finished analysing and linking notes." with nothing changed read
+        #: as work done (the owner, 2026-10-07: "what did it do tho??").
+        return "Looked over your notes and found nothing to change."
+    return detail
 
 
 def _remember_pass(outcome: str, changes: list[dict]) -> None:

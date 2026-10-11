@@ -1,0 +1,252 @@
+[
+ {
+  "category": "Work",
+  "content": "Stand-up moved to 9:45 tomorrow, bring the sprint board and the release checklist.",
+  "kind": "line"
+ },
+ {
+  "category": "Work",
+  "content": "Performance review next Thursday, collect examples of the migration project for my manager.",
+  "kind": "line"
+ },
+ {
+  "category": "Work",
+  "content": "Pasted from Teams: \"Please submit your timesheets by Friday noon, late entries will roll into next month's payroll.\"",
+  "kind": "pasted"
+ },
+ {
+  "category": "Work",
+  "content": "Reply-all storm again, forty people asking to be removed from the list.",
+  "kind": "joke"
+ },
+ {
+  "category": "Travel",
+  "content": "Flights to Edinburgh booked for the second weekend of May, hand luggage only.",
+  "kind": "line"
+ },
+ {
+  "category": "Travel",
+  "content": "Packing: passport, charger, travel adapter, sun cream, swimming shorts, paperback.",
+  "kind": "list"
+ },
+ {
+  "category": "Travel",
+  "content": "Photo: sunrise over the harbour in Split, the ferry already boarding.",
+  "kind": "caption"
+ },
+ {
+  "category": "Travel",
+  "content": "Check the visa rules for Vietnam before booking anything, it may need an e-visa.",
+  "kind": "line"
+ },
+ {
+  "category": "Health",
+  "content": "Hay fever is awful this week, ask the pharmacist about non-drowsy tablets.",
+  "kind": "line",
+  "sensitive": true
+ },
+ {
+  "category": "Health",
+  "content": "Eye test on Monday at 4, my glasses have been blurry for weeks.",
+  "kind": "line",
+  "sensitive": true
+ },
+ {
+  "category": "Health",
+  "content": "Appointment letter: \"Please attend the outpatient clinic on 3 June at 10:20, bring your referral and medication list.\"",
+  "kind": "pasted",
+  "sensitive": true
+ },
+ {
+  "category": "Health",
+  "content": "Sleep tracker says four hours of deep sleep, cut the late coffee and screens after ten.",
+  "kind": "line",
+  "sensitive": true
+ },
+ {
+  "category": "Money",
+  "content": "Set up a standing order for the holiday fund, fifty pounds on the first of each month.",
+  "kind": "line",
+  "sensitive": true
+ },
+ {
+  "category": "Money",
+  "content": "Compare the home insurance renewal quote with two other providers before it auto-renews.",
+  "kind": "line",
+  "sensitive": true
+ },
+ {
+  "category": "Money",
+  "content": "From the bank: \"Your overdraft limit will reduce to 250 from 1 August. No action is needed unless you wish to discuss alternatives.\"",
+  "kind": "pasted",
+  "sensitive": true
+ },
+ {
+  "category": "Money",
+  "content": "My savings account earns less interest per year than a coffee costs.",
+  "kind": "joke",
+  "sensitive": true
+ },
+ {
+  "category": "Reading",
+  "content": "Finished Piranesi in two sittings, the House of statues is stuck in my head.",
+  "kind": "line"
+ },
+ {
+  "category": "Reading",
+  "content": "Next on the shelf: Middlemarch, The Dispossessed, Tomorrow and Tomorrow and Tomorrow.",
+  "kind": "list"
+ },
+ {
+  "category": "Reading",
+  "content": "Photo of the bookshop window, a stack of orange Penguin classics.",
+  "kind": "caption"
+ },
+ {
+  "category": "Reading",
+  "content": "Highlighted a line in Deep Work: shallow tasks expand to fill the day.",
+  "kind": "line"
+ },
+ {
+  "category": "Home",
+  "content": "Boiler pressure dropped again, top up the loop and bleed the radiator in the spare room.",
+  "kind": "line"
+ },
+ {
+  "category": "Home",
+  "content": "Hardware shop: wall plugs, filler, white emulsion, masking tape, a spirit level.",
+  "kind": "list"
+ },
+ {
+  "category": "Home",
+  "content": "Pic: the new shelves going up in the alcove, still need a second coat.",
+  "kind": "caption"
+ },
+ {
+  "category": "Home",
+  "content": "Gutters are full of leaves, borrow the ladder on Saturday before the rain.",
+  "kind": "line"
+ },
+ {
+  "category": "Gym",
+  "content": "Swim session, 30 lengths front crawl then drills with the pull buoy.",
+  "kind": "line"
+ },
+ {
+  "category": "Gym",
+  "content": "Overhead press stalled at 40kg, drop the weight and add a set of lateral raises.",
+  "kind": "line"
+ },
+ {
+  "category": "Gym",
+  "content": "From the trainer: \"Foam roll your calves and hips for five minutes after every lift, and eat protein within an hour.\"",
+  "kind": "pasted"
+ },
+ {
+  "category": "Gym",
+  "content": "Leg day is the only day the stairs are my enemy.",
+  "kind": "joke"
+ },
+ {
+  "category": "Cooking",
+  "content": "Tried the no-knead focaccia, dimpled with rosemary and flaky salt, a keeper.",
+  "kind": "line"
+ },
+ {
+  "category": "Cooking",
+  "content": "Taco night: tortillas, black beans, lime, avocado, pickled onion, coriander.",
+  "kind": "list"
+ },
+ {
+  "category": "Cooking",
+  "content": "Picture of the lasagne, the top went properly golden this time.",
+  "kind": "caption"
+ },
+ {
+  "category": "Cooking",
+  "content": "Stock from the chicken carcass, simmer three hours and freeze in cups.",
+  "kind": "line"
+ },
+ {
+  "category": "Films & TV",
+  "content": "Watched Parasite again, the stairs sequence hits even harder the second time.",
+  "kind": "line"
+ },
+ {
+  "category": "Films & TV",
+  "content": "Queue: Aftersun, The Bear season three, Shogun, Anatomy of a Fall.",
+  "kind": "list"
+ },
+ {
+  "category": "Films & TV",
+  "content": "The finale of Succession was perfect, that last shot of the two siblings on the sofa.",
+  "kind": "line"
+ },
+ {
+  "category": "Films & TV",
+  "content": "Screenshot of the poster for Dune Part Two, the sandworm in profile.",
+  "kind": "caption"
+ },
+ {
+  "category": "Family",
+  "content": "Mum's seventieth in July, plan a surprise lunch with the cousins and ask Aunt Jo to keep it quiet.",
+  "kind": "line",
+  "sensitive": true
+ },
+ {
+  "category": "Family",
+  "content": "Parents' evening on Wednesday, ask about Maya's reading and the swimming lessons.",
+  "kind": "line",
+  "sensitive": true
+ },
+ {
+  "category": "Family",
+  "content": "Photo: Dad and Leo building the tent in the garden, neither reading the instructions.",
+  "kind": "caption"
+ },
+ {
+  "category": "Family",
+  "content": "Call Grandma on Sunday, she wants the recipe for the apple cake.",
+  "kind": "line"
+ },
+ {
+  "category": "Uni",
+  "content": "Seminar reading for Thursday: two chapters on game theory and the problem set.",
+  "kind": "line"
+ },
+ {
+  "category": "Uni",
+  "content": "Dissertation proposal due in three weeks, book a supervisor meeting this week.",
+  "kind": "line"
+ },
+ {
+  "category": "Uni",
+  "content": "From the module page: \"The coursework counts for 40 percent. Submit a single PDF through the portal before 17:00.\"",
+  "kind": "pasted"
+ },
+ {
+  "category": "Uni",
+  "content": "Revision plan: statistics on Monday, organic chemistry Tuesday, past papers Wednesday.",
+  "kind": "list"
+ },
+ {
+  "category": "Car",
+  "content": "MOT due next month, tyres are close to the legal limit so price a new pair.",
+  "kind": "line"
+ },
+ {
+  "category": "Car",
+  "content": "Warning light for tyre pressure came on, check all four with the garage gauge.",
+  "kind": "line"
+ },
+ {
+  "category": "Car",
+  "content": "Service invoice: \"Oil and filter change, brake fluid flush, wiper blades replaced. Next service due at 30,000 miles.\"",
+  "kind": "pasted"
+ },
+ {
+  "category": "Car",
+  "content": "The satnav insisted on a left turn into a lake.",
+  "kind": "joke"
+ }
+]

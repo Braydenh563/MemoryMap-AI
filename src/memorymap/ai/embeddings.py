@@ -302,6 +302,7 @@ def backfill_missing(
 def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa: ANN001
     from sqlalchemy import select
 
+    from memorymap.core import jobruns
     from memorymap.core.database import EmbeddingRecord, Entry
 
     fixed = 0
@@ -326,17 +327,28 @@ def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa
             if missing
             else "Every note already has a vector."
         )
+        stopped = False
         for start in range(0, len(missing), EMBED_BATCH):
+            #: Stop (Settings, Background jobs) is honoured between batches, so
+            #: a long backfill is no longer one call with nothing to stop at.
+            if "embeddings-backfill" in jobruns.stop_asked:
+                stopped = True
+                break
             fixed += service.store_for_entries(session, missing[start : start + EMBED_BATCH])
             run.step(min(start + EMBED_BATCH, len(missing)), len(missing), "Embedding notes")
             run.say(f"Embedded {min(start + EMBED_BATCH, len(missing))} of {len(missing)} notes.")
-        run.say("Checking long notes for paragraph vectors.")
-        chunked = _backfill_chunks(service, session, limit, run)
+        chunked = 0
+        if not stopped:
+            run.say("Checking long notes for paragraph vectors.")
+            chunked = _backfill_chunks(service, session, limit, run)
         if fixed:
             session.commit()
             logging.getLogger("memorymap.embeddings").info(
                 "backfilled %d note(s) that had no embedding", fixed
             )
+        if stopped:
+            run.cancel(f"stopped after {fixed} of {len(missing)} notes; the rest are done at the next start")
+            return fixed
         run.result = (
             f"embedded {fixed} note{'' if fixed == 1 else 's'} that had no vector"
             if fixed
@@ -349,6 +361,7 @@ def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa
         run.fail(exc)
     finally:
         session.close()
+        jobruns.stop_asked.discard("embeddings-backfill")
     return fixed
 
 
@@ -647,6 +660,21 @@ def similar_pairs(
     return found
 
 
+#: How many times a model whose files would not load is fetched again before
+#: the person is asked to reinstall it themselves.
+REPAIR_ATTEMPTS = 2
+
+
+def _fetch_model_as_a_task(loader, repo: str, title: str):  # noqa: ANN001, ANN202
+    """`loader(repo)` online, as a run the Activity list shows by `title`, so a
+    download or a fix is something a person can see happening (INBOX 1289)."""
+    from memorymap.core import jobruns
+
+    with jobruns.job_run("embedding-fix", title=title) as run:
+        run.say(f"{title}: fetching {repo}.")
+        return loader(repo)
+
+
 class EmbeddingService:
     # After a failed model load, wait this long before trying again, 
     # each attempt can hit the network and stall a save otherwise.
@@ -816,18 +844,26 @@ class EmbeddingService:
             if embedmodels.is_downloaded(repo):
                 #: **Repaired, not handed over** (the owner, 2026-10-07: "things
                 #: should be auto fixed for the user"; a fresh install had a
-                #: folder with no files). One online fetch fills what is
-                #: missing, once a process, unless the person switched
-                #: automatic installs off (`semantic_auto_install`).
+                #: folder with no files). An online fetch fills what is
+                #: missing, as a visible task ("Fixing search by meaning"),
+                #: up to twice a process, unless the person switched
+                #: automatic installs off (`semantic_auto_install`); search
+                #: runs on keywords meanwhile, and the person is told to
+                #: reinstall only once two fixes have failed (INBOX 1289).
                 models = getattr(self, "_models", None)
                 allowed = models is None or models._config.get_preference("semantic_auto_install", True)
-                if allowed and not getattr(self, "_repair_tried", False):
-                    self._repair_tried = True
+                tried = getattr(self, "_repair_attempts", 0)
+                if allowed and tried < REPAIR_ATTEMPTS:
+                    self._repair_attempts = tried + 1
                     logger.warning("%s is on this computer but would not load (%s); fetching its files again", repo, safe_value(str(exc), 200))
                     try:
-                        return SentenceTransformer(repo)
+                        return _fetch_model_as_a_task(SentenceTransformer, repo, "Fixing search by meaning")
                     except Exception as again:  # noqa: BLE001  # offline, or the Hub refused
                         logger.warning("%s could not be fetched again (%s)", repo, safe_value(str(again), 200))
+                    if self._repair_attempts < REPAIR_ATTEMPTS:
+                        raise EmbeddingCacheBroken(
+                            "Search by meaning is fixing its files; search uses keywords until it has."
+                        ) from exc
                 else:
                     logger.warning("%s is on this computer but would not load (%s); staying offline", repo, safe_value(str(exc), 200))
                 raise EmbeddingCacheBroken(
@@ -835,7 +871,7 @@ class EmbeddingService:
                     "Reinstall it from Settings, Models."
                 ) from exc
         logger.info("%s is not on this computer yet: downloading it once", repo)
-        return SentenceTransformer(repo)
+        return _fetch_model_as_a_task(SentenceTransformer, repo, "Downloading the search model")
 
     def _prefixed(self, text: str) -> str:
         """`text` with the prefix its model was trained with (E5, nomic)."""

@@ -55,7 +55,7 @@ def test_a_note_files_by_its_topics_before_any_note_shared_its_words(session) ->
     _notes(session, GYM_AND_KITCHEN)
     match = lexical_filing.lexical_category(session, "Leg day: squats 5x5, then deadlifts")
     assert match is not None and match.name == "Gym"
-    assert match.why == "It mentions “squat” and “deadlift” (Fitness), like the 3 notes in Gym."
+    assert match.why == "It mentions “leg day”, “squat” and “deadlift” (Fitness), like the 3 notes in Gym."
 
 
 def test_a_new_category_is_only_proposed_when_nothing_fits(session) -> None:

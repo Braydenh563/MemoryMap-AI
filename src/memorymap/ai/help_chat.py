@@ -1107,7 +1107,9 @@ HELP_TOPICS.extend(
                 "field completes from the tags you use (the arrows, then Enter or "
                 "Tab, take one). Change "
                 "either from the note's own row (press the category or Add tags), or "
-                "choose a category yourself in Capture's Filing menu. The categories "
+                "choose a category yourself in Capture's Filing menu; while you type, "
+                "Capture offers File under a category (with the reason on hover) "
+                "beside the suggested tags, and pressing it sets the Filing menu. The categories "
                 "are the sidebar of Your notes. Settings, Skills has Reorganise my "
                 "categories and Clean up my tags for a bigger tidy."
             ),

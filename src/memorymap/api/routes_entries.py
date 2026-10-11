@@ -740,7 +740,12 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         # dies with the process is still exactly where a user can find it.
         category, confidence, filed_by = manager.UNCATEGORISED, 0, "pending"
     else:
-        category, confidence, filed_by = _file_entry_now(session, body.content)
+        #: The wait is bounded like the background pass's (INBOX 1313): this
+        #: request holds a database connection while the model thinks, and the
+        #: unbounded wait it had (three minutes) let twenty at once fill the pool.
+        category, confidence, filed_by = _file_entry_now(
+            session, body.content, model_deadline=janitor.filing_deadline()
+        )
 
     tags = normalise_tags([*body.tags, *inline_tags(body.content)]) if body.inline_tags else body.tags
     content = body.content
@@ -1272,6 +1277,34 @@ class SuggestTagsBody(BaseModel):
 
 #: Said once per process, not once per keystroke pause.
 _SAID_ONCE: set[str] = set()
+
+
+@router.post("/suggest-category")
+def suggest_category_for_draft(body: SuggestTagsBody, session: Session = Depends(get_session)) -> dict:
+    """The category the notebook's own words point to for a note that is not
+    saved yet, with the reason (INBOX 1330: "a live, inline organization
+    suggestion while typing"). The words only, no model and no write: the
+    same decision filing makes with no model, so what is offered here is what
+    saving would have done. Nothing comes back where it has no reason to give
+    (a recently used category is a filing fallback, not a suggestion), and a
+    sensitive topic is offered like any other: it is a chip to press, and
+    pressing is the person filing it (decision 6)."""
+    from memorymap.ai import lexical_filing
+
+    content = body.content.strip()
+    if body.title.strip() and content:
+        content = f"# {body.title.strip()}\n\n{content}"
+    if not content:
+        return {"category": None, "reason": ""}
+    try:
+        decision = lexical_filing.decide(session, content)
+    except Exception:  # noqa: BLE001 - a hint never fails the form
+        logger.debug("no category suggestion for a draft", exc_info=True)
+        return {"category": None, "reason": ""}
+    pick = decision.filed or next((c for c in decision.ranked if c.score > 0 and c.why), None)
+    if pick is None or not pick.why:
+        return {"category": None, "reason": ""}
+    return {"category": pick.name, "reason": pick.why}
 
 
 @router.post("/suggest-tags")
@@ -2158,12 +2191,24 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
     wanted = [other_id for other_id, score in neighbours if score >= RELATED_MIN_SIMILARITY]
     if not wanted:
         return []
+    #: Each row is a press that links the two notes, so a note already linked
+    #: (either way round) is left out, and so is a draft against a committed
+    #: note (`manager.create_link` refuses both with a 400).
+    linked = {
+        other_id
+        for pair in session.execute(
+            select(EntryLink.source_entry_id, EntryLink.target_entry_id).where(
+                or_(EntryLink.source_entry_id == entry.id, EntryLink.target_entry_id == entry.id)
+            )
+        )
+        for other_id in pair
+    }
     found = {
         other.id: other
         for other in session.scalars(
             select(Entry).where(Entry.id.in_(wanted), Entry.is_deleted == False)  # noqa: E712
         )
-        if not other.is_private
+        if not other.is_private and other.id not in linked and bool(other.is_draft) == bool(entry.is_draft)
     }
     ordered = [found[other_id] for other_id in wanted if other_id in found]
     return [_to_out(session, e) for e in ordered[:3]]

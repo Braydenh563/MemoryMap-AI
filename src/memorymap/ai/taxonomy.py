@@ -64,7 +64,14 @@ def _read(name: str) -> Any:
 
 @lru_cache(maxsize=1)
 def _data() -> dict:
-    return _read("memorymap_taxonomy.json")
+    """The pack, with MemoryMap's reviewed everyday vocabulary merged into its
+    topics (`memorymap_everyday.json`: words the pack's formal phrases miss,
+    INBOX 1297). The pack file itself is never edited."""
+    pack = _read("memorymap_taxonomy.json")
+    extra = _read("memorymap_everyday.json")
+    pack["taxonomy"] = merge_taxonomy(pack["taxonomy"], extra["terms"])
+    pack["weak_terms"] = list(dict.fromkeys([*pack["weak_terms"], *extra.get("weak", [])]))
+    return pack
 
 
 def taxonomy_map() -> dict[str, list[str]]:

@@ -321,6 +321,9 @@ class PreferencesBody(BaseModel):
     #: a Python weekday, 0 Monday to 6 Sunday).
     week_start: Literal["auto", "monday", "saturday", "sunday"] | None = None
     week_start_locale: int | None = Field(default=None, ge=0, le=6)
+    #: Minutes of no use after which the search-by-meaning model is dropped from
+    #: memory (decision 62; it loads again on the next search or save). 0 keeps it.
+    embedder_idle_unload_minutes: int | None = Field(default=None, ge=0, le=1440)
     #: **The writing checker's own two settings.** Both belong on the server
     #: rather than in `localStorage`, and the reason is the same for each: a
     #: dictionary you have to rebuild when you clear your browser data is a
@@ -761,6 +764,7 @@ def _preferences_from(config) -> dict:
         "composer_voice": config.get_preference("composer_voice", "natural"),
         "week_start": config.get_preference("week_start", "auto"),
         "week_start_locale": config.get_preference("week_start_locale", 0),
+        "embedder_idle_unload_minutes": config.get_preference("embedder_idle_unload_minutes", 60),
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),

@@ -1811,8 +1811,15 @@ const AI_OFFLINE_HINT = "Connect a model in Settings";
 
 //: Unknown status (locked, still loading) is available: better to let a click
 //: fail than to grey out a working button on a slow start.
+//:
+//: **Off means no model can answer, not only no server** (ledger 1521;
+//: INBOX 778: a reachable server with no chat model installed answers
+//: nothing). `model_ready` is the server's own verdict; the Needle engine
+//: (`tools_engine`) answers without one, so it keeps the gate open.
 function aiIsOff() {
-  return modelStatus ? modelStatus.ollama_running === false : false;
+  if (!modelStatus) return false;
+  if (modelStatus.ollama_running === false) return true;
+  return modelStatus.model_ready === false && !modelStatus.tools_engine;
 }
 
 //: **Why this restores rather than enables.** The status poll runs this every

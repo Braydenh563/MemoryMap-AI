@@ -1381,6 +1381,7 @@ function tagAddChipKind(entry, options) {
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
+  if (rowEnterIds && rowEnterIds.size && !rowEnterIds.has(String(entry.id))) li.classList.add("row-enter");
   if (entry.id === linkSource) li.classList.add("link-source");
   // The phone's swipe underlays read their words from the row (`initRowSwipe`,
   // 10-responsive.css): what a swipe right and a swipe left will do to it.

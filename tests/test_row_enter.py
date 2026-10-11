@@ -1,0 +1,26 @@
+"""A note added after the list is drawn fades in (ledger 1538)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from tests._app_js import app_js_text
+
+CSS = (Path(__file__).resolve().parent.parent / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+
+
+def test_the_list_remembers_what_was_on_screen_and_marks_new_cards():
+    code = app_js_text()
+    render = code[code.index("function renderEntries() {"):]
+    render = render[: render.index("list.replaceChildren();")]
+    assert "rowEnterIds = new Set(" in render and "rowEnterTimer" in render
+    card = code[code.index("function entryItem("):]
+    card = card[:600]
+    assert "rowEnterIds" in card and '"row-enter"' in card
+
+
+def test_the_fade_uses_the_motion_token_so_reduced_motion_removes_it():
+    rule = CSS[CSS.index("#entry-list li.row-enter"):]
+    rule = rule[: rule.index("}")]
+    assert "var(--ui-slow)" in rule and "animation: row-enter" in rule
+    assert "@keyframes row-enter" in CSS

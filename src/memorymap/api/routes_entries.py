@@ -1500,10 +1500,10 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
             )
         else:
             refiling.fail("No filing model or embeddings were available.")
-    except Exception as exc:
+    except Exception:
         logger.warning("re-evaluation's filing step failed", exc_info=True)
         filed_by = None  # AI down, keep the note exactly as it was
-        refiling.fail(exc)
+        refiling.fail("The filing step stopped before it finished. The log has the reason.")
     refiling.finish()
 
     # 2. Suggest tags (best effort: never blocks the re-evaluation).

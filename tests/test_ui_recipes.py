@@ -5597,3 +5597,13 @@ def test_file_reading_text_fits_up_to_a_page():
     assert m and "max-height: min(28rem, 55vh)" in m.group(1)
     shell = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text()
     assert re.search(r"\.library-image-card-fold > \.library-image-reading-body \{\s*max-height: 11rem", shell)
+
+
+def test_the_flag_marker_is_one_toggle_not_two_previews():
+    """Ledger 1546 (seg665 item 5): an on/off marker is a single pressed-state button."""
+    wm = frontend_text("whiteboard-map.js")
+    assert 'wbMapMarkerToggle("Flag"' in wm
+    assert 'wbMapMarkerSeg("Flag"' not in wm
+    toggle = wm[wm.index("function wbMapMarkerToggle("):]
+    toggle = toggle[: toggle.index("\n}\n")]
+    assert "aria-pressed" in toggle and "choose(!on)" in toggle

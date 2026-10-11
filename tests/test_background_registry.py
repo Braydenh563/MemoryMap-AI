@@ -3,8 +3,9 @@
 A thread nobody can list or stop is the bug behind "the app would not quit"
 and "a second embedding pass started under the first". Decision 58 puts the
 registry in `core/background.py`, with `core/jobs.py` and `core/jobruns.py`
-as the only modules allowed to start work themselves. That module is not
-built yet (Brief 63's neighbour), so until it is this test holds the line:
+as the only modules allowed to start work themselves. That module is
+built (`start`, `running`, `stop_all`; the embedding warm-up is its first
+entry), and this test holds the line for the rest:
 the sites below are the 26 found on 2026-10-10, each keyed by file, enclosing
 function, kind and position. A new `Thread(`, `Timer(`, executor,
 `create_task`, `ensure_future`, `run_in_executor` or `add_task` outside the
@@ -42,7 +43,6 @@ __main__.py::_start_tray::thread::1
 ai/autonomous.py::start::thread::1
 ai/autonomous.py::trigger_now::thread::1
 ai/embeddings.py::EmbeddingService._maybe_auto_install_missing_package::thread::1
-ai/embeddings.py::start_warmup::thread::1
 ai/janitor.py::_chat_within_deadline::thread::1
 ai/model_manager.py::start_pull::thread::1
 ai/tools/__init__.py::prefetch_web::executor::1

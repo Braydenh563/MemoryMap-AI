@@ -2229,6 +2229,10 @@ function libraryVisibleRows() {
   return matched;
 }
 
+//: Ids on screen before this render, or null outside the second after one.
+let rowEnterIds = null;
+let rowEnterTimer = 0;
+
 function renderEntries() {
   closeNotePageIfGone();
   notesRailSync();
@@ -2239,6 +2243,13 @@ function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
   const noMatch = $("no-match-message");
+  //: **A row that arrives after the first render fades in** (ledger 1538). The
+  //: list redraws whole, so what was on screen is remembered by id and a card
+  //: whose id was not there is marked (`entryItem` reads `rowEnterIds`). The
+  //: first render, and a render after the list was empty, mark nothing.
+  rowEnterIds = new Set([...list.querySelectorAll(":scope > li[data-id]")].map((li) => li.dataset.id));
+  clearTimeout(rowEnterTimer);
+  rowEnterTimer = setTimeout(() => { rowEnterIds = null; }, 1000);
   list.replaceChildren();
   // Re-applied on every render, not just on a click: `replaceChildren`
   // above leaves the class alone, but a later render that rebuilt the <ul>

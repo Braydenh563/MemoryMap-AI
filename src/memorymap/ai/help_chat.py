@@ -572,7 +572,7 @@ HELP_TOPICS: list[dict] = [
             "seek, press M to mark a moment with a comment, and Trim; a "
             "transcribed one lists its lines with their times (press one to "
             "play from it) and downloads them as SRT or VTT subtitles; with "
-            "the AI on, each turn is labelled with who spoke. "
+            "the AI on, each turn is labelled with who spoke, and a recording's menu has Rename a speaker to correct a name everywhere. "
             "Read-aloud plays a note or answer back to you."
         ),
         "badge": {"label": "Notes", "tab": "notes"},

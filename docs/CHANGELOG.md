@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Recordings: "Rename a speaker" in a recording's menu changes one speaker's name everywhere in its transcript, with Undo. Statistics has a "Words added to older notes" line. A note added while the list is on screen fades in. AI buttons grey out when no chat model is installed, not only when the server is down. The search-by-meaning model is dropped from memory after an idle hour and loads again on the next search (the `embedder_idle_unload_minutes` setting, 0 keeps it).
 - Closing or reloading the page while a chat answer is still arriving now asks before it leaves. "Model per feature" in Settings stays visible when no model server is running, so an override can still be seen and cleared. Counts and totals use steady-width digits.
 - Settings: General has a Calendar row, "First day of the week" (from your language and region by default, or Monday, Saturday or Sunday); the Statistics week starts on it. A slow model-status check now keeps the last answer instead of greying the Agent panel, and Settings says the server is slow.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.

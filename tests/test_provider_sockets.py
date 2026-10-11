@@ -172,3 +172,25 @@ def test_an_agent_turn_runs_both_native_calls_and_answers(ollama_server, monkeyp
     assert module.ANSWER in answer
     second = module.REQUESTS[-1]["messages"]
     assert sum(1 for m in second if m.get("role") == "tool") == 2
+
+
+def test_stopping_a_slow_stream_midway_stops_reading_at_once(openai_server, monkeypatch):
+    """Ledger 1530: the stand-in answers in ~150 ms, too fast to press Stop in. With
+    `STREAM_DELAY_MS` it takes eight pauses; closing the generator after the first
+    piece must return long before the rest arrive, and the server must not stall."""
+    import time
+
+    module, url = openai_server
+    monkeypatch.setattr(module, "STREAM_DELAY_MS", 300)
+    stream = OpenAICompatClient(url, timeout=10).chat_stream(module.MODEL_ID, ASK)
+    started = time.monotonic()
+    first = next(piece for piece in stream if piece.get("content_delta"))
+    stream.close()
+    stopped_after = time.monotonic() - started
+    assert first["content_delta"]
+    # Eight pieces at 300 ms is 2.4 s; the first piece plus the close is well under half of it.
+    assert stopped_after < 1.2, stopped_after
+    # The server is still healthy for the next request.
+    monkeypatch.setattr(module, "STREAM_DELAY_MS", 0)
+    again = list(OpenAICompatClient(url, timeout=10).chat_stream(module.MODEL_ID, ASK))
+    assert any(p.get("content_delta") for p in again)

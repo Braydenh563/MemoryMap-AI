@@ -52,6 +52,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -816,10 +817,11 @@ class _Similar:
     def nearest(self, text: str, allowed, k: int = PAIR_NEIGHBOURS) -> list[tuple[float, DerivedFact]]:  # noqa: ANN001
         """Up to `k` pool rows for which `allowed(row)` holds, best first."""
         terms = _terms(text)
-        shared: dict[int, int] = {}
+        #: `Counter.update` counts in C; the per-posting dict get and set was
+        #: the next biggest cost in this loop (ledger 1542).
+        shared: Counter[int] = Counter()
         for term in terms:
-            for index in self._postings.get(term, ()):
-                shared[index] = shared.get(index, 0) + 1
+            shared.update(self._postings.get(term, ()))
         by_words = []
         #: **The same sentence again is not a neighbour.** A notebook that
         #: says "the rent is 950" in three notes has three identical claims,
@@ -829,8 +831,12 @@ class _Similar:
         #: copy of each wording, and never the query's own.
         seen_texts = {" ".join(text.lower().split())}
         for index, count in shared.items():
-            union = len(terms | self._terms[index])
-            score = count / union if union else 0.0
+            #: `count` is the size of the intersection (one posting hit per
+            #: shared term), so the union is a sum, not a new set per
+            #: candidate: the set built here was most of the pairing phase
+            #: (ledger 1542, 4.4 of 7.4 s at 800 claims).
+            union = len(terms) + len(self._terms[index]) - count
+            score = count / union if union > 0 else 0.0
             if score >= self.PREFILTER and allowed(self._pool[index]):
                 by_words.append((score, self._pool[index]))
         by_words.sort(key=lambda pair: (-pair[0], pair[1].id))

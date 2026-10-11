@@ -52,3 +52,14 @@ def test_the_chat_mode_gate_reads_model_ready_not_reachability():
     gate = status_js.split("function agentModeAvailable() {", 1)[1].split("}", 1)[0]
     assert "modelStatus?.model_ready === true" in gate and "modelStatus?.tools_engine" in gate
     assert "aiIsOff" not in gate and "ollama_running" not in gate
+
+
+def test_ai_is_off_when_no_model_can_answer_not_only_when_the_server_is_down():
+    """Ledger 1521: `aiIsOff` follows `model_ready`, with the Needle engine keeping the gate open."""
+    from tests._app_js import app_js_text
+
+    code = app_js_text()
+    body = code[code.index("function aiIsOff() {"):]
+    body = body[: body.index("\n}\n")]
+    assert "ollama_running === false" in body
+    assert "model_ready === false" in body and "tools_engine" in body

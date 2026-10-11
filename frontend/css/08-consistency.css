@@ -10469,3 +10469,13 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 :where([class$="-count"], [class*="-count "], [class$="-total"], [class*="-total "]) {
   font-variant-numeric: tabular-nums;
 }
+
+/* **A note that arrives after the list is drawn fades in** (ledger 1538).
+   `row-enter` is set by `entryItem` on a card whose id was not on screen at the
+   previous render; the duration is `--ui-slow`, which is 0s under reduced motion. */
+@keyframes row-enter {
+  from { opacity: 0; }
+}
+#entry-list li.row-enter {
+  animation: row-enter var(--ui-slow) ease-out;
+}

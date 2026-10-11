@@ -4,6 +4,8 @@
 
 # HANDOVER
 
+> **Where the owner reads screenshots (UI_MODERNISATION_PLAN Phase 11 item 11; ledger 1539):** `docs/screenshots/*.png`, shown in the README and `docs/index.html`; `scratchpad/ui-sweeps/readmeshots.js` retakes them against a running app. A change to a surface retakes that surface's shot in the same commit. The phone picture is `docs/screenshots/phone.png` (390 wide, the same script; `SKIP=phone` leaves it); nothing else is a place the owner reads.
+
 > **The owner's typos are fixtures, 2026-10-11 (standing, Brief 90):** "all my spelling mistakes and grammar issues in all these and future prompts in these sessions are checked against the composer to see if it can properly understand them, if not, add the capability and understanding with response variations." Every session appends the owner's new misspellings to `tests/fixtures/owner_typos.json` and fixes any the engine misreads.
 
 > **Model per task, the owner 2026-10-11:** "make sure you are making use of sonnet and haiku agents as well but make sure quality doesnt degrade, change models and effort levels based on the task to save on tokens. be token efficient". Haiku for mechanical sweeps and doc moves (low effort), Sonnet for named fixes, research and specified features (medium), Opus for design judgement (high only for plan phases); never Fable.

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 import re
-import threading
 from pathlib import Path
 from typing import Literal
 
@@ -25,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import speakers, voice
 from memorymap.api import paging
-from memorymap.core import activity, deps, recordings, transcript
+from memorymap.core import activity, background, deps, recordings, transcript
 from memorymap.core.database import Entry, Recording, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import bin as other_bin
@@ -282,13 +281,11 @@ def start_transcription(recording_id: int, session: Session = Depends(get_sessio
     if not recordings.begin_transcription(row.id, job.id):
         activity.finish(job)
         raise HTTPException(status_code=409, detail="That recording is already being transcribed.")
-    threading.Thread(
-        target=_transcribe_in_background,
-        args=(row.id, Path(path), row.duration_ms, deps.get_config().get_preference("voice_model", "base"),
-              session.info.get("workspace_id"), job),
-        name=f"transcribe-{row.id}",
-        daemon=True,
-    ).start()
+    work = (row.id, Path(path), row.duration_ms, deps.get_config().get_preference("voice_model", "base"),
+            session.info.get("workspace_id"), job)
+    #: Registered (core/background.py, decision 58); the Stop route ends it between
+    #: two segments, so the registry entry has no stopper of its own.
+    background.start(f"transcribe-{row.id}", lambda: _transcribe_in_background(*work))
     return {"id": row.id, "job_id": job.id, "transcription": recordings.transcription_of(row.id)}
 
 
@@ -400,6 +397,28 @@ def name_speakers(recording_id: int, session: Session = Depends(get_session)) ->
     row.segments = transcript.dumps(named)
     session.commit()
     return {"segments": named, "speakers": any(seg["speaker"] for seg in named)}
+
+
+class RenameSpeakerBody(BaseModel):
+    from_name: str = Field(min_length=1, max_length=transcript.MAX_SPEAKER)
+    to_name: str = Field(max_length=transcript.MAX_SPEAKER)
+
+
+@router.put("/recordings/{recording_id}/speakers")
+def rename_speaker(recording_id: int, body: RenameSpeakerBody, session: Session = Depends(get_session)) -> dict:
+    """Rename one speaker everywhere in a transcript (ledger 1514): the model's
+    "Speaker A" becomes "Priya", or a wrong guess is corrected. An empty new
+    name drops the label from those turns. No model needed."""
+    _row, segments = _segments_of(session, recording_id)
+    old = " ".join(body.from_name.split())
+    new = " ".join(body.to_name.split()) or None
+    if not any(seg["speaker"] == old for seg in segments):
+        raise HTTPException(status_code=404, detail="No turn in this transcript has that speaker.")
+    renamed = [{**seg, "speaker": new} if seg["speaker"] == old else seg for seg in segments]
+    _row.segments = transcript.dumps(renamed)
+    log_action(session, "edited", "recording", recording_id, f"speaker {old} renamed")
+    session.commit()
+    return {"segments": transcript.loads(_row.segments), "speakers": any(seg["speaker"] for seg in renamed)}
 
 
 def _subtitles(session: Session, recording_id: int, ext: str) -> Response:

@@ -1592,3 +1592,9 @@ Owners: uipolish (789), polish2 (790 to 792 and 788's design fixes), DOCUMENTS_P
 - INBOX 795, UI, the owner 2026-10-10 22:55Z, two screenshots: "just make sure that the app actually recieves a propper ui polish and refinement. there are still some awkward sections. also I think the ui can be redesigned or made better on this panel like with the buttons. and in the popup for individual notes, there should be an option to open the sidebar." (the Connections panel and popup: a full-width bordered button per board and per note.) Owner: uipolish.
 - INBOX 796, bug, graph, the owner 2026-10-10 23:00Z, two screenshots: "dropdown menus in the graph dont close when another is opened causing a visual clash and overlay for all 3 of these buttons" (the ?, settings and ⋯ menus in the graph head open on top of each other.) Owner: graphfeel.
 - INBOX 790 to 793 are built (canvasui-1010): see HISTORY.md, "Moved from the plans, 2026-10-11 (canvasui-1010)".
+
+## Placed from INBOX, 2026-10-11 (the owner's sweep request)
+
+Owners: the uisweep agent (Sonnet, measure and the mechanical fixes), then Briefs 57, 58 and 59 (Opus) on its findings, ahead of 61 to 63.
+
+- INBOX 800, UI, the owner 2026-10-11 02:40Z, verbatim: "Can you do another devibecoding, ui/ux modernisation and professionalisation sweep across all ui faces??" Placed: every surface at 1440 and 390, both themes, through `devibe.js`, `vibecheck.js`, `hierarchy.js`, `consistency.js`, `hoverbox.js`, `focusring.js`, `contrast.js` and `axe.js`; the findings, each with its number, go to `agent-remaining/uisweep-1011.md`; mechanical ones fixed in the sweep, design ones taken by Briefs 57 to 59 in that order.

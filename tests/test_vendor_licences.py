@@ -99,3 +99,20 @@ def test_git_keeps_the_word_list_in_unix_endings() -> None:
         ".gitattributes must pin line endings, or a Windows checkout rewrites "
         "the word list, the cache stamps and every byte length a test asserts"
     )
+
+
+def test_the_readable_font_is_vendored_under_its_open_font_licence() -> None:
+    """Row 1595: Settings, Appearance, Font, Readable is Atkinson Hyperlegible,
+    shipped in the tree (the app is offline) with the SIL OFL beside it, and
+    every face the stylesheet names is a file that exists."""
+    import re
+
+    folder = VENDOR / "atkinson"
+    assert "SIL Open Font License" in (folder / "LICENSE").read_text(encoding="utf-8")
+    css = (VENDOR.parent / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
+    named = re.findall(r'url\("\.\./vendor/atkinson/([^"]+)"\)', css)
+    assert len(named) == 4, named
+    for name in named:
+        data = (folder / name).read_bytes()
+        assert data[:4] == b"wOF2", f"{name} is not a woff2 file"
+    assert ':root[data-font="readable"]' in css and '"Atkinson Hyperlegible"' in css

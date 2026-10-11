@@ -7,12 +7,23 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+<<<<<<< HEAD
 - Fixed: a wrong password on the lock screen now says "That password is wrong." under the field (it said "Locked"), and pressing Read in the OCR workspace with no reader installed now leaves the reader menu open on the installs (a document-level handler closed it the moment it opened).
 - Fixed: closing a board card's editor while the text editor was still loading no longer throws.
 - Chat: "what is there about X" and "what have I got on X" answer as the topic overview with no model; a pasted wall of brackets no longer stalls a document read aloud or the plain-text strip (linear link stripping); a panel frame's hint takes a double-click again.
 - Whiteboard: a note card gets the four edge arrows, each making a new note joined to it and open for typing; Reset style (right-click, the ... menu or Ctrl+K) puts an item's colour, fill, line and text back to the defaults; a panel frame's hint line edits on double-click; the Shapes caret opens its list. A folder export and import keep connectors joined to their items and a map's note references pointing at their notes. The assistant can fold or flatten a sticky's corner. The Timeline names its board kind "Boards and maps", and the graph's topic rename field is the size of its plate.
 - Whiteboard: five more line ends (stealth, cross, half and double arrow, and the MemoryMap end: the mark's node dot ahead of a chevron, first in the lists) and a Small, Medium, Large size beside each end in the bar and the Format panel; draw.io's cross, async and double-block ends come in as these.
 - Whiteboard: a resize and a box drawn out (a shape, a text box, a sticky, a frame) snap to the edges, centres, widths and heights around them, to the grid, and a card to its note's height, each with a guide line, and show the size beside the pointer ("263 x 120"); Alt holds them off. A card shows "Show less" only when collapsing it would hide text, a picture in a card keeps its ratio at the card's width, and a picture's resize grip no longer claims a double-click that fits text.
+=======
+- Tooling: two sweeps measure memory over a long session (scratchpad/ui-sweeps/memserver.py for the server, memgrowth.js for the page); a 10-minute run found no leak.
+- Board: Alt while resizing keeps the centre and grows both sides, for cards and drawn shapes.
+- CI: a weekly pip-audit job over requirements.txt (non-blocking at first); the app itself makes no request.
+- Appearance: Font has a Readable choice, Atkinson Hyperlegible (SIL OFL), vendored with its licence so it works offline.
+- Lists: a list past twelve rows can be filtered by typing (listFilter): the keyboard shortcuts and the space menu; Escape clears, and a miss says so in one line.
+- Top bar: the Local chip shows this launch's privacy verdict in one word (Local, Local network, Online) and opens Settings, Privacy; below 1100 it is the icon, on a phone a row of the More menu.
+- Whiteboard on a phone: the top bar is one row (54px, was two rows and 104px at 390). Below 600 the Board menu's commands are in More, the Library is Insert's Shapes, icons and frames, and Boards is its arrow.
+- Panel heads read as titles: Local map, the Ask answer, Matching records, the notes rail's Connections, Activity and the board's Library and Format panels draw at 16px like every dialog title, where they were 12px labels.
+>>>>>>> agent/rows-1011
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
 - Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.

@@ -2915,7 +2915,7 @@ def test_font_and_density_are_lists_that_keep_their_handlers() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     font = html[html.index('<select id="font-seg"') :]
     font = font[: font.index("</select>")]
-    assert re.findall(r'value="(\w+)"', font) == ["system", "serif", "mono", "arial"]
+    assert re.findall(r'value="(\w+)"', font) == ["system", "serif", "mono", "arial", "readable"]
     density = html[html.index('<select id="density-seg"') :]
     density = density[: density.index("</select>")]
     assert re.findall(r'value="(\w+)"', density) == ["auto", "comfortable", "compact", "spacious"]
@@ -5639,3 +5639,71 @@ def test_a_control_that_acts_on_this_computer_says_so_elsewhere() -> None:
     skills = (ROOT / "frontend" / "js" / "skills.js").read_text(encoding="utf-8")
     assert f'const THIS_COMPUTER_ONLY = "{REFUSAL}";' in skills
     assert "markOtherDevice().catch" in skills
+
+
+def test_a_panel_head_is_a_title_and_not_the_eyebrow() -> None:
+    """Row 1586: `h3.panel-head` (and the board sidebar's and Format panel's
+    `h3.wb-sidebar-title`) names a whole card or column, so it draws in the
+    dialog title's voice; `.card h3` (the eyebrow, 12px) is for a label over
+    one group. Measured: five panel heads and both board panel heads at 12px
+    beside the Web panel's 16px."""
+    consistency = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    rule = next(
+        body for sel, body in _rules(consistency)
+        if ".card h3.panel-head" in sel and "h3.wb-sidebar-title" in sel
+    )
+    assert "font-size: var(--text-body)" in rule
+    assert "text-transform: none" in rule
+    assert "color: var(--ink)" in rule
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    heads = re.findall(r'<(\w+) class="panel-head\b', html)
+    assert heads and set(heads) == {"h3"}, f"a panel head left the h3 recipe: {sorted(set(heads))}"
+
+
+#: Filters built by hand before `listFilter` existed (row 1643): each keeps
+#: its own field because its list does more than hide rows (a sort, a scope,
+#: a count). May only shrink; a new long list calls `listFilter`.
+HAND_BUILT_FILTERS = {
+    "Filter widgets…", "Filter notes", "Filter headings…", "Filter this index…",
+    "Filter logs", "Filter tags", "Filter categories", "Filter names",
+}
+
+
+def test_a_long_list_is_typed_to_through_the_one_recipe() -> None:
+    """Row 1643 (WORLD_CLASS_PLAN 22.2, "every list with more than 20 rows
+    can be filtered by typing"): `listFilter` is the one builder, the
+    shortcut list (31 rows) and the space menu use it, and no new
+    hand-built "Filter ..." field joins the eight that predate it."""
+    selects = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    body = selects.split("function listFilter(", 1)[1][:3000]
+    assert 'field.className = "search-field list-filter hidden"' in body
+    assert 'event.key === "Escape"' in body and "list-filter-empty" in body
+    wiring = (ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8")
+    assert "listFilter(list, { label: \"Filter shortcuts\" })" in wiring.split("function buildShortcutList", 1)[1][:4000]
+    spaces = (ROOT / "frontend" / "js" / "spaces-find.js").read_text(encoding="utf-8")
+    assert "listFilter(menu," in spaces.split("function renderSpaceMenu", 1)[1][:3000]
+    found = set()
+    for path in [ROOT / "frontend" / "index.html", *sorted((ROOT / "frontend" / "js").glob("*.js"))]:
+        found |= set(re.findall(r'placeholder\s*=\s*"(Filter[^"]*)"', path.read_text(encoding="utf-8")))
+    assert found <= HAND_BUILT_FILTERS, f"a hand-built filter field: {sorted(found - HAND_BUILT_FILTERS)}; call listFilter"
+    assert found == HAND_BUILT_FILTERS, "a hand-built filter moved to listFilter: shrink HAND_BUILT_FILTERS"
+
+
+def test_the_local_chip_shows_the_privacy_verdict_and_opens_the_record() -> None:
+    """Row 1641 (WORLD_CLASS_PLAN 22.1 item 9): the top bar's Local chip reads
+    `/privacy/verdict`, opens Settings, Privacy, stays hidden until it has an
+    answer, and is a row of the phone's header menu below 600."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    header = re.search(r'<header id="top-bar">(.*?)</header>', html, re.S).group(1)
+    chip = re.search(r'<button id="privacy-chip"[^>]*>', header)
+    assert chip and "hidden" in chip.group(0), "the Local chip left the top bar, or shows before it knows"
+    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    assert '"/privacy/verdict"' in status
+    assert 'openSettingsModal("privacy")' in status.split("function startPrivacyChip", 1)[1][:600]
+    # Its one call site: every unlock, beside the reminder watch.
+    assert "startPrivacyChip();" in status.split("function startReminderWatch(", 1)[1][:900]
+    phone = (ROOT / "frontend" / "js" / "phone-shell.js").read_text(encoding="utf-8")
+    rows = re.search(r"const PHONE_STATUS_ROWS = \[(.*?)\];", phone, re.S).group(1)
+    assert '"privacy-chip"' in rows
+    responsive = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    assert "#top-bar #privacy-chip" in responsive

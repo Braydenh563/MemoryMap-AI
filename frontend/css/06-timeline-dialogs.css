@@ -2035,6 +2035,36 @@
   background: var(--surface-2);
   box-shadow: none;
 }
+/* **The Local chip** (row 1641, DESIGN.md "The notebook's privacy verdict in
+   the top bar"): the header's one worded control, a quiet icon and word at
+   the bar's height, muted like a status word rather than a command; the
+   icon takes `--warn` once something reached the internet. The word goes
+   below 1100px, where the tab strip needs the room, and the icon carries it
+   (its name is on `aria-label` and `title`). */
+#top-bar .header-cluster > .privacy-chip {
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 500;
+  white-space: nowrap;
+}
+#top-bar .privacy-chip.is-online > .ph {
+  color: var(--warn);
+}
+@media (max-width: 1099.98px) {
+  #top-bar .privacy-chip-word {
+    display: none;
+  }
+  #top-bar .header-cluster > .privacy-chip {
+    width: var(--header-control-h);
+    padding-inline: 0;
+    justify-content: center;
+  }
+  #top-bar .privacy-chip > .ph-lead {
+    margin: 0;
+  }
+}
 /* The phone's one menu (`initPhoneHeaderMore`, app.js) is in the markup at
    every width and shown by 10-responsive.css below 600 only, where the four
    buttons it stands in for are hidden. Kept out of the flow here so the

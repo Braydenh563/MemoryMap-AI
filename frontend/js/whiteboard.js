@@ -16710,8 +16710,42 @@ function wbKeepAspect(startW, startH, w, h) {
   return { w: startW * scale, h: startH * scale };
 }
 
-function wbSketchResizeTransform(bbox, handle, dx, dy, shiftKey) {
+//: **Alt resizes from the centre** (row 1600, the audit's C3; Figma, tldraw
+//: and PowerPoint all hold it): the side opposite the handle moves by as much
+//: the other way, so the box grows about its middle. A box's new frame from
+//: where the gesture began (`start` is `{x, y, w, h}`), for the card and the
+//: object handles; Shift on a corner still keeps the proportions.
+function wbResizeBox(start, handle, dx, dy, shiftKey, altKey, min) {
+  const grow = altKey ? 2 : 1;
+  let w = start.w, h = start.h;
+  if (handle.includes("e")) w = Math.max(min, start.w + grow * dx);
+  if (handle.includes("w")) w = Math.max(min, start.w - grow * dx);
+  if (handle.includes("s")) h = Math.max(min, start.h + grow * dy);
+  if (handle.includes("n")) h = Math.max(min, start.h - grow * dy);
+  if (handle.length === 2 && shiftKey) ({ w, h } = wbKeepAspect(start.w, start.h, w, h));
+  if (altKey) return { x: start.x + (start.w - w) / 2, y: start.y + (start.h - h) / 2, w, h };
+  return {
+    x: handle.includes("w") ? start.x + start.w - w : start.x,
+    y: handle.includes("n") ? start.y + start.h - h : start.y,
+    w,
+    h,
+  };
+}
+
+function wbSketchResizeTransform(bbox, handle, dx, dy, shiftKey, altKey = false) {
   const { minX, minY, maxX, maxY } = bbox;
+  if (altKey) {
+    //: About the middle (see `wbResizeBox`): the same frame maths, read back
+    //: as a scale about the centre.
+    const box = wbResizeBox({ x: minX, y: minY, w: maxX - minX || 1, h: maxY - minY || 1 },
+      handle, dx, dy, shiftKey, true, WB_SKETCH_MIN_SIZE);
+    return {
+      sx: handle.includes("e") || handle.includes("w") ? box.w / (maxX - minX || 1) : 1,
+      sy: handle.includes("n") || handle.includes("s") ? box.h / (maxY - minY || 1) : 1,
+      anchorX: (minX + maxX) / 2,
+      anchorY: (minY + maxY) / 2,
+    };
+  }
   let newMinX = minX, newMaxX = maxX, newMinY = minY, newMaxY = maxY;
   if (handle.includes("e")) newMaxX = Math.max(minX + WB_SKETCH_MIN_SIZE, maxX + dx);
   if (handle.includes("w")) newMinX = Math.min(maxX - WB_SKETCH_MIN_SIZE, minX + dx);
@@ -18023,7 +18057,7 @@ function wbRenderMultiSelectionHandles() {
             const zoom = d3.zoomTransform(document.getElementById("whiteboard-container"));
             rawDX += event.dx / zoom.k;
             rawDY += event.dy / zoom.k;
-            const raw = wbSketchResizeTransform(bbox, handle, rawDX, rawDY, event.sourceEvent.shiftKey);
+            const raw = wbSketchResizeTransform(bbox, handle, rawDX, rawDY, event.sourceEvent.shiftKey, event.sourceEvent.altKey);
             //: **A corner scales a group proportionally** (the owner: "when I
             //: try to resizr the multiple selected objects with the group box,
             //: the items all go out of proportion and funky"). A single shape
@@ -18299,7 +18333,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
             // 30px on screen, where the card's own grip moved the full 60).
             rawDX += event.dx;
             rawDY += event.dy;
-            const t = wbSketchResizeTransform(bbox, handle, rawDX, rawDY, event.sourceEvent.shiftKey);
+            const t = wbSketchResizeTransform(bbox, handle, rawDX, rawDY, event.sourceEvent.shiftKey, event.sourceEvent.altKey);
             const newD = wbTransformPathD(parsed.d, t);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
@@ -19010,33 +19044,16 @@ function renderWhiteboard() {
         const startH = d._resizeStartH ?? (d._resizeStartH = d.height || WB_CARD_DEFAULT_SIZE.h);
         const startX = d._resizeStartX ?? (d._resizeStartX = d.x);
         const startY = d._resizeStartY ?? (d._resizeStartY = d.y);
-        let width = startW, height = startH, x = startX, y = startY;
-        if (handle.includes("e")) width = Math.max(WB_OBJECT_MIN_SIZE, startW + rawDX);
-        if (handle.includes("w")) width = Math.max(WB_OBJECT_MIN_SIZE, startW - rawDX);
-        if (handle.includes("s")) height = Math.max(WB_OBJECT_MIN_SIZE, startH + rawDY);
-        if (handle.includes("n")) height = Math.max(WB_OBJECT_MIN_SIZE, startH - rawDY);
-        // Reported directly: shift while resizing didn't snap to a square.
-        // Only a corner handle has two free axes to lock together, the
-        // larger of the two free-form sizes wins. Computed before the x/y
-        // anchor adjustment below so a w/n handle's anchor math sees the
-        // final, square-constrained size rather than the pre-shift one.
-        //: **The box's own proportions, not a square** (the owner, 2026-09-23,
-        //: the conventions pass: Shift keeps the aspect ratio in Figma, Miro,
-        //: tldraw and PowerPoint alike). The first answer to "shift didn't snap
-        //: to a square" made every Shift-resize a square, which turned a 2:1
-        //: card into a 1:1 one the moment Shift went down; a square stays a
-        //: square under this rule, so that report is still answered.
-        const keepAspect = handle.length === 2 && event.sourceEvent.shiftKey;
-        if (keepAspect) {
-          ({ w: width, h: height } = wbKeepAspect(startW, startH, width, height));
-        }
+        const box = wbResizeBox({ x: startX, y: startY, w: startW, h: startH }, handle, rawDX, rawDY,
+          event.sourceEvent.shiftKey, event.sourceEvent.altKey, WB_OBJECT_MIN_SIZE);
+        let width = box.w, height = box.h, x = box.x, y = box.y;
         //: Guided, never preset (INBOX 825 item 2): a neighbour's edge, width
-        //: or height, the grid, or the text's own height; Alt holds them off.
-        ({ width, height } = wbGuidedResize("node", d, handle, { x: startX, y: startY, w: startW, h: startH }, width, height, {
-          off: keepAspect || event.sourceEvent.altKey, fit: d._fitH,
-        }));
-        if (handle.includes("w")) x = startX + (startW - width);
-        if (handle.includes("n")) y = startY + (startH - height);
+        //: or height, the grid, or the text's own height; Alt and Shift hold them off.
+        if (!event.sourceEvent.shiftKey && !event.sourceEvent.altKey) {
+          ({ width, height } = wbGuidedResize("node", d, handle, { x: startX, y: startY, w: startW, h: startH }, width, height, { fit: d._fitH }));
+          if (handle.includes("w")) x = startX + (startW - width);
+          if (handle.includes("n")) y = startY + (startH - height);
+        }
         d.width = width;
         d.height = height;
         d.x = x;
@@ -20055,21 +20072,16 @@ function renderWbObjects(canvas) {
         const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
         start.dx += event.dx / transform.k;
         start.dy += event.dy / transform.k;
-        let newWidth = start.w, newHeight = start.h;
-        if (handle.includes("e")) newWidth = Math.max(WB_OBJECT_MIN_SIZE, start.w + start.dx);
-        if (handle.includes("w")) newWidth = Math.max(WB_OBJECT_MIN_SIZE, start.w - start.dx);
-        if (handle.includes("s")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, start.h + start.dy);
-        if (handle.includes("n")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, start.h - start.dy);
-        // Shift on a corner keeps the box's proportions, see nodeResizeDrag.
-        const keepAspect = handle.length === 2 && event.sourceEvent.shiftKey;
-        if (keepAspect) {
-          ({ w: newWidth, h: newHeight } = wbKeepAspect(start.w, start.h, newWidth, newHeight));
+        const box = wbResizeBox(start, handle, start.dx, start.dy,
+          event.sourceEvent.shiftKey, event.sourceEvent.altKey, WB_OBJECT_MIN_SIZE);
+        let newWidth = box.w, newHeight = box.h, newX = box.x, newY = box.y;
+        if (!event.sourceEvent.shiftKey && !event.sourceEvent.altKey) {
+          ({ width: newWidth, height: newHeight } = wbGuidedResize("object", d, handle, start, newWidth, newHeight, { off: false }));
+          newX = handle.includes("w") ? start.x + start.w - newWidth : start.x;
+          newY = handle.includes("n") ? start.y + start.h - newHeight : start.y;
         }
-        ({ width: newWidth, height: newHeight } = wbGuidedResize("object", d, handle, start, newWidth, newHeight, {
-          off: keepAspect || event.sourceEvent.altKey,
-        }));
-        d.x = handle.includes("w") ? start.x + start.w - newWidth : start.x;
-        d.y = handle.includes("n") ? start.y + start.h - newHeight : start.y;
+        d.x = newX;
+        d.y = newY;
         d.width = newWidth;
         d.height = newHeight;
         const el = d3.select(this.closest(".wb-object"));

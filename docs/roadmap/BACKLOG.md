@@ -2003,7 +2003,7 @@ there as colliding with the no-torch constraint).
 - ~~**Orphaned media garbage collection**~~ **Built, see `core/media_gc.py:196` (`find_orphaned_media`, dry run first); it misses board backgrounds (`scratchpad/audit1005/features.md` FEAT-06).** Confirmed still genuinely
   missing (no `clean_orphaned_media`-shaped function anywhere), unlike the
   card-cascade claim above which turned out to already be fixed.
-- Smaller polish items: **Pointer:** `scratchpad/audit1005/features.md` section 4 rows C3 (resize from centre, flip), C9 (whole-object opacity) and C13 (status bar); the contextual quick bar is built (`.wb-context`). The spec's Part C lists and a live check didn't
+- Smaller polish items: **Decided 2026-10-11, WHITEBOARD_PLAN decision 40** (Alt resizes from the centre; flip, opacity and the status bar recorded with reasons). **Pointer:** `scratchpad/audit1005/features.md` section 4 rows C3 (resize from centre, flip), C9 (whole-object opacity) and C13 (status bar); the contextual quick bar is built (`.wb-context`). The spec's Part C lists and a live check didn't
   contradict, kept for reference rather than re-verified line by line:
   resize-from-center, flip h/v, whole-object opacity, a status bar
   (zoom/tool/item-count), a contextual quick-action bar near a fresh

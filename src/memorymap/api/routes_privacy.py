@@ -92,6 +92,14 @@ def _label(rows: list[dict], model: dict) -> list[dict]:
     return rows
 
 
+@router.get("/verdict")
+def verdict() -> dict:
+    """The top bar's Local chip (row 1641): this launch's one-word answer,
+    the receipt's own `verdict`, without the ledger flush and the lists the
+    receipt builds, because the chip asks every few minutes."""
+    return {"verdict": egress.verdict(egress.totals()), "watching": egress.installed()}
+
+
 @router.get("/receipt")
 def receipt(config: ConfigManager = Depends(get_config)) -> dict:
     ledger = egress.flush(config.data_dir / egress.LEDGER_NAME)

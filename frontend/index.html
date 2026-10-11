@@ -200,6 +200,13 @@
            that end a session are another, which is the split the old
            `.header-divider` drew with a line. -->
       <span class="header-cluster">
+      <!-- **The offline promise, in sight** (row 1641, WORLD_CLASS 22.1 item
+           9): Settings, Privacy's verdict for this launch, as a word, one
+           press from the record. Hidden until the first answer arrives, so
+           it never claims "Local" it has not checked. Below 600 it is a row
+           of the header's More menu (PHONE_STATUS_ROWS). -->
+      <button id="privacy-chip" class="ghost small privacy-chip hidden" type="button"
+        title="What left this computer since the app started" aria-label="Privacy record"><i class="ph ph-shield-check ph-lead" aria-hidden="true"></i><span class="privacy-chip-word">Local</span></button>
       <span class="notif-wrap">
         <button id="notif-btn" class="ghost small icon-only" title="Notifications"
           aria-label="Notifications" aria-expanded="false"
@@ -6500,7 +6507,7 @@ Link to another note with [[its first few words]]."></textarea>
          only `#wb-board-menu-toggle`/`#wb-board-menu` are new. -->
     <div class="wb-topbar card glass" id="wb-topbar" data-panel-id="topbar">
       <div class="wb-topbar-left">
-        <button id="wb-back-to-boards" class="ghost small" type="button" title="Back to the board list"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i> Boards</button>
+        <button id="wb-back-to-boards" class="ghost small" type="button" title="Back to the board list"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i> <span class="wb-back-label">Boards</span></button>
         <span class="wb-topbar-divider" aria-hidden="true"></span>
         <select id="wb-board-select" aria-label="Which board or map to show" title="Which board or map to show" class="ghost small">
           <option value="">Default board</option>
@@ -10835,6 +10842,11 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="serif" data-menu-class="select-face-serif">Serif</option>
                   <option value="mono" data-menu-class="select-face-mono">Mono</option>
                   <option value="arial" data-menu-class="select-face-arial">Arial</option>
+                  <!-- Row 1595: Atkinson Hyperlegible (SIL OFL 1.1), vendored
+                       in frontend/vendor/atkinson with its licence, so it is
+                       there offline; drawn for low vision, each letter told
+                       apart from its neighbours (l, I and 1; O and 0). -->
+                  <option value="readable" data-menu-class="select-face-readable" title="Atkinson Hyperlegible: each letter told apart from the ones it is mistaken for">Readable</option>
                 </select>
               </div>
 
@@ -11540,7 +11552,8 @@ Link to another note with [[its first few words]]."></textarea>
               <summary><h3 class="inline-h3">Your shortcuts</h3></summary>
               <p class="muted">
                 Press a shortcut's keys and then the keys you want; a button
-                with a shortcut shows it when you hover it. Press
+                with a shortcut shows it when you hover it; type above the list
+                to find one. Press
                 <kbd>?</kbd> anywhere in the app for the same list as an overlay.
               </p>
               <ul class="shortcut-list" id="shortcut-list-settings"></ul>
@@ -13294,6 +13307,10 @@ Link to another note with [[its first few words]]."></textarea>
                 downloaded, the search words, the update checked), which
                 feature reached it, and how often. Its exact addresses are
                 under Addresses.
+              </p>
+              <p>
+                The Local chip in the top bar shows this launch's verdict in
+                one word and opens this page.
               </p>
             </div>
 

@@ -376,6 +376,9 @@ HELP_TOPICS: list[dict] = [
             "keeps the short fades and slides of menus, dialogs and tabs and a "
             "button's press even then; turn it off and they are instant. "
             "Font and Density (Typography & layout) are lists you pick from. "
+            "Font's Readable is Atkinson Hyperlegible, a face drawn so that "
+            "letters easily mistaken for each other (l, I and 1; O and 0) "
+            "look different; it ships with the app and works offline. "
             "Density's Auto, the default, is Compact on a window "
             "700px tall or less and the look's own spacing on a taller one. "
             "Performance mode (Effects & accessibility) turns off "
@@ -429,7 +432,8 @@ HELP_TOPICS: list[dict] = [
         #: months, and the guide was the one place still teaching the old key.
         "body": (
             "Press ? for the full list; Settings, Keyboard shortcuts rebinds any of "
-            "them (press a shortcut's keys, then the keys you want), and on a Mac "
+            "them (press a shortcut's keys, then the keys you want; type in the "
+            "field above the list to find one), and on a Mac "
             "Cmd works in place of Ctrl. A button with a "
             "shortcut shows it in its tooltip, in your own binding. Everywhere: Ctrl+K "
             "the command palette, Ctrl+P find anything, Ctrl+F find on this "
@@ -499,7 +503,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "privacy",
-        "keywords": ("private note", "encrypt", "password", "lock", "security", "offline", "online", "internet", "cloud", "telemetry", "tracking"),
+        "keywords": ("private note", "encrypt", "password", "lock", "security", "offline", "online", "internet", "cloud", "telemetry", "tracking", "local chip"),
         "body": (
             "Private notes are encrypted at rest with a key derived from your "
             "unlock password. The app binds to localhost, has no account or "
@@ -508,7 +512,10 @@ HELP_TOPICS: list[dict] = [
             "every connection the app made, recorded as it happened, Since "
             "launch or All time, one row per place with what it was for (the "
             "file downloaded, the search words); its addresses are under "
-            "Addresses. \"Nothing left this computer.\" means none."
+            "Addresses. \"Nothing left this computer.\" means none. The "
+            "Local chip in the top bar says the same for this launch (Local, "
+            "Local network or Online) and opens that record; on a phone it "
+            "is a row in the top bar's More menu."
         ),
         "badge": {"label": "Privacy", "section": "privacy"},
     },
@@ -1297,7 +1304,7 @@ HELP_TOPICS.extend(
                 "Ctrl+A selects all, Ctrl+D duplicates, Alt and drag copies as you "
                 "drag, Ctrl+V pastes at the pointer, the arrows "
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
-                "Shift and a corner keeps proportions; a move, resize or box drawn out shows "
+                "Shift and a corner keeps proportions, Alt resizes from the centre; a move, resize or box drawn out shows "
                 "guides and its size (Alt: none), [ and ] move one step back or "
                 "forward, Ctrl+[ and Ctrl+] to the back or front, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
                 "Ctrl+Alt+V copy and paste a style, Delete (or a drop on the bin) "
@@ -1316,7 +1323,7 @@ HELP_TOPICS.extend(
                 "Menus: Insert, Edit, Arrange (align, distribute, size, order, group, "
                 "lock), View (background, grid, snap, zoom, full screen) and Board "
                 "(rename, new, export, kind, clear, delete, keys). On a phone, "
-                "More has the rest, a map's too."
+                "More has the rest, the Board menu's rows and a map's too."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

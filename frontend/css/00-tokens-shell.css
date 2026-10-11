@@ -1161,6 +1161,42 @@ body {
 :where(a):is(:focus-visible, :has(:focus-visible)) {
   text-decoration-thickness: 2px;
 }
+/* Appearance, Font, Readable (row 1595): Atkinson Hyperlegible, SIL OFL 1.1,
+   vendored with its licence (frontend/vendor/atkinson/LICENSE), so it works
+   offline. Latin only, regular and bold with their italics; a face is
+   fetched only once something is drawn in it, so the other fonts cost
+   nothing. `swap` so a slow first load shows the system face, not nothing. */
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../vendor/atkinson/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../vendor/atkinson/atkinson-hyperlegible-latin-400-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../vendor/atkinson/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../vendor/atkinson/atkinson-hyperlegible-latin-700-italic.woff2") format("woff2");
+}
+:root[data-font="readable"] {
+  --ui-font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
 /* Appearance → Font. Default (system) leaves --ui-font unset → the fallback. */
 :root[data-font="serif"] {
   --ui-font: Georgia, "Iowan Old Style", "Times New Roman", serif;

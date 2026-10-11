@@ -1,0 +1,56 @@
+# Dependency audit (BACKLOG security pass, house2 row 1588): pip-audit over
+# what requirements.txt installs, in CI only. The app itself stays offline:
+# nothing under src/ or frontend/ asks an advisory database anything, and
+# this job publishes nothing. It reads the Python Packaging Advisory
+# Database (and OSV) from the runner, which is the one place a network is
+# expected.
+#
+# **Non-blocking at first** (WORLD_CLASS_PLAN, "Decided by the rows agent"):
+# `continue-on-error` keeps a finding from turning a pull request red while
+# the first runs show how noisy the advisories are for this set; the report
+# lands in the run's summary either way. The step that makes it blocking is
+# deleting that one line, once a clean run is the normal one.
+#
+# Not covered here: the vendored JavaScript under frontend/vendor/ (no
+# package manifest to audit; an offline test of its version stamps against a
+# pinned advisory list is the open half, BACKLOG's security section).
+name: Dependency audit
+
+on:
+  pull_request:
+    paths:
+      - "requirements*.txt"
+      - "pyproject.toml"
+      - ".github/workflows/dependency-audit.yml"
+  schedule:
+    - cron: "17 6 * * 1" # Mondays, so a new advisory on an old pin is seen within a week
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pip-audit:
+    name: pip-audit (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the app's dependencies, as CI's tests do
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pip-audit
+
+      - name: Audit the installed set
+        run: |
+          set -o pipefail
+          pip-audit --progress-spinner off --desc on --format markdown \
+            | tee -a "$GITHUB_STEP_SUMMARY"

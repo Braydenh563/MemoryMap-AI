@@ -687,26 +687,7 @@ too much routes through the model. Each of these is pure code:
 10. **A real trash** with restore and 30-day purge (exists as bin; make it
     consistent for every kind).
 
-**State 2026-09-24:** item by item, read against the code (not driven):
-
-1. (a) built: the Notes box parses `tag:`, `is:`, `before:` and the rest
-   (app.js ~9894) and `search/engine.py` answers the same operators;
-   whether the Library, Timeline and palette share the parser was not checked.
-2. (a) built (saved searches, `routes_settings.py` and app.js).
-3. (a) built: notes have unlinked mentions too (GRAPH_PLAN KG1, 2026-10-04).
-4. (a) built 2026-10-05 for note templates (the user-editable ones):
-   `{{clipboard}}`, `{{cursor}}`, `{{time}}`; the document templates are
-   built-in and use none of them.
-5. (a) built 2026-10-05: Move to space and Export as Markdown on the
-   selection bar's ⋯.
-6. (a) built: JSON, CSV, Markdown and zip export, OPML for maps, the print
-   stylesheet for documents.
-7. (a) built 2026-10-05: Notion, Obsidian, Evernote and Apple Notes import, idempotent by source (HISTORY, "row 25, the importers and the keyboard").
-8. (a) built: `DEFAULT_SHORTCUTS` and the shortcut sheet.
-9. (a) built 2026-10-05: a note's edit form shows its words and reading time.
-10. (a) built 2026-10-05: documents and reminders go to the bin too.
-
-Rows 3, 4, 5, 9 and 10 moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".
+**State 2026-09-24:** all ten built; the item-by-item read moved to HISTORY.md, "Moved from the plans, 2026-10-11 (rows agent)". Still not checked: whether the Library, Timeline and palette share the Notes box's query parser.
 
 ---
 
@@ -977,7 +958,7 @@ Each of these was found by measuring and deferred with evidence; the
   a copy decision for the owner. Owner: responsive.md.
 - Notes (8) and Graph (9) docks are over the seven-control ceiling. Owner:
   docks.md; the fix is a second "more" group, not hiding.
-- `#wb-topbar` is 104px at 390. Owner: responsive.md.
+- ~~`#wb-topbar` is 104px at 390.~~ One row, 54px, since 2026-10-11 (WHITEBOARD_PLAN decision 39).
 - ~~The whiteboard's five menus were restyled but never driven.~~ Driven:
   `kebab-viewport.js` opens all five at three window sizes (15 cases OK) and
   `wbtopbar.js` gates their keyboard and ARIA (WHITEBOARD_PLAN 43; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)").
@@ -2354,9 +2335,7 @@ mobile first, as the owner's web design class teaches. Measured with
    "Export", "Back up now". Target: version history in every note and
    document menu with a diff, a "Last backup" line in Settings and on the
    About page, and a first-run prompt to choose a backup folder. M, Opus.
-9. **Offline promise, visible.** The Privacy receipt now exists; the top
-   bar should say "Local" with the same verdict, one click to the receipt.
-   S, Sonnet.
+9. ~~**Offline promise, visible.**~~ Built 2026-10-11 (row 1641): the Local chip; HISTORY.md, "Moved from the plans, 2026-10-11 (rows agent)".
 
 ### 22.2 Small things people expect (each S, Sonnet unless noted)
 
@@ -4190,3 +4169,12 @@ Brief 74 measured rules 1, 2 and 7 on 12 surfaces (`undo.js`, `reach.js`, `overl
 ## Placed from the settings agent, 2026-10-11 (a decision taken by standing order 3)
 
 - 25f: the 14 appearance settings kept only in this browser do not follow the person to a second browser. Decision, taken: mirror them all to the notebook's preferences except `perf` (performance mode is a property of the machine). Owner: a Sonnet brief after the running ones.
+
+## Decided by the rows agent, 2026-10-11 (standing order 3; house2 ledger rows)
+
+- 1586, panel heads: `h3.panel-head` and the board's `h3.wb-sidebar-title` name a whole card or column, so they are titles (`--text-body`, 600, ink, the dialog title's voice); a label over one group inside a panel (`.doc-outline-title`) stays the eyebrow. Built, DESIGN.md's panel-head row.
+- 1641, the Local chip: the receipt's verdict for this launch (`GET /privacy/verdict`, the same `egress.verdict` the receipt prints) sits in the header's first cluster as an icon and one word (Local, Local network, Online in `--warn`); one press opens Settings, Privacy. Below 1100 it is the icon alone; below 600 it leaves the bar for the phone's More menu (a live row carrying its word). Refreshed every five minutes, never a stream. DESIGN.md's Local chip row.
+- 1643, type to filter: one recipe, `listFilter` (sheets-selects.js), shown past twelve rows, hiding misses with an empty-state row and Escape to clear; applied to the two longest lists that had none (the keyboard shortcuts, 31 rows; the space menu). The eight hand-built filters stay as they are, named in `HAND_BUILT_FILTERS` so a ninth must use the recipe.
+- 1595, readable font: Font's fifth choice, Readable, is Atkinson Hyperlegible (SIL OFL 1.1, latin, 400 and 700 with italics, about 80 KB vendored under `frontend/vendor/atkinson/` with its licence), served from the app's own origin so it works offline and under `font-src 'self'`. It sets `--ui-font` only; documents keep their own face.
+- 1588, dependency audit: `.github/workflows/dependency-audit.yml` runs `pip-audit` over `requirements.txt` on a weekly cron, on a change to the requirements and by hand; `continue-on-error` until a first clean run is seen, then it blocks. CI only: the app makes no request.
+- 1661, memory growth: measured, no leak found, nothing changed. The server under a seeded session (`scratchpad/ui-sweeps/memserver.py`: three notes and every path the app's boot and tab switches ask for, per lap) went 446 to 600 MB resident over 10 minutes (78 notes, 1,300 requests) and was back at 509 MB idle; with no seeding, 6,150 requests over 10 minutes held 503 to 521 MB (509 to 507). The 8.5 GB of the first report did not recur. The browser half (`scratchpad/ui-sweeps/memgrowth.js`, heap after a forced GC and DOM nodes per lap) read 12.6 to 14.4 MB and 16,566 to 17,900 nodes over two laps before the sandbox's memory limit killed the renderer, three times; a 10-minute browser run on a machine with memory to spare is the open half.

@@ -9086,6 +9086,25 @@ input[type="file"]:active::file-selector-button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* **A panel's head is a title; a group's label is the eyebrow** (row 1586).
+   `h3.panel-head` names the whole card or column it heads (Local map, the
+   Ask answer, Matching records, the notes rail's Connections, Activity), as
+   do the board sidebar's and Format panel's heads: measured at 12px (the
+   `.card h3` eyebrow) beside the Web panel's and every dialog's 16px. They
+   take the dialog title's voice. A label over one group inside a panel (the
+   document sidebar's Linked from, Notes it draws on, References) stays the
+   eyebrow, as Settings' group labels are. Two classes and a type, so the
+   eyebrow (0,1,1) loses in every look. */
+.card h3.panel-head,
+h3.panel-head,
+.card h3.wb-sidebar-title,
+h3.wb-sidebar-title {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: -0.005em;
+}
 .dialog-head-actions {
   display: inline-flex;
   align-items: center;
@@ -10481,3 +10500,19 @@ html[data-other-device] button[data-this-computer] {
 html[data-other-device] [data-this-computer="hide"] {
   display: none;
 }
+
+/* --- type to filter a long list (row 1643, `listFilter` in sheets-selects.js)
+   The field is the search field's well; a row it hides takes the `hidden`
+   attribute (a list's own `display: flex` row rule outranks a class), and
+   the one muted row says when nothing is left. */
+.list-filter {
+  margin-bottom: var(--space-2);
+}
+.list-filter-empty {
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+}
+#space-menu > .list-filter {
+  margin: var(--space-1) var(--space-1) var(--space-2);
+}
+

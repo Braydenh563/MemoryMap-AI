@@ -588,6 +588,7 @@ const WB_HELP_SECTIONS = [
     { icon: "ph:lock-simple-open", label: "Unlock everything", keys: ["Ctrl+Shift+L with nothing selected"] },
     { icon: "ph:arrows-left-right", label: "Keep to one axis", keys: ["Shift+drag"] },
     { icon: "ph:corners-out", label: "Keep proportions", keys: ["Shift+corner"] },
+    { icon: "ph:arrows-out", label: "Resize from the centre", keys: ["Alt+handle"] },
     { icon: "ph:arrows-in-simple", label: "Fit the box to its text", keys: ["double-click a corner"] },
     { icon: "ph:arrow-clockwise", label: "Rotate, upright again", keys: ["the handle above it", "double-click it"] },
     { icon: "ph:bezier-curve", label: "Bend a line", keys: ["double-click it"] },

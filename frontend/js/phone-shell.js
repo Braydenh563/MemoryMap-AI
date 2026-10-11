@@ -647,6 +647,9 @@ const PHONE_STATUS_ROWS = [
   { id: "status-find", label: "ph:magnifying-glass Find" },
   //: INBOX 896: the bar's button opens a sheet itself when it has no box.
   { id: "status-lan", label: "ph:wifi-high Other devices" },
+  //: `live`: the row's words are the control's own as the menu opens (the
+  //: Local chip's verdict, row 1641).
+  { id: "privacy-chip", label: "ph:shield-check Privacy record", live: true },
 ];
 
 function initPhoneHeaderMore() {
@@ -697,6 +700,7 @@ function initPhoneHeaderMore() {
           !source ||
           source.classList.contains("hidden") ||
           source.classList.contains("status-slot-off");
+        if (spec.live && source?.dataset.menuLabel) setLabel(row, source.dataset.menuLabel);
         const unavailable = Boolean(source?.disabled);
         row.classList.toggle("menu-item-unavailable", unavailable);
         if (unavailable) row.setAttribute("aria-disabled", "true");

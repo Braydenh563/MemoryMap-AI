@@ -10616,3 +10616,14 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
     mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
   }
 }
+/* DESIGN.md, "A control that acts on the computer MemoryMap runs on": on
+   another device (skills.js `markOtherDevice`), dimmed like `button:disabled`
+   beside its one note line, or gone where it is `="hide"`. Help toggles stay. */
+html[data-other-device] [data-this-computer] :is(button, input, select, textarea):not([data-help-for]),
+html[data-other-device] button[data-this-computer] {
+  opacity: 0.5;
+  cursor: default;
+}
+html[data-other-device] [data-this-computer="hide"] {
+  display: none;
+}

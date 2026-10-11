@@ -33,6 +33,7 @@ from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
 from memorymap.entry import manager
 from memorymap.entry.manager import log_action
+from memorymap.api.this_computer import is_another_device, this_computer_only
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -523,13 +524,36 @@ def notebook_open(session: Session, config: ConfigManager) -> bool:
     return bool(_active_tokens)
 
 
+def _no_password_yet(request: Request, session: Session) -> bool:
+    """No password, so nothing to check: true only at this computer.
+
+    The network port binds only once a password exists, but it stays open
+    until the next launch, and "I don't have it" (`/auth/reset`) or a restored
+    backup with no password could leave a notebook with none behind a live
+    LAN listener: every route answered any device then (measured: `/entries`
+    200 and a `/auth/setup` that took the notebook, from a 192.168 client).
+    A container's published port (Brief 40) is the exception: no window
+    there to set up from.
+    """
+    if _password_set(session):
+        return False
+    if is_another_device(request) and not netbind.explicit_bind():
+        raise HTTPException(status_code=401, detail=NO_PASSWORD_ELSEWHERE)
+    return True
+
+
+#: What another device is told while this notebook has no password.
+NO_PASSWORD_ELSEWHERE = "Set a password on the computer MemoryMap runs on first."
+
+
 def require_unlock(
+    request: Request,
     session: Session = Depends(get_session),
     config: ConfigManager = Depends(get_config),
     x_auth_token: str | None = Header(default=None),
 ) -> None:
     """Dependency that gates every data route once a password exists."""
-    if not _password_set(session):
+    if _no_password_yet(request, session):
         return  # setup not done yet, nothing to protect
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
     if not _token_valid(x_auth_token, idle_ttl):
@@ -537,6 +561,7 @@ def require_unlock(
 
 
 def require_unlock_media(
+    request: Request,
     session: Session = Depends(get_session),
     config: ConfigManager = Depends(get_config),
     x_auth_token: str | None = Header(default=None),
@@ -553,7 +578,7 @@ def require_unlock_media(
     header. **A `?token=` query parameter is no longer read**: it was the
     fallback here until 2026-09-24, and it was the leak S1 describes.
     """
-    if not _password_set(session):
+    if _no_password_yet(request, session):
         return
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
     token = x_auth_token or _media_tickets.get(memorymap_media or "")
@@ -614,9 +639,12 @@ def status(
 
 @router.post("/setup")
 def setup(body: PasswordBody, request: Request, response: Response, session: Session = Depends(get_session)) -> dict:
-    """First run: create the single user. Refuses to run twice."""
+    """First run: create the single user. Refuses to run twice, and to any
+    other device (`_no_password_yet`): whoever sets it owns the notebook."""
     if _get_user(session) is not None:
         raise HTTPException(status_code=400, detail="A password is already set.")
+    if is_another_device(request) and not netbind.explicit_bind():
+        raise HTTPException(status_code=403, detail=NO_PASSWORD_ELSEWHERE)
     problem = _new_password_problem(body.password)
     if problem:
         raise HTTPException(status_code=400, detail=problem)
@@ -809,6 +837,9 @@ def set_password_on_open(
     if user is None:
         raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
     if not body.enabled:
+        # Off lets the next person at this keyboard in without it: this
+        # computer's own decision, never a phone's.
+        this_computer_only(request)
         client = _client_key(request)
         _refuse_if_throttled(client)
         if not body.current_password or not _password_matches(
@@ -872,7 +903,7 @@ def download_lan_certificate(config: ConfigManager = Depends(get_config)) -> Res
     )
 
 
-@router.post("/lan-certificate", dependencies=[Depends(require_unlock)])
+@router.post("/lan-certificate", dependencies=[Depends(require_unlock), Depends(this_computer_only)])
 def regenerate_lan_certificate(
     request: Request,
     session: Session = Depends(get_session),
@@ -911,6 +942,7 @@ def set_lan_access(
     if user is None:
         raise HTTPException(status_code=400, detail="Set a password first.")
     if body.enabled:
+        this_computer_only(request)  # opening the network is this computer's call
         client = _client_key(request)
         _refuse_if_throttled(client)
         if not body.current_password or not _password_matches(
@@ -920,6 +952,14 @@ def set_lan_access(
                 _unlock_failed(client)
             raise HTTPException(status_code=401, detail="That isn't your current password.")
         _unlock_succeeded(client)
+        # A password from before the eight-character floor can be a 4-digit
+        # PIN, which the throttle slows but a network full of strangers (a
+        # campus wifi) has all day to try. The password is in hand only here.
+        if len(body.current_password) < NEW_PASSWORD_MIN_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Change your password to at least {NEW_PASSWORD_MIN_CHARS} characters before letting other devices in.",
+            )
     config.set_preference(netbind.LAN_PREF, body.enabled)
     if body.enabled:
         # Made now rather than at the next launch, so Settings can show the
@@ -1337,7 +1377,7 @@ class SaveRecoveryKeyBody(BaseModel):
 RECOVERY_KEY_FILE = "memorymap-recovery-key.txt"
 
 
-@router.post("/recovery-key/save", dependencies=[Depends(require_unlock)])
+@router.post("/recovery-key/save", dependencies=[Depends(require_unlock), Depends(this_computer_only)])
 def save_recovery_key(body: SaveRecoveryKeyBody, config: ConfigManager = Depends(get_config)) -> dict:
     """Download .txt in the desktop window: a native Save dialog (INBOX 671).
 

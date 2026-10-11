@@ -23,7 +23,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -1361,9 +1361,15 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
         return {"cleared": True, "files": clear_static_cache()}
 
     @app.get("/health", tags=["system"])
-    def health() -> dict[str, str | bool]:
+    def health(request: Request) -> dict[str, str | bool]:
+        from memorymap.api.this_computer import is_another_device
         from memorymap.core import reminder_notifier
 
+        #: The desktop shell and its notifier belong to this computer. A phone
+        #: that read `desktop: true` saved its exports onto this disk and
+        #: offered "Open folder", which opened Explorer here (the owner,
+        #: 2026-10-11); now it downloads to itself like any browser tab.
+        here = not is_another_device(request)
         return {
             "status": "ok",
             "app": "MemoryMap AI",
@@ -1373,10 +1379,12 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
             # `<a download>` click does nothing there, pywebview has no
             # download handler: so exports have to be written by the server
             # instead (§35E). Set by `python -m memorymap --desktop`.
-            "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
+            "desktop": here and os.getenv("MEMORYMAP_DESKTOP") == "1",
             # The launcher posts the system notification for a due reminder
             # (core/reminder_notifier.py), so the page does not post a second.
-            "os_notify": reminder_notifier.active(),
+            "os_notify": here and reminder_notifier.active(),
+            #: Whether controls that act on this computer apply to this page.
+            "this_computer": here,
         }
 
     @app.get("/instance", tags=["system"])

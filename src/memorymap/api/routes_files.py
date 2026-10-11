@@ -1082,7 +1082,7 @@ def _within_dir(base_dir: Path, name: str) -> Path:
     return Path(candidate)
 
 
-@router.post("/files/save")
+@router.post("/files/save", dependencies=[Depends(this_computer_only)])
 def save_generated_file(body: SaveFileBody) -> dict:
     """Write a generated export next to the notes and say where it went."""
     try:

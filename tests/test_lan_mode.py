@@ -464,11 +464,16 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         assert lan.call("GET", f"/media/nothing.png?token={phone}")[0] == 401
         assert lan.call("GET", "/media/nothing.png", headers={"Cookie": ticket})[0] == 404
 
-        # The import is confined to home and the data folder from anywhere.
+        # A folder of this computer's files is never read for another device
+        # (api/this_computer.py); on this computer it is confined to home and
+        # the data folder.
         status, _, _ = lan.call(
             "POST", "/import/directory", {"path": "/etc"}, {"X-Auth-Token": phone}
         )
-        assert status == 400
+        assert status == 403
+        # The phone is not the desktop app, whatever this computer is.
+        assert lan.call("GET", "/health")[1]["this_computer"] is False
+        assert "max-age" in dict(lan.call("GET", "/health")[2]).get("strict-transport-security", "")
 
         # The web reader refuses this machine and the local network, and the
         # receipt shows nothing was connected to.

@@ -598,6 +598,12 @@ class SecurityHeadersMiddleware:
                 # policy, and the sandbox's runtime files say `cross-origin`.
                 headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
                 headers.setdefault("Cross-Origin-Embedder-Policy", "require-corp")
+                # Only the network port speaks https (core/lanserve.py), and
+                # it speaks nothing else, so a phone that has seen it once
+                # never sends the password over plain http to that name
+                # again. Loopback is plain http and is never told this.
+                if scope.get("scheme") == "https":
+                    headers.setdefault("Strict-Transport-Security", "max-age=15552000")
                 headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
             await send(message)
 

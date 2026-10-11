@@ -40,7 +40,7 @@ from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
 from memorymap.search import searxng_manager, websearch
-from memorymap.api.this_computer import this_computer_only
+from memorymap.api.this_computer import REFUSAL, is_another_device, this_computer_only
 
 router = APIRouter(tags=["settings"])
 
@@ -974,11 +974,53 @@ def _validated_context_windows(value: object) -> dict[str, int | None]:
     return cleaned
 
 
+#: Preferences that point this computer somewhere, start or install
+#: something on it, let it go online, or change how its own window behaves.
+#: Another device may move one only the safe way (the value given), or not at
+#: all (None): the owner, 2026-10-11, "I need maximum trust ... proper
+#: security for the lan". `searxng_url` aims this computer at any address on
+#: its own network; `export_save_dir` picks where files land on its disk.
+_THIS_COMPUTER_PREFERENCES: dict[str, object] = {
+    "export_save_dir": None,
+    "searxng_url": None,
+    "update_channel": None,
+    "show_console_on_startup": None,
+    "close_to_tray": None,
+    "new_window_on_launch": None,
+    "searxng_autostart": False,
+    "semantic_auto_install": False,
+    "auto_update_enabled": False,
+    "update_check_enabled": False,
+    "web_search_enabled": False,
+    "local_only_ai": True,
+    "session_idle_ttl_minutes": "shorter",
+}
+
+
+def _refused_elsewhere(request: Request | None, key: str, value: object, current: dict) -> bool:
+    """Whether another device is asking to loosen a this-computer setting."""
+    if key not in _THIS_COMPUTER_PREFERENCES or request is None or not is_another_device(request):
+        return False
+    before = current.get(key)
+    if value == before:
+        return False
+    safe = _THIS_COMPUTER_PREFERENCES[key]
+    if safe == "shorter":
+        try:
+            return int(value) > int(before or 720)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return True
+    return safe is None or value != safe
+
+
 @router.put("/preferences")
 def update_preferences(
-    body: PreferencesBody, session: Session = Depends(get_session)
+    body: PreferencesBody, request: Request, session: Session = Depends(get_session)
 ) -> dict:
     config = deps.get_config()
+    current = get_preferences()
+    if any(_refused_elsewhere(request, k, v, current) for k, v in body.model_dump(exclude_none=True).items()):
+        raise HTTPException(status_code=403, detail=REFUSAL)
     changed_keys = set()
     for key, value in body.model_dump(exclude_none=True).items():
         if key == "skills":
@@ -1080,7 +1122,7 @@ def export_preferences() -> dict:
 
 
 @router.post("/preferences/import")
-def import_preferences(payload: dict, session: Session = Depends(get_session)) -> dict:
+def import_preferences(payload: dict, request: Request, session: Session = Depends(get_session)) -> dict:
     """Apply a settings file, key by key, and say what was skipped and why.
 
     Each key is validated alone: one bad value (a file edited by hand, a key a
@@ -1105,7 +1147,9 @@ def import_preferences(payload: dict, session: Session = Depends(get_session)) -
     skipped: list[dict[str, str]] = []
     unchanged = 0
     for key, value in list(incoming.items())[:400]:
-        if key in _NOT_EXPORTED:
+        if _refused_elsewhere(request, key, value, current):
+            skipped.append({"key": key, "reason": "only the computer MemoryMap runs on can change this"})
+        elif key in _NOT_EXPORTED:
             skipped.append({"key": key, "reason": "belongs to the computer it came from"})
         elif key not in exportable:
             skipped.append({"key": key, "reason": "not a setting this version has"})
@@ -1120,7 +1164,7 @@ def import_preferences(payload: dict, session: Session = Depends(get_session)) -
             else:
                 unchanged += 1
     if valid:
-        update_preferences(body=PreferencesBody.model_validate(valid), session=session)
+        update_preferences(body=PreferencesBody.model_validate(valid), request=request, session=session)
     return {
         "applied": sorted(valid),
         "unchanged": unchanged,
@@ -1986,7 +2030,7 @@ def embedding_model_choices() -> dict:
     }
 
 
-@router.post("/embedding-models/use")
+@router.post("/embedding-models/use", dependencies=[Depends(this_computer_only)])
 def use_embedding_model(body: EmbeddingChoiceBody) -> dict:
     """Switch search to one catalogue entry, in the background. An entry
     whose licence or loading rules forbid one press is refused here too,
@@ -2009,7 +2053,7 @@ class EmbeddingPullBody(BaseModel):
     name: str = Field(max_length=200)
 
 
-@router.post("/embedding-models/pull")
+@router.post("/embedding-models/pull", dependencies=[Depends(this_computer_only)])
 def pull_embedding_model(body: EmbeddingPullBody) -> dict:
     """Pull a model by name (INBOX 700, the owner's second addendum).
 
@@ -2046,7 +2090,7 @@ def pull_embedding_model(body: EmbeddingPullBody) -> dict:
     return {"started": True, "message": f"Pulling {name} into Ollama. Background tasks shows its progress.", "source": "ollama"}
 
 
-@router.post("/embedding-models/{model_id}/download")
+@router.post("/embedding-models/{model_id}/download", dependencies=[Depends(this_computer_only)])
 def download_embedding_model(model_id: str, reinstall: bool = False) -> dict:
     """Fetch one model **from the allowlist** in `core/embedmodels.py`.
 
@@ -2065,7 +2109,7 @@ def download_embedding_model(model_id: str, reinstall: bool = False) -> dict:
     return {"started": started, "message": message}
 
 
-@router.delete("/embedding-models/{model_id}")
+@router.delete("/embedding-models/{model_id}", dependencies=[Depends(this_computer_only)])
 def remove_embedding_model(model_id: str) -> dict:
     """Delete one model from the cache, by the same allowlist id."""
     removed, message = embedmodels.remove(model_id)

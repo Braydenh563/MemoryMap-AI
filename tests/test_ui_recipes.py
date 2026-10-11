@@ -2233,9 +2233,30 @@ def test_every_right_click_menu_has_a_long_press_twin():
     for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js", "whiteboard-map.js"):
         text = frontend_text(name)
         right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
+        #: The selection bubble's return is not a menu: a finger already has the
+        #: system's own selection bar, and the helper steps aside for touch.
+        right_clicks -= text.count('addEventListener("contextmenu", selectionRestoreOnContextMenu)')
         calls = len(re.findall(r"\bwireLongPress\(", text))
         holds = calls - (1 if name == "app.js" else 0)  # app.js holds the definition
         assert right_clicks == holds, f"{name}: {right_clicks} right-click menus, {holds} long-press twins"
+
+def test_a_selection_bubble_returns_on_one_right_click_helper():
+    """Owner 2026-10-11: a dismissed selection bubble comes back on a right-click
+    of the selection. One helper owns it; a bubble is built in two files only."""
+    selection = frontend_text("selection.js")
+    assert len(re.findall(r'addEventListener\(\s*"contextmenu"', selection)) == 1
+    assert 'addEventListener("contextmenu", selectionRestoreOnContextMenu)' in selection
+    body = selection[selection.index("function selectionRestoreOnContextMenu(") :][:1800]
+    for needle in ("defaultPrevented", '"touch"', "selectionBarShow(", "syncSelectionPopup()", "event.preventDefault()"):
+        assert needle in body, needle
+    builders = sorted(
+        p.name
+        for p in (ROOT / "frontend" / "js").glob("*.js")
+        if re.search(r'className = "selection-(?:popup|bar) ', p.read_text(encoding="utf-8"))
+    )
+    assert builders == ["editor.js", "selection.js"], f"a new selection bubble must be shown by selectionRestoreOnContextMenu: {builders}"
+    assert "selectionRestoreOnContextMenu" in (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+
 
 # A `<details>` in index.html that heads no named family: prose disclosures in
 # the Help guide, the chat's thinking boxes and the like, which take their

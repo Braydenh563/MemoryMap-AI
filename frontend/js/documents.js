@@ -133,6 +133,7 @@ function syncDocFileType({ prose = true } = {}) {
   if (!type.previewable && !DOC_VIEWS_UNRENDERED.includes(docView)) setDocView("source");
   //: The engine's own language and wrapping, where it is mounted.
   docCmSyncFileType();
+  docCmApplySpellcheck();
 
   // The formatting toolbar is markdown syntax. In a .py file every button on
   // it inserts something wrong.
@@ -15992,6 +15993,84 @@ function docProseFindings(text) {
     .sort((a, b) => a.start - b.start);
 }
 
+//: **Spelling in a code file: comments and the words inside strings, never
+//: code** (the owner, 2026-10-11: `is_leap`, `urFucked` and the `f"The` of an
+//: f-string were underlined). The squiggles were the browser's own, on because
+//: the word list loads only on a prose pass and a code file never made one.
+//: Now the browser's checker is off in a code file (`docCmSpellcheck`) and
+//: this draws the app's own marks, which open the same suggestion popover as
+//: prose. The text is masked to the comment and string nodes of the syntax
+//: tree, everything else blanked at the same length so every offset still
+//: names the document's characters: a string's prefix (f, r, b, u) and quotes
+//: and a comment's marker are blanked too, and so is an f-string's `{expr}`.
+function docCodeProseMask(text) {
+  const CM = window.CM6;
+  if (!CM || !docCmView || docCmView.state.doc.length !== text.length) return "";
+  const state = docCmView.state;
+  const tree = CM.language.ensureSyntaxTree(state, state.doc.length, 50) || CM.language.syntaxTree(state);
+  const keep = new Uint8Array(text.length);
+  const blank = (from, length) => keep.fill(0, from, from + length);
+  tree.iterate({
+    enter(node) {
+      if (/Interpolation|Escape|FormatReplacement/i.test(node.name)) {
+        blank(node.from, node.to - node.from);
+        return false;
+      }
+      const string = /string|template/i.test(node.name);
+      const comment = /comment/i.test(node.name);
+      if (!string && !comment) return undefined;
+      keep.fill(1, node.from, node.to);
+      if (string) {
+        const head = /^[rRbBuUfF]{0,3}(?:"""|'''|"|'|`)/.exec(text.slice(node.from, node.from + 6));
+        if (head) blank(node.from, head[0].length);
+        const tail = /(?:"""|'''|"|'|`)$/.exec(text.slice(Math.max(node.from, node.to - 3), node.to));
+        if (tail) blank(node.to - tail[0].length, tail[0].length);
+      } else {
+        const head = /^(?:\/\/+|\/\*+|#+|--|<!--|;+|%+)/.exec(text.slice(node.from, node.from + 5));
+        if (head) blank(node.from, head[0].length);
+        const tail = /(?:\*+\/|-->)$/.exec(text.slice(Math.max(node.from, node.to - 4), node.to));
+        if (tail) blank(node.to - tail[0].length, tail[0].length);
+      }
+      return undefined;
+    },
+  });
+  let masked = "";
+  for (let i = 0; i < text.length; i += 1) masked += keep[i] || text[i] === "\n" ? text[i] : " ";
+  return masked;
+}
+
+function docCodeSpellFindings(text) {
+  if (!text.trim()) return [];
+  docLoadWordlist();
+  if (!docWordlistReady()) return [];
+  const masked = docCodeProseMask(text);
+  if (!masked.trim()) return [];
+  const found = [];
+  const dictionary = docDictionary();
+  const word = /[A-Za-z']+/g;
+  let hit;
+  while ((hit = word.exec(masked)) !== null) {
+    const lower = hit[0].toLowerCase();
+    if (dictionary.has(lower)) continue;
+    const at = hit.index;
+    const base = { start: at, end: at + hit[0].length, text: hit[0], rule: "spelling" };
+    const better = DOC_AUTOCORRECT[lower];
+    if (better) {
+      found.push({ ...base, message: `“${hit[0]}” is probably “${better}”`, replacement: docMatchCase(hit[0], better) });
+      continue;
+    }
+    if (!docSpellable(masked, hit[0], at, at + hit[0].length)) continue;
+    const looked = docSpellLookup(hit[0]);
+    if (looked.known) continue;
+    found.push({
+      ...base,
+      message: looked.sure ? `“${hit[0]}” is probably “${looked.sure}”` : `“${hit[0]}” is not in the dictionary`,
+      replacement: looked.sure ? docMatchCase(hit[0], looked.sure) : null,
+    });
+  }
+  return found.filter((finding) => !docProseIgnored.has(docProseKey(finding)));
+}
+
 let docProseFound = [];
 
 function renderDocProse() {
@@ -16009,7 +16088,7 @@ function renderDocProse() {
   //: And Check with AI's findings (`docAiFindings`), located afresh in the
   //: text as it is now, so an applied or edited-away one simply goes.
   docProseFound = isCode
-    ? []
+    ? docCodeSpellFindings(text)
     : docProseExtras(text, docProseFindings(text)).concat(docAiFindings(text)).sort((a, b) => a.start - b.start);
   chip.hidden = isCode;
   count.textContent = docProseFound.length
@@ -17399,6 +17478,28 @@ if (typeof wireLongPress === "function") {
     selector: ".doc-flag, .cm-finding, .cm-content, textarea",
   });
 }
+
+//: **Hover opens it too, in a code file** (the owner, 2026-10-11): a squiggle
+//: under a comment's or a string's word answers a pause of the pointer as it
+//: answers a click or a right-click, with the same popover. A pause, not a
+//: pass: moving across a line must not open a menu per word. Not focused, like
+//: the plain click, so typing carries on; prose keeps click and right-click.
+const DOC_HOVER_SUGGEST_MS = 450;
+const docHoverSuggest = { timer: 0, mark: null };
+document.addEventListener("mouseover", (event) => {
+  const mark = event.target instanceof Element ? event.target.closest(".cm-finding") : null;
+  if (mark === docHoverSuggest.mark) return;
+  clearTimeout(docHoverSuggest.timer);
+  docHoverSuggest.mark = mark;
+  if (!mark || docFileType().previewable || !docToolsBoxFor(mark)) return;
+  const point = { x: event.clientX, y: event.clientY };
+  docHoverSuggest.timer = setTimeout(() => {
+    if (docHoverSuggest.mark !== mark || !mark.isConnected) return;
+    const finding = docFindingOfMark(mark);
+    if (!finding || docSuggestOpenFor === finding) return;
+    docOpenSuggestFor(finding, false, point);
+  }, DOC_HOVER_SUGGEST_MS);
+});
 
 //: Anywhere else closes it, the rule every menu in this app follows.
 document.addEventListener("mousedown", (event) => {
@@ -20703,7 +20804,8 @@ function docCmExtensions(CM) {
 //: while this app has no dictionary of its own to check against.
 function docCmSpellcheck(CM) {
   return CM.view.EditorView.contentAttributes.of({
-    spellcheck: docWordlistReady() ? "false" : "true",
+    //: A code file never takes the browser's squiggles (`docCodeSpellFindings`).
+    spellcheck: docWordlistReady() || !docFileType().previewable ? "false" : "true",
   });
 }
 

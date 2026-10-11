@@ -80,6 +80,8 @@ below). Versioning is `0.x` while the app stabilises.
 - Backups: a line above the list gives the automatic schedule, when it last ran and whether that worked (or why it failed), and when the next is due.
 - Import: an imported note that was in the bin longer than the bin keeps notes now gets a full period from the import, so the next start no longer clears what you just brought in; a big import commits in batches and reads each note for dates once (about 12 to 25% less processing per note).
 - Settings: a second browser that has never agreed with your notebook now takes the notebook's look instead of pushing its old one over it.
+- Documents: a code file spell-checks only its comments and the words inside strings (a string's f, r, b, u prefix and an f-string's `{expr}` are skipped), the browser's own squiggles are off there, and an underline opens the prose suggestion popover on hover, click or right-click.
+- Selections: right-click a selection to bring its popup back (the editor's format bar or the ⋯ menu) after it was dismissed; the browser's menu stays when nothing is selected there.
 - Documents: the "/" menu has a Flowchart starter the Live view draws at once; the toolbars' inline marks and the renderer share one table (`MD_INLINE_MARKS`); the Dashboard's open-question line shows the question without its markdown; the code editor's completions have their own Guide topic.
 - Settings: Evidence checks now turns an answer's evidence view off and on (it was stored and shown and switched nothing).
 - Documents: a Python document offers the standard library's names after an imported module's dot (math., os.path.), with signatures, and pointing at one shows its signature and first doc line.

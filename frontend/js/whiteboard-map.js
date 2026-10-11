@@ -4624,7 +4624,20 @@ function wbMapFreshPlace(row, parent) {
     return;
   }
   const siblings = index.childrenOf.get(parent.id) || [];
-  row.x = siblings.length ? Math.min(...siblings.map((n) => n.x)) : parent.x + size(parent).w + wbMapGapDepth();
+  //: **A branch grows away from its trunk** (the owner, 2026-10-11: a child
+  //: added under a left-hand topic landed on its right, back toward the
+  //: trunk, and on a Free map that is where it stayed). The side is the one
+  //: the parent is drawn on, read from its centre against its trunk's.
+  let trunk = parent;
+  for (let hops = 0; trunk.parent_id != null && index.byId.get(trunk.parent_id) && hops < 200; hops++) trunk = index.byId.get(trunk.parent_id);
+  const mid = (node) => node.x + size(node).w / 2;
+  const leftward = trunk !== parent && mid(parent) < mid(trunk);
+  const width = row.width || WB_MAP_NODE_W;
+  if (leftward) {
+    row.x = (siblings.length ? Math.max(...siblings.map((n) => n.x + size(n).w)) : parent.x - wbMapGapDepth()) - width;
+  } else {
+    row.x = siblings.length ? Math.min(...siblings.map((n) => n.x)) : parent.x + size(parent).w + wbMapGapDepth();
+  }
   row.y = siblings.length ? below(siblings) + wbMapGapBreadth() : parent.y;
 }
 

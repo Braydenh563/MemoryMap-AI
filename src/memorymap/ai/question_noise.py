@@ -2135,7 +2135,16 @@ def repair(text: str, report: list | None = None, known=frozenset(), fixed: list
             out.append(joined + nxt[len(nxt.rstrip("?!.,:;")):])
             i += 2
             continue
-        if low in spelling.CONTRACTION_STEMS and word.islower() and nxt and low not in known:
+        nxt_core = nxt.rstrip("?!.,:;").lower()
+        #: "as ther 17th": a date follows, so it is "the" (a "there" never is).
+        if low in ("ther", "thr") and nxt_core[:1].isdigit() and low not in known:
+            out.append("the" + tail)
+        #: "ther eis" is "there is": the space typed a letter late.
+        elif low in SLANG and len(nxt_core) >= 3 and nxt_core.isalpha() and not spelling.is_word(nxt_core, known) and low not in known and spelling._resegment(low, nxt_core, known):
+            cut = spelling._resegment(low, nxt_core, known)
+            out.append(cut[0])
+            tokens[i + 1] = cut[1] + nxt[len(nxt.rstrip("?!.,:;")):]
+        elif low in spelling.CONTRACTION_STEMS and word.islower() and nxt and low not in known:
             out.append(spelling.CONTRACTION_STEMS[low] + tail)
         elif low in SLANG and not (low in ("r", "y") and not _at_asking_place(out)):
             out.append(SLANG[low] + tail)

@@ -341,11 +341,11 @@
  },
  {
   "typed": "assume everything has been done just becaus ehte compoiser gave it something",
-  "repaired": "assume everything has been done just because ehte composer gave it something"
+  "repaired": "assume everything has been done just because the composer gave it something"
  },
  {
   "typed": "i need ot to be the best thing people have ever used",
-  "repaired": "i need of to be the best thing people have ever used"
+  "repaired": "i need it to be the best thing people have ever used"
  },
  {
   "typed": "the user should eb able to ask anything",
@@ -369,11 +369,11 @@
  },
  {
   "typed": "the same week as ther 17th of july",
-  "repaired": "the same week as there 17th of july"
+  "repaired": "the same week as the 17th of july"
  },
  {
   "typed": "when the text ist wide paragraphs",
-  "repaired": "when the text ist wide paragraphs"
+  "repaired": "when the text is wide paragraphs"
  },
  {
   "typed": "click on the lan icon in the bototm bar",
@@ -381,15 +381,15 @@
  },
  {
   "typed": "without having to restert the app",
-  "repaired": "without having to restreet the app"
+  "repaired": "without having to restart the app"
  },
  {
   "typed": "keep adding all my typeos to the composer",
-  "repaired": "keep adding all my types to the composer"
+  "repaired": "keep adding all my typos to the composer"
  },
  {
   "typed": "I need a linal bug sweep",
-  "repaired": "I need a linal bug sweep"
+  "repaired": "I need a final bug sweep"
  },
  {
   "typed": "insanely smart, knowledgable",
@@ -397,6 +397,34 @@
  },
  {
   "typed": "just as capble on tis own",
-  "repaired": "just as capable on this own"
+  "repaired": "just as capable on its own"
+ },
+ {
+  "typed": "dont knoe",
+  "repaired": "do not know"
+ },
+ {
+  "typed": "open the cor workspace",
+  "repaired": "open the ocr workspace"
+ },
+ {
+  "typed": "the connect a model abutton",
+  "repaired": "the connect a model a button"
+ },
+ {
+  "typed": "ther eis quite a loit of text",
+  "repaired": "there is quite a lot of text"
+ },
+ {
+  "typed": "it liks the notes",
+  "repaired": "it likes the notes"
+ },
+ {
+  "typed": "it looks liks a bug",
+  "repaired": "it looks like a bug"
+ },
+ {
+  "typed": "i mut do it",
+  "repaired": "i must do it"
  }
 ]

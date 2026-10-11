@@ -40,10 +40,23 @@ KNOWN_SHORT = frozenset(
 #: Small words a one-letter slip in a short token is read towards, with how
 #: common each is: the prior that makes "odf the" "of" and not "off".
 FUNCTION_PRIOR = {
-    "of": 0.6, "be": 0.3, "in": 0.4, "on": 0.4, "to": 0.4, "and": 0.6, "the": 0.6, "for": 0.3, "with": 0.3, "from": 0.3,
+    "of": 0.6, "be": 0.3, "its": 0.0, "in": 0.4, "on": 0.4, "to": 0.4, "and": 0.6, "the": 0.6, "for": 0.3, "with": 0.3, "from": 0.3,
     "but": 0.3, "not": 0.3, "you": 0.3, "are": 0.3, "was": 0.3, "can": 0.3, "all": 0.1, "or": 0.3, "is": 0.3,
     "it": 0.3, "at": 0.2, "by": 0.2, "an": 0.2, "my": 0.2, "me": 0.2, "if": 0.2, "so": 0.2, "do": 0.2,
     "must": 0.2, "will": 0.2, "that": 0.3, "this": 0.3, "have": 0.3, "what": 0.3, "when": 0.3, "how": 0.3,
+}
+#: The app's own subject words: a near tie goes to them ("typeos" is "typos",
+#: not "types"), because this is the notebook people type their typos into.
+OWN_WORDS = frozenset({"typo", "typos", "ocr"})
+#: Phrases a near tie is settled by: (before, reading, after) -> a bonus.
+#: "a loit of" is "a lot of", "on tis own" is "on its own".
+CONTEXT_READINGS = {("a", "lot", "of"): 0.6, ("", "lot", "of"): 0.4, ("on", "its", "own"): 0.8, ("its", "own", ""): 0.0}
+#: A mistyped acronym is read as itself when the next word is one it leads:
+#: "cor workspace" is "ocr workspace" (not "for").
+ACRONYM_LEADS = {
+    "ocr": frozenset("workspace scan scans reading reader text engine".split()),
+    "pdf": frozenset("file files page pages document reader".split()),
+    "url": frozenset("link links address field".split()),
 }
 #: Words that are not the head of a phrase after an article ("the suer" is
 #: "the user", not "the sure"): a near tie goes to the other reading.
@@ -232,7 +245,11 @@ def _accept(typed: str, base: str, d: float) -> bool:
     if d == 0:
         return False
     if len(typed) == len(base):
-        return d <= _limit(n) and (d <= _CHEAP or (n >= 9 and d <= 1.0))
+        #: One vowel for another is a cheap slip in a word of six or more.
+        vowel_slip = n >= 6 and sum(1 for x, y in zip(typed, base) if x != y) == 1 and all(
+            x in "aeiou" and y in "aeiou" for x, y in zip(typed, base) if x != y
+        )
+        return d <= _limit(n) and (d <= _CHEAP or vowel_slip or (n >= 9 and d <= 1.0))
     #: A letter dropped or added: a long word within its allowance, a short
     #: one when its first letter (and, under six letters, its last) is kept
     #: and a whole edit is allowed ("ahnd" is "and", "pasta" is not "past").
@@ -297,9 +314,20 @@ def _fix(word: str, after: str, before: str, distance, known=()):  # noqa: ANN00
             #: Ranked by the whole word, not the stem: "professionaly" is one
             #: doubled letter from "professionally", two edits from "professionly".
             whole = d if rebuilt == base else distance(word, rebuilt)
+            #: A vowel for a vowel is the commonest slip in a long word
+            #: ("restert" is "restart"); a prefix reading ("restreet") loses to it.
+            if len(rebuilt) == len(word) >= 6 and sum(1 for x, y in zip(word, rebuilt) if x != y) == 1 and all(
+                x in "aeiou" for x, y in zip(word, rebuilt) if x != y
+            ) and all(y in "aeiou" for x, y in zip(word, rebuilt) if x != y):
+                whole = min(whole, 0.6)
+            if prefix:
+                penalty += 0.3
+            if rebuilt in OWN_WORDS:
+                penalty -= 0.3
+            penalty -= CONTEXT_READINGS.get((before, rebuilt, after), 0.0)
             scored.append((whole + penalty - 0.8 * FUNCTION_PRIOR.get(rebuilt, 0.0), rebuilt, -negw))
     if not scored:
-        return None
+        return _one_off(word) or _hidden_small(word, after)
     scored.sort(key=lambda row: (round(row[0] / 0.2), -row[2], row[0]))
     best = scored[0]
     pool = [row for row in scored if row[1] != best[1]]
@@ -307,6 +335,37 @@ def _fix(word: str, after: str, before: str, distance, known=()):  # noqa: ANN00
     other = next((row for row in pool if row[0] - best[0] <= 0.35 and _same_shape(best[1], row[1], word)), None)
     #: A rival nearly as near and as common: unsure, so offered.
     return best[1], (other[1] if other else None)
+
+
+def _one_off(word: str):
+    """A five-letter non-word one letter from exactly one list word ("linal"
+    is "final"): a whole substitution is allowed only when nothing else is
+    that near, which is what keeps "hallway" from being "halfway"."""
+    if len(word) != 5:
+        return None
+    from memorymap.ai.common_words import WORDS  # noqa: PLC0415 - the lists cost import time
+
+    #: Only an everyday word is a target ("tacos" is not "macos").
+    found = [
+        base for base, _ in _index().get(5, ())
+        if base in WORDS and sum(1 for x, y in zip(word, base) if x != y) == 1 and base[0] != "" and base[-1] == word[-1]
+    ]
+    return (found[0], None) if len(found) == 1 else None
+
+
+def _hidden_small(word: str, after: str = ""):
+    """A small word with one stray letter at an end, or in the wrong order
+    ("ehte" is "the", "ist" is "is"): read as the small word, when no list
+    word is near."""
+    if len(word) not in (3, 4):
+        return None
+    for cand in sorted(FUNCTION_PRIOR, key=lambda c: -FUNCTION_PRIOR[c]):
+        if len(cand) != len(word) - 1:
+            continue
+        for rest in (word[1:], word[:-1]):
+            if rest == cand or (len(cand) == 3 and sorted(rest) == sorted(cand)):
+                return cand, None
+    return None
 
 
 def _same_shape(a: str, b: str, typed: str) -> bool:
@@ -330,7 +389,12 @@ def _fix_short(word: str, after: str, before: str, distance):  # noqa: ANN001
             or (len(cand) == 2 and cand != word and (cand == word[::-1] or distance(word, cand) <= 0.5))
         ]
         #: Before an article a small word is a preposition ("od the" is "of the").
-        pool.sort(key=lambda c: -(FUNCTION_PRIOR[c] + (0.5 if after in DETERMINERS and c in PREPOSITIONS else 0.0)))
+        #: Before "to" a preposition cannot stand ("ot to" is "it to", not "of to").
+        pool.sort(key=lambda c: -(
+            FUNCTION_PRIOR[c]
+            + (0.5 if after in DETERMINERS and c in PREPOSITIONS else 0.0)
+            + (0.5 if after == "to" and c == "it" else -0.5 if after == "to" and c in PREPOSITIONS else 0.0)
+        ))
         return (pool[0], pool[1] if len(pool) > 1 else None) if pool else None
     context_prep = after in DETERMINERS
     pool = PREPOSITIONS if context_prep else frozenset(FUNCTION_PRIOR)
@@ -343,10 +407,13 @@ def _fix_short(word: str, after: str, before: str, distance):  # noqa: ANN001
         #: A letter dropped from a small word that keeps its first and last
         #: letters ("mut" for "must") costs a whole edit but is the commonest slip.
         dropped = len(cand) == len(word) + 1 and cand[0] == word[0] and cand[-1] == word[-1]
+        #: A stray last letter ("ist" for "is") is a cheap slip too.
+        if cand == word[:-1]:
+            d, dropped = min(d, 0.6), True
         if 0 < d <= (1.0 if dropped else limit) and (cand[0] == word[0] or cand[-1] == word[-1] or sorted(cand) == sorted(word)):
-            scored.append((d - FUNCTION_PRIOR.get(cand, 0.0), cand))
+            scored.append((d - FUNCTION_PRIOR.get(cand, 0.0) - CONTEXT_READINGS.get((before, cand, after), 0.0), cand))
     if not scored:
-        return None
+        return _hidden_small(word, after)
     scored.sort()
     best = scored[0]
     other = next((row for row in scored[1:] if row[0] - best[0] <= 0.35), None)
@@ -361,7 +428,20 @@ def fix(word: str, *, after: str = "", before: str = "", known=(), distance=None
         return None
     if distance is None:
         from memorymap.ai.question_noise import distance as distance  # noqa: PLC0415 - same package, cycle
-    return _fix(word, after.lower(), before.lower(), distance, known)
+    #: "abutton" is "a button": the article run into a noun.
+    if len(word) >= 6 and word[0] == "a" and _is_word(word[1:]):
+        return "a " + word[1:], None
+    #: "as ther 17th": no "there" is followed by a date, so it is "the".
+    if word in ("ther", "thre", "teh", "hte") and after[:1].isdigit():
+        return "the", None
+    for acronym, leads in ACRONYM_LEADS.items():
+        if len(word) == 3 and word != acronym and sorted(word) == sorted(acronym) and after.lower() in leads:
+            return acronym, None
+    read = _fix(word, after.lower(), before.lower(), distance, known)
+    #: "it liks" is "it likes": a verb after a third-person subject.
+    if read and read[0] == "like" and word.startswith("lik") and before.lower() in ("it", "he", "she", "who", "that", "everyone", "nobody"):
+        return "likes", "like"
+    return read
 
 
 def _resegment(a: str, b: str, known) -> tuple[str, str] | None:  # noqa: ANN001

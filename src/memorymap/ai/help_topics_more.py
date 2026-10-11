@@ -1451,6 +1451,26 @@ MORE_TOPICS.extend(
             "badge": {"label": "Notes", "tab": "notes"},
         },
         {
+            "id": "line-verdicts",
+            "keywords": (
+                "wrong fact", "pin as true", "pinned", "this is wrong", "that's not right",
+                "mark a line wrong", "the answer is wrong", "stop saying", "correct an answer",
+                "is this line right", "confirm a line",
+            ),
+            "body": (
+                "Press a numbered mark in an answer: under the note's words, "
+                "Is this line right? has Confirm and Not right. Not right "
+                "leaves those sentences of the note out of every answer from "
+                "the next one on, and no pattern that quotes them is offered. "
+                "Confirm pins them as true: answers say them as your word, "
+                "with the day you pinned them, and a model reads them that "
+                "way too. Each goes on the undo stack, and lists in Settings, "
+                "What it learned, as Marked wrong or Pinned as true, where "
+                "Delete takes it back. The note itself is never changed."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
             "id": "library-skills",
             "keywords": (
                 "ai skills", "built-in skill", "built in skill", "copy a skill",
@@ -1951,6 +1971,7 @@ TOPIC_META: dict[str, dict] = {
         "Open Ask on the Notes tab.", "Turn Use AI off beside the title.", "Ask: the answer is quoted from your notes, with no AI.")},
     "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
     "why-this-answer": {"title": "Why this answer", "path": "Notes tab, Ask, under an answer"},
+    "line-verdicts": {"title": "Wrong fact and Pin as true", "path": "Ask or Chat, a numbered mark in an answer"},
     "answer-pictures": {"title": "Pictures in answers", "path": "Chat tab, or Ask in the Notes tab, Grounded in"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},
     "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, the reader button"},
@@ -1980,7 +2001,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories", "tidy",
     )),
     ("Asking Atlas", (
-        "ask-chat", "answers-from-notes", "chat-controls", "chat-acts", "follow-up-trail", "why-this-answer", "answer-pictures", "time-and-recency", "notebook-questions",
+        "ask-chat", "answers-from-notes", "chat-controls", "chat-acts", "follow-up-trail", "why-this-answer", "line-verdicts", "answer-pictures", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (

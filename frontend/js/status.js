@@ -1471,7 +1471,9 @@ function insightSend(insight, verdict) {
   return apiJson(`/insights/${verdict}`, { method: "POST", body: JSON.stringify(insight) });
 }
 
-function insightVerdicts(insight, onDone) {
+//: `send` is where the verdict goes: an insight's own route by default; a
+//: cited line's peek (B31, B32) sends it to `/learned/verdict` instead.
+function insightVerdicts(insight, onDone, send = insightSend) {
   const group = document.createElement("span");
   group.className = "insight-verdicts";
   group.setAttribute("role", "group");
@@ -1483,7 +1485,7 @@ function insightVerdicts(insight, onDone) {
     if (item.title) button.title = item.title;
     setLabel(button, item.label);
     button.addEventListener("click", () =>
-      insightSend(insight, item.verdict)
+      send(insight, item.verdict)
         .then((result) => onDone?.(item.verdict === "confirm" ? "confirmed" : "dismissed", result))
         .catch((error) => toast(error.message, true))
     );
@@ -1494,13 +1496,13 @@ function insightVerdicts(insight, onDone) {
 
 //: One insight sentence with its pair on the same row: the words take the
 //: room, the pair sits at the end and wraps under them on a narrow screen.
-function insightLine(insight, text, onDone, extraClass = "") {
+function insightLine(insight, text, onDone, extraClass = "", send = insightSend) {
   const line = document.createElement("p");
   line.className = `insight-line ${extraClass}`.trim();
   const words = document.createElement("span");
   words.className = "insight-text";
   words.textContent = text;
-  line.append(words, insightVerdicts(insight, (verdict, result) => onDone?.(line, verdict, result)));
+  line.append(words, insightVerdicts(insight, (verdict, result) => onDone?.(line, verdict, result), send));
   return line;
 }
 

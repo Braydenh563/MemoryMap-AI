@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, capability, composer, composer_digest, glossary, why
+from memorymap.ai import budget as run_budget, capability, composer, composer_digest, glossary, verdicts, why
 from memorymap.ai import (
     acts,
     agent,
@@ -2326,7 +2326,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 digest = composer_digest.answer(
                 follow.question if restated else req.question, prepared["notes"], today=user_now(deps.get_config()).date(),
                 voice=_answer_voice(), turn=len(req.history or []),
-                insight=_insight_level(), learned=_insight_memory(req.session),
+                insight=_insight_level(), learned=_insight_memory(req.session), known=_verdicts(req.session),
             )
             except Exception:  # noqa: BLE001  # the composer's answer stands
                 logging.getLogger("memorymap.chat").exception("chat: the digest failed")
@@ -2474,6 +2474,16 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
 
 
 #: An act asked in the Ask box, which looks things up: said where to do it.
+def _verdicts(session: Session):  # noqa: ANN202
+    """The person's word on sentences (`ai/verdicts.py`), or None when it
+    cannot be read: an answer is never lost to it."""
+    try:
+        return verdicts.known(session)
+    except Exception:  # noqa: BLE001
+        logging.getLogger("memorymap.chat").warning("chat: the verdicts could not be read", exc_info=True)
+        return None
+
+
 def _insight_memory(session: Session):  # noqa: ANN202
     """What the person said of insights, or None when it cannot be read: an
     answer is never lost to the learned store."""
@@ -2824,6 +2834,12 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     if will_answer and not tools_only:
         _assist(req, prepared)
+    if will_answer:
+        #: B31, B32: the model reads the notes with the person's verdicts
+        #: written in, as context; grounding reads them as they are.
+        known = _verdicts(req.session)
+        if known:
+            prepared["model_notes"] = verdicts.for_model(prepared.get("model_notes") or prepared["notes"], known)
 
     yield event(
         {

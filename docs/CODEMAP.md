@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5446, frontend ids 2356, CSS sections 489, backend routes 550, backend modules 4620, test files 1060, tests 9683, plan headings 977.
+Counts: frontend functions 5447, frontend ids 2356, CSS sections 489, backend routes 551, backend modules 4630, test files 1061, tests 9688, plan headings 977.
 
-## Frontend functions (5446)
+## Frontend functions (5447)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -318,106 +318,107 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wireCategoryDropTarget` | frontend/js/notes-list.js:2749 |
 | `wireSidebarRowKeys` | frontend/js/notes-list.js:2697 |
 
-### frontend/js/capture-ask.js (98)
+### frontend/js/capture-ask.js (99)
 
 | Name | File:line |
 |---|---|
 | `addInlineCitations` | frontend/js/capture-ask.js:1141 |
 | `announce` | frontend/js/capture-ask.js:796 |
-| `answerFigure` | frontend/js/capture-ask.js:1994 |
-| `answerObject` | frontend/js/capture-ask.js:2087 |
-| `askAnswerMenu` | frontend/js/capture-ask.js:2233 |
-| `askAsOf` | frontend/js/capture-ask.js:3512 |
-| `askKeepAsDocument` | frontend/js/capture-ask.js:2265 |
-| `askKeepAsMap` | frontend/js/capture-ask.js:2283 |
-| `askKeptTitle` | frontend/js/capture-ask.js:2260 |
-| `askNotesOnTheRight` | frontend/js/capture-ask.js:2211 |
+| `answerFigure` | frontend/js/capture-ask.js:2033 |
+| `answerObject` | frontend/js/capture-ask.js:2126 |
+| `askAnswerMenu` | frontend/js/capture-ask.js:2272 |
+| `askAsOf` | frontend/js/capture-ask.js:3551 |
+| `askKeepAsDocument` | frontend/js/capture-ask.js:2304 |
+| `askKeepAsMap` | frontend/js/capture-ask.js:2322 |
+| `askKeptTitle` | frontend/js/capture-ask.js:2299 |
+| `askNotesOnTheRight` | frontend/js/capture-ask.js:2250 |
 | `askOpenContext` | frontend/js/capture-ask.js:849 |
-| `askQuestion` | frontend/js/capture-ask.js:3095 |
-| `askStatusBusy` | frontend/js/capture-ask.js:3065 |
-| `askStatusText` | frontend/js/capture-ask.js:3050 |
+| `askQuestion` | frontend/js/capture-ask.js:3134 |
+| `askStatusBusy` | frontend/js/capture-ask.js:3104 |
+| `askStatusText` | frontend/js/capture-ask.js:3089 |
 | `citationInsertionPoint` | frontend/js/capture-ask.js:1113 |
 | `citationKey` | frontend/js/capture-ask.js:1066 |
 | `citationMarker` | frontend/js/capture-ask.js:1232 |
 | `citationNumbers` | frontend/js/capture-ask.js:1033 |
-| `citationPeekText` | frontend/js/capture-ask.js:1399 |
+| `citationPeekText` | frontend/js/capture-ask.js:1403 |
 | `citationTextIndex` | frontend/js/capture-ask.js:1080 |
-| `clearAskAnswerFoot` | frontend/js/capture-ask.js:2138 |
+| `citationVerdictRow` | frontend/js/capture-ask.js:1517 |
+| `clearAskAnswerFoot` | frontend/js/capture-ask.js:2177 |
 | `clearCaptureStatusOnInput` | frontend/js/capture-ask.js:545 |
 | `clearCaptureTagSuggestions` | frontend/js/capture-ask.js:486 |
-| `clearCitedPassage` | frontend/js/capture-ask.js:1605 |
+| `clearCitedPassage` | frontend/js/capture-ask.js:1644 |
 | `clickableResult` | frontend/js/capture-ask.js:992 |
-| `closeCitationPeek` | frontend/js/capture-ask.js:1506 |
+| `closeCitationPeek` | frontend/js/capture-ask.js:1545 |
 | `collapseCitationRuns` | frontend/js/capture-ask.js:1207 |
-| `copyAnswer` | frontend/js/capture-ask.js:3441 |
+| `copyAnswer` | frontend/js/capture-ask.js:3480 |
 | `createDocumentNamed` | frontend/js/capture-ask.js:291 |
-| `everyRowScored` | frontend/js/capture-ask.js:2573 |
-| `evidenceBlock` | frontend/js/capture-ask.js:1367 |
-| `evidenceRows` | frontend/js/capture-ask.js:1918 |
-| `evidenceSignals` | frontend/js/capture-ask.js:1345 |
-| `evidenceSpan` | frontend/js/capture-ask.js:1338 |
-| `evidenceToggle` | frontend/js/capture-ask.js:1885 |
+| `everyRowScored` | frontend/js/capture-ask.js:2612 |
+| `evidenceBlock` | frontend/js/capture-ask.js:1371 |
+| `evidenceRows` | frontend/js/capture-ask.js:1957 |
+| `evidenceSignals` | frontend/js/capture-ask.js:1349 |
+| `evidenceSpan` | frontend/js/capture-ask.js:1342 |
+| `evidenceToggle` | frontend/js/capture-ask.js:1924 |
 | `filedByText` | frontend/js/capture-ask.js:220 |
 | `filingOutcomeText` | frontend/js/capture-ask.js:181 |
 | `flashCategory` | frontend/js/capture-ask.js:962 |
 | `flashEntry` | frontend/js/capture-ask.js:858 |
 | `flashReminder` | frontend/js/capture-ask.js:936 |
 | `focusCaptureBox` | frontend/js/capture-ask.js:449 |
-| `groundingThumbs` | frontend/js/capture-ask.js:1756 |
+| `groundingThumbs` | frontend/js/capture-ask.js:1795 |
 | `heldOffline` | frontend/js/capture-ask.js:559 |
-| `holdPictureTokens` | frontend/js/capture-ask.js:1988 |
-| `liveMarkdownRenderer` | frontend/js/capture-ask.js:2927 |
-| `loadAskHistoryBadge` | frontend/js/capture-ask.js:3476 |
+| `holdPictureTokens` | frontend/js/capture-ask.js:2027 |
+| `liveMarkdownRenderer` | frontend/js/capture-ask.js:2966 |
+| `loadAskHistoryBadge` | frontend/js/capture-ask.js:3515 |
 | `loadCaptureDocuments` | frontend/js/capture-ask.js:276 |
-| `loadSuggestions` | frontend/js/capture-ask.js:3447 |
-| `loadTemplates` | frontend/js/capture-ask.js:3546 |
-| `matchReasonBadge` | frontend/js/capture-ask.js:2577 |
-| `newChat` | frontend/js/capture-ask.js:3008 |
-| `notePictures` | frontend/js/capture-ask.js:1741 |
+| `loadSuggestions` | frontend/js/capture-ask.js:3486 |
+| `loadTemplates` | frontend/js/capture-ask.js:3585 |
+| `matchReasonBadge` | frontend/js/capture-ask.js:2616 |
+| `newChat` | frontend/js/capture-ask.js:3047 |
+| `notePictures` | frontend/js/capture-ask.js:1780 |
 | `noteSurfaceIfAny` | frontend/js/capture-ask.js:414 |
 | `noteTemplateForUse` | frontend/js/capture-ask.js:396 |
 | `noteTemplateText` | frontend/js/capture-ask.js:385 |
-| `numberMatchingRecords` | frontend/js/capture-ask.js:1660 |
+| `numberMatchingRecords` | frontend/js/capture-ask.js:1699 |
 | `offerJumpToNewNote` | frontend/js/capture-ask.js:12 |
-| `openCitationPeek` | frontend/js/capture-ask.js:1422 |
+| `openCitationPeek` | frontend/js/capture-ask.js:1426 |
 | `openDocumentFromNote` | frontend/js/capture-ask.js:418 |
 | `openNoteAtPassage` | frontend/js/capture-ask.js:931 |
-| `pictureItems` | frontend/js/capture-ask.js:1753 |
-| `placeAnswerFigures` | frontend/js/capture-ask.js:2029 |
+| `pictureItems` | frontend/js/capture-ask.js:1792 |
+| `placeAnswerFigures` | frontend/js/capture-ask.js:2068 |
 | `placeResultBadge` | frontend/js/capture-ask.js:987 |
-| `renderAnswerGrounding` | frontend/js/capture-ask.js:1791 |
-| `renderAnswerSupport` | frontend/js/capture-ask.js:1689 |
-| `renderAskAnswerFoot` | frontend/js/capture-ask.js:2157 |
-| `renderAskFollowups` | frontend/js/capture-ask.js:2356 |
-| `renderAskHint` | frontend/js/capture-ask.js:2402 |
-| `renderAskInsights` | frontend/js/capture-ask.js:2306 |
-| `renderAskTrail` | frontend/js/capture-ask.js:2982 |
-| `renderAskWhy` | frontend/js/capture-ask.js:2327 |
-| `renderAskedQuestion` | frontend/js/capture-ask.js:3026 |
+| `renderAnswerGrounding` | frontend/js/capture-ask.js:1830 |
+| `renderAnswerSupport` | frontend/js/capture-ask.js:1728 |
+| `renderAskAnswerFoot` | frontend/js/capture-ask.js:2196 |
+| `renderAskFollowups` | frontend/js/capture-ask.js:2395 |
+| `renderAskHint` | frontend/js/capture-ask.js:2441 |
+| `renderAskInsights` | frontend/js/capture-ask.js:2345 |
+| `renderAskTrail` | frontend/js/capture-ask.js:3021 |
+| `renderAskWhy` | frontend/js/capture-ask.js:2366 |
+| `renderAskedQuestion` | frontend/js/capture-ask.js:3065 |
 | `renderCaptureDocumentAdder` | frontend/js/capture-ask.js:349 |
 | `renderCaptureDocuments` | frontend/js/capture-ask.js:311 |
 | `renderCaptureTagSuggestions` | frontend/js/capture-ask.js:494 |
-| `renderChatMeta` | frontend/js/capture-ask.js:2441 |
-| `renderEvidenceView` | frontend/js/capture-ask.js:1940 |
-| `renderRelatedElsewhere` | frontend/js/capture-ask.js:1617 |
-| `renderToolsUnsupportedNotice` | frontend/js/capture-ask.js:1721 |
+| `renderChatMeta` | frontend/js/capture-ask.js:2480 |
+| `renderEvidenceView` | frontend/js/capture-ask.js:1979 |
+| `renderRelatedElsewhere` | frontend/js/capture-ask.js:1656 |
+| `renderToolsUnsupportedNotice` | frontend/js/capture-ask.js:1760 |
 | `resetCaptureForm` | frontend/js/capture-ask.js:456 |
-| `retryAnswer` | frontend/js/capture-ask.js:3437 |
+| `retryAnswer` | frontend/js/capture-ask.js:3476 |
 | `saveEntry` | frontend/js/capture-ask.js:573 |
 | `saveEntryAsDraft` | frontend/js/capture-ask.js:698 |
 | `scheduleCaptureTagSuggestions` | frontend/js/capture-ask.js:520 |
-| `scheduleCitationPeek` | frontend/js/capture-ask.js:1380 |
-| `scheduleCitationPeekClose` | frontend/js/capture-ask.js:1391 |
+| `scheduleCitationPeek` | frontend/js/capture-ask.js:1384 |
+| `scheduleCitationPeekClose` | frontend/js/capture-ask.js:1395 |
 | `scrollEditingEntryIntoView` | frontend/js/capture-ask.js:820 |
-| `setAnsweredBy` | frontend/js/capture-ask.js:2432 |
-| `setAskScope` | frontend/js/capture-ask.js:3504 |
-| `setAsking` | frontend/js/capture-ask.js:2968 |
+| `setAnsweredBy` | frontend/js/capture-ask.js:2471 |
+| `setAskScope` | frontend/js/capture-ask.js:3543 |
+| `setAsking` | frontend/js/capture-ask.js:3007 |
 | `settleCaptureStatus` | frontend/js/capture-ask.js:125 |
-| `showAskAsOf` | frontend/js/capture-ask.js:3518 |
-| `showCitedPassage` | frontend/js/capture-ask.js:1574 |
-| `stopAnswer` | frontend/js/capture-ask.js:2974 |
-| `streamChat` | frontend/js/capture-ask.js:2608 |
-| `streamChatEvents` | frontend/js/capture-ask.js:2651 |
+| `showAskAsOf` | frontend/js/capture-ask.js:3557 |
+| `showCitedPassage` | frontend/js/capture-ask.js:1613 |
+| `stopAnswer` | frontend/js/capture-ask.js:3013 |
+| `streamChat` | frontend/js/capture-ask.js:2647 |
+| `streamChatEvents` | frontend/js/capture-ask.js:2690 |
 | `watchFiling` | frontend/js/capture-ask.js:48 |
 | `withTitle` | frontend/js/capture-ask.js:434 |
 
@@ -1026,102 +1027,102 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 |---|---|
 | `agentActivityNotice` | frontend/js/status.js:894 |
 | `agentActivityQuiet` | frontend/js/status.js:886 |
-| `agentModeAvailable` | frontend/js/status.js:2776 |
-| `aiIsOff` | frontend/js/status.js:2028 |
-| `aiOffGlyph` | frontend/js/status.js:2397 |
-| `aiOfflineDismissed` | frontend/js/status.js:2203 |
-| `aiStatusState` | frontend/js/status.js:2284 |
+| `agentModeAvailable` | frontend/js/status.js:2778 |
+| `aiIsOff` | frontend/js/status.js:2030 |
+| `aiOffGlyph` | frontend/js/status.js:2399 |
+| `aiOfflineDismissed` | frontend/js/status.js:2205 |
+| `aiStatusState` | frontend/js/status.js:2286 |
 | `announcedReminders` | frontend/js/status.js:42 |
-| `appStackIsNewer` | frontend/js/status.js:1602 |
+| `appStackIsNewer` | frontend/js/status.js:1604 |
 | `armReminderTimer` | frontend/js/status.js:773 |
 | `askNotificationPermission` | frontend/js/status.js:643 |
-| `backendLabel` | frontend/js/status.js:2827 |
-| `boardHistoryActive` | frontend/js/status.js:1571 |
+| `backendLabel` | frontend/js/status.js:2829 |
+| `boardHistoryActive` | frontend/js/status.js:1573 |
 | `checkDueReminders` | frontend/js/status.js:789 |
-| `closeModelGate` | frontend/js/status.js:2045 |
+| `closeModelGate` | frontend/js/status.js:2047 |
 | `closeNotifications` | frontend/js/status.js:623 |
-| `dismissAiOffline` | frontend/js/status.js:2212 |
+| `dismissAiOffline` | frontend/js/status.js:2214 |
 | `dismissNotification` | frontend/js/status.js:213 |
 | `dismissToast` | frontend/js/status.js:997 |
 | `dismissedNotificationIds` | frontend/js/status.js:204 |
 | `emailSupportReport` | frontend/js/status.js:1040 |
 | `forcedReadIds` | frontend/js/status.js:162 |
 | `forcedUnreadIds` | frontend/js/status.js:131 |
-| `insightLine` | frontend/js/status.js:1497 |
+| `insightLine` | frontend/js/status.js:1499 |
 | `insightSend` | frontend/js/status.js:1470 |
-| `insightVerdicts` | frontend/js/status.js:1474 |
+| `insightVerdicts` | frontend/js/status.js:1476 |
 | `integrityWords` | frontend/js/status.js:1309 |
 | `isNotificationUnread` | frontend/js/status.js:180 |
-| `jobsRunning` | frontend/js/status.js:1892 |
+| `jobsRunning` | frontend/js/status.js:1894 |
 | `keepToastAction` | frontend/js/status.js:325 |
-| `lastAnswerLine` | frontend/js/status.js:2419 |
-| `loadMostUsed` | frontend/js/status.js:1806 |
-| `loadRecentQuestions` | frontend/js/status.js:1779 |
+| `lastAnswerLine` | frontend/js/status.js:2421 |
+| `loadMostUsed` | frontend/js/status.js:1808 |
+| `loadRecentQuestions` | frontend/js/status.js:1781 |
 | `noteDamagedNotebook` | frontend/js/status.js:1313 |
 | `noteServerDown` | frontend/js/status.js:1369 |
 | `noteServerUp` | frontend/js/status.js:1378 |
 | `noticeLiveValid` | frontend/js/status.js:347 |
-| `noticeTaskTransitions` | frontend/js/status.js:3073 |
+| `noticeTaskTransitions` | frontend/js/status.js:3075 |
 | `noticeUnwatchedAnswer` | frontend/js/status.js:929 |
 | `notificationActionButton` | frontend/js/status.js:385 |
 | `notificationGoes` | frontend/js/status.js:378 |
 | `notificationsMuted` | frontend/js/status.js:871 |
 | `notificationsReadAt` | frontend/js/status.js:113 |
 | `notify` | frontend/js/status.js:717 |
-| `nudgeEmbeddingProblem` | frontend/js/status.js:2462 |
-| `offerUndo` | frontend/js/status.js:1513 |
-| `openModelGate` | frontend/js/status.js:2055 |
-| `openModelOffer` | frontend/js/status.js:2062 |
+| `nudgeEmbeddingProblem` | frontend/js/status.js:2464 |
+| `offerUndo` | frontend/js/status.js:1515 |
+| `openModelGate` | frontend/js/status.js:2057 |
+| `openModelOffer` | frontend/js/status.js:2064 |
 | `openNotifications` | frontend/js/status.js:425 |
-| `openUndoHistoryMenu` | frontend/js/status.js:1720 |
-| `paintStatusItem` | frontend/js/status.js:2516 |
+| `openUndoHistoryMenu` | frontend/js/status.js:1722 |
+| `paintStatusItem` | frontend/js/status.js:2518 |
 | `paintTitle` | frontend/js/status.js:750 |
-| `paintUndoDoor` | frontend/js/status.js:1680 |
-| `performRedo` | frontend/js/status.js:1634 |
-| `performUndo` | frontend/js/status.js:1611 |
+| `paintUndoDoor` | frontend/js/status.js:1682 |
+| `performRedo` | frontend/js/status.js:1636 |
+| `performUndo` | frontend/js/status.js:1613 |
 | `plainHttpError` | frontend/js/status.js:1113 |
 | `playReminderChime` | frontend/js/status.js:683 |
 | `pollServerHealth` | frontend/js/status.js:1406 |
 | `primeReminderAudio` | frontend/js/status.js:658 |
-| `pushEntryPutUndo` | frontend/js/status.js:1546 |
+| `pushEntryPutUndo` | frontend/js/status.js:1548 |
 | `pushUndo` | frontend/js/status.js:1443 |
 | `recordNotification` | frontend/js/status.js:97 |
-| `refreshBackgroundTasks` | frontend/js/status.js:3002 |
-| `refreshModelStatus` | frontend/js/status.js:1920 |
+| `refreshBackgroundTasks` | frontend/js/status.js:3004 |
+| `refreshModelStatus` | frontend/js/status.js:1922 |
 | `rememberAnnounced` | frontend/js/status.js:50 |
 | `renderAgentActivityMode` | frontend/js/status.js:965 |
-| `renderAiOfflineNotice` | frontend/js/status.js:2227 |
-| `renderAiPill` | frontend/js/status.js:2427 |
-| `renderBackendPicker` | frontend/js/status.js:2837 |
-| `renderChatModeSeg` | frontend/js/status.js:2780 |
+| `renderAiOfflineNotice` | frontend/js/status.js:2229 |
+| `renderAiPill` | frontend/js/status.js:2429 |
+| `renderBackendPicker` | frontend/js/status.js:2839 |
+| `renderChatModeSeg` | frontend/js/status.js:2782 |
 | `renderNotifMuteToggle` | frontend/js/status.js:255 |
 | `renderNotificationBadge` | frontend/js/status.js:235 |
-| `renderSearchEngineHealth` | frontend/js/status.js:2705 |
-| `renderSettings` | frontend/js/status.js:2870 |
-| `renderStatusBar` | frontend/js/status.js:2552 |
-| `renderUndoBar` | frontend/js/status.js:1665 |
+| `renderSearchEngineHealth` | frontend/js/status.js:2707 |
+| `renderSettings` | frontend/js/status.js:2872 |
+| `renderStatusBar` | frontend/js/status.js:2554 |
+| `renderUndoBar` | frontend/js/status.js:1667 |
 | `reopenAnswerPanel` | frontend/js/status.js:944 |
-| `resetStatusCadence` | frontend/js/status.js:1870 |
+| `resetStatusCadence` | frontend/js/status.js:1872 |
 | `retryServerNow` | frontend/js/status.js:1419 |
 | `runNotificationGo` | frontend/js/status.js:364 |
 | `scheduleServerDownRetry` | frontend/js/status.js:1393 |
-| `scheduleUndoBar` | frontend/js/status.js:1657 |
-| `setChatMode` | frontend/js/status.js:2815 |
+| `scheduleUndoBar` | frontend/js/status.js:1659 |
+| `setChatMode` | frontend/js/status.js:2817 |
 | `setForcedReadIds` | frontend/js/status.js:171 |
 | `setForcedUnreadIds` | frontend/js/status.js:140 |
 | `setNotificationUnread` | frontend/js/status.js:186 |
 | `setTitleCount` | frontend/js/status.js:755 |
 | `setTitleView` | frontend/js/status.js:760 |
-| `settingsOpen` | frontend/js/status.js:1887 |
-| `settleUndoFromToast` | frontend/js/status.js:1534 |
+| `settingsOpen` | frontend/js/status.js:1889 |
+| `settleUndoFromToast` | frontend/js/status.js:1536 |
 | `showServerDownBanner` | frontend/js/status.js:1352 |
 | `startReminderWatch` | frontend/js/status.js:852 |
 | `storedNotifications` | frontend/js/status.js:84 |
-| `surfaceHistory` | frontend/js/status.js:1584 |
-| `syncAgentPaletteAvailability` | frontend/js/status.js:2266 |
-| `syncModelGatedControls` | frontend/js/status.js:2109 |
+| `surfaceHistory` | frontend/js/status.js:1586 |
+| `syncAgentPaletteAvailability` | frontend/js/status.js:2268 |
+| `syncModelGatedControls` | frontend/js/status.js:2111 |
 | `syncNotifBlocked` | frontend/js/status.js:638 |
-| `taskKey` | frontend/js/status.js:3054 |
+| `taskKey` | frontend/js/status.js:3056 |
 | `toast` | frontend/js/status.js:1168 |
 | `toastAction` | frontend/js/status.js:1289 |
 | `toastActionButton` | frontend/js/status.js:1270 |
@@ -1129,7 +1130,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `toastHost` | frontend/js/status.js:1082 |
 | `toastProgress` | frontend/js/status.js:1238 |
 | `toastStack` | frontend/js/status.js:981 |
-| `toggleAiStatusPopup` | frontend/js/status.js:2690 |
+| `toggleAiStatusPopup` | frontend/js/status.js:2692 |
 | `toggleNotificationMute` | frontend/js/status.js:271 |
 | `unreadNotifications` | frontend/js/status.js:229 |
 | `voiceLine` | frontend/js/status.js:1162 |
@@ -2150,20 +2151,20 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `hexToHsl` | frontend/js/settings.js:1761 |
 | `hexToRgbParts` | frontend/js/settings.js:2061 |
 | `hslToHex` | frontend/js/settings.js:1782 |
-| `jobDurationWords` | frontend/js/settings.js:4397 |
-| `jobLineEl` | frontend/js/settings.js:4458 |
-| `jobRunLine` | frontend/js/settings.js:4408 |
-| `learnedBulk` | frontend/js/settings.js:3943 |
-| `learnedDelete` | frontend/js/settings.js:4119 |
-| `learnedEdit` | frontend/js/settings.js:4084 |
-| `learnedExport` | frontend/js/settings.js:4159 |
-| `learnedForget` | frontend/js/settings.js:4140 |
-| `learnedFromYouText` | frontend/js/settings.js:4257 |
-| `learnedKindLabel` | frontend/js/settings.js:3804 |
-| `learnedReset` | frontend/js/settings.js:4109 |
-| `learnedRow` | frontend/js/settings.js:3970 |
-| `learnedRunNow` | frontend/js/settings.js:4178 |
-| `learnedSetSwitch` | frontend/js/settings.js:3911 |
+| `jobDurationWords` | frontend/js/settings.js:4401 |
+| `jobLineEl` | frontend/js/settings.js:4462 |
+| `jobRunLine` | frontend/js/settings.js:4412 |
+| `learnedBulk` | frontend/js/settings.js:3947 |
+| `learnedDelete` | frontend/js/settings.js:4123 |
+| `learnedEdit` | frontend/js/settings.js:4088 |
+| `learnedExport` | frontend/js/settings.js:4163 |
+| `learnedForget` | frontend/js/settings.js:4144 |
+| `learnedFromYouText` | frontend/js/settings.js:4261 |
+| `learnedKindLabel` | frontend/js/settings.js:3808 |
+| `learnedReset` | frontend/js/settings.js:4113 |
+| `learnedRow` | frontend/js/settings.js:3974 |
+| `learnedRunNow` | frontend/js/settings.js:4182 |
+| `learnedSetSwitch` | frontend/js/settings.js:3915 |
 | `lessTransparencyWanted` | frontend/js/settings.js:2159 |
 | `loadChangelog` | frontend/js/settings.js:429 |
 | `loadSamplingSettings` | frontend/js/settings.js:3390 |
@@ -2181,11 +2182,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `openSettingsModal` | frontend/js/settings.js:238 |
 | `openTaskLog` | frontend/js/settings.js:3281 |
 | `paintIntegrity` | frontend/js/settings.js:461 |
-| `paintJobLine` | frontend/js/settings.js:4440 |
+| `paintJobLine` | frontend/js/settings.js:4444 |
 | `perfModeOn` | frontend/js/settings.js:2165 |
 | `perfModeReason` | frontend/js/settings.js:2174 |
-| `placeFoldHelp` | frontend/js/settings.js:4342 |
-| `refreshJobRuns` | frontend/js/settings.js:4468 |
+| `placeFoldHelp` | frontend/js/settings.js:4346 |
+| `refreshJobRuns` | frontend/js/settings.js:4472 |
 | `renderActiveLogView` | frontend/js/settings.js:1001 |
 | `renderAppearance` | frontend/js/settings.js:2451 |
 | `renderBgMotionHint` | frontend/js/settings.js:2601 |
@@ -2193,11 +2194,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderCopyLogsLabel` | frontend/js/settings.js:1170 |
 | `renderCustomThemes` | frontend/js/settings.js:1965 |
 | `renderHealthBlock` | frontend/js/settings.js:478 |
-| `renderJobOverview` | frontend/js/settings.js:4490 |
-| `renderLearned` | frontend/js/settings.js:4278 |
-| `renderLearnedFromYou` | frontend/js/settings.js:4269 |
-| `renderLearnedList` | frontend/js/settings.js:4044 |
-| `renderLearnedSwitches` | frontend/js/settings.js:3808 |
+| `renderJobOverview` | frontend/js/settings.js:4494 |
+| `renderLearned` | frontend/js/settings.js:4282 |
+| `renderLearnedFromYou` | frontend/js/settings.js:4273 |
+| `renderLearnedList` | frontend/js/settings.js:4048 |
+| `renderLearnedSwitches` | frontend/js/settings.js:3812 |
 | `renderLogErrorBadge` | frontend/js/settings.js:1020 |
 | `renderLogGap` | frontend/js/settings.js:763 |
 | `renderLogList` | frontend/js/settings.js:933 |
@@ -2221,7 +2222,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `serverLogRecord` | frontend/js/settings.js:788 |
 | `setLogLive` | frontend/js/settings.js:1006 |
 | `setSettingsPeek` | frontend/js/settings.js:210 |
-| `settingsFoldState` | frontend/js/settings.js:4297 |
+| `settingsFoldState` | frontend/js/settings.js:4301 |
 | `settingsPeekIsOn` | frontend/js/settings.js:222 |
 | `settingsScroller` | frontend/js/settings.js:99 |
 | `settingsSectionText` | frontend/js/settings.js:617 |
@@ -2232,16 +2233,16 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `startLogStream` | frontend/js/settings.js:1050 |
 | `stopBgArt` | frontend/js/settings.js:2803 |
 | `stopLogStream` | frontend/js/settings.js:1109 |
-| `syncLearnedSelectbar` | frontend/js/settings.js:3931 |
+| `syncLearnedSelectbar` | frontend/js/settings.js:3935 |
 | `taskLogButton` | frontend/js/settings.js:3277 |
 | `themeSwatch` | frontend/js/settings.js:1644 |
 | `themeValue` | frontend/js/settings.js:1660 |
 | `toggleBgArt` | frontend/js/settings.js:2883 |
 | `toggleTheme` | frontend/js/settings.js:1285 |
 | `updatePeekAvailability` | frontend/js/settings.js:226 |
-| `wireFoldHelps` | frontend/js/settings.js:4353 |
-| `wireLearnedSection` | frontend/js/settings.js:4212 |
-| `wireSettingsFolds` | frontend/js/settings.js:4306 |
+| `wireFoldHelps` | frontend/js/settings.js:4357 |
+| `wireLearnedSection` | frontend/js/settings.js:4216 |
+| `wireSettingsFolds` | frontend/js/settings.js:4310 |
 
 ### frontend/js/account-recovery.js (16)
 
@@ -8714,7 +8715,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | a settings row where nothing squashes anything else | frontend/css/07-whiteboard-misc.css:4047 |
 | a sheet (DESIGN.md's recipe index, "A sheet") | frontend/css/10-responsive.css:769 |
 | a sticker (MINDMAP_PLAN decision 44, INBOX 642) | frontend/css/library-lazy.css:2513 |
-| a stored file that is no longer stored | frontend/css/02-chat-graph.css:4778 |
+| a stored file that is no longer stored | frontend/css/02-chat-graph.css:4788 |
 | a traced path (§9) | frontend/css/02-chat-graph.css:1240 |
 | a turn that is still working says so, for as long as it is | frontend/css/03-dashboard-widgets.css:4315 |
 | a zone that cannot shrink says so, instead of spilling | frontend/css/10-responsive.css:1022 |
@@ -8870,7 +8871,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the Library, second pass: cards in reading order, one anatomy | frontend/css/08-consistency.css:3772 |
 | the OCR rail's own switch | frontend/css/07-whiteboard-misc.css:6536 |
 | the Skills dropdown | frontend/css/04-chat-dock-appearance.css:1172 |
-| the Sources panel | frontend/css/02-chat-graph.css:4959 |
+| the Sources panel | frontend/css/02-chat-graph.css:4969 |
 | the accessible card: the title opens it (INBOX 433) | frontend/css/08-consistency.css:2989 |
 | the agent activity panel: nothing scrolls sideways, nothing folds onto | frontend/css/07-whiteboard-misc.css:10427 |
 | the agent's run, as a timeline | frontend/css/02-chat-graph.css:577 |
@@ -8889,7 +8890,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the bottom docks | frontend/css/07-whiteboard-misc.css:9634 |
 | the chat dock follows its own width (INBOX 694) | frontend/css/10-responsive.css:2504 |
 | the chat page fills its height (§36A) | frontend/css/06-timeline-dialogs.css:1314 |
-| the chat sidebar on a phone | frontend/css/02-chat-graph.css:5473 |
+| the chat sidebar on a phone | frontend/css/02-chat-graph.css:5483 |
 | the chat toolbar, grouped (§36B) | frontend/css/06-timeline-dialogs.css:1433 |
 | the citation peek (INBOX 80) | frontend/css/02-chat-graph.css:4519 |
 | the code editor: gutter + monospace | frontend/css/04-chat-dock-appearance.css:4398 |
@@ -8930,10 +8931,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the help popover is a popover, not a page (INBOX 206) | frontend/css/08-consistency.css:2557 |
 | the in-app confirm dialog (§35F) | frontend/css/06-timeline-dialogs.css:1101 |
 | the lightbox on a phone (INBOX 430) | frontend/css/10-responsive.css:2194 |
-| the live action line | frontend/css/02-chat-graph.css:4809 |
+| the live action line | frontend/css/02-chat-graph.css:4819 |
 | the lock screen | frontend/css/08-consistency.css:3754 |
 | the log console (§1) | frontend/css/06-timeline-dialogs.css:721 |
-| the map is the tab, and its controls float over it | frontend/css/02-chat-graph.css:5497 |
+| the map is the tab, and its controls float over it | frontend/css/02-chat-graph.css:5507 |
 | the mind map's outline and markers (MINDMAP_PLAN decisions 33, 34) | frontend/css/library-lazy.css:2071 |
 | the node edit strip (MINDMAP_PLAN.md §12.1 item 2) | frontend/css/07-whiteboard-misc.css:8461 |
 | the node radial (MINDMAP_PLAN.md §12.1 item 3) | frontend/css/07-whiteboard-misc.css:8712 |
@@ -8968,7 +8969,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the status bar from 820 to 959: one item fewer | frontend/css/10-responsive.css:1148 |
 | the status bar on a small phone | frontend/css/00-tokens-shell.css:3445 |
 | the status line and the recent searches | frontend/css/03-dashboard-widgets.css:1401 |
-| the step group (Perplexity's "Finished N steps") | frontend/css/02-chat-graph.css:4882 |
+| the step group (Perplexity's "Finished N steps") | frontend/css/02-chat-graph.css:4892 |
 | the strip's three doors (MINDMAP_PLAN.md §13b) | frontend/css/07-whiteboard-misc.css:8556 |
 | the strips that appear only when they apply | frontend/css/00-tokens-shell.css:1850 |
 | the structural blocks (INBOX 421 b) | frontend/css/05-sidebars-themes.css:1200 |
@@ -8997,7 +8998,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | what it learned (WORLD_CLASS_PLAN I9) | frontend/css/01-forms-settings.css:5386 |
 | what the AI remembers (ROADMAP §39B) | frontend/css/07-whiteboard-misc.css:1907 |
 | what the agent found, as things you can open | frontend/css/07-whiteboard-misc.css:5187 |
-| what the answering model is | frontend/css/02-chat-graph.css:5306 |
+| what the answering model is | frontend/css/02-chat-graph.css:5316 |
 | what the phone block assumed, and the sheet undoes | frontend/css/07-whiteboard-misc.css:9908 |
 | whiteboard fixes (§41) | frontend/css/07-whiteboard-misc.css:2034 |
 | whiteboard objects: images and text boxes, neither tied to a note | frontend/css/07-whiteboard-misc.css:1 |
@@ -9009,7 +9010,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |---|---|
 | frontend/css/00-tokens-shell.css | 4260 |
 | frontend/css/01-forms-settings.css | 5963 |
-| frontend/css/02-chat-graph.css | 5883 |
+| frontend/css/02-chat-graph.css | 5893 |
 | frontend/css/03-dashboard-widgets.css | 5132 |
 | frontend/css/04-chat-dock-appearance.css | 6435 |
 | frontend/css/05-sidebars-themes.css | 5952 |
@@ -9039,7 +9040,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/usage-lazy.css | 34 |
 | frontend/css/utilities-lazy.css | 116 |
 
-## Backend routes (550)
+## Backend routes (551)
 
 `@router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, sorted by path. The line is the decorator's.
 
@@ -9047,7 +9048,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |---|---|---|---|
 |  | DELETE | `clear` | src/memorymap/api/routes_usage.py:40 |
 |  | DELETE | `clear_ask_history` | src/memorymap/api/routes_ask_history.py:181 |
-|  | DELETE | `forget_everything` | src/memorymap/api/routes_learned.py:212 |
+|  | DELETE | `forget_everything` | src/memorymap/api/routes_learned.py:238 |
 |  | GET | `list_ask_history` | src/memorymap/api/routes_ask_history.py:47 |
 |  | GET | `list_bookmarks` | src/memorymap/api/routes_bookmarks.py:116 |
 |  | GET | `list_categories` | src/memorymap/api/routes_categories.py:149 |
@@ -9056,7 +9057,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |  | GET | `list_duplicates` | src/memorymap/api/routes_duplicates.py:78 |
 |  | GET | `list_entities` | src/memorymap/api/routes_entities.py:68 |
 |  | GET | `list_entries` | src/memorymap/api/routes_entries.py:2223 |
-|  | GET | `list_facts` | src/memorymap/api/routes_learned.py:132 |
+|  | GET | `list_facts` | src/memorymap/api/routes_learned.py:158 |
 |  | GET | `list_questions` | src/memorymap/api/routes_questions.py:26 |
 |  | GET | `list_reminders` | src/memorymap/api/routes_reminders.py:431 |
 |  | GET | `list_tags` | src/memorymap/api/routes_tags.py:40 |
@@ -9130,7 +9131,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/boards/{board_id}/nodes/{node_id}/summary` | POST | `summarise_branch` | src/memorymap/api/routes_map_suggest.py:308 |
 | `/boards/{board_id}/tree` | GET | `board_tree` | src/memorymap/api/routes_whiteboard.py:3564 |
 | `/budgets` | GET | `budgets` | src/memorymap/api/routes_bench.py:123 |
-| `/bulk` | POST | `bulk_action` | src/memorymap/api/routes_learned.py:236 |
+| `/bulk` | POST | `bulk_action` | src/memorymap/api/routes_learned.py:262 |
 | `/bulk` | POST | `bulk_edit_tags` | src/memorymap/api/routes_tags.py:104 |
 | `/capabilities` | GET | `capabilities` | src/memorymap/api/routes_capabilities.py:75 |
 | `/change-password` | POST | `change_password` | src/memorymap/api/routes_auth.py:1002 |
@@ -9145,14 +9146,14 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/code-snippets` | GET | `list_snippets` | src/memorymap/api/routes_code_snippets.py:64 |
 | `/code-snippets` | POST | `create_snippet` | src/memorymap/api/routes_code_snippets.py:89 |
 | `/code-snippets/{snippet_id}` | PUT | `update_snippet` | src/memorymap/api/routes_code_snippets.py:105 |
-| `/command/run` | POST | `run_command` | src/memorymap/api/routes_chat.py:2557 |
+| `/command/run` | POST | `run_command` | src/memorymap/api/routes_chat.py:2567 |
 | `/compose` | POST | `compose_draft` | src/memorymap/api/routes_drafts.py:75 |
 | `/compose/stream` | POST | `compose_draft_stream` | src/memorymap/api/routes_drafts.py:110 |
-| `/compress` | POST | `compress_history` | src/memorymap/api/routes_chat.py:3251 |
+| `/compress` | POST | `compress_history` | src/memorymap/api/routes_chat.py:3267 |
 | `/compute` | POST | `compute` | src/memorymap/api/routes_resurface.py:85 |
 | `/confirm` | POST | `confirm_insight` | src/memorymap/api/routes_insights.py:415 |
 | `/contents` | POST | `write_contents` | src/memorymap/api/routes_documents.py:503 |
-| `/corrections` | GET | `list_corrections` | src/memorymap/api/routes_learned.py:78 |
+| `/corrections` | GET | `list_corrections` | src/memorymap/api/routes_learned.py:104 |
 | `/corrections` | POST | `add_correction` | src/memorymap/api/routes_learned.py:53 |
 | `/count` | GET | `count_entries` | src/memorymap/api/routes_entries.py:2384 |
 | `/counts` | GET | `counts` | src/memorymap/api/routes_questions.py:45 |
@@ -9187,7 +9188,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/entries/{entry_id}/properties` | PUT | `put_properties` | src/memorymap/api/routes_properties.py:61 |
 | `/events` | GET | `event_feed` | src/memorymap/api/routes_settings.py:1779 |
 | `/events/undo` | POST | `undo_actor` | src/memorymap/api/routes_settings.py:1750 |
-| `/export` | GET | `export_learned` | src/memorymap/api/routes_learned.py:150 |
+| `/export` | GET | `export_learned` | src/memorymap/api/routes_learned.py:176 |
 | `/export.ics` | GET | `export_ics` | src/memorymap/api/routes_reminders.py:356 |
 | `/export/backup` | GET | `export_backup` | src/memorymap/api/routes_settings.py:2441 |
 | `/export/csv` | GET | `export_csv` | src/memorymap/api/routes_settings.py:3154 |
@@ -9318,7 +9319,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/merges/accept` | POST | `accept_merge` | src/memorymap/api/routes_inbox.py:143 |
 | `/merges/dismiss` | POST | `dismiss_merge` | src/memorymap/api/routes_inbox.py:157 |
 | `/merges/{undo_id}/undo` | POST | `undo_merge_route` | src/memorymap/api/routes_entities.py:227 |
-| `/modes` | GET | `list_modes` | src/memorymap/api/routes_chat.py:3187 |
+| `/modes` | GET | `list_modes` | src/memorymap/api/routes_chat.py:3203 |
 | `/most-accessed` | GET | `most_accessed` | src/memorymap/api/routes_entries.py:2372 |
 | `/most-opened` | GET | `most_opened` | src/memorymap/api/routes_vision.py:112 |
 | `/move` | POST | `move_notes` | src/memorymap/api/routes_categories.py:171 |
@@ -9427,17 +9428,17 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/status` | GET | `status` | src/memorymap/api/routes_voice.py:30 |
 | `/stop` | POST | `stop` | src/memorymap/api/routes_bench.py:245 |
 | `/storage` | GET | `storage_location` | src/memorymap/api/routes_backups.py:42 |
-| `/stream` | POST | `chat_stream` | src/memorymap/api/routes_chat.py:3092 |
+| `/stream` | POST | `chat_stream` | src/memorymap/api/routes_chat.py:3108 |
 | `/suggest-tags` | POST | `suggest_tags_for_draft` | src/memorymap/api/routes_entries.py:1264 |
 | `/suggested` | GET | `suggested` | src/memorymap/api/routes_models.py:604 |
 | `/suggestions` | GET | `suggestions` | src/memorymap/api/routes_chat.py:245 |
 | `/summarize` | POST | `summarize` | src/memorymap/api/routes_voice.py:118 |
-| `/summary` | GET | `learned_summary` | src/memorymap/api/routes_learned.py:189 |
+| `/summary` | GET | `learned_summary` | src/memorymap/api/routes_learned.py:215 |
 | `/summary` | GET | `summary` | src/memorymap/api/routes_questions.py:53 |
 | `/summary` | POST | `summary` | src/memorymap/api/routes_usage.py:35 |
 | `/support-bundle` | GET | `support_bundle` | src/memorymap/api/routes_settings.py:2341 |
-| `/switches` | GET | `get_switches` | src/memorymap/api/routes_learned.py:197 |
-| `/switches` | PUT | `put_switches` | src/memorymap/api/routes_learned.py:203 |
+| `/switches` | GET | `get_switches` | src/memorymap/api/routes_learned.py:223 |
+| `/switches` | PUT | `put_switches` | src/memorymap/api/routes_learned.py:229 |
 | `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1356 |
 | `/system/console-mode` | POST | `set_console_mode` | src/memorymap/api/routes_settings.py:1134 |
 | `/system/restart` | POST | `restart_app` | src/memorymap/api/routes_settings.py:1203 |
@@ -9456,8 +9457,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/tidy-proposals` | GET | `tidy_proposals` | src/memorymap/api/routes_vision.py:195 |
 | `/tidy-proposals/dismiss` | POST | `dismiss_tidy` | src/memorymap/api/routes_vision.py:249 |
 | `/title` | POST | `draft_title` | src/memorymap/api/routes_drafts.py:147 |
-| `/tools` | GET | `list_tools` | src/memorymap/api/routes_chat.py:3208 |
-| `/tools/execute` | POST | `execute_confirmed_tool` | src/memorymap/api/routes_chat.py:3290 |
+| `/tools` | GET | `list_tools` | src/memorymap/api/routes_chat.py:3224 |
+| `/tools/execute` | POST | `execute_confirmed_tool` | src/memorymap/api/routes_chat.py:3306 |
 | `/topics` | GET | `topics` | src/memorymap/api/routes_help.py:57 |
 | `/transcribe` | POST | `transcribe` | src/memorymap/api/routes_voice.py:94 |
 | `/transcribe-meeting` | POST | `transcribe_meeting` | src/memorymap/api/routes_voice.py:101 |
@@ -9469,6 +9470,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/unlock` | POST | `unlock` | src/memorymap/api/routes_auth.py:636 |
 | `/unlock-vault` | POST | `unlock_vault` | src/memorymap/api/routes_auth.py:744 |
 | `/utility-model` | POST | `set_utility_model` | src/memorymap/api/routes_models.py:710 |
+| `/verdict` | POST | `mark_verdict` | src/memorymap/api/routes_learned.py:90 |
 | `/vision-model` | POST | `set_vision_model` | src/memorymap/api/routes_models.py:728 |
 | `/warm` | POST | `warm` | src/memorymap/api/routes_search.py:35 |
 | `/warm-filing` | POST | `warm_filing` | src/memorymap/api/routes_models.py:265 |
@@ -9571,11 +9573,11 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{entry_id}/then-and-now` | POST | `then_and_now_of_text` | src/memorymap/api/routes_entries.py:3173 |
 | `/{entry_id}/unarchive` | POST | `unarchive_entry` | src/memorymap/api/routes_entries.py:2734 |
 | `/{entry_id}/wiki-rename` | POST | `wiki_rename` | src/memorymap/api/routes_entries.py:2683 |
-| `/{fact_id}` | DELETE | `delete_fact` | src/memorymap/api/routes_learned.py:313 |
-| `/{fact_id}` | GET | `get_fact` | src/memorymap/api/routes_learned.py:275 |
-| `/{fact_id}` | PATCH | `patch_fact` | src/memorymap/api/routes_learned.py:283 |
+| `/{fact_id}` | DELETE | `delete_fact` | src/memorymap/api/routes_learned.py:339 |
+| `/{fact_id}` | GET | `get_fact` | src/memorymap/api/routes_learned.py:301 |
+| `/{fact_id}` | PATCH | `patch_fact` | src/memorymap/api/routes_learned.py:309 |
 | `/{fact_id}` | POST | `set_state` | src/memorymap/api/routes_questions.py:65 |
-| `/{fact_id}/reset` | POST | `reset_fact` | src/memorymap/api/routes_learned.py:302 |
+| `/{fact_id}/reset` | POST | `reset_fact` | src/memorymap/api/routes_learned.py:328 |
 | `/{key}` | DELETE | `delete_type` | src/memorymap/api/routes_relations.py:130 |
 | `/{key}` | GET | `tidy_rows` | src/memorymap/api/routes_tidy.py:94 |
 | `/{key}` | PATCH | `patch_type` | src/memorymap/api/routes_relations.py:110 |
@@ -9596,7 +9598,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4620)
+## Backend modules (4630)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10087,60 +10089,60 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `Fact` | src/memorymap/ai/composer_digest.py:400 |
-| `_Capitals` | src/memorymap/ai/composer_digest.py:224 |
-| `_Out` | src/memorymap/ai/composer_digest.py:409 |
-| `_Phrases` | src/memorymap/ai/composer_digest.py:213 |
-| `_best` | src/memorymap/ai/composer_digest.py:925 |
-| `_capitalised_inside` | src/memorymap/ai/composer_digest.py:445 |
-| `_compare` | src/memorymap/ai/composer_digest.py:1052 |
-| `_context_note` | src/memorymap/ai/composer_digest.py:558 |
-| `_count` | src/memorymap/ai/composer_digest.py:841 |
-| `_day` | src/memorymap/ai/composer_digest.py:426 |
-| `_dictionary` | src/memorymap/ai/composer_digest.py:466 |
-| `_facts` | src/memorymap/ai/composer_digest.py:563 |
-| `_gap` | src/memorymap/ai/composer_digest.py:194 |
-| `_gone_quiet` | src/memorymap/ai/composer_digest.py:909 |
-| `_join` | src/memorymap/ai/composer_digest.py:747 |
-| `_kind_offer` | src/memorymap/ai/composer_digest.py:1388 |
-| `_left` | src/memorymap/ai/composer_digest.py:1446 |
-| `_lift_table` | src/memorymap/ai/composer_digest.py:1425 |
-| `_lines` | src/memorymap/ai/composer_digest.py:706 |
-| `_lower_first` | src/memorymap/ai/composer_digest.py:477 |
-| `_members` | src/memorymap/ai/composer_digest.py:648 |
-| `_missing` | src/memorymap/ai/composer_digest.py:813 |
-| `_more` | src/memorymap/ai/composer_digest.py:1482 |
-| `_note_offer` | src/memorymap/ai/composer_digest.py:1384 |
-| `_offer` | src/memorymap/ai/composer_digest.py:824 |
-| `_overview` | src/memorymap/ai/composer_digest.py:845 |
-| `_pattern` | src/memorymap/ai/composer_digest.py:780 |
-| `_pin` | src/memorymap/ai/composer_digest.py:515 |
-| `_progress` | src/memorymap/ai/composer_digest.py:884 |
-| `_relate` | src/memorymap/ai/composer_digest.py:765 |
-| `_result` | src/memorymap/ai/composer_digest.py:1491 |
-| `_row` | src/memorymap/ai/composer_digest.py:799 |
-| `_say_fact` | src/memorymap/ai/composer_digest.py:936 |
-| `_second_person` | src/memorymap/ai/composer_digest.py:490 |
-| `_single` | src/memorymap/ai/composer_digest.py:955 |
-| `_span` | src/memorymap/ai/composer_digest.py:433 |
-| `_stands_for` | src/memorymap/ai/composer_digest.py:1123 |
-| `_subject` | src/memorymap/ai/composer_digest.py:644 |
-| `_this` | src/memorymap/ai/composer_digest.py:1307 |
-| `_tidy` | src/memorymap/ai/composer_digest.py:543 |
-| `_tie` | src/memorymap/ai/composer_digest.py:1349 |
-| `_topic` | src/memorymap/ai/composer_digest.py:680 |
-| `_vary` | src/memorymap/ai/composer_digest.py:187 |
-| `_volunteer` | src/memorymap/ai/composer_digest.py:1275 |
-| `_who` | src/memorymap/ai/composer_digest.py:1033 |
-| `about_this` | src/memorymap/ai/composer_digest.py:371 |
-| `all_said` | src/memorymap/ai/composer_digest.py:1151 |
-| `answer` | src/memorymap/ai/composer_digest.py:1171 |
-| `clean` | src/memorymap/ai/composer_digest.py:338 |
-| `insight_bar` | src/memorymap/ai/composer_digest.py:1270 |
-| `kind_of` | src/memorymap/ai/composer_digest.py:387 |
-| `named_category` | src/memorymap/ai/composer_digest.py:376 |
-| `sample` | src/memorymap/ai/composer_digest.py:235 |
-| `web` | src/memorymap/ai/composer_digest.py:1521 |
+| `Fact` | src/memorymap/ai/composer_digest.py:402 |
+| `_Capitals` | src/memorymap/ai/composer_digest.py:226 |
+| `_Out` | src/memorymap/ai/composer_digest.py:411 |
+| `_Phrases` | src/memorymap/ai/composer_digest.py:215 |
+| `_best` | src/memorymap/ai/composer_digest.py:950 |
+| `_capitalised_inside` | src/memorymap/ai/composer_digest.py:447 |
+| `_compare` | src/memorymap/ai/composer_digest.py:1077 |
+| `_context_note` | src/memorymap/ai/composer_digest.py:563 |
+| `_count` | src/memorymap/ai/composer_digest.py:866 |
+| `_day` | src/memorymap/ai/composer_digest.py:428 |
+| `_dictionary` | src/memorymap/ai/composer_digest.py:468 |
+| `_facts` | src/memorymap/ai/composer_digest.py:568 |
+| `_gap` | src/memorymap/ai/composer_digest.py:196 |
+| `_gone_quiet` | src/memorymap/ai/composer_digest.py:934 |
+| `_join` | src/memorymap/ai/composer_digest.py:772 |
+| `_kind_offer` | src/memorymap/ai/composer_digest.py:1418 |
+| `_left` | src/memorymap/ai/composer_digest.py:1476 |
+| `_lift_table` | src/memorymap/ai/composer_digest.py:1455 |
+| `_lines` | src/memorymap/ai/composer_digest.py:719 |
+| `_lower_first` | src/memorymap/ai/composer_digest.py:479 |
+| `_members` | src/memorymap/ai/composer_digest.py:661 |
+| `_missing` | src/memorymap/ai/composer_digest.py:838 |
+| `_more` | src/memorymap/ai/composer_digest.py:1512 |
+| `_note_offer` | src/memorymap/ai/composer_digest.py:1414 |
+| `_offer` | src/memorymap/ai/composer_digest.py:849 |
+| `_overview` | src/memorymap/ai/composer_digest.py:870 |
+| `_pattern` | src/memorymap/ai/composer_digest.py:805 |
+| `_pin` | src/memorymap/ai/composer_digest.py:520 |
+| `_progress` | src/memorymap/ai/composer_digest.py:909 |
+| `_relate` | src/memorymap/ai/composer_digest.py:790 |
+| `_result` | src/memorymap/ai/composer_digest.py:1521 |
+| `_row` | src/memorymap/ai/composer_digest.py:824 |
+| `_say_fact` | src/memorymap/ai/composer_digest.py:961 |
+| `_second_person` | src/memorymap/ai/composer_digest.py:492 |
+| `_single` | src/memorymap/ai/composer_digest.py:980 |
+| `_span` | src/memorymap/ai/composer_digest.py:435 |
+| `_stands_for` | src/memorymap/ai/composer_digest.py:1148 |
+| `_subject` | src/memorymap/ai/composer_digest.py:657 |
+| `_this` | src/memorymap/ai/composer_digest.py:1337 |
+| `_tidy` | src/memorymap/ai/composer_digest.py:548 |
+| `_tie` | src/memorymap/ai/composer_digest.py:1379 |
+| `_topic` | src/memorymap/ai/composer_digest.py:693 |
+| `_vary` | src/memorymap/ai/composer_digest.py:189 |
+| `_volunteer` | src/memorymap/ai/composer_digest.py:1301 |
+| `_who` | src/memorymap/ai/composer_digest.py:1058 |
+| `about_this` | src/memorymap/ai/composer_digest.py:373 |
+| `all_said` | src/memorymap/ai/composer_digest.py:1176 |
+| `answer` | src/memorymap/ai/composer_digest.py:1196 |
+| `clean` | src/memorymap/ai/composer_digest.py:340 |
+| `insight_bar` | src/memorymap/ai/composer_digest.py:1296 |
+| `kind_of` | src/memorymap/ai/composer_digest.py:389 |
+| `named_category` | src/memorymap/ai/composer_digest.py:378 |
+| `sample` | src/memorymap/ai/composer_digest.py:237 |
+| `web` | src/memorymap/ai/composer_digest.py:1551 |
 
 ### src/memorymap/ai/composer_overview.py (13)
 
@@ -10499,7 +10501,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/memorymap/ai/help_topics_more.py:2233 |
+| `_act_topic` | src/memorymap/ai/help_topics_more.py:2254 |
 
 ### src/memorymap/ai/inbox.py (7)
 
@@ -10588,19 +10590,19 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `Correction` | src/memorymap/ai/learning.py:134 |
-| `_as_correction` | src/memorymap/ai/learning.py:164 |
-| `_payload` | src/memorymap/ai/learning.py:151 |
-| `_words` | src/memorymap/ai/learning.py:584 |
-| `boosts` | src/memorymap/ai/learning.py:338 |
-| `centroid_excluded` | src/memorymap/ai/learning.py:446 |
-| `corrections` | src/memorymap/ai/learning.py:226 |
-| `decayed` | src/memorymap/ai/learning.py:333 |
-| `excluded_categories` | src/memorymap/ai/learning.py:477 |
-| `filing_accuracy` | src/memorymap/ai/learning.py:273 |
-| `filing_evidence` | src/memorymap/ai/learning.py:511 |
-| `record` | src/memorymap/ai/learning.py:184 |
-| `signal_weights` | src/memorymap/ai/learning.py:397 |
+| `Correction` | src/memorymap/ai/learning.py:139 |
+| `_as_correction` | src/memorymap/ai/learning.py:169 |
+| `_payload` | src/memorymap/ai/learning.py:156 |
+| `_words` | src/memorymap/ai/learning.py:589 |
+| `boosts` | src/memorymap/ai/learning.py:343 |
+| `centroid_excluded` | src/memorymap/ai/learning.py:451 |
+| `corrections` | src/memorymap/ai/learning.py:231 |
+| `decayed` | src/memorymap/ai/learning.py:338 |
+| `excluded_categories` | src/memorymap/ai/learning.py:482 |
+| `filing_accuracy` | src/memorymap/ai/learning.py:278 |
+| `filing_evidence` | src/memorymap/ai/learning.py:516 |
+| `record` | src/memorymap/ai/learning.py:189 |
+| `signal_weights` | src/memorymap/ai/learning.py:402 |
 
 ### src/memorymap/ai/lexical_filing.py (32)
 
@@ -11733,6 +11735,18 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `slots_missing` | src/memorymap/ai/validate.py:216 |
 | `source_check` | src/memorymap/ai/validate.py:70 |
 
+### src/memorymap/ai/verdicts.py (7)
+
+| Name | File:line |
+|---|---|
+| `Known` | src/memorymap/ai/verdicts.py:40 |
+| `_replace` | src/memorymap/ai/verdicts.py:137 |
+| `day_words` | src/memorymap/ai/verdicts.py:35 |
+| `for_model` | src/memorymap/ai/verdicts.py:113 |
+| `known` | src/memorymap/ai/verdicts.py:62 |
+| `mark` | src/memorymap/ai/verdicts.py:79 |
+| `norm` | src/memorymap/ai/verdicts.py:30 |
+
 ### src/memorymap/ai/vision_ocr.py (11)
 
 | Name | File:line |
@@ -12100,22 +12114,22 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `set_category_colour` | src/memorymap/api/routes_categories.py:324 |
 | `split_category` | src/memorymap/api/routes_categories.py:194 |
 
-### src/memorymap/api/routes_chat.py (94)
+### src/memorymap/api/routes_chat.py (95)
 
 | Name | File:line |
 |---|---|
 | `ChatRequest` | src/memorymap/api/routes_chat.py:332 |
 | `ChatResponse` | src/memorymap/api/routes_chat.py:752 |
 | `ChatTurn` | src/memorymap/api/routes_chat.py:314 |
-| `CommandRunBody` | src/memorymap/api/routes_chat.py:2550 |
-| `CompressBody` | src/memorymap/api/routes_chat.py:3245 |
+| `CommandRunBody` | src/memorymap/api/routes_chat.py:2560 |
+| `CompressBody` | src/memorymap/api/routes_chat.py:3261 |
 | `FollowupBody` | src/memorymap/api/routes_chat.py:279 |
 | `PlanRun` | src/memorymap/api/routes_chat.py:319 |
-| `ToolExecuteBody` | src/memorymap/api/routes_chat.py:3278 |
+| `ToolExecuteBody` | src/memorymap/api/routes_chat.py:3294 |
 | `_StreamRequest` | src/memorymap/api/routes_chat.py:1884 |
 | `_about` | src/memorymap/api/routes_chat.py:230 |
-| `_act_events` | src/memorymap/api/routes_chat.py:2489 |
-| `_agent_events` | src/memorymap/api/routes_chat.py:2572 |
+| `_act_events` | src/memorymap/api/routes_chat.py:2499 |
+| `_agent_events` | src/memorymap/api/routes_chat.py:2582 |
 | `_answer_voice` | src/memorymap/api/routes_chat.py:1922 |
 | `_app_answers` | src/memorymap/api/routes_chat.py:2146 |
 | `_apply_open` | src/memorymap/api/routes_chat.py:515 |
@@ -12131,30 +12145,30 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_capability_answer` | src/memorymap/api/routes_chat.py:2155 |
 | `_category_note_ids` | src/memorymap/api/routes_chat.py:504 |
 | `_chat_model_sees_images` | src/memorymap/api/routes_chat.py:623 |
-| `_checks_grounding` | src/memorymap/api/routes_chat.py:2714 |
+| `_checks_grounding` | src/memorymap/api/routes_chat.py:2724 |
 | `_composed` | src/memorymap/api/routes_chat.py:1915 |
 | `_composed_support` | src/memorymap/api/routes_chat.py:2071 |
 | `_composer_embed` | src/memorymap/api/routes_chat.py:1949 |
 | `_composer_voice` | src/memorymap/api/routes_chat.py:1943 |
-| `_engine_answers` | src/memorymap/api/routes_chat.py:2724 |
+| `_engine_answers` | src/memorymap/api/routes_chat.py:2734 |
 | `_exact_events` | src/memorymap/api/routes_chat.py:2163 |
 | `_feature_for` | src/memorymap/api/routes_chat.py:120 |
 | `_filed_under` | src/memorymap/api/routes_chat.py:1290 |
 | `_files_on` | src/memorymap/api/routes_chat.py:1174 |
 | `_fill` | src/memorymap/api/routes_chat.py:206 |
-| `_first_agent_event` | src/memorymap/api/routes_chat.py:2629 |
-| `_first_events` | src/memorymap/api/routes_chat.py:2523 |
-| `_follow_up` | src/memorymap/api/routes_chat.py:2693 |
+| `_first_agent_event` | src/memorymap/api/routes_chat.py:2639 |
+| `_first_events` | src/memorymap/api/routes_chat.py:2533 |
+| `_follow_up` | src/memorymap/api/routes_chat.py:2703 |
 | `_glossary` | src/memorymap/api/routes_chat.py:1253 |
 | `_grounding_candidates` | src/memorymap/api/routes_chat.py:787 |
 | `_image_caption_context` | src/memorymap/api/routes_chat.py:636 |
 | `_insight_level` | src/memorymap/api/routes_chat.py:1933 |
-| `_insight_memory` | src/memorymap/api/routes_chat.py:2477 |
-| `_interactive_lines` | src/memorymap/api/routes_chat.py:3176 |
+| `_insight_memory` | src/memorymap/api/routes_chat.py:2487 |
+| `_interactive_lines` | src/memorymap/api/routes_chat.py:3192 |
 | `_media_readings` | src/memorymap/api/routes_chat.py:1110 |
 | `_mostly_pictures` | src/memorymap/api/routes_chat.py:1060 |
 | `_note_dates` | src/memorymap/api/routes_chat.py:1068 |
-| `_note_tool_read` | src/memorymap/api/routes_chat.py:2682 |
+| `_note_tool_read` | src/memorymap/api/routes_chat.py:2692 |
 | `_nothing_open` | src/memorymap/api/routes_chat.py:538 |
 | `_one_line` | src/memorymap/api/routes_chat.py:1105 |
 | `_outline_into` | src/memorymap/api/routes_chat.py:974 |
@@ -12164,7 +12178,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_plain_events` | src/memorymap/api/routes_chat.py:2187 |
 | `_prepare` | src/memorymap/api/routes_chat.py:1324 |
 | `_recent_questions` | src/memorymap/api/routes_chat.py:130 |
-| `_refuse_failed` | src/memorymap/api/routes_chat.py:3319 |
+| `_refuse_failed` | src/memorymap/api/routes_chat.py:3335 |
 | `_related_elsewhere` | src/memorymap/api/routes_chat.py:1794 |
 | `_resolve_chat_images` | src/memorymap/api/routes_chat.py:583 |
 | `_resolve_mode` | src/memorymap/api/routes_chat.py:544 |
@@ -12172,31 +12186,32 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_resolve_plan` | src/memorymap/api/routes_chat.py:723 |
 | `_resolve_skill` | src/memorymap/api/routes_chat.py:697 |
 | `_save_ask_turn` | src/memorymap/api/routes_chat.py:1744 |
-| `_searched_question` | src/memorymap/api/routes_chat.py:2706 |
+| `_searched_question` | src/memorymap/api/routes_chat.py:2716 |
 | `_small_model_mode` | src/memorymap/api/routes_chat.py:676 |
-| `_spoken_act` | src/memorymap/api/routes_chat.py:2667 |
-| `_starter_events` | src/memorymap/api/routes_chat.py:2542 |
-| `_starter_read` | src/memorymap/api/routes_chat.py:2534 |
+| `_spoken_act` | src/memorymap/api/routes_chat.py:2677 |
+| `_starter_events` | src/memorymap/api/routes_chat.py:2552 |
+| `_starter_read` | src/memorymap/api/routes_chat.py:2544 |
 | `_stats_chart` | src/memorymap/api/routes_chat.py:2108 |
-| `_stream_lines` | src/memorymap/api/routes_chat.py:2753 |
+| `_stream_lines` | src/memorymap/api/routes_chat.py:2763 |
 | `_time_words` | src/memorymap/api/routes_chat.py:1088 |
 | `_tool_read_events` | src/memorymap/api/routes_chat.py:2118 |
-| `_tools_provider` | src/memorymap/api/routes_chat.py:2739 |
+| `_tools_provider` | src/memorymap/api/routes_chat.py:2749 |
+| `_verdicts` | src/memorymap/api/routes_chat.py:2477 |
 | `_web_allowed` | src/memorymap/api/routes_chat.py:2020 |
 | `_web_answer` | src/memorymap/api/routes_chat.py:2029 |
 | `_web_events` | src/memorymap/api/routes_chat.py:2082 |
-| `_why` | src/memorymap/api/routes_chat.py:3075 |
+| `_why` | src/memorymap/api/routes_chat.py:3091 |
 | `_widened` | src/memorymap/api/routes_chat.py:1264 |
 | `chat` | src/memorymap/api/routes_chat.py:1623 |
 | `chat_followups` | src/memorymap/api/routes_chat.py:293 |
-| `chat_stream` | src/memorymap/api/routes_chat.py:3093 |
-| `compress_history` | src/memorymap/api/routes_chat.py:3252 |
-| `execute_confirmed_tool` | src/memorymap/api/routes_chat.py:3291 |
+| `chat_stream` | src/memorymap/api/routes_chat.py:3109 |
+| `compress_history` | src/memorymap/api/routes_chat.py:3268 |
+| `execute_confirmed_tool` | src/memorymap/api/routes_chat.py:3307 |
 | `forget_recent_question` | src/memorymap/api/routes_chat.py:173 |
-| `list_modes` | src/memorymap/api/routes_chat.py:3188 |
-| `list_tools` | src/memorymap/api/routes_chat.py:3209 |
+| `list_modes` | src/memorymap/api/routes_chat.py:3204 |
+| `list_tools` | src/memorymap/api/routes_chat.py:3225 |
 | `recent_questions` | src/memorymap/api/routes_chat.py:167 |
-| `run_command` | src/memorymap/api/routes_chat.py:2558 |
+| `run_command` | src/memorymap/api/routes_chat.py:2568 |
 | `suggestions` | src/memorymap/api/routes_chat.py:246 |
 
 ### src/memorymap/api/routes_code_assist.py (2)
@@ -12752,28 +12767,30 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `weekly_digest` | src/memorymap/api/routes_insights.py:707 |
 | `weekly_digest_stream` | src/memorymap/api/routes_insights.py:639 |
 
-### src/memorymap/api/routes_learned.py (18)
+### src/memorymap/api/routes_learned.py (20)
 
 | Name | File:line |
 |---|---|
-| `BulkBody` | src/memorymap/api/routes_learned.py:229 |
+| `BulkBody` | src/memorymap/api/routes_learned.py:255 |
 | `CorrectionBody` | src/memorymap/api/routes_learned.py:35 |
-| `FactPatch` | src/memorymap/api/routes_learned.py:113 |
-| `ForgetBody` | src/memorymap/api/routes_learned.py:128 |
-| `SwitchBody` | src/memorymap/api/routes_learned.py:121 |
+| `FactPatch` | src/memorymap/api/routes_learned.py:139 |
+| `ForgetBody` | src/memorymap/api/routes_learned.py:154 |
+| `SwitchBody` | src/memorymap/api/routes_learned.py:147 |
+| `VerdictBody` | src/memorymap/api/routes_learned.py:78 |
 | `add_correction` | src/memorymap/api/routes_learned.py:54 |
-| `bulk_action` | src/memorymap/api/routes_learned.py:237 |
-| `delete_fact` | src/memorymap/api/routes_learned.py:314 |
-| `export_learned` | src/memorymap/api/routes_learned.py:151 |
-| `forget_everything` | src/memorymap/api/routes_learned.py:213 |
-| `get_fact` | src/memorymap/api/routes_learned.py:276 |
-| `get_switches` | src/memorymap/api/routes_learned.py:198 |
-| `learned_summary` | src/memorymap/api/routes_learned.py:190 |
-| `list_corrections` | src/memorymap/api/routes_learned.py:79 |
-| `list_facts` | src/memorymap/api/routes_learned.py:133 |
-| `patch_fact` | src/memorymap/api/routes_learned.py:284 |
-| `put_switches` | src/memorymap/api/routes_learned.py:204 |
-| `reset_fact` | src/memorymap/api/routes_learned.py:303 |
+| `bulk_action` | src/memorymap/api/routes_learned.py:263 |
+| `delete_fact` | src/memorymap/api/routes_learned.py:340 |
+| `export_learned` | src/memorymap/api/routes_learned.py:177 |
+| `forget_everything` | src/memorymap/api/routes_learned.py:239 |
+| `get_fact` | src/memorymap/api/routes_learned.py:302 |
+| `get_switches` | src/memorymap/api/routes_learned.py:224 |
+| `learned_summary` | src/memorymap/api/routes_learned.py:216 |
+| `list_corrections` | src/memorymap/api/routes_learned.py:105 |
+| `list_facts` | src/memorymap/api/routes_learned.py:159 |
+| `mark_verdict` | src/memorymap/api/routes_learned.py:91 |
+| `patch_fact` | src/memorymap/api/routes_learned.py:310 |
+| `put_switches` | src/memorymap/api/routes_learned.py:230 |
+| `reset_fact` | src/memorymap/api/routes_learned.py:329 |
 
 ### src/memorymap/api/routes_library.py (20)
 
@@ -15515,7 +15532,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (9683)
+## Tests (9688)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16502,6 +16519,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_vendor_licences.py | 7 |
 | tests/test_vendor_manifest.py | 5 |
 | tests/test_vendor_utilisation.py | 4 |
+| tests/test_verdicts_b31.py | 5 |
 | tests/test_vision_ocr.py | 26 |
 | tests/test_vision_rows_row11.py | 9 |
 | tests/test_voice_api.py | 16 |

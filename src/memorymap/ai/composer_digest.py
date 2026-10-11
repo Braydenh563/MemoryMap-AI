@@ -40,7 +40,7 @@ from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 
-from memorymap.ai import composer, glossary, realise
+from memorymap.ai import composer, glossary, realise, verdicts
 
 #: The connecting words, one table (decision 72: a voice swaps this, never
 #: the facts). `{}` slots are filled in order.
@@ -61,6 +61,8 @@ _BASE = {
     "all_said": "That's all your notes say on {topic} so far: {count}, {span}.",
     "tie": "{Topic} also comes up in {category}: {count} on something else.",
     "tie_chip": "What have I saved about {topic} in {category}?",
+    #: A line the person pinned as true (B32): said as their word.
+    "pinned": "{said} (you pinned this as true, {day})",
     "this_note": "Your {title} note of {day}{where}, in {points}:",
     "this_one": "Your {title} note of {day}{where}{pause} says one thing: {fact}.",
     "this_many": "{Count} in {topic}, {span}.",
@@ -506,6 +508,9 @@ _VIEWS: ContextVar[list] = ContextVar("digest_views", default=[])
 #: they are quoted when asked for, when there is no caption to say instead,
 #: or when the note is mostly its picture.
 _ASKS_WORDS: ContextVar[bool] = ContextVar("digest_asks_words", default=False)
+#: The person's word on sentences (B31, B32; `ai/verdicts.py`): one marked
+#: wrong is not quoted, one pinned is said as theirs.
+_KNOWN: ContextVar = ContextVar("digest_known", default=None)
 _PIN = re.compile(
     r"\b(?P<pre>(?:before|by|until|in|from) )?(?:the (?P<nth>\d{1,2})(?:st|nd|rd|th) of )?(?P<which>next|this|last) (?P<unit>week|month|weekend)\b",
     re.I,
@@ -589,10 +594,16 @@ def _facts(view: composer.NoteView, names: set[str], subject: set[str] | None = 
         words = realise.join_items([f"\u201c{r.text.strip()}\u201d" for r in read[:3]]) if (_ASKS_WORDS.get() or not shown or mostly) else ""
         body = (f"a picture of {_lower_first(what, set())}" if what else "a picture") + (f" reading {words}" if words else "")
         out.append(Fact(view, (shown or read)[0], "", body, ""))
+    #: Verdicts are on notes: a document's id is another table's.
+    known = _KNOWN.get() if composer.source_kind(view.note) == "note" else None
+    owner = view.id
     for i, s in enumerate(view.sentences):
         text = s.text.strip().rstrip(".!")
         if s.kind in ("picture", "picture_text"):
             continue
+        if known and known.is_wrong(owner, s.text):
+            continue
+        pinned = known.pinned_on(owner, s.text) if known else None
         label, body, own = "", text, False
         head = _PREFIX.match(text)
         #: "Watched Dune Part Two: 7 out of 10" names what was done, not a
@@ -636,6 +647,8 @@ def _facts(view: composer.NoteView, names: set[str], subject: set[str] | None = 
                 said = re.sub(r"\b(?:are|is) (on|every)\b", r"\1", said)
             if cue == "What you want":
                 said = re.sub(r"^you (?:want|need) (?:it|one|them) ", "", said)
+            if said and pinned and piece is pieces[-1][0]:
+                said = PHRASES["pinned"].format(said=said.rstrip("."), day=verdicts.day_words(pinned))
             if said:
                 out.append(Fact(view, s, cue, said, _tidy(action, view.written) if piece is pieces[0][0] else ""))
     return out
@@ -723,7 +736,10 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
     before: date | None = None
     for i, (label, held) in enumerate(list(groups.items())[: limit + (MORE_LINES if more else 0)]):
         bodies = list(dict.fromkeys(_lower_first(f.body.replace(f" on {label}", ""), _NAMES.get()) for f in held))
-        line_body = _join(bodies)
+        #: A line made of pinned sentences says so once, at its end (B32).
+        pins = [m.group(0) for b in bodies for m in [_PINNED.search(b)] if m]
+        bodies = [_PINNED.sub("", b) for b in bodies]
+        line_body = _join(bodies) + (pins[-1] if pins else "")
         said = line_body + (_relate(line_body, by_day) if weave else "")
         written = held[0].view.written
         #: How this line stands to the one before (INBOX 870): the time
@@ -734,9 +750,18 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
             said = _vary("gap").format(gap=_gap((written - before).days)) + line_body
         before = written or before
         (out.lines if i < limit else out.more).append(f"**{label}:** {said}.")
-        out.rows.append(_row(line_body, held[0]))
+        row = _row(line_body, held[0])
+        #: Every sentence the line was made from (B31, B32): a verdict on
+        #: the line is a verdict on each of them.
+        parts = list({(f.view.id, f.sentence.start): f for f in held}.values())
+        if len(parts) > 1:
+            row["parts"] = [{"note_id": f.view.note.get("source_id", f.view.id), "source": f.sentence.text, "start": f.sentence.start, "end": f.sentence.end} for f in parts]
+        out.rows.append(row)
         shown += 1
     return shown
+
+
+_PINNED = re.compile(r" \(you pinned this as true, [^)]+\)")
 
 
 #: The joins inside a line (INBOX 870): "; still shaky on big O" reads as
@@ -1170,7 +1195,7 @@ def all_said(question: str, notes: list[dict], *, today: date | None = None) -> 
 
 def answer(
     question: str, notes: list[dict], *, today: date | None = None, voice: str = "natural", turn: int = 0,
-    insight: str = "one", learned=None,  # noqa: ANN001
+    insight: str = "one", learned=None, known=None,  # noqa: ANN001
 ) -> dict | None:
     """The decision-70 answer to `question` from the route's `notes`, or None
     when the question is not one this shape answers (a sum, a time, a
@@ -1190,6 +1215,7 @@ def answer(
     _TURN.set(turn)
     _SEED.set(zlib.crc32(asked.lower().encode()))
     _VIEWS.set(views)
+    _KNOWN.set(known)
     _ASKS_WORDS.set(bool(re.search(r"\b(?:says?|said|reads?|written|text|words?|wording)\b", question, re.I)))
     wants_context = bool(set(composer._words(asked)) & {composer._stem(t) for t in CONTEXT_TAGS})
     if not wants_context:
@@ -1290,6 +1316,10 @@ def _volunteer(out: _Out, asked: str, members, notes: list[dict], today: date, l
     scored = []
     for item in found:
         if insights.key(item) in dismissed or not item.note_ids:
+            continue
+        #: The person's word on a sentence beats an inference that quotes it.
+        known = _KNOWN.get()
+        if known and known.quoted_in(item.text):
             continue
         #: Novelty: "you have written about uni 4 times" after "You have
         #: four notes about uni" says nothing new.

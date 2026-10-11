@@ -1260,9 +1260,13 @@ function citationMarker(g, byId, numberFor) {
   //: is the only way to see a source, every check cost a trip. Hover or focus
   //: shows the peek for as long as the pointer or the focus stays; a press
   //: keeps it open, and on touch a press is the only way to open it.
+  //: A line made of several sentences of this note (B31) marks them all.
+  const own = (g.parts || []).filter((part) => part.note_id === g.note_id);
+  const start = own.length ? Math.min(...own.map((part) => part.start)) : g.start;
+  const end = own.length ? Math.max(...own.map((part) => part.end)) : g.end;
   const describe = () => ({
-    noteId: g.note_id, number: numberFor.get(g.note_id), entry, label: g.label, start: g.start, end: g.end,
-    signals: g.signals, verdict: g.verdict, terms: g.terms,
+    noteId: g.note_id, number: numberFor.get(g.note_id), entry, label: g.label, start, end,
+    signals: g.signals, verdict: g.verdict, terms: g.terms, line: g.sentence, parts: g.parts,
   });
   link.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -1481,6 +1485,8 @@ function openCitationPeek(link, source, { pinned }) {
   meta.textContent = facts.join(" · ");
   foot.append(meta, smallButton("ph:arrow-square-out Open note", "Open this note in Notes", go));
   panel.append(preview, foot);
+  const verdictRow = citationVerdictRow(source, content);
+  if (verdictRow) panel.insertBefore(verdictRow, foot);
   panel.addEventListener("mouseenter", () => clearTimeout(citationPeekState.closeTimer));
   panel.addEventListener("mouseleave", () => scheduleCitationPeekClose());
   panel.addEventListener("focusout", (event) => {
@@ -1501,6 +1507,39 @@ function openCitationPeek(link, source, { pinned }) {
   link.setAttribute("aria-expanded", "true");
   link.setAttribute("aria-controls", panel.id);
   placeHelpPopover(panel, link);
+}
+
+//: **Wrong fact and Pin as true on a cited line** (CHAT_PLAN B31, B32): the
+//: one verdict pair (`insightLine`, DESIGN.md), sent for each sentence of
+//: the note the line was made from. Not right leaves them out of every
+//: answer from the next turn on; Confirm pins them, said as the person's
+//: own word with the day. Each is a learned row, so the undo is its Delete.
+function citationVerdictRow(source, content) {
+  const parts = (source.parts || []).length
+    ? source.parts
+    : [{ note_id: source.noteId, source: String(content || "").slice(source.start, source.end), start: source.start, end: source.end }];
+  const usable = parts.filter((part) => Number.isInteger(part.note_id) && Number.isInteger(part.start) && part.end > part.start && part.source);
+  if (!usable.length || usable.length !== parts.length) return null;
+  const send = async (_line, verdict) => {
+    const kind = verdict === "confirm" ? "pinned" : "wrong";
+    const ids = [];
+    for (const part of usable) {
+      const made = await apiJson("/learned/verdict", {
+        method: "POST",
+        body: JSON.stringify({ verdict: kind, note_id: part.note_id, sentence: part.source, start: part.start, end: part.end, line: source.line || "" }),
+      });
+      ids.push(made.id);
+    }
+    offerUndo(
+      kind === "pinned" ? "Pinned a line as true" : "Marked a line wrong",
+      kind === "pinned" ? "Pinned: your answers say it as your word from now on." : "Marked wrong: your answers leave it out from now on.",
+      () => Promise.all(ids.map((id) => api(`/learned/${id}`, { method: "DELETE" })))
+    );
+    return { kind };
+  };
+  return insightLine({}, "Is this line right?", (row, verdict) => {
+    row.textContent = verdict === "confirmed" ? "Pinned as true." : "Marked wrong.";
+  }, "muted citation-peek-verdicts", send);
 }
 
 function closeCitationPeek({ restoreFocus = false } = {}) {

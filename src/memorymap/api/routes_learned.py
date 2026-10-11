@@ -75,6 +75,32 @@ def add_correction(body: CorrectionBody, session: Session = Depends(get_session)
 CORRECTIONS_PAGE_SIZE = 200
 
 
+class VerdictBody(BaseModel):
+    """A cited line's verdict (CHAT_PLAN B31, B32): the note's own sentence
+    the line was made from, where it is, and the line as the answer said it."""
+
+    verdict: Literal["wrong", "pinned"]
+    note_id: int
+    sentence: str = Field(min_length=1, max_length=2000)
+    start: int = Field(default=0, ge=0)
+    end: int = Field(default=0, ge=0)
+    line: str = Field(default="", max_length=2000)
+
+
+@router.post("/verdict", status_code=201)
+def mark_verdict(body: VerdictBody, session: Session = Depends(get_session)) -> dict:
+    """Wrong fact, or Pin as true, from the next turn on. The row's Delete
+    (`DELETE /learned/{id}`) is the undo."""
+    from memorymap.ai import verdicts
+
+    try:
+        done = verdicts.mark(session, body.verdict, body.note_id, body.sentence, body.start, body.end, body.line)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    session.commit()
+    return done
+
+
 @router.get("/corrections")
 def list_corrections(
     response: Response,

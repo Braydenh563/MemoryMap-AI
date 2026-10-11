@@ -4598,6 +4598,16 @@ mark.lightbox-hit {
   background: var(--accent-soft);
   color: var(--ink);
 }
+/* Is this line right? (B31, B32): the verdict pair's row (`insightLine`),
+   on the foot's own inset so its words start where the meta line's do. */
+.citation-peek .citation-peek-verdicts {
+  margin: 0;
+  padding: var(--space-1) var(--space-3) 0;
+  font-size: var(--text-sm);
+}
+.citation-peek .citation-peek-verdicts .insight-text {
+  flex-basis: auto;
+}
 .citation-peek-foot {
   display: flex;
   align-items: center;

@@ -4567,23 +4567,23 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `clearRecentSearches` | frontend/js/search-suggest.js:353 |
-| `clearSearchSuggestRecents` | frontend/js/search-suggest.js:368 |
+| `clearRecentSearches` | frontend/js/search-suggest.js:345 |
+| `clearSearchSuggestRecents` | frontend/js/search-suggest.js:360 |
 | `closeSearchSuggest` | frontend/js/search-suggest.js:162 |
 | `fillSearchSuggest` | frontend/js/search-suggest.js:233 |
-| `openSearchSuggest` | frontend/js/search-suggest.js:385 |
+| `openSearchSuggest` | frontend/js/search-suggest.js:377 |
 | `placeSearchGhost` | frontend/js/search-suggest.js:204 |
 | `placeSearchSuggest` | frontend/js/search-suggest.js:179 |
-| `removeSearchSuggest` | frontend/js/search-suggest.js:340 |
+| `placeSearchSuggestSoon` | frontend/js/search-suggest.js:310 |
+| `removeSearchSuggest` | frontend/js/search-suggest.js:332 |
 | `searchSuggestEnabled` | frontend/js/search-suggest.js:56 |
 | `searchSuggestItems` | frontend/js/search-suggest.js:101 |
 | `searchSuggestRank` | frontend/js/search-suggest.js:84 |
-| `searchSuggestRemember` | frontend/js/search-suggest.js:377 |
+| `searchSuggestRemember` | frontend/js/search-suggest.js:369 |
 | `searchSuggestScopeOf` | frontend/js/search-suggest.js:60 |
 | `searchSuggestToken` | frontend/js/search-suggest.js:92 |
 | `searchSuggestWords` | frontend/js/search-suggest.js:66 |
-| `takeSearchSuggest` | frontend/js/search-suggest.js:325 |
-| `watchSearchSuggest` | frontend/js/search-suggest.js:309 |
+| `takeSearchSuggest` | frontend/js/search-suggest.js:317 |
 
 ### frontend/js/search.js (30)
 

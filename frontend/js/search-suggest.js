@@ -303,21 +303,13 @@ function fillSearchSuggest() {
 //: **The box can move after the list opens**: a dock re-flowing as a tab
 //: arrives, or as the list of notes it filters changes length (measured: the
 //: ghost text stood 60px right of the caret after a filter shortened the label
-//: beside the field). So while the list is open the box's own position is
-//: watched each frame, and the list and the ghost are placed again whenever it
-//: moved or resized.
-function watchSearchSuggest() {
+//: beside the field). The list and the ghost are placed again shortly after
+//: it opens and after each keystroke, which is when that happens, and on a
+//: resize or scroll. No frame loop: the app counts every one it runs
+//: (tests/test_frontend_wake_sources.py), and an open list is idle.
+function placeSearchSuggestSoon() {
   const state = searchSuggest;
-  const tick = () => {
-    if (searchSuggest !== state) return;
-    const r = state.input.getBoundingClientRect();
-    if (r.left !== state.seen.left || r.top !== state.seen.top || r.width !== state.seen.width || r.height !== state.seen.height) {
-      state.seen = { left: r.left, top: r.top, width: r.width, height: r.height };
-      placeSearchSuggest();
-    }
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
+  for (const ms of [120, 400]) setTimeout(() => searchSuggest === state && placeSearchSuggest(), ms);
 }
 
 //: Put a suggestion in the box. `commit` is a press: the box's own search
@@ -431,6 +423,7 @@ function openSearchSuggest(input) {
     if (!searchSuggest || searchSuggest.accepting) return;
     searchSuggest.quiet = false;
     fillSearchSuggest();
+    placeSearchSuggestSoon();
   };
   const onKey = (event) => {
     const state = searchSuggest;
@@ -469,9 +462,9 @@ function openSearchSuggest(input) {
   input.addEventListener("blur", onBlur);
   window.addEventListener("resize", onWindow);
   window.addEventListener("scroll", onWindow, true);
-  searchSuggest = { input, box, list, foot, ghost, items: [], rows: [], active: -1, moved: false, quiet: false, accepting: false, ghostItem: null, announced: 0, seen: {}, onInput, onKey, onBlur, onWindow };
+  searchSuggest = { input, box, list, foot, ghost, items: [], rows: [], active: -1, moved: false, quiet: false, accepting: false, ghostItem: null, announced: 0, onInput, onKey, onBlur, onWindow };
   fillSearchSuggest();
-  watchSearchSuggest();
+  placeSearchSuggestSoon();
 }
 
 //: Escape closes the list before it closes anything behind it (Find anything

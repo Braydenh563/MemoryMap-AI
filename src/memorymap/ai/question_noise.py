@@ -2079,6 +2079,15 @@ def repair(text: str, report: list | None = None, known=frozenset(), fixed: list
     return " ".join(w for w in out if w)
 
 
+def _join_asking(low: str, nxt: str, out: list[str]) -> bool:
+    """Two pieces of one asking word ("wh en", "ho w"): joined onto `out`."""
+    joined = (low + nxt.rstrip("?!.,:;").lower()) if nxt else ""
+    if joined in ASKING and low not in VOCABULARY and len(low) <= 3:
+        out.append(joined + nxt[len(nxt.rstrip("?!.,:;")):])
+        return True
+    return False
+
+
 def _repair_token(tokens: list[str], i: int, out: list[str], text: str, report, known, fixed) -> int:  # noqa: ANN001
     """Puts the repaired reading of `tokens[i]` on `out`; returns how many
     tokens it used (two when the pieces of one asking word were joined)."""
@@ -2088,12 +2097,11 @@ def _repair_token(tokens: list[str], i: int, out: list[str], text: str, report, 
     tail = token[len(word):]
     low = word.lower()
     nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
-    #: Two pieces of one asking word ("wh en", "ho w"): joined.
-    joined = (low + nxt.rstrip("?!.,:;").lower()) if nxt else ""
-    if joined in ASKING and low not in VOCABULARY and len(low) <= 3:
-        out.append(joined + nxt[len(nxt.rstrip("?!.,:;")):])
+    if _join_asking(low, nxt, out):
         return 2
-    if low in spelling.CONTRACTION_STEMS and word.islower() and nxt and low not in known:
+    if _repair_late_space(low, tail, nxt, tokens, i, out, known):
+        pass
+    elif low in spelling.CONTRACTION_STEMS and word.islower() and nxt and low not in known:
         out.append(spelling.CONTRACTION_STEMS[low] + tail)
     elif low in SLANG and not (low in ("r", "y") and not _at_asking_place(out)):
         _repair_slang(low, word, tail, out, fixed)
@@ -2104,6 +2112,26 @@ def _repair_token(tokens: list[str], i: int, out: list[str], text: str, report, 
     else:
         _repair_misspelt(token, word, tail, nxt, text, out, report, known, fixed)
     return 1
+
+
+def _repair_late_space(low: str, tail: str, nxt: str, tokens: list[str], i: int, out: list[str], known) -> bool:  # noqa: ANN001
+    """"as ther 17th": a date follows, so it is "the" (a "there" never is);
+    "ther eis" is "there is", the space typed a letter late. True when it
+    put a reading on `out`."""
+    nxt_core = nxt.rstrip("?!.,:;").lower()
+    if low in ("ther", "thr") and nxt_core[:1].isdigit() and low not in known:
+        out.append("the" + tail)
+        return True
+    if not (low in SLANG and len(nxt_core) >= 3 and nxt_core.isalpha() and low not in known):
+        return False
+    if spelling.is_word(nxt_core, known):
+        return False
+    cut = spelling._resegment(low, nxt_core, known)
+    if not cut:
+        return False
+    out.append(cut[0])
+    tokens[i + 1] = cut[1] + nxt[len(nxt.rstrip("?!.,:;")):]
+    return True
 
 
 def _repair_slang(low: str, word: str, tail: str, out: list[str], fixed) -> None:  # noqa: ANN001

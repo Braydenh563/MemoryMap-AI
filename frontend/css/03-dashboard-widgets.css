@@ -2560,6 +2560,11 @@ header#top-bar select,
      strut), which is what quietly kept a roughly 24px-tall gap here even
      after every other property below was tightened. */
   display: block;
+  /* Sized to its label and flush with the text's left edge (INBOX 901: a
+     block button spanned the card, so "Show more" sat centred far from the
+     text and its focus ring was card-wide). */
+  width: fit-content;
+  text-align: start;
   margin-top: 0;
   padding: 0.05rem 0;
   line-height: 1;
@@ -2734,6 +2739,15 @@ button.chat-trail-link {
    887, "the no model connected popup looks completely off"): the action's
    label sat 13px right of the words (its own padding), 13.6px beside 12px
    words, with a 44px close holding row one open under a two-line sentence. */
+/* The action keeps the ghost button's hairline and fill (the owner: "the
+   connect a model button should have a border just to make it evident it is
+   a button"). The notice sits in a card, and a card quiets its ghost buttons
+   to edgeless; this one is the notice's only call to act. */
+.ai-offline-note > button.ghost:not(.icon-only) {
+  border-color: var(--ghost-btn-border);
+  background: var(--btn-quiet-bg);
+}
+
 @media (max-width: 599.98px) {
   .ai-offline-note.notice {
     display: grid;

@@ -2006,7 +2006,7 @@ HELP_TOPICS.extend(
                 "files and actions), and ? lists every shortcut, which Settings, "
                 "Keyboard shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
                 "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
-                "(Reminders); or to act: s (Settings), q (Quick sketch), v (Record "
+                "(Reminders), o (OCR workspace); or to act: s (Settings), q (Quick sketch), v (Record "
                 "a meeting), a (Guide), p (Popup agent). A second m or Esc closes the panel. "
                 "Ctrl+Shift+A opens the agent over any tab, Ctrl+Shift+H asks Atlas "
                 "about the app, Ctrl+J writes at the cursor, Ctrl+Shift+E acts on "

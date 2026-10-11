@@ -179,6 +179,7 @@ def test_the_m_chord_key_map_is_unchanged_by_the_redesign():
     }
     assert actions == {
         "s": "Settings", "q": "Quick sketch", "v": "Record a meeting", "a": "Guide", "p": "Popup agent",
+        "o": "OCR workspace",
     }
     hint = app[app.index("function showTabJumpHint(") :]
     hint = hint[: hint.index("\n}\n")]

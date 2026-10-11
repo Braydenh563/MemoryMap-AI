@@ -541,7 +541,7 @@ MORE_TOPICS: list[dict] = [
             "everything else in one place. Timeline: everything by date. "
             "Reminders: what is due. Settings (the gear, or Ctrl+,) holds the "
             "rest, and Atlas the guide (this chat) answers how-to questions "
-            "from any tab. Press m then a letter to jump between tabs, and "
+            "from any tab. Press m then a letter to jump between tabs (o opens the OCR workspace), and "
             "Settings, Help starts the guided tour."
         ),
         "badge": {"label": "Help", "section": "help"},
@@ -2265,7 +2265,7 @@ MORE_TOPICS.append({
         "fix my typos", "it changed my word", "undo a correction", "corrected my word",
     ),
     "body": (
-        "Autocorrect fixes a clear typo, such as teh or hwo, as you finish the "
+        "Autocorrect fixes a clear typo, such as teh, as you finish the "
         "word, in the note boxes, the chat and Ask composers and the titles. "
         "The corrected word is underlined for five seconds: click it to put "
         "back what you typed, or press Backspace or Ctrl+Z straight after, and "

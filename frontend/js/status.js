@@ -2315,6 +2315,9 @@ function paintStatusItem(id, { icon, value, label, title, tone = "", shortcut = 
     button.appendChild(strong);
   }
   if (label) {
+    //: A space between the number and its word, not drawn (a flex row drops
+    //: it) but read: "29notes" is what a tool takes the visible text to be.
+    if (value !== undefined && value !== null) button.append(" ");
     const text = document.createElement("span");
     text.textContent = label;
     button.appendChild(text);
@@ -2325,7 +2328,11 @@ function paintStatusItem(id, { icon, value, label, title, tone = "", shortcut = 
   // Commands) announce as a bare "button" to a screen reader. The ones that
   // also paint a `value`/`label` have real text and do not need it, but
   // setting it uniformly keeps the two from drifting apart.
-  if (title) button.setAttribute("aria-label", title);
+  //: WCAG 2.5.3, the visible words are part of the name ("29 notes: Your
+  //: notebook..."), which axe's label-content-name-mismatch found on the
+  //: notes and reminders counts.
+  const shown = [value, label].filter((part) => part !== undefined && part !== null && part !== "").join(" ");
+  if (title) button.setAttribute("aria-label", shown ? `${shown}: ${title}` : title);
   else button.removeAttribute("aria-label");
   button.classList.toggle("status-due", tone === "due");
 }

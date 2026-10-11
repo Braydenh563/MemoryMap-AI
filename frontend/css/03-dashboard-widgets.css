@@ -2748,6 +2748,33 @@ button.chat-trail-link {
   background: var(--btn-quiet-bg);
 }
 
+/* A notice in a dashboard card (306px at 1440) is the phone's grid too: the
+   words share the first row with the close and the action sits under them.
+   One row left the words a 52px column nine lines tall (157px, measured with
+   overlap.js), and the notice recipe's one row is for the width of a tab. */
+#dash-grid .ai-offline-note.notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: var(--space-2);
+  row-gap: 0;
+  align-items: start;
+}
+
+#dash-grid .ai-offline-note > .ghost:not(.icon-only) {
+  grid-area: 2 / 2 / 3 / 3;
+  justify-self: start;
+  margin-inline-start: calc(-1 * (var(--space-5) + 1px));
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+#dash-grid .ai-offline-note > .icon-only {
+  grid-area: 1 / 3 / 3 / 4;
+  align-self: start;
+  margin-block: calc(-1 * var(--space-1));
+}
+
 @media (max-width: 599.98px) {
   .ai-offline-note.notice {
     display: grid;

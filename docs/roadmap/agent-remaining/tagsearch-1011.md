@@ -39,7 +39,7 @@ id | status | evidence or commit
 1305 | closed-record | counts of a 13 to 23 note sweep; a measurement caveat, no work
 1306 | closed-record | the Notes sidebar has no search field; the routes built are the no-match Search everything button and the saved-search rows
 1307 | left | import cost 3.3 s against 1.5 s: autonomous imports ai.agent (503 ms), help_chat 271 ms, routes_search 226 ms; not measurable at load average 40 to 55 (a bare import app took 18 s wall, 4 s user); lazy-import ai.agent in autonomous when the machine is quiet
-1308 | pending | focus ring in Chat, touch.js Settings sections, overlap rows
+1308 | partly | focus ring in Chat not reproduced: 59 stops, 0 under 2px or 3:1, min 3.56:1 light and 7.03:1 dark (focusring.js TABS=chat); only #chat-input has none (the composer, skipped). touch.js Settings: with a 4 s wait (was 900 ms, the first open loads settings-controls.js) general 19, models 8, appearance 31, preferences 7, account 18 controls measure 0 under 44px, 0 covered, 0 overlapping; data and privacy still read 0 controls though both are visible (display block, 4642px and 1760px), which is the sweep's checkVisibility(contentVisibilityAuto), not the app: sweep left. overlap.js: #dash-quicklinks gone at 1440 (1278); #notes-tidy 4px is the Tidy count badge on the broom's corner by design (08-consistency.css:783); .library-controls and #tab-notes .layout 4px at 390 are ring room; found and fixed the dashboard digest notice (1343)
 1309 | left | graph neighbours follow a drag by 20 to 50 of 340 units; a per-drag local anchor is conditional on the owner still finding dragging stiff (graph100-1011.md)
 1310 | done-already | tests/test_properties_never_in_previews.py::test_the_dashboards_note_widgets_read_past_the_block passes on this head
 1311 | done-already | tests/test_ownerfix_1011.py::test_a_link_row_underlines_its_words_not_its_icon passes on this head
@@ -74,9 +74,9 @@ id | status | evidence or commit
 1340 | done-already | Brief 39b steps 1 to 5 built (WORLD_CLASS_PLAN 23 Steps); the open part is decision 8 (1297)
 1341 | skipped | phone: Notes capture as a full-height sheet with swipe actions (phone owner)
 1342 | done-already | tests/test_settings_ia.py::test_a_link_names_the_section_that_holds_its_target
-1343 | done-already | no-model notice measured: 46.8px (one row) at 1440 and 1024, 93.6px at 390 (wraps under 600 by design), sentence 74 chars
+1343 | done-already | no-model notice 46.8px (one row) at 1440 and 1024, 93.6px at 390, sentence 74 chars; found by overlap.js and fixed: in the dashboard digest card (306px) the words were a 52px column nine lines tall (157px notice), now the action sits under them as on a phone, 261px of words, 82px (#dash-grid .ai-offline-note rules in 03-dashboard-widgets.css, boot CSS 178435 of 183300 gz; the recipe stays no-wrap); Chat and Writing room notices unchanged at 47px
 1344 | done-already | EntryProperty and the properties block (GRAPH_PLAN KG4)
-1345 | pending | topbar 44px at 1440 and 1024, 57.8px at 390; axe running
+1345 | partly | topbar 44px at 1440 and 1024 (57.8px at 390, the phone bar); axe (light, 1440) on the dashboard: 1 serious finding on 3 controls (label-content-name-mismatch: status counts, a finished first step) fixed to 0 (tests/test_label_in_name_1345.py); notes and settings surfaces not scanned (the browser was killed twice by memory pressure); Brief 41 owns the rest
 1346 | partly | T1 and T2 built (tidy.js: back link, empty review with no bar, Recent runs disclosure); T3 (undo a confirmed pattern) is undo-owned, T4 (menu end gaps) is grammar57-owned
 1347 | not-reproduced | measured at 1024 and 1100: all 16 Writing room and Capture rows are one line (m5, boxes stacked vertically); wrap only at 390
 1348 | done-already | filed_by_label names the signal (words, meaning with the embedding model); tests/test_filing_accuracy.py records no model 0.417 and the embedder 0.808; no sentence-transformers means embed_text returns None and filing is the words path that table measures

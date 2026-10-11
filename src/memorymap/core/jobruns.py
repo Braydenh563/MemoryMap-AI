@@ -198,6 +198,15 @@ _live: list["Run"] = []
 _live_lock = threading.Lock()
 
 
+def clear_live() -> None:
+    """Tests only: forget the runs in flight. A test that clears the activity
+    registry (`activity.clear`) would otherwise leave each listed job's run
+    here, and `/tasks` in the next test on the worker would list it."""
+    with _live_lock:
+        _live.clear()
+    _bump()
+
+
 def live() -> list[dict]:
     """Every run in flight as a `/tasks`-shaped dict, oldest first."""
     with _live_lock:

@@ -380,6 +380,9 @@ def snapshot() -> list[dict]:
 
 def clear() -> None:
     """Tests only: the registry is process-global, like `taskhistory`."""
+    from memorymap.core import jobruns
+
     with _lock:
         _jobs.clear()
         _recent.clear()
+    jobruns.clear_live()

@@ -199,36 +199,14 @@ def test_notify_mode_needs_no_cleanup():
     assert "notify" not in done_body
 
 
-def test_the_marquee_sits_under_the_step_text_not_across_it():
-    """Reported with a screenshot: the bar ran straight through "Checking for
-    updates on GitHub, 1s". The detail label starts 2px into the row and is
-    16px tall; the bar must start below that and end before the next row."""
+def test_the_bar_is_one_accent_panel_not_a_themed_progressbar():
+    """Reported: a green bar and a white one. A stock ProgressBar takes the
+    system theme and ignores ForeColor once themed, so the bar is two panels
+    in the app accent (Brief 85)."""
     ps1 = (REPO / "scripts" / "splash.ps1").read_text(encoding="utf-8")
-    drop = int(re.search(r"\$BAR_DROP\s*=\s*(\d+)", ps1).group(1))
-    height = int(re.search(r"\$BAR_HEIGHT\s*=\s*(\d+)", ps1).group(1))
-    step = int(re.search(r"\$ROW_STEP\s*=\s*(\d+)", ps1).group(1))
-    detail_h = int(re.search(r"\$detail\.Size\s*=.*Size\(320, (\d+)\)", ps1).group(1))
-    assert drop >= 2 + detail_h
-    assert drop + height <= step
-    assert ps1.count("($ROW_TOP + $BAR_DROP") == 2, "both bar placements use the offset"
-
-
-def test_the_progress_bar_is_not_colour_overridden():
-    """Reported: the bar "just stays empty".
-
-    Setting ForeColor or BackColor on a WinForms ProgressBar switches it off
-    the themed renderer and onto the plain one, and the plain renderer does
-    not draw a Marquee at all. The control is still there and still animating
-    in principle; nothing paints. So the colours have to stay off it, and the
-    animation speed has to be non-zero, which is the other way to get an empty
-    bar.
-    """
-    ps1 = (REPO / "scripts" / "splash.ps1").read_text(encoding="utf-8")
-    bar = [line for line in ps1.splitlines() if line.strip().startswith("$bar.")]
-    assert not any("ForeColor" in line or "BackColor" in line for line in bar), bar
-    speed = next(line for line in bar if "MarqueeAnimationSpeed" in line)
-    assert int(speed.split("=")[1].strip()) > 0
-    assert any('Style' in line and 'Marquee' in line for line in bar)
+    assert "System.Windows.Forms.ProgressBar" not in ps1
+    assert "$barFill.BackColor = $accent" in ps1
+    assert "$accent = [System.Drawing.Color]::FromArgb(79, 109, 245)" in ps1  # #4f6df5
 
 
 # --- the handoff window's own last step ----------------------------------------

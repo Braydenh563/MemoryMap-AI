@@ -833,18 +833,37 @@ class TestTheWindowsSplash:
         assert "0x25CF" in t  # dot, active
         assert "$rowName" in t and "$rowDetail" in t
 
-    def test_the_real_bar_counts_finished_steps_not_the_current_one(self):
+    def test_the_one_bar_counts_finished_steps_in_the_app_accent(self):
+        """Brief 85: a stock ProgressBar was green under the system theme and
+        a Marquee bar white beside it. One hand-painted bar in the accent."""
         t = self.text
-        assert '$progress.Style    = "Continuous"' in t
+        assert "$progress" not in t and "$bar." not in t
+        assert "$barFill.BackColor = $accent" in t
         assert '$_.State -eq "done"' in t
         assert "$pct = [int](($done * 100) / $total)" in t
 
-    def test_the_marquee_is_only_inside_the_active_step(self):
-        """Both bars exist for different reasons: see $bar and $progress."""
+    def test_the_mark_is_decoded_before_the_window_is_shown(self):
+        """The icon used to appear about a second after the window."""
         t = self.text
-        assert '$bar.Style    = "Marquee"' in t
-        assert "$bar.Visible = $false" in t
-        assert "$bar.Visible = $true" in t
+        assert t.index("$logoBmp = New-LogoBitmap") < t.index("ShowDialog()")
+        assert "DrawImage($logoBmp" in t
+
+    def test_the_mark_is_the_three_cell_logo_not_the_old_nodes(self):
+        t = self.text
+        assert "35.3,48.7" in t and "57.3,18.4" in t  # favicon.svg cells
+        assert "78.5, 40.7" not in t  # the old five-node ring
+
+    def test_the_tagline_and_a_borderless_rounded_window(self):
+        t = self.text
+        assert '"Your notes, pieced together"' in t
+        assert '$form.FormBorderStyle = "None"' in t
+        assert "New-RoundRegion" in t
+
+    def test_the_links_and_the_list_wait_for_a_slow_start_or_a_failure(self):
+        t = self.text
+        assert "$SHOW_LINKS_AFTER = 10" in t
+        assert "$SHOW_LIST_AFTER  = 4" in t
+        assert "$st.failed" in t
 
     def test_the_active_step_shows_its_elapsed_seconds(self):
         assert "TotalSeconds" in self.text
@@ -858,11 +877,11 @@ class TestTheWindowsSplash:
         assert "as plain files you can copy" in t
         assert "TotalSeconds -ge 6" in t
 
-    def test_the_footer_has_all_three_buttons(self):
+    def test_the_footer_has_all_three_links(self):
         t = self.text
-        assert '"Details"' in t
-        assert '"Copy diagnostics"' in t
-        assert '"Cancel"' in t
+        assert 'New-FooterLink "Details"' in t
+        assert 'New-FooterLink "Copy diagnostics"' in t
+        assert 'New-FooterLink "Cancel"' in t
 
     def test_cancel_writes_the_control_file_the_launcher_polls(self):
         t = self.text
@@ -878,7 +897,7 @@ class TestTheWindowsSplash:
         t = self.text
         assert "function Show-ErrorCard" in t
         assert '$btnDetails.Text = "Open log"' in t
-        assert '$btnRetry.Text         = "Try again"' in t
+        assert 'New-FooterLink "Try again"' in t
         assert "Start-Process -FilePath $LauncherPath" in t
 
     def test_the_three_ways_to_die_survive(self):
@@ -968,8 +987,7 @@ class TestTheSplashLayoutDoesNotOverlap:
     HEIGHTS = {  # control -> its own height, from the Size line beside it
         "hint": 18,
         "tip": 18,
-        "progress": 8,
-        "status": 26,
+        "status": 20,
     }
 
     def _ps1(self) -> str:
@@ -992,42 +1010,40 @@ class TestTheSplashLayoutDoesNotOverlap:
         rows = self._int(r"\$MAX_ROWS\s*=\s*(\d+)")
         top = self._int(r"\$ROW_TOP\s*=\s*(\d+)")
         step = self._int(r"\$ROW_STEP\s*=\s*(\d+)")
-        buttons = self._int(
+        links = self._int(
             r"\$b\.Location\s*=\s*New-Object System\.Drawing\.Point\(\$x, (\d+)\)"
         )
         collapsed = self._int(r"\$COLLAPSED_HEIGHT\s*=\s*(\d+)")
+        links_h = self._int(r"\$LINKS_HEIGHT\s*=\s*(\d+)")
         expanded = self._int(r"\$EXPANDED_HEIGHT\s*=\s*(\d+)")
 
-        bands = [("steps", top, top + rows * step)]
-        for name in ("hint", "tip", "progress", "status"):
+        bands = []
+        for name in ("status", "tip"):
             y = self._y(name)
             bands.append((name, y, y + self.HEIGHTS[name]))
-        bands.append(("buttons", buttons, buttons + 26))
-
+        bands.append(("links", links, links + 20))
+        bands.append(("hint", self._y("hint"), self._y("hint") + self.HEIGHTS["hint"]))
+        bands.append(("steps", top, top + rows * step))
         for (name_a, _, end_a), (name_b, start_b, _) in zip(bands, bands[1:]):
             assert end_a <= start_b, name_a + " runs into " + name_b
 
-        # The footer has to fit inside the collapsed window, and the details
-        # box inside the expanded one.
-        assert bands[-1][2] <= collapsed
+        # Collapsed holds the tip; the links row fits in the next height.
+        assert bands[1][2] <= collapsed
+        assert links + 20 <= links_h
         details_y = self._y("details")
         details_h = self._int(
             r"\$details\.Size\s*=\s*New-Object System\.Drawing\.Size\(\d+, (\d+)\)"
         )
-        assert details_y >= collapsed
+        assert details_y >= top + rows * step
         assert details_y + details_h <= expanded
 
-    def test_the_retry_button_shares_the_footer_row(self):
-        footer = self._int(
-            r"\$b\.Location\s*=\s*New-Object System\.Drawing\.Point\(\$x, (\d+)\)"
-        )
-        assert self._y("btnRetry") == footer
+    def test_the_retry_link_shares_the_links_row(self):
+        assert "$btnRetry   = New-FooterLink" in self._ps1()
 
     def test_rows_past_the_end_are_blanked_not_left_stale(self):
         """The marquee is moved to the active row, and a list longer than
         MAX_ROWS would otherwise park it beyond the last row that exists."""
         ps1 = self._ps1()
-        assert "$ROW_TOP + $BAR_DROP + $i * $ROW_STEP" in ps1
         assert "$i -ge $count" in ps1
 
 

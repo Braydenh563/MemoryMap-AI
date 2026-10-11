@@ -357,3 +357,98 @@ function nameMarkBuddyMenu(buddy, at = null) {
     if (menu.isConnected && !menu.classList.contains("hidden")) place();
   });
 }
+
+//: **The drawing's own box, kept clear of the words under it** (the owner,
+//: 2026-09-27: "make sure the text doesnt clash with the avatar in the
+//: expanded companion panel"). The figure's box is the 64 by 92 companion
+//: at 2.2 times, but the drawing is not that box: Atlas's wisps and tail
+//: hang below its feet, a hat stands above its head. Measured before, the
+//: drawing ran 4 to 16px into the name for every face at 1440 and 1093, and
+//: a beanie was cut 5px by the card's top. So the drawing is measured as it
+//: is drawn (every visible part's box) and the figure is given margins to
+//: take in what reaches past it, before the card is first painted (here and
+//: once more a frame later, for a part that lays out late). Only ever grown,
+//: so nothing under it moves once it has been seen. The card's own gap then
+//: separates it from the name, which a mood's small loop stays inside.
+function nameMarkViewerFit(figure) {
+  if (!figure.isConnected) return;
+  const box = figure.getBoundingClientRect();
+  let top = box.top;
+  let bottom = box.bottom;
+  let left = box.left;
+  let right = box.right;
+  for (const el of figure.querySelectorAll("*")) {
+    if (el.closest("defs, clipPath, mask, filter, linearGradient, radialGradient, symbol")) continue;
+    if (el instanceof SVGGElement || el instanceof SVGSVGElement) continue;
+    //: An HTML box around parts only places them; its own box is not ink.
+    if (!(el instanceof SVGElement) && el.children.length) continue;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === "hidden" || cs.display === "none" || Number(cs.opacity) < 0.05) continue;
+    top = Math.min(top, r.top);
+    bottom = Math.max(bottom, r.bottom);
+    left = Math.min(left, r.left);
+    right = Math.max(right, r.right);
+  }
+  const grow = (side, px) => {
+    const was = parseFloat(figure.style[side]) || 0;
+    if (px > was) figure.style[side] = `${Math.ceil(px)}px`;
+  };
+  grow("marginTop", box.top - top);
+  grow("marginBottom", bottom - box.bottom);
+  const side = Math.max(box.left - left, right - box.right);
+  grow("marginLeft", side);
+  grow("marginRight", side);
+}
+
+//: **A face in its large view watches the pointer** (INBOX 591, the owner:
+//: the view "has no life to it like with atlas and the companion itself").
+//: Its face is not one of the faces on screen the page's follow listener
+//: nudges (that one tilts a whole face 10 degrees, which on a standing
+//: figure tips the body over), so the view has its own: over the dialog,
+//: at most once a frame, the pointer's offset from the head as two numbers
+//: from -1 to 1 (`--nmv-x`, `--nmv-y` on the figure) that the CSS turns into
+//: the companion's own attending look, eyes first and the head after.
+//: Nothing with Faces follow the pointer off; never under reduced motion
+//: (the caller returns before this); gone with the dialog.
+function nameMarkViewerFollow(overlay, figure) {
+  const drawn = figure.querySelector(":scope > .nm-figure");
+  if (!drawn) return;
+  let frame = 0;
+  let at = null;
+  const set = (x, y) => {
+    drawn.style.setProperty("--nmv-x", x.toFixed(2));
+    drawn.style.setProperty("--nmv-y", y.toFixed(2));
+  };
+  overlay.addEventListener("pointermove", (event) => {
+    if (document.documentElement.dataset.avatarFollow === "off") return;
+    at = [event.clientX, event.clientY];
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      const head = (drawn.querySelector(".nm-buddy-head") || drawn).getBoundingClientRect();
+      const reach = Math.max(240, head.width * 3);
+      const clamp = (v) => Math.max(-1, Math.min(1, v));
+      set(clamp((at[0] - (head.left + head.width / 2)) / reach), clamp((at[1] - (head.top + head.height / 2)) / reach));
+    });
+  }, { passive: true });
+  //: The pointer gone from the window: it looks ahead again, slowly (the
+  //: CSS's transition).
+  overlay.addEventListener("pointerleave", () => set(0, 0), { passive: true });
+}
+
+//: **Under reduced motion, a blink now and then** and nothing else (the
+//: owner asked for "gentle opacity or blink only" there): the lids close
+//: and open over 0.3s, every 4 to 8 seconds, on the compositor.
+function nameMarkViewerBlinks(figure) {
+  const run = () => {
+    if (!figure.isConnected) return;
+    for (const lid of figure.querySelectorAll(".nm-blinks")) {
+      lid.animate?.([{ transform: "scaleY(1)" }, { transform: "scaleY(0.1)", offset: 0.5 }, { transform: "scaleY(1)" }], { duration: 300, easing: "ease-in-out" });
+    }
+    timer = setTimeout(run, 4000 + Math.random() * 4000);
+  };
+  let timer = setTimeout(run, 1500);
+  return timer;
+}

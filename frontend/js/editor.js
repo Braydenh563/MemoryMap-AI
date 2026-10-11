@@ -280,13 +280,6 @@ const CALLOUT_KINDS = {
   toggle: { icon: "ph:caret-circle-right", label: "Toggle", about: "Folded away until clicked, no colour" },
 };
 
-//: What an empty callout body says until something is written in it.
-function calloutHint(kind) {
-  const own = { todo: "Write the task", toggle: "Write what folds away", success: "Write what worked", failure: "Write what failed" };
-  const meta = CALLOUT_KINDS[kind];
-  return own[kind] || `Write the ${meta ? meta.label.toLowerCase() : "note"}`;
-}
-
 //: The canonical kind for a name as written (`Warning`, `caution`, `tldr`),
 //: or null for a name that is not one.
 function calloutKindOf(raw) {
@@ -2261,14 +2254,6 @@ const CODE_KEYWORDS = {
 //: precedence: comments and strings first, so a `#` inside a string or the
 //: word `if` inside a comment is not re-coloured as something else.
 const codeScanners = new Map();
-
-//: Which family a filename is in. Extension only: content sniffing guesses
-//: wrong on short files and there is nothing to gain: a file this app can
-//: view arrived with a suffix it recognised (`docview.CODE_SUFFIXES`).
-function codeFamilyFor(filename) {
-  const suffix = /\.([a-z0-9]+)$/i.exec(String(filename || ""));
-  return CODE_LANGUAGES[(suffix?.[1] || "").toLowerCase()] || "generic";
-}
 
 // ---------------------------------------------------------------------------
 // Inline AI: the AI at the caret, not in a panel

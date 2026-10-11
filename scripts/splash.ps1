@@ -53,43 +53,25 @@
 param(
   [Parameter(Mandatory = $true)][string]$StatusFile,
   [int]$MaxMinutes = 20,
-  # Where the app's own icon is. Reported directly: the splash window and its
-  # taskbar button showed the PowerShell icon, because a WinForms form with no
-  # `Icon` set inherits the icon of the process hosting it - and the process
-  # hosting this is powershell.exe. Defaulted rather than required so the
-  # script still runs standalone; resolved below, relative to this file, so it
-  # works from a checkout without start.bat passing anything.
   [string]$IconPath = "",
-  # The launcher log for this run, so Details can show its tail and the error
-  # card can offer to open it. Empty is fine: those two just say so.
   [string]$LogPath = "",
-  # The launcher itself, for the error card's "Try again". Empty disables it.
   [string]$LauncherPath = "",
-  # Printed in the tips, because "where are my notes" is the most-asked
-  # question this app has.
   [string]$DataDir = ""
 )
 
+# Brief 85: this is a splash, not an installer window. Borderless and rounded,
+# the mark centred, one status line, one slim accent bar. At rest there are no
+# buttons: the step list appears when a start is not instant (first install, an
+# update, a failure) and Details, Copy diagnostics and Cancel appear as quiet
+# links on a slow start or a failure. Not run on Windows from the build box.
 $ErrorActionPreference = "Stop"
 try {
   Add-Type -AssemblyName System.Windows.Forms
   Add-Type -AssemblyName System.Drawing
 
-  # Reported: the marquee bar below "doesn't actually progress" - it isn't a
-  # regression of the ForeColor/BackColor fix already documented on $bar
-  # further down, it's a second, independent cause of the same symptom.
-  # WinForms renders every control with the classic (pre-XP, unthemed)
-  # renderer unless the process opts into visual styles explicitly, and the
-  # *classic* renderer does not animate a Marquee-style ProgressBar at all -
-  # it just sits there, themed colours or not. Hosted here inside
-  # powershell.exe, which carries no manifest asking for visual styles on its
-  # own behalf, so nothing turns them on unless this script does. Must run
-  # before any control is created - set after the fact, it does nothing.
   [System.Windows.Forms.Application]::EnableVisualStyles()
   [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-  # Same palette as _LOADING_HTML in __main__.py, so the handoff from this
-  # window to that one does not read as two different applications.
   $bg     = [System.Drawing.Color]::FromArgb(18, 20, 28)
   $ink    = [System.Drawing.Color]::FromArgb(231, 233, 238)
   $muted  = [System.Drawing.Color]::FromArgb(154, 161, 173)
@@ -99,25 +81,100 @@ try {
   $warn   = [System.Drawing.Color]::FromArgb(229, 161, 58)
   $bad    = [System.Drawing.Color]::FromArgb(229, 143, 143)
   $panel  = [System.Drawing.Color]::FromArgb(28, 31, 42)
+  $track  = [System.Drawing.Color]::FromArgb(38, 43, 58)
 
-  $COLLAPSED_HEIGHT = 372
-  $EXPANDED_HEIGHT  = 476
+  $WIDTH            = 520
+  $COLLAPSED_HEIGHT = 252
+  $LINKS_HEIGHT     = 282
+  $ROW_TOP          = 306
+  $ROW_STEP         = 22
+  $MAX_ROWS         = 6
+  $EXPANDED_HEIGHT  = 560
+  $SHOW_LIST_AFTER  = 4
+  $SHOW_LINKS_AFTER = 10
+
+  # The mark is drawn once into a bitmap here, before the window exists, so the
+  # first paint is a DrawImage and the logo is there with the window rather
+  # than about a second after it. Same geometry as frontend/favicon.svg
+  # (three hexagon cells, the third lifted); tests/test_brand_mark.py holds
+  # the points.
+  function New-LogoBitmap([int]$size) {
+    $bmp = New-Object System.Drawing.Bitmap -ArgumentList $size, $size
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.SmoothingMode = "AntiAlias"
+    $g.Clear([System.Drawing.Color]::Transparent)
+    $s = $size / 100.0
+    $rect = New-Object System.Drawing.RectangleF(0, 0, $size, $size)
+    $tile = New-Object System.Drawing.Drawing2D.LinearGradientBrush -ArgumentList `
+      $rect, ([System.Drawing.Color]::FromArgb(91, 124, 255)), ([System.Drawing.Color]::FromArgb(169, 39, 216)), ([float]45.0)
+    $r = 23 * $s
+    $tp = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $tp.AddArc(0, 0, 2 * $r, 2 * $r, 180, 90)
+    $tp.AddArc($size - 2 * $r, 0, 2 * $r, 2 * $r, 270, 90)
+    $tp.AddArc($size - 2 * $r, $size - 2 * $r, 2 * $r, 2 * $r, 0, 90)
+    $tp.AddArc(0, $size - 2 * $r, 2 * $r, 2 * $r, 90, 90)
+    $tp.CloseFigure()
+    $g.FillPath($tile, $tp)
+
+    $cells = @(
+      @{ pts = @(35.3,48.7, 46.8,55.4, 46.8,68.6, 35.3,75.3, 23.8,68.6, 23.8,55.4); alpha = 242; lift = $false },
+      @{ pts = @(64.7,48.7, 76.2,55.4, 76.2,68.6, 64.7,75.3, 53.2,68.6, 53.2,55.4); alpha = 178; lift = $false },
+      @{ pts = @(57.3,18.4, 67.5,27.0, 65.2,40.0, 52.7,44.6, 42.5,36.0, 44.8,23.0); alpha = 255; lift = $true }
+    )
+    foreach ($c in $cells) {
+      $points = New-Object 'System.Collections.Generic.List[System.Drawing.PointF]'
+      for ($i = 0; $i -lt 12; $i += 2) {
+        $points.Add((New-Object System.Drawing.PointF(([float]($c.pts[$i] * $s)), ([float]($c.pts[$i + 1] * $s)))))
+      }
+      $gp = New-Object System.Drawing.Drawing2D.GraphicsPath
+      $gp.AddPolygon($points.ToArray())
+      $pen = New-Object System.Drawing.Pen -ArgumentList ([System.Drawing.Color]::White), ([float](7 * $s))
+      $pen.LineJoin = "Round"
+      $outline = $gp.Clone()
+      $outline.Widen($pen)
+      $region = New-Object System.Drawing.Region($gp)
+      $region.Union($outline)
+      if ($c.lift) {
+        $shadow = $region.Clone()
+        $shadow.Translate(0, [float](3 * $s))
+        $sb = New-Object System.Drawing.SolidBrush -ArgumentList ([System.Drawing.Color]::FromArgb(110, 26, 16, 96))
+        $g.FillRegion($sb, $shadow)
+        $sb.Dispose(); $shadow.Dispose()
+        $bounds = New-Object System.Drawing.RectangleF(([float](38 * $s)), ([float](14 * $s)), ([float](34 * $s)), ([float](34 * $s)))
+        $fill = New-Object System.Drawing.Drawing2D.LinearGradientBrush -ArgumentList `
+          $bounds, ([System.Drawing.Color]::White), ([System.Drawing.Color]::FromArgb(201, 184, 255)), ([float]45.0)
+      } else {
+        $fill = New-Object System.Drawing.SolidBrush -ArgumentList ([System.Drawing.Color]::FromArgb($c.alpha, 255, 255, 255))
+      }
+      $g.FillRegion($fill, $region)
+      $fill.Dispose(); $region.Dispose(); $outline.Dispose(); $gp.Dispose(); $pen.Dispose()
+    }
+    $tile.Dispose(); $tp.Dispose(); $g.Dispose()
+    return $bmp
+  }
+  $logoBmp = New-LogoBitmap 192
+
+  function New-RoundRegion([int]$w, [int]$h, [int]$radius) {
+    $p = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $d = $radius * 2
+    $p.AddArc(0, 0, $d, $d, 180, 90)
+    $p.AddArc($w - $d, 0, $d, $d, 270, 90)
+    $p.AddArc($w - $d, $h - $d, $d, $d, 0, 90)
+    $p.AddArc(0, $h - $d, $d, $d, 90, 90)
+    $p.CloseFigure()
+    return (New-Object System.Drawing.Region($p))
+  }
 
   $form                 = New-Object System.Windows.Forms.Form
   $form.FormBorderStyle = "None"
   $form.StartPosition   = "CenterScreen"
-  $form.Size            = New-Object System.Drawing.Size(520, $COLLAPSED_HEIGHT)
+  $form.Size            = New-Object System.Drawing.Size($WIDTH, $COLLAPSED_HEIGHT)
   $form.BackColor       = $bg
   $form.TopMost         = $true
   $form.ShowInTaskbar   = $true
   $form.Text            = "Starting Tessellate"
+  $form.Region          = New-RoundRegion $WIDTH $COLLAPSED_HEIGHT 18
 
-  # The window's icon, and therefore the taskbar button's. Best-effort in
-  # every direction: the icon file may genuinely not be there yet - this
-  # script runs during the phase where the checkout is still being updated,
-  # which is the whole reason the logo below is *drawn* rather than loaded -
-  # and a missing icon is a cosmetic detail, never a reason for the loading
-  # window to fail to appear.
   if (-not $IconPath) {
     $IconPath = Join-Path (Split-Path -Parent $PSScriptRoot) "frontend\icon.ico"
   }
@@ -126,172 +183,60 @@ try {
       $form.Icon = New-Object System.Drawing.Icon($IconPath)
     }
   } catch {
-    # Keep the default icon rather than no window.
   }
 
-  # The mark, drawn rather than loaded. Same geometry as frontend/favicon.svg
-  # (a hub with notes orbiting it on spokes). Drawing it avoids depending on a
-  # file path that differs between a git checkout and the packaged build - and
-  # this script may be running before the checkout has even finished updating.
   $logo = New-Object System.Windows.Forms.Panel
-  $logo.Size     = New-Object System.Drawing.Size(64, 64)
-  $logo.Location = New-Object System.Drawing.Point(28, 26)
+  $logo.Size     = New-Object System.Drawing.Size(72, 72)
+  $logo.Location = New-Object System.Drawing.Point(224, 28)
   $logo.BackColor = $bg
   $logo.Add_Paint({
     param($src, $e)
-    $g = $e.Graphics
-    $g.SmoothingMode = "AntiAlias"
-    $rect = New-Object System.Drawing.Rectangle(0, 0, 63, 63)
-    $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush -ArgumentList `
-      $rect, `
-      ([System.Drawing.Color]::FromArgb(91, 124, 255)), `
-      ([System.Drawing.Color]::FromArgb(169, 39, 216)), `
-      ([float]45.0)
-    # A rounded tile, matching the favicon's rx=23 at a 100-unit viewBox.
-    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $r = 15
-    $path.AddArc(0, 0, $r * 2, $r * 2, 180, 90)
-    $path.AddArc(63 - $r * 2, 0, $r * 2, $r * 2, 270, 90)
-    $path.AddArc(63 - $r * 2, 63 - $r * 2, $r * 2, $r * 2, 0, 90)
-    $path.AddArc(0, 63 - $r * 2, $r * 2, $r * 2, 90, 90)
-    $path.CloseFigure()
-    $g.FillPath($brush, $path)
-
-    # Five spokes and five notes, at the favicon's own coordinates scaled
-    # from its 100-unit viewBox down to 64px.
-    $s = 64.0 / 100.0
-    $penColour = [System.Drawing.Color]::FromArgb(235, 255, 255, 255)
-    $pen = New-Object System.Drawing.Pen -ArgumentList $penColour, ([float](5.5 * $s))
-    $pen.StartCap = "Round"; $pen.EndCap = "Round"
-    $white = New-Object System.Drawing.SolidBrush -ArgumentList ([System.Drawing.Color]::White)
-    $nodes = @(@(50, 20), @(78.5, 40.7), @(67.6, 74.3), @(32.4, 74.3), @(21.5, 40.7))
-    foreach ($n in $nodes) {
-      $g.DrawLine($pen, (50 * $s), (50 * $s), ($n[0] * $s), ($n[1] * $s))
-    }
-    foreach ($n in $nodes) {
-      $g.FillEllipse($white, (($n[0] - 7.5) * $s), (($n[1] - 7.5) * $s), (15 * $s), (15 * $s))
-    }
-    $hub = New-Object System.Drawing.SolidBrush -ArgumentList $accent
-    $g.FillEllipse($hub, ((50 - 13) * $s), ((50 - 13) * $s), (26 * $s), (26 * $s))
-    $g.FillEllipse($white, ((50 - 9.5) * $s), ((50 - 9.5) * $s), (19 * $s), (19 * $s))
-
-    $pen.Dispose(); $white.Dispose(); $hub.Dispose(); $brush.Dispose(); $path.Dispose()
+    $e.Graphics.InterpolationMode = "HighQualityBicubic"
+    $e.Graphics.DrawImage($logoBmp, 0, 0, 72, 72)
   })
+
+  $centre = [System.Drawing.ContentAlignment]::MiddleCenter
 
   $title           = New-Object System.Windows.Forms.Label
   $title.Text      = "Tessellate"
   $title.ForeColor = $ink
   $title.Font      = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]17), ([System.Drawing.FontStyle]::Bold)
-  $title.Location  = New-Object System.Drawing.Point(108, 34)
-  $title.Size      = New-Object System.Drawing.Size(380, 32)
+  $title.TextAlign = $centre
+  $title.Location  = New-Object System.Drawing.Point(0, 106)
+  $title.Size      = New-Object System.Drawing.Size($WIDTH, 32)
 
   $tag             = New-Object System.Windows.Forms.Label
   $tag.Text        = "Your notes, pieced together"
   $tag.ForeColor   = $muted
   $tag.Font        = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]9)
-  $tag.Location    = New-Object System.Drawing.Point(110, 66)
-  $tag.Size        = New-Object System.Drawing.Size(380, 20)
-
-  # --- The step list ---------------------------------------------------
-  # Eight rows created once and reused, rather than rebuilt each tick: a
-  # WinForms control added and removed four times a second flickers, and the
-  # launcher never writes more steps than this.
-  $MAX_ROWS  = 6
-  $ROW_TOP   = 104
-  $ROW_STEP  = 22
-  # The marquee's place in a row: under the detail text, never across it.
-  # Reported with a screenshot: the bar at +6 ran straight through
-  # "Checking for updates on GitHub, 1s". The detail label is 16px tall
-  # from +2, so the bar starts at +18 and is 3px, leaving the next row's
-  # top edge at +22 untouched.
-  $BAR_DROP   = 18
-  $BAR_HEIGHT = 3
-  $rowMark   = @()
-  $rowName   = @()
-  $rowDetail = @()
-  for ($i = 0; $i -lt $MAX_ROWS; $i++) {
-    $mark            = New-Object System.Windows.Forms.Label
-    $mark.Font       = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]10)
-    $mark.ForeColor  = $dim
-    $mark.Location   = New-Object System.Drawing.Point(30, ($ROW_TOP + $i * $ROW_STEP))
-    $mark.Size       = New-Object System.Drawing.Size(18, 20)
-    $mark.Text       = ""
-
-    $name            = New-Object System.Windows.Forms.Label
-    $name.Font       = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]10)
-    $name.ForeColor  = $dim
-    $name.Location   = New-Object System.Drawing.Point(50, ($ROW_TOP + $i * $ROW_STEP))
-    $name.Size       = New-Object System.Drawing.Size(118, 20)
-    $name.Text       = ""
-
-    $detail           = New-Object System.Windows.Forms.Label
-    $detail.Font      = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]9)
-    $detail.ForeColor = $dim
-    $detail.Location  = New-Object System.Drawing.Point(170, ($ROW_TOP + 2 + $i * $ROW_STEP))
-    $detail.Size      = New-Object System.Drawing.Size(320, 16)
-    $detail.Text      = ""
-
-    $rowMark   += $mark
-    $rowName   += $name
-    $rowDetail += $detail
-  }
-
-  # Marquee, and only ever inside the active step: the launcher genuinely does
-  # not know how far through a pip install it is, so the *step* bar below shows
-  # real progress (steps finished over total) and this shows "still working" on
-  # the one step that is running. Before the protocol carried step and total
-  # there was nothing but this, and a marquee alone cannot tell a launcher that
-  # is working from one that is wedged.
-  $bar          = New-Object System.Windows.Forms.ProgressBar
-  $bar.Style    = "Marquee"
-  # Milliseconds per step. 30 is brisk; 0 would stop it dead, which is the
-  # other way to get the reported "empty bar".
-  $bar.MarqueeAnimationSpeed = 30
-  $bar.Location = New-Object System.Drawing.Point(170, ($ROW_TOP + $BAR_DROP))
-  $bar.Size     = New-Object System.Drawing.Size(320, $BAR_HEIGHT)
-  $bar.Visible  = $false
-  # **No ForeColor/BackColor.** Reported: the bar "just stays empty".
-  #
-  # Setting either on a WinForms ProgressBar switches the control off the
-  # themed (visual-styles) renderer and onto the plain one - and the plain
-  # renderer does not draw a Marquee at all. So the two colour lines that were
-  # here made the animation invisible while leaving the control present, which
-  # is exactly "an empty bar". The theme's own accent is close enough to this
-  # app's that losing the custom colour costs nothing next to losing the
-  # animation.
-
-  # The real one: steps finished over total. The active step counts as not yet
-  # done, so this cannot reach 100% while the last and longest phase is still
-  # running. Continuous, and it deliberately carries no ForeColor either, for
-  # the same themed-renderer reason as the marquee above.
-  $progress          = New-Object System.Windows.Forms.ProgressBar
-  $progress.Style    = "Continuous"
-  $progress.Minimum  = 0
-  $progress.Maximum  = 100
-  $progress.Value    = 0
-  $progress.Location = New-Object System.Drawing.Point(30, 286)
-  $progress.Size     = New-Object System.Drawing.Size(460, 8)
+  $tag.TextAlign   = $centre
+  $tag.Location    = New-Object System.Drawing.Point(0, 138)
+  $tag.Size        = New-Object System.Drawing.Size($WIDTH, 20)
 
   $status           = New-Object System.Windows.Forms.Label
-  $status.Text      = "Starting…"
+  $status.Text      = "Starting"
   $status.ForeColor = $muted
   $status.Font      = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]9)
-  $status.Location  = New-Object System.Drawing.Point(30, 300)
-  $status.Size      = New-Object System.Drawing.Size(460, 26)
+  $status.TextAlign = $centre
+  $status.Location  = New-Object System.Drawing.Point(30, 172)
+  $status.Size      = New-Object System.Drawing.Size(460, 20)
 
-  # The slow-step hint. Empty almost always: it appears only when a step has
-  # outlasted the time that step normally takes, which is the moment someone
-  # starts wondering whether anything is happening at all.
-  $hint             = New-Object System.Windows.Forms.Label
-  $hint.Text        = ""
-  $hint.ForeColor   = $warn
-  $hint.Font        = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]8)
-  $hint.Location    = New-Object System.Drawing.Point(30, 240)
-  $hint.Size        = New-Object System.Drawing.Size(460, 18)
+  # One bar, painted by hand from two panels in the app accent. A stock
+  # ProgressBar is green (or white) under the system theme and ignores
+  # ForeColor once themed, which is how the old window got two bars of two
+  # colours.
+  $BAR_X = 60
+  $BAR_W = 400
+  $barTrack          = New-Object System.Windows.Forms.Panel
+  $barTrack.BackColor = $track
+  $barTrack.Location = New-Object System.Drawing.Point($BAR_X, 202)
+  $barTrack.Size     = New-Object System.Drawing.Size($BAR_W, 4)
+  $barFill           = New-Object System.Windows.Forms.Panel
+  $barFill.BackColor = $accent
+  $barFill.Location  = New-Object System.Drawing.Point(0, 0)
+  $barFill.Size      = New-Object System.Drawing.Size(8, 4)
+  $barTrack.Controls.Add($barFill)
 
-  # One tip at a time, changed every six seconds. The same five the desktop
-  # loading window and the browser boot splash draw from, so a first run reads
-  # as one piece of software across all three.
   $tips = @(
     "Your notes never leave this machine.",
     "Ctrl+K opens the command palette.",
@@ -307,39 +252,69 @@ try {
   $tip             = New-Object System.Windows.Forms.Label
   $tip.ForeColor   = $dim
   $tip.Font        = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]8)
-  $tip.Location    = New-Object System.Drawing.Point(30, 260)
+  $tip.TextAlign   = $centre
+  $tip.Location    = New-Object System.Drawing.Point(30, 216)
   $tip.Size        = New-Object System.Drawing.Size(460, 18)
   $tip.Text        = $tips[0]
 
-  # --- The footer -------------------------------------------------------
-  # A splash with no way out is a window someone force-quits. Three things,
-  # all of which answer a question the reader is actually asking: what is it
-  # doing (Details), how do I report this (Copy diagnostics), and how do I
-  # stop (Cancel).
-  function New-FooterButton([string]$text, [int]$x, [int]$width) {
-    $b               = New-Object System.Windows.Forms.Button
+  # Quiet links, hidden at rest.
+  function New-FooterLink([string]$text, [int]$x, [int]$width) {
+    $b               = New-Object System.Windows.Forms.Label
     $b.Text          = $text
-    $b.Location      = New-Object System.Drawing.Point($x, 334)
-    $b.Size          = New-Object System.Drawing.Size($width, 26)
-    $b.FlatStyle     = "Flat"
-    $b.BackColor     = $panel
+    $b.Location      = New-Object System.Drawing.Point($x, 246)
+    $b.Size          = New-Object System.Drawing.Size($width, 20)
     $b.ForeColor     = $muted
-    $b.Font          = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]8.5)
-    $b.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(48, 53, 68)
-    $b.TabStop       = $false
+    $b.Font          = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]8.5), ([System.Drawing.FontStyle]::Underline)
+    $b.TextAlign     = $centre
+    $b.Cursor        = [System.Windows.Forms.Cursors]::Hand
+    $b.Visible       = $false
     return $b
   }
 
-  $btnDetails = New-FooterButton "Details" 30 78
-  $btnCopy    = New-FooterButton "Copy diagnostics" 116 122
-  # Asked for directly: "there's no way to minimise the or cancel loading the
-  # application from the splash". Cancel was there; getting the window out of
-  # the way was not. The form is borderless and TopMost, so there is no system
-  # minimise button and nothing else can be brought in front of it: a first
-  # install that pulls a model can sit there for minutes with the machine
-  # unusable behind it.
-  $btnMin     = New-FooterButton "Minimise" 326 78
-  $btnCancel  = New-FooterButton "Cancel" 412 78
+  $btnDetails = New-FooterLink "Details" 60 90
+  $btnCopy    = New-FooterLink "Copy diagnostics" 160 130
+  $btnRetry   = New-FooterLink "Try again" 300 80
+  $btnCancel  = New-FooterLink "Cancel" 390 70
+
+  $hint             = New-Object System.Windows.Forms.Label
+  $hint.Text        = ""
+  $hint.ForeColor   = $warn
+  $hint.Font        = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]8)
+  $hint.TextAlign   = $centre
+  $hint.Location    = New-Object System.Drawing.Point(30, 276)
+  $hint.Size        = New-Object System.Drawing.Size(460, 18)
+
+  $BAR_DROP   = 18
+  $BAR_HEIGHT = 3
+  $rowMark   = @()
+  $rowName   = @()
+  $rowDetail = @()
+  for ($i = 0; $i -lt $MAX_ROWS; $i++) {
+    $mark            = New-Object System.Windows.Forms.Label
+    $mark.Font       = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]10)
+    $mark.ForeColor  = $dim
+    $mark.Location   = New-Object System.Drawing.Point(60, ($ROW_TOP + $i * $ROW_STEP))
+    $mark.Size       = New-Object System.Drawing.Size(18, 20)
+    $mark.Text       = ""
+
+    $name            = New-Object System.Windows.Forms.Label
+    $name.Font       = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]10)
+    $name.ForeColor  = $dim
+    $name.Location   = New-Object System.Drawing.Point(80, ($ROW_TOP + $i * $ROW_STEP))
+    $name.Size       = New-Object System.Drawing.Size(118, 20)
+    $name.Text       = ""
+
+    $detail           = New-Object System.Windows.Forms.Label
+    $detail.Font      = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]9)
+    $detail.ForeColor = $dim
+    $detail.Location  = New-Object System.Drawing.Point(200, ($ROW_TOP + 2 + $i * $ROW_STEP))
+    $detail.Size      = New-Object System.Drawing.Size(260, 16)
+    $detail.Text      = ""
+
+    $rowMark   += $mark
+    $rowName   += $name
+    $rowDetail += $detail
+  }
 
   $details              = New-Object System.Windows.Forms.TextBox
   $details.Multiline    = $true
@@ -349,20 +324,16 @@ try {
   $details.ForeColor    = $muted
   $details.BorderStyle  = "None"
   $details.Font         = New-Object System.Drawing.Font -ArgumentList "Consolas", ([float]8)
-  $details.Location     = New-Object System.Drawing.Point(30, 372)
+  $details.Location     = New-Object System.Drawing.Point(30, 446)
   $details.Size         = New-Object System.Drawing.Size(460, 88)
   $details.Visible      = $false
 
-  $form.Controls.AddRange(@($logo, $title, $tag, $bar, $progress, $status, $hint, $tip,
-                            $btnDetails, $btnCopy, $btnMin, $btnCancel, $details))
+  $form.Controls.AddRange(@($logo, $title, $tag, $status, $barTrack, $tip, $hint,
+                            $btnDetails, $btnCopy, $btnRetry, $btnCancel, $details))
   foreach ($i in 0..($MAX_ROWS - 1)) {
     $form.Controls.AddRange(@($rowMark[$i], $rowName[$i], $rowDetail[$i]))
   }
 
-  # --- Mutable state ----------------------------------------------------
-  # A hashtable, not plain variables: assigning to a variable inside a
-  # WinForms event script block creates a local that vanishes when the block
-  # returns, which is why $drag below has always been one too.
   $st = @{
     rows        = @()      # one entry per step, last state each reached
     activeTitle = ""
@@ -372,14 +343,36 @@ try {
     started     = (Get-Date)
     cancelled   = $false
     failed      = $false
-    lastRaw     = ""
+    showList    = $false
+    showLinks   = $false
+    target      = 0.04
+    shown       = 0.04
   }
 
+  function Set-Layout {
+    $h = $COLLAPSED_HEIGHT
+    if ($st.showLinks -or $st.failed) { $h = $LINKS_HEIGHT }
+    if ($st.showList -or $st.failed) {
+      $n = [Math]::Max(1, @($st.rows).Count)
+      $h = $ROW_TOP + $n * $ROW_STEP + 14
+    }
+    if ($details.Visible) { $h = $EXPANDED_HEIGHT }
+    $visibleLinks = ($st.showLinks -or $st.failed)
+    $btnDetails.Visible = $visibleLinks
+    $btnCopy.Visible    = $visibleLinks
+    $btnCancel.Visible  = $visibleLinks
+    foreach ($i in 0..($MAX_ROWS - 1)) {
+      $on = ($st.showList -or $st.failed)
+      $rowMark[$i].Visible = $on; $rowName[$i].Visible = $on; $rowDetail[$i].Visible = $on
+    }
+    if ($form.Height -ne $h) {
+      $form.Height = $h
+      $form.Region = New-RoundRegion $WIDTH $h 18
+    }
+  }
+  Set-Layout
+
   function Read-Steps {
-    # Every parseable line in the file, collapsed to one row per step with the
-    # last state it reached. Unparseable lines are skipped rather than
-    # complained about: the file is appended to by a batch script four times a
-    # second away, so a half-written line is ordinary, not an error.
     $rows = @{}
     $order = @()
     $lines = Get-Content -LiteralPath $StatusFile -ErrorAction SilentlyContinue
@@ -397,8 +390,6 @@ try {
       if ($step -lt 1 -or $step -gt $total) { continue }
       $rowTitle = $parts[2].Trim()
       if (-not $rowTitle) { continue }
-      # Anything past the fourth bar belongs to the detail: it is free text
-      # and the launcher does not escape it.
       $rowDetailText = ($parts[3..($parts.Count - 2)] -join '|').Trim()
       if (-not $rows.ContainsKey($step)) { $order += $step }
       $rows[$step] = [pscustomobject]@{
@@ -411,10 +402,6 @@ try {
 
   function Update-Rows($steps) {
     $count = @($steps).Count
-    # Off unless a row below turns it on: with every step done there is
-    # nothing running, and a marquee still animating beside a finished list
-    # is the same lie as a bar that reaches 100% early.
-    $bar.Visible = $false
     for ($i = 0; $i -lt $MAX_ROWS; $i++) {
       if ($i -ge $count) {
         $rowMark[$i].Text = ""; $rowName[$i].Text = ""; $rowDetail[$i].Text = ""
@@ -439,29 +426,21 @@ try {
         $rowMark[$i].ForeColor = $accent
         $rowName[$i].ForeColor = $ink
         $rowDetail[$i].ForeColor = $muted
-        # The elapsed seconds are the point: "still on Dependencies" says
-        # nothing, "still on Dependencies, 214s" says whether to worry.
         $secs = [int]((Get-Date) - $st.activeSince).TotalSeconds
         $rowDetail[$i].Text = "$($s.Detail)  $($secs)s"
-        # The marquee moves to whichever row is active, and is the only thing
-        # in this window that animates while a step is running.
-        $bar.Location = New-Object System.Drawing.Point(170, ($ROW_TOP + $BAR_DROP + $i * $ROW_STEP))
-        $bar.Visible = $true
       }
     }
   }
 
   function Update-Hint($steps) {
-    # A step that has outlasted its usual time, named with the time it usually
-    # takes, so "slow" becomes "slower than it should be" or "normal".
     $hint.Text = ""
     foreach ($s in @($steps)) {
       if ($s.State -ne "active") { continue }
       $secs = ((Get-Date) - $st.activeSince).TotalSeconds
       if ($s.Title -eq "Dependencies" -and $secs -gt 300) {
-        $hint.Text = "Dependencies usually finish inside five minutes. A slow connection can take longer; Details shows what pip is doing."
+        $hint.Text = "Dependencies usually finish inside five minutes. A slow connection can take longer."
       } elseif ($s.Title -eq "Update" -and $secs -gt 30) {
-        $hint.Text = "The update check usually answers in a few seconds. It gives up on its own, and the app starts either way."
+        $hint.Text = "The update check gives up on its own, and the app starts either way."
       }
     }
   }
@@ -478,10 +457,6 @@ try {
     }
   }
 
-  # One handler per button, branching on $st.failed, rather than two handlers
-  # added at different points: WinForms runs every handler on a button, so a
-  # second one added later would fire alongside the first and "Open log" would
-  # also toggle the details panel.
   $btnDetails.Add_Click({
     if ($st.failed) {
       if ($LogPath -and (Test-Path -LiteralPath $LogPath)) {
@@ -489,19 +464,15 @@ try {
       }
       return
     }
-    # Toggles the last eight log lines inline, growing the window rather than
-    # scrolling it: a splash that changes size on click is less surprising
-    # than one that hides its own footer.
     if ($details.Visible) {
       $details.Visible = $false
-      $form.Height = $COLLAPSED_HEIGHT
       $btnDetails.Text = "Details"
     } else {
       $details.Text = Read-LogTail 8
       $details.Visible = $true
-      $form.Height = $EXPANDED_HEIGHT
       $btnDetails.Text = "Hide details"
     }
+    Set-Layout
   })
 
   $btnCopy.Add_Click({
@@ -556,36 +527,29 @@ try {
     }
   })
 
-  $btnMin.Add_Click({
-    # TopMost has to go with it, or a minimised window that is restored from
-    # the taskbar comes back in front of everything again, and some shells
-    # will not minimise a TopMost form at all. It is put back on restore
-    # below, so the window still sits above the desktop while it is working.
-    $form.TopMost = $false
-    $form.WindowState = "Minimized"
-  })
-
   $form.Add_Resize({
     if ($form.WindowState -eq "Normal") { $form.TopMost = $true }
   })
 
   $btnCancel.Add_Click({
     if ($st.failed) { $form.Close(); return }
-    # The launcher polls this between phases and stops there. Writing it is
-    # all this window does: killing a pip mid-install from here would leave a
-    # half-written venv, which is a worse outcome than one more minute.
     try {
       Set-Content -LiteralPath ($StatusFile + ".cancel") -Value "__cancel__" -ErrorAction Stop
       $st.cancelled = $true
-      $btnCancel.Enabled = $false
+      $btnCancel.Visible = $false
       $status.Text = "Cancelling after this step finishes."
     } catch {
       $status.Text = "Could not cancel. Close the launcher window instead."
     }
   })
 
-  # Borderless windows cannot be moved, and this one sits on top of everything.
-  # Dragging it out of the way is the one interaction it needs.
+  $btnRetry.Add_Click({
+    if ($LauncherPath -and (Test-Path -LiteralPath $LauncherPath)) {
+      try { Start-Process -FilePath $LauncherPath } catch { }
+    }
+    $form.Close()
+  })
+
   $drag = @{ on = $false; x = 0; y = 0 }
   $down = { param($s, $e) $drag.on = $true; $drag.x = $e.X; $drag.y = $e.Y }
   $move = {
@@ -596,20 +560,13 @@ try {
     }
   }
   $up = { param($s, $e) $drag.on = $false }
-  foreach ($c in @($form, $title, $tag, $hint, $tip)) {
+  foreach ($c in @($form, $logo, $title, $tag, $status, $hint, $tip)) {
     $c.Add_MouseDown($down); $c.Add_MouseMove($move); $c.Add_MouseUp($up)
   }
 
   function Show-ErrorCard($step) {
-    # The window stops being a progress indicator and becomes the report. The
-    # step list stays: which step failed is half the answer, and it is already
-    # on screen with a cross beside it.
     $st.failed = $true
-    # Hidden, not slowed to zero: MarqueeAnimationSpeed = 0 is one of the two
-    # documented ways to get the reported "empty bar", and leaving that value
-    # anywhere in this file invites the next reader to copy it upward.
-    $bar.Visible = $false
-    $progress.Visible = $false
+    $barTrack.Visible = $false
     $status.ForeColor = $bad
     $status.Text = "$($step.Title) failed: $($step.Detail)"
     if ($LogPath) {
@@ -620,6 +577,8 @@ try {
     $btnCancel.Text = "Close"
     $btnCopy.Text = "Copy diagnostics"
     $btnDetails.Text = "Open log"
+    $btnRetry.Visible = [bool]($LauncherPath)
+    Set-Layout
   }
 
   $deadline = (Get-Date).AddMinutes($MaxMinutes)
@@ -629,16 +588,11 @@ try {
   $timer.Add_Tick({
     try {
       if ((Get-Date) -gt $deadline) { $form.Close(); return }
-      # Gone means the launcher finished (or died). Either way this window's
-      # job is over - leaving it on top of the app would be the worst outcome.
-      # Not while the error card is up: that one is the reader's to close.
       if (-not (Test-Path -LiteralPath $StatusFile)) {
         if (-not $st.failed) { $form.Close() }
         return
       }
 
-      # The tip rotates on its own clock, so it keeps moving even while the
-      # launcher is silent for minutes at a time inside one step.
       if (((Get-Date) - $st.tipSince).TotalSeconds -ge 6) {
         $st.tipAt = ($st.tipAt + 1) % $tips.Count
         $st.tipSince = (Get-Date)
@@ -661,82 +615,54 @@ try {
         $st.activeSince = (Get-Date)
       }
 
-      # Steps finished over total, never the step number: see $progress.
       $done = @($steps | Where-Object { $_.State -eq "done" }).Count
       $total = $current.Total
       if ($total -lt 1) { $total = 1 }
       $pct = [int](($done * 100) / $total)
       if ($pct -lt 0) { $pct = 0 }
       if ($pct -gt 100) { $pct = 100 }
-      $progress.Value = $pct
+      # Half a step for the one running, so the bar is never parked at a step
+      # boundary while real work happens; the app accent fill eases to this.
+      $frac = ($done + 0.5) / $total
+      if ($done -ge $total) { $frac = 1.0 }
+      $st.target = [Math]::Max(0.04, [Math]::Min(1.0, $frac))
 
       Update-Rows $steps
       Update-Hint $steps
 
-      # Not the current step's detail: the active row already shows that,
-      # and the same sentence twice, one above the other, reads as a
-      # rendering fault rather than as two pieces of information. The total
-      # elapsed time is the thing neither the list nor the bar can say, and
-      # it is what someone watching a slow first run actually wants.
       $elapsed = [int]((Get-Date) - $st.started).TotalSeconds
-      if ($elapsed -lt 60) {
-        $detailText = "$done of $total steps done, running for $($elapsed)s."
-      } else {
-        $mins = [int]($elapsed / 60)
-        $detailText = "$done of $total steps done, running for $($mins)m $($elapsed % 60)s."
-      }
-      if ($st.cancelled) { $detailText = "Cancelling after this step finishes." }
-      if ($status.Text -ne $detailText) { $status.Text = $detailText }
+      $st.showList = ($elapsed -ge $SHOW_LIST_AFTER)
+      $st.showLinks = ($elapsed -ge $SHOW_LINKS_AFTER)
+
+      # One status line: what is running now, in plain words.
+      $line = "$($current.Title)"
+      if ($current.Detail) { $line = "$($current.Title): $($current.Detail)" }
+      if ($st.cancelled) { $line = "Cancelling after this step finishes." }
+      if ($status.Text -ne $line) { $status.Text = $line }
 
       $failedStep = @($steps | Where-Object { $_.State -eq "failed" })
-      if ($failedStep.Count -gt 0) { Show-ErrorCard $failedStep[0] }
+      if ($failedStep.Count -gt 0) { Show-ErrorCard $failedStep[0] } else { Set-Layout }
     } catch {
-      # A half-written file, or one locked mid-write by cmd's `echo >`. Both
-      # are normal at 250ms polling and both resolve on the next tick.
     }
   })
   $timer.Start()
 
-  # Try again, offered only once something has actually failed: re-running the
-  # launcher while it is still working would put two of them on one checkout.
-  $btnRetry              = New-Object System.Windows.Forms.Button
-  $btnRetry.Text         = "Try again"
-  $btnRetry.Location     = New-Object System.Drawing.Point(244, 334)
-  $btnRetry.Size         = New-Object System.Drawing.Size(78, 26)
-  $btnRetry.FlatStyle    = "Flat"
-  $btnRetry.BackColor    = $panel
-  $btnRetry.ForeColor    = $muted
-  $btnRetry.Font         = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]8.5)
-  $btnRetry.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(48, 53, 68)
-  $btnRetry.TabStop      = $false
-  $btnRetry.Visible      = $false
-  $btnRetry.Add_Click({
-    if ($LauncherPath -and (Test-Path -LiteralPath $LauncherPath)) {
-      try { Start-Process -FilePath $LauncherPath } catch { }
-    }
-    $form.Close()
-  })
-  $form.Controls.Add($btnRetry)
-
-  # One more timer job, kept separate so the main tick stays readable: show
-  # Try again the moment the card appears, and only if there is something to
-  # re-run.
-  $retryTimer          = New-Object System.Windows.Forms.Timer
-  $retryTimer.Interval = 400
-  $retryTimer.Add_Tick({
-    if ($st.failed -and $LauncherPath -and -not $btnRetry.Visible) {
-      $btnRetry.Visible = $true
+  $easeTimer          = New-Object System.Windows.Forms.Timer
+  $easeTimer.Interval = 33
+  $easeTimer.Add_Tick({
+    $gap = $st.target - $st.shown
+    if ([Math]::Abs($gap) -gt 0.001) {
+      $st.shown = $st.shown + $gap * 0.12
+      $barFill.Width = [int]([Math]::Max(4, $BAR_W * $st.shown))
     }
   })
-  $retryTimer.Start()
+  $easeTimer.Start()
 
   [void]$form.ShowDialog()
   $timer.Stop()
-  $retryTimer.Stop()
+  $easeTimer.Stop()
   $form.Dispose()
+  $logoBmp.Dispose()
 } catch {
-  # No PowerShell assemblies (Server Core), a blocked execution policy, a
-  # remote session with no display. None of those are reasons to stop the app
-  # from starting, and the launcher never checks our exit code.
   exit 0
 }

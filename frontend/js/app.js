@@ -1781,7 +1781,7 @@ const LAZY_MODULES = {
   graph: ["/vendor/d3.v7.min.js", "/css/graph-lazy.css", "/js/graph.js", "/js/graph-canvas.js"],
   //: The image viewer (2026-09-27, the boot-script gzip budget): see
   //: lightbox-view.js's header.
-  lightbox: ["/js/lightbox-view.js"],
+  lightbox: ["/css/lightbox-lazy.css", "/js/lightbox-view.js"],
   activity: ["/js/activity-panel.js"],
   //: Run, preview and test for a code document (DOCUMENTS_PLAN 23, D1): the
   //: protocol and its languages, loaded on the first Run.

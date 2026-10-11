@@ -104,6 +104,7 @@ _LOADING_HTML = """<!doctype html>
   }
   .mark { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 600; }
   .mark svg { width: 46px; height: 46px; display: block; }
+  .tagline { color: #9aa1ad; font-size: 12px; margin-top: -10px; }
   /* The step list, the same one scripts/splash.ps1 draws before this
      window exists, so the handoff from that window to this one looks
      like the same list carrying on rather than a restart. */
@@ -117,13 +118,13 @@ _LOADING_HTML = """<!doctype html>
   .steps li.done { color: #9aa1ad; }
   .steps li.done .tick { color: #4a9d7a; }
   .steps li.active { color: #e7e9ee; }
-  .steps li.active .tick { color: #4664f0; animation: mm-pulse 1.4s ease-in-out infinite; }
+  .steps li.active .tick { color: #4f6df5; animation: mm-pulse 1.4s ease-in-out infinite; }
   .steps li.active .detail { color: #9aa1ad; }
   .steps li.failed { color: #e58f8f; }
   .steps li.failed .tick { color: #e58f8f; }
   @keyframes mm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
   .bar-track { width: 300px; height: 6px; border-radius: 3px; background: #262b3a; overflow: hidden; }
-  .bar-fill { height: 100%; width: 4%; background: #4664f0; border-radius: 3px;
+  .bar-fill { height: 100%; width: 4%; background: #4f6df5; border-radius: 3px;
               transition: width 300ms ease-out; }
   .bar-fill.error { background: #e5a13a; }
   #status { color: #9aa1ad; min-height: 1.2em; }
@@ -143,29 +144,23 @@ _LOADING_HTML = """<!doctype html>
 <body>
   <div class="mark"><svg viewBox="0 0 100 100" role="img" aria-label="Tessellate">
     <defs>
-      <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#5b7cff"/><stop offset="55%" stop-color="#4664f0"/>
+      <linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="100">
+        <stop offset="0%" stop-color="#5b7cff"/><stop offset="55%" stop-color="#4f6df5"/>
         <stop offset="100%" stop-color="#a927d8"/>
       </linearGradient>
-      <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
-        <stop offset="60%" stop-color="#ffffff" stop-opacity="0"/>
+      <linearGradient id="pearl" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#c9b8ff"/>
       </linearGradient>
+      <filter id="lift" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#1a1060" flood-opacity="0.45"/>
+      </filter>
     </defs>
     <rect width="100" height="100" rx="23" fill="url(#tile)"/>
-    <rect width="100" height="100" rx="23" fill="url(#sheen)"/>
-    <g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" opacity="0.92">
-      <path d="M50 50 50 20"/><path d="M50 50 78.5 40.7"/><path d="M50 50 67.6 74.3"/>
-      <path d="M50 50 32.4 74.3"/><path d="M50 50 21.5 40.7"/>
-    </g>
-    <g fill="#ffffff">
-      <circle cx="50" cy="20" r="7.5"/><circle cx="78.5" cy="40.7" r="7.5"/>
-      <circle cx="67.6" cy="74.3" r="7.5"/><circle cx="32.4" cy="74.3" r="7.5"/>
-      <circle cx="21.5" cy="40.7" r="7.5"/>
-    </g>
-    <circle cx="50" cy="50" r="13" fill="#4664f0"/>
-    <circle cx="50" cy="50" r="9.5" fill="#ffffff"/>
+    <g opacity="0.95"><polygon points="35.3,48.7 46.8,55.4 46.8,68.6 35.3,75.3 23.8,68.6 23.8,55.4" fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round"/></g>
+    <g opacity="0.7"><polygon points="64.7,48.7 76.2,55.4 76.2,68.6 64.7,75.3 53.2,68.6 53.2,55.4" fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round"/></g>
+    <g filter="url(#lift)"><polygon points="57.3,18.4 67.5,27.0 65.2,40.0 52.7,44.6 42.5,36.0 44.8,23.0" fill="url(#pearl)" stroke="url(#pearl)" stroke-width="7" stroke-linejoin="round"/></g>
   </svg><span>Tessellate</span></div>
+  <div class="tagline">Your notes, pieced together</div>
   <ul class="steps" id="steps"></ul>
   <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
   <div id="status">Starting…</div>
@@ -315,7 +310,7 @@ _LOADING_HTML = """<!doctype html>
 #: The loading page's six colours, per look and mode: ground, text, faint
 #: text, secondary text, accent, bar track. The page's own stylesheet is
 #: written in the Classic set, which is the fallback for any other palette.
-_LOADING_CLASSIC = ("#12141c", "#e7e9ee", "#5d6472", "#9aa1ad", "#4664f0", "#262b3a")
+_LOADING_CLASSIC = ("#12141c", "#e7e9ee", "#5d6472", "#9aa1ad", "#4f6df5", "#262b3a")
 _LOADING_LOOKS = {
     ("utilitarian", "dark"): ("#161615", "#ecebe8", "#75736e", "#a09e98", "#5b95ff", "#2a2a27"),
     ("utilitarian", "light"): ("#f4f3f1", "#1c1c1a", "#8a8883", "#66645f", "#2f5bd3", "#e3e1dd"),
@@ -972,6 +967,7 @@ def _boot_and_swap(window) -> None:
     window's whole lifecycle rather than opening a second one and tearing
     down the first: simpler, and no flicker from a close/reopen.
     """
+    _close_launch_splash()  # idempotent backstop if the shown event never fired
     os.environ["MEMORYMAP_DESKTOP"] = "1"
     # The port was chosen and the lock claimed by `_claim_notebook`, before
     # this window existed; the focus handler is how a second launch brings
@@ -1851,11 +1847,15 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     # The handoff from start.bat's splash to this window. create_window has
     # returned, so this window is the one the user is about to be looking at;
     # the splash's job is over the moment it is.
+    # Both splashes close when the loading window is really on screen (the
+    # `shown` event), so there is one continuous splash with no bare gap
+    # while the web view starts; without window events, now.
     try:
         window.events.shown += _close_bootloader_splash
+        window.events.shown += _close_launch_splash
     except AttributeError:  # an older pywebview without window events
         _close_bootloader_splash()
-    _close_launch_splash()
+        _close_launch_splash()
     # `private_mode` defaults to True in pywebview, which throws away
     # localStorage and cookies when the window closes. The browser build keeps
     # a great deal in localStorage, the theme and every appearance key, the

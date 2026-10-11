@@ -1324,16 +1324,6 @@ function quickTints() {
   return tints && typeof tints === "object" ? tints : {};
 }
 
-//: One tile's highlight, saved; `""` forgets the choice (the position's
-//: default again). Ids no longer on the row are pruned on the way, so the
-//: stored map never outlives the tiles it was for.
-async function saveQuickTint(id, key) {
-  const on = new Set(quickAccessCurrent().map((link) => link.id));
-  const next = Object.fromEntries(Object.entries(quickTints()).filter(([tile]) => on.has(tile) && tile !== id));
-  if (key) next[id] = key;
-  await saveQuickTints(next);
-}
-
 async function saveQuickTints(tints) {
   prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ dashboard_quick_tints: tints }) }).catch(() => prefsCache);
 }

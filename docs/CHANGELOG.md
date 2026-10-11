@@ -58,6 +58,12 @@ below). Versioning is `0.x` while the app stabilises.
 - Dashboard: Live captions can be a Quick access tile (Edit quick access, then Add).
 - OCR workspace: a page whose stored reading was made before words were kept says "Read this page again to select its words on the picture", so Live Text is not silently empty.
 - The command palette has rows for Open Settings, Open notifications, Switch space and Quit, so every top-bar control is in it.
+- Faces: teal was the cloth of four of the twelve colour pairs, so two names often drew the same teal hat and read as one person; it now belongs to one pair, and the garment now joins the hair and cloth rolls, so the worst pair of 23 names went from 3.7% to 15.3% different (9 pairs under the 15% floor became none).
+- Launch splash (Windows): a borderless rounded window with the new three-cell mark drawn before the window shows, the tagline "Your notes, pieced together", one status line and one slim accent bar (the green and white system bars are gone). The step list waits for a start that takes over 4 s, and Details, Copy diagnostics and Cancel appear as quiet links after 10 s or on a failure. The desktop loading window carries the new mark and the same accent, and the launcher splash closes when that window is shown.
+- The tagline under the Tessellate name in the launchers, the Windows splash and the Linux desktop entry reads "your notes, pieced together".
+
+- Mind map: a topic added under one you had dragged (on any layout, Timeline included) is placed beside it instead of in the layout's own column far across the map. A topic added under one on a left-hand branch now starts to its left, under its last sibling, instead of back on the trunk side (it stayed there on a Free map). Launcher banners in `start.sh` and `start.bat` read Tessellate.
+
 - Notes, Questions and Library, Recordings show the empty state block with an icon, the sentence and the action; a Settings section fades in; Background jobs has a Report button for the last import.
 - Settings, Themes: resting the pointer or focus on a theme shows it on the whole app, and Surprise me applies a random one.
 - Long menu labels are cut with an ellipsis inside the row and shown whole on hover, in every font; the no-model notice steps its button down in a narrow card; Settings, Help, Credits has a Guide topic.

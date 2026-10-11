@@ -259,5 +259,7 @@ def test_a_phone_cannot_loosen_the_lan_options_or_allow_a_network_even_with_the_
     assert stop_asking.status_code == 403
     allow = phone.post("/auth/lan-networks/allow", json={"current_password": PASSWORD})
     assert allow.status_code == 403 and "Not available on this device" in allow.json()["detail"]
+    #: Answering a waiting device is the same call a phone must not make.
+    assert phone.post("/auth/lan-devices/abc/allow").status_code == 403
     safer = phone.post("/auth/lan-options", json={"name": "ask_new_devices", "enabled": True})
     assert safer.status_code == 200

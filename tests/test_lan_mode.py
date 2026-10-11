@@ -31,7 +31,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from memorymap.api import routes_auth
-from memorymap.core import netbind, vault
+from memorymap.core import lantrust, netbind, vault
 
 ROOT = Path(__file__).resolve().parent.parent
 PASSWORD = "the owner's password"
@@ -566,8 +566,18 @@ def test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server(tmp_path):
         assert _Http("127.0.0.1", port).call("POST", "/auth/setup", {"password": PASSWORD})[0] == 200
     finally:
         _stop(proc)
+    #: The port opens only on a network the person allowed (core/lantrust.py):
+    #: this test is about the sockets, so every network is allowed here.
+    (tmp_path / "data" / lantrust.FILE_NAME).write_text(json.dumps({"any_network": True, "ask_new_devices": False}))
     proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True})
     try:
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            try:
+                socket.create_connection(("::1", _lan_port(port)), timeout=0.5).close()
+                break
+            except OSError:
+                time.sleep(0.3)
         # The dual-stack socket is the HTTPS one (loopback http is 127.0.0.1).
         cert = tmp_path / "data" / "lan-tls" / "cert.pem"
         here_v6 = _Http("::1", _lan_port(port), cafile=cert)

@@ -1274,7 +1274,7 @@ async function meetingEnhanceTake(saved) {
 function meetingAcceptOriginal() {
   const id = meetingTake.originalId;
   meetingTake.originalId = null;
-  if (id) apiJson(`/recordings/${id}`, { method: "DELETE", silent: true }).catch(() => {});
+  if (id) apiJson(`/recordings/${id}`, { method: "DELETE", silent: true }).catch((e) => console.warn("The abandoned take was not removed:", e.message));
 }
 
 // --- after saving (UI_MODERNISATION V7) --------------------------------------

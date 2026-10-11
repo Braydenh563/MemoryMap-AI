@@ -3422,7 +3422,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #settings-modal .setting-check .setting-hint-toggle {
   margin-inline-end: calc(-1 * var(--space-3));
 }
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .setting-hint-toggle:not(:hover):not([aria-expanded="true"]) {
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .setting-hint-toggle:not(:hover):not(:focus-visible):not([aria-expanded="true"]) {
   background: transparent;
   box-shadow: none;
   color: var(--muted);

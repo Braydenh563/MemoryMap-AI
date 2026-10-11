@@ -211,7 +211,7 @@ async function stopLiveCaptions() {
   if (!captionRun.save) {
     captionRun.into = null;
     captionRun.save = true;
-    const done = await apiJson(`/voice/captions/${id}/stop`, { method: "POST", body: JSON.stringify({ save: false }), silent: true }).catch(() => null);
+    const done = await apiJson(`/voice/captions/${id}/stop`, { method: "POST", body: JSON.stringify({ save: false }), silent: true }).catch((e) => console.warn("The caption take was not stopped:", e.message) || null);
     return done?.text || "";
   }
   $("captions-dock").classList.add("hidden");

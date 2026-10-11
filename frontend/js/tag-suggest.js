@@ -270,7 +270,7 @@ async function noteTagChoices(entry) {
   if (picked.length < 3 && !entry.is_private && entry.content) {
     const more = await apiJson("/entries/suggest-tags", {
       method: "POST", silent: true, body: JSON.stringify({ content: entry.content.slice(0, 4000), tags: entry.tags || [] }),
-    }).catch(() => null);
+    }).catch((e) => console.warn("Tag suggestions were not fetched:", e.message) || null);
     for (const tag of more?.suggested_tags || []) add(tag);
     for (const [tag, why] of Object.entries(more?.suggested_tag_reasons || {})) entry.suggested_tag_reasons = { ...entry.suggested_tag_reasons, [tag]: why };
   }

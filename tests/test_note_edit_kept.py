@@ -60,7 +60,7 @@ const prefs = {
 let editingId = null;
 const toasts = [];
 function toastAction(message, label) { toasts.push([message, label]); }
-let keptEditAwaitsUnlock = false;
+const keptEdit = { awaitsUnlock: false };
 async function apiJson() {
   if (API_ERROR) throw Object.assign(new Error("x"), JSON.parse(API_ERROR));
   return { id: 4, content: NOTE_CONTENT };
@@ -74,7 +74,7 @@ function notePreviewText(t) { return t; }
         + (f"store[NOTE_EDIT_KEPT] = {json.dumps(json.dumps(kept))};\n" if kept else "")
         + "\n".join(parts)
         + """
-offerKeptNoteEdit().then(() => console.log(JSON.stringify({ toasts, kept: NOTE_EDIT_KEPT in store, waiting: keptEditAwaitsUnlock })));
+offerKeptNoteEdit().then(() => console.log(JSON.stringify({ toasts, kept: NOTE_EDIT_KEPT in store, waiting: keptEdit.awaitsUnlock })));
 """
     )
     result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=30)

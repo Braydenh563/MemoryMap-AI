@@ -1202,12 +1202,13 @@ def _spawn_detached(argv: list[str]):  # noqa: ANN202  # a Popen, or None
                 flags = 0x00000010  # CREATE_NEW_CONSOLE
             return subprocess.Popen(argv, creationflags=flags, close_fds=True, cwd=os.getcwd())  # noqa: S603
         from memorymap.core.config import resolved_data_dir
+        from memorymap.core.subproc import NO_WINDOW
 
         log_path = Path(resolved_data_dir()) / "restart.log"
         with open(log_path, "ab") as log:
             return subprocess.Popen(  # noqa: S603
                 argv, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
-                start_new_session=True, close_fds=True, cwd=os.getcwd(),
+                start_new_session=True, close_fds=True, cwd=os.getcwd(), creationflags=NO_WINDOW,
             )
     except OSError as exc:
         logger.warning("couldn't start a new copy to restart into: %s", exc)

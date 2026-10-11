@@ -62,7 +62,7 @@ def test_the_safety_copy_before_a_restore_says_so(client):
 def test_the_backups_group_shows_its_schedule_with_the_last_success():
     """The schedule line (WORLD_CLASS 25e, data-1011): above the list, filled
     from the job record, saying whether the last run worked and when the next
-    is due. Driven in a browser by `scratchpad/ui-sweeps/backupschedule.js`."""
+    is due."""
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]

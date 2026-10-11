@@ -153,12 +153,6 @@ const REDUCED = !!process.env.REDUCED;
   await take('activity: run state Running', '#sweep-run');
   await page.evaluate(() => document.getElementById('sweep-labels').remove());
 
-  // 5. The tension review's status line.
-  await page.evaluate(() => { openTensions(); setTensionsStatus('Reading note pairs…', true); });
-  await page.waitForTimeout(300);
-  await take('tensions: status line', '#tensions-status');
-  await page.evaluate(() => { setTensionsStatus('', false); tensionsDialog().close(); });
-
   // 6. A long job's toast.
   await page.evaluate(() => { window.__toast = toastProgress('Reading text…'); });
   await page.waitForTimeout(300);

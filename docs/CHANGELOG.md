@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- First run: "Connect a model" on the welcome opens Settings and the recovery-key offer waits until Settings is closed, instead of drawing over it.
 - Start-up: opening the app with no notes waiting no longer lists a "Filing a note" job in Activity and the bell, a new row on every launch.
 - Start-up: the quick-add reader warms up after sign-in instead of on the lock screen, so a launch with a password no longer logs two 401 errors.
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), and a missing apostrophe is read ("doesn follow"); the Guide, the clock and the other utilities read the repaired question.

@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5460, frontend ids 2354, CSS sections 489, backend routes 550, backend modules 4595, test files 1056, tests 9700, plan headings 991.
+Counts: frontend functions 5460, frontend ids 2354, CSS sections 489, backend routes 550, backend modules 4595, test files 1056, tests 9703, plan headings 991.
 
 ## Frontend functions (5460)
 
@@ -323,95 +323,95 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `addInlineCitations` | frontend/js/capture-ask.js:1132 |
-| `announce` | frontend/js/capture-ask.js:800 |
-| `answerFigure` | frontend/js/capture-ask.js:1970 |
-| `answerObject` | frontend/js/capture-ask.js:2063 |
-| `askAsOf` | frontend/js/capture-ask.js:3333 |
-| `askNotesOnTheRight` | frontend/js/capture-ask.js:2185 |
-| `askQuestion` | frontend/js/capture-ask.js:2933 |
-| `askStatusBusy` | frontend/js/capture-ask.js:2903 |
-| `askStatusText` | frontend/js/capture-ask.js:2888 |
-| `citationInsertionPoint` | frontend/js/capture-ask.js:1104 |
-| `citationKey` | frontend/js/capture-ask.js:1057 |
-| `citationMarker` | frontend/js/capture-ask.js:1223 |
-| `citationNumbers` | frontend/js/capture-ask.js:1024 |
-| `citationPeekText` | frontend/js/capture-ask.js:1390 |
-| `citationTextIndex` | frontend/js/capture-ask.js:1071 |
-| `clearAskAnswerFoot` | frontend/js/capture-ask.js:2114 |
+| `addInlineCitations` | frontend/js/capture-ask.js:1133 |
+| `announce` | frontend/js/capture-ask.js:801 |
+| `answerFigure` | frontend/js/capture-ask.js:1971 |
+| `answerObject` | frontend/js/capture-ask.js:2064 |
+| `askAsOf` | frontend/js/capture-ask.js:3334 |
+| `askNotesOnTheRight` | frontend/js/capture-ask.js:2186 |
+| `askQuestion` | frontend/js/capture-ask.js:2934 |
+| `askStatusBusy` | frontend/js/capture-ask.js:2904 |
+| `askStatusText` | frontend/js/capture-ask.js:2889 |
+| `citationInsertionPoint` | frontend/js/capture-ask.js:1105 |
+| `citationKey` | frontend/js/capture-ask.js:1058 |
+| `citationMarker` | frontend/js/capture-ask.js:1224 |
+| `citationNumbers` | frontend/js/capture-ask.js:1025 |
+| `citationPeekText` | frontend/js/capture-ask.js:1391 |
+| `citationTextIndex` | frontend/js/capture-ask.js:1072 |
+| `clearAskAnswerFoot` | frontend/js/capture-ask.js:2115 |
 | `clearCaptureStatusOnInput` | frontend/js/capture-ask.js:549 |
 | `clearCaptureTagSuggestions` | frontend/js/capture-ask.js:490 |
-| `clearCitedPassage` | frontend/js/capture-ask.js:1596 |
-| `clickableResult` | frontend/js/capture-ask.js:983 |
-| `closeCitationPeek` | frontend/js/capture-ask.js:1497 |
-| `collapseCitationRuns` | frontend/js/capture-ask.js:1198 |
-| `copyAnswer` | frontend/js/capture-ask.js:3262 |
+| `clearCitedPassage` | frontend/js/capture-ask.js:1597 |
+| `clickableResult` | frontend/js/capture-ask.js:984 |
+| `closeCitationPeek` | frontend/js/capture-ask.js:1498 |
+| `collapseCitationRuns` | frontend/js/capture-ask.js:1199 |
+| `copyAnswer` | frontend/js/capture-ask.js:3263 |
 | `createDocumentNamed` | frontend/js/capture-ask.js:291 |
-| `everyRowScored` | frontend/js/capture-ask.js:2417 |
-| `evidenceBlock` | frontend/js/capture-ask.js:1358 |
-| `evidenceRows` | frontend/js/capture-ask.js:1894 |
-| `evidenceSignals` | frontend/js/capture-ask.js:1336 |
-| `evidenceSpan` | frontend/js/capture-ask.js:1329 |
-| `evidenceToggle` | frontend/js/capture-ask.js:1861 |
+| `everyRowScored` | frontend/js/capture-ask.js:2418 |
+| `evidenceBlock` | frontend/js/capture-ask.js:1359 |
+| `evidenceRows` | frontend/js/capture-ask.js:1895 |
+| `evidenceSignals` | frontend/js/capture-ask.js:1337 |
+| `evidenceSpan` | frontend/js/capture-ask.js:1330 |
+| `evidenceToggle` | frontend/js/capture-ask.js:1862 |
 | `filedByText` | frontend/js/capture-ask.js:220 |
 | `filingOutcomeText` | frontend/js/capture-ask.js:181 |
-| `flashCategory` | frontend/js/capture-ask.js:953 |
-| `flashEntry` | frontend/js/capture-ask.js:849 |
-| `flashReminder` | frontend/js/capture-ask.js:927 |
+| `flashCategory` | frontend/js/capture-ask.js:954 |
+| `flashEntry` | frontend/js/capture-ask.js:850 |
+| `flashReminder` | frontend/js/capture-ask.js:928 |
 | `focusCaptureBox` | frontend/js/capture-ask.js:453 |
-| `groundingThumbs` | frontend/js/capture-ask.js:1747 |
+| `groundingThumbs` | frontend/js/capture-ask.js:1748 |
 | `heldOffline` | frontend/js/capture-ask.js:563 |
-| `holdPictureTokens` | frontend/js/capture-ask.js:1964 |
-| `liveMarkdownRenderer` | frontend/js/capture-ask.js:2765 |
-| `loadAskHistoryBadge` | frontend/js/capture-ask.js:3297 |
+| `holdPictureTokens` | frontend/js/capture-ask.js:1965 |
+| `liveMarkdownRenderer` | frontend/js/capture-ask.js:2766 |
+| `loadAskHistoryBadge` | frontend/js/capture-ask.js:3298 |
 | `loadCaptureDocuments` | frontend/js/capture-ask.js:276 |
-| `loadSuggestions` | frontend/js/capture-ask.js:3268 |
-| `loadTemplates` | frontend/js/capture-ask.js:3367 |
-| `matchReasonBadge` | frontend/js/capture-ask.js:2421 |
-| `newChat` | frontend/js/capture-ask.js:2846 |
-| `notePictures` | frontend/js/capture-ask.js:1732 |
+| `loadSuggestions` | frontend/js/capture-ask.js:3269 |
+| `loadTemplates` | frontend/js/capture-ask.js:3368 |
+| `matchReasonBadge` | frontend/js/capture-ask.js:2422 |
+| `newChat` | frontend/js/capture-ask.js:2847 |
+| `notePictures` | frontend/js/capture-ask.js:1733 |
 | `noteSurfaceIfAny` | frontend/js/capture-ask.js:418 |
 | `noteTemplateForUse` | frontend/js/capture-ask.js:400 |
 | `noteTemplateText` | frontend/js/capture-ask.js:389 |
-| `numberMatchingRecords` | frontend/js/capture-ask.js:1651 |
+| `numberMatchingRecords` | frontend/js/capture-ask.js:1652 |
 | `offerJumpToNewNote` | frontend/js/capture-ask.js:12 |
-| `openCitationPeek` | frontend/js/capture-ask.js:1413 |
+| `openCitationPeek` | frontend/js/capture-ask.js:1414 |
 | `openDocumentFromNote` | frontend/js/capture-ask.js:422 |
-| `openNoteAtPassage` | frontend/js/capture-ask.js:922 |
-| `pictureItems` | frontend/js/capture-ask.js:1744 |
-| `placeAnswerFigures` | frontend/js/capture-ask.js:2005 |
-| `placeResultBadge` | frontend/js/capture-ask.js:978 |
-| `renderAnswerGrounding` | frontend/js/capture-ask.js:1782 |
-| `renderAnswerSupport` | frontend/js/capture-ask.js:1680 |
-| `renderAskAnswerFoot` | frontend/js/capture-ask.js:2131 |
-| `renderAskFollowups` | frontend/js/capture-ask.js:2202 |
-| `renderAskHint` | frontend/js/capture-ask.js:2246 |
-| `renderAskTrail` | frontend/js/capture-ask.js:2820 |
-| `renderAskedQuestion` | frontend/js/capture-ask.js:2864 |
+| `openNoteAtPassage` | frontend/js/capture-ask.js:923 |
+| `pictureItems` | frontend/js/capture-ask.js:1745 |
+| `placeAnswerFigures` | frontend/js/capture-ask.js:2006 |
+| `placeResultBadge` | frontend/js/capture-ask.js:979 |
+| `renderAnswerGrounding` | frontend/js/capture-ask.js:1783 |
+| `renderAnswerSupport` | frontend/js/capture-ask.js:1681 |
+| `renderAskAnswerFoot` | frontend/js/capture-ask.js:2132 |
+| `renderAskFollowups` | frontend/js/capture-ask.js:2203 |
+| `renderAskHint` | frontend/js/capture-ask.js:2247 |
+| `renderAskTrail` | frontend/js/capture-ask.js:2821 |
+| `renderAskedQuestion` | frontend/js/capture-ask.js:2865 |
 | `renderCaptureDocumentAdder` | frontend/js/capture-ask.js:349 |
 | `renderCaptureDocuments` | frontend/js/capture-ask.js:311 |
 | `renderCaptureTagSuggestions` | frontend/js/capture-ask.js:498 |
-| `renderChatMeta` | frontend/js/capture-ask.js:2285 |
-| `renderEvidenceView` | frontend/js/capture-ask.js:1916 |
-| `renderRelatedElsewhere` | frontend/js/capture-ask.js:1608 |
-| `renderToolsUnsupportedNotice` | frontend/js/capture-ask.js:1712 |
+| `renderChatMeta` | frontend/js/capture-ask.js:2286 |
+| `renderEvidenceView` | frontend/js/capture-ask.js:1917 |
+| `renderRelatedElsewhere` | frontend/js/capture-ask.js:1609 |
+| `renderToolsUnsupportedNotice` | frontend/js/capture-ask.js:1713 |
 | `resetCaptureForm` | frontend/js/capture-ask.js:460 |
-| `retryAnswer` | frontend/js/capture-ask.js:3258 |
+| `retryAnswer` | frontend/js/capture-ask.js:3259 |
 | `saveEntry` | frontend/js/capture-ask.js:577 |
 | `saveEntryAsDraft` | frontend/js/capture-ask.js:702 |
 | `scheduleCaptureTagSuggestions` | frontend/js/capture-ask.js:524 |
-| `scheduleCitationPeek` | frontend/js/capture-ask.js:1371 |
-| `scheduleCitationPeekClose` | frontend/js/capture-ask.js:1382 |
-| `scrollEditingEntryIntoView` | frontend/js/capture-ask.js:824 |
-| `setAnsweredBy` | frontend/js/capture-ask.js:2276 |
-| `setAskScope` | frontend/js/capture-ask.js:3325 |
-| `setAsking` | frontend/js/capture-ask.js:2806 |
+| `scheduleCitationPeek` | frontend/js/capture-ask.js:1372 |
+| `scheduleCitationPeekClose` | frontend/js/capture-ask.js:1383 |
+| `scrollEditingEntryIntoView` | frontend/js/capture-ask.js:825 |
+| `setAnsweredBy` | frontend/js/capture-ask.js:2277 |
+| `setAskScope` | frontend/js/capture-ask.js:3326 |
+| `setAsking` | frontend/js/capture-ask.js:2807 |
 | `settleCaptureStatus` | frontend/js/capture-ask.js:125 |
-| `showAskAsOf` | frontend/js/capture-ask.js:3339 |
-| `showCitedPassage` | frontend/js/capture-ask.js:1565 |
-| `stopAnswer` | frontend/js/capture-ask.js:2812 |
-| `streamChat` | frontend/js/capture-ask.js:2452 |
-| `streamChatEvents` | frontend/js/capture-ask.js:2495 |
+| `showAskAsOf` | frontend/js/capture-ask.js:3340 |
+| `showCitedPassage` | frontend/js/capture-ask.js:1566 |
+| `stopAnswer` | frontend/js/capture-ask.js:2813 |
+| `streamChat` | frontend/js/capture-ask.js:2453 |
+| `streamChatEvents` | frontend/js/capture-ask.js:2496 |
 | `watchFiling` | frontend/js/capture-ask.js:48 |
 | `withTitle` | frontend/js/capture-ask.js:438 |
 
@@ -4385,19 +4385,19 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `closeOnboarding` | frontend/js/onboarding.js:351 |
-| `firstRunSurfaceOpen` | frontend/js/onboarding.js:296 |
-| `firstRunTurn` | frontend/js/onboarding.js:312 |
+| `closeOnboarding` | frontend/js/onboarding.js:357 |
+| `firstRunSurfaceOpen` | frontend/js/onboarding.js:299 |
+| `firstRunTurn` | frontend/js/onboarding.js:318 |
 | `loadOnboardingDiagnostics` | frontend/js/onboarding.js:68 |
-| `maybeShowConsoleViewIntro` | frontend/js/onboarding.js:405 |
-| `onboardingBack` | frontend/js/onboarding.js:387 |
-| `onboardingNext` | frontend/js/onboarding.js:368 |
-| `openOnboarding` | frontend/js/onboarding.js:338 |
+| `maybeShowConsoleViewIntro` | frontend/js/onboarding.js:411 |
+| `onboardingBack` | frontend/js/onboarding.js:393 |
+| `onboardingNext` | frontend/js/onboarding.js:374 |
+| `openOnboarding` | frontend/js/onboarding.js:344 |
 | `renderOnboardingActions` | frontend/js/onboarding.js:129 |
-| `renderOnboardingSlide` | frontend/js/onboarding.js:224 |
-| `showOnboarding` | frontend/js/onboarding.js:343 |
-| `showOnboardingTurn` | frontend/js/onboarding.js:321 |
-| `whenFirstRunClear` | frontend/js/onboarding.js:305 |
+| `renderOnboardingSlide` | frontend/js/onboarding.js:227 |
+| `showOnboarding` | frontend/js/onboarding.js:349 |
+| `showOnboardingTurn` | frontend/js/onboarding.js:327 |
+| `whenFirstRunClear` | frontend/js/onboarding.js:311 |
 
 ### frontend/js/pick-row.js (3)
 
@@ -15492,7 +15492,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9700)
+## Tests (9703)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -15853,7 +15853,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_filing_standin_watch.py | 1 |
 | tests/test_final_pass_bugs.py | 5 |
 | tests/test_finder_star_790.py | 3 |
-| tests/test_first_run_472.py | 11 |
+| tests/test_first_run_472.py | 12 |
 | tests/test_flaw_class_lints.py | 2 |
 | tests/test_folder_roundtrip.py | 5 |
 | tests/test_followup_trail_490.py | 3 |
@@ -16136,7 +16136,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_note_edit_kept.py | 3 |
 | tests/test_note_edit_strip_options.py | 1 |
 | tests/test_note_editing_api.py | 10 |
-| tests/test_note_flow_0432.py | 25 |
+| tests/test_note_flow_0432.py | 27 |
 | tests/test_note_form_property_block.py | 3 |
 | tests/test_note_kinds_d5.py | 5 |
 | tests/test_note_link_chips.py | 2 |

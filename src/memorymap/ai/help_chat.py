@@ -807,6 +807,7 @@ HELP_TOPICS: list[dict] = [
         "keywords": (
             "how many", "most common", "statistics", "stats", "count", "top tags",
             "busiest", "untagged", "orphan", "most linked",
+            "abbreviation", "acronym", "stand for", "short for",
         ),
         "body": (
             "You can ask about the notebook itself, not just what is in it: "
@@ -816,7 +817,9 @@ HELP_TOPICS: list[dict] = [
             "most\". These are counted from your data rather than generated, so "
             "the numbers are exact, the answer is instant, and it works even "
             "with no AI model running at all. Private and binned notes are never "
-            "counted."
+            "counted. Your own abbreviations are learned the same way: when a "
+            "note names Cloud Computing beside CC, asking about CC finds both, "
+            "and \"what does CC stand for?\" says which note told it."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },

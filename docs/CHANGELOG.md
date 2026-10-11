@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Ask and Chat: your own abbreviations are learned from your notes. When a note says "Human Computer Interaction (HCI)", or names Cloud Computing beside CC, asking about CC also finds the notes that spell it out, and "what does CC stand for?" is answered from the note that told it, with no model and no dictionary.
 - Ask with no model: "what have I saved about pottery?" now counts every note on the topic rather than the first five found; a long answer shows five lines and a Show more for the rest, each cited; #tags and "today" in a note no longer reach the answer ("trimmed your first bowl" under its day); and the words read in a picture are quoted only when you ask what it says or it has no caption.
 - Ask and Chat with no model: an answer's shape now follows its question. A count leads with its figure drawn large, "who is Sam?" is a card, "Logitech or Razer?" is a table of price, what you found and your notes, and "what do I need to buy?" is a checklist you can save as a note.
 - Settings, Personas: How Atlas sounds with no model is now Warm and concise (the default), Neutral, Playful or Plain, with a live sample; the facts are the same in each, and a chat no longer opens five answers the same way.

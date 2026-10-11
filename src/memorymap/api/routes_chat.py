@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, capability, composer, composer_digest
+from memorymap.ai import budget as run_budget, capability, composer, composer_digest, glossary
 from memorymap.ai import (
     acts,
     agent,
@@ -1194,6 +1194,22 @@ OVERVIEW_LIMIT = 24
 PICTURE_MATCHES = 3
 
 
+#: The person's abbreviations, learned once per state of the notebook (the
+#: count and the newest edit), not once per question.
+_GLOSSARY: dict[str, object] = {"key": None, "terms": {}}
+
+
+def _glossary(session: Session) -> dict[str, str]:
+    """`ai/glossary.learn` over every note (CHAT_PLAN B7): "CC" is Cloud
+    Computing because the notes say so, or name it in full beside it."""
+    live = Entry.is_deleted == False  # noqa: E712
+    key = session.execute(select(func.count(Entry.id), func.max(Entry.updated_at)).where(live)).one()
+    if _GLOSSARY["key"] != tuple(key):
+        texts = session.execute(select(Entry.content).where(live)).scalars()
+        _GLOSSARY.update(key=tuple(key), terms=glossary.learn(texts))
+    return _GLOSSARY["terms"]  # type: ignore[return-value]
+
+
 def _widened(session: Session, question: str, entries: list, scope: str = "") -> list:
     """The retrieved notes, plus the notes whose pictures match the question
     (keyword search reads a note's words, not its pictures' readings: "what
@@ -1338,8 +1354,10 @@ def _prepare(
         #: whatever the question sounded like would only be noise beside it.
         entries, mode = [], "stats"
     elif intent.needs_retrieval(detected) and not (attached_notes_only and attached):
+        #: Searched with the person's own abbreviations spelt out ("what's
+        #: due in CC" also finds the notes that say Cloud Computing, B7).
         found = search_manager.retrieve_detailed(
-            session, question, deps.get_embeddings(), limit=5
+            session, glossary.expand(question, _glossary(session)), deps.get_embeddings(), limit=5
         )
         entries, mode = found.entries, found.mode
         entries = _widened(session, question, entries, scope=found.category)

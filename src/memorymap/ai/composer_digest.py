@@ -38,7 +38,7 @@ from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 
-from memorymap.ai import composer, realise
+from memorymap.ai import composer, glossary, realise
 
 #: The connecting words, one table (decision 72: a voice swaps this, never
 #: the facts). `{}` slots are filled in order.
@@ -53,6 +53,9 @@ _BASE = {
     "pick": "The {side}, by your notes: {why}.",
     "more_right": "{count} more on the right.",
     "more_show": "Show {count} more",
+    "stands_for": "{abbr} is short for {phrase}, from your note of {day}.",
+    "stands_for_seen": "{abbr} looks like {phrase}: your note of {day} names it in full.",
+    "uses": "You use {abbr} in {count}, the last on {day}.",
     "nothing_yet": "Nothing yet on {facets}.",
     "remind": "Remind you to {action}?",
     "checklist": "Save it as a checklist note?",
@@ -900,6 +903,34 @@ def _compare(out: _Out, a: str, b: str, views, today: date, names: set[str]) -> 
     return True
 
 
+def _stands_for(out: _Out, abbr: str, views: list, today: date) -> bool:
+    """"What does CC stand for?" from the person's own notes (B7): the
+    phrase their notes give it, the note that says so, and how much they
+    use it. Never a dictionary's reading."""
+    learned = glossary.learn(str(v.note.get("content") or "") for v in views)
+    phrase = learned.get(abbr)
+    if not phrase:
+        return False
+    dated = sorted(views, key=lambda v: (v.written or date.min, v.rank))
+    holds = [v for v in dated if phrase.lower() in str(v.note.get("content") or "").lower()]
+    both = [v for v in holds if re.search(rf"\b{re.escape(abbr)}\b", str(v.note.get("content") or ""))]
+    view = (both or holds or [None])[0]
+    if view is None:
+        return False
+    sentence = next((s for s in view.sentences if phrase.lower() in s.text.lower()), view.sentences[0] if view.sentences else None)
+    if sentence is None:
+        return False
+    #: Said outright ("Cloud Computing (CC)") or only seen beside it: the
+    #: second is a reading, and the answer says so.
+    line = PHRASES["stands_for" if both else "stands_for_seen"].format(abbr=abbr, phrase=phrase, day=_day(view.written, today))
+    out.lines.append(line)
+    out.rows.append(_row(re.split(r"[,:]", line)[0], Fact(view, sentence, "", phrase)))
+    using = [v for v in dated if re.search(rf"\b{re.escape(abbr)}\b", str(v.note.get("content") or ""))]
+    if len(using) > 1 and using[-1].written:
+        out.closing.append(PHRASES["uses"].format(abbr=abbr, count=_count(len(using)), day=_day(using[-1].written, today)))
+    return True
+
+
 def answer(question: str, notes: list[dict], *, today: date | None = None, voice: str = "natural", turn: int = 0) -> dict | None:
     """The decision-70 answer to `question` from the route's `notes`, or None
     when the question is not one this shape answers (a sum, a time, a
@@ -923,6 +954,9 @@ def answer(question: str, notes: list[dict], *, today: date | None = None, voice
     if not wants_context:
         views = [v for v in views if not _context_note(v)]
     out = _Out()
+    abbr = glossary.asked(question)
+    if abbr and _stands_for(out, abbr, views, today):
+        return _result(out, "fact", asked)
     if kind == "who":
         name = _ASKS["who"].search(asked).group("name").strip()
         if not _who(out, name, views, names, today):

@@ -172,3 +172,35 @@ def test_atlas_props_have_a_keyline_and_say_what_they_are() -> None:
     for cls in ("nmb-music", "nmb-reading", "nmb-act-bell", "nmb-act-lantern", "nmb-act-carry", "nmb-offline"):
         assert f'["{cls}", ' in words, cls
     assert "nameMarkBuddyNameProps(buddy, face);" in AV
+
+
+MENU = (ROOT / "frontend" / "js" / "companion-menu.js").read_text(encoding="utf-8")
+
+
+def test_atlas_plays_its_own_three_acts() -> None:
+    # Brief 88, the owner: "more behaviours and actions especially for
+    # atlas". juggle, map and meditate were drawn in round 3 (their CSS and
+    # the rig's gestures) and never had a row in the act table, so nothing
+    # played them. atlasacts.js: each now runs with its prop shown.
+    table = AV[AV.index("const NMB_ATLAS_ACTS = {") :]
+    table = table[: table.index("};")]
+    for act in ("juggle", "map", "meditate"):
+        assert f"  {act}: {{" in table and "atlas: true" in table
+        assert f"nmb-act-{act}" in CSS, act
+    assert "Object.assign(NAME_MARK_BUDDY_ACTS, NMB_ATLAS_ACTS);" in AV
+    # Only Atlas picks them, and each has its switch in What it does.
+    assert "if (spec.atlas && !nmb.atlasLook) w = 0;" in AV
+    assert '["atlas", "Atlas juggles stars, reads its map and meditates", Object.keys(NMB_ATLAS_ACTS)],' in AV
+
+
+def test_the_large_view_asks_for_an_act() -> None:
+    # The owner: "improve the actions and stuff for the expanded companion
+    # panel". viewacts.js: nine chips for Atlas floating, each plays its act;
+    # the row wraps inside the card at 1440 and 390.
+    acts = _fn(MENU, "nameMarkViewerActs")
+    assert 'chip(label, "nm-viewer-act", () => {' in acts
+    assert "spec.poses.includes(nmb.pose)" in acts and "(spec.atlas && !atlas)" in acts
+    assert "if (nameMarkBuddyAsleep(buddy)) nameMarkBuddyWake(true);" in acts and "nameMarkBuddyAct(act);" in acts
+    assert 'row.setAttribute("role", "group");' in acts
+    assert 'if (home) card.appendChild(nameMarkViewerActs(document.getElementById("nm-buddy")));' in MENU
+    assert ".nm-viewer-acts { display: flex; flex-wrap: wrap;" in CSS

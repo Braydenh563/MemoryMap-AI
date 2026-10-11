@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Atlas juggles three of its stars, reads its star map and floats cross-legged to meditate now and then: three acts drawn for it long ago that nothing ever played (a switch for them in Appearance, What it does on its own).
+- Companion: its large view has a row of things to ask of it (wave, cheer, hop, stretch, shrug, wiggle, and Atlas's own three), each played at once, waking it first if it sleeps.
 - Atlas: what it holds or wears reads against its body: each prop (a bell, the moon on its ear, its lenses, a book's pages, juggled stars, the broken link) has a dark keyline, 4 to 1 or more, the moon is drawn larger, and resting the pointer on the companion names what it has on and why.
 - Companion: no snap as a move starts or stops: a walk's legs, body and head ease into their stride and out of it, a move cut short in a landing or a float's lean eases out of it, and an act's start no longer drops the body's lean in one frame.
 - Companion: every act has three manners (brisk, easy with its weight on one foot, full with a give at the knees) and every walk or float three strides, never the same as the last time.

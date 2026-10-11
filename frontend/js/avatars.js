@@ -3449,6 +3449,18 @@ const NMB_STANCES = {
   sway: { ms: 14000, w: 1.4, cool: 40000, poses: ["stand", "float"], look: "feminine" },
 };
 Object.assign(NAME_MARK_BUDDY_ACTS, NMB_STANCES);
+//: **Atlas's own acts** (Brief 88, the owner: "more behaviours and
+//: actions especially for atlas"). Three were drawn for it in round 3
+//: (`nmb-act-juggle`, `-map`, `-meditate`: their arms, props and loops are
+//: in the CSS, and the rig knows them as gestures) and never given a row
+//: here, so nothing ever played them. Now it juggles three of its stars,
+//: reads its star map, and floats cross-legged a while; only Atlas.
+const NMB_ATLAS_ACTS = {
+  juggle: { ms: 5400, w: 1.2, cool: 90000, poses: ["stand", "float"], atlas: true },
+  map: { ms: 6000, w: 1, cool: 120000, poses: ["stand", "sit", "float"], atlas: true },
+  meditate: { ms: 12000, w: 0.8, cool: 180000, poses: ["float"], atlas: true },
+};
+Object.assign(NAME_MARK_BUDDY_ACTS, NMB_ATLAS_ACTS);
 
 //: **Reduce actions** (INBOX 430): Off keeps it to blinks, looks and its
 //: stances, Fewer (the default) makes the unprompted gestures a third as
@@ -3470,6 +3482,7 @@ const NMB_ACTIVITIES = [
   ["legs", "Swing its legs over an edge", ["dangle", "kick"]],
   ["hang", "Hanging tricks", ["swing", "sloth", "onehand", "feet"]],
   ["stances", "Stances at rest", Object.keys(NMB_STANCES)],
+  ["atlas", "Atlas juggles stars, reads its map and meditates", Object.keys(NMB_ATLAS_ACTS)],
   ["lie", "Lie down for a nap", ["lie"]],
   ["read", "Read a book", ["read"]],
   ["beanbag", "Sink into a beanbag", ["beanbag"]],
@@ -5361,7 +5374,7 @@ const NMB_TEMPO_MS = 50;
 const NMB_HOLD_SHOWN = '[data-pose="hang"], [data-travel="climb"], .nm-buddy-dragging, .nmb-act-stretch, .nmb-act-yawn, .nmb-act-cheer, .nmb-act-wake, .nmb-act-startle';
 //: The long, still acts are rest, and paced as rest: a stance, a nap, a
 //: book, a seat. Full rate is for the short ones, where it is moving.
-const NMB_RESTING_ACTS = new Set(["lie", "read", "beanbag", "chair", "nap", "peek", "peekdown", ...Object.keys(NMB_STANCES)]);
+const NMB_RESTING_ACTS = new Set(["lie", "read", "beanbag", "chair", "nap", "peek", "peekdown", "meditate", ...Object.keys(NMB_STANCES)]);
 const nmbTempo = { timer: 0, anims: [], at: 0, seen: 0, clock: new WeakMap(), slow: new WeakSet(), ticks: 0 };
 function nameMarkBuddyTempo() {
   nmbTempo.timer = 0;
@@ -7326,7 +7339,7 @@ function nameMarkBuddyVary(buddy, act = "", ms = 1200) {
 //: out of one takes (the CSS's slow transition, plus the prop's delay).
 const NMB_SCENE_ACTS = ["lie", "read", "beanbag", "chair", "facepalm", "shrug"];
 //: Where a manner's lean or give would show wrong (see `nameMarkBuddyVary`).
-const NMB_MANNER_STILL = new Set(["peek", "peekdown", "peekback", "emerge", "hide", "dangle", "onehand", "swing", "sloth", ...NMB_SCENE_ACTS]);
+const NMB_MANNER_STILL = new Set(["peek", "peekdown", "peekback", "emerge", "hide", "dangle", "onehand", "swing", "sloth", "meditate", ...NMB_SCENE_ACTS]);
 const NMB_UNWIND_MS = 1300;
 //: Its props: a still drawing behind it (the beanbag, the chair, the
 //: pillow) and one in front (the book), in its 64 by 92 box and scaled
@@ -7594,6 +7607,7 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
     //: A stance is Atlas's, in the look it was drawn for.
     const stance = NMB_STANCES[act];
     if (stance && (!nmb.atlasLook || nmb.atlasLook !== stance.look)) w = 0;
+    if (spec.atlas && !nmb.atlasLook) w = 0;
     if (!NMB_QUIET_ACTS.includes(act)) w *= { off: 0, fewer: nmb.visit ? 1 : 0.33, normal: 1 }[actions] ?? 0.33;
     if (w > 0) {
       pool.push([act, w]);

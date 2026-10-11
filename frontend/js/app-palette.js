@@ -766,3 +766,21 @@ function notesPaletteCommands(query = "") {
   }
   return rows;
 }
+
+//: The note the palette was opened over: the phone's note page, the inline
+//: edit, the batch selection, or the row that had the focus.
+function paletteNotesInHand() {
+  if (selectMode && selectedIds.size) return [...selectedIds];
+  const row = overlayReturnFocus?.closest?.("#entry-list li[data-id]");
+  const id = notePageOpenId || editingId || Number(row?.dataset.id);
+  return id ? [Number(id)] : [];
+}
+
+//: The sidebar's own row is pressed, so the filter is the one a tap on it
+//: sets (and on a phone the drawer stays shut). The last match, since "All"
+//: comes first and a category may share its name.
+async function paletteGoToCategory(name) {
+  await switchTab("notes");
+  const rows = [...$("category-list").children].filter((li) => li.querySelector(".category-name")?.title === name);
+  rows.pop()?.click();
+}

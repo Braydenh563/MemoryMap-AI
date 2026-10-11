@@ -144,3 +144,116 @@ document.addEventListener(
   },
   true
 );
+
+function sketchStart(event) {
+  sketchDrawing = true;
+  sketchDirty = true;
+  sketchMoved = false;
+  const { x, y } = sketchPointer(event);
+  sketchStartX = x;
+  sketchStartY = y;
+  
+  if (sketchTool === "text") {
+    const text = prompt("Enter text:");
+    if (text) {
+      sketchSaveSnapshot();
+      const context = sketchContext();
+      context.font = `${sketchPen.size * 6}px sans-serif`;
+      context.fillStyle = sketchPen.color;
+      context.fillText(text, x, y);
+    }
+    sketchDrawing = false;
+    return;
+  }
+
+  sketchSaveSnapshot();
+  const context = sketchContext();
+  // The highlighter keeps its own polyline (see `sketchPaintHighlighter`):
+  // the points are this stroke's, so they are cleared at the start of every
+  // stroke rather than when the tool changes.
+  sketchStrokePoints = sketchTool === "highlighter" ? [{ x, y }] : [];
+  if (sketchTool === "pen") {
+    context.beginPath();
+    context.moveTo(x, y);
+  }
+  event.target.setPointerCapture(event.pointerId);
+}
+
+function sketchMove(event) {
+  if (!sketchDrawing) return;
+  const { x, y } = sketchPointer(event);
+  const context = sketchContext();
+  if (x === sketchStartX && y === sketchStartY) return;
+  sketchMoved = true;
+  
+  //: The highlighter is painted whole, from the snapshot up, every frame:
+  //: see `sketchPaintHighlighter` for why it cannot be drawn a segment at a
+  //: time. Everything below this is the per-segment path the pen and the
+  //: shapes use.
+  if (sketchTool === "highlighter") {
+    sketchStrokePoints.push({ x, y });
+    sketchPaintHighlighter(context);
+    return;
+  }
+
+  if (sketchTool !== "pen") {
+    const last = sketchHistory[sketchHistory.length - 1];
+    if (last) context.putImageData(last, 0, 0);
+    else context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+  }
+
+  sketchApplyBrush(context);
+
+  if (sketchTool === "pen") {
+    context.lineTo(x, y);
+    context.stroke();
+    //: A fresh single-segment path per move, so a hundred-point stroke does
+    //: not re-composite its first segment a hundred times. Harmless at the
+    //: pen's full opacity and load-bearing for anything translucent, which
+    //: is why the highlighter was here once and is not any more: one segment
+    //: drawn once is still not one *stroke* drawn once, and the overlap at
+    //: each joint is what `sketchPaintHighlighter` exists to remove.
+    context.beginPath();
+    context.moveTo(x, y);
+  } else if (sketchTool === "line") {
+    context.beginPath();
+    context.moveTo(sketchStartX, sketchStartY);
+    context.lineTo(x, y);
+    context.stroke();
+  } else if (sketchTool === "rect") {
+    // Shift locks proportions: a square instead of whatever rectangle the
+    // pointer happens to trace, the same convention every other drawing
+    // tool uses, asked for directly. `circ` needs no equivalent: it has
+    // always drawn from a single radius (`context.arc`), never width/height
+    // independently, so it was already a perfect circle with no ellipse
+    // mode to lock out of.
+    let w = x - sketchStartX;
+    let h = y - sketchStartY;
+    if (event.shiftKey) {
+      const side = Math.max(Math.abs(w), Math.abs(h));
+      w = Math.sign(w || 1) * side;
+      h = Math.sign(h || 1) * side;
+    }
+    context.beginPath();
+    context.rect(sketchStartX, sketchStartY, w, h);
+    context.stroke();
+  } else if (sketchTool === "circ") {
+    context.beginPath();
+    const r = Math.sqrt(Math.pow(x - sketchStartX, 2) + Math.pow(y - sketchStartY, 2));
+    context.arc(sketchStartX, sketchStartY, r, 0, 2 * Math.PI);
+    context.stroke();
+  } else if (sketchTool === "arrow") {
+    context.beginPath();
+    context.moveTo(sketchStartX, sketchStartY);
+    context.lineTo(x, y);
+    context.stroke();
+    const angle = Math.atan2(y - sketchStartY, x - sketchStartX);
+    const headLen = sketchPen.size * 3 + 5;
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineTo(x - headLen * Math.cos(angle - Math.PI / 6), y - headLen * Math.sin(angle - Math.PI / 6));
+    context.moveTo(x, y);
+    context.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), y - headLen * Math.sin(angle + Math.PI / 6));
+    context.stroke();
+  }
+}

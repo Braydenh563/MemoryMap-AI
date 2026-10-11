@@ -2003,3 +2003,11 @@ function codeScanner(family) {
   codeScanners.set(family, scanner);
   return scanner;
 }
+
+//: Which family a filename is in. Extension only: content sniffing guesses
+//: wrong on short files and there is nothing to gain: a file this app can
+//: view arrived with a suffix it recognised (`docview.CODE_SUFFIXES`).
+function codeFamilyFor(filename) {
+  const suffix = /\.([a-z0-9]+)$/i.exec(String(filename || ""));
+  return CODE_LANGUAGES[(suffix?.[1] || "").toLowerCase()] || "generic";
+}

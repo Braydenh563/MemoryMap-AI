@@ -4740,18 +4740,6 @@ function paintJobLine(el) {
   setLabel(el, line.text);
 }
 
-// A line for code that builds its control at runtime. Painted at once from
-// what is already known, and a refresh is asked for.
-function jobLineEl(kind) {
-  const el = document.createElement("p");
-  el.className = "status job-line";
-  el.setAttribute("role", "status");
-  el.dataset.jobLine = kind;
-  paintJobLine(el);
-  refreshJobRuns();
-  return el;
-}
-
 async function refreshJobRuns() {
   //: Not while locked: the 2 s poll outlived a lock and was refused with a
   //: 401 once or twice per lock (OPEN, forgotpw-1006). `lockNow` drops the

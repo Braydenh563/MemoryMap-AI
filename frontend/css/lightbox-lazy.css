@@ -1,0 +1,62 @@
+/* lightbox-lazy.css: the file viewer's editing textarea and HTML preview
+   frame, loaded with lightbox-view.js (app.js `LAZY_MODULES.lightbox`) rather
+   than at boot, for the gzip budget (tests/test_boot_budget.py). */
+
+/* Editing a text file in the lightbox (REDESIGN.md §R7.1 item 2). It stands
+   in for `.lightbox-doc-body`, so it takes the same box: same padding, same
+   scrolling, same width. Monospaced because everything editable here is
+   either code or plain text, and a proportional font hides the alignment
+   that is most of what makes those readable. */
+.lightbox-doc-edit {
+  width: 100%;
+  /* A definite height, not `flex: 1 1 auto`: `.lightbox-doc` is a plain
+     scrolling block (max-height 74vh, overflow auto), so a flexible textarea
+     has nothing to flex against and sizes to its own rows, measured at 52px
+     for a three-line file, with its own scrollbar inside that. 60vh sits
+     inside the panel's own 74vh less its padding. Editing and the PDF split
+     never coexist (a PDF is never editable), so this needs no grid case. */
+  height: 60vh;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  resize: none;
+  overflow: auto;
+}
+/* The HTML preview pane (REDESIGN.md §R7.1 item 4). Same box as
+   `.lightbox-doc-edit` beside it, and for the same reason: `.lightbox-doc` is
+   a scrolling block rather than a flex column, so a definite height is what
+   makes this fill the panel instead of collapsing to a default iframe's
+   150px. White ground on purpose, a page written to be read on white must
+   not be given this app's dark surface and left with black text on it. */
+.lightbox-doc-frame {
+  width: 100%;
+  height: 60vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+/* Syntax highlighting in the file viewer (REDESIGN.md §R7.1 item 3).
+   Existing semantic tokens rather than a new syntax palette: each already
+   carries a light and a dark value, so the code follows the theme without a
+   second set of colours to keep in step, and `tests/test_style_scale.py` has
+   nothing new to police. Comments recede, strings and numbers separate from
+   identifiers, keywords carry the structure. */
+.lightbox-doc-pre .tok-comment {
+  color: var(--muted);
+  font-style: italic;
+}
+.lightbox-doc-pre .tok-string {
+  color: var(--ok);
+}
+.lightbox-doc-pre .tok-number {
+  color: var(--warn);
+}
+.lightbox-doc-pre .tok-keyword {
+  color: var(--syntax-keyword);
+  font-weight: 600;
+}

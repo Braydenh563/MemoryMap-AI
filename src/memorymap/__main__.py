@@ -967,6 +967,7 @@ def _boot_and_swap(window) -> None:
     window's whole lifecycle rather than opening a second one and tearing
     down the first: simpler, and no flicker from a close/reopen.
     """
+    _close_launch_splash()  # idempotent backstop if the shown event never fired
     os.environ["MEMORYMAP_DESKTOP"] = "1"
     # The port was chosen and the lock claimed by `_claim_notebook`, before
     # this window existed; the focus handler is how a second launch brings
@@ -1846,11 +1847,15 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     # The handoff from start.bat's splash to this window. create_window has
     # returned, so this window is the one the user is about to be looking at;
     # the splash's job is over the moment it is.
+    # Both splashes close when the loading window is really on screen (the
+    # `shown` event), so there is one continuous splash with no bare gap
+    # while the web view starts; without window events, now.
     try:
         window.events.shown += _close_bootloader_splash
+        window.events.shown += _close_launch_splash
     except AttributeError:  # an older pywebview without window events
         _close_bootloader_splash()
-    _close_launch_splash()
+        _close_launch_splash()
     # `private_mode` defaults to True in pywebview, which throws away
     # localStorage and cookies when the window closes. The browser build keeps
     # a great deal in localStorage, the theme and every appearance key, the

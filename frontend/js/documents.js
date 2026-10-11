@@ -21622,3 +21622,10 @@ function calloutMenuItems(current, fold, apply) {
   }
   return items;
 }
+
+//: What an empty callout body says until something is written in it.
+function calloutHint(kind) {
+  const own = { todo: "Write the task", toggle: "Write what folds away", success: "Write what worked", failure: "Write what failed" };
+  const meta = CALLOUT_KINDS[kind];
+  return own[kind] || `Write the ${meta ? meta.label.toLowerCase() : "note"}`;
+}

@@ -703,3 +703,15 @@ function inboxLinkRow(s, rowReasons) {
   if (sigs.length) row.appendChild(inboxWhy(sigs));
   return row;
 }
+
+// A line for code that builds its control at runtime. Painted at once from
+// what is already known, and a refresh is asked for.
+function jobLineEl(kind) {
+  const el = document.createElement("p");
+  el.className = "status job-line";
+  el.setAttribute("role", "status");
+  el.dataset.jobLine = kind;
+  paintJobLine(el);
+  refreshJobRuns();
+  return el;
+}

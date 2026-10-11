@@ -114,9 +114,11 @@ _BOILERPLATE = re.compile(
     r"page \d+ of \d+|scanned with \w+|thank you for shopping[^.\n]*|\babn[\d ]+|\bcaptured\b",
     re.IGNORECASE,
 )
-_IMAGE = re.compile(r"!\[[^\]\n]*\]\([^)\n]*\)")
-_LINK = re.compile(r"\[([^\]\n]*)\]\([^)\n]*\)")
-_QUOTED = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”")
+#: The bracket and paren runs exclude their own openers, so a run of "[" or
+#: "(" cannot make each start rescan the line (linear, not polynomial).
+_IMAGE = re.compile(r"!\[[^\[\]\n]*\]\([^()\n]*\)")
+_LINK = re.compile(r"\[([^\[\]\n]*)\]\([^()\n]*\)")
+_QUOTED = re.compile(r"\"[^\"\n]*\"|“[^“”\n]*”")
 _BLOCKQUOTE = re.compile(r"^\s*>.*$", re.MULTILINE)
 
 

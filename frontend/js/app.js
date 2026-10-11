@@ -1705,8 +1705,6 @@ function wireBackdropClose(overlay, close, alsoBackdrop = "") {
 }
 
 function smallButton(label, title, onClick, ghost = true) {
-  // (Wave I) icon-only buttons need a name for screen readers, the
-  // title doubles as one.
   const button = document.createElement("button");
   button.className = ghost ? "ghost small" : "small";
   setLabel(button, label);
@@ -1719,7 +1717,8 @@ function smallButton(label, title, onClick, ghost = true) {
     button.classList.add("icon-only");
   }
   button.title = title;
-  if (title) button.setAttribute("aria-label", title);
+  //: The title names a glyph only; words name themselves (WCAG 2.5.3).
+  if (title && button.classList.contains("icon-only")) button.setAttribute("aria-label", title);
   button.addEventListener("click", onClick);
   return button;
 }

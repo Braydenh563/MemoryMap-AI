@@ -70,8 +70,9 @@ MORE_TOPICS: list[dict] = [
             "it is used everywhere Atlas appears, the dashboard mark and the "
             "chat's replies included. Assistant avatar, in the same place, swaps "
             "the face on the assistant's chat replies, the popup agent and the "
-            "guide between Atlas and the app's animated emblem (it stays still "
-            "under Reduce motion); other personas keep their own faces. "
+            "guide between Atlas and the app's animated emblem (it holds still "
+            "under Reduce motion or with Interface animations off); other "
+            "personas keep their own faces. "
             "Atlas's face follows the app's mood: "
             "thinking while an answer runs, happy when it lands, worried at an "
             "error, sleepy late at night. Enlarge, in the companion's menu or "
@@ -512,7 +513,8 @@ MORE_TOPICS: list[dict] = [
             "build a scheme", "border style", "shadow", "interface animations",
         ),
         "body": (
-            "Settings, Appearance. Themes: save and switch your own. Theme & "
+            "Settings, Appearance. Themes: hover a theme to see it on the whole app, "
+            "press Surprise me for a random one, save and switch your own. Theme & "
             "colour: Palette, Mode (light, dark or system), Accent colour or a "
             "custom one (a colour a button's words cannot be read on is "
             "offered at the nearest shade that can), Page background, and "
@@ -2027,7 +2029,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "privacy", "security", "encryption", "lock", "phone", "lan-networks", "two-computers", "delete-data", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
     )),
     ("Settings and support", (
-        "profile", "general-settings", "updates", "logs", "troubleshooting",
+        "profile", "general-settings", "updates", "logs", "troubleshooting", "credits",
     )),
 ]
 
@@ -2342,3 +2344,21 @@ MORE_TOPICS.append({
 })
 TOPIC_META["autocorrect"] = {"title": "Autocorrect", "path": "Settings, General, Writing", "target": "pref-autocorrect"}
 
+
+#: The credits (uiset, 2026-10-11): Settings, Help, Credits, drawn from
+#: frontend/credits.json, which scripts/build_credits.py writes from THIRD_PARTY.md.
+MORE_TOPICS.append({
+    "id": "credits",
+    "keywords": (
+        "credits", "open source", "libraries", "third party", "third-party",
+        "attribution", "built with", "what is it built on", "licences", "licenses",
+    ),
+    "body": (
+        "Settings, Help, Credits lists the libraries and data MemoryMap is "
+        "built on, each with its licence and a link to its source: the ones in "
+        "the server, the ones in the app, the optional downloads and the "
+        "whiteboard's shapes. MemoryMap itself is AGPL-3.0."
+    ),
+    "badge": {"label": "Help", "section": "help", "target": "credits-fold"},
+})
+TOPIC_META["credits"] = {"title": "Credits and licences", "path": "Settings, Help, Credits", "target": "credits-fold"}

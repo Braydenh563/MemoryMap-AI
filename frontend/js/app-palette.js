@@ -438,7 +438,7 @@ function paletteVocab(rows) {
 //: is in half the app's descriptions.
 function paletteRanked(rows, lowered) {
   const words = paletteWords(lowered);
-  const picks = palettePicks()[lowered] || {};
+  const picks = palettePrefixPicks(lowered);
   const things = meaningAlts(lowered, paletteVocab(rows));
   const scored = [];
   let loose = 0;
@@ -462,6 +462,21 @@ function paletteRanked(rows, lowered) {
 //: prefs module, the 80 most recent queries, each the counts of what was run.
 function palettePicks() {
   return prefs.json("palette-picks", {});
+}
+
+//: **Prefixes count too, at half weight** (OPEN, the palette row:
+//: "Raycast also learns prefixes"; the recommendation taken): "se" lifts
+//: what was run for "settings", below what was run for "se" itself. Two
+//: letters at least, so one letter does not reorder everything.
+function palettePrefixPicks(typed) {
+  const all = palettePicks();
+  const out = { ...(all[typed] || {}) };
+  if (typed.length < 2) return out;
+  for (const [query, counts] of Object.entries(all)) {
+    if (query === typed || !query.startsWith(typed)) continue;
+    for (const [name, n] of Object.entries(counts)) out[name] = (out[name] || 0) + n / 2;
+  }
+  return out;
 }
 
 function palettePick(typed, name) {

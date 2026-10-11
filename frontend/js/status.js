@@ -722,27 +722,156 @@ function renderAgentActivityMode() {
 // already been read is just something left to wait out otherwise, the
 // timer clears when this fires, so a stray late setTimeout can't reach for
 // a note the click already removed.
-//: **Toasts stack smoothly** (the motion pass, 2026-10-05): a toast arriving
-//: or leaving moves the others, and they slide there by `translate` over
-//: `--ui-base` from where they were (measured, changed, played back) rather
-//: than jumping a toast's height between two frames. Interface animations
-//: off makes `--ui-base` 0 and they jump.
+//: **One stack in the corner** (the owner 2026-10-11: "lots of the same
+//: notifcations dont neatly stack when they appear fast in the corner").
+//: Measured before: ten identical toasts in 500 ms drew six cards (a 400 ms
+//: repeat guard let every other one through), each slid in on its own
+//: keyframe while the others slid by `translate`, so a card arriving at the
+//: corner crossed the one it pushed away for about 120 ms.
+//: The rules, each held by tests/test_toast_stack_1011.py and
+//: `scratchpad/ui-sweeps/toaststack.js`:
+//: - the same words of the same kind (and, with an action, the same action)
+//:   within `TOAST_MERGE_MS` are one card with a count ("×3"), its timer
+//:   restarted; an Undo merges only with the same Undo, never another's;
+//: - the newest is nearest the corner (the bottom on a desktop, the top
+//:   below 1100 where the box hangs from the header), the gap is the box's
+//:   `--space-2`;
+//: - positions come from the stack: measured, changed, played back by
+//:   `translate` (FLIP), and an arrival rides in by the same distance the
+//:   others move, on the same curve, so two cards never cross;
+//: - three show; the rest fold into one "+N more" card that opens the bell,
+//:   and a folded notice is written to the bell so it is not lost;
+//: - reduced motion fades and never slides; interface animations off jumps.
+const TOAST_MERGE_MS = 4000;
+const TOAST_VISIBLE = 3;
+let toastBorn = 0;
+
+function toastAtTop(box) {
+  return box.getBoundingClientRect().top < window.innerHeight / 2;
+}
+
+function toastLive(box) {
+  return [...box.children]
+    //: Only cards `toastMark` stamped: the server-down banner and the
+    //: semantic notice stay up whatever arrives after them.
+    .filter((t) => t.toastBorn && !t.classList.contains("is-leaving"))
+    .sort((a, b) => (b.toastBorn || 0) - (a.toastBorn || 0));
+}
+
+//: Folds all but the newest `TOAST_VISIBLE` into one "+N more" card at the
+//: far end of the stack, away from the corner.
+function toastLayout(box) {
+  const live = toastLive(box);
+  const folded = live.slice(TOAST_VISIBLE);
+  for (const t of live) t.classList.toggle("is-folded", folded.includes(t));
+  for (const t of folded) {
+    if (t.toastKept || t.toastFiled) continue;
+    t.toastFiled = true;
+    recordNotification({ kind: t.classList.contains("error") ? "error" : "done", title: t.toastText || t.textContent.trim() });
+  }
+  let more = box.querySelector(":scope > .toast-more");
+  if (!folded.length) {
+    more?.remove();
+    return;
+  }
+  if (!more) {
+    more = document.createElement("div");
+    more.className = "toast toast-more";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "ghost small toast-more-open";
+    open.addEventListener("click", () => $("notif-btn")?.click());
+    more.append(open);
+  }
+  const open = more.firstElementChild;
+  open.textContent = `+${folded.length} more`;
+  open.title = "Open the notifications";
+  open.setAttribute("aria-label", `${folded.length} more notifications. Open the notifications`);
+  if (toastAtTop(box)) box.append(more);
+  else box.prepend(more);
+}
+
+//: The same notice again: the card it is already on counts it and starts its
+//: time again. Returns whether it merged.
+function toastMerge(box, key, act = null) {
+  const now = Date.now();
+  const same = [...box.children].find((t) => t.toastKey === key && t.toastAct === act && !t.classList.contains("is-leaving") && now - t.toastAt < TOAST_MERGE_MS);
+  if (!same) return false;
+  same.toastAt = now;
+  same.toastCount = (same.toastCount || 1) + 1;
+  const msg = same.querySelector(":scope > .toast-msg");
+  let badge = msg?.querySelector(":scope > .toast-count");
+  if (msg && !badge) {
+    badge = document.createElement("span");
+    badge.className = "toast-count";
+    msg.append(badge);
+  }
+  if (badge) {
+    badge.textContent = `×${same.toastCount}`;
+    badge.setAttribute("aria-label", `${same.toastCount} times`);
+  }
+  if (same.toastLife) {
+    clearTimeout(same.toastTimer);
+    same.toastTimer = setTimeout(() => dismissToast(same), same.toastLife);
+  }
+  return true;
+}
+
+//: Stamps a card for the stack: when it was born, what merges with it, how
+//: long it lives.
+function toastMark(note, key, { act = null, life = 0, text = "" } = {}) {
+  note.toastBorn = ++toastBorn;
+  note.toastKey = key;
+  note.toastAct = act;
+  note.toastAt = Date.now();
+  note.toastLife = life;
+  note.toastText = text;
+}
+
+//: Reduced motion (the system's, or Appearance's Reduce motion) keeps the
+//: fades, which are the polish set's and follow Interface animations, but
+//: never slides the stack (the owner 2026-10-11).
+function toastReduced() {
+  return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
+    || document.documentElement.dataset.motion === "reduced";
+}
+
 function toastStack(box, change) {
-  const was = [...box.children].map((t) => [t, t.getBoundingClientRect().top]);
+  if (!box) return change();
+  const shown = (t) => t.getClientRects().length > 0;
+  const was = new Map([...box.children].filter(shown).map((t) => [t, t.getBoundingClientRect().top]));
+  const before = new Set(box.children);
   change();
+  const top = toastAtTop(box);
+  //: Newest nearest the corner: a card the caller appended goes first when
+  //: the stack hangs from the top.
+  for (const t of [...box.children]) if (!before.has(t) && top) box.prepend(t);
+  toastLayout(box);
   const cs = getComputedStyle(box);
   const ms = parseFloat(cs.getPropertyValue("--ui-base")) * 1000;
-  for (const [t, top] of ms ? was : []) {
-    const dy = top - t.getBoundingClientRect().top;
-    if (dy && t.isConnected) t.animate([{ translate: `0 ${dy}px` }, { translate: "0 0" }], { duration: ms, easing: cs.getPropertyValue("--ease-out") });
+  if (!ms || toastReduced()) return;
+  const ease = cs.getPropertyValue("--ease-out");
+  let shift = 0;
+  for (const [t, at] of was) {
+    if (!t.isConnected || !shown(t)) continue;
+    const dy = at - t.getBoundingClientRect().top;
+    if (!dy) continue;
+    shift = dy;
+    t.animate([{ translate: `0 ${dy}px` }, { translate: "0 0" }], { duration: ms, easing: ease });
+  }
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const step = (parseFloat(cs.getPropertyValue("--space-4")) || 1) * rem * (top ? -1 : 1);
+  for (const t of box.children) {
+    if (was.has(t) || !shown(t) || t.classList.contains("toast-more")) continue;
+    t.animate([{ translate: `0 ${shift || step}px` }, { translate: "0 0" }], { duration: ms, easing: ease });
   }
 }
 
-//: **A toast leaves the way it came** (INBOX 399 (4)): it fades and drops
-//: 4px on the same curve it arrived on (`.toast.is-leaving`,
-//: 01-forms-settings.css) rather than vanishing between two frames, which
-//: read as the corner of the window glitching. Removed on `animationend`, with
-//: a timer behind it for the case where no animation runs at all.
+//: **A toast leaves in place** (INBOX 399 (4)): it fades and shrinks on the
+//: exit curve (`.toast.is-leaving`, 01-forms-settings.css) without moving,
+//: so it never crosses a neighbour, and the stack then closes the gap.
+//: Removed on `animationend`, with a timer behind it for the case where no
+//: animation runs at all.
 function dismissToast(note) {
   if (!note.isConnected || note.classList.contains("is-leaving")) return;
   note.classList.add("is-leaving");
@@ -876,8 +1005,10 @@ function plainHttpError(status, detail, fallback = "") {
   return "That did not work. Try again.";
 }
 
+//: One gesture that fires two handlers (CM6's dispatch and a DOM listener on
+//: one click) shows one notice: the same words in the same task are dropped.
+//: A repeat in a later task is a real repeat and merges with a count.
 let lastToastKey = "";
-let lastToastAt = 0;
 //: **An error toast is for a fault; a situation the app expects is a plain one**
 //: (the owner's end-to-end pass: Dictate without the voice add-on, Compress on
 //: an empty chat, Add on an empty reminder all showed red and "Report this",
@@ -921,11 +1052,13 @@ function toast(message, isError = false, { exempt = false, action = null } = {})
   }
   if (!exempt && !isError && notificationsMuted()) return;
   const key = `${isError ? "1" : "0"}:${message}`;
-  const now = Date.now();
-  if (key === lastToastKey && now - lastToastAt < 400) return;
+  if (key === lastToastKey) return;
   lastToastKey = key;
-  lastToastAt = now;
+  setTimeout(() => {
+    if (lastToastKey === key) lastToastKey = "";
+  }, 0);
   const box = toastHost();
+  if (toastMerge(box, key, action?.[1] || null)) return;
   //: An error makes the companion jump (avatars.js).
   if (isError && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("startle", "error");
   const note = document.createElement("div");
@@ -956,6 +1089,8 @@ function toast(message, isError = false, { exempt = false, action = null } = {})
     note.appendChild(toastActions(act, help));
   }
   const timer = setTimeout(() => dismissToast(note), isError ? 9000 : 5500);
+  toastMark(note, key, { act: action?.[1] || null, life: isError ? 9000 : 5500, text: String(message) });
+  note.toastTimer = timer;
   note.appendChild(toastCloseButton(note, timer));
   //: A tap on the words dismisses it, the way a phone's own banners go
   //: (below 1100 a toast comes down from the top, over the head of a list,
@@ -992,6 +1127,7 @@ function toastProgress(message) {
   text.className = "toast-msg";
   setLabel(text, `ph:spin ${message}`);
   note.append(text);
+  toastMark(note, null, { text: String(message) });
   toastStack(box, () => box.appendChild(note));
   return {
     say(next) {
@@ -1049,8 +1185,10 @@ function toastActionButton(note, label, run) {
 //: keeps the one action it always had. `ms` is how long it stays (8 s by
 //: default; a clear that can be undone passes 10 s).
 function toastAction(message, actionLabel, onAction, opts = {}) {
-  const run = keepToastAction(message, actionLabel, onAction, opts);
   const box = toastHost();
+  const key = `a:${message}:${actionLabel}`;
+  if (toastMerge(box, key, onAction)) return;
+  const run = keepToastAction(message, actionLabel, onAction, opts);
   const note = document.createElement("div");
   note.className = "toast";
   const text = document.createElement("span");
@@ -1062,6 +1200,8 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   const buttons = [toastActionButton(note, actionLabel, run)];
   if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
   note.append(text, toastActions(...buttons), toastCloseButton(note, note.toastTimer));
+  toastMark(note, key, { act: onAction, life: opts.sticky ? 0 : opts.ms || 8000, text: String(message) });
+  note.toastKept = true;
   toastStack(box, () => box.appendChild(note));
 }
 

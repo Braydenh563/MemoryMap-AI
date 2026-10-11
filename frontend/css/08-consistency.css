@@ -231,6 +231,26 @@
 .doc-dock-menu-list .menu-item.has-submenu {
   justify-content: space-between;
 }
+/* **A row's words end inside its padding, in every font** (the owner
+   2026-10-11, of the mono face: "there's some overflowing text in some
+   places"). The menu is capped at 24rem and the row is `nowrap`, so a long
+   label ran past the row's right padding and the menu's. The row and its
+   words may shrink; the words end in an ellipsis and `menuRowFits`
+   (sheets-selects.js) puts them whole in the row's title. */
+.menu-item,
+.menu-item > .menu-item-words {
+  min-width: 0;
+}
+.menu-item > .menu-item-words {
+  display: flex;
+  align-items: center;
+}
+.menu-item .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* Danger and unavailable are colour changes on the one row, not other rows.
    Restated at 0,3,0 because the shared rule above sets `color` at 0,2,0 and
    would otherwise put the ink colour back on "Move to bin". */
@@ -8463,10 +8483,9 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    **Smaller, never gone** (INBOX 426 h: "the one from the new chat interface
    is missing"). This used to hide the emblem, and a 1280x720 window is short
    (pane 304px, welcome 326px), so the laptop most people have never saw it.
-   The box is 2rem tall and the 52px canvas is centred in it and drawn at
-   32/52 with the `scale` property rather than `transform`, because
-   `transform` is what the turn animates (`canvas.emblem-spin`) and the two
-   would overwrite each other. Measured at 1280x720: welcome 210px to 250px,
+   The box is 2rem tall and the 52px mark is centred in it and drawn at
+   32/52 with the `scale` property rather than `transform`, so no animation
+   of the mark's own layers (`.emblem-art`) can overwrite it. Measured at 1280x720: welcome 210px to 250px,
    still inside the 304px pane. */
 .chat-empty.is-short {
   gap: var(--space-2);
@@ -8477,7 +8496,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   height: 2rem;
   margin-bottom: 0;
 }
-.chat-empty.is-short #chat-empty-emblem canvas {
+.chat-empty.is-short #chat-empty-emblem .emblem-art {
   scale: calc(32 / 52);
 }
 .chat-empty.is-short #chat-suggest {
@@ -10132,7 +10151,8 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    the ring lost 4px of its underside to the clip (focus-ring sweep,
    2026-10-11: 3.8 to 4.1px on the last rows of the page and of a widget). */
 .tab-page,
-.dash-body {
+.dash-body,
+.library-view-section {
   scroll-padding-block: var(--ring-room);
 }
 /* The Settings nav scrolls on its own and its last section button stood on

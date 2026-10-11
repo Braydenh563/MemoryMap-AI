@@ -2,10 +2,11 @@
 
 p5 (1 MB raw, 239 KB gzipped) was fetched after every load for the emblem,
 a still drawing turned by CSS; d3 (280 KB raw, 90 KB gzipped) was a blocking
-script in the head for two lazy surfaces. The emblem is a 2D canvas now
+script in the head for two lazy surfaces. The emblem became a 2D canvas
 (pixel-matched against the p5 sketch by
-`scratchpad/ui-sweeps/perf2-1005-emblem.js`), and d3 is the first file of the
-two bundles that use it.
+`scratchpad/ui-sweeps/perf2-1005-emblem.js`), and since the tessellation mark
+(2026-10-11) it is a few SVG layers; d3 is the first file of the two bundles
+that use it.
 """
 
 from __future__ import annotations
@@ -48,13 +49,6 @@ def test_the_emblem_needs_no_p5():
     body = _function(shell, "renderEmblem")
     code = "\n".join(line for line in body.splitlines() if not line.lstrip().startswith("//"))
     assert "p5" not in code and "ensureP5" not in code
-    assert 'getContext("2d")' in code
+    assert "emblemArt(" in code
     avatar = (JS / "assistant-avatar.js").read_text(encoding="utf-8")
-    assert "ensureP5" not in _function(avatar, "assistantEmblemShot")
-
-
-def test_the_layout_is_p5s_own_generator():
-    """Same seed, same nodes: p5's LCG constants."""
-    shell = (JS / "phone-shell.js").read_text(encoding="utf-8")
-    body = _function(shell, "emblemRandom")
-    assert "1664525" in body and "1013904223" in body and "4294967296" in body
+    assert "ensureP5" not in _function(avatar, "assistantEmblemInto")

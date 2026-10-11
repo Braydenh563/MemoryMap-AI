@@ -334,6 +334,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   await ensureModule("settingsUi");
   //: Settings, Help's topics, from the Guide's own table (settings-find.js).
   if (typeof renderHelpTopics === "function") renderHelpTopics();
+  if (typeof renderCredits === "function") renderCredits();
   showSettingsSection(section);
   // Re-read every open, not cached: the panel shows what the *currently
   // selected* model recommends, and changing the chat model is the most likely
@@ -927,12 +928,29 @@ function scrollLogToBottom() {
 // Shared by both views: the empty state, the "N hidden by filters" note, and
 // the copy-button label all describe the filtered set, not how it is drawn.
 function renderLogSharedUI(visibleCount) {
-  $("logs-empty").classList.toggle("hidden", logRecords.length > 0);
-  // "Nothing matches" and "nothing happened" are different answers, and only
-  // the first one is fixed by changing the filter.
+  //: The empty state recipe (Library, Bookmarks): shown instead of an empty
+  //: bar, in place of the list and the terminal. "Nothing matches" and
+  //: "nothing happened" are different answers, and only the first one is
+  //: fixed by changing the filter.
+  const none = visibleCount === 0;
   const hiddenCount = logRecords.length - visibleCount;
+  $("log-list").classList.toggle("log-none", none);
+  $("log-terminal").classList.toggle("log-none", none);
+  $("logs-empty").classList.toggle("hidden", !none);
+  if (none) {
+    const nothing = logRecords.length === 0;
+    $("logs-empty-title").textContent = nothing
+      ? "No log records yet"
+      : logFilterFromRun ? "This job wrote no log lines" : "No log lines match";
+    $("logs-empty-text").textContent = nothing
+      ? "Records appear here as the app runs."
+      : logFilterFromRun
+        ? "Only runs since the app last started write lines here. Clear the filters to see every record."
+        : "Nothing fits the filters above.";
+    $("logs-empty-clear").classList.toggle("hidden", nothing);
+  }
   const filtered = $("logs-filtered-out");
-  if (hiddenCount > 0) {
+  if (hiddenCount > 0 && !none) {
     filtered.textContent = `${hiddenCount.toLocaleString()} record${hiddenCount === 1 ? "" : "s"} hidden by the filters above.`;
     filtered.classList.remove("hidden");
   } else {
@@ -1681,7 +1699,11 @@ function themeSwatch(preset) {
   return [set.page, set.accent];
 }
 
+//: A theme under the pointer in Settings (settings-controls.js previewTheme):
+//: read before the manual layer, because a click would clear that layer.
+let themePreview = "";
 function activeThemePreset() {
+  if (themePreview) return themePreview;
   //: No look chosen yet means the default look, not "no look": the default is
   //: a look like any other now (Quiet utilitarian), and theme-boot.js reads
   //: the same fallback so the first paint agrees.
@@ -1709,6 +1731,7 @@ function appearancePref(key, fallback) {
   // means forgetting it degrades to the caller's intent rather than to
   // "undefined".
   return (
+    (themePreview ? THEME_PRESETS[themePreview].values[key] : undefined) ??
     prefs.get(key, null) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key] ?? fallback
   );
 }
@@ -2493,6 +2516,7 @@ function renderThemePresets() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "theme-card";
+    button.dataset.preset = name;
     button.title = `Apply the ${preset.label} theme`;
     button.setAttribute("aria-pressed", String(name === active));
     const swatch = document.createElement("span");
@@ -3490,20 +3514,32 @@ $("log-requests").addEventListener("change", renderActiveLogView);
 //: model it names, else its label. A log line names what it worked on, not
 //: the sentence the row says, so the brackets are tried first.
 function taskLogButton(item) {
-  return smallButton("ph:scroll Logs", "Open the log, filtered to this task", () => openTaskLog(item));
+  return rowActions([{ label: "ph:scroll Logs", title: "Open the log, filtered to this run", run: () => openTaskLog(item) }], "Logs");
 }
 
 async function openTaskLog(item) {
   await openSettingsModal("logs");
   const filter = $("log-filter");
-  filter.value = /\(([^)]+)\)/.exec(item.label || "")?.[1] || item.name || item.label || "";
+  //: The run's id, which its log lines carry in brackets (jobruns.py), so the
+  //: lines shown are this run's. An older entry without one falls back to words.
+  logFilterFromRun = !!item.run_id;
+  filter.value = item.run_id ? `[${item.run_id}]` : /\(([^)]+)\)/.exec(item.label || "")?.[1] || item.name || item.label || "";
   filter.dispatchEvent(new Event("input"));
 }
 
 let logFilterDebounceTimeout;
-$("log-filter").addEventListener("input", () => {
+let logFilterFromRun = false;
+$("log-filter").addEventListener("input", (event) => {
+  if (event.isTrusted) logFilterFromRun = false;
   clearTimeout(logFilterDebounceTimeout);
   logFilterDebounceTimeout = setTimeout(renderActiveLogView, 150);
+});
+$("logs-empty-clear").addEventListener("click", () => {
+  logFilterFromRun = false;
+  $("log-filter").value = "";
+  $("log-level").value = "all";
+  $("log-source").value = "all";
+  renderActiveLogView();
 });
 $("logs-copy").addEventListener("click", copyLogs);
 $("logs-clear").addEventListener("click", clearLogs);
@@ -4717,6 +4753,13 @@ function jobLineEl(kind) {
 }
 
 async function refreshJobRuns() {
+  //: Not while locked: the 2 s poll outlived a lock and was refused with a
+  //: 401 once or twice per lock (OPEN, forgotpw-1006). `lockNow` drops the
+  //: token, so no token means no poll, and the timer is not re-armed.
+  if (!authToken()) {
+    clearTimeout(jobRunsTimer);
+    return;
+  }
   if (jobRunsInFlight) return;
   jobRunsInFlight = true;
   try {
@@ -4732,7 +4775,7 @@ async function refreshJobRuns() {
   for (const el of lines) paintJobLine(el);
   clearTimeout(jobRunsTimer);
   const running = lines.some((el) => el.offsetParent !== null && el.dataset.jobRunning === "1");
-  if (running) jobRunsTimer = setTimeout(refreshJobRuns, 2000);
+  if (running && authToken()) jobRunsTimer = setTimeout(refreshJobRuns, 2000);
 }
 
 // Settings → Background tasks → Background jobs: every kind in one column,
@@ -4741,7 +4784,9 @@ async function refreshJobRuns() {
 function renderJobOverview() {
   const list = $("job-runs-list");
   if (!list || !jobRunsList) return;
-  if (list.children.length === jobRunsList.length) return;
+  const reports = jobRunsList.map((run) => run.report || "").join();
+  if (list.children.length === jobRunsList.length && list.dataset.reports === reports) return;
+  list.dataset.reports = reports;
   list.replaceChildren();
   for (const run of jobRunsList) {
     const li = document.createElement("li");
@@ -4753,6 +4798,14 @@ function renderJobOverview() {
     line.dataset.jobLine = run.kind;
     line.dataset.jobBare = "1";
     li.append(name, line);
+    //: The last import's page of counts and skipped items (ledger 1406).
+    if (run.report) {
+      const page = smallButton("ph:file-text Report", `Open the report of the last ${run.label.toLowerCase()}`, async () => {
+        if (await ensureModule("appImport")) openImportReport(run.report);
+      });
+      page.classList.add("quiet");
+      li.append(page);
+    }
     //: A scheduled pass says when it runs and has Run now (INBOX 713, the
     //: owner: "is it possible to manually run them").
     if (run.can_run) {

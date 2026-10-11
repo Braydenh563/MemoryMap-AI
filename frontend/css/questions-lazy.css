@@ -90,3 +90,13 @@
   text-decoration: underline;
   text-underline-offset: 0.18em;
 }
+
+/* The empty state recipe (`.empty-state`, 02-chat-graph.css), as Recordings
+   uses it: the list owns the sub-tab, so the full block, centred, with room. */
+.questions-empty {
+  list-style: none;
+  min-height: 40vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+}

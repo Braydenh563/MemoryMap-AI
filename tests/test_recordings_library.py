@@ -209,3 +209,41 @@ def test_after_saving_the_dialog_shows_the_first_lines_and_open():
         assert "meetingShowSaved(" in JS.split(fn)[1].split("\n}\n")[0], fn
     shown = JS.split("function meetingShowSaved(")[1].split("\n}\n")[0]
     assert 'setMeetingState("done")' in shown and "MEETING_DONE_LINES" in shown
+
+
+CSS = (ROOT / "frontend/css/meetings-lazy.css").read_text(encoding="utf-8")
+
+
+def _rule(selector: str) -> str:
+    return CSS.split(selector + " {", 1)[1].split("}", 1)[0]
+
+
+def test_the_speed_opener_is_the_kebabs_height():
+    """The owner, 2026-10-11: "the audio speed dropdown doesnt fit the height
+    of the button next to it". Measured (rec.js, a seeded WAV): the opener
+    36.9px beside the 28px kebab at 1440; after, 28 and 28 at 1440, 44 and 44
+    at 390."""
+    rule = _rule(".recording-act .select-shell > .select-opener")
+    for part in ("height: var(--target-min)", "min-height: var(--target-min)", "padding-block: 0"):
+        assert part in rule
+
+
+def test_the_track_has_visible_round_corners():
+    """The owner, 2026-10-11: "can this audio track have curved corners??".
+    It had 2.4px of corner and a fill the card's own tint matched; now the
+    recorder's corner, the track tint, and bars kept off the corners (the
+    corner pixel measured transparent)."""
+    rule = _rule(".recording-wave")
+    assert "border-radius: var(--radius-md)" in rule and "background: var(--chip-bg)" in rule
+    paint = JS.split("function recordingPaint(")[1].split("\n}\n")[0]
+    assert "borderTopLeftRadius" in paint and "inset + i * bar" in paint
+
+
+def test_no_recordings_is_the_empty_state_recipe():
+    """The owner, 2026-10-11: "can you add like an icon or smth to this page
+    so it doesnt look so empty??". DESIGN.md: icon, title, one sentence, one
+    action; the action is the header's Record."""
+    body = JS.split("function recordingsEmpty(")[1].split("\n}\n")[0]
+    for part in ("empty-state recordings-empty", "empty-icon", "ph-microphone", "empty-title", "openVoiceNote()"):
+        assert part in body
+    assert "Nothing recorded yet" not in JS

@@ -1,25 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img"
-     aria-label="MemoryMap AI">
-  <title>MemoryMap AI</title>
+     aria-label="Tessellate">
+  <title>Tessellate</title>
   <!--
-    The same mark the app draws in-page (renderEmblem in app.js): a bright hub
-    with notes orbiting it, joined by links. Everything here is sized for 16px
-    first and then checked at 32 and 180 — a favicon is read at 16 far more
-    often than at any other size, and the previous version was designed at
-    100: dashed rings, 1px strokes and 3px dots that turned to grey mush in a
-    tab. Nothing below is thinner than about 1px once scaled down.
+    The mark (brief "logo", 2026-10-11): three hexagon cells of a
+    tessellation, two settled along the bottom and the third lifted above
+    them, turned 10 degrees and casting a shadow, about to settle into place.
+    The app draws the same geometry in-page and animates the landing
+    (renderEmblem in phone-shell.js, `EMBLEM_GEOMETRY`); the points below are
+    computed from those constants, and tests/test_brand_mark.py fails when
+    the two drift apart.
 
-    It also sits on a filled tile rather than on transparency. The old mark
-    used white nodes with no background, so on a light tab strip the brightest
-    parts of the logo simply weren't there.
+    Sized for 16px first and then checked at 32 and 180: a favicon is read
+    at 16 far more often than at any other size. So three solid cells and no
+    thin lines: each hexagon is a fill plus a same-colour stroke 7 wide with
+    round joins, which softens its corners and keeps every cell at least 4px
+    across in a tab. The opacity of each cell is on a wrapping <g>, never on
+    the fill and the stroke separately, or the stroke over the fill would
+    paint a brighter ring.
+
+    It sits on a filled tile rather than on transparency, so the white cells
+    still show on a light tab strip.
   -->
   <defs>
-    <!-- userSpaceOnUse across the whole 100x100 tile, so any shape filled
-         with this gradient samples the tile's colour at that spot rather
-         than restarting the gradient inside its own box. That is what lets
-         the hub ring below continue the background instead of sitting on it. -->
+    <!-- userSpaceOnUse across the whole 100x100 tile: the app's own
+         theme-color running into the accent it pairs with. -->
     <linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="100">
-      <!-- The app's own theme-color, running into the accent it pairs with. -->
       <stop offset="0%" stop-color="#5b7cff" />
       <stop offset="55%" stop-color="#4f6df5" />
       <stop offset="100%" stop-color="#a927d8" />
@@ -28,39 +33,29 @@
       <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
       <stop offset="60%" stop-color="#ffffff" stop-opacity="0" />
     </linearGradient>
+    <!-- The lifted cell's pearl: white into a pale violet, corner to corner. -->
+    <linearGradient id="pearl" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#c9b8ff" />
+    </linearGradient>
+    <filter id="lift" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#1a1060" flood-opacity="0.45" />
+    </filter>
   </defs>
 
   <rect width="100" height="100" rx="23" fill="url(#tile)" />
   <rect width="100" height="100" rx="23" fill="url(#sheen)" />
 
-  <!-- Spokes only, not every pentagon edge: ten crossing lines read as a
-       smudge below about 24px, five radiating ones still read as a map. -->
-  <g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" opacity="0.92">
-    <path d="M50 50 50 20" />
-    <path d="M50 50 78.5 40.7" />
-    <path d="M50 50 67.6 74.3" />
-    <path d="M50 50 32.4 74.3" />
-    <path d="M50 50 21.5 40.7" />
+  <!-- Kept inside a radius of 40 from centre (the farthest stroke edge is
+       about 36), so this same artwork survives Android's maskable safe zone;
+       see icon-maskable.svg. -->
+  <g opacity="0.95">
+    <polygon points="35.3,48.7 46.8,55.4 46.8,68.6 35.3,75.3 23.8,68.6 23.8,55.4" fill="#ffffff" stroke="#ffffff" stroke-width="7" stroke-linejoin="round" />
   </g>
-
-  <!-- The notes. Kept inside a radius of 40 from centre so this same artwork
-       survives Android's maskable safe zone — see icon-maskable.svg. -->
-  <g fill="#ffffff">
-    <circle cx="50" cy="20" r="7.5" />
-    <circle cx="78.5" cy="40.7" r="7.5" />
-    <circle cx="67.6" cy="74.3" r="7.5" />
-    <circle cx="32.4" cy="74.3" r="7.5" />
-    <circle cx="21.5" cy="40.7" r="7.5" />
+  <g opacity="0.7">
+    <polygon points="64.7,48.7 76.2,55.4 76.2,68.6 64.7,75.3 53.2,68.6 53.2,55.4" fill="#ffffff" stroke="#ffffff" stroke-width="7" stroke-linejoin="round" />
   </g>
-
-  <!-- Reported: "the splash logo and icon logo have a weird blue ring around
-       the middle circle and it doesnt continue the gradient like it should".
-       The ring was a flat #4f6df5 disc, the tile colour at one stop of its
-       gradient, so at the tile's centre (where the gradient has moved off
-       that value) it read as a blue washer on a purple field. Filled with the
-       tile gradient itself (user-space units, above) it vanishes into the
-       background; the separation the ring was for still exists because the
-       spokes stop short of the hub, and that gap is the ring. -->
-  <circle cx="50" cy="50" r="13" fill="url(#tile)" />
-  <circle cx="50" cy="50" r="9.5" fill="#ffffff" />
+  <g filter="url(#lift)">
+    <polygon points="57.3,18.4 67.5,27.0 65.2,40.0 52.7,44.6 42.5,36.0 44.8,23.0" fill="url(#pearl)" stroke="url(#pearl)" stroke-width="7" stroke-linejoin="round" />
+  </g>
 </svg>

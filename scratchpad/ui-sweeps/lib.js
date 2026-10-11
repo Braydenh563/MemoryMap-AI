@@ -65,6 +65,14 @@ async function boot(opts={}) {
       if (glass) localStorage.setItem('glass', glass);
     } catch (e) {}
   }, process.env.GLASS || '');
+  // FONT=mono (or any `#font-seg` value) sweeps that Appearance font, so
+  // touch.js, docks.js and every sweep on this boot can run the font matrix
+  // (fontmatrix.js) the way errors.js does.
+  await ctx.addInitScript((font) => {
+    try {
+      if (font) localStorage.setItem('font', font);
+    } catch (e) {}
+  }, process.env.FONT || '');
   await ctx.addInitScript((t) => {
     try {
       localStorage.setItem('theme', t);
@@ -92,6 +100,9 @@ async function boot(opts={}) {
     await ctx.route(`**/css/${name}*`, (route) => route.fulfill({ body, contentType: 'text/css' }));
   }
   const page = await ctx.newPage();
+  //: SLOW=1 (a loaded machine, load past 30): every wait and the boot get
+  //: four times as long, so a sweep measures rather than times out.
+  if (process.env.SLOW) page.setDefaultTimeout(120000);
   page.on('pageerror', e=>console.log('PAGEERROR:', e.message, '\n', (e.stack||'').split('\n').slice(0,6).join('\n')));
   page.on('console', m=>{ if(m.type()==='error') console.log('CONSOLE-ERR:', m.text().slice(0,160)); });
   //: `clock`: the page's clock starts there and runs on (quickadd.js's phrase
@@ -111,7 +122,7 @@ async function boot(opts={}) {
     const settled = !splash || splash.classList.contains('hidden');
     if (settled && overlay && overlay.classList.contains('hidden') && localStorage.getItem('token')) return 'app';
     return false;
-  }, null, {timeout:20000, polling:100})).jsonValue();
+  }, null, {timeout: process.env.SLOW ? 90000 : 20000, polling:100})).jsonValue();
   if (way === 'lock') {
     await page.fill('#lock-password', PW);
     await page.click('#lock-submit');

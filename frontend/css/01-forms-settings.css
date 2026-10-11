@@ -3025,7 +3025,7 @@ li.link-source {
   bottom: calc(var(--status-bar-h) + var(--space-3));
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
   z-index: 1050;
   /* The box spans the width below 1100px: only its toasts take clicks, so
      the strip beside a narrow toast does not eat clicks meant for the page. */
@@ -3043,7 +3043,7 @@ li.link-source {
   bottom: calc(var(--status-bar-h) + var(--space-3));
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
   pointer-events: none;
   z-index: 1;
 }
@@ -3084,19 +3084,39 @@ li.link-source {
   animation: toast-out var(--ui-exit) var(--ease-out) forwards;
   pointer-events: none;
 }
-/* From the edge it lives on (the bottom), a step rather than 4px, so the
-   arrival reads; the others make room by sliding (`toastStack`, status.js). */
+/* The fade is CSS; the travel is `toastStack` (status.js), which moves an
+   arrival by the distance the others move so no two cards cross. A card
+   leaves in place, fading and shrinking, and the stack closes the gap. */
 @keyframes toast-in {
   from {
     opacity: 0;
-    translate: 0 var(--space-4);
   }
 }
 @keyframes toast-out {
   to {
     opacity: 0;
-    translate: 0 var(--space-4);
+    scale: 0.96;
   }
+}
+/* Past three, the oldest fold into one "+N more" card (`toastLayout`). */
+.toast.is-folded {
+  display: none;
+}
+.toast.toast-more {
+  display: flex;
+  padding: var(--space-1);
+  border-left-width: 1px;
+}
+.toast-more > .toast-more-open {
+  flex: 1;
+  justify-content: flex-start;
+}
+/* The count on a notice that came again ("×3"), after its words. */
+.toast-msg > .toast-count {
+  margin-inline-start: var(--space-2);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 /* Ctrl+F on any tab except Documents (app.js). Docked under the header
    rather than centred, so it never sits on top of the exact content it is
@@ -6157,4 +6177,42 @@ select {
 }
 .recent-change-empty {
   list-style: none;
+}
+/* Settings, Help, Credits (`renderCredits`, settings-find.js): a row per
+   library, its name a link and its licence after it. */
+.credits-rows {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.credits-rows > li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+
+/* A Settings section fades in when its nav button shows it (ledger 1420): the
+   section is shown by dropping `.hidden`, so the animation restarts each time.
+   CSS only; Interface animations off and reduced motion zero it globally. */
+#settings-modal .settings-section:not(.hidden) {
+  animation: settings-pane-in var(--motion-slow) var(--ease-out);
+}
+@keyframes settings-pane-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* A finished job's Logs button sits at the row's right end, on the title line,
+   so it is at the same x on every row (the row-actions recipe). */
+#task-history .entry-meta > .row-actions {
+  margin-inline-start: auto;
+}
+/* No lines to show: the empty state takes the list's place, not an empty bar. */
+.log-none {
+  display: none;
 }

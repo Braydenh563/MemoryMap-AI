@@ -285,7 +285,10 @@ header#top-bar[data-scrolled="1"],
    no press. The transition is on the closed state only, so opening runs
    none (the grow above is an animation that starts late on purpose). A menu
    moved to the body goes home after the exit (`afterMenuExit`, menus.js),
-   because moving a node cancels a transition. */
+   because moving a node cancels a transition. A help popover leaves the
+   same way (motion-1005: "Help popovers close at once"); its placement and
+   its trip home wait for the exit (`wireHelpPopover`, menus.js). */
+.help-popover.hidden,
 .action-menu.hidden {
   opacity: 0;
   scale: 0.96;

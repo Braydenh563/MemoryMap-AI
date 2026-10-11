@@ -68,6 +68,12 @@ def save(data_dir: Path, report: dict) -> str:
     return report_id
 
 
+def latest(data_dir: Path) -> str:
+    """The newest kept report's id, or "" (the Background jobs Report button)."""
+    kept = sorted(folder(data_dir).glob("*.json")) if folder(data_dir).is_dir() else []
+    return kept[-1].stem if kept else ""
+
+
 def _inside(where: Path, report_id: str) -> Path:
     """The report's file, refused unless it resolves inside the reports folder
     (the id is checked by shape too; this is the check a path needs)."""

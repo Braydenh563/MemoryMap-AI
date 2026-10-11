@@ -34,6 +34,8 @@ import math
 import re
 from collections import Counter
 
+from memorymap.ai import spelling
+
 # --- 1. slang and text-speak ----------------------------------------------------
 
 #: Every entry a word people type for a longer one. Only words that are never
@@ -2097,11 +2099,20 @@ def _split(word: str) -> str | None:
     return None
 
 
-def repair(text: str, report: list | None = None) -> str:
+#: A comma with no space after it ("mindmap,a nd"): the space typed late.
+_COMMA_RUN = re.compile(r"(?<=[A-Za-z]),(?=[A-Za-z])")
+
+
+def repair(text: str, report: list | None = None, known=frozenset(), fixed: list | None = None) -> str:  # noqa: ANN001
     """Slang spelled out, asking words put right, run-together words split
-    and split words joined. The subject's words are left as typed. An unsure
-    repair is added to `report` as {"typed", "chosen", "alternative"}."""
-    tokens = strip_symbols(text).split(" ")
+    and split words joined, then every other misspelt word read as the word it
+    is near (`spelling`, Brief 90). `known` are words that are the person's
+    own (their notes' words), never changed; so are names, capitals and
+    anything with a digit. An unsure repair is added to `report` as
+    {"typed", "chosen", "alternative"}; every misspelling put right (not slang
+    spelled out) is added to `fixed` as (typed, chosen), which is what lets an
+    answer say how it read the question."""
+    tokens = spelling.rejoin(_COMMA_RUN.sub(", ", strip_symbols(text)).split(" "), known, SLANG.keys(), fixed)
     out: list[str] = []
     i = 0
     while i < len(tokens):
@@ -2117,30 +2128,55 @@ def repair(text: str, report: list | None = None) -> str:
             out.append(joined + nxt[len(nxt.rstrip("?!.,:;")):])
             i += 2
             continue
-        if low in SLANG and not (low in ("r", "y") and not _at_asking_place(out)):
+        if low in spelling.CONTRACTION_STEMS and word.islower() and nxt and low not in known:
+            out.append(spelling.CONTRACTION_STEMS[low] + tail)
+        elif low in SLANG and not (low in ("r", "y") and not _at_asking_place(out)):
             out.append(SLANG[low] + tail)
+            #: The table holds misspellings ("wehn") beside slang ("pls"): a
+            #: word one slip from its reading is a typo, and is said.
+            if fixed is not None and len(low) >= 3 and " " not in SLANG[low] and distance(low, SLANG[low]) <= 1.0:
+                fixed.append((word, SLANG[low]))
         elif _split(low):
             out.append(_split(low) + tail)
+            if fixed is not None:
+                fixed.append((word, _split(low)))
         else:
             after = nxt
             while after and not (after[-1].isalnum() or after[-1] == "_"):
                 after = after[:-1]
-            fixed = nearest(low, ASKING, after) if _at_asking_place(out) else None
+            #: A word the speller knows ("weird") is not a typo of "were".
+            spelt = (len(low) >= 4 and spelling.is_word(low, known, strict=True)) or (len(word) > 1 and word.isupper() and not text.isupper())
+            chosen = nearest(low, ASKING, after) if _at_asking_place(out) and not spelt else None
             #: Past the opening words only the long words that name a kind
             #: of question are repaired ("diffrence", "lastest"): a subject
             #: word near a small word ("slow", "show") is the subject.
             pool = ASKING
-            if not fixed and len(low) >= 6:
-                fixed, pool = nearest(low, KIND_WORDS, after), KIND_WORDS
-            if fixed and report is not None:
-                other = alternative(low, fixed, pool)
+            if not chosen and len(low) >= 6 and not spelt:
+                chosen, pool = nearest(low, KIND_WORDS, after), KIND_WORDS
+            if chosen and report is not None:
+                other = alternative(low, chosen, pool)
                 #: "hwo many" is how and "hwo asked" is who: the next word
                 #: settles it, and nothing is offered.
-                if {fixed, other} == {"how", "who"} and (after.lower() in _HOW_NEXT or after.lower().endswith("ed")):
+                if {chosen, other} == {"how", "who"} and (after.lower() in _HOW_NEXT or after.lower().endswith("ed")):
                     other = None
                 if other:
-                    report.append({"typed": word, "chosen": fixed, "alternative": other})
-            out.append((fixed + tail) if fixed else token)
+                    report.append({"typed": word, "chosen": chosen, "alternative": other})
+            if not chosen and word.isalpha() and not word.isupper() and (word.islower() or not out):
+                read = spelling.fix(
+                    low, after=after.lower(), before=out[-1].strip("?!.,:;") if out else "", known=known, distance=distance,
+                )
+                if read:
+                    chosen = read[0].capitalize() if word[0].isupper() else read[0]
+                    if report is not None and read[1]:
+                        report.append({"typed": word, "chosen": chosen, "alternative": read[1]})
+                    out.append(chosen + tail)
+                    if fixed is not None:
+                        fixed.append((word, chosen))
+                    i += 1
+                    continue
+            if chosen and fixed is not None and chosen.lower() != low:
+                fixed.append((word, chosen))
+            out.append((chosen + tail) if chosen else token)
         i += 1
     return " ".join(w for w in out if w)
 

@@ -76,7 +76,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from memorymap.ai import act_registry, composer_overview, composer_tables, grounding, question_noise, realise, utilities
+from memorymap.ai import act_registry, composer_ack, composer_overview, composer_tables, grounding, question_noise, realise, utilities
 from memorymap.ai import when as when_words
 from memorymap.search import query as query_understanding
 
@@ -315,6 +315,7 @@ PHRASES: dict[str, str] = {
 #: ordinary entries, so every closed-set check covers them.
 PHRASES.update(composer_tables.OVERVIEW_PHRASES)
 PHRASES.update(composer_tables.EXTRA_PHRASES)
+PHRASES.update(composer_ack.PHRASES)
 
 def phrase_options(key: str, voice: str | None = None) -> tuple[str, ...]:
     """Every wording of `key`: the original and the variants of `voice`, or of
@@ -461,7 +462,7 @@ def _respell(text: str) -> str:
     """Slang and text-speak spelled out, misspelt asking words put right,
     run-together words split (`question_noise`, INBOX 741: "does it cover
     any and ALL typos ... all slang like pls, ty, lol, u, r, wym")."""
-    return question_noise.repair(text)
+    return question_noise.repair(text, known=_KNOWN.get())
 
 
 def rephrase(question: str) -> str:
@@ -1544,6 +1545,9 @@ _SESSION: contextvars.ContextVar[str] = contextvars.ContextVar("composer_session
 #: `compose` for one answer: dismissed ones are not said, confirmed ones are
 #: said as their own word.
 _LEARNED: contextvars.ContextVar = contextvars.ContextVar("composer_learned", default=None)
+#: The words the notes under question hold: the person's own, so the speller
+#: never "corrects" a name or a term they wrote (`question_noise.repair`).
+_KNOWN: contextvars.ContextVar[frozenset] = contextvars.ContextVar("composer_known", default=frozenset())
 
 
 def _pick(question: str, salt: str, options: list[str]) -> str:
@@ -3736,7 +3740,8 @@ def compose(
         finally:
             _SESSION.reset(session)
         if helped:
-            return helped
+            return _acknowledged(helped, question, voice=composer_tables.DEFAULT_VOICE, seed=f"{question.strip().lower()}:{salt}:{turn}",
+                                 history=dialogue.history if dialogue else [{"answer": previous}], previous=previous)
         voice = composer_tables.DEFAULT_VOICE
     #: In a conversation (decision 34, 35): the turn and the chat's salt
     #: choose the wording, and a terse turn is read against the ones before.
@@ -3756,15 +3761,45 @@ def compose(
     token = _SESSION.set(f"{salt}:{turn}" if (salt or turn) else "")
     #: `learned`: what the person said of insights (`insights.memory`).
     known = _LEARNED.set(learned)
+    words = _note_words(notes)
+    owned = _KNOWN.set(words)
     try:
         result = _answer_turn(question, notes, today=today, recent=recent, embed=embed, said=said, previous=previous,
                               voice=voice, now=now, salt=salt, turn=turn, dialogue=dialogue, prefer=prefer)
+        result = _acknowledged(result, asked, voice=composer_tables.voice_of(voice), seed=f"{asked.strip().lower()}:{salt}:{turn}",
+                               history=dialogue.history if dialogue is not None else [{"answer": previous}], previous=previous, known=words)
     finally:
         _SESSION.reset(token)
         _LEARNED.reset(known)
+        _KNOWN.reset(owned)
     if dialogue is not None:
         dialogue.record(asked, result)
     return result
+
+
+def _note_words(notes: list[dict]) -> frozenset:
+    """The words of the notes the question is asked of, lower case."""
+    found: set[str] = set()
+    for note in notes or []:
+        found.update(re.findall(r"[a-z]{3,}", f"{note.get('title') or ''} {note.get('content') or ''}".lower()))
+    return frozenset(found)
+
+
+def _acknowledged(result: dict, asked: str, *, voice: str, seed: str, history: list[dict], previous: str = "",
+                  known: frozenset = frozenset()) -> dict:
+    """The answer, opened by how the question was read when it had a
+    misspelling put right (Brief 90: "hwo do I" read as "how do I"). The
+    wording varies (`composer_ack`): not the answer before's, not the last
+    acknowledgement made. A question that needed no repair, and a slang word
+    spelled out, are not acknowledged."""
+    if not result or not result.get("parts") or not (asked or "").strip():
+        return result
+    fixed: list[tuple[str, str]] = []
+    repaired = question_noise.repair(question_noise.tidy(" ".join(asked.split())), fixed=fixed, known=known)
+    if not fixed:
+        return result
+    parts = [*composer_ack.acknowledge(repaired, voice=voice, seed=seed, history=history, previous=previous), *result["parts"]]
+    return {**result, "parts": parts, "text": "".join(part[1] for part in parts)}
 
 
 def _answer_turn(question: str, notes: list[dict], **kwargs) -> dict:

@@ -333,6 +333,15 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the typos90 agent (Brief 90, the owner's typos as composer fixtures, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/typos90-1011.md`.
+
+- The Guide's no-model system answer (`help_chat.system_answer`) does not say "I took that to mean"; only `composer.compose` answers do.
+- A real word missing from both word lists can be mis-repaired; add it to `common_words.py` and `LEFT_ALONE`.
+- The asking-word nearest rule turns an all-caps token ("NASA") into "has" unless the whole text is capitals.
+- Readings guessed: "liks" (like), "mut" (must), "odf" (of), "ro" (or). Brief 90 is standing: each new prompt's typos join `owner_typos.json`.
+
 ## Left by the transparency agent (one ledger, the running panel, backups, where your data went, merged 2026-10-11)
 
 File: `docs/roadmap/archive/agent-remaining/transparency-1011.md`.

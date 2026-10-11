@@ -981,15 +981,16 @@
    page behind it (INBOX 780, the owner: improve the opacity of Peek). It was a
    25% ground with a 6px blur and everything on it at full strength, so the app
    behind read as frosted glass under a busy page of controls. Now the ground is
-   8% with no blur, and the body of the panel (its sections, its controls) goes
-   to 22% opacity, eased; the head keeps its full strength, because Peek, the
+   14% with no blur, and the body of the panel (its sections, its controls) goes
+   to 32% opacity, eased (22% and 8% read slightly too see-through, the owner
+   2026-10-11); the head keeps its full strength, because Peek, the
    title and the way out live there and must stay findable. */
 .modal-overlay.peeking {
   background: transparent !important;
 }
 .modal-overlay.peeking .modal-card {
   opacity: 1 !important;
-  background: color-mix(in srgb, var(--panel) 8%, transparent) !important;
+  background: color-mix(in srgb, var(--panel) 14%, transparent) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -999,7 +1000,7 @@
   transition: opacity var(--ui-base) var(--ease-out);
 }
 .modal-overlay.peeking .modal-card > .modal-body {
-  opacity: 0.22;
+  opacity: 0.32;
 }
 .modal-overlay.peeking .modal-card > .dialog-head {
   background: color-mix(in srgb, var(--panel) 88%, transparent);

@@ -1,0 +1,157 @@
+[
+ {
+  "typed": "hwo do I use live captions",
+  "repaired": "how do I use live captions",
+  "topic": "live-captions"
+ },
+ {
+  "typed": "where is the live captions",
+  "repaired": "where is the live captions",
+  "topic": "live-captions"
+ },
+ {
+  "typed": "can you redeisgn the focus timer",
+  "repaired": "can you redesign the focus timer",
+  "topic": "timer"
+ },
+ {
+  "typed": "whena ny process is running",
+  "repaired": "when any process is running"
+ },
+ {
+  "typed": "the composer in the ask tab",
+  "repaired": "the composer in the ask tab",
+  "topic": "ask-chat"
+ },
+ {
+  "typed": "it doesnt knoe how",
+  "repaired": "it does not know how"
+ },
+ {
+  "typed": "wierd gaps",
+  "repaired": "weird gaps"
+ },
+ {
+  "typed": "thes ebuttons",
+  "repaired": "these buttons"
+ },
+ {
+  "typed": "doesn follow the selected text",
+  "repaired": "does not follow the selected text"
+ },
+ {
+  "typed": "mindmap,a nd text editor",
+  "repaired": "mindmap, and text editor",
+  "topic": "mind-maps"
+ },
+ {
+  "typed": "ahve said",
+  "repaired": "have said"
+ },
+ {
+  "typed": "cna i",
+  "repaired": "can i"
+ },
+ {
+  "typed": "the suer",
+  "repaired": "the user"
+ },
+ {
+  "typed": "thier process",
+  "repaired": "their process"
+ },
+ {
+  "typed": "noficiations panel",
+  "repaired": "notifications panel",
+  "topic": "notifications"
+ },
+ {
+  "typed": "proffesionalising",
+  "repaired": "professionalising"
+ },
+ {
+  "typed": "nd professionalising",
+  "repaired": "and professionalising"
+ },
+ {
+  "typed": "smth",
+  "repaired": "something"
+ },
+ {
+  "typed": "liks",
+  "repaired": "like"
+ },
+ {
+  "typed": "odf the thing",
+  "repaired": "of the thing"
+ },
+ {
+  "typed": "westen australia",
+  "repaired": "western australia"
+ },
+ {
+  "typed": "what is the time in westen australia",
+  "repaired": "what is the time in western australia",
+  "intent": "utility"
+ },
+ {
+  "typed": "gaming mouse?\\",
+  "repaired": "gaming mouse?"
+ },
+ {
+  "typed": "can you search the web?",
+  "repaired": "can you search the web?",
+  "intent": "utility",
+  "topic": "websearch"
+ },
+ {
+  "typed": "is there a way to clear my recent searches",
+  "repaired": "is there a way to clear my recent searches",
+  "topic": "search"
+ },
+ {
+  "typed": "ro how something works",
+  "repaired": "or how something works"
+ },
+ {
+  "typed": "mut in a multitude of requests",
+  "repaired": "must in a multitude of requests",
+  "note": "the owner's meaning is not known (must or but); the rule reads a dropped letter"
+ },
+ {
+  "typed": "hwo do i turn on the live captions",
+  "repaired": "how do i turn on the live captions",
+  "topic": "live-captions"
+ },
+ {
+  "typed": "whre is the noficiations panel",
+  "repaired": "where is the notifications panel",
+  "topic": "notifications"
+ },
+ {
+  "typed": "cna i clear my recent searches",
+  "repaired": "can i clear my recent searches",
+  "topic": "search"
+ },
+ {
+  "typed": "why doesnt the composer knoe how to answer",
+  "repaired": "why does not the composer know how to answer"
+ },
+ {
+  "typed": "thes ebuttons look wierd in the ask tab",
+  "repaired": "these buttons look weird in the ask tab"
+ },
+ {
+  "typed": "can you redeisgn the thier process page",
+  "repaired": "can you redesign the their process page"
+ },
+ {
+  "typed": "whena ny timer is running show the suer a note",
+  "repaired": "when any timer is running show the user a note"
+ },
+ {
+  "typed": "what is the time in westen australia right now",
+  "repaired": "what is the time in western australia right now",
+  "intent": "utility"
+ }
+]

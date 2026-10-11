@@ -174,6 +174,18 @@ def trace_failures(result: dict, question: str, notes: list[dict], on: date, ask
         elif kind == "asked":
             if text.lower() not in f"{question} {asked_from}".lower():
                 failures.append(f"not from the question: {text!r}")
+        elif kind == "reading":
+            #: How a misspelt question was read (Brief 90): the repair, run
+            #: again on the question, gives the same words.
+            from memorymap.ai import composer_ack, question_noise
+
+            reads = {
+                composer_ack.reading_of(question_noise.repair(question_noise.tidy(" ".join(q.split())), known=composer._note_words(notes)))
+                for q in (question, asked_from)
+                if q
+            }
+            if text not in reads:
+                failures.append(f"not how the question reads: {text!r}")
         elif kind == "confirmed":
             #: The person's own word on an insight (decision 60): its source
             #: is in the line, "confirmed by you, <date>".
@@ -239,7 +251,12 @@ _FIGURE = re.compile(r"\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|el
 def first_line(result: dict) -> list[tuple]:
     """The parts of the answer's first line."""
     out: list[tuple] = []
-    for part in result["parts"]:
+    parts = result["parts"]
+    #: How a misspelt question was read comes before the answer (Brief 90):
+    #: it is not the answer's first line.
+    if parts and parts[0][0] == "template" and len(parts) > 2 and parts[1][0] == "reading":
+        parts = parts[3:]
+    for part in parts:
         if "\n" in part[1]:
             break
         out.append(part)

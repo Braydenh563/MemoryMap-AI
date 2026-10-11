@@ -445,6 +445,19 @@ accessibility, and learnability") are why.
     still wraps to two rows rather than crushing the picker. This revises
     UI_MODERNISATION_PLAN's "Insert, Edit, View and Board stay" for the phone
     only; above 600 the bar is unchanged.
+40. **The audit's polish bundle, row by row** (taken 2026-10-11, row 1600,
+    BACKLOG "Smaller polish items"). Built: Alt while resizing keeps the
+    centre where it was and grows both sides (`wbResizeBox` for cards,
+    `wbSketchResizeTransform` for drawn shapes; Shift still keeps the
+    ratio; `tests/test_wb_resize_from_centre.py`). Not built, each with its
+    reason: flip is already the Format panel's Flip for drawn shapes
+    (`wbFmtFlip`), and a mirrored note, image or frame has no reading that
+    helps; whole-object opacity is already the context bar's for shapes,
+    lines, arrows, links, text and images, and a frame stays opaque because
+    it is the container the eye groups by; a status bar is not built
+    because zoom, tool and selection already read from the zoom dock, the
+    pressed tool and the context bar, and section 3 wants less chrome, not a
+    fourth strip. The contextual quick bar is `.wb-context` (built).
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

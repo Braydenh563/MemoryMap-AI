@@ -1287,7 +1287,7 @@ HELP_TOPICS.extend(
                 "Ctrl+A selects all, Ctrl+D duplicates, Alt and drag copies as you "
                 "drag, Ctrl+V pastes at the pointer, the arrows "
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
-                "Shift and a corner keeps proportions, [ and ] move one step back or "
+                "Shift and a corner keeps proportions, Alt resizes from the centre, [ and ] move one step back or "
                 "forward, Ctrl+[ and Ctrl+] to the back or front, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
                 "Ctrl+Alt+V copy and paste a style, Delete (or a drop on the bin) "
                 "removes, Esc cancels a "

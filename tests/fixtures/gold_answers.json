@@ -418,7 +418,7 @@
     "gym1",
     "gym2"
    ],
-   "gold": "Going up: you have two gym notes, 8 September to 2 October, and your squat went from 80 kg to 90 kg for 5.\n\n**Your routine:** Monday, Wednesday and Friday.\n**Bench:** 60 kg for 5.\n**Your knee:** felt fine.\n\nNothing on bench since September.\n\nTrack your lifts in a table?",
+   "gold": "Going up: you have two gym notes, 8 September to 2 October, and your squat went from 80 kg to 90 kg for 5.\n\nOn 8 September you squatted 80 kg for 5 and benched 60 kg for 5, going on Mondays, Wednesdays and Fridays.\n\nThree weeks later, by 2 October, your squat was up to 90 kg for 5, and your knee felt fine.\n\nNothing on bench since September.\n\nTrack your lifts in a table?",
    "type": "overview"
   },
   {

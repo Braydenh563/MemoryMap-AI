@@ -83,3 +83,30 @@ def test_the_open_plan_is_said_once_in_prose():
     drift = [i for i in ALL["insights"] if i["rule"] == "drift"]
     assert drift and drift[0]["in_answer"] is True
     assert "It may be still open" not in text
+
+
+@pytest.mark.parametrize(("body", "said"), [
+    ("Lisbon trip planned for May", "you planned the Lisbon trip for May"),
+    ("squats 80 kg for 5, bench 60 kg for 5", "you squatted 80 kg for 5 and benched 60 kg for 5"),
+    ("squats up to 90 kg for 5", "your squat was up to 90 kg for 5"),
+    ("knee felt fine", "your knee felt fine"),
+    ("going Monday, Wednesday and Friday", "you were going on Mondays, Wednesdays and Fridays"),
+    ("tram 28, pasteis de Belem", None),
+])
+def test_a_days_shorthand_is_said_as_the_persons_own_clause(body, said):
+    assert composer_digest._day_clause(body) == said
+
+
+def test_a_day_line_is_prose_not_a_date_label():
+    """The owner, 2026-10-11: "it didnt do the understanding and rewrite for
+    the rest of the response". The gym log and the Lisbon plan were left as
+    "**8 September:** squats 80 kg for 5 ..." and "**30 August:** Lisbon
+    trip planned for May"."""
+    import re
+
+    for question in ("how's the gym going?", "what's the plan for Lisbon?"):
+        text = composer_digest.answer(question, NOTES, today=TODAY)["text"]
+        assert not re.search(r"^\*\*\d{1,2} [A-Z][a-z]+:\*\*", text, re.M), text
+    gym = composer_digest.answer("how's the gym going?", NOTES, today=TODAY)["text"]
+    assert "On 8 September, you squatted 80 kg for 5 and benched 60 kg for 5, going on Mondays, Wednesdays and Fridays." in gym
+    assert "by 2 October, your squat was up to 90 kg for 5, and your knee felt fine." in gym or "on 2 October, your squat" in gym

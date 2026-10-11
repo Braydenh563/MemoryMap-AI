@@ -774,11 +774,22 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
         #: week later, tram 28, pasteis de Belem" joins nothing.
         heading = weave and all(f.heading and f.label == label for f in held)
         mine = re.match(r"you\b|you're\b|your\b", line_body)
+        if weave and label in days and not mine:
+            #: A day's note in its own shorthand ("squats 80 kg for 5") said
+            #: as what the person did that day (the owner, 2026-10-11: every
+            #: paragraph gets the first one's treatment).
+            told = [_day_clause(b) for b in bodies]
+            if all(told):
+                #: "..., going on Mondays", not "..., and you were going on Mondays".
+                line_body = told[0] + "".join(
+                    ", " + c.removeprefix("you were ") if c.startswith("you were going ") else ", and " + c for c in told[1:]
+                ) + (pins[-1] if pins else "")
+                mine = True
         if weave and label in days and mine:
             #: A day's line is said as that day, not under it (the owner,
             #: 2026-10-11: no label lines), the time since the last one first.
             gap = (written - before).days if i and before and written else 0
-            lead = _vary("gap").format(gap=_gap(gap)) + f"on {label}, " if gap >= 2 else f"on {label}, "
+            lead = _gap_on(gap, label) if gap >= 2 else f"on {label}, "
             heading, line_body = True, lead[0].upper() + lead[1:] + line_body
             said = line_body + _relate(line_body, by_day)
         elif heading:
@@ -786,7 +797,7 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
             said = line_body + _relate(line_body, by_day)
         elif weave and i and before and written and (written - before).days >= 2 and mine:
             #: "A week later" names its day too (the owner, 2026-10-11).
-            said = _vary("gap").format(gap=_gap((written - before).days)) + f"on {_day(written, by_day or written)}, " + line_body
+            said = _gap_on((written - before).days, _day(written, by_day or written)) + line_body
         before = written or before
         (out.lines if i < limit else out.more).append(f"{said}." if heading else f"**{label}:** {said}.")
         row = _row(line_body, held[0])
@@ -798,6 +809,13 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
         out.rows.append(row)
         shown += 1
     return shown
+
+
+def _gap_on(days: int, day: str) -> str:
+    """"A week later, on 4 August, "; "three weeks on" takes "by", not a
+    second "on"."""
+    lead = _vary("gap").format(gap=_gap(days))
+    return lead + ("by " if lead.endswith(" on, ") else "on ") + f"{day}, "
 
 
 _PINNED = re.compile(r" \(you pinned this as true, [^)]+\)")
@@ -813,6 +831,41 @@ _ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", 
 _TASK = re.compile(r"^(read|watch|finish|review|revise|redo|practise|practice|learn|write|do|study|listen to)\s+(.+?)(\s+(?:before|by|until|for|on)\s+.+)?$", re.I)
 _DOING = re.compile(r"^(?:ask|call|email|text|book|buy|order|check|remember to|pay|send|bring|look up|try|go|get|sort|plan|start)\b", re.I)
 _PLACE_NOUN = re.compile(r"^(library|gym|pool|office|park|bus|train|cafe|range|studio|lab|track|beach)\b", re.I)
+
+
+_LIFT = re.compile(r"^(squats?|bench(?: press(?:es)?)?|deadlifts?|rows?|overhead press(?:es)?|presses|curls?|lunges?)\s+(up to\s+)?(\d.+)$", re.I)
+_LIFTED = {"squat": "squatted", "bench": "benched", "deadlift": "deadlifted", "row": "rowed", "overhead": "overhead pressed", "press": "pressed", "curl": "curled", "lunge": "lunged"}
+_BODY_PART = re.compile(r"^(knees?|back|shoulders?|legs?|arms?|ankles?|hips?|wrists?|neck|feet|foot|hamstrings?|calves|elbows?)\b", re.I)
+_PLANNED_FOR = re.compile(r"^(.+?)\s+(planned|booked|set|moved|pencilled in)\s+(for|to)\s+(.+)$", re.I)
+_WEEKDAY_WORD = re.compile(r"\b(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day\b")
+
+
+def _day_clause(body: str) -> str | None:
+    """A day's shorthand as the person's own clause, or None when it is not
+    one of the shapes read here: a plan ("Lisbon trip planned for May"), a
+    lift log ("squats 80 kg for 5, bench 60 kg for 5"), how a body part felt,
+    and "going Monday and Friday"."""
+    planned = _PLANNED_FOR.match(body)
+    if planned:
+        thing = _lower_first(planned.group(1), _NAMES.get())
+        return f"you {planned.group(2).lower()} the {thing} {planned.group(3).lower()} {planned.group(4)}"
+    if _BODY_PART.match(body):
+        return f"your {body[0].lower() + body[1:]}"
+    going = re.match(r"^going\s+((?:on\s+)?(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day\b.*)$", body)
+    if going:
+        days = _WEEKDAY_WORD.sub(lambda m: m.group(0) + "s", going.group(1).removeprefix("on "))
+        return f"you were going on {days}"
+    lifts = [_LIFT.match(p.strip()) for p in re.split(r",\s*(?:and\s+)?|\s+and\s+", body) if p.strip()]
+    if lifts and all(lifts):
+        said = []
+        for n, m in enumerate(lifts):
+            stem = m.group(1).lower().split()[0].rstrip("s") if not m.group(1).lower().startswith("press") else "press"
+            if m.group(2):
+                said.append(("your " if n == 0 else "") + f"{stem} was up to {m.group(3)}")
+            else:
+                said.append(("you " if n == 0 else "") + f"{_LIFTED.get(stem, stem)} {m.group(3)}")
+        return realise.join_items(said)
+    return None
 
 
 def _pick(key: str, i: int) -> str:

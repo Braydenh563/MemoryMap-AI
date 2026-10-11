@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4617, test files 1063, tests 9745, plan headings 995.
+Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4622, test files 1063, tests 9745, plan headings 995.
 
 ## Frontend functions (5511)
 
@@ -12,53 +12,53 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `$` | frontend/js/app.js:170 |
-| `api` | frontend/js/app.js:400 |
-| `apiJson` | frontend/js/app.js:639 |
-| `apiPagedList` | frontend/js/app.js:574 |
-| `askPasswordPrompt` | frontend/js/app.js:757 |
-| `authToken` | frontend/js/app.js:176 |
-| `chip` | frontend/js/app.js:1369 |
-| `chipWords` | frontend/js/app.js:1364 |
-| `clearApiCache` | frontend/js/app.js:635 |
-| `confirmDialog` | frontend/js/app.js:1457 |
-| `confirmVerb` | frontend/js/app.js:1450 |
-| `ensureModule` | frontend/js/app.js:2028 |
-| `enterWithoutPassword` | frontend/js/app.js:714 |
-| `hide` | frontend/js/app.js:172 |
-| `hideBootSplash` | frontend/js/app.js:917 |
-| `initAuth` | frontend/js/app.js:930 |
-| `kickBackgroundTaskPoll` | frontend/js/app.js:604 |
-| `lazyAssetStamp` | frontend/js/app.js:1967 |
-| `lazyScript` | frontend/js/app.js:2008 |
-| `lockNow` | frontend/js/app.js:891 |
-| `mediaSrc` | frontend/js/app.js:259 |
-| `mountNoteSurfaceNow` | frontend/js/app.js:2063 |
-| `onDomReady` | frontend/js/app.js:1999 |
-| `promptDialog` | frontend/js/app.js:1567 |
-| `purgeLockedContent` | frontend/js/app.js:877 |
+| `$` | frontend/js/app.js:168 |
+| `api` | frontend/js/app.js:398 |
+| `apiJson` | frontend/js/app.js:637 |
+| `apiPagedList` | frontend/js/app.js:572 |
+| `askPasswordPrompt` | frontend/js/app.js:755 |
+| `authToken` | frontend/js/app.js:174 |
+| `chip` | frontend/js/app.js:1367 |
+| `chipWords` | frontend/js/app.js:1362 |
+| `clearApiCache` | frontend/js/app.js:633 |
+| `confirmDialog` | frontend/js/app.js:1455 |
+| `confirmVerb` | frontend/js/app.js:1448 |
+| `ensureModule` | frontend/js/app.js:2026 |
+| `enterWithoutPassword` | frontend/js/app.js:712 |
+| `hide` | frontend/js/app.js:170 |
+| `hideBootSplash` | frontend/js/app.js:915 |
+| `initAuth` | frontend/js/app.js:928 |
+| `kickBackgroundTaskPoll` | frontend/js/app.js:602 |
+| `lazyAssetStamp` | frontend/js/app.js:1965 |
+| `lazyScript` | frontend/js/app.js:2006 |
+| `lockNow` | frontend/js/app.js:889 |
+| `mediaSrc` | frontend/js/app.js:257 |
+| `mountNoteSurfaceNow` | frontend/js/app.js:2061 |
+| `onDomReady` | frontend/js/app.js:1997 |
+| `promptDialog` | frontend/js/app.js:1565 |
+| `purgeLockedContent` | frontend/js/app.js:875 |
 | `recordBrowserLog` | frontend/js/app.js:23 |
-| `refreshActiveTab` | frontend/js/app.js:1214 |
-| `refuseStagedUrls` | frontend/js/app.js:236 |
-| `replaceMissingMedia` | frontend/js/app.js:307 |
-| `resumeWithoutPassword` | frontend/js/app.js:724 |
-| `setBusy` | frontend/js/app.js:1409 |
-| `setLabel` | frontend/js/app.js:1283 |
-| `settingsModalOpen` | frontend/js/app.js:1357 |
-| `settleLockPrompt` | frontend/js/app.js:735 |
-| `sharedCaptureText` | frontend/js/app.js:991 |
-| `show` | frontend/js/app.js:171 |
-| `showLockScreen` | frontend/js/app.js:798 |
-| `smallButton` | frontend/js/app.js:1755 |
-| `spinnerEl` | frontend/js/app.js:1400 |
-| `stagePrimary` | frontend/js/app.js:1393 |
-| `stagedImageByUrl` | frontend/js/app.js:204 |
-| `startApp` | frontend/js/app.js:1023 |
-| `startWithoutPassword` | frontend/js/app.js:699 |
-| `takeSharedIntake` | frontend/js/app.js:1002 |
-| `whenScriptsLoaded` | frontend/js/app.js:1948 |
-| `wireBackdropClose` | frontend/js/app.js:1743 |
-| `zoomWheelDelta` | frontend/js/app.js:253 |
+| `refreshActiveTab` | frontend/js/app.js:1212 |
+| `refuseStagedUrls` | frontend/js/app.js:234 |
+| `replaceMissingMedia` | frontend/js/app.js:305 |
+| `resumeWithoutPassword` | frontend/js/app.js:722 |
+| `setBusy` | frontend/js/app.js:1407 |
+| `setLabel` | frontend/js/app.js:1281 |
+| `settingsModalOpen` | frontend/js/app.js:1355 |
+| `settleLockPrompt` | frontend/js/app.js:733 |
+| `sharedCaptureText` | frontend/js/app.js:989 |
+| `show` | frontend/js/app.js:169 |
+| `showLockScreen` | frontend/js/app.js:796 |
+| `smallButton` | frontend/js/app.js:1753 |
+| `spinnerEl` | frontend/js/app.js:1398 |
+| `stagePrimary` | frontend/js/app.js:1391 |
+| `stagedImageByUrl` | frontend/js/app.js:202 |
+| `startApp` | frontend/js/app.js:1021 |
+| `startWithoutPassword` | frontend/js/app.js:697 |
+| `takeSharedIntake` | frontend/js/app.js:1000 |
+| `whenScriptsLoaded` | frontend/js/app.js:1946 |
+| `wireBackdropClose` | frontend/js/app.js:1741 |
+| `zoomWheelDelta` | frontend/js/app.js:251 |
 
 ### frontend/js/prefs.js (5)
 
@@ -9692,7 +9692,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4617)
+## Backend modules (4622)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10470,6 +10470,16 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_clean` | src/memorymap/ai/followups.py:101 |
 | `parse_followups` | src/memorymap/ai/followups.py:124 |
 | `suggest_followups` | src/memorymap/ai/followups.py:150 |
+
+### src/memorymap/ai/greeting_compose.py (5)
+
+| Name | File:line |
+|---|---|
+| `NotebookFacts` | src/memorymap/ai/greeting_compose.py:67 |
+| `_context_phrases` | src/memorymap/ai/greeting_compose.py:83 |
+| `compose` | src/memorymap/ai/greeting_compose.py:107 |
+| `gather` | src/memorymap/ai/greeting_compose.py:122 |
+| `slot_for` | src/memorymap/ai/greeting_compose.py:76 |
 
 ### src/memorymap/ai/grounding.py (17)
 

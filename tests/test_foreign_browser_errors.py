@@ -31,4 +31,4 @@ def test_both_reporters_skip_them():
     assert "FOREIGN_SOURCE.test(event.sourceFile" in csp
     error = guard.split('window.addEventListener("error"', 1)[1].split("report(", 1)[0]
     assert "foreignError(event)" in error
-    assert "/^Script error\\.?$/" in (JS / "app.js").read_text(encoding="utf-8")
+    assert '|| !e.filename ? undefined' in (JS / "app.js").read_text(encoding="utf-8")

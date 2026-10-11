@@ -53,7 +53,7 @@ ASK_START = frozenset(
 #: Words a name after them is the object of: "notes about brotato", "find
 #: zorgblat", "tagged broski", "when did I last see sarah".
 OBJECT_HEADS = frozenset(
-    """about on for of with from to by at in into regarding re called named
+    """about on for of with from to by at in into under onto over below beside near inside within towards toward than regarding re called named
     titled tagged like as the a an my our your his her their this that these
     those see saw seen meet met call text texted email emailed ask asked tell
     told find search show open visit remind message pay paid owe thank invite

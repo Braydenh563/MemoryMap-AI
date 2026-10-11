@@ -328,12 +328,26 @@ def resolve(phrase: str, now: datetime, *, locale: str | None = None) -> datetim
                     return at
     else:
         hour, minute = (_PARTS[part] if part else 9), 0
-    at = datetime.combine(day or now.date(), time(hour, minute), now.tzinfo)
+    at = _still_tonight(datetime.combine(day or now.date(), time(hour, minute), now.tzinfo), now, part if clock is None else None)
     if at <= now and day is None:
         at += timedelta(days=1)
     elif at <= now and day == now.date() and _WEEKDAY.search(text):
         at += timedelta(days=7)  # "Monday 9am", said on a Monday afternoon
     return at
+
+
+def _part_alone(text: str) -> str | None:
+    """"tonight" or "this evening" said with no clock time beside it."""
+    found = re.search(r"\b(tonight|evening|night)\b", text, re.IGNORECASE)
+    return found.group(1).lower() if found and not re.search(r"\d", text) else None
+
+
+def _still_tonight(at: datetime | None, now: datetime, part: str | None) -> datetime | None:
+    """"Tonight" said after eight is not eight o'clock gone by: it is the
+    next whole hour, still tonight (a reminder set for a time past fails)."""
+    if at is None or part not in ("tonight", "evening", "night") or at > now or at.date() != now.date():
+        return at
+    return now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
 
 
 # --- Magic Add: a reminder sentence with its time taken out (UX-01) ---------
@@ -475,6 +489,7 @@ def parse_reminder_text(
     instant = next((s.value for s in spans if s.kind == "datetime"), None)
     if instant is not None and (at is None or at.date() == instant.date()):
         at = instant
+    at = _still_tonight(at, now, _part_alone(text))
     if at is None:
         #: A day `resolve` cannot know but the caller does ("on my birthday").
         day = next((s.value for s in spans if s.kind == "date"), None)

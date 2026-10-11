@@ -251,6 +251,10 @@ def test_wall_clock_phrases_work_with_the_ai_off(client, text, kept, gone, day_o
     assert body["text"].lower() == kept, body["text"]
     assert gone not in body["text"].lower()
     due = datetime.fromisoformat(body["due_at"]).astimezone(timezone.utc)
+    now = datetime.now(timezone.utc)
+    if gone in ("tonight", "evening") and now.hour >= hour:
+        #: Said after the hour, "tonight" is the next whole hour, not a time gone by.
+        hour = (now.hour + 1) % 24
     assert due.hour == hour and due.minute == 0
     if day_offset is not None:
         assert due.date() == (datetime.now(timezone.utc) + timedelta(days=day_offset)).date()

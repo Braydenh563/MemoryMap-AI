@@ -236,7 +236,7 @@ def _reminder(text: str, now: datetime) -> dict | None:
     words = _cap(words)
     if not words or due is None:
         return None
-    return {"intent": "reminder", "text": words[:500], "said": said_words[:500], "due_at": due, "time_given": said}
+    return {"intent": "reminder", "text": words[:500], "said": said_words[:500], "due_at": due, "time_given": said and _ahead(due, now)}
 
 
 def _tag(text: str) -> dict | None:
@@ -756,12 +756,14 @@ def _when_words(due: datetime) -> str:
 
 
 def _clock(due: datetime) -> str:
-    """"9", "9:30", "noon", "5pm", "5:30pm": the hour as people say it."""
+    """"9", "9:30", "noon", "midnight", "5pm", "12:39pm", "12:39am": the
+    hour as people say it. A morning from 7 is plain ("at 9"); the small
+    hours and anything from noon say which half of the day."""
     hour, minute = due.hour, due.minute
-    if hour == 12 and minute == 0:
-        return "noon"
+    if minute == 0 and hour in (0, 12):
+        return "midnight" if hour == 0 else "noon"
     said = str(hour % 12 or 12) + (f":{minute:02d}" if minute else "")
-    return said + ("pm" if hour >= 13 else "")
+    return said + ("pm" if hour >= 12 else "am" if hour < 7 else "")
 
 
 def reminder_when(due: datetime, now: datetime) -> str:
@@ -901,6 +903,15 @@ def _confirm(label: str) -> str:
     from memorymap.ai import composer_replies
 
     return _said(composer_replies.act_line(composer_replies.CONFIRM, _voice(), tuple(_LAST), label=label))
+
+
+def _ahead(due: datetime, now: datetime) -> bool:
+    """A time said that has not gone by: one that has ("tonight at 8", said at
+    ten) is asked again rather than set in the past, which the store refuses."""
+    try:
+        return due > now
+    except TypeError:  # a naive time against an aware clock: not judged here
+        return True
 
 
 def ask_when(said: str) -> str:

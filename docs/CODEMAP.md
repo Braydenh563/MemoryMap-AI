@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5875, frontend ids 2489, CSS sections 494, backend routes 604, backend modules 5382, test files 1207, tests 10802, plan headings 956.
+Counts: frontend functions 5875, frontend ids 2489, CSS sections 494, backend routes 604, backend modules 5385, test files 1207, tests 10805, plan headings 956.
 
 ## Frontend functions (5875)
 
@@ -10270,7 +10270,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:164 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1592 |
 
-## Backend modules (5382)
+## Backend modules (5385)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10585,25 +10585,26 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `build_messages` | src/memorymap/ai/code_assist.py:96 |
 | `fenced_code` | src/memorymap/ai/code_assist.py:87 |
 
-### src/memorymap/ai/commands.py (60)
+### src/memorymap/ai/commands.py (61)
 
 | Name | File:line |
 |---|---|
 | `Command` | src/memorymap/ai/commands.py:590 |
 | `__getattr__` | src/memorymap/ai/commands.py:61 |
+| `_ahead` | src/memorymap/ai/commands.py:908 |
 | `_append` | src/memorymap/ai/commands.py:529 |
 | `_attached` | src/memorymap/ai/commands.py:667 |
-| `_bin_reminder` | src/memorymap/ai/commands.py:1064 |
+| `_bin_reminder` | src/memorymap/ai/commands.py:1075 |
 | `_cap` | src/memorymap/ai/commands.py:113 |
 | `_card` | src/memorymap/ai/commands.py:723 |
-| `_clip` | src/memorymap/ai/commands.py:990 |
+| `_clip` | src/memorymap/ai/commands.py:1001 |
 | `_clock` | src/memorymap/ai/commands.py:758 |
-| `_confirm` | src/memorymap/ai/commands.py:899 |
+| `_confirm` | src/memorymap/ai/commands.py:901 |
 | `_content_words` | src/memorymap/ai/commands.py:634 |
 | `_delete` | src/memorymap/ai/commands.py:464 |
 | `_drop_article` | src/memorymap/ai/commands.py:118 |
 | `_existing_category` | src/memorymap/ai/commands.py:687 |
-| `_filed_notes` | src/memorymap/ai/commands.py:994 |
+| `_filed_notes` | src/memorymap/ai/commands.py:1005 |
 | `_find` | src/memorymap/ai/commands.py:377 |
 | `_fold` | src/memorymap/ai/commands.py:91 |
 | `_found_object` | src/memorymap/ai/commands.py:392 |
@@ -10618,16 +10619,16 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_notes_about` | src/memorymap/ai/commands.py:641 |
 | `_one_target` | src/memorymap/ai/commands.py:450 |
 | `_pin` | src/memorymap/ai/commands.py:476 |
-| `_plan_one` | src/memorymap/ai/commands.py:949 |
-| `_plan_read` | src/memorymap/ai/commands.py:1008 |
+| `_plan_one` | src/memorymap/ai/commands.py:960 |
+| `_plan_read` | src/memorymap/ai/commands.py:1019 |
 | `_reminder` | src/memorymap/ai/commands.py:193 |
-| `_reminder_note` | src/memorymap/ai/commands.py:786 |
+| `_reminder_note` | src/memorymap/ai/commands.py:788 |
 | `_rename` | src/memorymap/ai/commands.py:514 |
-| `_resolve_one` | src/memorymap/ai/commands.py:929 |
-| `_said` | src/memorymap/ai/commands.py:924 |
+| `_resolve_one` | src/memorymap/ai/commands.py:940 |
+| `_said` | src/memorymap/ai/commands.py:935 |
 | `_split_allowed` | src/memorymap/ai/commands.py:697 |
 | `_split_last` | src/memorymap/ai/commands.py:126 |
-| `_start_meeting` | src/memorymap/ai/commands.py:1049 |
+| `_start_meeting` | src/memorymap/ai/commands.py:1060 |
 | `_summarise` | src/memorymap/ai/commands.py:544 |
 | `_tag` | src/memorymap/ai/commands.py:242 |
 | `_tag_these` | src/memorymap/ai/commands.py:271 |
@@ -10636,18 +10637,18 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_target` | src/memorymap/ai/commands.py:148 |
 | `_title` | src/memorymap/ai/commands.py:678 |
 | `_untag` | src/memorymap/ai/commands.py:485 |
-| `_voice` | src/memorymap/ai/commands.py:888 |
+| `_voice` | src/memorymap/ai/commands.py:890 |
 | `_when_words` | src/memorymap/ai/commands.py:754 |
 | `_which` | src/memorymap/ai/commands.py:710 |
-| `_which_note` | src/memorymap/ai/commands.py:913 |
-| `ask_when` | src/memorymap/ai/commands.py:906 |
+| `_which_note` | src/memorymap/ai/commands.py:924 |
+| `ask_when` | src/memorymap/ai/commands.py:917 |
 | `not_done` | src/memorymap/ai/commands.py:737 |
 | `parse` | src/memorymap/ai/commands.py:602 |
-| `plan` | src/memorymap/ai/commands.py:799 |
+| `plan` | src/memorymap/ai/commands.py:801 |
 | `read` | src/memorymap/ai/commands.py:569 |
 | `read_typed` | src/memorymap/ai/commands.py:559 |
-| `reminder_when` | src/memorymap/ai/commands.py:767 |
-| `run` | src/memorymap/ai/commands.py:1071 |
+| `reminder_when` | src/memorymap/ai/commands.py:769 |
+| `run` | src/memorymap/ai/commands.py:1082 |
 | `summarise_done` | src/memorymap/ai/commands.py:745 |
 
 ### src/memorymap/ai/composer.py (142)
@@ -11870,14 +11871,14 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `Repair` | src/memorymap/ai/reading.py:328 |
 | `_ambiguity` | src/memorymap/ai/reading.py:149 |
 | `_day_phrase` | src/memorymap/ai/reading.py:399 |
-| `_follow_other` | src/memorymap/ai/reading.py:461 |
-| `_follow_pronoun` | src/memorymap/ai/reading.py:478 |
-| `_follow_same` | src/memorymap/ai/reading.py:487 |
+| `_follow_other` | src/memorymap/ai/reading.py:463 |
+| `_follow_pronoun` | src/memorymap/ai/reading.py:480 |
+| `_follow_same` | src/memorymap/ai/reading.py:489 |
 | `_follow_slot` | src/memorymap/ai/reading.py:444 |
 | `_known` | src/memorymap/ai/reading.py:127 |
 | `_leaned_on` | src/memorymap/ai/reading.py:437 |
 | `_plain` | src/memorymap/ai/reading.py:115 |
-| `_redate` | src/memorymap/ai/reading.py:504 |
+| `_redate` | src/memorymap/ai/reading.py:506 |
 | `_reminder_slots` | src/memorymap/ai/reading.py:174 |
 | `_repeat_slots` | src/memorymap/ai/reading.py:185 |
 | `_resolving` | src/memorymap/ai/reading.py:220 |
@@ -11935,88 +11936,90 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `variety` | src/memorymap/ai/realise.py:321 |
 | `wording` | src/memorymap/ai/realise.py:315 |
 
-### src/memorymap/ai/recognise.py (78)
+### src/memorymap/ai/recognise.py (80)
 
 | Name | File:line |
 |---|---|
-| `Span` | src/memorymap/ai/recognise.py:1368 |
-| `_add_months` | src/memorymap/ai/recognise.py:411 |
-| `_alert_cands` | src/memorymap/ai/recognise.py:1797 |
-| `_amount` | src/memorymap/ai/recognise.py:692 |
-| `_anchored_cands` | src/memorymap/ai/recognise.py:1934 |
-| `_back` | src/memorymap/ai/recognise.py:756 |
-| `_bare_hour` | src/memorymap/ai/recognise.py:1558 |
+| `Span` | src/memorymap/ai/recognise.py:1383 |
+| `_add_months` | src/memorymap/ai/recognise.py:425 |
+| `_alert_cands` | src/memorymap/ai/recognise.py:1812 |
+| `_amount` | src/memorymap/ai/recognise.py:707 |
+| `_anchored_cands` | src/memorymap/ai/recognise.py:1949 |
+| `_back` | src/memorymap/ai/recognise.py:771 |
+| `_bare_hour` | src/memorymap/ai/recognise.py:1573 |
 | `_clock` | src/memorymap/ai/recognise.py:222 |
-| `_clock_match` | src/memorymap/ai/recognise.py:1540 |
-| `_clock_words` | src/memorymap/ai/recognise.py:1412 |
-| `_contact_cands` | src/memorymap/ai/recognise.py:1881 |
-| `_count` | src/memorymap/ai/recognise.py:546 |
-| `_date_cands` | src/memorymap/ai/recognise.py:1599 |
-| `_date_phrase` | src/memorymap/ai/recognise.py:645 |
-| `_date_range_cands` | src/memorymap/ai/recognise.py:1953 |
+| `_clock_match` | src/memorymap/ai/recognise.py:1555 |
+| `_clock_words` | src/memorymap/ai/recognise.py:1427 |
+| `_contact_cands` | src/memorymap/ai/recognise.py:1896 |
+| `_count` | src/memorymap/ai/recognise.py:561 |
+| `_date_cands` | src/memorymap/ai/recognise.py:1614 |
+| `_date_phrase` | src/memorymap/ai/recognise.py:660 |
+| `_date_range_cands` | src/memorymap/ai/recognise.py:1968 |
 | `_day` | src/memorymap/ai/recognise.py:183 |
-| `_day_fits` | src/memorymap/ai/recognise.py:401 |
-| `_day_of_month` | src/memorymap/ai/recognise.py:733 |
-| `_day_words` | src/memorymap/ai/recognise.py:1408 |
-| `_duration_cands` | src/memorymap/ai/recognise.py:1819 |
-| `_duration_words` | src/memorymap/ai/recognise.py:1420 |
-| `_figure` | src/memorymap/ai/recognise.py:1840 |
+| `_day_fits` | src/memorymap/ai/recognise.py:415 |
+| `_day_of_month` | src/memorymap/ai/recognise.py:748 |
+| `_day_words` | src/memorymap/ai/recognise.py:1423 |
+| `_duration_cands` | src/memorymap/ai/recognise.py:1834 |
+| `_duration_words` | src/memorymap/ai/recognise.py:1435 |
+| `_figure` | src/memorymap/ai/recognise.py:1855 |
 | `_hour24` | src/memorymap/ai/recognise.py:245 |
-| `_hour_from` | src/memorymap/ai/recognise.py:1534 |
+| `_hour_from` | src/memorymap/ai/recognise.py:1549 |
 | `_iso` | src/memorymap/ai/recognise.py:173 |
-| `_jsonable` | src/memorymap/ai/recognise.py:1386 |
-| `_lower` | src/memorymap/ai/recognise.py:1403 |
-| `_measure_cands` | src/memorymap/ai/recognise.py:1845 |
-| `_money_names` | src/memorymap/ai/recognise.py:1462 |
-| `_month_end` | src/memorymap/ai/recognise.py:707 |
-| `_month_span` | src/memorymap/ai/recognise.py:744 |
-| `_months_back` | src/memorymap/ai/recognise.py:538 |
-| `_nearest` | src/memorymap/ai/recognise.py:722 |
-| `_nth_of_month` | src/memorymap/ai/recognise.py:382 |
-| `_nth_weekday_cands` | src/memorymap/ai/recognise.py:1784 |
-| `_num_words` | src/memorymap/ai/recognise.py:1416 |
-| `_number_cands` | src/memorymap/ai/recognise.py:1923 |
-| `_numeric_dates` | src/memorymap/ai/recognise.py:1569 |
-| `_range_count` | src/memorymap/ai/recognise.py:1223 |
-| `_range_for` | src/memorymap/ai/recognise.py:1234 |
-| `_read_as` | src/memorymap/ai/recognise.py:1972 |
-| `_recurrence_cands` | src/memorymap/ai/recognise.py:1727 |
-| `_relative_cands` | src/memorymap/ai/recognise.py:1716 |
-| `_repeat_and_alert` | src/memorymap/ai/recognise.py:516 |
-| `_rule_parts` | src/memorymap/ai/recognise.py:376 |
-| `_rx` | src/memorymap/ai/recognise.py:1450 |
-| `_shift_months` | src/memorymap/ai/recognise.py:712 |
-| `_span_days` | src/memorymap/ai/recognise.py:555 |
-| `_time_cands` | src/memorymap/ai/recognise.py:1684 |
-| `_unit` | src/memorymap/ai/recognise.py:991 |
-| `_unit_names` | src/memorymap/ai/recognise.py:1458 |
-| `_valid_day` | src/memorymap/ai/recognise.py:393 |
-| `_week_of` | src/memorymap/ai/recognise.py:717 |
-| `alert_words` | src/memorymap/ai/recognise.py:1810 |
-| `count_of` | src/memorymap/ai/recognise.py:699 |
-| `day_of_month` | src/memorymap/ai/recognise.py:2008 |
-| `days_question` | src/memorymap/ai/recognise.py:1320 |
-| `days_since` | src/memorymap/ai/recognise.py:566 |
-| `find` | src/memorymap/ai/recognise.py:953 |
-| `first_of` | src/memorymap/ai/recognise.py:445 |
-| `looks_dated` | src/memorymap/ai/recognise.py:949 |
-| `next_occurrence` | src/memorymap/ai/recognise.py:426 |
-| `offset_question` | src/memorymap/ai/recognise.py:1330 |
-| `parse_reminder_text` | src/memorymap/ai/recognise.py:459 |
-| `part_of_day` | src/memorymap/ai/recognise.py:1345 |
-| `question_day` | src/memorymap/ai/recognise.py:1268 |
-| `question_range` | src/memorymap/ai/recognise.py:1256 |
-| `recognise` | src/memorymap/ai/recognise.py:2015 |
+| `_jsonable` | src/memorymap/ai/recognise.py:1401 |
+| `_lower` | src/memorymap/ai/recognise.py:1418 |
+| `_measure_cands` | src/memorymap/ai/recognise.py:1860 |
+| `_money_names` | src/memorymap/ai/recognise.py:1477 |
+| `_month_end` | src/memorymap/ai/recognise.py:722 |
+| `_month_span` | src/memorymap/ai/recognise.py:759 |
+| `_months_back` | src/memorymap/ai/recognise.py:553 |
+| `_nearest` | src/memorymap/ai/recognise.py:737 |
+| `_nth_of_month` | src/memorymap/ai/recognise.py:396 |
+| `_nth_weekday_cands` | src/memorymap/ai/recognise.py:1799 |
+| `_num_words` | src/memorymap/ai/recognise.py:1431 |
+| `_number_cands` | src/memorymap/ai/recognise.py:1938 |
+| `_numeric_dates` | src/memorymap/ai/recognise.py:1584 |
+| `_part_alone` | src/memorymap/ai/recognise.py:339 |
+| `_range_count` | src/memorymap/ai/recognise.py:1238 |
+| `_range_for` | src/memorymap/ai/recognise.py:1249 |
+| `_read_as` | src/memorymap/ai/recognise.py:1987 |
+| `_recurrence_cands` | src/memorymap/ai/recognise.py:1742 |
+| `_relative_cands` | src/memorymap/ai/recognise.py:1731 |
+| `_repeat_and_alert` | src/memorymap/ai/recognise.py:531 |
+| `_rule_parts` | src/memorymap/ai/recognise.py:390 |
+| `_rx` | src/memorymap/ai/recognise.py:1465 |
+| `_shift_months` | src/memorymap/ai/recognise.py:727 |
+| `_span_days` | src/memorymap/ai/recognise.py:570 |
+| `_still_tonight` | src/memorymap/ai/recognise.py:345 |
+| `_time_cands` | src/memorymap/ai/recognise.py:1699 |
+| `_unit` | src/memorymap/ai/recognise.py:1006 |
+| `_unit_names` | src/memorymap/ai/recognise.py:1473 |
+| `_valid_day` | src/memorymap/ai/recognise.py:407 |
+| `_week_of` | src/memorymap/ai/recognise.py:732 |
+| `alert_words` | src/memorymap/ai/recognise.py:1825 |
+| `count_of` | src/memorymap/ai/recognise.py:714 |
+| `day_of_month` | src/memorymap/ai/recognise.py:2023 |
+| `days_question` | src/memorymap/ai/recognise.py:1335 |
+| `days_since` | src/memorymap/ai/recognise.py:581 |
+| `find` | src/memorymap/ai/recognise.py:968 |
+| `first_of` | src/memorymap/ai/recognise.py:459 |
+| `looks_dated` | src/memorymap/ai/recognise.py:964 |
+| `next_occurrence` | src/memorymap/ai/recognise.py:440 |
+| `offset_question` | src/memorymap/ai/recognise.py:1345 |
+| `parse_reminder_text` | src/memorymap/ai/recognise.py:473 |
+| `part_of_day` | src/memorymap/ai/recognise.py:1360 |
+| `question_day` | src/memorymap/ai/recognise.py:1283 |
+| `question_range` | src/memorymap/ai/recognise.py:1271 |
+| `recognise` | src/memorymap/ai/recognise.py:2030 |
 | `relative_delta` | src/memorymap/ai/recognise.py:74 |
 | `relative_months` | src/memorymap/ai/recognise.py:103 |
 | `resolve` | src/memorymap/ai/recognise.py:257 |
-| `says_ahead` | src/memorymap/ai/recognise.py:1298 |
-| `span` | src/memorymap/ai/recognise.py:771 |
-| `stored_repeat` | src/memorymap/ai/recognise.py:360 |
+| `says_ahead` | src/memorymap/ai/recognise.py:1313 |
+| `span` | src/memorymap/ai/recognise.py:786 |
+| `stored_repeat` | src/memorymap/ai/recognise.py:374 |
 | `strip_lead` | src/memorymap/ai/recognise.py:122 |
-| `tense_of` | src/memorymap/ai/recognise.py:1435 |
-| `window` | src/memorymap/ai/recognise.py:966 |
-| `without_windows` | src/memorymap/ai/recognise.py:944 |
+| `tense_of` | src/memorymap/ai/recognise.py:1450 |
+| `window` | src/memorymap/ai/recognise.py:981 |
+| `without_windows` | src/memorymap/ai/recognise.py:959 |
 
 ### src/memorymap/ai/records.py (18)
 
@@ -17101,7 +17104,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (10802)
+## Tests (10805)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18138,7 +18141,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_task_checkbox.py | 3 |
 | tests/test_task_progress.py | 7 |
 | tests/test_tasks.py | 28 |
-| tests/test_tasks_1011.py | 7 |
+| tests/test_tasks_1011.py | 10 |
 | tests/test_taxonomy_pack.py | 64 |
 | tests/test_template_draft.py | 4 |
 | tests/test_tensions.py | 14 |

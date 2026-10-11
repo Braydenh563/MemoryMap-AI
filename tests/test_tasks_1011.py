@@ -87,3 +87,39 @@ def test_a_time_alone_fills_only_a_reminder_left_waiting():
     assert reading.follow("tmrw", turns, NOW)[1] == "slot"
     assert reading.follow("friday at 3", [{"text": "remind me to call the dentist at 5pm", "objects": []}], NOW) is None
     assert reading.follow("friday at 3 call Sam", turns, NOW) is None
+
+
+def test_a_reminder_time_says_which_half_of_the_day():
+    """The chips probe, 2026-10-11: 00:39 and 12:39 both read "12:39"."""
+    from memorymap.ai.commands import _clock
+
+    said = [_clock(datetime(2026, 1, 1, h, m)) for h, m in ((0, 0), (0, 39), (12, 0), (12, 39), (9, 0), (17, 30), (5, 0))]
+    assert said == ["midnight", "12:39am", "noon", "12:39pm", "9", "5:30pm", "5am"]
+
+
+def test_tonight_said_late_is_still_tonight_and_a_time_gone_is_asked():
+    """The chips probe: "tonight" after eight was eight o'clock gone by, and
+    the store refused it ("Nothing was changed")."""
+    from datetime import timezone
+
+    from memorymap.ai import reading
+
+    late = datetime(2026, 10, 11, 21, 40, tzinfo=timezone.utc)
+    tonight = commands.read_typed("remind me to call mum tonight", late)
+    assert tonight["due_at"] == datetime(2026, 10, 11, 22, 0, tzinfo=timezone.utc) and tonight["time_given"]
+    gone = commands.read_typed("remind me to call mum tonight at 8", late)
+    assert not gone["time_given"]
+    filled = reading.follow("10pm", [{"text": "remind me to call mum tonight at 8", "objects": []}], late)
+    assert filled == ("remind me to call mum 10pm", "slot")
+
+
+def test_a_note_filed_under_a_word_that_is_also_a_nickname_is_moved(client, session):
+    """The chips probe: "sport" at the end was taken for a nickname ("thanks
+    sport"), so "file the golf note under sport" lost its category and was
+    answered from the notes."""
+    from memorymap.entry import manager
+
+    manager.create_entry(session, "# Golf\n\nTee time Saturday with Sam.")
+    session.commit()
+    card = next(e for e in _stream(client, "file the golf note under sport") if e["type"] == "act")
+    assert "sport" in card["label"].lower(), card

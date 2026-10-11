@@ -462,6 +462,12 @@ class ChatRequest(BaseModel):
     #: only from them. Resolved into `note_ids` and `attached_notes_only` by
     #: `_apply_scope` before anything reads either.
     scope: Literal["questions"] | None = None
+    #: What is open where the question was asked (CHAT_PLAN B10): the note
+    #: being read or edited, and the category the sidebar filters to. Read
+    #: only by a question about "this" ("Summarise this"), never to widen
+    #: or narrow any other; `_apply_open` turns it into `note_ids`.
+    open_note_id: int | None = None
+    open_category: str | None = Field(default=None, max_length=100)
     #: Who writes a notes-only answer (INBOX 688): "notes" asks for the answer
     #: composed from the notes' own sentences (`ai/composer.py`) even while a
     #: model runs; anything else is the model's, when one runs. The Ask box's
@@ -488,6 +494,50 @@ def _apply_scope(session: Session, body: ChatRequest) -> None:
     if ids:
         body.note_ids = ids
         body.attached_notes_only = True
+
+
+#: The most notes a "summarise Travel" reads: the overview's own limit.
+OPEN_CATEGORY_NOTES = 24
+
+
+def _category_note_ids(session: Session, name: str) -> list[int]:
+    rows = session.execute(
+        select(Entry.id)
+        .join(Category, Entry.category_id == Category.id)
+        .where(Entry.is_deleted == False, Entry.is_private == False, func.lower(Category.name) == name.lower())  # noqa: E712
+        .order_by(Entry.created_at.desc())
+        .limit(OPEN_CATEGORY_NOTES)
+    ).scalars()
+    return list(rows)
+
+
+def _apply_open(session: Session, body: ChatRequest) -> None:
+    """"Summarise this" on any tab (CHAT_PLAN B10): the open note, else the
+    open category, becomes the closed set the answer reads; "summarise
+    Travel" reads that category's notes rather than the few a keyword
+    search finds. Notes attached by hand, or a scope, win over both."""
+    if body.note_ids or body.document_ids or body.scope:
+        return
+    if composer_digest.about_this(body.question):
+        #: A note binned or made private since it was opened is not read;
+        #: the open category stands in (`_attached_notes`' own rule).
+        if body.open_note_id and _attached_notes(session, [body.open_note_id]):
+            body.note_ids = [body.open_note_id]
+        elif body.open_category:
+            body.note_ids = _category_note_ids(session, body.open_category)
+    else:
+        names = list(session.execute(select(Category.name)).scalars())
+        named = composer_digest.named_category(body.question, names)
+        if named:
+            body.note_ids = _category_note_ids(session, named)
+    if body.note_ids:
+        body.attached_notes_only = True
+
+
+def _nothing_open(body: ChatRequest) -> bool:
+    """"Summarise this" with nothing open: said plainly, not answered with
+    the newest notes."""
+    return composer_digest.about_this(body.question) and not (body.note_ids or body.document_ids or body.board_ids)
 
 
 def _resolve_mode(requested: str | None) -> str:
@@ -1571,6 +1621,7 @@ def _prepare(
 @router.post("", response_model=ChatResponse)
 def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResponse:
     _apply_scope(session, body)
+    _apply_open(session, body)
     prepared = _prepare(
         session,
         body.question,
@@ -2098,6 +2149,8 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
     goes on to compose or generate."""
     if _asks_capability(req, prepared):
         return [{"type": "answer", "delta": _capability_answer(req, ollama_running)}]
+    if _nothing_open(req.body):
+        return [{"type": "answer", "delta": composer_digest.PHRASES["nothing_open"]}]
     if prepared["stats"] is not None:
         out = [{"type": "answer", "delta": prepared["stats"]["text"]}]
         drawn = _stats_chart(prepared["stats"])
@@ -2995,6 +3048,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     {"type":"done"}
     """
     _apply_scope(session, body)
+    _apply_open(session, body)
     ollama = deps.get_ollama()
     #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent

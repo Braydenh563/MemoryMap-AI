@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Ask and Chat: "Summarise this" sums up what is open, the note you are editing or last opened, point by point, or the category the sidebar is filtered to; with nothing open it says so rather than listing your newest notes. "summarise Travel" and "what's in Travel?" read every note in that category, not only the few a keyword search finds.
 - Ask and Chat with no model: when one word means two unrelated things in your notes (python in Coding and python in Pets, split evenly and sharing no other word), the answer takes the newer reading, says where the other one is, and offers one chip to ask about it. With no tie there is no chip.
 - Ask and Chat with no model: a follow-up that is a question of its own ("what about running?", "and Oppenheimer?") is answered in the same shape as the first; "no, the data structures one" stays chosen for the next "shorter"; "tell me more" once everything is said says so ("That's all your notes say on psych so far: one note") instead of "Nothing in the notes found answers that"; and "what did I think of Dune?" no longer repeats the rating inside the title.
 - Ask and Chat: your own abbreviations are learned from your notes. When a note says "Human Computer Interaction (HCI)", or names Cloud Computing beside CC, asking about CC also finds the notes that spell it out, and "what does CC stand for?" is answered from the note that told it, with no model and no dictionary.

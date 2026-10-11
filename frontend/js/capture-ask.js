@@ -842,6 +842,19 @@ function scrollEditingEntryIntoView(id) {
   if (rect.top < 0) window.scrollBy(0, rect.top - 8);
 }
 
+//: "Summarise this" on any tab (CHAT_PLAN B10): the note being edited;
+//: else the category the Notes tab is filtered to, while it shows; else the
+//: last note opened. The category goes too, as the fallback for a note the
+//: server cannot read (binned or private since).
+function askOpenContext() {
+  const out = {};
+  const notesShowing = !$("tab-notes")?.classList.contains("hidden");
+  const note = editingId || (notesShowing && activeCategory ? null : lastOpenedEntryId);
+  if (note) out.open_note_id = note;
+  if (activeCategory) out.open_category = activeCategory;
+  return out;
+}
+
 function flashEntry(id) {
   lastOpenedEntryId = id;
   switchTab("notes");
@@ -2572,6 +2585,9 @@ async function streamChatEvents({
   if (attachedNotesOnly) body.attached_notes_only = true;
   //: Row 7: the notes holding open questions only (`_apply_scope`).
   if (scope) body.scope = scope;
+  //: What is open (CHAT_PLAN B10), read by the server only for a question
+  //: about "this" ("Summarise this"), never to change any other answer.
+  Object.assign(body, askOpenContext());
   //: Row 23: the notebook as it stood at the end of that day (`as_of`).
   if (asOf) body.as_of = asOf;
   // A reply to the agent's own question ("yes", "ok") reads as small talk to

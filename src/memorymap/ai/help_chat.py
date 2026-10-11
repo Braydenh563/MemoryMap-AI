@@ -808,6 +808,7 @@ HELP_TOPICS: list[dict] = [
             "how many", "most common", "statistics", "stats", "count", "top tags",
             "busiest", "untagged", "orphan", "most linked",
             "abbreviation", "acronym", "stand for", "short for",
+            "summarise this", "summarize this", "tl;dr", "what's in",
         ),
         "body": (
             "You can ask about the notebook itself, not just what is in it: "
@@ -819,7 +820,10 @@ HELP_TOPICS: list[dict] = [
             "with no AI model running at all. Private and binned notes are never "
             "counted. Your own abbreviations are learned the same way: when a "
             "note names Cloud Computing beside CC, asking about CC finds both, "
-            "and \"what does CC stand for?\" says which note told it."
+            "and \"what does CC stand for?\" says which note told it. "
+            "\"Summarise this\" sums up the note you have open, or the "
+            "category the sidebar is filtered to; \"summarise Travel\" reads "
+            "every note in that category."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },

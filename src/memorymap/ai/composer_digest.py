@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import re
 import sys
+from collections import Counter
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -59,6 +60,10 @@ _BASE = {
     "all_said": "That's all your notes say on {topic} so far: {count}, {span}.",
     "tie": "{Topic} also comes up in {category}: {count} on something else.",
     "tie_chip": "What have I saved about {topic} in {category}?",
+    "this_note": "Your {title} note of {day}{where}, in {points}:",
+    "this_one": "Your {title} note of {day}{where}{pause} says one thing: {fact}.",
+    "this_many": "{Count} in {topic}, {span}.",
+    "nothing_open": "Nothing is open to sum up. Open a note, or pick a category in the sidebar, and ask again; or name it: \"summarise Travel\".",
     "nothing_yet": "Nothing yet on {facets}.",
     "remind": "Remind you to {action}?",
     "checklist": "Save it as a checklist note?",
@@ -281,6 +286,41 @@ def clean(question: str) -> str:
 #: A question that opens with none of these is a topic ("games notes"):
 #: an overview.
 _ASKED = re.compile(r"^(?:what|what's|whats|when|who|whom|whose|how|how's|do|does|did|is|are|was|were|where|why|which|can|could|should|will|have|has|had|tell|show|list|give|any)\b", re.I)
+
+
+#: "Summarise this", "what's this about", "tl;dr" (B10): a question about
+#: whatever is open where it was asked, with no subject of its own.
+_THIS = re.compile(
+    r"^(?:(?:can|could) you |please )?(?:"
+    r"(?:summari[sz]e|sum up|recap|give me the gist of|what(?:'s| is| are) the (?:gist|main points) of)"
+    r"(?: (?:this|it|these|this note|the note|this page|this category|what(?:'s| is| i have) open))?"
+    r"|what(?:'s| is) (?:this|it) about|what does (?:this|it) say|tl;? ?dr"
+    r")(?: for me| please)?$",
+    re.I,
+)
+#: "summarise Travel", "what's in Uni?", "what do I have in my Work notes":
+#: a category by its name (B10), matched against the notebook's own names.
+_IN_CATEGORY = re.compile(
+    r"^(?:(?:can|could) you |please )?(?:summari[sz]e|sum up|recap|what(?:'s| is) in|what do i have in|what have i got in|show me)"
+    r" (?:my |the )?(?P<name>[\w&' -]{2,60}?)(?: notes| category| folder)?$",
+    re.I,
+)
+
+
+def about_this(question: str) -> bool:
+    """Whether `question` asks about what is open ("Summarise this")."""
+    return bool(_THIS.match(clean(question).rstrip("?.! ")))
+
+
+def named_category(question: str, names: list[str]) -> str | None:
+    """The category "summarise Travel" names, from `names` (the notebook's
+    categories), or None. Only a whole name counts: "summarise my trip"
+    is a topic, not a category."""
+    m = _IN_CATEGORY.match(clean(question).rstrip("?.! "))
+    if not m:
+        return None
+    asked = m.group("name").strip().lower()
+    return next((n for n in names if n.lower() == asked), None)
 
 
 def kind_of(question: str) -> str:
@@ -1009,6 +1049,10 @@ def answer(question: str, notes: list[dict], *, today: date | None = None, voice
         if want:
             out.lines.append(f"You want it {want.body}; nothing says which one meets that.")
         return _result(out, kind, asked)
+    if about_this(asked) or named_category(asked, list({str(v.note.get("category") or "") for v in views})):
+        #: The route sent only what is open, or the category named (B10):
+        #: every note is the subject.
+        return _this(out, views, names, today, asked)
     if wants_context:
         members = [v for v in views if _context_note(v) or any(composer._holds(st, v.words) for st in composer._words(asked))]
     else:
@@ -1045,6 +1089,48 @@ def answer(question: str, notes: list[dict], *, today: date | None = None, voice
         out.next.append(PHRASES["tie_chip"].format(topic=topic, category=other))
     out.offer = out.offer or _offer(facts) or _kind_offer(kind, asked, members, facts, today, out)
     return _result(out, kind, asked)
+
+
+def _this(out: _Out, views: list, names: set[str], today: date, asked: str) -> dict | None:
+    """"Summarise this" (B10): the open note, its facts under their labels;
+    or the open category, as an overview of its notes."""
+    views = sorted(views, key=lambda v: (v.written or date.min, v.rank))
+    facts = [f for v in views for f in _facts(v, names)]
+    if not facts:
+        return None
+    if len(views) == 1:
+        v = views[0]
+        title = _tidy(str(v.note.get("title") or "")) or (facts[0].label if facts[0].label else "")
+        category = str(v.note.get("category") or "").strip()
+        where = f", in {category}" if category and category.lower() != "uncategorised" else ""
+        title = title.lower() if title and title not in names else title or "untitled"
+        said = [(_lower_first(_second_person(f.body), names), f) for f in facts]
+        if len(said) == 1:
+            out.lines.append(PHRASES["this_one"].format(title=title, day=_day(v.written, today), where=where, pause="," if where else "", fact=said[0][0]))
+            out.rows.append(_row(said[0][0], said[0][1]))
+        else:
+            out.lines.append(PHRASES["this_note"].format(
+                title=title, day=_day(v.written, today), where=where, points=f"{realise.count_word(len(said))} points"))
+            #: One point a line, as a list: the note's own heading is the
+            #: lead's, so it is not repeated as every line's label.
+            #: One block, so the list renders tight rather than spaced.
+            points = []
+            for text, fact in said[:MORE_LINES]:
+                label = f"**{fact.label}:** " if fact.label and fact.label.lower() != title.lower() else ""
+                points.append(f"- {label}{text[:1].upper() + text[1:]}.")
+                out.rows.append(_row(text, fact))
+            out.lines.append("\n".join(points))
+    else:
+        category = Counter(str(v.note.get("category") or "") for v in views).most_common(1)[0][0] or "these notes"
+        out.lines.append(PHRASES["this_many"].format(count=_count(len(views)), topic=category, span=_span(views, today)))
+        _lines(out, facts, LINES["overview"], by_day=today, more=True)
+        missing = _missing(views)
+        if missing:
+            out.lines.append(missing)
+    if not out.lines:
+        return None
+    out.offer = _offer(facts)
+    return _result(out, "overview", asked)
 
 
 def _tie(question: str, members: list) -> tuple[list, str, list] | None:

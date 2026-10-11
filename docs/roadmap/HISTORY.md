@@ -338,6 +338,16 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-11 (WORLD_CLASS 25f, Brief 52)
+
+The settings52 agent's Built block, moved whole from WORLD_CLASS_PLAN 25.4 at its step boundary (standing order 10). Decision 52: a setting is a row with a name, its default and a reset; the panes stay.
+
+- Search existed (`settings-find.js`, INBOX 444); the gap was a switch whose words ran past 110 characters (Load the search model when the app starts) never being a result. Now any label holding a control is one: 60 of 60 shown rows found by their own name (`scratchpad/ui-sweeps/settingsrows.js`).
+- `GET /preferences/defaults` reads `_preferences_from` over `config.default_preferences()` (the load's own defaults, the source-install `update_channel` included), so a reset puts back what a fresh notebook reads; `tests/test_settings_rows.py` pins defaults equal to a fresh GET.
+- `settings-rows.js` (lazy, loaded by `settings-find.js`, 0 boot bytes): `SETTING_ROWS` (45 notebook keys) and `LOOK_ROWS` (30 appearance keys). A changed row carries `.setting-modified` (an inset `--accent-text` bar, 5.9 to 7.9:1 against the row at 1440 and 390, light and dark) and an icon-only reset beside the setting's name (28px at 1440, 44px at 390); the reset sets the control and fires its own event, so it saves through the control's one path. A pane with changes gets "Reset N changes" in its title bar. A look key outside `mirroredUiKeys` carries the "This browser" chip (14 in Appearance). Rows hidden in this window (desktop-only, a panel whose switch is off) are never marked or reset. Sweep: 59 of 60 driven rows marked when changed (the 60th was already changed by the row before it, glass turning sheen on), 60 of 60 cleared by reset, 33 of 33 notebook values back to the default.
+- The settings file: `GET /preferences/export` (`memorymap-settings`, version 1; time zone, exports folder and one-time notices left out), `POST /preferences/import` (each key validated alone, skips named with a reason, writes through `update_preferences`). Settings, Import & export, Your settings: Export settings adds the 14 browser-only look keys; Import settings writes the look keys into this browser and offers Undo through `offerUndo`. Round trip: 70 keys, 0 differences, 32 to 84 ms.
+- `tests/test_settings_rows.py` walks every GET /preferences key (75): a row in the registry naming a control inside the Settings window, or a reason in `NO_ROW`. DESIGN.md recipe row "A setting changed from its default" and `test_a_changed_setting_is_marked_by_the_rows_recipe`. Guide topic `settings-reset`.
+
 ## Moved from the plans, 2026-10-11 (WORLD_CLASS 23, INBOX 781, filing suggestions)
 
 The filing agent's Built block (standing order 10); WORLD_CLASS_PLAN's "Placed from INBOX, 2026-10-10 (filing suggestions)" carries the pointer. The owner: "I want the deterministic engine to be better for when suggesting tags, bot for popup suggestions, when using the \"tag and file with atlas\", and also when making a note etc."

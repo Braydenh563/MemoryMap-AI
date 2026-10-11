@@ -5982,3 +5982,42 @@ select {
   overflow-wrap: anywhere;
   font-size: var(--text-sm);
 }
+
+/* A setting changed from its default (WORLD_CLASS_PLAN 25f, settings-rows.js):
+   a bar on the row's inline-start edge, the way an editor marks a modified
+   setting, with its reset at the row's end. A shadow rather than a border, so
+   the row keeps its geometry and the switch stays on the group's text edge. */
+#settings-modal .setting-modified {
+  box-shadow: inset 2px 0 0 var(--accent-text);
+}
+#settings-modal .setting-scope,
+#settings-modal .setting-reset,
+#settings-modal .settings-reset-section {
+  flex: none;
+  margin-inline-start: auto;
+}
+#settings-modal .setting-scope ~ .setting-reset {
+  margin-inline-start: var(--space-2);
+}
+/* The reset keeps its full hit target but takes no height of its own: a row
+   that gains one must not grow and push the rows below it (measured before:
+   a switch row 37 to 43px, the bin row 32 to 44px). */
+#settings-modal .setting-reset {
+  margin-block: calc(-1 * var(--space-2));
+  align-self: center;
+}
+#settings-modal .setting-scope {
+  margin-block: calc(-1 * var(--space-1));
+}
+/* Beside the setting's name, in the line of its words. */
+#settings-modal .setting-label > span > .setting-scope,
+#settings-modal .setting-label > span > .setting-reset,
+#settings-modal .setting-hint-row > .setting-scope,
+#settings-modal .setting-hint-row > .setting-reset {
+  margin-inline-start: var(--space-2);
+  vertical-align: middle;
+}
+#settings-modal .setting-reset[hidden],
+#settings-modal .settings-reset-section[hidden] {
+  display: none;
+}

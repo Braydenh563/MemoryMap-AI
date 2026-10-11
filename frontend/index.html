@@ -10282,7 +10282,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </p>
               </div>
               <label class="check-row">
-                <input type="radio" name="tool-focus" value="auto">
+                <input type="radio" name="tool-focus" value="auto" id="tool-focus-auto">
                 <span><strong>Only what the message needs</strong>, the whole set
                   is still sent when a request is broad ("tidy up my notes")</span>
               </label>
@@ -12200,6 +12200,44 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <p class="muted empty-line" id="exports-empty">Nothing exported yet.</p>
               <ul id="exports-list" class="exports-list"></ul>
+            </div>
+
+            <!-- WORLD_CLASS_PLAN 25f: the settings as one file, out and back in.
+                 Drawn and wired by settings-rows.js (lazy, with Settings). -->
+            <div class="settings-group" id="settings-file-group">
+              <div class="row help-head">
+                <h3>Your settings</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="settings-file-help" aria-controls="settings-file-help" aria-expanded="false"
+                  title="About the settings file" aria-label="About the settings file">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Every setting as one file, to keep or to bring into another install. Your notes are not in it.</p>
+              <div class="help-body hidden" id="settings-file-help" role="dialog" aria-label="About the settings file">
+                <p>
+                  The file holds what Settings saves in your notebook, which
+                  every browser you sign in from shares, and the settings
+                  marked This browser, which only this browser keeps. The time
+                  zone, the exports folder and the one-time notices stay with
+                  the computer they belong to.
+                </p>
+                <p>
+                  Importing applies each setting it can and lists any it
+                  skipped and why. Undo puts every setting back as it was.
+                </p>
+              </div>
+              <div class="row">
+                <button id="settings-file-export" class="ghost small" type="button">
+                  <i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export settings
+                </button>
+                <button id="settings-file-import" class="ghost small" type="button">
+                  <i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Import settings
+                </button>
+                <input id="settings-file-input" type="file" accept=".json,application/json" class="hidden"
+                  aria-hidden="true" tabindex="-1" aria-label="Choose a settings file" title="Choose a settings file">
+              </div>
+              <p id="settings-file-status" class="status" role="status"></p>
             </div>
 
             <div class="settings-group">

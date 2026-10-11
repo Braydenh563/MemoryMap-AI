@@ -333,6 +333,14 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the settings52 agent (Brief 52, merged 2026-10-11)
+
+Detail: [settings52-1011.md](../archive/agent-remaining/settings52-1011.md).
+
+- The 14 browser-only appearance settings do not follow you to a second browser: decided (WORLD_CLASS 25f, placed 2026-10-11): mirror them all except `perf`.
+- Import replaces skills, personas and templates whole (no merge); the desktop save path for Export settings not driven.
+- The bin row's long label wraps when its reset appears; theme, palette, accent and zoom keep their own resets (no per-row marker).
+
 ## Left by the firstrun49 agent (Brief 49, merged 2026-10-11)
 
 Detail: [firstrun49-1011.md](../archive/agent-remaining/firstrun49-1011.md).

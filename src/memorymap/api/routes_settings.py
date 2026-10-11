@@ -35,6 +35,7 @@ from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
 from memorymap.api.routes_categories import CATEGORY_PALETTE_KEYS
 from memorymap.core import backup_bundle, deps, embedmodels, events, extras, jobruns, logbuffer, security
+from memorymap.core.config import default_preferences
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -715,7 +716,22 @@ def _validated_quick_tints(value: object) -> dict[str, str]:
 
 @router.get("/preferences")
 def get_preferences() -> dict:
-    config = deps.get_config()
+    return _preferences_from(deps.get_config())
+
+
+#: A config that never saved a preference: the install's defaults
+#: (`config.default_preferences`) under the fallbacks `_preferences_from` reads
+#: with, so Settings' reset (GET /preferences/defaults) can never disagree with
+#: what a fresh notebook is given.
+class _FreshConfig:
+    def __init__(self) -> None:
+        self._prefs = default_preferences()
+
+    def get_preference(self, key: str, default: object = None) -> object:
+        return self._prefs.get(key, default)
+
+
+def _preferences_from(config) -> dict:
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
         "ai_first_filing": config.get_preference("ai_first_filing", True),
@@ -1024,6 +1040,92 @@ def update_preferences(
             autonomous.request_stop()
         autonomous.wake()
     return get_preferences()
+
+
+@router.get("/preferences/defaults")
+def get_preference_defaults() -> dict:
+    """What every preference is in a notebook that never set it (Settings' reset)."""
+    return _preferences_from(_FreshConfig())
+
+
+#: The file Settings, Import and export writes, so a file of something else
+#: (a notebook export, a skill) is refused by name rather than half-read.
+SETTINGS_FILE_KIND = "memorymap-settings"
+SETTINGS_FILE_VERSION = 1
+
+#: Preferences that describe this computer or this install's own bookkeeping,
+#: not a choice a person would carry to another one: the detected time zone, a
+#: folder path on this disk, and the one-time "seen it" flags.
+_NOT_EXPORTED = frozenset(
+    {"timezone", "export_save_dir", "console_view_intro_seen", "tray_hide_explained"}
+)
+
+
+def _exportable_keys() -> list[str]:
+    return [key for key in PreferencesBody.model_fields if key not in _NOT_EXPORTED]
+
+
+@router.get("/preferences/export")
+def export_preferences() -> dict:
+    """Every setting a person chose, as one JSON document to keep or move."""
+    current = get_preferences()
+    return {
+        "kind": SETTINGS_FILE_KIND,
+        "version": SETTINGS_FILE_VERSION,
+        "app_version": __version__,
+        "exported_at": utcnow().isoformat(timespec="seconds"),
+        "preferences": {key: current[key] for key in _exportable_keys() if key in current},
+    }
+
+
+@router.post("/preferences/import")
+def import_preferences(payload: dict, session: Session = Depends(get_session)) -> dict:
+    """Apply a settings file, key by key, and say what was skipped and why.
+
+    Each key is validated alone: one bad value (a file edited by hand, a key a
+    newer version added) is reported and skipped rather than failing the whole
+    file, so the rest still arrives. The writes go through `update_preferences`,
+    so an imported value is cleaned exactly as one typed into Settings is.
+    """
+    if payload.get("kind") != SETTINGS_FILE_KIND:
+        raise HTTPException(status_code=422, detail="That file is not a MemoryMap settings file.")
+    version = payload.get("version")
+    if not isinstance(version, int) or version > SETTINGS_FILE_VERSION:
+        raise HTTPException(
+            status_code=422,
+            detail="That settings file is from a newer version of MemoryMap; update this one first.",
+        )
+    incoming = payload.get("preferences")
+    if not isinstance(incoming, dict):
+        raise HTTPException(status_code=422, detail="That settings file holds no settings.")
+    exportable = set(_exportable_keys())
+    current = get_preferences()
+    valid: dict[str, object] = {}
+    skipped: list[dict[str, str]] = []
+    unchanged = 0
+    for key, value in list(incoming.items())[:400]:
+        if key in _NOT_EXPORTED:
+            skipped.append({"key": key, "reason": "belongs to the computer it came from"})
+        elif key not in exportable:
+            skipped.append({"key": key, "reason": "not a setting this version has"})
+        else:
+            try:
+                PreferencesBody.model_validate({key: value})
+            except ValueError:
+                skipped.append({"key": key, "reason": "not a value this setting takes"})
+                continue
+            if value is not None and current.get(key) != value:
+                valid[key] = value
+            else:
+                unchanged += 1
+    if valid:
+        update_preferences(body=PreferencesBody.model_validate(valid), session=session)
+    return {
+        "applied": sorted(valid),
+        "unchanged": unchanged,
+        "skipped": skipped,
+        "preferences": get_preferences(),
+    }
 
 
 @router.post("/system/console-mode")

@@ -3775,6 +3775,9 @@ World class for a local notebook is five things, each measurable:
 | Settings | VS Code settings: searchable, each with a description and a default, reset per item | measured: `PreferencesBody` 72 fields; 105 help popovers (69 in the Settings modal); 10 keys with a control and no help; a settings search box already exists (`settings-find.js`) (24.6b) | no search across settings; no modified marker or per-item reset; no settings export | 25f |
 | Help and guide | a searchable manual with a "?" on every control | 51 plus 35 Guide topics; `test_manual_parity`; the manual (25c, built 2026-10-11) | "what changed" is Settings, About, What's new (CHANGELOG, already built) | 25c |
 | First run | Linear: value in 60 seconds, the model optional and said so | `first-run.spec.js`, the first steps and the sample notebook (25c, built 2026-10-11) | the first-run queue still asks three questions before the dashboard (welcome, recovery key, updates) | 25c |
+| Settings | VS Code settings: searchable, each with a description and a default, reset per item | measured: `PreferencesBody` 72 fields; 105 help popovers (69 in the Settings modal); 10 keys with a control and no help; a settings search box already exists (`settings-find.js`) (24.6b) | built 2026-10-11 (25f): rows, reset, the settings file | 25f |
+| Help and guide | a searchable manual with a "?" on every control | 51 plus 35 Guide topics; `test_manual_parity` | no offline manual page with search; no "what changed" | 25c |
+| First run | Linear: value in 60 seconds, the model optional and said so | `first-run.spec.js`, `gettingStartedCard`, the name nudge | no sample notebook; the three-step path is implicit | 25c |
 | Import and export | Obsidian, Notion, Evernote, Apple Notes in; a markdown folder out | `app_import.py` (five sources, a MemoryMap folder the fifth), `export_folder.py` (the whole notebook as a markdown folder with sidecars and attachments, `GET /export/folder`), the import report page, web clip, media upload; export per note `.md`, per document md, zip, docx; backups and a bundle | built 2026-10-10 (25b); left: a 5,000-note write is 45.9 s on the loaded sandbox (one commit per note) | 25b |
 | Data safety | never lose a note | measured: bundle is `memorymap.db` (all 57 tables) plus `media/` and `uploads/`; per-note history is `EntryRevision`, 20 per note, with a panel; `versioning.py` is the `/api/v1` middleware (24.6b) | restore is not verified by a test; no integrity check at boot; versions not visible per note; crash recovery of a draft unmeasured | 25e |
 | Phone and PWA | installable, an offline shell, a share target | `phone-shell.js` 2,139 lines; `sw.js` 59 lines and by design no cache (a transparent worker) | no offline shell; the hashed asset URLs make a safe cache possible now (decision 49) | 25d, Brief 40 |
@@ -3837,7 +3840,7 @@ World class for a local notebook is five things, each measurable:
 | 25c First run and help | built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (WORLD_CLASS 25c, Brief 49)") | `first-run.spec.js` extended; the manual page's search finds every control name (`test_manual_parity`) | 49, built: 41 of 41 named controls found (35 before), first note found again in 11 acts without the name step, every one on screen |
 | 25d PWA shell | built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25d, Brief 50)") | offline reload shows an honest page, never the shell; an edited file is never served stale (two stamps are two cache keys, `test_two_stamps_for_the_same_file_are_two_cache_keys`) | 50 (Sonnet, high) |
 | 25e Never lose a note | the restore test in CI (backup, restore into a scratch dir, compare counts and bodies), an integrity check at boot with a one-line notice, per-note versions visible (a "Versions" row in the note menu, from `versioning.py`), draft recovery after a killed server | `test_restore_roundtrip.py` green; a killed server loses no typed draft (a Playwright test) | 51, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25e, Brief 51)"): restore equal for ten kinds, quick_check 30 ms at 5,000 notes, draft spec 1 passed, undo lint 10 to 7 |
-| 25f Settings | search across settings, the modified marker, reset per item, settings export and import as JSON | every setting reachable by search; `test_settings_rows.py` walks the 179 keys | 52 (Opus, high) |
+| 25f Settings | built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (WORLD_CLASS 25f, Brief 52)") | every setting reachable by search; `test_settings_rows.py` walks every key (75, not 179) | 52, built: 60 of 60 shown rows found by search, 60 of 60 cleared by reset, 33 of 33 back to the server default, file round trip 0 differences |
 | 25g Budgets | built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (WORLD_CLASS 25g, Brief 53)") | the six numbers in the README's performance table; CI fails when one exceeds its cap | 53, built: first paint 713 ms, first interaction 4,639, list 139, search 30, board 108, document 359; caps 1.5 times each |
 
 Phase E of AGENT_SKILLS_REFORM (Brief 54) and TIMELINE Phase 5 (Brief 55)
@@ -3997,7 +4000,7 @@ sources; three export shapes per document and one per note.
 | Reminders and tasks | parse, due, snooze?, the tray, notifications | recurring, snooze with choices, natural dates in every date field, delivery when the window is closed, the calendar | Brief 55 |
 | Library | gallery, OCR, vision, filters, activity | split (45); bulk tag and move; a file's places (which notes, boards) | Briefs 45, 43 |
 | Dashboard | nine blocks | "continue and today" (decision 51) | Brief 59 |
-| Settings | 179 keys, panes, help on 105 | search, reset, modified, export (decision 52) | Brief 52 |
+| Settings | 75 keys, panes, help on 105; search, reset, modified, export built (25f) | appearance keys kept per browser (see agent-remaining/settings52-1011.md) | Brief 52 |
 | Import | Notion, Obsidian, Evernote, Apple Notes, web clip, media | the report page, progress, a markdown folder in, the round trip (25b) | Brief 48 |
 | Export | per note `.md`, per document md, zip, docx, the bundle | the whole notebook as a folder (25b); boards and maps as SVG and PNG with the notes they link; a document as PDF | Brief 48 |
 | Backups | create, list, restore, bundle | the tested restore, the boot check, a schedule shown with the last success (25e) | Brief 51 |
@@ -4183,3 +4186,7 @@ Brief 74 measured rules 1, 2 and 7 on 12 surfaces (`undo.js`, `reach.js`, `overl
 ## Placed from INBOX, 2026-10-10 (filing suggestions)
 
 - INBOX 781: built 2026-10-11, HISTORY.md, "Moved from the plans, 2026-10-11 (WORLD_CLASS 23, INBOX 781, filing suggestions)". Open: `docs/roadmap/archive/agent-remaining/filing-1010.md`.
+
+## Placed from the settings agent, 2026-10-11 (a decision taken by standing order 3)
+
+- 25f: the 14 appearance settings kept only in this browser do not follow the person to a second browser. Decision, taken: mirror them all to the notebook's preferences except `perf` (performance mode is a property of the machine). Owner: a Sonnet brief after the running ones.

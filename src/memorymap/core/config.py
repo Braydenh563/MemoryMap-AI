@@ -260,6 +260,29 @@ def _owner_only(folder: Path) -> None:
         pass  # not ours to change (another owner, a read-only mount)
 
 
+def default_preferences() -> dict[str, Any]:
+    """What a notebook that never saved a preference reads.
+
+    Shared by the load below and by Settings' reset (GET /preferences/defaults),
+    so a reset puts back exactly what a fresh install is given.
+    """
+    prefs = dict(DEFAULT_PREFERENCES)
+    # A source checkout (git clone + start.sh/start.bat) updates on every
+    # launch via `git pull` on whatever branch is checked out: that IS
+    # tracking main. Defaulting such an install to "stable" would point
+    # its *other* update path (routes_update.py's GitHub-releases check)
+    # at a channel that install has no way to actually apply anyway
+    # (can_auto_apply requires a frozen Windows build), so it would just
+    # silently do nothing useful. A packaged Windows install has the
+    # opposite situation, no git pull, no main branch to track: so it
+    # keeps "stable", the one channel it can act on. Overridden below by
+    # whatever the user has actually saved, the moment they have ever
+    # touched the setting themselves.
+    source_install = not getattr(sys, "frozen", False)
+    prefs["update_channel"] = "main" if source_install else "stable"
+    return prefs
+
+
 class ConfigManager:
     """Knows the app's folders, files, and saved preferences."""
 
@@ -294,20 +317,7 @@ class ConfigManager:
         A missing or corrupt preferences file must never stop the app
         from starting: we just fall back to defaults.
         """
-        prefs = dict(DEFAULT_PREFERENCES)
-        # A source checkout (git clone + start.sh/start.bat) updates on every
-        # launch via `git pull` on whatever branch is checked out: that IS
-        # tracking main. Defaulting such an install to "stable" would point
-        # its *other* update path (routes_update.py's GitHub-releases check)
-        # at a channel that install has no way to actually apply anyway
-        # (can_auto_apply requires a frozen Windows build), so it would just
-        # silently do nothing useful. A packaged Windows install has the
-        # opposite situation, no git pull, no main branch to track: so it
-        # keeps "stable", the one channel it can act on. Overridden below by
-        # whatever the user has actually saved, the moment they have ever
-        # touched the setting themselves.
-        source_install = not getattr(sys, "frozen", False)
-        prefs["update_channel"] = "main" if source_install else "stable"
+        prefs = default_preferences()
         # `auto_update_enabled` used to default on for a source checkout
         # (INBOX 221), so the launchers pulled on every launch of a clone
         # nobody had asked. The owner's decision of 2026-10-05, "Ask once":

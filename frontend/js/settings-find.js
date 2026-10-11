@@ -57,7 +57,10 @@ function settingRows() {
       const hiddenBy = el.closest(".hidden");
       if (hiddenBy && hiddenBy !== pane && pane.contains(hiddenBy)) continue;
       const text = settingRowText(el);
-      if (text.length < 3 || text.length > 110) continue;
+      //: A switch's own words can run long ("Load the search model when the
+      //: app starts (off: ...)"); it is still a setting, where a long run of
+      //: words with no control in it is a paragraph.
+      if (text.length < 3 || (text.length > 110 && !el.querySelector("input, select, textarea"))) continue;
       const group = el.closest(".settings-group, details.settings-fold");
       const head = el.matches("h3, h4") ? null : group?.querySelector("h3, h4, summary h3");
       //: A help topic says which group of topics it is in (INBOX 448).
@@ -494,6 +497,8 @@ function settingsIndexBuild(name) {
 //: Called when a section opens: build now, again once its async content has
 //: arrived, and keep it current while the pane changes.
 function settingsIndexWatchSection(name) {
+  //: Each row's changed marker and reset (WORLD_CLASS_PLAN 25f), a file of its own.
+  lazyScript("/js/settings-rows.js").then((ok) => ok && settingRowsWatch(name));
   settingsIndexWatch?.disconnect();
   settingsIndexWatch = null;
   const pane = $(`settings-${name}`);

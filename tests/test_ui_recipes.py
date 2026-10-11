@@ -5325,3 +5325,19 @@ def test_an_insights_verdicts_are_one_compact_pair_on_the_sentences_row() -> Non
     assert "border: 0" in css and "background: transparent" in css, "the pair is quiet at rest"
     for name in ("chat-attach.js", "tidy.js"):
         assert "insightLine(" in (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8"), name
+
+
+def test_a_changed_setting_is_marked_by_the_rows_recipe():
+    """DESIGN.md, "A setting changed from its default" (WORLD_CLASS_PLAN 25f).
+
+    One file marks a changed row and draws its reset; a second marker or a
+    reset built elsewhere would be two looks for one fact.
+    """
+    rows = (ROOT / "frontend" / "js" / "settings-rows.js").read_text(encoding="utf-8")
+    assert 'button.className = "icon-only ghost small setting-reset"' in rows
+    assert 'rowEl.classList.toggle("setting-modified", modified)' in rows
+    others = [p.name for p in JS if p.name != "settings-rows.js" and "setting-modified" in p.read_text(encoding="utf-8")]
+    assert not others, f"a changed setting marked outside settings-rows.js: {others}"
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    rule = re.search(r"#settings-modal \.setting-modified \{([^}]*)\}", css)
+    assert rule and "inset 2px 0 0 var(--accent-text)" in rule.group(1) and "border" not in rule.group(1)

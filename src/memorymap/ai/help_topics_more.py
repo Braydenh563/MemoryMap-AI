@@ -415,6 +415,27 @@ MORE_TOPICS: list[dict] = [
         "badge": {"label": "Import & export", "section": "data"},
     },
     {
+        "id": "settings-reset",
+        "keywords": (
+            "reset a setting", "reset to default", "default setting", "changed setting",
+            "reset section", "export settings", "import settings", "settings file",
+            "copy my settings", "move my settings", "this browser", "which settings sync",
+        ),
+        "body": (
+            "A setting changed from its default shows a bar at its left edge and "
+            "a reset button at the end of its row, which puts that one setting "
+            "back; Reset N changes, in the section's title bar, puts back every "
+            "changed setting in that section. A setting marked This browser is "
+            "kept only in the browser you set it in; the rest are kept in your "
+            "notebook and follow you to every browser you sign in from. Settings, "
+            "Import & export, Your settings: Export settings saves every setting "
+            "as one .json file (no notes in it); Import settings reads one back, "
+            "applies each setting it can, says which it skipped and why, and "
+            "offers Undo."
+        ),
+        "badge": {"label": "Import & export", "section": "data"},
+    },
+    {
         "id": "logs",
         "keywords": (
             "logs", "log", "support bundle", "report a bug", "bug report", "error report",
@@ -2044,6 +2065,8 @@ MORE_TOPICS.extend([
 TOPIC_META.update({
     "phone": {"title": "On your phone", "path": "Settings, Account & security, Other devices"},
     "two-computers": {"title": "Two computers", "path": "Settings, Import & export"},
+    "settings-reset": {"title": "Resetting and moving your settings", "path": "Settings, Import & export, Your settings",
+                       "target": "settings-file-group"},
     "encryption": {"title": "What is encrypted", "path": "Settings, Account & security"},
     "delete-data": {"title": "Deleting your data", "path": "Settings, General, Bin"},
     "share-note": {"title": "Sharing a note", "path": "A note's menu, Download .md"},

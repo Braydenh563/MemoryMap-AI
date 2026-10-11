@@ -48,6 +48,8 @@ CALLED_FLOOR = {
     "stencils": 7,
     "mammoth": 2,
     "docx": 12,
+    #: Brief 83: the Translate worker, a download extra (its WASM engine is not vendored).
+    "translate": 11,
 }
 
 

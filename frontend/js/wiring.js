@@ -722,7 +722,7 @@ $("chat-fork").addEventListener("click", async () => {
       body: JSON.stringify({}),
     });
     await loadConversationList();
-    chatUndo("chatForkUndo", fork);
+    chatWriteRecord("chatForkUndo", fork);
     toastAction(`Forked to “${fork.title}”.`, "Open it", () => openConversation(fork.id), { go: { open: "conversation", id: fork.id } });
   } catch (error) {
     toast(error.message || "Couldn't fork this conversation.", true);
@@ -765,7 +765,7 @@ async function renameCurrentConversation() {
       body: JSON.stringify({ title: next }),
     });
     $("chat-title").textContent = next;
-    chatUndo("chatTitleUndo", chatConv.id, current, next);
+    chatWriteRecord("chatTitleUndo", chatConv.id, current, next);
     loadConversationList();
   } catch (error) {
     toast(error.message || "Couldn't rename this conversation.", true);

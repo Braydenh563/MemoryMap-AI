@@ -790,7 +790,10 @@ def activity_rows() -> list[dict]:
             "queued": bool(task.get("queued")),
             "stoppable": bool(task.get("cancellable")),
         })
-    covered = {row["kind"] for row in rows} | set(passes.PASS_KINDS) | _RUN_KINDS_IN_COLLECT
+    tracked = activity.snapshot()
+    #: A job that registered with `activity` itself (an import, with Stop)
+    #: is that row, not a second one from its run record.
+    covered = {row["kind"] for row in rows + tracked} | set(passes.PASS_KINDS) | _RUN_KINDS_IN_COLLECT
     for live in jobruns.live():
         if live["kind"] in covered:
             continue
@@ -804,7 +807,7 @@ def activity_rows() -> list[dict]:
             "queued": False,
             "stoppable": False,
         })
-    rows.extend(activity.snapshot())
+    rows.extend(tracked)
     return rows
 
 
@@ -812,7 +815,9 @@ def activity_rows() -> list[dict]:
 def list_activity() -> dict:
     """What is running now, each with Stop where Stop does something, and
     the chat model's state for "Stop the model"."""
-    return {"jobs": activity_rows(), "model": _model_state(), "now": time.time()}
+    from memorymap.core import activity
+
+    return {"jobs": activity_rows(), "finished": activity.recent(), "model": _model_state(), "now": time.time()}
 
 
 @router.post("/activity/{job_id:path}/stop")

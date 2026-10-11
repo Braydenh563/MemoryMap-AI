@@ -182,3 +182,33 @@ def test_the_recorder_saves_a_slice_every_ten_seconds():
     assert "const MEETING_CHUNK_MS = 10000;" in js
     assert "recorder.start(MEETING_CHUNK_MS)" in js
     assert "/recordings/${id}/chunk" in js
+
+
+def test_finish_transcribe_and_purge_by_id(client, monkeypatch):
+    """The three id routes, called by a path the route-naming ratchet can read
+    (a plain variable in the f-string, not a subscript)."""
+    monkeypatch.setattr(voice, "whisper_available", lambda: False)
+    rid = _make(client)["id"]
+    _chunk(client, rid, WEBM_HEAD, 1000)
+    finished = client.post(f"/recordings/{rid}/finish", json={"duration_ms": 1000})
+    assert finished.json()["state"] == "saved"
+    transcribed = client.post(f"/recordings/{rid}/transcribe")
+    assert transcribed.status_code == 503
+    early = client.post(f"/recordings/{rid}/purge")
+    assert early.status_code == 409  # not in the bin yet
+    client.delete(f"/recordings/{rid}")
+    purged = client.post(f"/recordings/{rid}/purge")
+    assert purged.status_code == 200
+
+
+def test_the_list_pages_and_counts(client):
+    for n in range(3):
+        rid = _make(client, title=f"Take {n}")["id"]
+        _chunk(client, rid, WEBM_HEAD, 1000)
+        client.post(f"/recordings/{rid}/finish", json={"duration_ms": 1000})
+    page = client.get("/recordings?limit=2")
+    assert len(page.json()["recordings"]) == 2
+    assert page.headers["X-Total-Count"] == "3"
+    assert "X-Next-Cursor" in page.headers
+    rest = client.get("/recordings?limit=2&offset=2")
+    assert len(rest.json()["recordings"]) == 1 and "X-Next-Cursor" not in rest.headers

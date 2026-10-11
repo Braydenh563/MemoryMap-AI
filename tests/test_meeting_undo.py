@@ -23,5 +23,5 @@ def test_each_meeting_act_pushes_an_undo():
 
 
 def test_undo_bins_rather_than_deletes():
-    block = _block("function meetingUndoBin(")
+    block = _block("function meetingBinPair(")
     assert '{ method: "DELETE" }' in block and '/restore`, { method: "POST" }' in block

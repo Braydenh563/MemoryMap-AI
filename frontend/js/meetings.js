@@ -104,7 +104,8 @@ function meetingFormRow(label, control, id) {
 //: a note or a document it made goes to the bin and comes back, a reminder
 //: likewise, and an addition puts the text back as it was. One pair per
 //: kind, so each act names its words and two functions, nothing more.
-function meetingUndoBin(kind, id, after = () => {}) {
+//: Not an undo itself: the pair each act hands to `pushUndo`.
+function meetingBinPair(kind, id, after = () => {}) {
   const base = kind === "note" ? "/entries" : kind === "document" ? "/documents" : "/reminders";
   const refresh = async () => {
     if (kind === "note") await refreshEntries([id]).catch(() => {});
@@ -227,7 +228,7 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
         //: refresh ratchet, tests/test_refresh_entries.py).
         await refreshEntries([made.id]).catch(() => {});
         if (then) then(made);
-        const binned = meetingUndoBin("note", made.id);
+        const binned = meetingBinPair("note", made.id);
         pushUndo("Started a meeting", binned.undo, binned.redo);
         //: Straight into the note: the meeting is where the writing happens.
         flashEntry(made.id);
@@ -310,7 +311,7 @@ async function meetingRemind(entryId, item, button, redraw, when = "") {
       body: JSON.stringify({ line: item.line, when, tz_offset_minutes: -new Date().getTimezoneOffset() }),
     });
     const due = parseServerTime(made.due_at) || new Date(made.due_at);
-    const binned = meetingUndoBin("reminder", made.id, redraw);
+    const binned = meetingBinPair("reminder", made.id, redraw);
     pushUndo("Made a reminder from an action item", binned.undo, binned.redo);
     toastAction(`Reminder set for ${due.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}.`, "Show", () => switchTab("reminders"));
     redraw();
@@ -562,9 +563,10 @@ async function meetingCreateUndoable(content, title) {
     method: "POST",
     body: JSON.stringify({ title: title || `Recording ${new Date().toLocaleDateString()}`, when: meetingNowValue(), notes: content }),
   });
-  const binned = meetingUndoBin("note", saved.id);
+  const binned = meetingBinPair("note", saved.id);
   pushUndo("Saved a recording as a meeting", binned.undo, binned.redo);
-  if (meetingTake.id) apiJson(`/recordings/${meetingTake.id}`, { method: "PATCH", body: JSON.stringify({ entry_id: saved.id }) }).catch(() => {});
+  //: The meeting is saved; only the recording's link to it can fail, and the person is told why.
+  if (meetingTake.id) apiJson(`/recordings/${meetingTake.id}`, { method: "PATCH", body: JSON.stringify({ entry_id: saved.id }) }).catch((error) => toast(error.message, true));
   return saved;
 }
 
@@ -1103,7 +1105,7 @@ async function saveMeetingDocument() {
       method: "POST",
       body: JSON.stringify({ title, content }),
     });
-    const binned = meetingUndoBin("document", document_.id);
+    const binned = meetingBinPair("document", document_.id);
     pushUndo("Saved a transcript as a document", binned.undo, binned.redo);
     closeMeetingRecorder();
     switchTab("documents");
@@ -1150,7 +1152,7 @@ async function saveVoiceNoteText(text, title) {
   button.disabled = true;
   try {
     const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: title ? `${title}\n\n${text}` : text }) });
-    const binned = meetingUndoBin("note", made.id);
+    const binned = meetingBinPair("note", made.id);
     pushUndo("Saved a voice note", binned.undo, binned.redo);
     closeMeetingRecorder();
     await refreshEntries([made.id]).catch(() => {});
@@ -1195,7 +1197,7 @@ async function renderRecordings() {
   if (!list) return;
   let body = null;
   try {
-    body = await apiJson("/recordings");
+    body = await apiJson("/recordings?limit=500");
   } catch (error) {
     list.replaceChildren(recordingsEmpty(error.message || "Couldn't load your recordings."));
     return;
@@ -1413,7 +1415,7 @@ async function transcribeRecording(rec) {
     const text = (body.text || "").trim();
     if (!text) return toast("Nothing was heard in that recording.", "info");
     const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${rec.title || "Recording"}\n\n${text}` }) });
-    const binned = meetingUndoBin("note", made.id);
+    const binned = meetingBinPair("note", made.id);
     pushUndo("Saved a transcript as a note", binned.undo, binned.redo);
     await refreshEntries([made.id]).catch(() => {});
     toastAction("Transcript saved as a note.", "Open", () => flashEntry(made.id));

@@ -1700,7 +1700,7 @@ async function loadConversationList() {
             method: "PUT",
             body: JSON.stringify({ pinned: !conversation.pinned }),
           });
-          chatUndo("chatPinUndo", conversation.id, !conversation.pinned);
+          chatWriteRecord("chatPinUndo", conversation.id, !conversation.pinned);
           loadConversationList();
         }
       )
@@ -1713,7 +1713,7 @@ async function loadConversationList() {
           method: "PUT",
           body: JSON.stringify({ title: next.trim() }),
         });
-        chatUndo("chatTitleUndo", conversation.id, conversation.title, next.trim());
+        chatWriteRecord("chatTitleUndo", conversation.id, conversation.title, next.trim());
         if (chatConv.id === conversation.id) $("chat-title").textContent = next.trim();
         loadConversationList();
       })
@@ -1751,7 +1751,7 @@ async function loadConversationList() {
       // again from the Library's Shelved filter.
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
         await apiJson(`/conversations/${conversation.id}/archive`, { method: "PUT" });
-        chatUndo("chatArchiveUndo", conversation.id, conversation.title);
+        chatWriteRecord("chatArchiveUndo", conversation.id, conversation.title);
         if (chatConv.id === conversation.id) newChatConversation();
         toast("Archived.");
         loadConversationList();

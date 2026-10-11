@@ -749,6 +749,35 @@ at 390 and 1440. Step 9 (INBOX 739's "Untitled document N") was already
 built (`docUntitledName`). Left rows in OPEN.md "Left by the docs42 and
 docs42b agents".
 
+## Moved from the plans, 2026-10-10 (WORLD_CLASS 25b, Brief 48)
+
+**Built** by Brief 48 (import and export round trip), merged 2026-10-10.
+`entry/export_folder.py` writes the whole notebook into one zip
+(`GET /export/folder`, job kind `export`, Settings "Export notebook folder"):
+`notes/<category>/<id>-<title>.md` with front matter, a `.json` sidecar of
+every field (`ENTRY_LEFT_OUT` names each column it does not carry and why;
+a test fails on a column in neither), attachments in a folder beside the
+note linked relatively, `_recycle-bin/`, `documents/`, `boards/` (the note
+and its canvas) and `index.json`. `app_import.read("memorymap")` is the fifth
+source, the sidecar winning over the front matter, and
+`export_folder.write` restores every field, attachments, links, reminders,
+parents, documents and board canvases through an old-to-new id map;
+"already here" is the same `created_at` and text. Every import keeps a
+report (`entry/import_report.py`, `<data>/import-reports/`, the last 20;
+`GET /import/reports/{id}`) shown as a sheet (`openImportReport`,
+app-import.js, lazy) from the status line and the Activity panel's
+finished line (`activity.recent`, `#activity-finished`). The import is an `activity.track` job with Stop;
+`expand` names what it leaves out. Tests: `test_export_folder.py`,
+`test_folder_roundtrip.py` (`first_difference`), `test_import_report.py`;
+fixture `tests/fixtures/notebook500.py` (generated, deterministic).
+Measured: the 500-note fixture exports in 0.23 to 0.42 s with 60 of 60
+attachments, imports into an empty notebook in 2.7 to 3.4 s with 0
+differences on 503 notes and boards and 5 documents, a second import makes
+0; 5 deliberate faults give 5 named skips; 5,000 files list in 0.03 s, 50
+progress reports, Stop lands in 0.005 s after 300 notes and those stay; a
+full 5,000-note write 45.9 s on the loaded sandbox. Driven at 1440 and 390:
+0 page errors. Left: in export48-1010.md.
+
 ## Moved from the plans, 2026-10-10 (WORLD_CLASS 25a, Brief 47)
 
 **Built** by Brief 47 (search everywhere, decision 46), merged 2026-10-10.

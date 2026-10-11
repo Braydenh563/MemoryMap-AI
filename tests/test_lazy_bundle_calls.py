@@ -99,6 +99,8 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: The palette's Translate this row, in the .then of ensureModule('translate').
+    "translateCaught": "translate, called in the .then of ensureModule('translate') on its palette row",
     #: Brief 88: a source opens its note at the quoted line, in the .then of
     #: ensureModule('reveal') in capture-ask.js's openNoteAtPassage.
     "markNotePassage": "reveal, called in the .then of ensureModule('reveal') in openNoteAtPassage",

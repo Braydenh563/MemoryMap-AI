@@ -57,6 +57,8 @@ KINDS: dict[str, str] = {
     "backup": "Backup",
     "duplicate-scan": "Duplicate scan",
     "import": "Import",
+    #: The whole notebook as a markdown folder (WORLD_CLASS 25b).
+    "export": "Notebook export",
     "night-shift": "Night shift",
     "model-bench": "Model bench",
     "autonomous": "Autonomous optimisation",

@@ -62,7 +62,10 @@ const SETEXT_DOC = 'Top setext\n==========\n\nbody\n\nSecond setext\n-----------
       txt: b.textContent.trim(),
       level: Number((li.className.match(/outline-h(\d)/) || [])[1]),
       justify: c.justifyContent,
-      padLeft: +parseFloat(c.paddingLeft).toFixed(2),
+      // Depth is the row's own indent now (the chevron steps in with its heading);
+      // the link keeps one constant inset.
+      inset: +parseFloat(c.paddingLeft).toFixed(2),
+      padLeft: +parseFloat(getComputedStyle(li).paddingLeft).toFixed(2),
       boxX: +r.x.toFixed(1),
       textX: +t.x.toFixed(1),
     };
@@ -72,7 +75,7 @@ const SETEXT_DOC = 'Top setext\n==========\n\nbody\n\nSecond setext\n-----------
   for (const e of entries) {
     if (e.justify !== 'flex-start') fail(`"${e.txt}" is laid out ${e.justify}, not flex-start`);
     // The text begins at the box plus its own indent, give or take a border.
-    const want = e.boxX + e.padLeft;
+    const want = e.boxX + e.inset;
     if (Math.abs(e.textX - want) > 2) fail(`"${e.txt}" starts at ${e.textX}, not at its indent ${want.toFixed(1)}`);
   }
   // Depth is the only thing that moves an entry, and it moves it one step.

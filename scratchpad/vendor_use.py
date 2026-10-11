@@ -52,6 +52,15 @@ LIBRARY_KEYS = {
     "Mammoth": "mammoth",
     "docx": "docx",
     "draw.io stencils": "stencils",
+    #: A download extra (Settings, Packages), not vendored JS: the engine, its
+    #: model and the parts compiled into its WASM are one capability, counted once.
+    "Bergamot translator": "translate",
+    "Firefox Translations model, English to Spanish": "translate",
+    "marian-nmt (inside the Bergamot WASM)": "translate",
+    "intgemm (inside the Bergamot WASM)": "translate",
+    "SentencePiece (inside the Bergamot WASM)": "translate",
+    "ruy (inside the Bergamot WASM)": "translate",
+    "ssplit-cpp (inside the Bergamot WASM)": "translate",
 }
 
 P5_FUNCTIONS = [
@@ -826,6 +835,29 @@ def docx_report(scripts: dict[str, str]) -> Report:
     return Report("docx", "docx", list(DOCX_API), called, {}, ["written in documents-word.js, Download as Word"])
 
 
+#: Bergamot's embind surface as its bindings document it. The engine is a
+#: download (`extras/translate/`), never in the repository, so this list is
+#: the published API rather than a read of the file, and the counts are a floor.
+BERGAMOT_API = [
+    "BlockingService", "TranslationModel", "AlignedMemory", "AlignedMemoryList", "VectorString",
+    "VectorResponseOptions", "translate", "translateViaPivoting", "getTranslatedText", "getOriginalText",
+    "getSourceSentence", "getTargetSentence", "alignment", "html", "qualityScores",
+]
+
+
+def translate_report(scripts: dict[str, str]) -> Report:
+    text = scripts.get("translate-worker.js", "")
+    called = [name for name in BERGAMOT_API if re.search(rf"\b{name}\b", text)]
+    return Report(
+        "translate",
+        "Bergamot translator (download extra)",
+        list(BERGAMOT_API),
+        called,
+        {},
+        ["a download extra, not vendored: marian-nmt, intgemm, SentencePiece, ruy and ssplit-cpp are inside its WASM"],
+    )
+
+
 def d3_module(name: str) -> str:
     """Which d3 module a top-level export belongs to (by name; d3 has no map)."""
     rules = (
@@ -971,6 +1003,7 @@ def collect() -> dict[str, Report]:
         stencils_report(scripts),
         mammoth_report(scripts),
         docx_report(scripts),
+        translate_report(scripts),
     ]
     return {r.key: r for r in reports}
 

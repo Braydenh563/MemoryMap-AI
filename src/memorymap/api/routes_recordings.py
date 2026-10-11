@@ -15,12 +15,13 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.ai import voice
+from memorymap.api import paging
 from memorymap.core import activity, deps, recordings
 from memorymap.core.database import Recording, utcnow
 from memorymap.core.deps import get_session
@@ -69,18 +70,27 @@ def _get(session: Session, recording_id: int, binned: bool = False) -> Recording
     return row
 
 
+#: A page of the library; the screen asks for the largest and filters it itself.
+RECORDINGS_PAGE_SIZE = 100
+RECORDINGS_PAGE_SIZE_MAX = 500
+
+
 @router.get("/recordings")
-def list_recordings(session: Session = Depends(get_session)) -> dict:
-    """Every recording, newest first, after finishing any a closed tab left
-    open (row 5): `recovered` lists those, once."""
+def list_recordings(
+    response: Response,
+    limit: int = Query(default=RECORDINGS_PAGE_SIZE, ge=1, le=RECORDINGS_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Newest first, a page at a time (`X-Total-Count` is the whole library),
+    after finishing any a closed tab left open (row 5): `recovered` lists
+    those, once."""
     recovered = recordings.recover_stale(session)
-    rows = (
-        session.query(Recording)
-        .filter(Recording.state == "saved")
-        .order_by(Recording.created_at.desc())
-        .limit(500)
-        .all()
-    )
+    query = session.query(Recording).filter(Recording.state == "saved")
+    total = query.count()
+    rows = query.order_by(Recording.created_at.desc()).offset(offset).limit(limit).all()
+    response.headers["X-Total-Count"] = str(total)
+    paging.finish(response, offset, limit, total)
     announced = [recordings.as_dict(row) for row in recovered]
     return {"recordings": [recordings.as_dict(row) for row in rows], "recovered": announced}
 

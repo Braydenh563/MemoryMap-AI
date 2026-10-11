@@ -3049,6 +3049,13 @@ let docRunSeq = 0;
 let docRunPanelField = null;
 let docRunToggle = null;
 
+const DOC_RUN_EMPTY = {
+  Output: "Nothing has run yet. Run the file to see what it prints here.",
+  Problems: "No problems found in this file.",
+  Tests: "Run tests to list each one here.",
+  Console: "Type a line below to run it in what the last run left.",
+};
+
 //: The run panel's '?' (the `data-help-for` recipe): what a run is, in
 //: three lines, the Guide's "Running code" topic at length.
 const DOC_RUN_HELP = [
@@ -3056,7 +3063,7 @@ const DOC_RUN_HELP = [
   "JavaScript, TypeScript (types removed, not checked), SQL (an empty SQLite per run) and Python (once installed; Input feeds input()) run. HTML, CSS, SVG and p5.js sketches show as a page; Live refreshes it as you type.",
   "Problems lists every finding the checks underline. Tests lists each test with its time, a failure underlined on its line. Console evaluates a line in what the last run left: Python for a .py file, JavaScript for the rest.",
   "Debug (F5, or the Debug tab's first button) runs JavaScript, TypeScript or Python to the first breakpoint (F9, or click beside a line number; right-click for a condition), then steps: F10 over, F11 in, Shift+F11 out, Shift+F5 stop. The tab shows variables, watches, the call stack and the breakpoints.",
-  "Ctrl+J shows or hides the panel, Ctrl+Shift+M opens Problems, Ctrl+Shift+Y the Console, Ctrl+Shift+D Debug; drag the top edge for its height, kept for each tab. A run still going after two seconds is in Activity, where Stop ends it too.",
+  "The head's buttons are icons; point at one for its name. Ctrl+J shows or hides the panel, Ctrl+Shift+M opens Problems, Ctrl+Shift+Y the Console, Ctrl+Shift+D Debug; drag the top edge for its height, kept for each tab. A run still going after two seconds is in Activity, where Stop ends it too.",
 ];
 
 //: The panel's tabs (D8), one row each: its words, the chord that shows it
@@ -3097,20 +3104,20 @@ function docRunPanel(view) {
   identity.append(tabList, status);
   const actions = document.createElement("div");
   actions.className = "dock-actions cm-run-actions";
+  //: **Icons, with their words as the tooltip and the accessible name**
+  //: (the owner, 2026-10-10: the head ran onto a second row). Eight actions
+  //: with words need 480px the head does not have beside five tabs; as the
+  //: app's one icon button they are 28px each at every width.
   const button = (label, icon, action, hint) => {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "ghost small";
+    b.className = "ghost small icon-only";
     b.title = hint;
     const i = document.createElement("i");
-    i.className = `ph ${icon} ph-lead`;
+    i.className = `ph ${icon}`;
     i.setAttribute("aria-hidden", "true");
-    //: The word can fold away on a phone (library-lazy.css): the name stays.
-    const word = document.createElement("span");
-    word.className = "cm-run-word";
-    word.textContent = label;
     b.setAttribute("aria-label", label);
-    b.append(i, word);
+    b.append(i);
     b.addEventListener("click", action);
     return b;
   };
@@ -3199,6 +3206,9 @@ function docRunPanel(view) {
     list.className = "cm-run-log";
     list.setAttribute("role", "log");
     list.setAttribute("aria-label", name);
+    //: What an empty log says (CSS draws it from this, `:empty::before`), so
+    //: a pane with nothing in it is a sentence, not a blank slab.
+    list.dataset.empty = DOC_RUN_EMPTY[name] || "";
     return list;
   };
   const log = logList("Output");

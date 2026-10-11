@@ -462,7 +462,10 @@ HELP_TOPICS: list[dict] = [
             "Everything lives in a data folder you control: the notebook "
             "database, uploads, and daily local backups. Settings, Import & export shows "
             "exactly where it is on disk, and lets you export as JSON, CSV or "
-            "Markdown, save a full backup (sealed with a password if you like) and "
+            "Markdown, export the whole notebook as a folder (Export notebook "
+            "folder: each note as markdown with its attachments and a .json file of "
+            "every field, plus documents and boards, which From a MemoryMap folder "
+            "reads back), save a full backup (sealed with a password if you like) and "
             "restore one from a file, and manage or restore backups."
         ),
         "badge": {"label": "Import & export", "section": "data"},

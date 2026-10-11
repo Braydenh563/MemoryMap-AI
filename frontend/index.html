@@ -858,6 +858,9 @@
       <p id="activity-model" class="status activity-model"></p>
       <ul id="activity-list" class="entry-list"></ul>
       <p id="activity-empty" class="muted empty-line">Nothing running right now.</p>
+      <!-- Jobs that ended with a page to open (an import's report), under
+           what is running: activity-panel.js, WORLD_CLASS 25b. -->
+      <ul id="activity-finished" class="entry-list" aria-label="Finished with a report"></ul>
     </div>
     <div id="activity-runs" role="tabpanel" aria-labelledby="activity-tab-runs" class="hidden">
       <div id="agent-monitor-runs" class="monitor-runs"></div>
@@ -5181,10 +5184,16 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Suggestions for this word"></div>
         <!-- No "Saves automatically." first: the dock's own "Saved" says
              where the save is, live (INBOX 437 (4)). -->
-        <p class="muted doc-hint">
+        <p class="muted doc-hint doc-hint-prose">
           <kbd>Ctrl</kbd>+<kbd>S</kbd> saves now,
           <kbd>Ctrl</kbd>+<kbd>B</kbd>/<kbd>I</kbd> wrap the selection in bold or italics,
           <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> strikes it through.
+        </p>
+        <!-- A code file's line: the chords that mean something in code. -->
+        <p class="muted doc-hint doc-hint-code">
+          <kbd>Ctrl</kbd>+<kbd>S</kbd> saves now,
+          <kbd>Ctrl</kbd>+<kbd>J</kbd> shows or hides the panel,
+          <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> runs the file.
         </p>
       </section>
     </div>
@@ -12009,11 +12018,19 @@ Link to another note with [[its first few words]]."></textarea>
                   folder and your settings, the one to keep if you move to
                   another computer. A model API key is left out; enter it again.
                 </p>
+                <p>
+                  Export notebook folder is the notebook as files you can read
+                  anywhere: one markdown file per note with its attachments
+                  beside it, a .json file beside each with every field (dates,
+                  pins, links, reminders), documents and boards. From a
+                  MemoryMap folder, under Import from another app, reads it back.
+                </p>
               </div>
               <div class="row">
                 <button id="export-json" class="ghost small">Export JSON</button>
                 <button id="export-csv" class="ghost small">Export CSV</button>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
+                <button id="export-folder" class="ghost small" title="Every note as markdown with its attachments, plus documents and boards, which Import reads back whole">Export notebook folder</button>
                 <button id="export-backup-zip" class="small" title="A portable zip of your database, media and attached files">Export full backup</button>
               </div>
               <div class="row settings-row-spaced">
@@ -12209,6 +12226,12 @@ Link to another note with [[its first few words]]."></textarea>
                   second import of the same export only adds what is new, and
                   Atlas treats imported text as someone else's words.
                 </p>
+                <p>
+                  From a MemoryMap folder reads the zip Export notebook folder
+                  writes, every field back as it was. Each import keeps a report
+                  of what it read, wrote and left out, with the reason for each:
+                  See the report, after it ends, or Report in the Activity panel.
+                </p>
               </div>
               <div class="row gap import-app-row">
                 <input id="import-notion-file" type="file" accept=".zip,.md,.html" multiple class="hidden"
@@ -12223,6 +12246,9 @@ Link to another note with [[its first few words]]."></textarea>
                 <input id="import-apple-file" type="file" webkitdirectory directory multiple class="hidden"
                   aria-label="Choose an Apple Notes export folder" title="Choose an Apple Notes export folder">
                 <button id="import-apple" class="ghost small" type="button"><i class="ph ph-folder-simple-plus ph-lead" aria-hidden="true"></i> From Apple Notes</button>
+                <input id="import-memorymap-file" type="file" accept=".zip" class="hidden"
+                  aria-label="Choose a notebook folder export" title="Choose a notebook folder export">
+                <button id="import-memorymap" class="ghost small" type="button"><i class="ph ph-file-arrow-up ph-lead" aria-hidden="true"></i> From a MemoryMap folder</button>
               </div>
               <p id="import-app-status" class="status" role="status" aria-live="polite"></p>
             </div>

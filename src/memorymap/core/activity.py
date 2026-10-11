@@ -35,6 +35,11 @@ from contextlib import contextmanager
 _lock = threading.Lock()
 _ids = itertools.count(1)
 _jobs: dict[str, Job] = {}
+#: Jobs that ended with a page to show (an import's report), for the panel's
+#: finished lines. Few and short-lived: the page itself is kept elsewhere.
+_recent: list[dict] = []
+RECENT_KEEP = 5
+RECENT_SECONDS = 30 * 60
 
 
 class Job:
@@ -62,6 +67,10 @@ class Job:
         #: gone, so a closed tab does not leave a row that never ends.
         self.lease = lease
         self.beat = time.monotonic()
+        #: The id of a page that says how it went (`/import/reports/{id}`);
+        #: set before the job finishes and it is kept as a finished line.
+        self.report: str | None = None
+        self.result = ""
 
     @property
     def expired(self) -> bool:
@@ -101,6 +110,7 @@ class Job:
             "started": self.started,
             "stoppable": self.stoppable,
             "queued": False,
+            "report": self.report,
         }
 
 
@@ -136,6 +146,17 @@ def finish(job: Job | None) -> None:
         return
     with _lock:
         _jobs.pop(job.id, None)
+        if job.report:
+            _recent.append({**job.row(), "detail": job.result or job.detail, "progress": 1.0, "stoppable": False,
+                            "finished": time.time()})
+            del _recent[:-RECENT_KEEP]
+
+
+def recent() -> list[dict]:
+    """The finished lines still worth showing, newest first."""
+    cutoff = time.time() - RECENT_SECONDS
+    with _lock:
+        return [row for row in reversed(_recent) if row["finished"] >= cutoff]
 
 
 @contextmanager
@@ -197,3 +218,4 @@ def clear() -> None:
     """Tests only: the registry is process-global, like `taskhistory`."""
     with _lock:
         _jobs.clear()
+        _recent.clear()

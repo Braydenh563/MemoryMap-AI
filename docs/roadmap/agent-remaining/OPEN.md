@@ -333,6 +333,23 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the export48 agent (Brief 48, merged 2026-10-10)
+
+Detail: [export48-1010.md](../archive/agent-remaining/export48-1010.md).
+
+- A 5,000-note import takes 45.9 s: each note commits on its own.
+- Binned notes import with their old deleted_at, so the startup purge removes expired ones at the next restart.
+- Ids inside board object data and comments are copied, not remapped; private notes, several spaces and a browser upload of 5,000 files not verified.
+- The Background jobs Report button waits for boot room; the Activity panel at 390 is translucent.
+
+## Left by the docsui agent (INBOX 788 design, merged 2026-10-10)
+
+Detail: [docsui-1010.md](../archive/agent-remaining/docsui-1010.md).
+
+- A code file's editor is capped at 78ch and centred (09-editor.css:59), so its panel is 724px at 1440.
+- contentsRenameTopic (library.js) and the note-panel rename (graph.js) still save on blur.
+- The sidebar's Comments, Linked from and Notes rows keep their old styling.
+
 ## Left by the composer agent (INBOX 787, merged 2026-10-10)
 
 Detail: [composer-1010.md](../archive/agent-remaining/composer-1010.md).

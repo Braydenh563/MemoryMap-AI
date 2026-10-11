@@ -9,12 +9,19 @@ toast's Undo can bin exactly these notes.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+import os
+import tempfile
+import time
+import zipfile
+from pathlib import Path
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from memorymap.core import deps, jobruns
+from memorymap.core import activity, deps, jobruns
 from memorymap.core.deps import get_session
-from memorymap.entry import app_import, manager
+from memorymap.entry import app_import, export_folder, import_report, manager
 
 router = APIRouter(tags=["import"])
 
@@ -22,14 +29,7 @@ router = APIRouter(tags=["import"])
 MAX_FILES = 5000
 
 
-@router.post("/import/app", status_code=201)
-def import_app(
-    files: list[UploadFile],
-    source: str = Query(pattern="^(notion|obsidian|evernote|apple)$"),
-    session: Session = Depends(get_session),
-) -> dict:
-    from memorymap.api.routes_settings import _parse_frontmatter
-
+def _received(files: list[UploadFile]) -> list[tuple[str, bytes]]:
     if len(files) > MAX_FILES:
         raise HTTPException(status_code=422, detail=f"{len(files)} files at once is more than one import takes ({MAX_FILES}).")
     raw: list[tuple[str, bytes]] = []
@@ -40,21 +40,97 @@ def import_app(
         if total > app_import.MAX_ARCHIVE_BYTES:
             raise HTTPException(status_code=413, detail="That export is larger than 200 MB.")
         raw.append((upload.filename or "note", data))
+    return raw
+
+
+def _progress(run: jobruns.Run, job: activity.Job) -> export_folder.Progress:
+    """The writer's reports, to both lines: the Background jobs record and
+    the Activity row with its Stop."""
+
+    def step(done: int, total: int) -> None:
+        run.step(done, total, "Writing notes")
+        job.update(done, total, f"{done} of {total} notes")
+
+    return export_folder.Progress(stopped=lambda: job.stopped, step=step)
+
+
+def _summary(written: dict, label: str) -> str:
+    made = written["imported"]
+    return f"imported {made} note{'' if made == 1 else 's'} from {label}" + (
+        f", {written['already']} already here" if written["already"] else "")
+
+
+@router.post("/import/app", status_code=201)
+def import_app(
+    files: list[UploadFile],
+    source: str = Query(pattern="^(notion|obsidian|evernote|apple|memorymap)$"),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Read, write, and keep a report. The write is a job with progress and
+    Stop (decision 70): Stop ends it at the next note and every note made
+    before then stays, since each one is committed as it is made."""
+    from memorymap.api.routes_settings import _parse_frontmatter
+
+    raw = _received(files)
     label = app_import.LABELS[source]
+    t0 = time.perf_counter()
     try:
         read = app_import.read(source, raw, parse_frontmatter=_parse_frontmatter)
     except app_import.TooBig as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
-    with jobruns.job_run("import") as run:
-        written = app_import.write(session, source, read.notes)
+    with jobruns.job_run("import") as run, activity.track("import", f"Importing from {label}") as job:
+        job.update(0, len(read.notes), f"0 of {len(read.notes)} notes")
+        progress = _progress(run, job)
+        if source == "memorymap":
+            written = export_folder.write(session, read, deps.get_config().uploads_dir, progress)
+        else:
+            written = app_import.write(session, source, read.notes, progress)
         for entry in written.pop("entries"):
+            if job.stopped:
+                break
             deps.store_quietly(session, entry)
-        run.result = (
-            f"imported {written['imported']} note{'' if written['imported'] == 1 else 's'} from {label}"
-            + (f", {written['already']} already here" if written["already"] else "")
-        )
+        run.result = _summary(written, label)
+        if written.get("stopped"):
+            run.cancel(f"stopped: {run.result}")
+        report = import_report.build(source=source, label=label, files=len(raw), read=read, written=written,
+                                     seconds=time.perf_counter() - t0, stopped=bool(written.get("stopped")))
+        job.report = import_report.save(deps.get_config().data_dir, report)
+        job.result = run.result
+        job.label = f"Import from {label}"  # the finished line's name
     manager.log_action(session, "imported", "data", detail=f"{source} x{written['imported']}")
     session.commit()
     if written["imported"]:
         deps.mark_index_stale(written["imported"])
-    return {**written, "skipped": read.skipped[:50], "source": source, "found": len(read.notes)}
+    written.pop("idmap", None)
+    written.pop("said", None)
+    return {**written, "skipped": read.skipped[:50], "source": source, "found": len(read.notes),
+            "report": job.report, "counts": report["counts"]}
+
+
+@router.get("/import/reports/{report_id}")
+def import_report_page(report_id: str) -> dict:
+    """One import's report: the counts and every skipped item with its reason."""
+    found = import_report.load(deps.get_config().data_dir, report_id)
+    if found is None:
+        raise HTTPException(status_code=404, detail="That import report is no longer kept.")
+    return found
+
+
+@router.get("/export/folder")
+def export_notebook_folder(background_tasks: BackgroundTasks, session: Session = Depends(get_session)) -> FileResponse:
+    """The whole notebook as a markdown folder in a zip (WORLD_CLASS 25b):
+    every note with its sidecar and attachments, documents, boards and an
+    `index.json`. Written to a temporary file, not memory, because the
+    attachments can be large; the file is removed once it is sent."""
+    handle, tmp_path = tempfile.mkstemp(suffix=".zip", prefix="memorymap_folder_")
+    os.close(handle)
+    background_tasks.add_task(lambda: Path(tmp_path).unlink(missing_ok=True))
+    uploads_dir = deps.get_config().uploads_dir
+    with jobruns.job_run("export") as run, zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        done = export_folder.export(session, uploads_dir, archive, progress=lambda n, total: run.step(n, total, "Writing notes"))
+        counts = done.manifest["counts"]
+        run.result = f"exported {counts['notes']} notes, {counts['attachments']} attachments" + (
+            f", {counts['missing']} attachment files missing" if counts["missing"] else "")
+    manager.log_action(session, "exported", "data", detail="folder")
+    session.commit()
+    return FileResponse(tmp_path, media_type="application/zip", filename="memorymap-notebook.zip", background=background_tasks)

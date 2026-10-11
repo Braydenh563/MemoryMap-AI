@@ -306,6 +306,8 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_backups.py", "str(exc)"): "FileNotFoundError and ValueError from core/backup.py restore_backup",
     ("routes_categories.py", "str(exc)"): "ToolError (ai/tools/categories.py) and ValueError (entry/manager.py)",
     ("routes_captions.py", "str(exc)"): "CaptionsError from ai/captions.py: its hint constants and literal sentences",
+    ("routes_recordings.py", "str(exc)"): "RuntimeError from ai/voice.py transcribe",
+    ("routes_recordings.py", "voice.INSTALL_HINT"): "ai/voice.py INSTALL_HINT",
     ("routes_chat.py", "str(exc)"): "ToolError from validate_make_plan and summarise_turns",
     ("routes_documents.py", "str(error)"): "ValueError from core/syntaxcheck.py check",
     ("routes_documents.py", "viewed.message or 'There was no readable text in that file.'"): "ViewedFile.message in core/docview.py",

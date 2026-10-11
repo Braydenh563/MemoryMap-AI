@@ -156,6 +156,7 @@ function syncDocFileType({ prose = true } = {}) {
   //: mounted with the code tools on exactly the types this is true for.
   const code = !type.previewable;
   docBoxEl()?.classList.toggle("doc-content-code", code);
+  $("tab-documents")?.classList.toggle("doc-is-code", code);
   applyDocGutter();
 
   // A menu row, so it can say the whole thing rather than "⬇ .py".
@@ -1394,13 +1395,12 @@ async function renderDocBookmarks() {
   list.replaceChildren();
   for (const bookmark of attached) {
     const item = document.createElement("li");
-    //: **The link and its ✕ are one row.** Reported as "References stacks a
-    //: close button above its own select": `.outline-link` is `width: 100%`,
-    //: so the remove button beside it had nowhere to go but the next line,
-    //: and a reference read as two controls with no relationship. The class
-    //: is what makes the `li` a flex row and lets the link shrink; nothing
-    //: about the buttons themselves changes.
-    item.className = "doc-outline-row";
+    //: **One row per reference** (the owner, 2026-10-10: "references ... with
+    //: the buttons on them"): its icon and title, then two icon buttons that
+    //: lie over the row's right end only while the row is pointed at or
+    //: focused (always on touch), so a long title keeps its width at rest.
+    //: Earlier a link chip, an "Aa" and an X sat loose beside each other.
+    item.className = "doc-outline-row doc-ref-row";
     const open = document.createElement("button");
     open.type = "button";
     open.className = "outline-link";
@@ -1410,19 +1410,21 @@ async function renderDocBookmarks() {
     // use, so a bookmark saved before INBOX 310's write-time check existed
     // can't reach window.open() with an unlisted scheme from here either.
     open.addEventListener("click", () => window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer"));
-    const remove = smallButton("ph:x", "Remove this reference", () =>
-      docBookmarkWithUndo(bookmark.id, false).catch((e) => toast(e.message, true))
-    );
-    remove.classList.add("doc-outline-row-action");
     //: **Into the text, not only beside it** (owner, 0.3.31: "how do I
     //: hyperlink or attach bookmark references in a document??"). Writes
     //: `[title](url)` at the caret, the way `docLinkBack` writes `[[Source]]`:
     //: every insert in this editor goes where you are.
-    const insert = smallButton("ph:text-aa", "Insert as a link where the caret is", () =>
+    const insert = smallButton("ph:cursor-text", "Insert a link to it at the caret", () =>
       docInsertReferenceLink(bookmark)
     );
-    insert.classList.add("doc-outline-row-action");
-    item.append(open, insert, remove);
+    const remove = smallButton("ph:link-break", "Remove it from this document", () =>
+      docBookmarkWithUndo(bookmark.id, false).catch((e) => toast(e.message, true))
+    );
+    const tools = document.createElement("span");
+    tools.className = "doc-ref-tools";
+    for (const button of [insert, remove]) button.classList.add("icon-only", "doc-outline-row-action");
+    tools.append(insert, remove);
+    item.append(open, tools);
     list.appendChild(item);
   }
 }
@@ -19195,33 +19197,66 @@ function docCmTheme(CM) {
       },
       ".cm-lint-marker-error": { backgroundColor: "var(--error)" },
       ".cm-lint-marker-warning": { backgroundColor: "var(--warn)" },
+      //: **The diagnostic card** (the owner, 2026-10-10: "this popup is poorly
+      //: designed and spaced"). Measured before: the message and its fix on one
+      //: line, 6.4px of padding above and 9.6 beside, a 3px coloured edge as the
+      //: only sign of severity and the card with no ground of its own. Now a
+      //: severity glyph (a Phosphor character, in the kind's ink: an error is
+      //: never the colour alone), the message as the card's one line of ink, and
+      //: the fix on its own row under the message, indented to the message's
+      //: edge, as a button of the app's size. A second fix sits beside the
+      //: first. The card is the opaque tooltip ground below, with an inset
+      //: from the line it is about so it never touches it.
       ".cm-diagnostic": {
-        padding: "var(--space-2) var(--space-4)",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "flex-start",
+        columnGap: "var(--space-2)",
+        rowGap: "var(--space-2)",
+        maxWidth: "min(26rem, 80vw)",
+        padding: "var(--space-3) var(--space-4)",
         marginLeft: "0",
         fontSize: "var(--text-sm)",
-        borderLeft: "3px solid var(--muted)",
+        lineHeight: "1.45",
+        borderLeft: "none",
+        "--diagnostic-ink": "var(--muted)",
       },
-      ".cm-diagnostic-error": { borderLeftColor: "var(--error)" },
-      ".cm-diagnostic-warning": { borderLeftColor: "var(--warn)" },
-      ".cm-diagnostic-info, .cm-diagnostic-hint": { borderLeftColor: "var(--accent)" },
-      ".cm-tooltip-lint": { padding: "0", borderRadius: "var(--radius-sm, 6px)" },
-      //: A quick fix on the hover card. The library's own is white on a
-      //: fixed dark grey, a black slab on this app's light page; here it is
-      //: the quiet tinted button, on its own line under the message it
-      //: answers, with the accent edge on hover and on keyboard focus.
+      ".cm-diagnostic::before": {
+        content: '"\\e4f8"',
+        fontFamily: "Phosphor",
+        fontSize: "1rem",
+        lineHeight: "1.3",
+        width: "1rem",
+        flex: "none",
+        color: "var(--diagnostic-ink)",
+      },
+      ".cm-diagnostic-error": { "--diagnostic-ink": "var(--error)" },
+      ".cm-diagnostic-warning": { "--diagnostic-ink": "var(--warn)" },
+      ".cm-diagnostic-info, .cm-diagnostic-hint": { "--diagnostic-ink": "var(--accent-text)" },
+      ".cm-diagnostic-error::before": { content: '"\\e4f8"' },
+      ".cm-diagnostic-warning::before": { content: '"\\e4e0"' },
+      ".cm-diagnostic-info::before, .cm-diagnostic-hint::before": { content: '"\\e2ce"' },
+      ".cm-diagnosticText": { flex: "1 1 calc(100% - 1rem - var(--space-2))", minWidth: "0", color: "var(--text)", fontWeight: "500", overflowWrap: "anywhere" },
+      ".cm-diagnosticText + .cm-diagnosticAction": { marginLeft: "calc(1rem + var(--space-2))" },
+      ".cm-tooltip-lint": { padding: "0", borderRadius: "var(--radius-md)" },
+      //: A quick fix on the hover card, the quiet tinted button on its own
+      //: row under the message it answers (the library's own is white on a
+      //: fixed dark grey), at the dense control height, with the accent edge
+      //: on hover and on keyboard focus.
       ".cm-diagnosticAction": {
         font: "inherit",
         fontSize: "var(--text-sm)",
         color: "var(--text)",
         backgroundColor: "var(--accent-soft)",
-        border: "none",
-        borderRadius: "var(--radius-sm, 6px)",
-        padding: "var(--space-1) var(--space-3)",
-        margin: "var(--space-2) var(--space-2) 0 0",
+        border: "1px solid transparent",
+        borderRadius: "var(--radius-md)",
+        padding: "0 var(--space-3)",
+        margin: "0",
+        minHeight: "var(--control-h-dense)",
         cursor: "pointer",
       },
       ".cm-diagnosticAction:hover, .cm-diagnosticAction:focus-visible": {
-        boxShadow: "inset 0 0 0 1px var(--accent)",
+        borderColor: "var(--accent)",
         outline: "none",
       },
       //: **Opaque, where the tooltip above is glass.** `--card` is 55%
@@ -19233,6 +19268,16 @@ function docCmTheme(CM) {
       ".cm-tooltip.cm-tooltip-hover, .cm-tooltip.cm-tooltip-autocomplete": {
         backgroundColor: "var(--modal-bg-opaque)",
       },
+      ".cm-tooltip.cm-tooltip-hover": {
+        borderRadius: "var(--radius-md)",
+        boxShadow: "var(--shadow-md)",
+        overflow: "hidden",
+      },
+      //: A gap between the card and the line it is about (measured 1px before):
+      //: the library sets only the card's top and left, so the gap is a shift
+      //: away from the line, whichever side it chose.
+      ".cm-tooltip.cm-tooltip-hover.cm-tooltip-above": { transform: "translateY(calc(-1 * var(--space-1)))" },
+      ".cm-tooltip.cm-tooltip-hover.cm-tooltip-below": { transform: "translateY(var(--space-1))" },
       ".cm-tooltip.cm-tooltip-autocomplete": {
         borderRadius: "var(--radius-sm, 6px)",
         boxShadow: "var(--shadow-md)",

@@ -638,7 +638,7 @@ async function forkFromBubble(bubble) {
       body: JSON.stringify({ up_to: index + 1 }),
     });
     await loadConversationList();
-    chatUndo("chatForkUndo", fork);
+    chatWriteRecord("chatForkUndo", fork);
     toastAction(`Forked at this message → “${fork.title}”.`, "Open it", () =>
       openConversation(fork.id), { go: { open: "conversation", id: fork.id } }
     );
@@ -1967,7 +1967,7 @@ async function saveChatAsDocument() {
         content: `# ${title}\n\n${text}\n`,
       }),
     });
-    chatUndo("chatDocumentUndo", doc);
+    chatWriteRecord("chatDocumentUndo", doc);
     toastAction("Saved to your documents.", "Open it", () => {
       switchTab("documents");
       if (typeof openDocument === "function") openDocument(doc.id);

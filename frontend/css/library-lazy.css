@@ -2041,6 +2041,7 @@
 }
 
 .wb-outline-row {
+  --outline-depth: 0;
   padding-left: calc(var(--outline-depth) * var(--space-4) * 1.5);
 }
 
@@ -3411,18 +3412,12 @@ button.ghost.doc-template-choice.wb-template-choice {
   }
 }
 
-/* The panel's head on a phone (Brief 69): the buttons fold to their icons
-   (each keeps its name in aria-label and its title), and the row wraps
-   rather than running past the panel's edge (it ran 49px past at 390). */
+/* The panel's head on a phone (Brief 69): the row wraps rather than running
+   past the panel's edge (it ran 49px past at 390). The actions are icons at
+   every width now, so there are no words to fold. */
 @media (max-width: 599.98px) {
   .cm-run-panel .cm-run-head {
     flex-wrap: wrap;
-  }
-  .cm-run-panel .cm-run-head .cm-run-word {
-    display: none;
-  }
-  .cm-run-panel .cm-run-head .ph-lead:has(+ .cm-run-word) {
-    margin-inline-end: 0;
   }
 }
 
@@ -3431,8 +3426,8 @@ button.ghost.doc-template-choice.wb-template-choice {
    is the line), the run's status beside them, then the actions. Each tab's
    pane fills the panel under the head; one shows at a time. */
 .cm-run-panel > .cm-run-head.dock {
-  flex-wrap: wrap;
-  gap: var(--space-4);
+  flex-wrap: nowrap;
+  gap: var(--space-3);
   margin: 0;
   padding-block: 0;
   padding-inline: var(--space-2);
@@ -3483,8 +3478,13 @@ button.ghost.doc-template-choice.wb-template-choice {
   flex: 1;
 }
 
-/* The console's line (D8): a prompt and a field in the log's own type,
-   under the log, edgeless as a terminal's; the focus ring is the app's. */
+/* The console's line (D8): a prompt and one line to type in, under the log,
+   in the editor's own face and size (`--mono`, 0.92rem, as `#doc-content`
+   and the CodeMirror theme set it), edgeless as a terminal's. Measured before:
+   the prompt outside a 42px bordered field that filled the pane's whole foot,
+   because the app's text-field rule (a well, an edge, roomy padding) outranked
+   `.cm-console-input` (a class against an element and an attribute). The
+   child selector below outranks it. The focus ring is the app's, inset. */
 .cm-console-line {
   display: flex;
   align-items: center;
@@ -3492,20 +3492,34 @@ button.ghost.doc-template-choice.wb-template-choice {
   padding-inline: var(--space-3);
   border-top: 1px solid var(--border);
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: var(--text-sm);
+  font-size: 0.92rem;
 }
 .cm-console-prompt {
-  color: var(--muted);
+  color: var(--accent-text);
+  font-weight: 600;
+  user-select: none;
 }
-.cm-console-input {
+.cm-console-line > .cm-console-input {
   flex: 1;
   min-width: 0;
-  min-height: var(--target-min);
+  height: var(--control-h-lg);
+  min-height: 0;
+  margin: 0;
   padding: 0;
   border: 0;
+  border-radius: 0;
   background: transparent;
+  box-shadow: none;
   color: var(--text);
   font: inherit;
+}
+.cm-console-line > .cm-console-input:focus-visible {
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .cm-console-line > .cm-console-input {
+    height: var(--target-min);
+  }
 }
 .cm-run-row.is-input {
   color: var(--muted);
@@ -3536,24 +3550,6 @@ button.ghost.doc-template-choice.wb-template-choice {
 }
 .doc-keys-card .search-field > .search-field-input {
   min-height: var(--target-min);
-}
-
-/* A panel narrower than its head's words (the editor's column beside both
-   sidebars: 717px at 1440 measured the tabs squeezed to 146px under the
-   buttons): the buttons fold to their icons, as on a phone, so the tabs and
-   the status keep one row. Each keeps its name in aria-label and title.
-   Between that and the width the words need, the actions wrap to a second
-   row (the head wraps) rather than run under the tabs. */
-.cm-run-panel {
-  container-type: inline-size;
-}
-@container (max-width: 819.98px) {
-  .cm-run-panel .cm-run-head .cm-run-word {
-    display: none;
-  }
-  .cm-run-panel .cm-run-head .ph-lead:has(+ .cm-run-word) {
-    margin-inline-end: 0;
-  }
 }
 
 /* The panel on a phone: the tabs take the head's first line, the status
@@ -3683,4 +3679,197 @@ button.ghost.doc-template-choice.wb-template-choice {
    dock is drawn only once this bundle has loaded. */
 .doc-dock-menu:not([open]) > .doc-dock-menu-list {
   display: none;
+}
+
+/* --- the documents sidebar, redrawn as one tree (the owner, 2026-10-10:
+   "this outline tab of the sidebar is a little awkward and poorly designed").
+   Measured before at 1440: 38px of empty band between the tab strip and the
+   "Outline" heading (a section margin, a hairline and padding stacked on the
+   first block), a heading and its count as two loose words, depth carried by
+   a link's padding while every chevron stayed in one gutter column (so a
+   chevron sat 13 to 26px left of its own heading), and a hairline guide per
+   row that stopped and started at each row's edge. Now: the first block sits
+   on the tabs; every block's heading is one row, its label left and its
+   count right on the same edge as the rows' task counts; depth moves the
+   whole row (chevron and text) by one step, so a chevron stands just left of
+   its heading at every level; the row you are on is the DESIGN.md fill and
+   weight from `aria-current`, with no edge. --- */
+.doc-sidebar-section > .doc-outline-wrap:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.doc-sidebar .doc-outline-wrap > h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+}
+.doc-sidebar .doc-outline-wrap > h3 .doc-outline-count:not(:empty) {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.outline-row {
+  --tree-depth: 0;
+  padding-left: calc(var(--tree-depth) * var(--outline-step));
+}
+.outline-h2 { --tree-depth: 1; }
+.outline-h3 { --tree-depth: 2; }
+.outline-h4 { --tree-depth: 3; }
+/* A row's count is its own column: one width, the numbers right-aligned, so
+   "1/4" and "0/1" end on one edge down the whole list. */
+.outline-link .outline-tasks {
+  min-width: 2.25rem;
+  text-align: right;
+}
+
+/* References: an icon and a title, the two actions lying over the row's right
+   end only while the row is pointed at or focused (DESIGN.md, "a row with a
+   control that shows on hover": never reserving room at rest, the title's end
+   fading under them). On touch there is no hover, so they stay and the title
+   keeps clear of them. */
+.doc-ref-row {
+  position: relative;
+}
+.doc-ref-tools {
+  position: absolute;
+  inset-block: 0;
+  right: var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  opacity: 0;
+  pointer-events: none;
+}
+.doc-ref-row:hover .doc-ref-tools,
+.doc-ref-row:focus-within .doc-ref-tools {
+  opacity: 1;
+  pointer-events: auto;
+}
+.doc-ref-row:is(:hover, :focus-within) > .outline-link {
+  mask-image: linear-gradient(to right, #000 calc(100% - 4.5rem), transparent calc(100% - 3.5rem));
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 4.5rem), transparent calc(100% - 3.5rem));
+}
+.doc-ref-row .doc-ref-tools button {
+  background: var(--surface-3);
+}
+/* A long title ends in an ellipsis: the link is a flex row (icon, words), where
+   the ellipsis belongs to the words and not to the box. */
+.doc-ref-row > .outline-link > .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (pointer: coarse) {
+  .doc-ref-tools {
+    position: static;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+/* The row is the thing that is pointed at and the thing that is current, so
+   the fill covers the chevron and the indent with the heading (a fill that
+   began at the text left the chevron outside the row it belongs to). */
+.outline-row {
+  border-radius: var(--radius-md);
+}
+.outline-row:hover {
+  background: var(--surface-3);
+}
+.outline-row:has(> .outline-link[aria-current]) {
+  background: var(--accent-soft);
+}
+.outline-row > .outline-link:is(:hover, [aria-current]) {
+  background: transparent;
+}
+/* "Attach a bookmark" is a row of the References list, not a heavier
+   control under it: the ghost look an empty References already gave it. */
+#doc-attach-bookmark {
+  padding-inline: var(--space-1);
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: 400;
+}
+#doc-attach-bookmark:hover,
+#doc-attach-bookmark:focus-visible {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+.doc-storage-toggle {
+  padding-inline: var(--space-1);
+}
+
+/* --- the code panel, one compact header and a padded body (the owner,
+   2026-10-10: "the code ide and its panels need a design fix"). The status is
+   a chip (a fact: no edge, no hover) after the tabs; the actions are the
+   app's icon buttons at the row's right end; an empty pane says what fills it
+   rather than standing blank. --- */
+.cm-run-panel .cm-run-status:not(:empty) {
+  flex: 0 1 auto;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  line-height: 1.6;
+}
+.cm-run-log:empty::before {
+  content: attr(data-empty);
+  display: block;
+  padding: var(--space-3) var(--space-3);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+}
+.cm-run-panel .cm-run-stdin-wrap {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+/* The footer and the keys line stand on the editor's own column: a code
+   file's editor is capped and centred (`.doc-editor .cm-editor`, 78ch), so
+   the bar under it that spanned the whole card read as a second, wider grid.
+   The prose shortcuts (bold, italics) mean nothing in code; its own line
+   names the chords that do. */
+/* The cap is the editor's own `78ch`, taken as a length where the editor's
+   font applies (a registered property computes at the element that declares
+   it), because `78ch` written on the bar would count its smaller type. */
+@property --doc-code-cap {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+.doc-main {
+  --doc-code-cap: 78ch;
+}
+#tab-documents.doc-is-code:not(.doc-wide) :is(.doc-statusbar, .doc-hint) {
+  width: 100%;
+  max-width: var(--doc-code-cap);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+.doc-hint-code {
+  display: none;
+}
+#tab-documents.doc-is-code .doc-hint-prose {
+  display: none;
+}
+#tab-documents.doc-is-code .doc-hint-code {
+  display: block;
+}
+/* The head is a strip inside the panel, under the panel's own top edge: its
+   own box (an edge all round and a radius) drew a second rule 7px below the
+   panel's, so the panel opened with two lines and a gap between them. */
+.cm-run-panel > .cm-run-head.dock {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
 }

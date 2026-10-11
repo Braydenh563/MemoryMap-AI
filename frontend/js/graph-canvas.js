@@ -1191,21 +1191,27 @@ function gcShowTopic(topic, colour) {
   dot.style.setProperty("--topic-colour", colour);
   const name = document.createElement("strong");
   name.textContent = topic.name;
+  //: The count is a muted line under the name, not a third item beside it: it
+  //: wrapped to two lines as soon as the rename field took the name's room.
   const size = document.createElement("span");
-  size.className = "muted";
+  size.className = "muted graph-topic-count";
   size.textContent = `${topic.size} notes`;
   //: INBOX 547: a topic's name is found, and can be replaced by one of your
   //: own; an empty name brings the found one back.
-  const rename = smallButton("ph:pencil-simple", "Rename the topic", () => gcRenameTopicInline(topic, name));
+  const tools = document.createElement("div");
+  tools.className = "graph-topic-tools";
+  const rename = smallButton("ph:pencil-simple", "Rename the topic", () => gcRenameTopicInline(topic, name, tools));
   rename.classList.add("icon-only");
-  head.append(dot, name, size, rename);
+  tools.append(rename);
   if (topic.named) {
     const back = smallButton("ph:arrow-counter-clockwise", `Use the found name, ${topic.found_name}`, () => gcSaveTopicName(topic, ""));
     back.classList.add("icon-only");
-    head.append(back);
+    tools.append(back);
   }
-  head.append(smallButton("ph:x", "Close the topic", gcHideTopic));
-  head.lastChild.classList.add("icon-only");
+  const close = smallButton("ph:x", "Close the topic", gcHideTopic);
+  close.classList.add("icon-only");
+  tools.append(close);
+  head.append(dot, name, tools, size);
   const terms = document.createElement("p");
   terms.className = "muted graph-topic-terms";
   terms.textContent = topic.terms.length ? `Shared: ${topic.terms.map((t) => `${t.term} (${t.notes})`).join(", ")}` : "Nothing its notes share stands out.";
@@ -1275,7 +1281,7 @@ async function gcSaveTopicName(topic, wanted) {
 //: pencils). Enter or leaving the field saves, Escape keeps the old name, and
 //: an empty name brings the found one back. `anchor` is an element whose
 //: place the field takes; with none it sits over the topic's plate.
-function gcRenameTopicInline(topic, anchor = null) {
+function gcRenameTopicInline(topic, anchor = null, tools = null) {
   const s = gcTab;
   const box = s.canvas?.parentElement;
   document.querySelector(".graph-topic-rename")?.remove();
@@ -1301,14 +1307,33 @@ function gcRenameTopicInline(topic, anchor = null) {
     box.appendChild(field);
   }
   let done = false;
+  let edit = null;
   const finish = async (save) => {
     if (done) return;
     done = true;
     const wanted = field.value.trim();
     field.remove();
+    edit?.remove();
+    tools?.classList.remove("hidden");
     anchor?.classList.remove("hidden");
     if (save && wanted !== topic.name) await gcSaveTopicName(topic, wanted);
   };
+  //: On the card the name edits in place with Save and Cancel where the
+  //: pencil and X were. Their mousedown is kept off the field so its blur
+  //: (which saves) does not fire before the press that means Cancel.
+  if (tools) {
+    edit = document.createElement("div");
+    edit.className = "graph-topic-tools";
+    const save = smallButton("ph:check", "Save the name", () => finish(true));
+    const cancel = smallButton("ph:x", "Keep the old name", () => finish(false));
+    for (const b of [save, cancel]) {
+      b.classList.add("icon-only");
+      b.addEventListener("mousedown", (event) => event.preventDefault());
+    }
+    edit.append(save, cancel);
+    tools.classList.add("hidden");
+    tools.after(edit);
+  }
   field.addEventListener("keydown", (event) => {
     event.stopPropagation();
     if (event.key === "Enter") finish(true);

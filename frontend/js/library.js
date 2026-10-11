@@ -778,7 +778,7 @@ function libraryActions(item) {
           method: "PUT",
           body: JSON.stringify({ title: next }),
         }).catch((e) => toast(e.message, true));
-        if (renamed) chatUndo("chatTitleUndo", item.id, item.title, next);
+        if (renamed) chatWriteRecord("chatTitleUndo", item.id, item.title, next);
         reload();
         loadConversationList();
       }),
@@ -786,7 +786,7 @@ function libraryActions(item) {
         const archived = await apiJson(`/conversations/${item.id}/archive`, { method: "PUT" }).catch((e) =>
           toast(e.message, true)
         );
-        if (archived) chatUndo("chatArchiveUndo", item.id, item.title);
+        if (archived) chatWriteRecord("chatArchiveUndo", item.id, item.title);
         if (chatConv && chatConv.id === item.id) newChatConversation();
         toast("Archived.");
         reload();

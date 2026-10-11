@@ -48,6 +48,7 @@ ai/model_manager.py::start_pull::thread::1
 ai/tools/__init__.py::prefetch_web::executor::1
 api/app.py::_start_searxng_if_asked::thread::1
 api/routes_backups.py::export_bundle::request-task::1
+api/routes_import.py::export_notebook_folder::request-task::1
 api/routes_models.py::_installed_or_last_known::thread::1
 api/routes_settings.py::export_backup::request-task::1
 api/routes_settings.py::import_directory::request-task::1

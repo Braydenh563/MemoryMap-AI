@@ -43,16 +43,23 @@ function activityRow(job, now) {
   const name = document.createElement("strong");
   name.textContent = job.label;
   row.appendChild(name);
-  if (job.started && now) {
+  if (job.finished) {
+    const done = document.createElement("span");
+    done.className = "muted task-elapsed";
+    done.textContent = "finished";
+    row.appendChild(done);
+  } else if (job.started && now) {
     const took = document.createElement("span");
     took.className = "muted task-elapsed";
     took.textContent = `${job.queued ? "waiting " : ""}${taskElapsed(now - job.started)}`;
     row.appendChild(took);
   }
-  if (job.stoppable) {
+  if (job.stoppable || job.report) {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
-    actions.appendChild(smallButton("ph:stop-circle Stop", `Stop ${job.label.toLowerCase()} at its next step`, () => stopActivityJob(job.id)));
+    if (job.stoppable) actions.appendChild(smallButton("ph:stop-circle Stop", `Stop ${job.label.toLowerCase()} at its next step`, () => stopActivityJob(job.id)));
+    //: A finished job with a page (an import's report, WORLD_CLASS 25b).
+    if (job.report) actions.appendChild(smallButton("ph:file-text Report", `Open the report of ${job.label.toLowerCase()}`, () => openActivityReport(job.report)));
     row.appendChild(actions);
   }
   li.appendChild(row);
@@ -62,7 +69,7 @@ function activityRow(job, now) {
     detail.textContent = job.detail;
     li.appendChild(detail);
   }
-  if (!job.queued) {
+  if (!job.queued && !job.finished) {
     const bar = document.createElement("progress");
     bar.className = "task-progress";
     if (typeof job.progress === "number") {
@@ -80,6 +87,20 @@ function paintActivity(body) {
   const jobs = body.jobs || [];
   $("activity-list").replaceChildren(...jobs.map((job) => activityRow(job, body.now)));
   $("activity-empty").classList.toggle("hidden", jobs.length > 0);
+  //: Finished lines (an import with its report), under what is running. The
+  //: result line is the job record's, written lower case for "Last run ...".
+  const finished = (body.finished || []).map((job) => {
+    const detail = job.detail ? job.detail[0].toUpperCase() + job.detail.slice(1) : "";
+    const li = activityRow({ ...job, detail }, 0);
+    li.classList.add("is-finished");
+    return li;
+  });
+  $("activity-finished").replaceChildren(...finished);
+}
+
+//: The report sheet lives with the importers (app-import.js, lazy).
+async function openActivityReport(id) {
+  if (await ensureModule("appImport")) openImportReport(id);
 }
 
 async function stopActivityJob(id) {

@@ -634,13 +634,16 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "import from notion", "notion", "evernote", "enex", "apple notes", "obsidian vault",
             "import from another app", "move my notes from", "switch from notion", "switch from evernote",
+            "import report", "what was skipped", "memorymap folder", "stop the import",
         ),
         "body": (
-            "Settings, Import & export, Import from another app has four buttons: "
+            "Settings, Import & export, Import from another app has five buttons: "
             "From Notion (choose the zip from Notion's Export, Markdown & CSV), "
             "From Obsidian (choose the vault folder), From Evernote (choose the "
-            ".enex files you exported) and From Apple Notes (choose the folder an "
-            "exporter app wrote, one HTML, Markdown or text file per note). "
+            ".enex files you exported), From Apple Notes (choose the folder an "
+            "exporter app wrote, one HTML, Markdown or text file per note) and "
+            "From a MemoryMap folder (the zip Export notebook folder writes, every "
+            "field back as it was). "
             "Choosing starts the import and the toast's Undo moves exactly those "
             "notes to the recycle bin. Folders and notebooks become categories, "
             "tags and dates come along where the app wrote them, and links between "
@@ -651,7 +654,12 @@ MORE_TOPICS: list[dict] = [
             "comes from the export where it says one with its year: a daily "
             "note named 2024-03-14, a date: or Created: line; that is its day "
             "on the Timeline, and \"tomorrow\" in it means the day after it was "
-            "written. The import's summary names the people and places it read."
+            "written. The import's summary names the people and places it read. "
+            "Every import keeps a report of what it read, wrote, skipped and found "
+            "already here, each skipped file named with why: See the report when it "
+            "ends, or Report in the Activity panel. "
+            "A long import shows in the Activity panel with Stop; the notes made "
+            "before Stop stay."
         ),
         "badge": {"label": "Import from another app", "section": "data", "target": "import-app-box"},
     },
@@ -1589,7 +1597,7 @@ MORE_TOPICS.extend(
                 "greyed and the line beside it goes there), and input() reads its "
                 "lines from the panel's Input box. HTML, CSS (over a sample page), "
                 "SVG and a p5.js sketch (New from a template, p5.js sketch) show as "
-                "a page; Live in the panel refreshes it as you type. A file of "
+                "a page; Live in the panel refreshes it as you type (the panel's buttons are icons: point at one for its name). A file of "
                 "tests (describe, it and expect in JavaScript or TypeScript; "
                 "unittest or test_ functions in Python) runs its tests, each "
                 "listed with its time and a failure underlined on its line; Run "

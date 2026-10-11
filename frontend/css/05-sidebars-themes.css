@@ -2669,13 +2669,9 @@ body.resizing-sidebar {
      Both are kept: the flex property for the flex box, `text-align` for the
      text that wraps inside it. */
   justify-content: flex-start;
-  /* Declared here rather than reached for with a fallback: a top-level entry
-     is depth 0, which is a fact about the outline and not a safety net.
-     `tests/test_style_scale.py` fails on `var(--x, 0)` for exactly this
-     reason, and it was right to. */
-  --outline-depth: 0;
+  /* Depth is carried by the row (`.outline-row`, library-lazy.css), so the
+     chevron steps in with its heading; the link's own inset never changes. */
   padding: 0.15rem 0.25rem;
-  padding-left: calc(0.25rem + var(--outline-depth) * var(--outline-step));
   width: 100%;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -2793,11 +2789,6 @@ button.outline-twist:focus-visible {
   color: var(--ink);
   font-weight: 600;
 }
-/* The guide line at the marked row's own depth takes the accent too, so the
-   eye can find the place in a long outline by the rail as well as the fill. */
-.outline-link[aria-current]::before {
-  background: var(--accent);
-}
 /* Indentation is the whole point of an outline: it shows the shape. One step,
    declared once and multiplied by depth, because the four levels used to be
    0.25, 1, 1.5 and 2.4rem: steps of 0.75, 0.5 and 0.9, which reads as an
@@ -2824,38 +2815,14 @@ button.outline-twist:focus-visible {
   color: var(--ink);
 }
 .outline-h2 .outline-link {
-  --outline-depth: 1;
   font-weight: 500;
   color: var(--ink);
 }
 .outline-h3 .outline-link {
-  --outline-depth: 2;
   font-size: var(--text-base);
 }
 .outline-h4 .outline-link {
-  --outline-depth: 3;
   font-size: var(--text-base);
-}
-/* The indent guide: one hairline per nested row, at the middle of the step it
-   is indented by, so a run of subsections reads as one group hanging off the
-   heading above it rather than as rows that happen to start further right.
-   Drawn as a `::before` rather than a border because a border would move the
-   text away from the indent `docoutline.js` asserts, and only on the nested
-   levels: a top-level heading hangs off nothing. */
-.outline-h2 > .outline-link::before,
-.outline-h3 > .outline-link::before,
-.outline-h4 > .outline-link::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  /* The same 0.25rem the padding above starts from, literally rather than as
-     `--space-1`: that token is multiplied by `--density`, and a guide drawn
-     half a step from a different origin than the text it guides is a guide
-     that drifts the moment someone picks compact. */
-  left: calc(0.25rem + (var(--outline-depth) - 0.5) * var(--outline-step));
-  width: 1px;
-  background: var(--divider);
 }
 /* A row, not a stack. `.outline-link` is `width: 100%`, so a ✕ beside one had
    nowhere to go but the next line: "References stacks a close button above

@@ -1811,7 +1811,7 @@ const LAZY_MODULES = {
   //: The Ask box's Use AI switch (ask-compose.js), preloaded below.
   askCompose: ["/css/ask-compose-lazy.css", "/js/ask-compose.js"],
   //: Notes, Questions (questions-view.js), behind two stand-ins.
-  questionsView: ["/js/questions-view.js"],
+  questionsView: ["/css/questions-lazy.css", "/js/questions-view.js"],
   settingsData: ["/js/settings-data.js"],
   settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
@@ -1840,8 +1840,7 @@ const LAZY_MODULES = {
   onboarding: ["/js/onboarding.js"],
   tour: ["/js/tour.js"],
   updates: ["/js/update-dialogs.js"],
-  //: Also the feature rows it lists on the first open (app-features.js, loaded
-  //: elsewhere by `lazyScript`: a second name here would grow app.js past its cap).
+  //: With the feature rows it lists (app-features.js).
   appPalette: ["/js/app-features.js", "/js/app-palette.js"],
   notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js", "/js/note-pick-preview.js"],
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
@@ -2198,7 +2197,6 @@ const LAZY_ENTRY_POINTS = {
   //: Opened by a gesture; the closers are called only once it is open.
   search: ["openFinder"],
   statistics: ["openStatistics", "renderWeekWidget"],
-  translate: ["translateCaught"],
   meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "saveMeetingNote", "resetMeetingUI"],
   askHistory: [
     "toggleAskHistoryPanel",

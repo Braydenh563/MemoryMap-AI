@@ -247,7 +247,7 @@ const HELP_CONTEXT_CHARS = 1200;
 //: `title` and `aria-label` on a control are authored markup and can hold
 //: nothing a person wrote.
 function helpChatOnScreenHelp() {
-  const tab = typeof agentCurrentTab === "function" ? agentCurrentTab() : null;
+  const tab = agentCurrentTab();
   const root = tab ? document.getElementById(`tab-${tab}`) : null;
   if (!root) return "";
   const parts = [];
@@ -363,7 +363,7 @@ async function submitHelpChatQuestion(question) {
       body: {
         question,
         history: helpChatHistory,
-        tab: typeof agentCurrentTab === "function" ? agentCurrentTab() : null,
+        tab: agentCurrentTab(),
         context: helpChatOnScreenHelp(),
       },
     });
@@ -635,7 +635,7 @@ function renderAtlasStarters() {
     //: way the table itself was: settings.js runs whether or not app.js has.
     const questions =
       typeof atlasStartersFor === "function"
-        ? atlasStartersFor(typeof agentCurrentTab === "function" ? agentCurrentTab() : null)
+        ? atlasStartersFor(agentCurrentTab())
         : typeof ATLAS_STARTERS === "object"
           ? ATLAS_STARTERS
           : [];
@@ -662,7 +662,7 @@ function renderAtlasStarters() {
 function renderHelpChatGreeting(row) {
   const host = document.createElement("div");
   host.className = "help-chat-badges";
-  const tab = typeof agentCurrentTab === "function" ? agentCurrentTab() : null;
+  const tab = agentCurrentTab();
   for (const question of atlasStartersFor(tab)) {
     const chip = document.createElement("button");
     chip.type = "button";

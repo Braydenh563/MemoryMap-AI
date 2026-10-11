@@ -59,8 +59,9 @@ Open a section for the detail.
   icon in the toolbar, the Insert menu and the `/` menu): an emoji as itself,
   one of 1,530 icons as `:ph-name:`.
 - Bring notes in from a folder of Markdown files, a PDF, Word file or slide
-  deck, Notion, Obsidian, Evernote or Apple Notes, or clip a web page with a
-  bookmarklet. Importing the same thing twice adds only what is new.
+  deck, Notion, Obsidian, Evernote, Apple Notes or a MemoryMap notebook folder,
+  or clip a web page with a bookmarklet. Importing the same thing twice adds
+  only what is new.
 - Attach any file. Images are captioned, read by a vision model and run
   through Tesseract OCR (or RapidOCR) where each is available; scanned PDFs are read page
   by page, and the OCR workspace lets you correct each region before it
@@ -350,7 +351,10 @@ in Ollama and pick it in the same place.
 Everything lives in one folder: `memorymap.db` (your notes), `preferences.json`,
 `uploads/` and `backups/` (a snapshot once a day). Set `MEMORYMAP_DATA_DIR` to
 put it elsewhere. Settings, Import & export exports your notes as JSON, CSV or
-Markdown, or as a full backup that you can seal with a password.
+Markdown, the whole notebook as a folder (each note as Markdown with its
+attachments and a `.json` file of every field, plus documents and boards,
+which imports back whole), or as a full backup that you can seal with a
+password. Every import keeps a report naming anything it left out.
 
 - The server listens on this computer only. Letting a phone or another computer
   on your network in is a switch in Settings, Account & security; it always

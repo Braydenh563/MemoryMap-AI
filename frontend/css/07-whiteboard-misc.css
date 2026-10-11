@@ -2185,7 +2185,9 @@ body.scroll-top-visible .skills-split > .tab-main {
      else already reserves. */
   padding-right: calc(var(--sidebar-toggle-lane) + var(--space-3));
   min-height: var(--sidebar-toggle-size);
-  margin-bottom: var(--space-4);
+  /* The sidebar's own row gap is the space under the strip: a margin on top of
+     it was a band of 18px between the strip and the first heading. */
+  margin-bottom: 0;
   flex: 0 0 auto;
   /* Redesigned away from .seg's filled-pill look (reported live, with a
      photo): it is the app's one underline recipe, `.tabs-line`

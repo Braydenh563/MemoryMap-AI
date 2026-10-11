@@ -914,6 +914,9 @@ $("about-take-tour")?.addEventListener("click", () => {
 });
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
+//: The whole notebook as a folder (WORLD_CLASS 25b): notes, attachments,
+//: documents and boards, which From a MemoryMap folder reads back whole.
+$("export-folder").addEventListener("click", async () => saveFile("memorymap-notebook.zip", await (await api("/export/folder")).blob()));
 
 //: One step (INBOX 464 (18)): the button opens its picker and choosing
 //: starts the import. The folder picker posts through the same function,

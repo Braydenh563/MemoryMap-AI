@@ -2132,8 +2132,9 @@ def download_embedding_model(model_id: str, reinstall: bool = False) -> dict:
     broken snapshot.
     """
     if reinstall:
-        embedmodels.remove(model_id)
-    started, message = embedmodels.start(model_id)
+        started, message = embedmodels.reinstall(model_id)
+    else:
+        started, message = embedmodels.start(model_id)
     return {"started": started, "message": message}
 
 

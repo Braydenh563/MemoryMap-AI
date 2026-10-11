@@ -520,7 +520,10 @@ def test_python_runs_in_its_own_runner_once_the_extra_is_installed():
     assert 'data.t === "started"' in listener and "docRunArmTimeout(docRun.id)" in listener
     #: A late `ready` from the runner the frame just left releases nothing.
     assert "if (data.runner !== wanted) return;" in listener
-    assert "frame.src = runner;" in _function("docRunPanel")
+    #: A panel's own frame loads the JavaScript page; Python's page is the
+    #: shared one (Brief 101c, tests/test_python_host.py).
+    assert "frame.src = DOC_RUN_SANDBOX_URL;" in _function("docRunPanel")
+    assert "own.src = runner;" in _function("docRunSelectFrame")
     #: The row id the button looks for is the one Settings draws.
     app = app_js_text()
     assert 'li.id = `extra-row-${extra.id}`;' in app

@@ -30,6 +30,7 @@ happen. Every deletion is checked to be inside the cache root as well.
 from __future__ import annotations
 
 import importlib.util
+import json
 import logging
 import os
 import re
@@ -274,6 +275,7 @@ def catalogue() -> list[dict]:
     built-in model, `ollama:<name>` for an Ollama one; never a repo id."""
     rows = []
     for model in EMBED_MODELS:
+        health = cache_health(model.repo)
         rows.append(
             {
                 "id": model.id,
@@ -290,7 +292,9 @@ def catalogue() -> list[dict]:
                 "terms_url": model.terms_url,
                 "why_not": model.why_not,
                 "default": model.default,
-                "downloaded": is_downloaded(model.repo),
+                "downloaded": health["state"] == "complete",
+                "files_missing": health["state"] == "incomplete",
+                "missing": health["missing"],
             }
         )
     for model in OLLAMA_EMBED_MODELS:
@@ -311,6 +315,8 @@ def catalogue() -> list[dict]:
                 "why_not": model.why_not,
                 "default": False,
                 "downloaded": False,
+                "files_missing": False,
+                "missing": [],
             }
         )
     return rows
@@ -342,6 +348,9 @@ class DownloadState:
     #: Someone pressed Quit. Checked between download attempts, see
     #: `cancel()` for why that is the only place it can be checked.
     cancel_requested: bool = False
+    #: The app began this one itself because the files on disk were
+    #: incomplete (`repair`), so the row says "Repairing", not "Downloading".
+    repair: bool = False
 
 
 _state = DownloadState()
@@ -388,6 +397,107 @@ def is_downloaded(repo: str) -> bool:
     return False
 
 
+#: Files a sentence-transformers snapshot cannot load without, besides the
+#: weights and the files `modules.json` lists (101c). A tokenizer is any one
+#: of these.
+_TOKENIZER_FILES = ("tokenizer.json", "vocab.txt", "vocab.json", "spiece.model", "sentencepiece.bpe.model")
+_WEIGHT_FILES = ("model.safetensors", "pytorch_model.bin")
+#: A weights file smaller than this share of the catalogue's stated size is
+#: truncated. Generous on purpose (the stated size is approximate and may
+#: count several formats), so only a file that is plainly short is refused.
+_WEIGHTS_FLOOR_SHARE = 0.3
+
+
+def _declared_bytes(size: str) -> int:
+    """`~130 MB` or `~1.2 GB` as bytes, 0 when it says nothing."""
+    found = re.search(r"([\d.]+)\s*(KB|MB|GB)", size or "", re.IGNORECASE)
+    if not found:
+        return 0
+    unit = {"kb": 1024, "mb": 1024**2, "gb": 1024**3}[found.group(2).lower()]
+    return int(float(found.group(1)) * unit)
+
+
+def _file_size(path: Path) -> int:
+    """The size of what a link in the snapshot points at; 0 for a missing
+    file or a link whose blob is gone (the broken state an interrupted or
+    cleaned cache leaves)."""
+    try:
+        return path.stat().st_size if path.is_file() else 0
+    except OSError:
+        return 0
+
+
+def _snapshot_missing(snapshot: Path, floor: int) -> list[str]:
+    """What this one snapshot lacks to load: empty when it is whole."""
+    missing = []
+    modules: list = []
+    if _file_size(snapshot / "modules.json") == 0:
+        missing.append("modules.json")
+    else:
+        try:
+            parsed = json.loads((snapshot / "modules.json").read_text(encoding="utf-8"))
+            modules = parsed if isinstance(parsed, list) else []
+        except (OSError, ValueError):
+            missing.append("modules.json")
+    if _file_size(snapshot / "config.json") == 0:
+        missing.append("config.json")
+    if not any(_file_size(snapshot / name) > 0 for name in _TOKENIZER_FILES):
+        missing.append("tokenizer")
+    for module in modules:
+        if not isinstance(module, dict):
+            continue
+        sub, kind = module.get("path"), str(module.get("type") or "")
+        #: Pooling and Dense layers keep a config.json in their folder. A
+        #: Normalize layer lists a folder (bge's `2_Normalize`) that the hub
+        #: does not hold at all, so asking for it called a whole cache broken.
+        if sub and isinstance(sub, str) and ".." not in sub.split("/") and kind.endswith((".Pooling", ".Dense")):
+            if _file_size(snapshot / sub / "config.json") == 0:
+                missing.append(f"{sub}/config.json")
+    weights = max((_file_size(snapshot / name) for name in _WEIGHT_FILES), default=0)
+    if weights == 0:
+        missing.append("model weights")
+    elif weights < floor:
+        missing.append("model weights (cut short)")
+    return missing
+
+
+def cache_health(repo: str) -> dict:
+    """Whether `repo`'s cache can load: `absent` (no folder), `complete`, or
+    `incomplete` with `missing` naming what is not there (101c).
+
+    The owner (2026-10-07): an empty or partial `models--BAAI--bge-small-en-v1.5`
+    was treated as present and failed with `EmbeddingCacheBroken`. A folder is
+    not a model: it needs `modules.json`, `config.json`, a tokenizer, every
+    module folder `modules.json` lists, and weights of a believable size. A
+    file whose link points at nothing counts as missing, and so does any
+    `.incomplete` blob the hub leaves while a download is still running."""
+    root = cache_root() / ("models--" + repo.replace("/", "--"))
+    if not root.is_dir():
+        return {"state": "absent", "missing": []}
+    try:
+        unfinished = any(root.joinpath("blobs").glob("*.incomplete"))
+    except OSError:
+        unfinished = False
+    entry = EMBED_MODELS_BY_REPO.get(repo)
+    floor = int(_declared_bytes(entry.size) * _WEIGHTS_FLOOR_SHARE) if entry else 0
+    #: A model outside the catalogue (typed by name) has no stated size, so
+    #: only "non-empty" can be asked of its weights.
+    floor = max(floor, 1)
+    snapshots = root / "snapshots"
+    best: list[str] | None = None
+    if snapshots.is_dir():
+        for snapshot in sorted(p for p in snapshots.iterdir() if p.is_dir()):
+            gaps = _snapshot_missing(snapshot, floor)
+            if not gaps and not unfinished:
+                return {"state": "complete", "missing": []}
+            if best is None or len(gaps) < len(best):
+                best = gaps
+    missing = best if best is not None else ["model weights"]
+    if unfinished:
+        missing = [*missing, "an unfinished download"]
+    return {"state": "incomplete", "missing": missing}
+
+
 def _dir_size(path: Path) -> int:
     total = 0
     for entry in path.rglob("*"):
@@ -428,7 +538,10 @@ def status() -> list[dict]:
     rows = []
     for model in EMBED_MODELS:
         path = _model_dir(model)
-        installed = path.is_dir()
+        health = cache_health(model.repo)
+        #: Installed means it can load; a folder with some files in it is
+        #: "files missing", with Reinstall, not a model (101c).
+        installed = health["state"] == "complete"
         rows.append(
             {
                 "id": model.id,
@@ -441,7 +554,9 @@ def status() -> list[dict]:
                 "terms_url": model.terms_url,
                 "why_not": model.why_not,
                 "installed": installed,
-                "on_disk": _human_size(_dir_size(path)) if installed else "",
+                "files_missing": health["state"] == "incomplete",
+                "missing": health["missing"],
+                "on_disk": _human_size(_dir_size(path)) if path.is_dir() else "",
                 "downloading": _state.running and _state.model_id == model.id,
             }
         )
@@ -536,9 +651,11 @@ def _run_download(model: EmbedModel) -> None:
                     return
                 #: Verified, not assumed (INBOX 700, "Reinstall re-downloads
                 #: and verifies"): the weights must be in the snapshot.
-                if not is_downloaded(model.repo):
+                arrived = cache_health(model.repo)
+                if arrived["state"] != "complete":
                     _state.outcome = "failed"
-                    _state.step = f"{model.label} arrived without its weights. Reinstall fetches it again."
+                    gaps = ", ".join(arrived["missing"][:3]) or "its files"
+                    _state.step = f"{model.label} arrived without {gaps}. Reinstall fetches it again."
                     return
                 _state.outcome = "completed"
                 _state.step = (
@@ -569,12 +686,46 @@ def _run_download(model: EmbedModel) -> None:
 
         taskhistory.record(
             "embedding-model",
-            f"Downloading {model.label}",
+            repair_title(model.label) if _state.repair else f"Downloading {model.label}",
             _state.outcome,
             _state.step,
             name=model.id,
             duration_ms=(time.time() - _state.started) * 1000 if _state.started else None,
         )
+        if _state.outcome == "completed":
+            for hook in list(_finished_hooks):
+                try:
+                    hook(model.repo)
+                except Exception:  # noqa: BLE001  # a listener must not undo a finished download
+                    logger.warning("a download-finished listener failed", exc_info=True)
+
+
+#: Called with the repo once a download (or a repair) lands whole. The
+#: embedding service listens, so a model mended in the background loads
+#: without waiting out its retry interval (101c).
+_finished_hooks: list[Callable[[str], None]] = []
+
+
+def on_download_finished(hook: Callable[[str], None]) -> None:
+    if hook not in _finished_hooks:
+        _finished_hooks.append(hook)
+
+
+def reinstall(model_id: str) -> tuple[bool, str]:
+    """Delete what is on disk, then fetch it again: the Reinstall button.
+
+    An incomplete folder is cleared even when it is the model search uses
+    (`remove` would refuse): nothing can be searched with it, and fetching
+    over the top resumes the same short files. A whole model that is in use
+    keeps `remove`'s refusal and is fetched over, as before."""
+    model = EMBED_MODELS_BY_ID.get(model_id)
+    if model is not None and cache_health(model.repo)["state"] == "incomplete" and not (
+        _state.running and _state.model_id == model.id
+    ):
+        _clear_directory(model)
+    else:
+        remove(model_id)
+    return start(model_id)
 
 
 def start(model_id: str) -> tuple[bool, str]:
@@ -593,10 +744,11 @@ def start(model_id: str) -> tuple[bool, str]:
     return _begin_download(model)
 
 
-def _begin_download(model: EmbedModel) -> tuple[bool, str]:
+def _begin_download(model: EmbedModel, repair: bool = False) -> tuple[bool, str]:
     with _lock:
         if _state.running:
             return False, "Another model is already downloading."
+        _state.repair = repair
         _state.running = True
         _state.model_id = model.id
         _state.label = model.label
@@ -606,11 +758,39 @@ def _begin_download(model: EmbedModel) -> tuple[bool, str]:
         _state.started = time.time()
         _state.cancel_requested = False
     _spawn_download(model)
-    return True, f"Downloading {model.label}."
+    return True, f"{repair_title(model.label) if repair else 'Downloading ' + model.label}."
 
 
 def _spawn_download(model: EmbedModel) -> None:
     threading.Thread(target=_run_download, args=(model,), daemon=True).start()
+
+
+def repair_title(label: str) -> str:
+    """What a self-repair is called in Background tasks and the history: the
+    owner's words (2026-10-07, "Fixing search by meaning...") and the model."""
+    return f"Fixing search by meaning ({label})"
+
+
+def repair(repo: str) -> tuple[bool, str]:
+    """Mend a cache whose files are incomplete, as a visible task (101c): the
+    broken folder is cleared and the model fetched again, so "Repairing ..."
+    shows in Background tasks with Quit instead of a silent fetch inside the
+    loader. A cache that is whole, or absent, is left alone: a first download
+    is the loader's, and a good model is never deleted.
+
+    It may clear the model search uses, which `remove` refuses: that model
+    cannot be used while its files are short, so there is nothing to protect."""
+    if cache_health(repo)["state"] != "incomplete":
+        return False, "Its files are not incomplete."
+    if not can_download():
+        return False, "Repairing needs the huggingface_hub library, which arrives with Search by meaning in Settings, Packages."
+    model = EMBED_MODELS_BY_REPO.get(repo) or EmbedModel(id="typed", repo=repo, label=repo, about="", size="")
+    if _state.running:
+        return False, "Another model is already downloading."
+    cleared, message = _clear_directory(model)
+    if not cleared:
+        return False, message
+    return _begin_download(model, repair=True)
 
 
 # -- Pull a model by name (INBOX 700, the owner's second addendum) -------------
@@ -745,6 +925,15 @@ def remove(model_id: str) -> tuple[bool, str]:
     #: Never the one search uses (INBOX 700): switch first, then remove.
     if _in_use(model.repo):
         return False, f"{model.label} is in use for search: switch to another model first, then remove it."
+    cleared, message = _clear_directory(model)
+    if not cleared:
+        return False, message
+    return True, f"{model.label} removed. Downloading it again is one click."
+
+
+def _clear_directory(model: EmbedModel) -> tuple[bool, str]:
+    """Delete one model's cache folder, after checking it is inside the cache
+    root. The shared end of `remove` (a person's choice) and `repair`."""
     path = _model_dir(model)
     root = cache_root()
     try:
@@ -769,7 +958,9 @@ def remove(model_id: str) -> tuple[bool, str]:
             f"Couldn't remove {model.label}: see Settings → Logs for why. "
             "It may be in use by a running model."
         )
-    return True, f"{model.label} removed. Downloading it again is one click."
+    return True, ""
+
+
 
 
 #: "Is this repo the model search uses right now?", set by `core/deps.py`

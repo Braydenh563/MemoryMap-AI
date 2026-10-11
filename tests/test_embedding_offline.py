@@ -27,6 +27,12 @@ class _FakeST:
             raise OSError("cache incomplete")
 
 
+@pytest.fixture(autouse=True)
+def _own_cache(tmp_path, monkeypatch):
+    """Never the real hub cache: a repair clears an incomplete folder."""
+    monkeypatch.setenv("HF_HUB_CACHE", str(tmp_path / "hub"))
+
+
 @pytest.fixture
 def fake_st(monkeypatch):
     module = types.ModuleType("sentence_transformers")

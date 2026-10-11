@@ -756,13 +756,26 @@ def _late_answer(reply: dict, on_late) -> None:  # noqa: ANN001
 def warm_filing_model(model_manager: ModelManager, ollama: OllamaClient) -> None:
     """Load the filing model before the first note needs it. A cold load
     is most of a first filing's wait, and past the deadline the first notes
-    of every launch would get the stand-in first. Never raises."""
+    of every launch would get the stand-in first. Never raises.
+
+    **Only a model that is installed** (the owner, 2026-10-07, "llama3.2
+    failed" on a fresh install with other models present): a name nobody
+    chose and nothing installed is never sent to the server. A fresh install
+    first chooses from what is there, as the launch step does."""
     try:
         if not ollama.is_running():
             return
+        from memorymap.ai import model_manager as mm
+
+        installed = ollama.list_models()
+        mm.choose_chat_model_if_missing(deps.get_config(), installed)
+        model = model_manager.utility_model()
+        if not mm.is_installed_name(model, installed):
+            logger.info("janitor: not warming the filing model, %s is not installed", safe_value(model, 80))
+            return
         _chat_within_deadline(
             ollama,
-            model_manager.utility_model(),
+            model,
             [{"role": "user", "content": "Reply with OK."}],
             deadline=BLOCKING_MODEL_DEADLINE_SECONDS,
         )

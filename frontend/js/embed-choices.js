@@ -59,6 +59,12 @@ function embedChoiceRow(choice, body, now) {
   title.append(name, chip(choice.backend === "ollama" ? "Through Ollama" : "Runs in the app", "item-label"));
   if (inUse) title.appendChild(chip("ph:check-circle In use", "item-label is-ok"));
   else if (choice.default) title.appendChild(chip("Default", "item-label"));
+  //: Some of its files, or none: not installed, and the menu says Reinstall (101c).
+  if (choice.files_missing) {
+    const gone = chip("ph:warning Files missing", "item-label is-warn");
+    gone.title = `Missing: ${(choice.missing || []).join(", ") || "files"}`;
+    title.appendChild(gone);
+  }
   head.appendChild(title);
 
   const actions = document.createElement("span");
@@ -80,17 +86,17 @@ function embedChoiceRow(choice, body, now) {
             run: () => (inUse || moving || busy ? toast(inUse ? "Search uses it now." : busy || "It is switching now.", "info") : embedChoiceUse(choice)),
           },
           {
-            label: choice.downloaded ? "ph:arrow-clockwise Reinstall" : "ph:download-simple Install",
+            label: choice.downloaded || choice.files_missing ? "ph:arrow-clockwise Reinstall" : "ph:download-simple Install",
             disabled: moving,
             run: () => (moving ? toast("It is switching now.", "info") : embedChoiceInstall(choice)),
           },
           {
             label: "ph:trash Uninstall",
             danger: true,
-            disabled: !choice.downloaded || Boolean(usedHere),
-            title: usedHere || (choice.downloaded ? "" : "It is not on this computer."),
+            disabled: !(choice.downloaded || choice.files_missing) || Boolean(usedHere),
+            title: usedHere || (choice.downloaded || choice.files_missing ? "" : "It is not on this computer."),
             run: () =>
-              usedHere || !choice.downloaded ? toast(usedHere || "It is not on this computer.", "info") : embedChoiceUninstall(choice),
+              usedHere || !(choice.downloaded || choice.files_missing) ? toast(usedHere || "It is not on this computer.", "info") : embedChoiceUninstall(choice),
           },
         ],
         `More for ${choice.label}`
@@ -151,7 +157,7 @@ function embedChoiceRow(choice, body, now) {
 //: list uses (verified once it lands), an Ollama one through Ollama's pull.
 //: Both are Background tasks with their progress.
 async function embedChoiceInstall(choice) {
-  const again = choice.downloaded;
+  const again = choice.downloaded || choice.files_missing;
   if (!(await confirmDialog(
     `${again ? "Download" : "Install"} ${choice.label}${again ? " again" : ""}?\n\n${choice.size}, from ` +
       (choice.backend === "ollama" ? "the Ollama library" : "Hugging Face") + ". It needs the internet.",

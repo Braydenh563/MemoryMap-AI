@@ -752,3 +752,44 @@ def test_packages_picked_in_setup_install_on_first_launch(client, monkeypatch, a
     app_module._install_pending_extras()
     assert started == [("install", ["semantic", "documents"])]
     assert not pending.exists()
+
+
+def test_a_pick_from_setup_is_kept_when_another_install_is_running(client, monkeypatch, app_state):
+    """Brief 101c: the list was deleted before `start_bulk` accepted it, so a
+    launch with an install already in hand lost what Setup was asked for."""
+    from pathlib import Path
+
+    from memorymap.api import app as app_module
+
+    monkeypatch.setattr(extras, "start_bulk", lambda action, ids=None, bundle="": (False, "Another install is already running."))
+    pending = Path(app_state.data_dir) / "pending-extras.txt"
+    pending.write_text("semantic", encoding="utf-8")
+    app_module._install_pending_extras()
+    assert pending.read_text(encoding="utf-8") == "semantic"
+
+
+def test_a_pick_from_setup_that_names_only_retired_packages_is_cleared(client, monkeypatch, app_state):
+    from pathlib import Path
+
+    from memorymap.api import app as app_module
+
+    pending = Path(app_state.data_dir) / "pending-extras.txt"
+    pending.write_text("docx", encoding="utf-8")
+    app_module._install_pending_extras()
+    assert not pending.exists()
+
+
+def test_the_first_launch_install_is_an_activity_row_with_progress_and_stop(client, monkeypatch):
+    """The owner (2026-10-07): no indicator, cannot minimise or close. The
+    bulk job is a row in `/tasks` with a fraction, its packages and Stop."""
+    monkeypatch.setattr(extras, "_dispatch", lambda *a, **k: None)
+    started, _ = extras.start_bulk("install", ["semantic", "voice"])
+    assert started is True
+    try:
+        job = next(t for t in client.get("/tasks").json()["tasks"] if t["kind"] == "extra")
+        assert job["label"] == "Installing 2 packages"
+        assert job["progress"] == 0 and len(job["steps"]) == 2
+        assert job["cancellable"] is True
+    finally:
+        extras.cancel()
+        extras._bulk.running = False

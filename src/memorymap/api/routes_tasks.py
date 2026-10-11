@@ -247,7 +247,9 @@ def collect() -> list[dict]:
             {
                 "kind": "embedding-model",
                 "name": embed_download.model_id,
-                "label": f"Downloading {model.label if model else embed_download.label or 'an embedding model'}",
+                "label": embedmodels.repair_title(model.label if model else embed_download.label or "the embedding model")
+                if embed_download.repair
+                else f"Downloading {model.label if model else embed_download.label or 'an embedding model'}",
                 "detail": embed_download.step or "starting…",
                 # No fraction reported for the same reason pip's isn't below:
                 # snapshot_download doesn't hand back one worth trusting.

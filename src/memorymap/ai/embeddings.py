@@ -654,6 +654,8 @@ class EmbeddingService:
     # After a failed model load, wait this long before trying again, 
     # each attempt can hit the network and stall a save otherwise.
     RETRY_AFTER_SECONDS = 300
+    #: How many times a process fixes an incomplete model cache by itself.
+    REPAIR_ATTEMPTS = 2
 
     def __init__(self, model_manager: ModelManager, ollama_client: OllamaClient) -> None:
         self._models = model_manager
@@ -869,6 +871,9 @@ class EmbeddingService:
         except Exception as exc:  # noqa: BLE001  # not cached, stale or corrupt
             from memorymap.core import embedmodels
 
+            health = embedmodels.cache_health(repo)
+            if health["state"] == "incomplete":
+                self._mend_incomplete_cache(repo, health, exc)
             if embedmodels.is_downloaded(repo):
                 #: **Repaired, not handed over** (the owner, 2026-10-07: "things
                 #: should be auto fixed for the user"; a fresh install had a
@@ -892,6 +897,54 @@ class EmbeddingService:
                 ) from exc
         logger.info("%s is not on this computer yet: downloading it once", repo)
         return SentenceTransformer(repo)
+
+    def _mend_incomplete_cache(self, repo: str, health: dict, cause: Exception) -> None:
+        """The folder is there but its files are not all (an empty folder, an
+        interrupted download): mend it as a visible task and say so. Always
+        raises `EmbeddingCacheBroken` (Brief 101c, the owner 2026-10-07).
+
+        **Visible, not inline.** The hidden fetch that used to run here showed
+        nowhere and, offline, ended as a bare "would not load". The repair is
+        a Background task with Quit (`embedmodels.repair`), at most twice a process,
+        unless automatic installs are off; when it lands, `_after_repair` lets
+        the model load without waiting out the retry interval."""
+        from memorymap.core import embedmodels
+
+        models = getattr(self, "_models", None)
+        allowed = models is None or models._config.get_preference("semantic_auto_install", True)
+        running = embedmodels.current()
+        mending = bool(running.running and running.repair)
+        #: Two fixes a process (the owner: "ask the person only after two
+        #: failed fixes"); each waits for the retry interval after the last.
+        attempts = getattr(self, "_repair_attempts", 0)
+        if not mending and allowed and attempts < self.REPAIR_ATTEMPTS:
+            self._repair_attempts = attempts + 1
+            mending, _ = embedmodels.repair(repo)
+        logger.warning(
+            "%s is on this computer but its files are incomplete (%s); %s",
+            repo,
+            safe_value(", ".join(health["missing"]), 200),
+            "repairing it" if mending else "staying offline",
+        )
+        if mending:
+            embedmodels.on_download_finished(self._after_repair)
+            raise EmbeddingCacheBroken(
+                "The search-by-meaning model's files were incomplete. They are being repaired "
+                "(Background tasks); search uses keywords until that finishes."
+            ) from cause
+        raise EmbeddingCacheBroken(
+            "The search-by-meaning model's files on this computer are incomplete. "
+            "Reinstall it from Settings, Models."
+        ) from cause
+
+    def _after_repair(self, repo: str) -> None:
+        """A repair landed: forget the failure and load the model now, so
+        search by meaning returns without a restart."""
+        if repo != self.st_repo():
+            return
+        self._load_failed_at = None
+        self.last_error = None
+        self._embed_with_sentence_transformers("warm up")
 
     def _prefixed(self, text: str) -> str:
         """`text` with the prefix its model was trained with (E5, nomic)."""

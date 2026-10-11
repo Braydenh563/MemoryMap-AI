@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Notifications: a notice's actions sit on their own row under its message, left-aligned with it, so the close button is alone in its corner.
 - Notes, Select mode: the tick sits in the card's left gutter on the first line instead of stacking a row above the title (cards and rows keep their height).
 - Library: flicking quickly through the sub-tabs no longer flashes the other kind's tiles or jumps the layout (Images and Files redraw from what is loaded, an overtaken load never draws, placeholders are tile-sized).
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.

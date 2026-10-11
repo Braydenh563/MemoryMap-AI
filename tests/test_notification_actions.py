@@ -52,13 +52,30 @@ def test_every_toast_builder_uses_one_message_and_one_action_shape():
     assert "toastActionButton(" in _body(STATUS, "function toastAction(")
 
 
-def test_the_toast_row_spaces_its_parts_with_a_gap_not_margins():
+def test_the_toast_is_two_rows_the_message_and_close_then_the_actions():
+    """INBOX 847: "notification buttons are still in line with the x close
+    button". Measured in Chromium at 1440 and 390 for an Undo, an error with
+    two actions, a progress result and a long wrapped notice: no action's box
+    shares the close button's row, and the action's word starts on the
+    message's left edge (0px apart)."""
     rule = re.search(r"/\* One toast recipe.*?\*/\s*\.toast\s*\{([^}]*)\}", CSS, re.S)
     assert rule, "the toast recipe block"
-    assert "gap: var(--space-3)" in rule.group(1)
-    assert "align-items: flex-start" in rule.group(1), "a wrapped message keeps its actions on its first line"
+    assert "display: grid" in rule.group(1)
+    assert "gap: var(--space-1) var(--space-3)" in rule.group(1), "spaced by gaps, not margins"
     msg = re.search(r"\.toast > \.toast-msg\s*\{([^}]*)\}", CSS)
-    assert msg and "padding-block" in msg.group(1), "the first line is centred on the controls"
+    assert msg and "padding-block" in msg.group(1), "the first line is centred on the close button"
+    assert "grid-row: 1" in msg.group(1)
+    actions = re.search(r"\.toast > \.toast-actions\s*\{([^}]*)\}", CSS)
+    assert actions and "grid-row: 2" in actions.group(1) and "grid-column: 1 / -1" in actions.group(1)
+    close = re.search(r"\.toast\.toast > \.toast-close\s*\{([^}]*)\}", CSS)
+    assert close and "grid-row: 1" in close.group(1) and "grid-column: 2" in close.group(1)
+
+
+def test_every_toast_builder_puts_its_buttons_in_one_actions_row():
+    for head in ("function toast(", "function toastAction(", "function toastProgress(", "function showServerDownBanner("):
+        assert "toastActions(" in _body(STATUS, head), head
+    notice = (JS / "semantic-notice.js").read_text(encoding="utf-8")
+    assert "toastActions(decline)" in notice
 
 
 # --- every toast action is kept in the bell ----------------------------------

@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- First run: the filing warm-up only loads a model that is installed, and a fresh install first chooses its chat model from the installed ones (one rule shared with the launch step), so a default nobody chose no longer reports "llama3.2 failed".
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Security: a phone or another computer on the network can no longer make this computer act. Opening a folder, restarting or quitting the app, installing or running software (extras, updates, SearXNG), importing a folder of this computer's files, changing the model server and restoring a whole backup now answer "Only this computer can do that" to any other device.
 - Dashboard: without a model the welcome line is composed: seven times of day (small hours to late evening) with seven or eight lines each, weekday lines (a new week, Friday, the weekend), and lines from your notebook (a writing streak, a busy day, back after some days, the subject on your mind lately). It changes each hour and holds steady within one.

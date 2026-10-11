@@ -1079,3 +1079,28 @@ def choose_installed_chat_model(installed: list[dict]) -> str | None:
     if not fits:
         return None
     return max(fits, key=lambda m: int(m.get("size") or 0))["name"]
+
+
+def is_installed_name(name: str, installed: list[dict]) -> bool:
+    """Whether `name` is among the installed models, `llama3.2` matching an
+    installed `llama3.2:latest` as Ollama itself resolves it."""
+    if not name:
+        return False
+    names = {str(m.get("name") or "") for m in installed}
+    return name in names or f"{name}:latest" in names
+
+
+def choose_chat_model_if_missing(config: ConfigManager, installed: list[dict]) -> str | None:
+    """The stored chat model is not installed (a fresh install's default
+    `llama3.2`): store the best one that is, and return its name. None when
+    the stored one is installed, or nothing installed fits. The one rule
+    behind the launch step and the filing warm-up (101c), so neither loads a
+    name the person never chose."""
+    current = config.get_preference("chat_model", "llama3.2")
+    if is_installed_name(current, installed):
+        return None
+    chosen = choose_installed_chat_model(installed)
+    if chosen:
+        config.set_preference("chat_model", chosen)
+        logging.getLogger("memorymap.startup").info("chat model %s is not installed; using %s", current, chosen)
+    return chosen

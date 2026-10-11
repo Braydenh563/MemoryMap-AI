@@ -655,15 +655,7 @@ def _choose_chat_model_if_missing() -> None:
     config, ollama = deps.get_config(), deps.get_ollama()
     if ollama is None or not ollama.is_running():
         return
-    installed = ollama.list_models()
-    names = {m.get("name") for m in installed}
-    current = config.get_preference("chat_model", "llama3.2")
-    if current in names or f"{current}:latest" in names:
-        return
-    chosen = mm.choose_installed_chat_model(installed)
-    if chosen:
-        config.set_preference("chat_model", chosen)
-        logging.getLogger("memorymap.startup").info("chat model %s is not installed; using %s", current, chosen)
+    mm.choose_chat_model_if_missing(config, ollama.list_models())
 
 
 def _startup_maintenance() -> None:

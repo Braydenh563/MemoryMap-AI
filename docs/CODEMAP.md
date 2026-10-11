@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4625, test files 1065, tests 9754, plan headings 995.
+Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4627, test files 1065, tests 9758, plan headings 995.
 
 ## Frontend functions (5511)
 
@@ -9227,7 +9227,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/bulk` | POST | `bulk_edit_tags` | src/memorymap/api/routes_tags.py:104 |
 | `/capabilities` | GET | `capabilities` | src/memorymap/api/routes_capabilities.py:75 |
 | `/change-password` | POST | `change_password` | src/memorymap/api/routes_auth.py:1008 |
-| `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1421 |
+| `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1413 |
 | `/charts/question` | POST | `chart_for_question` | src/memorymap/api/routes_vision.py:380 |
 | `/chat-model` | POST | `set_chat_model` | src/memorymap/api/routes_models.py:692 |
 | `/check` | GET | `check_for_update` | src/memorymap/api/routes_update.py:428 |
@@ -9335,7 +9335,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/greeting` | GET | `greeting` | src/memorymap/api/routes_insights.py:161 |
 | `/hardware` | GET | `hardware_memory` | src/memorymap/api/routes_models.py:647 |
 | `/health` | GET | `debug_health` | src/memorymap/api/routes_debug.py:79 |
-| `/health` | GET | `health` | src/memorymap/api/app.py:1363 |
+| `/health` | GET | `health` | src/memorymap/api/app.py:1355 |
 | `/health/integrity` | POST | `integrity_check` | src/memorymap/api/routes_debug.py:186 |
 | `/heatmap` | GET | `heatmap` | src/memorymap/api/routes_insights.py:349 |
 | `/history` | GET | `board_history` | src/memorymap/api/routes_board_history.py:271 |
@@ -9355,8 +9355,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/import/reports/{report_id}` | GET | `import_report_page` | src/memorymap/api/routes_import.py:112 |
 | `/improve` | POST | `improve_writing` | src/memorymap/api/routes_entries.py:1548 |
 | `/inspect` | POST | `inspect_model` | src/memorymap/api/routes_models.py:664 |
-| `/instance` | GET | `instance` | src/memorymap/api/app.py:1382 |
-| `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1396 |
+| `/instance` | GET | `instance` | src/memorymap/api/app.py:1374 |
+| `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1388 |
 | `/jobs` | GET | `list_jobs` | src/memorymap/api/routes_tasks.py:558 |
 | `/jobs/cancel` | POST | `cancel_job` | src/memorymap/api/routes_models.py:900 |
 | `/jobs/last-runs` | GET | `jobs_last_runs` | src/memorymap/api/routes_tasks.py:524 |
@@ -9433,7 +9433,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3205 |
 | `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3254 |
 | `/on-this-day` | GET | `on_this_day` | src/memorymap/api/routes_insights.py:461 |
-| `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1346 |
+| `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1338 |
 | `/outline` | GET | `documents_outline` | src/memorymap/api/routes_documents.py:438 |
 | `/parse` | POST | `magic_add_reminder` | src/memorymap/api/routes_reminders.py:529 |
 | `/password-on-open` | POST | `set_password_on_open` | src/memorymap/api/routes_auth.py:793 |
@@ -9534,7 +9534,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/support-bundle` | GET | `support_bundle` | src/memorymap/api/routes_settings.py:2339 |
 | `/switches` | GET | `get_switches` | src/memorymap/api/routes_learned.py:197 |
 | `/switches` | PUT | `put_switches` | src/memorymap/api/routes_learned.py:203 |
-| `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1356 |
+| `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1348 |
 | `/system/console-mode` | POST | `set_console_mode` | src/memorymap/api/routes_settings.py:1132 |
 | `/system/restart` | POST | `restart_app` | src/memorymap/api/routes_settings.py:1201 |
 | `/tag-cloud` | GET | `tag_cloud` | src/memorymap/api/routes_insights.py:450 |
@@ -9692,7 +9692,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4625)
+## Backend modules (4627)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10602,9 +10602,9 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_Labelled` | src/memorymap/ai/janitor.py:423 |
 | `_ask_llm` | src/memorymap/ai/janitor.py:601 |
 | `_best_centroid_match` | src/memorymap/ai/janitor.py:479 |
-| `_chat_within_deadline` | src/memorymap/ai/janitor.py:776 |
+| `_chat_within_deadline` | src/memorymap/ai/janitor.py:789 |
 | `_confidence_of` | src/memorymap/ai/janitor.py:740 |
-| `_extract_json` | src/memorymap/ai/janitor.py:842 |
+| `_extract_json` | src/memorymap/ai/janitor.py:855 |
 | `_knn_match` | src/memorymap/ai/janitor.py:525 |
 | `_labelled_vectors` | src/memorymap/ai/janitor.py:433 |
 | `_late_answer` | src/memorymap/ai/janitor.py:744 |
@@ -10773,7 +10773,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `ram_needed_gb` | src/memorymap/ai/model_cards.py:65 |
 | `size_gb` | src/memorymap/ai/model_cards.py:56 |
 
-### src/memorymap/ai/model_manager.py (20)
+### src/memorymap/ai/model_manager.py (22)
 
 | Name | File:line |
 |---|---|
@@ -10786,8 +10786,10 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_run_reindex` | src/memorymap/ai/model_manager.py:894 |
 | `cancel_pull` | src/memorymap/ai/model_manager.py:859 |
 | `cancel_reindex` | src/memorymap/ai/model_manager.py:849 |
+| `choose_chat_model_if_missing` | src/memorymap/ai/model_manager.py:1093 |
 | `choose_installed_chat_model` | src/memorymap/ai/model_manager.py:1067 |
 | `feature_pref_key` | src/memorymap/ai/model_manager.py:403 |
+| `is_installed_name` | src/memorymap/ai/model_manager.py:1084 |
 | `is_ocr_model` | src/memorymap/ai/model_manager.py:216 |
 | `is_small_model` | src/memorymap/ai/model_manager.py:270 |
 | `known_feature` | src/memorymap/ai/model_manager.py:407 |
@@ -11835,35 +11837,35 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `RequestPulse` | src/memorymap/api/app.py:1089 |
+| `RequestPulse` | src/memorymap/api/app.py:1081 |
 | `RevalidatedStatic` | src/memorymap/api/app.py:308 |
-| `SpaceGuard` | src/memorymap/api/app.py:1020 |
+| `SpaceGuard` | src/memorymap/api/app.py:1012 |
 | `_UnversionedStatic` | src/memorymap/api/app.py:299 |
-| `_add_middleware` | src/memorymap/api/app.py:1161 |
-| `_add_system_routes` | src/memorymap/api/app.py:1342 |
-| `_backup_if_due` | src/memorymap/api/app.py:705 |
-| `_check_notebook_file` | src/memorymap/api/app.py:697 |
+| `_add_middleware` | src/memorymap/api/app.py:1153 |
+| `_add_system_routes` | src/memorymap/api/app.py:1334 |
+| `_backup_if_due` | src/memorymap/api/app.py:697 |
+| `_check_notebook_file` | src/memorymap/api/app.py:689 |
 | `_choose_chat_model_if_missing` | src/memorymap/api/app.py:650 |
-| `_code_for_status` | src/memorymap/api/app.py:807 |
+| `_code_for_status` | src/memorymap/api/app.py:799 |
 | `_compact_event_log` | src/memorymap/api/app.py:575 |
 | `_compact_step` | src/memorymap/api/app.py:621 |
-| `_content_length` | src/memorymap/api/app.py:1072 |
-| `_include_routers` | src/memorymap/api/app.py:1247 |
+| `_content_length` | src/memorymap/api/app.py:1064 |
+| `_include_routers` | src/memorymap/api/app.py:1239 |
 | `_install_pending_extras` | src/memorymap/api/app.py:629 |
 | `_purge_expired_bin_entries` | src/memorymap/api/app.py:551 |
 | `_purge_step` | src/memorymap/api/app.py:617 |
-| `_register_error_handlers` | src/memorymap/api/app.py:818 |
+| `_register_error_handlers` | src/memorymap/api/app.py:810 |
 | `_stamp_for` | src/memorymap/api/app.py:222 |
-| `_start_autonomous_loop` | src/memorymap/api/app.py:762 |
-| `_start_searxng_if_asked` | src/memorymap/api/app.py:730 |
-| `_start_services` | src/memorymap/api/app.py:1104 |
-| `_startup_maintenance` | src/memorymap/api/app.py:669 |
+| `_start_autonomous_loop` | src/memorymap/api/app.py:754 |
+| `_start_searxng_if_asked` | src/memorymap/api/app.py:722 |
+| `_start_services` | src/memorymap/api/app.py:1096 |
+| `_startup_maintenance` | src/memorymap/api/app.py:661 |
 | `_static_gzip` | src/memorymap/api/app.py:490 |
 | `asset_hash` | src/memorymap/api/app.py:198 |
 | `asset_stamps` | src/memorymap/api/app.py:227 |
 | `clear_static_cache` | src/memorymap/api/app.py:531 |
-| `create_app` | src/memorymap/api/app.py:1457 |
-| `out_of_space_body` | src/memorymap/api/app.py:990 |
+| `create_app` | src/memorymap/api/app.py:1449 |
+| `out_of_space_body` | src/memorymap/api/app.py:982 |
 | `pin_static_mime_types` | src/memorymap/api/app.py:165 |
 | `served_index_html` | src/memorymap/api/app.py:264 |
 | `served_offline_html` | src/memorymap/api/app.py:249 |
@@ -15621,7 +15623,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9754)
+## Tests (9758)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16235,7 +16237,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_model_delete.py | 3 |
 | tests/test_model_gate.py | 4 |
 | tests/test_model_json_deep_nesting.py | 5 |
-| tests/test_model_manager_choice.py | 2 |
+| tests/test_model_manager_choice.py | 6 |
 | tests/test_model_offer.py | 2 |
 | tests/test_model_sizes.py | 5 |
 | tests/test_model_specs.py | 17 |

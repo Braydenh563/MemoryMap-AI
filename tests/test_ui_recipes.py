@@ -2915,7 +2915,7 @@ def test_font_and_density_are_lists_that_keep_their_handlers() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     font = html[html.index('<select id="font-seg"') :]
     font = font[: font.index("</select>")]
-    assert re.findall(r'value="(\w+)"', font) == ["system", "serif", "mono", "arial"]
+    assert re.findall(r'value="(\w+)"', font) == ["system", "serif", "mono", "arial", "readable"]
     density = html[html.index('<select id="density-seg"') :]
     density = density[: density.index("</select>")]
     assert re.findall(r'value="(\w+)"', density) == ["auto", "comfortable", "compact", "spacious"]

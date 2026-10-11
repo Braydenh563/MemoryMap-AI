@@ -105,6 +105,9 @@
 .select-option.select-face-arial {
   font-family: Arial, Helvetica, sans-serif;
 }
+.select-option.select-face-readable {
+  font-family: "Atkinson Hyperlegible", system-ui, sans-serif;
+}
 /* --- sidebar ------------------------------------------------------------ */
 /* Keep the Notes category sidebar pinned to the left while the notes
    scroll (user request). It sits just below the sticky top bar; a long

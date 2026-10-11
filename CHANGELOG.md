@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Appearance: Font has a Readable choice, Atkinson Hyperlegible (SIL OFL), vendored with its licence so it works offline.
 - Lists: a list past twelve rows can be filtered by typing (listFilter): the keyboard shortcuts and the space menu; Escape clears, and a miss says so in one line.
 - Top bar: the Local chip shows this launch's privacy verdict in one word (Local, Local network, Online) and opens Settings, Privacy; below 1100 it is the icon, on a phone a row of the More menu.
 - Whiteboard on a phone: the top bar is one row (54px, was two rows and 104px at 390). Below 600 the Board menu's commands are in More, the Library is Insert's Shapes, icons and frames, and Boards is its arrow.

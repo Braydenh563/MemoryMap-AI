@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import json
 import os
+import shutil
 import sqlite3
 import threading
 import time
@@ -43,10 +44,11 @@ def _record_path(path: Path) -> Path:
     return path.with_name(f"{path.name}.json")
 
 
-def _write_record(path: Path, origin: str, checked: bool) -> None:
-    """Best-effort: a backup without its record is still a backup."""
+def _write_record(path: Path, origin: str, checked: bool, **more: str) -> None:
+    """Best-effort: a backup without its record is still a backup. `more` is
+    where a second copy went (`copied_to`) or why it did not (`copy_error`)."""
     try:
-        _record_path(path).write_text(json.dumps({"origin": origin, "checked": checked}), encoding="utf-8")
+        _record_path(path).write_text(json.dumps({"origin": origin, "checked": checked, **more}), encoding="utf-8")
     except OSError:
         logger.debug("could not write the record beside %s", path.name, exc_info=True)
 
@@ -141,6 +143,9 @@ def list_backups(data_dir: Path) -> list[dict]:
                 "origin": origin,
                 "origin_words": ORIGINS.get(origin, ""),
                 "checked": True if record.get("checked") is True else None,
+                #: Where the second copy went, or why it did not (Settings, Backups).
+                "copied_to": str(record.get("copied_to") or ""),
+                "copy_error": str(record.get("copy_error") or ""),
             }
         )
     return entries
@@ -186,11 +191,56 @@ def snapshot(db_path: Path, destination: Path) -> None:
         target = sqlite3.connect(destination)
         try:
             source.backup(target)
+            #: The copy inherits the live file's WAL mode from its header, so
+            #: opening it (the check below, a restore, a second copy) would
+            #: leave `-wal` and `-shm` files beside it. A backup is one file:
+            #: back to the rollback journal before it is cleaned and closed.
+            target.execute("PRAGMA journal_mode=DELETE")
             strip_leftovers(target)
         finally:
             target.close()
     finally:
         source.close()
+
+
+def copy_dir(data_dir: Path) -> Path | None:
+    """The folder each backup is copied to as well (`backup_copy_dir`, Settings,
+    Backups), or None. Read from the settings file itself: this module sits
+    below the app's config, and the callers are many (the daily backup, Back up
+    now, the safety copies before a restore and an update)."""
+    try:
+        raw = json.loads((Path(data_dir) / "preferences.json").read_text(encoding="utf-8")).get("backup_copy_dir")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return Path(raw) if isinstance(raw, str) and raw.strip() else None
+
+
+def _copy_aside(destination: Path, target: Path, keep: int) -> None:
+    """Put a whole copy of this backup in `target`, then hold that folder to
+    `keep` backups. Raises OSError with words a person can read; the caller
+    turns that into a note on the backup, never a failed backup. The same
+    `.partial` then rename as the backup itself, so a full drive leaves no file
+    that looks like a backup."""
+    if not target.is_dir():
+        raise OSError(f"{target} is not there. Is the drive connected?")
+    if not os.access(target, os.W_OK):
+        raise OSError(f"{target} cannot be written to.")
+    partial = target / f"{destination.name}.partial"
+    try:
+        shutil.copyfile(destination, partial)
+        os.replace(partial, target / destination.name)
+    except OSError as exc:
+        partial.unlink(missing_ok=True)
+        raise OSError(f"could not copy to {target}: {exc.strerror or exc}") from exc
+    record = _record_path(destination)
+    if record.exists():
+        shutil.copyfile(record, target / record.name)
+    copies = sorted(
+        (p for p in target.glob("memorymap-*.db") if p.is_file() and p.stat().st_size > 0), key=_newest_key, reverse=True
+    )
+    for old in copies[max(0, keep) :]:
+        old.unlink(missing_ok=True)
+        _record_path(old).unlink(missing_ok=True)
 
 
 def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None, origin: str = "") -> Path:  # noqa: ANN001
@@ -206,8 +256,9 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None
     """
     #: `run` is the `jobruns.Run` of the caller, when it has one: the steps
     #: and lines the Background tasks row shows while this works.
+    aside = copy_dir(data_dir)
     if run is not None:
-        run.plan(["Copy the database", "Check the copy", "Remove old backups"])
+        run.plan(["Copy the database", "Check the copy"] + (["Copy to your folder"] if aside else []) + ["Remove old backups"])
         run.say("Copying the database.")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = backups_dir(data_dir)
@@ -241,7 +292,23 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None
             raise
         if run is not None:
             run.step(2)
-        _write_record(destination, origin, checked=True)
+        more: dict[str, str] = {}
+        if aside is not None:
+            #: A second copy that fails is a note on the backup, not a failed
+            #: backup: the one in the data folder is whole and checked.
+            if run is not None:
+                run.say(f"Copying to {aside}.")
+            _write_record(destination, origin, checked=True)  # the record the copy carries
+            try:
+                _copy_aside(destination, aside, keep)
+                more["copied_to"] = str(aside)
+            except OSError as exc:
+                logger.warning("the second copy of %s did not go to %s: %s", destination.name, aside, exc)
+                more["copy_error"] = str(exc)
+            if run is not None:
+                run.step(3)
+                run.say(f"Also copied to {aside}." if "copied_to" in more else f"Not copied: {more['copy_error']}")
+        _write_record(destination, origin, checked=True, **more)
     except BaseException:
         for stray in (partial, Path(f"{partial}-wal"), Path(f"{partial}-shm")):
             try:
@@ -254,7 +321,7 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None
 
     removed = prune(data_dir, keep)
     if run is not None:
-        run.step(3)
+        run.step(4 if aside else 3)
         run.say(f"Removed {removed} old backup{'' if removed == 1 else 's'}." if removed else "No old backups to remove.")
     return destination
 

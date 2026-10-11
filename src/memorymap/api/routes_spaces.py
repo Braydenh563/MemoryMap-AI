@@ -473,38 +473,9 @@ def move_notes_to_space(space_id: str, body: MoveNotesBody, session: Session = D
     where it was, as a space's delete leaves one. `from` is each note's old
     space, which is what an Undo sends back.
     """
-    from memorymap.core.database import Attachment, EntryLink, NoteScore, Reminder
-    from memorymap.entry import manager
+    from memorymap.entry import moving
 
     if space_id == "all":
         raise HTTPException(400, "Pick one space to move them to.")
     deps.get_or_404(session, Space, space_id, "That space could not be found.")
-    wanted = list(dict.fromkeys(body.ids))
-    entries = [
-        e for e in session.scalars(sa_select(Entry).where(Entry.id.in_(wanted)))
-        if (e.workspace_id or "default") != space_id
-    ]
-    if not entries:
-        return {"moved": 0, "from": {}}
-    names = manager.bulk_category_names(session, entries)
-    moved_ids = [e.id for e in entries]
-    before = {str(e.id): e.workspace_id or "default" for e in entries}
-    with impersonate_workspace(session, space_id):
-        for entry in entries:
-            name = names.get(entry.category_id)
-            if entry.category_id is not None and name:
-                entry.category_id = manager.get_or_create_category(session, name, space_id).id
-            entry.workspace_id = space_id
-    with impersonate_workspace(session, "all"):
-        for model in (Attachment, Reminder, NoteScore):
-            for row in session.scalars(sa_select(model).where(model.entry_id.in_(moved_ids))):
-                row.workspace_id = space_id
-        for link in session.scalars(
-            sa_select(EntryLink).where(
-                EntryLink.source_entry_id.in_(moved_ids), EntryLink.target_entry_id.in_(moved_ids)
-            )
-        ):
-            link.workspace_id = space_id
-    manager.log_action(session, "moved", "entry", None, f"{len(entries)} note(s) to the space {space_id}")
-    session.commit()
-    return {"moved": len(entries), "from": before}
+    return moving.to_space(session, space_id, body.ids)

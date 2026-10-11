@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.api import routes_auth
-from memorymap.core import backup, backup_bundle, deps, diskspace, jobruns
+from memorymap.core import backup, backup_bundle, deps, diskspace, extras, jobruns
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 from memorymap.api.this_computer import this_computer_only
@@ -63,6 +63,9 @@ def storage_location() -> dict:
         "uploads_bytes": diskspace.dir_bytes(Path(config.data_dir) / "uploads"),
         "media_bytes": diskspace.dir_bytes(Path(config.data_dir) / "media"),
         "backups_bytes": diskspace.dir_bytes(Path(config.data_dir) / "backups"),
+        #: The optional features' own files (Settings, Packages), so the bar in
+        #: Settings, About can show what a feature costs before it is kept.
+        "extras_bytes": extras.installed_bytes(),
         "backup_retention_count": _retention(config),
         "backup_retention_min": MIN_RETENTION,
         "backup_retention_max": MAX_RETENTION,

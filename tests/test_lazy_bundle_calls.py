@@ -146,6 +146,7 @@ REACHED_AFTER_LOAD = {
     "clearRecentSearches": "searchSuggest, called in the .then of ensureModule('searchSuggest') by the web panel's Clear (chat.js)",
     "renderSettingsHistory": "settingsData, called in the .then of ensureModule('settingsData') when Data opens (settings.js)",
     "renderSettingsClear": "settingsData, called in the .then of ensureModule('settingsData') when Data opens (settings.js)",
+    "renderStorageBreakdown": "settingsData, called in the .then of ensureModule('settingsData') when About's health block draws (settings.js)",
     "openSearchSuggest": "searchSuggest, called in the .then of ensureModule('searchSuggest') by the focus listener (capture-ask.js)",
     "questionsForNote": "questionsView, called in the .then of ensureModule('questionsView') by a card's question count",
     "webFollowUp": "webClip, called in sendChatMessage after `await ensureModule('webClip')` in the same condition",

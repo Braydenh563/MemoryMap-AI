@@ -11809,10 +11809,11 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Bin</h3>
               <div class="row">
-                <label for="pref-bin-days" class="muted">Auto-clear binned notes, documents, reminders and OCR readings after</label>
+                <label for="pref-bin-days" class="muted">Auto-clear the bin after</label>
                 <input id="pref-bin-days" type="number" min="1" max="365">
                 <span class="muted">days</span>
               </div>
+              <p class="muted">Binned notes, documents, reminders and OCR readings.</p>
               <h3>Calendar</h3>
               <div class="row">
                 <label for="pref-week-start" class="muted">First day of the week</label>
@@ -12805,6 +12806,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <span id="backup-status" class="status" role="status"></span>
               </div>
               <p class="status job-line" role="status" data-job-line="backup"></p>
+              <p id="backup-schedule" class="muted" role="status"></p>
               <ul id="backup-list" class="entry-list"></ul>
               <!-- Asked about directly: "backup retention should be a
                    setting: backups accumulate with no cap the user can see
@@ -12816,13 +12818,32 @@ Link to another note with [[its first few words]]."></textarea>
                 <input id="backup-retention" type="number" class="small-select backup-retention-input">
                 <span id="backup-retention-status" class="status" role="status"></span>
               </div>
+              <!-- Desktop only, the export folder's reason: a path on the server's own
+                   disk. Checked on save (absolute, exists, writable, not the backups
+                   folder itself); each backup is copied there after it is checked. -->
+              <div class="row hidden settings-row-spaced" id="backup-copy-row">
+                <label for="pref-backup-copy-dir" class="muted">Also copy each backup to</label>
+                <input id="pref-backup-copy-dir" type="text" placeholder="Not set: backups stay on this computer">
+                <button id="pref-backup-copy-clear" class="ghost small" type="button">Clear</button>
+              </div>
               <p class="muted">Snapshots kept on this computer, to restore this notebook here. Backups live in your data folder.</p>
               <div class="help-body hidden" id="backups-help" role="dialog" aria-label="About backups">
                 <p>
                   A backup is also taken automatically once a day when the
-                  app starts. Restoring first snapshots the current state,
+                  app starts; the line above the list says when the last one
+                  ran, whether it worked and when the next is due. Restoring
+                  first snapshots the current state,
                   so even a restore can be undone. Backups live in your
                   data folder, they never leave this computer.
+                </p>
+                <p>
+                  In the desktop app, "Also copy each backup to" sends a second
+                  copy of every backup to a folder you choose, such as an
+                  external drive or a synced folder, so one disk failing does
+                  not take the notebook and its backups together. The folder
+                  keeps the same number of backups; a drive that is not
+                  connected is noted on the backup, and the backup itself
+                  still succeeds.
                 </p>
                 <p>
                   Each row says when it was taken, marks the newest Latest,
@@ -13784,9 +13805,12 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="setting-row">
                 <div class="setting-label">
                   <span>Files on disk</span>
-                  <small class="muted">What attached files, pictures and backups weigh beside the database.</small>
+                  <small class="muted">Where the space goes: the notebook, attached files, pictures, backups and optional features.</small>
                 </div>
-                <span class="setting-control muted" id="health-files-size">, </span>
+                <div class="setting-control storage-breakdown">
+                  <div class="storage-bar" id="storage-bar" role="img" aria-label="Storage by kind"></div>
+                  <ul class="storage-legend muted" id="storage-legend"></ul>
+                </div>
               </div>
               <div class="setting-row">
                 <div class="setting-label">

@@ -34,7 +34,7 @@ from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
 from memorymap.api.routes_categories import CATEGORY_PALETTE_KEYS
-from memorymap.core import backup_bundle, deps, embedmodels, events, extras, jobruns, logbuffer, security
+from memorymap.core import backup, backup_bundle, deps, embedmodels, events, extras, jobruns, logbuffer, security
 from memorymap.core.config import default_preferences
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
@@ -313,6 +313,7 @@ class PreferencesBody(BaseModel):
     # existing, writable directory, checked at save time rather than at
     # export time when a bad path means a lost file.
     export_save_dir: str | None = Field(default=None, max_length=500)
+    backup_copy_dir: str | None = Field(default=None, max_length=500)
     search_min_similarity: float | None = Field(default=None, ge=0, le=1)
     search_relative_z_margin: float | None = Field(default=None, ge=0, le=3)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
@@ -765,6 +766,7 @@ def _preferences_from(config) -> dict:
         "warm_search_model_at_launch": config.get_preference("warm_search_model_at_launch", True),
         "conversation_retention_days": config.get_preference("conversation_retention_days", 0),
         "export_save_dir": config.get_preference("export_save_dir", ""),
+        "backup_copy_dir": config.get_preference("backup_copy_dir", ""),
         "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
         "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
@@ -1047,6 +1049,7 @@ def _validated_preference(key: str, value):  # noqa: ANN001, ANN202
         "skills": _validated_skills,
         "custom_templates": _validated_templates,
         "export_save_dir": _validated_export_dir,
+        "backup_copy_dir": _validated_backup_copy_dir,
         "dashboard_quick_access": _validated_quick_access,
         "dashboard_quick_tints": _validated_quick_tints,
         "model_context_windows": _validated_context_windows,
@@ -1132,7 +1135,7 @@ SETTINGS_FILE_VERSION = 1
 #: not a choice a person would carry to another one: the detected time zone, a
 #: folder path on this disk, and the one-time "seen it" flags.
 _NOT_EXPORTED = frozenset(
-    {"timezone", "week_start_locale", "export_save_dir", "console_view_intro_seen", "tray_hide_explained"}
+    {"timezone", "week_start_locale", "export_save_dir", "backup_copy_dir", "console_view_intro_seen", "tray_hide_explained"}
 )
 
 
@@ -1367,6 +1370,18 @@ def _validated_export_dir(raw: str) -> str:
     if not os.access(path, os.W_OK):
         raise HTTPException(status_code=422, detail=f"{path} isn't writable.")
     return str(path)
+
+
+def _validated_backup_copy_dir(raw: str) -> str:
+    """The second place a backup is copied to: the export folder's checks
+    (absolute, exists, writable; empty clears it), and not the app's own
+    backups folder, which would copy each file onto itself."""
+    value = _validated_export_dir(raw)
+    if value:
+        own = os.path.realpath(backup.backups_dir(deps.get_config().data_dir))
+        if os.path.realpath(value) == own:
+            raise HTTPException(status_code=422, detail="That is already where backups are kept. Choose another folder.")
+    return value
 
 
 def _small_class(config) -> bool:

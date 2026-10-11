@@ -36,7 +36,7 @@ import re
 import time
 import zipfile
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -655,8 +655,10 @@ def _make_entry(session, record: dict, said: list[str]):  # noqa: ANN001, ANN202
     from memorymap.entry import manager
 
     entry = manager.create_entry(session, record["content"], category_name=record.get("category") or manager.UNCATEGORISED,
-                                 tags=record.get("tags") or [], ai_confidence=int(record.get("ai_confidence") or 0))
+                                 tags=record.get("tags") or [], ai_confidence=int(record.get("ai_confidence") or 0), commit=False,
+                                 dates=not record.get("created_at"))
     _restore(entry, record, _ENTRY_SKIP)
+    _fresh_bin_period(entry)
     if record.get("sealed"):
         entry.is_private = True
     elif record.get("is_private") and vault.key() is not None:
@@ -666,6 +668,24 @@ def _make_entry(session, record: dict, said: list[str]):  # noqa: ANN001, ANN202
     if entry.created_at is not None:
         manager.record_dates(session, entry)
     return entry
+
+
+def _fresh_bin_period(entry) -> None:  # noqa: ANN001
+    """A binned note that came in already past the bin's days would be purged
+    at the next start, so an import would lose what it just made: it gets a
+    full period from now instead (a note still inside its days keeps its date)."""
+    if not entry.is_deleted:
+        return
+    from memorymap.core import deps
+    from memorymap.entry import manager
+
+    days = int(deps.get_config().get_preference("recycle_bin_days", 30))
+    now = manager.utcnow()
+    binned = entry.deleted_at
+    if binned is not None and binned.tzinfo is None:
+        binned = binned.replace(tzinfo=timezone.utc)
+    if binned is None or binned < now - timedelta(days=days):
+        entry.deleted_at = now
 
 
 def _write_attachments(session, entry, note, uploads_dir: Path) -> None:  # noqa: ANN001

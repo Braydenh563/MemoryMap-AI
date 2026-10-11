@@ -80,6 +80,12 @@ def _by_title(snap: dict) -> dict:
     return dict(snap, documents={r["title"]: dict(r, id=None) for r in snap["documents"].values()})
 
 
+def _bin_date_aside(snap: dict) -> dict:
+    """A binned note past the bin's days gets a fresh period on import (a
+    separate test pins that), so its date is the one field not compared."""
+    return dict(snap, notes={k: dict(v, deleted_at=None) if v.get("is_deleted") else v for k, v in snap["notes"].items()})
+
+
 @pytest.fixture()
 def exported(client, tmp_path):
     """The fixture notebook's snapshot and its folder zip, then a fresh,
@@ -230,3 +236,42 @@ def test_a_connector_and_a_map_reference_come_back_joined_to_their_items(client,
     assert json.loads(objects["note"].data)["ref_id"] == new_note.id
     assert new_note.id != note_id and new_card.id != card_id and objects["text"].id != box_id
     session.close()
+
+
+def test_a_note_binned_long_ago_comes_in_with_a_fresh_bin_period(exported):
+    """It used to keep its old date, so the next start purged what the import
+    had just made. A note still inside the bin's days keeps its own date."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from memorymap.core.database import Entry
+
+    before, data = exported
+    session, _, written = _import(data)
+    try:
+        binned = list(session.scalars(select(Entry).where(Entry.is_deleted.is_(True))))
+        assert len(binned) == len([r for r in before["notes"].values() if r["is_deleted"]]) > 0
+        floor = datetime.now(timezone.utc) - timedelta(minutes=5)
+        for entry in binned:
+            stamp = entry.deleted_at if entry.deleted_at.tzinfo else entry.deleted_at.replace(tzinfo=timezone.utc)
+            assert stamp > floor, (entry.id, entry.deleted_at)
+        from memorymap.entry import manager
+
+        assert manager.purge_expired_deleted(session, 30) == 0  # the start-up purge keeps them
+    finally:
+        session.close()
+
+
+def test_an_import_commits_in_batches_not_per_note(exported, monkeypatch):
+    """One commit per note was most of a 5,000-note import's time (45.9 s)."""
+    from sqlalchemy.orm import Session
+
+    _, data = exported
+    commits = []
+    real = Session.commit
+    monkeypatch.setattr(Session, "commit", lambda self: (commits.append(1), real(self))[1])
+    session, _, written = _import(data)
+    session.close()
+    assert written["imported"] == 503
+    assert len(commits) < 60, f"{len(commits)} commits for 503 notes"

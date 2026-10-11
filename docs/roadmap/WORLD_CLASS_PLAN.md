@@ -3988,7 +3988,7 @@ sources; three export shapes per document and one per note.
 | Settings | 75 keys, panes, help on 105; search, reset, modified, export built (25f) | appearance keys kept per browser (see agent-remaining/settings52-1011.md) | Brief 52 |
 | Import | Notion, Obsidian, Evernote, Apple Notes, web clip, media | the report page, progress, a markdown folder in, the round trip (25b) | Brief 48 |
 | Export | per note `.md`, per document md, zip, docx, the bundle | the whole notebook as a folder (25b); boards and maps as SVG and PNG with the notes they link; a document as PDF | Brief 48 |
-| Backups | create, list, restore, bundle | the tested restore, the boot check, a schedule shown with the last success (25e) | Brief 51 |
+| Backups | create, list, restore, bundle, schedule line, second-copy folder | the tested restore, the boot check (25e, built) | Brief 51 |
 | Help | Guide chat, popovers, manual parity, the manual (25c) | none open here | Brief 49, built |
 | Skills and tools | 67 tools, 30 skills, MCP | Phase E; one file per tool family (26) | Briefs 54, 63 |
 | Spaces | create, edit, delete dialogs, the space guard | a space's own dashboard line and its export; moving a note between spaces with its links kept | Brief 59 row |

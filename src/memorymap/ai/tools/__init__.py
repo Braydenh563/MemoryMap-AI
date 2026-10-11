@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai import librarian, skills, toolwords
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.ai.provider import set_write_tools
-from memorymap.core import deps, events
+from memorymap.core import activity, deps, events
 from memorymap.core.database import LIKE_ESCAPE, Category, Entry, Reminder, like_escape
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager, paths
@@ -1988,6 +1988,7 @@ from .categories import (  # noqa: E402
     _merge_categories,
     _rename_category,
 )
+from .moving import _move_notes  # noqa: E402
 
 #: How many choices an `ask_user` question may offer. Two is the minimum for a
 #: question to be one; six is where a list of buttons stops being quicker to
@@ -2745,9 +2746,8 @@ TOOLS: dict[str, ToolSpec] = {
             "See the SHAPE of the notebook rather than its filing: which notes "
             "are clustered together, which are the best-connected hubs, and "
             "which are connected to nothing at all. Use this before "
-            "reorganising, when asked what to link, or for 'what does my "
-            "notebook look like', list_categories describes filing, this "
-            "describes structure.",
+            "reorganising or when asked what to link; list_categories "
+            "describes filing, this describes structure.",
             {"type": "object", "properties": {}},
             _notebook_structure,
         ),
@@ -2768,8 +2768,8 @@ TOOLS: dict[str, ToolSpec] = {
             "Walk through the user's notes, newest first, optionally by "
             "category, tag, age or untagged. Previews one page at a time: "
             "while has_more, call again with next_offset. Set untagged:true "
-            "for 'tag my untagged notes'. Use it for 'go through my X notes'; "
-            "use search_notes to find something specific.",
+            "for 'tag my untagged notes'. Use search_notes to find something "
+            "specific.",
             {
                 "type": "object",
                 "properties": {
@@ -2844,8 +2844,7 @@ TOOLS: dict[str, ToolSpec] = {
             "notebook_overview",
             "Categories, tags and the total note count, in one call: use it "
             "instead of list_categories + list_tags + count_notes for the "
-            "notebook's overall shape. For one specific number, count_notes "
-            "alone is still the right call.",
+            "notebook's overall shape.",
             {"type": "object", "properties": {}},
             _notebook_overview,
         ),
@@ -2889,8 +2888,8 @@ TOOLS: dict[str, ToolSpec] = {
             "read_file",
             "Read everything the app knows about one file: its caption and "
             "the text read out of it. Takes the `kind` and `id` exactly as "
-            "search_files returned them (uploads and attachments are numbered "
-            "separately). The text is capped: for a long file, pass query.",
+            "search_files returned them. The text is capped: for a long file, "
+            "pass query.",
             {
                 "type": "object",
                 "properties": {
@@ -2964,8 +2963,7 @@ TOOLS: dict[str, ToolSpec] = {
             "Read a whiteboard board's contents: which notes are placed as "
             "cards, any text boxes, how many images, and which cards are "
             "linked to which. Use this for 'what's on my project board?' or "
-            "before adding to a board, so new cards/links don't duplicate "
-            "what's already there.",
+            "before adding to a board, so nothing is duplicated.",
             {
                 "type": "object",
                 "properties": {
@@ -3028,12 +3026,13 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "generate_diagram",
-            "Place a whole tree of notes on a whiteboard board in one call, "
-            "for 'draw a diagram/mind map of X'. Each node is either a new note (give "
+            "Place a whole tree of notes on a whiteboard board in one call. "
+            "Each node is either a new note (give "
             "'title') or an existing one ('note_id'), plus a short local "
             "'ref' other nodes reference as their 'parent_ref'. Exactly one "
-            "node has no parent_ref (the root). Positions are computed "
-            f"automatically: never invent x/y. Up to {MAX_DIAGRAM_NODES} nodes.",
+            "node has no parent_ref (the root), or parent_ref is card:<id> "
+            "to grow from a card already on the board. Never invent x/y. "
+            f"Up to {MAX_DIAGRAM_NODES} nodes.",
             {
                 "type": "object",
                 "properties": {
@@ -3075,8 +3074,8 @@ TOOLS: dict[str, ToolSpec] = {
             "read_mindmap",
             "Read a mindmap as an indented outline: its title, then every "
             "node with its id, kind and any note or document it stands for. "
-            "Use it before adding to a map and for 'what's in my X map?'. "
-            "Needs the map's board_id; search_whiteboard finds it by name.",
+            "Use it before adding to a map. Needs the map's board_id; "
+            "search_whiteboard finds it by name.",
             {
                 "type": "object",
                 "properties": {
@@ -3359,10 +3358,9 @@ TOOLS: dict[str, ToolSpec] = {
             # turn that's actually about the chat getting long).
             "Summarise the older part of this conversation so it takes less "
             "of the context window. Your turn ENDS: the user reviews and "
-            "edits the summary before it replaces anything, same as pressing "
-            "Compress themselves. Use this when the user asks to shorten, "
-            "compress, or condense the chat itself, not for summarising "
-            "notes.",
+            "edits the summary before it replaces anything. Use this when the "
+            "user asks to shorten or compress the chat itself, not for "
+            "summarising notes.",
             {"type": "object", "properties": {}},
             _compress_chat,
             ends_turn=True,
@@ -3798,6 +3796,21 @@ TOOLS: dict[str, ToolSpec] = {
             destructive=True,
         ),
         ToolSpec(
+            "move_notes",
+            "Move notes into a category or a space. The app asks first.",
+            {
+                "type": "object",
+                "properties": {
+                    "ids": {"type": "array", "items": {"type": "integer"}},
+                    "category": {"type": "string"},
+                    "space": {"type": "string"},
+                },
+                "required": ["ids"],
+            },
+            _move_notes,
+            destructive=True,
+        ),
+        ToolSpec(
             "web_search",
             "Search the internet (DuckDuckGo) for current information the "
             "notebook doesn't have. Only available when the user enabled "
@@ -3887,6 +3900,7 @@ WRITE_TOOLS = {
     "rename_category",
     "merge_categories",
     "delete_category",
+    "move_notes",
 }
 set_write_tools(WRITE_TOOLS)
 
@@ -3978,13 +3992,14 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         # tagging a note and reorganising the category tree are different
         # jobs, and sending four category schemas to every "tag this" question
         # is exactly the per-round cost §11a went to some trouble to cut.
-        ("create_category", "rename_category", "merge_categories", "delete_category"),
+        ("create_category", "rename_category", "merge_categories", "delete_category", "move_notes"),
         (
             # "file … under" is split into its two halves deliberately: the
             # first draft matched "file it under" and missed "file this under",
             # which is the same request with a different pronoun.
             "category", "categories", "folder", "file ", "filed ", "under",
             "reorganise", "reorganize", "duplicate categor", "merge", "rename",
+            "move ", "send ", "space",
         ),
     ),
     (
@@ -4643,6 +4658,10 @@ def confirm_label(name: str, arguments: dict) -> str:
         return f"Move note #{arguments.get('note_id', '?')} to the recycle bin"
     if name == "delete_tag":
         return f"Remove the tag “{arguments.get('name', '?')}” from every note"
+    if name == "move_notes":
+        count = len(arguments.get("ids") or [])
+        where = f"the category “{arguments['category']}”" if arguments.get("category") else f"the space “{arguments.get('space', '?')}”"
+        return f"Move {count} note{'' if count == 1 else 's'} to {where}"
     if name == "delete_skill":
         return f"Delete the saved skill “{arguments.get('name', '?')}”"
     if name == "move_board_item":
@@ -4898,6 +4917,11 @@ def execute_tool(
         return {"error": f"Unknown tool '{name}'"}
     if not tool_enabled(name):
         return {"error": f"The '{name}' tool is turned off in Settings → Tools it can use"}
+    #: Stop landed while the model call that chose this write was in flight:
+    #: the write is discarded, not done late (the stream only sees Stop between
+    #: yields, `activity.bind`). Reads are harmless and still run.
+    if name in WRITE_TOOLS and activity.current_stopped():
+        return {"error": "You stopped this run before this step ran, so nothing was changed."}
     args, problem = check_arguments(name, dict(arguments or {}))
     if problem:
         # Logged like a handler's argument failure, so Settings → Logs shows

@@ -41,7 +41,7 @@ def test_export_names_itself_and_leaves_this_computer_out(client):
     assert body["version"] == 1
     prefs = body["preferences"]
     assert prefs["recycle_bin_days"] == 9
-    for local in ("timezone", "export_save_dir", "console_view_intro_seen", "tray_hide_explained"):
+    for local in ("timezone", "export_save_dir", "backup_copy_dir", "console_view_intro_seen", "tray_hide_explained"):
         assert local not in prefs
     assert set(prefs) <= set(PreferencesBody.model_fields)
 
@@ -129,6 +129,7 @@ NO_ROW = {
     "console_view_intro_seen": "a one-time intro",
     "tray_hide_explained": "a one-time notice",
     "export_save_dir": "a path with its own Reset to default button",
+    "backup_copy_dir": "a path on this computer, set beside the backups list",
     "update_choice_made": "the answer to the ask-once update question",
     # The person's own words, not a choice with a default to go back to.
     "display_name": "your name, typed",

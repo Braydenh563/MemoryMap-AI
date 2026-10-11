@@ -138,7 +138,6 @@ HELP_TOPICS: list[dict] = [
             "why?, shorter, no, the gym one) read against the question before; "
             "a cited board, map or document opens in its own place. With no "
             "model, Chat also acts (remind me to..., pin or delete the X note), with Undo. "
-            "Ask again lists your last questions; its ... menu forgets one or clears your question history. "
             "A counting "
             "question in Ask (how many notes per category this month) also gets "
             "a chart from your notes, with its numbers and Save as PNG. A note's "
@@ -154,8 +153,7 @@ HELP_TOPICS: list[dict] = [
             "While an answer is coming, "
             "the line under it says what is happening: Reaching Atlas, Reading "
             "your notes, Waking the model, Atlas is thinking, Atlas is writing, "
-            "or Atlas followed by the tool's name (a persona's name replaces "
-            "Atlas), or with no model Working it out without a model; with "
+            "or Atlas followed by the tool's name, or with no model Working it out without a model; with "
             "Progress indicators set to Still, without the dots."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
@@ -1214,8 +1212,7 @@ HELP_TOPICS.extend(
                 "stops); Stop ends it, and the panel's top edge drags its height "
                 "(kept for each tab). Blocks fold from the "
                 "gutter (Ctrl+Shift+[ and Ctrl+Shift+] fold and unfold, Ctrl+Alt+[ "
-                "and Ctrl+Alt+] all of them), sticky scroll pins the enclosing "
-                "function at the top, and Show whitespace draws spaces and tabs. "
+                "and Ctrl+Alt+] all of them). "
                 "Its tabs: Output, Problems, Tests, Console (Python or JavaScript, "
                 "in what the run left) and Debug. Ctrl+J shows it, Ctrl+Shift+M "
                 "Problems, Ctrl+Shift+Y the Console, Ctrl+Shift+D Debug; "
@@ -1861,8 +1858,7 @@ HELP_TOPICS.extend(
                 "from your notes", "why this source",
             ),
             "body": (
-                "Chat keys and controls. Each message shows its time at the end of its "
-                "line (hover for the full date). Enter sends, Shift+Enter starts a new "
+                "Chat keys and controls. Enter sends, Shift+Enter starts a new "
                 "line; Escape or Ctrl+. stops the answer, Ctrl+Shift+O starts a new chat, "
                 "Ctrl+Shift+G turns agent mode on or off, Ctrl+Shift+P clips a note "
                 "to your next question, and Ctrl+Shift+A opens the same agent over "
@@ -1925,7 +1921,9 @@ HELP_TOPICS.extend(
                 "selection bar's Tags adds or removes tags on every selected note, "
                 "and its ... menu adds to or removes from Favourites, archives, "
                 "publishes drafts, removes a tag, moves them to another space or "
-                "exports them as Markdown, each undoable. Editing a note shows "
+                "exports them as Markdown, each undoable. In Agent mode, Atlas can "
+                "move chosen notes to a category or a space once you confirm, "
+                "and Undo puts them back. Editing a note shows "
                 "its words and reading time beside Save."
             ),
             "badge": {"label": "Notes", "tab": "notes"},

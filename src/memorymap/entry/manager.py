@@ -262,12 +262,19 @@ def create_entry(
     tags: list[str] | None = None,
     ai_confidence: int = 0,
     client_key: str | None = None,
+    commit: bool = True,
+    dates: bool = True,
 ) -> Entry:
     """Store one thought. Commits the transaction.
 
     `client_key` is the offline queue's name for this save; the unique index
     on it makes a second save with the same key raise `IntegrityError`, which
-    the route answers with the note the first one made."""
+    the route answers with the note the first one made.
+
+    `commit=False` only flushes, for a bulk writer (an import) that commits
+    in batches. `dates=False` leaves the date phrases to a caller that sets
+    `created_at` first and calls `record_dates` itself (an import), so the
+    note is not read for dates twice."""
     category = get_or_create_category(session, category_name)
     entry = Entry(
         content=content,
@@ -280,7 +287,8 @@ def create_entry(
     )
     session.add(entry)
     session.flush()
-    record_dates(session, entry)
+    if dates:
+        record_dates(session, entry)
     reindex_properties(session, entry)
     log_action(
         session,
@@ -289,7 +297,10 @@ def create_entry(
         entry.id,
         payload={"after": events.entry_state(entry)},
     )
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return entry
 
 
@@ -708,7 +719,12 @@ def reindex_properties(session: Session, entry: Entry) -> None:
     from memorymap.entry import properties as note_properties
 
     try:
-        session.execute(delete(EntryProperty).where(EntryProperty.entry_id == entry.id))
+        #: "fetch", not the default "auto": auto tries "evaluate" first, which
+        #: walks every object the session holds, so an import's second note
+        #: cost more than its first (an N-squared 5,000-note write).
+        session.execute(
+            delete(EntryProperty).where(EntryProperty.entry_id == entry.id).execution_options(synchronize_session="fetch")
+        )
         if entry.is_private or entry.is_deleted:
             return
         found, _ = note_properties.split(entry.content or "")
@@ -766,7 +782,7 @@ def record_dates(session: Session, entry: Entry, now: datetime | None = None) ->
         #: again.
         if entry.source_path and entry.created_at is not None and entry.created_at.date() < now.date():
             now = entry.created_at
-        session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id))
+        session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id).execution_options(synchronize_session="fetch"))
         resolved = []
         for mention in timewords.find(entry.content or "", now):
             session.add(

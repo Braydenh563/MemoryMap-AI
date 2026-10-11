@@ -90,7 +90,9 @@ def test_the_notebook_wins_unless_this_browser_has_an_unsent_change():
     never sees a later change from the first."""
     seed = AI_TOOLS[AI_TOOLS.index("function seedUiStateFromServer") : AI_TOOLS.index("function uiStateRememberSynced")]
     assert "ui-synced" in seed
-    assert "local == null || local === synced[key]" in seed
+    assert "local == null || !marked || local === synced[key]" in seed
+    # A browser that never agreed with the notebook has no unsent change to protect.
+    assert 'const marked = prefs.has("ui-synced");' in seed
     assert "uiStateRememberSynced(state)" in AI_TOOLS[AI_TOOLS.index("function saveUiState") : AI_TOOLS.index("function watchMirroredUiKeys")]
     assert "ui-synced" not in _mirrored()
 

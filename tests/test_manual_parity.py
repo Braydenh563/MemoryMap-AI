@@ -65,6 +65,7 @@ MANUAL = {
     "rename_category": ("categories-panel.js", "async function renameCategory(meta, currentName)", "a category's menu, Rename"),
     "merge_categories": ("categories-panel.js", "async function mergeCategoryFromPanel(meta)", "a category's menu, Merge into"),
     "delete_category": ("categories-panel.js", "async function deleteCategoryFromPanel(meta)", "a category's menu, Delete"),
+    "move_notes": ("skills.js", "async function batchMove(category) {", "Select notes, move them to a category or another space"),
 }
 
 

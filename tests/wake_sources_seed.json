@@ -11,7 +11,7 @@
  "atlas.js::raf": 3,
  "avatars.js::interval": 2,
  "avatars.js::mutation-observer": 6,
- "avatars.js::raf": 9,
+ "avatars.js::raf": 10,
  "avatars.js::resize-observer": 2,
  "bg-art.js::interval": 1,
  "bg-art.js::raf": 2,

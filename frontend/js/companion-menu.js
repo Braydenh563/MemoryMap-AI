@@ -116,6 +116,7 @@ function openNameMarkViewer(seed, { visit = false } = {}) {
   document.body.appendChild(overlay);
   if (visiting) home = nameMarkBuddyVisit(figure);
   if (visiting && !home) figure.appendChild(characterFor(seed).figure());
+  if (home) card.appendChild(nameMarkViewerActs(document.getElementById("nm-buddy")));
   nameMarkViewerFit(figure);
   requestAnimationFrame(() => nameMarkViewerFit(figure));
   close.focus();
@@ -143,6 +144,34 @@ function openNameMarkViewer(seed, { visit = false } = {}) {
     nameMarkIdleWake();
     nameMarkViewerFollow(overlay, figure);
   }
+}
+
+//: **Things to ask of it, in its large view** (Brief 88, the owner:
+//: "improve the actions and stuff for the expanded companion panel").
+//: The view only watched it; now a row of chips under its line asks for
+//: an act, the ones its pose allows (a hop needs its feet under it), and
+//: Atlas's own three when it is Atlas. Each plays as a poke does: a
+//: sleeping companion wakes for it first. One chip row, the interactive
+//: chip recipe (DESIGN.md), labelled for a screen reader as a group.
+const NM_VIEWER_ACTS = [
+  ["wave", "Wave"], ["cheer", "Cheer"], ["hop", "Hop"], ["stretch", "Stretch"], ["shrug", "Shrug"], ["wiggle", "Wiggle"],
+  ["juggle", "Juggle stars"], ["map", "Read its map"], ["meditate", "Meditate"],
+];
+function nameMarkViewerActs(buddy) {
+  const row = document.createElement("div");
+  row.className = "nm-viewer-acts";
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", "Ask it to");
+  const atlas = nameMarkBuddyHasAtlas(buddy);
+  for (const [act, label] of NM_VIEWER_ACTS) {
+    const spec = NAME_MARK_BUDDY_ACTS[act];
+    if (!spec || !spec.poses.includes(nmb.pose) || (spec.atlas && !atlas)) continue;
+    row.appendChild(chip(label, "nm-viewer-act", () => {
+      if (nameMarkBuddyAsleep(buddy)) nameMarkBuddyWake(true);
+      nameMarkBuddyAct(act);
+    }));
+  }
+  return row;
 }
 
 //: **Its menu opens at it** (INBOX 426 p, the owner: "the right click

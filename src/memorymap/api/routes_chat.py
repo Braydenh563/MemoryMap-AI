@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, composer, composer_digest
+from memorymap.ai import budget as run_budget, capability, composer, composer_digest
 from memorymap.ai import (
     acts,
     agent,
@@ -2037,6 +2037,21 @@ def _tool_read_events(req: _StreamRequest) -> list[dict]:
     return out
 
 
+def _asks_capability(req: _StreamRequest, prepared: dict) -> bool:
+    """"Can you search the web?" (CHAT_PLAN decision 65): a question about
+    what Atlas can do, answered from the app's own list on every surface,
+    model or none, and never a search, a web call or a tool."""
+    return prepared["intent"] == intent.ABOUT_APP and capability.asks(req.question or "")
+
+
+def _capability_answer(req: _StreamRequest, ollama_running: bool) -> str:
+    try:
+        web = bool(deps.get_config().get_preference("web_search_enabled", False))
+    except Exception:  # noqa: BLE001  # an unreadable preference is off
+        web = False
+    return capability.answer(req.question, prefs={"web_search_enabled": web}, model_running=ollama_running)
+
+
 def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> list[dict] | None:
     """**A counted answer, streamed as one piece**, or a read tool's answer
     with no model. See the same branch in `chat()`: the number is already
@@ -2044,6 +2059,8 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
     to wait for. It arrives before a local model would have finished loading,
     and it arrives at all when no model is running. None when the stream
     goes on to compose or generate."""
+    if _asks_capability(req, prepared):
+        return [{"type": "answer", "delta": _capability_answer(req, ollama_running)}]
     if prepared["stats"] is not None:
         out = [{"type": "answer", "delta": prepared["stats"]["text"]}]
         drawn = _stats_chart(prepared["stats"])
@@ -2644,7 +2661,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     conversational = not intent.needs_retrieval(prepared["intent"])
     model_can_answer = ollama_running if conversational else (ollama_running or tools_only)
-    will_answer = not composed and prepared["intent"] not in (intent.UTILITY, intent.ACT) and model_can_answer and (
+    will_answer = not composed and not _asks_capability(req, prepared) and prepared["intent"] not in (intent.UTILITY, intent.ACT) and model_can_answer and (
         bool(prepared["notes"])
         or bool(req.images_raw)
         or req.use_tools

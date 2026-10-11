@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Ask and Chat: "can you search the web?", "can you do maths?" or "what can you do?" is answered about the app, whether and how, and whether its switch is on, never searched for, with or without a model.
 - Ask and Chat with no model: an answer about your notes now reads like a person wrote it, the count and the days first, the facts under bold labels in your terms, what the notes do not cover, and one offer you can press (a reminder, a checklist); no bracketed dates, quote bars, Grounded in chips or count under it.
 - Backups: every start holds the backups folder to the number you keep, so a safety copy before an update no longer leaves one too many.
 - Settings: the bar that marks a changed setting sits in the margin beside the row rather than on the text.

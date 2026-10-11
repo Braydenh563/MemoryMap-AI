@@ -7,7 +7,6 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-<<<<<<< HEAD
 - Fixed: a wrong password on the lock screen now says "That password is wrong." under the field (it said "Locked"), and pressing Read in the OCR workspace with no reader installed now leaves the reader menu open on the installs (a document-level handler closed it the moment it opened).
 - Fixed: closing a board card's editor while the text editor was still loading no longer throws.
 - Chat: "what is there about X" and "what have I got on X" answer as the topic overview with no model; a pasted wall of brackets no longer stalls a document read aloud or the plain-text strip (linear link stripping); a panel frame's hint takes a double-click again.
@@ -22,12 +21,10 @@ below). Versioning is `0.x` while the app stabilises.
 - Top bar: the Local chip shows this launch's privacy verdict in one word (Local, Local network, Online) and opens Settings, Privacy; below 1100 it is the icon, on a phone a row of the More menu.
 - Whiteboard on a phone: the top bar is one row (54px, was two rows and 104px at 390). Below 600 the Board menu's commands are in More, the Library is Insert's Shapes, icons and frames, and Boards is its arrow.
 - Panel heads read as titles: Local map, the Ask answer, Matching records, the notes rail's Connections, Activity and the board's Library and Format panels draw at 16px like every dialog title, where they were 12px labels.
-=======
 - Notes: an opened note without a title now starts its text on the same line as the open arrow. Markers on a map topic: Flag is one on/off button. Format on a selected block in a JavaScript, CSS or HTML document now tidies it with the same formatter as the whole file.
 - Recordings: "Rename a speaker" in a recording's menu changes one speaker's name everywhere in its transcript, with Undo. Statistics has a "Words added to older notes" line. A note added while the list is on screen fades in. AI buttons grey out when no chat model is installed, not only when the server is down. The search-by-meaning model is dropped from memory after an idle hour and loads again on the next search (the `embedder_idle_unload_minutes` setting, 0 keeps it).
 - Closing or reloading the page while a chat answer is still arriving now asks before it leaves. "Model per feature" in Settings stays visible when no model server is running, so an override can still be seen and cleared. Counts and totals use steady-width digits.
 - Settings: General has a Calendar row, "First day of the week" (from your language and region by default, or Monday, Saturday or Sunday); the Statistics week starts on it. A slow model-status check now keeps the last answer instead of greying the Agent panel, and Settings says the server is slow.
->>>>>>> agent/house1-1011
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
 - Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.

@@ -23,5 +23,12 @@ security for the lan and open connection". Branch `agent/phone-1011`.
 - 392 (cold boot at phone width): the iPhone sweep boots at 390 and 430 every run.
 
 ## Progress
-- done: ad53b7e3c (352 lock wait, 361 live refresh, 384 help).
-- next: QR commit, then 387/388 decisions, then the iPhone sweep (scratchpad/ui-sweeps/iphone1011.js).
+- done: ad53b7e3c (352 lock wait, 361 live refresh, 384 help); 3eecb753f (386 QR code); 94cd31020 (iPhone sweep fixes).
+- iPhone sweep (scratchpad/ui-sweeps/iphone1011.js), 390x844 light: 40 findings before, 2 after (#chat-title below; "note page" sheet flaky to open under load).
+- Whiteboard grips under a second finger: hold on the base (scratchpad/ui-sweeps/wbpinchhandle.js, 4/4 twice: object unchanged, zoom changes); no code change.
+- Coordinator request (Trusted networks popover): branch agent/phone-lanfix-1011, built on agent/lanbar-1011 (ab5f4f437). One row per network, actions always visible, sentence case, refusal tests. Touches core/lantrust.py, core/netid.py, api/routes_auth.py at the coordinator's request.
+
+## Found, not fixed
+- #chat-title is a 94x24 role=button h2; an overhang would steal the subline's taps; Rename is in the chat menu.
+- test_every_route_is_locked (pem 404) and test_lan_mode end-to-end SSL EOF fail on base 1da846803 already.
+- 388 handshake-failure count needs core/lanserve.py (lanbar).

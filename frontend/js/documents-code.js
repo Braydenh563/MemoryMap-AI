@@ -588,6 +588,52 @@ function docCodeSnippetOptions(CM, ext) {
 //: language, never inside a string or a comment.
 let docNativeSnippetCache = null;
 
+//: **p5.js names in a sketch** (OPEN 1139): a JavaScript document that
+//: defines `setup` or `draw` (run-core.js's test for a sketch) is offered the
+//: vendored p5.min.js's most used names with their arguments. Written here
+//: rather than read out of the 1 MB bundle while typing;
+//: tests/test_docs_1011.py checks every name is in that bundle.
+const DOC_P5_SKETCH = /\bfunction\s+(?:setup|draw)\s*\(/;
+const DOC_P5_NAMES = [
+  ["createCanvas", "(w, h)"], ["resizeCanvas", "(w, h)"], ["background", "(colour)"], ["clear", "()"],
+  ["fill", "(colour)"], ["noFill", "()"], ["stroke", "(colour)"], ["noStroke", "()"], ["strokeWeight", "(weight)"],
+  ["colorMode", "(mode, max)"], ["color", "(r, g, b, a)"], ["lerpColor", "(from, to, amount)"],
+  ["ellipse", "(x, y, w, h)"], ["circle", "(x, y, d)"], ["rect", "(x, y, w, h)"], ["square", "(x, y, s)"],
+  ["line", "(x1, y1, x2, y2)"], ["point", "(x, y)"], ["triangle", "(x1, y1, x2, y2, x3, y3)"],
+  ["quad", "(x1, y1, x2, y2, x3, y3, x4, y4)"], ["arc", "(x, y, w, h, start, stop)"],
+  ["beginShape", "()"], ["vertex", "(x, y)"], ["endShape", "(CLOSE)"],
+  ["text", "(str, x, y)"], ["textSize", "(size)"], ["textAlign", "(horizontal, vertical)"], ["textFont", "(font)"],
+  ["push", "()"], ["pop", "()"], ["translate", "(x, y)"], ["rotate", "(angle)"], ["scale", "(s)"], ["angleMode", "(DEGREES)"],
+  ["random", "(min, max)"], ["randomSeed", "(seed)"], ["noise", "(x, y)"], ["map", "(value, start1, stop1, start2, stop2)"],
+  ["constrain", "(n, low, high)"], ["dist", "(x1, y1, x2, y2)"], ["lerp", "(start, stop, amount)"],
+  ["radians", "(degrees)"], ["degrees", "(radians)"],
+  ["frameRate", "(fps)"], ["noLoop", "()"], ["loop", "()"], ["redraw", "()"], ["millis", "()"],
+  ["createVector", "(x, y)"], ["loadImage", "(path)"], ["image", "(img, x, y, w, h)"],
+  ["imageMode", "(CENTER)"], ["rectMode", "(CENTER)"], ["ellipseMode", "(CORNER)"], ["keyIsDown", "(keyCode)"],
+  ["width", ""], ["height", ""], ["mouseX", ""], ["mouseY", ""], ["pmouseX", ""], ["pmouseY", ""],
+  ["mouseIsPressed", ""], ["keyIsPressed", ""], ["key", ""], ["keyCode", ""], ["frameCount", ""],
+  ["windowWidth", ""], ["windowHeight", ""], ["PI", ""], ["TWO_PI", ""], ["HALF_PI", ""],
+  ["CENTER", ""], ["CORNER", ""], ["CLOSE", ""], ["DEGREES", ""], ["RADIANS", ""],
+  ["preload", "()"], ["windowResized", "()"], ["mousePressed", "()"], ["mouseReleased", "()"],
+  ["mouseDragged", "()"], ["keyPressed", "()"], ["keyReleased", "()"],
+];
+
+function docP5Source() {
+  const options = DOC_P5_NAMES.map(([label, args]) => ({
+    label,
+    type: args ? "function" : /^[A-Z_]+$/.test(label) ? "constant" : "variable",
+    detail: args ? `${args} p5` : "p5",
+    boost: 1,
+  }));
+  return (context) => {
+    if (context.matchBefore(/\.\w*$/)) return null;
+    const word = context.matchBefore(/[A-Za-z_]\w*/);
+    if (!word || (word.from === word.to && !context.explicit)) return null;
+    if (!DOC_P5_SKETCH.test(context.state.doc.toString())) return null;
+    return { from: word.from, options, validFor: /^\w*$/ };
+  };
+}
+
 function docNativeSnippets(CM, ext) {
   if (!docNativeSnippetCache) {
     const quiet = ["String", "FormatString", "TemplateString", "Comment", "LineComment", "BlockComment", "RegExp"];
@@ -601,7 +647,10 @@ function docNativeSnippets(CM, ext) {
         CM.python.pythonLanguage.data.of({ autocomplete: source("py") }),
         CM.python.pythonLanguage.data.of({ autocomplete: CM.autocomplete.ifNotIn(quiet, docPyStdlibSource(CM)) }),
       ],
-      js: CM.javascript.javascriptLanguage.data.of({ autocomplete: source("js") }),
+      js: [
+        CM.javascript.javascriptLanguage.data.of({ autocomplete: source("js") }),
+        CM.javascript.javascriptLanguage.data.of({ autocomplete: CM.autocomplete.ifNotIn(quiet, docP5Source()) }),
+      ],
     };
   }
   if (ext === "py") return docNativeSnippetCache.py;

@@ -19,8 +19,12 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8781';
 // which is what makes `(pointer: coarse)` match; `hasTouch` alone gives the
 // touch API without the media query, so the two are asked for together
 // everywhere in this directory.
+// `serviceWorkers: "block"` (OPEN 1108): `context.route` does not see what
+// the app's service worker serves after the first load, so a sweep that
+// overrides a CSS or JS file passes it or its override silently does nothing.
 const CTX_OPTS = ['hasTouch', 'isMobile', 'deviceScaleFactor', 'locale',
-  'timezoneId', 'colorScheme', 'reducedMotion', 'forcedColors', 'userAgent', 'permissions'];
+  'timezoneId', 'colorScheme', 'reducedMotion', 'forcedColors', 'userAgent', 'permissions',
+  'serviceWorkers'];
 async function boot(opts={}) {
   //: SCROLLBARS=1 draws real scrollbars, as Windows does (17px, taking
   //: layout width). Headless Chromium hides them by default, which is the

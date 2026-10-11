@@ -604,7 +604,10 @@ def import_document(
         # rasteriser it needs are the "optionally customisable" half. Costs
         # nothing for every other file type: `docview` only consults a reader
         # once a PDF has turned out to have no text layer.
-        viewed = docview.extract(staged, vision_reader=vision_ocr.pdf_reader_or_none())
+        #: Listed while it reads (OPEN 1095, the activity contract's rule 5):
+        #: a 50 MB PDF or a scan read by the vision model takes a while.
+        with activity.track("import", f"Importing {name[:80]}", stoppable=False):
+            viewed = docview.extract(staged, vision_reader=vision_ocr.pdf_reader_or_none())
 
     #: **A saved web page becomes prose here, and only here** (Phase 7).
     #: `docview.extract` hands back an .html file's own markup, because the

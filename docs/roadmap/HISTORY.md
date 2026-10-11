@@ -338,6 +338,19 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Brief 16, the documentation refined: built 2026-09-08 and 2026-09-09 (recorded 2026-10-11, OPEN 1092)
+
+The pass ran without a record here; the record is the agent's own file,
+`docs/roadmap/archive/agent-remaining/docs.md`, and the merge e8cd54251
+(six files) with 5abc06a2e (the rest). In short: INSTALL, TROUBLESHOOTING,
+MODELS, PRIVACY, SECURITY and CONTRIBUTING in the README's voice, checked
+against the code; ARCHITECTURE de-staled (58 tools, not 50; the missing
+routers and modules listed; 9 CSS files); DESIGN's quoted "before" strings
+corrected; CHANGELOG's Unreleased section put back above the released one;
+the docs landing page's footer said "MIT License" for an AGPL-3.0 codebase,
+fixed; the two expansion files folded into ANALYSIS.md 114 as a pointer and
+deleted. Nothing was left open.
+
 ## Moved from the plans, 2026-10-11 (DOCUMENTS Phase 6 and Phase 8, docs-1011)
 
 The docs-1011 agent found both phases with nothing open (OPEN ledger rows 1040 and 1041) and moved their built record here whole.

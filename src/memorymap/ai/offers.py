@@ -31,9 +31,17 @@ FILING_MIN_CHARS = 20
 #: offer says so.
 DEFAULT_HOUR = 9
 
-_QUOTED = re.compile(r"```.*?(?:```|$)|`[^`\n]*`|\"[^\"\n]*\"|“[^“”\n]*”|^[ \t]*>.*$", re.S | re.M)
+#: An unclosed fence runs to the end of the text (`\Z`): with `re.M`, `$`
+#: ended it at its own first line, so the lines of a code block were offered.
+_QUOTED = re.compile(r"```.*?(?:```|\Z)|`[^`\n]*`|\"[^\"\n]*\"|“[^“”\n]*”|^[ \t]*>.*$", re.S | re.M)
 _NUM = r"\d+(?:\.\d+)?"
 _SUM = re.compile(rf"(?<![\w.])({_NUM}(?:\s*[-+*/×x]\s*{_NUM})+)\s*=\s*(-?{_NUM})?(?![\w.])")
+#: A "Total:" line under a column of amounts (OPEN 1100): each line above it,
+#: back to a blank line, ends in an amount, with an optional currency sign.
+_TOTAL = re.compile(rf"^[ \t]*[*_]*(?:total|sum|subtotal)[ \t]*[:=][*_]*[ \t]*([£$€]?)[ \t]*(-?{_NUM})[ \t]*$", re.I | re.M)
+_AMOUNT_LINE = re.compile(rf"(?<![\w.])[£$€]?[ \t]*(-?{_NUM})[ \t]*$")
+#: Fewer than this is not a column.
+TOTAL_MIN_AMOUNTS = 2
 #: The opening bracket and quote are excluded from a span's body, so a run of `[[` or
 #: `“` with no close is read once, not once per start (CodeQL, polynomial).
 _LINKED = re.compile(r"\[\[[^\[\]\n]*\]\]")
@@ -123,6 +131,36 @@ def _sums(text: str, quoted: list) -> list[dict]:
     return out
 
 
+def _totals(text: str, quoted: list) -> list[dict]:
+    """A "Total:" line that does not add up the amounts listed above it."""
+    out = []
+    for found in _TOTAL.finditer(text):
+        if _inside(found.start(), found.end(), quoted):
+            continue
+        amounts = []
+        for line in reversed(text[: found.start()].rstrip("\n").split("\n")):
+            amount = _AMOUNT_LINE.search(line)
+            if not line.strip() or amount is None:
+                break
+            amounts.append(amount.group(1))
+        if len(amounts) < TOTAL_MIN_AMOUNTS:
+            continue
+        worked = sum(float(a) for a in amounts)
+        said = found.group(2)
+        if abs(float(said) - worked) < 1e-9:
+            continue
+        #: Written to the places the column is written to: £6.70, not £6.7.
+        places = max(len(a.partition(".")[2]) for a in [*amounts, said])
+        right = f"{worked:.{places}f}"
+        out.append({
+            "kind": "sum", "start": found.start(2), "end": found.end(2), "said": said,
+            "label": f"Total = {found.group(1)}{right}",
+            "reason": f"the {len(amounts)} amounts above add up to {right}, not {said}",
+            "value": {"replace": right},
+        })
+    return out
+
+
 def _names(session: Session, text: str, spans: list[recognise.Span]) -> list[tuple[int, int, str]]:
     """(start, end, name) for each person or place the recogniser read and
     each entity the notebook knows, found in `text` as whole words."""
@@ -183,7 +221,7 @@ def offers(session: Session, text: str, *, now: datetime, entry_id: int | None =
         return []
     quoted = quoted_ranges(text)
     spans = recognise.recognise(text, now=now, locale=locale or "en-GB")
-    found = (_reminders(text, spans, now, quoted) + _sums(text, quoted)
+    found = (_reminders(text, spans, now, quoted) + _sums(text, quoted) + _totals(text, quoted)
              + _links(session, text, spans, quoted, entry_id) + _filing(session, text, entry_id, category))
     out: list[dict] = []
     taken: dict[str, int] = {}

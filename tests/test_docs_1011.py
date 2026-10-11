@@ -531,3 +531,46 @@ def test_the_flowchart_starter_is_one_the_live_view_can_draw(tmp_path):
     source = row.group(1).replace("\\n", "\n")
     graph = _node(helpers, f"mermaidFlowParse({json.dumps(source)})", tmp_path)
     assert graph and len(graph["nodes"]) == 2, graph
+
+
+# Row 1139: p5.js names in a sketch, each one the vendored bundle has.
+def test_p5_completions_are_names_the_vendored_p5_has():
+    code = (JS / "documents-code.js").read_text(encoding="utf-8")
+    table = code[code.index("const DOC_P5_NAMES = [") : code.index("];", code.index("const DOC_P5_NAMES = ["))]
+    names = re.findall(r'\["(\w+)", "', table)
+    assert len(names) > 60
+    bundle = (ROOT / "frontend/vendor/p5.min.js").read_text(encoding="utf-8")
+    missing = [n for n in names if not re.search(rf"\b{n}\b", bundle)]
+    assert not missing, missing
+    snippets = _fn(code, "docNativeSnippets")
+    assert "docP5Source()" in snippets
+
+
+# Row 1109: Help puts a group's best match first while searching.
+def test_help_search_orders_each_group_by_its_match():
+    find = (JS / "settings-find.js").read_text(encoding="utf-8")
+    body = _fn(find, "helpApplySearch")
+    assert "tiers.get(b) - tiers.get(a)" in body and "a._helpAt - b._helpAt" in body
+
+
+# Row 1095: a document import and a meeting summary are listed while they run.
+def test_long_request_work_registers_with_the_activity_list():
+    docs = (ROOT / "src/memorymap/api/routes_documents.py").read_text(encoding="utf-8")
+    assert re.search(r'with activity\.track\("import", .*\n\s+viewed = docview\.extract\(', docs)
+    meetings = (ROOT / "src/memorymap/api/routes_meetings.py").read_text(encoding="utf-8")
+    assert re.search(r'with activity\.track\("generation", "Summarising a meeting".*\n\s+written = meeting_summary', meetings)
+
+
+# Row 1101: clip.html and capture.html are served with hashed stamps.
+@pytest.mark.parametrize("page", ["clip.html", "capture.html"])
+def test_the_clipper_and_capture_pages_get_hashed_stamps(client, page):
+    got = client.get(f"/{page}")
+    assert got.status_code == 200 and got.headers["cache-control"] == "no-cache"
+    stamps = re.findall(r'/(?:css|js)/[\w.-]+\?v=([\w.-]+)"', got.text)
+    assert stamps and all("-" in stamp for stamp in stamps), stamps
+
+
+# Row 1108: a sweep can block the service worker so its routes see every request.
+def test_the_sweep_boot_passes_service_workers_through():
+    lib = (ROOT / "scratchpad/ui-sweeps/lib.js").read_text(encoding="utf-8")
+    assert "'serviceWorkers'" in lib[lib.index("const CTX_OPTS") : lib.index("];", lib.index("const CTX_OPTS"))]

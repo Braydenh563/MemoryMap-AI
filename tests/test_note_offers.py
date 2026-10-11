@@ -48,6 +48,20 @@ def test_a_wrong_sum_is_caught_and_a_right_one_left(session):
     assert sums[0]["said"] == "21" and sums[0]["value"]["replace"] == "19"
 
 
+def test_a_total_under_a_column_of_amounts_is_checked(session):
+    """OPEN 1100: a "Total:" line under amounts, not only a sum written with =."""
+    text = "Shopping\n\nMilk £3.50\nBread £1.20\nEggs £2\n**Total:** £7.20\n"
+    sums = [o for o in offers.offers(session, text, now=NOW) if o["kind"] == "sum"]
+    assert [o["reason"] for o in sums] == ["the 3 amounts above add up to 6.70, not 7.20"]
+    assert text[sums[0]["start"] : sums[0]["end"]] == "7.20" and sums[0]["value"]["replace"] == "6.70"
+    right = "Rent 1200\nFood 300\nTotal: 1500\n"
+    assert not [o for o in offers.offers(session, right, now=NOW) if o["kind"] == "sum"]
+    one = "Rent 1200\nTotal: 1400\n"
+    assert not [o for o in offers.offers(session, one, now=NOW) if o["kind"] == "sum"]
+    fenced = "```\na 1\nb 2\nTotal: 9\n```\n"
+    assert not [o for o in offers.offers(session, fenced, now=NOW) if o["kind"] == "sum"]
+
+
 def test_a_name_another_note_opens_with_is_a_link_offer(session):
     session.add(Entry(content="Harbor House\nThe boat shed by the water."))
     session.commit()

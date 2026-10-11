@@ -1191,7 +1191,7 @@ HELP_TOPICS.extend(
             "id": "code-completions",
             "keywords": (
                 "completion", "completions", "autocomplete", "auto complete", "intellisense", "snippet",
-                "snippets", "ghost text", "standard library", "stdlib", "signature",
+                "snippets", "ghost text", "standard library", "stdlib", "signature", "p5 completions",
             ),
             #: Split from `code-files` when that entry passed the Guide's reply
             #: cap; written from `docCodeEditing`'s sources (documents-code.js).
@@ -1201,7 +1201,9 @@ HELP_TOPICS.extend(
                 "expand short words such as for, if, try, class, main or sout, and "
                 "Tab walks their stops. In Python, a standard library module the "
                 "file imports offers its names after the dot (math., os.path.), "
-                "each with its signature, and pointing at one shows it."
+                "each with its signature, and pointing at one shows it. In a p5.js "
+                "sketch (a file with setup or draw), p5's own names are offered "
+                "with their arguments."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.api import routes_entries, routes_reminders
 from memorymap.api.schemas import EntryCreate, EntryOut, EntryUpdate
-from memorymap.core import deps
+from memorymap.core import activity, deps
 from memorymap.core.database import Reminder, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -202,7 +202,9 @@ def _model_pass(source: str, found: dict) -> tuple[dict, str, str]:
     if not ollama.is_running():
         return found, "rules", RULES_NOTE
     try:
-        written = meeting_summary.summarise(source, deps.get_model_manager(), ollama)
+        #: Listed while the model writes (OPEN 1095), as a Chat answer is.
+        with activity.track("generation", "Summarising a meeting", stoppable=False):
+            written = meeting_summary.summarise(source, deps.get_model_manager(), ollama)
     except Exception:  # noqa: BLE001  # any model failure leaves the rules' list
         logging.getLogger("memorymap.meetings").warning("meeting summary failed", exc_info=True)
         return found, "rules", FAILED_NOTE

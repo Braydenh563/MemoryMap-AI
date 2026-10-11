@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Restart: Settings' Restart works however the app was started (the Windows app, start.bat or start.sh), not only the desktop app; the new copy waits for the old one to close before it opens, so it no longer hands off to the closing copy and stops, and the page reloads by itself when the app is back. Other devices shows a Restart now button when a change needs one.
 - Other devices: a phone can now trust the notebook for good. The certificate is a small authority made on this computer, limited to your own network, signing the server certificate (an address change no longer asks the phone again); Trust this certificate on your phone downloads it without a sign-in error; and an address typed without https is sent on to https instead of failing.
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), a missing apostrophe is read ("doesn follow"), and a stray semicolon inside a word or two words run together are put right ("natura;l", "thenthe"); the Guide, the clock and the other utilities read the repaired question.
 - Ask: an answer to a question that needed a spelling repair opens by saying how it was read ("I took that to mean ..."), in wording that changes from one answer to the next.

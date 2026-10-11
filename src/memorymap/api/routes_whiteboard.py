@@ -348,6 +348,8 @@ class WhiteboardObjectData(BaseModel):
     #: Hidden by the Layers tab's eye, and its own name there (decision 27).
     hidden: bool | None = None
     name: str | None = Field(default=None, max_length=80)
+    #: The named layer it is on (canvasdepth); the board's settings hold them.
+    layer: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,24}$")
     #: Where a placed library item came from (decision 25): `{id, version}`
     #: or `{builtin}`. Kept, never followed.
     library_ref: dict | None = None
@@ -769,6 +771,8 @@ class WhiteboardStateOut(BaseModel):
     objects: list[WhiteboardObjectOut] = []
     #: The board's look (decision 24), so opening a board draws it at once.
     background: dict = {}
+    #: Its named layers, `[{id, name, hidden, locked}]` (canvasdepth).
+    layers: list[dict] = []
 
 
 def _board_filter(model, board_id: int | None):
@@ -882,6 +886,7 @@ def get_whiteboard_state(
         sketches=list(sketches),
         objects=[_object_to_out(o) for o in objects],
         background=_board_background(db.get(Entry, board_id)) if board_id else {},
+        layers=_board_layers(db.get(Entry, board_id)) if board_id else [],
     )
 
 
@@ -1180,6 +1185,68 @@ def _store_board_numbered(entry: Entry, numbered: bool) -> None:
 BOARD_BG_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
+#: At most this many named layers on a board; a layer is a few fields.
+MAX_BOARD_LAYERS = 20
+
+
+class BoardLayer(BaseModel):
+    """One named layer (draw.io's LayersWindow; WHITEBOARD_PLAN section 6):
+    items name it in `data.layer`; hidden hides them all, locked locks them."""
+
+    id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,24}$")
+    name: str = Field(min_length=1, max_length=60)
+    hidden: bool = False
+    locked: bool = False
+
+    @field_validator("name")
+    @classmethod
+    def _strip(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("A layer needs a name.")
+        return value
+
+
+def _board_layers(entry: Entry | None) -> list[dict]:
+    """The board's named layers as stored, each re-checked on the way out."""
+    if entry is None:
+        return []
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        return []
+    stored = parsed.get("layers") if isinstance(parsed, dict) else None
+    out = []
+    for raw in stored if isinstance(stored, list) else []:
+        try:
+            out.append(BoardLayer(**raw).model_dump())
+        except (TypeError, ValueError):
+            continue
+    return out[:MAX_BOARD_LAYERS]
+
+
+def _store_board_layers(entry: Entry, layers: list[BoardLayer]) -> list[dict]:
+    """Replace the whole list: a layer's order is the list's order, so a
+    patch per layer would have to say where it goes."""
+    try:
+        existing = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    seen, out = set(), []
+    for layer in layers[:MAX_BOARD_LAYERS]:
+        if layer.id not in seen:
+            seen.add(layer.id)
+            out.append(layer.model_dump())
+    if out:
+        existing["layers"] = out
+    else:
+        existing.pop("layers", None)
+    entry.board_settings = json.dumps(existing)
+    return out
+
+
 class BoardBackground(BaseModel):
     """A board's look (WHITEBOARD_PLAN decision 24, FEAT-06): a colour, an
     image from this notebook's uploads, or both. A patch: a field sent as
@@ -1293,6 +1360,8 @@ class BoardOut(BaseModel):
     layout: str = DEFAULT_BOARD_LAYOUT
     #: The board's look, `{color, image}` (decision 24); `{}` is the theme's.
     background: dict = {}
+    #: Its named layers (canvasdepth); `[]` for none.
+    layers: list[dict] = []
     #: A miniature of where things actually sit on this board: up to
     #: Up to `PREVIEW_POINTS` items, `{x, y, kind, label}`, each position
     #: normalised into 0..1 against the board's own bounding box. The
@@ -2260,6 +2329,7 @@ def list_boards(
                 type=board_type,
                 layout=layout,
                 background=_board_background(entry),
+                layers=_board_layers(entry),
                 **_preview_fields(db, entry.id),
             )
         )
@@ -2516,11 +2586,36 @@ class BoardRename(BoardTypeMixin):
     numbered: bool | None = None
     #: A patch on the board's look (decision 24). `None` leaves it as it is.
     background: BoardBackground | None = None
+    #: The whole list of named layers (canvasdepth). `None` leaves them.
+    layers: list[BoardLayer] | None = Field(default=None, max_length=MAX_BOARD_LAYERS)
     #: Optional since maps: `PUT` used to be rename-only and required a
     #: title, so a client changing the *layout* had to resend the name it was
     #: not touching: which is how a rename made in another tab gets silently
     #: overwritten by a stale one. `None` means "leave the title alone".
     title: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+def _apply_board_look(db: Session, entry: Entry, body: BoardRename) -> None:
+    """The board's background and named layers, each recorded as its own
+    edit when it changed (split from `rename_board` to keep it readable)."""
+    if body.background is not None:
+        before_background = _board_background(entry)
+        stored_background = _store_board_background(entry, body.background)
+        if stored_background != before_background:
+            events.record(
+                db,
+                "edited",
+                "board",
+                entry.id,
+                "background",
+                payload={"after": stored_background, "before": before_background},
+            )
+    if body.layers is not None:
+        before_layers = _board_layers(entry)
+        stored_layers = _store_board_layers(entry, body.layers)
+        if stored_layers != before_layers:
+            events.record(db, "edited", "board", entry.id, f"layers, {len(stored_layers)}",
+                          payload={"after": {"layers": stored_layers}, "before": {"layers": before_layers}})
 
 
 @router.put("/boards/{board_id}", response_model=BoardOut)
@@ -2584,18 +2679,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
                 "branches numbered" if body.numbered else "branches not numbered",
                 payload={"after": {"numbered": body.numbered}, "before": {"numbered": before_numbered}},
             )
-    if body.background is not None:
-        before_background = _board_background(entry)
-        stored_background = _store_board_background(entry, body.background)
-        if stored_background != before_background:
-            events.record(
-                db,
-                "edited",
-                "board",
-                entry.id,
-                "background",
-                payload={"after": stored_background, "before": before_background},
-            )
+    _apply_board_look(db, entry, body)
     if body.title is not None:
         title = body.title.strip()
         update_entry(db, entry, content=apply_title(entry.content, title))
@@ -2627,6 +2711,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
         type=board_type,
         layout=layout,
         background=_board_background(entry),
+        layers=_board_layers(entry),
         **_preview_fields(db, board_id),
     )
 

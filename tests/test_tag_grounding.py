@@ -5,7 +5,7 @@ The owner, 2026-10-10: "Study and university tags are suggested on the top
 note if it has no tags no matter what the note is about". Two votes did it,
 both reproduced here before the fix:
 
-* **With no model**, `lexical_filing.suggest_tags` let the nearest notes vote
+* **With no model**, `tagging.suggest` let the nearest notes vote
   for every tag they carry. In a notebook whose lecture notes all carry
   "study" and "university", a note sharing one ordinary word with them
   ("Friday", "books", "chapter") was offered both.
@@ -14,7 +14,7 @@ both reproduced here before the fix:
   first two whatever the note says (`triage-1010.md`, line 23). That reply
   is faked here, since what a real model answers is not verified.
 
-The fix is one rule on both paths, `lexical_filing.tag_grounds`: a tag is
+The fix is one rule on both paths, `tagging.grounds`: a tag is
 kept only when the note says one of its words or a phrase of a topic the
 tag names ("exam" backs #study, Education).
 """
@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import lexical_filing, librarian
+from memorymap.ai import librarian, tagging
 from memorymap.entry import manager
 
 LECTURES = (
@@ -53,7 +53,7 @@ def _notebook(session) -> None:
 def test_no_model_never_offers_a_tag_the_note_has_no_word_for(session) -> None:
     _notebook(session)
     for text in UNRELATED:
-        offered = lexical_filing.suggest_tags(session, text, have=[])
+        offered = tagging.suggest(session, text, have=[])
         assert not {"study", "university"} & set(offered), (text, offered)
 
 
@@ -71,16 +71,16 @@ def test_a_models_tags_are_kept_only_when_the_note_has_their_words(session, monk
 
 def test_a_tag_the_note_has_a_word_for_is_still_offered_and_explained(session) -> None:
     _notebook(session)
-    offered = lexical_filing.suggest_tags(session, "Exam prep for Friday: past papers in the library", have=[])
+    offered = tagging.suggest(session, "Exam prep for Friday: past papers in the library", have=[])
     assert "study" in offered, offered
-    assert lexical_filing.tag_reason("study", "Exam prep for Friday") == "It mentions \u201cexam\u201d."
-    assert lexical_filing.tag_reason("university", "Study plan for the university library").startswith("It says")
-    assert lexical_filing.tag_reason("study", "Pasta night") == ""
+    assert tagging.reason("study", "Exam prep for Friday") == "It mentions \u201cexam\u201d."
+    assert tagging.reason("university", "Study plan for the university library").startswith("It says")
+    assert tagging.reason("study", "Pasta night") == ""
 
 
 def test_at_most_three_tags_are_offered(session) -> None:
     for text in ("Lecture on entropy and heat", "Lecture on entropy and work"):
         manager.create_entry(session, text, category_name="Uni", tags=["entropy", "heat", "lecture", "physics", "work"])
     session.commit()
-    offered = lexical_filing.suggest_tags(session, "Lecture on entropy, heat, work and physics", have=[])
-    assert len(offered) == lexical_filing.TAG_LIMIT == 3, offered
+    offered = tagging.suggest(session, "Lecture on entropy, heat, work and physics", have=[])
+    assert len(offered) == tagging.TAG_LIMIT == 3, offered

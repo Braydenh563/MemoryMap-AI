@@ -1204,10 +1204,10 @@ HELP_TOPICS.extend(
                 "lasso", "highlighter", "eraser", "connector", "nudge", "snap to grid",
                 "align", "distribute", "snap", "grid", "bring forward", "send backward", "group",
                 "ungroup", "copy style", "paste style", "pan", "zoom", "zoom to fit",
-                "board overview", "find a card", "tool", "text in a shape", "label a shape",
+                "board overview", "find a card", "find and replace", "replace all", "tool", "text in a shape", "label a shape",
                 "frame", "frames", "section", "region", "lock a shape", "lock an item", "unlock all", "locked item",
                 "comment on a card", "comment on an item", "comments on the board", "comment thread",
-                "present", "presentation", "slides", "slideshow",
+                "present", "presentation", "slides", "slideshow", "laser", "laser pointer",
                 "drag to delete", "drop to delete", "drag onto delete", "trash an item",
                 "board on a phone", "more board commands",
             ),
@@ -1218,10 +1218,10 @@ HELP_TOPICS.extend(
                 "triangle, D diamond, T text, N sticky note, F frame, C connector (Shift+C "
                 "curved), I image, X delete. Moving around: the wheel or two "
                 "fingers pan, Shift+wheel pans sideways, Ctrl+wheel or a pinch "
-                "zooms, Space and drag pans with any tool, a drag to an edge pans, Ctrl+= and Ctrl+- zoom, "
+                "zooms, Space and drag pans, a drag to an edge pans, Ctrl+= and Ctrl+- zoom, "
                 "Ctrl+0 is 100%, Shift+1 fits all, Shift+N shows the "
-                "overview, / or Ctrl+F finds a card, and Tab walks the board's "
-                "items from the keyboard. Selection: Shift+click adds, "
+                "overview, / or Ctrl+F finds, Ctrl+H replaces, and Tab walks the board's "
+                "items. Selection: Shift+click adds, "
                 "Ctrl+A selects all, Ctrl+D duplicates, Alt and drag copies as you "
                 "drag, Ctrl+V pastes at the pointer, the arrows "
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
@@ -1229,7 +1229,7 @@ HELP_TOPICS.extend(
                 "forward, Ctrl+[ and Ctrl+] to the back or front, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
                 "Ctrl+Alt+V copy and paste a style, Delete (or a drop on the bin) "
                 "removes, Esc cancels a "
-                "drag or goes back to Select. "
+                "drag or goes to Select. "
                 "Double-click empty board for a text box, double-click a closed shape "
                 "(or select it and press Enter) to write in it, right-click (or hold on touch) "
                 "for the menu, double-click a line to bend "
@@ -1238,7 +1238,7 @@ HELP_TOPICS.extend(
                 "Ctrl+Shift+L locks the selection; Unlock is "
                 "on the board's right-click menu. Right-click an item, Comment…, starts a "
                 "thread; its count reopens it. View, Present frames: one frame "
-                "at a time. ? shows every key; Ctrl+K finds any board action by name. "
+                "at a time; L, a laser. ? shows every key; Ctrl+K finds any board action by name. "
                 "Menus: Insert, Edit, Arrange (align, distribute, size, order, group, "
                 "lock), View (background, grid, snap, zoom, full screen) and Board "
                 "(rename, new, export, kind, clear, delete, keys). On a phone, "
@@ -1301,9 +1301,10 @@ HELP_TOPICS.extend(
             "id": "board-library",
             "keywords": (
                 "object library", "shape library", "shapes", "flowchart", "flow chart", "icons", "stencil",
+                "draw.io shapes", "bpmn", "network shapes", "cloud shapes", "connection points",
                 "save to library", "save to the library", "my shapes", "custom shape", "saved style", "palette",
                 "preset", "template", "board template", "save as template", "saved branch", "import library",
-                "export library", "favourite shapes", "recent shapes", "sidebar", "layers", "pages",
+                "export library", "favourite shapes", "recent shapes", "sidebar", "layers", "pages", "named layer", "hide a layer", "lock a layer",
                 "page order", "presentation order", "reorder frames", "order of frames", "frame order",
                 "frames in the presentation", "locked item", "unlock",
                 "templates in the library", "drag a template", "map templates", "this map tab", "map stats",
@@ -1312,13 +1313,14 @@ HELP_TOPICS.extend(
                 "A board's sidebar (the Library button in its top bar, or the rail on its left edge) has "
                 "four tabs: Library, Notes, Layers and Pages; a mind map's has Library, This map (its "
                 "facts, its look, open every fold, lay it out again) and Outline. The Library starts with "
-                "Templates (a board's seventeen and a map's fifteen, a map's placed under the topic they "
-                "are dropped on; see Board and map templates). Pages lists the "
+                "Templates (17 for boards, 15 for maps; see Board and map templates). Pages lists the "
                 "board's frames in presentation order: drag a row or press Alt+Up and Alt+Down to reorder, "
-                "Enter goes to the frame, P presents from it. A locked item shows a lock when the pointer "
+                "Enter goes to the frame, P presents from it. Layers starts with named layers: + adds one "
+                "holding the selection; its eye and lock act on all of it. A locked item shows a lock when the pointer "
                 "is on it; right-click it to unlock it. The Library holds "
-                "built-in sets (General shapes, Flowchart, Arrows, Frames (a frame and a timeline lane) "
-                "and 1,530 icons drawn as shapes), then Favourites, Recent and your own "
+                "built-in sets (General shapes, Flowchart, Arrows, Frames (a frame, a timeline lane and swimlanes in rows or columns) "
+                "and 1,530 icons drawn as shapes), five draw.io sets (196 shapes "
+                "with their own connection points), then Favourites, Recent and your own "
                 "libraries; the search field finds any of them by name or tag. Click a tile or press Enter "
                 "to place it in the middle of the view, drag it and it lands held where you grabbed it, or Shift+Enter to place "
                 "it joined to what is selected; F stars it, and Shift+F10 or a right-click opens its menu "
@@ -1342,7 +1344,7 @@ HELP_TOPICS.extend(
                 "line shape", "line end", "line ends", "arrowhead", "arrow end", "diamond end", "label position", "bend", "waypoint", "crow's foot", "crows foot", "er diagram",
                 "connection point", "connection points", "port", "ports", "anchor point",
                 "line jumps", "line jump", "crossing lines", "lines cross", "hop over",
-                "entity relationship", "mermaid", "subgraph", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
+                "entity relationship", "mermaid", "subgraph", "sequence diagram", "class diagram", "state diagram", "drawio", "draw.io file", "open a drawio file", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
                 "connect it to the copy", "connect the copy",
             ),
             "body": (
@@ -1365,9 +1367,9 @@ HELP_TOPICS.extend(
                 "it along the line. The ends include the entity-relationship marks (one, zero or one, many, "
                 "one or many, zero or many). With one shape or text box selected, the four arrows round it "
                 "(or Alt+Shift and an arrow key) copy it that way and join facing sides with an elbow. "
-                "Insert, Mermaid or board SVG brings in a Mermaid flowchart or an SVG a board here "
-                "exported, as shapes and connectors, each Mermaid subgraph as a titled frame round its "
-                "shapes; Export also writes an Outline and a Mermaid flowchart, frames as subgraphs."
+                "Insert, Mermaid, draw.io or board SVG brings in a Mermaid flowchart, state, class or "
+                "sequence diagram, a .drawio file (first page; swimlanes as frames) or an SVG a board "
+                "here exported, as shapes and connectors; Export writes an Outline and a Mermaid flowchart."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

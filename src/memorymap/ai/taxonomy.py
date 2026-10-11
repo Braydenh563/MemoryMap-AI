@@ -492,8 +492,18 @@ def topic_hits(text: str) -> dict[str, list[str]]:
     order of first mention. Note purposes ("Projects", "Journal") are left
     out: they say how a note is used, not what it is about, so they are never
     a category's subject (the "Study" bug's other half)."""
+    return _hits(text, purposes=False)
+
+
+def purpose_hits(text: str) -> dict[str, list[str]]:
+    """`topic_hits` for the purposes only ("Journal": "dear diary"): what a
+    tag named for a note's use is backed by (`ai/tagging.grounds`)."""
+    return _hits(text, purposes=True)
+
+
+def _hits(text: str, purposes: bool) -> dict[str, list[str]]:
     index = _keyword_index()
-    purposes = functional_categories()
+    purpose_names = functional_categories()
     found: dict[str, list[str]] = {}
     normalized = normalize_text(text or "")
     processor = get_keyword_processor()
@@ -509,7 +519,7 @@ def topic_hits(text: str) -> dict[str, list[str]]:
             continue
         seen.add(folded)
         for topic in index[keyword]:
-            if topic not in purposes:
+            if (topic in purpose_names) == purposes:
                 found.setdefault(topic, []).append(keyword)
     return found
 

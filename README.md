@@ -374,6 +374,28 @@ password. Every import keeps a report naming anything it left out.
 browser protections and what to do if you forget your password. To report a
 vulnerability, see [SECURITY.md](SECURITY.md).
 
+## Performance
+
+Each interaction has a time budget, held by a test that fails when it is
+exceeded (`tests/test_budgets.py` for the server, `tests-e2e/specs/budgets.spec.js`
+in a real browser; the table is `BUDGETS` in `src/memorymap/api/routes_bench.py`).
+Measured in headless Chromium on a four-core machine under load, on a 500-note
+notebook with a board of 500 objects and a document of 50,000 words. Each
+measured figure is the slowest of four runs' medians; the budget is 1.5 times it.
+
+| Interaction | Measured (ms) | Budget (ms) |
+| --- | --- | --- |
+| Boot to first paint | 713 | 1070 |
+| First interaction | 4639 | 6960 |
+| List paint | 139 | 210 |
+| Search | 30 | 50 |
+| Board open | 108 | 170 |
+| Document open | 359 | 540 |
+
+The first interaction is the first click the app answers after a cold start,
+with the session kept. `GET /models/bench/budgets?live=true` times the server's
+share of each against your own notebook.
+
 ## Documentation
 
 | Document | What it answers |

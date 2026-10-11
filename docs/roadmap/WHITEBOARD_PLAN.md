@@ -1552,3 +1552,20 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 ## Placed from INBOX, 2026-10-10 (the owner on feature depth)
 
 - INBOX 797, the owner 2026-10-10 23:02Z: "Also I feel like the mindmap and whiteboard are still missing a lot of features and options and stuff that draw.io and other things like the craft repos have :(" Owner: an Opus brief (canvasdepth), next Opus slot: re-audit the whiteboard against draw.io, designcraft and the other craft references in ANALYSIS.md ("Whiteboard, against draw.io and designcraft", "Mind map, against designcraft's canvas"), plus tldraw, Excalidraw, XMind and MindNode; rank every gap by how often a person meets it; build the top ones measured (connection points, the shape library at scale, named layers with visibility, swimlanes, more Mermaid kinds, and for maps: themes, branch styles, relationship lines, boundaries, summaries, outline import and export, presentation mode), each a commit with a test.
+
+### canvasdepth, ranked by how often a person meets the gap (2026-10-10)
+
+From ANALYSIS.md "Whiteboard, against draw.io and designcraft", re-read from
+the code. Each row is built as one commit with a test and a Playwright
+measure at 1440 and 390, or left here.
+
+1. Built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (canvasdepth)"): the draw.io sets in the Library with their own ports.
+2. Built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (canvasdepth)"): Mermaid state, class and sequence in.
+3. Built 2026-10-10 (same HISTORY block): `.drawio` import, first page.
+4. Built 2026-10-10 (same HISTORY block): swimlanes in the Frames set.
+5. Built 2026-10-10 (same HISTORY block): named layers with show, hide and lock. Open from section 6: a current layer new items land in, layer order.
+6. Built 2026-10-10 (same HISTORY block): find reads labels and text boxes; Ctrl+H replaces. Open from section 9: regex, whole word, notes' own text.
+7. The hand-drawn look (Excalidraw), a board option.
+8. Tables (section 12).
+9. Built 2026-10-10 (same HISTORY block): a laser pointer while presenting.
+10. Edit data and placeholders (section 3).

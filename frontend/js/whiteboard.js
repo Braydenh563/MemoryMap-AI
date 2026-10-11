@@ -2323,14 +2323,75 @@ function wbSearchTextFor(kind, item, byId) {
     // A text box keeps its words in the same `data` JSON blob an image keeps
     // its URL in (see WhiteboardObject's own docstring), so a bad parse here
     // means "not searchable", never a thrown render.
+    //: `data` arrives parsed (`_object_to_out`); a string is read too. It
+    //: was only ever parsed, so `JSON.parse` of an object threw and no text
+    //: box was ever found (measured, canvasdepth: "SHIP" in a text box, 0).
     try {
-      const data = JSON.parse(item.data || "{}");
+      const data = typeof item.data === "string" ? JSON.parse(item.data || "{}") : item.data || {};
       return String(data.content || "").toLowerCase();
     } catch {
       return "";
     }
   }
+  //: A shape's or a connector's label (canvasdepth): what draw.io's find
+  //: reads first, and what this one missed.
+  if (kind === "sketch") return String(wbSketchData(item)?.label || "").toLowerCase();
   return "";
+}
+
+//: Pure (node-tested): every case-insensitive occurrence of `find` in
+//: `text` swapped for `to`, both taken literally (no pattern, no `$&`).
+function wbReplaceText(text, find, to) {
+  const source = String(text ?? "");
+  const needle = String(find || "");
+  if (!needle) return { text: source, count: 0 };
+  const lower = source.toLowerCase(), low = needle.toLowerCase();
+  let out = "", from = 0, count = 0;
+  for (let at = lower.indexOf(low); at >= 0; at = lower.indexOf(low, from)) {
+    out += source.slice(from, at) + to;
+    from = at + needle.length;
+    count += 1;
+  }
+  return { text: out + source.slice(from), count };
+}
+
+//: **Replace all** (canvasdepth; WHITEBOARD_PLAN section 9): text boxes,
+//: shape labels and connector labels, one undo step. A card is a note and
+//: keeps its words; the announcement says how many cards hold the words.
+async function wbBoardReplaceAll(find, to) {
+  const needle = String(find || "").trim() ? String(find) : "";
+  if (!needle) return 0;
+  const undo = [];
+  let changes = 0, cards = 0;
+  for (const kind of ["object", "sketch", "node"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
+      if (wbItemHidden(kind, item) || wbIsLocked(kind, item)) continue;
+      if (kind === "node") {
+        if (wbSearchTextFor("node", item, null).includes(needle.toLowerCase())) cards += 1;
+        continue;
+      }
+      const field = kind === "object" ? item.data?.content : wbSketchData(item)?.label;
+      if (typeof field !== "string") continue;
+      const done = wbReplaceText(field, needle, to);
+      if (!done.count) continue;
+      undo.push({ action: "move", kind, id: item.id, before: WB_KIND_INFO[kind].payload(item) });
+      if (kind === "object") {
+        item.data = { ...item.data, content: done.text };
+        await wbSaveObject(item);
+      } else {
+        await wbSaveSketchProps(item, { label: done.text });
+      }
+      changes += done.count;
+    }
+  }
+  wbPushMoveBatch(undo);
+  wbScheduleRender();
+  const said = `Replaced ${changes} time${changes === 1 ? "" : "s"} in ${undo.length} item${undo.length === 1 ? "" : "s"}`
+    + `${cards ? `; ${cards} card${cards === 1 ? "" : "s"} hold it too, edited in their note` : ""}.`;
+  wbAnnounce(said);
+  toast(said);
+  wbBoardSearchRun(document.getElementById("wb-search-input")?.value || "");
+  return changes;
 }
 
 function wbBoardSearchRun(query) {
@@ -2345,7 +2406,7 @@ function wbBoardSearchRun(query) {
         e,
       ]),
     );
-    for (const kind of ["node", "object"]) {
+    for (const kind of ["node", "object", "sketch"]) {
       for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
         if (!wbItemHidden(kind, item) && wbSearchTextFor(kind, item, byId).includes(needle)) {
           wbBoardSearch.matches.push({ kind, id: item.id });
@@ -2410,6 +2471,13 @@ function wbBoardSearchGo(delta) {
   const item = wbSearchItem(match);
   const box = item ? wbItemBBox(match.kind, item) : null;
   if (box) wbCenterOn(box);
+  //: A drawing has no element to ring, so a matched shape or connector is
+  //: selected instead, which draws its handles.
+  if (match.kind === "sketch" && item) {
+    clearWbSelection();
+    wbSelectedItem = { kind: "sketch", id: item.id };
+    wbApplySelectionHighlight();
+  }
   wbApplySearchHighlight();
   wbUpdateSearchCount();
 }
@@ -2425,13 +2493,65 @@ function wbCloseBoardSearch() {
   document.getElementById("whiteboard-container")?.focus?.();
 }
 
-function wbOpenBoardSearch() {
+//: The Replace row, built on first use so the boot page carries none of it:
+//: a toggle after the find field, and under it a field and Replace all.
+function wbEnsureReplaceRow(bar) {
+  if (document.getElementById("wb-replace-toggle")) return;
+  const toggle = smallButton("ph:swap", "Replace (Ctrl+H)", () => wbToggleReplace());
+  toggle.id = "wb-replace-toggle";
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-controls", "wb-replace-row");
+  document.getElementById("wb-search-count")?.before(toggle);
+  const row = document.createElement("div");
+  row.id = "wb-replace-row";
+  row.className = "wb-replace-row";
+  row.hidden = true;
+  const field = document.createElement("input");
+  field.id = "wb-replace-input";
+  field.type = "text";
+  field.placeholder = "Replace with";
+  field.setAttribute("aria-label", "Replace with");
+  field.autocomplete = "off";
+  field.spellcheck = false;
+  const all = document.createElement("button");
+  all.type = "button";
+  all.id = "wb-replace-all";
+  all.className = "small";
+  all.textContent = "Replace all";
+  const go = () => wbBoardReplaceAll(document.getElementById("wb-search-input")?.value || "", field.value);
+  all.addEventListener("click", go);
+  field.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      go();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      wbCloseBoardSearch();
+    }
+  });
+  row.append(field, all);
+  bar.append(row);
+}
+
+function wbToggleReplace(on = null) {
+  const row = document.getElementById("wb-replace-row");
+  if (!row) return;
+  const show = on ?? row.hidden;
+  row.hidden = !show;
+  document.getElementById("wb-replace-toggle")?.setAttribute("aria-expanded", String(show));
+  document.getElementById("wb-search-bar")?.classList.toggle("is-replacing", show);
+  if (show) document.getElementById("wb-replace-input")?.focus();
+}
+
+function wbOpenBoardSearch({ replace = false } = {}) {
   const bar = document.getElementById("wb-search-bar");
   const input = document.getElementById("wb-search-input");
   if (!bar || !input) return;
+  wbEnsureReplaceRow(bar);
   bar.classList.remove("hidden");
   input.focus();
   input.select();
+  if (replace) wbToggleReplace(true);
 }
 
 //: Real anchor/connection points for links (asked for directly, "take
@@ -2581,6 +2701,13 @@ function wbPortFractions(kind, item) {
   if (kind !== "sketch") return WB_FIXED_ANCHORS;
   const parsed = wbSketchParsedData(item);
   if (!parsed || typeof parsed.d !== "string") return WB_FIXED_ANCHORS;
+  //: A converted draw.io shape carries its stencil's own ports (decision 2
+  //: of the draw.io programme): those are where its author put them, so they
+  //: come before anything guessed from the path.
+  if (Array.isArray(parsed.ports) && parsed.ports.length) {
+    const own = parsed.ports.filter((q) => Number.isFinite(q?.x) && Number.isFinite(q?.y));
+    if (own.length) return own;
+  }
   const cached = wbPortCache.get(item.id);
   if (cached && cached.d === parsed.d) return cached.ports;
   const ports = wbPortsForPath(parsed.d, WB_FILLABLE_SHAPES.has(parsed.shape)) || WB_FIXED_ANCHORS;
@@ -5440,7 +5567,14 @@ function wbItemHidden(kind, item) {
   if (!item) return false;
   if (kind === "node") return Boolean(item.hidden);
   const data = kind === "sketch" ? wbSketchData(item) : item.data;
-  return Boolean(data && data.hidden);
+  return Boolean(data && (data.hidden || wbNamedLayerFlag(data.layer, "hidden")));
+}
+
+//: A named layer's flag (canvasdepth): an item on a hidden layer is hidden,
+//: on a locked one locked, whatever its own flag says.
+function wbNamedLayerFlag(id, flag) {
+  if (!id || !wbState.layers?.length) return false;
+  return Boolean(wbState.layers.find((l) => l.id === id)?.[flag]);
 }
 
 //: One step for every selected item, one undo step for the lot. Forward
@@ -8350,6 +8484,12 @@ async function wbApplyHistoryEntry(from, to) {
   //: a theme is a patch, so a field the old theme lacked is sent as null.
   //: A board's look (decision 24): put back whole, every field the step
   //: did not have sent as null.
+  if (entry.action === "layers") {
+    const current = wbState.layers || [];
+    await wbSaveNamedLayers(entry.before || [], { undo: false });
+    to.push({ action: "layers", before: current });
+    return true;
+  }
   if (entry.action === "background") {
     const current = { ...wbBoardBackground() };
     const was = entry.before || {};
@@ -8669,9 +8809,8 @@ function wbSketchData(sketch) {
 function wbIsLocked(kind, item) {
   if (!item) return false;
   if (kind === "node") return Boolean(item.locked);
-  if (kind === "object") return Boolean(item.data?.locked);
-  if (kind === "sketch") return Boolean(wbSketchData(item)?.locked);
-  return false;
+  const data = kind === "object" ? item.data : kind === "sketch" ? wbSketchData(item) : null;
+  return Boolean(data && (data.locked || wbNamedLayerFlag(data.layer, "locked")));
 }
 
 function wbLockedItems() {
@@ -10619,7 +10758,7 @@ async function wbImportOutlineFile(event) {
 async function wbExportSvg(scope) {
   let { svg } = wbBuildExportSvg(scope);
   //: **The board rides inside the picture** (W5, draw.io's re-editable SVG):
-  //: its rows in `<metadata>`, which Insert, Mermaid or board SVG brings back
+  //: its rows in `<metadata>`, which Insert, Mermaid, draw.io or board SVG brings back
   //: as shapes and connectors. A map's topics are a tree, not rows to drop.
   if (!wbIsMap()) svg = svg.replace(/(<svg[^>]*>)/, `$1${wbBoardSvgMetadata(wbExportRows(scope))}`);
   await saveFile(wbExportFileName(scope, "svg"), new Blob([await wbInlineSvgImages(svg)], { type: "image/svg+xml" }));
@@ -13137,6 +13276,13 @@ async function initWhiteboard() {
       && (tag === "input" || tag === "textarea" || active.isContentEditable)
       && active.offsetParent !== null;
     if (typing) return;
+    //: Ctrl+H is find and replace, as in draw.io and every editor; the
+    //: browser's history window has no meaning inside the app.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "h" && !wbIsMap()) {
+      e.preventDefault();
+      wbOpenBoardSearch({ replace: true });
+      return;
+    }
     if (wbMapCatchTypeahead(e)) return;
     // **Shift+N for the overview, because bare N is the sticky note**
     // (WHITEBOARD_PLAN.md decision 8). This took the bare letter first,
@@ -20634,6 +20780,7 @@ function wbStartPresenting() {
     focus: document.activeElement,
   };
   toggleWhiteboardFullscreen(true);
+  wbPresentLaserButton();
   host.classList.add("wb-presenting");
   document.getElementById("wb-present-bar")?.classList.remove("hidden");
   //: After the chrome has gone, so the frame is fitted to the room it has.
@@ -20676,10 +20823,65 @@ function wbPresentShow(index) {
   if (next) next.disabled = at === steps.length - 1;  if (wbStudy.on) wbMapStudySyncBar();
 }
 
+//: **A laser pointer while presenting** (canvasdepth; Excalidraw's and
+//: tldraw's): L or the bar's button; the pointer leaves a short trail that
+//: fades by CSS (`wb-laser-fade`), so no frame loop runs for it, and it
+//: draws nothing on the board.
+function wbPresentLaserButton() {
+  if (document.getElementById("wb-present-laser")) return;
+  const button = smallButton("ph:cursor-click", "Laser pointer (L)", () => {});
+  button.id = "wb-present-laser";
+  button.setAttribute("aria-pressed", "false");
+  document.getElementById("wb-present-end")?.before(button);
+}
+
+function wbPresentLaser(on = null) {
+  const container = document.getElementById("whiteboard-container");
+  const show = on ?? !container?.classList.contains("wb-laser-on");
+  if (!container || (show && !wbPresent)) return;
+  //: The tool's cursor is set inline (`updateWbCursor`), so it is kept and
+  //: swapped inline too: the dot is the pointer while the laser is on.
+  if (show && !container.classList.contains("wb-laser-on")) {
+    wbPresentLaser.cursor = container.style.cursor;
+    container.style.cursor = "none";
+  } else if (!show && container.classList.contains("wb-laser-on")) {
+    container.style.cursor = wbPresentLaser.cursor || "";
+  }
+  container.classList.toggle("wb-laser-on", show);
+  document.getElementById("wb-present-laser")?.setAttribute("aria-pressed", String(show));
+  let layer = document.getElementById("wb-laser-layer");
+  if (show && !layer) {
+    layer = document.createElement("div");
+    layer.id = "wb-laser-layer";
+    layer.className = "wb-laser-layer";
+    layer.setAttribute("aria-hidden", "true");
+    document.body.append(layer);
+    container.addEventListener("pointermove", wbLaserTrail);
+  }
+  if (!show && layer) {
+    container.removeEventListener("pointermove", wbLaserTrail);
+    layer.remove();
+  }
+  if (on === null) wbAnnounce(show ? "Laser pointer on." : "Laser pointer off.");
+}
+
+function wbLaserTrail(event) {
+  const layer = document.getElementById("wb-laser-layer");
+  if (!layer) return;
+  const dot = document.createElement("span");
+  dot.className = "wb-laser-dot";
+  dot.style.left = `${event.clientX}px`;
+  dot.style.top = `${event.clientY}px`;
+  dot.addEventListener("animationend", () => dot.remove(), { once: true });
+  layer.append(dot);
+  while (layer.childElementCount > 48) layer.firstElementChild.remove();
+}
+
 function wbStopPresenting() {
   if (!wbPresent) return;
   const { wasFull, camera, focus } = wbPresent;
   wbPresent = null;
+  wbPresentLaser(false);
   wbMapEndStudy();
   document.getElementById("library-view-whiteboard")?.classList.remove("wb-presenting");
   document.getElementById("wb-present-bar")?.classList.add("hidden");
@@ -20717,6 +20919,7 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   if (event.key === "Escape") wbStopPresenting();
+  else if (event.key === "l" || event.key === "L") wbPresentLaser();
   else if (event.key === "Home") wbPresentShow(0);
   else if (event.key === "End") wbPresentShow(wbPresent.steps.length - 1);
   else if (step) wbPresentShow(wbPresent.at + step);
@@ -20729,6 +20932,7 @@ document.addEventListener("click", (event) => {
   if (button.id === "wb-present-prev") wbPresentShow(wbPresent.at - 1);
   else if (button.id === "wb-present-next") wbPresentShow(wbPresent.at + 1);
   else if (button.id === "wb-present-end") wbStopPresenting();
+  else if (button.id === "wb-present-laser") wbPresentLaser();
   else if (button.id === "wb-study-show") wbMapStudyShow();
   else if (button.id === "wb-study-knew") wbMapStudyMark(true);
   else if (button.id === "wb-study-missed") wbMapStudyMark(false);

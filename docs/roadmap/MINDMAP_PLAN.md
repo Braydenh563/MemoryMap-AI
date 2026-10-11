@@ -1826,3 +1826,16 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 ## Placed from INBOX, 2026-10-10 (the owner on feature depth)
 
 - INBOX 797, the owner 2026-10-10 23:02Z: "Also I feel like the mindmap and whiteboard are still missing a lot of features and options and stuff that draw.io and other things like the craft repos have :(" Owner: an Opus brief (canvasdepth), next Opus slot: re-audit the mind map against draw.io, designcraft and the other craft references in ANALYSIS.md ("Whiteboard, against draw.io and designcraft", "Mind map, against designcraft's canvas"), plus tldraw, Excalidraw, XMind and MindNode; rank every gap by how often a person meets it; build the top ones measured (connection points, the shape library at scale, named layers with visibility, swimlanes, more Mermaid kinds, and for maps: themes, branch styles, relationship lines, boundaries, summaries, outline import and export, presentation mode), each a commit with a test.
+
+### canvasdepth, ranked by how often a person meets the gap (2026-10-10)
+
+From ANALYSIS.md "Mind map, against designcraft's canvas", re-read against
+XMind and MindNode. The brief's list (themes, branch styles, relationship
+lines, boundaries, summaries, outline in and out, presentation, Tab, Enter
+and F2) is built; what is open:
+
+1. A structure per branch (XMind): `layout` on a topic, read by `wbMapColumnPositions` for its subtree.
+2. Callouts on a topic.
+3. Labels drawn under a topic.
+4. `.xmind` export.
+5. Stickers and votes (14.4).

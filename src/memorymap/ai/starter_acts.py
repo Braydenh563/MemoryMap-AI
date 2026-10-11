@@ -22,7 +22,7 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import commands, day_digest, lexical_filing, realise, recognise, utilities
+from memorymap.ai import commands, day_digest, lexical_filing, realise, recognise, tagging, utilities
 from memorymap.core.database import Entry, EntryLink, Reminder
 
 #: Each starter's reading, first match wins. The text is folded to lower case
@@ -184,7 +184,7 @@ def _tag_untagged(session: Session, **_: object) -> tuple[str, dict | None]:
         return "Every note has a tag already.", None
     steps, items, unsure = [], [], 0
     for entry in bare:
-        tags = lexical_filing.suggest_tags(session, entry.content or "", [], exclude_entry_id=entry.id)
+        tags = tagging.suggest(session, entry.content or "", [], exclude_entry_id=entry.id)
         if not tags:
             unsure += 1
             continue

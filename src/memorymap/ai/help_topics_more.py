@@ -1014,18 +1014,21 @@ MORE_TOPICS.extend(
             "keywords": (
                 "suggested tag", "suggested tags", "plus tag", "plus tags", "+ tag",
                 "tag suggestion", "stop suggesting", "dismiss a tag", "tag with atlas",
-                "why is this tag suggested", "why this tag",
+                "why is this tag suggested", "why this tag", "turned down", "offer again",
             ),
             "body": (
                 "The tags Atlas suggested when it filed a note stay on the note's "
                 "card as \"+ tag\": one press adds the tag, and its x stops "
                 "suggesting it (Undo in the notice brings it back, and the note's "
                 "Edit form lists the ones turned down under Not suggested, each "
-                "one press from coming back). With no AI running they come from your own tags "
-                "on the notes most like this one. Either way a tag is offered "
+                "one press from coming back). With no AI running they come from your own tags: "
+                "the ones the note names (\"stats\" finds statistics), its title and first line "
+                "first, then those on the notes most like it and the notes it links to. Words in "
+                "quotation marks and a scan's footer do not count. Either way a tag is offered "
                 "only when the note has a word for it, at most three, and "
-                "pointing at one says which word. An untagged note's Tag with "
-                "Atlas asks again."
+                "pointing at one says which word. A tag turned down on three notes is offered "
+                "less everywhere; Manage tags lists it under Turned down, with Offer again. "
+                "Tag and file with Atlas and Capture, while you type, suggest the same way."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

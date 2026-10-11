@@ -4,7 +4,7 @@ Measured on the running app before: every keystroke pause in Capture with no
 model called `librarian.suggest_tags`, which called the model client with no
 model, and the route logged a WARNING with a traceback each time (three per
 note typed) and offered nothing. With no model running the notebook's own
-tags answer (`lexical_filing.suggest_tags`, the same fallback filing uses),
+tags answer (`tagging.suggest`, the same fallback filing uses),
 the model is never asked, and the server says so once, at INFO.
 """
 

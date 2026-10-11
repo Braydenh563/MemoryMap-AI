@@ -108,6 +108,31 @@ def tokens(text: str) -> list[str]:
     return out
 
 
+#: The lines an OCR pass or a shop's printer adds to every capture: a page
+#: count, a scanner's name, a receipt's thanks and tax number.
+_BOILERPLATE = re.compile(
+    r"page \d+ of \d+|scanned with \w+|thank you for shopping[^.\n]*|\babn[\d ]+|\bcaptured\b",
+    re.IGNORECASE,
+)
+_IMAGE = re.compile(r"!\[[^\]\n]*\]\([^)\n]*\)")
+_LINK = re.compile(r"\[([^\]\n]*)\]\([^)\n]*\)")
+_QUOTED = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”")
+_BLOCKQUOTE = re.compile(r"^\s*>.*$", re.MULTILINE)
+
+
+def clean(content: str) -> str:
+    """The note's own words: no image address, no link target, no OCR
+    footer, and nothing in quotation marks or a blockquote (somebody else's
+    words) unless the quotation is most of the note: a pasted message, "From
+    the coach's email: ...", is what the note is about."""
+    out = _IMAGE.sub(" ", content or "")
+    out = _LINK.sub(r"\1", out)
+    out = _BOILERPLATE.sub(" ", out)
+    unquoted = _BLOCKQUOTE.sub(" ", _QUOTED.sub(" ", out))
+    quoted = len(tokens(out)) - len(tokens(unquoted))
+    return unquoted if quoted and len(tokens(unquoted)) >= quoted else out
+
+
 @dataclass
 class LexicalMatch:
     name: str
@@ -209,11 +234,6 @@ def suggest_categories_explained(
     return out[:limit]
 
 
-#: Tag suggestions: the nearest notes vote for their tags by closeness, and a
-#: tag the person already uses whose words all appear in the note votes too.
-TAG_NEIGHBOURS = 6
-TAG_MIN_VOTE = 0.25
-TAG_NAME_VOTE = 0.5
 #: A category the notebook already has, named by a topic of the taxonomy
 #: pack (`ai/taxonomy.py`: "squat" is Fitness, "simmer" Cooking), votes this
 #: much. The pack replaced the Gemini map (WORLD_CLASS 23, step 2): 120-note
@@ -223,110 +243,8 @@ TAG_NAME_VOTE = 0.5
 #: wrong filings 2 throughout; the smallest weight that gains is taken. The
 #: Gemini branch voted 2.0 for the map's own names whether the notebook had
 #: them or not: 0.225 right but 14 notes filed into categories nobody made.
-#: There is no tag vote from the map: a tag the note names outright already
-#: votes (`TAG_NAME_VOTE`), and only the person's own tags are ever offered.
+#: Tags are `ai/tagging.py`'s.
 TAXONOMY_CATEGORY_VOTE = 0.5
-
-
-#: At most this many tags offered on a note (decision 5).
-TAG_LIMIT = 3
-
-
-def tag_grounds(
-    tag: str, content: str, hits: dict[str, list[str]] | None = None, note_words: set[str] | None = None
-) -> list[str]:
-    """What in `content` backs `tag`, or [] when nothing does (WORLD_CLASS 23,
-    decision 5: a tag is never proposed on a note that contains none of its
-    words). The tag's own words, folded as `tokens` folds them ("squats" for
-    #squat); else the pack phrases of a topic the tag names ("exam" for
-    #study, Education). Never a word only its neighbours share: that vote
-    gave every note near a lecture "study" and "university" (the Study bug)."""
-    from memorymap.ai import taxonomy
-
-    note_words = set(tokens(content)) if note_words is None else note_words
-    said = [word for word in _tag_words(tag) if word in note_words]
-    if said:
-        return said
-    named = taxonomy.name_topics(tag)
-    if not named:
-        return []
-    hits = taxonomy.topic_hits(content) if hits is None else hits
-    return list(dict.fromkeys(phrase for topic in named for phrase in hits.get(topic, ())))
-
-
-def tag_reason(tag: str, content: str, hits: dict[str, list[str]] | None = None) -> str:
-    """One line for a suggested tag's chip; "" when nothing grounds it."""
-    grounds = tag_grounds(tag, content, hits)
-    if not grounds:
-        return ""
-    if set(grounds) <= set(_tag_words(tag)):
-        return f"It says {_quote_list(grounds[:2])}."
-    return f"It mentions {_quote_list(grounds[:2])}."
-
-
-def grounded_tags(content: str, tags: list[str], limit: int = TAG_LIMIT) -> list[str]:
-    """`tags` (a model's or the notebook's) kept only where the note has a
-    word for them, in order, at most `limit`."""
-    from memorymap.ai import taxonomy
-
-    if not tags:
-        return []
-    hits = taxonomy.topic_hits(content)
-    note_words = set(tokens(content))
-    return [tag for tag in tags if tag_grounds(tag, content, hits, note_words)][:limit]
-
-
-def suggest_tags(
-    session: Session,
-    content: str,
-    have: list[str],
-    exclude_entry_id: int | None = None,
-    limit: int = TAG_LIMIT,
-) -> list[str]:
-    """Tags this note probably wants, from the notebook's own (INBOX 440):
-    "pre suggested tags that are made and kept when filing", with no AI. Only
-    tags the person already uses are ever offered, so a suggestion is always
-    one of their own words, best first, and only one the note has a word for
-    (`tag_grounds`); [] when nothing is close enough."""
-    wanted = tokens(content)
-    if not wanted:
-        return []
-    with _corpus_lock:
-        corpus = _corpus_for(session)
-        scope = _scope(session)
-        docs = [
-            (entry_id, doc)
-            for entry_id, doc in corpus.docs.items()
-            if doc.tags and entry_id != exclude_entry_id and scope(doc)
-        ]
-        if not docs:
-            return []
-        query_bag: dict[str, float] = {}
-        for word in wanted:
-            query_bag[word] = query_bag.get(word, 0.0) + 1.0
-        scored = corpus.nearest(query_bag, "words", docs)
-        have_folded = {tag.casefold() for tag in have}
-        votes: dict[str, float] = {}
-        spelled: dict[str, str] = {}
-        for similarity, doc in scored[:TAG_NEIGHBOURS]:
-            for tag in doc.tags:
-                key = tag.casefold()
-                spelled.setdefault(key, tag)
-                votes[key] = votes.get(key, 0.0) + similarity
-        #: A tag the note names outright ("some cardio after work").
-        wanted_set = set(wanted)
-        vocabulary = {tag.casefold(): tag for _id, doc in docs for tag in doc.tags}
-    for key, tag in vocabulary.items():
-        words = _tag_words(tag)
-        if words and all(word in wanted_set for word in words):
-            spelled.setdefault(key, tag)
-            votes[key] = votes.get(key, 0.0) + TAG_NAME_VOTE
-    ranked = sorted(
-        (key for key, vote in votes.items() if vote >= TAG_MIN_VOTE and key not in have_folded),
-        key=lambda key: votes[key],
-        reverse=True,
-    )
-    return grounded_tags(content, [spelled[key] for key in ranked], limit)
 
 
 def _tally(
@@ -581,6 +499,9 @@ def decide(session: Session, content: str, exclude_entry_id: int | None = None) 
     Never a category the notebook lacks; a new one only as a `proposal`."""
     from memorymap.ai import taxonomy
 
+    #: The note's own words: a quotation, an image's address or an OCR
+    #: footer says nothing about where it belongs (INBOX 781).
+    content = clean(content)
     wanted = tokens(content)
     hits = taxonomy.topic_hits(content)
     note_topics = taxonomy.topic_weights(content, hits)

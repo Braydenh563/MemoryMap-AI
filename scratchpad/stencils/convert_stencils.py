@@ -69,6 +69,21 @@ _XS = {"x", "x1", "x2", "x3"}
 _YS = {"y", "y1", "y2", "y3"}
 
 
+
+def sentence_case(name: str) -> str:
+    """The app's copy rule (CLAUDE.md order 6): "4 Point Star" reads
+    "4 point star"; an acronym ("XOR", "BPMN") keeps its capitals."""
+    words = name.split(" ")
+    out = []
+    for i, w in enumerate(words):
+        if len(w) >= 2 and w.isupper():
+            out.append(w)
+        elif i == 0:
+            out.append(w[:1].upper() + w[1:])
+        else:
+            out.append(w.lower())
+    return " ".join(out)
+
 def _fmt(n: int) -> str:
     return str(n // 1000) if n % 1000 == 0 else repr(n / 1000)
 
@@ -626,7 +641,7 @@ def convert_library(xml_text: str, library: str, set_key: str | None = None):
         entry = {
             "key": key,
             "kind": "element",
-            "name": sh.name,
+            "name": sentence_case(sh.name),
             "tags": sorted({lib_name.replace("_", " "), *words}),
             "payload": {"box": {"w": sh.w, "h": sh.h}, "items": rows, "links": []},
             "stencil": {

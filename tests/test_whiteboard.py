@@ -454,6 +454,8 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         # the library item it was placed from.
         "name": None,
         "hidden": None,
+        # The named layer it is on (canvasdepth); None for none.
+        "layer": None,
         "page": None,
         "alpha": None,
         "shadow": None,

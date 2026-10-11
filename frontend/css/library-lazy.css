@@ -4424,3 +4424,89 @@ button.ghost.doc-template-choice.wb-template-choice {
   border-radius: var(--radius-md);
 }
 
+/* Named layers (canvasdepth, INBOX 797): a head with the + and one row per
+   layer above the paint-order tree, each row the layer tree's own row
+   recipe (`--row-h`, `--row-gap`) with the eye and lock always shown. */
+.wb-named-layers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+  margin-bottom: var(--space-3);
+}
+.wb-named-layers-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+.wb-named-layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+  margin: 0;
+  padding: 0;
+}
+.wb-named-layer {
+  list-style: none;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--row-h);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+.wb-named-layer:hover {
+  background: var(--hover-veil);
+}
+.wb-named-layer.is-hidden .wb-layer-name {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* Find and replace (canvasdepth): the Replace row wraps under the find row
+   in the same bar, its field as wide as the find field. */
+.wb-search-bar.is-replacing {
+  flex-wrap: wrap;
+}
+.wb-replace-row {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: var(--space-2);
+}
+.wb-replace-row[hidden] {
+  display: none;
+}
+
+/* The laser pointer while presenting (canvasdepth): a trail of dots over
+   the board that fade by themselves; the board's cursor is hidden inline
+   (`wbPresentLaser`) so the dot is the pointer. */
+.wb-laser-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2000;
+}
+.wb-laser-dot {
+  position: absolute;
+  width: var(--space-3);
+  height: var(--space-3);
+  margin: calc(var(--space-3) / -2) 0 0 calc(var(--space-3) / -2);
+  border-radius: 50%;
+  background: var(--error);
+  box-shadow: 0 0 var(--space-2) var(--error);
+  animation: wb-laser-fade 0.6s ease-out forwards;
+}
+@keyframes wb-laser-fade {
+  to {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-laser-dot {
+    animation-duration: 0.15s;
+  }
+}

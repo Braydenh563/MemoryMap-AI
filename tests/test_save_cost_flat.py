@@ -5,7 +5,7 @@ Measured at 5,000 notes before this: `POST /entries` 1.7 s p50 for a
 at 40 notes to 1 a second at 750. The profile named two pieces of Python that
 read the whole notebook on every save:
 
-- `lexical_filing.suggest_tags` read up to 4,000 notes' full text and
+- `tagging.suggest` read up to 4,000 notes' full text and
   tokenised every one of them to rebuild TF-IDF from scratch (490 ms at 610
   notes);
 - `janitor._best_centroid_match` loaded every stored vector as a blob and
@@ -30,7 +30,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from memorymap.ai import embeddings as embeddings_module
-from memorymap.ai import janitor, lexical_filing
+from memorymap.ai import janitor, lexical_filing, tagging
 from memorymap.ai.embeddings import vector_to_bytes
 from memorymap.core import deps
 from memorymap.core.database import Category, EmbeddingRecord, Entry
@@ -121,7 +121,7 @@ def test_tag_suggestions_follow_an_edit_without_a_rebuild(no_model_client):
     with deps.get_db().session() as session:
         #: The note says both tags' words: a tag it has no word for is never
         #: offered (WORLD_CLASS 23, decision 5).
-        suggested = lexical_filing.suggest_tags(session, "starter for the sourdough bread, a baking day", have=[])
+        suggested = tagging.suggest(session, "starter for the sourdough bread, a baking day", have=[])
     assert "bread" in suggested and "baking" in suggested
 
 
@@ -160,6 +160,6 @@ def test_the_lexical_pass_never_reads_a_private_note(app_state):
             Entry(content="squats secretword", category_id=category.id, tags='["secrettag"]', is_private=True)
         )
         session.commit()
-        suggested = lexical_filing.suggest_tags(session, "squats, lifting and secretword", have=[])
+        suggested = tagging.suggest(session, "squats, lifting and secretword", have=[])
     assert "secrettag" not in suggested
     assert "lifting" in suggested

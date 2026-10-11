@@ -244,7 +244,7 @@ function wbMermaidLayout(graph, { w = 160, h = 70, gapX = 220, gapY = 140, pad =
         inner.set(u, b);
         size.set(u, { w: Math.max(b.w, w) + pad * 2, h: Math.max(b.h, 0) + pad * 2 + head });
       } else {
-        size.set(u, { w, h });
+        size.set(u, { w, h: graph.nodes.find((n) => n.id === u)?.h || h });
       }
     }
     const incoming = new Map(units.map((u) => [u, 0]));
@@ -367,6 +367,350 @@ function wbBoardSvgMetadata(rows) {
   return `<metadata id="memorymap-board">${body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</metadata>`;
 }
 
+//: **Which Mermaid diagram a text is** (INBOX 797, canvasdepth): its first
+//: line that is not a comment. `null` for a kind the board does not draw
+//: (pie, gantt, journey), so the caller can say so rather than guess.
+function wbMermaidKind(source) {
+  const first = String(source || "").split("\n").map((l) => l.replace(/%%.*$/, "").trim()).find(Boolean) || "";
+  if (/^(graph|flowchart)\b/i.test(first)) return "flowchart";
+  if (/^stateDiagram(-v2)?\b/.test(first)) return "state";
+  if (/^classDiagram(-v2)?\b/.test(first)) return "class";
+  if (/^sequenceDiagram\b/.test(first)) return "sequence";
+  return null;
+}
+
+//: A Mermaid line with its comment off, or "" for none.
+function wbMermaidLines(source) {
+  return String(source || "").split("\n").map((raw) => raw.replace(/%%.*$/, "").trim());
+}
+
+//: `stateDiagram` to the flowchart's graph shape, so the same layout and the
+//: same placing draw it: `[*]` is a start dot where it begins a transition
+//: and an end dot where it ends one, `state "Words" as Id` names a state,
+//: `state Id {` up to `}` is a frame, `A --> B : label` a labelled arrow.
+//: Notes, `direction`, forks and choices are skipped and counted.
+function wbMermaidStateParse(source) {
+  const out = { dir: "TD", nodes: [], edges: [], subgraphs: [], skipped: 0 };
+  const byId = new Map();
+  const open = [];
+  const node = (id, text = null, shape = "rounded") => {
+    let n = byId.get(id);
+    if (!n) {
+      n = { id, text: id, shape, group: open.length ? open[open.length - 1] : null };
+      byId.set(id, n);
+      out.nodes.push(n);
+    }
+    if (text != null) n.text = text;
+    return n;
+  };
+  const end = (ref, starting) => {
+    if (ref !== "[*]") return node(ref).id;
+    const id = starting ? "__start" : "__end";
+    node(id, "", starting ? "start" : "end");
+    return id;
+  };
+  for (const line of wbMermaidLines(source)) {
+    if (!line || /^stateDiagram/.test(line)) continue;
+    const named = /^state\s+"([^"]*)"\s+as\s+([\w-]+)$/.exec(line);
+    if (named) {
+      node(named[2], named[1]);
+      continue;
+    }
+    const block = /^state\s+([\w-]+)\s*\{$/.exec(line);
+    if (block) {
+      if (!out.subgraphs.some((g) => g.id === block[1])) out.subgraphs.push({ id: block[1], title: block[1], parent: open.length ? open[open.length - 1] : null });
+      open.push(block[1]);
+      continue;
+    }
+    if (line === "}" && open.length) {
+      open.pop();
+      continue;
+    }
+    const edge = /^(\[\*\]|[\w-]+)\s*-->\s*(\[\*\]|[\w-]+)\s*(?::\s*(.*))?$/.exec(line);
+    if (edge) {
+      out.edges.push({ from: end(edge[1], true), to: end(edge[2], false), label: (edge[3] || "").trim(), arrow: true, dashed: false });
+      continue;
+    }
+    const described = /^([\w-]+)\s*:\s*(.+)$/.exec(line);
+    if (described && !/^(note|direction)$/.test(described[1])) {
+      node(described[1], described[2].trim());
+      continue;
+    }
+    out.skipped += 1;
+  }
+  const groups = new Set(out.subgraphs.map((g) => g.id));
+  out.nodes = out.nodes.filter((n) => !groups.has(n.id));
+  return out;
+}
+
+//: A class relation's two ends: the mark on each side of the line, then
+//: the line (`--` solid, `..` dashed). `<|` and `|>` are inheritance and
+//: realisation (a triangle), `*` composition (a filled diamond), `o`
+//: aggregation (a diamond), `<` and `>` an arrow.
+const WB_MERMAID_CLASS_MARKS = { "<|": "triangle", "|>": "triangle", "*": "diamond-filled", o: "diamond", "<": "arrow", ">": "arrow" };
+
+//: `classDiagram` to the graph shape: each class a box whose text is its
+//: name over its members (from `class X { ... }` or `X : member`), each
+//: relation a line with its marks as caps and its label from `: words` or a
+//: quoted multiplicity. Annotations, notes, `classDef` and styles are
+//: skipped and counted.
+function wbMermaidClassParse(source) {
+  const out = { dir: "TD", nodes: [], edges: [], subgraphs: [], skipped: 0 };
+  const byId = new Map();
+  const members = new Map();
+  const node = (id) => {
+    let n = byId.get(id);
+    if (!n) {
+      n = { id, text: id, shape: "rect", group: null };
+      byId.set(id, n);
+      out.nodes.push(n);
+      members.set(id, []);
+    }
+    return n;
+  };
+  const REL = /^([\w-]+)\s*(?:"([^"]*)")?\s*(<\||\*|o|<)?(--|\.\.)(\|>|\*|o|>)?\s*(?:"([^"]*)")?\s*([\w-]+)\s*(?::\s*(.*))?$/;
+  let inside = null;
+  for (const line of wbMermaidLines(source)) {
+    if (!line || /^classDiagram/.test(line)) continue;
+    if (inside) {
+      if (line === "}") inside = null;
+      else if (!/^<<.*>>$/.test(line)) members.get(inside).push(line);
+      continue;
+    }
+    const cls = /^class\s+([\w-]+)(?:~[^~]*~)?\s*(\{)?\s*(\})?$/.exec(line);
+    if (cls) {
+      node(cls[1]);
+      if (cls[2] && !cls[3]) inside = cls[1];
+      continue;
+    }
+    const rel = REL.exec(line);
+    if (rel) {
+      node(rel[1]);
+      node(rel[7]);
+      const startCap = WB_MERMAID_CLASS_MARKS[rel[3]] || null, endCap = WB_MERMAID_CLASS_MARKS[rel[5]] || null;
+      const label = [rel[8], rel[2], rel[6]].map((t) => (t || "").trim()).find(Boolean) || "";
+      out.edges.push({ from: rel[1], to: rel[7], label, arrow: Boolean(endCap), startCap, endCap, dashed: rel[4] === ".." });
+      continue;
+    }
+    const member = /^([\w-]+)\s*:\s*(.+)$/.exec(line);
+    if (member) {
+      node(member[1]);
+      members.get(member[1]).push(member[2].trim());
+      continue;
+    }
+    out.skipped += 1;
+  }
+  for (const n of out.nodes) {
+    const list = members.get(n.id) || [];
+    if (list.length) n.text = [n.id, ...list].join("\n");
+    n.h = 50 + 20 * list.length;
+  }
+  return out;
+}
+
+//: `sequenceDiagram` to `{participants: [{id, text, actor}], steps}`: a step
+//: is a message (`A->>B: words`; `-->>`, `--)` and `--x` dashed), a note
+//: (`Note over A,B: words`, `left of`, `right of`) or a block's opening
+//: line (`loop`, `alt`, `opt`, `par`, `critical`, `break`, `rect`) drawn as
+//: a label across the lifelines. `end`, `activate` and `else` lines are
+//: kept quiet; other lines are skipped and counted.
+function wbMermaidSequenceParse(source) {
+  const out = { participants: [], steps: [], skipped: 0 };
+  const byId = new Map();
+  const who = (id, text = null, actor = false) => {
+    let p = byId.get(id);
+    if (!p) {
+      p = { id, text: id, actor };
+      byId.set(id, p);
+      out.participants.push(p);
+    }
+    if (text != null) p.text = text;
+    if (actor) p.actor = true;
+    return p;
+  };
+  const MSG = /^(\w+)\s*(-->>|->>|-->|->|--x|-x|--\)|-\))\s*[+-]?\s*(\w+)\s*:\s*(.*)$/;
+  for (const line of wbMermaidLines(source)) {
+    if (!line || /^sequenceDiagram/.test(line)) continue;
+    const decl = /^(participant|actor)\s+([\w-]+)(?:\s+as\s+(.+))?$/.exec(line);
+    if (decl) {
+      who(decl[2], decl[3] ? decl[3].trim() : null, decl[1] === "actor");
+      continue;
+    }
+    const msg = MSG.exec(line);
+    if (msg) {
+      who(msg[1]);
+      who(msg[3]);
+      out.steps.push({ kind: "message", from: msg[1], to: msg[3], text: msg[4].trim(), dashed: msg[2].startsWith("--") });
+      continue;
+    }
+    const note = /^note\s+(over|left of|right of)\s+([\w-]+(?:\s*,\s*[\w-]+)?)\s*:\s*(.*)$/i.exec(line);
+    if (note) {
+      const over = note[2].split(",").map((s) => s.trim());
+      over.forEach((id) => who(id));
+      out.steps.push({ kind: "note", over, side: note[1].toLowerCase(), text: note[3].trim() });
+      continue;
+    }
+    if (/^(loop|alt|opt|par|critical|break|rect)\b/.test(line)) {
+      out.steps.push({ kind: "block", text: line });
+      continue;
+    }
+    if (/^(end|else|and|option|activate|deactivate)\b/.test(line)) continue;
+    out.skipped += 1;
+  }
+  return out;
+}
+
+//: **A `.drawio` file, cell by cell** (INBOX 797, canvasdepth; the draw.io
+//: programme's decision 3 maps each style key to the board's own). A style
+//: string `ellipse;fillColor=#dae8fc;` as keys, its bare first word (the
+//: shape: ellipse, rhombus, text, swimlane) as `_kind`.
+function wbDrawioStyle(style) {
+  const out = {};
+  for (const part of String(style || "").split(";")) {
+    if (!part) continue;
+    const eq = part.indexOf("=");
+    if (eq < 0) {
+      if (!out._kind) out._kind = part.trim();
+      out[part.trim()] = "1";
+    } else {
+      out[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+    }
+  }
+  return out;
+}
+
+//: A label as plain text: draw.io keeps HTML in `value` when `html=1`. Read
+//: with string rules, not a parser, so nothing in a file can run.
+function wbDrawioText(value) {
+  const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+  return String(value || "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(div|p|li)>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, code) => {
+      if (code[0] !== "#") return named[code.toLowerCase()] ?? m;
+      const n = code[1] === "x" || code[1] === "X" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+      return Number.isFinite(n) && n > 0 && n < 0x110000 ? String.fromCodePoint(n) : m;
+    })
+    .split("\n").map((l) => l.trim()).filter((l, i, all) => l || (i > 0 && i < all.length - 1)).join("\n").trim();
+}
+
+//: draw.io's ends to the board's (decision 3's caps row).
+const WB_DRAWIO_CAPS = { classic: "arrow", block: "arrow", open: "arrow", openThin: "arrow", classicThin: "arrow", blockThin: "arrow", oval: "circle", ERone: "er-one-only", ERmandOne: "er-one", ERmany: "er-many", ERoneToMany: "er-one-many", ERzeroToOne: "er-zero-one", ERzeroToMany: "er-zero-many" };
+//: Style keys with no counterpart here, counted in the import's report.
+const WB_DRAWIO_DROPPED = ["sketch", "glass", "comic", "shadow", "rotation", "image", "gradientColor"];
+
+//: A vertex's look in the board's keys: stroke, fill, width (draw.io 1 is
+//: the board's 2), dash, label colour, size and weight.
+function wbDrawioLook(s) {
+  const hex = (v) => (/^#[0-9a-f]{6}$/i.test(v || "") ? v.toLowerCase() : null);
+  const look = {};
+  if (s.strokeColor === "none") look.noStroke = true;
+  else if (hex(s.strokeColor)) look.color = hex(s.strokeColor);
+  if (hex(s.fillColor)) Object.assign(look, { fill: hex(s.fillColor), fillOpacity: 1 });
+  if (hex(s.fontColor)) look.label_color = hex(s.fontColor);
+  if (Number(s.fontStyle) & 1) look.label_bold = true;
+  if (Number(s.fontStyle) & 2) look.label_italic = true;
+  if (Number(s.fontSize) > 0) look.label_size = Math.round(Number(s.fontSize));
+  look.width = Math.max(1, Math.round((Number(s.strokeWidth) || 1) * 2));
+  if (s.dashed === "1") look.dash = "dashed";
+  return look;
+}
+
+//: What a vertex is drawn as, from its style: the kinds the board has a
+//: path for, else a box (counted when its shape was something else).
+function wbDrawioShape(s) {
+  const kind = s.shape || s._kind || "";
+  if (kind === "ellipse" || s.ellipse === "1") return "ellipse";
+  if (kind === "rhombus") return "diamond";
+  if (kind === "triangle") return "triangle";
+  if (kind === "hexagon") return "hexagon";
+  if (kind === "parallelogram") return "parallelogram";
+  if (s.rounded === "1") return "rounded";
+  return "rect";
+}
+
+//: The cells of one page (`{id, parent, vertex, edge, source, target, style,
+//: value, geo: {x, y, width, height, relative}, sourcePoint, targetPoint,
+//: points}`) to what the board makes: `items` (shape, text, frame) with
+//: absolute boxes, `links` between item ids or free points, and `dropped`
+//: (style keys with no counterpart, and shapes drawn as a box).
+function wbDrawioPlan(cells) {
+  const byId = new Map(cells.map((c) => [c.id, c]));
+  const roots = new Set(cells.filter((c) => !c.parent || !byId.has(c.parent) || !byId.get(c.parent).parent).map((c) => c.id));
+  const dropped = {};
+  const drop = (k) => { dropped[k] = (dropped[k] || 0) + 1; };
+  const origin = (id, guard = 0) => {
+    const c = byId.get(id);
+    if (!c || roots.has(id) || !c.vertex || guard > 32) return { x: 0, y: 0 };
+    const up = origin(c.parent, guard + 1);
+    return { x: up.x + (Number(c.geo?.x) || 0), y: up.y + (Number(c.geo?.y) || 0) };
+  };
+  const items = [], links = [], edgeLabels = new Map();
+  for (const c of cells) {
+    if (!c.vertex || roots.has(c.id)) continue;
+    const s = wbDrawioStyle(c.style);
+    const parent = byId.get(c.parent);
+    if (parent?.edge) {
+      edgeLabels.set(parent.id, wbDrawioText(c.value));
+      continue;
+    }
+    for (const k of WB_DRAWIO_DROPPED) if (s[k] && s[k] !== "0") drop(k);
+    if (s._kind === "group") continue;
+    const at = origin(c.id);
+    const box = { x: at.x, y: at.y, w: Math.max(1, Number(c.geo?.width) || 0), h: Math.max(1, Number(c.geo?.height) || 0) };
+    const label = wbDrawioText(c.value);
+    if (s._kind === "swimlane" || s.swimlane === "1") items.push({ id: c.id, kind: "frame", ...box, label });
+    else if (s._kind === "text") items.push({ id: c.id, kind: "text", ...box, label, look: { font_size: Math.round(Number(s.fontSize) || 16), ...(wbDrawioLook(s).label_color ? { color: wbDrawioLook(s).label_color } : {}) } });
+    else {
+      const shape = wbDrawioShape(s);
+      if (shape === "rect" && (s.shape || (s._kind && !["rounded", "whiteSpace", "html"].includes(s._kind)))) drop(`shape ${s.shape || s._kind}`);
+      items.push({ id: c.id, kind: "shape", ...box, shape, label, look: wbDrawioLook(s) });
+    }
+  }
+  for (const c of cells) {
+    if (!c.edge) continue;
+    const s = wbDrawioStyle(c.style);
+    const data = { width: Math.max(1, Math.round((Number(s.strokeWidth) || 1) * 2)) };
+    if (/^#[0-9a-f]{6}$/i.test(s.strokeColor || "")) data.color = s.strokeColor.toLowerCase();
+    if (s.edgeStyle === "orthogonalEdgeStyle" || s.edgeStyle === "elbowEdgeStyle") data.route = "elbow";
+    if (s.edgeStyle === "entityRelationEdgeStyle") data.route = "elbow";
+    const end = s.endArrow ?? "classic";
+    if (end !== "none" && end !== "") data.endCap = WB_DRAWIO_CAPS[end] || "arrow";
+    if (s.startArrow && s.startArrow !== "none") data.startCap = WB_DRAWIO_CAPS[s.startArrow] || "arrow";
+    if (s.dashed === "1") data.dash = "dashed";
+    const label = wbDrawioText(c.value) || edgeLabels.get(c.id) || "";
+    if (label) data.label = label;
+    const source = byId.get(c.source)?.vertex ? c.source : null, target = byId.get(c.target)?.vertex ? c.target : null;
+    if (!source && c.sourcePoint) data.sourcePoint = { x: Number(c.sourcePoint.x) || 0, y: Number(c.sourcePoint.y) || 0 };
+    if (!target && c.targetPoint) data.targetPoint = { x: Number(c.targetPoint.x) || 0, y: Number(c.targetPoint.y) || 0 };
+    if ((!source && !data.sourcePoint) || (!target && !data.targetPoint)) {
+      drop("loose connector");
+      continue;
+    }
+    if (Array.isArray(c.points) && c.points.length && data.route !== "elbow") data.points = c.points.map((p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+    links.push({ id: c.id, type: s.curved === "1" ? "link-curved" : "link-straight", source, target, data });
+  }
+  return { items, links, dropped };
+}
+
+//: A box's outline as a path the board draws (M, L, C and Z only, so the
+//: ports and the hit test read it).
+function wbDrawioPath(shape, x, y, w, h) {
+  const k = 0.5523;
+  const rx = w / 2, ry = h / 2, cx = x + rx, cy = y + ry;
+  if (shape === "ellipse") return `M ${cx} ${y} C ${cx + rx * k} ${y} ${x + w} ${cy - ry * k} ${x + w} ${cy} C ${x + w} ${cy + ry * k} ${cx + rx * k} ${y + h} ${cx} ${y + h} C ${cx - rx * k} ${y + h} ${x} ${cy + ry * k} ${x} ${cy} C ${x} ${cy - ry * k} ${cx - rx * k} ${y} ${cx} ${y} Z`;
+  if (shape === "diamond") return `M ${cx} ${y} L ${x + w} ${cy} L ${cx} ${y + h} L ${x} ${cy} Z`;
+  if (shape === "triangle") return `M ${x} ${y} L ${x + w} ${cy} L ${x} ${y + h} Z`;
+  if (shape === "hexagon") return `M ${x + w / 4} ${y} L ${x + (w * 3) / 4} ${y} L ${x + w} ${cy} L ${x + (w * 3) / 4} ${y + h} L ${x + w / 4} ${y + h} L ${x} ${cy} Z`;
+  if (shape === "parallelogram") return `M ${x + w / 5} ${y} L ${x + w} ${y} L ${x + (w * 4) / 5} ${y + h} L ${x} ${y + h} Z`;
+  if (shape === "rounded") {
+    const r = Math.min(10, w / 4, h / 4);
+    return `M ${x + r} ${y} L ${x + w - r} ${y} C ${x + w} ${y} ${x + w} ${y} ${x + w} ${y + r} L ${x + w} ${y + h - r} C ${x + w} ${y + h} ${x + w} ${y + h} ${x + w - r} ${y + h} L ${x + r} ${y + h} C ${x} ${y + h} ${x} ${y + h} ${x} ${y + h - r} L ${x} ${y + r} C ${x} ${y} ${x} ${y} ${x + r} ${y} Z`;
+  }
+  return `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
+}
+
 //: The rows inside an SVG that carries them, or null.
 function wbBoardRowsFromSvg(text) {
   //: Read with a pattern, not a DOMParser: parsing the picture in this
@@ -452,19 +796,21 @@ async function wbImportBoardRows(rows, at = wbViewCentre()) {
   return made;
 }
 
-//: A Mermaid flowchart onto this board: shapes and elbow connectors laid out
-//: by depth, centred in the view, one undo step.
+//: A Mermaid flowchart, state or class diagram onto this board: shapes and
+//: elbow connectors laid out by depth, centred in the view, one undo step.
+//: A sequence diagram has its own drawing (`wbImportMermaidSequence`).
 async function wbImportMermaid(source, at = wbViewCentre()) {
-  const graph = wbMermaidParse(source);
+  const kind = wbMermaidKind(source) || "flowchart";
+  if (kind === "sequence") return wbImportMermaidSequence(source, at);
+  const graph = kind === "state" ? wbMermaidStateParse(source) : kind === "class" ? wbMermaidClassParse(source) : wbMermaidParse(source);
   if (!graph.nodes.length) {
-    toast("No flowchart found. Start with a line like: flowchart TD", "info");
+    toast("No diagram found. Start with a line like: flowchart TD, stateDiagram, classDiagram or sequenceDiagram", "info");
     return 0;
   }
   const place = wbMermaidLayout(graph);
   const ink = window.currentStrokeColor && /^#[0-9a-f]{6}$/i.test(window.currentStrokeColor) ? window.currentStrokeColor : "#335599";
   const ids = new Map();
   const frameIds = new Map();
-  const w = 160, h = 70;
   await wbRecordGesture(async () => {
     //: Innermost first: `wbFrameZ` puts each new frame under everything,
     //: so the outer frame, made last, is under the inner one.
@@ -474,16 +820,7 @@ async function wbImportMermaid(source, at = wbViewCentre()) {
     }
     for (const n of graph.nodes) {
       const c = place.get(n.id);
-      const x = at[0] + c.x - w / 2, y = at[1] + c.y - h / 2;
-      const d = n.shape === "diamond"
-        ? `M ${x + w / 2} ${y} L ${x + w} ${y + h / 2} L ${x + w / 2} ${y + h} L ${x} ${y + h / 2} Z`
-        : n.shape === "circle"
-          ? `M ${x} ${y + h / 2} A ${w / 2} ${h / 2} 0 1 0 ${x + w} ${y + h / 2} A ${w / 2} ${h / 2} 0 1 0 ${x} ${y + h / 2} Z`
-          : `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
-      const made = await apiJson("/whiteboard/sketches", {
-        method: "POST",
-        body: JSON.stringify({ data: JSON.stringify({ d, shape: n.shape === "diamond" ? "diamond" : n.shape === "circle" ? "circle" : "rect", color: ink, width: 2, label: n.text }), x: 0, y: 0, z: 2, board_id: window.currentBoardId ?? null }),
-      });
+      const made = await wbMermaidPlaceNode(n, at[0] + c.x, at[1] + c.y, ink);
       wbState.sketches.push(made);
       ids.set(n.id, made.id);
     }
@@ -493,7 +830,8 @@ async function wbImportMermaid(source, at = wbViewCentre()) {
       if (s == null || t == null || (s === t && ids.has(e.from) === ids.has(e.to))) continue;
       const sKind = ids.has(e.from) ? "sketch" : "object", tKind = ids.has(e.to) ? "sketch" : "object";
       const data = { type: "link-straight", route: "elbow", sourceId: s, sourceKind: sKind, targetId: t, targetKind: tKind, color: ink, width: 2 };
-      if (e.arrow) data.endCap = "arrow";
+      if (e.endCap || e.arrow) data.endCap = wbMermaidCap(e.endCap || "arrow");
+      if (e.startCap) data.startCap = wbMermaidCap(e.startCap);
       if (e.dashed) data.dash = "dashed";
       if (e.label) data.label = e.label;
       const link = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z: 1, board_id: window.currentBoardId ?? null }) });
@@ -506,6 +844,95 @@ async function wbImportMermaid(source, at = wbViewCentre()) {
   wbAnnounce(said);
   toast(said);
   return graph.nodes.length;
+}
+
+//: A cap this board draws: a mark it has no drawing for (a board from
+//: before the triangle and diamond ends) falls back to the arrow.
+function wbMermaidCap(kind) {
+  return typeof WB_CAP_KINDS !== "undefined" && WB_CAP_KINDS.includes(kind) ? kind : "arrow";
+}
+
+//: One node as a shape centred on (cx, cy): a diamond, a circle, a rounded
+//: box (a state), a start or end dot (a state diagram's `[*]`), or a box as
+//: tall as its text (a class with its members).
+async function wbMermaidPlaceNode(n, cx, cy, ink) {
+  const dot = n.shape === "start" || n.shape === "end";
+  const w = dot ? 28 : 160, h = dot ? 28 : n.h || 70;
+  const x = cx - w / 2, y = cy - h / 2;
+  const r = 14;
+  const d = n.shape === "diamond"
+    ? `M ${x + w / 2} ${y} L ${x + w} ${y + h / 2} L ${x + w / 2} ${y + h} L ${x} ${y + h / 2} Z`
+    : n.shape === "circle" || dot
+      ? `M ${x} ${y + h / 2} A ${w / 2} ${h / 2} 0 1 0 ${x + w} ${y + h / 2} A ${w / 2} ${h / 2} 0 1 0 ${x} ${y + h / 2} Z`
+      : n.shape === "rounded"
+        ? `M ${x + r} ${y} L ${x + w - r} ${y} C ${x + w} ${y} ${x + w} ${y} ${x + w} ${y + r} L ${x + w} ${y + h - r} C ${x + w} ${y + h} ${x + w} ${y + h} ${x + w - r} ${y + h} L ${x + r} ${y + h} C ${x} ${y + h} ${x} ${y + h} ${x} ${y + h - r} L ${x} ${y + r} C ${x} ${y} ${x} ${y} ${x + r} ${y} Z`
+        : `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
+  const data = { d, shape: n.shape === "diamond" ? "diamond" : n.shape === "circle" || dot ? "circle" : n.shape === "rounded" ? "custom" : "rect", color: ink, width: 2 };
+  if (n.text) data.label = n.text;
+  if (dot) Object.assign(data, { fill: ink, fillOpacity: 1 });
+  if (n.shape === "end") data.width = 4;
+  return apiJson("/whiteboard/sketches", {
+    method: "POST",
+    body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z: 2, board_id: window.currentBoardId ?? null }),
+  });
+}
+
+//: A sequence diagram: each participant a box along the top (an actor's
+//: box rounded) over a dashed lifeline, each message a labelled arrow
+//: between lifelines one row down from the last (a message to itself a
+//: loop out to the right), a note a sticky across the lifelines it is
+//: over, a block's opening line a text label. One undo step.
+async function wbImportMermaidSequence(source, at = wbViewCentre()) {
+  const seq = wbMermaidSequenceParse(source);
+  if (!seq.participants.length) {
+    toast("No participants found. Start with a line like: sequenceDiagram", "info");
+    return 0;
+  }
+  const ink = window.currentStrokeColor && /^#[0-9a-f]{6}$/i.test(window.currentStrokeColor) ? window.currentStrokeColor : "#335599";
+  const gapX = 220, boxW = 160, boxH = 56, row = 64;
+  const n = seq.participants.length;
+  const left = at[0] - ((n - 1) * gapX) / 2;
+  const height = boxH + row * (seq.steps.length + 1);
+  const top = at[1] - height / 2;
+  const xOf = new Map(seq.participants.map((p, i) => [p.id, left + i * gapX]));
+  const post = async (data, z = 2) => {
+    const made = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z, board_id: window.currentBoardId ?? null }) });
+    wbState.sketches.push(made);
+    return made;
+  };
+  let messages = 0;
+  await wbRecordGesture(async () => {
+    for (const p of seq.participants) {
+      const cx = xOf.get(p.id);
+      await wbMermaidPlaceNode({ shape: p.actor ? "rounded" : "rect", text: p.text, h: boxH }, cx, top + boxH / 2, ink).then((made) => wbState.sketches.push(made));
+      await post({ d: `M ${cx} ${top + boxH} L ${cx} ${top + height}`, shape: "line", color: ink, width: 1.5, dash: "dashed" }, 1);
+    }
+    for (const [i, step] of seq.steps.entries()) {
+      const y = top + boxH + row * (i + 1);
+      if (step.kind === "message") {
+        const x1 = xOf.get(step.from), x2 = xOf.get(step.to);
+        const data = { type: "link-straight", color: ink, width: 2, endCap: "arrow", label: step.text };
+        if (x1 === x2) Object.assign(data, { sourcePoint: { x: x1, y: y - row / 4 }, targetPoint: { x: x1, y: y + row / 4 }, points: [{ x: x1 + 60, y: y - row / 4 }, { x: x1 + 60, y: y + row / 4 }] });
+        else Object.assign(data, { sourcePoint: { x: x1, y }, targetPoint: { x: x2, y } });
+        if (step.dashed) data.dash = "dashed";
+        await post(data, 3);
+        messages += 1;
+      } else if (step.kind === "note") {
+        const xs = step.over.map((id) => xOf.get(id));
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const shift = step.side === "left of" ? -boxW / 2 - 10 : step.side === "right of" ? boxW / 2 + 10 : 0;
+        const w = Math.max(boxW, maxX - minX + boxW / 2);
+        await wbCreateObject("text", { content: step.text, bg: "#fff4a3", border_color: "#e8d56a", color: "#2a2a1f" }, Math.round((minX + maxX) / 2 + shift - w / 2), Math.round(y - row / 2 + 6), Math.round(w), row - 12);
+      } else {
+        await wbCreateObject("text", { content: step.text }, Math.round(left - boxW / 2), Math.round(y - row / 2 + 8), Math.round((n - 1) * gapX + boxW), row - 16);
+      }
+    }
+  });
+  renderWhiteboardNow();
+  const said = `Brought in ${n} participant${n === 1 ? "" : "s"} and ${messages} message${messages === 1 ? "" : "s"}${seq.skipped ? `; ${seq.skipped} line${seq.skipped === 1 ? "" : "s"} left out` : ""}.`;
+  wbAnnounce(said);
+  toast(said);
+  return n;
 }
 
 function wbCardTitleForExport(node) {
@@ -554,7 +981,111 @@ function wbOpenImportDialog() {
   field?.focus();
 }
 
+//: The first page of a `.drawio` file as cells, and how many pages it has.
+//: A page is either its `mxGraphModel` as XML or, from older draw.io, that
+//: XML deflated, base64'd and URI-encoded; `DecompressionStream` undoes it.
+//: A `.drawio.svg` carries the file in its root's `content` attribute.
+async function wbDrawioCells(text) {
+  const xml = (s) => new DOMParser().parseFromString(s, "text/xml");
+  let doc = xml(text);
+  const svgContent = doc.documentElement?.localName === "svg" ? doc.documentElement.getAttribute("content") : null;
+  if (svgContent) doc = xml(svgContent);
+  const pages = [...doc.getElementsByTagName("diagram")];
+  let model = doc.getElementsByTagName("mxGraphModel")[0] || null;
+  if (!model && pages.length) {
+    const packed = pages[0].textContent.trim();
+    const bytes = Uint8Array.from(atob(packed), (ch) => ch.charCodeAt(0));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    const inflated = await new Response(stream).text();
+    model = xml(decodeURIComponent(inflated)).getElementsByTagName("mxGraphModel")[0] || null;
+  }
+  if (!model) return null;
+  const point = (el, as) => {
+    const p = [...el.children].find((n) => n.localName === "mxPoint" && n.getAttribute("as") === as);
+    return p ? { x: Number(p.getAttribute("x")) || 0, y: Number(p.getAttribute("y")) || 0 } : null;
+  };
+  const cells = [];
+  for (const el of model.getElementsByTagName("mxCell")) {
+    //: `UserObject` and `object` wrap a cell to carry its label and data.
+    const wrap = el.parentElement && /^(UserObject|object)$/.test(el.parentElement.localName) ? el.parentElement : null;
+    const geo = [...el.children].find((n) => n.localName === "mxGeometry");
+    const points = geo ? [...geo.getElementsByTagName("Array")].filter((a) => a.getAttribute("as") === "points").flatMap((a) => [...a.children].map((q) => ({ x: Number(q.getAttribute("x")) || 0, y: Number(q.getAttribute("y")) || 0 }))) : [];
+    cells.push({
+      id: (wrap || el).getAttribute("id"), parent: el.getAttribute("parent"), vertex: el.getAttribute("vertex") === "1", edge: el.getAttribute("edge") === "1",
+      source: el.getAttribute("source"), target: el.getAttribute("target"), style: el.getAttribute("style") || "",
+      value: wrap ? wrap.getAttribute("label") || "" : el.getAttribute("value") || "",
+      geo: geo ? { x: geo.getAttribute("x"), y: geo.getAttribute("y"), width: geo.getAttribute("width"), height: geo.getAttribute("height"), relative: geo.getAttribute("relative") === "1" } : {},
+      sourcePoint: geo ? point(geo, "sourcePoint") : null, targetPoint: geo ? point(geo, "targetPoint") : null, points,
+    });
+  }
+  return { cells, pages: Math.max(1, pages.length) };
+}
+
+//: A `.drawio` file onto this board, centred in the view, one undo step:
+//: swimlanes as frames, text as text boxes, the rest as shapes with their
+//: labels, edges as connectors joined to what they join. What has no
+//: counterpart is named in the report rather than dropped silently.
+async function wbImportDrawio(text, at = wbViewCentre()) {
+  let read = null;
+  try {
+    read = await wbDrawioCells(text);
+  } catch {
+    read = null;
+  }
+  if (!read) {
+    toast("That draw.io file could not be read.", "info");
+    return 0;
+  }
+  const plan = wbDrawioPlan(read.cells);
+  if (!plan.items.length) {
+    toast("That draw.io page has no shapes to bring in.", "info");
+    return 0;
+  }
+  const minX = Math.min(...plan.items.map((i) => i.x)), minY = Math.min(...plan.items.map((i) => i.y));
+  const maxX = Math.max(...plan.items.map((i) => i.x + i.w)), maxY = Math.max(...plan.items.map((i) => i.y + i.h));
+  const dx = at[0] - (minX + maxX) / 2, dy = at[1] - (minY + maxY) / 2;
+  const ink = window.currentStrokeColor && /^#[0-9a-f]{6}$/i.test(window.currentStrokeColor) ? window.currentStrokeColor : "#335599";
+  const ids = new Map();
+  await wbRecordGesture(async () => {
+    for (const f of plan.items.filter((i) => i.kind === "frame").reverse()) {
+      const made = await wbCreateObject("frame", { content: f.label || "Lane" }, Math.round(f.x + dx), Math.round(f.y + dy), Math.round(f.w), Math.round(f.h), wbFrameZ());
+      if (made) ids.set(f.id, ["object", made.id]);
+    }
+    for (const item of plan.items.filter((i) => i.kind === "text")) {
+      const made = await wbCreateObject("text", { content: item.label, ...item.look }, Math.round(item.x + dx), Math.round(item.y + dy), Math.round(Math.max(40, item.w)), Math.round(Math.max(24, item.h)));
+      if (made) ids.set(item.id, ["object", made.id]);
+    }
+    for (const item of plan.items.filter((i) => i.kind === "shape")) {
+      const data = { d: wbDrawioPath(item.shape, item.x + dx, item.y + dy, item.w, item.h), shape: item.shape === "ellipse" ? "circle" : item.shape === "diamond" ? "diamond" : item.shape === "rect" ? "rect" : "custom", color: ink, ...item.look };
+      if (item.label) data.label = item.label;
+      const made = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z: 2, board_id: window.currentBoardId ?? null }) });
+      wbState.sketches.push(made);
+      ids.set(item.id, ["sketch", made.id]);
+    }
+    for (const link of plan.links) {
+      const data = { type: link.type, color: ink, ...link.data };
+      const s = link.source ? ids.get(link.source) : null, t = link.target ? ids.get(link.target) : null;
+      if (link.source && !s) continue;
+      if (link.target && !t) continue;
+      if (s) Object.assign(data, { sourceKind: s[0], sourceId: s[1] });
+      if (t) Object.assign(data, { targetKind: t[0], targetId: t[1] });
+      for (const key of ["sourcePoint", "targetPoint"]) if (data[key]) data[key] = { x: data[key].x + dx, y: data[key].y + dy };
+      if (data.points) data.points = data.points.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+      const made = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z: 1, board_id: window.currentBoardId ?? null }) });
+      wbState.sketches.push(made);
+    }
+  });
+  renderWhiteboardNow();
+  const left = Object.entries(plan.dropped).map(([k, n]) => `${k} ${n}`).join(", ");
+  const said = `Brought in ${plan.items.length} shapes and ${plan.links.length} connectors from draw.io`
+    + `${read.pages > 1 ? ` (the first of ${read.pages} pages)` : ""}${left ? `; not kept: ${left}` : ""}.`;
+  wbAnnounce(said);
+  toast(said);
+  return plan.items.length;
+}
+
 async function wbImportText(text) {
+  if (/<mxfile[\s>]|<mxGraphModel[\s>]|content="&lt;mxfile/i.test(text)) return wbImportDrawio(text);
   const rows = /<svg[\s>]/i.test(text) ? wbBoardRowsFromSvg(text) : null;
   if (/<svg[\s>]/i.test(text) && !rows) {
     toast("That SVG was not exported from a board here, so it has no board inside it. Insert it as a picture instead.", "info");
@@ -579,7 +1110,7 @@ onDomReady(() => {
   document.getElementById("wb-import-go")?.addEventListener("click", async () => {
     const text = document.getElementById("wb-import-text")?.value || "";
     if (!text.trim()) {
-      toast("Paste a Mermaid flowchart first, or choose a file.");
+      toast("Paste a Mermaid diagram first, or choose a file.");
       return;
     }
     dialog.close();

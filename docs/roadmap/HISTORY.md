@@ -338,6 +338,18 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-11 (WORLD_CLASS 23, INBOX 781, filing suggestions)
+
+The filing agent's Built block (standing order 10); WORLD_CLASS_PLAN's "Placed from INBOX, 2026-10-10 (filing suggestions)" carries the pointer. The owner: "I want the deterministic engine to be better for when suggesting tags, bot for popup suggestions, when using the \"tag and file with atlas\", and also when making a note etc."
+
+- One engine, `ai/tagging.py` (`suggest`, `grounds`, `reason`, `grounded`, `merged`), moved out of `lexical_filing`; every path asks it: the note card's kept suggestions (`routes_entries._keep_suggestions`), Tag and file with Atlas (`_reevaluate_tags`, which offered no tag at all with no model) and its batch act (`starter_acts._tag_untagged`), and Capture while typing (`/entries/suggest-tags`, now with the title and each chip's reason). A model's grounded tags come first and the engine fills the rest.
+- The set: `tests/fixtures/tagging/notes.json`, 67 notes like the owner's (uni subjects and assignments, games, friends, ideas, journal lines, captioned images with OCR text), each with tags, category and a one-line reason; `tests/_tag_eval.py` counts, `tests/test_tag_suggestions.py` holds the floors. Leave one out, before to after: first suggestion right 0.687 to 0.791, suggestions shown right 0.769 to 0.861, wanted tags found 0.619 to 0.701, junk 1 to 0 (a tag said only in a quotation); category filed 0.612 and first choice 0.881, unchanged (the misses are sensitive notes held, decision 6). The 120-note filing set stays at 0.417, 15 wrong.
+- What moved the numbers: quotations (unless they are most of the note), image addresses and OCR footers out (`lexical_filing.clean`, also before filing); a multi-word tag needs every word; folded words ("stats" is #statistics, "run" #running) and the pack's phrases vote, but a phrase backs a tag only when no alternative tag (one seldom used with it) names its topic, and a tag the note does not say is not offered beside a said sibling it is seldom used with (#exam on "lecture"); one spelling per tag, the most used; a tag inside another offered or held ("ideas" beside "app idea") dropped.
+- Measured and kept with no gain on this set: the title and first line counting twice (short notes); links (+0.3 per linked note's tag) have no rows in the set and are tested on their own.
+- Measured and not shipped: tags from the note's own words for a notebook with no tags (a title word said twice): 4 of 12 right on the set, below the bar.
+- Learning from turn-downs: a tag discarded on three notes or more is offered at 0.3 of its vote everywhere (`tagging.turned_down`, `_damp`); Manage tags lists them under Turned down with Offer again (`GET /tags/turned-down`, `POST /tags/turned-down/offer-again`, preference `tags_offered_again`). Driven at 1440 and 390 on port 8851: the row shows, its button 122x32 (44 tall at 390), no overflow, and Offer again hides it. Capture: title "Biology revision" and a body without the word gave the chip "biology", titled "It says “biology”.", focus left in the editor.
+- Help moved with it: the Guide topic `suggested-tags`, the tag manager's '?' popover.
+
 ## Moved from the plans, 2026-10-10 (WORLD_CLASS 28.5, Brief 83)
 
 The translate83 agent's Built block (standing order 10); WORLD_CLASS_PLAN 28.5 row 10 carries the pointer. The evaluation (licences, sizes, Node timings, ten sentences in three languages) is in `docs/roadmap/archive/agent-remaining/translate83-1010.md`. Measured in Chromium on port 8840, a fresh data dir, the package installed through Settings, Packages' own installer from a loopback mirror of the pinned files (`MEMORYMAP_EXTRAS_MIRROR`), on a four-core machine at load 6 to 9.
@@ -952,6 +964,14 @@ The pwa agent's Built cell for the 25.4 row, moved whole at its step boundary (s
 The measure60 agent's Built line, moved from WORLD_CLASS_PLAN 26.3 at its step boundary (standing order 10); the numbers stay in 26.4 and 26.5.
 
 Built Brief 60, 26.0 and 26a, decision 63): WORLD_CLASS_PLAN 26.4 and 26.5 (numbers); `tests/test_no_silent_except.py` (21), `tests/test_routes_named.py` (49), `tests/test_background_registry.py` (26), ruff `T201` on `src`, `scripts/complexity.py` and `tests/test_complexity.py` (260 functions over 15, cycles), `scripts/handlers.py` and `tests/test_frontend_wake_sources.py` (97 file and kind rows), `scripts/profile_routes.py`, `scratchpad/ui-sweeps/frames.js` with its at-rest budget; rows in the five surface plans; item 434's progress records moved to HISTORY to fit the plan cap.
+
+## Moved from the plans, 2026-10-11 (WORLD_CLASS 25g, Brief 53)
+
+The budgets53 agent's Built block, moved whole from WORLD_CLASS_PLAN 25.4 at its step boundary (standing order 10).
+
+- `Budget` table and `BUDGETS` in `src/memorymap/api/routes_bench.py`: six interactions (decision 54), each with a measured figure and a cap of 1.5 times it rounded up to 10 ms; a measurement is the slowest p50 of four browser runs on the loaded four-core sandbox (load 7 to 11). `GET /models/bench/budgets` serves the table; `?live=true` times each server share over loopback against the person's own notebook (`loopback` is the seam the test replaces).
+- `tests/test_budgets.py` (server half, every push): the fixture is `tests/fixtures/budget_notebook.py` (the 500-note notebook, a board of 500 objects, a document of 50,000 words); each route is timed with `time_share` (p50 of five after a warm call), a miss is repeated up to three rounds, and the table, the README rows and the spec are checked against each other.
+- `tests-e2e/specs/budgets.spec.js` and `tests-e2e/budget-measure.js` (browser half, CI's Playwright job): caps read from the route; the same timing code is `scratchpad/ui-sweeps/budgets.js`, which took the README's numbers. Browser measured (ms, slowest p50 of four runs): first paint 713, first interaction 4639, list 139, search 30, board 108, document 359. Server shares: `/` 76, `/entries?limit=60` 40, `/search` 40, board state 75, document 32.
 
 ## Moved from the plans, 2026-10-10 (WORLD_CLASS 25e, Brief 51)
 
@@ -48132,3 +48152,87 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      graph readjusts it just appears there :(". The cluster's bubbles still
      overlap; outliers sit far out on long links.
 
+## Moved from the plans, 2026-10-10 (canvasdepth)
+
+INBOX 797, the owner: "I feel like the mindmap and whiteboard are still
+missing a lot of features and options and stuff that draw.io and other things
+like the craft repos have". Rows from WHITEBOARD_PLAN "canvasdepth, ranked".
+
+- **The draw.io shape sets in the Library, with their ports.** `GET
+  /board-library` lists `shape_sets` (`_shape_sets`, routes_board_library.py):
+  Basic shapes 30, Flowchart more 36, Arrows more 34, BPMN 39, Network and
+  cloud 57; placed and searched like any built-in (`_builtin_index` reads
+  `drawio/` too). The panel lists them as closed groups with their counts and
+  fetches a set when it is opened, or all five when a search is typed
+  (`wbLoadShapeSets`); the panel's first open fetches none of the 0.37 MB.
+  `wbPortFractions` returns a shape's stencil ports (`data.ports`) before
+  guessing from its path. Names put in sentence case (`sentence_case` in the
+  converter). Decision 4's "Shape libraries" dialog became the closed groups:
+  the same opt-in, one fewer door. Measured (`wbshapesets.js`, 1440 and 390):
+  10/10 each; groups 0 to 5, shapes reachable 0 to 196, a placed Decision's E
+  port within 2 px of its right tip. Tests: `tests/test_board_shape_sets.py`.
+- **Mermaid state, class and sequence diagrams in.** `wbMermaidKind` reads
+  the first line; `wbMermaidStateParse` (`[*]` as start and end dots, `state
+  "Words" as Id`, composite states as frames) and `wbMermaidClassParse`
+  (members under the name, a box as tall as its members; `<|--`, `*--`,
+  `o--`, `..>` as triangle, filled diamond, diamond and dashed arrow ends,
+  falling back to the arrow where the board has no such end) feed the
+  flowchart's layout, which now takes a node's own height;
+  `wbImportMermaidSequence` draws participants over dashed lifelines, each
+  message a labelled free-ended connector one row below the last, a note as
+  a sticky across its lifelines, a block's opening line as a label. Measured
+  (`wbmermaidkinds.js`, 1440 and 390): 12/12 each, 0 overlapping shapes.
+  Tests: `tests/test_wb_mermaid_kinds.py`.
+- **`.drawio` import.** Insert, Mermaid, draw.io or board SVG (and the file
+  chooser, now taking `.drawio`) reads an `mxfile`, plain or deflated
+  (`DecompressionStream`), or a `.drawio.svg`'s `content`: the first page's
+  cells (`wbDrawioCells`), planned by `wbDrawioPlan` with decision 3's style
+  table (swimlanes as frames, text as text boxes, ellipse, rhombus, triangle,
+  hexagon, parallelogram and rounded boxes as shapes, edges joined with their
+  route, caps, dash and label, HTML labels read as text by string rules), one
+  undo step; what has no counterpart is named in the report. Measured
+  (`wbdrawio.js`, a plain two-page file and a compressed one, 1440 and 390):
+  11/11 each. Tests: `tests/test_wb_drawio_import.py`. Not built: pages after
+  the first, rotation, images, `.drawio` export.
+- **Swimlanes.** Frames gains "Swimlanes, three rows" and "Swimlanes,
+  three columns": a Process frame round three lane frames, placed in one step
+  and found by "swimlane", "pool" or "lane" (`frames.json`, `_swimlanes` in
+  `scripts/build_board_library.py`). Lanes are spaced so no frame title sits
+  on the lane above (a 12 px gap put "Lane 2" on Lane 1's border; now 30).
+  Measured (`wbswimlanes.js`, 1440 and 390): 6/6 each, 0 titles on a lane.
+  Tests: `tests/test_board_swimlanes.py`.
+- **Named layers.** A board keeps `layers [{id, name, hidden, locked}]` in
+  its settings (`BoardLayer`, `_board_layers`, `_store_board_layers` in
+  routes_whiteboard.py; on the board state and `BoardOut`); an object or a
+  drawing names its layer in `data.layer`. `wbItemHidden` and `wbIsLocked`
+  read the layer (`wbNamedLayerFlag`), so every path that skips a hidden or
+  locked item skips a layer's. The Layers tab starts with the named layers
+  (`wbRenderNamedLayers`, whiteboard-library.js): + adds one holding the
+  selection, each row an eye, a lock, the name and count, and a `kebabMenu`
+  (move the selection here, select what is on it, rename, delete with its
+  items kept); a change is one undo step (`action: "layers"`). Cards stay off
+  layers. Measured (`wbnamedlayers.js`, 1440 and 390): 9/9 each; the eye
+  hides 2 of 3 items and survives a reopen, lock locks 2 of 3, Ctrl+Z puts
+  the lock back. Tests: `tests/test_board_named_layers.py`; the row joins
+  `LIST_ROWS` in `tests/test_ui_recipes.py`. Open: a current layer that new
+  items land in, layer order.
+- **Find and replace.** The board's find read cards only: a text box's
+  `data` arrives parsed and `wbSearchTextFor` parsed it again, which threw,
+  so no text box was ever found, and shape and connector labels were never
+  read. Both are read now (a matched drawing is selected, which draws its
+  handles). Ctrl+H, Edit, Find and replace, or the bar's swap button opens a
+  Replace row built on first use (`wbEnsureReplaceRow`); Replace all
+  (`wbBoardReplaceAll`, literal and case-blind by `wbReplaceText`) rewrites
+  text boxes, shape labels and connector labels in one undo step and says
+  how many cards hold the words (a card is a note, edited there). Measured
+  (`wbreplace.js`, 1440 and 390): 6/6 each; "ship" found 1 of 3 before the
+  fix (no text box), 4 after; one Ctrl+Z restores every row. Tests:
+  `tests/test_wb_find_replace.py`.
+- **A laser pointer while presenting.** L, or the present bar's new
+  button (`wbPresentLaserButton`, made on first present), turns on a trail of
+  dots over the board (`wbPresentLaser`, `wbLaserTrail`) that fade by CSS
+  (`wb-laser-fade`, 0.6 s, 0.15 s under reduced motion), so no frame loop is
+  added; the tool's inline cursor is kept and hidden while it is on, and
+  ending the presentation turns it off. Measured (`wblaser.js`, 1440 and
+  390): 7/7 each; the last dot within 2 px of the pointer, 0 dots 1 s after
+  the pointer stops, 0 rows written. Tests: `tests/test_wb_laser.py`.

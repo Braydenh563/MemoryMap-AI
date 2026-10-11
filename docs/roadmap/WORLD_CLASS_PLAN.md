@@ -3838,7 +3838,7 @@ World class for a local notebook is five things, each measurable:
 | 25d PWA shell | built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25d, Brief 50)") | offline reload shows an honest page, never the shell; an edited file is never served stale (two stamps are two cache keys, `test_two_stamps_for_the_same_file_are_two_cache_keys`) | 50 (Sonnet, high) |
 | 25e Never lose a note | the restore test in CI (backup, restore into a scratch dir, compare counts and bodies), an integrity check at boot with a one-line notice, per-note versions visible (a "Versions" row in the note menu, from `versioning.py`), draft recovery after a killed server | `test_restore_roundtrip.py` green; a killed server loses no typed draft (a Playwright test) | 51, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25e, Brief 51)"): restore equal for ten kinds, quick_check 30 ms at 5,000 notes, draft spec 1 passed, undo lint 10 to 7 |
 | 25f Settings | search across settings, the modified marker, reset per item, settings export and import as JSON | every setting reachable by search; `test_settings_rows.py` walks the 179 keys | 52 (Opus, high) |
-| 25g Budgets | `tests/test_budgets.py` with decision 54's six timings, the bench page reading them | the six numbers in the README's performance table; CI fails when one exceeds its cap | 53 (Sonnet, high) |
+| 25g Budgets | built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (WORLD_CLASS 25g, Brief 53)") | the six numbers in the README's performance table; CI fails when one exceeds its cap | 53, built: first paint 713 ms, first interaction 4,639, list 139, search 30, board 108, document 359; caps 1.5 times each |
 
 Phase E of AGENT_SKILLS_REFORM (Brief 54) and TIMELINE Phase 5 (Brief 55)
 are written in their plans.
@@ -4182,4 +4182,4 @@ Brief 74 measured rules 1, 2 and 7 on 12 surfaces (`undo.js`, `reach.js`, `overl
 
 ## Placed from INBOX, 2026-10-10 (filing suggestions)
 
-- INBOX 781, the owner: "I want the deterministic engine to be better for when suggesting tags, bot for popup suggestions, when using the \"tag and file with atlas\", and also when making a note etc." Owner: section 23; an Opus brief measured against a labelled set (precision of the first tag and category suggestion, before and after) on the three paths named: the popup suggestions, Tag and file with Atlas, and a new note.
+- INBOX 781: built 2026-10-11, HISTORY.md, "Moved from the plans, 2026-10-11 (WORLD_CLASS 23, INBOX 781, filing suggestions)". Open: `docs/roadmap/archive/agent-remaining/filing-1010.md`.

@@ -106,7 +106,8 @@ const WB_COMMANDS = [
   { id: "delete", group: "Edit", icon: "ph:trash", label: "Delete", keys: "Del", surface: "both", needs: "selection", run: () => deleteWbSelection() },
   { id: "copy-style", group: "Edit", icon: "ph:eyedropper", label: "Copy style", keys: "Ctrl+Alt+C", surface: "board", needs: "one", run: () => wbCopySelectedStyle() },
   { id: "paste-style", group: "Edit", icon: "ph:paint-bucket", label: "Paste style", keys: "Ctrl+Alt+V", surface: "board", needs: "selection", run: () => wbPasteCopiedStyle() },
-  { id: "find", group: "Edit", icon: "ph:magnifying-glass", label: "Find a card on this board", menu: "Find on this board", keys: "Ctrl+F", surface: "both", run: () => wbOpenBoardSearch() },
+  { id: "find", group: "Edit", icon: "ph:magnifying-glass", label: "Find on this board", menu: "Find on this board", keys: "Ctrl+F", surface: "both", run: () => wbOpenBoardSearch() },
+  { id: "replace", group: "Edit", icon: "ph:swap", label: "Find and replace on this board", menu: "Find and replace", keys: "Ctrl+H", surface: "board", run: () => wbOpenBoardSearch({ replace: true }) },
   // The item
   { id: "text", group: "Item", icon: "ph:text-aa", label: "Write in the shape or label the connector", keys: "Enter", surface: "board", needs: "shape",
     run: () => {
@@ -182,7 +183,7 @@ const WB_COMMANDS = [
   { id: "tool-connector-curved", group: "Tools", icon: "ph:bezier-curve", label: "Curved connector", keys: "Shift+C", surface: "both", run: wbTool("link-curved") },
   { id: "tool-delete", group: "Tools", icon: "ph:trash", label: "Delete tool", keys: "X", surface: "board", run: wbTool("delete") },
   // View
-  { id: "import-diagram", group: "Insert", icon: "ph:flow-arrow", label: "Import a Mermaid flowchart or board SVG", menu: "Mermaid or board SVG…", keys: "", surface: "board", run: () => wbOpenImportDialog() },
+  { id: "import-diagram", group: "Insert", icon: "ph:flow-arrow", label: "Import a Mermaid diagram, a draw.io file or a board SVG", menu: "Mermaid, draw.io or board SVG…", keys: "", surface: "board", run: () => wbOpenImportDialog() },
   { id: "format-panel", group: "View", icon: "ph:sliders-horizontal", label: "Format panel", keys: "Ctrl+Shift+P", surface: "board", run: () => wbFormatToggle() },
   { id: "zoom-in", group: "View", icon: "ph:magnifying-glass-plus", label: "Zoom in", keys: "Ctrl+=", surface: "both", run: wbClickId("wb-zoom-in") },
   { id: "zoom-out", group: "View", icon: "ph:magnifying-glass-minus", label: "Zoom out", keys: "Ctrl+-", surface: "both", run: wbClickId("wb-zoom-out") },

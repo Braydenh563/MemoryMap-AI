@@ -1297,7 +1297,7 @@ function paletteCommands() {
     //: that is open. The reveal opens one first (the newest), and with no
     //: board at all rings the button that makes one.
     { label: "ph:map-trifold Board overview", reveal: "board-overview", about: "The whole board at once, to jump to any part of it." },
-    { label: "ph:magnifying-glass Find a card on this board", reveal: "board-find", about: "Search the cards on the open board by their text." },
+    { label: "ph:magnifying-glass Find on this board", reveal: "board-find", about: "Search the open board's cards, text and labels; Ctrl+H replaces." },
     //: Capture is a sub-tab of Notes, and focusing its box while another
     //: sub-tab was showing did nothing (the dashboard's own New note says so).
     { label: "ph:pencil-simple New note", reveal: "notes-capture", chord: "newNote" },

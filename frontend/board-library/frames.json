@@ -187,6 +187,154 @@
     ],
     "links": []
    }
+  },
+  {
+   "key": "swimlanes-rows",
+   "kind": "element",
+   "name": "Swimlanes, three rows",
+   "tags": [
+    "swimlane",
+    "pool",
+    "lane",
+    "process",
+    "bpmn",
+    "cross-functional"
+   ],
+   "payload": {
+    "box": {
+     "w": 1000,
+     "h": 520
+    },
+    "items": [
+     {
+      "key": "pool",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Process"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 520,
+      "z": -2
+     },
+     {
+      "key": "lane0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Lane 1"
+      },
+      "x": 20,
+      "y": 56,
+      "w": 960,
+      "h": 130,
+      "z": -1
+     },
+     {
+      "key": "lane1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Lane 2"
+      },
+      "x": 20,
+      "y": 216,
+      "w": 960,
+      "h": 130,
+      "z": -1
+     },
+     {
+      "key": "lane2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Lane 3"
+      },
+      "x": 20,
+      "y": 376,
+      "w": 960,
+      "h": 130,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "swimlanes-columns",
+   "kind": "element",
+   "name": "Swimlanes, three columns",
+   "tags": [
+    "swimlane",
+    "pool",
+    "lane",
+    "process",
+    "bpmn",
+    "cross-functional"
+   ],
+   "payload": {
+    "box": {
+     "w": 1000,
+     "h": 640
+    },
+    "items": [
+     {
+      "key": "pool",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Process"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 640,
+      "z": -2
+     },
+     {
+      "key": "lane0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Lane 1"
+      },
+      "x": 20,
+      "y": 56,
+      "w": 312,
+      "h": 564,
+      "z": -1
+     },
+     {
+      "key": "lane1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Lane 2"
+      },
+      "x": 344,
+      "y": 56,
+      "w": 312,
+      "h": 564,
+      "z": -1
+     },
+     {
+      "key": "lane2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Lane 3"
+      },
+      "x": 668,
+      "y": 56,
+      "w": 312,
+      "h": 564,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
   }
  ]
 }

@@ -474,11 +474,9 @@ function resetCaptureForm(contentBox, titleBox) {
 
 // **Tag suggestions while composing, not just after saving.** Reported
 // directly: "the ai and application doesnt suggest tags either before
-// creating a new note or after", "after" already existed
-// (renderReevaluateResult, above), buried in a saved note's own kebab menu;
-// "before" had nothing at all. `/entries/suggest-tags` needs only the
-// draft's own text, so this can run on the Capture box itself, debounced the
-// same way autosave-to-localStorage already is elsewhere in this file.
+// creating a new note or after". `/entries/suggest-tags` needs only the
+// draft's text and title (INBOX 781: the same engine as the note card's and
+// Tag and file with Atlas), so it runs on the Capture box, debounced.
 let captureTagSuggestTimer = null;
 let captureTagSuggestSeq = 0; // invalidated on every keystroke, a slow reply
 // to an earlier, shorter draft must never overwrite what a newer one asked for.
@@ -491,7 +489,7 @@ function clearCaptureTagSuggestions() {
   row.classList.add("hidden");
 }
 
-function renderCaptureTagSuggestions(tags) {
+function renderCaptureTagSuggestions(tags, reasons) {
   const row = $("entry-tag-suggestions");
   row.replaceChildren();
   if (!tags.length) {
@@ -511,7 +509,7 @@ function renderCaptureTagSuggestions(tags) {
       tagChip.remove();
       if (!row.querySelector(".chip")) row.classList.add("hidden");
     });
-    tagChip.title = `Add the "${tag}" tag`;
+    tagChip.title = reasons?.[tag] || `Add the "${tag}" tag`;
     row.appendChild(tagChip);
   }
   row.classList.remove("hidden");
@@ -529,18 +527,12 @@ function scheduleCaptureTagSuggestions() {
   captureTagSuggestTimer = setTimeout(async () => {
     const seq = ++captureTagSuggestSeq;
     const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
-    let suggested;
-    try {
-      const result = await apiJson("/entries/suggest-tags", {
-        method: "POST",
-        body: JSON.stringify({ content, tags }),
-      });
-      suggested = result.suggested_tags || [];
-    } catch {
-      suggested = [];
-    }
+    const result = await apiJson("/entries/suggest-tags", {
+      method: "POST",
+      body: JSON.stringify({ content, tags, title: $("entry-title")?.value || "" }),
+    }).catch(() => ({}));
     if (seq !== captureTagSuggestSeq) return; // superseded by a later keystroke
-    renderCaptureTagSuggestions(suggested);
+    renderCaptureTagSuggestions(result.suggested_tags || [], result.suggested_tag_reasons);
   }, 1200);
 }
 

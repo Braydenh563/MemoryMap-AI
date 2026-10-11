@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import lexical_filing
+from memorymap.ai import lexical_filing, tagging
 from memorymap.entry import manager
 
 NOTES = json.loads((Path(__file__).parent / "fixtures" / "filing" / "notes.json").read_text(encoding="utf-8"))
@@ -99,8 +99,8 @@ def test_tags_offered_are_only_the_notebooks_own(session) -> None:
     for i in range(2):
         manager.create_entry(session, f"Pasta night {i}: garlic, chilli, lemon", category_name="Cooking", tags=["dinner"])
     session.commit()
-    cooking = lexical_filing.suggest_tags(session, "Lentil dal with cumin and a tin of tomatoes", have=[])
+    cooking = tagging.suggest(session, "Lentil dal with cumin and a tin of tomatoes", have=[])
     assert not {"study", "university"} & set(cooking), cooking
     vocabulary = {"study", "university", "dinner"}
     for text in ("Study plan for the exam: two hours a day at the university library", "A squat and deadlift session"):
-        assert set(lexical_filing.suggest_tags(session, text, have=[])) <= vocabulary
+        assert set(tagging.suggest(session, text, have=[])) <= vocabulary

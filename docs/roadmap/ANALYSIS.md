@@ -3818,33 +3818,39 @@ styles, text wrap, a Properties panel.
 | Smart guides (edge, centre, spacing) | yes (`wb-guide-color-*`, `whiteboard-map.js`) | none | none | done |
 | Align, distribute, same size | yes (`whiteboard-commands.js` align-*, distribute-*, same-width/height) | none | none | done |
 | Group, ungroup, lock, z-order | yes (commands `group`, `lock`, `order-*`) | none | none | done |
-| Layers panel | yes (`wb-side-tab-layers`, `wb-layers-tree`) | layers are an object list, not named draw.io layers with visibility | M | keep, name and hide layers |
+| Layers panel | yes (`wb-layers-tree`: per-item eye, lock, rename, restack) | no named layer that holds many items | M | keep, name and hide layers |
 | Pages | partly (`wb-side-tab-pages`: frames are the pages, WHITEBOARD_PLAN decision 22) | no separate pages per board by design | none | done by decision |
 | Connectors: straight, curved, elbow, labels, caps, dash, line jumps | yes (`line-elbow`, `wb-fmt-jumps`, `wb-fmt-label-t`) | none | none | done |
-| Connection points on a shape (fixed anchors, ports) | no (grep for anchor and port in `whiteboard.js` finds only menu placement) | a connector joins the nearest edge, not a chosen point | M | keep; the orthogonal router is where draw.io is best |
+| Connection points on a shape (fixed anchors, ports) | yes (`wbPortFractions`; a link stores `sourceAnchor` as a fraction, so a resize keeps it); re-read 2026-10-10 | a draw.io shape's own stencil ports were not read | S | keep |
 | Waypoint editing on a connector | yes (`waypoint` in `whiteboard-map.js`, `whiteboard.js`) | none | none | done |
-| Shape library at scale (hundreds of stencils, search) | no (four shapes in `WB_SHAPE_NAMES`: rect, ellipse, triangle, diamond; user-saved shapes in `whiteboard-library.js`) | no starter set beyond four primitives | M | keep; convert draw.io stencil XML offline to our shape JSON (BACKLOG 29e) |
+| Shape library at scale (hundreds of stencils, search) | partly (7 sets, 1,530 icons, search by name, tag, set); re-read 2026-10-10 | the five converted draw.io sets (196 shapes, `board-library/drawio/`) were never listed | S | keep |
 | Shape library import (draw.io `mxlibrary`) | no (`stencil` appears only in `ai/help_chat.py`) | no reader | M | keep, one converter script |
-| Containers and swimlanes | partly (frames hold items; no lane header, no resize-with-children rule) | swimlane and pool shapes | M | keep, as frame presets |
+| Containers and swimlanes | partly (frames hold items; `frames.json` has Frame and Timeline lane) | no pool with lanes | S | keep, as frame presets |
 | Tables on a board | no (`wbTable` has no match in the whiteboard files) | draw.io has a table shape | M | drop for now; a note card with a Markdown table covers it |
-| Mermaid in and out, outline export, re-editable SVG | yes (`whiteboard-interchange.js`) | Mermaid subset: flowchart only, no sequence or class | M | keep, subset is enough |
+| Mermaid in and out, outline export, re-editable SVG | yes (`whiteboard-interchange.js`) | Mermaid in: flowchart only; sequence, class and state pasted from a document do nothing | M | keep, add the three |
 | draw.io file import (`.drawio`, `mxfile`) | no (`mxfile` appears nowhere in `frontend/`; `ai/tools/__init__.py` mentions the format) | boards from draw.io cannot be opened | M | keep, an offline reader is a pure parse of `mxGraphModel` |
 | Import and export: PNG, SVG, PDF, JSON | yes (`wb-export`, `export-frame`) | no `.drawio` export | S | keep with the importer |
 | Data and tooltips on a shape (custom properties) | no (`tooltip` hits are UI hints) | no key-value data on an object | M | drop; a linked note holds data |
 | Links on an object, not only a card | yes (`whiteboard.js` object links; WHITEBOARD_PLAN decision) | not verified live | none | done |
 | Layout algorithms (tree, radial, org chart) | partly (`wb-mindmap-tree`, `wb-mindmap-radial`, `wb-map-layout`) | free boards have no auto-layout | M | keep, reuse the map layout |
 | Swatches and saved palettes | yes (`save-palette`, library "palette" kind) | none | none | done |
-| Hand-drawn style | no | draw.io sketch mode | S | drop; not what a notebook needs |
+| Hand-drawn style (draw.io sketch, Excalidraw's whole look, tldraw's draw style) | no | the look Excalidraw is known for | M | keep, a board option (re-read 2026-10-10) |
+| Laser pointer while presenting (Excalidraw, tldraw) | no | a pointer trail that fades | S | keep |
+| Find and replace (draw.io) | find only (`wb-search-bar`) | no replace | S | keep |
 | Rulers, guides the user places | no (no `ruler` in whiteboard files) | none | S | drop |
 | Version history | yes (`wb-history-bar`, `whiteboard-history.js`) | none | none | done |
 | Present, step through frames | yes (`wb-present-bar`) | no per-slide notes, no timer | S | keep |
-| Templates | yes (`whiteboard-templates.js`) | one built-in template only ("Blank") plus the library | S | keep, add five |
+| Templates | yes (17 board, 15 map; re-read 2026-10-10) | none | none | done |
 | Comments on objects | yes (command `comment`) | none | none | done |
 | Find on board | yes (`wb-search-bar`) | none | none | done |
 | Text wrap around objects, threaded text (designcraft) | no | page layout, not a whiteboard need | L | drop |
 | Parent pages and spreads (designcraft) | no | print layout | L | drop |
 
-Next brief builds first: (1) the draw.io reader and shape-library converter
+Ranked by how often a person meets the gap (canvasdepth, 2026-10-10; the
+plan rows follow this order): draw.io sets in the panel with their ports,
+Mermaid sequence, class and state, `.drawio` import, a pool with lanes, named
+layers, find and replace, the hand-drawn look, tables, a laser pointer, edit
+data. Earlier: (1) the draw.io reader and shape-library converter
 (`mxfile` import, stencil XML to our JSON, a starter set of 60 shapes),
 (2) connection points with a fixed-anchor connector, (3) named layers with
 visibility, plus five more templates.
@@ -3859,7 +3865,9 @@ panel); it has no map concept.
 | Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
 | --- | --- | --- | --- | --- |
 | Keyboard-first: child, sibling, delete, collapse | yes (`wb-radial-child/sibling/collapse/delete`, clone-right, clone-down) | none | none | done |
-| Tree and radial layout, tidy | yes (`wb-mindmap-tree`, `wb-mindmap-radial`, `wb-map-tidy`, `wb-map-layout`) | variable-size nodes (d3-flextree) not checked | S | keep, measure |
+| Structures: tree four ways, radial, logic chart, timeline, fishbone, tree table | yes (`WB_MAP_LAYOUT_NAMES`) | one per map; XMind sets one per branch | L | keep |
+| Themes, levels, branch line style (curve, elbow, straight), per-branch colour | yes (`wbMapTheme`, `edge_style`, `_map_branch_colors`) | none | none | done |
+| Callouts, labels under a topic (XMind) | no | a note bubble; tags drawn under a topic | M | keep |
 | Fold to level 1, 2, 3 | yes (`fold-level-1..3`) | none | none | done |
 | Topic styling: colour, size, bold, italic, align, shape | yes (`wb-map-strip`, `wb-map-text-menu`, `wb-map-shape-menu`) | none | none | done |
 | Edge styling: width, shape, dashed, arrow | yes (`wb-map-line-menu`, `wb-map-edge-*`) | none | none | done |
@@ -3868,19 +3876,21 @@ panel); it has no map concept.
 | Pictures on a topic | yes (`wb-map-picture-input`) | none | none | done |
 | Tasks on topics | yes (`wb-mapmulti-task`) | no due dates in the map | S | keep |
 | Numbered outline | yes (`wb-map-numbered`) | none | none | done |
-| Import: OPML, FreeMind, XMind, Markdown | yes (`wb-import-map-file` accepts .opml .xml .mm .xmind .md; `routes_whiteboard.py`) | export to the same formats not checked | S | keep, verify round trip |
-| Export: image, document, outline | yes (`wb-map-to-doc`, `wb-export`, outline export) | no OPML or `.mm` export | S | keep |
+| Import: OPML, FreeMind, XMind, Markdown | yes (`wb-import-map-file` accepts .opml .xml .mm .xmind .md; `routes_whiteboard.py`) | none | none | done |
+| Export: image, document, Markdown, OPML, FreeMind | yes (`wbExportMapText`) | no `.xmind` out | M | keep |
 | Perspectives (colour by meaning), legend, focus, filter | yes (`wb-map-perspective`, `wb-map-legend`, `wb-map-focus`, `wb-map-filter`) | Kumu metrics (centrality) not on the map | M | keep, reuse the graph's metrics |
 | Notes linked to topics, graph shows map links | yes (`wb-add-note`, `wb-extract-notes`) | none | none | done |
 | AI: summarise a branch, suggest branches | yes (`summarise-branch`, `suggest-branches`) | none | none | done |
 | Study mode (show, knew, missed) | yes (`wb-map-study`, `wb-study-*`) | none | none | done |
 | Templates for maps | yes (`wb-map-templates`) | count not checked | S | keep |
-| Presenting a map as slides | partly (`wb-present-bar` steps frames, not branches) | no branch-by-branch reveal | M | keep, see presentations |
+| Presenting a map as slides | yes, by branch (`wbMapPresentSteps`) | none | none | done |
 | Cross links between branches with labels | yes (`wb-link-label`, `wb-map-link-radial`) | none | none | done |
 | Collaboration, real-time | no | Coggle's main feature | L | drop (single-user by design) |
 | Frames and swatches from designcraft | partly (frames and palettes on free boards) | not on maps | S | drop |
 
-Next brief builds first: (1) OPML and FreeMind export so a round trip is
+Re-read 2026-10-10 (canvasdepth) against XMind and MindNode: the brief's
+map list is built; open, by how often met: a structure per branch, callouts,
+labels, `.xmind` out, stickers and votes. Earlier: (1) OPML and FreeMind export so a round trip is
 closed, (2) a branch-by-branch presentation, (3) Kumu-style metrics
 (centrality, communities) as a perspective, computed by the graph's own code.
 

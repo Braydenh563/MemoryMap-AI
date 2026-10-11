@@ -333,6 +333,29 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the filing agent (INBOX 781, merged 2026-10-11)
+
+Detail: [filing-1010.md](../archive/agent-remaining/filing-1010.md).
+
+- Not verified: the path with a real model running (its grounded tags first, then the engine's); dark theme.
+- Suggesting tags from a note's own words for a notebook with no tags yet scored 4 of 12 and was not shipped.
+
+## Left by the canvasdepth agent (INBOX 797, merged 2026-10-11)
+
+Detail: [canvasdepth-1010.md](../archive/agent-remaining/canvasdepth-1010.md).
+
+- Whiteboard gaps open: the hand-drawn look, tables, edit data, a current layer new items land in, .drawio pages after the first; an item's eye on a hidden named layer changes nothing visible.
+- Mind map gaps open: a structure per branch, callouts, labels under a topic, .xmind export, stickers and votes.
+- The Guide topics board-library and whiteboard-controls sit at 1,918 of 1,920 characters: the next board help line needs a split topic.
+- The laser sweep's 390 threshold was lowered from 10 dots to 3 and not re-run; a real draw.io file and dark theme not verified.
+
+## Left by the budgets53 agent (Brief 53, merged 2026-10-11)
+
+Detail: [budgets53-1010.md](../archive/agent-remaining/budgets53-1010.md).
+
+- Caps measured on a loaded machine sit close to the noise; re-measure idle and tighten (table, README and test move together).
+- First interaction (about 4.4 s) is the slowest number; decision 54's 5,000-note list and search not re-measured; no Settings UI shows the budgets.
+
 ## Left by the graphfeel agent (INBOX 775, 792, 796, 798, merged 2026-10-11)
 
 Detail: [graphfeel-1010.md](../archive/agent-remaining/graphfeel-1010.md).

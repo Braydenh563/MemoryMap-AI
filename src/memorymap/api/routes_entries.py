@@ -224,10 +224,10 @@ def _tag_reasons(content: str, tags: list[str]) -> dict[str, str]:
     """Each offered tag's one line for its chip (decision 5: each explained)."""
     if not tags or not content:
         return {}
-    from memorymap.ai import lexical_filing, taxonomy
+    from memorymap.ai import tagging, taxonomy
 
-    hits = taxonomy.topic_hits(content)
-    return {tag: why for tag in tags if (why := lexical_filing.tag_reason(tag, content, hits))}
+    hits = taxonomy.topic_hits(tagging.clean(content))
+    return {tag: why for tag in tags if (why := tagging.reason(tag, content, hits))}
 
 
 def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  # noqa: ANN001
@@ -255,17 +255,23 @@ def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  #
             )
         except Exception:
             logger.info("tag suggestions from the model failed; using the notebook's own", exc_info=True)
-    from memorymap.ai import lexical_filing
-
     content = manager.readable_content(entry)
-    #: A model's tags keep only those the note has a word for (WORLD_CLASS
-    #: 23, decision 5): its reply to "prefer one of those" over a list most
-    #: used first was the first two, whatever the note said (the Study bug).
-    suggested = lexical_filing.grounded_tags(content, suggested)
-    if not suggested:
-        suggested = lexical_filing.suggest_tags(session, content, have=have, exclude_entry_id=entry.id)
-    keep = [tag for tag in suggested if tag.casefold() not in discarded][: lexical_filing.TAG_LIMIT]
-    entry.suggested_tags = json.dumps(keep)
+    keep = [tag for tag in _engine_tags(session, content, have, suggested, entry.id) if tag.casefold() not in discarded]
+    from memorymap.ai import tagging
+
+    entry.suggested_tags = json.dumps(keep[: tagging.TAG_LIMIT])
+
+
+def _engine_tags(session: Session, content: str, have: list[str], model: list[str], entry_id: int | None) -> list[str]:
+    """One engine on every path (INBOX 781): a model's tags kept only where
+    the note has a word for them (WORLD_CLASS 23, decision 5: its reply to
+    "prefer one of those" was the first two, whatever the note said, the
+    Study bug), then the notebook's own (`ai/tagging.suggest`) filling the
+    rest, so a model that offers one tag no longer hides two good ones."""
+    from memorymap.ai import tagging
+
+    own = tagging.suggest(session, content, have=have, exclude_entry_id=entry_id)
+    return tagging.merged(tagging.grounded(content, model), own, have)
 
 
 def _to_out_bulk(session: Session, entries: list) -> list[EntryOut]:
@@ -1247,6 +1253,9 @@ def _tag_vocabulary(session: Session) -> list[str]:
 class SuggestTagsBody(BaseModel):
     content: str
     tags: list[str] = Field(default_factory=list)
+    #: Capture's title field: a note's title says what it is, so it counts
+    #: with its first line (`ai/tagging.lead`).
+    title: str = Field(default="", max_length=300)
 
 #: Said once per process, not once per keystroke pause.
 _SAID_ONCE: set[str] = set()
@@ -1267,8 +1276,10 @@ def suggest_tags_for_draft(
     still typing, before Save exists to be clicked.
     """
     content = body.content.strip()
+    if body.title.strip() and content:
+        content = f"# {body.title.strip()}\n\n{content}"
     if not content:
-        return {"suggested_tags": []}
+        return {"suggested_tags": [], "suggested_tag_reasons": {}}
     #: **No model, no model call** (measured on the running app: with none
     #: running, every pause in Capture asked the client for a completion from
     #: model "" and logged a WARNING with its traceback, three per note typed,
@@ -1287,9 +1298,8 @@ def suggest_tags_for_draft(
         if "no-model-tags" not in _SAID_ONCE:
             _SAID_ONCE.add("no-model-tags")
             logger.info("no model running: tag suggestions come from the notebook's own tags")
-    if not suggested:
-        suggested = lexical_filing.suggest_tags(session, content, have=body.tags)
-    return {"suggested_tags": lexical_filing.grounded_tags(content, suggested)}
+    offered = _engine_tags(session, content, body.tags, suggested, None)
+    return {"suggested_tags": offered, "suggested_tag_reasons": _tag_reasons(content, offered)}
 
 
 class SuggestedTagsBody(BaseModel):
@@ -1473,21 +1483,7 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
     refiling.finish()
 
     # 2. Suggest tags (best effort: never blocks the re-evaluation).
-    suggested_tags: list[str] = []
-    try:
-        suggested_tags = librarian.suggest_tags(
-            entry.content,
-            manager.entry_tags(entry),
-            deps.get_model_manager(),
-            deps.get_ollama(),
-            vocabulary=_tag_vocabulary(session),
-        )
-        from memorymap.ai import lexical_filing
-
-        suggested_tags = lexical_filing.grounded_tags(entry.content or "", suggested_tags)
-    except Exception:
-        logger.warning("re-evaluation's tag step failed", exc_info=True)
-        suggested_tags = []
+    suggested_tags = _reevaluate_tags(session, entry)
 
     # 3. Suggest links: semantic neighbours that aren't connected yet.
     suggested_links: list[dict] = []
@@ -1512,8 +1508,31 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
         "entry": _to_out(session, entry, filed_by=filed_by).model_dump(),
         "recategorised_to": recategorised_to,
         "suggested_tags": suggested_tags,
+        "suggested_tag_reasons": {} if getattr(entry, "is_private", False) else _tag_reasons(entry.content or "", suggested_tags),
         "suggested_links": suggested_links,
     }
+
+
+def _reevaluate_tags(session: Session, entry) -> list[str]:  # noqa: ANN001
+    """The model's tags when one answers, then the notebook's own: with no
+    model, Tag and file with Atlas offered no tag at all (INBOX 781). Not
+    from a private note's text: nothing derives a suggestion from it
+    (`_keep_suggestions`)."""
+    have = manager.entry_tags(entry)
+    model: list[str] = []
+    try:
+        model = librarian.suggest_tags(
+            entry.content, have, deps.get_model_manager(), deps.get_ollama(), vocabulary=_tag_vocabulary(session),
+        )
+    except Exception:
+        logger.info("re-evaluation's model tag step failed; using the notebook's own", exc_info=True)
+    if getattr(entry, "is_private", False):
+        return model
+    try:
+        return _engine_tags(session, entry.content or "", have, model, entry.id)
+    except Exception:
+        logger.warning("re-evaluation's tag step failed", exc_info=True)
+        return []
 
 
 class ImproveBody(BaseModel):

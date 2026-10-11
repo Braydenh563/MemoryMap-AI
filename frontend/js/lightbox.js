@@ -70,7 +70,7 @@ function renderReevaluateResult(entry, wrap) {
           toast(error.message, true);
         }
       });
-      tagChip.title = `Add the “${tag}” tag`;
+      tagChip.title = data.suggested_tag_reasons?.[tag] || `Add the “${tag}” tag`;
       tagRow.appendChild(tagChip);
     }
     wrap.appendChild(tagRow);

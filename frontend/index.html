@@ -1022,7 +1022,7 @@
        decision 25): the documents' template dialog recipe, its rows built by
        `wbOpenTemplateGallery` (whiteboard-library.js), its preview the same
        thumbnail the library's tile draws. -->
-  <!-- Insert, Mermaid or board SVG (W5; whiteboard-interchange.js). -->
+  <!-- Insert, Mermaid, draw.io or board SVG (W5; whiteboard-interchange.js). -->
   <dialog id="wb-import-dialog" class="card space-dialog wb-import-dialog" aria-labelledby="wb-import-title">
     <div class="dialog-head">
       <h2 id="wb-import-title" class="dialog-head-title">Bring in a diagram</h2>
@@ -1030,9 +1030,9 @@
         <button type="button" class="icon-only ghost small dialog-head-btn" data-close-dialog="wb-import-dialog" title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
       </span>
     </div>
-    <p class="muted wb-import-about" id="wb-import-about">Paste a Mermaid flowchart (its subgraphs come in as frames), or choose a .mmd file or an SVG a board here exported.</p>
-    <textarea id="wb-import-text" class="wb-import-text" rows="8" spellcheck="false" aria-label="Mermaid flowchart" aria-describedby="wb-import-about" placeholder="flowchart TD&#10;  A[Start] --> B{Ready?}&#10;  B -->|yes| C[Ship it]"></textarea>
-    <input type="file" id="wb-import-file" accept=".mmd,.mermaid,.txt,.md,.svg,text/plain,image/svg+xml" class="hidden" aria-hidden="true" tabindex="-1" aria-label="Choose a diagram file" title="Choose a diagram file">
+    <p class="muted wb-import-about" id="wb-import-about">Paste a Mermaid flowchart, state, class or sequence diagram, or choose a .mmd file, a draw.io file or an SVG a board here exported.</p>
+    <textarea id="wb-import-text" class="wb-import-text" rows="8" spellcheck="false" aria-label="Mermaid diagram" aria-describedby="wb-import-about" placeholder="flowchart TD&#10;  A[Start] --> B{Ready?}&#10;  B -->|yes| C[Ship it]"></textarea>
+    <input type="file" id="wb-import-file" accept=".mmd,.mermaid,.txt,.md,.svg,.drawio,.xml,text/plain,image/svg+xml" class="hidden" aria-hidden="true" tabindex="-1" aria-label="Choose a diagram file" title="Choose a diagram file">
     <div class="row right space-dialog-actions">
       <button type="button" class="ghost small" id="wb-import-choose">Choose a file…</button>
       <button type="button" class="ghost small" data-close-dialog="wb-import-dialog">Cancel</button>
@@ -6352,7 +6352,7 @@ Link to another note with [[its first few words]]."></textarea>
         <span id="wb-map-chip" class="dock-chip" hidden><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Map</span>
       </div>
       <div class="wb-topbar-right">
-        <button id="wb-search-toggle" class="ghost small icon-button" type="button" title="Find a card on this board (Ctrl+F)" aria-label="Find a card on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+        <button id="wb-search-toggle" class="ghost small icon-button" type="button" title="Find on this board (Ctrl+F)" aria-label="Find on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
         <button id="wb-navigator-toggle" class="ghost small icon-button" type="button" title="Board overview (Shift+N)" aria-label="Board overview (Shift+N)" aria-expanded="false" aria-controls="wb-navigator"><i class="ph ph-map-trifold" aria-hidden="true"></i></button>
         <span class="wb-topbar-divider" aria-hidden="true"></span>
         <!-- Three grouped menus, Insert, View, Board, see whiteboard.js
@@ -6369,7 +6369,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="wb-menu-item" data-wb-insert="note"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span>A note from the library</span></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="open-library"><i class="ph ph-shapes ph-lead" aria-hidden="true"></i><span>Shapes, icons and frames…</span></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="insert-sticker"><i class="ph ph-smiley-sticker ph-lead" aria-hidden="true"></i><span>Emoji and icons…</span></button>
-              <button type="button" class="wb-menu-item" data-wb-cmd="import-diagram" data-wb-surface="board"><i class="ph ph-flow-arrow ph-lead" aria-hidden="true"></i><span>Mermaid or board SVG…</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="import-diagram" data-wb-surface="board"><i class="ph ph-flow-arrow ph-lead" aria-hidden="true"></i><span>Mermaid, draw.io or board SVG…</span></button>
             </div>
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">Draw</span>
@@ -6400,6 +6400,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="wb-menu-section" role="group" aria-label="Select">
               <button type="button" class="wb-menu-item" data-wb-cmd="select-all"><i class="ph ph-selection-all ph-lead" aria-hidden="true"></i><span>Select all</span><kbd>Ctrl+A</kbd></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="find"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i><span>Find on this board</span><kbd>Ctrl+F</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="replace" data-wb-surface="board"><i class="ph ph-swap ph-lead" aria-hidden="true"></i><span>Find and replace</span><kbd>Ctrl+H</kbd></button>
             </div>
             <div class="wb-menu-section" role="group" aria-label="The item" data-wb-surface="board">
               <button type="button" class="wb-menu-item" data-wb-cmd="text"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i><span>Write in the shape or label the connector</span><kbd>Enter</kbd></button>
@@ -6467,7 +6468,7 @@ Link to another note with [[its first few words]]."></textarea>
               <label class="wb-menu-row wb-snap-label" title="The board overview (Shift+N)"><span><i class="ph ph-map-trifold ph-lead" aria-hidden="true"></i>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
               <label class="wb-menu-row wb-snap-label" title="The sidebar: the library, notes and layers"><span><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i>Sidebar</span><input type="checkbox" id="wb-panel-library"></label>
               <label class="wb-menu-row wb-snap-label" data-wb-surface="map" hidden title="The map as an indented list you can edit"><span><i class="ph ph-list-dashes ph-lead" aria-hidden="true"></i>Outline</span><input type="checkbox" id="wb-panel-outline"></label>
-              <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i>Search</span><input type="checkbox" id="wb-panel-search"></label>
+              <label class="wb-menu-row wb-snap-label" title="Find on this board (Ctrl+F)"><span><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i>Search</span><input type="checkbox" id="wb-panel-search"></label>
               <button id="wb-dock-toggle" class="wb-menu-item" type="button" title="Dock the tools as a sidebar" aria-label="Dock the tools as a sidebar"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i><span>Dock the tools at the side</span></button>
             </div>
             <div class="wb-menu-section" role="group" aria-label="Canvas">
@@ -7522,7 +7523,7 @@ Link to another note with [[its first few words]]."></textarea>
          looking for it. -->
     <div id="wb-search-bar" class="wb-search-bar card glass hidden" role="search">
       <i class="ph ph-magnifying-glass wb-search-icon" aria-hidden="true"></i>
-      <input id="wb-search-input" type="search" placeholder="Find a card on this board" aria-label="Find a card on this board" autocomplete="off" spellcheck="false">
+      <input id="wb-search-input" type="search" placeholder="Find on this board" aria-label="Find on this board" autocomplete="off" spellcheck="false">
       <span id="wb-search-count" class="wb-search-count muted" role="status" aria-live="polite"></span>
       <button id="wb-search-prev" class="ghost small icon-only" type="button" title="Previous match (Shift+Enter)" aria-label="Previous match"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
       <button id="wb-search-next" class="ghost small icon-only" type="button" title="Next match (Enter)" aria-label="Next match"><i class="ph ph-caret-down" aria-hidden="true"></i></button>

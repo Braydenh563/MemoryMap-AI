@@ -10,10 +10,24 @@ below). Versioning is `0.x` while the app stabilises.
 - Graph: changing the layout, a return to the tab or a saved view moves the notes from where they were, with the camera easing to the new frame (no more vanishing and reappearing); a tree, radial or arc fits the free space, notes new to the picture fade in, and topic outlines are drawn on the force layout only.
 - Graph: the head's '?', settings and ⋯ menus close each other when one opens, so they no longer stack on top of each other (INBOX 796).
 - Graph: a fresh open shows the layout settling again (the notes move into a frame already set on where they end, about a second, the same on a return to the tab), Fit fills the space the dock, legend, minimap, zoom strip and any open panel leave, a fitted map refits when a panel opens or closes, and a small map spreads so its dots have room (INBOX 775, 792).
+- Each interaction has a time budget: boot to first paint, first interaction, list paint, search, opening a board of 500 objects and a document of 50,000 words, with the measured figure and the cap (1.5 times it) in the README's Performance table. CI fails when the server or the browser exceeds a cap, and `GET /models/bench/budgets?live=true` times the server's share against your own notebook.
 - Settings, Import & export: Export notebook folder downloads the whole notebook as a zip of markdown files, one per note with its attachments beside it and a .json file of every field, plus documents, boards and an index; From a MemoryMap folder reads it back with dates, pins, links, reminders and boards as they were.
 - Every import keeps a report: what it read, wrote, skipped and found already here, each skipped file named with why; See the report when it ends, or Report in the Activity panel.
 - A long import shows in the Activity panel with its progress and Stop; the notes it made before Stop stay.
 - Translate this, in the command palette: a selected passage of a note, a document or a reading turned from English into Spanish on this computer with no model, then copied or put in place of the selection (Ctrl+Z undoes it). It needs "Translate offline", a 27 MB download in Settings, Packages (new bundle Languages); until it is installed the row says so and opens that page.
+- Tag suggestions with no model are better and the same on every path (the note card, Tag and file with Atlas, Capture while typing): your own tags found under short or other forms ("stats", "running"), the title and first line first, linked notes' tags, nothing from quotations or a scan's footer, one spelling each, and a tag turned down on three notes offered less until Manage tags, Turned down, Offer again. On a 67-note set, the first suggestion right 0.687 to 0.791, suggestions shown right 0.769 to 0.861. Tag and file with Atlas now suggests tags with no model running.
+- Whiteboard: a laser pointer while presenting (L, or the bar's button): the pointer leaves a short red trail that fades, and nothing is drawn on the board (INBOX 797).
+
+- Whiteboard: find on a board now finds text boxes and shape and connector labels (text boxes were never found), and Ctrl+H (Edit, Find and replace) replaces across them in one undo step (INBOX 797).
+
+- Whiteboard: named layers. The Layers tab's + puts the selection on a new layer; each layer's eye and lock hide or lock everything on it, and its menu moves the selection there, selects its items, renames or deletes it (INBOX 797).
+
+- Whiteboard: the Library's Frames has swimlanes, a pool with three lanes in rows or in columns (INBOX 797).
+
+- Whiteboard: Insert, Mermaid, draw.io or board SVG also brings in Mermaid state, class and sequence diagrams, and opens a .drawio file (its first page: shapes, labels, swimlanes as frames, connectors), naming anything it could not keep (INBOX 797).
+
+- Whiteboard: the Library has five more shape sets from draw.io (basic shapes, flowchart, arrows, BPMN, network and cloud: 196 shapes), loaded when a set is opened or a search is typed, and a connector snaps to each shape's own connection points (INBOX 797).
+
 - Chat: Agent mode is greyed, with Ask shown in use, whenever no model can answer, not only when the model server is off: the server up with nothing installed, Ollama without the chosen chat model, and before the first status all count. Your saved choice is untouched and Agent returns when a model answers; Needle keeps it available (INBOX 778).
 
 - Notes, Questions: each note's questions sit under its title as a link-styled heading with the note's icon (hover underline, kept under the sub-tab strip while its questions scroll) instead of a bordered button, and a question an older rule had cut at a quote mark (`" or "What's the most ...`) leaves the list the moment it opens rather than at the next night pass.

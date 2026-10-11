@@ -295,21 +295,47 @@ def _clean_tags(tags: Any) -> list[str]:
 # --- built-ins ---------------------------------------------------------------
 
 
+#: The converted draw.io sets (WHITEBOARD_PLAN decision 4) sit one folder
+#: down so the panel's first open does not fetch their 0.37 MB; the panel
+#: lists them as closed groups and fetches one when it is opened or searched.
+#: Names are the panel's words, not the converter's `mxgraph.*` source name.
+SHAPE_SET_NAMES = {
+    "drawio-basic": "Basic shapes", "drawio-flowchart": "Flowchart, more",
+    "drawio-arrows": "Arrows, more", "drawio-bpmn": "BPMN", "drawio-networks": "Network and cloud",
+}
+
+
+@lru_cache(maxsize=1)
+def _shape_sets() -> list[dict]:
+    out = []
+    for path in sorted((BUILTIN_DIR / "drawio").glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        key = data.get("key", path.stem)
+        out.append({"key": key, "name": SHAPE_SET_NAMES.get(key, data.get("name", key)),
+                    "count": len(data.get("items") or []), "path": f"drawio/{path.name}"})
+    order = list(SHAPE_SET_NAMES)
+    return sorted(out, key=lambda s: order.index(s["key"]) if s["key"] in order else len(order))
+
+
 @lru_cache(maxsize=1)
 def _builtin_index() -> dict[str, dict]:
     """Every built-in entry by `"<set>/<key>"`, read once per process."""
     out: dict[str, dict] = {}
     if not BUILTIN_DIR.is_dir():
         return out
-    for path in sorted(BUILTIN_DIR.glob("*.json")):
+    for path in sorted([*BUILTIN_DIR.glob("*.json"), *(BUILTIN_DIR / "drawio").glob("*.json")]):
         if path.stem in ("index", "icons"):
             continue
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        key = data.get("key", path.stem)
         for entry in data.get("items") or []:
-            out[f"{data.get('key', path.stem)}/{entry['key']}"] = {**entry, "set": data.get("name", path.stem)}
+            out[f"{key}/{entry['key']}"] = {**entry, "set": SHAPE_SET_NAMES.get(key, data.get("name", path.stem))}
     return out
 
 
@@ -432,6 +458,7 @@ def list_library(
         out["sets"] = json.loads((BUILTIN_DIR / "index.json").read_text(encoding="utf-8")).get("sets", [])
     except (OSError, ValueError):
         out["sets"] = []
+    out["shape_sets"] = _shape_sets()
     if words or kind:
         builtins = []
         for key, entry in _builtin_index().items():

@@ -333,6 +333,14 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the codedocs agent (INBOX 788, merged 2026-10-11)
+
+Detail: [codedocs-1010.md](../archive/agent-remaining/codedocs-1010.md).
+
+- Right-click and long-press on a snippet row do not open its menu (needs navigation.js ROW_MENU_HOSTS, a boot file, and TOTAL_CAP had 35 bytes).
+- The code document's dock at 390 is 238px tall (four rows).
+- Not verified: a real model or Needle answering the assistant's prompts; the tablet layout beyond one measure at 1024.
+
 ## Left by the meet81 agent (Brief 81, merged 2026-10-11)
 
 Detail: [meet81-1010.md](../archive/agent-remaining/meet81-1010.md).

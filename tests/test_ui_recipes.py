@@ -1099,6 +1099,8 @@ LIST_ROWS = {
     ".meeting-action": ".meeting-actions-list",
     #: Library, Recordings (WORLD_CLASS_PLAN 28.5 row 6).
     ".recording-row": ".recordings-list",
+    #: A code file's snippets, in the code panel (INBOX 788).
+    ".doc-snippet-row": ".doc-snippet-list",
 }
 
 

@@ -157,6 +157,8 @@ function syncDocFileType({ prose = true } = {}) {
   const code = !type.previewable;
   docBoxEl()?.classList.toggle("doc-content-code", code);
   $("tab-documents")?.classList.toggle("doc-is-code", code);
+  //: The code panel (INBOX 788) comes back with a code file if it was open.
+  if (code && prefs.get("docCodeSide", "")) docCodeSideFrom(prefs.get("docCodeSide", ""), true);
   applyDocGutter();
 
   // A menu row, so it can say the whole thing rather than "⬇ .py".
@@ -1561,10 +1563,219 @@ const DOC_TEMPLATES = [
   //: whose Run shows the canvas beside the code, through the vendored p5
   //: only (run-core.js finds `setup` and `createCanvas`; Brief 69, D6).
   {
-    id: "p5", title: "p5.js sketch", hint: "Code and a live canvas: Run draws it beside the editor.",
+    id: "p5", title: "p5.js sketch", group: "code", hint: "Code and a live canvas: Run draws it beside the editor.",
     docTitle: "Sketch {{isodate}}",
     fileType: "js",
     content: "// A p5.js sketch: Run (Ctrl+Shift+Enter) draws it in the panel below.\nfunction setup() {\n  createCanvas(400, 300);\n}\n\nfunction draw() {\n  background(240);\n  circle(mouseX, mouseY, 40);\n}\n",
+  },
+  //: **Code templates** (INBOX 788, the owner: "can you add code templates
+  //: as document templates as well??"). One starter per language the editor
+  //: runs or highlights, each a document of its own type so it opens in the
+  //: code view (`fileType`), and each one that runs says how in its first
+  //: lines. `group` puts them under the gallery's Code heading. Template
+  //: literals, so a `${` inside the code is escaped as `\${`.
+  {
+    id: "py-script", group: "code", title: "Python script", hint: "A main function and a test: Run runs the test.",
+    docTitle: "Script {{isodate}}", fileType: "py",
+    content: `"""{{title}}: what this script does, in one line."""
+
+
+def greet(name: str) -> str:
+    return f"Hello, {name}"
+
+
+def main() -> None:
+    print(greet("world"))
+
+
+# Run (Ctrl+Shift+Enter) runs a file's tests when it has any, so it runs
+# this one; move the test to its own file to run main() instead.
+def test_greet():
+    assert greet("Ada") == "Hello, Ada"
+
+
+if __name__ == "__main__":
+    main()
+`,
+  },
+  {
+    id: "py-cli", group: "code", title: "Command line tool", hint: "Python with argparse: options, help and an exit code.",
+    docTitle: "CLI {{isodate}}", fileType: "py",
+    content: `"""{{title}}: a command line tool.
+
+From a terminal: python cli.py --name Ada --times 2
+"""
+
+import argparse
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Say hello.")
+    parser.add_argument("--name", default="world", help="who to greet")
+    parser.add_argument("--times", type=int, default=1, help="how many times")
+    parser.add_argument("-v", "--verbose", action="store_true", help="say more")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    for _ in range(args.times):
+        print(f"Hello, {args.name}")
+    if args.verbose:
+        print(f"Greeted {args.times} time(s).")
+    return 0
+
+
+if __name__ == "__main__":
+    # The sandbox has no command line, so Run passes these arguments.
+    main(["--name", "Ada", "--times", "2", "--verbose"])
+`,
+  },
+  {
+    id: "fastapi", group: "code", title: "FastAPI endpoint", hint: "A small API: a model, a read route and a create route.",
+    docTitle: "API {{isodate}}", fileType: "py",
+    content: `"""{{title}}: a FastAPI app.
+
+Serve it from a terminal with fastapi and uvicorn installed:
+    uvicorn app:app --reload
+"""
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+app = FastAPI()
+
+
+class Item(BaseModel):
+    name: str
+    price: float
+
+
+ITEMS: dict[int, Item] = {}
+
+
+@app.get("/items/{item_id}")
+def read_item(item_id: int) -> Item:
+    if item_id not in ITEMS:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return ITEMS[item_id]
+
+
+@app.post("/items/{item_id}", status_code=201)
+def create_item(item_id: int, item: Item) -> Item:
+    ITEMS[item_id] = item
+    return item
+`,
+  },
+  {
+    id: "js-module", group: "code", title: "JavaScript with tests", hint: "Functions and their tests: Run runs describe, it and expect.",
+    docTitle: "Module {{isodate}}", fileType: "js",
+    content: `// {{title}}: functions, then their tests.
+// Run (Ctrl+Shift+Enter) runs the tests with describe, it and expect.
+
+function slugify(text) {
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+describe("slugify", () => {
+  it("joins words with hyphens", () => {
+    expect(slugify("Hello World")).toBe("hello-world");
+  });
+
+  it("drops punctuation at the ends", () => {
+    expect(slugify("  Hi, there.  ")).toBe("hi-there");
+  });
+});
+`,
+  },
+  {
+    id: "html-page", group: "code", title: "HTML page", hint: "A page with a style and a script: Run shows it below.",
+    docTitle: "Page {{isodate}}", fileType: "html",
+    content: `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; }
+    button { padding: 0.5rem 1rem; }
+  </style>
+</head>
+<body>
+  <h1>{{title}}</h1>
+  <p>Run (Ctrl+Shift+Enter) shows this page in the panel below.</p>
+  <button id="count" type="button">Clicked 0 times</button>
+  <script>
+    let clicks = 0;
+    document.getElementById("count").addEventListener("click", (event) => {
+      clicks += 1;
+      event.target.textContent = \`Clicked \${clicks} times\`;
+    });
+  </script>
+</body>
+</html>
+`,
+  },
+  {
+    id: "sql-schema", group: "code", title: "SQL schema", hint: "Two tables, some rows and a join: Run shows each result.",
+    docTitle: "Schema {{isodate}}", fileType: "sql",
+    content: `-- {{title}}: Run (Ctrl+Shift+Enter) runs each statement against an
+-- empty in-memory SQLite database and shows every result as a table.
+
+CREATE TABLE authors (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE books (
+    id INTEGER PRIMARY KEY,
+    author_id INTEGER NOT NULL REFERENCES authors (id),
+    title TEXT NOT NULL,
+    published INTEGER
+);
+
+INSERT INTO authors (name) VALUES ('Ursula K. Le Guin'), ('Italo Calvino');
+INSERT INTO books (author_id, title, published) VALUES
+    (1, 'The Dispossessed', 1974),
+    (2, 'Invisible Cities', 1972);
+
+SELECT authors.name, books.title, books.published
+FROM books
+JOIN authors ON authors.id = books.author_id
+ORDER BY books.published;
+`,
+  },
+  {
+    id: "readme", group: "code", title: "README", hint: "What it is, how to install, use and test it.",
+    docTitle: "README",
+    content: "# {{title}}\n\nOne sentence on what this is and who it is for.\n\n## Install\n\n```bash\npip install -r requirements.txt\n```\n\n## Use\n\n```bash\npython main.py --help\n```\n\n## Test\n\n```bash\npython -m pytest\n```\n\n## Licence\n\n\n",
+  },
+  {
+    id: "notebook", group: "code", title: "Notebook", hint: "Notes and code in cells, Jupyter style, in one Python file.",
+    docTitle: "Notebook {{isodate}}", fileType: "py",
+    content: `# %% [markdown]
+# # {{title}}
+# Notes and code in one file, Jupyter style. Each \`# %%\` line starts a
+# cell. Run (Ctrl+Shift+Enter) runs the file; the palette's Run the cell
+# at the caret (Ctrl+Shift+P) runs one.
+
+# %%
+numbers = [3, 1, 4, 1, 5, 9, 2, 6]
+total = sum(numbers)
+print(f"{len(numbers)} numbers, total {total}")
+
+# %% [markdown]
+# ## What the numbers say
+
+# %%
+mean = total / len(numbers)
+print(f"mean {mean:.2f}, largest {max(numbers)}")
+`,
   },
 ];
 
@@ -1689,7 +1900,18 @@ function openDocTemplateDialog() {
   if (!dialog || !list) return;
   docTemplateMade = false;
   list.replaceChildren();
+  //: Writing first, then Code (INBOX 788): a heading row where the group
+  //: changes, not a second list, so the arrows still walk every row.
+  let group = "";
   for (const template of DOC_TEMPLATES) {
+    if ((template.group || "writing") !== group) {
+      group = template.group || "writing";
+      const head = document.createElement("li");
+      head.setAttribute("role", "presentation");
+      head.className = "doc-template-group muted text-xs";
+      head.textContent = group === "code" ? "Code" : "Writing";
+      list.appendChild(head);
+    }
     const li = document.createElement("li");
     li.setAttribute("role", "presentation");
     const button = document.createElement("button");
@@ -2547,6 +2769,11 @@ const DOC_COMMANDS = [
     code: true, run: () => docRunCode({ mode: "test" }) },
   { id: "run-selection", icon: "ph:text-indent", label: "Run the selected lines", keys: "none",
     code: true, run: () => docRunSelection() },
+  //: The code panel (INBOX 788, documents-codekit.js).
+  { id: "assistant", icon: "ph:sparkle", label: "Assistant: explain, fix, write tests or refactor", keys: "none",
+    code: true, run: () => docCodeSideFrom("assist") },
+  { id: "snippets", icon: "ph:puzzle-piece", label: "Snippets: insert one, or save the selection as one", keys: "none",
+    code: true, run: () => docCodeSideFrom("snippets") },
   { id: "run-cell", icon: "ph:rows", label: "Run the cell at the caret (between # %% markers)", keys: "none",
     code: true, run: () => docRunCell() },
   //: Brief 70 (DOCUMENTS_PLAN 23, I2): Debug on VS Code's own keys, bound in
@@ -12354,6 +12581,15 @@ function initDocSidebarTabs() {
 }
 
 // --- documents wiring ---
+//: The code panel's ways in (INBOX 788), each fetching documents-codekit.js
+//: on its first press. `keep` reopens a tab without toggling it shut.
+async function docCodeSideFrom(tab, keep = false) {
+  if (!(await lazyScript("/js/documents-codekit.js"))) return toast("The code panel could not be loaded.", true);
+  if (keep) docCodeSideOpen(tab, { auto: true });
+  else docCodeSideToggle(tab);
+}
+$("doc-code-snippets-open")?.addEventListener("click", () => docCodeSideFrom("snippets"));
+$("doc-code-assist-open")?.addEventListener("click", () => docCodeSideFrom("assist"));
 $("doc-new").addEventListener("click", () => createDocument());
 $("doc-new-template")?.addEventListener("click", openDocTemplateDialog);
 $("doc-template-list")?.addEventListener("keydown", docTemplateListKeys);

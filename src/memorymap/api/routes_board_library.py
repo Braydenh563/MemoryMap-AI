@@ -83,6 +83,10 @@ BUILTIN_DIR = _BUNDLE_ROOT / "frontend" / "board-library"
 
 ITEM_KINDS = ("element", "shape", "style", "palette", "preset", "branch", "template")
 LIBRARY_KINDS = ("yours", "custom", "imported")
+#: The code editor's snippets (INBOX 788, `routes_code_snippets.py`) are rows
+#: of this table too, but not a board's: kept out of `ITEM_KINDS`, out of the
+#: board's listing unless asked by kind, and out of a library's export.
+SNIPPET_KIND = "snippet"
 #: The payload limits (features audit 8.5): a saved thing is a few shapes or a
 #: board's worth, never a backup.
 MAX_PAYLOAD_ITEMS = 500
@@ -424,8 +428,7 @@ def list_library(
     libraries = db.scalars(select(BoardLibrary).order_by(BoardLibrary.sort, BoardLibrary.id)).all()
     query = select(BoardLibraryItem)
     query = query.where(BoardLibraryItem.deleted_at.is_not(None) if deleted else BoardLibraryItem.deleted_at.is_(None))
-    if kind:
-        query = query.where(BoardLibraryItem.kind == kind)
+    query = query.where(BoardLibraryItem.kind == kind if kind else BoardLibraryItem.kind != SNIPPET_KIND)
     if library_id:
         query = query.where(BoardLibraryItem.library_id == library_id)
     if favourites:
@@ -648,7 +651,11 @@ def export_library(library_id: int | None = None, db: Session = Depends(get_sess
     library = _library_or_404(db, library_id)
     db.commit()
     rows = db.scalars(
-        select(BoardLibraryItem).where(BoardLibraryItem.library_id == library.id, BoardLibraryItem.deleted_at.is_(None))
+        select(BoardLibraryItem).where(
+            BoardLibraryItem.library_id == library.id,
+            BoardLibraryItem.deleted_at.is_(None),
+            BoardLibraryItem.kind != SNIPPET_KIND,
+        )
     ).all()
     body = {
         "format": EXPORT_FORMAT,

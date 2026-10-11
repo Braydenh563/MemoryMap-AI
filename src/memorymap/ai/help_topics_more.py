@@ -1656,6 +1656,39 @@ MORE_TOPICS.extend(
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
+        #: INBOX 788: the code panel beside a code file's editor, written from
+        #: documents-codekit.js and its markup (`#doc-code-side`).
+        {
+            "id": "code-panel",
+            "keywords": (
+                "snippet", "snippets", "code snippet", "code library", "code modules",
+                "save snippet", "insert snippet", "code panel", "coding assistant",
+                "explain code", "explain this code", "refactor", "write tests for",
+            ),
+            "body": (
+                "Assistant and Snippets (beside Run, on a code document) open the "
+                "code panel beside the editor, a sheet on a phone. The Assistant "
+                "tab works on the selected lines, or the whole file: Explain, Fix "
+                "(the problem at the caret), Write tests, Refactor, or a question "
+                "typed below them. A change comes back as a diff: Apply puts it in "
+                "the editor, where one Ctrl+Z takes it out, and Reject leaves the "
+                "file alone. With no model, Fix applies the quick fix, the tools "
+                "row (Quick fix, Format, Run tests, Find usages) works as it is, "
+                "and a question goes to the needle extra when it is installed, "
+                "which picks one of those tools; otherwise the panel says what "
+                "needs a model. The Snippets tab lists the "
+                "built-in library and your own snippets, this file's language "
+                "first (Show every language for the rest); the search matches "
+                "names, tags and languages, and #io matches the tag io. A row "
+                "inserts at the caret and one Ctrl+Z takes it out; built-in rows "
+                "have stops that Tab walks. Save selection keeps the selected "
+                "code: #words in the name you give become its tags. Each of your "
+                "own rows has a menu to insert, rename or retag, and delete; "
+                "saving, renaming and deleting each undo. Snippets belong to the "
+                "notebook, not to one document."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
     ]
 )
 
@@ -1761,6 +1794,7 @@ TOPIC_META: dict[str, dict] = {
         "Press Run, or Ctrl+Shift+Enter.",
         "Read the Output panel under the editor; Line N goes to the line.",
         "Ctrl+Shift+Y opens the Console tab: type a line and press Enter.")},
+    "code-panel": {"title": "The code panel: assistant and snippets", "path": "A code document, Assistant or Snippets (beside Run)"},
     "debugger": {"title": "Debugging code", "path": "A code document, the gutter beside a line number, F5", "steps": (
         "Open a JavaScript, TypeScript or Python document.",
         "Click beside a line number, or press F9 on it, for a breakpoint.",
@@ -1845,7 +1879,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("Documents and code", (
         "documents", "documents-controls", "documents-features", "callouts", "document-history", "writing-checks", "code-files", "code-run",
-        "debugger", "margin-reader",
+        "debugger", "code-panel", "margin-reader",
     )),
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-templates", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study", "mind-map-look", "emoji-and-icons",

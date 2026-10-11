@@ -1052,14 +1052,17 @@ HELP_TOPICS.extend(
         },
         {
             "id": "templates",
-            "keywords": ("template", "templates", "preset", "layout", "meeting template", "journal template", "reuse"),
+            "keywords": ("template", "templates", "preset", "layout", "meeting template", "journal template", "reuse", "code template", "starter"),
             "body": (
                 "Capture has templates: pick one from No template above the box and "
                 "the note starts with its outline. Save your own from Settings, "
                 "Templates (New template in the pane's bar), where Draft with Atlas writes a template from its name "
                 "and one line (press it again for another version; nothing is saved "
                 "until you add it). The picker's Manage templates opens that page. A "
-                "new document offers its own gallery of templates too."
+                "new document offers its own gallery of templates too: writing ones, "
+                "and code ones that open in the code view (a Python script, a command "
+                "line tool, a FastAPI endpoint, JavaScript with tests, an HTML page, a "
+                "SQL schema, a README, a notebook of cells and a p5.js sketch)."
             ),
             "badge": {"label": "Templates", "section": "templates"},
         },

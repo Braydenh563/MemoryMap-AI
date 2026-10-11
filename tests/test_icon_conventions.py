@@ -37,6 +37,7 @@ STRAY_OVERFLOW = ("dots-three-circle", "dots-three-outline", "dots-three-circle-
 VERTICAL_KEBABS = {
     "categories-panel.js": 1,  # Manage categories, one row per category
     "documents.js": 2,  # the documents rail's rows; a history version's row (Brief 76)
+    "documents-codekit.js": 1,  # a saved snippet's row in the code panel's narrow column (INBOX 788)
     "link-types.js": 1,  # the relation types list
     "note-cards.js": 1,  # a note's connection rows
     "note-properties.js": 1,  # the note types list

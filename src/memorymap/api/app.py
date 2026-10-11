@@ -94,6 +94,8 @@ from memorymap.api import (
     routes_websearch,
     routes_whiteboard,
     routes_board_library,
+    routes_code_snippets,
+    routes_code_assist,
     routes_board_history,
     routes_map_suggest,
     routes_map_from_notes,
@@ -1313,6 +1315,8 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_library.router, dependencies=locked)
     app.include_router(routes_whiteboard.router, dependencies=locked)
     app.include_router(routes_board_library.router, dependencies=locked)
+    app.include_router(routes_code_snippets.router, dependencies=locked)
+    app.include_router(routes_code_assist.router, dependencies=locked)
     app.include_router(routes_board_history.router, dependencies=locked)
     app.include_router(routes_map_suggest.router, dependencies=locked)
     app.include_router(routes_map_from_notes.router, dependencies=locked)

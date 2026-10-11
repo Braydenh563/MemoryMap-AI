@@ -69,9 +69,20 @@
   max-width: none;
 }
 
+/* **A code file uses the pane's width** (INBOX 788; measured by the docsui
+   agent and again by `codedocs.js`: a .py at 1440 drew 724px of a 1,090px
+   pane, centred). Code has no reading measure: a line is as long as it is,
+   and its gutter belongs at the pane's edge as VS Code puts it. The cap only
+   stops a line running across an ultrawide window; prose keeps its measure
+   (the rules below are `:not(.doc-content-code)`). */
+.doc-editor .cm-editor.doc-content-code {
+  max-width: min(100%, 100rem);
+  margin-inline: 0;
+}
+
 /* **A document is a page** (DOCUMENTS_PLAN 17a). Prose gets a margin either
    side of its text and a measure counted in characters; a code file keeps the
-   narrow inset and the older cap, because its line numbers sit against the
+   narrow inset (and has the pane's width, above), because its line numbers sit against the
    text they count and a 2rem gap between a number and its line reads as two
    columns rather than one.
 

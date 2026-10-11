@@ -4751,6 +4751,12 @@ Link to another note with [[its first few words]]."></textarea>
                  (DOCUMENTS_PLAN 25 row 2, docRunSyncAvailability). -->
             <button id="doc-code-run-why" class="linklike small hidden" type="button"
               title="Open Settings, Packages, at Run Python files">Install Python in Settings, Packages</button>
+            <!-- The code panel's way in (INBOX 788): a code file only
+                 (`.doc-code-only`, hidden for prose by library-lazy.css). -->
+            <button id="doc-code-assist-open" class="ghost small doc-code-only" type="button" aria-controls="doc-code-side" data-side="assist" aria-expanded="false"
+              title="Assistant: explain, fix, write tests or refactor the selection or the file" aria-label="Assistant"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> <span class="doc-ai-label">Assistant</span></button>
+            <button id="doc-code-snippets-open" class="ghost small doc-code-only" type="button" aria-controls="doc-code-side" data-side="snippets" aria-expanded="false"
+              title="Snippets: insert one at the caret, or save the selection as one" aria-label="Snippets"><i class="ph ph-puzzle-piece ph-lead" aria-hidden="true"></i> <span class="doc-ai-label">Snippets</span></button>
             <!-- Export and delete, folded away. Same `<details>` disclosure
                  the Library's image tiles use, for the same reason: the
                  browser gives the open/close, the keyboard handling and the
@@ -5115,6 +5121,90 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- The margin reader's column (margin-reader.js): at most three
                  cards about the paragraph under the caret, from your notes. -->
             <aside id="doc-margin" class="doc-margin hidden" aria-label="Margin reader" aria-live="polite"></aside>
+            <!-- **The code panel** (INBOX 788): a column beside a code file's
+                 editor, VS Code's secondary side bar, holding the snippets
+                 library (the owner: "maybe even add a code modules library
+                 like with the whiteboard and mindmap??"). The margin
+                 reader's place in the row (`.doc-margin`'s recipe), under
+                 the editor below 1100px. Drawn by documents-codekit.js;
+                 snippets are stored notebook-wide through `/code-snippets`
+                 (routes_code_snippets.py). -->
+            <aside id="doc-code-side" class="doc-code-side hidden" aria-label="Code panel">
+              <div class="doc-code-side-head">
+                <div class="tabs-line" id="doc-code-side-tabs" role="tablist" aria-label="Code panel sections">
+                  <button role="tab" data-side="assist" aria-selected="false" tabindex="-1"
+                    aria-controls="doc-code-assist">Assistant</button>
+                  <button role="tab" data-side="snippets" aria-selected="true"
+                    aria-controls="doc-code-snippets">Snippets</button>
+                </div>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="doc-code-side-help" aria-controls="doc-code-side-help" aria-expanded="false"
+                  title="About the code panel" aria-label="About the code panel"><i class="ph ph-question" aria-hidden="true"></i></button>
+                <button type="button" id="doc-code-side-close" class="icon-only ghost small dialog-head-btn"
+                  title="Close the code panel" aria-label="Close the code panel"><i class="ph ph-x" aria-hidden="true"></i></button>
+              </div>
+              <div class="help-body hidden" id="doc-code-side-help" role="dialog" aria-label="About the code panel">
+                <p>Assistant: Explain, Fix, Write tests and Refactor work on the
+                  selected lines, or the whole file when nothing is selected. A change
+                  comes back as a diff: Apply puts it in the editor, where Ctrl+Z takes
+                  it out, and Reject leaves the file as it is.</p>
+                <p>With no model, Fix applies the quick fix at the caret, and Quick fix,
+                  Format, Run tests and Find usages work as they are; a question goes to
+                  the needle extra when it is installed, which picks one of those tools.</p>
+                <p>Snippets: pick a row, or press Enter on it, to insert it at the
+                  caret; Ctrl+Z takes it out. Built-in rows have stops that Tab walks.</p>
+                <p>Select some code and press Save selection to keep it; words with
+                  a # in its name become tags ("Read a file #io"). The search matches
+                  names, tags and languages, and this file's language is listed first.
+                  Snippets belong to the notebook, not to one document.</p>
+              </div>
+              <!-- **The coding assistant** (INBOX 788, the owner: "a way to better
+                   interact with the ai as a coding asistant like in vs code??").
+                   Asks go to `/documents/{id}/code-assist` (ai/code_assist.py),
+                   the documents feature's model: one provider path. -->
+              <section id="doc-code-assist" class="doc-code-side-section hidden" role="tabpanel" aria-label="Assistant">
+                <p id="doc-assist-scope" class="muted text-sm doc-assist-scope"></p>
+                <div class="doc-assist-asks" role="group" aria-label="Ask the model">
+                  <button type="button" class="ghost small" data-assist="explain"
+                    data-needs-model="Explaining code needs a model" data-model-offer="Quick fix, Format, Run tests and Find usages below work without one."
+                    title="Explain the selected lines, or the file">Explain</button>
+                  <button type="button" class="ghost small" data-assist="fix"
+                    title="Fix the problem at the caret: the model's fix, or the quick fix with no model">Fix</button>
+                  <button type="button" class="ghost small" data-assist="tests"
+                    data-needs-model="Writing tests needs a model" data-model-offer="Run tests below works without one."
+                    title="Write tests for the selected lines, or the file">Write tests</button>
+                  <button type="button" class="ghost small" data-assist="refactor"
+                    data-needs-model="Refactoring needs a model" data-model-offer="Format below works without one."
+                    title="Make the selected lines, or the file, clearer">Refactor</button>
+                </div>
+                <form id="doc-assist-form" class="doc-assist-form">
+                  <input id="doc-assist-question" type="text" maxlength="2000" autocomplete="off"
+                    placeholder="Ask about this code…" aria-label="Ask about this code">
+                  <button type="submit" id="doc-assist-send" class="small accent icon-only" title="Ask (Enter)" aria-label="Ask"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
+                </form>
+                <p id="doc-assist-model-line" class="muted text-sm hidden">No model is connected: Explain, Write tests and Refactor need one. Fix uses the quick fix, and the tools below work as they are.</p>
+                <div class="doc-assist-tools" role="group" aria-label="Tools that need no model">
+                  <button type="button" class="ghost small" data-assist-tool="quick_fix" title="The quick fixes for the problem at the caret (Alt+Enter)"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Quick fix</button>
+                  <button type="button" class="ghost small" data-assist-tool="format_code" title="Format the selected lines, or the file (Shift+Alt+F)"><i class="ph ph-brackets-curly ph-lead" aria-hidden="true"></i> Format</button>
+                  <button type="button" class="ghost small" data-assist-tool="run_tests" title="Run the tests in this file"><i class="ph ph-flask ph-lead" aria-hidden="true"></i> Run tests</button>
+                  <button type="button" class="ghost small" data-assist-tool="find_usages" title="List every use of the name at the caret (Shift+F12)"><i class="ph ph-list-magnifying-glass ph-lead" aria-hidden="true"></i> Find usages</button>
+                </div>
+                <div id="doc-assist-answer" class="doc-assist-answer" aria-live="polite"></div>
+              </section>
+              <section id="doc-code-snippets" class="doc-code-side-section" role="tabpanel" aria-label="Snippets">
+                <div class="doc-code-side-bar">
+                  <div class="search-field">
+                    <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+                    <input id="doc-snippet-search" type="search" class="search-field-input"
+                      placeholder="Search snippets…" aria-label="Search snippets" autocomplete="off" spellcheck="false">
+                  </div>
+                  <button id="doc-snippet-save" class="ghost small" type="button"
+                    title="Save the selected code as a snippet"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>Save selection</button>
+                </div>
+                <ul id="doc-snippet-list" class="doc-snippet-list" aria-label="Snippets"></ul>
+                <p id="doc-snippet-empty" class="muted empty-line hidden"></p>
+              </section>
+            </aside>
           </div>
           <div id="doc-preview" class="doc-preview markdown-body hidden" aria-live="off"></div>
         </div>

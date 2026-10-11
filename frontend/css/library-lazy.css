@@ -4510,3 +4510,262 @@ button.ghost.doc-template-choice.wb-template-choice {
     animation-duration: 0.15s;
   }
 }
+
+/* The template gallery's group heads (INBOX 788, `openDocTemplateDialog`):
+   Writing, then Code. A quiet label over its rows, never a row itself. */
+.doc-template-group {
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  font-weight: 600;
+}
+
+.doc-template-group:first-child {
+  padding-top: 0;
+}
+
+/* **Code as documents** (INBOX 788, documents-codekit.js). A control for a
+   code file only (the dock's Snippets and Assistant) is gone while the open
+   document is prose, and so is the code panel; `.doc-is-code` is
+   `syncDocFileType`'s. */
+#tab-documents:not(.doc-is-code) :is(.doc-code-only, .doc-code-side) {
+  display: none;
+}
+
+/* The code panel: the margin reader's recipe (a column in `.doc-source-wrap`'s
+   row with a divider, no card), wider because it holds lists and answers, and
+   under the editor below 1100px. One scroller: the section, never the panel. */
+.doc-code-side {
+  flex: 0 0 20rem;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--space-3);
+  border-left: 1px solid var(--divider);
+}
+
+.doc-code-side.hidden,
+.doc-code-side-section.hidden {
+  display: none;
+}
+
+.doc-code-side-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.doc-code-side-head > .tabs-line {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.doc-code-side-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-code-side-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.doc-code-side-bar > .search-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Under the editor below 1100px: a column, the editor keeping at least half
+   the height. Wrapping (the margin reader's way) let the editor grow to its
+   text, 1,784px for a 60-line file, and pushed the panel off the screen. */
+@media (max-width: 1099.98px) {
+  .doc-source-wrap.has-code-side {
+    flex-direction: column;
+  }
+
+  .doc-source-wrap.has-code-side > .doc-editor {
+    flex: 1 1 50%;
+    min-height: 0;
+  }
+
+  .doc-code-side {
+    flex: 1 1 50%;
+    border-left: 0;
+    border-top: 1px solid var(--divider);
+  }
+}
+
+/* The Snippets tab: the sidebar-row recipe (a neutral hover, the current row
+   never tinted by the pointer), a group head per language, a ⋮ on the
+   person's own rows that shows under the pointer and always on touch. */
+.doc-snippet-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--row-gap);
+}
+
+.doc-snippet-group {
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  font-weight: 600;
+}
+
+.doc-snippet-group:first-child {
+  padding-top: 0;
+}
+
+.doc-snippet-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.doc-snippet-row {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--row-h);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.doc-snippet-row:hover,
+.doc-snippet-row:focus-visible {
+  background: var(--row-hover-bg);
+}
+
+.doc-snippet-name,
+.doc-snippet-facts {
+  grid-column: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-snippet-facts {
+  font-family: var(--mono, ui-monospace, monospace);
+}
+
+.doc-snippet-row > .chip.item-label {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.doc-snippet-item > .menu-wrap {
+  opacity: 0;
+  transition: opacity var(--ui-fast) var(--ease-out);
+}
+
+.doc-snippet-item:hover > .menu-wrap,
+.doc-snippet-item:focus-within > .menu-wrap {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .doc-snippet-item > .menu-wrap {
+    opacity: 1;
+  }
+}
+
+.doc-snippet-more {
+  margin: var(--space-2) var(--space-3);
+}
+
+/* On a phone the code panel is moved into a bottom sheet (`docCodeSideSheet`):
+   the sheet's own head names it and closes it, so the panel's X goes, and the
+   panel fills the card with its section the one scroller. */
+.sheet-card:has(> .doc-code-side) {
+  height: min(75vh, 40rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-card > .doc-code-side {
+  flex: 1 1 auto;
+  padding: 0;
+  border: 0;
+}
+
+.sheet-card > .doc-code-side #doc-code-side-close {
+  display: none;
+}
+
+/* A code file's AI control is the code panel's Assistant (INBOX 788): the
+   prose AI edit beside it would be a second sparkle for the same file. */
+#tab-documents.doc-is-code #doc-ai {
+  display: none;
+}
+
+/* The Assistant tab: the scope line, the four asks as a wrapping row of quiet
+   buttons, the question field and its send, the no-model tools, then the
+   answer (prose, a diff with Apply and Reject, or one line). */
+.doc-assist-scope {
+  margin: var(--space-2) 0;
+}
+
+.doc-assist-asks,
+.doc-assist-tools,
+.doc-assist-apply {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.doc-assist-form {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.doc-assist-form > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.doc-assist-tools {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--divider);
+}
+
+.doc-assist-answer {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  min-width: 0;
+}
+
+.doc-assist-answer > .doc-diff {
+  max-height: none;
+  overflow-x: auto;
+}
+
+.doc-assist-prose {
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+#doc-assist-model-line {
+  margin: 0 0 var(--space-2);
+}
+
+@media (pointer: coarse) {
+  .doc-assist-form > input {
+    min-height: var(--target-min);
+  }
+}

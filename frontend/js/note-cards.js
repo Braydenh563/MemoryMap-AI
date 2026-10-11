@@ -2021,8 +2021,8 @@ function entryItem(entry, options = {}) {
   const edited = entry.edited_at && entry.edited_at !== stamp ? entry.edited_at : null;
   const byEdit = edited && noteSort === "edited";
   date.textContent = byEdit ? `edited ${relativeTime(edited)}` : relativeTime(stamp);
-  date.title = `Written ${new Date(stamp).toLocaleString()}` + // exact on hover
-    (edited ? `, edited ${new Date(edited).toLocaleString()}` : "");
+  date.title = `Written ${whenText(stamp)}` + // exact on hover
+    (edited ? `, edited ${whenText(edited)}` : "");
   //: **The time ends the details line, on every card** (INBOX 446: the
   //: corner faded it whenever the card was pointed at; INBOX 455 (1): a line
   //: that wrapped put it on a line of its own). The line never wraps now

@@ -89,7 +89,7 @@ function timelineCalUrl(first, last) {
   const kinds = timelineCal.only ? [timelineCal.only] : timelineKindChoice();
   const kind = kinds.length < TIMELINE_KINDS.length ? `&kind=${kinds.join(",")}` : "";
   return `/timeline?scale=day&group=${$("timeline-group").value}&start=${utc(first, "00:00:00")}`
-    + `&end=${utc(last, "23:59:59")}&tz=${-new Date().getTimezoneOffset()}&limit=1000${kind}`;
+    + `&end=${utc(last, "23:59:59")}&tz=${-new Date().getTimezoneOffset()}&limit=1000&also=true${kind}`;
 }
 
 async function timelineCalFetch(url) {
@@ -119,6 +119,17 @@ function timelineCalDays(rows) {
     if (row.kind === "reminder" || row.placedBy === "meeting" || (row.placedBy === "mentioned" && !row.allDay)) day.items.push(row);
     else if (!day.page && timelineIsDailyNote(row)) day.page = row;
     else day.dots.push(row);
+  }
+  //: A note that names more than one day sits on the first and shows an "also
+  //: on" chip on each other (decision 23): a ghost of the row, not a second row.
+  for (const row of rows) {
+    for (const key of row.alsoOn || []) {
+      if (!days.has(key)) days.set(key, { rows: [], items: [], dots: [], page: null });
+      const day = days.get(key);
+      const ghost = { ...row, key: `${row.key}@${key}`, also: true, when: timelineCalDate(key), allDay: true };
+      day.rows.push(ghost);
+      day.dots.push(ghost);
+    }
   }
   for (const day of days.values()) day.items.sort((a, b) => a.when - b.when);
   return days;
@@ -160,8 +171,14 @@ async function paintTimelineCalendar() {
 }
 
 function timelineCalDraw(box, span, first, last) {
-  const rows = timelineVisibleRows(timelineCal.rows);
-  const days = timelineCalDays(rows);
+  const all = timelineVisibleRows(timelineCal.rows);
+  const days = timelineCalDays(all);
+  //: A row whose first day is outside the window came in for a later day it names.
+  const rows = all.filter((row) => {
+    const key = timelineBucketKey(row.when, "day");
+    return key >= first && key <= last;
+  });
+  const ghosts = [...days.entries()].reduce((n, [key, day]) => n + (key >= first && key <= last ? day.rows.filter((r) => r.also).length : 0), 0);
   const head = timelineCalHead(span, first);
   const feed = $("timeline-feed");
   feed.classList.toggle("hidden", span !== "agenda");
@@ -177,7 +194,8 @@ function timelineCalDraw(box, span, first, last) {
   const period = span === "day" ? TIMELINE_CAL_LONG.format(timelineCalDate(first))
     : span === "week" ? `${TIMELINE_CAL_SHORT.format(timelineCalDate(first))} to ${TIMELINE_CAL_SHORT.format(timelineCalDate(last))}`
       : TIMELINE_CAL_MONTH.format(timelineCalDate(first));
-  $("timeline-count").textContent = `${rows.length}${timelineCal.more ? "+" : ""} item${rows.length === 1 ? "" : "s"} · ${period}`;
+  const shown = rows.length + ghosts;
+  $("timeline-count").textContent = `${shown}${timelineCal.more ? "+" : ""} item${shown === 1 ? "" : "s"} · ${period}`;
   //: The hour rows open on the working day the first time a week is drawn,
   //: not at midnight; a repaint keeps where the reader scrolled to.
   const drawn = `${span}:${first}`;
@@ -446,6 +464,7 @@ function timelineCalDots(key, count, stop) {
 //: A row's glyph: a reminder's bell, a meeting's people, else the note's own
 //: (a note that talks about the day, a document, a map, or a note).
 function timelineCalGlyph(row) {
+  if (row.also) return "ph:arrow-bend-down-right";
   if (row.kind === "reminder") return "ph:bell-simple";
   if (row.placedBy === "meeting") return "ph:users-three";
   if (row.kind === "document") return "ph:file-text";
@@ -457,14 +476,16 @@ function timelineCalItem(row, stop) {
   //: A written note's moment is when it was typed, which is not its time on the grid.
   const clocked = row.kind === "reminder" || row.placedBy === "meeting" || row.placedBy === "mentioned";
   const time = row.allDay || !clocked ? "" : TIMELINE_CAL_TIME.format(row.when);
-  const item = smallButton(`${timelineCalGlyph(row)} ${time ? `${time} ` : ""}${row.title}`, `${row.title}${time ? `, ${time}` : ""}`, () => timelineCalOpenRow(row));
+  const item = smallButton(`${timelineCalGlyph(row)} ${time ? `${time} ` : ""}${row.title}`, row.also ? `Also on this day: ${row.title}` : `${row.title}${time ? `, ${time}` : ""}`, () => timelineCalOpenRow(row));
+  item.classList.toggle("is-also", Boolean(row.also));
   const timed = row.kind === "reminder" || row.placedBy === "meeting";
   item.classList.add("timeline-cal-item", `is-${timed ? row.kind === "reminder" ? "reminder" : "meeting" : "note"}`);
   item.classList.toggle("is-done", row.done === true);
   item.dataset.calKey = row.key;
   item.tabIndex = stop ? 0 : -1;
-  //: A meeting or a note drags too, so the drop can say why it stays (decision 16).
-  item.draggable = true;
+  //: A meeting or a note drags too, so the drop can say why it stays (decision 16);
+  //: an "also on" chip is not the note's row and does not.
+  item.draggable = !row.also;
   return item;
 }
 

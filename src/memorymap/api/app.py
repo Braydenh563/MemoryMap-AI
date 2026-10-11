@@ -686,6 +686,7 @@ def _startup_maintenance() -> None:
             ("_backup_if_due", "Back up if today's is due"),
             ("_choose_chat_model_if_missing", "Choose a chat model you have"),
             ("_install_pending_extras", "Install the packages picked in Setup"),
+            ("_read_note_dates", "Queue reading the dates written in your notes"),
         )
         run.plan([words for _, words in steps])
         for index, (step, words) in enumerate(steps):
@@ -697,6 +698,14 @@ def _startup_maintenance() -> None:
                 run.say(f"That step did not finish: {words.lower()}. The server log has the detail.")
             run.step(index + 1)
         run.result = "at start"
+
+
+def _read_note_dates() -> None:
+    """Notes saved before written-out dates were read get them read once, as
+    a background job that resumes where it stopped (`entry/redate.py`)."""
+    from memorymap.entry import redate
+
+    redate.enqueue_if_pending()
 
 
 def _check_notebook_file() -> None:

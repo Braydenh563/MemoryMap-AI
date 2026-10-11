@@ -1056,7 +1056,7 @@ function reminderItem(reminder, label) {
       };
       pushUndo("Rescheduled a reminder", put(before), put({ due_at: rolled.due_at, done: false }));
       loadReminders();
-      toast(`Rescheduled to ${new Date(rolled.due_at).toLocaleString()}.`);
+      toast(`Rescheduled to ${whenText(rolled.due_at)}.`);
       return;
     }
     await reminderPutUndoably(reminder.id, checkbox.checked ? "Completed a reminder" : "Reopened a reminder", before, { done: checkbox.checked });
@@ -1098,7 +1098,7 @@ function reminderItem(reminder, label) {
   const due = document.createElement("span");
   due.className = "entry-date";
   due.textContent = relativeWhen(reminder.due_at); // "in 2 hours" / "3 days ago"
-  due.title = new Date(reminder.due_at).toLocaleString(); // exact on hover
+  due.title = whenText(reminder.due_at); // exact on hover
   row.appendChild(due);
 
   const actions = document.createElement("span");
@@ -1407,7 +1407,7 @@ async function snoozeReminderTo(reminder, when) {
     await put({ due_at: when.toISOString(), done: false });
     loadReminders();
   });
-  toastAction(`Snoozed to ${when.toLocaleString()}.`, "Undo", async () => {
+  toastAction(`Snoozed to ${whenText(when)}.`, "Undo", async () => {
     settleUndoFromToast(action);
     await back();
   });

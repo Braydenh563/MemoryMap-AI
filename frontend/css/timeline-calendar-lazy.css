@@ -128,6 +128,11 @@
 .timeline-cal-cell .ghost.small.timeline-cal-more[hidden] {
   display: none;
 }
+/* A note's later date: the same chip, quieter, because the note sits elsewhere. */
+.timeline-cal-cell .ghost.small.timeline-cal-item.is-also {
+  color: var(--muted);
+  background: none;
+}
 .timeline-cal-item.is-done .ph-text {
   text-decoration: line-through;
   color: var(--muted);

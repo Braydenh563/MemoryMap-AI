@@ -74,6 +74,8 @@ KINDS: dict[str, str] = {
     "embedding-model": "Embedding model download",
     "embed-switch": "Embedding model switch",
     "maintenance": "Housekeeping",
+    #: Notes saved before written-out dates were read (`entry/redate.py`).
+    "redate": "Reading dates in notes",
     "extra": "Package install",
     "searxng": "SearXNG setup",
 }

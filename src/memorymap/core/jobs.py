@@ -123,6 +123,9 @@ KIND_LANES: dict[str, str] = {
     #: Tidy's whole-notebook link reason pass (INBOX 691): no model, but a
     #: notebook-wide walk, so it waits behind nothing a person is waiting on.
     "tidy-link-reasons": "batch",
+    #: Reading the dates in notes saved before `timewords` read written-out
+    #: ones (`entry/redate.py`): a notebook-wide walk, once.
+    "redate": "batch",
     #: The reminder notifier's loop (`core/reminder_notifier.py`).
     "reminder-notifier": "notify",
 }
@@ -150,7 +153,7 @@ QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex
 #: ending (a pass, the bench, a re-index), or never ends (the reminder
 #: loop): the pool does not open a second ledger run around them.
 OWN_RUN_KINDS = frozenset({
-    "pass", "maintenance", "bench", "tidy-link-reasons", "reindex", "embed-switch", "extras",
+    "pass", "maintenance", "bench", "tidy-link-reasons", "redate", "reindex", "embed-switch", "extras",
     "reminder-notifier", "ledger",
 })
 
@@ -196,6 +199,7 @@ LABELS: dict[str, str] = {
     "bench": "Timing a model",
     "pass": "Running a scheduled pass",
     "tidy-link-reasons": "Naming link reasons",
+    "redate": "Reading dates in notes",
 }
 
 

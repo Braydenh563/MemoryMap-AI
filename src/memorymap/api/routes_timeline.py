@@ -183,6 +183,7 @@ def _place_notes(
     spaces: dict,
     links: dict,
     meetings: dict | None = None,
+    every: dict | None = None,
 ) -> None:
     """One feed row per note, placed by the date the note is *about*.
 
@@ -237,6 +238,9 @@ def _place_notes(
                 # Said out loud so the view can be honest: this note is here
                 # because of what it talks about, not when it was typed.
                 "placed_by": "meeting" if meeting else "mentioned" if mention else "written",
+                #: The other days the note names (the row sits on one): the
+                #: calendar draws an "also on" chip there (decision 23).
+                "also_on": _also_on(every, entry.id, when),
                 "phrase": mention.phrase if mention else "",
                 "written_at": entry.created_at.isoformat(),
                 "category": categories.get(entry.category_id, manager.UNCATEGORISED),
@@ -258,6 +262,16 @@ def _place_notes(
                 "preview": _clip(text),
             }
         )
+
+
+def _also_on(every: dict | None, entry_id: int, when: dict) -> list[str]:
+    """The days a note names besides the one it is placed on, in text order."""
+    placed = when.get("date") or str(when.get("at", ""))[:10]
+    seen: list[str] = []
+    for day in (every or {}).get(entry_id, []):
+        if day != placed and day not in seen:
+            seen.append(day)
+    return seen
 
 
 class _MeetingAt:
@@ -400,6 +414,10 @@ def timeline(
     #: this day widget's rule, so the two never disagree.
     on: str | None = Query(default=None, pattern=r"^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"),
     tz: int = Query(default=0, ge=-840, le=840),
+    #: The calendar's window also holds a note that names a date in it as a
+    #: second or later date (its row stays on the first; `also_on` lists the
+    #: rest), so the grid can show it there too (TIMELINE_PLAN decision 23).
+    also: bool = False,
     session: Session = Depends(get_session),
 ) -> dict:
     """The notebook on a time axis, in bands.
@@ -464,7 +482,7 @@ def timeline(
             )
         return statement
 
-    query = _ranged_entries(query, in_range, (start, end, on), since, until, tz)
+    query = _ranged_entries(query, in_range, (start, end, on), since, until, tz, also)
 
     # The density strip is the whole range, however little of it this page
     # holds: it is the overview a reader drags to get somewhere, so a strip
@@ -553,6 +571,7 @@ def timeline(
     # What each note is *about*, where it said so. One query rather than one
     # per note: a timeline over a year of notes would otherwise be hundreds.
     resolved: dict[int, EntryDate] = {}
+    every: dict[int, list[str]] = {}
     if entries:
         rows = session.scalars(
             select(EntryDate)
@@ -561,6 +580,7 @@ def timeline(
         )
         for row in rows:
             resolved.setdefault(row.entry_id, row)
+            every.setdefault(row.entry_id, []).append(row.at.date().isoformat())
 
     meetings = _meeting_dates(session, [entry.id for entry in entries])
 
@@ -575,7 +595,7 @@ def timeline(
     links = manager.links_for_entries_bulk(session, [entry.id for entry in entries])
 
     placed = []
-    _place_notes(entries, placed, scale, resolved, categories, spaces, links, meetings)
+    _place_notes(entries, placed, scale, resolved, categories, spaces, links, meetings, every)
 
     _place_documents(documents_found, placed, scale, spaces)
     _place_reminders(reminders_found, placed, scale, spaces)
@@ -677,33 +697,46 @@ def _meeting_date():
     )
 
 
-def _ranged_entries(query: Select, in_range, asked: tuple, since, until, tz: int) -> Select:
-    """The notes in range: by placement for an explicit window (`start` and
-    `end`, no `on`), else by when they were written, as the feed reads."""
+def _ranged_entries(query: Select, in_range, asked: tuple, since, until, tz: int, also: bool = False) -> Select:
+    """The notes in range, by where they *sit*: a meeting's own date, else the
+    date the note mentions, else when it was written. An explicit window
+    (`start` and `end`) and the feed's "last N days" are the same rule, so a
+    note about a day this month written years ago is in the feed and the
+    calendar alike (TIMELINE_PLAN decision 24). "On this day" (`on`) is a
+    question about when things were written, and keeps that meaning."""
     start, end, on = asked
-    if start and end and not on:
-        return _entries_in_window(query, since, until, tz)
-    return in_range(query, Entry.created_at)
+    if on or (since is None and until is None):
+        return in_range(query, Entry.created_at)
+    return _entries_in_window(query, since, until, tz, also)
 
 
-def _entries_in_window(query: Select, since: datetime, until: datetime, tz: int) -> Select:
-    """Notes that *sit* in an explicit window (TIMELINE_PLAN section 9).
+def _entries_in_window(query: Select, since: datetime | None, until: datetime | None, tz: int, also: bool = False) -> Select:
+    """Notes that *sit* in a window (TIMELINE_PLAN section 9).
 
-    A window with both ends is a question about days on a calendar, so a note
-    is in it by the day its row is placed on: a meeting's own date, else the
-    date it mentions, else when it was written. Measured on the calendar sweep: a day
-    page written in March and titled for today was on the feed's today and
-    missing from the calendar's. A mentioned date is the writer's wall clock
-    with no zone, so it is compared with the window moved by `tz`.
+    A note is in it by the day its row is placed on: a meeting's own date, else
+    the date it mentions, else when it was written. Measured on the calendar
+    sweep: a day page written in March and titled for today was on the feed's
+    today and missing from the calendar's. A mentioned date is the writer's
+    wall clock with no zone, so it is compared with the window moved by `tz`.
+    A window with one end open (the feed's "last year" has no end) is bounded
+    on the other side only.
+
+    `also`: a note that names a date in the window as a later date counts too
+    (its row still sits on the first, so the feed never asks for this).
     """
     first = func.coalesce(_meeting_date(), _first_mentioned())
     wall = timedelta(minutes=tz)
-    return query.where(
-        or_(
-            and_(first.is_(None), Entry.created_at >= since, Entry.created_at <= until),
-            and_(first >= since + wall, first <= until + wall),
-        )
-    )
+    written = [Entry.created_at >= since] if since is not None else []
+    written += [Entry.created_at <= until] if until is not None else []
+    placed = [first >= since + wall] if since is not None else []
+    placed += [first <= until + wall] if until is not None else []
+    clauses = [and_(first.is_(None), *written), and_(first.is_not(None), *placed)]
+    if also:
+        named = [EntryDate.entry_id == Entry.id]
+        named += [EntryDate.at >= since + wall] if since is not None else []
+        named += [EntryDate.at <= until + wall] if until is not None else []
+        clauses.append(select(EntryDate.id).where(*named).correlate(Entry).exists())
+    return query.where(or_(*clauses))
 
 
 def _density(session: Session, ranged: Select) -> dict[str, int]:

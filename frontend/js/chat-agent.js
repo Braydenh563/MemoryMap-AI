@@ -1495,7 +1495,7 @@ const CARD_KINDS = {
       line.className = "tool-preview-body";
       const due = item.due_at ? new Date(item.due_at) : null;
       line.textContent = due && !Number.isNaN(due.valueOf())
-        ? `${item.done ? "Done" : "Due"} ${due.toLocaleString()}`
+        ? `${item.done ? "Done" : "Due"} ${whenText(due)}`
         : item.done
           ? "Done"
           : "No due date.";

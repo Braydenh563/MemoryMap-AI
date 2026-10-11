@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5662, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4770, test files 1085, tests 9952, plan headings 996.
+Counts: frontend functions 5663, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4776, test files 1087, tests 9963, plan headings 996.
 
-## Frontend functions (5662)
+## Frontend functions (5663)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -1013,119 +1013,120 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `syncSketchSizeReadout` | frontend/js/media.js:260 |
 | `toggleDictation` | frontend/js/media.js:650 |
 
-### frontend/js/status.js (109)
+### frontend/js/status.js (110)
 
 | Name | File:line |
 |---|---|
 | `agentActivityNotice` | frontend/js/status.js:642 |
 | `agentActivityQuiet` | frontend/js/status.js:634 |
-| `agentModeAvailable` | frontend/js/status.js:2576 |
-| `aiIsOff` | frontend/js/status.js:1824 |
-| `aiOffGlyph` | frontend/js/status.js:2193 |
-| `aiOfflineDismissed` | frontend/js/status.js:1999 |
-| `aiStatusState` | frontend/js/status.js:2080 |
+| `agentModeAvailable` | frontend/js/status.js:2587 |
+| `aiIsOff` | frontend/js/status.js:1835 |
+| `aiOffGlyph` | frontend/js/status.js:2204 |
+| `aiOfflineDismissed` | frontend/js/status.js:2010 |
+| `aiStatusState` | frontend/js/status.js:2091 |
 | `announcedReminders` | frontend/js/status.js:42 |
-| `appStackIsNewer` | frontend/js/status.js:1370 |
+| `appStackIsNewer` | frontend/js/status.js:1381 |
 | `armReminderTimer` | frontend/js/status.js:517 |
 | `askNotificationPermission` | frontend/js/status.js:387 |
-| `backendLabel` | frontend/js/status.js:2639 |
-| `boardHistoryActive` | frontend/js/status.js:1339 |
+| `backendLabel` | frontend/js/status.js:2650 |
+| `boardHistoryActive` | frontend/js/status.js:1350 |
 | `checkDueReminders` | frontend/js/status.js:533 |
-| `closeModelGate` | frontend/js/status.js:1841 |
+| `closeModelGate` | frontend/js/status.js:1852 |
 | `closeNotifications` | frontend/js/status.js:367 |
-| `dismissAiOffline` | frontend/js/status.js:2008 |
+| `dismissAiOffline` | frontend/js/status.js:2019 |
 | `dismissToast` | frontend/js/status.js:745 |
 | `dismissedNotificationIds` | frontend/js/status.js:241 |
 | `emailSupportReport` | frontend/js/status.js:788 |
 | `forcedReadIds` | frontend/js/status.js:202 |
 | `forcedUnreadIds` | frontend/js/status.js:171 |
-| `insightLine` | frontend/js/status.js:1266 |
-| `insightSend` | frontend/js/status.js:1239 |
-| `insightVerdicts` | frontend/js/status.js:1243 |
-| `integrityWords` | frontend/js/status.js:1078 |
+| `insightLine` | frontend/js/status.js:1277 |
+| `insightSend` | frontend/js/status.js:1250 |
+| `insightVerdicts` | frontend/js/status.js:1254 |
+| `integrityWords` | frontend/js/status.js:1089 |
 | `isNotificationUnread` | frontend/js/status.js:220 |
-| `jobsRunning` | frontend/js/status.js:1688 |
+| `jobsRunning` | frontend/js/status.js:1699 |
 | `keepToastAction` | frontend/js/status.js:346 |
-| `lastAnswerLine` | frontend/js/status.js:2215 |
-| `loadMostUsed` | frontend/js/status.js:1574 |
-| `loadRecentQuestions` | frontend/js/status.js:1547 |
-| `noteDamagedNotebook` | frontend/js/status.js:1082 |
-| `noteServerDown` | frontend/js/status.js:1138 |
-| `noteServerUp` | frontend/js/status.js:1147 |
-| `noticeTaskTransitions` | frontend/js/status.js:2885 |
+| `lastAnswerLine` | frontend/js/status.js:2226 |
+| `loadMostUsed` | frontend/js/status.js:1585 |
+| `loadRecentQuestions` | frontend/js/status.js:1558 |
+| `noteDamagedNotebook` | frontend/js/status.js:1093 |
+| `noteServerDown` | frontend/js/status.js:1149 |
+| `noteServerUp` | frontend/js/status.js:1158 |
+| `noticeTaskTransitions` | frontend/js/status.js:2896 |
 | `noticeUnwatchedAnswer` | frontend/js/status.js:677 |
 | `notificationsMuted` | frontend/js/status.js:619 |
 | `notificationsReadAt` | frontend/js/status.js:153 |
 | `notify` | frontend/js/status.js:461 |
-| `nudgeEmbeddingProblem` | frontend/js/status.js:2258 |
-| `offerUndo` | frontend/js/status.js:1281 |
-| `openModelGate` | frontend/js/status.js:1851 |
-| `openModelOffer` | frontend/js/status.js:1858 |
-| `openUndoHistoryMenu` | frontend/js/status.js:1488 |
-| `paintStatusItem` | frontend/js/status.js:2312 |
+| `nudgeEmbeddingProblem` | frontend/js/status.js:2269 |
+| `offerUndo` | frontend/js/status.js:1292 |
+| `openModelGate` | frontend/js/status.js:1862 |
+| `openModelOffer` | frontend/js/status.js:1869 |
+| `openUndoHistoryMenu` | frontend/js/status.js:1499 |
+| `paintStatusItem` | frontend/js/status.js:2323 |
 | `paintTitle` | frontend/js/status.js:494 |
-| `paintUndoDoor` | frontend/js/status.js:1448 |
-| `performRedo` | frontend/js/status.js:1402 |
-| `performUndo` | frontend/js/status.js:1379 |
+| `paintUndoDoor` | frontend/js/status.js:1459 |
+| `performRedo` | frontend/js/status.js:1413 |
+| `performUndo` | frontend/js/status.js:1390 |
 | `plainHttpError` | frontend/js/status.js:861 |
 | `playReminderChime` | frontend/js/status.js:427 |
-| `pollServerHealth` | frontend/js/status.js:1175 |
+| `pollServerHealth` | frontend/js/status.js:1186 |
 | `primeReminderAudio` | frontend/js/status.js:402 |
-| `pushEntryPutUndo` | frontend/js/status.js:1314 |
-| `pushUndo` | frontend/js/status.js:1212 |
+| `pushEntryPutUndo` | frontend/js/status.js:1325 |
+| `pushUndo` | frontend/js/status.js:1223 |
 | `recordNotification` | frontend/js/status.js:97 |
-| `refreshBackgroundTasks` | frontend/js/status.js:2814 |
-| `refreshModelStatus` | frontend/js/status.js:1716 |
+| `refreshBackgroundTasks` | frontend/js/status.js:2825 |
+| `refreshModelStatus` | frontend/js/status.js:1727 |
 | `rememberAnnounced` | frontend/js/status.js:50 |
 | `reminderNoticeKey` | frontend/js/status.js:237 |
 | `renderAgentActivityMode` | frontend/js/status.js:713 |
-| `renderAiOfflineNotice` | frontend/js/status.js:2023 |
-| `renderAiPill` | frontend/js/status.js:2223 |
-| `renderBackendPicker` | frontend/js/status.js:2649 |
-| `renderChatModeSeg` | frontend/js/status.js:2580 |
+| `renderAiOfflineNotice` | frontend/js/status.js:2034 |
+| `renderAiPill` | frontend/js/status.js:2234 |
+| `renderBackendPicker` | frontend/js/status.js:2660 |
+| `renderChatModeSeg` | frontend/js/status.js:2591 |
 | `renderNotifMuteToggle` | frontend/js/status.js:276 |
 | `renderNotificationBadge` | frontend/js/status.js:256 |
-| `renderSearchEngineHealth` | frontend/js/status.js:2505 |
-| `renderSettings` | frontend/js/status.js:2682 |
-| `renderStatusBar` | frontend/js/status.js:2348 |
-| `renderUndoBar` | frontend/js/status.js:1433 |
+| `renderSearchEngineHealth` | frontend/js/status.js:2516 |
+| `renderSettings` | frontend/js/status.js:2693 |
+| `renderStatusBar` | frontend/js/status.js:2359 |
+| `renderUndoBar` | frontend/js/status.js:1444 |
 | `reopenAnswerPanel` | frontend/js/status.js:692 |
-| `resetStatusCadence` | frontend/js/status.js:1638 |
-| `retryServerNow` | frontend/js/status.js:1188 |
-| `scheduleServerDownRetry` | frontend/js/status.js:1162 |
-| `scheduleUndoBar` | frontend/js/status.js:1425 |
-| `setChatMode` | frontend/js/status.js:2623 |
+| `resetStatusCadence` | frontend/js/status.js:1649 |
+| `retryServerNow` | frontend/js/status.js:1199 |
+| `scheduleServerDownRetry` | frontend/js/status.js:1173 |
+| `scheduleUndoBar` | frontend/js/status.js:1436 |
+| `setChatMode` | frontend/js/status.js:2634 |
 | `setForcedReadIds` | frontend/js/status.js:211 |
 | `setForcedUnreadIds` | frontend/js/status.js:180 |
 | `setTitleCount` | frontend/js/status.js:499 |
 | `setTitleView` | frontend/js/status.js:504 |
-| `settingsOpen` | frontend/js/status.js:1655 |
+| `settingsOpen` | frontend/js/status.js:1666 |
 | `settleNotification` | frontend/js/status.js:118 |
 | `settleStartedNotification` | frontend/js/status.js:138 |
-| `settleUndoFromToast` | frontend/js/status.js:1302 |
-| `showAgentNoModelHint` | frontend/js/status.js:2618 |
-| `showServerDownBanner` | frontend/js/status.js:1121 |
+| `settleUndoFromToast` | frontend/js/status.js:1313 |
+| `showAgentNoModelHint` | frontend/js/status.js:2629 |
+| `showServerDownBanner` | frontend/js/status.js:1132 |
 | `startReminderWatch` | frontend/js/status.js:596 |
 | `storedNotifications` | frontend/js/status.js:84 |
-| `surfaceHistory` | frontend/js/status.js:1352 |
-| `syncAgentPaletteAvailability` | frontend/js/status.js:2062 |
-| `syncModelGatedControls` | frontend/js/status.js:1905 |
+| `surfaceHistory` | frontend/js/status.js:1363 |
+| `syncAgentPaletteAvailability` | frontend/js/status.js:2073 |
+| `syncModelGatedControls` | frontend/js/status.js:1916 |
 | `syncNotifBlocked` | frontend/js/status.js:382 |
 | `taskEndingWords` | frontend/js/status.js:145 |
-| `taskKey` | frontend/js/status.js:2866 |
-| `toast` | frontend/js/status.js:924 |
-| `toastAction` | frontend/js/status.js:1058 |
-| `toastActionButton` | frontend/js/status.js:1038 |
-| `toastActions` | frontend/js/status.js:1029 |
+| `taskKey` | frontend/js/status.js:2877 |
+| `toast` | frontend/js/status.js:935 |
+| `toastAction` | frontend/js/status.js:1069 |
+| `toastActionButton` | frontend/js/status.js:1049 |
+| `toastActions` | frontend/js/status.js:1040 |
 | `toastCloseButton` | frontend/js/status.js:753 |
 | `toastHost` | frontend/js/status.js:830 |
-| `toastName` | frontend/js/status.js:912 |
-| `toastProgress` | frontend/js/status.js:994 |
+| `toastName` | frontend/js/status.js:923 |
+| `toastProgress` | frontend/js/status.js:1005 |
 | `toastStack` | frontend/js/status.js:729 |
-| `toggleAiStatusPopup` | frontend/js/status.js:2490 |
+| `toggleAiStatusPopup` | frontend/js/status.js:2501 |
 | `toggleNotificationMute` | frontend/js/status.js:292 |
 | `unreadNotifications` | frontend/js/status.js:250 |
-| `voiceLine` | frontend/js/status.js:918 |
+| `voiceLine` | frontend/js/status.js:929 |
+| `whenText` | frontend/js/status.js:918 |
 
 ### frontend/js/ai-tools.js (50)
 
@@ -1968,76 +1969,76 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `appendTimelineRows` | frontend/js/timeline.js:738 |
-| `applyTimelineRowTabOrder` | frontend/js/timeline.js:1422 |
-| `closeTimelineRow` | frontend/js/timeline.js:1638 |
-| `dailyNotePair` | frontend/js/timeline.js:1097 |
-| `dailyNoteTitle` | frontend/js/timeline.js:182 |
-| `drawTimelineScrubber` | frontend/js/timeline.js:1963 |
-| `drawTimelineWindow` | frontend/js/timeline.js:2031 |
-| `fillTimelineBandOptions` | frontend/js/timeline.js:821 |
-| `focusTimelineRow` | frontend/js/timeline.js:1588 |
-| `openDayPage` | frontend/js/timeline.js:1065 |
-| `openTimelineRowDetail` | frontend/js/timeline.js:1649 |
-| `openTimelineTableDetail` | frontend/js/timeline.js:2361 |
-| `openTodaysPage` | frontend/js/timeline.js:1053 |
-| `paintTimeline` | frontend/js/timeline.js:884 |
-| `paintTimelineFeed` | frontend/js/timeline.js:926 |
-| `paintTimelineTable` | frontend/js/timeline.js:2185 |
-| `renderTimeline` | frontend/js/timeline.js:556 |
-| `renderTimelineDayStrip` | frontend/js/timeline.js:1182 |
-| `renderTimelineKinds` | frontend/js/timeline.js:338 |
-| `renderTimelineMonthPop` | frontend/js/timeline.js:1303 |
-| `renderTimelineRecall` | frontend/js/timeline.js:611 |
-| `renderTimelineRowMedia` | frontend/js/timeline.js:1743 |
-| `setTimelineRowSelected` | frontend/js/timeline.js:2349 |
-| `shortDate` | frontend/js/timeline.js:1892 |
-| `startDayNote` | frontend/js/timeline.js:1128 |
-| `startTodaysNote` | frontend/js/timeline.js:1124 |
-| `syncTimelineDetailSpans` | frontend/js/timeline.js:2240 |
-| `syncTimelineFilterChip` | frontend/js/timeline.js:851 |
-| `syncTimelineKindsLabel` | frontend/js/timeline.js:394 |
-| `syncTimelineSelectUi` | frontend/js/timeline.js:2378 |
-| `syncTimelineViewSeg` | frontend/js/timeline.js:2429 |
-| `syncTimelineYears` | frontend/js/timeline.js:662 |
-| `timelineAutoScale` | frontend/js/timeline.js:448 |
-| `timelineBucketKey` | frontend/js/timeline.js:215 |
-| `timelineBucketLabel` | frontend/js/timeline.js:232 |
-| `timelineBucketSection` | frontend/js/timeline.js:978 |
-| `timelineCalendarCall` | frontend/js/timeline.js:2413 |
-| `timelineDailyNote` | frontend/js/timeline.js:199 |
-| `timelineDayKeys` | frontend/js/timeline.js:1246 |
-| `timelineDayLabel` | frontend/js/timeline.js:1177 |
-| `timelineDayPages` | frontend/js/timeline.js:1161 |
-| `timelineDayShift` | frontend/js/timeline.js:1118 |
-| `timelineDensitySpan` | frontend/js/timeline.js:1940 |
-| `timelineDensitySpanOf` | frontend/js/timeline.js:1946 |
-| `timelineForgetRows` | frontend/js/timeline.js:2026 |
-| `timelineIsDailyNote` | frontend/js/timeline.js:304 |
-| `timelineJumpToDay` | frontend/js/timeline.js:1290 |
-| `timelineKindChoice` | frontend/js/timeline.js:288 |
-| `timelineLoadMore` | frontend/js/timeline.js:687 |
-| `timelineMonthKeys` | frontend/js/timeline.js:1357 |
-| `timelineMonthShift` | frontend/js/timeline.js:1284 |
-| `timelineMonthStart` | frontend/js/timeline.js:1280 |
-| `timelineQuery` | frontend/js/timeline.js:526 |
-| `timelineResolvedScale` | frontend/js/timeline.js:475 |
+| `appendTimelineRows` | frontend/js/timeline.js:740 |
+| `applyTimelineRowTabOrder` | frontend/js/timeline.js:1424 |
+| `closeTimelineRow` | frontend/js/timeline.js:1640 |
+| `dailyNotePair` | frontend/js/timeline.js:1099 |
+| `dailyNoteTitle` | frontend/js/timeline.js:184 |
+| `drawTimelineScrubber` | frontend/js/timeline.js:1965 |
+| `drawTimelineWindow` | frontend/js/timeline.js:2033 |
+| `fillTimelineBandOptions` | frontend/js/timeline.js:823 |
+| `focusTimelineRow` | frontend/js/timeline.js:1590 |
+| `openDayPage` | frontend/js/timeline.js:1067 |
+| `openTimelineRowDetail` | frontend/js/timeline.js:1651 |
+| `openTimelineTableDetail` | frontend/js/timeline.js:2363 |
+| `openTodaysPage` | frontend/js/timeline.js:1055 |
+| `paintTimeline` | frontend/js/timeline.js:886 |
+| `paintTimelineFeed` | frontend/js/timeline.js:928 |
+| `paintTimelineTable` | frontend/js/timeline.js:2187 |
+| `renderTimeline` | frontend/js/timeline.js:558 |
+| `renderTimelineDayStrip` | frontend/js/timeline.js:1184 |
+| `renderTimelineKinds` | frontend/js/timeline.js:340 |
+| `renderTimelineMonthPop` | frontend/js/timeline.js:1305 |
+| `renderTimelineRecall` | frontend/js/timeline.js:613 |
+| `renderTimelineRowMedia` | frontend/js/timeline.js:1745 |
+| `setTimelineRowSelected` | frontend/js/timeline.js:2351 |
+| `shortDate` | frontend/js/timeline.js:1894 |
+| `startDayNote` | frontend/js/timeline.js:1130 |
+| `startTodaysNote` | frontend/js/timeline.js:1126 |
+| `syncTimelineDetailSpans` | frontend/js/timeline.js:2242 |
+| `syncTimelineFilterChip` | frontend/js/timeline.js:853 |
+| `syncTimelineKindsLabel` | frontend/js/timeline.js:396 |
+| `syncTimelineSelectUi` | frontend/js/timeline.js:2380 |
+| `syncTimelineViewSeg` | frontend/js/timeline.js:2431 |
+| `syncTimelineYears` | frontend/js/timeline.js:664 |
+| `timelineAutoScale` | frontend/js/timeline.js:450 |
+| `timelineBucketKey` | frontend/js/timeline.js:217 |
+| `timelineBucketLabel` | frontend/js/timeline.js:234 |
+| `timelineBucketSection` | frontend/js/timeline.js:980 |
+| `timelineCalendarCall` | frontend/js/timeline.js:2415 |
+| `timelineDailyNote` | frontend/js/timeline.js:201 |
+| `timelineDayKeys` | frontend/js/timeline.js:1248 |
+| `timelineDayLabel` | frontend/js/timeline.js:1179 |
+| `timelineDayPages` | frontend/js/timeline.js:1163 |
+| `timelineDayShift` | frontend/js/timeline.js:1120 |
+| `timelineDensitySpan` | frontend/js/timeline.js:1942 |
+| `timelineDensitySpanOf` | frontend/js/timeline.js:1948 |
+| `timelineForgetRows` | frontend/js/timeline.js:2028 |
+| `timelineIsDailyNote` | frontend/js/timeline.js:306 |
+| `timelineJumpToDay` | frontend/js/timeline.js:1292 |
+| `timelineKindChoice` | frontend/js/timeline.js:290 |
+| `timelineLoadMore` | frontend/js/timeline.js:689 |
+| `timelineMonthKeys` | frontend/js/timeline.js:1359 |
+| `timelineMonthShift` | frontend/js/timeline.js:1286 |
+| `timelineMonthStart` | frontend/js/timeline.js:1282 |
+| `timelineQuery` | frontend/js/timeline.js:528 |
+| `timelineResolvedScale` | frontend/js/timeline.js:477 |
 | `timelineRow` | frontend/js/timeline.js:115 |
-| `timelineRowElement` | frontend/js/timeline.js:1450 |
-| `timelineRowGroups` | frontend/js/timeline.js:807 |
+| `timelineRowElement` | frontend/js/timeline.js:1452 |
+| `timelineRowGroups` | frontend/js/timeline.js:809 |
 | `timelineRowMoment` | frontend/js/timeline.js:102 |
-| `timelineScaleChoice` | frontend/js/timeline.js:432 |
-| `timelineScrubTo` | frontend/js/timeline.js:2079 |
-| `timelineSortValue` | frontend/js/timeline.js:2156 |
-| `timelineSortedRows` | frontend/js/timeline.js:2167 |
-| `timelineStepScale` | frontend/js/timeline.js:1861 |
-| `timelineTableColumnCount` | frontend/js/timeline.js:2220 |
-| `timelineTableRow` | frontend/js/timeline.js:2247 |
-| `timelineViewMode` | frontend/js/timeline.js:2129 |
-| `timelineVisibleRows` | frontend/js/timeline.js:864 |
-| `timelineWatchRow` | frontend/js/timeline.js:2015 |
-| `toggleTimelineKind` | frontend/js/timeline.js:413 |
-| `toggleTimelineRow` | frontend/js/timeline.js:1612 |
+| `timelineScaleChoice` | frontend/js/timeline.js:434 |
+| `timelineScrubTo` | frontend/js/timeline.js:2081 |
+| `timelineSortValue` | frontend/js/timeline.js:2158 |
+| `timelineSortedRows` | frontend/js/timeline.js:2169 |
+| `timelineStepScale` | frontend/js/timeline.js:1863 |
+| `timelineTableColumnCount` | frontend/js/timeline.js:2222 |
+| `timelineTableRow` | frontend/js/timeline.js:2249 |
+| `timelineViewMode` | frontend/js/timeline.js:2131 |
+| `timelineVisibleRows` | frontend/js/timeline.js:866 |
+| `timelineWatchRow` | frontend/js/timeline.js:2017 |
+| `toggleTimelineKind` | frontend/js/timeline.js:415 |
+| `toggleTimelineRow` | frontend/js/timeline.js:1614 |
 
 ### frontend/js/palette.js (30)
 
@@ -5121,49 +5122,49 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `paintTimelineCalendar` | frontend/js/timeline-calendar.js:130 |
-| `timelineCalCell` | frontend/js/timeline-calendar.js:310 |
-| `timelineCalCellHead` | frontend/js/timeline-calendar.js:402 |
+| `paintTimelineCalendar` | frontend/js/timeline-calendar.js:141 |
+| `timelineCalCell` | frontend/js/timeline-calendar.js:328 |
+| `timelineCalCellHead` | frontend/js/timeline-calendar.js:420 |
 | `timelineCalDate` | frontend/js/timeline-calendar.js:59 |
-| `timelineCalDayLabel` | frontend/js/timeline-calendar.js:267 |
+| `timelineCalDayLabel` | frontend/js/timeline-calendar.js:285 |
 | `timelineCalDays` | frontend/js/timeline-calendar.js:111 |
-| `timelineCalDots` | frontend/js/timeline-calendar.js:423 |
-| `timelineCalDragEnd` | frontend/js/timeline-calendar.js:705 |
-| `timelineCalDragOver` | frontend/js/timeline-calendar.js:693 |
-| `timelineCalDragStart` | frontend/js/timeline-calendar.js:684 |
-| `timelineCalDraw` | frontend/js/timeline-calendar.js:162 |
-| `timelineCalDrop` | frontend/js/timeline-calendar.js:712 |
-| `timelineCalDropTarget` | frontend/js/timeline-calendar.js:680 |
+| `timelineCalDots` | frontend/js/timeline-calendar.js:441 |
+| `timelineCalDragEnd` | frontend/js/timeline-calendar.js:726 |
+| `timelineCalDragOver` | frontend/js/timeline-calendar.js:714 |
+| `timelineCalDragStart` | frontend/js/timeline-calendar.js:705 |
+| `timelineCalDraw` | frontend/js/timeline-calendar.js:173 |
+| `timelineCalDrop` | frontend/js/timeline-calendar.js:733 |
+| `timelineCalDropTarget` | frontend/js/timeline-calendar.js:701 |
 | `timelineCalFetch` | frontend/js/timeline-calendar.js:95 |
-| `timelineCalFill` | frontend/js/timeline-calendar.js:350 |
-| `timelineCalFit` | frontend/js/timeline-calendar.js:367 |
-| `timelineCalFocus` | frontend/js/timeline-calendar.js:649 |
-| `timelineCalGlyph` | frontend/js/timeline-calendar.js:448 |
-| `timelineCalHead` | frontend/js/timeline-calendar.js:210 |
-| `timelineCalItem` | frontend/js/timeline-calendar.js:456 |
-| `timelineCalKeyMove` | frontend/js/timeline-calendar.js:633 |
-| `timelineCalKeys` | frontend/js/timeline-calendar.js:607 |
-| `timelineCalMonth` | frontend/js/timeline-calendar.js:275 |
-| `timelineCalMore` | frontend/js/timeline-calendar.js:338 |
-| `timelineCalMove` | frontend/js/timeline-calendar.js:574 |
-| `timelineCalMovePage` | frontend/js/timeline-calendar.js:754 |
-| `timelineCalMoveReminder` | frontend/js/timeline-calendar.js:727 |
-| `timelineCalNewReminder` | frontend/js/timeline-calendar.js:667 |
-| `timelineCalOpenDay` | frontend/js/timeline-calendar.js:551 |
-| `timelineCalOpenRow` | frontend/js/timeline-calendar.js:528 |
-| `timelineCalPick` | frontend/js/timeline-calendar.js:542 |
+| `timelineCalFill` | frontend/js/timeline-calendar.js:368 |
+| `timelineCalFit` | frontend/js/timeline-calendar.js:385 |
+| `timelineCalFocus` | frontend/js/timeline-calendar.js:670 |
+| `timelineCalGlyph` | frontend/js/timeline-calendar.js:466 |
+| `timelineCalHead` | frontend/js/timeline-calendar.js:228 |
+| `timelineCalItem` | frontend/js/timeline-calendar.js:475 |
+| `timelineCalKeyMove` | frontend/js/timeline-calendar.js:654 |
+| `timelineCalKeys` | frontend/js/timeline-calendar.js:628 |
+| `timelineCalMonth` | frontend/js/timeline-calendar.js:293 |
+| `timelineCalMore` | frontend/js/timeline-calendar.js:356 |
+| `timelineCalMove` | frontend/js/timeline-calendar.js:595 |
+| `timelineCalMovePage` | frontend/js/timeline-calendar.js:775 |
+| `timelineCalMoveReminder` | frontend/js/timeline-calendar.js:748 |
+| `timelineCalNewReminder` | frontend/js/timeline-calendar.js:688 |
+| `timelineCalOpenDay` | frontend/js/timeline-calendar.js:572 |
+| `timelineCalOpenRow` | frontend/js/timeline-calendar.js:549 |
+| `timelineCalPick` | frontend/js/timeline-calendar.js:563 |
 | `timelineCalRange` | frontend/js/timeline-calendar.js:73 |
-| `timelineCalRefocus` | frontend/js/timeline-calendar.js:195 |
-| `timelineCalSetSpan` | frontend/js/timeline-calendar.js:520 |
+| `timelineCalRefocus` | frontend/js/timeline-calendar.js:213 |
+| `timelineCalSetSpan` | frontend/js/timeline-calendar.js:541 |
 | `timelineCalSpan` | frontend/js/timeline-calendar.js:65 |
-| `timelineCalSpanSeg` | frontend/js/timeline-calendar.js:246 |
-| `timelineCalStop` | frontend/js/timeline-calendar.js:302 |
-| `timelineCalTimed` | frontend/js/timeline-calendar.js:397 |
+| `timelineCalSpanSeg` | frontend/js/timeline-calendar.js:264 |
+| `timelineCalStop` | frontend/js/timeline-calendar.js:320 |
+| `timelineCalTimed` | frontend/js/timeline-calendar.js:415 |
 | `timelineCalUrl` | frontend/js/timeline-calendar.js:87 |
-| `timelineCalWeek` | frontend/js/timeline-calendar.js:473 |
-| `timelineCalWeekHead` | frontend/js/timeline-calendar.js:507 |
-| `timelineCalendarReminders` | frontend/js/timeline-calendar.js:596 |
-| `timelineCalendarToday` | frontend/js/timeline-calendar.js:588 |
+| `timelineCalWeek` | frontend/js/timeline-calendar.js:494 |
+| `timelineCalWeekHead` | frontend/js/timeline-calendar.js:528 |
+| `timelineCalendarReminders` | frontend/js/timeline-calendar.js:617 |
+| `timelineCalendarToday` | frontend/js/timeline-calendar.js:609 |
 
 ### frontend/js/tour.js (47)
 
@@ -9355,7 +9356,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/reveal-lazy.css | 10 |
 | frontend/css/search-lazy.css | 86 |
 | frontend/css/tidy-lazy.css | 333 |
-| frontend/css/timeline-calendar-lazy.css | 254 |
+| frontend/css/timeline-calendar-lazy.css | 259 |
 | frontend/css/usage-lazy.css | 34 |
 | frontend/css/utilities-lazy.css | 116 |
 
@@ -9385,7 +9386,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |  | GET | `state` | src/memorymap/api/routes_bench.py:236 |
 |  | GET | `suggestions` | src/memorymap/api/routes_inbox.py:124 |
 |  | GET | `tidy_summary` | src/memorymap/api/routes_tidy.py:50 |
-|  | GET | `timeline` | src/memorymap/api/routes_timeline.py:375 |
+|  | GET | `timeline` | src/memorymap/api/routes_timeline.py:389 |
 |  | GET | `today` | src/memorymap/api/routes_resurface.py:96 |
 |  | POST | `chat` | src/memorymap/api/routes_chat.py:1553 |
 |  | POST | `count` | src/memorymap/api/routes_usage.py:30 |
@@ -9454,7 +9455,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/bulk` | POST | `bulk_edit_tags` | src/memorymap/api/routes_tags.py:104 |
 | `/capabilities` | GET | `capabilities` | src/memorymap/api/routes_capabilities.py:75 |
 | `/change-password` | POST | `change_password` | src/memorymap/api/routes_auth.py:1252 |
-| `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1426 |
+| `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1435 |
 | `/charts/question` | POST | `chart_for_question` | src/memorymap/api/routes_vision.py:380 |
 | `/chat-model` | POST | `set_chat_model` | src/memorymap/api/routes_models.py:705 |
 | `/check` | GET | `check_for_update` | src/memorymap/api/routes_update.py:428 |
@@ -9562,7 +9563,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/greeting` | GET | `greeting` | src/memorymap/api/routes_insights.py:172 |
 | `/hardware` | GET | `hardware_memory` | src/memorymap/api/routes_models.py:660 |
 | `/health` | GET | `debug_health` | src/memorymap/api/routes_debug.py:79 |
-| `/health` | GET | `health` | src/memorymap/api/app.py:1368 |
+| `/health` | GET | `health` | src/memorymap/api/app.py:1377 |
 | `/health/integrity` | POST | `integrity_check` | src/memorymap/api/routes_debug.py:186 |
 | `/heatmap` | GET | `heatmap` | src/memorymap/api/routes_insights.py:352 |
 | `/history` | GET | `board_history` | src/memorymap/api/routes_board_history.py:271 |
@@ -9582,8 +9583,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/import/reports/{report_id}` | GET | `import_report_page` | src/memorymap/api/routes_import.py:112 |
 | `/improve` | POST | `improve_writing` | src/memorymap/api/routes_entries.py:1572 |
 | `/inspect` | POST | `inspect_model` | src/memorymap/api/routes_models.py:677 |
-| `/instance` | GET | `instance` | src/memorymap/api/app.py:1387 |
-| `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1401 |
+| `/instance` | GET | `instance` | src/memorymap/api/app.py:1396 |
+| `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1410 |
 | `/jobs` | GET | `list_jobs` | src/memorymap/api/routes_tasks.py:558 |
 | `/jobs/cancel` | POST | `cancel_job` | src/memorymap/api/routes_models.py:913 |
 | `/jobs/last-runs` | GET | `jobs_last_runs` | src/memorymap/api/routes_tasks.py:524 |
@@ -9666,7 +9667,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3205 |
 | `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3254 |
 | `/on-this-day` | GET | `on_this_day` | src/memorymap/api/routes_insights.py:464 |
-| `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1351 |
+| `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1360 |
 | `/outline` | GET | `documents_outline` | src/memorymap/api/routes_documents.py:438 |
 | `/parse` | POST | `magic_add_reminder` | src/memorymap/api/routes_reminders.py:529 |
 | `/password-on-open` | POST | `set_password_on_open` | src/memorymap/api/routes_auth.py:891 |
@@ -9770,7 +9771,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/support-bundle` | GET | `support_bundle` | src/memorymap/api/routes_settings.py:2342 |
 | `/switches` | GET | `get_switches` | src/memorymap/api/routes_learned.py:197 |
 | `/switches` | PUT | `put_switches` | src/memorymap/api/routes_learned.py:203 |
-| `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1361 |
+| `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1370 |
 | `/system/console-mode` | POST | `set_console_mode` | src/memorymap/api/routes_settings.py:1138 |
 | `/system/restart` | POST | `restart_app` | src/memorymap/api/routes_settings.py:1207 |
 | `/tag-cloud` | GET | `tag_cloud` | src/memorymap/api/routes_insights.py:453 |
@@ -9928,7 +9929,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4770)
+## Backend modules (4776)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10752,31 +10753,31 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_of` | src/memorymap/ai/help_chat.py:2271 |
-| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2202 |
-| `_guide_lead` | src/memorymap/ai/help_chat.py:2679 |
-| `_guide_opening` | src/memorymap/ai/help_chat.py:2687 |
-| `_help_sentences` | src/memorymap/ai/help_chat.py:2662 |
-| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2156 |
-| `_matching_topics` | src/memorymap/ai/help_chat.py:2310 |
-| `_meaning_topics` | src/memorymap/ai/help_chat.py:2390 |
-| `_normalise_keys` | src/memorymap/ai/help_chat.py:2179 |
-| `_place` | src/memorymap/ai/help_chat.py:2657 |
-| `_prompt_for` | src/memorymap/ai/help_chat.py:2530 |
-| `_reading_topics` | src/memorymap/ai/help_chat.py:2293 |
-| `_second_sentence` | src/memorymap/ai/help_chat.py:2666 |
-| `answer` | src/memorymap/ai/help_chat.py:2823 |
-| `answer_stream` | src/memorymap/ai/help_chat.py:2761 |
-| `badges_for` | src/memorymap/ai/help_chat.py:2478 |
-| `composed_answer` | src/memorymap/ai/help_chat.py:2701 |
-| `help_block_for` | src/memorymap/ai/help_chat.py:2887 |
-| `help_listing` | src/memorymap/ai/help_chat.py:2449 |
-| `offline_answer` | src/memorymap/ai/help_chat.py:2719 |
-| `social_reply` | src/memorymap/ai/help_chat.py:2630 |
-| `source_names` | src/memorymap/ai/help_chat.py:2445 |
-| `system_answer` | src/memorymap/ai/help_chat.py:2427 |
-| `topic_title` | src/memorymap/ai/help_chat.py:2413 |
-| `topics_for` | src/memorymap/ai/help_chat.py:2492 |
+| `_act_of` | src/memorymap/ai/help_chat.py:2270 |
+| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2201 |
+| `_guide_lead` | src/memorymap/ai/help_chat.py:2678 |
+| `_guide_opening` | src/memorymap/ai/help_chat.py:2686 |
+| `_help_sentences` | src/memorymap/ai/help_chat.py:2661 |
+| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2155 |
+| `_matching_topics` | src/memorymap/ai/help_chat.py:2309 |
+| `_meaning_topics` | src/memorymap/ai/help_chat.py:2389 |
+| `_normalise_keys` | src/memorymap/ai/help_chat.py:2178 |
+| `_place` | src/memorymap/ai/help_chat.py:2656 |
+| `_prompt_for` | src/memorymap/ai/help_chat.py:2529 |
+| `_reading_topics` | src/memorymap/ai/help_chat.py:2292 |
+| `_second_sentence` | src/memorymap/ai/help_chat.py:2665 |
+| `answer` | src/memorymap/ai/help_chat.py:2822 |
+| `answer_stream` | src/memorymap/ai/help_chat.py:2760 |
+| `badges_for` | src/memorymap/ai/help_chat.py:2477 |
+| `composed_answer` | src/memorymap/ai/help_chat.py:2700 |
+| `help_block_for` | src/memorymap/ai/help_chat.py:2886 |
+| `help_listing` | src/memorymap/ai/help_chat.py:2448 |
+| `offline_answer` | src/memorymap/ai/help_chat.py:2718 |
+| `social_reply` | src/memorymap/ai/help_chat.py:2629 |
+| `source_names` | src/memorymap/ai/help_chat.py:2444 |
+| `system_answer` | src/memorymap/ai/help_chat.py:2426 |
+| `topic_title` | src/memorymap/ai/help_chat.py:2412 |
+| `topics_for` | src/memorymap/ai/help_chat.py:2491 |
 
 ### src/memorymap/ai/help_topics_more.py (1)
 
@@ -12121,39 +12122,40 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `transcribe_segments` | src/memorymap/ai/voice.py:60 |
 | `whisper_available` | src/memorymap/ai/voice.py:40 |
 
-### src/memorymap/api/app.py (32)
+### src/memorymap/api/app.py (33)
 
 | Name | File:line |
 |---|---|
-| `RequestPulse` | src/memorymap/api/app.py:1094 |
+| `RequestPulse` | src/memorymap/api/app.py:1103 |
 | `RevalidatedStatic` | src/memorymap/api/app.py:309 |
-| `SpaceGuard` | src/memorymap/api/app.py:1025 |
+| `SpaceGuard` | src/memorymap/api/app.py:1034 |
 | `_UnversionedStatic` | src/memorymap/api/app.py:300 |
-| `_add_middleware` | src/memorymap/api/app.py:1166 |
-| `_add_system_routes` | src/memorymap/api/app.py:1347 |
-| `_backup_if_due` | src/memorymap/api/app.py:710 |
-| `_check_notebook_file` | src/memorymap/api/app.py:702 |
+| `_add_middleware` | src/memorymap/api/app.py:1175 |
+| `_add_system_routes` | src/memorymap/api/app.py:1356 |
+| `_backup_if_due` | src/memorymap/api/app.py:719 |
+| `_check_notebook_file` | src/memorymap/api/app.py:711 |
 | `_choose_chat_model_if_missing` | src/memorymap/api/app.py:655 |
-| `_code_for_status` | src/memorymap/api/app.py:812 |
+| `_code_for_status` | src/memorymap/api/app.py:821 |
 | `_compact_event_log` | src/memorymap/api/app.py:580 |
 | `_compact_step` | src/memorymap/api/app.py:626 |
-| `_content_length` | src/memorymap/api/app.py:1077 |
-| `_include_routers` | src/memorymap/api/app.py:1252 |
+| `_content_length` | src/memorymap/api/app.py:1086 |
+| `_include_routers` | src/memorymap/api/app.py:1261 |
 | `_install_pending_extras` | src/memorymap/api/app.py:634 |
 | `_purge_expired_bin_entries` | src/memorymap/api/app.py:556 |
 | `_purge_step` | src/memorymap/api/app.py:622 |
-| `_register_error_handlers` | src/memorymap/api/app.py:823 |
+| `_read_note_dates` | src/memorymap/api/app.py:703 |
+| `_register_error_handlers` | src/memorymap/api/app.py:832 |
 | `_stamp_for` | src/memorymap/api/app.py:223 |
-| `_start_autonomous_loop` | src/memorymap/api/app.py:767 |
-| `_start_searxng_if_asked` | src/memorymap/api/app.py:735 |
-| `_start_services` | src/memorymap/api/app.py:1109 |
+| `_start_autonomous_loop` | src/memorymap/api/app.py:776 |
+| `_start_searxng_if_asked` | src/memorymap/api/app.py:744 |
+| `_start_services` | src/memorymap/api/app.py:1118 |
 | `_startup_maintenance` | src/memorymap/api/app.py:674 |
 | `_static_gzip` | src/memorymap/api/app.py:495 |
 | `asset_hash` | src/memorymap/api/app.py:199 |
 | `asset_stamps` | src/memorymap/api/app.py:228 |
 | `clear_static_cache` | src/memorymap/api/app.py:536 |
-| `create_app` | src/memorymap/api/app.py:1462 |
-| `out_of_space_body` | src/memorymap/api/app.py:995 |
+| `create_app` | src/memorymap/api/app.py:1471 |
+| `out_of_space_body` | src/memorymap/api/app.py:1004 |
 | `pin_static_mime_types` | src/memorymap/api/app.py:166 |
 | `served_index_html` | src/memorymap/api/app.py:265 |
 | `served_offline_html` | src/memorymap/api/app.py:250 |
@@ -13649,32 +13651,33 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `tidy_undismiss` | src/memorymap/api/routes_tidy.py:113 |
 | `tidy_undo` | src/memorymap/api/routes_tidy.py:71 |
 
-### src/memorymap/api/routes_timeline.py (22)
+### src/memorymap/api/routes_timeline.py (23)
 
 | Name | File:line |
 |---|---|
-| `_MeetingAt` | src/memorymap/api/routes_timeline.py:263 |
-| `_bands` | src/memorymap/api/routes_timeline.py:732 |
+| `_MeetingAt` | src/memorymap/api/routes_timeline.py:277 |
+| `_also_on` | src/memorymap/api/routes_timeline.py:267 |
+| `_bands` | src/memorymap/api/routes_timeline.py:765 |
 | `_bucket_start` | src/memorymap/api/routes_timeline.py:166 |
 | `_clip` | src/memorymap/api/routes_timeline.py:71 |
 | `_decode_cursor` | src/memorymap/api/routes_timeline.py:80 |
 | `_decode_marks` | src/memorymap/api/routes_timeline.py:136 |
-| `_density` | src/memorymap/api/routes_timeline.py:709 |
+| `_density` | src/memorymap/api/routes_timeline.py:742 |
 | `_encode_marks` | src/memorymap/api/routes_timeline.py:119 |
-| `_entries_in_window` | src/memorymap/api/routes_timeline.py:689 |
-| `_first_line` | src/memorymap/api/routes_timeline.py:627 |
-| `_first_mentioned` | src/memorymap/api/routes_timeline.py:646 |
-| `_meeting_date` | src/memorymap/api/routes_timeline.py:658 |
-| `_meeting_dates` | src/memorymap/api/routes_timeline.py:274 |
-| `_naive` | src/memorymap/api/routes_timeline.py:638 |
+| `_entries_in_window` | src/memorymap/api/routes_timeline.py:713 |
+| `_first_line` | src/memorymap/api/routes_timeline.py:647 |
+| `_first_mentioned` | src/memorymap/api/routes_timeline.py:666 |
+| `_meeting_date` | src/memorymap/api/routes_timeline.py:678 |
+| `_meeting_dates` | src/memorymap/api/routes_timeline.py:288 |
+| `_naive` | src/memorymap/api/routes_timeline.py:658 |
 | `_older_than` | src/memorymap/api/routes_timeline.py:158 |
-| `_place_documents` | src/memorymap/api/routes_timeline.py:303 |
+| `_place_documents` | src/memorymap/api/routes_timeline.py:317 |
 | `_place_notes` | src/memorymap/api/routes_timeline.py:177 |
-| `_place_reminders` | src/memorymap/api/routes_timeline.py:339 |
-| `_ranged_entries` | src/memorymap/api/routes_timeline.py:680 |
+| `_place_reminders` | src/memorymap/api/routes_timeline.py:353 |
+| `_ranged_entries` | src/memorymap/api/routes_timeline.py:700 |
 | `_requested_kinds` | src/memorymap/api/routes_timeline.py:98 |
-| `_thread_bands` | src/memorymap/api/routes_timeline.py:761 |
-| `timeline` | src/memorymap/api/routes_timeline.py:376 |
+| `_thread_bands` | src/memorymap/api/routes_timeline.py:794 |
+| `timeline` | src/memorymap/api/routes_timeline.py:390 |
 
 ### src/memorymap/api/routes_translate.py (2)
 
@@ -14572,44 +14575,44 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `Run` | src/memorymap/core/jobruns.py:229 |
-| `_bump` | src/memorymap/core/jobruns.py:159 |
-| `_clip` | src/memorymap/core/jobruns.py:85 |
-| `_database` | src/memorymap/core/jobruns.py:118 |
-| `_failure_reason` | src/memorymap/core/jobruns.py:90 |
-| `begin` | src/memorymap/core/jobruns.py:497 |
-| `clear_finished` | src/memorymap/core/jobruns.py:187 |
-| `clear_live` | src/memorymap/core/jobruns.py:201 |
-| `current` | src/memorymap/core/jobruns.py:217 |
-| `describe_night_pass` | src/memorymap/core/jobruns.py:625 |
-| `finished` | src/memorymap/core/jobruns.py:181 |
-| `job_run` | src/memorymap/core/jobruns.py:507 |
-| `last_runs` | src/memorymap/core/jobruns.py:583 |
-| `live` | src/memorymap/core/jobruns.py:210 |
-| `mark_interrupted` | src/memorymap/core/jobruns.py:556 |
-| `merged_history` | src/memorymap/core/jobruns.py:468 |
-| `note_finished` | src/memorymap/core/jobruns.py:528 |
-| `peek_database` | src/memorymap/core/jobruns.py:122 |
-| `set_database_source` | src/memorymap/core/jobruns.py:111 |
-| `started_by` | src/memorymap/core/jobruns.py:169 |
-| `version` | src/memorymap/core/jobruns.py:164 |
+| `Run` | src/memorymap/core/jobruns.py:231 |
+| `_bump` | src/memorymap/core/jobruns.py:161 |
+| `_clip` | src/memorymap/core/jobruns.py:87 |
+| `_database` | src/memorymap/core/jobruns.py:120 |
+| `_failure_reason` | src/memorymap/core/jobruns.py:92 |
+| `begin` | src/memorymap/core/jobruns.py:499 |
+| `clear_finished` | src/memorymap/core/jobruns.py:189 |
+| `clear_live` | src/memorymap/core/jobruns.py:203 |
+| `current` | src/memorymap/core/jobruns.py:219 |
+| `describe_night_pass` | src/memorymap/core/jobruns.py:627 |
+| `finished` | src/memorymap/core/jobruns.py:183 |
+| `job_run` | src/memorymap/core/jobruns.py:509 |
+| `last_runs` | src/memorymap/core/jobruns.py:585 |
+| `live` | src/memorymap/core/jobruns.py:212 |
+| `mark_interrupted` | src/memorymap/core/jobruns.py:558 |
+| `merged_history` | src/memorymap/core/jobruns.py:470 |
+| `note_finished` | src/memorymap/core/jobruns.py:530 |
+| `peek_database` | src/memorymap/core/jobruns.py:124 |
+| `set_database_source` | src/memorymap/core/jobruns.py:113 |
+| `started_by` | src/memorymap/core/jobruns.py:171 |
+| `version` | src/memorymap/core/jobruns.py:166 |
 
 ### src/memorymap/core/jobs.py (12)
 
 | Name | File:line |
 |---|---|
-| `Pool` | src/memorymap/core/jobs.py:236 |
-| `_Job` | src/memorymap/core/jobs.py:202 |
+| `Pool` | src/memorymap/core/jobs.py:240 |
+| `_Job` | src/memorymap/core/jobs.py:206 |
 | `_cpu_width` | src/memorymap/core/jobs.py:65 |
-| `_ledger_run` | src/memorymap/core/jobs.py:162 |
-| `_start_heartbeat` | src/memorymap/core/jobs.py:174 |
-| `enqueue` | src/memorymap/core/jobs.py:567 |
-| `forget` | src/memorymap/core/jobs.py:586 |
-| `pending` | src/memorymap/core/jobs.py:578 |
-| `pool` | src/memorymap/core/jobs.py:553 |
-| `resubmit` | src/memorymap/core/jobs.py:582 |
-| `resume` | src/memorymap/core/jobs.py:594 |
-| `shutdown` | src/memorymap/core/jobs.py:609 |
+| `_ledger_run` | src/memorymap/core/jobs.py:165 |
+| `_start_heartbeat` | src/memorymap/core/jobs.py:177 |
+| `enqueue` | src/memorymap/core/jobs.py:571 |
+| `forget` | src/memorymap/core/jobs.py:590 |
+| `pending` | src/memorymap/core/jobs.py:582 |
+| `pool` | src/memorymap/core/jobs.py:557 |
+| `resubmit` | src/memorymap/core/jobs.py:586 |
+| `resume` | src/memorymap/core/jobs.py:598 |
+| `shutdown` | src/memorymap/core/jobs.py:613 |
 
 ### src/memorymap/core/jobstore.py (35)
 
@@ -15362,85 +15365,85 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_TagCache` | src/memorymap/entry/manager.py:1503 |
-| `_board_type_of` | src/memorymap/entry/manager.py:1042 |
-| `_deduce_reason` | src/memorymap/entry/manager.py:1777 |
-| `_encrypt_history` | src/memorymap/entry/manager.py:2819 |
-| `_ensure_tag_cache_reset_registered` | src/memorymap/entry/manager.py:1543 |
-| `_first_content_line` | src/memorymap/entry/manager.py:2679 |
-| `_hard_delete` | src/memorymap/entry/manager.py:1076 |
-| `_heading_text` | src/memorymap/entry/manager.py:2558 |
-| `_ids_in` | src/memorymap/entry/manager.py:2980 |
-| `_json_list` | src/memorymap/entry/manager.py:2994 |
-| `_links_of` | src/memorymap/entry/manager.py:2850 |
+| `_TagCache` | src/memorymap/entry/manager.py:1507 |
+| `_board_type_of` | src/memorymap/entry/manager.py:1046 |
+| `_deduce_reason` | src/memorymap/entry/manager.py:1781 |
+| `_encrypt_history` | src/memorymap/entry/manager.py:2823 |
+| `_ensure_tag_cache_reset_registered` | src/memorymap/entry/manager.py:1547 |
+| `_first_content_line` | src/memorymap/entry/manager.py:2683 |
+| `_hard_delete` | src/memorymap/entry/manager.py:1080 |
+| `_heading_text` | src/memorymap/entry/manager.py:2562 |
+| `_ids_in` | src/memorymap/entry/manager.py:2984 |
+| `_json_list` | src/memorymap/entry/manager.py:2998 |
+| `_links_of` | src/memorymap/entry/manager.py:2854 |
 | `_list_entries_filter` | src/memorymap/entry/manager.py:312 |
-| `_md_links` | src/memorymap/entry/manager.py:2582 |
-| `_quotes` | src/memorymap/entry/manager.py:2976 |
-| `_reassign` | src/memorymap/entry/manager.py:2487 |
-| `_redact_answers_quoting` | src/memorymap/entry/manager.py:3002 |
-| `_redact_link_audit` | src/memorymap/entry/manager.py:1889 |
-| `_restale_category_vectors` | src/memorymap/entry/manager.py:2400 |
-| `_retag` | src/memorymap/entry/manager.py:1629 |
-| `_retag_entry` | src/memorymap/entry/manager.py:1608 |
-| `_seal_link_reasons` | src/memorymap/entry/manager.py:2860 |
-| `_seal_props` | src/memorymap/entry/manager.py:1860 |
-| `_seal_reason` | src/memorymap/entry/manager.py:1833 |
-| `_set_stored_props` | src/memorymap/entry/manager.py:1872 |
-| `_set_stored_reason` | src/memorymap/entry/manager.py:1847 |
-| `_shares_a_date` | src/memorymap/entry/manager.py:1748 |
-| `_split_block` | src/memorymap/entry/manager.py:2688 |
-| `_tag_fingerprint` | src/memorymap/entry/manager.py:1521 |
-| `_touches_private` | src/memorymap/entry/manager.py:1880 |
-| `_unseal_link_reasons` | src/memorymap/entry/manager.py:2879 |
+| `_md_links` | src/memorymap/entry/manager.py:2586 |
+| `_quotes` | src/memorymap/entry/manager.py:2980 |
+| `_reassign` | src/memorymap/entry/manager.py:2491 |
+| `_redact_answers_quoting` | src/memorymap/entry/manager.py:3006 |
+| `_redact_link_audit` | src/memorymap/entry/manager.py:1893 |
+| `_restale_category_vectors` | src/memorymap/entry/manager.py:2404 |
+| `_retag` | src/memorymap/entry/manager.py:1633 |
+| `_retag_entry` | src/memorymap/entry/manager.py:1612 |
+| `_seal_link_reasons` | src/memorymap/entry/manager.py:2864 |
+| `_seal_props` | src/memorymap/entry/manager.py:1864 |
+| `_seal_reason` | src/memorymap/entry/manager.py:1837 |
+| `_set_stored_props` | src/memorymap/entry/manager.py:1876 |
+| `_set_stored_reason` | src/memorymap/entry/manager.py:1851 |
+| `_shares_a_date` | src/memorymap/entry/manager.py:1752 |
+| `_split_block` | src/memorymap/entry/manager.py:2692 |
+| `_tag_fingerprint` | src/memorymap/entry/manager.py:1525 |
+| `_touches_private` | src/memorymap/entry/manager.py:1884 |
+| `_unseal_link_reasons` | src/memorymap/entry/manager.py:2883 |
 | `_update_entry_fields` | src/memorymap/entry/manager.py:612 |
-| `_wiki_name_pattern` | src/memorymap/entry/manager.py:3349 |
-| `_word_runs` | src/memorymap/entry/manager.py:2971 |
-| `add_attachment` | src/memorymap/entry/manager.py:1341 |
-| `all_categories` | src/memorymap/entry/manager.py:2350 |
-| `all_tags` | src/memorymap/entry/manager.py:1568 |
-| `apply_audited_reason` | src/memorymap/entry/manager.py:2255 |
-| `apply_title` | src/memorymap/entry/manager.py:2697 |
-| `archive_entry` | src/memorymap/entry/manager.py:985 |
-| `attachments_for` | src/memorymap/entry/manager.py:1363 |
-| `attachments_for_entries_bulk` | src/memorymap/entry/manager.py:1373 |
-| `backfill_link_reasons` | src/memorymap/entry/manager.py:2057 |
-| `board_type_of` | src/memorymap/entry/manager.py:1015 |
-| `bulk_category_names` | src/memorymap/entry/manager.py:2320 |
-| `came_from_outside` | src/memorymap/entry/manager.py:2498 |
-| `category_name_for` | src/memorymap/entry/manager.py:2312 |
+| `_wiki_name_pattern` | src/memorymap/entry/manager.py:3353 |
+| `_word_runs` | src/memorymap/entry/manager.py:2975 |
+| `add_attachment` | src/memorymap/entry/manager.py:1345 |
+| `all_categories` | src/memorymap/entry/manager.py:2354 |
+| `all_tags` | src/memorymap/entry/manager.py:1572 |
+| `apply_audited_reason` | src/memorymap/entry/manager.py:2259 |
+| `apply_title` | src/memorymap/entry/manager.py:2701 |
+| `archive_entry` | src/memorymap/entry/manager.py:989 |
+| `attachments_for` | src/memorymap/entry/manager.py:1367 |
+| `attachments_for_entries_bulk` | src/memorymap/entry/manager.py:1377 |
+| `backfill_link_reasons` | src/memorymap/entry/manager.py:2061 |
+| `board_type_of` | src/memorymap/entry/manager.py:1019 |
+| `bulk_category_names` | src/memorymap/entry/manager.py:2324 |
+| `came_from_outside` | src/memorymap/entry/manager.py:2502 |
+| `category_name_for` | src/memorymap/entry/manager.py:2316 |
 | `category_space` | src/memorymap/entry/manager.py:124 |
-| `content_for_entry` | src/memorymap/entry/manager.py:2803 |
+| `content_for_entry` | src/memorymap/entry/manager.py:2807 |
 | `count_archived_entries` | src/memorymap/entry/manager.py:493 |
 | `count_deleted_entries` | src/memorymap/entry/manager.py:470 |
 | `count_entries` | src/memorymap/entry/manager.py:386 |
 | `create_entry` | src/memorymap/entry/manager.py:258 |
-| `create_link` | src/memorymap/entry/manager.py:1924 |
-| `delete_attachment` | src/memorymap/entry/manager.py:1398 |
-| `delete_category` | src/memorymap/entry/manager.py:2463 |
-| `delete_link` | src/memorymap/entry/manager.py:2277 |
-| `delete_tag` | src/memorymap/entry/manager.py:1693 |
-| `document_came_from_outside` | src/memorymap/entry/manager.py:2511 |
-| `documents_for_entries_bulk` | src/memorymap/entry/manager.py:871 |
-| `documents_for_entry` | src/memorymap/entry/manager.py:857 |
-| `edit_tags_on_notes` | src/memorymap/entry/manager.py:1698 |
-| `empty_recycle_bin` | src/memorymap/entry/manager.py:1292 |
-| `entries_for_document` | src/memorymap/entry/manager.py:935 |
+| `create_link` | src/memorymap/entry/manager.py:1928 |
+| `delete_attachment` | src/memorymap/entry/manager.py:1402 |
+| `delete_category` | src/memorymap/entry/manager.py:2467 |
+| `delete_link` | src/memorymap/entry/manager.py:2281 |
+| `delete_tag` | src/memorymap/entry/manager.py:1697 |
+| `document_came_from_outside` | src/memorymap/entry/manager.py:2515 |
+| `documents_for_entries_bulk` | src/memorymap/entry/manager.py:875 |
+| `documents_for_entry` | src/memorymap/entry/manager.py:861 |
+| `edit_tags_on_notes` | src/memorymap/entry/manager.py:1702 |
+| `empty_recycle_bin` | src/memorymap/entry/manager.py:1296 |
+| `entries_for_document` | src/memorymap/entry/manager.py:939 |
 | `entry_dates` | src/memorymap/entry/manager.py:665 |
 | `entry_dates_bulk` | src/memorymap/entry/manager.py:676 |
 | `entry_id_scope` | src/memorymap/entry/manager.py:403 |
 | `entry_space` | src/memorymap/entry/manager.py:143 |
-| `entry_tags` | src/memorymap/entry/manager.py:2342 |
-| `extract_title` | src/memorymap/entry/manager.py:2660 |
-| `find_by_wiki_name` | src/memorymap/entry/manager.py:3207 |
-| `forget_relation_types` | src/memorymap/entry/manager.py:2176 |
+| `entry_tags` | src/memorymap/entry/manager.py:2346 |
+| `extract_title` | src/memorymap/entry/manager.py:2664 |
+| `find_by_wiki_name` | src/memorymap/entry/manager.py:3211 |
+| `forget_relation_types` | src/memorymap/entry/manager.py:2180 |
 | `get_entry` | src/memorymap/entry/manager.py:501 |
 | `get_or_create_category` | src/memorymap/entry/manager.py:148 |
-| `is_link_type` | src/memorymap/entry/manager.py:2180 |
-| `is_two_way_link` | src/memorymap/entry/manager.py:2225 |
-| `join_blocks` | src/memorymap/entry/manager.py:2755 |
-| `link_document` | src/memorymap/entry/manager.py:815 |
-| `links_for_entries_bulk` | src/memorymap/entry/manager.py:894 |
-| `links_for_entry` | src/memorymap/entry/manager.py:2289 |
+| `is_link_type` | src/memorymap/entry/manager.py:2184 |
+| `is_two_way_link` | src/memorymap/entry/manager.py:2229 |
+| `join_blocks` | src/memorymap/entry/manager.py:2759 |
+| `link_document` | src/memorymap/entry/manager.py:819 |
+| `links_for_entries_bulk` | src/memorymap/entry/manager.py:898 |
+| `links_for_entry` | src/memorymap/entry/manager.py:2293 |
 | `list_archived_entries` | src/memorymap/entry/manager.py:476 |
 | `list_deleted_entries` | src/memorymap/entry/manager.py:456 |
 | `list_entries` | src/memorymap/entry/manager.py:335 |
@@ -15448,54 +15451,54 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `log_action` | src/memorymap/entry/manager.py:91 |
 | `mark_edited` | src/memorymap/entry/manager.py:213 |
 | `most_accessed_entries` | src/memorymap/entry/manager.py:439 |
-| `plain_label` | src/memorymap/entry/manager.py:2615 |
-| `purge_entries` | src/memorymap/entry/manager.py:1258 |
-| `purge_expired_deleted` | src/memorymap/entry/manager.py:1310 |
-| `readable_content` | src/memorymap/entry/manager.py:2537 |
+| `plain_label` | src/memorymap/entry/manager.py:2619 |
+| `purge_entries` | src/memorymap/entry/manager.py:1262 |
+| `purge_expired_deleted` | src/memorymap/entry/manager.py:1314 |
+| `readable_content` | src/memorymap/entry/manager.py:2541 |
 | `record_dates` | src/memorymap/entry/manager.py:735 |
 | `record_filing` | src/memorymap/entry/manager.py:530 |
-| `record_revision` | src/memorymap/entry/manager.py:3478 |
+| `record_revision` | src/memorymap/entry/manager.py:3482 |
 | `reindex_properties` | src/memorymap/entry/manager.py:700 |
-| `rekey_private_extras` | src/memorymap/entry/manager.py:2892 |
-| `relation_label` | src/memorymap/entry/manager.py:2187 |
-| `relation_types` | src/memorymap/entry/manager.py:2141 |
-| `remove_link` | src/memorymap/entry/manager.py:2092 |
-| `remove_tags` | src/memorymap/entry/manager.py:1684 |
-| `remove_title` | src/memorymap/entry/manager.py:2713 |
-| `rename_attachment` | src/memorymap/entry/manager.py:1467 |
-| `rename_category` | src/memorymap/entry/manager.py:2420 |
-| `rename_tag` | src/memorymap/entry/manager.py:1678 |
-| `rename_tags` | src/memorymap/entry/manager.py:1650 |
-| `reset_tag_cache` | src/memorymap/entry/manager.py:1537 |
-| `resolve_links_to` | src/memorymap/entry/manager.py:3291 |
-| `restore_entry` | src/memorymap/entry/manager.py:967 |
+| `rekey_private_extras` | src/memorymap/entry/manager.py:2896 |
+| `relation_label` | src/memorymap/entry/manager.py:2191 |
+| `relation_types` | src/memorymap/entry/manager.py:2145 |
+| `remove_link` | src/memorymap/entry/manager.py:2096 |
+| `remove_tags` | src/memorymap/entry/manager.py:1688 |
+| `remove_title` | src/memorymap/entry/manager.py:2717 |
+| `rename_attachment` | src/memorymap/entry/manager.py:1471 |
+| `rename_category` | src/memorymap/entry/manager.py:2424 |
+| `rename_tag` | src/memorymap/entry/manager.py:1682 |
+| `rename_tags` | src/memorymap/entry/manager.py:1654 |
+| `reset_tag_cache` | src/memorymap/entry/manager.py:1541 |
+| `resolve_links_to` | src/memorymap/entry/manager.py:3295 |
+| `restore_entry` | src/memorymap/entry/manager.py:971 |
 | `review_queue_count` | src/memorymap/entry/manager.py:66 |
-| `revisions_for` | src/memorymap/entry/manager.py:3515 |
-| `rewrite_wiki_name` | src/memorymap/entry/manager.py:3370 |
-| `scrub_private_leftovers` | src/memorymap/entry/manager.py:3134 |
-| `seal_private_events` | src/memorymap/entry/manager.py:1053 |
-| `seed_example_notes` | src/memorymap/entry/manager.py:3442 |
+| `revisions_for` | src/memorymap/entry/manager.py:3519 |
+| `rewrite_wiki_name` | src/memorymap/entry/manager.py:3374 |
+| `scrub_private_leftovers` | src/memorymap/entry/manager.py:3138 |
+| `seal_private_events` | src/memorymap/entry/manager.py:1057 |
+| `seed_example_notes` | src/memorymap/entry/manager.py:3446 |
 | `set_category` | src/memorymap/entry/manager.py:226 |
-| `set_link_props` | src/memorymap/entry/manager.py:2199 |
-| `set_link_reason` | src/memorymap/entry/manager.py:2119 |
-| `set_link_two_way` | src/memorymap/entry/manager.py:2210 |
-| `set_link_type` | src/memorymap/entry/manager.py:2235 |
-| `set_private` | src/memorymap/entry/manager.py:3060 |
-| `soft_delete_entry` | src/memorymap/entry/manager.py:949 |
-| `strip_inline_markdown` | src/memorymap/entry/manager.py:2793 |
-| `sync_wiki_links` | src/memorymap/entry/manager.py:3315 |
-| `tags_from_json` | src/memorymap/entry/manager.py:2331 |
-| `unarchive_entry` | src/memorymap/entry/manager.py:1002 |
-| `undo_tag_edit` | src/memorymap/entry/manager.py:1721 |
-| `unlink_document` | src/memorymap/entry/manager.py:838 |
+| `set_link_props` | src/memorymap/entry/manager.py:2203 |
+| `set_link_reason` | src/memorymap/entry/manager.py:2123 |
+| `set_link_two_way` | src/memorymap/entry/manager.py:2214 |
+| `set_link_type` | src/memorymap/entry/manager.py:2239 |
+| `set_private` | src/memorymap/entry/manager.py:3064 |
+| `soft_delete_entry` | src/memorymap/entry/manager.py:953 |
+| `strip_inline_markdown` | src/memorymap/entry/manager.py:2797 |
+| `sync_wiki_links` | src/memorymap/entry/manager.py:3319 |
+| `tags_from_json` | src/memorymap/entry/manager.py:2335 |
+| `unarchive_entry` | src/memorymap/entry/manager.py:1006 |
+| `undo_tag_edit` | src/memorymap/entry/manager.py:1725 |
+| `unlink_document` | src/memorymap/entry/manager.py:842 |
 | `update_entry` | src/memorymap/entry/manager.py:561 |
-| `validate_attachment_filename` | src/memorymap/entry/manager.py:1426 |
-| `wiki_holders` | src/memorymap/entry/manager.py:3354 |
-| `wiki_link_targets` | src/memorymap/entry/manager.py:3193 |
-| `wiki_opening` | src/memorymap/entry/manager.py:3282 |
-| `wiki_plain` | src/memorymap/entry/manager.py:3188 |
-| `wiki_shown` | src/memorymap/entry/manager.py:3182 |
-| `wiki_target` | src/memorymap/entry/manager.py:3171 |
+| `validate_attachment_filename` | src/memorymap/entry/manager.py:1430 |
+| `wiki_holders` | src/memorymap/entry/manager.py:3358 |
+| `wiki_link_targets` | src/memorymap/entry/manager.py:3197 |
+| `wiki_opening` | src/memorymap/entry/manager.py:3286 |
+| `wiki_plain` | src/memorymap/entry/manager.py:3192 |
+| `wiki_shown` | src/memorymap/entry/manager.py:3186 |
+| `wiki_target` | src/memorymap/entry/manager.py:3175 |
 
 ### src/memorymap/entry/meetings.py (22)
 
@@ -15588,6 +15591,15 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `parse` | src/memorymap/entry/query.py:68 |
 | `rollups` | src/memorymap/entry/query.py:201 |
 | `run` | src/memorymap/entry/query.py:175 |
+
+### src/memorymap/entry/redate.py (4)
+
+| Name | File:line |
+|---|---|
+| `_reread` | src/memorymap/entry/redate.py:46 |
+| `enqueue_if_pending` | src/memorymap/entry/redate.py:91 |
+| `pending` | src/memorymap/entry/redate.py:38 |
+| `run` | src/memorymap/entry/redate.py:58 |
 
 ### src/memorymap/entry/sample_notebook.py (3)
 
@@ -16017,7 +16029,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9952)
+## Tests (9963)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16727,6 +16739,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_ollama_tools_reliability.py | 6 |
 | tests/test_one_download_helper.py | 3 |
 | tests/test_one_reader.py | 2 |
+| tests/test_one_when_shape.py | 2 |
 | tests/test_openapi_gate.py | 3 |
 | tests/test_optional_sign_in.py | 22 |
 | tests/test_orient_script.py | 2 |
@@ -16815,6 +16828,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_recordings_library.py | 18 |
 | tests/test_recurrence_1010.py | 7 |
 | tests/test_recycle_bin.py | 18 |
+| tests/test_redate.py | 6 |
 | tests/test_reevaluate.py | 4 |
 | tests/test_reevaluate_private.py | 3 |
 | tests/test_refresh_entries.py | 3 |
@@ -16979,7 +16993,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_time_travel_spec.py | 9 |
 | tests/test_timeline.py | 31 |
 | tests/test_timeline_auto_scale.py | 3 |
-| tests/test_timeline_calendar_window.py | 4 |
+| tests/test_timeline_calendar_window.py | 7 |
 | tests/test_timeline_on_this_day.py | 5 |
 | tests/test_timewords.py | 23 |
 | tests/test_timezone.py | 6 |
@@ -17154,7 +17168,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 1.9 The main user journeys | docs/roadmap/MODERNISATION_AUDIT.md:241 |
 | 10. Built: Phase 2 (frontend) | docs/roadmap/MINDMAP_PLAN.md:295 |
 | 10. Chat and the agent surface | docs/roadmap/PLAN.md:198 |
-| 10. Deepened 2026-10-10: the timeline (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:273 |
+| 10. Deepened 2026-10-10: the timeline (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:295 |
 | 10. Flaws found by static probes (cheap to reproduce, each with its command) | docs/roadmap/WORLD_CLASS_PLAN.md:861 |
 | 10. Not verified | docs/roadmap/ANALYSIS.md:4381 |
 | 10. Outline, navigation and view | docs/roadmap/WHITEBOARD_PLAN.md:1214 |
@@ -17166,7 +17180,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 109.3 The competitor gap analysis, triaged | docs/roadmap/BACKLOG.md:3549 |
 | 109.4 Brainstormed: not asked for, worth doing | docs/roadmap/BACKLOG.md:3588 |
 | 11. Built: the previews, Phase 4 and Phase 5 | docs/roadmap/MINDMAP_PLAN.md:299 |
-| 11. Deepened 2026-10-10: reminders and notifications (Brief 72b, decisions 69 and 71) | docs/roadmap/TIMELINE_PLAN.md:311 |
+| 11. Deepened 2026-10-10: reminders and notifications (Brief 72b, decisions 69 and 71) | docs/roadmap/TIMELINE_PLAN.md:333 |
 | 11. Graph | docs/roadmap/PLAN.md:210 |
 | 11. Keyboard shortcuts | docs/roadmap/WHITEBOARD_PLAN.md:1229 |
 | 11. Performance, accuracy and AI efficiency | docs/roadmap/BACKLOG.md:708 |
@@ -17197,7 +17211,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 116.2 Mindmaps, Phases 4-5 (MINDMAP_PLAN.md §5 items 14-21) | docs/roadmap/BACKLOG.md:3911 |
 | 116.3 PLAN.md rows not started (by track) | docs/roadmap/BACKLOG.md:3915 |
 | 116.4 Tooling | docs/roadmap/BACKLOG.md:3922 |
-| 12. Deepened 2026-10-10: the calendar (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:352 |
+| 12. Deepened 2026-10-10: the calendar (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:374 |
 | 12. Does the AI know it is an agent? | docs/roadmap/BACKLOG.md:956 |
 | 12. Library | docs/roadmap/PLAN.md:220 |
 | 12. Security review (read, not penetration-tested; each item names the file) | docs/roadmap/WORLD_CLASS_PLAN.md:917 |
@@ -17741,7 +17755,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | G. The plans' own remainders | docs/roadmap/SESSION_BRIEFS.md:722 |
 | G1 · Primary navigation scrolls off the phone screen, High | docs/roadmap/MODERNISATION_AUDIT.md:748 |
 | G2 · The category sidebar becomes a 182 px banner, Medium | docs/roadmap/MODERNISATION_AUDIT.md:761 |
-| Gates | docs/roadmap/TIMELINE_PLAN.md:255 |
+| Gates | docs/roadmap/TIMELINE_PLAN.md:277 |
 | Guides: curated instructions the AI writes to | docs/roadmap/BACKLOG.md:2505 |
 | H. Missing table stakes, security and privacy | docs/roadmap/MODERNISATION_AUDIT.md:768 |
 | H. Suggested order (feeds PLAN.md's sprints) | docs/roadmap/AUDIT.md:162 |
@@ -18048,7 +18062,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/DOCUMENTS_PLAN.md:1561 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/GRAPH_PLAN.md:595 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/MINDMAP_PLAN.md:1816 |
-| Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/TIMELINE_PLAN.md:267 |
+| Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/TIMELINE_PLAN.md:289 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/UI_MODERNISATION_PLAN.md:1436 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/WHITEBOARD_PLAN.md:1541 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/WORLD_CLASS_PLAN.md:4177 |

@@ -77,3 +77,39 @@ def test_a_note_with_a_written_out_date_sits_on_that_date(client, session):
     body = client.get("/timeline?kind=note&start=2031-02-03T00:00:00&end=2031-02-03T23:59:59&limit=1000").json()
     row = next(r for r in body["rows"] if r["id"] == made["id"])
     assert row["placed_by"] == "mentioned" and row["date"] == "2031-02-03" and row["time"] == "15:00"
+
+
+def test_the_feeds_last_year_range_holds_a_note_by_where_it_sits_like_the_calendar(client, session):
+    """OPEN.md: the feed's Last-year range filtered by when a note was written,
+    so a note about a day this month written over a year ago showed in the
+    calendar and not the feed (TIMELINE_PLAN decision 24)."""
+    soon = (date.today() + timedelta(days=3)).isoformat()
+    old = _save(client, f"Renew the licence on {soon}.")
+    session.get(Entry, old["id"]).created_at = datetime(2023, 1, 5, 10, 0)
+    recent = _save(client, "Written today about nothing in particular.")
+    session.commit()
+    feed = {row["id"] for row in client.get("/timeline?kind=note&days=365&limit=1000").json()["rows"]}
+    assert old["id"] in feed and recent["id"] in feed
+    recent_90 = {row["id"] for row in client.get("/timeline?kind=note&days=90&limit=1000").json()["rows"]}
+    assert old["id"] in recent_90  # it sits three days ahead: inside a range with no end
+
+
+def test_a_note_written_this_year_about_a_day_long_ago_sits_there_not_in_the_recent_feed(client):
+    made = _save(client, "I was born on 1999-03-04.")
+    recent = {row["id"] for row in client.get("/timeline?kind=note&days=90&limit=1000").json()["rows"]}
+    assert made["id"] not in recent
+    everything = {row["id"] for row in client.get("/timeline?kind=note&days=0&limit=1000").json()["rows"]}
+    assert made["id"] in everything
+
+
+def test_a_note_naming_two_dates_sits_on_the_first_and_lists_the_other_as_also_on(client):
+    made = _save(client, "Pay the deposit on 2031-02-03 and the balance on 2031-03-05.")
+    window = "kind=note&start={}T00:00:00&end={}T23:59:59&limit=1000"
+    first = client.get("/timeline?" + window.format("2031-02-03", "2031-02-03")).json()["rows"]
+    row = next(r for r in first if r["id"] == made["id"])
+    assert row["date"] == "2031-02-03" and row["also_on"] == ["2031-03-05"]
+    # The second date's window holds it only when the calendar asks for the also-on notes.
+    plain = client.get("/timeline?" + window.format("2031-03-05", "2031-03-05")).json()["rows"]
+    assert made["id"] not in {r["id"] for r in plain}
+    asked = client.get("/timeline?" + window.format("2031-03-05", "2031-03-05") + "&also=true").json()["rows"]
+    assert made["id"] in {r["id"] for r in asked}

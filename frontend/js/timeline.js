@@ -155,6 +155,8 @@ function timelineRow(entry) {
     //: has quietly moved someone's notes: "mentioned" means the row sits on a
     //: date the note *talks about*, and `phrase` is the words that did it.
     placedBy: entry.placed_by,
+    //: The other days the note names (the row sits on the first): the calendar draws an "also on" chip there.
+    alsoOn: entry.also_on || [],
     phrase: entry.phrase || "",
     tags: Array.isArray(entry.tags) ? entry.tags : [],
     category: entry.category || "",

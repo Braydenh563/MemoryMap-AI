@@ -732,13 +732,16 @@ def reindex_properties(session: Session, entry: Entry) -> None:
 
 
 @events.writes("entry", "dated")
-def record_dates(session: Session, entry: Entry) -> None:
+def record_dates(session: Session, entry: Entry, now: datetime | None = None) -> None:
     """Resolve the relative time phrases in a note and store what they meant.
 
     Best-effort by design (principle 2): a note must save even if this cannot
     run at all, so every failure here is logged and swallowed. Private notes
     are skipped: their text is encrypted at rest, and lifting phrases out of
     it into a plain table would leak the one thing encryption is for.
+
+    `now` is the day the phrases are read against; the default is today (the
+    reader's clock). `entry/redate.py` passes the note's own day.
     """
     try:
         if entry.is_private:
@@ -752,10 +755,11 @@ def record_dates(session: Session, entry: Entry) -> None:
         # module-level ones).
         deps = importlib.import_module("memorymap.core.deps")
 
-        try:
-            now = user_now(deps.get_config())
-        except Exception:  # noqa: BLE001  # no app state (a script, a test)
-            now = datetime.now()
+        if now is None:
+            try:
+                now = user_now(deps.get_config())
+            except Exception:  # noqa: BLE001  # no app state (a script, a test)
+                now = datetime.now()
         #: An imported note's words were written on its own day, not today:
         #: "tomorrow" in a 2024 export is a day in 2024 (CHAT_PLAN section 2,
         #: the import row). `app_import.write` sets that day and calls this

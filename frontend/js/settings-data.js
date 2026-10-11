@@ -9,7 +9,7 @@ let privacyReceipt = null;
 
 function privacyWhen(iso) {
   if (!iso) return "";
-  return typeof relativeTime === "function" ? relativeTime(iso) : new Date(iso).toLocaleString();
+  return typeof relativeTime === "function" ? relativeTime(iso) : whenText(iso);
 }
 
 //: **One row per place, saying what it was for** (INBOX 807, the owner: "it
@@ -121,7 +121,7 @@ function renderPrivacyRange() {
   const totals = (ledger ? receipt.ledger?.totals : receipt.totals) || {};
   const local = totals.this_computer || 0;
   $("privacy-range-note").textContent =
-    `Since ${since ? new Date(since).toLocaleString() : "this launch"}. ` +
+    `Since ${since ? whenText(since) : "this launch"}. ` +
     `${local.toLocaleString()} connection${local === 1 ? "" : "s"} stayed on this computer ` +
     "(your model and the app's own window) and are counted, not listed.";
   const all = (ledger ? receipt.ledger?.destinations : receipt.destinations) || [];
@@ -948,7 +948,7 @@ function settingsHistoryRow(entry) {
   label.textContent = entry.label;
   const when = document.createElement("small");
   when.className = "muted";
-  const ago = typeof relativeTime === "function" ? relativeTime(new Date(entry.at).toISOString()) : new Date(entry.at).toLocaleString();
+  const ago = typeof relativeTime === "function" ? relativeTime(new Date(entry.at).toISOString()) : whenText(entry.at);
   when.textContent = entry.undone ? `${ago} · undone` : entry.noUndo ? `${ago} · can't be undone` : ago;
   words.append(label, when);
   li.appendChild(words);

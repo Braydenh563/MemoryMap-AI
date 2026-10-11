@@ -430,6 +430,30 @@ def test_warm_filing_is_served_where_the_page_asks_for_it(client):
     assert client.post("/models/warm-filing").json() == {"status": "ok"}
 
 
+def test_a_launch_with_no_waiting_notes_queues_no_filing_row(client, monkeypatch):
+    # Every page load queued the stand-in retry as a "Filing a note" job even
+    # on an empty notebook, so the bell and Activity said a note was being
+    # filed when there was none (scan 2026-10-11).
+    from memorymap.core import jobs
+
+    queued: list[str] = []
+    monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))
+    client.post("/models/warm-filing")
+    assert queued == ["warm-filing"]
+
+
+def test_a_launch_with_a_stand_in_note_retries_its_filing(client, monkeypatch):
+    from memorymap.core import jobs
+
+    queued: list[str] = []
+    monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))
+    from memorymap.api import routes_entries
+
+    monkeypatch.setattr(routes_entries, "stand_ins_waiting", lambda: 2)
+    client.post("/models/warm-filing")
+    assert queued == ["warm-filing", "file-entry"]
+
+
 def test_status_serves_the_last_answer_while_the_runner_is_slow(client, monkeypatch):
     """`GET /models/status: signal timed out` again, with the capability probe
     already off the request path: what is left is the poll waiting on the

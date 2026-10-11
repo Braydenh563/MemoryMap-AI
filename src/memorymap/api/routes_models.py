@@ -281,7 +281,11 @@ def warm_filing() -> dict:
         deps.get_ollama(),
         dedupe_key="warm-filing",
     )
-    jobs.enqueue("file-entry", routes_entries.retry_stand_ins, dedupe_key="retry-stand-ins")
+    #: Only when a note is waiting: queued unconditionally, a launch with no
+    #: notes still showed "Filing a note" in Activity and in the bell (scan
+    #: 2026-10-11, one more row per page load).
+    if routes_entries.stand_ins_waiting():
+        jobs.enqueue("file-entry", routes_entries.retry_stand_ins, dedupe_key="retry-stand-ins")
     return {"status": "ok"}
 
 def _embedding_coverage(session: Session) -> dict:

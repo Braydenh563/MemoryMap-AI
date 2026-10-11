@@ -70,7 +70,8 @@ def test_the_route_restarts_any_launch_the_launcher_made(client, monkeypatch):
     monkeypatch.delenv("MEMORYMAP_DESKTOP", raising=False)
     calls = []
     monkeypatch.setattr("memorymap.__main__.restart_app", lambda: calls.append(True))
-    assert client.post("/system/restart").json() == {"restarting": True}
+    restarted = client.post("/system/restart")
+    assert restarted.json() == {"restarting": True}
     assert calls == [True]
 
 

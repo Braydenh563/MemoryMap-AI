@@ -161,9 +161,12 @@ function renderOnboardingActions(models, notebook) {
       smallButton(
         "ph:plugs Connect a model",
         "Close the welcome and open Settings at Models, where a model is connected",
+        //: Settings first, the welcome closes once it is up: Settings loads
+        //: lazily, and closing first let the first-run queue see a clear
+        //: screen and draw the recovery offer over the page this button had
+        //: just opened (scan 2026-10-11).
         () => {
-          closeOnboarding();
-          openSettingsModal("models");
+          Promise.resolve(openSettingsModal("models")).catch(() => {}).then(() => closeOnboarding());
         }
       )
     );
@@ -298,7 +301,10 @@ function firstRunSurfaceOpen() {
     const el = $(id);
     return Boolean(el && !el.classList.contains("hidden"));
   };
-  return shown("onboarding-overlay") || shown("tour-card") ||
+  //: Settings too: the welcome's "Connect a model" opens it, and the recovery
+  //: offer used to draw over it (scan 2026-10-11), on top of the very page the
+  //: person had just been sent to. It takes its turn when Settings closes.
+  return shown("onboarding-overlay") || shown("tour-card") || shown("settings-modal") ||
     Boolean(document.querySelector("dialog[open], .confirm-overlay"));
 }
 

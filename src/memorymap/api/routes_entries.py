@@ -577,6 +577,14 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
             logger.warning("couldn't mark entry %s as failed", entry_id, exc_info=True)
 
 
+def stand_ins_waiting() -> int:
+    """How many notes are stand-ins (the model's answer was still coming when
+    the app last closed). A count only: the launch asks it before queueing
+    the retry, so a notebook with none shows no "Filing a note" row."""
+    with deps.get_db().session() as session:
+        return session.query(Entry).filter(Entry.filing_state == manager.STAND_IN).count()
+
+
 def retry_stand_ins() -> int:
     """Ask the model again for every note left as a stand-in: its answer was
     still coming when the app closed. Runs once per launch on the model lane

@@ -7666,7 +7666,7 @@ onDomReady(() => {
       const body = `${heading}\n\n${picture}${text}`;
       const created = await apiJson("/entries", {
         method: "POST",
-        body: JSON.stringify({ content: body }),
+        body: JSON.stringify({ content: body, defer_filing: true }),
       });
       toast("Saved as a note.");
       $("ocr-workspace").classList.add("hidden");

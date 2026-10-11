@@ -538,12 +538,28 @@ async function qaPaletteRemind(text, slots) {
   }
 }
 
+//: **Warm-up waits for a session** (scan 2026-10-11). Asked at load, as it was,
+//: it met the lock screen or the last launch's stale token on every start and
+//: answered 401 into the console twice. The boot splash is down and the lock
+//: overlay is hidden only once `startApp` has a live session, so that is the
+//: signal; polled, not hooked, because this module loads before or after it.
+function qaPrewarm(tries = 0) {
+  const lock = $("lock-overlay");
+  const splash = $("boot-splash");
+  const live = authToken() && lock && lock.classList.contains("hidden") && (!splash || splash.classList.contains("hidden"));
+  if (!live) {
+    if (tries < 600) setTimeout(() => qaPrewarm(tries + 1), 1000);
+    return;
+  }
+  qaFetch("in 5 minutes", "reminder").then(() => qaFetch("in 5 minutes", "note"));
+}
+
 (() => {
   //: The reader's first answer loads its tables (measured: over 4 s cold,
   //: and 305 ms for the first note after a reminder: the chat path's own
   //: modules); both asked now, a few seconds after boot, so the first word
   //: typed is not the one that waits.
-  qaFetch("in 5 minutes", "reminder").then(() => qaFetch("in 5 minutes", "note"));
+  qaPrewarm();
   quickAddAttach($("reminder-magic"), "reminder", { after: $("reminder-magic-row") });
   const search = $("timeline-search");
   if (search) {

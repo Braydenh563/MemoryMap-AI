@@ -56,7 +56,7 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
       async () => {
         await apiJson("/entries", {
           method: "POST",
-          body: JSON.stringify({ content, is_draft: draft, ...sourceFields }),
+          body: JSON.stringify({ content, is_draft: draft, defer_filing: true, ...sourceFields }),
         });
         await loadEntries();
       }

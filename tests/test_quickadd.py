@@ -40,6 +40,17 @@ def test_quickadd_is_lazy_with_its_own_stylesheet():
     assert "quickadd.js" not in index and "quickadd-lazy.css" not in index
 
 
+def test_the_reader_is_warmed_after_sign_in_not_on_the_lock_screen():
+    # Both warm-up asks answered 401 into the console on every launch with a
+    # password or a stale token (scan 2026-10-11): the module loads three
+    # seconds after boot, before or after the session exists.
+    src = _text("quickadd.js")
+    body = src.split("function qaPrewarm(")[1].split("\n}\n")[0]
+    assert 'authToken() && lock && lock.classList.contains("hidden")' in body
+    assert body.index("const live") < body.index('qaFetch("in 5 minutes", "reminder")')
+    assert "\n  qaPrewarm();\n" in src
+
+
 def test_every_surface_reads_through_the_one_grammar():
     assert "quickAddAttach(box, \"note\"" in _text("quick-note.js")
     assert "quickAddSlots(quickNoteBox())" in _text("quick-note.js")
@@ -90,8 +101,8 @@ NODE_HARNESS = r"""
 const fs = require("fs");
 const vm = require("vm");
 const ctx = { console, Date, Math, JSON, Number, String, Array, Set, Map, WeakMap, Promise, RegExp, Object,
-  setTimeout, clearTimeout, encodeURIComponent, $: () => null, document: {}, navigator: {},
-  apiJson: () => Promise.reject(new Error("no server here")) };
+  setTimeout: () => 0, clearTimeout, encodeURIComponent, $: () => null, document: {}, navigator: {},
+  authToken: () => "", apiJson: () => Promise.reject(new Error("no server here")) };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(process.argv[2], "utf8"), ctx);
 const span = (text, kind, phrase, value, extra = {}) => {

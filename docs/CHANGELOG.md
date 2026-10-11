@@ -37,6 +37,11 @@ below). Versioning is `0.x` while the app stabilises.
 - Timeline: the years are one menu beside the month picker rather than a chip row of their own.
 - Chat: the settings button in the bottom dock has the same rounded-square corner as the other icon buttons.
 - Start-up: the bell's panel and the meeting recorder's buttons load the first time they are used, and 89 Library-only style rules load with the Library; the app starts with about 3.2 KB less script and 1.5 KB less style (gzipped).
+- Notes: pressing Save before the settings have loaded no longer fails silently.
+- Mind maps, drafts, web clips, voice notes, transcripts, OCR text, new linked notes and chat answers saved as notes are filed in the background, like Capture's: a mind map's new topic took the filing model's whole answer (4.7 s measured against a 4 s model) and now appears in 0.3 s.
+- First run: "Connect a model" on the welcome opens Settings and the recovery-key offer waits until Settings is closed, instead of drawing over it.
+- Start-up: opening the app with no notes waiting no longer lists a "Filing a note" job in Activity and the bell, a new row on every launch.
+- Start-up: the quick-add reader warms up after sign-in instead of on the lock screen, so a launch with a password no longer logs two 401 errors.
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), and a missing apostrophe is read ("doesn follow"); the Guide, the clock and the other utilities read the repaired question.
 - Ask: an answer to a question that needed a spelling repair opens by saying how it was read ("I took that to mean ..."), in wording that changes from one answer to the next.
 - Settings: Import & export has Clear and forget (recent searches in every box, saved previews, the Guide's conversation, dismissed suggestions), each saying how much it removes and each undoable for ten seconds.

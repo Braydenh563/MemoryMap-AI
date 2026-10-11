@@ -264,7 +264,7 @@ async function saveDraftAsNote() {
       // straight into Notes.
       entry = await apiJson("/entries", {
         method: "POST",
-        body: JSON.stringify({ content, tags, is_draft: true }),
+        body: JSON.stringify({ content, tags, is_draft: true, defer_filing: true }),
       });
     }
     const wroteBack = draftNoteId !== null;

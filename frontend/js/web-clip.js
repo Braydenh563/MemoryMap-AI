@@ -138,7 +138,7 @@ async function saveWebPageAsNote() {
   try {
     await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags: ["web"] }),
+      body: JSON.stringify({ content, tags: ["web"], defer_filing: true }),
     });
     toast("Saved as a note.");
     loadEntries().catch(() => {});

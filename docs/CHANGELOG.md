@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- First run: an empty notebook is offered a way to bring in notes kept in another app.
+- Settings and menus: a worded button is announced by its words, Most used follows a write at once, a found setting lands on its control, the palette learns from what you ran for longer searches, help popovers fade out, and the background jobs poll stops when you lock.
+- Settings, Help: a Credits section lists every library and data set the app is built on, with its licence and a link to its source.
 - First run: the welcome, the tour, the recovery offer, the console question and the updates question take turns in a fixed order, one at a time, after any toasts have gone.
 - Recordings: an empty Recordings page shows an icon, a title, a line and a Record button.
 - Recordings: the waveform track has visibly rounded corners and its own tint, with the bars kept inside them.

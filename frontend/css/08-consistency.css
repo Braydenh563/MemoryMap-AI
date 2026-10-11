@@ -10132,7 +10132,8 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    the ring lost 4px of its underside to the clip (focus-ring sweep,
    2026-10-11: 3.8 to 4.1px on the last rows of the page and of a widget). */
 .tab-page,
-.dash-body {
+.dash-body,
+.library-view-section {
   scroll-padding-block: var(--ring-room);
 }
 /* The Settings nav scrolls on its own and its last section button stood on

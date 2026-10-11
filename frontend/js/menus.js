@@ -299,22 +299,33 @@ function wireHelpPopover(trigger, panel) {
       if (!openHelpPopovers.has(entry)) return;
       openHelpPopovers.delete(entry);
       panel.classList.add("hidden");
-      panel.classList.remove("help-popover", "help-popover-above");
-      panel.style.left = "";
-      panel.style.top = "";
-      panel.style.maxHeight = "";
-      //: Cleared with the rest of the inline placement: an element left
-      //: `visibility: hidden` in its home tree is an element some other
-      //: feature will one day show and find invisible.
-      panel.style.visibility = "";
-      if (homeParent) homeParent.insertBefore(panel, homeNext);
       trigger.setAttribute("aria-expanded", "false");
+      //: **After the exit, not now** (motion-1005: "Help popovers close at
+      //: once"): moving the node home cancelled its fade, so the placement
+      //: and the move wait for `.help-popover.hidden`'s transition, as an
+      //: escaped menu does (`afterMenuExit`). Skipped when it opened again.
+      afterMenuExit(panel, () => {
+        if (openHelpPopovers.has(entry)) return;
+        panel.classList.remove("help-popover", "help-popover-above");
+        panel.style.left = "";
+        panel.style.top = "";
+        panel.style.maxHeight = "";
+        //: Cleared with the rest of the inline placement: an element left
+        //: `visibility: hidden` in its home tree is an element some other
+        //: feature will one day show and find invisible.
+        panel.style.visibility = "";
+        if (homeParent && panel.parentElement !== homeParent) homeParent.insertBefore(panel, homeNext);
+      });
     },
   };
   const open = () => {
     closeHelpPopovers();
-    homeParent = panel.parentElement;
-    homeNext = panel.nextSibling;
+    //: Still leaving from the last close: its home is the one already known.
+    clearTimeout(panel._exitTimer);
+    if (!panel.classList.contains("help-popover")) {
+      homeParent = panel.parentElement;
+      homeNext = panel.nextSibling;
+    }
     //: **Into the open modal, not `<body>`, when the "?" is inside one**
     //: (INBOX 667: the Quick note's "?" showed nothing). A `showModal()`
     //: dialog is in the top layer, above the whole document whatever the

@@ -2975,6 +2975,10 @@ function entryListOrder(a, b) {
 
 async function refreshEntries(ids) {
   const wanted = [...new Set((ids || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  //: The sidebar's Most used follows a write at once (OPEN: "keeps a binned
+  //: note for up to 30 s"): the write emptied the read cache, so this is one
+  //: fresh GET, not the 30 s copy.
+  if (typeof loadMostUsed === "function") loadMostUsed().catch(() => {});
   const semantic = $("semantic-search-toggle")?.checked && noteSearch;
   if (!wanted.length || wanted.length > REFRESH_ENTRIES_MAX || !entriesComplete || semantic) {
     return loadEntries();

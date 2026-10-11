@@ -218,6 +218,19 @@ function renderOnboardingActions(models, notebook) {
     );
   }
 
+  //: **"I have 4,000 notes in Obsidian, now what"** (BACKLOG 112.4 item 4):
+  //: an empty notebook is also offered the way in for notes kept elsewhere,
+  //: Settings, Import & export, whose Import files takes Markdown folders as
+  //: they are. The welcome closes first so the two never overlap.
+  if (notebook && notebook.count === 0) {
+    offers.push(
+      smallButton("ph:file-arrow-up Bring in your notes", "Import Markdown files or a folder, such as an Obsidian vault", () => {
+        closeOnboarding(false);
+        openSettingsModal("data", "import-md");
+      })
+    );
+  }
+
   box.classList.toggle("hidden", offers.length === 0);
   for (const button of offers) box.appendChild(button);
   if (models?.builtin_embedding_installed === false)

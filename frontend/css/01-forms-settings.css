@@ -6158,3 +6158,19 @@ select {
 .recent-change-empty {
   list-style: none;
 }
+/* Settings, Help, Credits (`renderCredits`, settings-find.js): a row per
+   library, its name a link and its licence after it. */
+.credits-rows {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.credits-rows > li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}

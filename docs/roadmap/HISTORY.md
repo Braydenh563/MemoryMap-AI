@@ -338,6 +338,23 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-11 (uiset, the first-run queue)
+
+From UI_MODERNISATION_PLAN, "Placed from the owner", Bugs, as it stood:
+
+> - "popup panels appearing at the start on a new install are messy and clash/overlap a lot"
+>   Recommendation: one first-run queue with no overlapping panels, measured with getBoundingClientRect on a fresh profile. Also carried by Brief 37 (the first-run queue).
+
+Built (commit "First run: one popup at a time, in a fixed order", ledger row
+1631, the owner seeing the overlap in the Windows app): `firstRunTurn` in
+onboarding.js is one ordered queue (welcome, recovery, console, updates); each
+turn waits for the lock, the welcome, the tour, Settings and any dialog to
+close and for toasts to go, and the companion's hint holds back while the tour
+or welcome is up. Measured on a fresh data dir at 1440 with the desktop flag
+(`fr.js`): welcome 6.5 s, tour 10.3 s, recovery 92.0 s, console 92.9 s,
+updates 94.8 s, no overlap but the tour's own Settings step. Not verified: the
+Windows app itself, and 390 after the toast wait was added.
+
 ## Moved from the plans, 2026-10-11 (Brief 86)
 
 The search86 agent built decisions a to c and INBOX 848 and 849; what is left is in `archive/agent-remaining/search86-1011.md`. The brief, as it stood:

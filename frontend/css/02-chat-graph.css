@@ -2616,6 +2616,76 @@ kbd {
   border-color: var(--ink);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+/* The custom accent's block (Brief 95): the picker, a three-part preview of
+   the tones it derives (a fill under the button ink, the soft selection
+   ground, words in the accent), and the offer of the nearest readable shade
+   when a pick is refused. */
+.accent-custom-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.accent-custom-block .setting-control {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.accent-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+.accent-preview > span {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+}
+.accent-preview-fill {
+  background: var(--accent-surface);
+  color: var(--on-accent);
+}
+.accent-preview-soft {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.accent-preview-text {
+  color: var(--accent-text);
+}
+.accent-offer {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+/* The background cards (Brief 95): the palette card's recipe, a still frame
+   of the style as its preview (over the page, as the art sits), and the
+   cost as a status label beside the name. */
+#bg-style-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+#bg-style-row > .setting-label {
+  flex: 0 0 auto;
+}
+.bg-style-grid {
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  width: 100%;
+}
+.bg-style-preview {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  background: var(--page);
+}
+.bg-style-facts {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.accent-offer-dot {
+  width: 0.9rem;
+  aspect-ratio: 1;
+  border-radius: var(--radius-pill);
+  background: var(--swatch);
+}
 /* --- Wave K: empty states, mobile tap targets, high-contrast -------------------- */
 .empty-state {
   text-align: center;

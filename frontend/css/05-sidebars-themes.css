@@ -3201,6 +3201,10 @@ button.outline-twist:focus-visible {
    toggle: picking "Parchment" shouldn't silently decide whether it's night.
    Only the palette variables are redefined here; every component keeps reading
    the same names, which is what stops a new theme from needing new rules.
+   Brief 95 (INBOX 858): every muted ink clears 4.75:1 on the worst ground
+   contrast.js finds in its mode (seven were 4.08 to 4.48:1, all on Settings
+   wells and chips), and a dark inset panel is 7% light, not 5%, so it reads
+   apart from the card it sits in.
    ============================================================================= */
 /* --- Parchment: paper, ink and a little gold. Made for long writing. --------- */
 :root[data-palette="parchment"] {
@@ -3228,13 +3232,13 @@ button.outline-twist:focus-visible {
   --blob-a: rgba(214, 173, 96, 0.13);
   --blob-b: rgba(160, 122, 78, 0.09);
   --card: color-mix(in srgb, rgba(43, 36, 25, 0.58) calc(var(--glass-opacity) * 100%), transparent);
-  --inner: color-mix(in srgb, rgba(255, 245, 224, 0.05) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(255, 245, 224, 0.07) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(24, 20, 14, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(226, 205, 165, 0.12);
   --modal-bg: rgba(34, 28, 19, 0.97);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #efe6d4;
-  --muted: #ad9f89;
+  --muted: #b3a691;
   --accent: #e0b458;
   --accent-soft: rgba(224, 180, 88, 0.18);
   --border: rgba(238, 224, 196, 0.12);
@@ -3252,7 +3256,7 @@ button.outline-twist:focus-visible {
   --modal-bg: rgba(248, 252, 248, 0.97);
   --glass-shadow: 0 8px 32px rgba(35, 74, 52, calc(0.13 * var(--shadow-low) + 0.37 * var(--shadow-t)));
   --ink: #1e2b23;
-  --muted: #566a5e;
+  --muted: #52655a;
   --accent: #2f7d54;
   --accent-soft: rgba(47, 125, 84, 0.15);
   --border: rgba(30, 43, 35, 0.11);
@@ -3263,15 +3267,15 @@ button.outline-twist:focus-visible {
   --blob-a: rgba(94, 196, 138, 0.14);
   --blob-b: rgba(70, 158, 140, 0.09);
   --card: color-mix(in srgb, rgba(25, 38, 31, 0.58) calc(var(--glass-opacity) * 100%), transparent);
-  --inner: color-mix(in srgb, rgba(224, 255, 238, 0.05) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(224, 255, 238, 0.07) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(11, 20, 16, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(190, 240, 212, 0.11);
   --modal-bg: rgba(20, 31, 25, 0.97);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #e2efe7;
-  --muted: #93a99c;
-  --accent: #5fd39a;
-  --accent-soft: rgba(95, 211, 154, 0.18);
+  --muted: #a3b6ab;
+  --accent: #6edaa6;
+  --accent-soft: rgba(110, 218, 166, 0.15);
   --border: rgba(210, 240, 224, 0.11);
   --chip-bg: rgba(210, 240, 224, 0.08);
 }
@@ -3298,13 +3302,13 @@ button.outline-twist:focus-visible {
   --blob-a: rgba(56, 189, 220, 0.15);
   --blob-b: rgba(45, 130, 200, 0.10);
   --card: color-mix(in srgb, rgba(21, 36, 45, 0.58) calc(var(--glass-opacity) * 100%), transparent);
-  --inner: color-mix(in srgb, rgba(220, 248, 255, 0.05) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(220, 248, 255, 0.07) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(7, 16, 22, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(180, 236, 250, 0.11);
   --modal-bg: rgba(16, 29, 37, 0.97);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #dff0f6;
-  --muted: #8ba7b4;
+  --muted: #9ab3be;
   --accent: #46c9e6;
   --accent-soft: rgba(70, 201, 230, 0.18);
   --border: rgba(200, 238, 250, 0.11);
@@ -3335,9 +3339,9 @@ button.outline-twist:focus-visible {
   --modal-bg: rgba(246, 253, 253, 0.97);
   --glass-shadow: 0 8px 32px rgba(18, 70, 84, calc(0.13 * var(--shadow-low) + 0.37 * var(--shadow-t)));
   --ink: #10262e;
-  --muted: #4a6a74;
+  --muted: #45636c;
   --accent: #0a7f8c;
-  --accent-soft: rgba(10, 127, 140, 0.16);
+  --accent-soft: rgba(10, 127, 140, 0.13);
   --border: rgba(16, 46, 56, 0.12);
   --chip-bg: rgba(16, 46, 56, 0.07);
 }
@@ -3358,7 +3362,7 @@ button.outline-twist:focus-visible {
   --ink: #e6eefa;
   --muted: #a7b8d2;
   --accent: #55dcd2;
-  --accent-soft: rgba(85, 220, 210, 0.2);
+  --accent-soft: rgba(85, 220, 210, 0.16);
   --border: rgba(186, 216, 236, 0.14);
   --chip-bg: rgba(186, 216, 236, 0.09);
 }
@@ -3385,13 +3389,13 @@ button.outline-twist:focus-visible {
   --blob-a: rgba(247, 145, 74, 0.14);
   --blob-b: rgba(226, 90, 106, 0.09);
   --card: color-mix(in srgb, rgba(41, 29, 23, 0.58) calc(var(--glass-opacity) * 100%), transparent);
-  --inner: color-mix(in srgb, rgba(255, 238, 226, 0.05) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(255, 238, 226, 0.07) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(20, 13, 10, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(250, 214, 190, 0.12);
   --modal-bg: rgba(32, 22, 18, 0.97);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #f4e3d8;
-  --muted: #b39687;
+  --muted: #b89d8f;
   --accent: #f5924f;
   --accent-soft: rgba(245, 146, 79, 0.18);
   --border: rgba(246, 220, 204, 0.12);
@@ -3420,13 +3424,13 @@ button.outline-twist:focus-visible {
   --blob-a: rgba(188, 116, 245, 0.15);
   --blob-b: rgba(238, 108, 186, 0.10);
   --card: color-mix(in srgb, rgba(35, 26, 45, 0.58) calc(var(--glass-opacity) * 100%), transparent);
-  --inner: color-mix(in srgb, rgba(243, 230, 255, 0.05) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(243, 230, 255, 0.07) calc(var(--glass-opacity) * 100%), transparent);
   --input-bg: color-mix(in srgb, rgba(16, 11, 22, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(230, 205, 250, 0.12);
   --modal-bg: rgba(28, 20, 37, 0.97);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #eee2f6;
-  --muted: #a795b3;
+  --muted: #ac9bb7;
   --accent: #c07df5;
   --accent-soft: rgba(192, 125, 245, 0.19);
   --border: rgba(232, 212, 250, 0.12);
@@ -3466,6 +3470,79 @@ button.outline-twist:focus-visible {
   --accent-soft: rgba(205, 213, 224, 0.13);
   --border: rgba(255, 255, 255, 0.11);
   --chip-bg: rgba(255, 255, 255, 0.07);
+}
+/* --- Midnight: deep navy and gold (Brief 95, INBOX 858: "truly good themes").
+   A night look that is not grey: navy ground, a gold accent that reads as
+   lamplight. The light half is porcelain with navy ink, the gold deepened to
+   hold 4.7:1 under white words. --------------------------------------------- */
+:root[data-palette="midnight"] {
+  --page: linear-gradient(135deg, #eef1f8 0%, #f4f2ec 45%, #eceff6 100%);
+  --blob-a: rgba(176, 128, 20, 0.13);
+  --blob-b: rgba(60, 86, 180, 0.12);
+  --card: color-mix(in srgb, rgba(255, 255, 255, 0.62) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(250, 251, 255, 0.5) calc(var(--glass-opacity) * 100%), transparent);
+  --input-bg: color-mix(in srgb, rgba(255, 255, 255, 0.62) calc(var(--glass-opacity) * 100%), transparent);
+  --glass-border: rgba(246, 248, 255, 0.72);
+  --modal-bg: rgba(249, 250, 253, 0.97);
+  --glass-shadow: 0 8px 32px rgba(20, 28, 60, calc(0.13 * var(--shadow-low) + 0.37 * var(--shadow-t)));
+  --ink: #141c33;
+  --muted: #4f5a72;
+  --accent: #9a6a00;
+  --accent-soft: rgba(154, 106, 0, 0.13);
+  --border: rgba(20, 28, 51, 0.12);
+  --chip-bg: rgba(20, 28, 51, 0.07);
+}
+:root[data-palette="midnight"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #0a0f1f 0%, #0f1630 45%, #0b1226 100%);
+  --blob-a: rgba(242, 193, 78, 0.10);
+  --blob-b: rgba(90, 120, 230, 0.16);
+  --card: color-mix(in srgb, rgba(22, 30, 56, 0.62) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(200, 215, 255, 0.07) calc(var(--glass-opacity) * 100%), transparent);
+  --input-bg: color-mix(in srgb, rgba(6, 10, 22, 0.62) calc(var(--glass-opacity) * 100%), transparent);
+  --glass-border: rgba(190, 205, 255, 0.13);
+  --modal-bg: rgba(17, 24, 46, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
+  --ink: #e8ecf7;
+  --muted: #a6b0c8;
+  --accent: #f2c14e;
+  --accent-soft: rgba(242, 193, 78, 0.16);
+  --border: rgba(200, 215, 255, 0.13);
+  --chip-bg: rgba(200, 215, 255, 0.08);
+}
+/* --- Rosewood: dusty rose and wine. Warm without being orange. ----------- */
+:root[data-palette="rosewood"] {
+  --page: linear-gradient(135deg, #f8ecee 0%, #faf1ef 45%, #f3e6ea 100%);
+  --blob-a: rgba(196, 92, 120, 0.16);
+  --blob-b: rgba(214, 150, 120, 0.12);
+  --card: color-mix(in srgb, rgba(255, 251, 251, 0.62) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(255, 251, 251, 0.5) calc(var(--glass-opacity) * 100%), transparent);
+  --input-bg: color-mix(in srgb, rgba(255, 251, 251, 0.62) calc(var(--glass-opacity) * 100%), transparent);
+  --glass-border: rgba(255, 244, 246, 0.7);
+  --modal-bg: rgba(253, 246, 247, 0.97);
+  --glass-shadow: 0 8px 32px rgba(110, 40, 60, calc(0.13 * var(--shadow-low) + 0.37 * var(--shadow-t)));
+  --ink: #2d1a20;
+  --muted: #674e56;
+  --accent: #a3324f;
+  --accent-soft: rgba(163, 50, 79, 0.13);
+  --border: rgba(45, 26, 32, 0.12);
+  --chip-bg: rgba(45, 26, 32, 0.07);
+}
+:root[data-palette="rosewood"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #170c10 0%, #211218 45%, #1a0e14 100%);
+  --blob-a: rgba(240, 138, 166, 0.13);
+  --blob-b: rgba(214, 150, 120, 0.09);
+  --card: color-mix(in srgb, rgba(44, 26, 33, 0.58) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(255, 226, 234, 0.07) calc(var(--glass-opacity) * 100%), transparent);
+  --input-bg: color-mix(in srgb, rgba(20, 10, 14, 0.6) calc(var(--glass-opacity) * 100%), transparent);
+  --glass-border: rgba(250, 210, 222, 0.12);
+  --modal-bg: rgba(35, 21, 27, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
+  --ink: #f5e6ea;
+  --muted: #bfa3ab;
+  --accent: #f08aa6;
+  --accent-soft: rgba(240, 138, 166, 0.16);
+  --border: rgba(250, 214, 224, 0.12);
+  --chip-bg: rgba(250, 214, 224, 0.08);
 }
 /* --- Quiet utilitarian: the default look (UI_MODERNISATION_PLAN decisions,
    2026-09-23). A neutral warm-grey ground with no gradient and no blobs,
@@ -3586,7 +3663,7 @@ button.outline-twist:focus-visible {
   --modal-bg: #161a1f;
   --glass-shadow: 0 1px 2px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #e6eaee;
-  --muted: #8f9aa6;
+  --muted: #9ca6b0;
   --accent: #42d67f;
   --accent-soft: rgba(66, 214, 127, 0.14);
   --border: rgba(230, 234, 238, 0.11);

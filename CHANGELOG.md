@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Themes: nine more accents (coral, gold, forest, navy, cyan, berry, olive, copper, lavender), and every accent's button text now reads at 4.5:1 or better in both modes (7 of 30 were under it in dark). A custom accent is toned per mode, and a pick that would read under 4.5:1 is refused with the nearest shade that passes, one press to use it.
+- Themes: two new looks, Midnight and Rosewood; the muted text and inner surfaces of Ember, Parchment, Mono, Plum, Sage, Ocean and Lagoon are retoned for contrast.
+- Background art: four lighter styles (dusk, ripples, fireflies, rain), and the style list is now a row of cards, lightest first, each with a preview and its measured cost (Light, Medium or Heavy, and the milliseconds a frame). Constellation draws fewer stars so no style passes 2ms a frame.
 - Themes: Classic and Quiet utilitarian are pinned by a test (their palettes, cards and presets), so the theme work cannot change them.
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Security: a phone or another computer on the network can no longer make this computer act. Opening a folder, restarting or quitting the app, installing or running software (extras, updates, SearXNG), importing a folder of this computer's files, changing the model server and restoring a whole backup now answer "Only this computer can do that" to any other device.

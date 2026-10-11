@@ -95,7 +95,7 @@ const LOOK_ROWS = [
   { key: "border-style", id: "border-style-seg", seg: "borderChoice" },
   { key: "shadow-intensity", id: "shadow-intensity" },
   { key: "bgArt", id: "bg-art-toggle", on: "on", base: "off" },
-  { key: "bg-style", id: "bg-art-style" },
+  { key: "bg-style", id: "bg-art-style", seg: "bgStyle" },
   { key: "bg-motion", id: "bg-motion" },
   { key: "bg-intensity", id: "bg-intensity" },
   { key: "avatar-motion", id: "avatar-motion" },

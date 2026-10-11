@@ -648,7 +648,6 @@ EXEMPT: dict[str, str] = {
     "skills.js:saveFile": "job: writes an export the person asked for to the exports folder, as a download does; it deletes nothing",
     "skills.js:saveSkillList": "settings: a setting with its own Reset or the settings history",
     "skills.js:saveToolSwitch": "settings: a setting with its own Reset or the settings history",
-    "spaces-find.js:initSpaceSwitcher": "job: a new space opens with a page reload, which empties the session's Undo; Delete space on it has Undo",
     "spaces-find.js:saveTemplateList": "settings: a setting with its own Reset or the settings history",
     "status.js:insightSend": "settings: a verdict on an insight, either way reversible by the other verdict",
     "status.js:setChatMode": "settings: a setting with its own Reset or the settings history",

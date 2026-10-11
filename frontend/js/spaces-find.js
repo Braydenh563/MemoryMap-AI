@@ -559,7 +559,25 @@ function initSpaceSwitcher() {
         body: JSON.stringify({ name, icon: $("space-create-icon").value }),
       });
       $("space-create-dialog").close();
-      setActiveSpace(space.id);
+      //: Made in place, with no reload: a reload empties the session's Undo.
+      //: Undo moves anything put in it meanwhile to the default space, then
+      //: removes it; Redo makes it again under the id the server gives next.
+      const made = { name, icon: $("space-create-icon").value };
+      let live = space;
+      pushUndo(
+        `Made the space “${name}”`,
+        async () => {
+          await api(`/spaces/${encodeURIComponent(live.id)}?move_to=default`, { method: "DELETE" });
+          if (activeSpaceId() === live.id) setActiveSpace("all");
+          else await loadSpaces();
+        },
+        async () => {
+          live = await apiJson("/spaces", { method: "POST", body: JSON.stringify(made) });
+          await loadSpaces();
+        }
+      );
+      await loadSpaces();
+      toastAction(`Made the space “${name}”.`, "Open it", () => setActiveSpace(live.id));
     } catch (err) {
       error.textContent = err.message;
     }

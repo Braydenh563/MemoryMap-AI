@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Making a space no longer reloads the page: the menu updates in place and the step goes on the Undo bar (Undo moves anything put in it to the default space and removes it; Redo makes it again), with an "Open it" action on the notice.
 - Undo after accepting a link type or a name merge from the suggestions inbox now also takes away what the accept taught the notebook, and Redo teaches it again.
 - Fixed: Ctrl+Z on the Notes tab (or any tab but the board) walked the last board's history instead of the app's steps, and Ctrl+Z, Ctrl+Shift+Z, Ctrl+Z on a Mermaid import or any several-shape step left a shape behind, because items brought back reuse the ids just deleted.
 - Undo and Redo have no gaps left: deleting a picture or a file, a past question, what the notebook learned, a board library, the cut-off tail of an edited chat question, a dismissed tidy merge or tension, a renamed [[name]] rewrite, a graph pin, a topic rename, a map's theme, layout and numbering, branch cuts and reversals, imports and new boards, a space rename, a recording and a stand-alone capture or clip each carry an Undo with a working Redo. The server keeps what a delete took in an undo bin for two weeks. A ratchet fails any step without a Redo.

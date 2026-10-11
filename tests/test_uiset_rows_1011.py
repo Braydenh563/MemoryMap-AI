@@ -84,7 +84,7 @@ def test_a_job_run_writes_its_lines_to_the_app_log_under_its_run_id(caplog):
 
 def test_the_logs_button_filters_on_the_run_and_an_empty_log_is_the_empty_state():
     js = frontend_text("settings.js")
-    assert "`[${item.run_id}]`" in js
+    assert "`[${item.run_id}]`" in frontend_text("settings-controls.js")
     shared = _fn(js, "renderLogSharedUI")
     assert "This job wrote no log lines" in shared and '"log-none"' in shared
     html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")

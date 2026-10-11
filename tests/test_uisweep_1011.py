@@ -66,7 +66,7 @@ def test_a_scrolling_page_and_widget_body_leave_room_for_a_focus_ring():
     # A Tab stop scrolled in flush with the bottom edge lost 3.8 to 4.1px of
     # its ring to the clip (focus-ring sweep): the scroller keeps --ring-room.
     css = _strip(css_text())
-    rule = re.search(r"\.tab-page,\s*\.dash-body\s*\{([^}]*)\}", css)
+    rule = re.search(r"\.tab-page,\s*\.dash-body,\s*\.library-view-section\s*\{([^}]*)\}", css)
     assert rule and "scroll-padding-block: var(--ring-room)" in rule.group(1)
 
 

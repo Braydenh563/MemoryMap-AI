@@ -161,7 +161,8 @@ def test_the_guide_tells_the_choice():
         Path(help_chat.__file__).read_text(encoding="utf-8")
         + Path(help_topics_more.__file__).read_text(encoding="utf-8")
     )
-    assert "Install search by meaning automatically" in text
+    joined = re.sub(r'"\s*\n\s*"', "", text)
+    assert "Install search by meaning automatically" in joined
 
 
 # --- the first-time notice (a lazy module) ----------------------------------

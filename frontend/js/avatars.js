@@ -6989,7 +6989,6 @@ function nameMarkBuddyEnter(buddy, spot) {
     nmb.hopAnim = atlas ? char?.animate([
       { rotate: `${sway * 8}deg` }, { rotate: `${-sway * 6}deg`, offset: 0.35 }, { rotate: `${sway * 4}deg`, offset: 0.65 }, { rotate: "0deg" },
     ], { duration, easing: "ease-in-out" }) || null : null;
-    if (!atlas) nameMarkBuddySquash(char, Math.round(duration * hit) - 50, true);
     nameMarkBuddyLimbs(buddy, atlas ? "float" : "leap", duration, 0, sway);
     return how;
   }
@@ -7009,7 +7008,6 @@ function nameMarkBuddyEnter(buddy, spot) {
       { rotate: `${-way * 360}deg`, easing: "cubic-bezier(0.3, 0, 0.5, 1)" }, { rotate: `${-way * 20}deg`, offset: 0.5 },
       { rotate: `${way * 6}deg`, offset: 0.85 }, { rotate: "0deg" },
     ], { duration, easing: "ease-out" }) || null;
-    nameMarkBuddySquash(char, Math.round(duration * 0.5) - 50, true);
     nameMarkBuddyLimbs(buddy, "leap", duration, 0, way);
     return how;
   }

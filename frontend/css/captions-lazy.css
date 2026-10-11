@@ -63,6 +63,18 @@
   font-weight: 500;
 }
 
+/* Translate on (libr-1011 row 1222): the translated lines sit under the
+   running one, so the box gains two lines of the past's size. */
+.captions-translated {
+  font-size: var(--text-sm);
+  white-space: pre-line;
+  font-style: italic;
+}
+
+.captions-dock.is-translating .captions-lines {
+  max-height: calc(5 * 1.5 * var(--text-sm) + 1.5 * var(--text-lg) + 4 * var(--space-1));
+}
+
 .captions-dock.is-error .captions-running {
   color: var(--warn);
 }

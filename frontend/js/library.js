@@ -12259,6 +12259,28 @@ async function remindAbout({ title, entryId = null, documentId = null }) {
   });
 }
 
+//: **The first image a note actually shows** (moved here from shell-reminders.js
+//: with its only caller, `noteAnyImage`, to leave boot room; libr-1011), for surfaces that want to put a
+//: face on a row rather than a filename. Reported against the Contents tab,
+//: which rendered every note as `noteLabel` text: so a note that *is* a photo
+//: appeared as "20251018_OHR.SilburyHill….jpg", or as the bare word "image"
+//: when the alt text was empty.
+//:
+//: Reads the markdown rather than any stored field, because that is where a
+//: note's images live: pasted, dropped and AI-attached pictures all end up as
+//: `![alt](/media/…)` in the body, and there is no column that mirrors them.
+//:
+//: Only this app's own stored files. An external `https://` image in a note is
+//: skipped on purpose: the CSP blocks it (`img-src 'self' data: blob:`), so a
+//: thumbnail built from one would be a guaranteed broken frame, which is worse
+//: than no thumbnail at all.
+
+function noteFirstImage(content) {
+  const match = /!\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\n]{1,500})\)/.exec(content || "");
+  if (!match) return null;
+  return { alt: match[1] || "", url: match[2] };
+}
+
 //: A note's picture, wherever it lives, the markdown, or the attachments
 //: table. See `noteRowImage` in dashboard.js for the report behind this: an
 //: *attached* image appears nowhere in the note's text, so every surface that

@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Live captions: a Translate button in the bar writes each finished line in Spanish under the captions, on this computer, once the offline translator is installed. The note Stop saves keeps what was said.
+- Recordings: the Trim sheet says how much memory a long recording takes (about 12 MB a minute) before it is made, from 20 minutes up.
 - Find anything: a recording is found by its title and by what was said in it, and a press opens it in Library, Recordings. `kind:recording` asks for them alone.
 - Dashboard: Live captions can be a Quick access tile (Edit quick access, then Add).
 - OCR workspace: a page whose stored reading was made before words were kept says "Read this page again to select its words on the picture", so Live Text is not silently empty.

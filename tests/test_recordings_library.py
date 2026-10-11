@@ -209,3 +209,15 @@ def test_after_saving_the_dialog_shows_the_first_lines_and_open():
         assert "meetingShowSaved(" in JS.split(fn)[1].split("\n}\n")[0], fn
     shown = JS.split("function meetingShowSaved(")[1].split("\n}\n")[0]
     assert 'setMeetingState("done")' in shown and "MEETING_DONE_LINES" in shown
+
+
+def test_a_long_take_says_what_a_trim_costs_before_it_is_made():
+    """A trim decodes the whole recording in the page (libr-1011 row 1219): a
+    take of twenty minutes or more says how much memory that is; a short one
+    stays quiet."""
+    assert "const RECORDING_TRIM_HEAVY_MINUTES = 20;" in JS
+    assert "const RECORDING_TRIM_MB_PER_MINUTE = 12;" in JS
+    sheet = JS.split("function openRecordingTrim(rec) {")[1].split("\n}\n")[0]
+    assert "minutes >= RECORDING_TRIM_HEAVY_MINUTES" in sheet
+    assert "Trimming opens the whole recording in this tab" in sheet
+    assert "card.append(start.row, end.row, kept, ...heavy, bar);" in sheet

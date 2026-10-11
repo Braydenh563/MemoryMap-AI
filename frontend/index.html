@@ -8426,14 +8426,17 @@ Link to another note with [[its first few words]]."></textarea>
     <div class="captions-lines" aria-live="polite">
       <p id="captions-past" class="captions-past muted"></p>
       <p id="captions-running" class="captions-running"></p>
+      <!-- The last lines in Spanish while Translate is on (libr-1011 row 1222). -->
+      <p id="captions-translated" class="captions-translated muted hidden" lang="es"></p>
     </div>
     <div class="dock-actions">
+      <button type="button" id="captions-translate" class="ghost small hidden" aria-pressed="false" title="Show each finished line in Spanish too, translated on this computer"><i class="ph ph-translate ph-lead" aria-hidden="true"></i> Translate</button>
       <button type="button" id="captions-copy" class="ghost small" title="Copy everything said so far" disabled><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
       <button type="button" id="captions-help-toggle" class="icon-only ghost small graph-help-toggle"
         data-help-for="captions-help" aria-controls="captions-help" aria-expanded="false"
         title="About live captions" aria-label="About live captions"><i class="ph ph-question" aria-hidden="true"></i></button>
       <div class="help-body hidden" id="captions-help" role="dialog" aria-label="About live captions">
-        <p>Live captions write what the microphone hears as you go, on this computer: the audio goes to a small speech helper that runs here, never to the internet. The line at the bottom is still being written and settles after a pause; the three above it are done. Stop saves everything said as a note tagged captions, and Copy takes it without stopping. Start and stop them from the command palette, Live captions. They need a local speech helper; its row in Settings, Packages says what is missing.</p>
+        <p>Live captions write what the microphone hears as you go, on this computer: the audio goes to a small speech helper that runs here, never to the internet. The line at the bottom is still being written and settles after a pause; the three above it are done. Stop saves everything said as a note tagged captions, and Copy takes it without stopping. Translate, when the offline translator is installed (Settings, Packages), writes each finished line in Spanish under the captions; the note keeps what was said. Start and stop them from the command palette, Live captions. They need a local speech helper; its row in Settings, Packages says what is missing.</p>
       </div>
       <button type="button" id="captions-stop" class="small" title="Stop and save the captions as a note"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
     </div>

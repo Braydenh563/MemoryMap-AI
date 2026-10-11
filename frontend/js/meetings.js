@@ -2056,6 +2056,10 @@ function recordingRunLine(li) {
   }
 }
 
+//: The page's memory for a trim, measured on a decoded hour (about 700 MB).
+const RECORDING_TRIM_MB_PER_MINUTE = 12;
+const RECORDING_TRIM_HEAVY_MINUTES = 20;
+
 //: **Trim**: a sheet with the waveform and the two ends; Save writes the
 //: part kept as a new recording.
 function openRecordingTrim(rec) {
@@ -2071,6 +2075,18 @@ function openRecordingTrim(rec) {
       const kept = document.createElement("p");
       kept.className = "status";
       kept.setAttribute("role", "status");
+      //: **Said before it is spent** (libr-1011 row 1219): a trim decodes the
+      //: whole take in this tab (about 12 MB a minute), so a long one says so
+      //: here, and a short one stays quiet. The cut itself cannot be made on
+      //: the server until the app ships a container writer.
+      const minutes = Math.round(total / 60000);
+      const heavy = [];
+      if (minutes >= RECORDING_TRIM_HEAVY_MINUTES) {
+        const note = document.createElement("p");
+        note.className = "muted recording-trim-weight";
+        note.textContent = `Trimming opens the whole recording in this tab: about ${minutes * RECORDING_TRIM_MB_PER_MINUTE} MB of memory for ${minutes} minutes.`;
+        heavy.push(note);
+      }
       const sync = () => {
         const a = Number(start.input.value);
         const b = Number(end.input.value);
@@ -2097,7 +2113,7 @@ function openRecordingTrim(rec) {
       save.id = "recording-trim-save";
       for (const field of [start, end]) field.input.addEventListener("input", sync);
       bar.append(cancel, save);
-      card.append(start.row, end.row, kept, bar);
+      card.append(start.row, end.row, kept, ...heavy, bar);
       sync();
     },
   });

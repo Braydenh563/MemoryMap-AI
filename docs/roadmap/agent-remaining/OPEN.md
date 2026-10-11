@@ -613,9 +613,8 @@ Detail: [agentgate-1010.md](../archive/agent-remaining/agentgate-1010.md).
 
 Detail: [audio80-1010.md](../archive/agent-remaining/audio80-1010.md).
 
-- Notes cannot link to or embed a recording yet (only `entry_id`); search does not find recordings.
-- Trim decodes the whole file in the page (about 700 MB of samples for an hour).
-- Live captions is a palette act, so it cannot be a Quick access tile.
+- Notes cannot link to or embed a recording yet (only `entry_id`). Search finds recordings now (libr-1011).
+- Trim decodes the whole file in the page (about 700 MB of samples for an hour); the sheet now says so from 20 minutes (libr-1011). A server-side cut needs a container writer.
 - Brief 81: the stop path is now `meetingRecordingStopped`; transcription goes through `POST /recordings/{id}/transcribe`.
 - Not verified: real Whisper on a kept recording; a real microphone, Safari (mp4) and Firefox (ogg).
 
@@ -623,7 +622,7 @@ Detail: [audio80-1010.md](../archive/agent-remaining/audio80-1010.md).
 
 Detail: [translate83-1010.md](../archive/agent-remaining/translate83-1010.md).
 
-- Live translated captions (28.5 row 10, "for ... captions") not built: Brief 82 landed mid-build.
+- Live translated captions: the dock's Translate button is built (libr-1011) against a fake translator; the real model through the dock is not driven (needs device).
 - Only English to Spanish: more pairs are a download block plus a PAIRS row, and the sheet then needs a pair picker.
 - The document menu's "Translate this passage..." still hands the passage to chat, not the offline engine.
 - Not verified: under 1 s through the sheet on an unloaded machine; a real network install inside the app; WebView2 and Safari.
@@ -733,7 +732,6 @@ The three remaining files are in `archive/agent-remaining/`; the rows below are 
 ### ocr79 (Brief 79, OCR)
 
 - Live Text on the continuous (scroll) layout of a PDF: only the single-page stage carries the layer. library.js `ocrBuildScrollPages`.
-- A regions cache stored before 2026-10-10 has no `words`; Live Text appears after the page is read again. routes_files.py `PageRead.regions`.
 - An image's whole reading deleted from the lightbox or the gallery's row menu still clears without the bin (only the workspace's deletes were moved). library.js callers of `analyseMediaRow(..., { text: "" })` outside the workspace.
 - Undoing a fresh read writes the old text back through the text route, so it keeps the new read's model name ("Read by X") rather than the old one's. library.js `ocrTextWriter`.
 - `undo.js` (the trust sweep) does not walk the OCR workspace; `ocr79.js` measures it instead.

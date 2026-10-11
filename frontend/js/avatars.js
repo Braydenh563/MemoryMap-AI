@@ -6013,6 +6013,21 @@ const NMB_TOSS_SPEED = 0.6;
 const NMB_THROW = { max: 4.5, g: 0.0032, air: 0.0011, ground: 0.006, bounce: 0.4, wall: 0.12, stick: 0.35, tilt: 14, ms: 1200 };
 const NMB_PET_MS = 1100;
 
+//: **Never the same flight twice** (Brief 88 (b), the owner: "it just
+//: bounces off a panel and back to the top, I want it to do that, but vary
+//: how much it does that"). Each throw draws its own bounce, floor grip and
+//: air from a range by `roll` (three draws in [0, 1)), and one thrown hard
+//: (past 2.6 px/ms) tumbles head over heels instead of leaning, by its speed.
+function nameMarkBuddyThrowFeel(roll, speed, k = NMB_THROW) {
+  return {
+    ...k,
+    bounce: +(0.28 + roll[0] * 0.24).toFixed(3),
+    ground: +(0.0045 + roll[1] * 0.0035).toFixed(5),
+    air: +(0.0009 + roll[2] * 0.0004).toFixed(5),
+    spin: speed > 2.6 ? 0.3 : 0,
+  };
+}
+
 //: The speed it is let go at, px per ms, from `samples` ([x, y, ms], oldest
 //: first): over the pointer's last 80ms only, so a slow start to a quick
 //: flick does not slow the flick, and clamped to `k.max`. Null when the
@@ -6045,13 +6060,16 @@ function nameMarkBuddyFlightStep(s, dt, world, k = NMB_THROW) {
   const ease = Math.min(1, dt / 90);
   if (n.on) {
     n.vx *= Math.exp(-k.ground * dt);
+    //: Down from a tumble: it rolls the short way up, never unwinds.
+    n.rot = (((n.rot + 180) % 360) + 360) % 360 - 180;
     n.rot -= n.rot * ease;
   } else {
     n.vy += k.g * dt;
     const drag = Math.exp(-k.air * dt);
     n.vx *= drag;
     n.vy *= drag;
-    n.rot += (Math.max(-40, Math.min(40, n.vx * k.tilt)) - n.rot) * ease;
+    if (k.spin) n.rot += n.vx * k.spin * dt;
+    else n.rot += (Math.max(-40, Math.min(40, n.vx * k.tilt)) - n.rot) * ease;
   }
   const py = n.y;
   n.x += n.vx * dt;
@@ -6087,7 +6105,7 @@ function nameMarkBuddyFlightStep(s, dt, world, k = NMB_THROW) {
       }
     }
   }
-  if ((n.on && Math.abs(n.vx) < 0.02) || n.t >= k.ms) n.rest = true;
+  if ((n.on && Math.abs(n.vx) < 0.02 && Math.abs(n.rot) < 1) || n.t >= k.ms) n.rest = true;
   return n;
 }
 
@@ -6113,10 +6131,11 @@ function nameMarkBuddyThrow(buddy, vx, vy) {
   const tab = nameMarkBuddyTab();
   nameMarkBuddyIndexReset();
   const world = nameMarkBuddyWorld(tab);
+  const feel = nameMarkBuddyThrowFeel([Math.random(), Math.random(), Math.random()], Math.hypot(vx, vy));
   let s = { x: nmb.x, y: nmb.y, vx, vy, rot: 0, t: 0, on: null, rest: false };
   nmb.thrown = { v: [+vx.toFixed(2), +vy.toFixed(2)], from: [Math.round(nmb.x), Math.round(nmb.y)] };
   if (nameMarkBuddyNoTravel()) {
-    while (!s.rest) s = nameMarkBuddyFlightStep(s, 16, world);
+    while (!s.rest) s = nameMarkBuddyFlightStep(s, 16, world, feel);
     nameMarkBuddyThrowLand(buddy, s, tab);
     return;
   }
@@ -6131,7 +6150,12 @@ function nameMarkBuddyThrow(buddy, vx, vy) {
       nmb.flight = null;
       buddy.classList.remove("nm-buddy-dragging");
       buddy.style.setProperty("--nmb-sway", "0");
-      if (char) char.style.rotate = "";
+      if (!char) return;
+      //: Stopped while still turned (the cap, a grab): eased upright, the
+      //: short way, never snapped.
+      const r = ((((Number.parseFloat(char.style.rotate) || 0) + 180) % 360) + 360) % 360 - 180;
+      char.style.rotate = "";
+      if (Math.abs(r) > 1 && typeof char.animate === "function") char.animate([{ rotate: `${r}deg` }, { rotate: "0deg" }], { duration: 260, easing: "ease-out" });
     },
   };
   const frame = (now) => {
@@ -6143,7 +6167,7 @@ function nameMarkBuddyThrow(buddy, vx, vy) {
     then = now;
     let hit = 0;
     while (dt > 0 && !s.rest) {
-      s = nameMarkBuddyFlightStep(s, Math.min(16, dt), world);
+      s = nameMarkBuddyFlightStep(s, Math.min(16, dt), world, feel);
       hit = Math.max(hit, s.hit);
       dt -= 16;
     }
@@ -6151,7 +6175,8 @@ function nameMarkBuddyThrow(buddy, vx, vy) {
     if (char) char.style.rotate = `${s.rot.toFixed(1)}deg`;
     buddy.style.setProperty("--nmb-sway", Math.max(-28, Math.min(28, -s.vx * 10)).toFixed(1));
     if (hit > 0.5 && char && typeof char.animate === "function") {
-      const a = Math.min(0.2, hit * 0.08);
+      //: Squashed by how hard it came down.
+      const a = Math.min(0.22, hit * 0.09);
       char.animate([{ scale: "1 1" }, { scale: `${1 + a} ${1 - a}` }, { scale: "1 1" }], { duration: 220, easing: "ease-out" });
     }
     if (s.rest) {

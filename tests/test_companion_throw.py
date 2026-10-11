@@ -33,12 +33,12 @@ def _fn(name: str) -> str:
 
 def _run(body: str):
     consts = re.search(r"^const NMB_THROW = .*;$", AV, re.M).group(0)
-    src = "\n".join(_fn(n) for n in ("nameMarkBuddyReleaseVelocity", "nameMarkBuddyFlightStep"))
+    src = "\n".join(_fn(n) for n in ("nameMarkBuddyReleaseVelocity", "nameMarkBuddyFlightStep", "nameMarkBuddyThrowFeel"))
     world = "const W = { left: 0, right: 1376, top: 48, floor: 780, ledges: [] };"
     fly = (
-        "function fly(vx, vy, x = 200, y = 400, world = W) {"
+        "function fly(vx, vy, x = 200, y = 400, world = W, k = NMB_THROW) {"
         " let s = { x, y, vx, vy, rot: 0, t: 0, on: null, rest: false }; let steps = 0; let peak = 0; let bounces = 0; let walls = 0;"
-        " while (!s.rest && steps < 500) { const was = s.vx; s = nameMarkBuddyFlightStep(s, 16, world); steps += 1;"
+        " while (!s.rest && steps < 500) { const was = s.vx; s = nameMarkBuddyFlightStep(s, 16, world, k); steps += 1;"
         " peak = Math.max(peak, Math.abs(s.rot)); if (s.hit > 0.35) bounces += 1; if (Math.sign(was) !== Math.sign(s.vx) && was) walls += 1; }"
         " return { x: Math.round(s.x), y: Math.round(s.y), t: s.t, on: s.on === 'floor' ? 'floor' : s.on ? 'ledge' : null, rot: Math.round(s.rot), peak: Math.round(peak), bounces, walls }; }"
     )
@@ -143,3 +143,24 @@ def test_the_flight_is_one_frame_loop_on_transforms_and_lands_as_a_drop() -> Non
 
 def test_the_guide_says_it_can_be_thrown() -> None:
     assert "throw it" in HELP.lower()
+
+
+@needs_node
+def test_every_throw_feels_a_little_different_and_a_hard_one_tumbles() -> None:
+    # Brief 88 (b): the owner wants the bounce "but vary how much it does
+    # that". Same fling, two draws: two landings; a hard fling tumbles and
+    # comes down upright.
+    got = _run(
+        "[nameMarkBuddyThrowFeel([0, 0, 0], 1), nameMarkBuddyThrowFeel([1, 1, 1], 3),"
+        " fly(1.5, 0.3, 200, 100, W, nameMarkBuddyThrowFeel([0, 0, 0], 1.5)),"
+        " fly(1.5, 0.3, 200, 100, W, nameMarkBuddyThrowFeel([1, 1, 1], 1.5)),"
+        " fly(3.2, -0.5, 200, 400, W, nameMarkBuddyThrowFeel([0.5, 0.5, 0.5], 3.2))]"
+    )
+    soft, hard, a, b, tumble = got
+    assert 0.27 < soft["bounce"] < 0.53 and 0.27 < hard["bounce"] < 0.53 and soft["bounce"] != hard["bounce"]
+    assert soft["spin"] == 0 and hard["spin"] > 0
+    assert abs(a["x"] - b["x"]) > 20
+    # A tumble turns past a full turn in the air and lands within 3 degrees of upright.
+    assert tumble["peak"] > 180
+    # Upright at rest, or at the 1.2 s cap eased upright by the stop.
+    assert abs(tumble["rot"]) <= 1 or (tumble["t"] >= 1200 and "char.animate([{ rotate: `${r}deg` }, { rotate: \"0deg\" }]" in _fn("nameMarkBuddyThrow"))

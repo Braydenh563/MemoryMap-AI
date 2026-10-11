@@ -13,3 +13,4 @@ Not verified: a real phone; the sweep's phone right flick is sometimes a drop he
 Found, not fixed (pre-existing on the base): test_companion_motion.py::test_every_way_to_a_note_counts_as_opening_it (flashEntry lost its typeof guard); test_frontend_wake_sources.py dashboard.js raf 3 to 4, search-suggest.js 0 to 2; test_global_scope_ratchet.py 705 > 699.
 
 Next: Brief 88 and the coordinator's three items (eased starts/stops, expanded panel resting pose, click raises one arm).
+- done d3c759ed5 throw flight; next: per-throw feel (Brief 88 b), avatars.js nameMarkBuddyThrowFeel

@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Settings: importing a settings file adds its skills, personas and templates to yours by name (the file's wins a clash) instead of replacing each list; Undo still puts the old lists back exactly.
+- Activity: the Guide, drafting and document review now write their steps into the running list (thinking, writing the answer, each suggested change), as Chat already did.
+- Library: each list's search box (documents, boards, bookmarks, recordings, skills, files) now suggests that list's own titles as you type, under "In this list", not only your recent searches.
 - Skills: a skill held back from small models (its measured rate is below the bar) can no longer be started by the agent's run_skill either; the agent is told why and does the job step by step.
 - Chat: a stray key typed against the last word ("dentist\\") no longer shows in your own bubble; an emoticon such as ":\\" stays.
 - Chat with no model: "what's the time in Australia" (or the USA, Canada, Russia, Brazil, Indonesia, Mexico) names each of its time zones, west to east, rather than the capital's alone; a named state or city still gets its one zone.

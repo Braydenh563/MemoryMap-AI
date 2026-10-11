@@ -19,7 +19,7 @@
 //
 // Scopes (the `data-search-scope` of each box): "notes" boxes share their
 // recents and complete from notes; every other scope keeps its own recents and
-// has nothing to complete from but them. "web" is the web panel, whose own
+// completes from the titles of its own list (`SEARCH_SUGGEST_LISTS`). "web" is the web panel, whose own
 // search records its recents once a search has answered.
 
 //: **Recent searches, one store for every search box** (the owner, 2026-10-11:
@@ -97,6 +97,44 @@ function searchSuggestToken(value) {
   return { head, word, op: op ? op[1] : "", bare: op ? word.slice(op[1].length).replace(/^"/, "") : word };
 }
 
+//: A Library list's own titles (OPEN row 552: its box suggested recents only):
+//: read from the rows drawn under the box, plus every title seen there before,
+//: so a list already narrowed by the box still completes a shorter word.
+const SEARCH_SUGGEST_LISTS = {
+  documents: "#library-docs-list .doc-list-title",
+  boards: "#library-boards-grid .library-card-title",
+  library: "#library-grid .library-card-title",
+  bookmarks: "#bookmark-list .bookmark-title",
+  recordings: "#recordings-list .recording-title",
+  skills: "#library-skills-section .skill-card-title",
+};
+const SEARCH_SUGGEST_ABOUT = { documents: "Document", boards: "Board", library: "Library item", bookmarks: "Bookmark", recordings: "Recording", skills: "Skill", images: "File" };
+const searchSuggestSeenTitles = new Map();
+
+function searchSuggestListTitles(scope) {
+  const seen = searchSuggestSeenTitles.get(scope) || new Set();
+  const selector = SEARCH_SUGGEST_LISTS[scope];
+  const drawn = selector ? [...document.querySelectorAll(selector)].map((el) => el.textContent) : [];
+  //: Images and files keep their names in the page's cache, not in a title row.
+  if (scope === "images" && typeof libraryImagesCache !== "undefined") drawn.push(...libraryImagesCache.map((i) => i.original_name || ""));
+  for (const text of drawn) {
+    const title = String(text || "").trim();
+    if (title && title !== "Untitled") seen.add(title);
+  }
+  searchSuggestSeenTitles.set(scope, seen);
+  return [...seen];
+}
+
+//: Titles that start with the box's text (or have a word that does), best first.
+function searchSuggestTitleHits(titles, query, seen) {
+  return titles
+    .map((title) => ({ title, rank: searchSuggestRank(title, query) }))
+    .filter((hit) => hit.rank >= 0 && !seen.has(hit.title.toLowerCase()))
+    .sort((a, b) => a.rank - b.rank || a.title.localeCompare(b.title))
+    .slice(0, SEARCH_SUGGEST_LIMITS.title)
+    .map((hit) => hit.title);
+}
+
 //: The suggestions for what is in the box now: [{kind, label, value, about}].
 function searchSuggestItems(input) {
   const scope = searchSuggestScopeOf(input);
@@ -113,6 +151,12 @@ function searchSuggestItems(input) {
     if (query && !lower.startsWith(query)) continue;
     items.push({ kind: "recent", label: text, value: text, about: "Recent search" });
     if (items.length >= (query ? SEARCH_SUGGEST_LIMITS.recent : 5)) break;
+  }
+  if (query && scope !== "notes") {
+    for (const item of items) seen.add(item.value.toLowerCase());
+    for (const title of searchSuggestTitleHits(searchSuggestListTitles(scope), query, seen)) {
+      items.push({ kind: "item", label: title, value: title, about: SEARCH_SUGGEST_ABOUT[scope] || "Item" });
+    }
   }
   if (!query || scope !== "notes") return items;
   for (const item of items) seen.add(item.value.toLowerCase());
@@ -156,8 +200,8 @@ function searchSuggestItems(input) {
   return items;
 }
 
-const SEARCH_SUGGEST_ICONS = { recent: "ph:clock-counter-clockwise", title: "ph:note", tag: "ph:hash", category: "ph:folder-simple" };
-const SEARCH_SUGGEST_GROUPS = { recent: "Recent searches", title: "Notes", tag: "Tags", category: "Categories" };
+const SEARCH_SUGGEST_ICONS = { recent: "ph:clock-counter-clockwise", item: "ph:list-magnifying-glass", title: "ph:note", tag: "ph:hash", category: "ph:folder-simple" };
+const SEARCH_SUGGEST_GROUPS = { recent: "Recent searches", item: "In this list", title: "Notes", tag: "Tags", category: "Categories" };
 
 function closeSearchSuggest() {
   if (!searchSuggest) return;

@@ -445,8 +445,8 @@ MORE_TOPICS: list[dict] = [
             "browser you sign in from. Settings, "
             "Import & export, Your settings: Export settings saves every setting "
             "as one .json file (no notes in it); Import settings reads one back, "
-            "applies each setting it can, says which it skipped and why, and "
-            "offers Undo."
+            "applies each setting it can, adds its skills, personas and templates "
+            "to yours by name, says which it skipped and why, and offers Undo."
         ),
         "badge": {"label": "Import & export", "section": "data"},
     },

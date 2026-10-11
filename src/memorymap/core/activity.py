@@ -278,6 +278,7 @@ class StreamNarrator:
         self.text = ""
         self.tools = 0
         self.failed = 0
+        self.thought = False
 
     def __call__(self, line: object) -> str:
         try:
@@ -322,8 +323,18 @@ class StreamNarrator:
             return f"{name} did not run: {event.get('error') or 'no reason given'}."
         return f"Called {name}: {tool_arguments_in_words(event.get('arguments'))}."
 
+    def _thinking_line(self, event: dict) -> str:
+        first = not self.thought
+        self.thought = True
+        return "Thinking." if first else ""
+
+    def _item_line(self, event: dict) -> str:
+        reason = " ".join(str(event.get("reason") or "").split())[:_ARG_CHARS].rstrip(".")
+        return f"Suggested a change: {reason}." if reason else "Suggested a change."
+
     def _answer_line(self, event: dict) -> str:
-        delta = str(event.get("delta") or "")
+        #: Chat sends `delta`; the Guide and drafting send `text` (OPEN row 553).
+        delta = str(event.get("delta") or event.get("text") or "")
         first = self.chars == 0 and bool(delta)
         self.chars += len(delta)
         if len(self.text) < 20000:
@@ -338,6 +349,9 @@ class StreamNarrator:
         "step": _text_line,
         "web_sources": _web_line,
         "answer": _answer_line,
+        "delta": _answer_line,
+        "thinking": _thinking_line,
+        "item": _item_line,
         "done": _done_line,
     }
 

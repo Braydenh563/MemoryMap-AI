@@ -459,7 +459,8 @@ async function importSettingsFile(fileHandle) {
     offerUndo(
       "Import settings",
       `Settings imported: ${settingsImportWords(result)}`,
-      () => applySettingsFile(before).then(() => scheduleSettingRowsPaint(currentSettingsSection, [0])),
+      //: Undo replaces the lists whole: the import merged them by name.
+      () => applySettingsFile({ ...before, replace_lists: true }).then(() => scheduleSettingRowsPaint(currentSettingsSection, [0])),
       () => applySettingsFile(file).then(() => scheduleSettingRowsPaint(currentSettingsSection, [0]))
     );
     scheduleSettingRowsPaint(currentSettingsSection, [0, 500]);

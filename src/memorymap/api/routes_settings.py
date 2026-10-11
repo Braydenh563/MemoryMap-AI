@@ -1068,6 +1068,22 @@ _NOT_EXPORTED = frozenset(
 )
 
 
+#: Lists a settings file adds to rather than replaces (OPEN row 558): an
+#: item with the same name is the file's, every other one stays. Undo sends
+#: `replace_lists` so the list it puts back is the one that was there.
+_MERGED_LISTS = {"skills": 30, "personas": 20, "custom_templates": 20}
+
+
+def _merged_list(current: object, incoming: list, cap: int) -> list:
+    names = {str(item.get("name") or "").strip().lower() for item in incoming if isinstance(item, dict)}
+    kept = [
+        item
+        for item in (current if isinstance(current, list) else [])
+        if isinstance(item, dict) and str(item.get("name") or "").strip().lower() not in names
+    ]
+    return [*incoming, *kept][:cap]
+
+
 def _exportable_keys() -> list[str]:
     return [key for key in PreferencesBody.model_fields if key not in _NOT_EXPORTED]
 
@@ -1121,6 +1137,8 @@ def import_preferences(payload: dict, session: Session = Depends(get_session)) -
             except ValueError:
                 skipped.append({"key": key, "reason": "not a value this setting takes"})
                 continue
+            if key in _MERGED_LISTS and isinstance(value, list) and not payload.get("replace_lists"):
+                value = _merged_list(current.get(key), value, _MERGED_LISTS[key])
             if value is not None and current.get(key) != value:
                 valid[key] = value
             else:

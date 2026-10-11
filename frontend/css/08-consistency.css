@@ -2077,12 +2077,13 @@ summary > .ph-lead,
    one instrument rather than a box next to a badge. */
 .atlas-composer > #help-chat-input,
 .atlas-composer > button {
-  height: 2.5rem;
-  min-height: 2.5rem;
+  /* The touch floor under a finger (phone-1011: 40px at 390). */
+  height: max(2.5rem, var(--target-min));
+  min-height: max(2.5rem, var(--target-min));
   border-radius: var(--radius-md);
 }
 .atlas-composer > button.icon-only {
-  width: 2.5rem;
+  width: max(2.5rem, var(--target-min));
 }
 /* In the sheet the head carries the mark, the name and the line, so the intro
    block that repeated all three is not shown there. It is not shown anywhere

@@ -2584,3 +2584,67 @@ header#top-bar[data-scrolled="1"],
     min-width: var(--control-h);
   }
 }
+/* --- The iPhone (phone-1011) ----------------------------------------------
+   `scratchpad/ui-sweeps/iphone1011.js`: 390x844 and 430x932 with an iPhone's
+   user agent and touch, the notch and the home indicator set through
+   DevTools (index.html's `viewport-fit=cover` is what lets iOS report them).
+   1. **Field text is 16px under a finger.** iOS Safari zooms the page into
+      a field whose text is smaller when it takes focus, and does not zoom
+      back out. Measured 13.6px on sixteen fields (Settings search, every
+      sheet's filter, the Guide's box, the prompt dialog, the reminder form)
+      and 12px on the Attach search. The 16px rule in 02-chat-graph.css is an
+      element selector, so every field rule that names a token beat it. The
+      fields take their size from the text tokens, so the tokens are the
+      body size on the field itself: a field that asks for more keeps it, and
+      nothing that is not a field moves. */
+@media (pointer: coarse) {
+  :is(input, textarea, select) {
+    --text-xs: var(--text-body);
+    --text-sm: var(--text-body);
+    --text-base: var(--text-body);
+    --text-md: var(--text-body);
+  }
+}
+/* 2. **A dialog keeps out of the notch and off the home indicator.** Its
+      overlay's inset is the larger of its own `--space-8` and the safe area
+      on each edge, and below 600 the card's 96dvh cap is also the overlay's
+      box: measured, Settings ran from y 24 to 834 in an 844 window with a
+      47px notch and a 34px indicator, its Close at y 38 to 82. A sheet is
+      already flush with the bottom and padded for the indicator. */
+.modal-overlay:not(.sheet-overlay) {
+  padding-top: max(var(--space-8), env(safe-area-inset-top, 0px));
+  padding-right: max(var(--space-8), env(safe-area-inset-right, 0px));
+  padding-bottom: max(var(--space-8), env(safe-area-inset-bottom, 0px));
+  padding-left: max(var(--space-8), env(safe-area-inset-left, 0px));
+}
+@media (max-width: 599.98px) {
+  .modal-overlay:not(.sheet-overlay) > .modal-card {
+    max-height: min(96dvh, 100%);
+  }
+}
+/* 3. **The note page's head is below the notch.** The `page` variant is the
+      whole screen, so its head sat at y 13 with Back in the notch. */
+.sheet-card-page {
+  padding-top: calc(var(--card-pad-y) + env(safe-area-inset-top, 0px));
+}
+/* 4. **A finger's floor for what was still under it.** Measured at 390 with
+      touch after 1 to 3: the prompt dialog's field 32px tall, the agent
+      sheet's 31, the Guide's box 40 (08-consistency.css takes it to the
+      floor beside its Send); a note's facts folded to their icons were 24px
+      squares, which the chip's overhang lengthens but cannot widen; the
+      Categories sheet's counts were 21 to 24px of text. A dialog's fields
+      join its buttons on the floor (band 1 above); a search well's input is
+      the text inside the well, which is already the target. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  :is(.modal-card, .space-dialog) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="hidden"], .search-field-input), textarea:not(.search-field-input)) {
+    min-height: var(--target-min);
+  }
+  .entry-meta.note-meta:not(.is-measuring) > .chip.is-icon {
+    aspect-ratio: auto;
+    min-width: var(--target-min);
+  }
+  button.manage-cat-count {
+    min-width: var(--target-min);
+    min-height: var(--target-min);
+  }
+}

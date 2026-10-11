@@ -291,7 +291,9 @@ def test_both_open_routes_refuse_another_device(client):
 def test_the_open_status_says_nothing_about_the_notebook(client):
     _notebook(client)
     status = _local(client).get("/auth/status").json()
-    assert set(status) == {"setup_required", "auto_session", "reset_here"}
+    # `pin_here` is about this caller and this computer (core/pinstore.py),
+    # like `reset_here`: never note counts or whether a recovery key exists.
+    assert set(status) == {"setup_required", "auto_session", "reset_here", "pin_here"}
 
 
 # --- the reset without a key ---------------------------------------------------

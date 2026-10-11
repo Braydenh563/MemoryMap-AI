@@ -170,6 +170,16 @@ account.
   be guessed at speed through the app.
 - **A password over 72 bytes works**, and one over 1,024 characters is refused.
   Changing your password ends every other session.
+- **A PIN unlocks this computer only, and is never in the notebook.** Settings,
+  Account & security, PIN for this computer sets one of 4 to 12 digits, behind
+  the password. The vault key is wrapped under it (scrypt and AES-GCM) and kept
+  by the operating system's protected store for your user: Windows DPAPI, the
+  macOS Keychain, or the Linux Secret Service. Where none is available a PIN
+  cannot be set up; it is never written to a file. A copied notebook or backup
+  carries nothing a PIN opens. Only this computer's own keyboard may use it:
+  phones and other devices need the password, and so do changing the password,
+  the PIN and LAN access. Five wrong PINs delete it, and a password change, a
+  re-encryption, a restore or a reset removes it.
 
 ## Your browser is treated as untrusted too
 

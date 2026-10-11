@@ -777,6 +777,7 @@ function askPasswordPrompt({ title, message, submitLabel, submit }) {
     $("lock-password").value = "";
     $("lock-password").setAttribute("type", "password");
     $("lock-password").setAttribute("aria-label", "Password");
+    $("lock-password").placeholder = "Password"; // a prompt never takes the PIN
     $("lock-password").autocomplete = "current-password";
     overlay.classList.remove("hidden");
     $("lock-password").focus();
@@ -830,13 +831,40 @@ function showLockScreen(setupMode) {
   }
   $("lock-submit").textContent = setupMode ? "Set password & start" : "Unlock";
   $("lock-overlay").dataset.mode = setupMode ? "setup" : "unlock";
+  lockFieldForPin(setupMode ? false : pinHere);
   // One field in two modes (no separate setup form), autocomplete has to
   // switch with it, or a password manager offers to fill an *existing*
   // saved password into a first-run "choose a new one" field.
-  $("lock-password").setAttribute("aria-label", setupMode ? "Choose a password" : "Password");
+  if (setupMode) $("lock-password").setAttribute("aria-label", "Choose a password");
   $("lock-password").autocomplete = setupMode ? "new-password" : "current-password";
   $("lock-password").focus();
   if (!setupMode && autoSessionOffered && !lockedByHand) resumeWithoutPassword();
+  //: A PIN set or forgotten since the last look (Settings, or five wrong
+  //: tries) changes what the field asks for, so the lock asks again.
+  if (!setupMode) {
+    apiJson("/auth/status", { silent: true })
+      .then((status) => {
+        pinHere = Boolean(status?.pin_here);
+        if ($("lock-overlay").dataset.mode === "unlock") lockFieldForPin(pinHere);
+      })
+      .catch(() => {});
+  }
+}
+
+//: Owner, 2026-10-12: "Password", or "PIN or password" only where a PIN is
+//: set on this computer (`/auth/status` `pin_here`, which is False for any
+//: other device). One field takes either; the server tries the password
+//: first and the PIN only from this computer.
+let pinHere = false;
+function lockFieldForPin(pin) {
+  const label = pin ? "PIN or password" : "Password";
+  $("lock-password").placeholder = label;
+  $("lock-password").setAttribute("aria-label", label);
+  if ($("lock-overlay").dataset.mode === "unlock") {
+    $("lock-message").textContent = pin
+      ? "Enter your PIN or password to unlock your notebook."
+      : "Enter your password to unlock your notebook.";
+  }
 }
 
 //: **The containers that hold the user's own words**, cleared when the
@@ -951,6 +979,7 @@ async function initAuth() {
     return;
   }
   $("lock-btn").classList.remove("hidden");
+  pinHere = Boolean(status.pin_here);
   // Sign-in off, on this computer: straight in, no lock screen. A token
   // still live is kept by the server; a stale one is replaced.
   autoSessionOffered = Boolean(status.auto_session);

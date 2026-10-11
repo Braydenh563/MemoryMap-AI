@@ -960,7 +960,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "security",
-            "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "recovery key", "idle"),
+            "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "recovery key", "idle", "pin", "quick unlock", "windows hello"),
             "body": (
                 "Settings, Account & security: set a password and the notebook "
                 "asks for it when it opens. The lock button in the top bar locks it "
@@ -972,7 +972,13 @@ HELP_TOPICS.extend(
                 "Press Forgot your password? on the lock screen, on this computer: "
                 "with a recovery key (made at setup or in Account & security) you "
                 "set a new one and keep private notes; without it, a reset keeps "
-                "everything else and leaves private notes sealed."
+                "everything else and leaves private notes sealed. PIN for this "
+                "computer: Set up a PIN for this computer (your password, then a "
+                "PIN of 4 to 12 digits twice) lets the lock screen take the PIN "
+                "or your password, on this computer only; phones always need the "
+                "password. The computer's own protected store keeps it, never the "
+                "notebook or a backup. Five wrong PINs, a password change or "
+                "Forget PIN remove it."
             ),
             "badge": {"label": "Account & security", "section": "account"},
         },

@@ -519,6 +519,7 @@ async function renderAccount() {
   ];
   if (typeof info.vault_open === "boolean") vaultOpen = info.vault_open;
   $("account-password-on-open").checked = info.password_on_open !== false;
+  renderPinSettings(info.pin);
   renderLanAccess().catch(() => {});
   for (const [label, value] of rows) {
     //: A label column and a value column (`.account-facts`), not "Label: value"
@@ -531,6 +532,28 @@ async function renderAccount() {
     text.textContent = value;
     li.append(name, text);
     facts.appendChild(li);
+  }
+}
+
+//: "PIN for this computer" (owner, 2026-10-12): the fields show only where a
+//: PIN can be set, which is this computer with an OS protected store; the
+//: line under the heading says why when it cannot.
+function renderPinSettings(pin) {
+  const state = $("account-pin-state");
+  if (!state || !pin) return;
+  const usable = pin.available && pin.here;
+  $("account-pin-fields").classList.toggle("hidden", !usable);
+  $("account-pin-set").classList.toggle("hidden", !usable);
+  $("account-pin-set").textContent = pin.set ? "Change PIN" : "Set up a PIN for this computer";
+  $("account-pin-forget").classList.toggle("hidden", !(pin.set && pin.here));
+  if (!pin.here) {
+    state.textContent = "A PIN can be set up only on the computer this notebook runs on.";
+  } else if (!pin.available) {
+    state.textContent = "This computer has no protected store for a PIN, so the password is the only way in here.";
+  } else {
+    state.textContent = pin.set
+      ? "A PIN is set: the lock screen takes it or your password, on this computer only."
+      : "Unlock on this computer with a few digits instead of your password.";
   }
 }
 
@@ -601,6 +624,7 @@ async function changePassword() {
     $("account-new").value = "";
     $("account-confirm").value = "";
     status.textContent = result.warning || "Password changed.";
+    if (result.pin_cleared) status.textContent += " Your PIN was removed; set it up again if you want one.";
     toast(
       result.other_sessions_ended
         ? `Password changed. ${result.other_sessions_ended} other session(s) were signed out.`

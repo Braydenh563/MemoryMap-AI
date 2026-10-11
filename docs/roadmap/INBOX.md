@@ -196,13 +196,6 @@ with its owner named in the entry.
      Owner: noagent (the agent's calls and the query clean-up); the grammar
      worker to grammar57.
 
-809. **The owner, 2026-10-11, verbatim.** "is there a way to redesign areas
-     in the app like these??" (screenshot: Help, "Welcome and tours", a wall
-     of fourteen bordered tinted buttons with one filled "Start the tour").
-     Owner: grammar57: a wall of tinted buttons becomes one primary action
-     and a list (each tour a row with its one line and length), the recipe
-     applied wherever the sweep finds the same wall.
-
 810. **The owner, 2026-10-11, verbatim** (screenshots: the personas' quiet
      Edit and Delete text buttons; Keyboard shortcuts with a bordered tinted
      "Change" on every row; What it learned, three "Claim" cards with a large
@@ -238,24 +231,6 @@ with its owner named in the entry.
      Atlas as the app's assistant)", decisions 65 to 69; the row actions to
      grammar57 (DESIGN.md "Row actions").
 
-811. **The owner, 2026-10-11, verbatim.** "something about the design or smth
-     of those buttons in the notifications and buttons in notifications in the
-     noficiations panel is bugging me, can you try redesigning them or fixing
-     it somehow?? I cant quite place it" (screenshot: the notifications panel;
-     "Chat deleted." with a grey bordered Undo block on its own line and the
-     read and dismiss icons where the time sits on other rows; "Started:
-     Warming up the filing model 32 min ago" never says it finished; a
-     disabled Undo beside "Expired"). Read: four things. (1) The action is a
-     filled, bordered block on a line of its own, heavier than the message.
-     (2) The first row swaps its time for two icons, so the rows do not line up.
-     (3) A dead button beside "Expired" says the same thing twice. (4) "Started:"
-     rows are stale: a finished run must read "Warmed up the filing model, 4 s".
-     Placed: (1) to (3) to grammar57 (Row actions: Undo is a quiet text button
-     at the end of the meta line beside the time; read and dismiss show on
-     hover and focus in every row, never replacing the time; expired is meta
-     text, "Undo expired", no button). (4) to the transparency brief (a run's
-     notice updates in place when it ends).
-
 812. **The owner, 2026-10-11, verbatim.** "also the composer in the ask tab
      and structuring of sentences and outputs needs to be cleaned up a lot. it
      still looks messy. and the response feels, plain, boring, lifeless, and
@@ -274,21 +249,16 @@ with its owner named in the entry.
      judged against written gold answers, not rule counts), first in the
      assistant brief; the empty badges and Atlas over the answer to ownerfix.
 
-813. **The owner, 2026-10-11, verbatim.** "also idk but I feel like it looks
-     awkward when some things have borders and other things dont in a header
-     but idk im not an expert. and some dropdowns have different ui styles??
-     all ui styles and elements needs to be consistent across the app."
-     (screenshots: the Ask bar's white bordered "Normal" select beside
-     borderless icons and a filled Ask; the Questions bar's grey filled "Open
-     (1)" select; the reply bar's grey "Inherited: gemma..." select; All notes
-     with an icon-only filter and list then grid; Library with a "Filter" text
-     button and grid then list.) Read: three select looks, two filter looks,
-     two orders of the same view switch, bordered and borderless controls in
-     one bar. Placed: grammar57: one bar select (the dock's filled, borderless
-     one), one filter trigger, one view switch order (list, grid), and in a
-     bar only the primary is filled; a lint counts each.
+820. **The owner, 2026-10-11, verbatim.** "layers and potentially other places
+     in the app dont handle inline md rendering or cut it out" (screenshot:
+     the board's Layers panel row "Note card: **Current Commit..."). Fixed for
+     the layer row (`wbItemSpokenName` reads `stripMarkdownPreview`); the
+     sweep of every other place a note's first line is shown as a name is
+     the uisweep agent's, with one helper and a lint.
 
 ## Placed (last 20, newest first)
+
+- 2026-10-11: 809, 811 and 813 (the tours wall, the notifications panel's buttons, one bar control grammar) placed in UI_MODERNISATION_PLAN "Placed from INBOX, 2026-10-11 (bars, notifications and tours; grammar57)", owner grammar57.
 
 - 2026-10-11: 814 and 816 (a mind map topic's look shows only after deselecting; the topic's + and link buttons too big) placed in MINDMAP_PLAN "Placed from INBOX, 2026-10-11 (the topic's tools)", owner the mapfix agent; 815 (preview and adjust every export in a panel) placed in WHITEBOARD_PLAN "Placed from INBOX, 2026-10-11 (one export panel for the whole app)", owner the exports agent.
 

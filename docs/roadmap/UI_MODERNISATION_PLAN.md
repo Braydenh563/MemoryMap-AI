@@ -1121,32 +1121,9 @@ menus that open out of their opener.
 
 279. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
 
-## Placed from INBOX, 2026-09-09 (the owner's evening batch)
+## Placed from INBOX, 2026-09-09 to 2026-10-03 (all built)
 
-All built. Moved whole to HISTORY.md ("Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: UI_MODERNISATION_PLAN)").
-
-## Placed from INBOX, 2026-09-13
-
-186. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
-
-
-165. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
-164. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
-
-## Placed from INBOX, 2026-09-21
-
-282. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 94 and 282, found built)").
-
-## Placed from INBOX, 2026-09-21 (the dashboard's focused hero)
-
-296 is built. Moved whole to [`HISTORY.md`](HISTORY.md) ("INBOX resolved, 2026-09-21"), with what it measured before and after.
-
-## Placed from INBOX, 2026-10-03 (INBOX 393)
-
-Moved whole from INBOX when INBOX 434 arrived (the tray holds under
-twenty); both halves found built 2026-10-05.
-
-393. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 393, both halves found built)").
+The evening batch of 2026-09-09, and 164, 165, 186, 282, 296 and 393: all built and moved whole to HISTORY.md ("Moved from the plans, 2026-10-05", the UI_MODERNISATION_PLAN blocks; 296 under "INBOX resolved, 2026-09-21").
 
 ## Settings information architecture (INBOX 444)
 
@@ -1595,3 +1572,10 @@ Owners: the uisweep agent (Sonnet, measure and the mechanical fixes), then Brief
 Owners: grammar57 (button families), the ownerfix agent (Sonnet) for the rest.
 
 - INBOX 803, UI and bugs, the owner 2026-10-11 03:35Z to 03:45Z, screenshots (Loose ends, While you were away, Kinds of link, the OCR workspace, the constellation in both themes), verbatim: "Im still iffy about the design use of these buttons styles in some places... also the select button in the all notes top bar is rectangular and not square, should it be square?? in the questions subtab and possibly elsewhere, the icons in the rows get underlined as well." ... "on the ocr workspace, when rapid ocr and potentially the others are reading the text, if that image already has a description or caption, it doesnt show until the image's ocr is read." ... "The ocr workspae regions are a little off, there is an awkward squashed text box at the bottom of the right text area. Should the notebook ocnstellation have an off white background on light mode like with dark?? Also when I switch back and forth between light and dark mode, the notebook constellation adjusts suddenly or jolts a bit and doesn't have a smooth fade transition. Also when I click the capture a note textbox in the capture subtab for the first time, it adjusts a bit because the line numbers werent originally showing." Recommendations, taken: outlined bordered buttons inside dashboard cards become the quiet recipe, and counted chips (link kinds, claims) become chips, not buttons; an icon-only toolbar button is square; a row link never underlines its icon; the caption shows before reading starts; the empty region editor below the read text is not drawn when it has nothing; the constellation sits on a tinted well in light too and fades between themes; the capture box reserves its line-number gutter from the first paint. Then, 03:50Z, three screenshots of the code editor (the assistant's Quick fix, Format, Run tests, Find usages; the snippets panel's Save selection; the toolbar's Format, Run, Assistant, Snippets, each a tinted bordered box): "Im also iffy about the design and use/style of these buttons". Recommendation, taken: a toolbar is quiet buttons in one dock (DESIGN.md `.dock`), the one primary action filled; suggested actions in a panel are quiet rows or chips, never a grid of tinted boxes.
+
+## Placed from INBOX, 2026-10-11 (bars, notifications and tours; grammar57)
+
+- 809, the owner, verbatim: "is there a way to redesign areas in the app like these??" (Help, "Welcome and tours": fourteen bordered tinted buttons and one filled "Start the tour"). Target: one primary, each tour a row with its line and length, the recipe wherever a button wall is found.
+- 811, the owner, verbatim: "something about the design or smth of those buttons in the notifications and buttons in notifications in the noficiations panel is bugging me, can you try redesigning them or fixing it somehow?? I cant quite place it". Target: Undo a quiet text button on the meta line beside the time; read and dismiss on hover and focus in every row, never replacing the time; "Undo expired" as meta text; stale "Started:" rows are the transparency agent's.
+- 813, the owner, verbatim: "also idk but I feel like it looks awkward when some things have borders and other things dont in a header but idk im not an expert. and some dropdowns have different ui styles?? all ui styles and elements needs to be consistent across the app." Target: one bar select (the dock's filled, borderless one), one filter trigger, one view switch order (list, grid), only the primary filled in a bar; a lint counts each.
+

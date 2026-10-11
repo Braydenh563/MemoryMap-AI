@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5516, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4625, test files 1066, tests 9761, plan headings 995.
+Counts: frontend functions 5516, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4625, test files 1067, tests 9762, plan headings 995.
 
 ## Frontend functions (5516)
 
@@ -2427,11 +2427,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `atlasLowerState` | frontend/js/atlas-motion.js:91 |
 | `atlasMotionOK` | frontend/js/atlas-motion.js:109 |
 | `atlasRigAttach` | frontend/js/atlas-motion.js:116 |
-| `atlasRigFrame` | frontend/js/atlas-motion.js:217 |
-| `atlasRigGesture` | frontend/js/atlas-motion.js:168 |
+| `atlasRigFrame` | frontend/js/atlas-motion.js:231 |
+| `atlasRigGesture` | frontend/js/atlas-motion.js:177 |
 | `atlasRigRead` | frontend/js/atlas-motion.js:150 |
-| `atlasRigSpring` | frontend/js/atlas-motion.js:188 |
-| `atlasRigWake` | frontend/js/atlas-motion.js:201 |
+| `atlasRigSpring` | frontend/js/atlas-motion.js:202 |
+| `atlasRigWake` | frontend/js/atlas-motion.js:215 |
 
 ### frontend/js/attach-to.js (4)
 
@@ -15626,7 +15626,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9761)
+## Tests (9762)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -15786,6 +15786,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_codeql_shapes.py | 2 |
 | tests/test_coerce_number_finite.py | 3 |
 | tests/test_command_row_shape.py | 3 |
+| tests/test_companion_body.py | 1 |
 | tests/test_companion_motion.py | 101 |
 | tests/test_companion_stacking.py | 4 |
 | tests/test_companion_throw.py | 7 |

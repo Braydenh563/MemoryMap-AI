@@ -14,3 +14,4 @@ Found, not fixed (pre-existing on the base): test_companion_motion.py::test_ever
 
 Next: Brief 88 and the coordinator's three items (eased starts/stops, expanded panel resting pose, click raises one arm).
 - done d3c759ed5 throw flight; next: per-throw feel (Brief 88 b), avatars.js nameMarkBuddyThrowFeel
+- done 2b3840584 throw feel; next: click-arm (atlas-motion.js atlasRigGesture), panel resting pose, eased starts/stops

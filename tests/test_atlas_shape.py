@@ -1147,7 +1147,7 @@ def test_the_arm_is_a_jointed_chain_that_the_rig_eases(tmp_path):
     # The body leads and the limbs follow; a move's time is its size; limits.
     assert "const ATLAS_RIG_DELAY = { sh: 30, el: 80, wr: 130 };" in rig
     assert "j.w = 5 / Math.min(0.5, 0.25 + (0.25 * jump) / 120);" in rig
-    assert "Math.max(-14, Math.min(135, j.el.x))" in rig and "Math.max(-35, Math.min(35, j.wr.x))" in rig
+    assert "Math.max(ATLAS_EL_UP, Math.min(135, j.el.x))" in rig and "Math.max(-35, Math.min(35, j.wr.x))" in rig
     # Counter-phase swing, anticipation, the head's lag, and no loop at rest
     # or under reduced motion.
     assert '(arm.side === "r" ? 0 : Math.PI)' in rig and "arm.antic = { until: now + 90" in rig

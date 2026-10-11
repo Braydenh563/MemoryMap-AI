@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Atlas: an arm raised out (a wave when you click it, a lifted arm) bends its forearm up towards its head instead of letting it hang down from the elbow; a wave holds the forearm about upright.
 - Companion: thrown, it flies. It carries on at the speed it was let go (the pointer's last 80ms, by mouse or touch), falls under gravity, bounces off the window's edges and the floor, leans into the throw, squashes as it lands and stays where it comes down. It used to slide on for a quarter of a second and take a perch the tab chose, which could be back on the side it came from. Reduce motion crossfades to the same landing.
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Security: a phone or another computer on the network can no longer make this computer act. Opening a folder, restarting or quitting the app, installing or running software (extras, updates, SearXNG), importing a folder of this computer's files, changing the model server and restoring a whole backup now answer "Only this computer can do that" to any other device.

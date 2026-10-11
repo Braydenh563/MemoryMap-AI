@@ -127,3 +127,20 @@ def test_nothing_found_has_eight_wordings_a_voice(key):
 
     for voice in composer_tables.VOICES:
         assert len(composer_tables.VOICE_VARIANTS[voice][key]) >= 8, (key, voice)
+
+
+@pytest.mark.parametrize("family", ["CONFIRM", "WHICH_NOTE"])
+def test_clarifying_and_confirming_vary(family):
+    """An act's Confirm line and its "which note?" were one sentence each:
+    eight a voice now, and fifty acts in a row open differently."""
+    from memorymap.ai import commands
+
+    table = getattr(composer_replies, family)
+    assert all(len(table[voice]) >= 8 for voice in ("natural", "professional"))
+    assert all(len({phrasing.shape(line.format(label="Pin note 4", change="pin note 4", about="x")) for line in table[v]}) >= 2 for v in table)
+    say = commands._confirm if family == "CONFIRM" else commands._which_note
+    replies = [say(f"Move note {n} to Work" if family == "CONFIRM" else f"topic {n}") for n in range(TURNS)]
+    assert phrasing.repeats(replies) == 0
+    assert phrasing.opener_ratio(replies) >= OPENER_FLOOR, replies[:8]
+    if family == "CONFIRM":
+        assert all("Confirm" in r or "confirm" in r for r in replies)

@@ -128,3 +128,81 @@ def test_a_scoped_count_is_not_said_as_no_notes():
 
     result = GOLD["count_notes"][0]["result"]
     assert realise.tool_answer("count_notes", result, date(2026, 10, 11))["text"] == "You have two notes."
+
+
+#: The families of the registry and the shape each promises (the owner,
+#: 2026-10-11: "a lead sentence, then a list or table with counts and a link
+#: per item"). Every tool is in one family; each family is checked below.
+FAMILIES = {
+    "find": {"search_notes", "list_notes", "find_similar_notes", "related_notes", "search_whiteboard", "search_files", "search_chat_history", "web_search", "path_between"},
+    "counts": {"count_notes", "list_tags", "list_categories", "list_documents", "list_skills", "list_reminders", "list_library", "notebook_overview", "notebook_structure", "summarize_notes"},
+    "read": {"get_note", "get_document", "read_file", "read_url", "read_text", "read_whiteboard", "read_mindmap", "search_help", "get_current_time", "calculate", "check_answer", "find_contradictions"},
+    "notes": {"create_note", "edit_note", "delete_note", "restore_note", "pin_note", "tag_note", "link_notes", "unlink_notes", "audit_link_reasons"},
+    "filing": {"create_category", "rename_category", "delete_category", "merge_categories", "rename_tag", "delete_tag"},
+    "documents": {"create_document", "delete_document"},
+    "boards": {"add_board_shape", "add_whiteboard_card", "add_whiteboard_link", "delete_board_item", "edit_board_item", "move_board_item", "restore_board_item", "place_library_item", "generate_diagram", "create_mindmap", "add_map_node", "link_map_nodes"},
+    "reminders": {"set_reminder", "complete_reminder"},
+    "skills": {"save_skill", "delete_skill", "run_skill", "save_user_preference"},
+    "turn": {"ask_user", "make_plan", "propose_act", "compress_chat"},
+}
+_COUNT_WORD = re.compile(r"\b(\d+|no|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|every|nothing)\b", re.I)
+
+
+def _items(result: dict) -> list[int]:
+    """The ids of a result's own list of two or more things, if it has one."""
+    for value in result.values():
+        if isinstance(value, list) and len(value) >= 2 and all(isinstance(x, dict) for x in value):
+            ids = [x.get(k) for x in value for k in ("id", "note_id", "document_id", "board_id") if isinstance(x.get(k), int)]
+            if ids:
+                return list(dict.fromkeys(ids))
+    return []
+
+
+def test_every_tool_is_in_one_family():
+    named = [t for tools_of in FAMILIES.values() for t in tools_of]
+    assert sorted(named) == sorted(tools.TOOLS), set(named) ^ set(tools.TOOLS)
+
+
+@pytest.mark.parametrize("family", sorted(FAMILIES))
+def test_each_family_leads_with_a_sentence_then_its_shape(family):
+    for name in sorted(FAMILIES[family]):
+        for case in GOLD[name]:
+            if "error" in case["result"]:
+                continue
+            text = tool_say.say(name, case["result"], case["args"])["text"]
+            lead = text.split("\n\n")[0].splitlines()[0].strip()
+            assert re.search(r"[.:?]$", lead), (name, lead)
+            ids = _items(case["result"])
+            if ids:
+                #: Two or more things: a list or a table, a count in the lead
+                #: and a link to each one shown (eight at most).
+                assert re.search(r"^(- |\| |\d+\. )", text, re.M), (name, text)
+                assert _COUNT_WORD.search(lead), (name, lead)
+                linked = [i for i in ids if re.search(rf"\]\(#/[a-z/]+/{i}\)", text)]
+                assert len(linked) >= min(len(ids), 8), (name, ids, text)
+            if family == "counts":
+                assert _COUNT_WORD.search(lead), (name, lead)
+            if family in ("notes", "filing", "documents", "boards", "reminders", "skills"):
+                #: An act says what changed and where to see it.
+                assert _LINK.search(text), (name, text)
+
+
+def test_two_calls_in_one_turn_are_two_answers_each_with_its_lead(app_state):
+    """needle often calls twice (find, then act): each result is said in
+    its own paragraph block, never one run-on or a JSON list."""
+    from memorymap.ai import needle_provider
+
+    find, made = GOLD["search_notes"][0], GOLD["create_note"][0]
+    messages = [
+        {"role": "user", "content": "find harbor notes and make a note to buy oat milk"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"function": {"name": "search_notes", "arguments": find["args"]}},
+            {"function": {"name": "create_note", "arguments": made["args"]}},
+        ]},
+        {"role": "tool", "tool_name": "search_notes", "content": json.dumps(find["result"])},
+        {"role": "tool", "tool_name": "create_note", "content": json.dumps(made["result"])},
+    ]
+    said = needle_provider._said_by_tools(messages)
+    assert said.startswith("I found two notes about “harbor launch”.")
+    assert "\n\nSaved a new note in Shopping" in said and said.endswith("[Open it](#/notes/7)")
+    _house_style(said, "two calls")

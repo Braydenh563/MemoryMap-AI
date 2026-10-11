@@ -102,7 +102,7 @@
  {
   "typed": "can you search the web?",
   "repaired": "can you search the web?",
-  "intent": "utility",
+  "intent": "about_app",
   "topic": "websearch"
  },
  {
@@ -393,7 +393,7 @@
  },
  {
   "typed": "insanely smart, knowledgable",
-  "repaired": "insanely smart, knowledgable"
+  "repaired": "insanely smart, knowledgeable"
  },
  {
   "typed": "just as capble on tis own",
@@ -426,5 +426,93 @@
  {
   "typed": "i mut do it",
   "repaired": "i must do it"
+ },
+ {
+  "typed": "it should be insanely smart and knowledgable",
+  "repaired": "it should be insanely smart and knowledgeable"
+ },
+ {
+  "typed": "very diverse and readable speach patterns",
+  "repaired": "very diverse and readable speech patterns"
+ },
+ {
+  "typed": "do anything and everythinf and do it very accurately",
+  "repaired": "do anything and everything and do it very accurately"
+ },
+ {
+  "typed": "dont notes also already work out timewords",
+  "repaired": "do not notes also already work out timewords"
+ },
+ {
+  "typed": "it didnt do the understanding and rewrite",
+  "repaired": "it did not do the understanding and rewrite"
+ },
+ {
+  "typed": "the way the composer shows infoa dn retrieves info",
+  "repaired": "the way the composer shows information and retrieves information"
+ },
+ {
+  "typed": "is it going to be the most robust and most expansive chatbot",
+  "repaired": "is it going to be the most robust and most expansive chatbot"
+ },
+ {
+  "typed": "can the composer answer personal questions or any other random questions",
+  "repaired": "can the composer answer personal questions or any other random questions"
+ },
+ {
+  "typed": "the ai should be able to do all fo this",
+  "repaired": "the ai should be able to do all of this"
+ },
+ {
+  "typed": "a more specific tailored response than the generic responses",
+  "repaired": "a more specific tailored response than the generic responses"
+ },
+ {
+  "typed": "organise my notes by colour",
+  "repaired": "organise my notes by colour"
+ },
+ {
+  "typed": "organize my notes by color",
+  "repaired": "organize my notes by color"
+ },
+ {
+  "typed": "the travelled and traveled centre",
+  "repaired": "the travelled and traveled centre"
+ },
+ {
+  "typed": "Just make sure that it's use language, choices, actions, tool calls and more are the best they can be",
+  "repaired": "Just make sure that its use language, choices, actions, tool calls and more are the best they can be"
+ },
+ {
+  "typed": "Insanely god, accurate, reliable, and produce results",
+  "repaired": "Insanely good, accurate, reliable, and produce results"
+ },
+ {
+  "typed": "human readable and sometimes intractable results",
+  "repaired": "human readable and sometimes interactable results"
+ },
+ {
+  "typed": "It should be able to produce nav links if the user can't find smth",
+  "repaired": "It should be able to produce nav links if the user can't find something"
+ },
+ {
+  "typed": "oh my god it's raining",
+  "repaired": "oh my god it's raining"
+ },
+ {
+  "typed": "also what if I call the composer lil bro, brotato, broski or smth like that??",
+  "repaired": "also what if I call the composer little bro, brother, brother or something like that??"
+ },
+ {
+  "typed": "can it infer anything I call it is like a name or nickname I feel like calling it at the time yk??",
+  "repaired": "can it infer anything I call it is like a name or nickname I feel like calling it at the time you know??"
+ },
+ {
+  "typed": "but what if I make up smth random like brotatockiibidyrizzler yk??",
+  "repaired": "but what if I make up something random like brotatockiibidyrizzler you know??"
+ },
+ {
+  "typed": "can it have more varied responses??",
+  "repaired": "can it have more varied responses??"
  }
 ]

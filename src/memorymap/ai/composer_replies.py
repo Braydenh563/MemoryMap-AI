@@ -361,3 +361,85 @@ NOTHING_FAMILIES: dict[str, dict[str, list[str]]] = {
         ],
     },
 }
+
+
+#: An act that waits for Confirm, said eight ways a voice (the composer
+#: ledger: "clarifying and confirmation families"). `{label}` is the change
+#: as the card says it ("Move the note “Gym plan” to the bin"), `{change}`
+#: the same with its first letter lowered. Every line names Confirm.
+CONFIRM: dict[str, tuple[str, ...]] = {
+    "natural": (
+        "{label}. Confirm to do it.",
+        "{label}. Press Confirm and it's done.",
+        "I can do that: {change}. Confirm to go ahead.",
+        "{label}? Confirm below and I'll do it.",
+        "Here's the change: {change}. Confirm it, or Cancel.",
+        "{label}. Nothing changes until you press Confirm.",
+        "Ready when you are: {change}. Confirm to go ahead.",
+        "This one waits for you: {change}. Confirm or Cancel below.",
+    ),
+    "professional": (
+        "{label}. Confirm to proceed.",
+        "{label}. Select Confirm to apply this change.",
+        "Pending your confirmation: {change}.",
+        "{label}. This waits for Confirm.",
+        "Proposed change: {change}. Confirm or cancel below.",
+        "{label}. Please confirm to continue.",
+        "Ready to apply: {change}. Confirm to proceed.",
+        "{label}. No change is made until you confirm.",
+    ),
+}
+
+#: A note an act names that no note matches: one question, the words it
+#: looked for, eight ways a voice (decision 24's shape).
+WHICH_NOTE: dict[str, tuple[str, ...]] = {
+    "natural": (
+        "I found no note about “{about}”. Which note do you mean?",
+        "No note about “{about}” turned up. Which one did you have in mind?",
+        "I can't see a note about “{about}”. What's it called?",
+        "Nothing in your notes is about “{about}”. Which note should I use?",
+        "“{about}” didn't match a note. Which one do you mean?",
+        "Which note is that? None is about “{about}”.",
+        "I looked for a note about “{about}” and found none. Can you name it another way?",
+        "No luck with “{about}”. Which note did you mean?",
+    ),
+    "professional": (
+        "No note matches “{about}”. Which note do you mean?",
+        "I could not find a note about “{about}”. Please name the note.",
+        "There is no note about “{about}”. Which note should I use?",
+        "Which note do you mean? None matches “{about}”.",
+        "“{about}” matches no note. Please give its title.",
+        "No result for “{about}”. Which note is it?",
+        "I found nothing about “{about}”. Could you name the note another way?",
+        "Please say which note you mean: none is about “{about}”.",
+    ),
+}
+
+
+#: A reminder with no time said, asked once (decision 50).
+ASK_WHEN: dict[str, tuple[str, ...]] = {
+    "natural": (
+        "When should I remind you to {said}?",
+        "Sure. When do you want the reminder to {said}?",
+        "What time should I remind you to {said}?",
+        "When's good for a reminder to {said}? Tomorrow at 9, Friday afternoon, in an hour?",
+    ),
+    "professional": (
+        "When should the reminder to {said} be set?",
+        "Please give a time for the reminder to {said}.",
+        "At what time should I remind you to {said}?",
+        "When would you like to be reminded to {said}?",
+    ),
+}
+
+
+def act_line(family: dict[str, tuple[str, ...]], voice: str, recent: tuple[str, ...] = (), **slots: str) -> str:
+    """One line of `family` in `voice`, unlike the last replies, its slots
+    filled. The pick is keyed on the slots, so one act says the same."""
+    from memorymap.ai import phrasing
+
+    lines = family.get(voice) or family["natural"]
+    label = slots.get("label", "")
+    filled = {**slots, "change": label[:1].lower() + label[1:]}
+    options = [line.format(**filled) for line in lines]
+    return phrasing.choose(options, key="|".join(f"{k}={v}" for k, v in sorted(slots.items())), recent=recent)

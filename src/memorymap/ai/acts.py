@@ -50,7 +50,7 @@ __all__ = [
 
 def parse(text: str, now: datetime) -> dict | None:
     """The act `text` says, as `commands.read` gives it, or None."""
-    parsed = commands.read(text, now)
+    parsed = commands.read_typed(text, now)
     return parsed if parsed and parsed.get("intent") in ACTS else None
 
 

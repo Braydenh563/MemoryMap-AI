@@ -432,6 +432,34 @@
    ],
    "gold": "In your first psych lecture, on 22 July, you learned that memory is reconstructive rather than a recording, and you set yourself chapters 1 to 3 of the Myers textbook to read.\n\nIt's your only lecture note so far.\n\nMake a flashcard from it?",
    "type": "fact"
+  },
+  {
+   "n": 21,
+   "surface": "ask",
+   "kind": "notes",
+   "from": "the owner, 2026-10-11",
+   "question": "when did I buy that gaming mouse??",
+   "notes": [
+    {
+     "key": "mouse0",
+     "date": "2026-07-17",
+     "category": "Tech",
+     "tags": [
+      "gaming"
+     ],
+     "content": "You just bought a new gaming mouse discounted from $150 to $68 haha"
+    }
+   ],
+   "cites": [
+    "mouse0"
+   ],
+   "never": [
+    "haha",
+    "just bought",
+    "from your note of"
+   ],
+   "gold": "On 17 July you bought a gaming mouse, discounted from $150 to $68.",
+   "type": "when"
   }
  ]
 }

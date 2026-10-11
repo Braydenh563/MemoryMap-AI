@@ -34,7 +34,7 @@ import math
 import re
 from collections import Counter
 
-from memorymap.ai import spelling
+from memorymap.ai import act_registry, spelling
 from memorymap.ai.spelling import distance  # noqa: F401 - re-exported: the speller owns it, so the two modules do not import each other
 
 # --- 1. slang and text-speak ----------------------------------------------------
@@ -49,7 +49,7 @@ SLANG: dict[str, str] = {
     "cn": "can", "hv": "have", "hav": "have", "shld": "should", "shud": "should", "cld": "could",
     "cud": "could", "wld": "would", "wud": "would", "mny": "many", "meny": "many", "mch": "much",
     "mor": "more", "lng": "long", "oftn": "often", "wy": "why", "btwn": "between", "betw": "between",
-    "kno": "know", "knw": "know", "ne": "any", "evry": "every", "abt": "about", "bout": "about", "abour": "about", "b4": "before", "w/": "with",
+    "shw": "show", "kno": "know", "knw": "know", "ne": "any", "evry": "every", "abt": "about", "bout": "about", "abour": "about", "b4": "before", "w/": "with",
     "w/o": "without", "thru": "through", "tho": "though", "altho": "although", "bc": "because",
     "b/c": "because", "cuz": "because", "coz": "because", "cos": "because", "bcuz": "because",
     "becuz": "because", "v": "very", "rly": "really", "rlly": "really", "prolly": "probably",
@@ -57,7 +57,7 @@ SLANG: dict[str, str] = {
     "obv": "obviously", "obvi": "obviously", "srsly": "seriously", "lil": "little", "ne1": "anyone",
     "any1": "anyone", "some1": "someone", "every1": "everyone", "no1": "no one", "sum1": "someone",
     # Question words.
-    "wat": "what", "wot": "what", "wut": "what", "wht": "what", "wha": "what", "whut": "what",
+    "wat's": "what's", "wat": "what", "wot": "what", "wut": "what", "wht": "what", "wha": "what", "whut": "what",
     "whn": "when", "wen": "when", "wn": "when", "hw": "how", "hu": "who", "wher": "where",
     "whr": "where", "wer": "where", "whats": "what is", "wats": "what is", "hows": "how is",
     "wheres": "where is", "whens": "when is", "whos": "who is", "whys": "why is",
@@ -93,7 +93,7 @@ SLANG: dict[str, str] = {
     "mon": "Monday", "tue": "Tuesday", "tues": "Tuesday", "weds": "Wednesday", "thu": "Thursday",
     "thur": "Thursday", "thurs": "Thursday", "fri": "Friday", "feb": "February", "apr": "April",
     "aug": "August", "sept": "September", "oct": "October", "nov": "November", "dec": "December",
-    "xmas": "Christmas", "bday": "birthday", "b-day": "birthday",
+    "xmas": "Christmas", "bday": "birthday", "b-day": "birthday", "til": "till",
     # Things.
     "msg": "message", "msgs": "messages", "txt": "text", "pic": "picture", "pics": "pictures",
     "vid": "video", "vids": "videos", "info": "information", "appt": "appointment",
@@ -279,7 +279,10 @@ SOCIAL: dict[str, str] = {
 #: Words that ride along with small talk without making it a question:
 #: "ty for the help", "thanks a lot mate".
 _SOCIAL_FILLER = frozenset(
-    "for the a lot help helping that this it again man mate bro dude buddy friend all very really much so".split()
+    "for the a lot help helping that this it again man mate bro dude buddy friend all very really much so"
+    #: "i'm tired" is tiredness and "you're useless" a complaint, not "ok"
+    #: (measured 2026-10-11: both read as an acknowledgement).
+    " i i'm im am feel feeling you're youre ur bot was today too tbh".split()
 )
 
 SLANG.update({
@@ -1862,7 +1865,7 @@ SOCIAL.update({
     "good": "compliment", "amazing": "compliment", "best": "compliment", "smart": "compliment",
     "bad": "insult", "stupid": "insult", "dumb": "insult", "useless": "insult", "idiot": "insult",
     "terrible": "insult", "awful": "insult", "worst": "insult", "tired": "emotion",
-    "stressed": "emotion", "happy": "emotion", "sad": "emotion", "angry": "emotion",
+    "stressed": "emotion", "happy": "glad", "sad": "emotion", "angry": "emotion",
     "frustrated": "emotion", "exhausted": "emotion", "based": "ack", "lit": "ack",
     "sus": "confused", "cap": "confused", "cringe": "reaction", "bruh": "reaction",
     "gyat": "reaction", "skibidi": "reaction", "slay": "reaction", "w": "reaction", "l": "reaction",
@@ -1895,6 +1898,23 @@ SOCIAL_PHRASES.update({
     "good girl": "compliment", "ur so cute": "compliment", "you know that": "ack",
     "u know that": "ack", "shut up": "insult", "fuck you": "insult", "fuck off": "insult",
     "go away": "insult",
+    "you suck": "insult", "you're great": "compliment", "you are great": "compliment",
+    "ur great": "compliment", "nice work": "compliment", "great job": "compliment",
+    "great work": "compliment", "love it": "compliment", "feeling down": "emotion",
+    #: Agreeing (ledger row 543): "think", "plan" and "idea" are note words,
+    #: so "I think so" and "good plan" were searched for.
+    "i think so": "ack", "i guess so": "ack", "i suppose so": "ack", "i hope so": "ack",
+    "i believe so": "ack", "i think": "ack", "sounds like a plan": "ack", "sure thing": "ack",
+    "good plan": "compliment", "gud plan": "compliment", "nice plan": "compliment",
+    "great plan": "compliment", "good idea": "compliment", "gud idea": "compliment",
+    "nice idea": "compliment", "great idea": "compliment", "good call": "compliment",
+    "good point": "compliment", "nice one": "compliment",
+})
+SOCIAL.update({
+    "bored": "emotion", "anxious": "emotion", "lonely": "emotion", "sleepy": "emotion",
+    "nervous": "emotion", "upset": "emotion", "worried": "emotion", "overwhelmed": "emotion",
+    #: Good news is not sadness: "i'm happy" once got "I'm sorry to hear that".
+    "excited": "glad", "glad": "glad", "stoked": "glad", "thrilled": "glad", "relieved": "glad",
 })
 
 
@@ -1926,7 +1946,7 @@ def social_kind(message: str) -> str | None:
         else:
             return None
     #: "ok thanks" is thanks; "lol ok" is laughter: the most telling part.
-    for kind in ("confused", "thanks", "sorry", "bye", "morning", "greeting", "how", "who", "reaction", "laugh", "compliment", "insult", "emotion"):
+    for kind in ("confused", "thanks", "sorry", "bye", "morning", "greeting", "how", "who", "reaction", "laugh", "compliment", "insult", "emotion", "glad"):
         if kind in kinds:
             return kind
     return "ack"
@@ -2076,7 +2096,37 @@ def repair(text: str, report: list | None = None, known=frozenset(), fixed: list
     i = 0
     while i < len(tokens):
         i += _repair_token(tokens, i, out, text, report, known, fixed)
-    return " ".join(w for w in out if w)
+    return " ".join(w for w in _real_word_slips(out, fixed) if w)
+
+
+#: Real-word slips (Brief 104): a word that is a word, read as another only
+#: where its neighbour says so. After an intensifier comes an adjective
+#: ("insanely god" is "insanely good"); "it's" before a noun is "its" ("it's
+#: use of language").
+_INTENSIFIERS = frozenset("very really so insanely super pretty too extremely incredibly quite crazy seriously".split())
+_AFTER_INTENSIFIER = {"god": "good", "grate": "great"}
+_ITS_NOUNS = frozenset(
+    """use own name place way job size shape colour color purpose answer answers title content contents settings
+    layout design tone voice speed memory language style owner data value text icon label wording choices""".split()
+)
+
+
+def _real_word_slips(tokens: list[str], fixed: list | None) -> list[str]:
+    out = list(tokens)
+    for i in range(1, len(out)):
+        prev = out[i - 1].lower().rstrip("?!.,:;")
+        word = out[i].rstrip("?!.,:;")
+        tail = out[i][len(word):]
+        low = word.lower()
+        if prev in _INTENSIFIERS and low in _AFTER_INTENSIFIER and _AFTER_INTENSIFIER[low] != low:
+            out[i] = _AFTER_INTENSIFIER[low] + tail
+        elif low in _ITS_NOUNS and prev in ("it's", "it’s") and out[i - 1].rstrip("?!.,:;") == out[i - 1]:
+            out[i - 1] = "its"
+        else:
+            continue
+        if fixed is not None:
+            fixed.append((f"{tokens[i - 1]} {tokens[i]}", f"{out[i - 1]} {out[i]}"))
+    return out
 
 
 def _join_asking(low: str, nxt: str, out: list[str]) -> bool:
@@ -2316,3 +2366,7 @@ def guess_kind(asking: str, embed=None) -> str | None:  # noqa: ANN001
     if ranked[0][1] < floor or (len(ranked) > 1 and ranked[0][1] - ranked[1][1] < MARGIN):
         return None
     return ranked[0][0]
+
+
+#: The Guide reads a question through this (`act_registry.repair`).
+act_registry.repair = repair

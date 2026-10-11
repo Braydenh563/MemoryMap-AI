@@ -43,6 +43,18 @@ def _alike(option: str, reply: str) -> bool:
     return bool(reply) and (reply.startswith(option) or opener(option) == opener(reply))
 
 
+def _fresh(options: list[str], recent: list[str]) -> list[str]:
+    """The options unlike the recent replies, and of another shape than the
+    last one when any is; all of them when none is."""
+    fresh = [o for o in options if not any(_alike(o, r) for r in recent)]
+    if not fresh:
+        fresh = [o for o in options if not any((r or "").strip().startswith(o) for r in recent)] or options
+    if recent:
+        last = shape(recent[-1])
+        fresh = [o for o in fresh if shape(o) != last] or fresh
+    return fresh
+
+
 def choose(options: Sequence[str], key: str, recent: Sequence[str] = (), seed: str = "") -> str:
     """One of `options` for `key` (the message and the family), unlike the
     last `RECENT` replies in `recent` (oldest first). Deterministic: the
@@ -51,13 +63,7 @@ def choose(options: Sequence[str], key: str, recent: Sequence[str] = (), seed: s
     if not options:
         return ""
     recent = [r for r in recent if r][-RECENT:]
-    fresh = [o for o in options if not any(_alike(o, r) for r in recent)]
-    if not fresh:
-        fresh = [o for o in options if not any((r or "").strip().startswith(o) for r in recent)] or options
-    if recent:
-        last = shape(recent[-1])
-        other = [o for o in fresh if shape(o) != last]
-        fresh = other or fresh
+    fresh = _fresh(options, recent)
     digest = hashlib.sha1(f"{key.strip().lower()}|{seed}|{len(recent)}".encode()).digest()
     return fresh[int.from_bytes(digest[:4], "big") % len(fresh)]
 

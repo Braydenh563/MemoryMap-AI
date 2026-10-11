@@ -77,9 +77,10 @@ _PHRASES = (
 )
 _PHRASE_RES = tuple((re.compile(p), r) for p, r in _PHRASES)
 #: "Sam and I", "Sam and me": the person first, as people say it of others.
-_AND_I = re.compile(
-    r"\b((?!(?:Then|And|But|So|When|After|Before|Yesterday|Today|Tomorrow|Later|Also|Now|Once|Last|This|Next|Finally)\b)"
-    r"[A-Z][a-z]+(?: [A-Z][a-z]+)?) and (?:I|me)\b"
+_AND_I = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)?) and (?:I|me)\b")
+#: A sentence's opening word is not a person: "Then Sam and I" is Sam.
+_NOT_A_NAME = frozenset(
+    "Then And But So When After Before Yesterday Today Tomorrow Later Also Now Once Last This Next Finally".split()
 )
 _WORDS = {"i": "you", "me": "you", "my": "your", "mine": "yours", "myself": "yourself"}
 _WORD_RE = re.compile(r"\b(I|me|my|mine|myself|Me|My|Mine|Myself|MY)\b")
@@ -118,6 +119,11 @@ def _with_you(match: re.Match) -> str:
     after = match.string[match.end():]
     if _PLACE_BEFORE.search(before) and re.match(r"\s+[a-z]", after) and match.group(0).endswith(" I"):
         return match.group(0)
+    words = match.group(1).split()
+    if words[0] in _NOT_A_NAME:
+        if len(words) == 1:
+            return match.group(0)
+        return f"{words[0]} you and {words[1]}"
     return f"you and {match.group(1)}"
 
 

@@ -1,0 +1,139 @@
+{
+ "about": "Personal and random questions with no model (the owner, 2026-10-11: \"Can the composer answer personal questions or any other random questions??\"). Each question is asked through /chat/stream over the notes below with no model; the answer must start with its lead. Typos are the owner's kind.",
+ "notes": [
+  "# About me\n\nI live in Perth and I work part time at the cafe. My birthday is 3 December.",
+  "My sister Jess is moving to Melbourne in January.",
+  "Favourite food is ramen, favourite band is Radiohead.",
+  "Started learning Spanish on Duolingo, 40 day streak.",
+  "Dentist check-up booked for 21 October at 9am.",
+  "Golf with Sam after work, slicing everything lol"
+ ],
+ "questions": [
+  [
+   "where do i live",
+   "You live in Perth, going by your note of"
+  ],
+  [
+   "whats my sisters name",
+   "Your sister is Jess, going by your note of"
+  ],
+  [
+   "when is my birthday",
+   "Your birthday is 3 December"
+  ],
+  [
+   "how old am i",
+   "Your notes give your birthday, 3 December, but not the year"
+  ],
+  [
+   "what's my favourite food",
+   "Ramen, going by your note of"
+  ],
+  [
+   "who is jess",
+   "Jess comes up once"
+  ],
+  [
+   "what do i do for work",
+   "You work part time at the cafe"
+  ],
+  [
+   "what languages am i learning",
+   "Spanish, going by your note of"
+  ],
+  [
+   "do i have any pets",
+   "Your notes don't mention a pet."
+  ],
+  [
+   "whats my fav band??",
+   "Radiohead, going by your note of"
+  ],
+  [
+   "how are you",
+   ""
+  ],
+  [
+   "are you a real person",
+   "I'm a program, not a person"
+  ],
+  [
+   "what's your name",
+   "I am Atlas"
+  ],
+  [
+   "do you have feelings",
+   "No. I'm a program"
+  ],
+  [
+   "what's the meaning of life",
+   "That's general knowledge"
+  ],
+  [
+   "what's the capital of france",
+   "That's general knowledge"
+  ],
+  [
+   "who won the world cup",
+   "That's general knowledge"
+  ],
+  [
+   "tell me a joke",
+   ""
+  ],
+  [
+   "what's the weather like",
+   "The weather is not something this app knows"
+  ],
+  [
+   "what should i eat for dinner",
+   "Your call, but your favourite food is ramen"
+  ],
+  [
+   "can you keep a secret",
+   "Yes. What you write stays on this computer"
+  ],
+  [
+   "do you remember me",
+   "From your notes, seven things about you:"
+  ],
+  [
+   "what do you know about me",
+   "From your notes, seven things about you:"
+  ],
+  [
+   "am i a good person",
+   "That's not something I can judge from a notebook"
+  ],
+  [
+   "what's 2+2",
+   "2+2 is 4."
+  ],
+  [
+   "flip a coin",
+   ""
+  ],
+  [
+   "what day is it",
+   "Today is "
+  ],
+  [
+   "who made you",
+   "I'm Atlas, the part of MemoryMap"
+  ],
+  [
+   "whats ur fav colour",
+   "I don't have one; I'm a program."
+  ],
+  [
+   "wat do u know abt me",
+   "From your notes, seven things about you:"
+  ]
+ ],
+ "never": [
+  "There's nothing in your notes about",
+  "I couldn't find anything on",
+  "Nothing I found mentions",
+  "[your note,"
+ ]
+}

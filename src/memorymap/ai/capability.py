@@ -140,6 +140,23 @@ def asks(question: str) -> bool:
     return any(c.words.search(rest) for c in CAPABILITIES) or bool(re.match(r"^(?:help|do (?:things|stuff|anything))\b", rest, re.I))
 
 
+def _private(c, text: str) -> str:  # noqa: ANN001  # a capability row
+    """"is my data private" is a yes; "do you send my notes" a no; "where are
+    my notes stored" neither (the answer says where)."""
+    if re.match(r"^where\b", text, re.I):
+        return c.how
+    sending = re.search(r"\b(send|sends|sent|sending|share|sharing|upload\w*|sell|leak\w*|cloud|servers?|track\w*|spy\w*|online|go|goes|leave|leaves)\b", text, re.I)
+    return f"{'No.' if sending else 'Yes.'} {c.how}"
+
+
+def privacy_line(question: str) -> str | None:
+    """The yes or no a privacy question gets ("is my data sent anywhere": No,
+    and where it stays), or None for any other question: the Guide leads
+    with it rather than with the Privacy topic's first sentence."""
+    text = _clean(question)
+    return answer(question) if _PRIVACY.match(text) else None
+
+
 def answer(question: str, *, prefs: dict | None = None, model_running: bool = False) -> str:
     """The capability line for `question`: whether, how, and the switch.
     `prefs` are the saved preferences (the switches' state)."""
@@ -154,12 +171,7 @@ def answer(question: str, *, prefs: dict | None = None, model_running: bool = Fa
         return "\n\n".join([*OVERVIEW, model, "Try \"what have I saved about uni?\""])
     c = found[0]
     if c.key == "privacy":
-        #: "is my data private" is a yes; "do you send my notes" a no; "where
-        #: are my notes stored" neither (the answer says where).
-        if re.match(r"^where\b", text, re.I):
-            return c.how
-        sending = re.search(r"\b(send|sends|sent|sending|share|sharing|upload\w*|sell|leak\w*|cloud|servers?|track\w*|spy\w*|online|go|goes|leave|leaves)\b", text, re.I)
-        return f"{'No.' if sending else 'Yes.'} {c.how}"
+        return _private(c, text)
     lines = []
     if c.model and model_running:
         lines.append("Yes, with the model you have connected.")

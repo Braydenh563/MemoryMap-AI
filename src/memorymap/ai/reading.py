@@ -239,8 +239,6 @@ def _resolving(body):  # noqa: ANN001, ANN202
     return resolved_read
 
 
-
-
 @_resolving
 def read(text: str, *, now: datetime, context: dict | None = None) -> Reading:
     """The one reading of `text` on the person's clock `now`. `context` may
@@ -417,13 +415,14 @@ def follow(text: str, turns: list[dict] | None, now: datetime) -> tuple[str, str
     the kind: "again", "other", "pronoun", "date", "subject"), or None for a
     sentence that stands on its own. Dates are `recognise` spans, never read
     here (decision 46)."""
-    #: "thanks" between is not a turn to lean on (INBOX 741's rule).
-    turns = [t for t in (turns or []) if str(t.get("text") or "").strip()][-FOLLOW_TURNS:]
-    turns = [t for t in turns if _read(str(t["text"]), now=now).intent not in ("smalltalk", "unknown")]
+    turns = _leaned_on(turns, now)
     raw = " ".join(str(text or "").split())
     if not turns or not raw:
         return None
     low = raw.lower().rstrip("?.")
+    slot = _follow_slot(raw, turns[-1], now)
+    if slot:
+        return slot, "slot"
     if re.match(_AGAIN, low):
         return str(turns[-1]["text"]), "again"
     if re.search(_OTHER, low):
@@ -433,6 +432,32 @@ def follow(text: str, turns: list[dict] | None, now: datetime) -> tuple[str, str
         return _follow_pronoun(raw, pronoun, turns, now)
     same = re.match(_SAME_FOR, low) or re.match(_TOO, low)
     return _follow_same(raw[same.start("x"):same.end("x")], turns, now) if same else None
+
+
+def _leaned_on(turns: list[dict] | None, now: datetime) -> list[dict]:
+    """The last turns with words, less small talk: "thanks" between is not a
+    turn to lean on (INBOX 741's rule)."""
+    turns = [t for t in (turns or []) if str(t.get("text") or "").strip()][-FOLLOW_TURNS:]
+    return [t for t in turns if _read(str(t["text"]), now=now).intent not in ("smalltalk", "unknown")]
+
+
+def _follow_slot(raw: str, turn: dict, now: datetime) -> str | None:
+    """"Friday at 3" after "remind me to call the dentist", which was asked
+    for its time (decision 50): the reminder with the time said, when the
+    reply is a time and nothing else."""
+    from memorymap.ai import commands
+
+    before = str(turn["text"])
+    waiting = commands.read(before, now)
+    if not waiting or waiting["intent"] != "reminder" or waiting.get("time_given"):
+        return None
+    #: Rebuilt from what is to be done, so a time already gone ("tonight at
+    #: 8", said at ten) does not ride along with the new one.
+    joined = f"remind me to {waiting.get('said') or ''} {raw}"
+    filled = commands.read_typed(joined, now)
+    if filled and filled.get("time_given") and filled.get("said") == waiting.get("said"):
+        return joined
+    return None
 
 
 def _follow_other(raw: str, low: str, turns: list[dict], now: datetime) -> tuple[str, str] | None:

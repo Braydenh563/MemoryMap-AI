@@ -670,6 +670,16 @@ def index_counts(session: Session) -> dict[str, int]:
     return search_index.counts(session)
 
 
+def _term_groups(terms: list[str], mode: str) -> list[str]:
+    """Each term as an FTS5 group of its spellings ("centre" and "center",
+    INBOX 895), with a prefix star in "prefix" mode. The shared threshold,
+    not a second 4 written out here: the two stages are meant to agree, and
+    a duplicated constant is how they stop agreeing."""
+    if mode == "prefix":
+        return [variants.fts_group(f"{term}*" if len(term) >= search_manager.PREFIX_MIN_LEN else term) for term in terms]
+    return [variants.fts_group(term) for term in terms]
+
+
 def _match_expression(terms: list[str], phrases: list[str], excluded: list[str], mode: str) -> str:
     """An FTS5 MATCH expression from what the person typed.
 
@@ -680,18 +690,7 @@ def _match_expression(terms: list[str], phrases: list[str], excluded: list[str],
     `keyword_search` walks and for the same reason: an empty page for one
     transposed letter is the worst answer a search box gives.
     """
-    parts: list[str] = []
-    if mode == "prefix":
-        #: The shared threshold, not a second 4 written out here. The two
-        #: stages are meant to agree, and a duplicated constant is how they
-        #: stop agreeing: this one was still 4 while the note search's moved.
-        parts.extend(
-            variants.fts_group(f"{term}*" if len(term) >= search_manager.PREFIX_MIN_LEN else term)
-            for term in terms
-        )
-    else:
-        #: Every spelling of each word ("centre" and "center", INBOX 895).
-        parts.extend(variants.fts_group(term) for term in terms)
+    parts = _term_groups(terms, mode)
     joiner = " OR " if mode == "any" else " AND "
     # Parenthesised before anything is appended. FTS5 binds AND tighter than
     # OR and reads NOT as a binary operator, so `a OR b AND "phrase"` means

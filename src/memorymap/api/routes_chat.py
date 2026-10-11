@@ -32,7 +32,7 @@ from sqlalchemy import or_, select
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, capability, composer, composer_digest, find_it, glossary, phrasing, verdicts, vocative, why
+from memorymap.ai import budget as run_budget, capability, composer, composer_digest, find_it, glossary, personal, phrasing, verdicts, vocative, why
 from memorymap.ai import (
     acts,
     agent,
@@ -2176,7 +2176,8 @@ MODEL_STOPPED_NOTE = "The model stopped before it could answer, so this is Atlas
 
 #: A how-to about the app, answered from its Help when no model writes the
 #: answer (CHAT_PLAN decision 36, the help register).
-_HOW_TO = re.compile(r"^\s*(?:how (?:do|can|would|should) i|how to|where (?:is|are|do i find|can i find))\b", re.I)
+#: "why is the chat so slow" is a how-to too: the Guide answers it (Performance mode).
+_HOW_TO = re.compile(r"^\s*(?:how (?:do|can|would|should) i|how to|where (?:is|are|do i find|can i find)|why (?:is|does))\b", re.I)
 
 
 #: A counted answer's facts drawn as a bar of counts (decision 59, step 2):
@@ -2199,14 +2200,14 @@ def _tool_read_events(req: _StreamRequest) -> list[dict]:
     names the tool (`reading.tool_of`), Chat runs it with no arguments, and
     the realiser says it in one line and draws it in its form. Empty when the
     sentence names no such tool, so the composer answers as before."""
-    from memorymap.ai import act_registry, question_noise, reading, realise, tool_say
+    from memorymap.ai import act_registry, commands, question_noise, reading, realise, tool_say
     from memorymap.ai import tools as agent_tools
 
     now = user_now(deps.get_config())
     #: Read as repaired: "shwo me evry tag i hav plz" is the tag list, as
     #: "list my tags" is (the routing gold, `fixtures/composer/routing_1011.json`).
     asked = question_noise.repair(question_noise.tidy(req.question or ""))
-    filed = reading.filed_listing(asked)
+    filed = commands.filed_listing(asked)
     if filed:
         #: "list my work notes": the Work notes, or the notes tagged work
         #: (ledger row 442); a name that is neither is the composer's.
@@ -2312,6 +2313,38 @@ def _call_events(req: _StreamRequest) -> list[dict]:
     ]
 
 
+def _app_said(req: _StreamRequest, prepared: dict, ollama_running: bool) -> list[dict] | None:
+    """What the app says itself when it answers (`_app_answers`): about Atlas
+    ("do you have feelings", the owner, 2026-10-11), a capability, a call, a
+    place ("where is the bin?", `ai/find_it.py`, with a link that opens it),
+    or that nothing is open."""
+    itself = personal.about_me(req.question or "")
+    if itself:
+        return [{"type": "answer", "delta": itself}]
+    if _asks_capability(req, prepared):
+        return [{"type": "answer", "delta": _capability_answer(req, ollama_running)}]
+    if req.address is not None and req.address.call:
+        return _call_events(req)
+    placed = find_it.answer(req.question or "") if not req.images_raw else None
+    if placed is not None:
+        return [{"type": "answer", "delta": placed["text"]}, {"type": "offer", "offer": placed["offer"]}]
+    if _nothing_open(req.body):
+        return [{"type": "answer", "delta": composer_digest.PHRASES["nothing_open"]}]
+    return None
+
+
+def _stats_events(stats: dict) -> list[dict]:
+    """A counted answer, its chart, and its one acting offer (decision 70),
+    drawn as a link on its line."""
+    out = [{"type": "answer", "delta": stats["text"]}]
+    drawn = _stats_chart(stats)
+    if drawn is not None:
+        out.append({"type": "chart", "chart": drawn})
+    if stats.get("offer"):
+        out.append({"type": "offer", "offer": stats["offer"]})
+    return out
+
+
 def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> list[dict] | None:
     """**A counted answer, streamed as one piece**, or a read tool's answer
     with no model. See the same branch in `chat()`: the number is already
@@ -2319,26 +2352,11 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
     to wait for. It arrives before a local model would have finished loading,
     and it arrives at all when no model is running. None when the stream
     goes on to compose or generate."""
-    if _asks_capability(req, prepared) and _app_answers(req, ollama_running):
-        return [{"type": "answer", "delta": _capability_answer(req, ollama_running)}]
-    if req.address is not None and req.address.call and _app_answers(req, ollama_running):
-        return _call_events(req)
-    #: "Where is the bin?", "I can't find dark mode": the place and a link
-    #: that opens it and rings the control (`ai/find_it.py`).
-    placed = find_it.answer(req.question or "") if _app_answers(req, ollama_running) and not req.images_raw else None
-    if placed is not None:
-        return [{"type": "answer", "delta": placed["text"]}, {"type": "offer", "offer": placed["offer"]}]
-    if _nothing_open(req.body) and _app_answers(req, ollama_running):
-        return [{"type": "answer", "delta": composer_digest.PHRASES["nothing_open"]}]
+    said = _app_said(req, prepared, ollama_running) if _app_answers(req, ollama_running) else None
+    if said is not None:
+        return said
     if prepared["stats"] is not None:
-        out = [{"type": "answer", "delta": prepared["stats"]["text"]}]
-        drawn = _stats_chart(prepared["stats"])
-        if drawn is not None:
-            out.append({"type": "chart", "chart": drawn})
-        if prepared["stats"].get("offer"):
-            #: Its one acting offer (decision 70), drawn as a link on its line.
-            out.append({"type": "offer", "offer": prepared["stats"]["offer"]})
-        return out
+        return _stats_events(prepared["stats"])
     if not ollama_running:
         shown = prepared["tool_read"] if "tool_read" in prepared else _tool_read_events(req)
         if shown:
@@ -2470,7 +2488,12 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: same way as the first turn (B8); "tell me more", "shorter" and a
         #: correction lean on the turn before and keep the composer's.
         restated = follow is not None and follow.kind in composer._RESTATES
-        if (not follow or restated) and not str(prepared.get("search_mode") or "").endswith("recent"):
+        today = user_now(deps.get_config()).date()
+        #: "where do I live", "what's my sister's name", "what do you know
+        #: about me": what the notebook says of its writer (`ai/personal.py`),
+        #: read from every note, not only the ones the search found.
+        digest = None if follow else personal.answer(req.question, lambda: personal.notes_of(req.session), today)
+        if digest is None and (not follow or restated) and not str(prepared.get("search_mode") or "").endswith("recent"):
             try:
                 digest = composer_digest.answer(
                 follow.question if restated else req.question, prepared["notes"], today=user_now(deps.get_config()).date(),
@@ -2508,6 +2531,10 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 yield from _web_events(*web)
                 return
         text = result["text"]
+        if not result["grounding"] and not follow and personal.general(req.question or ""):
+            #: "what's the capital of France": the world, not the notes, and
+            #: said so rather than "nothing in your notes about capital".
+            text = personal.general_reply(_web_allowed(req))
         if not result["grounding"] and prepared.get("meaning_loading"):
             text += "\n\n" + composer_digest.PHRASES["meaning_loading"]
         yield {"type": "answer", "delta": text}
@@ -2661,6 +2688,13 @@ def _act_events(req: _StreamRequest, prepared: dict) -> Iterator[dict]:
         return
     if parsed is None:
         yield {"type": "answer", "delta": acts.capability_line()}
+        return
+    if parsed["intent"] == "reminder" and not parsed.get("time_given"):
+        #: Asked once, never guessed as tomorrow at 9 (decision 50); the
+        #: reply's time fills it (`reading._follow_slot`).
+        from memorymap.ai import commands
+
+        yield {"type": "answer", "delta": commands.ask_when(parsed.get("said") or parsed["text"])}
         return
     planned = acts.preview(req.session, parsed, req.body.note_ids)
     card = planned.get("card")
@@ -3259,6 +3293,18 @@ def _why(req, prepared, grounding, composing, will_answer, tools_only, ollama_ru
     )
 
 
+def _address(question: str, session: Session, skill: dict | None) -> tuple:
+    """The question and a name in address position (a `vocative.Address`,
+    or None), taken off before anything reads the question, so "brotato
+    what's on today" searches for today, not for brotato, and "yo
+    brotatockiibidyrizzler" is a call, never a search. A skill's question
+    is its own."""
+    address = None if skill else vocative.split(question, in_notes=_in_notes(session))
+    if address is None or not address.names:
+        return question, None
+    return address.question, address
+
+
 @router.post("/stream")
 def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     """NDJSON stream. Line types, in order:
@@ -3307,14 +3353,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     #: Cleaned before anything reads it (INBOX 801): a stray backslash, a run
     #: of spaces, a sentence typed in capitals (`question_noise.tidy`).
     question = skill["question"] if skill else question_noise.tidy(body.question) or body.question
-    #: A name in address position comes off before anything reads the
-    #: question, so "brotato what's on today" searches for today, not for
-    #: brotato, and "yo brotatockiibidyrizzler" is a call, never a search.
-    address = None if skill else vocative.split(question, in_notes=_in_notes(session))
-    if address is not None and address.names:
-        question = address.question
-    else:
-        address = None
+    question, address = _address(question, session, skill)
     allowed_tools = skill["tools"] if skill else None
     if skill and skill["acts"]:
         # An action skill without tools is just a paragraph, so the route

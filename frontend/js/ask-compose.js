@@ -238,27 +238,240 @@ function renderActCard(holder, event) {
   chatScrollToEnd();
 }
 
-//: **The web pages an answer read** (CHAT_PLAN decision 37): a numbered,
-//: scrollable list under the answer (`.web-sources`, ask-compose-lazy.css),
-//: each page's title opening it in the browser, its domain beside it. Only
-//: http and https addresses are drawn as links.
+//: **The web pages an answer read** (CHAT_PLAN decisions 37 and 66): one
+//: fold under the answer in the Thinking fold's look (`.web-fold`,
+//: ask-compose-lazy.css), its summary the count, each result its title, its
+//: site and one line. A title opens the page here: `/websearch/read`'s text,
+//: as text, with its address and the time it was read, and Back returns to
+//: the list; the arrow beside it opens the page in the browser. Only http
+//: and https addresses are drawn.
 function renderWebSources(holder, sources) {
+  const pages = (sources || []).filter((source) => /^https?:\/\//.test(source.url || ""));
+  if (!pages.length) return;
+  const fold = document.createElement("details");
+  fold.className = "agent-step web-fold";
+  const summary = document.createElement("summary");
+  summary.className = "fold-summary";
+  setLabel(summary, `ph:globe Web results: ${pages.length} ${pages.length === 1 ? "page" : "pages"}`);
   const list = document.createElement("ol");
-  list.className = "web-sources";
+  list.className = "web-results-list";
   list.setAttribute("aria-label", "Web pages read for this answer");
-  for (const source of sources || []) {
-    if (!/^https?:\/\//.test(source.url || "")) continue;
+  const reader = document.createElement("div");
+  reader.className = "web-reader hidden";
+  for (const source of pages) {
     const item = document.createElement("li");
+    const head = document.createElement("div");
+    head.className = "web-result-head";
+    const read = document.createElement("button");
+    read.type = "button";
+    read.className = "linklike web-result-title";
+    read.textContent = source.title || source.domain;
+    read.title = "Read this page here";
+    read.addEventListener("click", () => readWebPage(fold, list, reader, source));
+    const open = document.createElement("a");
+    open.className = "ghost icon-only small web-result-open";
+    open.href = source.url;
+    open.target = "_blank";
+    open.rel = "noopener noreferrer";
+    open.setAttribute("aria-label", `Open ${source.domain || "the page"} in the browser`);
+    open.title = "Open in the browser";
+    setLabel(open, "ph:arrow-square-out");
+    head.append(read, open);
+    const site = document.createElement("span");
+    site.className = "muted web-result-site";
+    site.textContent = source.domain || "";
+    item.append(head, site);
+    if (source.snippet) {
+      const line = document.createElement("p");
+      line.className = "muted web-result-line";
+      line.textContent = source.snippet;
+      item.appendChild(line);
+    }
+    list.appendChild(item);
+  }
+  fold.append(summary, list, reader);
+  holder.appendChild(fold);
+}
+
+//: A result read in place (decision 66): the page's readable text, never
+//: its markup, in the fold that listed it.
+async function readWebPage(fold, list, reader, source) {
+  fold.open = true;
+  list.classList.add("hidden");
+  reader.classList.remove("hidden");
+  const back = document.createElement("button");
+  back.type = "button";
+  back.className = "ghost small web-reader-back";
+  setLabel(back, "ph:arrow-left Back to results");
+  back.addEventListener("click", () => {
+    reader.classList.add("hidden");
+    reader.replaceChildren();
+    list.classList.remove("hidden");
+  });
+  const status = document.createElement("p");
+  status.className = "muted";
+  status.textContent = `Reading ${source.domain || "the page"}`;
+  reader.replaceChildren(back, status);
+  try {
+    const page = await apiJson(`/websearch/read?url=${encodeURIComponent(source.url)}`);
+    const title = document.createElement("h4");
+    title.className = "web-reader-title";
+    title.textContent = page.title || source.title || source.domain;
+    const where = document.createElement("p");
+    where.className = "muted web-reader-where";
     const link = document.createElement("a");
     link.href = source.url;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
-    link.textContent = source.title || source.domain;
-    const domain = document.createElement("span");
-    domain.className = "muted";
-    domain.textContent = ` ${source.domain || ""}`;
-    item.append(link, domain);
-    list.appendChild(item);
+    link.textContent = page.url || source.url;
+    const at = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    where.append(link, document.createTextNode(`, read at ${at}`));
+    const body = document.createElement("div");
+    body.className = "web-reader-text";
+    for (const block of String(page.text || "").split(/\n{2,}/).filter((b) => b.trim())) {
+      const para = document.createElement("p");
+      para.textContent = block.trim();
+      body.appendChild(para);
+    }
+    status.replaceWith(title, where, body);
+  } catch (error) {
+    status.textContent = error.message;
   }
-  if (list.childElementCount) holder.appendChild(list);
+}
+
+//: **The answer's shape follows its kind** (CHAT_PLAN decision 71): a count
+//: leads with its number drawn large (`.digest-figure`), and a who answer
+//: is a card (`.digest-card`: the person's name over what the notes say).
+//: A comparison is a table and what is left a checklist already, in the
+//: Markdown the answer arrives as; the table is set to fit and read in the
+//: body's type (`.digest-table`), not the model table's export bar. Built from the text, so the citation
+//: marks inside it keep their places.
+function digestShape(answerEl, shape) {
+  if (!answerEl) return;
+  const first = answerEl.querySelector("p");
+  if (shape === "count" && first && first.firstChild?.nodeType === Node.TEXT_NODE) {
+    const lead = first.firstChild;
+    const m = lead.textContent.match(/^(You spent |You've spent |)(\$?\d[\d,.]*(?:\s?(?:kg|km|%))?)/);
+    if (!m) return;
+    const rest = lead.splitText(m[1].length);
+    rest.splitText(m[2].length);
+    const figure = document.createElement("span");
+    figure.className = "digest-figure";
+    figure.textContent = rest.textContent;
+    rest.replaceWith(figure);
+  } else if (shape === "who" && first) {
+    const name = (first.textContent.match(/^([A-Z][\w'-]*(?: [A-Z][\w'-]*)?) /) || [])[1];
+    if (!name) return;
+    const card = document.createElement("div");
+    card.className = "digest-card";
+    const head = document.createElement("div");
+    head.className = "digest-card-head";
+    setLabel(head, `ph:user ${name}`);
+    const offer = answerEl.querySelector("p:last-of-type");
+    const body = [...answerEl.children].filter((el) => el.tagName === "P" && !(el === offer && el.textContent.trim().endsWith("?")));
+    first.before(card);
+    card.append(head, ...body);
+  } else if (shape === "compare") {
+    const block = answerEl.querySelector(".md-table-block");
+    if (!block) return;
+    block.classList.add("digest-table");
+    block.dataset.tableView = "fit";
+  }
+}
+
+//: **Short by default, More expands** (CHAT_PLAN B5): the lines past the
+//: short answer arrive cited and are folded here behind one plain-tier
+//: "Show five more", found by the bold label each opens with (the server's
+//: `support.more.labels`), so the marks inside them keep their numbers.
+//: Pressed, they show and the first of them takes focus.
+function digestMore(answerEl, more) {
+  if (!answerEl || !more) return;
+  const wanted = new Set((more.labels || []).map((l) => `${l}:`));
+  //: A line said as prose has no bold label: found by the words it opens with.
+  const starts = (more.starts || []).filter(Boolean);
+  if (!wanted.size && !starts.length) return;
+  const folded = [...answerEl.querySelectorAll(":scope > p")].filter((p) => {
+    const lead = p.firstElementChild;
+    if (lead && lead.tagName === "STRONG" && p.firstChild === lead && wanted.has(lead.textContent.trim())) return true;
+    const said = p.textContent.replace(/\s+/g, " ").trim();
+    return starts.some((start) => said.startsWith(start));
+  });
+  if (!folded.length) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "linklike digest-more";
+  setLabel(button, `ph:caret-down ${more.label}`);
+  button.setAttribute("aria-expanded", "false");
+  for (const p of folded) p.hidden = true;
+  folded[0].before(button);
+  button.addEventListener("click", () => {
+    for (const p of folded) p.hidden = false;
+    button.remove();
+    folded[0].tabIndex = -1;
+    folded[0].focus({ preventScroll: true });
+  });
+}
+
+//: The digest's one offer (CHAT_PLAN decision 70, B12): its last line, a
+//: question the answer asks ("Remind you to ask the tutor on Thursday?"),
+//: made the button that does it. Plain tier (`.linklike`): an action in
+//: running text. A reminder goes through the same door Quick add uses
+//: (`/reminders/parse`, rules first, the person's clock); a checklist or a
+//: note is a new note. Each one says what it did, with Undo.
+function digestOffer(answerEl, offer) {
+  if (!answerEl || !offer || !offer.label) return;
+  const line = [...answerEl.querySelectorAll("p")].reverse().find((p) => p.textContent.trim() === offer.label);
+  if (!line) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "linklike digest-offer";
+  button.textContent = offer.label;
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      let undo = null;
+      let said = "";
+      if (offer.kind === "open") {
+        //: A page, not a thing made: nothing to undo, and the line stays.
+        //: "settings:tasks" opens that section; "ask-history" the panel
+        //: beside the Ask box (A3's records answers).
+        if (offer.surface === "statistics") openStatistics();
+        else if (offer.surface === "ask-history") { if (!askHistoryOpen) toggleAskHistoryPanel(); }
+        else if (offer.surface.startsWith("settings:")) openSettingsModal(offer.surface.slice("settings:".length));
+        else actNavigate(offer.surface);
+        button.disabled = false;
+        return;
+      }
+      if (offer.kind === "reminder") {
+        const made = await apiJson("/reminders/parse", {
+          method: "POST",
+          body: JSON.stringify({ text: offer.text, tz_offset_minutes: -new Date().getTimezoneOffset() }),
+        });
+        const repeats = { daily: ", then every day", weekly: ", then every week", monthly: ", then every month" }[made.recurring] || "";
+        said = `Reminder set: ${made.text}, ${relativeWhen(made.due_at)}${repeats}.`;
+        undo = () => apiJson(`/reminders/${made.id}`, { method: "DELETE" });
+        if (typeof loadReminders === "function") loadReminders();
+      } else if (offer.kind === "checklist" || offer.kind === "note") {
+        const items = (offer.items || []).map((item) => `- [ ] ${item}`).join("\n");
+        const content = offer.kind === "checklist" ? `${offer.text}\n\n${items}` : offer.text;
+        const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content }) });
+        said = `Saved a note: ${String(offer.text).split("\n")[0]}.`;
+        undo = () => apiJson(`/entries/${made.id}`, { method: "DELETE" });
+      }
+      line.textContent = said;
+      line.classList.add("muted");
+      if (undo) {
+        toastAction(said, "Undo", async () => {
+          await undo();
+          line.replaceChildren(button);
+          line.classList.remove("muted");
+          button.disabled = false;
+        });
+      }
+    } catch (error) {
+      button.disabled = false;
+      toast(error.message, true);
+    }
+  });
+  line.replaceChildren(button);
 }

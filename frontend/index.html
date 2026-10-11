@@ -2243,6 +2243,7 @@ Link to another note with [[its first few words]]."></textarea>
                     title="Copy the answer" aria-label="Copy the answer"><i class="ph ph-copy" aria-hidden="true"></i></button>
                   <button id="speak-btn" class="ghost small hidden icon-only"
                     title="Read the answer aloud (uses your computer's voices)" aria-label="Read the answer aloud"><i class="ph ph-speaker-high" aria-hidden="true"></i></button>
+                  <span id="ask-answer-more" class="hidden"></span>
                 </span>
               </h3>
               <!-- What was asked, echoed above the answer it produced. -->
@@ -2274,7 +2275,9 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="ask-answer-foot" class="answer-foot hidden">
                 <div id="ask-answer-related" class="hidden"></div>
                 <div id="ask-answer-sources" class="hidden"></div>
+                <div id="ask-insights" class="hidden"></div>
                 <div id="ask-followups" class="chat-followups ask-followups hidden"></div>
+                <div id="ask-why" class="hidden"></div>
               </div>
             </div>
             <div class="chat-half">
@@ -10048,27 +10051,56 @@ Link to another note with [[its first few words]]."></textarea>
                 </select>
               </div>
               <div class="row">
-                <label for="pref-voice" class="muted">Wording when no model is running</label>
-                <select id="pref-voice" title="The register Atlas's connecting words use when it answers from your notes without a model">
-                  <option value="natural">Natural (default)</option>
-                  <option value="professional">Professional</option>
+                <label for="pref-voice" class="muted">How Atlas sounds with no model</label>
+                <select id="pref-voice" title="The voice Atlas answers from your notes in when no model is running">
+                  <option value="natural">Warm and concise (default)</option>
+                  <option value="professional">Neutral</option>
+                  <option value="playful">Playful</option>
+                  <option value="plain">Plain</option>
                 </select>
               </div>
+              <p class="muted voice-sample" id="pref-voice-sample" aria-live="polite"></p>
               <p class="muted">
-                With no model, Atlas joins quotes from your notes with short phrases of its own; this sets their register.
+                With no model, Atlas answers from your notes in this voice; the facts are the same in each.
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="composer-voice-help" aria-controls="composer-voice-help" aria-expanded="false"
-                  title="About this setting" aria-label="About wording when no model is running">
+                  title="About this setting" aria-label="About how Atlas sounds with no model">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
               </p>
-              <div class="help-body hidden" id="composer-voice-help" role="dialog" aria-label="About wording when no model is running">
+              <div class="help-body hidden" id="composer-voice-help" role="dialog" aria-label="About how Atlas sounds with no model">
                 <p>
-                  With no model running, Atlas answers from your notes by
-                  quoting them and joining the quotes with short phrases of
-                  its own. Natural writes those phrases plainly and warmly;
-                  Professional writes them formally, as a record would. Your
-                  notes are quoted the same either way.
+                  With no model running, Atlas answers from your notes in its
+                  own words. Warm and concise talks to you plainly; Neutral
+                  reads like a record; Playful is lighter; Plain says only what
+                  it must. The facts, their order and the sources are the same
+                  in every voice, and the line above shows a sample.
+                </p>
+              </div>
+              <div class="row">
+                <label for="pref-insight" class="muted">What Atlas adds of its own</label>
+                <select id="pref-insight" title="Whether an answer ends with a pattern Atlas found in your notes">
+                  <option value="off">Nothing</option>
+                  <option value="one">One line (default)</option>
+                  <option value="all">Everything it finds</option>
+                </select>
+              </div>
+              <p class="muted">
+                A pattern, a plan gone quiet or a change of mind, measured in your notes.
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="composer-insight-help" aria-controls="composer-insight-help" aria-expanded="false"
+                  title="About this setting" aria-label="About what Atlas adds of its own">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </p>
+              <div class="help-body hidden" id="composer-insight-help" role="dialog" aria-label="About what Atlas adds of its own">
+                <p>
+                  After an answer about a topic, Atlas can add a line the notes
+                  on the right cannot show you: a subject that keeps coming up,
+                  a plan no later note picks up, a change of mind. Each is
+                  counted from your own notes and carries Confirm and Not
+                  right. Every Not right raises the bar, so the more you dismiss,
+                  the fewer and closer the lines it adds.
                 </p>
               </div>
             </div>

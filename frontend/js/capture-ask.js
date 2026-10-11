@@ -845,6 +845,19 @@ function scrollEditingEntryIntoView(id) {
   if (rect.top < 0) window.scrollBy(0, rect.top - 8);
 }
 
+//: "Summarise this" on any tab (CHAT_PLAN B10): the note being edited;
+//: else the category the Notes tab is filtered to, while it shows; else the
+//: last note opened. The category goes too, as the fallback for a note the
+//: server cannot read (binned or private since).
+function askOpenContext() {
+  const out = {};
+  const notesShowing = !$("tab-notes")?.classList.contains("hidden");
+  const note = editingId || (notesShowing && activeCategory ? null : lastOpenedEntryId);
+  if (note) out.open_note_id = note;
+  if (activeCategory) out.open_category = activeCategory;
+  return out;
+}
+
 function flashEntry(id) {
   lastOpenedEntryId = id;
   switchTab("notes");
@@ -1250,9 +1263,13 @@ function citationMarker(g, byId, numberFor) {
   //: is the only way to see a source, every check cost a trip. Hover or focus
   //: shows the peek for as long as the pointer or the focus stays; a press
   //: keeps it open, and on touch a press is the only way to open it.
+  //: A line made of several sentences of this note (B31) marks them all.
+  const own = (g.parts || []).filter((part) => part.note_id === g.note_id);
+  const start = own.length ? Math.min(...own.map((part) => part.start)) : g.start;
+  const end = own.length ? Math.max(...own.map((part) => part.end)) : g.end;
   const describe = () => ({
-    noteId: g.note_id, number: numberFor.get(g.note_id), entry, label: g.label, start: g.start, end: g.end,
-    signals: g.signals, verdict: g.verdict, terms: g.terms,
+    noteId: g.note_id, number: numberFor.get(g.note_id), entry, label: g.label, start, end,
+    signals: g.signals, verdict: g.verdict, terms: g.terms, line: g.sentence, parts: g.parts,
   });
   link.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -1471,6 +1488,8 @@ function openCitationPeek(link, source, { pinned }) {
   meta.textContent = facts.join(" · ");
   foot.append(meta, smallButton("ph:arrow-square-out Open note", "Open this note in Notes", go));
   panel.append(preview, foot);
+  const verdictRow = citationVerdictRow(source, content);
+  if (verdictRow) panel.insertBefore(verdictRow, foot);
   panel.addEventListener("mouseenter", () => clearTimeout(citationPeekState.closeTimer));
   panel.addEventListener("mouseleave", () => scheduleCitationPeekClose());
   panel.addEventListener("focusout", (event) => {
@@ -1491,6 +1510,39 @@ function openCitationPeek(link, source, { pinned }) {
   link.setAttribute("aria-expanded", "true");
   link.setAttribute("aria-controls", panel.id);
   placeHelpPopover(panel, link);
+}
+
+//: **Wrong fact and Pin as true on a cited line** (CHAT_PLAN B31, B32): the
+//: one verdict pair (`insightLine`, DESIGN.md), sent for each sentence of
+//: the note the line was made from. Not right leaves them out of every
+//: answer from the next turn on; Confirm pins them, said as the person's
+//: own word with the day. Each is a learned row, so the undo is its Delete.
+function citationVerdictRow(source, content) {
+  const parts = (source.parts || []).length
+    ? source.parts
+    : [{ note_id: source.noteId, source: String(content || "").slice(source.start, source.end), start: source.start, end: source.end }];
+  const usable = parts.filter((part) => Number.isInteger(part.note_id) && Number.isInteger(part.start) && part.end > part.start && part.source);
+  if (!usable.length || usable.length !== parts.length) return null;
+  const send = async (_line, verdict) => {
+    const kind = verdict === "confirm" ? "pinned" : "wrong";
+    const ids = [];
+    for (const part of usable) {
+      const made = await apiJson("/learned/verdict", {
+        method: "POST",
+        body: JSON.stringify({ verdict: kind, note_id: part.note_id, sentence: part.source, start: part.start, end: part.end, line: source.line || "" }),
+      });
+      ids.push(made.id);
+    }
+    offerUndo(
+      kind === "pinned" ? "Pinned a line as true" : "Marked a line wrong",
+      kind === "pinned" ? "Pinned: your answers say it as your word from now on." : "Marked wrong: your answers leave it out from now on.",
+      () => Promise.all(ids.map((id) => api(`/learned/${id}`, { method: "DELETE" })))
+    );
+    return { kind };
+  };
+  return insightLine({}, "Is this line right?", (row, verdict) => {
+    row.textContent = verdict === "confirmed" ? "Pinned as true." : "Marked wrong.";
+  }, "muted citation-peek-verdicts", send);
 }
 
 function closeCitationPeek({ restoreFocus = false } = {}) {
@@ -1783,6 +1835,21 @@ function renderAnswerGrounding(
   support = null, pictureAlts = null
 ) {
   if (!target) return;
+  if (support?.digest) {
+    //: A digest (CHAT_PLAN decision 70, INBOX 812): one mark a line, the
+    //: records numbered to match, and no chips or count under the answer,
+    //: because the column on the right already is the sources.
+    addInlineCitations(answerEl, sentences, rawResults, orderedSources);
+    numberMatchingRecords(target, citationNumbers(sentences, orderedSources));
+    target.replaceChildren();
+    target.classList.add("hidden");
+    ensureModule("askCompose").then(() => {
+      digestShape(answerEl, support.shape);
+      digestMore(answerEl, support.more);
+      digestOffer(answerEl, support.offer);
+    }).catch(() => {});
+    return;
+  }
   renderAnswerSupport(answerEl, support);
   // The markers go in the answer itself; the chip row below is their key.
   // Both are built from the same `sentences` and the same numbering
@@ -2120,6 +2187,8 @@ function clearAskAnswerFoot() {
   $("ai-answer")?.parentElement?.querySelector(":scope > .answer-support")?.remove();
   $("ask-answer-related")?.replaceChildren();
   $("ask-answer-sources")?.replaceChildren();
+  $("ask-why")?.replaceChildren();
+  $("ask-why")?.classList.add("hidden");
   const strip = $("ask-followups");
   if (strip) {
     strip.replaceChildren();
@@ -2196,6 +2265,136 @@ function askNotesOnTheRight() {
 //:
 //: Silent on every failure, including the AI not running: an answer that
 //: arrived is not made worse by having nothing to offer after it.
+//: **The answer, kept** (CHAT_PLAN B12): a note, a document, or a mind map
+//: of the notes it cites, from the ⋯ beside Copy; each goes on the undo
+//: stack. Built on first use: `kebabMenu` is in a later script.
+let askKept = null;
+
+function askAnswerMenu() {
+  const slot = $("ask-answer-more");
+  if (!slot || slot.firstChild) return;
+  slot.appendChild(
+    kebabMenu(
+      [
+        {
+          label: "ph:note-pencil Save as a note",
+          title: "Keep this answer as a new note",
+          run: () => askKept && saveSelectionAsNote(askKept.text),
+        },
+        {
+          label: "ph:file-text Save as a document",
+          title: "Keep this answer in Documents, titled with the question",
+          run: () => askKeepAsDocument(),
+        },
+        {
+          label: "ph:graph Make a mind map of its notes",
+          title: "A mind map of the notes this answer cites",
+          run: () => askKeepAsMap(),
+        },
+      ],
+      "More ways to keep this answer"
+    )
+  );
+}
+
+function askKeptTitle() {
+  const question = (askKept?.question || "Answer").replace(/[?.!\s]+$/, "").trim();
+  return question.slice(0, 1).toUpperCase() + question.slice(1, 100);
+}
+
+async function askKeepAsDocument() {
+  if (!askKept?.text) return toast("There is no answer to keep yet.");
+  const title = askKeptTitle();
+  try {
+    const doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title, content: `# ${title}\n\n${askKept.text}\n` }),
+    });
+    pushUndo("Saved an answer as a document", () => api(`/documents/${doc.id}`, { method: "DELETE" }));
+    toastAction("Saved to your documents.", "Open it", () => {
+      switchTab("documents");
+      if (typeof openDocument === "function") openDocument(doc.id);
+    }, { go: { open: "doc", id: doc.id } });
+  } catch (error) {
+    toast(error.message || "Couldn't save that document.", true);
+  }
+}
+
+async function askKeepAsMap() {
+  const ids = askKept?.noteIds || [];
+  if (!ids.length) return toast("This answer cites no notes to map.");
+  const name = askKeptTitle();
+  const board = await apiJson("/whiteboard/maps/from-notes", {
+    method: "POST",
+    body: JSON.stringify({ name, note_ids: ids }),
+  }).catch(() => null);
+  if (!board?.id) return toast("Could not make the map.");
+  pushUndo("Made a mind map from an answer", () => api(`/entries/${board.id}`, { method: "DELETE" }));
+  toastAction(
+    `Mind map \u201c${name}\u201d made from ${ids.length} note${ids.length === 1 ? "" : "s"}.`,
+    "Open",
+    async () => {
+      await openWhiteboardBoard(board.id);
+      await wbMapTidyFresh();
+    },
+    { go: { open: "board", id: board.id } }
+  );
+}
+
+//: Each line an answer volunteered (CHAT_PLAN decision 73) carries Confirm
+//: and Not right, as in Chat: one row each, under the answer.
+function renderAskInsights(found) {
+  const holder = $("ask-insights");
+  if (!holder) return;
+  holder.replaceChildren();
+  const open = (found || []).filter((insight) => !insight.confirmed);
+  holder.classList.toggle("hidden", !open.length);
+  for (const insight of open) {
+    holder.appendChild(
+      //: Said in the answer already (the owner, 2026-10-11: say it once):
+      //: the row only asks whether it is right.
+      insightLine(insight, insight.in_answer ? (insight.rule === "drift" ? "Is that open plan right?" : "Is that pattern right?") : `Pattern: ${insight.short}.`, (row, verdict, result) => {
+        row.textContent = verdict === "confirmed" ? `Confirmed: ${result.line}` : "Not right: it will not be shown again.";
+      }, "muted")
+    );
+  }
+  if (open.length) $("ask-answer-foot")?.classList.remove("hidden");
+}
+
+//: **Why this answer** (CHAT_PLAN B30, INBOX 805): how the answer was made,
+//: as a job's lines (what the question was read as, what was searched and
+//: matched, who wrote it and in what shape, what it cited, how long it
+//: took), each stamped with the seconds since the question. Folded under
+//: the answer in the Thinking fold's look (`.why-fold`), shut until wanted.
+function renderAskWhy(lines) {
+  const holder = $("ask-why");
+  if (!holder) return;
+  holder.replaceChildren();
+  holder.classList.toggle("hidden", !(lines || []).length);
+  if (!(lines || []).length) return;
+  const fold = document.createElement("details");
+  fold.className = "agent-step why-fold";
+  const summary = document.createElement("summary");
+  summary.className = "fold-summary";
+  setLabel(summary, "ph:path Why this answer");
+  const list = document.createElement("ol");
+  list.className = "why-lines";
+  list.setAttribute("aria-label", "How this answer was made");
+  for (const line of lines) {
+    const item = document.createElement("li");
+    const at = document.createElement("span");
+    at.className = "why-at";
+    at.textContent = `${Number(line.at || 0).toFixed(2)} s`;
+    const text = document.createElement("span");
+    text.textContent = line.text || "";
+    item.append(at, text);
+    list.appendChild(item);
+  }
+  fold.append(summary, list);
+  holder.appendChild(fold);
+  $("ask-answer-foot")?.classList.remove("hidden");
+}
+
 async function renderAskFollowups(question, answer, given = null) {
   const strip = $("ask-followups");
   if (!strip) return;
@@ -2221,13 +2420,15 @@ async function renderAskFollowups(question, answer, given = null) {
   label.textContent = "Ask next:";
   strip.appendChild(label);
   for (const pick of picks) {
-    strip.appendChild(
-      chip(pick, "Ask this next, keeping the answer above as context", () => {
-        askTrailPending = [...askTrail, conversation.length - 1];
-        $("question").value = pick;
-        askQuestion(pick);
-      })
-    );
+    //: The hint is the chip's title; `chip`'s second argument is its class,
+    //: and the sentence once went there, as seven class names.
+    const next = chip(pick, "", () => {
+      askTrailPending = [...askTrail, conversation.length - 1];
+      $("question").value = pick;
+      askQuestion(pick);
+    });
+    next.title = "Ask this next, keeping the answer above as context";
+    strip.appendChild(next);
   }
   strip.classList.remove("hidden");
   $("ask-answer-foot")?.classList.remove("hidden");
@@ -2537,6 +2738,8 @@ async function streamChatEvents({
   onRelated,
   onUnsupported,
   onWebSources,
+  onWhy,
+  onOffer,
   attempt,
 }) {
   const body = { question, history: history || [] };
@@ -2556,6 +2759,9 @@ async function streamChatEvents({
   if (attachedNotesOnly) body.attached_notes_only = true;
   //: Row 7: the notes holding open questions only (`_apply_scope`).
   if (scope) body.scope = scope;
+  //: What is open (CHAT_PLAN B10), read by the server only for a question
+  //: about "this" ("Summarise this"), never to change any other answer.
+  Object.assign(body, askOpenContext());
   //: Row 23: the notebook as it stood at the end of that day (`as_of`).
   if (asOf) body.as_of = asOf;
   // A reply to the agent's own question ("yes", "ok") reads as small talk to
@@ -2699,6 +2905,10 @@ async function streamChatEvents({
       else if ((event.type === "confirm" || event.type === "act") && onConfirm) onConfirm(event);
       else if (event.type === "navigate") actNavigate(event.surface);
       else if (event.type === "web_sources" && onWebSources) onWebSources(event);
+      //: How the answer was made, as a job's lines (B30), just before `done`.
+      else if (event.type === "why" && onWhy) onWhy(event);
+      //: A counted answer's one acting offer ("Open Statistics ..."), decision 70.
+      else if (event.type === "offer" && onOffer) onOffer(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
       else if (event.type === "run_plan" && onRunPlan) onRunPlan(event);
@@ -2951,7 +3161,8 @@ async function askQuestion(preset) {
   // A new answer is coming, hide the suggestion/recent chips and the
   // per-answer action buttons until it lands.
   $("suggested-questions").classList.add("hidden");
-  hide("retry-btn", "copy-btn", "speak-btn");
+  hide("retry-btn", "copy-btn", "speak-btn", "ask-answer-more");
+  askKept = null;
   setAsking(true);
   status.classList.remove("error");
   // Reset the output areas for the new answer.
@@ -3011,6 +3222,9 @@ async function askQuestion(preset) {
   let stopped = false;
   let groundingRawResults = []; // set by onMeta, read by onGrounding
   let groundedSupport = null; // how much of the answer the notes backed
+  let groundedInsights = []; // the lines it volunteered (decision 73)
+  let answerWhy = []; // how it was made (B30)
+  let answerOffer = null; // a counted answer's offer (decision 70)
   let composedNext = []; // a composed answer's own next questions (INBOX 725)
   //: Kept beyond the callback that receives them, because the answer element
   //: is rebuilt after the stream ends and the markers have to be put back.
@@ -3142,7 +3356,14 @@ async function askQuestion(preset) {
         //: reason: the answer is still streaming when this arrives, so a
         //: notice placed now would sit above prose that is still growing.
         groundedSupport = event.support || null;
+        groundedInsights = Array.isArray(event.insights) ? event.insights : [];
         composedNext = Array.isArray(event.next) ? event.next : [];
+      },
+      onOffer: (event) => {
+        answerOffer = event.offer || null;
+      },
+      onWhy: (event) => {
+        answerWhy = Array.isArray(event.lines) ? event.lines : [];
       },
     });
 
@@ -3177,6 +3398,14 @@ async function askQuestion(preset) {
     if (!hinted) {
       conversation.push({ question, answer: answerRaw });
       show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
+      //: What the ⋯ keeps (B12): the answer as written, and the notes it cites.
+      askKept = {
+        question,
+        text: answerRaw,
+        noteIds: [...new Set(groundedSentences.map((row) => row.note_id).filter((id) => Number.isInteger(id)))],
+      };
+      askAnswerMenu();
+      show("ask-answer-more");
       //: **The answer object, rendered** (CHAT_PLAN Phase 3). Built after the
       //: stream rather than updated event by event, because two of its fields
       //: (the sentences and the sources they came from) are only complete when
@@ -3209,6 +3438,9 @@ async function askQuestion(preset) {
       }
       placeAnswerFigures(answerBox, answerMeta, question);
       renderAskAnswerFoot(answer, answerMeta);
+      renderAskInsights(groundedInsights);
+      renderAskWhy(answerWhy);
+      if (answerOffer) ensureModule("askCompose").then(() => digestOffer(answerBox, answerOffer)).catch(() => {});
       //: Not awaited: it is a second model call, and the answer is already on
       //: screen. The same contract `offerFollowups` has in the Chat tab. An
       //: answer composed from the notes brings its own (INBOX 725), built

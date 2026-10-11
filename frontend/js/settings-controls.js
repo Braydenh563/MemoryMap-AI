@@ -517,8 +517,25 @@ $("pref-semantic-auto-install").addEventListener("change", (e) =>
 $("pref-warm-search-model").addEventListener("change", (e) =>
   setPreference("warm_search_model_at_launch", e.target.checked)
 );
-$("pref-voice").addEventListener("change", (e) => setPreference("composer_voice", e.target.value));
 $("pref-week-start").addEventListener("change", (e) => setPreference("week_start", e.target.value));
+//: The voice's live sample (CHAT_PLAN decision 72): the same three lines
+//: `composer_digest.sample` writes, kept equal by tests/test_answer_voice.py.
+const VOICE_SAMPLES = {
+  natural: "You have four notes about uni, 17 July to 4 August. Nothing yet on assessments or due dates. Remind you to ask the tutor on Thursday?",
+  professional: "Your notebook holds four notes on uni, 17 July to 4 August. The notes do not yet cover assessments or due dates. Set a reminder to ask the tutor on Thursday?",
+  playful: "Found four notes about uni, 17 July to 4 August. No word yet on assessments or due dates. Want a nudge to ask the tutor on Thursday?",
+  plain: "Four notes about uni, 17 July to 4 August. Not in your notes: assessments or due dates. Remind you to ask the tutor on Thursday?",
+};
+function showVoiceSample(voice) {
+  $("pref-voice-sample").textContent = VOICE_SAMPLES[voice] || VOICE_SAMPLES.natural;
+}
+$("pref-voice").addEventListener("change", (e) => {
+  setPreference("composer_voice", e.target.value);
+  showVoiceSample(e.target.value);
+});
+showVoiceSample($("pref-voice").value);
+//: Decision 73: what an answer volunteers past itself.
+$("pref-insight").addEventListener("change", (e) => setPreference("insight_level", e.target.value));
 
 //: Clamped here as the backend clamps it (5 to 60), so a typed 100 saves
 //: as 60 rather than being refused by the preferences schema.

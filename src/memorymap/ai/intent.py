@@ -128,6 +128,13 @@ def classify(message: str) -> str:
     if question_noise.social_kind(message):
         return SMALLTALK
 
+    from memorymap.ai import capability
+
+    #: "can you search the web?" asks about Atlas (CHAT_PLAN decision 65):
+    #: before the acts and the note words, which read "search" as a search.
+    if capability.asks(message):
+        return ABOUT_APP
+
     from memorymap.ai import utilities
 
     kind = utilities.kind_of(message)

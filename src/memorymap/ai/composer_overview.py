@@ -26,11 +26,16 @@ from collections.abc import Callable, Iterable
 #: I know about X", "tell me about my X", "who is Jake".
 _ASKS = (
     re.compile(
-        r"^\s*(?:what|which)\s+(?:did|have)\s+i\s+(?:write|written|note|noted|say|said|jot|jotted)(?:\s+down)?\s+(?:about|on)\s+(?:my\s+)?(?P<t>.+?)\s*\??$",
+        r"^\s*(?:what|which)\s+(?:did|have)\s+i\s+(?:write|written|note|noted|say|said|jot|jotted|save|saved|got|keep|kept|store|stored|record|recorded|log|logged|collect|collected)(?:\s+down)?\s+(?:about|on)\s+(?:my\s+)?(?P<t>.+?)\s*\??$",
         re.I,
     ),
     re.compile(r"^\s*what\s+do\s+i\s+(?:know|have)(?:\s+written)?\s+(?:about|on)\s+(?P<t>.+?)\s*\??$", re.I),
     re.compile(r"^\s*(?:summari[sz]e|sum\s+up|go\s+over|tell\s+me\s+about|show\s+me)\s+(?:all\s+)?my\s+(?P<t>.+?)\s*\??$", re.I),
+    #: The owner's own words (decision 70: "What have I saved about courses
+    #: & study?") and their kin: a topic asked about as a whole, so it is
+    #: counted from every note on it, not the five a search ranked first.
+    re.compile(r"^\s*tell\s+me\s+about\s+(?:my\s+)?(?P<t>.+?)\s*\??$", re.I),
+    re.compile(r"^\s*(?:what(?:'s|\s+is)\s+there|is\s+there\s+anything)\s+(?:about|on)\s+(?:my\s+)?(?P<t>.+?)\s*\??$", re.I),
     re.compile(r"^\s*(?:what\s+are\s+)?(?:my\s+|some\s+|any\s+)?(?P<t>ideas\s+(?:for|about)\s+.+?)\s*\??$", re.I),
     re.compile(r"^\s*(?:all\s+)?(?:my\s+|the\s+)?(?P<t>[\w'][\w' -]{1,40}?)\s+notes\s*\??$", re.I),
     #: "what is there about X" (decision 64): the overview, not one quoted line.
@@ -60,6 +65,7 @@ def topic(question: str) -> str | None:
         found = pattern.match(text)
         if found:
             subject = _TRAILING_NOTES.sub("", found.group("t")).strip(" ?.,")
+            subject = re.sub(r"^(?:the|a|an)\s+", "", subject, flags=re.I)
             if subject and not _NOT_TOPIC.match(subject):
                 return subject
     return None

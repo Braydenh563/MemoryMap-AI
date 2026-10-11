@@ -31,6 +31,7 @@ const SETTING_ROWS = [
   { key: "communication_style", id: "pref-style" },
   { key: "composer_voice", id: "pref-voice" },
   { key: "week_start", id: "pref-week-start" },
+  { key: "insight_level", id: "pref-insight" },
   { key: "smart_punctuation", id: "pref-smart-punctuation" },
   { key: "autocorrect", id: "pref-autocorrect" },
   { key: "profile_enabled", id: "pref-profile-enabled" },

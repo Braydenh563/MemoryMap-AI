@@ -1086,7 +1086,13 @@ def _was_said(s: Sentence, said: str) -> bool:
     if not said:
         return False
     flat = " ".join(said.split()).lower()
-    return s.text.rstrip("…").lower() in flat or realise.shift_person(s.text).rstrip("…").lower() in flat
+    if s.text.rstrip("…").lower() in flat or realise.shift_person(s.text).rstrip("…").lower() in flat:
+        return True
+    #: Said back reworded (the digest's "From your psych lecture note, 21
+    #: September: memory is ...", B8): nearly every word of it is there.
+    words = [w for w in re.findall(r"[a-z0-9']+", s.text.lower()) if len(w) >= 2]
+    heard = set(re.findall(r"[a-z0-9']+", flat))
+    return len(words) >= 4 and sum(w in heard for w in words) / len(words) >= 0.85
 
 
 def _jaccard(a: list[str], b: list[str]) -> float:
@@ -2582,9 +2588,13 @@ def _standing(turns: list[dict]) -> list[dict]:
     for turn in turns:
         text = str(turn.get("question") or "").strip()
         follow = _follow_one(text, out) if out else None
+        prefer = ""
         if follow:
             text = follow.question if follow.kind in _RESTATES else follow.previous
-        out.append({**turn, "question": text})
+            #: A correction's note stays chosen for the turns that lean on it:
+            #: "no, the data structures one", then "shorter", is still that note (B8).
+            prefer = follow.prefer or (out[-1].get("prefer", "") if follow.kind != "subject" else "")
+        out.append({**turn, "question": text, "prefer": prefer})
     return out
 
 
@@ -2621,7 +2631,7 @@ def _follow_one(question: str, turns: list[dict]) -> FollowOn | None:
     if length:
         shorter = text.lstrip().lower().startswith(("shorter", "briefer", "in short", "tl;dr", "tldr", "summarise that", "summarize that", "less"))
         base = _without_length(previous)
-        return FollowOn(f"briefly, {base}" if shorter else f"{base.rstrip('?.!')} in detail?", previous, "", "length")
+        return FollowOn(f"briefly, {base}" if shorter else f"{base.rstrip('?.!')} in detail?", previous, "", "length", str(last.get("prefer") or ""))
     window = _WINDOW_ONLY.match(text)
     window_text = window.group("w").rstrip(" \t?.!") if window else ""
     found_time = when_words.find(window_text) if window else []
@@ -3877,7 +3887,10 @@ def _compose(
         )
     views_list = [v for v in (read_note(n, i) for i, n in enumerate(_distinct_ids(notes or []))) if v]
     p = plan(question, today, recent=recent, embed=embed)
-    if prefer:
+    #: A note the correction names that is not among these notes (a later
+    #: turn's search found others) orders nothing and asks for nothing: its
+    #: words would only make the answer "Nothing I found mentions" them.
+    if prefer and any({_stem(w) for w in _words(prefer)} & set(_words(str(n.get("content") or ""))) for n in notes or []):
         p.window, p.kind = None, (p.kind if p.kind != "recall" else "fact")
         p.terms = list(dict.fromkeys([*p.terms, *_words(prefer)]))
     views_list, refused = _filtered(views_list, p)

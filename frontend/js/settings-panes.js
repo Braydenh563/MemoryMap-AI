@@ -729,6 +729,7 @@ async function renderPrefs() {
   $("pref-style").value = prefsCache.communication_style;
   $("pref-voice").value = prefsCache.composer_voice;
   $("pref-week-start").value = prefsCache.week_start || "auto";
+  $("pref-insight").value = prefsCache.insight_level || "one";
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
   paintUserMarks();

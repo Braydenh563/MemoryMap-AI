@@ -745,6 +745,20 @@ class EmbeddingService:
             return f"ollama:{self._models.embedding_model()}"
         return f"sentence-transformers:{self.st_repo()}"
 
+    def loads_cold(self) -> bool:
+        """Whether the next embed would first load the local model: torch's
+        import and the weights, measured 21.75 s cold here (INBOX, the
+        owner's trace: 27.06 s before the first step). A search does not
+        wait for that; it reads by words while the model loads behind it."""
+        models = getattr(self, "_models", None)
+        return (
+            models is not None
+            and type(self).embed_text is EmbeddingService.embed_text
+            and models.embedding_backend() != "ollama"
+            and getattr(self, "_st_model", None) is None
+            and getattr(self, "_load_failed_at", None) is None
+        )
+
     def is_ready(self) -> bool:
         """Can we embed right now without a long first-time load?
         Drives the UI's status pill."""

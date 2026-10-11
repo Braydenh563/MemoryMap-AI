@@ -4011,6 +4011,10 @@ const LEARNED_MASTER = "paused";
 const LEARNED_KIND_COPY = {
   claim: "Claim",
   question: "Open question",
+  //: The person's own word (decision 60, B31, B32).
+  confirmed: "Confirmed by you",
+  pinned: "Pinned as true",
+  wrong: "Marked wrong",
 };
 
 let learnedOffset = 0;

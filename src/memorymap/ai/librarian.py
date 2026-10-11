@@ -398,8 +398,13 @@ def build_conversational_messages(
     persona_prompt: str | None = None,
     mode: str | None = None,
     images: list[str] | None = None,
+    context: str = "",
 ) -> list[dict]:
     """Prompt for a message that isn't about the notebook.
+
+    `context` is what the app's own engine found for the question (CHAT_PLAN
+    decision 75): handed to the model as a labelled fact to use, never in
+    place of its answer.
 
     Same persona and history as a normal answer, so it still sounds like the
     assistant the user chose, but no notes, and no instruction to ground the
@@ -412,6 +417,8 @@ def build_conversational_messages(
         brief = f"{ABOUT_APP_BRIEF}\n\nWhat you can do: {CAPABILITIES}"
     else:
         brief = CONVERSATIONAL
+    if context.strip():
+        brief = f"{brief}\n\nThe app's own answer to this, a fact to use in your reply (do not search for it): {context.strip()}"
     messages = [
         {
             "role": "system",

@@ -115,6 +115,11 @@ KINDS = frozenset(
         # corrections log says what the person vouched for.
         "confirm_insight",
         "dismiss_insight",
+        # A cited line's two buttons (CHAT_PLAN B31 and B32, `ai/verdicts.py`):
+        # the note's sentence is wrong, or is true in the person's own word.
+        # The verdict rows stop or pin it; these say so in the log.
+        "wrong_fact",
+        "pin_fact",
     }
 )
 

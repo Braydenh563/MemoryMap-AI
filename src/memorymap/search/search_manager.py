@@ -329,6 +329,14 @@ def query_vector(embeddings: EmbeddingService, query: str):  # noqa: ANN201
         if key in cache:
             cache.move_to_end(key)
             return cache[key]
+    loads_cold = getattr(embeddings, "loads_cold", None)
+    if callable(loads_cold) and loads_cold():
+        #: **No question waits for the model to load** (the owner's trace,
+        #: 2026-10-11: 27.06 s before the first step, 21.75 s of it this
+        #: load). The model loads in the background; this search reads by
+        #: words, and the next one by meaning too.
+        _load_later(embeddings)
+        return None
     vector = embeddings.embed_text(query)
     if vector is not None:
         with _query_lock:
@@ -336,6 +344,31 @@ def query_vector(embeddings: EmbeddingService, query: str):  # noqa: ANN201
             while len(cache) > _QUERY_VECTOR_CACHE:
                 cache.popitem(last=False)
     return vector
+
+
+def _load_later(embeddings: EmbeddingService) -> None:
+    """Load the search model in the background, once at a time; not while
+    the launch warm-up (`embeddings.start_warmup`) is already loading it."""
+    from memorymap.ai import embeddings as embedding_service
+
+    if getattr(embeddings, "_warm_loading", False) or embedding_service.warmup_running():
+        return
+    try:
+        embeddings._warm_loading = True
+    except AttributeError:
+        return
+
+    def load() -> None:
+        try:
+            embeddings.embed_text("warm up")
+        except Exception:  # noqa: BLE001  # the real search reports a broken model
+            logger.debug("warm: the embedding model did not load", exc_info=True)
+        finally:
+            embeddings._warm_loading = False
+
+    from memorymap.core import jobs
+
+    jobs.enqueue("warm", load, name="warm the search model", dedupe_key="search-warm")
 
 
 def warm(session: Session, query: str, embeddings: EmbeddingService) -> bool:
@@ -353,23 +386,7 @@ def warm(session: Session, query: str, embeddings: EmbeddingService) -> bool:
     the load overlaps the person's typing instead of following their Enter.
     """
     if not embeddings.is_ready():
-        if not getattr(embeddings, "_warm_loading", False):
-            try:
-                embeddings._warm_loading = True
-            except AttributeError:
-                return False
-
-            def load() -> None:
-                try:
-                    embeddings.embed_text("warm up")
-                except Exception:  # noqa: BLE001  # the real search reports a broken model
-                    logger.debug("warm: the embedding model did not load", exc_info=True)
-                finally:
-                    embeddings._warm_loading = False
-
-            from memorymap.core import jobs
-
-            jobs.enqueue("warm", load, name="warm the search model", dedupe_key="search-warm")
+        _load_later(embeddings)
         return False
     asked = query_understanding.understand(query, _user_today(session))
     subject = asked.subject or query
@@ -1032,6 +1049,21 @@ _CATEGORY_ONLY_WORDS = frozenset(
 )
 
 
+def _category_named_whole(session: Session, subject: str):
+    """The category whose name is all of `subject` ("courses & study",
+    "Courses and Study"), or None."""
+    from memorymap.core.database import Category
+
+    said = re.sub(r"\s+", " ", re.sub(r"\band\b", "&", (subject or "").lower())).strip(" ?.!")
+    if not said:
+        return None
+    for category in session.scalars(select(Category)):
+        name = re.sub(r"\s+", " ", re.sub(r"\band\b", "&", (category.name or "").lower())).strip()
+        if name and name == said:
+            return category
+    return None
+
+
 def _named_category(session: Session, query: str):
     """The category a question names as where its notes are, or None.
 
@@ -1192,6 +1224,16 @@ def _retrieve(
 
     if not entries and scoped is not None:
         return _without_private(_category_notes(session, scope.id, max(limit, 10))), "category"
+
+    if not entries and semantic is None:
+        #: **No meaning search yet** (the model still loading, or none): a
+        #: subject that is a category's whole name ("what have I saved about
+        #: courses & study?") is that category, not the newest notes. With
+        #: the model up, meaning finds the same notes by what they say.
+        named = _category_named_whole(session, subject)
+        if named is not None:
+            found["category"] = named.name
+            return _without_private(_category_notes(session, named.id, max(limit, 10))), "category"
 
     if not entries:
         # Nothing matched. The "never look empty" fallback is recent notes, 

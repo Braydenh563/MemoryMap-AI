@@ -9,9 +9,15 @@ of answer it is, and no model is called for it.
 from __future__ import annotations
 
 import json
+from datetime import date
 
 from memorymap.ai import composer
 from memorymap.entry import manager
+
+
+#: "the 14th of next month", pinned to the day the note was written (B3).
+_NOW = date.today()
+NEXT_14 = f"14 {composer._MONTHS[_NOW.month % 12]}" + (f" {_NOW.year + 1}" if _NOW.month == 12 else "")
 
 
 def _ask(client, question: str, **body) -> dict:
@@ -29,7 +35,7 @@ def _ask(client, question: str, **body) -> dict:
 def _seed(session) -> None:
     manager.create_entry(
         session,
-        "# Harbor launch plan\n\nShip the mobile app to the public on the 14th of next month. "
+        "# Harbor launch plan\n\nShip the mobile app to the public on 14 November. "
         "Three gates before then: beta feedback closed and the pricing page signed off.",
     )
     manager.create_entry(session, "# Dentist\n\nCheck-up booked for the 21st. Ask about the night guard.")
@@ -43,8 +49,9 @@ def test_from_your_notes_composes_even_with_a_model_running(ai_client, fake_olla
     meta = out["meta"][0]
     assert meta["composed"] is True
     assert meta["answered_by"] is None
-    assert "**Harbor launch plan**" in out["text"]
-    assert "Ship the mobile app to the public on the 14th of next month." in out["text"].split("\n", 1)[0]
+    #: Decision 70: the fact first, said once with its day, not the note's
+    #: name over a quote.
+    assert out["text"].startswith(f"Ship the mobile app to the public on {NEXT_14}, from your note of")
     assert fake_ollama.librarian_reply not in out["text"]
     #: No model was asked for this answer.
     assert len(fake_ollama.chat_models) == calls_before
@@ -62,8 +69,8 @@ def test_the_composed_turn_is_saved_with_its_rows(ai_client, session):
     turns = ai_client.get("/ask-history").json()["turns"]
     assert len(turns) == 1
     turn = ai_client.get(f"/ask-history/{turns[0]['id']}").json()
-    assert "Check-up booked for the 21st." in turn["answer"]
-    assert any(row["sentence"] == "Check-up booked for the 21st." for row in turn["grounding"])
+    assert turn["answer"].startswith("Check-up booked for the 21st, from your note of")
+    assert any(row["sentence"] == "Check-up booked for the 21st" for row in turn["grounding"])
 
 
 def test_ai_is_still_the_model_when_a_model_runs(ai_client, fake_ollama, session):
@@ -83,7 +90,7 @@ def test_with_no_model_the_ask_box_composes(client, session):
     _seed(session)
     out = _ask(client, "What is the Harbor launch plan?", notes_only=True, use_tools=False)
     assert out["meta"][0]["composed"] is True
-    assert "**Harbor launch plan**" in out["text"]
+    assert out["text"].startswith(f"Ship the mobile app to the public on {NEXT_14}")
 
 
 def test_with_no_model_a_chat_message_is_composed_too(client, session):
@@ -95,7 +102,7 @@ def test_with_no_model_a_chat_message_is_composed_too(client, session):
     out = _ask(client, "What is the Harbor launch plan?", use_tools=False)
     assert out["meta"][0]["composed"] is True
     assert "No model is running" not in out["text"]
-    assert "Ship the mobile app to the public on the 14th of next month." in out["text"].split("\n", 1)[0]
+    assert f"Ship the mobile app to the public on {NEXT_14}," in out["text"].split("\n", 1)[0]
     assert len(out["grounding"]) == 1 and out["grounding"][0]["exact"] is True
     assert isinstance(out["grounding"][0]["next"], list)
 
@@ -162,4 +169,4 @@ def test_a_notes_question_with_no_model_is_still_composed(client, session, monke
     _seed(session)
     out = _ask(client, "When is the dentist check-up?", use_tools=False)
     assert out["meta"][0]["composed"] is True
-    assert "Check-up booked for the 21st." in out["text"]
+    assert "Check-up booked for the 21st," in out["text"]

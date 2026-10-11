@@ -496,8 +496,11 @@ HELP_TOPICS: list[dict] = [
             "search: only your search words are sent out, "
             "never your notes, so the assistant can look something up online "
             "when asked. With it on and no model running, a Chat question your "
-            "notes do not answer is answered from the pages found, each "
-            "sentence cited by its page, the pages listed under the answer."
+            "notes do not answer is answered from the pages found, one line a "
+            "page under its title, cited by its address. The pages are in the "
+            "Web results fold under the answer: each with its site and one "
+            "line; press a title to read the page there, as text, with Back to "
+            "results, or the arrow beside it to open it in your browser."
         ),
         "badge": {"label": "Web search", "section": "websearch"},
     },
@@ -832,6 +835,8 @@ HELP_TOPICS: list[dict] = [
         "keywords": (
             "how many", "most common", "statistics", "stats", "count", "top tags",
             "busiest", "untagged", "orphan", "most linked",
+            "abbreviation", "acronym", "stand for", "short for",
+            "summarise this", "summarize this", "tl;dr", "what's in",
         ),
         "body": (
             "You can ask about the notebook itself, not just what is in it: "
@@ -841,7 +846,12 @@ HELP_TOPICS: list[dict] = [
             "most\". These are counted from your data rather than generated, so "
             "the numbers are exact, the answer is instant, and it works even "
             "with no AI model running at all. Private and binned notes are never "
-            "counted."
+            "counted. Your own abbreviations are learned the same way: when a "
+            "note names Cloud Computing beside CC, asking about CC finds both, "
+            "and \"what does CC stand for?\" says which note told it. "
+            "\"Summarise this\" sums up the note you have open, or the "
+            "category the sidebar is filtered to; \"summarise Travel\" reads "
+            "every note in that category."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },

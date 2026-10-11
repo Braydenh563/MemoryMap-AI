@@ -294,14 +294,19 @@ MORE_TOPICS: list[dict] = [
             "answer style", "concise", "detailed", "shorter answers",
             "longer answers", "friendly", "professional wording", "formal wording",
             "natural wording", "wording when no model", "composer voice",
+            "voice", "playful", "plain answers", "neutral", "how atlas sounds",
+            "insight", "patterns in answers", "what atlas adds",
         ),
         "body": (
             "Settings, Personas, Answer style: how Atlas words its answers, "
             "Friendly (the default), Concise or Detailed, whichever persona is "
-            "active. Below it, Wording when no model is running sets the "
-            "register of the short connecting phrases Atlas writes when it "
-            "answers from your notes without a model: Natural (the default) "
-            "or Professional. Your notes are quoted the same either way."
+            "active. Below it, How Atlas sounds with no model picks the voice "
+            "it answers from your notes in without a model: Warm and concise "
+            "(the default), Neutral, Playful or Plain, with a sample under it. "
+            "The facts and the sources are the same in every voice. What "
+            "Atlas adds of its own sets whether an answer about a topic ends "
+            "with a pattern from your notes: Nothing, One line (the default) "
+            "or Everything it finds; each Not right raises the bar."
         ),
         "badge": {"label": "Answer style", "section": "personas", "target": "pref-style"},
     },
@@ -314,6 +319,7 @@ MORE_TOPICS: list[dict] = [
             "last run", "last ran", "background jobs", "job history", "did it run",
             "run now", "night shift", "stop a job", "cancel a job", "scheduled pass",
             "process log", "what did it do", "who started it",
+            "what ran overnight", "when did i last back up",
         ),
         "body": (
             "Settings, Background tasks shows what the app is doing right now "
@@ -331,7 +337,9 @@ MORE_TOPICS: list[dict] = [
             "control (Back up now, Rebuild search index, Find duplicates, the "
             "importers) a line reads, for example, \"Last run 2h ago, "
             "succeeded, 412 notes indexed\", with the exact time on hover; a "
-            "failure says why in a few words. Autonomous background AI is here "
+            "failure says why in a few words. Ask \"what ran overnight\" or "
+            "\"when did I last back up\" and the answer comes from these "
+            "records, with times. Autonomous background AI is here "
             "too. Battery-efficient "
             "mode pauses background AI, heavy graph work and the moving "
             "artwork. Quit Tessellate stops the app and its server properly, so "
@@ -1251,7 +1259,7 @@ MORE_TOPICS.extend(
                 "they can. Under the overview, Patterns says what the notes measure "
                 "(golf 4 times since 5 September), each with Confirm, which keeps it "
                 "as your own word from then on, and Not right, which never shows it "
-                "or anything like it again; Chat and the dashboard's ⋯ offer the same."
+                "or anything like it again; Chat, Ask and the dashboard's ⋯ offer the same."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1447,31 +1455,31 @@ MORE_TOPICS.extend(
                 "from your notes", "answer without ai", "no ai answer", "answer with no model",
                 "composed answer", "without the ai", "ai or notes", "notes instead of ai",
                 "switch off the ai", "ai off", "who answers", "ask without a model", "use ai",
+                "save answer as document", "answer as mind map", "keep the answer",
             ),
             "body": (
                 "Ask on the Notes tab has a Use AI switch beside its title. On, your "
                 "model writes the answer; off, the answer is From your notes, with "
-                "no AI: the app picks the "
-                "sentences in your notes that answer the question and strings them "
-                "together, the answer on the first line under the note it came from, "
-                "the other notes joined by how they relate (also, later, separately, "
-                "or but when two may disagree), a sentence several notes repeat said "
-                "once with how many say it, a timeline for a when question, the "
-                "newest first for a latest question, two sides for a comparison, and "
-                "a few questions to ask next. Asked about a topic as a whole (games "
-                "notes, who is Jake, what am I working on), it says how many notes and "
-                "over which months, groups them by the name most of them share, and "
-                "gives each note's day and one line (a picture as what it shows and its "
-                "words). Tell me more, or the second one, "
+                "no AI. It opens with the answer, or for a topic with how many "
+                "notes and over which days (You have four notes about uni, 17 July "
+                "to 4 August), then tells each note in a sentence (In your first "
+                "psych lecture you learned ...) or under a bold label, one "
+                "source mark that lights its note. It says what the "
+                "notes do not cover yet (Nothing yet on due dates), how alone or "
+                "stale a fact is (Nothing on bench since September), and can end "
+                "with one offer you press (a reminder, a checklist or a note, "
+                "with Undo); next week is said as the day it meant. A joke or a "
+                "quote stays whole. A count leads with its figure, a person is a "
+                "card, a comparison a table, what is left a checklist; past five "
+                "lines, Show more. The ... by Copy keeps it as a note, a "
+                "document or a mind map. Asked what it can do (can you "
+                "search the web?), it says whether and how; it never searches. Tell me more, or the second one, "
                 "follows on from the answer before. The Chat tab answers the same "
                 "way whenever no model is running: its box stays open, and Agent "
                 "mode is greyed unless the Needle extra can run it (the app's "
                 "own tools go first). Every "
-                "sentence is quoted from a note and cited like any answer; the app "
-                "adds only the joining words and the counts and dates it measured, "
-                "names two notes that may disagree, and says which of your words "
-                "none of the notes found mention. It never answers yes or no for "
-                "you. In Ask the chip over the answer reads From your notes; in "
+                "line comes from a note and is cited; the app adds only labels, "
+                "joining words, counts and dates; it never answers yes or no for you. In Ask the answer's chip reads From your notes; in "
                 "Chat the reply's head reads Atlas, from your notes (Atlas and the "
                 "model's name when a model wrote it). The "
                 "choice is kept on this device; with no model running it is the "
@@ -1489,6 +1497,7 @@ MORE_TOPICS.extend(
                 "follow-up", "follow up", "followup", "suggested question",
                 "ask next", "next question", "breadcrumb", "bread crumb",
                 "trail", "where did this question come from", "question chain",
+                "tell me more", "what about", "the second one", "two meanings",
             ),
             "body": (
                 "Under a finished answer, Chat offers Next questions and Ask "
@@ -1499,9 +1508,54 @@ MORE_TOPICS.extend(
                 "that earlier answer under the line, and a second press folds "
                 "it. The line is saved with the chat, so it is there when the "
                 "chat is reopened. A question you type yourself starts a new "
-                "chain."
+                "chain. A short follow-up you type (what about running?, and "
+                "Oppenheimer?, the second one) is answered like a first "
+                "question; no, the data structures one stays chosen for the "
+                "next shorter; and tell me more, once everything is said, "
+                "says that is all your notes hold. When one word means two "
+                "things in your notes (python the code, python the snake), "
+                "the answer takes the newer and offers one chip for the other."
             ),
             "badge": {"label": "Chat", "tab": "chat"},
+        },
+        {
+            "id": "why-this-answer",
+            "keywords": (
+                "why this answer", "how was this answered", "how did you get that",
+                "where did this answer come from", "which model answered",
+                "how long did it take", "what did it search", "explain the answer",
+                "transparent", "process lines",
+            ),
+            "body": (
+                "Under an answer in Ask, Why this answer opens the lines that "
+                "made it, each with the seconds since you asked: what the "
+                "question was read as, what was searched and how many notes "
+                "matched, who wrote it (Atlas from your notes with no model, "
+                "or the model by name, and whether it was handed the app's "
+                "own answer as a fact), the shape it took, how many of the "
+                "matching notes it cites, and how long it took."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "line-verdicts",
+            "keywords": (
+                "wrong fact", "pin as true", "pinned", "this is wrong", "that's not right",
+                "mark a line wrong", "the answer is wrong", "stop saying", "correct an answer",
+                "is this line right", "confirm a line",
+            ),
+            "body": (
+                "Press a numbered mark in an answer: under the note's words, "
+                "Is this line right? has Confirm and Not right. Not right "
+                "leaves those sentences of the note out of every answer from "
+                "the next one on, and no pattern that quotes them is offered. "
+                "Confirm pins them as true: answers say them as your word, "
+                "with the day you pinned them, and a model reads them that "
+                "way too. Each goes on the undo stack, and lists in Settings, "
+                "What it learned (Marked wrong or Pinned as true), where "
+                "Delete takes it back. The note itself is never changed."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
         },
         {
             "id": "library-skills",
@@ -2006,6 +2060,8 @@ TOPIC_META: dict[str, dict] = {
     "answers-from-notes": {"title": "Answers from your notes, no AI", "path": "Notes tab, Ask, the Use AI switch", "steps": (
         "Open Ask on the Notes tab.", "Turn Use AI off beside the title.", "Ask: the answer is quoted from your notes, with no AI.")},
     "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
+    "why-this-answer": {"title": "Why this answer", "path": "Notes tab, Ask, under an answer"},
+    "line-verdicts": {"title": "Wrong fact and Pin as true", "path": "Ask or Chat, a numbered mark in an answer"},
     "answer-pictures": {"title": "Pictures in answers", "path": "Chat tab, or Ask in the Notes tab, Grounded in"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},
     "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, the reader button"},
@@ -2035,7 +2091,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories", "tidy",
     )),
     ("Asking Atlas", (
-        "ask-chat", "answers-from-notes", "chat-controls", "chat-acts", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
+        "ask-chat", "answers-from-notes", "chat-controls", "chat-acts", "follow-up-trail", "why-this-answer", "line-verdicts", "answer-pictures", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (

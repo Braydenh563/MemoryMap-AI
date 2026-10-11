@@ -17,6 +17,7 @@ import logging
 import mimetypes
 import re
 import threading
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import date, timezone
@@ -30,7 +31,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, composer
+from memorymap.ai import budget as run_budget, capability, composer, composer_digest, glossary, verdicts, why
 from memorymap.ai import (
     acts,
     agent,
@@ -497,6 +498,12 @@ class ChatRequest(BaseModel):
     #: only from them. Resolved into `note_ids` and `attached_notes_only` by
     #: `_apply_scope` before anything reads either.
     scope: Literal["questions"] | None = None
+    #: What is open where the question was asked (CHAT_PLAN B10): the note
+    #: being read or edited, and the category the sidebar filters to. Read
+    #: only by a question about "this" ("Summarise this"), never to widen
+    #: or narrow any other; `_apply_open` turns it into `note_ids`.
+    open_note_id: int | None = None
+    open_category: str | None = Field(default=None, max_length=100)
     #: Who writes a notes-only answer (INBOX 688): "notes" asks for the answer
     #: composed from the notes' own sentences (`ai/composer.py`) even while a
     #: model runs; anything else is the model's, when one runs. The Ask box's
@@ -523,6 +530,50 @@ def _apply_scope(session: Session, body: ChatRequest) -> None:
     if ids:
         body.note_ids = ids
         body.attached_notes_only = True
+
+
+#: The most notes a "summarise Travel" reads: the overview's own limit.
+OPEN_CATEGORY_NOTES = 24
+
+
+def _category_note_ids(session: Session, name: str) -> list[int]:
+    rows = session.execute(
+        select(Entry.id)
+        .join(Category, Entry.category_id == Category.id)
+        .where(Entry.is_deleted == False, Entry.is_private == False, func.lower(Category.name) == name.lower())  # noqa: E712
+        .order_by(Entry.created_at.desc())
+        .limit(OPEN_CATEGORY_NOTES)
+    ).scalars()
+    return list(rows)
+
+
+def _apply_open(session: Session, body: ChatRequest) -> None:
+    """"Summarise this" on any tab (CHAT_PLAN B10): the open note, else the
+    open category, becomes the closed set the answer reads; "summarise
+    Travel" reads that category's notes rather than the few a keyword
+    search finds. Notes attached by hand, or a scope, win over both."""
+    if body.note_ids or body.document_ids or body.scope:
+        return
+    if composer_digest.about_this(body.question):
+        #: A note binned or made private since it was opened is not read;
+        #: the open category stands in (`_attached_notes`' own rule).
+        if body.open_note_id and _attached_notes(session, [body.open_note_id]):
+            body.note_ids = [body.open_note_id]
+        elif body.open_category:
+            body.note_ids = _category_note_ids(session, body.open_category)
+    else:
+        names = list(session.execute(select(Category.name)).scalars())
+        named = composer_digest.named_category(body.question, names)
+        if named:
+            body.note_ids = _category_note_ids(session, named)
+    if body.note_ids:
+        body.attached_notes_only = True
+
+
+def _nothing_open(body: ChatRequest) -> bool:
+    """"Summarise this" with nothing open: said plainly, not answered with
+    the newest notes."""
+    return composer_digest.about_this(body.question) and not (body.note_ids or body.document_ids or body.board_ids)
 
 
 def _resolve_mode(requested: str | None) -> str:
@@ -1229,6 +1280,22 @@ OVERVIEW_LIMIT = 24
 PICTURE_MATCHES = 3
 
 
+#: The person's abbreviations, learned once per state of the notebook (the
+#: count and the newest edit), not once per question.
+_GLOSSARY: dict[str, object] = {"key": None, "terms": {}}
+
+
+def _glossary(session: Session) -> dict[str, str]:
+    """`ai/glossary.learn` over every note (CHAT_PLAN B7): "CC" is Cloud
+    Computing because the notes say so, or name it in full beside it."""
+    live = Entry.is_deleted == False  # noqa: E712
+    key = session.execute(select(func.count(Entry.id), func.max(Entry.updated_at)).where(live)).one()
+    if _GLOSSARY["key"] != tuple(key):
+        texts = session.execute(select(Entry.content).where(live)).scalars()
+        _GLOSSARY.update(key=tuple(key), terms=glossary.learn(texts))
+    return _GLOSSARY["terms"]  # type: ignore[return-value]
+
+
 def _widened(session: Session, question: str, entries: list, scope: str = "") -> list:
     """The retrieved notes, plus the notes whose pictures match the question
     (keyword search reads a note's words, not its pictures' readings: "what
@@ -1343,6 +1410,7 @@ def _prepare(
     #: truth below), which means the phrasing is natural and the numbers cannot
     #: be invented: and with the model stopped the computed sentence is
     #: already a complete answer on its own.
+    meaning_loading = False
     stats = notebook_stats.answer(question, session) if detected == intent.NOTES and as_of is None else None
     if detected == intent.UTILITY:
         #: **Worked out, like a count** (CHAT_PLAN decision 41): a sum, a
@@ -1358,6 +1426,16 @@ def _prepare(
             stats = notebook_stats.StatAnswer(kind="utility", text=worked["text"], facts=[])
         else:
             detected = intent.SMALLTALK
+    if stats is None and as_of is None and not attached:
+        #: **The app's own records** (CHAT_PLAN A3): "what did I search
+        #: yesterday", "what ran overnight", "when did I last back up" are
+        #: read from History, the job records and the backup folder, with
+        #: times, and never searched for in the notes.
+        from memorymap.ai import records
+
+        if records.asks(question):
+            config = deps.get_config()
+            stats = records.answer(question, session, now=user_now(config), data_dir=config.data_dir)
     connected_ids: set[int] = set()
     match_info: dict = {}
     when_phrase = ""
@@ -1373,8 +1451,11 @@ def _prepare(
         #: whatever the question sounded like would only be noise beside it.
         entries, mode = [], "stats"
     elif intent.needs_retrieval(detected) and not (attached_notes_only and attached):
+        #: Searched with the person's own abbreviations spelt out ("what's
+        #: due in CC" also finds the notes that say Cloud Computing, B7).
+        meaning_loading = _meaning_loading()
         found = search_manager.retrieve_detailed(
-            session, question, deps.get_embeddings(), limit=5
+            session, glossary.expand(question, _glossary(session)), deps.get_embeddings(), limit=5
         )
         entries, mode = found.entries, found.mode
         entries = _widened(session, question, entries, scope=found.category)
@@ -1549,10 +1630,14 @@ def _prepare(
         #: prompt below hands it to the model as ground truth rather than
         #: asking it to work the numbers out.
         "stats": (
-            {"kind": stats.kind, "text": stats.text, "facts": stats.facts}
+            {"kind": stats.kind, "text": stats.text, "facts": stats.facts, "offer": stats.offer}
             if stats is not None
             else None
         ),
+        #: The search model was still loading, so this one read words only
+        #: (`search_manager.query_vector`): said in Why, and when nothing
+        #: matched, said with the answer.
+        "meaning_loading": meaning_loading,
         "raw_results": [
             _to_out(session, entry).model_copy(update={"content": as_of_then[entry.id].text})
             if entry.id in as_of_then
@@ -1588,6 +1673,7 @@ def _prepare(
 @router.post("", response_model=ChatResponse)
 def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResponse:
     _apply_scope(session, body)
+    _apply_open(session, body)
     prepared = _prepare(
         session,
         body.question,
@@ -1887,14 +1973,44 @@ def _composed(req: _StreamRequest, ollama_running: bool) -> bool:
     return bool(req.body.notes_only) and (req.body.answer_from == "notes" or not ollama_running)
 
 
-def _composer_voice() -> str:
-    """The register the composer writes its connecting words in, from the
-    `composer_voice` preference: "natural" (the default) or "professional"."""
+def _answer_voice() -> str:
+    """The voice an answer with no model is said in (CHAT_PLAN decision 72),
+    the `composer_voice` preference: "natural" (Warm and concise, the
+    default), "professional" (Neutral), "playful" or "plain"."""
     try:
         value = deps.get_config().get_preference("composer_voice", "natural")
     except Exception:  # noqa: BLE001  # no preference is the default voice
         return "natural"
-    return value if value in ("natural", "professional") else "natural"
+    return value if value in ("natural", "professional", "playful", "plain") else "natural"
+
+
+def _insight_level() -> str:
+    """How much Atlas volunteers past the answer (CHAT_PLAN decision 73), the
+    `insight_level` preference: "off", "one" line (the default) or "all"."""
+    try:
+        value = deps.get_config().get_preference("insight_level", "one")
+    except Exception:  # noqa: BLE001  # no preference is the default
+        return "one"
+    return value if value in composer_digest.INSIGHT_LEVELS else "one"
+
+
+def _composer_voice() -> str:
+    """The composer's own register for the same choice: it has two, so
+    Playful joins with Natural's words and Plain with Professional's."""
+    return {"playful": "natural", "plain": "professional"}.get(_answer_voice(), _answer_voice())
+
+
+def _meaning_loading() -> bool:
+    """Whether a search now would read words only, the search model not
+    loaded yet (the owner's 27 s first question, 2026-10-11)."""
+    try:
+        embeddings = deps.get_embeddings()
+        cold = getattr(embeddings, "loads_cold", None)
+        from memorymap.ai import embeddings as embedding_service
+
+        return bool(callable(cold) and cold()) or (embedding_service.warmup_running() and not embeddings.is_ready())
+    except Exception:  # noqa: BLE001  # no backend is a state, not an error
+        return False
 
 
 def _composer_embed():  # noqa: ANN202
@@ -2003,13 +2119,19 @@ def _web_answer(req: _StreamRequest, question: str) -> tuple[dict, list[dict]] |
             pages.append({
                 "id": -(i + 1), "kind": "web", "url": str(page.get("url") or hit.get("url")), "domain": page.get("domain", ""),
                 "content": f"{title}\n\n{text}",
+                #: The result's one line for the panel: the engine's snippet,
+                #: else the page's opening.
+                "snippet": " ".join(str(hit.get("snippet") or text[:200]).split())[:200],
             })
     if not pages:
         return None
-    result = composer.compose(question, pages, today=user_now(deps.get_config()).date(), voice=_composer_voice())
-    if not result["grounding"]:
+    composed = composer.compose(question, pages, today=user_now(deps.get_config()).date(), voice=_composer_voice())
+    #: Decision 66: pages found are always an answer, in decision 70's shape,
+    #: the composer's best span of each page first.
+    result = composer_digest.web(question, pages, composed)
+    if result is None:
         return None
-    sources = [{"title": p["content"].split("\n", 1)[0], "url": p["url"], "domain": p["domain"]} for p in pages]
+    sources = [{"title": p["content"].split("\n", 1)[0], "url": p["url"], "domain": p["domain"], "snippet": p["snippet"]} for p in pages]
     return result, sources
 
 
@@ -2081,6 +2203,30 @@ def _tool_read_events(req: _StreamRequest) -> list[dict]:
     return out
 
 
+def _asks_capability(req: _StreamRequest, prepared: dict) -> bool:
+    """"Can you search the web?" (CHAT_PLAN decision 65): a question about
+    what Atlas can do, answered from the app's own list on every surface,
+    model or none, and never a search, a web call or a tool."""
+    return prepared["intent"] == intent.ABOUT_APP and capability.asks(req.question or "")
+
+
+def _app_answers(req: _StreamRequest, ollama_running: bool) -> bool:
+    """Whether the app's own engine gives this turn's finished answer
+    (CHAT_PLAN decision 75, the owner: "it SHOULD completely replace it if
+    the ai isnt available, otheriwse the composer is an assistant to the
+    ai"): with no model, or when the Ask box asked for From your notes.
+    With a model up, what the engine found goes to the model as context."""
+    return not ollama_running or _composed(req, ollama_running)
+
+
+def _capability_answer(req: _StreamRequest, ollama_running: bool) -> str:
+    try:
+        web = bool(deps.get_config().get_preference("web_search_enabled", False))
+    except Exception:  # noqa: BLE001  # an unreadable preference is off
+        web = False
+    return capability.answer(req.question, prefs={"web_search_enabled": web}, model_running=ollama_running)
+
+
 def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> list[dict] | None:
     """**A counted answer, streamed as one piece**, or a read tool's answer
     with no model. See the same branch in `chat()`: the number is already
@@ -2088,11 +2234,18 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
     to wait for. It arrives before a local model would have finished loading,
     and it arrives at all when no model is running. None when the stream
     goes on to compose or generate."""
+    if _asks_capability(req, prepared) and _app_answers(req, ollama_running):
+        return [{"type": "answer", "delta": _capability_answer(req, ollama_running)}]
+    if _nothing_open(req.body) and _app_answers(req, ollama_running):
+        return [{"type": "answer", "delta": composer_digest.PHRASES["nothing_open"]}]
     if prepared["stats"] is not None:
         out = [{"type": "answer", "delta": prepared["stats"]["text"]}]
         drawn = _stats_chart(prepared["stats"])
         if drawn is not None:
             out.append({"type": "chart", "chart": drawn})
+        if prepared["stats"].get("offer"):
+            #: Its one acting offer (decision 70), drawn as a link on its line.
+            out.append({"type": "offer", "offer": prepared["stats"]["offer"]})
         return out
     if not ollama_running:
         shown = prepared["tool_read"] if "tool_read" in prepared else _tool_read_events(req)
@@ -2130,7 +2283,9 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             ),
         }
         return
-    if conversational and req.body.notes_only:
+    #: A question about what Atlas can do is not small talk: with a model
+    #: up it goes to the model with the app's own line (decision 75).
+    if conversational and req.body.notes_only and not _asks_capability(req, prepared):
         # The Notes tab's Ask box has one job (§35A). A greeting is the one
         # input it has nothing to do with, so it says what it is for rather
         # than spending a model round chatting back.
@@ -2173,6 +2328,8 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             persona_prompt=req.persona_prompt,
             mode=req.mode,
             images=req.images,
+            #: Decision 75: the capability line reaches the model as a fact.
+            context=_capability_answer(req, ollama_running) if _asks_capability(req, prepared) else "",
         )
     elif not prepared["notes"] and not req.images_raw and not ollama_running and _web_allowed(req) and (
         web := _web_answer(req, req.question)
@@ -2224,7 +2381,26 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: turn and salt word this answer, a retry ("Try again") rewords it,
         #: and the words earlier answers used are not used again.
         dialogue = composer.Dialogue.from_history(req.history)
-        result = composer.compose(
+        #: The answer a person would give (decision 70, INBOX 812: "I may as
+        #: well just read the notes I made on the right"): a count and a
+        #: span, the facts under labels, what is missing, one offer. A
+        #: follow-on, a "newest notes" turn or a sum keeps the composer's.
+        digest = None
+        #: A follow-on that is a question in its own right ("what about
+        #: running?", "and last month?", "the second one") is answered the
+        #: same way as the first turn (B8); "tell me more", "shorter" and a
+        #: correction lean on the turn before and keep the composer's.
+        restated = follow is not None and follow.kind in composer._RESTATES
+        if (not follow or restated) and not str(prepared.get("search_mode") or "").endswith("recent"):
+            try:
+                digest = composer_digest.answer(
+                follow.question if restated else req.question, prepared["notes"], today=user_now(deps.get_config()).date(),
+                voice=_answer_voice(), turn=len(req.history or []),
+                insight=_insight_level(), learned=_insight_memory(req.session), known=_verdicts(req.session),
+            )
+            except Exception:  # noqa: BLE001  # the composer's answer stands
+                logging.getLogger("memorymap.chat").exception("chat: the digest failed")
+        result = digest or composer.compose(
             follow.question if follow else req.question,
             prepared["notes"],
             today=user_now(deps.get_config()).date(),
@@ -2244,12 +2420,18 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             #: ones they dismissed are not said (decision 60).
             learned=_insight_memory(req.session),
         )
+        if follow is not None and follow.kind == "more" and not result.get("grounding"):
+            #: Nothing left unsaid: say so, with how much there is (B8).
+            result = composer_digest.all_said(follow.question, prepared["notes"], today=user_now(deps.get_config()).date()) or result
         if not result["grounding"] and not ollama_running and _web_allowed(req):
             web = _web_answer(req, follow.question if follow else req.question)
             if web:
                 yield from _web_events(*web)
                 return
-        yield {"type": "answer", "delta": result["text"]}
+        text = result["text"]
+        if not result["grounding"] and prepared.get("meaning_loading"):
+            text += "\n\n" + composer_digest.PHRASES["meaning_loading"]
+        yield {"type": "answer", "delta": text}
         if result["grounding"]:
             yield {
                 "type": "grounding",
@@ -2268,6 +2450,10 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 "checks": validate.report(result, req.question)["findings"],
                 #: The insight lines said, for their Confirm and Not right.
                 "insights": result.get("insights", []),
+                #: A digest (decision 70) cites one mark a line and is not
+                #: followed by the sources again: the right column is them.
+                "digest": bool(result.get("digest")),
+                "offer": result.get("offer"),
             }
         return
     else:
@@ -2361,6 +2547,16 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
 
 
 #: An act asked in the Ask box, which looks things up: said where to do it.
+def _verdicts(session: Session):  # noqa: ANN202
+    """The person's word on sentences (`ai/verdicts.py`), or None when it
+    cannot be read: an answer is never lost to it."""
+    try:
+        return verdicts.known(session)
+    except Exception:  # noqa: BLE001
+        logging.getLogger("memorymap.chat").warning("chat: the verdicts could not be read", exc_info=True)
+        return None
+
+
 def _insight_memory(session: Session):  # noqa: ANN202
     """What the person said of insights, or None when it cannot be read: an
     answer is never lost to the learned store."""
@@ -2647,6 +2843,9 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     # its "typing…" indicator keeps animating instead of looking frozen
     # while the whole request blocks (user-reported lag).
     yield event({"type": "status", "stage": "searching"})
+    #: B30: the seconds each stage landed at, for "Why this answer".
+    started = time.perf_counter()
+    marks: dict[str, float] = {}
 
     # Retrieval happens INSIDE the stream now, not before it, that's the
     # whole latency win. Nothing before this line touches the model.
@@ -2676,6 +2875,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         as_of=None if req.skill else req.body.as_of,
     )
     prepared["follow_on"] = follow
+    marks["read"] = marks["searched"] = time.perf_counter() - started
     ollama_running = req.ollama.is_running()
     if prepared["intent"] == intent.ACT and ollama_running and req.use_tools and not req.body.notes_only:
         #: With a model in Agent mode, an act is the agent's: its tools are the
@@ -2699,7 +2899,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     conversational = not intent.needs_retrieval(prepared["intent"])
     model_can_answer = ollama_running if conversational else (ollama_running or tools_only)
-    will_answer = not composed and prepared["intent"] not in (intent.UTILITY, intent.ACT) and model_can_answer and (
+    will_answer = not composed and not (_asks_capability(req, prepared) and _app_answers(req, ollama_running)) and prepared["intent"] not in (intent.UTILITY, intent.ACT) and model_can_answer and (
         bool(prepared["notes"])
         or bool(req.images_raw)
         or req.use_tools
@@ -2707,6 +2907,12 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     if will_answer and not tools_only:
         _assist(req, prepared)
+    if will_answer:
+        #: B31, B32: the model reads the notes with the person's verdicts
+        #: written in, as context; grounding reads them as they are.
+        known = _verdicts(req.session)
+        if known:
+            prepared["model_notes"] = verdicts.for_model(prepared.get("model_notes") or prepared["notes"], known)
 
     yield event(
         {
@@ -2814,12 +3020,17 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: Rows an answer brought with it, exact by construction (the composed
     #: and the extractive answers): kept, saved, and never re-grounded.
     exact_grounding: list[dict] | None = None
+    shape: str | None = None
     try:
         for payload in events:
             kind = payload.get("type")
             live_rows: list[dict] = []
             if kind == "grounding" and payload.get("exact"):
                 exact_grounding = payload.get("sentences") or []
+            if kind == "grounding":
+                shape = (payload.get("support") or {}).get("shape") or shape
+            if kind == "answer" and "answered" not in marks:
+                marks["answered"] = time.perf_counter() - started
             if kind == "answer":
                 payload = {**payload, "delta": scrubber.feed(payload.get("delta") or "")}
                 if not payload["delta"]:
@@ -2943,8 +3154,29 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             })
     if req.body.notes_only and answer_text:
         _save_ask_turn(req.session, req.question, answer_text, prepared, grounding)
+    if answer_text:
+        marks["done"] = time.perf_counter() - started
+        yield event({"type": "why", "lines": _why(req, prepared, grounding, composing, will_answer, tools_only, ollama_running, shape, marks)})
     yield event({"type": "done"})
 
+
+
+def _why(req, prepared, grounding, composing, will_answer, tools_only, ollama_running, shape, marks) -> list[dict]:
+    """B30's lines for this turn (`ai/why.py`)."""
+    return why.lines(
+        intent=prepared["intent"],
+        mode=prepared.get("search_mode"),
+        matched=len(prepared.get("raw_results") or []),
+        used=len({row.get("note_id") for row in grounding if isinstance(row.get("note_id"), int)}),
+        when=prepared.get("when_phrase"),
+        scoped=bool(req.body.attached_notes_only or req.body.note_ids),
+        composed=composing,
+        model=("Atlas's tools" if tools_only else req.model_manager.chat_model()) if will_answer else None,
+        shape=shape,
+        context=will_answer and ollama_running and _asks_capability(req, prepared),
+        loading=bool(prepared.get("meaning_loading")),
+        marks=marks,
+    )
 
 
 @router.post("/stream")
@@ -2960,6 +3192,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     {"type":"done"}
     """
     _apply_scope(session, body)
+    _apply_open(session, body)
     ollama = deps.get_ollama()
     #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent

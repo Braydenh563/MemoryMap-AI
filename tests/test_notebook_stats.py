@@ -306,8 +306,11 @@ def test_stats_gives_the_four_counts_in_one_line(client):
         session.commit()
         result = notebook_stats.answer("show me my stats", session)
         assert result is not None and result.kind == "overview"
-        assert result.text.startswith("You have 2 notes and 0 documents")
-        assert "2 distinct tags" in result.text
+        #: Decision 70's gold Q3: count and span first, bold labels, one offer.
+        assert result.text.startswith("You have 2 notes, all from ")
+        assert "**Also:** 0 documents and 2 distinct tags." in result.text
+        assert result.text.endswith("Open Statistics for the full picture?")
+        assert result.offer == {"kind": "open", "label": "Open Statistics for the full picture?", "surface": "statistics"}
 
 
 def test_a_summary_of_the_notes_is_not_a_stats_question(client):

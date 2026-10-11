@@ -1083,16 +1083,8 @@ function startApp() {
     //: below rather than after it, so a throw in any of those five calls cannot
     //: leave the session unable to back up a setting.
     uiStateSeeded = true;
-    if (restored) {
-      // The same three calls the theme picker makes, in the same order: the
-      // root attributes, then the light/dark choice and the palette, neither
-      // of which re-records itself as a manual override.
-      applyAppearance();
-      applyThemeChoice(appearancePref("theme"), false);
-      applyPalette(appearancePref("palette"), false);
-      renderBrandLogo();
-      if (bgArtOn()) startBgArt();
-    }
+    // The same repaint a second window does when it pulls a newer look.
+    if (restored) applyRestoredLook();
     // A seeded background (microbes, mycelium) started before the
     // preferences arrived grew from the placeholder name; regrow it from the
     // real one. A no-op for every other style and when nothing changed.

@@ -182,6 +182,9 @@ call :line ".env" "settings"
 
 echo.
 set /a FREES_MB=VENV_MB
+REM  The notes are part of what is freed only when they are being deleted:
+REM  the dry run said "about 300 MB" for a 305 MB removal that included them.
+if "!DELETE_DATA!"=="1" set /a FREES_MB+=DATA_MB
 echo  That frees about !FREES_MB! MB.
 
 if not "!DRY_RUN!"=="1" goto :not_dry

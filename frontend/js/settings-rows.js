@@ -65,6 +65,7 @@ const SETTING_ROWS = [
   { key: "update_check_enabled", id: "pref-update-check" },
   { key: "auto_update_enabled", id: "pref-auto-update" },
   { key: "update_channel", id: "pref-update-channel-main", on: "main", off: "stable" },
+  { key: "update_beta", id: "pref-update-beta" },
   { key: "voice_model", id: "voice-model-select" },
   { key: "show_console_on_startup", id: "pref-show-console" },
   { key: "close_to_tray", id: "pref-close-to-tray" },

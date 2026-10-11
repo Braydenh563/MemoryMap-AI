@@ -417,6 +417,7 @@ class PreferencesBody(BaseModel):
     # without asking each time", see core.config's own comment.
     auto_update_enabled: bool | None = None
     update_channel: Literal["stable", "main"] | None = None
+    update_beta: bool | None = None
     searxng_autostart: bool | None = None
     # Whether the app may install search by meaning itself: see core.config.
     semantic_auto_install: bool | None = None
@@ -800,6 +801,7 @@ def _preferences_from(config) -> dict:
         "auto_update_enabled": config.get_preference("auto_update_enabled", False),
         "update_choice_made": config.get_preference("update_choice_made", False) is True,
         "update_channel": config.get_preference("update_channel", "stable"),
+        "update_beta": config.get_preference("update_beta", False) is True,
         "searxng_url": config.get_preference("searxng_url", ""),
         "searxng_autostart": config.get_preference("searxng_autostart", False),
         "semantic_auto_install": config.get_preference("semantic_auto_install", True),

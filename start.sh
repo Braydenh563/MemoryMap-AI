@@ -712,9 +712,17 @@ mm_doctor() {
     mm_row ok "Disk" "$free_h free on $disk_target"
   fi
 
+  # MEMORYMAP_DOCTOR_OFFLINE=1 (the splash's Copy diagnostics): the rows that
+  # would touch the port the app is about to bind, the git remote or the model
+  # server are not run. An environment variable rather than a flag, because
+  # the flag-order lint wants both launchers' help to list the same flags.
+  local offline="${MEMORYMAP_DOCTOR_OFFLINE:-0}"
+
   # 4. The port. "Already running" is a success, not a failure: see
   # mm_port_is_memorymap.
-  if ! mm_port_open "$MM_PORT"; then
+  if [ "$offline" = "1" ]; then
+    mm_row ok "Port $MM_PORT" "not checked in offline diagnostics"
+  elif ! mm_port_open "$MM_PORT"; then
     mm_row ok "Port $MM_PORT" "free"
   elif mm_port_is_memorymap "$MM_PORT"; then
     mm_row ok "Port $MM_PORT" "MemoryMap is already running, open $MM_URL"
@@ -729,6 +737,8 @@ mm_doctor() {
   elif [ "$(mm_update_plan)" = "ask" ]; then
     # Not answered yet: the doctor does not reach the remote either.
     mm_row ok "Updates" "not chosen yet, so nothing is checked until you answer the one-time question"
+  elif [ "$offline" = "1" ]; then
+    mm_row ok "Updates" "the git remote is not asked in offline diagnostics"
   elif [ ! -e ".git" ]; then
     mm_row warn "Updates" "not a git checkout, so ./start.sh cannot self-update"
   elif ! command -v git >/dev/null 2>&1; then
@@ -756,7 +766,9 @@ mm_doctor() {
   fi
   [ -n "$base_url" ] && ollama_url="$base_url"
   [ -n "$ollama_url" ] || ollama_url="http://localhost:11434"
-  if [ "$provider" = "ollama" ]; then
+  if [ "$provider" = "ollama" ] && [ "$offline" = "1" ]; then
+    mm_row ok "Ollama" "not asked in offline diagnostics"
+  elif [ "$provider" = "ollama" ]; then
     local tags=""
     if command -v curl >/dev/null 2>&1; then
       tags="$(curl -fsS --max-time 4 "$ollama_url/api/tags" 2>/dev/null || true)"

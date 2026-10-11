@@ -272,7 +272,7 @@ HELP_TOPICS: list[dict] = [
             "page numbers, and a plain Ctrl+P uses the last choice. In Live, drag "
             "the corner of a picture to resize it (or focus the corner and use the "
             "arrow keys), and its align button puts it left, centre or right. "
-            "The status bar counts characters, words and reading time the way "
+            "The status bar counts characters, words, lines and reading time the way "
             "the note composer does (an emoji is one character). Search "
             "documents reads a window: \"harbor last week\" finds the ones "
             "about the harbor edited in the last week."
@@ -1124,7 +1124,9 @@ HELP_TOPICS.extend(
                 "you answer. A copy started with start.sh or start.bat then "
                 "updates itself when it starts, following the same setting, and "
                 "turning automatic updates off stops it. The Check for updates "
-                "button checks once, whatever the switch says."
+                "button checks once, whatever the switch says. Also tell me about "
+                "beta versions (off by default) makes a check offer a beta or "
+                "release candidate when it is the highest version."
             ),
             "badge": {"label": "About", "section": "about"},
         },

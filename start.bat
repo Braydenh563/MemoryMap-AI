@@ -599,7 +599,26 @@ if not exist "%VENV_PY%" (
     goto :fail
   )
   echo        Using !PYTHON! to create the virtual environment...
-  !PYTHON! -m venv .venv
+  REM  Opt-in only: share the system's packages (a CUDA torch already installed)
+  REM  instead of a second copy. An environment variable, not a flag, as in
+  REM  start.sh: the flag-order lint wants both launchers to carry the same flags.
+  REM  Refused with a reason when the system torch is outside requirements.txt's
+  REM  range; scripts\system_site_packages.py decides.
+  set "MM_VENV_ARGS="
+  if "%MEMORYMAP_SYSTEM_SITE_PACKAGES%"=="1" (
+    set "MM_SSP_ANSWER="
+    for /f "usebackq delims=" %%A in (`!PYTHON! scripts\system_site_packages.py 2^>nul`) do set "MM_SSP_ANSWER=%%A"
+    !PYTHON! scripts\system_site_packages.py >nul 2>nul
+    if errorlevel 1 (
+      set "MM_SSP_REASON=!MM_SSP_ANSWER:refuse: =!"
+      echo        Not sharing the system packages: !MM_SSP_REASON!.
+      echo        Building the usual self-contained environment instead.
+    ) else (
+      set "MM_VENV_ARGS=--system-site-packages"
+      echo        Sharing this computer's installed packages ^(MEMORYMAP_SYSTEM_SITE_PACKAGES=1^).
+    )
+  )
+  !PYTHON! -m venv !MM_VENV_ARGS! .venv
   if errorlevel 1 (
     call :status !MM_STEP_PYTHON! "Python" "Could not create .venv" "failed"
     set "MM_FAIL_MSG=Could not create the virtual environment."
@@ -1049,6 +1068,14 @@ if not defined MM_FREE_MB goto :doctor_disk_unknown
 if !MM_FREE_MB! LSS 1024 goto :doctor_disk_low
 call :row ok "Disk" "!MM_FREE_MB! MB free on !MM_DATA_DIR!"
 goto :doctor_port
+REM  MEMORYMAP_DOCTOR_OFFLINE=1 (the splash's Copy diagnostics): the rows that
+REM  would touch the port the app is about to bind, the git remote or the model
+REM  server are not run. An environment variable rather than a flag, because
+REM  the flag-order lint wants both launchers' help to list the same flags.
+if "%MEMORYMAP_DOCTOR_OFFLINE%"=="1" (
+  call :row ok "Port !MM_PORT!" "not checked in offline diagnostics"
+  goto :doctor_updates
+)
 :doctor_disk_low
 call :row x "Disk" "!MM_FREE_MB! MB free on !MM_DATA_DIR!" "Under 1 GB. Free some space before the first install, which needs about 300 MB."
 goto :doctor_port
@@ -1083,9 +1110,13 @@ if "!MM_UPDATE_PLAN!"=="off" goto :doctor_updates_off
 if not exist ".git" goto :doctor_updates_nogit
 where git >nul 2>nul
 if errorlevel 1 goto :doctor_updates_nobin
+if "%MEMORYMAP_DOCTOR_OFFLINE%"=="1" goto :doctor_updates_offline
 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 ls-remote --exit-code origin HEAD >nul 2>nul
 if errorlevel 1 goto :doctor_updates_quiet
 call :row ok "Updates" "the git remote answered"
+goto :doctor_provider
+:doctor_updates_offline
+call :row ok "Updates" "the git remote is not asked in offline diagnostics"
 goto :doctor_provider
 :doctor_updates_ask
 call :row ok "Updates" "not chosen yet, so nothing is checked until you answer the one-time question"
@@ -1130,6 +1161,10 @@ if /i "!MM_PROVIDER!"=="ollama" goto :doctor_ollama
 call :row ok "Provider" "!MM_PROVIDER! at !MM_LLM_URL!"
 goto :doctor_notes
 :doctor_ollama
+if "%MEMORYMAP_DOCTOR_OFFLINE%"=="1" (
+  call :row ok "Ollama" "not asked in offline diagnostics"
+  goto :doctor_notes
+)
 where curl >nul 2>nul
 if errorlevel 1 goto :doctor_ollama_nocurl
 set "MM_MODELS="

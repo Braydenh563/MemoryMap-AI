@@ -97,6 +97,9 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # actually saved, since a source checkout already tracks main for real
     # via start.sh/start.bat's own `git pull` on every launch.
     "update_channel": "stable",
+    # Also offer pre-releases (a beta or release candidate) when checking for
+    # a new version. Off: only finished releases (routes_update.check).
+    "update_beta": False,
     # Bring the user's own SearXNG up with the app. Off by default: starting a
     # container is not something a local-first app does unasked.
     "searxng_autostart": False,

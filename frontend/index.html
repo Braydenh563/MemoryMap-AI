@@ -5293,7 +5293,7 @@ Link to another note with [[its first few words]]."></textarea>
              that it works with the plug pulled. -->
         <div class="doc-statusbar" id="doc-statusbar" role="group" aria-label="Document status">
           <span id="doc-counts" class="doc-statusbar-item doc-statusbar-fact"
-            title="Characters, words and roughly how long this takes to read"></span>
+            title="Characters, words, lines and roughly how long this takes to read"></span>
           <!-- The goal, where the count it is a goal for now lives. A button
                because it is also how you set one, a target with no way to
                change it from where it is shown is a number you have to go
@@ -13741,6 +13741,10 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="pref-update-channel-main">
                 <span>Follow the newest changes instead of finished releases</span>
               </label>
+              <label class="check-row">
+                <input type="checkbox" id="pref-update-beta">
+                <span>Also tell me about beta versions</span>
+              </label>
               <div class="row setting-dependent">
                 <p class="muted text-sm flush">
                   Off is the safer choice: you get versions that were finished
@@ -13762,6 +13766,12 @@ Link to another note with [[its first few words]]."></textarea>
                   being written, day by day. New things reach you sooner, and
                   so do the mistakes in them. Worth it if you like being early
                   or you are reporting bugs.
+                </p>
+                <p>
+                  <strong>Beta versions</strong> are finished candidates that
+                  come before a release. With the beta switch on, a check
+                  offers the highest version, a beta included. It is off by
+                  default, and a final release always outranks its own betas.
                 </p>
                 <p>
                   Which one you can actually use depends on how this copy was
@@ -13925,7 +13935,25 @@ Link to another note with [[its first few words]]."></textarea>
         <ul id="palette-list" class="rich-picker-list" role="listbox" aria-label="Commands and results"></ul>
         <div id="palette-preview" class="rich-picker-preview hidden" aria-hidden="true"></div>
       </div>
-      <p class="muted palette-hint">↑↓ to choose · Enter to run · Esc to close · ? for shortcuts</p>
+      <!-- The foot: the key hints and the palette's '?' (OPEN ledger 289: the
+           timer, stopwatch and Count words are rows here with no surface of
+           their own, so their help sits on the palette they live in). -->
+      <div class="palette-foot">
+        <p class="muted palette-hint">↑↓ to choose · Enter to run · Esc to close · ? for shortcuts</p>
+        <button type="button" class="icon-only ghost small graph-help-toggle"
+          data-help-for="palette-help" aria-controls="palette-help"
+          aria-expanded="false" title="About these commands" aria-label="About these commands">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+    <div class="help-body hidden" id="palette-help" role="dialog" aria-label="About these commands">
+      <p>Type to find a command, a setting or a note. A few rows are small tools that run right here.</p>
+      <ul>
+        <li><strong>Timer.</strong> Type timer 10 minutes (or 90s timer, countdown 2h) and press Enter. The time runs on the status bar; press that chip to stop it.</li>
+        <li><strong>Stopwatch.</strong> Start a stopwatch counts up on the status bar; press it to stop.</li>
+        <li><strong>Count words.</strong> Words, characters and reading time of the selected text, or of the editor.</li>
+      </ul>
     </div>
   </div>
 

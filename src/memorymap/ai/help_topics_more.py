@@ -781,7 +781,8 @@ MORE_TOPICS: list[dict] = [
             "stop the timer", "time how long",
         ),
         "body": (
-            "Type timer in the command palette (Ctrl+K) for Start a timer (25 "
+            "Type timer in the command palette (Ctrl+K; its ? at the foot lists "
+            "the timer, the stopwatch and Count words) for Start a timer (25 "
             "minutes) and Start a stopwatch, or type a length, such as timer 10 "
             "minutes, 90s timer or countdown 2h, and press Enter. The time runs "
             "on the status bar (on a phone the bar comes back while it runs); "

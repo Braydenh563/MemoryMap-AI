@@ -331,6 +331,10 @@ $("pref-update-channel-main").addEventListener("change", (e) =>
   setPreference("update_channel", e.target.checked ? "main" : "stable")
 );
 
+$("pref-update-beta").addEventListener("change", (e) =>
+  setPreference("update_beta", e.target.checked)
+);
+
 // "Choose a specific version…" fetches the release list only on demand, 
 // not on every Settings open, so leaving this tab open doesn't mean
 // repeated GitHub calls, same restraint as the rest of this app's opt-in

@@ -1713,6 +1713,56 @@ function uiStateRememberSynced(state) {
   prefs.setJSON("ui-synced", agreed);
 }
 
+//: Repaint after the look in localStorage changed underneath the page (the
+//: notebook's copy was taken at boot, or another window changed it). The same
+//: three calls the theme picker makes, in the same order: the root attributes,
+//: then the light/dark choice and the palette, neither of which re-records
+//: itself as a manual override.
+function applyRestoredLook() {
+  applyAppearance();
+  applyThemeChoice(appearancePref("theme"), false);
+  applyPalette(appearancePref("palette"), false);
+  renderBrandLogo();
+  if (bgArtOn()) startBgArt();
+}
+
+//: **Live sync between two open windows** (OPEN ledger 286). A change in one
+//: window used to show in the other only after a reload. Two cases:
+//: - the same browser profile: `storage` fires in the other windows, so they
+//:   repaint from their own localStorage at once;
+//: - another browser or computer: the window asks the notebook for its copy
+//:   when it regains focus or becomes visible, at most every 5 seconds, and
+//:   repaints only when `seedUiStateFromServer` took a key. An unsent change
+//:   of its own still wins, as at boot.
+let lookPulledAt = 0;
+let lookPulling = false;
+let lookEchoTimer = 0;
+async function pullLookFromNotebook() {
+  if (!uiStateSeeded || lookPulling || document.hidden || !authToken()) return;
+  if (Date.now() - lookPulledAt < 5000) return;
+  lookPulling = true;
+  lookPulledAt = Date.now();
+  try {
+    const fresh = await apiJson("/preferences", { silent: true });
+    if (fresh && seedUiStateFromServer(fresh.ui_state)) applyRestoredLook();
+  } catch {
+    // A missed pull is retried the next time the window is looked at.
+  } finally {
+    lookPulling = false;
+  }
+}
+function lookFromOtherWindow(event) {
+  if (event.storageArea !== localStorage || !event.key || !uiStateSeeded) return;
+  if (!mirroredUiKeys().includes(event.key)) return;
+  clearTimeout(lookEchoTimer);
+  lookEchoTimer = setTimeout(applyRestoredLook, 120);
+}
+window.addEventListener("focus", pullLookFromNotebook);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) pullLookFromNotebook();
+});
+window.addEventListener("storage", lookFromOtherWindow);
+
 // Which manual overrides are currently sitting on top of the theme. Shown in
 // the UI so "why isn't the theme's colour showing?" has a visible answer.
 const OVERRIDABLE_KEYS = [

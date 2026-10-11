@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Packaging: the frozen builds use Python 3.13, the dependency floors are the newest releases (fastapi 0.143.0, SQLAlchemy 2.1.4, tzdata 2026.5, numpy 2.5.4), and the vendored CodeMirror packages, docx (9.10.0) and p5.js (1.11.13) are bumped with licences unchanged; the version, the data folder and the launchers kept out of the installer are each pinned by a test.
+- Launcher: the Windows launcher reads MEMORYMAP_SYSTEM_SITE_PACKAGES like the shell one; the splash's Copy diagnostics adds the launcher's doctor with its port, git and model-server rows skipped (MEMORYMAP_DOCTOR_OFFLINE=1); the Windows uninstaller's dry run counts the notes when they are deleted.
+- Documents: the status bar also shows the line count. The command palette has a ? at its foot that explains the timer, stopwatch and Count words, and its first Escape closes that help only.
+- Appearance now follows you between open windows: a window in the same browser repaints at once, and another browser or computer pulls the notebook's look when the window regains focus (an unsent change of its own still wins).
+- Settings, About: Also tell me about beta versions (off by default) makes a check offer the highest version, a beta or release candidate included; a final release always outranks its own betas.
 - Install guide: what the setup file is, that it is built with free Inno Setup, and that the app's updater runs it.
 - Packaging checks: the Windows smoke ignores only tracebacks listed in `packaging/benign_tracebacks.txt` (empty), and the upgrade check skips with a notice in a repository that has published no release.
 - Settings, Other devices: on Windows, with the switch on, the one `netsh` line that opens the port on private networks only, with a Copy button.

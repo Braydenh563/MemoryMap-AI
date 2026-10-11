@@ -93,3 +93,36 @@ def test_the_notebook_wins_unless_this_browser_has_an_unsent_change():
     assert "local == null || local === synced[key]" in seed
     assert "uiStateRememberSynced(state)" in AI_TOOLS[AI_TOOLS.index("function saveUiState") : AI_TOOLS.index("function watchMirroredUiKeys")]
     assert "ui-synced" not in _mirrored()
+
+
+# --- live sync between open windows (OPEN ledger 286) -----------------------------
+
+APP_JS = (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+
+
+def test_a_second_window_pulls_the_look_when_it_regains_focus():
+    """A change in one window reaches the other without a reload: on focus or
+    when the page becomes visible it asks the notebook for its copy and
+    repaints only when `seedUiStateFromServer` took something (an unsent local
+    change still wins, exactly as at boot)."""
+    start = AI_TOOLS.index("async function pullLookFromNotebook")
+    pull = AI_TOOLS[start : AI_TOOLS.index("\n}\n", start)]
+    assert "seedUiStateFromServer(" in pull and "applyRestoredLook()" in pull
+    assert "uiStateSeeded" in pull and "document.hidden" in pull
+    assert 'window.addEventListener("focus", pullLookFromNotebook)' in AI_TOOLS
+    assert 'document.addEventListener("visibilitychange"' in AI_TOOLS
+
+
+def test_a_window_in_the_same_browser_repaints_on_the_storage_event():
+    wiring = AI_TOOLS[AI_TOOLS.index('window.addEventListener("storage", lookFromOtherWindow)') - 600 :]
+    assert "function lookFromOtherWindow" in AI_TOOLS
+    assert "mirroredUiKeys().includes(event.key)" in AI_TOOLS
+    assert "applyRestoredLook" in wiring
+
+
+def test_boot_and_the_live_pull_repaint_the_same_way():
+    """One function repaints a restored look; the boot path calls it too, so
+    the two cannot drift."""
+    assert "function applyRestoredLook()" in AI_TOOLS
+    assert "applyRestoredLook();" in APP_JS
+    assert "applyThemeChoice(appearancePref" not in APP_JS

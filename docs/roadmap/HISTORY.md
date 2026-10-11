@@ -338,6 +338,15 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-11 (Brief 86)
+
+The search86 agent built decisions a to c and INBOX 848 and 849; what is left is in `archive/agent-remaining/search86-1011.md`. The brief, as it stood:
+
+> ## Brief 86 (Sonnet): search suggestions, history and undo in Settings (INBOX 832)
+>
+> The owner 2026-10-11, verbatim: "should searches suggest auto completions?? should the user be able to clear their cache and recent searches in individual and all places and clear other things and undo thing in settings??" Measured: recent searches exist in one place (index.html "Recent searches"); Clear cache exists in Settings (INBOX 487); no search box suggests completions.
+> Decisions: (a) every search box suggests as you type: recent searches first, then note titles, tags and categories that start with the words, as a listbox (DESIGN recipe), Tab or Right accepts the ghost text (CHAT_PLAN decision 69), Up and Down move. (b) Each search box's recents carry a per-row remove and a Clear recent; Settings, Data has "Clear recent searches everywhere", "Clear cached previews and thumbnails", "Clear the Guide's answer cache" and "Clear dismissed suggestions", each saying what it removes and how much. (c) Every Settings change and clear is undoable from the toast for 10 s and from a "Recent changes" list in Settings (last 20).
+
 ## Moved from the plans, 2026-10-11 (CHAT_PLAN, INBOX 801 and 808, Agent with no model)
 
 The noagent agent's Built block (standing order 10); CHAT_PLAN's "Placed from INBOX, 2026-10-11 (the owner on Agent mode with no model)" carries the pointer. Decision 22a records the call on the Agent segment. The placed entry, as it stood:
@@ -48312,6 +48321,24 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      colours). Placed: the Sonnet mapfix agent: a change paints the topic
      at once while it stays selected, the popover never covers the topic it
      edits, and one selected look and one reset look in the popover.
+
+866. **The owner, 2026-10-11, verbatim.** "Can you also fix the connection
+     and and security issues when trying to access it on phone over lan??"
+     Fixed, reproduced first against the real launcher with LAN on: (1) the
+     certificate was one self-signed server certificate (CA:FALSE), which iOS
+     will not list under Certificate Trust Settings and Android will not
+     install as a CA certificate, so a phone could never trust it and every
+     visit warned; it is now a name-constrained authority (private ranges,
+     `.local`, this computer's names) signing the server certificate, and a
+     new address reissues only the server certificate; (2) "Trust this
+     certificate on your phone" was a navigation behind the lock, so a 401
+     every time; it now serves the authority's public certificate unlocked;
+     (3) the address without `https://` got an empty response from the TLS
+     port; `core/lanserve.py` reads the first byte and sends plain http a
+     301 to https, only for a Host naming this computer; (4) the help says
+     what to check when a phone cannot connect (same Wi-Fi, not guest; the
+     firewall). Tests: `test_lan_tls.py`, `test_lan_serve.py` (real
+     sockets, OpenSSL verifying the chain). Not verified: a real phone.
 
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 

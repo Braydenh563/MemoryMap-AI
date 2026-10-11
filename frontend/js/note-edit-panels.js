@@ -614,10 +614,35 @@ function forgetNoteEditLocally() {
 //: Run once, when this file arrives (app.js preloads it three seconds after
 //: start). A kept edit whose text is already the note's (saved from another
 //: window, say) is dropped without a word.
+//: **Only a note that is gone, or already equal, lets the copy go.** A
+//: server that restarted since the last visit answers the first requests
+//: with 401 until the person signs in (sessions live in memory), and this
+//: runs three seconds after start, on a slow boot while the lock screen is
+//: still up: the failed read counted as "no such note" and threw the kept
+//: edit away (found by tests-e2e/specs/draft-recovery.spec.js). A locked
+//: or unreachable server keeps the copy; a lock waits for the unlock, which
+//: runs `startApp` again.
+const keptEdit = { awaitsUnlock: false };
+const startAppBeforeKeptEdit = window.startApp;
+window.startApp = async function () {
+  const opened = startAppBeforeKeptEdit ? await startAppBeforeKeptEdit.apply(this, arguments) : undefined;
+  if (keptEdit.awaitsUnlock) {
+    keptEdit.awaitsUnlock = false;
+    offerKeptNoteEdit();
+  }
+  return opened;
+};
+
 async function offerKeptNoteEdit() {
   const kept = prefs.json(NOTE_EDIT_KEPT, {});
   if (!Number.isInteger(kept.id) || editingId !== null) return;
-  const note = await apiJson(`/entries/${kept.id}`, { silent: true }).catch(() => null);
+  let note = null;
+  try {
+    note = await apiJson(`/entries/${kept.id}`, { silent: true });
+  } catch (error) {
+    if (error.isLockout) keptEdit.awaitsUnlock = true;
+    if (error.isLockout || error.status !== 404) return;
+  }
   const keptText = withTitle(String(kept.content || "").trim(), kept.title);
   //: The form holds a typed note's block aside, so a kept body is the note's
   //: text after its block.

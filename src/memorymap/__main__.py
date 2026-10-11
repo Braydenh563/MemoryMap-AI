@@ -555,7 +555,7 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
     import contextlib
     import socket as socket_module
 
-    from memorymap.core import lancert, netbind
+    from memorymap.core import lancert, lanserve, netbind
 
     lan_port = netbind.lan_port(PORT)
     info = lancert.ensure(config.data_dir)
@@ -622,7 +622,8 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
             #: the local server rather than start the LAN one.
             first.result()
             return
-        second = asyncio.ensure_future(lan.serve(sockets=[sock]))
+        #: Plain http on this port gets a redirect to https (core/lanserve.py).
+        second = asyncio.ensure_future(lanserve.serve(lan, sock))
         while not first.done() and not second.done():
             if local.should_exit or lan.should_exit:
                 local.should_exit = lan.should_exit = True

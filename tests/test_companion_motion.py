@@ -470,7 +470,8 @@ def test_every_way_to_a_note_counts_as_opening_it() -> None:
     ask = (ROOT / "frontend" / "js" / "capture-ask.js").read_text(encoding="utf-8")
     flash = ask[ask.index("function flashEntry(") :]
     flash = flash[: flash.index("\n}\n")]
-    assert 'if (typeof nameMarkBuddyNoteOpened === "function") nameMarkBuddyNoteOpened(id);' in flash
+    # Unguarded since Brief 86 dropped the redundant typeof guards on eager-file functions (avatars.js is eager).
+    assert "nameMarkBuddyNoteOpened(id);" in flash and "typeof nameMarkBuddyNoteOpened" not in flash
 
 
 def test_the_large_view_enlarges_the_figure_with_scale_not_transform() -> None:

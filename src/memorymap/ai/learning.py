@@ -256,10 +256,79 @@ def corrections(session: Session, kind: str | None = None, limit: int = 500) -> 
             narrowed = or_(narrowed, AuditLog.detail.like("moved from %"))
         query = query.where(narrowed)
     rows = session.scalars(query.order_by(AuditLog.id.desc()).limit(limit)).all()
-    found = [_as_correction(row) for row in rows]
+    #: A dismissal the person cleared (`revive_dismissals`) is kept as a row and
+    #: no longer read: "forget what I dismissed" must also stop it counting as
+    #: a verdict, or the suggestion would come back and be refused again.
+    found = [_as_correction(row) for row in rows if not _payload(row).get("revived")]
     if kind is not None:
         found = [item for item in found if item.kind == kind]
     return list(reversed(found))
+
+
+#: The corrections that are a "no" to something the app suggested: what
+#: Settings, Data calls dismissed suggestions (Brief 86, decision b).
+DISMISSAL_KINDS = (
+    "dismiss_link",
+    "dismiss_merge",
+    "dismiss_link_type",
+    "dismiss_tension",
+    "dismiss_resurface",
+    "dismiss_insight",
+)
+
+
+def _live_dismissal_rows(session: Session) -> list[AuditLog]:
+    """Every dismissal still in force, as rows (not `Correction`s: clearing
+    edits the row)."""
+    query = select(AuditLog).where(
+        AuditLog.action == "correction",
+        or_(*[AuditLog.detail.like(f"{like_escape(kind)}:%", escape=LIKE_ESCAPE) for kind in DISMISSAL_KINDS]),
+    )
+    return [row for row in session.scalars(query).all() if not _payload(row).get("revived")]
+
+
+def dismissal_counts(session: Session) -> dict[str, int]:
+    """How many of each kind of dismissal is in force, kinds with none left out."""
+    counts: dict[str, int] = {}
+    for row in _live_dismissal_rows(session):
+        kind = str(_payload(row).get("kind") or "")
+        if kind in DISMISSAL_KINDS:
+            counts[kind] = counts.get(kind, 0) + 1
+    return counts
+
+
+def revive_dismissals(session: Session) -> list[int]:
+    """Forget every dismissal: the suggestions they hid may be offered again.
+
+    The rows stay, marked `revived`, so the same call can put them back
+    (`restore_dismissals`) and nothing is lost to a mis-click. Returns the ids
+    marked."""
+    marked: list[int] = []
+    for row in _live_dismissal_rows(session):
+        payload = dict(_payload(row))
+        if str(payload.get("kind") or "") not in DISMISSAL_KINDS:
+            continue
+        payload["revived"] = True
+        row.payload = payload  # a new dict: SQLAlchemy sees a JSON column change by assignment
+        marked.append(row.id)
+    session.flush()
+    return marked
+
+
+def restore_dismissals(session: Session, ids: list[int]) -> int:
+    """Put back dismissals `revive_dismissals` marked (only those: an id that
+    is not a revived dismissal is left alone)."""
+    restored = 0
+    if not ids:
+        return restored
+    for row in session.scalars(select(AuditLog).where(AuditLog.id.in_(ids), AuditLog.action == "correction")).all():
+        payload = dict(_payload(row))
+        if payload.get("revived") and str(payload.get("kind") or "") in DISMISSAL_KINDS:
+            payload.pop("revived")
+            row.payload = payload
+            restored += 1
+    session.flush()
+    return restored
 
 
 #: How many of the notes the AI filed most recently the accuracy line reads

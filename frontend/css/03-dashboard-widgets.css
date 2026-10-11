@@ -1443,6 +1443,32 @@ header#top-bar select,
   display: none;
 }
 
+/* The head of the recent list: its name, and the one action that empties it. */
+.web-recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.web-recent-clear {
+  font-size: var(--text-xs);
+}
+/* A recent search and its own remove: the row takes the room, the remove is
+   always there (muted): a control found only by hovering is not learnable. */
+.web-recent-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.web-recent-row > .web-recent {
+  flex: 1 1 auto;
+}
+.web-recent-remove {
+  flex: none;
+  color: var(--muted);
+}
+
 /* A recent search is a row you press: the ghost button, full width, its text
    on the left and cut with an ellipsis rather than wrapped. */
 .web-search-history .web-recent {

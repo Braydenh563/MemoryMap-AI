@@ -6032,3 +6032,38 @@ select {
 #settings-modal .settings-reset-section[hidden] {
   display: none;
 }
+
+/* Settings, Import and export, Recent changes (settings-data.js): each row is
+   its words over when, and the one button that puts it back. An undone row is
+   struck through and quiet, its button now "Do again". */
+.recent-change {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.recent-change-words {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+}
+/* The one action never wraps and never shrinks: the words give way instead. */
+.entry-list .recent-change .row-actions {
+  flex: none;
+  white-space: nowrap;
+  /* The list's rows reveal their actions on hover; this one is the point of
+     the row, so it is there at rest (a control you must find by hovering is
+     not learnable). */
+  opacity: 1;
+}
+.recent-change-label {
+  overflow-wrap: anywhere;
+}
+.recent-change.is-undone .recent-change-label {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.recent-change-empty {
+  list-style: none;
+}

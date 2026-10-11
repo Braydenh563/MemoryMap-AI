@@ -61,7 +61,7 @@ SLANG: dict[str, str] = {
     "whn": "when", "wen": "when", "wn": "when", "hw": "how", "hu": "who", "wher": "where",
     "whr": "where", "wer": "where", "whats": "what is", "wats": "what is", "hows": "how is",
     "wheres": "where is", "whens": "when is", "whos": "who is", "whys": "why is",
-    "wym": "what do you mean", "wdym": "what do you mean", "wbu": "what about you",
+    "wym": "what do you mean", "yk": "you know", "wdym": "what do you mean", "wbu": "what about you",
     "hbu": "how about you",
     # Contractions typed without the apostrophe.
     "im": "I am", "ive": "I have", "dont": "do not", "didnt": "did not", "doesnt": "does not",
@@ -2071,6 +2071,7 @@ def repair(text: str, report: list | None = None, known=frozenset(), fixed: list
     spelled out) is added to `fixed` as (typed, chosen), which is what lets an
     answer say how it read the question."""
     tokens = spelling.rejoin(_COMMA_RUN.sub(", ", strip_symbols(text)).split(" "), known, SLANG.keys(), fixed)
+    tokens = [spelling.drop_stray(t, known, fixed) for t in tokens]
     out: list[str] = []
     i = 0
     while i < len(tokens):
@@ -2113,22 +2114,6 @@ def _repair_slang(low: str, word: str, tail: str, out: list[str], fixed) -> None
         fixed.append((word, SLANG[low]))
 
 
-def _asking_reading(low: str, word: str, after: str, text: str, out: list[str], report, known) -> str | None:  # noqa: ANN001
-    """An asking word or a question-kind word `word` is a slip of, or None."""
-    #: A word the speller knows ("weird") is not a typo of "were".
-    spelt = (len(low) >= 4 and spelling.is_word(low, known, strict=True)) or (len(word) > 1 and word.isupper() and not text.isupper())
-    chosen = nearest(low, ASKING, after) if _at_asking_place(out) and not spelt else None
-    #: Past the opening words only the long words that name a kind
-    #: of question are repaired ("diffrence", "lastest"): a subject
-    #: word near a small word ("slow", "show") is the subject.
-    pool = ASKING
-    if not chosen and len(low) >= 6 and not spelt:
-        chosen, pool = nearest(low, KIND_WORDS, after), KIND_WORDS
-    if chosen and report is not None:
-        _report_alternative(low, word, chosen, pool, after, report)
-    return chosen
-
-
 def _report_alternative(low: str, word: str, chosen: str, pool, after: str, report: list) -> None:  # noqa: ANN001
     other = alternative(low, chosen, pool)
     #: "hwo many" is how and "hwo asked" is who: the next word
@@ -2139,34 +2124,68 @@ def _report_alternative(low: str, word: str, chosen: str, pool, after: str, repo
         report.append({"typed": word, "chosen": chosen, "alternative": other})
 
 
+def _word_core(token: str) -> str:
+    """A token without the punctuation after it."""
+    while token and not (token[-1].isalnum() or token[-1] == "_"):
+        token = token[:-1]
+    return token
+
+
+def _speller_may_read(word: str, out: list[str]) -> bool:
+    """A lower-case word, or a capitalised one opening the question, may be a
+    typo; shouting and names may not."""
+    return word.isalpha() and not word.isupper() and (word.islower() or not out)
+
+
+def _is_spelt(low: str, word: str, text: str, known) -> bool:  # noqa: ANN001
+    """Already a word or an acronym, so not a typo: the speller knows "weird"
+    (it is not "were"), and "API" in a sentence is not shouting."""
+    return (len(low) >= 4 and spelling.is_word(low, known, strict=True)) or (len(word) > 1 and word.isupper() and not text.isupper())
+
+
 def _repair_misspelt(token: str, word: str, tail: str, nxt: str, text: str, out: list[str], report, known, fixed) -> None:  # noqa: ANN001
     low = word.lower()
-    after = nxt
-    while after and not (after[-1].isalnum() or after[-1] == "_"):
-        after = after[:-1]
-    chosen = _asking_reading(low, word, after, text, out, report, known)
-    if not chosen and word.isalpha() and not word.isupper() and (word.islower() or not out):
+    after = _word_core(nxt)
+    spelt = _is_spelt(low, word, text, known)
+    chosen = nearest(low, ASKING, after) if _at_asking_place(out) and not spelt else None
+    pool = ASKING
+    if not chosen and _speller_may_read(word, out):
         if _repair_by_speller(word, tail, after, out, report, known, fixed):
             return
+    #: Past the opening words only the long words that name a kind
+    #: of question are repaired ("lastest"): a subject word near a
+    #: small word ("slow", "show") is the subject.
+    if not chosen and len(low) >= 6 and not spelt:
+        chosen, pool = nearest(low, KIND_WORDS, after), KIND_WORDS
+    if chosen and report is not None:
+        _report_alternative(low, word, chosen, pool, after, report)
     if chosen and fixed is not None and chosen.lower() != low:
         fixed.append((word, chosen))
     out.append((chosen + tail) if chosen else token)
 
 
 def _repair_by_speller(word: str, tail: str, after: str, out: list[str], report, known, fixed) -> bool:  # noqa: ANN001
-    """Reads a misspelt word as the word it is near (`spelling.fix`); True
-    when it did and `out` has the reading."""
+    """Reads a misspelt word as the word it is near (`spelling.fix`), or as two
+    words run together, one of them small ("thenthe"), tried only when no list
+    word is near; True when it did and `out` has the reading."""
+    low = word.lower()
     read = spelling.fix(
-        word.lower(), after=after.lower(), before=out[-1].strip("?!.,:;") if out else "", known=known, distance=distance,
+        low, after=after.lower(), before=out[-1].strip("?!.,:;") if out else "", known=known, distance=distance,
     )
-    if not read:
+    if read:
+        chosen = read[0].capitalize() if word[0].isupper() else read[0]
+        if report is not None and read[1]:
+            report.append({"typed": word, "chosen": chosen, "alternative": read[1]})
+        out.append(chosen + tail)
+        if fixed is not None:
+            fixed.append((word, chosen))
+        return True
+    run_on = spelling.split_run_on(low, known) if word.islower() else None
+    if not run_on:
         return False
-    chosen = read[0].capitalize() if word[0].isupper() else read[0]
-    if report is not None and read[1]:
-        report.append({"typed": word, "chosen": chosen, "alternative": read[1]})
-    out.append(chosen + tail)
+    out.append(" ".join(run_on) + tail)
     if fixed is not None:
-        fixed.append((word, chosen))
+        fixed.append((word, " ".join(run_on)))
     return True
 
 

@@ -2022,6 +2022,7 @@ function renderLanState(state) {
       ? `Names on it: ${(state.certificate.names || []).join(", ")}`
       : "";
     $("account-lan-cert-expiry").textContent = shown ? `Expires ${state.certificate.expires}` : "";
+    $("account-lan-authority").textContent = shown ? state.certificate.authority_fingerprint || "" : "";
   }
 }
 

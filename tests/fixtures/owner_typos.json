@@ -79,7 +79,8 @@
  },
  {
   "typed": "liks",
-  "repaired": "like"
+  "repaired": "like",
+  "note": "the owner's meaning is not known (like or likes); the rule reads the nearest list word"
  },
  {
   "typed": "odf the thing",
@@ -153,5 +154,185 @@
   "typed": "what is the time in westen australia right now",
   "repaired": "what is the time in western australia right now",
   "intent": "utility"
+ },
+ {
+  "typed": "everyhting is slow in the graph",
+  "repaired": "everything is slow in the graph"
+ },
+ {
+  "typed": "can you percieve the heirarchy of my notes",
+  "repaired": "can you perceive the hierarchy of my notes"
+ },
+ {
+  "typed": "how do i iomprove the throrough search",
+  "repaired": "how do i improve the thorough search"
+ },
+ {
+  "typed": "show me mroe natura;l language answers",
+  "repaired": "show me more natural language answers"
+ },
+ {
+  "typed": "who recieves the propper notifications",
+  "repaired": "who receives the proper notifications"
+ },
+ {
+  "typed": "a statisitcal summary across timexones",
+  "repaired": "a statistical summary across timezones"
+ },
+ {
+  "typed": "stop generateing featrues i did not ask for",
+  "repaired": "stop generating features i did not ask for"
+ },
+ {
+  "typed": "make the geaph nodes themnselves smoother",
+  "repaired": "make the graph nodes themselves smoother"
+ },
+ {
+  "typed": "the instand highlights on the graph are jarring",
+  "repaired": "the instant highlights on the graph are jarring"
+ },
+ {
+  "typed": "is there autocorrect everwhere in the app",
+  "repaired": "is there autocorrect everywhere in the app"
+ },
+ {
+  "typed": "ahs the timer finished",
+  "repaired": "has the timer finished"
+ },
+ {
+  "typed": "improve the nodes dn the edges",
+  "repaired": "improve the nodes and the edges"
+ },
+ {
+  "typed": "make it understandable adn learnable",
+  "repaired": "make it understandable and learnable"
+ },
+ {
+  "typed": "anythigng else i should know about the architectual decisions",
+  "repaired": "anything else i should know about the architectural decisions"
+ },
+ {
+  "typed": "what is the time in asutralia",
+  "repaired": "what is the time in australia"
+ },
+ {
+  "typed": "becasue it feels slow",
+  "repaired": "because it feels slow"
+ },
+ {
+  "typed": "when is the bolier service",
+  "repaired": "when is the boiler service"
+ },
+ {
+  "typed": "make the search more effcient",
+  "repaired": "make the search more efficient"
+ },
+ {
+  "typed": "i do not have good enought design",
+  "repaired": "i do not have good enough design"
+ },
+ {
+  "typed": "some excerts from my conversations",
+  "repaired": "some excerpts from my conversations"
+ },
+ {
+  "typed": "token expendature this week",
+  "repaired": "token expenditure this week"
+ },
+ {
+  "typed": "i want your experties and judgement",
+  "repaired": "i want your expertise and judgement"
+ },
+ {
+  "typed": "everthign in the most efficient way",
+  "repaired": "everything in the most efficient way"
+ },
+ {
+  "typed": "things i have asled for",
+  "repaired": "things i have asked for"
+ },
+ {
+  "typed": "i stil feel the main features are weak",
+  "repaired": "i still feel the main features are weak"
+ },
+ {
+  "typed": "the context od the thing it learns",
+  "repaired": "the context of the thing it learns"
+ },
+ {
+  "typed": "then the trust and poslish, thenthe code editor",
+  "repaired": "then the trust and polish, then the code editor"
+ },
+ {
+  "typed": "use it ahnd have it feel good",
+  "repaired": "use it and have it feel good"
+ },
+ {
+  "typed": "do something anc cant fix it",
+  "repaired": "do something and cannot fix it"
+ },
+ {
+  "typed": "majprly improve the whiteboard",
+  "repaired": "majorly improve the whiteboard"
+ },
+ {
+  "typed": "being indpired by and replicating them",
+  "repaired": "being inspired by and replicating them"
+ },
+ {
+  "typed": "the vendored repositories and libararies",
+  "repaired": "the vendored repositories and libraries"
+ },
+ {
+  "typed": "the ocr workspae regions are off",
+  "repaired": "the ocr workspace regions are off"
+ },
+ {
+  "typed": "resesign the focus timer",
+  "repaired": "redesign the focus timer"
+ },
+ {
+  "typed": "proffesionalise the settings",
+  "repaired": "professionalise the settings"
+ },
+ {
+  "typed": "it should be professionaly written",
+  "repaired": "it should be professionally written"
+ },
+ {
+  "typed": "make it smoothlly animated",
+  "repaired": "make it smoothly animated"
+ },
+ {
+  "typed": "somthing is wrong with the layout",
+  "repaired": "something is wrong with the layout"
+ },
+ {
+  "typed": "fix the stlying of the buttons",
+  "repaired": "fix the styling of the buttons"
+ },
+ {
+  "typed": "vissually clean utlities",
+  "repaired": "visually clean utilities"
+ },
+ {
+  "typed": "a joke yk",
+  "repaired": "a joke you know"
+ },
+ {
+  "typed": "my wierdly sized buttons",
+  "repaired": "my weirdly sized buttons"
+ },
+ {
+  "typed": "show statstics for the last week",
+  "repaired": "show statistics for the last week"
+ },
+ {
+  "typed": "ocnstellation view of my notes",
+  "repaired": "constellation view of my notes"
+ },
+ {
+  "typed": "becuas it is slow",
+  "repaired": "because it is slow"
  }
 ]

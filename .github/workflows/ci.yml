@@ -157,7 +157,15 @@ jobs:
 
       - name: Run the flows
         working-directory: tests-e2e
+        env:
+          MEMORYMAP_E2E_BUDGETS_APART: "1"
         run: npx playwright test
+
+      # The budgets time the app, so they run alone, one worker, nothing else
+      # on the runner's cores.
+      - name: Run the budgets alone
+        working-directory: tests-e2e
+        run: npx playwright test specs/budgets.spec.js --project=notebook --workers=1
 
       - name: Upload the report on failure
         if: failure()

@@ -851,16 +851,22 @@ def lan_access(request: Request, config: ConfigManager = Depends(get_config)) ->
     return _lan_state(config, request)
 
 
-@router.get("/lan-certificate.pem", dependencies=[Depends(require_unlock)])
+@router.get("/lan-certificate.pem")
 def download_lan_certificate(config: ConfigManager = Depends(get_config)) -> Response:
-    """The public certificate, for a phone to install and trust (never the key)."""
+    """The authority's certificate, for a phone to install and trust (never a key).
+
+    No unlock (INBOX 866): Settings' button is a plain navigation, because
+    iOS installs a profile only from one, and a navigation carries no
+    X-Auth-Token, so behind the lock it was a 401 every time. Nothing here is
+    secret: every TLS handshake on the LAN port already sends this certificate.
+    """
     from memorymap.core import lancert
 
-    info = lancert.read(config.data_dir)
-    if info is None:
+    pem = lancert.authority_pem(config.data_dir)
+    if pem is None:
         raise HTTPException(status_code=404, detail="No certificate yet. Turn on other devices first.")
     return Response(
-        info.cert_path.read_bytes(),
+        pem,
         media_type="application/x-x509-ca-cert",
         headers={"Content-Disposition": 'attachment; filename="memorymap-lan.crt"'},
     )

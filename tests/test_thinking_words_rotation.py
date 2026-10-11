@@ -123,7 +123,8 @@ def test_the_rotation_only_starts_in_the_enhanced_motion_branch() -> None:
 
 def test_rotation_is_gated_by_the_settings_toggle() -> None:
     body = _typing_dots_body()
-    assert "words && typeof wantsThinkingWords" in body
+    #: Unguarded since Brief 86 dropped the redundant typeof guards on eager-file functions.
+    assert "words && wantsThinkingWords()" in body and "typeof wantsThinkingWords" not in body
     assert "wantsThinkingWords()" in body
 
 

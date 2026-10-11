@@ -777,7 +777,7 @@
       </div>
       <div class="finder-bar">
         <span class="finder-icon"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></span>
-        <input type="search" id="finder-input" class="finder-input"
+        <input type="search" id="finder-input" data-search-scope="notes" class="finder-input"
           placeholder="Search everything you keep"
           aria-label="Search everything" autocomplete="off" spellcheck="false">
       </div>
@@ -2316,7 +2316,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock-group dock-find">
               <div class="search-field dock-search">
                 <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-                <input id="note-search" class="library-search search-field-input" type="search"
+                <input id="note-search" data-search-scope="notes" class="library-search search-field-input" type="search"
                   placeholder="Filter notes"
                   aria-label="Filter notes. Supports tag: or #tag, cat:, title:, before:, after:, is:favourite, has:, space:, -exclude and quoted phrases"
                   aria-describedby="search-help-hint">
@@ -3287,7 +3287,7 @@ Link to another note with [[its first few words]]."></textarea>
                only while a search or a page is on its way. -->
           <div class="web-search-field" role="search">
             <i class="ph ph-magnifying-glass web-search-icon" aria-hidden="true"></i>
-            <input id="web-query" type="search" enterkeyhint="search" autocomplete="off"
+            <input id="web-query" data-search-scope="web" type="search" enterkeyhint="search" autocomplete="off"
               placeholder="Search the web" aria-label="Search the web"
               aria-controls="web-results">
             <button id="web-stop" class="ghost small icon-only hidden" type="button"
@@ -3377,7 +3377,7 @@ Link to another note with [[its first few words]]."></textarea>
                dimming them in place (TIMELINE_PLAN decision 2). -->
           <div class="search-field dock-search">
             <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-            <input type="search" id="timeline-search" class="timeline-search search-field-input" placeholder="Find notes…" aria-label="Find matching notes">
+            <input type="search" id="timeline-search" data-search-scope="notes" class="timeline-search search-field-input" placeholder="Find notes…" aria-label="Find matching notes">
           </div>
           <!-- Which kinds of thing the journal holds (TIMELINE_PLAN.md Phase 4,
                decision 9), as one control rather than four loose ones. It was
@@ -3721,7 +3721,7 @@ Link to another note with [[its first few words]]."></textarea>
           <div class="dock-group dock-find">
             <div class="search-field dock-search">
               <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-              <input id="graph-search" class="search-field-input" type="search" placeholder="Highlight notes…"
+              <input id="graph-search" data-search-scope="notes" class="search-field-input" type="search" placeholder="Highlight notes…"
                 aria-label="Highlight matching notes in the graph">
             </div>
             <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
@@ -5724,7 +5724,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock-group dock-find">
               <div class="search-field dock-search">
                 <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-                <input id="library-search" type="search" class="library-search search-field-input"
+                <input id="library-search" data-search-scope="library" type="search" class="library-search search-field-input"
                   placeholder="Search titles and previews…"
                   aria-label="Search the library">
               </div>
@@ -5870,7 +5870,7 @@ Link to another note with [[its first few words]]."></textarea>
           <div class="dock-group dock-find">
             <div class="search-field dock-search">
               <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-              <input id="library-docs-search" class="search-field-input" type="search" placeholder="Search documents…"
+              <input id="library-docs-search" data-search-scope="documents" class="search-field-input" type="search" placeholder="Search documents…"
                 aria-label="Search documents by title or content">
             </div>
           </div>
@@ -6012,7 +6012,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock-group dock-find">
               <div class="search-field dock-search">
                 <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-                <input id="skills-search" class="skills-search search-field-input" type="search"
+                <input id="skills-search" data-search-scope="skills" class="skills-search search-field-input" type="search"
                   placeholder="Search skills…" aria-label="Search your skills">
               </div>
             </div>
@@ -6144,7 +6144,7 @@ Link to another note with [[its first few words]]."></textarea>
                  already returns every board in one small array. -->
             <div class="search-field dock-search">
               <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-              <input id="library-boards-search" class="search-field-input" type="search" placeholder="Search boards…"
+              <input id="library-boards-search" data-search-scope="boards" class="search-field-input" type="search" placeholder="Search boards…"
                 aria-label="Search boards by title">
             </div>
           </div>
@@ -7890,7 +7890,7 @@ Link to another note with [[its first few words]]."></textarea>
                small enough that a plain substring pass costs nothing. -->
           <div class="search-field dock-search">
             <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-            <input id="library-images-search" type="search" class="library-search search-field-input"
+            <input id="library-images-search" data-search-scope="images" type="search" class="library-search search-field-input"
               placeholder="Search filenames, captions and text found in files…"
               aria-label="Search the images">
           </div>
@@ -8044,7 +8044,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="dock-group dock-find">
           <div class="search-field dock-search">
             <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-            <input id="bookmark-search" type="search" class="library-search search-field-input"
+            <input id="bookmark-search" data-search-scope="bookmarks" type="search" class="library-search search-field-input"
               placeholder="Search saved bookmarks…" aria-label="Search saved bookmarks">
           </div>
         </div>
@@ -8142,7 +8142,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="dock-group dock-find">
           <div class="search-field dock-search">
             <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-            <input id="recordings-search" type="search" class="library-search search-field-input"
+            <input id="recordings-search" data-search-scope="recordings" type="search" class="library-search search-field-input"
               placeholder="Search recordings…" aria-label="Search recordings">
           </div>
         </div>
@@ -11625,6 +11625,36 @@ Link to another note with [[its first few words]]."></textarea>
               </label>
               <p class="muted">Curly quotes as you type, and two hyphens become a dash; never inside code.</p>
             </div>
+            <!-- Search (Brief 86, CHAT_PLAN decision 69): the one switch for
+                 every box's suggestions; kept on this device like simple mode. -->
+            <div class="settings-group" id="search-suggest-box">
+              <div class="row help-head">
+                <h3>Search</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="search-suggest-help" aria-controls="search-suggest-help" aria-expanded="false"
+                  title="About search suggestions" aria-label="About search suggestions">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <label class="setting-check">
+                <input type="checkbox" id="pref-search-suggest">
+                <span>Suggest as you type in search boxes</span>
+              </label>
+              <p class="muted">Recent searches, then your note titles, tags and categories, with the best match in grey.</p>
+              <div class="help-body hidden" id="search-suggest-help" role="dialog" aria-label="About search suggestions">
+                <p>
+                  Every search box offers what you searched for before, then
+                  the titles, tags and categories of your own notes that start
+                  with your words. Tab, or Right at the end of the words, takes
+                  the grey text; Down and Up walk the list, Enter takes the lit
+                  one, Escape closes it. Shift+Delete removes a lit recent
+                  search. Nothing is sent anywhere: it is built from this
+                  notebook, and remembered on this device. Settings, Import
+                  &amp; export, Clear and forget clears the recent searches in
+                  every box at once.
+                </p>
+              </div>
+            </div>
             <!-- Simple mode and the usage ledger (WORLD_CLASS_PLAN H9, row 27):
                  usage-ledger.js (lazy) wires both; theme-boot.js applies
                  simple mode before first paint. -->
@@ -12573,6 +12603,88 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="clear-app-cache" class="ghost small" type="button"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear app cache</button>
               </div>
             </div>
+
+            <!-- Brief 86 (b), the owner 2026-10-11: "should the user be able to
+                 clear their cache and recent searches in individual and all
+                 places and clear other things". Each row says what it removes
+                 and how much (settings-data.js fills the counts); each clear
+                 is undoable from its toast and from Recent changes below. -->
+            <div class="settings-group" id="clear-box">
+              <div class="row help-head">
+                <h3>Clear and forget</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="clear-help" aria-controls="clear-help" aria-expanded="false"
+                  title="About clearing" aria-label="About clearing">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">None of these touch your notes. Each can be undone for ten seconds, and from Recent changes below.</p>
+              <div class="help-body hidden" id="clear-help" role="dialog" aria-label="About clearing">
+                <p>
+                  Recent searches are what the search boxes remember, on this
+                  device. Previews are the pictures and map thumbnails this
+                  window keeps so lists draw fast; they come back by
+                  themselves, so that clear has nothing to undo. The Guide's
+                  conversation is kept in this window only. Dismissed
+                  suggestions are the ones you said no to (merges, link
+                  types, links, contradictions, reminders of old notes and
+                  insights): clearing them lets the app offer them again.
+                  Clear app cache, above, is the one that reloads the app.
+                </p>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Recent searches, everywhere</span>
+                  <small class="muted" id="clear-recents-what">Every search box's remembered searches.</small>
+                </div>
+                <div class="row"><button id="clear-recents" class="ghost small" type="button"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> Clear recent searches</button></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Cached previews and thumbnails</span>
+                  <small class="muted" id="clear-previews-what">Pictures and map previews this window keeps.</small>
+                </div>
+                <div class="row"><button id="clear-previews" class="ghost small" type="button"><i class="ph ph-image ph-lead" aria-hidden="true"></i> Clear previews</button></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>The Guide's conversation</span>
+                  <small class="muted" id="clear-guide-what">What you asked the Guide in this window.</small>
+                </div>
+                <div class="row"><button id="clear-guide" class="ghost small" type="button"><i class="ph ph-lifebuoy ph-lead" aria-hidden="true"></i> Clear the conversation</button></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Dismissed suggestions</span>
+                  <small class="muted" id="clear-dismissed-what">Suggestions you said no to.</small>
+                </div>
+                <div class="row"><button id="clear-dismissed" class="ghost small" type="button"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> Clear dismissed suggestions</button></div>
+              </div>
+            </div>
+
+            <!-- Brief 86 (c): every Settings change is kept (twenty), with its
+                 way back. settings-history.js fills the list. -->
+            <div class="settings-group" id="recent-changes-box">
+              <div class="row help-head">
+                <h3>Recent changes</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="recent-changes-help" aria-controls="recent-changes-help" aria-expanded="false"
+                  title="About recent changes" aria-label="About recent changes">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">The last twenty things you changed or cleared here, each with its Undo.</p>
+              <div class="help-body hidden" id="recent-changes-help" role="dialog" aria-label="About recent changes">
+                <p>
+                  Every setting you change and every clear on this page is
+                  listed with what it was before. Undo puts the old value back.
+                  The list is kept on this device, so it is still here after
+                  you close Settings. Changes to your notes are not listed:
+                  they have their own Undo in the status bar and the bin.
+                </p>
+              </div>
+              <ul class="entry-list recent-changes" id="recent-changes-list" aria-label="Recent changes"></ul>
+            </div>
           </section>
 
           <!-- Logs -->
@@ -12692,6 +12804,8 @@ Link to another note with [[its first few words]]."></textarea>
                 <p class="lan-fingerprint flush" id="account-lan-fingerprint"></p>
                 <p class="muted text-sm flush" id="account-lan-cert-names"></p>
                 <p class="muted text-sm flush" id="account-lan-cert-expiry"></p>
+                <p class="muted text-sm flush">Authority fingerprint, shown when the phone installs it:</p>
+                <p class="lan-fingerprint flush" id="account-lan-authority"></p>
                 <div class="row button-row">
                   <button id="account-lan-download" class="ghost small" type="button">Trust this certificate on your phone</button>
                   <button type="button" class="icon-only ghost small graph-help-toggle"
@@ -12718,10 +12832,18 @@ Link to another note with [[its first few words]]."></textarea>
                     certificate, and pick the file.
                   </p>
                   <p>
-                    If the phone says the name is wrong after this computer's
-                    address changed, the app has already made a new
-                    certificate for the new address: download and trust it
-                    again.
+                    The file is a small certificate authority made on this
+                    computer, which can only vouch for addresses on your own
+                    network. When this computer's address changes, the app
+                    makes a new certificate under the same authority, so a
+                    phone that trusts it is not asked again.
+                  </p>
+                  <p>
+                    If the phone cannot connect at all, check that both are on
+                    the same Wi-Fi (a guest network keeps devices apart), that
+                    the address starts with https, and that this computer's
+                    firewall lets the app in: Windows asks once, so choose
+                    Private networks.
                   </p>
                 </div>
               </div>

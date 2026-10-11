@@ -871,9 +871,13 @@ button.map-chip:focus-visible {
    <body> while open, placed in window coordinates under (or over) the field
    at the field's own width; the escaped menus' tier, so it shows over the
    edit form inside a sheet or a dialog as well. */
+.tag-suggest,
+.search-suggest,
+.search-suggest-ghost {
+  z-index: 2550;
+}
 .tag-suggest {
   position: fixed;
-  z-index: 2550;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -887,6 +891,99 @@ button.map-chip:focus-visible {
 .tag-suggest > .rich-picker-list {
   min-height: 0;
   flex: 1 1 auto;
+}
+/* Every search box's suggestions (search-suggest.js, LAZY_MODULES.searchSuggest;
+   Brief 86). The list is the rich picker's rows in a box lifted to <body> and
+   placed under (or over) the search field, at the escaped menus' tier like the
+   tag list (`.tag-suggest`). Opaque on purpose: no blur to keep off the
+   glass-off list, and a list over text must not show it through. */
+.search-suggest {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.search-suggest.hidden {
+  display: none;
+}
+.search-suggest > .search-suggest-list {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.search-suggest .rich-picker-row {
+  cursor: pointer;
+}
+/* A recent search's own remove: the third column of its row, quiet until the
+   row is lit, always there where there is no pointer to light it (the floor
+   under a hit target is 44px under touch). */
+.search-suggest-recent > .search-suggest-remove {
+  display: inline-grid;
+  place-items: center;
+  width: var(--target-min);
+  height: var(--target-min);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+}
+.search-suggest-recent > .search-suggest-remove:hover,
+.search-suggest-recent > .search-suggest-remove:is(:focus-visible, :has(:focus-visible)) {
+  background: var(--card);
+  color: var(--ink);
+}
+@media (hover: hover) {
+  .search-suggest-recent:not(.active) > .search-suggest-remove {
+    opacity: 0;
+  }
+}
+/* The foot: the one action that empties the recents, and the key that removes
+   one. The key is no use under a finger, so it goes where there is none. */
+.search-suggest-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* Each part keeps its one line: the Clear link never shrinks, and the key's
+   hint gives way with an ellipsis before it would wrap (INBOX 849). */
+.search-suggest-clear {
+  flex: none;
+}
+.search-suggest-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-suggest-foot.hidden {
+  display: none;
+}
+@media (pointer: coarse) {
+  .search-suggest-hint {
+    display: none;
+  }
+}
+/* Ghost text: the rest of the best completion, laid on the box's own line in
+   the muted colour at full strength (measured 5.9:1 light, 8.3:1 dark; 0.85
+   opacity dropped light to 4.2:1) (CHAT_PLAN decision 69). Fixed to the window and given the
+   box's font by the script, so it follows the caret's line without touching
+   the box's markup. */
+.search-suggest-ghost {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: pre;
+  color: var(--muted);
+  pointer-events: none;
+}
+.search-suggest-ghost.hidden {
+  display: none;
 }
 .rich-picker-list {
   margin: 0;

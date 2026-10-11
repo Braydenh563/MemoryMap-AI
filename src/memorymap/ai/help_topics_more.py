@@ -477,7 +477,9 @@ MORE_TOPICS: list[dict] = [
             "palette's actions too, so \"dark\" finds Toggle light/dark, after the "
             "notes and files. The command palette (Ctrl+K) sends what you type "
             "here: its last row, Search everything for, opens this box with "
-            "the words already searched."
+            "the words already searched. As you type it suggests your recent searches, "
+            "then note titles, tags and categories, with the best match in grey: Tab or "
+            "Right takes it, and Settings, General, Search turns it off."
         ),
         "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
@@ -2014,8 +2016,11 @@ MORE_TOPICS.extend([
             "port 8443) and sign in with your password. The first visit warns that "
             "the certificate is not trusted: compare the fingerprint shown under the "
             "switch, or use Trust this certificate on your phone, whose ? has the "
-            "iPhone and Android steps. The phone reads and writes the same notebook; "
-            "nothing goes through the internet, so the computer has to be on."
+            "iPhone and Android steps. Typing the address without https still "
+            "works: the app sends the phone on to https. If the phone cannot connect, "
+            "both must be on the same Wi-Fi (not a guest one) and this computer's "
+            "firewall must let the app in. The phone reads and writes the same "
+            "notebook; nothing goes through the internet, so the computer has to be on."
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },

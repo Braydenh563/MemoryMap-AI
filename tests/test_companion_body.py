@@ -229,3 +229,34 @@ def test_it_comes_in_three_ways_or_more_wherever_it_stands() -> None:
     assert 'atlas ? "float" : "leap"' in fall and "if (!atlas) nameMarkBuddySquash" in fall
     tumble = enter[enter.index('if (how === "tumble") {') :]
     assert '{ rotate: "0deg" },\n    ], { duration, easing: "ease-out" })' in tumble
+
+
+@needs_node
+def test_atlas_takes_three_ways_per_pose_and_never_the_last() -> None:
+    """Brief 88 (d): three variants or more per pose for the lower body,
+    the hair and the nebula stream, and a state entered again takes a
+    different one from the last time it was in it (it took the same one
+    half the time for a two-variant state, and could at any return)."""
+    life = (ROOT / "frontend" / "js" / "atlas-life.js").read_text(encoding="utf-8")
+    lower = life[life.index("const ATLAS_LOWER_STATES = {") : life.index("const ATLAS_HAIR_STATES")]
+    for state, row in re.findall(r"  (\w+): \{ ms: [0-9]+, ease: \"[^\"]+\", v: (\[\[.*\]\]) \},", lower):
+        assert row.count("], [") >= 2, state
+    hair = re.search(r"const ATLAS_HAIR_STATES = \{(.*)\};", life).group(1)
+    assert all(len(v.split(",")) >= 3 for v in re.findall(r"\[([^\]]*)\]", hair)), hair
+    neb = life[life.index("const ATLAS_NEB_STATES = {") : life.index("function atlasRigLowerAttach(")]
+    assert all(r.count("], [") >= 2 for r in re.findall(r"  \w+: (\[\[.*\]\]),", neb))
+    end = "    low.last[state] = low.variant;"
+    block = life[life.index("    const pick = live ?") : life.index(end) + len(end)]
+    script = f"""
+const spec = {{ v: [1, 2, 3] }}; const low = {{ last: {{}}, variant: 0 }}; const live = true;
+const counts = [0, 0, 0];
+for (let i = 0; i < 300; i += 1) {{
+  const state = i % 2 ? "sit" : "think"; const before = low.last[state] ?? -1;
+  {{ {block} }}
+  if (low.variant === before) throw new Error("repeat " + state);
+  counts[low.variant] += 1;
+}}
+console.log(JSON.stringify(counts));
+"""
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=30, check=True)
+    assert min(json.loads(out.stdout)) > 60

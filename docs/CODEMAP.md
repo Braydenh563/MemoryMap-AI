@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5519, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4625, test files 1067, tests 9770, plan headings 995.
+Counts: frontend functions 5519, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4625, test files 1067, tests 9771, plan headings 995.
 
 ## Frontend functions (5519)
 
@@ -2404,7 +2404,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `atlasBreathFrame` | frontend/js/atlas-life.js:529 |
 | `atlasPropLoops` | frontend/js/atlas-life.js:461 |
 | `atlasPropsFrame` | frontend/js/atlas-life.js:485 |
-| `atlasRigLower` | frontend/js/atlas-life.js:623 |
+| `atlasRigLower` | frontend/js/atlas-life.js:624 |
 | `atlasRigLowerAttach` | frontend/js/atlas-life.js:600 |
 | `atlasRingLoops` | frontend/js/atlas-life.js:20 |
 | `atlasTailAttach` | frontend/js/atlas-life.js:154 |
@@ -15629,7 +15629,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9770)
+## Tests (9771)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -15789,7 +15789,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_codeql_shapes.py | 2 |
 | tests/test_coerce_number_finite.py | 3 |
 | tests/test_command_row_shape.py | 3 |
-| tests/test_companion_body.py | 9 |
+| tests/test_companion_body.py | 10 |
 | tests/test_companion_motion.py | 101 |
 | tests/test_companion_stacking.py | 4 |
 | tests/test_companion_throw.py | 7 |

@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Atlas has three ways or more to hold its lower body, hair and nebula stream for every pose, and a pose it takes again never repeats the way it took last time (Brief 88).
 - The companion has two more ways onto the screen: it drops in from above onto its perch with a squash and a bounce (Atlas drifts down, swaying), or tumbles in from the nearer side in a roll. Every place but a hang under a bar now has three ways in or more, never the last one twice (Brief 88).
 - Atlas juggles three of its stars, reads its star map and floats cross-legged to meditate now and then: three acts drawn for it long ago that nothing ever played (a switch for them in Appearance, What it does on its own).
 - Companion: its large view has a row of things to ask of it (wave, cheer, hop, stretch, shrug, wiggle, and Atlas's own three), each played at once, waking it first if it sleeps.

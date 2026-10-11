@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5663, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4776, test files 1087, tests 9963, plan headings 996.
+Counts: frontend functions 5664, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4776, test files 1088, tests 9964, plan headings 996.
 
-## Frontend functions (5663)
+## Frontend functions (5664)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -778,43 +778,43 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `addReminder` | frontend/js/shell-reminders.js:1532 |
-| `buildSelect` | frontend/js/shell-reminders.js:1721 |
+| `addReminder` | frontend/js/shell-reminders.js:1533 |
+| `buildSelect` | frontend/js/shell-reminders.js:1722 |
 | `clearDoneReminders` | frontend/js/shell-reminders.js:983 |
 | `clipText` | frontend/js/shell-reminders.js:766 |
-| `curtainShell` | frontend/js/shell-reminders.js:1683 |
-| `defaultDueValue` | frontend/js/shell-reminders.js:1594 |
+| `curtainShell` | frontend/js/shell-reminders.js:1684 |
+| `defaultDueValue` | frontend/js/shell-reminders.js:1595 |
 | `glideStrip` | frontend/js/shell-reminders.js:296 |
-| `liftLockScreen` | frontend/js/shell-reminders.js:1704 |
+| `liftLockScreen` | frontend/js/shell-reminders.js:1705 |
 | `loadReminders` | frontend/js/shell-reminders.js:837 |
 | `markScrollEdge` | frontend/js/shell-reminders.js:430 |
 | `markTabBarRecede` | frontend/js/shell-reminders.js:501 |
 | `noteFirstImage` | frontend/js/shell-reminders.js:703 |
 | `notePreviewText` | frontend/js/shell-reminders.js:788 |
-| `nudgeDue` | frontend/js/shell-reminders.js:1363 |
+| `nudgeDue` | frontend/js/shell-reminders.js:1364 |
 | `onScrollEdge` | frontend/js/shell-reminders.js:533 |
 | `paginateDoneReminders` | frontend/js/shell-reminders.js:933 |
-| `presetDate` | frontend/js/shell-reminders.js:1252 |
-| `refreshMediaSession` | frontend/js/shell-reminders.js:1647 |
-| `refreshReminderDefaults` | frontend/js/shell-reminders.js:1384 |
-| `relativeWhen` | frontend/js/shell-reminders.js:1219 |
-| `reminderComposeIsPristine` | frontend/js/shell-reminders.js:1372 |
-| `reminderEditForm` | frontend/js/shell-reminders.js:1416 |
-| `reminderItem` | frontend/js/shell-reminders.js:1022 |
-| `reminderMadeUndo` | frontend/js/shell-reminders.js:1523 |
-| `reminderPutUndoably` | frontend/js/shell-reminders.js:1511 |
-| `reminderTarget` | frontend/js/shell-reminders.js:1200 |
+| `presetDate` | frontend/js/shell-reminders.js:1253 |
+| `refreshMediaSession` | frontend/js/shell-reminders.js:1648 |
+| `refreshReminderDefaults` | frontend/js/shell-reminders.js:1385 |
+| `relativeWhen` | frontend/js/shell-reminders.js:1220 |
+| `reminderComposeIsPristine` | frontend/js/shell-reminders.js:1373 |
+| `reminderEditForm` | frontend/js/shell-reminders.js:1417 |
+| `reminderItem` | frontend/js/shell-reminders.js:1023 |
+| `reminderMadeUndo` | frontend/js/shell-reminders.js:1524 |
+| `reminderPutUndoably` | frontend/js/shell-reminders.js:1512 |
+| `reminderTarget` | frontend/js/shell-reminders.js:1201 |
 | `revealActiveTab` | frontend/js/shell-reminders.js:256 |
 | `safeMdSlice` | frontend/js/shell-reminders.js:659 |
-| `setDue` | frontend/js/shell-reminders.js:1301 |
-| `snoozeReminderTo` | frontend/js/shell-reminders.js:1393 |
+| `setDue` | frontend/js/shell-reminders.js:1302 |
+| `snoozeReminderTo` | frontend/js/shell-reminders.js:1394 |
 | `startClockTicker` | frontend/js/shell-reminders.js:59 |
 | `startMinuteTicker` | frontend/js/shell-reminders.js:34 |
 | `stopClockTicker` | frontend/js/shell-reminders.js:63 |
 | `stripFrontmatter` | frontend/js/shell-reminders.js:776 |
-| `syncDueFromParts` | frontend/js/shell-reminders.js:1315 |
+| `syncDueFromParts` | frontend/js/shell-reminders.js:1316 |
 | `syncEdgeFade` | frontend/js/shell-reminders.js:369 |
-| `syncPartsFromDue` | frontend/js/shell-reminders.js:1307 |
+| `syncPartsFromDue` | frontend/js/shell-reminders.js:1308 |
 | `syncScrollEdges` | frontend/js/shell-reminders.js:584 |
 | `syncTabOverflowFade` | frontend/js/shell-reminders.js:214 |
 | `tabBarMode` | frontend/js/shell-reminders.js:208 |
@@ -822,8 +822,8 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `tabContentWidth` | frontend/js/shell-reminders.js:185 |
 | `tabRowSpace` | frontend/js/shell-reminders.js:120 |
 | `tickClocks` | frontend/js/shell-reminders.js:12 |
-| `toLocalInputValue` | frontend/js/shell-reminders.js:1245 |
-| `updateDueReadout` | frontend/js/shell-reminders.js:1327 |
+| `toLocalInputValue` | frontend/js/shell-reminders.js:1246 |
+| `updateDueReadout` | frontend/js/shell-reminders.js:1328 |
 | `updateReminderBadge` | frontend/js/shell-reminders.js:952 |
 | `wikiLinkLabel` | frontend/js/shell-reminders.js:727 |
 | `wikiLinkShown` | frontend/js/shell-reminders.js:753 |
@@ -5118,53 +5118,54 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `tidyTools` | frontend/js/tidy.js:348 |
 | `tidyWatchList` | frontend/js/tidy.js:59 |
 
-### frontend/js/timeline-calendar.js (43)
+### frontend/js/timeline-calendar.js (44)
 
 | Name | File:line |
 |---|---|
 | `paintTimelineCalendar` | frontend/js/timeline-calendar.js:141 |
-| `timelineCalCell` | frontend/js/timeline-calendar.js:328 |
-| `timelineCalCellHead` | frontend/js/timeline-calendar.js:420 |
+| `timelineCalCell` | frontend/js/timeline-calendar.js:349 |
+| `timelineCalCellHead` | frontend/js/timeline-calendar.js:441 |
 | `timelineCalDate` | frontend/js/timeline-calendar.js:59 |
-| `timelineCalDayLabel` | frontend/js/timeline-calendar.js:285 |
+| `timelineCalDayLabel` | frontend/js/timeline-calendar.js:306 |
 | `timelineCalDays` | frontend/js/timeline-calendar.js:111 |
-| `timelineCalDots` | frontend/js/timeline-calendar.js:441 |
-| `timelineCalDragEnd` | frontend/js/timeline-calendar.js:726 |
-| `timelineCalDragOver` | frontend/js/timeline-calendar.js:714 |
-| `timelineCalDragStart` | frontend/js/timeline-calendar.js:705 |
+| `timelineCalDots` | frontend/js/timeline-calendar.js:462 |
+| `timelineCalDragEnd` | frontend/js/timeline-calendar.js:747 |
+| `timelineCalDragOver` | frontend/js/timeline-calendar.js:735 |
+| `timelineCalDragStart` | frontend/js/timeline-calendar.js:726 |
 | `timelineCalDraw` | frontend/js/timeline-calendar.js:173 |
-| `timelineCalDrop` | frontend/js/timeline-calendar.js:733 |
-| `timelineCalDropTarget` | frontend/js/timeline-calendar.js:701 |
+| `timelineCalDrop` | frontend/js/timeline-calendar.js:754 |
+| `timelineCalDropTarget` | frontend/js/timeline-calendar.js:722 |
 | `timelineCalFetch` | frontend/js/timeline-calendar.js:95 |
-| `timelineCalFill` | frontend/js/timeline-calendar.js:368 |
-| `timelineCalFit` | frontend/js/timeline-calendar.js:385 |
-| `timelineCalFocus` | frontend/js/timeline-calendar.js:670 |
-| `timelineCalGlyph` | frontend/js/timeline-calendar.js:466 |
-| `timelineCalHead` | frontend/js/timeline-calendar.js:228 |
-| `timelineCalItem` | frontend/js/timeline-calendar.js:475 |
-| `timelineCalKeyMove` | frontend/js/timeline-calendar.js:654 |
-| `timelineCalKeys` | frontend/js/timeline-calendar.js:628 |
-| `timelineCalMonth` | frontend/js/timeline-calendar.js:293 |
-| `timelineCalMore` | frontend/js/timeline-calendar.js:356 |
-| `timelineCalMove` | frontend/js/timeline-calendar.js:595 |
-| `timelineCalMovePage` | frontend/js/timeline-calendar.js:775 |
-| `timelineCalMoveReminder` | frontend/js/timeline-calendar.js:748 |
-| `timelineCalNewReminder` | frontend/js/timeline-calendar.js:688 |
-| `timelineCalOpenDay` | frontend/js/timeline-calendar.js:572 |
-| `timelineCalOpenRow` | frontend/js/timeline-calendar.js:549 |
-| `timelineCalPick` | frontend/js/timeline-calendar.js:563 |
+| `timelineCalFill` | frontend/js/timeline-calendar.js:389 |
+| `timelineCalFit` | frontend/js/timeline-calendar.js:406 |
+| `timelineCalFocus` | frontend/js/timeline-calendar.js:691 |
+| `timelineCalGlyph` | frontend/js/timeline-calendar.js:487 |
+| `timelineCalHead` | frontend/js/timeline-calendar.js:234 |
+| `timelineCalItem` | frontend/js/timeline-calendar.js:496 |
+| `timelineCalKeyMove` | frontend/js/timeline-calendar.js:675 |
+| `timelineCalKeys` | frontend/js/timeline-calendar.js:649 |
+| `timelineCalMonth` | frontend/js/timeline-calendar.js:314 |
+| `timelineCalMore` | frontend/js/timeline-calendar.js:377 |
+| `timelineCalMount` | frontend/js/timeline-calendar.js:228 |
+| `timelineCalMove` | frontend/js/timeline-calendar.js:616 |
+| `timelineCalMovePage` | frontend/js/timeline-calendar.js:796 |
+| `timelineCalMoveReminder` | frontend/js/timeline-calendar.js:769 |
+| `timelineCalNewReminder` | frontend/js/timeline-calendar.js:709 |
+| `timelineCalOpenDay` | frontend/js/timeline-calendar.js:593 |
+| `timelineCalOpenRow` | frontend/js/timeline-calendar.js:570 |
+| `timelineCalPick` | frontend/js/timeline-calendar.js:584 |
 | `timelineCalRange` | frontend/js/timeline-calendar.js:73 |
 | `timelineCalRefocus` | frontend/js/timeline-calendar.js:213 |
-| `timelineCalSetSpan` | frontend/js/timeline-calendar.js:541 |
+| `timelineCalSetSpan` | frontend/js/timeline-calendar.js:562 |
 | `timelineCalSpan` | frontend/js/timeline-calendar.js:65 |
-| `timelineCalSpanSeg` | frontend/js/timeline-calendar.js:264 |
-| `timelineCalStop` | frontend/js/timeline-calendar.js:320 |
-| `timelineCalTimed` | frontend/js/timeline-calendar.js:415 |
+| `timelineCalSpanSeg` | frontend/js/timeline-calendar.js:278 |
+| `timelineCalStop` | frontend/js/timeline-calendar.js:341 |
+| `timelineCalTimed` | frontend/js/timeline-calendar.js:436 |
 | `timelineCalUrl` | frontend/js/timeline-calendar.js:87 |
-| `timelineCalWeek` | frontend/js/timeline-calendar.js:494 |
-| `timelineCalWeekHead` | frontend/js/timeline-calendar.js:528 |
-| `timelineCalendarReminders` | frontend/js/timeline-calendar.js:617 |
-| `timelineCalendarToday` | frontend/js/timeline-calendar.js:609 |
+| `timelineCalWeek` | frontend/js/timeline-calendar.js:515 |
+| `timelineCalWeekHead` | frontend/js/timeline-calendar.js:549 |
+| `timelineCalendarReminders` | frontend/js/timeline-calendar.js:638 |
+| `timelineCalendarToday` | frontend/js/timeline-calendar.js:630 |
 
 ### frontend/js/tour.js (47)
 
@@ -16029,7 +16030,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9963)
+## Tests (9964)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16993,6 +16994,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_time_travel_spec.py | 9 |
 | tests/test_timeline.py | 31 |
 | tests/test_timeline_auto_scale.py | 3 |
+| tests/test_timeline_cal_span_glide.py | 1 |
 | tests/test_timeline_calendar_window.py | 7 |
 | tests/test_timeline_on_this_day.py | 5 |
 | tests/test_timewords.py | 23 |
@@ -17168,7 +17170,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 1.9 The main user journeys | docs/roadmap/MODERNISATION_AUDIT.md:241 |
 | 10. Built: Phase 2 (frontend) | docs/roadmap/MINDMAP_PLAN.md:295 |
 | 10. Chat and the agent surface | docs/roadmap/PLAN.md:198 |
-| 10. Deepened 2026-10-10: the timeline (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:295 |
+| 10. Deepened 2026-10-10: the timeline (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:301 |
 | 10. Flaws found by static probes (cheap to reproduce, each with its command) | docs/roadmap/WORLD_CLASS_PLAN.md:861 |
 | 10. Not verified | docs/roadmap/ANALYSIS.md:4381 |
 | 10. Outline, navigation and view | docs/roadmap/WHITEBOARD_PLAN.md:1214 |
@@ -17180,7 +17182,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 109.3 The competitor gap analysis, triaged | docs/roadmap/BACKLOG.md:3549 |
 | 109.4 Brainstormed: not asked for, worth doing | docs/roadmap/BACKLOG.md:3588 |
 | 11. Built: the previews, Phase 4 and Phase 5 | docs/roadmap/MINDMAP_PLAN.md:299 |
-| 11. Deepened 2026-10-10: reminders and notifications (Brief 72b, decisions 69 and 71) | docs/roadmap/TIMELINE_PLAN.md:333 |
+| 11. Deepened 2026-10-10: reminders and notifications (Brief 72b, decisions 69 and 71) | docs/roadmap/TIMELINE_PLAN.md:339 |
 | 11. Graph | docs/roadmap/PLAN.md:210 |
 | 11. Keyboard shortcuts | docs/roadmap/WHITEBOARD_PLAN.md:1229 |
 | 11. Performance, accuracy and AI efficiency | docs/roadmap/BACKLOG.md:708 |
@@ -17211,7 +17213,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 116.2 Mindmaps, Phases 4-5 (MINDMAP_PLAN.md §5 items 14-21) | docs/roadmap/BACKLOG.md:3911 |
 | 116.3 PLAN.md rows not started (by track) | docs/roadmap/BACKLOG.md:3915 |
 | 116.4 Tooling | docs/roadmap/BACKLOG.md:3922 |
-| 12. Deepened 2026-10-10: the calendar (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:374 |
+| 12. Deepened 2026-10-10: the calendar (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:380 |
 | 12. Does the AI know it is an agent? | docs/roadmap/BACKLOG.md:956 |
 | 12. Library | docs/roadmap/PLAN.md:220 |
 | 12. Security review (read, not penetration-tested; each item names the file) | docs/roadmap/WORLD_CLASS_PLAN.md:917 |
@@ -17755,7 +17757,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | G. The plans' own remainders | docs/roadmap/SESSION_BRIEFS.md:722 |
 | G1 · Primary navigation scrolls off the phone screen, High | docs/roadmap/MODERNISATION_AUDIT.md:748 |
 | G2 · The category sidebar becomes a 182 px banner, Medium | docs/roadmap/MODERNISATION_AUDIT.md:761 |
-| Gates | docs/roadmap/TIMELINE_PLAN.md:277 |
+| Gates | docs/roadmap/TIMELINE_PLAN.md:283 |
 | Guides: curated instructions the AI writes to | docs/roadmap/BACKLOG.md:2505 |
 | H. Missing table stakes, security and privacy | docs/roadmap/MODERNISATION_AUDIT.md:768 |
 | H. Suggested order (feeds PLAN.md's sprints) | docs/roadmap/AUDIT.md:162 |
@@ -18062,7 +18064,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/DOCUMENTS_PLAN.md:1561 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/GRAPH_PLAN.md:595 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/MINDMAP_PLAN.md:1816 |
-| Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/TIMELINE_PLAN.md:289 |
+| Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/TIMELINE_PLAN.md:295 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/UI_MODERNISATION_PLAN.md:1436 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/WHITEBOARD_PLAN.md:1541 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/WORLD_CLASS_PLAN.md:4177 |

@@ -147,7 +147,7 @@ async function paintTimelineCalendar() {
   const pressed = document.activeElement?.closest?.("#timeline-calendar [data-cal-act]");
   if (pressed) box.dataset.refocusAct = pressed.dataset.calAct;
   if (url !== timelineCal.url) {
-    box.replaceChildren(timelineCalHead(span, first));
+    timelineCalMount(box, timelineCalHead(span, first));
     showSkeletons(box, 3);
     let read = null;
     try {
@@ -183,12 +183,12 @@ function timelineCalDraw(box, span, first, last) {
   const feed = $("timeline-feed");
   feed.classList.toggle("hidden", span !== "agenda");
   if (span === "agenda") {
-    box.replaceChildren(head);
+    timelineCalMount(box, head);
     paintTimelineFeed([...rows].sort((a, b) => b.when - a.when));
   } else {
     feed.replaceChildren();
     const grid = span === "month" ? timelineCalMonth(first, last, days) : timelineCalWeek(first, last, days, span);
-    box.replaceChildren(head, grid);
+    timelineCalMount(box, head, grid);
     timelineCalFit(grid);
   }
   const period = span === "day" ? TIMELINE_CAL_LONG.format(timelineCalDate(first))
@@ -225,9 +225,18 @@ function timelineCalRefocus(box) {
 
 //: The period's own row: earlier, its name, later, the reminders chip when
 //: the reminders tab sent the reader here, and the span.
+function timelineCalMount(box, head, grid) {
+  for (const child of [...box.children]) if (child !== head) child.remove();
+  if (box.firstChild !== head) box.prepend(head);
+  if (grid) box.appendChild(grid);
+}
+
 function timelineCalHead(span, first) {
-  const head = document.createElement("div");
-  head.className = "timeline-cal-head";
+  //: One head for good, with its span strip never lifted out: moving an element
+  //: cancels its running animation, which is the strip's glide.
+  const head = timelineCal.headEl || (timelineCal.headEl = Object.assign(document.createElement("div"), { className: "timeline-cal-head" }));
+  const seg = span === "agenda" ? null : timelineCalSpanSeg(span);
+  for (const child of [...head.children]) if (child !== seg) child.remove();
   const unit = span === "agenda" ? "month" : span;
   const step = (delta) => smallButton(
     delta < 0 ? "ph:caret-left" : "ph:caret-right",
@@ -247,7 +256,7 @@ function timelineCalHead(span, first) {
   //: Today is the dock's own button (and T), not a second one here.
   back.dataset.calAct = "earlier";
   on.dataset.calAct = "later";
-  head.append(back, title, on);
+  head.prepend(back, title, on);
   if (timelineCal.only) {
     const only = smallButton("ph:x Show: reminders", "Show every kind again", () => {
       timelineCal.only = null;
@@ -255,28 +264,40 @@ function timelineCalHead(span, first) {
     }, false);
     only.className = "library-chip active timeline-cal-only";
     only.dataset.calAct = "only";
-    head.appendChild(only);
+    seg ? seg.before(only) : head.appendChild(only);
   }
-  if (span !== "agenda") head.appendChild(timelineCalSpanSeg(span));
+  if (seg && seg.parentNode !== head) head.appendChild(seg);
   return head;
 }
 
+//: The strip is kept between paints and only its buttons' state changes: a
+//: strip built afresh each paint has no earlier position for `glideStrip`
+//: (shell-reminders.js) to slide from, so the choice jumped (the owner,
+//: 2026-10-11). Month is left out below 1024, so the kept strip is rebuilt
+//: when the set of options differs.
 function timelineCalSpanSeg(span) {
-  const seg = document.createElement("div");
-  seg.className = "seg seg-compact timeline-cal-span";
-  seg.setAttribute("role", "group");
-  seg.setAttribute("aria-label", "Month, week or day");
   const wide = window.matchMedia("(min-width: 1024px)").matches;
-  for (const name of TIMELINE_CAL_SPANS) {
-    if (name === "month" && !wide) continue;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.calSpan = name;
-    button.textContent = name[0].toUpperCase() + name.slice(1);
-    const pressed = name === span;
+  const names = TIMELINE_CAL_SPANS.filter((name) => wide || name !== "month");
+  let seg = timelineCal.spanSeg;
+  if (!seg || seg.dataset.spans !== names.join()) {
+    seg = document.createElement("div");
+    seg.className = "seg seg-compact timeline-cal-span";
+    seg.setAttribute("role", "group");
+    seg.setAttribute("aria-label", "Month, week or day");
+    seg.dataset.spans = names.join();
+    for (const name of names) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.calSpan = name;
+      button.textContent = name[0].toUpperCase() + name.slice(1);
+      seg.appendChild(button);
+    }
+    timelineCal.spanSeg = seg;
+  }
+  for (const button of seg.children) {
+    const pressed = button.dataset.calSpan === span;
     button.classList.toggle("active", pressed);
     button.setAttribute("aria-pressed", String(pressed));
-    seg.appendChild(button);
   }
   return seg;
 }

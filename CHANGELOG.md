@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Timeline calendar: the Month, Week and Day choice slides to the one you press, as the other segmented controls do.
+- Reminders: when some bulk deletes or restores fail, the toast has a Try again for just those reminders.
 - Timeline: notes you already have that name a date ("on 2026-10-25", "16 October 2026") are read once in the background, as "Reading dates in notes" in Background jobs, and move to that day; a note naming two dates sits on the first and shows a quiet "also on" chip on the other in the calendar; the feed's range keeps a note by the day it is about, as the calendar does; a date and its time print the same way everywhere (to the minute, in your locale).
 - Quick note: a note held while the server is away says when its reminder was not set; after a server restart a changed setting shows the lock screen instead of a "Locked" toast; the "Models aren't available yet" notice has an Open Settings, Models button.
 - Reminders: the edit form changes the early alert (none, 5, 15 minutes, 1 hour, 1 day before); a reminder you dismissed, snoozed and that is overdue again comes back to the bell; a reminder made from a note or document says "About <its name>" in its notification and the bell; Add names the missing part (text or time).

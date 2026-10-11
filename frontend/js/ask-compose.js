@@ -379,6 +379,34 @@ function digestShape(answerEl, shape) {
   }
 }
 
+//: **Short by default, More expands** (CHAT_PLAN B5): the lines past the
+//: short answer arrive cited and are folded here behind one plain-tier
+//: "Show five more", found by the bold label each opens with (the server's
+//: `support.more.labels`), so the marks inside them keep their numbers.
+//: Pressed, they show and the first of them takes focus.
+function digestMore(answerEl, more) {
+  if (!answerEl || !more || !Array.isArray(more.labels) || !more.labels.length) return;
+  const wanted = new Set(more.labels.map((l) => `${l}:`));
+  const folded = [...answerEl.querySelectorAll(":scope > p")].filter((p) => {
+    const lead = p.firstElementChild;
+    return lead && lead.tagName === "STRONG" && p.firstChild === lead && wanted.has(lead.textContent.trim());
+  });
+  if (!folded.length) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "linklike digest-more";
+  setLabel(button, `ph:caret-down ${more.label}`);
+  button.setAttribute("aria-expanded", "false");
+  for (const p of folded) p.hidden = true;
+  folded[0].before(button);
+  button.addEventListener("click", () => {
+    for (const p of folded) p.hidden = false;
+    button.remove();
+    folded[0].tabIndex = -1;
+    folded[0].focus({ preventScroll: true });
+  });
+}
+
 //: The digest's one offer (CHAT_PLAN decision 70, B12): its last line, a
 //: question the answer asks ("Remind you to ask the tutor on Thursday?"),
 //: made the button that does it. Plain tier (`.linklike`): an action in

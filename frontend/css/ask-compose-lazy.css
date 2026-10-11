@@ -129,3 +129,11 @@
   font-weight: 600;
   color: var(--muted);
 }
+/* The More fold's one button (B5): a plain-tier action in the answer's flow,
+   its own line between the short answer and what it folds. */
+.digest-more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-block: var(--space-1);
+}

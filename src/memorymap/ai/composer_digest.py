@@ -52,6 +52,7 @@ _BASE = {
     "who_many": "{name} comes up in {count}, {span}.",
     "pick": "The {side}, by your notes: {why}.",
     "more_right": "{count} more on the right.",
+    "more_show": "Show {count} more",
     "nothing_yet": "Nothing yet on {facets}.",
     "remind": "Remind you to {action}?",
     "checklist": "Save it as a checklist note?",
@@ -305,6 +306,10 @@ class _Out:
     #: The "so what" after the facts (B1, B4): how alone or how stale they
     #: are, said once, before the offer.
     closing: list[str] = field(default_factory=list)
+    #: Lines past the short answer (B5): sent, cited, and folded behind one
+    #: "Show two more" the page draws, so the answer is short by default and
+    #: the rest is a press away rather than only in the notes on the right.
+    more: list[str] = field(default_factory=list)
 
 
 def _day(d: date | None, today: date) -> str:
@@ -385,6 +390,11 @@ def _second_person(text: str) -> str:
 _TODAY: ContextVar[date | None] = ContextVar("digest_today", default=None)
 #: Every note the route read, for "none of them has a note of its own".
 _VIEWS: ContextVar[list] = ContextVar("digest_views", default=[])
+#: Whether the question asks what a picture says. The words the app read in
+#: a picture can run to pages and are private in a way its caption is not:
+#: they are quoted when asked for, when there is no caption to say instead,
+#: or when the note is mostly its picture.
+_ASKS_WORDS: ContextVar[bool] = ContextVar("digest_asks_words", default=False)
 _PIN = re.compile(
     r"\b(?P<pre>(?:before|by|until|in|from) )?(?:the (?P<nth>\d{1,2})(?:st|nd|rd|th) of )?(?P<which>next|this|last) (?P<unit>week|month|weekend)\b",
     re.I,
@@ -412,7 +422,11 @@ def _pin(text: str, written: date) -> str:
             return f"{pre}the weekend of {_day(saturday, today)}"
         return f"{pre}the week of {_day(written + timedelta(days=7 * step), today)}"
 
-    return _PIN.sub(said, text)
+    text = _PIN.sub(said, text)
+    #: "Trimmed my first bowl today", written 2 September, is "on 2
+    #: September"; under that day's own label the day is dropped (`_lines`).
+    text = re.sub(r"\s*\b(today|tonight|yesterday)\b", lambda m: f" on {_day(written - timedelta(days=m.group(1).lower() == 'yesterday'), today)}", text, flags=re.I)
+    return text
 
 
 def _tidy(text: str, written: date | None = None) -> str:
@@ -422,6 +436,10 @@ def _tidy(text: str, written: date | None = None) -> str:
         #: With no day to pin it to, "next week" is stale by now and goes;
         #: "the 14th of next month" is the date itself and stays.
         text = _RELATIVE.sub(lambda m: m.group(0) if re.search(r"\bof\s*$", text[:m.start()]) else "", text)
+    #: A hashtag is filing, not something the person said: trailing ones go
+    #: ("quicksort is n log n. #uni"), one inside a sentence keeps its word.
+    text = re.sub(r"(?:\s*#[A-Za-z][\w-]*)+\s*$", "", text)
+    text = re.sub(r"(?<![\w&/])#([A-Za-z][\w-]*)", r"\1", text)
     text = re.sub(r"\s+([,.;])", r"\1", text)
     return text.strip().rstrip(".!").strip()
 
@@ -450,11 +468,14 @@ def _facts(view: composer.NoteView, names: set[str], subject: set[str] | None = 
     note_label = ""
     shown = [s for s in view.sentences if s.kind == "picture"]
     read = [s for s in view.sentences if s.kind == "picture_text"]
+    #: A note that is mostly its picture ("League stats" and a screenshot):
+    #: the words in it are what the note says.
+    mostly = sum(1 for s in view.sentences if s.kind not in ("picture", "picture_text")) <= 1
     if shown or read:
         #: A picture is one fact, what it shows and the words in it, the
         #: words quoted as read (INBOX 787: never run into the caption).
         what = shown[0].text.strip().rstrip(".") if shown else ""
-        words = realise.join_items([f"\u201c{r.text.strip()}\u201d" for r in read[:3]])
+        words = realise.join_items([f"\u201c{r.text.strip()}\u201d" for r in read[:3]]) if (_ASKS_WORDS.get() or not shown or mostly) else ""
         body = (f"a picture of {_lower_first(what, set())}" if what else "a picture") + (f" reading {words}" if words else "")
         out.append(Fact(view, (shown or read)[0], "", body, ""))
     for i, s in enumerate(view.sentences):
@@ -558,7 +579,12 @@ def _topic(question: str, members: list[composer.NoteView]) -> str:
     return " ".join(terms) or (shared[0] if shared else "this")
 
 
-def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = None, by_day: date | None = None) -> int:
+#: How many lines the More fold holds past the short answer; the rest stay
+#: "N more on the right".
+MORE_LINES = 8
+
+
+def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = None, by_day: date | None = None, more: bool = False) -> int:
     """Facts grouped under their labels, oldest note first, one line a label;
     the line carries its first note for its one citation mark."""
     groups: dict[str, list[Fact]] = {}
@@ -575,10 +601,10 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
             label = _day(f.view.written, by_day)
         groups.setdefault(label or PHRASES["also"], []).append(f)
     shown = 0
-    for label, held in list(groups.items())[:limit]:
-        bodies = list(dict.fromkeys(_lower_first(f.body, _NAMES.get()) for f in held))
+    for i, (label, held) in enumerate(list(groups.items())[: limit + (MORE_LINES if more else 0)]):
+        bodies = list(dict.fromkeys(_lower_first(f.body.replace(f" on {label}", ""), _NAMES.get()) for f in held))
         line_body = "; ".join(bodies)
-        out.lines.append(f"**{label}:** {line_body}.")
+        (out.lines if i < limit else out.more).append(f"**{label}:** {line_body}.")
         out.rows.append(_row(line_body, held[0]))
         shown += 1
     return shown
@@ -644,7 +670,7 @@ def _overview(out: _Out, question: str, members, facts, today: date, kind: str) 
     else:
         out.lines.append(PHRASES["overview"].format(count=_count(len(members)), topic=topic, span=_span(members, today)))
     shown_notes = {f.view.id for f in facts}
-    _lines(out, facts, LINES[kind], by_day=today)
+    _lines(out, facts, LINES[kind], by_day=today, more=kind == "overview")
     hidden = len(members) - len({r["note_id"] for r in out.rows})
     if kind == "overview" and hidden > 0 and len(shown_notes) > LINES[kind]:
         out.lines.append(PHRASES["more_right"].format(count=_count(hidden).capitalize()))
@@ -892,6 +918,7 @@ def answer(question: str, notes: list[dict], *, today: date | None = None, voice
     _VOICE.set(voice if voice in VOICES else "natural")
     _TURN.set(turn)
     _VIEWS.set(views)
+    _ASKS_WORDS.set(bool(re.search(r"\b(?:says?|said|reads?|written|text|words?|wording)\b", question, re.I)))
     wants_context = bool(set(composer._words(asked)) & {composer._stem(t) for t in CONTEXT_TAGS})
     if not wants_context:
         views = [v for v in views if not _context_note(v)]
@@ -1043,10 +1070,19 @@ def _left(out: _Out, question: str, members, views, names: set[str], today: date
     return True
 
 
+def _more(out: _Out) -> dict | None:
+    """What the page folds: the More lines by their labels (the bold words
+    each opens with), and the button's words."""
+    if not out.more:
+        return None
+    labels = [m.group(1) for line in out.more if (m := re.match(r"\*\*(.+?):\*\*", line))]
+    return {"labels": labels, "label": PHRASES["more_show"].format(count=realise.count_word(len(out.more))), "lines": list(out.more)}
+
+
 def _result(out: _Out, kind: str, question: str) -> dict:
     #: One paragraph a line: a single newline inside a paragraph is a space
     #: to every markdown reader, so the labelled lines ran together.
-    paragraphs = list(out.lines) + out.closing[:1]
+    paragraphs = list(out.lines) + out.more + out.closing[:1]
     if out.offer:
         paragraphs.append(out.offer["label"])
     text = "\n\n".join(paragraphs)
@@ -1057,7 +1093,7 @@ def _result(out: _Out, kind: str, question: str) -> dict:
         #: `digest` and `offer` ride on the support too: it is what the Ask
         #: box hands its grounding renderer, which then draws one mark a line
         #: and no chips or count under the answer.
-        "support": {"supported": n, "sentences": n, "unsupported": [], "digest": True, "offer": out.offer, "shape": kind},
+        "support": {"supported": n, "sentences": n, "unsupported": [], "digest": True, "offer": out.offer, "shape": kind, "more": _more(out)},
         "shape": f"digest:{kind}",
         "parts": [("template", text)],
         "next": [],

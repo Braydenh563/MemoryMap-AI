@@ -110,6 +110,7 @@ REACHED_AFTER_LOAD = {
     #: ensureModule('askCompose') in renderAnswerGrounding.
     "digestOffer": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
     "digestShape": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
+    "digestMore": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
     #: Brief bootdiet: the catalogue is in the palette's bundle, and every other
     #: reader (Tools and features, Quick access, startApp's recovered recordings)
     #: awaits `lazyScript` / `ensureModule` before it reads or calls.

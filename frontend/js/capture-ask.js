@@ -1790,6 +1790,7 @@ function renderAnswerGrounding(
     target.classList.add("hidden");
     ensureModule("askCompose").then(() => {
       digestShape(answerEl, support.shape);
+      digestMore(answerEl, support.more);
       digestOffer(answerEl, support.offer);
     }).catch(() => {});
     return;

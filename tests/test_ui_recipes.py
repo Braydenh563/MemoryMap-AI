@@ -5382,7 +5382,7 @@ def test_answer_shape_is_lifted_in_one_place():
     """CHAT_PLAN decision 71: a count's figure and a who card are lifted from
     the rendered answer in one function, on tokens, without markup strings."""
     text = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
-    body = text[text.index("function digestShape"):text.index("//: The digest's one offer")]
+    body = text[text.index("function digestShape"):text.index("//: **Short by default, More expands**")]
     assert 'className = "digest-figure"' in body and 'className = "digest-card"' in body
     assert "innerHTML" not in body and "setLabel(head" in body
     css = (ROOT / "frontend/css/ask-compose-lazy.css").read_text(encoding="utf-8")
@@ -5391,5 +5391,7 @@ def test_answer_shape_is_lifted_in_one_place():
         assert token in card, token
     builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "digest-card" in p.read_text(encoding="utf-8")]
     assert builders == ["ask-compose.js"], builders
+    more = text[text.index("function digestMore"):text.index("//: The digest's one offer")]
+    assert 'className = "linklike digest-more"' in more and "aria-expanded" in more and ".hidden = true" in more
     ask = (ROOT / "frontend/js/capture-ask.js").read_text(encoding="utf-8")
-    assert "digestShape(answerEl, support.shape)" in ask
+    assert "digestShape(answerEl, support.shape)" in ask and "digestMore(answerEl, support.more)" in ask

@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5438, frontend ids 2351, CSS sections 489, backend routes 550, backend modules 4591, test files 1052, tests 9632, plan headings 977.
+Counts: frontend functions 5439, frontend ids 2351, CSS sections 489, backend routes 550, backend modules 4592, test files 1052, tests 9636, plan headings 977.
 
-## Frontend functions (5438)
+## Frontend functions (5439)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -324,34 +324,34 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 |---|---|
 | `addInlineCitations` | frontend/js/capture-ask.js:1128 |
 | `announce` | frontend/js/capture-ask.js:796 |
-| `answerFigure` | frontend/js/capture-ask.js:1980 |
-| `answerObject` | frontend/js/capture-ask.js:2073 |
-| `askAsOf` | frontend/js/capture-ask.js:3343 |
-| `askNotesOnTheRight` | frontend/js/capture-ask.js:2195 |
-| `askQuestion` | frontend/js/capture-ask.js:2943 |
-| `askStatusBusy` | frontend/js/capture-ask.js:2913 |
-| `askStatusText` | frontend/js/capture-ask.js:2898 |
+| `answerFigure` | frontend/js/capture-ask.js:1981 |
+| `answerObject` | frontend/js/capture-ask.js:2074 |
+| `askAsOf` | frontend/js/capture-ask.js:3344 |
+| `askNotesOnTheRight` | frontend/js/capture-ask.js:2196 |
+| `askQuestion` | frontend/js/capture-ask.js:2944 |
+| `askStatusBusy` | frontend/js/capture-ask.js:2914 |
+| `askStatusText` | frontend/js/capture-ask.js:2899 |
 | `citationInsertionPoint` | frontend/js/capture-ask.js:1100 |
 | `citationKey` | frontend/js/capture-ask.js:1053 |
 | `citationMarker` | frontend/js/capture-ask.js:1219 |
 | `citationNumbers` | frontend/js/capture-ask.js:1020 |
 | `citationPeekText` | frontend/js/capture-ask.js:1386 |
 | `citationTextIndex` | frontend/js/capture-ask.js:1067 |
-| `clearAskAnswerFoot` | frontend/js/capture-ask.js:2124 |
+| `clearAskAnswerFoot` | frontend/js/capture-ask.js:2125 |
 | `clearCaptureStatusOnInput` | frontend/js/capture-ask.js:545 |
 | `clearCaptureTagSuggestions` | frontend/js/capture-ask.js:486 |
 | `clearCitedPassage` | frontend/js/capture-ask.js:1592 |
 | `clickableResult` | frontend/js/capture-ask.js:979 |
 | `closeCitationPeek` | frontend/js/capture-ask.js:1493 |
 | `collapseCitationRuns` | frontend/js/capture-ask.js:1194 |
-| `copyAnswer` | frontend/js/capture-ask.js:3272 |
+| `copyAnswer` | frontend/js/capture-ask.js:3273 |
 | `createDocumentNamed` | frontend/js/capture-ask.js:291 |
-| `everyRowScored` | frontend/js/capture-ask.js:2427 |
+| `everyRowScored` | frontend/js/capture-ask.js:2428 |
 | `evidenceBlock` | frontend/js/capture-ask.js:1354 |
-| `evidenceRows` | frontend/js/capture-ask.js:1904 |
+| `evidenceRows` | frontend/js/capture-ask.js:1905 |
 | `evidenceSignals` | frontend/js/capture-ask.js:1332 |
 | `evidenceSpan` | frontend/js/capture-ask.js:1325 |
-| `evidenceToggle` | frontend/js/capture-ask.js:1871 |
+| `evidenceToggle` | frontend/js/capture-ask.js:1872 |
 | `filedByText` | frontend/js/capture-ask.js:220 |
 | `filingOutcomeText` | frontend/js/capture-ask.js:181 |
 | `flashCategory` | frontend/js/capture-ask.js:949 |
@@ -360,14 +360,14 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `focusCaptureBox` | frontend/js/capture-ask.js:449 |
 | `groundingThumbs` | frontend/js/capture-ask.js:1743 |
 | `heldOffline` | frontend/js/capture-ask.js:559 |
-| `holdPictureTokens` | frontend/js/capture-ask.js:1974 |
-| `liveMarkdownRenderer` | frontend/js/capture-ask.js:2775 |
-| `loadAskHistoryBadge` | frontend/js/capture-ask.js:3307 |
+| `holdPictureTokens` | frontend/js/capture-ask.js:1975 |
+| `liveMarkdownRenderer` | frontend/js/capture-ask.js:2776 |
+| `loadAskHistoryBadge` | frontend/js/capture-ask.js:3308 |
 | `loadCaptureDocuments` | frontend/js/capture-ask.js:276 |
-| `loadSuggestions` | frontend/js/capture-ask.js:3278 |
-| `loadTemplates` | frontend/js/capture-ask.js:3377 |
-| `matchReasonBadge` | frontend/js/capture-ask.js:2431 |
-| `newChat` | frontend/js/capture-ask.js:2856 |
+| `loadSuggestions` | frontend/js/capture-ask.js:3279 |
+| `loadTemplates` | frontend/js/capture-ask.js:3378 |
+| `matchReasonBadge` | frontend/js/capture-ask.js:2432 |
+| `newChat` | frontend/js/capture-ask.js:2857 |
 | `notePictures` | frontend/js/capture-ask.js:1728 |
 | `noteSurfaceIfAny` | frontend/js/capture-ask.js:414 |
 | `noteTemplateForUse` | frontend/js/capture-ask.js:396 |
@@ -378,39 +378,39 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `openDocumentFromNote` | frontend/js/capture-ask.js:418 |
 | `openNoteAtPassage` | frontend/js/capture-ask.js:918 |
 | `pictureItems` | frontend/js/capture-ask.js:1740 |
-| `placeAnswerFigures` | frontend/js/capture-ask.js:2015 |
+| `placeAnswerFigures` | frontend/js/capture-ask.js:2016 |
 | `placeResultBadge` | frontend/js/capture-ask.js:974 |
 | `renderAnswerGrounding` | frontend/js/capture-ask.js:1778 |
 | `renderAnswerSupport` | frontend/js/capture-ask.js:1676 |
-| `renderAskAnswerFoot` | frontend/js/capture-ask.js:2141 |
-| `renderAskFollowups` | frontend/js/capture-ask.js:2212 |
-| `renderAskHint` | frontend/js/capture-ask.js:2256 |
-| `renderAskTrail` | frontend/js/capture-ask.js:2830 |
-| `renderAskedQuestion` | frontend/js/capture-ask.js:2874 |
+| `renderAskAnswerFoot` | frontend/js/capture-ask.js:2142 |
+| `renderAskFollowups` | frontend/js/capture-ask.js:2213 |
+| `renderAskHint` | frontend/js/capture-ask.js:2257 |
+| `renderAskTrail` | frontend/js/capture-ask.js:2831 |
+| `renderAskedQuestion` | frontend/js/capture-ask.js:2875 |
 | `renderCaptureDocumentAdder` | frontend/js/capture-ask.js:349 |
 | `renderCaptureDocuments` | frontend/js/capture-ask.js:311 |
 | `renderCaptureTagSuggestions` | frontend/js/capture-ask.js:494 |
-| `renderChatMeta` | frontend/js/capture-ask.js:2295 |
-| `renderEvidenceView` | frontend/js/capture-ask.js:1926 |
+| `renderChatMeta` | frontend/js/capture-ask.js:2296 |
+| `renderEvidenceView` | frontend/js/capture-ask.js:1927 |
 | `renderRelatedElsewhere` | frontend/js/capture-ask.js:1604 |
 | `renderToolsUnsupportedNotice` | frontend/js/capture-ask.js:1708 |
 | `resetCaptureForm` | frontend/js/capture-ask.js:456 |
-| `retryAnswer` | frontend/js/capture-ask.js:3268 |
+| `retryAnswer` | frontend/js/capture-ask.js:3269 |
 | `saveEntry` | frontend/js/capture-ask.js:573 |
 | `saveEntryAsDraft` | frontend/js/capture-ask.js:698 |
 | `scheduleCaptureTagSuggestions` | frontend/js/capture-ask.js:520 |
 | `scheduleCitationPeek` | frontend/js/capture-ask.js:1367 |
 | `scheduleCitationPeekClose` | frontend/js/capture-ask.js:1378 |
 | `scrollEditingEntryIntoView` | frontend/js/capture-ask.js:820 |
-| `setAnsweredBy` | frontend/js/capture-ask.js:2286 |
-| `setAskScope` | frontend/js/capture-ask.js:3335 |
-| `setAsking` | frontend/js/capture-ask.js:2816 |
+| `setAnsweredBy` | frontend/js/capture-ask.js:2287 |
+| `setAskScope` | frontend/js/capture-ask.js:3336 |
+| `setAsking` | frontend/js/capture-ask.js:2817 |
 | `settleCaptureStatus` | frontend/js/capture-ask.js:125 |
-| `showAskAsOf` | frontend/js/capture-ask.js:3349 |
+| `showAskAsOf` | frontend/js/capture-ask.js:3350 |
 | `showCitedPassage` | frontend/js/capture-ask.js:1561 |
-| `stopAnswer` | frontend/js/capture-ask.js:2822 |
-| `streamChat` | frontend/js/capture-ask.js:2462 |
-| `streamChatEvents` | frontend/js/capture-ask.js:2505 |
+| `stopAnswer` | frontend/js/capture-ask.js:2823 |
+| `streamChat` | frontend/js/capture-ask.js:2463 |
+| `streamChatEvents` | frontend/js/capture-ask.js:2506 |
 | `watchFiling` | frontend/js/capture-ask.js:48 |
 | `withTitle` | frontend/js/capture-ask.js:434 |
 
@@ -2339,12 +2339,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `drawAskChart` | frontend/js/ask-chart.js:185 |
 | `renderAskChart` | frontend/js/ask-chart.js:169 |
 
-### frontend/js/ask-compose.js (10)
+### frontend/js/ask-compose.js (11)
 
 | Name | File:line |
 |---|---|
 | `askAnswerFrom` | frontend/js/ask-compose.js:29 |
-| `digestOffer` | frontend/js/ask-compose.js:388 |
+| `digestMore` | frontend/js/ask-compose.js:387 |
+| `digestOffer` | frontend/js/ask-compose.js:416 |
 | `digestShape` | frontend/js/ask-compose.js:349 |
 | `linkCitedTitles` | frontend/js/ask-compose.js:78 |
 | `markSaidSentences` | frontend/js/ask-compose.js:139 |
@@ -9005,7 +9006,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/08-consistency.css | 10537 |
 | frontend/css/09-editor.css | 1386 |
 | frontend/css/10-responsive.css | 2611 |
-| frontend/css/ask-compose-lazy.css | 131 |
+| frontend/css/ask-compose-lazy.css | 139 |
 | frontend/css/atlas-lazy.css | 52 |
 | frontend/css/captions-lazy.css | 78 |
 | frontend/css/first-run-lazy.css | 38 |
@@ -9583,7 +9584,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4591)
+## Backend modules (4592)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10070,68 +10071,69 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `split_parts` | src/memorymap/ai/composer.py:2783 |
 | `subject_terms` | src/memorymap/ai/composer.py:625 |
 
-### src/memorymap/ai/composer_digest.py (40)
+### src/memorymap/ai/composer_digest.py (41)
 
 | Name | File:line |
 |---|---|
-| `Fact` | src/memorymap/ai/composer_digest.py:292 |
-| `_Capitals` | src/memorymap/ai/composer_digest.py:151 |
-| `_Out` | src/memorymap/ai/composer_digest.py:301 |
-| `_Phrases` | src/memorymap/ai/composer_digest.py:140 |
-| `_best` | src/memorymap/ai/composer_digest.py:698 |
-| `_capitalised_inside` | src/memorymap/ai/composer_digest.py:329 |
-| `_compare` | src/memorymap/ai/composer_digest.py:806 |
-| `_context_note` | src/memorymap/ai/composer_digest.py:429 |
-| `_count` | src/memorymap/ai/composer_digest.py:629 |
-| `_day` | src/memorymap/ai/composer_digest.py:310 |
-| `_dictionary` | src/memorymap/ai/composer_digest.py:350 |
-| `_facts` | src/memorymap/ai/composer_digest.py:434 |
-| `_gone_quiet` | src/memorymap/ai/composer_digest.py:682 |
-| `_kind_offer` | src/memorymap/ai/composer_digest.py:952 |
-| `_left` | src/memorymap/ai/composer_digest.py:1010 |
-| `_lift_table` | src/memorymap/ai/composer_digest.py:989 |
-| `_lines` | src/memorymap/ai/composer_digest.py:561 |
-| `_lower_first` | src/memorymap/ai/composer_digest.py:361 |
-| `_members` | src/memorymap/ai/composer_digest.py:512 |
-| `_missing` | src/memorymap/ai/composer_digest.py:601 |
-| `_note_offer` | src/memorymap/ai/composer_digest.py:948 |
-| `_offer` | src/memorymap/ai/composer_digest.py:612 |
-| `_overview` | src/memorymap/ai/composer_digest.py:633 |
-| `_pin` | src/memorymap/ai/composer_digest.py:394 |
-| `_progress` | src/memorymap/ai/composer_digest.py:657 |
-| `_result` | src/memorymap/ai/composer_digest.py:1046 |
-| `_row` | src/memorymap/ai/composer_digest.py:587 |
-| `_say_fact` | src/memorymap/ai/composer_digest.py:709 |
-| `_second_person` | src/memorymap/ai/composer_digest.py:374 |
-| `_single` | src/memorymap/ai/composer_digest.py:726 |
-| `_span` | src/memorymap/ai/composer_digest.py:317 |
-| `_subject` | src/memorymap/ai/composer_digest.py:508 |
-| `_tidy` | src/memorymap/ai/composer_digest.py:418 |
-| `_topic` | src/memorymap/ai/composer_digest.py:540 |
-| `_who` | src/memorymap/ai/composer_digest.py:787 |
-| `answer` | src/memorymap/ai/composer_digest.py:877 |
-| `clean` | src/memorymap/ai/composer_digest.py:265 |
-| `kind_of` | src/memorymap/ai/composer_digest.py:279 |
-| `sample` | src/memorymap/ai/composer_digest.py:162 |
-| `web` | src/memorymap/ai/composer_digest.py:1076 |
+| `Fact` | src/memorymap/ai/composer_digest.py:293 |
+| `_Capitals` | src/memorymap/ai/composer_digest.py:152 |
+| `_Out` | src/memorymap/ai/composer_digest.py:302 |
+| `_Phrases` | src/memorymap/ai/composer_digest.py:141 |
+| `_best` | src/memorymap/ai/composer_digest.py:724 |
+| `_capitalised_inside` | src/memorymap/ai/composer_digest.py:334 |
+| `_compare` | src/memorymap/ai/composer_digest.py:832 |
+| `_context_note` | src/memorymap/ai/composer_digest.py:447 |
+| `_count` | src/memorymap/ai/composer_digest.py:655 |
+| `_day` | src/memorymap/ai/composer_digest.py:315 |
+| `_dictionary` | src/memorymap/ai/composer_digest.py:355 |
+| `_facts` | src/memorymap/ai/composer_digest.py:452 |
+| `_gone_quiet` | src/memorymap/ai/composer_digest.py:708 |
+| `_kind_offer` | src/memorymap/ai/composer_digest.py:979 |
+| `_left` | src/memorymap/ai/composer_digest.py:1037 |
+| `_lift_table` | src/memorymap/ai/composer_digest.py:1016 |
+| `_lines` | src/memorymap/ai/composer_digest.py:587 |
+| `_lower_first` | src/memorymap/ai/composer_digest.py:366 |
+| `_members` | src/memorymap/ai/composer_digest.py:533 |
+| `_missing` | src/memorymap/ai/composer_digest.py:627 |
+| `_more` | src/memorymap/ai/composer_digest.py:1073 |
+| `_note_offer` | src/memorymap/ai/composer_digest.py:975 |
+| `_offer` | src/memorymap/ai/composer_digest.py:638 |
+| `_overview` | src/memorymap/ai/composer_digest.py:659 |
+| `_pin` | src/memorymap/ai/composer_digest.py:404 |
+| `_progress` | src/memorymap/ai/composer_digest.py:683 |
+| `_result` | src/memorymap/ai/composer_digest.py:1082 |
+| `_row` | src/memorymap/ai/composer_digest.py:613 |
+| `_say_fact` | src/memorymap/ai/composer_digest.py:735 |
+| `_second_person` | src/memorymap/ai/composer_digest.py:379 |
+| `_single` | src/memorymap/ai/composer_digest.py:752 |
+| `_span` | src/memorymap/ai/composer_digest.py:322 |
+| `_subject` | src/memorymap/ai/composer_digest.py:529 |
+| `_tidy` | src/memorymap/ai/composer_digest.py:432 |
+| `_topic` | src/memorymap/ai/composer_digest.py:561 |
+| `_who` | src/memorymap/ai/composer_digest.py:813 |
+| `answer` | src/memorymap/ai/composer_digest.py:903 |
+| `clean` | src/memorymap/ai/composer_digest.py:266 |
+| `kind_of` | src/memorymap/ai/composer_digest.py:280 |
+| `sample` | src/memorymap/ai/composer_digest.py:163 |
+| `web` | src/memorymap/ai/composer_digest.py:1112 |
 
 ### src/memorymap/ai/composer_overview.py (13)
 
 | Name | File:line |
 |---|---|
-| `_head_word` | src/memorymap/ai/composer_overview.py:116 |
-| `_holding` | src/memorymap/ai/composer_overview.py:63 |
-| `_list_line` | src/memorymap/ai/composer_overview.py:218 |
-| `_names` | src/memorymap/ai/composer_overview.py:112 |
-| `_phrase` | src/memorymap/ai/composer_overview.py:232 |
-| `_prose_line` | src/memorymap/ai/composer_overview.py:187 |
-| `_wider` | src/memorymap/ai/composer_overview.py:91 |
-| `best_line` | src/memorymap/ai/composer_overview.py:204 |
-| `members` | src/memorymap/ai/composer_overview.py:73 |
-| `names_by_note` | src/memorymap/ai/composer_overview.py:122 |
-| `shared_names` | src/memorymap/ai/composer_overview.py:171 |
-| `themes` | src/memorymap/ai/composer_overview.py:149 |
-| `topic` | src/memorymap/ai/composer_overview.py:49 |
+| `_head_word` | src/memorymap/ai/composer_overview.py:122 |
+| `_holding` | src/memorymap/ai/composer_overview.py:69 |
+| `_list_line` | src/memorymap/ai/composer_overview.py:224 |
+| `_names` | src/memorymap/ai/composer_overview.py:118 |
+| `_phrase` | src/memorymap/ai/composer_overview.py:238 |
+| `_prose_line` | src/memorymap/ai/composer_overview.py:193 |
+| `_wider` | src/memorymap/ai/composer_overview.py:97 |
+| `best_line` | src/memorymap/ai/composer_overview.py:210 |
+| `members` | src/memorymap/ai/composer_overview.py:79 |
+| `names_by_note` | src/memorymap/ai/composer_overview.py:128 |
+| `shared_names` | src/memorymap/ai/composer_overview.py:177 |
+| `themes` | src/memorymap/ai/composer_overview.py:155 |
+| `topic` | src/memorymap/ai/composer_overview.py:54 |
 
 ### src/memorymap/ai/composer_tables.py (2)
 
@@ -10461,7 +10463,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/memorymap/ai/help_topics_more.py:2200 |
+| `_act_topic` | src/memorymap/ai/help_topics_more.py:2201 |
 
 ### src/memorymap/ai/inbox.py (7)
 
@@ -15463,7 +15465,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (9632)
+## Tests (9636)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -15850,7 +15852,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_gate_owner_cache.py | 3 |
 | tests/test_gate_staged_once.py | 3 |
 | tests/test_global_scope_ratchet.py | 3 |
-| tests/test_gold_answers.py | 17 |
+| tests/test_gold_answers.py | 21 |
 | tests/test_graph_api.py | 32 |
 | tests/test_graph_centrality_slot.py | 3 |
 | tests/test_graph_click_threshold.py | 2 |

@@ -203,3 +203,56 @@ def test_how_its_going_says_the_change_what_went_quiet_and_offers_a_table():
 ])
 def test_the_so_what_line_says_how_alone_the_facts_are(question, closing):
     assert closing in composer_digest.answer(question, NOTES, today=TODAY)["text"].split("\n\n")
+
+
+POTTERY = [
+    "Pottery class: centring the clay is the hard part.", "Pottery: trimmed my first bowl today.",
+    "Glaze test came out blue-green, not the blue I wanted.", "Kiln firing is on Saturday at 10am.",
+    "Bought a set of pottery tools for $45.", "Wheel speed: slower when pulling walls.",
+    "Teacher said wedge the clay longer before throwing.", "Pottery: my mug handle cracked in the kiln.",
+    "Signed up for the advanced pottery term in November.", "Studio is open Thursdays until 9pm.",
+]
+
+
+def _pottery() -> list[dict]:
+    return [
+        {"id": i + 1, "content": f"{c} #pottery", "created_at": f"2026-09-{i + 1:02d}T10:00:00", "category": "Hobbies", "tags": ["pottery"]}
+        for i, c in enumerate(POTTERY)
+    ]
+
+
+def test_a_long_overview_is_short_with_the_rest_behind_more():
+    """B5: five lines show; the rest are sent cited and named by their
+    labels, so the page folds them behind one "Show five more"."""
+    result = composer_digest.answer("what have I saved about pottery?", _pottery(), today=TODAY)
+    more = result["support"]["more"]
+    assert more["label"] == "Show five more" and len(more["labels"]) == 5
+    for label in more["labels"]:
+        assert f"**{label}:**" in result["text"]
+    assert len(result["grounding"]) == 10, "every line, shown or folded, keeps its mark"
+    assert "more on the right" not in result["text"]
+
+
+def test_a_short_answer_has_no_more():
+    assert composer_digest.answer("what have I saved about uni?", NOTES, today=TODAY)["support"]["more"] is None
+
+
+def test_hashtags_and_today_are_tidied():
+    text = composer_digest.answer("what have I saved about pottery?", _pottery(), today=TODAY)["text"]
+    assert "#" not in text
+    assert "today" not in text and "**2 September:** trimmed your first bowl." in text
+
+
+@pytest.mark.parametrize(("question", "subject"), [
+    ("What have I saved about courses & study?", "courses & study"),
+    ("what have i got on pottery", "pottery"),
+    ("tell me about pottery", "pottery"),
+    ("what is there about the gaming mouse?", "gaming mouse"),
+])
+def test_the_owners_question_counts_every_note_on_the_topic(question, subject):
+    """"What have I saved about X" is a topic asked about as a whole: the
+    route widens it to every note on X, so the count is not capped at the
+    five a search ranked."""
+    from memorymap.ai import composer_overview
+
+    assert composer_overview.topic(question) == subject

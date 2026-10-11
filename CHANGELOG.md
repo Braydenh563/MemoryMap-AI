@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Phone: the chat composer stays above the keyboard. The keyboard strip is read again as a field takes focus (iOS sometimes sends no resize), a pinch zoom no longer counts as a keyboard, and the no-model line steps aside while the keyboard is up; on a phone that line is tidier too (its action lines up with the words, 93px tall instead of 109). The viewport also asks for resizes-content, which Chrome on Android honours.
 - Other devices: a second notebook on the same computer (another person's account) takes the next free port for phones (8444 and up) instead of staying on that computer only; Settings shows the address it took.
 - Companion: it steps off a dock's open "more" menu (Notes' Reload, Manage tags and the rest), and any open menu or list, instead of standing over it.
 - Other devices: a phone's page no longer stalls. Safari opens connections ahead of need and sends nothing on them, and each held one of eight waiting threads for ten seconds, so the page's real requests queued behind them; one watcher now waits on every new connection. A computer on a global IPv6 address keeps the phone's trust when that address changes within its network, and the phone help says nothing installs on the phone.

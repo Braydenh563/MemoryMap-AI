@@ -2720,20 +2720,42 @@ button.chat-trail-link {
   min-width: 0;
 }
 
+/* A phone: the words and the close share the first row, the action is the
+   second row under the words, and the close spans both rows so its 44px
+   target does not stretch the first. Measured at 390 in the chat dock (INBOX
+   887, "the no model connected popup looks completely off"): the action's
+   label sat 13px right of the words (its own padding), 13.6px beside 12px
+   words, with a 44px close holding row one open under a two-line sentence. */
 @media (max-width: 599.98px) {
   .ai-offline-note.notice {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: var(--space-2);
+    row-gap: 0;
     align-items: start;
   }
 
   .ai-offline-note > .ghost:not(.icon-only) {
-    grid-area: 2 / 2;
+    grid-area: 2 / 2 / 3 / 3;
     justify-self: start;
+    /* The label lines up with the words above it: pull the button left by its
+       own padding, so the tint on press still has room around the text. */
+    margin-inline-start: calc(-1 * (var(--space-5) + 1px));
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--accent-text);
   }
 
   .ai-offline-note > .icon-only {
-    grid-area: 1 / 3;
+    grid-area: 1 / 3 / 3 / 4;
+    align-self: start;
+    margin-block: calc(-1 * var(--space-1));
+  }
+
+  /* With the keyboard up the composer is what matters: the line steps aside
+     (it is back the moment the keyboard goes), so the field keeps its room. */
+  html.keyboard-open .chat-dock .ai-offline-note {
+    display: none;
   }
 }
 

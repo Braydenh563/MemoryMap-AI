@@ -14,12 +14,18 @@ send anyone elsewhere.
 uvicorn is given no socket of its own (`serve(sockets=[])`): it still runs
 its loop, keeps the connections this loop hands it in `server_state`, and
 closes them at shutdown, so Ctrl+C ends both listeners as before.
+
+INBOX 867 ("what if memory map is open to lan on a public network"): a
+client whose address is not private, shared or link-local is closed before
+its first byte is read (`client_allowed`): a forwarded port or a network
+that hands out public addresses never reaches the lock screen.
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import ipaddress
 import logging
 import re
 import socket
@@ -39,6 +45,63 @@ HEAD_LIMIT = 8192
 #: with its first packet, so a thread is held for microseconds.
 _PEEKERS = ThreadPoolExecutor(max_workers=8, thread_name_prefix="lan-peek")
 _SAFE_PATH = re.compile(r"^/[\x21-\x7e]*$")
+#: The addresses a device beside this computer has: private (RFC 1918 and
+#: IPv6 unique-local), carrier-grade shared space (a phone hotspot, some
+#: mesh VPNs), link-local, and this computer itself. Listed rather than
+#: `is_private`, whose meaning has moved between Python versions.
+_NEARBY = tuple(
+    ipaddress.ip_network(n)
+    for n in (
+        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16",
+        "127.0.0.0/8", "::1/128", "fc00::/7", "fe80::/10",
+    )
+)
+
+
+#: The /64 of each of this computer's global IPv6 addresses. An iPhone on the
+#: same Wi-Fi often connects from its own global IPv6 address, which is not
+#: private, but shares the /64 the router hands this whole network (the owner's
+#: Windows machine, 2026-10-11: two 2001:8003:... addresses, one temporary).
+_own_v6_prefixes: frozenset = frozenset()
+#: How often the prefixes (and the network gate) are read again: temporary
+#: IPv6 addresses rotate, and a laptop changes networks without restarting.
+REFRESH_SECONDS = 30.0
+
+
+def own_v6_prefixes(addresses: list[str]) -> frozenset:
+    """The /64s of the global IPv6 addresses in `addresses`."""
+    found = set()
+    for text in addresses:
+        try:
+            ip = ipaddress.ip_address(text.strip("[]").split("%", 1)[0])
+        except ValueError:
+            continue
+        if ip.version == 6 and ip.is_global:
+            found.add(ipaddress.ip_network(f"{ip}/64", strict=False))
+    return frozenset(found)
+
+
+def refresh_own_prefixes() -> None:
+    global _own_v6_prefixes
+    try:
+        _own_v6_prefixes = own_v6_prefixes(netbind.lan_addresses(include_v6=True))
+    except OSError:
+        _own_v6_prefixes = frozenset()
+
+
+def client_allowed(address: str | None, prefixes: frozenset | None = None) -> bool:
+    """Is this client address one on this network? Unreadable means no."""
+    if not isinstance(address, str):
+        return False
+    try:
+        ip = ipaddress.ip_address(address.split("%", 1)[0])
+    except ValueError:
+        return False
+    ip = getattr(ip, "ipv4_mapped", None) or ip
+    if any(ip.version == net.version and ip in net for net in _NEARBY):
+        return True
+    shared = _own_v6_prefixes if prefixes is None else prefixes
+    return ip.version == 6 and any(ip in net for net in shared)
 
 
 def _first_byte(conn: socket.socket) -> bytes:
@@ -134,15 +197,24 @@ async def serve(server, sock: socket.socket) -> None:  # noqa: ANN001  # a uvico
     loop = asyncio.get_running_loop()
     sock.setblocking(False)
     pending: set[asyncio.Task] = set()
+    refreshed = 0.0
     try:
         while not running.done() and not server.should_exit:
+            if loop.time() - refreshed >= REFRESH_SECONDS:
+                refreshed = loop.time()
+                await loop.run_in_executor(_PEEKERS, refresh_own_prefixes)
             try:
-                conn, _addr = await asyncio.wait_for(loop.sock_accept(sock), 0.5)
+                conn, addr = await asyncio.wait_for(loop.sock_accept(sock), 0.5)
             except asyncio.TimeoutError:
                 continue
             except OSError as exc:
                 log.debug("LAN accept failed: %s", exc)
                 await asyncio.sleep(0.1)
+                continue
+            if not client_allowed(addr[0] if addr else None):
+                log.info("Refused a connection from %s: not an address on this network.", addr[0] if addr else "?")
+                with contextlib.suppress(OSError):
+                    conn.close()
                 continue
             task = asyncio.ensure_future(_route(conn, make_protocol, context, port))
             pending.add(task)

@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5505, frontend ids 2371, CSS sections 489, backend routes 553, backend modules 4616, test files 1061, tests 9733, plan headings 992.
+Counts: frontend functions 5505, frontend ids 2371, CSS sections 489, backend routes 553, backend modules 4617, test files 1061, tests 9736, plan headings 995.
 
 ## Frontend functions (5505)
 
@@ -9678,7 +9678,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4616)
+## Backend modules (4617)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -14326,15 +14326,16 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `reload` | src/memorymap/core/lancert.py:417 |
 | `set_live_context` | src/memorymap/core/lancert.py:412 |
 
-### src/memorymap/core/lanserve.py (5)
+### src/memorymap/core/lanserve.py (6)
 
 | Name | File:line |
 |---|---|
-| `_answer_plain_http` | src/memorymap/core/lanserve.py:83 |
-| `_first_byte` | src/memorymap/core/lanserve.py:44 |
-| `_route` | src/memorymap/core/lanserve.py:98 |
-| `redirect_response` | src/memorymap/core/lanserve.py:52 |
-| `serve` | src/memorymap/core/lanserve.py:119 |
+| `_answer_plain_http` | src/memorymap/core/lanserve.py:112 |
+| `_first_byte` | src/memorymap/core/lanserve.py:73 |
+| `_route` | src/memorymap/core/lanserve.py:127 |
+| `client_allowed` | src/memorymap/core/lanserve.py:61 |
+| `redirect_response` | src/memorymap/core/lanserve.py:81 |
+| `serve` | src/memorymap/core/lanserve.py:148 |
 
 ### src/memorymap/core/launch_status.py (7)
 
@@ -15588,7 +15589,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9733)
+## Tests (9736)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16074,7 +16075,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_keyword_search.py | 22 |
 | tests/test_lan_mode.py | 21 |
 | tests/test_lan_restart_action.py | 5 |
-| tests/test_lan_serve.py | 4 |
+| tests/test_lan_serve.py | 7 |
 | tests/test_lan_tls.py | 23 |
 | tests/test_launch_splash.py | 24 |
 | tests/test_launch_status.py | 25 |
@@ -16656,7 +16657,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (992)
+## Plan headings (995)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -17052,6 +17053,9 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Brief 10 (Fri, Sonnet): Library one card recipe, Dashboard widget frame | docs/roadmap/SESSION_BRIEFS.md:399 |
 | Brief 100 (Opus, graph): the graph's feel (INBOX 802, 864, 865) | docs/roadmap/SESSION_BRIEFS.md:1821 |
 | Brief 101 (Sonnet, three agents): the found-not-fixed ledger, placed (the owner: "make sure you cover all bugs and issues found and not fixed as well") | docs/roadmap/SESSION_BRIEFS.md:1826 |
+| Brief 102 (Opus, lansafe): LAN safe by default on any network (INBOX 867) | docs/roadmap/SESSION_BRIEFS.md:1835 |
+| Brief 103 (Sonnet, chattime): a time on every chat message (INBOX 868) | docs/roadmap/SESSION_BRIEFS.md:1844 |
+| Brief 104 (Opus, after atlas): typos read in context, not as slang (INBOX 869) | docs/roadmap/SESSION_BRIEFS.md:1848 |
 | Brief 11: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:426 |
 | Brief 12: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:428 |
 | Brief 13 (Sun, Opus): the harness verifier, budget and corrections (B5) | docs/roadmap/SESSION_BRIEFS.md:430 |
@@ -17396,7 +17400,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Phases | docs/roadmap/DOCUMENTS_PLAN.md:1348 |
 | Phases 0 to 6: built | docs/roadmap/UI_MODERNISATION_PLAN.md:216 |
 | Phases, each with the gate it is finished against | docs/roadmap/MINDMAP_PLAN.md:1294 |
-| Placed (last 20, newest first) | docs/roadmap/INBOX.md:252 |
+| Placed (last 20, newest first) | docs/roadmap/INBOX.md:272 |
 | Placed from Brief 40, 2026-10-10 (does the MCP server work) | docs/roadmap/AGENT_SKILLS_REFORM.md:345 |
 | Placed from Brief 40, 2026-10-10 (research and placement) | docs/roadmap/BACKLOG.md:4175 |
 | Placed from Brief 40, 2026-10-10 (the phone over HTTPS) | docs/roadmap/WORLD_CLASS_PLAN.md:3137 |

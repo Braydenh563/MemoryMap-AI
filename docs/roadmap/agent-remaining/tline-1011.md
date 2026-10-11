@@ -1,6 +1,6 @@
 # tline-1011: Timeline, reminders and notifications (ledger rows 969 to 1038, batches B57 to B61)
 
-Branch agent/tline-1011, worktree scratchpad/wt-tline, port 8803. `id | status | evidence or commit`. Commits: 33ed15723 (the calendar and written-out dates), the batch commit after it (reminders, toasts, notifications, packages, quit and restart fixes). Two owner bugs came first (HISTORY, "INBOX resolved" c1 and c2).
+Branch agent/tline-1011, worktree scratchpad/wt-tline, port 8803. `id | status | evidence or commit`. Commits: 33ed15723 (the calendar and written-out dates), c0b761f21 (the batch after it: reminders, toasts, notifications, packages, quit and restart fixes). Two owner bugs came first (HISTORY, "INBOX resolved" c1 and c2).
 
 969 | done-already | TIMELINE_PLAN section 9 gates say Built 2026-10-11 (Brief 55, HISTORY); this run fixed the day-cell press and note chips (commit A)
 970 | deferred-next-PR | touch drag has no HTML DnD on a phone (the calendar is the agenda below 768); day-page drop and a 1,000-note month not driven under load 45 to 60

@@ -3411,7 +3411,11 @@ body.printing-doc #doc-preview p,
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
-  pointer-events: none;
+  /* Takes a double-click to edit it (INBOX 740); a press still drags the
+     frame, as on the title. The frame itself lets presses through
+     (07-whiteboard-misc.css), so the hint opts back in as the title does. */
+  pointer-events: auto;
+  cursor: text;
 }
 
 /* The pictures (`wbMapThumbSpec`, `wbBoardThumbSpec`): one hairline at any
@@ -4881,6 +4885,18 @@ button.ghost.doc-template-choice.wb-template-choice {
   stroke-dasharray: 4 3;
   pointer-events: none;
 }
+/* The size beside a box being drawn or resized ("120 x 80", WHITEBOARD_PLAN
+   E4): the text's own ink on a plate, a constant screen size (the group is
+   scaled by 1 / zoom in `wbShowSizeReadout`). */
+.wb-size-readout rect {
+  fill: var(--text);
+  opacity: 0.86;
+}
+.wb-size-readout text {
+  fill: var(--bg);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
 
 /* The selection rectangle: a canvas over the whole container, drawn by
    `wbDrawMarquee` (its dashed accent edge and 12% wash are painted there),
@@ -5220,6 +5236,27 @@ button.ghost.doc-template-choice.wb-template-choice {
 
 .wb-cap-er-zero-many {
   --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 22.52 8 A 2.64 2.64 0 1 0 27.8 8 A 2.64 2.64 0 1 0 22.52 8 Z M 29.6 8 L 38 13.4 M 29.6 8 L 38 2.6'/%3E%3C/svg%3E");
+}
+
+/* Decisions E2 and E3 (WHITEBOARD_PLAN, INBOX 826): drawn by wbCapPathMore at a 12 head. */
+.wb-cap-stealth {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 38 8 L 26 13.04 L 30.56 8 Z M 34.76 8.84 L 28.76 11.36 L 31.04 8.84 Z M 38 8 L 30.56 8 L 26 2.96 Z M 34.76 7.16 L 31.04 7.16 L 28.76 4.64 Z'/%3E%3C/svg%3E");
+}
+
+.wb-cap-cross {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 36.2 4.4 L 29 11.6 M 36.2 11.6 L 29 4.4'/%3E%3C/svg%3E");
+}
+
+.wb-cap-half-arrow {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 38 8 L 27.61 2'/%3E%3C/svg%3E");
+}
+
+.wb-cap-double-arrow {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 38 8 L 28.16 13.28 M 38 8 L 28.16 2.72 M 32 8 L 22.16 13.28 M 32 8 L 22.16 2.72'/%3E%3C/svg%3E");
+}
+
+.wb-cap-memorymap {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 32 8 A 3 3 0 1 0 38 8 A 3 3 0 1 0 32 8 Z M 33.2 8 A 1.8 1.8 0 1 0 36.8 8 A 1.8 1.8 0 1 0 33.2 8 Z M 34.4 8 A 0.6 0.6 0 1 0 35.6 8 A 0.6 0.6 0 1 0 34.4 8 Z M 30.5 8 L 20.9 13.52 M 30.5 8 L 20.9 2.48'/%3E%3C/svg%3E");
 }
 
 /* A sticky without its folded corner (INBOX 792: "the option to hide the flap

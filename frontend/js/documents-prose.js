@@ -984,9 +984,9 @@ function docSpeakable(text) {
     .replace(/\{--[\s\S]*?--\}/g, "")
     .replace(/\{\+\+|\+\+\}/g, "")
     .replace(/%%[^%\n]*%%/g, "")
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/!\[([^[\]\n]*)\]\([^()\n]*\)/g, "$1")
     .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^[\]\n]*)\]\([^()\n]*\)/g, "$1")
     .replace(/^\s{0,3}(?:#{1,6}|>|[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, "")
     .replace(/\^[A-Za-z0-9-]+$/, "")
     .replace(/<[^>]+>/g, "")
@@ -1323,7 +1323,7 @@ function docFillToc(text, slug) {
   if (!heads.length) return null;
   const top = Math.min(...heads.map(([l]) => l));
   const taken = new Set();
-  const plain = (t) => t.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[`*_~]/g, "");
+  const plain = (t) => t.replace(/\[([^[\]\n]*)\]\([^()\n]*\)/g, "$1").replace(/[`*_~]/g, "");
   const lines = heads.map(([l, t]) => `${"  ".repeat(l - top)}- [${plain(t)}](#${slug(t, taken)})`);
   return `${lines.join("\n")}\n`;
 }

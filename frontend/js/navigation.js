@@ -2135,7 +2135,7 @@ function stripMarkdownPreview(text) {
     .replace(/__/g, "")
     .replace(/~~/g, "")
     .replace(/[*_](?=\S)|(?<=\S)[*_]/g, "")
-    .replace(/!?\[([^\]]*)\]\([^)]*\)?/g, "$1");
+    .replace(/!?\[([^[\]\n]*)\]\([^()\n]*\)?/g, "$1");
 }
 
 // Layout picker (§9). Stored, because which shape suits a notebook is a

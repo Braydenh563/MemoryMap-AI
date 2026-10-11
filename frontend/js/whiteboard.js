@@ -282,9 +282,13 @@ function wbSaveExpandedNodes() {
 //: lay the whole board out again for the next measurement, which on a two
 //: hundred card board is two hundred reflows instead of one.
 //:
-//: An expanded card always keeps its control, whatever it measures: with
-//: the clip off, its content fits by definition, so asking the same
-//: question of it would hide the only way back to "Show less".
+//: **An expanded card shows "Show less" only when it would hide something**
+//: (INBOX 825, the owner: "idk why that show less button is there, all the
+//: text is showing"). It used to keep its control whatever it measured, so a
+//: card opened once and later sized to hold its text wore a "Show less" that
+//: changed nothing. Collapsed, a card is as tall as its stored height, or
+//: eight lines when it has none; so an expanded card needs the control only
+//: when it stands taller than that (`wbCardMoreNeeded`, node-tested).
 function wbSyncCardClamps() {
   const wanted = [];
   for (const card of document.querySelectorAll(".node-card")) {
@@ -294,13 +298,23 @@ function wbSyncCardClamps() {
     const content = card.querySelector(".wb-card-content");
     const toggle = card.querySelector(".wb-card-more");
     if (!content || !toggle) continue;
-    wanted.push([
-      toggle,
-      !content.classList.contains("wb-card-content-clamped") ||
-        content.scrollHeight > content.clientHeight + 1,
-    ]);
+    const clamped = content.classList.contains("wb-card-content-clamped");
+    wanted.push([toggle, wbCardMoreNeeded({
+      clamped,
+      scrollH: content.scrollHeight,
+      clientH: content.clientHeight,
+      //: The toggle's own row is not text: a card is measured without it.
+      cardH: card.offsetHeight - (toggle.hidden ? 0 : toggle.offsetHeight),
+      floorH: parseFloat(card.style.minHeight) || 0,
+      capH: clamped ? 0 : parseFloat(getComputedStyle(content).fontSize) * 1.4 * 8,
+    })]);
   }
   for (const [toggle, needed] of wanted) toggle.hidden = !needed;
+}
+
+function wbCardMoreNeeded({ clamped, scrollH, clientH, cardH, floorH, capH }) {
+  if (clamped) return scrollH > clientH + 1;
+  return floorH ? cardH > floorH + 1 : scrollH > capH + 1;
 }
 
 //: One sync per frame however many renders asked for it. `renderWhiteboard`
@@ -1062,6 +1076,140 @@ function wbSpacingSeries(mates, dragged, axis) {
   return best;
 }
 
+//: **Guides for an edge being dragged** (INBOX 825 item 2, INBOX 826's E4):
+//: a resize, and a shape or box drawn out, snap the moving edge to another
+//: item's edge or centre and the moving size to a neighbour's width or
+//: height, each shown by a guide line; then the grid when snap is on, and a
+//: card's content height (`fit`) for its bottom edge. `box` is {x, y, w, h},
+//: `edges` the moving sides ("se", "w"). Pure apart from `wbGuideBoxes`
+//: (node-tested in tests/test_wb_resize_guides.py).
+function wbResizeGuides(excludeKeys, box, edges, { fit = null, grid = 0, min = 1 } = {}) {
+  const others = wbGuideBoxes(excludeKeys);
+  const out = { x: box.x, y: box.y, w: box.w, h: box.h, guideLines: [] };
+  const axis = (horizontal) => {
+    const hi = horizontal ? edges.includes("e") : edges.includes("s");
+    const lo = horizontal ? edges.includes("w") : edges.includes("n");
+    if (!hi && !lo) return;
+    const start = horizontal ? box.x : box.y, size = horizontal ? box.w : box.h;
+    const fixed = hi ? start : start + size;
+    const moving = hi ? start + size : start;
+    const [minK, maxK, cMin, cMax] = horizontal ? ["minX", "maxX", "minY", "maxY"] : ["minY", "maxY", "minX", "maxX"];
+    const crossLo = horizontal ? box.y : box.x, crossHi = crossLo + (horizontal ? box.h : box.w);
+    let best = null;
+    const offer = (target, line) => {
+      const delta = target - moving;
+      if (Math.abs(delta) > WB_ALIGN_SNAP_PX || (best && Math.abs(delta) >= Math.abs(best.delta))) return;
+      if (Math.abs(target - fixed) < min) return;
+      best = { delta, target, line };
+    };
+    const across = (at, a, b, kind) => (horizontal
+      ? { x1: at, y1: a, x2: at, y2: b, kind }
+      : { x1: a, y1: at, x2: b, y2: at, kind });
+    for (const other of others) {
+      const a = Math.min(crossLo, other[cMin]) - 20, b = Math.max(crossHi, other[cMax]) + 20;
+      offer(other[minK], across(other[minK], a, b, "edge"));
+      offer(other[maxK], across(other[maxK], a, b, "edge"));
+      offer((other[minK] + other[maxK]) / 2, across((other[minK] + other[maxK]) / 2, a, b, "center"));
+      const span = other[maxK] - other[minK];
+      offer(hi ? fixed + span : fixed - span, [
+        { mark: true, at: other[cMin] - 8, from: other[minK], to: other[maxK] },
+      ]);
+    }
+    if (fit && !horizontal && hi) offer(fixed + fit, across(fixed + fit, crossLo - 20, crossHi + 20, "edge"));
+    if (!best && grid) {
+      const target = Math.round(moving / grid) * grid;
+      if (Math.abs(target - fixed) >= min) best = { delta: target - moving, target, line: null };
+    }
+    if (!best) return;
+    const lowEdge = hi ? fixed : best.target, highEdge = hi ? best.target : fixed;
+    if (horizontal) { out.x = lowEdge; out.w = highEdge - lowEdge; } else { out.y = lowEdge; out.h = highEdge - lowEdge; }
+    //: A size match marks both measures: the neighbour's and the one it set.
+    if (Array.isArray(best.line)) {
+      const m = best.line[0];
+      const mark = (at, from, to) => (horizontal
+        ? { x1: from, y1: at, x2: to, y2: at, kind: "spacing" }
+        : { x1: at, y1: from, x2: at, y2: to, kind: "spacing" });
+      out.guideLines.push(mark(m.at, m.from, m.to), mark(crossLo - 8, lowEdge, highEdge));
+    } else if (best.line) out.guideLines.push(best.line);
+  };
+  axis(true);
+  axis(false);
+  return out;
+}
+
+//: The size beside what is being drawn or resized ("120 x 80", E4), in the
+//: guides' own group so it goes when they do; a constant screen size.
+function wbShowSizeReadout(box) {
+  const group = document.getElementById("wb-align-guides");
+  const container = document.getElementById("whiteboard-container");
+  if (!group || !container) return;
+  const k = d3.zoomTransform(container).k || 1;
+  const words = `${Math.round(box.w)} x ${Math.round(box.h)}`;
+  const ns = "http://www.w3.org/2000/svg";
+  const g = document.createElementNS(ns, "g");
+  g.setAttribute("class", "wb-size-readout");
+  g.setAttribute("transform", `translate(${box.x + box.w / 2} ${box.y + box.h}) scale(${1 / k}) translate(0 16)`);
+  const width = words.length * 7 + 12;
+  const plate = document.createElementNS(ns, "rect");
+  plate.setAttribute("x", String(-width / 2));
+  plate.setAttribute("y", "-10");
+  plate.setAttribute("width", String(width));
+  plate.setAttribute("height", "20");
+  plate.setAttribute("rx", "4");
+  const text = document.createElementNS(ns, "text");
+  text.setAttribute("text-anchor", "middle");
+  text.setAttribute("dominant-baseline", "central");
+  text.textContent = words;
+  g.append(plate, text);
+  group.appendChild(g);
+}
+
+//: One resize frame through the guides: the box the handle has made, snapped
+//: (unless `off`), the lines and the size drawn. Returns the new width and
+//: height; the caller places x and y from them as before.
+function wbGuidedResize(kind, d, handle, start, width, height, { off = false, fit = null } = {}) {
+  const box = {
+    x: handle.includes("w") ? start.x + start.w - width : start.x,
+    y: handle.includes("n") ? start.y + start.h - height : start.y,
+    w: width,
+    h: height,
+  };
+  const snapped = off ? { ...box, guideLines: [] } : wbResizeGuides(new Set([wbMultiKey(kind, d.id)]), box, handle, {
+    fit, grid: wbSnapOn() ? WB_GRID_SPACING : 0, min: WB_OBJECT_MIN_SIZE,
+  });
+  wbShowAlignmentGuides(snapped.guideLines);
+  wbShowSizeReadout(snapped);
+  return { width: snapped.w, height: snapped.h };
+}
+
+//: **A box drawn out from a press snaps its moving corner** (E4): the
+//: corner under the pointer goes through the edge guides, and the size shows
+//: beside it. `centred` is a box grown about the press (the ellipse). Alt
+//: draws without snapping, as a move does; Shift (a square) is left alone.
+function wbDrawOutSnap(sx, sy, x, y, event, centred = false) {
+  const dx = x - sx, dy = y - sy;
+  const box = centred
+    ? { x: sx - Math.abs(dx), y: sy - Math.abs(dy), w: Math.abs(dx) * 2, h: Math.abs(dy) * 2 }
+    : { x: Math.min(sx, x), y: Math.min(sy, y), w: Math.abs(dx), h: Math.abs(dy) };
+  if (event.shiftKey) {
+    const side = Math.max(box.w, box.h);
+    wbShowAlignmentGuides([]);
+    wbShowSizeReadout({ ...box, w: side, h: side });
+    return [x, y];
+  }
+  const edges = (centred || dx >= 0 ? "e" : "w") + (centred || dy >= 0 ? "s" : "n");
+  const snapped = event.altKey ? { ...box, guideLines: [] } : wbResizeGuides(null, box, edges, {
+    grid: wbSnapOn() ? WB_GRID_SPACING : 0, min: 1,
+  });
+  wbShowAlignmentGuides(snapped.guideLines);
+  wbShowSizeReadout(snapped);
+  if (centred) {
+    const rx = snapped.x + snapped.w - sx, ry = snapped.y + snapped.h - sy;
+    return [sx + Math.sign(dx || 1) * rx, sy + Math.sign(dy || 1) * ry];
+  }
+  return [edges.includes("e") ? snapped.x + snapped.w : snapped.x, edges.includes("s") ? snapped.y + snapped.h : snapped.y];
+}
+
 //: Default guide colours, one per `kind` `wbAlignmentGuides` can report: 
 //: "edge" (an outer border lining up with another), "center" (mid-points
 //: lining up, the draw.io/PowerPoint convention of a *different* colour so
@@ -1432,8 +1580,26 @@ function wbArrowHeadPath(tipX, tipY, approachAngle, headLen) {
 //: the owner's "more arrow options" (2026-10-11): the hollow triangle stops the
 //: shaft at its base like the other hollow ends; the filled circle is rings
 //: stepping in by a stroke width, the solid ends' own trick.
-const WB_CAP_KINDS = ["none", "arrow", "triangle", "triangle-open", "diamond", "diamond-filled", "bar", "circle", "circle-filled", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
+//: The plan's decision E2 (WHITEBOARD_PLAN, INBOX 826) added `stealth` (the
+//: concave arrow), `cross`, `half-arrow` and `double-arrow`; its "dot" is the
+//: filled circle already here. E3 added `memorymap`, the signature end.
+const WB_CAP_KINDS = ["none", "memorymap", "arrow", "triangle", "triangle-open", "stealth", "diamond", "diamond-filled", "bar", "circle", "circle-filled", "square", "multiline", "cross", "half-arrow", "double-arrow", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
 const WB_SOLID_CAPS = new Set(["triangle", "diamond-filled"]);
+
+//: **An end's size** (decision E2): small, medium or large, beside each end
+//: menu, stored per end as `startCapSize`/`endCapSize` ("s" or "l"; absent
+//: is medium, so every saved line keeps its look). It scales the end's
+//: length, never the stroke the solid ends step in by.
+const WB_CAP_SIZE_SCALE = { s: 0.7, l: 1.45 };
+function wbCapScale(size) {
+  return WB_CAP_SIZE_SCALE[size] || 1;
+}
+//: The stored fields for caps read by `wbLinkCaps`/`wbSketchCaps`: medium
+//: (or anything unknown) clears the field.
+function wbCapSizeFields(caps) {
+  const keep = (v) => (WB_CAP_SIZE_SCALE[v] ? v : undefined);
+  return { startCapSize: keep(caps.startSize), endCapSize: keep(caps.endSize) };
+}
 
 //: The entity-relationship ends (the features audit W4): what is nearest the
 //: line's body, then what is at the tip. `null` near: one mark only.
@@ -1458,17 +1624,23 @@ function wbHollowInset(kind, headLen) {
 
 //: `pt` moved toward `toward` by the cap's inset (never past 90% of the way, so
 //: a short segment keeps a stub), or `pt` itself under any other cap.
-function wbShaftEnd(pt, toward, cap, headLen) {
-  const inset = wbHollowInset(cap, headLen);
+function wbShaftEnd(pt, toward, cap, headLen, size) {
+  const inset = wbHollowInset(cap, headLen * wbCapScale(size));
   const dist = Math.hypot(toward.x - pt.x, toward.y - pt.y);
   if (!inset || !dist) return pt;
   const share = Math.min(inset, dist * 0.9) / dist;
   return { x: pt.x + (toward.x - pt.x) * share, y: pt.y + (toward.y - pt.y) * share };
 }
 
-function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
+function wbCapPath(kind, tipX, tipY, approachAngle, headLen, size) {
   if (!kind || kind === "none") return "";
+  //: The solid ends step in by the line's own width, read before the size
+  //: scales the length (the head is `width * 4 + 6` long at medium).
+  const stroke = Math.max(1, (headLen - 6) / 4);
+  headLen *= wbCapScale(size);
   if (kind === "arrow") return wbArrowHeadPath(tipX, tipY, approachAngle, headLen);
+  const extra = wbCapPathMore(kind, tipX, tipY, approachAngle, headLen, stroke);
+  if (extra !== null) return extra;
   // The entity-relationship ends (the features audit W4, draw.io's ER set):
   // a bar for "one", a ring for "zero" and the crow's foot for "many", read
   // from the shape outward, so "zero-many" is a ring nearest the line's body
@@ -1516,9 +1688,8 @@ function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
       return `M ${pts.join(" L ")} Z`;
     };
     if (!WB_SOLID_CAPS.has(kind)) return draw(1);
-    //: The copies step in by a stroke width (the head is `width * 4 + 6` long),
-    //: until one would be thinner than the stroke itself.
-    const stroke = Math.max(1, (headLen - 6) / 4);
+    //: The copies step in by a stroke width, until one would be thinner than
+    //: the stroke itself.
     const reach = Math.min(...shape.map(([back, across]) => Math.hypot(back - mid[0], across))) || headLen / 2;
     const step = (stroke * 0.8) / reach;
     const out = [];
@@ -1533,7 +1704,7 @@ function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
     const ring = (q) => `M ${+(cx - q).toFixed(2)} ${+cy.toFixed(2)} A ${+q.toFixed(2)} ${+q.toFixed(2)} 0 1 0 ${+(cx + q).toFixed(2)} ${+cy.toFixed(2)} A ${+q.toFixed(2)} ${+q.toFixed(2)} 0 1 0 ${+(cx - q).toFixed(2)} ${+cy.toFixed(2)} Z`;
     if (kind === "circle") return `M ${cx - r} ${cy} A ${r} ${r} 0 1 0 ${cx + r} ${cy} A ${r} ${r} 0 1 0 ${cx - r} ${cy} Z`;
     //: Filled: rings a stroke's width apart down to the centre.
-    const step = Math.max(0.8, ((headLen - 6) / 4) * 0.8);
+    const step = Math.max(0.8, stroke * 0.8);
     const out = [];
     for (let q = r; q > step * 0.25; q -= step) out.push(ring(q));
     return out.join(" ");
@@ -1556,6 +1727,76 @@ function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
     return `M ${bx - perpX * half} ${by - perpY * half} L ${bx + perpX * half} ${by + perpY * half}`;
   };
   return `${tick(headLen * 0.35)} ${tick(headLen * 0.75)}`;
+}
+
+//: The two end-size menus show the selection's sizes, and sit dimmed beside
+//: an end with no mark (a size there would change nothing).
+function wbShowCapSizes(caps) {
+  for (const which of ["start", "end"]) {
+    const el = document.getElementById(`wb-prop-${which}size`);
+    if (!el) continue;
+    el.value = caps[`${which}Size`] || "m";
+    el.disabled = caps[`${which}Cap`] === "none";
+  }
+}
+
+//: A filled triangle as copies of itself scaled about its centroid, a
+//: stroke's width apart (the solid ends' trick), until the next copy would be
+//: thinner than the stroke. `pts` are [x, y] board points.
+function wbFilledTriangle(pts, stroke) {
+  const cx = (pts[0][0] + pts[1][0] + pts[2][0]) / 3, cy = (pts[0][1] + pts[1][1] + pts[2][1]) / 3;
+  const side = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const area = Math.abs((pts[1][0] - pts[0][0]) * (pts[2][1] - pts[0][1]) - (pts[2][0] - pts[0][0]) * (pts[1][1] - pts[0][1])) / 2;
+  const inradius = (2 * area) / (side(pts[0], pts[1]) + side(pts[1], pts[2]) + side(pts[2], pts[0]) || 1);
+  //: At most half a step, so a slim triangle still gets a middle copy.
+  const step = Math.min(0.5, (stroke * 0.8) / (inradius || 1));
+  const out = [];
+  for (let scale = 1; scale > 0 && (out.length === 0 || scale > step * 0.5); scale -= step) {
+    out.push("M " + pts.map(([x, y]) => `${+(cx + (x - cx) * scale).toFixed(2)} ${+(cy + (y - cy) * scale).toFixed(2)}`).join(" L ") + " Z");
+  }
+  return out.join(" ");
+}
+
+//: The ends decisions E2 and E3 added, or null for any other kind. Each is
+//: drawn in the line's own frame: `at(back, across)` is a point `back` from
+//: the tip along the line and `across` to its side.
+function wbCapPathMore(kind, tipX, tipY, approachAngle, headLen, stroke) {
+  const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+  const at = (back, across) => [+(tipX - cos * back - sin * across).toFixed(2), +(tipY - sin * back + cos * across).toFixed(2)];
+  const line = (a, b) => `M ${a[0]} ${a[1]} L ${b[0]} ${b[1]}`;
+  const L = headLen;
+  if (kind === "stealth") {
+    //: The concave arrow: two filled halves meeting at the notch.
+    const tip = at(0, 0), notch = at(L * 0.62, 0);
+    return `${wbFilledTriangle([tip, at(L, L * 0.42), notch], stroke)} ${wbFilledTriangle([tip, notch, at(L, -L * 0.42)], stroke)}`;
+  }
+  if (kind === "cross") {
+    const c = L * 0.45, h = L * 0.3;
+    return `${line(at(c - h, -h), at(c + h, h))} ${line(at(c - h, h), at(c + h, -h))}`;
+  }
+  if (kind === "half-arrow") {
+    return line(at(0, 0), at(L * Math.cos(Math.PI / 6), -L * Math.sin(Math.PI / 6)));
+  }
+  if (kind === "double-arrow") {
+    const v = (back) => `${line(at(back, 0), at(back + L * 0.82, L * 0.44))} ${line(at(back, 0), at(back + L * 0.82, -L * 0.44))}`;
+    return `${v(0)} ${v(L * 0.5)}`;
+  }
+  if (kind === "memorymap") {
+    //: **The signature end** (decision E3): the brand mark's node, a dot at
+    //: the end of a spoke a quarter its length across (favicon.svg: r 7.5 on
+    //: a 30-unit spoke), sitting at the tip, with an open chevron behind it
+    //: whose arms are the mark's spokes. Candidate A of three (C3).
+    const r = L * 0.25;
+    const centre = at(r, 0);
+    const out = [];
+    for (let q = r; q > Math.max(0.8, stroke * 0.8) * 0.25; q -= Math.max(0.8, stroke * 0.8)) {
+      out.push(`M ${+(centre[0] - q).toFixed(2)} ${centre[1]} A ${+q.toFixed(2)} ${+q.toFixed(2)} 0 1 0 ${+(centre[0] + q).toFixed(2)} ${centre[1]} A ${+q.toFixed(2)} ${+q.toFixed(2)} 0 1 0 ${+(centre[0] - q).toFixed(2)} ${centre[1]} Z`);
+    }
+    const gap = r * 2 + stroke;
+    out.push(`${line(at(gap, 0), at(gap + L * 0.8, L * 0.46))} ${line(at(gap, 0), at(gap + L * 0.8, -L * 0.46))}`);
+    return out.join(" ");
+  }
+  return null;
 }
 
 function wbCursorForTool(tool, strokeColor, strokeWidth) {
@@ -3201,13 +3442,15 @@ function wbResolveLinkEndpoints(parsed) {
 //: read, so an old link keeps rendering exactly as it always did until its
 //: caps are actually changed.
 function wbLinkCaps(parsed) {
+  const sizes = { startSize: parsed.startCapSize || null, endSize: parsed.endCapSize || null };
   if (parsed.startCap !== undefined || parsed.endCap !== undefined) {
-    return { startCap: parsed.startCap || "none", endCap: parsed.endCap || "none" };
+    return { startCap: parsed.startCap || "none", endCap: parsed.endCap || "none", ...sizes };
   }
   const style = parsed.endStyle;
   return {
     startCap: style === "start" || style === "both" ? "arrow" : "none",
     endCap: style === "end" || style === "both" ? "arrow" : "none",
+    ...sizes,
   };
 }
 
@@ -3239,10 +3482,10 @@ function wbLinkPathD(type, sPt, tPt, caps, width, bend, shape = null) {
     const ctrl = { x: (sPt.x + tPt.x) / 2 + bend.x, y: (sPt.y + tPt.y) / 2 + bend.y };
     const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
     const headLen = (width || 3) * 4 + 6;
-    const from = wbShaftEnd(sPt, ctrl, startCap, headLen), to = wbShaftEnd(tPt, ctrl, endCap, headLen);
+    const from = wbShaftEnd(sPt, ctrl, startCap, headLen, caps?.startSize), to = wbShaftEnd(tPt, ctrl, endCap, headLen, caps?.endSize);
     let d = `M ${from.x} ${from.y} Q ${ctrl.x} ${ctrl.y}, ${to.x} ${to.y}`;
-    if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, Math.atan2(tPt.y - ctrl.y, tPt.x - ctrl.x), headLen);
-    if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, Math.atan2(sPt.y - ctrl.y, sPt.x - ctrl.x), headLen);
+    if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, Math.atan2(tPt.y - ctrl.y, tPt.x - ctrl.x), headLen, caps?.endSize);
+    if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, Math.atan2(sPt.y - ctrl.y, sPt.x - ctrl.x), headLen, caps?.startSize);
     return d;
   }
   const straight = type === "link-straight";
@@ -3259,8 +3502,8 @@ function wbLinkPathD(type, sPt, tPt, caps, width, bend, shape = null) {
     : { x: tPt.x - dx / 2, y: tPt.y };
   const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
   const headLen = (width || 3) * 4 + 6;
-  const from = wbShaftEnd(sPt, straight ? tPt : c1, startCap, headLen);
-  const to = wbShaftEnd(tPt, straight ? sPt : c2, endCap, headLen);
+  const from = wbShaftEnd(sPt, straight ? tPt : c1, startCap, headLen, caps?.startSize);
+  const to = wbShaftEnd(tPt, straight ? sPt : c2, endCap, headLen, caps?.endSize);
   const base = straight
     ? `M ${from.x} ${from.y} L ${to.x} ${to.y}`
     : `M ${from.x} ${from.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${to.x} ${to.y}`;
@@ -3275,8 +3518,8 @@ function wbLinkPathD(type, sPt, tPt, caps, width, bend, shape = null) {
     ? Math.atan2(dy, dx) + Math.PI
     : Math.atan2(sPt.y - c1.y, sPt.x - c1.x);
   let d = base;
-  if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, endAngle, headLen);
-  if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, startAngle, headLen);
+  if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, endAngle, headLen, caps?.endSize);
+  if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, startAngle, headLen, caps?.startSize);
   return d;
 }
 
@@ -3409,12 +3652,12 @@ function wbElbowPathD(pts, caps, width) {
   const n = pts.length;
   const run = pts.slice();
   if (n > 1) {
-    run[0] = wbShaftEnd(pts[0], pts[1], startCap, headLen);
-    run[n - 1] = wbShaftEnd(pts[n - 1], pts[n - 2], endCap, headLen);
+    run[0] = wbShaftEnd(pts[0], pts[1], startCap, headLen, caps?.startSize);
+    run[n - 1] = wbShaftEnd(pts[n - 1], pts[n - 2], endCap, headLen, caps?.endSize);
   }
   let d = `M ${run[0].x} ${run[0].y}` + run.slice(1).map((p) => ` L ${p.x} ${p.y}`).join("");
-  if (endCap !== "none" && n > 1) d += " " + wbCapPath(endCap, pts[n - 1].x, pts[n - 1].y, Math.atan2(pts[n - 1].y - pts[n - 2].y, pts[n - 1].x - pts[n - 2].x), headLen);
-  if (startCap !== "none" && n > 1) d += " " + wbCapPath(startCap, pts[0].x, pts[0].y, Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x), headLen);
+  if (endCap !== "none" && n > 1) d += " " + wbCapPath(endCap, pts[n - 1].x, pts[n - 1].y, Math.atan2(pts[n - 1].y - pts[n - 2].y, pts[n - 1].x - pts[n - 2].x), headLen, caps?.endSize);
+  if (startCap !== "none" && n > 1) d += " " + wbCapPath(startCap, pts[0].x, pts[0].y, Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x), headLen, caps?.startSize);
   return d;
 }
 
@@ -3457,13 +3700,13 @@ function wbCurvePathD(segs, caps, width) {
   const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
   const headLen = (width || 3) * 4 + 6;
   const first = segs[0], last = segs[segs.length - 1];
-  const from = wbShaftEnd(first.a, first.c1, startCap, headLen), to = wbShaftEnd(last.b, last.c2, endCap, headLen);
+  const from = wbShaftEnd(first.a, first.c1, startCap, headLen, caps?.startSize), to = wbShaftEnd(last.b, last.c2, endCap, headLen, caps?.endSize);
   let d = `M ${from.x} ${from.y}` + segs.map((s) => {
     const end = s === last ? to : s.b;
     return ` C ${s.c1.x} ${s.c1.y}, ${s.c2.x} ${s.c2.y}, ${end.x} ${end.y}`;
   }).join("");
-  if (endCap !== "none") d += " " + wbCapPath(endCap, last.b.x, last.b.y, Math.atan2(last.b.y - last.c2.y, last.b.x - last.c2.x), headLen);
-  if (startCap !== "none") d += " " + wbCapPath(startCap, first.a.x, first.a.y, Math.atan2(first.a.y - first.c1.y, first.a.x - first.c1.x), headLen);
+  if (endCap !== "none") d += " " + wbCapPath(endCap, last.b.x, last.b.y, Math.atan2(last.b.y - last.c2.y, last.b.x - last.c2.x), headLen, caps?.endSize);
+  if (startCap !== "none") d += " " + wbCapPath(startCap, first.a.x, first.a.y, Math.atan2(first.a.y - first.c1.y, first.a.x - first.c1.x), headLen, caps?.startSize);
   return d;
 }
 
@@ -4138,7 +4381,7 @@ let wbCopiedStyle = null; // { kind: "sketch" | "object", style: {...} }
 // `type`, not position: pasting a style must never move or reshape the
 // thing it lands on.
 const WB_SKETCH_STYLE_KEYS = [
-  "color", "width", "dash", "fill", "fillOpacity", "noStroke", "startCap", "endCap",
+  "color", "width", "dash", "fill", "fillOpacity", "noStroke", "startCap", "endCap", "startCapSize", "endCapSize",
 ];
 const WB_OBJECT_STYLE_KEYS = ["color", "bg", "border_color", "font_size"];
 
@@ -4216,6 +4459,80 @@ async function wbPasteCopiedStyle() {
   toast(skipped
     ? `Style pasted onto ${applied}. ${skipped} skipped: a different kind of item.`
     : `Style pasted onto ${applied}.`);
+}
+
+//: **Reset style** (INBOX 747, the owner: "there's no way to reset a object
+//: back to default style"). Every look field a kind's controls can set is
+//: taken off, so the item draws as a new one of its kind would: the theme's
+//: ink, no fill, a solid 3-wide line, its text at the default size. What it
+//: says, where it is, its ends' marks and a connector's route are kept. A
+//: sticky goes back to the first paper; a map topic back to following its
+//: map and level (`wbMapResetToBranch`'s keys). One undo step for the lot.
+const WB_SKETCH_RESET_KEYS = [
+  "color", "width", "dash", "fill", "fillOpacity", "noStroke", "alpha", "shadow", "rough", "jumps",
+  "startCapSize", "endCapSize", "label_size", "label_color", "label_bold", "label_italic", "label_align", "label_valign",
+];
+const WB_OBJECT_RESET_KEYS = ["color", "bg", "border_color", "font_size", "bold", "italic", "align", "valign", "alpha", "shadow", "fold"];
+
+//: The reset fields for one sketch, or null for a drawing with nothing to
+//: reset (a highlighter's look is its tool). A line whose ends are drawn in
+//: its own path has them redrawn at the default width.
+function wbSketchStyleReset(parsed) {
+  if (!parsed || parsed.shape === "highlighter") return null;
+  const patch = Object.fromEntries(WB_SKETCH_RESET_KEYS.map((key) => [key, undefined]));
+  if (typeof parsed.d === "string" && wbSketchTakesCaps(parsed)) {
+    const caps = wbSketchCaps(parsed);
+    if (caps.startCap !== "none" || caps.endCap !== "none") {
+      patch.d = wbRegenerateShapeCaps(parsed.d, caps.startCap, caps.endCap, 3 * 4 + 6, null);
+    }
+  }
+  return patch;
+}
+
+//: The data an object keeps after a reset, or null for one with no look of
+//: its own here (a card follows the board; a map topic is reset by its map).
+function wbObjectStyleReset(obj) {
+  if (!obj?.data || WB_MAP_KINDS.has(obj.kind)) return null;
+  const data = { ...obj.data };
+  for (const key of WB_OBJECT_RESET_KEYS) delete data[key];
+  if (wbIsSticky(obj)) Object.assign(data, { sticky: true, bg: WB_STICKY_PAPERS[0].value, color: "#2a2a1f", font_size: 16 });
+  return data;
+}
+
+async function wbResetSelectedStyle() {
+  const entries = wbMultiSelection.size > 0 ? wbSelectionEntries() : (wbSelectedItem ? [wbSelectedItem] : []);
+  if (!entries.length) return toast("Select something to reset its style.");
+  let reset = 0;
+  await wbRecordGesture(async () => {
+    for (const entry of entries) {
+      const item = (wbState[WB_LIST_BY_KIND[entry.kind]] || []).find((i) => i.id === entry.id);
+      if (!item || wbIsLocked(entry.kind, item)) continue;
+      if (entry.kind === "object" && WB_MAP_KINDS.has(item.kind)) {
+        const patch = {};
+        for (const key of WB_MAP_STYLE_KEYS) patch[key] = null;
+        await wbMapSetNodeStyle(item, patch, { undo: false });
+        reset += 1;
+      } else if (entry.kind === "sketch") {
+        let parsed = null;
+        try { parsed = JSON.parse(item.data); } catch { parsed = null; }
+        const patch = wbSketchStyleReset(parsed);
+        if (!patch) continue;
+        await wbSaveSketchProps(item, patch);
+        reset += 1;
+      } else if (entry.kind === "object") {
+        const data = wbObjectStyleReset(item);
+        if (!data) continue;
+        item.data = data;
+        await wbSaveObject(item);
+        reset += 1;
+      }
+    }
+  });
+  wbScheduleRender();
+  wbUpdateContextBar();
+  if (typeof wbFormatSyncSoon === "function") wbFormatSyncSoon();
+  if (!reset) return toast("Nothing selected has a style of its own to reset.");
+  wbAnnounce(reset === 1 ? "Style reset." : `Style reset on ${reset} items.`);
 }
 
 //: **The kind to controls table** (WHITEBOARD_PLAN.md decision 2). One row
@@ -4434,6 +4751,7 @@ function wbFillContextBar() {
     const caps = wbLinkCaps(parsed);
     document.getElementById("wb-prop-startcap").value = caps.startCap;
     document.getElementById("wb-prop-endcap").value = caps.endCap;
+    wbShowCapSizes(caps);
     document.getElementById("wb-prop-dash").value = parsed.dash || "solid";
     document.getElementById("wb-prop-route").value = wbLinkRouteName(parsed);
     //: The Label button is for a board connector (a map's cross-link is
@@ -4463,6 +4781,7 @@ function wbFillContextBar() {
       const caps = wbSketchCaps(parsed);
       document.getElementById("wb-prop-startcap").value = caps.startCap;
       document.getElementById("wb-prop-endcap").value = caps.endCap;
+      wbShowCapSizes(caps);
     }
     if (which === "shape") {
       document.getElementById("wb-prop-shapefill").value = parsed.fill || "#3355ff";
@@ -6984,7 +7303,6 @@ function wbCloneSource() {
   if (!item || wbIsLocked(kind, item) || wbItemHidden(kind, item)) return null;
   if (kind === "object" && item.kind !== "text") return null;
   if (kind === "sketch" && !wbShapeLabelKind(wbSketchParsedData(item))) return null;
-  if (kind === "node") return null;
   const bbox = wbItemBBox(kind, item);
   return bbox ? { kind, id, item, bbox } : null;
 }
@@ -6993,7 +7311,11 @@ async function wbCloneConnect(dirName) {
   const source = wbCloneSource();
   const dir = WB_CLONE_DIRS[dirName];
   if (!source || !dir) {
-    toast("Select one shape or text box to copy and join.");
+    toast("Select one shape, text box or note card to copy and join.");
+    return;
+  }
+  if (source.kind === "node") {
+    await wbCloneNoteCard(source, dirName);
     return;
   }
   const w = source.bbox.maxX - source.bbox.minX, h = source.bbox.maxY - source.bbox.minY;
@@ -7039,6 +7361,50 @@ async function wbCloneConnect(dirName) {
   wbAnnounce(`Copied ${dir.words} and joined. Press again to keep going.`);
 }
 
+//: **A note card's arrow makes a new note** (WHITEBOARD_PLAN decision E1,
+//: INBOX 826): copying the card would put the same note on the board twice,
+//: so the arrow makes a new note in a card the size of this one, joined to it
+//: by an arrowed link side to side, and opens it for typing with its words
+//: selected. One undo step takes back the card, the link and the note.
+async function wbCloneNoteCard(source, dirName) {
+  const dir = WB_CLONE_DIRS[dirName];
+  const w = source.bbox.maxX - source.bbox.minX, h = source.bbox.maxY - source.bbox.minY;
+  let made = null;
+  await wbRecordGesture(async () => {
+    const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New note", defer_filing: true }) });
+    wbPushUndo({ action: "noteMade", entryId: entry.id });
+    made = await apiJson("/whiteboard/nodes", {
+      method: "POST",
+      body: JSON.stringify({
+        entry_id: entry.id, board_id: window.currentBoardId ?? null,
+        x: Math.round(source.item.x + dir.x * (w + WB_CLONE_GAP)), y: Math.round(source.item.y + dir.y * (h + WB_CLONE_GAP)),
+        width: source.item.width, height: source.item.height, z: source.item.z || 1,
+      }),
+    });
+    wbState.nodes.push(made);
+    const link = await apiJson("/whiteboard/sketches", {
+      method: "POST",
+      body: JSON.stringify({
+        data: JSON.stringify({
+          type: "link-straight", route: "elbow", sourceId: source.id, targetId: made.id,
+          sourceAnchor: { x: 0.5 + dir.x / 2, y: 0.5 + dir.y / 2 },
+          targetAnchor: { x: 0.5 - dir.x / 2, y: 0.5 - dir.y / 2 },
+          color: window.currentStrokeColor || "#888888", width: 2, endCap: "arrow",
+        }),
+        x: 0, y: 0, z: 1, board_id: window.currentBoardId ?? null,
+      }),
+    });
+    wbState.sketches.push(link);
+  });
+  if (!made) return;
+  //: The card reads its words from `allEntries`, fetched before this note.
+  await loadEntries();
+  selectWbItem("node", made.id);
+  renderWhiteboardNow();
+  wbAnnounce(`New note ${dir.words}, joined. Type its words.`);
+  requestAnimationFrame(() => wbEditNodeText(made.id));
+}
+
 //: The four arrow grips round the selected shape, drawn in the overlay layer
 //: like the other grips, rebuilt with the selection and laid out by
 //: `wbLayoutCloneGrips`.
@@ -7063,7 +7429,9 @@ function wbRenderCloneGrips() {
     grip.setAttribute("d", dir.icon);
     grip.dataset.dir = name;
     const title = document.createElementNS(ns, "title");
-    title.textContent = `Copy ${dir.words} and join (Alt+Shift+Arrow)`;
+    title.textContent = source.kind === "node"
+      ? `New note ${dir.words}, joined (Alt+Shift+Arrow)`
+      : `Copy ${dir.words} and join (Alt+Shift+Arrow)`;
     grip.append(title);
     grip.addEventListener("pointerdown", (e) => e.stopPropagation());
     grip.addEventListener("click", (e) => {
@@ -10074,10 +10442,14 @@ function wbFrameDragOrigin(d, alone) {
 }
 
 //: The title, renamed in place: double-click it, Enter or a click away keeps
-//: the new name, Escape puts the old one back.
-function wbEditFrameTitle(titleEl, frame) {
+//: the new name, Escape puts the old one back. **A panel's hint line too**
+//: (INBOX 740, the owner: "I cant edit the text under the titles in these
+//: objects?"): `field` "hint", where an emptied line is taken away rather
+//: than refused, as a title's is.
+function wbEditFrameTitle(titleEl, frame, field = "content") {
   if (titleEl.isContentEditable) return;
-  const before = wbFrameTitle(frame);
+  const isHint = field === "hint";
+  const before = isHint ? frame.data?.hint || "" : wbFrameTitle(frame);
   //: The board's one way into an edit (DESIGN.md: `wbBeginTextEdit`).
   wbBeginTextEdit(titleEl);
   const range = document.createRange();
@@ -10095,14 +10467,16 @@ function wbEditFrameTitle(titleEl, frame) {
   titleEl.addEventListener("blur", () => {
     titleEl.removeEventListener("keydown", onKey);
     wbEndTextEdit(titleEl);
-    const name = wbEditedText(titleEl).replace(/\s+/g, " ").trim().slice(0, 80);
-    if (cancelled || !name || name === before) {
+    const name = wbEditedText(titleEl).replace(/\s+/g, " ").trim().slice(0, isHint ? 120 : 80);
+    if (cancelled || (!name && !isHint) || name === before) {
       titleEl.textContent = before;
       return;
     }
     wbPushUndo({ action: "move", kind: "object", id: frame.id, before: WB_KIND_INFO.object.payload(frame) });
-    frame.data = { ...frame.data, content: name };
+    frame.data = { ...frame.data, [field]: name || undefined };
+    if (isHint && !name) delete frame.data.hint;
     titleEl.textContent = name;
+    if (isHint) titleEl.hidden = !name;
     wbSaveObject(frame);
   }, { once: true });
 }
@@ -10119,7 +10493,16 @@ function wbBuildFrame(el, d) {
     .on("pointerdown", function (event) {
       if (this.isContentEditable) event.stopPropagation();
     });
-  el.append("div").attr("class", "wb-frame-hint").attr("aria-hidden", "true");
+  el.append("div")
+    .attr("class", "wb-frame-hint")
+    .attr("title", "Double-click to change this line")
+    .on("dblclick", function (event) {
+      event.stopPropagation();
+      wbEditFrameTitle(this, d, "hint");
+    })
+    .on("pointerdown", function (event) {
+      if (this.isContentEditable) event.stopPropagation();
+    });
   wbPaintFrame(el.node(), d);
 }
 
@@ -12780,6 +13163,7 @@ async function initWhiteboard() {
   // `wbSelectedItem`/`wbState`, and the copy-style actions need them too.
   document.getElementById("wb-copy-style")?.addEventListener("click", wbCopySelectedStyle);
   document.getElementById("wb-paste-style")?.addEventListener("click", wbPasteCopiedStyle);
+  document.getElementById("wb-reset-style")?.addEventListener("click", wbResetSelectedStyle);
   document.getElementById("wb-prop-bold")?.addEventListener("click", () => wbWrapTextSelection("**"));
   document.getElementById("wb-prop-italic")?.addEventListener("click", () => wbWrapTextSelection("*"));
   document.getElementById("wb-prop-bullets")?.addEventListener("click", wbBulletTextLines);
@@ -12881,7 +13265,7 @@ async function initWhiteboard() {
       const current = wbLinkCaps(linkParsed);
       current[which] = value;
       await wbSaveSketchProps(sketch, {
-        startCap: current.startCap, endCap: current.endCap, endStyle: undefined,
+        startCap: current.startCap, endCap: current.endCap, endStyle: undefined, ...wbCapSizeFields(current),
       });
       wbScheduleRender();
       return;
@@ -12891,10 +13275,12 @@ async function initWhiteboard() {
     const current = wbSketchCaps(parsed);
     current[which] = value;
     const headLen = (parsed.width || WB_STROKE_WIDTH) * 4 + 6;
-    const newD = wbRegenerateShapeCaps(parsed.d, current.startCap, current.endCap, headLen);
-    await wbSaveSketchProps(sketch, { d: newD, startCap: current.startCap, endCap: current.endCap });
+    const newD = wbRegenerateShapeCaps(parsed.d, current.startCap, current.endCap, headLen, current);
+    await wbSaveSketchProps(sketch, { d: newD, startCap: current.startCap, endCap: current.endCap, ...wbCapSizeFields(current) });
     wbScheduleRender();
   }
+  document.getElementById("wb-prop-startsize")?.addEventListener("change", (e) => wbSetCap("startSize", e.target.value));
+  document.getElementById("wb-prop-endsize")?.addEventListener("change", (e) => wbSetCap("endSize", e.target.value));
   document.getElementById("wb-prop-startcap")?.addEventListener("change", (e) => wbSetCap("startCap", e.target.value));
   document.getElementById("wb-prop-route")?.addEventListener("change", (e) => wbSetLinkRoute(e.target.value));
   document.getElementById("wb-prop-label")?.addEventListener("click", () => {
@@ -13254,12 +13640,22 @@ async function initWhiteboard() {
   // matching what the toggle looks like it should do). The picker only
   // opens from the caret, a right-click, a double-click, or, touch has
   // neither of those: holding the tool down.
+  //: **The caret is a target** (OPEN row 847): it had `pointer-events: none`,
+  //: so its own test never matched and a click on it picked the tool. It is
+  //: 10px across, so the toggle's right 14px count as the caret too; a
+  //: keyboard press (no pointer, `detail` 0) still picks the tool.
+  function wbToggleCaretHit(toggle, e) {
+    const caret = toggle.querySelector(".wb-shape-caret");
+    if (!caret) return false;
+    if (e.target.closest(".wb-shape-caret")) return true;
+    return e.detail > 0 && e.clientX >= toggle.getBoundingClientRect().right - 14;
+  }
   function wbWireToggleGestures(toggle, menu, getLastTool) {
     if (!toggle || !menu) return;
     const picker = toggle.parentElement; // #wb-shape-picker / #wb-select-picker
     toggle.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (e.target.closest(".wb-shape-caret")) {
+      if (wbToggleCaretHit(toggle, e)) {
         if (menu.classList.contains("hidden")) wbOpenDockedMenu(menu, toggle);
         else wbCloseDockedMenu(menu, toggle);
       } else {
@@ -14397,6 +14793,7 @@ async function initWhiteboard() {
   //: one, and the sweep `wbClearSelectionOverlays` runs, so there is exactly
   //: one place that can forget to remove the element.
   function wbEndMarqueeDrag() {
+    if (wbMarqueeStart?.place) wbClearAlignmentGuides();
     wbMarqueeEl?.remove();
     wbMarqueeEl = null;
     wbMarqueeStart = null;
@@ -14535,6 +14932,7 @@ async function initWhiteboard() {
     //: Shift makes a drawn box square, read live rather than from the press
     //: (on the marquee the press's Shift means "add to the selection").
     if (wbMarqueeStart.place && e.shiftKey) [x, y] = wbSquareCorner(wbMarqueeStart, x, y);
+    else if (wbMarqueeStart.place && !wbMarqueeStart.pending) [x, y] = wbDrawOutSnap(wbMarqueeStart.x, wbMarqueeStart.y, x, y, e);
     if (wbMarqueeStart.pending) {
       // The same 4 units the completed gesture is measured against below, so
       // a press that never becomes a drag draws nothing and claims nothing.
@@ -14705,7 +15103,10 @@ async function initWhiteboard() {
       wbFrameFit((wbState.objects || []).find((o) => o.id === Number(frameEl.dataset.id)), handle.dataset.handle);
       return;
     }
-    wbFitToText(handle.closest(".wb-object, .node-card"));
+    //: A picture has no words to fit, so its grip's double-click is nothing.
+    const owner = handle.closest(".wb-object, .node-card");
+    if (owner?.classList.contains("wb-object-image")) return;
+    wbFitToText(owner);
   });
 
   //: **The two gestures a map has to answer on its own canvas** (MINDMAP_PLAN
@@ -15014,6 +15415,8 @@ async function initWhiteboard() {
     let [x, y] = getLogicalMouse(e);
     const start = wbMarqueeStart;
     if (start.place && e.shiftKey) [x, y] = wbSquareCorner(start, x, y);
+    else if (start.place) [x, y] = wbDrawOutSnap(start.x, start.y, x, y, e);
+    wbClearAlignmentGuides();
     const mx = Math.min(start.x, x), my = Math.min(start.y, y);
     const mw = Math.abs(x - start.x), mh = Math.abs(y - start.y);
     //: Shift at the press or at the release adds (the owner, 2026-10-07).
@@ -15381,7 +15784,11 @@ async function initWhiteboard() {
   containerEl.addEventListener("pointermove", (e) => {
     if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
-    const [x, y] = getLogicalMouse(e);
+    let [x, y] = getLogicalMouse(e);
+    const tool = window.currentTool;
+    if (tool !== "draw" && tool !== "highlighter" && tool !== "line" && tool !== "arrow") {
+      [x, y] = wbDrawOutSnap(currentDrawData[0][0], currentDrawData[0][1], x, y, e, tool === "circle");
+    }
     
     if (window.currentTool === "draw" || window.currentTool === "highlighter") {
       // **Shift draws a straight run** (decision 7). Held mid-stroke it
@@ -15451,6 +15858,7 @@ async function initWhiteboard() {
     if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = false;
+    wbClearAlignmentGuides();
     
     const [x, y] = getLogicalMouse(e);
     const [sx, sy] = currentDrawData[0];
@@ -16807,14 +17215,14 @@ function wbToolCaps() {
 //: chosen. Independently per end (`WB_CAP_KINDS` each): asked for
 //: directly ("a full line/arrow end-cap system... circle/square/multi-line
 //: ends"), replacing the single shared arrowhead-only version.
-function wbRegenerateShapeCaps(d, startCap, endCap, headLen) {
+function wbRegenerateShapeCaps(d, startCap, endCap, headLen, sizes) {
   const m = d.match(/^M\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)\s+L\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)/);
   if (!m) return d;
   const sx = parseFloat(m[1]), sy = parseFloat(m[2]), ex = parseFloat(m[3]), ey = parseFloat(m[4]);
   const angle = Math.atan2(ey - sy, ex - sx);
   let out = `M ${sx} ${sy} L ${ex} ${ey}`;
-  if (endCap && endCap !== "none") out += " " + wbCapPath(endCap, ex, ey, angle, headLen);
-  if (startCap && startCap !== "none") out += " " + wbCapPath(startCap, sx, sy, angle + Math.PI, headLen);
+  if (endCap && endCap !== "none") out += " " + wbCapPath(endCap, ex, ey, angle, headLen, sizes?.endSize);
+  if (startCap && startCap !== "none") out += " " + wbCapPath(startCap, sx, sy, angle + Math.PI, headLen, sizes?.startSize);
   return out;
 }
 
@@ -16864,13 +17272,15 @@ function wbDetectArrowStyle(d) {
 //: is not: so a *new* cap choice is trusted and stored, and only a link
 //: with no stored choice at all falls back to inferring one.
 function wbSketchCaps(parsed) {
+  const sizes = { startSize: parsed.startCapSize || null, endSize: parsed.endCapSize || null };
   if (parsed.startCap !== undefined || parsed.endCap !== undefined) {
-    return { startCap: parsed.startCap || "none", endCap: parsed.endCap || "none" };
+    return { startCap: parsed.startCap || "none", endCap: parsed.endCap || "none", ...sizes };
   }
   const legacy = wbDetectArrowStyle(parsed.d);
   return {
     startCap: legacy === "start" || legacy === "both" ? "arrow" : "none",
     endCap: legacy === "end" || legacy === "both" ? "arrow" : "none",
+    ...sizes,
   };
 }
 
@@ -18586,6 +18996,9 @@ function renderWhiteboard() {
         rawDX = 0;
         rawDY = 0;
         d._resizeUndoBefore = WB_KIND_INFO.node.payload(d);
+        //: Measured once, at the press: the height the text needs.
+        const card = document.querySelector(`.node-card[data-id="${d.id}"]`);
+        d._fitH = card && !wbExpandedNodes.has(d.id) ? wbCardFitHeight(card) : null;
         d._gesture = wbBeginGesture(() => wbRestoreBox("node", d, d._resizeUndoBefore));
       })
       .on("drag", (event, d) => {
@@ -18613,9 +19026,15 @@ function renderWhiteboard() {
         //: to a square" made every Shift-resize a square, which turned a 2:1
         //: card into a 1:1 one the moment Shift went down; a square stays a
         //: square under this rule, so that report is still answered.
-        if (handle.length === 2 && event.sourceEvent.shiftKey) {
+        const keepAspect = handle.length === 2 && event.sourceEvent.shiftKey;
+        if (keepAspect) {
           ({ w: width, h: height } = wbKeepAspect(startW, startH, width, height));
         }
+        //: Guided, never preset (INBOX 825 item 2): a neighbour's edge, width
+        //: or height, the grid, or the text's own height; Alt holds them off.
+        ({ width, height } = wbGuidedResize("node", d, handle, { x: startX, y: startY, w: startW, h: startH }, width, height, {
+          off: keepAspect || event.sourceEvent.altKey, fit: d._fitH,
+        }));
         if (handle.includes("w")) x = startX + (startW - width);
         if (handle.includes("n")) y = startY + (startH - height);
         d.width = width;
@@ -18630,6 +19049,8 @@ function renderWhiteboard() {
         }
       })
       .on("end", async (event, d) => {
+        wbClearAlignmentGuides();
+        delete d._fitH;
         delete d._resizeStartW;
         delete d._resizeStartH;
         delete d._resizeStartX;
@@ -18875,9 +19296,7 @@ function renderWhiteboard() {
       .attr("data-handle", handle)
       //: The same title the object handles carry, for the same reason: the
       //: double-click-to-fit gesture had nothing on screen saying it existed.
-      .attr("title", (datum) => datum.kind === "frame"
-          ? "Drag to resize, double-click to fit this edge to what is inside"
-          : "Drag to resize: Shift keeps the proportions, double-click fits the text")
+      .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the card to its note")
       .call(nodeResizeDrag(handle));
   }
   nodeEnter.append("div")
@@ -19014,6 +19433,50 @@ async function wbResetRotation(grip) {
   wbScheduleRender();
 }
 
+//: The height a card's text needs, chrome included (see `wbFitToText`):
+//: the double-click's answer, and the "fit content" snap of a card's resize.
+function wbCardFitHeight(el) {
+  const content = el.querySelector(".wb-card-content");
+  const previous = el.style.height;
+  let fitted = 0;
+  if (content) {
+    const saved = {
+      overflow: content.style.overflow,
+      maxHeight: content.style.maxHeight,
+      height: content.style.height,
+    };
+    //: The chrome is measured *before* anything is opened up, while the card
+    //: is still in its real layout: afterwards both boxes are growing and
+    //: the difference between them is no longer the padding.
+    const chrome = Math.max(0, el.offsetHeight - content.offsetHeight);
+    content.style.overflow = "visible";
+    content.style.maxHeight = "none";
+    content.style.height = "auto";
+    el.style.height = "auto";
+    fitted = Math.ceil(content.scrollHeight) + chrome;
+    el.style.height = previous;
+    for (const [name, value] of Object.entries(saved)) {
+      const prop = name === "maxHeight" ? "max-height" : name;
+      if (value) content.style.setProperty(prop, value);
+      else content.style.removeProperty(prop);
+    }
+  } else {
+    el.style.height = "auto";
+    fitted = Math.ceil(el.scrollHeight);
+    el.style.height = previous;
+  }
+  return fitted;
+}
+
+//: **Each grip says what its double-click does on this kind** (OPEN.md: the
+//: title said "fits the text" on a picture, which has none). A frame fits
+//: what it holds, a picture has nothing to fit, the rest fit their words.
+function wbResizeHandleTitle(kind) {
+  if (kind === "frame") return "Drag to resize, double-click to fit this edge to what is inside";
+  if (kind === "image") return "Drag to resize: Shift keeps the proportions";
+  return "Drag to resize: Shift keeps the proportions, double-click fits the text";
+}
+
 async function wbFitToText(el) {
   if (!el) return;
   const id = Number(el.dataset.id);
@@ -19092,35 +19555,7 @@ async function wbFitToText(el) {
   //: by removal when it was not set inline: these elements are re-rendered
   //: from CSS, and an inline `overflow` left behind would silently disable
   //: the clipping that rule exists to do.
-  const content = el.querySelector(".wb-card-content");
-  const previous = el.style.height;
-  let fitted = 0;
-  if (content) {
-    const saved = {
-      overflow: content.style.overflow,
-      maxHeight: content.style.maxHeight,
-      height: content.style.height,
-    };
-    //: The chrome is measured *before* anything is opened up, while the card
-    //: is still in its real layout: afterwards both boxes are growing and
-    //: the difference between them is no longer the padding.
-    const chrome = Math.max(0, el.offsetHeight - content.offsetHeight);
-    content.style.overflow = "visible";
-    content.style.maxHeight = "none";
-    content.style.height = "auto";
-    el.style.height = "auto";
-    fitted = Math.ceil(content.scrollHeight) + chrome;
-    el.style.height = previous;
-    for (const [name, value] of Object.entries(saved)) {
-      const prop = name === "maxHeight" ? "max-height" : name;
-      if (value) content.style.setProperty(prop, value);
-      else content.style.removeProperty(prop);
-    }
-  } else {
-    el.style.height = "auto";
-    fitted = Math.ceil(el.scrollHeight);
-    el.style.height = previous;
-  }
+  const fitted = wbCardFitHeight(el);
   if (!fitted) return;
   //: The same floor the resize drag uses, so a fit cannot produce a box that
   //: a drag would refuse to make.
@@ -19626,9 +20061,13 @@ function renderWbObjects(canvas) {
         if (handle.includes("s")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, start.h + start.dy);
         if (handle.includes("n")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, start.h - start.dy);
         // Shift on a corner keeps the box's proportions, see nodeResizeDrag.
-        if (handle.length === 2 && event.sourceEvent.shiftKey) {
+        const keepAspect = handle.length === 2 && event.sourceEvent.shiftKey;
+        if (keepAspect) {
           ({ w: newWidth, h: newHeight } = wbKeepAspect(start.w, start.h, newWidth, newHeight));
         }
+        ({ width: newWidth, height: newHeight } = wbGuidedResize("object", d, handle, start, newWidth, newHeight, {
+          off: keepAspect || event.sourceEvent.altKey,
+        }));
         d.x = handle.includes("w") ? start.x + start.w - newWidth : start.x;
         d.y = handle.includes("n") ? start.y + start.h - newHeight : start.y;
         d.width = newWidth;
@@ -19648,6 +20087,7 @@ function renderWbObjects(canvas) {
         wbQueueSelectionBar();
       })
       .on("end", async (event, d) => {
+        wbClearAlignmentGuides();
         delete d._resizeStart;
         delete d._linkedSketches;
         const before = d._resizeUndoBefore;
@@ -19900,7 +20340,7 @@ function renderWbObjects(canvas) {
         //: these had none, so double-tapping to fit was real and invisible,
         //: which is indistinguishable from missing and was duly reported as
         //: missing.
-        .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the text")
+        .attr("title", wbResizeHandleTitle(d.kind))
         .call(resizeDrag(handle));
     }
     //: A frame is a region of the board, and a turned region holds nothing

@@ -1636,16 +1636,13 @@ Measured from the code: the edge arrows (`wbCloneSource`, whiteboard.js) show fo
 
 Decisions made:
 - E1. A note card gets the edge arrows. Its arrow makes a new empty note card joined by a link (copying a note's text would duplicate a note); a shape or text box still copies. The arrow's title says which.
-- E2. Ends added: outlined triangle, concave (stealth) arrow, dot, cross, half arrow, double arrow; and an end size (small, medium, large) beside each end menu. Every end draws the same in export.
-- E3. One signature end, "MemoryMap": an open chevron with the brand mark's node dot at its tip, drawn from the mark's own geometry; it sits first under a "MemoryMap" group, and the default end stays Open arrow.
+- E2. Ends added: outlined triangle, concave (stealth) arrow, dot, cross, half arrow, double arrow; and an end size (small, medium, large) beside each end menu. Every end draws the same in export. (wbs-1011: the dot is the filled circle already in the list; the sizes are 0.7, 1 and 1.45 of the head, medium stored as no field.)
+- E3. One signature end, "MemoryMap": an open chevron with the brand mark's node dot at its tip, drawn from the mark's own geometry; it sits first under a "MemoryMap" group, and the default end stays Open arrow. (wbs-1011, C3: candidate A taken, the dot at the tip and the chevron a stroke behind it; it alone reads as two parts at 1x and 2x.)
 - E4. Dragging out a new shape, text box or frame shows the move guides, snaps the moving corner to them, and shows the size ("120 x 80") beside the cursor, as Figma and draw.io do; Alt draws without snapping, as a move does.
 - E5. The feature-depth gap is re-audited for the board, the map and the document editor together (tldraw, Excalidraw, draw.io, Miro, XMind, MindNode, Notion, Google Docs, Word), ranked by how often a person meets each gap, and the top five per surface built, one commit and test each; the rest stay here as rows.
 
 Rows (owner: canvasdepth3, Opus, next free slot after transparency):
-- C1. Decision E1, with help: the arrow's title, the Guide topic and the manual path.
-- C2. Decision E2: the six ends and the end size, in the Start and End menus, the map's link menu and the export.
-- C3. Decision E3: the signature end, three candidates measured at 1x and 2x, one taken.
-- C4. Decision E4: guides, corner snap and the size readout while drawing.
+- C1 to C4: built (wbs-1011, 8e02b2bde and 8236fec29); HISTORY.md, "Moved from the plans, 2026-10-11 (canvasdepth3 C1 to C4)".
 - C5. Decision E5: the audit table here, then its top five per surface; it lists the small taken-for-granted things too (Brief 87's list).
 
 ## Placed from INBOX, 2026-10-11 (board and map previews)

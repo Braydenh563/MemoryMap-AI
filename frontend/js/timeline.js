@@ -263,7 +263,9 @@ function timelineBucketLabel(key, scale) {
 //: to agree, and three copies of a list of four is how they stop agreeing.
 const TIMELINE_KINDS = [
   { key: "note", label: "Notes", glyph: "ph-note" },
-  { key: "board", label: "Boards", glyph: "ph-tree-structure" },
+  //: A map is a board too (its row says "Map" and opens it as one), so the
+  //: kind names both rather than leaving a map under "Boards" alone.
+  { key: "board", label: "Boards and maps", glyph: "ph-tree-structure" },
   { key: "document", label: "Documents", glyph: "ph-file-text" },
   { key: "reminder", label: "Reminders", glyph: "ph-bell" },
 ];

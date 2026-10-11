@@ -2770,12 +2770,11 @@ function wbMapBranchDragOrigin(d, alone) {
 function wbMapDropTargetAt(d, clientX, clientY) {
   const container = document.getElementById("whiteboard-container");
   if (!container || !wbIsMap() || !WB_MAP_KINDS.has(d.kind)) return null;
-  //: The shared, per-gesture box rather than a fresh measurement: this runs
-  //: on every frame of a branch drag, after that frame has already written
-  //: every moved edge's geometry. See `wbCanvasOriginRect`.
-  const rect = wbCanvasOriginRect();
-  const t = d3.zoomTransform(container);
-  const [bx, by] = t.invert([clientX - rect.left, clientY - rect.top]);
+  //: The one conversion every pointer read shares (`wbClientToBoard`): its
+  //: origin is the per-gesture box, not a fresh measurement, since this runs
+  //: on every frame of a branch drag after that frame wrote every moved
+  //: edge's geometry, and it counts a scaled canvas as the hand-made sum did not.
+  const [bx, by] = wbClientToBoard(clientX, clientY);
   const index = wbMapIndex();
   const forbidden = new Set(wbMapSubtree(index, d.id).map((o) => o.id));
   const hidden = wbMapConcealed(index);

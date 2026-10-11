@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Long menu labels are cut with an ellipsis inside the row and shown whole on hover, in every font; the no-model notice steps its button down in a narrow card; Settings, Help, Credits has a Guide topic.
 - Toasts stack neatly: the same notice inside 4 s is one card with a count, three show and the rest fold into a "+N more" card that opens the bell; no two cards cross while they move.
 - First run: an empty notebook is offered a way to bring in notes kept in another app.
 - Settings and menus: a worded button is announced by its words, Most used follows a write at once, a found setting lands on its control, the palette learns from what you ran for longer searches, help popovers fade out, and the background jobs poll stops when you lock.

@@ -657,6 +657,7 @@ function labelledMenu(label, items, ariaLabel, openerClass = "ghost small") {
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
     if (item.title) button.title = item.title;
+    menuRowFits(button, item.title || "");
     button.addEventListener("click", async (event) => {
       event.stopPropagation();
       closeActionMenus();
@@ -1207,6 +1208,34 @@ function rowActions(actions, ariaLabel) {
   return wrap;
 }
 
+//: **A menu row's words end inside its padding** (the owner 2026-10-11, in
+//: the mono font: "there's some overflowing text in some places on
+//: different fonts like mono"; the dashboard ⋯'s "Continue: Here are some
+//: refined, non-corny..." ran into the menu's right padding). The words are
+//: always a `.ph-text` span, which 08-consistency.css lets shrink and end in
+//: an ellipsis, and a row whose words are cut carries them whole in its
+//: title, with the row's own hint after them.
+function menuRowFits(row, hint) {
+  if (!row.querySelector(".ph-text") && row.childElementCount === 0 && row.textContent) {
+    const words = document.createElement("span");
+    words.className = "ph-text";
+    words.textContent = row.textContent;
+    row.replaceChildren(words);
+  }
+  const check = () => {
+    const words = row.querySelector(".ph-text");
+    if (!words) return;
+    const cut = words.scrollWidth > words.clientWidth + 1;
+    const said = words.textContent;
+    //: A label the caller already shortened ends in "…": no full stop after it.
+    const join = /[.?!…:]$/.test(said) ? " " : ". ";
+    row.title = cut ? (hint ? `${said}${join}${hint}` : said) : hint;
+    if (!row.title) row.removeAttribute("title");
+  };
+  row.addEventListener("pointerenter", check);
+  row.addEventListener("focus", check);
+}
+
 function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -1289,6 +1318,7 @@ function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
     if (item.title) button.title = item.title;
+    menuRowFits(button, item.title || "");
     // Muted, not `disabled`, a native disabled button also blocks its own
     // title tooltip on some platforms, which is the one piece of information
     // this state actually needs to deliver (why the button can't do its

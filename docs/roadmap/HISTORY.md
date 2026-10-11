@@ -48426,6 +48426,25 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
   1440 dark with reduced motion, the same over 52 samples, the burst in
   521 ms. Under load the light bursts took 1.4 s and 3.6 s, not 500 ms. Test:
   `tests/test_toast_stack_1011.py`.
+- **The owner, 2026-10-11, verbatim.** "there's some overflowing text in some
+  places on different fonts like mono". The dashboard header's ... menu:
+  "Continue: Here are some refined, non-corny..." ran 33px past its row's
+  padding in mono at 1440 (dashmono.js: text to 1426, row content edge 1393,
+  clipped with no ellipsis). **Fixed (uiset, the font fit commit).** The
+  kebabMenu item recipe: the row and its words flex with min-width 0, the
+  words end in an ellipsis inside the padding, and a cut row carries its full
+  words in a title on hover or focus (`menuRowFits`, both menu builders); the
+  font size never shrinks. After: the words end at 1393 at 1440 and 360 at
+  390, ellipsis, full title. Also found in mono: the no-model notice in a
+  dashboard card squeezed its words to 14px beside the button and ran 58px
+  out; the words now keep 12rem and the action steps to a second row (268px
+  of words, nothing past the box). The font matrix (`fontmatrix.js`, read
+  from `#font-seg`, run by `gate.sh --sweeps`) runs errors.js's new text-fit
+  check per font and theme at 1440, 1024 and 390. Mono, light and dark: 0
+  findings at 1440 and 1024; at 390 one, the Timeline table's title cell,
+  which cuts with its own ellipsis (the check now counts a box's own
+  ellipsis as handled). The other fonts: the uiset ledger, row 1486. Tests:
+  `tests/test_font_matrix.py`.
 
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 

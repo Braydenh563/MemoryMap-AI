@@ -1,6 +1,6 @@
 # uiset-1011: Settings, themes and UI system (ledger 1387 to 1490, 1631)
 
-Owner reports done first: speed opener height, track corners, Recordings empty state, the mono menu row, the toast stack.
+Owner reports done first: speed opener height (07d447054), track corners (aef9d7633), Recordings empty state (9c1e0d617), the toast stack (4d0cba219), the mono menu row and the font matrix (the font fit commit).
 
 | id | status | evidence or commit |
 | --- | --- | --- |
@@ -17,15 +17,15 @@ Owner reports done first: speed opener height, track corners, Recordings empty s
 | 1397 | done-already | settings-reset is in the 'Getting started' help group (help_topics_more.py HELP_GROUPS) |
 | 1398 | deferred | maplayouts.js measures the centre topic; a sweep fix in the mind map lane, fails on base too |
 | 1399 | decided | Superseded by the later devsize fix (DEVICE_ONLY_KEYS, ai-tools.js): sizes and panel spots stay per device, colours, themes, fonts and motion mirror; the latest dated entry wins |
-| 1400 | built | smallButton names an icon-only button by its tooltip and a worded one by its words (WCAG 2.5.3); test_uiset_rows_1011.py |
-| 1401 | built | refreshEntries refreshes Most used after every write (one fresh GET; the write cleared the read cache) |
+| 1400 | built | smallButton names an icon-only button by its tooltip and a worded one by its words (WCAG 2.5.3); test_uiset_rows_1011.py (e9bf48384) |
+| 1401 | built | refreshEntries refreshes Most used after every write (one fresh GET; the write cleared the read cache) (e9bf48384) |
 | 1402 | closed | Each first-run act is a real question; now asked one at a time by the first-run queue (row 1631) |
 | 1403 | split | BOOT_CSS_CAP lowered (row 1405); the rows-view meta button and the tool-confirm pair are Brief 57's rowActions sweep (SESSION_BRIEFS 1828) |
 | 1404 | done-already | .dash-find has the hover veil (07-whiteboard-misc.css .dash-find:hover, 08-consistency.css dock rule) |
-| 1405 | built | BOOT_CSS_CAP 183,300 to 178,700 then set to the measured total plus room after this session's CSS (test_boot_budget.py) |
+| 1405 | built | BOOT_CSS_CAP lowered from 183,300 to 179,000, the measured 178,530 plus room (test_boot_budget.py) (e9bf48384) |
 | 1406 | not-built | Background jobs Report button needs boot JS room (892 bytes gzip left of BOOT_JS_CAP); Activity panel at 390 translucency not re-measured |
-| 1407 | built | openSettingRow lands on a row's control (a search for 'accent colour' focuses the active swatch at 1440 and 390, set.js) |
-| 1408 | built | palettePrefixPicks: stored picks for longer queries count at half weight from 2 typed letters |
+| 1407 | built | openSettingRow lands on a row's control (a search for 'accent colour' focuses the active swatch at 1440 and 390, set.js) (e9bf48384) |
+| 1408 | built | palettePrefixPicks: stored picks for longer queries count at half weight from 2 typed letters (e9bf48384) |
 | 1409 | decided | Kept as is (no stems in the setting words); recorded in the ledger |
 | 1410 | not-built | Every rail and top-bar control with a help popover and palette row: M, Brief 41's census; not started |
 | 1411 | closed | errors.js at 1440 and 390: 0 errors, 0 layout findings (a record, not a task) |
@@ -36,12 +36,12 @@ Owner reports done first: speed opener height, track corners, Recordings empty s
 | 1416 | not-verified | Quit's contrast from pixels and the line-number baseline need a real display |
 | 1417 | not-verified | OLED and gamma reading need hardware |
 | 1418 | not-verified | Write with AI with a model running needs a model (CLAUDE.md section 4) |
-| 1419 | built | Help popovers fade out like menus (.help-popover.hidden joins the exit transition; wireHelpPopover moves home after the exit) |
+| 1419 | built | Help popovers fade out like menus (.help-popover.hidden joins the exit transition; wireHelpPopover moves home after the exit) (e9bf48384) |
 | 1420 | not-built | A sub-tab panel cross-fade needs a class set on switch; S, not started |
 | 1421 | decided | 444 decision 10: Tools and Appearance stay indexed, not split (the index is the recipe); closed |
 | 1422 | not-verified | Doc-focus panels 720 to 819px not driven in a sweep |
-| 1423 | built | scroll-padding-block: var(--ring-room) now covers .library-view-section (was .tab-page, .dash-body) |
-| 1424 | built | refreshJobRuns stops when signed out and re-arms only with a token (no 401 after a lock) |
+| 1423 | built | scroll-padding-block: var(--ring-room) now covers .library-view-section (was .tab-page, .dash-body) (e9bf48384) |
+| 1424 | built | refreshJobRuns stops when signed out and re-arms only with a token (no 401 after a lock) (e9bf48384) |
 | 1425 | not-verified | tests-e2e shell.spec.js handoff test: Playwright's runner not run here |
 | 1426 | closed | Not reproduced on this head; reopen on recurrence |
 | 1427 | pointer | Notes dock wrap 1280 to 1640 with the rail open: Brief 41 density |
@@ -78,7 +78,7 @@ Owner reports done first: speed opener height, track corners, Recordings empty s
 | 1458 | done-already | BACKLOG section 110.2: the gallery kebab closes on capture; fixed then |
 | 1459 | done-already | BACKLOG section 110.2: zero flex basis on the status span; fixed then |
 | 1460 | closed | Suite size note; informational |
-| 1461 | built | The welcome's setup slide offers 'Bring in your notes' on an empty notebook: it closes the welcome and opens Settings, Import & export at Import files |
+| 1461 | built | The welcome's setup slide offers 'Bring in your notes' on an empty notebook: it closes the welcome and opens Settings, Import & export at Import files (e9bf48384) |
 | 1462 | deferred | Guarded in tour.js with Tour: log lines; open until the owner's next run |
 | 1463 | skipped | The composer's token window (brief: skip the composer) |
 | 1464 | skipped | In-text reference hover is the chat composer lane |
@@ -86,7 +86,7 @@ Owner reports done first: speed opener height, track corners, Recordings empty s
 | 1466 | deferred | Deferred by the owner (Brief 32) |
 | 1467 | pointer | Brief 92, the whole-app pass; first-run part built here (row 1631) |
 | 1468 | done-already | Settings nav: 0 overlaps (set.js) |
-| 1469 | not-built | One radius for '?' help toggles: Brief 41 (one radius per control class) |
+| 1469 | done-already | Every '?' is .graph-help-toggle at var(--radius-md), not a circle (03-dashboard-widgets.css, the owner 2026-10-10 quoted there) |
 | 1470 | pointer | 'No vertical gap': surface not named; Brief 41 census |
 | 1471 | pointer | Major polish of every dock and menu: Brief 41; the menu row fit (mono) is one part, built here |
 | 1472 | decided | Recommendation: build only if the census shows Quick access is hard to find; not built |
@@ -101,11 +101,11 @@ Owner reports done first: speed opener height, track corners, Recordings empty s
 | 1481 | done-already | Group heads follow recipe 780 (--text-lg, 650) |
 | 1482 | done-already | #conv-empty is the .empty-line small-panel recipe |
 | 1483 | not-verified | The Windows restart error needs the Windows app |
-| 1484 | built | Settings, Help, Credits: a fold drawn from docs/THIRD_PARTY.md via frontend/credits.json (scripts/build_credits.py; test_credits.py) |
+| 1484 | built | Settings, Help, Credits (and the Guide topic credits): a fold drawn from docs/THIRD_PARTY.md via frontend/credits.json (scripts/build_credits.py; test_credits.py) (e9bf48384) |
 | 1485 | decided | As 1399 |
 | 1486 | built | errors.js takes THEME, FONT and SLOW; fontmatrix.js runs both themes; FAULTS=1 not run here |
 | 1487 | closed | Known limits of the census script; noted |
 | 1488 | closed | Known limits of codemap.py; noted |
 | 1489 | closed | Heuristic noted in measure-settings-help.py |
 | 1490 | not-built | Decision 43's rate editor: the rates are read by the composer's call (brief: skip the composer) |
-| 1631 | built | First-run queue (onboarding.js firstRunTurn): welcome, recovery, console, updates, one at a time after toasts |
+| 1631 | built | First-run queue (onboarding.js firstRunTurn): welcome, recovery, console, updates, one at a time after toasts (0076136aa) |

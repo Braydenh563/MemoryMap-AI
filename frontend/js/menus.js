@@ -1365,6 +1365,7 @@ function buildMenuGroupButton(label, subItems) {
   // "Connect", "Add") were the one label sink the sweep missed, so the note
   // kebab menu rendered the literal text "ph:sparkle AI actions".
   setLabel(labelSpan, label);
+  labelSpan.className = "menu-item-words";
   const arrow = document.createElement("span");
   arrow.className = "menu-submenu-arrow";
   arrow.setAttribute("aria-hidden", "true");

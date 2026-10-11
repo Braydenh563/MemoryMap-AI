@@ -2026,7 +2026,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "privacy", "security", "encryption", "lock", "phone", "two-computers", "delete-data", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
     )),
     ("Settings and support", (
-        "profile", "general-settings", "updates", "logs", "troubleshooting",
+        "profile", "general-settings", "updates", "logs", "troubleshooting", "credits",
     )),
 ]
 
@@ -2308,3 +2308,21 @@ MORE_TOPICS.append({
 })
 TOPIC_META["autocorrect"] = {"title": "Autocorrect", "path": "Settings, General, Writing", "target": "pref-autocorrect"}
 
+
+#: The credits (uiset, 2026-10-11): Settings, Help, Credits, drawn from
+#: frontend/credits.json, which scripts/build_credits.py writes from THIRD_PARTY.md.
+MORE_TOPICS.append({
+    "id": "credits",
+    "keywords": (
+        "credits", "open source", "libraries", "third party", "third-party",
+        "attribution", "built with", "what is it built on", "licences", "licenses",
+    ),
+    "body": (
+        "Settings, Help, Credits lists the libraries and data MemoryMap is "
+        "built on, each with its licence and a link to its source: the ones in "
+        "the server, the ones in the app, the optional downloads and the "
+        "whiteboard's shapes. MemoryMap itself is AGPL-3.0."
+    ),
+    "badge": {"label": "Help", "section": "help", "target": "credits-fold"},
+})
+TOPIC_META["credits"] = {"title": "Credits and licences", "path": "Settings, Help, Credits", "target": "credits-fold"}

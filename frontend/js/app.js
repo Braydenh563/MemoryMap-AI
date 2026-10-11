@@ -1867,6 +1867,12 @@ const LAZY_MODULES = {
   //: A selection's Move to space (batch-space.js's header).
   batchSpace: ["/js/batch-space.js"],
   undoKit: ["/js/undo-kit.js"],
+  //: Settings, Tasks (chat-tasks.js's header).
+  chatTasks: ["/js/chat-tasks.js"],
+  improvePanel: ["/js/improve-panel.js"],
+  lightboxActions: ["/js/lightbox-actions.js"],
+  settingsHealth: ["/js/settings-health.js"],
+  dashOrphans: ["/js/dash-orphans.js"],
   sharedIntake: ["/js/shared-intake.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
   packages: ["/js/settings-packages.js"],
@@ -2167,6 +2173,11 @@ const LAZY_ENTRY_POINTS = {
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
+  chatTasks: ["renderTasks", "renderTaskHistory"],
+  improvePanel: ["openImprove", "improveReady", "closeImprove", "runImprove", "applyImprove"],
+  lightboxActions: ["reevaluateEntry", "attachFileTo", "attachFromLibrary"],
+  settingsHealth: ["renderHealthBlock", "renderSamplingRows"],
+  dashOrphans: ["renderOrphanNotesWidget"],
   notifications: ["openNotifications"],
   sharedIntake: ["takeSharedIntake"],
   undoKit: ["pushEntryCreateUndo", "pushLinkCreateUndo", "pushRequestUndo", "pushEntriesPutUndo", "pushBinPairUndo", "pushRoutePairUndo", "pushTensionLinkUndo", "pushTokenUndo", "pushUploadUndo", "pushCorrectionUndo", "pushMadeUndo", "pushTextUndo", "pushWikiRenameUndo"],

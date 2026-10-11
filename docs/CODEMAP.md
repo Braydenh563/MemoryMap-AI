@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5658, frontend ids 2425, CSS sections 490, backend routes 563, backend modules 4774, test files 1102, tests 9992, plan headings 996.
+Counts: frontend functions 5658, frontend ids 2425, CSS sections 490, backend routes 563, backend modules 4774, test files 1102, tests 9993, plan headings 996.
 
 ## Frontend functions (5658)
 
@@ -8843,17 +8843,17 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | 7. Meta looks like meta | frontend/css/08-consistency.css:1028 |
 | 8. A panel head is identity, one fact, then the actions, and it does not | frontend/css/08-consistency.css:2363 |
 | A CALMER TOP, NOTHING TAKEN AWAY (Full view) | frontend/css/03-dashboard-widgets.css:4859 |
-| A card's date is in the same corner on every card (INBOX 719) | frontend/css/08-consistency.css:10360 |
+| A card's date is in the same corner on every card (INBOX 719) | frontend/css/08-consistency.css:10369 |
 | A chip's x: a round target inset evenly (INBOX 403) | frontend/css/08-consistency.css:4674 |
 | A dialog's head: title, its '?', icon-only actions, Close last | frontend/css/08-consistency.css:8980 |
 | A diff of two versions of the same text (DOCUMENTS_PLAN Phase 5 items 2, 3) | frontend/css/09-editor.css:556 |
 | A member of a group selection shows that it is selected, not how to | frontend/css/library-lazy.css:5005 |
 | A note card's text leads; its metadata steps back (INBOX 505) | frontend/css/08-consistency.css:9850 |
-| A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10243 |
+| A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10252 |
 | A note's time: the same corner on every card | frontend/css/08-consistency.css:8358 |
 | A notification's two controls are a column of their own (INBOX 874) | frontend/css/06-timeline-dialogs.css:3459 |
-| A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10420 |
-| A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10344 |
+| A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10429 |
+| A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10353 |
 | Ask history: the personal-notes-browser panel (§ROADMAP item 6) | frontend/css/01-forms-settings.css:2827 |
 | Atlas's life: loops while the mark is on screen and motion is on | frontend/css/08-consistency.css:7951 |
 | Atlas, the app's guide (INBOX 224) | frontend/css/08-consistency.css:1783 |
@@ -8894,8 +8894,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Ocean: cool teal and deep blue. Crisp rather than cosy. | frontend/css/05-sidebars-themes.css:3304 |
 | On paper (DOCUMENTS_PLAN Phase 5 item 4, the print stylesheet) | frontend/css/09-editor.css:916 |
 | On this day | frontend/css/03-dashboard-widgets.css:4636 |
-| One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10313 |
-| One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10389 |
+| One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10322 |
+| One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10398 |
 | PLAN.md D1: the documents dock's formatting strip hides entirely | frontend/css/07-whiteboard-misc.css:7918 |
 | Parchment: paper, ink and a little gold. Made for long writing. | frontend/css/05-sidebars-themes.css:3231 |
 | Phase 10, INBOX 100: the scroll edge effect | frontend/css/10-responsive.css:159 |
@@ -9332,7 +9332,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/05-sidebars-themes.css | 6228 |
 | frontend/css/06-timeline-dialogs.css | 3713 |
 | frontend/css/07-whiteboard-misc.css | 11943 |
-| frontend/css/08-consistency.css | 10481 |
+| frontend/css/08-consistency.css | 10490 |
 | frontend/css/09-editor.css | 1116 |
 | frontend/css/10-responsive.css | 2586 |
 | frontend/css/ask-compose-lazy.css | 33 |
@@ -16025,7 +16025,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9992)
+## Tests (9993)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16865,7 +16865,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_routes_batch_library.py | 2 |
 | tests/test_routes_batch_misc.py | 8 |
 | tests/test_routes_named.py | 2 |
-| tests/test_row_enter.py | 2 |
+| tests/test_row_enter.py | 3 |
 | tests/test_rows_676.py | 6 |
 | tests/test_run_caps.py | 7 |
 | tests/test_run_debug_js.py | 5 |

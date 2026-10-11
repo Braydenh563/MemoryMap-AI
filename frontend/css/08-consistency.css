@@ -10212,6 +10212,15 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   min-height: var(--target-min);
   padding-inline-end: calc(var(--target-min) * 5);
 }
+/* An opened row with no title starts with its text, and that first line is
+   shorter than the chevron's (14.7px text, 22.8px line against the 28px
+   chevron: centres 19.4 and 22, 2.6px apart, ledger 1548). Give the text's
+   first line the same height a title line has, `--target-min`, so both
+   centres are the anchor. `::first-line` takes `line-height` and follows the
+   user's text size; no number per font size. */
+#entry-list.is-rows > li.row-expanded:not(:has(> .entry-title)) > .entry-content::first-line {
+  line-height: var(--target-min);
+}
 /* A collapsed row's preview is one line in its own grid column, nowhere near
    the strip, so the float that keeps an opened card's first line out from
    under it (`.entry-content::before`, above) would only cut 104px off the

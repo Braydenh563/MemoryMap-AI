@@ -22,10 +22,11 @@ const { boot } = require('./lib.js');
     const first = title && title.offsetParent ? title : content;
     const range = document.createRange(); range.selectNodeContents(first.firstChild || first);
     const rects = range.getClientRects(); const t = rects[0] || first.getBoundingClientRect();
-    return { expanded: li.classList.contains('row-expanded'), hasTitle: !!(title && title.offsetParent && title.textContent.trim()),
+    return { expanded: li.classList.contains('row-expanded'), hasTitle: !!(title && title.offsetParent && title.textContent.trim()), titleEl: title ? getComputedStyle(title).display : 'none-in-dom',
       chevronCentre: C && +(C.top + C.height / 2 - L.top).toFixed(1), chevH: C && C.height,
       firstLineCentre: +(t.top + t.height / 2 - L.top).toFixed(1), padTop: getComputedStyle(li).paddingTop, lh: getComputedStyle(first).lineHeight, fs: getComputedStyle(first).fontSize };
   });
   console.log(JSON.stringify(r));
+  if (process.env.AFTER_CSS) { /* nothing */ }
   await browser.close();
 })();

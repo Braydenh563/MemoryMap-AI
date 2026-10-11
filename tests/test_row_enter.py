@@ -24,3 +24,11 @@ def test_the_fade_uses_the_motion_token_so_reduced_motion_removes_it():
     rule = rule[: rule.index("}")]
     assert "var(--ui-slow)" in rule and "animation: row-enter" in rule
     assert "@keyframes row-enter" in CSS
+
+
+def test_an_opened_row_with_no_title_gives_its_first_line_a_title_lines_height():
+    """Ledger 1548: measured 19.4 against the chevron's 22 before, 22 and 22 after
+    (scratchpad/ui-sweeps/house1-chevron.js, 1440)."""
+    rule = CSS[CSS.index("li.row-expanded:not(:has(> .entry-title)) > .entry-content::first-line"):]
+    rule = rule[: rule.index("}")]
+    assert "line-height: var(--target-min)" in rule

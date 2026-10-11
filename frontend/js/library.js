@@ -949,10 +949,10 @@ function libraryActions(item) {
           loadEntries();
         };
         const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
-        toastAction("Moved to the bin.", "Undo", async () => {
+        toastAction(`Moved ${toastName(item.title, "the note")} to the bin.`, "Undo", async () => {
           settleUndoFromToast(action);
           await restoreIt();
-          toast("Note restored.");
+          toast(`Restored ${toastName(item.title, "the note")}.`);
         }, { also: GO_TO_BIN });
       }),
     ];
@@ -1434,7 +1434,7 @@ function libraryCard(item) {
   const when = document.createElement("span");
   when.className = "library-card-when";
   when.textContent = relativeTime(item.updated_at);
-  when.title = new Date(item.updated_at).toLocaleString();
+  when.title = whenText(item.updated_at);
   foot.append(detail, when);
   card.appendChild(foot);
 
@@ -2386,7 +2386,7 @@ function skillCard(skill, lastRun) {
     const outcome = (lastRun.detail || "").split(", ").slice(1).join(", ");
     const glyph = /^completed/.test(outcome) ? "check-circle" : /^stopped/.test(outcome) ? "warning" : "pause-circle";
     when.dataset.state = glyph === "check-circle" ? "ok" : glyph === "warning" ? "stopped" : "paused";
-    when.title = new Date(lastRun.created_at).toLocaleString();
+    when.title = whenText(lastRun.created_at);
     setLabel(when, `ph:${glyph} Ran ${relativeTime(lastRun.created_at)}${outcome ? `: ${outcome}` : ""}`);
   } else {
     setLabel(when, "ph:clock-countdown Never run");
@@ -2870,7 +2870,7 @@ async function renderSkillLogs() {
     action.textContent = (log.detail || "").split(", ")[0] || log.action;
     const when = document.createElement("span");
     when.className = "muted text-sm";
-    when.textContent = new Date(log.created_at).toLocaleString();
+    when.textContent = whenText(log.created_at);
     head.append(action, when);
 
     const detail = document.createElement("div");

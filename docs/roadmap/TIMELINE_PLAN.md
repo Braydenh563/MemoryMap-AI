@@ -232,6 +232,53 @@ disagree.
 19. **One calendar** (INBOX 768, 2026-10-10): section 9's view is the one
     grid; the reminders tab's toggle opens it filtered to reminders, and
     `renderReminderCalendar` goes.
+20. **A day cell opens the day** (the owner, 2026-10-11: "I cant click on or
+    interact with calender dates"): a press on a cell's own ground, Enter or
+    Space opens it as the Day view, and from the Day view Enter opens the
+    day in the feed (decision 18 now applies there); "+n" and the dots still
+    open the feed. A cell shows its written notes as chips with titles up to
+    the room its height measures (`timelineCalFit`), the last slot "+n more";
+    dots are the fallback for a cell too short for a chip beside its "+n"
+    (this supersedes the "dots, not rows" of decision 15 for tall cells).
+21. **Dates written out are read** (the owner, 2026-10-11: "things written
+    on specific dates dont show"): `timewords` reads `2026-10-25`, `16
+    October 2026`, `Friday 16 October` and `Oct 3rd` as the day a note is
+    about (a date without a year is the occurrence nearest the day it was
+    written); a note naming a clock sits on its hour in the week and the
+    day. Numeric `3/4/2026` is not read: its order is the reader's locale.
+    A document has no date of its own and stays on the day it was started.
+22. **No streak count, and no backfill of `done_at`** (tline-1011): the dock
+    is at its grammar and `.dock-chip-row` is held at zero uses, so a streak
+    has no surface; a reminder ticked before `done_at` existed has no known
+    moment, so it stays in no week rather than in an invented one.
+23. **A note naming two dates sits on the first and is "also on" the rest**
+    (decision 2 holds: one row per note, so the feed, the table and the
+    calendar cannot disagree about what a row is). `/timeline` rows carry
+    `also_on` (the other days, in text order); the calendar asks with `also=true`
+    and draws a quiet chip with an arrow on each of those days, which opens the
+    same note and does not drag. Chosen over a row per date because a second row
+    would double the note in every count and every export.
+24. **The feed's range is placement, like the calendar's.** "Last N days" and an
+    explicit window both keep a note by where it sits (a meeting's date, else the
+    first date it mentions, else when it was written); "On this day" stays about
+    when things were written. A note written today about a day long ago now sits
+    in that day, not in the recent feed. Existing notes are read once by a
+    background job (`entry/redate.py`, kind `redate`, resumable by cursor, done
+    when `dates_read_version` reaches 2).
+25. **One shape for a date with its time**: `whenText` (status.js), the reader's
+    locale to the minute; the bare `toLocaleString()` (seconds on version lists,
+    hovers and run logs) is gone and a test keeps it gone. 12 or 24 hours follows
+    the locale; an app-level override would cost boot code for a setting every
+    operating system already has.
+26. **No d3 time scale for the Timeline** (VC2): the labels are
+    `Intl.DateTimeFormat`, and loading the 280 KB d3 bundle to draw them would
+    undo the boot diet; the row stays a vendor-use lead, not a build.
+27. **No `events` table** (BACKLOG "Events as bands"): what an events table
+    would hold is already on the grid as meetings (a note typed Meeting with a
+    `date:`), reminders (at their time) and notes by the dates they name
+    (decision 21), each filterable by kind. A fourth kind that the person
+    must create separately, with a second place to record the same
+    appointment, is the duplication decision 2 exists to prevent.
 
 ### Gates
 

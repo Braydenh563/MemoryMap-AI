@@ -118,7 +118,7 @@ async function openImportReport(id) {
     toastAction(`Could not open the report: ${error.message}`, "Try again", () => openImportReport(id));
     return;
   }
-  const when = new Date(report.finished_at).toLocaleString();
+  const when = whenText(report.finished_at);
   openSheet({
     label: "Import report",
     sub: `From ${report.label}, ${when}${report.stopped ? ", stopped part way" : ""}.`,

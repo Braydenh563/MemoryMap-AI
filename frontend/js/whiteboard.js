@@ -21344,7 +21344,7 @@ function drawLibraryBoardsGallery(listed) {
       const when = document.createElement("span");
       when.className = "library-card-when";
       when.textContent = relativeTime(board.updated_at);
-      when.title = `Changed ${(parseServerTime(board.updated_at) || new Date(board.updated_at)).toLocaleString()}`;
+      when.title = `Changed ${whenText(parseServerTime(board.updated_at) || new Date(board.updated_at))}`;
       meta.appendChild(when);
     }
 

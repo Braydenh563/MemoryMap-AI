@@ -92,10 +92,42 @@ def _count(word: str) -> int | None:
     return _NUMBER_WORDS.get(word)
 
 
+_MONTHS = {
+    "january": 1, "jan": 1, "february": 2, "feb": 2, "march": 3, "mar": 3,
+    "april": 4, "apr": 4, "may": 5, "june": 6, "jun": 6, "july": 7, "jul": 7,
+    "august": 8, "aug": 8, "september": 9, "sept": 9, "sep": 9, "october": 10,
+    "oct": 10, "november": 11, "nov": 11, "december": 12, "dec": 12,
+}
+_MONTH_PATTERN = "|".join(sorted(_MONTHS, key=len, reverse=True))
+#: A weekday said before a date ("Friday 16 October") is part of the phrase,
+#: so the date, not "on friday", is what the note is about.
+_WEEKDAY_BEFORE = r"(?:(?:" + "|".join(sorted(_WEEKDAYS, key=len, reverse=True)) + r")\.?,?\s+)?"
+
+
+def _written_date(year: str | None, month: int, day: int, today: date):
+    """A date the note spells out. Without a year it is the occurrence
+    nearest the day it was written: "3 March" typed in July is next March."""
+    if year:
+        return date(int(year), month, day), DAY
+    nearest = min(
+        (date(today.year + shift, month, day) for shift in (-1, 0, 1)),
+        key=lambda candidate: abs((candidate - today).days),
+    )
+    return nearest, DAY
+
+
 # Every pattern gets the match and "today" and returns (date, precision).
 # Order matters: the longer phrase has to be tried before the shorter one it
 # contains, or "the day after tomorrow" resolves as "tomorrow".
 _RULES: list[tuple[str, object]] = [
+    # A date written out ("2026-10-25", "Friday 16 October 2026", "Oct 3rd"):
+    # first, so the weekday inside it is never read as "on friday".
+    (r"(?<![\d-])(\d{4})-(\d{2})-(\d{2})(?![\d-])",
+     lambda m, t: (date(int(m.group(1)), int(m.group(2)), int(m.group(3))), DAY)),
+    (_WEEKDAY_BEFORE + r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(" + _MONTH_PATTERN + r")\b\.?(?:,?\s+(\d{4})\b)?",
+     lambda m, t: _written_date(m.group(3), _MONTHS[m.group(2).lower()], int(m.group(1)), t)),
+    (_WEEKDAY_BEFORE + r"\b(" + _MONTH_PATTERN + r")\b\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b(?!:)(?:,?\s+(\d{4})\b)?",
+     lambda m, t: _written_date(m.group(3), _MONTHS[m.group(1).lower()], int(m.group(2)), t)),
     (r"the day after tomorrow", lambda m, t: (t + timedelta(days=2), DAY)),
     (r"the day before yesterday", lambda m, t: (t - timedelta(days=2), DAY)),
     (r"tomorrow(?: morning| afternoon| evening| night)?",

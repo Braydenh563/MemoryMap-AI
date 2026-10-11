@@ -11096,13 +11096,13 @@ async function deleteDocumentWithUndo(doc) {
       await loadDocuments();
     }
   );
-  toastAction("Document moved to the bin.", "Undo", async () => {
+  toastAction(`Moved ${toastName(title, "the document")} to the bin.`, "Undo", async () => {
     await action.undo();
     //: `settleUndoFromToast`, not a bare stack pop: the toast's Undo and the
     //: status bar's Undo are the same action, and without this a later Ctrl+Z
     //: would run the same restore a second time.
     settleUndoFromToast(action);
-    toast("Document restored.");
+    toast(`Restored ${toastName(title, "the document")}.`);
   });
 }
 
@@ -11258,7 +11258,7 @@ async function restoreDocVersionWithUndo(entry) {
     docShowSaved(await apiJson(`/documents/${docId}/revisions/${entry.id}/restore`, { method: "POST" }));
   await restore();
   offerUndo(
-    `Restored the version from ${new Date(entry.created_at).toLocaleString()}`,
+    `Restored the version from ${whenText(entry.created_at)}`,
     "Restored. Undo puts back the version you had.",
     async () => docShowSaved(await docPutFields(docId, before)),
     restore
@@ -11697,7 +11697,7 @@ async function openDocAiHistory() {
       line.textContent = entry.instruction || (entry.verb === "remove" ? "Removed a selection" : "AI edit");
       const meta = document.createElement("p");
       meta.className = "muted text-sm";
-      const when = new Date(entry.created_at).toLocaleString();
+      const when = whenText(entry.created_at);
       meta.textContent = entry.selection_excerpt
         ? `${when} · “${entry.selection_excerpt}”`
         : when;
@@ -12207,7 +12207,7 @@ function docHistoryRow(entry) {
   }
   const meta = document.createElement("p");
   meta.className = "muted text-sm";
-  meta.textContent = `${new Date(entry.created_at).toLocaleString()} · ${entry.words} words`;
+  meta.textContent = `${whenText(entry.created_at)} · ${entry.words} words`;
   //: The opening of the version itself. A row saying only "You, 20 May,
   //: +140 words" makes you open every entry to find the one you want, which
   //: is the work this list is supposed to save.
@@ -12247,7 +12247,7 @@ function docHistoryRow(entry) {
     openLightbox(
       [
         {
-          filename: `${full.title || "Untitled"}, ${new Date(full.created_at).toLocaleString()}`,
+          filename: `${full.title || "Untitled"}, ${whenText(full.created_at)}`,
           kind: currentDoc.file_type === "md" ? "markdown" : "code",
           text: full.content || "",
           addedAt: full.created_at || "",
@@ -12304,7 +12304,7 @@ function docHistoryRowMenu(entry) {
     items.push(
       makeMenuItem("ph:git-diff Compare in the editor", "Show this version against the editor's text, change by change", () => {
         $("doc-history-dialog").close();
-        docIdeCompareWith(entry.id, new Date(entry.created_at).toLocaleString());
+        docIdeCompareWith(entry.id, whenText(entry.created_at));
       })
     );
   }
@@ -12410,7 +12410,7 @@ async function toggleDocHistoryDiff(entry, row, button, box) {
     const head = document.createElement("p");
     head.className = "muted text-sm doc-diff-head";
     const against = newer
-      ? `the version from ${new Date(newer.created_at).toLocaleString()}`
+      ? `the version from ${whenText(newer.created_at)}`
       : "the document as it is now";
     head.textContent = `+${stat.added} −${stat.removed} lines, against ${against}.`;
     const view = document.createElement("div");

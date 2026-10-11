@@ -46,6 +46,43 @@ def test_the_common_phrases_resolve(text, expected):
     assert _first(text).at == expected
 
 
+@pytest.mark.parametrize(
+    "text,phrase,expected",
+    [
+        ("Council tax is due on 2026-10-25.", "2026-10-25", date(2026, 10, 25)),
+        ("Visit grandma on Friday 16 October 2026", "Friday 16 October 2026", date(2026, 10, 16)),
+        ("flights 22nd of Oct 2026 early", "22nd of Oct 2026", date(2026, 10, 22)),
+        ("see you October 3rd, 2026", "October 3rd, 2026", date(2026, 10, 3)),
+        ("Sept 9 2027 is the day", "Sept 9 2027", date(2027, 9, 9)),
+    ],
+)
+def test_a_date_written_out_is_the_date_it_names(text, phrase, expected):
+    """A note that says "2026-10-25" or "16 October 2026" is about that day
+    (the owner, 2026-10-11: "things written on specific dates dont show" on
+    the calendar). Only relative phrases were read before."""
+    found = timewords.find(text, NOW)
+    assert [m.phrase for m in found] == [phrase]
+    assert found[0].at == expected and found[0].precision == "day"
+
+
+def test_a_date_with_no_year_is_the_nearest_one_to_the_day_it_was_written():
+    assert _first("birthday on 3 March").at == date(2026, 3, 3)  # 147 days back, not 218 ahead (from 28 July 2026)
+    assert _first("party on 20 Jan").at == date(2027, 1, 20)  # 176 days ahead, not 189 back
+    assert _first("back from Nov 12").at == date(2026, 11, 12)
+    assert _first("it was on 2 June").at == date(2026, 6, 2)
+
+
+def test_a_date_that_is_not_one_is_left_alone():
+    for text in ("version 2026-13-45 shipped", "ticket 12026-10-25", "item 2026-10-251", "about 40 people in march", "call 555-1234"):
+        assert timewords.find(text, NOW) == [], text
+
+
+def test_a_clock_beside_a_written_date_is_kept():
+    found = timewords.find("Dentist on 2026-10-20 at 3pm, bring forms", NOW)
+    assert len(found) == 1 and found[0].precision == "minute"
+    assert found[0].at == date(2026, 10, 20) and found[0].time.hour == 15
+
+
 def test_a_phrase_keeps_the_precision_it_was_written_with():
     """"Last week" did not mean a day. Rendering it as one invents precision
     the writer never used."""

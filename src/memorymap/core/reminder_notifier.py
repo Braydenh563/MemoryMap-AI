@@ -445,6 +445,16 @@ class ReminderNotifier:
             _running["notifier"] = None
 
 
+def stop_running() -> None:
+    """Stop this process's notifier, if one runs. The app's shutdown calls it
+    before the job pool's, because the notifier's loop is a job on that pool:
+    left to the launcher's own stop (which runs once the window is gone) a
+    quit waited the pool's whole deadline for a loop nothing had told to end."""
+    notifier = _running["notifier"]
+    if notifier is not None:
+        notifier.stop()
+
+
 def active() -> bool:
     """Whether this process posts the system notification for a due reminder."""
     return _running["notifier"] is not None

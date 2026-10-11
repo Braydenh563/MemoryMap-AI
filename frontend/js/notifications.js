@@ -105,7 +105,7 @@ async function openNotifications({ keepWatermark = false } = {}) {
       kind: "reminder",
       title: reminder.text,
       detail: `Due ${relativeTime(reminder.due_at)}`,
-      key: `reminder:${reminder.id}`,
+      key: reminderNoticeKey(reminder),
       action: { tab: "reminders" },
     });
   }
@@ -188,7 +188,7 @@ async function openNotifications({ keepWatermark = false } = {}) {
     time.className = "notif-time muted";
     time.dateTime = new Date(item.at).toISOString();
     time.textContent = relativeTime(time.dateTime);
-    time.title = new Date(item.at).toLocaleString();
+    time.title = whenText(item.at);
     head.append(title);
     body.append(head);
     if (item.detail) {

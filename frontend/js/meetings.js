@@ -644,7 +644,7 @@ async function meetingTakeBegin(recorder) {
   const made = await apiJson("/recordings", {
     method: "POST",
     body: JSON.stringify({
-      title: ($("meeting-title")?.value || "").trim() || `Recording ${new Date().toLocaleString()}`,
+      title: ($("meeting-title")?.value || "").trim() || `Recording ${whenText()}`,
       mime: recorder.mimeType || "audio/webm",
       entry_id: Number($("meeting-overlay").dataset.target) || null,
     }),
@@ -1365,7 +1365,7 @@ async function saveMeetingDocument() {
   try {
     const title =
       ($("meeting-title")?.value || "").trim() ||
-      `Recording: ${new Date().toLocaleString()}`;
+      `Recording: ${whenText()}`;
     const document_ = await apiJson("/documents", {
       method: "POST",
       body: JSON.stringify({ title, content }),

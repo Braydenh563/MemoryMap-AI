@@ -85,7 +85,7 @@ async function openEntryHistory(entry) {
     const head = document.createElement("p");
     head.className = "muted";
     head.textContent = `${HISTORY_ACTION_WORDS[item.action] || item.action} ${relativeTime(item.created_at)}`;
-    head.title = new Date(item.created_at).toLocaleString(); // the exact time, on hover and to a reader
+    head.title = whenText(item.created_at); // the exact time, on hover and to a reader
     const actor = historyActorLabel(item.actor);
     if (actor) {
       const chip = document.createElement("span");
@@ -227,7 +227,7 @@ async function openEntryHistory(entry) {
     item.className = "history-entry";
     const head = document.createElement("p");
     head.className = "muted";
-    head.textContent = `Before ${new Date(revision.created_at).toLocaleString()}`;
+    head.textContent = `Before ${whenText(revision.created_at)}`;
     const body = document.createElement("p");
     body.textContent = notePreviewText(revision.content);
     const restore = smallButton("ph:arrow-u-up-left Put this back", "Restore this version", () =>

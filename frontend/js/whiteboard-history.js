@@ -91,7 +91,7 @@ function wbHistSync() {
   }
   if (when) {
     when.textContent = words;
-    when.title = moment ? new Date(moment.at).toLocaleString() : "";
+    when.title = moment ? whenText(moment.at) : "";
   }
   const canRestore = Boolean(moment && moment.kept && wbHist.shown === moment.id);
   const whole = document.getElementById("wb-history-restore");

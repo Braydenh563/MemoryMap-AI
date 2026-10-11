@@ -244,7 +244,7 @@ function wireRecoveryDialog() {
       "",
       key,
       "",
-      `Made ${new Date().toLocaleString()}.`,
+      `Made ${whenText()}.`,
       'If you forget your password, choose "Forgot your password?" on the lock',
       "screen, then \"I have my recovery key\". Your private notes are kept.",
       "",

@@ -535,7 +535,7 @@ async function renderHealthBlock() {
   counts.textContent = parts.join(" · ");
   //: Rule 14 (WORLD_CLASS_PLAN 28.1): each field present and dated.
   const trust = health.trust || {};
-  const when = (iso) => (iso ? `${relativeTime(iso)} (${new Date(iso).toLocaleString()})` : "");
+  const when = (iso) => (iso ? `${relativeTime(iso)} (${whenText(iso)})` : "");
   const asOf = ` as of ${new Date(trust.checked_at || Date.now()).toLocaleTimeString()}`;
   $("health-checked").textContent = `Checked${asOf}.`;
   const backup = trust.last_backup || {};
@@ -4673,14 +4673,14 @@ function jobRunLine(run, bare) {
   if (run.status === "running") {
     return {
       text: "ph:spin Running…",
-      title: run.started_at ? `Started ${new Date(run.started_at).toLocaleString()}` : "",
+      title: run.started_at ? `Started ${whenText(run.started_at)}` : "",
       failed: false,
       running: true,
     };
   }
   const when = relativeTime(run.finished_at || run.started_at) || "at an unknown time";
   const head = bare ? when.charAt(0).toUpperCase() + when.slice(1) : `Last run ${when}`;
-  const stamp = new Date(run.finished_at || run.started_at).toLocaleString();
+  const stamp = whenText(run.finished_at || run.started_at);
   const took = jobDurationWords(run.duration_ms);
   const title = took ? `${stamp}, took ${took}` : stamp;
   if (run.status === "failed") {

@@ -222,3 +222,22 @@ def test_the_session_check_is_signed_in_or_no_password(app_state, session, monke
     assert routes_auth.notebook_open(session, app_state) is False
     monkeypatch.setattr(routes_auth, "_active_tokens", {"t": [time.time(), time.time()]})
     assert routes_auth.notebook_open(session, app_state) is True
+
+
+def test_the_apps_shutdown_stops_the_notifier_before_the_job_pool_waits_on_it():
+    """OPEN.md (cifix5): a quit with the notifier running waited the pool's
+    5 s deadline, because its loop is a pool job and only the launcher's own
+    stop, run after the window was gone, told it to end."""
+    from pathlib import Path
+
+    seen: list[str] = []
+    stub = SimpleNamespace(stop=lambda: seen.append("stopped"))
+    rn._running["notifier"] = stub
+    try:
+        rn.stop_running()
+        assert seen == ["stopped"]
+    finally:
+        rn._running["notifier"] = None
+    rn.stop_running()  # nothing running: a no-op
+    app = (Path(__file__).resolve().parents[1] / "src" / "memorymap" / "api" / "app.py").read_text(encoding="utf-8")
+    assert app.index("reminder_notifier.stop_running()") < app.index("jobs.shutdown(deadline=_JOB_SHUTDOWN_SECONDS)")

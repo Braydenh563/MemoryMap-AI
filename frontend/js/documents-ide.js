@@ -150,7 +150,7 @@ async function docIdeCompareMenu() {
 
 function formatDocHistoryWhen(iso) {
   const when = new Date(iso);
-  return Number.isNaN(when.getTime()) ? String(iso) : when.toLocaleString();
+  return Number.isNaN(when.getTime()) ? String(iso) : whenText(when);
 }
 
 async function docIdeCompareWith(revisionId, label) {

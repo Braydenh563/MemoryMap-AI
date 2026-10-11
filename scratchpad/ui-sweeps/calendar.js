@@ -4,8 +4,8 @@
 // seed-timeline.py, a day page for today, a meeting, and six reminders (four
 // on one day, so "+n" shows). Then measures, per the plan's table:
 //   step 1: the month at 1440: in-month cells equal the month's days, no cell
-//           overflows (scrollHeight against clientHeight), at most 3 rows a
-//           cell, and each day's count equals the feed's rows for that day;
+//           overflows (scrollHeight against clientHeight), no more visible chips (and "+n")
+//           than the cell's measured slots, and each day's count equals the feed's rows for that day;
 //   step 2: 1440, 1024, 768, 390: which grid draws, and no horizontal scroll;
 //   step 3: drags a reminder a day on, reads its due time back, undoes it;
 //   keys:   the arrows, Page Down, T and Enter.
@@ -51,12 +51,30 @@ function measure(page) {
     const week = box.querySelector('.timeline-cal-weekwrap');
     const cells = [...box.querySelectorAll('.timeline-cal-monthcell, .timeline-cal-alldaycell, .timeline-cal-hourcell')];
     const over = cells.filter((c) => c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1).map((c) => `${c.dataset.calDay}${c.dataset.calHour ? `@${c.dataset.calHour}` : ''}`);
-    const rowsMax = Math.max(0, ...box.querySelectorAll('.timeline-cal-monthcell').length ? [...box.querySelectorAll('.timeline-cal-monthcell')].map((c) => c.querySelectorAll('.timeline-cal-item').length) : [0]);
+    //: The chip rule (TIMELINE_PLAN decision 20, `timelineCalFit`): a cell shows as many
+    //: one-line chips as its height holds, the last slot "+n more" when some are left.
+    //: `slotsOver` counts cells showing more than that; `rowsMax` is the most visible.
+    const slotsOf = (c) => {
+      const cs = getComputedStyle(c);
+      const head = c.querySelector(':scope > .timeline-cal-cellhead');
+      const more = c.querySelector(':scope > .timeline-cal-more');
+      if (!head || !more) return Infinity;
+      const gap = parseFloat(cs.rowGap) || 0;
+      const row = more.hidden ? parseFloat(getComputedStyle(more).getPropertyValue('--cal-row')) || 20 : more.offsetHeight;
+      const room = c.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - head.offsetHeight - gap;
+      return Math.max(0, Math.floor((room + gap) / (row + gap)));
+    };
+    const fitted = [...box.querySelectorAll('.timeline-cal-monthcell')].map((c) => ({
+      visible: c.querySelectorAll(':scope > .timeline-cal-item:not([hidden])').length + (c.querySelector(':scope > .timeline-cal-more:not([hidden])') ? 1 : 0),
+      slots: slotsOf(c),
+    }));
+    const rowsMax = Math.max(0, ...fitted.map((f) => f.visible));
+    const slotsOver = fitted.filter((f) => f.visible > f.slots).length;
     const doc = document.documentElement;
     return {
       grid: month ? 'month' : week ? (week.classList.contains('is-day') ? 'day' : 'week') : (document.getElementById('timeline-feed').classList.contains('hidden') ? 'none' : 'agenda'),
       monthCells: box.querySelectorAll('.timeline-cal-monthcell').length,
-      over: over.slice(0, 5), overCount: over.length, rowsMax,
+      over: over.slice(0, 5), overCount: over.length, rowsMax, slotsOver,
       more: box.querySelectorAll('.timeline-cal-more').length,
       dots: box.querySelectorAll('.timeline-cal-dot').length,
       hscroll: doc.scrollWidth - doc.clientWidth,
@@ -146,7 +164,8 @@ function measure(page) {
   const k3 = await page.evaluate(() => document.activeElement.dataset.calDay);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(900);
-  const k4 = await page.evaluate(() => [localStorage.getItem('timeline-view'), document.activeElement.closest('.timeline-bucket')?.dataset.bucket || null]);
+  //: Enter opens the day in the Day view (decision 20); Enter again, in the Day view, the feed.
+  const k4 = await page.evaluate(() => [timelineCalSpan(), timelineCal.focus]);
   out.keys = { start: k0, afterRightDown: k1, pageDown: k2, today: k3, enter: k4 };
   out.errors = errors;
   console.log(JSON.stringify(out, null, 1));

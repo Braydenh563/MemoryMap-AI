@@ -18,9 +18,12 @@
 
 lazyScript("/css/timeline-calendar-lazy.css");
 
-//: Rows a month cell shows before "+n"; an hour cell shows two, or one and
-//: "+n" (its height is two lines).
+//: Timed rows a month cell shows beside its dots when it is too short for
+//: note chips (`timelineCalFit`); an hour cell shows two, or one and "+n"
+//: (its height is two lines).
 const TIMELINE_CAL_ROWS = 3;
+//: Note chips built for one cell at most; the rest are the "+n".
+const TIMELINE_CAL_NOTE_CHIPS = 24;
 const TIMELINE_CAL_HOUR_ROWS = 2;
 //: Dots drawn before the count says the rest.
 const TIMELINE_CAL_DOTS = 6;
@@ -86,7 +89,7 @@ function timelineCalUrl(first, last) {
   const kinds = timelineCal.only ? [timelineCal.only] : timelineKindChoice();
   const kind = kinds.length < TIMELINE_KINDS.length ? `&kind=${kinds.join(",")}` : "";
   return `/timeline?scale=day&group=${$("timeline-group").value}&start=${utc(first, "00:00:00")}`
-    + `&end=${utc(last, "23:59:59")}&tz=${-new Date().getTimezoneOffset()}&limit=1000${kind}`;
+    + `&end=${utc(last, "23:59:59")}&tz=${-new Date().getTimezoneOffset()}&limit=1000&also=true${kind}`;
 }
 
 async function timelineCalFetch(url) {
@@ -112,9 +115,21 @@ function timelineCalDays(rows) {
     if (!days.has(key)) days.set(key, { rows: [], items: [], dots: [], page: null });
     const day = days.get(key);
     day.rows.push(row);
-    if (row.kind === "reminder" || row.placedBy === "meeting") day.items.push(row);
+    //: A note that names a clock ("the dentist on 2026-10-20 at 3pm") sits on its hour.
+    if (row.kind === "reminder" || row.placedBy === "meeting" || (row.placedBy === "mentioned" && !row.allDay)) day.items.push(row);
     else if (!day.page && timelineIsDailyNote(row)) day.page = row;
     else day.dots.push(row);
+  }
+  //: A note that names more than one day sits on the first and shows an "also
+  //: on" chip on each other (decision 23): a ghost of the row, not a second row.
+  for (const row of rows) {
+    for (const key of row.alsoOn || []) {
+      if (!days.has(key)) days.set(key, { rows: [], items: [], dots: [], page: null });
+      const day = days.get(key);
+      const ghost = { ...row, key: `${row.key}@${key}`, also: true, when: timelineCalDate(key), allDay: true };
+      day.rows.push(ghost);
+      day.dots.push(ghost);
+    }
   }
   for (const day of days.values()) day.items.sort((a, b) => a.when - b.when);
   return days;
@@ -156,8 +171,14 @@ async function paintTimelineCalendar() {
 }
 
 function timelineCalDraw(box, span, first, last) {
-  const rows = timelineVisibleRows(timelineCal.rows);
-  const days = timelineCalDays(rows);
+  const all = timelineVisibleRows(timelineCal.rows);
+  const days = timelineCalDays(all);
+  //: A row whose first day is outside the window came in for a later day it names.
+  const rows = all.filter((row) => {
+    const key = timelineBucketKey(row.when, "day");
+    return key >= first && key <= last;
+  });
+  const ghosts = [...days.entries()].reduce((n, [key, day]) => n + (key >= first && key <= last ? day.rows.filter((r) => r.also).length : 0), 0);
   const head = timelineCalHead(span, first);
   const feed = $("timeline-feed");
   feed.classList.toggle("hidden", span !== "agenda");
@@ -168,11 +189,13 @@ function timelineCalDraw(box, span, first, last) {
     feed.replaceChildren();
     const grid = span === "month" ? timelineCalMonth(first, last, days) : timelineCalWeek(first, last, days, span);
     box.replaceChildren(head, grid);
+    timelineCalFit(grid);
   }
   const period = span === "day" ? TIMELINE_CAL_LONG.format(timelineCalDate(first))
     : span === "week" ? `${TIMELINE_CAL_SHORT.format(timelineCalDate(first))} to ${TIMELINE_CAL_SHORT.format(timelineCalDate(last))}`
       : TIMELINE_CAL_MONTH.format(timelineCalDate(first));
-  $("timeline-count").textContent = `${rows.length}${timelineCal.more ? "+" : ""} item${rows.length === 1 ? "" : "s"} · ${period}`;
+  const shown = rows.length + ghosts;
+  $("timeline-count").textContent = `${shown}${timelineCal.more ? "+" : ""} item${shown === 1 ? "" : "s"} · ${period}`;
   //: The hour rows open on the working day the first time a week is drawn,
   //: not at midnight; a repaint keeps where the reader scrolled to.
   const drawn = `${span}:${first}`;
@@ -317,25 +340,74 @@ function timelineCalCell(key, day, stop, place) {
     cell.classList.add("timeline-cal-stop", `timeline-cal-${place}cell`);
     cell.setAttribute("role", "group");
     cell.tabIndex = stop ? 0 : -1;
-    cell.setAttribute("aria-label", timelineCalDayLabel(key, day));
+    cell.setAttribute("aria-label", `${timelineCalDayLabel(key, day)}, press Enter to open the day`);
     cell.appendChild(timelineCalCellHead(key, day, stop, place === "month"));
   }
   const all = day ? day.items : [];
-  const items = hourly ? all.filter((row) => timelineCalTimed(row) && row.when.getHours() === place)
-    : place === "allday" ? all.filter((row) => !timelineCalTimed(row)) : all;
-  const cap = place === "month" ? TIMELINE_CAL_ROWS : TIMELINE_CAL_HOUR_ROWS;
-  //: Three rows and "+n" in a month (decision 14); an hour's two lines hold
-  //: two rows, or one and "+n".
-  const shown = items.length <= cap ? items : items.slice(0, place === "month" ? cap : cap - 1);
+  if (!hourly) return timelineCalFill(cell, key, day, all, place, stop);
+  const items = all.filter((row) => timelineCalTimed(row) && row.when.getHours() === place);
+  //: An hour's two lines hold two rows, or one and "+n".
+  const shown = items.length <= TIMELINE_CAL_HOUR_ROWS ? items : items.slice(0, TIMELINE_CAL_HOUR_ROWS - 1);
   for (const row of shown) cell.appendChild(timelineCalItem(row, stop));
-  if (items.length > shown.length) {
-    const more = smallButton(`+${items.length - shown.length} more`, `Everything on ${TIMELINE_CAL_LONG.format(timelineCalDate(key))}, in the feed`, () => timelineCalOpenDay(key));
-    more.classList.add("timeline-cal-more");
-    more.tabIndex = stop ? 0 : -1;
-    cell.appendChild(more);
-  }
-  if (!hourly) cell.dataset.count = String(day ? day.rows.length : 0);
+  if (items.length > shown.length) cell.appendChild(timelineCalMore(key, items.length - shown.length, stop));
   return cell;
+}
+
+function timelineCalMore(key, count, stop) {
+  const more = smallButton(`+${count} more`, `Everything on ${TIMELINE_CAL_LONG.format(timelineCalDate(key))}, in the feed`, () => timelineCalOpenDay(key));
+  more.classList.add("timeline-cal-more");
+  more.tabIndex = stop ? 0 : -1;
+  return more;
+}
+
+//: A month cell or the all-day row: the day's timed rows, then what was
+//: written as chips with titles (the owner, 2026-10-11: "items show only as
+//: dots"). How many fit is measured once the grid is in the page
+//: (`timelineCalFit`); a cell too short for a chip and a "+n" falls back to
+//: the dots of decision 15.
+function timelineCalFill(cell, key, day, items, place, stop) {
+  const shown = place === "allday" ? items.filter((row) => !timelineCalTimed(row)) : items;
+  const notes = day ? day.dots : [];
+  for (const row of shown) cell.appendChild(timelineCalItem(row, stop));
+  for (const row of notes.slice(0, TIMELINE_CAL_NOTE_CHIPS)) cell.appendChild(timelineCalItem(row, stop));
+  const more = timelineCalMore(key, 0, stop);
+  more.hidden = true;
+  more.dataset.extra = String(Math.max(0, notes.length - TIMELINE_CAL_NOTE_CHIPS));
+  cell.appendChild(more);
+  cell.dataset.count = String(day ? day.rows.length : 0);
+  return cell;
+}
+
+//: How many one-line rows a month cell or all-day row has room for, then
+//: shows that many chips; the last slot is "+n more" when some are left, and
+//: a cell with room for no chip beside its "+n" shows dots for the notes.
+//: Run after the grid is attached, because it reads the laid-out height.
+function timelineCalFit(root) {
+  for (const cell of root.querySelectorAll(".timeline-cal-monthcell, .timeline-cal-alldaycell")) {
+    const chips = [...cell.querySelectorAll(":scope > .timeline-cal-item")];
+    const more = cell.querySelector(":scope > .timeline-cal-more");
+    const head = cell.querySelector(":scope > .timeline-cal-cellhead");
+    if (!more || !head || !cell.clientHeight) continue;
+    for (const chip of chips) chip.hidden = false;
+    more.hidden = false;
+    const style = getComputedStyle(cell);
+    const gap = parseFloat(style.rowGap) || 0;
+    const room = cell.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - head.offsetHeight - gap;
+    const slots = Math.max(0, Math.floor((room + gap) / (more.offsetHeight + gap)));
+    const notes = chips.filter((chip) => chip.classList.contains("is-note"));
+    const extra = Number(more.dataset.extra || 0);
+    const total = chips.length + extra;
+    //: Chips for everything when it fits; else one slot goes to "+n".
+    const dots = notes.length > 0 && slots < 2;
+    let keep = total <= slots ? chips.length : slots - 1;
+    if (dots) keep = Math.min(chips.length - notes.length, TIMELINE_CAL_ROWS, slots - 1);
+    keep = Math.max(0, keep);
+    cell.classList.toggle("is-dots", dots);
+    chips.forEach((chip, i) => { chip.hidden = (dots && chip.classList.contains("is-note")) || i >= keep; });
+    const left = dots ? chips.length - notes.length - keep : total - keep;
+    more.hidden = left <= 0 || slots < 1;
+    if (!more.hidden) more.textContent = `+${left} more`;
+  }
 }
 
 //: Whether a row has a time of its own (a reminder always does; a meeting
@@ -389,16 +461,31 @@ function timelineCalDots(key, count, stop) {
   return dots;
 }
 
+//: A row's glyph: a reminder's bell, a meeting's people, else the note's own
+//: (a note that talks about the day, a document, a map, or a note).
+function timelineCalGlyph(row) {
+  if (row.also) return "ph:arrow-bend-down-right";
+  if (row.kind === "reminder") return "ph:bell-simple";
+  if (row.placedBy === "meeting") return "ph:users-three";
+  if (row.kind === "document") return "ph:file-text";
+  if (row.kind === "board") return "ph:graph";
+  return row.placedBy === "mentioned" ? "ph:clock-countdown" : "ph:note";
+}
+
 function timelineCalItem(row, stop) {
-  const time = row.allDay ? "" : TIMELINE_CAL_TIME.format(row.when);
-  const icon = row.kind === "reminder" ? "ph:bell-simple" : "ph:users-three";
-  const item = smallButton(`${icon} ${time ? `${time} ` : ""}${row.title}`, `${row.title}${time ? `, ${time}` : ""}`, () => timelineCalOpenRow(row));
-  item.classList.add("timeline-cal-item", `is-${row.kind}`);
+  //: A written note's moment is when it was typed, which is not its time on the grid.
+  const clocked = row.kind === "reminder" || row.placedBy === "meeting" || row.placedBy === "mentioned";
+  const time = row.allDay || !clocked ? "" : TIMELINE_CAL_TIME.format(row.when);
+  const item = smallButton(`${timelineCalGlyph(row)} ${time ? `${time} ` : ""}${row.title}`, row.also ? `Also on this day: ${row.title}` : `${row.title}${time ? `, ${time}` : ""}`, () => timelineCalOpenRow(row));
+  item.classList.toggle("is-also", Boolean(row.also));
+  const timed = row.kind === "reminder" || row.placedBy === "meeting";
+  item.classList.add("timeline-cal-item", `is-${timed ? row.kind === "reminder" ? "reminder" : "meeting" : "note"}`);
   item.classList.toggle("is-done", row.done === true);
   item.dataset.calKey = row.key;
   item.tabIndex = stop ? 0 : -1;
-  //: A meeting drags too, so the drop can say why it stays (decision 16).
-  item.draggable = true;
+  //: A meeting or a note drags too, so the drop can say why it stays (decision 16);
+  //: an "also on" chip is not the note's row and does not.
+  item.draggable = !row.also;
   return item;
 }
 
@@ -471,7 +558,15 @@ function timelineCalOpenRow(row) {
   return flashEntry(row.id);
 }
 
-//: Enter on a day, its "+n" and its dots: the day in the feed (decision 18).
+//: A press or Enter or Space on a day's ground: the day in the Day view, or
+//: from the Day view the day in the feed (decision 20).
+function timelineCalPick(key) {
+  timelineCal.focus = key;
+  if (timelineCalSpan() === "day") return timelineCalOpenDay(key);
+  return timelineCalSetSpan("day");
+}
+
+//: A day's "+n" and its dots: the day in the feed (decision 18).
 //: The feed is scrolled to the day when its range holds it; otherwise the
 //: range becomes that one day, said in the Options menu like any custom range.
 function timelineCalOpenDay(key) {
@@ -546,7 +641,7 @@ function timelineCalKeys(event) {
     $("timeline-calendar").dataset.refocus = "1";
     timelineCalMove(event.key === "PageUp" ? -1 : 1, "month");
   } else if (event.key === "t" || event.key === "T") timelineCalendarToday();
-  else if (event.key === "Enter") timelineCalOpenDay(key);
+  else if (event.key === "Enter" || event.key === " ") timelineCalPick(key);
   else if (event.key === "n" || event.key === "N") timelineCalNewReminder(key);
   else return;
   event.preventDefault();
@@ -713,7 +808,9 @@ async function timelineCalMovePage(row, day) {
     const span = event.target.closest?.("[data-cal-span]");
     if (span) return timelineCalSetSpan(span.dataset.calSpan);
     const cell = event.target.closest?.(".timeline-cal-stop");
-    if (cell && !event.target.closest("button")) timelineCalFocus(cell.dataset.calDay);
+    //: A press on a day's own ground opens the day (the owner, 2026-10-11:
+    //: "I cant click on or interact with calender dates").
+    if (cell && !event.target.closest("button")) timelineCalPick(cell.dataset.calDay);
     return undefined;
   });
   //: Crossing 768 or 1024 changes the span drawn.

@@ -2137,7 +2137,7 @@ async function renderAutonomousReview() {
   box.classList.toggle("hidden", changes.length === 0);
   if (!changes.length) return;
 
-  const when = pass.finished_at ? new Date(pass.finished_at).toLocaleString() : "";
+  const when = pass.finished_at ? whenText(pass.finished_at) : "";
   $("autonomous-review-title").textContent =
     `What the last run changed, ${changes.length} thing(s)` + (when ? `, ${when}` : "");
   list.replaceChildren(...changes.map((change) => changeRow(change)));

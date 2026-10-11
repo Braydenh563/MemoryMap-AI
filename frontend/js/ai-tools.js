@@ -854,7 +854,8 @@ function renderFeatureModels(status) {
 function openFeatureModelSheet(key) {
   const row = featureModelRow(key);
   if (!row) {
-    toast("Models aren't available yet. Open Settings, Models to check.", "info");
+    //: The words named the place; the button goes there (a toast action, not a link in prose).
+    toastAction("Models aren't available yet.", "Open Settings, Models", () => openSettingsModal("models"));
     return;
   }
   openSheet({

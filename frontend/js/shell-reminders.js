@@ -991,22 +991,23 @@ async function clearDoneReminders() {
   }
   //: One Undo for the lot (INBOX 537): they go to the recycle bin and come
   //: back from it (WORLD_CLASS_PLAN 5 item 10).
-  const drop = async () => {
-    //: Every delete is tried; how many failed is said once (audit
-    //: 2026-10-05, FE-12), where a silent catch let them come back unexplained.
+  //: Every delete is tried; how many failed is said once (audit 2026-10-05,
+  //: FE-12), where a silent catch let them come back unexplained, with a Try
+  //: again for just those rows.
+  const drop = async (rows = done) => {
     const results = await Promise.all(
-      done.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
+      rows.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
     );
-    const failed = results.filter((ok) => !ok).length;
-    if (failed) toast(`Couldn't delete ${failed} of the reminders.`, true);
+    const left = rows.filter((_, i) => !results[i]);
+    if (left.length) toast(`Couldn't delete ${left.length} of the reminders.`, true, { action: ["Try again", () => drop(left)] });
     loadReminders();
   };
-  const remake = async () => {
+  const remake = async (rows = done) => {
     const results = await Promise.all(
-      done.map((r) => api(`/reminders/${r.id}/restore`, { method: "POST" }).then(() => true, () => false))
+      rows.map((r) => api(`/reminders/${r.id}/restore`, { method: "POST" }).then(() => true, () => false))
     );
-    const failed = results.filter((ok) => !ok).length;
-    if (failed) toast(`Couldn't bring back ${failed} of the reminders.`, true);
+    const left = rows.filter((_, i) => !results[i]);
+    if (left.length) toast(`Couldn't bring back ${left.length} of the reminders.`, true, { action: ["Try again", () => remake(left)] });
     loadReminders();
   };
   await drop();
@@ -1056,7 +1057,7 @@ function reminderItem(reminder, label) {
       };
       pushUndo("Rescheduled a reminder", put(before), put({ due_at: rolled.due_at, done: false }));
       loadReminders();
-      toast(`Rescheduled to ${new Date(rolled.due_at).toLocaleString()}.`);
+      toast(`Rescheduled to ${whenText(rolled.due_at)}.`);
       return;
     }
     await reminderPutUndoably(reminder.id, checkbox.checked ? "Completed a reminder" : "Reopened a reminder", before, { done: checkbox.checked });
@@ -1098,7 +1099,7 @@ function reminderItem(reminder, label) {
   const due = document.createElement("span");
   due.className = "entry-date";
   due.textContent = relativeWhen(reminder.due_at); // "in 2 hours" / "3 days ago"
-  due.title = new Date(reminder.due_at).toLocaleString(); // exact on hover
+  due.title = whenText(reminder.due_at); // exact on hover
   row.appendChild(due);
 
   const actions = document.createElement("span");
@@ -1139,10 +1140,10 @@ function reminderItem(reminder, label) {
       loadReminders();
     };
     const action = pushUndo("Moved a reminder to the bin", restore, rebin);
-    toastAction("Reminder moved to the bin.", "Undo", async () => {
+    toastAction(`Moved ${toastName(reminder.text, "the reminder")} to the bin.`, "Undo", async () => {
       settleUndoFromToast(action);
       await restore().catch((e) => toast(e.message, true));
-      toast("Reminder restored.");
+      toast(`Restored ${toastName(reminder.text, "the reminder")}.`);
     });
   };
   const menuItems = [];
@@ -1407,7 +1408,7 @@ async function snoozeReminderTo(reminder, when) {
     await put({ due_at: when.toISOString(), done: false });
     loadReminders();
   });
-  toastAction(`Snoozed to ${when.toLocaleString()}.`, "Undo", async () => {
+  toastAction(`Snoozed to ${whenText(when)}.`, "Undo", async () => {
     settleUndoFromToast(action);
     await back();
   });
@@ -1524,7 +1525,8 @@ function reminderMadeUndo(reminder) {
 
 async function addReminder(text, dueValue, entryId = null, opts = {}) {
   if (!text || !dueValue) {
-    toast("A reminder needs text and a due time.");
+    //: Names the one that is missing (not an error: an expected condition).
+    toast(!text && !dueValue ? "A reminder needs text and a due time." : !text ? "Write what to be reminded of." : "Pick a due time for this reminder.");
     return false;
   }
   const made = await apiJson("/reminders", {

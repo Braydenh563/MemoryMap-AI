@@ -36,7 +36,6 @@ JS = ROOT / "frontend" / "js"
 #: Keyed by file, then the first argument's source text (whitespace folded).
 EXPECTED = {
     'ai-tools.js': [
-        '"Models aren\'t available yet. Open Settings, Models to check."',
         '"Write something first, then improve it."',
         '"Pick an embedding model first, e.g. nomic-embed-text."',
     ],
@@ -269,8 +268,8 @@ FAULTS = {
         '"Couldn\'t reset those settings."': 'resetting settings failed',
     },
     'shell-reminders.js': {
-        "`Couldn't delete ${failed} of the reminders.`": 'a bulk delete partly failed',
-        "`Couldn't bring back ${failed} of the reminders.`": 'a bulk restore partly failed',
+        "`Couldn't delete ${left.length} of the reminders.`": 'a bulk delete partly failed',
+        "`Couldn't bring back ${left.length} of the reminders.`": 'a bulk restore partly failed',
     },
     'update-dialogs.js': {
         'progress.textContent || "Couldn\'t apply the update."': "the update step failed; the text is the step's own error",
@@ -287,7 +286,8 @@ FAULTS = {
 DYNAMIC = {
     "status.js": {"isError"},  # agentActivityNotice and toast(): passes the caller's flag through
     "ai-tools.js": {'!/already running/i.test(error.message || "")'},  # a 409 "already running" is plain
-    "settings-packages.js": {"!result.started", "!result.removed"},  # the server's own started/removed answer
+    #: A failed request is red; the server's own refusal (started or removed false) is a plain notice.
+    "settings-packages.js": {'result.failed ? true : result.started ? false : "info"', 'result.failed ? true : result.removed ? false : "info"'},
     "suggestions-inbox.js": {"linked < sure.length"},  # a partial link run
     "whiteboard.js": {"Boolean(left)"},  # a clear that left items behind
     "library.js": {'described?.caption ? false : "info"'},  # no caption written is plain

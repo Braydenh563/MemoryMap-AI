@@ -12,6 +12,9 @@ and it is why this is a sweep fixture rather than anything a test of search
 should use.
 
     .venv/bin/python scratchpad/ui-sweeps/seed-timeline-bulk.py /tmp/mm-timeline/memorymap.db 2000
+
+A third argument, YYYY-MM, puts every note in that one month (the calendar's
+stress case, a 1,000-note month: `... memorymap.db 1000 2026-10`).
 """
 
 import json
@@ -22,6 +25,7 @@ from datetime import datetime, timedelta, timezone
 
 db = sys.argv[1] if len(sys.argv) > 1 else "/tmp/mm-timeline/memorymap.db"
 count = int(sys.argv[2]) if len(sys.argv) > 2 else 2000
+month = sys.argv[3] if len(sys.argv) > 3 else None
 
 TITLES = [
     "Weekly review", "Reading notes", "Standup", "Retro actions", "Trip planning",
@@ -54,6 +58,9 @@ for i in range(count):
         hours=random.randint(0, 23),
         minutes=random.randint(0, 59),
     )
+    if month:
+        year, mon = (int(part) for part in month.split("-"))
+        when = datetime(year, mon, random.randint(1, 28), random.randint(7, 22), random.randint(0, 59))
     title = TITLES[i % len(TITLES)]
     body = BODIES[i % len(BODIES)]
     rows.append(

@@ -225,11 +225,18 @@ function isNotificationUnread(item, readAt = notificationsReadAt(), forced = for
 
 //: **One row can be removed** (INBOX 508, the owner: "I cant delete
 //: individual notifications"). Only Clear all existed. A keyed row (an
-//: overdue reminder, `reminder:<id>`) is folded back in by every open of
+//: overdue reminder, `reminder:<id>@<due time>`) is folded back in by every open of
 //: the panel while it stays overdue, so its key is remembered as dismissed,
 //: or the row would come back the next time the bell is pressed. Capped:
 //: keys are per reminder, a few hundred is years of them.
 const NOTIFICATIONS_DISMISSED_KEY = "notificationsDismissed";
+
+//: **A reminder's row is keyed by its due time too**, so a reminder that was
+//: dismissed, snoozed and overdue again is a new row and comes back to the
+//: bell (a dismissal answers "this time it was due", not "never again").
+function reminderNoticeKey(reminder) {
+  return `reminder:${reminder.id}@${reminder.due_at || ""}`;
+}
 
 function dismissedNotificationIds() {
   try {
@@ -566,8 +573,8 @@ async function checkDueReminders() {
     recordNotification({
       kind: "reminder",
       title: reminder.text,
-      detail: reminder.early ? "Coming up" : "Came due",
-      key: `reminder:${reminder.id}`,
+      detail: `${reminder.early ? "Coming up" : "Came due"}${reminder.target_title ? `, about ${toastName(reminder.target_title)}` : ""}`,
+      key: reminderNoticeKey(reminder),
       action: { tab: "reminders" },
     });
   }
@@ -911,6 +918,25 @@ const VOICE = {
   failed: "Couldn't {what}.",
   failed_why: "Couldn't {what}: {why}",
 };
+
+//: **A toast names the thing** (CHAT_PLAN section 1 row 3): `“Passport
+//: renewal”`, cut to a short run, so "Moved to the bin." says what moved.
+//: **One shape for a date and its time** (WORLD_CLASS_PLAN: "every date and time
+//: follows one setting"): the reader's locale, to the minute. The bare
+//: `toLocaleString()` printed seconds on version lists, notes' hovers and run
+//: logs while the Timeline and the reminders printed none, and 12 or 24 hours
+//: follows the locale's own rule everywhere.
+const WHEN_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+function whenText(value = new Date()) {
+  const moment = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(moment.getTime()) ? "" : WHEN_FORMAT.format(moment);
+}
+
+function toastName(text, fallback = "it", limit = 48) {
+  const flat = String(text || "").replace(/\s+/g, " ").trim();
+  if (!flat) return fallback;
+  return `“${flat.length > limit ? `${flat.slice(0, limit - 1).trimEnd()}…` : flat}”`;
+}
 
 function voiceLine(key, slots = {}) {
   const why = slots.why ? String(slots.why).trim() : "";

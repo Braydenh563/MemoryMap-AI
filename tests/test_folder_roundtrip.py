@@ -65,6 +65,17 @@ def _back(snap: dict, idmap: dict) -> dict:
     }
 
 
+def _binned_stamp_aside(snap: dict) -> dict:
+    """A binned row's `deleted_at` is the import's own time, not the export's
+    (Brief 101b: the bin clock restarts, or the startup sweep purges the row
+    just imported), so both sides compare "binned", not the instant."""
+    for group in ("notes", "boards"):
+        for record in snap[group].values():
+            if record.get("deleted_at"):
+                record["deleted_at"] = "binned"
+    return snap
+
+
 def _by_title(snap: dict) -> dict:
     return dict(snap, documents={r["title"]: dict(r, id=None) for r in snap["documents"].values()})
 
@@ -103,7 +114,7 @@ def test_the_500_note_notebook_comes_back_equal_on_every_field(exported):
     assert result.skipped == []
     assert written["said"] == []
     assert written["imported"] == 503 and written["already"] == 0
-    diff = first_difference(_by_title(before), _back(after, written["idmap"]))
+    diff = first_difference(_binned_stamp_aside(_by_title(before)), _binned_stamp_aside(_back(after, written["idmap"])))
     assert diff is None, diff
 
 

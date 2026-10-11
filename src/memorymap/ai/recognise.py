@@ -423,13 +423,6 @@ def _add_months(at: datetime, months: int, parts: dict, day_of_month: int | None
     return datetime.combine(day, at.timetz())
 
 
-def anchored(rule: str, due: date) -> str:
-    """A plain "monthly" set on the 29th to the 31st, as the rule that keeps
-    that day: the first roll on lands on the 28th of February, and a bare
-    "monthly" would stay there (ledger row 414)."""
-    return f"FREQ=MONTHLY;BYMONTHDAY={due.day}" if rule == "monthly" and due.day >= 29 else rule
-
-
 def next_occurrence(rule: str, after: datetime, day_of_month: int | None = None) -> datetime:
     """The next time a stored repeat ("weekly", or a rule `stored_repeat`
     keeps) falls after `after`, at `after`'s time of day: what completing a

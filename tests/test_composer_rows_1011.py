@@ -45,7 +45,7 @@ def test_a_monthly_repeat_from_the_31st_keeps_its_day(client):
     assert february["due_at"].startswith("2030-02-28T09:00"), february
     march = client.post(f"/reminders/{made['id']}/complete").json()
     assert march["due_at"].startswith("2030-03-31T09:00"), march
-    assert march["repeat_words"] == "every month"
+    assert march["repeat_words"] == "monthly"
     plain = client.post("/reminders", json={"text": "Water", "due_at": "2030-01-10T09:00:00Z", "recurring": "monthly"}).json()
     rolled = client.post(f"/reminders/{plain['id']}/complete").json()
     assert rolled["recurring"] == "monthly"

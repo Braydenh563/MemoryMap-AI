@@ -2505,7 +2505,8 @@ def _until_note(out: _Answer, question: str, views: list[NoteView], today: date)
     if not asked:
         return False
     ahead = asked[0] == "future"
-    wanted = {_stem(w) for w in _words(asked[1])} - {_stem(w) for w in _NOTE_NOUNS}
+    #: A particle is no subject: "the stand up" is not the "Check-up" note.
+    wanted = {_stem(w) for w in _words(asked[1]) if len(w) > 2} - {_stem(w) for w in _NOTE_NOUNS}
     for view in sorted(views, key=lambda v: v.rank):
         if not wanted or not wanted & {_stem(w) for w in _words(str(view.note.get("content") or ""))}:
             continue

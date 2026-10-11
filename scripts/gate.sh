@@ -31,7 +31,7 @@ PY="${PY:-$ROOT/.venv/bin/python}"
 RUFF="$ROOT/.venv/bin/ruff"
 [ -x "$RUFF" ] || RUFF="$MAIN/.venv/bin/ruff"
 LOG="${GATE_LOG:-$ROOT/.gate}"
-mkdir -p "$LOG"
+mkdir -p "$LOG"; : > "$LOG/timings.txt"
 FULL=0; SWEEPS=0; CHANGED=0; STAGED=0
 for arg in "$@"; do
   case "$arg" in
@@ -69,8 +69,12 @@ ran=(); passed=(); failed=(); skipped=()
 step() {  # name, command...
   local name="$1" rc; shift
   ran+=("$name")
+  local t0=$SECONDS
   "$@" > "$LOG/$name.log" 2>&1
   rc=$?
+  # Seconds per step, beside the logs and not in the five lines: the slowest
+  # step is what to measure before trimming a gate (OPEN ledger row 1663).
+  echo "$name $((SECONDS - t0))s" >> "$LOG/timings.txt"
   if [ "$rc" = 0 ]; then passed+=("$name")
   elif [ "$rc" = 5 ]; then failed+=("$name (exit 5: no tests collected)")
   else failed+=("$name"); fi

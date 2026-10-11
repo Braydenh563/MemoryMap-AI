@@ -5,7 +5,7 @@ undo stack, built from `kebabMenu` (DESIGN.md: a menu behind a button).
 
 from __future__ import annotations
 
-from _app_js import app_js_text
+from tests._app_js import app_js_text
 
 
 def _body(name: str) -> str:

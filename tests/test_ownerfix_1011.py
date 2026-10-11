@@ -33,7 +33,7 @@ def test_a_link_row_underlines_its_words_not_its_icon():
     assert "text-decoration" not in hover
     consistency = _css("08-consistency.css")
     assert ".library-read-open:hover .ph-text" in consistency
-    plain = consistency[consistency.index(".library-read-open:hover {"):].split("}", 1)[0]
+    plain = consistency[consistency.index(".library-read-open:hover,"):].split("}", 1)[0]
     assert "text-decoration" not in plain
     # An always-underlined link that holds an icon is not a flex row.
     chat = _css("04-chat-dock-appearance.css")

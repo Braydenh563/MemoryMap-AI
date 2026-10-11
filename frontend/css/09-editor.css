@@ -357,7 +357,7 @@
   border: 0;
 }
 
-.doc-prop-btn:hover,
+.doc-prop-btn:is(:hover, :focus-visible),
 .doc-prop-btn:is(:focus-visible, :has(:focus-visible)) {
   color: var(--text);
   background: none;

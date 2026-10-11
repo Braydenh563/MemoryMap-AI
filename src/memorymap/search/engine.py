@@ -49,6 +49,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import event, or_, select, text
 from sqlalchemy.orm import Session
 
+from memorymap.ai import variants
 from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink, Reminder
 from memorymap.entry.highlights import has_highlight
 from memorymap.entry.properties import strip as strip_properties
@@ -685,11 +686,12 @@ def _match_expression(terms: list[str], phrases: list[str], excluded: list[str],
         #: stages are meant to agree, and a duplicated constant is how they
         #: stop agreeing: this one was still 4 while the note search's moved.
         parts.extend(
-            f"{term}*" if len(term) >= search_manager.PREFIX_MIN_LEN else term
+            variants.fts_group(f"{term}*" if len(term) >= search_manager.PREFIX_MIN_LEN else term)
             for term in terms
         )
     else:
-        parts.extend(terms)
+        #: Every spelling of each word ("centre" and "center", INBOX 895).
+        parts.extend(variants.fts_group(term) for term in terms)
     joiner = " OR " if mode == "any" else " AND "
     # Parenthesised before anything is appended. FTS5 binds AND tighter than
     # OR and reads NOT as a binary operator, so `a OR b AND "phrase"` means

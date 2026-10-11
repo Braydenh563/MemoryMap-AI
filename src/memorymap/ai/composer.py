@@ -69,6 +69,7 @@ questions in a row do not open with the same words.
 from __future__ import annotations
 
 import contextvars
+import functools
 import hashlib
 import math
 import re
@@ -76,7 +77,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from memorymap.ai import act_registry, composer_ack, composer_overview, composer_tables, grounding, question_noise, realise, utilities
+from memorymap.ai import act_registry, composer_ack, composer_overview, composer_tables, grounding, question_noise, realise, utilities, variants
 from memorymap.ai import when as when_words
 from memorymap.search import query as query_understanding
 
@@ -542,6 +543,14 @@ def _stem(word: str) -> str:
     probe P1: "who is Sam" quoted "Same breakfast as the long runs"); the
     silent "e" a suffix took ("hiring", "making") is put back instead.
     """
+    #: One key for the UK and US spellings ("colour" meets "color", INBOX
+    #: 895); the answer is still made from the note's own words.
+    return _stem_plain(variants.canonical(word.lower()))
+
+
+def _stem_plain(word: str) -> str:
+    """`_stem` without the spelling key: what the import-time tables use, so
+    importing the composer never loads the English list."""
     w = word.lower()
     if w in _NOT_PLURAL:
         return w
@@ -593,10 +602,11 @@ SYNONYM_GROUPS = (
 ) + composer_tables.EXTRA_SYNONYM_GROUPS
 
 
-def _build_synonyms() -> dict[str, frozenset[str]]:
+def _build_synonyms(key=None) -> dict[str, frozenset[str]]:  # noqa: ANN001
+    key = key or _stem_plain
     table: dict[str, set[str]] = {}
     for group in SYNONYM_GROUPS:
-        stems = {_stem(w) for w in group}
+        stems = {key(w) for w in group}
         for stem in stems:
             table.setdefault(stem, set()).update(stems - {stem})
     return {k: frozenset(v) for k, v in table.items()}
@@ -604,7 +614,15 @@ def _build_synonyms() -> dict[str, frozenset[str]]:
 
 def _alternatives(stem: str) -> frozenset[str]:
     """The other stems that name what `stem` names."""
-    return _SYNONYMS.get(stem, frozenset())
+    return _keyed_synonyms().get(stem, frozenset())
+
+
+@functools.lru_cache(maxsize=1)
+def _keyed_synonyms() -> dict[str, frozenset[str]]:
+    """The groups keyed by `_stem`, the UK and US spellings as one
+    ("counselling" is "counseling"): built at the first question, not at
+    import, which would load the English list (`_SYNONYMS` is the plain one)."""
+    return _build_synonyms(_stem)
 
 
 def _holds(stem: str, words: set[str]) -> bool:

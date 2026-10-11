@@ -2274,5 +2274,18 @@ def _act_topic() -> dict:
     return act_registry.guide_topic()
 
 
+MORE_TOPICS.append({
+    "id": "find-a-place",
+    "title": "Finding where something is",
+    "keywords": ("where is", "can't find", "cant find", "how do i get to", "show me link", "where did it go", "lost a button"),
+    "badge": {"label": "Notes", "tab": "notes"},
+    "body": (
+        "Ask where something is, in Ask or Chat: \"where is the bin\", \"I can't find dark mode\", \"how do I get to backups\". "
+        "The answer says where it lives and gives a Show me link that opens it and rings the control, as a row of Tools and "
+        "features does. When two places could be meant, each has its own link. Any row of Tools and features, any Settings "
+        "section and any tab can be found this way, typos and all."
+    ),
+})
+TOPIC_META["find-a-place"] = {"title": "Finding where something is", "path": "Notes tab, Ask your notebook"}
 MORE_TOPICS.append(_act_topic())
 TOPIC_META["chat-acts"] = {"title": "Things Chat does for you", "path": "Chat tab"}

@@ -34,7 +34,7 @@ import math
 import re
 from collections import Counter
 
-from memorymap.ai import spelling
+from memorymap.ai import act_registry, spelling
 
 # --- 1. slang and text-speak ----------------------------------------------------
 
@@ -2194,7 +2194,37 @@ def repair(text: str, report: list | None = None, known=frozenset(), fixed: list
                 fixed.append((word, chosen))
             out.append((chosen + tail) if chosen else token)
         i += 1
-    return " ".join(w for w in out if w)
+    return " ".join(w for w in _real_word_slips(out, fixed) if w)
+
+
+#: Real-word slips (Brief 104): a word that is a word, read as another only
+#: where its neighbour says so. After an intensifier comes an adjective
+#: ("insanely god" is "insanely good"); "it's" before a noun is "its" ("it's
+#: use of language").
+_INTENSIFIERS = frozenset("very really so insanely super pretty too extremely incredibly quite crazy seriously".split())
+_AFTER_INTENSIFIER = {"god": "good", "grate": "great"}
+_ITS_NOUNS = frozenset(
+    """use own name place way job size shape colour color purpose answer answers title content contents settings
+    layout design tone voice speed memory language style owner data value text icon label wording choices""".split()
+)
+
+
+def _real_word_slips(tokens: list[str], fixed: list | None) -> list[str]:
+    out = list(tokens)
+    for i in range(1, len(out)):
+        prev = out[i - 1].lower().rstrip("?!.,:;")
+        word = out[i].rstrip("?!.,:;")
+        tail = out[i][len(word):]
+        low = word.lower()
+        if prev in _INTENSIFIERS and low in _AFTER_INTENSIFIER and _AFTER_INTENSIFIER[low] != low:
+            out[i] = _AFTER_INTENSIFIER[low] + tail
+        elif low in _ITS_NOUNS and prev in ("it's", "it’s") and out[i - 1].rstrip("?!.,:;") == out[i - 1]:
+            out[i - 1] = "its"
+        else:
+            continue
+        if fixed is not None:
+            fixed.append((f"{tokens[i - 1]} {tokens[i]}", f"{out[i - 1]} {out[i]}"))
+    return out
 
 
 def _at_asking_place(before: list[str]) -> bool:
@@ -2296,3 +2326,7 @@ def guess_kind(asking: str, embed=None) -> str | None:  # noqa: ANN001
     if ranked[0][1] < floor or (len(ranked) > 1 and ranked[0][1] - ranked[1][1] < MARGIN):
         return None
     return ranked[0][0]
+
+
+#: The Guide reads a question through this (`act_registry.repair`).
+act_registry.repair = repair

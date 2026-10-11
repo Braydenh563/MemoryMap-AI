@@ -346,15 +346,17 @@ async function readWebPage(fold, list, reader, source) {
 //: Markdown the answer arrives as; the table is set to fit and read in the
 //: body's type (`.digest-table`), not the model table's export bar. Built from the text, so the citation
 //: marks inside it keep their places.
-function digestShape(answerEl, shape) {
+function digestShape(answerEl, shape, figureText) {
   if (!answerEl) return;
   const first = answerEl.querySelector("p");
   if (shape === "count" && first && first.firstChild?.nodeType === Node.TEXT_NODE) {
+    //: The figure is the server's reading (`_lead_figure`, through the one
+    //: reader of units, CHAT_PLAN decision 46): found here by its text.
     const lead = first.firstChild;
-    const m = lead.textContent.match(/^(You spent |You've spent |)(\$?\d[\d,.]*(?:\s?(?:kg|km|%))?)/);
-    if (!m) return;
-    const rest = lead.splitText(m[1].length);
-    rest.splitText(m[2].length);
+    const at = figureText ? lead.textContent.indexOf(figureText) : -1;
+    if (at < 0 || at > 14) return;
+    const rest = lead.splitText(at);
+    rest.splitText(figureText.length);
     const figure = document.createElement("span");
     figure.className = "digest-figure";
     figure.textContent = rest.textContent;
@@ -420,6 +422,9 @@ function digestMore(answerEl, more) {
 //: note is a new note. Each one says what it did, with Undo.
 function digestOffer(answerEl, offer) {
   if (!answerEl || !offer || !offer.label) return;
+  //: A choice ("That could be Export or Export chat. Which one?") is one
+  //: offer a line, each its own link (`find_it.answer`).
+  for (const other of offer.also || []) digestOffer(answerEl, other);
   const line = [...answerEl.querySelectorAll("p")].reverse().find((p) => p.textContent.trim() === offer.label);
   if (!line) return;
   const button = document.createElement("button");
@@ -435,7 +440,11 @@ function digestOffer(answerEl, offer) {
         //: A page, not a thing made: nothing to undo, and the line stays.
         //: "settings:tasks" opens that section; "ask-history" the panel
         //: beside the Ask box (A3's records answers).
-        if (offer.surface === "statistics") openStatistics();
+        //: "reveal:<key>[:<arg>]" lands on one control and rings it, the way
+        //: a Tools and features row does (`revealFeature`); "tab:<tab>" is a tab.
+        if (offer.surface.startsWith("reveal:")) revealFeature(...offer.surface.slice(7).split(":"));
+        else if (offer.surface.startsWith("tab:")) switchTab(offer.surface.slice(4));
+        else if (offer.surface === "statistics") openStatistics();
         else if (offer.surface === "ask-history") { if (!askHistoryOpen) toggleAskHistoryPanel(); }
         else if (offer.surface.startsWith("settings:")) openSettingsModal(offer.surface.slice("settings:".length));
         else actNavigate(offer.surface);

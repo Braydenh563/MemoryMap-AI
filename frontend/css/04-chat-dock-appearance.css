@@ -235,7 +235,7 @@
   display: none;
 }
 
-.story-mode-btn:hover,
+.story-mode-btn:is(:hover, :focus-visible),
 .story-mode-btn:is(:focus-visible, :has(:focus-visible)) {
   background: var(--accent-surface-hover);
   text-decoration: none;
@@ -906,7 +906,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   cursor: pointer;
 }
 
-.link-button:hover,
+.link-button:is(:hover, :focus-visible),
 .link-button:is(:focus-visible, :has(:focus-visible)) {
   color: color-mix(in oklab, var(--accent-text) 70%, var(--ink));
 }
@@ -2676,7 +2676,7 @@ label.setting-check,
   cursor: pointer;
 }
 
-.linklike:hover,
+.linklike:is(:hover, :focus-visible),
 .linklike:is(:focus-visible, :has(:focus-visible)) {
   text-decoration-thickness: 2px;
 }
@@ -3369,7 +3369,7 @@ span > .chip {
   line-height: 1;
 }
 
-.attachment-remove:hover,
+.attachment-remove:is(:hover, :focus-visible),
 .attachment-remove:is(:focus-visible, :has(:focus-visible)) {
   color: var(--error);
 }

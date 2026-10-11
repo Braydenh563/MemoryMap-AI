@@ -443,7 +443,7 @@
   transition: background var(--ui-fast) var(--ease-out), color var(--ui-fast) var(--ease-out);
   padding: 0;
 }
-.sidebar-collapse-toggle:hover,
+.sidebar-collapse-toggle:is(:hover, :focus-visible),
 .sidebar-collapse-toggle:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   color: var(--ink);

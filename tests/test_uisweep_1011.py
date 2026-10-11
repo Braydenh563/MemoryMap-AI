@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from _css_paths import css_text
+from tests._css_paths import css_text
 
 
 def _strip(css: str) -> str:
@@ -88,7 +88,7 @@ def test_a_plain_activity_row_beside_button_rows_is_not_a_stray_list_item():
 # parity, not a missing ring, and editing 216 rules is Brief 57's one recipe
 # decision. Until then the count may only fall: a new component's hover rule
 # names its :focus-visible beside it (`:is(:hover, :focus-visible)`).
-HOVER_WITHOUT_FOCUS_BASELINE = 216
+HOVER_WITHOUT_FOCUS_BASELINE = 214
 
 
 def _split_top(selector: str) -> list[str]:

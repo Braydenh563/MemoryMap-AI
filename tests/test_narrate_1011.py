@@ -9,7 +9,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-import _gold
+from tests import _gold
 import pytest
 
 from memorymap.ai import composer_digest

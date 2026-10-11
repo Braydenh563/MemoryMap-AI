@@ -14,7 +14,7 @@ from datetime import date
 
 import pytest
 
-import _gold
+from tests import _gold
 from memorymap.ai import composer, composer_digest
 
 FIXTURE = _gold.load()

@@ -28,6 +28,8 @@ import re
 from collections import Counter
 from functools import lru_cache
 
+from memorymap.ai import variants
+
 
 #: Abbreviations typed as they are: never read as a typo of a small word.
 KNOWN_SHORT = frozenset(
@@ -111,6 +113,17 @@ def _app_counts() -> Counter:
     return Counter(w for w in re.findall(r"[a-z]+", text.lower()) if len(w) >= 3)
 
 
+#: The general English list lives with the spelling pairs (`variants`, a
+#: leaf: search reads it too, and must not reach the speller's help text).
+english = variants.english
+
+
+#: A long word of the general list is a target, never above a listed word:
+#: "knowledgable" is "knowledgeable", while "suer" stays "user".
+ENGLISH_TARGET_MIN = 9
+ENGLISH_TARGET_WEIGHT = 0.3
+
+
 @lru_cache(maxsize=1)
 def _dictionary() -> dict[str, float]:
     """The words a misspelling is corrected towards, each with a weight: the
@@ -128,6 +141,9 @@ def _dictionary() -> dict[str, float]:
     for word in MORE:
         if len(word) >= 7:
             weights.setdefault(word, 0.5)
+    for word in english():
+        if len(word) >= ENGLISH_TARGET_MIN:
+            weights.setdefault(word, ENGLISH_TARGET_WEIGHT)
     return weights
 
 
@@ -137,7 +153,7 @@ def _recognised() -> frozenset:
     documentation's words besides."""
     from memorymap.ai.common_words_more import MORE
 
-    return frozenset(_dictionary()) | MORE
+    return frozenset(_dictionary()) | MORE | english()
 
 
 def _mask(word: str) -> int:
@@ -353,15 +369,72 @@ def _fix_short(word: str, after: str, before: str, distance):  # noqa: ANN001
     return best[1], (other[1] if other else None)
 
 
-def fix(word: str, *, after: str = "", before: str = "", known=(), distance=None):  # noqa: ANN001
+def fix(word: str, *, distance, after: str = "", before: str = "", known=()):  # noqa: ANN001
     """`(chosen, alternative)` for a misspelt lower-case word, else None.
     A word the list knows, the person's notes hold, or that carries a digit or
-    apostrophe is never changed."""
-    if not word.isalpha() or word in known or _is_word(word) or word in KNOWN_SHORT:
+    apostrophe is never changed. `distance` is question_noise's, passed in:
+    that module imports this one (`tests/test_no_import_cycles.py`)."""
+    if not word.isalpha() or word in known or word in KNOWN_SHORT:
         return None
-    if distance is None:
-        from memorymap.ai.question_noise import distance as distance  # noqa: PLC0415 - same package, cycle
+    if _is_word(word):
+        return _respelt(word, distance) or _rare_real(word, distance)
     return _fix(word, after.lower(), before.lower(), distance, known)
+
+
+#: Words the app is written in that neither list has yet: targets like the
+#: help's own words ("intractable results" is "interactable results").
+APP_WORDS = frozenset("interactable clickable hoverable draggable resizable dockable".split())
+
+
+@lru_cache(maxsize=1)
+def _common() -> frozenset:
+    from memorymap.ai.common_words import WORDS
+    from memorymap.ai.common_words_more import MORE
+
+    return frozenset(WORDS) | MORE | APP_WORDS | frozenset(w for w, n in _app_counts().items() if n >= 3)
+
+
+def _rare_real(word: str, distance):  # noqa: ANN001, ANN202
+    """A rare word of the general list one dropped vowel from a word the app
+    and everyday writing use ("intractable" for "interactable"): a real-word
+    slip (Brief 104), read as the common word. Long words only; a name or a
+    rare word the person's notes hold never reaches here (`known`)."""
+    if len(word) < 9 or word in _common():
+        return None
+    if word not in _RARE:
+        mask = _mask(word)
+        near = sorted(
+            (distance(word, base), base)
+            for base in _common()
+            if len(base) == len(word) + 1 and base[0] == word[0] and (mask ^ _mask(base)).bit_count() <= 1
+        )
+        _RARE[word] = (near[0][1], None) if near and near[0][0] <= 0.5 else None
+    return _RARE[word]
+
+
+_RESPELT: dict[str, tuple | None] = {}
+_RARE: dict[str, tuple | None] = {}
+
+
+def _respelt(word: str, distance):  # noqa: ANN001, ANN202
+    if word not in _RESPELT:
+        _RESPELT[word] = _respelt_uncached(word, distance)
+    return _RESPELT[word]
+
+
+def _respelt_uncached(word: str, distance):  # noqa: ANN001, ANN202
+    """A long word that is a word only by the ending rules ("knowledgable" is
+    "knowledge" + "able") while the general list spells it one letter
+    otherwise ("knowledgeable"): the list's spelling, else None."""
+    if len(word) < 8 or word in _recognised() or word in APP_WORDS or not english():
+        return None
+    mask = _mask(word)
+    near = sorted(
+        (distance(word, base), base)
+        for base in english()
+        if abs(len(base) - len(word)) == 1 and (mask ^ _mask(base)).bit_count() <= 1
+    )
+    return (near[0][1], None) if near and near[0][0] <= 0.5 else None
 
 
 def _resegment(a: str, b: str, known) -> tuple[str, str] | None:  # noqa: ANN001
@@ -378,6 +451,14 @@ def _resegment(a: str, b: str, known) -> tuple[str, str] | None:  # noqa: ANN001
             key = (abs(cut - len(a)), -min(len(x), len(y)))
             if best is None or key < best[:2]:
                 best = (*key, x, y)
+    if best is None:
+        #: The space typed a letter early and the small word's letters swapped
+        #: ("infoa dn" is "info and"): a word, then a small word's anagram.
+        for cut in range(4, len(joined) - 2):
+            x, y = joined[:cut], joined[cut:]
+            small = next((w for w in FUNCTION_PRIOR if len(w) == len(y) == 3 and sorted(w) == sorted(y)), None)
+            if small and abs(cut - len(a)) <= 1 and is_word(x, known):
+                return x, small
     return (best[2], best[3]) if best else None
 
 
@@ -445,3 +526,31 @@ def split_run_on(word: str, known=()) -> tuple[str, str] | None:  # noqa: ANN001
         if (head in small or tail in small) and is_word(head, known) and is_word(tail, known) and min(len(head), len(tail)) >= 2:
             return head, tail
     return None
+
+
+_WARMED = {"started": False}
+
+
+def warm_in_background(delay: float = 5.0) -> None:
+    """Build the word lists, the speller's index and the spelling pairs in a
+    daemon thread, once per process, a few seconds after start: the first
+    question and the first search then do not pay about a second for them."""
+    if _WARMED["started"]:
+        return
+    _WARMED["started"] = True
+    import threading
+    import time
+
+    def run() -> None:
+        time.sleep(delay)
+        try:
+            _index()
+            _recognised()
+            _common()
+            variants.pairs()
+        except Exception:  # noqa: BLE001  # a warm-up that fails leaves the first use to build them
+            import logging
+
+            logging.getLogger(__name__).debug("spelling warm-up failed; the first question builds the lists", exc_info=True)
+
+    threading.Thread(target=run, name="spelling-warmup", daemon=True).start()

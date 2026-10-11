@@ -26,6 +26,12 @@ proposer = None
 reader = None
 help_sentence = None
 
+#: The question repair (`question_noise.repair`), set when that module is
+#: imported (intent, composer and the routes import it), for the Guide: the
+#: speller reads the help text, so the Guide importing it back was a cycle
+#: (`tests/test_no_import_cycles.py`). Unset, the Guide reads the words as typed.
+repair = None
+
 #: The plan reader (`ai/plan_writes.py`: a step's writes, the tools they need,
 #: an edit's diff), set when that module is imported. The agent reads it
 #: through this leaf because plan_writes imports acts and commands, which

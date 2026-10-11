@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, capability, composer, composer_digest, glossary, verdicts, why
+from memorymap.ai import budget as run_budget, capability, composer, composer_digest, find_it, glossary, verdicts, why
 from memorymap.ai import (
     acts,
     agent,
@@ -2198,6 +2198,11 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
     goes on to compose or generate."""
     if _asks_capability(req, prepared) and _app_answers(req, ollama_running):
         return [{"type": "answer", "delta": _capability_answer(req, ollama_running)}]
+    #: "Where is the bin?", "I can't find dark mode": the place and a link
+    #: that opens it and rings the control (`ai/find_it.py`).
+    placed = find_it.answer(req.question or "") if _app_answers(req, ollama_running) and not req.images_raw else None
+    if placed is not None:
+        return [{"type": "answer", "delta": placed["text"]}, {"type": "offer", "offer": placed["offer"]}]
     if _nothing_open(req.body) and _app_answers(req, ollama_running):
         return [{"type": "answer", "delta": composer_digest.PHRASES["nothing_open"]}]
     if prepared["stats"] is not None:

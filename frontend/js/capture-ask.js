@@ -1814,7 +1814,7 @@ function renderAnswerGrounding(
     target.replaceChildren();
     target.classList.add("hidden");
     ensureModule("askCompose").then(() => {
-      digestShape(answerEl, support.shape);
+      digestShape(answerEl, support.shape, support.figure);
       digestMore(answerEl, support.more);
       digestOffer(answerEl, support.offer);
     }).catch(() => {});

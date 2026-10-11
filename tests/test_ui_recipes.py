@@ -5392,7 +5392,7 @@ def test_answer_shape_is_lifted_in_one_place():
     more = text[text.index("function digestMore"):text.index("//: The digest's one offer")]
     assert 'className = "linklike digest-more"' in more and "aria-expanded" in more and ".hidden = true" in more
     ask = (ROOT / "frontend/js/capture-ask.js").read_text(encoding="utf-8")
-    assert "digestShape(answerEl, support.shape)" in ask and "digestMore(answerEl, support.more)" in ask
+    assert "digestShape(answerEl, support.shape, support.figure)" in ask and "digestMore(answerEl, support.more)" in ask
 
 
 # A note's or document's name is shown through one helper (INBOX 820, the

@@ -102,8 +102,9 @@ async function openTidySheet(review = "") {
       overview.className = "tidy-overview";
       overview.id = "tidy-overview";
       overview.setAttribute("aria-label", "Reviews");
-      //: One review: a back button and its name, its description, its tools,
-      //: its rows and the foot. Hidden while the overview is showing.
+      //: One review (T1, INBOX 830): a quiet back link over its name, its
+      //: description, its tools, its rows and, when it has rows, the foot.
+      //: Hidden while the overview is showing.
       const pane = document.createElement("div");
       pane.className = "tidy-review";
       pane.id = "tidy-review";
@@ -112,6 +113,7 @@ async function openTidySheet(review = "") {
       nav.className = "tidy-nav";
       const back = smallButton("ph:arrow-left All reviews", "Back to the list of reviews", () => tidyOverview(state.key));
       back.id = "tidy-back";
+      back.classList.add("quiet", "tidy-back-link");
       const title = document.createElement("h3");
       title.className = "tidy-title";
       title.id = "tidy-title";
@@ -128,8 +130,9 @@ async function openTidySheet(review = "") {
       const foot = document.createElement("div");
       foot.className = "tidy-foot";
       pane.append(nav, about, tools, list, foot);
-      //: Recent runs fold away (closed), so the rows keep the sheet's height.
-      const history = document.createElement("details");
+      //: Recent runs (T2): a quiet disclosure row, closed, so the rows keep
+      //: the sheet's height.
+      const history = document.createElement("div");
       history.className = "tidy-history";
       history.id = "tidy-history";
       //: The Patterns line (CHAT_PLAN decision 32): what the notes measure,
@@ -498,6 +501,9 @@ function tidyFoot() {
   count.className = "muted tidy-count";
   count.setAttribute("role", "status");
   count.textContent = selectable.length ? `${n} of ${selectable.length} ticked` : "";
+  //: An empty review is its one line, with no selection bar (T1).
+  state.foot.hidden = !state.rows.length;
+  if (!state.rows.length) return;
   const all = smallButton("ph:checks All", "Tick every row", () => {
     for (const r of selectable) state.ticked.add(r.id);
     tidyRows();
@@ -617,14 +623,23 @@ async function tidyHistory() {
   state.history.replaceChildren();
   const runs = body?.runs || [];
   if (!runs.length) return;
-  const head = document.createElement("summary");
-  head.className = "tidy-history-head";
+  const head = document.createElement("button");
+  head.type = "button";
+  head.className = "ghost small disclosure-row tidy-history-head";
   const caret = document.createElement("i");
   caret.className = "ph ph-caret-down contents-caret";
   caret.setAttribute("aria-hidden", "true");
   head.append(caret, ` Recent runs (${runs.length})`);
   const list = document.createElement("ul");
   list.className = "tidy-history-list";
+  list.id = "tidy-history-list";
+  list.hidden = true;
+  head.setAttribute("aria-expanded", "false");
+  head.setAttribute("aria-controls", list.id);
+  head.addEventListener("click", () => {
+    list.hidden = !list.hidden;
+    head.setAttribute("aria-expanded", String(!list.hidden));
+  });
   for (const run of runs) {
     const li = document.createElement("li");
     li.className = "tidy-history-row";

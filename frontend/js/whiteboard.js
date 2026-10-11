@@ -282,9 +282,13 @@ function wbSaveExpandedNodes() {
 //: lay the whole board out again for the next measurement, which on a two
 //: hundred card board is two hundred reflows instead of one.
 //:
-//: An expanded card always keeps its control, whatever it measures: with
-//: the clip off, its content fits by definition, so asking the same
-//: question of it would hide the only way back to "Show less".
+//: **An expanded card shows "Show less" only when it would hide something**
+//: (INBOX 825, the owner: "idk why that show less button is there, all the
+//: text is showing"). It used to keep its control whatever it measured, so a
+//: card opened once and later sized to hold its text wore a "Show less" that
+//: changed nothing. Collapsed, a card is as tall as its stored height, or
+//: eight lines when it has none; so an expanded card needs the control only
+//: when it stands taller than that (`wbCardMoreNeeded`, node-tested).
 function wbSyncCardClamps() {
   const wanted = [];
   for (const card of document.querySelectorAll(".node-card")) {
@@ -294,13 +298,23 @@ function wbSyncCardClamps() {
     const content = card.querySelector(".wb-card-content");
     const toggle = card.querySelector(".wb-card-more");
     if (!content || !toggle) continue;
-    wanted.push([
-      toggle,
-      !content.classList.contains("wb-card-content-clamped") ||
-        content.scrollHeight > content.clientHeight + 1,
-    ]);
+    const clamped = content.classList.contains("wb-card-content-clamped");
+    wanted.push([toggle, wbCardMoreNeeded({
+      clamped,
+      scrollH: content.scrollHeight,
+      clientH: content.clientHeight,
+      //: The toggle's own row is not text: a card is measured without it.
+      cardH: card.offsetHeight - (toggle.hidden ? 0 : toggle.offsetHeight),
+      floorH: parseFloat(card.style.minHeight) || 0,
+      capH: clamped ? 0 : parseFloat(getComputedStyle(content).fontSize) * 1.4 * 8,
+    })]);
   }
   for (const [toggle, needed] of wanted) toggle.hidden = !needed;
+}
+
+function wbCardMoreNeeded({ clamped, scrollH, clientH, cardH, floorH, capH }) {
+  if (clamped) return scrollH > clientH + 1;
+  return floorH ? cardH > floorH + 1 : scrollH > capH + 1;
 }
 
 //: One sync per frame however many renders asked for it. `renderWhiteboard`
@@ -1060,6 +1074,140 @@ function wbSpacingSeries(mates, dragged, axis) {
     };
   }
   return best;
+}
+
+//: **Guides for an edge being dragged** (INBOX 825 item 2, INBOX 826's E4):
+//: a resize, and a shape or box drawn out, snap the moving edge to another
+//: item's edge or centre and the moving size to a neighbour's width or
+//: height, each shown by a guide line; then the grid when snap is on, and a
+//: card's content height (`fit`) for its bottom edge. `box` is {x, y, w, h},
+//: `edges` the moving sides ("se", "w"). Pure apart from `wbGuideBoxes`
+//: (node-tested in tests/test_wb_resize_guides.py).
+function wbResizeGuides(excludeKeys, box, edges, { fit = null, grid = 0, min = 1 } = {}) {
+  const others = wbGuideBoxes(excludeKeys);
+  const out = { x: box.x, y: box.y, w: box.w, h: box.h, guideLines: [] };
+  const axis = (horizontal) => {
+    const hi = horizontal ? edges.includes("e") : edges.includes("s");
+    const lo = horizontal ? edges.includes("w") : edges.includes("n");
+    if (!hi && !lo) return;
+    const start = horizontal ? box.x : box.y, size = horizontal ? box.w : box.h;
+    const fixed = hi ? start : start + size;
+    const moving = hi ? start + size : start;
+    const [minK, maxK, cMin, cMax] = horizontal ? ["minX", "maxX", "minY", "maxY"] : ["minY", "maxY", "minX", "maxX"];
+    const crossLo = horizontal ? box.y : box.x, crossHi = crossLo + (horizontal ? box.h : box.w);
+    let best = null;
+    const offer = (target, line) => {
+      const delta = target - moving;
+      if (Math.abs(delta) > WB_ALIGN_SNAP_PX || (best && Math.abs(delta) >= Math.abs(best.delta))) return;
+      if (Math.abs(target - fixed) < min) return;
+      best = { delta, target, line };
+    };
+    const across = (at, a, b, kind) => (horizontal
+      ? { x1: at, y1: a, x2: at, y2: b, kind }
+      : { x1: a, y1: at, x2: b, y2: at, kind });
+    for (const other of others) {
+      const a = Math.min(crossLo, other[cMin]) - 20, b = Math.max(crossHi, other[cMax]) + 20;
+      offer(other[minK], across(other[minK], a, b, "edge"));
+      offer(other[maxK], across(other[maxK], a, b, "edge"));
+      offer((other[minK] + other[maxK]) / 2, across((other[minK] + other[maxK]) / 2, a, b, "center"));
+      const span = other[maxK] - other[minK];
+      offer(hi ? fixed + span : fixed - span, [
+        { mark: true, at: other[cMin] - 8, from: other[minK], to: other[maxK] },
+      ]);
+    }
+    if (fit && !horizontal && hi) offer(fixed + fit, across(fixed + fit, crossLo - 20, crossHi + 20, "edge"));
+    if (!best && grid) {
+      const target = Math.round(moving / grid) * grid;
+      if (Math.abs(target - fixed) >= min) best = { delta: target - moving, target, line: null };
+    }
+    if (!best) return;
+    const lowEdge = hi ? fixed : best.target, highEdge = hi ? best.target : fixed;
+    if (horizontal) { out.x = lowEdge; out.w = highEdge - lowEdge; } else { out.y = lowEdge; out.h = highEdge - lowEdge; }
+    //: A size match marks both measures: the neighbour's and the one it set.
+    if (Array.isArray(best.line)) {
+      const m = best.line[0];
+      const mark = (at, from, to) => (horizontal
+        ? { x1: from, y1: at, x2: to, y2: at, kind: "spacing" }
+        : { x1: at, y1: from, x2: at, y2: to, kind: "spacing" });
+      out.guideLines.push(mark(m.at, m.from, m.to), mark(crossLo - 8, lowEdge, highEdge));
+    } else if (best.line) out.guideLines.push(best.line);
+  };
+  axis(true);
+  axis(false);
+  return out;
+}
+
+//: The size beside what is being drawn or resized ("120 x 80", E4), in the
+//: guides' own group so it goes when they do; a constant screen size.
+function wbShowSizeReadout(box) {
+  const group = document.getElementById("wb-align-guides");
+  const container = document.getElementById("whiteboard-container");
+  if (!group || !container) return;
+  const k = d3.zoomTransform(container).k || 1;
+  const words = `${Math.round(box.w)} x ${Math.round(box.h)}`;
+  const ns = "http://www.w3.org/2000/svg";
+  const g = document.createElementNS(ns, "g");
+  g.setAttribute("class", "wb-size-readout");
+  g.setAttribute("transform", `translate(${box.x + box.w / 2} ${box.y + box.h}) scale(${1 / k}) translate(0 16)`);
+  const width = words.length * 7 + 12;
+  const plate = document.createElementNS(ns, "rect");
+  plate.setAttribute("x", String(-width / 2));
+  plate.setAttribute("y", "-10");
+  plate.setAttribute("width", String(width));
+  plate.setAttribute("height", "20");
+  plate.setAttribute("rx", "4");
+  const text = document.createElementNS(ns, "text");
+  text.setAttribute("text-anchor", "middle");
+  text.setAttribute("dominant-baseline", "central");
+  text.textContent = words;
+  g.append(plate, text);
+  group.appendChild(g);
+}
+
+//: One resize frame through the guides: the box the handle has made, snapped
+//: (unless `off`), the lines and the size drawn. Returns the new width and
+//: height; the caller places x and y from them as before.
+function wbGuidedResize(kind, d, handle, start, width, height, { off = false, fit = null } = {}) {
+  const box = {
+    x: handle.includes("w") ? start.x + start.w - width : start.x,
+    y: handle.includes("n") ? start.y + start.h - height : start.y,
+    w: width,
+    h: height,
+  };
+  const snapped = off ? { ...box, guideLines: [] } : wbResizeGuides(new Set([wbMultiKey(kind, d.id)]), box, handle, {
+    fit, grid: wbSnapOn() ? WB_GRID_SPACING : 0, min: WB_OBJECT_MIN_SIZE,
+  });
+  wbShowAlignmentGuides(snapped.guideLines);
+  wbShowSizeReadout(snapped);
+  return { width: snapped.w, height: snapped.h };
+}
+
+//: **A box drawn out from a press snaps its moving corner** (E4): the
+//: corner under the pointer goes through the edge guides, and the size shows
+//: beside it. `centred` is a box grown about the press (the ellipse). Alt
+//: draws without snapping, as a move does; Shift (a square) is left alone.
+function wbDrawOutSnap(sx, sy, x, y, event, centred = false) {
+  const dx = x - sx, dy = y - sy;
+  const box = centred
+    ? { x: sx - Math.abs(dx), y: sy - Math.abs(dy), w: Math.abs(dx) * 2, h: Math.abs(dy) * 2 }
+    : { x: Math.min(sx, x), y: Math.min(sy, y), w: Math.abs(dx), h: Math.abs(dy) };
+  if (event.shiftKey) {
+    const side = Math.max(box.w, box.h);
+    wbShowAlignmentGuides([]);
+    wbShowSizeReadout({ ...box, w: side, h: side });
+    return [x, y];
+  }
+  const edges = (centred || dx >= 0 ? "e" : "w") + (centred || dy >= 0 ? "s" : "n");
+  const snapped = event.altKey ? { ...box, guideLines: [] } : wbResizeGuides(null, box, edges, {
+    grid: wbSnapOn() ? WB_GRID_SPACING : 0, min: 1,
+  });
+  wbShowAlignmentGuides(snapped.guideLines);
+  wbShowSizeReadout(snapped);
+  if (centred) {
+    const rx = snapped.x + snapped.w - sx, ry = snapped.y + snapped.h - sy;
+    return [sx + Math.sign(dx || 1) * rx, sy + Math.sign(dy || 1) * ry];
+  }
+  return [edges.includes("e") ? snapped.x + snapped.w : snapped.x, edges.includes("s") ? snapped.y + snapped.h : snapped.y];
 }
 
 //: Default guide colours, one per `kind` `wbAlignmentGuides` can report: 
@@ -14325,6 +14473,7 @@ async function initWhiteboard() {
   //: one, and the sweep `wbClearSelectionOverlays` runs, so there is exactly
   //: one place that can forget to remove the element.
   function wbEndMarqueeDrag() {
+    if (wbMarqueeStart?.place) wbClearAlignmentGuides();
     wbMarqueeEl?.remove();
     wbMarqueeEl = null;
     wbMarqueeStart = null;
@@ -14463,6 +14612,7 @@ async function initWhiteboard() {
     //: Shift makes a drawn box square, read live rather than from the press
     //: (on the marquee the press's Shift means "add to the selection").
     if (wbMarqueeStart.place && e.shiftKey) [x, y] = wbSquareCorner(wbMarqueeStart, x, y);
+    else if (wbMarqueeStart.place && !wbMarqueeStart.pending) [x, y] = wbDrawOutSnap(wbMarqueeStart.x, wbMarqueeStart.y, x, y, e);
     if (wbMarqueeStart.pending) {
       // The same 4 units the completed gesture is measured against below, so
       // a press that never becomes a drag draws nothing and claims nothing.
@@ -14633,7 +14783,10 @@ async function initWhiteboard() {
       wbFrameFit((wbState.objects || []).find((o) => o.id === Number(frameEl.dataset.id)), handle.dataset.handle);
       return;
     }
-    wbFitToText(handle.closest(".wb-object, .node-card"));
+    //: A picture has no words to fit, so its grip's double-click is nothing.
+    const owner = handle.closest(".wb-object, .node-card");
+    if (owner?.classList.contains("wb-object-image")) return;
+    wbFitToText(owner);
   });
 
   //: **The two gestures a map has to answer on its own canvas** (MINDMAP_PLAN
@@ -14942,6 +15095,8 @@ async function initWhiteboard() {
     let [x, y] = getLogicalMouse(e);
     const start = wbMarqueeStart;
     if (start.place && e.shiftKey) [x, y] = wbSquareCorner(start, x, y);
+    else if (start.place) [x, y] = wbDrawOutSnap(start.x, start.y, x, y, e);
+    wbClearAlignmentGuides();
     const mx = Math.min(start.x, x), my = Math.min(start.y, y);
     const mw = Math.abs(x - start.x), mh = Math.abs(y - start.y);
     //: Shift at the press or at the release adds (the owner, 2026-10-07).
@@ -15309,7 +15464,11 @@ async function initWhiteboard() {
   containerEl.addEventListener("pointermove", (e) => {
     if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
-    const [x, y] = getLogicalMouse(e);
+    let [x, y] = getLogicalMouse(e);
+    const tool = window.currentTool;
+    if (tool !== "draw" && tool !== "highlighter" && tool !== "line" && tool !== "arrow") {
+      [x, y] = wbDrawOutSnap(currentDrawData[0][0], currentDrawData[0][1], x, y, e, tool === "circle");
+    }
     
     if (window.currentTool === "draw" || window.currentTool === "highlighter") {
       // **Shift draws a straight run** (decision 7). Held mid-stroke it
@@ -15379,6 +15538,7 @@ async function initWhiteboard() {
     if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = false;
+    wbClearAlignmentGuides();
     
     const [x, y] = getLogicalMouse(e);
     const [sx, sy] = currentDrawData[0];
@@ -18510,6 +18670,9 @@ function renderWhiteboard() {
         rawDX = 0;
         rawDY = 0;
         d._resizeUndoBefore = WB_KIND_INFO.node.payload(d);
+        //: Measured once, at the press: the height the text needs.
+        const card = document.querySelector(`.node-card[data-id="${d.id}"]`);
+        d._fitH = card && !wbExpandedNodes.has(d.id) ? wbCardFitHeight(card) : null;
         d._gesture = wbBeginGesture(() => wbRestoreBox("node", d, d._resizeUndoBefore));
       })
       .on("drag", (event, d) => {
@@ -18537,9 +18700,15 @@ function renderWhiteboard() {
         //: to a square" made every Shift-resize a square, which turned a 2:1
         //: card into a 1:1 one the moment Shift went down; a square stays a
         //: square under this rule, so that report is still answered.
-        if (handle.length === 2 && event.sourceEvent.shiftKey) {
+        const keepAspect = handle.length === 2 && event.sourceEvent.shiftKey;
+        if (keepAspect) {
           ({ w: width, h: height } = wbKeepAspect(startW, startH, width, height));
         }
+        //: Guided, never preset (INBOX 825 item 2): a neighbour's edge, width
+        //: or height, the grid, or the text's own height; Alt holds them off.
+        ({ width, height } = wbGuidedResize("node", d, handle, { x: startX, y: startY, w: startW, h: startH }, width, height, {
+          off: keepAspect || event.sourceEvent.altKey, fit: d._fitH,
+        }));
         if (handle.includes("w")) x = startX + (startW - width);
         if (handle.includes("n")) y = startY + (startH - height);
         d.width = width;
@@ -18554,6 +18723,8 @@ function renderWhiteboard() {
         }
       })
       .on("end", async (event, d) => {
+        wbClearAlignmentGuides();
+        delete d._fitH;
         delete d._resizeStartW;
         delete d._resizeStartH;
         delete d._resizeStartX;
@@ -18799,9 +18970,7 @@ function renderWhiteboard() {
       .attr("data-handle", handle)
       //: The same title the object handles carry, for the same reason: the
       //: double-click-to-fit gesture had nothing on screen saying it existed.
-      .attr("title", (datum) => datum.kind === "frame"
-          ? "Drag to resize, double-click to fit this edge to what is inside"
-          : "Drag to resize: Shift keeps the proportions, double-click fits the text")
+      .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the card to its note")
       .call(nodeResizeDrag(handle));
   }
   nodeEnter.append("div")
@@ -18938,6 +19107,50 @@ async function wbResetRotation(grip) {
   wbScheduleRender();
 }
 
+//: The height a card's text needs, chrome included (see `wbFitToText`):
+//: the double-click's answer, and the "fit content" snap of a card's resize.
+function wbCardFitHeight(el) {
+  const content = el.querySelector(".wb-card-content");
+  const previous = el.style.height;
+  let fitted = 0;
+  if (content) {
+    const saved = {
+      overflow: content.style.overflow,
+      maxHeight: content.style.maxHeight,
+      height: content.style.height,
+    };
+    //: The chrome is measured *before* anything is opened up, while the card
+    //: is still in its real layout: afterwards both boxes are growing and
+    //: the difference between them is no longer the padding.
+    const chrome = Math.max(0, el.offsetHeight - content.offsetHeight);
+    content.style.overflow = "visible";
+    content.style.maxHeight = "none";
+    content.style.height = "auto";
+    el.style.height = "auto";
+    fitted = Math.ceil(content.scrollHeight) + chrome;
+    el.style.height = previous;
+    for (const [name, value] of Object.entries(saved)) {
+      const prop = name === "maxHeight" ? "max-height" : name;
+      if (value) content.style.setProperty(prop, value);
+      else content.style.removeProperty(prop);
+    }
+  } else {
+    el.style.height = "auto";
+    fitted = Math.ceil(el.scrollHeight);
+    el.style.height = previous;
+  }
+  return fitted;
+}
+
+//: **Each grip says what its double-click does on this kind** (OPEN.md: the
+//: title said "fits the text" on a picture, which has none). A frame fits
+//: what it holds, a picture has nothing to fit, the rest fit their words.
+function wbResizeHandleTitle(kind) {
+  if (kind === "frame") return "Drag to resize, double-click to fit this edge to what is inside";
+  if (kind === "image") return "Drag to resize: Shift keeps the proportions";
+  return "Drag to resize: Shift keeps the proportions, double-click fits the text";
+}
+
 async function wbFitToText(el) {
   if (!el) return;
   const id = Number(el.dataset.id);
@@ -19016,35 +19229,7 @@ async function wbFitToText(el) {
   //: by removal when it was not set inline: these elements are re-rendered
   //: from CSS, and an inline `overflow` left behind would silently disable
   //: the clipping that rule exists to do.
-  const content = el.querySelector(".wb-card-content");
-  const previous = el.style.height;
-  let fitted = 0;
-  if (content) {
-    const saved = {
-      overflow: content.style.overflow,
-      maxHeight: content.style.maxHeight,
-      height: content.style.height,
-    };
-    //: The chrome is measured *before* anything is opened up, while the card
-    //: is still in its real layout: afterwards both boxes are growing and
-    //: the difference between them is no longer the padding.
-    const chrome = Math.max(0, el.offsetHeight - content.offsetHeight);
-    content.style.overflow = "visible";
-    content.style.maxHeight = "none";
-    content.style.height = "auto";
-    el.style.height = "auto";
-    fitted = Math.ceil(content.scrollHeight) + chrome;
-    el.style.height = previous;
-    for (const [name, value] of Object.entries(saved)) {
-      const prop = name === "maxHeight" ? "max-height" : name;
-      if (value) content.style.setProperty(prop, value);
-      else content.style.removeProperty(prop);
-    }
-  } else {
-    el.style.height = "auto";
-    fitted = Math.ceil(el.scrollHeight);
-    el.style.height = previous;
-  }
+  const fitted = wbCardFitHeight(el);
   if (!fitted) return;
   //: The same floor the resize drag uses, so a fit cannot produce a box that
   //: a drag would refuse to make.
@@ -19553,9 +19738,13 @@ function renderWbObjects(canvas) {
         if (handle.includes("s")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, start.h + start.dy);
         if (handle.includes("n")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, start.h - start.dy);
         // Shift on a corner keeps the box's proportions, see nodeResizeDrag.
-        if (handle.length === 2 && event.sourceEvent.shiftKey) {
+        const keepAspect = handle.length === 2 && event.sourceEvent.shiftKey;
+        if (keepAspect) {
           ({ w: newWidth, h: newHeight } = wbKeepAspect(start.w, start.h, newWidth, newHeight));
         }
+        ({ width: newWidth, height: newHeight } = wbGuidedResize("object", d, handle, start, newWidth, newHeight, {
+          off: keepAspect || event.sourceEvent.altKey,
+        }));
         d.x = handle.includes("w") ? start.x + start.w - newWidth : start.x;
         d.y = handle.includes("n") ? start.y + start.h - newHeight : start.y;
         d.width = newWidth;
@@ -19575,6 +19764,7 @@ function renderWbObjects(canvas) {
         wbQueueSelectionBar();
       })
       .on("end", async (event, d) => {
+        wbClearAlignmentGuides();
         delete d._resizeStart;
         delete d._linkedSketches;
         const before = d._resizeUndoBefore;
@@ -19827,7 +20017,7 @@ function renderWbObjects(canvas) {
         //: these had none, so double-tapping to fit was real and invisible,
         //: which is indistinguishable from missing and was duly reported as
         //: missing.
-        .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the text")
+        .attr("title", wbResizeHandleTitle(d.kind))
         .call(resizeDrag(handle));
     }
     //: A frame is a region of the board, and a turned region holds nothing

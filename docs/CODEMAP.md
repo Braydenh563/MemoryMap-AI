@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5655, frontend ids 2422, CSS sections 490, backend routes 563, backend modules 4779, test files 1089, tests 9970, plan headings 996.
+Counts: frontend functions 5655, frontend ids 2422, CSS sections 490, backend routes 563, backend modules 4781, test files 1089, tests 9970, plan headings 996.
 
 ## Frontend functions (5655)
 
@@ -9921,7 +9921,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4779)
+## Backend modules (4781)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10743,35 +10743,37 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `split_sentences` | src/memorymap/ai/grounding.py:352 |
 | `support` | src/memorymap/ai/grounding.py:656 |
 
-### src/memorymap/ai/help_chat.py (25)
+### src/memorymap/ai/help_chat.py (27)
 
 | Name | File:line |
 |---|---|
-| `_act_of` | src/memorymap/ai/help_chat.py:2271 |
-| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2202 |
-| `_guide_lead` | src/memorymap/ai/help_chat.py:2679 |
-| `_guide_opening` | src/memorymap/ai/help_chat.py:2687 |
-| `_help_sentences` | src/memorymap/ai/help_chat.py:2662 |
-| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2156 |
-| `_matching_topics` | src/memorymap/ai/help_chat.py:2310 |
-| `_meaning_topics` | src/memorymap/ai/help_chat.py:2390 |
-| `_normalise_keys` | src/memorymap/ai/help_chat.py:2179 |
-| `_place` | src/memorymap/ai/help_chat.py:2657 |
-| `_prompt_for` | src/memorymap/ai/help_chat.py:2530 |
-| `_reading_topics` | src/memorymap/ai/help_chat.py:2293 |
-| `_second_sentence` | src/memorymap/ai/help_chat.py:2666 |
-| `answer` | src/memorymap/ai/help_chat.py:2823 |
-| `answer_stream` | src/memorymap/ai/help_chat.py:2761 |
-| `badges_for` | src/memorymap/ai/help_chat.py:2478 |
-| `composed_answer` | src/memorymap/ai/help_chat.py:2701 |
-| `help_block_for` | src/memorymap/ai/help_chat.py:2887 |
-| `help_listing` | src/memorymap/ai/help_chat.py:2449 |
-| `offline_answer` | src/memorymap/ai/help_chat.py:2719 |
-| `social_reply` | src/memorymap/ai/help_chat.py:2630 |
-| `source_names` | src/memorymap/ai/help_chat.py:2445 |
-| `system_answer` | src/memorymap/ai/help_chat.py:2427 |
-| `topic_title` | src/memorymap/ai/help_chat.py:2413 |
-| `topics_for` | src/memorymap/ai/help_chat.py:2492 |
+| `_act_of` | src/memorymap/ai/help_chat.py:2280 |
+| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2211 |
+| `_guide_lead` | src/memorymap/ai/help_chat.py:2688 |
+| `_guide_opening` | src/memorymap/ai/help_chat.py:2696 |
+| `_help_sentences` | src/memorymap/ai/help_chat.py:2671 |
+| `_keyword_in` | src/memorymap/ai/help_chat.py:2201 |
+| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2157 |
+| `_keyword_regex` | src/memorymap/ai/help_chat.py:2197 |
+| `_matching_topics` | src/memorymap/ai/help_chat.py:2319 |
+| `_meaning_topics` | src/memorymap/ai/help_chat.py:2399 |
+| `_normalise_keys` | src/memorymap/ai/help_chat.py:2180 |
+| `_place` | src/memorymap/ai/help_chat.py:2666 |
+| `_prompt_for` | src/memorymap/ai/help_chat.py:2539 |
+| `_reading_topics` | src/memorymap/ai/help_chat.py:2302 |
+| `_second_sentence` | src/memorymap/ai/help_chat.py:2675 |
+| `answer` | src/memorymap/ai/help_chat.py:2832 |
+| `answer_stream` | src/memorymap/ai/help_chat.py:2770 |
+| `badges_for` | src/memorymap/ai/help_chat.py:2487 |
+| `composed_answer` | src/memorymap/ai/help_chat.py:2710 |
+| `help_block_for` | src/memorymap/ai/help_chat.py:2896 |
+| `help_listing` | src/memorymap/ai/help_chat.py:2458 |
+| `offline_answer` | src/memorymap/ai/help_chat.py:2728 |
+| `social_reply` | src/memorymap/ai/help_chat.py:2639 |
+| `source_names` | src/memorymap/ai/help_chat.py:2454 |
+| `system_answer` | src/memorymap/ai/help_chat.py:2436 |
+| `topic_title` | src/memorymap/ai/help_chat.py:2422 |
+| `topics_for` | src/memorymap/ai/help_chat.py:2501 |
 
 ### src/memorymap/ai/help_topics_more.py (1)
 

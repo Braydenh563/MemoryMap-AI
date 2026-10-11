@@ -507,9 +507,9 @@ def impersonate_workspace(session: Session, workspace_id: str):
 
 #: Handed to the model manager so its durable jobs can find the running app's
 #: own objects without importing this module (an import cycle).
-from memorymap.ai import model_manager as _model_manager  # noqa: E402
+from memorymap.ai import model_manager as _model_manager_module  # noqa: E402
 
-_model_manager.APP_GETTERS.update(db=get_db, embeddings=get_embeddings, ollama=get_ollama)
+_model_manager_module.APP_GETTERS.update(db=get_db, embeddings=get_embeddings, ollama=get_ollama)
 
 from memorymap.ai import voice as _voice  # noqa: E402
 

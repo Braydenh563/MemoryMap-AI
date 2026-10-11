@@ -2142,6 +2142,15 @@ def _asks_capability(req: _StreamRequest, prepared: dict) -> bool:
     return prepared["intent"] == intent.ABOUT_APP and capability.asks(req.question or "")
 
 
+def _app_answers(req: _StreamRequest, ollama_running: bool) -> bool:
+    """Whether the app's own engine gives this turn's finished answer
+    (CHAT_PLAN decision 75, the owner: "it SHOULD completely replace it if
+    the ai isnt available, otheriwse the composer is an assistant to the
+    ai"): with no model, or when the Ask box asked for From your notes.
+    With a model up, what the engine found goes to the model as context."""
+    return not ollama_running or _composed(req, ollama_running)
+
+
 def _capability_answer(req: _StreamRequest, ollama_running: bool) -> str:
     try:
         web = bool(deps.get_config().get_preference("web_search_enabled", False))
@@ -2157,9 +2166,9 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
     to wait for. It arrives before a local model would have finished loading,
     and it arrives at all when no model is running. None when the stream
     goes on to compose or generate."""
-    if _asks_capability(req, prepared):
+    if _asks_capability(req, prepared) and _app_answers(req, ollama_running):
         return [{"type": "answer", "delta": _capability_answer(req, ollama_running)}]
-    if _nothing_open(req.body):
+    if _nothing_open(req.body) and _app_answers(req, ollama_running):
         return [{"type": "answer", "delta": composer_digest.PHRASES["nothing_open"]}]
     if prepared["stats"] is not None:
         out = [{"type": "answer", "delta": prepared["stats"]["text"]}]
@@ -2203,7 +2212,9 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             ),
         }
         return
-    if conversational and req.body.notes_only:
+    #: A question about what Atlas can do is not small talk: with a model
+    #: up it goes to the model with the app's own line (decision 75).
+    if conversational and req.body.notes_only and not _asks_capability(req, prepared):
         # The Notes tab's Ask box has one job (§35A). A greeting is the one
         # input it has nothing to do with, so it says what it is for rather
         # than spending a model round chatting back.
@@ -2246,6 +2257,8 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             persona_prompt=req.persona_prompt,
             mode=req.mode,
             images=req.images,
+            #: Decision 75: the capability line reaches the model as a fact.
+            context=_capability_answer(req, ollama_running) if _asks_capability(req, prepared) else "",
         )
     elif not prepared["notes"] and not req.images_raw and not ollama_running and _web_allowed(req) and (
         web := _web_answer(req, req.question)
@@ -2798,7 +2811,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     conversational = not intent.needs_retrieval(prepared["intent"])
     model_can_answer = ollama_running if conversational else (ollama_running or tools_only)
-    will_answer = not composed and not _asks_capability(req, prepared) and prepared["intent"] not in (intent.UTILITY, intent.ACT) and model_can_answer and (
+    will_answer = not composed and not (_asks_capability(req, prepared) and _app_answers(req, ollama_running)) and prepared["intent"] not in (intent.UTILITY, intent.ACT) and model_can_answer and (
         bool(prepared["notes"])
         or bool(req.images_raw)
         or req.use_tools

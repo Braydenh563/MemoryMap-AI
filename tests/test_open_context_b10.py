@@ -81,3 +81,28 @@ def test_about_this_reads_the_phrasings(question):
 @pytest.mark.parametrize("question", ["summarise my trip to Lisbon", "what is this week about?", "summarise the gym notes from May"])
 def test_about_this_leaves_a_subject_alone(question):
     assert not composer_digest.about_this(question)
+
+
+def test_with_a_model_up_the_model_summarises_the_open_note(ai_client, fake_ollama, session, monkeypatch):
+    """Decision 75: the open note reaches the model as the note to answer
+    from; the model writes the summary, and nothing open is the model's
+    turn too (it searches), not the app's fixed line."""
+    trip = manager.create_entry(session, "Trip planning: flights to Lisbon on 3 May, 240 pounds.", category_name="Travel")
+    session.commit()
+    seen: list[list[dict]] = []
+    real = fake_ollama.chat_stream
+
+    def recording(model, messages, mode=None):  # noqa: ANN001, ANN202
+        seen.append(messages)
+        return real(model, messages, mode)
+
+    monkeypatch.setattr(fake_ollama, "chat_stream", recording)
+    body = {"question": "Summarise this", "history": [], "use_tools": False, "open_note_id": trip.id}
+    with ai_client.stream("POST", "/chat/stream", json=body) as response:
+        text = "".join(json.loads(line).get("delta", "") for line in response.iter_lines() if line.strip() and json.loads(line).get("type") == "answer")
+    assert seen, "the model was not asked"
+    assert "Lisbon" in json.dumps(seen[-1])
+    assert not text.startswith("Your trip planning note")
+    with ai_client.stream("POST", "/chat/stream", json={"question": "Summarise this", "history": [], "use_tools": False}) as response:
+        text = "".join(json.loads(line).get("delta", "") for line in response.iter_lines() if line.strip() and json.loads(line).get("type") == "answer")
+    assert not text.startswith("Nothing is open to sum up.")

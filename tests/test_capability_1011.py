@@ -72,8 +72,31 @@ def test_a_model_question_says_what_a_model_adds(client):
     assert "Settings, Models" in out["text"]
 
 
-def test_with_a_model_running_the_app_still_answers_it(ai_client, fake_ollama, web):
+@pytest.mark.parametrize("surface", [{"use_tools": True}, {"use_tools": False}, {"notes_only": True, "use_tools": False}])
+def test_with_a_model_running_the_model_answers_with_the_line_as_context(ai_client, fake_ollama, web, monkeypatch, surface):
+    """Decision 75 (the owner, 2026-10-11): with a model up the composer is
+    the model's assistant, not its replacement. The model is asked, the
+    capability line reaches it as a labelled fact, and nothing searches."""
+    seen: list[list[dict]] = []
+    real = fake_ollama.chat_stream
+
+    def recording(model, messages, mode=None):  # noqa: ANN001, ANN202
+        seen.append(messages)
+        return real(model, messages, mode)
+
+    monkeypatch.setattr(fake_ollama, "chat_stream", recording)
     calls = len(fake_ollama.chat_models)
-    out = _ask(ai_client, "can you search the web?", use_tools=True)
+    out = _ask(ai_client, "can you search the web?", **surface)
+    assert len(fake_ollama.chat_models) > calls, "the model was not asked"
+    assert web == []
+    system = " ".join(m["content"] for m in seen[-1] if m["role"] == "system")
+    assert "The app's own answer to this" in system and "Yes, when web search is on." in system
+    assert not out["text"].startswith("Yes, when web search is on.")
+
+
+def test_from_your_notes_with_a_model_up_is_still_the_apps_answer(ai_client, fake_ollama, web):
+    """The Ask box's own choice (Use AI off) is the person's, model or not."""
+    calls = len(fake_ollama.chat_models)
+    out = _ask(ai_client, "can you search the web?", notes_only=True, use_tools=False, answer_from="notes")
     assert out["text"].startswith("Yes, when web search is on.")
     assert len(fake_ollama.chat_models) == calls and web == []

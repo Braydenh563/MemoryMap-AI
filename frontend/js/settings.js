@@ -3517,15 +3517,6 @@ function taskLogButton(item) {
   return rowActions([{ label: "ph:scroll Logs", title: "Open the log, filtered to this run", run: () => openTaskLog(item) }], "Logs");
 }
 
-async function openTaskLog(item) {
-  await openSettingsModal("logs");
-  const filter = $("log-filter");
-  //: The run's id, which its log lines carry in brackets (jobruns.py), so the
-  //: lines shown are this run's. An older entry without one falls back to words.
-  logFilterFromRun = !!item.run_id;
-  filter.value = item.run_id ? `[${item.run_id}]` : /\(([^)]+)\)/.exec(item.label || "")?.[1] || item.name || item.label || "";
-  filter.dispatchEvent(new Event("input"));
-}
 
 let logFilterDebounceTimeout;
 let logFilterFromRun = false;
@@ -3533,13 +3524,6 @@ $("log-filter").addEventListener("input", (event) => {
   if (event.isTrusted) logFilterFromRun = false;
   clearTimeout(logFilterDebounceTimeout);
   logFilterDebounceTimeout = setTimeout(renderActiveLogView, 150);
-});
-$("logs-empty-clear").addEventListener("click", () => {
-  logFilterFromRun = false;
-  $("log-filter").value = "";
-  $("log-level").value = "all";
-  $("log-source").value = "all";
-  renderActiveLogView();
 });
 $("logs-copy").addEventListener("click", copyLogs);
 $("logs-clear").addEventListener("click", clearLogs);

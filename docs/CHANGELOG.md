@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The command palette has rows for Open Settings, Open notifications, Switch space and Quit, so every top-bar control is in it.
 - Notes, Questions and Library, Recordings show the empty state block with an icon, the sentence and the action; a Settings section fades in; Background jobs has a Report button for the last import.
 - Settings, Themes: resting the pointer or focus on a theme shows it on the whole app, and Surprise me applies a random one.
 - Long menu labels are cut with an ellipsis inside the row and shown whole on hover, in every font; the no-model notice steps its button down in a narrow card; Settings, Help, Credits has a Guide topic.

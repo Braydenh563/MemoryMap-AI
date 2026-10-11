@@ -2320,3 +2320,23 @@ $("theme-surprise")?.addEventListener("click", () => {
   renderAppearance();
   toast(`${THEME_PRESETS[pick].label} theme. Press Surprise me again for another.`, "info");
 });
+
+//: Logs, from a job history row and the empty log (moved out of boot code, the
+//: gzip budget): the row's button awaits this file through openSettingsModal.
+async function openTaskLog(item) {
+  await openSettingsModal("logs");
+  const filter = $("log-filter");
+  //: The run's id, which its log lines carry in brackets (jobruns.py), so the
+  //: lines shown are this run's. An older entry without one falls back to words.
+  logFilterFromRun = !!item.run_id;
+  filter.value = item.run_id ? `[${item.run_id}]` : /\(([^)]+)\)/.exec(item.label || "")?.[1] || item.name || item.label || "";
+  filter.dispatchEvent(new Event("input"));
+}
+
+$("logs-empty-clear").addEventListener("click", () => {
+  logFilterFromRun = false;
+  $("log-filter").value = "";
+  $("log-level").value = "all";
+  $("log-source").value = "all";
+  renderActiveLogView();
+});

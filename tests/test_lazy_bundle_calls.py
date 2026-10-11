@@ -99,6 +99,8 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: The history row's Logs button: it sits in Settings, whose window loads settingsControls first.
+    "openTaskLog": "settingsControls, the Settings window awaits it before any row in it can be pressed",
     #: Background jobs, Report: the click awaits ensureModule('appImport') first.
     "openImportReport": "appImport, called after `await ensureModule('appImport')` in the Report button's click",
     #: Connections, opened in the .then of lazyScript('/js/connections.js') at its three callers.

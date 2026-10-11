@@ -6,6 +6,8 @@ Questions empty state: Notes > Questions uses the `.empty-state` block as Record
 
 Logo motion (owner bug, frozen mark): after merging agent/logo-1011 the mark animates in all five places (logomotion.js: 2 animations on the lock screen, dashboard hero, status bar and chat empty state, 4 on About, transform changing over 500ms in each). App Reduce motion not re-measured; OS reduced motion deliberately leaves the mark moving (02-chat-graph.css). 1410, 1434, 1435: census not done, left open.
 
+Follow-up: the app Reduce motion setting stills the mark (logomotion.js MOTION=reduced: data-motion=reduced, 0 animations, no transform change in all five places). Top-bar census (topbarcensus.js, 13 controls): palette rows 10 to 13 (added Open Settings, Open notifications, Switch space, Quit MemoryMap in settings-panes.js); data-help-for popovers 0 of 13, left by design (top-bar buttons carry tooltips; the Guide covers them).
+
 Owner 2026-10-11, job rows: "Logs at the top left" is read as the top-right corner of the row, on the title line, as a rowActions quiet button (task history: 8 distinct x down to 1, button centre = title centre). Logs filters on the run id (jobruns writes "[run-N] ..." lines to the app log); no lines shows the Bookmarks empty state (joblogs.js).
 
 

@@ -111,6 +111,9 @@ REACHED_AFTER_LOAD = {
     "digestOffer": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
     "digestShape": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
     "digestMore": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
+    #: B12: an answer's mind map is tidied after `await openWhiteboardBoard`,
+    #: which loads the library bundle first (askKeepAsMap, capture-ask.js).
+    "wbMapTidyFresh": "library, called after await openWhiteboardBoard in askKeepAsMap's Open",
     #: Brief bootdiet: the catalogue is in the palette's bundle, and every other
     #: reader (Tools and features, Quick access, startApp's recovered recordings)
     #: awaits `lazyScript` / `ensureModule` before it reads or calls.

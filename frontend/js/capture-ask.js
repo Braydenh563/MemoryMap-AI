@@ -2223,6 +2223,82 @@ function askNotesOnTheRight() {
 //:
 //: Silent on every failure, including the AI not running: an answer that
 //: arrived is not made worse by having nothing to offer after it.
+//: **The answer, kept** (CHAT_PLAN B12): a note, a document, or a mind map
+//: of the notes it cites, from the ⋯ beside Copy; each goes on the undo
+//: stack. Built on first use: `kebabMenu` is in a later script.
+let askKept = null;
+
+function askAnswerMenu() {
+  const slot = $("ask-answer-more");
+  if (!slot || slot.firstChild) return;
+  slot.appendChild(
+    kebabMenu(
+      [
+        {
+          label: "ph:note-pencil Save as a note",
+          title: "Keep this answer as a new note",
+          run: () => askKept && saveSelectionAsNote(askKept.text),
+        },
+        {
+          label: "ph:file-text Save as a document",
+          title: "Keep this answer in Documents, titled with the question",
+          run: () => askKeepAsDocument(),
+        },
+        {
+          label: "ph:graph Make a mind map of its notes",
+          title: "A mind map of the notes this answer cites",
+          run: () => askKeepAsMap(),
+        },
+      ],
+      "More ways to keep this answer"
+    )
+  );
+}
+
+function askKeptTitle() {
+  const question = (askKept?.question || "Answer").replace(/[?.!\s]+$/, "").trim();
+  return question.slice(0, 1).toUpperCase() + question.slice(1, 100);
+}
+
+async function askKeepAsDocument() {
+  if (!askKept?.text) return toast("There is no answer to keep yet.");
+  const title = askKeptTitle();
+  try {
+    const doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title, content: `# ${title}\n\n${askKept.text}\n` }),
+    });
+    pushUndo("Saved an answer as a document", () => api(`/documents/${doc.id}`, { method: "DELETE" }));
+    toastAction("Saved to your documents.", "Open it", () => {
+      switchTab("documents");
+      if (typeof openDocument === "function") openDocument(doc.id);
+    }, { go: { open: "doc", id: doc.id } });
+  } catch (error) {
+    toast(error.message || "Couldn't save that document.", true);
+  }
+}
+
+async function askKeepAsMap() {
+  const ids = askKept?.noteIds || [];
+  if (!ids.length) return toast("This answer cites no notes to map.");
+  const name = askKeptTitle();
+  const board = await apiJson("/whiteboard/maps/from-notes", {
+    method: "POST",
+    body: JSON.stringify({ name, note_ids: ids }),
+  }).catch(() => null);
+  if (!board?.id) return toast("Could not make the map.");
+  pushUndo("Made a mind map from an answer", () => api(`/entries/${board.id}`, { method: "DELETE" }));
+  toastAction(
+    `Mind map \u201c${name}\u201d made from ${ids.length} note${ids.length === 1 ? "" : "s"}.`,
+    "Open",
+    async () => {
+      await openWhiteboardBoard(board.id);
+      await wbMapTidyFresh();
+    },
+    { go: { open: "board", id: board.id } }
+  );
+}
+
 //: Each line an answer volunteered (CHAT_PLAN decision 73) carries Confirm
 //: and Not right, as in Chat: one row each, under the answer.
 function renderAskInsights(found) {
@@ -3001,7 +3077,8 @@ async function askQuestion(preset) {
   // A new answer is coming, hide the suggestion/recent chips and the
   // per-answer action buttons until it lands.
   $("suggested-questions").classList.add("hidden");
-  hide("retry-btn", "copy-btn", "speak-btn");
+  hide("retry-btn", "copy-btn", "speak-btn", "ask-answer-more");
+  askKept = null;
   setAsking(true);
   status.classList.remove("error");
   // Reset the output areas for the new answer.
@@ -3229,6 +3306,14 @@ async function askQuestion(preset) {
     if (!hinted) {
       conversation.push({ question, answer: answerRaw });
       show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
+      //: What the ⋯ keeps (B12): the answer as written, and the notes it cites.
+      askKept = {
+        question,
+        text: answerRaw,
+        noteIds: [...new Set(groundedSentences.map((row) => row.note_id).filter((id) => Number.isInteger(id)))],
+      };
+      askAnswerMenu();
+      show("ask-answer-more");
       //: **The answer object, rendered** (CHAT_PLAN Phase 3). Built after the
       //: stream rather than updated event by event, because two of its fields
       //: (the sentences and the sources they came from) are only complete when

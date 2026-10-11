@@ -1368,6 +1368,7 @@ MORE_TOPICS.extend(
                 "from your notes", "answer without ai", "no ai answer", "answer with no model",
                 "composed answer", "without the ai", "ai or notes", "notes instead of ai",
                 "switch off the ai", "ai off", "who answers", "ask without a model", "use ai",
+                "save answer as document", "answer as mind map", "keep the answer",
             ),
             "body": (
                 "Ask on the Notes tab has a Use AI switch beside its title. On, your "
@@ -1375,23 +1376,23 @@ MORE_TOPICS.extend(
                 "no AI. It opens with the answer, or for a topic with how many "
                 "notes and over which days (You have four notes about uni, 17 July "
                 "to 4 August), then puts the facts under bold labels (Your week, "
-                "Prices, Where you landed), each said to you in your words with one "
-                "source mark that lights its note on the right. It says what the "
+                "Prices, Where you landed), each in your words, with one "
+                "source mark that lights its note. It says what the "
                 "notes do not cover yet (Nothing yet on due dates), how alone or "
                 "stale a fact is (Nothing on bench since September), and can end "
-                "with one offer you press to do (a reminder, a checklist or a note, "
+                "with one offer you press (a reminder, a checklist or a note, "
                 "with Undo); this week is said as the week it meant. A joke or a "
                 "quote stays whole. A count leads with its figure, a person is a "
                 "card, a comparison a table, what is left a checklist; past five "
-                "lines, Show more. Asked what it can do (can you "
-                "search the web?), it says whether, how to ask, and if the switch is "
-                "on, and never searches. Tell me more, or the second one, "
+                "lines, Show more. The ... by Copy keeps it as a note, a "
+                "document or a mind map. Asked what it can do (can you "
+                "search the web?), it says whether and how; it never searches. Tell me more, or the second one, "
                 "follows on from the answer before. The Chat tab answers the same "
                 "way whenever no model is running: its box stays open, and Agent "
                 "mode is greyed unless the Needle extra can run it (the app's "
                 "own tools go first). Every "
                 "line comes from a note and is cited; the app adds only labels, "
-                "joining words, counts and dates, and never answers yes or no for you. In Ask the answer's chip reads From your notes; in "
+                "joining words, counts and dates; it never answers yes or no for you. In Ask the answer's chip reads From your notes; in "
                 "Chat the reply's head reads Atlas, from your notes (Atlas and the "
                 "model's name when a model wrote it). The "
                 "choice is kept on this device; with no model running it is the "

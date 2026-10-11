@@ -8,6 +8,7 @@ below). Versioning is `0.x` while the app stabilises.
 ## [Unreleased]
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 - Fixed: a wrong password on the lock screen now says "That password is wrong." under the field (it said "Locked"), and pressing Read in the OCR workspace with no reader installed now leaves the reader menu open on the installs (a document-level handler closed it the moment it opened).
 - Fixed: closing a board card's editor while the text editor was still loading no longer throws.
 - Chat: "what is there about X" and "what have I got on X" answer as the topic overview with no model; a pasted wall of brackets no longer stalls a document read aloud or the plain-text strip (linear link stripping); a panel frame's hint takes a double-click again.
@@ -90,6 +91,9 @@ below). Versioning is `0.x` while the app stabilises.
 - The reminder edit form has an Alert menu: change the early alert or clear it (it could only be set by words), and Undo puts the old one back.
 - A monthly or yearly repeat remembers its day: ticking off a reminder from the 31st lands on 28 February, then 31 March, 30 April (it used to stay on the 28th for good).
 - Importing a folder export restarts the bin clock: a note binned long ago was purged by the next startup sweep before it could be looked at (Brief 101b).
+=======
+- New Tessellate logo: three cells, the last one settling into place.
+>>>>>>> agent/logo-1011
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Renamed to Tessellate; formerly MemoryMap AI. Every title, window, shortcut, help page, document and the website say Tessellate; your notes, settings and data folder stay where they were, and the repository moved to github.com/Braydenh563/Tessellate (the old address redirects).
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer Tessellate runs on."

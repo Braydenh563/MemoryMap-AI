@@ -304,6 +304,16 @@
     </div>
   </header>
 
+  <!-- The app's mark (emblemArt, phone-shell.js): favicon.svg's three cells, each
+       on a layer of its own so CSS can move it. Held to the favicon's points by
+       tests/test_brand_mark.py. -->
+  <template id="emblem-template"><span class="emblem-art" aria-hidden="true">
+    <span class="emblem-cell emblem-cell-a emblem-rise"><svg viewBox="0 0 100 100"><g opacity="0.95"><polygon points="35.3,48.7 46.8,55.4 46.8,68.6 35.3,75.3 23.8,68.6 23.8,55.4" fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round"/></g></svg></span>
+    <span class="emblem-cell emblem-cell-b emblem-rise"><svg viewBox="0 0 100 100"><g opacity="0.7"><polygon points="64.7,48.7 76.2,55.4 76.2,68.6 64.7,75.3 53.2,68.6 53.2,55.4" fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round"/></g></svg></span>
+    <span class="emblem-shadow"><span class="emblem-shadow-breathe"><svg viewBox="0 0 100 100"><g opacity="0.45" transform="translate(0 3)"><polygon points="57.3,18.4 67.5,27.0 65.2,40.0 52.7,44.6 42.5,36.0 44.8,23.0" stroke-width="7" stroke-linejoin="round"/></g></svg></span></span>
+    <span class="emblem-cell emblem-cell-c"><span class="emblem-float"><span class="emblem-lift emblem-rise"><svg viewBox="0 0 100 100"><defs><linearGradient x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1"/></linearGradient></defs><polygon points="57.3,18.4 67.5,27.0 65.2,40.0 52.7,44.6 42.5,36.0 44.8,23.0" stroke-width="7" stroke-linejoin="round"/></svg></span></span></span>
+  </span></template>
+
   <!-- Unlock / first-run setup gate -->
   <div id="lock-overlay" class="lock-overlay hidden">
     <div class="card lock-card" id="lock-card">
@@ -10966,6 +10976,11 @@ Link to another note with [[its first few words]]."></textarea>
                   list settling, a toast arriving. They are on by default and
                   play even with Reduce motion on; turn them off and every one
                   of them is instant.
+                </p>
+                <p>
+                  The app's logo answers both: its top cell settles into place
+                  once, then breathes slowly, and its cells lift in turn while
+                  Atlas works. Either switch off holds it still.
                 </p>
               </div>
 

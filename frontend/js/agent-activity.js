@@ -409,6 +409,9 @@ function openPanelForRun(run) {
 //: this panel, so without a control naming it, a finished run would be
 //: unreachable the moment the panel timed out.
 function renderActivityStatusItem() {
+  //: Every start and end of a run passes here: the app's mark lifts its
+  //: cells while one is running (phone-shell.js).
+  syncEmblemBusy();
   const button = $("status-activity");
   if (!button) return;
   button.classList.toggle("hidden", agentRuns.length === 0);

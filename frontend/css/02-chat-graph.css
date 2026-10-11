@@ -2264,9 +2264,11 @@ kbd {
    concerned. `tests/test_emblem_turns.py` holds it there.
    The polish set's own animations (a menu's or popover's grow, a toast)
    are exempt too while Interface animations is on: the owner's switch, not
-   this hint, decides them (DESIGN.md, "Interface animations"). */
+   this hint, decides them (DESIGN.md, "Interface animations"); so are the
+   app mark's layers (`.emblem-art *`), which the owner asked to keep moving
+   under the hint and which follow the same switch. */
 @media (prefers-reduced-motion: reduce) {
-  *:where(:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *, [data-ui-motion="on"] :is(.action-menu, .dock-menu-list, .help-popover, .toast))),
+  *:where(:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *, [data-ui-motion="on"] :is(.action-menu, .dock-menu-list, .help-popover, .toast, .emblem-art *))),
   *::before,
   *::after {
     animation-duration: 0.01ms !important;

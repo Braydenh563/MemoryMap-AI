@@ -4033,8 +4033,9 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     assert "repaintAssistantAvatars()" in settings[settings.index('$("assistant-avatar").addEventListener') :][:300]
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="assistant-avatar"' in index and '<option value="emblem">App emblem</option>' in index
-    #: The emblem is the logo's own renderer, copied rather than drawn per reply.
-    assert "renderEmblem(scratch, size, { animate: true })" in js["assistant-avatar.js"]
+    #: The emblem is the logo's own builder (`emblemArt`), never a second
+    #: drawing of the mark, and a head is left out of the lift.
+    assert "emblemArt(size, { head: true })" in js["assistant-avatar.js"]
     assert "renderEmblem(" not in chat
 
 

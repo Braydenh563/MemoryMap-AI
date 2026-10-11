@@ -582,7 +582,7 @@
   opacity: 1;
 }
 
-.emblem-mark canvas {
+.emblem-mark .emblem-art {
   width: 24px !important;
   height: 24px !important;
 }
@@ -3378,36 +3378,191 @@ button.answer-figure-open {
   line-height: 0;
 }
 
-.emblem canvas {
+.emblem .emblem-art {
   display: block;
 }
 
-/* The emblem turns by CSS: drawn once (renderEmblem, app.js) and rotated
-   by the compositor, one turn in 43.6s, the speed the old per-frame redraw
-   had. It follows the app's own Reduce motion switch, which leaves the
-   class off, and not the system hint: instructed directly, "make sure the
-   animations run even with prefer reduced motion on, like the rotating
-   generated logos". `:root` and `!important` outrank the reduced-motion
-   blankets in 02-chat-graph.css, as the progress indicators do. */
-@keyframes emblem-spin {
-  to { transform: rotate(360deg); }
+/* The app's mark (renderEmblem and emblemArt, phone-shell.js): the favicon's
+   tile is the box's own background, its gradient and sheen in the accent's
+   colours, set by the script; each cell and the shadow is a layer of its own
+   (`#emblem-template`, index.html), stacked over it. Every motion below animates `transform` or `opacity` of
+   one layer, so the compositor runs it and no frame repaints
+   (`scratchpad/ui-sweeps/emblemcost.js`). */
+.emblem-art {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  border-radius: 23%;
 }
 
-:root canvas.emblem-spin {
-  animation: emblem-spin 43.6s linear infinite !important;
+.emblem-art > span,
+.emblem-art > span > span,
+.emblem-art > span > span > span {
+  position: absolute;
+  inset: 0;
 }
 
-:root canvas.emblem-spin.is-paused {
-  animation-play-state: paused !important;
+.emblem-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* The system hint does not stop the emblem (see above): restated here so
-     the media blanket's one-iteration rule cannot end the turn. */
-  :root canvas.emblem-spin {
-    animation-iteration-count: infinite !important;
-    animation-duration: 43.6s !important;
+/* The lifted cell and its shadow move about the cell's own centre, (55,
+   31.5) of favicon.svg's 100 (tests/test_brand_mark.py). */
+.emblem-cell-c,
+.emblem-shadow {
+  transform-origin: 55% 31.5%;
+}
+
+/* **The motion** (brief "logo", 2026-10-11). It plays unless the person has
+   asked this app for a still UI, by Reduce motion or by Interface
+   animations off; either holds the final frame, which is the favicon. The
+   system's reduced-motion hint alone does not still it, as it never stilled
+   the old emblem's turn (the owner: "make sure the animations run even with
+   prefer reduced motion on, like the rotating generated logos"): the
+   hint's blanket in 02-chat-graph.css exempts `.emblem-art *` while
+   Interface animations is on, and under the hint the breath is slower and
+   the lift lower (the media block below).
+
+   The landing, once, when first shown: the third cell drifts in from
+   further along its lift, turns the last 10 degrees to its tilt, passes its
+   place by a hair and settles back; its shadow fades in under it as it
+   lands. The two settled cells do not move. */
+@keyframes emblem-arrive {
+  0% {
+    opacity: 0;
+    transform: translate(7%, -7%) rotate(-10deg);
+    animation-timing-function: var(--ease-out);
   }
+  20% {
+    opacity: 1;
+  }
+  72% {
+    transform: translate(-0.8%, 0.8%) rotate(1.5deg);
+    animation-timing-function: var(--ease-in-out);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes emblem-shadow-arrive {
+  0% {
+    opacity: 0;
+    transform: translate(7%, -4%);
+    animation-timing-function: var(--ease-out);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* At rest, a slow breath: the lifted cell rises a hair and sinks again over
+   seven seconds and its shadow thins as it rises. Under a pixel at 76px, so
+   it reads as alive without pulling the eye. */
+@keyframes emblem-breathe {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: translateY(-1.6%);
+  }
+}
+
+@keyframes emblem-shadow-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* While the AI works (`syncEmblemBusy`): each cell lifts and resettles in
+   turn, one round in 2.4s, each cell in its own third of it, so only one is
+   ever up and all three are at rest where a round begins (the class comes
+   off there, never mid-lift). */
+@keyframes emblem-lift {
+  0% {
+    transform: none;
+    animation-timing-function: var(--ease-in-out);
+  }
+  15% {
+    transform: translateY(-5%);
+    animation-timing-function: var(--ease-in-out);
+  }
+  30%,
+  100% {
+    transform: none;
+  }
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art:not(.is-still) .emblem-float {
+  animation: emblem-breathe 7s var(--ease-in-out) infinite;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art:not(.is-still) .emblem-shadow-breathe {
+  animation: emblem-shadow-breathe 7s var(--ease-in-out) infinite;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-arriving:not(.is-still) .emblem-cell-c {
+  animation: emblem-arrive 1.4s both;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-arriving:not(.is-still) .emblem-shadow {
+  animation: emblem-shadow-arrive 1.4s both;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-busy:not(.is-still) .emblem-rise {
+  animation: emblem-lift 2.4s infinite;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-busy:not(.is-still) .emblem-rise.emblem-cell-b {
+  animation-delay: 0.8s;
+}
+
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-busy:not(.is-still) .emblem-rise.emblem-lift {
+  animation-delay: 1.6s;
+}
+
+/* Half the lift, for the system's reduced-motion hint (below). */
+@keyframes emblem-lift-soft {
+  0% {
+    transform: none;
+    animation-timing-function: var(--ease-in-out);
+  }
+  15% {
+    transform: translateY(-2.5%);
+    animation-timing-function: var(--ease-in-out);
+  }
+  30%,
+  100% {
+    transform: none;
+  }
+}
+
+/* Under the system's reduced-motion hint the mark still moves (above), but
+   gently: the breath is slower and the lift half as high, so they keep
+   saying what they say with less movement. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art:not(.is-still) :is(.emblem-float, .emblem-shadow-breathe) {
+    animation-duration: 10s;
+  }
+  :root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-busy:not(.is-still) .emblem-rise {
+    animation-name: emblem-lift-soft;
+  }
+}
+
+/* Off screen, held where it is (`watchEmblemVisibility`). Last, and as
+   specific as the rules above, so it wins over their shorthand. */
+:root:not([data-motion="reduced"]):not([data-ui-motion="off"]) .emblem-art.is-paused:not(.is-still) :is(.emblem-float, .emblem-shadow-breathe, .emblem-rise, .emblem-cell-c, .emblem-shadow) {
+  animation-play-state: paused;
 }
 
 .emblem-centred {
@@ -3447,10 +3602,11 @@ button.answer-figure-open {
 }
 
 /* The app emblem as an assistant's head (Appearance, Assistant avatar;
-   assistant-avatar.js). The canvas is the head's own copy of one sketch, in
-   the box `assistantAvatar` asked for; the turn is `canvas.emblem-spin`
-   above. In an Atlas mark's disc (the guide and help heads) it sits at three
-   quarters of the disc, centred by the mark's own flex. */
+   assistant-avatar.js): the mark (`emblemArt`) filling the box
+   `assistantAvatar` asked for, breathing like every emblem and left out of
+   the lift while the AI works (`.is-head`). In an Atlas mark's disc (the
+   guide and help heads) it sits at three quarters of the disc, centred by
+   the mark's own flex. */
 .assistant-emblem {
   --emblem-size: 20px; /* the head sets its own, inline */
   display: block;
@@ -3461,15 +3617,6 @@ button.answer-figure-open {
 .atlas-mark > .assistant-emblem {
   width: 75%;
   height: 75%;
-}
-
-/* The scratch box the sketch is drawn in before it is copied: out of sight,
-   out of flow, never read by anything. */
-.assistant-emblem-scratch {
-  position: fixed;
-  inset-block-start: 0;
-  inset-inline-start: -100vw;
-  pointer-events: none;
 }
 
 /* Both roles line up the same way now that the user has an avatar too, one

@@ -16,8 +16,9 @@ import json
 import logging
 import mimetypes
 import re
+import threading
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timezone
 from itertools import chain
 from pathlib import Path
@@ -1840,6 +1841,9 @@ class _StreamRequest:
     #: The skill's own instruction when there is one, else what the user asked.
     question: str
     allowed_tools: list[str] | None
+    #: Set by Stop in Activity. The run's Activity job and its budget share it,
+    #: so a write the model asked for as Stop landed is refused (Brief 101b).
+    stop: threading.Event = field(default_factory=threading.Event)
 
 
 def _composed(req: _StreamRequest, ollama_running: bool) -> bool:
@@ -2456,7 +2460,7 @@ def _agent_events(req: _StreamRequest, prepared: dict, tools_provider) -> Iterat
             #: step, and a nine-step skill held to one step's worth is how
             #: a correct run came to stop after three of them.
             #: And the skill's own declared caps on top (Phase E, decision 3).
-            budget=run_budget.for_skill(deps.get_config(), req.skill["skill"]),
+            budget=_stoppable(run_budget.for_skill(deps.get_config(), req.skill["skill"]), req),
             **shared,
         )
     else:
@@ -2992,6 +2996,12 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     )
 
 
+def _stoppable(spend, req):  # noqa: ANN001, ANN202
+    """The run's budget, wired to this turn's Stop."""
+    spend.stop_event = req.stop
+    return spend
+
+
 def _interactive_lines(req):  # noqa: ANN001, ANN202
     """`_stream_lines`, marked as an interactive model call while it runs, so
     background model work waits between its calls (`core/model_gate.py`,
@@ -3000,7 +3010,9 @@ def _interactive_lines(req):  # noqa: ANN001, ANN202
     #: Listed in Activity while it streams, and Stop there ends it (rule 5).
     label = "Running a skill" if req.skill else "Answering in Chat"
     with model_gate.interactive():
-        yield from activity.tracked_stream("generation", label, _stream_lines(req), title=_run_title(req))
+        yield from activity.tracked_stream(
+            "generation", label, _stream_lines(req), title=_run_title(req), stop_event=req.stop
+        )
 
 
 def _run_title(req) -> str:  # noqa: ANN001

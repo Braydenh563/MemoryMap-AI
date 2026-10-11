@@ -64,6 +64,19 @@ def lan_port(port: int | None) -> int:
     return base + LAN_PORT_OFFSET if base + LAN_PORT_OFFSET < 65536 else base - LAN_PORT_OFFSET
 
 
+#: How many ports, from the usual one up, the launcher tries for the LAN
+#: listener before giving up and staying on this computer only.
+LAN_PORT_TRIES = 10
+
+
+def lan_port_candidates(port: int) -> list[int]:
+    """The LAN port, then the next ones up, for when another notebook on
+    this computer has it. An explicit MEMORYMAP_LAN_PORT is kept exactly."""
+    if os.environ.get("MEMORYMAP_LAN_PORT", "").strip().isdigit():
+        return [port]
+    return [p for p in range(port, port + LAN_PORT_TRIES) if p < 65536]
+
+
 def set_lan_port(port: int | None) -> None:
     """Called by the launcher with the port the HTTPS listener took."""
     global _current_lan_port

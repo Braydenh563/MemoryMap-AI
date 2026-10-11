@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4616, test files 1062, tests 9742, plan headings 995.
+Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4617, test files 1062, tests 9743, plan headings 995.
 
 ## Frontend functions (5511)
 
@@ -9692,7 +9692,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4616)
+## Backend modules (4617)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -9700,55 +9700,55 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_ancestor_console_hwnds` | src/memorymap/__main__.py:1250 |
-| `_apply_console_visibility` | src/memorymap/__main__.py:1381 |
-| `_boot_and_swap` | src/memorymap/__main__.py:1012 |
-| `_bootloader_splash` | src/memorymap/__main__.py:708 |
-| `_bring_forward` | src/memorymap/__main__.py:1575 |
-| `_capture` | src/memorymap/__main__.py:2503 |
-| `_claim_notebook` | src/memorymap/__main__.py:991 |
-| `_close_bootloader_splash` | src/memorymap/__main__.py:746 |
-| `_close_launch_splash` | src/memorymap/__main__.py:764 |
-| `_console_window_targets` | src/memorymap/__main__.py:1366 |
-| `_desktop_port` | src/memorymap/__main__.py:935 |
+| `_ancestor_console_hwnds` | src/memorymap/__main__.py:1260 |
+| `_apply_console_visibility` | src/memorymap/__main__.py:1391 |
+| `_boot_and_swap` | src/memorymap/__main__.py:1022 |
+| `_bootloader_splash` | src/memorymap/__main__.py:718 |
+| `_bring_forward` | src/memorymap/__main__.py:1585 |
+| `_capture` | src/memorymap/__main__.py:2513 |
+| `_claim_notebook` | src/memorymap/__main__.py:1001 |
+| `_close_bootloader_splash` | src/memorymap/__main__.py:756 |
+| `_close_launch_splash` | src/memorymap/__main__.py:774 |
+| `_console_window_targets` | src/memorymap/__main__.py:1376 |
+| `_desktop_port` | src/memorymap/__main__.py:945 |
 | `_ensure_std_streams` | src/memorymap/__main__.py:428 |
-| `_existing_instance` | src/memorymap/__main__.py:1586 |
-| `_export_markdown` | src/memorymap/__main__.py:2342 |
-| `_finish_splash_start_step` | src/memorymap/__main__.py:793 |
-| `_focus_window` | src/memorymap/__main__.py:1064 |
-| `_get_console_hwnd` | src/memorymap/__main__.py:1096 |
-| `_hand_off_to_running` | src/memorymap/__main__.py:1600 |
+| `_existing_instance` | src/memorymap/__main__.py:1596 |
+| `_export_markdown` | src/memorymap/__main__.py:2352 |
+| `_finish_splash_start_step` | src/memorymap/__main__.py:803 |
+| `_focus_window` | src/memorymap/__main__.py:1074 |
+| `_get_console_hwnd` | src/memorymap/__main__.py:1106 |
+| `_hand_off_to_running` | src/memorymap/__main__.py:1610 |
 | `_loading_html` | src/memorymap/__main__.py:363 |
-| `_mark_start_step_done` | src/memorymap/__main__.py:863 |
-| `_maybe_relaunch_hidden` | src/memorymap/__main__.py:1211 |
-| `_open_window_onto` | src/memorymap/__main__.py:1632 |
-| `_password_exists` | src/memorymap/__main__.py:2381 |
+| `_mark_start_step_done` | src/memorymap/__main__.py:873 |
+| `_maybe_relaunch_hidden` | src/memorymap/__main__.py:1221 |
+| `_open_window_onto` | src/memorymap/__main__.py:1642 |
+| `_password_exists` | src/memorymap/__main__.py:2391 |
 | `_port_from_env` | src/memorymap/__main__.py:35 |
-| `_port_holder` | src/memorymap/__main__.py:879 |
-| `_push_status_to_window` | src/memorymap/__main__.py:846 |
-| `_pythonw_path` | src/memorymap/__main__.py:1114 |
+| `_port_holder` | src/memorymap/__main__.py:889 |
+| `_push_status_to_window` | src/memorymap/__main__.py:856 |
+| `_pythonw_path` | src/memorymap/__main__.py:1124 |
 | `_recolour_loading_page` | src/memorymap/__main__.py:330 |
-| `_repair_install` | src/memorymap/__main__.py:2464 |
-| `_replace_process` | src/memorymap/__main__.py:1451 |
-| `_reset_password` | src/memorymap/__main__.py:2394 |
-| `_run_desktop` | src/memorymap/__main__.py:1659 |
+| `_repair_install` | src/memorymap/__main__.py:2474 |
+| `_replace_process` | src/memorymap/__main__.py:1461 |
+| `_reset_password` | src/memorymap/__main__.py:2404 |
+| `_run_desktop` | src/memorymap/__main__.py:1669 |
 | `_run_server` | src/memorymap/__main__.py:455 |
-| `_run_server_holding_lock` | src/memorymap/__main__.py:2612 |
+| `_run_server_holding_lock` | src/memorymap/__main__.py:2622 |
 | `_serve_with_lan` | src/memorymap/__main__.py:539 |
-| `_serves_this_notebook` | src/memorymap/__main__.py:918 |
-| `_spawn_desktop` | src/memorymap/__main__.py:1125 |
-| `_splash_status` | src/memorymap/__main__.py:731 |
-| `_start_reminder_notifier` | src/memorymap/__main__.py:1980 |
-| `_start_tray` | src/memorymap/__main__.py:2010 |
-| `_stop_background_work` | src/memorymap/__main__.py:1417 |
-| `_stop_lingering_worker_threads` | src/memorymap/__main__.py:643 |
-| `_wait_for_server` | src/memorymap/__main__.py:679 |
-| `_wait_for_server_with_progress` | src/memorymap/__main__.py:963 |
-| `_warn_webview2_missing` | src/memorymap/__main__.py:1541 |
-| `_webview2_runtime_missing` | src/memorymap/__main__.py:1477 |
-| `_window_class_name` | src/memorymap/__main__.py:1350 |
-| `main` | src/memorymap/__main__.py:2521 |
-| `restart_in_console_mode` | src/memorymap/__main__.py:1193 |
+| `_serves_this_notebook` | src/memorymap/__main__.py:928 |
+| `_spawn_desktop` | src/memorymap/__main__.py:1135 |
+| `_splash_status` | src/memorymap/__main__.py:741 |
+| `_start_reminder_notifier` | src/memorymap/__main__.py:1990 |
+| `_start_tray` | src/memorymap/__main__.py:2020 |
+| `_stop_background_work` | src/memorymap/__main__.py:1427 |
+| `_stop_lingering_worker_threads` | src/memorymap/__main__.py:653 |
+| `_wait_for_server` | src/memorymap/__main__.py:689 |
+| `_wait_for_server_with_progress` | src/memorymap/__main__.py:973 |
+| `_warn_webview2_missing` | src/memorymap/__main__.py:1551 |
+| `_webview2_runtime_missing` | src/memorymap/__main__.py:1487 |
+| `_window_class_name` | src/memorymap/__main__.py:1360 |
+| `main` | src/memorymap/__main__.py:2531 |
+| `restart_in_console_mode` | src/memorymap/__main__.py:1203 |
 
 ### src/memorymap/ai/act_registry.py (7)
 
@@ -14434,31 +14434,32 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `normalise` | src/memorymap/core/native_imports.py:72 |
 | `read_imports` | src/memorymap/core/native_imports.py:297 |
 
-### src/memorymap/core/netbind.py (21)
+### src/memorymap/core/netbind.py (22)
 
 | Name | File:line |
 |---|---|
-| `_own_names` | src/memorymap/core/netbind.py:215 |
-| `_proc_v6_addresses` | src/memorymap/core/netbind.py:261 |
-| `_usable_v6` | src/memorymap/core/netbind.py:243 |
-| `arrived_on_loopback` | src/memorymap/core/netbind.py:179 |
-| `arrived_on_socket` | src/memorymap/core/netbind.py:202 |
-| `bind_host` | src/memorymap/core/netbind.py:130 |
-| `current` | src/memorymap/core/netbind.py:171 |
-| `describe` | src/memorymap/core/netbind.py:338 |
-| `dual_stack` | src/memorymap/core/netbind.py:120 |
-| `env_bind` | src/memorymap/core/netbind.py:84 |
-| `explicit_bind` | src/memorymap/core/netbind.py:105 |
-| `host_allowed` | src/memorymap/core/netbind.py:224 |
-| `is_loopback_bind` | src/memorymap/core/netbind.py:175 |
-| `lan_addresses` | src/memorymap/core/netbind.py:279 |
-| `lan_enabled` | src/memorymap/core/netbind.py:113 |
+| `_own_names` | src/memorymap/core/netbind.py:228 |
+| `_proc_v6_addresses` | src/memorymap/core/netbind.py:274 |
+| `_usable_v6` | src/memorymap/core/netbind.py:256 |
+| `arrived_on_loopback` | src/memorymap/core/netbind.py:192 |
+| `arrived_on_socket` | src/memorymap/core/netbind.py:215 |
+| `bind_host` | src/memorymap/core/netbind.py:143 |
+| `current` | src/memorymap/core/netbind.py:184 |
+| `describe` | src/memorymap/core/netbind.py:351 |
+| `dual_stack` | src/memorymap/core/netbind.py:133 |
+| `env_bind` | src/memorymap/core/netbind.py:97 |
+| `explicit_bind` | src/memorymap/core/netbind.py:118 |
+| `host_allowed` | src/memorymap/core/netbind.py:237 |
+| `is_loopback_bind` | src/memorymap/core/netbind.py:188 |
+| `lan_addresses` | src/memorymap/core/netbind.py:292 |
+| `lan_enabled` | src/memorymap/core/netbind.py:126 |
 | `lan_port` | src/memorymap/core/netbind.py:58 |
-| `listening_socket` | src/memorymap/core/netbind.py:141 |
-| `set_current` | src/memorymap/core/netbind.py:165 |
-| `set_explicit_bind` | src/memorymap/core/netbind.py:99 |
-| `set_lan_port` | src/memorymap/core/netbind.py:67 |
-| `url_host` | src/memorymap/core/netbind.py:160 |
+| `lan_port_candidates` | src/memorymap/core/netbind.py:72 |
+| `listening_socket` | src/memorymap/core/netbind.py:154 |
+| `set_current` | src/memorymap/core/netbind.py:178 |
+| `set_explicit_bind` | src/memorymap/core/netbind.py:112 |
+| `set_lan_port` | src/memorymap/core/netbind.py:80 |
+| `url_host` | src/memorymap/core/netbind.py:173 |
 
 ### src/memorymap/core/ocr.py (37)
 
@@ -15602,7 +15603,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9742)
+## Tests (9743)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16086,7 +16087,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_keydown_without_key.py | 1 |
 | tests/test_keyword_context.py | 8 |
 | tests/test_keyword_search.py | 22 |
-| tests/test_lan_mode.py | 21 |
+| tests/test_lan_mode.py | 22 |
 | tests/test_lan_restart_action.py | 5 |
 | tests/test_lan_serve.py | 5 |
 | tests/test_lan_tls.py | 24 |

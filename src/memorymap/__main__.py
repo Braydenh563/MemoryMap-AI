@@ -566,12 +566,22 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
     if bind == netbind.ALL_INTERFACES_V6 and sock is None:
         bind = netbind.ALL_INTERFACES
     if sock is None:
-        try:
-            sock = socket_module.create_server((bind, lan_port))
-        except OSError as exc:
+        #: A second notebook on this computer (another person's account)
+        #: already holds 8443: take the next free port rather than going
+        #: local-only; Settings shows whichever address was taken.
+        first_error: OSError | None = None
+        for candidate in netbind.lan_port_candidates(lan_port):
+            try:
+                sock = socket_module.create_server((bind, candidate))
+            except OSError as exc:
+                first_error = first_error or exc
+                continue
+            lan_port = candidate
+            break
+        if sock is None:
             logger.warning(
-                "Other devices can't reach this notebook: port %s is taken (%s). "
-                "Listening on this computer only.", lan_port, exc,
+                "Other devices can't reach this notebook: port %s and the next %s are taken (%s). "
+                "Listening on this computer only.", lan_port, netbind.LAN_PORT_TRIES - 1, first_error,
             )
             netbind.set_current(HOST)
             uvicorn.run(app, host=HOST, port=PORT, log_level="info")

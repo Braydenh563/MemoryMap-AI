@@ -8,7 +8,7 @@ below). Versioning is `0.x` while the app stabilises.
 ## [Unreleased]
 
 - Notes: pressing Save before the settings have loaded no longer fails silently.
-- Mind maps, drafts, web clips, voice notes, transcripts, OCR text, new linked notes and chat answers saved as notes are filed in the background, like Capture's: a mind map's new topic took the filing model's whole answer (4.7 s measured against a 4 s model) and now takes 0.6 s.
+- Mind maps, drafts, web clips, voice notes, transcripts, OCR text, new linked notes and chat answers saved as notes are filed in the background, like Capture's: a mind map's new topic took the filing model's whole answer (4.7 s measured against a 4 s model) and now appears in 0.3 s.
 - First run: "Connect a model" on the welcome opens Settings and the recovery-key offer waits until Settings is closed, instead of drawing over it.
 - Start-up: opening the app with no notes waiting no longer lists a "Filing a note" job in Activity and the bell, a new row on every launch.
 - Start-up: the quick-add reader warms up after sign-in instead of on the lock screen, so a launch with a password no longer logs two 401 errors.

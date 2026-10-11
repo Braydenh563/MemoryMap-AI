@@ -217,3 +217,21 @@ def test_the_open_questions_switch_on_still_collects_and_answers(session):
     facts.run(session, budget=5000, config=_Prefs())
     session.commit()
     assert len(_kind(session, "question")) == 1
+
+
+def test_the_evidence_checks_switch_stops_looking_for_tensions(session):
+    # OPEN row 1073: the switch was stored and shown and gated nothing.
+    _note(session, "The rent for the flat is 900 pounds a month.", days_ago=30)
+    _note(session, "The rent for the flat is 950 pounds a month.")
+    facts.run(session, budget=5000, config=_Prefs(evidence_checks=False))
+    session.commit()
+    assert _kind(session, "tension") == []
+    assert _kind(session, "claim"), "the claims are still read with evidence checks off"
+
+
+def test_the_evidence_checks_switch_on_still_finds_the_tension(session):
+    _note(session, "The rent for the flat is 900 pounds a month.", days_ago=30)
+    _note(session, "The rent for the flat is 950 pounds a month.")
+    facts.run(session, budget=5000, config=_Prefs())
+    session.commit()
+    assert len(_kind(session, "tension")) == 1

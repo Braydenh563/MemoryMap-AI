@@ -3966,6 +3966,86 @@ function docRunArmTimeout(id) {
   }, DOC_RUN_TIMEOUT_MS);
 }
 
+//: **A CSV document is a table to a SQL run** (D5, OPEN 1069). A query that
+//: names a CSV document's table (its title without ".csv", in lower case
+//: with anything but letters, digits and _ as _: "Sales 2026.csv" is
+//: `sales_2026`) gets that document loaded first, its first row the column
+//: names. Nothing to pick: writing the name is the choice, as it is in any
+//: database. Numbers stay numbers, so `WHERE amount > 9` compares as numbers.
+const DOC_SQL_CSV_TABLES = 8;
+const DOC_SQL_CSV_ROWS = 50000;
+
+function docSqlTableName(title) {
+  const base = String(title || "").replace(/\.csv$/i, "").trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!base) return "";
+  return /^[0-9]/.test(base) ? `t_${base}` : base;
+}
+
+//: RFC 4180: quoted fields may hold commas, quotes ("") and line breaks.
+//: One row past the cap is read, so a cut table can say it was cut.
+function docSqlCsvRows(text, cap = DOC_SQL_CSV_ROWS + 2) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  const src = String(text || "").replace(/^\uFEFF/, "");
+  for (let i = 0; i < src.length && rows.length < cap; i += 1) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"' && src[i + 1] === '"') { cell += '"'; i += 1; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === "") quoted = true;
+    else if (ch === ",") { row.push(cell); cell = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && src[i + 1] === "\n") i += 1;
+      row.push(cell); cell = "";
+      if (row.length > 1 || row[0] !== "") rows.push(row);
+      row = [];
+    } else cell += ch;
+  }
+  if (rows.length < cap && (cell !== "" || row.length)) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function docSqlCsvTable(name, text) {
+  const rows = docSqlCsvRows(text);
+  if (!rows.length) return null;
+  const seen = new Set();
+  const columns = rows[0].map((head, i) => {
+    let col = String(head).trim() || `column_${i + 1}`;
+    while (seen.has(col.toLowerCase())) col = `${col}_${i + 1}`;
+    seen.add(col.toLowerCase());
+    return col;
+  });
+  const number = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/;
+  const body = rows.slice(1, DOC_SQL_CSV_ROWS + 1).map((r) =>
+    columns.map((_, i) => {
+      const v = r[i] === undefined ? null : r[i];
+      return v !== null && number.test(v.trim()) ? Number(v) : v;
+    })
+  );
+  return { name, columns, rows: body, cut: rows.length - 1 > DOC_SQL_CSV_ROWS };
+}
+
+//: The CSV documents the query names, read in one request.
+async function docSqlCsvTables(sql) {
+  const words = new Set(String(sql || "").toLowerCase().match(/[a-z_][a-z0-9_]*/g) || []);
+  const docs = await apiJson("/documents/contents?file_type=csv");
+  const tables = [];
+  const taken = new Set();
+  for (const doc of docs || []) {
+    const name = docSqlTableName(doc.title);
+    if (!name || taken.has(name) || !words.has(name) || doc.id === currentDoc?.id) continue;
+    const table = docSqlCsvTable(name, doc.content);
+    if (!table) continue;
+    taken.add(name);
+    tables.push(table);
+    if (tables.length >= DOC_SQL_CSV_TABLES) break;
+  }
+  return tables;
+}
+
 //: Run the open file: the panel opens (or is reused), the output is
 //: cleared, and the text as it is now goes to the sandbox as one request of
 //: the run protocol (run-core.js). `options.mode` is "run" or "test";
@@ -4024,6 +4104,16 @@ async function docRunCode(options = {}) {
     path: currentDoc?.title || "",
     stdin: docRun.stdin?.value || "",
   };
+  if (type.ext === "sql") {
+    try {
+      request.tables = await docSqlCsvTables(source);
+      for (const t of request.tables) {
+        if (t.cut) docRunRow("info", `${t.name}: only the first ${DOC_SQL_CSV_ROWS.toLocaleString("en")} rows were loaded.`, null);
+      }
+    } catch {
+      request.tables = [];
+    }
+  }
   const id = ++docRunSeq;
   docRun.id = id;
   docRunSetStatus("Preparing", true);

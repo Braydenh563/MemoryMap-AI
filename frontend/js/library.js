@@ -4577,16 +4577,18 @@ function ocrSelectImage() {
   return ocrSelectStage()?.querySelector("img") || null;
 }
 
-//: Keep the two overlays together. `#ocr-boxes` is moved into the current
+//: Keep the overlays together. `#ocr-boxes` is moved into the current
 //: page's stage in continuous mode (see `ocrLoadPage`); the select layer has
 //: to follow it or a drag would be measured against a stage that is not on
-//: screen: and `ocrTearDownScroll` has to bring both home again.
+//: screen: and `ocrTearDownScroll` has to bring them home again. Live Text
+//: goes too (OPEN 1068): it is the current page's words, and it stayed on the
+//: single-page stage, so the scroll layout had none.
 function ocrMoveOverlays(target) {
   if (!target) return;
-  const boxes = $("ocr-boxes");
-  const select = $("ocr-select");
-  if (select && select.parentElement !== target) target.appendChild(select);
-  if (boxes && boxes.parentElement !== target) target.appendChild(boxes);
+  for (const id of ["ocr-select", "ocr-boxes", "ocr-live-text"]) {
+    const layer = $(id);
+    if (layer && layer.parentElement !== target) target.appendChild(layer);
+  }
 }
 
 function ocrClearRegionSelection() {

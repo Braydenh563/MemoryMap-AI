@@ -19,8 +19,8 @@
 //: minimap when the preference is on, the merge view while comparing.
 //: `compare` is `{ docId, label, text }` for the version being compared.
 //: `split` is the second editor while the split is on, `sync` the annotation
-//: its edits carry, `chordAt` when Ctrl+K was pressed in the editor.
-const docIde = { slot: null, compare: null, split: null, splitDoc: null, sync: null, chordAt: 0, keysReturn: null };
+//: its edits carry, `chordAt` when Ctrl+K was pressed in the editor and `chordTimer` its wait.
+const docIde = { slot: null, compare: null, split: null, splitDoc: null, sync: null, chordAt: 0, chordTimer: 0, keysReturn: null };
 
 function docIdeExtensions(CM, type) {
   if (!docIde.slot) docIde.slot = new CM.state.Compartment();
@@ -303,11 +303,11 @@ const DOC_IDE_KEYS = [
 
 //: A key in the code editor: the panel's chords, then the table above.
 //: Handled ones stop here, so the app's registry (Ctrl+Shift+P clips a note,
-//: Ctrl+Shift+Y the companion) does not answer them as well. Ctrl+K goes
-//: on to the palette as everywhere, and arms Ctrl+K Ctrl+S for a moment.
+//: Ctrl+Shift+Y the companion) does not answer them as well. Ctrl+K waits
+//: for its second chord (`docIdeChordStart`), as VS Code does.
 function docIdeKeydown(event) {
-  if (matchesShortcut(event, "Ctrl+K")) docIde.chordAt = Date.now();
-  let done = docPanelChord(event);
+  let done = matchesShortcut(event, "Ctrl+K") && docIdeChordStart();
+  if (!done) done = docPanelChord(event);
   if (!done) {
     const row = DOC_IDE_KEYS.find((r) => matchesShortcut(event, r.keys));
     if (row) {
@@ -321,20 +321,57 @@ function docIdeKeydown(event) {
   return true;
 }
 
-//: Ctrl+K Ctrl+S, VS Code's keybindings chord. The first half has already
-//: opened the palette (the app's Ctrl+K, which a code file keeps); the second,
-//: within a second and a half, closes it and opens the sheet, before the
-//: registry's Ctrl+S could save. Any other key ends the chord.
+//: Ctrl+K Ctrl+S, VS Code's keybindings chord (OPEN 1067). Ctrl+K in a code
+//: file is still the app's palette, but it waits a moment for a second
+//: chord rather than opening at once: the palette used to flash open and
+//: shut before the sheet. Ctrl+S then opens the sheet, before the
+//: registry's Ctrl+S could save; Escape drops the chord; a typed letter
+//: opens the palette with the letter in it; any other key, or the wait
+//: running out, opens the palette.
+const DOC_IDE_CHORD_WAIT_MS = 400;
+
+function docIdeChordStart() {
+  clearTimeout(docIde.chordTimer);
+  docIde.chordAt = Date.now();
+  docIde.chordTimer = setTimeout(() => docIdeChordEnd(), DOC_IDE_CHORD_WAIT_MS);
+  return true;
+}
+
+function docIdeChordEnd(seed = "") {
+  clearTimeout(docIde.chordTimer);
+  docIde.chordAt = 0;
+  return Promise.resolve(openPalette()).then(() => {
+    const input = $("palette-input");
+    if (!seed || !input) return;
+    input.value = seed;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
 window.addEventListener("keydown", (event) => {
   if (!docIde.chordAt) return;
   if (["Control", "Meta", "Shift", "Alt"].includes(event.key) || matchesShortcut(event, "Ctrl+K")) return;
-  const armed = Date.now() - docIde.chordAt < 1500;
-  docIde.chordAt = 0;
-  if (!armed || !matchesShortcut(event, "Ctrl+S")) return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  if (!$("palette-overlay")?.classList.contains("hidden")) closePalette();
-  docIdeOpenKeys();
+  if (matchesShortcut(event, "Ctrl+S")) {
+    clearTimeout(docIde.chordTimer);
+    docIde.chordAt = 0;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    docIdeOpenKeys();
+    return;
+  }
+  if (event.key === "Escape") {
+    clearTimeout(docIde.chordTimer);
+    docIde.chordAt = 0;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    return;
+  }
+  const printable = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+  if (printable) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+  docIdeChordEnd(printable ? event.key : "");
 }, true);
 
 //: The editor's palette (Ctrl+Shift+P, F1): the app's palette (the rich
@@ -348,6 +385,26 @@ async function docIdeOpenPalette() {
   input.value = "> ";
   input.dispatchEvent(new Event("input", { bubbles: true }));
   return true;
+}
+
+//: The second half's code tools (OPEN row 1066): the completion list, the
+//: lint and its gutter, the snippets and the pairs and indent, as the first
+//: half has them. Not the run panel or the breakpoint lane: a document has
+//: one of each, the first half's, as VS Code's one panel serves both groups.
+function docIdeSplitTools(CM) {
+  const type = docFileType();
+  if (type.previewable || ["txt", "csv"].includes(type.ext)) return [];
+  const config = { activateOnTyping: true, maxRenderedOptions: 60 };
+  if (type.ext === "css") config.override = docCssSources(CM);
+  const native = ["js", "ts", "py", "css", "html"].includes(type.ext);
+  return [
+    CM.lint.linter(docCodeLintSource(CM), { delay: DOC_CHECK_DELAY_MS }),
+    CM.lint.lintGutter(),
+    CM.autocomplete.autocompletion(config),
+    docNativeSnippets(CM, type.ext),
+    native ? [] : docCodeCompletionData(CM),
+    docCodeEditing(CM, type),
+  ];
 }
 
 //: Split (Ctrl+\): a second editor on the same document beside the first,
@@ -375,6 +432,7 @@ function docIdeToggleSplit() {
     doc: main.state.doc,
     extensions: [
       ...carried,
+      ...docIdeSplitTools(CM),
       CM.view.lineNumbers(),
       CM.view.highlightActiveLine(),
       CM.view.highlightActiveLineGutter(),

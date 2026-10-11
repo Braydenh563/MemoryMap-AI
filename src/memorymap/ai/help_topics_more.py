@@ -1705,15 +1705,18 @@ MORE_TOPICS.extend(
                 "run code", "run a file", "run python", "run javascript", "run typescript",
                 "typescript", "sql", "sqlite", "query", "p5", "p5.js", "sketch", "preview css",
                 "preview svg", "svg", "unit test", "unit tests", "run tests", "unittest",
-                "input()", "run selection", "run cell", "output panel", "pyodide",
+                "input()", "csv table", "query a csv", "run selection", "run cell", "output panel", "pyodide",
             ),
             "body": (
                 "Run (Ctrl+Shift+Enter, beside Format) runs a code document in a "
                 "sandbox with no network and none of your notes, and shows what it "
                 "prints, its errors and their lines in the Output panel under the "
-                "editor. JavaScript runs as it is; TypeScript runs with its types "
-                "removed, not checked; SQL runs against an empty SQLite database "
-                "made for the run, each statement's result a table; Python runs "
+                "editor. JavaScript runs as it is (JSX in it becomes React.createElement "
+                "calls); TypeScript runs with its types "
+                "removed, not checked; SQL runs against a SQLite database made for "
+                "the run, each statement's result a table, and a CSV document the "
+                "query names is a table in it (Sales 2026.csv is sales_2026, its "
+                "first row the columns); Python runs "
                 "once Python is installed in Settings, Packages (until then Run is "
                 "greyed and the line beside it goes there), and input() reads its "
                 "lines from the panel's Input box. HTML, CSS (over a sample page), "
@@ -1787,9 +1790,12 @@ MORE_TOPICS.extend(
                 "the editor, where one Ctrl+Z takes it out, and Reject leaves the "
                 "file alone. With no model, Fix applies the quick fix, the tools "
                 "row (Quick fix, Format, Run tests, Find usages) works as it is, "
-                "and a question goes to the needle extra when it is installed, "
-                "which picks one of those tools; otherwise the panel says what "
-                "needs a model. The Snippets tab lists the "
+                "a question those tools answer (format, run the tests, where a name "
+                "is used, the symbols) runs the tool, and any other goes to the "
+                "needle extra when it is installed; otherwise a Needs a model line "
+                "links to Settings. Explain, Write tests, Refactor and the inline "
+                "Ask bar (Ctrl+J) stay on screen, disabled, and a press says why. "
+                "The Snippets tab lists the "
                 "built-in library and your own snippets, this file's language "
                 "first (Show every language for the rest); the search matches "
                 "names, tags and languages, and #io matches the tag io. A row "

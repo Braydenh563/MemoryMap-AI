@@ -172,3 +172,171 @@ def test_an_overtime_python_line_is_interrupted_not_its_worker_ended():
     over = _fn(code, "docConsoleOvertime")
     assert 'docRunSend({ type: "interrupt"' in over and 'lang !== "python"' in over
     assert 'data.t === "started"' in _fn(code, "docConsoleMessage")
+
+
+# Row 1066: the split's second half had no completions, lint or snippets.
+def test_the_split_carries_completions_lint_and_snippets_but_one_run_panel():
+    ide = (JS / "documents-ide.js").read_text(encoding="utf-8")
+    tools = _fn(ide, "docIdeSplitTools")
+    for part in ("CM.lint.linter(docCodeLintSource(CM)", "CM.lint.lintGutter()", "CM.autocomplete.autocompletion(",
+                 "docNativeSnippets(CM, type.ext)", "docCodeEditing(CM, type)"):
+        assert part in tools, part
+    #: One run panel and one breakpoint lane per document: the first half's.
+    assert "docRunExtension" not in tools and "docDebugExtension" not in tools
+    assert "...docIdeSplitTools(CM)," in _fn(ide, "docIdeToggleSplit")
+
+
+# Row 1067: Ctrl+K Ctrl+S flashed the palette open before the sheet.
+def test_ctrl_k_waits_for_its_second_chord_before_the_palette():
+    ide = (JS / "documents-ide.js").read_text(encoding="utf-8")
+    start = ide.index("const DOC_IDE_CHORD_WAIT_MS")
+    end = ide.index("}, true);", start) + len("}, true);")
+    chord = ide[start:end].replace("window.addEventListener(\"keydown\",", "const onKey =", 1).replace("}, true);", "};", 1)
+    prelude = """
+const log = [];
+const timers = [];
+const docIde = { chordAt: 0, chordTimer: 0 };
+const input = { value: "", dispatchEvent: () => log.push("input:" + input.value) };
+const $ = (id) => (id === "palette-input" ? input : null);
+const openPalette = () => { log.push("palette"); };
+const docIdeOpenKeys = () => log.push("sheet");
+const setTimeout = (fn) => { timers.push(fn); return timers.length; };
+const clearTimeout = (n) => { if (n) timers[n - 1] = null; };
+const matchesShortcut = (e, k) => (k === "Ctrl+K" ? e.ctrlKey && e.key === "k" : k === "Ctrl+S" ? e.ctrlKey && e.key === "s" : false);
+const key = (k, ctrl = false) => ({ key: k, ctrlKey: ctrl, metaKey: false, altKey: false, stopped: false,
+  preventDefault() { this.stopped = true; }, stopImmediatePropagation() {} });
+""" + chord + """
+async function run(second) {
+  log.length = 0; timers.length = 0; input.value = "";
+  docIdeChordStart();
+  const opened = log.length;
+  let ev = null;
+  if (second === "wait") timers.filter(Boolean).forEach((t) => t());
+  else { ev = key(second[0], second[1]); onKey(ev); }
+  await new Promise((r) => globalThis.setImmediate(r));
+  const left = timers.filter(Boolean).length;
+  return { opened, log: [...log], stopped: ev ? ev.stopped : null, armed: docIde.chordAt, left };
+}
+"""
+    script = prelude + (
+        "(async () => { const out = { s: await run(['s', true]), esc: await run(['Escape']), "
+        "letter: await run(['f']), arrow: await run(['ArrowDown']), wait: await run('wait') }; "
+        "process.stdout.write(JSON.stringify(out)); })();"
+    )
+    done = subprocess.run([shutil.which("node") or "node", "-e", script], capture_output=True, text=True, timeout=60, check=False)
+    assert done.returncode == 0, done.stderr
+    got = json.loads(done.stdout)
+    #: Ctrl+K alone opens nothing until the second chord or the wait.
+    assert all(v["opened"] == 0 for v in got.values())
+    assert got["s"]["log"] == ["sheet"] and got["s"]["stopped"] and got["s"]["left"] == 0
+    assert got["esc"]["log"] == [] and got["esc"]["stopped"] and got["esc"]["left"] == 0
+    assert got["letter"]["log"] == ["palette", "input:f"] and got["letter"]["stopped"]
+    assert got["arrow"]["log"] == ["palette"] and not got["arrow"]["stopped"]
+    assert got["wait"]["log"] == ["palette"]
+    assert all(v["armed"] == 0 for v in got.values())
+    assert "matchesShortcut(event, \"Ctrl+K\") && docIdeChordStart()" in _fn(ide, "docIdeKeydown")
+
+
+# Row 1068: Live Text stayed on the single-page stage, so the scroll layout had none.
+def test_live_text_follows_the_page_into_the_scroll_layout():
+    lib = (JS / "library.js").read_text(encoding="utf-8")
+    mover = _fn(lib, "ocrMoveOverlays")
+    prelude = """
+const made = {};
+const stage = (name) => ({ name, kids: [], appendChild(el) { if (el.parentElement) el.parentElement.kids = el.parentElement.kids.filter((k) => k !== el); el.parentElement = this; this.kids.push(el); } });
+const home = stage("home");
+for (const id of ["ocr-select", "ocr-boxes", "ocr-live-text"]) { made[id] = { id, parentElement: null }; home.appendChild(made[id]); }
+const $ = (id) => made[id] || null;
+const page3 = stage("page3");
+""" + mover + "\nocrMoveOverlays(page3);"
+    got = _node(prelude, "{ moved: page3.kids.map((k) => k.id), left: home.kids.length }")
+    #: In paint order: the marquee under the boxes, the words on top.
+    assert got == {"moved": ["ocr-select", "ocr-boxes", "ocr-live-text"], "left": 0}
+
+
+# Row 1069: a SQL run had no way to read a CSV document as a table.
+def test_a_csv_document_the_query_names_is_a_table():
+    code = (JS / "documents-code.js").read_text(encoding="utf-8")
+    prelude = "\n".join(
+        [
+            "const DOC_SQL_CSV_ROWS = 3;",
+            _fn(code, "docSqlTableName"),
+            _fn(code, "docSqlCsvRows").replace("cap = DOC_SQL_CSV_ROWS + 2", "cap = 5"),
+            _fn(code, "docSqlCsvTable"),
+        ]
+    )
+    got = _node(
+        prelude,
+        """{
+        names: ["Sales 2026.csv", "2026 data", "  .csv", "orders"].map(docSqlTableName),
+        quoted: docSqlCsvRows('a,b\\r\\n"x, y","say ""hi""\\nthere"\\n\\n1,2'),
+        table: docSqlCsvTable("t", "amount,amount,\\n10,9.5,\\n-3,x,\\n1,2,3\\n4,5,6"),
+      }""",
+    )
+    assert got["names"] == ["sales_2026", "t_2026_data", "", "orders"]
+    assert got["quoted"] == [["a", "b"], ["x, y", 'say "hi"\nthere'], ["1", "2"]]
+    table = got["table"]
+    #: Duplicate and blank headers get names; numbers stay numbers; the cap says so.
+    assert table["columns"] == ["amount", "amount_2", "column_3"]
+    assert table["rows"] == [[10, 9.5, ""], [-3, "x", ""], [1, 2, 3]]
+    assert table["cut"] is True
+    run = _fn(code, "docRunCode")
+    assert 'if (type.ext === "sql")' in run and "request.tables = await docSqlCsvTables(source);" in run
+    assert 'apiJson("/documents/contents?file_type=csv")' in code
+    core = (JS / "run-core.js").read_text(encoding="utf-8")
+    assert 'return { ...runBase(request, "sql"), lib: { js, wasm }, tables };' in core
+
+
+def test_the_contents_read_narrows_to_one_file_type(client):
+    client.post("/documents", json={"title": "sales.csv", "content": "a,b\n1,2", "file_type": "csv"})
+    client.post("/documents", json={"title": "notes", "content": "hello", "file_type": "md"})
+    rows = client.get("/documents/contents", params={"file_type": "csv"}).json()
+    assert [(r["title"], r["file_type"]) for r in rows] == [("sales.csv", "csv")]
+    assert len(client.get("/documents/contents").json()) == 2
+
+
+# Row 1072: JSX in a .js document ran without the JSX pass.
+def test_jsx_in_a_js_document_gets_the_jsx_pass_and_nothing_else(tmp_path):
+    core = (JS / "run-core.js").read_text(encoding="utf-8")
+    start = core.index("const RUN_JSX_MARKUP")
+    hint = core[start : core.index("\n", start)]
+    sucrase = (ROOT / "frontend/vendor/sucrase/sucrase.min.js").read_text(encoding="utf-8")
+    prelude = "\n".join(
+        [
+            sucrase,
+            hint,
+            _fn(core, "runIsJsx"),
+            "const runVendorScript = async () => SUCRASE;",
+            "async " + _fn(core, "runStripTypes"),
+            "const runBase = (r, kind) => ({ kind, source: String(r.source || ''), path: String(r.path || '') });",
+            "async " + _fn(core, "runJsRequest"),
+        ]
+    )
+    cases = {
+        "returned": "function A() { return <div>hi</div>; }",
+        "assigned": "const el = <App title='x' />;",
+        "fragment": "const f = (\n  <>\n  </>\n);",
+        "compare": "if (a < b && c > d) console.log(a<b);",
+        "generic": "const n = count <limit ? 1 : 2;",
+    }
+    script = prelude + (
+        "\n(async () => { const cases = " + json.dumps(cases) + "; const out = {};"
+        " for (const [k, v] of Object.entries(cases)) out[k] = runIsJsx({ source: v });"
+        " out.byName = runIsJsx({ source: 'x', path: 'App.jsx' });"
+        " const r = await runJsRequest({ source: 'let x: number = 1;\\nconst el = <b>{x}</b>;', path: 'a.js' }).catch((e) => ({ error: e.message }));"
+        " out.typed = r.error || r.source;"
+        " out.ran = (await runJsRequest({ source: cases.returned })).source;"
+        " process.stdout.write(JSON.stringify(out)); })();"
+    )
+    #: From a file: the bundle's text holds "pip", which the installer guard
+    #: (conftest) refuses to see in an argument.
+    path = tmp_path / "jsx.js"
+    path.write_text(script, encoding="utf-8")
+    done = subprocess.run([shutil.which("node") or "node", str(path)], capture_output=True, text=True, timeout=60, check=False)
+    assert done.returncode == 0, done.stderr[-2000:]
+    got = json.loads(done.stdout)
+    assert got["returned"] and got["assigned"] and got["fragment"] and got["byName"]
+    assert not got["compare"] and not got["generic"]
+    #: Only the JSX pass: a type annotation in a .js file is still an error.
+    assert got["typed"].startswith("Could not read this as JSX")
+    assert "React.createElement" in got["ran"] and "<div>" not in got["ran"]

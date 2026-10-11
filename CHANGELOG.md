@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Documents: with no model, the code Assistant's and the document assistant's model-only controls stay visible but disabled with the reason and a Settings link; the model-free tools stay live, and a code question the tools can answer (format, run the tests, where is a name used) runs that tool. The inline Ask bar in a code document speaks of lines and code. All of it comes back live when a model connects.
+- Documents: the split view's second half has completions, lint and snippets; Ctrl+K in a code file waits for its second chord, so Ctrl+K Ctrl+S opens the keys sheet without the palette flashing first.
+- Documents: a SQL document's query can read a CSV document as a table by its name (Sales 2026.csv is sales_2026). Library: Live Text is on every page of a PDF in the scroll layout, not only the single-page view.
 - Documents: the debugger's Variables open a list, a dict or an object into its first fifty items, and a document's breakpoints are kept on this device after a reload. Ctrl+Shift+D (the Debug tab) is listed in the keys sheet and the palette.
 - Documents: a Python console line still running after ten seconds is interrupted (KeyboardInterrupt) rather than its runtime ended, so the names the last run left are kept.
 - Notes: a card no longer shows a topic chip that repeats one of its own tags (a topic the graph named after the tag).

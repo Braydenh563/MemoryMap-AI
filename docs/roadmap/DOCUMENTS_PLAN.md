@@ -311,87 +311,9 @@ the same thing.
    built. The record is in HISTORY.md ("Moved from the plans, 2026-09-20",
    DOCUMENTS_PLAN.md Phase 5 item 4).
 
-### Phase 6: responsive by device (partly built; UI Phase 9 did the bands)
+### Phase 6: responsive by device: done
 
-**Measured first, 2026-09-13, `scratchpad/ui-sweeps/docnarrow.js` at 1440x900,
-1024x768, 800x1000 and 390x820**, because most of this phase turned out to be
-already built by UI Phase 9's sheet band and the rest could not be judged
-without knowing which:
-
-| | measured | state |
-| --- | --- | --- |
-| ≥ 1100 | sidebar 260px, editor 794px, measure at its 78ch cap | as the plan asks |
-| 820–1100 | sidebar 192px, editor 741px (the cap is ~700px, so the measure is already full) | **the icons rail would buy the measure nothing**; the selection toolbar is Phase 8's, not this phase's |
-| 600–820 | one column (`0px 764.8px`), the sidebar parked at `translateX(rail - 100%)` with a 52px rail, nothing past the window's right edge, first line at y=316 | built, by Phase 9 |
-| < 600 | one column, sheet parked, rail 60px, editor 270px, first line at y=318, 0 targets under 44px, 0 console errors | targets built 2026-09-13; the bottom formatting bar built 2026-09-13 (item 1 below) |
-
-The phase's own acceptance line, `errors.js` at 390/820/1024: **0 errors and 0
-layout findings at all three**, 2026-09-13, with the band-4 targets in place.
-
-**Decision, made here: what "touch targets 44px" means.** DESIGN.md's global
-floor is `--target-min`, 28px, chosen to clear WCAG 2.2 AA's 24px with room for
-a border, and that is not remade. This phase's 44px is the *layout's* targets in
-the phone band: measured at 390, eighteen controls were under it, and fifteen of
-them are rows inside open dock menus whose target is their whole 225 to 271px
-width. Raising those fifteen makes the dock's own menu 660px tall in an 820px
-window, which is a worse phone. So the band raises the two the layout hands a
-finger, the sheet's rail toggle (36 to 44, through `--sidebar-toggle-size`, so
-the rail and the content's left padding follow it) and the Edit/Read segment (28
-to 44), and leaves the menus alone. `10-responsive.css`'s band 4 block carries
-the reasoning; `docnarrow.js` asserts it.
-
-**What is left, in order:**
-
-1. **The phone formatting bar** (< 600): **built 2026-09-13**, see HISTORY.md
-   "Moved from the plans, 2026-09-13".
-2. **The outline as a sheet from the bottom** (< 600): **decided against,
-   2026-09-13, and the decision is not remade.** Measured at 390x820 before
-   deciding (`scratchpad/ui-sweeps/outline390.js` numbers, run once rather than
-   kept: the probe is two clicks and an assertion the sweeps above already
-   cover): the outline is two taps away and both targets are the size this band
-   asks for. The rail's toggle is a 44x44 button at x=7, y=71, the tap opens the
-   sidebar sheet whole (left 0, width 320 of a 390px window), and the Outline
-   tab in it lists all eighteen headings from y=189 with no scrolling. A second
-   sheet would be a third way to the same list, built from a recipe that says a
-   sheet is a modal dialog: it would cover the document exactly as the first one
-   does, and the only thing it would save is the tab tap. What would earn itself
-   instead, if the reach is ever reported, is the sidebar sheet *opening on the
-   Outline tab* while a document is open, which is one line in the opener and no
-   new surface. Left unbuilt on purpose.
-3. **"The first line of text is on screen with the keyboard open"**: measured
-   as far as a sandbox can, 2026-09-20, `scratchpad/ui-sweeps/dockeyboard.js`,
-   16 of 16, **and it found a bug in the default state of the formatting
-   strip.**
-
-   **What cannot be measured, and stays not verified**: headless Chromium
-   raises no on-screen keyboard and nothing here can make it, so
-   `visualViewport` never shrinks on its own and `env(keyboard-inset-height)`
-   is always 0. No run here says what a real phone does.
-
-   **What is measured**: everything between the number the platform would
-   report and the pixels. The probe stubs `visualViewport.height` at a
-   middling phone keyboard (336px) and fires the app's own listener, so
-   `initKeyboardInset`, `--keyboard-inset` and every rule that reads it are
-   the real ones. At 390x820 with a document open in Live: the token is 0px
-   with no keyboard and 336px with one, and back to 0px when it closes; the
-   thumb bar's bottom padding goes 4px to 336px and back; the chat composer's
-   8px to 344px; the first line of text sits at 343 to 379 against a visible
-   viewport of 484px, and the thumb bar's top is at 435, so the phase's own
-   line holds with 56px to spare.
-
-   **The bug**: `.doc-toolbar.is-collapsed` (05-sidebars-themes.css) sets
-   `padding-block` at (0,2,0) and beat the `.doc-toolbar` rule in 07 that
-   carries the inset at (0,1,0). Specificity beats file order, so the
-   formatting strip rose with the keyboard while expanded and sat under it
-   while collapsed, which is its default since D1. Measured at 820 with the
-   strip shown: expanded 6.4px to 342.4px, collapsed 4px to 4px. Fixed by
-   naming the sum once as `--dock-bottom-inset` (00-tokens-shell.css) and
-   giving each of the three rules its own base term; after, collapsed is 4px
-   to 340px, expanded unchanged, and collapsing still buys back the same
-   2.4px it did before.
-4. **820–1100's icons rail** is a deliberate no-op until something asks for the
-   width: the measure is at its cap there already. Left as a row here rather
-   than built, so the next session does not build it twice.
+Every item built or decided (the bands, the phone formatting bar, the keyboard inset fix, the outline sheet decided against, the 820 to 1100 rail a recorded no-op). Moved to HISTORY.md, "Moved from the plans, 2026-10-11 (DOCUMENTS Phase 6 and Phase 8, docs-1011)".
 
 ### Phase 8: one editor everywhere (1 session, the owner's ask, 2026-09-09)
 
@@ -432,38 +354,7 @@ in monospace) and the document (`#doc-content`: the engine after Phase 2).
 - The chat composer is not a note editor: it gets `[[` and `/` only, and
   keeps its own recipe (send on Enter).
 
-**8a, capture and the inline note edit**: **built 2026-09-13**, see
-HISTORY.md "Moved from the plans, 2026-09-13".
-
-**8b, the graph's popups and Write with the AI**: **built 2026-09-13**, same
-entry.
-
-**8c, the rest** (¼ session): whiteboard note cards edit in a `size:
-inline` surface in place of the canvas text field; reminders' magic box
-stays plain (it is a sentence, not a note, and that half is done by being
-decided); the skill editor's steps box gets the `/` menu only. Gate: touch.js
-and mindmap.js unchanged.
-
-**The skill editor's steps box: built, 2026-09-20.** `"skill-steps": "skill"`
-in `editor.js`'s `EDITOR_SURFACES`, and the menu it opens is the box's own
-vocabulary rather than the note commands, for the reason `chatCommands` gives
-and more sharply here: this box's label says "one step per line, in order",
-`skills.normalise` reads those lines as instructions, and a callout or a table
-inserted into one is not a step. `skillCommands` offers the two things the
-form beside it declares and nobody can type correctly from memory, the
-`{{placeholders}}` from "Ask me for" and the exact spelling of the tools this
-skill has ticked, both read off the form so neither can go stale, plus one row
-that explains itself when the form is still empty. The box stays a plain
-textarea with no engine and no Live view, which is in
-`tests/test_note_surface.py`'s `NOT_NOTE_TEXT` with that reason. Measured,
-`scratchpad/ui-sweeps/skillsteps.js`, 12 of 12: typing "/" opens a 304x165
-menu with the groups "Answers you will be asked for" and "Tools this skill may
-use", `tag: Which tag should I file?` yields `{{tag}}` and not the question,
-0 note commands leak in, and running one writes the placeholder at the caret.
-
-*The board's note card*: built 2026-09-23 (askcite), the commit keymap and
-the gesture guard moved onto the surface first; see HISTORY.md ("From OPEN.md,
-2026-09-23 (askcite agent): Phase 8c, the board's note card").
+All of 8a, 8b and 8c is built (capture, the inline edit, the graph's popups, Write with the AI, the skill steps box, the board's note card). Moved to HISTORY.md, "Moved from the plans, 2026-10-11 (DOCUMENTS Phase 6 and Phase 8, docs-1011)".
 
 ### Phase 7: export and interchange: **built 2026-09-13**
 
@@ -1251,6 +1142,21 @@ open; the decisions stay.
    shorter labels (the strip's words are its only labels). Measured by
    `scratchpad/ui-sweeps/perf2-1005-docside.js`: fits, nothing under the
    toggle, at 1024, 1440 and 390, light and dark.
+10. **With no model, the documents' assistants stay visible and disabled
+   with the reason, never hidden** (the owner, 2026-10-11: "should the
+   assistant features in the regular and code document editor be disabled
+   when the ai isnt available??"; taken under standing order 3). The inline
+   Ask bar's field is read-only and its Ask is the gate's offer (why, what
+   works now, Set up a model); the document assistant's field and Suggest
+   are gated the same way; each surface carries one "Needs a model" notice
+   with the Settings link. What needs no model stays live: Quick fix,
+   Format, Run tests, Find usages, the spelling and grammar fixes. The code
+   Assistant's question box stays live because the tools answer what they
+   can (CHAT_PLAN decision 75: format, tests, usages, the quick fix, the
+   symbols); anything else is offered to needle or says it needs a model.
+   A code document is spoken to in code's words ("Explain, simplify, add
+   types", "the N lines you selected"); prose wording stays in prose. A
+   model connecting gives everything back live (`mm-model-gate`).
 
 ## 18. The slash menus as one system: built 2026-09-21
 

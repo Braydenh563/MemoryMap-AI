@@ -5221,8 +5221,10 @@ Link to another note with [[its first few words]]."></textarea>
                   comes back as a diff: Apply puts it in the editor, where Ctrl+Z takes
                   it out, and Reject leaves the file as it is.</p>
                 <p>With no model, Fix applies the quick fix at the caret, and Quick fix,
-                  Format, Run tests and Find usages work as they are; a question goes to
-                  the needle extra when it is installed, which picks one of those tools.</p>
+                  Format, Run tests and Find usages work as they are. A question those
+                  tools answer (format, run the tests, where a name is used, the symbols)
+                  runs the tool; any other goes to the needle extra when it is installed.
+                  Explain, Write tests and Refactor stay on screen, disabled, and say why.</p>
                 <p>Snippets: pick a row, or press Enter on it, to insert it at the
                   caret; Ctrl+Z takes it out. Built-in rows have stops that Tab walks.</p>
                 <p>Select some code and press Save to keep it; words with
@@ -5253,10 +5255,12 @@ Link to another note with [[its first few words]]."></textarea>
                      question and its send, at the asks' height. -->
                 <form id="doc-assist-form" class="search-field doc-assist-form">
                   <input id="doc-assist-question" class="search-field-input" type="text" maxlength="2000" autocomplete="off"
-                    placeholder="Ask about this code…" aria-label="Ask about this code">
+                    placeholder="Ask about this code…" aria-label="Ask about this code"
+                    data-offline-placeholder="No model: format, run the tests, find where a name is used…">
                   <button type="submit" id="doc-assist-send" class="small accent icon-only" title="Ask (Enter)" aria-label="Ask"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
                 </form>
-                <p id="doc-assist-model-line" class="muted text-sm hidden">No model is connected: Explain, Write tests and Refactor need one. Fix uses the quick fix, and the tools below work as they are.</p>
+                <div id="doc-assist-model-line" class="ai-offline-note notice hidden"
+                  data-offline-line="Needs a model for Explain, Write tests, Refactor and free questions. Fix, the tools below and questions they answer work now."></div>
                 <div class="doc-assist-tools" role="group" aria-label="Tools that need no model">
                   <button type="button" class="ghost small" data-assist-tool="quick_fix" title="The quick fixes for the problem at the caret (Alt+Enter)"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Quick fix</button>
                   <button type="button" class="ghost small" data-assist-tool="format_code" title="Format the selected lines, or the file (Shift+Alt+F)"><i class="ph ph-brackets-curly ph-lead" aria-hidden="true"></i> Format</button>
@@ -5429,13 +5433,15 @@ Link to another note with [[its first few words]]."></textarea>
              above a button on its own line is two controls where there is one
              action, and 40px of dialog for nothing. -->
         <div class="row doc-ai-ask">
-          <input id="doc-ai-instruction" type="text" maxlength="500"
+          <input id="doc-ai-instruction" data-needs-model="Rewriting with Atlas needs a model" type="text" maxlength="500"
             placeholder="e.g. “tighten this”, “make it more formal”"
             aria-label="What should Atlas do?">
           <button id="doc-ai-run" data-needs-model="AI editing needs the local AI"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Suggest an edit</button>
           <button id="doc-ai-cancel-run" class="ghost hidden" type="button"
             title="Stop Atlas: the document is untouched"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
         </div>
+        <div id="doc-ai-offline" class="ai-offline-note notice hidden"
+          data-offline-line="Needs a model. The writing check, find, outline and export work now."></div>
         <span id="doc-ai-status" class="status" role="status"></span>
         <!-- **The result area exists once there is a result**, and not before
              (INBOX 158). Measured at 1440x900 before this: an empty 309px

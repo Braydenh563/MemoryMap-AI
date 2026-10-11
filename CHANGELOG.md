@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- OCR workspace: finding in what was read marks every match in the text, the current one stronger and scrolled into view, counts occurrences ("3 of 15"), and steps with Enter, Shift+Enter or two buttons.
 - Notifications: a notice's actions sit on their own row under its message, left-aligned with it, so the close button is alone in its corner.
 - Notes, Select mode: the tick sits in the card's left gutter on the first line instead of stacking a row above the title (cards and rows keep their height).
 - Library: flicking quickly through the sub-tabs no longer flashes the other kind's tiles or jumps the layout (Images and Files redraw from what is loaded, an overtaken load never draws, placeholders are tile-sized).

@@ -436,7 +436,6 @@ function docAssistSyncScope() {
   scope.textContent = target.whole
     ? `About the whole file, ${lines} ${lines === 1 ? "line" : "lines"}. Select lines to ask about those.`
     : `About the ${lines} selected ${lines === 1 ? "line" : "lines"}.`;
-  $("doc-assist-model-line").classList.toggle("hidden", !docAssistModelOff());
 }
 
 //: The problem a Fix is about: the one at the caret, else the first in the
@@ -469,6 +468,31 @@ function docAssistSay(text, { error = false } = {}) {
   return line;
 }
 
+//: **A question the tools can answer, answered by them** (CHAT_PLAN
+//: decision 75; the owner, 2026-10-11). With no model the field stays live
+//: for these: format, run the tests or the file, where a name is used, the
+//: quick fix and the symbols. Anything else goes on to the server, which
+//: offers it to needle or says plainly that it needs a model.
+const DOC_ASSIST_ROUTES = [
+  ["format_code", /\b(format|indent|tidy|prettify|reformat)\b/i],
+  ["run_tests", /\btests?\b/i],
+  ["find_usages", /\b(usages?|uses|used|references?|callers?|calls)\b/i],
+  ["quick_fix", /\b(fix|error|problem|warning|underline)\b/i],
+  ["symbols", /\b(outline|symbols?|functions|classes|methods)\b/i],
+  ["run_file", /\b(run|execute|start)\b/i],
+];
+
+function docAssistRouteTool(question) {
+  const text = String(question || "");
+  const row = DOC_ASSIST_ROUTES.find(([, pattern]) => pattern.test(text));
+  if (!row) return null;
+  if (row[0] !== "find_usages") return { tool: row[0], args: {} };
+  const quoted = /`([A-Za-z_$][\w$]*)`/.exec(text);
+  const after = /\b(?:of|is|does|for)\s+([A-Za-z_$][\w$]*)/i.exec(text);
+  const name = quoted?.[1] || (after && !/^(the|this|that|it|a)$/i.test(after[1]) ? after[1] : "");
+  return { tool: "find_usages", args: name ? { name } : {} };
+}
+
 async function docAssistAsk(action) {
   if (!docCmView || !currentDoc) return toast("Open a code document first.", "info");
   docAssistSyncScope();
@@ -478,6 +502,11 @@ async function docAssistAsk(action) {
   if (action === "fix" && !diagnostic) return docAssistSay("No problem is underlined here. Put the caret on one, or ask a question below.");
   const question = action === "ask" ? $("doc-assist-question").value.trim() : "";
   if (action === "ask" && !question) return docAssistSay("Type a question first.");
+  const routed = action === "ask" && docAssistModelOff() ? docAssistRouteTool(question) : null;
+  if (routed) {
+    docAssistSay(`No model is connected, so the tools answered: ${DOC_ASSIST_TOOL_NAMES[routed.tool]}.`);
+    return docAssistTool(routed.tool, routed.args, { keep: true });
+  }
   docAssist.controller?.abort();
   docAssist.controller = new AbortController();
   docAssist.proposal = null;
@@ -572,6 +601,11 @@ function docAssistApply() {
 }
 
 //: The deterministic tools: the editor's own commands, no model.
+const DOC_ASSIST_TOOL_NAMES = {
+  format_code: "Format", run_tests: "Run tests", run_file: "Run", find_usages: "Find usages",
+  quick_fix: "Quick fix", symbols: "the symbols in this file",
+};
+
 function docAssistTool(tool, args = {}, { keep = false } = {}) {
   if (!docCmView) return;
   if (!keep) docAssistAnswerArea();
@@ -585,6 +619,7 @@ function docAssistTool(tool, args = {}, { keep = false } = {}) {
     run_tests: () => docRunCode({ mode: "test" }),
     run_file: () => docRunCode(),
     find_usages: () => docShowReferences() || docAssistSay("Put the caret on a name first."),
+    symbols: () => docOpenSymbols(),
   }[tool];
   //: After the press that asked has finished: the quick fixes and the uses
   //: open as a menu at the caret, which that same click would close.

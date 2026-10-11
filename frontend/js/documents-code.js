@@ -588,18 +588,145 @@ function docCodeSnippetOptions(CM, ext) {
 //: language, never inside a string or a comment.
 let docNativeSnippetCache = null;
 
+//: **p5.js names in a sketch** (OPEN 1139): a JavaScript document that
+//: defines `setup` or `draw` (run-core.js's test for a sketch) is offered the
+//: vendored p5.min.js's most used names with their arguments. Written here
+//: rather than read out of the 1 MB bundle while typing;
+//: tests/test_docs_1011.py checks every name is in that bundle.
+const DOC_P5_SKETCH = /\bfunction\s+(?:setup|draw)\s*\(/;
+const DOC_P5_NAMES = [
+  ["createCanvas", "(w, h)"], ["resizeCanvas", "(w, h)"], ["background", "(colour)"], ["clear", "()"],
+  ["fill", "(colour)"], ["noFill", "()"], ["stroke", "(colour)"], ["noStroke", "()"], ["strokeWeight", "(weight)"],
+  ["colorMode", "(mode, max)"], ["color", "(r, g, b, a)"], ["lerpColor", "(from, to, amount)"],
+  ["ellipse", "(x, y, w, h)"], ["circle", "(x, y, d)"], ["rect", "(x, y, w, h)"], ["square", "(x, y, s)"],
+  ["line", "(x1, y1, x2, y2)"], ["point", "(x, y)"], ["triangle", "(x1, y1, x2, y2, x3, y3)"],
+  ["quad", "(x1, y1, x2, y2, x3, y3, x4, y4)"], ["arc", "(x, y, w, h, start, stop)"],
+  ["beginShape", "()"], ["vertex", "(x, y)"], ["endShape", "(CLOSE)"],
+  ["text", "(str, x, y)"], ["textSize", "(size)"], ["textAlign", "(horizontal, vertical)"], ["textFont", "(font)"],
+  ["push", "()"], ["pop", "()"], ["translate", "(x, y)"], ["rotate", "(angle)"], ["scale", "(s)"], ["angleMode", "(DEGREES)"],
+  ["random", "(min, max)"], ["randomSeed", "(seed)"], ["noise", "(x, y)"], ["map", "(value, start1, stop1, start2, stop2)"],
+  ["constrain", "(n, low, high)"], ["dist", "(x1, y1, x2, y2)"], ["lerp", "(start, stop, amount)"],
+  ["radians", "(degrees)"], ["degrees", "(radians)"],
+  ["frameRate", "(fps)"], ["noLoop", "()"], ["loop", "()"], ["redraw", "()"], ["millis", "()"],
+  ["createVector", "(x, y)"], ["loadImage", "(path)"], ["image", "(img, x, y, w, h)"],
+  ["imageMode", "(CENTER)"], ["rectMode", "(CENTER)"], ["ellipseMode", "(CORNER)"], ["keyIsDown", "(keyCode)"],
+  ["width", ""], ["height", ""], ["mouseX", ""], ["mouseY", ""], ["pmouseX", ""], ["pmouseY", ""],
+  ["mouseIsPressed", ""], ["keyIsPressed", ""], ["key", ""], ["keyCode", ""], ["frameCount", ""],
+  ["windowWidth", ""], ["windowHeight", ""], ["PI", ""], ["TWO_PI", ""], ["HALF_PI", ""],
+  ["CENTER", ""], ["CORNER", ""], ["CLOSE", ""], ["DEGREES", ""], ["RADIANS", ""],
+  ["preload", "()"], ["windowResized", "()"], ["mousePressed", "()"], ["mouseReleased", "()"],
+  ["mouseDragged", "()"], ["keyPressed", "()"], ["keyReleased", "()"],
+];
+
+function docP5Source() {
+  const options = DOC_P5_NAMES.map(([label, args]) => ({
+    label,
+    type: args ? "function" : /^[A-Z_]+$/.test(label) ? "constant" : "variable",
+    detail: args ? `${args} p5` : "p5",
+    boost: 1,
+  }));
+  return (context) => {
+    if (context.matchBefore(/\.\w*$/)) return null;
+    const word = context.matchBefore(/[A-Za-z_]\w*/);
+    if (!word || (word.from === word.to && !context.explicit)) return null;
+    if (!DOC_P5_SKETCH.test(context.state.doc.toString())) return null;
+    return { from: word.from, options, validFor: /^\w*$/ };
+  };
+}
+
 function docNativeSnippets(CM, ext) {
   if (!docNativeSnippetCache) {
     const quiet = ["String", "FormatString", "TemplateString", "Comment", "LineComment", "BlockComment", "RegExp"];
-    const source = (key) => CM.autocomplete.ifNotIn(quiet, CM.autocomplete.completeFromList(docCodeSnippetOptions(CM, key)));
+    //: Never after a dot: `math.` is a member, not the start of a statement.
+    const source = (key) => {
+      const list = CM.autocomplete.ifNotIn(quiet, CM.autocomplete.completeFromList(docCodeSnippetOptions(CM, key)));
+      return (context) => (context.matchBefore(/\.\w*$/) ? null : list(context));
+    };
     docNativeSnippetCache = {
-      py: CM.python.pythonLanguage.data.of({ autocomplete: source("py") }),
-      js: CM.javascript.javascriptLanguage.data.of({ autocomplete: source("js") }),
+      py: [
+        CM.python.pythonLanguage.data.of({ autocomplete: source("py") }),
+        CM.python.pythonLanguage.data.of({ autocomplete: CM.autocomplete.ifNotIn(quiet, docPyStdlibSource(CM)) }),
+      ],
+      js: [
+        CM.javascript.javascriptLanguage.data.of({ autocomplete: source("js") }),
+        CM.javascript.javascriptLanguage.data.of({ autocomplete: CM.autocomplete.ifNotIn(quiet, docP5Source()) }),
+      ],
     };
   }
   if (ext === "py") return docNativeSnippetCache.py;
   if (ext === "js" || ext === "ts") return docNativeSnippetCache.js;
   return [];
+}
+
+//: **The standard library after a dot** (D9, OPEN 1070): `math.` offers
+//: math's names, each with its signature and its doc's first line, from a
+//: table generated from CPython's `inspect` (scripts/gen_python_completions.py,
+//: frontend/vendor/python-stdlib/stdlib.json, 28 KB gzipped, fetched the first time a
+//: Python file asks). A module counts when the file imports it, by its name
+//: or its `as` name; `from os import path` makes `path.` os.path's.
+let docPyStdlibLoad = null;
+
+function docPyStdlibTable() {
+  if (!docPyStdlibLoad) {
+    docPyStdlibLoad = api("/vendor/python-stdlib/stdlib.json", { silent: true })
+      .then((response) => response.json())
+      .then((table) => table?.modules || {})
+      .catch(() => {
+        docPyStdlibLoad = null;
+        return {};
+      });
+  }
+  return docPyStdlibLoad;
+}
+
+//: The file's module names: alias to module, from its import lines.
+function docPyImports(text) {
+  const found = new Map();
+  for (const m of String(text).matchAll(/^[ \t]*import[ \t]+([^\n#]+)/gm)) {
+    for (const part of m[1].split(",")) {
+      const [, mod, alias] = /^\s*([\w.]+)(?:\s+as\s+(\w+))?\s*$/.exec(part) || [];
+      if (mod) found.set(alias || mod, mod);
+    }
+  }
+  for (const m of String(text).matchAll(/^[ \t]*from[ \t]+([\w.]+)[ \t]+import[ \t]+\(?([^\n#)]+)/gm)) {
+    for (const part of m[2].split(",")) {
+      const [, name, alias] = /^\s*(\w+)(?:\s+as\s+(\w+))?\s*$/.exec(part) || [];
+      if (name) found.set(alias || name, `${m[1]}.${name}`);
+    }
+  }
+  return found;
+}
+
+//: The rows for `name.` (or `a.b.`) in a file, or null.
+function docPyStdlibRows(modules, imports, dotted) {
+  const head = dotted.split(".")[0];
+  const base = imports.get(head);
+  if (!base) return null;
+  const full = [base, ...dotted.split(".").slice(1)].join(".");
+  return modules[full] || null;
+}
+
+function docPyStdlibSource(CM) {
+  return async (context) => {
+    const before = context.matchBefore(/[A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*\.\w*/);
+    if (!before) return null;
+    const dot = before.text.lastIndexOf(".");
+    const modules = await docPyStdlibTable();
+    const rows = docPyStdlibRows(modules, docPyImports(context.state.doc.toString()), before.text.slice(0, dot));
+    if (!rows) return null;
+    const type = { function: "function", class: "class", constant: "constant", namespace: "namespace" };
+    return {
+      from: before.from + dot + 1,
+      validFor: /^\w*$/,
+      options: rows.map(([label, kind, signature, doc]) => ({
+        label,
+        boost: 2,
+        type: type[kind] || "variable",
+        detail: signature ? signature.slice(label.length) : "",
+        info: doc || undefined,
+      })),
+    };
+  };
 }
 
 let docCodeCompletionCache = null;
@@ -641,6 +768,15 @@ function docCodeCompletionData(CM) {
   return docCodeCompletionDataCache;
 }
 
+//: The checks' timing, and no hover card of findings while a pointer menu
+//: is open (OPEN 1089): the menu is what the pointer is on, and prose
+//: documents already hold their own finding cards back the same way
+//: (`docOpenSuggestFor`).
+const DOC_LINT_CONFIG = {
+  delay: DOC_CHECK_DELAY_MS,
+  tooltipFilter: (diagnostics) => (docPointerMenuOpen() ? [] : diagnostics),
+};
+
 //: The code tools for the open document, or nothing. Whether a type counts
 //: as code is the file-type table's own answer (`previewable` is prose);
 //: plain text and CSV have no syntax and no vocabulary, so they get neither.
@@ -658,7 +794,7 @@ function docCodeTools(CM) {
   }
   const native = ["js", "ts", "py", "css", "html"].includes(type.ext);
   return [
-    CM.lint.linter(docCodeLintSource(CM), { delay: DOC_CHECK_DELAY_MS }),
+    CM.lint.linter(docCodeLintSource(CM), DOC_LINT_CONFIG),
     CM.lint.lintGutter(),
     //: The list, opening as you type; Emmet, the CSS values, the ghost text
     //: and Tab (`docCompletionExtras`, part three below).
@@ -1946,6 +2082,7 @@ let docHoverDocsCache = null;
 function docHoverDocs(CM) {
   if (docHoverDocsCache) return docHoverDocsCache;
   docHoverDocsCache = CM.view.hoverTooltip((view, pos, side) => {
+    if (docFileType().ext === "py") return docPyHover(CM, view, pos, side);
     const node = CM.language.syntaxTree(view.state).resolveInner(pos, side);
     const kind = { PropertyName: "css", TagName: "html", AttributeName: "attr" }[node.name];
     if (!kind) return null;
@@ -1973,6 +2110,40 @@ function docHoverDocs(CM) {
     };
   });
   return docHoverDocsCache;
+}
+
+//: A standard library name under the pointer in a Python file (`math.sqrt`,
+//: OPEN 1070): its signature and its doc's first line, the signature help
+//: VS Code's hover gives. Only once the table has been fetched (the first
+//: completion after a dot fetches it), so a hover never waits on a request.
+async function docPyHover(CM, view, pos, side) {
+  const node = CM.language.syntaxTree(view.state).resolveInner(pos, side);
+  if (node.name !== "PropertyName" || node.parent?.name !== "MemberExpression") return null;
+  const dotted = view.state.sliceDoc(node.parent.from, node.from).replace(/\.\s*$/, "").replace(/\s+/g, "");
+  if (!/^[A-Za-z_][\w.]*$/.test(dotted)) return null;
+  const rows = docPyStdlibRows(await docPyStdlibTable(), docPyImports(view.state.doc.toString()), dotted);
+  const name = view.state.sliceDoc(node.from, node.to);
+  const row = rows?.find((r) => r[0] === name);
+  if (!row) return null;
+  return {
+    pos: node.from,
+    end: node.to,
+    above: true,
+    create: () => {
+      const dom = document.createElement("div");
+      dom.className = "cm-hover-doc";
+      const head = document.createElement("code");
+      head.textContent = row[2] || `${dotted}.${name}`;
+      dom.appendChild(head);
+      if (row[3]) {
+        const line = document.createElement("div");
+        line.className = "cm-hover-doc-line";
+        line.textContent = row[3];
+        dom.appendChild(line);
+      }
+      return { dom };
+    },
+  };
 }
 
 //: **Indentation guides** (INBOX 402): a hairline at each indent step of a
@@ -2737,6 +2908,38 @@ function docDebugBreaks() {
   return rows;
 }
 
+//: A document's breakpoints outlive a reload (OPEN row 1059), as VS Code
+//: keeps them in the workspace: kept on this device per document, the
+//: DOC_DEBUG_BREAKS_DOCS most recently set, read once into DOC_DEBUG.breaks.
+const DOC_DEBUG_BREAKS_KEY = "doc-debug-breakpoints";
+const DOC_DEBUG_BREAKS_DOCS = 100;
+
+function docDebugSavedBreaks(id) {
+  if (DOC_DEBUG.breaks.has(id)) return DOC_DEBUG.breaks.get(id);
+  let rows = [];
+  try {
+    const saved = JSON.parse(localStorage.getItem(DOC_DEBUG_BREAKS_KEY) || "{}")[id];
+    if (Array.isArray(saved)) rows = saved.filter((r) => Number.isInteger(r?.line)).map((r) => ({ line: r.line, cond: String(r.cond || "") }));
+  } catch { /* storage refused or unreadable: this tab's breakpoints only */ }
+  DOC_DEBUG.breaks.set(id, rows);
+  return rows;
+}
+
+function docDebugKeepBreaks(id, rows) {
+  //: Typing calls this on every key; storage is written only on a change.
+  const same = JSON.stringify(DOC_DEBUG.breaks.get(id) || []) === JSON.stringify(rows);
+  DOC_DEBUG.breaks.set(id, rows);
+  if (same) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem(DOC_DEBUG_BREAKS_KEY) || "{}");
+    delete saved[id];
+    if (rows.length) saved[id] = rows.map((r) => ({ line: r.line, cond: r.cond || "" }));
+    const ids = Object.keys(saved);
+    for (const old of ids.slice(0, Math.max(0, ids.length - DOC_DEBUG_BREAKS_DOCS))) delete saved[old];
+    localStorage.setItem(DOC_DEBUG_BREAKS_KEY, JSON.stringify(saved));
+  } catch { /* storage refused: kept for this tab only */ }
+}
+
 //: The gutter, the lit line and the keys, built once (the field keeps its
 //: identity across documents; each document's breakpoints come back from
 //: DOC_DEBUG.breaks when its state is made).
@@ -2760,7 +2963,7 @@ function docDebugExtension(CM) {
   const toggle = CM.state.StateEffect.define({ map: (value, mapping) => ({ ...value, pos: mapping.mapPos(value.pos) }) });
   const field = CM.state.StateField.define({
     create: (state) => {
-      const rows = DOC_DEBUG.breaks.get(docHistoryOwner) || [];
+      const rows = docHistoryOwner == null ? [] : docDebugSavedBreaks(docHistoryOwner);
       const ranges = rows.filter((r) => r.line >= 1 && r.line <= state.doc.lines).map((r) => new DebugMark(r.cond).range(state.doc.line(r.line).from));
       return CM.state.RangeSet.of(ranges, true);
     },
@@ -2823,7 +3026,7 @@ function docDebugExtension(CM) {
   const keep = CM.view.EditorView.updateListener.of((update) => {
     const changed = update.transactions.some((tr) => tr.effects.some((e) => e.is(toggle)));
     if (!changed && !update.docChanged) return;
-    if (docHistoryOwner != null) DOC_DEBUG.breaks.set(docHistoryOwner, docDebugBreaks());
+    if (docHistoryOwner != null) docDebugKeepBreaks(docHistoryOwner, docDebugBreaks());
     if (changed) {
       docDebugRender();
       if (DOC_DEBUG.stop) docDebugAct("eval");
@@ -2971,7 +3174,9 @@ function docDebugView() {
 }
 
 //: A name and its value, as one row: text only, never markup.
-function docDebugValueRow(name, value, type, error = false) {
+//: A list, a dict or an object opens one level into its children, as VS
+//: Code's Variables tree does (OPEN row 1058); the row is a disclosure then.
+function docDebugValueRow(name, value, type, error = false, children = null) {
   const li = document.createElement("li");
   li.className = `cm-debug-row${error ? " is-error" : ""}`;
   const n = document.createElement("span");
@@ -2981,7 +3186,20 @@ function docDebugValueRow(name, value, type, error = false) {
   v.className = "cm-debug-value";
   v.textContent = value;
   if (type) v.title = type;
-  li.append(n, v);
+  if (!Array.isArray(children) || !children.length) {
+    li.append(n, v);
+    return li;
+  }
+  li.classList.add("has-children");
+  const tree = document.createElement("details");
+  tree.className = "cm-debug-tree";
+  const summary = document.createElement("summary");
+  summary.append(n, v);
+  const list = document.createElement("ul");
+  list.className = "cm-debug-list cm-debug-children";
+  for (const child of children) list.appendChild(docDebugValueRow(String(child.name), String(child.value), String(child.type || "")));
+  tree.append(summary, list);
+  li.appendChild(tree);
   return li;
 }
 
@@ -3050,14 +3268,14 @@ function docDebugRender() {
   else {
     const locals = Array.isArray(stop.locals) ? stop.locals : [];
     const globals = Array.isArray(stop.globals) ? stop.globals : [];
-    for (const row of locals) parts.vars.appendChild(docDebugValueRow(String(row.name), String(row.value), String(row.type || "")));
+    for (const row of locals) parts.vars.appendChild(docDebugValueRow(String(row.name), String(row.value), String(row.type || ""), false, row.children));
     if (!locals.length) docDebugEmpty(parts.vars, "No local names yet.");
     if (globals.length) {
       const head = document.createElement("li");
       head.className = "cm-debug-sub";
       head.textContent = "Globals";
       parts.vars.appendChild(head);
-      for (const row of globals) parts.vars.appendChild(docDebugValueRow(String(row.name), String(row.value), String(row.type || "")));
+      for (const row of globals) parts.vars.appendChild(docDebugValueRow(String(row.name), String(row.value), String(row.type || ""), false, row.children));
     }
   }
 
@@ -3117,7 +3335,7 @@ const DOC_RUN_EMPTY = {
 //: three lines, the Guide's "Running code" topic at length.
 const DOC_RUN_HELP = [
   "Run sends this file to a sandbox with no network and none of your notes. What it prints and its errors come back in Output; Line N goes to the line.",
-  "JavaScript, TypeScript (types removed, not checked), SQL (an empty SQLite per run) and Python (once installed; Input feeds input()) run. HTML, CSS, SVG and p5.js sketches show as a page; Live refreshes it as you type.",
+  "JavaScript, TypeScript (types removed, not checked), SQL (a SQLite per run, with any CSV document the query names as a table) and Python (once installed; Input feeds input()) run. HTML, CSS, SVG and p5.js sketches show as a page; Live refreshes it as you type.",
   "Problems lists every finding the checks underline. Tests lists each test with its time, a failure underlined on its line. Console evaluates a line in what the last run left: Python for a .py file, JavaScript for the rest.",
   "Debug (F5, or the Debug tab's first button) runs JavaScript, TypeScript or Python to the first breakpoint (F9, or click beside a line number; right-click for a condition), then steps: F10 over, F11 in, Shift+F11 out, Shift+F5 stop. The tab shows variables, watches, the call stack and the breakpoints.",
   "The head's buttons are icons; point at one for its name. Ctrl+J shows or hides the panel, Ctrl+Shift+M opens Problems, Ctrl+Shift+Y the Console, Ctrl+Shift+D Debug; drag the top edge for its height, kept for each tab. A run still going after two seconds is in Activity, where Stop ends it too.",
@@ -3529,11 +3747,28 @@ async function docConsoleEval(source) {
   docRunSetStatus("Evaluating", true);
   docRunSend({ type: "eval", mmRun: Math.max(0, docRun.id), mmEval: seq, source: text });
   clearTimeout(docRun.timer);
-  //: Python's first line may start the runtime: a minute, as a run's start.
-  docRun.timer = setTimeout(() => {
-    if (docRun && docRun.evalId === seq) docRunStop("Stopped: the line was still running.");
-  }, lang === "python" ? DOC_RUN_START_MS : DOC_RUN_TIMEOUT_MS);
+  //: Python's first line may start the runtime: a minute, as a run's start,
+  //: until the sandbox says the line has started (`docConsoleMessage`).
+  docRun.timer = setTimeout(() => docConsoleOvertime(seq, lang), lang === "python" ? DOC_RUN_START_MS : DOC_RUN_TIMEOUT_MS);
   return true;
+}
+
+//: A console line still running at its limit (OPEN row 1065). Python is
+//: interrupted (KeyboardInterrupt in the line, through Pyodide's interrupt
+//: buffer), so the namespace the last run left is kept; the worker goes only
+//: if that does not answer within DOC_CONSOLE_INTERRUPT_MS. A JavaScript
+//: loop cannot be interrupted inside its worker, so that worker goes.
+const DOC_CONSOLE_INTERRUPT_MS = 3000;
+
+function docConsoleOvertime(seq, lang) {
+  if (!docRun || docRun.evalId !== seq) return;
+  if (lang !== "python" || docRun.interrupted === seq) {
+    docRunStop("Stopped: the line was still running.");
+    return;
+  }
+  docRun.interrupted = seq;
+  docRunSend({ type: "interrupt", mmRun: Math.max(0, docRun.id) });
+  docRun.timer = setTimeout(() => docConsoleOvertime(seq, lang), DOC_CONSOLE_INTERRUPT_MS);
 }
 
 //: What the sandbox says about an evaluation: its prints and errors as rows,
@@ -3545,14 +3780,24 @@ function docConsoleMessage(data) {
     docRunSetStatus(String(data.text || "Evaluating"), true);
     return;
   }
+  if (data.t === "started") {
+    //: The runtime is up and the line is running: its own ten seconds now.
+    const seq = docRun.evalId;
+    clearTimeout(docRun.timer);
+    docRun.timer = setTimeout(() => docConsoleOvertime(seq, docConsoleLang()), DOC_RUN_TIMEOUT_MS);
+    return;
+  }
   if (data.t === "log") {
     docRunRow(String(data.level || "log"), String(data.text ?? ""), Number(data.line) || null, log);
     return;
   }
   if (data.t !== "eval-done") return;
   clearTimeout(docRun.timer);
+  const interrupted = docRun.interrupted === docRun.evalId;
   docRun.evalId = 0;
+  docRun.interrupted = 0;
   if (typeof data.text === "string" && data.text !== "") docRunRow(data.ok === false ? "error" : "result", String(data.text), null, log);
+  if (interrupted) docRunRow("info", `Stopped after ${DOC_RUN_TIMEOUT_MS / 1000} seconds. The names the last run left are kept.`, null, log, false);
   docRunSetStatus("Ready.", false);
 }
 
@@ -3958,6 +4203,86 @@ function docRunArmTimeout(id) {
   }, DOC_RUN_TIMEOUT_MS);
 }
 
+//: **A CSV document is a table to a SQL run** (D5, OPEN 1069). A query that
+//: names a CSV document's table (its title without ".csv", in lower case
+//: with anything but letters, digits and _ as _: "Sales 2026.csv" is
+//: `sales_2026`) gets that document loaded first, its first row the column
+//: names. Nothing to pick: writing the name is the choice, as it is in any
+//: database. Numbers stay numbers, so `WHERE amount > 9` compares as numbers.
+const DOC_SQL_CSV_TABLES = 8;
+const DOC_SQL_CSV_ROWS = 50000;
+
+function docSqlTableName(title) {
+  const base = String(title || "").replace(/\.csv$/i, "").trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!base) return "";
+  return /^[0-9]/.test(base) ? `t_${base}` : base;
+}
+
+//: RFC 4180: quoted fields may hold commas, quotes ("") and line breaks.
+//: One row past the cap is read, so a cut table can say it was cut.
+function docSqlCsvRows(text, cap = DOC_SQL_CSV_ROWS + 2) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  const src = String(text || "").replace(/^\uFEFF/, "");
+  for (let i = 0; i < src.length && rows.length < cap; i += 1) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"' && src[i + 1] === '"') { cell += '"'; i += 1; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === "") quoted = true;
+    else if (ch === ",") { row.push(cell); cell = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && src[i + 1] === "\n") i += 1;
+      row.push(cell); cell = "";
+      if (row.length > 1 || row[0] !== "") rows.push(row);
+      row = [];
+    } else cell += ch;
+  }
+  if (rows.length < cap && (cell !== "" || row.length)) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function docSqlCsvTable(name, text) {
+  const rows = docSqlCsvRows(text);
+  if (!rows.length) return null;
+  const seen = new Set();
+  const columns = rows[0].map((head, i) => {
+    let col = String(head).trim() || `column_${i + 1}`;
+    while (seen.has(col.toLowerCase())) col = `${col}_${i + 1}`;
+    seen.add(col.toLowerCase());
+    return col;
+  });
+  const number = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/;
+  const body = rows.slice(1, DOC_SQL_CSV_ROWS + 1).map((r) =>
+    columns.map((_, i) => {
+      const v = r[i] === undefined ? null : r[i];
+      return v !== null && number.test(v.trim()) ? Number(v) : v;
+    })
+  );
+  return { name, columns, rows: body, cut: rows.length - 1 > DOC_SQL_CSV_ROWS };
+}
+
+//: The CSV documents the query names, read in one request.
+async function docSqlCsvTables(sql) {
+  const words = new Set(String(sql || "").toLowerCase().match(/[a-z_][a-z0-9_]*/g) || []);
+  const docs = await apiJson("/documents/contents?file_type=csv");
+  const tables = [];
+  const taken = new Set();
+  for (const doc of docs || []) {
+    const name = docSqlTableName(doc.title);
+    if (!name || taken.has(name) || !words.has(name) || doc.id === currentDoc?.id) continue;
+    const table = docSqlCsvTable(name, doc.content);
+    if (!table) continue;
+    taken.add(name);
+    tables.push(table);
+    if (tables.length >= DOC_SQL_CSV_TABLES) break;
+  }
+  return tables;
+}
+
 //: Run the open file: the panel opens (or is reused), the output is
 //: cleared, and the text as it is now goes to the sandbox as one request of
 //: the run protocol (run-core.js). `options.mode` is "run" or "test";
@@ -4016,6 +4341,16 @@ async function docRunCode(options = {}) {
     path: currentDoc?.title || "",
     stdin: docRun.stdin?.value || "",
   };
+  if (type.ext === "sql") {
+    try {
+      request.tables = await docSqlCsvTables(source);
+      for (const t of request.tables) {
+        if (t.cut) docRunRow("info", `${t.name}: only the first ${DOC_SQL_CSV_ROWS.toLocaleString("en")} rows were loaded.`, null);
+      }
+    } catch {
+      request.tables = [];
+    }
+  }
   const id = ++docRunSeq;
   docRun.id = id;
   docRunSetStatus("Preparing", true);
@@ -4263,7 +4598,7 @@ function docCompletionExtras(CM, type) {
     type.ext === "xml" ? CM.state.EditorState.languageData.of(() => docEmmetXmlData) : [],
     type.ext === "xml" ? docXmlAutoClose(CM) : [],
     ["css", "html"].includes(type.ext) ? docColorSwatches(CM) : [],
-    ["css", "html"].includes(type.ext) ? docHoverDocs(CM) : [],
+    ["css", "html", "py"].includes(type.ext) ? docHoverDocs(CM) : [],
     docIndentGuides(CM, type.indent || "  "),
     DOC_SYMBOL_EXTS.has(type.ext) ? docStickyScroll(CM) : [],
     docNativeSnippets(CM, type.ext),

@@ -239,10 +239,6 @@ LAYOUT_READ_AFTER_WRITE_LOOPS = {
     ("app.js", "fitComposerToDock"),
     # The read is of a <pre> not yet in the document, which forces nothing.
     ("app.js", "renderTasks"),
-    # One gutter per numbered box, a handful at most. documents.js belongs to
-    # the document editor's own work; noted in archive/agent-remaining/perfpolish.md.
-    ("documents.js", "syncDocGutterMetrics"),
-    ("documents.js", "renderDocGutter"),
 }
 
 _READ = re.compile(

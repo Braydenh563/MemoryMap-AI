@@ -5766,6 +5766,25 @@ button.ghost.doc-template-choice.wb-template-choice {
   margin: 0 0 var(--space-2);
 }
 
+/* The no-model line in a side pane (DOCUMENTS decision 10) is narrow at every
+   width, so it takes the phone's grid: the words beside the icon, the action
+   under the words. As a flex row the button kept its one-line width and the
+   words wrapped into what was left, 328px tall at 1440. */
+#doc-assist-model-line,
+#doc-ai-offline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  align-items: start;
+}
+
+#doc-assist-model-line > .ghost,
+#doc-ai-offline > .ghost {
+  grid-column: 2;
+  justify-self: start;
+}
+
 @media (pointer: coarse) {
   .doc-assist-form > input {
     min-height: var(--target-min);

@@ -2824,6 +2824,8 @@ const DOC_COMMANDS = [
     code: true, run: () => docPanelToggle(null) },
   { id: "console", icon: "ph:terminal", label: "Open the console: a line of Python or JavaScript in what the last run left", keys: "Ctrl+Shift+Y",
     code: true, run: () => docPanelToggle("console") },
+  { id: "debug-panel", icon: "ph:bug", label: "Open the Debug tab: variables, watches, the call stack and breakpoints", keys: "Ctrl+Shift+D",
+    code: true, run: () => docPanelToggle("debug") },
   { id: "command-palette", icon: "ph:command", label: "Run an editor command by name (also F1)", keys: "Ctrl+Shift+P",
     code: true, run: () => docIdeOpenPalette() },
   { id: "split", icon: "ph:columns", label: "Split the editor: this file again, beside itself", keys: "Ctrl+\\",
@@ -3871,11 +3873,23 @@ const DOC_GUTTER_BASELINE = 0.43;
 //: 200 and the gutter stuck at 139, which is two and a half lines of drift
 //: that grows the further down you scroll. Same height, same content height,
 //: same range, and the assignment is then exact.
+//: **Every read, then every write** (OPEN 1076, perfpolish): a write and a
+//: layout read per gutter forced one layout per gutter; read all of them
+//: first and the writes cost one layout after.
 function syncDocGutterMetrics(only = null) {
+  const jobs = [];
   for (const { gutter, box } of docGutters()) {
     if (only && box !== only) continue;
     if (gutter.classList.contains("hidden")) continue;
     const metrics = getComputedStyle(box);
+    jobs.push({
+      gutter,
+      metrics: Object.fromEntries([...DOC_GUTTER_PROPS, "fontSize"].map((prop) => [prop, metrics[prop]])),
+      own: parseFloat(getComputedStyle(gutter).fontSize),
+      height: box.offsetHeight,
+    });
+  }
+  for (const { gutter, metrics, own, height } of jobs) {
     for (const prop of DOC_GUTTER_PROPS) gutter.style[prop] = metrics[prop];
     //: **On the text's baseline, not its centre** (INBOX 590). A smaller
     //: figure in the same line box is centred on the row, which puts its
@@ -3883,12 +3897,12 @@ function syncDocGutterMetrics(only = null) {
     //: (measured 2.1px for 11.2px figures beside 16px text, `gutter.js`).
     //: The figures move down by that much and the bottom padding gives it
     //: back, so the column's scroll range stays the box's.
-    const drop = DOC_GUTTER_BASELINE * (parseFloat(metrics.fontSize) - parseFloat(getComputedStyle(gutter).fontSize));
+    const drop = DOC_GUTTER_BASELINE * (parseFloat(metrics.fontSize) - own);
     if (drop > 0) {
       gutter.style.paddingTop = `calc(${metrics.paddingTop} + ${drop.toFixed(2)}px)`;
       gutter.style.paddingBottom = `max(0px, calc(${metrics.paddingBottom} - ${drop.toFixed(2)}px))`;
     }
-    gutter.style.height = `${box.offsetHeight}px`;
+    gutter.style.height = `${height}px`;
   }
 }
 
@@ -3913,9 +3927,11 @@ function watchDocGutter(box) {
 }
 
 function renderDocGutter(only = null) {
-  for (const { gutter, box } of docGutters()) {
-    if (only && box !== only) continue;
-    if (gutter.classList.contains("hidden")) continue;
+  const pairs = docGutters().filter(({ gutter, box }) => (!only || box === only) && !gutter.classList.contains("hidden"));
+  //: The layout reads first, for the reason `syncDocGutterMetrics` gives.
+  const heights = pairs.map(({ box }) => box.offsetHeight);
+  const tops = pairs.map(({ box }) => box.scrollTop);
+  for (const [index, { gutter, box }] of pairs.entries()) {
     const lines = box.value.split("\n").length;
     // One text node of numbers, not one element per line: a 5,000-line file
     // is 5,000 elements to build and lay out on every keystroke otherwise,
@@ -3936,8 +3952,8 @@ function renderDocGutter(only = null) {
     //: Height on every paint, not only on mount: the textarea grows and
     //: shrinks with the pane, with the chat dock, and with its own resize
     //: handle, and none of those tells this code anything.
-    gutter.style.height = `${box.offsetHeight}px`;
-    gutter.scrollTop = box.scrollTop;
+    gutter.style.height = `${heights[index]}px`;
+    gutter.scrollTop = tops[index];
   }
 }
 
@@ -5184,7 +5200,11 @@ function docHtmlToMarkdown(html) {
         if (inner) out.push(inner.split("\n").map((line) => `> ${line}`.trimEnd()).join("\n"));
       } else if (tag === "PRE") {
         const code = child.textContent.replace(/\n$/, "");
-        out.push("```\n" + code + "\n```");
+        //: A block's language, when the page names it (`language-js` on the
+        //: pre or its code, as GitHub and a Word import write it).
+        const inner = child.querySelector("code");
+        const lang = (/(?:^|\s)language-([\w+#-]+)/.exec(`${child.className} ${inner?.className || ""}`) || [])[1] || "";
+        out.push("```" + lang + "\n" + code + "\n```");
       } else if (tag === "TABLE") {
         const grid = [...child.querySelectorAll("tr")].map((tr) =>
           [...tr.children].map((cell) => inline(cell).replace(/\s+/g, " ").replace(/\|/g, "\\|").trim())
@@ -10063,11 +10083,11 @@ const MD_ACTIONS = {
   h1: { line: "# " },
   h2: { line: "## " },
   h3: { line: "### " },
-  bold: { wrap: "**", placeholder: "bold text" },
-  italic: { wrap: "*", placeholder: "italic text" },
-  strike: { wrap: "~~", placeholder: "struck through" },
-  code: { wrap: "`", placeholder: "code" },
-  highlight: { wrap: "==", placeholder: "highlighted" },
+  bold: { wrap: MD_INLINE_MARKS.bold, placeholder: "bold text" },
+  italic: { wrap: MD_INLINE_MARKS.italic, placeholder: "italic text" },
+  strike: { wrap: MD_INLINE_MARKS.strike, placeholder: "struck through" },
+  code: { wrap: MD_INLINE_MARKS.code, placeholder: "code" },
+  highlight: { wrap: MD_INLINE_MARKS.highlight, placeholder: "highlighted" },
   clearformat: { custom: "clearformat" },
   //: The one icon and emoji picker (MINDMAP_PLAN decision 46).
   emoji: { custom: "emoji" },
@@ -12465,12 +12485,10 @@ async function openDocReplace() {
 //: The documents a replace would change, read fresh: the list's own rows hold
 //: no text, and a count from stale text would promise a change it cannot make.
 async function docReplaceScan(pattern) {
-  const list = await apiJson("/documents");
   const out = [];
-  for (const doc of list) {
-    const full = await apiJson(`/documents/${doc.id}`);
-    const count = (full.content || "").match(pattern)?.length || 0;
-    if (count) out.push({ id: full.id, title: full.title, content: full.content || "", count });
+  for (const doc of await apiJson("/documents/contents")) {
+    const count = doc.content.match(pattern)?.length || 0;
+    if (count) out.push({ ...doc, count });
   }
   return out;
 }
@@ -14368,6 +14386,7 @@ $("doc-find-next").addEventListener("click", () => docFindStep(1));
 $("doc-find-prev").addEventListener("click", () => docFindStep(-1));
 $("doc-replace-one").addEventListener("click", docReplaceOne);
 $("doc-replace-all").addEventListener("click", docReplaceAll);
+$("doc-replace-everywhere").addEventListener("click", () => openDocReplace());
 
 //: Leaving with unsaved edits would lose them; autosave hasn't fired yet.
 //: The `beforeunload` guard for this is centralised in navigation.js
@@ -15615,8 +15634,13 @@ function docSpellable(text, word, start, end) {
   //: more letters is part of something that is not prose: utf-8, app.js,
   //: me@example.com, C:\\Users. The word regex stops at those characters, so
   //: the only way to see them is to look at what is on either side.
-  const before = start > 0 ? text[start - 1] : "";
-  const after = end < text.length ? text[end] : "";
+  //: A suggestion's marker is a boundary, not a symbol (OPEN 1088): `{++`
+  //: before and `++}` after (and the other CriticMarkup pairs) left
+  //: `{++faque++}` with no finding while `{++the faque ++}` had one.
+  const opened = /(?:\{\+\+|\{--|\{~~|\{==|\{>>|~>)$/.test(text.slice(Math.max(0, start - 3), start));
+  const closed = /^(?:\+\+\}|--\}|~~\}|==\}|<<\}|~>)/.test(text.slice(end, end + 3));
+  const before = start > 0 && !opened ? text[start - 1] : "";
+  const after = end < text.length && !closed ? text[end] : "";
   if (/[0-9_/@\\#$%&*+=<>~]/.test(before) || /[0-9_/@\\#$%&*+=<>~]/.test(after)) return false;
   if (after === "." && /[A-Za-z]/.test(text[end + 1] || "")) return false;
   if (before === "." && /[A-Za-z]/.test(text[start - 2] || "")) return false;
@@ -19744,6 +19768,12 @@ function docCmTheme(CM) {
       ".cm-debug-name": { flex: "none", maxWidth: "45%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--accent-text)" },
       ".cm-debug-value": { flex: "1", minWidth: "0", whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: "var(--text)" },
       ".cm-debug-row.is-error .cm-debug-value": { color: "var(--error)" },
+      ".cm-debug-row.has-children": { display: "block" },
+      ".cm-debug-tree > summary": { display: "flex", alignItems: "baseline", gap: "var(--space-2)", minWidth: "0", cursor: "pointer", listStyle: "none" },
+      ".cm-debug-tree > summary::-webkit-details-marker": { display: "none" },
+      ".cm-debug-tree > summary::before": { content: '"\\25B8"', flex: "none", color: "var(--muted)" },
+      ".cm-debug-tree[open] > summary::before": { content: '"\\25BE"' },
+      ".cm-debug-children": { paddingInlineStart: "var(--space-3)", borderInlineStart: "1px solid var(--border)", marginInlineStart: "var(--space-1)" },
       ".cm-debug-sub": { marginTop: "var(--space-1)", color: "var(--muted)", fontSize: "var(--text-xs)" },
       ".cm-debug-empty": { color: "var(--muted)" },
       ".cm-debug-go": { minWidth: "0", textAlign: "start", fontFamily: "var(--mono, ui-monospace, monospace)" },

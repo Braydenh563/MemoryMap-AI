@@ -288,6 +288,8 @@ MODEL_GATED_CONTROLS = {
     "extract-commit": "/entries/extract/commit",
     "doc-ai": "/documents/<id>/ai-edit",
     "doc-ai-run": "/documents/<id>/ai-edit",
+    # Its instruction field, gated with it (DOCUMENTS decision 10, 2026-10-11).
+    "doc-ai-instruction": "/documents/<id>/ai-edit",
     "doc-extract": "/entries/extract/preview",
     "wb-extract-notes": "/entries/extract/preview",
     #: **Atlas is not here, and that is this rule's own rule** (INBOX 304).

@@ -250,13 +250,21 @@ def asset_stamps() -> dict[str, str]:
     return stamps
 
 
-def served_offline_html() -> bytes:
+#: The pages of their own whose local stamps are rewritten as they are
+#: served. `clip.html` and `capture.html` joined (OPEN 1101): a plain
+#: `?v=<version>` let an edit inside one version be served stale from the
+#: immutable HTTP cache.
+STAMPED_PAGES = ("offline.html", "clip.html", "capture.html")
+
+
+def served_offline_html(name: str = "offline.html") -> bytes:
     """`offline.html` as served: the page the service worker shows when the
     server cannot be reached (frontend/sw.js), with its local stamps given
     each file's hash exactly as `index.html`'s are, so the stylesheets it
-    links are the same URLs (and the same cache entries) the app loaded."""
-    page = FRONTEND_DIR / "offline.html"
-    stripped = asset_strip.strip_for_path("offline.html", page.read_bytes())
+    links are the same URLs (and the same cache entries) the app loaded.
+    The same for the other `STAMPED_PAGES`."""
+    page = FRONTEND_DIR / name
+    stripped = asset_strip.strip_for_path(name, page.read_bytes())
     return _STAMPED_URL.sub(
         lambda m: m.group(1) + b"?v=" + _stamp_for(m.group(1).decode()).encode(), stripped
     )
@@ -388,8 +396,8 @@ class RevalidatedStatic(StaticFiles):
             response = HTMLResponse(content=body)
             response.headers["Cache-Control"] = "no-cache"
             return response
-        if path == "offline.html" and scope["method"] in ("GET", "HEAD"):
-            response = HTMLResponse(content=await run_in_threadpool(served_offline_html))
+        if path in STAMPED_PAGES and scope["method"] in ("GET", "HEAD"):
+            response = HTMLResponse(content=await run_in_threadpool(served_offline_html, path))
             response.headers["Cache-Control"] = "no-cache"
             return response
         strip = self._strippable(path)

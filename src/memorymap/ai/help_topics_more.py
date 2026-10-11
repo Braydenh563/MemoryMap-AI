@@ -1048,17 +1048,18 @@ MORE_TOPICS.extend(
             "id": "editor-offers",
             "keywords": (
                 "offers under the note", "offers while i write", "remind me from a note",
-                "sum checked", "check my sums", "wrong sum", "link suggestion", "suggest a link",
+                "sum checked", "check my sums", "wrong sum", "wrong total", "check the total", "link suggestion", "suggest a link",
                 "filing suggestion", "why this category", "chips under the note",
             ),
             "body": (
                 "While you write a note (Capture, or a note's Edit form), offers show as "
                 "chips under the box when you pause: a day in the text becomes Remind me "
                 "(press it to set the reminder, with Undo), a sum written with a wrong "
-                "answer shows the right one (press it to put it in), a name another note "
+                "answer shows the right one (press it to put it in), and so does a Total: "
+                "line under a column of amounts that does not add up; a name another note "
                 "opens with becomes a [[link]], and File in names the category with its "
                 "reason beside it. Nothing is offered on quoted words: text in quotation "
-                "marks, a code span or a quote line. At most five show at once. It all "
+                "marks, a code span or block, or a quote line. At most five show at once. It all "
                 "works with no AI model."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
@@ -1811,15 +1812,18 @@ MORE_TOPICS.extend(
                 "run code", "run a file", "run python", "run javascript", "run typescript",
                 "typescript", "sql", "sqlite", "query", "p5", "p5.js", "sketch", "preview css",
                 "preview svg", "svg", "unit test", "unit tests", "run tests", "unittest",
-                "input()", "run selection", "run cell", "output panel", "pyodide",
+                "input()", "csv table", "query a csv", "run selection", "run cell", "output panel", "pyodide",
             ),
             "body": (
                 "Run (Ctrl+Shift+Enter, beside Format) runs a code document in a "
                 "sandbox with no network and none of your notes, and shows what it "
                 "prints, its errors and their lines in the Output panel under the "
-                "editor. JavaScript runs as it is; TypeScript runs with its types "
-                "removed, not checked; SQL runs against an empty SQLite database "
-                "made for the run, each statement's result a table; Python runs "
+                "editor. JavaScript runs as it is (JSX in it becomes React.createElement "
+                "calls); TypeScript runs with its types "
+                "removed, not checked; SQL runs against a SQLite database made for "
+                "the run, each statement's result a table, and a CSV document the "
+                "query names is a table in it (Sales 2026.csv is sales_2026, its "
+                "first row the columns); Python runs "
                 "once Python is installed in Settings, Packages (until then Run is "
                 "greyed and the line beside it goes there), and input() reads its "
                 "lines from the panel's Input box. HTML, CSS (over a sample page), "
@@ -1854,9 +1858,11 @@ MORE_TOPICS.extend(
                 "Debug runs a JavaScript, TypeScript or Python document to its "
                 "first breakpoint and stops there. Click beside a line number (or "
                 "press F9 on the line) for a breakpoint; right-click it to add a "
-                "condition, and it stops only when that is true. Press F5, or "
+                "condition, and it stops only when that is true. A document keeps "
+                "its breakpoints on this device after a reload. Press F5, or "
                 "Start debugging in the run panel's Debug tab; the stopped line is lit, and "
-                "the Debug tab shows Variables (the frame's names, then Globals), "
+                "the Debug tab shows Variables (the frame's names, then Globals; a "
+                "list, dict or object opens into its items), "
                 "Watch (type an expression under it; each stop evaluates it), the "
                 "Call stack (a row goes to its line) and Breakpoints. F10 steps "
                 "over a line, F11 into a call, Shift+F11 out of the function, F5 "
@@ -1891,9 +1897,12 @@ MORE_TOPICS.extend(
                 "the editor, where one Ctrl+Z takes it out, and Reject leaves the "
                 "file alone. With no model, Fix applies the quick fix, the tools "
                 "row (Quick fix, Format, Run tests, Find usages) works as it is, "
-                "and a question goes to the needle extra when it is installed, "
-                "which picks one of those tools; otherwise the panel says what "
-                "needs a model. The Snippets tab lists the "
+                "a question those tools answer (format, run the tests, where a name "
+                "is used, the symbols) runs the tool, and any other goes to the "
+                "needle extra when it is installed; otherwise a Needs a model line "
+                "links to Settings. Explain, Write tests, Refactor and the inline "
+                "Ask bar (Ctrl+J) stay on screen, disabled, and a press says why. "
+                "The Snippets tab lists the "
                 "built-in library and your own snippets, this file's language "
                 "first (Show every language for the rest); the search matches "
                 "names, tags and languages, and #io matches the tag io. A row "

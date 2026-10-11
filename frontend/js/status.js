@@ -2152,6 +2152,16 @@ function syncModelGatedControls(status = modelStatus) {
   );
   //: UX-12: any other AI-only widget names its own line.
   for (const line of document.querySelectorAll("[data-offline-line]")) renderAiOfflineNotice(line, line.dataset.offlineLine);
+  //: A field that still works with no model says what it does then.
+  for (const field of document.querySelectorAll("[data-offline-placeholder]")) {
+    if (field.dataset.onlinePlaceholder === undefined) field.dataset.onlinePlaceholder = field.placeholder;
+    field.placeholder = off ? field.dataset.offlinePlaceholder : field.dataset.onlinePlaceholder;
+  }
+  //: Surfaces built in script (the inline AI bar) follow the change live.
+  if (syncModelGatedControls.off !== off) {
+    syncModelGatedControls.off = off;
+    document.dispatchEvent(new CustomEvent("mm-model-gate", { detail: { off } }));
+  }
   syncAgentPaletteAvailability();
   renderChatModeSeg();
 }

@@ -741,6 +741,13 @@ function helpApplySearch(query) {
   const floor = best >= 2 ? Math.max(2, best * HELP_RUNNER_UP) : 1;
   for (const list of lists) {
     let any = false;
+    //: The best match first within its group while searching, and the
+    //: written order back once the box is cleared (OPEN 1109: a topic held by
+    //: its name sat below weaker ones, help top-3 38/60 against Settings' 58/60).
+    const order = [...list.children];
+    order.forEach((details, at) => { if (details._helpAt === undefined) details._helpAt = at; });
+    order.sort((a, b) => (searching ? tiers.get(b) - tiers.get(a) : 0) || a._helpAt - b._helpAt);
+    if (order.some((details, at) => details !== list.children[at])) list.append(...order);
     for (const details of list.children) {
       total += 1;
       const hit = !searching || tiers.get(details) >= floor;

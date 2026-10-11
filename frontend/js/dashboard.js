@@ -4354,7 +4354,9 @@ async function renderNightWidget(body) {
   line.className = "muted night-questions";
   const oldest = summary.oldest;
   const words = `${summary.open} open question${summary.open === 1 ? "" : "s"}`;
-  line.textContent = oldest ? `${words}. The oldest: “${oldest.text}”` : `${words}.`;
+  //: `display` is the question without its markdown, as the Questions view
+  //: shows it; `text` printed "**why**" with its stars (OPEN 1114's audit).
+  line.textContent = oldest ? `${words}. The oldest: “${oldest.display || oldest.text}”` : `${words}.`;
   const open = document.createElement("button");
   open.type = "button";
   open.className = "ghost small";

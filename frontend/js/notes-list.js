@@ -445,6 +445,20 @@ function matchesSearch(entry) {
   return query.words.every((word) => haystack.includes(word));
 }
 
+// The inline marks the writing side inserts (MD_ACTIONS' toolbars in
+// documents.js, which editor.js's "/" menu reuses) and INLINE_MD below reads
+// back. One table, so a mark cannot be written that the renderer does not
+// draw: the Red/Grey highlight bug lived in the gap between the two.
+// tests/test_docs_1011.py runs each mark through INLINE_MD. `$` math is
+// drawn by documents.js's docMathTree; `%%` comments are never rendered.
+const MD_INLINE_MARKS = {
+  bold: "**",
+  italic: "*",
+  strike: "~~",
+  code: "`",
+  highlight: "==",
+};
+
 // Inline markdown in note text, deliberately only the inline kind: block
 // markdown (headings, tables, lists) makes a list of notes very tall, and
 // what people type in a note is bold, a little italic, the odd `code`.
@@ -3140,9 +3154,18 @@ function reminderCountChip(entry, options = {}) {
 const noteTopicsCache = new Map();
 const _noteTopicsInFlight = new Set();
 
+//: A topic the graph named after a tag repeats the tag chip already on the
+//: card, so it is left off there; case, a leading # and separators do not count.
+function topicRepeatsTag(name, tags) {
+  const key = (text) => String(text || "").toLowerCase().replace(/^#/, "").replace(/[\s_-]+/g, " ").trim();
+  const topic = key(name);
+  return Boolean(topic) && (tags || []).some((tag) => key(tag) === topic);
+}
+
 function noteTopicChip(entry) {
   const topic = noteTopicsCache.get(entry.id);
   if (!topic || entry.is_board || entry.is_draft) return null;
+  if (topicRepeatsTag(topic.name, entry.tags)) return null;
   const mark = chip(`ph:circles-three ${topic.name}`, "refs topic", async (event) => {
     event.stopPropagation();
     await switchTab("graph");

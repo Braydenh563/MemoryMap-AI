@@ -73,3 +73,12 @@ def test_debug_says_why_in_one_line_where_it_cannot_run():
 def test_the_session_is_one_object_not_lets():
     assert CODE.count("\nconst DOC_DEBUG = {") == 1
     assert "\nlet docDebug" not in CODE
+
+
+def test_the_debug_tabs_chord_has_a_row_so_the_sheet_lists_it():
+    """OPEN row 1062: Ctrl+Shift+D was answered by the editor but had no row
+    in the command table, so the keys sheet and the palette did not list it."""
+    table = DOCS[DOCS.index("// DOC-COMMANDS-BEGIN") : DOCS.index("// DOC-COMMANDS-END")]
+    row = table[table.index('id: "debug-panel"') :]
+    row = row[: row.index("},")]
+    assert 'keys: "Ctrl+Shift+D"' in row and 'docPanelToggle("debug")' in row

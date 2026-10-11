@@ -857,6 +857,11 @@ function editorBlockRows(context) {
     add({ id: "image-caption", group: "Media", icon: "ph:image-square", label: "Image with caption", about: "Centred, with a line under it", keys: "![Caption|center](url)", keywords: ["image", "caption", "figure", "photo", "centre", "center"], run: (t) => editorBlock(t, "![A caption|center](", "https://", ")") });
   }
   add({ id: "codeblock", group: "Media", icon: "ph:code", label: "Code block", about: "Pick a language next; highlighted and copyable", keys: "```", keywords: ["code", "fence", "snippet", "program", "language", "syntax"], sample: "```js\nconst answer = 42;\n```", run: (t) => { editorBlock(t, "```", "", ""); editorBackOverTrail(t); editorOpenMenu(t, "```"); } });
+  if (inDocument) {
+    //: A starter the document's Live view draws at once (OPEN 1119): an empty
+    //: ```mermaid fence drew nothing until its syntax was looked up.
+    add({ id: "flowchart", group: "Media", icon: "ph:flow-arrow", label: "Flowchart", about: "Boxes and arrows, drawn from the text", keys: "```mermaid", keywords: ["flowchart", "diagram", "mermaid", "chart", "boxes", "arrows", "process"], sample: "flowchart TD\n  A[Start] --> B[Next]", run: (t) => editorBlock(t, "```mermaid\nflowchart TD\n  A[Start] --> B[Next]\n```", "", "") });
+  }
   add({ id: "math", group: "Media", icon: "ph:function", label: "Maths block", about: "A formula on its own line, typeset", keys: "$$ ... $$", keywords: ["math", "maths", "formula", "equation", "latex", "tex", "block"], sample: "$$ e^{i\\pi} + 1 = 0 $$", run: (t) => editorBlock(t, "$$ ", "x^2 + y^2 = z^2", " $$") });
   add({ id: "math-inline", group: "Media", icon: "ph:math-operations", label: "Inline maths", about: "A formula inside a sentence", keys: "$ ... $", keywords: ["math", "inline", "formula", "latex", "tex"], run: act("math") });
 
@@ -1820,7 +1825,11 @@ function selectionBarElement() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ghost small icon-button";
-    if (action.inlineAi) button.dataset.inlineAi = "1";
+    if (action.inlineAi) {
+      button.dataset.inlineAi = "1";
+      button.dataset.needsModel = "Rewriting with Atlas needs a model";
+      button.dataset.modelOffer = "Ask Atlas about this selection, beside it, answers from your notes without one.";
+    }
     if (action.md) button.dataset.md = action.md;
     button.title = action.title;
     button.setAttribute("aria-label", action.title);
@@ -1838,6 +1847,12 @@ function selectionBarElement() {
         return;
       }
       if (action.inlineAi) {
+        //: With no model this is the gate's offer (`data-model-offer`): the
+        //: press says why, rather than opening a bar that cannot answer.
+        if (button.getAttribute("aria-disabled") === "true") {
+          openModelOffer(button);
+          return;
+        }
         //: The selection is read from the textarea *before* the bar takes
         //: focus, which `inlineAiOpen` does on its first two lines, the same
         //: reason this whole handler is on `mousedown`.
@@ -2421,15 +2436,53 @@ function inlineAiDescribeScope() {
   const scope = $("inline-ai-scope");
   const input = $("inline-ai-input");
   if (!scope || !input) return;
+  //: A code document is spoken to in code's words (the owner, 2026-10-11):
+  //: lines, not words, and code asks, not "fix the grammar".
+  const code = inlineAiIsCode();
   if (selected.trim()) {
-    const words = selected.trim().split(/\s+/).length;
-    scope.textContent = `Rewrites the ${words === 1 ? "word" : `${words} words`} you selected. Enter to ask, Esc to cancel.`;
-    input.placeholder = "Tighten this / fix the grammar / make it formal…";
+    const count = code ? selected.replace(/\n$/, "").split("\n").length : selected.trim().split(/\s+/).length;
+    const unit = code ? (count === 1 ? "line" : `${count} lines`) : (count === 1 ? "word" : `${count} words`);
+    scope.textContent = `Rewrites the ${unit} you selected. Enter to ask, Esc to cancel.`;
+    input.placeholder = code ? "Explain, simplify, add types…" : "Tighten this / fix the grammar / make it formal…";
   } else {
-    scope.textContent = "Writes at the cursor. Enter to ask, Esc to cancel.";
-    input.placeholder = "Write an intro paragraph / a table of the options…";
+    scope.textContent = code ? "Writes code at the cursor. Enter to ask, Esc to cancel." : "Writes at the cursor. Enter to ask, Esc to cancel.";
+    input.placeholder = code ? "A function that… / a test for…" : "Write an intro paragraph / a table of the options…";
   }
+  inlineAiSyncModel();
 }
+
+function inlineAiIsCode() {
+  return inlineAiState.textarea?.id === "doc-content" && typeof docFileType === "function" && !docFileType().previewable;
+}
+
+//: **With no model the bar stays, disabled, with the reason** (DOCUMENTS_PLAN
+//: decision, 2026-10-11: never hidden). The field is read-only and says so,
+//: and Ask is the gate's offer: a press says why and what works now, with
+//: Set up a model. A model connecting gives both back (`mm-model-gate`).
+function inlineAiSyncModel() {
+  const input = $("inline-ai-input");
+  const run = $("inline-ai-run");
+  if (!input || !run) return;
+  const off = aiIsOff();
+  run.dataset.needsModel = "Rewriting with Atlas needs a model";
+  run.dataset.modelOffer = inlineAiIsCode()
+    ? "Quick fix (Alt+Enter), Format (Shift+Alt+F) and Find usages work without one."
+    : "The spelling and grammar fixes, find and the outline work without one.";
+  input.readOnly = off;
+  input.setAttribute("aria-disabled", String(off));
+  if (off) {
+    input.placeholder = "Needs a model: connect one in Settings";
+    input.title = `${run.dataset.needsModel}. ${AI_OFFLINE_HINT}.`;
+  } else {
+    input.removeAttribute("title");
+  }
+  if (off) run.setAttribute("aria-disabled", "true");
+  else run.removeAttribute("aria-disabled");
+}
+
+document.addEventListener("mm-model-gate", () => {
+  if (inlineAiState.textarea && inlineAiState.phase === "asking") inlineAiDescribeScope();
+});
 
 //: True when this surface can reach `POST /documents/{id}/ai-edit`, a
 //: document textarea *and* a document actually open. Checked by both doors
@@ -2511,6 +2564,7 @@ async function inlineAiSubmit() {
   if (inlineAiState.phase === "working") return;
   const { textarea, start, end, before } = inlineAiState;
   if (!textarea) return;
+  if (aiIsOff()) return openModelOffer($("inline-ai-run"));
   const instruction = $("inline-ai-input").value.trim();
   const selection = before.slice(start, end);
   //: "Write" needs an instruction: there is nothing else to go on. "Edit"

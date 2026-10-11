@@ -35,8 +35,10 @@ JS = ROOT / "frontend" / "js"
 #: Calls whose message is an expected situation: each must be an "info" toast.
 #: Keyed by file, then the first argument's source text (whitespace folded).
 EXPECTED = {
-    'ai-tools.js': [
+    'improve-panel.js': [
         '"Write something first, then improve it."',
+    ],
+    'ai-tools.js': [
         '"Pick an embedding model first, e.g. nomic-embed-text."',
     ],
     'app.js': [
@@ -110,7 +112,7 @@ EXPECTED = {
         'updated.message || (image._isImage ? "No description was written. Is a vision model running in Settings > Models?" : "No description was written. Check a model is running in Settings > Models.")',
         '"A bookmark needs a URL."',
     ],
-    'lightbox.js': [
+    'lightbox-actions.js': [
         '"Nothing in the Library gallery yet, upload one from Library → Files & Images first."',
     ],
     'media.js': [
@@ -248,7 +250,7 @@ FAULTS = {
     'lightbox-view.js': {
         '"Couldn\'t save that file."': 'saving the file failed',
     },
-    'lightbox.js': {
+    'lightbox-actions.js': {
         '"Couldn\'t load the Library gallery."': 'loading the gallery failed',
     },
     'menus.js': {
@@ -262,9 +264,11 @@ FAULTS = {
         'status.textContent || "Couldn\'t install that version."': "the install step failed; the text is the step's own error",
         'wentAway ? "The app hasn\'t come back yet. Start it again by hand." : "The app didn\'t restart. Close and reopen it by hand."': "the restart did not happen or the app did not return; Try again restarts it",
     },
-    'settings.js': {
+    'settings-health.js': {
         '"Couldn\'t save that setting."': 'saving a setting failed',
         '"Couldn\'t reset that setting."': 'resetting a setting failed',
+    },
+    'settings.js': {
         '"Couldn\'t reset those settings."': 'resetting settings failed',
     },
     'shell-reminders.js': {

@@ -10,6 +10,7 @@ counts are `scratchpad/ui-sweeps/loading598.js`'s, at 4x CPU."""
 from __future__ import annotations
 
 import re
+from tests._app_js import with_pieces
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,7 +18,7 @@ JS = ROOT / "frontend" / "js"
 
 
 def _read(name: str) -> str:
-    return (JS / name).read_text(encoding="utf-8")
+    return with_pieces(name)
 
 
 def _block(text: str, start: str) -> str:

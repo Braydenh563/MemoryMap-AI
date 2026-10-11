@@ -9,6 +9,8 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from tests._app_js import with_pieces
+
 from memorymap.ai import day_digest
 from memorymap.core.database import Category, DerivedFact, Entry, Reminder
 
@@ -88,5 +90,5 @@ def test_the_route_serves_it_signed_in(client):
 
 
 def test_the_dashboard_draws_the_day_with_no_model():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    js = with_pieces("dashboard.js")
     assert '"/insights/day"' in js

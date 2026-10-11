@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tests._app_js import with_pieces
+
 JS = Path(__file__).resolve().parent.parent / "frontend" / "js"
 
 
@@ -70,5 +72,5 @@ def test_a_silent_write_refused_by_a_restarted_server_shows_the_lock_screen():
 
 def test_the_model_sheets_missing_models_notice_has_a_button_to_settings():
     # OPEN.md: "Open Settings, Models" was words in a toast, none a link.
-    text = (JS / "ai-tools.js").read_text(encoding="utf-8")
+    text = with_pieces("ai-tools.js")
     assert 'toastAction("Models aren\'t available yet.", "Open Settings, Models", () => openSettingsModal("models"));' in text

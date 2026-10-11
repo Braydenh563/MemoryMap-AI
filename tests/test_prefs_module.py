@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from tests._app_js import app_js_files
+from tests._app_js import app_js_files, with_pieces
 
 ROOT = Path(__file__).resolve().parent.parent
 JS = ROOT / "frontend" / "js"
@@ -89,7 +89,7 @@ def test_a_refused_write_still_reaches_the_callers_that_act_on_it() -> None:
     they did it in a `catch`; through `prefs.set` they read its answer."""
     outbox = (JS / "quick-note.js").read_text(encoding="utf-8")
     assert "if (!prefs.set(NOTE_OUTBOX_KEY" in outbox
-    status = (JS / "status.js").read_text(encoding="utf-8")
+    status = with_pieces("status.js")
     assert status.count("if (!prefs.set(NOTIFICATIONS_KEY") >= 2
 
 

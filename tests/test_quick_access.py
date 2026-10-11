@@ -15,6 +15,7 @@ somebody typed into the dashboard.
 from __future__ import annotations
 
 import json
+from tests._app_js import with_pieces
 import re
 import shutil
 import subprocess
@@ -25,7 +26,7 @@ import pytest
 from memorymap.api.routes_settings import QUICK_ACCESS_MAX
 
 ROOT = Path(__file__).resolve().parents[1]
-DASH = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+DASH = with_pieces("dashboard.js")
 EDIT = (ROOT / "frontend" / "js" / "quick-access.js").read_text(encoding="utf-8")
 APP = (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
 
@@ -241,7 +242,7 @@ def test_it_is_stored_in_preferences_not_only_the_browser():
 
 
 def test_the_editing_view_is_lazy_and_reachable_before_it_loads():
-    assert 'quickAccess: ["/js/quick-access.js"]' in APP
+    assert 'quickAccess: ["/css/quick-access-lazy.css", "/js/quick-access.js"]' in APP
     assert 'quickAccess: ["quickAccessEdit"]' in APP
     page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert "quick-access.js" not in page, "it loads on first use, not at boot"

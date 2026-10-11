@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 from pathlib import Path
-from tests._app_js import app_js_family, app_js_text, frontend_text
+from tests._app_js import app_js_family, app_js_text, frontend_text, with_pieces
 
 ROOT = Path(__file__).resolve().parent.parent
 CSS = sorted((ROOT / "frontend" / "css").glob("*.css"))
@@ -1246,8 +1246,8 @@ def _function_body(text: str, name: str) -> str:
     thing to get wrong.
     """
     start = text.index(f"function {name}(")
-    rest = text.index("\nfunction ", start + 1)
-    return text[start:rest]
+    after = re.search(r"\n(?:async )?function ", text[start + 1 :])
+    return text[start : start + 1 + after.start()] if after else text[start:]
 
 
 def test_a_list_row_answers_in_place_rather_than_opening_a_popover() -> None:
@@ -2313,7 +2313,7 @@ def test_a_folded_settings_group_is_keyed_and_remembered() -> None:
         pane = key.split("-")[0]
         firsts.setdefault(pane, " open" in attrs)
     assert all(firsts.values()), f"a pane whose first fold starts closed: {firsts}"
-    js = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    js = with_pieces("settings.js")
     assert "wireSettingsFolds();" in js, "the folds' open state is remembered by wireSettingsFolds"
 
 
@@ -2939,7 +2939,7 @@ def test_font_and_density_are_lists_that_keep_their_handlers() -> None:
     density = html[html.index('<select id="density-seg"') :]
     density = density[: density.index("</select>")]
     assert re.findall(r'value="(\w+)"', density) == ["auto", "comfortable", "compact", "spacious"]
-    js = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    js = with_pieces("settings.js")
     assert '$("font-seg").addEventListener("change"' in js and 'prefs.set("font", e.target.value)' in js
     assert '$("density-seg").addEventListener("change"' in js
     assert '$("font-seg").value = appearancePref("font")' in js
@@ -4576,7 +4576,7 @@ def test_every_settings_pane_opens_on_its_dock() -> None:
         assert "help-head" not in attrs, f"{pane} opens on a bare help-head row: make it the pane's dock"
         if "dock" in attrs:
             assert tag == "div" and re.search(r'class="dock\b', attrs), pane
-    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    settings = with_pieces("settings.js")
     body = _function_body(settings, "ensureSettingsPaneTitle")
     assert '"dock settings-pane-title"' in body and '"dock-identity"' in body
     find = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
@@ -4734,9 +4734,9 @@ def test_the_installed_models_are_model_cards():
     assert "buildModelCard(model, state)" in body and 'listed: "installed"' in body
     assert "list.dataset.sig === sig" in body, "a poll must not redraw the cards under an open menu"
     assert 'state.installed && !model.listed' in lazy
-    boot = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
+    boot = with_pieces("ai-tools.js")
     assert "function renderInstalledModels" not in boot
-    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    status = with_pieces("status.js")
     #: Drawn under the one check that the lazy settingsUi file has loaded.
     assert 'if (typeof renderSuggested === "function") {\n      renderInstalledModels(status);' in status
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
@@ -4751,7 +4751,7 @@ def test_the_autonomous_override_names_what_it_falls_back_to():
     model, and the autonomous pass's own override), and the override's
     default now says which model it means, in the per-feature pickers' words
     (INBOX 430): "Same as utility model (currently llama3.2)" (op4-1005)."""
-    js = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
+    js = with_pieces("ai-tools.js")
     body = _function_body(js, "renderAutonomousModelPicker")
     assert "Same as utility model (currently ${fallback})" in body
     assert "status.utility_model || status.chat_model" in body
@@ -5034,7 +5034,7 @@ def test_the_library_hover_tick_shows_its_check_and_names_itself() -> None:
 #: class, `kebab-opener`, and it is styled once in 08-consistency.css; a surface
 #: that wants its ⋯ dressed differently does not get to say so.
 def test_the_kebab_opener_is_one_shared_ghost_icon_styled_once() -> None:
-    script = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    script = with_pieces("sheets-selects.js")
     assert 'opener.classList.add("icon-only", "kebab-opener")' in script, "kebabMenu's opener carries the shared class"
 
     shared = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
@@ -5150,7 +5150,7 @@ def test_the_no_model_notice_is_one_row_on_the_notice_recipe() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     for ident in ("chat-offline", "ask-offline", "draft-offline", "command-palette-offline"):
         assert re.search(rf'id="{ident}" class="ai-offline-note notice hidden"', html), ident
-    dashboard = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    dashboard = with_pieces("dashboard.js")
     assert 'offline.className = "ai-offline-note notice hidden"' in dashboard
 
     #: One short sentence per surface (under 90 characters), no exclamation mark.
@@ -5299,7 +5299,7 @@ def test_a_date_or_time_field_is_the_picker_recipe() -> None:
     """Phase 12 decision 5: the page's date and time fields are enhanced at boot,
     keep their native value (a write repaints, a focus lands on the face) and
     read typed words with `ai/when`, never a second picker built by hand."""
-    selects = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    selects = with_pieces("sheets-selects.js")
     boot = selects[selects.index("function watchForSelects()"):]
     boot = boot[: boot.index("new MutationObserver")]
     assert 'querySelectorAll(\'input:is([type="date"], [type="time"])\')' in boot and "enhanceDateField(field)" in boot
@@ -5322,7 +5322,7 @@ def test_an_insights_verdicts_are_one_compact_pair_on_the_sentences_row() -> Non
     dashboard's ⋯ takes the same two items from `INSIGHT_VERDICT_ITEMS`. No
     other file words the pair, and the pair is quiet (no edge, no fill at
     rest), not two full-size bordered buttons under the sentence."""
-    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    status = with_pieces("status.js")
     assert "function insightLine(" in status and "function insightVerdicts(" in status
     assert "const INSIGHT_VERDICT_ITEMS" in status
     copies = []
@@ -5498,7 +5498,7 @@ def test_a_disclosure_is_a_row_not_a_boxed_button() -> None:
     css = _forms_css()
     assert re.search(r"button\.ghost\.disclosure-row \{[^}]*width: 100%[^}]*border-color: transparent[^}]*background: none", css)
     assert re.search(r"button\.ghost\.disclosure-row:hover,\s*button\.ghost\.disclosure-row:is\(:focus-visible", css)
-    assert '"ghost small disclosure-row night-kind-toggle"' in (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    assert '"ghost small disclosure-row night-kind-toggle"' in with_pieces("dashboard.js")
 
 
 def test_a_counted_filter_is_a_chip() -> None:
@@ -5519,7 +5519,7 @@ def test_a_rows_repeated_action_is_quiet_and_three_fold_into_its_menu() -> None:
     "Change" buttons was the loudest thing in the Shortcuts pane. A repeated
     action is a quiet text button, a destructive one is muted until aimed at,
     and a row of three or more keeps its first and folds the rest into ⋯."""
-    body = _function_body((ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8"), "rowActions")
+    body = _function_body(with_pieces("sheets-selects.js"), "rowActions")
     assert 'b.classList.add("quiet")' in body and 'b.classList.add("danger")' in body
     assert "actions.length < 3" in body and "kebabMenu(actions.slice(1), ariaLabel)" in body
     css = _forms_css()
@@ -5743,7 +5743,7 @@ def test_a_long_list_is_typed_to_through_the_one_recipe() -> None:
     can be filtered by typing"): `listFilter` is the one builder, the
     shortcut list (31 rows) and the space menu use it, and no new
     hand-built "Filter ..." field joins the eight that predate it."""
-    selects = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    selects = with_pieces("sheets-selects.js")
     body = selects.split("function listFilter(", 1)[1][:3000]
     assert 'field.className = "search-field list-filter hidden"' in body
     assert 'event.key === "Escape"' in body and "list-filter-empty" in body
@@ -5766,7 +5766,7 @@ def test_the_local_chip_shows_the_privacy_verdict_and_opens_the_record() -> None
     header = re.search(r'<header id="top-bar">(.*?)</header>', html, re.S).group(1)
     chip = re.search(r'<button id="privacy-chip"[^>]*>', header)
     assert chip and "hidden" in chip.group(0), "the Local chip left the top bar, or shows before it knows"
-    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    status = with_pieces("status.js")
     assert '"/privacy/verdict"' in status
     assert 'openSettingsModal("privacy")' in status.split("function startPrivacyChip", 1)[1][:600]
     # Its one call site: every unlock, beside the reminder watch.

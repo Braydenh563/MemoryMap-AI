@@ -61,11 +61,33 @@ def app_js_text() -> str:
     return _joined()
 
 
+#: Pieces moved out of a boot script into lazy files (2026-10-12, the gzip
+#: budget): a test that reads the boot file by name also means these.
+MOVED_OUT = {
+    "ai-tools.js": ("chat-tasks.js", "improve-panel.js", "feature-model-sheet.js"),
+    "lightbox.js": ("lightbox-actions.js",),
+    "settings.js": ("settings-health.js",),
+    "sheets-selects.js": ("personas-pane.js",),
+    "selection.js": ("library-pick.js",),
+    "status.js": ("status-panels.js",),
+    "dashboard.js": ("dash-day.js", "dash-night.js", "dash-orphans.js"),
+}
+
+
+def with_pieces(name: str) -> str:
+    """A boot script's text plus the lazy files its code moved into."""
+    parts = [(JS_DIR / name).read_text(encoding="utf-8")]
+    parts += [(JS_DIR / piece).read_text(encoding="utf-8") for piece in MOVED_OUT.get(name, ())]
+    return "\n".join(parts)
+
+
 def frontend_text(name: str) -> str:
     """A frontend script's text by name, where "app.js" means the app's code
     (every piece of it), for the tests that read files by name in a loop."""
     if name == FIRST:
         return app_js_text()
+    if name in MOVED_OUT:
+        return with_pieces(name)
     path = JS_DIR / name
     if not path.exists():  # sw.js, the one script that stays at the root
         path = FRONTEND_DIR / name

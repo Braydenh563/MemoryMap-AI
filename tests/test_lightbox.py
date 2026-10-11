@@ -28,7 +28,7 @@ from pathlib import Path
 from tests._app_js import app_js_text
 
 JS = app_js_text()
-CSS = Path("frontend/css/02-chat-graph.css").read_text(encoding="utf-8")
+CSS = Path("frontend/css/lightbox-lazy.css").read_text(encoding="utf-8") + Path("frontend/css/02-chat-graph.css").read_text(encoding="utf-8")
 LIGHTBOX = JS.split("function openLightbox(")[1].split("\n// ")[0]
 
 

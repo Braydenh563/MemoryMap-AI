@@ -10,13 +10,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from tests._app_js import app_js_text
+from tests._app_js import app_js_text, with_pieces
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = app_js_text()
-SHEETS = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+SHEETS = with_pieces("sheets-selects.js")
 CSS = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
-SETTINGS_JS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+SETTINGS_JS = with_pieces("settings.js")
 INDEX_HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
 

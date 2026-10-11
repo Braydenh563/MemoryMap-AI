@@ -8,6 +8,7 @@ halves: the stylesheet and the markup, which is all the suite can see.
 from __future__ import annotations
 
 import re
+from tests._app_js import with_pieces
 
 from tests._css_paths import css_text
 
@@ -54,7 +55,7 @@ def test_a_dashboard_digest_line_is_a_list_item_holding_its_link():
     # each `li`, which stops it being a list item inside its `ul`.
     from pathlib import Path
 
-    js = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js = with_pieces("dashboard.js")
     at = js.index('li.className = line.kind === "quote"')
     block = js[at : at + 1400]
     assert 'li.setAttribute("role"' not in block
@@ -73,7 +74,7 @@ def test_a_scrolling_page_and_widget_body_leave_room_for_a_focus_ring():
 def test_a_plain_activity_row_beside_button_rows_is_not_a_stray_list_item():
     from pathlib import Path
 
-    js = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js = with_pieces("dashboard.js")
     at = js.index("Something that is gone (a note deleted for good")
     block = js[at : at + 900]
     assert 'li.setAttribute("role", "presentation")' in block
@@ -156,7 +157,9 @@ def test_hover_without_a_focus_twin_does_not_grow():
 def _js(name: str) -> str:
     from pathlib import Path
 
-    return (Path(__file__).resolve().parents[1] / "frontend" / "js" / name).read_text(encoding="utf-8")
+    from tests._app_js import with_pieces
+
+    return with_pieces(name)
 
 
 def test_a_reminders_priority_is_a_word_as_well_as_a_coloured_edge():

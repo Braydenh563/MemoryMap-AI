@@ -12,6 +12,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from tests._app_js import with_pieces
+
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -484,7 +486,7 @@ def test_the_evidence_checks_switch_hides_the_answers_evidence_view():
     assert done.returncode == 0, done.stderr
     assert json.loads(done.stdout) == {"off": False, "known": False, "once": 1, "on": True, "calls": 2}
     assert 'foot.classList.toggle("hidden", evidenceChecksKnown === false);' in ask
-    settings = (JS / "settings.js").read_text(encoding="utf-8")
+    settings = with_pieces("settings.js")
     assert 'if (typeof evidenceSwitchReset === "function") evidenceSwitchReset();' in settings
 
 
@@ -515,7 +517,7 @@ def test_every_written_inline_mark_reads_back_through_inline_md():
 # Row 1114: the widget audit found the Dashboard's open-questions line printing
 # a question's markdown ("**why**") where the Questions view shows `display`.
 def test_the_dashboard_question_line_shows_the_plain_words():
-    dash = (JS / "dashboard.js").read_text(encoding="utf-8")
+    dash = with_pieces("dashboard.js")
     assert "oldest.display || oldest.text" in dash
 
 

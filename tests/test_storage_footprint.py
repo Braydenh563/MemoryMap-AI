@@ -4,6 +4,7 @@ reports uploads, pictures and backups next to the database, from a cached walk."
 from __future__ import annotations
 
 import os
+from tests._app_js import with_pieces
 
 from memorymap.core import deps, diskspace
 
@@ -69,7 +70,7 @@ def test_the_storage_bar_is_one_recipe():
     root = Path(__file__).resolve().parents[1]
     page = (root / "frontend" / "index.html").read_text(encoding="utf-8")
     data_js = (root / "frontend" / "js" / "settings-data.js").read_text(encoding="utf-8")
-    settings_js = (root / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    settings_js = with_pieces("settings.js")
     sheet = (root / "frontend" / "css" / "settings-data-lazy.css").read_text(encoding="utf-8")
     assert 'id="storage-bar"' in page and 'role="img"' in page[page.index('id="storage-bar"') - 80 : page.index('id="storage-bar"') + 120]
     assert 'id="storage-legend"' in page and "health-files-size" not in page + settings_js

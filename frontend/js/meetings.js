@@ -1456,20 +1456,54 @@ async function renderRecordings() {
   try {
     body = await apiJson("/recordings?limit=500");
   } catch (error) {
-    list.replaceChildren(recordingsEmpty(error.message || "Couldn't load your recordings."));
+    list.replaceChildren(recordingsEmpty("failed", error.message));
     return;
   }
   noteRecoveredRecordings(body.recovered);
   const q = ($("recordings-search")?.value || "").trim().toLowerCase();
   const rows = body.recordings.filter((r) => !q || (r.title || "").toLowerCase().includes(q));
   list.replaceChildren(...rows.map(recordingRow));
-  if (!rows.length) list.appendChild(recordingsEmpty(q ? "No recording has that in its name." : "Nothing recorded yet. Record keeps a voice note here; a meeting's recording lands here too."));
+  if (!rows.length) list.appendChild(recordingsEmpty(q ? "match" : "none"));
 }
 
-function recordingsEmpty(text) {
+//: **The empty state recipe** (DESIGN.md: icon, title, one sentence, one
+//: action), not a grey line: the owner, 2026-10-11, of the bare sentence that
+//: was here, "can you add like an icon or smth to this page so it doesnt look
+//: so empty??". `kind` is "none", "match" (the search found nothing) or
+//: "failed" (the list did not load, the recipe's warn mood).
+function recordingsEmpty(kind, detail = "") {
+  const copy = {
+    none: ["ph-microphone", "No recordings yet", "Record keeps a voice note here; a meeting's recording lands here too."],
+    match: ["ph-magnifying-glass", "No recordings match", "No recording has that in its name."],
+    failed: ["ph-warning-circle", "Recordings did not load", detail || "Couldn't load your recordings."],
+  }[kind];
   const li = document.createElement("li");
-  li.className = "muted recordings-empty";
-  li.textContent = text;
+  li.className = `empty-state recordings-empty${kind === "failed" ? " is-failed" : ""}`;
+  const icon = document.createElement("span");
+  icon.className = "empty-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const glyph = document.createElement("i");
+  glyph.className = `ph ${copy[0]}`;
+  icon.appendChild(glyph);
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  title.textContent = copy[1];
+  const line = document.createElement("p");
+  line.className = "muted";
+  line.textContent = copy[2];
+  li.append(icon, title, line);
+  //: The one action: what the header's Record does.
+  if (kind === "none") {
+    const record = document.createElement("button");
+    record.type = "button";
+    record.className = "small";
+    const mic = document.createElement("i");
+    mic.className = "ph ph-microphone ph-lead";
+    mic.setAttribute("aria-hidden", "true");
+    record.append(mic, " Record a voice note");
+    record.addEventListener("click", () => openVoiceNote());
+    li.appendChild(record);
+  }
   return li;
 }
 
@@ -1839,7 +1873,11 @@ async function recordingTranscriptFill(rec, audio, list) {
   try {
     body = await apiJson(`/recordings/${rec.id}/transcript`);
   } catch (error) {
-    list.replaceChildren(recordingsEmpty(error.message || "Couldn't read the transcript."));
+    //: A line inside the card, the small-panel recipe (`.empty-line`).
+    const line = document.createElement("li");
+    line.className = "muted empty-line";
+    line.textContent = error.message || "Couldn't read the transcript.";
+    list.replaceChildren(line);
     return;
   }
   const lines = body.segments.map((seg) => {

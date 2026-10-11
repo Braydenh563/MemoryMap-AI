@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Recordings: an empty Recordings page shows an icon, a title, a line and a Record button.
 - Recordings: the waveform track has visibly rounded corners and its own tint, with the bars kept inside them.
 - Recordings: the playback speed menu is the same height as the menu button beside it.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.

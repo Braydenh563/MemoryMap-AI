@@ -240,8 +240,10 @@
   display: none;
 }
 
+/* The empty state recipe (`.empty-state`, 02-chat-graph.css) on the list's
+   own item: the list owns the whole sub-tab, so the full block, not a line. */
 .recordings-empty {
-  padding: var(--space-4) var(--space-3);
+  list-style: none;
 }
 
 .recording-trim .prop-row {

@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5657, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9941, plan headings 996.
+Counts: frontend functions 5659, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9942, plan headings 996.
 
-## Frontend functions (5657)
+## Frontend functions (5659)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -123,40 +123,40 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `afterMenuExit` | frontend/js/menus.js:680 |
-| `buildMenuGroupButton` | frontend/js/menus.js:1342 |
-| `buildMenuItemButton` | frontend/js/menus.js:1312 |
-| `cardOpener` | frontend/js/menus.js:372 |
+| `afterMenuExit` | frontend/js/menus.js:691 |
+| `buildMenuGroupButton` | frontend/js/menus.js:1353 |
+| `buildMenuItemButton` | frontend/js/menus.js:1323 |
+| `cardOpener` | frontend/js/menus.js:383 |
 | `closeActionMenus` | frontend/js/menus.js:70 |
 | `closeActionMenusOnScroll` | frontend/js/menus.js:25 |
 | `closeHelpPopovers` | frontend/js/menus.js:237 |
-| `docBacklinkContext` | frontend/js/menus.js:1095 |
-| `entryOverflowMenu` | frontend/js/menus.js:1506 |
-| `escapeAndCapMenu` | frontend/js/menus.js:729 |
-| `escapeMenuIfClipped` | frontend/js/menus.js:628 |
-| `escapeMenuToBody` | frontend/js/menus.js:650 |
-| `explainNote` | frontend/js/menus.js:1927 |
-| `fitActionMenuInWindow` | frontend/js/menus.js:419 |
-| `focusMenuItem` | frontend/js/menus.js:541 |
-| `generateEntryTitle` | frontend/js/menus.js:1199 |
-| `historyActorLabel` | frontend/js/menus.js:1138 |
+| `docBacklinkContext` | frontend/js/menus.js:1106 |
+| `entryOverflowMenu` | frontend/js/menus.js:1517 |
+| `escapeAndCapMenu` | frontend/js/menus.js:740 |
+| `escapeMenuIfClipped` | frontend/js/menus.js:639 |
+| `escapeMenuToBody` | frontend/js/menus.js:661 |
+| `explainNote` | frontend/js/menus.js:1938 |
+| `fitActionMenuInWindow` | frontend/js/menus.js:430 |
+| `focusMenuItem` | frontend/js/menus.js:552 |
+| `generateEntryTitle` | frontend/js/menus.js:1210 |
+| `historyActorLabel` | frontend/js/menus.js:1149 |
 | `inlineActionIs` | frontend/js/menus.js:8 |
-| `isEditConflict` | frontend/js/menus.js:1917 |
-| `menuClippingAncestor` | frontend/js/menus.js:555 |
-| `menuExitMs` | frontend/js/menus.js:687 |
-| `menuSidePlan` | frontend/js/menus.js:397 |
+| `isEditConflict` | frontend/js/menus.js:1928 |
+| `menuClippingAncestor` | frontend/js/menus.js:566 |
+| `menuExitMs` | frontend/js/menus.js:698 |
+| `menuSidePlan` | frontend/js/menus.js:408 |
 | `nearestScrollParent` | frontend/js/menus.js:120 |
-| `openActionMenu` | frontend/js/menus.js:439 |
-| `placeEscapedMenu` | frontend/js/menus.js:595 |
+| `openActionMenu` | frontend/js/menus.js:450 |
+| `placeEscapedMenu` | frontend/js/menus.js:606 |
 | `placeHelpPopover` | frontend/js/menus.js:151 |
-| `removeEntryTitle` | frontend/js/menus.js:1223 |
-| `restoreEscapedMenu` | frontend/js/menus.js:694 |
-| `restoreEscapedMenuAfterExit` | frontend/js/menus.js:675 |
-| `toggleEntryPrivacy` | frontend/js/menus.js:1161 |
-| `wireEscapedActionMenu` | frontend/js/menus.js:798 |
-| `wireEscapedMenuResize` | frontend/js/menus.js:1078 |
+| `removeEntryTitle` | frontend/js/menus.js:1234 |
+| `restoreEscapedMenu` | frontend/js/menus.js:705 |
+| `restoreEscapedMenuAfterExit` | frontend/js/menus.js:686 |
+| `toggleEntryPrivacy` | frontend/js/menus.js:1172 |
+| `wireEscapedActionMenu` | frontend/js/menus.js:809 |
+| `wireEscapedMenuResize` | frontend/js/menus.js:1089 |
 | `wireHelpPopover` | frontend/js/menus.js:290 |
-| `wireMenuKeyboard` | frontend/js/menus.js:1251 |
+| `wireMenuKeyboard` | frontend/js/menus.js:1262 |
 
 ### frontend/js/lightbox.js (7)
 
@@ -2307,31 +2307,32 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `importReportSection` | frontend/js/app-import.js:79 |
 | `openImportReport` | frontend/js/app-import.js:113 |
 
-### frontend/js/app-palette.js (35)
+### frontend/js/app-palette.js (36)
 
 | Name | File:line |
 |---|---|
 | `closePalette` | frontend/js/app-palette.js:91 |
-| `notesPaletteCommands` | frontend/js/app-palette.js:681 |
+| `notesPaletteCommands` | frontend/js/app-palette.js:696 |
 | `openPalette` | frontend/js/app-palette.js:55 |
 | `paletteActRows` | frontend/js/app-palette.js:340 |
 | `paletteBase` | frontend/js/app-palette.js:295 |
-| `paletteDistance` | frontend/js/app-palette.js:512 |
+| `paletteDistance` | frontend/js/app-palette.js:527 |
 | `paletteEditorMatches` | frontend/js/app-palette.js:130 |
 | `paletteFeature` | frontend/js/app-palette.js:37 |
 | `paletteFeatureRows` | frontend/js/app-palette.js:323 |
-| `paletteFind` | frontend/js/app-palette.js:558 |
+| `paletteFind` | frontend/js/app-palette.js:573 |
 | `paletteFuzzyScore` | frontend/js/app-palette.js:110 |
-| `paletteKeydown` | frontend/js/app-palette.js:639 |
-| `paletteLight` | frontend/js/app-palette.js:621 |
+| `paletteKeydown` | frontend/js/app-palette.js:654 |
+| `paletteLight` | frontend/js/app-palette.js:636 |
 | `paletteMatches` | frontend/js/app-palette.js:140 |
-| `paletteNearRows` | frontend/js/app-palette.js:538 |
-| `paletteNearest` | frontend/js/app-palette.js:492 |
-| `paletteNearestCommand` | frontend/js/app-palette.js:563 |
-| `paletteNearestRows` | frontend/js/app-palette.js:527 |
-| `palettePick` | frontend/js/app-palette.js:467 |
+| `paletteNearRows` | frontend/js/app-palette.js:553 |
+| `paletteNearest` | frontend/js/app-palette.js:507 |
+| `paletteNearestCommand` | frontend/js/app-palette.js:578 |
+| `paletteNearestRows` | frontend/js/app-palette.js:542 |
+| `palettePick` | frontend/js/app-palette.js:482 |
 | `palettePicks` | frontend/js/app-palette.js:463 |
 | `palettePool` | frontend/js/app-palette.js:301 |
+| `palettePrefixPicks` | frontend/js/app-palette.js:471 |
 | `paletteRanked` | frontend/js/app-palette.js:439 |
 | `paletteRefresh` | frontend/js/app-palette.js:315 |
 | `paletteRun` | frontend/js/app-palette.js:44 |
@@ -2341,10 +2342,10 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `paletteTarget` | frontend/js/app-palette.js:306 |
 | `paletteText` | frontend/js/app-palette.js:101 |
 | `paletteVocab` | frontend/js/app-palette.js:427 |
-| `paletteWhy` | frontend/js/app-palette.js:481 |
+| `paletteWhy` | frontend/js/app-palette.js:496 |
 | `paletteWords` | frontend/js/app-palette.js:398 |
-| `renderPalette` | frontend/js/app-palette.js:574 |
-| `scrollPaletteToActive` | frontend/js/app-palette.js:666 |
+| `renderPalette` | frontend/js/app-palette.js:589 |
+| `scrollPaletteToActive` | frontend/js/app-palette.js:681 |
 | `utilityPaletteRows` | frontend/js/app-palette.js:213 |
 
 ### frontend/js/ask-chart.js (8)
@@ -4517,24 +4518,25 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `ocrEngineStartInstall` | frontend/js/ocr-engine.js:286 |
 | `ocrEngineStatusLine` | frontend/js/ocr-engine.js:223 |
 
-### frontend/js/onboarding.js (15)
+### frontend/js/onboarding.js (16)
 
 | Name | File:line |
 |---|---|
-| `closeOnboarding` | frontend/js/onboarding.js:410 |
-| `firstRunPump` | frontend/js/onboarding.js:351 |
+| `closeOnboarding` | frontend/js/onboarding.js:425 |
+| `firstRunPump` | frontend/js/onboarding.js:362 |
 | `firstRunSurfaceOpen` | frontend/js/onboarding.js:313 |
-| `firstRunTurn` | frontend/js/onboarding.js:336 |
-| `firstRunWelcomeDue` | frontend/js/onboarding.js:343 |
+| `firstRunToastsGone` | frontend/js/onboarding.js:333 |
+| `firstRunTurn` | frontend/js/onboarding.js:347 |
+| `firstRunWelcomeDue` | frontend/js/onboarding.js:354 |
 | `loadOnboardingDiagnostics` | frontend/js/onboarding.js:68 |
-| `maybeShowConsoleViewIntro` | frontend/js/onboarding.js:464 |
-| `onboardingBack` | frontend/js/onboarding.js:446 |
-| `onboardingNext` | frontend/js/onboarding.js:427 |
-| `openOnboarding` | frontend/js/onboarding.js:397 |
+| `maybeShowConsoleViewIntro` | frontend/js/onboarding.js:479 |
+| `onboardingBack` | frontend/js/onboarding.js:461 |
+| `onboardingNext` | frontend/js/onboarding.js:442 |
+| `openOnboarding` | frontend/js/onboarding.js:412 |
 | `renderOnboardingActions` | frontend/js/onboarding.js:129 |
 | `renderOnboardingSlide` | frontend/js/onboarding.js:227 |
-| `showOnboarding` | frontend/js/onboarding.js:402 |
-| `showOnboardingTurn` | frontend/js/onboarding.js:380 |
+| `showOnboarding` | frontend/js/onboarding.js:417 |
+| `showOnboardingTurn` | frontend/js/onboarding.js:395 |
 | `whenFirstRunClear` | frontend/js/onboarding.js:326 |
 
 ### frontend/js/pick-row.js (3)
@@ -4867,38 +4869,38 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `findSettings` | frontend/js/settings-find.js:113 |
-| `helpAlternation` | frontend/js/settings-find.js:594 |
-| `helpApplySearch` | frontend/js/settings-find.js:714 |
-| `helpEmphasis` | frontend/js/settings-find.js:600 |
-| `helpFill` | frontend/js/settings-find.js:621 |
-| `helpMarks` | frontend/js/settings-find.js:634 |
-| `helpMatches` | frontend/js/settings-find.js:698 |
-| `helpQueryTerms` | frontend/js/settings-find.js:690 |
-| `helpSearchBind` | frontend/js/settings-find.js:764 |
-| `helpTopicLink` | frontend/js/settings-find.js:563 |
-| `helpTopicPaint` | frontend/js/settings-find.js:648 |
-| `helpTopicRow` | frontend/js/settings-find.js:662 |
+| `helpAlternation` | frontend/js/settings-find.js:603 |
+| `helpApplySearch` | frontend/js/settings-find.js:723 |
+| `helpEmphasis` | frontend/js/settings-find.js:609 |
+| `helpFill` | frontend/js/settings-find.js:630 |
+| `helpMarks` | frontend/js/settings-find.js:643 |
+| `helpMatches` | frontend/js/settings-find.js:707 |
+| `helpQueryTerms` | frontend/js/settings-find.js:699 |
+| `helpSearchBind` | frontend/js/settings-find.js:773 |
+| `helpTopicLink` | frontend/js/settings-find.js:572 |
+| `helpTopicPaint` | frontend/js/settings-find.js:657 |
+| `helpTopicRow` | frontend/js/settings-find.js:671 |
 | `openSettingRow` | frontend/js/settings-find.js:179 |
-| `renderHelpTopics` | frontend/js/settings-find.js:781 |
-| `renderSettingResults` | frontend/js/settings-find.js:217 |
-| `settingNearAdd` | frontend/js/settings-find.js:232 |
+| `renderHelpTopics` | frontend/js/settings-find.js:790 |
+| `renderSettingResults` | frontend/js/settings-find.js:226 |
+| `settingNearAdd` | frontend/js/settings-find.js:241 |
 | `settingQueryAlts` | frontend/js/settings-find.js:101 |
-| `settingResultItem` | frontend/js/settings-find.js:200 |
-| `settingResultsKey` | frontend/js/settings-find.js:252 |
+| `settingResultItem` | frontend/js/settings-find.js:209 |
+| `settingResultsKey` | frontend/js/settings-find.js:261 |
 | `settingRowText` | frontend/js/settings-find.js:33 |
 | `settingRows` | frontend/js/settings-find.js:45 |
 | `settingVocab` | frontend/js/settings-find.js:89 |
-| `settingsIndexBuild` | frontend/js/settings-find.js:440 |
-| `settingsIndexClear` | frontend/js/settings-find.js:406 |
-| `settingsIndexGo` | frontend/js/settings-find.js:323 |
-| `settingsIndexHeads` | frontend/js/settings-find.js:284 |
-| `settingsIndexJump` | frontend/js/settings-find.js:415 |
-| `settingsIndexList` | frontend/js/settings-find.js:315 |
-| `settingsIndexMark` | frontend/js/settings-find.js:374 |
-| `settingsIndexOffset` | frontend/js/settings-find.js:309 |
-| `settingsIndexWatchSection` | frontend/js/settings-find.js:529 |
-| `settingsNavFollow` | frontend/js/settings-find.js:351 |
-| `settingsPaneTitleHead` | frontend/js/settings-find.js:301 |
+| `settingsIndexBuild` | frontend/js/settings-find.js:449 |
+| `settingsIndexClear` | frontend/js/settings-find.js:415 |
+| `settingsIndexGo` | frontend/js/settings-find.js:332 |
+| `settingsIndexHeads` | frontend/js/settings-find.js:293 |
+| `settingsIndexJump` | frontend/js/settings-find.js:424 |
+| `settingsIndexList` | frontend/js/settings-find.js:324 |
+| `settingsIndexMark` | frontend/js/settings-find.js:383 |
+| `settingsIndexOffset` | frontend/js/settings-find.js:318 |
+| `settingsIndexWatchSection` | frontend/js/settings-find.js:538 |
+| `settingsNavFollow` | frontend/js/settings-find.js:360 |
+| `settingsPaneTitleHead` | frontend/js/settings-find.js:310 |
 
 ### frontend/js/settings-models.js (27)
 
@@ -8878,7 +8880,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | GRIPS AT A CONSTANT SIZE ON SCREEN | frontend/css/07-whiteboard-misc.css:10675 |
 | Graph options: one section-head style | frontend/css/08-consistency.css:4369 |
 | Help & guide: the topics box and the "Ask the guide" box are two | frontend/css/08-consistency.css:1779 |
-| INBOX 68: the board and map previews | frontend/css/10-responsive.css:352 |
+| INBOX 68: the board and map previews | frontend/css/10-responsive.css:355 |
 | Icons | frontend/css/07-whiteboard-misc.css:2307 |
 | Inline AI (editor.js) | frontend/css/07-whiteboard-misc.css:6483 |
 | Lagoon: indigo and teal together | frontend/css/05-sidebars-themes.css:3339 |
@@ -8897,20 +8899,20 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Parchment: paper, ink and a little gold. Made for long writing. | frontend/css/05-sidebars-themes.css:3231 |
 | Phase 10, INBOX 100: the scroll edge effect | frontend/css/10-responsive.css:159 |
 | Phase 10, INBOX 101: concentric corners | frontend/css/10-responsive.css:185 |
-| Phase 11 item 12: a dock's head is one row on a phone | frontend/css/10-responsive.css:1532 |
-| Phase 11 item 12: a note row designed for a thumb | frontend/css/10-responsive.css:1483 |
-| Phase 11 item 12: one bar at the foot of a phone, not two | frontend/css/10-responsive.css:1190 |
-| Phase 11 item 12: the status bar on a tablet is a touch bar | frontend/css/10-responsive.css:1118 |
-| Phase 11 item 1: the phone top bar is three controls, not six | frontend/css/10-responsive.css:1072 |
-| Phase 11 item 2: a row swiped, star right and bin left | frontend/css/10-responsive.css:1405 |
-| Phase 11 item 2: the note page, the sheet recipe's `page` variant | frontend/css/10-responsive.css:1854 |
-| Phase 11 item 3: the chat composer on a phone | frontend/css/10-responsive.css:1881 |
-| Phase 11 item 4: the graph's controls are one sheet on a phone | frontend/css/10-responsive.css:1942 |
-| Phase 11 item 5: the Library reader as the page | frontend/css/10-responsive.css:2070 |
-| Phase 11 item 7: the whiteboard and the mind map on a phone | frontend/css/10-responsive.css:2002 |
-| Phase 11 item 9: 44px targets, the ones the docks sweep cannot see | frontend/css/10-responsive.css:946 |
-| Phase 11 item 9: no hover-only affordance | frontend/css/10-responsive.css:1932 |
-| Phase 11 items 2 and 3: no rail on a phone, an opener in the head | frontend/css/10-responsive.css:1290 |
+| Phase 11 item 12: a dock's head is one row on a phone | frontend/css/10-responsive.css:1535 |
+| Phase 11 item 12: a note row designed for a thumb | frontend/css/10-responsive.css:1486 |
+| Phase 11 item 12: one bar at the foot of a phone, not two | frontend/css/10-responsive.css:1193 |
+| Phase 11 item 12: the status bar on a tablet is a touch bar | frontend/css/10-responsive.css:1121 |
+| Phase 11 item 1: the phone top bar is three controls, not six | frontend/css/10-responsive.css:1075 |
+| Phase 11 item 2: a row swiped, star right and bin left | frontend/css/10-responsive.css:1408 |
+| Phase 11 item 2: the note page, the sheet recipe's `page` variant | frontend/css/10-responsive.css:1857 |
+| Phase 11 item 3: the chat composer on a phone | frontend/css/10-responsive.css:1884 |
+| Phase 11 item 4: the graph's controls are one sheet on a phone | frontend/css/10-responsive.css:1945 |
+| Phase 11 item 5: the Library reader as the page | frontend/css/10-responsive.css:2073 |
+| Phase 11 item 7: the whiteboard and the mind map on a phone | frontend/css/10-responsive.css:2005 |
+| Phase 11 item 9: 44px targets, the ones the docks sweep cannot see | frontend/css/10-responsive.css:949 |
+| Phase 11 item 9: no hover-only affordance | frontend/css/10-responsive.css:1935 |
+| Phase 11 items 2 and 3: no rail on a phone, an opener in the head | frontend/css/10-responsive.css:1293 |
 | Phase 5: quick access + toasts | frontend/css/01-forms-settings.css:2808 |
 | Phase 5: the three things a map says about itself | frontend/css/07-whiteboard-misc.css:4376 |
 | Phones (roadmap §8: the layout had breakpoints but had never been driven at | frontend/css/05-sidebars-themes.css:3967 |
@@ -8962,7 +8964,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | The note surface (DOCUMENTS_PLAN Phase 8): one editor everywhere | frontend/css/09-editor.css:815 |
 | The properties panel (DOCUMENTS_PLAN Phase 3 item 4) | frontend/css/09-editor.css:185 |
 | The second level: `.tabs-line` (INBOX 522) | frontend/css/05-sidebars-themes.css:4125 |
-| The surface model pickers on a phone | frontend/css/10-responsive.css:2135 |
+| The surface model pickers on a phone | frontend/css/10-responsive.css:2138 |
 | The thumb bar (DESIGN.md's recipe index: a bar of actions above the | frontend/css/09-editor.css:754 |
 | The two dialogs reported as off the modal recipe | frontend/css/08-consistency.css:1455 |
 | The two rows that still wrapped at 1024 | frontend/css/08-consistency.css:1325 |
@@ -8995,7 +8997,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Whiteboard chrome, restructured: one top bar, a centred tool dock, a | frontend/css/07-whiteboard-misc.css:6777 |
 | Writing pace | frontend/css/03-dashboard-widgets.css:4645 |
 | [[wiki links]] | frontend/css/05-sidebars-themes.css:755 |
-| `.seg-multi`'s word, and the width that decides it | frontend/css/10-responsive.css:542 |
+| `.seg-multi`'s word, and the width that decides it | frontend/css/10-responsive.css:545 |
 | `.seg-multi`: one well, independent toggles | frontend/css/03-dashboard-widgets.css:685 |
 | `.selectbar`: the bar stays with you while the selection does | frontend/css/00-tokens-shell.css:1860 |
 | a Files row's facts line, one register (INBOX 421 f) | frontend/css/08-consistency.css:3869 |
@@ -9025,12 +9027,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | a segmented choice inside a dialog | frontend/css/06-timeline-dialogs.css:1019 |
 | a settings group that says what depends on what | frontend/css/07-whiteboard-misc.css:4331 |
 | a settings row where nothing squashes anything else | frontend/css/07-whiteboard-misc.css:4076 |
-| a sheet (DESIGN.md's recipe index, "A sheet") | frontend/css/10-responsive.css:769 |
+| a sheet (DESIGN.md's recipe index, "A sheet") | frontend/css/10-responsive.css:772 |
 | a sticker (MINDMAP_PLAN decision 44, INBOX 642) | frontend/css/library-lazy.css:3278 |
 | a stored file that is no longer stored | frontend/css/02-chat-graph.css:4788 |
 | a traced path (§9) | frontend/css/02-chat-graph.css:1243 |
 | a turn that is still working says so, for as long as it is | frontend/css/03-dashboard-widgets.css:4400 |
-| a zone that cannot shrink says so, instead of spilling | frontend/css/10-responsive.css:1022 |
+| a zone that cannot shrink says so, instead of spilling | frontend/css/10-responsive.css:1025 |
 | account & security | frontend/css/01-forms-settings.css:3414 |
 | activity heatmap + tag cloud widgets | frontend/css/03-dashboard-widgets.css:2301 |
 | activity log | frontend/css/01-forms-settings.css:2783 |
@@ -9046,11 +9048,11 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | band 2: 820-1100, iPad landscape and small laptops | frontend/css/07-whiteboard-misc.css:9719 |
 | band 3 (600 to 820): the tab strip fits on its own row | frontend/css/10-responsive.css:20 |
 | band 3: 600-820, iPad portrait, and the sheet that band 4 inherits | frontend/css/07-whiteboard-misc.css:9806 |
-| band 4 (under 600): the editor's own targets (DOCUMENTS_PLAN Phase 6) | frontend/css/10-responsive.css:456 |
-| band 4: an icon-only chip is still a target (Phase 11) | frontend/css/10-responsive.css:506 |
+| band 4 (under 600): the editor's own targets (DOCUMENTS_PLAN Phase 6) | frontend/css/10-responsive.css:459 |
+| band 4: an icon-only chip is still a target (Phase 11) | frontend/css/10-responsive.css:509 |
 | band 4: below 600, the phone | frontend/css/07-whiteboard-misc.css:9989 |
-| band 4: five columns, and the fifth is a sheet | frontend/css/10-responsive.css:592 |
-| band 4: the settings sheet's head may wrap, but not be squashed | frontend/css/10-responsive.css:897 |
+| band 4: five columns, and the fifth is a sheet | frontend/css/10-responsive.css:595 |
+| band 4: the settings sheet's head may wrap, but not be squashed | frontend/css/10-responsive.css:900 |
 | boot splash | frontend/css/00-tokens-shell.css:4069 |
 | callouts ("specialised boxes and frames") | frontend/css/05-sidebars-themes.css:1229 |
 | category rename / delete | frontend/css/04-chat-dock-appearance.css:2777 |
@@ -9065,7 +9067,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | column-flex cards keep their full width | frontend/css/07-whiteboard-misc.css:3645 |
 | compressing a long conversation (§35I) | frontend/css/02-chat-graph.css:791 |
 | curated themes | frontend/css/01-forms-settings.css:3450 |
-| dark glass reads flatter, and here is which half of it does | frontend/css/10-responsive.css:296 |
+| dark glass reads flatter, and here is which half of it does | frontend/css/10-responsive.css:299 |
 | dashboard + reminders (Wave D) | frontend/css/01-forms-settings.css:3635 |
 | dashboard quick links | frontend/css/03-dashboard-widgets.css:1838 |
 | dashboard widgets, de-vibecoded | frontend/css/08-consistency.css:4156 |
@@ -9171,9 +9173,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the Ask box explaining itself (§35A) | frontend/css/06-timeline-dialogs.css:1215 |
 | the Ask box reads as one composer | frontend/css/07-whiteboard-misc.css:3016 |
 | the Connections dialog (REDESIGN.md §R7.3) | frontend/css/07-whiteboard-misc.css:5089 |
-| the Dashboard's dock on a phone (INBOX 436) | frontend/css/10-responsive.css:2387 |
-| the Documents editor on a phone (INBOX 430) | frontend/css/10-responsive.css:2194 |
-| the Documents editor on a small laptop (INBOX 430's re-scope) | frontend/css/10-responsive.css:2313 |
+| the Dashboard's dock on a phone (INBOX 436) | frontend/css/10-responsive.css:2390 |
+| the Documents editor on a phone (INBOX 430) | frontend/css/10-responsive.css:2197 |
+| the Documents editor on a small laptop (INBOX 430's re-scope) | frontend/css/10-responsive.css:2316 |
 | the Graph dock's second row, and the nine pixels that cause it | frontend/css/08-consistency.css:2338 |
 | the HUD: a momentary readout, not a notification | frontend/css/07-whiteboard-misc.css:7577 |
 | the Library (§4, §36F) | frontend/css/00-tokens-shell.css:1767 |
@@ -9198,10 +9200,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the bar's three zones | frontend/css/00-tokens-shell.css:3213 |
 | the block bar (INBOX 421 b) | frontend/css/09-editor.css:1005 |
 | the board panel, sorted into the questions it answers | frontend/css/07-whiteboard-misc.css:4870 |
-| the board's bar takes the floor of the whole touch band, not just 600 | frontend/css/10-responsive.css:2050 |
+| the board's bar takes the floor of the whole touch band, not just 600 | frontend/css/10-responsive.css:2053 |
 | the boot splash: one progress indicator, not two | frontend/css/08-consistency.css:4240 |
 | the bottom docks | frontend/css/07-whiteboard-misc.css:9689 |
-| the chat dock follows its own width (INBOX 694) | frontend/css/10-responsive.css:2479 |
+| the chat dock follows its own width (INBOX 694) | frontend/css/10-responsive.css:2482 |
 | the chat page fills its height (§36A) | frontend/css/06-timeline-dialogs.css:1325 |
 | the chat sidebar on a phone | frontend/css/02-chat-graph.css:5486 |
 | the chat toolbar, grouped (§36B) | frontend/css/06-timeline-dialogs.css:1444 |
@@ -9236,14 +9238,14 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the formatting strip says what the caret is already in | frontend/css/09-editor.css:984 |
 | the glass card | frontend/css/00-tokens-shell.css:3740 |
 | the graph node panel becomes a sheet (GRAPH_PLAN Phase 6) | frontend/css/07-whiteboard-misc.css:10009 |
-| the graph's floating controls clear its New note (INBOX 430) | frontend/css/10-responsive.css:2180 |
+| the graph's floating controls clear its New note (INBOX 430) | frontend/css/10-responsive.css:2183 |
 | the graph's legend: one container, not a pill in a box | frontend/css/08-consistency.css:3066 |
 | the graph's options panel | frontend/css/08-consistency.css:3271 |
 | the guided tour (DESIGN.md, "A guided tour step") | frontend/css/04-chat-dock-appearance.css:5691 |
 | the head: identity, one fact as a dot, an all-icon group | frontend/css/03-dashboard-widgets.css:1284 |
 | the help popover is a popover, not a page (INBOX 206) | frontend/css/08-consistency.css:2509 |
 | the in-app confirm dialog (§35F) | frontend/css/06-timeline-dialogs.css:1109 |
-| the lightbox on a phone (INBOX 430) | frontend/css/10-responsive.css:2165 |
+| the lightbox on a phone (INBOX 430) | frontend/css/10-responsive.css:2168 |
 | the live action line | frontend/css/02-chat-graph.css:4819 |
 | the lock screen | frontend/css/08-consistency.css:3705 |
 | the log console (§1) | frontend/css/06-timeline-dialogs.css:728 |
@@ -9253,7 +9255,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the node radial (MINDMAP_PLAN.md §12.1 item 3) | frontend/css/07-whiteboard-misc.css:8763 |
 | the note card's metadata, ordered (§36B) | frontend/css/06-timeline-dialogs.css:1488 |
 | the notifications centre (§36E) | frontend/css/06-timeline-dialogs.css:1647 |
-| the one control in a dock that was not the dock's height | frontend/css/10-responsive.css:337 |
+| the one control in a dock that was not the dock's height | frontend/css/10-responsive.css:340 |
 | the one generating animation | frontend/css/01-forms-settings.css:4719 |
 | the one map chip (MINDMAP_PLAN.md §5 item 12) | frontend/css/05-sidebars-themes.css:776 |
 | the one popover shell (UI_MODERNISATION_PLAN.md, Phase 2) | frontend/css/07-whiteboard-misc.css:7752 |
@@ -9261,11 +9263,11 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the overview strip | frontend/css/00-tokens-shell.css:1829 |
 | the page scrollers scroll on the compositor | frontend/css/08-consistency.css:4271 |
 | the page shell (§35L) | frontend/css/00-tokens-shell.css:3557 |
-| the palette on a touch screen (INBOX 464) | frontend/css/10-responsive.css:2465 |
+| the palette on a touch screen (INBOX 464) | frontend/css/10-responsive.css:2468 |
 | the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5865 |
 | the picker itself | frontend/css/05-sidebars-themes.css:3750 |
 | the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10244 |
-| the quick-nav chord's guide | frontend/css/10-responsive.css:418 |
+| the quick-nav chord's guide | frontend/css/10-responsive.css:421 |
 | the reader: one scroller, the page set as prose | frontend/css/03-dashboard-widgets.css:1659 |
 | the reply head on Ask's answer, the draft and the guide (INBOX 471) | frontend/css/08-consistency.css:9436 |
 | the rich picker (rich-picker.js; DESIGN.md's recipe index) | frontend/css/05-sidebars-themes.css:864 |
@@ -9279,7 +9281,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the spine | frontend/css/00-tokens-shell.css:2197 |
 | the spine on the other edge (MINDMAP_PLAN.md §13e) | frontend/css/07-whiteboard-misc.css:8305 |
 | the status bar (§36D) | frontend/css/00-tokens-shell.css:3131 |
-| the status bar from 820 to 959: one item fewer | frontend/css/10-responsive.css:1148 |
+| the status bar from 820 to 959: one item fewer | frontend/css/10-responsive.css:1151 |
 | the status bar on a small phone | frontend/css/00-tokens-shell.css:3440 |
 | the status line and the recent searches | frontend/css/03-dashboard-widgets.css:1413 |
 | the step group (Perplexity's "Finished N steps") | frontend/css/02-chat-graph.css:4892 |
@@ -9331,7 +9333,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/07-whiteboard-misc.css | 11943 |
 | frontend/css/08-consistency.css | 10462 |
 | frontend/css/09-editor.css | 1116 |
-| frontend/css/10-responsive.css | 2586 |
+| frontend/css/10-responsive.css | 2589 |
 | frontend/css/ask-compose-lazy.css | 33 |
 | frontend/css/atlas-lazy.css | 52 |
 | frontend/css/captions-lazy.css | 83 |
@@ -16010,7 +16012,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9941)
+## Tests (9942)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16375,7 +16377,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_filing_standin_watch.py | 1 |
 | tests/test_final_pass_bugs.py | 5 |
 | tests/test_finder_star_790.py | 3 |
-| tests/test_first_run_472.py | 12 |
+| tests/test_first_run_472.py | 13 |
 | tests/test_flaw_class_lints.py | 2 |
 | tests/test_focus_timer.py | 5 |
 | tests/test_folder_roundtrip.py | 5 |

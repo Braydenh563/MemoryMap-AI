@@ -237,3 +237,13 @@ def test_the_track_has_visible_round_corners():
     assert "border-radius: var(--radius-md)" in rule and "background: var(--chip-bg)" in rule
     paint = JS.split("function recordingPaint(")[1].split("\n}\n")[0]
     assert "borderTopLeftRadius" in paint and "inset + i * bar" in paint
+
+
+def test_no_recordings_is_the_empty_state_recipe():
+    """The owner, 2026-10-11: "can you add like an icon or smth to this page
+    so it doesnt look so empty??". DESIGN.md: icon, title, one sentence, one
+    action; the action is the header's Record."""
+    body = JS.split("function recordingsEmpty(")[1].split("\n}\n")[0]
+    for part in ("empty-state recordings-empty", "empty-icon", "ph-microphone", "empty-title", "openVoiceNote()"):
+        assert part in body
+    assert "Nothing recorded yet" not in JS

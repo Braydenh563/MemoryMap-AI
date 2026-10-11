@@ -48379,6 +48379,20 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
   rgba(28,28,26,0.05) light and rgba(236,235,232,0.06) dark, the corner
   pixel transparent, at 1440 and 390. Test:
   `test_the_track_has_visible_round_corners`.
+- **The owner, 2026-10-11, verbatim.** "can you add like an icon or smth to
+  this page so it doesnt look so empty??". The Recordings sub-tab's empty
+  state was one muted line ("Nothing recorded yet. Record keeps a voice note
+  here; ..."). **Fixed (uiset, the recordings empty state commit).**
+  DESIGN.md's empty state recipe (`recordingsEmpty`): the microphone icon,
+  "No recordings yet", the sentence, and "Record a voice note", which does
+  what the header's Record does (`openVoiceNote`); no search match and a
+  failed load are the same block (the magnifier; the warn mood). The
+  transcript's error inside a card is the small-panel `.empty-line`.
+  Measured (emp.js, fresh data dir): 1358x225 at 1440 and 322x259 at 390,
+  icon 41.6px, button 32px (44px at 390), no sideways scroll, light and dark.
+  Census of the other `*-empty` classes built in JS: 30, all inside a small
+  panel, menu, picker or section (the `.empty-line` recipe's ground, not the
+  full block); left as they are. Test: `test_no_recordings_is_the_empty_state_recipe`.
 
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 

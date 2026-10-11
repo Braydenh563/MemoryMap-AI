@@ -333,6 +333,13 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the calendar55 agent (Brief 55, merged 2026-10-11)
+
+Full list: [archive/agent-remaining/calendar55-1011.md](../archive/agent-remaining/calendar55-1011.md).
+- Touch drag on a tablet, a day page dropped on another day, and a 1,000-note month are built but not driven.
+- The contrast and errors sweeps were not run on the calendar view.
+- The feed's Last-year range filters by when a note was written, so a note about a day this month written over a year ago shows in the calendar and not the feed.
+
 ## Left by the appsync agent (WORLD_CLASS 25f, merged 2026-10-11)
 
 Full list: [archive/agent-remaining/appsync-1011.md](../archive/agent-remaining/appsync-1011.md).

@@ -237,14 +237,13 @@ disagree.
 
 | Step | Builds | Gate |
 | --- | --- | --- |
-| 1 | the month grid from the row model; `timelineViewMode` gains `calendar`; the view segment's third option; help popover and Guide topic updated | `scratchpad/ui-sweeps/calendar.js`: 48-note fixture renders 30 cells, no cell overflows (`scrollHeight` equals `clientHeight`), the three-row cap holds |
-| 2 | the week grid and the phone fallback | the sweep at 1440, 1024, 768 and 390: the right grid at each, no horizontal scroll |
-| 3 | reminders and day notes on the grid; drag to reschedule with undo | `test_reminders_reschedule.py`; the sweep drags one reminder and reads the new `due` |
-| 4 | ICS export and import | `test_ics.py`: a round trip of 20 reminders is equal; an import with a bad line reports it and keeps the rest |
+| 1 to 4 | the month grid, the week and day grids and the phone agenda, reminders and day pages on the grid with drag and undo, ICS export and import | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" |
 
-Not verified until built: the dot density at 5,000 notes in one month
-(the fixture has 48 over six months; a 1,000-note month is the stress
-case), and the week grid's hour rows against the feed's buckets.
+Not verified (Brief 55): the dot density at 5,000 notes in one month (the
+sweep's fixture is 48 over six months; a 1,000-note month is the stress
+case, read as at most ten pages of 1,000), touch drag (HTML drag and drop
+has none on a phone, where the calendar is the agenda), a week grid at
+1024 under a coarse pointer with hour rows full.
 
 ### Vendored capabilities to use, 2026-10-10 (Brief 75)
 
@@ -281,14 +280,14 @@ never collide).
 | 1 | fix | The dock at 390 and 320: the view segment, search and month controls wrap into one row or move into the dock's menu | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 2 | fix | The day head's button beside its date, not over it; the five small targets at 24 px, 44 px on a coarse pointer | overlap 1 to 0 at 1440; small targets 5 to 0 | 7, 9, 11 |
 | 3 | fix | `undo.js` drives the selection bar from the timeline (move, tag, favourite, archive, delete) | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
-| 4 | expansion | The calendar as the third view (section 9) | section 9's gates | 2, 6 |
+| 4 | expansion | The calendar as the third view (section 9) | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" | |
 | 5 | expansion | Typed entries land on the day they name ("yesterday lunch with Sam") through the one quick-add grammar (CHAT_PLAN decision 50) | the parsed day equals the row's day on a 20-phrase set | 12, 10 |
 | 6 | redesign | Scrubber and month ticks from D3's time scale (VC2 above) | no label overlap at 390; the hand-rolled tick lines deleted | 7, 11 |
 | 7 | expansion | "On this day" and a year strip on the timeline, not only the dashboard | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 8 | optimisation | Click to rows 479 to 767 ms with 96 notes: under 300 ms, and under 800 ms on the 5,000-note scale fixture (`scale_test.py`) | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 
-**Briefs.** 41 (row 2), 55 (row 4), 66 (row 5), 75 (row 6); 85's rows 1, 3,
-7 and 8 are built.
+**Briefs.** 41 (row 2), 66 (row 5), 75 (row 6); 55's row 4 and 85's rows 1,
+3, 7 and 8 are built.
 
 ## 11. Deepened 2026-10-10: reminders and notifications (Brief 72b, decisions 69 and 71)
 
@@ -326,9 +325,9 @@ other Tuesday", "last Friday of the month").
 | 6 | fix | A blocked permission says so once, in the reminders head and in Settings, with how to allow it per browser; the chime and the bell stay | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 7 | expansion | Live chips in the quick-add row (CHAT_PLAN decision 50) and the same row at 390 | chips within 150 ms; the saved value equals the chips; the row present at 390 | 12, 8 |
 | 8 | expansion | Recurrence beyond four (every weekday, every 2 weeks, last Friday) and early alerts ("1 day before") | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
-| 9 | expansion | ICS import (section 9 decision 17) | section 9 step 4's gate | 3 |
+| 9 | expansion | ICS import (section 9 decision 17) | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" | |
 
-**Briefs.** 55 (row 9), 66 (row 7); 85's rows 1, 2, 5, 6 and 8 and 86's
+**Briefs.** 66 (row 7); 55's row 9, 85's rows 1, 2, 5, 6 and 8 and 86's
 rows 3 and 4 are built.
 
 ## 12. Deepened 2026-10-10: the calendar (Brief 72b, decision 71)
@@ -347,11 +346,11 @@ reschedule, week view), Google Calendar's agenda on the phone.
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | redesign | One calendar: section 9's view is the component, and the reminders toggle opens it filtered to reminders (decision 19, INBOX 768) | one grid function in the code; both entry points render it | 10, 11 |
-| 2 | fix | Titles in month cells, three rows and "+n" (decision 14) | 0 titles to up to 3 per cell at 1024 and up; 0 cells overflow | 6, 7 |
-| 3 | expansion | Drag to reschedule with the undo bar (decision 16) | 0 drag handlers to a drag that moves `due_at` and undoes | 1 |
-| 4 | expansion | Week grid with hour rows; agenda below 768 (decisions 14, section 9 step 2) | the right grid per width; overlaps 7 to 0 at 390 | 7, 8 |
-| 5 | expansion | Notes as dots, day notes as heads, meetings on the grid (decision 15) | the 48-note fixture's dots per day equal the feed's counts | 6 |
+| 1 | redesign | One calendar (decision 19, INBOX 768) | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" | |
+| 2 | fix | Titles in month cells, three rows and "+n" (decision 14) | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" | |
+| 3 | expansion | Drag to reschedule with the undo bar (decision 16) | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" | |
+| 4 | expansion | Week grid with hour rows; agenda below 768 | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" | |
+| 5 | expansion | Notes as dots, day notes as heads, meetings on the grid (decision 15) | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" | |
 | 6 | expansion | `N` on a day opens quick add with the day filled (decision 18, CHAT_PLAN decision 50) | the saved due day equals the cell | 2, 12 |
 
-**Briefs.** 55 (rows 1 to 5), 66 (row 6).
+**Briefs.** 66 (row 6); 55's rows 1 to 5 are built.

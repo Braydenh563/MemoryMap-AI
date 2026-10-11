@@ -322,7 +322,8 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The Timeline tab lists what you wrote newest first, grouped by day, "
             "week, month or year (Auto picks the finest that reads well), as a "
-            "feed or as a sortable table. Kinds chooses notes, boards, documents "
+            "feed, as a sortable table or as a calendar of a month, a week or a "
+            "day. Kinds chooses notes, boards, documents "
             "and reminders; Options sets the grouping, Group by (category, tag "
             "or thread) and Show group, and the Time range, where On this day "
             "shows today's date in earlier months and years. In the feed, Ctrl and "
@@ -1865,10 +1866,17 @@ HELP_TOPICS.extend(
         },
         {
             "id": "timeline-controls",
-            "keywords": ("time bucket", "feed view", "table view", "jump to today", "density strip", "group by"),
+            "keywords": ("time bucket", "feed view", "table view", "calendar view", "month view", "week view", "reschedule", "jump to today", "density strip", "group by"),
             "body": (
                 "Timeline controls. Feed shows the newest first, grouped by date; "
-                "Table shows every column, sortable. Pick the time bucket (Auto, "
+                "Table shows every column, sortable; Calendar shows a month, a week "
+                "(hour rows) or a day: reminders and meetings at their time, a day's "
+                "page at the top of its day and a dot per note. Drag a reminder to "
+                "another day or hour to move it, or press Alt and an arrow on it "
+                "(Undo puts it back); the arrows walk "
+                "the days, Page Up and Page Down the months, T is today, Enter opens "
+                "the day in the feed and N starts a reminder on it. Below a tablet's "
+                "width the calendar is the month's rows as a list. Pick the time bucket (Auto, "
                 "Day, Week, Month or Year; Auto takes the finest one that keeps "
                 "the headers few and filled: days for a few weeks of notes, weeks "
                 "for a year, months for several years), what rows are grouped by (Category, "
@@ -1908,7 +1916,10 @@ HELP_TOPICS.extend(
                 "edited in place, or ticked "
                 "done; completed ones page at the foot. Add to calendar (.ics), on "
                 "a reminder's menu, saves it as a calendar file, and Add all to "
-                "calendar (.ics) in the More menu saves every upcoming one. Press m "
+                "calendar (.ics) in the More menu saves every upcoming one; Import a "
+                "calendar (.ics) there reads a calendar file as reminders and names "
+                "any event it skipped. Calendar beside List opens the Timeline's "
+                "calendar with only reminders, where one drags to another day. Press m "
                 "then r to jump here from anywhere."
             ),
             "badge": {"label": "Reminders", "tab": "reminders"},

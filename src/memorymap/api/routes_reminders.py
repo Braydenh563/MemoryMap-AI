@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 
 from memorymap.api import paging
 from pydantic import BaseModel, Field
@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from typing import Annotated, Literal
 
 from memorymap.ai import recognise as rec
-from memorymap.core import deps, reminder_token
+from memorymap.core import deps, ics_import, reminder_token
 from memorymap.core.database import Document, Entry, Reminder, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import extract_title, log_action, plain_label, readable_content
@@ -367,6 +367,65 @@ def export_one_ics(reminder_id: int, session: Session = Depends(get_session)) ->
     """One reminder as a calendar file."""
     reminder = _existing(session, reminder_id)
     return _ics_response(session, [reminder], f"reminder-{reminder.id}.ics")
+
+
+# --- .ics import (TIMELINE_PLAN section 9, decision 17) -----------------------
+#
+# The way back in: a calendar file becomes reminders, one bad event reported
+# and the rest kept (`core/ics_import.py` reads it). An event this app wrote
+# (its UID names the reminder) updates that reminder, so exporting and
+# importing the same file twice never doubles anything.
+
+
+def _past_and_open(event: ics_import.IcsReminder) -> bool:
+    """A one-off event already gone by that was never ticked off: a calendar
+    archive's history, not something to be reminded of."""
+    return not event.done and event.recurring == "none" and event.due_at.replace(tzinfo=timezone.utc) < utcnow() - timedelta(minutes=1)
+
+
+def _import_one(session: Session, event: ics_import.IcsReminder) -> tuple[str, Reminder]:
+    reminder = session.get(Reminder, event.own_id) if event.own_id else None
+    verb = "updated"
+    if reminder is None or reminder.deleted_at is not None:
+        reminder, verb = Reminder(), "added"
+        session.add(reminder)
+    reminder.text = event.text
+    reminder.due_at = event.due_at.replace(tzinfo=timezone.utc)
+    reminder.priority = event.priority
+    reminder.recurring = event.recurring
+    reminder.alert_minutes = event.alert_minutes
+    reminder.done = event.done
+    return verb, reminder
+
+
+@router.post("/import.ics")
+async def import_ics(
+    file: UploadFile = File(...),
+    tz_offset_minutes: int = Form(default=0, ge=-840, le=840),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Reminders from a calendar file, with what was skipped and why."""
+    raw = await file.read(ics_import.MAX_BYTES + 1)
+    if len(raw) > ics_import.MAX_BYTES:
+        raise HTTPException(status_code=413, detail="That calendar file is over 2 MB. Export only the reminders and try again.")
+    text = raw.decode("utf-8", errors="replace")
+    if "BEGIN:VCALENDAR" not in text.upper():
+        raise HTTPException(status_code=422, detail="That is not a calendar (.ics) file.")
+    reading = ics_import.read(text, tz_offset_minutes)
+    added: list[int] = []
+    updated: list[int] = []
+    skipped = list(reading.skipped)
+    for event in reading.events:
+        if _past_and_open(event):
+            skipped.append({"line": event.line, "text": event.text, "reason": f"line {event.line}: already past"})
+            continue
+        verb, reminder = _import_one(session, event)
+        session.flush()
+        (added if verb == "added" else updated).append(reminder.id)
+    if added or updated:
+        log_action(session, "created", "reminder", added[0] if added else updated[0], f"imported {len(added)}, updated {len(updated)}")
+    session.commit()
+    return {"added": added, "updated": updated, "skipped": sorted(skipped, key=lambda row: row["line"])}
 
 
 @router.get("")

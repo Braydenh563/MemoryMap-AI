@@ -464,7 +464,7 @@ def timeline(
             )
         return statement
 
-    query = in_range(query, Entry.created_at)
+    query = _ranged_entries(query, in_range, (start, end, on), since, until, tz)
 
     # The density strip is the whole range, however little of it this page
     # holds: it is the overview a reader drags to get somewhere, so a strip
@@ -643,6 +643,69 @@ def _naive(at: datetime) -> datetime:
     return at.astimezone(timezone.utc).replace(tzinfo=None) if at.tzinfo else at
 
 
+def _first_mentioned():
+    """A note's first mentioned date (lowest id), the one its row sits on."""
+    return (
+        select(EntryDate.at)
+        .where(EntryDate.entry_id == Entry.id)
+        .order_by(EntryDate.id)
+        .limit(1)
+        .correlate(Entry)
+        .scalar_subquery()
+    )
+
+
+def _meeting_date():
+    """A meeting's own `date:`, which beats any mention (`_meeting_dates`)."""
+    typed = (
+        select(EntryProperty.id)
+        .where(
+            EntryProperty.entry_id == Entry.id,
+            EntryProperty.key == "type",
+            func.lower(EntryProperty.value) == "meeting",
+        )
+        .correlate(Entry)
+        .exists()
+    )
+    return (
+        select(EntryProperty.date)
+        .where(EntryProperty.entry_id == Entry.id, EntryProperty.key == "date", EntryProperty.date.is_not(None), typed)
+        .order_by(EntryProperty.id)
+        .limit(1)
+        .correlate(Entry)
+        .scalar_subquery()
+    )
+
+
+def _ranged_entries(query: Select, in_range, asked: tuple, since, until, tz: int) -> Select:
+    """The notes in range: by placement for an explicit window (`start` and
+    `end`, no `on`), else by when they were written, as the feed reads."""
+    start, end, on = asked
+    if start and end and not on:
+        return _entries_in_window(query, since, until, tz)
+    return in_range(query, Entry.created_at)
+
+
+def _entries_in_window(query: Select, since: datetime, until: datetime, tz: int) -> Select:
+    """Notes that *sit* in an explicit window (TIMELINE_PLAN section 9).
+
+    A window with both ends is a question about days on a calendar, so a note
+    is in it by the day its row is placed on: a meeting's own date, else the
+    date it mentions, else when it was written. Measured on the calendar sweep: a day
+    page written in March and titled for today was on the feed's today and
+    missing from the calendar's. A mentioned date is the writer's wall clock
+    with no zone, so it is compared with the window moved by `tz`.
+    """
+    first = func.coalesce(_meeting_date(), _first_mentioned())
+    wall = timedelta(minutes=tz)
+    return query.where(
+        or_(
+            and_(first.is_(None), Entry.created_at >= since, Entry.created_at <= until),
+            and_(first >= since + wall, first <= until + wall),
+        )
+    )
+
+
 def _density(session: Session, ranged: Select) -> dict[str, int]:
     """How much was written on each day of the range, whatever page is loaded.
 
@@ -658,14 +721,7 @@ def _density(session: Session, ranged: Select) -> dict[str, int]:
     #: date (lowest id, as before) is a correlated read served by the
     #: `entry_id` index; dates are stored as naive UTC text, so the day is its
     #: first ten characters, which is what `.date()` gave on the row.
-    first_mentioned = (
-        select(EntryDate.at)
-        .where(EntryDate.entry_id == Entry.id)
-        .order_by(EntryDate.id)
-        .limit(1)
-        .correlate(Entry)
-        .scalar_subquery()
-    )
+    first_mentioned = _first_mentioned()
     day = func.substr(func.coalesce(first_mentioned, Entry.created_at), 1, 10, type_=String)
     rows = session.execute(
         ranged.with_only_columns(day.label("day"), func.count()).order_by(None).group_by("day")

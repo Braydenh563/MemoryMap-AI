@@ -4920,6 +4920,7 @@ SEG_BUILT_IN_SCRIPT = {
     ("skills.js", "seg seg-compact chat-skill-pace"): "a skill's pace, a value",
     ("whiteboard.js", "seg seg-compact wb-export-seg"): "Export this board: the format, a value",
     ("selection.js", "seg"): "PLACED: pickLibraryItemDialog's sources, a kind switch",
+    ("timeline-calendar.js", "seg seg-compact timeline-cal-span"): "not a popup: the calendar head's view mode (Month, Week, Day)",
 }
 
 
@@ -5341,3 +5342,23 @@ def test_a_changed_setting_is_marked_by_the_rows_recipe():
     css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
     rule = re.search(r"#settings-modal \.setting-modified \{([^}]*)\}", css)
     assert rule and "inset 2px 0 0 var(--accent-text)" in rule.group(1) and "border" not in rule.group(1)
+
+
+def test_one_calendar_grid_of_dom_cells() -> None:
+    """TIMELINE_PLAN section 9 (decisions 14, 15, 16, 19): the app has one
+    calendar, the Timeline's, drawn by timeline-calendar.js as DOM cells in a
+    CSS grid (no SVG), every day through `timelineCalCell`, three rows and a
+    "+n" in a month cell, and its keys and drags on one delegated listener
+    each on the view's box, never one per cell. The reminders tab opens it
+    rather than drawing a month of its own."""
+    cal = (ROOT / "frontend" / "js" / "timeline-calendar.js").read_text(encoding="utf-8")
+    assert "const TIMELINE_CAL_ROWS = 3;" in cal
+    assert "<svg" not in cal and "createElementNS" not in cal, "the calendar is DOM cells, not SVG"
+    assert cal.count('className = "timeline-cal-cell"') == 1, "every day is built by timelineCalCell"
+    for event in ("keydown", "dragstart", "dragover", "drop"):
+        assert len(re.findall(rf'addEventListener\("{event}"', cal)) == 1, event
+    code = app_js_text()
+    assert "function renderReminderCalendar" not in code, "one calendar (decision 19)"
+    assert 'timelineCalendarCall("timelineCalendarReminders")' in code
+    others = [p.name for p in JS if p.name != "timeline-calendar.js" and re.search(r"class(?:Name)?\s*=\s*[\"'][^\"']*-cal-grid", p.read_text(encoding="utf-8"))]
+    assert not others, f"a second month grid: {others}"

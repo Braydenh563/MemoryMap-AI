@@ -3419,9 +3419,10 @@ Link to another note with [[its first few words]]."></textarea>
                at once. Switching is a repaint, not a reload. The old grid/line
                pair went with the grid view; this is the same control with the
                two views that earn a place. -->
-          <div class="seg seg-compact timeline-view-seg" id="timeline-view-seg" role="group" aria-label="Feed or table">
+          <div class="seg seg-compact timeline-view-seg" id="timeline-view-seg" role="group" aria-label="Feed, table or calendar">
             <button type="button" class="icon-only active" id="timeline-view-feed" data-timeline-view="feed" title="Feed: newest first, grouped by date" aria-label="Feed view"><i class="ph ph-list-dashes" aria-hidden="true"></i></button>
             <button type="button" class="icon-only" id="timeline-view-table" data-timeline-view="table" title="Table: every column, sortable" aria-label="Table view"><i class="ph ph-table" aria-hidden="true"></i></button>
+            <button type="button" class="icon-only" id="timeline-view-calendar" data-timeline-view="calendar" title="Calendar: a month, a week or a day" aria-label="Calendar view"><i class="ph ph-calendar-blank" aria-hidden="true"></i></button>
           </div>
           <details class="doc-dock-menu dock-menu" id="timeline-options-menu">
             <summary class="ghost small doc-dock-menu-btn" title="Bucket size, bands and how far back to show"><i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i> Options <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
@@ -3514,6 +3515,13 @@ Link to another note with [[its first few words]]."></textarea>
         wrote on today's date in earlier years, and a chip per year narrows the list to it;
         Options, Time range, On this day does the same.
   </p>
+  <p>The calendar shows a month, a week or a day: reminders and meetings at
+        their time, a day's page at the top of its day and a dot for each note.
+        Drag a reminder to another day or hour to move it, or press Alt and an
+        arrow on it (Undo puts it back).
+        Arrows walk the days, Page Up and Page Down the months, T is today,
+        Enter opens the day in the feed and N starts a reminder on it.
+  </p>
 </div>
       <!-- The calendar strip (WORLD_CLASS_PLAN D6; INBOX 543 redesign): one
            header row under the dock. The month and its two arrows are one
@@ -3588,6 +3596,10 @@ Link to another note with [[its first few words]]."></textarea>
            reader would be noise rather than help. -->
       <div class="timeline-body">
       <div id="timeline-scroll" class="timeline-scroll">
+        <!-- The calendar (TIMELINE_PLAN section 9): drawn by the lazy
+             timeline-calendar.js from the same rows as the feed and the table. Before the feed:
+             below 768 its head sits over the feed's rows as an agenda. -->
+        <div id="timeline-calendar" class="timeline-calendar hidden" role="region" aria-label="Calendar"></div>
         <div id="timeline-feed" class="timeline-feed" data-density="full"></div>
         <!-- The table view (TIMELINE_PLAN decision 6). A real `<table>`: the
              columns are a header row a screen reader can announce, the sort is
@@ -5549,9 +5561,9 @@ Link to another note with [[its first few words]]."></textarea>
           <h2>Your reminders</h2>
         </div>
         <div class="dock-group dock-arrange">
-          <div class="seg seg-compact" id="reminder-view-toggle" role="group" aria-label="List or calendar view">
-            <button type="button" data-view="list" class="active icon-only" title="List" aria-label="List view"><i class="ph ph-rows" aria-hidden="true"></i></button>
-            <button type="button" data-view="calendar" class="icon-only" title="Calendar" aria-label="Calendar view"><i class="ph ph-calendar-blank" aria-hidden="true"></i></button>
+          <div class="seg seg-compact" id="reminder-view-toggle" role="group" aria-label="List, or the calendar">
+            <button type="button" data-view="list" class="active icon-only" title="List" aria-label="List view" aria-pressed="true"><i class="ph ph-rows" aria-hidden="true"></i></button>
+            <button type="button" data-view="calendar" id="reminder-view-calendar" class="icon-only" title="Calendar: the Timeline's calendar, reminders only" aria-label="Open the calendar" aria-pressed="false"><i class="ph ph-calendar-blank" aria-hidden="true"></i></button>
           </div>
         </div>
         <div class="dock-actions">
@@ -5565,7 +5577,7 @@ Link to another note with [[its first few words]]."></textarea>
             data-help-for="reminders-help" aria-controls="reminders-help" aria-expanded="false"
             title="About reminders" aria-label="About reminders"><i class="ph ph-question" aria-hidden="true"></i></button>
           <div class="help-body hidden" id="reminders-help" role="dialog" aria-label="About reminders">
-            <p>Reminders are grouped as overdue, today and upcoming. Write one in plain words: the day, time, repeat and early alert it was read as show as chips under the box (press one to leave it as words), and Enter adds it; with no time it asks for one. A repeat can be every weekday, every 2 weeks or the last Friday of the month, and "1 day before" adds an alert ahead of the due time. Or use Quick set. The date and time fields open a month and the day's times, and read a typed day such as next friday. Notifications fire while a tab is open, even in the background, with Done and Snooze on them; the desktop app notifies with its window closed. The calendar view shows the month, and More adds every open reminder to your calendar app.</p>
+            <p>Reminders are grouped as overdue, today and upcoming. Write one in plain words: the day, time, repeat and early alert it was read as show as chips under the box (press one to leave it as words), and Enter adds it; with no time it asks for one. A repeat can be every weekday, every 2 weeks or the last Friday of the month, and "1 day before" adds an alert ahead of the due time. Or use Quick set. The date and time fields open a month and the day's times, and read a typed day such as next friday. Notifications fire while a tab is open, even in the background, with Done and Snooze on them; the desktop app notifies with its window closed. Calendar opens the Timeline's calendar with only reminders, where one drags to another day. More adds every open reminder to your calendar app, or imports a calendar file as reminders.</p>
           </div>
           <details class="doc-dock-menu dock-menu dock-more" id="reminders-more-menu">
             <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
@@ -5576,6 +5588,12 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="doc-dock-menu-item" id="reminders-export-ics"
                 title="Every open reminder as a calendar file your phone or calendar app can import">
                 <i class="ph ph-calendar-plus ph-lead" aria-hidden="true"></i> Add all to calendar (.ics)</button>
+              <!-- The way back in (TIMELINE_PLAN decision 17): one button over a
+                   hidden picker; choosing the file imports it, Undo bins what it added. -->
+              <button type="button" class="doc-dock-menu-item" id="reminders-import-ics"
+                title="Reminders from a calendar file (.ics), with a report of anything skipped">
+                <i class="ph ph-calendar-check ph-lead" aria-hidden="true"></i> Import a calendar (.ics)</button>
+              <input id="reminders-import-ics-file" type="file" accept=".ics,text/calendar" class="hidden" aria-label="Calendar file to import">
               <div class="dock-menu-section">
                 <label class="muted dock-menu-label" for="reminders-page-size">Completed per page</label>
                 <select id="reminders-page-size" aria-label="Completed reminders per page" title="Completed reminders per page">
@@ -5627,11 +5645,6 @@ Link to another note with [[its first few words]]."></textarea>
         <span id="reminders-done-page-status" class="muted text-sm" role="status">Page 1 of 1</span>
         <button id="reminders-done-page-next" class="ghost small" type="button" aria-label="Next page">Next <i class="ph ph-caret-right" aria-hidden="true"></i></button>
       </div>
-      <!-- A month grid alongside the flat list (ROADMAP.md gap 4): "what's due
-           this week" as a calendar rather than scrolling a list grouped only
-           into Overdue/Today/Upcoming buckets. Hidden unless the toggle above
-           picks it. -->
-      <div id="reminder-calendar" class="reminder-calendar hidden"></div>
       <div id="reminders-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-alarm ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">No reminders yet</p>

@@ -80,6 +80,8 @@ CSS_FILES = [
     CSS_DIR / "manual-lazy.css",
     #: The dashboard's first steps (first-run.js loads it, WORLD_CLASS_PLAN 25c).
     CSS_DIR / "first-run-lazy.css",
+    #: The Timeline's calendar (timeline-calendar.js loads it, TIMELINE_PLAN 9).
+    CSS_DIR / "timeline-calendar-lazy.css",
 ]
 
 

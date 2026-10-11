@@ -3501,6 +3501,13 @@ aside[data-resizable="1"] {
    230px from the month and 950px of empty row at 1440. No card around it.
    Below the well's 34rem the days stack (weekday over number), so a day
    keeps 44px at 390. Today's number is filled; a dot means a page. */
+/* The calendar (timeline-calendar.js) is its own navigation: the day strip,
+   the recall chips and the density strip belong to the feed. */
+#tab-timeline.is-calendar .timeline-daystrip,
+#tab-timeline.is-calendar .timeline-recall,
+#tab-timeline.is-calendar .timeline-scrubber {
+  display: none;
+}
 .timeline-daystrip {
   display: flex;
   flex-wrap: wrap;

@@ -1703,20 +1703,13 @@ for (const button of document.querySelectorAll("#reminder-filter button")) {
     loadReminders();
   });
 }
-for (const button of document.querySelectorAll("#reminder-view-toggle button")) {
-  button.addEventListener("click", () => {
-    reminderView = button.dataset.view;
-    localStorage.setItem("reminderView", reminderView);
-    for (const b of document.querySelectorAll("#reminder-view-toggle button")) {
-      b.classList.toggle("active", b === button);
-    }
-    loadReminders();
-  });
-  // The markup hardcodes "List" as the active button; a returning visitor
-  // whose last choice (localStorage) was "calendar" needs that reflected
-  // here too, not just in which container loadReminders() shows.
-  button.classList.toggle("active", button.dataset.view === reminderView);
-}
+//: **One calendar** (TIMELINE_PLAN decision 19, INBOX 768): Calendar opens
+//: the Timeline's calendar showing only reminders, where a reminder drags to
+//: another day; the month grid this tab drew beside its list went.
+$("reminder-view-calendar").addEventListener("click", () => {
+  switchTab("timeline");
+  timelineCalendarCall("timelineCalendarReminders");
+});
 $("reminder-magic-add").addEventListener("click", magicAddReminder);
 $("reminder-magic").addEventListener("keydown", (e) => {
   // Now a textarea, so Enter has to be claimed explicitly to keep the

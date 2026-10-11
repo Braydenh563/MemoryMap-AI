@@ -840,9 +840,9 @@ function syncTimelineFilterChip() {
 // rather than dim: a dimmed row still takes its space, still answers Ctrl+F
 // and still has to be read past, which is why the old view's search was
 // reported as doing nothing useful.
-function timelineVisibleRows() {
+function timelineVisibleRows(from = timelineRows) {
   const query = ($("timeline-search").value || "").trim().toLowerCase();
-  let rows = timelineRows;
+  let rows = from;
   if (timelineFilter) {
     rows = rows.filter((row) => timelineRowGroups(row).includes(timelineFilter));
   }
@@ -866,13 +866,19 @@ function paintTimeline() {
   if (!$("timeline-feed")) return;
   timelineForgetRows();
   const rows = timelineVisibleRows();
-  const table = timelineViewMode() === "table";
-  const nothingLoaded = timelineRows.length === 0;
+  const mode = timelineViewMode();
+  const table = mode === "table";
+  const calendar = mode === "calendar";
+  //: The calendar reads its own period and says its own emptiness: a month
+  //: with nothing in it is still a month to look at and drop a reminder on.
+  const nothingLoaded = timelineRows.length === 0 && !calendar;
   $("timeline-empty").classList.toggle("hidden", !nothingLoaded);
-  $("timeline-no-match").classList.toggle("hidden", nothingLoaded || rows.length > 0);
-  $("timeline-scroll").classList.toggle("hidden", rows.length === 0);
-  $("timeline-feed").classList.toggle("hidden", table);
+  $("timeline-no-match").classList.toggle("hidden", calendar || nothingLoaded || rows.length > 0);
+  $("timeline-scroll").classList.toggle("hidden", !calendar && rows.length === 0);
+  $("tab-timeline").classList.toggle("is-calendar", calendar);
+  $("timeline-feed").classList.toggle("hidden", table || calendar);
   $("timeline-table").classList.toggle("hidden", !table);
+  $("timeline-calendar").classList.toggle("hidden", !calendar);
   // Selecting rows is the table's affordance: the feed has no tick boxes, and
   // offering the mode where it cannot be used is a control that does nothing.
   $("timeline-select-btn").classList.toggle("hidden", !table);
@@ -881,10 +887,16 @@ function paintTimeline() {
   //: breakpoint switches the mode, and the hidden feed kept its rows beside
   //: the table's: every `.timeline-row` query (the keyboard walk, the tab
   //: order, the sweeps) then counted both, measured as 113 rows read as 226.
-  if (table) {
+  if (calendar) {
+    $("timeline-table-body").replaceChildren();
+    $("timeline-feed").replaceChildren();
+    timelineCalendarCall("paintTimelineCalendar");
+  } else if (table) {
+    $("timeline-calendar").replaceChildren();
     $("timeline-feed").replaceChildren();
     paintTimelineTable(rows);
   } else {
+    $("timeline-calendar").replaceChildren();
     $("timeline-table-body").replaceChildren();
     paintTimelineFeed(rows);
   }
@@ -2095,7 +2107,7 @@ $("timeline-scrubber").addEventListener("pointermove", (event) => {
 //: `timelineVisibleRows()`.
 function timelineViewMode() {
   const stored = prefs.get("timeline-view", null);
-  if (stored === "table" || stored === "feed") return stored;
+  if (stored === "table" || stored === "feed" || stored === "calendar") return stored;
   //: **A phone opens the timeline as the table** (UI_MODERNISATION_PLAN
   //: Phase 11 item 8): the feed's two-column ribbon is a desktop's shape,
   //: and the table is one row per event at any width. A choice made on
@@ -2374,6 +2386,13 @@ $("timeline-table-head").addEventListener("click", (event) => {
   paintTimeline();
 });
 
+//: **The calendar is a lazy file** (TIMELINE_PLAN section 9): the boot
+//: scripts are at their budget, so its code arrives the first time it is
+//: chosen, and every call into it goes through here.
+function timelineCalendarCall(name, ...args) {
+  return lazyScript("/js/timeline-calendar.js").then((ok) => ok && window[name](...args));
+}
+
 $("timeline-view-seg").addEventListener("click", (event) => {
   const button = event.target.closest("[data-timeline-view]");
   if (!button) return;
@@ -2486,6 +2505,7 @@ $("timeline-end-date")?.addEventListener("change", () => {
 //: first section is today's: a notebook with nothing written today should land
 //: on the newest day it has, not claim that day is today.
 $("timeline-jump-today")?.addEventListener("click", () => {
+  if (timelineViewMode() === "calendar") return void timelineCalendarCall("timelineCalendarToday");
   //: Home for the strip too, when it was walked back to an earlier week.
   if (timelineStripEnd) {
     timelineStripEnd = null;

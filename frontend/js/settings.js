@@ -746,7 +746,7 @@ let logErrorsSinceOpened = 0;
 let logScreenOpen = false;
 // "List" (structured rows, foldable tracebacks) or "Terminal" (raw lines,
 // styled like a real console, see .log-terminal). Same persistence pattern
-// as reminderView/timeline-view: a per-browser display preference, not
+// as timeline-view: a per-browser display preference, not
 // something worth round-tripping through /preferences.
 let logView = prefs.get("logView", null) === "terminal" ? "terminal" : "list";
 

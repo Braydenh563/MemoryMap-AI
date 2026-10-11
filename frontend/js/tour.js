@@ -474,11 +474,11 @@ const TOUR_SECTIONS = [
         side: "bottom",
         tab: "reminders",
         title: "List or calendar",
-        text: "See your reminders as a list, or laid out on a calendar by day.",
+        text: "Your reminders as a list here, or Calendar for the Timeline's calendar, where a reminder drags to another day.",
         // Below 1100 the dock folds its arrange zone into More (app.js,
         // `foldDockArrange`).
         or: "#reminders-more-menu",
-        orText: "More holds the list or calendar switch on a smaller window, with the sorting.",
+        orText: "More holds the list and calendar buttons on a smaller window, with the sorting.",
       },
     ],
   },

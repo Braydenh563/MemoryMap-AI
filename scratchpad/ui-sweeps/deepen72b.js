@@ -91,12 +91,12 @@ const visible = (sel) => `(() => { const e = document.querySelector(${JSON.strin
       r.quickAdd = await page.evaluate(() => ({ status: document.getElementById("reminder-magic-status")?.textContent.trim().slice(0, 100), first: [...document.querySelectorAll("#reminder-list-card li, #reminder-list-card .reminder-item")].map((e) => e.textContent.replace(/\s+/g, " ").trim()).find((t) => /dentist/i.test(t))?.slice(0, 100) || null }));
       r.chipsWhileTyping = await page.evaluate(() => document.querySelectorAll("#reminder-magic-row .chip, #reminder-magic-row [class*=chip]").length);
     } else r.quickAdd = "magic row not visible";
-    // calendar view
+    // calendar view: since Brief 55 the button opens the Timeline's calendar, reminders only
     const tc = Date.now();
     await page.evaluate(() => document.querySelector('#reminder-view-toggle [data-view="calendar"]')?.click());
-    r.calOpenMs = await page.waitForFunction(() => document.querySelector(".reminder-cal-grid")?.offsetParent, null, { timeout: 5000 }).then(() => Date.now() - tc, () => -1);
+    r.calOpenMs = await page.waitForFunction(() => document.querySelector(".timeline-cal-month, .timeline-cal-weekwrap")?.offsetParent, null, { timeout: 5000 }).then(() => Date.now() - tc, () => -1);
     await page.waitForTimeout(600);
-    r.cal = await page.evaluate(() => { const cells = [...document.querySelectorAll(".reminder-cal-cell")]; return { cells: cells.length, withItems: document.querySelectorAll(".reminder-cal-has-items").length, overflowing: cells.filter((c) => c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1).length, cellH: cells[10] ? Math.round(cells[10].getBoundingClientRect().height) : 0, cellW: cells[10] ? Math.round(cells[10].getBoundingClientRect().width) : 0, textInCells: cells.some((c) => /Reminder|dentist/.test(c.textContent)), weekView: !!document.querySelector('[data-view="week"], .reminder-cal-week') }; });
+    r.cal = await page.evaluate(() => { const cells = [...document.querySelectorAll(".timeline-cal-monthcell")]; return { cells: cells.length, withItems: cells.filter((c) => c.querySelector(".timeline-cal-item")).length, overflowing: cells.filter((c) => c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1).length, cellH: cells[10] ? Math.round(cells[10].getBoundingClientRect().height) : 0, cellW: cells[10] ? Math.round(cells[10].getBoundingClientRect().width) : 0, textInCells: cells.some((c) => /Reminder|dentist/.test(c.textContent)), weekView: !!document.querySelector('[data-cal-span="week"]') }; });
     r.calM = await page.evaluate(() => __m("#tab-reminders"));
     await page.evaluate(() => document.querySelector('#reminder-view-toggle [data-view="list"]')?.click());
     return r;

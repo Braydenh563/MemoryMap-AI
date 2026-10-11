@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Chat with no model: the other tabs' starters now do what they say (suggest tags for the open note, save the last answer as a note, what links to the open note, what is on the open board, summarise or list the key points of the open document) rather than quoting notes.
 - Settings: importing a settings file adds its skills, personas and templates to yours by name (the file's wins a clash) instead of replacing each list; Undo still puts the old lists back exactly.
 - Activity: the Guide, drafting and document review now write their steps into the running list (thinking, writing the answer, each suggested change), as Chat already did.
 - Library: each list's search box (documents, boards, bookmarks, recordings, skills, files) now suggests that list's own titles as you type, under "In this list", not only your recent searches.

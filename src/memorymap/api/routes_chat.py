@@ -2392,7 +2392,8 @@ def _starter_events(req: _StreamRequest, starter: tuple[str, dict]) -> Iterator[
     """The starter's answer line, then its act card (`ai/starter_acts.py`)."""
     kind, slots = starter
     yield from starter_acts.events(
-        req.session, kind, slots, user_now(deps.get_config()), req.body.note_ids, req.history
+        req.session, kind, slots, user_now(deps.get_config()), req.body.note_ids, req.history,
+        document_ids=req.body.document_ids, board_ids=req.body.board_ids,
     )
 
 

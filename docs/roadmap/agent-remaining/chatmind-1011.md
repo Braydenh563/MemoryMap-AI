@@ -18,6 +18,12 @@ No real model in this sandbox: `scratchpad/llama-dev.sh check` finds neither lla
 | 556 | done | chat-attach.js chatTidyTyped; tests/test_chat_stray_keys.py |
 | 557 | done | skills.held_back_reason checked in tools.validate_run_skill; tests/test_skill_fixtures.py |
 | 558 | done | routes_settings._merged_list: skills, personas, templates merged by name; Undo sends replace_lists; tests/test_settings_rows.py. Desktop save path: blocked (needs the pywebview window) |
+| 559 | done-already | help_chat.py:1268 board-library-saving and :1388 whiteboard-selection are already split topics |
+| 560 | deferred-next-PR | measured 137 tab badges with no `target` (library 60, notes 44, chat 11, others 22): L, not S |
+| 562 | done | starter_acts tag_open, save_answer, open_links, open_board, open_note for documents; tests/test_starter_acts_tabs.py |
+| 565 | blocked | needs the Guide run against a real model to read the fallback's log line (none here) |
+| 569 | blocked | the chat screenshot needs a real model's answer (none here) |
+| 573 | blocked | #chat-model-panel opens only with a model connected (none here) |
 | 599 | done-already | mcp_server.CHAT_ONLY plus ends_turn withheld from offered_tools |
 | 600 | done-already | mcp_server._clean_label strips `ph:` tokens |
 | 601 | done-already | mcp_server._annotations: readOnlyHint, destructiveHint, openWorldHint |
@@ -26,4 +32,4 @@ No real model in this sandbox: `scratchpad/llama-dev.sh check` finds neither lla
 | 604 | pack agent | pack-1011 row 319: `--mcp` built there; `/mcp` HTTP deferred there (needs a client key) |
 | 605 | done-already | Settings, Tools MCP snippet (#mcp-config-snippet, settings-controls.js) |
 
-done: f0f9d97 rows 555 to 557; next commit rows 552 to 554, 558. next: rows 559 to 573 (B27).
+done: f0f9d97 rows 555 to 557; 5fffcea rows 552 to 554, 558. next: rows 559 to 573 (B27).

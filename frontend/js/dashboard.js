@@ -1872,11 +1872,18 @@ async function renderDashboard({ refresh = false } = {}) {
   //: the widgets the same way, in view (0.26 on 300 notes, measured).
   const settled = (window.dashSettled = Promise.race([Promise.allSettled(drawing), new Promise((r) => setTimeout(r, 1200))]));
   const outline = dashFillingSkeleton(grid, drawing.length);
-  settled.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+  settled.then(() => afterFrames(() => {
     if (window.dashSettled !== settled) return;
     grid.classList.remove("dash-filling");
     dashFillingSkeletonDone(outline);
-  })));
+  }));
+}
+
+//: `fn` once `count` animation frames have passed: the first has painted what
+//: was just changed. The one frame loop for "after it has drawn" in this file
+//: (tests/test_frontend_wake_sources.py counts them).
+function afterFrames(fn, count = 2) {
+  requestAnimationFrame(() => (count > 1 ? afterFrames(fn, count - 1) : fn()));
 }
 
 //: **While the grid fills unseen, its outline shows** (INBOX 596, the owner:
@@ -2269,11 +2276,11 @@ function refreshArtForTheme() {
     holder.appendChild(veil);
     const lift = () => {
       //: Two frames on, so the new sky has been drawn under it before it goes.
-      requestAnimationFrame(() => requestAnimationFrame(() => {
+      afterFrames(() => {
         veil.classList.add("is-leaving");
         veil.addEventListener("transitionend", () => veil.remove(), { once: true });
         setTimeout(() => veil.remove(), 1000);
-      }));
+      });
     };
     startArt(holder).then(lift, lift);
     return;

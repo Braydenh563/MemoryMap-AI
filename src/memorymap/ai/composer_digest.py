@@ -595,7 +595,26 @@ def _spans(text: str, written: date | None) -> tuple:
 _UNDATED = date(2000, 1, 1)
 
 
+#: The note's own asides, dropped when its words are said back (the owner,
+#: 2026-10-11: "You just bought a new gaming mouse ... haha" is "you bought a
+#: gaming mouse"): laughter, emoji, and "just" or "literally" before a verb
+#: in the past ("just bought"), never "just two left", which is "only".
+_LAUGHED = re.compile(r"[\s,]*\b(?:(?:ha|he){2,}h?|lo+l+|lmf?a+o+|rofl|xd+)\b[.!]*", re.I)
+_EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u200D]+")
+_JUST = re.compile(
+    r"\b(?:just|literally|finally just)\s+(?=(?:\w+ed|bought|got|went|made|found|sold|paid|spent|won|lost|had|took|saw|met|"
+    r"left|came|ran|did|began|set|put|read|heard|told|gave|sent|built|broke|fell|felt|kept|wrote)\b)",
+    re.I,
+)
+
+
+def _unfilled(text: str) -> str:
+    text = _EMOJI.sub("", _LAUGHED.sub("", text))
+    return re.sub(r"\s{2,}", " ", _JUST.sub("", text)).strip()
+
+
 def _tidy(text: str, written: date | None = None) -> str:
+    text = _unfilled(text)
     if written is not None:
         text = _pin(text, written)
     else:
@@ -1356,6 +1375,56 @@ def _say_fact(out: _Out, lead: Fact, today: date, question: str) -> None:
     out.rows.append(_row(body, lead))
 
 
+#: "when did I buy that gaming mouse": one thing that happened, asked for
+#: its day, against "when are my uni days" (a habit, said as its days).
+_WHEN_DID = re.compile(r"^\s*when (?:did|was|were|have|had|do i|i)\b", re.I)
+#: "have bought", "'ve got": said in the past once its day leads.
+_PERFECT = re.compile(r"(?:'ve|\s+have|\s+has)\s+(?=(?:\w+ed|bought|got|gone|made|found|sold|paid|spent|won|lost|had|taken|seen|met|left|done|read|heard|sent|built|kept|written)\b)", re.I)
+_PARTICIPLE = {"gone": "went", "taken": "took", "seen": "saw", "done": "did", "written": "wrote"}
+
+
+def _event_lead(out: _Out, lead: Fact, today: date) -> bool:
+    """"On 17 July you bought a gaming mouse, discounted from $150 to $68.":
+    the day first, then what happened, in the past and without the note's
+    asides (the owner, 2026-10-11). The day is the one the sentence names
+    ("bought it yesterday" is the day before the note), else the note's."""
+    if lead.view.written is None:
+        return False
+    text = _unfilled(lead.sentence.text.strip().rstrip(".!"))
+    if re.match(r"(?:finally|then|eventually|also|at last)\s+\w+ed\b", text, re.I):
+        #: "Finally finished the 5k": the writer did it.
+        text = "I " + text[0].lower() + text[1:]
+    body = _second_person(text)
+    day = lead.view.written
+    for found in _spans(body, lead.view.written):
+        if found.kind in ("date", "datetime"):
+            value = found.value.date() if isinstance(found.value, datetime) else found.value
+            if isinstance(value, date):
+                day = value
+                body = f"{body[:found.start]}{body[found.end:]}"
+            break
+    body = re.sub(r"\s+(?:on|at)\s*$|\s+on(?=\s*[,.])", "", body.strip())
+    body = _tidy(body, None)
+    body = _PERFECT.sub(" ", body)
+    body = re.sub(r"\b(gone|taken|seen|done|written)\b", lambda m: _PARTICIPLE[m.group(1).lower()], body, count=1)
+    if not re.match(r"you\s", body, re.I):
+        #: "Dentist appointment went fine": no one did it; said as before.
+        return False
+    body = body[4:].lstrip()
+    #: "bought a new gaming mouse": a thing bought is new; "a new" goes.
+    body = re.sub(r"\b(bought|got|ordered|picked up) (?:a|an) new (\w)", lambda m: f"{m.group(1)} {'an' if m.group(2).lower() in 'aeiou' else 'a'} {m.group(2)}", body)
+    body = re.sub(r"(\w) ((?:discounted|reduced|marked down|down|on sale) from\b)", r"\1, \2", body)
+    if len(body.split()) < 2:
+        return False
+    said = _day(day, today)
+    out.lines.append(f"On {said} you {body}.")
+    row = _row(out.lines[-1], lead)
+    #: The mark sits after the day it vouches for ("On 17 July[1] you ...").
+    row["anchor"] = f"On {said}"
+    out.rows.append(row)
+    return True
+
+
 def _single(out: _Out, kind: str, question: str, members, facts, today: date) -> None:
     cue = {
         "when": re.compile(r"\b(mon|tues|wednes|thurs|fri|satur|sun)days\b|\bin (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*", re.I),
@@ -1366,7 +1435,9 @@ def _single(out: _Out, kind: str, question: str, members, facts, today: date) ->
     if lead is None:
         return
     rest = [f for f in facts if f is not lead]
-    if kind == "when":
+    if kind == "when" and _WHEN_DID.match(clean(question)) and _event_lead(out, lead, today):
+        rest = []
+    elif kind == "when":
         days = _DAYS_PLURAL.search(lead.body)
         if days and len(days.group(0).strip()) > 3:
             said = days.group(0).strip(" ,")

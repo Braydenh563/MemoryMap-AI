@@ -65,6 +65,9 @@ function md(s) {
 
   const texts = {};
   for (const item of FIXTURE.answers) {
+    //: An answer with its own notebook (n 21) is scored by the test only:
+    //: its note would change the shared notebook's answers.
+    if (item.notes) continue;
     texts[item.n] = await page.evaluate(async ({ question, ask }) => {
       const body = { question, history: [], use_tools: false };
       if (ask) Object.assign(body, { notes_only: true });
@@ -96,7 +99,7 @@ function md(s) {
   const summary = { tag: TAG, dated, total: Math.round(mean('total')), sim: +mean('sim').toFixed(3), shape: +mean('shape').toFixed(3) };
   fs.writeFileSync(path.join(OUT, `gold-${TAG}.json`), JSON.stringify({ summary, texts, scores }, null, 1));
 
-  const rows = FIXTURE.answers.map((a) => {
+  const rows = FIXTURE.answers.filter((a) => !a.notes).map((a) => {
     const s = byN[a.n];
     return `<tr><td class="q"><b>${a.n}. ${esc(a.question)}</b><div class="m">${a.surface}, ${a.type}</div>
       <div class="sc">${s.total}</div><div class="m">sim ${s.sim}, shape ${s.shape}</div><div class="f">${esc(s.failed.join(', '))}</div></td>

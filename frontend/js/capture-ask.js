@@ -1163,10 +1163,11 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
   //: sentence about two notes gets both digits side by side, in number order.
   const bySentence = new Map();
   for (const g of sentences) {
-    const key = citationKey(g.sentence);
+    //: `anchor`: the words the mark follows ("On 17 July[1] you bought").
+    const key = citationKey(g.anchor || g.sentence);
     //: A dozen letters is about three words; below that a "sentence" is a
     //: fragment that could match anywhere, and the backend never grounds one.
-    if (key.length < 12) continue;
+    if (key.length < 12 && !g.anchor) continue;
     if (!bySentence.has(key)) bySentence.set(key, []);
     if (!bySentence.get(key).some((row) => row.note_id === g.note_id)) bySentence.get(key).push(g);
   }

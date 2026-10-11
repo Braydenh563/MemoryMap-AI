@@ -31,15 +31,27 @@ NOTE_ANSWERS = [a for a in FIXTURE["answers"] if a["kind"] == "notes"]
 NOTES_FLOOR = 85
 
 
+def _notebook(item: dict) -> list[dict]:
+    """The shared notebook, or the answer's own when the owner's question
+    came with its note (n 21: one note, which the shared one would muddle)."""
+    own = item.get("notes")
+    if not own:
+        return NOTES
+    return [
+        {"id": 100 + i, "content": n["content"], "created_at": f"{n['date']}T10:00:00", "category": n["category"], "tags": n["tags"]}
+        for i, n in enumerate(own)
+    ]
+
+
 def _answer(item: dict) -> dict:
-    return composer_digest.answer(item["question"], NOTES, today=TODAY) or composer.compose(
-        item["question"], NOTES, today=TODAY
-    )
+    notes = _notebook(item)
+    return composer_digest.answer(item["question"], notes, today=TODAY) or composer.compose(item["question"], notes, today=TODAY)
 
 
 def test_the_fixture_is_twenty_answers_across_the_kinds_decision_71_names():
     kinds = {a["type"] for a in FIXTURE["answers"]}
-    assert len(FIXTURE["answers"]) == 20
+    #: Twenty, and the owner's gaming mouse question (2026-10-11) as typed.
+    assert len(FIXTURE["answers"]) == 21
     assert {"fact", "overview", "compare", "count", "who", "left"} <= kinds
 
 
@@ -268,3 +280,34 @@ def test_the_owners_question_counts_every_note_on_the_topic(question, subject):
     from memorymap.ai import composer_overview
 
     assert composer_overview.topic(question) == subject
+
+
+def test_the_owners_when_question_leads_with_the_day():
+    """The owner, 2026-10-11: "when did I buy that gaming mouse??" over "You
+    just bought a new gaming mouse discounted from $150 to $68 haha" was
+    answered with the note as written, then its day."""
+    item = next(a for a in FIXTURE["answers"] if a["n"] == 21)
+    result = _answer(item)
+    assert result["text"] == "On 17 July you bought a gaming mouse, discounted from $150 to $68."
+    row = result["grounding"][0]
+    #: The mark sits after the day: "On 17 July[1] you bought ...".
+    assert row["anchor"] == "On 17 July" and row["source"].startswith("You just bought")
+
+
+@pytest.mark.parametrize(
+    ("question", "note", "said"),
+    [
+        ("when did I buy the kindle", "I just bought a new Kindle yesterday lol \U0001F602", "On 16 July you bought a Kindle."),
+        ("when did I run the 5k", "Finally finished the 5k run today!!", "On 17 July you finally finished the 5k run."),
+        ("when did i see Sam", "Saw Sam at the cafe \U0001F642", "On 17 July you saw Sam at the cafe."),
+        ("when did I book flights", "I've just booked flights to Lisbon haha", "On 17 July you booked flights to Lisbon."),
+        ("when did I get my phone??", "Got a new iPhone lmao", "On 17 July you got an iPhone."),
+    ],
+)
+def test_a_when_question_says_the_day_then_what_happened_without_the_asides(question, note, said):
+    notes = [{"id": 1, "content": note, "created_at": "2026-07-17T10:00:00", "category": "", "tags": []}]
+    assert composer_digest.answer(question, notes, today=TODAY)["text"] == said
+
+
+def test_just_meaning_only_stays():
+    assert composer_digest._unfilled("just two tickets left haha") == "just two tickets left"

@@ -23,7 +23,8 @@ or `@preserve`, the conventional "keep me" markers. A `//# sourceMappingURL`
 line. **Every line number**: a comment's lines are left empty rather than
 removed, so an error's `file:line` in the console or a support bundle is the
 same line in the source, and ASI (a `return` before a multi-line comment)
-reads the same.
+reads the same. (A stylesheet is the exception: no stack trace names a CSS
+line, so `strip_css` also drops the empty lines.)
 
 `tests/test_asset_strip.py` holds the edge cases and, where `node` is on the
 path, runs `node --check` over every stripped script; the acorn token check in
@@ -304,8 +305,15 @@ def css_comment_spans(text: str) -> list[tuple[int, int]]:
     return spans
 
 
+_CSS_BLANK_LINE = re.compile(r"\n[ \t]*(?=\n)")
+
+
 def strip_css(text: str) -> str:
-    return _rebuild(text, css_comment_spans(text))
+    """Comments gone, and the empty lines they leave with them. Unlike a
+    script, a stylesheet is never named by line in a stack trace, and the
+    1,300 empty lines a commented file left cost the boot stylesheets about
+    three kilobytes gzipped against a cap that was at zero (INBOX 776)."""
+    return _CSS_BLANK_LINE.sub("", _rebuild(text, css_comment_spans(text)))
 
 
 # ---------------------------------------------------------------------- HTML

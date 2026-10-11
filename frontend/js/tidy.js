@@ -20,7 +20,7 @@
 const TIDY_HELP = [
   "Tidy finds clean-up jobs by rule, with no AI.",
   "Open a review, tick rows, press its button.",
-  "One Undo reverses a batch; nothing runs alone.",
+  "One Undo reverses a batch; the cross hides a row.",
   "Confirm keeps a pattern; Not right hides it.",
 ];
 
@@ -166,18 +166,16 @@ async function tidyPatterns(state) {
   //: confirmed one is said as the person's word and carries neither.
   state.patterns.replaceChildren(
     ...body.patterns.map((pattern) => {
-      const line = document.createElement("p");
-      line.className = "insight-line";
-      line.textContent = `Patterns: ${pattern.text} `;
-      if (!pattern.confirmed) {
-        line.appendChild(
-          insightVerdicts(pattern, (verdict, result) => {
-            if (verdict === "dismissed") line.remove();
-            else line.textContent = `Patterns: ${result.line}`;
-          })
-        );
+      if (pattern.confirmed) {
+        const line = document.createElement("p");
+        line.className = "insight-line";
+        line.textContent = `Patterns: ${pattern.text}`;
+        return line;
       }
-      return line;
+      return insightLine(pattern, `Patterns: ${pattern.text}`, (line, verdict, result) => {
+        if (verdict === "dismissed") line.remove();
+        else line.textContent = `Patterns: ${result.line}`;
+      });
     })
   );
   state.patterns.hidden = state.view !== "overview";
@@ -455,8 +453,37 @@ function tidyRow(row) {
   check.appendChild(tick);
   label.append(box, lines, check);
   if (!row.selectable) label.classList.add("is-off");
-  li.appendChild(label);
+  //: **Dismiss for good** (INBOX 783, the owner: "how do I delete a
+  //: suggestion??"): a cross beside the row, not inside its label (a button in
+  //: a label is a second control in the first). The server remembers it, so the
+  //: row is not listed, counted or applied again; the toast's Undo brings it back.
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.className = "ghost icon-only small tidy-dismiss";
+  dismiss.title = "Dismiss: do not suggest this again";
+  dismiss.setAttribute("aria-label", `Dismiss “${row.title}”`);
+  setLabel(dismiss, "ph:x");
+  dismiss.addEventListener("click", () => tidyDismiss(row));
+  li.className = "tidy-row-item";
+  li.append(label, dismiss);
   return li;
+}
+
+async function tidyDismiss(row) {
+  const state = TIDY.state;
+  const key = state.key;
+  const path = `/tidy/${encodeURIComponent(key)}`;
+  const body = JSON.stringify({ ids: [row.id] });
+  const sent = await apiJson(`${path}/dismiss`, { method: "POST", body }).catch((e) => {
+    toast(e.message, true);
+    return null;
+  });
+  if (!sent) return;
+  await tidyAfterChange([]);
+  toastAction("Dismissed. It will not be suggested again.", "Undo", async () => {
+    await apiJson(`${path}/undismiss`, { method: "POST", body });
+    await tidyAfterChange([]);
+  });
 }
 
 //: The foot: how many are ticked, Select all and none, then the one filled

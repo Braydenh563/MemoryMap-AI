@@ -74,8 +74,11 @@ def test_the_first_fit_snaps_the_glide_and_is_instant():
     assert re.search(r"fitGraphToView\([^)]*, true\)", first)
 
 
-def test_warm_is_asked_for_only_while_the_canvas_is_hidden():
-    assert "warm: hidden && !(viewSeed && viewSeed.alpha === 0)," in CANVAS
+def test_warm_is_asked_for_whenever_the_map_is_framed_again():
+    # Round 2 of INBOX 775: a map already showing is not hidden to re-layout;
+    # the warm-up is played back from where its notes stood
+    # (tests/test_graph_feel_775.py).
+    assert "warm: reframe && !(viewSeed && viewSeed.alpha === 0)," in CANVAS
 
 
 def test_an_instant_fit_is_applied_now_not_as_a_zero_length_transition():

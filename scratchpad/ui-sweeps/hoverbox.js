@@ -1,62 +1,37 @@
-// Phase 12 decision 2, the hover grammar: an icon-only button answers hover by
-// colouring its glyph, never with a box (background) behind it. For every
-// visible icon-only button (`.icon-only`, `.icon-button`, or a button whose
-// only content is an icon) on each tab, force `:hover` through CDP and count
-// the ones whose background changes (a hover box) and the ones whose hover
-// changes nothing. Also counts the distinct border radii those buttons take.
-//   BASE=... [TABS=notes,chat] [THEME=dark] node hoverbox.js
-const { boot } = require('./lib.js');
-(async () => {
-  const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('DOM.enable'); await cdp.send('CSS.enable');
-  await page.evaluate(() => {
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync('*, *::before, *::after { transition: none !important; }');
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
-  });
-  let total = 0, box = 0, flat = 0, tint = 0; const boxes = {}, radii = {};
-  for (const tab of (process.env.TABS || 'dashboard,notes,chat,library,timeline,reminders,graph,documents').split(',')) {
-    await page.evaluate((t) => switchTab(t), tab); await page.waitForTimeout(1800); await page.mouse.move(2, 2);
-    await page.evaluate(() => {
-      let i = 0;
-      for (const b of document.querySelectorAll('button')) {
-        delete b.dataset.hb;
-        if (!b.getClientRects().length || !b.checkVisibility() || b.disabled) continue;
-        if (b.matches('.active,[aria-pressed="true"],[aria-expanded="true"],[aria-selected="true"],.is-on')) continue;
-        const iconOnly = b.matches('.icon-only,.icon-button') || (!b.textContent.trim() && b.querySelector('i.ph,svg'));
-        if (iconOnly) b.dataset.hb = String(i++);
-      }
-    });
-    const { root } = await cdp.send('DOM.getDocument', { depth: 0 });
-    const { nodeIds } = await cdp.send('DOM.querySelectorAll', { nodeId: root.nodeId, selector: 'button[data-hb]' });
-    for (const nodeId of nodeIds) {
-      // A list that re-renders mid-sweep drops a node; skip it, do not die.
-      const attrs = await cdp.send('DOM.getAttributes', { nodeId }).then((r) => r.attributes, () => null);
-      if (!attrs) continue;
-      const idx = attrs[attrs.indexOf('data-hb') + 1];
-      const get = () => page.evaluate((i) => {
-        const b = document.querySelector(`button[data-hb="${i}"]`); const cs = getComputedStyle(b);
-        const g = b.querySelector('i,svg'); const gc = g ? getComputedStyle(g).color : '';
-        return { bg: cs.backgroundColor + cs.backgroundImage, ink: cs.color + gc + cs.filter + cs.borderColor, r: cs.borderRadius,
-          who: (b.id ? '#' + b.id : '') + '.' + [...b.classList].filter((c) => !/^(small|ghost)$/.test(c)).slice(0, 2).join('.') + ' ' + (b.getAttribute('aria-label') || b.title || '').slice(0, 24) };
-      }, idx);
-      const rest = await get().catch(() => null);
-      if (!rest) continue;
-      await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: ['hover'] });
-      const hov = await get();
-      await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] });
-      total++; radii[rest.r] = (radii[rest.r] || 0) + 1;
-      // A box that appears: transparent at rest, painted on hover. A button
-      // that rests on its own surface (a floating scroll-to-top) and tints it
-      // is counted apart, as a tint.
-      const clear = (s) => /rgba\(0, 0, 0, 0\)none|transparentnone/.test(s);
-      if (rest.bg !== hov.bg && clear(rest.bg)) { box++; boxes[rest.who] = (boxes[rest.who] || 0) + 1; }
-      else if (rest.bg !== hov.bg) tint++;
-      else if (rest.ink === hov.ink) flat++;
+// hoverbox.js (was the box counter of the retired glyph-only grammar): forces :hover on every drawn button of the main surfaces (the
+// header, seven tabs, Settings > Appearance) at 1440 and 390 and counts the
+// treatments (INBOX 784/788): a *box* (the background changes), a *glyph*
+// (only the colour changes, the old icon grammar), an *edge*, an *underline*
+// (a tab's pseudo-element), *none* (the chosen one). The recipe (DESIGN.md,
+// "One hover for every button") is box, with the underline for a sub-tab strip
+// and the edge for a field or card. `PHASE=before|after node hoverbox.js`
+// writes shots/hoverbox-<phase>.json and prints the counts per width.
+const {boot}=require('./lib.js');
+const fs=require('fs');
+(async()=>{
+ const out={};
+ for (const [w,h] of [[1440,900],[390,844]]){
+  const {browser,page}=await boot({viewport:{width:w,height:h}});
+  page.setDefaultTimeout(8000); const rows=[]; console.log('booted',w);
+  const surfaces=['dashboard','notes','chat','graph','library','timeline','reminders','settings'];
+  for (const tab of surfaces){
+    if(tab==='settings') await page.evaluate(()=>openSettingsModal('appearance')); else { await page.evaluate((t)=>{document.getElementById('settings-close')?.click(); switchTab(t)},tab); }
+    await page.waitForTimeout(1300);
+    console.log(' surface',tab);
+    const n=await page.evaluate(()=>{window.__hov=[...document.querySelectorAll('button, summary, [role=tab], .chip-interactive')].filter(b=>{const r=b.getBoundingClientRect(); const s=getComputedStyle(b); return r.width>6&&r.height>6&&r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth&&s.visibility!=='hidden'&&!b.disabled&&b.offsetParent!==null;}); return window.__hov.length;});
+    const limit=Math.min(n,70); console.log('  buttons',n);
+    for(let i=0;i<limit;i++){
+      await page.mouse.move(1,1); await page.waitForTimeout(30);
+      const info=await page.evaluate((i)=>{const b=window.__hov[i]; if(!b||!b.isConnected) return null; const snap=()=>{const s=getComputedStyle(b);const a=getComputedStyle(b,'::after');return {bg:s.backgroundColor,bi:s.backgroundImage,fg:s.color,bd:s.borderTopColor,sh:s.boxShadow,tf:s.transform+s.scale,op:s.opacity,af:a.content+a.backgroundColor+a.transform,ol:s.textDecorationLine}}; b.scrollIntoView({block:'nearest'}); window.__rest=snap(); const r=b.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2,cls:b.className.toString().slice(0,60),id:b.id,tag:b.tagName,label:(b.getAttribute('aria-label')||b.textContent||'').trim().slice(0,24),icon:b.matches('.icon-only,.icon-button,[class*=icon]')}}, i);
+      if(!info) continue;
+      await page.mouse.move(info.x,info.y); await page.waitForTimeout(260);
+      const d=await page.evaluate((i)=>{const b=window.__hov[i]; const s=getComputedStyle(b);const a=getComputedStyle(b,'::after');const now={bg:s.backgroundColor,bi:s.backgroundImage,fg:s.color,bd:s.borderTopColor,sh:s.boxShadow,tf:s.transform+s.scale,op:s.opacity,af:a.content+a.backgroundColor+a.transform,ol:s.textDecorationLine}; const r=window.__rest; const hit=document.elementFromPoint(...[b.getBoundingClientRect().left+b.getBoundingClientRect().width/2,b.getBoundingClientRect().top+b.getBoundingClientRect().height/2].map(Math.round)); const diff=[]; for(const k of Object.keys(now)) if(now[k]!==r[k]) diff.push(k); return {diff, bgNow:now.bg, bgRest:r.bg, hits:b.contains(hit)||hit===b}}, i);
+      rows.push({w,tab,...info,...d});
     }
   }
-  console.log(`${total} icon buttons hovered; ${box} draw a box on hover; ${tint} tint a box they rest on; ${flat} change nothing; radii ${JSON.stringify(radii)}`);
-  for (const [k, v] of Object.entries(boxes).sort((a, b) => b[1] - a[1]).slice(0, 25)) console.log(`  ${v}  ${k}`);
-  await browser.close();
+  out[w]=rows; await browser.close();
+ }
+ fs.writeFileSync(process.env.SCRATCH+'/hoverbox-'+(process.env.PHASE||'after')+'.json',JSON.stringify(out));
+ const fam=(r)=>{ const k=new Set(r.diff); if(k.has('bg')||k.has('bi')) return 'box'; if(k.has('af')) return 'underline'; if(k.size===1&&k.has('fg')||(k.size===2&&k.has('fg')&&k.has('bd'))) return 'glyph'; if(k.has('bd')||k.has('sh')) return 'edge'; if(!k.size) return 'none'; return 'other'; };
+ for(const w of Object.keys(out)){ const c={}; for(const r of out[w]){ if(!r.hits) continue; const f=fam(r); c[f]=(c[f]||0)+1;} console.log(w, 'buttons', out[w].length, JSON.stringify(c)); }
 })();

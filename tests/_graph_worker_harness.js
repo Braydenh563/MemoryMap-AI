@@ -67,12 +67,23 @@ sandbox.onmessage({
     world,
     alpha: 1,
     warm: scenario.warm === true,
+    intro: scenario.intro === true,
   },
 });
 let last = null;
 let firstAlpha = null;
+// The warm-up's playback (INBOX 775): the `frame` posted at init, and how
+// many ticks were playback and from what heat the first one came.
+const framed = sent.some((m) => m.type === "frame");
+let introTicks = 0;
+let firstIntroAlpha = null;
 for (let i = 0; i < (scenario.ticks || 300) && timers.length; i++) {
   timers.shift()();
+  for (const m of sent) {
+    if (m.type !== "tick" || !m.intro) continue;
+    introTicks += 1;
+    if (firstIntroAlpha === null) firstIntroAlpha = m.alpha;
+  }
   const tick = sent.filter((m) => m.type === "tick").pop();
   if (tick) last = Array.from(tick.positions);
   if (tick && firstAlpha === null) firstAlpha = tick.alpha;
@@ -84,4 +95,4 @@ const positions = {};
 scenario.nodes.forEach((n, i) => {
   positions[n.id] = [last[i * 2], last[i * 2 + 1]];
 });
-process.stdout.write(JSON.stringify({ positions, firstAlpha }));
+process.stdout.write(JSON.stringify({ positions, firstAlpha, framed, introTicks, firstIntroAlpha }));

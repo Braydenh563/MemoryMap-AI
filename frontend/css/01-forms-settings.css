@@ -621,23 +621,20 @@ input:is([type="date"], [type="time"], [type="datetime-local"]):focus-within {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
-/* **The hover grammar** (Phase 12 decision 2, the owner: "when I hover over
-   icons, no semi highlighted border box appears behind them ... the icons
-   themselves change to the highlighted colour"). An icon answers the pointer
-   and focus with its glyph's colour, never a box. Written as tokens rather
-   than as a background, so every hover rule in the app that paints
-   `--ghost-btn-bg`, `--surface-2` or `--hover-veil` behind an icon paints
-   nothing, whatever its specificity, and one that writes `--ink` writes the
-   accent. An open menu's opener keeps a box at the accent's low alpha.
-   `hoverbox.js` counts the boxes; `test_ui_recipes.py` holds the rule. */
+/* **One hover for every button** (INBOX 784/788, the owner: "not all buttons
+   have the same hover states ... all the ui styles across the app need to be
+   consistent"). Phase 12 decision 2 had an icon answer hover with its glyph's
+   colour and no box, which left the top bar's icons tinted blue beside "All
+   spaces" with a filled box. Now an icon button takes the same quiet fill a
+   labelled button does and its glyph goes to full ink; the accent colour is
+   for the chosen thing, never for hover. **Borderless buttons share one fill,
+   the veil** (an icon, "All spaces", a status item, a row, an interactive
+   chip: measured 0.12 on the bell and 0.07 on "All spaces" side by side);
+   a bordered tonal button keeps `--ghost-btn-bg` with its edge.
+   `test_ui_recipes.py` holds this, and `scratchpad/ui-sweeps/hoverbox.js`
+   counts the treatments. */
 :is(button, summary):is(.icon-only, .icon-button, .sidebar-collapse-toggle) {
-  --ghost-btn-bg: transparent;
-  --chip-bg: transparent;
-  --surface-2: transparent;
-  --hover-veil: transparent;
-}
-:is(button, summary):is(.icon-only, .icon-button, .sidebar-collapse-toggle):is(:hover, :focus-visible) {
-  --ink: var(--accent-text);
+  --ghost-btn-bg: var(--hover-veil);
 }
 :is(button, summary):is(.icon-only, .icon-button)[aria-expanded="true"] {
   --ghost-btn-bg: var(--accent-soft);
@@ -3366,8 +3363,33 @@ mark.global-find-hit.global-find-current {
    grid genuinely needs the row's full remaining width to lay out more than
    one column. */
 .custom-themes-block {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
+}
+/* INBOX 779 ("designed awkwardly"): the label sat in a left column beside one
+   card, the name box and Save wrapped onto two lines, and the reset buttons hung
+   under the whole thing. Now the label heads the section, the cards run the
+   full width, the name and Save share a row, and the two resets are a row of
+   their own under a hairline. */
+.custom-themes-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+}
+.custom-themes-block {
+  width: 100%;
+}
+/* A flex-basis written for a row (14rem) is a height in a column. */
+.setting-row.custom-themes-row > .setting-label {
+  flex: 0 0 auto;
+}
+.theme-reset-row {
+  flex-wrap: wrap;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--divider);
+}
+#settings-modal .settings-section .theme-reset-row {
+  margin-top: var(--space-4);
 }
 /* An empty grid is not a grid. See renderCustomThemes(): its empty message is
    a paragraph, and as a grid item in a 104px track it wrapped to about one
@@ -3380,7 +3402,10 @@ mark.global-find-hit.global-find-current {
    with what is next to it. The input takes the slack; the button is a fixed
    hit target, as everywhere else in this app. */
 #custom-theme-name {
-  flex: 1 1 auto;
+  /* Basis 0, so the field's 15rem floor (the Settings text-input rule) is what
+     it needs: it shares a line with Save wherever 15rem and Save fit, and
+     wraps to its own line at 390 (INBOX 779). */
+  flex: 1 1 0;
   min-width: 0;
 }
 #custom-theme-save {
@@ -3603,6 +3628,12 @@ html.modal-open body {
   margin: var(--space-1) 0 0;
   color: var(--muted);
   font-size: var(--text-md);
+}
+/* The pattern's ⋯ sits a token gap after the last word, and wraps with it
+   (INBOX 786: it touched the word, 0px). */
+.dash-sub-bit > .menu-wrap {
+  margin-inline-start: var(--space-2);
+  vertical-align: middle;
 }
 /* **Each line holds its height before its words arrive** (INBOX 577). The
    greeting, the clock and this line are written by the dashboard's render,

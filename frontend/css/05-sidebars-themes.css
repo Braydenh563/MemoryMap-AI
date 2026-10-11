@@ -3960,8 +3960,10 @@ button.is-on {
   background: transparent;
   color: var(--ink);
 }
-.tabs-line > button:not(.active):not([aria-selected="true"]):is(:hover, :focus-visible)::after {
+.tabs-line > button:not(.active):not([aria-selected="true"])::after {
   background: var(--muted);
+}
+.tabs-line > button:not(.active):not([aria-selected="true"]):is(:hover, :focus-visible)::after {
   transform: scaleX(1);
 }
 /* Agent mode reads as a mode you switch into, not a checkbox you tick, so the

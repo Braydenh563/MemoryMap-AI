@@ -3071,11 +3071,11 @@ function referenceCountChip(entry, options = {}) {
   if (!counts || !counts.total) return null;
   const refChip = chip(`ph:graph ${referenceCountText(counts)}`, "refs", (event) => {
     event.stopPropagation();
-    openConnections(
+    lazyScript("/js/connections.js").then(() => openConnections(
       "entries",
       entry.id,
       entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80)
-    );
+    ));
   });
   refChip.title = "Everything this note is joined to. Open Connections";
   return refChip;
@@ -3409,6 +3409,8 @@ async function renderNotesRail() {
   if (body.dataset.key === key) return;
   const seq = ++notesRailSeq;
   body.setAttribute("aria-busy", "true");
+  //: The rows are drawn by connections.js (the sheet's own bundle).
+  await lazyScript("/js/connections.js");
   let answer = notesRailCache.get(key);
   if (!answer) {
     const [links, near, back] = await Promise.all([
@@ -3469,23 +3471,23 @@ function notesRailNearGroup(items) {
   const section = document.createElement("div");
   section.className = "connection-group notes-rail-near";
   const head = document.createElement("p");
-  head.className = "muted connection-heading";
-  setLabel(head, `ph:hourglass-medium Forgotten, and close to this (${items.length})`);
+  head.className = "connection-heading";
+  setLabel(head, "ph:hourglass-medium Forgotten, and close to this");
+  const count = document.createElement("span");
+  count.className = "connection-count";
+  count.textContent = String(items.length);
+  head.appendChild(count);
   section.appendChild(head);
   const holder = document.createElement("div");
   holder.className = "connection-rows";
   for (const item of items) {
-    const row = smallButton(`ph:note ${item.title}`, item.reason ? `Open this note\nWhy: ${item.reason}` : "Open this note", () =>
-      flashEntry(item.id)
+    //: The route's own sentence is the row's subline, in the same list recipe
+    //: as every other connection row (`connectionRowEl`, menus.js).
+    const row = connectionRowEl(
+      "ph:note", item.title, item.reason ? `Open this note\nWhy: ${item.reason}` : "Open this note", item.reason || "",
+      () => flashEntry(item.id)
     );
-    row.classList.add("connection-row");
     holder.appendChild(row);
-    if (item.reason) {
-      const why = document.createElement("span");
-      why.className = "muted notes-rail-why";
-      why.textContent = item.reason;
-      holder.appendChild(why);
-    }
   }
   section.appendChild(holder);
   return section;
@@ -3497,6 +3499,14 @@ function notesRailNearGroup(items) {
 function notesRailFocusSubject() {
   const li = document.querySelector(`#entry-list li[data-id="${notesRailId}"]`);
   if (li) li.focus({ preventScroll: true });
+}
+
+//: The Connections sheet's "Open in the sidebar" (INBOX 784): the column
+//: shown for that note, from wherever the sheet was opened.
+function dockConnectionsInRail(id) {
+  if ((prefs.get("activeTab", null) || "dashboard") !== "notes") switchTab("notes");
+  notesRailId = id;
+  setNotesRailHidden(false);
 }
 
 function setNotesRailHidden(hidden) {

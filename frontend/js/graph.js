@@ -471,6 +471,15 @@ function arcPath(link) {
 // start at the top, the panel pans, and a readable tree you scroll beats a
 // complete one you can't read.
 function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc = false, instant = false) {
+  //: In the part of the map the overlays and open panels leave (INBOX 792,
+  //: `gcFitInsets`), as the force layout's fit is.
+  const ins = typeof gcTab !== "undefined" && gcTab.svg === svg ? gcFitInsets(gcTab) : null;
+  const offX = ins ? ins.left : 0;
+  const offY = ins ? ins.top : 0;
+  if (ins) {
+    width = Math.max(1, width - ins.left - ins.right);
+    height = Math.max(1, height - ins.top - ins.bottom);
+  }
   // Labels stick out past the node they belong to: to the right in a tree, in
   // every direction on a radial, and by however much the longest one happens
   // to be. Guessing that with a padding constant left label tips off the edge
@@ -540,7 +549,10 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
   //: of the screen reads as the whole of it. Its floor is the fit itself,
   //: whatever it costs the labels (they return as you zoom in, like any
   //: map's). A tree fits when it nearly does and otherwise fits its width.
-  const fit = radial || arc || both >= 0.8 ? both : (width - 20) / spanX;
+  //: "Nearly" was 0.8; at 0.55 a 34-note tree ran a column off the top and
+  //: bottom of the map (the owner, round 2, and INBOX 792: fit "should be
+  //: based on ... the screen resolution/size"), so it is 0.4 now.
+  const fit = radial || arc || both >= 0.4 ? both : (width - 20) / spanX;
   //: A radial the same (measured before: 1,051px across a 362px phone map
   //: and a 997px tablet one at the 0.35 floor).
   const scale = arc || radial ? Math.min(1, fit) : Math.max(0.35, Math.min(1, fit));
@@ -563,11 +575,13 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
         : 10 - scale * minY;
   //: Same rule as `fitGraphToView`: see the note beside its own check.
   if (!graphMinimapFinite(tx, ty, scale)) return;
-  const framed = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  const framed = d3.zoomIdentity.translate(tx + offX, ty + offY).scale(scale);
   //: Instant is applied now, not as a zero-length transition: d3 runs that
   //: on its next timer frame, and the canvas paints one frame before it.
+  //: As long as the notes' own glide (`GC_LAYOUT_MS`), so frame and notes
+  //: arrive together.
   if (instant) svg.interrupt().call(zoomBehavior.transform, framed);
-  else svg.transition().duration(400).call(zoomBehavior.transform, framed);
+  else svg.transition().duration(700).call(zoomBehavior.transform, framed);
 }
 
 // --- tracing a path between two notes (§9) -----------------------------------
@@ -3305,50 +3319,88 @@ function initGraphKeyboard() {
   });
 }
 
+//: **A fit fills the free part of the map** (INBOX 775, the owner: "it
+//: didnt zoom in or fit to my screen?? I pressed the fit button and it didnt
+//: do much"). The margin was 9% of the short side on every edge, and the
+//: overlays (the dock, the legend, the minimap, the zoom strip) sat inside
+//: it or over the notes; measured on 34 notes at 1440x900, the dots spanned
+//: 0.80 of the height. The overlays are now kept clear as insets
+//: (`gcFitInsets`), and the margin inside what is left is 1.5%.
+const GRAPH_FIT_MARGIN = 0.015;
+//: How far a fit zooms in at most. A map of three notes reaches it; past it
+//: a dot is a disc the size of a button.
+const GRAPH_FIT_MAX_ZOOM = 2.5;
+//: Room for a name beside a dot, in screen pixels, before the drawn names
+//: are measured (`gcBalanceFit`): names keep their size under a zoom.
+const GRAPH_FIT_NAME_PX = 18;
+
+//: The most of the free width or height the names' overhang may take on one
+//: side. Names are kept on the canvas where they are placed (`gcClampBox`),
+//: so past this a long name is moved in rather than the map shrunk for it:
+//: on a 390 phone, three names 190px wide had the balance pass zoom 34 notes
+//: from k 0.72 down to 0.28, a third of the width.
+const GRAPH_FIT_OVER_SHARE = 0.08;
+
+//: The camera that puts `box` (world units: minX, maxX, minY, maxY) in the
+//: middle of the free part of a `width` x `height` map. `insets` are the
+//: overlays' depth on each edge and `over` the drawing's overhang past the
+//: box (names), both in screen pixels, so neither scales with the zoom. The
+//: floor is the fix for "zooms out like crazy": no single outlier can push
+//: the whole map below a still-readable scale.
+function graphFitFrame(box, width, height, insets = null, over = null) {
+  const edge = (o, side) => (o && Number.isFinite(o[side]) ? Math.max(0, o[side]) : 0);
+  const freeW = Math.max(1, width - edge(insets, "left") - edge(insets, "right"));
+  const freeH = Math.max(1, height - edge(insets, "top") - edge(insets, "bottom"));
+  const hang = (side) => Math.min(edge(over, side), GRAPH_FIT_OVER_SHARE * (side === "left" || side === "right" ? freeW : freeH));
+  const margin = Math.min(freeW, freeH) * GRAPH_FIT_MARGIN;
+  const spanX = Math.max(box.maxX - box.minX, 1);
+  const spanY = Math.max(box.maxY - box.minY, 1);
+  const raw = Math.min(
+    (freeW - 2 * margin - hang("left") - hang("right")) / spanX,
+    (freeH - 2 * margin - hang("top") - hang("bottom")) / spanY
+  );
+  const k = Math.max(0.25, Math.min(GRAPH_FIT_MAX_ZOOM, raw));
+  const cx = edge(insets, "left") + freeW / 2;
+  const cy = edge(insets, "top") + freeH / 2;
+  return {
+    k,
+    x: cx - ((box.minX + box.maxX) * k + hang("right") - hang("left")) / 2,
+    y: cy - ((box.minY + box.maxY) * k + hang("bottom") - hang("top")) / 2,
+  };
+}
+
 // Zoom/pan so every node fits with a margin (Wave N).
 function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height, instant = false) {
   if (!nodes.length) return;
   // Reported: fit-to-view "zooms out like crazy so you only see the generic
-  // cluster blobs". Two bugs, both in how the old version measured the map:
-  // it bounded only the node *centres* (a node's halo, ring and the label
-  // drawn below it all extend past that point, so a real graph always
-  // rendered a bit outside the box this used to fit), and its scale had no
-  // floor: `Math.min(3, ...)` clamps how far it can zoom IN but not how far
-  // it can zoom OUT, so one node that drifted far from the rest (the collide
-  // simulation allows this) could shrink everything else to specks trying to
-  // fit it in frame too.
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  // cluster blobs". It bounded only the node *centres*, and its scale had no
+  // floor (`graphFitFrame` has one). The box is each dot's own extent; a
+  // name's room is in screen pixels (`GRAPH_FIT_NAME_PX`), and the tab's
+  // canvas then balances on the names it actually drew (`gcBalanceFit`).
+  const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
   for (const n of nodes) {
-    // Same pad the force simulation's own world-clamp uses (see the comment
-    // above it): node radius, the halo ring (+6) and the label drawn below
-    // the circle, so a fitted node's own name is never left outside frame.
-    const pad = graphNodeRadius(n) + 34;
-    minX = Math.min(minX, n.x - pad);
-    maxX = Math.max(maxX, n.x + pad);
-    minY = Math.min(minY, n.y - pad);
-    maxY = Math.max(maxY, n.y + pad);
+    const r = graphNodeRadius(n);
+    box.minX = Math.min(box.minX, n.x - r);
+    box.maxX = Math.max(box.maxX, n.x + r);
+    box.minY = Math.min(box.minY, n.y - r);
+    box.maxY = Math.max(box.maxY, n.y + r);
   }
-  const spanX = Math.max(maxX - minX, 1);
-  const spanY = Math.max(maxY - minY, 1);
-  // A comfortable margin scales with the container instead of a flat 60px,
-  // which was a sliver of a 1400px-wide window and most of a 300px panel.
-  const margin = Math.min(width, height) * 0.09;
-  const rawScale = Math.min(
-    (width - margin * 2) / spanX,
-    (height - margin * 2) / spanY
-  );
-  // The floor is the actual fix for "zooms out like crazy": no single
-  // outlier can push the whole map below a still-readable scale.
-  const scale = Math.max(0.25, Math.min(2.5, rawScale));
-  const tx = width / 2 - scale * (minX + maxX) / 2;
-  const ty = height / 2 - scale * (minY + maxY) / 2;
+  const tab = typeof gcTab !== "undefined" && gcTab.svg === svg;
+  //: Fitted to the whole map is a view a panel may refit (`gcRefitForPanels`);
+  //: framed on some of it (a topic) is a place the person was taken to.
+  if (tab) gcTab.userZoomed = nodes.length !== gcTab.nodes.length;
+  const name = GRAPH_FIT_NAME_PX;
+  const fit = graphFitFrame(box, width, height, tab ? gcFitInsets(gcTab) : null, { left: name, right: name, top: name, bottom: name });
+  const scale = fit.k;
+  const tx = fit.x;
+  const ty = fit.y;
   //: **A transform is never built out of a number that is not one.** This is
   //: the app's own producer of the zoom transform, and d3 stores what it is
   //: handed: one NaN here becomes a NaN `k`, `x` and `y` on the node, and
   //: every later reader of it (the minimap's viewport rectangle, the zoom
   //: strip, a saved view) reads NaN out again, for as long as the person
   //: stays on the tab. `Math.max(0.25, Math.min(2.5, NaN))` is NaN, so the
-  //: clamps above are not the guard they look like: `Math.min` and
+  //: clamps in `graphFitFrame` are not the guard they look like: `Math.min` and
   //: `Math.max` propagate NaN rather than clamping it away, which is how an
   //: undefined width or a node with no position reaches this line looking
   //: clamped. Skipping the fit leaves the camera where it is, which is what
@@ -5543,8 +5595,34 @@ $("graph-reshuffle")?.addEventListener("click", () => {
 //: Moved from wiring.js (2026-10-10, the boot script budget): see the note
 //: left there.
 // On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.
+//: **The map's head menus shut each other** (INBOX 796, the owner:
+//: "dropdown menus in the graph dont close when another is opened causing a
+//: visual clash and overlay for all 3 of these buttons"). The '?' and the
+//: gear stop their click from reaching the page, so their own outside-click
+//: close does not undo them, which also kept every other menu's
+//: outside-click close from running. Caught on the way down, before either
+//: handler runs: the others close, the one pressed then does what it does.
+//: In the tab's own bundle: the boot scripts have no bytes left.
+const GRAPH_HEAD_MENUS = "#graph-help-toggle, #graph-options-toggle, #graph-more-menu > summary";
+function graphCloseOtherMenus(opener) {
+  closeActionMenus();
+  for (const entry of [...openHelpPopovers]) if (entry.trigger !== opener) entry.close();
+  for (const menu of document.querySelectorAll("details.dock-menu[open]")) {
+    if (!menu.contains(opener)) menu.open = false;
+  }
+  const panel = $("graph-options");
+  if (panel && !panel.classList.contains("hidden") && !$("graph-options-toggle").contains(opener)) setGraphOptionsOpen(false);
+}
+document.addEventListener("click", (event) => {
+  const opener = event.target.closest?.(GRAPH_HEAD_MENUS);
+  if (opener) graphCloseOtherMenus(opener);
+}, true);
+
 function graphZoomBy(factor) {
   if (!graphZoom || !graphSvg) return;
+  //: The zoom buttons move the camera as a gesture does: no settle fit or
+  //: panel refit may take it back (INBOX 792).
+  if (typeof gcTab !== "undefined" && gcTab.svg === graphSvg) gcTab.userZoomed = true;
   graphSvg.transition().duration(200).call(graphZoom.scaleBy, factor);
 }
 $("graph-zoom-in").addEventListener("click", () => graphZoomBy(1.3));

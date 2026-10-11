@@ -1082,89 +1082,6 @@ function wireEscapedMenuResize() {
   );
 }
 
-// The Connections block (REDESIGN.md §R7.3 item 1), for a note or a document.
-// `kind` is the API prefix ("entries" or "documents"). Direction is kept: "this
-// points at that" and "that points at this" are different facts.
-async function openConnections(kind, id, subject) {
-  const overlay = $("connections-overlay");
-  const list = $("connections-list");
-  const status = $("connections-status");
-  status.classList.remove("error");
-  status.textContent = "Loading…";
-  list.replaceChildren();
-  $("connections-subject").textContent = subject || "";
-  overlay.classList.remove("hidden");
-  $("connections-close").focus();
-
-  let data;
-  try {
-    data = await apiJson(`/${kind}/${id}/connections`);
-    if (kind === "entries") data = withBacklinks(data, await apiJson(`/entries/${id}/backlinks`, { silent: true }).catch(() => null), id);
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-    return;
-  }
-  status.textContent = "";
-
-  const shown = buildConnectionGroups(list, kind, data, () => overlay.classList.add("hidden"));
-  if (!shown) {
-    const empty = document.createElement("p");
-    empty.className = "muted";
-    empty.textContent =
-      kind === "entries"
-        ? "Nothing is joined to this note yet. Link it to another note, attach it to a document, or drop it on a whiteboard."
-        : "Nothing is joined to this document yet. Attach a note or a reference to it.";
-    list.appendChild(empty);
-  }
-}
-
-//: Rows whose titles collide get a second cue: the category, else the day,
-//: else day and time, else the note's number. Pure, tested in node
-//: (tests/test_connection_row_cues.py).
-function connectionRowCues(rows) {
-  const byTitle = new Map();
-  for (const r of rows) {
-    const key = r.is_private ? "\u0000private" : String(r.preview || "").trim().toLowerCase();
-    if (!byTitle.has(key)) byTitle.set(key, new Map());
-    byTitle.get(key).set(r.id, r);
-  }
-  const when = (iso, withTime) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "";
-    //: The year only when it is not this one: a cue has to fit beside a
-    //: title in a 17rem column.
-    const thisYear = d.getFullYear() === new Date().getFullYear();
-    const day = d.toLocaleDateString(undefined, thisYear
-      ? { day: "numeric", month: "short" }
-      : { day: "numeric", month: "short", year: "numeric" });
-    return withTime ? `${day}, ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : day;
-  };
-  //: The first of these that tells every note in the clash apart wins; the
-  //: note's own number is the last resort, because two notes written in the
-  //: same minute in the same category are otherwise identical to a reader.
-  const ladder = [
-    (n) => n.category || "",
-    (n) => when(n.created_at, false),
-    (n) => when(n.created_at, true),
-    (n) => [n.category, when(n.created_at, true), `note ${n.id}`].filter(Boolean).join(", "),
-  ];
-  const cues = new Map();
-  for (const group of byTitle.values()) {
-    if (group.size < 2) continue;
-    const notes = [...group.values()];
-    for (const cueOf of ladder) {
-      const labels = notes.map(cueOf);
-      if (labels.every(Boolean) && new Set(labels).size === notes.length) {
-        notes.forEach((n, i) => cues.set(n.id, labels[i]));
-        break;
-      }
-    }
-  }
-  return cues;
-}
-
 //: A backlink's sentence with the hit marked, as three nodes (a note's text is
 //: not markup); the offsets come from the server, so the hit found is the one
 //: marked. Shared by a document's panel and a note's connections (KG1).
@@ -1180,179 +1097,14 @@ function docBacklinkContext(row) {
   return line;
 }
 
-//: GRAPH_PLAN KG1: `/entries/{id}/backlinks` folded into a note's connections.
-//: An incoming note row gains the sentence that links it; the text-only
-//: "Mentions it" rows give way to the Unlinked mentions group, which says the
-//: same with its sentence and a Link button.
-function withBacklinks(data, back, id) {
-  if (!data || !back) return data;
-  const context = new Map();
-  for (const row of back.links || []) if (row.kind === "note" && !context.has(row.id)) context.set(row.id, row);
-  const incoming = (data.incoming || []).filter((r) => !(r.link_id == null && r.reason === "Mentions it"));
-  return { ...data, incoming, mentions: back.mentions || [], backlinkContext: context, subjectId: id };
-}
-
-//: One click: the server checks the span still says the name, rewrites it to
-//: [[the words]] and saves through the source's own route (409 if it moved).
-async function linkNoteMention(subjectId, row, button) {
-  button.disabled = true;
-  try {
-    await apiJson(`/entries/${subjectId}/mentions/link`, {
-      method: "POST",
-      body: JSON.stringify({ kind: row.kind, id: row.id, start: row.start, end: row.end }),
-    });
-    toast(`Linked from ${row.title}.`);
-  } catch (error) {
-    toast(error.message, true);
-  }
-  if (typeof loadEntries === "function") await loadEntries();
-  if (typeof renderNotesRail === "function") renderNotesRail();
-  if (!$("connections-overlay").classList.contains("hidden")) openConnections("entries", subjectId, $("connections-subject").textContent);
-}
-
-//: The groups for the sheet and the Notes rail (one builder, so they agree);
-//: `beforeOpen` is what leaving means; returns the rows drawn. Each group is
-//: [heading, rows, row builder], as data so none loses its keyboard handling.
-function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
-  const groups =
-    kind === "entries"
-      ? [
-          ["ph:arrow-up-right This note links to", data.outgoing, noteRow],
-          ["ph:arrow-down-left Notes that link here", data.incoming, (l) => withContext(noteRow(l), data.backlinkContext?.get(l.id))],
-          ["ph:link-break Mentioned, not linked", data.mentions, mentionRow],
-          ["ph:file-text In these documents", data.documents, docRow],
-          ["ph:squares-four On these boards and maps", data.boards, boardRow],
-          ["ph:image Files it uses", data.files, fileRow],
-        ]
-      : [
-          ["ph:note Notes attached", data.notes, noteRow],
-          ["ph:bookmark-simple References", data.bookmarks, bookmarkRow],
-          ["ph:image Files it uses", data.files, fileRow],
-        ];
-
-  function row(label, title, onOpen) {
-    const item = smallButton(label, title, () => {
-      beforeOpen();
-      onOpen();
-    });
-    item.classList.add("connection-row");
-    return item;
-  }
-  //: Two rows whose titles collide carry a quiet second cue
-  //: (`connectionRowCues`); the rest carry none.
-  const noteRows = kind === "entries"
-    ? [...(data.outgoing || []), ...(data.incoming || [])]
-    : [...(data.notes || [])];
-  const cues = connectionRowCues(noteRows);
-  function noteRow(link) {
-    // A private note contributes the fact of the connection and not its
-    // words: the server sends "Private note" as the preview, and the flag
-    // is what lets this say so rather than showing a label that reads like
-    // a real (empty-looking) note title.
-    const label = link.is_private ? "ph:lock Private note" : `ph:note ${link.preview}`;
-    const why = link.reason ? `\nWhy: ${link.reason}` : "";
-    const cue = cues.get(link.id);
-    //: KG3: the link's kind, named from this end (an incoming row reads the
-    //: inverse: "Has part").
-    const kindName = link.link_label && link.link_type !== "related" ? link.link_label : "";
-    const item = row(label, `Open this note${cue ? ` (${cue})` : ""}${kindName ? `\nKind: ${kindName}` : ""}${why}`, () => flashEntry(link.id));
-    if (kindName) {
-      const kind = document.createElement("span");
-      kind.className = "connection-row-cue";
-      kind.textContent = kindName;
-      item.appendChild(kind);
-    }
-    if (cue) {
-      //: The title is `setLabel`'s `.ph-text`, which the stylesheet lets give
-      //: way with an ellipsis in a connection row, so on a narrow rail the
-      //: cue (the part that tells the two apart) stays whole. Measured first
-      //: without it at 1280: the cue ran 44px past the row's edge.
-      const tag = document.createElement("span");
-      tag.className = "connection-row-cue";
-      tag.textContent = cue;
-      item.appendChild(tag);
-    }
-    return item;
-  }
-  function withContext(item, context) {
-    if (!context) return item;
-    const both = document.createDocumentFragment();
-    both.append(item, docBacklinkContext(context));
-    return both;
-  }
-  function mentionRow(m) {
-    const isDoc = m.kind === "document";
-    const item = row(`${isDoc ? "ph:file-text" : "ph:note"} ${m.title}`, isDoc ? `Open “${m.title}”` : "Open this note", () =>
-      isDoc ? openDocumentFromNote(m.id) : flashEntry(m.id)
-    );
-    const foot = document.createElement("div");
-    foot.className = "doc-backlink-foot";
-    const link = smallButton("ph:link Link", "Turn these words into a link to this note", () => linkNoteMention(data.subjectId, m, link));
-    link.classList.add("doc-backlink-action");
-    //: A name with a square bracket cannot be written as a [[link]] (the
-    //: server says so per row): disabled with its reason on the title, as
-    //: DESIGN.md asks of any disabled control, not a button that reports
-    //: "Linked" and links nothing.
-    if (m.linkable === false) {
-      link.disabled = true;
-      link.title = m.why || "This name can't be written as a [[link]].";
-    }
-    foot.appendChild(link);
-    const both = withContext(item, m);
-    both.appendChild(foot);
-    return both;
-  }
-  function docRow(doc) {
-    return row(`ph:file-text ${doc.title}`, `Open “${doc.title}”`, () =>
-      openDocumentFromNote(doc.id)
-    );
-  }
-  function boardRow(board) {
-    // `kind` is "board" or "map" from the one reader the Referenced-by row
-    // uses (INBOX 246): a map is a different surface and gets its own icon.
-    const icon = board.kind === "map" ? "ph:tree-structure" : "ph:squares-four";
-    return row(`${icon} ${board.title}`, `Open “${board.title}”`, () =>
-      openWhiteboardBoard(board.id ?? null)
-    );
-  }
-  function bookmarkRow(mark) {
-    return row(`ph:bookmark-simple ${mark.title || mark.url}`, `Open ${mark.url}`, () =>
-      window.open(safeHref(mark.url), "_blank", "noopener,noreferrer")
-    );
-  }
-  function fileRow(file) {
-    const name = file.original_name || file.name;
-    // `focusLibraryFile` (library.js) rather than the three steps this used
-    // to take inline: the media view is two sub-tabs now, so which one to
-    // click depends on whether the file is an image, and that decision
-    // belongs in one place.
-    return row(`ph:image ${name}`, `Find “${name}” in the Library`, () =>
-      focusLibraryFile(name, file.url || file.name)
-    );
-  }
-
-  let shown = 0;
-  for (const [heading, rows, build] of groups) {
-    if (!rows || !rows.length) continue;
-    shown += rows.length;
-    const section = document.createElement("div");
-    section.className = "connection-group";
-    const head = document.createElement("p");
-    head.className = "muted connection-heading";
-    setLabel(head, `${heading} (${rows.length})`);
-    section.appendChild(head);
-    const holder = document.createElement("div");
-    holder.className = "connection-rows";
-    for (const item of rows) holder.appendChild(build(item));
-    section.appendChild(holder);
-    list.appendChild(section);
-  }
-  return shown;
-}
-
 $("connections-close")?.addEventListener("click", () =>
   $("connections-overlay").classList.add("hidden")
 );
+$("connections-dock")?.addEventListener("click", (event) => {
+  $("connections-overlay").classList.add("hidden");
+  const id = Number(event.currentTarget.dataset.id);
+  if (Number.isFinite(id)) dockConnectionsInRail(id);
+});
 
 // The ⋯ overflow menu on each note card (Wave L rework).
 // Everything that ever happened to one note, with a way back to any of it.
@@ -1843,11 +1595,11 @@ function entryOverflowMenu(entry) {
         // titled note ("Probe A\nrelates to sourdough"), which reads as
         // two sentences jammed together on one line of the dialog.
         run: () =>
-          openConnections(
+          lazyScript("/js/connections.js").then(() => openConnections(
             "entries",
             entry.id,
             entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80)
-          ),
+          )),
       },
       {
         label: "ph:clock-counter-clockwise History",

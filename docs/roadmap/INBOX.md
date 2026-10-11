@@ -156,32 +156,6 @@ with its owner named in the entry.
      own Reduce setting both stop every loop and keep the pose. Owner: Brief
      34 continues (companion2).
 
-775. **Bug, the owner 2026-10-10 21:52Z, two screenshots (desktop, 34 notes).**
-     "I went onto the graph and this is what it looked like?? it didnt zoom
-     in or fit to my screen?? I pressed the fit button and it didnt do much".
-     First open: the cluster fills about a fifth of the canvas; after Fit,
-     about half, and the bubbles overlap one another heavily.
-     Then, with a third screenshot: "I prefered the force and movement how
-     the graph used to be, theres no movement to it now :(" and "when the
-     graph readjusts it just appears there :(". The cluster's bubbles still
-     overlap; outliers sit far out on long links.
-784. **UI, the owner 2026-10-10 22:30Z, five screenshots.** "when hovering
-     over categories in the sidebar on notes, the meatball buttons dont have
-     curved edges. also in some places it is the hover highlight over icons,
-     with no change in the border or background colour, and then there's
-     still ones with the highlighted bg. also some highlight borders still get
-     cut off. the copy and meatball button preview on the table in the /
-     command menu are poorly visualised. and this is my gary the moss monster
-     note and sketch, but it shows up wierdly on the [[ note menu,". Shots:
-     the sidebar category row's square ⋮; the notes list row's focus ring cut
-     at its top and bottom; the / menu's Table preview (Copy and ⋯ in a grey
-     blob over the caption); the Gary note (title, sketch, links); the [[
-     picker listing it as "Gary The Moss Monster :D Gary The Moss M..." and
-     the preview repeating the title four times with no sketch.
-786. **UI, the owner 2026-10-10 22:40Z, screenshot.** "no spacing between the
-     button and this text in the dashboard hero section" (the hero line "You
-     have 34 notes · Patterns: university, 4 times since 16 July" with its ⋯
-     button touching the last word; the menu holds Confirm and Not right.)
 ## Placed (last 20, newest first)
 
 - 2026-10-10: 798 and 799 placed in GRAPH_PLAN "Placed from INBOX, 2026-10-10 (the owner on the graph, again)".

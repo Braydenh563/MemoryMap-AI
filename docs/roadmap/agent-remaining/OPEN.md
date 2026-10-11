@@ -333,6 +333,24 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the graphfeel agent (INBOX 775, 792, 796, 798, merged 2026-10-11)
+
+Detail: [graphfeel-1010.md](../archive/agent-remaining/graphfeel-1010.md).
+
+- The owner's line was a saved Tree or Arc layout (synced, static by design). Recommendation: name the current layout on the map as one dock chip whenever it is not Force.
+- Notes leaving the picture vanish instead of fading out.
+- The close-other-menus fix covers the graph's three head buttons only; app-wide it needs about 98 bytes of app-scripts room.
+- Not verified: the owner's screen, Saved views, local and global switching, reduced motion in a browser.
+
+## Left by the uipolish agent (INBOX 776 to 786, merged 2026-10-11)
+
+Detail: [uipolish-1010.md](../archive/agent-remaining/uipolish-1010.md).
+
+- The skeleton shimmer still runs under the OS reduced-motion setting (data-progress-motion defaults to "always").
+- `.dash-find` is the one glyph-only hover left; a rows-view meta icon button is 28px in a 24px line.
+- The Connections unlinked-mention Link button is still a bordered ghost button; the tool-confirm pair is untouched.
+- BOOT_CSS_CAP can be lowered now that strip_css drops comment-leftover lines (about 7 KB freed).
+
 ## Left by the canvasui agent (INBOX 790 to 794, merged 2026-10-11)
 
 Detail: [canvasui-1010.md](../archive/agent-remaining/canvasui-1010.md).

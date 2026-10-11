@@ -1067,6 +1067,7 @@ MORE_TOPICS.extend(
                 "bulk", "housekeeping", "apply automatically",
                 "categories that overlap", "category names", "similar categories",
                 "patterns", "confirm a pattern", "not right", "wrong pattern", "insight",
+                "dismiss a suggestion", "delete a suggestion", "hide a suggestion",
             ),
             "body": (
                 "Tidy is the broom in the Notes dock, beside the search help; the "
@@ -1084,7 +1085,8 @@ MORE_TOPICS.extend(
                 "words point to), Near-duplicate notes (Merge notes), Categories "
                 "that overlap (Merge categories), Category names (Rename), Empty or very "
                 "short notes (Move to bin) and Reminders long past (Mark done). "
-                "Each review's description says what its button will change. Tick "
+                "Each review's description says what its button will change. A row's "
+                "cross dismisses it for good (Undo restores it). Tick "
                 "the rows (each says why it is listed and what the button will do), "
                 "then press the button; one Undo puts the batch back, from the "
                 "toast, Ctrl+Z or Recent runs. Apply automatically runs a review "
@@ -1187,7 +1189,10 @@ MORE_TOPICS.extend(
                 "documents that name it without a link; Link turns those words "
                 "into a [[link]], and is greyed out when the name has a square "
                 "bracket in it, which a [[link]] cannot hold), and \"Forgotten, and close to this\". The "
-                "note's Connections sheet shows the same."
+                "note's Connections sheet shows the same, with its rows as a quiet "
+                "list (a glyph, the title, a muted line for the kind or day) under a "
+                "row of count chips, and on a wide window an Open in the sidebar "
+                "button that docks it as this column."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

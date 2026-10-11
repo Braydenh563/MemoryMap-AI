@@ -48070,3 +48070,65 @@ Built by the canvasui agent on `agent/canvasui-1010`, one commit per item; the n
 - INBOX 791, UI, mind map, the owner 2026-10-10 22:42Z, three screenshots. "these buttons on the mindmap nodes are a little hard to see and interact with. also labels look pixelated" and "this side tab looks a little messy and needs a redesign" (the node's + and copy buttons; a blurry link label; the "This map" panel.) **Fixed c34989f, 0d53712.** Node add buttons 28px transparent glyphs to card-surface buttons at --target-min (28, 44 touch) at every zoom; the board layers re-raster after a zoom (not verified on a GPU compositor); This map tab is stat tiles, one button group and a help popover.
 - INBOX 792, UI, mind map, whiteboard and fit, the owner 2026-10-10 22:45Z, three screenshots. "also i dont think i should be typing in these outline options in the sidebar unless i like double click on them ore press an edit button on the side in the mind map. also on the whiteboard can you improve these arrow options and also show examples in the options as well?? there is only one actual arrow option for the links. also I feel like there should be the option to hide the flap in the corder of sticky notes. also the fitting to screen featurs on the graph, mind map, and whiteboard should be based on what panels are currently showing and the screen resolution/size." **Fixed 63b8b20, 35b1b2a, acec11c, 2433db8.** Outline rows read-only until dblclick/F2/Enter/pencil; line ends triangle, diamond, filled diamond, bar with a drawing per row in groups; sticky corner off per note and per board; fit goes into the free canvas (gaps left=right and top=bottom at 1440, sidebar and Format panel open and closed) and refits until the person pans.
 - INBOX 793, UI, whiteboard, the owner 2026-10-10 22:48Z, two screenshots: "also I think the view and board dropdown menus in the whiteboard need a bit of a redesign and/or restyle" (Board: section heads, plain rows, then label-and-action rows like "Export ... Export...", "This board itself ... Delete"; View: two columns of toggles, the Grid select and shortcut rows.) **Fixed d502e1a.** Board menu is heads over plain icon rows, Delete last and red; View is one column (Panels, Canvas, Zoom); every row 36px (44 touch), icon column and label column equal at 1440 and 390, board and map.
+## INBOX resolved, 2026-10-11
+
+776. **UI, the owner 2026-10-10 22:05Z, three screenshots.** "these
+     highlighted borders are cut off. is agent available now when the ai
+     isnt running?? or should the toggle option be disabled?? also on the
+     submenu bars, can you improve the design of the hover state a bit??
+     like add a grey or sub colour line when hovering over other ones that
+     arent active??" Shots: the top tab bar's focus ring on Graph clipped
+     top and bottom; the chat composer's Ask / Agent toggle with Agent on;
+     the Notes sub-tabs (Your notes, Capture, Writing room, Ask, Questions).
+777. **UI, the owner 2026-10-10 22:10Z.** "the shimmering sliding animation
+     on the skeleton loaders is very fast and not smooth or pleasing to the
+     eye in how fast and jittery it is"
+779. **UI, the owner 2026-10-10 22:15Z, two screenshots.** "on custom themes
+     can you maybe adjust the delete bin icon a little?? and also I think the
+     Your Themes setting section is designed awkwardly". The bin sits on the
+     card's corner, cut by the border; the section is a left label column
+     beside one card, the name field and Save, with the two reset buttons
+     below the whole row.
+780. **UI, the owner 2026-10-10 22:18Z, screenshot.** "also can you improve
+     the opacity of the peak function in the settings as well?" (Settings'
+     Peek: the panel is still mostly opaque and blurred over the app.)
+782. **UI, the owner 2026-10-10 22:22Z, screenshot.** "can you redesign the
+     confirm and not right buttons in the tidy popup panel?? and any other
+     similar instances of them across the app" (Tidy's Patterns rows: two
+     full-size bordered buttons under each sentence.)
+783. **Question, the owner 2026-10-10 22:23Z, screenshot.** "how do I delete a
+     suggestion??" (Tidy, Category names: one suggestion, ticked, with All,
+     None and Rename 1 category; no way to dismiss it for good.)
+
+
+Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the top tab bar's ring ends on the clip edge (offset 0, inset on the phone dock; measured -2px before, 0 after); `.tabs-line` hover draws its grey 2px line again (the glide's `content: none` had switched it off for every tab after the first hover); the skeleton shimmer is a 2 s soft pass (peak 7.7 to 2.0 box-widths a second); Your themes is one column with the delete bin in the card's foot; Peek is an 8% ground, no blur and the panel body at 22% opacity; Confirm and Not right are one compact pair on the sentence's row (`insightLine`), with a lint; Tidy rows have a cross that dismisses a suggestion for good (`POST /tidy/{key}/dismiss`, the `tidy_dismissed` preference). Also built: INBOX 786 (the hero's pattern menu gap), the Connections list recipe and its Open in the sidebar action, one hover for every button (DESIGN.md rule 4 amended), clipped focus rings on the Notes rows view, and `strip_css` dropping the empty lines a comment leaves (boot CSS 183,300 to 175,998 bytes gzipped, caps unchanged). INBOX 784 parts (d) the / menu's Table preview and (e) the [[ picker's duplicate title are not done.
+
+784. **UI, the owner 2026-10-10 22:30Z, five screenshots.** "when hovering
+     over categories in the sidebar on notes, the meatball buttons dont have
+     curved edges. also in some places it is the hover highlight over icons,
+     with no change in the border or background colour, and then there's
+     still ones with the highlighted bg. also some highlight borders still get
+     cut off. the copy and meatball button preview on the table in the /
+     command menu are poorly visualised. and this is my gary the moss monster
+     note and sketch, but it shows up wierdly on the [[ note menu,". Shots:
+     the sidebar category row's square ⋮; the notes list row's focus ring cut
+     at its top and bottom; the / menu's Table preview (Copy and ⋯ in a grey
+     blob over the caption); the Gary note (title, sketch, links); the [[
+     picker listing it as "Gary The Moss Monster :D Gary The Moss M..." and
+     the preview repeating the title four times with no sketch.
+
+786. **UI, the owner 2026-10-10 22:40Z, screenshot.** "no spacing between the
+     button and this text in the dashboard hero section" (the hero line "You
+     have 34 notes · Patterns: university, 4 times since 16 July" with its ⋯
+     button touching the last word; the menu holds Confirm and Not right.)
+
+775. **Bug, the owner 2026-10-10 21:52Z, two screenshots (desktop, 34 notes).**
+     "I went onto the graph and this is what it looked like?? it didnt zoom
+     in or fit to my screen?? I pressed the fit button and it didnt do much".
+     First open: the cluster fills about a fifth of the canvas; after Fit,
+     about half, and the bubbles overlap one another heavily.
+     Then, with a third screenshot: "I prefered the force and movement how
+     the graph used to be, theres no movement to it now :(" and "when the
+     graph readjusts it just appears there :(". The cluster's bubbles still
+     overlap; outliers sit far out on long links.
+

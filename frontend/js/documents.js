@@ -13976,7 +13976,7 @@ $("doc-connections").addEventListener("click", () => {
   // behind the dialog otherwise, and it is the same width as the dialog's
   // own left edge.
   $("doc-dock-menu")?.removeAttribute("open");
-  openConnections("documents", currentDoc.id, currentDoc.title || "This document");
+  lazyScript("/js/connections.js").then(() => openConnections("documents", currentDoc.id, currentDoc.title || "This document"));
 });
 $("doc-copy-link").addEventListener("click", () => {
   $("doc-dock-menu")?.removeAttribute("open");

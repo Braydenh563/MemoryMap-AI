@@ -1469,22 +1469,53 @@ function pushUndo(label, undo, redo) {
 //: **An insight line's two verdicts** (CHAT_PLAN decision 60): Confirm writes
 //: it as a fact the person vouched for ("Golf is a hobby of yours (confirmed
 //: by you, 10 October)"), said that way from the next answer on; Not right
-//: keeps it, and every near-variant of it, from being shown again. One row
-//: (the `.row.button-row` recipe) of two `smallButton`s, for Chat, Tidy's
-//: Patterns and the dashboard alike. `onDone(verdict, result)` lets the
-//: surface replace the line; a confirmed insight is drawn with no row.
+//: keeps it, and every near-variant of it, from being shown again. **One
+//: compact pair on the sentence's own row** (INBOX 782, the owner: "redesign
+//: the confirm and not right buttons ... and any other similar instances"): a
+//: check and a cross with their words, quiet at rest, right-aligned, drawn by
+//: `insightLine` for Chat and Tidy's Patterns and by `INSIGHT_VERDICT_ITEMS`
+//: for the dashboard's ⋯. `onDone(verdict, result)` lets the surface replace
+//: the line; a confirmed insight is drawn with no pair.
+const INSIGHT_VERDICT_ITEMS = [
+  { verdict: "confirm", label: "ph:check Confirm", title: "This is right: say it as a fact from now on" },
+  { verdict: "dismiss", label: "ph:x Not right", title: "Not right: never show this or anything like it again" },
+];
+
+function insightSend(insight, verdict) {
+  return apiJson(`/insights/${verdict}`, { method: "POST", body: JSON.stringify(insight) });
+}
+
 function insightVerdicts(insight, onDone) {
-  const row = document.createElement("span");
-  row.className = "row button-row insight-verdicts";
-  const send = (verdict) =>
-    apiJson(`/insights/${verdict}`, { method: "POST", body: JSON.stringify(insight) })
-      .then((result) => onDone?.(verdict === "confirm" ? "confirmed" : "dismissed", result))
-      .catch((error) => toast(error.message, true));
-  row.append(
-    smallButton("Confirm", "This is right: say it as a fact from now on", () => send("confirm")),
-    smallButton("Not right", "Not right: never show this or anything like it again", () => send("dismiss"))
-  );
-  return row;
+  const group = document.createElement("span");
+  group.className = "insight-verdicts";
+  group.setAttribute("role", "group");
+  group.setAttribute("aria-label", "Is this right?");
+  for (const item of INSIGHT_VERDICT_ITEMS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `insight-verdict is-${item.verdict}`;
+    button.title = item.title;
+    setLabel(button, item.label);
+    button.addEventListener("click", () =>
+      insightSend(insight, item.verdict)
+        .then((result) => onDone?.(item.verdict === "confirm" ? "confirmed" : "dismissed", result))
+        .catch((error) => toast(error.message, true))
+    );
+    group.appendChild(button);
+  }
+  return group;
+}
+
+//: One insight sentence with its pair on the same row: the words take the
+//: room, the pair sits at the end and wraps under them on a narrow screen.
+function insightLine(insight, text, onDone, extraClass = "") {
+  const line = document.createElement("p");
+  line.className = `insight-line ${extraClass}`.trim();
+  const words = document.createElement("span");
+  words.className = "insight-text";
+  words.textContent = text;
+  line.append(words, insightVerdicts(insight, (verdict, result) => onDone?.(line, verdict, result)));
+  return line;
 }
 
 

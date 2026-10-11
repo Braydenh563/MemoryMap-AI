@@ -863,9 +863,12 @@ function gcEnsureCanvas(s = gcTab) {
   // opening, the legend collapsing, fullscreen. A ResizeObserver is the only
   // thing that sees all of them (§5 Phase 1 asks for one by name).
   if (!s.observer && typeof ResizeObserver !== "undefined") {
-    s.observer = new ResizeObserver(() => {
+    s.observer = new ResizeObserver((entries) => {
       const before = { ...s.dims };
-      if (!gcResize(s)) return;
+      if (!gcResize(s)) {
+        if (entries.some((entry) => entry.target.id !== s.boxId)) gcRefitForPanels(s);
+        return;
+      }
       //: **The map stays framed when its card changes size** (INBOX 613, the
       //: owner: "the graph doesn properly fit to the area and showing or not
       //: showing panels"). A camera nobody has moved is framed again; one the
@@ -879,6 +882,7 @@ function gcEnsureCanvas(s = gcTab) {
     });
     const box = document.getElementById(s.boxId);
     if (box) s.observer.observe(box);
+    if (s.size === "full") for (const el of document.querySelectorAll(GC_FIT_OVERLAYS.join(","))) s.observer.observe(el);
   }
   gcWireInteraction(s);
   return s.canvas;
@@ -1033,7 +1037,11 @@ function gcDrawNebulae(ctx, s, inView) {
 function gcDrawTopicHulls(ctx, s, k) {
   //: The plates, in world units, for the label pass to keep names off (KG6).
   s.topicPlates = [];
-  if (s.size !== "full" || graphColourMode() !== "topic" || !graphStructure?.topics) return;
+  //: The force layout only (the owner, round 2, of a tree and an arc: topic
+  //: hulls "squashed into a thin column", plates stacked on the line): a
+  //: computed layout puts a topic's notes where their filing says, so its
+  //: outline is a sliver across the others. The colours still say it.
+  if (s.size !== "full" || s.tree || graphColourMode() !== "topic" || !graphStructure?.topics) return;
   const byTopic = new Map();
   const topicOf = graphStructure.topic_of || {};
   for (const node of s.nodes) {
@@ -1405,7 +1413,9 @@ const GC_HOVER_MS = 190;
 function gcBalanceFit(s, placed, passes = 0) {
   //: Not gated on `userZoomed`: the Fit button is pressed after a pan, and
   //: a gesture after the fit clears `fitCheck` instead (the zoom handler).
-  if (s.size !== "full" || !s.nodes.length || !s.svg || !s.zoom) return;
+  //: Nor while the warm-up plays (`gcFrameIntro`): the drawn notes are on
+  //: their way to the frame, not in it.
+  if (s.size !== "full" || !s.nodes.length || !s.svg || !s.zoom || s.intro) return;
   const t = s.transform;
   const W = s.dims.w;
   const H = s.dims.h;
@@ -1427,15 +1437,14 @@ function gcBalanceFit(s, placed, passes = 0) {
     cMaxY = Math.max(cMaxY, box.bottom);
   }
   //: Overhang past the dots, in screen pixels: constant under a zoom.
-  const oL = (dMinX - cMinX) * t.k, oR = (cMaxX - dMaxX) * t.k;
-  const oT = (dMinY - cMinY) * t.k, oB = (cMaxY - dMaxY) * t.k;
-  const margin = Math.min(W, H) * 0.09;
-  const spanX = Math.max(dMaxX - dMinX, 1);
-  const spanY = Math.max(dMaxY - dMinY, 1);
-  const raw = Math.min((W - 2 * margin - oL - oR) / spanX, (H - 2 * margin - oT - oB) / spanY);
-  const k = Math.max(0.25, Math.min(2.5, raw));
-  const x = W / 2 - ((dMinX + dMaxX) * k + oR - oL) / 2;
-  const y = H / 2 - ((dMinY + dMaxY) * k + oB - oT) / 2;
+  const over = {
+    left: (dMinX - cMinX) * t.k,
+    right: (cMaxX - dMaxX) * t.k,
+    top: (dMinY - cMinY) * t.k,
+    bottom: (cMaxY - dMaxY) * t.k,
+  };
+  const box = { minX: dMinX, maxX: dMaxX, minY: dMinY, maxY: dMaxY };
+  const { k, x, y } = graphFitFrame(box, W, H, gcFitInsets(s), over);
   if (!graphMinimapFinite(x, y, k)) return;
   //: Within a pixel and a percent is already balanced: no motion for nothing.
   if (Math.abs(k / t.k - 1) < 0.01 && Math.abs(x - t.x) < 1.5 && Math.abs(y - t.y) < 1.5) return;
@@ -1450,6 +1459,110 @@ function gcBalanceFit(s, placed, passes = 0) {
     s.svg.interrupt().call(s.zoom.transform, framed);
     again();
   } else s.svg.transition().duration(220).call(s.zoom.transform, framed).on("end", again);
+}
+
+//: The overlays a fit keeps the notes out from under, as the depth each one
+//: takes from an edge of the map, in screen pixels (`graphFitFrame`): the
+//: dock along the top, the legend along the bottom, the minimap and the zoom
+//: strip in their corners, and whichever panel is open over the map (the
+//: owner, INBOX 792: fitting "should be based on what panels are currently
+//: showing and the screen resolution/size"). Each is counted against the
+//: edge it costs the least of the map's width or height to clear; a corner
+//: box goes to the side, so a wide map gives up width it has spare rather
+//: than height. A closed panel has no box and costs nothing.
+const GC_FIT_OVERLAYS = [
+  "#graph-card > .graph-overlay > .dock",
+  "#graph-card .graph-legend-row",
+  "#graph-minimap",
+  "#graph-zoom",
+  "#graph-options",
+  "#graph-help-panel",
+  "#graph-selection-dock",
+  "#graph-trace",
+  "#graph-trace-result",
+  "#graph-topic",
+];
+const GC_FIT_GAP = 4;
+function gcFitInsets(s = gcTab) {
+  const insets = { top: 0, right: 0, bottom: 0, left: 0 };
+  if (s.size !== "full" || !s.canvas || !s.dims.w || !s.dims.h) return insets;
+  const c = s.canvas.getBoundingClientRect();
+  if (!c.width || !c.height) return insets;
+  for (const selector of GC_FIT_OVERLAYS) {
+    const el = document.querySelector(selector);
+    //: No client rects is not displayed; `offsetParent` would also skip a
+    //: fixed sheet, which is the phone's panel.
+    if (!el || el.hidden || !el.getClientRects().length) continue;
+    const b = el.getBoundingClientRect();
+    if (!b.width || !b.height || b.right <= c.left || b.left >= c.right || b.bottom <= c.top || b.top >= c.bottom) continue;
+    const depth = {
+      top: b.bottom - c.top,
+      bottom: c.bottom - b.top,
+      left: b.right - c.left,
+      right: c.right - b.left,
+    };
+    const cost = (side) => depth[side] / (side === "top" || side === "bottom" ? c.height : c.width);
+    const side = ["top", "bottom", "left", "right"].reduce((best, next) => (cost(next) < cost(best) ? next : best));
+    insets[side] = Math.max(insets[side], depth[side] + GC_FIT_GAP);
+  }
+  return insets;
+}
+
+//: **A panel opening or closing refits a map that was fitted** (INBOX 792).
+//: The overlays are watched by the canvas's own ResizeObserver (a panel
+//: shown or hidden is a box going to or from no size); a camera the person
+//: moved keeps where it is, and nothing refits before the first fit or
+//: while the warm-up plays (`gcFrameIntro`).
+function gcRefitForPanels(s) {
+  if (s.userZoomed || s.intro || !s.zoom || !s.svg || !s.nodes?.length) return;
+  if (s.tree) frameTree(s.svg, s.zoom, null, s.nodes, s.dims.w, s.dims.h, s.tree.radial, s.tree.arc);
+  else if (s.fittedOnce) fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
+}
+
+//: **A computed layout moves in from the map that was there** (the owner,
+//: round 2: "I just change views or reset it and it just suddenly
+//: changes"). A tree, radial or arc has no simulation to carry the notes
+//: across, so each note seen before glides from where it stood to its new
+//: place, eased over `GC_LAYOUT_MS`, and a note new to the picture (a
+//: category's heading) fades in where it lands (`node._born`). Less motion
+//: keeps the cut.
+const GC_LAYOUT_MS = 700;
+function gcTweenFromPrior(s, nodes, prior, move = true) {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+  const now = performance.now();
+  let moved = 0;
+  for (const node of nodes) {
+    const was = prior.get(node.id);
+    if (!was || !Number.isFinite(was.x) || !Number.isFinite(was.y)) {
+      node._born = now;
+      continue;
+    }
+    if (!move) continue;
+    node._fromX = was.x;
+    node._fromY = was.y;
+    node._toX = node.x;
+    node._toY = node.y;
+    node.x = was.x;
+    node.y = was.y;
+    moved += 1;
+  }
+  if (!moved) return;
+  s.glideFrom = now;
+  s.glideMs = GC_LAYOUT_MS;
+  s.gliding = true;
+  s.pathsStale = true;
+}
+
+//: How far a note new to the picture has faded in, 0 to 1 (`node._born`).
+const GC_BORN_MS = 320;
+function gcBornAlpha(node, now) {
+  if (node._born === undefined) return 1;
+  const share = (now - node._born) / GC_BORN_MS;
+  if (share >= 1) {
+    node._born = undefined;
+    return 1;
+  }
+  return Math.max(0, share);
 }
 
 //: `1 - (1 - t)^3`: fast away from the start, settling at the end. The same
@@ -1558,7 +1671,10 @@ const GC_GLIDE_MAX_MS = 120;
 //: render replaced, carry no target and are left alone.
 function gcGlideStep(s) {
   if (!s.gliding) return false;
-  const share = Math.min(1, (performance.now() - s.glideFrom) / (s.tickGap || GC_GLIDE_MIN_MS));
+  //: A change of layout is one long eased glide (`gcTweenFromPrior`); a
+  //: tick's is short and linear.
+  const raw = Math.min(1, (performance.now() - s.glideFrom) / (s.glideMs || s.tickGap || GC_GLIDE_MIN_MS));
+  const share = s.glideMs ? gcSmooth(raw) : raw;
   // Linear, not eased: glides follow one another tick after tick, and an
   // eased one would speed up and slow down inside every tick interval, which
   // is a pulse of its own.
@@ -1568,13 +1684,14 @@ function gcGlideStep(s) {
     node.y = node._fromY + (node._toY - node._fromY) * share;
   }
   s.quadtreeDirty = true;
-  if (share >= 1) gcGlideFinish(s);
-  return share < 1;
+  if (raw >= 1) gcGlideFinish(s);
+  return raw < 1;
 }
 
 function gcGlideFinish(s) {
   if (!s.gliding) return;
   s.gliding = false;
+  s.glideMs = 0;
   for (const node of s.nodes) {
     if (node._toX === undefined) continue;
     if (node !== s.dragNode) {
@@ -1736,6 +1853,8 @@ function gcDraw(s = gcTab) {
   //: Advanced once, before anything is measured, so every radius in this frame
   //: agrees, and another frame is asked for only while it is still moving.
   const easing = gcHoverStep(s);
+  //: The glide's last frame lands the notes, so the paths are rebuilt on
+  //: it too (`pathsStale` stays true until a frame after the glide).
   const gliding = gcGlideStep(s);
   const fadeStep = gcFadeStep(s, window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
   let fading = false;
@@ -1886,7 +2005,9 @@ function gcDraw(s = gcTab) {
       // A tree's edges are curves between fixed points. `hierarchyPath` and
       // `arcPath` already return SVG path data, and Path2D speaks it, so the
       // curve maths is shared with the SVG renderer rather than rewritten.
-      if (!edge._path2d) {
+      //: Cached for a still tree; rebuilt every frame while its notes glide in
+      //: (`gcTweenFromPrior`), or the lines are left where the notes started.
+      if (!edge._path2d || s.pathsStale) {
         edge._path2d = new Path2D(s.tree.arc ? arcPath(edge) : hierarchyPath(edge, s.tree.radial));
       }
       bucket.path.addPath(edge._path2d);
@@ -2078,9 +2199,13 @@ function gcDraw(s = gcTab) {
   //: rim to be seen keeps its sprite.
   const lodPaths = new Map();
   let lodNodes = 0;
+  const bornAt = performance.now();
+  s.bornPending = false;
   for (const halo of haloByColour.values()) {
     for (const node of halo.nodes) {
-      let alpha = gcLitAlpha(node._lit);
+      const born = gcBornAlpha(node, bornAt);
+      if (born < 1) s.bornPending = true;
+      let alpha = gcLitAlpha(node._lit) * born;
       if (node.type === "unresolved") alpha *= 0.4;
       const rWorld = node.r + node._grow;
       if (rWorld * pixelScale < GC_LOD_PX && !node._grow) {
@@ -2462,7 +2587,8 @@ function gcDraw(s = gcTab) {
   //: One more frame while the hover is still growing or shrinking. Nothing
   //: is scheduled once `gcHoverStep` reports it has arrived, so an idle graph
   //: costs no frames at all.
-  if (easing || fading || gliding) gcRequestDraw(s);
+  s.pathsStale = gliding && Boolean(s.glideMs);
+  if (easing || fading || gliding || s.bornPending) gcRequestDraw(s);
 }
 
 //: The line under the pointer, drawn again over the rest, wider and in its
@@ -3961,6 +4087,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
           node._toY = positions[i * 2 + 1];
         }
         s.glideFrom = now;
+        s.glideMs = 0;
         s.gliding = true;
         // The positions moved, so the hit-test index is stale. Marked here
         // rather than at the end of every draw: a settled map redraws on
@@ -3984,7 +4111,10 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
         // deliberately gone to look at something is the reported bug
         // `graphAutoFitDone` exists for, and an early fit must not reintroduce
         // it by making the late fit unconditional.
-        if (!gcAutoFitDone(s) && s.nodes.length) {
+        //: The warm-up's playback (`frame`, below) is framed already: the
+        //: fits wait for the live layout, which starts where it ends.
+        if (!message.intro) s.intro = false;
+        if (!gcAutoFitDone(s) && s.nodes.length && !s.intro) {
           if (!s.fittedOnce) {
             s.fittedOnce = true;
             //: Instant (INBOX 738): a glide from the default camera is the
@@ -4014,6 +4144,8 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
           graphMinimapTick += 1;
           if (graphMinimapTick % 8 === 0) graphMinimapQueuePaint();
         }
+      } else if (message.type === "frame") {
+        gcFrameIntro(s, message.positions);
       } else if (message.type === "end") {
         //: At rest is where the last tick said: the glide is finished here,
         //: not by the next paint, so the fit below frames the final shape.
@@ -4050,13 +4182,19 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     };
   }
   s.fittedOnce = false;
+  s.intro = false;
   //: Hidden until the first fit (the owner, 2026-10-07: "the crazy starting
   //: zoom in on the graph before it fits"): the first frames drew at the
   //: default camera. Shown at that fit, or after 4 s whatever happens (a
   //: worker that fails reveals at once, `onerror`). It was 1.5 s, which a
   //: busy machine's first open (the worker script and d3 fetched, the
   //: layout warmed) overran, revealing the default camera.
-  if (!gcAutoFitDone(s) && s.canvas) {
+  //: **Only a canvas that has shown nothing yet** (the owner, round 2:
+  //: "I just change views or reset it and it just suddenly changes or
+  //: disappears and reappears"). A new layout, a return to the tab, Refresh
+  //: or a saved view starts from the map on screen and moves from there.
+  const reframe = !gcAutoFitDone(s);
+  if (reframe && s.canvas && !s.shown) {
     s.canvas.style.opacity = "0";
     setTimeout(() => gcReveal(s), 4000);
   }
@@ -4099,8 +4237,13 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     // 1 is every other caller's unchanged behaviour.
     alpha: viewSeed ? viewSeed.alpha : 1,
     //: Step the layout out of its starting spiral before the first post
-    //: (the worker's `WARM_MS`), only while nobody can see it yet.
-    warm: hidden && !(viewSeed && viewSeed.alpha === 0),
+    //: (the worker's `WARM_MS`) whenever the map is framed again, so the
+    //: frame is set on where it ends.
+    warm: reframe && !(viewSeed && viewSeed.alpha === 0),
+    //: And then play those steps back, framed on where they end (the
+    //: worker's `INTRO_HOLD`), unless the reader asked for less motion: they
+    //: get the settled map at once, as before.
+    intro: !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
   };
   //: **A layout that already settled is held, not settled again** (INBOX
   //: 424c/d). Every visit to the Graph tab refetched the map and restarted
@@ -4134,6 +4277,21 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     gcPost({ type: "freeze", ids: viewSeed.freezeIds }, s);
     s._viewRestorePending = true;
   }
+}
+
+//: **The camera is framed on where the warm-up ends, before it is played**
+//: (the worker's `intro`, INBOX 775): the notes then move into a frame that
+//: already holds them, rather than the frame chasing the notes (INBOX 738's
+//: zoomed-in start). Instant, and the map is shown here.
+function gcFrameIntro(s, positions) {
+  if (gcAutoFitDone(s) || !s.nodes.length || positions.length < s.nodes.length * 2) return;
+  s.fittedOnce = true;
+  s.intro = true;
+  const target = s.nodes.map((node, i) => ({ x: positions[i * 2], y: positions[i * 2 + 1], r: node.r }));
+  //: Instant behind the fade of a first open; on a map already showing, the
+  //: camera eases to the new frame while the notes move.
+  fitGraphToView(s.svg, null, s.zoom, target, s.dims.w, s.dims.h, s.canvas?.style.opacity === "0");
+  gcReveal(s);
 }
 
 //: The world the simulation solves in, a square whose side grows with
@@ -4487,6 +4645,10 @@ async function renderGraphCanvas(s = gcTab) {
   }
   // Everything the worker could still be about is now gone: whatever it says
   // next is about the previous node array and is dropped on arrival.
+  //: From the map that was there (`gcTweenFromPrior`): a computed layout
+  //: glides across; on the force layout the worker carries the notes, and
+  //: only a note new to the picture is marked to fade in.
+  if (!s.tree && prior.size) gcTweenFromPrior(s, nodes, prior, false);
   s.epoch += 1;
   s.nodes = nodes;
   s.edges = edges;
@@ -4510,6 +4672,8 @@ async function renderGraphCanvas(s = gcTab) {
       const untouched = !s.transform || (s.transform.k === 1 && s.transform.x === 0 && s.transform.y === 0);
       frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial, s.tree.arc, untouched);
     }
+    //: After the frame, which is set on where the notes are going.
+    gcTweenFromPrior(s, nodes, prior);
   } else {
     //: The stale simulation could still have spent the flag during the
     //: awaits above (it is only cut off by the epoch bump, just now).
@@ -5270,6 +5434,7 @@ async function gcRelinkPairs(pairs) {
 }
 
 function gcReveal(s) {
+  s.shown = true;
   if (s.canvas && s.canvas.style.opacity === "0") {
     s.canvas.style.transition = "opacity var(--ui-fast) var(--ease-out)";
     s.canvas.style.opacity = "";

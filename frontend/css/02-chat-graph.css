@@ -2237,9 +2237,14 @@ button.recording.live-level {
   height: 3.2rem;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  background: linear-gradient(100deg, transparent 35%, var(--sk-sheen) 50%, transparent 65%) var(--card);
-  background-size: 250% 100%;
-  animation: shimmer 1.8s ease-in-out infinite;
+  /* **A slow, soft pass** (INBOX 777, the owner: "very fast ... jittery"). It
+     was a 30%-wide band on a 250% image travelling 6 box-widths in 1.8s
+     (3.3 widths a second, twice that mid-ease). Now a 50%-wide band on a 200%
+     image that crosses the box once, 2 box-widths in 2s, eased, resting
+     off-screen at both ends of the loop. */
+  background: linear-gradient(100deg, transparent 25%, var(--sk-sheen) 50%, transparent 75%) var(--card);
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
   margin-bottom: 0.5rem;
 }
 .skeleton::before,
@@ -2285,10 +2290,10 @@ button.recording.live-level {
 }
 @keyframes shimmer {
   from {
-    background-position: 200% 0;
+    background-position: 150% 0;
   }
   to {
-    background-position: -200% 0;
+    background-position: -50% 0;
   }
 }
 /* Keyboard users get an unmistakable focus ring everywhere. */
@@ -2695,7 +2700,7 @@ kbd {
 }
 :root[data-progress-motion="always"] .skeleton,
 :root[data-progress-motion="always"] .entry-list li.skeleton {
-  animation: shimmer 1.8s ease-in-out infinite !important;
+  animation: shimmer 2s ease-in-out infinite !important;
 }
 :root[data-progress-motion="always"] button.recording {
   animation: pulse-rec 1.2s ease-in-out infinite !important;

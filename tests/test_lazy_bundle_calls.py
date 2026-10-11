@@ -99,6 +99,8 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: Connections, opened in the .then of lazyScript('/js/connections.js') at its three callers.
+    "openConnections": "connections, called in the .then of lazyScript('/js/connections.js')",
     #: The palette's Translate this row, in the .then of ensureModule('translate').
     "translateCaught": "translate, called in the .then of ensureModule('translate') on its palette row",
     #: Brief 88: a source opens its note at the quoted line, in the .then of
@@ -109,6 +111,11 @@ REACHED_AFTER_LOAD = {
     #: awaits `lazyScript` / `ensureModule` before it reads or calls.
     "featureCatalog": "appPalette, the palette's bundle names it; openFeatures and renderQuickLinks await lazyScript('/js/app-features.js') first",
     "noteRecoveredRecordings": "meetings, called in the .then of ensureModule('meetings') in dashboard.js's startApp hook",
+    #: INBOX 784: the Notes column's rows are drawn by connections.js;
+    #: renderNotesRail awaits lazyScript('/js/connections.js') before any of them.
+    "withBacklinks": "connections, renderNotesRail awaits lazyScript('/js/connections.js') before drawing",
+    "buildConnectionGroups": "connections, renderNotesRail awaits lazyScript('/js/connections.js') before drawing",
+    "connectionRowEl": "connections, notesRailNearGroup runs inside renderNotesRail after it awaited the bundle",
     #: Brief 89: the palette's small tools, each called in the .then of
     #: ensureModule('utilities') on its own palette row (settings-panes.js).
     "startUtilityTimer": "utilities, called in the .then of ensureModule('utilities') on the palette's timer rows",

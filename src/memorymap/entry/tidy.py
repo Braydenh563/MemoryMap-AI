@@ -52,6 +52,10 @@ logger = logging.getLogger("memorymap.tidy")
 
 ACTOR = "system:tidy"
 PREF_AUTO = "tidy_auto"
+#: Rows a person dismissed for good, `{review key: [row ids]}` (INBOX 783).
+PREF_DISMISSED = "tidy_dismissed"
+#: Dismissed rows kept per review: a long-lived notebook never grows the file.
+MAX_DISMISSED = 2000
 LOG_ACTION = "tidied"
 LOG_ENTITY = "tidy"
 #: The actors whose writes are a person's own (`events.ACTOR_USER*`).
@@ -671,11 +675,43 @@ _COUNTERS = {"uncategorised": _count_uncategorised, "duplicates": _count_duplica
 def rows(session, key: str, level: str | None = None) -> list[dict]:  # noqa: ANN001
     """What review `key` finds now, each row ticked or not by the review's
     default. Raises KeyError for an unknown review."""
+    from memorymap.core import deps
+
     review = REVIEWS[key]
-    found = _RULES[key](session, level or review.level)
+    gone = dismissed_ids(deps.get_config(), key)
+    found = [row for row in _RULES[key](session, level or review.level) if row["id"] not in gone]
     for row in found:
         row["ticked"] = review.ticked and row["selectable"] and not row.get("sensitive")
     return found
+
+
+def dismissed_ids(config, key: str) -> set[str]:  # noqa: ANN001
+    """The row ids of review `key` a person dismissed for good."""
+    stored = config.get_preference(PREF_DISMISSED, {}) or {}
+    return set(stored.get(key) or ())
+
+
+def dismiss(session, config, key: str, ids: list[str]) -> int:  # noqa: ANN001
+    """Dismiss rows review `key` finds now, so they are not listed, counted or
+    applied again (INBOX 783). Ids it does not find are ignored. Returns how
+    many are dismissed in all."""
+    wanted = set(ids)
+    found = {row["id"] for row in rows(session, key) if row["id"] in wanted}
+    stored = dict(config.get_preference(PREF_DISMISSED, {}) or {})
+    kept = list(stored.get(key) or [])
+    kept.extend(i for i in sorted(found) if i not in kept)
+    stored[key] = kept[-MAX_DISMISSED:]
+    config.set_preference(PREF_DISMISSED, stored)
+    return len(stored[key])
+
+
+def undismiss(config, key: str, ids: list[str]) -> int:  # noqa: ANN001
+    """Bring dismissed rows back. Returns how many stay dismissed."""
+    stored = dict(config.get_preference(PREF_DISMISSED, {}) or {})
+    drop = set(ids)
+    stored[key] = [i for i in stored.get(key) or [] if i not in drop]
+    config.set_preference(PREF_DISMISSED, stored)
+    return len(stored[key])
 
 
 # --- applying, and putting back ---------------------------------------------------
@@ -1053,7 +1089,7 @@ def summary(session, config) -> dict:  # noqa: ANN001
     out = []
     for key, review in REVIEWS.items():
         try:
-            counter = _COUNTERS.get(key)
+            counter = _COUNTERS.get(key) if not dismissed_ids(config, key) else None
             count = counter(session) if counter else len(rows(session, key))
         except Exception:  # noqa: BLE001  # one rule failing never hides the others
             logger.warning("tidy review %s failed", key, exc_info=True)

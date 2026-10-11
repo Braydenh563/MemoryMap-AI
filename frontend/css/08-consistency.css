@@ -9641,7 +9641,10 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
     background: transparent;
     box-shadow: none;
   }
-  .tabs-line.has-glide > button::after {
+  /* Only the chosen tab's own line: the glide draws that one. An unchosen
+     tab keeps its hover line (INBOX 776), which this used to switch off for
+     every tab once a strip had been touched. */
+  .tabs-line.has-glide > button:is(.active, [aria-selected="true"])::after {
     content: none;
   }
   /* The label changes colour as the fill arrives under it rather than
@@ -9973,7 +9976,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   font-weight: 400;
 }
 #entry-list .entry-meta.note-meta > .chip-interactive.category:is(:hover, :focus-visible) {
-  background: none;
+  background: var(--hover-veil);
   color: var(--ink);
 }
 #entry-list .chip.link {
@@ -9984,6 +9987,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   border-color: color-mix(in srgb, var(--ink) 22%, transparent);
 }
 #entry-list .chip-interactive.link:is(:hover, :focus-visible) {
+  background: var(--hover-veil);
   color: var(--ink);
 }
 /* --- The Ask tab's records speak in the Notes list's voice (INBOX 510) ---
@@ -10172,6 +10176,8 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   #graph-legend .legend-toggle,
   .sidebar-resize,
   #category-list li,
+  .entry-list.is-rows > li,
+  .entry-list.is-rows .entry-content .wiki-link,
   .doc-item-button,
   .outline-link,
   .outline-twist,
@@ -10201,6 +10207,14 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 :is(.doc-sidebar-section, .library-view-section, .doc-list) {
   padding-block: var(--ring-room);
 }
+/* A rows-view note's meta line scrolls across and clips down, so its chips'
+   rings (a category, a tag, a count) were cut at the line's edges (INBOX
+   784). The line's own padding is the grid lane's width (a first try with
+   room as padding moved the chips 11px), so the ring is drawn inside the
+   chip, the Inset recipe above. */
+.entry-list.is-rows .entry-meta.note-meta :is(.chip, button):focus-visible {
+  outline-offset: -2px;
+}
 /* The Settings nav scrolls on its own and its last section button stood on
    the bottom edge (2px of padding for a 4px ring). */
 .modal-nav {
@@ -10210,6 +10224,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    under Memory, the profile mark, the help search). */
 .modal-content {
   padding-inline-start: var(--ring-room);
+  scroll-padding-block: var(--ring-room);
 }
 /* Beside the nav the pane's extra room comes out of the grid gap; under 820
    the pane fills the body, which hides what leaves it, so it stays padding. */

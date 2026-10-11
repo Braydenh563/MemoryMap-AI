@@ -173,3 +173,17 @@ def test_the_badge_does_not_ask_the_server_while_the_app_is_locked():
     error on every launch."""
     badge = _read("tidy.js").split("async function tidyBadge(", 1)[1].split("\n}\n", 1)[0]
     assert badge.index("if (!authToken()) return;") < badge.index('apiJson("/tidy"')
+
+
+def test_a_suggestion_can_be_dismissed_for_good_from_its_row():
+    """INBOX 783, the owner: "how do I delete a suggestion??". The cross sits
+    beside the label (a button inside a label is a second control in the
+    first), asks the server to remember it, and the toast's Undo brings it
+    back; the '?' says so."""
+    tidy = _read("tidy.js")
+    assert 'dismiss.className = "ghost icon-only small tidy-dismiss"' in tidy
+    assert "li.append(label, dismiss)" in tidy
+    assert "/dismiss`" in tidy and "/undismiss`" in tidy
+    assert "the cross hides a row" in tidy
+    css = (ROOT / "frontend" / "css" / "tidy-lazy.css").read_text(encoding="utf-8")
+    assert ".tidy-row-item" in css and ".tidy-dismiss" in css

@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Graph: changing the layout, a return to the tab or a saved view moves the notes from where they were, with the camera easing to the new frame (no more vanishing and reappearing); a tree, radial or arc fits the free space, notes new to the picture fade in, and topic outlines are drawn on the force layout only.
+- Graph: the head's '?', settings and ⋯ menus close each other when one opens, so they no longer stack on top of each other (INBOX 796).
+- Graph: a fresh open shows the layout settling again (the notes move into a frame already set on where they end, about a second, the same on a return to the tab), Fit fills the space the dock, legend, minimap, zoom strip and any open panel leave, a fitted map refits when a panel opens or closes, and a small map spreads so its dots have room (INBOX 775, 792).
 - Settings, Import & export: Export notebook folder downloads the whole notebook as a zip of markdown files, one per note with its attachments beside it and a .json file of every field, plus documents, boards and an index; From a MemoryMap folder reads it back with dates, pins, links, reminders and boards as they were.
 - Every import keeps a report: what it read, wrote, skipped and found already here, each skipped file named with why; See the report when it ends, or Report in the Activity panel.
 - A long import shows in the Activity panel with its progress and Stop; the notes it made before Stop stay.
@@ -35,6 +38,16 @@ below). Versioning is `0.x` while the app stabilises.
 - Whiteboard and mind map: Fit to screen fits the canvas you can see (not under the top bar, tools dock, sidebar or Format panel) and refits when a panel opens or closes until you pan or zoom.
 - Whiteboard: the View menu is one column in Panels, Canvas and Zoom, and the Board menu is plain icon rows under section heads with Clear and Delete last and red; every row is one height.
 - Whiteboard Library: shape tiles are drawn in the pen's ink with the shape's own fill opacity, width and dash, as the shape is placed.
+- Every button answers hover the same way: an icon button takes the quiet fill a labelled one does, with its glyph going to full ink, instead of tinting blue with no background; the header's status pill and the chips on a note's meta line follow. Measured over the header, seven tabs and Settings at 1440: 153 of 361 buttons answered with the glyph alone before, 1 after (INBOX 784, 788).
+- Focus rings are no longer cut off on the Notes list's rows view (every row), the chips on its meta line, a category's ⋮ and a rows-view wiki link (INBOX 784).
+- Confirm and Not right on a pattern are one compact pair on the sentence's own row (a check and a cross, quiet until hovered), in Chat and Tidy; the dashboard's pattern line keeps its ⋯ and now has a gap between the last word and it (INBOX 782, 786).
+- Tidy: a cross on each suggestion dismisses it for good, remembered so it is not listed, counted or applied again; the toast's Undo brings it back (INBOX 783).
+- Connections, in the sheet and in the Notes column, is a quiet list: a glyph, the title and a muted line for the kind or day, a count on each section, count chips at the top, and no bordered button per row; the sheet has Open in the sidebar to dock it as the column (INBOX 784).
+- Settings, Appearance: Peek now lets go of the panel: the ground is 8% with no blur and the body of the panel fades to 22%, so the app behind reads clearly; the head stays in full so Peek and the close button are easy to find (INBOX 780).
+- Settings, Appearance, Your themes: each saved look's delete bin is a small icon button inside the card (beside its name) instead of a badge on its corner, and the section reads top to bottom: the cards across the full width, then the name box and Save on one row, then the two reset buttons on a row of their own (INBOX 779).
+- The top tab bar's focus ring is no longer cut off at the top and bottom (INBOX 776).
+- Sub-tab strips (Notes, Library, the document sidebar): hovering a tab you are not on draws a grey line under it again; it had stopped after the first hover or press on a strip.
+- Loading placeholders shimmer slowly and softly (about a quarter of the old speed) instead of fast and jittery.
 - Translate this, in the command palette: a selected passage of a note, a document or a reading turned from English into Spanish on this computer with no model, then copied or put in place of the selection (Ctrl+Z undoes it). It needs "Translate offline", a 27 MB download in Settings, Packages (new bundle Languages); until it is installed the row says so and opens that page.
 
 - Recording never refuses: with no Voice notes add-on a meeting or a voice note is still kept, as a recording with its length; the add-on transcribes it when installed.

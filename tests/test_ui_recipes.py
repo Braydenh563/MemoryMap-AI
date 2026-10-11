@@ -5175,14 +5175,9 @@ def test_what_a_field_was_read_as_is_one_chip_row() -> None:
     ]
     assert not readers, f"a surface asking /read itself rather than through quickAddAttach: {readers}"
 # Phase 12 decisions 2 and 3 (UI_MODERNISATION_PLAN; DESIGN.md, the ten rules
-# 4 and 6). An icon button answers hover and focus by colouring its glyph,
-# never with a box behind it; measured before, 334 of 334 icon buttons drew
-# one (`scratchpad/ui-sweeps/hoverbox.js`). The grammar is written as tokens
-# nulled on the icon button itself, so a hover rule may still name one of the
-# nulled tokens; any other background on an icon's hover is the box back.
-_ICON_HOVER_OK = re.compile(
-    r"^(transparent|none|var\(--(ghost-btn-bg|surface-2|chip-bg|hover-veil)\))\s*(!important)?$"
-)
+# 4 and 6) had an icon button answer hover with its glyph alone; the owner
+# retired that on 2026-10-10 (INBOX 784/788): every button takes the one quiet
+# box, `test_every_button_answers_hover_with_the_same_quiet_box` below.
 _NOT = re.compile(r":not\((?:[^()]|\([^()]*\))*\)")
 
 
@@ -5196,22 +5191,50 @@ def _served_rules():
             yield path.name, [s.strip() for s in m.group(1).split(",")], m.group(2)
 
 
-def test_an_icon_button_answers_hover_with_its_glyph_not_a_box() -> None:
+#: The fills a button's hover may paint: the quiet tokens the recipe names (a
+#: tonal button's `--ghost-btn-bg`, a status item's `--chip-bg`, a row's veil,
+#: a surface step, the accent's low alpha for an open or chosen one, the filled
+#: button's own deeper step).
+_BUTTON_HOVER_OK = re.compile(
+    r"^(transparent|none|var\(--(ghost-btn-bg|ghost-btn-bg-hover|surface-2|chip-bg|hover-veil|row-hover-bg|accent-soft|accent-surface-hover|button-ground)\)"
+    r"|linear-gradient\(var\(--hover-veil\), var\(--hover-veil\)\)(?: var\(--[a-z-]+\))?)\s*(!important)?$"
+)
+
+
+def test_every_button_answers_hover_with_the_same_quiet_box() -> None:
+    """INBOX 784/788, the owner: "not all buttons have the same hover states ...
+    all the ui styles across the app need to be consistent". An icon button used
+    to answer hover with its glyph's colour and no box (Phase 12 decision 2) while
+    a labelled button beside it took a box; the top bar showed both. One recipe now
+    (DESIGN.md, "One hover for every button"): a quiet fill from the recipe's
+    tokens, the glyph to full ink, and the accent colour kept for what is chosen.
+    The tokens an icon's hover paints are no longer nulled, and no icon selector's
+    hover is a colour change alone."""
     forms = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
-    rule = re.search(r":is\(button, summary\):is\(\.icon-only, \.icon-button[^)]*\) \{([^}]*)\}", forms)
-    assert rule and "--ghost-btn-bg: transparent" in rule.group(1), (
-        "the hover grammar's token rule is gone from 01-forms-settings.css"
+    assert not re.search(r":is\(button, summary\):is\(\.icon-only[^{]*\{[^}]*--hover-veil: transparent", forms), (
+        "an icon button's hover tokens are nulled again: that is the glyph-only grammar the owner retired"
     )
-    assert re.search(r":is\(\.icon-only, \.icon-button[^)]*\):is\(:hover, :focus-visible\) \{\s*--ink: var\(--accent-text\)", forms)
-    boxes = []
+    assert not re.search(r":is\(\.icon-only, \.icon-button[^)]*\):is\(:hover, :focus-visible\) \{\s*--ink: var\(--accent-text\)", forms)
+    assert re.search(r":is\(button, summary\):is\(\.icon-only, \.icon-button[^{]*\{\s*--ghost-btn-bg: var\(--hover-veil\)", forms), (
+        "borderless buttons share one fill, the veil (the bell and 'All spaces' measured 0.12 and 0.07 side by side)"
+    )
+    assert re.search(
+        r":is\(button, summary\)\.ghost:is\(\.icon-only, \.icon-button\)[^{]*:is\(:hover, :focus-visible, \[aria-expanded=\"true\"\]\) \{\s*background: var\(--ghost-btn-bg\)",
+        forms,
+    ), "the icon button's hover fill is gone from 01-forms-settings.css"
+    bad = []
     for name, sels, body in _served_rules():
         hits = [s for s in sels if ":hover" in s and re.search(r"\.icon-(only|button)\b", _NOT.sub("", s))]
         if not hits:
             continue
-        for value in re.findall(r"(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)", body):
-            if not _ICON_HOVER_OK.match(value.strip()):
-                boxes.append(f"{name}: {hits[0][:80]} -> {value.strip()[:40]}")
-    assert not boxes, "an icon button's hover paints a box (DESIGN.md, the ten rules, 4):\n" + "\n".join(boxes)
+        values = re.findall(r"(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)", body)
+        for value in values:
+            if not _BUTTON_HOVER_OK.match(value.strip()):
+                bad.append(f"{name}: {hits[0][:80]} -> background {value.strip()[:40]}")
+        color = re.search(r"(?:^|;)\s*color\s*:\s*([^;]+)", body)
+        if color and not values and "accent" in color.group(1):
+            bad.append(f"{name}: {hits[0][:80]} -> only the glyph goes to {color.group(1).strip()[:30]}")
+    assert not bad, "an icon button's hover departs from the one recipe (DESIGN.md, One hover for every button):\n" + "\n".join(bad)
 
 
 def test_every_help_trigger_is_one_shape() -> None:
@@ -5244,3 +5267,30 @@ def test_a_date_or_time_field_is_the_picker_recipe() -> None:
         assert need in panel, need
     others = [p.name for p in JS if p.name != "date-field.js" and "/reminders/when" in p.read_text(encoding="utf-8")]
     assert not others, f"a second typed-date reader: {others}"
+
+
+def test_an_insights_verdicts_are_one_compact_pair_on_the_sentences_row() -> None:
+    """INBOX 782, the owner: "redesign the confirm and not right buttons ... and
+    any other similar instances of them across the app". Chat's pattern lines
+    and Tidy's Patterns draw them with `insightLine` (status.js); the
+    dashboard's ⋯ takes the same two items from `INSIGHT_VERDICT_ITEMS`. No
+    other file words the pair, and the pair is quiet (no edge, no fill at
+    rest), not two full-size bordered buttons under the sentence."""
+    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    assert "function insightLine(" in status and "function insightVerdicts(" in status
+    assert "const INSIGHT_VERDICT_ITEMS" in status
+    copies = []
+    for path in JS:
+        text = path.read_text(encoding="utf-8")
+        code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("//"))
+        if path.name != "status.js" and re.search(r"""["'](?:ph:x )?Not right["']""", code):
+            copies.append(path.name)
+        if path.name != "status.js" and "insightVerdicts(" in code:
+            copies.append(f"{path.name} calls the pair directly: use insightLine")
+    assert not copies, f"the Confirm and Not right pair is drawn in one place; also in: {copies}"
+    css = "\n".join(
+        m.group(0) for m in re.finditer(r"\.insight-verdict\s*\{[^}]*\}", (ROOT / "frontend" / "css" / "04-chat-dock-appearance.css").read_text(encoding="utf-8"))
+    )
+    assert "border: 0" in css and "background: transparent" in css, "the pair is quiet at rest"
+    for name in ("chat-attach.js", "tidy.js"):
+        assert "insightLine(" in (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8"), name

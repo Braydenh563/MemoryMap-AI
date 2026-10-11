@@ -143,6 +143,95 @@ const DRAG_ALPHA = 0.3;
 //: eases out the rest of the way, as before.
 const WARM_MS = 450;
 const WARM_ALPHA = 0.08;
+//: **The warm-up is then shown, not skipped** (INBOX 775, the owner: "I
+//: prefered the force and movement how the graph used to be, theres no
+//: movement to it now" and "when the graph readjusts it just appears
+//: there"). Warming out of sight fixed the zoomed-in first frames and took
+//: the motion with it: measured on 34 notes, a node travelled 26 px on
+//: screen after the reveal, all of it the last drift. With `intro` (the main
+//: thread asks for it unless the reader wants less motion) the warm-up's
+//: own ticks are kept and played back, one a frame as the live layout
+//: steps (the owner, round 2: "look at how the movement is in main"; main's
+//: live settle and this playback have the same physics at the same pace),
+//: once the camera is framed on where they end (`frame`, posted first):
+//: from the spiral or from where the notes last stood, eased by its own
+//: cooling, then the live layout carries on from the last of them.
+const INTRO_FRAME_MS = 16;
+//: At most this many frames are played (a warm-up of a small map is about
+//: 110 ticks); a longer one is thinned evenly.
+const INTRO_MAX_FRAMES = 160;
+//: The first frame is held this many frames while the canvas fades in, so
+//: the start of the movement is seen rather than spent behind the fade.
+const INTRO_HOLD = 8;
+//: Positions kept for the playback, in floats: past this a big map's
+//: warm-up is not recorded (it spends its budget in a few ticks anyway,
+//: and the live layout is what moves).
+const INTRO_MAX_FLOATS = 2000000;
+const intro = { frames: [], alphas: [] };
+
+//: Which of `count` recorded frames to show in `slots` display frames:
+//: evenly spread, always the first and the last. Fewer frames than slots
+//: plays each once.
+function introPick(count, slots) {
+  if (count <= slots) return Array.from({ length: count }, (_, i) => i);
+  const picked = [];
+  for (let i = 0; i < slots; i++) picked.push(Math.round((i * (count - 1)) / (slots - 1)));
+  return picked;
+}
+
+function introSnapshot() {
+  const frame = new Float32Array(nodes.length * 2);
+  for (let i = 0; i < nodes.length; i++) {
+    frame[i * 2] = nodes[i].x;
+    frame[i * 2 + 1] = nodes[i].y;
+  }
+  return frame;
+}
+
+//: The warm-up (`WARM_MS`), recording its ticks when `record` is asked for
+//: and the map is small enough to keep them.
+function warmLayout(record) {
+  const keep = record && nodes.length * 2 * 160 <= INTRO_MAX_FLOATS;
+  const frames = keep ? [introSnapshot()] : [];
+  const alphas = keep ? [simulation.alpha()] : [];
+  const until = Date.now() + WARM_MS;
+  while (simulation.alpha() > WARM_ALPHA && Date.now() < until) {
+    simulation.tick();
+    ticks += 1;
+    clampToWorld();
+    if (keep) {
+      frames.push(introSnapshot());
+      alphas.push(simulation.alpha());
+    }
+  }
+  intro.frames = [];
+  intro.alphas = [];
+  if (frames.length < 2) return;
+  self.postMessage({ type: "frame", epoch, positions: introSnapshot() });
+  for (let i = 0; i < INTRO_HOLD; i++) {
+    intro.frames.push(frames[0].slice());
+    intro.alphas.push(alphas[0]);
+  }
+  for (const i of introPick(frames.length, INTRO_MAX_FRAMES)) {
+    intro.frames.push(frames[i]);
+    intro.alphas.push(alphas[i]);
+  }
+}
+
+//: One frame of the playback. While the main thread is behind, the frame is
+//: kept for the next turn rather than dropped.
+function introStep() {
+  if (inFlight > MAX_IN_FLIGHT) return;
+  const frame = intro.frames.shift();
+  const alpha = intro.alphas.shift();
+  inFlight += 1;
+  self.postMessage({ type: "tick", epoch, positions: frame, alpha, ticks, tickMs, running: true, intro: true }, [frame.buffer]);
+}
+
+function introCancel() {
+  intro.frames = [];
+  intro.alphas = [];
+}
 //: Collide radius = the node's drawn radius + this. The SVG renderer used
 //: +24, which on a 2,000-note map is a collision field an order of magnitude
 //: wider than the node and pushes the layout into a lattice against its own
@@ -244,6 +333,21 @@ function densityScale(count) {
   return Math.min(1, Math.max(DENSITY_FLOOR, Math.pow(DENSITY_REFERENCE / n, DENSITY_EXPONENT)));
 }
 
+//: **A small map spreads further** (INBOX 775, the owner of 34 notes: the
+//: bubbles crowd each other, "node radii are large for the spacing"). Below
+//: the reference count the dials were left alone, so a map of a few notes
+//: was a knot the fit could only zoom into until its clamp (k 2.5): three
+//: notes filled a third of the height. The link length and the repulsion
+//: grow together as the count falls, up to `SMALL_SPREAD` times at three
+//: notes, which keeps a cluster's shape and gives each dot room for its name.
+const SMALL_SPREAD = 2.4;
+const SMALL_FROM = 3;
+function smallSpread(count) {
+  const n = Math.max(Number(count) || 1, 1);
+  const t = Math.min(1, Math.max(0, (DENSITY_REFERENCE - n) / (DENSITY_REFERENCE - SMALL_FROM)));
+  return 1 + (SMALL_SPREAD - 1) * t;
+}
+
 //: How much harder the centre pulls on a big notebook. See the forces below
 //: for why this exists rather than a deeper cut to the repulsion.
 const CENTRE_CEILING = 6;
@@ -263,7 +367,7 @@ function tuning(params) {
   const spread = Number(params && params.spread != null ? params.spread : 50);
   const gravityScale = 0.4 + gravity / 41.7; // 0.4x-2.8x
   const spreadScale = 0.5 + spread / 50; // 0.5x-2.5x
-  const density = SPREAD_TRIM * densityScale(nodes.length);
+  const density = SPREAD_TRIM * densityScale(nodes.length) * smallSpread(nodes.length);
   //: Reported three times now, most recently "max gravity on the graph
   //: isnt tight enough". Weaker repulsion alone cannot close the gaps
   //: *between* components, nothing links them, so they sit wherever the
@@ -1160,9 +1264,10 @@ function applyGrouping(params) {
   const gather = groupGather();
   // Clusters measures its places in link lengths (`groupAnchors`); Organic
   // keeps the base ring, a radius grown with the root of the note count.
-  ring.width = clustered()
-    ? SPREAD_TRIM * densityScale(nodes.length) * spread
-    : Math.sqrt(nodes.length) * gather.radius * spread;
+  ring.width =
+    (clustered()
+      ? SPREAD_TRIM * densityScale(nodes.length) * spread
+      : Math.sqrt(nodes.length) * gather.radius * spread) * smallSpread(nodes.length);
   ring.on = on;
   ring.params = params;
   const anchors = on ? groupAnchors(ring.width) : new Map();
@@ -1324,6 +1429,11 @@ function stopLoop() {
 function loop() {
   timer = null;
   if (!simulation) return;
+  if (intro.frames.length) {
+    introStep();
+    timer = setTimeout(loop, INTRO_FRAME_MS);
+    return;
+  }
   if (shuffle.left > 0) {
     shuffleStep();
     clampToWorld();
@@ -1390,8 +1500,13 @@ function run() {
   if (timer === null && simulation) timer = setTimeout(loop, 0);
 }
 
+//: Anything the person does stops the playback where it is: a drag, a pin,
+//: a reshuffle act on the live layout, which is already at the playback's end.
+const INTRO_KEEPS = new Set(["recycle", "init"]);
+
 self.onmessage = (event) => {
   const message = event.data || {};
+  if (!INTRO_KEEPS.has(message.type)) introCancel();
   switch (message.type) {
     case "init": {
       stopLoop();
@@ -1556,14 +1671,8 @@ self.onmessage = (event) => {
       }
       applyGrouping(message.params);
       simulation.alpha(message.alpha == null ? 1 : message.alpha);
-      if (message.warm) {
-        const until = Date.now() + WARM_MS;
-        while (simulation.alpha() > WARM_ALPHA && Date.now() < until) {
-          simulation.tick();
-          ticks += 1;
-          clampToWorld();
-        }
-      }
+      if (message.warm) warmLayout(message.intro === true);
+      else introCancel();
       run();
       break;
     }

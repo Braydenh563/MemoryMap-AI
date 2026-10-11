@@ -1573,6 +1573,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 .ai-status:hover,
 .ai-status:focus-visible {
   border-color: currentColor;
+  background-image: linear-gradient(var(--hover-veil), var(--hover-veil));
 }
 /* The message. It now hangs *upward* from the dot, because the dot moved to
    the status bar at the foot of the window (§36D): anchored below, it would
@@ -3532,6 +3533,10 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding: 0 var(--space-6);
   font-size: var(--text-body);
   box-shadow: none;
+  /* The bar clips to its padding box (it scrolls), so the 2px ring a 2px
+     offset draws was cut flat top and bottom (INBOX 776); at 0 it ends on the
+     clip edge. The phone dock sits on the screen's edge: inset there. */
+  outline-offset: 0;
 }
 #tab-bar button.active {
   background: var(--accent-surface);

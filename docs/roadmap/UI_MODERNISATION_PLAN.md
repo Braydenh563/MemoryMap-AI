@@ -1049,6 +1049,10 @@ and some are rounded squares."
    a text button keeps its box; a row takes a tint. Active states keep a box
    with the accent at low alpha. Recorded in DESIGN.md with a lint in
    `test_ui_recipes.py` (no `.ghost:hover { background` on icon-only buttons).
+   **Amended 2026-10-10 (INBOX 784/788, the owner: "not all buttons have the
+   same hover states"):** an icon button takes the same quiet box as a text
+   button, glyph to full ink, never an accent tint; DESIGN.md rule 4 and the
+   "One hover for every button" recipe hold it.
 3. **One radius per class** from tokens: pill for segments and chips, the
    button radius for buttons (circles only for the companion and avatars),
    the panel radius for panels and menus. Tooltips and help triggers are the

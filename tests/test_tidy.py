@@ -284,6 +284,34 @@ def test_short_notes_go_to_the_bin_and_come_back(client, session):
     assert not session.get(Entry, short["id"]).is_deleted
 
 
+def test_a_dismissed_row_stays_gone_and_comes_back_on_undismiss(client, session):
+    """INBOX 783 ("how do I delete a suggestion??"): a row dismissed for good is
+    not listed again, not counted, not applied, and Undo puts it back."""
+    short = _save(client, "todo")
+    other = _save(client, "buy milk")
+    rows = _review(client, "short-notes")["rows"]
+    assert len(rows) == 2
+    target = next(r["id"] for r in rows if r["entry_ids"] == [short["id"]])
+    shown = client.post("/tidy/short-notes/dismiss", json={"ids": [target, "nonsense"]})
+    assert shown.status_code == 200 and shown.json()["dismissed"] == 1
+    after = _review(client, "short-notes")
+    assert [r["entry_ids"] for r in after["rows"]] == [[other["id"]]]
+    counts = {r["key"]: r["count"] for r in client.get("/tidy").json()["reviews"]}
+    assert counts["short-notes"] == 1
+    assert _apply(client, "short-notes", [target])["applied"] == 0
+    # Dismissing twice is the same as once.
+    again = client.post("/tidy/short-notes/dismiss", json={"ids": [target]})
+    assert again.status_code == 200
+    back = client.post("/tidy/short-notes/undismiss", json={"ids": [target]})
+    assert back.status_code == 200 and back.json()["dismissed"] == 0
+    assert len(_review(client, "short-notes")["rows"]) == 2
+
+
+def test_dismissing_in_an_unknown_review_is_a_404(client):
+    refused = client.post("/tidy/nope/dismiss", json={"ids": ["note:1"]})
+    assert refused.status_code == 404
+
+
 def test_stale_reminders_are_marked_done_with_undo(client, session):
     old = Reminder(text="Renew passport", due_at=datetime.now() - timedelta(days=40))
     recent = Reminder(text="Water plants", due_at=datetime.now() - timedelta(days=2))

@@ -1973,14 +1973,9 @@ async function sendChatMessage(preset, opts = {}) {
         //: (CHAT_PLAN decision 60), under the answer, one row each.
         for (const insight of event.insights || []) {
           if (insight.confirmed) continue;
-          const line = document.createElement("p");
-          line.className = "muted insight-line";
-          line.textContent = `Pattern: ${insight.short}. `;
-          line.appendChild(
-            insightVerdicts(insight, (verdict, result) => {
-              line.textContent = verdict === "confirmed" ? `Confirmed: ${result.line}` : "Not right: it will not be shown again.";
-            })
-          );
+          const line = insightLine(insight, `Pattern: ${insight.short}.`, (row, verdict, result) => {
+            row.textContent = verdict === "confirmed" ? `Confirmed: ${result.line}` : "Not right: it will not be shown again.";
+          }, "muted");
           groundingHolder.appendChild(line);
         }
       },

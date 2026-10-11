@@ -2239,10 +2239,15 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: span, the facts under labels, what is missing, one offer. A
         #: follow-on, a "newest notes" turn or a sum keeps the composer's.
         digest = None
-        if not follow and not str(prepared.get("search_mode") or "").endswith("recent"):
+        #: A follow-on that is a question in its own right ("what about
+        #: running?", "and last month?", "the second one") is answered the
+        #: same way as the first turn (B8); "tell me more", "shorter" and a
+        #: correction lean on the turn before and keep the composer's.
+        restated = follow is not None and follow.kind in composer._RESTATES
+        if (not follow or restated) and not str(prepared.get("search_mode") or "").endswith("recent"):
             try:
                 digest = composer_digest.answer(
-                req.question, prepared["notes"], today=user_now(deps.get_config()).date(),
+                follow.question if restated else req.question, prepared["notes"], today=user_now(deps.get_config()).date(),
                 voice=_answer_voice(), turn=len(req.history or []),
             )
             except Exception:  # noqa: BLE001  # the composer's answer stands
@@ -2267,6 +2272,9 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             #: ones they dismissed are not said (decision 60).
             learned=_insight_memory(req.session),
         )
+        if follow is not None and follow.kind == "more" and not result.get("grounding"):
+            #: Nothing left unsaid: say so, with how much there is (B8).
+            result = composer_digest.all_said(follow.question, prepared["notes"], today=user_now(deps.get_config()).date()) or result
         if not result["grounding"] and not ollama_running and _web_allowed(req):
             web = _web_answer(req, follow.question if follow else req.question)
             if web:

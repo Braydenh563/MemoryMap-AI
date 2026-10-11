@@ -56,6 +56,7 @@ _BASE = {
     "stands_for": "{abbr} is short for {phrase}, from your note of {day}.",
     "stands_for_seen": "{abbr} looks like {phrase}: your note of {day} names it in full.",
     "uses": "You use {abbr} in {count}, the last on {day}.",
+    "all_said": "That's all your notes say on {topic} so far: {count}, {span}.",
     "nothing_yet": "Nothing yet on {facets}.",
     "remind": "Remind you to {action}?",
     "checklist": "Save it as a checklist note?",
@@ -487,6 +488,10 @@ def _facts(view: composer.NoteView, names: set[str], subject: set[str] | None = 
             continue
         label, body, own = "", text, False
         head = _PREFIX.match(text)
+        #: "Watched Dune Part Two: 7 out of 10" names what was done, not a
+        #: heading: the sentence stays whole ("you watched Dune Part Two").
+        if head and _WORK.match(head.group(1)):
+            head = None
         if head and len(head.group(1).split()) <= 5:
             label, body, own = head.group(1).strip(), head.group(2), True
             if i == 0:
@@ -745,7 +750,9 @@ def _say_fact(out: _Out, lead: Fact, today: date, question: str) -> None:
         others = [v for v in _VIEWS.get() if v.id != lead.view.id]
         if not any(composer._holds(composer._stem(w), v.words) for v in others for i in items for w in composer.subject_terms(i)[-1:]):
             out.closing.append(PHRASES["none_own"])
-    elif lead.label:
+    elif lead.label and lead.label not in {name for name, _ in _CUES}:
+        #: A heading the note gives itself ("Psych lecture") names the note;
+        #: a label the answer gave the fact ("How it went") does not.
         out.lines.append(f"From your {lead.label[0].lower() + lead.label[1:]} note, {_day(lead.view.written, today)}: {body}.")
     else:
         out.lines.append(PHRASES["from_note"].format(fact=body[0].upper() + body[1:], day=_day(lead.view.written, today)))
@@ -778,11 +785,14 @@ def _single(out: _Out, kind: str, question: str, members, facts, today: date) ->
         work = next((_WORK.match(f.sentence.text.strip()) for f in facts if _WORK.match(f.sentence.text.strip())), None)
         rating = next((_RATING.search(f.sentence.text) for f in facts if _RATING.search(f.sentence.text)), None)
         if work and rating:
-            out.lines.append(f"You gave {work.group(1)} {rating.group(1)} out of {rating.group(2)} on {_day(lead.view.written, today)}.")
-            out.rows.append(_row(f"{work.group(1)} {rating.group(1)} out of {rating.group(2)}", lead))
+            #: "Watched Dune Part Two: 7 out of 10, the sound was incredible":
+            #: the title is the words before the rating or its first colon.
+            title = re.split(r"\s*[:,(]\s+|\s+-\s+|\s+\d+(?:\.\d+)?\s*(?:/|out of)\b", work.group(1))[0].strip()
+            out.lines.append(f"You gave {title} {rating.group(1)} out of {rating.group(2)} on {_day(lead.view.written, today)}.")
+            out.rows.append(_row(f"{title} {rating.group(1)} out of {rating.group(2)}", lead))
             rest = []
             for f in facts:
-                for part in re.split(r"\s+but\s+|;\s*", f.sentence.text.strip().rstrip(".")):
+                for part in re.split(r"\s+but\s+|;\s*|,\s*|:\s+", f.sentence.text.strip().rstrip(".")):
                     if _RATING.search(part) or _WORK.match(part):
                         continue
                     label = "Loved" if _GOOD.search(part) else "Didn't" if _BAD.search(part) else ""
@@ -924,11 +934,31 @@ def _stands_for(out: _Out, abbr: str, views: list, today: date) -> bool:
     #: second is a reading, and the answer says so.
     line = PHRASES["stands_for" if both else "stands_for_seen"].format(abbr=abbr, phrase=phrase, day=_day(view.written, today))
     out.lines.append(line)
-    out.rows.append(_row(re.split(r"[,:]", line)[0], Fact(view, sentence, "", phrase)))
+    out.rows.append(_row(line.rstrip("."), Fact(view, sentence, "", phrase)))
     using = [v for v in dated if re.search(rf"\b{re.escape(abbr)}\b", str(v.note.get("content") or ""))]
     if len(using) > 1 and using[-1].written:
         out.closing.append(PHRASES["uses"].format(abbr=abbr, count=_count(len(using)), day=_day(using[-1].written, today)))
     return True
+
+
+def all_said(question: str, notes: list[dict], *, today: date | None = None) -> dict | None:
+    """"Tell me more" when the answer before said everything (B8): that it
+    did, how many notes and over which days, rather than "Nothing in the
+    notes found answers that" about a topic it has just answered."""
+    today = today or date.today()
+    asked = clean(question)
+    views = [v for v in (composer.read_note(n, i) for i, n in enumerate(composer._distinct_ids(notes or []))) if v]
+    members = _members(asked, views) if asked and views else []
+    if not members:
+        return None
+    _TODAY.set(today)
+    out = _Out()
+    line = PHRASES["all_said"].format(topic=_topic(asked, members), count=_count(len(members)), span=_span(members, today))
+    out.lines.append(line)
+    first = min(members, key=lambda v: (v.written or date.min, v.rank))
+    if first.sentences:
+        out.rows.append(_row(line.rstrip("."), Fact(first, first.sentences[0], "", "")))
+    return _result(out, "more", asked)
 
 
 def answer(question: str, notes: list[dict], *, today: date | None = None, voice: str = "natural", turn: int = 0) -> dict | None:

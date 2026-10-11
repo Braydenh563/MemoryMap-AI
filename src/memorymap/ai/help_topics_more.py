@@ -1405,6 +1405,7 @@ MORE_TOPICS.extend(
                 "follow-up", "follow up", "followup", "suggested question",
                 "ask next", "next question", "breadcrumb", "bread crumb",
                 "trail", "where did this question come from", "question chain",
+                "tell me more", "what about", "the second one",
             ),
             "body": (
                 "Under a finished answer, Chat offers Next questions and Ask "
@@ -1415,7 +1416,11 @@ MORE_TOPICS.extend(
                 "that earlier answer under the line, and a second press folds "
                 "it. The line is saved with the chat, so it is there when the "
                 "chat is reopened. A question you type yourself starts a new "
-                "chain."
+                "chain. A short follow-up you type (what about running?, and "
+                "Oppenheimer?, the second one) is answered like a first "
+                "question; no, the data structures one stays chosen for the "
+                "next shorter; and tell me more, once everything is said, "
+                "says that is all your notes hold."
             ),
             "badge": {"label": "Chat", "tab": "chat"},
         },

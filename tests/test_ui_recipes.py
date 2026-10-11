@@ -4923,6 +4923,7 @@ SEG_BUILT_IN_SCRIPT = {
     ("whiteboard.js", "seg seg-compact wb-export-seg"): "Export this board: the format, a value",
     ("selection.js", "seg"): "PLACED: pickLibraryItemDialog's sources, a kind switch",
     ("timeline-calendar.js", "seg seg-compact timeline-cal-span"): "not a popup: the calendar head's view mode (Month, Week, Day)",
+    ("dashboard.js", "seg focus-presets-seg"): "not a popup: the focus timer's length, a value (UI_MODERNISATION V8)",
 }
 
 

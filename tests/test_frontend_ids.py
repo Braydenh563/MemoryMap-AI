@@ -30,6 +30,12 @@ RUNTIME_IDS = {
     "user-css",
     "focus-timer-display",
     "focus-timer-toggle",
+    #: The focus timer's ring, stepper and today line (UI_MODERNISATION V8).
+    "focus-ring",
+    "focus-ring-fill",
+    "focus-ring-mode",
+    "focus-step-value",
+    "focus-today",
     "copy-fallback",
 }
 

@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Tidy: a review opens under a quiet back link with its name as the heading; an empty review is one line with no selection bar; Recent runs is a quiet disclosure row instead of a bordered box.
+- Focus timer: a ring with the time large, 5, 15, 25 and 50 minute lengths plus a stepper, one Start and Pause button, a chime and a notification at the end, optional breaks, and today's focused minutes.
 - Voice notes: Enhance on save (on by default, in the Microphone fold and Settings) cuts low rumble and evens the loudness of the kept audio on this computer; the original is kept until the transcript is saved.
 - Voice notes: the level line is the microphone's real signal, and with reduced motion it is a still level bar.
 - Voice notes: with the captions helper, the words appear in the recorder as you speak; the full transcript replaces them after.

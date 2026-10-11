@@ -765,8 +765,11 @@ MORE_TOPICS: list[dict] = [
             "on the status bar (on a phone the bar comes back while it runs); "
             "press that timer chip in the status bar to stop it. When a timer "
             "runs out it says so in a message and a notification. The "
-            "Dashboard's Focus timer widget is a separate timer with its own "
-            "Start and Reset."
+            "Dashboard's Focus timer widget is a separate timer: a ring with "
+            "the time, lengths of 5, 15, 25 or 50 minutes (or minus and plus "
+            "for any other), one Start that becomes Pause, a chime and a "
+            "notification at the end, Breaks for a five-minute break after "
+            "each session, and the minutes focused today."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },

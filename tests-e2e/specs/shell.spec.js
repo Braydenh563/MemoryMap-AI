@@ -78,6 +78,8 @@ test("a new space holds the note written in it, and All spaces still shows it", 
   await page.click("#space-create-open");
   await page.fill("#space-create-name", name);
   await page.click("#space-create-submit");
+  //: Making a space no longer reloads into it (so Undo survives): the toast offers "Open it".
+  await page.locator(".toast", { hasText: `Made the space \u201c${name}\u201d` }).getByRole("button", { name: "Open it" }).click();
   await expect(page.locator("#space-current-name")).toHaveText(name);
   const id = await captureNote(page, "Sow the broad beans in November under fleece");
   const spaces = await api(page, "/spaces");

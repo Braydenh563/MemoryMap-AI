@@ -34,7 +34,7 @@ def test_one_current_layer_and_new_items_land_on_it(ai_client):
     assert _text(ai_client, board_id) == "b"
     #: An item that names its layer, or says none on purpose, keeps it.
     assert _text(ai_client, board_id, layer="a") == "a"
-    assert _text(ai_client, board_id, layer="") == ""
+    assert _text(ai_client, board_id, layer="") is None
     sketch = ai_client.post("/whiteboard/sketches", json={"data": json.dumps({"d": "M0 0 L1 1"}), "board_id": board_id}).json()
     assert json.loads(sketch["data"])["layer"] == "b"
     placed = ai_client.post(f"/whiteboard/boards/{board_id}/place", json={"builtin": "flowchart/decision", "x": 0, "y": 0}).json()

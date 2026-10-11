@@ -10415,8 +10415,13 @@ header#top-bar {
   .launch-row-start {
     display: flex;
   }
+  /* **Two tiles fit, the third shows its edge** (libr-1011: "the second
+     tile sits past the viewport"). It was `min(15rem, 82%)`, so at 390 the
+     second tile started at 259px and showed 105 of its 240; 44% puts two whole
+     tiles in the 364px row and 28px of the third, which is still the only
+     thing that says sideways is a direction. */
   .launch-row-start > * {
-    flex: 0 0 min(15rem, 82%);
+    flex: 0 0 min(15rem, 44%);
   }
 }
 /* --- the dashboard's greeting banner, on a phone --------------------------

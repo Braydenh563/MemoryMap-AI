@@ -1379,6 +1379,41 @@ function tagAddChipKind(entry, options) {
   return !tags && !(entry.suggested_tags || []).length ? "add" : "more";
 }
 
+//: **A meeting card shows what the meeting settled, not its raw headings**
+//: (libr-1011 row 1238: `## Agenda` and `## Notes` printed as text). The four
+//: sections of `entry/meetings.py` read for one line each: the first agenda
+//: item, the decisions, and the action items still open. Null for anything
+//: that is not a meeting, so every other card is unchanged.
+const MEETING_GLANCE_SECTIONS = {
+  agenda: "agenda", notes: "notes", discussion: "notes", transcript: "notes",
+  decisions: "decisions", decided: "decisions",
+  "action items": "actions", actions: "actions", "action points": "actions", "to do": "actions", todo: "actions", "next steps": "actions",
+};
+
+function meetingGlance(entry) {
+  const types = (entry?.properties?.type || []).map((value) => String(value).toLowerCase());
+  if (!types.includes("meeting")) return null;
+  const sections = { agenda: [], decisions: [], actions: [] };
+  let current = "";
+  for (const line of stripFrontmatter(entry.content || "").split("\n")) {
+    const heading = /^#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/.exec(line);
+    if (heading) {
+      current = MEETING_GLANCE_SECTIONS[heading[1].toLowerCase()] || "";
+      continue;
+    }
+    if (current && sections[current] && line.trim()) sections[current].push(line);
+  }
+  const plain = (line) => line.replace(/^[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]+(?:\[[ xX]\][ \t]*)?/, "").trim();
+  const rows = [];
+  if (sections.agenda.length) rows.push({ label: "Agenda", text: plain(sections.agenda[0]) + (sections.agenda.length > 1 ? ` (+${sections.agenda.length - 1})` : "") });
+  if (sections.decisions.length) rows.push({ label: "Decisions", text: `${sections.decisions.length}: ${plain(sections.decisions[0])}` });
+  const open = sections.actions.filter((line) => /^[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]+\[ \]/.test(line));
+  const done = sections.actions.filter((line) => /\[[xX]\]/.test(line)).length;
+  if (open.length) rows.push({ label: "Open actions", text: `${open.length}: ${plain(open[0])}` });
+  else if (done) rows.push({ label: "Actions", text: `all ${done} done` });
+  return rows.length ? rows : [{ label: "", text: "Nothing written yet." }];
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
@@ -1552,9 +1587,10 @@ function entryItem(entry, options = {}) {
     .split("\n")
     .filter((line) => line.trim() && !/^\s*!?\[[^\]]*\]\([^)]*\)\s*$/.test(line))
     .join("\n");
-  const isLong =
+  const glance = meetingGlance(entry);
+  const isLong = !glance && (
     textOnly.length > LONG_NOTE_CHARS ||
-    textOnly.split("\n").length > LONG_NOTE_LINES;
+    textOnly.split("\n").length > LONG_NOTE_LINES);
   if (isLong && !expandedNotes.has(entry.id)) content.classList.add("entry-clamped");
   // Mark the matched words while filtering, so it's obvious WHY a note is in
   // the list. Built with createElement/textContent rather than innerHTML, 
@@ -1584,7 +1620,42 @@ function entryItem(entry, options = {}) {
       toast(err.message || "Failed to remove image", true);
     }
   });
-  li.appendChild(content);
+  if (glance) {
+    //: The glance and the body are both in the card; the card's class says
+    //: which shows (note-cards CSS), so a search, the caret in rows view and
+    //: "Show the whole note" all land on the body.
+    const box = document.createElement("div");
+    box.className = "meeting-glance";
+    for (const row of glance) {
+      const line = document.createElement("p");
+      line.className = "meeting-glance-row";
+      if (row.label) {
+        const label = document.createElement("span");
+        label.className = "meeting-glance-label";
+        label.textContent = row.label;
+        line.append(label, " ");
+      }
+      line.append(row.text);
+      box.appendChild(line);
+    }
+    li.classList.add("meeting-card");
+    li.classList.toggle("meeting-open", expandedNotes.has(entry.id) || searchHighlightTerms().length > 0);
+    li.append(box, content);
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "entry-more";
+    const sayMore = () => (li.classList.contains("meeting-open") ? "Show the glance" : "Show the whole note");
+    more.textContent = sayMore();
+    more.addEventListener("click", () => {
+      const open = li.classList.toggle("meeting-open");
+      if (open) expandedNotes.add(entry.id);
+      else expandedNotes.delete(entry.id);
+      more.textContent = sayMore();
+    });
+    li.appendChild(more);
+  } else {
+    li.appendChild(content);
+  }
   if (isLong) {
     const toggle = document.createElement("button");
     toggle.type = "button";

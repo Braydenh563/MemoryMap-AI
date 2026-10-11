@@ -4153,11 +4153,13 @@ Translate (offline language packs).
 | 7 | expansion | **Built 2026-10-10 (Brief 81; HISTORY "WORLD_CLASS 28.5, Brief 81")**: a timestamped transcript: a line seeks the audio, SRT and VTT out | every line within 0.27 s, 1440 and 390; SRT and VTT byte for byte | 6 |
 | 8 | fix | Transcription is a job with progress and Stop (decision 70) | a 60-minute file lists, reports, stops | 5 |
 | 9 | expansion | Live captions: built against a fake helper; open: the packaged helper download and a run on the reference laptop | Built by Brief 82; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (WORLD_CLASS 28.5 row 9, live captions, Brief 82)"); the open rows are in archive/agent-remaining/caption82-1010.md | |
-| 10 | expansion | **Built 2026-10-10 (Brief 83; HISTORY "WORLD_CLASS 28.5, Brief 83")**: Translate this, offline (Bergamot, MPL-2.0, in a page Worker; English to Spanish as the package "Translate offline"); documents, notes, readings; a caption is a selection like any other (live translated captions not built) | 94-word paragraph warm in Chromium: median 591 ms, 27 of 29 runs under 1 s (load 6 to 9 on 4 shared cores); 27.2 MB download, 41.8 MB on disk | 12 |
+| 10 | expansion | **Built 2026-10-10 (Brief 83; HISTORY "WORLD_CLASS 28.5, Brief 83")**: Translate this, offline (Bergamot, MPL-2.0, in a page Worker; English to Spanish as the package "Translate offline"); documents, notes, readings; a caption is a selection like any other; live captions translate under the dock's Translate button (libr-1011, fake translator in tests, needs device) | 94-word paragraph warm in Chromium: median 591 ms, 27 of 29 runs under 1 s (load 6 to 9 on 4 shared cores); 27.2 MB download, 41.8 MB on disk | 12 |
 | 11 | expansion | **Built 2026-10-10 (Brief 81; HISTORY "WORLD_CLASS 28.5, Brief 81")**: speaker labels behind the model gate (ANALYSIS keeps it) | 2 speakers labelled on the sample (fake transport) | 12 |
 
 Briefs: 73 (row 8), 80 (rows 1, 3 to 6), 81 (rows 2, 7, 11), 82 (row 9),
 83 (row 10).
+
+Decisions made (libr-1011, 2026-10-11): a recording is a search kind (`recording`, title plus transcript lines), and a note reaches it through `entry_id`, not an embed syntax; the meeting note keeps plain transcript text and the timed lines stay on the recording; a trim of a long take warns about memory and stays in the page until the app ships a container writer; a second translation pair brings its own picker, none before; RapidOCR stays an optional extra (it runs on this computer once installed).
 
 ### Vendored capabilities to use, 2026-10-10 (Brief 75)
 

@@ -2847,14 +2847,11 @@ def _seg_track_names() -> set[str]:
 #: of four or more choices written in index.html, each with where its
 #: conversion is placed (archive/agent-remaining/seg665-1006.md). The list may only
 #: shrink: a new well of four is a `<select>` or previews (DESIGN.md).
-SEG_OF_FOUR_PLACED = {
-    #: The one that stays (INBOX 670): the Attach picker's five sources, each
-    #: carrying the count of what is attached from it, are the picker dialog's
-    #: strip, which DESIGN.md's picker rows pin as equal segments across the
-    #: dialog (tabs with a count on each, one Tab stop, arrows between them),
-    #: and `test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog`
-    #: holds that shape. A list there would hide the counts and add a click.
-    "note-picker-sources": "five sources in the picker dialog; DESIGN.md's picker row spans them as equal segments, pinned",
+SEG_OF_FOUR_PLACED: dict[str, str] = {
+    #: Empty since libr-1011 (ledger row 1234): the Attach picker's five sources
+    #: were the one well of four that stayed (INBOX 670); INBOX 715 ("i dont
+    #: like pills like that in popups") is later, and they are a
+    #: `.tabs-line.popup-kinds` strip carrying their counts now.
 }
 
 
@@ -3305,20 +3302,21 @@ def test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog() -> None:
     a column flex box of one fixed height, so with more rows than fit every
     row shrank to the target floor (28px measured with 25 notes) while its
     32px tile stayed whole and hung over the next row's title. A row never
-    shrinks and has one height; the sources are a full-width `.seg` of
-    equal segments carrying their counts; the source is remembered; a title
+    shrinks and has one height; the sources are a full-width `.tabs-line.popup-kinds`
+    strip carrying their counts; the source is remembered; a title
     is clipped by the row's width (CSS), never by a character count."""
     rows = _css_block(".entry-pick-card > .entry-pick-list > li")
     assert "flex: none" in rows
     rich = _css_block(".entry-pick-list > .entry-pick-row")
     assert "height: var(--pick-row-h)" in rich
-    seg = _css_block(".entry-pick-card > .seg")
-    assert "align-self: stretch" in seg and "flex-wrap: nowrap" in seg
-    tab = _css_block(".entry-pick-card > .seg > button")
-    assert "flex: 1 1 0" in tab and "min-width: 0" in tab
+    seg = _css_block(".entry-pick-card > .picker-kinds")
+    assert "align-self: stretch" in seg and "overflow-x: auto" in seg
+    tab = _css_block(".entry-pick-card > .picker-kinds > button")
+    assert "flex: 1 1 auto" in tab and "min-width: 0" in tab
     source = frontend_text("selection.js")
     body = _function_body(source, "pickLibraryItemDialog")
     assert "seg-count" in body and "pickerRememberedSource" in body
+    assert 'seg.className = "tabs-line popup-kinds picker-kinds"' in body
     assert "noteLabel(row, 70)" not in _function_body(source, "libraryPickLabel")
 
 
@@ -3643,7 +3641,7 @@ def test_the_attach_picker_is_a_panel_on_the_dialog_recipe() -> None:
     start = html.index('id="note-picker-panel"')
     panel = html[start : html.index('id="chat-model-panel"', start) if 'id="chat-model-panel"' in html[start:] else start + 6000]
     assert 'class="dialog-head"' in panel and "dialog-head-btn" in panel
-    assert 'class="seg seg-compact note-picker-sources"' in panel
+    assert 'class="tabs-line popup-kinds note-picker-sources"' in panel
     assert 'class="row space-dialog-actions note-picker-foot"' in panel
     assert 'id="note-picker-clear" class="ghost"' in panel and 'id="note-picker-done" class="accent"' in panel
     js = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
@@ -4905,14 +4903,12 @@ SEG_IN_POPUPS = {
     "border-style-seg": "Settings: a value",
     "privacy-range": "Settings: a value",
     "log-view-toggle": "Settings: a view of one log",
-    "note-picker-sources": "PLACED: the Attach picker's sources, a kind switch",
 }
 SEG_BUILT_IN_SCRIPT = {
     ("app.js", "seg seg-compact confirm-seg"): "promptDialog's `segment`, a value",
     ("documents.js", "seg"): "the print setup's values",
     ("skills.js", "seg seg-compact chat-skill-pace"): "a skill's pace, a value",
     ("whiteboard.js", "seg seg-compact wb-export-seg"): "Export this board: the format, a value",
-    ("selection.js", "seg"): "PLACED: pickLibraryItemDialog's sources, a kind switch",
     ("timeline-calendar.js", "seg seg-compact timeline-cal-span"): "not a popup: the calendar head's view mode (Month, Week, Day)",
     ("dashboard.js", "seg focus-presets-seg"): "not a popup: the focus timer's length, a value (UI_MODERNISATION V8)",
 }
@@ -5780,3 +5776,24 @@ def test_answer_shape_is_lifted_in_one_place():
     assert 'className = "linklike digest-more"' in more and "aria-expanded" in more and ".hidden = true" in more
     ask = (ROOT / "frontend/js/capture-ask.js").read_text(encoding="utf-8")
     assert "digestShape(answerEl, support.shape)" in ask and "digestMore(answerEl, support.more)" in ask
+
+
+def test_the_drop_veil_takes_no_press_and_has_no_blur() -> None:
+    """DESIGN.md "A drop target" (ledger libr-1011 row 1266): the veil laid over
+    the window while files are dragged in must not catch the drag, and a blurred
+    full-window surface is the cost the glass-off list exists to avoid."""
+    css = (ROOT / "frontend" / "css" / "file-drop-lazy.css").read_text(encoding="utf-8")
+    veil = _css_block_in(css, ".drop-veil")
+    assert "pointer-events: none" in veil and "position: fixed" in veil
+    assert "backdrop-filter" not in css and "blur(" not in css
+    assert "var(--accent-soft)" in veil and "var(--accent)" in veil
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "**The drop veil**" in design
+    for path in JS:
+        if path.name != "file-drop.js":
+            assert "drop-veil" not in path.read_text(encoding="utf-8"), f"{path.name} builds its own drop veil"
+
+
+def _css_block_in(css: str, selector: str) -> str:
+    start = css.index(selector + " {")
+    return css[start : css.index("}", start)]

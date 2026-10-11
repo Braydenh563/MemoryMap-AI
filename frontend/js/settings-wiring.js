@@ -1873,6 +1873,12 @@ function fileDropBox(el) {
   return host instanceof HTMLTextAreaElement ? host : null;
 }
 
+//: Files dragged in from outside the window load the drop-to-Library module
+//: (file-drop.js), which starts itself and takes only the drops nothing else did.
+document.addEventListener("dragenter", (e) => {
+  if (Array.from(e.dataTransfer?.types || []).includes("Files")) ["/css/file-drop-lazy.css", "/js/file-drop.js"].forEach(lazyScript);
+});
+
 document.addEventListener("drop", async (e) => {
   const box = fileDropBox(e.target);
   if (!box || (box !== e.target && !e.dataTransfer?.files.length)) return;

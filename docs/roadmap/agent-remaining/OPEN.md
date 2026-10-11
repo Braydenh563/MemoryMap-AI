@@ -2472,9 +2472,8 @@ Detail: [agentgate-1010.md](../archive/agent-remaining/agentgate-1010.md).
 
 Detail: [audio80-1010.md](../archive/agent-remaining/audio80-1010.md).
 
-- Notes cannot link to or embed a recording yet (only `entry_id`); search does not find recordings.
-- Trim decodes the whole file in the page (about 700 MB of samples for an hour).
-- Live captions is a palette act, so it cannot be a Quick access tile.
+- Notes cannot link to or embed a recording yet (only `entry_id`). Search finds recordings now (libr-1011).
+- Trim decodes the whole file in the page (about 700 MB of samples for an hour); the sheet now says so from 20 minutes (libr-1011). A server-side cut needs a container writer.
 - Brief 81: the stop path is now `meetingRecordingStopped`; transcription goes through `POST /recordings/{id}/transcribe`.
 - Not verified: real Whisper on a kept recording; a real microphone, Safari (mp4) and Firefox (ogg).
 
@@ -2482,7 +2481,7 @@ Detail: [audio80-1010.md](../archive/agent-remaining/audio80-1010.md).
 
 Detail: [translate83-1010.md](../archive/agent-remaining/translate83-1010.md).
 
-- Live translated captions (28.5 row 10, "for ... captions") not built: Brief 82 landed mid-build.
+- Live translated captions: the dock's Translate button is built (libr-1011) against a fake translator; the real model through the dock is not driven (needs device).
 - Only English to Spanish: more pairs are a download block plus a PAIRS row, and the sheet then needs a pair picker.
 - The document menu's "Translate this passage..." still hands the passage to chat, not the offline engine.
 - Not verified: under 1 s through the sheet on an unloaded machine; a real network install inside the app; WebView2 and Safari.
@@ -2586,7 +2585,6 @@ The three remaining files are in `archive/agent-remaining/`; the rows below are 
 ### ocr79 (Brief 79, OCR)
 
 - Live Text on the continuous (scroll) layout of a PDF: only the single-page stage carries the layer. library.js `ocrBuildScrollPages`.
-- A regions cache stored before 2026-10-10 has no `words`; Live Text appears after the page is read again. routes_files.py `PageRead.regions`.
 - An image's whole reading deleted from the lightbox or the gallery's row menu still clears without the bin (only the workspace's deletes were moved). library.js callers of `analyseMediaRow(..., { text: "" })` outside the workspace.
 - Undoing a fresh read writes the old text back through the text route, so it keeps the new read's model name ("Read by X") rather than the old one's. library.js `ocrTextWriter`.
 - `undo.js` (the trust sweep) does not walk the OCR workspace; `ocr79.js` measures it instead.
@@ -3325,7 +3323,6 @@ Thirty-nine finished agent files moved to [`../archive/agent-remaining/`](../arc
 - `renderAutonomousSettings` fills the Models-pane checkboxes only when Background tasks or Web search opens (settings.js, per the file, about line 158); the new switch is filled in `renderPrefs` instead. (from autoinstall-1006.md)
 - Autonomous with no model running ends "Finished analysing and linking notes." in 65 ms; it should say it had no model (check `agent.run_agent` for a no-provider error event). (from bgprogress-1006.md)
 - The night shift's pairing phase is slow (120 s for 2,400 facts and 4,786 pairings with the local matcher), and the bar resets between the reading and comparing phases. (from bgprogress-1006.md)
-- Pills still in popups: the Attach picker's five sources (`#note-picker-sources`, index.html:2842) and `pickLibraryItemDialog`'s sources (selection.js) are `.seg` strips. Next: a `.tabs-line` whose tabs carry the count, then the row, its test and its sweep. (from board715-1006.md)
 - If the owner means every pill in a popup, these values are next (kept as `.seg` by DESIGN.md's two-or-three rule): doc-history-filter, ocr-zoom, ocr-view, theme-seg, fontsize-seg, border-style-seg, privacy-range, log-view-toggle, confirm-seg, the print setup, chat-skill-pace, wb-export-seg. (from board715-1006.md)
 - Sweep coverage not yet done: an open board or map, the graph's node popup and controls sheet at 390, the print dialog, the lightbox, the confirm dialog, the onboarding tour, the Attach dialog, the date and time pickers, every card's kebab menu; other looks (`LOOK=`), `CONTRAST=on`, forced colours, Large text with Spacious density. (from clip685-1006.md)
 - `scroll-padding`: a control focused by Tab in a scroller is scrolled to the edge with its ring half cut. `scroll-padding: var(--ring-room)` on `.tab-page`, `.tab-main`, `.modal-content` and `.library-view-section` would close it; not applied on this head (grep), not measured (the sweep does not tab). (from clip685-1006.md)

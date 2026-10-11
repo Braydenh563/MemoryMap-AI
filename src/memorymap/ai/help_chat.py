@@ -251,7 +251,9 @@ HELP_TOPICS: list[dict] = [
             "hand over. Events about private notes are left out of it. The "
             "Library's search reads the same filters as the Graph's: "
             "\"connected to Harbor\", \"untouched since June\", \"tagged "
-            "work\", \"pinned\", \"filed under Cooking\"."
+            "work\", \"pinned\", \"filed under Cooking\". Drop files anywhere in "
+            "the app to add them: pictures and PDFs go to Images, anything "
+            "else becomes a document."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -618,7 +620,8 @@ HELP_TOPICS: list[dict] = [
             "with no AI: Summarise then reads lines saying decided, agreed, "
             "Action or TODO, or a name taking a task, and says so; with the AI "
             "on it rewords the same list. Every meeting is under Notes, "
-            "Meetings, and sits on the Timeline at its own date."
+            "Meetings, and sits on the Timeline at its own date. Its card shows the first agenda item, "
+            "the decisions and the open action items; Show the whole note opens the text."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -975,8 +978,8 @@ HELP_TOPICS.extend(
             "keywords": ("search", "find", "find anything", "look for", "filter", "where did", "locate", "ctrl p", "operator", "search my notes", "saved search", "search chats"),
             "body": (
                 "Find anything (Ctrl+P, or the search box on the dashboard) looks "
-                "through notes, documents, boards, mind maps, files, links, reminders "
-                "and chats at once, by your words and by meaning; each result wears "
+                "through notes, documents, boards, mind maps, files, links, reminders, "
+                "chats and recordings (by title and by what was said) at once, by your words and by meaning; each result wears "
                 "its kind, and the chips narrow it to one. Operators: tag:work, "
                 "in:work for a space, kind:chat, before:2026-01, after:2025-06-30, "
                 "has:image, is:pinned, a \"quoted phrase\", and -word to leave something "

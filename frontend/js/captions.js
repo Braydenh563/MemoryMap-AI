@@ -44,6 +44,55 @@ const captionRun = {
   held: false,
 };
 
+//: **Translate under the captions** (libr-1011 row 1222). Every finished line
+//: goes through the offline translator's worker (`translateAsk`, translate.js,
+//: loaded on the first press) one at a time, in order, and the last two sit
+//: under the running line. The note Stop saves keeps what was said; only the
+//: dock shows the other language. `out` is by line position, like `lines`.
+const captionTranslate = { on: false, pair: null, out: [], busy: false };
+
+function captionTranslatedText() {
+  return captionTranslate.out.filter(Boolean).slice(-2).join("\n");
+}
+
+async function captionTranslatePump() {
+  if (!captionTranslate.on || captionTranslate.busy || !captionRun.id) return;
+  const at = captionTranslate.out.length;
+  if (at >= captionRun.lines.length) return;
+  captionTranslate.busy = true;
+  try {
+    const answer = await translateAsk(captionTranslate.pair, captionRun.lines[at]);
+    //: A failed line keeps its place (an empty string), so the rest stay in step.
+    captionTranslate.out[at] = answer?.ok ? String(answer.text || "").trim() : "";
+  } catch {
+    captionTranslate.out[at] = "";
+  } finally {
+    captionTranslate.busy = false;
+  }
+  captionPaint();
+  captionTranslatePump();
+}
+
+async function captionToggleTranslate() {
+  const button = $("captions-translate");
+  if (captionTranslate.on) {
+    captionTranslate.on = false;
+  } else {
+    await ensureModule("translate");
+    const status = await apiJson("/translate/status", { silent: true }).catch(() => null);
+    if (!status?.installed || !status.pairs?.length) {
+      toast(status?.hint || "Translate needs the offline translator, in Settings, Packages.", "info");
+      return;
+    }
+    //: The two lines the dock shows are translated at once; older ones are not.
+    Object.assign(captionTranslate, { on: true, pair: status.pairs[0], out: captionRun.lines.slice(0, -2).map(() => ""), busy: false });
+  }
+  button.setAttribute("aria-pressed", String(captionTranslate.on));
+  $("captions-dock").classList.toggle("is-translating", captionTranslate.on);
+  captionPaint();
+  captionTranslatePump();
+}
+
 function captionsText() {
   return [...captionRun.lines, captionRun.running].filter(Boolean).join("\n");
 }
@@ -80,6 +129,9 @@ function captionPaint() {
   const clock = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   $("captions-meta").textContent = `${captionRun.model} · ${clock}`;
   $("captions-copy").disabled = !captionsText();
+  const translated = $("captions-translated");
+  translated.textContent = captionTranslate.on ? captionTranslatedText() : "";
+  translated.classList.toggle("hidden", !captionTranslate.on);
 }
 
 async function captionSendNext() {
@@ -110,6 +162,7 @@ async function captionSendNext() {
     if (!captionRun.id) return;
     const replyAt = performance.now();
     captionRunMerge(reply);
+    captionTranslatePump();
     captionRun.running = reply.running || "";
     captionRun.elapsed = reply.elapsed_ms || 0;
     requestAnimationFrame(() => {
@@ -164,7 +217,9 @@ async function startLiveCaptions(opts = {}) {
   }
   let started;
   try {
-    started = await apiJson("/voice/captions/start", { method: "POST", body: "{}" });
+    //: The audio is kept only when asked for (Settings, General, Microphone) and only for a run of
+    //: the captions' own: the recorder lends its stream and keeps its own recording.
+    started = await apiJson("/voice/captions/start", { method: "POST", body: JSON.stringify({ keep_audio: !opts.stream && prefs.bool("captionsKeepAudio", false) }) });
   } catch (error) {
     if (!opts.stream) stream.getTracks().forEach((t) => t.stop());
     if (opts.quiet) return error.message;
@@ -190,9 +245,22 @@ async function startLiveCaptions(opts = {}) {
   mute.connect(ctx.destination);
   Object.assign(captionRun, { ctx, node });
   captionRun.tick = setInterval(captionSendNext, CAPTION_SEND_EVERY_MS);
-  if (!captionRun.into) $("captions-dock").classList.remove("hidden", "is-error");
+  if (!captionRun.into) {
+    $("captions-dock").classList.remove("hidden", "is-error", "is-translating");
+    Object.assign(captionTranslate, { on: false, pair: null, out: [], busy: false });
+    $("captions-translate").setAttribute("aria-pressed", "false");
+    captionOfferTranslate();
+  }
   captionPaint();
   return true;
+}
+
+//: The Translate button shows only when the offline translator is installed,
+//: so a press never lands on "needs a package".
+function captionOfferTranslate() {
+  apiJson("/translate/status", { silent: true })
+    .then((status) => $("captions-translate").classList.toggle("hidden", !(status?.installed && status.pairs?.length)))
+    .catch(() => {});
 }
 
 function captionRelease() {
@@ -215,6 +283,7 @@ async function stopLiveCaptions() {
     return done?.text || "";
   }
   $("captions-dock").classList.add("hidden");
+  captionTranslate.on = false;
   try {
     const done = await apiJson(`/voice/captions/${id}/stop`, { method: "POST", body: "{}" });
     if (!done.entry_id) {
@@ -223,7 +292,11 @@ async function stopLiveCaptions() {
     }
     await refreshEntries([done.entry_id]);
     flashEntry(done.entry_id);
-    toastAction("Saved the captions as a note.", "Open", () => flashEntry(done.entry_id));
+    toastAction(
+      done.recording_id ? "Saved the captions as a note, and the audio in Recordings." : "Saved the captions as a note.",
+      "Open",
+      () => flashEntry(done.entry_id)
+    );
   } catch (error) {
     toast(error.message || "Couldn't save the captions.", true);
   }
@@ -244,4 +317,5 @@ function toggleLiveCaptions() {
 }
 
 $("captions-stop").addEventListener("click", stopLiveCaptions);
+$("captions-translate").addEventListener("click", captionToggleTranslate);
 $("captions-copy").addEventListener("click", () => copyToClipboard(captionsText(), $("captions-copy")));

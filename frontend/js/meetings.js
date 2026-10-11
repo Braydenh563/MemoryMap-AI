@@ -2087,6 +2087,10 @@ function recordingRunLine(li) {
   }
 }
 
+//: The page's memory for a trim, measured on a decoded hour (about 700 MB).
+const RECORDING_TRIM_MB_PER_MINUTE = 12;
+const RECORDING_TRIM_HEAVY_MINUTES = 20;
+
 //: **Trim**: a sheet with the waveform and the two ends; Save writes the
 //: part kept as a new recording.
 function openRecordingTrim(rec) {
@@ -2102,6 +2106,18 @@ function openRecordingTrim(rec) {
       const kept = document.createElement("p");
       kept.className = "status";
       kept.setAttribute("role", "status");
+      //: **Said before it is spent** (libr-1011 row 1219): a trim decodes the
+      //: whole take in this tab (about 12 MB a minute), so a long one says so
+      //: here, and a short one stays quiet. The cut itself cannot be made on
+      //: the server until the app ships a container writer.
+      const minutes = Math.round(total / 60000);
+      const heavy = [];
+      if (minutes >= RECORDING_TRIM_HEAVY_MINUTES) {
+        const note = document.createElement("p");
+        note.className = "muted recording-trim-weight";
+        note.textContent = `Trimming opens the whole recording in this tab: about ${minutes * RECORDING_TRIM_MB_PER_MINUTE} MB of memory for ${minutes} minutes.`;
+        heavy.push(note);
+      }
       const sync = () => {
         const a = Number(start.input.value);
         const b = Number(end.input.value);
@@ -2128,7 +2144,7 @@ function openRecordingTrim(rec) {
       save.id = "recording-trim-save";
       for (const field of [start, end]) field.input.addEventListener("input", sync);
       bar.append(cancel, save);
-      card.append(start.row, end.row, kept, bar);
+      card.append(start.row, end.row, kept, ...heavy, bar);
       sync();
     },
   });
@@ -2296,6 +2312,8 @@ const MIC_SWITCHES = [
   ["micEcho", "Echo cancellation", "Removes the speakers' sound coming back into the microphone"],
   ["micGain", "Automatic gain", "Evens out loud and quiet speech"],
   ["micEnhance", "Enhance on save", "Cuts low rumble and evens the loudness of the kept audio, on this machine; the original is kept until the transcript is saved"],
+  //: Off unless chosen, because it stores speech: the fourth element is the default (libr-1011 row 1226).
+  ["captionsKeepAudio", "Keep the audio of live captions", "Stop saves the captions as a note and the audio as a recording, with the lines as its transcript; off keeps only the note", false],
 ];
 const MIC_TEST_MS = 3000;
 
@@ -2318,14 +2336,14 @@ function micControlsInto(host) {
   label.textContent = "Microphone";
   deviceRow.append(label, select);
   host.appendChild(deviceRow);
-  for (const [key, name, hint] of MIC_SWITCHES) {
+  for (const [key, name, hint, fallback = true] of MIC_SWITCHES) {
     const row = document.createElement("label");
     row.className = "check-row";
     row.title = hint;
     const box = document.createElement("input");
     box.type = "checkbox";
     box.dataset.micPref = key;
-    box.checked = prefs.bool(key, true);
+    box.checked = prefs.bool(key, fallback);
     box.addEventListener("change", () => {
       prefs.set(key, box.checked ? "1" : "0");
       document.querySelectorAll(`input[data-mic-pref="${key}"]`).forEach((other) => (other.checked = box.checked));

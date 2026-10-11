@@ -1297,7 +1297,9 @@ function quickCatalogue() {
     // A command that cannot be built must not take the dashboard with it.
   }
   for (const row of rows) {
-    const key = row.keys ? "" : row.tab ? `tab:${row.tab}` : row.reveal ? `reveal:${row.reveal}` : "";
+    //: A row that is an act (no tab, no reveal) is a tile only when it says so
+    //: with `quick`, a short stable name: Live captions is one (libr-1011 1220).
+    const key = row.keys ? "" : row.tab ? `tab:${row.tab}` : row.reveal ? `reveal:${row.reveal}` : row.quick ? `act:${row.quick}` : "";
     const parts = key && paletteRowParts(row, abouts);
     if (parts && parts.about && !out.has(key)) out.set(key, { id: key, icon: parts.icon.replace(/^(ph:)?/, "ph:"), label: parts.label, hint: parts.about, run: row.run });
   }

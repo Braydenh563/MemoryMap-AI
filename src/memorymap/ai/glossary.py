@@ -55,6 +55,36 @@ def _tidy(phrase: str) -> str:
     return re.sub(r"^(?:the|a|an)\s+", "", phrase, flags=re.I)
 
 
+def _said_in(text: str, said: dict[str, str]) -> None:
+    """Add to `said` each "Long Name (LN)" definition in `text` whose phrase spells its abbreviation."""
+    for pattern in _SAID:
+        for m in pattern.finditer(text):
+            abbr, long = m.group("abbr"), _tidy(m.group("long"))
+            if abbr in _NOT or abbr in said:
+                continue
+            # "CC is due Friday" is not a definition: the phrase must spell it.
+            words = long.split()
+            for n in range(len(words), 1, -1):
+                if spells(abbr, " ".join(words[:n])):
+                    said[abbr] = " ".join(words[:n])
+                    break
+
+
+def _runs_in(text: str, runs: dict[str, set[str]]) -> None:
+    """Add to `runs` each capitalised phrase in `text`, under the abbreviations its words could spell."""
+    for m in _CAPITAL_RUN.finditer(text):
+        words = _tidy(m.group(0)).split()
+        #: Every run inside a longer one too ("Intro to Cloud Computing"
+        #: holds "Cloud Computing").
+        for i in range(len(words)):
+            for j in range(i + 2, len(words) + 1):
+                if words[i].lower() in _SMALL or words[j - 1].lower() in _SMALL:
+                    continue
+                piece = " ".join(words[i:j])
+                for key in {initials(piece), "".join(w[0] for w in words[i:j]).upper()}:
+                    runs.setdefault(key, set()).add(piece)
+
+
 def learn(texts: Iterable[str]) -> dict[str, str]:
     """{abbreviation: phrase} from `texts`. Said outright wins; otherwise a
     capitalised phrase whose initials spell an abbreviation the notes use,
@@ -64,30 +94,9 @@ def learn(texts: Iterable[str]) -> dict[str, str]:
     runs: dict[str, set[str]] = {}
     for text in texts:
         text = text or ""
-        for pattern in _SAID:
-            for m in pattern.finditer(text):
-                abbr, long = m.group("abbr"), _tidy(m.group("long"))
-                if abbr in _NOT or abbr in said:
-                    continue
-                # "CC is due Friday" is not a definition: the phrase must spell it.
-                words = long.split()
-                for n in range(len(words), 1, -1):
-                    if spells(abbr, " ".join(words[:n])):
-                        said[abbr] = " ".join(words[:n])
-                        break
+        _said_in(text, said)
         used.update(a for a in _ABBR_WORD.findall(text) if a not in _NOT)
-        for m in _CAPITAL_RUN.finditer(text):
-            phrase = _tidy(m.group(0))
-            words = phrase.split()
-            #: Every run inside a longer one too ("Intro to Cloud Computing"
-            #: holds "Cloud Computing").
-            for i in range(len(words)):
-                for j in range(i + 2, len(words) + 1):
-                    if words[i].lower() in _SMALL or words[j - 1].lower() in _SMALL:
-                        continue
-                    piece = " ".join(words[i:j])
-                    for key in {initials(piece), "".join(w[0] for w in words[i:j]).upper()}:
-                        runs.setdefault(key, set()).add(piece)
+        _runs_in(text, runs)
     out = dict(said)
     for abbr in used - said.keys():
         found = runs.get(re.sub(r"[^A-Z]", "", abbr), set())

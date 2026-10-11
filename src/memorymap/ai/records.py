@@ -198,33 +198,12 @@ def _searches(question: str, turns: list[tuple[datetime, str]], now: datetime) -
     if not asked:
         return notebook_stats.StatAnswer("records", "You have not asked anything in Ask yet, so there is nothing in History.")
     if span is None:
-        if re.search(r"\blast|latest\b", question, re.I) and not re.search(r"\bsearches|questions\b", question, re.I):
-            at, q = asked[0]
-            return _offered(
-                f"Your last question in Ask was \"{_question_said(q)}\", at {_at(at, today)}.",
-                [{"label": f"{at:%H:%M}", "text": q}], offer | {"label": "Open History?"},
-            )
-        shown = asked[:5]
-        lines = [f"**{_at(at, today)}:** {_question_said(q)}" for at, q in shown]
-        head = f"Your last {_count(len(shown))} questions in Ask, newest first:" if len(shown) > 1 else "Your one question in Ask so far:"
-        return _offered("\n\n".join([head, *lines]), [{"label": f"{at:%H:%M}", "text": q} for at, q in shown], offer)
+        return _searches_unspanned(question, asked, today, offer)
     start, end, words = span
     inside = [(at, q) for at, q in asked if start <= at <= end]
     if not inside:
-        before = next(((at, q) for at, q in asked if at < start), None)
-        text = f"You asked nothing in Ask {words}."
-        if before:
-            text += f" The question before that was \"{_question_said(before[1])}\", at {_at(before[0], today)}."
-        return notebook_stats.StatAnswer("records", text)
-    #: One row per question, at the last time it was asked: a question
-    #: asked again is said once with how many times.
-    grouped: dict[str, list] = {}
-    for at, q in inside:  # newest first
-        key = q.lower().rstrip("?.! ")
-        if key in grouped:
-            grouped[key][2] += 1
-        else:
-            grouped[key] = [at, q, 1]
+        return _asked_nothing(asked, start, words, today)
+    grouped = _grouped_questions(inside)
     rows = list(grouped.values())[:LIST_AT_MOST]
     rows.reverse()  # oldest first, so the day reads in order
     one_day = rows[0][0].date() == rows[-1][0].date()
@@ -233,18 +212,56 @@ def _searches(question: str, turns: list[tuple[datetime, str]], now: datetime) -
         f"**{label(at)}:** {_question_said(q)}" + (f" ({_count(times)} times)" if times > 1 else "")
         for at, q, times in rows
     ]
-    total, distinct = len(inside), len(grouped)
+    head = _opening(words, f"you asked {_asked_count_words(len(inside), len(grouped))}:")
+    return _offered("\n\n".join([head, *lines]), [{"label": label(at), "text": q, "times": times} for at, q, times in rows], offer)
+
+
+def _asked_nothing(asked: list, start: datetime, words: str, today) -> notebook_stats.StatAnswer:  # noqa: ANN001
+    """Nothing asked in the span: name the question before it."""
+    before = next(((at, q) for at, q in asked if at < start), None)
+    text = f"You asked nothing in Ask {words}."
+    if before:
+        text += f" The question before that was \"{_question_said(before[1])}\", at {_at(before[0], today)}."
+    return notebook_stats.StatAnswer("records", text)
+
+
+def _searches_unspanned(question: str, asked: list, today, offer: dict) -> notebook_stats.StatAnswer:
+    """"What did I last ask" with no span: the latest question, or the last five."""
+    if re.search(r"\blast|latest\b", question, re.I) and not re.search(r"\bsearches|questions\b", question, re.I):
+        at, q = asked[0]
+        return _offered(
+            f"Your last question in Ask was \"{_question_said(q)}\", at {_at(at, today)}.",
+            [{"label": f"{at:%H:%M}", "text": q}], offer | {"label": "Open History?"},
+        )
+    shown = asked[:5]
+    lines = [f"**{_at(at, today)}:** {_question_said(q)}" for at, q in shown]
+    head = f"Your last {_count(len(shown))} questions in Ask, newest first:" if len(shown) > 1 else "Your one question in Ask so far:"
+    return _offered("\n\n".join([head, *lines]), [{"label": f"{at:%H:%M}", "text": q} for at, q in shown], offer)
+
+
+def _grouped_questions(inside: list) -> dict[str, list]:
+    """One row per question, at the last time it was asked: a question
+    asked again is said once with how many times."""
+    grouped: dict[str, list] = {}
+    for at, q in inside:  # newest first
+        key = q.lower().rstrip("?.! ")
+        if key in grouped:
+            grouped[key][2] += 1
+        else:
+            grouped[key] = [at, q, 1]
+    return grouped
+
+
+def _asked_count_words(total: int, distinct: int) -> str:
+    """"one thing in Ask", "three different questions in Ask, five times in all", and the latest-N tail."""
     if total == distinct:
-        said = "one thing" if total == 1 else f"{_count(total)} things"
+        said = ("one thing" if total == 1 else f"{_count(total)} things") + " in Ask"
     elif distinct == 1:
         said = f"one question in Ask, {_count(total)} times"
     else:
         said = f"{_count(distinct)} different questions in Ask, {_count(total)} times in all"
-    if total == distinct:
-        said += " in Ask"
     latest = f"; the latest {_count(LIST_AT_MOST)}" if distinct > LIST_AT_MOST else ""
-    head = _opening(words, f"you asked {said}{latest}:")
-    return _offered("\n\n".join([head, *lines]), [{"label": label(at), "text": q, "times": times} for at, q, times in rows], offer)
+    return f"{said}{latest}"
 
 
 # --- what ran -----------------------------------------------------------------
@@ -288,6 +305,30 @@ def _row_line(row: dict, label: str) -> str:
     return f"**{label}:** {said}."
 
 
+def _ran_nothing(rows: list[dict], start: datetime, words: str, today) -> str:  # noqa: ANN001
+    """Nothing ran in the span: say what ran last, or that nothing has."""
+    text = f"Nothing ran {words}."
+    earlier = [r for r in rows if r["at"] < start]
+    if earlier:
+        last = earlier[-1]
+        text += f" The last thing that ran was {'the ' + last['label'].lower() if last['label'][1:].islower() else last['label']}, at {_at(last['at'], today)} ({last['status']})."
+    elif not rows:
+        text += " Nothing has run since the app started, by its records."
+    return text
+
+
+def _ran_head(inside: list[dict], end: datetime, words: str) -> str:
+    """"Three things ran, all done." for the rows inside the span."""
+    failed = sum(1 for r in inside if r["status"] == "failed")
+    things = "one thing" if len(inside) == 1 else f"{_count(len(inside))} things"
+    how = "and it failed" if failed and len(inside) == 1 else (f"and {_count(failed)} failed" if failed else ("all done" if len(inside) > 1 else ""))
+    if words == "overnight":
+        head = f"Overnight, from 18:00 yesterday to {end:%H:%M} today, {things} ran"
+    else:
+        head = _opening(words, f"{things} ran")
+    return head + (f", {how}." if how else ".")
+
+
 def _ran(question: str, runs: list[dict], finished: list[dict], now: datetime) -> notebook_stats.StatAnswer:
     zone, today = now.tzinfo, now.date()
     rows = _ran_rows(runs, finished, zone)
@@ -296,26 +337,12 @@ def _ran(question: str, runs: list[dict], finished: list[dict], now: datetime) -
     inside = [r for r in rows if start <= r["at"] <= end]
     offer = {"kind": "open", "label": "Open Background tasks?", "surface": "settings:tasks"}
     if not inside:
-        text = f"Nothing ran {words}."
-        earlier = [r for r in rows if r["at"] < start]
-        if earlier:
-            last = earlier[-1]
-            text += f" The last thing that ran was {'the ' + last['label'].lower() if last['label'][1:].islower() else last['label']}, at {_at(last['at'], today)} ({last['status']})."
-        elif not rows:
-            text += " Nothing has run since the app started, by its records."
-        return _offered(text, None, offer)
+        return _offered(_ran_nothing(rows, start, words, today), None, offer)
     one_day = inside[0]["at"].date() == inside[-1]["at"].date()
     lines = [_row_line(r, f"{r['at']:%H:%M}" if one_day else _at(r["at"], today)) for r in inside[:LIST_AT_MOST]]
     if len(inside) > LIST_AT_MOST:
         lines.append(f"And {_count(len(inside) - LIST_AT_MOST)} more.")
-    failed = sum(1 for r in inside if r["status"] == "failed")
-    things = "one thing" if len(inside) == 1 else f"{_count(len(inside))} things"
-    how = "and it failed" if failed and len(inside) == 1 else (f"and {_count(failed)} failed" if failed else ("all done" if len(inside) > 1 else ""))
-    if words == "overnight":
-        head = f"Overnight, from 18:00 yesterday to {end:%H:%M} today, {things} ran"
-    else:
-        head = _opening(words, f"{things} ran")
-    head += f", {how}." if how else "."
+    head = _ran_head(inside, end, words)
     return _offered(
         "\n\n".join([head, *lines]),
         [{"label": f"{r['at']:%H:%M}", "text": r["label"], "status": r["status"]} for r in inside], offer,
@@ -330,20 +357,18 @@ def _backup(backups: list[dict], runs: list[dict], now: datetime) -> notebook_st
     offer = {"kind": "open", "label": "Open Backups in Settings?", "surface": "settings:data"}
     run = next((r for r in runs if r.get("kind") == "backup" and r.get("ran")), None)
     newest = _local(backups[0]["created_at"], zone) if backups else None
+    failed_at = _local(run.get("finished_at") or run.get("started_at"), zone) if run and run.get("status") == "failed" else None
     if newest is None:
         text = "There is no backup yet."
-        if run and run.get("status") == "failed":
-            at = _local(run.get("finished_at") or run.get("started_at"), zone)
-            text += f" The last try, at {_at(at, today)}, failed: {run.get('error') or 'no reason was recorded'}."
+        if failed_at is not None:
+            text += f" The last try, at {_at(failed_at, today)}, failed: {run.get('error') or 'no reason was recorded'}."
         return _offered(text, None, offer)
     kept = len(backups)
     text = f"Your last backup was at {_at(newest, today)}, {_ago(newest, now)}."
     text += f" {'One backup is' if kept == 1 else f'{_count(kept).capitalize()} backups are'} kept."
-    if run and run.get("status") == "failed":
-        at = _local(run.get("finished_at") or run.get("started_at"), zone)
-        if at is not None and at > newest:
-            reason = (run.get("error") or "no reason was recorded").rstrip(".")
-            text += f"\n\nThe try after it, at {_at(at, today)}, failed: {reason}."
+    if failed_at is not None and failed_at > newest:
+        reason = (run.get("error") or "no reason was recorded").rstrip(".")
+        text += f"\n\nThe try after it, at {_at(failed_at, today)}, failed: {reason}."
     return _offered(text, [{"label": "last backup", "text": newest.isoformat()}], offer)
 
 

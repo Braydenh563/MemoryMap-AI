@@ -165,15 +165,24 @@ def _outline_answer(title: str, text: str) -> str:
     return _list_answer(f"“{title}”:", rows)
 
 
-def _open_note(session: Session, *, note_ids: list[int], document_ids: list[int] = (), board_ids: list[int] = (),
-               **_: object) -> tuple[str, None]:
-    """The open note, document or board: what it holds, without a model."""
-    if not note_ids and document_ids:
+def _open_document_or_board(session: Session, document_ids: list[int], board_ids: list[int]):
+    """The open document's outline, or the open board's answer, when no note is open; else None."""
+    if document_ids:
         doc = session.get(Document, document_ids[0])
         if doc is not None and not getattr(doc, "deleted_at", None):
             return _outline_answer(realise.cut_title(doc.title or "Untitled", 80), doc.content or ""), None
-    if not note_ids and board_ids:
+    if board_ids:
         return _open_board(session, board_ids=board_ids)
+    return None
+
+
+def _open_note(session: Session, *, note_ids: list[int], document_ids: list[int] = (), board_ids: list[int] = (),
+               **_: object) -> tuple[str, None]:
+    """The open note, document or board: what it holds, without a model."""
+    if not note_ids:
+        answer = _open_document_or_board(session, document_ids, board_ids)
+        if answer is not None:
+            return answer
     entry = session.get(Entry, note_ids[0]) if note_ids else None
     if entry is None or entry.is_deleted or entry.is_private:
         return ("Nothing is open to summarise. Open a note and tick “Use the open note”, "

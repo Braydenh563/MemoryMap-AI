@@ -56,6 +56,36 @@ def _secs(value: float) -> float:
     return round(max(0.0, value), 2)
 
 
+def _search_say(say, intent: str, mode, matched: int, scoped: bool, loading: bool) -> bool:
+    """The "searched" line, when the question went to the notes. Whether it did."""
+    retrieval = intent in ("notes",) or matched > 0
+    if not retrieval:
+        return False
+    how = SEARCHES.get(str(mode or "").rsplit("+", 1)[-1].rsplit("_recent", 1)[0], "")
+    where = "Read only the notes you pointed it at" if scoped else "Searched your notes"
+    #: The first question after a launch reads words while the search
+    #: model loads behind it, rather than waiting for it (27 s, measured).
+    later = "; the search by meaning was still loading, so it read words only" if loading else ""
+    if matched:
+        found = f"{matched} {'note' if matched == 1 else 'notes'} matched"
+        say("searched", f"{where}{f' {how}' if how and not scoped else ''}: {found}{later}.")
+    else:
+        say("searched", f"{where}: nothing matched{later}.")
+    return True
+
+
+def _answer_say(say, composed: bool, model, matched: int, context: bool) -> None:
+    """Who wrote the answer, and whether it was handed the app's own."""
+    if composed:
+        say("answered", "Atlas wrote it from your notes, with no model: every line comes from a note it cites.")
+    elif model:
+        say("answered", f"The model, {model}, wrote it{' from the notes found' if matched else ''}.")
+        if context:
+            say("answered", "It was handed the app's own answer as a fact to use, not as the reply.")
+    else:
+        say("answered", "Atlas worked it out itself, with no model.")
+
+
 def lines(
     *,
     intent: str,
@@ -83,27 +113,9 @@ def lines(
 
     reading = INTENTS.get(intent, "a question")
     say("read", f"Read the question as {reading}{f', for {when}' if when else ''}.")
-    retrieval = intent in ("notes",) or matched > 0
-    if retrieval:
-        how = SEARCHES.get(str(mode or "").rsplit("+", 1)[-1].rsplit("_recent", 1)[0], "")
-        where = "Read only the notes you pointed it at" if scoped else "Searched your notes"
-        #: The first question after a launch reads words while the search
-        #: model loads behind it, rather than waiting for it (27 s, measured).
-        later = "; the search by meaning was still loading, so it read words only" if loading else ""
-        if matched:
-            found = f"{matched} {'note' if matched == 1 else 'notes'} matched"
-            say("searched", f"{where}{f' {how}' if how and not scoped else ''}: {found}{later}.")
-        else:
-            say("searched", f"{where}: nothing matched{later}.")
+    retrieval = _search_say(say, intent, mode, matched, scoped, loading)
     kind = (shape or "").split(":", 1)[-1]
-    if composed:
-        say("answered", "Atlas wrote it from your notes, with no model: every line comes from a note it cites.")
-    elif model:
-        say("answered", f"The model, {model}, wrote it{' from the notes found' if matched else ''}.")
-        if context:
-            say("answered", "It was handed the app's own answer as a fact to use, not as the reply.")
-    else:
-        say("answered", "Atlas worked it out itself, with no model.")
+    _answer_say(say, composed, model, matched, context)
     if kind in SHAPES:
         say("answered", f"Shaped as {SHAPES[kind]}.")
     if retrieval and matched:

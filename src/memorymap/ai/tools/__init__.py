@@ -4676,38 +4676,37 @@ def tool_catalog() -> list[dict]:
     ]
 
 
+def _confirm_move_notes(arguments: dict) -> str:
+    count = len(arguments.get("ids") or [])
+    where = f"the category “{arguments['category']}”" if arguments.get("category") else f"the space “{arguments.get('space', '?')}”"
+    return f"Move {count} note{'' if count == 1 else 's'} to {where}"
+
+
+#: The sentence on the confirm button for each tool that parks for a yes:
+#: what will happen, not the tool's name. Includes the writes and reaches-out
+#: that park once a turn has read text from outside (SEC-02).
+_CONFIRM_LABELS = {
+    "delete_note": lambda a: f"Move note #{a.get('note_id', '?')} to the recycle bin",
+    "delete_tag": lambda a: f"Remove the tag “{a.get('name', '?')}” from every note",
+    "move_notes": _confirm_move_notes,
+    "delete_skill": lambda a: f"Delete the saved skill “{a.get('name', '?')}”",
+    "move_board_item": lambda a: f"Move {a.get('kind', 'item')} #{a.get('item_id', '?')} on the board",
+    "edit_board_item": lambda a: f"Change {a.get('kind', 'item')} #{a.get('item_id', '?')} on the board",
+    "delete_board_item": lambda a: f"Take {a.get('kind', 'item')} #{a.get('item_id', '?')} off the board",
+    "edit_note": lambda a: f"Change note #{a.get('note_id', '?')}",
+    "create_note": lambda a: "Make a new note",
+    "save_skill": lambda a: f"Save the skill “{a.get('name', '?')}”",
+    "set_reminder": lambda a: "Set a reminder",
+    "read_url": lambda a: f"Open {a.get('url', 'a web page')}",
+    "web_search": lambda a: f"Search the web for “{a.get('query', '?')}”",
+}
+
+
 def confirm_label(name: str, arguments: dict) -> str:
     """Human sentence for the UI's confirm button (destructive tools)."""
-    if name == "delete_note":
-        return f"Move note #{arguments.get('note_id', '?')} to the recycle bin"
-    if name == "delete_tag":
-        return f"Remove the tag “{arguments.get('name', '?')}” from every note"
-    if name == "move_notes":
-        count = len(arguments.get("ids") or [])
-        where = f"the category “{arguments['category']}”" if arguments.get("category") else f"the space “{arguments.get('space', '?')}”"
-        return f"Move {count} note{'' if count == 1 else 's'} to {where}"
-    if name == "delete_skill":
-        return f"Delete the saved skill “{arguments.get('name', '?')}”"
-    if name == "move_board_item":
-        return f"Move {arguments.get('kind', 'item')} #{arguments.get('item_id', '?')} on the board"
-    if name == "edit_board_item":
-        return f"Change {arguments.get('kind', 'item')} #{arguments.get('item_id', '?')} on the board"
-    if name == "delete_board_item":
-        return f"Take {arguments.get('kind', 'item')} #{arguments.get('item_id', '?')} off the board"
-    #: The writes and reaches-out that park once a turn has read text from
-    #: outside (SEC-02): the card says what will happen, not the tool's name.
-    if name == "edit_note":
-        return f"Change note #{arguments.get('note_id', '?')}"
-    if name == "create_note":
-        return "Make a new note"
-    if name == "save_skill":
-        return f"Save the skill “{arguments.get('name', '?')}”"
-    if name == "set_reminder":
-        return "Set a reminder"
-    if name == "read_url":
-        return f"Open {arguments.get('url', 'a web page')}"
-    if name == "web_search":
-        return f"Search the web for “{arguments.get('query', '?')}”"
+    label = _CONFIRM_LABELS.get(name)
+    if label:
+        return label(arguments)
     words = name.replace("_", " ")
     return f"{words[:1].upper()}{words[1:]}"
 

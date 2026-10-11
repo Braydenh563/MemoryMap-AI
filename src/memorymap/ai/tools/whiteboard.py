@@ -179,6 +179,13 @@ def board_outline(title: str, cards: list[dict], frames: list[dict], text_boxes:
     if loose:
         lines.append("Cards:" if frames else "Cards")
         lines.extend(card_line(card, "  ") for card in loose)
+    lines.extend(_outline_extras(text_boxes, shapes, links))
+    return "\n".join(lines)
+
+
+def _outline_extras(text_boxes: list[dict], shapes: list[dict], links: list[dict]) -> list[str]:
+    """The text boxes, shapes and links of a board outline, each under its heading."""
+    lines: list[str] = []
     if text_boxes:
         lines.append("Text boxes")
         lines.extend(f"  - {box['text']}" for box in text_boxes)
@@ -188,7 +195,7 @@ def board_outline(title: str, cards: list[dict], frames: list[dict], text_boxes:
     if links:
         lines.append("Links")
         lines.extend(f"  - card {link['from_card_id']} -> card {link['to_card_id']}" for link in links)
-    return "\n".join(lines)
+    return lines
 
 
 def _read_whiteboard(session: Session, args: dict) -> dict:

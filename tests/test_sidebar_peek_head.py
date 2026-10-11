@@ -24,12 +24,13 @@ def _css(name: str) -> str:
 
 def test_the_peeked_toggle_sits_where_the_pinned_one_does():
     css = _css("07-whiteboard-misc.css")
-    rule = re.search(
-        r"\.layout-sidebar-collapsed>\.sidebar-collapsed:hover \.sidebar-collapse-toggle(?:,\s*[^{,]+)*\s*\{([^}]*)\}",
-        css,
-    )
-    assert rule, "the hover-peek toggle rule is gone"
-    assert "right: 1rem" in rule.group(1), (
+    #: The selector list, then its block, found by index: a regex over a
+    #: repeated selector group backtracks exponentially (CodeQL).
+    at = css.find(".layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-collapse-toggle")
+    assert at >= 0, "the hover-peek toggle rule is gone"
+    start = css.index("{", at)
+    body = css[start + 1:css.index("}", start)]
+    assert "right: 1rem" in body, (
         "the peek moves the toggle off the pinned position the head's lane is measured from"
     )
 

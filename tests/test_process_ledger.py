@@ -43,9 +43,10 @@ def test_a_run_carries_its_title_origin_and_timed_lines():
 
 
 def test_a_failed_run_keeps_its_reason_and_lines():
-    with pytest.raises(RuntimeError), jobruns.job_run("export", persist=False) as run:
-        run.say("Wrote 3 notes.")
-        raise RuntimeError("disk full")
+    with pytest.raises(RuntimeError):
+        with jobruns.job_run("export", persist=False) as run:
+            run.say("Wrote 3 notes.")
+            raise RuntimeError("disk full")
     done = jobruns.finished()[0]
     assert done["outcome"] == "failed" and done["detail"] == "disk full"
     assert done["lines"][0]["text"] == "Wrote 3 notes."

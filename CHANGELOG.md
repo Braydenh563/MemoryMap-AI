@@ -7,6 +7,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Graph: the map opens where you left it and fades in, rather than spreading out from the centre; while the first map is on its way the card breathes a soft glow instead of standing empty.
+- Graph: hovering a note eases the highlight, the dimming and the labels in and out; Reduce motion and Performance mode switch them at once.
+- Graph: adding, hiding or filtering notes moves the map from where it is, new notes grow in beside their neighbours, and notes that leave fade out with their links.
+- Graph: notes have a faint shade and a crisp rim in their own colour, the glow is unchanged, and the note whose card is open wears a ring.
+- Graph: Fit and the first view centre the map on the canvas (the minimap and zoom buttons no longer push it to the right), and fit, zoom, pan and Locate glide; with less motion asked for they cut.
+- Graph: a note you drag and drop stays where you put it while the map settles round it.
+- Dashboard: the notebook constellation keeps its room while it loads and fades in, so nothing below it jumps.
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), a missing apostrophe is read ("doesn follow"), and a stray semicolon inside a word or two words run together are put right ("natura;l", "thenthe"); the Guide, the clock and the other utilities read the repaired question.
 - Ask: an answer to a question that needed a spelling repair opens by saying how it was read ("I took that to mean ..."), in wording that changes from one answer to the next.
 - Settings: Import & export has Clear and forget (recent searches in every box, saved previews, the Guide's conversation, dismissed suggestions), each saying how much it removes and each undoable for ten seconds.

@@ -262,6 +262,56 @@ async def _route(conn: socket.socket, make_protocol, context: ssl.SSLContext, po
         conn.close()
 
 
+async def _refresh_network(loop, refresh) -> None:  # noqa: ANN001
+    """Read the machine's own network again, and the caller's view of it."""
+    await loop.run_in_executor(None, refresh_own_prefixes)
+    if refresh is not None:
+        with contextlib.suppress(Exception):
+            await loop.run_in_executor(None, refresh)
+
+
+async def _port_step(sock, gate, reopen, port):  # noqa: ANN001
+    """Close the port when the gate shuts, bind it again when it opens.
+    Returns (sock, verdict): "go" to accept, "continue" to try again, "break" to stop."""
+    if gate is not None and not gate():
+        if sock is not None:
+            log.info("Other devices: this network is not allowed; the LAN port is closed.")
+            sock.close()
+            sock = None
+        await asyncio.sleep(0.5)
+        return sock, "continue"
+    if sock is None:
+        if reopen is None:
+            return sock, "break"
+        try:
+            sock = reopen()
+            sock.setblocking(False)
+            log.info("Other devices: the LAN port is open on this network.")
+        except OSError as exc:
+            log.warning("Other devices can't reach this notebook: port %s is taken (%s).", port, exc)
+            await asyncio.sleep(REFRESH_SECONDS / 3)
+            return None, "continue"
+    return sock, "go"
+
+
+async def _accept(loop, sock):  # noqa: ANN001
+    """The next allowed connection as (conn, addr), or None to look again."""
+    try:
+        conn, addr = await asyncio.wait_for(loop.sock_accept(sock), 0.5)
+    except asyncio.TimeoutError:
+        return None
+    except OSError as exc:
+        log.debug("LAN accept failed: %s", exc)
+        await asyncio.sleep(0.1)
+        return None
+    if not client_allowed(addr[0] if addr else None):
+        log.info("Refused a connection from %s: not an address on this network.", addr[0] if addr else "?")
+        with contextlib.suppress(OSError):
+            conn.close()
+        return None
+    return conn, addr
+
+
 async def serve(  # noqa: PLR0913
     server,  # noqa: ANN001  # a uvicorn.Server with ssl set
     sock: socket.socket | None,
@@ -300,41 +350,16 @@ async def serve(  # noqa: PLR0913
         while not running.done() and not server.should_exit:
             if loop.time() - refreshed >= REFRESH_SECONDS:
                 refreshed = loop.time()
-                await loop.run_in_executor(None, refresh_own_prefixes)
-                if refresh is not None:
-                    with contextlib.suppress(Exception):
-                        await loop.run_in_executor(None, refresh)
-            if gate is not None and not gate():
-                if sock is not None:
-                    log.info("Other devices: this network is not allowed; the LAN port is closed.")
-                    sock.close()
-                    sock = None
-                await asyncio.sleep(0.5)
+                await _refresh_network(loop, refresh)
+            sock, verdict = await _port_step(sock, gate, reopen, port)
+            if verdict == "break":
+                break
+            if verdict == "continue":
                 continue
-            if sock is None:
-                if reopen is None:
-                    break
-                try:
-                    sock = reopen()
-                    sock.setblocking(False)
-                    log.info("Other devices: the LAN port is open on this network.")
-                except OSError as exc:
-                    log.warning("Other devices can't reach this notebook: port %s is taken (%s).", port, exc)
-                    await asyncio.sleep(REFRESH_SECONDS / 3)
-                    continue
-            try:
-                conn, addr = await asyncio.wait_for(loop.sock_accept(sock), 0.5)
-            except asyncio.TimeoutError:
+            accepted = await _accept(loop, sock)
+            if accepted is None:
                 continue
-            except OSError as exc:
-                log.debug("LAN accept failed: %s", exc)
-                await asyncio.sleep(0.1)
-                continue
-            if not client_allowed(addr[0] if addr else None):
-                log.info("Refused a connection from %s: not an address on this network.", addr[0] if addr else "?")
-                with contextlib.suppress(OSError):
-                    conn.close()
-                continue
+            conn, addr = accepted
             task = asyncio.ensure_future(_route(conn, make_protocol, context, port))
             pending.add(task)
             task.add_done_callback(pending.discard)

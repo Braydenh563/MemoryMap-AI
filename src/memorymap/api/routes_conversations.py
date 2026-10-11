@@ -155,6 +155,22 @@ class PinBody(BaseModel):
     pinned: bool
 
 
+def _user_message(turn: TurnBody, asked: datetime) -> dict:
+    user: dict = {"role": "user", "content": turn.question, "at": asked.isoformat()}
+    if turn.image_media_ids:
+        user["image_media_ids"] = turn.image_media_ids
+    if turn.document_ids:
+        user["document_ids"] = turn.document_ids
+    if turn.file_ids:
+        user["file_ids"] = turn.file_ids
+    if turn.note_ids:
+        user["note_ids"] = turn.note_ids
+    followup_of = (turn.followup_of or "").strip()
+    if followup_of:
+        user["followup_of"] = followup_of
+    return user
+
+
 def _turn_messages(turn: TurnBody) -> list[dict]:
     # Stamped here, not by the page: the turn is saved when the answer ends,
     # so the answer's time is now and the question's is now minus the
@@ -203,19 +219,7 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
     persona = (turn.persona or "").strip()
     if persona:
         assistant["persona"] = persona
-    user: dict = {"role": "user", "content": turn.question, "at": asked.isoformat()}
-    if turn.image_media_ids:
-        user["image_media_ids"] = turn.image_media_ids
-    if turn.document_ids:
-        user["document_ids"] = turn.document_ids
-    if turn.file_ids:
-        user["file_ids"] = turn.file_ids
-    if turn.note_ids:
-        user["note_ids"] = turn.note_ids
-    followup_of = (turn.followup_of or "").strip()
-    if followup_of:
-        user["followup_of"] = followup_of
-    return [user, assistant]
+    return [_user_message(turn, asked), assistant]
 
 
 def _summary(conversation: Conversation) -> dict:

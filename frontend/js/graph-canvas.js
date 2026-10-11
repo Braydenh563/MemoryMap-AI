@@ -309,7 +309,30 @@ function gcReadTokens(s = gcTab) {
     ink: get("--ink", "#1b1f2a"),
     card: get("--card", "#ffffff"),
     font: get("--font-sans", "system-ui, sans-serif"),
+    //: The hover's two durations are the stylesheet's motion tokens (Brief
+    //: 100, DESIGN.md "Motion"), so the canvas eases with the rest of the
+    //: app and is instant where the app's interface animations are off.
+    fadeMs: gcMs(get("--ui-slow", "0.2s")),
+    hoverMs: gcMs(get("--ui-slow", "0.2s")),
   };
+}
+
+//: A CSS time ("0.16s", "120ms") in milliseconds.
+function gcMs(value) {
+  const n = parseFloat(value);
+  if (!Number.isFinite(n)) return 0;
+  return /ms\s*$/.test(value) ? n : n * 1000;
+}
+
+//: **Less motion, by every switch that means it** (Brief 100): the system's
+//: setting, and the app's own Reduce motion and Performance mode
+//: (`data-motion`, settings.js). The canvas read only the first, so the app's
+//: switch left the map easing while the rest of the page stood still.
+function gcStill() {
+  return Boolean(
+    window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ||
+      document.documentElement?.dataset?.motion === "reduced"
+  );
 }
 
 //: The edge recipes, transcribed from `.graph-edge*` in
@@ -791,14 +814,59 @@ function gcArrows(s = gcTab) {
 //: set in `renderGraphCanvas`), its bow is its midpoint, so every caller
 //: (paint, hover, hit test, the label pass's line grid) draws and finds it
 //: straight. The worker's `clearCurve` makes the same exception.
-function gcBowPoint(a, b) {
-  if (a._straight || (a._cluster != null && a._cluster !== b._cluster)) return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+//: `out` and `side` are the draw loop's (Brief 100: no allocation per edge per
+//: frame on a 2,000-note map): a scratch point written in place, and the side
+//: the edge keeps for its render. Every other caller gets a fresh point.
+function gcBowPoint(a, b, out = null, side = null) {
+  const point = out || { x: 0, y: 0 };
+  if (a._straight || (a._cluster != null && a._cluster !== b._cluster)) {
+    point.x = (a.x + b.x) / 2;
+    point.y = (a.y + b.y) / 2;
+    return point;
+  }
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len = Math.hypot(dx, dy) || 1;
-  const side = String(a.id) < String(b.id) ? 1 : -1;
-  const bow = Math.min(len * 0.14, 48) * side;
-  return { x: (a.x + b.x) / 2 - (dy / len) * bow, y: (a.y + b.y) / 2 + (dx / len) * bow };
+  const bow = Math.min(len * 0.14, 48) * (side || (String(a.id) < String(b.id) ? 1 : -1));
+  point.x = (a.x + b.x) / 2 - (dy / len) * bow;
+  point.y = (a.y + b.y) / 2 + (dx / len) * bow;
+  return point;
+}
+
+//: An edge's look for one render (Brief 100): its recipe, its tint, its
+//: confidence and its quiet cross-cluster variant depend on the render's
+//: colours and similarity range, not on the frame, so they are worked out
+//: once per render (`s.epoch`) rather than spread into new objects for every
+//: edge on every frame of a hover fade. `_keys` holds each bucket key as it
+//: is first needed, so a frame builds no strings either.
+const gcBowScratch = { x: 0, y: 0 };
+function gcEdgeLook(edge, a, b, simLo, simHi, epoch) {
+  edge._styleEpoch = epoch;
+  edge._keys = [];
+  edge._side = String(a.id) < String(b.id) ? 1 : -1;
+  const similar = edge.kind === "similar" && typeof edge.score === "number";
+  edge._similar = similar;
+  let style = similar ? GC_SIMILAR_BANDS[gcSimilarityBand(edge.score, simLo, simHi)] : gcEdgeStyle(edge);
+  //: Same colour at both ends: the line wears it (see GC_EDGE_TINTED).
+  const tint =
+    !similar && edge.link_type !== "contradicts" && GC_EDGE_TINTED[edge.kind] && a.colour && a.colour === b.colour
+      ? a.colour
+      : null;
+  if (tint) style = { ...style, alpha: Math.max(style.alpha, GC_EDGE_TINTED[edge.kind]) };
+  //: How sure, as thickness and strength (INBOX 693, the legend's second
+  //: channel): a reason the app deduced (`reason_confidence`, 0 to 1)
+  //: draws its link from 0.6x to 1.2x, so a guess reads lighter than a
+  //: reason in someone's words, which keeps its full line.
+  if (edge.kind === "link" && typeof edge.reason_confidence === "number") {
+    const sure = 0.6 + 0.6 * Math.max(0, Math.min(1, edge.reason_confidence));
+    style = { ...style, width: style.width * sure, alpha: Math.min(1, style.alpha * sure) };
+  }
+  edge._tint = tint;
+  edge._style = style;
+  edge._cross = a._cluster != null && a._cluster !== b._cluster && edge.link_type !== "contradicts";
+  edge._quietStyle = edge._cross
+    ? { ...style, width: style.width * GC_CROSS_WIDTH, alpha: style.alpha * GC_CROSS_ALPHA }
+    : style;
 }
 
 function gcEdgeStyle(edge) {
@@ -937,6 +1005,40 @@ function gcHexToRgb(colour) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+//: **The node itself** (Brief 100 (c), the owner: "improve the visual look
+//: of nodes (keep the glow the same). just change the nodes themnselves").
+//: Still flat in spirit (a gradient body read as "fake or too realistic", a
+//: highlight dot as "a bowling ball"): the category colour with the faintest
+//: shade across it, 8% lighter at the upper left to 8% deeper at the far
+//: edge, which gives the disc a surface without a light source, and a crisp
+//: one-pixel rim a quarter deeper in its own colour, so a dot on a dot or on
+//: a line keeps its edge. A colour that is not a hex code keeps the flat
+//: disc. The glow, drawn before this, is untouched.
+function gcMixRgb(rgb, toward, share) {
+  return `rgb(${rgb.map((v) => Math.round(v + (toward - v) * share)).join(", ")})`;
+}
+function gcPaintCore(c, half, r, colour) {
+  const rgb = gcHexToRgb(colour);
+  c.beginPath();
+  c.arc(half, half, r, 0, Math.PI * 2);
+  if (!rgb || r < 3) {
+    c.fillStyle = colour;
+    c.fill();
+    return;
+  }
+  const shade = c.createRadialGradient(half - r * 0.35, half - r * 0.35, 0, half, half, r);
+  shade.addColorStop(0, gcMixRgb(rgb, 255, 0.08));
+  shade.addColorStop(0.6, colour);
+  shade.addColorStop(1, gcMixRgb(rgb, 0, 0.08));
+  c.fillStyle = shade;
+  c.fill();
+  c.beginPath();
+  c.arc(half, half, r - 0.5, 0, Math.PI * 2);
+  c.lineWidth = 1;
+  c.strokeStyle = gcMixRgb(rgb, 0, 0.25);
+  c.stroke();
+}
+
 function gcNodeSprite(colour, radiusPx, hub) {
   const r = Math.max(2, Math.round(radiusPx));
   const key = `${colour}|${r}|${hub ? 1 : 0}|${gcTokens.card}`;
@@ -944,7 +1046,8 @@ function gcNodeSprite(colour, radiusPx, hub) {
   if (sprite) return sprite;
   if (gcSpriteCache.size > 600) gcSpriteCache.clear();
   //: Flat, like every other mark in the app (DESIGN.md: one fill, one edge,
-  //: no rendered light): the category colour as a disc, a ring in the
+  //: no rendered light): the category colour as a disc (shaded a breath by
+  //: `gcPaintCore`, Brief 100 (c)), a ring in the
   //: card's own colour so a node reads clear of the links it sits on, and
   //: for a hub only, a soft bloom of its colour behind it. A gradient body
   //: was tried and read as "fake or too realistic"; a highlight dot as "a
@@ -977,10 +1080,7 @@ function gcNodeSprite(colour, radiusPx, hub) {
   c.beginPath();
   c.arc(half, half, r + ring, 0, Math.PI * 2);
   c.fill();
-  c.fillStyle = colour;
-  c.beginPath();
-  c.arc(half, half, r, 0, Math.PI * 2);
-  c.fill();
+  gcPaintCore(c, half, r, colour);
   sprite = { canvas, half };
   gcSpriteCache.set(key, sprite);
   return sprite;
@@ -1450,7 +1550,7 @@ function gcBalanceFit(s, placed, passes = 0) {
   //: Within a pixel and a percent is already balanced: no motion for nothing.
   if (Math.abs(k / t.k - 1) < 0.01 && Math.abs(x - t.x) < 1.5 && Math.abs(y - t.y) < 1.5) return;
   const framed = d3.zoomIdentity.translate(x, y).scale(k);
-  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const still = gcStill();
   const again = () => {
     if (passes <= 0) return;
     s.fitCheck = passes;
@@ -1459,23 +1559,25 @@ function gcBalanceFit(s, placed, passes = 0) {
   if (still || s.canvas?.style.opacity === "0") {
     s.svg.interrupt().call(s.zoom.transform, framed);
     again();
-  } else s.svg.transition().duration(220).call(s.zoom.transform, framed).on("end", again);
+  } else s.svg.transition().duration(graphGlideMs(220)).call(s.zoom.transform, framed).on("end", again);
 }
 
 //: The overlays a fit keeps the notes out from under, as the depth each one
 //: takes from an edge of the map, in screen pixels (`graphFitFrame`): the
-//: dock along the top, the legend along the bottom, the minimap and the zoom
-//: strip in their corners, and whichever panel is open over the map (the
-//: owner, INBOX 792: fitting "should be based on what panels are currently
-//: showing and the screen resolution/size"). Each is counted against the
-//: edge it costs the least of the map's width or height to clear; a corner
-//: box goes to the side, so a wide map gives up width it has spare rather
-//: than height. A closed panel has no box and costs nothing.
+//: dock along the top, the legend along the bottom, and whichever panel is
+//: open over the map (the owner, INBOX 792: fitting "should be based on what
+//: panels are currently showing and the screen resolution/size"). Each is
+//: counted against the edge it costs the least of the map's width or height
+//: to clear. A closed panel has no box and costs nothing.
+//: **Not the minimap or the zoom strip** (INBOX 802, "why's the graph so
+//: positioned to the right and not in the middle??"): a 178px corner box
+//: reserved a 190px column down the whole left side, so a fitted map sat
+//: 132px right of centre (margins 418 and 286 on a 1406px canvas). They are
+//: small corner furniture, not panels; a map centred on the canvas clears
+//: them except at its very corners, as in every other graph view.
 const GC_FIT_OVERLAYS = [
   "#graph-card > .graph-overlay > .dock",
   "#graph-card .graph-legend-row",
-  "#graph-minimap",
-  "#graph-zoom",
   "#graph-options",
   "#graph-help-panel",
   "#graph-selection-dock",
@@ -1529,7 +1631,7 @@ function gcRefitForPanels(s) {
 //: keeps the cut.
 const GC_LAYOUT_MS = 700;
 function gcTweenFromPrior(s, nodes, prior, move = true) {
-  if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+  if (gcStill()) return;
   const now = performance.now();
   let moved = 0;
   for (const node of nodes) {
@@ -1549,7 +1651,9 @@ function gcTweenFromPrior(s, nodes, prior, move = true) {
   }
   if (!moved) return;
   s.glideFrom = now;
-  s.glideMs = GC_LAYOUT_MS;
+  //: On the same token as `frameTree`'s camera, so frame and notes arrive
+  //: together; 1ms, not 0, is a cut (0 means "glide by tick").
+  s.glideMs = Math.max(1, graphGlideMs(GC_LAYOUT_MS));
   s.gliding = true;
   s.pathsStale = true;
 }
@@ -1567,34 +1671,78 @@ function gcBornAlpha(node, now) {
 }
 
 //: **A note leaving the picture fades out where it stood** (a hidden
-//: category, a filter, a local view's neighbours): its halo is kept as a
-//: ghost for `GC_BORN_MS`, drawn without links, hit tests or labels. Less
-//: motion cuts, as a note arriving does.
-const GC_LEAVING_MAX = 300;
+//: category, a filter, a local view's neighbours, a deleted note): drawn as
+//: it was, its own sprite and its lines, fading over `GC_BORN_MS`, with no
+//: hit tests or labels. Measured before (Brief 100, `graph100.js`, hiding a
+//: category of 200 on the 2,000-note map): past 300 notes nothing faded at
+//: all, and below it the dot lost its rim and glow and its lines in the
+//: first frame, a flat disc being all that faded. Less motion cuts, as a note
+//: arriving does.
+const GC_LEAVING_MAX = 2500;
 function gcMarkLeaving(s, before, nodes) {
   s.leaving = null;
-  if (!before?.length || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+  if (!before?.length || gcStill()) return;
   const now = performance.now();
   const staying = new Set(nodes.map((n) => n.id));
   const gone = before.filter((n) => !staying.has(n.id) && Number.isFinite(n.x) && Number.isFinite(n.y) && n.colour);
   if (!gone.length || gone.length > GC_LEAVING_MAX) return;
-  s.leaving = gone.map((n) => ({ x: n.x, y: n.y, r: n.r || 6, colour: n.colour, at: now }));
+  const scale = (s.transform?.k || 1) * (s.dpr || 1);
+  const goneIds = new Set(gone.map((n) => n.id));
+  const lines = new Path2D();
+  let lineCount = 0;
+  for (const edge of s.edges || []) {
+    const a = edge.source;
+    const b = edge.target;
+    if (!a || !b || !(goneIds.has(a.id) || goneIds.has(b.id))) continue;
+    if (!Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
+    lines.moveTo(a.x, a.y);
+    lines.lineTo(b.x, b.y);
+    lineCount += 1;
+  }
+  s.leaving = {
+    at: now,
+    lines: lineCount ? lines : null,
+    ghosts: gone.map((n) => ({
+      x: n.x,
+      y: n.y,
+      r: n.r || 6,
+      colour: n.colour,
+      sprite: n._sprite || null,
+      half: n._sprite ? n._sprite.half / scale : 0,
+      alpha: n._dim ? GC_DIM_ALPHA : 1,
+    })),
+  };
+}
+//: Their lines, under every dot: stroked with the edge pass.
+function gcDrawLeavingLines(ctx, s, now) {
+  if (!s.leaving?.lines) return;
+  const share = (now - s.leaving.at) / GC_BORN_MS;
+  if (share >= 1) return;
+  ctx.globalAlpha = 0.35 * (1 - gcEaseOut(share));
+  ctx.strokeStyle = gcTokens.muted;
+  ctx.lineWidth = 1 / (s.transform?.k || 1);
+  ctx.stroke(s.leaving.lines);
 }
 function gcDrawLeaving(ctx, s, now) {
-  if (!s.leaving?.length) return;
-  let live = 0;
-  for (const ghost of s.leaving) {
-    const share = (now - ghost.at) / GC_BORN_MS;
-    if (share >= 1) continue;
-    live += 1;
-    ctx.globalAlpha = 0.9 * (1 - gcEaseOut(share));
+  if (!s.leaving) return;
+  const share = (now - s.leaving.at) / GC_BORN_MS;
+  if (share >= 1) {
+    s.leaving = null;
+    return;
+  }
+  const fade = 1 - gcEaseOut(share);
+  for (const ghost of s.leaving.ghosts) {
+    ctx.globalAlpha = ghost.alpha * fade;
+    if (ghost.sprite) {
+      ctx.drawImage(ghost.sprite.canvas, ghost.x - ghost.half, ghost.y - ghost.half, ghost.half * 2, ghost.half * 2);
+      continue;
+    }
     ctx.fillStyle = ghost.colour;
     ctx.beginPath();
     ctx.arc(ghost.x, ghost.y, ghost.r, 0, Math.PI * 2);
     ctx.fill();
   }
-  if (live) s.bornPending = true;
-  else s.leaving = null;
+  s.bornPending = true;
 }
 
 //: `1 - (1 - t)^3`: fast away from the start, settling at the end. The same
@@ -1633,8 +1781,9 @@ function gcHoverStep(s = gcTab) {
   //: travel: the node is simply already large. Removing the growth as well
   //: would leave them with no hover feedback on this renderer at all, since
   //: there is no CSS here to give them a colour change instead.
-  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  s.hoverEase = still ? 1 : gcEaseOut((performance.now() - s.hoverStart) / GC_HOVER_MS);
+  const still = gcStill();
+  const ms = gcTokens.hoverMs ?? GC_HOVER_MS;
+  s.hoverEase = still || !ms ? 1 : gcEaseOut((performance.now() - s.hoverStart) / ms);
   if (s.hoverEase >= 1) {
     s.hoverEase = 1;
     s.hoverFrom = null;
@@ -1683,9 +1832,10 @@ function gcFadeStep(s, still) {
   const now = performance.now();
   const last = s.fadeLast || 0;
   s.fadeLast = now;
-  if (still) return 1;
+  const ms = gcTokens.fadeMs ?? GC_FADE_MS;
+  if (still || !ms) return 1;
   const dt = now - last > 100 ? 16.7 : Math.min(now - last, 64);
-  return dt / GC_FADE_MS;
+  return dt / ms;
 }
 
 // --- the draw ------------------------------------------------------------------
@@ -1888,7 +2038,7 @@ function gcDraw(s = gcTab) {
   //: The glide's last frame lands the notes, so the paths are rebuilt on
   //: it too (`pathsStale` stays true until a frame after the glide).
   const gliding = gcGlideStep(s);
-  const fadeStep = gcFadeStep(s, window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+  const fadeStep = gcFadeStep(s, gcStill());
   let fading = false;
   const ctx = s.ctx;
   const t = s.transform || d3.zoomIdentity;
@@ -1941,14 +2091,13 @@ function gcDraw(s = gcTab) {
   //: pointed at, else the one the keyboard is on, else the one whose panel is
   //: open. Its lines are the ones not dimmed, so the numbers sit on the only
   //: lines still in full view.
+  const openId = s.size === "full" && typeof graphPopupId !== "undefined" ? graphPopupId : null;
   const scoreFor =
     s.hoveredId != null
       ? s.hoveredId
       : gcKeyboardId(s) != null
         ? gcKeyboardId(s)
-        : s.size === "full" && typeof graphPopupId !== "undefined"
-          ? graphPopupId
-          : null;
+        : openId;
   s.simScoreLabels = [];
   const arrows = !s.tree && gcArrows(s);
   //: A spark drifts along the pointed-at note's arrowed links, unless motion
@@ -1956,7 +2105,7 @@ function gcDraw(s = gcTab) {
   const drifting =
     arrows &&
     s.hoveredId != null &&
-    !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches &&
+    !gcStill() &&
     document.documentElement.dataset.motion !== "reduced";
   const drift = [];
   //: The glow and core only while few sparks are in view (the last frame's
@@ -1991,41 +2140,21 @@ function gcDraw(s = gcTab) {
     if (edge._lit !== (dim ? 0 : 1)) fading = true;
     //: Eleven steps of lit-ness, so a fade still strokes in buckets.
     const level = Math.round(gcSmooth(edge._lit) * 10);
-    const similar = edge.kind === "similar" && typeof edge.score === "number";
-    const band = similar ? gcSimilarityBand(edge.score, simLo, simHi) : -1;
-    let style = similar ? GC_SIMILAR_BANDS[band] : gcEdgeStyle(edge);
-    //: Same colour at both ends: the line wears it (see GC_EDGE_TINTED).
-    const tint =
-      !similar && edge.link_type !== "contradicts" && GC_EDGE_TINTED[edge.kind] && a.colour && a.colour === b.colour
-        ? a.colour
-        : null;
-    if (tint) style = { ...style, alpha: Math.max(style.alpha, GC_EDGE_TINTED[edge.kind]) };
-    //: How sure, as thickness and strength (INBOX 693, the legend's second
-    //: channel): a reason the app deduced (`reason_confidence`, 0 to 1)
-    //: draws its link from 0.6x to 1.2x, so a guess reads lighter than a
-    //: reason in someone's words, which keeps its full line.
-    if (edge.kind === "link" && typeof edge.reason_confidence === "number") {
-      const sure = 0.6 + 0.6 * Math.max(0, Math.min(1, edge.reason_confidence));
-      style = { ...style, width: style.width * sure, alpha: Math.min(1, style.alpha * sure) };
-    }
+    if (edge._styleEpoch !== s.epoch) gcEdgeLook(edge, a, b, simLo, simHi, s.epoch);
+    const similar = edge._similar;
     //: **A line between clusters is quiet until asked about** (INBOX 693,
     //: the owner: cross-cluster links "thin and muted (only highlighted on
     //: hover)"). The clusters are what the map says; the lines between them
     //: are the footnote. Thinner and fainter, unless the pointer is on one
     //: of its ends; a contradiction keeps its warning.
-    if (
-      a._cluster != null &&
-      a._cluster !== b._cluster &&
-      edge.link_type !== "contradicts" &&
-      !(hl.hovering && byHover)
-    ) {
-      style = { ...style, width: style.width * GC_CROSS_WIDTH, alpha: style.alpha * GC_CROSS_ALPHA };
-    }
-    const key =`${edge.kind}|${tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${level}`;
+    const quiet = edge._cross && !(hl.hovering && byHover);
+    const style = quiet ? edge._quietStyle : edge._style;
+    const slot = level * 2 + (quiet ? 1 : 0);
+    const key = edge._keys[slot] || (edge._keys[slot] = `${edge.kind}|${edge._tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${level}`);
     const into = similar ? simBuckets : buckets;
     let bucket = into.get(key);
     if (!bucket) {
-      bucket = { style, level, tint, path: new Path2D() };
+      bucket = { style, level, tint: edge._tint, path: new Path2D() };
       into.set(key, bucket);
     }
     if (similar && scoreFor != null && (a.id === scoreFor || b.id === scoreFor)) {
@@ -2045,12 +2174,12 @@ function gcDraw(s = gcTab) {
       bucket.path.addPath(edge._path2d);
       // No arrow on a link that runs both ways (INBOX 693, `two_way` from /graph).
     } else if (arrows && edge.kind === "link" && !edge.two_way) {
-      const bow = curvedLinks ? gcBowPoint(a, b) : null;
+      const bow = curvedLinks ? gcBowPoint(a, b, gcBowScratch, edge._side) : null;
       gcLinkSpark(bucket, a, bow, b, k, sparkRich);
       sparks += 1;
-      if (drifting && (a.id === s.hoveredId || b.id === s.hoveredId)) drift.push({ a, bow, b, bucket });
+      if (drifting && (a.id === s.hoveredId || b.id === s.hoveredId)) drift.push({ a, bow: bow && { x: bow.x, y: bow.y }, b, bucket });
     } else if (curvedLinks) {
-      const bow = gcBowPoint(a, b);
+      const bow = gcBowPoint(a, b, gcBowScratch, edge._side);
       bucket.path.moveTo(a.x, a.y);
       bucket.path.quadraticCurveTo(bow.x, bow.y, b.x, b.y);
     } else {
@@ -2077,6 +2206,7 @@ function gcDraw(s = gcTab) {
   for (const bucket of simBuckets.values()) strokeBucket(bucket);
   for (const bucket of buckets.values()) strokeBucket(bucket);
   ctx.setLineDash([]);
+  gcDrawLeavingLines(ctx, s, performance.now());
   s.sparksDrawn = sparks;
   if (drift.length) {
     gcDrawDrift(ctx, drift, k);
@@ -2135,7 +2265,9 @@ function gcDraw(s = gcTab) {
     halo.nodes.push(node);
     drawn.push(node);
     node._dim = dim;
-    const focused = node.id === s.hoveredId || node.id === gcKeyboardId(s);
+    //: The note whose popup is open keeps the focus ring (Brief 100 (c), a
+    //: ring on the selected node), so the map says which dot the card is for.
+    const focused = node.id === s.hoveredId || node.id === gcKeyboardId(s) || node.id === openId;
     //: The node the pointer just left keeps its ring while it shrinks back,
     //: fading with it, and the one it arrived on fades its ring in.
     const leaving = !focused && node.id === s.hoverFrom && heat > 0;
@@ -2253,8 +2385,17 @@ function gcDraw(s = gcTab) {
         continue;
       }
       ctx.globalAlpha = alpha;
-      const hub = (s.adj.get(node.id) || { size: 0 }).size >= 3;
-      const sprite = gcNodeSprite(halo.colour, rWorld * pixelScale, hub);
+      //: The node keeps the sprite it drew last (Brief 100): the cache key
+      //: was a new string for every node on every frame of a hover fade.
+      const px = Math.max(2, Math.round(rWorld * pixelScale));
+      if (node._spritePx !== px || node._spriteEpoch !== s.epoch || node._spriteFor !== gcTokens) {
+        const hub = (s.adj.get(node.id)?.size || 0) >= 3;
+        node._sprite = gcNodeSprite(halo.colour, px, hub);
+        node._spritePx = px;
+        node._spriteEpoch = s.epoch;
+        node._spriteFor = gcTokens;
+      }
+      const sprite = node._sprite;
       const halfWorld = sprite.half / pixelScale;
       ctx.drawImage(sprite.canvas, node.x - halfWorld, node.y - halfWorld, halfWorld * 2, halfWorld * 2);
     }
@@ -4050,7 +4191,7 @@ function gcReshuffle(s = gcTab) {
     {
       type: "reshuffle",
       seed: s.layoutSeed,
-      animate: !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
+      animate: !gcStill(),
     },
     s
   );
@@ -4063,6 +4204,8 @@ function gcReshuffle(s = gcTab) {
 //: so they hold still while `alpha: 1` places the notes that have no saved
 //: spot. `null` (every other caller) is the unchanged "alpha 1, nothing
 //: frozen" behaviour.
+//: The heat an update starts from: the worker's `DRAG_ALPHA`.
+const GC_UPDATE_ALPHA = 0.3;
 function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
   if (!s.worker) {
     // Version-stamped for the same reason index.html's script tags are
@@ -4186,6 +4329,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
         //: What just came to rest, so the next render of exactly these
         //: inputs can hold it instead of settling it again (`gcStartWorker`).
         s.settledSig = s.layoutSig;
+        gcSavePositions(s);
         if (s.size === "full") graphMinimapQueuePaint();
         if (!gcAutoFitDone(s) && s.nodes.length) {
           gcSetAutoFitDone(s, true);
@@ -4276,7 +4420,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     //: And then play those steps back, framed on where they end (the
     //: worker's `INTRO_HOLD`), unless the reader asked for less motion: they
     //: get the settled map at once, as before.
-    intro: !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
+    intro: !gcStill(),
   };
   //: **A layout that already settled is held, not settled again** (INBOX
   //: 424c/d). Every visit to the Graph tab refetched the map and restarted
@@ -4300,6 +4444,13 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     world,
   ]);
   if (init.alpha && viewSeed?.holdIfSettled && s.settledSig === sig) init.alpha = 0;
+  //: **An update moves the map from where it is** (Brief 100 (a)): a filter,
+  //: a hidden category or a deleted note, every note still there already
+  //: placed and the forces unchanged, reheats as a drag does rather than
+  //: from full heat, which shuffled the whole map for one note's change.
+  const forces = JSON.stringify([init.params, init.seed, init.perf]);
+  if (init.alpha === 1 && viewSeed?.holdIfSettled && s.lastForces === forces) init.alpha = GC_UPDATE_ALPHA;
+  s.lastForces = forces;
   s.layoutSig = sig;
   s.settledSig = null;
   gcPost(init, s);
@@ -4316,6 +4467,50 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
 //: (the worker's `intro`, INBOX 775): the notes then move into a frame that
 //: already holds them, rather than the frame chasing the notes (INBOX 738's
 //: zoomed-in start). Instant, and the map is shown here.
+//: **The map opens where it was left** (Brief 100 (a); INBOX 864, and the
+//: owner 2026-10-11: "there is still no smooth transition loading up the app
+//: nd viewing the graph, it kinda just appears"). Measured before
+//: (`load.js`, 200 notes, the app loading onto Graph): the canvas waited
+//: hidden, came in at 0.8 opacity in one frame, and the spiral then spread
+//: from 241 to 630 px wide in four frames. The settled positions are kept in
+//: this browser, for the layout and the forces they were settled under, and
+//: a page's first draw starts from them the way a saved view does
+//: (`graphApplyView`): every note they know holds, a note they do not is
+//: placed by the settle with the rest held, and the first fit frames the
+//: picture the reader last saw. A per-viewer convenience only: an empty,
+//: stale or blocked store gives the warm-up as before.
+const GC_POS_KEY = "graphPositions";
+const GC_POS_MAX = 5000;
+function gcPositionsSig(s) {
+  return JSON.stringify([s.layoutSeed || 0, gcWorkerParams(s)]);
+}
+function gcSavePositions(s) {
+  if (s.size !== "full" || s.tree || graphFocusModeId || !s.nodes.length || s.nodes.length > GC_POS_MAX) return;
+  const at = {};
+  for (const node of s.nodes) {
+    if (Number.isFinite(node.x) && Number.isFinite(node.y)) at[node.id] = [Math.round(node.x), Math.round(node.y)];
+  }
+  try {
+    localStorage.setItem(GC_POS_KEY, JSON.stringify({ sig: gcPositionsSig(s), at }));
+  } catch (e) {
+    // A full or blocked store costs only the next open's head start.
+  }
+}
+function gcCachedPositions(s) {
+  if (s.size !== "full" || graphFocusModeId) return null;
+  try {
+    const kept = JSON.parse(localStorage.getItem(GC_POS_KEY) || "null");
+    if (!kept || kept.sig !== gcPositionsSig(s) || !kept.at) return null;
+    const out = {};
+    for (const [id, xy] of Object.entries(kept.at)) {
+      if (Array.isArray(xy) && Number.isFinite(xy[0]) && Number.isFinite(xy[1])) out[id] = { x: xy[0], y: xy[1] };
+    }
+    return out;
+  } catch (e) {
+    return null;
+  }
+}
+
 function gcFrameIntro(s, positions) {
   if (gcAutoFitDone(s) || !s.nodes.length || positions.length < s.nodes.length * 2) return;
   s.fittedOnce = true;
@@ -4429,6 +4624,44 @@ function gcShowEveryNote(s = gcTab) {
 
 document.getElementById("graph-empty-show-all")?.addEventListener("click", () => gcShowEveryNote());
 
+//: **A note new to a placed map starts beside what it is linked to** (Brief
+//: 100 (a): "new ones grow in"). It started on the centre spiral, so a note
+//: added, or a category shown again, flew in from the middle of the map
+//: through everything between. Now it starts at the middle of its placed
+//: neighbours, else of its placed category, a few units off so two do not
+//: coincide, and fades in there (`node._born`); only a note with neither
+//: keeps the spiral.
+function gcSeedBesideNeighbours(s, nodes) {
+  if (!nodes.some((n) => Number.isFinite(n.x)) || nodes.every((n) => Number.isFinite(n.x))) return;
+  const byCategory = new Map();
+  for (const node of nodes) {
+    if (!Number.isFinite(node.x)) continue;
+    const sum = byCategory.get(node.category) || { x: 0, y: 0, n: 0 };
+    sum.x += node.x;
+    sum.y += node.y;
+    sum.n += 1;
+    byCategory.set(node.category, sum);
+  }
+  nodes.forEach((node, index) => {
+    if (Number.isFinite(node.x)) return;
+    let x = 0, y = 0, n = 0;
+    for (const id of s.adj.get(node.id) || []) {
+      const mate = s.byId.get(id);
+      if (!mate || !Number.isFinite(mate.x)) continue;
+      x += mate.x;
+      y += mate.y;
+      n += 1;
+    }
+    const home = n ? { x: x / n, y: y / n } : byCategory.get(node.category);
+    if (!home || (!n && !home.n)) return;
+    const cx = n ? home.x : home.x / home.n;
+    const cy = n ? home.y : home.y / home.n;
+    const angle = index * 2.399963;
+    node.x = cx + 12 * Math.cos(angle);
+    node.y = cy + 12 * Math.sin(angle);
+  });
+}
+
 async function renderGraphCanvas(s = gcTab) {
   if (!gcEnsureCanvas(s)) return;
   const sequence = ++s.renderSeq;
@@ -4456,6 +4689,7 @@ async function renderGraphCanvas(s = gcTab) {
     : false;
   graphSyncFocusChip();
   void wantEntities, wantDocuments, wantMaps;
+  if (!s.shown) gcArriving(s, true);
   const endpoint = graphEndpoint();
   //: A failed read is not an empty graph. Reported class of bug: the map
   //: drew "Nothing to map yet" over a notebook full of linked notes because
@@ -4463,6 +4697,7 @@ async function renderGraphCanvas(s = gcTab) {
   //: See `surfaceFailed` in navigation.js.
   const data = await apiJson(endpoint).then(graphFill).catch(() => null);
   if (!data) {
+    gcArriving(s, false);
     surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
     //: And the overview goes with the map it summarises, exactly as it does
     //: when there is nothing to map.
@@ -4484,6 +4719,7 @@ async function renderGraphCanvas(s = gcTab) {
 
   gcReadTokens(s);
   gcShowEmpty(data.nodes.length === 0);
+  if (!data.nodes.length) gcArriving(s, false);
   //: The minimap goes with the map, here as in `renderGraphSvg`: an overview
   //: of nothing is a grey rectangle in a corner. Reported against this
   //: renderer, which is the default, so the SVG one's copy of this line alone
@@ -4594,7 +4830,8 @@ async function renderGraphCanvas(s = gcTab) {
   // inherits the result forward through `prior`, above, the same as any
   // other re-render already does. Only meaningful for force: a tree/radial/
   // arc layout is recomputed deterministically below and never reads this.
-  const viewPositions = graphPendingViewPositions;
+  const viewPositions =
+    graphPendingViewPositions || (s.layoutKind === "force" && !prior.size ? gcCachedPositions(s) : null);
   graphPendingViewPositions = null;
   // Decision made, 2026-09-21 (GRAPH_PLAN): a restored arrangement holds, it
   // does not re-settle. A note the view captured gets exactly its saved
@@ -4668,6 +4905,7 @@ async function renderGraphCanvas(s = gcTab) {
     const centreX = width / 2;
     const centreY = height / 2;
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    gcSeedBesideNeighbours(s, nodes);
     nodes.forEach((node, index) => {
       if (Number.isFinite(node.x) && Number.isFinite(node.y)) return;
       const radius = 10 * Math.sqrt(0.5 + index);
@@ -5493,10 +5731,33 @@ async function gcRelinkPairs(pairs) {
   renderGraph();
 }
 
+//: The map arrives over two `--ui-slow` (Brief 100): over `--ui-fast` it was
+//: one frame on a busy machine, which read as the graph simply appearing.
+//: The token is 0 with interface animations off, so that case cuts.
+//: **A soft placeholder while the first map is on its way** (Brief 100, the
+//: owner: "it kinda just appears after the page loads"). Measured on a first
+//: open (scratchpad/g100 load.js FIRST=1): the tab's skeleton went and the
+//: card stood empty for 430 to 730ms while /graph, the worker and its
+//: warm-up ran, then the map arrived. The box breathes a faint glow from the
+//: render's start until the canvas reveals (`gcReveal`), an empty or failed
+//: read, or 6s, whichever is first; the glow fades as the map fades in
+//: (graph-lazy.css).
+function gcArriving(s, on) {
+  const box = document.getElementById(s.boxId);
+  if (!box) return;
+  box.classList.toggle("graph-arriving", on);
+  clearTimeout(s.arrivingTimer);
+  if (on) s.arrivingTimer = setTimeout(() => box.classList.remove("graph-arriving"), 6000);
+}
+
 function gcReveal(s) {
   s.shown = true;
+  gcArriving(s, false);
   if (s.canvas && s.canvas.style.opacity === "0") {
-    s.canvas.style.transition = "opacity var(--ui-fast) var(--ease-out)";
+    //: Cut, not faded, for a reader who asked for less motion (Brief 100:
+    //: "reduced motion keeps everything instant"); the token alone follows
+    //: Interface animations, which play under the system hint.
+    s.canvas.style.transition = gcStill() ? "none" : "opacity calc(var(--ui-slow) * 2) var(--ease-out)";
     s.canvas.style.opacity = "";
   }
 }

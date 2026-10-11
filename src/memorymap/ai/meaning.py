@@ -135,11 +135,8 @@ def fold_typo(word: str, vocab: set[str]) -> str | None:
     return best
 
 
-def alts(query: str, vocab: set[str] | frozenset[str] = frozenset()) -> list[list[str]]:
-    """The things `query` names, each as the words that mean it."""
-    known = _vocabulary(vocab)
-    said = [fold_typo(w, known) or w for w in words_of(query)]
-    rest = f" {' '.join(said)} "
+def _take_phrases(rest: str) -> tuple[list[list[str]], str]:
+    """The groups named by a whole phrase, and the text left once they are taken out."""
     out: list[list[str]] = []
     for group in GROUPS:
         #: Longest first, every one: "to do list" before "to do", and "bring
@@ -149,21 +146,34 @@ def alts(query: str, vocab: set[str] | frozenset[str] = frozenset()) -> list[lis
             rest = rest.replace(f" {phrase} ", " ", 1)
         if phrases:
             out.append(list(group))
+    return out, rest
+
+
+def _add_word(out: list[list[str]], word: str) -> None:
+    """One more word: it joins the thing it already names, or is a new thing."""
+    group = _group_of(word)
+    #: Said twice ("what it remembers about me") is one thing.
+    same = next((g for g in out if group and group[0] in g), None)
+    if same is not None:
+        #: Every word typed for the thing counts as typed ("which ai
+        #: model" holds "model" as closely as "ai").
+        if word in same:
+            same.remove(word)
+        same.insert(0, word)
+        return
+    found = [word] if stem(word) == word else [word, stem(word)]
+    out.append(found + [w for w in (group or ()) if w not in found])
+
+
+def alts(query: str, vocab: set[str] | frozenset[str] = frozenset()) -> list[list[str]]:
+    """The things `query` names, each as the words that mean it."""
+    known = _vocabulary(vocab)
+    said = [fold_typo(w, known) or w for w in words_of(query)]
+    out, rest = _take_phrases(f" {' '.join(said)} ")
     left = rest.split()
     named = [w for w in left if w not in FILLER]
     for word in named if (named or out) else left:
-        group = _group_of(word)
-        #: Said twice ("what it remembers about me") is one thing.
-        same = next((g for g in out if group and group[0] in g), None)
-        if same is not None:
-            #: Every word typed for the thing counts as typed ("which ai
-            #: model" holds "model" as closely as "ai").
-            if word in same:
-                same.remove(word)
-            same.insert(0, word)
-            continue
-        found = [word] if stem(word) == word else [word, stem(word)]
-        out.append(found + [w for w in (group or ()) if w not in found])
+        _add_word(out, word)
     return out
 
 

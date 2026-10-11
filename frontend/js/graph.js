@@ -581,7 +581,7 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
   //: As long as the notes' own glide (`GC_LAYOUT_MS`), so frame and notes
   //: arrive together.
   if (instant) svg.interrupt().call(zoomBehavior.transform, framed);
-  else svg.transition().duration(700).call(zoomBehavior.transform, framed);
+  else svg.transition().duration(graphGlideMs(700)).call(zoomBehavior.transform, framed);
 }
 
 // --- tracing a path between two notes (§9) -----------------------------------
@@ -3247,7 +3247,7 @@ function initGraphKeyboard() {
     const zoomKeys = { "+": 1.3, "=": 1.3, "-": 1 / 1.3, _: 1 / 1.3 };
     if (Object.prototype.hasOwnProperty.call(zoomKeys, event.key) && graphSvg && graphZoom) {
       event.preventDefault();
-      graphSvg.transition().duration(200).call(graphZoom.scaleBy, zoomKeys[event.key]);
+      graphSvg.transition().duration(graphGlideMs(200)).call(graphZoom.scaleBy, zoomKeys[event.key]);
       announce(zoomKeys[event.key] > 1 ? "Zoomed in." : "Zoomed out.");
       return;
     }
@@ -3265,7 +3265,7 @@ function initGraphKeyboard() {
       // fixed step would move a hair at high zoom and half the map at low.
       // Dividing by k keeps the movement a constant number of screen pixels.
       const k = d3.zoomTransform(graphSvg.node()).k || 1;
-      graphSvg.transition().duration(150).call(graphZoom.translateBy, dx / k, dy / k);
+      graphSvg.transition().duration(graphGlideMs(150)).call(graphZoom.translateBy, dx / k, dy / k);
       return;
     }
 
@@ -3411,7 +3411,6 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height, instant
   //: motion gets the framed map at once (INBOX 443 (1)): the fit lands twice
   //: while a layout settles, and two half-second pans are the most movement
   //: this tab makes on its own.
-  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
   const framed = d3.zoomIdentity.translate(tx, ty).scale(scale);
   //: Instant is applied now (see `frameTree`): a zero-length transition
   //: still lands a frame late.
@@ -3428,7 +3427,7 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height, instant
   if (instant) {
     svg.interrupt().call(zoomBehavior.transform, framed);
     balance();
-  } else svg.transition().duration(still ? 0 : 500).call(zoomBehavior.transform, framed).on("end", balance);
+  } else svg.transition().duration(graphGlideMs(500)).call(zoomBehavior.transform, framed).on("end", balance);
 }
 
 // Dim everything except nodes that match the search box AND (when hovering)
@@ -3585,6 +3584,8 @@ function renderGraphPopupHeader(entry, node) {
 async function openGraphPopup(event, node) {
   event.stopPropagation();
   graphPopupId = node.id;
+  //: The open note wears the focus ring (graph-canvas.js `openId`).
+  if (typeof gcTab !== "undefined" && gcTab.canvas) gcRequestDraw(gcTab);
   const popup = $("graph-popup");
   const status = $("graph-popup-status");
   status.textContent = "";
@@ -4145,7 +4146,7 @@ async function graphShowNote(id, { document: isDocument = false } = {}) {
   }
   focusGraphNode(node);
   if (typeof graphSvg !== "undefined" && graphSvg && typeof graphZoom !== "undefined" && graphZoom) {
-    graphSvg.transition().duration(400).call(graphZoom.translateTo, node.x, node.y);
+    graphSvg.transition().duration(graphGlideMs(400)).call(graphZoom.translateTo, node.x, node.y);
   }
 }
 
@@ -4540,6 +4541,7 @@ try {
 
 function closeGraphPopup() {
   graphPopupId = null;
+  if (typeof gcTab !== "undefined" && gcTab.canvas) gcRequestDraw(gcTab);
   $("graph-popup").classList.add("hidden");
   clearGraphKeyboardFocus();
 }
@@ -5135,6 +5137,19 @@ function graphMinimapPaint() {
   graphMinimapFrame();
 }
 
+//: **Every camera move glides on the motion token** (Brief 100 (d), INBOX
+//: 802: reset and recentre ease the view). The moves had seven durations of
+//: their own, 150 to 700ms, and only the fit asked about reduced motion, and
+//: only the system's: the zoom buttons, the arrow keys and Locate glided
+//: with the app's own Reduce motion on. Each keeps its length relative to the
+//: others, scaled by `--ui-slow` (0.2s, `gcTokens.hoverMs`), and is 0 when
+//: either setting asks for less motion or the token is off.
+function graphGlideMs(base) {
+  if (typeof gcStill === "function" && gcStill()) return 0;
+  const token = typeof gcTokens !== "undefined" && gcTokens.hoverMs != null ? gcTokens.hoverMs : 200;
+  return Math.round((base * token) / 200);
+}
+
 //: Every number that reaches an SVG attribute goes through here first. Named
 //: rather than inlined because it is checked in three places in this file and
 //: the shape of the bug it prevents (one NaN, four broken attributes, a
@@ -5290,7 +5305,7 @@ function initGraphMinimap() {
       .translate(graphDims.w / 2, graphDims.h / 2)
       .scale(scale)
       .translate(-cx, -cy);
-    const sel = animate ? graphSvg.transition().duration(250) : graphSvg;
+    const sel = animate ? graphSvg.transition().duration(graphGlideMs(250)) : graphSvg;
     sel.call(graphZoom.transform, target);
   };
 
@@ -5716,7 +5731,7 @@ function graphZoomBy(factor) {
   //: The zoom buttons move the camera as a gesture does: no settle fit or
   //: panel refit may take it back (INBOX 792).
   if (typeof gcTab !== "undefined" && gcTab.svg === graphSvg) gcTab.userZoomed = true;
-  graphSvg.transition().duration(200).call(graphZoom.scaleBy, factor);
+  graphSvg.transition().duration(graphGlideMs(200)).call(graphZoom.scaleBy, factor);
 }
 $("graph-zoom-in").addEventListener("click", () => graphZoomBy(1.3));
 $("graph-zoom-out").addEventListener("click", () => graphZoomBy(1 / 1.3));

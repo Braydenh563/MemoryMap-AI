@@ -1326,6 +1326,18 @@ class SuggestedTagsBody(BaseModel):
     mute: bool | None = None
 
 
+def _discard_tags(entry, body) -> dict[str, str]:  # noqa: ANN001
+    """Remember the tags turned down on this note (the last 200), and return the
+    ones taken back, keyed by their folded form."""
+    gone = _json_tags(entry.discarded_tags)
+    gone_folded = {tag.casefold() for tag in gone}
+    gone += [tag.strip() for tag in body.discard if tag.strip() and tag.strip().casefold() not in gone_folded]
+    restored = {tag.strip().casefold(): tag.strip() for tag in body.restore if tag.strip()}
+    gone = [tag for tag in gone if tag.casefold() not in restored]
+    entry.discarded_tags = json.dumps(gone[-200:])
+    return restored
+
+
 @router.post("/{entry_id}/suggested-tags", response_model=EntryOut)
 def answer_suggested_tags(
     entry_id: int, body: SuggestedTagsBody, session: Session = Depends(get_session)
@@ -1342,12 +1354,7 @@ def answer_suggested_tags(
         have = manager.entry_tags(entry)
         folded = {tag.casefold() for tag in have}
         manager.update_entry(session, entry, tags=have + [tag for tag in take if tag.casefold() not in folded])
-    gone = _json_tags(entry.discarded_tags)
-    gone_folded = {tag.casefold() for tag in gone}
-    gone += [tag.strip() for tag in body.discard if tag.strip() and tag.strip().casefold() not in gone_folded]
-    restored = {tag.strip().casefold(): tag.strip() for tag in body.restore if tag.strip()}
-    gone = [tag for tag in gone if tag.casefold() not in restored]
-    entry.discarded_tags = json.dumps(gone[-200:])
+    restored = _discard_tags(entry, body)
     answered = {tag.casefold() for tag in [*take, *body.discard]}
     kept = [tag for tag in _json_tags(entry.suggested_tags) if tag.casefold() not in answered]
     kept_folded = {tag.casefold() for tag in kept}

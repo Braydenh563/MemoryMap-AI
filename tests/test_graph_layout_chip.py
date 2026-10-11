@@ -36,7 +36,7 @@ def test_the_chip_survives_the_phone_dock_that_hides_every_other_chip():
 def test_a_note_leaving_the_picture_fades_instead_of_vanishing():
     mark = CANVAS[CANVAS.index("function gcMarkLeaving(") :]
     mark = mark[: mark.index("\n}\n")]
-    assert "prefers-reduced-motion: reduce" in mark, "less motion keeps the cut"
+    assert "gcStill()" in mark, "less motion keeps the cut"
     assert "staying.has(n.id)" in mark
     draw = CANVAS[CANVAS.index("function gcDrawLeaving(") :]
     draw = draw[: draw.index("\n}\n")]

@@ -106,35 +106,42 @@ def _hex_ip(value: str) -> str:
     return socket.inet_ntoa(struct.pack("<I", int(value, 16)))
 
 
-def parse_proc_route(text: str) -> tuple[str, str, str] | None:
-    """(interface, gateway, subnet) of the default route with the lowest metric."""
-    rows = [line.split() for line in text.splitlines()[1:] if line.strip()]
+def _default_route(rows: list[list[str]]) -> tuple[int, str, str] | None:
+    """(metric, interface, gateway) of the default route with the lowest metric."""
     best = None
     for row in rows:
-        if len(row) < 8:
-            continue
         try:
-            if row[1] == "00000000" and row[7] == "00000000" and int(row[3], 16) & 0x2:
+            if len(row) >= 8 and row[1] == "00000000" and row[7] == "00000000" and int(row[3], 16) & 0x2:
                 metric = int(row[6])
                 if best is None or metric < best[0]:
                     best = (metric, row[0], _hex_ip(row[2]))
         except ValueError:
             continue
-    if best is None:
-        return None
-    _, iface, gateway = best
-    subnet = ""
+    return best
+
+
+def _route_subnet(rows: list[list[str]], iface: str, gateway: str) -> str:
+    """The on-link route of `iface` that holds the gateway, as a network."""
     for row in rows:
         if len(row) < 8 or row[0] != iface or row[2] != "00000000" or row[7] == "00000000":
             continue
         try:
             candidate = _subnet(_hex_ip(row[1]), _hex_ip(row[7]))
             if candidate and ipaddress.ip_address(gateway) in ipaddress.ip_network(candidate):
-                subnet = candidate
-                break
+                return candidate
         except ValueError:
             continue
-    return iface, gateway, subnet
+    return ""
+
+
+def parse_proc_route(text: str) -> tuple[str, str, str] | None:
+    """(interface, gateway, subnet) of the default route with the lowest metric."""
+    rows = [line.split() for line in text.splitlines()[1:] if line.strip()]
+    best = _default_route(rows)
+    if best is None:
+        return None
+    _, iface, gateway = best
+    return iface, gateway, _route_subnet(rows, iface, gateway)
 
 
 def parse_proc_arp(text: str, gateway: str, iface: str = "") -> str:
@@ -249,6 +256,16 @@ _PS_SCRIPT = (
 )
 
 
+def _windows_category(data: dict) -> str | None:
+    category = str(data.get("category") or "").lower()
+    return {"public": "public", "private": "private", "domainauthenticated": "domain"}.get(category)
+
+
+def _windows_subnet(data: dict, address: str) -> str:
+    prefix = data.get("prefix")
+    return _subnet(address, str(prefix)) if address and prefix not in (None, "") else ""
+
+
 def parse_windows_json(text: str) -> Network | None:
     try:
         data = json.loads(text.strip() or "null")
@@ -265,16 +282,13 @@ def parse_windows_json(text: str) -> Network | None:
     if not mac:
         return None
     address = str(data.get("address") or "")
-    prefix = data.get("prefix")
-    subnet = _subnet(address, str(prefix)) if address and prefix not in (None, "") else ""
-    category = str(data.get("category") or "").lower()
-    category = {"public": "public", "private": "private", "domainauthenticated": "domain"}.get(category)
     virtual = data.get("virtual") or []
     if isinstance(virtual, str):
         virtual = [virtual]
     return Network(
-        gateway, mac, subnet, category=category, name=str(data.get("name") or "")[:80],
-        address=address, virtual=tuple(str(v) for v in virtual if v),
+        gateway, mac, _windows_subnet(data, address), category=_windows_category(data),
+        name=str(data.get("name") or "")[:80], address=address,
+        virtual=tuple(str(v) for v in virtual if v),
     )
 
 

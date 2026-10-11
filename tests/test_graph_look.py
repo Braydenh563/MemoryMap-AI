@@ -145,7 +145,11 @@ def test_the_fit_glides_only_for_a_reader_who_has_not_asked_for_less_motion():
     graph = (JS / "graph.js").read_text(encoding="utf-8")
     fit = graph[graph.index("function fitGraphToView") :]
     fit = fit[: fit.index("\n}\n")]
-    assert "prefers-reduced-motion: reduce" in fit and "still ? 0 : 500" in fit
+    # Brief 100 (d): the glide is `graphGlideMs`, 0 under either reduced
+    # motion setting (tests/test_graph_feel_100.py runs it).
+    assert "duration(graphGlideMs(500))" in fit
+    glide = graph[graph.index("function graphGlideMs") :]
+    assert "gcStill()) return 0;" in glide[: glide.index("\n}\n")]
 
 
 @needs_node

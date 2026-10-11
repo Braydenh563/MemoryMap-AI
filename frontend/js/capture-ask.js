@@ -2235,13 +2235,15 @@ async function renderAskFollowups(question, answer, given = null) {
   label.textContent = "Ask next:";
   strip.appendChild(label);
   for (const pick of picks) {
-    strip.appendChild(
-      chip(pick, "Ask this next, keeping the answer above as context", () => {
-        askTrailPending = [...askTrail, conversation.length - 1];
-        $("question").value = pick;
-        askQuestion(pick);
-      })
-    );
+    //: The hint is the chip's title; `chip`'s second argument is its class,
+    //: and the sentence once went there, as seven class names.
+    const next = chip(pick, "", () => {
+      askTrailPending = [...askTrail, conversation.length - 1];
+      $("question").value = pick;
+      askQuestion(pick);
+    });
+    next.title = "Ask this next, keeping the answer above as context";
+    strip.appendChild(next);
   }
   strip.classList.remove("hidden");
   $("ask-answer-foot")?.classList.remove("hidden");

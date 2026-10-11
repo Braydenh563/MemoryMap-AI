@@ -57,6 +57,8 @@ _BASE = {
     "stands_for_seen": "{abbr} looks like {phrase}: your note of {day} names it in full.",
     "uses": "You use {abbr} in {count}, the last on {day}.",
     "all_said": "That's all your notes say on {topic} so far: {count}, {span}.",
+    "tie": "{Topic} also comes up in {category}: {count} on something else.",
+    "tie_chip": "What have I saved about {topic} in {category}?",
     "nothing_yet": "Nothing yet on {facets}.",
     "remind": "Remind you to {action}?",
     "checklist": "Save it as a checklist note?",
@@ -314,6 +316,8 @@ class _Out:
     #: "Show two more" the page draws, so the answer is short by default and
     #: the rest is a press away rather than only in the notes on the right.
     more: list[str] = field(default_factory=list)
+    #: The one clarifying chip (B9): the other reading, shown only on a tie.
+    next: list[str] = field(default_factory=list)
 
 
 def _day(d: date | None, today: date) -> str:
@@ -543,9 +547,13 @@ def _members(question: str, views: list[composer.NoteView]) -> list[composer.Not
     that hold most of its words (in the text, the title or the tags)."""
     q = clean(question).lower()
     named = [v for v in views if str(v.note.get("category") or "").strip() and str(v.note.get("category")).lower() in q]
-    if named:
-        return named
     stems = _subject(question)
+    if named:
+        #: "python in Pets": the category's notes that hold the subject, when
+        #: the subject is more than the category's own name (B9's chip).
+        rest = [st for st in stems if not composer._holds(st, set(composer._words(str(named[0].note.get("category") or ""))))]
+        held = [v for v in named if rest and any(composer._holds(st, v.words | v.title_words | v.filed_words) for st in rest)]
+        return held or named
     if not stems:
         return []
     scored = []
@@ -1008,6 +1016,9 @@ def answer(question: str, notes: list[dict], *, today: date | None = None, voice
     if not members:
         return None
     members.sort(key=lambda v: (v.written or date.min, v.rank))
+    tie = _tie(asked, members) if kind == "overview" else None
+    if tie:
+        members, other, others = tie
     subject = set(_subject(asked))
     facts = [f for v in members for f in _facts(v, names, subject)]
     if not facts:
@@ -1028,8 +1039,43 @@ def answer(question: str, notes: list[dict], *, today: date | None = None, voice
         missing = _missing(members)
         if missing:
             out.lines.append(missing)
+    if tie:
+        topic = _topic(asked, members)
+        out.closing.insert(0, PHRASES["tie"].format(topic=topic, category=other, count=_count(len(others))))
+        out.next.append(PHRASES["tie_chip"].format(topic=topic, category=other))
     out.offer = out.offer or _offer(facts) or _kind_offer(kind, asked, members, facts, today, out)
     return _result(out, kind, asked)
+
+
+def _tie(question: str, members: list) -> tuple[list, str, list] | None:
+    """Two readings of one word that tie (B9): the notes split evenly
+    between two categories and, past the asked word, share no word at all
+    ("python" in Coding and in Pets). The newer reading is answered; the
+    other is named, with one chip to ask about it. Anything short of an
+    even split with nothing shared is one subject, answered whole."""
+    q = clean(question).lower()
+    groups: dict[str, list] = {}
+    for v in members:
+        category = str(v.note.get("category") or "").strip()
+        if not category or category.lower() in q or category.lower() == "uncategorised":
+            return None
+        groups.setdefault(category, []).append(v)
+    if len(groups) != 2:
+        return None
+    (a, first), (b, second) = groups.items()
+    #: One note on each side is a passing mention, not a second reading
+    #: (a joke note and the homework it was about).
+    if len(first) != len(second) or len(first) < 2:
+        return None
+    asked = set(_subject(question))
+    def words(group: list) -> set[str]:
+        return {w for v in group for w in v.words if len(w) > 2 and not any(composer._holds(st, {w}) for st in asked)}
+    if words(first) & words(second):
+        return None
+    newest = max(members, key=lambda v: (v.written or date.min, v.rank))
+    if newest in second:
+        (a, first), (b, second) = (b, second), (a, first)
+    return first, b, second
 
 
 _PLACE = re.compile(r"\b(?:the )?(driving range|range|gym|pool|court|course|track|studio|climbing wall|park)\b", re.I)
@@ -1160,8 +1206,8 @@ def _result(out: _Out, kind: str, question: str) -> dict:
         "support": {"supported": n, "sentences": n, "unsupported": [], "digest": True, "offer": out.offer, "shape": kind, "more": _more(out)},
         "shape": f"digest:{kind}",
         "parts": [("template", text)],
-        "next": [],
-        "next_parts": [],
+        "next": list(out.next),
+        "next_parts": [[("template", n)] for n in out.next],
         "insights": [],
         "broad": kind == "overview",
         "digest": True,

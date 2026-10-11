@@ -1405,7 +1405,7 @@ MORE_TOPICS.extend(
                 "follow-up", "follow up", "followup", "suggested question",
                 "ask next", "next question", "breadcrumb", "bread crumb",
                 "trail", "where did this question come from", "question chain",
-                "tell me more", "what about", "the second one",
+                "tell me more", "what about", "the second one", "two meanings",
             ),
             "body": (
                 "Under a finished answer, Chat offers Next questions and Ask "
@@ -1420,7 +1420,9 @@ MORE_TOPICS.extend(
                 "Oppenheimer?, the second one) is answered like a first "
                 "question; no, the data structures one stays chosen for the "
                 "next shorter; and tell me more, once everything is said, "
-                "says that is all your notes hold."
+                "says that is all your notes hold. When one word means two "
+                "things in your notes (python the code, python the snake), "
+                "the answer takes the newer and offers one chip for the other."
             ),
             "badge": {"label": "Chat", "tab": "chat"},
         },

@@ -41,6 +41,10 @@ INVENTORY = {
     "__main__.py": ("this computer only (the launcher's own health checks, no proxy)", "always; loopback"),
     "core/instance_lock.py": ("this computer only (the running instance)", "a second launch; loopback"),
     "core/netbind.py": ("nothing outbound: the listening socket for LAN mode", "the password-gated switch"),
+    "api/routes_bench.py": (
+        "this server itself over 127.0.0.1, its own port (never the Host header)",
+        "GET /models/bench/budgets?live=true, the interaction budgets timed on the person's notebook",
+    ),
     "ai/captions.py": (
         "the whisper.cpp captions helper at MEMORYMAP_CAPTIONS_URL, refused unless it is this computer (loopback)",
         "Live captions started from the palette, and a status probe while the captions dock is open",

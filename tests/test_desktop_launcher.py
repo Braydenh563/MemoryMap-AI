@@ -27,6 +27,16 @@ import memorymap.__main__ as launcher
 from memorymap.core import startup_status
 
 
+
+@pytest.fixture(autouse=True)
+def _no_reminder_notifier(monkeypatch):
+    """`_run_desktop` starts the reminder notifier; a test of the window must
+    not post a real notification or leave a thread polling another test's
+    database."""
+    from memorymap.core import reminder_notifier
+
+    monkeypatch.setattr(reminder_notifier, "pick_backend", lambda: None)
+
 @pytest.fixture(autouse=True)
 def _restore_desktop_env_var():
     """`_run_desktop` sets `MEMORYMAP_DESKTOP=1` directly on `os.environ`

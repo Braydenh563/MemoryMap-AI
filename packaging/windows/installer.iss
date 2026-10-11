@@ -105,7 +105,10 @@ Source: "..\..\dist\MemoryMap AI\*"; DestDir: "{app}"; Flags: ignoreversion recu
 ; --desktop: the installed app always opens in its own window, never the
 ; bare-server mode — that mode is for a source checkout run from a
 ; terminal, not something a Start Menu shortcut should offer as a choice.
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; IconFilename: "{app}\{#MyAppExeName}"
+; AppUserModelID: Windows shows a desktop app's toast (a due reminder,
+; core/reminder_notifier.py) only under an id a Start menu shortcut carries;
+; the launcher gives its process the same one.
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; IconFilename: "{app}\{#MyAppExeName}"; AppUserModelID: "memorymap.desktop.app.1"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 ; INBOX 253, one-click recovery: beside the ordinary shortcut, not instead
 ; of it, in the same Start Menu group so it is findable the moment the

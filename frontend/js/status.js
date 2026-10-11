@@ -835,24 +835,10 @@ async function checkDueReminders() {
     });
   }
 
-  // One notification for one reminder; a summary for several, because three
-  // separate system notifications for three reminders is worse than one.
-  if (fresh.length === 1) {
-    const text = fresh[0].text;
-    if (!notify("Reminder", text)) toast(text, false, { exempt: true });
-  } else {
-    const summary = `${fresh.length} reminders are due`;
-    if (!notify("MemoryMap", summary)) toast(summary, false, { exempt: true });
-  }
-  // Always in-app as well as out: a system notification can be suppressed by
-  // Do Not Disturb without the app ever knowing.
-  if ("Notification" in window && Notification.permission === "granted") {
-    toast(
-      fresh.length === 1 ? fresh[0].text : `${fresh.length} reminders are due`,
-      false,
-      { exempt: true }
-    );
-  }
+  //: The system notification and its toast (TIMELINE_PLAN 11 row 4):
+  //: reminder-notify.js, lazy, so a hidden tab's notification goes through
+  //: the service worker with Done and Snooze on it.
+  lazyScript("/js/reminder-notify.js").then((ok) => ok && announceReminders(fresh));
   loadReminders().catch(() => {});
 }
 

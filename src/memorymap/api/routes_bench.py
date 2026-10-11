@@ -127,7 +127,10 @@ def budgets(request: Request, live: bool = False, x_auth_token: str | None = Hea
     whether their own notebook is inside the numbers the fixture is held to."""
     if not live:
         return {"budgets": budget_rows()}
-    base = str(request.base_url).rstrip("/")
+    #: This server over loopback, never the Host header's name: the request's
+    #: own auth headers ride along, so the address must be this process.
+    port = (request.scope.get("server") or ("127.0.0.1", 8000))[1]
+    base = f"http://127.0.0.1:{port}"
     headers = {"X-Auth-Token": x_auth_token} if x_auth_token else {}
     session = deps.get_db().session()
     try:

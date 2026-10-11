@@ -320,16 +320,16 @@ other Tuesday", "last Friday of the month").
 | --- | --- | --- | --- | --- |
 | 1 | fix | Undo for create, complete and edit through `pushUndo` (create's inverse is the bin) | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 2 | fix | The closed presets menu does not lay out (`hidden` until opened) | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
-| 3 | expansion | Decision 69, desktop: the launcher posts the OS notification for a due reminder with the window closed to the tray (Windows toast through PowerShell, `osascript` on macOS, `notify-send` on Linux; no new dependency), Snooze and Done as its actions where the OS allows, a click opens the reminder | a reminder due in 60 s fires once with the window hidden, on each OS the CI can run (Linux in CI; Windows and macOS by hand, said so) | 3, 5, 6 |
-| 4 | expansion | Decision 69, browser and PWA: the service worker shows the notification (`registration.showNotification`) so a background tab and the installed PWA fire while the browser runs; Done and Snooze 10 minutes as notification actions | a hidden tab fires; Done from the notification marks it done | 3, 8 |
+| 3 | expansion | Decision 69, desktop: the launcher posts the OS notification for a due reminder | Built 2026-10-11 (Brief 86): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 86)" | |
+| 4 | expansion | Decision 69, browser and PWA: the service worker shows the notification, Done and Snooze 10 minutes as its actions | Built 2026-10-11 (Brief 86): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 86)" | |
 | 5 | fix | Fire on time: a timer set to the next due time, the 60 s poll kept as the backstop | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 6 | fix | A blocked permission says so once, in the reminders head and in Settings, with how to allow it per browser; the chime and the bell stay | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 7 | expansion | Live chips in the quick-add row (CHAT_PLAN decision 50) and the same row at 390 | chips within 150 ms; the saved value equals the chips; the row present at 390 | 12, 8 |
 | 8 | expansion | Recurrence beyond four (every weekday, every 2 weeks, last Friday) and early alerts ("1 day before") | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 9 | expansion | ICS import (section 9 decision 17) | section 9 step 4's gate | 3 |
 
-**Briefs.** 55 (row 9), 66 (row 7), 86 (rows 3, 4); 85's rows 1, 2, 5, 6
-and 8 are built.
+**Briefs.** 55 (row 9), 66 (row 7); 85's rows 1, 2, 5, 6 and 8 and 86's
+rows 3 and 4 are built.
 
 ## 12. Deepened 2026-10-10: the calendar (Brief 72b, decision 71)
 

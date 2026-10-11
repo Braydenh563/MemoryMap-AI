@@ -107,7 +107,12 @@
             Target="[INSTALLFOLDER]MemoryMap AI.exe"
             Arguments="--desktop"
             WorkingDirectory="INSTALLFOLDER"
-            Icon="AppIcon.ico" />
+            Icon="AppIcon.ico">
+          <!-- Windows shows a desktop app's toast (a due reminder,
+               core/reminder_notifier.py) only under an id a Start menu
+               shortcut carries; the launcher gives its process the same. -->
+          <ShortcutProperty Key="System.AppUserModel.ID" Value="memorymap.desktop.app.1" />
+        </Shortcut>
         <!-- The Repair shortcut, the MSI's copy of installer.iss's (INBOX 253:
              "automatically recoverable and revivable for the user with one
              click"). Same exe, the reinstall flag on top of the desktop

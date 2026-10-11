@@ -512,6 +512,17 @@ def _password_set(session: Session) -> bool:
     return True
 
 
+def notebook_open(session: Session, config: ConfigManager) -> bool:
+    """Whether a reminder's text may be put on screen without a request: no
+    password yet, or a live session (the desktop notifier,
+    `core/reminder_notifier.py`). Sweeping does not touch a token's last use,
+    so asking never keeps a session alive."""
+    if not _password_set(session):
+        return True
+    _sweep_expired(config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60)
+    return bool(_active_tokens)
+
+
 def require_unlock(
     session: Session = Depends(get_session),
     config: ConfigManager = Depends(get_config),

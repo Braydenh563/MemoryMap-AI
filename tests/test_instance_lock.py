@@ -18,11 +18,22 @@ from __future__ import annotations
 import json
 import os
 import sys
+import pytest
 
 from fastapi.testclient import TestClient
 
 from memorymap.core import instance_lock as il
 
+
+
+@pytest.fixture(autouse=True)
+def _no_reminder_notifier(monkeypatch):
+    """`_run_desktop` starts the reminder notifier; a test of the window must
+    not post a real notification or leave a thread polling another test's
+    database."""
+    from memorymap.core import reminder_notifier
+
+    monkeypatch.setattr(reminder_notifier, "pick_backend", lambda: None)
 
 def test_the_lock_lives_in_the_data_dir(tmp_path):
     assert il.lock_path(tmp_path) == tmp_path / "instance.lock"

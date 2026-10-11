@@ -349,6 +349,67 @@ The filing agent's Built block (standing order 10); WORLD_CLASS_PLAN's "Placed f
 - Measured and not shipped: tags from the note's own words for a notebook with no tags (a title word said twice): 4 of 12 right on the set, below the bar.
 - Learning from turn-downs: a tag discarded on three notes or more is offered at 0.3 of its vote everywhere (`tagging.turned_down`, `_damp`); Manage tags lists them under Turned down with Offer again (`GET /tags/turned-down`, `POST /tags/turned-down/offer-again`, preference `tags_offered_again`). Driven at 1440 and 390 on port 8851: the row shows, its button 122x32 (44 tall at 390), no overflow, and Offer again hides it. Capture: title "Biology revision" and a body without the word gave the chip "biology", titled "It says “biology”.", focus left in the editor.
 - Help moved with it: the Guide topic `suggested-tags`, the tag manager's '?' popover.
+## Moved from the plans, 2026-10-11 (TIMELINE Brief 86)
+
+The notify86 agent's Built block (standing order 10); TIMELINE_PLAN section 11 rows 3 and 4 carry the pointer. Decision 69: reminders reach the desktop and the browser without a push server.
+
+- Section 11 row 3 (rules 3, 5, 6): `core/reminder_notifier.py`, one daemon thread in the desktop process (`_start_reminder_notifier`, `__main__.py`), every OS, window shown or hidden. It reads the open reminders from the database, sleeps to the next due time or early alert (30 s ceiling, so one made while it sleeps is seen), and shows each due time once: the key is the id and the due time, kept in `notified-reminders.json` (200 kept), so a snooze or a repeat's next time is announced again and a restart repeats nothing; nothing older than 12 hours. Several at once are one summary. Only while the notebook is signed in or has no password (`routes_auth.notebook_open`). Windows: a toast through PowerShell's WinRT bridge, the text passed in the environment and never spliced into the script, Done and Snooze 10 minutes answered while PowerShell waits on `Activated`; both installers now give the Start menu shortcut the AppUserModelID (`memorymap.desktop.app.1`) a desktop toast needs, a source checkout uses PowerShell's. macOS: `osascript` `display notification`, no buttons. Linux: `notify-send` with Done, Snooze 10 minutes and a click that opens Reminders where libnotify reads `--action`, plain otherwise; `gdbus` when `notify-send` is missing. Done runs `complete_reminder` itself (a repeat rolls on in the person's offset), Snooze `update_reminder`. `/health` says `os_notify` while it runs, and the page then posts no second one. Measured on Linux with a stand-in `notify-send` on PATH (no notification service in the sandbox), no window at all: a reminder due in 60 s shown 1 time in 150 s, 127 ms after its time; `tests/test_reminder_notifier.py` (17).
+- Section 11 row 4 (rules 3, 8): `reminder-notify.js`, lazy (loaded by the first announcement; status.js lost its inline notification block), shows the notification through the service worker (`registration.showNotification`), tagged per reminder, with Done and Snooze 10 minutes, and the session token and offset in its data; `sw.js`'s `notificationclick` completes or snoozes through the reminder routes, tells open pages to reload the list, and opens the app when the act is refused (an ended session). Measured in headed Chromium under Xvfb with the app's tab behind a second tab (`visibilityState` hidden; driven over raw CDP because Playwright keeps its pages visible): a reminder due in 60 s fired 529 ms late, 1 `showNotification` call in the 65 s after, made while hidden, with the actions `done` and `snooze`; Done (a `NotificationEvent` dispatched in the worker) marked it done within 200 ms. `tests/test_reminder_sw_notify.py` (4). Boot JS unchanged in cost: `test_boot_budget.py` and `test_static_compression.py` pass at their caps.
+- Help moved with it: the reminders hint and help, the Guide's reminders and notifications topics.
+- Research, kept from the plan:
+
+Brief 86's research, 2026-10-11. Read from the
+code and the vendors' documentation; nothing below needs a server outside
+this machine.
+
+- *The desktop webview.* Windows is WebView2: since runtime 128 an
+  unhandled page `Notification` shows in WebView2's own UI
+  (`NotificationReceived`, Microsoft Learn), but pywebview handles neither
+  that nor `PermissionRequested`, so whether a prompt appears is the
+  runtime's default; persistent (service worker) notifications are not in
+  that API. macOS is WKWebView, which exposes no `Notification` to the page.
+  Linux is WebKitGTK, whose permission request pywebview does not answer.
+  So the page cannot be the desktop's notifier: the launcher is.
+- *The window.* Only Windows hides to the tray (`_start_tray`, win32 only);
+  on macOS and Linux closing the window quits, so "hidden" there means
+  minimised. A hidden or minimised page still runs its timers (throttled),
+  which is why the launcher, not the page, posts the OS notification in the
+  desktop app, and the page keeps the chime, the toast and the centre.
+- *The launcher's notifier, standard library only.* One daemon thread in
+  the desktop process reads the open reminders straight from the database
+  (the server is in the same process), sleeps until the next due time with
+  a 60 s ceiling, and fires each due time once (a key per id and due time,
+  kept in `notified-reminders.json` in the data dir, so a restart does not
+  repeat it). Only while the notebook is signed in: a locked notebook does
+  not put reminder text on screen. Windows: a toast through PowerShell's
+  WinRT bridge (`Windows.UI.Notifications`), which needs a Start menu
+  shortcut carrying the app's AppUserModelID (`memorymap.desktop.app.1`,
+  now set by both installers); a source checkout without one uses
+  PowerShell's own id. Its Done and Snooze buttons answer while the
+  PowerShell process waits on the toast's `Activated` event; from the
+  Action Center after that, a click opens nothing (background activation
+  needs a registered COM activator, not worth a dependency). macOS:
+  `osascript` `display notification`, which has no actions and opens
+  Script Editor on click (an Apple limit without a signed helper app).
+  Linux: `notify-send`, with `--action` and `--wait` where libnotify is
+  0.8 or later (Done, Snooze 10 minutes, a click opens the reminders), plain
+  otherwise; `gdbus` calling `org.freedesktop.Notifications` when
+  `notify-send` is absent.
+- *The browser and the PWA.* With no push server there is no way to wake a
+  service worker at a time: Notification Triggers (`showTrigger`) was
+  abandoned after its origin trial, Periodic Background Sync runs at the
+  browser's discretion (hours) and only for an installed app, and a worker
+  is stopped about 30 s after its last event. What does work is the page's
+  own timer, which runs in a hidden tab (throttled to once a minute after
+  five minutes in Chromium) and in an installed PWA's window while it is
+  open, handing the notification to the worker
+  (`registration.showNotification`): a persistent notification can carry
+  `actions` (Chromium; Firefox and Safari show it without buttons) and
+  outlives the tab. The worker's `notificationclick` does Done or Snooze
+  itself with a fetch carrying the session token kept in the notification's
+  `data`, so it works after the tab is gone, and tells any open page to
+  reload its list. A closed browser fires nothing; that is the desktop
+  app's job.
 
 ## Moved from the plans, 2026-10-10 (WORLD_CLASS 28.5, Brief 83)
 

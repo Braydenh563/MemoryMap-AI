@@ -1348,6 +1348,8 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str | bool]:
+        from memorymap.core import reminder_notifier
+
         return {
             "status": "ok",
             "app": "MemoryMap AI",
@@ -1358,6 +1360,9 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
             # download handler: so exports have to be written by the server
             # instead (§35E). Set by `python -m memorymap --desktop`.
             "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
+            # The launcher posts the system notification for a due reminder
+            # (core/reminder_notifier.py), so the page does not post a second.
+            "os_notify": reminder_notifier.active(),
         }
 
     @app.get("/instance", tags=["system"])

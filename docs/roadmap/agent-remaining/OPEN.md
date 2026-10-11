@@ -333,6 +333,14 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the notify86 agent (Brief 86, merged 2026-10-11)
+
+Detail: [notify86-1010.md](../archive/agent-remaining/notify86-1010.md).
+
+- Windows and macOS not run: both need a check by hand. On Windows a toast pressed in the Action Center after 600 s does nothing (needs a COM activator); on macOS osascript notifications have no buttons and a click opens Script Editor.
+- The service worker acts with the session token stored in the notification's data: a scoped reminder token is with the followups agent.
+- A tab hidden over five minutes can fire up to 60 s late (Chromium's timer throttling).
+
 ## Left by the filing agent (INBOX 781, merged 2026-10-11)
 
 Detail: [filing-1010.md](../archive/agent-remaining/filing-1010.md).

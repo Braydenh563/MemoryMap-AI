@@ -1941,6 +1941,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
 
     from memorymap.core.config import resolved_data_dir
 
+    stop_notifier = _start_reminder_notifier(window, _icon_path, resolved_data_dir())
     storage = resolved_data_dir() / "webview"
     storage.mkdir(parents=True, exist_ok=True)
     try:
@@ -1970,8 +1971,39 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         # nothing can get back to.
         if tray_icon is not None:
             tray_icon.stop()
+        stop_notifier()
         instance_lock.set_focus_handler(None)
         instance_lock.release()
+
+
+def _start_reminder_notifier(window, icon_path: Path, data_dir: Path):  # noqa: ANN001
+    """Due reminders as the system's own notifications, window shown or not
+    (WORLD_CLASS_PLAN decision 69; `core/reminder_notifier.py`). A click on
+    one brings the window forward on the Reminders tab, behind the same lock
+    guard as the tray's items. Returns the stop, a no-op when this machine
+    has no notifier."""
+
+    def _open() -> None:
+        window.show()
+        _focus_window(window)
+        try:
+            window.evaluate_js(
+                "if (document.getElementById('lock-overlay')?.classList.contains('hidden')"
+                " && typeof switchTab === 'function') { switchTab('reminders'); }"
+            )
+        except Exception as exc:  # noqa: BLE001  # the window still came forward
+            logger.warning("could not open the reminders from a notification: %s", exc)
+
+    try:
+        from memorymap.core import reminder_notifier
+
+        notifier = reminder_notifier.start(
+            data_dir, on_open=_open, icon=str(icon_path) if icon_path.is_file() else None
+        )
+    except Exception as exc:  # noqa: BLE001  # notifications never stop the window
+        logger.warning("reminder notifications are off: %s", exc)
+        notifier = None
+    return notifier.stop if notifier is not None else (lambda: None)
 
 
 def _start_tray(

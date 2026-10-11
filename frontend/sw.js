@@ -150,3 +150,55 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+// A due reminder's notification (TIMELINE_PLAN 11 row 4, WORLD_CLASS_PLAN
+// decision 69). The page shows it through this worker (reminder-notify.js) so
+// it outlives the tab and carries Done and Snooze 10 minutes. The worker does
+// the act itself, with the session token the page put in the notification's
+// data, so a press works after the tab is closed; a refused one (the session
+// ended) opens the app instead. Nothing here runs on a timer: with no push
+// server, the page's own timer is what fires.
+const SNOOZE_MS = 10 * 60 * 1000;
+
+async function appWindows() {
+  const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  return all.filter((page) => new URL(page.url).origin === self.location.origin);
+}
+
+async function actOnReminder(data, action) {
+  const headers = { "X-Auth-Token": data.token || "", "Content-Type": "application/json" };
+  const done = action === "done";
+  const response = await fetch(
+    done ? `/reminders/${data.id}/complete?tz_offset_minutes=${Number(data.tz) || 0}` : `/reminders/${data.id}`,
+    done
+      ? { method: "POST", headers }
+      : {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({ due_at: new Date(Date.now() + SNOOZE_MS).toISOString(), done: false }),
+        }
+  );
+  if (!response.ok) throw new Error(`reminder ${action}: ${response.status}`);
+  for (const page of await appWindows()) page.postMessage({ type: "reminders-changed" });
+}
+
+async function openReminders() {
+  const [page] = await appWindows();
+  if (page) {
+    await page.focus();
+    page.postMessage({ type: "reminders-open" });
+    return;
+  }
+  await self.clients.openWindow("/#/reminders");
+}
+
+self.addEventListener("notificationclick", (event) => {
+  const data = event.notification.data || {};
+  const action = event.action;
+  event.notification.close();
+  if ((action === "done" || action === "snooze") && Number.isInteger(data.id)) {
+    event.waitUntil(actOnReminder(data, action).catch(() => openReminders()));
+    return;
+  }
+  event.waitUntil(openReminders());
+});

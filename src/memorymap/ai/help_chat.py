@@ -206,8 +206,10 @@ HELP_TOPICS: list[dict] = [
             "You can also just say \"call mum tomorrow evening\" in a note and "
             "let the AI schedule it. In the chat, \"remind me two hours before "
             "midnight\" works too: Atlas passes your words and the app works "
-            "out the time on your own clock. Notifications fire while the app "
-            "is open, on the minute; if the browser blocks them, the list and the "
+            "out the time on your own clock. Notifications fire on the minute "
+            "while a tab is open, even in the background, with Done and Snooze "
+            "on them; the desktop app notifies with its window closed. If the "
+            "browser blocks them, the list and the "
             "Notifications group in Settings say so, and their ? says how to allow them. "
             "Remind me is on a note's, a document's and a board's ⋯ "
             "menu too, and the reminder's row opens what it is about."
@@ -1099,7 +1101,8 @@ HELP_TOPICS.extend(
                 "Point at a row for its two controls: the circle marks it read or "
                 "unread, the cross removes just that one; the bin at the bottom "
                 "clears them all. "
-                "Reminders also pop up on their own while the app is open."
+                "Reminders also pop up on their own while a tab or the "
+                "desktop app is open."
             ),
             "badge": {"label": "Dashboard", "tab": "dashboard"},
         },

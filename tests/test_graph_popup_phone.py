@@ -44,3 +44,16 @@ def test_the_compact_row_never_wraps() -> None:
 
 def test_the_fab_does_not_float_over_the_panels_kebab() -> None:
     assert re.search(r"\.tab-page:has\(#graph-popup:not\(\.hidden\), #graph-new:not\(\.hidden\)\) > \.dock-fab \{\s*display: none;", RESPONSIVE)
+
+
+def test_a_sheet_never_lands_focus_on_a_select_under_touch() -> None:
+    """INBOX 885: tapping the graph's settings button opened the Layout
+    dropdown by itself, because `openSheet` focused the first `select`."""
+    shell = (ROOT / "frontend" / "js" / "phone-shell.js").read_text(encoding="utf-8")
+    start = shell.index("function openSheet(")
+    body = shell[start : shell.index("\n}\n", start)]
+    assert '(hover: none), (pointer: coarse)' in body
+    touch = re.search(r"touchOnly\s*\?\s*\[\.\.\.card\.querySelectorAll\(\"([^\"]+)\"\)\]", body)
+    assert touch, "the touch branch has its own field selector"
+    assert "select" not in touch.group(1), "no select is auto-focused under touch"
+    assert "document.activeElement === target" in body, "a refused focus falls through to the next landing"

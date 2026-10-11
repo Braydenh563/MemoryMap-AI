@@ -5365,3 +5365,14 @@ def test_one_calendar_grid_of_dom_cells() -> None:
     assert 'timelineCalendarCall("timelineCalendarReminders")' in code
     others = [p.name for p in JS if p.name != "timeline-calendar.js" and re.search(r"class(?:Name)?\s*=\s*[\"'][^\"']*-cal-grid", p.read_text(encoding="utf-8"))]
     assert not others, f"a second month grid: {others}"
+
+
+def test_web_results_are_one_fold_read_in_place():
+    """CHAT_PLAN decision 66 (INBOX 810): web results are one fold in the
+    Thinking fold's look, a page read in place as text, built in one place."""
+    text = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    body = text[text.index("function renderWebSources"):text.index("//: The digest's one offer")]
+    assert 'fold.className = "agent-step web-fold"' in body and 'summary.className = "fold-summary"' in body
+    assert "/websearch/read?url=" in body and "innerHTML" not in body and "iframe" not in body
+    builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "web-fold" in p.read_text(encoding="utf-8")]
+    assert builders == ["ask-compose.js"], builders

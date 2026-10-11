@@ -791,3 +791,50 @@ def _result(out: _Out, kind: str, question: str) -> dict:
         "digest": True,
         "offer": out.offer,
     }
+
+
+#: "search the web for X", "look up X": the words that ask, not the subject.
+_WEB_ASK = re.compile(r"^(?:(?:can|could|will) you |please )?(?:search (?:the )?(?:web|internet|online) (?:for|about)|look up|google|find (?:on|from) the web|web search(?: for)?)\s+", re.I)
+
+
+def web(question: str, pages: list[dict], composed: dict | None = None) -> dict | None:
+    """An answer from web pages in decision 70's shape (decision 66): what
+    was searched and how many pages were read, then one line a page, its
+    title as the label and its own sentence that best meets the question,
+    cited by the page's address. Never empty when a page has text (INBOX
+    810: "searched the web ... and then didnt even output the results")."""
+    asked = clean(_WEB_ASK.sub("", clean(question)))
+    terms = set(composer._words(asked))
+    picked: dict[int, dict] = {}
+    for row in (composed or {}).get("grounding") or []:
+        picked.setdefault(row.get("note_id"), row)
+    out = _Out()
+    def meets(page: dict) -> int:
+        return len(terms & set(composer._words(str(page.get("content") or ""))))
+
+    order = sorted(pages, key=lambda p: (p["id"] not in picked, -meets(p), pages.index(p)))
+    for page in order[:3]:
+        view = composer.read_note({**page, "tags": []}, 0)
+        if view is None:
+            continue
+        row = picked.get(page["id"])
+        span = str(row["sentence"]) if row else ""
+        if not span:
+            ranked = sorted(
+                (s for s in view.sentences if len(s.text.split()) >= 5 and len(s.text) <= 260),
+                key=lambda s: -len(terms & set(s.words)),
+            )
+            span = ranked[0].text.strip() if ranked else ""
+        if not span:
+            continue
+        title = " ".join((view.title or page.get("domain") or "A page").split()[:8])
+        out.lines.append(f"**{title}:** {span}")
+        out.rows.append({
+            "sentence": span, "note_id": page["id"], "kind": "web", "url": page["url"], "title": title,
+            "score": 1.0, "digest": True, "said": "quoted",
+        })
+    if not out.lines:
+        return None
+    n = len(out.lines)
+    out.lines.insert(0, f"I searched the web for “{asked}” and read {realise.count_word(n)} {'page' if n == 1 else 'pages'}; each is under the answer to read here.")
+    return _result(out, "web", question)

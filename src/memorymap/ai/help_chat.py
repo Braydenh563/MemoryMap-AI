@@ -488,8 +488,11 @@ HELP_TOPICS: list[dict] = [
             "search: only your search words are sent out, "
             "never your notes, so the assistant can look something up online "
             "when asked. With it on and no model running, a Chat question your "
-            "notes do not answer is answered from the pages found, each "
-            "sentence cited by its page, the pages listed under the answer."
+            "notes do not answer is answered from the pages found, one line a "
+            "page under its title, cited by its address. The pages are in the "
+            "Web results fold under the answer: each with its site and one "
+            "line; press a title to read the page there, as text, with Back to "
+            "results, or the arrow beside it to open it in your browser."
         ),
         "badge": {"label": "Web search", "section": "websearch"},
     },

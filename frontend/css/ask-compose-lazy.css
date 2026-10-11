@@ -21,13 +21,67 @@
   box-shadow: inset 2px 0 0 var(--border);
 }
 
-/* **The web pages an answer read** (decision 37): a numbered list under the
-   answer that scrolls on its own past a few rows, so a long list never
-   pushes the conversation away. */
-.web-sources {
-  max-block-size: calc(var(--space-9) * 3);
-  overflow-y: auto;
+/* **The web pages an answer read** (decisions 37 and 66): one fold in the
+   Thinking fold's look (its summary is `.fold-summary`; open, the summary
+   and the list share one inset panel), the list and a page read in place
+   capped and scrolling on their own, so a long page never pushes the
+   conversation away. */
+.web-fold {
   margin: var(--space-2) 0 0;
-  padding-inline-start: var(--space-5);
+}
+.web-fold[open] {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.web-fold[open] > .fold-summary:not(.icon-only):not(.icon-button) {
+  width: auto;
+  border: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  padding: var(--space-2) var(--space-3);
+}
+.web-fold[open] > .fold-summary:not(.icon-only):not(.icon-button):not(:hover) {
+  background: transparent;
+}
+.web-results-list,
+.web-reader {
+  max-block-size: 18rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3);
   font-size: var(--text-sm);
+}
+.web-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-inline-start: var(--space-7);
+}
+.web-result-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.web-fold .web-result-title,
+.web-fold .web-reader-back {
+  width: fit-content;
+  text-align: start;
+}
+.web-result-line {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.web-fold .web-reader-title {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+}
+.web-reader-where {
+  margin: 0 0 var(--space-2);
+  overflow-wrap: anywhere;
+}
+.web-reader-text > p {
+  margin: 0 0 var(--space-2);
+  line-height: 1.5;
 }

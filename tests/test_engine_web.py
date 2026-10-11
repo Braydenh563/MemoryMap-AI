@@ -40,8 +40,24 @@ def test_a_question_no_note_answers_is_answered_from_the_web(client, session, we
     assert rows and all(r["kind"] == "web" and r["url"] == PAGE["url"] for r in rows)
     for row in rows:
         assert row["sentence"].rstrip(".") in PAGE["text"] or row["sentence"][0].lower() + row["sentence"][1:].rstrip(".") in PAGE["text"]
-    assert "[page **Tides explained**]" in out["text"]
-    assert out["web_sources"][0]["sources"] == [{"title": "Tides explained", "url": PAGE["url"], "domain": "example.org"}]
+    #: Decisions 66 and 70: what was searched, then a line a page under its
+    #: title, no bracketed page names.
+    assert out["text"].startswith("I searched the web for \u201cwhat causes spring tides\u201d and read one page")
+    assert "**Tides explained:** Tides are caused by the pull of the moon and the sun." in out["text"]
+    assert "[page" not in out["text"]
+    source = out["web_sources"][0]["sources"][0]
+    assert {k: source[k] for k in ("title", "url", "domain")} == {"title": "Tides explained", "url": PAGE["url"], "domain": "example.org"}
+    assert source["snippet"].startswith("Tides are caused")
+
+
+def test_pages_found_are_an_answer_even_when_no_sentence_matches(client, session, web):
+    """INBOX 810: "searched the web ... and then didnt even output the
+    results". A search that read a page never answers with nothing."""
+    deps.get_config().set_preference("web_search_enabled", True)
+    out = _ask(client, "search the web for moon phases calendar", use_tools=True)
+    assert out["text"].startswith("I searched the web for \u201cmoon phases calendar\u201d")
+    assert "**Tides explained:**" in out["text"]
+    assert out["web_sources"][0]["sources"][0]["url"] == PAGE["url"]
 
 
 def test_with_web_search_off_no_search_is_made(client, session, web):

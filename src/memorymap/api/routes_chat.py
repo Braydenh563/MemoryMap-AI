@@ -1965,13 +1965,19 @@ def _web_answer(req: _StreamRequest, question: str) -> tuple[dict, list[dict]] |
             pages.append({
                 "id": -(i + 1), "kind": "web", "url": str(page.get("url") or hit.get("url")), "domain": page.get("domain", ""),
                 "content": f"{title}\n\n{text}",
+                #: The result's one line for the panel: the engine's snippet,
+                #: else the page's opening.
+                "snippet": " ".join(str(hit.get("snippet") or text[:200]).split())[:200],
             })
     if not pages:
         return None
-    result = composer.compose(question, pages, today=user_now(deps.get_config()).date(), voice=_composer_voice())
-    if not result["grounding"]:
+    composed = composer.compose(question, pages, today=user_now(deps.get_config()).date(), voice=_composer_voice())
+    #: Decision 66: pages found are always an answer, in decision 70's shape,
+    #: the composer's best span of each page first.
+    result = composer_digest.web(question, pages, composed)
+    if result is None:
         return None
-    sources = [{"title": p["content"].split("\n", 1)[0], "url": p["url"], "domain": p["domain"]} for p in pages]
+    sources = [{"title": p["content"].split("\n", 1)[0], "url": p["url"], "domain": p["domain"], "snippet": p["snippet"]} for p in pages]
     return result, sources
 
 

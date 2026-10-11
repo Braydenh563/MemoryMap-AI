@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Security: a phone or another computer on the network can no longer make this computer act. Opening a folder, restarting or quitting the app, installing or running software (extras, updates, SearXNG), importing a folder of this computer's files, changing the model server and restoring a whole backup now answer "Only this computer can do that" to any other device.
 - Dashboard: without a model the welcome line is composed: seven times of day (small hours to late evening) with seven or eight lines each, weekday lines (a new week, Friday, the weekend), and lines from your notebook (a writing streak, a busy day, back after some days, the subject on your mind lately). It changes each hour and holds steady within one.

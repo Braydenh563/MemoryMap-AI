@@ -1943,6 +1943,8 @@ function applySavedTheme(theme) {
   // alone rather than reset, so applying a saved look never silently changes a
   // setting the snapshot had nothing to say about.
   for (const [key, value] of Object.entries(theme.values || {})) {
+    // A look saved before sizes became the device's own may still carry them.
+    if (DEVICE_ONLY_KEYS.includes(key)) continue;
     localStorage.setItem(key, value);
   }
   if (theme.preset) localStorage.setItem("themePreset", theme.preset);

@@ -20,6 +20,8 @@ AI_TOOLS = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8"
 ROWS_JS = (ROOT / "frontend" / "js" / "settings-rows.js").read_text(encoding="utf-8")
 
 MACHINE_ONLY = {"perf"}
+#: Sizes belong to the device (INBOX 897, tests/test_device_sizes.py).
+DEVICE_ONLY = set(re.findall(r'"([^"]+)"', re.search(r"const DEVICE_ONLY_KEYS = \[(.*?)\];", AI_TOOLS, re.S).group(1)))
 
 
 def _array(source: str, name: str) -> list[str]:
@@ -33,7 +35,8 @@ def _array(source: str, name: str) -> list[str]:
 
 
 def _mirrored() -> set[str]:
-    return set(_array(AI_TOOLS, "OVERRIDABLE_KEYS")) | {"bgArt"} | set(_array(AI_TOOLS, "MIRRORED_UI_EXTRAS"))
+    every = set(_array(AI_TOOLS, "OVERRIDABLE_KEYS")) | {"bgArt"} | set(_array(AI_TOOLS, "MIRRORED_UI_EXTRAS"))
+    return every - DEVICE_ONLY
 
 
 def _look_row_keys() -> list[str]:
@@ -45,11 +48,11 @@ def test_every_look_row_is_mirrored_except_the_machines():
     rows = _look_row_keys()
     assert len(rows) >= 29
     mirrored = _mirrored()
-    assert set(rows) - mirrored == MACHINE_ONLY
-    assert not MACHINE_ONLY & mirrored
+    assert set(rows) - mirrored == MACHINE_ONLY | (set(rows) & DEVICE_ONLY)
+    assert not (MACHINE_ONLY | DEVICE_ONLY) & mirrored
 
 
-@pytest.mark.parametrize("key", [k for k in _look_row_keys() if k not in MACHINE_ONLY])
+@pytest.mark.parametrize("key", [k for k in _look_row_keys() if k not in MACHINE_ONLY | DEVICE_ONLY])
 def test_an_appearance_key_round_trips_through_the_server(client, key):
     assert key in _mirrored()
     client.put("/preferences", json={"ui_state": {key: "chosen"}})

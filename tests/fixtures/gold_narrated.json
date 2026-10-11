@@ -13,8 +13,8 @@
   {
    "name": "months later",
    "today": "2026-10-11",
-   "gold": "You went back to uni the week of 24 July, and you mentioned you're doing Intro to Psychology and Data Structures this semester, with classes on Tuesdays and Thursdays.",
-   "says": ["went back to uni the week of 24 July", "Intro to Psychology", "Data Structures", "Tuesdays and Thursdays"],
+   "gold": "You went back to uni the week of 20 July, and you mentioned you're doing Intro to Psychology and Data Structures this semester, with classes on Tuesdays and Thursdays.",
+   "says": ["went back to uni the week of 20 July", "Intro to Psychology", "Data Structures", "Tuesdays and Thursdays"],
    "never": ["next week", "**", "your this semester note"]
   }
  ]

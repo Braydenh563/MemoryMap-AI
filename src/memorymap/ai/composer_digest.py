@@ -41,6 +41,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from memorymap.ai import composer, glossary, realise, verdicts
+from memorymap.ai import when as when_words
 
 #: The connecting words, one table (decision 72: a voice swaps this, never
 #: the facts). `{}` slots are filled in order.
@@ -887,25 +888,24 @@ _PAST = {"start": "started", "starts": "started", "begin": "began", "begins": "b
 
 
 def _when_now(when: str, written: date, today: date) -> tuple[str, bool]:
-    """A note's "next week" said from today, and whether it is still ahead:
-    the same week it was written it is still "next week"; once that week has
-    gone it is "the week of 24 July" (`_pin`'s day), in the past tense."""
-    when = when.lower()
-    if when == "tomorrow":
-        day = written + timedelta(days=1)
-        gap = (day - today).days
-        return ({0: "today", 1: "tomorrow"}.get(gap) or f"on {_day(day, today)}"), gap >= 0
-    if when == "next month":
-        index = written.month
-        year, month = written.year + index // 12, index % 12 + 1
-        ahead = (year, month) >= (today.year, today.month)
-        same = (year, month) == (today.year, today.month)
-        return ("this month" if same else f"in {composer._MONTHS[month - 1]}"), ahead
-    step = 1 if when == "next week" else 0
-    meant = written + timedelta(days=7 * step)
-    weeks = ((meant - timedelta(days=meant.weekday())) - (today - timedelta(days=today.weekday()))).days // 7
-    said = {0: "this week", 1: "next week"}.get(weeks) or f"the week of {_day(meant, today)}"
-    return said, weeks >= 0
+    """A note's "next week" said from today, and whether it is still ahead.
+    The day it meant is the app's one resolver's (`when.span`, which also
+    draws a note card's "Mentions" chip), anchored on the day it was written;
+    only the saying is here: still "next week" the week it was written, the
+    week of its Monday once that week has gone, in the past tense."""
+    found = when_words.span(when.lower(), written, "future")
+    if found is None:
+        return when, True
+    start, _end, unit = found
+    if unit == "day":
+        gap = (start - today).days
+        return ({0: "today", 1: "tomorrow"}.get(gap) or f"on {_day(start, today)}"), gap >= 0
+    if unit == "month":
+        ahead = (start.year, start.month) >= (today.year, today.month)
+        same = (start.year, start.month) == (today.year, today.month)
+        return ("this month" if same else f"in {composer._MONTHS[start.month - 1]}"), ahead
+    weeks = (start - (today - timedelta(days=today.weekday()))).days // 7
+    return ({0: "this week", 1: "next week"}.get(weeks) or f"the week of {_day(start, today)}"), weeks >= 0
 
 
 def _narrate(out: _Out, view, facts: list[Fact], today: date) -> set:

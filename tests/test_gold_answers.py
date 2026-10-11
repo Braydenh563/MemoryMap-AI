@@ -62,7 +62,7 @@ def test_the_owners_question_opens_with_the_count_and_the_span():
     assert lines[0] == "You have four notes about uni, 17 July to 4 August."
     #: The first note told as what happened (the owner, 2026-10-11), its
     #: "next week" said from today; tests/test_narrate_1011.py has the rest.
-    assert lines[1].startswith("You went back to uni the week of 24 July") and "classes on Tuesdays and Thursdays" in lines[1]
+    assert lines[1].startswith("You went back to uni the week of 20 July") and "classes on Tuesdays and Thursdays" in lines[1]
     assert "Nothing yet on assessments or due dates." in lines
     assert lines[-1] == "Remind you to ask the tutor on Thursday?"
     assert result["offer"] == {"kind": "reminder", "label": lines[-1], "text": "Ask the tutor on Thursday"}

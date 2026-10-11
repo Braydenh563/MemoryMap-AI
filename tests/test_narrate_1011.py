@@ -38,7 +38,7 @@ def test_the_note_is_told_from_today(variant):
 @pytest.mark.parametrize(("today", "said", "ahead"), [
     (date(2026, 7, 17), "next week", True),
     (date(2026, 7, 21), "this week", True),
-    (date(2026, 7, 29), "the week of 24 July", False),
+    (date(2026, 7, 29), "the week of 20 July", False),
 ])
 def test_next_week_is_said_from_today(today, said, ahead):
     assert composer_digest._when_now("next week", date(2026, 7, 17), today) == (said, ahead)
@@ -46,5 +46,5 @@ def test_next_week_is_said_from_today(today, said, ahead):
 
 def test_in_the_whole_notebook_the_note_is_one_flowing_line():
     text = composer_digest.answer(FIXTURE["question"], NOTES, today=TODAY)["text"]
-    assert "You went back to uni the week of 24 July, and you" in text
+    assert "You went back to uni the week of 20 July, and you" in text
     assert "**This semester:**" not in text and "**Your week:** classes" not in text

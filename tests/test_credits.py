@@ -42,6 +42,6 @@ def test_credits_are_a_fold_in_settings_help_drawn_when_opened():
     help_section = HTML.split('id="settings-help"')[1].split("</section>")[0]
     assert 'details class="settings-group settings-fold" data-fold-key="help-credits" id="credits-fold"' in help_section
     assert 'id="credits-list"' in help_section
-    assert 'fetch("/credits.json")' in FIND
+    assert 'api("/credits.json"' in FIND
     assert 'fold.addEventListener("toggle", draw)' in FIND
     assert 'name.rel = "noopener noreferrer"' in FIND

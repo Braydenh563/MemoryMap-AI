@@ -108,6 +108,8 @@ def test_settings_has_the_three_controls_and_help_names_them():
         assert key in js
     from memorymap.ai import help_topics_more
 
-    text = Path(help_topics_more.__file__).read_text(encoding="utf-8")
+    import re
+
+    text = re.sub(r'"\s*\n\s*"', "", Path(help_topics_more.__file__).read_text(encoding="utf-8"))
     assert "Skip silence before transcribing" in text
     assert "Words to expect" in text

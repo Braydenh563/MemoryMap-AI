@@ -77,6 +77,11 @@
      "name": "English word list",
      "licence": "the English Speller Database licence",
      "source": "https://wordlist.aspell.net"
+    },
+    {
+     "name": "Python standard library table",
+     "licence": "PSF License Agreement",
+     "source": "https://docs.python.org/3/license.html"
     }
    ]
   },

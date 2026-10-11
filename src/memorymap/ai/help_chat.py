@@ -1158,7 +1158,7 @@ HELP_TOPICS.extend(
                 "A document can be code: give it the extension (fix.py, index.html). "
                 "You get syntax colours, error underlines listed in the Problems "
                 "panel, hover notes, colour swatches, indent guides and brackets "
-                "that close themselves. Completions and snippets open as you type "
+                "that close themselves. Spelling covers comments and strings only. Completions and snippets open as you type "
                 "(the Code completions topic). HTML and CSS have Emmet: type ! or ul>li*3 "
                 "and press Enter or Tab; the command palette (Ctrl+K) has Emmet "
                 "wrap and balance inward or outward. Keys: Shift+Alt+F formats, "

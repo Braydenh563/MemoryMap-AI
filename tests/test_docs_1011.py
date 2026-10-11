@@ -574,3 +574,16 @@ def test_the_clipper_and_capture_pages_get_hashed_stamps(client, page):
 def test_the_sweep_boot_passes_service_workers_through():
     lib = (ROOT / "scratchpad/ui-sweeps/lib.js").read_text(encoding="utf-8")
     assert "'serviceWorkers'" in lib[lib.index("const CTX_OPTS") : lib.index("];", lib.index("const CTX_OPTS"))]
+
+
+def test_a_code_file_spell_checks_comments_and_strings_only():
+    """Owner 2026-10-11: identifiers and an f-string's prefix were underlined by
+    the browser; the app's own check masks to comment and string nodes."""
+    docs = (JS / "documents.js").read_text(encoding="utf-8")
+    assert "? docCodeSpellFindings(text)" in docs
+    mask = _fn(docs, "docCodeProseMask")
+    assert "[rRbBuUfF]{0,3}" in mask and "Interpolation" in mask
+    assert "string|template" in mask and "comment" in mask
+    spell = _fn(docs, "docCmSpellcheck")
+    assert "!docFileType().previewable" in spell
+    assert "docOpenSuggestFor(finding, false, point)" in docs[docs.index("DOC_HOVER_SUGGEST_MS =") :]

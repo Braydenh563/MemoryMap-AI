@@ -1,0 +1,15 @@
+# throw-1011 (INBOX 882, then Brief 88 folded in)
+
+INBOX 882, the owner: "I try throwing the companion across the screen and it just goes back to the same side, the companion physics just isnt there and needs to be upgraded and fixed."
+
+Reproduced (scratchpad/ui-sweeps/throw.js, 1440x900, Notes with 24 seeded notes, base avatars.js via OVERRIDE_JS): thrown right from x 44 at 1.47 px/ms and left from x 1168 at 0.97 px/ms, both came down on the same dock perch at x 763 (`nameMarkBuddyToss` slid 260 ms, then `nameMarkBuddyChoose` near the aim picked the tab's preferred perch). Empty notebook: 270 to 937 and 1183 to 524 (worked there). Phone: the toss did not fire at 0.92 px/ms (drops).
+
+Built: `nameMarkBuddyReleaseVelocity` (last 80 ms, clamp 4.5), `nameMarkBuddyFlightStep` (gravity 0.0032, air 0.0011, ground 0.006, bounce 0.4, side rebound capped 0.12 px/ms, tilt by vx, 1.2 s cap), `nameMarkBuddyWorld` (ledges = panel tops), `nameMarkBuddyThrow` (one rAF, transform + rotate, squash on impact, pauses hidden, Reduce motion crossfade), `nameMarkBuddyThrowLand` (`nameMarkBuddyDrop` at the landing point, kept as the tab's spot). Tests: tests/test_companion_throw.py.
+
+After (same sweep, 24 notes): desk right 89 to 933, left 1182 to 570; hard (150px moves) right 96 to 1299, left 1213 to 84; phone left 283 to 28, right 26 to 314; Reduce motion 94 to 726, 1296 to 682. Unchanged after 10 s and after a tab switch away and back in every run.
+
+Not verified: a real phone; the sweep's phone right flick is sometimes a drop here because the let-go reaches the page over 100 ms after the last move on this loaded machine (load 21).
+
+Found, not fixed (pre-existing on the base): test_companion_motion.py::test_every_way_to_a_note_counts_as_opening_it (flashEntry lost its typeof guard); test_frontend_wake_sources.py dashboard.js raf 3 to 4, search-suggest.js 0 to 2; test_global_scope_ratchet.py 705 > 699.
+
+Next: Brief 88 and the coordinator's three items (eased starts/stops, expanded panel resting pose, click raises one arm).

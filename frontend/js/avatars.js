@@ -5516,6 +5516,8 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   //: Visiting its large view (`nameMarkBuddyVisit`): it is where you are
   //: looking at it, and goes nowhere until it is sent home.
   if (nmb.visit) return;
+  //: Any other move ends a flight where it is (`nameMarkBuddyThrow`).
+  nmb.flight?.stop();
   const x = Math.round(Math.min(Math.max(0, spot.x), innerWidth - NMB_W));
   const y = Math.round(Math.min(Math.max(0, spot.y), innerHeight - NMB_H));
   //: **Never a teleport** (the owner: "let the companions appear smoothly
@@ -5807,25 +5809,6 @@ function nameMarkBuddyGo(buddy, dx, dy, spot = {}, poseChanged = false, was = { 
     nameMarkBuddyCrossfade(buddy, dx, dy, 420);
     return;
   }
-  //: Tossed: a flight, fast at first and slowing (friction), over a small
-  //: arc, turning once as it goes, landing with a squash.
-  if (spot.tossed) {
-    const duration = Math.round(Math.min(850, 320 + distance * 0.45));
-    nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.12, 0.75, 0.3, 1)" });
-    const toss = nmb.anim;
-    toss.onfinish = () => {
-      if (nmb.anim === toss) nameMarkBuddyAct("land");
-    };
-    const arc = Math.min(60, 18 + distance * 0.08);
-    const spin = dx > 0 ? -1 : 1;
-    nmb.hopAnim = char?.animate([
-      { translate: "0px 0px", rotate: "0deg" },
-      { translate: `0px ${-arc}px`, rotate: `${spin * 200}deg`, offset: 0.4 },
-      { translate: "0px 0px", rotate: `${spin * 360}deg` },
-    ], { duration, easing: "ease-out" }) || null;
-    nameMarkBuddyLimbs(buddy, "glide", duration);
-    return;
-  }
   //: **Interruptible, at speed** (apple-design: a gesture that takes over a
   //: moving thing keeps its momentum). A new place chosen while it is on its
   //: way starts from where it is drawn (`nameMarkBuddyMoveTo`) with no
@@ -6014,23 +5997,192 @@ function nameMarkBuddySquash(char, travel, underway = false) {
     { scale: "1 1" },
   ].map((frame) => ({ ...frame, easing: "ease-in-out" })), { duration: total });
 }
-const NMB_TOSS_SPEED = 0.8;
+//: **Thrown** (INBOX 882, the owner: "I try throwing the companion across
+//: the screen and it just goes back to the same side, the companion physics
+//: just isnt there"). It used to slide on for a quarter of a second and then
+//: take the tab's best perch near there, so a hard throw and a soft one
+//: came down in much the same place, and a let-go a frame late was a drop.
+//: Now it flies: let go at the pointer's speed over its last 80ms
+//: (`nameMarkBuddyReleaseVelocity`), it carries on under gravity and air
+//: drag, bounces off the top bar, the floor and the window's sides at
+//: `bounce` of its speed (off a side never faster than `wall`: at 0.4 a hard
+//: throw came back off the far side 600px, the very "goes back"), leans into the way it flies, comes down on the first ledge or the
+//: floor under its path with a squash, slides to a stop, and then takes the
+//: nearest place to where it stopped (`nameMarkBuddyThrowLand`). px and ms.
+const NMB_TOSS_SPEED = 0.6;
+const NMB_THROW = { max: 4.5, g: 0.0032, air: 0.0011, ground: 0.006, bounce: 0.4, wall: 0.12, stick: 0.35, tilt: 14, ms: 1200 };
 const NMB_PET_MS = 1100;
 
-//: Let go at `vx`, `vy` (px per ms): where it would come down if it slid on
-//: for a quarter of a second, and the best perch near that, kept as your
-//: spot on this tab (a toss is a drop, thrown).
-function nameMarkBuddyToss(buddy, vx, vy) {
+//: The speed it is let go at, px per ms, from `samples` ([x, y, ms], oldest
+//: first): over the pointer's last 80ms only, so a slow start to a quick
+//: flick does not slow the flick, and clamped to `k.max`. Null when the
+//: pointer had stopped 100ms before `now`, or there is nothing to measure.
+function nameMarkBuddyReleaseVelocity(samples, now, k = NMB_THROW) {
+  const last = samples[samples.length - 1];
+  if (!last || now - last[2] > 100) return null;
+  let i = samples.length - 1;
+  while (i > 0 && last[2] - samples[i - 1][2] <= 80) i -= 1;
+  //: One move inside the window (a slow machine's input): the one before it.
+  if (i === samples.length - 1 && i > 0 && last[2] - samples[i - 1][2] <= 160) i -= 1;
+  const first = samples[i];
+  const dt = last[2] - first[2];
+  if (dt < 8) return null;
+  const vx = (last[0] - first[0]) / dt;
+  const vy = (last[1] - first[1]) / dt;
+  const cut = Math.min(1, k.max / Math.max(1e-9, Math.hypot(vx, vy)));
+  return [vx * cut, vy * cut];
+}
+
+//: One step of a flight, pure: `s` its corner (`x`, `y`), speed (`vx`,
+//: `vy`), lean (`rot`, degrees), time flown (`t`), what it slides on (`on`:
+//: a ledge, "floor" or null) and `rest`; `dt` ms; `world` the box its corner
+//: stays in (`left`, `right`, `top`, `floor`) and the `ledges` it can come
+//: down on ({left, right, y}, for its corner). `hit` is the speed of a
+//: landing this step, for the squash.
+function nameMarkBuddyFlightStep(s, dt, world, k = NMB_THROW) {
+  const n = { ...s, t: s.t + dt, hit: 0 };
+  if (n.rest) return n;
+  const ease = Math.min(1, dt / 90);
+  if (n.on) {
+    n.vx *= Math.exp(-k.ground * dt);
+    n.rot -= n.rot * ease;
+  } else {
+    n.vy += k.g * dt;
+    const drag = Math.exp(-k.air * dt);
+    n.vx *= drag;
+    n.vy *= drag;
+    n.rot += (Math.max(-40, Math.min(40, n.vx * k.tilt)) - n.rot) * ease;
+  }
+  const py = n.y;
+  n.x += n.vx * dt;
+  n.y += n.on ? 0 : n.vy * dt;
+  if (n.x < world.left || n.x > world.right) {
+    //: Off a side: back at `bounce` of its speed, but never faster than
+    //: `wall` px per ms (a hard throw thuds against it and drops).
+    const left = n.x < world.left;
+    const back = Math.min(Math.abs(n.vx) * k.bounce, k.wall);
+    n.x = left ? world.left : world.right;
+    n.vx = left ? back : -back;
+  }
+  if (n.y < world.top) {
+    n.y = world.top;
+    n.vy = -n.vy * k.bounce;
+  }
+  //: Off the end of the ledge it slid along: it falls again.
+  if (n.on && n.on !== "floor" && (n.x < n.on.left || n.x > n.on.right)) n.on = null;
+  if (!n.on && n.vy > 0) {
+    let land = null;
+    for (const l of world.ledges || []) {
+      if (py < l.y && n.y >= l.y && n.x >= l.left && n.x <= l.right && (!land || l.y < land.y)) land = l;
+    }
+    if (land || n.y >= world.floor) {
+      n.y = land ? land.y : world.floor;
+      n.hit = n.vy;
+      if (n.vy > k.stick) {
+        n.vy = -n.vy * k.bounce;
+        n.vx *= 0.85;
+      } else {
+        n.vy = 0;
+        n.on = land || "floor";
+      }
+    }
+  }
+  if ((n.on && Math.abs(n.vx) < 0.02) || n.t >= k.ms) n.rest = true;
+  return n;
+}
+
+//: The room a throw flies in, for its corner: the window's sides, the top
+//: bar's underside, the bottom bar (or the window's foot) as the floor, and
+//: the top of every panel on the tab at least its width wide as a ledge.
+function nameMarkBuddyWorld(tab) {
+  const { top, bottom } = nameMarkBuddyLedges();
+  const roof = top ? top.bottom : 0;
+  const base = bottom ? bottom.top : innerHeight;
+  const ledges = nameMarkBuddyEdges(tab)
+    .filter((e) => e.type === "top" && e.kind !== "bar" && e.right - e.left >= NMB_W && e.y > roof + NMB_FEET && e.y < base)
+    .map((e) => ({ left: e.left - NMB_W / 2, right: e.right - NMB_W / 2, y: e.y - NMB_FEET + 1 }));
+  return { left: 0, right: innerWidth - NMB_W, top: roof, floor: base - NMB_FEET + 1, ledges };
+}
+
+//: Let go at `vx`, `vy` (px per ms): the flight, one frame at a time on
+//: transforms only, then its place. Reduce motion: the same flight worked
+//: out at once and a crossfade to where it comes down.
+function nameMarkBuddyThrow(buddy, vx, vy) {
+  nmb.flight?.stop();
   nmb.home = null;
-  const glide = 260;
-  const aimX = Math.min(Math.max(0, nmb.x + vx * glide), innerWidth - NMB_W);
-  const aimY = Math.min(Math.max(0, nmb.y + vy * glide), innerHeight - NMB_H);
-  nameMarkBuddyIndexReset();
   const tab = nameMarkBuddyTab();
-  const spot = { ...nameMarkBuddyChoose(tab, nameMarkBuddyObstacles(tab), [aimX, aimY], 4), tossed: true };
+  nameMarkBuddyIndexReset();
+  const world = nameMarkBuddyWorld(tab);
+  let s = { x: nmb.x, y: nmb.y, vx, vy, rot: 0, t: 0, on: null, rest: false };
+  nmb.thrown = { v: [+vx.toFixed(2), +vy.toFixed(2)], from: [Math.round(nmb.x), Math.round(nmb.y)] };
+  if (nameMarkBuddyNoTravel()) {
+    while (!s.rest) s = nameMarkBuddyFlightStep(s, 16, world);
+    nameMarkBuddyThrowLand(buddy, s, tab);
+    return;
+  }
+  const char = buddy.querySelector(".nm-buddy-char");
+  buddy.classList.add("nm-buddy-dragging");
+  let then = performance.now();
+  const flight = {
+    raf: 0,
+    stop() {
+      cancelAnimationFrame(flight.raf);
+      if (nmb.flight !== flight) return;
+      nmb.flight = null;
+      buddy.classList.remove("nm-buddy-dragging");
+      buddy.style.setProperty("--nmb-sway", "0");
+      if (char) char.style.rotate = "";
+    },
+  };
+  const frame = (now) => {
+    if (nmb.flight !== flight) return;
+    if (!buddy.isConnected) return flight.stop();
+    //: Hidden, frames stop and it waits in the air; back, it flies on from
+    //: there rather than jumping a long step.
+    let dt = Math.min(32, Math.max(0, now - then));
+    then = now;
+    let hit = 0;
+    while (dt > 0 && !s.rest) {
+      s = nameMarkBuddyFlightStep(s, Math.min(16, dt), world);
+      hit = Math.max(hit, s.hit);
+      dt -= 16;
+    }
+    nameMarkBuddyPut(buddy, Math.round(s.x), Math.round(s.y));
+    if (char) char.style.rotate = `${s.rot.toFixed(1)}deg`;
+    buddy.style.setProperty("--nmb-sway", Math.max(-28, Math.min(28, -s.vx * 10)).toFixed(1));
+    if (hit > 0.5 && char && typeof char.animate === "function") {
+      const a = Math.min(0.2, hit * 0.08);
+      char.animate([{ scale: "1 1" }, { scale: `${1 + a} ${1 - a}` }, { scale: "1 1" }], { duration: 220, easing: "ease-out" });
+    }
+    if (s.rest) {
+      flight.stop();
+      nameMarkBuddyThrowLand(buddy, s, tab);
+      return;
+    }
+    next();
+  };
+  //: Its one frame loop, running only while it flies (the wake-source seed's
+  //: tenth in this file).
+  const next = () => {
+    flight.raf = requestAnimationFrame(frame);
+  };
+  nmb.flight = flight;
+  next();
+}
+
+//: Come down at `s`: the nearest place to there, as if dropped there, kept
+//: as your spot on `tab`, the tab it was thrown on. Never the tab's own
+//: choice near there: on Notes with 24 notes, thrown right from x 44 and
+//: left from x 1168, both came down on one dock perch at x 763 (throw.js).
+function nameMarkBuddyThrowLand(buddy, s, tab) {
+  nameMarkBuddyIndexReset();
+  const spot = nameMarkBuddyDrop(s.x, s.y);
+  if (spot.y >= s.y + 2) spot.falls = true;
+  nmb.thrown = { ...nmb.thrown, to: [Math.round(s.x), Math.round(s.y)] };
   nmb.placedAt = Date.now();
-  nmb.tossedTo = [Math.round(aimX), Math.round(aimY)];
+  nmb.afterLand = true;
   nameMarkBuddyMoveTo(buddy, spot);
+  if (!nmb.anim || nmb.anim.playState !== "running") nameMarkBuddyAct("land");
   const spots = nameMarkBuddySpots();
   delete spots["*"];
   spots[tab] = nameMarkBuddySpotFor(spot);
@@ -8896,14 +9048,15 @@ function nameMarkBuddyBuild() {
     if (!drag) return;
     drag.x = event.clientX;
     drag.y = event.clientY;
-    //: The last tenth of a second of the pull, for the speed it is let go at.
+    //: The pull's last moves, for the speed it is let go at.
     const t = performance.now();
     (drag.samples ||= []).push([event.clientX, event.clientY, t]);
-    while (drag.samples.length > 2 && t - drag.samples[0][2] > 100) drag.samples.shift();
+    while (drag.samples.length > 2 && t - drag.samples[0][2] > 160) drag.samples.shift();
     //: A click wobbles a pixel or two; only a real pull is a drag.
     if (!drag.moved && Math.hypot(drag.x - drag.sx, drag.y - drag.sy) < 4) return;
     if (!drag.moved) {
       drag.moved = true;
+      nmb.flight?.stop();
       const box = buddy.getBoundingClientRect();
       nmb.anim?.cancel();
       nmb.hopAnim?.cancel();
@@ -8946,17 +9099,11 @@ function nameMarkBuddyBuild() {
       buddy.style.setProperty("--nmb-sway", "0");
       delete buddy.dataset.turn;
       nameMarkBuddyPut(buddy, Math.round(box.left), Math.round(box.top));
-      //: **Tossed** (round 5): let go while still moving fast, it flies on
-      //: in that direction, slowing as it goes, to the nearest good perch
-      //: to where it would come down.
-      const samples = drag.samples || [];
-      const first = samples[0];
-      const last = samples[samples.length - 1];
-      const dt = first && last ? last[2] - first[2] : 0;
-      const vx = dt > 8 ? (last[0] - first[0]) / dt : 0;
-      const vy = dt > 8 ? (last[1] - first[1]) / dt : 0;
-      if (Math.hypot(vx, vy) > NMB_TOSS_SPEED && performance.now() - last[2] < 80) {
-        nameMarkBuddyToss(buddy, vx, vy);
+      //: **Thrown** (INBOX 882): let go while still moving fast, it flies
+      //: (`nameMarkBuddyThrow`).
+      const v = nameMarkBuddyReleaseVelocity(drag.samples || [], performance.now());
+      if (v && Math.hypot(v[0], v[1]) > NMB_TOSS_SPEED) {
+        nameMarkBuddyThrow(buddy, v[0], v[1]);
         face.dataset.dragged = "1";
         drag = null;
         return;

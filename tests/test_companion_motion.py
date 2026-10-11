@@ -417,19 +417,17 @@ def test_it_notices_the_app_rate_limited_and_never_under_reduced_motion() -> Non
 
 def test_it_can_be_petted_tossed_and_watches_a_near_pointer() -> None:
     # Round 5 (companioninteract.js): the pointer resting on it gets a happy
-    # wiggle, once in 15s; let go at speed it flies on and lands on a perch
-    # near where it comes down (measured 19px), a slow let-go is a drop;
-    # its eyes stay on a near pointer, and with Faces follow the pointer off
-    # a pointer passing is not followed.
+    # wiggle, once in 15s; let go at speed it is thrown (INBOX 882: a flight
+    # with gravity and bounces, tests/test_companion_throw.py), a slow
+    # let-go is a drop; its eyes stay on a near pointer, and with Faces
+    # follow the pointer off a pointer passing is not followed.
     build = _fn("nameMarkBuddyBuild")
-    assert "}, NMB_PET_MS);" in build and "nameMarkBuddyToss(buddy, vx, vy);" in build
-    assert "Math.hypot(vx, vy) > NMB_TOSS_SPEED" in build
+    assert "}, NMB_PET_MS);" in build and "nameMarkBuddyThrow(buddy, v[0], v[1]);" in build
+    assert "Math.hypot(v[0], v[1]) > NMB_TOSS_SPEED" in build
     pet = _fn("nameMarkBuddyPet")
     assert "nameMarkBuddyStill()" in pet and "15000" in pet
-    toss = _fn("nameMarkBuddyToss")
-    assert "[aimX, aimY], 4)" in toss and "spots[tab] = nameMarkBuddySpotFor(spot);" in toss
+    assert "spots[tab] = nameMarkBuddySpotFor(spot);" in _fn("nameMarkBuddyThrowLand")
     assert "nameMarkBuddyPerches(tab, near && per < 12 ? near[0] : null)" in _fn("nameMarkBuddyChoose")
-    assert "if (spot.tossed) {" in _fn("nameMarkBuddyGo")
     notice = _fn("nameMarkBuddyNotice")
     assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
     assert "const near = follows && dist < NMB_EYES_NEAR * reach;" in notice
@@ -694,7 +692,7 @@ def test_every_change_of_place_is_travelled_by_its_body() -> None:
     # frame, speed changing at most 5.5px a frame, every move ending on its
     # place.
     go = _fn("nameMarkBuddyGo") + _fn("nameMarkBuddyRoute")
-    for way in ("if (nameMarkBuddyNoTravel()) {", "if (spot.tossed) {", "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)",
+    for way in ("if (nameMarkBuddyNoTravel()) {", "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)",
                 "if (route === \"float\") {", "if (d < size * NMB_HOP_SIZES && !poseChanged)",
                 'buddy.classList.add("nmb-walking");'):
         assert way in go, way

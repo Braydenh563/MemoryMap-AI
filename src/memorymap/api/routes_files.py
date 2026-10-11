@@ -46,6 +46,7 @@ from memorymap.core import (
 from memorymap.core.database import Attachment, Entry, MediaUpload, PageRead
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
+from memorymap.api.this_computer import this_computer_only
 
 logger = logging.getLogger(__name__)
 
@@ -1178,7 +1179,7 @@ def download_export(filename: str) -> FileResponse:
     return FileResponse(str(target), filename=target.name)
 
 
-@router.post("/files/open-exports-folder")
+@router.post("/files/open-exports-folder", dependencies=[Depends(this_computer_only)])
 def open_exports_folder() -> dict:
     """Reveal the exports folder in the OS file manager.
 

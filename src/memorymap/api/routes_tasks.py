@@ -27,7 +27,7 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -35,6 +35,7 @@ from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
 from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, jobruns, jobstore, taskhistory
 from memorymap.core import jobs as bgpool
+from memorymap.api.this_computer import this_computer_only
 
 router = APIRouter(tags=["tasks"])
 
@@ -770,7 +771,7 @@ def desktop_fullscreen_state() -> dict:
     return {"available": window_hook.available(), "fullscreen": window_hook.is_fullscreen()}
 
 
-@router.post("/desktop/fullscreen")
+@router.post("/desktop/fullscreen", dependencies=[Depends(this_computer_only)])
 def desktop_fullscreen_toggle() -> dict:
     """Put the desktop window into full screen, or take it out."""
     from memorymap.core import window_hook
@@ -782,7 +783,7 @@ def desktop_fullscreen_toggle() -> dict:
 # --- shutting the app down cleanly -------------------------------------------
 
 
-@router.post("/shutdown")
+@router.post("/shutdown", dependencies=[Depends(this_computer_only)])
 def shutdown() -> dict:
     """Stop the server on purpose, from inside the app.
 

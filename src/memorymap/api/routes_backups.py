@@ -20,6 +20,7 @@ from memorymap.api import routes_auth
 from memorymap.core import backup, backup_bundle, deps, diskspace, jobruns
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
+from memorymap.api.this_computer import this_computer_only
 
 router = APIRouter(tags=["settings"])
 
@@ -151,7 +152,7 @@ class RestoreBody(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
 
-@router.post("/backups/restore")
+@router.post("/backups/restore", dependencies=[Depends(this_computer_only)])
 def restore_backup(body: RestoreBody) -> dict:
     """Swap the live database for a backup. A safety snapshot of the
     current state is taken first, so a restore is itself undoable."""
@@ -252,7 +253,7 @@ def export_bundle(body: BundleBody, background_tasks: BackgroundTasks, session: 
     )
 
 
-@router.post("/backups/bundle/restore")
+@router.post("/backups/bundle/restore", dependencies=[Depends(this_computer_only)])
 def restore_bundle(file: UploadFile = File(...), password: str = Form(default="")) -> dict:
     """Replace the notebook with the one in an uploaded full backup, a zip or
     a `.mmenc` with its password. Everything is checked before the live

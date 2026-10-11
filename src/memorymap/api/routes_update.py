@@ -41,11 +41,12 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from memorymap.core import egress
 from memorymap import __version__
+from memorymap.api.this_computer import this_computer_only
 
 router = APIRouter(prefix="/update", tags=["system"])
 logger = logging.getLogger("memorymap.update")
@@ -659,7 +660,7 @@ def source_update_status() -> dict:
     return {"just_updated": False, "from": "", "to": ""}
 
 
-@router.post("/apply")
+@router.post("/apply", dependencies=[Depends(this_computer_only)])
 @egress.labelled(lambda tag=None, *a, **k: f"Fetching version {tag or 'latest'} from GitHub")
 def apply_update(tag: str | None = None) -> dict:
     """Download the official installer for `tag` (or the latest release

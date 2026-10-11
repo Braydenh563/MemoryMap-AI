@@ -53,7 +53,6 @@ def test_the_chosen_chat_mode_keeps_a_visible_focus_ring_in_the_ink_palettes():
 def test_a_dashboard_digest_line_is_a_list_item_holding_its_link():
     # axe `list` (serious): the Dashboard's "today" digest set role="link" on
     # each `li`, which stops it being a list item inside its `ul`.
-    from pathlib import Path
 
     js = with_pieces("dashboard.js")
     at = js.index('li.className = line.kind === "quote"')
@@ -72,7 +71,6 @@ def test_a_scrolling_page_and_widget_body_leave_room_for_a_focus_ring():
 
 
 def test_a_plain_activity_row_beside_button_rows_is_not_a_stray_list_item():
-    from pathlib import Path
 
     js = with_pieces("dashboard.js")
     at = js.index("Something that is gone (a note deleted for good")
@@ -155,7 +153,6 @@ def test_hover_without_a_focus_twin_does_not_grow():
 # --- learnability: a state said only by colour, a toggle with no state, a hidden gesture ---
 
 def _js(name: str) -> str:
-    from pathlib import Path
 
     from tests._app_js import with_pieces
 

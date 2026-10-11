@@ -1,5 +1,15 @@
 /* --- Wave N: improve-writing, link suggestions, tasks --------------------------- */
 
+.improve-box {
+  min-height: 6rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--input-bg);
+  white-space: pre-wrap;
+  font-size: var(--text-lg);
+}
+
 /* On the app's own scale, not on four numbers typed by hand. Part of the
    same report that the panel is "not consistent with the rest of the app ui
    style": every other list row in this app is spaced in `--space-*` and

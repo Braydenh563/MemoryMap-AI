@@ -61,16 +61,6 @@
   }
 }
 
-.improve-box {
-  min-height: 6rem;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--input-bg);
-  white-space: pre-wrap;
-  font-size: var(--text-lg);
-}
-
 #improve-result {
   border-color: var(--border);
 }

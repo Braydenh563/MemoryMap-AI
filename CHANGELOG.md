@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Start-up: opening the app with no notes waiting no longer lists a "Filing a note" job in Activity and the bell, a new row on every launch.
+- Start-up: the quick-add reader warms up after sign-in instead of on the lock screen, so a launch with a password no longer logs two 401 errors.
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), and a missing apostrophe is read ("doesn follow"); the Guide, the clock and the other utilities read the repaired question.
 - Ask: an answer to a question that needed a spelling repair opens by saying how it was read ("I took that to mean ..."), in wording that changes from one answer to the next.
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.

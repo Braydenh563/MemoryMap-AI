@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5548, frontend ids 2375, CSS sections 488, backend routes 564, backend modules 4661, test files 1073, tests 9791, plan headings 995.
+Counts: frontend functions 5548, frontend ids 2375, CSS sections 488, backend routes 564, backend modules 4661, test files 1072, tests 9790, plan headings 995.
 
 ## Frontend functions (5548)
 
@@ -3509,15 +3509,15 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `entityDateRow` | frontend/js/entity-page.js:134 |
+| `entityDateRow` | frontend/js/entity-page.js:139 |
 | `entityIcon` | frontend/js/entity-page.js:14 |
-| `entityMentionRow` | frontend/js/entity-page.js:118 |
-| `entityMenuItems` | frontend/js/entity-page.js:158 |
-| `entitySave` | frontend/js/entity-page.js:146 |
-| `entitySection` | frontend/js/entity-page.js:101 |
+| `entityMentionRow` | frontend/js/entity-page.js:123 |
+| `entityMenuItems` | frontend/js/entity-page.js:163 |
+| `entitySave` | frontend/js/entity-page.js:151 |
+| `entitySection` | frontend/js/entity-page.js:106 |
 | `entityWhen` | frontend/js/entity-page.js:21 |
-| `openEntitiesSheet` | frontend/js/entity-page.js:196 |
-| `openEntityPage` | frontend/js/entity-page.js:56 |
+| `openEntitiesSheet` | frontend/js/entity-page.js:201 |
+| `openEntityPage` | frontend/js/entity-page.js:61 |
 | `toastEntityMerge` | frontend/js/entity-page.js:33 |
 
 ### frontend/js/field-clear.js (6)
@@ -4892,22 +4892,22 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `inboxDone` | frontend/js/suggestions-inbox.js:186 |
 | `inboxEmpty` | frontend/js/suggestions-inbox.js:178 |
 | `inboxHead` | frontend/js/suggestions-inbox.js:108 |
-| `inboxLinkRow` | frontend/js/suggestions-inbox.js:599 |
-| `inboxLinksPane` | frontend/js/suggestions-inbox.js:492 |
+| `inboxLinkRow` | frontend/js/suggestions-inbox.js:616 |
+| `inboxLinksPane` | frontend/js/suggestions-inbox.js:509 |
 | `inboxLoad` | frontend/js/suggestions-inbox.js:96 |
 | `inboxMergeRow` | frontend/js/suggestions-inbox.js:240 |
 | `inboxRows` | frontend/js/suggestions-inbox.js:168 |
 | `inboxScore` | frontend/js/suggestions-inbox.js:232 |
 | `inboxScoreBar` | frontend/js/suggestions-inbox.js:215 |
 | `inboxShow` | frontend/js/suggestions-inbox.js:142 |
-| `inboxTensionsPane` | frontend/js/suggestions-inbox.js:330 |
+| `inboxTensionsPane` | frontend/js/suggestions-inbox.js:347 |
 | `inboxTypeRow` | frontend/js/suggestions-inbox.js:279 |
 | `inboxWhy` | frontend/js/suggestions-inbox.js:205 |
 | `openSuggestionsInbox` | frontend/js/suggestions-inbox.js:35 |
-| `tensionCard` | frontend/js/suggestions-inbox.js:382 |
-| `tensionGapText` | frontend/js/suggestions-inbox.js:453 |
-| `tensionResolve` | frontend/js/suggestions-inbox.js:441 |
-| `tensionSide` | frontend/js/suggestions-inbox.js:461 |
+| `tensionCard` | frontend/js/suggestions-inbox.js:399 |
+| `tensionGapText` | frontend/js/suggestions-inbox.js:470 |
+| `tensionResolve` | frontend/js/suggestions-inbox.js:458 |
+| `tensionSide` | frontend/js/suggestions-inbox.js:478 |
 
 ### frontend/js/tag-manager.js (29)
 
@@ -15720,7 +15720,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9791)
+## Tests (9790)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16798,7 +16798,6 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_writing_dictionary_persists.py | 4 |
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
-| tests/test_zz_measure.py | 1 |
 
 ## Plan headings (995)
 

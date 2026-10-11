@@ -30,15 +30,20 @@ let entityPageClose = null;
 //: Redo merges again, and the next Undo takes that merge's own snapshot.
 //: `after(merged)` redraws whatever the caller shows. Also used by the
 //: suggestions inbox (loaded with this file).
-function toastEntityMerge(done, mergeId, intoId, after) {
+function toastEntityMerge(done, mergeId, intoId, after, learned) {
   let undoId = done.undo_id;
+  //: A merge accepted from the inbox also taught the learning loop; Undo takes
+  //: that correction away and Redo teaches it again (`learned` is its request).
+  let learnedId = done.correction_id;
   const undo = async () => {
     await apiJson(`/entities/merges/${undoId}/undo`, { method: "POST" });
+    if (learnedId != null) await api(`/learned/corrections/${learnedId}`, { method: "DELETE" });
     if (after) await after(false);
   };
   const redo = async () => {
     const again = await apiJson(`/entities/${mergeId}/merge`, { method: "POST", body: JSON.stringify({ into_id: intoId }) });
     undoId = again.undo_id;
+    if (learned) learnedId = (await apiJson("/learned/corrections", { method: "POST", body: JSON.stringify(learned) }))?.id ?? learnedId;
     if (after) await after(true);
   };
   const action = pushUndo(`Merged into “${done.name}”`, undo, redo);

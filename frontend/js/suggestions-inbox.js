@@ -260,7 +260,7 @@ function inboxMergeRow(m) {
     if (!done) return;
     //: Undo puts the pair back as two names; the row stays gone, since the
     //: suggestion was answered.
-    toastEntityMerge(done, m.merge_id, m.keep_id);
+    toastEntityMerge(done, m.merge_id, m.keep_id, null, { kind: "accept_merge", subject: { a: m.keep_id, b: m.merge_id, signals } });
     inboxDone("names", row);
   });
   const dismiss = smallButton("ph:x", "Not the same: never suggest this pair again", () => {
@@ -298,7 +298,24 @@ function inboxTypeRow(t) {
     set.disabled = false;
     if (!done) return;
     toast(`Link type set: ${t.type_label}.`);
-    pushRequestUndo(`Gave a link the type ${t.type_label}`, `/entries/${t.source_id}/links/${t.link_id}`, "PATCH", { link_type: null }, { link_type: t.link_type }, () => Promise.all([refreshEntries([t.source_id, t.target_id]).catch(() => {}), inboxState && inboxLoad(inboxState)]));
+    //: Undo takes the type off and the correction it taught; Redo does both again.
+    let learnedId = done.correction_id;
+    const redraw = () => Promise.all([refreshEntries([t.source_id, t.target_id]).catch(() => {}), inboxState && inboxLoad(inboxState)]);
+    const linkPath = `/entries/${t.source_id}/links/${t.link_id}`;
+    const learned = { kind: "accept_link_type", subject: { link_id: t.link_id, link_type: t.link_type, signals: [t.link_type] } };
+    pushUndo(
+      `Gave a link the type ${t.type_label}`,
+      async () => {
+        await apiJson(linkPath, { method: "PATCH", body: JSON.stringify({ link_type: null }) });
+        if (learnedId != null) await api(`/learned/corrections/${learnedId}`, { method: "DELETE" });
+        await redraw();
+      },
+      async () => {
+        await apiJson(linkPath, { method: "PATCH", body: JSON.stringify({ link_type: t.link_type }) });
+        learnedId = (await apiJson("/learned/corrections", { method: "POST", body: JSON.stringify(learned) }))?.id ?? learnedId;
+        await redraw();
+      }
+    );
     inboxDone("types", row);
   });
   const dismiss = smallButton("ph:x", "Not this type: never suggest it for this link again", () => {

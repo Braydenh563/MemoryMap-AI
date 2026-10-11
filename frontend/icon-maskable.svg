@@ -1,57 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img"
-     aria-label="MemoryMap AI">
-  <title>MemoryMap AI</title>
+     aria-label="Tessellate">
+  <title>Tessellate</title>
   <!--
     The maskable variant, for Android home screens. Android crops an installed
-    icon to whatever shape the launcher uses — circle, squircle, teardrop — so
+    icon to whatever shape the launcher uses (circle, squircle, teardrop), so
     a maskable icon must bleed to the edges (no rounded corners of its own, or
     the crop cuts a second, wonky corner out of the first) and must keep
     everything meaningful inside the central 80%: a circle of radius 40 about
     the centre.
 
-    The mark in favicon.svg was drawn to that budget already — its outermost
-    point is a node centre at radius 30 plus its 7.5 radius, so 37.5 — which
-    is why this file is the same artwork on a square field rather than a
-    separate, smaller drawing.
+    The mark in favicon.svg was drawn to that budget already: its farthest
+    stroke edge is about 36 from the centre (the lifted cell's top corner and
+    the bottom cells' outer corners), which is why this file is the same
+    artwork on a square field rather than a separate, smaller drawing.
+    tests/test_brand_mark.py holds both files to the same points.
   -->
   <defs>
-    <!-- userSpaceOnUse across the whole 100x100 tile, so any shape filled
-         with this gradient samples the tile's colour at that spot rather
-         than restarting the gradient inside its own box. That is what lets
-         the hub ring below continue the background instead of sitting on it. -->
     <linearGradient id="tileMask" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="100">
       <stop offset="0%" stop-color="#5b7cff" />
       <stop offset="55%" stop-color="#4f6df5" />
       <stop offset="100%" stop-color="#a927d8" />
     </linearGradient>
+    <linearGradient id="pearlMask" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#c9b8ff" />
+    </linearGradient>
+    <filter id="liftMask" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#1a1060" flood-opacity="0.45" />
+    </filter>
   </defs>
 
   <rect width="100" height="100" fill="url(#tileMask)" />
 
-  <g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" opacity="0.92">
-    <path d="M50 50 50 20" />
-    <path d="M50 50 78.5 40.7" />
-    <path d="M50 50 67.6 74.3" />
-    <path d="M50 50 32.4 74.3" />
-    <path d="M50 50 21.5 40.7" />
+  <g opacity="0.95">
+    <polygon points="35.3,48.7 46.8,55.4 46.8,68.6 35.3,75.3 23.8,68.6 23.8,55.4" fill="#ffffff" stroke="#ffffff" stroke-width="7" stroke-linejoin="round" />
   </g>
-
-  <g fill="#ffffff">
-    <circle cx="50" cy="20" r="7.5" />
-    <circle cx="78.5" cy="40.7" r="7.5" />
-    <circle cx="67.6" cy="74.3" r="7.5" />
-    <circle cx="32.4" cy="74.3" r="7.5" />
-    <circle cx="21.5" cy="40.7" r="7.5" />
+  <g opacity="0.7">
+    <polygon points="64.7,48.7 76.2,55.4 76.2,68.6 64.7,75.3 53.2,68.6 53.2,55.4" fill="#ffffff" stroke="#ffffff" stroke-width="7" stroke-linejoin="round" />
   </g>
-
-  <!-- Reported: "the splash logo and icon logo have a weird blue ring around
-       the middle circle and it doesnt continue the gradient like it should".
-       The ring was a flat #4f6df5 disc, the tile colour at one stop of its
-       gradient, so at the tile's centre (where the gradient has moved off
-       that value) it read as a blue washer on a purple field. Filled with the
-       tile gradient itself (user-space units, above) it vanishes into the
-       background; the separation the ring was for still exists because the
-       spokes stop short of the hub, and that gap is the ring. -->
-  <circle cx="50" cy="50" r="13" fill="url(#tileMask)" />
-  <circle cx="50" cy="50" r="9.5" fill="#ffffff" />
+  <g filter="url(#liftMask)">
+    <polygon points="57.3,18.4 67.5,27.0 65.2,40.0 52.7,44.6 42.5,36.0 44.8,23.0" fill="url(#pearlMask)" stroke="url(#pearlMask)" stroke-width="7" stroke-linejoin="round" />
+  </g>
 </svg>

@@ -286,16 +286,18 @@ def test_the_art_needs_no_p5():
     assert "ensureP5" not in body
 
 
-def test_the_emblem_turns_by_css_not_by_redrawing():
+def test_the_emblem_moves_by_css_not_by_redrawing():
+    """Drawn once (SVG layers since the tessellation mark, brief "logo"),
+    moved by CSS animations of its layers: no p5 instance, no frame loop."""
     app = app_js_text()
-    body = app[app.index("function renderEmblem(") :]
-    body = body[: body.index("\n}\n")]
-    assert "frameRate(" not in body, "the emblem must draw once, not loop"
-    #: A 2D canvas since audit FE-07, drawn once: no p5 instance, no loop.
-    assert "new p5(" not in body and "requestAnimationFrame" not in body
-    assert 'classList.add("emblem-spin")' in body
+    for name in ("function renderEmblem(", "function emblemArt("):
+        body = app[app.index(name) :]
+        body = body[: body.index("\n}\n")]
+        assert "frameRate(" not in body, "the emblem must draw once, not loop"
+        assert "new p5(" not in body and "requestAnimationFrame" not in body
     css = CSS.read_text(encoding="utf-8")
-    assert "@keyframes emblem-spin" in css
+    for frames in ("emblem-arrive", "emblem-breathe", "emblem-lift"):
+        assert f"@keyframes {frames}" in css
 
 
 def _luma(rgba: str) -> float:

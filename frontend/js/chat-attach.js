@@ -1820,6 +1820,8 @@ async function sendChatMessage(preset, opts = {}) {
   const touchedItems = new Map();
   chatController = new AbortController();
   const controller = chatController;
+  //: The app's mark lifts its cells while a turn runs (phone-shell.js).
+  if (typeof syncEmblemBusy === "function") syncEmblemBusy();
   //: Atlas looks up to think while a turn runs (avatars.js).
   if (typeof setAtlasMood === "function") setAtlasMood("thinking");
 
@@ -2292,6 +2294,7 @@ async function sendChatMessage(preset, opts = {}) {
     if (chatController === controller) {
       chatController = null;
       stopChatTimer();
+      if (typeof syncEmblemBusy === "function") syncEmblemBusy();
       // The turn is over: it is saved (or about to be) and a reload of this
       // thread will render it like any other. Re-attaching these nodes after
       // that point would show it twice.

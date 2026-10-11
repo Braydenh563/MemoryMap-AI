@@ -1075,19 +1075,19 @@ function paintPersonaAvatar(holder, persona, size = 20) {
 //: icon (`atlasDraw`'s tiny level, a miniature bust, 115 nodes), the same Atlas
 //: the bust shows larger. The bust itself at 20px drew the whole figure to
 //: crop it, 218 nodes a reply: 32,700 nodes in a 150-turn chat, and the first
-//: paint went from 580 to 981ms (chatheads.js). The emblem is the p5 logo
-//: drawn once and copied (assistant-avatar.js, lazy), so a 150-turn chat
-//: holds one sketch, never 150. No Atlas to draw (the faces script failing to
+//: paint went from 580 to 981ms (chatheads.js). The emblem is the app's
+//: mark as a few SVG layers (assistant-avatar.js, lazy; `emblemArt`), about
+//: 20 nodes a head. No Atlas to draw (the faces script failing to
 //: load): the emblem, never an empty box.
 function assistantAvatar(size = 20) {
   const emblem = typeof atlasAvatar !== "function" || (typeof appearancePref === "function" && appearancePref("assistant-avatar", "atlas") === "emblem");
   if (emblem) {
-    const canvas = document.createElement("canvas");
-    canvas.className = "assistant-emblem";
-    canvas.setAttribute("aria-hidden", "true");
-    canvas.style.setProperty("--emblem-size", `${size}px`);
-    assistantEmblemInto(canvas, size);
-    return canvas;
+    const box = document.createElement("span");
+    box.className = "assistant-emblem";
+    box.setAttribute("aria-hidden", "true");
+    box.style.setProperty("--emblem-size", `${size}px`);
+    assistantEmblemInto(box, size);
+    return box;
   }
   const key = chatHeadKey("", size);
   let face = chatHeadSources.get(key);

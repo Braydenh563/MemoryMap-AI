@@ -4107,7 +4107,7 @@ def test_a_frame_is_one_kind_reached_three_ways() -> None:
     assert "wbCaptureBulkMoveOrigin(null, keys)" in wb[wb.index("function wbFrameDragOrigin(") :][:400]
     frame_rule = css[css.index(".wb-object-frame {") :][:600]
     assert "pointer-events: none;" in frame_rule and "background: transparent;" in frame_rule
-    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    guide = re.sub(r'"\s*\n\s*"', "", (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8"))
     assert "F frame" in guide and "title drags it and what is inside it" in guide
     assert "Ctrl+Shift+L locks the selection" in guide
 
@@ -4257,7 +4257,7 @@ def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
     assert "wbPaintCommentMarks();" in wb[wb.index("function wbQueueSelectionBar()") :][:300]
     assert '".wb-comment-pin",' in wb[wb.index("const WB_INV_ZOOM_GRIPS") :][:200]
     assert "#library-view-whiteboard.wb-presenting .wb-comment-marks {\n  display: none;" in css
-    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    guide = re.sub(r'"\s*\n\s*"', "", (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8"))
     assert "Right-click an item, Comment…" in guide and "Comment… starts a thread" in guide
 
 

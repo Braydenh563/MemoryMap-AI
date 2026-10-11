@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5672, frontend ids 2428, CSS sections 490, backend routes 562, backend modules 4770, test files 1087, tests 9956, plan headings 996.
+Counts: frontend functions 5672, frontend ids 2428, CSS sections 490, backend routes 562, backend modules 4770, test files 1088, tests 9959, plan headings 996.
 
 ## Frontend functions (5672)
 
@@ -8864,7 +8864,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | A chip's x: a round target inset evenly (INBOX 403) | frontend/css/08-consistency.css:4674 |
 | A dialog's head: title, its '?', icon-only actions, Close last | frontend/css/08-consistency.css:8980 |
 | A diff of two versions of the same text (DOCUMENTS_PLAN Phase 5 items 2, 3) | frontend/css/09-editor.css:556 |
-| A member of a group selection shows that it is selected, not how to | frontend/css/library-lazy.css:5019 |
+| A member of a group selection shows that it is selected, not how to | frontend/css/library-lazy.css:5021 |
 | A note card's text leads; its metadata steps back (INBOX 505) | frontend/css/08-consistency.css:9850 |
 | A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10243 |
 | A note's time: the same corner on every card | frontend/css/08-consistency.css:8358 |
@@ -8877,7 +8877,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Atlas, the assistant's own character (atlas.js) | frontend/css/08-consistency.css:6543 |
 | BOARD NAVIGATOR AND BOARD SEARCH | frontend/css/07-whiteboard-misc.css:6377 |
 | BREADCRUMBS: WHERE THE CARET IS | frontend/css/05-sidebars-themes.css:6010 |
-| Boards, 2026-10-10 (boardmap-1010): lazy with the board, off the boot | frontend/css/library-lazy.css:4190 |
+| Boards, 2026-10-10 (boardmap-1010): lazy with the board, off the boot | frontend/css/library-lazy.css:4192 |
 | Capture: the add tools as a quiet toolbar (INBOX 395) | frontend/css/08-consistency.css:4484 |
 | Capture: the two labelled rows under the note box | frontend/css/07-whiteboard-misc.css:2745 |
 | Capture: three families, three rows | frontend/css/07-whiteboard-misc.css:4741 |
@@ -8968,8 +8968,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Templates (INBOX 715) | frontend/css/library-lazy.css:3336 |
 | Text on accent-coloured surfaces (roadmap §7: colour contrast was listed as | frontend/css/05-sidebars-themes.css:4085 |
 | The Ask tab's records speak in the Notes list's voice (INBOX 510) | frontend/css/08-consistency.css:9901 |
-| The Library's hover tick says what it is (INBOX 722) | frontend/css/library-lazy.css:4162 |
-| The OCR workspace tool row (INBOX 717). Here rather than in the boot | frontend/css/library-lazy.css:3667 |
+| The Library's hover tick says what it is (INBOX 722) | frontend/css/library-lazy.css:4164 |
+| The OCR workspace tool row (INBOX 717). Here rather than in the boot | frontend/css/library-lazy.css:3669 |
 | The chat header stays one line (INBOX 91) | frontend/css/08-consistency.css:2229 |
 | The compact row: one line, one anchor, one chevron (INBOX 676) | frontend/css/08-consistency.css:10175 |
 | The connection pill's menu button, concentric with the pill | frontend/css/08-consistency.css:8338 |
@@ -9137,7 +9137,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | motion: a sidebar's contents arrive from its edge (INBOX 459 (2)) | frontend/css/08-consistency.css:9598 |
 | motion: one sliding indicator for every strip (INBOX 459 (2), 2026-10-05) | frontend/css/08-consistency.css:9456 |
 | motion: the opening curtain lifts (INBOX 577) | frontend/css/08-consistency.css:9784 |
-| moved from 07-whiteboard-misc.css (canvasui, the boot CSS budget): board-only rules whose class names no boot file draws and no later boot rule competes with, in their old order | frontend/css/library-lazy.css:4843 |
+| moved from 07-whiteboard-misc.css (canvasui, the boot CSS budget): board-only rules whose class names no boot file draws and no later boot rule competes with, in their old order | frontend/css/library-lazy.css:4845 |
 | moved from the boot sheets (Brief 101a, room under the boot CSS cap): rules whose selectors name only the Library | frontend/css/library-lazy.css:16 |
 | moved from the boot sheets (the boot CSS budget, test_boot_budget.py): rules only the Library | frontend/css/library-lazy.css:710 |
 | note card density (§36B) | frontend/css/06-timeline-dialogs.css:1550 |
@@ -9227,7 +9227,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the chat toolbar, grouped (§36B) | frontend/css/06-timeline-dialogs.css:1444 |
 | the citation peek (INBOX 80) | frontend/css/02-chat-graph.css:4529 |
 | the code editor: gutter + monospace | frontend/css/04-chat-dock-appearance.css:4446 |
-| the code panel, one compact header and a padded body (the owner, | frontend/css/library-lazy.css:4776 |
+| the code panel, one compact header and a padded body (the owner, | frontend/css/library-lazy.css:4778 |
 | the composer dock (asked for directly) | frontend/css/04-chat-dock-appearance.css:940 |
 | the composer, as one surface | frontend/css/04-chat-dock-appearance.css:5220 |
 | the connections rail (WORLD_CLASS_PLAN D2; `renderNotesRail`) | frontend/css/04-chat-dock-appearance.css:323 |
@@ -9242,11 +9242,11 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the dock above the editor | frontend/css/04-chat-dock-appearance.css:4111 |
 | the dock row below 1100 | frontend/css/07-whiteboard-misc.css:9779 |
 | the document editor's instruments | frontend/css/05-sidebars-themes.css:4645 |
-| the document history, side by side (DOCUMENTS 24 row 4, Brief 76) | frontend/css/library-lazy.css:4601 |
+| the document history, side by side (DOCUMENTS 24 row 4, Brief 76) | frontend/css/library-lazy.css:4603 |
 | the document toolbar's two folds | frontend/css/07-whiteboard-misc.css:5196 |
 | the documents editor | frontend/css/library-lazy.css:3154 |
 | the documents sidebar's vertical budget (§41) | frontend/css/07-whiteboard-misc.css:2125 |
-| the documents sidebar, redrawn as one tree (the owner, 2026-10-10: | frontend/css/library-lazy.css:4648 |
+| the documents sidebar, redrawn as one tree (the owner, 2026-10-10: | frontend/css/library-lazy.css:4650 |
 | the export dialog (WHITEBOARD_PLAN.md Phase 3, decision 4) | frontend/css/06-timeline-dialogs.css:2538 |
 | the faded notes card (WORLD_CLASS_PLAN 15, I4) | frontend/css/03-dashboard-widgets.css:4795 |
 | the field: the glyph inside, Stop only while something is loading | frontend/css/03-dashboard-widgets.css:1344 |
@@ -9360,7 +9360,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/help-chat-lazy.css | 32 |
 | frontend/css/icon-picker.css | 101 |
 | frontend/css/lan-lazy.css | 56 |
-| frontend/css/library-lazy.css | 6047 |
+| frontend/css/library-lazy.css | 6049 |
 | frontend/css/manual-lazy.css | 139 |
 | frontend/css/meetings-lazy.css | 477 |
 | frontend/css/nav-history-lazy.css | 144 |
@@ -10441,19 +10441,19 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_head_word` | src/memorymap/ai/composer_overview.py:116 |
-| `_holding` | src/memorymap/ai/composer_overview.py:63 |
-| `_list_line` | src/memorymap/ai/composer_overview.py:218 |
-| `_names` | src/memorymap/ai/composer_overview.py:112 |
-| `_phrase` | src/memorymap/ai/composer_overview.py:232 |
-| `_prose_line` | src/memorymap/ai/composer_overview.py:187 |
-| `_wider` | src/memorymap/ai/composer_overview.py:91 |
-| `best_line` | src/memorymap/ai/composer_overview.py:204 |
-| `members` | src/memorymap/ai/composer_overview.py:73 |
-| `names_by_note` | src/memorymap/ai/composer_overview.py:122 |
-| `shared_names` | src/memorymap/ai/composer_overview.py:171 |
-| `themes` | src/memorymap/ai/composer_overview.py:149 |
-| `topic` | src/memorymap/ai/composer_overview.py:49 |
+| `_head_word` | src/memorymap/ai/composer_overview.py:121 |
+| `_holding` | src/memorymap/ai/composer_overview.py:68 |
+| `_list_line` | src/memorymap/ai/composer_overview.py:223 |
+| `_names` | src/memorymap/ai/composer_overview.py:117 |
+| `_phrase` | src/memorymap/ai/composer_overview.py:237 |
+| `_prose_line` | src/memorymap/ai/composer_overview.py:192 |
+| `_wider` | src/memorymap/ai/composer_overview.py:96 |
+| `best_line` | src/memorymap/ai/composer_overview.py:209 |
+| `members` | src/memorymap/ai/composer_overview.py:78 |
+| `names_by_note` | src/memorymap/ai/composer_overview.py:127 |
+| `shared_names` | src/memorymap/ai/composer_overview.py:176 |
+| `themes` | src/memorymap/ai/composer_overview.py:154 |
+| `topic` | src/memorymap/ai/composer_overview.py:54 |
 
 ### src/memorymap/ai/composer_tables.py (2)
 
@@ -16032,7 +16032,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9956)
+## Tests (9959)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16205,7 +16205,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_composer_commands.py | 3 |
 | tests/test_composer_eval_725.py | 6 |
 | tests/test_composer_eval_741.py | 6 |
-| tests/test_composer_overview_787.py | 17 |
+| tests/test_composer_overview_787.py | 18 |
 | tests/test_composer_route_688.py | 11 |
 | tests/test_composer_social.py | 5 |
 | tests/test_composer_tables.py | 32 |
@@ -16521,6 +16521,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_job_runs.py | 46 |
 | tests/test_jobs_pool.py | 10 |
 | tests/test_jobstore.py | 17 |
+| tests/test_js_link_strip_redos.py | 2 |
 | tests/test_kept_suggestions.py | 7 |
 | tests/test_keydown_without_key.py | 1 |
 | tests/test_keyword_context.py | 8 |
@@ -17939,7 +17940,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from INBOX, 2026-10-11 (Files, Recordings and Links; libraryup) | docs/roadmap/DOCUMENTS_PLAN.md:1580 |
 | Placed from INBOX, 2026-10-11 (Tidy, undoing a pattern, menu gaps) | docs/roadmap/UI_MODERNISATION_PLAN.md:1585 |
 | Placed from INBOX, 2026-10-11 (bars, notifications and tours; grammar57) | docs/roadmap/UI_MODERNISATION_PLAN.md:1560 |
-| Placed from INBOX, 2026-10-11 (board and map previews) | docs/roadmap/WHITEBOARD_PLAN.md:1651 |
+| Placed from INBOX, 2026-10-11 (board and map previews) | docs/roadmap/WHITEBOARD_PLAN.md:1648 |
 | Placed from INBOX, 2026-10-11 (ends, edge arrows, guides while drawing; canvasdepth3) | docs/roadmap/WHITEBOARD_PLAN.md:1631 |
 | Placed from INBOX, 2026-10-11 (fit a frame to its contents) | docs/roadmap/WHITEBOARD_PLAN.md:1614 |
 | Placed from INBOX, 2026-10-11 (one export panel for the whole app) | docs/roadmap/WHITEBOARD_PLAN.md:1573 |

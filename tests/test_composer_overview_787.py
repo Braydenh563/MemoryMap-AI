@@ -72,6 +72,8 @@ def ask(question: str, notes: list[dict] | None = None, **kwargs) -> dict:
         ("how many notes about games", "games"),
         ("what am I working on", composer_overview.DOING),
         ("what are my app ideas", "app ideas"),
+        ("what is there about games", "games"),
+        ("whats there on uni?", "uni"),
     ],
 )
 def test_the_frames_that_ask_about_a_topic_as_a_whole(question, subject):
@@ -220,3 +222,9 @@ def test_a_count_and_a_day_are_two_values_and_a_day_said_twice_is_one():
 
     assert not [f for f in validate.maxims(parts("five", "5 September")) if f.rule == "measured value said twice"]
     assert [f for f in validate.maxims(parts("5 September", "5 September")) if f.rule == "measured value said twice"]
+
+
+def test_what_is_there_about_a_topic_is_the_overview_not_one_quote():
+    """OPEN 806 (decision 64): "what is there about X" with no model is the
+    overview shape, as "what do I know about X" is."""
+    assert ask("what is there about games")["shape"] == "overview"

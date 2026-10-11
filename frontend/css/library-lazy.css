@@ -3412,7 +3412,9 @@ body.printing-doc #doc-preview p,
   text-overflow: ellipsis;
   white-space: nowrap;
   /* Takes a double-click to edit it (INBOX 740); a press still drags the
-     frame, as on the title. */
+     frame, as on the title. The frame itself lets presses through
+     (07-whiteboard-misc.css), so the hint opts back in as the title does. */
+  pointer-events: auto;
   cursor: text;
 }
 

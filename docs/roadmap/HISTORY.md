@@ -48710,3 +48710,14 @@ the decision waits.
 > Decisions: (a) a note with fewer than three tags shows a quiet "+ Tag" chip after its tags; (b) opening it lists up to three suggested tags (tag-suggest.js's ranking) as one-click chips above the input; (c) its menu has "Don't suggest tags for this note", stored on the note (a property), undoable, and reversible from the same menu; the Guide and the chip's `data-help-for` say so.
 >
 > **Built** (branch agent/tags89-1011). `tagAddChipKind` (note-cards.js): the card's chip is "Add tags" on an untagged note with nothing suggested, a quiet "+ Tag" (`.chip.untagged.tag-add`) on a note with one or two tags or suggestions showing, and none from three tags (`TAG_ADD_BELOW`), on a board or draft, or on a read-only row. "+ Tag" opens `openNoteTagPopover` (tag-suggest.js, lazy): up to three suggested tags (the ones kept on the note first, then `/entries/suggest-tags`, none for a private note) as one-press chips above a field, a '?' and a `kebabMenu` with "Don't suggest tags for this note" or "Suggest tags for this note again". The flag is `Entry.tag_suggest_off` (additive column), set through `POST /entries/{id}/suggested-tags` with `mute`; while set `_open_suggestions` offers nothing and `_keep_suggestions` makes none, and what was kept returns when it is cleared. Turning it off says so with Undo. Guide: the `suggested-tags` topic. Tests: `tests/test_tags89.py`. Measured on port 8794 (Chromium): the chip on the 1- and 2-tag notes and not the 3-tag one; three suggestions in the popover; muted, the card shows none and the popover says "Suggestions are off for this note." after a reload.
+
+## Moved from the plans, 2026-10-11 (canvasdepth3 C1 to C4)
+
+From WHITEBOARD_PLAN "Placed from INBOX, 2026-10-11 (ends, edge arrows, guides while drawing; canvasdepth3)".
+
+> - C1. Decision E1, with help: the arrow's title, the Guide topic and the manual path.
+> - C2. Decision E2: the six ends and the end size, in the Start and End menus, the map's link menu and the export.
+> - C3. Decision E3: the signature end, three candidates measured at 1x and 2x, one taken.
+> - C4. Decision E4: guides, corner snap and the size readout while drawing.
+>
+> **Built** (agent/wbs-1011, 8236fec29 and 8e02b2bde). C1: a note card's edge arrows make a new note joined by an arrowed elbow, open for typing, one undo (`wbCloneNoteCard`). C2: stealth, cross, half and double arrow beside the existing ends, a Small, Medium, Large size per end (0.7, 1, 1.45 of the head) in the bar, the format panel and draw.io export (`wbCapPathMore`, `wbCapSizeFields`). C3: the MemoryMap end, candidate A of three measured at 1x and 2x (the dot at the tip, a chevron behind it). C4: drawing out a shape, text box, sticky or frame snaps its moving corner to the guides and shows its size; Alt draws free (`wbDrawOutSnap`). Tests: test_wb_line_ends.py, test_wb_clone_grips_follow.py, test_wb_resize_guides.py.

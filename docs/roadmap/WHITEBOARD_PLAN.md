@@ -1642,10 +1642,7 @@ Decisions made:
 - E5. The feature-depth gap is re-audited for the board, the map and the document editor together (tldraw, Excalidraw, draw.io, Miro, XMind, MindNode, Notion, Google Docs, Word), ranked by how often a person meets each gap, and the top five per surface built, one commit and test each; the rest stay here as rows.
 
 Rows (owner: canvasdepth3, Opus, next free slot after transparency):
-- C1. Decision E1, with help: the arrow's title, the Guide topic and the manual path.
-- C2. Decision E2: the six ends and the end size, in the Start and End menus, the map's link menu and the export.
-- C3. Decision E3: the signature end, three candidates measured at 1x and 2x, one taken.
-- C4. Decision E4: guides, corner snap and the size readout while drawing.
+- C1 to C4: built (wbs-1011, 8e02b2bde and 8236fec29); HISTORY.md, "Moved from the plans, 2026-10-11 (canvasdepth3 C1 to C4)".
 - C5. Decision E5: the audit table here, then its top five per surface; it lists the small taken-for-granted things too (Brief 87's list).
 
 ## Placed from INBOX, 2026-10-11 (board and map previews)

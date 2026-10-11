@@ -1761,7 +1761,7 @@ Phases 14a to 14e are built (HISTORY.md, "Moved from the plans, 2026-10-05
   and every copy follows. Needs a `library_ref` that is followed, which
   decision 25 of WHITEBOARD_PLAN keeps as "kept, never followed".
 - ~~Topic effects~~ built 2026-10-10: HISTORY.md ("Moved from the plans, 2026-10-10 (boardmap-1010)"); not yet in the PNG or SVG picture.
-- **Reaction stamps and voting** (Miro): a count of stamps on a topic or card.
+- Reaction stamps and voting: on a topic, built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"); on a board card, open.
 - **The whiteboard half of 641's research**, beyond stickers.
 - The exported picture draws each topic's shape since 2026-10-10 (boardmap-1010); a
   topic's effect and a Phosphor icon still do not reach PNG or SVG (an emoji icon does, as text).
@@ -1834,8 +1834,22 @@ XMind and MindNode. The brief's list (themes, branch styles, relationship
 lines, boundaries, summaries, outline in and out, presentation, Tab, Enter
 and F2) is built; what is open:
 
-1. A structure per branch (XMind): `layout` on a topic, read by `wbMapColumnPositions` for its subtree.
-2. Callouts on a topic.
-3. Labels drawn under a topic.
-4. `.xmind` export.
-5. Stickers and votes (14.4).
+1. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): a structure per branch.
+2. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): callouts on a topic.
+3. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): labels under a topic.
+4. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): `.xmind` export.
+5. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): reaction stamps and votes (14.4). Stickers were built as decision 44; linked stickers stay open in 14.4.
+
+## Placed from INBOX, 2026-10-11 (the topic's tools)
+
+Owner: the mapfix agent (Sonnet).
+
+- **The owner, 2026-10-11, verbatim.** "also when I change stuff in the
+  tools for a mindmap node, I cant actually see what the difference is
+  until I click off it 😅" (screenshot: a topic's Shape popover, rows Core
+  idea, Box, Edge bar, Fill, Effect; selected options drawn three ways
+  (accent fill, a bordered box, a grey fill) and the resets in two
+  colours). Placed: the Sonnet mapfix agent: a change paints the topic
+  at once while it stays selected, the popover never covers the topic it
+  edits, and one selected look and one reset look in the popover.
+- INBOX 816, the owner 2026-10-11, verbatim: "should thes ebuttons be that big??" (screenshot: a zoomed-out dark map; the selected topic "test" is about 60 px wide and its + and link buttons are each about 50 px squares under it, larger than the topic). Read: no. The topic's action buttons are drawn at a fixed screen size while the map is zoomed out. Target: they scale with the topic and are clamped between 20 and 28 px, sit beside the topic without covering a neighbour, and below 50% zoom only the + shows.

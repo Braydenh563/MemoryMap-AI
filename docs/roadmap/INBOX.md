@@ -288,22 +288,9 @@ with its owner named in the entry.
      one), one filter trigger, one view switch order (list, grid), and in a
      bar only the primary is filled; a lint counts each.
 
-814. **The owner, 2026-10-11, verbatim.** "also when I change stuff in the
-     tools for a mindmap node, I cant actually see what the difference is
-     until I click off it 😅" (screenshot: a topic's Shape popover, rows Core
-     idea, Box, Edge bar, Fill, Effect; selected options drawn three ways
-     (accent fill, a bordered box, a grey fill) and the resets in two
-     colours). Placed: the Sonnet mapfix agent: a change paints the topic
-     at once while it stays selected, the popover never covers the topic it
-     edits, and one selected look and one reset look in the popover.
-
-815. **The owner, 2026-10-11, verbatim.** "and I want to be able to preview
-     any and all exports and to be able to adjust them in a panel before I
-     export anything, for documents, boards, maps and notes etc." Placed:
-     WHITEBOARD_PLAN "Placed from INBOX, 2026-10-11 (one export panel for
-     the whole app)"; the exports agent (Opus, queued).
-
 ## Placed (last 20, newest first)
+
+- 2026-10-11: 814 and 816 (a mind map topic's look shows only after deselecting; the topic's + and link buttons too big) placed in MINDMAP_PLAN "Placed from INBOX, 2026-10-11 (the topic's tools)", owner the mapfix agent; 815 (preview and adjust every export in a panel) placed in WHITEBOARD_PLAN "Placed from INBOX, 2026-10-11 (one export panel for the whole app)", owner the exports agent.
 
 - 2026-10-11: 801 (Agent mode and the composer with no model) placed in CHAT_PLAN; 802 (drag the force graph like main) in GRAPH_PLAN; 803 (buttons, OCR, the constellation, the capture gutter) in UI_MODERNISATION_PLAN, each "Placed from INBOX, 2026-10-11".
 

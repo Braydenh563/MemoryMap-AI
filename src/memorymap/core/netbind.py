@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import re
 import socket
 import struct
 import sys
@@ -107,6 +108,34 @@ def env_bind(raw: str | None = None) -> str:
         return str(ipaddress.ip_address(text))
     except ValueError:
         return LOOPBACK
+
+
+#: **Names a reverse proxy forwards** (OPEN ledger 318). Behind Caddy, nginx
+#: or Traefik the Host is the public name (`memory.example.com`), which is not
+#: this computer's, so the rebinding guard answered 421. `MEMORYMAP_ALLOWED_HOSTS`
+#: is a comma-separated list of those names; unset, nothing changes. Names
+#: only: `*` is ignored (it would switch the guard off) and a URL is read for
+#: its host.
+ALLOWED_HOSTS_ENV = "MEMORYMAP_ALLOWED_HOSTS"
+_HOST_NAME = re.compile(r"[a-z0-9]([a-z0-9.-]*[a-z0-9])?")
+
+
+def extra_allowed_hosts() -> frozenset[str]:
+    """The operator's extra host names, lower-cased, or empty."""
+    raw = os.environ.get(ALLOWED_HOSTS_ENV, "")
+    found = set()
+    for token in raw.replace(";", ",").split(","):
+        text = token.strip().lower()
+        if not text:
+            continue
+        if "://" in text:
+            text = text.split("://", 1)[1]
+        text = text.split("/", 1)[0]
+        if text.count(":") == 1:
+            text = text.rsplit(":", 1)[0]
+        if _HOST_NAME.fullmatch(text):
+            found.add(text)
+    return frozenset(found)
 
 
 def set_explicit_bind(value: bool) -> None:
@@ -250,7 +279,7 @@ def host_allowed(host_header: str | None) -> bool:
         return True
     except ValueError:
         pass
-    return host in _own_names()
+    return host in _own_names() or host in extra_allowed_hosts()
 
 
 def _usable_v6(ip: ipaddress.IPv6Address) -> bool:
@@ -348,6 +377,28 @@ def lan_addresses(include_v6: bool | None = None) -> list[str]:
     return found + found_v6
 
 
+FIREWALL_RULE = "MemoryMap AI (private networks)"
+
+
+def firewall_hint(port: int | None, platform: str | None = None) -> dict | None:
+    """The one-line Windows Defender Firewall rule that lets other devices
+    reach the HTTPS port (OPEN ledger 315 and 316). Windows asks about a new
+    listener once and, on a Public profile, blocks the next request; the app
+    cannot add a rule without administrator rights, so Settings shows the line
+    to paste into an administrator Command Prompt. Private profile only: a
+    cafe's network is never opened by it. None off Windows or with no port."""
+    if (platform or sys.platform) != "win32" or not port:
+        return None
+    return {
+        "rule": FIREWALL_RULE,
+        "command": (
+            f'netsh advfirewall firewall add rule name="{FIREWALL_RULE}" '
+            f"dir=in action=allow protocol=TCP localport={int(port)} profile=private"
+        ),
+        "remove": f'netsh advfirewall firewall delete rule name="{FIREWALL_RULE}"',
+    }
+
+
 def describe(config: ConfigManager, port: int | None = None) -> dict:
     """What the receipt and Settings say about who can reach the app.
 
@@ -385,6 +436,7 @@ def describe(config: ConfigManager, port: int | None = None) -> dict:
         "primary_address": url(shown[0]) if shown else "",
         "network": trust if listening else None,
         "held": trust["reason"] if held else None,
+        "firewall": firewall_hint(https_port) if lan_enabled(config) else None,
     }
 
 

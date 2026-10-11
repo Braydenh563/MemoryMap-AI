@@ -2101,6 +2101,18 @@ function renderLanAddresses(holder, state) {
   holder.append(toggle, list);
 }
 
+//: The Windows firewall line (OPEN ledger 315 and 316): the server sends it
+//: only on Windows with the switch on, so everywhere else this stays hidden.
+function renderLanFirewall(state) {
+  const holder = $("account-lan-firewall");
+  if (!holder) return;
+  const command = state.firewall?.command || "";
+  holder.classList.toggle("hidden", !command);
+  $("account-lan-firewall-command").textContent = command;
+  const copy = $("account-lan-firewall-copy");
+  copy.onclick = () => copyToClipboard(command, copy);
+}
+
 const LAN_HELD_REASONS = {
   new_network: "it is not a network you allowed",
   unknown_network: "this network could not be identified",
@@ -2149,6 +2161,7 @@ function renderLanTrust(state) {
     );
   }
   renderLanAddresses($("account-lan-addresses"), state.other_devices ? state : { addresses: [] });
+  renderLanFirewall(state);
   const trust = $("account-lan-trust");
   trust.classList.toggle("hidden", !state.allow_lan);
   $("account-lan-ask").checked = state.ask_new_devices !== false;

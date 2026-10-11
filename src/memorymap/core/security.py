@@ -74,6 +74,14 @@ def _is_same_site(candidate: str, host_header: str | None, scheme: str) -> bool:
     # are one machine, and which one appears depends on what the user typed.
     if mine is not None and host in _LOOPBACK_HOSTS and mine[1] in _LOOPBACK_HOSTS:
         return port == mine[2]
+    #: Behind a reverse proxy that ends TLS the app sees http and the page's
+    #: Origin is https on 443: the same name the operator listed in
+    #: MEMORYMAP_ALLOWED_HOSTS, on a standard port, is this app's own page.
+    #: Only a name the operator chose, and never an odd port.
+    if mine is not None and host == mine[1] and port in (80, 443):
+        from memorymap.core import netbind
+
+        return host in netbind.extra_allowed_hosts()
     return False
 
 

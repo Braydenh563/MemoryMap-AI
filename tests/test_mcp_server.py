@@ -161,3 +161,105 @@ def test_protocol_version_follows_a_supported_client():
     assert init("2025-06-18")["protocolVersion"] == "2025-06-18"
     assert init("2099-01-01")["protocolVersion"] == "2025-06-18"  # the newest we speak
     assert init(None)["protocolVersion"] == "2024-11-05"
+
+
+# --- resources (notes) and prompts (skills): OPEN ledger 319 -----------------
+
+
+def _rpc(method, params=None, msg_id=1):
+    message = {"jsonrpc": "2.0", "id": msg_id, "method": method}
+    if params is not None:
+        message["params"] = params
+    return handle_request(message)
+
+
+def _make_note(text):
+    response = _rpc("tools/call", {"name": "create_note", "arguments": {"content": text}})
+    payload = json.loads(response["result"]["content"][0]["text"])
+    return payload.get("id") or payload["note"]["id"]
+
+
+def test_the_server_declares_what_it_serves(app_state):
+    caps = _rpc("initialize")["result"]["capabilities"]
+    assert set(caps) == {"tools", "resources", "prompts"}
+
+
+def test_resources_list_names_notes_by_uri_and_read_returns_the_text(app_state):
+    note_id = _make_note("Garden plan\nPlant the beans in May.")
+    listed = _rpc("resources/list")["result"]["resources"]
+    entry = next(r for r in listed if r["uri"] == f"memorymap://note/{note_id}")
+    assert entry["name"].startswith("Garden plan")
+    assert entry["mimeType"] == "text/markdown"
+    read = _rpc("resources/read", {"uri": entry["uri"]})["result"]["contents"][0]
+    assert read["uri"] == entry["uri"] and read["mimeType"] == "text/markdown"
+    assert "Plant the beans in May." in read["text"]
+
+
+def test_a_resource_template_describes_the_note_uri(app_state):
+    templates = _rpc("resources/templates/list")["result"]["resourceTemplates"]
+    assert templates[0]["uriTemplate"] == "memorymap://note/{id}"
+
+
+def test_reading_an_unknown_or_malformed_resource_is_an_error_not_a_crash(app_state):
+    missing = _rpc("resources/read", {"uri": "memorymap://note/99999"})
+    assert missing["error"]["code"] == -32002
+    bad = _rpc("resources/read", {"uri": "file:///etc/passwd"})
+    assert bad["error"]["code"] == -32002
+
+
+def test_a_private_note_is_neither_listed_nor_readable(app_state):
+    from memorymap.core import deps
+    from memorymap.core.database import Entry
+
+    note_id = _make_note("Private diary entry")
+    with deps.get_db().session() as session:
+        session.get(Entry, note_id).is_private = True
+        session.commit()
+    uris = [r["uri"] for r in _rpc("resources/list")["result"]["resources"]]
+    assert f"memorymap://note/{note_id}" not in uris
+    read = _rpc("resources/read", {"uri": f"memorymap://note/{note_id}"})
+    assert "error" in read
+
+
+def test_resources_vanish_when_the_note_tools_are_turned_off(app_state):
+    from memorymap.core import deps
+
+    deps.get_config().set_preference("disabled_tools", ["get_note", "list_notes"])
+    assert _rpc("resources/list")["result"]["resources"] == []
+    assert "resources" not in _rpc("initialize")["result"]["capabilities"]
+
+
+def test_prompts_list_the_skills_with_their_inputs(app_state):
+    prompts = _rpc("prompts/list")["result"]["prompts"]
+    assert prompts
+    with_args = next(p for p in prompts if p.get("arguments"))
+    assert {"name", "description", "arguments"} <= set(with_args)
+    assert all({"name", "required"} <= set(a) for a in with_args["arguments"])
+
+
+def test_prompts_get_fills_a_skill_into_a_user_message(app_state):
+    prompts = _rpc("prompts/list")["result"]["prompts"]
+    skill = next(p for p in prompts if p.get("arguments"))
+    values = {a["name"]: "gardening" for a in skill["arguments"]}
+    got = _rpc("prompts/get", {"name": skill["name"], "arguments": values})["result"]
+    message = got["messages"][0]
+    assert message["role"] == "user" and message["content"]["type"] == "text"
+    assert "gardening" in message["content"]["text"]
+    assert "{{" not in message["content"]["text"]
+
+
+def test_prompts_get_refuses_a_missing_required_input_and_an_unknown_skill(app_state):
+    prompts = _rpc("prompts/list")["result"]["prompts"]
+    skill = next(p for p in prompts if any(a["required"] for a in p.get("arguments", [])))
+    assert _rpc("prompts/get", {"name": skill["name"]})["error"]["code"] == -32602
+    assert _rpc("prompts/get", {"name": "no such skill"})["error"]["code"] == -32602
+
+
+def test_startup_does_not_load_the_embedding_model(app_state):
+    """OPEN ledger 319: `serve` builds the embedder lazily, so starting the
+    tool server never loads a model (measured by hand with `-X importtime`:
+    no sentence_transformers or torch import at startup)."""
+    from memorymap.core import deps
+
+    serve(stdin=io.StringIO(""), stdout=io.StringIO())
+    assert deps.get_embeddings()._st_model is None

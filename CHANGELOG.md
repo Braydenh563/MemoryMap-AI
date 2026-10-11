@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Install guide: what the setup file is, that it is built with free Inno Setup, and that the app's updater runs it.
+- Packaging checks: the Windows smoke ignores only tracebacks listed in `packaging/benign_tracebacks.txt` (empty), and the upgrade check skips with a notice in a repository that has published no release.
+- Settings, Other devices: on Windows, with the switch on, the one `netsh` line that opens the port on private networks only, with a Copy button.
+- Tools for other apps: the MCP server now also offers your notes as readable resources (never a private note) and your skills as prompts, and the packaged app starts it with `MemoryMap --mcp`; Settings, Tools shows the matching config to paste.
+- Docker: the compose file's build context is the repository (it pointed one folder too high), the image's data and models folders belong to the user the app runs as, and `MEMORYMAP_ALLOWED_HOSTS` names a reverse proxy's public host so it is no longer answered 421 and its pages are not refused as another site.
 - Library: importing a .diff, .patch, .vb or .vbs file now works (it was refused as unreadable), and so does a file named Dockerfile or Makefile, which has no suffix.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).

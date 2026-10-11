@@ -10584,8 +10584,10 @@ Link to another note with [[its first few words]]."></textarea>
                   Tools it can use switches as Atlas.
                 </p>
                 <p>
-                  Risky changes such as deleting are never offered to another
-                  app, and the server works only from a source install.
+                  It also offers your notes to read and your skills as ready
+                  prompts. Risky changes such as deleting are never offered to
+                  another app, and private notes are never shown. The packaged
+                  app starts the same server with its --mcp option.
                 </p>
               </div>
               <pre id="mcp-config-snippet" class="code-block"></pre>
@@ -12939,6 +12941,12 @@ Link to another note with [[its first few words]]."></textarea>
                   outside your own network (a forwarded port) are never let
                   in. Loosening any of these asks for your password.
                 </p>
+                <p>
+                  On Windows, if a phone connects once and then stops, the
+                  firewall is blocking the port. The line shown below the
+                  address opens it on private networks only; run it in a
+                  Command Prompt opened as administrator.
+                </p>
               </div>
               <label class="setting-check">
                 <input type="checkbox" id="account-allow-lan">
@@ -12961,6 +12969,15 @@ Link to another note with [[its first few words]]."></textarea>
                    rest folded (renderLanAddresses, settings-controls.js; the
                    privacy receipt draws the same block). -->
               <div id="account-lan-addresses" class="lan-addresses hidden"></div>
+              <!-- Windows only: the one netsh line that lets a phone in on a
+                   private network (renderLanFirewall, settings-controls.js). -->
+              <div id="account-lan-firewall" class="hidden">
+                <p class="muted">If a phone cannot connect, Windows may be blocking it. Paste this into a Command Prompt opened as administrator. It opens the port on private networks only.</p>
+                <pre id="account-lan-firewall-command" class="code-block"></pre>
+                <div class="row">
+                  <button type="button" id="account-lan-firewall-copy" class="ghost small"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
+                </div>
+              </div>
               <div id="account-lan-trust" class="hidden">
                 <label class="setting-check">
                   <input type="checkbox" id="account-lan-ask" checked>

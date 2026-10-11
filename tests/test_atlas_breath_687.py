@@ -95,10 +95,11 @@ process.stdout.write(JSON.stringify(res));
 
 def test_it_rides_the_tail_loop_which_knows_the_motion_gates():
     frame = _fn("atlasTailFrame")
-    assert "const live = atlasMotionOK(box) && !box.classList.contains(\"atl-off\") && !document.hidden;" in frame
+    # And behind the lock (`data-atlas-hidden`, Brief 34 decision 7).
+    assert "const live = atlasMotionOK(box) && !box.classList.contains(\"atl-off\") && !document.hidden && !document.documentElement.hasAttribute(\"data-atlas-hidden\");" in frame
     # Called before the loop skips its odd frames, so a still figure is put
     # back at rest by the one frame the loop draws then.
-    assert frame.index("atlasBreathFrame(box, live, now);") < frame.index("if (live && tail.tick % 2 && tail.drawn)")
+    assert frame.index("atlasBreathFrame(box, live, now);") < frame.index("if (live && tail.tick % 2 && tail.drawn && !tail.calm)")
 
 
 def test_only_the_torso_breathes_and_it_composes():

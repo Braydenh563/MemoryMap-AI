@@ -76,3 +76,38 @@ def test_the_two_surfaces_do_not_mix(ai_client, fake_ollama, session):
     recent = ai_client.get("/chat/recent").json()
     assert "what did I write about beans" in recent
     assert "delete the bean note" not in recent
+
+
+def _asked(session, question):
+    from memorymap.api.routes_chat import ASK_SURFACE
+
+    session.add(AuditLog(action="queried", entity_type=ASK_SURFACE, detail=question))
+    session.commit()
+
+
+def test_clearing_the_history_clears_ask_again(client, session):
+    """The owner, 2026-10-10: "There's no way to clear your ask history"
+    (with the Ask again row under the box). Clear history now empties that
+    row too; the audit log keeps every question, and a question asked after
+    the clear comes back as usual."""
+    _asked(session, "what about beans")
+    _asked(session, "what about peas")
+    assert client.get("/chat/recent").json() == ["what about peas", "what about beans"]
+    cleared = client.delete("/ask-history")
+    assert cleared.status_code == 200
+    assert client.get("/chat/recent").json() == []
+    assert session.query(AuditLog).filter_by(action="queried").count() == 2
+    _asked(session, "what about leeks")
+    assert client.get("/chat/recent").json() == ["what about leeks"]
+
+
+def test_one_question_can_be_forgotten(client, session):
+    """"no way to ... delete individual records??": one chip goes, the
+    others stay, and asking it again brings it back."""
+    _asked(session, "what about beans")
+    _asked(session, "what about peas")
+    response = client.delete("/chat/recent", params={"question": "what about beans"})
+    assert response.status_code == 200
+    assert client.get("/chat/recent").json() == ["what about peas"]
+    _asked(session, "what about beans")
+    assert client.get("/chat/recent").json() == ["what about beans", "what about peas"]

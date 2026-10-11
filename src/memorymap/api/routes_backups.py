@@ -86,7 +86,20 @@ def storage_location() -> dict:
         "disk_total_bytes": diskspace.total_bytes(config.data_dir),
         #: The threshold is the server's to decide, not four call sites'.
         "low_space_bytes": diskspace.LOW_SPACE_BYTES,
+        "integrity": backup.check_at_boot(db_path),
     }
+
+
+@router.get("/backups/integrity")
+def integrity_at_start() -> dict:
+    """The notebook file's check at start (WORLD_CLASS 25e): `ok`, the
+    check's words and its time. The page asks once at boot and shows a
+    notice only when `ok` is false; the newest backup is the way back."""
+    config = deps.get_config()
+    result = backup.check_at_boot(Path(config.db_path))
+    newest = (backup.list_backups(config.data_dir) or [None])[0]
+    result["newest_backup"] = newest["name"] if newest else ""
+    return result
 
 
 @router.get("/backups")
@@ -171,10 +184,9 @@ def restore_backup(body: RestoreBody) -> dict:
 
 @router.delete("/backups/{name}")
 def delete_backup(name: str) -> dict:
-    folder = backup.backups_dir(deps.get_config().data_dir)
-    path = folder / name
-    # Path(name).name guards traversal; only files inside backups/ die.
-    if path.name != name or not path.is_file():
+    # Only a file inside backups/ dies; a name that reaches outside is "not found".
+    path = backup.backup_path(name, deps.get_config().data_dir)
+    if path is None or not path.is_file():
         raise HTTPException(status_code=404, detail="That backup could not be found.")
     path.unlink()
     return {"deleted": name}
@@ -280,6 +292,9 @@ def restore_bundle(file: UploadFile = File(...), password: str = Form(default=""
             ) from exc
     finally:
         _unlink_quietly(upload_path, zip_path)
+    # The settings the zip carried (Audit 2026-10-10, item 1), merged over the
+    # live ones: a key the zip lacks keeps its value here.
+    config.merge_preferences(result.get("preferences") or {})
     session = deps.get_db().session()
     try:
         manager.log_action(session, "restored", "data", detail="full backup file")

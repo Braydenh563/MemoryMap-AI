@@ -30,7 +30,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from memorymap.api import paging
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator, model_serializer
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -85,7 +85,12 @@ DEFAULT_BOARD_TYPE = "board"
 #: both-sides is the layout Coggle is known for. A value this set does not
 #: know is refused rather than stored, so an older client asking for one of
 #: these is the only compatibility question, and it gets the default.
-BOARD_LAYOUTS = {"free", "tree-right", "tree-left", "tree-both", "tree-down", "radial"}
+#: "logic-right", "timeline", "fishbone" and "tree-table" for MINDMAP_PLAN 15
+#: row 6, XMind's structures beyond the tree; the client lays them out.
+BOARD_LAYOUTS = {
+    "free", "tree-right", "tree-left", "tree-both", "tree-down", "radial",
+    "logic-right", "timeline", "fishbone", "tree-table",
+}
 DEFAULT_BOARD_LAYOUT = "free"
 #: **A map made from text starts laid out** (audit FEAT-05, 2026-10-05). The
 #: import and the accepted AI proposal used the board default, Free, while a
@@ -138,6 +143,11 @@ MAP_THEME_FIELDS: dict[str, frozenset | type] = {
     "edge_arrow": frozenset({"on", "off"}),
     "palette": frozenset({"deep", "soft", "vivid", "bold", "paired", "bright", "earth"}),
     "font": frozenset({"serif", "mono", "wide"}),
+    #: **How far apart the topics sit** (the owner, 2026-10-10: "the spacing
+    #: is really close to the other things and bunched up", and "I want more
+    #: mindmap appearance options"). The tidy's two gaps scaled; normal is no
+    #: value. The map's, like the font: never resolved onto a topic.
+    "spacing": frozenset({"compact", "roomy"}),
     #: **The hierarchy preset** (MINDMAP_PLAN.md decision 39): how the centre,
     #: the main branches and everything deeper draw. Classic is the default
     #: and is stored as no value; the frontend holds what each one draws
@@ -160,6 +170,10 @@ MAP_LEVEL_FIELDS: dict[str, frozenset | type] = {
     "spine": frozenset({"dashed", "none", "solid"}),
     "fill": frozenset({"solid", "tint", "none"}),
     "edge_width": frozenset({"thin", "thick", "normal"}),
+    #: Topic effects (MINDMAP_PLAN §14.4, the owner 2026-10-10: "I want more
+    #: mindmap appearance options"): a soft shadow or a glow in the branch
+    #: colour, per level as per topic; `none` is a level saying "not here".
+    "effect": frozenset({"shadow", "glow", "none"}),
 }
 MAP_LEVELS = ("0", "1", "2")
 
@@ -167,7 +181,7 @@ MAP_LEVELS = ("0", "1", "2")
 #: one topic: never filled in under a topic's style (`_themed_style`), so an
 #: export never writes them onto a node and a re-import never reads them back
 #: as a topic's own choice.
-MAP_LEVEL_THEME_FIELDS = frozenset({"palette", "font", "hierarchy", "levels"})
+MAP_LEVEL_THEME_FIELDS = frozenset({"palette", "font", "hierarchy", "levels", "spacing"})
 
 #: **A stored name for the app's own default, per themed select** (decision
 #: 9's narrow case, built). Every select in the topic strip stores the app's
@@ -256,6 +270,18 @@ class WhiteboardComment(BaseModel):
     id: str = Field(min_length=1, max_length=40)
     text: str = Field(min_length=1, max_length=MAX_COMMENT_CHARS)
     at: str = Field(default="", max_length=40)
+    #: The owner, 2026-10-10: "there's no way to edit a comment" and comments
+    #: "need a lot of improvement". When it was last edited, whether it is
+    #: resolved (folded away, out of the count), and the id of the comment
+    #: it answers (a reply is drawn under its parent). Each is left out when
+    #: it says nothing, so a thread written before them reads back unchanged.
+    edited: str | None = Field(default=None, max_length=40)
+    resolved: bool | None = None
+    reply_to: str | None = Field(default=None, max_length=40)
+
+    @model_serializer(mode="wrap")
+    def _drop_unsaid(self, handler):
+        return {key: value for key, value in handler(self).items() if value is not None}
 
 
 #: A thread: `None` (or empty) is no thread.
@@ -322,6 +348,8 @@ class WhiteboardObjectData(BaseModel):
     #: Hidden by the Layers tab's eye, and its own name there (decision 27).
     hidden: bool | None = None
     name: str | None = Field(default=None, max_length=80)
+    #: The named layer it is on (canvasdepth); the board's settings hold them.
+    layer: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,24}$")
     #: Where a placed library item came from (decision 25): `{id, version}`
     #: or `{builtin}`. Kept, never followed.
     library_ref: dict | None = None
@@ -345,6 +373,9 @@ class WhiteboardObjectData(BaseModel):
     #: how the first attempt at this looked like a frontend bug: the toggle
     #: flipped, the PUT succeeded, and the value came back missing.
     align: str | None = Field(default=None, pattern="^(left|center|right|auto)$")
+    #: Where the text sits up and down its box (the owner, 2026-10-10:
+    #: "there's no way to vertically centre text"); absent is the top.
+    valign: str | None = Field(default=None, pattern="^(middle|bottom)$")
     md: bool | None = None
     #: A map reference node's target: the note / document / file / bookmark id
     #: this node stands for. Only meaningful for `MAP_REFERENCE_KINDS`; a
@@ -386,6 +417,13 @@ class WhiteboardObjectData(BaseModel):
     #: **An emoji placed on the canvas as a sticker** (decision 44): a text
     #: object drawn as its glyph alone, sized to its box, with no card.
     sticker: bool | None = None
+    #: **A sticky note** (the owner, 2026-10-10: "there's no real way to
+    #: visually distinguish between a text box and a note"): a text object
+    #: drawn as paper, lifted, with a folded corner. Its colour is `bg`.
+    sticky: bool | None = None
+    #: A sticky note's own say on its folded corner (INBOX 792), over the
+    #: board's default (`background.sticky_fold`). `None` follows the board.
+    fold: bool | None = None
     #: How a topic is drawn (MINDMAP_PLAN.md §12.1 item 3, decided in §12.0).
     #: Five values and not the plan's eight: `None` is the rounded card this
     #: map has always drawn, and `pill`, `rect`, `ellipse` and `none` are the
@@ -399,6 +437,10 @@ class WhiteboardObjectData(BaseModel):
     #: appears and disappears from the picker depending on another toggle is
     #: a second rule to remember, and the three shapes are all just a radius.
     shape: str | None = Field(default=None, pattern="^(pill|rect|ellipse|none|rounded)$")
+    #: A topic's effect (MINDMAP_PLAN §14.4's topic effects): a soft shadow
+    #: or a glow in its branch colour; `none` keeps one topic plain on a
+    #: level that has one.
+    effect: str | None = Field(default=None, pattern="^(shadow|glow|none)$")
     #: **A core idea** (MINDMAP_PLAN.md item 177: "a node marked as a core
     #: idea, with its own shape set and a heavier weight"). A mark on the
     #: node, not a third tier in the data model: §12.0 refused a "sub core"
@@ -729,6 +771,8 @@ class WhiteboardStateOut(BaseModel):
     objects: list[WhiteboardObjectOut] = []
     #: The board's look (decision 24), so opening a board draws it at once.
     background: dict = {}
+    #: Its named layers, `[{id, name, hidden, locked}]` (canvasdepth).
+    layers: list[dict] = []
 
 
 def _board_filter(model, board_id: int | None):
@@ -842,6 +886,7 @@ def get_whiteboard_state(
         sketches=list(sketches),
         objects=[_object_to_out(o) for o in objects],
         background=_board_background(db.get(Entry, board_id)) if board_id else {},
+        layers=_board_layers(db.get(Entry, board_id)) if board_id else [],
     )
 
 
@@ -1140,6 +1185,68 @@ def _store_board_numbered(entry: Entry, numbered: bool) -> None:
 BOARD_BG_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
+#: At most this many named layers on a board; a layer is a few fields.
+MAX_BOARD_LAYERS = 20
+
+
+class BoardLayer(BaseModel):
+    """One named layer (draw.io's LayersWindow; WHITEBOARD_PLAN section 6):
+    items name it in `data.layer`; hidden hides them all, locked locks them."""
+
+    id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,24}$")
+    name: str = Field(min_length=1, max_length=60)
+    hidden: bool = False
+    locked: bool = False
+
+    @field_validator("name")
+    @classmethod
+    def _strip(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("A layer needs a name.")
+        return value
+
+
+def _board_layers(entry: Entry | None) -> list[dict]:
+    """The board's named layers as stored, each re-checked on the way out."""
+    if entry is None:
+        return []
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        return []
+    stored = parsed.get("layers") if isinstance(parsed, dict) else None
+    out = []
+    for raw in stored if isinstance(stored, list) else []:
+        try:
+            out.append(BoardLayer(**raw).model_dump())
+        except (TypeError, ValueError):
+            continue
+    return out[:MAX_BOARD_LAYERS]
+
+
+def _store_board_layers(entry: Entry, layers: list[BoardLayer]) -> list[dict]:
+    """Replace the whole list: a layer's order is the list's order, so a
+    patch per layer would have to say where it goes."""
+    try:
+        existing = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    seen, out = set(), []
+    for layer in layers[:MAX_BOARD_LAYERS]:
+        if layer.id not in seen:
+            seen.add(layer.id)
+            out.append(layer.model_dump())
+    if out:
+        existing["layers"] = out
+    else:
+        existing.pop("layers", None)
+    entry.board_settings = json.dumps(existing)
+    return out
+
+
 class BoardBackground(BaseModel):
     """A board's look (WHITEBOARD_PLAN decision 24, FEAT-06): a colour, an
     image from this notebook's uploads, or both. A patch: a field sent as
@@ -1147,6 +1254,10 @@ class BoardBackground(BaseModel):
 
     color: str | None = Field(default=None, max_length=7)
     image: str | None = Field(default=None, max_length=300)
+    #: Whether a sticky note's corner is drawn folded over (INBOX 792: "the
+    #: option to hide the flap in the corner"). Folded is the default, so only
+    #: `false` is ever stored; a note's own `fold` overrides it.
+    sticky_fold: bool | None = None
 
     @field_validator("color")
     @classmethod
@@ -1187,6 +1298,8 @@ def _board_background(entry: Entry | None) -> dict:
         out["color"] = color
     if isinstance(image, str) and MEDIA_URL_RE.match(image):
         out["image"] = image
+    if stored.get("sticky_fold") is False:
+        out["sticky_fold"] = False
     return out
 
 
@@ -1196,7 +1309,7 @@ def _store_board_background(entry: Entry, patch: BoardBackground) -> dict:
     merged = _board_background(entry)
     for field in patch.model_fields_set:
         value = getattr(patch, field)
-        if value is None:
+        if value is None or (field == "sticky_fold" and value is True):
             merged.pop(field, None)
         else:
             merged[field] = value
@@ -1247,6 +1360,8 @@ class BoardOut(BaseModel):
     layout: str = DEFAULT_BOARD_LAYOUT
     #: The board's look, `{color, image}` (decision 24); `{}` is the theme's.
     background: dict = {}
+    #: Its named layers (canvasdepth); `[]` for none.
+    layers: list[dict] = []
     #: A miniature of where things actually sit on this board: up to
     #: Up to `PREVIEW_POINTS` items, `{x, y, kind, label}`, each position
     #: normalised into 0..1 against the board's own bounding box. The
@@ -1467,6 +1582,30 @@ def _map_branch_colors(
     for node_id, parent_id in parents.items():
         key = parent_id if parent_id in parents else None
         children.setdefault(key, []).append(node_id)
+    # **A branch is as old as its oldest topic** (the owner, 2026-10-10: "when
+    # I added a mindmap node in between, it changed the colour of the other
+    # nodes in the branch"). A topic put between a root and its child is the
+    # newest id on the map, so ordering a root's children by their own id sent
+    # the moved branch to the end of the palette and shifted every branch after
+    # it. Ordered by the oldest id in each branch, it takes the place (and the
+    # colour) of the branch it now holds. A map nobody re-parented orders as
+    # before: a branch's own topic is its oldest. `canvas.wbMapColors` agrees.
+    walk_order: list[int] = []
+    visited: set[int] = set()
+    pending = list(children.get(None, []))
+    while pending:
+        node_id = pending.pop()
+        if node_id in visited:
+            continue
+        visited.add(node_id)
+        walk_order.append(node_id)
+        pending.extend(children.get(node_id, []))
+    oldest: dict[int, int] = {}
+    for node_id in reversed(walk_order):
+        oldest[node_id] = min([node_id, *(oldest[c] for c in children.get(node_id, []) if c in oldest)])
+    for root_id in children.get(None, []):
+        if root_id in children:
+            children[root_id].sort(key=lambda c: oldest.get(c, c))
     colors: dict[int, str] = {}
     seen: set[int] = set()
     branch = 0
@@ -2190,6 +2329,7 @@ def list_boards(
                 type=board_type,
                 layout=layout,
                 background=_board_background(entry),
+                layers=_board_layers(entry),
                 **_preview_fields(db, entry.id),
             )
         )
@@ -2446,11 +2586,36 @@ class BoardRename(BoardTypeMixin):
     numbered: bool | None = None
     #: A patch on the board's look (decision 24). `None` leaves it as it is.
     background: BoardBackground | None = None
+    #: The whole list of named layers (canvasdepth). `None` leaves them.
+    layers: list[BoardLayer] | None = Field(default=None, max_length=MAX_BOARD_LAYERS)
     #: Optional since maps: `PUT` used to be rename-only and required a
     #: title, so a client changing the *layout* had to resend the name it was
     #: not touching: which is how a rename made in another tab gets silently
     #: overwritten by a stale one. `None` means "leave the title alone".
     title: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+def _apply_board_look(db: Session, entry: Entry, body: BoardRename) -> None:
+    """The board's background and named layers, each recorded as its own
+    edit when it changed (split from `rename_board` to keep it readable)."""
+    if body.background is not None:
+        before_background = _board_background(entry)
+        stored_background = _store_board_background(entry, body.background)
+        if stored_background != before_background:
+            events.record(
+                db,
+                "edited",
+                "board",
+                entry.id,
+                "background",
+                payload={"after": stored_background, "before": before_background},
+            )
+    if body.layers is not None:
+        before_layers = _board_layers(entry)
+        stored_layers = _store_board_layers(entry, body.layers)
+        if stored_layers != before_layers:
+            events.record(db, "edited", "board", entry.id, f"layers, {len(stored_layers)}",
+                          payload={"after": {"layers": stored_layers}, "before": {"layers": before_layers}})
 
 
 @router.put("/boards/{board_id}", response_model=BoardOut)
@@ -2514,18 +2679,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
                 "branches numbered" if body.numbered else "branches not numbered",
                 payload={"after": {"numbered": body.numbered}, "before": {"numbered": before_numbered}},
             )
-    if body.background is not None:
-        before_background = _board_background(entry)
-        stored_background = _store_board_background(entry, body.background)
-        if stored_background != before_background:
-            events.record(
-                db,
-                "edited",
-                "board",
-                entry.id,
-                "background",
-                payload={"after": stored_background, "before": before_background},
-            )
+    _apply_board_look(db, entry, body)
     if body.title is not None:
         title = body.title.strip()
         update_entry(db, entry, content=apply_title(entry.content, title))
@@ -2557,6 +2711,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
         type=board_type,
         layout=layout,
         background=_board_background(entry),
+        layers=_board_layers(entry),
         **_preview_fields(db, board_id),
     )
 
@@ -3087,6 +3242,7 @@ MAP_STYLE_FIELDS = (
     "core",
     "spine",
     "fill",
+    "effect",
     "icon",
     "link",
     "edge_label",
@@ -4107,6 +4263,7 @@ _FREEMIND_PRIVATE = {
     "core": "_core",
     "spine": "_spine",
     "fill": "_fill",
+    "effect": "_effect",
     "icon": "_icon",
     "edge_label": "_edge_label",
     "edge_dashed": "_edge_dashed",
@@ -4141,6 +4298,7 @@ _OPML_PRIVATE = {
     "core": "_core",
     "spine": "_spine",
     "fill": "_fill",
+    "effect": "_effect",
     "bold": "_bold",
     "italic": "_italic",
     "font_size": "_font_size",

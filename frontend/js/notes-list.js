@@ -24,6 +24,14 @@ function foldNoteToolbarForFirstPaint() {
     collapsed = false; // private mode: the expanded shape is the safe default, as the bundle's
   }
   bar.classList.toggle("is-collapsed", collapsed);
+  //: **The folded strip opens when pressed** (the owner, 2026-10-10: "The
+  //: note capture subtab formatting toolbar wont open"). Until the note box
+  //: is first focused its tools are not mounted, and "Formatting" is a
+  //: label with nothing behind it; a press focuses the box, which mounts
+  //: the editor and the tools with it.
+  bar.addEventListener("click", (event) => {
+    if (!bar.querySelector(".doc-toolbar-tools") && !event.target.closest("button")) startNewNote();
+  });
 }
 foldNoteToolbarForFirstPaint();
 
@@ -148,7 +156,8 @@ async function resolveCategoryChoice(select) {
 // Anything else is a plain word: all of them must appear, in any order.
 
 //: KG7: the structural terms, `-` included, quoted or [[bracketed]] values whole.
-const LIVE_QUERY_RE = /(^|\s)(-?(?:type|prop|links|rel|entity):(?:\[\[[^\]]{1,120}\]\]|"[^"]{1,200}"|\S+))/gi;
+//: And `prop:key="a value"` whole (query.py's `_TOKEN`).
+const LIVE_QUERY_RE = /(^|\s)(-?(?:type|prop|links|rel|entity):(?:\[\[[^\]]{1,120}\]\]|"[^"]{1,200}"|[^\s"=<>!]{1,60}[=<>!]{1,2}"[^"]{1,200}"|\S+))/gi;
 let liveQuery = { q: "", ids: null, pending: "" };
 
 //: The ids the server gives for these terms, or null while it is asked.
@@ -227,6 +236,9 @@ function entryNeedsReview(entry) {
 //: of the same four lines.
 function showNotesFilter(query) {
   switchTab("notes");
+  //: Your notes, whichever sub-tab was last open (the owner, 2026-10-10: "I
+  //: pressed show them, but it just navigated me to the Ask subtab").
+  showNotesSection("browse");
   const search = $("note-search");
   search.value = query;
   search.dispatchEvent(new Event("input"));
@@ -528,7 +540,7 @@ const FILE_KIND_LABELS = {
   js: "Code", ts: "Code", jsx: "Code", tsx: "Code", py: "Code", java: "Code",
   c: "Code", h: "Code", cpp: "Code", hpp: "Code", cs: "Code", go: "Code",
   rs: "Code", rb: "Code", php: "Code", sh: "Code", sql: "SQL",
-  swift: "Code", kt: "Code",
+  swift: "Code", kt: "Code", vb: "Code", vbs: "Code", diff: "Code", patch: "Code",
   zip: "Archive", mp3: "Audio", wav: "Audio", m4a: "Audio",
   mp4: "Video", mov: "Video", webm: "Video",
 };
@@ -1516,6 +1528,11 @@ function renderNoteText(element, text, terms) {
       box.type = "checkbox";
       box.disabled = true;
       box.checked = task[1].toLowerCase() === "x";
+      //: axe `label` (critical, 20 boxes): the box sat beside its words with
+      //: no name of its own. The state comes first so a screen reader says it
+      //: before the sentence, and the words are the task with its markdown
+      //: marks taken off, as the card draws them.
+      box.setAttribute("aria-label", `${box.checked ? "Done" : "To do"}: ${task[2].replace(/[*_`~]|\[\[|\]\]/g, "").trim()}`);
       item.appendChild(box);
       renderNoteInline(item, task[2], terms);
       element.appendChild(item);
@@ -2163,7 +2180,19 @@ function noteCountExcludingDrafts() {
 //: query, so the filter is visible and editable; the tag chips on the
 //: dashboard use the same path.
 function filterNotesByTag(tag) {
-  const value = /\s/.test(tag) ? `tag:"${tag}"` : `tag:${tag}`;
+  filterNotesBy(/\s/.test(tag) ? `tag:"${tag}"` : `tag:${tag}`);
+}
+
+//: A property's value as a filter (the owner, 2026-10-10: "is it possible to
+//: add and customise the metadata a little more??"): `prop:key=value`, the
+//: value quoted when it has a space (query.py's `_TOKEN`), a [[note]] by name.
+function propQuery(key, value) {
+  const v = String(value).replace(/^\[\[|\]\]$/g, "").replace(/"/g, "");
+  return `prop:${key}=${/[\s=<>!]/.test(v) ? `"${v}"` : v}`;
+}
+
+//: The Notes list filtered by one query, as the box would be typed.
+function filterNotesBy(value) {
   $("note-search").value = value;
   noteSearch = value;
   $("save-search")?.classList.remove("hidden");
@@ -2821,6 +2850,7 @@ async function _loadEntries() {
   entriesComplete = false;
   referenceCountsCache.clear();
   reminderCountsCache.clear();
+  noteTopicsCache.clear();
   showEntrySkeletons();
 
   const isSemantic = $("semantic-search-toggle")?.checked;
@@ -3041,11 +3071,11 @@ function referenceCountChip(entry, options = {}) {
   if (!counts || !counts.total) return null;
   const refChip = chip(`ph:graph ${referenceCountText(counts)}`, "refs", (event) => {
     event.stopPropagation();
-    openConnections(
+    lazyScript("/js/connections.js").then(() => openConnections(
       "entries",
       entry.id,
       entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80)
-    );
+    ));
   });
   refChip.title = "Everything this note is joined to. Open Connections";
   return refChip;
@@ -3087,7 +3117,27 @@ function reminderCountChip(entry, options = {}) {
   return alarm;
 }
 
-//: **The two count strips a card carries, as data.**
+//: **A note's topic, on its card** (the owner, 2026-10-10: "Should topics
+//: from the graph be more integrated app wide??"). A topic is found by the
+//: graph (`/graph/topics/of`, renames applied); the chip says which one this
+//: note is in and opens the graph on it. Quiet like the counts: a fact about
+//: the note, not a warning. A rename clears the cache (`gcSaveTopicName`).
+const noteTopicsCache = new Map();
+const _noteTopicsInFlight = new Set();
+
+function noteTopicChip(entry) {
+  const topic = noteTopicsCache.get(entry.id);
+  if (!topic || entry.is_board || entry.is_draft) return null;
+  const mark = chip(`ph:circles-three ${topic.name}`, "refs topic", async (event) => {
+    event.stopPropagation();
+    await switchTab("graph");
+    showTopicInGraph(entry.id);
+  });
+  mark.title = `In the topic ${topic.name}, ${topic.size} notes. Open it on the graph`;
+  return mark;
+}
+
+//: **The count strips a card carries, as data.**
 //:
 //: They are the same mechanism twice over: read the ids on screen, ask once
 //: for all of them, patch the chip onto the cards that are still there. The
@@ -3115,6 +3165,33 @@ const CARD_COUNT_SOURCES = [
     empty: 0,
     chip: (entry) => reminderCountChip(entry, { actions: true }),
   },
+  {
+    cache: noteTopicsCache,
+    inFlight: _noteTopicsInFlight,
+    path: (ids) => `/graph/topics/of?ids=${ids}`,
+    key: "topics",
+    marker: ".chip.topic",
+    empty: null,
+    chip: noteTopicChip,
+  },
+  //: **A note's own open questions** (INBOX 745 (c): "there is no way to view
+  //: the questions asked by notes ... from the notes themselves"): a count
+  //: that opens Notes, Questions kept to this note.
+  {
+    cache: new Map(),
+    inFlight: new Set(),
+    path: (ids) => `/questions/counts?ids=${ids}`,
+    marker: ".chip.questions",
+    empty: 0,
+    chip(entry) {
+      const count = this.cache.get(entry.id);
+      return count ? chip(`ph:question ${count} open question${count === 1 ? "" : "s"}`, "questions", (event) => {
+        event.stopPropagation();
+        showNotesSection("questions");
+        ensureModule("questionsView").then(() => questionsForNote(entry.id));
+      }) : null;
+    },
+  },
 ];
 
 function ensureCardCounts(list, generation) {
@@ -3134,7 +3211,7 @@ function ensureOneCardCount(list, generation, source) {
   apiJson(source.path(wanted.join(",")), { silent: true })
     .then((answer) => {
       if (generation !== _entriesLoadGeneration) return;
-      const counts = (answer && answer.counts) || {};
+      const counts = (answer && answer[source.key || "counts"]) || {};
       for (const id of wanted) {
         const given = counts[String(id)];
         source.cache.set(id, given === undefined || given === null ? source.empty : given);
@@ -3332,6 +3409,8 @@ async function renderNotesRail() {
   if (body.dataset.key === key) return;
   const seq = ++notesRailSeq;
   body.setAttribute("aria-busy", "true");
+  //: The rows are drawn by connections.js (the sheet's own bundle).
+  await lazyScript("/js/connections.js");
   let answer = notesRailCache.get(key);
   if (!answer) {
     const [links, near, back] = await Promise.all([
@@ -3392,23 +3471,23 @@ function notesRailNearGroup(items) {
   const section = document.createElement("div");
   section.className = "connection-group notes-rail-near";
   const head = document.createElement("p");
-  head.className = "muted connection-heading";
-  setLabel(head, `ph:hourglass-medium Forgotten, and close to this (${items.length})`);
+  head.className = "connection-heading";
+  setLabel(head, "ph:hourglass-medium Forgotten, and close to this");
+  const count = document.createElement("span");
+  count.className = "connection-count";
+  count.textContent = String(items.length);
+  head.appendChild(count);
   section.appendChild(head);
   const holder = document.createElement("div");
   holder.className = "connection-rows";
   for (const item of items) {
-    const row = smallButton(`ph:note ${item.title}`, item.reason ? `Open this note\nWhy: ${item.reason}` : "Open this note", () =>
-      flashEntry(item.id)
+    //: The route's own sentence is the row's subline, in the same list recipe
+    //: as every other connection row (`connectionRowEl`, menus.js).
+    const row = connectionRowEl(
+      "ph:note", item.title, item.reason ? `Open this note\nWhy: ${item.reason}` : "Open this note", item.reason || "",
+      () => flashEntry(item.id)
     );
-    row.classList.add("connection-row");
     holder.appendChild(row);
-    if (item.reason) {
-      const why = document.createElement("span");
-      why.className = "muted notes-rail-why";
-      why.textContent = item.reason;
-      holder.appendChild(why);
-    }
   }
   section.appendChild(holder);
   return section;
@@ -3420,6 +3499,14 @@ function notesRailNearGroup(items) {
 function notesRailFocusSubject() {
   const li = document.querySelector(`#entry-list li[data-id="${notesRailId}"]`);
   if (li) li.focus({ preventScroll: true });
+}
+
+//: The Connections sheet's "Open in the sidebar" (INBOX 784): the column
+//: shown for that note, from wherever the sheet was opened.
+function dockConnectionsInRail(id) {
+  if ((prefs.get("activeTab", null) || "dashboard") !== "notes") switchTab("notes");
+  notesRailId = id;
+  setNotesRailHidden(false);
 }
 
 function setNotesRailHidden(hidden) {

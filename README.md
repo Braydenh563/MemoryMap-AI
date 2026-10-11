@@ -59,8 +59,9 @@ Open a section for the detail.
   icon in the toolbar, the Insert menu and the `/` menu): an emoji as itself,
   one of 1,530 icons as `:ph-name:`.
 - Bring notes in from a folder of Markdown files, a PDF, Word file or slide
-  deck, Notion, Obsidian, Evernote or Apple Notes, or clip a web page with a
-  bookmarklet. Importing the same thing twice adds only what is new.
+  deck, Notion, Obsidian, Evernote, Apple Notes or a MemoryMap notebook folder,
+  or clip a web page with a bookmarklet. Importing the same thing twice adds
+  only what is new.
 - Attach any file. Images are captioned, read by a vision model and run
   through Tesseract OCR (or RapidOCR) where each is available; scanned PDFs are read page
   by page, and the OCR workspace lets you correct each region before it
@@ -95,7 +96,7 @@ Open a section for the detail.
   model, reading your notes, thinking, writing, or the tool in use.
 - Questions collects the questions your notes ask in passing, and marks one
   answered when a later note answers it.
-- In Agent mode the assistant has 65 tools to search, link, organise and act on
+- In Agent mode the assistant has 70 tools to search, link, organise and act on
   your notebook. Anything destructive asks first, as does any change or web
   request after it has read a web page or an imported note. Every step is
   shown.
@@ -105,7 +106,11 @@ Open a section for the detail.
 - A command palette (`Ctrl`/`Cmd`+`K`) runs any command or goes to any place
   (typed words it cannot match go to Find anything, `Ctrl`+`P`, which
   searches notes and documents), and a popup agent (`Ctrl`+`Shift`+`A`) does things from any tab. Reminders
-  take plain language: "call Sam tomorrow evening".
+  take plain language: "call Sam tomorrow evening". The palette also starts a
+  timer ("timer 10 minutes") or a stopwatch on the status bar, counts the
+  words in a selection, and inserts a template where the cursor is.
+- Statistics counts the notebook, your reminders and what you use, with this
+  week against last, from the Dashboard's activity heatmap.
 
 </details>
 
@@ -118,8 +123,8 @@ Open a section for the detail.
   highlighted. A document reopens where you left it.
 - The Writing room turns rough thoughts into a proper note, or a pasted block
   into several linked notes, before anything is saved.
-- Export a document as Markdown, HTML, PDF or Word (Word is an optional
-  package), and your notes as JSON, CSV or Markdown.
+- Export a document as Markdown, HTML, PDF or Word, and your notes as JSON,
+  CSV or Markdown.
 
 </details>
 
@@ -309,6 +314,8 @@ version for first-time terminal users.
    Settings, Models.
 3. Write a note, then ask about it in Notes, Ask.
 
+**A first install needs the internet once.** The first setup downloads the search model and the packages you chose; after that MemoryMap works offline.
+
 **The first launch downloads the search model.** Search and filing by meaning
 use a built-in model that needs the `sentence-transformers` package. If it is
 missing, the app installs it the first time it is needed: a one-time download
@@ -332,19 +339,22 @@ in Ollama and pick it in the same place.
 | Voice notes (faster-whisper) | Local dictation for the microphone buttons |
 | Desktop window (pywebview) | The app in its own window, and a tray icon on Windows |
 | Import documents (markitdown) | PDF, Word and slide decks become notes |
-| Export to Word (python-docx) | A document's Word export |
 | Read scanned PDFs (pypdfium2) | Scanned pages become images a vision or OCR model can read |
 | Search inside images (Tesseract OCR) | Text in images becomes searchable; also needs the Tesseract program |
 | Read images without Tesseract (RapidOCR) | A second local reader, nothing else to install; used when Tesseract isn't ready |
 | Run Python files (Pyodide) | Runs a `.py` document in a sandbox; a pinned download that works offline |
 | Tool calling without Ollama (needle) | A small built-in model that picks tools when no model server is running; a pinned download that works offline |
+| Translate offline (Bergamot, English to Spanish) | Translate this, in the command palette, with no model; a pinned 27 MB download that works offline |
 
 ## Privacy
 
 Everything lives in one folder: `memorymap.db` (your notes), `preferences.json`,
 `uploads/` and `backups/` (a snapshot once a day). Set `MEMORYMAP_DATA_DIR` to
 put it elsewhere. Settings, Import & export exports your notes as JSON, CSV or
-Markdown, or as a full backup that you can seal with a password.
+Markdown, the whole notebook as a folder (each note as Markdown with its
+attachments and a `.json` file of every field, plus documents and boards,
+which imports back whole), or as a full backup that you can seal with a
+password. Every import keeps a report naming anything it left out.
 
 - The server listens on this computer only. Letting a phone or another computer
   on your network in is a switch in Settings, Account & security; it always
@@ -363,6 +373,28 @@ Markdown, or as a full backup that you can seal with a password.
 [docs/PRIVACY.md](docs/PRIVACY.md) has the full model, including sessions, the
 browser protections and what to do if you forget your password. To report a
 vulnerability, see [SECURITY.md](SECURITY.md).
+
+## Performance
+
+Each interaction has a time budget, held by a test that fails when it is
+exceeded (`tests/test_budgets.py` for the server, `tests-e2e/specs/budgets.spec.js`
+in a real browser; the table is `BUDGETS` in `src/memorymap/api/routes_bench.py`).
+Measured in headless Chromium on a four-core machine under load, on a 500-note
+notebook with a board of 500 objects and a document of 50,000 words. Each
+measured figure is the slowest of four runs' medians; the budget is 1.5 times it.
+
+| Interaction | Measured (ms) | Budget (ms) |
+| --- | --- | --- |
+| Boot to first paint | 713 | 1070 |
+| First interaction | 4639 | 6960 |
+| List paint | 139 | 210 |
+| Search | 30 | 50 |
+| Board open | 108 | 170 |
+| Document open | 359 | 540 |
+
+The first interaction is the first click the app answers after a cold start,
+with the session kept. `GET /models/bench/budgets?live=true` times the server's
+share of each against your own notebook.
 
 ## Documentation
 
@@ -390,7 +422,7 @@ Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: the
 one rule is that every feature must work with no cloud service. In short:
 
 ```
-pytest -n auto                  # 8,200+ tests, fully offline, every AI call faked
+pytest -n auto                  # 9,200+ tests, fully offline, every AI call faked
 bash scripts/gate.sh --changed  # lints, node --check, ruff, and the tests that name your files
 ruff check .                    # what CI lints with
 ```
@@ -408,3 +440,6 @@ You may use, study, modify and share this, and anything built on it must stay
 under the same licence, including a modified copy run as a network service.
 MemoryMap is a local-first app, and the AGPL keeps a closed, hosted version of
 it from being offered back to the people it was written for.
+
+The libraries vendored into the app, with their versions and licences, are
+credited in [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md).

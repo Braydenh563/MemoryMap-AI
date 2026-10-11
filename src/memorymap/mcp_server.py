@@ -29,30 +29,85 @@ second one.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from typing import TextIO
 
 from memorymap.ai import tools
 from memorymap.core import deps
 
+#: Newest first. `initialize` answers with the client's own version when it is
+#: one of these (the spec's negotiation), else the newest we speak. The
+#: default for a client that names none stays the oldest, as before.
+SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "memorymap-ai"
 SERVER_VERSION = "0.1.0"
 
 
+#: Tools that mean something only inside the chat window. `ends_turn` is the
+#: registry's own mark for "stops and waits for the person" (`ask_user`,
+#: `make_plan`, `run_skill`, `compress_chat`): a bare client has no card to
+#: answer, so the call would park for ever. The two names are read-only but
+#: describe this app's own screens and one conversation's history.
+CHAT_ONLY = frozenset({"get_app_navigation", "search_chat_history"})
+
+
 def offered_tools() -> list[tools.ToolSpec]:
-    """Every tool this server will list and run: not destructive, and not
-    turned off in Settings -> Tools."""
+    """Every tool this server will list and run: not destructive, not
+    interactive, and not turned off in Settings -> Tools."""
     return [
-        spec for spec in tools.TOOLS.values() if not spec.destructive and tools.tool_enabled(spec.name)
+        spec
+        for spec in tools.TOOLS.values()
+        if not spec.destructive
+        and not spec.ends_turn
+        and spec.name not in CHAT_ONLY
+        and tools.tool_enabled(spec.name)
     ]
+
+
+#: Tools that change nothing, so a client may auto-approve them. The registry
+#: already lists the writers (`tools.WRITE_TOOLS`, the list the agent loop
+#: trusts); `save_user_preference` writes a preference and is not in it.
+#: `destructiveHint` is False for everything offered here by construction
+#: (the spec's default is True, which would make a client ask before a
+#: harmless note edit).
+_ALSO_WRITES = frozenset({"save_user_preference"})
+
+
+def _is_read_only(spec: tools.ToolSpec) -> bool:
+    return spec.name not in tools.WRITE_TOOLS and spec.name not in _ALSO_WRITES
+
+
+def _annotations(spec: tools.ToolSpec) -> dict:
+    return {
+        "readOnlyHint": _is_read_only(spec),
+        "destructiveHint": bool(spec.destructive),
+        "openWorldHint": spec.name in ("web_search", "read_url"),
+    }
 
 
 def _tool_list_payload() -> list[dict]:
     return [
-        {"name": spec.name, "description": spec.description, "inputSchema": spec.parameters}
+        {
+            "name": spec.name,
+            "description": spec.description,
+            "inputSchema": spec.parameters,
+            "annotations": _annotations(spec),
+        }
         for spec in offered_tools()
     ]
+
+
+_ICON_PREFIX = re.compile(r"^ph:[\w-]+\s*")
+
+
+def _clean_label(result):  # noqa: ANN001  # whatever the tool returned
+    """The app's `label` leads with an icon token (`ph:folders Listed your
+    categories`) for its own UI; an outside client reads that as text."""
+    if isinstance(result, dict) and isinstance(result.get("label"), str):
+        result = {**result, "label": _ICON_PREFIX.sub("", result["label"])}
+    return result
 
 
 #: Who is on the other end, from `initialize`'s `clientInfo.name` (H4): every
@@ -77,6 +132,7 @@ def _call_tool(name: str, arguments: dict) -> dict:
         )
     finally:
         session.close()
+    result = _clean_label(result)
     is_error = isinstance(result, dict) and "error" in result
     return {"content": [{"type": "text", "text": json.dumps(result)}], "isError": is_error}
 
@@ -94,8 +150,15 @@ def handle_request(message: dict) -> dict | None:
     if method == "initialize":
         info = (message.get("params") or {}).get("clientInfo") or {}
         _client["name"] = str(info.get("name") or "") if isinstance(info, dict) else ""
+        asked = (message.get("params") or {}).get("protocolVersion")
+        if asked in SUPPORTED_PROTOCOLS:
+            version = asked
+        elif asked:
+            version = SUPPORTED_PROTOCOLS[0]
+        else:
+            version = PROTOCOL_VERSION
         result = {
-            "protocolVersion": PROTOCOL_VERSION,
+            "protocolVersion": version,
             "capabilities": {"tools": {}},
             "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
         }

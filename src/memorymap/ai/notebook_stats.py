@@ -37,12 +37,12 @@ import json
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Category, Document, Entry, EntryLink, utcnow
+from memorymap.core.database import Category, Document, Entry, EntryLink, Reminder, utcnow
 
 #: How many rows a "top N" answer lists. Ten is a glance; fifty is a report
 #: nobody reads in a chat bubble, and the follow-up question ("show me all of
@@ -72,7 +72,11 @@ def _visible(query):
     them: a count that changes when a note is made private is a count that
     leaks what is in it.
     """
-    return query.where(Entry.deleted_at.is_(None), Entry.is_private.is_(False))
+    #: `is_board` too: a mind map is an `Entry` whose text is its title, and
+    #: "how many notes do I have" counted it (the Notes list does not).
+    return query.where(
+        Entry.deleted_at.is_(None), Entry.is_private.is_(False), Entry.is_board.is_(False)
+    )
 
 
 def _tags_of(raw: str) -> list[str]:
@@ -125,7 +129,8 @@ _VOCABULARY = (
     "busiest active time date day week weeks month months year recent "
     "longest shortest biggest words written writing wordcount "
     "stale forgotten untouched abandoned "
-    "together alongside pairs pair"
+    "together alongside pairs pair "
+    "statistics stats"
 ).split()
 
 #: Words shorter than this are left alone. "tp" is not a typo for "top" in any
@@ -205,8 +210,9 @@ def looks_like_a_question_about_the_notebook(message: str) -> bool:
         #: by the gate in front of it. That is this repo's "a policy silently
         #: refusing the work" shape, and it was caught by the test for the new
         #: matcher rather than by reading the code.
-        or re.search(r"\bwords?\b|word ?count|writ(?:ten|ing)", text)
+        or re.search(r"\bwords?\b|word ?count|writ(?:ten|ing)|\bwr(?:ite|ote)\b", text)
         or re.search(r"stale|forgotten|untouched|abandoned", text)
+        or re.search(r"\bstat(?:istic)?s\b", text)
     )
 
 
@@ -228,7 +234,18 @@ def answer(message: str, session: Session) -> StatAnswer | None:
         return _tag_count(session)
     if _asks(text, _COUNT, _CATEGORY_WORDS):
         return _category_count(session)
-    if _asks(text, _COUNT, r"\bnotes?\b"):
+    #: "How many notes are about Harbor" counts the notes on a subject, which
+    #: retrieval finds and the composer counts ("At least four of your notes
+    #: mention Harbor"); answering it "You have 77 notes" dropped the subject
+    #: (engine probe P5).
+    #: A count over a window ("how many notes did I write this week") is the
+    #: window's count, never the notebook's total: the window is read by
+    #: `ai/recognise.py` (CHAT_PLAN decision 46), so "in March" and "since
+    #: Friday" count too.
+    window = _window(text) if re.search(_COUNT, text) else None
+    if window is not None and not _SUBJECT_AFTER.search(text):
+        return _recent_count(session, window)
+    if _asks(text, _COUNT, r"\bnotes?\b") and not _SUBJECT_AFTER.search(text):
         return _note_count(session)
     if _asks(text, _COUNT, r"\bdocuments?\b"):
         return _document_count(session)
@@ -238,12 +255,12 @@ def answer(message: str, session: Session) -> StatAnswer | None:
         return _orphans(session)
     if _asks(text, r"when do i|busiest|most active|what time|which day"):
         return _busiest(session)
-    if _asks(text, _COUNT, r"this week|past week|last week|this month|past month"):
-        return _recent_count(session, text)
     #: --- added with the spelling pass, because "improve" was the other half
     #: of the same request. Each one is a question people ask about a notebook
     #: that retrieval answers badly for the same reason the rest do: it is a
     #: question about the collection, not about any note in it.
+    if _asks(text, r"\b(?:write|wrote|written|writing)\b", r"\bmost\b", r"\babout\b"):
+        return _top_subjects(session)
     if _asks(text, r"\bwords?\b|word count|wordcount", r"\bhow many|\btotal|\bwritten|\bcount"):
         return _word_count(session)
     if _asks(text, r"longest|biggest|largest", r"\bnotes?\b"):
@@ -252,7 +269,49 @@ def answer(message: str, session: Session) -> StatAnswer | None:
         return _stale_notes(session)
     if _asks(text, _TAG_WORDS, r"together|alongside|\bpairs?\b|combination|co-?occur"):
         return _tag_pairs(session)
+    #: "Stats" and "statistics" only: "summary" and "overview" ask for the
+    #: notes' content ("a summary of the trip"), which the composer answers.
+    if _asks(text, r"\bstat(?:istic)?s\b"):
+        return _general_stats(session)
     return None
+
+
+#: A count of notes narrowed to a subject: "notes about X", "notes that
+#: mention X", "notes tagged X", "notes on X".
+_SUBJECT_AFTER = re.compile(r"\bnotes?\b.*\b(?:about|mention(?:s|ing)?|tagged|on)\s+\S")
+
+#: Words that say nothing about what a note is about, left out of the most
+#: written-about words: function words and the ones every note shares.
+_PLAIN = frozenset(
+    """the a an and or but of to in on at for with from by is are was were be been it its
+    this that these those i me my we our you your he she they them his her their not no
+    do did does done have has had will would can could should so if then than as up out
+    just also very more most some any all one two three get got go went make made need
+    about into over after before when what which who how there here note notes today""".split()
+)
+
+
+def _top_subjects(session: Session) -> StatAnswer:
+    """What the notebook is most about, by what it is filed under first (its
+    tags, then its categories) and, with neither, by the words the most notes
+    use (engine probe P7: "what did I write most about" listed the newest
+    notes). Every figure is a count of notes."""
+    rows = session.execute(_visible(select(Entry.tags, Entry.content))).all()
+    if not rows:
+        return StatAnswer("subjects", "There are no notes to read yet.")
+    tags = Counter(tag for raw, _content in rows for tag in set(_tags_of(raw)))
+    if len(tags) >= 2:
+        top = tags.most_common(5)
+        listed = ", ".join(f"{tag} ({_plural(n, 'note')})" for tag, n in top)
+        return StatAnswer("subjects", f"By your tags, you write most about {listed}.", [{"label": t, "count": n} for t, n in top])
+    words: Counter[str] = Counter()
+    for _raw, content in rows:
+        words.update({w for w in re.findall(r"[a-z][a-z'-]{2,}", str(content or "").lower()) if w not in _PLAIN})
+    top = [(w, n) for w, n in words.most_common(5) if n >= 2]
+    if not top:
+        return StatAnswer("subjects", f"No word comes up in more than one of your {_plural(len(rows), 'note')} yet.")
+    listed = ", ".join(f"“{w}” ({_plural(n, 'note')})" for w, n in top)
+    return StatAnswer("subjects", f"The words the most notes use are {listed}.", [{"label": w, "count": n} for w, n in top])
 
 
 def _top_tags(session: Session) -> StatAnswer:
@@ -405,18 +464,41 @@ def _busiest(session: Session) -> StatAnswer:
     )
 
 
-def _recent_count(session: Session, text: str) -> StatAnswer:
-    days = 7 if re.search(r"week", text) else 30
-    since = utcnow() - timedelta(days=days)
+def _window(text: str) -> tuple[datetime, datetime, str] | None:
+    """(start, end, words) of the first day or span of days the question
+    names, on the UTC calendar the notes are stamped with; None for none."""
+    from memorymap.ai import recognise
+
+    now = utcnow()
+    for found in recognise.recognise(text, now=now, tense="past"):
+        if found.rank or found.kind not in ("date", "range"):
+            continue
+        first, last, grain = found.value if found.kind == "range" else (found.value, found.value, "day")
+        if not isinstance(first, date):
+            continue
+        words = found.text.strip()
+        if grain == "month" and words.lower().startswith(("in ", "during ")):
+            words = first.strftime("in %B %Y")
+        elif not words.lower().startswith(("in ", "since ", "on ", "this ", "last ", "today", "yesterday")):
+            words = ("in the " if words.lower().startswith(("past ", "previous ")) else "on ") + words
+        start = datetime.combine(first, time(0), now.tzinfo)
+        end = min(datetime.combine(last, time(23, 59, 59), now.tzinfo), now)
+        return (start, end, words) if start < end else None
+    return None
+
+
+def _recent_count(session: Session, window: tuple[datetime, datetime, str]) -> StatAnswer:
+    start, end, words = window
     total = (
-        session.scalar(_visible(select(func.count(Entry.id)).where(Entry.created_at >= since)))
+        session.scalar(
+            _visible(select(func.count(Entry.id)).where(Entry.created_at >= start, Entry.created_at <= end))
+        )
         or 0
     )
-    window = "the past week" if days == 7 else "the past month"
     return StatAnswer(
         "recent-count",
-        f"You have written {_plural(total, 'note')} in {window}.",
-        [{"label": window, "count": total}],
+        f"You have written {_plural(total, 'note')} {words}.",
+        [{"label": words, "count": total}],
     )
 
 
@@ -560,3 +642,148 @@ def _tag_pairs(session: Session) -> StatAnswer:
         f"The top {len(common)} pairings are listed below.",
         [{"label": f"#{a} + #{b}", "count": n} for (a, b), n in common],
     )
+
+
+def _general_stats(session: Session) -> StatAnswer:
+    """"Show me my stats": the four counts the rest of this module answers
+    one at a time, in one line."""
+    note_total = session.scalar(_visible(select(func.count(Entry.id)))) or 0
+    cat_total = session.scalar(_visible(select(func.count(func.distinct(Entry.category_id))))) or 0
+    #: Documents are not entries, so not filtered as entries are (the same
+    #: count `_document_count` gives).
+    doc_total = session.scalar(select(func.count(Document.id))) or 0
+    rows = session.scalars(_visible(select(Entry.tags))).all()
+    distinct_tags = len({tag for raw in rows for tag in _tags_of(raw)})
+    return StatAnswer(
+        "overview",
+        f"You have {_plural(note_total, 'note')} and {_plural(doc_total, 'document')} "
+        f"across {_plural(cat_total, 'category')}, using {_plural(distinct_tags, 'distinct tag')}.",
+        [
+            {"label": "notes", "count": note_total},
+            {"label": "documents", "count": doc_total},
+            {"label": "categories", "count": cat_total},
+            {"label": "tags", "count": distinct_tags},
+        ],
+    )
+
+
+# --- the Statistics page (UI_MODERNISATION statistics rows 1 and 2) ----------
+#
+# The page asks once (`GET /statistics`) and draws what comes back: every
+# figure on it is a count made here, from rows, with no model. Bounded: twelve
+# months of growth, two weeks of review, the usage ledger's top rows.
+
+GROWTH_MONTHS = 12
+USAGE_ROWS = 200
+
+
+def _words(text: str | None) -> int:
+    return len(str(text or "").split())
+
+
+def _month_keys(now: datetime, months: int = GROWTH_MONTHS) -> list[str]:
+    year, month = now.year, now.month
+    keys = []
+    for _ in range(months):
+        keys.append(f"{year:04d}-{month:02d}")
+        year, month = (year, month - 1) if month > 1 else (year - 1, 12)
+    return keys[::-1]
+
+
+def _notebook_block(session: Session, now: datetime) -> dict:
+    """Notes, words, tags and growth from one pass over the live notes; the
+    other counts are one aggregate query each."""
+    zone = now.tzinfo
+    rows = session.execute(_visible(select(Entry.content, Entry.tags, Entry.created_at))).all()
+    keys = _month_keys(now)
+    growth = dict.fromkeys(keys, 0)
+    tags: set[str] = set()
+    words = 0
+    for content, raw, created in rows:
+        words += _words(content)
+        tags.update(_tags_of(raw))
+        if created is not None:
+            key = (created.astimezone(zone) if created.tzinfo else created).strftime("%Y-%m")
+            if key in growth:
+                growth[key] += 1
+    linked = or_(
+        exists().where(EntryLink.source_entry_id == Entry.id),
+        exists().where(EntryLink.target_entry_id == Entry.id),
+    )
+    return {
+        "notes": len(rows),
+        "words": words,
+        "tags": len(tags),
+        "categories": session.scalar(select(func.count(Category.id))) or 0,
+        "documents": session.scalar(select(func.count(Document.id))) or 0,
+        "links": session.scalar(select(func.count(EntryLink.id))) or 0,
+        "orphans": session.scalar(_visible(select(func.count(Entry.id)).where(~linked))) or 0,
+        "growth": [{"label": key, "value": growth[key]} for key in keys],
+    }
+
+
+def _reminder_block(session: Session, now: datetime) -> dict:
+    """Made, done, late and open, in one aggregate query (binned reminders
+    are out of every select, `_hide_binned`)."""
+    moment = now.astimezone(utcnow().tzinfo)
+    open_ = Reminder.done.is_(False)
+    made, done, late = session.execute(
+        select(
+            func.count(Reminder.id),
+            func.coalesce(func.sum(case((Reminder.done.is_(True), 1), else_=0)), 0),
+            func.coalesce(func.sum(case((and_(open_, Reminder.due_at < moment), 1), else_=0)), 0),
+        )
+    ).one()
+    return {"made": made, "done": int(done), "late": int(late), "open": made - int(done)}
+
+
+def week_start(now: datetime) -> datetime:
+    """Monday 00:00 of `now`'s week, on `now`'s own clock."""
+    day = now.date() - timedelta(days=now.weekday())
+    return datetime.combine(day, time(0), now.tzinfo)
+
+
+def _week_counts(session: Session, start: datetime, end: datetime) -> dict:
+    a, b = start.astimezone(utcnow().tzinfo), end.astimezone(utcnow().tzinfo)
+    texts = session.scalars(
+        _visible(select(Entry.content)).where(Entry.created_at >= a, Entry.created_at < b)
+    ).all()
+    done = session.scalar(
+        select(func.count(Reminder.id)).where(Reminder.done_at >= a, Reminder.done_at < b)
+    ) or 0
+    return {
+        "start": start.date().isoformat(),
+        "end": (end - timedelta(seconds=1)).date().isoformat(),
+        "notes": len(texts),
+        "words": sum(_words(text) for text in texts),
+        "reminders_done": done,
+    }
+
+
+def week_review(session: Session, now: datetime) -> dict:
+    """This week so far against the whole of last week (Screen Time's shape):
+    notes made, words written in them, reminders ticked off. "Done" is when
+    the tick was made (`Reminder.done_at`); one ticked before that column
+    existed has no week, so it is in neither."""
+    this = week_start(now)
+    last = this - timedelta(days=7)
+    return {
+        "this": _week_counts(session, this, now + timedelta(seconds=1)),
+        "last": _week_counts(session, last, this),
+    }
+
+
+def page(session: Session, now: datetime, usage_summary: dict) -> dict:
+    """Everything the Statistics page draws, in one answer."""
+    features = list(usage_summary.get("features") or [])[:USAGE_ROWS]
+    return {
+        "as_of": now.isoformat(),
+        "notebook": _notebook_block(session, now),
+        "reminders": _reminder_block(session, now),
+        "week": week_review(session, now),
+        "usage": {
+            "features": features,
+            "unused_days": usage_summary.get("unused_days"),
+            "uses": sum(int(f.get("count") or 0) for f in features),
+        },
+    }

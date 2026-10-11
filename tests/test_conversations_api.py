@@ -220,6 +220,37 @@ def test_delete_turn_removes_one_exchange(client):
     assert client.get("/conversations").json() == []
 
 
+def test_deleted_turn_comes_back_in_place(client):
+    """Undo for a deleted message (CHAT_PLAN 8 row 5): the DELETE answers with
+    the pair it removed, and the restore route puts it back at its index."""
+    cid = client.post("/conversations", json={"question": "q1", "answer": "a1"}).json()["id"]
+    for n in (2, 3):
+        client.post(f"/conversations/{cid}/turns", json={"question": f"q{n}", "answer": f"a{n}"})
+    gone = client.delete(f"/conversations/{cid}/turns/1").json()
+    assert [m["content"] for m in gone["removed"]] == ["q2", "a2"]
+    back = client.post(f"/conversations/{cid}/turns/1/restore", json={"messages": gone["removed"]})
+    assert back.status_code == 200
+    full = client.get(f"/conversations/{cid}").json()
+    assert [m["content"] for m in full["messages"]] == ["q1", "a1", "q2", "a2", "q3", "a3"]
+    # Past the end is refused rather than appended somewhere it never was.
+    past = client.post(f"/conversations/{cid}/turns/9/restore", json={"messages": gone["removed"]})
+    assert past.status_code == 404
+    bad = client.post(f"/conversations/{cid}/turns/0/restore", json={"messages": [{"role": "system", "content": "x"}]})
+    assert bad.status_code == 422
+
+
+def test_last_turn_delete_answers_with_the_row(client):
+    """Deleting the only turn deletes the chat, so its DELETE carries the row
+    for `POST /conversations/restore`, as the chat's own Delete does."""
+    cid = client.post("/conversations", json={"question": "q1", "answer": "a1"}).json()["id"]
+    gone = client.delete(f"/conversations/{cid}/turns/0").json()
+    assert gone["conversation_deleted"] is True and gone["restore"]["id"] == cid
+    restored = client.post("/conversations/restore", json=gone["restore"])
+    assert restored.status_code == 201
+    full = client.get(f"/conversations/{cid}").json()
+    assert full["turns"] == 1
+
+
 # --- personas ---------------------------------------------------------------------
 
 

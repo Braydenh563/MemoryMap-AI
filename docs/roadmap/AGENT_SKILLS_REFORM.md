@@ -340,3 +340,121 @@ retry were not looked at in a browser (no UI changed: they are answer text).
 
 - A skill run's own Undo: built; HISTORY.md, "Moved from the plans,
   2026-10-05 (AGENT_SKILLS_REFORM: a skill run's own Undo)".
+
+
+## Placed from Brief 40, 2026-10-10 (does the MCP server work)
+
+**Measured.** `python -m memorymap.mcp_server` under the project venv with a
+scratch `MEMORYMAP_DATA_DIR` answered `initialize`, `tools/list` and two
+`tools/call`s (`list_categories`, `search_notes`) correctly in 1.6 s with the
+embedder cached. It lists **56** tools of the registry's 67: the 9 destructive
+ones are withheld by design and two more are turned off by the
+Settings default (not identified here). The list: find_contradictions, audit_link_reasons,
+save_user_preference, ask_user, search_notes, related_notes, path_between,
+notebook_structure, get_note, list_notes, count_notes, list_tags,
+notebook_overview, list_documents, search_files, read_file, create_document,
+get_document, read_whiteboard, search_whiteboard, add_whiteboard_card,
+add_whiteboard_link, generate_diagram, read_mindmap, create_mindmap,
+add_map_node, link_map_nodes, restore_board_item, add_board_shape,
+list_library, place_library_item, search_chat_history, list_skills,
+run_skill, make_plan, compress_chat, save_skill, search_help,
+get_app_navigation, get_current_time, summarize_notes, list_categories,
+create_note, edit_note, tag_note, pin_note, link_notes, find_similar_notes,
+unlink_notes, restore_note, set_reminder, list_reminders, complete_reminder,
+rename_tag, create_category, rename_category.
+
+**What is broken or not integrated** (recommendation: one small brief, in
+this order):
+1. Tools that mean something only inside the chat UI are offered anyway:
+   `ask_user`, `make_plan`, `compress_chat`, `search_chat_history`,
+   `get_app_navigation`, `save_user_preference`. An external client cannot
+   answer a card. Offer a per-tool `mcp` flag and hide these (not run here:
+   what `ask_user` returns to a bare client is unverified).
+2. Results carry the app's own `label` with an icon name in front
+   (`"ph:folders Listed your categories"`); an external client reads
+   "ph:folders" as text. Strip the icon token in `_call_tool`.
+3. No tool annotations (`readOnlyHint`, `destructiveHint`), so a client cannot
+   auto-approve the read tools; the registry already knows which are which.
+4. `protocolVersion` is a constant, `2024-11-05`, with no negotiation of the
+   client's version; no `resources` (notes as resources would suit a notebook)
+   and no `prompts` (skills could be prompts).
+5. Startup loads the embedder (stderr shows "Loading weights"), 1.6 s warm and
+   longer cold; a client that times out at 5 s on first call would fail.
+6. Only stdio, so only a process on this computer with a Python that can
+   import the app. The packaged app has no Python (`/capabilities` already
+   says so, CHANGELOG 718), so a Windows installer user has no MCP at all.
+   Recommendation: `MemoryMap.exe --mcp` in the bundle, and an HTTP transport
+   at `/mcp` on the running app, behind the lock, so a client uses the app's
+   password and the app's own event bus (a write from a separate process does
+   not reach the open window's live updates; unverified).
+7. Settings has no panel for it: nothing shows the client config snippet
+   (`{"command": ".../python", "args": ["-m", "memorymap.mcp_server"], "env":
+   {"MEMORYMAP_DATA_DIR": "..."}}`). The only mention is INSTALL.md's flags
+   table. Add a Settings, Tools row with the snippet and a copy button.
+
+## Phase E: measured reliability per skill (Fable, 2026-10-10; WORLD_CLASS_PLAN 25; Brief 54)
+
+Phases A to D made a run a readable, recoverable object. None of them says
+how often a skill succeeds. The owner's 2026-10-10 ask is an app that is
+"reliable", and a skill a person cannot predict is not.
+
+Decisions (do not re-decide):
+
+1. **A success rate per skill, per model class, on the eval model**
+   (`scratchpad/llama-dev.sh`): each shipped skill gets three fixtures
+   (a notebook, an instruction, the expected writes) in
+   `tests/fixtures/skills/`, and `pytest -m evals` reports pass, partial
+   and fail with the step that failed. The suite without a model stays as
+   it is (section 4 of CLAUDE.md).
+2. **A skill below 0.8 on the small class is hidden from the small class,**
+   not shipped and hoped: the palette shows it with "needs a larger model"
+   and the reason, from the measured table.
+3. **The run object carries its budget:** steps, tool calls, tokens and
+   wall time against the skill's declared caps; a run that exceeds one
+   stops with a readable reason and its partial writes on the undo bar.
+4. **Every tool result is checked by the harness before the model sees
+   it** (the 2026-09-21 decision, made a lint): a tool that can write has
+   a verifier in `ai/tools/verify.py`, and `test_tool_verifiers.py` fails
+   on a write tool without one.
+
+Gates: the table of rates in this plan (moved to HISTORY when built);
+`test_skill_fixtures.py` green without a model; the three evals green on
+the dev model for every skill marked for the small class.
+
+## Deepened 2026-10-10: the agent and its harness (Brief 72b, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72b.js` (fresh data dir, no
+model, Chromium, 96 notes, 1440 and 390). Today: 1 click from the dashboard
+at 1440 (`#status-agent` in the status bar), plus the palette row "Ask the
+agent anything" and Ctrl+Shift+A; at 390 the status bar is hidden and
+`toggleAgentPalette()` leaves `#command-palette-overlay` at `display: none`
+(the phone's More sheet path, `phone-shell.js` near line 1470, was not
+driven). Open 28 ms at 1440. With no model the panel is dead: the input and
+all 14 starters are disabled (16 of 20 controls), above one line, "No model
+is connected, so the agent cannot run. Connect a model in Settings"; 2
+overlaps at 1440 (a starter over the "use the open note" checkbox, another
+over a More actions button). Undo: a run's writes are one plan to confirm
+("Undo the run", `chat-agent.js` near line 786); Ctrl+Z does not reach them
+(0 `pushUndo` in `chat-agent.js` and `agent-activity.js`). The run list is
+`agent-activity.js`'s monitor, not yet a tab of an Activity panel (WORLD_CLASS
+decision 70). The harness: 66 tools (README), verifiers and budgets are
+Phase E, unbuilt; real-model behaviour is not verified (CLAUDE.md section 4).
+**The bar:** the GitHub Copilot agent panel (the plan before it runs, each
+step's diff, stop at any step, keep or undo all), Raycast AI commands (one
+key, a preset per job), Apple Shortcuts for the no-model path (a fixed chain
+of acts that always runs).
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | No model is not dead: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 12, 6 |
+| 2 | fix | The phone path: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 8, 2 |
+| 3 | redesign | The plan before the run: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 5, 1 |
+| 4 | fix | Ctrl+Z after a run: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 1, 3 |
+| 5 | fix | The run list is a tab of the Activity panel with Stop that unloads the model (decision 70) | Brief 73's gate | 5 |
+| 6 | fix | A failed step explains and offers: retry the step, do it without the model, open the model setting | `test_error_toasts.py` agent rows carry an action | 4 |
+| 7 | fix | The 2 overlaps at 1440: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 7, 11 |
+| 8 | expansion | Phase E's success table drives the palette ("needs a larger model", with the reason) | every skill below 0.8 on the small class labelled | 6, 4 |
+| 9 | optimisation | Time to the first step and per step on the dev model (`scratchpad/llama-dev.sh`), reported, not assumed | the numbers in this table | 25g budget |
+
+**Briefs.** 54 (rows 8, 9), 67 (row 1's registry), 73 (rows 5, 6), 87 (rows
+1 to 4, 7: built).

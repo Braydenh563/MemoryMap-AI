@@ -171,14 +171,14 @@ def test_what_leads_with_the_note_named_by_the_question_and_shows_its_checklist(
 def test_when_leads_with_the_dated_sentence():
     first = _first_line(ask("When is the dentist check-up?"))
     #: INBOX 741: the sentence first, the note named once after it.
-    assert first == "Check-up booked for the 21st. (**Dentist**)" or first.endswith(": Check-up booked for the 21st. (**Dentist**)")
+    assert first == "Check-up booked for the 21st. [**Dentist**]" or first.endswith(": Check-up booked for the 21st. [**Dentist**]")
 
 
 def test_when_without_a_date_in_the_sentence_says_the_day_it_was_written():
     notes = [_note(1, "# Flights\n\nBooked, seats 14A and 14B on the evening plane.", 4)]
     result = ask("When did I book the flights?", notes)
     assert _first_line(result) == (
-        "On 2 October you wrote: Booked, seats 14A and 14B on the evening plane. (**Flights**)"
+        "On 2 October you wrote: Booked, seats 14A and 14B on the evening plane. [**Flights**]"
     )
 
 
@@ -239,7 +239,9 @@ def test_compare_draws_two_sides_with_measured_counts():
             for each in composer.phrase_options("each_side")
         )
     )
-    assert "**Lisbon** (one note)" in text and "**Porto** (one note)" in text
+    #: Each side's count is said once, by the lead (decision 52), not again
+    #: beside its heading.
+    assert "**Lisbon**\n" in text and "**Porto**\n" in text and "(one note)" not in text
     lisbon, porto = text.split("**Porto**", 1)
     assert "Alfama" in lisbon and "Ribeira" in porto
 
@@ -248,7 +250,7 @@ def test_explain_keeps_the_notes_sentences_in_their_own_order():
     first = _first_line(ask("Why did the list feel slow?"))
     assert first.endswith(
         "It was not the database. Every row re-measured its own height on scroll. "
-        "Caching the height per row took a long list from 40ms a frame to 6. (**Why the list felt slow**)"
+        "Caching the height per row took a long list from 40ms a frame to 6. [**Why the list felt slow**]"
     )
 
 
@@ -258,8 +260,9 @@ def test_status_leads_with_the_newest_and_walks_back_through_the_earlier():
     first = _first_line(result)
     assert "**Sync rewrite, week 3**" in first and "3 October" in first
     assert "the sync rewrite now keeps both versions and asks." in first.lower()
-    assert "\n\nBefore that, on 17 August, the conflict rule" in text
-    assert "(**Sync rewrite, first notes**)" in text
+    #: Any of the "before that" variants: the order is the point, not the wording.
+    assert any(f"\n\n{w}17 August, the conflict rule" in text for w in composer.phrase_options("before_that"))
+    assert "[**Sync rewrite, first notes**]" in text
 
 
 def test_yes_no_never_answers_yes_or_no():
@@ -279,7 +282,7 @@ def test_two_notes_that_may_disagree_are_said_as_a_but():
     text = result["text"]
     assert "**Standup**" in _first_line(result)
     assert any(f"\n\n{w}, the launch date is the 21st" in text for w in composer.phrase_options("but_newer"))
-    assert "(**Standup again**)" in text
+    assert "[**Standup again**]" in text
     assert any(wording in text for wording in composer.phrase_options("disagree_check"))
     #: Each side said once.
     assert text.lower().count("the launch date is the 21st") == 1 and text.lower().count("the launch date is the 14th") == 1
@@ -305,7 +308,8 @@ def test_words_no_note_found_holds_are_named_in_the_closing_line():
 
 def test_the_closing_line_is_left_out_when_nothing_matched_at_all():
     result = ask("What is the capital of Peru?")
-    assert result["text"] == composer.PHRASES["nothing"]
+    #: Engine probe P1: the no-answer names the words no note found holds.
+    assert result["text"] == composer.PHRASES["none_found"] + "“capital” or “Peru”. " + composer.PHRASES["nothing_ask"]
     assert result["grounding"] == [] and result["next"] == []
 
 
@@ -386,7 +390,9 @@ def test_every_phrase_follows_the_copy_rules(phrase):
     if letters and letters[0].isalpha() and phrase[0].isalpha():
         #: The phrases that only ever follow other words: "or", "one of
         #: your notes" and "your note" inside a citation's brackets.
-        assert letters[0].isupper() or phrase.startswith(("a ", "one", "or", "your note")), phrase
+        #: And a source's kind, said inside a citation's bracket before its
+        #: name ("[board **Harbor board**]", CHAT_PLAN decision 37).
+        assert letters[0].isupper() or phrase.startswith(("a ", "one", "or", "your note", "board ", "map ", "document ", "file ", "page ")), phrase
 
 
 def test_the_rule_holds_over_a_sweep_of_questions():
@@ -451,3 +457,26 @@ def test_an_answer_no_model_wrote_says_so_in_its_support_notice() -> None:
     body = js[js.index("function renderAnswerSupport") :]
     body = body[: body.index("\n}\n")]
     assert "support.by_model === false" in body and "no model wrote any of it" in body
+
+
+def test_a_grounding_row_carries_the_title_the_answer_cites() -> None:
+    """2026-10-10 triage, decision 5: the page makes "[**Dentist**]" open the
+    note, matching the name exactly from the row rather than from its label."""
+    result = ask("When is the dentist check-up?")
+    assert "[**Dentist**]" in result["text"]
+    assert {row["title"] for row in result["grounding"]} >= {"Dentist"}
+    untitled = ask("What about the hotel?", [_note(1, "the hotel is booked for May, near the river.", 2)])
+    assert all(row["title"] == "" for row in untitled["grounding"])
+
+
+def test_a_cited_name_opens_its_note_and_never_the_sources_panel() -> None:
+    from pathlib import Path
+
+    js = Path("frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    body = js[js.index("function linkCitedTitles") :]
+    body = body[: body.index("\n}\n")]
+    assert "flashEntry(g.note_id)" in body and "scheduleCitationPeek(" in body
+    assert "source" not in body.lower().replace("citationsource", "")
+    caller = Path("frontend/js/capture-ask.js").read_text(encoding="utf-8")
+    assert "linkCitedTitles(targets, sentences, byId, numberFor);" in caller
+    assert caller.index('ensureModule("askCompose").then(() => {') < caller.index("linkCitedTitles(targets, sentences, byId, numberFor);")

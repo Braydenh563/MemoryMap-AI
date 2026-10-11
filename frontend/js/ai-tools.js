@@ -229,7 +229,9 @@ function renderTaskHistory(history) {
     when.textContent = item.name
       ? `${relativeTime(item.at)} · ${item.name}`
       : relativeTime(item.at);
-    row.append(name, when);
+    //: Its log (the owner, 2026-10-10: "no way to view logs of bg
+    //: processes"): Settings, Logs, filtered to this task (settings.js).
+    row.append(name, when, taskLogButton(item));
     li.appendChild(row);
 
     // The reason, which is the whole point for a failure, until now it
@@ -308,6 +310,14 @@ function renderChatModelPicker(status) {
     status.chat_model_installed === false
       ? `${aiNameNow()} was running “${status.chat_model}”, which is not installed any more. Pick another or download it below.`
       : `${aiNameNow()}, running ${status.chat_model}`;
+  //: Whether it is in memory now, beside its Stop (rule 5).
+  apiJson("/activity", { silent: true })
+    .then((body) => {
+      const loaded = body && body.model ? body.model.loaded : null;
+      if (loaded === null || status.chat_model_installed === false) return;
+      $("chat-model-note").textContent += loaded ? ", in memory now" : ", not in memory";
+    })
+    .catch(() => {});
 }
 
 // Nielsen #6, recognition over recall: which model answers was previously

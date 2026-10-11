@@ -32,9 +32,14 @@ def test_the_workspace_has_the_line_and_mounts_it():
 
 def test_one_install_flow_for_the_ocr_extra():
     """The install of the OCR extra is posted by the Packages row (its own
-    buttons) and by the engine line, and by nothing else."""
-    sources = {path.name for path in JS.glob("*.js") if "/extras/ocr/install" in path.read_text(encoding="utf-8")}
+    buttons) and by the engine line, and by nothing else. The engine line
+    installs Tesseract or RapidOCR (WORLD_CLASS_PLAN 28.4 row 5), one route
+    named from `OCR_ENGINE_EXTRAS`."""
+    marks = ("/extras/ocr/install", "`/extras/${extra}/install`")
+    sources = {path.name for path in JS.glob("*.js") if any(m in path.read_text(encoding="utf-8") for m in marks)}
     assert sources == {"ocr-engine.js"}, sources
+    engine = (JS / "ocr-engine.js").read_text(encoding="utf-8")
+    assert "const OCR_ENGINE_EXTRAS = {" in engine and "rapidocr: {" in engine
     status = (JS / "settings-packages.js").read_text(encoding="utf-8")
     assert "`/extras/${extra.id}/install" in status
 

@@ -26,7 +26,7 @@ MORE_TOPICS: list[dict] = [
             "companion", "corner companion", "buddy", "mascot", "sidekick",
             "little character", "character in the corner", "call back",
             "call it back", "hide the companion", "show the companion",
-            "companion size", "the little guy",
+            "companion size", "the little guy", "rub the companion", "flip the companion",
         ),
         "body": (
             "The corner companion is a small character that lives on the page, "
@@ -39,7 +39,10 @@ MORE_TOPICS: list[dict] = [
             "parts of its own). Companion size is Small, Medium or Large, or "
             "drag the handle at its corner (double-click or double-tap the handle "
             "for Medium again). Drag it onto a panel and that page "
-            "keeps it there. Right-click it, or press Shift+F10 on it, for its "
+            "keeps it there. Move the pointer back and forth over it to rub it "
+            "and it leans into your hand; shake it up and down while you carry "
+            "it and it turns upside down, then lands a little dizzy (each has a "
+            "switch in Appearance, under What it does on its own). Right-click it, or press Shift+F10 on it, for its "
             "menu: Say hello, Enlarge, Stay here on every page, Let it choose "
             "its spot here, a size, Call back and reset its place, and Hide. "
             "Ctrl+Shift+Y shows or hides it from anywhere, and the command "
@@ -71,7 +74,8 @@ MORE_TOPICS: list[dict] = [
             "Atlas's face follows the app's mood: "
             "thinking while an answer runs, happy when it lands, worried at an "
             "error, sleepy late at night. Enlarge, in the companion's menu or "
-            "on any face, shows the full drawing."
+            "on any face, shows the full drawing; right-click the companion "
+            "there to change who it is, its look or its size."
         ),
         "badge": {"label": "Atlas look", "section": "appearance", "target": "atlas-look-row"},
     },
@@ -121,9 +125,18 @@ MORE_TOPICS: list[dict] = [
             "tools it can use", "which tools", "turn off a tool", "disable a tool",
             "small model mode", "run budget", "tool list", "tokens per step",
             "tools offered", "using a tool", "use a tool", "stop atlas using",
-            "cut that reply short", "model size",
+            "cut that reply short", "model size", "calculator", "does atlas do sums",
         ),
         "body": (
+            "Settings, Tools it can use also has Use these tools from another "
+            "app: a snippet to paste into an MCP client such as Claude Desktop, "
+            "with a Copy button. "
+            "A number Atlas would work out (a sum, a percentage, a conversion, a "
+            "count of days) comes from the app's own calculator, Calculate, and a "
+            "date in your words from Read text, so a small model computes "
+            "nothing in its head; Check answer finds any number its answer "
+            "says that the notes do not, and Propose act shows a change as "
+            "a card you confirm. "
             "Settings, Tools it can use lists the actions Atlas may take in "
             "Agent mode, grouped as Reads your notebook, Changes your notebook, "
             "Asks you first and Reaches the web; turn one off and it is never "
@@ -180,10 +193,14 @@ MORE_TOPICS: list[dict] = [
         ),
         "body": (
             "Notes, Questions lists the questions your notes ask in passing, "
+            "your own ones only (not a quote, a prompt list, a script's line or "
+            "a joke answered on the next line), "
             "found when Atlas reads your notes (Read notes now, or on its own "
-            "with background tasks on), newest note first: "
-            "Open, Answered or Dropped, picked in the bar with a count on each. A row says when and "
-            "in which note it was asked; when a later note answers it, the row "
+            "with background tasks on), grouped by note, newest note first: "
+            "Open, Answered or Dropped, picked in the bar with a count on each. A "
+            "note that asks any says so on its card (2 open questions); pressing "
+            "that shows only its questions. A row says when it was asked; when a "
+            "later note answers it, the row "
             "says so with the sentence, and pressing that line opens the note. "
             "Mark answered asks which note answers it and links the two notes; "
             "Drop puts a question aside; Reopen brings either back. Ask about "
@@ -201,7 +218,7 @@ MORE_TOPICS: list[dict] = [
             "general settings",
         ),
         "body": (
-            "Settings, General. Bin: auto-clear binned notes, documents and reminders after a "
+            "Settings, General. Bin: auto-clear binned notes, documents, reminders and OCR readings after a "
             "number of days. Chat history: delete saved chats after a number "
             "of days (0 keeps every chat; pinned chats are never deleted). "
             "Notifications: mute everything except reminders. Writing: smart "
@@ -303,6 +320,45 @@ MORE_TOPICS: list[dict] = [
         "badge": {"label": "Background tasks", "section": "tasks"},
     },
     {
+        "id": "health",
+        "keywords": (
+            "health", "is my notebook ok", "integrity", "integrity check", "corrupt",
+            "corruption", "last backup", "last error", "data folder size", "how big",
+            "is it healthy", "check the database",
+        ),
+        "body": (
+            "Settings, About, Health says how the notebook is, each line dated: "
+            "the last backup and when it was taken, the data folder's size, what "
+            "is running now, the last error in the log, and Integrity, whose "
+            "Check now has the database check itself and counts the search index "
+            "beside your notes. The palette's Health goes straight there. The "
+            "app also gives the notebook file a quick check each time it starts, "
+            "and if that fails it says so and points to the newest backup in "
+            "Settings, Import & export."
+        ),
+        "badge": {"label": "About", "section": "about"},
+    },
+    {
+        "id": "activity",
+        "keywords": (
+            "activity", "activity panel", "what is running", "stop a job", "stop it",
+            "stop the model", "unload the model", "free memory", "model in memory",
+            "stop generating", "stop the answer", "agent runs", "running jobs",
+        ),
+        "body": (
+            "Activity lists every job running now: indexing, a model loading or "
+            "answering, imports, reading text, transcribing, backups and the "
+            "agent's passes, each with a bar and Stop where it can stop part way. "
+            "Open it from the status bar's job slot, its agent runs count, or the "
+            "palette (Activity). Its Agent runs tab lists each run this session "
+            "with its steps, and the log is in its menu. Stop the model, in the "
+            "menu and in Settings, Models beside Use this model, stops any answer "
+            "and unloads the model from memory (Ollama drops it at once); a server "
+            "this app did not start keeps its own model, and the message says so."
+        ),
+        "badge": {"label": "Models", "section": "models"},
+    },
+    {
         "id": "packages",
         "keywords": (
             "packages", "package", "pip", "install a feature", "optional feature",
@@ -315,7 +371,7 @@ MORE_TOPICS: list[dict] = [
             "or organise notes, each one switches on a feature that is "
             "otherwise off, downloaded from PyPI to this machine. Bundles "
             "group the packages one kind of work needs (Documents, Vision, AI, "
-            "Voice, Desktop, Code): a bundle's Install fetches what is "
+            "Voice, Desktop, Code, Languages): a bundle's Install fetches what is "
             "missing, and its ⋮ reinstalls or removes them all. Tick packages "
             "to install, reinstall or remove several at once from the bar "
             "above the list; they run one after another and one that fails "
@@ -377,12 +433,14 @@ MORE_TOPICS: list[dict] = [
         "id": "find-anything",
         "keywords": (
             "find anything", "ctrl p", "finder", "find a note fast", "find a file",
-            "jump to a note",
+            "jump to a note", "saved searches", "find a chat",
         ),
         "body": (
             "Find anything (Ctrl+P, or the magnifying glass in the status bar) searches notes, "
-            "files, documents and actions in one box as you type: Enter opens "
-            "the top result, the arrows move, Esc closes. It lists the command "
+            "files, documents, chats and actions in one box as you type: Enter opens "
+            "the top result, the arrows move, Esc closes, and the star keeps the "
+            "search as a row under Saved searches in the Notes sidebar. Its '?' lists "
+            "the operators. It lists the command "
             "palette's actions too, so \"dark\" finds Toggle light/dark, after the "
             "notes and files. The command palette (Ctrl+K) sends what you type "
             "here: its last row, Search everything for, opens this box with "
@@ -462,8 +520,10 @@ MORE_TOPICS: list[dict] = [
             "feel (Appearance, Keyboard shortcuts), Privacy and security "
             "(Account & security, Privacy), System (Packages, Background tasks, "
             "Logs) and Help and About. The search box at the top of the list "
-            "finds a setting by any word in it and lists the matching settings "
-            "under it, each opening where it sits. A long section lists its "
+            "finds a setting by any word in it or by what it does, with words "
+            "that mean the same (\"night\" or \"darker\" finds the theme, "
+            "\"battery\" the battery-efficient mode, \"back up\" Backups), and "
+            "lists the matching settings under it, each opening where it sits. A long section lists its "
             "groups under its own name in that list: press one to go to it, and "
             "the one you are reading is marked as you scroll. On a phone the "
             "section picker holds the same groups under the section you are in."
@@ -485,7 +545,7 @@ MORE_TOPICS: list[dict] = [
             "always with your password, over https on port 8443. The first "
             "visit warns that the certificate is not trusted: compare its "
             "SHA-256 fingerprint with the one under the switch before you "
-            "continue, and Regenerate certificate makes a new one. Change your password or PIN (private "
+            "continue, and Regenerate certificate makes a new one. Under the fingerprint are the names the certificate carries and when it expires; Trust this certificate on your phone downloads it, and its ? says how to install it on iPhone and Android. If this computer's address changes, the app makes a new certificate at the next start. Change your password or PIN (private "
             "notes move across; a new one needs at least 8 characters, and an "
             "easy one gets a warning). Re-encrypt private notes (Settings, Account & security) makes "
             "a new encryption key and moves every private note onto it, so an old "
@@ -574,20 +634,32 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "import from notion", "notion", "evernote", "enex", "apple notes", "obsidian vault",
             "import from another app", "move my notes from", "switch from notion", "switch from evernote",
+            "import report", "what was skipped", "memorymap folder", "stop the import",
         ),
         "body": (
-            "Settings, Import & export, Import from another app has four buttons: "
+            "Settings, Import & export, Import from another app has five buttons: "
             "From Notion (choose the zip from Notion's Export, Markdown & CSV), "
             "From Obsidian (choose the vault folder), From Evernote (choose the "
-            ".enex files you exported) and From Apple Notes (choose the folder an "
-            "exporter app wrote, one HTML, Markdown or text file per note). "
+            ".enex files you exported), From Apple Notes (choose the folder an "
+            "exporter app wrote, one HTML, Markdown or text file per note) and "
+            "From a MemoryMap folder (the zip Export notebook folder writes, every "
+            "field back as it was). "
             "Choosing starts the import and the toast's Undo moves exactly those "
             "notes to the recycle bin. Folders and notebooks become categories, "
             "tags and dates come along where the app wrote them, and links between "
             "Notion pages become wiki links. Each note remembers where it came from, "
             "so importing the same export again adds nothing twice and says how "
             "many were already here. Imported text is treated as someone else's "
-            "words: Atlas never follows instructions written in it."
+            "words: Atlas never follows instructions written in it. A note's day "
+            "comes from the export where it says one with its year: a daily "
+            "note named 2024-03-14, a date: or Created: line; that is its day "
+            "on the Timeline, and \"tomorrow\" in it means the day after it was "
+            "written. The import's summary names the people and places it read. "
+            "Every import keeps a report of what it read, wrote, skipped and found "
+            "already here, each skipped file named with why: See the report when it "
+            "ends, or Report in the Activity panel. "
+            "A long import shows in the Activity panel with Stop; the notes made "
+            "before Stop stay."
         ),
         "badge": {"label": "Import from another app", "section": "data", "target": "import-app-box"},
     },
@@ -625,6 +697,113 @@ MORE_TOPICS: list[dict] = [
         ),
         "badge": {"label": "What you use", "section": "general", "target": "usage-box"},
     },
+    #: Brief 89: the Statistics page and the palette's small tools, each
+    #: written from the controls' own words (statistics.js, utility-tools.js).
+    {
+        "id": "statistics",
+        "keywords": (
+            "statistics", "stats", "notes per month", "word count of my notebook", "notebook statistics",
+            "this week", "weekly review", "week in review", "growth per month", "usage statistics",
+        ),
+        "body": (
+            "Statistics counts your notebook with no model: notes, words, tags, "
+            "categories, documents, links and notes with no link, a chart of notes "
+            "made per month over the last year, reminders made, done, open and late, "
+            "and what you use on this computer (features used, uses counted, and "
+            "the ones not used lately). This week compares notes made, words "
+            "written and reminders done since Monday with the whole of last week. "
+            "Open it from the Statistics button under the Dashboard's Activity "
+            "heatmap (or a click on the heatmap), the This week card's All "
+            "statistics, or Statistics in the command palette (Ctrl+K). Private "
+            "and binned notes are not counted."
+        ),
+        "badge": {"label": "Dashboard", "tab": "dashboard"},
+    },
+    {
+        "id": "timer",
+        "keywords": (
+            "timer", "countdown", "stopwatch", "pomodoro", "set a timer", "start a timer",
+            "stop the timer", "time how long",
+        ),
+        "body": (
+            "Type timer in the command palette (Ctrl+K) for Start a timer (25 "
+            "minutes) and Start a stopwatch, or type a length, such as timer 10 "
+            "minutes, 90s timer or countdown 2h, and press Enter. The time runs "
+            "on the status bar (on a phone the bar comes back while it runs); "
+            "press it to stop. When a timer runs out it says so in a message and "
+            "a notification. The Dashboard's Focus timer widget is a separate "
+            "timer with its own Start and Reset."
+        ),
+        "badge": {"label": "Dashboard", "tab": "dashboard"},
+    },
+    {
+        "id": "live-captions",
+        "keywords": (
+            "live captions", "captions", "subtitles", "live transcription", "transcribe live",
+            "write what i say", "speech to text live", "stop the captions",
+        ),
+        "body": (
+            "Type captions in the command palette (Ctrl+K) for Live captions: a "
+            "bar appears over whatever you are looking at and writes what the "
+            "microphone hears, on this computer, never over the internet. The "
+            "bottom line is still being written; the three above it are done. "
+            "Copy takes everything said so far, and Stop (or the palette row "
+            "again) saves it as a note tagged captions. Captions need a local "
+            "speech helper; its row in Settings, Packages says what is "
+            "missing, and without one the row says so and nothing is recorded."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
+    },
+    {
+        "id": "count-words",
+        "keywords": (
+            "word count", "count words", "character count", "how many words", "reading time",
+            "count the selection", "how long is this",
+        ),
+        "body": (
+            "Select text in any editor (a note, the Capture box, a document) and "
+            "run Count words from the command palette (Ctrl+K): it says the "
+            "words, the characters with and without spaces, and the reading "
+            "time, counted the way wc counts. With nothing selected it counts "
+            "the whole editor you were in. The Capture box and a document also "
+            "show a running count as you type."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
+    },
+    {
+        "id": "translate-offline",
+        "keywords": (
+            "translate this", "translate offline", "offline translation", "translate without a model",
+            "translate to spanish", "bergamot", "ai free translation",
+        ),
+        "body": (
+            "Select a passage in a note, a document or a reading and run "
+            "Translate this from the command palette (Ctrl+K): it turns "
+            "English into Spanish on this computer, with no model, in about a "
+            "second, and Copy or Replace the selection puts it to use. With "
+            "nothing selected it takes the whole editor you were in. It needs "
+            "Translate offline, a 27 MB download in Settings, Packages "
+            "(Languages); until then the row says so and opens that page. "
+            "Other languages: the Writing room translates with your model."
+        ),
+        "badge": {"label": "Packages", "section": "extras"},
+    },
+    {
+        "id": "insert-template",
+        "keywords": (
+            "insert template", "insert a template", "text snippet", "reusable text", "boilerplate",
+            "template into a note", "paste a template",
+        ),
+        "body": (
+            "Type insert template (or template and part of its name) in the "
+            "command palette (Ctrl+K) to list your templates; Enter puts the one "
+            "you choose where your cursor was, in any editor, with {date}, "
+            "{{time}} and {{clipboard}} filled in. With no editor open it goes "
+            "into the Capture box. The templates, yours and the built-in ones, "
+            "are in Settings, Templates, where you write, edit and reset them."
+        ),
+        "badge": {"label": "Templates", "section": "templates"},
+    },
     {
         "id": "capture-anywhere",
         "keywords": (
@@ -644,6 +823,27 @@ MORE_TOPICS: list[dict] = [
         ),
         "badge": {"label": "Capture from anywhere", "section": "shortcuts", "target": "capture-anywhere-box"},
     },
+    {
+        "id": "install-app",
+        "keywords": (
+            "install", "install the app", "install as an app", "add to home screen",
+            "home screen", "pwa", "own window", "app icon", "share sheet",
+            "share to memorymap", "not running on this computer", "offline page",
+        ),
+        "body": (
+            "Settings, About, Install as an app gives MemoryMap its own window "
+            "and icon, and adds it to your phone's share sheet, so a page or a "
+            "selection shared to it lands in Capture. The button appears only "
+            "when your browser offers the install and the app is not installed "
+            "yet; on an iPhone, tap Share, then Add to Home Screen. It is the "
+            "same app, still served by the copy running on this computer. When "
+            "that copy is not running, the installed app shows a page saying "
+            "MemoryMap is not running on this computer, with a Retry button, "
+            "never an empty notebook: open MemoryMap from the Start menu or "
+            "the launcher, then press Retry."
+        ),
+        "badge": {"label": "Install as an app", "section": "about", "target": "about-install"},
+    },
 ]
 
 #: **Every feature since 0.3.0, large and small** (INBOX 448 (1), the owner:
@@ -659,6 +859,48 @@ MORE_TOPICS: list[dict] = [
 #: bookmarks").
 MORE_TOPICS.extend(
     [
+        {
+            "id": "quick-add",
+            "keywords": (
+                "chips under the box", "read as", "quick add", "date chip", "what it read",
+                "remind me friday", "natural language date", "type a date", "wrong date",
+                "time chip", "repeat chip", "tag chip",
+            ),
+            "body": (
+                "Quick add: where you type something dated or tagged (the Reminders "
+                "box, Quick note, a new meeting's title, the Timeline's search and the "
+                "command palette), what the words were read as shows as chips under "
+                "the box as you type: a day, a time, a repeat, a person, a #tag, a "
+                "window like \"last week\". Enter saves what the chips say. Press a "
+                "chip to leave those words as words. When something needed is "
+                "missing (a reminder with no time), it asks once and saves nothing "
+                "until you add it, rather than guessing. In Quick note a day is an "
+                "offer of a reminder on the note, used when pressed or when the note "
+                "starts \"remind me\". On the Timeline, Enter turns a window into the "
+                "From and To range and keeps the other words as the search. It all "
+                "works with no AI model."
+            ),
+            "badge": {"label": "Reminders", "tab": "reminders"},
+        },
+        {
+            "id": "editor-offers",
+            "keywords": (
+                "offers under the note", "offers while i write", "remind me from a note",
+                "sum checked", "check my sums", "wrong sum", "link suggestion", "suggest a link",
+                "filing suggestion", "why this category", "chips under the note",
+            ),
+            "body": (
+                "While you write a note (Capture, or a note's Edit form), offers show as "
+                "chips under the box when you pause: a day in the text becomes Remind me "
+                "(press it to set the reminder, with Undo), a sum written with a wrong "
+                "answer shows the right one (press it to put it in), a name another note "
+                "opens with becomes a [[link]], and File in names the category with its "
+                "reason beside it. Nothing is offered on quoted words: text in quotation "
+                "marks, a code span or a quote line. At most five show at once. It all "
+                "works with no AI model."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
         {
             "id": "quick-note",
             "keywords": (
@@ -731,6 +973,9 @@ MORE_TOPICS.extend(
                 "stuck on filing", "still filing", "file by meaning", "file it myself",
                 "wrong category", "uncategorised", "uncategorized", "choose category",
                 "filing style", "review queue", "is:review", "accept the filing",
+                "what is filing", "how does filing work", "how filing works",
+                "why was it filed", "why this category", "new category", "sensitive notes",
+                "file health notes", "health notes", "money notes",
             ),
             "body": (
                 "Each new note is filed into a category in the background. Its "
@@ -744,10 +989,13 @@ MORE_TOPICS.extend(
                 "check this, and the line under the note box offers the other "
                 "categories as one-tap buttons; a note you filed yourself shows "
                 "Filed by you and no percentage. With no AI model running, a "
-                "note is filed from your notebook's own words (the notes already "
-                "in each category, their tags and the moves you made by hand) and "
-                "stays in Uncategorised when that is not sure, with its likely "
-                "categories as one-tap buttons beside Choose category. While a "
+                "note is filed by your other notes and a built-in topic list, "
+                "only into a category you have, and says why (It mentions squat "
+                "(Fitness), like the 9 notes in Gym). Unsure, it stays in "
+                "Uncategorised with one-tap choices, and New: Fitness when none "
+                "fits. Health, money and family notes wait for you unless File "
+                "health, money and family notes by their words too is on in "
+                "Settings, Background tasks. While a "
                 "note shows Filing, its chip offers File by meaning now, Leave it "
                 "where it is and File it myself, and Stop in Settings, Background "
                 "tasks files every waiting note by meaning. A note you file "
@@ -766,13 +1014,21 @@ MORE_TOPICS.extend(
             "keywords": (
                 "suggested tag", "suggested tags", "plus tag", "plus tags", "+ tag",
                 "tag suggestion", "stop suggesting", "dismiss a tag", "tag with atlas",
+                "why is this tag suggested", "why this tag", "turned down", "offer again",
             ),
             "body": (
                 "The tags Atlas suggested when it filed a note stay on the note's "
                 "card as \"+ tag\": one press adds the tag, and its x stops "
-                "suggesting it. With no AI running they come from your own tags "
-                "on the notes most like this one. An untagged note's Tag with "
-                "Atlas asks again."
+                "suggesting it (Undo in the notice brings it back, and the note's "
+                "Edit form lists the ones turned down under Not suggested, each "
+                "one press from coming back). With no AI running they come from your own tags: "
+                "the ones the note names (\"stats\" finds statistics), its title and first line "
+                "first, then those on the notes most like it and the notes it links to. Words in "
+                "quotation marks and a scan's footer do not count. Either way a tag is offered "
+                "only when the note has a word for it, at most three, and "
+                "pointing at one says which word. A tag turned down on three notes is offered "
+                "less everywhere; Manage tags lists it under Turned down, with Offer again. "
+                "Tag and file with Atlas and Capture, while you type, suggest the same way."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -812,11 +1068,14 @@ MORE_TOPICS.extend(
                 "find duplicates", "uncategorised", "short notes", "empty notes",
                 "old reminders", "stale reminders", "without the ai", "without ai",
                 "bulk", "housekeeping", "apply automatically",
+                "categories that overlap", "category names", "similar categories",
+                "patterns", "confirm a pattern", "not right", "wrong pattern", "insight",
+                "dismiss a suggestion", "delete a suggestion", "hide a suggestion",
             ),
             "body": (
                 "Tidy is the broom in the Notes dock, beside the search help; the "
                 "number on it is how many things its reviews found. It opens on an "
-                "overview of all nine reviews, each a rule that needs no AI, with "
+                "overview of all eleven reviews, each a rule that needs no AI, with "
                 "its count and one line on what it finds, the ones with nothing to "
                 "tidy last; press a row to open that review and its back button to "
                 "return to the overview. The reviews: Links to explain (Add reasons "
@@ -826,18 +1085,23 @@ MORE_TOPICS.extend(
                 "pass, never changed by you, that fit their note poorly; Remove "
                 "tags), Tags used once (Remove tags), Tags that look alike (Merge "
                 "tags), Notes without a category (Move notes, to the category their "
-                "words point to), Near-duplicate notes (Merge notes), Empty or very "
+                "words point to), Near-duplicate notes (Merge notes), Categories "
+                "that overlap (Merge categories), Category names (Rename), Empty or very "
                 "short notes (Move to bin) and Reminders long past (Mark done). "
-                "Each review's description says what its button will change. Tick "
+                "Each review's description says what its button will change. A row's "
+                "cross dismisses it for good (Undo restores it). Tick "
                 "the rows (each says why it is listed and what the button will do), "
                 "then press the button; one Undo puts the batch back, from the "
                 "toast, Ctrl+Z or Recent runs. Apply automatically runs a review "
-                "after each note is filed; merging notes, binning and removing tags "
-                "used once never run on their own. Links to explain also has Add "
+                "after each note is filed; merging, renaming, binning and removing "
+                "tags used once never run on their own. Links to explain also has Add "
                 "reasons to all in the background, a job you can stop in Settings, "
                 "Background tasks. The command palette and Tools and features open "
                 "Tidy too, and new links already say what their notes share when "
-                "they can."
+                "they can. Under the overview, Patterns says what the notes measure "
+                "(golf 4 times since 5 September), each with Confirm, which keeps it "
+                "as your own word from then on, and Not right, which never shows it "
+                "or anything like it again; Chat and the dashboard's ⋯ offer the same."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -928,7 +1192,10 @@ MORE_TOPICS.extend(
                 "documents that name it without a link; Link turns those words "
                 "into a [[link]], and is greyed out when the name has a square "
                 "bracket in it, which a [[link]] cannot hold), and \"Forgotten, and close to this\". The "
-                "note's Connections sheet shows the same."
+                "note's Connections sheet shows the same, with its rows as a quiet "
+                "list (a glyph, the title, a muted line for the kind or day) under a "
+                "row of count chips, and on a wide window an Open in the sidebar "
+                "button that docks it as this column."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -991,7 +1258,8 @@ MORE_TOPICS.extend(
                 "arrows move, Right opens a row, Left folds it, Home and End jump "
                 "to the ends, and Enter opens. By month puts each document under "
                 "the month it was made, with that month's notes. By topic groups "
-                "notes by the subjects the graph finds in how they link."
+                "notes by the subjects the graph finds in how they link; F2 or "
+                "right-click on a topic's heading renames it or shows it on the graph."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1039,7 +1307,11 @@ MORE_TOPICS.extend(
                 "or but when two may disagree), a sentence several notes repeat said "
                 "once with how many say it, a timeline for a when question, the "
                 "newest first for a latest question, two sides for a comparison, and "
-                "a few questions to ask next. Tell me more, or the second one, "
+                "a few questions to ask next. Asked about a topic as a whole (games "
+                "notes, who is Jake, what am I working on), it says how many notes and "
+                "over which months, groups them by the name most of them share, and "
+                "gives each note's day and one line (a picture as what it shows and its "
+                "words). Tell me more, or the second one, "
                 "follows on from the answer before. The Chat tab answers the same "
                 "way whenever no model is running: its box stays open, and Agent "
                 "mode is greyed unless the Needle extra can run it. Every "
@@ -1047,10 +1319,12 @@ MORE_TOPICS.extend(
                 "adds only the joining words and the counts and dates it measured, "
                 "names two notes that may disagree, and says which of your words "
                 "none of the notes found mention. It never answers yes or no for "
-                "you. The chip over the answer reads Your notes, no AI. The "
+                "you. In Ask the chip over the answer reads Your notes, no AI; in "
+                "Chat the reply's head reads Atlas, from your notes (Atlas and the "
+                "model's name when a model wrote it). The "
                 "choice is kept on this device; with no model running it is the "
                 "answer and Use AI is greyed, with the reason on it, until a model runs. "
-                "The No model is connected line above the Chat box and the Ask box "
+                "The No model connected line above the Chat box and the Ask box "
                 "has a close button (the small x at its end): it hides that line "
                 "until the next time you start the app, a new session, and "
                 "connecting a model in Settings, Models always brings the answers back."
@@ -1125,7 +1399,10 @@ MORE_TOPICS.extend(
                 "reads even when Tesseract is ready; with nothing chosen it reads "
                 "when Tesseract isn't ready. Its models read English and Chinese, "
                 "so the language does not apply. Not installed, the menu says so "
-                "and its Install opens that Packages row. The workspace remembers "
+                "and its Install opens that Packages row. With no engine and no "
+                "model the menu offers RapidOCR first (about 60 MB, nothing else "
+                "to install), then Tesseract, each with its own Install, and Read "
+                "says why it cannot read yet. The workspace remembers "
                 "the reader you chose."
             ),
             "badge": {"label": "Packages", "section": "extras"},
@@ -1217,6 +1494,48 @@ MORE_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "board-comments",
+            "keywords": (
+                "comment", "comments", "edit a comment", "reply to a comment", "resolve a comment",
+                "resolved comments", "comment thread", "link in a comment", "bookmark in a comment",
+                "attach to a comment",
+            ),
+            "body": (
+                "Comments on a board or a map. Right-click a card, sticky, shape or "
+                "topic and choose Comment… for a thread on it; the count on its "
+                "corner opens it again. Each comment has Reply (answered one step in "
+                "under it), Edit (in place: Enter keeps it, Esc puts it back, and the "
+                "row then says edited), Resolve (folded under N resolved; the corner "
+                "counts only what is open, and shows a tick once nothing is) and "
+                "Delete (with its replies). In the box, Attach adds a bookmark, note, "
+                "document or board, / offers links, a bookmark, an emoji or the date, "
+                "and [[ links a note. A link alone on its line shows as a link card. "
+                "Enter posts, Shift+Enter breaks the line, and Ctrl+Z takes back any "
+                "change. Threads are not exported."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "sticky-notes",
+            "keywords": (
+                "sticky", "sticky note", "stickies", "note colour", "note color", "sticky colour",
+                "text box or note", "text box vs sticky", "paper colour",
+            ),
+            "body": (
+                "Sticky notes and text boxes on a board. A sticky (N, or the note "
+                "on the tool dock) is paper: its colour, a lift, and a folded "
+                "corner. A text box (T) is words on the board, with no fill and a "
+                "faint dashed edge. Select a sticky and its bar starts with seven "
+                "papers (yellow, orange, pink, purple, blue, green, grey); any other "
+                "colour, and a text box's own fill or edge, are under the bar's ... "
+                "menu, Box. The folded corner can be switched off for one note (Format "
+                "panel, Folded corner) or as the board's default (View, Folded sticky "
+                "corners). Each change is one Undo step. Typing in either, / offers "
+                "lists, a to-do, headings, links and an emoji, and [[ links a note."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
             "id": "emoji-and-icons",
             "keywords": (
                 "emoji", "emojis", "icon", "icons", "sticker", "stickers", "emoji picker",
@@ -1226,7 +1545,8 @@ MORE_TOPICS.extend(
                 "Emoji and icons. One picker holds every Phosphor icon the app ships "
                 "and about 470 emoji: Emoji or Icons in the tab strip under its title, "
                 "type to search, Recent first, arrows and Enter to choose, Escape to close. On a board or a "
-                "map, Insert, Emoji and icons… keeps it open: press one to place it "
+                "map, the smiley on the tool dock (Add on a board, Map on a map) or Insert, "
+                "Emoji and icons… keeps it open: press one to place it "
                 "in the middle of the view, or drag it where it goes. An emoji lands "
                 "as a sticker (no card, resize it like any item), an icon as a shape "
                 "you can recolour; dropped on a map topic, either becomes that "
@@ -1254,13 +1574,85 @@ MORE_TOPICS.extend(
                 "the hierarchy (Classic, Outline with plain text on the lines, "
                 "Boxed, or Flat for every topic alike) and, with Setting on The "
                 "centre, Main branches or Sub-topics, that level's size, weight, box, edge bar, "
-                "fill and line. A topic's menu, Look: Copy this topic's style and "
+                "fill, line and effect. A topic's Effect, in its Shape group: a soft shadow, or "
+                "a glow in its branch colour (No effect keeps one plain on a level that has one). A topic's menu, Look: Copy this topic's style and "
                 "Paste style (Ctrl+Alt+C and V, onto every selected topic), and "
                 "Use this look for its level, which hands the topic's own look to "
                 "every topic at its level. Each is one Undo step. A topic's icon: "
                 "the Text menu's Icon row has eleven, and More icons and emoji… "
                 "opens every Phosphor icon and about 470 emoji, searchable, with "
                 "your recent ones first; an emoji or an icon, one per topic."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        #: Brief 69 (DOCUMENTS_PLAN 23, I1): run, preview and test, written
+        #: from the run panel (documents-code.js), run-core.js's languages
+        #: and the palette rows in DOC_COMMANDS.
+        {
+            "id": "code-run",
+            "keywords": (
+                "run code", "run a file", "run python", "run javascript", "run typescript",
+                "typescript", "sql", "sqlite", "query", "p5", "p5.js", "sketch", "preview css",
+                "preview svg", "svg", "unit test", "unit tests", "run tests", "unittest",
+                "input()", "run selection", "run cell", "output panel", "pyodide",
+            ),
+            "body": (
+                "Run (Ctrl+Shift+Enter, beside Format) runs a code document in a "
+                "sandbox with no network and none of your notes, and shows what it "
+                "prints, its errors and their lines in the Output panel under the "
+                "editor. JavaScript runs as it is; TypeScript runs with its types "
+                "removed, not checked; SQL runs against an empty SQLite database "
+                "made for the run, each statement's result a table; Python runs "
+                "once Python is installed in Settings, Packages (until then Run is "
+                "greyed and the line beside it goes there), and input() reads its "
+                "lines from the panel's Input box. HTML, CSS (over a sample page), "
+                "SVG and a p5.js sketch (New from a template, p5.js sketch) show as "
+                "a page; Live in the panel refreshes it as you type (the panel's buttons are icons: point at one for its name). A file of "
+                "tests (describe, it and expect in JavaScript or TypeScript; "
+                "unittest or test_ functions in Python) runs its tests, each "
+                "listed with its time and a failure underlined on its line; Run "
+                "tests in the panel asks for them. The palette has Run the "
+                "selected lines and Run the cell at the caret (between # %% "
+                "markers). Stop ends a run; one still going after two seconds is "
+                "listed in Activity, whose Stop ends it too. Beside Output, "
+                "Problems lists every underline and Tests each test; the Console "
+                "(Ctrl+Shift+Y) evaluates a line in what the run left, Python for "
+                "a .py file and JavaScript for the rest, Up recalling the last. "
+                "Debug (F5) steps "
+                "JavaScript, TypeScript and Python; see the debugger."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        #: Brief 70 (DOCUMENTS_PLAN 23, I2): the debugger, written from the
+        #: Debug tab (documents-code.js, `docDebugView`), the gutter
+        #: (`docDebugExtension`) and the palette rows in DOC_COMMANDS.
+        {
+            "id": "debugger",
+            "keywords": (
+                "debug", "debugger", "debugging", "breakpoint", "breakpoints", "step over",
+                "step in", "step into", "step out", "watch", "watch expression", "call stack",
+                "variables", "conditional breakpoint", "f5", "f9", "f10", "f11", "bdb",
+            ),
+            "body": (
+                "Debug runs a JavaScript, TypeScript or Python document to its "
+                "first breakpoint and stops there. Click beside a line number (or "
+                "press F9 on the line) for a breakpoint; right-click it to add a "
+                "condition, and it stops only when that is true. Press F5, or "
+                "Start debugging in the run panel's Debug tab; the stopped line is lit, and "
+                "the Debug tab shows Variables (the frame's names, then Globals), "
+                "Watch (type an expression under it; each stop evaluates it), the "
+                "Call stack (a row goes to its line) and Breakpoints. F10 steps "
+                "over a line, F11 into a call, Shift+F11 out of the function, F5 "
+                "continues and Shift+F5 stops; the same five are buttons at the "
+                "top of the tab. An error nothing catches stops on the line that "
+                "raised it, with its traceback and the frame's variables. Python's "
+                "input() asks in the panel mid-run. Python debugging needs a window "
+                "that gives SharedArrayBuffer (the app's own does); JavaScript is "
+                "stepped by an interpreter that reads ES5, so let, const, arrow "
+                "functions and template strings are rewritten for it, and a class, "
+                "destructuring or async code is named with its line and only Run "
+                "takes it. A script that uses the page debugs against a stand-in "
+                "document, so nothing is drawn."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1277,7 +1669,9 @@ TOPIC_META: dict[str, dict] = {
     "ask-chat": {"title": "Asking and chatting", "path": "Chat tab, or Ctrl+Shift+A over any tab"},
     "skills": {"title": "Skills", "path": "Settings, Skills"},
     "graph": {"title": "The graph", "path": "Graph tab"},
-    "reminders": {"title": "Reminders", "path": "Reminders tab"},
+    "reminders": {"title": "Reminders", "path": "Reminders tab", "steps": (
+        "Open the Reminders tab (m then r).", "Type into Remind me to, with a time such as \"tomorrow at 5pm\".",
+        "Press Add; pick a priority or a repeat first if you like.")},
     "dashboard": {"title": "The dashboard", "path": "Dashboard tab"},
     "library": {"title": "The Library", "path": "Library tab"},
     "documents": {"title": "Documents", "path": "Library tab, Documents"},
@@ -1295,7 +1689,14 @@ TOPIC_META: dict[str, dict] = {
     "import-apps": {"title": "Import from another app", "path": "Settings, Import & export, Import from another app", "target": "import-app-box"},
     "simple-mode": {"title": "Simple mode", "path": "Settings, General, Simple mode", "target": "simple-mode-box"},
     "usage-ledger": {"title": "What you use", "path": "Settings, General, What you use", "target": "usage-box"},
+    "statistics": {"title": "Statistics", "path": "Dashboard, Activity heatmap, Statistics"},
+    "timer": {"title": "Timer and stopwatch", "path": "Command palette, timer"},
+    "live-captions": {"title": "Live captions", "path": "Command palette, Live captions"},
+    "count-words": {"title": "Count words", "path": "Command palette, Count words"},
+    "translate-offline": {"title": "Translate this, offline", "path": "Command palette, Translate this"},
+    "insert-template": {"title": "Insert a template", "path": "Command palette, insert template"},
     "capture-anywhere": {"title": "Capture from anywhere", "path": "Settings, Keyboard shortcuts, Capture from anywhere", "target": "capture-anywhere-box"},
+    "install-app": {"title": "Install as an app", "path": "Settings, About, Install as an app"},
     "storage": {"title": "Where your data lives", "path": "Settings, Import & export"},
     "websearch": {"title": "Web search", "path": "Settings, Web search"},
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
@@ -1323,6 +1724,8 @@ TOPIC_META: dict[str, dict] = {
     "search-index": {"title": "Search and index", "path": "Settings, Search and index"},
     "answer-style": {"title": "Answer style", "path": "Settings, Personas, Answer style"},
     "background-tasks": {"title": "Background tasks", "path": "Settings, Background tasks"},
+    "health": {"title": "Health", "path": "Settings, About, Health"},
+    "activity": {"title": "Activity", "path": "The status bar's job slot, or the palette, Activity"},
     "packages": {"title": "Packages", "path": "Settings, Packages"},
     "import-export": {"title": "Import and export", "path": "Settings, Import & export"},
     "logs": {"title": "Logs and reporting a problem", "path": "Settings, Logs", "steps": (
@@ -1337,7 +1740,7 @@ TOPIC_META: dict[str, dict] = {
     #: every entry by its title, and an id read aloud ("Files images") is not one.
     "files-images": {"title": "Pictures, scans and PDFs", "path": "Library tab, Images and Files"},
     "archive": {"title": "Archiving", "path": "Each item's own menu, and the Library's Archived filter"},
-    "voice": {"title": "Dictation, recording and read aloud", "path": "Notes tab, the microphone"},
+    "voice": {"title": "Dictation, recordings and read aloud", "path": "Notes tab, the microphone; Library, Recordings"},
     "meetings": {"title": "Meeting notes", "path": "Dashboard, New meeting; a meeting's meeting chip"},
     "extract-notes": {"title": "Split text into notes", "path": "Notes tab, Writing room, More, Split into notes"},
     "favourites": {"title": "Favourites", "path": "A note's star"},
@@ -1353,11 +1756,21 @@ TOPIC_META: dict[str, dict] = {
     "translate": {"title": "Translating", "path": "Notes tab, Writing room"},
     "tags-categories": {"title": "Tags and categories", "path": "A note's own row, or Capture's Filing menu"},
     "code-files": {"title": "Code documents", "path": "Library tab, Documents"},
+    "code-run": {"title": "Running, previewing and testing code", "path": "A code document, Run", "steps": (
+        "Open a code document (.js, .ts, .sql, .py, .html, .css, .svg).",
+        "Press Run, or Ctrl+Shift+Enter.",
+        "Read the Output panel under the editor; Line N goes to the line.",
+        "Ctrl+Shift+Y opens the Console tab: type a line and press Enter.")},
+    "debugger": {"title": "Debugging code", "path": "A code document, the gutter beside a line number, F5", "steps": (
+        "Open a JavaScript, TypeScript or Python document.",
+        "Click beside a line number, or press F9 on it, for a breakpoint.",
+        "Press F5; at the stop, F10, F11 and Shift+F11 step, F5 continues.",
+        "Read Variables, Watch and the Call stack in the panel's Debug tab.")},
     "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards & maps"},
     "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards & maps"},
     "board-history": {"title": "A board's history, and putting it back", "path": "A board, Board, History…"},
     "board-library": {"title": "The board's library, layers and templates", "path": "A board, the Library button in its top bar"},
-    "board-templates": {"title": "Board and map templates", "path": "Library tab, Boards & maps, New"},
+    "board-templates": {"title": "Board and map templates", "path": "Library tab, Boards & maps, New, From a template"},
     "board-format": {"title": "The board's Format panel and connectors", "path": "A board, Ctrl+Shift+P or the selection's More menu"},
     "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards & maps"},
     "documents-controls": {"title": "Document editor keys and controls", "path": "Library tab, Documents"},
@@ -1365,7 +1778,9 @@ TOPIC_META: dict[str, dict] = {
     "mind-map-features": {"title": "Mind map features", "path": "Library tab, Boards & maps"},
     "mind-map-study": {"title": "Study the map", "path": "Library tab, Boards & maps, a map's board menu"},
     "mind-map-look": {"title": "How a map's topics look", "path": "Library tab, Boards & maps, a map"},
-    "emoji-and-icons": {"title": "Emoji and icons", "path": "A board or map's Insert menu; a topic's Text menu"},
+    "emoji-and-icons": {"title": "Emoji and icons", "path": "The smiley on a board's or map's tool dock, or its Insert menu; a topic's Text menu"},
+    "board-comments": {"title": "Comments on boards and maps", "path": "An item's right-click menu, Comment…"},
+    "sticky-notes": {"title": "Sticky notes and text boxes", "path": "A board's tool dock, Add"},
     "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
     "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
     "graph-display": {"title": "More graph controls", "path": "Graph tab, the gear"},
@@ -1379,6 +1794,8 @@ TOPIC_META: dict[str, dict] = {
     "dashboard-controls": {"title": "Dashboard controls", "path": "Dashboard tab"},
     "hidden-features": {"title": "Hidden features and power keys", "path": "Everywhere"},
     "quick-note": {"title": "Quick note", "path": "Alt+N, from any tab"},
+    "editor-offers": {"title": "Offers while you write", "path": "Notes, Capture, or a note's Edit form"},
+    "quick-add": {"title": "Dates and tags read as you type", "path": "Reminders, Quick note, New meeting, Timeline search, the command palette"},
     "note-outbox": {"title": "Saving while the server is away", "path": "Notes tab, above Capture"},
     "attachments": {"title": "Pictures and files in a note", "path": "Capture, or a note being edited"},
     "filing": {"title": "How a note is filed", "path": "A note's card, beside its category"},
@@ -1412,26 +1829,27 @@ TOPIC_META: dict[str, dict] = {
 HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Getting started", (
         "tabs-overview", "tour", "guide", "hidden-features", "shortcuts",
-        "command-palette", "find-anything", "search", "addresses", "settings-overview",
+        "command-palette", "find-anything", "search", "addresses", "settings-overview", "install-app",
     )),
     ("Writing notes", (
-        "capture", "quick-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
+        "capture", "quick-note", "quick-add", "editor-offers", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
-        "write-with-atlas", "translate", "extract-notes", "voice", "meetings",
+        "write-with-atlas", "translate", "translate-offline", "extract-notes", "voice", "live-captions", "meetings",
     )),
     ("Filing, tags and categories", (
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories", "tidy",
     )),
     ("Asking Atlas", (
-        "ask-chat", "answers-from-notes", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
+        "ask-chat", "answers-from-notes", "chat-controls", "chat-acts", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (
-        "documents", "documents-controls", "documents-features", "callouts", "document-history", "writing-checks", "code-files",
-        "margin-reader",
+        "documents", "documents-controls", "documents-features", "callouts", "document-history", "writing-checks", "code-files", "code-run",
+        "debugger", "margin-reader",
     )),
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-templates", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study", "mind-map-look", "emoji-and-icons",
+        "board-comments", "sticky-notes",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",
@@ -1439,7 +1857,10 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("Graph, Timeline, Reminders and Dashboard", (
         "graph", "graph-controls", "graph-display", "entities", "properties", "timeline", "timeline-controls", "reminders",
-        "reminders-controls", "dashboard", "dashboard-controls", "notifications", "spaces",
+        "reminders-controls", "dashboard", "dashboard-controls", "notifications", "spaces", "statistics",
+    )),
+    ("Small tools", (
+        "timer", "count-words", "insert-template",
     )),
     ("Look and feel", (
         "appearance", "themes", "simple-mode", "accessibility", "performance", "background-art",
@@ -1450,9 +1871,109 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "search-index", "packages",
     )),
     ("Privacy and your data", (
-        "privacy", "security", "lock", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks",
+        "privacy", "security", "encryption", "lock", "phone", "two-computers", "delete-data", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
     )),
     ("Settings and support", (
         "profile", "general-settings", "updates", "logs", "troubleshooting",
     )),
 ]
+
+
+#: The acts Chat does from a sentence: generated from the act registry
+#: (`ai/act_registry.py`, CHAT_PLAN decision 53), so a new act is in the Guide the
+#: moment it is in the registry, and a renamed one cannot drift.
+#: The Guide's gaps from the engine probe (CHAT_PLAN section 2, the help
+#: row; `agent-remaining/engine-probe-1010.md`): the phone, two computers,
+#: encryption, deleting your data and sharing a note had no topic of their
+#: own. `tests/test_guide_gaps.py` holds the probe's table at 1.0.
+MORE_TOPICS.extend([
+    {
+        "id": "phone",
+        "keywords": ("phone", "on my phone", "mobile", "iphone", "android", "tablet", "ipad", "use it on my phone",
+                     "open it on my phone"),
+        "body": (
+            "Your phone opens this computer's notebook over your own network: turn "
+            "on Allow other devices on this network (Settings, Account & security, "
+            "Other devices), then open the address it shows on the phone (https, "
+            "port 8443) and sign in with your password. The first visit warns that "
+            "the certificate is not trusted: compare the fingerprint shown under the "
+            "switch, or use Trust this certificate on your phone, whose ? has the "
+            "iPhone and Android steps. The phone reads and writes the same notebook; "
+            "nothing goes through the internet, so the computer has to be on."
+        ),
+        "badge": {"label": "Account & security", "section": "account"},
+    },
+    {
+        "id": "two-computers",
+        "keywords": ("two computers", "another computer", "second computer", "sync", "syncing", "laptop and desktop",
+                     "move to a new computer", "new computer", "other computer", "use it on two"),
+        "body": (
+            "One notebook lives on one computer, in its data folder (Settings, Import "
+            "& export shows where). There is no sync between two copies. To move to a "
+            "new computer, save a full backup there and restore it on the new one, or "
+            "copy the data folder while the app is closed. To use one notebook from a "
+            "second computer at the same time, open it over your network from the "
+            "first: Settings, Account & security, Other devices."
+        ),
+        "badge": {"label": "Import & export", "section": "data"},
+    },
+    {
+        "id": "encryption",
+        "keywords": ("encrypted", "encryption", "is my data encrypted", "encrypt my notes", "is it secure", "secure",
+                     "who can read my notes"),
+        "body": (
+            "Private notes are encrypted at rest with a key made from your unlock "
+            "password; without it their words cannot be read from the data folder. "
+            "Other notes are stored as they are written, in the data folder on your "
+            "computer, so your disk's own encryption is what keeps them. A full "
+            "backup can be sealed with a password (Settings, Import & export). A "
+            "recovery key (Settings, Account & security) opens private notes if the "
+            "password is forgotten, and Re-encrypt private notes makes a new key."
+        ),
+        "badge": {"label": "Account & security", "section": "account"},
+    },
+    {
+        "id": "delete-data",
+        "keywords": ("delete my data", "delete everything", "erase my data", "remove my data", "wipe", "uninstall",
+                     "start over", "delete all my notes"),
+        "body": (
+            "A deleted note, document or reminder goes to the bin first: Undo or the "
+            "bin's Restore brings it back, and the bin clears itself after the time "
+            "set in Settings, General, Bin (or Empty the bin at once). Everything "
+            "else is in the data folder (Settings, Import & export shows where): to "
+            "erase the notebook, save a backup if you want one, close the app and "
+            "delete that folder, then uninstall. Nothing is kept anywhere else."
+        ),
+        "badge": {"label": "General", "section": "general"},
+    },
+    {
+        "id": "share-note",
+        "keywords": ("share a note", "share this note", "send a note", "share", "sharing", "give someone a note",
+                     "email a note"),
+        "body": (
+            "Three ways, none through a server: the note's menu, Download .md, "
+            "saves it as a Markdown file to send; copy its "
+            "address (every view has one) for anyone opening this notebook with "
+            "you; or let them open the notebook from their phone or computer on "
+            "your network (Settings, Account & security, Other devices)."
+        ),
+        "badge": {"label": "Import & export", "section": "data"},
+    },
+])
+TOPIC_META.update({
+    "phone": {"title": "On your phone", "path": "Settings, Account & security, Other devices"},
+    "two-computers": {"title": "Two computers", "path": "Settings, Import & export"},
+    "encryption": {"title": "What is encrypted", "path": "Settings, Account & security"},
+    "delete-data": {"title": "Deleting your data", "path": "Settings, General, Bin"},
+    "share-note": {"title": "Sharing a note", "path": "A note's menu, Download .md"},
+})
+
+
+def _act_topic() -> dict:
+    from memorymap.ai import act_registry
+
+    return act_registry.guide_topic()
+
+
+MORE_TOPICS.append(_act_topic())
+TOPIC_META["chat-acts"] = {"title": "Things Chat does for you", "path": "Chat tab"}

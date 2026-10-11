@@ -35,6 +35,7 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     event,
+    inspect as sa_inspect,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -44,6 +45,7 @@ from sqlalchemy.orm import (
     sessionmaker,
     with_loader_criteria,
 )
+from sqlalchemy.orm.attributes import flag_modified
 
 
 def utcnow() -> datetime:
@@ -211,7 +213,7 @@ INCLUDE_BINNED = "include_binned"
 
 @event.listens_for(Session, "do_orm_execute")
 def _hide_binned(execute_state):
-    """A binned document or reminder is out of every read (WORLD_CLASS_PLAN
+    """A binned document, reminder or recording is out of every read (WORLD_CLASS_PLAN
     5 item 10): the bin's own routes ask for them with `including_binned`.
     Selects only: a bulk UPDATE or DELETE that names them by id still reaches
     them, which is what a purge's clean-up needs."""
@@ -220,6 +222,7 @@ def _hide_binned(execute_state):
     execute_state.statement = execute_state.statement.options(
         with_loader_criteria(Document, lambda cls: cls.deleted_at.is_(None), include_aliases=True),
         with_loader_criteria(Reminder, lambda cls: cls.deleted_at.is_(None), include_aliases=True),
+        with_loader_criteria(Recording, lambda cls: cls.deleted_at.is_(None), include_aliases=True),
     )
 
 
@@ -460,7 +463,8 @@ class Entry(Base, WorkspaceMixin):
     map_topic: Mapped[bool] = mapped_column(Boolean, default=False)
     #: Board-level settings, as a small JSON object, for a note being used as
     #: a board: `{"type": "board"|"map", "layout": "free"|"tree-right"|
-    #: "tree-left"|"tree-both"|"tree-down"|"radial"}`. NULL: the overwhelmingly common case, since
+    #: "tree-left"|"tree-both"|"tree-down"|"radial"|"logic-right"|"timeline"|"fishbone"|"tree-table"}`.
+    #: NULL: the overwhelmingly common case, since
     #: almost no note is a board, means "every default", never "unknown", so
     #: the auto-migrator's own NULL backfill leaves every existing board
     #: reading exactly as it did before this column existed: a free-layout
@@ -481,6 +485,23 @@ class Entry(Base, WorkspaceMixin):
     #: every board to build its preview, so the `?type=map` filter reads this
     #: in Python over a list that is tens of rows long, not thousands.
     board_settings: Mapped[str | None] = mapped_column(Text, default=None)
+
+    @property
+    def board_kind(self) -> str | None:
+        """"board" or "map" for a board (a mind map is a board whose settings
+        say `type: "map"`, MINDMAP_PLAN section 4), None for a note. Sent on
+        every entry (`EntryOut.board_kind`), so a list that is handed a board
+        can draw and open it as one (the owner, 2026-10-10: "a whitebaord
+        showed as a note in the notes ask subtab matching records column").
+        Settings that do not parse mean a plain board, as
+        `routes_whiteboard._board_settings` reads them."""
+        if not self.is_board:
+            return None
+        try:
+            parsed = json.loads(self.board_settings or "{}")
+        except (TypeError, ValueError):
+            parsed = {}
+        return "map" if isinstance(parsed, dict) and parsed.get("type") == "map" else "board"
     #: Where this note came from in an imported vault, a **relative** path
     #: like `Projects/Roadmap.md`, empty for everything written in this app.
     #:
@@ -635,6 +656,36 @@ class LinkProps(TypeDecorator):
         except (crypto.DecryptionError, ValueError):
             return None
         return parsed if isinstance(parsed, dict) else None
+
+
+#: The columns whose change is a person editing a board or mind map. Anything
+#: else written to a board's `Entry` row (opening it bumps `access_count` and
+#: `last_opened_at`; the librarian stamps `filing_state`; a reindex or
+#: embedding pass touches bookkeeping) is the app's own and must not move the
+#: time the Library shows. Reported 2026-10-10: "idk why it says just now on
+#: the mindmap when I hadnt been on it". `Entry.updated_at` has
+#: `onupdate=utcnow`, so *any* UPDATE moved it; opening the map's entry from
+#: an Ask result was enough. Boards only: notes have `edited_at` for the same
+#: question, and `lexical_filing` keys its stamps on a note's `updated_at`.
+_BOARD_EDIT_COLUMNS = frozenset(
+    {"content", "board_settings", "tags", "category_id", "is_deleted", "deleted_at", "archived_at"}
+)
+
+
+@event.listens_for(Entry, "before_update")
+def _only_a_person_moves_a_boards_time(mapper, connection, target):  # noqa: ANN001
+    if not target.is_board:
+        return
+    state = sa_inspect(target)
+    changed = {attr.key for attr in state.attrs if attr.history.has_changes()}
+    if not changed or changed & _BOARD_EDIT_COLUMNS or "updated_at" in changed:
+        return
+    held = state.dict.get("updated_at")
+    if held is None:
+        return
+    # Naming the column in the UPDATE's SET list is what stops `onupdate`
+    # firing; setting it to its own value is not a change, so flag it.
+    flag_modified(target, "updated_at")
 
 
 class EntryLink(Base, WorkspaceMixin):
@@ -1112,11 +1163,29 @@ class Reminder(Base, WorkspaceMixin):
     done: Mapped[bool] = mapped_column(Boolean, default=False)
     # Scalar defaults so the additive auto-migrator backfills existing rows.
     priority: Mapped[str] = mapped_column(String(10), default="normal")  # low|normal|high
-    recurring: Mapped[str] = mapped_column(String(10), default="none")  # none|daily|weekly|monthly
+    #: none|daily|weekly|monthly, or a rule `recognise.stored_repeat` keeps as
+    #: itself ("FREQ=MONTHLY;BYDAY=-1FR", TIMELINE_PLAN 11 row 8). SQLite
+    #: does not hold a VARCHAR to its length; the 80 is for the record.
+    recurring: Mapped[str] = mapped_column(String(80), default="none")
+    #: An early alert, minutes before `due_at` ("1 day before"); None for none.
+    #: Additive: `_add_missing_columns` puts it on an existing database.
+    alert_minutes: Mapped[int | None] = mapped_column(Integer, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     #: In the recycle bin since then (WORLD_CLASS_PLAN 5 item 10); null is live.
     #: Hidden from every read by `_hide_binned`.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: When it was ticked off, for the weekly review's "reminders done"
+    #: (UI_MODERNISATION statistics row 2). Stamped by `_stamp_done_at` below,
+    #: so the four places that tick a reminder need not each remember to.
+    done_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
+@event.listens_for(Reminder.done, "set")
+def _stamp_done_at(target, value, oldvalue, initiator):  # noqa: ANN001
+    if value and oldvalue is not True:
+        target.done_at = utcnow()
+    elif not value:
+        target.done_at = None
 
 
 class NoteScore(Base, WorkspaceMixin):
@@ -1544,6 +1613,81 @@ class PageRead(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class BinnedReading(Base):
+    """A deleted OCR reading, kept in the bin (WORLD_CLASS_PLAN 28.4 row 2).
+
+    Deleting a reading used to take it away for good: a page's `PageRead` row
+    was dropped and an image's `ocr_text` cleared, so "You can read it again
+    any time" was the only way back, and that needs a working reader. Now the
+    text goes here first, the Library's Bin lists it beside notes, documents
+    and reminders, and restoring it writes it back where it came from.
+
+    `field` says where: "page" (a `PageRead` row, `page` set), or "ocr_text" /
+    "vision_ocr_text" (the whole-file reading of a MediaUpload or Attachment).
+    A new table, so `create_all` builds it: no migration, as `jobs`.
+    """
+
+    __tablename__ = "binned_readings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: "attachment" or "upload", `PageRead.kind`'s two id spaces.
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    source_id: Mapped[int] = mapped_column(Integer, index=True)
+    field: Mapped[str] = mapped_column(String(24), default="page")
+    page: Mapped[int] = mapped_column(Integer, default=0)
+    reader: Mapped[str] = mapped_column(String(16), default="")
+    model: Mapped[str] = mapped_column(String(200), default="")
+    text: Mapped[str] = mapped_column(Text, default="")
+    caption: Mapped[str] = mapped_column(Text, default="")
+    caption_model: Mapped[str] = mapped_column(String(200), default="")
+    #: The file's name when it was binned, so the Bin can say what it was a
+    #: reading of without a join to a row that may itself be gone.
+    label: Mapped[str] = mapped_column(String(300), default="")
+    deleted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class Recording(Base, WorkspaceMixin):
+    """A recording is an object, not an attachment (WORLD_CLASS_PLAN "Audio
+    in the notebook", decision 2): its own identity, opened on its own, and
+    pointed at from any number of notes, like a board or a map.
+
+    `mime` is the container the browser's MediaRecorder actually produced
+    (webm or ogg carrying opus, mp4 on Safari, wav from a trim), checked
+    against the file's first bytes (decision 3: never called mp3). Saved in
+    10-second chunks while it records (`state` "recording"), so a tab that
+    dies keeps all but the last few seconds; a stale "recording" row is
+    finished by `core/recordings.recover_stale` on the next open. A trim
+    writes a new row (`source_id` the original), and the original stays
+    until the bin is emptied. A new table, so `create_all` builds it.
+    """
+
+    __tablename__ = "recordings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    mime: Mapped[str] = mapped_column(String(80), default="audio/webm")
+    #: The stored, random name under `data_dir/recordings`; never a path the
+    #: client chose.
+    filename: Mapped[str] = mapped_column(String(140), default="")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    #: The waveform the recorder drew, as a JSON list of 0 to 100 levels.
+    peaks: Mapped[str] = mapped_column(Text, default="[]")
+    #: Markers pressed while recording, a JSON list of milliseconds.
+    markers: Mapped[str] = mapped_column(Text, default="[]")
+    #: The meeting note it was recorded into, if any (no foreign key: the
+    #: note may be binned and purged while the recording is kept).
+    entry_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
+    source_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    state: Mapped[str] = mapped_column(String(16), default="recording")
+    #: Set when a stale recording was finished by recovery, so the app can
+    #: say "Recording recovered" once.
+    recovered: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None, index=True)
+
+
 class DocumentRevision(Base):
     """A document's text as it was before an edit, the history behind "can the
     document have edit history like git logs??", asked for by name.
@@ -1580,6 +1724,10 @@ class DocumentRevision(Base):
     #: answers.
     source: Mapped[str] = mapped_column(String(10), default="edit")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: A named version (DOCUMENTS 24 row 4, Google Docs's "Name current
+    #: version"): null for an ordinary sitting. A named row is never coalesced
+    #: into by the next edit, so the text it names stays the text it names.
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True, default=None)
 
 
 class WhiteboardNode(Base, WorkspaceMixin):
@@ -1984,6 +2132,26 @@ def _migrations_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+def _safety_copy_before_migrating(cfg, current: str, db_path: Path) -> None:  # noqa: ANN001
+    """A copy of the database before a pending migration runs (audit
+    2026-10-10, item 8). A launcher update that pulls a migration used to run
+    it on the only copy of the notebook, with the nightly backup up to a day
+    old. Only when the stamped revision is behind head: an ordinary launch
+    changes nothing and copies nothing. A failed copy is logged and the
+    migration still runs, because this must never be what stops the app
+    starting (the caller's own rule)."""
+    from alembic.script import ScriptDirectory
+
+    try:
+        if current == ScriptDirectory.from_config(cfg).get_current_head():
+            return
+        from memorymap.core import backup
+
+        backup.backup_now(db_path, db_path.parent)
+    except Exception:  # noqa: BLE001
+        _logger.warning("Could not take a safety copy before migrating", exc_info=True)
+
+
 def _ensure_alembic_baseline(db_path: Path) -> None:
     """Make Alembic aware of this exact database, without ever running DDL
     against one that doesn't need it.
@@ -2079,6 +2247,7 @@ def _ensure_alembic_baseline(db_path: Path) -> None:
             if current is None:
                 command.stamp(cfg, "head")
             else:
+                _safety_copy_before_migrating(cfg, current, db_path)
                 command.upgrade(cfg, "head")
         finally:
             root_logger.handlers = saved_root_handlers
@@ -2169,7 +2338,10 @@ class DatabaseManager:
             # board's row held the words on it: a diff over the boards, a
             # read-only no-op once it has run (`reconcile_boards`).
             with self.session() as session:
-                if search_index.reconcile_boards(session):
+                # Either may write; `or` would skip the second once the first did.
+                boards = search_index.reconcile_boards(session)
+                late = search_index.reconcile_sources(session)
+                if boards or late:
                     session.commit()
             return
         # Only on the one startup that creates the table: every write after

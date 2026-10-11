@@ -127,4 +127,6 @@ def test_one_note_listed_twice_is_not_a_collision():
 def test_the_builder_draws_the_cue():
     source = app_js_text()
     body = source.split("function buildConnectionGroups(")[1].split("\n}\n")[0]
-    assert "connectionRowCues(" in body and "connection-row-cue" in body
+    assert "connectionRowCues(" in body and "cue" in body
+    #: The cue is the row's subline, drawn by the one row builder (INBOX 784).
+    assert "connection-row-cue" in source.split("function connectionRowEl(")[1].split("\n}\n")[0]

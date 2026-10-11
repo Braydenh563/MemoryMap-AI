@@ -149,7 +149,7 @@ class HostCheckMiddleware:
             #: `/auth/setup`, which would let any device claim the notebook.
             #: The launcher already binds loopback without a password; this
             #: covers a server started any other way.
-            if not _notebook_has_password():
+            if not netbind.explicit_bind() and not _notebook_has_password():
                 response = JSONResponse(
                     status_code=403,
                     content={
@@ -588,6 +588,17 @@ class SecurityHeadersMiddleware:
                 headers.setdefault(
                     "Permissions-Policy", "geolocation=(), camera=(), payment=(), usb=()"
                 )
+                # Cross-origin isolation (DOCUMENTS_PLAN 23, D2): the Python
+                # debugger blocks its worker on `Atomics.wait` over a
+                # SharedArrayBuffer, which the run sandbox's frame has only
+                # when the page that frames it is isolated too (measured in
+                # Chromium, Brief 70). The app loads nothing cross-origin (its
+                # policy allows only 'self', data: and blob:), so requiring
+                # CORP costs no load; `same-origin` is the default resource
+                # policy, and the sandbox's runtime files say `cross-origin`.
+                headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+                headers.setdefault("Cross-Origin-Embedder-Policy", "require-corp")
+                headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
             await send(message)
 
         await self.app(scope, receive, stamped)

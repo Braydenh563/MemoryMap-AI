@@ -131,7 +131,7 @@ const ATTACHMENT_ACTIONS = {
         row = await apiJson(`/files/${id}/analyse`, { method: "POST", body: JSON.stringify({ kind: "caption", force: true }) });
       } else {
         const upload = await attachmentUpload(spec.url);
-        if (!upload) return toast("Couldn't find that upload.", true);
+        if (!upload) return toast("That upload is no longer in the Library; it may have been deleted.", "info");
         row = await apiJson(`/media/${upload.id}/caption`, { method: "POST", body: JSON.stringify({ force: true }) });
       }
       toast(row.caption ? `Description: ${row.caption}` : "No description came back.");
@@ -146,7 +146,7 @@ const ATTACHMENT_ACTIONS = {
       const current = id
         ? (await apiPagedList("/files/gallery", 200)).find((row) => String(row.id) === id)
         : await attachmentUpload(spec.url);
-      if (!current) return toast("Couldn't find that file.", true);
+      if (!current) return toast("That file is no longer in the Library; it may have been deleted.", "info");
       const typed = await promptDialog(`Description of “${attachmentLabel(spec)}”`, current.caption || "", { confirmLabel: "Save" });
       // "" is both "cancelled" and "cleared": harmless when there was nothing.
       if (typed === "" && !current.caption) return;

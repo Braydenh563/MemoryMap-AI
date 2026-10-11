@@ -8,7 +8,7 @@ here stores anything a note does not already hold. What this module adds is
 the one place that knows the shape: the writer every "New meeting" uses, and
 the readers the meeting sheet and the reminder button need.
 
-The audit that led here (docs/roadmap/agent-remaining/meetings-644.md) found
+The audit that led here (docs/roadmap/archive/agent-remaining/meetings-644.md) found
 four meeting shapes that disagreed: a four-line Capture template, a document
 template, the note type, and the recorder's plain transcript. They are one
 shape now, this one:

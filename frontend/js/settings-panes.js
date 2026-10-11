@@ -542,49 +542,6 @@ async function renderAccount() {
 // answer. On asks for the password, like turning sign-in off, and for the
 // same reason: an unlocked screen is not proof of knowing it.
 
-function renderLanState(state) {
-  const box = $("account-allow-lan");
-  const line = $("account-lan-state");
-  if (!box || !line) return;
-  box.checked = !!state.allow_lan;
-  const addresses = (state.addresses || []).filter(Boolean);
-  let icon = "ph:info";
-  let words = "";
-  if (state.restart_required) {
-    icon = "ph:arrow-clockwise";
-    words = state.allow_lan
-      ? "Restart the app to let other devices in."
-      : "Restart the app to close it to other devices.";
-    if (state.allow_lan && addresses.length) {
-      words += ` Then open ${addresses.join(" or ")} on the other device.`;
-    }
-  } else if (state.other_devices) {
-    icon = "ph:wifi-high";
-    words = addresses.length
-      ? `Open ${addresses.join(" or ")} on the other device.`
-      : "Other devices can open the app at this computer's network address.";
-  }
-  line.classList.toggle("hidden", !words);
-  if (words) setLabel(line, `${icon} ${words}`);
-  //: The certificate the network is served with (core/lancert.py), shown
-  //: while the switch is on so a phone's one-time warning can be checked.
-  const cert = $("account-lan-cert");
-  if (cert) {
-    const shown = Boolean(state.allow_lan && state.certificate);
-    cert.classList.toggle("hidden", !shown);
-    $("account-lan-fingerprint").textContent = shown ? state.certificate.fingerprint : "";
-  }
-}
-
-async function renderLanAccess() {
-  if (!$("account-allow-lan")) return;
-  try {
-    renderLanState(await apiJson("/auth/lan-access", { silent: true }));
-  } catch {
-    $("account-lan-state").classList.add("hidden");
-  }
-}
-
 // --- Privacy: where your data went (GET /privacy/receipt) ---------------------
 //
 // WORLD_CLASS_PLAN section 2, standout 5: "a page that proves, from the app's
@@ -667,6 +624,38 @@ let prefsCache = null;
 // with the pre-save value and left the checkbox showing it permanently,
 // not just for the moment the save was in flight.
 let prefsSaveInFlight = null;
+
+//: Moved here from app.js (Brief 89, app.js's gzip ratchet): it is a
+//: preferences write, beside the reader it awaits; `startApp` calls it after
+//: every boot script has loaded.
+// The browser is the only thing that knows where the user actually is. The
+// server may be running in UTC, a container, a NAS, a machine whose clock was
+// never set: and every relative time the AI computes ("in 10 minutes",
+// "tomorrow at 9") is resolved against that. So the zone is reported once at
+// startup, and again whenever it changes (travel, or a DST shift).
+//
+// Only the IANA NAME is sent, never coordinates: "Australia/Brisbane" is what
+// makes the arithmetic right, and it is far less identifying than a location.
+async function reportTimezone() {
+  let zone = "";
+  try {
+    zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return; // an environment without Intl still works, just on server time
+  }
+  //: Awaited, not read straight off `prefsCache` (A2): every `startApp` step
+  //: runs in parallel, so this one used to reach the comparison before the
+  //: boot GET had answered, find `prefsCache` still null, and PUT the same
+  //: zone the server already had on every single cold start. With the shared
+  //: reader the comparison has something to compare.
+  await loadPreferences().catch(() => null);
+  if (!zone || (prefsCache && prefsCache.timezone === zone)) return;
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ timezone: zone }),
+    silent: true,
+  }).catch(() => prefsCache);
+}
 
 //: **One GET /preferences per boot** (WORLD_CLASS_PLAN A2). The whole of
 //: `startApp` runs its steps in parallel, and three of them wanted the
@@ -768,6 +757,7 @@ async function renderPrefs() {
 function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
   $("pref-ai-first-filing").checked = prefsCache.ai_first_filing ?? true;
+  $("pref-auto-file-sensitive").checked = Boolean(prefsCache.auto_file_sensitive);
   $("pref-filing-style").value = prefsCache.filing_style || "topic";
   $("pref-background-filing").checked = prefsCache.background_filing ?? true;
   $("pref-warm-search-model").checked = prefsCache.warm_search_model_at_launch ?? true;
@@ -1307,7 +1297,7 @@ function paletteCommands() {
     //: that is open. The reveal opens one first (the newest), and with no
     //: board at all rings the button that makes one.
     { label: "ph:map-trifold Board overview", reveal: "board-overview", about: "The whole board at once, to jump to any part of it." },
-    { label: "ph:magnifying-glass Find a card on this board", reveal: "board-find", about: "Search the cards on the open board by their text." },
+    { label: "ph:magnifying-glass Find on this board", reveal: "board-find", about: "Search the open board's cards, text and labels; Ctrl+H replaces." },
     //: Capture is a sub-tab of Notes, and focusing its box while another
     //: sub-tab was showing did nothing (the dashboard's own New note says so).
     { label: "ph:pencil-simple New note", reveal: "notes-capture", chord: "newNote" },
@@ -1340,6 +1330,9 @@ function paletteCommands() {
       reveal: "meeting",
       chord: "recordMeeting",
     },
+    { label: "ph:microphone-stage Voice note", reveal: "voice-note" },
+    { label: "ph:microphone Dictate a note", reveal: "notes-dictation" },
+    { label: "ph:waveform Recordings", reveal: "recordings" },
     {
       // The same ask about the page reader, in the same words: "I want an
       // easier and more accessible way to access the ocr workspace as a proper
@@ -1349,7 +1342,9 @@ function paletteCommands() {
       // you were last reading, else your newest readable file; the decision and
       // what was deliberately not built is in UI_MODERNISATION_PLAN.md, "how
       // the page reader is reached".
-      label: "ph:sparkle Read a document or image with AI",
+      //: "OCR" in the words (the owner, 2026-10-10: searching "ocr" in the
+      //: palette, Find anything and Quick access's list found nothing).
+      label: "ph:scan OCR workspace: read a document or image",
       reveal: "page-reader",
     },
     {
@@ -1362,10 +1357,9 @@ function paletteCommands() {
       about: "A blank board for cards, drawings, images and links.",
     },
     {
-      //: A map is a board with a name people recognise (`createConceptMap`,
-      //: whiteboard.js), and it was reachable only from the Library's own
-      //: create picker. The same argument as the board row above it.
-      label: "ph:tree-structure New concept map",
+      //: The Library's New, Mind map, from anywhere: Untitled map N, its
+      //: root in edit (MINDMAP_PLAN 15, rows 1 and 2).
+      label: "ph:tree-structure New mind map",
       reveal: "map-create",
     },
     {
@@ -1436,6 +1430,8 @@ function paletteCommands() {
     { label: "ph:trash Open the bin", reveal: "library-bin", keywords: "bin trash deleted binned restore recover", about: "Everything you threw away, in the Library, ready to restore." },
     { label: "ph:question Questions your notes ask", reveal: "notes-questions", keywords: "questions open questions", about: "The open questions found in your notes." },
     { label: "ph:chat-text Ask your notes", reveal: "notes-ask", keywords: "ask question answer search my notes", about: "An answer quoted from your own notes, with or without a model." },
+    //: The Guide had no row: "guide" found the tour (CHAT_PLAN 9 row 3).
+    { label: "ph:question Ask the Guide", reveal: "atlas-help", keywords: "guide help how do i how does where is question", about: "Ask how anything in the app works; it answers from the app's own help." },
     //: The tour's third door (the e2e flow pass): the Dashboard's first-run
     //: tile and Settings, Help were the only two (tests/test_palette_synonyms.py).
     { label: "ph:compass Take the guided tour", keywords: "tour walkthrough guide how to start show me around", about: "A short walk round the app, pointing at the real controls.", act: () => openTour("basics") },
@@ -1459,6 +1455,18 @@ function paletteCommands() {
     { label: "ph:shield-check Settings → Account & security", reveal: "settings:account", about: "The password, the lock and when it asks for it." },
     { label: "ph:globe-hemisphere-west Settings → Privacy", reveal: "settings:privacy", about: "The two things that can go online, both off by default." },
     { label: "ph:list-checks Settings → Background tasks", reveal: "settings:tasks", about: "What the app is working on while you write." },
+    { label: "ph:heartbeat Health", reveal: "settings:about", keywords: "integrity check last backup last error data folder size status", about: "How the notebook is: last backup, last error, what is running, size, integrity." },
+    { label: "ph:chart-bar Statistics", keywords: "stats numbers counts usage week review growth", about: "Your notebook, reminders and usage, counted, with this week against last.", act: () => openStatistics() },
+    //: The small tools (Brief 89, UI_MODERNISATION utilities rows 2 to 4):
+    //: "timer 10 minutes" and "insert template ..." also build their own rows
+    //: from the words (`utilityPaletteRows`, app-palette.js).
+    { label: "ph:timer Start a timer", keywords: "timer countdown pomodoro minutes alarm", about: "25 minutes on the status bar, or type “timer 10 minutes”. Press it to stop.", act: () => ensureModule("utilities").then(() => startUtilityTimer(25)) },
+    { label: "ph:timer Start a stopwatch", keywords: "stopwatch count up how long time it", about: "Counts up on the status bar. Press it to stop.", act: () => ensureModule("utilities").then(() => startStopwatch()) },
+    { label: "ph:closed-captioning Live captions", keywords: "live captions subtitles transcribe speech microphone listen real time stop", about: "Write what the microphone hears as you go, on this computer. Run it again to stop and save a note.", act: () => toggleLiveCaptions() },
+    { label: "ph:text-aa Count words", keywords: "word count characters letters reading time selection length", about: "Words, characters and reading time of the selected text, or of the editor.", act: () => ensureModule("utilities").then(() => countSelection(paletteCaught)) },
+    { label: "ph:translate Translate this", keywords: "translate translation spanish language offline selection passage", about: "The selected passage into Spanish, offline (a package).", act: () => { const caught = { ...paletteCaught }; ensureModule("translate").then(() => translateCaught(caught)); } },
+    { label: "ph:activity Activity", keywords: "running jobs stop background model unload memory agent runs", about: "Every job running now, with Stop, and the agent's runs.", act: () => openActivity("running") },
+    { label: "ph:stop-circle Stop the model", keywords: "unload free memory model stop generating", about: "Stop any answer and unload the model from memory.", act: () => ensureModule("activity").then(() => window.stopActivityModel()) },
     { label: "ph:package Settings → Packages", reveal: "settings:extras", about: "Optional parts: speech, reading pages, better search." },
     { label: "ph:tree-evergreen Settings → Logs", reveal: "settings:logs", about: "What happened, for when something did not work." },
     { label: "ph:question Settings → Help", reveal: "settings:help", about: "How the app works, a section at a time." },

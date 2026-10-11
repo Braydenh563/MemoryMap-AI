@@ -23,6 +23,192 @@ HISTORY under "ROADMAP archive, 2026-09-14", verbatim. Everything still
 open from them is in the plans, `roadmap/agent-remaining/OPEN.md`, or
 BACKLOG; nothing was dropped in the move.
 
+## Direction, 2026-10-10 (Fable orchestrating): the thesis, the policies, the tracks
+
+The owner's ask, condensed: judge the Gemini branch, fix every bug of every
+
+**Release, the owner 2026-10-10 (INBOX 765): "Public release now".** The release track runs beside the feature tracks from here: installers for Windows (built in CI already), macOS and Linux, a GitHub release per version with the changelog, a landing page from the README, and the phone path (an installed web app over the owner's Wi-Fi) inside it. Nothing ships with a known data-loss path or a red trust rule (WORLD_CLASS 28.1).
+size (the 2026-10-10 list, INBOX 727 to 745, HANDOVER's next-PR list), use
+the vendored and forked repositories well, make the deterministic engine
+(composer, filing, understanding) something no notebook has, modernise and
+professionalise the UI again, keep the app light on old hardware, and lay
+out the direction for everything after. This section is that direction;
+the surface plans carry the phases it names; SESSION_BRIEFS Briefs 35 to 42
+are the agent briefs. Decisions here are taken (standing order 3).
+
+### The thesis
+
+MemoryMap is a local-first second brain whose intelligence is **two
+engines, one answer**: a deterministic engine that always runs (reads,
+files, links, answers, acts, explains; every sentence traced to a note or a
+measurement) and an optional local model that adds fluency and judgement
+when it is there. The deterministic engine is the product; the model is an
+accelerator. Everything else (boards, maps, documents, graph, timeline,
+companion) is a surface onto the same notebook and the same engine.
+
+### Policies (taken 2026-10-10)
+
+1. **Vendoring.** Pure Python or plain JS/WASM, offline, small, licence
+   file beside it, listed in `docs/THIRD_PARTY.md` (a lint checks the
+   list). No compiled extensions, no binaries, no package copied whole
+   when two functions are used, no dependency added for what the stdlib or
+   the app already does (difflib before thefuzz; the app's trigram repair
+   before pyspellchecker). The Gemini branch's networkx, whoosh, pint,
+   langdetect, dateutil and friends go; flashtext, porter stemmer and
+   simpleeval (or an ast evaluator of our own) stay only where a test shows
+   the gain. Import time of `memorymap.ai.composer` is a measured budget
+   (under 0.5 s); boot gzip is a measured budget (`test_static_compression`).
+2. **The forks.** The ArtCraft suite (storytold/wordcraft, designcraft,
+   deckcraft, gridcraft, photocraft, lightcraft, pdfcraft, soundcraft,
+   filmcraft; Rust and egui compiled to WASM, MIT or Apache-2.0) does not
+   fit a no-build vanilla JS app: multi-megabyte WASM, GPU canvas, no DOM
+   for accessibility or theming. It is a source of feature lists, command
+   catalogues and file-format handling (docx, pdf, xlsx read and write) to
+   learn from, not code to vendor. draw.io (Apache-2.0, JS) stays what it
+   has been since HISTORY §53 and BACKLOG 29e: the reference for anchors,
+   orthogonal routing, the shape library format (its stencil XML can be
+   converted offline to our shape JSON) and the format panel. haifengl/smile
+   is Java: its algorithms (clustering, keyword extraction, association
+   rules) are read for ideas and re-implemented small in Python only where
+   a measured need exists. NLTK and WordNet are too heavy as shipped; a
+   trimmed synonym table from the Perplexity pack and the app's own groups
+   is the substitute, measured on the eval. Brief 40 does the research pass
+   once and records it in ANALYSIS.md.
+2b. **Taken, not transplanted** (the owner, 2026-10-10: "anything coming
+   from repos like draw.io not directly the same but truly part of this
+   app and uniquely fitted and redesigned and altered to be part of this
+   app"). What a reference gives is the behaviour and the data (a mechanic's
+   thresholds, a shape library, an algorithm); what MemoryMap gives is the
+   form: DESIGN.md's recipes, tokens and copy, the notebook's object model
+   (a shape can hold a note, a connector can be a link with a reason, a
+   board can be filed and cited), and the keyboard and help conventions of
+   the rest of the app. A ported feature is done when a person who knows
+   draw.io recognises how it behaves and a person who knows MemoryMap
+   recognises how it looks and where it lives. No reference's panel, icon
+   set, menu structure or copy is reproduced; a converted asset (a stencil
+   set) is restyled to the board's tokens (stroke, radius, palette) at
+   load. Each parity row therefore has a "fitted as" column before it is
+   built.
+3. **The taxonomy pack** (Perplexity, "MemoryMap final consolidated
+   taxonomy pack", 5.0.0: 527 categories, 6,478 keyword assignments, 1,109
+   role concepts, facets, 30 context rules as a spec, 64 passing lexical
+   tests) is adopted as **seed data**, not as the classifier: its JSON
+   files load lazily, FlashText generates candidates, and the app's own
+   scoring (the person's categories, centroids over the embedder when it
+   runs, TF-IDF votes, recency) decides. Its facet model (topics,
+   purposes, entities, actions, events, assertion mode, temporal scope) is
+   the data model for the engine's fact layer. WORLD_CLASS_PLAN section 23.
+4. **The composer is Atlas.** One voice, one identity, one memory of the
+   conversation, whether or not a model runs; the bubble says which engine
+   wrote it. CHAT_PLAN Phase 6.
+5. **Modernisation is density and intent**, not decoration: smaller,
+   intentional controls on a 4px grid, hover on the icon rather than a box
+   behind it, one radius per control class, WCAG 2.2 AA throughout
+   (24px targets, visible focus, no drag-only actions), custom pickers
+   where the browser's are out of place. UI_MODERNISATION_PLAN Phase 12.
+6. **Agents.** At most four at once, mainly Opus; Sonnet for named fixes,
+   lints, docs and sweeps; never Fable. Every brief names files, numbers
+   and the sweep; every merge is gated and measured.
+
+### The tracks, in order (each a brief; the agent model in brackets)
+
+| # | Track | Brief | Plan |
+| --- | --- | --- | --- |
+| 1 | Gemini branch triaged: boot fixed, unused vendoring stripped, grounding back to 1.0, credits file | 35 (Opus) | this section |
+| 2 | Whiteboard and mind map bugs and the owner's list | 36 (Opus) | WHITEBOARD_PLAN, MINDMAP_PLAN |
+| 3 | Chat, Ask, first run, model gating, the owner's UI bugs | 37 (Opus) | CHAT_PLAN, UI_MODERNISATION_PLAN |
+| 4 | Graph views, topics as first-class, note properties | 38 (Opus) | GRAPH_PLAN |
+| 5 | The deterministic engine: fact layer, planner, realiser, dialogue state, acts, insights | 39 (Opus) | CHAT_PLAN Phase 6 |
+| 6 | Filing and the taxonomy: candidates, decision, explanation, merge suggestions | 39b (Opus) | WORLD_CLASS_PLAN 23 |
+| 7 | Research and placement: repositories, forks, Docker, system site-packages, MCP, phone access, the owner's list placed | 40 (Sonnet) | ANALYSIS.md, the plans |
+| 8 | UI density and refinement, WCAG 2.2, pickers, calendar | 41 (Opus) | UI_MODERNISATION_PLAN 12, TIMELINE_PLAN |
+| 9 | Documents: code editor to VS Code standard, highlights and annotations, comments with links, p5 kind | 42 (Opus) | DOCUMENTS_PLAN 21 and 22 |
+| 10 | Atlas and the companion: moods that change, gestures, lifelike motion, the enlarged view | 34 (Opus) | OPEN.md Atlas rows |
+| 11 | Audio: meeting notes apart from dictation, voice memos, live captions; long-form preference at first run | WORLD_CLASS_PLAN "Audio in the notebook" | WORLD_CLASS_PLAN |
+| 12 | Packaging: Docker image, reuse of system Python packages, installer's optional packages | 40 then 17 | BACKLOG |
+| 13 | The code editor as an IDE: run, preview and test for TypeScript, SQL, CSS, SVG and p5; the Python and JavaScript debuggers; the panels, consoles and palette | 69 to 71 (Opus), after 42 | DOCUMENTS_PLAN 23 |
+| 14 | Learnability measured on a fresh profile (time to a saved note, tour targets, help coverage, Guide answers, shortcut discovery) | 41 (Opus) | UI_MODERNISATION_PLAN 12z |
+
+### After the bugs: the parity programme (the owner, 2026-10-10)
+
+The owner's words: "after all bugs are fixed, expand and improve all the main
+features and integrate all features better together, restructure and redesign
+ui where it suffers, expand tools and utilities, maximise modernisation and
+professionalisation. make the app reliable to use and not like a demo or beta.
+use my forked repositories as my whiteboard and mindmap and documents editor
+definitely still arent up to par with them, like the open source alternatives
+to adobe and microsoft applications, draw.io, vs code and more."
+
+Taken as a programme, in this shape:
+
+1. **A gap matrix per surface against a named reference**, written before
+   any building (Brief 40 produces it in ANALYSIS.md from each fork's feature
+   list and command catalogue, then each surface's Opus brief carries its
+   rows): whiteboard against draw.io and designcraft; mind map against the
+   best of Coggle, XMind and Whimsical (MINDMAP_PLAN's research) plus
+   designcraft's canvas; documents against wordcraft and VS Code (prose and
+   code); tables and the data in notes against gridcraft; the PDF viewer and
+   OCR workspace against pdfcraft; image notes and the Library against
+   photocraft and lightcraft; audio notes and meetings against soundcraft;
+   presentations from boards and maps against deckcraft. Each row: the
+   feature, whether MemoryMap has it (checked in the app), the gap, the
+   cost, a keep or drop.
+2. **Integration before breadth**: a board, a map, a document, a note, a
+   reminder and a web clip are one object model with one properties panel,
+   one comments system, one link card, one slash menu, one export menu and
+   one search; a feature built on one surface lands on all of them through
+   the shared recipe or not at all.
+3. **Reliability as a gate**: the full suite, the sweeps and a 30-minute
+   scripted session (deepflows.js) green on every merge; no console error on
+   any surface; a cold boot under the measured budget; "not a demo" means
+   every empty state, error state and first-run state is designed and
+   measured (WORLD_CLASS_PLAN 21 and 22).
+4. **Order**: bugs (Briefs 35 to 38), the engine (39, 39b), density and
+   WCAG (41), then the matrix rows by surface in the order the owner named:
+   whiteboard, mind map, documents, then the Library, audio and
+   presentations.
+
+### The road to 1.0: milestones with exit criteria (the owner, 2026-10-10: "still very much a demo and beta")
+
+What "publishable" means here, as gates a build either passes or does not.
+Each milestone is a release; nothing below it ships with a visible
+half-feature (an unfinished feature sits behind a flag, off by default,
+not on a menu).
+
+| Release | Theme | Exit criteria, every one measured |
+| --- | --- | --- |
+| 0.5 Reliable | the app never loses, lies or stalls | Brief 43's nine probes green: backup and restore round-trip equal on 500 notes; every export re-imports; migrations from 0.3.0; zero silent failures when the server dies; zero console errors on any surface; keyboard-only completion of every surface; axe clean; boot under 2.5 s at 4x throttle; idle CPU under 1 percent; offline run makes no outbound request; auth on every write route; CI green with no xfail newly added |
+| 0.6 Engine | the deterministic engine is the product | CHAT_PLAN Phase 6 steps 1 to 10 built; grounded 1.0 on every eval set; measured sentences 1.0; a 20-turn session with no repeated template; acts for the twelve verbs with confirm and undo; filing top-1 at or above 0.8 without a model on the 120-note fixture, every filing explained; the Guide and Chat one engine; a blind panel rating at or above the 1 to 3B model's on the owner's notebook |
+| 0.7 Surfaces | boards, maps, documents, graph at parity on what matters | the "build first" rows of every parity table in ANALYSIS.md built; one object model (properties, comments, links, slash menu, export, search) across note, board, map, document, reminder and clip, with a test that walks all six; the whiteboard regression suite and map sweeps green; documents' code editor at DOCUMENTS 21's bar |
+| 0.8 Design | one system, dense, accessible | UI Phase 12 complete: the density tokens with no literal heights outside them, the hover grammar lint, one radius per class, the axe sweep clean on every surface at 1440, 1024 and 390 in both themes, custom pickers, the calendar mode, metadata rows unified; the README screenshots recaptured last |
+| 0.9 Public beta | strangers can install it and come back | Windows, macOS and Linux launchers and the Docker image each installed on a clean machine by someone who is not the owner, timed, with the first-run queue measured (no overlaps, the tour on request); the phone over HTTPS trusted by the QR and guide flow on iOS and Android; the update path from 0.8 with data in place; a crash and feedback channel that is local and opt-in (a bundle the person sends by hand); ten testers for two weeks, their reports placed and the bugs closed |
+| 1.0 | publishable | 0.9's testers report no data loss and no blocker for a month; the full suite, the sweeps and the scripted session green on the tag; THIRD_PARTY.md complete; the manual (Guide topics) covers every control (test_manual_parity); AGPL notices in place; the release notes written for a reader who has never seen the app |
+
+Rules that hold from here to 1.0:
+
+1. **A feature lands everywhere or nowhere.** Built on one surface only, it
+   stays behind a flag until the shared recipe carries it to the rest.
+2. **Nothing visible is unfinished.** An empty state, an error state and a
+   first-run state are part of the feature, not follow-ups.
+3. **Every claim has a number.** A plan row without a measurement is not
+   done; a report without numbers is not merged.
+4. **The model is optional on every path.** Any path that fails without a
+   model is a bug, not a limitation.
+5. **Weight is a budget.** Boot gzip, import time, idle CPU, memory at 5,000
+   notes and the vendor directory each have a measured cap and a lint.
+6. **One recipe per need.** A second way to do the same thing (a menu, a
+   bar, a picker, a card) is removed in the same PR that notices it.
+
+Order: 0.5 and 0.6 run together now (Briefs 35 to 39b and 43, then
+WORLD_CLASS_PLAN 25's Briefs 46, 51 and 53 for 0.5); 0.7 follows the
+parity tables plus Briefs 47, 48, 54 and 55; 0.8 is Brief 41 plus Briefs 49
+and 52 and the surface briefs' design rows; 0.9 needs Brief 50 and the
+owner's testers. The whole-app table (every surface, its bar, its gap and
+its owner) is WORLD_CLASS_PLAN section 25.
+
+The owner's 2026-10-10 list is placed by Brief 40 under "Placed from the
+owner's list, 2026-10-10" in each plan; INBOX stays under its cap.
+
 ## Next PR, first (the owner, 2026-10-05: "maybe push these to next pr at the top of the roadmap")
 
 Moved out of release 0.4.0, which no longer waits for them. In this order,

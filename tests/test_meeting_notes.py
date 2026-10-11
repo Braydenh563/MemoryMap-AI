@@ -78,7 +78,9 @@ def test_stopping_and_closing_both_tear_it_down():
     for fn in ("function closeMeetingRecorder()",):
         block = JS.split(fn)[1].split("\n}")[0]
         assert "stopMeetingWave()" in block
-    stop_handler = JS.split('meetingRecorder.addEventListener("stop"')[1].split("});")[0]
+    # The stop listener hands over to `meetingRecordingStopped` (28.5 row 1).
+    assert 'recorder.addEventListener("stop", () => meetingRecordingStopped(' in JS
+    stop_handler = JS.split("async function meetingRecordingStopped(")[1].split("\n}\n")[0]
     assert "stopMeetingWave()" in stop_handler
 
 

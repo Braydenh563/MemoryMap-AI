@@ -243,6 +243,73 @@ window.addEventListener("storage", (event) => {
   purgeLockedContent();
   showLockScreen(false);
 });
+//: The lock form's submit (moved from app.js, whose only caller is here).
+async function submitLockForm() {
+  const password = $("lock-password").value;
+  const errorLine = $("lock-error");
+  errorLine.textContent = "";
+  const mode = $("lock-overlay").dataset.mode;
+  //: A new password needs 8 (SEC-17); one set before that still unlocks.
+  const floor = mode === "setup" ? 8 : 4;
+  if (password.length < floor) {
+    errorLine.textContent = `Use at least ${floor} characters.`;
+    return;
+  }
+  if (mode === "prompt") {
+    const prompt = lockPrompt;
+    if (!prompt) return;
+    try {
+      await prompt.submit(password);
+    } catch (error) {
+      errorLine.textContent = error.message;
+      return;
+    }
+    settleLockPrompt(true);
+    return;
+  }
+  try {
+    const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+    localStorage.setItem("token", body.token);
+    if (body.warning) toast(body.warning, "info");
+    vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
+    lockedByHand = false;
+    $("lock-password").value = "";
+    // **Give the focus back, or every single-key shortcut in the app is
+    // dead.** Hiding the overlay does not move focus off the field inside
+    // it, so `document.activeElement` stayed `#lock-password` for the whole
+    // session that followed. Every handler that (correctly) refuses to steal
+    // a keystroke while someone is typing, the whiteboard's V/H/P tool keys,
+    // its `n` and `/`, and the same guard elsewhere, therefore returned
+    // immediately on every press, until the reader happened to click some
+    // other focusable control. Found while testing the tool shortcuts: they
+    // did nothing at all from a freshly unlocked app.
+    $("lock-password").blur();
+    //: The overlay stays up as the opening curtain and fades over the
+    //: drawn page (`curtainShell`, `liftLockScreen`).
+    $("lock-btn").classList.remove("hidden");
+    // Signing in starts a session, and a session starts at the front of every
+    // tab: see `resetNavigationForNewSession`. Here as well as at load
+    // because the lock screen is an *overlay*, not a page: unlocking after an
+    // idle lock never reloads anything, so the load-time reset alone would
+    // leave every sub-tab exactly where it was hours ago. Called before
+    // `startApp()`, which is what reads the stored section back.
+    resetNavigationToDefaults();
+    setBusy($("lock-submit"), true, "Opening…");
+    const opening = startApp();
+    curtainShell(opening);
+    //: The step after setup (INBOX 663): a recovery key, offered once the
+    //: app is drawn, skippable. The password just chosen goes with it so
+    //: the offer does not ask for it again; account-recovery.js drops it
+    //: when the dialog closes.
+    if (mode === "setup") offerRecoveryKey(password);
+  } catch (error) {
+    errorLine.textContent = error.message;
+  }
+}
+
 $("lock-submit").addEventListener("click", submitLockForm);
 //: The lock field's own show-password toggle (the browser's reveal vanished
 //: once the field lost focus). Shown text is never kept: a lock resets it.
@@ -1543,15 +1610,27 @@ function renderCaptureFiles() {
 //: time in the foot"), in the words a document's own count line uses
 //: (`renderDocCounts`, documents.js) and at its 220 words a minute, so one
 //: piece of writing reads the same length in both places.
-const CAPTURE_READING_WPM = 220;
+//: **One count for a text, everywhere it is shown** (CHAT_PLAN section 2,
+//: the documents row): words, characters and lines as `wc -w`, `wc -m` and
+//: `wc -l` give them, and the reading time. The server's twin is
+//: `ai/utilities.py` `counts`; tests/test_text_utilities.py holds both to
+//: `wc` on one fixture. Here, not in documents.js, because the composer
+//: below counts at boot and the documents bundle is lazy.
+const TEXT_READING_WPM = 220;
+function textCounts(text) {
+  const value = String(text || "");
+  const words = (value.match(/\S+/g) || []).length;
+  const minutes = words / TEXT_READING_WPM;
+  const read = !words ? "" : minutes < 1 ? "under a min" : minutes < 60 ? `${Math.round(minutes)} min read` : `${(minutes / 60).toFixed(1)}h read`;
+  let chars = 0;
+  for (const _ of value) chars += 1;
+  return { words, chars, lines: (value.match(/\n/g) || []).length, minutes, read };
+}
 
 function captureCountText(text) {
-  const words = (String(text || "").match(/\S+/g) || []).length;
+  const { words, read } = textCounts(text);
   const head = `${words.toLocaleString()} word${words === 1 ? "" : "s"}`;
-  if (!words) return head;
-  const minutes = words / CAPTURE_READING_WPM;
-  const read = minutes < 1 ? "under a min read" : `${Math.round(minutes)} min read`;
-  return `${head} · ${read}`;
+  return words ? `${head} · ${read}` : head;
 }
 
 $("entry-content").addEventListener("input", (e) => {
@@ -1755,24 +1834,27 @@ $("meeting-close").addEventListener("click", closeMeetingRecorder);
 wireBackdropClose($("meeting-overlay"), () => closeMeetingRecorder());
 $("meeting-record").addEventListener("click", toggleMeetingRecording);
 $("meeting-save").addEventListener("click", saveMeetingNote);
-$("meeting-save-doc")?.addEventListener("click", saveMeetingDocument);
-$("meeting-pause")?.addEventListener("click", toggleMeetingPause);
-$("meeting-copy")?.addEventListener("click", (event) =>
-  copyToClipboard($("meeting-transcript").value, event.currentTarget)
-);
 $("meeting-discard").addEventListener("click", resetMeetingUI);
-$("meeting-transcript").addEventListener("input", () => autoGrow($("meeting-transcript")));
+//: Copy and the transcript box grow with the sheet (and Pause and Save as document: meetings.js wires them: the overlay opens only once it is in).
 
-// PWA: the shell caches itself so the app opens instantly (Wave F).
-// When a new service worker takes over (after an update), reload once so
-// the page never runs new HTML against stale cached CSS/JS (Wave O fix).
+// PWA (WORLD_CLASS_PLAN decision 49): sw.js caches stamped files, vendored
+// libraries and icons, and shows offline.html when the server is not
+// running; it never caches the shell or the API. When a new service worker
+// takes over (after an update), reload once so the page never runs new HTML
+// against stale cached CSS/JS (Wave O fix).
 if ("serviceWorker" in navigator) {
   // Only reload when an EXISTING worker is replaced (a real update): not
   // on the first install, whose clients.claim() also fires controllerchange
   // and would reload the page mid-setup (Wave O fix).
   const hadController = Boolean(navigator.serviceWorker.controller);
   // sw.js stays at the root, not in js/: a worker only controls its own path.
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  // The app version rides on the URL: the worker names its cache for it, and
+  // a release is a new URL, so the browser installs the new worker at once.
+  // `updateViaCache: "none"` because a `?v=` URL is served as immutable.
+  const appVersion = /^\?v=(\d+\.\d+\.\d+)/.exec(lazyAssetStamp("/js/app.js"))?.[1] || "dev";
+  navigator.serviceWorker
+    .register(`/sw.js?v=${appVersion}`, { updateViaCache: "none" })
+    .catch(() => {});
   let swReloaded = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!hadController || swReloaded) return;
@@ -1780,6 +1862,45 @@ if ("serviceWorker" in navigator) {
     location.reload();
   });
 }
+
+// Install as an app (WORLD_CLASS_PLAN 25d): Settings, About. Chromium offers
+// the install through `beforeinstallprompt`, which is held until the button is
+// pressed; it fires nothing once installed, and `appinstalled` hides the row.
+// iPhone has no such event, so the row says how instead of offering a button.
+const installPrompt = { event: null };
+function renderInstallRow() {
+  const row = $("about-install-row");
+  if (!row) return;
+  const installed =
+    window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
+  const iphone =
+    /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const canPrompt = Boolean(installPrompt.event);
+  row.classList.toggle("hidden", installed || !(canPrompt || iphone));
+  $("about-install").classList.toggle("hidden", !canPrompt);
+  $("about-install-note").textContent = canPrompt
+    ? "Opens in its own window, with its own icon."
+    : "On iPhone: tap Share, then Add to Home Screen.";
+}
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  installPrompt.event = event;
+  renderInstallRow();
+});
+window.addEventListener("appinstalled", () => {
+  installPrompt.event = null;
+  renderInstallRow();
+});
+$("about-install")?.addEventListener("click", async () => {
+  const offered = installPrompt.event;
+  if (!offered) return;
+  installPrompt.event = null; // the event can be used once
+  offered.prompt();
+  await offered.userChoice.catch(() => {});
+  renderInstallRow();
+});
+renderInstallRow();
 
 // The generative brand emblem's initial draw (Wave O) moved to settings.js's
 // own tail (§88.3 item 4): renderBrandLogo() itself stays here (used far
@@ -1908,6 +2029,13 @@ document.addEventListener("paste", async (e) => {
 //: Images are deliberately *not* staged: an image in the middle of a
 //: paragraph is content, and it needs to be inline markdown at the point in
 //: the text where it was dropped, not an attachment at the bottom.
+
+//: The one place that knows the staged placeholder's shape, so the renderer
+//: and the rewrite cannot disagree about it (moved from app.js, its only users
+//: are here).
+function stagedImageUrl(key) {
+  return `${STAGED_URL_PREFIX}${key}`;
+}
 
 //: **Images wait for the note too now.**
 //:
@@ -2140,7 +2268,11 @@ $("pref-single-keys").checked = singleKeysOn();
   window.openPalette = (...args) => {
     const input = $("palette-input");
     if (!window.paletteEarly) {
-      const early = (window.paletteEarly = { returnFocus: document.activeElement });
+      //: What was selected, before the palette's box takes the focus (Count
+      //: words and Insert template act on it, app-palette.js `paletteCaught`).
+      const held = window.getSelection();
+      const range = held?.rangeCount ? held.getRangeAt(0).cloneRange() : null;
+      const early = (window.paletteEarly = { returnFocus: document.activeElement, selection: String(held || ""), range });
       early.onKey = (e) => e.key === "Enter" && (e.preventDefault(), (early.enter = true));
       input.value = "";
       input.addEventListener("keydown", early.onKey);

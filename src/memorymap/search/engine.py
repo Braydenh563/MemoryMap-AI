@@ -794,6 +794,7 @@ def _filter_only(
     since,
     until,
     depth: int,
+    tags: list[str] | tuple[str, ...] = (),
 ) -> list[dict]:
     """The rows a query with no words at all asks for.
 
@@ -819,6 +820,13 @@ def _filter_only(
     if until is not None:
         sql.append("AND (written = '' OR written <= :until)")
         params["until"] = until.isoformat()
+    #: `tag:` in the query, not after it (Brief 47's bench): filtered over the
+    #: newest `depth` rows instead, `tag:tag3` alone found 5 of the ~110 notes
+    #: a 5,000-note notebook tags with it. The same substring test the
+    #: caller applies to the rows it gets back.
+    for index, tag in enumerate(tags):
+        sql.append(f"AND instr(lower(tags), :tag{index}) > 0")
+        params[f"tag{index}"] = tag.lower()
     sql.append("ORDER BY written DESC, rowid DESC LIMIT :depth")
     rows = session.execute(text(" ".join(sql)), params).mappings().all()
     return [dict(row) for row in rows]
@@ -1142,7 +1150,9 @@ def search(
         # `is:pinned`, `after:2026-01-01`. Answering those with an empty page
         # would be the app refusing to do the one thing §5.1 promises works
         # with no model running.
-        rows = _filter_only(session, wanted_kinds, space, asked.since, asked.until, depth)
+        rows = _filter_only(
+            session, wanted_kinds, space, asked.since, asked.until, depth, tags=asked.filters["tag"]
+        )
         if asked.excluded:
             # There is no MATCH to hang a `NOT` on here, so the exclusion is
             # applied to the rows the filters selected. Over a page of

@@ -1,0 +1,3755 @@
+{
+ "today": "2026-10-06",
+ "dialogues": [
+  {
+   "id": "dialogue-01",
+   "turns": [
+    {
+     "text": "What do my notes say about running?",
+     "base": 21,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 21,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "Who asked for a public API?",
+     "base": 2,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about knives?",
+     "base": 2,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "What should I pack for Portugal?",
+     "base": 13,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "why?",
+     "base": 13,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the launch one",
+     "base": 23,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "what about pricing?",
+     "base": 23,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "why?",
+     "base": 23,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about the dentist?",
+     "base": 23,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "no, the gym one",
+     "base": 23,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "no, the launch one",
+     "base": 23,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "ty",
+     "base": 23,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "why?",
+     "base": 23,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Compare Lisbon and Porto",
+     "base": 5,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 5,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "ty",
+     "base": 5,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What should I pack for Portugal?",
+     "base": 13,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What did I write recently?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-02",
+   "turns": [
+    {
+     "text": "What is the Harbor launch plan?",
+     "base": 0,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 0,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "tell me more",
+     "base": 0,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 1,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "and last week?",
+     "base": 1,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 1,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 1,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "longer",
+     "base": 1,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "Is the pricing page signed off?",
+     "base": 16,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 16,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Who are we looking to hire?",
+     "base": 20,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the running one",
+     "base": 15,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "Compare Lisbon and Porto",
+     "base": 5,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 7,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "what about pricing?",
+     "base": 7,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about sourdough?",
+     "base": 1,
+     "kind": "subject",
+     "effect": "reference"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-03",
+   "turns": [
+    {
+     "text": "What do I know about sourdough?",
+     "base": 10,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 10,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 15,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 23,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "What do my notes say about running?",
+     "base": 21,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 21,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "longer",
+     "base": 21,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "ok",
+     "base": 21,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "How do I sharpen my knife?",
+     "base": 14,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Why did the list feel slow?",
+     "base": 6,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "When is the boiler service due?",
+     "base": 12,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 12,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 12,
+     "kind": "entity",
+     "effect": "reference"
+    },
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Which books am I reading?",
+     "base": 4,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the garden?",
+     "base": 4,
+     "kind": "subject",
+     "effect": "reference"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-04",
+   "turns": [
+    {
+     "text": "Who are we looking to hire?",
+     "base": 20,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 7,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "why?",
+     "base": 7,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 7,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What is my half marathon training plan?",
+     "base": 17,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 7,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "no, the running one",
+     "base": 7,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "what about pricing?",
+     "base": 7,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "ty",
+     "base": 7,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 7,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "no, the running one",
+     "base": 7,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "shorter",
+     "base": 7,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 7,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "shorter",
+     "base": 7,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "shorter",
+     "base": 7,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "What is my half marathon training plan?",
+     "base": 17,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 17,
+     "kind": "window",
+     "effect": "ellipsis"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-05",
+   "turns": [
+    {
+     "text": "How many beta testers are active?",
+     "base": 3,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the dentist?",
+     "base": 3,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "shorter",
+     "base": 3,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "How do I sharpen my knife?",
+     "base": 14,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 14,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What hotel did I book in Porto?",
+     "base": 9,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 9,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "no, the running one",
+     "base": 9,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 9,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "and last week?",
+     "base": 9,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "shorter",
+     "base": 9,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "Which books am I reading?",
+     "base": 4,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about sourdough?",
+     "base": 4,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "ty",
+     "base": 4,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "shorter",
+     "base": 4,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "what about knives?",
+     "base": 4,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "longer",
+     "base": 4,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "Is the pricing page signed off?",
+     "base": 16,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 16,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about sourdough?",
+     "base": 16,
+     "kind": "subject",
+     "effect": "reference"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-06",
+   "turns": [
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "shorter",
+     "base": 15,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "What did I write recently?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 24,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "Who are we looking to hire?",
+     "base": 20,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the garden?",
+     "base": 20,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "what about the garden?",
+     "base": 20,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 7,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "what about the dentist?",
+     "base": 7,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "no, the running one",
+     "base": 7,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "tell me more",
+     "base": 7,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "longer",
+     "base": 7,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "Does Harbor work offline?",
+     "base": 8,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 8,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "Is the pricing page signed off?",
+     "base": 16,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 16,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ty",
+     "base": 16,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "ty",
+     "base": 16,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "no, the running one",
+     "base": 16,
+     "kind": "correction",
+     "effect": "correction"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-07",
+   "turns": [
+    {
+     "text": "What did I learn from Thinking in Systems?",
+     "base": 19,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "why?",
+     "base": 18,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Why did the list feel slow?",
+     "base": 6,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 6,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "ty",
+     "base": 6,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "Why did the list feel slow?",
+     "base": 6,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about running?",
+     "base": 6,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "longer",
+     "base": 6,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "longer",
+     "base": 6,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 6,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "shorter",
+     "base": 6,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "why?",
+     "base": 6,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What do my notes say about running?",
+     "base": 21,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 21,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "longer",
+     "base": 21,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 21,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "shorter",
+     "base": 21,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "ok",
+     "base": 21,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "and last week?",
+     "base": 21,
+     "kind": "window",
+     "effect": "ellipsis"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-08",
+   "turns": [
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 7,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "longer",
+     "base": 7,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "ty",
+     "base": 7,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "shorter",
+     "base": 7,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "ok",
+     "base": 7,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "and last week?",
+     "base": 7,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "shorter",
+     "base": 7,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "and last week?",
+     "base": 7,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 7,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ok",
+     "base": 7,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "How do I sharpen my knife?",
+     "base": 14,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about sourdough?",
+     "base": 14,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "Does Harbor work offline?",
+     "base": 8,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 8,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "What is my half marathon training plan?",
+     "base": 17,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 17,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "How many beta testers are active?",
+     "base": 3,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 3,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "longer",
+     "base": 3,
+     "kind": "length",
+     "effect": "control"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-09",
+   "turns": [
+    {
+     "text": "Is the pricing page signed off?",
+     "base": 16,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the launch one",
+     "base": 1,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "shorter",
+     "base": 1,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 23,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "and last week?",
+     "base": 23,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Who asked for a public API?",
+     "base": 2,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What hotel did I book in Porto?",
+     "base": 9,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What hotel did I book in Porto?",
+     "base": 9,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "How long is the train from Lisbon to Porto?",
+     "base": 11,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 11,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "Who asked for a public API?",
+     "base": 2,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 2,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 2,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "no, the running one",
+     "base": 2,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "longer",
+     "base": 2,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "shorter",
+     "base": 2,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "ok",
+     "base": 2,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "ok",
+     "base": 2,
+     "kind": null,
+     "effect": "social"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-10",
+   "turns": [
+    {
+     "text": "How long is the train from Lisbon to Porto?",
+     "base": 11,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 11,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 1,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "tell me more",
+     "base": 1,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 1,
+     "kind": "entity",
+     "effect": "reference"
+    },
+    {
+     "text": "Does Harbor work offline?",
+     "base": 8,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 8,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "no, the gym one",
+     "base": 8,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Is the pricing page signed off?",
+     "base": 16,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 16,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "and last week?",
+     "base": 16,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 16,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What do my notes say about running?",
+     "base": 21,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 21,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 21,
+     "kind": "entity",
+     "effect": "reference"
+    },
+    {
+     "text": "What hotel did I book in Porto?",
+     "base": 9,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 9,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "Who are we looking to hire?",
+     "base": 20,
+     "kind": null,
+     "effect": "none"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-11",
+   "turns": [
+    {
+     "text": "Does Harbor work offline?",
+     "base": 8,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What did I learn from Thinking in Systems?",
+     "base": 19,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "shorter",
+     "base": 19,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "What should I pack for Portugal?",
+     "base": 13,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 13,
+     "kind": "entity",
+     "effect": "reference"
+    },
+    {
+     "text": "longer",
+     "base": 13,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 13,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "ty",
+     "base": 13,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "longer",
+     "base": 13,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "why?",
+     "base": 13,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 13,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "What do I know about sourdough?",
+     "base": 10,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 10,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about pricing?",
+     "base": 23,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "shorter",
+     "base": 23,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 7,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "How many beta testers are active?",
+     "base": 3,
+     "kind": null,
+     "effect": "none"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-12",
+   "turns": [
+    {
+     "text": "What is the status of the onboarding rewrite?",
+     "base": 22,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 22,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ok",
+     "base": 22,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What is the status of the onboarding rewrite?",
+     "base": 22,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about knives?",
+     "base": 22,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "why?",
+     "base": 22,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 1,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What hotel did I book in Porto?",
+     "base": 9,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "why?",
+     "base": 9,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "and last week?",
+     "base": 9,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What did I write recently?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What did I learn from Thinking in Systems?",
+     "base": 19,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the running one",
+     "base": 19,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "no, the running one",
+     "base": 19,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "no, the running one",
+     "base": 19,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "How do I sharpen my knife?",
+     "base": 14,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 14,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "why?",
+     "base": 14,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What hotel did I book in Porto?",
+     "base": 9,
+     "kind": null,
+     "effect": "none"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-13",
+   "turns": [
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 18,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 18,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "what about knives?",
+     "base": 18,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "what about the dentist?",
+     "base": 18,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "longer",
+     "base": 18,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "Compare Lisbon and Porto",
+     "base": 5,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 5,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 5,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "tell me more",
+     "base": 5,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "no, the gym one",
+     "base": 5,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 5,
+     "kind": "entity",
+     "effect": "reference"
+    },
+    {
+     "text": "what about pricing?",
+     "base": 5,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "shorter",
+     "base": 5,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 5,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 5,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "What do my notes say about running?",
+     "base": 21,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "why?",
+     "base": 21,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ok",
+     "base": 21,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "shorter",
+     "base": 21,
+     "kind": "length",
+     "effect": "control"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-14",
+   "turns": [
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What did I write recently?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the dentist?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the running one",
+     "base": 24,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "ty",
+     "base": 24,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "Who are we looking to hire?",
+     "base": 20,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 20,
+     "kind": "entity",
+     "effect": "reference"
+    },
+    {
+     "text": "ok",
+     "base": 20,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 20,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "shorter",
+     "base": 20,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "tell me more",
+     "base": 20,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "and last week?",
+     "base": 20,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 20,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 20,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "tell me more",
+     "base": 20,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ty",
+     "base": 20,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What do my notes say about running?",
+     "base": 21,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about pricing?",
+     "base": 21,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-15",
+   "turns": [
+    {
+     "text": "Which books am I reading?",
+     "base": 4,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 4,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "Why did the list feel slow?",
+     "base": 6,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "why?",
+     "base": 6,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 6,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 7,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "shorter",
+     "base": 7,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "why?",
+     "base": 23,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "no, the launch one",
+     "base": 23,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "What hotel did I book in Porto?",
+     "base": 9,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "How many beta testers are active?",
+     "base": 3,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 3,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "tell me more",
+     "base": 3,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "When is the boiler service due?",
+     "base": 12,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about knives?",
+     "base": 12,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "Is the pricing page signed off?",
+     "base": 16,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 16,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "shorter",
+     "base": 16,
+     "kind": "length",
+     "effect": "control"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-16",
+   "turns": [
+    {
+     "text": "Who are we looking to hire?",
+     "base": 20,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 20,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ty",
+     "base": 20,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "Why did the list feel slow?",
+     "base": 6,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Does Harbor work offline?",
+     "base": 8,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "How do I sharpen my knife?",
+     "base": 14,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about running?",
+     "base": 14,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "no, the gym one",
+     "base": 14,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 14,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "ty",
+     "base": 14,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 18,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "When is the boiler service due?",
+     "base": 12,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 12,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What is my half marathon training plan?",
+     "base": 17,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 17,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the dentist?",
+     "base": 18,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "shorter",
+     "base": 18,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "longer",
+     "base": 18,
+     "kind": "length",
+     "effect": "control"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-17",
+   "turns": [
+    {
+     "text": "How many beta testers are active?",
+     "base": 3,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What is my half marathon training plan?",
+     "base": 17,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 17,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "longer",
+     "base": 17,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "and last week?",
+     "base": 17,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "longer",
+     "base": 17,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 17,
+     "kind": "entity",
+     "effect": "reference"
+    },
+    {
+     "text": "ty",
+     "base": 17,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 17,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "longer",
+     "base": 17,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "and last week?",
+     "base": 17,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "no, the running one",
+     "base": 17,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "ty",
+     "base": 17,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "shorter",
+     "base": 17,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 1,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What hotel did I book in Porto?",
+     "base": 9,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What do my notes say about running?",
+     "base": 21,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 21,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-18",
+   "turns": [
+    {
+     "text": "How do I sharpen my knife?",
+     "base": 14,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What did I write recently?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 24,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "no, the gym one",
+     "base": 24,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "ty",
+     "base": 24,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "ty",
+     "base": 24,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What do my notes say about running?",
+     "base": 21,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the running one",
+     "base": 21,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "What is my half marathon training plan?",
+     "base": 17,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 17,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "and last week?",
+     "base": 17,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about sourdough?",
+     "base": 17,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "and last week?",
+     "base": 17,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 17,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Who asked for a public API?",
+     "base": 2,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 2,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "ok",
+     "base": 2,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "ty",
+     "base": 2,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "and last week?",
+     "base": 2,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "shorter",
+     "base": 2,
+     "kind": "length",
+     "effect": "control"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-19",
+   "turns": [
+    {
+     "text": "How many beta testers are active?",
+     "base": 3,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 3,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "longer",
+     "base": 3,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "How long is the train from Lisbon to Porto?",
+     "base": 11,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the running one",
+     "base": 11,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "shorter",
+     "base": 11,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "and last week?",
+     "base": 11,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "no, the running one",
+     "base": 11,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "and last week?",
+     "base": 11,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 11,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about knives?",
+     "base": 11,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "Who asked for a public API?",
+     "base": 2,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 2,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 1,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "longer",
+     "base": 1,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "ok",
+     "base": 1,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "Is the pricing page signed off?",
+     "base": 16,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What did I learn from Thinking in Systems?",
+     "base": 19,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 19,
+     "kind": "more",
+     "effect": "ellipsis"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-20",
+   "turns": [
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 23,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "shorter",
+     "base": 23,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "ty",
+     "base": 23,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "ok",
+     "base": 23,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "Compare Lisbon and Porto",
+     "base": 5,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 5,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 15,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "and last week?",
+     "base": 15,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "and last week?",
+     "base": 15,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "and last week?",
+     "base": 15,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 15,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "what about the garden?",
+     "base": 15,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "what about sourdough?",
+     "base": 15,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "ty",
+     "base": 15,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What should I pack for Portugal?",
+     "base": 13,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 13,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "tell me more",
+     "base": 13,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ok",
+     "base": 13,
+     "kind": null,
+     "effect": "social"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-21",
+   "turns": [
+    {
+     "text": "Who asked for a public API?",
+     "base": 2,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the dentist?",
+     "base": 2,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "ty",
+     "base": 2,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Does Harbor work offline?",
+     "base": 8,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 8,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "ty",
+     "base": 8,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What hotel did I book in Porto?",
+     "base": 9,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 9,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about knives?",
+     "base": 9,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "why?",
+     "base": 23,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 23,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "How do I sharpen my knife?",
+     "base": 14,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 14,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "longer",
+     "base": 14,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "no, the running one",
+     "base": 14,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "longer",
+     "base": 14,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "why?",
+     "base": 14,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Does Harbor work offline?",
+     "base": 8,
+     "kind": null,
+     "effect": "none"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-22",
+   "turns": [
+    {
+     "text": "What did I write recently?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What is the Harbor launch plan?",
+     "base": 0,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the launch one",
+     "base": 0,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "Is the pricing page signed off?",
+     "base": 16,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 16,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "How long is the train from Lisbon to Porto?",
+     "base": 11,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What is my half marathon training plan?",
+     "base": 17,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Does Harbor work offline?",
+     "base": 8,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 8,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Who asked for a public API?",
+     "base": 2,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 2,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "why?",
+     "base": 2,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 2,
+     "kind": "entity",
+     "effect": "reference"
+    },
+    {
+     "text": "and last week?",
+     "base": 2,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "tell me more",
+     "base": 2,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about knives?",
+     "base": 2,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "shorter",
+     "base": 2,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "why?",
+     "base": 15,
+     "kind": "why",
+     "effect": "ellipsis"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-23",
+   "turns": [
+    {
+     "text": "What is the status of the onboarding rewrite?",
+     "base": 22,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 22,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "and last week?",
+     "base": 22,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ty",
+     "base": 22,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "why?",
+     "base": 22,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the gym one",
+     "base": 23,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "How do I sharpen my knife?",
+     "base": 14,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What is the status of the onboarding rewrite?",
+     "base": 22,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 22,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "When is the boiler service due?",
+     "base": 12,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What is the Harbor launch plan?",
+     "base": 0,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Which dinners take under 30 minutes?",
+     "base": 23,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the dentist?",
+     "base": 23,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "shorter",
+     "base": 23,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "tell me more",
+     "base": 23,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Who are we looking to hire?",
+     "base": 20,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 20,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "Why did the list feel slow?",
+     "base": 6,
+     "kind": null,
+     "effect": "none"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-24",
+   "turns": [
+    {
+     "text": "Who asked for a public API?",
+     "base": 2,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the running one",
+     "base": 2,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "shorter",
+     "base": 2,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "longer",
+     "base": 2,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "longer",
+     "base": 2,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "shorter",
+     "base": 2,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "why?",
+     "base": 2,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "no, the launch one",
+     "base": 2,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "How many beta testers are active?",
+     "base": 3,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 3,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "What is the status of the onboarding rewrite?",
+     "base": 22,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 18,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What did I learn from Thinking in Systems?",
+     "base": 19,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 19,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "tell me more",
+     "base": 19,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 19,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 19,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "what about knives?",
+     "base": 19,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "what about the dentist?",
+     "base": 19,
+     "kind": "subject",
+     "effect": "reference"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-25",
+   "turns": [
+    {
+     "text": "What is the status of the onboarding rewrite?",
+     "base": 22,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "shorter",
+     "base": 22,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 22,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "What should I pack for Portugal?",
+     "base": 13,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 13,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "longer",
+     "base": 13,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 7,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "tell me more",
+     "base": 7,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What is the latest on the sync rewrite?",
+     "base": 7,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the garden?",
+     "base": 7,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "What is my half marathon training plan?",
+     "base": 17,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 17,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "shorter",
+     "base": 17,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "and last week?",
+     "base": 17,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Who asked for a public API?",
+     "base": 2,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What do I know about sourdough?",
+     "base": 10,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 10,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 1,
+     "kind": null,
+     "effect": "social"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-26",
+   "turns": [
+    {
+     "text": "What did I write recently?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "How many beta testers are active?",
+     "base": 3,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "When is the boiler service due?",
+     "base": 12,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 12,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "what about running?",
+     "base": 12,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "ty",
+     "base": 12,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "no, the launch one",
+     "base": 12,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "What hotel did I book in Porto?",
+     "base": 9,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 9,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "shorter",
+     "base": 9,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "Who asked for a public API?",
+     "base": 2,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about knives?",
+     "base": 15,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "why?",
+     "base": 15,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 15,
+     "kind": "entity",
+     "effect": "reference"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 15,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "What did I write recently?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about knives?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Compare Lisbon and Porto",
+     "base": 5,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "longer",
+     "base": 5,
+     "kind": "length",
+     "effect": "control"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-27",
+   "turns": [
+    {
+     "text": "Who are we looking to hire?",
+     "base": 20,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Compare Lisbon and Porto",
+     "base": 5,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 5,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ok",
+     "base": 5,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "When is the boiler service due?",
+     "base": 12,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 12,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 12,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "tell me more",
+     "base": 12,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 12,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Who are we looking to hire?",
+     "base": 20,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 20,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "ty",
+     "base": 20,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "why?",
+     "base": 20,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "Why did the list feel slow?",
+     "base": 6,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 6,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "what about the dentist?",
+     "base": 6,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "what about the boiler?",
+     "base": 6,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 6,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "How do I sharpen my knife?",
+     "base": 14,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "shorter",
+     "base": 14,
+     "kind": "length",
+     "effect": "control"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-28",
+   "turns": [
+    {
+     "text": "What did I learn from Thinking in Systems?",
+     "base": 19,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 19,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 15,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 15,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What is the status of the onboarding rewrite?",
+     "base": 22,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "and last week?",
+     "base": 22,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ty",
+     "base": 22,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "How long is the train from Lisbon to Porto?",
+     "base": 11,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ok",
+     "base": 11,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "How long is the train from Lisbon to Porto?",
+     "base": 11,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 11,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "What is my half marathon training plan?",
+     "base": 17,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 17,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "shorter",
+     "base": 17,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "and last week?",
+     "base": 17,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ok",
+     "base": 17,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "ok",
+     "base": 17,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-29",
+   "turns": [
+    {
+     "text": "What are the launch risks?",
+     "base": 15,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 15,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What did I learn from Thinking in Systems?",
+     "base": 19,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What do I know about sourdough?",
+     "base": 10,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Does Harbor work offline?",
+     "base": 8,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Compare Lisbon and Porto",
+     "base": 5,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "How much will the trip cost?",
+     "base": 18,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "What did I write recently?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "ty",
+     "base": 24,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 24,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about the garden?",
+     "base": 24,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "what about running?",
+     "base": 24,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Is the pricing page signed off?",
+     "base": 16,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "what about running?",
+     "base": 16,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "and last week?",
+     "base": 16,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "tell me more",
+     "base": 16,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "ty",
+     "base": 16,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "no, the boiler one",
+     "base": 16,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "When is the dentist check-up?",
+     "base": 1,
+     "kind": null,
+     "effect": "none"
+    }
+   ]
+  },
+  {
+   "id": "dialogue-30",
+   "turns": [
+    {
+     "text": "Why did the list feel slow?",
+     "base": 6,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "tell me more",
+     "base": 6,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "What is the status of the onboarding rewrite?",
+     "base": 22,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "Who are we looking to hire?",
+     "base": 20,
+     "kind": null,
+     "effect": "none"
+    },
+    {
+     "text": "why?",
+     "base": 20,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 20,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "why?",
+     "base": 20,
+     "kind": "why",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "and last week?",
+     "base": 20,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "tell me more",
+     "base": 20,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "tell me more",
+     "base": 20,
+     "kind": "more",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about Lisbon?",
+     "base": 20,
+     "kind": "entity",
+     "effect": "reference"
+    },
+    {
+     "text": "no, the launch one",
+     "base": 20,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 20,
+     "kind": "correction",
+     "effect": "correction"
+    },
+    {
+     "text": "ok",
+     "base": 20,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "ok",
+     "base": 20,
+     "kind": null,
+     "effect": "social"
+    },
+    {
+     "text": "shorter",
+     "base": 20,
+     "kind": "length",
+     "effect": "control"
+    },
+    {
+     "text": "and last week?",
+     "base": 20,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "and last week?",
+     "base": 20,
+     "kind": "window",
+     "effect": "ellipsis"
+    },
+    {
+     "text": "what about the garden?",
+     "base": 20,
+     "kind": "subject",
+     "effect": "reference"
+    },
+    {
+     "text": "no, the dentist one",
+     "base": 20,
+     "kind": "correction",
+     "effect": "correction"
+    }
+   ]
+  }
+ ]
+}

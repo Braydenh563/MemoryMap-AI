@@ -22,17 +22,17 @@ def ask(question: str, notes=NOTES, **kwargs) -> dict:
 
 # --- follow-ons ---------------------------------------------------------------
 
-HISTORY = [{"question": "When is the dentist check-up?", "answer": "Check-up booked for the 21st. (**Dentist**)"}]
+HISTORY = [{"question": "When is the dentist check-up?", "answer": "Check-up booked for the 21st. [**Dentist**]"}]
 
 
 @pytest.mark.parametrize(
     ("follow", "kind", "resolved"),
     [
-        ("what about the boiler service?", "swap", "When is the boiler service?"),
-        ("and the boiler service?", "swap", "When is the boiler service?"),
-        ("why?", "bare", "Why the dentist check-up?"),
-        ("and when?", "bare", "When is the dentist check-up?"),
-        ("how come?", "bare", "Why the dentist check-up?"),
+        ("what about the boiler service?", "subject", "When is the boiler service?"),
+        ("and the boiler service?", "subject", "When is the boiler service?"),
+        ("why?", "why", "Why the dentist check-up?"),
+        ("and when?", "when", "When is the dentist check-up?"),
+        ("how come?", "why", "Why the dentist check-up?"),
     ],
 )
 def test_a_follow_on_is_read_against_the_turn_before(follow, kind, resolved):
@@ -40,9 +40,13 @@ def test_a_follow_on_is_read_against_the_turn_before(follow, kind, resolved):
     assert read is not None and read.kind == kind and read.question == resolved
 
 
-def test_what_about_after_a_plain_what_stands_as_typed():
+def test_what_about_after_a_plain_what_is_the_same_question_of_the_new_subject():
+    """CHAT_PLAN decision 35 (Phase 6 step 4): "what about X" after a plain
+    "what" asks the same of X; it used to stand as typed, which a no-model
+    Chat answered with nothing ("what about running?")."""
     history = [{"question": "What is the Harbor launch plan?", "answer": "x"}]
-    assert composer.follow_on("what about the boiler?", history) is None
+    follow = composer.follow_on("what about the boiler?", history)
+    assert follow.kind == "subject" and follow.question == "What do my notes say about the boiler?"
 
 
 # --- openers across turns -----------------------------------------------------
@@ -122,7 +126,7 @@ def test_a_misspelt_subject_is_matched_to_the_notes_own_word_but_never_printed()
 
 def test_a_short_unknown_word_is_not_forced_onto_a_note_word():
     result = ask("What is the capital of Peru?")
-    assert result["text"] == composer.PHRASES["nothing"]
+    assert "“Peru”" in result["text"] and not result["grounding"]
 
 
 def test_small_talk_between_turns_is_skipped_by_a_follow_on():

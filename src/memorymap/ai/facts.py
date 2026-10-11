@@ -250,6 +250,89 @@ def sentences(content: str) -> list[tuple[str, int, int]]:
     return out
 
 
+#: What opens a line that is not the person's own words: a list marker and
+#: emphasis (stripped before a question is judged), quote marks, a speaker's
+#: label in capitals ("KNIGHT:"), a script's act or scene, a markdown heading.
+_LEAD_MARKS = re.compile(r"^(?:\s*(?:[-*+]|\d+[.)])\s+)?(?:\*\*|__|\*|_)?")
+_QUOTES = "\"\u201c\u201d"
+_OPEN_QUOTES = "\"'\u201c\u2018\u00ab"
+_SPEAKER = re.compile(r"^\s*[A-Z][A-Z .'-]{1,30}:\s")
+_SCRIPT = re.compile(r"^\s*(?:ACT|SCENE|Act|Scene)\b", re.M)
+_HEADING = re.compile(r"^\s*#{1,6}\s", re.M)
+_YOU = re.compile(r"\byou(?:r|rs)?\b", re.I)
+_LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s")
+
+
+def _line_around(content: str, start: int, end: int) -> tuple[str, str, int]:
+    """The line holding `content[start:end]`, the text on it before the
+    sentence, and where the line ends."""
+    line_start = content.rfind("\n", 0, start) + 1
+    line_end = content.find("\n", end)
+    line_end = len(content) if line_end == -1 else line_end
+    return content[line_start:line_end], content[line_start:start], line_end
+
+
+def _answered_next(content: str, line_end: int) -> str | None:
+    """The next non-empty line when it reads as a reply: short, not a
+    question, not a list item. None otherwise."""
+    for line in content[line_end:].split("\n")[1:]:
+        if not line.strip():
+            continue
+        line = line.strip()
+        return line if len(line) <= 80 and not line.endswith("?") and not _LIST_ITEM.match(line) else None
+    return None
+
+
+def own_question(content: str, start: int, end: int) -> bool:
+    """Whether the question at `content[start:end]` is the person's own, the
+    kind the Questions list exists for (INBOX 745 (b), the owner: "these are
+    just random questions form my notes?? I didnt actually have any questions
+    for myself"). The ones quoted were all one of these, and none is kept:
+
+    * inside quotation marks, or opening on one (a prompt, a quote fragment:
+      `- "If you were a spice...`, `" or "What's the most...`), or after "for
+      example";
+    * a line of a script or dialogue: a note with an act or a scene, or a
+      line that opens with a speaker in capitals (`KNIGHT: What daring
+      deed...`);
+    * a question answered on the next line, where the note does that more
+      than once or the reply starts "Because" (a joke list, a FAQ: "What's
+      an astronaut's favorite drink?" then "Gravi-tea.");
+    * pasted guide text: a note with two or more headings whose question
+      speaks to "you".
+    """
+    text = content[start:end]
+    core = text[_LEAD_MARKS.match(text).end():]
+    if not core or core[0] in _OPEN_QUOTES:
+        return False
+    line, before, line_end = _line_around(content, start, end)
+    if sum(before.count(mark) for mark in _QUOTES) % 2 or sum(core.count(mark) for mark in _QUOTES) % 2:
+        return False
+    if re.search(r"(?:for example|for instance|e\.g\.|such as)\W*$", before, re.I):
+        return False
+    if _SCRIPT.search(content) or _SPEAKER.match(line):
+        return False
+    if len(_HEADING.findall(content)) >= 2 and _YOU.search(core):
+        return False
+    if content[end:line_end].strip() == "":
+        reply = _answered_next(content, line_end)
+        if reply is not None and (reply.lower().startswith(("because", "cause ")) or _qa_pairs(content) >= 2):
+            return False
+    return True
+
+
+def _qa_pairs(content: str) -> int:
+    """How many lines end in a question answered by the line after."""
+    pairs = 0
+    offset = 0
+    for line in content.split("\n"):
+        line_end = offset + len(line)
+        if line.rstrip().endswith("?") and not _LIST_ITEM.match(line) and _answered_next(content, line_end) is not None:
+            pairs += 1
+        offset = line_end + 1
+    return pairs
+
+
 def candidates(content: str) -> list[Candidate]:
     """The claims and questions in one note, before any model sees them."""
     found: list[Candidate] = []
@@ -260,13 +343,39 @@ def candidates(content: str) -> list[Candidate]:
         if text.endswith("?"):
             # A question is the one kind the text states outright, which is
             # why it is checked first and scored highest: no judgement was
-            # needed and none should be claimed.
-            found.append(Candidate("question", text, start, end, 0.9))
+            # needed and none should be claimed. Only the person's own
+            # (`own_question`); one that is not is neither a question nor a
+            # claim.
+            if own_question(content, start, end):
+                found.append(Candidate("question", text, start, end, 0.9))
         elif words & _STANCE:
             found.append(Candidate("claim", text, start, end, 0.6))
         if len(found) >= MAX_FACTS_PER_ENTRY:
             break
     return found
+
+
+def _retire_not_own_questions(session: Session) -> int:
+    """Tombstone the stored questions `own_question` would not take now
+    (INBOX 745 (b)): they leave the list at the next pass, and a tombstone is
+    "already known", so a later read does not bring them back. A row whose
+    note no longer holds its text is left to the edit path."""
+    rows = list(session.scalars(
+        select(DerivedFact).where(DerivedFact.kind == "question", DerivedFact.deleted_at.is_(None))
+    ).all())
+    notes = {
+        entry.id: entry.content or ""
+        for entry in session.scalars(select(Entry).where(Entry.id.in_({row.entry_id for row in rows})))
+    } if rows else {}
+    retired = 0
+    for row in rows:
+        content = notes.get(row.entry_id, "")
+        if content[row.span_start:row.span_end] == row.text and not own_question(content, row.span_start, row.span_end):
+            row.deleted_at = utcnow()
+            retired += 1
+    if retired:
+        session.commit()
+    return retired
 
 
 def _fingerprint(kind: str, text: str) -> str:
@@ -434,6 +543,7 @@ def run(
     derived = 0
     stopped = "done"
     try:
+        _retire_not_own_questions(session)
         # **One query for what is already known, not one per note.** This read
         # asks "has this note already produced this fact", and asking it inside
         # the loop is a query per note: invisible on a fixture, and a thousand

@@ -23,7 +23,7 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from memorymap.ai import extractor, filing_certainty, janitor, learning, librarian, links, relations
+from memorymap.ai import extractor, filing_certainty, janitor, learning, lexical_filing, librarian, links, relations
 from memorymap.ai import tensions as tensions_module
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api import paging
@@ -132,7 +132,11 @@ def _to_out(
         ai_confidence=filing_certainty.shown(
             entry.ai_confidence, user_filed=bool(getattr(entry, "user_filed", False))
         ),
-        suggested_tags=_open_suggestions(entry),
+        suggested_tags=(offered := _open_suggestions(entry)),
+        suggested_tag_reasons=_tag_reasons(content, offered),
+        #: Never a private note's: derived from its text, as its suggestions
+        #: are (tests/test_private_suggested_tags.py).
+        discarded_tags=[] if getattr(entry, "is_private", False) else _json_tags(getattr(entry, "discarded_tags", "[]")),
         access_count=entry.access_count,
         last_opened_at=getattr(entry, "last_opened_at", None),
         edited_at=getattr(entry, "edited_at", None),
@@ -145,6 +149,7 @@ def _to_out(
         source_title=getattr(entry, "source_title", None),
         source_path=getattr(entry, "source_path", "") or "",
         is_board=bool(getattr(entry, "is_board", False)),
+        board_kind=getattr(entry, "board_kind", None),
         map_topic=bool(getattr(entry, "map_topic", False)),
         workspace_id=getattr(entry, "workspace_id", "default") or "default",
         created_at=entry.created_at,
@@ -215,6 +220,16 @@ def _open_suggestions(entry) -> list[str]:  # noqa: ANN001
     ]
 
 
+def _tag_reasons(content: str, tags: list[str]) -> dict[str, str]:
+    """Each offered tag's one line for its chip (decision 5: each explained)."""
+    if not tags or not content:
+        return {}
+    from memorymap.ai import tagging, taxonomy
+
+    hits = taxonomy.topic_hits(tagging.clean(content))
+    return {tag: why for tag in tags if (why := tagging.reason(tag, content, hits))}
+
+
 def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  # noqa: ANN001
     """Make the note's tag suggestions at filing and keep them on it (INBOX
     440). The model's when it is the one that filed (it is up and answering);
@@ -240,14 +255,23 @@ def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  #
             )
         except Exception:
             logger.info("tag suggestions from the model failed; using the notebook's own", exc_info=True)
-    if not suggested:
-        from memorymap.ai import lexical_filing
+    content = manager.readable_content(entry)
+    keep = [tag for tag in _engine_tags(session, content, have, suggested, entry.id) if tag.casefold() not in discarded]
+    from memorymap.ai import tagging
 
-        suggested = lexical_filing.suggest_tags(
-            session, manager.readable_content(entry), have=have, exclude_entry_id=entry.id
-        )
-    keep = [tag for tag in suggested if tag.casefold() not in discarded][:5]
-    entry.suggested_tags = json.dumps(keep)
+    entry.suggested_tags = json.dumps(keep[: tagging.TAG_LIMIT])
+
+
+def _engine_tags(session: Session, content: str, have: list[str], model: list[str], entry_id: int | None) -> list[str]:
+    """One engine on every path (INBOX 781): a model's tags kept only where
+    the note has a word for them (WORLD_CLASS 23, decision 5: its reply to
+    "prefer one of those" was the first two, whatever the note said, the
+    Study bug), then the notebook's own (`ai/tagging.suggest`) filling the
+    rest, so a model that offers one tag no longer hides two good ones."""
+    from memorymap.ai import tagging
+
+    own = tagging.suggest(session, content, have=have, exclude_entry_id=entry_id)
+    return tagging.merged(tagging.grounded(content, model), own, have)
 
 
 def _to_out_bulk(session: Session, entries: list) -> list[EntryOut]:
@@ -347,9 +371,10 @@ class _LateFiling:
     accurately". Either order is handled: an answer that lands before the
     stand-in is decided is taken instead of it."""
 
-    def __init__(self, entry_id: int, workspace_id: str) -> None:
+    def __init__(self, entry_id: int, workspace_id: str, content: str = "") -> None:
         self.entry_id = entry_id
         self.workspace_id = workspace_id
+        self._content = content
         self._lock = threading.Lock()
         self._stand_in: str | None = None
         self._early: tuple[str, int] | None = None
@@ -390,6 +415,10 @@ class _LateFiling:
         )
 
     def arrived(self, category: str, confidence: int) -> None:
+        from memorymap.ai import lexical_filing
+
+        if lexical_filing.holds_sensitive(self._content, category):
+            return  # decision 6: the model's late answer is held like an early one
         confidence = self._calibrated(category, confidence)
         with self._lock:
             if self._stand_in is None:
@@ -476,7 +505,7 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 # finished: a settled note is never filed twice.
                 if (getattr(entry, "filing_state", "") or "") != "pending":
                     return
-                late = _LateFiling(entry_id, workspace_id)
+                late = _LateFiling(entry_id, workspace_id, manager.readable_content(entry))
                 category, confidence, filed_by = _file_entry_now(
                     session,
                     manager.readable_content(entry),
@@ -568,14 +597,15 @@ def retry_stand_ins() -> int:
                     if entry is None or entry.filing_state != manager.STAND_IN:
                         continue
                     stand_in = manager.category_name_for(session, entry)
+                    content = manager.readable_content(entry)
                     category, confidence, method = janitor._ask_llm(
                         session,
-                        manager.readable_content(entry),
+                        content,
                         deps.get_model_manager(),
                         deps.get_ollama(),
                     )
-            if method == "llm":
-                _LateFiling(entry_id, workspace_id).apply(category, confidence, stand_in)
+            if method == "llm" and not lexical_filing.holds_sensitive(content, category):
+                _LateFiling(entry_id, workspace_id, content).apply(category, confidence, stand_in)
         except Exception:
             logger.warning("couldn't retry the filing of entry %s", entry_id, exc_info=True)
     return len(waiting)
@@ -1128,6 +1158,12 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
     #: Nothing was sure enough to file it: up to three categories to offer as
     #: one-tap choices (INBOX 434), the ones its words lean to first.
     suggestions: list[str] = []
+    #: Each choice's one line, the filed category's, and a new category the
+    #: pack proposes (WORLD_CLASS 23, decisions 2, 3 and 6).
+    reasons: dict[str, str] = {}
+    why = ""
+    proposal = None
+    held = None
     shown = filing_certainty.shown(
         entry.ai_confidence, user_filed=bool(getattr(entry, "user_filed", False))
     )
@@ -1138,16 +1174,33 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
         from memorymap.ai import lexical_filing
 
         try:
-            suggestions = [
-                name
-                for name in lexical_filing.suggest_categories(
-                    session, manager.readable_content(entry) or "", exclude_entry_id=entry.id,
-                    limit=4,
+            content = manager.readable_content(entry) or ""
+            explained = [
+                (name, reason)
+                for name, reason in lexical_filing.suggest_categories_explained(
+                    session, content, exclude_entry_id=entry.id, limit=4,
                 )
                 if name != category
             ][:3]
+            suggestions = [name for name, _ in explained]
+            reasons = {name: reason for name, reason in explained if reason}
+            decision = lexical_filing.decide(session, content, exclude_entry_id=entry.id)
+            if decision.proposal is not None:
+                proposal = {"name": decision.proposal.name, "why": decision.proposal.why}
+            if decision.held and decision.ranked:
+                held = {"category": decision.ranked[0].name, "topic": decision.sensitive}
         except Exception:  # noqa: BLE001 - a hint never fails the status
             logger.debug("no category suggestions for entry %s", entry.id, exc_info=True)
+    elif filed_by == "words" and category != manager.UNCATEGORISED:
+        from memorymap.ai import lexical_filing
+
+        try:
+            decision = lexical_filing.decide(
+                session, manager.readable_content(entry) or "", exclude_entry_id=entry.id
+            )
+            why = next((c.why for c in decision.ranked if c.name == category), "")
+        except Exception:  # noqa: BLE001 - a hint never fails the status
+            logger.debug("no filing reason for entry %s", entry.id, exc_info=True)
     return {
         "id": entry.id,
         "filing_state": state,
@@ -1156,6 +1209,10 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
         "similar": similar,
         "filed_by": filed_by,
         "suggestions": suggestions,
+        "suggestion_reasons": reasons,
+        "why": why,
+        "proposal": proposal,
+        "held_sensitive": held,
     }
 
 
@@ -1196,6 +1253,12 @@ def _tag_vocabulary(session: Session) -> list[str]:
 class SuggestTagsBody(BaseModel):
     content: str
     tags: list[str] = Field(default_factory=list)
+    #: Capture's title field: a note's title says what it is, so it counts
+    #: with its first line (`ai/tagging.lead`).
+    title: str = Field(default="", max_length=300)
+
+#: Said once per process, not once per keystroke pause.
+_SAID_ONCE: set[str] = set()
 
 
 @router.post("/suggest-tags")
@@ -1213,25 +1276,39 @@ def suggest_tags_for_draft(
     still typing, before Save exists to be clicked.
     """
     content = body.content.strip()
+    if body.title.strip() and content:
+        content = f"# {body.title.strip()}\n\n{content}"
     if not content:
-        return {"suggested_tags": []}
-    try:
-        suggested = librarian.suggest_tags(
-            content,
-            body.tags,
-            deps.get_model_manager(),
-            deps.get_ollama(),
-            vocabulary=_tag_vocabulary(session),
-        )
-    except Exception:
-        logger.warning("tag suggestions failed", exc_info=True)
-        suggested = []
-    return {"suggested_tags": suggested}
+        return {"suggested_tags": [], "suggested_tag_reasons": {}}
+    #: **No model, no model call** (measured on the running app: with none
+    #: running, every pause in Capture asked the client for a completion from
+    #: model "" and logged a WARNING with its traceback, three per note typed,
+    #: and offered nothing). Then, and when the model fails, the notebook's own
+    #: tags answer, the fallback filing already uses (`_suggest_after_filing`).
+    model_manager, ollama = deps.get_model_manager(), deps.get_ollama()
+    suggested: list[str] = []
+    if model_manager.utility_model() and ollama.is_running():
+        try:
+            suggested = librarian.suggest_tags(
+                content, body.tags, model_manager, ollama, vocabulary=_tag_vocabulary(session)
+            )
+        except Exception:
+            logger.info("tag suggestions from the model failed; using the notebook's own", exc_info=True)
+    else:
+        if "no-model-tags" not in _SAID_ONCE:
+            _SAID_ONCE.add("no-model-tags")
+            logger.info("no model running: tag suggestions come from the notebook's own tags")
+    offered = _engine_tags(session, content, body.tags, suggested, None)
+    return {"suggested_tags": offered, "suggested_tag_reasons": _tag_reasons(content, offered)}
 
 
 class SuggestedTagsBody(BaseModel):
     take: list[str] = Field(default_factory=list, max_length=20)
     discard: list[str] = Field(default_factory=list, max_length=20)
+    #: Turned down before, offered again (the owner, 2026-10-10: "is there a
+    #: way to undo it or see the list"): off `discarded_tags`, back into the
+    #: suggestions.
+    restore: list[str] = Field(default_factory=list, max_length=20)
 
 
 @router.post("/{entry_id}/suggested-tags", response_model=EntryOut)
@@ -1251,11 +1328,13 @@ def answer_suggested_tags(
     gone = _json_tags(entry.discarded_tags)
     gone_folded = {tag.casefold() for tag in gone}
     gone += [tag.strip() for tag in body.discard if tag.strip() and tag.strip().casefold() not in gone_folded]
+    restored = {tag.strip().casefold(): tag.strip() for tag in body.restore if tag.strip()}
+    gone = [tag for tag in gone if tag.casefold() not in restored]
     entry.discarded_tags = json.dumps(gone[-200:])
     answered = {tag.casefold() for tag in [*take, *body.discard]}
-    entry.suggested_tags = json.dumps(
-        [tag for tag in _json_tags(entry.suggested_tags) if tag.casefold() not in answered]
-    )
+    kept = [tag for tag in _json_tags(entry.suggested_tags) if tag.casefold() not in answered]
+    kept_folded = {tag.casefold() for tag in kept}
+    entry.suggested_tags = json.dumps(kept + [tag for key, tag in restored.items() if key not in kept_folded])
     session.commit()
     return _to_out(session, entry)
 
@@ -1404,18 +1483,7 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
     refiling.finish()
 
     # 2. Suggest tags (best effort: never blocks the re-evaluation).
-    suggested_tags: list[str] = []
-    try:
-        suggested_tags = librarian.suggest_tags(
-            entry.content,
-            manager.entry_tags(entry),
-            deps.get_model_manager(),
-            deps.get_ollama(),
-            vocabulary=_tag_vocabulary(session),
-        )
-    except Exception:
-        logger.warning("re-evaluation's tag step failed", exc_info=True)
-        suggested_tags = []
+    suggested_tags = _reevaluate_tags(session, entry)
 
     # 3. Suggest links: semantic neighbours that aren't connected yet.
     suggested_links: list[dict] = []
@@ -1440,8 +1508,31 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
         "entry": _to_out(session, entry, filed_by=filed_by).model_dump(),
         "recategorised_to": recategorised_to,
         "suggested_tags": suggested_tags,
+        "suggested_tag_reasons": {} if getattr(entry, "is_private", False) else _tag_reasons(entry.content or "", suggested_tags),
         "suggested_links": suggested_links,
     }
+
+
+def _reevaluate_tags(session: Session, entry) -> list[str]:  # noqa: ANN001
+    """The model's tags when one answers, then the notebook's own: with no
+    model, Tag and file with Atlas offered no tag at all (INBOX 781). Not
+    from a private note's text: nothing derives a suggestion from it
+    (`_keep_suggestions`)."""
+    have = manager.entry_tags(entry)
+    model: list[str] = []
+    try:
+        model = librarian.suggest_tags(
+            entry.content, have, deps.get_model_manager(), deps.get_ollama(), vocabulary=_tag_vocabulary(session),
+        )
+    except Exception:
+        logger.info("re-evaluation's model tag step failed; using the notebook's own", exc_info=True)
+    if getattr(entry, "is_private", False):
+        return model
+    try:
+        return _engine_tags(session, entry.content or "", have, model, entry.id)
+    except Exception:
+        logger.warning("re-evaluation's tag step failed", exc_info=True)
+        return []
 
 
 class ImproveBody(BaseModel):

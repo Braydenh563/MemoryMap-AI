@@ -1071,7 +1071,7 @@ function docReadAloudNext() {
   utterance.onerror = (event) => {
     if (docReadAloud !== state) return;
     if (event.error === "canceled" || event.error === "interrupted") return;
-    toast(`Reading stopped: ${event.error || "the voice did not answer"}.`, true);
+    toast(`Reading stopped: ${event.error || "the voice did not answer"}.`, "info");
     docReadAloudStop();
   };
   //: Held on the state, not only in a closure: Chromium collects an

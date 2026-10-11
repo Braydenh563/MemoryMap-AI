@@ -291,3 +291,23 @@ def test_the_placeholder_example_reads_its_priority_too():
     assert parsed["text"] == "Call mum"
     assert parsed["priority"] == "high"
     assert parsed["due_at"] == datetime(2026, 10, 6, 18, 0, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "text, kept, recurring",
+    [
+        ("water the plants every tuesday", "water the plants", "weekly"),
+        ("every morning at 7 stretch", "stretch", "daily"),
+        ("remind me in 20 minutes to check the oven", "check the oven", "none"),
+    ],
+)
+def test_magic_add_keeps_the_words_and_the_repeat(client, text, kept, recurring):
+    """The engine probe's reminder rows (CHAT_PLAN F1): "every tuesday" was
+    saved once as "Water the plants every"; "every morning at 7" at 19:00."""
+    response = client.post("/reminders/parse", json={"text": text, "tz_offset_minutes": UTC})
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["text"].lower() == kept
+    assert body["recurring"] == recurring
+    if "morning at 7" in text:
+        assert datetime.fromisoformat(body["due_at"]).astimezone(timezone.utc).hour == 7

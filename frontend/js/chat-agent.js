@@ -451,7 +451,7 @@ function addBubble(role, text, attachments = null) {
     bubble.appendChild(
       chatMessageActions([
         { label: "ph:copy", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
-        { label: "ph:pencil-simple", title: "Edit this question", onClick: () => editAndResend(bubble, text) },
+        { label: "ph:pencil-simple", title: "Edit this question", onClick: () => lazyScript("/js/chat-edit.js").then(() => editAndResend(bubble, text)) },
         { label: "ph:trash", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
       ])
     );
@@ -634,12 +634,13 @@ function agentTimeline(holder, options = {}) {
     if ((plan.steps && plan.steps.length) || plan.kind === "turn") {
       const list = document.createElement("ol");
       list.className = "plan-steps";
-      for (const step of plan.steps) {
+      plan.steps.forEach((step, index) => {
         const item = document.createElement("li");
         item.textContent = step;
+        if (plan.writes) item.appendChild(planStepWrites(plan.writes[index]));
         list.appendChild(item);
         items.push(item);
-      }
+      });
       el.appendChild(list);
     }
     if (plan.tools && plan.tools.length) {
@@ -730,6 +731,13 @@ function agentTimeline(holder, options = {}) {
           ? `, ${stepStateWords(state, { ...event, reason })}`
           : `, ${reason}`;
       item.appendChild(why);
+    }
+    //: Each step's diff after (row 3): what it wrote, each with its Undo.
+    if (state === "done" && event.changes?.length) {
+      const box = document.createElement("div");
+      box.className = "plan-step-changes";
+      for (const change of event.changes) box.appendChild(changeRow(change));
+      item.appendChild(box);
     }
   };
 
@@ -1254,6 +1262,8 @@ function changeRow(change, options = {}) {
           }),
         });
         if (result && result.error) throw new Error(result.error);
+        const action = agentUndoActions.get(JSON.stringify(change.undo));
+        if (action) settleUndoFromToast(action);
         row.classList.add("skill-change-undone");
         setLabel(label, `${change.label || change.tool}, undone`);
         undo.remove();
@@ -1265,7 +1275,89 @@ function changeRow(change, options = {}) {
     });
     row.appendChild(undo);
   }
+  if (change.diff) row.appendChild(changeDiff(change.diff));
   return row;
+}
+
+//: An edit's lines out and in (`agent._change_diff`), on the diff recipe
+//: the confirm card already draws (`.diff-viewer`).
+function changeDiff(diff) {
+  const viewer = document.createElement("div");
+  viewer.className = "diff-viewer";
+  for (const [kind, sign] of [["removed", "-"], ["added", "+"]]) {
+    for (const line of diff[kind] || []) {
+      const el = document.createElement("div");
+      el.className = `diff-${kind}`;
+      el.textContent = `${sign} ${line}`;
+      viewer.appendChild(el);
+    }
+  }
+  if (diff.more) viewer.append(`${diff.more} more lines changed`);
+  return viewer;
+}
+
+//: The writes a plan's step will make, said before it runs (row 3, the
+//: server's `plan_writes`): the exact act, the tool it names, or that it reads.
+function planStepWrites(writes) {
+  //: A div, not a styled span: the boot stylesheet is at its byte cap.
+  const line = document.createElement("div");
+  line.className = "plan-step-writes muted";
+  line.textContent = writes?.length ? `Writes: ${writes.join("; ")}` : "Reads only";
+  return line;
+}
+
+//: **A run's write goes on the app-wide undo stack** (row 4, WORLD_CLASS
+//: decision 53): Ctrl+Z after a run takes back its last write, and a run
+//: stopped at step 2 leaves step 1's writes there. Redo runs the call again
+//: and keeps the inverse of that run. The run's own Undo stays for the whole.
+//: The stack entry for each change's undo, so a row's own Undo (the step's
+//: list, the run's change list: copies of the change, not the same object)
+//: takes it off the stack and Ctrl+Z cannot run it twice.
+const agentUndoActions = new Map();
+function pushAgentChangeUndo(change, call) {
+  if (!change?.undo) return;
+  let inverse = change.undo;
+  const exec = (body) => apiJson("/chat/tools/execute", { method: "POST", body: JSON.stringify(body) });
+  const key = JSON.stringify(change.undo);
+  agentUndoActions.set(key, pushUndo(
+    (change.label || change.tool).replace(/^ph:[\w-]+\s*/, ""),
+    () => exec({ name: inverse.tool, arguments: inverse.arguments, steps: inverse.steps }).then(refreshAfterToolChanges),
+    async () => {
+      const again = await exec({ name: call.name, arguments: call.arguments });
+      inverse = again.undo || inverse;
+      refreshAfterToolChanges();
+    }
+  ));
+}
+
+//: **The plan, approved once** (row 3, the Copilot agent panel's shape): the
+//: steps and what each will write, then Run the plan or Not now. Nothing runs
+//: until it is pressed; a destructive step still asks on its own card.
+function planProposalCard(holder, event, run) {
+  const card = document.createElement("div");
+  card.className = "tool-confirm plan-proposal";
+  const head = document.createElement("p");
+  setLabel(head, `ph:compass ${event.goal}`);
+  const list = document.createElement("ol");
+  list.className = "plan-steps";
+  event.steps.forEach((step, index) => {
+    const item = document.createElement("li");
+    item.textContent = step;
+    item.appendChild(planStepWrites(event.writes?.[index]));
+    list.appendChild(item);
+  });
+  const row = document.createElement("div");
+  row.className = "row";
+  row.append(
+    smallButton("Run the plan", "Run every step; each one's writes are listed above and can be undone", () => {
+      card.replaceWith(toolChip(`ph:play Running ${event.steps.length} steps`));
+      run();
+    }, false),
+    smallButton("Not now", "Run nothing", () => card.replaceWith(toolChip("ph:x Not run: nothing was changed.")))
+  );
+  card.append(head, list, row);
+  holder.appendChild(card);
+  return card;
 }
 
 //: **The live action line: which notes a tool call actually reached for.**
@@ -1681,6 +1773,8 @@ function toolChip(label, ok = true, event = null) {
 // A destructive tool call parked for approval (Wave G). Nothing has
 // happened yet: Confirm actually runs it via /chat/tools/execute.
 function renderToolConfirm(holder, event) {
+  //: An act's card lives with the composer's page code (ask-compose.js).
+  if (event.type === "act") return ensureModule("askCompose").then(() => renderActCard(holder, event));
   const card = document.createElement("div");
   card.className = "tool-confirm";
   const text = document.createElement("p");
@@ -1740,6 +1834,12 @@ function renderToolConfirm(holder, event) {
   card.append(text, contentArea, row);
   holder.appendChild(card);
   chatScrollToEnd();
+}
+
+//: "open settings", "go to the graph" (decision 38): the place, opened.
+function actNavigate(surface) {
+  if (surface === "settings") openSettingsModal();
+  else switchTab(surface);
 }
 
 // The model would like to remember something about you (§39B).
@@ -1929,6 +2029,7 @@ function refreshAfterToolChanges() {
 //: It is built from what already arrived, nothing here re-fetches, and
 //: nothing is invented: a source appears because an event named it.
 const CHAT_SOURCE_GROUPS = [
+  { key: "web", icon: "ph:globe", one: "web page", many: "web pages" },
   { key: "note", icon: "ph:note", one: "note", many: "notes" },
   { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
   { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
@@ -1938,7 +2039,7 @@ const CHAT_SOURCE_GROUPS = [
   //: missing from it falls back to `ph:note`, which is how a new kind ends up
   //: looking like it works while calling itself a note.
   { key: "map", icon: "ph:tree-structure", one: "mind map", many: "mind maps" },
-  { key: "web", icon: "ph:globe", one: "web page", many: "web pages" },
+  { key: "board", icon: "ph:pencil-circle", one: "board", many: "boards" },
 ];
 
 //: Which tools produce a *source* rather than a change, and what kind each
@@ -2000,16 +2101,19 @@ function chatSourcesFrom({ meta, toolEvents, touched }) {
     const rest = flat.startsWith(head)
       ? flat.slice(head.length).replace(/^\S*\s+/, "")
       : flat;
+    //: A board or a mind map is a row of `raw_results` too (INBOX 744: "whiteboard
+    //: shows as a note and clicking it takes me to the notes page").
+    const board = entry.board_kind;
     add({
-      kind: "note",
+      kind: board === "map" ? "map" : board ? "board" : "note",
       id: entry.id,
       label,
-      snippet: preview(rest),
+      snippet: board ? "" : preview(rest),
       //: The note itself rides along, so the card can show its picture and its
       //: attached files rather than only a line of its text. Reported: "the
       //: sources in the chat responses dont render inline md, images or files."
       entry,
-      open: () => flashEntry(entry.id),
+      open: board ? () => openWhiteboardBoard(entry.id) : (event) => openNoteAtPassage(entry.id, event?.currentTarget),
     });
   }
   for (const item of touched || []) {
@@ -2065,7 +2169,10 @@ function chatSourcesFrom({ meta, toolEvents, touched }) {
     const label = String(event.label || "").replace(/^ph:[\w-]+\s*/, "");
     add({ kind, id: `${event.tool || event.name}-${sources.length}`, label, snippet: "" });
   }
-  return sources;
+  //: Web pages first (the owner, 2026-10-10): a page the turn went out to
+  //: read is the newest thing in it. One order, so the numbers in the answer
+  //: and on the cards stay the same.
+  return [...sources.filter((s) => s.kind === "web"), ...sources.filter((s) => s.kind !== "web")];
 }
 
 //: The address a card shows under its title, the host, not the whole URL.
@@ -2298,13 +2405,14 @@ function renderRecordsDetails(holder, meta) {
   // all while the identical Ask result did.
   const connected = new Set(meta.connected_ids || []);
   const matchInfo = meta.match_info || {};
+  const scored = everyRowScored(meta.raw_results, matchInfo, connected);
   for (const entry of meta.raw_results) {
     const row = clickableResult(entry);
-    const badge = matchReasonBadge(matchInfo[entry.id]);
+    const badge = matchReasonBadge(matchInfo[entry.id], scored);
     if (badge) {
       if (connected.has(entry.id)) row.classList.add("result-connected");
       if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
-      row.appendChild(badge);
+      placeResultBadge(row, badge);
     }
     list.appendChild(row);
   }
@@ -2600,13 +2708,45 @@ function updateDraftCount() {
 const draftUndoStack = [];
 const MAX_DRAFT_UNDO = 20;
 
+//: Rule 1.8: each point is also one entry on the app's undo stack, so the
+//: pane's Undo, the status bar's, Ctrl+Z outside a field and the history menu
+//: are one history. The entry's redo puts back what the pass had written,
+//: read when the undo runs, because the pass is still arriving when the
+//: point is taken.
 function pushDraftUndo() {
-  draftUndoStack.push({
+  const point = {
     thoughts: $("draft-thoughts").value,
     draft: $("draft-text").value,
-  });
+  };
+  let after = null;
+  point.action = pushUndo(
+    "Writing desk: the last AI pass",
+    () => {
+      after = { thoughts: $("draft-thoughts").value, draft: $("draft-text").value };
+      const at = draftUndoStack.indexOf(point);
+      if (at !== -1) draftUndoStack.splice(at, 1);
+      putDraftBack(point);
+    },
+    () => {
+      if (!after) return;
+      draftUndoStack.push(point);
+      putDraftBack(after);
+    }
+  );
+  draftUndoStack.push(point);
   if (draftUndoStack.length > MAX_DRAFT_UNDO) draftUndoStack.shift();
   updateDraftUndoButton();
+}
+
+function putDraftBack(point) {
+  $("draft-thoughts").value = point.thoughts;
+  // Stepping back past a pass means those thoughts were not folded in after
+  // all: otherwise the next Draft would skip them and silently drop an idea.
+  foldedThoughts = "";
+  $("draft-text").value = point.draft;
+  updateDraftCount();
+  updateDraftUndoButton();
+  saveDraftLocally();
 }
 
 function updateDraftUndoButton() {
@@ -2625,14 +2765,12 @@ function updateDraftUndoButton() {
 function undoDraft() {
   const previous = draftUndoStack.pop();
   if (!previous) return;
-  $("draft-thoughts").value = previous.thoughts;
-  // Stepping back past a pass means those thoughts were not folded in after
-  // all: otherwise the next Draft would skip them and silently drop an idea.
-  foldedThoughts = "";
-  $("draft-text").value = previous.draft;
-  updateDraftCount();
-  updateDraftUndoButton();
-  saveDraftLocally();
+  //: The same entry the status bar holds, run from the pane's own button, so
+  //: its redo knows what the pass had written.
+  if (previous.action) {
+    settleUndoFromToast(previous.action);
+    previous.action.undo();
+  } else putDraftBack(previous);
   $("draft-status").classList.remove("error");
   $("draft-status").textContent = "Went back to the previous version.";
   announce("Restored the draft from before the last AI pass.");
@@ -2664,290 +2802,3 @@ function cancelDraft() {
 // was solving, at the cost of destroying the user's own writing.
 let foldedThoughts = "";
 
-//: **One pass at the desk, streamed.** Measured before this: a draft against
-//: a stand-in model server took 22.9 seconds to arrive and arrived in one
-//: piece, because `/drafts/compose` could not answer until the model had
-//: finished. `/drafts/compose/stream` speaks the same NDJSON the chat and the
-//: Guide do, so this reader is the third of the same shape rather than a new
-//: protocol.
-//:
-//: **The draft in the box is never written over until the first token of the
-//: new one arrives**, and is put back if the pass fails or is stopped: a
-//: half-written revision over settled writing is the one outcome this feature
-//: must never produce.
-async function composeDraft() {
-  const written = $("draft-thoughts").value;
-  // Only the part they've added since the last pass. If they edited earlier
-  // text, the prefix no longer matches and everything is sent again, the
-  // safe direction: the model repeats itself rather than losing a thought.
-  const thoughts = written.startsWith(foldedThoughts)
-    ? written.slice(foldedThoughts.length).trim()
-    : written.trim();
-  const draft = $("draft-text").value;
-  if (!thoughts && !draft.trim()) {
-    setDraftStatus("Write a thought first.", true);
-    $("draft-thoughts").focus();
-    return;
-  }
-  const instruction = $("draft-instruction").value.trim();
-  setDraftStatus("");
-  setLabel($("draft-status"), draft.trim() ? "ph:spin Revising…" : "ph:spin Drafting…");
-  const thinkingHost = $("draft-thinking");
-  const thinking = thinkingFoldIn(thinkingHost);
-  const thinkingText = thinking.querySelector(".thinking");
-  thinkingText.textContent = "";
-  thinkingHost.classList.add("hidden");
-  thinking.open = false;
-  draftController = new AbortController();
-  setDraftBusy(true);
-
-  let streamed = "";
-  let started = false;
-  let thought = "";
-  let done = null;
-  try {
-    await streamDraft(
-      {
-        thoughts,
-        draft,
-        instruction,
-        kind: $("draft-kind").value,
-        tone: $("draft-tone").value,
-        length: $("draft-length").value,
-        source_ids: draftSources.map((s) => s.id),
-      },
-      draftController.signal,
-      (event) => {
-        if (event.type === "thinking") {
-          thought += event.text;
-          thinkingHost.classList.remove("hidden");
-          thinking.open = true;
-          // Capped, so `thinkingPaint` keeps the newest line in view: a box
-          // that always shows its first line stops saying anything.
-          thinkingPaint(thinking, thought);
-        } else if (event.type === "delta") {
-          if (!started) {
-            started = true;
-            // The first token is the moment the old draft is safe to replace:
-            // an undo point goes in here, not before the call.
-            if (draft.trim()) pushDraftUndo();
-            $("draft-text").value = "";
-          }
-          streamed += event.text;
-          $("draft-text").value = streamed;
-          updateDraftCount();
-        } else if (event.type === "done") {
-          done = event;
-        }
-      }
-    );
-  } catch (error) {
-    $("draft-text").value = draft;
-    updateDraftCount();
-    if (error.name === "AbortError") {
-      // Nothing was kept, so nothing is lost, say so rather than showing it
-      // as a failure.
-      setDraftStatus("Stopped. Your thoughts and draft are untouched.");
-    } else {
-      setDraftStatus(error.message, true);
-    }
-    draftController = null;
-    setDraftBusy(false);
-    return;
-  }
-  draftController = null;
-  setDraftBusy(false);
-
-  const finished = done && typeof done.draft === "string" ? done.draft : streamed;
-  $("draft-text").value = finished || draft;
-  updateDraftCount();
-  // Collapsed once it lands: the thinking is worth watching and not worth
-  // keeping open over the draft it was about.
-  thinking.classList.toggle("hidden", !thought);
-  thinking.open = false;
-  if (done && done.message) {
-    setDraftStatus(done.message, true);
-  } else {
-    // The thoughts have been folded in, remember that, but never delete what
-    // they wrote. Clearing the box was reported twice as the app eating the
-    // user's text, and it is: the raw thoughts are often the only copy of an
-    // idea, and the draft is a rewrite of them, not a replacement.
-    if (thoughts) foldedThoughts = written;
-    $("draft-instruction").value = "";
-    rememberDraftVersion($("draft-text").value);
-    setDraftStatus(
-      thoughts
-        ? "Folded your thoughts into the draft, your notes above are untouched."
-        : "Draft updated: edit it, or add more thoughts."
-    );
-    announce("The draft has been updated.");
-  }
-  saveDraftLocally();
-}
-
-//: The NDJSON reader for the writing desk. Hand-rolled rather than through
-//: `apiJson`, which cannot expose a streaming body, and deliberately small:
-//: the chat's reader carries a turn's worth of event kinds and an idle
-//: timeout for a conversation that can stall for minutes, and none of that
-//: belongs to a one-shot draft. A malformed line is skipped rather than
-//: thrown out of the loop, the same rule the chat reader keeps, so one bad
-//: frame cannot lose a draft that is already half written.
-async function streamDraft(body, signal, onEvent) {
-  // `api.stream` (F5): the Response, with 401 and refusals already handled.
-  const response = await api.stream("/drafts/compose/stream", {
-    method: "POST",
-    body: JSON.stringify(body),
-    signal,
-  });
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffered = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffered += decoder.decode(value, { stream: true });
-    const lines = buffered.split("\n");
-    buffered = lines.pop(); // the last piece may be half a line
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        onEvent(JSON.parse(line));
-      } catch {
-        recordBrowserLog("WARN", [`[Draft stream] Unparseable line: ${line.slice(0, 80)}`]);
-      }
-    }
-  }
-}
-
-//: **Name the draft.** `POST /drafts/title` shipped with the writing room
-//: and had no caller anywhere: the model could name a finished draft and
-//: nothing ever asked it to. A note's title in this app is its leading
-//: `# Heading` (see `withTitle`), which is the one part of a long draft
-//: nobody writes, and the capture box has a title field while this panel
-//: never did.
-//:
-//: Undoable like every other pass here, for the reason `pushDraftUndo`
-//: carries at length: handing your writing to the model is never a one-way
-//: door. An existing heading is replaced rather than stacked, because
-//: pressing this twice must not leave two of them.
-async function suggestDraftTitle() {
-  const box = $("draft-text");
-  const status = $("draft-status");
-  const button = $("draft-title");
-  const draft = box.value.trim();
-  if (!draft) {
-    status.classList.add("error");
-    status.textContent = "Write a draft first, then it has something to name.";
-    return;
-  }
-  button.disabled = true;
-  status.classList.remove("error");
-  setLabel(status, "ph:spin Thinking of a title…");
-  try {
-    const body = await apiJson("/drafts/title", {
-      method: "POST",
-      body: JSON.stringify({ draft }),
-    });
-    const title = (body.title || "").trim();
-    //: The route answers `""` rather than an error when the model is not
-    //: running or its answer was not a title (too long, too many words: see
-    //: `drafter.suggest_title`). That is a real answer and it gets a real
-    //: sentence, not a thrown error.
-    if (!title) {
-      status.classList.add("error");
-      status.textContent = `Couldn't think of a title for this one. ${aiNameNow()} may not be running.`;
-      return;
-    }
-    pushDraftUndo();
-    box.value = draftWithHeading(box.value, title);
-    updateDraftCount();
-    saveDraftLocally();
-    status.textContent = `Titled "${title}". Undo puts it back.`;
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-}
-
-//: The draft with `title` as its leading `# Heading`: replacing the one it
-//: already has, or put in front of it with the blank line markdown needs
-//: between a heading and its first paragraph.
-function draftWithHeading(draft, title) {
-  const rest = draft.replace(/^\s*#\s+[^\n]*\n*/, "");
-  return `# ${title}\n\n${rest.replace(/^\n+/, "")}`;
-}
-
-async function saveDraftAsNote() {
-  const content = $("draft-text").value.trim();
-  const status = $("draft-status");
-  if (!content) {
-    status.classList.add("error");
-    status.textContent = "There's no draft to save yet.";
-    return;
-  }
-  status.classList.remove("error");
-  status.textContent = "Saving…";
-  const tags = $("draft-tags")
-    .value.split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
-  try {
-    let entry;
-    if (draftNoteId !== null) {
-      // Carried on from a note, so it goes back to that note. A second copy
-      // of a note you asked to continue is not a save, it is a fork, and the
-      // two would drift from the moment it was made. The same undo entry the
-      // rest of the app records for an edited note, so this is as reversible
-      // as any other change to it.
-      const before = allEntries.find((e) => e.id === draftNoteId)?.content ?? "";
-      // The tags field only ever *adds* here: sending an empty list would
-      // strip the tags the note already carries, and an empty box on this
-      // desk means "I did not type any", never "take that note's tags off".
-      entry = await apiJson(`/entries/${draftNoteId}`, {
-        method: "PUT",
-        body: JSON.stringify(tags.length ? { content, tags } : { content }),
-      });
-      pushEntryPutUndo(
-        draftNoteId,
-        "Carried a note on from the writing desk",
-        { content: before },
-        { content }
-      );
-    } else {
-      // Marked as a draft on the way in, same as the text-selection popup's
-      // "Save as draft note", asked for directly, so a note drafted here is
-      // just as findable in the Drafts filter (sidebar, Library) as one
-      // captured that way, not silently indistinguishable from a note typed
-      // straight into Notes.
-      entry = await apiJson("/entries", {
-        method: "POST",
-        body: JSON.stringify({ content, tags, is_draft: true }),
-      });
-    }
-    const wroteBack = draftNoteId !== null;
-    clearDraftTarget();
-    foldedThoughts = "";
-    $("draft-thoughts").value = "";
-    $("draft-text").value = "";
-    $("draft-tags").value = "";
-    $("draft-thinking").classList.add("hidden");
-    // The desk is clear, so its earlier versions and the notes this one was
-    // written from go too: a row of "v1 v2 v3" over an empty box offers a way
-    // back to drafts of a note that has already been filed.
-    draftSources = [];
-    draftVersions = [];
-    renderDraftSources();
-    renderDraftVersions();
-    updateDraftCount();
-    saveDraftLocally();
-    status.textContent = wroteBack ? "Saved back to the note." : "Saved as a note.";
-    toast(wroteBack ? "The note has been updated." : "Draft saved as a note.");
-    await loadEntries();
-    flashEntry(entry.id); // show them where it landed
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  }
-}

@@ -35,7 +35,7 @@ const emblemObservers = new Map(); // element -> IntersectionObserver
 //: needs no polling and no per-panel wiring.
 //:
 //: Not a claim about the whiteboard's drag lag. That report is still
-//: unattributed (`agent-remaining/mindmap.md`); this is work the app was
+//: unattributed (`archive/agent-remaining/mindmap.md`); this is work the app was
 //: doing for nothing, found while profiling it.
 function watchEmblemVisibility(holder, canvas) {
   if (typeof IntersectionObserver === "undefined") return;
@@ -1478,7 +1478,7 @@ function openPhoneMoreSheet() {
       list.appendChild(sheetRow("ph ph-question tab-icon", "Guide", () => {
         close();
         //: settings.js owns the Guide sheet and loads beside this file.
-        if (typeof openHelpChat === "function") openHelpChat();
+        openHelpChat();
       }));
       //: The agent's runs, which the status bar holds above 600 and a phone
       //: does not show (INBOX 430): a row with the count, opening the panel.

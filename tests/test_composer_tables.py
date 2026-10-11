@@ -123,8 +123,9 @@ def test_the_eval_keeps_the_rule_in_both_voices(voice):
 
 def test_the_professional_voice_gives_a_professional_nothing_found():
     out = composer.compose("What is the capital of Peru?", NOTES, today=TODAY, voice="professional")
-    assert out["text"] == composer.PHRASES["nothing_p1"]
-    assert out["text"].endswith("?") and out["text"] != composer.PHRASES["nothing"]
+    assert out["text"].startswith(composer.PHRASES["none_found_p"])
+    assert out["text"].endswith(composer.PHRASES["nothing_ask_p"])
+    assert out["text"] != composer.compose("What is the capital of Peru?", NOTES, today=TODAY)["text"]
 
 
 def test_a_voice_gives_more_distinct_openers_than_one_fixed_phrase():

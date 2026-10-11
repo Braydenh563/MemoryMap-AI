@@ -704,63 +704,8 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
      opens nothing, and a tap at 1024 opens nothing. Found by `phone.js`
      on the way: "Show more" under a clamped note was 80x22 at 390; it
      takes the row's floor now.
-3. **Chat: built** (2026-09-20). Measured at 390 before: the composer
-   held the note picker, the image button, the box, the microphone and
-   Send, so the box sat on one 44px line and the buttons on another (100px
-   of composer for one line of text); the mode segment was parked off the
-   right edge of the controls strip (x 309 to 457) at 30px tall; a reply's
-   sources unfolded inside the bubble in a 340px transcript; the popup
-   agent floated over the window. After: the attachments move into the
-   strip beside the mode (`dockChatAttachments`), the box takes the row
-   with the two buttons that act on the message (182px wide, one row, the
-   placeholder shortened so autogrow does not size it to two lines of
-   "Ask your notebook anything"), the mode segment is first in the strip
-   at x=39 and 44px tall, the sources open as the sheet recipe with the
-   same body moved in and back (`chatSourcesPanel`), and the shortcut, the
-   status dot and the More sheet's row all go to the Chat tab with the box
-   focused when a model lets it (`toggleAgentPalette`). The sidebar half
-   is item 2's. Measured by `scratchpad/ui-sweeps/phonechat.js`; at 1024
-   the composer wraps as before and the popup opens. Untested: a real
-   soft keyboard, which Chromium here does not raise; the composer is not
-   pinned above it, since the transcript is the scroller and the composer
-   never leaves the screen (page scrollHeight 844 in 844).
-4. **Graph: built** (2026-09-20). Measured at 390x844 first, with real
-   touch through CDP (`scratchpad/ui-sweeps/graphphone.js`, which is this
-   item's gate; pan and pinch were already proved by `graphtouch.js` and are
-   left to it). Before: a hold on a node did nothing at all, the map's node
-   menu being a right-click the phone has no way to send; the lasso needed
-   Shift and was therefore unreachable, so a selection could not be started
-   by a finger at any point; and the map's controls answered in three places
-   over a 362x653 map, the gear's floating panel at 350x288 (42% of the map
-   covered, 795px of content scrolling inside 286px), the View menu at
-   280x257 and the ⋯ menu at 256x311. The node panel was already the
-   `.graph-popup-sheet`, 362x468, and stays as it is.
-
-   After: one hold on the canvas, `wireLongPress`, which decides by what is
-   under it. On a node it opens the node menu, which is now `openMenuAtPoint`
-   rather than the hand-built menu it was, so it brings the clamp, the arrow
-   keys, Escape and the 44px row the touch band gives every menu (measured: 5
-   rows, shortest 44px, inside the window, Escape closes it). On the empty map
-   it arms the lasso: hold, then drag, and the sweep's 220px loop caught 2
-   notes with the selection dock showing "2 selected". The gear opens one
-   sheet at 390x557, full width, holding the View menu's rows, the panel's own
-   sections and the ⋯ menu's saved views, with every control at 44px and each
-   one moved back where it came from on close; at 1024 the gear opens the
-   floating panel exactly as before and the two menus are menus again.
-   **Decision: a tap on a node keeps opening the node panel** rather than only
-   selecting it. The panel is the note, it is already a sheet, and a tap that
-   only selected would leave the phone with no way to open a note from the map
-   at all; selection is the hold's own "Add to selection" row, which is where
-   the desktop's Shift-click also lives.
-
-   Three bugs found on the way, each fixed at its cause: a hold ended in the
-   click the lift synthesises, so holding a node opened its menu *and* its
-   panel (`wireLongPress` now swallows that lift's `mousedown`, `mouseup` and
-   `click`, app-wide); the `mousedown` was what moved the focus, so Escape
-   reached the map instead of the menu; and Chromium takes the focus back out
-   of a menu opened while a touch gesture is in flight, so `openMenuAtPoint`
-   asks for it again a frame later. `phone.js` and `touch.js` are 0 findings
-   at 390 after all of it.
+3. **Chat: built** (2026-09-20). Moved to HISTORY.md ("Moved from the plans, 2026-10-10 (Brief 72b)").
+4. **Graph: built** (2026-09-20). Moved to HISTORY.md, the same section.
 5. **Library and Files: built** (2026-09-20). Two-up cards, the reader
    full-screen with a bottom bar; upload from the share sheet.
    - **Two-up cards: decided the other way, not remade.** The 600 band in
@@ -1065,6 +1010,100 @@ different problem than the list says.
     would read lighter; Settings scrolls sideways in two sections at 768.
     The list, with ids, is `archive/agent-remaining/phone.md`.
 
+## Phase 12: density, refinement and WCAG 2.2 (the owner, 2026-10-10; Brief 41)
+
+The owner's words, verbatim: "the ui still needs a more modern and professional
+polish. I think an issue might be that some of the ui elements, controls and
+dropdowns are too large and bulky and have too large spacing and margins around
+them and gaps around panels?? like the vs code ui is a lot more cleaner and
+refined and the sidebar is still floating but its more subtle, the controls are
+smaller and intentional, not wierdly bunched. I think a lot of surfaces need this
+modern redesign. also on microsoft teams I noticed on the sub menu bars, there
+are grey underlined hover states, and when I hover over icons, no semi
+highlighted border box appears behind them, I just hover over or click on them
+and the icons themselves change to the highlighted colour." "also I think the
+topbar is a little large but idk maybe not. maybe research design principles or
+standards?? ensure wcag 2.2 accessibility is followed and complied with." "all
+the controls and docks on each page and dropdown menus and popup menus and
+stuff just need a major polish and refinement and they all need to be
+consistent across the app. think maximum learnability, minimalist and
+instinctive to use." "the reminder dropdowns for setting datetimes and stuff,
+they need a custom style. I also think there needs to be a better and more
+primary calendar feature paired with the reminders." "on vs code selected lines
+have their line number bolded, the line subtly bordered and there are also
+indentation lines." "Note metadata and chat bubble metadata still feels
+incredibly messy, not modern, and unrefined." "Some tooltip buttons are circles
+and some are rounded squares."
+
+- (Odysseus, fourth read 2026-10-10) 
+
+### Decisions, 2026-10-10 (do not re-decide)
+1. **A density scale in tokens.** Control heights 28px (dense: docks, toolbars,
+   sub-menu bars), 32px (default: forms, menus), 40px (touch, phone); icon
+   buttons square at the row's height; gaps on a 4px grid (4, 8, 12, 16); panel
+   padding 12px; the sidebar gutter 8px; the topbar 44px measured (today's
+   number recorded first). One token set in `00-tokens-shell.css`; no literal
+   heights in the other files (`test_style_scale.py` extends to heights).
+2. **The hover grammar.** An icon button changes its icon colour on hover and
+   focus (no box behind it); a sub-menu bar item takes a 2px underline (Teams);
+   a text button keeps its box; a row takes a tint. Active states keep a box
+   with the accent at low alpha. Recorded in DESIGN.md with a lint in
+   `test_ui_recipes.py` (no `.ghost:hover { background` on icon-only buttons).
+   **Amended 2026-10-10 (INBOX 784/788, the owner: "not all buttons have the
+   same hover states"):** an icon button takes the same quiet box as a text
+   button, glyph to full ink, never an accent tint; DESIGN.md rule 4 and the
+   "One hover for every button" recipe hold it.
+3. **One radius per class** from tokens: pill for segments and chips, the
+   button radius for buttons (circles only for the companion and avatars),
+   the panel radius for panels and menus. Tooltips and help triggers are the
+   same shape everywhere (the owner's "circles and rounded squares").
+4. **WCAG 2.2 AA as a sweep** (`scratchpad/ui-sweeps/axe.js`, tag wcag22aa):
+   target size at least 24 by 24 CSS px (2.5.8); focus visible with a 2px ring
+   at 3:1 against its background (2.4.11, 2.4.13); text contrast 4.5:1 and UI
+   contrast 3:1; every drag action has a non-drag alternative (2.5.7: boards
+   and maps move by arrow keys and menus; reorders have Move up and down);
+   help in a consistent place (3.2.6: the ? popover at the section head);
+   redundant entry avoided (3.3.7); the lock screen allows paste and a password
+   manager (3.3.8). The sweep runs per surface and its counts go in this phase.
+5. **Custom pickers.** Date and time (reminders, the timeline, documents'
+   properties) on the sheets-selects recipe: a month grid with keyboard
+   navigation, a time list in the person's clock format, typed entry accepted
+   (`when.py` parses it), today and clear actions, measured at 1440 and 390.
+6. **A calendar view** of reminders and dated notes: TIMELINE_PLAN's Calendar
+   mode (month and week), not a new tab; reminders draggable between days with
+   a keyboard alternative; the day strip (INBOX 561) becomes its week row.
+7. **Metadata rows**: one muted line per card or bubble, chips only for state
+   (pinned, due, unsaved), the kind icon first, the time last and pinned to the
+   card's corner (INBOX 745 (a)); the same rule on note cards, chat bubbles,
+   library cards and timeline rows; a census before and after
+   (`perf2-1005-census.js` counts and heights).
+8. **The code editor's active line** (DOCUMENTS 21): bold line number, a subtle
+   full-width border, indent guides; the writing checks everywhere rule is
+   DOCUMENTS 21's.
+9. **Research is recorded, then applied.** The agent reads the ui-ux-pro-max
+   skill's UX guidelines and styles, the Apple HIG and Fluent 2 density and
+   hover sections, VS Code's workbench metrics and WCAG 2.2's new criteria, and
+   records the ten rules it takes (with the number each sets) in DESIGN.md
+   before changing CSS. "Reasoned UI is not observed UI": every change is
+   measured in Chromium at 1440, 1024 and 390, light and dark, and the sweeps
+   (errors, docks, contrast, touch, axe) pass on the head.
+
+### Steps
+1. The census: today's control heights, gaps, radii, hover boxes, topbar height,
+   per surface (the numbers in this phase).
+2. Tokens and the scale (1), topbar and docks first.
+3. The hover grammar and radius classes (2, 3) with their lints.
+4. The WCAG 2.2 sweep (4) and its fixes, surface by surface.
+5. Pickers (5), then the calendar mode (6).
+6. Metadata rows (7); the editor's active line (8).
+7. DESIGN.md, help, CHANGELOG; the Built block to HISTORY.
+
+Steps 1 to 4 and 6, and step 5's pickers, built 2026-10-10 (Brief 41): moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION Phase 12)"). Open:
+- 5b, the calendar mode (decision 6): TIMELINE_PLAN section 9, Brief 55.
+- 8, indent guides in the code editor: Brief 42 (DOCUMENTS 25 row 3); the active line is built.
+- 7 on chat bubbles and library cards; 1's panel padding 12 and sidebar gutter 8, not yet measured.
+- One focus ring at 1:1 (Chat, an `.active` button whose ring takes the ground's colour; `focusring.js`).
+
 ## Placed from INBOX, 2026-09-09
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
@@ -1232,3 +1271,324 @@ inside a 4,000px section.
 ## Placed from INBOX, 2026-10-05 (header bars, Settings navigation)
 
 621 and 622 are built. Moved whole to [`HISTORY.md`](HISTORY.md) ("Moved from the plans, 2026-10-05 (INBOX 621 and 622: the header bars and the Settings navigation)"), with what they measured before and after.
+
+## Placed from the owner's list, 2026-10-10
+
+- **INBOX 760, card dates.** The time floats mid-card on a card the grid stretched taller than its content (about 110px under it on the tallest card, 40px on short ones); "1 week ago· edited" has lost its space. Pin the details line to the card's bottom edge, measured on a row of unequal cards; the space restored. Carddate agent.
+- **INBOX 761, mind maps listed as notes.** The Ask results show a mind map as an Uncategorised note card; check every reader of notes (Ask, Notes, search, graph, timeline, dashboard counts, Find anything, palette) and exclude what a board keeps behind its topics, with a test per reader. Mapnotes agent.
+- **INBOX 762, "just now" on an untouched mind map.** The Library card's modified time moved without the owner; find what writes `updated_at` on a board when it is only opened, listed, indexed, searched or thumbnailed, stop it, and pin it with a test. Mapnotes agent.
+- **INBOX 767, the no-model notice.** One row at 1440 (icon, one short sentence, the action as a link-styled button, the X at the end), wraps to two only under 600px; the five surfaces share it (`renderAiOfflineNotice`). Measured: notice height equals one line height plus padding at 1440; copy under 90 characters. Notice agent.
+
+Entries are the owner's words, then the recommendation. Bugs come first, then design requests.
+
+### Bugs
+
+- "popup panels appearing at the start on a new install are messy and clash/overlap a lot"
+  Recommendation: one first-run queue with no overlapping panels, measured with getBoundingClientRect on a fresh profile. Also carried by Brief 37 (the first-run queue).
+- "I pressed done and it just didnt give me the tour at all??"
+  Recommendation: Done starts the tour or closes it cleanly, with the handoff in Brief 37 (INBOX 745 (d)). Also carried by Brief 37 (tour handoff).
+- "says done but the bar is still there??"
+  Recommendation: the bar goes when Done is pressed, and the first-run state is checked on reload. Also carried by Brief 37 (first-run queue).
+- "that's the box in the corner I was telling you temporarily appeared"
+  Recommendation: reproduce on a fresh profile and name the box in the owner's terms before fixing it; the first-run queue in Brief 37 is the likely owner. Also carried by Brief 37.
+- "I pressed install on the documents package and the progress bars appeared for the vision package and the documents package didn’t progress at all"
+  Recommendation: each package's progress is bound to its own install job; test two installs at once. Also carried by Brief 37 (packages progress).
+- "Also it failed to let me view the pdf doc I had as the package wasn’t installex, it should have given me a link to nav to where I can install it or just an install button directly"
+  Recommendation: the PDF viewer shows an install button for its package in place of the document. No brief carries it; Brief 37 (packages progress) is the nearest.
+- "There's overlap on these settings tabs in the sidebar"
+  Recommendation: measure the overlap of the settings tabs at the sidebar width, then fix the layout. Also carried by Brief 41 (Settings two-pane).
+- "These elements in the lightbox aren’t the same height"
+  Recommendation: give lightbox controls one height token and measure their heights in the sweep. No brief carries it; Brief 41 (density) is the nearest.
+
+### Design requests
+
+- "very messy"
+  Recommendation: the owner has not named the surface; ask for the screen when the next session starts, and meanwhile run the Brief 41 density census to find the worst surface. No brief carries it by name.
+- "this panel looks like a demo and not professional"
+  Recommendation: name the panel, then give it the designed empty, error and first-run states that ROADMAP Direction (reliability gate) asks for. Also carried by Brief 41.
+- "is it possible to add and customise the metadata a little more??"
+  Recommendation: custom note properties, shown in the metadata rows with one control recipe. Also carried by Brief 38 (custom note properties) and Brief 37 (metadata rows).
+- "Note metadata and chat bubble metadata still feels incredibly messy, not modern, and unrefined. The whole app needs another ui/ux modernisation, professionalisation, and ui/ux enhancement improvement in many places."
+  Recommendation: one metadata row recipe for notes and bubbles, measured for height and gap. Also carried by Brief 41 (density) and Brief 37 (metadata rows).
+- "Some tooltip buttons are circles and some are rounded squares. Should they have backgrounds or borders that are visible??"
+  Recommendation: one radius per control class and one visible border rule for tooltip buttons, from DESIGN.md tokens. Also carried by Brief 41 (one radius per control class).
+- "No vertical gap"
+  Recommendation: the owner has not named the surface; find the gap by the density census and fix it under the spacing tokens. Also carried by Brief 41 (gaps).
+- "idk if it is just me but the ui still needs a more modern and professional polish. I think an issue might be that some of the ui elements, controls and dropdowns are too large and bulky and have too large spacing and margins around them and gaps around panels?? like the vs code ui is a lot more cleaner and refined and the sidebar is still floating but its more subtle, the controls are smaller and"
+  Recommendation: the density census (control heights, gaps, radii, topbar height) before and after, against the VS Code reference. Also carried by Brief 41 (UI density).
+- "also I think the topbar is a little large but idk maybe not. maybe research design principles or standards?? ensure wcag 2.2 accessibility is followed and complied with"
+  Recommendation: measure the topbar height against the density target and run the axe sweep per surface. Also carried by Brief 41 (WCAG 2.2).
+- "Ive been screenhotting parts of the perplexity interface and others but there are soo many more modern examples and ways to structure stuff. I think that all the controls and docks on each page and dropdown menus and popup menus and stuff just need a major polish and refinement and they all need to be consistent across the app. think maximum learnability, minimalist and instinctive to use. refined"
+  Recommendation: one control recipe for every dock, dropdown and popup (kebabMenu, .dock, the tokens in DESIGN.md), checked by the ratchets in test_ui_recipes.py. Also carried by Brief 41 (UI density and refinement).
+- "feel like there should be a subtle like meatball icon in the top right on the same line as the quick access title on aligned to the right above the quick access menu to allow for easier and more intuitive access to these buttons?? maybe not idk"
+  Recommendation: build it only if the density census shows the quick access buttons are hard to find; use the kebabMenu recipe. No brief carries it; Brief 41 is the nearest.
+- "do way to view logs of bg processes"
+  Recommendation: a background tasks log in settings, read from the job runtime. Also carried by Brief 37 (logs of background tasks).
+- "there's no option to have the ocr workspace in the quick access section in the dashboard, it also isnt accessible in the cmd palatte or find anything search"
+  Recommendation: add the OCR workspace to quick access and to the command palette and search. Also carried by Brief 37 (OCR in quick access and palette).
+- "The whole begin the app for the first time workflow is a mess, popups and notifications  clash with each other, the tour gets cancelled, to much goes on, and on the tour it is hard to see the other features  around the things highlighted."
+  Recommendation: one first-run flow with a single queue, a tour that can be finished, and spotlight steps that leave the neighbouring features visible; measured on a fresh profile. Also carried by Brief 37 (first-run queue and tour handoff).
+- "The packages install progress bars and stuff are very messy and need refinement and better information architecture and ux needs to be done for when features aren’t accessible because of an uninstalled package"
+  Recommendation: one install panel with per-package progress and a link from any locked feature to it. Also carried by Brief 37 (packages progress).
+- "There needs to be more utility on all features app wide and more ui/ux cleansing"
+  Recommendation: this is the Brief 41 refinement pass plus the Brief 38 topic and note-property work applied on every surface. Also carried by Brief 41 and Brief 38.
+
+### 12z Learnability, 2026-10-10 (INBOX 749)
+
+The owner asked for "learnability" by name; no plan measured it. Five
+numbers, each a Playwright run on a fresh profile, kept in
+`scratchpad/ui-sweeps/learn.js` and reported in Brief 41's five lines:
+
+| Measure | Today | Bar |
+| --- | --- | --- |
+| Time from first paint to a saved note, with no help opened | unmeasured | under 60 s |
+| Tour steps whose target is visible and non-empty (INBOX 745) | unmeasured | all |
+| Controls with a `data-help-for` popover, per surface | unmeasured | every control not self-describing |
+| Guide questions answered from `help_chat.py` for the twenty first-week tasks | unmeasured | 20 of 20 |
+| Keyboard shortcuts discoverable from the surface (a sheet or a tooltip) | unmeasured | all |
+
+Decision: learnability work is a row here, measured by these five, never a
+new plan; the first-run queue (Brief 37) and the Guide's topics carry it.
+
+## Phase 13: the design review, every surface against the principles (Fable, 2026-10-10)
+
+The owner, 2026-10-10: "do the same thing for the apps design, learnability,
+structure, accessibility, usability, hierarchy, how tools and elements are
+arranged, styled, bundled, positioned, spaced, colour ... what is poorly
+designed ... for all surfaces." Phase 12 took the owner's observations
+(density, hover, pickers, metadata, circles). This phase takes the
+principles, measures the stylesheet and the markup against each, and names
+what is poorly designed with its number.
+
+**Method and limit.** The stylesheet was measured (16 files, 73,672 lines,
+2,603 selectors, 412 custom properties) and `index.html` parsed (1,015
+buttons, 15 dialogs, 110 selects, 278 inputs, 22 textareas, 347 dock
+classes, 98 help popovers, 7 tabs). Brief 56 then observed the rendering
+(2026-10-10; Chromium at 1440x900 and 390x844 touch; a notebook of 38 notes,
+5 documents, a board and a map): `scratchpad/ui-sweeps/hierarchy.js` for the
+counts, `contrast.js` (46 surfaces, both widths, both themes), `axe.js` (axe-core
+with the wcag22aa tag; there is no `axe.js`, this is the sweep the plan
+meant) and `a11yname.js`. "Visible" is `checkVisibility()` with a box of at
+least 4 px; "in view" is also inside the first viewport. Each "Today" below is
+an observed number unless it says "markup".
+
+### 13.1 The principles, each as a rule with a measurement
+
+DESIGN.md already carries contrast, alignment, repetition and proximity
+(its "principles" section) and the recipe index. These are the rest, in
+the order a person meets them, with what the code says today.
+
+| # | Principle | The rule here | Today, measured | Judgement |
+| --- | --- | --- | --- | --- |
+| 1 | Hierarchy | one primary action per surface; three levels of emphasis (primary, quiet, ghost); the eye lands on the content, then the one action | 1,015 buttons in the markup. Visible at rest at 1440 (390): Notes list 316 (268; 63 and 24 in the first view, 38 note cards), capture 19, writing room 27, Ask 19, Chat 26 (19), Graph 11 (9), Timeline 17 (16), Reminders 20 (14), Documents 22 (10), a Library section 14 to 99 (the Skills list 99), an open board 35 (8), an open map 30 (10), a Settings section 28 to 167 (4 to 141), the Dashboard 24; the chrome adds 25 (11). Filled (accent) buttons: exactly one on 16 of 20 surfaces at 1440; two on the Dashboard (Save, Generate this week's dig) and the writing room (Compose, Save); none on Boards and Contents; at 390 the floating New note makes it two on Ask and three on the writing room. `.primary` is on 0 visible buttons (the fill is the base `button` rule) | one primary is nearly met (decision 20 holds on 16 of 20); the count of doors is the problem: Notes 316, Settings help 167, Skills 99 |
+| 2 | Grouping (proximity, common region) | related controls share a container; a dock folds past seven items; unrelated groups are two spacing steps apart | 347 dock classes; `test_dock_grammar` holds the grammar. Of 14 content docks at 1440, 6 show more than seven items: Notes 10, Graph 9, Library 9, Chat 8, Timeline 8, Boards 8 (Library docs and media 7); at 390 none does, because 4 to 21 rows per dock sit in the folded menu | desktop docks overflow by count while the phone folds by width; fold by count at 1440 as well |
+| 3 | Alignment and rhythm | everything on the 4 px grid; one left edge per column | spacing literals off the scale: 7.2, 6.4, 4.5, 3.6 and 26.4 px (rem arithmetic leaking into px); the scale lint allows them because they are not in the spacing properties it reads | close the escape |
+| 4 | Consistency (one recipe per need) | one value per role | 46 distinct font sizes (`0.8rem` 48 uses, `0.85rem` 34, `0.75rem` 27, `0.92rem` 24, all off the token ramp); 35 radius expressions; 59 `50%` circles (decision 3 allows avatars and the companion only); 75 distinct shadows against 3 elevation tokens; 96 distinct transitions; two z-index systems (1 to 60, and 1010 to 1040) | the ramp exists and is bypassed; each bypass is one decision below |
+| 5 | Feedback and state | every control declares rest, hover, focus-visible, active and disabled together | 418 selectors with a hover rule, 282 of them with no focus rule (`.icon-btn`, `.graph-zoom-btn`, `.doc-dock-menu-btn`, `.wb-library-item` among them). Observed: a 40-press Tab walk over 14 surfaces, the chrome, the status bar and 7 Settings sections found 312 stops whose look did not change, 110 distinct controls (every status bar item, `.ghost.small` buttons, select openers among them) | a keyboard user sees two thirds of the app without its hover feedback; 110 controls give no sign of focus |
+| 6 | Signifiers | an icon-only button has a label; one tooltip shape; a tool names its cursor | The 13 markup buttons with no text, `aria-label` or `title` are the status bar's 12 and the Logs copy row; JS paints each before it can be seen. Observed: 0 visible controls without a name across 20 surfaces, 6 menus each and 19 dialogs, at both widths; the 7 empty ones in the DOM are hidden until used and named when shown (chat model badge, map task, note and link markers). 93 icon-only buttons in the Notes list (59 at 390) are named by `title` alone. Real gaps: 20 task checkboxes in note cards with no label (axe critical `label`), the Dashboard heatmap scroller not keyboard-focusable, one 23.6 px tag span at 390. Tooltip shapes mixed (the owner) | the 13 are retracted as a defect and pinned by a test; the gap is the task checkboxes; the shape is decision 3 |
+| 7 | Recognition over recall (learnability) | every action is in its surface's dock or menu, in the command palette with its shortcut, and in the Guide; no gesture without a visible alternative | 36 rebindable shortcuts in the table; 549 key checks outside it; the palette lists what the table knows | the shortcuts a person can learn are the table's; the rest are undiscoverable |
+| 8 | Error prevention and recovery | undo over confirm (WORLD_CLASS 1.8); confirm only the irreversible; validation inline, at the field | six undo implementations; 98 confirm call sites (95 `confirmDialog`, 1 `window.confirm`, 1 unsaved-work prompt, 1 tool-call confirm) against 46 undo call sites; 18 markup overlays plus the built confirm, all centred cards at both widths | one undo contract (rule 1.8); the confirms are twice the undos |
+| 9 | Progressive disclosure | the first view shows what most people need; the rest behind details, Customise or a menu | 278 inputs and 110 selects in the markup. At rest at 1440: Notes 1 text field and 1 select (and 20 task checkboxes), capture 3 and 1, writing room 4 and 4, Reminders 4 and 2; a Settings section 1 to 6 inputs and 0 to 3 selects, but 28 to 167 buttons and 9 of 20 sections with no filled button | the fields are few; the buttons are the load; Settings is the test case (decision 52) |
+| 10 | Fitts and Hick | targets at least `--target-min`; the primary action at the pointer's resting place; menus under nine items or grouped | `--target-min` 86 uses, `44px` 5 literals; `test_a_long_kebab_menu_is_grouped` holds | the literals fold into the token |
+| 11 | Colour as meaning | accent for the primary action and state; semantic colours for semantics only; chrome has no decorative colour | 265 hex and 323 rgb literals: 190 and 198 in the themes file (its job), 74 and 110 in tokens (its job), 52 and 26 in `08-consistency.css`, 28 and 65 in `02-chat-graph.css`, 26 and 7 in `06-timeline-dialogs.css` (not their job) | colour that is not a token cannot follow a theme or a palette; 200 literals outside the two files that own colour |
+| 12 | Type | one ramp of seven tokens; body at 14 to 15 px; line height 1.45 to 1.5; nothing under `--text-xs` | the ramp is used 681 times; the four off-ramp rems 133 times | map the four to tokens and close the rem escape in `test_style_scale` |
+| 13 | Motion | three tokens; motion explains a change of place or state and nothing else; reduced motion answered | `--motion-slow` 65, `--motion-base` 41, `--motion-fast` 28; literals `0s` 11, `80ms`, `250ms`; 35 reduced-motion blocks (linted) | slow is the commonest duration, which is backwards for an app that should feel fast |
+| 14 | Specificity and the stylesheet's own structure | a rule lives with its component; no `!important` | 171 `!important` (45 in `02-chat-graph.css`, 40 in `08-consistency.css`, 40 in `07-whiteboard-misc.css`); `08-consistency.css` is 11,631 lines of corrections appended after the component files; `10-responsive.css` is 3,002 lines with 109 phone blocks away from their components; 236 selectors matched by no markup (census 24) | the consistency layer is where inconsistency is patched, not where it is prevented |
+| 15 | Density | Phase 12 | Phase 12 | Brief 41 |
+| 16 | Accessibility | WCAG 2.2 AA | Phase 12 decision 4. Observed: contrast 0 below 4.5 on 46 surfaces at 1440 and 390 in both themes; axe (wcag2a to wcag22aa) 2 rules at 1440 and 3 at 390 in both themes (task checkboxes without a label, 20 nodes; the heatmap scroller; at 390 one 23.6 px target) | Brief 41; principle 5 is the largest a11y gap this review found (110 controls) |
+
+### 13.2 Surface by surface
+
+| Surface | Hierarchy | Grouping and arrangement | Consistency | Learnability | The gap in one line |
+| --- | --- | --- | --- | --- | --- |
+| Shell: topbar, tabs, status | the brand, seven tabs, search, the model pill and the status compete at one weight; the header holds 13 buttons at 1440 (6 at 390) | the status bar carries 12 items in 37 px at 1440 and none at 390 (the phone shell takes them) | the header is 64 px at 1440 and 58 at 390, measured against a 28 to 32 px grammar | tabs are learnable; the status pill's meanings are not | one weight for everything; the status bar needs three states, not nine items |
+| Sidebar (categories, spaces) | categories, spaces, tags and the rail at equal weight | the rail duplicates the sidebar's job on the phone | the floating sidebar's gutter is 8 px by decision 1 | drag targets with no visible alternative on desktop | a hierarchy of two (spaces over categories) and one rail recipe |
+| Notes list and note card | title, facts line, body, chips at one weight; the facts line is a lint now | `entryItem` 915 lines builds a card with up to nine affordances: 316 buttons for 38 cards (about 8 each), 93 icon-only ones named by `title` alone | metadata rule (Phase 12 decision 7) | the inline query grammar is invisible | one muted metadata line; the query help in the box |
+| Note editor and capture | the editor's bar, the selection bar, the inline AI and the slash menu are four surfaces for one task | the capture form's adders (documents, tags, templates) sit above the text | selection bar linted (`one sticky recipe`) | slash is discoverable (the hint), the selection bar is not | fold the four into two (bar and slash); the capture box shows the text first |
+| Ask answer | the answer, its citations, sources, evidence, figures and the trail are six blocks | `renderAnswerSupport`, `renderEvidenceView`, `renderAskAnswerFoot`: three feet | citations `[**Title**]` since triage | a reader cannot tell which block to read first | answer first, sources as one foot, the rest behind one toggle |
+| Chat | bubbles, meta lines, tool chips, the rail, attachments, the mode segment | `sendChatMessage` 1,079 lines renders and sends | metadata rule | the modes (Ask, Chat, Agent) are a segment with no explanation at rest | one bubble recipe with the meta line, one explanation line per mode |
+| Documents and code | DOCUMENTS 17 and 21 | the live view bar and the block bar | `docCmTheme` 871 lines of theme | the slash menus are one system (DOCUMENTS 18) | Brief 42 |
+| Whiteboard and mind map | the radial, the tool palette, the format panel, the properties sheet, the dock: five | `initWhiteboard` 3,730 lines | draw.io programme | the radial is a toolbar not a menu (linted) | the format panel as draw.io's one panel (programme phase 2) |
+| Graph | the options folds (three) | GRAPH decisions | `renderGraphSvg` 1,254 lines | folds are learnable | Brief 38 |
+| Timeline | feed, table, scrubber | one row model | row tokens | keys documented in the plan, not the UI | Phase 5 adds the calendar; the keys go in the help popover |
+| Library | gallery, activity, filters | `filterLibraryImagesGallery` 1,546 lines | chips as `.library-chip` | the filter well recipe | split along the seams (Brief 45) |
+| Dashboard | greeting, clock, art, timer, streak, digest, widgets, quick links, features | nine blocks, 24 buttons, two filled (Save, Generate this week's dig) and a 4-item dock | widgets sized by `sizeDashWidgets` | the catalogue is a second navigation | "continue and today" (WORLD_CLASS decision 51) |
+| Settings | 179 keys over panes; 20 sections, first view (models) 32 buttons | 28 to 167 buttons a section at 1440, one filled button on 11 of 20 | help on 105 rows | no search | WORLD_CLASS decision 52 |
+| Dialogs and sheets | 18 markup overlays plus the built confirm, the sheet recipe linted | the 18 that render open as centred cards at 1440 and at 390 (337 px wide, 27 px gutters); none is pinned to an edge. By size at 390: 8 should be bottom sheets (extract 218 px, history 97, connections 126, binned 196, run a skill 155, board keys 168, meeting 294, features 157), 2 stay dialogs (confirm, welcome), 4 are page-sized (OCR 765, Settings 798, Shortcuts 798, Sketch 712), 4 are palettes (command, agent, finder, improve); one (document AI) did not render closed | one recipe (the lint) | consistent dismissal | 8 become sheets at 390 (13c) |
+| Menus | kebab menus linted and grouped | hand-built menus ratcheted | one recipe | consistent | hold |
+| Toasts and notifications | toast, undo bar, server-down banner, AI-offline notice, notifications panel: five channels | `status.js` 81 functions | one toast host | a person cannot predict which channel speaks | three channels: toast (transient), the undo bar (actionable), the panel (history) |
+| Phone | the bottom tab bar, the FAB, the more sheet, folded docks | `phone-shell.js` 46 functions; `10-responsive.css` 109 blocks | the shell bands | the folded docks hide actions behind a kebab | phone rules live with their component (decision 19) |
+
+### 13.3 Decisions, 2026-10-10 (do not re-decide; numbered after Phase 12's 8)
+
+9. **A token budget.** 412 custom properties to under 200 by 0.8; a new
+   token needs a recipe that uses it twice; `test_style_scale` ratchets the
+   count downwards.
+10. **Colour literals live in two files** (`00-tokens-shell.css` and
+    `05-sidebars-themes.css`); every other hex or rgb is a token
+    reference. The 200 outside them move to tokens; the lint fails on a new
+    one.
+11. **The four off-ramp sizes map to the ramp** (`0.75rem` to `--text-xs`,
+    `0.8rem` and `0.85rem` to `--text-sm`, `0.92rem` to `--text-md`); the
+    lint closes the rem escape.
+12. **One layer scale as tokens:** `--layer-raised` 2, `--layer-sticky` 10,
+    `--layer-dock` 20, `--layer-popover` 40, `--layer-sheet` 50,
+    `--layer-modal` 60, `--layer-toast` 70, `--layer-lock` 80. The 1010 to
+    1040 set folds in; a literal z-index above 2 fails the lint.
+13. **Shadows are the three elevation tokens plus the focus ring;** 75 to 4.
+14. **Motion is the tokens;** `--motion-base` is the default, `--motion-slow`
+    only for a surface entering or leaving; a literal duration fails the
+    lint.
+15. **Hover and focus-visible are declared together.** A `:hover` rule on an
+    interactive selector has a `:focus-visible` twin with the same visible
+    change; `tests/test_hover_focus_pairs.py` ratchets the 282 down.
+16. **`!important` budget 171 to 0 by 0.8,** by specificity, with a ratchet.
+17. **Circles are avatars, the companion and the colour swatches;** 59 to
+    that count, the rest `--radius-pill` or the button radius.
+18. **`08-consistency.css` dissolves into the component files** by 0.8: each
+    rule moves beside the component it corrects, or becomes the recipe; a
+    ratchet caps its line count downwards and no new rule may be added to it.
+19. **Phone rules live with their component;** `10-responsive.css` keeps
+    only the shell bands; the same ratchet.
+20. **One primary action per surface, counted.** Brief 56 measures visible
+    `.primary` buttons per page at rest; the number must be one.
+21. **Three notification channels:** toast (transient, six seconds), the
+    undo bar (actionable, rule 1.8), the panel (history); the server-down
+    banner and the AI-offline notice are toasts with the keep action.
+22. **The Ask answer is answer, then one foot** (sources), everything else
+    behind one "Evidence" toggle.
+23. **The bar is a professionally designed product, and the references are named** (the owner, 2026-10-10, INBOX 755: "make the design on par and better than a modern professionaly designed web and app interface. research for inspiration and guidance if needed"). 13.R, before 13c: a reference read of six products the owner's users already know (a notes app, a task app, a browser, a code editor, a whiteboard, and the platform guidelines, Apple HIG and Material 3), one paragraph each in ANALYSIS.md naming the pattern taken and the measurement it sets (rest density, primary count, dialog shape, motion length, type ramp), never a screenshot copied. Every 13.2 row then cites the reference its target comes from. The vendored design skill is consulted and overruled where the references disagree (HANDOVER "Skills").
+
+### 13.4 Phases with gates
+
+| Phase | Builds | Gate | Brief |
+| --- | --- | --- | --- |
+| 13.0 Measure | visible controls and primaries per page at rest at 1440 and 390, the dialogs classified, the 13 unlabelled buttons plus the JS-built ones, `axe.js` and `contrast.js` per surface, the confirms counted, `hierarchy.js` written | 13.1 and 13.2 re-written with numbers; a list of every offence per decision | 56 (Sonnet, medium); measured 2026-10-10, numbers in 13.1 and 13.2, sweep `hierarchy.js` |
+| 13a The stylesheet's grammar | decisions 9 to 17: tokens, colour literals, the type ramp, the layer scale, shadows, motion, hover and focus pairs, `!important`, circles; each with its ratchet in `test_style_scale.py` or a new lint | every ratchet green; `contrast.js` and `errors.js` unchanged; no visual change except the hover and focus twins (measured by `getComputedStyle` on ten controls) | 57 (Opus, high) |
+| 13b The stylesheet's structure | decisions 18 and 19: dissolve the consistency and responsive files into the components; remove the 236 unused selectors | the two ratchets; the sweeps unchanged; file count and line count recorded before and after | 58 (Opus, high) |
+| 13.R The references | decision 23: six references read, the pattern and the number each sets, written into ANALYSIS.md and cited from 13.2 | every 13.2 row names its reference; no target without a number | 57 (Opus, high), first step |
+| 13c The surfaces | the 13.2 rows not owned elsewhere: the shell's weights and the status bar's three states, the sidebar's hierarchy and rail, the capture form's order, the Ask answer's foot (decision 22), the chat bubble recipe, the notification channels (decision 21), the dialogs that become sheets | each row's before and after numbers from Brief 56's sweep; `docks.js`, `contrast.js`, `touch.js`, `axe.js` green on every surface | 59 (Opus, high) |
+
+Phase 12 (Brief 41) runs first; 13a and 13b are mechanical enough to run
+beside it; 13c follows 13a.
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC3, D3 scales, axes and number formats for the Ask and statistics charts** (M, rank 3). `ask-chart.js` `askChartTicks` returns at most five integer ticks and the charts are hand-built SVG; D3 ships scale 32, shape 63, axis 4 and format 24 exports with 1, 0, 0 and 0 called. Measure: a chart with a 0 to 1,240 range gets round ticks (`scaleLinear().nice().ticks(5)`) and thousands separators; `contrast.js` and `docks.js` stay green; the chart's PNG export (`askChartPng`) still renders.
+- **VC9, one icon picker** (S, rank 9). `pickIconOrEmoji` (all 1,530 Phosphor glyphs and the emoji groups) has 3 call sites (`editor.js`, `whiteboard-library.js`, `whiteboard-map.js`); Spaces choose their icon through their own `spaceIconPicker` (`spaces-find.js` lines 424 and 434). Measure: Spaces create and edit open the shared picker, `spaceIconPicker` is deleted, and the Space icon still validates server-side (`_validate_icon`).
+- **VC14, Phosphor's fill weight for active states** (S, rank 14). One of six weights ships (`Phosphor.woff2` 147,380 bytes, regular only); an active or selected nav item is the usual home of the fill weight. Measure: the extra font bytes for the fill build, and the active-state contrast (`contrast.js`) with the fill glyph; drop the row if the bytes are not worth one state.
+
+## Deepened 2026-10-10: statistics (Brief 72b, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72b.js` (fresh data dir, no model,
+96 notes, 12 reminders; 1440 and 390). The owner asked for "user and usage
+and notebook statistics". Today there is no statistics surface; the numbers
+are spread over four places. The dashboard: painted in 141 ms at 1440 and
+573 ms at 390; ten sections (Reminders, Recently added, Favourites, Quick
+capture, Recent documents, Boards and maps, Weekly digest, On this day,
+Activity heatmap); 31 to 34 numbers on screen; `/insights/stats` answers in
+13 to 79 ms with 5 keys (`total_entries`, `categories`, `per_day`, `days`,
+`to_review`); 0 overlaps, 0 past the edge. Usage: Settings, General, "what
+you use" (`#usage-box`, 3 clicks): "Most used: Dashboard tab 18, Chat tab 3,
+..." and "Not used in 90 days (82)". The notebook in chat
+(`notebook_stats.answer`, ten kinds): the count in 829 ms, the top tags in
+1,416 ms. The graph's `#graph-stats` chip and the mind map's statistics item.
+The palette's "statistics" finds nothing. All of it is deterministic. **The
+bar:** Day One and Apple Journal (streaks, words, places), Screen Time's
+weekly report (usage, against last week), GitHub's contribution graph,
+Obsidian's vault statistics.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | expansion | Statistics page: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+| 2 | expansion | Weekly review card: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+| 3 | redesign | Its charts from the Ask chart recipe on D3 scales (VC3 above) | no tick label overlap at 390; one chart recipe in DESIGN.md | 11, 7 |
+| 4 | fix | The usage list's 82 unused features feed the weekly offer (12z, rule 6) | the dashboard offers one a week | 6 |
+| 5 | optimisation | Chat's statistics answers: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+| 6 | expansion | Statistics inside a window or topic ("notes about the harbor this month"; CHAT_PLAN catalogue A18) | the A18 rows at 1.0 | 12 |
+
+**Briefs.** 37 (row 4), 65 (row 6), 75 (row 3), 89 (rows 1, 2, 5).
+
+## Deepened 2026-10-10: utilities (Brief 72b, decision 71)
+
+Same sweep. "More utilities": today the small tools are the dashboard's
+focus session (a timer that notifies, `dashboard.js` near line 3906), the
+reminders' parser, the documents editor's word goal, counts and reading
+time, and the chat's statistics. `ai/arithmetic.py` exists, but chat
+answered "what is 15% of 240" with a note and "convert 5 km to miles" with
+"Nothing in the notes" (CHAT_PLAN foundation 7). The palette has 80
+commands; "calculator", "timer", "convert", "word count", "stop the model",
+"activity" and "health" each find 0 commands (only "Search everything for
+..."). Settings' "Tools it can use" is the agent's tool switches, not a tools
+pane for the person. No model needed for any of it. **The bar:** Raycast
+(calculator, units, currency from a dated table, date maths, timers,
+snippets and clipboard history, all in the bar), Alfred, Spotlight's inline
+sums and conversions, PowerToys Run.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | expansion | Utilities inline in the palette and the chat from one module: "15% of 240", "5 km in miles", "days until 25 Dec", "3pm Tokyo in London"; the answer is the first row, Enter copies (CHAT_PLAN decisions 47, 54, 56) | a 40-phrase set at 1.0 in both; 0 to 40 | 12, 2 |
+| 2 | expansion | Timer and stopwatch: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+| 3 | expansion | Selection counts: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+| 4 | expansion | Templates from the palette: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+| 5 | fix | A Guide topic per utility: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+
+**Briefs.** 65 and 66 (row 1), 89 (rows 2 to 5).
+
+## Deepened 2026-10-10: the command palette and Find anything (Brief 72b, decision 71)
+
+Same sweep. The palette: Ctrl+K opens it at both widths; open 42 to 506 ms
+at 1440, 222 ms at 390; 80 commands and 89 rows at rest; 0 overlaps and 0
+past the edge at both widths. Of 18 queries, commands are found for
+reminder, timeline, undo, agent, backup (2 rows), guide (the tour, not the
+Guide) and calendar ("Open today's note"); none for "ocr", "read text from
+image", "stop the model", "statistics", "calculator", "timer", "convert",
+"word count", "find anything", "activity" and "health". Find anything
+(`openFinder`, `spaces-find.js`): open 44 to 151 ms; "harbor" 18 results (16
+notes, 2 reminders) in 840 ms; "Sam" 30 in 819 ms ("showing results for
+sam"); "last week" 30 in 544 ms (words or a window, not verified); "boiler
+pressur" 18 in 851 ms; "settings backup" 2 in 777 ms; "ocr" 0, with no
+suggestion; 9 kind filters; 2 targets under 24 px. **The bar:** Raycast and
+Alfred (one bar for commands, objects and answers, learned ranking, aliases,
+results within a frame of each keystroke), Spotlight's top hit, Linear's
+context-aware actions, VS Code's prefixes.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | **Built 2026-10-10 (Brief 90; HISTORY "UI_MODERNISATION the palette, Brief 90")**: typed text reaches every catalogue feature, act and setting (`paletteFeatureRows`, `paletteActRows`, `paletteSettingRows`) | 7 of 18 words empty to 0 at 1440 and 390 (the other 4 of the 11 were found by rows added since the sweep); 0 catalogue features missing (`tests/test_palette_coverage.py`) | 2, 6 |
+| 2 | optimisation | Find anything 544 to 851 ms after the last keystroke: under 150 ms per keystroke at 96 notes, under 300 ms at 5,000 | the sweep's per-query ms | 25g budget |
+| 3 | fix | **Built 2026-10-10 (Brief 90; HISTORY "UI_MODERNISATION the palette, Brief 90")**: the palette's Nearest row and the handoff's why; Find anything's empty state with one way on (kind, dictionary spelling, nearest feature) | "ocr" finds the OCR workspace in both; calculater, remidner, ocrr, statstics 0 to 1 nearest | 4, 6 |
+| 4 | fix | "last week", "in March" are windows through the one reading (decision 47) | every result dated inside the window | 10, 12 |
+| 5 | expansion | **Built 2026-10-10 (Brief 90; HISTORY "UI_MODERNISATION the palette, Brief 90")**: `palettePick` (prefs `palette-picks`), `PALETTE_ALIASES`, the reason in each row's title | the row run before is first for 0 of 10 repeated queries to 10 of 10 | 2 |
+| 6 | expansion | Utilities inline (the utilities block above) and the quick-add grammar's parsed act as the first row (CHAT_PLAN F2) | Brief 66's gate | 12, 2 |
+| 7 | fix | **Built 2026-10-10 (Brief 90; HISTORY "UI_MODERNISATION the palette, Brief 90")**: the field is the band's hit area | 2 to 0 under 24 px at 1440 and 390; touch.js Find anything 0 under 44 px at 390 | 9 |
+
+**Briefs.** 47 (rows 2, 4), 66 (row 6), 90 (rows 1, 3, 5, 7).
+
+## Placed from INBOX, 2026-10-10 (the owner's morning UI reports)
+
+Owner: the uipolish agent (Sonnet), one commit per item, measured at 1440 and 390.
+
+- INBOX 776. **UI, the owner 2026-10-10 22:05Z, three screenshots.** "these highlighted borders are cut off. is agent available now when the ai isnt running?? or should the toggle option be disabled?? also on the submenu bars, can you improve the design of the hover state a bit?? like add a grey or sub colour line when hovering over other ones that arent active??" Shots: the top tab bar's focus ring on Graph clipped top and bottom; the chat composer's Ask / Agent toggle with Agent on; the Notes sub-tabs (Your notes, Capture, Writing room, Ask, Questions).
+- INBOX 777. **UI, the owner 2026-10-10 22:10Z.** "the shimmering sliding animation on the skeleton loaders is very fast and not smooth or pleasing to the eye in how fast and jittery it is"
+- INBOX 779. **UI, the owner 2026-10-10 22:15Z, two screenshots.** "on custom themes can you maybe adjust the delete bin icon a little?? and also I think the Your Themes setting section is designed awkwardly". The bin sits on the card's corner, cut by the border; the section is a left label column beside one card, the name field and Save, with the two reset buttons below the whole row.
+- INBOX 780. **UI, the owner 2026-10-10 22:18Z, screenshot.** "also can you improve the opacity of the peak function in the settings as well?" (Settings' Peek: the panel is still mostly opaque and blurred over the app.)
+- INBOX 782. **UI, the owner 2026-10-10 22:22Z, screenshot.** "can you redesign the confirm and not right buttons in the tidy popup panel?? and any other similar instances of them across the app" (Tidy's Patterns rows: two full-size bordered buttons under each sentence.)
+- INBOX 783. **Question, the owner 2026-10-10 22:23Z, screenshot.** "how do I delete a suggestion??" (Tidy, Category names: one suggestion, ticked, with All, None and Rename 1 category; no way to dismiss it for good.)
+
+## Placed from INBOX, 2026-10-10 (the owner's afternoon reports)
+
+Owners: uipolish (789), polish2 (790 to 792 and 788's design fixes), DOCUMENTS_PLAN for 788's features.
+
+- INBOX 788, UI and features, documents and code, the owner 2026-10-10 22:35Z, six screenshots. "the topic edit popup needs a redesign and fix. are there any improvements made to the general document editor?? can you improve how references show with the buttons on them?? this outline tab of the sidebar is a little awkward and poorly designed. also in the code editor, this popup is poorly designed and spaced and stuff" then "the code ide and its panels need a design fix. also can you add code templates as document templates as well??", "maybe even add a code modules library like with the whiteboard and mindmap??", "and a way to better interact with the ai as a coding asistant like in vs code??" (Shots: the graph topic edit popup, name field crowding "7 notes"; a References row with Aa and x; the documents Outline tab; the code editor diagnostic "Expected ':'" with its fix button; the IDE bottom panel tabs and toolbar; the Console input.)
+- INBOX 789, UI, the owner 2026-10-10 22:38Z, two screenshots. "not all buttons have the same hover states?? all the ui styles across the app need to be consistent, modern and professional." (All spaces gets a filled background; the top-right icons only tint.)
+- INBOX 790, UI and bug, the owner 2026-10-10 22:40Z, three screenshots. "can you resesign or restyle these buttons in the ocr workspace header??" then "clicking that star button in the find anything panel just darkens the background and doesnt do anything. also I feel like the favourite active versions should be filled, not just a yellow outline. also when scrolling down, I feel like the sub menu bars are a little hard to see and access as they are so short height wise??"
+- INBOX 791, UI, mind map, the owner 2026-10-10 22:42Z, three screenshots. "these buttons on the mindmap nodes are a little hard to see and interact with. also labels look pixelated" and "this side tab looks a little messy and needs a redesign" (the node's + and copy buttons; a blurry link label; the "This map" panel.)
+- INBOX 792, UI, mind map, whiteboard and fit, the owner 2026-10-10 22:45Z, three screenshots. "also i dont think i should be typing in these outline options in the sidebar unless i like double click on them ore press an edit button on the side in the mind map. also on the whiteboard can you improve these arrow options and also show examples in the options as well?? there is only one actual arrow option for the links. also I feel like there should be the option to hide the flap in the corder of sticky notes. also the fitting to screen featurs on the graph, mind map, and whiteboard should be based on what panels are currently showing and the screen resolution/size."
+- INBOX 793, UI, whiteboard, the owner 2026-10-10 22:48Z, two screenshots: "also I think the view and board dropdown menus in the whiteboard need a bit of a redesign and/or restyle" (Board: section heads, plain rows, then label-and-action rows like "Export ... Export...", "This board itself ... Delete"; View: two columns of toggles, the Grid select and shortcut rows.)
+- INBOX 794, UI, whiteboard library, the owner 2026-10-10 22:52Z, screenshot: "also the previews in the library arent vissually accurate to what is actually placed and are a bit misleading" (the Library's General shapes draw grey filled shapes with a light outline; placed shapes take the board's colour, line and fill, e.g. a cyan-outlined triangle.)
+- INBOX 795, UI, the owner 2026-10-10 22:55Z, two screenshots: "just make sure that the app actually recieves a propper ui polish and refinement. there are still some awkward sections. also I think the ui can be redesigned or made better on this panel like with the buttons. and in the popup for individual notes, there should be an option to open the sidebar." (the Connections panel and popup: a full-width bordered button per board and per note.) Owner: uipolish.
+- INBOX 796, bug, graph, the owner 2026-10-10 23:00Z, two screenshots: "dropdown menus in the graph dont close when another is opened causing a visual clash and overlay for all 3 of these buttons" (the ?, settings and ⋯ menus in the graph head open on top of each other.) Owner: graphfeel.
+- INBOX 790 to 793 are built (canvasui-1010): see HISTORY.md, "Moved from the plans, 2026-10-11 (canvasui-1010)".

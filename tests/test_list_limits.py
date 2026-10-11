@@ -26,6 +26,8 @@ from memorymap.api.app import create_app
 #: A list route is allowed to return everything only when "everything" is a
 #: number the app itself fixes. One line per route, with the bound.
 BOUNDED = {
+    # What is running now: one row per live job, bounded by the workers.
+    "/activity",
     # The chat modes and the tool catalogue are code, not data: both are
     # literals in the source and change only when somebody edits them.
     "/chat/modes",

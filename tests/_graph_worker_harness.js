@@ -9,7 +9,8 @@
 //
 // The scenario is {nodes:[{id,group,r}], edges:[{source,target,kind,reason}],
 // params:{}, world:{...}, ticks:N}; the answer is {positions:{id:[x,y]}} after
-// N ticks. Deterministic: d3's initial layout is a phyllotaxis spiral and the
+// N ticks, and the alpha the first posted tick carried (`warm: true` asks
+// the worker to step a fresh layout before its first post, INBOX 738). Deterministic: d3's initial layout is a phyllotaxis spiral and the
 // forces use no random source here.
 const fs = require("fs");
 const path = require("path");
@@ -65,13 +66,27 @@ sandbox.onmessage({
     params: scenario.params || { gravity: 50, spread: 50, lengthByScore: true, groupBy: true, orbit: true },
     world,
     alpha: 1,
+    warm: scenario.warm === true,
+    intro: scenario.intro === true,
   },
 });
 let last = null;
+let firstAlpha = null;
+// The warm-up's playback (INBOX 775): the `frame` posted at init, and how
+// many ticks were playback and from what heat the first one came.
+const framed = sent.some((m) => m.type === "frame");
+let introTicks = 0;
+let firstIntroAlpha = null;
 for (let i = 0; i < (scenario.ticks || 300) && timers.length; i++) {
   timers.shift()();
+  for (const m of sent) {
+    if (m.type !== "tick" || !m.intro) continue;
+    introTicks += 1;
+    if (firstIntroAlpha === null) firstIntroAlpha = m.alpha;
+  }
   const tick = sent.filter((m) => m.type === "tick").pop();
   if (tick) last = Array.from(tick.positions);
+  if (tick && firstAlpha === null) firstAlpha = tick.alpha;
   // the main thread hands each buffer back; do the same so the pool never starves
   sent.length = 0;
   sandbox.onmessage({ data: { type: "recycle", buffer: new Float32Array(scenario.nodes.length * 2).buffer } });
@@ -80,4 +95,4 @@ const positions = {};
 scenario.nodes.forEach((n, i) => {
   positions[n.id] = [last[i * 2], last[i * 2 + 1]];
 });
-process.stdout.write(JSON.stringify({ positions }));
+process.stdout.write(JSON.stringify({ positions, firstAlpha, framed, introTicks, firstIntroAlpha }));

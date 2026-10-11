@@ -66,6 +66,9 @@ def _painted_actions() -> set[str]:
             continue
         found |= set(re.findall(r'\bshortcut: [^\n]*?"(\w+)"', text))
         found |= set(re.findall(r'shortcutTitle\([^\n]*?,\s*"(\w+)"\)', text))
+        #: The status bar's Undo and Redo, painted with their chords by
+        #: `paintUndoDoor(button, "undo" | "redo", ...)` (Brief 76).
+        found |= set(re.findall(r'paintUndoDoor\(\w+, "(\w+)"', text))
     return found
 
 

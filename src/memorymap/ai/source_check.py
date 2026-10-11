@@ -45,10 +45,15 @@ _NOT_NAMES = frozenset(
     }
 )
 
-_NUMBER = re.compile(r"(?<![\w.])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?:st|nd|rd|th)?(?!\w)")
+#: A number may sit against its unit ("120kg", "10k", "5x5", "2h50"): it
+#: starts after a non-word or after a digit and a letter, and ends where the
+#: digits do (Brief 68: "120kg" and "10k" in a model's answer were never
+#: checked, and "5x5" in a note backed no 5).
+_STARTS = r"(?:(?<![\w.])|(?<=\d[a-zA-Z]))"
+_NUMBER = re.compile(_STARTS + r"(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?:st|nd|rd|th)?(?![\d])")
 _WORD = re.compile(r"[A-Za-z][A-Za-z'\-]*")
 _COMPOUND = re.compile(
-    r"(?<![\w.])\d[\d,]*(?:\.\d+)?(?:[:/\-]\d[\d,]*(?:\.\d+)?)*(?:st|nd|rd|th)?(?!\w)"
+    _STARTS + r"\d[\d,]*(?:\.\d+)?(?:[:/\-]\d[\d,]*(?:\.\d+)?)*(?:st|nd|rd|th)?(?![\d])"
 )
 #: Leaked bookkeeping (H3 strips it) and markdown list numbering are not claims.
 _IGNORED = re.compile(

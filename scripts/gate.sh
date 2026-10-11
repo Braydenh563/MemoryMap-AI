@@ -141,6 +141,19 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # drift on 2026-09-12 that every `--changed` gate that day had passed. One
   # second.
   tests/test_docs_site.py)
+# **The code map regenerates itself here**, never by hand: `docs/CODEMAP.md`
+# is what every agent greps instead of reading files (the orient skill), and
+# `tests/test_codemap_fresh.py` fails when a function has moved since the last
+# build. A gate that left the map stale would turn that lint into a chore, so
+# the gate rebuilds it (about 2.5 s) and, under --staged, stages it so the
+# commit carries the map its code matches.
+if [ -f "$ROOT/scripts/codemap.py" ]; then
+  "$PY" "$ROOT/scripts/codemap.py" > /dev/null 2>&1 || true
+  if [ "$STAGED" = 1 ] && ! git -C "$ROOT" diff --quiet -- docs/CODEMAP.md; then
+    git -C "$ROOT" add docs/CODEMAP.md
+  fi
+fi
+
 # **The lint set runs once.** Under `--staged` it runs against the index (the
 # scratch tree below) and not also against the working tree: the two used to
 # run back to back, so a staged commit paid for the lint set twice (over
@@ -310,7 +323,7 @@ if [ "$SWEEPS" = 1 ]; then
   # dochighlight, spinnershape, featuremodels, btnrows, answersupport, listenerrounds)
   # outlived their files in the sweep cleanup and failed this mode for good;
   # `tests/test_gate_lint_set.py` keeps the list and the folder in step.
-  for s in errors docks contrast touch leaks keyboard diskspace sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder skillverify refchips phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone draftreadonly wbexportimage ctrlwheelzoom guidescroll libreadingfoot libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate mindmapimage mindmapcurve wbtopbar spinners tagoffer imagefold imagecardfoot asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps slashicons uitrio animcost noteobject mapdoors maplayouts maptheme canvasconventions mapviewmenu companionscroll companionbeats companionperf companionsmooth companionmenu companionlife profilelook companionpin perchall iconfloor companionreact companioninteract libtlscroll wbshapetext wblinklabel maptasks maplinkcue; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  for s in errors docks contrast touch leaks keyboard diskspace sketchhighlighter vibecheck vibefail graphminimap wbgroupguides refchips phonehead phonesidebar phonecapture phoneswipe phonenotepage phoneshare phonedocs phonereminders graphphone wbphone draftreadonly wbexportimage ctrlwheelzoom libreadingfoot libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate mindmapimage mindmapcurve wbtopbar spinners tagoffer imagefold imagecardfoot asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps slashicons uitrio animcost noteobject mapdoors maplayouts maptheme canvasconventions mapviewmenu companionscroll companionbeats companionperf companionsmooth companionmenu companionlife profilelook companionpin perchall iconfloor companionreact companioninteract libtlscroll wbshapetext maplinkcue; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

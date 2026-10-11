@@ -839,6 +839,21 @@ def lan_access(request: Request, config: ConfigManager = Depends(get_config)) ->
     return _lan_state(config, request)
 
 
+@router.get("/lan-certificate.pem", dependencies=[Depends(require_unlock)])
+def download_lan_certificate(config: ConfigManager = Depends(get_config)) -> Response:
+    """The public certificate, for a phone to install and trust (never the key)."""
+    from memorymap.core import lancert
+
+    info = lancert.read(config.data_dir)
+    if info is None:
+        raise HTTPException(status_code=404, detail="No certificate yet. Turn on other devices first.")
+    return Response(
+        info.cert_path.read_bytes(),
+        media_type="application/x-x509-ca-cert",
+        headers={"Content-Disposition": 'attachment; filename="memorymap-lan.crt"'},
+    )
+
+
 @router.post("/lan-certificate", dependencies=[Depends(require_unlock)])
 def regenerate_lan_certificate(
     request: Request,

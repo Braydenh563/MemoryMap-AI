@@ -1,0 +1,119 @@
+/* meetings-lazy.css: the meetings bundle's own stylesheet: the recorder's voice-note mode, the Library's
+   Recordings shelf and the trim sheet (WORLD_CLASS_PLAN 28.5 rows 3 and 6,
+   meetings.js), loaded with the meetings bundle (app.js
+   `LAZY_MODULES.meetings`) rather than at boot. */
+
+/* A voice note (WORLD_CLASS_PLAN 28.5 row 3, `openVoiceNote`): the meeting
+   recorder named for what it makes, its transcript saved as a plain note.
+   Here rather than beside `.meeting-into` (02-chat-graph.css) for the boot
+   budget: the recorder opens only after this bundle has loaded. */
+#meeting-overlay.voice-note :is(.meeting-kind-meeting, .meeting-save-new),
+#meeting-overlay:not(.voice-note) :is(.meeting-kind-voice, .meeting-save-voice) {
+  display: none;
+}
+
+/* A recording is a row on the row recipe (DESIGN.md, "A row in a list"):
+   mark (play), content (name, facts, waveform, markers), one actions cell
+   (speed, the menu). */
+.recordings-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recording-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-h);
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+.recording-row:hover {
+  border-color: var(--border);
+}
+
+.recording-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.recording-title {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recording-facts {
+  font-size: var(--text-sm);
+}
+
+.recording-wave {
+  display: block;
+  width: 100%;
+  /* A seek control: one touch target tall. */
+  height: var(--control-h-touch);
+  border-radius: var(--radius-sm);
+  background: var(--inner);
+  cursor: pointer;
+}
+
+.recording-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.recording-markers:empty {
+  display: none;
+}
+
+.recording-act {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.recording-row audio {
+  display: none;
+}
+
+.recordings-empty {
+  padding: var(--space-4) var(--space-3);
+}
+
+.recording-trim .prop-row {
+  align-items: center;
+}
+
+.recording-trim input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.recording-trim-at {
+  min-width: 4ch;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* A phone: the actions go under the content rather than squeezing it. */
+@media (max-width: 599.98px) {
+  .recording-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .recording-act {
+    grid-column: 2;
+    justify-content: flex-end;
+  }
+}

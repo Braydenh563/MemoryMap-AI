@@ -70,7 +70,7 @@ function renderReevaluateResult(entry, wrap) {
           toast(error.message, true);
         }
       });
-      tagChip.title = `Add the “${tag}” tag`;
+      tagChip.title = data.suggested_tag_reasons?.[tag] || `Add the “${tag}” tag`;
       tagRow.appendChild(tagChip);
     }
     wrap.appendChild(tagRow);
@@ -285,7 +285,7 @@ function attachFileTo(entry) {
 async function attachFromLibrary(entry) {
   const images = await apiJson("/media", { silent: true }).catch(() => null);
   if (!images) {
-    toast("Couldn't load the Library gallery.", true);
+    toast("Couldn't load the Library gallery.", true, { action: ["Try again", () => attachFromLibrary(entry)] });
     return;
   }
   if (!images.length) {

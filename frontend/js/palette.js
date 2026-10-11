@@ -174,6 +174,26 @@ function rememberAgentStarter(text) {
   }
 }
 
+//: **The acts, from the registry** (CHAT_PLAN section 2, the help row;
+//: `acts.palette_rows` through `GET /read/acts`): every act Chat does from one
+//: sentence, under "Do" after the table's own two, each titled with its help
+//: line, so the palette, the capability line and the Guide say the same thing.
+//: Fetched once; until it answers (or with no server) the table stands alone.
+const agentActs = { rows: null, asked: false };
+
+function agentActStarters() {
+  if (!agentActs.asked) {
+    agentActs.asked = true;
+    apiJson("/read/acts", { silent: true })
+      .then((got) => {
+        agentActs.rows = (got.rows || []).filter((row) => row.stem).map((row) => ({ group: "Do", label: row.label, text: row.stem, help: row.help }));
+        if (agentActs.rows.length) renderAgentStarters();
+      })
+      .catch(() => {});
+  }
+  return agentActs.rows || [];
+}
+
 function renderAgentStarters() {
   const box = $("command-palette-starters");
   if (!box) return;
@@ -188,7 +208,7 @@ function renderAgentStarters() {
   if (here) groups.push([`On ${agentTabLabel(tab)}`, here.slice(), "map-pin"]);
   const recent = agentStarterRecents();
   if (recent.length) groups.push(["Recent", recent, "clock-counter-clockwise"]);
-  for (const starter of AGENT_STARTERS) {
+  for (const starter of [...AGENT_STARTERS, ...agentActStarters()]) {
     const last = groups[groups.length - 1];
     if (last && last[0] === starter.group) last[1].push(starter);
     else groups.push([starter.group, [starter], AGENT_STARTER_ICONS[starter.group]]);
@@ -223,9 +243,9 @@ function renderAgentStarters() {
       //: scanned by shape rather than read in full.
       setLabel(button, `ph:${icon} ${item.label}`);
       button.dataset.example = item.text;
-      button.title = /\s$/.test(item.text)
+      button.title = item.help || (/\s$/.test(item.text)
         ? `Start a message: ${item.text.trim()}…`
-        : `Ask: ${item.text}`;
+        : `Ask: ${item.text}`);
       box.appendChild(button);
     }
   }
@@ -287,9 +307,12 @@ const AGENT_SUBJECT_WORDS = {
 //: What the toggle actually sends. A document and a note go to different
 //: fields, because `_attached_documents` and `_attached_notes` read different
 //: tables and a document sent as a note reaches the model as a title.
-function agentScopeForRun() {
+//: A request that says "I have open" means the open thing whether or not
+//: the box is ticked: the starter "Summarise the note I have open" sent
+//: nothing when it was not, and was answered about no note at all.
+function agentScopeForRun(text = "") {
   const box = $("command-palette-use-note");
-  if (!box || !box.checked) return {};
+  if (!box || !(box.checked || /\b(?:i have|i've got) open\b/i.test(text))) return {};
   const subject = agentOpenSubject();
   if (!subject) return {};
   //: **And the kind goes to the server, not just to the label** (INBOX 189).
@@ -331,8 +354,10 @@ function syncAgentOpenNoteToggle() {
     loadMapBoardIndex().then(() => syncAgentOpenNoteToggle()).catch(() => {});
   }
   const subject = agentOpenSubject();
-  box.disabled = !subject;
   if (!subject) box.checked = false;
+  //: Hidden rather than disabled when nothing is open (row 1's count of
+  //: disabled controls): the help popover says what it is for.
+  label.classList.toggle("hidden", !subject);
   //: **"The open note" answered a question nobody could** (INBOX 190, the
   //: owner: "what does 'the open note' mean?? what does opening a note even
   //: entail?? how does one open a note??"). Two faults in one line. It named
@@ -367,18 +392,10 @@ const cmdPaletteResults = $("command-palette-results");
 // palette on Ctrl+K, and then with the sketch pad on Ctrl+Shift+K, twice
 // without anything noticing.
 function toggleAgentPalette() {
-  //: **On a phone the chat is the agent** (UI_MODERNISATION_PLAN Phase 11
-  //: item 3): a second conversation surface floating over a 390px window
-  //: is the Chat tab with less room, so the shortcut, the status dot and
-  //: the More sheet's row all go to Chat there, with the box ready.
-  if (window.matchMedia(PHONE_TABS).matches) {
-    cmdPaletteOverlay.classList.add("hidden");
-    switchTab("chat");
-    // After the tab's own focus handling has settled (it takes the panel
-    // first); measured, a same-turn focus was gone by the next frame.
-    setTimeout(() => $("chat-input")?.focus(), 80);
-    return;
-  }
+  //: **On a phone the agent is a sheet** (AGENT_SKILLS_REFORM "Deepened
+  //: 2026-10-10" row 2). It went to the Chat tab, which left the shortcut,
+  //: the More sheet's row and the palette's row all opening something else.
+  if (window.matchMedia(PHONE_TABS).matches) return agentPhoneSheet();
   if (cmdPaletteOverlay.classList.contains("hidden")) {
     cmdPaletteOverlay.classList.remove("hidden");
     //: Both on open rather than once at boot: which starters are recent and
@@ -392,6 +409,45 @@ function toggleAgentPalette() {
   } else {
     cmdPaletteOverlay.classList.add("hidden");
   }
+}
+
+//: The palette's own parts, moved into `openSheet` and put back when it
+//: has gone (DESIGN.md "A sheet": the markup moved in, never a second copy).
+//: The head stays behind but for its '?', which joins the sheet's head.
+function agentPhoneSheet() {
+  const open = document.querySelector('.sheet-overlay[data-sheet="agent"] .sheet-close');
+  if (open) return open.click();
+  const card = cmdPaletteOverlay.querySelector(".command-palette-card");
+  const parts = [...card.children].filter((el) => !el.classList.contains("command-palette-head"));
+  const help = card.querySelector(".command-palette-head .graph-help-toggle");
+  openSheet({
+    label: "Agent",
+    name: "agent",
+    build: (sheet) => {
+      //: Beside the title, as the desktop head has it (`.help-head`).
+      const title = sheet.querySelector(".sheet-title");
+      const near = document.createElement("span");
+      near.className = "row help-head";
+      title.replaceWith(near);
+      near.append(title, help);
+      sheet.append(...parts);
+    },
+    onGone: () => {
+      card.querySelector(".command-palette-head .help-head").append(help);
+      card.append(...parts);
+    },
+  });
+  //: After `openSheet` has put the card in the page: these read their
+  //: elements by id, which finds nothing while the card is still being built.
+  renderAgentStarters();
+  syncAgentPaletteAvailability();
+  agentBoardIndexAsked = false;
+  syncAgentOpenNoteToggle();
+}
+
+//: Shut on both shapes: the overlay hidden and no agent sheet up.
+function agentPaletteShut() {
+  return cmdPaletteOverlay.classList.contains("hidden") && !document.querySelector('[data-sheet="agent"]');
 }
 
 document.addEventListener("keydown", (e) => {
@@ -524,11 +580,9 @@ function renderCmdPaletteMenu() {
 }
 
 function cmdPaletteBusy(busy) {
-  //: `|| aiIsOff()`: this runs at the end of every turn, and without it the
-  //: field a disconnected model had disabled comes back enabled the first time
-  //: anything ran, which is the "guard removed while the shape around it was
-  //: kept" failure in CLAUDE.md section 6, arriving by accident.
-  cmdPaletteInput.disabled = busy || aiIsOff();
+  //: No `aiIsOff()` here any more: with no model the agent still runs acts
+  //: and readings (`ai/starter_acts.py`), so only a run in hand closes the box.
+  cmdPaletteInput.disabled = busy;
   $("command-palette-stop")?.classList.toggle("hidden", !busy);
   $("command-palette-menu")?.classList.toggle("hidden", busy);
   //: **The state line is written by the run, not by this** (INBOX 190: the
@@ -828,7 +882,7 @@ function cmdPaletteLinkNotes(root, results) {
   }
 }
 
-async function cmdPaletteAsk(text) {
+async function cmdPaletteAsk(text, { plan = null } = {}) {
   $("command-palette-intro")?.classList.add("hidden");
 
   const userMsg = document.createElement("div");
@@ -924,6 +978,10 @@ async function cmdPaletteAsk(text) {
   //: to fold and should not show an empty one.
   let stepsFold = null;
   let stepCount = 0;
+  //: A plan's checklist, ticks and change list are Chat's own
+  //: (`agentTimeline`), made on the run's first plan event.
+  let runTimeline = null;
+  const planTimeline = () => runTimeline || (runTimeline = agentTimeline(stepsHolder));
   const foldSummary = (done) => {
     if (!stepsFold) return;
     const word = stepCount === 1 ? "step" : "steps";
@@ -1035,7 +1093,7 @@ async function cmdPaletteAsk(text) {
   let lastToolLabel = "";
   let why = "";
   const startedAt = performance.now();
-  cmdPaletteRun = new AbortController();
+  const run = (cmdPaletteRun = new AbortController());
   cmdPaletteBusy(true);
   //: What it is working on, in the person's own words, cut to a line. A
   //: status that says "Working…" over a thirty-second run is the app saying
@@ -1055,8 +1113,22 @@ async function cmdPaletteAsk(text) {
       //: time, not when the box was ticked: the palette stays open across a
       //: conversation and the person may well have opened something else
       //: between turns, and the tick means "whatever I am looking at".
-      ...agentScopeForRun(),
+      ...agentScopeForRun(text),
       useTools: true, // the palette is meant to act on the notebook, like Chat
+      plan,
+      onPlan: (event) => planTimeline().plan(event),
+      onStep: (event) => planTimeline().step(event),
+      onResult: (event) => {
+        answered = true;
+        planTimeline().result(event);
+      },
+      //: Approved once (row 3): the steps and their writes, then Run the plan.
+      onRunPlan: (event) => {
+        answered = true;
+        planProposalCard(stepsHolder, event, () =>
+          cmdPaletteAsk(event.goal, { plan: { goal: event.goal, steps: event.steps } })
+        );
+      },
       signal: cmdPaletteRun.signal,
       //: `raw_results` is the notes retrieval surfaced for this turn. It used
       //: to be discarded here, which is why the palette could only describe
@@ -1128,6 +1200,7 @@ async function cmdPaletteAsk(text) {
         for (const item of event?.touched || []) {
           touched.set(`${item.kind}:${item.id}`, item);
         }
+        pushAgentChangeUndo(event?.change, event);
         //: **The rest of the app has to hear about it too.**
         //:
         //: Reported: *"the popup agent made a note, but there was no way to
@@ -1144,6 +1217,12 @@ async function cmdPaletteAsk(text) {
         if ((event?.changes || []).length) loadEntries();
       },
       //: Dropped here, each ended as "(no answer)".
+      //: An act's card (Confirm, or Done with Undo), drawn by Chat's own
+      //: `renderToolConfirm`: with no model this is how a write arrives.
+      onConfirm: (event) => {
+        answered = true;
+        renderToolConfirm(stepsHolder, event);
+      },
       onUnsupported: (e) => (why = e?.message || why),
       onHint: (e) => (why = why || e?.text || ""),
       onAnswerFinal: (e) => {
@@ -1224,8 +1303,13 @@ async function cmdPaletteAsk(text) {
     answerBox.classList.remove("is-streaming");
     foldSummary(true);
     agentMsg.classList.remove("is-generating");
-    cmdPaletteRun = null;
-    cmdPaletteBusy(false);
+    //: Only this turn's own run: Run the plan can start the next turn before
+    //: this one's `finally`, and clearing that one's controller left Stop
+    //: with nothing to stop (measured: a stopped plan wrote its step 2).
+    if (cmdPaletteRun === run) {
+      cmdPaletteRun = null;
+      cmdPaletteBusy(false);
+    }
     //: The end of the run, said once and left there: what the turn did is
     //: still the answer to "what happened" a minute later, and a line that
     //: blanks itself the moment it could be read is a line nobody reads.
@@ -1239,7 +1323,7 @@ async function cmdPaletteAsk(text) {
           : "ph:warning-circle Nothing came back",
     );
     //: Shut before the answer arrived: say so, once, with the way back to it.
-    if (!stopped && cmdPaletteOverlay.classList.contains("hidden")) {
+    if (!stopped && agentPaletteShut()) {
       noticeUnwatchedAnswer("agent", text, agentMsg.dataset.answerId, {
         failed: agentMsg.classList.contains("error"),
       });

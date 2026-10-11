@@ -69,6 +69,10 @@ OPEN = {
     "/favicon.svg",
     "/manifest.webmanifest",
     "/sw.js",
+    # What the service worker shows when the server cannot be reached
+    # (frontend/sw.js, tests/test_pwa_shell.py): static markup, and the
+    # one page a stopped notebook's owner must always be able to see.
+    "/offline.html",
     # The Run button's sandbox page (INBOX 404): static markup with no data in
     # it, served under its own `sandbox allow-scripts; connect-src 'none'`
     # policy, and framed by an iframe, which cannot send the token header
@@ -80,6 +84,10 @@ OPEN = {
     # 404 until it is installed (tests/test_run_sandbox.py).
     "/documents/run-sandbox/python",
     "/documents/pyodide/{name}",
+    #: The offline translator's engine and model (routes_translate.files_router):
+    #: a Worker's fetch carries no token, and the files are public, nothing of
+    #: the notebook's (Brief 83).
+    "/translate/files/{name}",
 }
 
 #: Prefixes, for the same reason, where the path carries a file name.

@@ -66,6 +66,8 @@ from memorymap.api import (
     routes_usage,
     routes_night,
     routes_questions,
+    routes_read,
+    routes_statistics,
     routes_privacy,
     routes_vision,
     routes_resurface,
@@ -76,6 +78,7 @@ from memorymap.api import (
     routes_insights,
     routes_library,
     routes_models,
+    routes_recordings,
     routes_reminders,
     routes_settings,
     routes_spaces,
@@ -83,7 +86,9 @@ from memorymap.api import (
     routes_timeline,
     routes_search,
     routes_tags,
+    routes_translate,
     routes_update,
+    routes_captions,
     routes_voice,
     routes_webclip,
     routes_websearch,
@@ -239,6 +244,18 @@ def asset_stamps() -> dict[str, str]:
     return stamps
 
 
+def served_offline_html() -> bytes:
+    """`offline.html` as served: the page the service worker shows when the
+    server cannot be reached (frontend/sw.js), with its local stamps given
+    each file's hash exactly as `index.html`'s are, so the stylesheets it
+    links are the same URLs (and the same cache entries) the app loaded."""
+    page = FRONTEND_DIR / "offline.html"
+    stripped = asset_strip.strip_for_path("offline.html", page.read_bytes())
+    return _STAMPED_URL.sub(
+        lambda m: m.group(1) + b"?v=" + _stamp_for(m.group(1).decode()).encode(), stripped
+    )
+
+
 _index_cache: dict[str, object] = {}
 
 
@@ -359,6 +376,10 @@ class RevalidatedStatic(StaticFiles):
         if path in self._INDEX_PATHS:
             body = await run_in_threadpool(served_index_html)
             response = HTMLResponse(content=body)
+            response.headers["Cache-Control"] = "no-cache"
+            return response
+        if path == "offline.html" and scope["method"] in ("GET", "HEAD"):
+            response = HTMLResponse(content=await run_in_threadpool(served_offline_html))
             response.headers["Cache-Control"] = "no-cache"
             return response
         strip = self._strippable(path)
@@ -616,6 +637,9 @@ def _install_pending_extras() -> None:
         return
     ids = [part.strip() for part in pending.read_text(encoding="utf-8").split(",") if part.strip()]
     pending.unlink(missing_ok=True)
+    #: A retired id (python-docx, `docx`, went in Brief 42) from a Setup older
+    #: than this app would otherwise fail the whole list with "No such extra".
+    ids = [extra_id for extra_id in ids if extra_id in extras.EXTRAS_BY_ID]
     if ids:
         started, message = extras.start_bulk("install", ids)
         logging.getLogger("memorymap.startup").info("packages picked in Setup %s: %s", ids, message)
@@ -649,6 +673,7 @@ def _startup_maintenance() -> None:
     #: when it last ran beside its Run now (`core/passes.py`).
     with jobruns.job_run("maintenance") as run:
         steps = (
+            ("_check_notebook_file", "Check the notebook file"),
             ("_purge_expired_bin_entries", "Clear expired notes from the bin"),
             ("_compact_event_log", "Tidy the edit history"),
             ("_backup_if_due", "Back up if today's is due"),
@@ -665,6 +690,14 @@ def _startup_maintenance() -> None:
                 run.say(f"That step did not finish: {words.lower()}. The server log has the detail.")
             run.step(index + 1)
         run.result = "at start"
+
+
+def _check_notebook_file() -> None:
+    """SQLite's quick check on the notebook, first, before anything writes
+    (WORLD_CLASS 25e). The page shows the notice from `/backups/integrity`;
+    a damaged file is never copied over a good backup, because the daily
+    backup checks its own copy (`backup.verify_copy`) and refuses it."""
+    backup.check_at_boot(deps.get_config().db_path)
 
 
 def _backup_if_due() -> None:
@@ -1226,6 +1259,13 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     # registered before the documents router so `/documents/{id}` does not
     # claim the path (`api/run_sandbox.py`).
     app.include_router(run_sandbox.router)
+    # A long run's row in Activity (DOCUMENTS_PLAN 25 row 9): locked.
+    app.include_router(run_sandbox.jobs_router, dependencies=locked)
+    # The offline translator (WORLD_CLASS_PLAN 28.5 row 10): what is
+    # installed is behind the unlock; the engine and model files are open,
+    # like the Python runtime's, because a Worker's fetch carries no token.
+    app.include_router(routes_translate.router, dependencies=locked)
+    app.include_router(routes_translate.files_router)
     app.include_router(routes_update.router, dependencies=locked)
     app.include_router(routes_websearch.router, dependencies=locked)
     app.include_router(routes_webclip.router, dependencies=locked)
@@ -1262,6 +1302,12 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_reminders.router, dependencies=locked)
     app.include_router(routes_bookmarks.router, dependencies=locked)
     app.include_router(routes_voice.router, dependencies=locked)
+    app.include_router(routes_recordings.router, dependencies=locked)
+    app.include_router(
+        routes_recordings.media_router,
+        dependencies=[Depends(routes_auth.require_unlock_media)],
+    )
+    app.include_router(routes_captions.router, dependencies=locked)
     app.include_router(routes_tasks.router, dependencies=locked)
     app.include_router(routes_timeline.router, dependencies=locked)
     app.include_router(routes_library.router, dependencies=locked)
@@ -1273,6 +1319,8 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_debug.router, dependencies=locked)
     app.include_router(routes_privacy.router, dependencies=locked)
     app.include_router(routes_capabilities.router, dependencies=locked)
+    app.include_router(routes_read.router, dependencies=locked)
+    app.include_router(routes_statistics.router, dependencies=locked)
     #: WORLD_CLASS_PLAN section 17: the review queue, most opened, tidy proposals, charts.
     app.include_router(routes_vision.router, dependencies=locked)
 

@@ -498,6 +498,14 @@ function timelineResolvedScale() {
 //: 300 is `PAGE_SIZE` in `routes_timeline.py`; the two are not enforced to
 //: agree because neither has to, the endpoint is the one with the ceiling.
 const TIMELINE_PAGE = 300;
+//: The first page is smaller, so the click is answered sooner (TIMELINE_PLAN
+//: 10 row 8): a hundred rows fill any window, and the rest of the usual 300
+//: follow a frame after they paint, so search and the table hold the same
+//: rows a moment later as they did before.
+const TIMELINE_FIRST = 100;
+//: Which render a page belongs to: a page asked for before the range
+//: changed is dropped, not appended to the new range's rows.
+const timelineRenders = { n: 0 };
 // Counts per day for the whole range (not just the loaded pages), which is
 // what the scrubber draws.
 let timelineDensity = {};
@@ -546,7 +554,8 @@ function timelineQuery() {
 }
 
 async function renderTimeline() {
-  const url = `${timelineQuery()}&limit=${TIMELINE_PAGE}`;
+  timelineRenders.n += 1;
+  const url = `${timelineQuery()}&limit=${TIMELINE_FIRST}`;
   //: Which of these entries are maps, awaited alongside the timeline rather
   //: than before it, because neither needs the other's answer.
   const feed = $("timeline-feed");
@@ -579,8 +588,75 @@ async function renderTimeline() {
   fillTimelineBandOptions();
   renderTimelineKinds();
   paintTimeline();
-  drawTimelineScrubber();
-  renderTimelineDayStrip();
+  //: The rows are the answer to the click (TIMELINE_PLAN 10 row 8): they
+  //: paint first, and the scrubber, the day strip and the recall row a
+  //: frame later. Drawn in the same task they held the first frame back
+  //: (a 51 ms task after the paint, measured from the dashboard).
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      drawTimelineScrubber();
+      renderTimelineDayStrip();
+      renderTimelineRecall();
+      timelineLoadMore(TIMELINE_PAGE - TIMELINE_FIRST);
+    }, 0)
+  );
+}
+
+//: **On this day and the years** (TIMELINE_PLAN 10 row 7). Two small reads
+//: after the rows, never before them: today's date in earlier months and
+//: years (the Time range's own `on=` rule, the dashboard widget's), and the
+//: whole notebook's density summed by year. Asked once a day; a press runs
+//: the range the dock already has, so the feed is the one list either way.
+const timelineRecall = { day: "", memories: [], years: {} };
+async function renderTimelineRecall() {
+  const now = new Date();
+  const md = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (timelineRecall.day !== md) {
+    const [on, all] = await Promise.all([
+      apiJson(`/timeline?days=0&on=${md}&tz=${-now.getTimezoneOffset()}&group=none&kind=note&limit=20`, { silent: true }).catch(() => null),
+      apiJson("/timeline?days=0&group=none&limit=1", { silent: true }).catch(() => null),
+    ]);
+    if (!on || !all) return;
+    timelineRecall.day = md;
+    timelineRecall.memories = on.rows.map(timelineRow);
+    timelineRecall.years = {};
+    for (const [day, count] of Object.entries(all.density || {})) timelineRecall.years[day.slice(0, 4)] = (timelineRecall.years[day.slice(0, 4)] || 0) + count;
+  }
+  const row = $("timeline-recall");
+  const range = (value, start, end) => () => {
+    $("timeline-days").value = value;
+    if (start) {
+      $("timeline-start-date").value = start;
+      $("timeline-end-date").value = end;
+    }
+    $("timeline-days").dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  const button = (label, title, run) => {
+    const one = document.createElement("button");
+    one.type = "button";
+    one.className = "library-chip";
+    setLabel(one, label);
+    one.title = title;
+    one.addEventListener("click", run);
+    return one;
+  };
+  const chips = [];
+  const seen = new Set();
+  for (const memory of timelineRecall.memories) {
+    const years = now.getFullYear() - memory.when.getFullYear();
+    const ago = years > 0 ? `${years} year${years === 1 ? "" : "s"} ago` : `${now.getMonth() - memory.when.getMonth() + 12 * years} months ago`;
+    if (seen.has(ago) || seen.size >= 3) continue;
+    seen.add(ago);
+    chips.push(button(`ph:clock-counter-clockwise On this day, ${ago}: ${clipText(memory.title, 30)}`, "Show what you wrote on this date in earlier months and years", range("onthisday")));
+  }
+  const custom = $("timeline-days").value === "custom" ? $("timeline-start-date").value.slice(0, 4) : "";
+  for (const [year, count] of Object.entries(timelineRecall.years).sort()) {
+    const one = button(`${year} (${count})`, `Show ${year}`, range("custom", `${year}-01-01`, `${year}-12-31`));
+    one.classList.toggle("active", custom === year);
+    chips.push(one);
+  }
+  row.replaceChildren(...chips);
+  row.classList.toggle("hidden", !chips.length);
 }
 
 //: **A page at a time, as the reader reaches the end of the last one**
@@ -593,13 +669,14 @@ async function renderTimeline() {
 //: One request at a time, and the flag is cleared in a `finally`: a rejected
 //: fetch that left it set would stop the feed paging for the rest of the
 //: session, and the only symptom would be a timeline that ends early.
-async function timelineLoadMore() {
+async function timelineLoadMore(limit = TIMELINE_PAGE) {
   if (!timelineNextCursor || timelinePaging) return;
   timelinePaging = true;
   try {
-    const url = `${timelineQuery()}&limit=${TIMELINE_PAGE}&cursor=${encodeURIComponent(timelineNextCursor)}`;
+    const url = `${timelineQuery()}&limit=${limit}&cursor=${encodeURIComponent(timelineNextCursor)}`;
+    const render = timelineRenders.n;
     const body = await apiJson(url).catch(() => null);
-    if (!body) return;
+    if (!body || render !== timelineRenders.n) return;
     timelineNextCursor = body.next_cursor || null;
     const fresh = body.rows.map(timelineRow);
     for (const row of fresh) {

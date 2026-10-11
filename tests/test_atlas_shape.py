@@ -369,7 +369,9 @@ def test_a_blink_is_a_lid_sweeping_down_not_a_patch_fading_in():
     # The clock asks `atlasMotionOK`, the one reading every idle loop shares.
     may = ATLAS[ATLAS.index("function atlasBlinkMay(") : ATLAS.index("function atlasBlinkTick(")]
     assert "if (!atlasMotionOK(box)) return false;" in may
-    may = ATLAS[ATLAS.index("function atlasMotionOK(") : ATLAS.index("function atlasRigAttach(")]
+    # The system hint is one query made once, above the function (a fresh
+    # matchMedia per tail frame was 43ms a profile).
+    may = ATLAS[ATLAS.index("const ATLAS_REDUCE_QUERY") : ATLAS.index("function atlasRigAttach(")]
     assert 'avatarMotion === "off"' in may and "prefers-reduced-motion: reduce" in may and 'dataset.motion === "reduced"' in may
 
 
@@ -622,7 +624,7 @@ const vm = require("vm");
 const fs = require("fs");
 const noop = () => {};
 const el = () => ({ setAttribute: noop, appendChild: noop, style: { setProperty: noop }, classList: { add: noop } });
-const ctx = { console, setInterval: noop, setTimeout: noop, clearInterval: noop, clearTimeout: noop, document: { addEventListener: noop, createElementNS: el, createElement: el, querySelectorAll: () => [] }, window: {} };
+const ctx = { console, setInterval: noop, setTimeout: noop, clearInterval: noop, clearTimeout: noop, document: { addEventListener: noop, createElementNS: el, createElement: el, querySelectorAll: () => [], getElementById: () => null, documentElement: { hasAttribute: () => false, toggleAttribute: noop, dataset: {} } }, window: {} };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(process.argv[2], "utf8") + "\n;globalThis.__L = ATLAS_LOOKS; globalThis.__at = atlasSegsAt;", ctx);
 const out = {};
@@ -1037,7 +1039,7 @@ const vm = require("vm");
 const fs = require("fs");
 const noop = () => {};
 const el = () => ({ setAttribute: noop, appendChild: noop, style: { setProperty: noop }, classList: { add: noop } });
-const ctx = { console, setInterval: noop, setTimeout: noop, clearInterval: noop, clearTimeout: noop, document: { addEventListener: noop, createElementNS: el, createElement: el, querySelectorAll: () => [] }, window: {} };
+const ctx = { console, setInterval: noop, setTimeout: noop, clearInterval: noop, clearTimeout: noop, document: { addEventListener: noop, createElementNS: el, createElement: el, querySelectorAll: () => [], getElementById: () => null, documentElement: { hasAttribute: () => false, toggleAttribute: noop, dataset: {} } }, window: {} };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(process.argv[2], "utf8") + "\n;globalThis.__stem = atlasStem;", ctx);
 // A straight stem pointing down, 4 wide at its tip; and one pointing right.
@@ -1091,7 +1093,7 @@ const vm = require("vm");
 const fs = require("fs");
 const noop = () => {};
 const el = () => ({ setAttribute: noop, appendChild: noop, style: { setProperty: noop }, classList: { add: noop } });
-const ctx = { console, setInterval: noop, setTimeout: noop, clearInterval: noop, clearTimeout: noop, document: { addEventListener: noop, createElementNS: el, createElement: el, querySelectorAll: () => [] }, window: {} };
+const ctx = { console, setInterval: noop, setTimeout: noop, clearInterval: noop, clearTimeout: noop, document: { addEventListener: noop, createElementNS: el, createElement: el, querySelectorAll: () => [], getElementById: () => null, documentElement: { hasAttribute: () => false, toggleAttribute: noop, dataset: {} } }, window: {} };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(process.argv[2], "utf8") + "\n;globalThis.__L = ATLAS_LOOKS; globalThis.__path = atlasArmPath; globalThis.__hand = atlasArmHand; globalThis.__stem = atlasStem; globalThis.__segs = atlasArmSegs;", ctx);
 const out = {};

@@ -293,8 +293,8 @@ $("graph-concept-maps")?.addEventListener("click", async () => {
   await switchTab("library");
   document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
   // The sub-tab click can leave the last board open on the canvas; a button
-  // called "Concept maps" has to arrive at the list of them.
-  if (typeof wbShowBoardsLanding === "function") wbShowBoardsLanding();
+  // called "Mind maps" has to arrive at the list of them.
+  wbShowBoardsLanding();
 });
 restoreDraftLocally();
 
@@ -433,16 +433,6 @@ $("chat-tune-search").addEventListener("click", () => {
 // the files and the bin, and with sort beside it. This is the way there, said
 // out loud, because a list that silently stops at eight is a list that has
 // lost your chats.
-
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
 
 // A typed find query is a literal, not a pattern: "a.b" must not match
 // "axb", and an unbalanced "(" must not throw. CodeQL also flags the
@@ -713,7 +703,6 @@ $("conv-browse-all").addEventListener("click", async () => {
   renderLibraryFilters();
   renderLibrary();
 });
-$("chat-export").addEventListener("click", exportChatMarkdown);
 
 //: **Fork: keep this thread, try another direction.** Asked for directly.
 //: The server copies (`POST /conversations/{id}/fork`) rather than branching: 
@@ -733,6 +722,7 @@ $("chat-fork").addEventListener("click", async () => {
       body: JSON.stringify({}),
     });
     await loadConversationList();
+    chatWriteRecord("chatForkUndo", fork);
     toastAction(`Forked to “${fork.title}”.`, "Open it", () => openConversation(fork.id), { go: { open: "conversation", id: fork.id } });
   } catch (error) {
     toast(error.message || "Couldn't fork this conversation.", true);
@@ -775,6 +765,7 @@ async function renameCurrentConversation() {
       body: JSON.stringify({ title: next }),
     });
     $("chat-title").textContent = next;
+    chatWriteRecord("chatTitleUndo", chatConv.id, current, next);
     loadConversationList();
   } catch (error) {
     toast(error.message || "Couldn't rename this conversation.", true);
@@ -803,9 +794,7 @@ function applyPendingChatTitle(conversationId, viewing) {
 //: unlike a note card's, which is rebuilt per row.
 mountChatActionsMenu();
 
-//: The meter opens the thing that fixes what it is reporting. A number with no
-//: move attached is a number people learn to ignore.
-$("chat-context")?.addEventListener("click", () => $("chat-compress")?.click());
+//: The context pill's popover is wired in usage-ledger.js, with its rows.
 
 $("chat-title").addEventListener("click", renameCurrentConversation);
 $("chat-title").addEventListener("keydown", (event) => {
@@ -816,7 +805,6 @@ $("chat-title").addEventListener("keydown", (event) => {
     renameCurrentConversation();
   }
 });
-$("chat-delete").addEventListener("click", deleteCurrentChat);
 $("chat-compress").addEventListener("click", compressChatContext);
 $("chat-compress-apply").addEventListener("click", applyCompression);
 $("chat-compress-cancel").addEventListener("click", () =>
@@ -987,14 +975,16 @@ $("status-notes").addEventListener("click", () => {
   showNotesSection("browse"); // or you land on whichever sub-tab was last open
 });
 $("status-reminders").addEventListener("click", () => switchTab("reminders"));
-$("status-task").addEventListener("click", () => openSettingsModal("tasks"));
+//: A running job's slot opens Activity's Running tab, where it can stop
+//: (rule 5, decision 70); its history stays in Settings, Background tasks.
+$("status-task").addEventListener("click", () => window.openActivity?.("running"));
 $("status-command").addEventListener("click", () => openPalette());
 $("status-agent")?.addEventListener("click", () => toggleAgentPalette());
 //: settings.js owns the Guide sheet and loads after this file, so the lookup
 //: is deferred to the click rather than taken now. The same shape the phone's
 //: More sheet already uses for the same function.
 $("status-guide")?.addEventListener("click", () => {
-  if (typeof openHelpChat === "function") openHelpChat();
+  openHelpChat();
 });
 
 $("status-find")?.addEventListener("click", () => openFinder());
@@ -1282,76 +1272,11 @@ $("graph-new-content").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) saveGraphNewNote();
 });
 
-// On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.
-function graphZoomBy(factor) {
-  if (!graphZoom || !graphSvg) return;
-  graphSvg.transition().duration(200).call(graphZoom.scaleBy, factor);
-}
-$("graph-zoom-in").addEventListener("click", () => graphZoomBy(1.3));
-$("graph-zoom-out").addEventListener("click", () => graphZoomBy(1 / 1.3));
-$("graph-zoom-fit").addEventListener("click", () => {
-  if (graphNodesRef && graphNodesRef.length) {
-    fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
-  }
-});
-
-function toggleGraphFullscreen() {
-  const card = $("graph-card");
-  if (card) {
-    const isFull = card.classList.toggle("graph-fullscreen");
-    // **Full screen hides the app chrome** (INBOX 29: "the top bar stays").
-    // The card has covered the screen for a while, inset by one step and
-    // fixed, but the top bar, the tab bar inside it and the status bar were
-    // still laid out under it and still showing through that inset, so full
-    // screen read as a card sitting on the app rather than as the map having
-    // the screen. The class goes on <body> because the chrome is not inside
-    // the card: what is hidden is listed in 02-chat-graph.css beside the
-    // `.graph-fullscreen` rule itself.
-    document.body.classList.toggle("graph-fullscreen-on", isFull);
-    // The single zoom-cluster button now does both jobs a separate "Close
-    // Full Screen" toolbar button used to split between them, asked for
-    // directly: "move the close full screen button in the graph to be next
-    // to the new graph button or smth so it isnt making an extra row." That
-    // second button (`#graph-fullscreen-close`, toolbar) called this exact
-    // same function and existed only because this one gave no sign it also
-    // exits: so rather than relocate a redundant second button, this one
-    // now says which of its two jobs it will do next.
-    const fsBtn = $("graph-fullscreen");
-    if (fsBtn) {
-      fsBtn.title = isFull ? "Exit full screen" : "Full screen";
-      fsBtn.setAttribute("aria-label", fsBtn.title);
-      fsBtn.setAttribute("aria-pressed", String(isFull));
-      const icon = fsBtn.querySelector("i");
-      if (icon) icon.className = isFull ? "ph ph-arrows-in" : "ph ph-frame-corners";
-    }
-    // Trigger a resize event to ensure D3 SVG rescales properly
-    window.dispatchEvent(new Event('resize'));
-    if (graphNodesRef && graphNodesRef.length) {
-      setTimeout(() => {
-        const box = $("graph-box");
-        graphDims.w = box.clientWidth || 800;
-        graphDims.h = box.clientHeight || 540;
-        // Only the SVG renderer has a viewBox; `graphSvg` points at the
-        // <canvas> on the other one, and a `viewBox` attribute on a <canvas>
-        // means nothing. The canvas resizes itself from its ResizeObserver.
-        if (graphSvg && graphSvg.node() && graphSvg.node().tagName === "svg") {
-          graphSvg.attr("viewBox", [0, 0, graphDims.w, graphDims.h]);
-        }
-        if (graphSimulation) {
-          graphSimulation.force("center", d3.forceCenter(graphDims.w / 2, graphDims.h / 2));
-          graphSimulation.force("x", d3.forceX(graphDims.w / 2).strength(0.04));
-          graphSimulation.force("y", d3.forceY(graphDims.h / 2).strength(0.06));
-          graphSimulation.alpha(0.3).restart();
-        }
-        if (isFull) {
-          fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
-        }
-      }, 50);
-    }
-  }
-}
-
-$("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
+//: The zoom strip's buttons and full screen are wired in graph.js, the
+//: graph's own bundle (2026-10-10, the boot script budget): nothing on the
+//: Graph tab can be pressed before it has loaded (`switchTab`'s `inert`),
+//: and the two callers here and in navigation.js run only while the card is
+//: already full screen, which only graph.js can have made it.
 
 //: **One flag for "something fills the whole window"** (INBOX 726, the owner:
 //: "I can see atlas on the edges when on the full screen graph", then "the
@@ -1507,6 +1432,14 @@ function renderWebSearchToggle() {
   const button = $("web-search-toggle");
   button.classList.toggle("active", on);
   button.setAttribute("aria-pressed", on ? "true" : "false");
+  //: **Web stays pressable with no model, and says what it does then** (the
+  //: owner, 2026-10-10: "Do plan and web search work with the composer??").
+  //: The answer from your notes never searches the web: a search is a tool
+  //: call, and tools need Agent mode. The button also opens the search panel,
+  //: which works with no model at all, so greying it would take browsing away
+  //: to say something a title can say.
+  button.dataset.enabledTitle ??= button.title;
+  button.title = agentModeAvailable() ? button.dataset.enabledTitle : "Browse the web here. With no model, answers come from your notes only.";
 }
 // Plan Plan: send what is in the box as a request that must be planned first.
 //
@@ -1647,17 +1580,16 @@ $("web-reader").addEventListener("keydown", (e) => {
   e.stopPropagation();
   closeWebReader();
 });
-$("web-reader-save").addEventListener("click", saveWebPageAsNote);
+$("web-reader-save").addEventListener("click", async () => {
+  await ensureModule("webClip");
+  saveWebPageAsNote();
+});
 //: Same act as the result row's own "Save as bookmark", from the other side
 //: of the panel: you often only decide a page is worth keeping after reading
 //: it, and until now that decision had nowhere to go from here.
-$("web-reader-bookmark").addEventListener("click", () => {
-  if (!webReaderPage) return;
-  bookmarkWebResult({
-    url: webReaderPage.url,
-    title: webReaderPage.title || webReaderPage.domain || "",
-    snippet: (webReaderPage.text || "").slice(0, 200),
-  });
+$("web-reader-bookmark").addEventListener("click", async () => {
+  await ensureModule("webClip");
+  readerBookmark();
 });
 $("web-reader-ask").addEventListener("click", () => {
   if (webReaderPage) askAboutPage(webReaderPage.url, webReaderPage.title);

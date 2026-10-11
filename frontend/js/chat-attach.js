@@ -686,12 +686,24 @@ function attachSelectionContext(context) {
   attachedSelection = context;
   renderSelectionAttachment();
   switchTab("chat");
+  //: **Asking about a passage turns Agent on when it can run** (the owner,
+  //: 2026-10-10: "it put it in the chat but I was on "ask" mode, shouldnt it
+  //: have been auto put on "agent"??"). A passage is usually something to act
+  //: on (rewrite it, file it, link it), which only Agent can do. With no model
+  //: and no Needle, Ask answers about the attached passage from the notes, so
+  //: the mode is left alone rather than set to one that cannot run.
+  const switched = agentModeAvailable() && !$("tools-toggle").checked;
+  if (switched) setChatMode("agent");
   const input = $("chat-input");
   if (input) {
     input.focus();
     autoGrow(input);
   }
   announce(`${context.kind === "reading" ? "Text read from" : "Selection from"} ${context.title} attached to your next message.`);
+  //: One toast, not two: a caller that says its own sentence (the OCR
+  //: workspace) gets `switched` back and adds the mode to it.
+  if (switched && !context.quiet) toast("Agent mode is on, so Atlas can act on what you attached.");
+  return switched;
 }
 
 function clearSelectionAttachment() {
@@ -1512,8 +1524,15 @@ async function sendChatMessage(preset, opts = {}) {
   if (attachedWebPage) {
     if (!opts.displayText) opts = { ...opts, displayText: typed };
     question = `${question}\n\n${webPageContextBlock(attachedWebPage)}`;
+  } else if (chatWeb.lastUrl && (await ensureModule("webClip"))) {
+    const page = await webFollowUp(typed, chatWeb.lastUrl);
+    if (page) {
+      if (!opts.displayText) opts = { ...opts, displayText: typed };
+      question = `${question}\n\n${webPageContextBlock(page)}`;
+    }
   }
   lastChatQuestion = question;
+  if (!opts.replaceLast) regenerateLastAnswer.retries = 0; // a new question is a first ask
 
   // Consumed once: this send, button click or free-typed reply alike, is
   // the answer to whatever question was pending, and the next one after it
@@ -1894,6 +1913,7 @@ async function sendChatMessage(preset, opts = {}) {
       progress: pendingLine,
       question,
       history: chatHistoryToSend(),
+      attempt: opts.attempt,
       persona: sentPersona,
       mode: $("response-mode-select").value || null,
       useTools: effectiveUseTools,
@@ -1949,6 +1969,15 @@ async function sendChatMessage(preset, opts = {}) {
           event.support || null,
           meta?.picture_alts || null
         );
+        //: Each insight line the answer said carries Confirm and Not right
+        //: (CHAT_PLAN decision 60), under the answer, one row each.
+        for (const insight of event.insights || []) {
+          if (insight.confirmed) continue;
+          const line = insightLine(insight, `Pattern: ${insight.short}.`, (row, verdict, result) => {
+            row.textContent = verdict === "confirmed" ? `Confirmed: ${result.line}` : "Not right: it will not be shown again.";
+          }, "muted");
+          groundingHolder.appendChild(line);
+        }
       },
       onPlan: (event) => {
         clearPending();
@@ -2024,6 +2053,7 @@ async function sendChatMessage(preset, opts = {}) {
           ? event.label
           : `ph:warning ${(event.error || event.label || "").replace(/^ph:[\w-]+\s*/, "")}`;
         timeline.tool(toolChip(label, event.ok, event));
+        pushAgentChangeUndo(event.change, event);
         //: The same call, filed in the panel under the step that made it. A
         //: second `toolChip` rather than the same node: one element cannot be
         //: in two places, and the panel's copy has to survive the chat being
@@ -2054,11 +2084,25 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "The model is making changes…";
         chatScrollToEnd();
       },
+      //: The web pages an answer from no model read (CHAT_PLAN decision 37).
+      onWebSources: (event) => ensureModule("askCompose").then(() => renderWebSources(timeline.holder, event.sources)),
+      //: A bar of counts from a no-model answer (CHAT_PLAN decision 59, step
+      //: 2), drawn by the Ask box's chart recipe under the answer's line.
+      onChart: (event) => ensureModule("askHistory").then(() => {
+        const host = document.createElement("div");
+        host.className = "ask-chart";
+        timeline.holder.appendChild(host);
+        drawAskChart(host, event.chart);
+        chatScrollToEnd();
+      }),
       onConfirm: (event) => {
         clearPending();
         const card = document.createElement("div");
         renderToolConfirm(card, event);
-        timeline.tool(card.firstElementChild || card);
+        //: An act's card is the answer's own (CHAT_PLAN decision 38), under
+        //: its line, never folded away in a step group with its Confirm.
+        if (event.type === "act") timeline.holder.appendChild(card);
+        else timeline.tool(card.firstElementChild || card);
         status.textContent = "Waiting for your confirmation…";
       },
       onAsk: (event) => {
@@ -2263,6 +2307,9 @@ async function sendChatMessage(preset, opts = {}) {
     toolEvents,
     touched: [...touchedItems.values()],
   });
+  //: The page this turn went out to read, for a follow-up about it
+  //: (`webFollowUp`, web-clip.js).
+  chatWeb.lastUrl = turnSources.find((source) => source.kind === "web" && source.url)?.url || null;
   if (groundingSentences?.length) {
     addInlineCitations(
       bubble.querySelectorAll(".bubble-answer"),
@@ -2301,7 +2348,20 @@ async function sendChatMessage(preset, opts = {}) {
   }
   // A turn that only ran tools still cost time and tokens, so it gets a meta
   // line too: previously an agent turn with no prose showed nothing at all.
-  if (meta?.composed && answerRaw) bubble.appendChild(chip("ph:notebook Your notes, no AI", "item-label"));
+  //: **Who wrote it, in the head** (the owner, 2026-10-10: "should say if the
+  //: composer or a specific ai model generated it"): "Atlas, from your notes"
+  //: or "Atlas, <model>", where a chip under the answer used to say only the
+  //: first. **And a composed answer arrives** ("Composer responses just
+  //: appear, I think there should be an animation"): it lands in one piece,
+  //: so its blocks rise in turn, `--motion-step` apart, as a streamed one
+  //: grows; under reduced motion it simply appears.
+  const by = meta?.composed ? "from your notes" : stats?.model || meta?.answered_by;
+  const who = bubble.querySelector(".msg-role > span:last-child");
+  if (answerRaw && by && who) who.textContent = `${bubble.dataset.persona}, ${by}`;
+  if (meta?.composed && !reducedMotionWanted()) {
+    bubble.querySelectorAll(".bubble-answer > *").forEach((el, i) =>
+      el.animate([{ opacity: 0, translate: "0 4px" }, {}], { duration: 200, delay: i * 60, easing: "ease-out", fill: "backwards" }));
+  }
   if (answerRaw || toolEvents.length) {
     bubble.appendChild(
       messageMetaLine({
@@ -2372,11 +2432,11 @@ async function sendChatMessage(preset, opts = {}) {
     // work here exactly as they do when the user picks the skill themselves.
     // Deferred by a task because this turn is still finishing: it re-enables
     // the input box in `finally`, and the run needs to disable it again.
-    const start =
-      handoff.type === "run_plan"
-        ? () => startPlannedRun(handoff.goal, handoff.steps)
-        : () => startSkill({ name: handoff.skill }, handoff.inputs || {});
-    setTimeout(start, 0);
+    //: A plan the model drew waits for Run the plan (row 3: approved once,
+    //: with each step's writes listed); a skill the person saved starts.
+    const plan = handoff;
+    if (plan.type === "run_plan") planProposalCard(timeline.holder, plan, () => startPlannedRun(plan.goal, plan.steps));
+    else setTimeout(() => startSkill({ name: plan.skill }, plan.inputs || {}), 0);
   }
   if (!answerRaw) {
     // The model returned nothing. This used to return early and leave the
@@ -2756,9 +2816,11 @@ async function deleteChatTurn(assistantBubble) {
 
   if (chatConv.id !== null) {
     try {
-      const result = await apiJson(`/conversations/${chatConv.id}/turns/${index}`, {
+      const id = chatConv.id;
+      const result = await apiJson(`/conversations/${id}/turns/${index}`, {
         method: "DELETE",
       });
+      chatWriteRecord("chatTurnUndo", id, index, result);
       if (result.conversation_deleted) {
         newChatConversation();
         loadConversationList();
@@ -2843,6 +2905,8 @@ function stopChatTimer() {
 }
 
 function releaseChatComposer({ announce = true } = {}) {
+  //: Called by every way out of a chat: the page it read is that chat's.
+  chatWeb.lastUrl = null;
   if (!chatController || !chatStreaming) return;
   const input = $("chat-input");
   input.disabled = false;
@@ -2976,16 +3040,18 @@ function chatDeleteUndo(gone, after = () => {}) {
     loadConversationList();
     after();
   };
-  const action = pushUndo(`Deleted the chat “${row.title}”`, remake, async () => {
+  offerUndo(`Deleted the chat “${row.title}”`, "Chat deleted.", remake, async () => {
     await apiJson(`/conversations/${row.id}`, { method: "DELETE" });
     if (chatConv.id === row.id) newChatConversation();
     loadConversationList();
     after();
   });
-  toastAction("Chat deleted.", "Undo", async () => {
-    settleUndoFromToast(action);
-    await remake().catch((e) => toast(e.message, true));
-  });
+}
+
+//: **Every chat write is on the undo bar** (CHAT_PLAN 8 row 5): the helpers
+//: are chat-undo.js, fetched on the first write, out of the boot scripts.
+function chatWriteRecord(name, ...args) {
+  lazyScript("/js/chat-undo.js").then(() => window[name](...args));
 }
 
 // Download the open conversation as clean Markdown (questions + answers).

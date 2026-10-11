@@ -1,0 +1,52 @@
+/* Atlas's faces at the sizes people see them (Brief 34 continues): loaded
+   by atlas.js (`atlasSheet`, LAZY_MODULES.atlasFaces) on the first drawing,
+   so boot CSS stays under its budget. At 28px (`atl-head`) and 20px
+   (`atl-tiny`) a mood is a bold brow, a bolder eye line and one sign beside
+   the head (`.atl-cue`, atlas.js `ATLAS_CUES`), all switched by
+   `data-atlas-mood` and eased by opacity alone: nothing here loops. */
+.nm-atlas:is(.atl-head, .atl-tiny) .atl-brow-line { opacity: 0.85; stroke-width: 1.9; }
+.nm-atlas.atl-tiny .atl-brow-line { stroke-width: 2.4; }
+.nm-atlas:is(.atl-head, .atl-tiny) .atl-brow-l {
+  transform: translateY(calc((var(--atl-brow-y) + var(--atl-bl-y)) * 1.6)) rotate(calc((var(--atl-knit) + var(--atl-bl-r)) * 1.5));
+}
+.nm-atlas:is(.atl-head, .atl-tiny) .atl-brow-r {
+  transform: translateY(calc((var(--atl-brow-y) + var(--atl-br-y)) * 1.6)) rotate(calc((var(--atl-knit) * -1 + var(--atl-br-r)) * 1.5));
+}
+.nm-atlas.atl-head :is(.atl-e-happy, .atl-e-shut, .atl-e-squeeze) { stroke-width: 2.6; }
+/* The head level's own small signs give way to the cue, which is the same
+   sign drawn large. */
+.nm-atlas.atl-head :is(.atl-fx-sparkle, .atl-fx-hearts, .atl-fx-zz, .atl-fx-dots, .atl-fx-q, .atl-fx-bang, .atl-fx-sweat, .atl-fx-tear) { display: none; }
+.nm-atlas .atl-cue > g { opacity: 0; transition: opacity var(--motion-base) var(--ease-out); }
+.nm-atlas[data-atlas-mood="happy"] .atl-cue-happy,
+.nm-atlas[data-atlas-mood="delighted"] .atl-cue-delighted,
+.nm-atlas[data-atlas-mood="laughing"] .atl-cue-laughing,
+.nm-atlas[data-atlas-mood="thinking"] .atl-cue-thinking,
+.nm-atlas[data-atlas-mood="curious"] .atl-cue-curious,
+.nm-atlas[data-atlas-mood="surprised"] .atl-cue-surprised,
+.nm-atlas[data-atlas-mood="confused"] .atl-cue-confused,
+.nm-atlas[data-atlas-mood="sleepy"] .atl-cue-sleepy,
+.nm-atlas[data-atlas-mood="sad"] .atl-cue-sad,
+.nm-atlas[data-atlas-mood="proud"] .atl-cue-proud,
+.nm-atlas[data-atlas-mood="shy"] .atl-cue-shy,
+.nm-atlas[data-atlas-mood="determined"] .atl-cue-determined,
+.nm-atlas[data-atlas-mood="love"] .atl-cue-love,
+.nm-atlas[data-atlas-mood="worried"] .atl-cue-worried { opacity: 1; }
+.nm-atlas .atl-cue :is(.atl-cue-ink, .atl-cue-blush) { fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.nm-atlas .atl-cue .atl-cue-bold { stroke-width: 3; }
+.nm-atlas .atl-cue .atl-cue-z { stroke: var(--atl-line); stroke-width: 2.1; }
+.nm-atlas .atl-cue .atl-cue-blush { stroke: var(--atl-heart-c); stroke-width: 2.6; }
+.nm-atlas .atl-cue .atl-cue-ink-fill { fill: var(--ink); }
+.nm-atlas .atl-cue .atl-cue-dot { fill: var(--atl-hi); stroke: var(--ink); stroke-width: 1.1; }
+.nm-atlas .atl-cue .atl-cue-flame { fill: var(--atl-gold); stroke: var(--ink); stroke-width: 1.1; }
+/* A comic sign's ink outline: pastel on white is otherwise half a sign. */
+.nm-atlas .atl-cue :is(.atl-sparkle, .atl-heart, .atl-drop) { stroke: var(--ink); stroke-width: 1.1; stroke-linejoin: round; }
+/* Calm's arms (Brief 34 continues, step 4; the owner: "atlas's arm
+   movements ... are basically permanently in a downward arc except for when
+   hanging"). Calm, the mood Atlas is in most of the time, had no arm
+   variants: every one of its three hung straight down. Now the companion's
+   variant pick (avatars.js, `data-atlas-variant`) gives it a relaxed arm a
+   little out, a hand on the hip (the rig bends the elbow for a raise past
+   8 degrees) and hands brought together in front; the rig eases between
+   them as it does every pose. */
+.nm-atlas[data-atlas-look="masculine"][data-atlas-mood="calm"] { --atl-ar0: -16deg; --atl-al0: 12deg; --atl-ar1: -52deg; --atl-al1: 8deg; --atl-ar2: 34deg; --atl-al2: -30deg; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="calm"] { --atl-ar0: -26deg; --atl-al0: 8deg; --atl-ar1: -48deg; --atl-al1: 10deg; --atl-ar2: 24deg; --atl-al2: -34deg; }

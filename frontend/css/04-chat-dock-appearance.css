@@ -433,13 +433,6 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   font-size: var(--text-sm);
 }
 
-/* The route's own sentence for why a forgotten note was chosen, under its
-   row and indented to the row's text. */
-.notes-rail-why {
-  font-size: var(--text-xs);
-  padding-left: var(--space-3);
-  margin-top: calc(-1 * var(--space-1));
-}
 
 /* Below the width the script draws it at, never: see NOTES_RAIL_MIN_WIDTH in
    notes-list.js, which has to name the same number. The note's own
@@ -1290,6 +1283,9 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 .chat-skill-pace {
   flex: 0 0 auto;
   margin: 0;
+  /* Off the strip on a phone, so the strip's track rules miss it (INBOX 694). */
+  padding: 1px;
+  gap: 0;
 }
 
 .chat-skill-pace button {
@@ -2502,18 +2498,6 @@ label.setting-check,
   margin-bottom: 0;
 }
 
-.help-chat-msg.is-pending {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.help-chat-badges,
-.help-chat-open {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
 /* The answer's two views (INBOX 430): Atlas's answer or the app's help,
    above the prose, the width of its two words. */
 .help-chat-views {
@@ -2809,6 +2793,12 @@ span > .chip {
 #category-list li:hover .category-actions,
 #category-list li:focus-within .category-actions {
   pointer-events: auto;
+}
+
+/* `#sidebar li > :not(.count)` clips its children for the ellipsis (01); this
+   span holds one button and no text, so its ring (INBOX 784) has to show. */
+#category-list li > .category-actions {
+  overflow: visible;
 }
 
 .category-actions button {
@@ -5394,7 +5384,6 @@ span > .chip {
   font-weight: 600;
 }
 
-
 /* **The document's title reads as a title, not as a form field.**
 
    Asked for as part of "a full clean professional redesign" of the editor.
@@ -5695,8 +5684,11 @@ input.doc-title-input::placeholder {
 .tour-block-panel {
   position: fixed;
   /* The dim itself. See the note above: it is here, on four rectangles laid
-     out from the same box as the cut-out, rather than on one giant shadow. */
-  background: var(--scrim);
+     out from the same box as the cut-out, rather than on one giant shadow.
+     60% of the scrim, lighter than a dialog's, so a step's neighbours stay
+     legible (the owner, 2026-10-10: "on the tour it is hard to see the other
+     features around the things highlighted"). */
+  background: color-mix(in srgb, var(--scrim) 60%, transparent);
   pointer-events: auto;
 }
 
@@ -6389,4 +6381,53 @@ button.manage-cat-count:hover {
    were in the same position. */
 .chat-dock:has(#note-picker-panel:not(.hidden), .chat-skills-panel:not(.hidden), #chat-dock-more-panel:not(.hidden)) {
   z-index: 46;
+}
+
+/* **An insight's verdicts: one compact pair on the sentence's own row**
+   (INBOX 782; `insightLine`, status.js). The words take the room, the pair sits
+   at the end, quiet at rest (no fill, no edge) with a tint on hover, and wraps
+   under the words on a narrow screen. One rule for Chat's pattern lines and
+   Tidy's Patterns; the dashboard's ⋯ carries the same two items. */
+.insight-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-2) 0;
+}
+.insight-text {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+.insight-verdicts {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+.insight-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h-dense);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.insight-verdict:is(:hover, :focus-visible) {
+  background: var(--hover-veil);
+  color: var(--ink);
+}
+.insight-verdict.is-confirm .ph {
+  color: var(--ok);
+}
+@media (pointer: coarse) {
+  .insight-verdict {
+    min-height: var(--target-min);
+  }
 }

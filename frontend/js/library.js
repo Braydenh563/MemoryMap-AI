@@ -539,9 +539,14 @@ function renderLibrary(options) {
     // With Semantic on, a note also matches if the meaning search returned it,
     // even when it shares no words with the query. Everything else is
     // unchanged: see `librarySemanticIds`.
-    items = librarySemanticIds
-      ? items.filter((i) => (i.kind === "note" && librarySemanticIds.has(i.id)) || wordMatch(i))
-      : items.filter(wordMatch);
+    const phrase = libraryPhrase.q === query && libraryPhrase.ids;
+    const rest = libraryPhrase.rest;
+    const restMatch = (i) => !rest || (i.title || "").toLowerCase().includes(rest) || (i.preview || "").toLowerCase().includes(rest);
+    items = phrase
+      ? items.filter((i) => i.kind === "note" && libraryPhrase.ids.has(i.id) && restMatch(i))
+      : librarySemanticIds
+        ? items.filter((i) => (i.kind === "note" && librarySemanticIds.has(i.id)) || wordMatch(i))
+        : items.filter(wordMatch);
   }
   items = librarySorted(items);
 
@@ -769,17 +774,19 @@ function libraryActions(item) {
       makeMenuItem("ph:pencil-simple Rename", "Rename this chat", async () => {
         const next = await promptDialog("Rename this chat:", item.title);
         if (!next) return;
-        await apiJson(`/conversations/${item.id}`, {
+        const renamed = await apiJson(`/conversations/${item.id}`, {
           method: "PUT",
           body: JSON.stringify({ title: next }),
         }).catch((e) => toast(e.message, true));
+        if (renamed) chatWriteRecord("chatTitleUndo", item.id, item.title, next);
         reload();
         loadConversationList();
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
-        await apiJson(`/conversations/${item.id}/archive`, { method: "PUT" }).catch((e) =>
+        const archived = await apiJson(`/conversations/${item.id}/archive`, { method: "PUT" }).catch((e) =>
           toast(e.message, true)
         );
+        if (archived) chatWriteRecord("chatArchiveUndo", item.id, item.title);
         if (chatConv && chatConv.id === item.id) newChatConversation();
         toast("Archived.");
         reload();
@@ -1016,8 +1023,8 @@ function libraryActions(item) {
   return [];
 }
 
-//: **The bin holds three kinds** (WORLD_CLASS_PLAN 5 item 10): notes (with
-//: boards and maps), documents and reminders, told apart by `subtype`
+//: **The bin holds five kinds** (WORLD_CLASS_PLAN 5 item 10): notes (with
+//: boards and maps), documents, reminders, OCR readings and recordings, told apart by `subtype`
 //: (`routes_library._archive`). Each has its own restore and purge route.
 function binRoutes(item) {
   if (item.subtype === "document") {
@@ -1025,6 +1032,15 @@ function binRoutes(item) {
   }
   if (item.subtype === "reminder") {
     return { noun: "reminder", restore: `/reminders/${item.id}/restore`, purge: `/reminders/${item.id}/purge`, reload: () => loadReminders() };
+  }
+  //: A deleted OCR reading (WORLD_CLASS_PLAN 28.4 row 2) goes back to the
+  //: page or the file it was read from.
+  //: A deleted recording (WORLD_CLASS_PLAN 28.5 row 6), its audio kept.
+  if (item.subtype === "recording") {
+    return { noun: "recording", restore: `/recordings/${item.id}/restore`, purge: `/recordings/${item.id}/purge`, reload: () => {} };
+  }
+  if (item.subtype === "reading") {
+    return { noun: "reading", restore: `/reading-bin/${item.id}/restore`, purge: `/reading-bin/${item.id}/purge`, reload: () => renderLibraryImagesGallery() };
   }
   return { noun: "note", restore: `/entries/${item.id}/restore`, purge: `/entries/${item.id}/purge`, reload: () => refreshEntries([item.id]) };
 }
@@ -1359,6 +1375,7 @@ function libraryCard(item) {
     const isChat = item.kind === "chat";
     const pin = document.createElement("span");
     setLabel(pin, isChat ? "ph:push-pin" : "ph:star");
+    if (!isChat) pin.firstElementChild?.classList.add("star-fill");
     pin.title = isChat ? "Pinned" : "Favourite";
     top.appendChild(pin);
   }
@@ -1545,7 +1562,7 @@ function openLibraryItem(item) {
     // only reason that panel outlived the Library's Bin chip. A binned
     // document or reminder has nothing to read that its card does not show,
     // so opening one offers to bring it back (WORLD_CLASS_PLAN 5 item 10).
-    if (item.subtype === "document" || item.subtype === "reminder") {
+    if (item.subtype === "document" || item.subtype === "reminder" || item.subtype === "reading") {
       const bin = binRoutes(item);
       confirmDialog(`“${item.title}” is in the bin. Restore it?`, { confirmLabel: "Restore" }).then(async (yes) => {
         if (!yes) return;
@@ -1614,7 +1631,7 @@ $("binned-restore").addEventListener("click", async () => {
     await apiJson(`/entries/${id}/restore`, { method: "POST" });
     toast("Restored.");
   } catch (error) {
-    toast(`Couldn't restore that note: ${error.message}`, true);
+    toast(voiceLine("failed", { what: "restore that note", why: error.message }), true);
     return;
   }
   closeBinnedReader();
@@ -1632,7 +1649,7 @@ $("binned-purge").addEventListener("click", async () => {
     await apiJson(`/entries/${id}/purge`, { method: "DELETE" });
     toast("Deleted for good.");
   } catch (error) {
-    toast(`Couldn't delete that note: ${error.message}`, true);
+    toast(voiceLine("failed", { what: "delete that note", why: error.message }), true);
     return;
   }
   closeBinnedReader();
@@ -1717,8 +1734,28 @@ async function refreshLibraryServerSearch() {
   libraryServerQuery = query;
 }
 
+//: **A phrase in the search is a filter** (CHAT_PLAN section 2, the
+//: Library's row): "connected to Harbor", "untouched since June", "tagged
+//: work", "pinned" keep the notes they leave, read and resolved by the server
+//: (`GET /read/filter`, ai/filters.py), and the words left over still search.
+//: `ids` null: no filter was read, and the box is the plain search it was.
+const libraryPhrase = { q: "", ids: null, rest: "" };
+
+async function refreshLibraryPhrase() {
+  const query = ($("library-search")?.value || "").trim().toLowerCase();
+  if (query === libraryPhrase.q) return;
+  Object.assign(libraryPhrase, { q: query, ids: null, rest: "" });
+  if (!query) return;
+  try {
+    const got = await apiJson("/read/filter?q=" + encodeURIComponent(query) + `&tz_offset_minutes=${-new Date().getTimezoneOffset()}`, { silent: true });
+    if (libraryPhrase.q === query && got.ids) Object.assign(libraryPhrase, { ids: new Set(got.ids), rest: (got.rest || "").toLowerCase() });
+  } catch {
+    // No reading: the words search as before.
+  }
+}
+
 async function runLibrarySearch() {
-  await Promise.all([refreshLibrarySemantic(), refreshLibraryServerSearch()]);
+  await Promise.all([refreshLibrarySemantic(), refreshLibraryServerSearch(), refreshLibraryPhrase()]);
   libraryCurrentPage = 1; // a new search can move an item off whatever page it was on
   renderLibrary();
 }
@@ -1961,9 +1998,13 @@ const LIBRARY_CREATE_BY_KIND = {
   // export that into a visual diagram on the whiteboard", by construction:
   // the map *is* a whiteboard, so it exports through the export button that
   // is already there.
+  //: **One word, "mind map"** (MINDMAP_PLAN 15, row 2): this row made a
+  //: board of note cards under a second name for the same idea. The Library's
+  //: Mind maps filter keys its Create by `map`, so the key stays and makes
+  //: the mind map, the `mindmap` row's own run.
   map: {
-    label: "ph:graph New concept map",
-    run: () => createConceptMap(),
+    label: "ph:tree-structure New mind map",
+    run: () => LIBRARY_CREATE_BY_KIND.mindmap.run(),
   },
   //: **A board from the Library's own Create** (INBOX 266 part 1). The
   //: picker offered notes, documents, maps, chats and meetings, and a board,
@@ -2048,7 +2089,7 @@ const LIBRARY_CREATE_HINTS = {
 //: then the things that arrive from elsewhere. The picker's sentence used to
 //: say "Five kinds of thing", which went stale the day a sixth row was
 //: added; it names no count now, so it cannot drift from the rows under it.
-const LIBRARY_CREATE_ORDER = ["note", "document", "mindmap", "map", "board", "chat", "meeting", "file"];
+const LIBRARY_CREATE_ORDER = ["note", "document", "mindmap", "board", "chat", "meeting", "file"];
 
 //: The kinds that have a chord of their own, by its name in the shortcut
 //: registry: the keycap is read from the live table, so a rebinding shows.
@@ -3039,11 +3080,19 @@ async function importLibraryDocuments(files) {
     const form = new FormData();
     form.append("file", file);
     try {
-      const document_ = await apiJson("/documents/import", {
-        method: "POST",
-        headers: authHeaders(),
-        body: form,
-      });
+      //: A Word file is read here by Mammoth (documents-word.js, Brief 42),
+      //: which keeps its headings, lists and tables; the server's extraction
+      //: keeps only the words.
+      const word = /\.docx$/i.test(file.name) && (await lazyScript("/js/documents-word.js"))
+        ? await docWordImport(file)
+        : null;
+      const document_ = word
+        ? await apiJson("/documents", { method: "POST", body: JSON.stringify({ title: word.title, content: word.content, file_type: "md" }) })
+        : await apiJson("/documents/import", {
+          method: "POST",
+          headers: authHeaders(),
+          body: form,
+        });
       made.push(document_);
     } catch (error) {
       toast(`Couldn't import “${file.name}”: ${error.message || "the file could not be read."}`, true);
@@ -3091,7 +3140,7 @@ async function renderLibraryDocuments() {
       DOCUMENTS_PAGE_SIZE
     );
   } catch (error) {
-    toast(error.message || "Could not load documents.", true);
+    toast(error.message || voiceLine("failed", { what: "load documents" }), true);
     return;
   } finally {
     clearSkeletons(list);
@@ -3250,7 +3299,7 @@ async function renderLibraryDocuments() {
           try {
             full = await apiJson(`/documents/${doc.id}`);
           } catch (error) {
-            toast(error.message || "Couldn't open that document.", true);
+            toast(error.message || voiceLine("failed", { what: "open that document" }), true);
             return;
           }
           openLightbox(
@@ -3742,6 +3791,9 @@ const ocrUi = {
   more: { canEdit: false, canAdd: false },
   dockFrame: 0,
   dockObserver: null,
+  //: The step the dock last fitted at, and for which width and content: an
+  //: open at the same size starts there (WORLD_CLASS_PLAN 28.4 row 9).
+  dockFit: { key: "", step: 0 },
   toolsMenuKey: "",
   lastRange: "",
   readMenuKey: "",
@@ -3955,13 +4007,9 @@ function ocrRenderOtherReadings(body) {
       if (!image) return;
       button.disabled = true;
       try {
-        const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
-        await apiJson(`${base}/ocr-clean-loops`, { method: "POST" });
-        renderLibraryImagesGallery();
-        toast("Cleaned up repeated lines.");
-        await ocrLoadPage(image, ocrWorkspacePage);
+        await ocrCleanLoops(image);
       } catch (error) {
-        toast(error.message || "Could not clean up that reading.", true);
+        toast(error.message || voiceLine("failed", { what: "clean up that reading" }), true);
       } finally {
         button.disabled = false;
       }
@@ -3976,15 +4024,15 @@ function ocrRenderOtherReadings(body) {
       const button = event.currentTarget;
       const image = ocrWorkspaceCurrent;
       if (!image) return;
-      if (!(await confirmDialog(`Delete this reading (${reading.label})? You can read it again any time.`))) return;
       button.disabled = true;
       try {
-        await analyseMediaRow(image, reading.source === "tesseract" ? "ocr" : "vision-ocr", { text: "" });
+        const again = () => ocrBinField(image, reading.source === "tesseract" ? "ocr" : "vision-ocr");
+        const binnedId = await again();
         renderLibraryImagesGallery();
-        toast("Reading deleted.");
+        ocrOfferBinUndo(image, `Delete a reading (${reading.label})`, "Reading moved to the bin.", binnedId, again);
         await ocrLoadPage(image, ocrWorkspacePage);
       } catch (error) {
-        toast(error.message || "Could not delete that reading.", true);
+        toast(error.message || voiceLine("failed", { what: "delete that reading" }), true);
       } finally {
         button.disabled = false;
       }
@@ -3999,6 +4047,78 @@ function ocrRenderOtherReadings(body) {
   box.classList.toggle("hidden", !others.length);
 }
 
+//: **Live Text in place** (WORLD_CLASS_PLAN 28.4 row 7; Apple's Live Text,
+//: the bar): each word an optical reader boxed (`extract_regions`' `words`)
+//: is laid over the picture where it sits, as transparent text, so a drag
+//: across the page selects the words themselves and Ctrl+C copies them in
+//: reading order. The layer takes no press of its own: a drag that starts
+//: off the words still reaches `#ocr-select` and outlines a region. Sizes are
+//: fractions of the page and the type is `cqh` of the layer, so a zoom moves
+//: nothing; each word is stretched to its box once, after it is drawn.
+function ocrPaintLiveText(regions) {
+  const layer = $("ocr-live-text");
+  if (!layer) return;
+  layer.replaceChildren();
+  for (const region of regions) {
+    for (const [index, word] of (region.words || []).entries()) {
+      const span = document.createElement("span");
+      span.className = "ocr-live-word";
+      span.textContent = word.text;
+      span.dataset.region = String(region.index);
+      span.dataset.word = String(index);
+      span.style.left = `${word.x * 100}%`;
+      span.style.top = `${word.y * 100}%`;
+      span.style.width = `${word.w * 100}%`;
+      span.style.height = `${word.h * 100}%`;
+      span.style.setProperty("--word-h", String(word.h));
+      layer.appendChild(span);
+    }
+  }
+  layer.classList.toggle("hidden", !layer.childElementCount);
+  requestAnimationFrame(ocrFitLiveText);
+}
+
+//: Each word stretched to its box: the ratio does not change with the zoom,
+//: so a word measured once keeps it; one drawn while hidden is measured on
+//: the next look (the page image's load).
+function ocrFitLiveText() {
+  const layer = $("ocr-live-text");
+  if (!layer) return;
+  const range = document.createRange();
+  for (const span of layer.querySelectorAll(".ocr-live-word:not([data-fitted])")) {
+    range.selectNodeContents(span);
+    const ink = range.getBoundingClientRect().width;
+    const room = span.getBoundingClientRect().width;
+    if (!room || !ink) continue;
+    span.style.setProperty("--word-sx", String(room / ink));
+    span.dataset.fitted = "1";
+  }
+}
+
+//: The selected words, in reading order, a line break between regions and
+//: lines: the copy a person expects, which the browser's own serialisation of
+//: absolutely placed spans does not give.
+function ocrLiveTextSelection() {
+  const selection = window.getSelection();
+  const layer = $("ocr-live-text");
+  if (!selection || selection.isCollapsed || !layer) return "";
+  const words = [...layer.children].filter((span) => selection.containsNode(span, true));
+  let out = "";
+  let last = null;
+  for (const span of words) {
+    if (last) {
+      const sameRegion = last.dataset.region === span.dataset.region;
+      const lastBox = last.getBoundingClientRect();
+      const box = span.getBoundingClientRect();
+      const sameLine = sameRegion && Math.abs(box.top - lastBox.top) < lastBox.height / 2;
+      out += sameLine ? " " : "\n";
+    }
+    out += span.textContent;
+    last = span;
+  }
+  return out;
+}
+
 function ocrRenderRegions(body) {
   ocrRenderOtherReadings(body);
   const boxes = $("ocr-boxes");
@@ -4008,6 +4128,7 @@ function ocrRenderRegions(body) {
   boxes.replaceChildren();
   list.replaceChildren();
   ocrWorkspaceRegions = body.regions || [];
+  ocrPaintLiveText(body.source === "tesseract" ? ocrWorkspaceRegions : []);
   //: **A control that cannot act must not sit there looking live**, the same
   //: rule the Stop-reading button and the box-overlay toggle already follow.
   //: Shown only once there is something on screen to remove.
@@ -4047,6 +4168,8 @@ function ocrRenderRegions(body) {
     readBtn.title = ocrWorkspaceRegions.length
       ? "Read again: replaces the reading shown here"
       : "Transcribe what you are looking at";
+    readBtn.removeAttribute("aria-disabled");
+    ocrSyncCanRead();
   }
   //: **Re-running is on demand, and the button says which it is** (INBOX 443
   //: (3)). "Read this image" over a reading that is already there is the same
@@ -4299,18 +4422,16 @@ function ocrRenderRegions(body) {
         event.stopPropagation();
         const image = ocrWorkspaceCurrent;
         if (!image) return;
-        if (!(await confirmDialog(`Delete the reading for page ${region.page + 1}? You can read it again any time.`))) {
-          return;
-        }
         remove.disabled = true;
         try {
-          const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
-          await apiJson(`${base}/page-reads/${region.page}`, { method: "DELETE" });
-          toast(`Reading of page ${region.page + 1} deleted.`);
+          const page = region.page;
+          const again = () => ocrBinPage(image, page);
+          const binnedId = await again();
+          ocrOfferBinUndo(image, `Delete the reading of page ${page + 1}`, `Reading of page ${page + 1} moved to the bin.`, binnedId, again);
           await ocrLoadPage(image, ocrWorkspacePage);
         } catch (error) {
           remove.disabled = false;
-          toast(error.message || "Could not delete that reading.", true);
+          toast(error.message || voiceLine("failed", { what: "delete that reading" }), true);
         }
       });
       head.appendChild(remove);
@@ -4625,10 +4746,18 @@ function ocrShowRegionResult({ mode, page, rect, text, model, message }) {
   setLabel(remove, "ph:x");
   remove.title = "Dismiss this answer";
   remove.setAttribute("aria-label", remove.title);
-  remove.addEventListener("click", (event) => {
-    event.stopPropagation();
+  const take = () => {
     card.remove();
     holder.classList.toggle("hidden", !holder.childElementCount);
+  };
+  const put = () => {
+    holder.prepend(card);
+    holder.classList.remove("hidden");
+  };
+  remove.addEventListener("click", (event) => {
+    event.stopPropagation();
+    take();
+    offerUndo("Dismiss a region's answer", "Answer dismissed.", put, take);
   });
   head.appendChild(remove);
   const body = document.createElement("p");
@@ -4643,6 +4772,9 @@ function ocrShowRegionResult({ mode, page, rect, text, model, message }) {
   //: being waited on.
   holder.prepend(card);
   card.focus();
+  //: A region read stores nothing (`_read_region`): its answer is this card,
+  //: so its undo takes the card away and redo puts it back.
+  pushUndo(mode === "describe" ? "Describe a region" : "Read a region", take, put);
 }
 
 //: Read or describe whatever is outlined. Everything about *what* to run lives
@@ -4891,6 +5023,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     $("ocr-message").classList.remove("hidden");
   }
   $("ocr-boxes").replaceChildren();
+  ocrPaintLiveText([]);
   if (!sameFile) $("ocr-region-list").replaceChildren();
   //: **The read button is not a PDF button.** Asked for directly: *"make it not
   //: just reading text on the page but truly ... an all encompassing text and
@@ -4914,6 +5047,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     $("ocr-read-page")?.classList.add("hidden");
     $("ocr-describe")?.classList.add("hidden");
     $("ocr-boxes")?.replaceChildren();
+    ocrPaintLiveText([]);
     $("ocr-stage")?.classList.add("ocr-stage-text");
     try {
       const file = await ocrFetchFileText(image);
@@ -5539,7 +5673,7 @@ function openOcrWorkspace(image, images, page = 0) {
   //: The tool row is measured once it has a size (INBOX 717), and again
   //: whenever the card does.
   ocrWatchDock();
-  requestAnimationFrame(() => ocrFitDock());
+  ocrScheduleFitDock();
   if (ocrIsPdf(image)) {
     ocrWorkspaceImages = [];
     ocrLoadPage(image, startPage);
@@ -5703,15 +5837,38 @@ function ocrApplyZoom() {
   }
 }
 
+//: The level on screen as a number: Fit is whatever Fit currently *is*, so a
+//: step or a pinch from Fit starts where the picture is rather than at 100%.
+function ocrShownZoom() {
+  if (ocrZoom !== null) return ocrZoom;
+  const [stage, img] = ocrVisibleStages()[0] || [];
+  const shown = stage ? stage.getBoundingClientRect().width : 0;
+  const paper = (img?.naturalWidth || 0) / ocrNaturalScale();
+  return paper ? Math.min(3, Math.max(0.25, shown / paper)) : 1;
+}
+
+//: **A pinch zooms about the fingers** (WORLD_CLASS_PLAN 28.4 row 3): the
+//: point of the page under (clientX, clientY) stays under it, the way a
+//: photo viewer pinches, where the buttons keep the middle (`ocrKeepCentre`).
+//: Continuous between the strip's first and last steps.
+function ocrZoomAbout(level, clientX, clientY) {
+  const pane = $("ocr-page-pane");
+  const next = Math.min(OCR_ZOOM_STEPS.at(-1), Math.max(OCR_ZOOM_STEPS[0], level));
+  if (!pane) return;
+  const box = pane.getBoundingClientRect();
+  const dx = clientX - box.left;
+  const dy = clientY - box.top;
+  const fx = (pane.scrollLeft + dx) / Math.max(1, pane.scrollWidth);
+  const fy = (pane.scrollTop + dy) / Math.max(1, pane.scrollHeight);
+  ocrZoom = next;
+  ocrApplyZoom();
+  pane.scrollLeft = fx * pane.scrollWidth - dx;
+  pane.scrollTop = fy * pane.scrollHeight - dy;
+  ocrSyncZoomButtons();
+}
+
 function ocrStepZoom(direction) {
-  //: Stepping from Fit starts at whatever Fit currently *is*, so the first
-  //: press changes the picture by one step rather than jumping to 100%.
-  if (ocrZoom === null) {
-    const [stage, img] = ocrVisibleStages()[0] || [];
-    const shown = stage ? stage.getBoundingClientRect().width : 0;
-    const paper = (img?.naturalWidth || 0) / ocrNaturalScale();
-    ocrZoom = paper ? Math.min(3, Math.max(0.25, shown / paper)) : 1;
-  }
+  ocrZoom = ocrShownZoom();
   const steps = OCR_ZOOM_STEPS;
   const next =
     direction > 0
@@ -5953,7 +6110,7 @@ function ocrSyncPager(image) {
   //: The layout pair comes and goes with the document, so the row is measured
   //: again, and the Read menu's page count follows the document.
   ocrSyncReadMenu(image);
-  ocrFitDock();
+  ocrScheduleFitDock();
 }
 
 function ocrStepPage(delta) {
@@ -6150,7 +6307,44 @@ function ocrSyncReaderButton() {
   }
   summary.title = `${state} Press to change the reader${reader === "tesseract" ? " or its language" : ""}.`;
   summary.setAttribute("aria-label", `Reader: ${word}. ${state}`);
-  ocrFitDock();
+  ocrSyncCanRead();
+  ocrScheduleFitDock();
+}
+
+//: **Nothing can read: the AI controls say so before they are pressed**
+//: (WORLD_CLASS_PLAN 28.4 row 5; DESIGN.md: a control that does not apply now
+//: is `aria-disabled` and its press says why, never a dead button). With no
+//: engine and no model, Read and the region's Read and Describe carry the
+//: reason in their title, and a press opens the reader menu, where the
+//: installs are.
+function ocrSyncCanRead() {
+  const any = ["tesseract", "rapidocr", "vision", "ocr"].some((reader) => ocrCan(reader));
+  const why = "Nothing can read yet: install RapidOCR or Tesseract from the reader menu, or start an AI model in Settings.";
+  const whyDescribe = "Describing needs an AI model: start one in Settings.";
+  const mark = (button, off, reason) => {
+    if (!button) return;
+    if (off) {
+      if (button.getAttribute("aria-disabled") !== "true") button.dataset.ocrTitle = button.title || "";
+      button.setAttribute("aria-disabled", "true");
+      button.title = reason;
+    } else if (button.getAttribute("aria-disabled") === "true") {
+      button.removeAttribute("aria-disabled");
+      button.title = button.dataset.ocrTitle || "";
+    }
+  };
+  mark($("ocr-read-page"), !any, why);
+  mark($("ocr-region-read"), !any, why);
+  mark($("ocr-region-describe"), !ocrCan("vision"), whyDescribe);
+}
+
+//: The press of a control `ocrSyncCanRead` turned off: its reason, and the
+//: reader menu opened on the installs. True when it was off.
+function ocrRefusedPress(button) {
+  if (button?.getAttribute("aria-disabled") !== "true") return false;
+  toast(button.title, "info");
+  const menu = $("ocr-reader-menu");
+  if (menu && button.id !== "ocr-region-describe") menu.open = true;
+  return true;
 }
 
 function ocrReader() {
@@ -6328,15 +6522,23 @@ async function ocrReadImage(image, button) {
   $("ocr-message").classList.remove("hidden");
   const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
   try {
-    await trackOcrRead(
+    const kind = ocrIsLocal(reader) ? "ocr" : "vision-ocr";
+    const before = ocrFieldText(kind);
+    const row = await trackOcrRead(
       image,
       label,
       analyseMediaRow(
         image,
-        ocrIsLocal(reader) ? "ocr" : "vision-ocr",
+        kind,
         ocrIsLocal(reader) ? { force: true, engine: reader } : { force: true }
       )
     );
+    const after = ((kind === "ocr" ? row?.ocr_text : row?.vision_ocr_text) || "").trim();
+    //: A fresh read replaces the reading that was there, the first read after
+    //: an engine install included: undo puts the old one back.
+    if (after !== before.trim()) {
+      pushUndo(`Read with ${ocrReaderNameFor(reader)}`, ocrTextWriter(image, kind, before), ocrTextWriter(image, kind, after));
+    }
     //: Re-read rather than render the response: the regions endpoint is the
     //: one thing that knows how to turn either reader's answer into boxes, and
     //: a second renderer here would drift from it.
@@ -6529,7 +6731,9 @@ async function ocrReadRange(spec) {
 //: nothing is out of reach at 390 that is on screen at 1440. Measured, not a
 //: breakpoint, because the row's width depends on the reader's name, whether
 //: the file is a document, and the zoom level's digits.
-const OCR_DOCK_STEPS = ["is-tight", 1, 2, 3, "is-tightest"];
+//: `is-terse` last (WORLD_CLASS_PLAN 28.4 row 4): at 320 the row was 10 px
+//: too wide with everything folded, and Read sat past the edge; its icon goes.
+const OCR_DOCK_STEPS = ["is-tight", 1, 2, 3, "is-tightest", "is-terse"];
 
 function ocrDockFits(dock) {
   const box = dock.getBoundingClientRect();
@@ -6550,18 +6754,65 @@ function ocrDockFits(dock) {
   return true;
 }
 
-function ocrFitDock() {
-  const dock = $("ocr-dock");
-  if (!dock || dock.offsetParent === null) return;
+//: **One measure where there were six** (WORLD_CLASS_PLAN 28.4 row 9). Each
+//: step is a style recalculation of the whole dialog, 30 to 90 ms apiece at
+//: 390 under load (traced), and a phone needs every step: the open spent
+//: 480 ms here, twice over. The step that fitted last time, for the same
+//: width and the same words, is put back at once and checked once.
+function ocrDockApply(dock, count) {
   const folded = [...dock.querySelectorAll("[data-fold]")];
-  dock.classList.remove("is-tight", "is-tightest");
+  dock.classList.remove(...OCR_DOCK_STEPS.filter((step) => typeof step === "string"));
   for (const el of folded) el.classList.remove("is-folded");
-  for (const step of OCR_DOCK_STEPS) {
-    if (ocrDockFits(dock)) break;
+  for (const step of OCR_DOCK_STEPS.slice(0, count)) {
     if (typeof step === "string") dock.classList.add(step);
     else for (const el of folded) if (Number(el.dataset.fold) === step) el.classList.add("is-folded");
   }
+}
+
+function ocrFitDock() {
+  const dock = $("ocr-dock");
+  if (!dock || dock.offsetParent === null) return;
+  cancelAnimationFrame(ocrUi.dockFrame);
+  //: Width, words and which controls are shown (a document's layout pair
+  //: comes and goes without changing a word).
+  const shown = [...dock.querySelectorAll("button, details, select, input")]
+    .filter((el) => !el.closest(".hidden, [hidden]")).length;
+  const key = `${Math.round(dock.getBoundingClientRect().width)}|${dock.textContent.length}|${shown}`;
+  //: Fitted already at this width with these words: the row is as it was
+  //: left (its own resize, from that fit, is what asked again).
+  if (dock.dataset.fitKey === key) return;
+  //: The fewest steps that fit, found by halving (folding more never makes
+  //: the row wider): three measures for six steps, where walking them took
+  //: up to six. All six applied is the floor, as it always was.
+  const steps = OCR_DOCK_STEPS.length;
+  const fits = (count) => {
+    ocrDockApply(dock, count);
+    return ocrDockFits(dock);
+  };
+  let lo = 0;
+  let hi = steps;
+  if (ocrUi.dockFit.key === key) {
+    //: Same width, same words: the step that fitted is the answer, checked.
+    if (fits(ocrUi.dockFit.step)) lo = hi = ocrUi.dockFit.step;
+    else lo = ocrUi.dockFit.step + 1;
+  }
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (fits(mid)) hi = mid;
+    else lo = mid + 1;
+  }
+  const count = Math.min(lo, steps);
+  ocrDockApply(dock, count);
+  ocrUi.dockFit = { key, step: count };
+  dock.dataset.fitKey = key;
   ocrSyncToolsMenu();
+}
+
+//: Several things ask for a fit as the dialog opens (the open, the readers'
+//: answer, the dock's own resize): one per frame.
+function ocrScheduleFitDock() {
+  cancelAnimationFrame(ocrUi.dockFrame);
+  ocrUi.dockFrame = requestAnimationFrame(() => ocrFitDock());
 }
 
 //: Watched, because the card follows the window and a phone turns sideways.
@@ -6570,8 +6821,7 @@ function ocrWatchDock() {
   const dock = $("ocr-dock");
   if (!dock || ocrUi.dockObserver || typeof ResizeObserver === "undefined") return;
   ocrUi.dockObserver = new ResizeObserver(() => {
-    cancelAnimationFrame(ocrUi.dockFrame);
-    ocrUi.dockFrame = requestAnimationFrame(() => ocrFitDock());
+    ocrScheduleFitDock();
   });
   ocrUi.dockObserver.observe(dock);
 }
@@ -6886,12 +7136,13 @@ onDomReady(() => {
   $("ocr-to-chat")?.addEventListener("click", () => {
     const text = ocrAllText();
     if (!text) return toast("There is nothing to ask about yet. Read the page first.", "info");
-    if (typeof attachSelectionContext !== "function") return toast("The chat isn't available right now.", true);
+    if (typeof attachSelectionContext !== "function") return toast("The chat isn't available right now.", "info");
     const name = ocrWorkspaceCurrent?.original_name || "this image";
     const pdf = ocrIsPdf(ocrWorkspaceCurrent);
     const where = pdf ? `${name}, page ${ocrWorkspacePage + 1}` : name;
     closeOcrWorkspace();
-    attachSelectionContext({
+    const agentOn = attachSelectionContext({
+      quiet: true,
       kind: "reading",
       title: where,
       text: text.length > 8000 ? `${text.slice(0, 8000)}…` : text,
@@ -6903,7 +7154,7 @@ onDomReady(() => {
       after: "",
       surfaceId: "",
     });
-    toast(`The text of ${where} is attached to your next chat message. Type your question.`);
+    toast(`The text of ${where} is attached to your next chat message${agentOn ? ", and Agent mode is on" : ""}. Type your question.`);
   });
   //: Arrow keys and Page Up/Down move between pages, which is what every
   //: document reader on the machine already does, a page rail you can only
@@ -7046,14 +7297,62 @@ onDomReady(() => {
   //: A cancelled pointer (the browser taking over for a scroll gesture, the
   //: window losing focus) has to leave no half-drawn rectangle behind.
   $("ocr-select")?.addEventListener("pointercancel", () => ocrClearRegionSelection());
-  $("ocr-region-read")?.addEventListener("click", () => ocrRunRegion("read"));
-  $("ocr-region-describe")?.addEventListener("click", () => ocrRunRegion("describe"));
+  //: On the document: a copy is dispatched where the focus is, not where the
+  //: selection started, and a drag that began on a word may end off the page.
+  document.addEventListener("copy", (event) => {
+    if (!$("ocr-live-text")?.contains(window.getSelection()?.anchorNode || null)) return;
+    const text = ocrLiveTextSelection();
+    if (!text) return;
+    event.preventDefault();
+    event.clipboardData.setData("text/plain", text);
+  });
+  //: A press on a word that selects nothing is a press on its region, as a
+  //: press on the region's box always was.
+  $("ocr-live-text")?.addEventListener("click", (event) => {
+    const word = event.target.closest?.(".ocr-live-word");
+    if (word && window.getSelection()?.isCollapsed) ocrSelectRegion(Number(word.dataset.region));
+  });
+  $("ocr-region-read")?.addEventListener("click", (event) => ocrRefusedPress(event.currentTarget) || ocrRunRegion("read"));
+  $("ocr-region-describe")?.addEventListener("click", (event) => ocrRefusedPress(event.currentTarget) || ocrRunRegion("describe"));
   $("ocr-region-cancel")?.addEventListener("click", () => ocrClearRegionSelection());
   $("ocr-zoom-in")?.addEventListener("click", () => ocrStepZoom(1));
   $("ocr-zoom-out")?.addEventListener("click", () => ocrStepZoom(-1));
+  //: **A pinch zooms the page** (the owner, 2026-10-10: "I cant two finger
+  //: trackpad zoom in or out on documents or images on the ocr workspace?").
+  //: A trackpad pinch reaches the page as `wheel` events with `ctrlKey` and a
+  //: few pixels each; a Ctrl+mouse notch is about 100, which is a factor of
+  //: about 1.2, near one of the strip's steps. Continuous and about the
+  //: pointer, so the window's own zoom never sees it.
+  $("ocr-page-pane")?.addEventListener("wheel", (event) => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    const delta = Math.max(-100, Math.min(100, event.deltaY));
+    ocrZoomAbout(ocrShownZoom() * Math.exp(-delta / 500), event.clientX, event.clientY);
+  }, { passive: false });
+  //: Two fingers on a touch screen: the level follows the distance between
+  //: them, about their midpoint. One finger still scrolls the page or draws
+  //: a region, as before.
+  const pinch = { from: 0, level: 1 };
+  const spread = (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+  $("ocr-page-pane")?.addEventListener("touchstart", (event) => {
+    if (event.touches.length !== 2) return;
+    pinch.from = spread(event.touches);
+    pinch.level = ocrShownZoom();
+    ocrClearRegionSelection();
+  }, { passive: true });
+  $("ocr-page-pane")?.addEventListener("touchmove", (event) => {
+    if (event.touches.length !== 2 || !pinch.from) return;
+    event.preventDefault();
+    const [a, b] = event.touches;
+    ocrZoomAbout(pinch.level * (spread(event.touches) / pinch.from), (a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
+  }, { passive: false });
+  $("ocr-page-pane")?.addEventListener("touchend", (event) => {
+    if (event.touches.length < 2) pinch.from = 0;
+  }, { passive: true });
   $("ocr-image")?.addEventListener("load", () => {
     ocrApplyZoom();
     ocrSyncZoomButtons();
+    ocrFitLiveText();
   });
   window.addEventListener("resize", () => {
     if (!$("ocr-workspace")?.classList.contains("hidden")) ocrApplyZoom();
@@ -7132,7 +7431,7 @@ onDomReady(() => {
       //: same gap; one `catch` now covers both.)
       $("ocr-message").textContent = error.message || "Couldn't describe that.";
       $("ocr-message").classList.remove("hidden");
-      toast(error.message || "Couldn't describe that.", true);
+      toast(error.message || voiceLine("failed", { what: "describe that" }), true);
     } finally {
       button.disabled = false;
     }
@@ -7147,14 +7446,14 @@ onDomReady(() => {
     if (!image) return;
     const isPdf = ocrIsPdf(image);
     const what = isPdf ? `page ${ocrWorkspacePage + 1}` : "this image";
-    if (!(await confirmDialog(`Delete the reading for ${what}? You can read it again any time.`))) {
-      return;
-    }
+    //: No confirm: the reading goes to the bin and the toast's Undo (or
+    //: Ctrl+Z) brings it back (WORLD_CLASS_PLAN 28.4 row 2).
     button.disabled = true;
     try {
+      const page = ocrWorkspacePage;
+      let remove;
       if (isPdf) {
-        const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
-        await apiJson(`${base}/page-reads/${ocrWorkspacePage}`, { method: "DELETE" });
+        remove = () => ocrBinPage(image, page);
       } else {
         //: Same reader-to-field mapping `ocrReadImage` uses for the read
         //: itself, so delete clears the field the *current* reader would
@@ -7167,15 +7466,16 @@ onDomReady(() => {
         const kind = shown
           ? (shown === "tesseract" ? "ocr" : "vision-ocr")
           : (ocrIsLocal(ocrReader()) ? "ocr" : "vision-ocr");
-        await analyseMediaRow(image, kind, { text: "" });
-        //: The gallery tile behind this dialog now claims a reading that is
-        //: gone: same repaint `ocrReadImage` triggers after writing one.
-        renderLibraryImagesGallery();
+        remove = () => ocrBinField(image, kind);
       }
-      toast("Reading deleted.");
+      const binnedId = await remove();
+      //: The gallery tile behind this dialog now claims a reading that is
+      //: gone: same repaint `ocrReadImage` triggers after writing one.
+      renderLibraryImagesGallery();
+      ocrOfferBinUndo(image, `Delete the reading of ${what}`, "Reading moved to the bin.", binnedId, remove);
       await ocrLoadPage(image, ocrWorkspacePage);
     } catch (error) {
-      toast(error.message || "Could not delete that reading.", true);
+      toast(error.message || voiceLine("failed", { what: "delete that reading" }), true);
     } finally {
       button.disabled = false;
     }
@@ -7193,13 +7493,9 @@ onDomReady(() => {
     if (!image) return;
     button.disabled = true;
     try {
-      const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
-      await apiJson(`${base}/ocr-clean-loops`, { method: "POST" });
-      renderLibraryImagesGallery();
-      toast("Cleaned up repeated lines.");
-      await ocrLoadPage(image, ocrWorkspacePage);
+      await ocrCleanLoops(image);
     } catch (error) {
-      toast(error.message || "Could not clean up that reading.", true);
+      toast(error.message || voiceLine("failed", { what: "clean up that reading" }), true);
     } finally {
       button.disabled = false;
     }
@@ -7219,7 +7515,7 @@ onDomReady(() => {
 
   $("ocr-read-page")?.addEventListener("click", async (event) => {
     const image = ocrWorkspaceCurrent;
-    if (!image) return;
+    if (!image || ocrRefusedPress(event.currentTarget)) return;
     if (!ocrIsPdf(image)) return ocrReadImage(image, event.currentTarget);
     const button = event.currentTarget;
     const page = ocrWorkspacePage;
@@ -7300,12 +7596,14 @@ onDomReady(() => {
       : (ocrIsLocal(ocrReader()) ? "ocr" : "vision-ocr");
     setBusy(button, true, "Saving…");
     try {
-      await analyseMediaRow(image, kind, { text: box.value, edited: true });
+      const before = ocrFieldText(kind);
+      const after = box.value;
+      await analyseMediaRow(image, kind, { text: after, edited: true });
       renderLibraryImagesGallery();
-      toast("Saved your changes.");
+      ocrOfferTextUndo(image, kind, "Edit the reading", "Saved your changes.", before, after, true);
       await ocrLoadPage(image, ocrWorkspacePage);
     } catch (error) {
-      toast(error.message || "Couldn't save that.", true);
+      toast(error.message || voiceLine("failed", { what: "save that" }), true);
     } finally {
       setBusy(button, false);
     }
@@ -7345,10 +7643,97 @@ onDomReady(() => {
       $("ocr-workspace").classList.add("hidden");
       flashEntry(created.id);
     } catch (error) {
-      toast(error.message || "Couldn't save that note.", true);
+      toast(error.message || voiceLine("failed", { what: "save that note" }), true);
     }
   });
 });
+
+//: **The five reading acts undo** (WORLD_CLASS_PLAN 28.4 row 2, rule 1):
+//: saving an edit, deleting a reading, cleaning loops, a region read and a
+//: fresh read (the one an engine install leads to) each go on the app's undo
+//: stack with a toast whose Undo is the same entry (`offerUndo`). A text
+//: change is undone by writing the text it replaced back through the same
+//: route; a delete is undone from the bin it went to (`/reading-bin`).
+function ocrBase(image) {
+  return image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+}
+
+async function ocrRepaintReading(image) {
+  renderLibraryImagesGallery();
+  const open = !$("ocr-workspace")?.classList.contains("hidden");
+  if (open && ocrWorkspaceCurrent && ocrWorkspaceCurrent.id === image.id) {
+    await ocrLoadPage(ocrWorkspaceCurrent, ocrWorkspacePage);
+  }
+}
+
+//: The text a reading field holds now, from the readings the workspace last
+//: painted (`ocr-regions`' `readings`): "ocr" is Tesseract's, "vision-ocr"
+//: the model's.
+function ocrFieldText(kind) {
+  const source = kind === "ocr" ? "tesseract" : "vision";
+  return ocrWorkspaceReadings.find((r) => r.source === source)?.text || "";
+}
+
+//: `edited` is the redo's flag: an edit redone is still the person's
+//: correction (`VisionOcrBody.edited`), and the reading it undoes to is not.
+function ocrTextWriter(image, kind, text, edited = false) {
+  return async () => {
+    await analyseMediaRow(image, kind, edited ? { text, edited: true } : { text });
+    await ocrRepaintReading(image);
+  };
+}
+
+function ocrOfferTextUndo(image, kind, label, message, before, after, edited = false) {
+  return offerUndo(label, message, ocrTextWriter(image, kind, before), ocrTextWriter(image, kind, after, edited));
+}
+
+//: A delete went to the bin as `binnedId`; Undo restores it from there and
+//: Redo deletes it again (`remove` answers the new bin id).
+function ocrOfferBinUndo(image, label, message, binnedId, remove) {
+  const held = { id: binnedId };
+  return offerUndo(
+    label,
+    message,
+    async () => {
+      if (held.id) await apiJson(`/reading-bin/${held.id}/restore`, { method: "POST" });
+      await ocrRepaintReading(image);
+    },
+    async () => {
+      held.id = await remove();
+      await ocrRepaintReading(image);
+    }
+  );
+}
+
+async function ocrBinPage(image, page) {
+  const body = await apiJson(`${ocrBase(image)}/page-reads/${page}`, { method: "DELETE" });
+  return body?.binned_id || null;
+}
+
+async function ocrBinField(image, kind) {
+  const source = kind === "ocr" ? "tesseract" : "vision";
+  const body = await apiJson(`${ocrBase(image)}/readings/${source}`, { method: "DELETE" });
+  return body?.binned_id || null;
+}
+
+//: "Clean up repeated lines", undoable: the two fields as they were go back
+//: through the same text routes, whichever of them the clean changed.
+async function ocrCleanLoops(image) {
+  const before = { ocr: ocrFieldText("ocr"), "vision-ocr": ocrFieldText("vision-ocr") };
+  const after = await apiJson(`${ocrBase(image)}/ocr-clean-loops`, { method: "POST" });
+  const now = { ocr: (after?.ocr_text || "").trim(), "vision-ocr": (after?.vision_ocr_text || "").trim() };
+  const changed = Object.keys(before).filter((kind) => before[kind].trim() !== now[kind]);
+  renderLibraryImagesGallery();
+  if (!changed.length) {
+    toast("No repeated lines to clean up.");
+  } else {
+    const put = (texts) => async () => {
+      for (const kind of changed) await ocrTextWriter(image, kind, texts[kind])();
+    };
+    offerUndo("Clean up repeated lines", "Cleaned up repeated lines.", put(before), put(now));
+  }
+  await ocrLoadPage(image, ocrWorkspacePage);
+}
 
 async function analyseMediaRow(image, kind, payload = {}) {
   if (image._isAttachment) {
@@ -8419,7 +8804,7 @@ function filterLibraryImagesGallery() {
           });
         } catch (error) {
           setCaptionState(image.caption);
-          toast(error.message || "Couldn't save that caption.", true);
+          toast(error.message || voiceLine("failed", { what: "save that caption" }), true);
         }
       };
       box.addEventListener("keydown", (keyEvent) => {
@@ -8484,7 +8869,7 @@ function filterLibraryImagesGallery() {
       } catch (error) {
         captionText.textContent = previousCaptionText;
         syncProvenance();
-        toast(error.message || "Couldn't generate a caption.", true);
+        toast(error.message || voiceLine("failed", { what: "generate a caption" }), true);
       } finally {
         captionBtn.disabled = false;
       }
@@ -8575,7 +8960,7 @@ function filterLibraryImagesGallery() {
           setOcrState(updated.ocr_text);
         } catch (error) {
           setOcrState(image.ocr_text);
-          toast(error.message || "Couldn't save that text.", true);
+          toast(error.message || voiceLine("failed", { what: "save that text" }), true);
         }
       };
       box.addEventListener("keydown", (keyEvent) => {
@@ -8618,7 +9003,7 @@ function filterLibraryImagesGallery() {
         setOcrState(updated.ocr_text);
       } catch (error) {
         ocrText.textContent = previousOcrText;
-        toast(error.message || "Couldn't read the text in that image.", true);
+        toast(error.message || voiceLine("failed", { what: "read the text in that image" }), true);
       } finally {
         ocrBtn.disabled = modelStatus && modelStatus.tesseract_available === false;
       }
@@ -8763,7 +9148,7 @@ function filterLibraryImagesGallery() {
           setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
         } catch (error) {
           setVisionOcrState(previousText, previousModel);
-          toast(error.message || "Couldn't save that text.", true);
+          toast(error.message || voiceLine("failed", { what: "save that text" }), true);
         }
       };
       box.addEventListener("keydown", (keyEvent) => {
@@ -8801,7 +9186,7 @@ function filterLibraryImagesGallery() {
         // re-hiding the box if this was the first-ever attempt and it
         // failed, rather than leaving an empty line visible forever.
         setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
-        toast(error.message || "Couldn't read the text in that image.", true);
+        toast(error.message || voiceLine("failed", { what: "read the text in that image" }), true);
       } finally {
         visionOcrBtn.disabled = false;
       }
@@ -9456,7 +9841,7 @@ onDomReady(() => {
     const sections = [
       "library-view-documents", "library-view-docs", "library-view-skills",
       "library-view-whiteboard", "library-view-media", "library-view-links",
-      "library-view-contents",
+      "library-view-contents", "library-view-recordings",
     ];
 
     buttons.forEach(btn => {
@@ -9530,6 +9915,8 @@ onDomReady(() => {
             renderBookmarks();
           } else if (targetId === "library-view-contents") {
             renderContents();
+          } else if (targetId === "library-view-recordings") {
+            ensureModule("meetings").then(() => renderRecordings());
           }
         }
       });
@@ -10233,7 +10620,7 @@ async function renameBookmarkGroup(from, to) {
       });
       moved++;
     } catch (error) {
-      toast(error.message || "Couldn't move that bookmark.", true);
+      toast(error.message || voiceLine("failed", { what: "move that bookmark" }), true);
     }
   }
   const empties = emptyBookmarkGroups().filter((g) => g !== from);
@@ -10806,7 +11193,7 @@ function bookmarkRow(bookmark) {
         renderBookmarks();
       } catch (error) {
         save.disabled = false;
-        toast(error.message || "Couldn't save that bookmark.", true);
+        toast(error.message || voiceLine("failed", { what: "save that bookmark" }), true);
       }
     });
 
@@ -11349,9 +11736,79 @@ function contentsBuildSection(outline, { key, label, total, fill }) {
   heading.contentsSet = setOpen;
   setOpen(!folded.has(key));
   heading.addEventListener("click", () => setOpen(list.hidden));
+  contentsWireTopicHeading(heading, key);
   fill(list);
   section.append(heading, list);
   outline.appendChild(section);
+}
+
+//: **A topic is renamed in this list too** (the owner, 2026-10-10: "I cant
+//: rename a topic??", "I still cant edit topics in the graph or anywhere
+//: else"). Under By topic a heading is a topic: F2 or its right-click menu
+//: renames it in place (the graph's route, kept by the topic's notes), and
+//: the menu also shows it on the graph.
+function contentsWireTopicHeading(heading, key) {
+  if (contentsMode !== "topic" || key === CONTENTS_NO_TOPIC) return;
+  const names = contentsTopicNames();
+  const topic = (contentsTopics?.topics || []).find((t) => names.get(t.id) === key);
+  if (!topic) return;
+  heading.title = "F2 or right-click to rename this topic or show it on the graph";
+  heading.addEventListener("keydown", (event) => {
+    if (event.key !== "F2") return;
+    event.preventDefault();
+    contentsRenameTopic(heading, topic);
+  });
+  heading.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    openMenuAtPoint([
+      { label: "ph:pencil-simple Rename topic", run: () => contentsRenameTopic(heading, topic) },
+      {
+        label: "ph:graph Show on the graph",
+        run: async () => {
+          await switchTab("graph");
+          showTopicInGraph(topic.ids[0]);
+        },
+      },
+    ], "Topic", event.clientX, event.clientY);
+  });
+}
+
+function contentsRenameTopic(heading, topic) {
+  const field = document.createElement("input");
+  field.type = "text";
+  field.maxLength = 80;
+  field.className = "graph-topic-rename";
+  field.value = topic.name;
+  field.setAttribute("aria-label", `Rename the topic ${topic.name}`);
+  field.title = "Enter to save, Escape to keep the name; empty brings the found name back";
+  heading.hidden = true;
+  heading.after(field);
+  let done = false;
+  const finish = async (save) => {
+    if (done) return;
+    done = true;
+    const wanted = field.value.trim();
+    field.remove();
+    heading.hidden = false;
+    if (!save || wanted === topic.name) {
+      heading.focus();
+      return;
+    }
+    const rename = () => apiJson("/graph/topics/name", { method: "PUT", body: JSON.stringify({ ids: topic.ids, name: wanted }) });
+    const row = await rename()
+      .catch((e) => { toast(`The topic was not renamed: ${e?.message || e}.`, true, { action: ["Try again", rename] }); return null; });
+    if (!row) return;
+    if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
+    renderContents();
+  };
+  field.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") finish(true);
+    else if (event.key === "Escape") finish(false);
+  });
+  field.addEventListener("blur", () => finish(true));
+  field.focus();
+  field.select();
 }
 
 async function renderContents() {

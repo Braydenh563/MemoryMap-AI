@@ -103,8 +103,18 @@ KINDS = frozenset(
         # or marked answered by hand. No boost family; recorded so "what has
         # the app been getting wrong" includes the answers it found.
         "drop_question",
+        # The person's own name for a topic (WORLD_CLASS 23, decision 7):
+        # written when they merge one category into another in Tidy, read
+        # by `lexical_filing.personal_lexicon` with their refiles.
+        "alias",
         "reopen_question",
         "answer_question",
+        # An insight line's two buttons (CHAT_PLAN decision 60): a dismissal
+        # keeps that insight and its near-variants away (`insights.memory`);
+        # a confirmation is written as a fact too, and recorded here so the
+        # corrections log says what the person vouched for.
+        "confirm_insight",
+        "dismiss_insight",
     }
 )
 

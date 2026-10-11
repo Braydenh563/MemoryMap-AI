@@ -45,6 +45,10 @@ desktop = ["pywebview", "pystray", "Pillow"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# The taxonomy pack (ai/taxonomy.py) is JSON read from beside the module.
+[tool.setuptools.package-data]
+"memorymap.ai" = ["data/taxonomy/*.json"]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100
@@ -52,7 +56,10 @@ line-length = 100
 # is not ours to style: it lints with ~50 F401/F541/E402 findings, and CI runs
 # `ruff check .` from the repo root, so without this exclusion pulling in an
 # upstream update would fail the build for cosmetics in someone else's code.
-extend-exclude = [".claude/skills"]
+# Vendored Python under src/memorymap/vendor is excluded for the same reason;
+# docs/THIRD_PARTY.md lists every file there with its licence, and
+# tests/test_vendor_manifest.py holds that list to the folder.
+extend-exclude = [".claude/skills", "src/memorymap/vendor"]
 
 [tool.ruff.lint]
 # Ruff's default rules: pyflakes (F) + a curated pycodestyle subset (E). This
@@ -63,9 +70,15 @@ extend-exclude = [".claude/skills"]
 # re-raise, log with `exc_info`, or carry `# noqa: BLE001  # <reason>`,
 # because a handler that says nothing turns a fault into silence (the
 # "feature that never ran once" shape). Enabled 2026-09-26 at zero findings.
-select = ["E4", "E7", "E9", "F", "BLE001"]
+# T201 (WORLD_CLASS_PLAN 26.2, decision 57): `print` is for the command line
+# (`__main__.py`, 25 calls) and for scripts; anything else in `src` goes to
+# the logger. Measured 2026-10-10: no `print` in `src` outside `__main__.py`.
+select = ["E4", "E7", "E9", "F", "BLE001", "T201"]
 
 [tool.ruff.lint.per-file-ignores]
+# T201 applies to `src` only; the command line there prints by design.
+"!src/**" = ["T201"]
+"src/memorymap/__main__.py" = ["T201"]
 # `__all__` lists names this module resolves lazily through a PEP 562
 # module `__getattr__` (see the comment above it) rather than binding them
 # with a real import — the whole point being to not import the four split

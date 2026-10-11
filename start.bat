@@ -667,6 +667,7 @@ if "!NEED_INSTALL!"=="0" (
 if "!NEED_INSTALL!"=="1" (
   call :status !MM_STEP_DEPS! "Dependencies" "Installing, this can take a few minutes" "active"
   echo  !ESC![1;38;5;73m[2/4]!ESC![0m Installing dependencies - this can take a few minutes for heavy AI models.
+  echo         First setup only: this needs the internet once. After that MemoryMap works offline.
   echo         pip's own progress prints below as it happens:
 
   REM  `--timeout 5 --retries 0` makes pip give up on a dead connection in

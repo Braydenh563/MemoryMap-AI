@@ -15,8 +15,10 @@ import logging
 import threading
 import time
 from datetime import datetime, timezone
+from typing import Callable, NamedTuple
 
-from fastapi import APIRouter, HTTPException
+import requests
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from memorymap.ai import bench, facts
@@ -26,6 +28,113 @@ from memorymap.core.atomic_io import atomic_write_text
 logger = logging.getLogger("memorymap.api.bench")
 
 router = APIRouter(prefix="/models/bench", tags=["models"])
+
+
+class Budget(NamedTuple):
+    """One interaction's time budget (WORLD_CLASS_PLAN decision 54).
+
+    `measured_ms` is the browser's p50 on the fixture (`tests/fixtures/
+    budget_notebook.py`: 500 notes, a board of 500 objects, a document of
+    50,000 words) on the four-core sandbox, and `cap_ms` is 1.5 times it,
+    rounded up to 10 ms. The server share is the route that interaction
+    waits on, timed the same way against the same notebook. Raising a cap
+    needs a new measurement and a reason in the commit; a miss is reported
+    with its number, never absorbed by loosening the cap.
+    """
+
+    key: str
+    label: str
+    what: str
+    measured_ms: int
+    cap_ms: int
+    server_path: str = ""
+    server_measured_ms: int = 0
+    server_cap_ms: int = 0
+
+
+#: Measured 2026-10-11 (README "Performance"), machine load 7 to 11. A
+#: measurement is the slowest p50 of four browser runs (three or four server
+#: rounds), so a loaded machine sets the figure rather than a lucky minute.
+BUDGETS: tuple[Budget, ...] = (
+    Budget("first_paint", "Boot to first paint", "Navigation start to the first contentful paint, cold cache, stored session", 713, 1070, "/", 76, 120),
+    Budget("first_interaction", "First interaction", "Navigation start to the Notes tab answering a click with its first row", 4639, 6960),
+    Budget("list", "List paint", "Switching to Notes to the first page of rows settled", 139, 210, "/entries?limit=60", 40, 60),
+    Budget("search", "Search", "One search request, p50 over three queries", 30, 50, "/search?q=harbour&limit=20", 40, 60),
+    Budget("board", "Board open", "Opening a board of 500 objects to every object on the canvas", 108, 170, "/whiteboard/?board_id={board}", 75, 120),
+    Budget("document", "Document open", "Opening a document of 50,000 words to resolved", 359, 540, "/documents/{document}", 32, 50),
+)
+SHARE_RUNS = 5
+
+
+def time_share(get: Callable[[str], object], path: str, runs: int = SHARE_RUNS) -> float:
+    """p50 in milliseconds of `get(path)` after one warm call. `get` is a
+    TestClient method in the test and a loopback request in the route, so the
+    CI pin and the live reading time the same thing the same way."""
+    get(path)  # the first call builds caches a person pays once, in the background
+    times = []
+    for _ in range(runs):
+        began = time.perf_counter()
+        answer = get(path)
+        times.append((time.perf_counter() - began) * 1000)
+        status = getattr(answer, "status_code", 200)
+        if status != 200:
+            raise RuntimeError(f"{path} answered {status}")
+    return sorted(times)[len(times) // 2]
+
+
+def heavy_ids(session) -> dict[str, int]:  # noqa: ANN001
+    """The board with the most objects and the longest document: the two
+    items the budget names, found rather than assumed so the live reading
+    works on any notebook."""
+    from sqlalchemy import func, select
+
+    from memorymap.core.database import Document, WhiteboardObject
+
+    board = session.execute(
+        select(WhiteboardObject.board_id).where(WhiteboardObject.board_id.is_not(None))
+        .group_by(WhiteboardObject.board_id).order_by(func.count().desc()).limit(1)
+    ).scalar()
+    document = session.execute(select(Document.id).order_by(func.length(Document.content).desc()).limit(1)).scalar()
+    return {"board": board or 0, "document": document or 0}
+
+
+def budget_rows(live: Callable[[str], object] | None = None, ids: dict[str, int] | None = None) -> list[dict]:
+    rows = []
+    for budget in BUDGETS:
+        row = budget._asdict()
+        if live and budget.server_path:
+            try:
+                path = budget.server_path.format(**(ids or {}))
+            except KeyError:
+                path = ""
+            #: A notebook with no board or no document has nothing to time.
+            row["live_ms"] = round(time_share(live, path), 1) if path and "=0" not in path and not path.endswith("/0") else None
+            row["live_within"] = None if row["live_ms"] is None else row["live_ms"] <= budget.server_cap_ms
+        rows.append(row)
+    return rows
+
+
+def loopback(base: str, headers: dict) -> Callable[[str], object]:
+    """GET against this server over loopback; a seam so the test can answer
+    in-process, where no port is listening."""
+    return lambda path: requests.get(base + path, headers=headers, timeout=30)
+
+
+@router.get("/budgets")
+def budgets(request: Request, live: bool = False, x_auth_token: str | None = Header(default=None)) -> dict:
+    """The interaction budgets (decision 54). `live=true` also times each
+    server share against this notebook, over loopback, so a person can see
+    whether their own notebook is inside the numbers the fixture is held to."""
+    if not live:
+        return {"budgets": budget_rows()}
+    base = str(request.base_url).rstrip("/")
+    headers = {"X-Auth-Token": x_auth_token} if x_auth_token else {}
+    session = deps.get_db().session()
+    try:
+        ids = heavy_ids(session)
+    finally:
+        session.close()
+    return {"budgets": budget_rows(loopback(base, headers), ids), "ids": ids}
 
 OFF = "The model bench is switched off. Turn it on in Settings, What it learned."
 BUSY = "A bench is already running. Stop it or wait for it to finish."

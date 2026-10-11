@@ -61,6 +61,7 @@ class Source:
 SOURCES: tuple[Source, ...] = (
     Source("core/backup.py", raises=("FileNotFoundError", "ValueError"), functions=("restore_backup",)),
     Source("core/syntaxcheck.py", raises=("ValueError",), functions=("check",)),
+    Source("ai/insights.py", raises=("ValueError",), functions=("confirm", "dismiss")),
     Source("core/webclip.py", raises=("ClipRefused",)),
     Source(
         "core/security.py",
@@ -77,6 +78,7 @@ SOURCES: tuple[Source, ...] = (
     Source("core/ocr.py", assigns=("reason", "note"), functions=("engine_status",)),
     Source("core/docview.py", returns=("editability",), keywords=("message",)),
     Source("ai/voice.py", raises=("RuntimeError",), consts=("INSTALL_HINT",)),
+    Source("ai/captions.py", raises=("CaptionsError",), consts=("NO_HELPER_HINT", "NOT_LOCAL_HINT")),
     Source("entry/importer.py", raises=("RuntimeError",), consts=("INSTALL_HINT",)),
     Source(
         "entry/manager.py",
@@ -303,6 +305,9 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_whiteboard.py", "detail"): "one of two literal sentences, chosen by what the XMind archive holds",
     ("routes_backups.py", "str(exc)"): "FileNotFoundError and ValueError from core/backup.py restore_backup",
     ("routes_categories.py", "str(exc)"): "ToolError (ai/tools/categories.py) and ValueError (entry/manager.py)",
+    ("routes_captions.py", "str(exc)"): "CaptionsError from ai/captions.py: its hint constants and literal sentences",
+    ("routes_recordings.py", "str(exc)"): "RuntimeError from ai/voice.py transcribe",
+    ("routes_recordings.py", "voice.INSTALL_HINT"): "ai/voice.py INSTALL_HINT",
     ("routes_chat.py", "str(exc)"): "ToolError from validate_make_plan and summarise_turns",
     ("routes_documents.py", "str(error)"): "ValueError from core/syntaxcheck.py check",
     ("routes_documents.py", "viewed.message or 'There was no readable text in that file.'"): "ViewedFile.message in core/docview.py",
@@ -323,6 +328,7 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_tidy.py", "str(exc)"): "ValueError from entry/tidy.py set_auto and LookupError from entry/tidy.py undo",
     ("routes_voice.py", "voice.INSTALL_HINT"): "ai/voice.py INSTALL_HINT",
     ("routes_voice.py", "over_limit_detail"): "the two callers pass literals, which collect() checks",
+    ("routes_insights.py", "str(exc)"): "ValueError from ai/insights.py confirm and dismiss",
     ("routes_voice.py", "str(exc)"): "RuntimeError from ai/voice.py transcribe",
     ("routes_webclip.py", "WEB_OFF"): "a constant in routes_webclip.py, checked below",
     ("routes_webclip.py", "str(exc)"): "ClipRefused from core/webclip.py",

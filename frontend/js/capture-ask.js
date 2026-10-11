@@ -149,8 +149,11 @@ function settleCaptureStatus(status, from = filedByText({ filing_state: "pending
     //: **One tap to file it** (INBOX 434): the categories its words lean
     //: to, then the ones used last, beside Choose category. A guess shown
     //: as a choice costs a glance; a guess filed is a note lost.
-    for (const name of (status.suggestions || []).slice(0, 3)) {
-      const pick = smallButton(`ph:folder ${name}`, `File it under ${name}`, async () => {
+    //: Each choice carries its why in its tooltip (WORLD_CLASS 23,
+    //: decision 3), and a new category the topic list proposes comes last,
+    //: made only when pressed (decision 2).
+    const offer = (label, name, title) => {
+      const pick = smallButton(label, title, async () => {
         const moved = await moveNotesToCategory([status.id], name);
         if (!moved) return;
         for (const other of line.querySelectorAll(".capture-suggest")) other.remove();
@@ -159,6 +162,13 @@ function settleCaptureStatus(status, from = filedByText({ filing_state: "pending
       });
       pick.classList.add("capture-suggest");
       line.appendChild(pick);
+    };
+    for (const name of (status.suggestions || []).slice(0, 3)) {
+      const why = status.suggestion_reasons?.[name];
+      offer(`ph:folder ${name}`, name, why ? `File it under ${name}. ${why}` : `File it under ${name}`);
+    }
+    if (status.proposal?.name) {
+      offer(`ph:folder-plus New: ${status.proposal.name}`, status.proposal.name, `Make the category ${status.proposal.name} and file it there. ${status.proposal.why}`);
     }
   }
   return line.offsetParent !== null;
@@ -175,6 +185,11 @@ function filingOutcomeText(status) {
   if (status.filing_state === "standin") {
     return `Filed under “${status.category}” for now: ${aiNameNow()} is still reading it.`;
   }
+  //: Health, money, family, the law and identity wait for the person
+  //: (WORLD_CLASS 23, decision 6; Settings can let them file).
+  if (status.filed_by === "none" && status.held_sensitive?.category) {
+    return `Saved in “${status.category}”: it reads as ${status.held_sensitive.topic}, so it waits for you to choose.`;
+  }
   if (status.filed_by === "none") {
     return aiIsOff()
       ? `Saved in “${status.category}”: no AI model is running to file it.`
@@ -183,7 +198,11 @@ function filingOutcomeText(status) {
   if (status.filed_by === "user") return `Filed by you under “${status.category}”.`;
   //: Filed with no model, from the notes already filed (INBOX 434): said as
   //: what it is, so it is never mistaken for the AI's judgement.
-  if (status.filed_by === "words") return `Filed under “${status.category}”: it reads like your other notes there.`;
+  //: With its why (WORLD_CLASS 23, decision 3): the words shared, the notes
+  //: it joins.
+  if (status.filed_by === "words") {
+    return status.why ? `Filed under “${status.category}”. ${status.why}` : `Filed under “${status.category}”: it reads like your other notes there.`;
+  }
   //: **A low number is said as doubt, not as a verdict.** The number is the
   //: app's calibrated estimate (a small model's own figure is never shown as
   //: it said it), so under the review line the line asks for a look and the
@@ -455,11 +474,9 @@ function resetCaptureForm(contentBox, titleBox) {
 
 // **Tag suggestions while composing, not just after saving.** Reported
 // directly: "the ai and application doesnt suggest tags either before
-// creating a new note or after", "after" already existed
-// (renderReevaluateResult, above), buried in a saved note's own kebab menu;
-// "before" had nothing at all. `/entries/suggest-tags` needs only the
-// draft's own text, so this can run on the Capture box itself, debounced the
-// same way autosave-to-localStorage already is elsewhere in this file.
+// creating a new note or after". `/entries/suggest-tags` needs only the
+// draft's text and title (INBOX 781: the same engine as the note card's and
+// Tag and file with Atlas), so it runs on the Capture box, debounced.
 let captureTagSuggestTimer = null;
 let captureTagSuggestSeq = 0; // invalidated on every keystroke, a slow reply
 // to an earlier, shorter draft must never overwrite what a newer one asked for.
@@ -472,7 +489,7 @@ function clearCaptureTagSuggestions() {
   row.classList.add("hidden");
 }
 
-function renderCaptureTagSuggestions(tags) {
+function renderCaptureTagSuggestions(tags, reasons) {
   const row = $("entry-tag-suggestions");
   row.replaceChildren();
   if (!tags.length) {
@@ -492,7 +509,7 @@ function renderCaptureTagSuggestions(tags) {
       tagChip.remove();
       if (!row.querySelector(".chip")) row.classList.add("hidden");
     });
-    tagChip.title = `Add the "${tag}" tag`;
+    tagChip.title = reasons?.[tag] || `Add the "${tag}" tag`;
     row.appendChild(tagChip);
   }
   row.classList.remove("hidden");
@@ -510,18 +527,12 @@ function scheduleCaptureTagSuggestions() {
   captureTagSuggestTimer = setTimeout(async () => {
     const seq = ++captureTagSuggestSeq;
     const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
-    let suggested;
-    try {
-      const result = await apiJson("/entries/suggest-tags", {
-        method: "POST",
-        body: JSON.stringify({ content, tags }),
-      });
-      suggested = result.suggested_tags || [];
-    } catch {
-      suggested = [];
-    }
+    const result = await apiJson("/entries/suggest-tags", {
+      method: "POST",
+      body: JSON.stringify({ content, tags, title: $("entry-title")?.value || "" }),
+    }).catch(() => ({}));
     if (seq !== captureTagSuggestSeq) return; // superseded by a later keystroke
-    renderCaptureTagSuggestions(suggested);
+    renderCaptureTagSuggestions(result.suggested_tags || [], result.suggested_tag_reasons);
   }, 1200);
 }
 
@@ -898,6 +909,15 @@ function flashEntry(id) {
 // ROADMAP.md Tier 2 §13: changeRow's View button only ever reached notes and
 // documents: reminders and categories had no navigation target at all, on
 // top of having no backend id/name resolver. Same shape as flashEntry above.
+//: **A source opens its note at the quoted line** (CHAT_PLAN 8 row 7): the
+//: card in the list, flashed as before, with the cited span marked. `from`
+//: is the passage, or the clicked card whose answer's marks know it; the
+//: marking is in reveal-targets.js, out of the boot (the reveal bundle).
+function openNoteAtPassage(id, from) {
+  flashEntry(id);
+  ensureModule("reveal").then(() => markNotePassage(id, from));
+}
+
 async function flashReminder(id) {
   switchTab("reminders");
   // The change that brought us here (setting or completing a reminder) may
@@ -948,18 +968,33 @@ function flashCategory(name) {
 //: happened to be behind the same flag. So a second option, meaning "this
 //: row is read-only, draw the facts anyway", rather than turning the actions
 //: on and getting an edit button in a search result.
+//: In the facts line, before the date (INBOX 510; the date ends the line).
+function placeResultBadge(row, badge) {
+  const meta = row.querySelector(":scope > .entry-meta") || row;
+  meta.insertBefore(badge, meta.querySelector(":scope > .entry-date"));
+}
+
 function clickableResult(entry) {
   const li = entryItem(entry, { facts: true });
   li.classList.add("clickable-result");
-  li.title = "Open this note in the Notes tab";
-  li.addEventListener("click", () => flashEntry(entry.id));
+  //: **The date in the card's corner** (INBOX 745 (a), the owner: "note dates
+  //: arent in the corner like i asked"): measured in Ask's records, 107 px
+  //: from the right, after the reason chip. It ends the facts line at the
+  //: right edge, as in the Notes list; inline, as boot CSS is at its cap.
+  const date = li.querySelector(":scope > .entry-meta > .entry-date");
+  if (date) date.style.marginInlineStart = "auto";
+  //: A board or a mind map opens as itself (INBOX 744: "clicking it takes me
+  //: to the notes page"), through the Library's own opener.
+  const open = entry.board_kind ? () => openWhiteboardBoard(entry.id) : () => flashEntry(entry.id);
+  li.title = entry.board_kind ? "Open it" : "Open this note in the Notes tab";
+  li.addEventListener("click", open);
   //: Reachable and openable from the keyboard too (found by the density
   //: pass: a result opened on a click only, like the dashboard rows did).
   li.tabIndex = 0;
   li.addEventListener("keydown", (event) => {
     if (event.target !== li || (event.key !== "Enter" && event.key !== " ")) return;
     event.preventDefault();
-    flashEntry(entry.id);
+    open();
   });
   return li;
 }
@@ -1136,6 +1171,15 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
     for (const g of rows) parent.insertBefore(citationMarker(g, byId, numberFor), before);
   }
   collapseCitationRuns(targets);
+  //: A composed answer's "[**Dentist**]" opens its note (ask-compose.js,
+  //: lazy: the boot scripts are at their gzip cap).
+  //: …and its quoted sentences take the quote style (`markSaidSentences`).
+  if (sentences.some((g) => g.title || g.said)) {
+    ensureModule("askCompose").then(() => {
+      linkCitedTitles(targets, sentences, byId, numberFor);
+      markSaidSentences(targets, sentences);
+    });
+  }
 }
 
 //: **One mark per run, at its end** (the owner, 2026-09-24: "the amount of
@@ -1179,6 +1223,8 @@ function citationMarker(g, byId, numberFor) {
   //: it points at agree (INBOX 299), and `showCitedPassage` already reads
   //: exactly this attribute off a source card.
   marker.dataset.noteId = String(g.note_id);
+  //: Where in the note, so a source card opens at the quoted line (CHAT_PLAN 8 row 7).
+  if (Number.isInteger(g.start) && Number.isInteger(g.end)) Object.assign(marker.dataset, { start: g.start, end: g.end });
   const link = document.createElement("button");
   link.type = "button";
   link.className = "answer-citation-link";
@@ -1376,7 +1422,7 @@ function openCitationPeek(link, source, { pinned }) {
   panel.setAttribute("aria-label", `Source ${source.number}`);
   const go = () => {
     closeCitationPeek();
-    flashEntry(source.noteId);
+    openNoteAtPassage(source.noteId, citationPeekText(source.entry?.content, source.start, source.end).passage);
   };
   //: The whole preview is the way in (INBOX 80: "clicking the preview panel
   //: itself goes there"), as one button: one tab stop and one target, not a
@@ -1637,14 +1683,13 @@ function renderAnswerSupport(answerEl, support) {
   line.className = "notice notice-warn answer-support";
   line.setAttribute("role", "note");
   const { supported = 0, sentences = 0 } = support;
-  //: No model wrote an answer composed from the notes (INBOX 724, the owner:
-  //: "this message needs to be altered as a model wasnt used"): what is not
-  //: quoted is the app's own joining words and how it read the pictures.
+  //: No model wrote an answer composed from the notes (INBOX 724): the
+  //: server marks it low only when most of it is the app's reading of
+  //: pictures (INBOX 787), and this says so in one plain line.
   setLabel(
     line,
     support.by_model === false
-      ? `ph:info Only ${supported} of ${sentences} sentences here ${supported === 1 ? "is" : "are"} quoted ` +
-          "word for word from your notes. The rest is this app's joining words or how it read your pictures; no model wrote any of it."
+      ? "ph:info Most of this is how the app read your pictures; no model wrote any of it."
       : `ph:warning Only ${supported} of ${sentences} sentences here ` +
           `${supported === 1 ? "comes" : "come"} from your notes. ` +
           "The rest is the model's own writing, treat it as a draft."
@@ -1891,7 +1936,7 @@ function renderEvidenceView(view, sentences, support, rawResults, answerEl, numb
       const facts = [entry?.category, entry?.created_at ? relativeTime(entry.created_at) : ""].filter(Boolean);
       if (facts.length) card.append(evidenceSpan("library-file-meta answer-evidence-meta", facts.join(" · ")));
       card.setAttribute("aria-label", `Open source ${number}: ${title}`);
-      card.addEventListener("click", () => flashEntry(g.note_id));
+      card.addEventListener("click", () => openNoteAtPassage(g.note_id, passage));
       sources.append(card);
     }
     item.append(evidenceSpan("answer-evidence-sentence", plainText(row.sentence), "p"), sources);
@@ -2238,7 +2283,9 @@ function renderChatMeta(meta) {
   //: A composed answer (INBOX 688) says so on the chip, and its card takes
   //: the quote style the composer's lead is drawn in (`.answer-composed`).
   $("ai-answer").classList.toggle("answer-composed", !!meta.composed);
-  if (meta.composed) setAnsweredBy("Your notes, no AI", "Composed from your notes, no AI: every sentence is quoted from a note");
+  //: "Atlas" heads the answer; the chip says where it came from (CHAT_PLAN
+  //: decision 36): "From your notes" with no model, the model's name with one.
+  if (meta.composed) setAnsweredBy("From your notes", "Atlas answered from your notes, with no model: every sentence comes from a note");
   else if (meta.answered_by) setAnsweredBy(meta.answered_by, `Answered by ${meta.answered_by}`);
   else if (meta.ollama_running === false) {
     setAnsweredBy("chat model offline", "The chat model is not running, so nothing answered this");
@@ -2288,15 +2335,22 @@ function renderChatMeta(meta) {
   // point of pulling them in is that the person can see the connection.
   const connected = new Set(meta.connected_ids || []);
   const matchInfo = meta.match_info || {};
+  //: **A percentage on every card or on none** (INBOX 728, the owner: "how
+  //: come only some of the ask tab matching records notes green arrows have %
+  //: number similarity and others dont show a number??"). A row that came by
+  //: recency or a date has no score; beside it a number on its neighbours
+  //: read as a missing one. Then the chips keep their words and the number
+  //: moves to the title.
+  const scored = everyRowScored(meta.raw_results, matchInfo, connected);
   for (const entry of meta.raw_results) {
     const row = clickableResult(entry);
-    const badge = matchReasonBadge(matchInfo[entry.id]);
+    const badge = matchReasonBadge(matchInfo[entry.id], scored);
     if (badge) {
       if (connected.has(entry.id)) row.classList.add("result-connected");
       if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
       //: In the facts line, after the date, as one more quiet fact (INBOX
       //: 510): on a row of its own it was a filled pill louder than the note.
-      (row.querySelector(":scope > .entry-meta") || row).appendChild(badge);
+      placeResultBadge(row, badge);
     }
     rawList.appendChild(row);
   }
@@ -2353,12 +2407,17 @@ const MATCH_REASON_LABEL = {
   }),
 };
 
-function matchReasonBadge(info) {
+//: Whether every row has its number (or is a linked row, which says Linked).
+function everyRowScored(rows, info, connected) {
+  return rows.every((e) => connected.has(e.id) || typeof info[e.id]?.score === "number");
+}
+
+function matchReasonBadge(info, scored = true) {
   if (!info || !MATCH_REASON_LABEL[info.type]) return null;
   const { text, title } = MATCH_REASON_LABEL[info.type](info);
   const badge = document.createElement("span");
   badge.className = `chip result-reason-chip result-reason-${info.type}`;
-  setLabel(badge, text);
+  setLabel(badge, scored ? text : text.replace(/\d+% similar/, "Similar"));
   badge.title = title;
   return badge;
 }
@@ -2462,13 +2521,18 @@ async function streamChatEvents({
   onCompressReview,
   onHint,
   onStats,
+  onChart,
   onGrounding,
   onGroundingLive,
   onAnswerFinal,
   onRelated,
   onUnsupported,
+  onWebSources,
+  attempt,
 }) {
   const body = { question, history: history || [] };
+  //: "Try again" (CHAT_PLAN decision 34): an answer from the notes reworded.
+  if (attempt) body.attempt = attempt;
   if (persona) body.persona = persona;
   // Per-turn, not a setting: one quick answer shouldn't change the default
   // for every answer after it.
@@ -2621,13 +2685,20 @@ async function streamChatEvents({
       else if (event.type === "thinking") onThinking(event.delta);
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
-      else if (event.type === "confirm" && onConfirm) onConfirm(event);
+      //: An act with no model (CHAT_PLAN decision 38) is drawn by the same
+      //: confirm hook (`renderToolConfirm` hands it to `renderActCard`).
+      else if ((event.type === "confirm" || event.type === "act") && onConfirm) onConfirm(event);
+      else if (event.type === "navigate") actNavigate(event.surface);
+      else if (event.type === "web_sources" && onWebSources) onWebSources(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
       else if (event.type === "run_plan" && onRunPlan) onRunPlan(event);
       else if (event.type === "compress_review" && onCompressReview) onCompressReview(event);
       else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
+      //: A bar of counts the realiser drew from a no-model answer (CHAT_PLAN
+      //: decision 59, step 2), drawn with the Ask box's chart recipe.
+      else if (event.type === "chart" && onChart) onChart(event);
       // ROADMAP.md item 36: which retrieved note backs which sentence of a
       // direct-Q&A answer. Only ever sent for that path (routes_chat.py).
       else if (event.type === "grounding" && onGrounding) onGrounding(event);
@@ -2655,6 +2726,11 @@ async function streamChatEvents({
         throw new Error(event.message || "The answer stopped early.");
       }
 
+      //: A board tool that wrote: the open board reads it as one Undo step
+      //: (whiteboard-history.js, `wbTakeChangeFromElsewhere`; Brief 77).
+      if (event.type === "tool" && event.ok !== false && /whiteboard|board_item|map_node|mindmap|diagram/.test(String(event.name || ""))) {
+        document.dispatchEvent(new CustomEvent("mm:board-changed", { detail: { source: "Atlas" } }));
+      }
       if (event.type === "tool" && event.ok === false) {
         recordBrowserLog("WARN", [
           `[Agent tool error] ${event.label || event.name || "?"}: ${event.error || "unknown error"}`,
@@ -2892,6 +2968,19 @@ async function askQuestion(preset) {
   //: No words of its own: `streamChat` drives the phase line from the events
   //: (INBOX 649), "Reaching Atlas…" until the server says it is searching.
   const progress = askStatusBusy(null);
+  //: **The wait is on screen** (INBOX 727, the owner: "there's no searching
+  //: animation or indicator for when I enter a search in the ask tab and
+  //: nothing has shown yet"). The phase line was drawn inside a results grid
+  //: still hidden until the first event (measured: 0x0 for the whole wait),
+  //: so the grid opens now, the records column saying it is searching until
+  //: `onMeta` replaces the row.
+  const searching = document.createElement("li");
+  searching.className = "muted";
+  setLabel(searching, "ph:spin Searching your notes…");
+  $("raw-results").replaceChildren(searching);
+  document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
+  $("chat-results").classList.remove("hidden");
+  $("ask-idle")?.classList.add("hidden");
   $("ai-answer-grounding").replaceChildren();
   $("ai-answer-grounding").classList.add("hidden");
   //: The whole foot goes with it, not only the grounding chips: a sources
@@ -3271,6 +3360,9 @@ async function loadTemplates() {
   await loadPreferences().catch(() => prefsCache);
   // Saved filters live in the same payload, so draw them while it's fresh.
   renderSavedSearches();
+  //: Saved searches are the search box's sidebar rows (search.js, lazy),
+  //: fetched now only when there are some to draw.
+  if (prefsCache?.saved_finds?.length) ensureModule("search");
   //: The Capture box's picker reads `templateCatalogue()` when it opens
   //: (`openNoteTemplateDialog`), so there is nothing to pre-build here: a
   //: template saved in Settings is in the next opening without a redraw.

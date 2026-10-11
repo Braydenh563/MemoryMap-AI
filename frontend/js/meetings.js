@@ -100,6 +100,29 @@ function meetingFormRow(label, control, id) {
   return row;
 }
 
+//: **Every meeting act undoes** (WORLD_CLASS_PLAN 28.5 row 4, decision 53):
+//: a note or a document it made goes to the bin and comes back, a reminder
+//: likewise, and an addition puts the text back as it was. One pair per
+//: kind, so each act names its words and two functions, nothing more.
+//: Not an undo itself: the pair each act hands to `pushUndo`.
+function meetingBinPair(kind, id, after = () => {}) {
+  const base = kind === "note" ? "/entries" : kind === "document" ? "/documents" : "/reminders";
+  const refresh = async () => {
+    if (kind === "note") await refreshEntries([id]).catch(() => {});
+    after();
+  };
+  return {
+    undo: async () => {
+      await apiJson(`${base}/${id}`, { method: "DELETE" });
+      await refresh();
+    },
+    redo: async () => {
+      await apiJson(`${base}/${id}/restore`, { method: "POST" });
+      await refresh();
+    },
+  };
+}
+
 //: **New meeting** (decision 1): a sheet with what a meeting is named, when
 //: it is and who is in it, then the note itself in the editor, where the
 //: agenda, notes, decisions and action items are written. `notes` and
@@ -128,6 +151,14 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
       whenInput.className = "prop-value";
       whenInput.value = meetingNowValue();
       const people = meetingPeopleField();
+      //: The title's chips (quickadd.js): "Sync with Ana friday 2pm" sets When
+      //: as it is read and names Ana; a chip pressed off puts When back.
+      let typedWhen = whenInput.value;
+      let chipWhen = false;
+      whenInput.addEventListener("input", () => {
+        typedWhen = whenInput.value;
+        chipWhen = false;
+      });
       body.append(
         meetingFormRow("Title", titleInput, "meeting-new-title"),
         meetingFormRow("When", whenInput, "meeting-new-when"),
@@ -135,6 +166,18 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
       );
       people.field.previousElementSibling.htmlFor = "meeting-new-people";
       people.input.id = "meeting-new-people";
+      quickAddAttach(titleInput, "meeting", {
+        after: titleInput.closest(".prop-row"),
+        onSlots: (slots) => {
+          if (slots?.date || slots?.time) {
+            whenInput.value = `${slots.date || typedWhen.slice(0, 10)}T${slots.time || typedWhen.slice(11, 16)}`;
+            chipWhen = true;
+          } else if (chipWhen) {
+            whenInput.value = typedWhen;
+            chipWhen = false;
+          }
+        },
+      });
       const status = document.createElement("p");
       status.className = "status";
       status.setAttribute("role", "status");
@@ -159,12 +202,17 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
         status.classList.remove("error");
         let made = null;
         try {
+          const slots = await quickAddSlots(titleInput);
+          const attendees = people.read();
+          for (const name of slots?.people || []) {
+            if (!attendees.some((p) => p.toLowerCase() === name.toLowerCase())) attendees.push(name);
+          }
           made = await apiJson("/meetings", {
             method: "POST",
             body: JSON.stringify({
-              title: titleInput.value.trim(),
+              title: slots ? slots.title : titleInput.value.trim(),
               when: whenInput.value || "",
-              attendees: people.read(),
+              attendees,
               notes,
             }),
           });
@@ -180,6 +228,8 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
         //: refresh ratchet, tests/test_refresh_entries.py).
         await refreshEntries([made.id]).catch(() => {});
         if (then) then(made);
+        const binned = meetingBinPair("note", made.id);
+        pushUndo("Started a meeting", binned.undo, binned.redo);
         //: Straight into the note: the meeting is where the writing happens.
         flashEntry(made.id);
         if (record) return meetingRecordInto(made.id);
@@ -261,6 +311,8 @@ async function meetingRemind(entryId, item, button, redraw, when = "") {
       body: JSON.stringify({ line: item.line, when, tz_offset_minutes: -new Date().getTimezoneOffset() }),
     });
     const due = parseServerTime(made.due_at) || new Date(made.due_at);
+    const binned = meetingBinPair("reminder", made.id, redraw);
+    pushUndo("Made a reminder from an action item", binned.undo, binned.redo);
     toastAction(`Reminder set for ${due.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}.`, "Show", () => switchTab("reminders"));
     redraw();
   } catch (error) {
@@ -466,15 +518,7 @@ async function meetingSaveTranscript(content, title, target) {
   status.classList.remove("error");
   setLabel(status, "ph:spin Saving…");
   try {
-    const saved = target !== null
-      ? await apiJson(`/entries/${target}/meeting/append`, {
-        method: "POST",
-        body: JSON.stringify({ section: "Notes", lines: [content] }),
-      })
-      : await apiJson("/meetings", {
-        method: "POST",
-        body: JSON.stringify({ title: title || `Recording ${new Date().toLocaleDateString()}`, when: meetingNowValue(), notes: content }),
-      });
+    const saved = target !== null ? await meetingAppendUndoable(target, content) : await meetingCreateUndoable(content, title);
     await loadEntries();
     // The overlay is about to close, so this jumps straight to the note
     // rather than leaving an "offer" button behind in a dialog nobody is
@@ -492,6 +536,38 @@ async function meetingSaveTranscript(content, title, target) {
   } finally {
     button.disabled = false;
   }
+}
+
+//: Under the meeting's Notes, with Undo putting the note back as it was.
+async function meetingAppendUndoable(target, content) {
+  const before = await apiJson(`/entries/${target}`);
+  const append = () => apiJson(`/entries/${target}/meeting/append`, { method: "POST", body: JSON.stringify({ section: "Notes", lines: [content] }) });
+  const saved = await append();
+  pushUndo(
+    "Added a transcript to the meeting",
+    async () => {
+      await apiJson(`/entries/${target}`, { method: "PUT", body: JSON.stringify({ content: before.content }) });
+      await refreshEntries([target]).catch(() => {});
+    },
+    async () => {
+      await append();
+      await refreshEntries([target]).catch(() => {});
+    }
+  );
+  return saved;
+}
+
+//: A new meeting with the transcript under Notes, binned by Undo.
+async function meetingCreateUndoable(content, title) {
+  const saved = await apiJson("/meetings", {
+    method: "POST",
+    body: JSON.stringify({ title: title || `Recording ${new Date().toLocaleDateString()}`, when: meetingNowValue(), notes: content }),
+  });
+  const binned = meetingBinPair("note", saved.id);
+  pushUndo("Saved a recording as a meeting", binned.undo, binned.redo);
+  //: The meeting is saved; only the recording's link to it can fail, and the person is told why.
+  if (meetingTake.id) apiJson(`/recordings/${meetingTake.id}`, { method: "PATCH", body: JSON.stringify({ entry_id: saved.id }) }).catch((error) => toast(error.message, true));
+  return saved;
 }
 
 //: The recorder, aimed at one meeting: its transcript goes under that
@@ -534,11 +610,87 @@ let meetingChunks = [];
 let meetingTimerHandle = null;
 let meetingStartedAt = 0;
 
+//: **The recording in hand is an object** (WORLD_CLASS_PLAN 28.5 row 1,
+//: decision 2): made on the server before the first sound (`POST
+//: /recordings`), its audio appended as it arrives, finished on Stop with its
+//: length, the waveform the recorder drew and the markers pressed. So Record
+//: never refuses: with no Whisper add-on the audio is kept and the sheet says
+//: how long it is; transcription is offered only when `/voice/status` says
+//: the add-on is there. One object, not more top-level lets.
+const meetingTake = { id: null, chain: Promise.resolve(), failed: null, peaks: [], markers: [], ms: 0 };
+
+//: How long the audio is, in ms: the clock stops while paused.
+function meetingElapsedMs() {
+  const end = meetingRecorder?.state === "paused" ? meetingPausedAt : Date.now();
+  return Math.max(0, end - meetingStartedAt);
+}
+
+function meetingClockText(ms) {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = String(seconds % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
 function meetingElapsedText() {
-  const seconds = Math.max(0, Math.round((Date.now() - meetingStartedAt) / 1000));
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
+  return meetingClockText(Date.now() - meetingStartedAt);
+}
+
+//: The container's own name for the sheet (decision 3: what the browser made, by its own name).
+function meetingContainerName(mime) {
+  return (String(mime || "").split(";")[0].split("/")[1] || "audio").replace(/^x-/, "");
+}
+
+async function meetingTakeBegin(recorder) {
+  Object.assign(meetingTake, { id: null, chain: Promise.resolve(), failed: null, peaks: [], markers: [], ms: 0 });
+  const made = await apiJson("/recordings", {
+    method: "POST",
+    body: JSON.stringify({
+      title: ($("meeting-title")?.value || "").trim() || `Recording ${new Date().toLocaleString()}`,
+      mime: recorder.mimeType || "audio/webm",
+      entry_id: Number($("meeting-overlay").dataset.target) || null,
+    }),
+  });
+  meetingTake.id = made.id;
+}
+
+const MEETING_CHUNK_MS = 10000;
+
+//: One slice of audio onto the object, in order: each waits for the last.
+function meetingTakeAppend(blob) {
+  const id = meetingTake.id;
+  if (!id || !blob?.size) return;
+  const form = new FormData();
+  form.append("file", blob, "chunk");
+  form.append("duration_ms", String(Math.round(meetingElapsedMs())));
+  meetingTake.chain = meetingTake.chain
+    .then(() => api.upload(`/recordings/${id}/chunk`, form))
+    .catch((error) => {
+      meetingTake.failed = error;
+    });
+}
+
+//: The waveform kept with the object: the recorder's levels, the loudest of
+//: each of up to 400 buckets, 0 to 100.
+function meetingPeaksSummary(levels, size = 400) {
+  if (levels.length <= size) return levels.map((v) => Math.round(v * 100));
+  const out = [];
+  const step = levels.length / size;
+  for (let i = 0; i < size; i++) {
+    const slice = levels.slice(Math.floor(i * step), Math.floor((i + 1) * step));
+    out.push(Math.round(Math.max(0, ...slice) * 100));
+  }
+  return out;
+}
+
+async function meetingTakeFinish() {
+  await meetingTake.chain;
+  if (meetingTake.failed) throw meetingTake.failed;
+  return apiJson(`/recordings/${meetingTake.id}/finish`, {
+    method: "POST",
+    body: JSON.stringify({ duration_ms: meetingTake.ms, peaks: meetingPeaksSummary(meetingTake.peaks), markers: meetingTake.markers }),
+  });
 }
 
 //: How many amplitude samples the waveform holds. About four seconds at the
@@ -634,8 +786,11 @@ function startMeetingWave(stream) {
       const rms = Math.sqrt(sum / samples.length);
       // sqrt again for the same reason the bar meter gives: ordinary speech
       // sits low in the range and a linear map leaves it near the floor.
-      levels.push(Math.min(1, Math.sqrt(rms) * 1.6));
+      const level = Math.min(1, Math.sqrt(rms) * 1.6);
+      levels.push(level);
       levels.shift();
+      //: Every level, not only the window drawn: the saved waveform (row 6).
+      if (meetingRecorder?.state === "recording") meetingTake.peaks.push(level);
       draw();
     }
     ticks++;
@@ -673,12 +828,15 @@ function stopMeetingTimer() {
 //:   paused         Stop (filled), Resume, the clock stopped
 //:   transcribing   a progress bar and how long the audio was
 //:   review         the transcript, sized to its words, and the save actions
+//:   saved          the recording kept with its length (no add-on, or no
+//:                  words heard), and Record for the next one
 function setMeetingState(state) {
   $("meeting-card").dataset.state = state;
   const live = state === "recording" || state === "paused";
   $("meeting-stage").classList.toggle("hidden", state === "review");
-  $("meeting-controls").classList.toggle("hidden", !(live || state === "ready"));
+  $("meeting-controls").classList.toggle("hidden", !(live || state === "ready" || state === "saved"));
   $("meeting-pause").classList.toggle("hidden", !live);
+  $("meeting-marker").classList.toggle("hidden", !live);
   $("meeting-timer").classList.toggle("hidden", !live);
   $("meeting-progress").classList.toggle("hidden", state !== "transcribing");
   const review = state === "review";
@@ -713,10 +871,20 @@ function resetMeetingUI() {
 async function openMeetingRecorder() {
   overlayReturnFocus = document.activeElement;
   delete $("meeting-overlay").dataset.target;
-  $("meeting-overlay").classList.remove("meeting-into");
+  $("meeting-overlay").classList.remove("meeting-into", "voice-note");
   resetMeetingUI();
   $("meeting-overlay").classList.remove("hidden");
   $("meeting-record").focus();
+}
+
+//: **Voice note** (WORLD_CLASS_PLAN 28.5 row 3; the owner: "meeting notes
+//: should be different ... from dictation"): a memo, not a meeting. The same
+//: recorder and the same kept object, its head saying Voice note, and its
+//: transcript, when the add-on makes one, saved as a plain note rather than
+//: a meeting. Dictation is the composer's mic, which types into the box.
+function openVoiceNote() {
+  openMeetingRecorder();
+  $("meeting-overlay").classList.add("voice-note");
 }
 
 // Recording is stopped (discarded, not transcribed) rather than left running
@@ -747,6 +915,7 @@ async function toggleMeetingRecording() {
     // The clock keeps the length of the audio: stopped while recording it is
     // up to a second stale, stopped while paused it is already right.
     if (meetingRecorder.state === "recording") $("meeting-timer").textContent = meetingElapsedText();
+    meetingTake.ms = Math.round(meetingElapsedMs());
     // A paused recorder holds what it has heard so far; asking for it before
     // the stop makes the last chunk arrive on every engine, not only the ones
     // that flush on a stop from paused (INBOX 708: Stop from Paused).
@@ -754,68 +923,45 @@ async function toggleMeetingRecording() {
     meetingRecorder.stop();
     return;
   }
+  //: Asked now, used after Stop: transcription is offered only when the
+  //: add-on is there, and its absence no longer stops a recording (row 1).
   if (voiceStatus === null) {
     voiceStatus = await apiJson("/voice/status").catch(() => ({ available: false }));
-  }
-  if (!voiceStatus.available) {
-    $("meeting-status").textContent = voiceStatus.hint || "Voice capture isn't available.";
-    $("meeting-status").classList.add("error");
-    return;
   }
   try {
     meetingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
-    $("meeting-status").textContent = "Microphone access was blocked, allow it in your browser.";
-    $("meeting-status").classList.add("error");
+    meetingSay("Microphone access was blocked, allow it in your browser.", true);
+    return;
+  }
+  const recorder = new MediaRecorder(meetingStream);
+  try {
+    await meetingTakeBegin(recorder);
+  } catch (error) {
+    meetingStream.getTracks().forEach((t) => t.stop());
+    meetingStream = null;
+    meetingSay(error.message || "Couldn't start a recording.", true);
     return;
   }
   meetingChunks = [];
-  const recorder = new MediaRecorder(meetingStream);
   meetingRecorder = recorder;
-  let stopMeetingLevelMeter = () => {};
-  meetingRecorder.addEventListener("dataavailable", (e) => meetingChunks.push(e.data));
-  meetingRecorder.addEventListener("stop", async () => {
-    meetingStream?.getTracks().forEach((t) => t.stop());
-    stopMeetingLevelMeter();
-    stopMeetingWave();
-    stopMeetingWave = () => {};
-    meetingStream = null;
-    meetingRecorder = null;
-    stopMeetingTimer();
-    if (recorder.discarded) return;
-    const length = $("meeting-timer").textContent;
-    button.classList.remove("recording");
-    setLabel(button, "ph:record Record");
-    setLabel($("meeting-pause"), "ph:pause Pause");
-    button.disabled = false;
-    const blob = new Blob(meetingChunks, { type: meetingChunks[0]?.type || "audio/webm" });
-    const form = new FormData();
-    form.append("file", blob, "meeting.webm");
-    $("meeting-status").classList.remove("error");
-    $("meeting-status").textContent = `Transcribing ${length} of audio. A long recording can take a while on CPU.`;
-    setMeetingState("transcribing");
-    try {
-      const body = await (await api.upload("/voice/transcribe-meeting", form)).json();
-      const text = (body.text || "").trim();
-      if (!text) {
-        // Nothing to review is not a transcript: say so, and put Record back.
-        $("meeting-timer").textContent = "0:00";
-        setMeetingState("ready");
-        $("meeting-status").textContent = "Nothing was heard in that recording.";
-        return;
-      }
-      $("meeting-status").textContent = `Transcript of ${length}. Read it, trim it, then save.`;
-      $("meeting-transcript").value = body.text;
-      setMeetingState("review");
-      autoGrow($("meeting-transcript"));
-      $("meeting-transcript").focus();
-    } catch (error) {
-      setMeetingState("ready");
-      $("meeting-status").textContent = error.message;
-      $("meeting-status").classList.add("error");
-    }
+  recorder.addEventListener("dataavailable", (e) => {
+    meetingChunks.push(e.data);
+    if (!recorder.discarded) meetingTakeAppend(e.data);
   });
-  meetingRecorder.start();
+  recorder.addEventListener("stop", () => meetingRecordingStopped(recorder, button));
+  //: A slice every 10 s, each appended to the object as it arrives (row 5):
+  //: a tab killed at 2:00 keeps at least 1:50.
+  recorder.start(MEETING_CHUNK_MS);
+  meetingRecordingStarted(button);
+}
+
+function meetingSay(text, error = false) {
+  $("meeting-status").textContent = text;
+  $("meeting-status").classList.toggle("error", error);
+}
+
+function meetingRecordingStarted(button) {
   meetingStartedAt = Date.now();
   $("meeting-timer").textContent = meetingElapsedText();
   meetingTimerHandle = setInterval(() => {
@@ -826,11 +972,82 @@ async function toggleMeetingRecording() {
   // Appended after setLabel, not before: setLabel's replaceChildren() wipes
   // every child on the button, and the bar meter startMicLevelMeter() builds
   // is one: appending it earlier just got it discarded a line later.
-  stopMeetingLevelMeter = startMicLevelMeter(meetingStream, button);
-  stopMeetingWave = startMeetingWave(meetingStream);
+  const stopLevel = startMicLevelMeter(meetingStream, button);
+  const stopWave = startMeetingWave(meetingStream);
+  stopMeetingWave = () => {
+    stopLevel();
+    stopWave();
+  };
   setMeetingState("recording");
-  $("meeting-status").textContent = "Recording.";
-  $("meeting-status").classList.remove("error");
+  meetingSay("Recording. Saved as it goes.");
+}
+
+//: Stop: the object is finished first, so the audio is kept whatever the
+//: transcription does; then the add-on transcribes it, or the sheet says
+//: how long the kept recording is.
+async function meetingRecordingStopped(recorder, button) {
+  meetingStream?.getTracks().forEach((t) => t.stop());
+  stopMeetingWave();
+  stopMeetingWave = () => {};
+  meetingStream = null;
+  meetingRecorder = null;
+  stopMeetingTimer();
+  if (recorder.discarded) return meetingTakeDiscard();
+  button.classList.remove("recording");
+  setLabel(button, "ph:record Record");
+  setLabel($("meeting-pause"), "ph:pause Pause");
+  button.disabled = false;
+  setMeetingState("transcribing");
+  meetingSay("Saving the recording…");
+  let saved = null;
+  try {
+    saved = await meetingTakeFinish();
+  } catch (error) {
+    setMeetingState("ready");
+    meetingSay(error.message || "Couldn't save the recording.", true);
+    return;
+  }
+  const length = meetingClockText(saved.duration_ms);
+  if (!voiceStatus?.available) {
+    setMeetingState("saved");
+    meetingSay(`Saved a ${length} recording (${meetingContainerName(saved.mime)}). Transcribing it needs the Voice notes add-on, in Settings, Packages.`);
+    return;
+  }
+  return meetingTranscribeTake(saved, length);
+}
+
+async function meetingTranscribeTake(saved, length) {
+  meetingSay(`Saved a ${length} recording. Transcribing it; a long recording can take a while on CPU.`);
+  try {
+    const body = await apiJson(`/recordings/${saved.id}/transcribe`, { method: "POST" });
+    const text = (body.text || "").trim();
+    if (!text) {
+      setMeetingState("saved");
+      meetingSay(`Nothing was heard in that recording. The ${length} of audio is kept in Recordings.`);
+      return;
+    }
+    meetingSay(`Transcript of ${length}. Read it, trim it, then save. The audio is kept in Recordings.`);
+    $("meeting-transcript").value = text;
+    setMeetingState("review");
+    autoGrow($("meeting-transcript"));
+    $("meeting-transcript").focus();
+  } catch (error) {
+    setMeetingState("saved");
+    meetingSay(`Saved a ${length} recording, but it couldn't be transcribed: ${error.message}`, true);
+  }
+}
+
+//: Closed while recording: what was sent goes to the bin, not nowhere, so
+//: the close is undoable (the bin takes deletes).
+async function meetingTakeDiscard() {
+  const id = meetingTake.id;
+  if (!id) return;
+  try {
+    await meetingTakeFinish();
+    await apiJson(`/recordings/${id}`, { method: "DELETE" });
+  } catch {
+    // An empty take is removed by its finish; nothing is left to bin.
+  }
 }
 
 // Pause and resume, which a MediaRecorder supports directly, the chunks
@@ -888,10 +1105,17 @@ async function saveMeetingDocument() {
       method: "POST",
       body: JSON.stringify({ title, content }),
     });
+    const binned = meetingBinPair("document", document_.id);
+    pushUndo("Saved a transcript as a document", binned.undo, binned.redo);
     closeMeetingRecorder();
     switchTab("documents");
     openDocument(document_.id);
-    toast(`Saved “${title}” to your documents.`);
+    //: The toast carries the Undo too: on the Documents tab Ctrl+Z is the
+    //: editor's own history, not the app's undo bar.
+    toastAction(`Saved “${title}” to your documents.`, "Undo", async () => {
+      await binned.undo();
+      switchTab("library");
+    });
   } catch (error) {
     status.textContent = error.message || "Couldn't save that.";
     status.classList.add("error");
@@ -907,5 +1131,450 @@ async function saveMeetingDocument() {
 //: line as its name; without one a recording was named by its first word).
 async function saveMeetingNote() {
   const content = $("meeting-transcript").value.trim();
+  if (content && $("meeting-overlay").classList.contains("voice-note")) return saveVoiceNoteText(content, ($("meeting-title")?.value || "").trim());
   if (content && (await ensureModule("meetings"))) await meetingSaveTranscript(content, ($("meeting-title")?.value || "").trim(), Number($("meeting-overlay").dataset.target) || null);
 }
+
+//: **Recording recovered** (row 5): a tab closed or killed mid-recording left
+//: every 10-second slice it sent; the server finished those recordings at
+//: this start (`POST /recordings/recover`) and this says so once, with the
+//: length kept. Called from `startApp` only when there is something to say,
+//: so the lazy bundle is fetched only then.
+function noteRecoveredRecordings(rows) {
+  for (const row of rows || []) {
+    toastAction(`Recording recovered: “${row.title || "Recording"}”, ${meetingClockText(row.duration_ms)} kept.`, "Open", () => openRecordings(row.id));
+  }
+}
+
+//: A voice note's transcript as a plain note, its title on the first line.
+async function saveVoiceNoteText(text, title) {
+  const button = $("meeting-save");
+  button.disabled = true;
+  try {
+    const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: title ? `${title}\n\n${text}` : text }) });
+    const binned = meetingBinPair("note", made.id);
+    pushUndo("Saved a voice note", binned.undo, binned.redo);
+    closeMeetingRecorder();
+    await refreshEntries([made.id]).catch(() => {});
+    flashEntry(made.id);
+    toast("Saved as a note. The audio is kept in Recordings.");
+  } catch (error) {
+    meetingSay(error.message || "Couldn't save that.", true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// --- the recordings library (WORLD_CLASS_PLAN 28.5 row 6) --------------------
+//
+// After Apple Voice Memos: every kept recording a row with play, a speed from
+// 0.5 to 2x, the waveform the recorder drew (its peaks kept with the object),
+// the markers pressed while recording, trim and delete. A trim decodes the
+// audio in the page, keeps the chosen part as wav (the one container a page
+// can write without an encoder: decision 3) and saves it as a new recording
+// pointing at its original, which stays until the bin is emptied.
+
+const RECORDING_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+//: The Library's Recordings sub-tab, or a row on it (`id`): from the palette,
+//: the Audio section and "Recording recovered".
+async function openRecordings(id = null) {
+  await switchTab("library");
+  const tab = document.querySelector('#library-subtabs [data-target="library-view-recordings"]');
+  //: The sub-tab's press draws the list; pressed again it would not.
+  if (tab && tab.getAttribute("aria-selected") !== "true") tab.click();
+  else await renderRecordings();
+  if (!id) return;
+  const selector = `#recordings-list [data-recording-id="${Number(id)}"]`;
+  for (let i = 0; i < 30 && !document.querySelector(selector); i++) await new Promise((r) => setTimeout(r, 100));
+  const row = document.querySelector(selector);
+  row?.scrollIntoView({ block: "center" });
+  row?.classList.add("flash");
+}
+
+async function renderRecordings() {
+  const list = $("recordings-list");
+  if (!list) return;
+  let body = null;
+  try {
+    body = await apiJson("/recordings?limit=500");
+  } catch (error) {
+    list.replaceChildren(recordingsEmpty(error.message || "Couldn't load your recordings."));
+    return;
+  }
+  noteRecoveredRecordings(body.recovered);
+  const q = ($("recordings-search")?.value || "").trim().toLowerCase();
+  const rows = body.recordings.filter((r) => !q || (r.title || "").toLowerCase().includes(q));
+  list.replaceChildren(...rows.map(recordingRow));
+  if (!rows.length) list.appendChild(recordingsEmpty(q ? "No recording has that in its name." : "Nothing recorded yet. Record keeps a voice note here; a meeting's recording lands here too."));
+}
+
+function recordingsEmpty(text) {
+  const li = document.createElement("li");
+  li.className = "muted recordings-empty";
+  li.textContent = text;
+  return li;
+}
+
+function recordingFacts(rec) {
+  const when = parseServerTime(rec.created_at) || new Date(rec.created_at);
+  const facts = [meetingClockText(rec.duration_ms), meetingContainerName(rec.mime), when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })];
+  if (rec.markers.length) facts.push(`${rec.markers.length} ${rec.markers.length === 1 ? "marker" : "markers"}`);
+  if (rec.source_id) facts.push("trimmed");
+  if (rec.recovered) facts.push("recovered");
+  return facts.join(" · ");
+}
+
+//: One recording: the row recipe (mark, content, one actions cell), the
+//: waveform under its name, its markers as moments to jump to.
+function recordingRow(rec) {
+  const li = document.createElement("li");
+  li.className = "recording-row";
+  li.dataset.recordingId = String(rec.id);
+  const audio = document.createElement("audio");
+  audio.preload = "none";
+  audio.src = `/media/recordings/${rec.id}`;
+  const play = smallButton("ph:play", `Play ${rec.title || "this recording"}`, async () => {
+    if (!audio.paused) return audio.pause();
+    await recordingReady(audio);
+    audio.play();
+  });
+  play.classList.add("recording-play");
+  audio.addEventListener("play", () => setLabel(play, "ph:pause"));
+  audio.addEventListener("pause", () => setLabel(play, "ph:play"));
+  const main = document.createElement("div");
+  main.className = "recording-main";
+  const name = document.createElement("span");
+  name.className = "recording-title";
+  name.textContent = rec.title || "Recording";
+  const facts = document.createElement("span");
+  facts.className = "muted recording-facts";
+  facts.textContent = recordingFacts(rec);
+  const wave = recordingWave(rec, audio);
+  main.append(name, facts, wave, recordingMarkers(rec, audio));
+  const act = document.createElement("div");
+  act.className = "recording-act";
+  const speed = recordingSpeed(audio);
+  act.append(speed, kebabMenu(recordingMenu(rec), `More actions for ${rec.title || "this recording"}`));
+  //: After it has a parent: the restyled opener goes beside it.
+  enhanceSelect(speed);
+  li.append(play, main, act, audio);
+  return li;
+}
+
+//: **Seekable before the first seek.** A MediaRecorder file carries no
+//: length and no index, so Chromium reads its duration as Infinity and seeks
+//: only inside what it has buffered (measured: a press at the middle of a
+//: 4.7 s take landed at 1.1 s). Asking for a time past the end makes it read
+//: the file through once and learn the length; then every seek lands
+//: (measured: 4.0 s asked, 4.0 s reached). Done on the first play or seek,
+//: so a shelf of recordings costs no request until one is used.
+function recordingReady(audio) {
+  if (audio.recordingReady) return audio.recordingReady;
+  audio.preload = "metadata";
+  audio.recordingReady = new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      audio.currentTime = 0;
+      resolve();
+    };
+    audio.addEventListener("loadedmetadata", () => {
+      if (Number.isFinite(audio.duration)) return done();
+      audio.addEventListener("durationchange", () => Number.isFinite(audio.duration) && done());
+      audio.currentTime = 1e101;
+    }, { once: true });
+    audio.addEventListener("error", done, { once: true });
+    audio.load();
+  });
+  return audio.recordingReady;
+}
+
+function recordingSpeed(audio) {
+  const select = document.createElement("select");
+  select.className = "recording-speed";
+  select.setAttribute("aria-label", "Playback speed");
+  select.title = "Playback speed";
+  for (const speed of RECORDING_SPEEDS) {
+    const option = new Option(`${speed}x`, String(speed), speed === 1, speed === 1);
+    select.appendChild(option);
+  }
+  select.addEventListener("change", () => {
+    audio.playbackRate = Number(select.value);
+    audio.defaultPlaybackRate = audio.playbackRate;
+  });
+  return select;
+}
+
+//: The saved peaks as bars, the played part in the accent, a tick per
+//: marker; pressing it seeks. A canvas, as the recorder's own line is.
+function recordingWave(rec, audio) {
+  const canvas = document.createElement("canvas");
+  canvas.className = "recording-wave";
+  canvas.setAttribute("role", "slider");
+  canvas.setAttribute("aria-label", "Position");
+  canvas.tabIndex = 0;
+  const total = () => (Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : rec.duration_ms / 1000);
+  const draw = () => recordingPaint(canvas, rec, audio.currentTime / (total() || 1));
+  const seek = async (fraction) => {
+    await recordingReady(audio);
+    audio.currentTime = Math.max(0, Math.min(1, fraction)) * total();
+    draw();
+  };
+  canvas.addEventListener("click", (event) => {
+    const box = canvas.getBoundingClientRect();
+    seek((event.clientX - box.left) / box.width);
+  });
+  canvas.addEventListener("keydown", (event) => {
+    const step = event.key === "ArrowRight" ? 5 : event.key === "ArrowLeft" ? -5 : 0;
+    if (!step) return;
+    event.preventDefault();
+    seek((audio.currentTime + step) / (total() || 1));
+  });
+  audio.addEventListener("timeupdate", draw);
+  canvas.recordingSeek = seek;
+  requestAnimationFrame(draw);
+  return canvas;
+}
+
+function recordingPaint(canvas, rec, played) {
+  const box = canvas.getBoundingClientRect();
+  if (!box.width) return;
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(box.width * ratio);
+  canvas.height = Math.round(box.height * ratio);
+  const paint = canvas.getContext("2d");
+  const style = getComputedStyle(document.documentElement);
+  const accent = style.getPropertyValue("--accent").trim() || "#4664f0";
+  const rest = style.getPropertyValue("--muted").trim() || "#888";
+  const peaks = rec.peaks.length ? rec.peaks : [8];
+  const bar = canvas.width / peaks.length;
+  const mid = canvas.height / 2;
+  peaks.forEach((peak, i) => {
+    const h = Math.max(2 * ratio, (peak / 100) * (canvas.height - 4 * ratio));
+    paint.fillStyle = i / peaks.length < played ? accent : rest;
+    paint.fillRect(i * bar, mid - h / 2, Math.max(1, bar * 0.7), h);
+  });
+  paint.fillStyle = accent;
+  for (const ms of rec.markers) {
+    const x = (ms / (rec.duration_ms || 1)) * canvas.width;
+    paint.fillRect(x - ratio, 0, 2 * ratio, canvas.height);
+  }
+}
+
+function recordingMarkers(rec, audio) {
+  const row = document.createElement("div");
+  row.className = "recording-markers";
+  for (const ms of rec.markers) {
+    row.appendChild(smallButton(`ph:push-pin ${meetingClockText(ms)}`, `Play from the marker at ${meetingClockText(ms)}`, async () => {
+      await recordingReady(audio);
+      audio.currentTime = ms / 1000;
+      audio.play();
+    }));
+  }
+  return row;
+}
+
+function recordingMenu(rec) {
+  const items = [
+    makeMenuItem("ph:pencil-simple Rename", "Give this recording a name", () => renameRecording(rec)),
+    makeMenuItem("ph:scissors Trim", "Keep part of it as a new recording; the original stays until the bin is emptied", () => openRecordingTrim(rec)),
+  ];
+  if (voiceStatus?.available) items.push(makeMenuItem("ph:text-aa Transcribe", "Transcribe it on this computer", () => transcribeRecording(rec)));
+  items.push(makeMenuItem("ph:trash Delete", "Put it in the bin", () => binRecording(rec)));
+  return items;
+}
+
+async function renameRecording(rec) {
+  const title = await promptDialog("Name this recording", rec.title || "", { confirmLabel: "Rename" });
+  if (title === null || title === undefined || title.trim() === (rec.title || "")) return;
+  const before = rec.title || "";
+  const put = (value) => apiJson(`/recordings/${rec.id}`, { method: "PATCH", body: JSON.stringify({ title: value }) }).then(renderRecordings);
+  await put(title.trim()).catch((error) => toast(error.message, true));
+  pushUndo("Renamed a recording", () => put(before), () => put(title.trim()));
+}
+
+async function binRecording(rec) {
+  const undo = () => apiJson(`/recordings/${rec.id}/restore`, { method: "POST" }).then(renderRecordings);
+  const redo = () => apiJson(`/recordings/${rec.id}`, { method: "DELETE" }).then(renderRecordings);
+  try {
+    await redo();
+  } catch (error) {
+    toast(error.message || "Couldn't delete that recording.", true);
+    return;
+  }
+  pushUndo("Deleted a recording", undo, redo);
+  toastAction(`“${rec.title || "Recording"}” is in the bin.`, "Undo", undo);
+}
+
+async function transcribeRecording(rec) {
+  toast("Transcribing; a long recording can take a while on this computer.", "info");
+  try {
+    const body = await apiJson(`/recordings/${rec.id}/transcribe`, { method: "POST" });
+    const text = (body.text || "").trim();
+    if (!text) return toast("Nothing was heard in that recording.", "info");
+    const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${rec.title || "Recording"}\n\n${text}` }) });
+    const binned = meetingBinPair("note", made.id);
+    pushUndo("Saved a transcript as a note", binned.undo, binned.redo);
+    await refreshEntries([made.id]).catch(() => {});
+    toastAction("Transcript saved as a note.", "Open", () => flashEntry(made.id));
+  } catch (error) {
+    toast(error.message || "Couldn't transcribe that recording.", true);
+  }
+}
+
+//: **Trim**: a sheet with the waveform and the two ends; Save writes the
+//: part kept as a new recording.
+function openRecordingTrim(rec) {
+  openSheet({
+    label: "Trim the recording",
+    sub: `${rec.title || "Recording"} · ${meetingClockText(rec.duration_ms)}`,
+    name: "recording-trim",
+    build: (card, close) => {
+      card.classList.add("recording-trim");
+      const total = rec.duration_ms;
+      const start = recordingTrimField("Start", 0, total, "recording-trim-start");
+      const end = recordingTrimField("End", total, total, "recording-trim-end");
+      const kept = document.createElement("p");
+      kept.className = "status";
+      kept.setAttribute("role", "status");
+      const sync = () => {
+        const a = Number(start.input.value);
+        const b = Number(end.input.value);
+        kept.textContent = b > a ? `Keeps ${meetingClockText(a)} to ${meetingClockText(b)} (${meetingClockText(b - a)}) as a new recording.` : "The end must come after the start.";
+        save.disabled = !(b > a) || (a === 0 && b === total);
+      };
+      const bar = document.createElement("div");
+      bar.className = "row right space-dialog-actions";
+      const cancel = smallButton("Cancel", "Keep the recording as it is", close);
+      const save = smallButton("ph:scissors Save the trim", "Save the part kept as a new recording", async () => {
+        save.disabled = true;
+        setLabel(kept, "ph:spin Trimming…");
+        try {
+          const made = await trimRecording(rec, Number(start.input.value), Number(end.input.value));
+          close();
+          await renderRecordings();
+          toastAction(`Saved “${made.title}”. The original is kept.`, "Show", () => openRecordings(made.id));
+        } catch (error) {
+          kept.textContent = error.message || "Couldn't trim that recording.";
+          kept.classList.add("error");
+          save.disabled = false;
+        }
+      }, false);
+      save.id = "recording-trim-save";
+      for (const field of [start, end]) field.input.addEventListener("input", sync);
+      bar.append(cancel, save);
+      card.append(start.row, end.row, kept, bar);
+      sync();
+    },
+  });
+}
+
+function recordingTrimField(label, value, total, id) {
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = "0";
+  input.max = String(total);
+  input.step = "100";
+  input.value = String(value);
+  const out = document.createElement("output");
+  out.className = "recording-trim-at";
+  out.htmlFor = id;
+  const show = () => {
+    out.textContent = meetingClockText(Number(input.value));
+  };
+  input.addEventListener("input", show);
+  show();
+  const row = meetingFormRow(label, input, id);
+  row.appendChild(out);
+  return { row, input };
+}
+
+async function trimRecording(rec, startMs, endMs) {
+  const buffer = await (await api(`/media/recordings/${rec.id}`)).arrayBuffer();
+  const context = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
+  const decoded = await context.decodeAudioData(buffer);
+  const wav = recordingWav(decoded, startMs / 1000, endMs / 1000);
+  const made = await apiJson("/recordings", {
+    method: "POST",
+    body: JSON.stringify({ title: `${rec.title || "Recording"} (trimmed)`, mime: "audio/wav", source_id: rec.id, entry_id: rec.entry_id }),
+  });
+  const form = new FormData();
+  form.append("file", wav, "trim.wav");
+  form.append("duration_ms", String(endMs - startMs));
+  await api.upload(`/recordings/${made.id}/chunk`, form);
+  const span = rec.duration_ms || 1;
+  const peaks = rec.peaks.slice(Math.floor((startMs / span) * rec.peaks.length), Math.ceil((endMs / span) * rec.peaks.length));
+  const markers = rec.markers.filter((ms) => ms >= startMs && ms <= endMs).map((ms) => ms - startMs);
+  const done = await apiJson(`/recordings/${made.id}/finish`, { method: "POST", body: JSON.stringify({ duration_ms: endMs - startMs, peaks, markers }) });
+  const binned = { undo: () => apiJson(`/recordings/${made.id}`, { method: "DELETE" }).then(renderRecordings), redo: () => apiJson(`/recordings/${made.id}/restore`, { method: "POST" }).then(renderRecordings) };
+  pushUndo("Trimmed a recording", binned.undo, binned.redo);
+  return done;
+}
+
+//: The decoded audio from `from` to `to` seconds, mixed to one channel, as
+//: 16-bit PCM wav: a header of 44 bytes and the samples.
+function recordingWav(decoded, from, to) {
+  const rate = decoded.sampleRate;
+  const first = Math.max(0, Math.floor(from * rate));
+  const last = Math.min(decoded.length, Math.ceil(to * rate));
+  const count = Math.max(0, last - first);
+  const channels = [...Array(decoded.numberOfChannels).keys()].map((c) => decoded.getChannelData(c));
+  const view = new DataView(new ArrayBuffer(44 + count * 2));
+  const text = (at, word) => [...word].forEach((ch, i) => view.setUint8(at + i, ch.charCodeAt(0)));
+  text(0, "RIFF");
+  view.setUint32(4, 36 + count * 2, true);
+  text(8, "WAVE");
+  text(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  text(36, "data");
+  view.setUint32(40, count * 2, true);
+  for (let i = 0; i < count; i++) {
+    let sum = 0;
+    for (const data of channels) sum += data[first + i];
+    const sample = Math.max(-1, Math.min(1, sum / channels.length));
+    view.setInt16(44 + i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+  }
+  return new Blob([view], { type: "audio/wav" });
+}
+
+//: **A marker while recording** (row 6): the button or M, a moment in the
+//: object (`markers`, milliseconds into the audio).
+function addMeetingMarker() {
+  if (!meetingRecorder || meetingRecorder.state === "inactive") return;
+  const at = Math.round(meetingElapsedMs());
+  meetingTake.markers.push(at);
+  meetingSay(`Marker ${meetingTake.markers.length} at ${meetingClockText(at)}.`);
+}
+
+//: The Recordings shelf's Record and search: the shelf is drawn by this
+//: bundle, so it is in before either can be pressed (and app.js's boot
+//: budget carries no stand-in for them).
+$("recordings-record")?.addEventListener("click", () => openVoiceNote());
+$("meeting-copy")?.addEventListener("click", (event) =>
+  copyToClipboard($("meeting-transcript").value, event.currentTarget)
+);
+$("meeting-transcript").addEventListener("input", () => autoGrow($("meeting-transcript")));
+$("recordings-search")?.addEventListener("input", () => renderRecordings());
+$("meeting-save-doc")?.addEventListener("click", saveMeetingDocument);
+$("meeting-pause")?.addEventListener("click", toggleMeetingPause);
+
+//: Wired when this bundle loads: the Marker button shows only while
+//: recording, which only this bundle starts. M anywhere in the recorder but
+//: its name field is the same; stopped here, because M is also the first key
+//: of the app's chords (m then s), and while recording it is the marker.
+$("meeting-marker")?.addEventListener("click", addMeetingMarker);
+$("meeting-overlay")?.addEventListener("keydown", (event) => {
+  if (event.key.toLowerCase() !== "m" || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.target.closest("input, textarea") || $("meeting-marker").classList.contains("hidden")) return;
+  event.preventDefault();
+  event.stopPropagation();
+  addMeetingMarker();
+});

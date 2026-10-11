@@ -561,3 +561,49 @@ entity-to-entity triples at notebook scale (slow and unreliable on a small
 local model; typing happens on accept, one pair at a time); Leiden as a
 dependency (label propagation in Python suffices at 10k); formulas and
 rollups beyond count, sum, min, max, earliest and latest.
+
+## Decision made, 2026-10-10: a category is where a note is filed, a topic is what its links say it is about
+
+The owner, 2026-10-10: "Should topics from the graph be more integrated app
+wide?? How are they different from categories??"
+
+- **A category is chosen.** One per note, set by you or by filing, a folder
+  in the sidebar, the same until someone changes it. Notes, Library, Tidy and
+  filing all read it.
+- **A topic is found.** The graph's label propagation over the links
+  (`entry/topics.py`) puts a note in at most one topic of three or more; it
+  moves when the links move, is named by the tag, entity or word its notes
+  share most, and can be renamed. The name is kept by the topic's notes (half
+  of them shared), so it survives a recompute.
+- **Neither writes the other.** A topic never files a note, and filing never
+  reads topics. A topic whose notes sit in three categories is the useful
+  disagreement; turning a topic into a category is Brief 39b's (the
+  taxonomy), not the graph's.
+- **Integration is the same object shown everywhere, not a second taxonomy.**
+  The note card and the note's panel on the map carry its topic as a chip that
+  opens the graph on it; the name is renamed in place wherever it is written
+  (the plate, the card, the panel); a topic is moved on the map by its name,
+  its notes together and pinned.
+
+## Placed from the owner's list, 2026-10-10
+
+Every entry is built (the graph agent, 2026-10-10): the owner's words, the
+recommendations and what was built moved to HISTORY.md, "Moved from the
+plans, 2026-10-10 (graph-1010)". The categories-versus-topics answer is the
+decision above; turning a topic into a category is Brief 39b's.
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC11, D3 hierarchy layouts as a category overview** (M, rank 11). D3's hierarchy module is 15 exports with 2 called; `treemap`, `pack` and `partition` would show the notebook's categories by size. Measure: a treemap of the categories at 1,000 notes renders in under 100 ms and every rectangle's area is within 1% of its note count; reachable from the graph's view switch with a `data-help-for` popover.
+
+## Placed from Brief 60, 2026-10-10 (the measured census)
+
+- The graph is not idle at rest: `scratchpad/ui-sweeps/frames.js` counted 1, 9 and 10 long tasks (58 to 70 ms) in 3 s, 150 to 170 ms of script a second and 38 to 52 gaps over 20 ms of 83 to 134 frames, 2.5 s after the tab opened; a drag was 12 to 44 gaps over 20 ms of 302. Find what still runs (the force simulation after it settles, or a redraw loop) and stop it at rest; target zero long tasks (WORLD_CLASS 26.5).
+- `/graph` is 22 ms for 45 KB of 71 notes; 10 of that is `_payload_key` (`routes_graph.py:667`). Not measured at 5,000 notes.
+
+## Placed from INBOX, 2026-10-10 (the owner on the graph, again)
+
+- INBOX 798, the owner 2026-10-10 23:27Z, screenshot: "the graph is still completely broken 😞 I miss how it used to move 😞 look at how the movement is in main and base and refine off that" (34 notes in one vertical line, topic labels stacked on it) and "there is no smooth transition, I just change views or reset it and it just suddenly changes or disappears and reappears". Owner: the graphfeel agent, round 2 (root cause of the line; main's motion as the reference; animated view changes).
+- INBOX 799, the owner 2026-10-10 23:45Z: "Alright work autonomously to fix, finish,redesign, improve and extend everything. I will be at work. Impress me! :D" (the standing order for the day: the queue in HANDOVER, three Opus agents at most, Sonnet for well-defined work).

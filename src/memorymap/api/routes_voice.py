@@ -12,8 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from memorymap.ai import librarian, voice
-from memorymap.core import deps
+from memorymap.ai import captions, librarian, voice
+from memorymap.core import activity, deps
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
 
@@ -34,6 +34,12 @@ def status() -> dict:
         "available": available,
         "model": deps.get_config().get_preference("voice_model", "base"),
         "hint": None if available else voice.INSTALL_HINT,
+        #: Live captions are a separate optional helper (decision 5), so they
+        #: have their own availability, model and hint.
+        "captions": captions.status(),
+        #: The translator's row waits for this (WORLD_CLASS_PLAN 28.5 row 10,
+        #: Brief 83): shown only once true, so no control does nothing.
+        "translate": False,
     }
 
 
@@ -63,10 +69,12 @@ def _transcribe_upload(
         clip.write(data)
         clip.close()
         try:
-            text = voice.transcribe(
-                Path(clip.name),
-                model_size=deps.get_config().get_preference("voice_model", "base"),
-            )
+            #: Listed in Activity; one Whisper call has no step to stop at.
+            with activity.track("transcription", "Transcribing a recording", stoppable=False):
+                text = voice.transcribe(
+                    Path(clip.name),
+                    model_size=deps.get_config().get_preference("voice_model", "base"),
+                )
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         except Exception as exc:  # a bad clip must not 500 mysteriously

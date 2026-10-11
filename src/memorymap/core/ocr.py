@@ -518,13 +518,17 @@ def _rapidocr_regions(image_path: Path) -> dict | None:
         )
         if joins:
             last["lines"].append(b["text"])
+            last["words"] += _line_words(b["text"], b["x0"], b["y0"], b["x1"], b["y1"], width, height)
             last["scores"].append(b["score"])
             last["heights"].append(line_h)
             last["x0"], last["y0"] = min(last["x0"], b["x0"]), min(last["y0"], b["y0"])
             last["x1"], last["y1"] = max(last["x1"], b["x1"]), max(last["y1"], b["y1"])
             last["line_h"] = line_h
         else:
-            blocks.append({**b, "lines": [b["text"]], "scores": [b["score"]], "heights": [line_h], "line_h": line_h})
+            blocks.append({
+                **b, "lines": [b["text"]], "scores": [b["score"]], "heights": [line_h], "line_h": line_h,
+                "words": _line_words(b["text"], b["x0"], b["y0"], b["x1"], b["y1"], width, height),
+            })
     regions = []
     for block in blocks:
         block_heights = sorted(block["heights"])
@@ -542,6 +546,7 @@ def _rapidocr_regions(image_path: Path) -> dict | None:
                     "w": round((block["x1"] - block["x0"]) / width, 5),
                     "h": round((block["y1"] - block["y0"]) / height, 5),
                 },
+                "words": block["words"],
             }
         )
     return {
@@ -596,7 +601,24 @@ def engine_status() -> dict:
         "engine": reader,
         "engine_name": ENGINE_NAMES.get(reader, ""),
         "rapidocr": rapidocr_available(),
+        #: The download each install costs, from the one list that installs
+        #: them (`core/extras.py`), so the workspace's offer says it without
+        #: a second copy of the number (WORLD_CLASS_PLAN 28.4 row 5).
+        "rapidocr_size": _extra_size("rapidocr"),
+        "tesseract_size": _extra_size("ocr"),
     }
+
+
+def extra_size(extra_id: str) -> str:
+    """The download an extra costs, as `core/extras.py`'s table says it.
+    extras.py imports this module, so it sets this name when its table is
+    built rather than being imported here (tests/test_no_import_cycles.py
+    holds the direction); until then no size is known."""
+    return ""
+
+
+def _extra_size(extra_id: str) -> str:
+    return extra_size(extra_id)
 
 
 def unavailable_reason(choice: str = "") -> str:
@@ -777,7 +799,7 @@ def extract_regions(image_path: Path, choice: str = "") -> dict | None:
         block = blocks.setdefault(
             key,
             {"words": [], "confidences": [], "x0": left, "y0": top, "x1": left, "y1": top,
-             "line": int(data["line_num"][i]), "heights": []},
+             "line": int(data["line_num"][i]), "heights": [], "boxes": []},
         )
         #: A newline where Tesseract says the line changed, so a paragraph
         #: comes back as a paragraph. Joining every word with a space turned
@@ -786,6 +808,7 @@ def extract_regions(image_path: Path, choice: str = "") -> dict | None:
             block["words"].append("\n")
             block["line"] = int(data["line_num"][i])
         block["words"].append(word)
+        block["boxes"].append(_word_box(word, left, top, word_w, word_h, width, height))
         block["confidences"].append(confidence)
         block["heights"].append(word_h)
         block["x0"] = min(block["x0"], left)
@@ -820,9 +843,39 @@ def extract_regions(image_path: Path, choice: str = "") -> dict | None:
                     "w": round((block["x1"] - block["x0"]) / width, 5),
                     "h": round((block["y1"] - block["y0"]) / height, 5),
                 },
+                "words": block["boxes"],
             }
         )
     return {"width": width, "height": height, "regions": regions, "source": "tesseract"}
+
+
+def _word_box(text: str, left: float, top: float, w: float, h: float, width: float, height: float) -> dict:
+    """One word where it sits, normalised like a region's box: what the
+    workspace's Live Text layer positions over the page (WORLD_CLASS_PLAN 28.4
+    row 7), so a drag across the picture selects the words themselves."""
+    return {
+        "text": text,
+        "x": round(left / width, 5),
+        "y": round(top / height, 5),
+        "w": round(w / width, 5),
+        "h": round(h / height, 5),
+    }
+
+
+def _line_words(text: str, x0: float, y0: float, x1: float, y1: float, width: float, height: float) -> list[dict]:
+    """RapidOCR boxes lines, not words: each word gets the slice of its line
+    its characters take, which is close for the proportional text of a page
+    and keeps a selection in reading order."""
+    words = str(text or "").split()
+    chars = sum(len(word) for word in words) + max(0, len(words) - 1)
+    if not words or not chars:
+        return []
+    out, at = [], x0
+    per = (x1 - x0) / chars
+    for word in words:
+        out.append(_word_box(word, at, y0, per * len(word), y1 - y0, width, height))
+        at += per * (len(word) + 1)
+    return out
 
 
 #: A line this many characters or fewer, with no closing punctuation, is a

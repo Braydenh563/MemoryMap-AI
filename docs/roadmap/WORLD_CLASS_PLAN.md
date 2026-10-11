@@ -88,6 +88,8 @@ the screens follow it. The contract is short enough to memorise and each
 line has a lint that fails the build, because the app has been made
 inconsistent three times by sessions that did not know the rule existed.
 
+- (Odysseus, fourth read 2026-10-10) 
+
 ### 1.1 Surfaces (four levels, no more)
 
 | Level | Recipe | Example | Never |
@@ -204,6 +206,21 @@ on a phone must be under 35% on every tab (measured by
 **State 2026-09-24:** (d) superseded by UI_MODERNISATION_PLAN Phase 11, whose gate is `scratchpad/ui-sweeps/phonechrome.js`: non-scrolling chrome at most 25% of the height, stricter than the 35% here (HISTORY, 2026-09-23, has the numbers).
 
 ---
+
+### 1.8 Undo (one contract; decision 53, 2026-10-10)
+
+Ctrl or Cmd+Z undoes the last edit where focus is (the editor's own
+history, CodeMirror's for documents and code, the board's and the map's
+histories). A destructive act that reaches the server (delete, bulk move,
+a filing, an import, a skill run's writes) shows the undo bar
+(`pushUndo`, `status.js`) with a ten-second window and the undo history
+menu; nothing else invents an undo. Lint: `tests/test_undo_contract.py`
+fails on a new function whose name contains `undo` outside `status.js`,
+the editors' histories and the board history module, unless it calls
+`pushUndo`; the six implementations of 2026-10-10 (`offerCategoryUndo`,
+`chatDeleteUndo`, `undoDraft`, `pushDocAiUndo`, `activityUndoControl`,
+`inlineAiUndo`) are the ratchet's starting list and fold into `pushUndo`
+in Brief 51.
 
 ## 2. Competitors: what they have that MemoryMap does not (checked, not
 assumed)
@@ -460,16 +477,7 @@ second database. Five moves, in dependency order.
 
 ### B1 The event log: every change is a fact, the tables are views
 
-**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B1 and
-SESSION_BRIEFS Brief 7: the event log". One table rather than two:
-`AuditLog` gained `actor` and `payload`, `core/events.py` is the only
-writer and holds `replay`, every public write in `entry/manager.py`
-records exactly one event with whole-field values, a purge is one event
-with the id list, and `tests/test_events.py` (the spec, formerly strict
-xfail throughout) passes with no markers left. History, restore by event
-and `GET /events?since=` are live; what the log does not yet feed (sync,
-global undo of an AI action, the Timeline strip) is in
-`docs/roadmap/archive/agent-remaining/brief7-event-log.md`.
+**Built.** HISTORY.md, "From WORLD_CLASS_PLAN.md B1 and SESSION_BRIEFS Brief 7: the event log" and "Moved from the plans, 2026-10-10 (WORLD_CLASS B1 and B3 summaries)"; what the log does not yet feed is in `docs/roadmap/archive/agent-remaining/brief7-event-log.md`.
 
 **Decisions made (do not remake).** Copied whole from the agent file
 on 2026-09-14 (INBOX 220) so they survive its archiving.
@@ -532,17 +540,7 @@ on 2026-09-14 (INBOX 220) so they survive its archiving.
 
 ### B3 The retrieval engine: one index, three signals, explained
 
-**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B3 and
-SESSION_BRIEFS Brief 11: the retrieval engine". `search/index.py` holds one
-FTS5 index over notes, boards, documents, files' extracted text, bookmarks
-and reminders, kept in step by the ORM flush; `search/engine.py` returns
-`Hit`s carrying bm25, cosine and graph proximity with the words that explain
-them; `GET /search` and `/search/stats` serve it; the vector matrix replaced
-three per-request scans of every stored vector.
-`tests/test_search_engine_spec.py` passes with no markers left. Measured on
-the sandbox: keyword 0.6ms and hybrid 0.6ms on 5,000 entries (gates 50 and
-200), similarity for one note 18.0ms to 0.0ms. What is left is in
-`docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
+**Built.** HISTORY.md, "From WORLD_CLASS_PLAN.md B3 and SESSION_BRIEFS Brief 11: the retrieval engine" and "Moved from the plans, 2026-10-10 (WORLD_CLASS B1 and B3 summaries)"; what is left is in `docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
 
 **Corrected 2026-10-05 (audit ARCH-07, ARCH-03).** "Three signals" overstated
 recall: candidates came from the keyword pass alone, so cosine only re-ranked
@@ -776,11 +774,11 @@ take five of these.
 - Forms: labels above fields, one column under 600, required marked,
   errors inline under the field.
 - Links: underlined on hover only, accent colour, external ones marked.
+- (Odysseus, fourth read 2026-10-10) 
 
 **State 2026-09-24:** (d) a standing checklist, not a row: the sweeps in `scratchpad/ui-sweeps/` hold most of it, and nothing here is scheduled on its own.
 
 ---
-
 
 ## Audit, 2026-09-13 night (INBOX 209: "poke holes in this application")
 
@@ -962,6 +960,9 @@ audit is open.
    HTTP. Settings, LAN shows the certificate's fingerprint, so a phone user
    can check the one-time warning, with "Regenerate certificate". The help
    says the traffic is encrypted and explains the warning.
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 
@@ -1461,6 +1462,81 @@ package's own comments use to step round the lint, there are three cycle
 groups, the largest fifteen modules. `tests/test_import_module_cycles.py` now
 counts those edges and holds both numbers as a ratchet (open: shrink them).
 
+## 23. Filing and the taxonomy: candidates, a decision, an explanation (2026-10-10; Brief 39b)
+
+The owner's words: "Should we include a library of common possible categories and
+even ways to join words to make custom categories and then there can be a
+similarity search for new or existing category filing and concatenation for new
+categories, suggested alternative existing and new categories, same for tags. It
+should be a thing where it decides if it is closer to an existing category or a
+new category, and maybe it can even provide suggestions for merging categories
+and alternate category names"; "some categories might not just be gym or
+Fitness but gym & fitness"; "Study and university tags are suggested on the top
+note no matter what the note is about"; "Still lots of issues with filing
+without the ai model running". INBOX 730 answered that filing without a model
+exists (lexical filing, centroids, nearest neighbours); this section makes it
+good and explained.
+
+### What exists (checked)
+`ai/lexical_filing.py` (TF-IDF votes, category-name votes, tag votes with
+`TAG_NAME_VOTE`, `TAG_MIN_VOTE`), `ai/janitor.py` (`_semantic_category`,
+centroids over the embedder, nearest neighbours), Tidy's rule reviews
+(`frontend/js/tidy.js`), the Gemini branch's `ai/taxonomy.py` (18 categories,
+FlashText; superseded by the pack below).
+
+### Decisions, 2026-10-10 (do not re-decide)
+1. **Seed data, not a classifier.** The Perplexity "final consolidated pack"
+   (5.0.0: `memorymap_taxonomy.json` 527 categories and 6,478 assignments,
+   `memorymap_occupations.json` 1,109 roles, `memorymap_entities.json`,
+   `memorymap_facets.json`, `memorymap_context_rules.json` as a spec, 64 passing
+   tests) lands as JSON under `src/memorymap/ai/data/taxonomy/` (about 470 KB),
+   loaded lazily on the first filing, matched by the vendored FlashText as
+   **candidate generation only**. Its module's API shape (`analyze_note`,
+   `extract_categories`, `extract_occupations`, `extract_entities`,
+   `reset_taxonomy_processors`) replaces Gemini's `ai/taxonomy.py`; its tests
+   come with it. Credits in THIRD_PARTY.md.
+2. **The decision is the person's categories first.** For each existing
+   category: a name or alias match to the pack's topics ("Gym" is Fitness), the
+   TF-IDF votes shared with notes already filed there, the centroid cosine when
+   the embedder runs, a recency prior. A **new** category is proposed only when
+   no existing one clears its threshold; a **composite** ("Gym & fitness") only
+   when two topics tie within ten percent and both occur in the note. New and
+   composite names are proposals until accepted once; then they are the
+   person's and are matched like any other.
+3. **Every filing is explained** in one line on the suggested-category chip and
+   in Tidy (CHAT_PLAN decision 39): the words shared, the notes it joins, the
+   measure that decided.
+4. **Merge and rename suggestions** live in Tidy: two categories whose topic
+   sets overlap at least 0.6 and whose centroids are within 0.15 become a row
+   "Merge Gym and Fitness?" with counts; alternate names come from the pack's
+   labels and the person's own titles. Applying asks; undo is one press.
+5. **Tags** take the same candidates, capped at three, each explained; a tag is
+   never proposed on a note that contains none of its words (the "Study and
+   university" bug: find the vote that did it, with a test).
+6. **Sensitive topics** (health, relationships, finance, legal, identity: the
+   pack's flag) are suggested, never auto-filed, unless the person turned
+   auto-filing on for them in Settings. Amended 2026-10-10 (INBOX 770): on
+   every path, the chat model's and the embedder's included: built the same
+   day (`janitor._unless_held`, `lexical_filing.holds_sensitive`).
+7. **A personal lexicon** from the pack's reviewed-vocabulary utilities: the
+   person's corrections ("Work, not Software") become aliases stored per
+   notebook and weighed first; nothing is learned from automatic predictions.
+8. **Measurement first.** `tests/fixtures/filing/` grows to 120 hand-labelled
+   notes (varied kinds and lengths, pasted text, jokes, captions, several
+   sensitive); top-1 accuracy with and without the embedder, before and after
+   every step, recorded here. Below 0.8 top-1 without a model the step is not
+   done.
+9. **Contextual rules** (the pack's 30 seed rules and 50 acceptance fixtures)
+   are the phase after: a small interpreter for positive and competing context
+   patterns within the sentence, measured on those fixtures, only once steps 1
+   to 8 hold.
+
+### Steps
+1 to 4 built 2026-10-10 (filing-1010): HISTORY.md, "Moved from the plans,
+2026-10-10 (filing-1010)", with the numbers. Open: decision 8's 0.8 top-1 with
+no model (0.417 measured; the gap is vocabulary, the strict xfail in
+`tests/test_filing_accuracy.py` stays); step 5's Built block.
+
 ## Placed from INBOX, 2026-09-09
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
@@ -1646,8 +1722,6 @@ calendar: built. The month view (`#reminder-calendar`) and, 2026-09-26,
 
 F2's frontend half (five callers read `/files/gallery` whole) was built
 2026-09-24 and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
-
-
 
 ## 18. The next horizon, written 2026-09-14 at the close of PR 144
 
@@ -2041,7 +2115,6 @@ build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
     note, and a button for it wants its own session. **Built 2026-10-05**
     (`settings-controls.js` calls `POST /auth/rotate-vault-key`, nbf1005; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)"); the other 261 lines are decided (nothing to do).
 
-
 285 (indexless tool-call fragments) was fixed 2026-09-24 and moved to
 HISTORY.md, "Moved from the plans, 2026-09-24".
 
@@ -2142,7 +2215,7 @@ text, piper and kokoro for speech, evaluated on licence and on cost against
 this app's constraints. The evaluation is cheap and is worth having whether
 or not any of it is ever built.
 
-**State 2026-09-24:** (c) deferred by the owner's own word; nothing starts until he says go.
+**State 2026-10-10:** go. The owner's 2026-10-10 list asks for all four (INBOX 759, decision taken by the orchestrator); 28.5 and Briefs 80 to 83 carry the work.
 
 ## 20. A model per feature (asked for directly, 2026-09-21)
 
@@ -3000,41 +3073,1113 @@ Briefs 485, 496, 493, 484, 486 and 490 are all built (each carries its "Built:" 
      better with one; (3) robustness (draft kept through reloads and
      crashes, offline save queued, never a lost keystroke); (4) the gaps
      the audit finds, fixed by impact, each measured.
-     **Progress 2026-10-03 (capture agent):** the audit is
-     `scratchpad/ui-sweeps/captureaudit.js` (every path: keys, ms to the
-     list, ms to filed, server down mid-save, reload). Fixed, each measured
-     before and after: an image pasted into Capture and a file dropped on it
-     vanished (0 cards; now 1 and 2); a save with the server down said
-     "Failed to fetch" and was never sent (now held on this device by the
-     outbox in quick-note.js, synced 144 ms after the server answers, saved
-     once by `client_key`); Quick note (Alt+N, palette) saves from any tab
-     without leaving it (caret 26 to 61 ms, in the list 145 to 266 ms; the
-     Drafts and Tana quick-capture shape); `#word` tags a note (was []);
-     the draft keeps its title and tags through a reload (both were lost);
-     the palette's New note began every note with a blank line; the graph's
-     new note and the dashboard widget waited on filing. A pasted link
-     offers the page as a note when the web is allowed (the clipper had no
-     door). Decided against: "/" for a category in the box, since "/" is
-     the blocks menu there. Open: deferred filing takes 1.2 to 2.5 s on this
-     sandbox with no chat model (the embedding pass, server side; the note
-     is in the list long before); staged pictures and files cannot be held offline (the
-     words stay in the box, saying so); the desktop window, real
-     clipboards and a real server crash between commit and answer are not
-     verified (the dedupe map is in memory).
-     **Progress 2026-10-04 (filing-speed agent): the open 1.2 to 2.5 s is
-     fixed by cause.** It was never the model load or the notebook size: one
-     `encode()` of a note-sized text on torch's default intra-op pool (one
-     thread per core) pays barrier waits that dwarf the arithmetic whenever
-     another process wants a core. Median per encode, 70-character note:
-     4 threads idle 39 ms; 4 threads machine busy 2,192 ms; 1 thread busy
-     79 ms. `embeddings.py` now sets one thread in the encoding thread before
-     each encode (`MEMORYMAP_EMBED_THREADS` raises it). Live server, no model,
-     captureaudit `filed_ms` (capture, selection, graph, dashboard): 1700,
-     1156, 1639, 1380 to 90, 175, 27, 91; `filing_api_time.py` median 1251 to
-     81 ms. Counted, not timed, tests: `test_embedding_threads.py`,
-     `test_background_filing_cost.py` (at most two encodes a job, statements
-     flat from 4 to 40 notes). Profiler: `scratchpad/filing_profile.py`. Open:
-     the first note after a launch still waits for the model's cold load
-     (6.8 s measured: torch import), because filing by meaning embeds the
-     note before it settles; changing that changes what gets filed, so it is
-     the owner's call: made a switch (509).
+     Built across 2026-10-03 and 2026-10-04 (capture audit, filing speed); both progress records moved to HISTORY.md,
+     "Moved from the plans, 2026-10-10 (measure60)". Open: staged pictures and files cannot be held offline; the desktop window,
+     real clipboards and a server crash between commit and answer are not verified.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Bugs come first, then design requests, then ideas.
+
+### Bugs
+
+- "I pressed a restart button and it failed: {"[1007/230819.346:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1411"}"
+  Recommendation: the desktop restart path (`src/memorymap/__main__.py`, the webview start) treats this unregister error as non-fatal and relaunches; reproduce it on Windows, which this sandbox cannot run. No brief carries it; Brief 17 (launchers) is the nearest.
+- "this didnt work "https://192.168.0.107:8443", on my phone it said the page was unsecure, and then I clicked continue, and it said "safari can't open the page because the connection was lost.". I do have a vpn/custom dns sever through adguard active but that shouldnt be a hindrance. also the security needs to be improved if possible for this to work on phone."
+  Recommendation: phone access over HTTPS, with the "connection was lost" cause found on iOS Safari, a one-page trust guide with a QR code, and a local CA option. Also carried by Brief 40 (the phone over HTTPS) and Brief 15 (network hardening).
+- "it says the connection isnt secure and the page cant be reached" / "on brave browser on my phone"
+  Recommendation: the same trust flow as the entry above, checked in Brave on a phone. Also carried by Brief 40 (the phone over HTTPS).
+- "Also I still cant access the application on my phone, the connection just doesn’t go through and there are security issues with a not trustworthy connection and more."
+  Recommendation: the phone path is a gate in Brief 40's research and Brief 15's hardening; the result is a measured reachability check from a second device. Also carried by Brief 40 and Brief 15.
+- "Still lots of issues with filing without the ai model running but it should still work right because the embedding model is running??" / "I filed a note with no ai model running, did it use the embedding model??"
+  Recommendation: with the model off and the embedder on, the filing path names the signal that filed the note; measure top-1 accuracy with the embedder on and off on the 120-note fixture. Also carried by Brief 39b (lexical filing and the embedder).
+- "Also can things still work with all the similarity stuff for the composer and filing and other stuff if sentence-transformers isnt installed??"
+  Recommendation: the similarity path runs with no sentence-transformers installed, and a test covers that case. Also carried by Brief 39b and Brief 35 (no new dependencies).
+- "Study and university tags are suggested on the top note if it has no tags no matter what the note is about"
+  Recommendation: reproduce the "Study" tag suggestion on the fixture, fix it, and keep the fixture as a test. Also carried by Brief 39b (the "Study" bug reproduced then gone).
+
+### Design requests
+
+- "is it possible to customise the domain name on the network accessible url??"
+  Recommendation: an optional local host name for the LAN address (a mDNS or hosts-file name) shown with the trust guide. Also carried by Brief 40 (the phone over HTTPS).
+- "Should we integrate it as a docker build and image and make it available as a docker app as well??"
+  Recommendation: a Dockerfile and compose file with offline model volumes, and the measured image size in the report. Also carried by Brief 40 (a Docker image).
+- "Is it possible to make use of python libraries that the user already may have installed globally on their computer so the user doesn’t have to install the same dependancies twice?? Like sentence transformers, or torch, or triton etc?? Idk"
+  Recommendation: a setup choice to use system site packages, with its risks written down. Also carried by Brief 40 (reusing the system Python packages).
+- "Does the mcp server work or need to be improved?? I don’t think it has been properly integrated as a feature yet."
+  Recommendation: run the MCP server, list its tools, and report what is broken before any integration work. Also carried by Brief 40 (whether the MCP server works).
+- "Does the user have to be connected to the interned for the initial install for installing all the dependencies?? Should the user be informed of that if that is the case??"
+  Recommendation: state the answer and show it on the install screen if the answer is yes. Also carried by Brief 40 (whether a first install needs the internet).
+- "what is this app file installer?? can this app use it and is it free??"
+  Recommendation: answer it in the Brief 40 research with the licence and whether the app can call it. Also carried by Brief 40 and Brief 17 (the installer).
+- "Also I feel like we should reference all the vendored repos and libraries somewhere to give them credit."
+  Recommendation: a credits list in Help, generated from `docs/THIRD_PARTY.md`, with each licence file. Also carried by Brief 35 (the credits file).
+- "I also want to integrate and use the new vendored repositories and libraries better and also see if there are more complimentary libraries and repos we can vendor…"
+  Recommendation: each vendored library gets one named use in the engine, with a test, and a keep or drop row in ANALYSIS.md. Also carried by Brief 40 (candidate vendorable libraries) and ROADMAP Direction policy 1.
+- "Filing and suggested tags and categories and stuff need a lot of improving. Should we include a library of common possible categories and even ways to join words to make custom categories and then there can be a similaity search for new or existing category filing and concatenation for new categorie"
+  Recommendation: a seed category library (the taxonomy pack) with joins for custom categories, and a similarity search over new and existing categories. Also carried by Brief 39b (candidates, decision and merge suggestions) and ROADMAP Direction policy 3.
+- "just continue and research categories and tags etc. make it extensive and also dynamic. some categories for example might not just be "gym" or 'Fitness" but "gym & fitness" yk??"
+  Recommendation: category names are phrases ("gym & fitness"), matched by the taxonomy's keyword candidates. Also carried by Brief 39b (the taxonomy).
+- "I think meeting notes should be different or at least partially separate from dictation and audio transcribing. Can there be an auto captioning and transcribing tool live as well?? Maybe a way to record store and edit mp3 audio notes like with Apple voice memos?? What about ai free translations?"
+  Recommendation: meeting notes, dictation, voice memos and live captions as separate entries in the audio section; translation is an offline engine question. Also carried by ROADMAP Direction track 11 (audio in the notebook).
+
+### Ideas
+
+- "I want to deep analyse this repo and see if we can cake a use/replicate/take a lot from it https://github.com/haifengl/smile.git"
+  Recommendation: the smile read goes into ANALYSIS.md with the algorithms worth a small Python port (clustering, keyword extraction). Also carried by Brief 40 (haifengl/smile).
+- "are there any other libraries that could be used that I and u havent found or mentioned??"
+  Recommendation: the candidate-library table in Brief 40 answers this, with keep or drop for each. Also carried by Brief 40.
+- "did you vendor the other libraries and binaries?? do we need to?? what else is there to do??"
+  Recommendation: answer in ANALYSIS.md: which libraries are vendored, which are pip dependencies, and which are dropped under policy 1. Also carried by Brief 40 and ROADMAP Direction policy 1.
+- "doesnt harper use a binary though?? are there any other repos or libraries that we can vendor??"
+  Recommendation: Harper is a WebAssembly build in the frontend; the Brief 40 table records any other WASM or pure Python candidate. Also carried by Brief 40.
+
+## Placed from Brief 40, 2026-10-10 (the phone over HTTPS)
+
+The owner: "https://192.168.0.107:8443 ... safari said the page was
+unsecure, I clicked continue, and it said safari can't open the page because
+the connection was lost", the same in Brave on the phone, AdGuard DNS active.
+
+**What was measured on this computer** (`scratchpad` probe, a
+`uvicorn` server with the app's own `core/lancert.py` certificate, driven with
+`openssl s_client` and `curl`; no phone was available):
+- TLS 1.2 and 1.3 both negotiate (`TLS_AES_256_GCM_SHA384`, a 256-bit key); no
+  ALPN, so HTTP/1.1 only. Neither is a plausible cause.
+- The certificate names the LAN address as an IP SAN and a request to a name
+  it does not carry fails (`curl: no alternative certificate subject name
+  matches target host name '192.168.0.231'`). **`lancert.ensure()` never
+  compares the names with the machine's current addresses** (it checks only
+  the expiry), so after a router hands the computer a new address the
+  certificate on disk keeps the old one for up to 825 days and the phone is
+  told "wrong name". Measured: a second `ensure()` with a new address list
+  returned the original names and the same fingerprint.
+- The leaf is self-issued, 825 days, with SAN, basicConstraints and EKU
+  serverAuth but no keyUsage. Apple limits certificates that chain to a
+  trusted root to 398 days; the exemption is for roots the user installed,
+  and a clicked-through self-signed leaf is not one.
+- The front end uses NDJSON over `fetch`, not WebSocket or EventSource
+  (`capture-ask.js` line 2544, `settings.js` line 1018), so a WebSocket over
+  an untrusted certificate is not the cause. The session token travels in a
+  header; only the media cookie is `Secure` and `SameSite=Strict`
+  (`routes_auth.py` lines 156 to 272), and what Safari does with a `Secure`
+  cookie on a clicked-through page is not verified.
+- `HostCheckMiddleware` lets any numeric Host through, so the rebinding
+  guard is not refusing the phone.
+
+**Likely causes, ranked** (none reproduced; "connection was lost" is
+`NSURLErrorNetworkConnectionLost`, the server or something between closing a
+connection that had opened):
+1. The phone's per-connection trust: Safari opens several parallel
+   connections and a clicked-through exception on a self-signed leaf is
+   per-session, so the page's later connections can fail the handshake and be
+   dropped. A certificate the phone trusts properly removes this.
+2. A stale name (above), after a DHCP change, shown the same way as a plain
+   untrusted warning.
+3. AdGuard on the phone: a DNS profile does not touch an IP address, but the
+   AdGuard app's local VPN mode and iOS 14's Local Network permission for
+   Safari and Brave can drop traffic to a private address; Brave on iOS is
+   WebKit too, which is why both browsers fail alike.
+4. The Windows firewall profile (Public blocks, Private allows) answering the
+   first request and not the next; the launchers add no rule.
+
+**Fix shape, in order** (one brief, Opus):
+1. **A local CA, mkcert style, made with `cryptography` (already a
+   dependency)**: an EC P-256 CA kept in `lan-tls/` (0600), a leaf signed by
+   it for 397 days with keyUsage and the SAN, remade by `ensure()` whenever
+   the current addresses are not all in the SAN (the stale-name fix) and 30
+   days before expiry. The phone installs the CA once; every later address
+   change is invisible to it.
+2. **Settings, Other devices, "Trust this notebook on your phone"**: a QR
+   code to `http://<ip>:8000/lan/trust` (a plain-http route that serves only
+   the public CA certificate and the guide, nothing else, and is on only
+   while the panel is open), the CA's SHA-256 fingerprint beside it to compare
+   after installing, and a one-page guide per phone: iPhone and iPad
+   (download the profile, Settings, Profile Downloaded, Install, then
+   General, About, Certificate Trust Settings, switch on full trust), Android
+   (Settings, Security, Install a certificate, CA certificate), and a note
+   that Brave on iOS uses the system trust.
+3. **A plain-http option for the home network**, off by default, with the
+   password warning in one sentence ("anyone on this Wi-Fi can read it") and
+   the existing refusal without a password. It is also the bisect: if
+   `http://<ip>:8000` works on the phone and https does not, it is trust; if
+   neither, it is the network, the firewall or AdGuard's local VPN.
+4. **A diagnostics line in Settings, Network**: the addresses now, the names
+   the certificate carries (green when every address is covered, amber with
+   "Regenerate" when not), days left, the CA fingerprint, and a count of
+   failed TLS handshakes since start (from uvicorn's log), so "connection
+   lost" has a number beside it.
+5. Add a Windows Defender Firewall rule at the opt-in (private profile only),
+   or print the one-line `netsh` command when turning the switch on.
+Help moves with it (standing order 13): `ai/help_topics_more.py` "lock"
+topic, the `data-help-for` on the switch, `tests/test_manual_parity.py`.
+- (Odysseus, fourth read 2026-10-10) 
+
+## 24. Codebase census, 2026-10-10
+
+Brief 45 part 1, numbers only. Produced by `python scratchpad/census/census.py` (stdlib, about 40 s; `--full` lists every row, `--section N` one section); section 24.6 is `scratchpad/ui-sweeps/errors.js`. The script header states the limits (JS is scanned, not parsed; names are matched as tokens). Part 2 reads these.
+
+### 24.1 Size and complexity
+
+#### 1.1 Python (src/memorymap, vendor excluded)
+223 files, 131372 lines, 3674 functions, 128 over 80 lines, summed complexity 20809.
+
+| file | lines | functions | longest (lines) | over 80 | max cx | sum cx |
+| --- | --- | --- | --- | --- | --- | --- |
+| src/memorymap/api/routes_whiteboard.py | 5428 | 128 | _board_preview (198) | 7 | 35 | 851 |
+| src/memorymap/ai/question_noise.py | 5242 | 14 | repair (43) | 0 | 23 | 121 |
+| src/memorymap/ai/tools/__init__.py | 4878 | 90 | execute_tool (115) | 6 | 31 | 669 |
+| src/memorymap/api/routes_files.py | 3931 | 91 | analyse_attachment (181) | 6 | 47 | 544 |
+| src/memorymap/api/routes_entries.py | 3835 | 107 | list_entries (145) | 11 | 41 | 674 |
+| src/memorymap/entry/manager.py | 3519 | 138 | _hard_delete (179) | 2 | 24 | 561 |
+| src/memorymap/ai/agent.py | 3153 | 49 | run_agent (416) | 5 | 78 | 486 |
+| src/memorymap/api/routes_settings.py | 3015 | 82 | get_preferences (137) | 2 | 26 | 383 |
+| src/memorymap/ai/composer.py | 2980 | 90 | compose (191) | 4 | 74 | 932 |
+| src/memorymap/core/database.py | 2729 | 25 | _ensure_alembic_baseline (102) | 3 | 10 | 95 |
+| src/memorymap/api/routes_chat.py | 2609 | 55 | _stream_lines (289) | 5 | 86 | 440 |
+| src/memorymap/__main__.py | 2582 | 62 | _start_tray (330) | 5 | 20 | 269 |
+| src/memorymap/ai/help_chat.py | 2480 | 15 | _matching_topics (74) | 0 | 26 | 108 |
+| src/memorymap/ai/composer_tables.py | 2034 | 2 | _build (16) | 0 | 8 | 10 |
+| src/memorymap/core/extras.py | 1840 | 48 | _run_install (139) | 1 | 23 | 293 |
+| src/memorymap/ai/skills.py | 1774 | 25 | normalise (110) | 1 | 33 | 198 |
+| src/memorymap/api/routes_graph.py | 1765 | 43 | _build_graph (321) | 3 | 45 | 324 |
+| src/memorymap/ai/skill_runner.py | 1587 | 26 | _run_one_step (425) | 2 | 53 | 236 |
+| src/memorymap/search/engine.py | 1499 | 48 | search (145) | 2 | 69 | 363 |
+| src/memorymap/api/app.py | 1475 | 47 | _register_error_handlers (163) | 4 | 21 | 166 |
+| src/memorymap/ai/help_topics_more.py | 1458 | 0 | - (0) | 0 | 0 | 0 |
+| src/memorymap/ai/librarian.py | 1447 | 33 | build_messages (116) | 1 | 15 | 190 |
+| src/memorymap/api/routes_documents.py | 1447 | 45 | import_document (99) | 2 | 16 | 157 |
+| src/memorymap/ai/provider.py | 1440 | 48 | extract_text_tool_calls (150) | 1 | 30 | 254 |
+| src/memorymap/api/routes_auth.py | 1433 | 53 | rotate_vault_key (142) | 1 | 15 | 210 |
+
+(top 25 of 223 files by lines; `--full` lists all)
+
+#### 1.2 JavaScript (frontend/js)
+115 files, 189722 lines, 5530 functions, 278 over 80 lines, summed complexity 39215.
+
+| file | lines | functions | longest (lines) | over 80 | max cx | sum cx |
+| --- | --- | --- | --- | --- | --- | --- |
+| frontend/js/documents.js | 20621 | 610 | docLivePlugin (1517) | 22 | 189 | 3936 |
+| frontend/js/whiteboard.js | 19811 | 560 | initWhiteboard (3730) | 26 | 653 | 4914 |
+| frontend/js/library.js | 11669 | 276 | filterLibraryImagesGallery (1546) | 20 | 113 | 2034 |
+| frontend/js/whiteboard-map.js | 9195 | 333 | wbBuildMapNode (301) | 11 | 42 | 2236 |
+| frontend/js/avatars.js | 9098 | 286 | drawCharacter (800) | 11 | 512 | 3099 |
+| frontend/js/graph.js | 5660 | 124 | renderGraphSvg (1254) | 11 | 168 | 925 |
+| frontend/js/dashboard.js | 5054 | 156 | startArt (276) | 12 | 34 | 947 |
+| frontend/js/graph-canvas.js | 4995 | 133 | gcDraw (729) | 9 | 220 | 1297 |
+| frontend/js/settings.js | 4492 | 142 | openSettingsModal (168) | 7 | 45 | 739 |
+| frontend/js/documents-code.js | 4399 | 134 | docCodeScan (425) | 4 | 132 | 1153 |
+| frontend/js/atlas.js | 3702 | 103 | atlasBuild (287) | 5 | 80 | 625 |
+| frontend/js/notes-list.js | 3516 | 115 | appendInlineRun (220) | 8 | 52 | 850 |
+| frontend/js/capture-ask.js | 3277 | 95 | askQuestion (311) | 4 | 87 | 694 |
+| frontend/js/chat-attach.js | 3006 | 73 | sendChatMessage (1079) | 4 | 176 | 562 |
+| frontend/js/chat-agent.js | 2953 | 88 | agentTimeline (488) | 6 | 43 | 547 |
+| frontend/js/status.js | 2887 | 97 | openNotifications (197) | 4 | 28 | 589 |
+| frontend/js/navigation.js | 2831 | 65 | renderMarkdown (408) | 5 | 74 | 438 |
+| frontend/js/chat.js | 2808 | 89 | messageMetaLine (146) | 4 | 36 | 499 |
+| frontend/js/editor.js | 2569 | 74 | editorLinkMatches (115) | 3 | 35 | 432 |
+| frontend/js/timeline.js | 2441 | 70 | timelineRowElement (134) | 3 | 26 | 456 |
+| frontend/js/sheets-selects.js | 2419 | 62 | enhanceSelect (242) | 7 | 41 | 378 |
+| frontend/js/note-cards.js | 2406 | 46 | entryItem (915) | 2 | 169 | 457 |
+| frontend/js/app.js | 2390 | 54 | startApp (187) | 4 | 32 | 329 |
+| frontend/js/bg-art.js | 2244 | 46 | bgArtRun (153) | 2 | 47 | 288 |
+| frontend/js/menus.js | 2210 | 56 | entryOverflowMenu (393) | 7 | 29 | 350 |
+
+(top 25 of 115 files by lines; `--full` lists all)
+
+#### 1.3 Ten most complex Python functions
+| function | file:line | lines | cx |
+| --- | --- | --- | --- |
+| _stream_lines | src/memorymap/api/routes_chat.py:2083 | 289 | 86 |
+| run_agent | src/memorymap/ai/agent.py:2738 | 416 | 78 |
+| compose | src/memorymap/ai/composer.py:2655 | 191 | 74 |
+| collect | src/memorymap/api/routes_tasks.py:50 | 356 | 71 |
+| search | src/memorymap/search/engine.py:1077 | 145 | 69 |
+| follow_on | src/memorymap/ai/composer.py:2173 | 105 | 62 |
+| _retrieve | src/memorymap/search/search_manager.py:1053 | 215 | 57 |
+| _run_one_step | src/memorymap/ai/skill_runner.py:848 | 425 | 53 |
+| restore_board | src/memorymap/api/routes_board_history.py:334 | 129 | 49 |
+| analyse_attachment | src/memorymap/api/routes_files.py:446 | 181 | 47 |
+
+#### 1.4 Ten most complex JavaScript functions
+| function | file:line | lines | cx |
+| --- | --- | --- | --- |
+| initWhiteboard | frontend/js/whiteboard.js:10401 | 3730 | 653 |
+| drawCharacter | frontend/js/avatars.js:1721 | 800 | 512 |
+| gcDraw | frontend/js/graph-canvas.js:1541 | 729 | 220 |
+| build | frontend/js/documents.js:7422 | 942 | 189 |
+| sendChatMessage | frontend/js/chat-attach.js:1478 | 1079 | 176 |
+| entryItem | frontend/js/note-cards.js:1371 | 915 | 169 |
+| renderGraphSvg | frontend/js/graph.js:1801 | 1254 | 168 |
+| nameMood | frontend/js/avatars.js:395 | 488 | 141 |
+| docCodeScan | frontend/js/documents-code.js:2906 | 425 | 132 |
+| renderWhiteboard | frontend/js/whiteboard.js:16408 | 864 | 126 |
+
+#### 1.5 Functions over 80 lines
+406 in total (128 Python, 278 JavaScript). Top 20 by length:
+
+| function | file:line | lines | cx |
+| --- | --- | --- | --- |
+| initWhiteboard | frontend/js/whiteboard.js:10401 | 3730 | 653 |
+| openLightbox | frontend/js/lightbox-view.js:25 | 1888 | 54 |
+| filterLibraryImagesGallery | frontend/js/library.js:7890 | 1546 | 113 |
+| docLivePlugin | frontend/js/documents.js:6941 | 1517 | 52 |
+| renderGraphSvg | frontend/js/graph.js:1801 | 1254 | 168 |
+| sendChatMessage | frontend/js/chat-attach.js:1478 | 1079 | 176 |
+| build | frontend/js/documents.js:7422 | 942 | 189 |
+| entryItem | frontend/js/note-cards.js:1371 | 915 | 169 |
+| docCmTheme | frontend/js/documents.js:18486 | 871 | 1 |
+| renderWhiteboard | frontend/js/whiteboard.js:16408 | 864 | 126 |
+| drawCharacter | frontend/js/avatars.js:1721 | 800 | 512 |
+| renderWbObjects | frontend/js/whiteboard.js:17554 | 780 | 96 |
+| gcDraw | frontend/js/graph-canvas.js:1541 | 729 | 220 |
+| nameMood | frontend/js/avatars.js:395 | 488 | 141 |
+| agentTimeline | frontend/js/chat-agent.js:504 | 488 | 43 |
+| mapPreview | frontend/js/note-cards.js:386 | 467 | 69 |
+| nameMarkBuddyBuild | frontend/js/avatars.js:8526 | 444 | 47 |
+| _run_one_step | src/memorymap/ai/skill_runner.py:848 | 425 | 53 |
+| docCodeScan | frontend/js/documents-code.js:2906 | 425 | 132 |
+| cmdPaletteAsk | frontend/js/palette.js:831 | 418 | 42 |
+
+### 24.2 Duplicated blocks
+
+338 files, 203831 normalised lines (blank and comment lines dropped); window 8 lines; shingles with fewer than 4 distinct lines or under 100 characters are skipped.
+133 duplicated blocks (groups of 2+ places); 2636 distinct source lines sit inside a duplicated block (1.3% of normalised lines).
+
+| normalised lines | places | file:line |
+| --- | --- | --- |
+| 41 | 2 | src/memorymap/ai/composer_tables.py:1578, src/memorymap/ai/composer_tables.py:1808 |
+| 37 | 2 | src/memorymap/ai/question_noise.py:152, src/memorymap/ai/question_noise.py:4410 |
+| 21 | 2 | src/memorymap/api/routes_files.py:774, src/memorymap/api/routes_files.py:1675 |
+| 19 | 2 | src/memorymap/api/routes_auth.py:630, src/memorymap/api/routes_auth.py:738 |
+| 18 | 2 | src/memorymap/ai/ollama_client.py:764, src/memorymap/ai/ollama_client.py:889 |
+| 18 | 2 | frontend/js/notes-list.js:1963, frontend/js/notes-list.js:2290 |
+| 17 | 2 | frontend/js/documents-code.js:1626, frontend/js/documents-prose.js:1718 |
+| 17 | 2 | frontend/js/whiteboard.js:17005, frontend/js/whiteboard.js:17937 |
+| 16 | 2 | src/memorymap/ai/ollama_client.py:799, src/memorymap/ai/openai_client.py:896 |
+| 16 | 2 | frontend/js/library.js:3953, frontend/js/library.js:7191 |
+| 14 | 2 | src/memorymap/api/routes_library.py:392, src/memorymap/api/routes_library.py:506 |
+| 14 | 2 | frontend/js/whiteboard.js:5176, frontend/js/whiteboard.js:5304 |
+| 13 | 2 | src/memorymap/ai/ollama_client.py:688, src/memorymap/ai/openai_client.py:825 |
+| 13 | 2 | src/memorymap/api/routes_files.py:2617, src/memorymap/api/routes_files.py:3069 |
+| 13 | 2 | src/memorymap/api/routes_settings.py:2693, src/memorymap/api/routes_settings.py:2852 |
+| 13 | 2 | frontend/js/library.js:10293, frontend/js/whiteboard.js:10319 |
+| 13 | 2 | frontend/js/whiteboard.js:13581, frontend/js/whiteboard.js:13719 |
+| 12 | 3 | src/memorymap/api/routes_auth.py:978, src/memorymap/api/routes_auth.py:1060, src/memorymap/api/routes_auth.py:1262 |
+| 12 | 2 | src/memorymap/ai/ollama_client.py:728, src/memorymap/ai/openai_client.py:855 |
+| 12 | 2 | frontend/js/documents.js:8487, frontend/js/documents.js:9001 |
+| 12 | 2 | frontend/js/suggestions-inbox.js:114, frontend/js/tidy.js:158 |
+| 11 | 3 | frontend/js/documents-prose.js:390, frontend/js/documents.js:6287, frontend/js/documents.js:15013 |
+| 11 | 3 | frontend/js/library.js:8423, frontend/js/library.js:8579, frontend/js/library.js:8767 |
+| 11 | 2 | src/memorymap/api/routes_entries.py:1284, src/memorymap/api/routes_entries.py:2545 |
+| 11 | 2 | src/memorymap/api/routes_whiteboard.py:5344, src/memorymap/api/routes_whiteboard.py:5417 |
+| 11 | 2 | src/memorymap/core/extras.py:1153, src/memorymap/core/extras.py:1334 |
+| 11 | 2 | src/memorymap/core/security.py:333, src/memorymap/core/security.py:353 |
+| 11 | 2 | src/memorymap/search/engine.py:771, src/memorymap/search/engine.py:811 |
+| 11 | 2 | frontend/js/categories-panel.js:68, frontend/js/tag-manager.js:458 |
+| 11 | 2 | frontend/js/categories-panel.js:225, frontend/js/tag-manager.js:581 |
+
+(top 30 of 133 blocks by size)
+
+### 24.3 Dead-code candidates
+
+Corpus: identifier tokens in frontend/ (js, html, css), src/ and tests/, vendor excluded; strings and comments count as uses. A candidate is a name whose only occurrence is its own definition (grep count after the definition, 0). The last column is the count of uses in tests/ alone (a name used only by tests is listed with a non-zero count).
+
+#### 3.1 Top-level functions in the 27 classic scripts: 1221 defined, 0 candidates
+
+(none)
+
+#### 3.2 Python defs in src/memorymap: 3674 defined, 40 candidates (excluded as called by a framework: dunder methods, 346 decorated defs such as route handlers and validators, and SQLAlchemy type hooks)
+
+| def | file:line | uses in tests |
+| --- | --- | --- |
+| capture_signals | src/memorymap/__main__.py:585 | 0 |
+| scheduler_alive | src/memorymap/ai/autonomous.py:249 | 2 |
+| phrase_options | src/memorymap/ai/composer.py:263 | 13 |
+| _yes_no_wrapped | src/memorymap/ai/composer.py:455 | 0 |
+| today_line | src/memorymap/ai/composer_voice.py:490 | 1 |
+| title_for | src/memorymap/ai/composer_voice.py:639 | 3 |
+| suggested_searches | src/memorymap/ai/composer_voice.py:667 | 1 |
+| suggest_entities | src/memorymap/ai/entities.py:104 | 5 |
+| extract_concepts | src/memorymap/ai/fast_matcher.py:31 | 0 |
+| unfence | src/memorymap/ai/fence.py:61 | 3 |
+| note_passage_scores | src/memorymap/ai/grounding.py:298 | 2 |
+| feature_model | src/memorymap/ai/model_manager.py:484 | 14 |
+| reset_jobs | src/memorymap/ai/model_manager.py:831 | 7 |
+| reset_for_tests | src/memorymap/ai/needle_provider.py:185 | 38 |
+| forget_ollama_binary | src/memorymap/ai/offline.py:47 | 2 |
+| is_llama_cpp | src/memorymap/ai/openai_client.py:319 | 2 |
+| extract_categories | src/memorymap/ai/taxonomy.py:98 | 0 |
+| notebook_began | src/memorymap/ai/timetravel.py:154 | 0 |
+| budget_for_window | src/memorymap/ai/tools/__init__.py:4487 | 5 |
+| reset_for_tests | src/memorymap/api/routes_update.py:171 | 38 |
+| backup_if_due | src/memorymap/core/backup.py:250 | 4 |
+| strip_comments | src/memorymap/core/docexport.py:97 | 1 |
+| handle_starttag | src/memorymap/core/docview.py:193 | 17 |
+| handle_endtag | src/memorymap/core/docview.py:234 | 16 |
+| handle_data | src/memorymap/core/docview.py:262 | 5 |
+| reset_for_tests | src/memorymap/core/embedmodels.py:795 | 38 |
+| reset_for_tests | src/memorymap/core/embedswitch.py:389 | 38 |
+| payload_bytes | src/memorymap/core/events.py:591 | 6 |
+| reset_for_tests | src/memorymap/core/extras.py:1796 | 38 |
+| queued_count | src/memorymap/core/jobs.py:407 | 3 |
+| running_count | src/memorymap/core/jobs.py:411 | 2 |
+| reset_for_tests | src/memorymap/core/passes.py:263 | 38 |
+| is_open | src/memorymap/core/vault.py:68 | 10 |
+| has_recovery | src/memorymap/core/vault.py:235 | 0 |
+| handle_starttag | src/memorymap/core/webclip.py:206 | 17 |
+| handle_endtag | src/memorymap/core/webclip.py:230 | 16 |
+| handle_data | src/memorymap/core/webclip.py:244 | 5 |
+| set_category | src/memorymap/entry/manager.py:226 | 2 |
+| vectors_by_id | src/memorymap/search/engine.py:1396 | 7 |
+| sources_for_kind | src/memorymap/search/index.py:198 | 1 |
+
+### 24.4 Coupling of the classic scripts
+
+27 classic scripts in index.html order (app.js to agent-activity.js); 1838 top-level names defined (1837 distinct); 648 read by another script.
+
+#### 4.1 Per script (a name counts as read when another script contains it as an identifier token)
+
+| script | globals defined | read elsewhere | reader scripts |
+| --- | --- | --- | --- |
+| app.js | 100 | 63 | 23 |
+| prefs.js | 10 | 6 | 20 |
+| store.js | 2 | 1 | 1 |
+| note-cards.js | 61 | 18 | 9 |
+| menus.js | 43 | 17 | 11 |
+| lightbox.js | 13 | 9 | 3 |
+| selection.js | 38 | 6 | 4 |
+| notes-list.js | 155 | 49 | 21 |
+| capture-ask.js | 130 | 35 | 14 |
+| chat.js | 116 | 56 | 18 |
+| chat-agent.js | 94 | 47 | 11 |
+| chat-attach.js | 94 | 46 | 12 |
+| sheets-selects.js | 76 | 22 | 19 |
+| skills.js | 72 | 16 | 11 |
+| shell-reminders.js | 71 | 29 | 15 |
+| markdown.js | 49 | 29 | 4 |
+| navigation.js | 90 | 26 | 21 |
+| router.js | 22 | 6 | 7 |
+| settings-panes.js | 62 | 14 | 15 |
+| media.js | 42 | 18 | 3 |
+| status.js | 155 | 46 | 23 |
+| ai-tools.js | 60 | 30 | 6 |
+| phone-shell.js | 73 | 13 | 16 |
+| wiring.js | 58 | 15 | 9 |
+| settings-wiring.js | 57 | 12 | 5 |
+| spaces-find.js | 58 | 9 | 6 |
+| agent-activity.js | 37 | 10 | 4 |
+
+#### 4.2 Downward references (a script naming a global defined only in a later script)
+
+Anywhere in the file (including inside functions, which run later and are legal): 424 names over 140 script pairs. At brace depth 0 (runs at load; IIFE and object-literal bodies are depth 1 and are not seen): 2 names over 2 pairs.
+
+At load (depth 0):
+
+| script | defined later in | names | examples |
+| --- | --- | --- | --- |
+| chat-agent.js | sheets-selects.js | 1 | aiNameNow |
+| wiring.js | spaces-find.js | 1 | openFinder |
+
+Anywhere (top 15 pairs by name count):
+
+| script | defined later in | names |
+| --- | --- | --- |
+| note-cards.js | notes-list.js | 22 |
+| status.js | ai-tools.js | 14 |
+| notes-list.js | markdown.js | 12 |
+| app.js | status.js | 12 |
+| chat-attach.js | status.js | 11 |
+| chat.js | sheets-selects.js | 10 |
+| menus.js | notes-list.js | 8 |
+| selection.js | status.js | 8 |
+| note-cards.js | status.js | 8 |
+| skills.js | status.js | 7 |
+| shell-reminders.js | status.js | 7 |
+| capture-ask.js | status.js | 7 |
+| capture-ask.js | settings-wiring.js | 7 |
+| menus.js | status.js | 6 |
+| notes-list.js | status.js | 6 |
+
+#### 4.3 The fifteen globals read by the most other scripts
+
+| global | defined in | reader scripts |
+| --- | --- | --- |
+| toast | status.js | 22 |
+| $ | app.js | 21 |
+| apiJson | app.js | 21 |
+| setLabel | app.js | 21 |
+| prefs | prefs.js | 20 |
+| api | app.js | 16 |
+| switchTab | navigation.js | 16 |
+| confirmDialog | app.js | 14 |
+| smallButton | app.js | 14 |
+| loadEntries | notes-list.js | 14 |
+| toastAction | status.js | 12 |
+| chip | app.js | 11 |
+| copyToClipboard | chat.js | 11 |
+| prefsCache | settings-panes.js | 11 |
+| renderEntries | notes-list.js | 10 |
+
+### 24.5 Counts
+
+#### 5.1 TODO, FIXME, XXX, HACK (src/memorymap, frontend/js, frontend/css, index.html; vendor excluded)
+
+Totals: TODO 0, FIXME 0, XXX 0, HACK 0.
+
+#### 5.2 Ten largest files by bytes
+
+frontend/js:
+
+| file | bytes | lines |
+| --- | --- | --- |
+| frontend/js/whiteboard.js | 975984 | 19811 |
+| frontend/js/documents.js | 964068 | 20621 |
+| frontend/js/library.js | 564789 | 11669 |
+| frontend/js/avatars.js | 497076 | 9098 |
+| frontend/js/whiteboard-map.js | 432391 | 9195 |
+| frontend/js/graph.js | 267187 | 5660 |
+| frontend/js/dashboard.js | 240995 | 5054 |
+| frontend/js/graph-canvas.js | 228977 | 4995 |
+| frontend/js/atlas.js | 225772 | 3702 |
+| frontend/js/settings.js | 206353 | 4492 |
+
+frontend/css:
+
+| file | bytes | lines |
+| --- | --- | --- |
+| frontend/css/07-whiteboard-misc.css | 534476 | 13496 |
+| frontend/css/08-consistency.css | 530280 | 11631 |
+| frontend/css/01-forms-settings.css | 240750 | 6747 |
+| frontend/css/05-sidebars-themes.css | 233359 | 6726 |
+| frontend/css/04-chat-dock-appearance.css | 231725 | 6392 |
+| frontend/css/02-chat-graph.css | 230235 | 6694 |
+| frontend/css/00-tokens-shell.css | 217837 | 4681 |
+| frontend/css/03-dashboard-widgets.css | 171667 | 5161 |
+| frontend/css/06-timeline-dialogs.css | 148530 | 4200 |
+| frontend/css/10-responsive.css | 120837 | 3002 |
+
+src/memorymap (vendor excluded):
+
+| file | bytes | lines |
+| --- | --- | --- |
+| src/memorymap/api/routes_whiteboard.py | 240186 | 5428 |
+| src/memorymap/ai/tools/__init__.py | 213773 | 4878 |
+| src/memorymap/ai/question_noise.py | 186754 | 5242 |
+| src/memorymap/api/routes_files.py | 185904 | 3931 |
+| src/memorymap/api/routes_entries.py | 173879 | 3835 |
+| src/memorymap/ai/agent.py | 154772 | 3153 |
+| src/memorymap/entry/manager.py | 149080 | 3519 |
+| src/memorymap/core/database.py | 147726 | 2729 |
+| src/memorymap/ai/help_chat.py | 147179 | 2480 |
+| src/memorymap/api/routes_settings.py | 142810 | 3015 |
+
+#### 5.3 Backend routes with no test file naming their path
+
+478 routes (`@router.*`-style decorators with the router's own prefix; any `include_router(prefix=...)` is not added). 54 have no path match in tests/: a `{param}` segment matches any run of non-space, non-quote characters, so this undercounts untested routes.
+
+| route file | untested routes |
+| --- | --- |
+| src/memorymap/api/routes_documents.py | 12 |
+| src/memorymap/api/routes_entries.py | 10 |
+| src/memorymap/api/routes_board_library.py | 6 |
+| src/memorymap/api/routes_conversations.py | 6 |
+| src/memorymap/api/routes_whiteboard.py | 4 |
+| src/memorymap/api/routes_meetings.py | 3 |
+| src/memorymap/api/routes_properties.py | 2 |
+| src/memorymap/api/routes_reminders.py | 2 |
+| src/memorymap/api/routes_tidy.py | 2 |
+| src/memorymap/api/routes_bench.py | 1 |
+| src/memorymap/api/routes_categories.py | 1 |
+| src/memorymap/api/routes_files.py | 1 |
+| src/memorymap/api/routes_learned.py | 1 |
+| src/memorymap/api/routes_mentions.py | 1 |
+| src/memorymap/api/routes_questions.py | 1 |
+
+#### 5.4 CSS class and id names in frontend/css used by no markup or script
+
+3758 distinct class or id names in selector preludes; 236 appear as no token in index.html or frontend/js (names built by string concatenation, and classes added by Python-rendered HTML, would be false candidates).
+
+| css file | unused names (a name in two files counts in both) |
+| --- | --- |
+| 08-consistency.css | 131 |
+| 05-sidebars-themes.css | 30 |
+| 07-whiteboard-misc.css | 23 |
+| 02-chat-graph.css | 20 |
+| 03-dashboard-widgets.css | 17 |
+| 09-editor.css | 9 |
+| 01-forms-settings.css | 7 |
+| 04-chat-dock-appearance.css | 6 |
+| 00-tokens-shell.css | 6 |
+| 10-responsive.css | 4 |
+| 06-timeline-dialogs.css | 4 |
+| library-lazy.css | 3 |
+
+#### 5.5 Frontend ids and handlers
+
+| measure | count |
+| --- | --- |
+| id attributes in index.html | 2227 |
+| distinct ids | 2227 |
+| ids looked up by $("id") or getElementById in frontend/js | 1812 |
+| looked-up ids with no element in index.html (runtime-created or missing) | 52 |
+| ids bound with $("id").addEventListener("event") | 812 |
+| bound ids with no element in index.html | 9 |
+| index.html ids named by no token in frontend/js | 273 |
+
+### 24.6 Console errors per surface
+
+errors.js against a fresh data dir on this branch (9 tabs, library and notes subtabs, 19 Settings sections, light theme).
+
+| width | page and console errors | layout findings |
+| --- | --- | --- |
+| 1440px | 0 | 0 |
+| 1024px | 0 | 0 |
+| 820px | 0 | 0 |
+| 390px | 0 | 0 |
+
+Not covered: dark theme (THEME=dark), a seeded large notebook, the fault pass (FAULTS=1).
+
+### 24.6b Interaction timings, 2026-10-10
+
+Measured by the `measure` agent (Brief 46) in a headless Chromium against a
+data dir with 5,001 notes (seeded through `POST /entries`, 978 s, about 5 per
+second), 1 document of 50,001 words and 1 board of 500 text objects. **The
+machine was saturated while every number below was taken** (4 cores, load
+average 8 to 10 from other sessions' browsers and servers), so the wall times
+are upper bounds: a trivial `GET /entries?limit=1` took 1.6 to 2.6 s and a
+static `GET /` 0.9 s on the same server in the same minutes. They rank
+interactions against each other; they are not budgets. Re-run on an idle
+machine before `tests/test_budgets.py` (Brief 53) fixes a figure.
+
+| Interaction | Measured (p50 unless noted) | Command |
+| --- | --- | --- |
+| Seed 5,001 notes | 978 s, three concurrent writers | `.venv/bin/python scratchpad/ui-sweeps/measure-seed.py 8794 5000` |
+| Boot, cold context | DOMContentLoaded 10,468 ms, first contentful paint 4,484 ms, lock field visible 11,581 ms (5 runs) | `node scratchpad/ui-sweeps/measure-interactions.js` (PHASE=boot) |
+| Unlock to interactive (lock overlay hidden, curtain gone, dashboard hero visible) | 4,461 ms; a reload with the stored token 5,842 ms | same |
+| Notes list paint, tab switch to rows | 261 ms (107 to 617 over 10 runs); 61 rows of 5,003 in the DOM | PHASE=list |
+| `GET /search`, "garden" | hybrid 2,425 ms, keyword 1,815 ms (20 hits) | PHASE=search |
+| `GET /search`, "dentist budget" | hybrid 3,489 ms, keyword 3,404 ms (20 hits) | PHASE=search |
+| `GET /search`, "Note 4242" | hybrid 4,959 ms (6 hits), keyword 2,544 ms (1 hit) | PHASE=search |
+| Notes list query box, last keystroke to rows changed | "garden" 238 ms, "dentist budget" 260 ms, "Note 4242" 168 ms; settled 256, 273, 168 ms | PHASE=keybox |
+| Board open, 500 objects, call to all 500 `.wb-object` plus two frames | first open 2,551 ms; four later opens 55, 77, 88, 100 ms | `node scratchpad/ui-sweeps/measure-objects.js` (PHASE=board) |
+| Document open, 50,001 words (308,327 characters) | 740 ms (557 to 986 over 5 runs), `openDocument` call to resolved plus two frames | PHASE=doc |
+| Server CPU, 60 s idle, dashboard tab open | 66.2% then 63.3% of one core, resident 1.95 to 2.13 GB | `SERVER_PID=n node scratchpad/ui-sweeps/measure-idle.js` |
+| Server CPU, 60 s idle, notes tab open | 16.0% then 2.0% of one core, resident 0.92 to 1.0 GB | same |
+| Resident memory | 0.74 GB just after start; 8.5 GB on the first server after 35 minutes of seeding and sweeps (not reproduced) | `/proc/PID/status` VmRSS |
+| Seed 500 board objects | 52 s through `POST /whiteboard/objects` (104 ms each) | PHASE=board |
+| 20-note bundle | `POST /backups/bundle` 0.09 s, 46,214 bytes: `memorymap.db` (692,224 bytes, 57 tables) plus every file under `media/` and `uploads/` (here one 67-byte png) | `.venv/bin/python scratchpad/ui-sweeps/measure-bundle.py 8795` |
+
+Static counts, from the code (`python scratchpad/ui-sweeps/measure-*.py`):
+
+- **Dashboard** (`measure-widgets.py`, `measure-objects.js` PHASE=widgets):
+  `DASH_WIDGETS` holds 29 widgets (the plan said 25); `featureCatalog` is a
+  separate list of 125 rows. With all on, in a notebook of plain notes,
+  stats, streak, heatmap and pace hold no button, link or row; the other 25
+  hold at least one. Not run with reminders or bookmarks present.
+- **Settings** (`measure-settings-help.py`): `PreferencesBody` has 72 fields
+  (86 distinct keys are read or written through `get_preference` and
+  `set_preference` in `src/memorymap/`; the plan's 179 is not a count of
+  either). `index.html` holds 105 `data-help-for` popovers, 69 of them
+  inside the Settings modal. By the script's rule (a popover in the same
+  `<h3>` block as the control, else a muted line within four lines): 31 keys
+  have a popover, 0 a plain help line, 10 have neither (`recycle_bin_days`,
+  `conversation_retention_days`, `search_min_similarity`,
+  `search_relative_z_margin`, `communication_style`, `display_name`,
+  `web_search_enabled`, `searxng_autostart`, `session_idle_ttl_minutes`,
+  `searxng_url`), and 31 have no Settings control the script could find.
+- **Keyboard** (`measure-keys.py`): `DEFAULT_SHORTCUTS` has 31 entries (the
+  plan said 36). 574 `.key ===`-style checks in 62 files: 513 test a
+  convention key the table leaves unrebindable, 14 a letter that ends a table
+  chord, 47 any other literal (`whiteboard.js` 8, `settings-panes.js` 5,
+  `documents.js`, `whiteboard-library.js`, `settings-wiring.js`, `library.js`
+  and `timeline.js` 4 each, the rest 3 or fewer). `toLowerCase()` and
+  `switch (e.key)` forms are not counted.
+- **Undo** (`measure-undo.py`): 50 functions with "undo" in the name in 21
+  files, 13 of which call `pushUndo` (called from 27 files). The rest: the
+  `wb*Undo*` set in `whiteboard.js`, `docUndo*` in `documents.js`, `undoDraft`
+  in `chat-agent.js`, `inlineAiUndo`, `undoSkillRun`, `undoImport`, the
+  activity feed's `activityUndo*`, and `undo-store.js` (IndexedDB).
+- **Search index** (`src/memorymap/search/index.py:46`): `KINDS = ("note",
+  "document", "board", "map", "file", "bookmark", "reminder")`, eight
+  sources registered (lines 665 to 746; two for `file`). `GET /search` calls
+  `engine.search` (`routes_search.py`), not `search_manager._retrieve`, which
+  is Ask's notes-only path. Chat messages are not indexed. A live call
+  returned `counts: {note: 5003, document: 1, board: 1, map: 0, file: 0,
+  bookmark: 0, reminder: 0}` and a board among the hits for "measure".
+  A "Find anything" dialog already calls it (`spaces-find.js:907`,
+  `index.html:705`); the notes list also calls it with
+  `kind=note,board,map` (`notes-list.js:1727`).
+- **History**: `api/versioning.py` is the `/api/v1` prefix middleware and
+  keeps nothing. Per-note history is `EntryRevision` (`core/database.py:1290`),
+  full text and tags before each edit, `MAX_REVISIONS = 20` per note
+  (`entry/manager.py:3468`), listed and restorable (`routes_entries.py:3095`,
+  `:3241`), with a panel in `note-history.js`. Documents keep
+  `DocumentRevision` (`:1547`), boards `whiteboard-history.js`.
+
+## 25. The whole app against world class, 2026-10-10 (Fable)
+
+The owner, 2026-10-10: "have you analysed the whole app and extended each
+plan?? i need this app world class." Sections 23 and 24, CHAT_PLAN Phase 6,
+UI Phase 12 and WHITEBOARD's draw.io programme each took one surface. This
+section takes every surface, including the ones no plan owns (search,
+import and export, first run, settings, the phone, data safety, performance,
+undo, the keyboard), says what the bar is, what the code shows today, and
+where the gap is owned. The gaps with no owner get phases 25a to 25g below
+and Briefs 46 to 53.
+
+**Limit, stated first.** The "today" column is read from the code (section
+24's census, the route files, the function lists of `timeline.js`,
+`phone-shell.js`, `status.js`, `notes-list.js`, `capture-ask.js`,
+`editor.js`, `dashboard.js`, `search_manager.py`, `sw.js`,
+`settings-wiring.js`) and the plans, not from a browser. Brief 46 measures
+every row before anything in 25a to 25g is built; a row's number replaces
+its reading here when it lands.
+
+### 25.1 The bar
+
+World class for a local notebook is five things, each measurable:
+
+1. **Nothing is lost.** A crash, a power cut, a bad update or a wrong click
+   never costs a note; every destructive act has an undo with a window and
+   a history; restore is tested, not trusted.
+2. **Every task takes the fewest motions,** and all of them work from the
+   keyboard. The reference is VS Code's command palette and Things' capture:
+   one key to start, type, Enter, done.
+3. **The app answers from the notes without a model, and better with one**
+   (ROADMAP Direction, "two engines, one answer").
+4. **Each surface stands against the best single-purpose tool** a person
+   could pick instead (the parity programme), and shares one object model.
+5. **It is one product:** one vocabulary (section 1), one density (Phase
+   12), one undo, one search, one help.
+
+### 25.2 Surface by surface
+
+| Surface | The bar (reference) | Today, from the code | The gap, in one line | Owner |
+| --- | --- | --- | --- | --- |
+| Capture | Drafts, Apple Notes: one key, type, filed on save | `capture-ask.js` 72 functions: tag suggestions, templates, document adder, filing status | the filing decision is not explained or confidently shown (23) | Brief 39b |
+| Notes list | Bear, Obsidian: instant at 10,000 notes, an inline query | measured: 261 ms from tab switch to rows at 5,003 notes (61 rows in the DOM); a query keystroke to rows changed 168 to 260 ms; `notes-list.js` 94 functions (24.6b) | the query grammar is invisible; no bulk actions; paint cost at 5,000 unmeasured (Brief 43 item 2 found a 23 s badge) | 25a, Brief 43 |
+| Note editor | Obsidian, Bear: live preview, slash, wiki links, backlinks, outline | `editor.js` 65 functions: slash menu, link matches, selection bar, inline AI | one editor everywhere (DOCUMENTS Phase 8) still open; find and replace inside a note | Brief 42 |
+| Documents | Word, Notion, Typora | measured: 740 ms to open 50,001 words; `documents.js` 20,621 lines, `build` cx 189 (24.6b) | DOCUMENTS 17, 20, 21 | Brief 42 |
+| Code editor | VS Code | `documents-code.js` 4,399 lines, `docCodeScan` cx 132 | multi-cursor, regex find and replace, folding, bracket pairs, diagnostics (DOCUMENTS 21) | Brief 42 |
+| Whiteboard | draw.io, Excalidraw, tldraw | measured: 500 objects open in 2,551 ms first, 55 to 100 ms after; `whiteboard.js` 19,811 lines, `initWhiteboard` 3,730 (24.6b) | WHITEBOARD "The draw.io programme"; split along seams (45 part 2) | Briefs 36, 44, 45 |
+| Mind map | Coggle, XMind | `whiteboard-map.js` 9,195 lines | MINDMAP 13, 14 | Brief 36 |
+| Graph | Obsidian graph, Logseq | `graph.js` plus `graph-canvas.js` 10,655 lines, `renderGraphSvg` 1,254 | GRAPH "The knowledge graph" open rows | Brief 38 |
+| Timeline and calendar | Fantastical, Google Calendar agenda, Day One | `timeline.js` 59 functions: feed and table, scrubber, day notes, a month popover | no month grid, week view, drag to reschedule, reminders on the grid, ICS in and out | TIMELINE Phase 5 |
+| Ask, no model | a grounded answer with numbered sources | `composer.py` 2,980 lines, `compose` cx 74 | CHAT Phase 6 | Brief 39 |
+| Chat and agent | Claude, ChatGPT: a run you can read and resume | `chat*.js` 8,767 lines, `sendChatMessage` 1,079 lines | Brief 37; AGENT_SKILLS Phase E | Briefs 37, 54 |
+| Search | Spotlight, Alfred, Obsidian search: one box, every kind, operators, saved | measured: `GET /search` already indexes notes, documents, boards, maps, files, bookmarks and reminders (not chat), and a "Find anything" dialog calls it; p50 1.8 to 5.0 s at 5,003 notes on a loaded machine (24.6b) | boards, maps, documents, files, chat and reminders are not in one box; the operators are undocumented; no saved searches; no result kinds | 25a |
+| Filing, tags, properties, relations | Notion properties, Obsidian tags | section 23; `routes_properties.py`, `routes_relations.py`, `routes_tags.py` | 23; properties on every object (0.7 "one object model") | Briefs 39b, 38 |
+| Library and files | Apple Photos, Finder | `library.js` 11,669 lines, `filterLibraryImagesGallery` 1,546 lines | structure (split, 45 part 2); the gallery's one function does everything | Brief 45, 43 |
+| Dashboard | Craft, Notion home: continue and today | measured: 29 widgets; 4 are display only (stats, streak, heatmap, pace), 25 hold a button, link or row; `dashboard.js` 93 functions (24.6b) | no widget can name a measured use; see decision 51 | Phase 12 row |
+| Reminders and tasks | Things, Todoist | `routes_reminders.py`, `routes_tasks.py` (`collect` cx 71), the tray | recurring, snooze, natural dates everywhere, delivery when the window is closed | TIMELINE Phase 5 |
+| Settings | VS Code settings: searchable, each with a description and a default, reset per item | measured: `PreferencesBody` 72 fields; 105 help popovers (69 in the Settings modal); 10 keys with a control and no help; a settings search box already exists (`settings-find.js`) (24.6b) | no search across settings; no modified marker or per-item reset; no settings export | 25f |
+| Help and guide | a searchable manual with a "?" on every control | 51 plus 35 Guide topics; `test_manual_parity` | no offline manual page with search; no "what changed" | 25c |
+| First run | Linear: value in 60 seconds, the model optional and said so | `first-run.spec.js`, `gettingStartedCard`, the name nudge | no sample notebook; the three-step path is implicit | 25c |
+| Import and export | Obsidian, Notion, Evernote, Apple Notes in; a markdown folder out | `app_import.py` (five sources, a MemoryMap folder the fifth), `export_folder.py` (the whole notebook as a markdown folder with sidecars and attachments, `GET /export/folder`), the import report page, web clip, media upload; export per note `.md`, per document md, zip, docx; backups and a bundle | built 2026-10-10 (25b); left: a 5,000-note write is 45.9 s on the loaded sandbox (one commit per note) | 25b |
+| Data safety | never lose a note | measured: bundle is `memorymap.db` (all 57 tables) plus `media/` and `uploads/`; per-note history is `EntryRevision`, 20 per note, with a panel; `versioning.py` is the `/api/v1` middleware (24.6b) | restore is not verified by a test; no integrity check at boot; versions not visible per note; crash recovery of a draft unmeasured | 25e |
+| Phone and PWA | installable, an offline shell, a share target | `phone-shell.js` 2,139 lines; `sw.js` 59 lines and by design no cache (a transparent worker) | no offline shell; the hashed asset URLs make a safe cache possible now (decision 49) | 25d, Brief 40 |
+| Performance | VS Code: boot under a second on old hardware | measured: boot 10.5 s DOMContentLoaded and 4.5 s to interactive on a saturated machine; idle server 63 to 66% of a core with the dashboard open, 2 to 16% on Notes; 319,799 bytes gzipped over 27 scripts (24.6b) | budgets exist for weight only; none for interaction time | 25g |
+| Accessibility | WCAG 2.2 AA | Phase 12 | Phase 12 | Brief 41 |
+| Security | a stated threat model | section 12; CSP; the LAN mode (Brief 40 placed) | rate limits on auth; session expiry; the threat model written down | 12 addendum |
+| Undo | one model: Ctrl+Z where focus is, an undo bar for server actions | measured: 50 "undo" functions in 21 files, 13 call `pushUndo`; the others are the board, document, chat draft, inline AI, skill run and import implementations (24.6b) | six implementations, no contract | decision 53 |
+| Keyboard | every action reachable; a generated shortcuts sheet | measured: `DEFAULT_SHORTCUTS` 31 entries; 574 key checks, 513 conventions, 14 table keys, 47 other (24.6b) | the 549 checks are the ones not in the table; the sheet must be generated from the table | Phase 12 row |
+| Languages | one | English only; no i18n layer | decision 50 | none |
+| OCR workspace | Google Keep's OCR, Apple Live Text | measured 2026-10-10: 22 to 25 controls, 98 to 240 ms to open, 0 of 5 reading acts undo (28.4) | not in quick access; the palette row says "AI"; no undo; no pinch zoom | 28.4, Brief 79 |
+| Audio: meetings, transcription, captions, translator | Otter, Voice Memos, Live Captions, Apple Translate | measured 2026-10-10: Record refuses with no Whisper add-on; no live captions; no offline translator (28.5) | the recording is not an object; the meeting summary needs a model | 28.5, Briefs 80 to 83 |
+
+### 25.3 Decisions, 2026-10-10 (do not re-decide)
+
+46. **One search box, every kind.** Search is a surface, not a filter on the
+    notes list: notes, documents, boards, maps, files, chat turns and
+    reminders in one result list with a kind chip each, the operators
+    (`tag:`, `in:`, `before:`, `after:`, `has:`, `is:`, quotes, minus)
+    documented in the box's help, and saved searches as sidebar rows. The
+    engine stays `search_manager.py`; the box is new.
+47. **The calendar is the timeline's third view** (feed, table, calendar),
+    not a surface. Month and week grids, reminders and day notes on the
+    grid, drag to reschedule; ICS export of reminders and ICS import as
+    reminders. No external calendar sync before 1.0.
+48. **Milestone 0.5 is data safety.** Nothing in 0.6 ships before the
+    restore test (25e) is green in CI.
+49. **The service worker caches by stamped URL only.** Every local CSS and
+    JS URL is `?v=<version>-<hash>`, so a cache keyed on the full URL can
+    never serve a stale file; the shell (`/`, the manifest, the icons) is
+    cached with a network-first fetch. This reverses the 2026-09 "no cache"
+    decision because its reason (stale files) is gone.
+    *Reconciled 2026-10-10:* it agrees with the owner's "fail to load when the
+    backend is closed" once the offline answer is an honest page
+    (`offline.html`, with Retry); the shell itself stays uncached.
+50. **English only to 1.0.** No i18n layer before a second language is
+    asked for; copy stays where it is used.
+51. **The dashboard is "continue and today".** A widget stays if Brief 46
+    can name a measured use (opened, clicked, or the thing it shows acted
+    on); the rest move behind "Customise", off by default.
+52. **Settings get search, a modified marker and reset per item before
+    any new setting is added.** A setting is a row with a name, one line of
+    description, its default, and a reset; the panes stay.
+53. **One undo contract,** added to section 1 as rule 1.9: Ctrl or Cmd+Z
+    undoes the last edit where focus is; a destructive server action shows
+    the undo bar with a ten-second window and a history; nothing else
+    invents an undo. The six implementations fold into `pushUndo`.
+54. **Budgets are per interaction,** not only per byte: boot to first
+    paint, first interaction, list paint at 5,000 notes, search at 5,000
+    notes, board open at 500 objects, document open at 50,000 words, each
+    with a number in `tests/test_budgets.py` run on the fixture, measured
+    on the four-core sandbox and set at 1.5 times the measurement.
+
+### 25.4 Phases with gates (each a brief; measure first)
+
+| Phase | Builds | Gate | Brief |
+| --- | --- | --- | --- |
+| 25.0 Measure | the "today" column: every row's number with its command or sweep (`errors.js`, `routes_bench`, `getBoundingClientRect`, timings) | the table above re-written with numbers; section 24.6 extended | 46 (Sonnet, medium) |
+| 25a Search | the box (`search.js`, new, lazy), the result list with kinds, the operators and their help, saved searches, keyboard-only use; documents, boards, maps, files, chat and reminders indexed through the existing engine | a sweep that finds one of each kind by query; operators tested in `test_search_box.py`; under 100 ms at 5,000 notes | 47, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25a, Brief 47)") |
+| 25b Import and export | built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25b, Brief 48)") | export then import of the 500-note fixture equal on every field; the report lists every skip | 48, built: 0 differences on 503 notes and boards, 60 of 60 attachments, 5 of 5 skips named, Stop in 0.005 s |
+| 25c First run and help | the three-step first run (name, a note, an answer without a model), a sample notebook offered once, the manual as a page with search built from the Guide topics, "what changed" from the CHANGELOG | `first-run.spec.js` extended; the manual page's search finds every control name (`test_manual_parity`) | 49 (Opus, high) |
+| 25d PWA shell | built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25d, Brief 50)") | offline reload shows an honest page, never the shell; an edited file is never served stale (two stamps are two cache keys, `test_two_stamps_for_the_same_file_are_two_cache_keys`) | 50 (Sonnet, high) |
+| 25e Never lose a note | the restore test in CI (backup, restore into a scratch dir, compare counts and bodies), an integrity check at boot with a one-line notice, per-note versions visible (a "Versions" row in the note menu, from `versioning.py`), draft recovery after a killed server | `test_restore_roundtrip.py` green; a killed server loses no typed draft (a Playwright test) | 51, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25e, Brief 51)"): restore equal for ten kinds, quick_check 30 ms at 5,000 notes, draft spec 1 passed, undo lint 10 to 7 |
+| 25f Settings | search across settings, the modified marker, reset per item, settings export and import as JSON | every setting reachable by search; `test_settings_rows.py` walks the 179 keys | 52 (Opus, high) |
+| 25g Budgets | built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (WORLD_CLASS 25g, Brief 53)") | the six numbers in the README's performance table; CI fails when one exceeds its cap | 53, built: first paint 713 ms, first interaction 4,639, list 139, search 30, board 108, document 359; caps 1.5 times each |
+
+Phase E of AGENT_SKILLS_REFORM (Brief 54) and TIMELINE Phase 5 (Brief 55)
+are written in their plans.
+
+### 25.5 Not verified
+
+Everything in 25.2's "today" column until Brief 46 lands. In particular:
+whether `routes_search` already indexes documents and boards (the engine's
+`_retrieve` may; the box does not show it); whether `versioning.py` keeps
+per-note history or only edit stamps; whether the bundle export is a
+complete notebook.
+
+## 26. The backend against world class, 2026-10-10 (Fable)
+
+The owner, 2026-10-10: "after your design review, do the same for the
+backend." Sections 4 (B1 to B7), 12 (security), 16 (structure and silent
+failure), 19 (architecture) and 22 (the professional baseline) each read a
+part. This section reads the whole, with today's numbers, and places the
+gaps.
+
+**Measured from the code** (not run): 470 routes over 58 router files
+(entries 55, files 43, settings 40, documents 32, whiteboard 25); 54 routes
+with no test naming their path (census 24.5: documents 12, entries 10,
+board library 6, conversations 6); 223 Python files, 131,372 lines, 3,674
+functions, 128 over 80 lines; 306 `except Exception` of which 21 end in
+`pass`, `continue` or `return None` with no log line; 6 bare `except:`;
+461 log calls; 36 `print(` outside the CLI; 32 thread or executor sites;
+21 tables; 44 indexes; WAL, foreign keys on, `busy_timeout` 5000,
+`synchronous NORMAL`, `temp_store MEMORY`; one worker enforced
+(`refuse_multiple_workers`); the error envelope (`detail`, `code`, `hint`,
+`ref`); cursors, ETags and `/api/v1` (B7); the event log (B1), durable jobs
+(B2) and the retrieval engine (B3) built; the kernel (B4) and harness (B5)
+part built; sync (B6) designed only.
+
+### 26.1 Judgement, by layer
+
+| Layer | The bar | Today | Judgement |
+| --- | --- | --- | --- |
+| Routes | thin: parse, call a service, shape the answer | `routes_whiteboard.py` 5,428 lines (128 functions, `_board_preview` 198 lines renders a preview inside a route file); `routes_entries.py` 3,835; `routes_files.py` 3,931 (`analyse_attachment` 181 lines); `routes_chat.py` `_stream_lines` 289 lines, cx 86 | business logic lives in the route files; only `entry/manager.py` is a service in the proper sense. Services per domain (board, document, file, chat) are the structural fix, and the route tests already prove behaviour unchanged |
+| Services and domain | one module per domain, tested directly | `entry/manager.py` 3,519 lines, 138 functions, `_hard_delete` 179 lines | the one service is itself a monolith; split along entries, filing, links, deletion |
+| The AI package | small modules, data out of code | 60 flat modules; `question_noise.py` 5,242 lines and `composer_tables.py` 2,034 lines are tables written as Python; `tools/__init__.py` 4,878 lines holds 67 tools and their execution; `agent.py` `run_agent` 416 lines, cx 78; `skill_runner.py` `_run_one_step` 425 lines | data as code costs import time (triage measured `composer` 0.75 s cold, 0.08 s after lighter imports) and makes a table edit a code review; one file per tool family; `run_agent` and `_run_one_step` are the two functions most in need of a state machine |
+| Errors | every failure names its way out (section 21); nothing swallowed silently | the envelope is built; 21 silent swallows; 36 prints | a lint ratchets swallows to zero (each becomes a narrower exception or a log line with the reason); prints to the logger |
+| Data | SQLite tuned; every FK indexed; migrations for every schema change; versions derivable | pragmas right; 44 indexes on 21 tables; the alembic baseline; the event log holds every write | per-note versions from the event log (25e) rather than a new table; an index audit (every FK and every column in a `WHERE` of a hot query) is Brief 60's |
+| Background work | every thread is a job: durable, visible, stoppable | B2 covers the pool's kinds; 32 thread sites remain ad hoc (embedding, warm-ups, watchers, the tray) | a registry: a thread not started through `jobruns` or a named `core/background.py` entry fails a lint; every entry has a stop |
+| Concurrency | one writer, SQLite's rules respected | one worker enforced; `busy_timeout` 5 s; `edit_conflicts.py` and ETags | sound; the risk is a long write inside a request (imports, bulk moves): those go through jobs |
+| API | one contract, versioned, documented | B7 built; OpenAPI behind the unlock | the page should read `/capabilities` once (B7's left row); the 54 untested routes get a test each or are removed |
+| Security | section 12 | unlock middleware, Host and Origin checks, CSP, the space guard, the media router's own dependency | rate limit on `/auth`, session expiry, a written threat model for LAN mode (Brief 40) |
+| Performance | idle under 1 percent CPU, resident under 300 MB without the embedding model | 776 MB resident idle measured 2026-09-20 (19.1), mostly the embedding model; idle compute fixed (19.4) | Brief 46 re-measures with and without the embedder; the model loads lazily on first use |
+| Tests | every route named by a test; the specs strict-xfail | about 9,000 tests; 54 routes untested; e2e 11 specs; five spec files | the 54; a property test for the composer's realiser (Phase 6) and for `when.py` |
+
+### 26.2 Decisions, 2026-10-10 (do not re-decide)
+
+55. **Routes are thin.** A route parses, calls one service function, shapes
+    the answer. Services live in `src/memorymap/<domain>/service.py`
+    (board, document, file, chat, settings), each tested directly; the
+    route tests stay as they are and prove no behaviour changed. Extraction
+    order: whiteboard, files, entries, chat.
+56. **Data is data.** Tables (`question_noise`, `composer_tables`, the help
+    topics, the taxonomy) are JSON under `src/memorymap/data/`, loaded
+    lazily and cached; `tests/test_import_time.py` caps `import
+    memorymap.ai.composer` at 0.2 s cold and the app's import at 1.5 s.
+57. **No silent swallow.** `except Exception` ends in a log line with the
+    reason and the way out, or becomes a named exception;
+    `tests/test_no_silent_except.py` ratchets 21 to 0. `print` outside the
+    CLI fails ruff (`T201`).
+58. **Every background thread is a job or registered.** `core/background.py`
+    holds the registry (name, started, stop); `jobruns` for anything with
+    progress; a lint fails a `threading.Thread(` outside the two.
+59. **Every route has a test naming its path**, or it goes.
+    `tests/test_routes_named.py` is the ratchet, seeded with the 54.
+60. **Versions come from the event log,** not a versions table (25e).
+61. **The two long runners become state machines:** `run_agent` and
+    `_run_one_step` each as a `Step` enum with one function per state, so a
+    stage can be tested alone; Phase E (AGENT_SKILLS) builds on it.
+62. **The embedder loads on first use** and unloads after an idle hour
+    (a setting, default on); the resident number is measured before and
+    after.
+63. **A complexity and per-frame census, with ratchets** (the owner, 2026-10-10, INBOX 756: "do the same for the backend. do architectual analysis. look for high complexity and high volumes of excessive calculations per frame etc."). Backend: cyclomatic complexity over `src/` (radon, or the `ast` walk in `scripts/complexity.py` if radon is not vendored), every function over 15 listed with its file and line, the ten worst named in 26.1, and a ratchet at today's count; import graph cycles listed; the hot routes profiled under `cProfile` with the showcase notebook, the top ten by cumulative time recorded. Frontend: every `requestAnimationFrame`, `pointermove`, `scroll`, `wheel`, `ResizeObserver`, `MutationObserver` and `setInterval` handler in `frontend/js` listed with its file and line and what it recomputes; a Chromium performance trace on the whiteboard, the graph, the mind map and the companion at rest and under a drag, long tasks over 50 ms and frames over 16 ms counted, layout thrash (a read after a write in one handler) found by `scratchpad/ui-sweeps/frames.js`; a ratchet on the at-rest frame work (zero long tasks at rest on every surface). Findings become rows in the surface plans, never fixes in the census commit.
+
+### 26.3 Phases with gates
+
+| Phase | Builds | Gate | Brief |
+| --- | --- | --- | --- |
+| 26.0 Measure | decision 63's complexity and per-frame census; import times, resident memory with and without the embedder, the index audit (every FK and hot `WHERE`), the 54 untested routes listed, the 21 swallows listed, the 32 thread sites classified | numbers in this section | 60, built 2026-10-10 (26.4 and 26.5 hold the numbers) |
+| 26a Lints | decisions 57, 58, 59 as ratchets; the prints folded | all three green with their seeds | 60, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 26.0 and 26a, Brief 60)"): seeds 21, 49, 26; complexity 260 over 15; wake sources 97 rows |
+| 26b Services | decision 55 for whiteboard and files | route tests unchanged and green; `routes_whiteboard.py` under 1,500 lines | 61 (Opus, high) |
+| 26c Data | decision 56 for the four tables; the import-time test | `test_import_time.py` green; the composer eval unchanged (grounded 1.0) | 62 (Opus, high) |
+| 26d Runners | decision 61; the embedder's lazy load (62) | the agent and skill tests unchanged; the resident number recorded | 63 (Opus, high) |
+
+### 26.4 Measured, 2026-10-10 (Brief 60, numbers only)
+
+Machine: 4 cores at load average 4 to 9 from other sessions, so every wall time is a loaded figure. The scripts are in the Brief 60 report; the three counts that became ratchets are in `tests/`.
+
+| Measure | Number | Note |
+| --- | --- | --- |
+| `import memorymap.api.app`, cold | 2.9 to 3.8 s (3.3 s under `-X importtime`), 205 `memorymap` modules, torch not loaded | decision 56 caps this at 1.5 s: not met |
+| Heaviest `memorymap` imports (cumulative / self) | `ai.autonomous` 767 / 0 ms (pulls `ai.agent` 503), `ai.help_chat` 271 / 261, `api.routes_search` 226 / 226, `api.routes_chat` 148, `core.database` 145, `api.routes_documents` 146, `api.routes_whiteboard` 135, `api.routes_files` 129 | `fastapi.openapi.models` 128 |
+| Import of single modules | `ai.composer` 0.11 s, `ai.question_noise` 0.02 s (cap 0.2 s: met), `ai.agent` 0.94 s, `search.engine` 0.62 s | standalone, after `ai.agent`'s own deps |
+| Resident memory, empty notebook | 11 MB bare interpreter; 108 MB after import; 129 MB after startup; 130 MB after 5 s idle | embedder not loaded at startup (torch and sentence_transformers absent from `sys.modules`) |
+| Resident memory with the embedder | 647 MB after the first `embed_text` (`BAAI/bge-small-en-v1.5`, torch 2.14 CPU), first embed 6.6 s | so the embedder is already lazy on an empty notebook; the 776 MB of 19.1 included a notebook's warmed matrix and a loaded model. Not measured: a populated notebook (the warm-up thread loads the model when vectors exist) |
+| Tables / explicit indexes / foreign keys | 56 / 78 / 29 (the plan's 21 and 44 counted ORM classes and named indexes) | |
+| Foreign keys with no index leading on the column | 5: `entity_mentions.entry_id`, `entity_mentions.entity_id`, `document_bookmarks.document_id`, `document_bookmarks.bookmark_id`, `entry_bookmarks.bookmark_id` | deleting an entry or entity scans `entity_mentions` |
+| `Model.col` filter pairs in `src` with no leading index | 64 of 125; most used: `entries.is_deleted` x121, `entries.is_private` x54, `entries.is_board` x37, `entries.is_draft` x21, `audit_log.entity_id` x16, `entries.content` x15 (a `LIKE`), `categories.name` x9, `documents.archived_at` x9 | flags are low-cardinality, so a partial index on live entries is the candidate, not one per flag; `audit_log.entity_id` and `entity_mentions.*` are the plain misses. Not measured: query plans at 5,000 notes |
+| Routes | 498 method and path pairs, 437 distinct paths (FastAPI 0.143 route table, `include_router` prefixes counted) | the 470 of the opening paragraph came from a decorator regex |
+| Routes whose path no test names | 49 (census 24.5 said 54 and undercounts: its `{param}` wildcard matched any run of characters) | seeded in `tests/test_routes_named.py`; documents 14, entries 9, conversations 6, board library 5, whiteboard 4, reminders 2, categories 2, tidy 2, one each for learned, media, models, questions, review-queue. Path match only: a route reached by a loop over verbs (`f"/documents/{id}/{verb}"`) counts as unnamed |
+| Broad `except` (bare, `Exception`, `BaseException`) | 315, of which 0 bare, 237 carry a `# noqa: BLE001` reason | |
+| Broad `except` that neither logs nor re-raises | 89; 21 of those end in `pass`, `continue` or `return None` | the 21 are seeded in `tests/test_no_silent_except.py`; the other 68 return a fallback value and are not ratcheted |
+| `print(` outside the command line | 0 in `src` (25, all in `__main__.py`); 71 in `scratchpad/`, 1 each in four tests | the plan's 36 was wrong; ruff `T201` is on for `src` with `__main__.py` exempt |
+| Thread, timer, executor and task sites outside `core/jobs.py` and `core/jobruns.py` | 26: 4 server and tray (`__main__`: boot thread, two serve tasks, tray), 7 user-started long jobs (autonomous 2, model pull, embedding download, SearXNG install, update 2), 8 startup and one-shot helpers (embedding warm-up, package auto-install, SearXNG start, model-list probe, DNS probe, filing-chat deadline, SearXNG pump, web prefetch executor), 2 timers (shutdown, durable-queue resume), 5 request background tasks | seeded in `tests/test_background_registry.py`; `core/background.py` does not exist yet, so no site is registered, only counted |
+
+### 26.5 Complexity, cycles, hot routes and frames, 2026-10-10 (decision 63, numbers only)
+
+| Measure | Number |
+| --- | --- |
+| Functions over cyclomatic 15 (`scripts/complexity.py`, same rule as 24.1) | 260 of about 3,700; 133 over 20, 49 over 30, 12 over 50. Seeded in `tests/complexity_seed.json` by `tests/test_complexity.py` (new or growing fails, shrinking is forced) |
+| The ten worst | `ai/factgraph.py::_note_facts` 105, `api/routes_chat.py::_stream_lines` 105, `ai/agent.py::run_agent` 78, `ai/composer.py::_compose` 72, `api/routes_tasks.py::collect` 71, `api/routes_chat.py::_plain_events` 70, `search/engine.py::search` 69, `ai/recognise.py::span` 66, `ai/composer.py::_follow_one` 65, `ai/lexical_filing.py::decide` 59 (then `search_manager._retrieve` 57, `skill_runner._run_one_step` 53) |
+| Import cycles | none at load (235 modules, 922 edges); one group of 20 modules (the `ai` package) when imports inside functions count; both held by `tests/test_complexity.py` |
+| Hot routes, cProfile in-process (`scripts/profile_routes.py`, the README showcase notebook: 71 notes, 3 documents, a board, a map, 4 chats), median of 5 | `/entries` 52 ms (109 KB), `/insights/patterns` 28, `/categories` 28, `/resurface` 26, `/documents` 24, `/activity` 23, `/graph` 22 (45 KB), `/most-opened` 22 (2 bytes), `/insights/stats` 19, `/search` 13. A 2-byte answer costs 22 ms, so the middleware chain is the floor, not the route |
+| Top of the profile (cumulative, app code only) | `list_entries` 59 ms a call, of it `_to_out_bulk` 26 ms and `_to_out` 0.48 ms a note (375 calls) with `_tag_reasons` 0.11 ms a note; `insights.from_session` 19 ms; `graph._payload_key` 10 ms of the graph's 10; `links_for_entries_bulk` 5 ms. `_to_out` at 0.48 ms a note is about 2.4 s for a page of 5,000 notes: not measured at that size |
+| Frontend wake sources (`python scripts/handlers.py`) | 138 `requestAnimationFrame` (whiteboard.js 18, documents.js 14, avatars.js 9), 58 `pointermove`/`mousemove` (whiteboard.js 15), 35 scroll, 7 wheel, 31 `ResizeObserver` (library.js 5), 38 `MutationObserver` (avatars.js 5), 9 `IntersectionObserver`, 12 `setInterval`. Always on: `atlas.js:3624` mood check, `avatars.js:6198` every 1.5 s, `bg-art.js:1991` covered and idle check, `status.js:829` reminder poll; the rest run only while a timer, a meeting or a focus session is open. Per-file counts of four kinds are seeded in `tests/wake_sources_seed.json` (`tests/test_frontend_wake_sources.py`) |
+| Frames, `scratchpad/ui-sweeps/frames.js`, 3 s each, companion off except its own row, load 5 to 9 on 4 cores | whiteboard rest 0 long tasks, 0 gaps over 20 ms; drag 1 gap over 20 ms of 253. Mind map rest 0 and 0; drag 4 gaps over 20 ms of 605, 1 long task of 50 ms. Graph rest 1, 9 and 10 long tasks (58 to 70 ms each, script 150 to 170 ms a second) and 38 to 52 gaps over 20 ms; drag 12 to 44 of 302, 0 to 4 long tasks. Companion (Atlas) rest 4 to 6 long tasks and 37 to 45 gaps over 20 ms; the pointer sweep and wheel 201 to 510 gaps over 20 ms of 278 to 611, 7 to 58 long tasks, worst gap 250 to 367 ms |
+| At-rest ratchet | `REST_BUDGET` in `frames.js`: whiteboard 0, mind map 0, graph 10, companion 6 long tasks in 3 s; the sweep exits 1 above it. The target is zero on all four; graph and companion are the two to fix |
+
+Not verified: the frame figures are one machine under load (a quiet re-run is the number to trust); the `recalcs` counter equals the frame count on every surface including a control, so it is not read as a finding; the companion row is a pointer sweep, because the companion has no drag; the profile runs sync handlers inline (no thread pool), so it is a single-request figure.
+
+## 27. Every feature, its utility and its popups, 2026-10-10 (Fable)
+
+The owner, 2026-10-10: "then a pass for the features, implementation,
+utility, and everything to do with each main feature and popup and stuff in
+the app." Section 25 placed each surface against its bar; this section
+reads what each feature offers and where its utility is thin, and takes
+the popups one by one.
+
+**Measured from the markup and the code:** 15 `<dialog>`s; kebab menus from
+one recipe at 38 call sites (library 12, documents 4, chat 4); the note's
+overflow menu carries about 30 items; 49 slash commands in the editor; 67
+tools in the registry (56 shown to MCP); up to 30 skills; four import
+sources; three export shapes per document and one per note.
+
+### 27.1 Feature by feature: what it offers, what a professional expects, the gap
+
+| Feature | Offers today | Expected and missing | Place |
+| --- | --- | --- | --- |
+| Notes | capture, filing, tags, categories, spaces, properties, relations, wiki links, backlinks, history, duplicate, translate, remind, attach, move, download `.md`, explain, improve, expand into a document, add to a board | find and replace in a note; bulk edit (tags, category, properties) from a selection; pin and archive as first-class states; a note's versions visible (25e); templates with variables | 25a (bulk), 25e, Brief 42 |
+| The note menu | about 30 items in one list | a menu under nine items or grouped (1.3); the AI items as one "Atlas" group, the structure items as one, the destructive at the end | Brief 59 |
+| Filing | taxonomy votes to existing categories, model filing, the no-model keyword map, explanations in section 23 | confidence shown and a one-press correction that teaches (23); suggested merges of near-duplicate categories; a "why here" on every card | Brief 39b |
+| Search | hybrid retrieval, graph expansion, learned order | one box, operators, kinds, saved searches (25a) | Brief 47 |
+| Ask | grounded answer, citations as `[**Title**]` with peek, sources, evidence, figures, trail, as-of | the engine (Phase 6): acts, insights, a dialogue that holds; one foot (13.3 decision 22) | Brief 39 |
+| Chat and agent | modes, attachments, tools, skills, plans, the rail, drafts with undo, compress | a run you can read and resume as a page (AGENT_SKILLS C); reliability per skill (E); the model-off state that says what still works | Briefs 37, 54 |
+| Documents | blocks, tables, embeds, properties, columns, slash menus, live view, code mode, writing checks, history, AI history, dictionary, word goal, templates, storage, export md, zip, docx | DOCUMENTS 17, 20, 21; comments and suggestions as a review mode; outline navigation; find and replace with regex | Brief 42 |
+| Code editor | CodeMirror 6, Emmet, scan | multi-cursor, folding, bracket pairs, diagnostics, a command palette inside the editor, format on save (DOCUMENTS 21) | Brief 42 |
+| Whiteboard | the programme's 288 rows | the programme | Briefs 36, 44 |
+| Mind map | MINDMAP 13 and 14 | MINDMAP 13 and 14 | Brief 36 |
+| Graph | filters, display folds, local map, typed links, tensions | KG rows; a "what changed about X" | Brief 38 |
+| Timeline | feed, table, scrubber, day notes, kinds | the calendar (Phase 5) | Brief 55 |
+| Reminders and tasks | parse, due, snooze?, the tray, notifications | recurring, snooze with choices, natural dates in every date field, delivery when the window is closed, the calendar | Brief 55 |
+| Library | gallery, OCR, vision, filters, activity | split (45); bulk tag and move; a file's places (which notes, boards) | Briefs 45, 43 |
+| Dashboard | nine blocks | "continue and today" (decision 51) | Brief 59 |
+| Settings | 179 keys, panes, help on 105 | search, reset, modified, export (decision 52) | Brief 52 |
+| Import | Notion, Obsidian, Evernote, Apple Notes, web clip, media | the report page, progress, a markdown folder in, the round trip (25b) | Brief 48 |
+| Export | per note `.md`, per document md, zip, docx, the bundle | the whole notebook as a folder (25b); boards and maps as SVG and PNG with the notes they link; a document as PDF | Brief 48 |
+| Backups | create, list, restore, bundle | the tested restore, the boot check, a schedule shown with the last success (25e) | Brief 51 |
+| Help | Guide chat, popovers, manual parity | the manual page with search; "what changed" (25c) | Brief 49 |
+| Skills and tools | 67 tools, 30 skills, MCP | Phase E; one file per tool family (26) | Briefs 54, 63 |
+| Spaces | create, edit, delete dialogs, the space guard | a space's own dashboard line and its export; moving a note between spaces with its links kept | Brief 59 row |
+| Meetings | notes, summary | the redesign (INBOX 643, 644; ROADMAP "Next PR" item 1) | Brief 59 row |
+
+### 27.2 The popups, one by one
+
+| Popup | Kind today | Right kind | Note |
+| --- | --- | --- | --- |
+| `recovery-key-dialog` | dialog | dialog | irreversible; keep |
+| `space-create-dialog`, `space-edit-dialog` | dialog | sheet | a form of two fields is a sheet, not a modal |
+| `space-delete-dialog` | dialog | dialog | destructive; keep, with the undo bar after |
+| `doc-storage-dialog`, `doc-template-dialog`, `note-template-dialog`, `wb-template-dialog` | dialog | sheet | pickers are sheets |
+| `wb-import-dialog` | dialog | sheet with progress | an import is a job (26) |
+| `quick-note` | dialog | sheet | capture from anywhere is a sheet at the bottom on the phone, a centred sheet on desktop |
+| `doc-history-dialog`, `doc-ai-history-dialog` | dialog | panel | a history is read beside the document, not over it |
+| `doc-word-goal-dialog`, `doc-dictionary-dialog`, `dash-widgets-dialog` | dialog | sheet | settings of one surface |
+| the note overflow menu | kebab, about 30 items | kebab, grouped, under nine visible | decision 1.3 |
+| the toast, the undo bar, the server-down banner, the AI-offline notice, the notifications panel | five channels | three (13.3 decision 21) | Brief 59 |
+| the help popovers (98) | `data-help-for` | keep | one shape (Phase 12 decision 3) |
+| the command palette | one recipe | keep; every action listed (13.1 row 7) | Brief 41 |
+
+Brief 56 classifies the fifteen by the sweep; Brief 59 moves the ones
+above. A dialog that stays is one that must interrupt (irreversible,
+a key, a password).
+
+### 27.3 Decisions, 2026-10-10 (do not re-decide)
+
+63. **A popup is a dialog only when it must interrupt;** a form, a picker
+    or a setting is a sheet; a history is a panel. The table above is the
+    ruling for the fifteen.
+64. **A menu over nine items is grouped,** and the note menu's groups are
+    Atlas, structure, share, destructive, in that order.
+65. **Bulk edit is a feature of selection,** not of each surface: the
+    selection bar recipe gains tag, category, property, move and delete
+    with the undo bar, and every list surface uses it.
+66. **Exports are complete:** a board or map exports as SVG and PNG with
+    the notes it links as a folder; a document as PDF (through the
+    browser's print to PDF with a print stylesheet, no new dependency).
+
+## 28. The trust contract, 2026-10-10 (INBOX 750)
+
+The owner, 2026-10-10: "all of this makes me lose trust in the app and then
+I dont want to invest my time and actual study notes or life notes into it".
+Sections 25 to 27 say what each surface should be. This section says what
+every surface must never do, as fourteen rules with a measure each. A brief
+is done only when the rules below hold for the surfaces it touched (decision
+68), so the rules are the acceptance bar, not another list.
+
+### 28.1 The rules, each with its measure
+
+| # | Rule | Measure (the sweep or lint, and its bar) |
+| --- | --- | --- |
+| 1 | **Undo and redo everywhere.** Every change on every surface is one undo step; Ctrl+Z and Ctrl+Shift+Z act on the surface that has focus; a destructive act shows the undo bar. | `scratchpad/ui-sweeps/undo.js`: the mutating actions per surface (from the act registry, CHAT_PLAN decision 51) against those that undo; bar 100%. `measure-undo.py` counts `pushUndo` today. today: 25 data-changing controls pressed in light, 5 undone by Ctrl+Z (3 of 16 in dark); in the code 80 of 274 server-writing functions name an undo path; settings 0 of 13 (28.4). |
+| 2 | **Three clicks to anything.** Every surface, setting and object is three clicks from the dashboard and one from the palette or Find anything. | `reach.js`: the click graph from the nav, menus and palette registry; bar: no node deeper than 3, none missing from the palette. today: 55 destinations found from the dashboard (1, 14, 36, 3 and 1 at depths 0 to 4, crawl complete to depth 4), 1 deeper than 3, 16 with no palette command (of 80 commands); dark: 55 destinations, 1 deeper than 3, 14 without a command (28.4). |
+| 3 | **Nothing is lost.** A change is saved within a second; a draft survives a crash and a reload; a deletion goes to the bin for 30 days; a backup runs daily by default and restores (section 25e, Brief 51). | `test_never_lose.py` and the backup round trip; bar: every path in the table of 25e green. |
+| 4 | **An error explains and offers.** Every error-level toast says what happened, why, and one action (retry, an alternative, open the setting); network-level failures retry themselves first. | `test_error_toasts.py` extended: an error toast without an action fails; the retry count in `api()` measured. |
+| 5 | **Background work is visible and stoppable.** One Activity panel lists every running job (indexing, embedding, model load, generation, imports, OCR, transcription, backups, the agent) with Stop; stopping the model unloads it (`keep_alive: 0` for Ollama, the managed runner killed). | `/activity` lists every registered job; a lint fails a long-running task that does not register; a sweep stops a generation and sees the model unload. |
+| 6 | **Every feature can be found.** Each has a Guide topic, a palette command and a help popover; the dashboard offers one unused feature a week. | `test_manual_parity.py`; palette registry against the feature list; bar: none missing. |
+| 7 | **Nothing clashes or overflows.** At 320, 390, 820, 1024, 1440: no clipped text, no sibling rects overlapping in a bar, no `scrollWidth` past `clientWidth` where nothing scrolls. | `overlap.js` added to `chrome.js` and `docks.js`; bar 0 per width. today (light, 12 surfaces; overflow / docks / clipped text): 320: 95 / 0 / 6; 390: 14 / 0 / 5; 820: 28 / 0 / 17; 1024: 30 / 0 / 19; 1440: 23 / 0 / 15 (28.4). |
+| 8 | **The phone works, the iPhone first.** The app opens on an iPhone over the LAN (the certificate flow in Settings, Phone), installs as a PWA, and every surface is usable with a thumb. | A WebKit run of the sweeps at 390 by 844; the LAN certificate test; a release is blocked while the iPhone cannot open it (decision 67). |
+| 9 | **WCAG 2.2 AA.** | `axe.js`, `srtree.js`, `zoom.js`; bar 0 findings per theme (Phase 12). |
+| 10 | **One information architecture.** One vocabulary (DESIGN.md's terms table), the same act in the same menu position on every surface, settings grouped by task. | `test_ui_signatures.py` and a terms lint over `index.html`, the Guide and Settings; bar: every term from the table, none of its banned synonyms. |
+| 11 | **One design.** Heights, alignment and spacing from tokens; a computed-style snapshot at every CSS phase gate. | `test_style_scale.py`; `snapshot.js` (ANALYSIS "Odysseus, fourth read" take 7); bar: no untokened length in the controls' computed styles. |
+| 12 | **Excellent without a model.** Every feature keeps its surface and its deterministic path with no model configured; the AI adds, never gates. | the sweeps run once with no model; bar: no surface shows a dead control. |
+| 13 | **A friend can start.** Install to first saved note in under five minutes with no terminal; the first run is one queue (Phase 12, Brief 37). | `learn.js` (UI_MODERNISATION 12z); a scripted first run on a clean profile. |
+| 14 | **The notebook says how it is.** A Health page: the last backup, the last error, what is running, the data dir's size, an integrity check in one click. | `/health` fields and a sweep that reads the page; bar: every field present and dated. |
+
+### 28.2 Decisions, 2026-10-10 (do not re-decide)
+
+67. **The iPhone is a release blocker.** No release while rule 8 fails.
+68. **The rules are the acceptance bar.** A brief's report lists rules 1, 2,
+    4, 7 and 11 for the surfaces it touched with their numbers; a report
+    without them is not done.
+69. **Reminders reach the desktop and the browser without a push server.**
+    The desktop launcher posts the operating system's notification for a
+    due reminder (Windows toast, macOS and Linux notify); a browser tab or
+    the installed PWA uses the Notification API while it is open; nothing
+    goes through a third party (the offline rule). TIMELINE_PLAN carries the
+    rows (Brief 72b).
+70. **One Activity panel, one recipe.** Every long-running job registers
+    with the same `jobs` service (start, progress, stop) and shows in the
+    same `.dock` panel; the agent's run list (`agent-activity.js`) becomes a
+    tab of it.
+71. **The deepening is per feature, measured.** For each feature the owner
+    named, its plan gains a "Deepened 2026-10-10" block: what renders today
+    (measured), the professional bar, the detailed rows (fix, redesign,
+    expansion, optimisation), each with its measure and the trust rules it
+    answers. Written by Briefs 72a and 72b, built by the briefs they name.
+
+### 28.3 Phases
+
+| Phase | Brief | Deliverable |
+| --- | --- | --- |
+| T0 measure | 74 (Sonnet) | `undo.js`, `reach.js`, `overlap.js` written and run; the numbers into 28.1's rows |
+| T1 deepen | 72a, 72b (Opus) | every named feature's plan deepened per decision 71 |
+| T2 build | 73 (Opus) | the Activity panel and model stop (rule 5), the error contract (rule 4), the Health page (rule 14) |
+| T3 hold | every later brief | decision 68 in every report |
+
+### 28.4 Deepened 2026-10-10: the OCR workspace (Brief 72a, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72a.js` (fresh data dir, no model,
+no Tesseract, a 900 by 400 PNG of three lines, three runs; ranges across
+runs). Today: 22 to 25 controls at 1440, 11 to 12 at 390; open 98 to 240 ms
+at 1440, 474 to 1,335 ms at 390; 3 clicks from the dashboard (Library,
+Files, the row); not in quick access; one palette row, "Read a document or
+image with AI", though Tesseract and RapidOCR read with no model; 0 of 5
+reading acts undo (save an edited reading, delete a page reading, clean
+loops, a region read, an engine install; static read of `library.js`); at
+1440 nothing overflows, at 390 2 to 3 controls sit past the right edge
+(`ocr-reader`, `ocr-rapidocr-install`, "Install Tesseract"); with no engine
+and no model the engine line says "Tesseract isn't installed. Install it
+here, or start an AI model in Settings, to read pages." and offers Install;
+2 AI controls stay enabled. Pinch zoom (the owner's bug) was not driven.
+**The bar:** Google Keep's "Grab image text" (one tap, the text editable
+beside the image), Apple Live Text (select words on the image in place),
+Acrobat for highlights and comments on a PDF page.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | **Found built 2026-10-10 (Brief 79 checked; `tests/test_chatui_1010.py`)**: quick access, Find anything and the palette row "OCR workspace: read a document or image" | quick access present; palette 1 click; a search for "ocr" finds it | 2, 6, 10 |
+| 2 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: undo for the five reading acts; a deleted reading goes to the bin (`BinnedReading`) | `ocr79.js` 0/5 to 5/5 at 1440 and 390 | 1, 3 |
+| 3 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: pinch zoom about the pointer, Ctrl+wheel and two fingers | `ocr79.js`: Ctrl+wheel Fit to 150%, drift 0; touch at 390 Fit to 176% (nothing before) | 8, 11 |
+| 4 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: the reader menu spans the window under 600; Read sheds its icon last | past the edge 3 to 0 at 390, 4 to 0 at 320 | 7, 8 |
+| 5 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: RapidOCR first with its size, then Tesseract; Read, region Read and Describe `aria-disabled` with the reason | AI controls disabled with a reason 0/1 to 1/1, 0 dead | 12, 4, 13 |
+| 6 | fix | Reading and installs are jobs in the Activity panel with progress per page and Stop (decision 70) | a 20-page PDF lists and stops | 5 |
+| 7 | redesign | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: Live Text, each word of `extract_regions` over the picture | a drag-select copies 3 lines in order (regions answer stubbed) | 6, 12 |
+| 8 | expansion | Highlights and comments on a PDF page stored in the notebook; the encrypted-PDF prompt; the outline panel verified (ANALYSIS, pdfcraft) | a highlight survives a reload; a locked PDF asks once | 3, 4 |
+| 9 | optimisation | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: the dock fitted by halving, once per size | 390 open 398/246/683 to 353/127/387 ms | 13 |
+
+Briefs: 37 (row 1), 42 (row 8's highlights), 73 (row 6), 79 (rows 2 to 5,
+7, 9).
+
+### 28.5 Deepened 2026-10-10: the audio set (Brief 72a, decision 71)
+
+Meeting notes, transcription, live captions, translator. The decisions of
+"Audio in the notebook" (1 to 5) stand. The go is taken (INBOX 759, the state line above).
+Measured as 28.4: "New meeting" is 1 click on the dashboard and opens in 23
+to 61 ms (7 controls); the meeting sheet opens in 27 to 39 ms with 4
+controls; the recorder (palette "Record a meeting or lecture") in 7 to 17
+ms with 4; nothing overflows at 1440 or 390. With no Whisper add-on Record
+refuses before recording ("Voice notes need an add-on that isn't installed
+yet...") so no audio is kept; Summarise ("Find the decisions and action items") stays enabled
+and its route answers 503 with no model (read, not driven); 1 of 6 meeting
+acts undo (Summarise; not create, remind, save into a note, save as a note
+or a document). Live captions: none. Translator: none offline; a document's
+"Translate this" hands the passage to chat (a model). Chromium's Web Speech
+sends audio to a server, so it is out (the offline rule).
+**The bar:** Otter (a live transcript with speakers and timestamps, a word
+plays from its moment, summary and actions), Apple Voice Memos (record,
+trim, a library), Windows Live Captions (on-device, over any app), Apple
+Translate (offline language packs).
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: a recording is an object (`recordings`, decision 2); transcription only with the add-on | no add-on: a 5 s take kept, "Saved a 0:05 recording (webm)" | 12, 3 |
+| 2 | fix | The meeting's decisions and actions found with no model (lines saying decided, agreed, action, TODO, a name and a date); the model writes prose on top | 0 dead controls; a sample meeting's 3 actions found | 12, 4 |
+| 3 | redesign | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: the Audio group: New meeting, Record, Voice note, Dictate, Recordings, Live captions (Brief 82); Translate waits for `/voice/status` `translate` (Brief 83) | 5/5 one press from the palette and one click as a tile, 1440 and 390 | 2, 6, 10 |
+| 4 | fix | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: create, remind, save into, save as a meeting, save as a document on `pushUndo` | 1/6 to 6/6 | 1 |
+| 5 | fix | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: a 10 s slice appended per chunk; `POST /recordings/recover` at start | tab killed at 2:00: "Recording recovered", 1:50 (110,306 ms) kept | 3 |
+| 6 | expansion | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: Library, Recordings: play, 0.5 to 2x, the saved waveform (seek), markers (M and a button), trim to a new wav, delete to the bin | `audio80.js` ACT=library at 1440 and 390: each act passes, seek 2.25 of 2.25 s, overflow 0 | 6 |
+| 7 | expansion | A timestamped transcript: a line seeks the audio, SRT and VTT out | a click seeks within 0.5 s | 6 |
+| 8 | fix | Transcription is a job with progress and Stop (decision 70) | a 60-minute file lists, reports, stops | 5 |
+| 9 | expansion | Live captions: built against a fake helper; open: the packaged helper download and a run on the reference laptop | Built by Brief 82; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (WORLD_CLASS 28.5 row 9, live captions, Brief 82)"); the open rows are in archive/agent-remaining/caption82-1010.md | |
+| 10 | expansion | **Built 2026-10-10 (Brief 83; HISTORY "WORLD_CLASS 28.5, Brief 83")**: Translate this, offline (Bergamot, MPL-2.0, in a page Worker; English to Spanish as the package "Translate offline"); documents, notes, readings; a caption is a selection like any other (live translated captions not built) | 94-word paragraph warm in Chromium: median 591 ms, 27 of 29 runs under 1 s (load 6 to 9 on 4 shared cores); 27.2 MB download, 41.8 MB on disk | 12 |
+| 11 | expansion | Speaker labels behind the model gate (ANALYSIS keeps it) | 2 speakers labelled on a sample | 12 |
+
+Briefs: 73 (row 8), 80 (rows 1, 3 to 6), 81 (rows 2, 7, 11), 82 (row 9),
+83 (row 10).
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC8, the word list in search typo tolerance and the question-noise real-word check** (M, rank 8). `ai/question_noise.py` names `frontend/vendor/wordlist/en.txt` in a comment and never reads it; the search engine does not consult it either (the list is read by `documents.js` alone). A query word absent from the list and one edit from a word in the notebook is a typo. Measure: on the 30 misspelt queries of the existing noise table, recall at 10 before and after; no change on correctly spelt queries; the list loads once and costs under 50 ms at start.
+### 28.6 T0 numbers, 2026-10-10
+
+Brief 74 measured rules 1, 2 and 7 on 12 surfaces (`undo.js`, `reach.js`, `overlap.js`, `measure-writes.py` in `scratchpad/ui-sweeps/`): 124 controls pressed, 25 changed the notebook, 5 undone (statically 80 of 274 server-writing functions name an undo path); 55 destinations, 1 deeper than 3 clicks, 16 without a palette command; overflow/clipped 95/6, 14/5, 28/17, 30/19, 23/15 at 320 to 1440, docks 0 intersections. The table by surface and the findings by selector are in [`archive/agent-remaining/trust-1010.md`](archive/agent-remaining/trust-1010.md) (section "T0 numbers").
+
+## Placed from INBOX, 2026-10-10 (filing suggestions)
+
+- INBOX 781: built 2026-10-11, HISTORY.md, "Moved from the plans, 2026-10-11 (WORLD_CLASS 23, INBOX 781, filing suggestions)". Open: `docs/roadmap/archive/agent-remaining/filing-1010.md`.

@@ -492,6 +492,21 @@ function renderEditForm(li, entry) {
   meta.className = "note-edit-meta";
   row.classList.add("note-edit-actions");
   meta.append(categoryChip, tagField);
+  //: **The tags turned down on this note, each one press from coming back**
+  //: (the owner, 2026-10-10: "is there a way to undo it or see the list of
+  //: things not to show again"). At the end of the properties line, quiet,
+  //: only when there are any.
+  if (entry.discarded_tags?.length) {
+    const down = document.createElement("span");
+    down.className = "muted note-edit-turned-down";
+    down.append("Not suggested:");
+    for (const tag of entry.discarded_tags) {
+      const back = chip(`ph:arrow-counter-clockwise #${tag}`, "", () => answerTags(entry, { restore: [tag] }));
+      back.title = `Suggest #${tag} for this note again`;
+      down.append(" ", back);
+    }
+    meta.append(down);
+  }
   //: Words and reading time while the note is open (WORLD_CLASS_PLAN 5 item
   //: 9): the count a document's head carries, for a note, at the documents'
   //: 220 words a minute; the properties block is not prose, so not counted.
@@ -540,6 +555,9 @@ ${textarea.value}`).match(/\S+/g) || []).length;
   surface.className = "note-composer note-edit-surface";
   surface.append(titleInput, meta, toolbarEl, textarea);
   li.append(surface, chipsHost, foot);
+  //: The editor's offers (quickadd.js `noteOffersAttach`): a form
+  //: opened before the bundle loads has none rather than an error.
+  if (typeof noteOffersAttach === "function") noteOffersAttach(textarea, { after: surface, category: categorySelect, entryId: entry.id });
   // The same line-number gutter the capture box and the documents editor
   // carry (documents.js `mountGutterFor`); it follows the one remembered
   // choice, so a person who turned numbers on in Capture sees them here too.

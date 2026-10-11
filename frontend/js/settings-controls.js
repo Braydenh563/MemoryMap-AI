@@ -114,6 +114,10 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
   }
 });
 
+$("account-lan-download")?.addEventListener("click", () => {
+  window.location.assign("/auth/lan-certificate.pem");
+});
+
 $("account-lan-regenerate")?.addEventListener("click", async () => {
   const ok = await confirmDialog(
     "Regenerate the certificate?\n\nEvery device that opened the app before warns once more, " +
@@ -521,6 +525,11 @@ $("pref-ai-first-filing").addEventListener("change", (e) =>
   setPreference("ai_first_filing", e.target.checked)
 );
 
+//: WORLD_CLASS 23, decision 6: sensitive notes file by their words only when on.
+$("pref-auto-file-sensitive").addEventListener("change", (e) =>
+  setPreference("auto_file_sensitive", e.target.checked)
+);
+
 $("pref-auto-caption-images").addEventListener("change", (e) =>
   setPreference("auto_caption_images", e.target.checked)
 );
@@ -763,7 +772,12 @@ $("searxng-reinstall").addEventListener("click", async () => {
 $("searxng-start").addEventListener("click", async () => {
   const status = $("searxng-host-status");
   status.classList.remove("error");
-  status.textContent = "Starting SearXNG… the first run pulls the image, so give it a minute.";
+  //: "Give it a minute" only before the first run (the owner, 2026-10-10:
+  //: "the notification said it takes a while to pull the first image for
+  //: searxng but ive already used multiple times").
+  status.textContent = $("searxng-host-state").textContent === "Not installed"
+    ? "Setting SearXNG up… the first run downloads it, so give it a minute."
+    : "Starting SearXNG…";
   $("searxng-start").disabled = true;
   try {
     const body = await apiJson("/websearch/searxng/start", { method: "POST" });
@@ -821,6 +835,13 @@ $("export-json").addEventListener("click", () => downloadExport("json"));
 $("export-csv").addEventListener("click", () => downloadExport("csv"));
 
 $("chat-model-apply").addEventListener("click", applyChatModel);
+
+//: Stop the model (WORLD_CLASS_PLAN 28.1 rule 5): the server stops every
+//: answer, then asks the backend to unload it, and says what it did.
+$("chat-model-stop").addEventListener("click", async () => {
+  const result = await apiJson("/activity/model/stop", { method: "POST" }).catch((e) => ({ detail: e.message }));
+  $("chat-model-note").textContent = result.detail || "";
+});
 
 //: `change`, not `input`: a number box fires `change` when the value is
 //: committed (Enter, or focus leaving), which is the moment somebody means it.
@@ -893,6 +914,9 @@ $("about-take-tour")?.addEventListener("click", () => {
 });
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
+//: The whole notebook as a folder (WORLD_CLASS 25b): notes, attachments,
+//: documents and boards, which From a MemoryMap folder reads back whole.
+$("export-folder").addEventListener("click", async () => saveFile("memorymap-notebook.zip", await (await api("/export/folder")).blob()));
 
 //: One step (INBOX 464 (18)): the button opens its picker and choosing
 //: starts the import. The folder picker posts through the same function,
@@ -1931,5 +1955,81 @@ function renderStatusBarSettings() {
       applyStatusClock();
       setPreference("status_bar_clock", clockToggle.checked);
     };
+  }
+}
+
+//: The MCP client snippet (Brief 40), lazy because only the Tools pane draws it (reached
+//: through the settingsControls stub in app.js): the capabilities route knows this
+//: interpreter and this notebook's folder, so the snippet is correct to paste.
+async function renderMcpSnippet() {
+  const pre = $("mcp-config-snippet");
+  if (!pre) return;
+  const caps = await apiJson("/capabilities").catch(() => null);
+  const mcp = caps?.features?.mcp;
+  const note = $("mcp-config-note");
+  const copy = $("mcp-config-copy");
+  if (!mcp?.installed || !mcp.config) {
+    pre.classList.add("hidden");
+    copy.classList.add("hidden");
+    note.textContent = mcp?.reason || "This install cannot start the tool server.";
+    note.classList.remove("hidden");
+    return;
+  }
+  pre.classList.remove("hidden");
+  copy.classList.remove("hidden");
+  note.classList.add("hidden");
+  const text = JSON.stringify({ mcpServers: { memorymap: mcp.config } }, null, 2);
+  pre.textContent = text;
+  copy.onclick = () => copyToClipboard(text, copy);
+}
+
+//: The network pane's state line and certificate facts, lazy with the listeners that
+//: also call them (settings-panes.js reaches them through the settingsControls stubs).
+function renderLanState(state) {
+  const box = $("account-allow-lan");
+  const line = $("account-lan-state");
+  if (!box || !line) return;
+  box.checked = !!state.allow_lan;
+  const addresses = (state.addresses || []).filter(Boolean);
+  let icon = "ph:info";
+  let words = "";
+  if (state.restart_required) {
+    icon = "ph:arrow-clockwise";
+    words = state.allow_lan
+      ? "Restart the app to let other devices in."
+      : "Restart the app to close it to other devices.";
+    if (state.allow_lan && addresses.length) {
+      words += ` Then open ${addresses.join(" or ")} on the other device.`;
+    }
+  } else if (state.other_devices) {
+    icon = "ph:wifi-high";
+    words = addresses.length
+      ? `Open ${addresses.join(" or ")} on the other device.`
+      : "Other devices can open the app at this computer's network address.";
+  }
+  line.classList.toggle("hidden", !words);
+  if (words) setLabel(line, `${icon} ${words}`);
+  //: The certificate the network is served with (core/lancert.py), shown
+  //: while the switch is on so a phone's one-time warning can be checked.
+  const cert = $("account-lan-cert");
+  if (cert) {
+    const shown = Boolean(state.allow_lan && state.certificate);
+    cert.classList.toggle("hidden", !shown);
+    $("account-lan-fingerprint").textContent = shown ? state.certificate.fingerprint : "";
+    //: The names it vouches for and when it ends: "wrong name" on a phone
+    //: is read off these against the address in the phone's bar.
+    $("account-lan-cert-names").textContent = shown
+      ? `Names on it: ${(state.certificate.names || []).join(", ")}`
+      : "";
+    $("account-lan-cert-expiry").textContent = shown ? `Expires ${state.certificate.expires}` : "";
+  }
+}
+
+async function renderLanAccess() {
+  if (!$("account-allow-lan")) return;
+  try {
+    renderLanState(await apiJson("/auth/lan-access", { silent: true }));
+  } catch {
+    $("account-lan-state").classList.add("hidden");
   }
 }

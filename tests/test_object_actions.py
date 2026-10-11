@@ -42,7 +42,10 @@ def test_a_library_document_reaches_the_graph():
     document = _block(LIBRARY, 'if (item.kind === "document") {', 'if (item.kind === "archived") {')
     assert "showNoteInGraph(item.id, { document: true })" in document
     assert "ph:graph Show in graph" in document
-    door = _block(APP, "async function showNoteInGraph(", "focusGraphNode(node);")
+    #: The finding half moved to graph.js (2026-10-10, the boot budget).
+    graph = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "graph.js").read_text(encoding="utf-8")
+    assert "return graphShowNote(id, options);" in _block(APP, "async function showNoteInGraph(", "\n}")
+    door = _block(graph, "async function graphShowNote(", "focusGraphNode(node);")
     assert "document:" in door
     assert '$("graph-documents")' in door
 

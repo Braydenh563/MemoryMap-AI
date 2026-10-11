@@ -1,0 +1,11 @@
+{
+  "name": "memorymap-sucrase-bundle",
+  "private": true,
+  "description": "Pins the sucrase bundled into sucrase.min.js; see build.sh.",
+  "dependencies": {
+    "sucrase": "3.35.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

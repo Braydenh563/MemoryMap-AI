@@ -43,29 +43,7 @@ with its owner named in the entry.
      Merged 2026-10-05 (543): the month sits between its arrows and the days
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
-
-
-694. **The owner, 2026-10-06, verbatim**, with four screenshots (the chat
-     dock's "Ask | Agent" pill and a Settings "Pace: Auto | Manual" pill,
-     each with the chosen segment's bottom edge cut off; the chat dock in a
-     narrow sidebar with Skills, Web, Plan, the model picker and Ask|Agent
-     wrapping onto four ragged rows; the corner companion drawn over the
-     Attach dialog's head and tabs): "the bottom of these pills gets cut
-     off. aslo the bottom chat dock isnt responsive in design for the
-     sidebar sizes. also the companion covers the attach popup". The cut
-     pills went to 685's sweep and are fixed (the segments take the track's
-     inside); the dock's narrow layout and the
-     companion's stacking (it must sit under every dialog, menu and
-     popover) to a Sonnet agent.
-     **Parts 2 and 3 built** (dock694-1006, `cf6af06`): the chat dock is a
-     size container (`@container chat-dock`, 10-responsive.css), one-line
-     composer to 27rem, two fixed strip lines under 47rem, icon-only toggles
-     under 24rem; the companion's band is z 44 (under menus 45, panels 60,
-     dialogs 1010) and the dock lifts to 46 while its own panel is open.
-     `scratchpad/ui-sweeps/dock694.js`: dock at 320 to 1200, light, dark, touch,
-     and seven popups with the companion placed over their heads. Part 1 (the
-     cut pill bottoms) is still open; 694 is not resolved.
-
+     Owner: TIMELINE_PLAN, UI_MODERNISATION_PLAN 12 (the day strip becomes the week row); built in 543 and waiting on the owner's look, so it stays here until then.
 
 725. **The owner, 2026-10-06, verbatim**: "can you like maximise the application
      responses and sentence concatenation and responses?? I want it soooo good it is
@@ -74,26 +52,7 @@ with its owner named in the entry.
      throing stuff out there. I want the app to be really impressive". The
      no-model composer (`ai/composer.py`, INBOX 688). Placed: Opus agent, as a
      CHAT_PLAN phase row.
-
-727. **The owner, 2026-10-06, verbatim**: "there's no searching animation or
-     indicator for when I enter a search in the ask tab and nothing has shown yet".
-
-728. **The owner, 2026-10-06, verbatim**, with Ask's matching records (the green
-     similarity mark shows "68% similar" on some cards and the mark alone on
-     others): "how come only some of the ask tab matching records notes green
-     arrows have % number similarity and others dont show a number??"
-
-729. **The owner, 2026-10-06, verbatim**, with a no-AI answer to "What have I saved
-     about hobbies?" (quotes joined by "Separately", "Later", "Elsewhere, The
-     picture in…"; titles cut mid-word; a capital after a comma): "its alright but
-     it could definitely be better and be more complex and natural and easier for
-     the user to understand." Goes with CHAT_PLAN Phase 5 and decisions 23-29.
-     Again, verbatim: "it just uses one word sentence joints and has no life or
-     complexity to it, and it needs improving and making better." Concretely: the
-     joins are single adverbs ("Separately,", "Later,", "Elsewhere,"); titles are
-     cut mid-word; quotes repeat their own titles; a capital follows a comma; no
-     summary sentence ties the notes together ("Your hobbies notes cover gaming,
-     the gym and golf"). First items for the next composer session.
+     Owner: CHAT_PLAN Phase 5 and Phase 6, Brief 39 and Briefs 65 to 68 (the engine agent runs on 39); built so far in composer725-1006.md and composer-voice-1006.md (first line answers 25 of 25, joining phrases 27 to 44).
 
 730. **The owner, 2026-10-06, verbatim**: "also would the composer be able to
      somewhat accurately put new notes into a category using meaning similarity,
@@ -103,18 +62,7 @@ with its owner named in the entry.
      filing, category centroids and nearest neighbours over the embedder, which
      needs no AI model); next is measuring its accuracy on a held-out set and
      letting the composer explain each filing in one line.
-
-731. **The owner, 2026-10-06, verbatim**, with the Atlas guide answering "whiteboard
-     templates" with "Something went wrong asking that, try again.": "the help guide
-     failed??" Not reproduced: with no model the stream and the one-shot route both
-     answer (200, the Templates topic), and a two-view turn renders. The owner had
-     a model selected (gemma), so the failure is on the model path; needs the
-     server log line from that moment (Settings, Logs).
-
-734. **The owner, 2026-10-06, verbatim**: "would the composer be able to do the
-     reminders magic add well??" For CHAT_PLAN Phase 5: the reminder parser
-     (`ai/reminder_parser.py`) already reads dates and times without a model; the
-     composer adds the reminder's wording and its reason from the note.
+     Owner: Brief 39b (filing and the taxonomy), WORLD_CLASS_PLAN 23; the held-out accuracy measure and the one-line explanation of each filing are its rows.
 
 735. **The owner, 2026-10-06, verbatim**: "also since p5.js is vendored, can it be a
      document option in the text editor?? also when on a code document, I get auto
@@ -124,12 +72,7 @@ with its owner named in the entry.
      document (.js here) the prose autocomplete must switch off and code-aware
      completion (words from the file, the language's keywords, bracket pairs) take
      its place.
-
-736. **The owner, 2026-10-06, verbatim**, with a code document's Output panel (Run
-     again, Stop, Clear, Close; one line of output under a tall empty pane): "I cant
-     adjust the height of this output bottom panel". A drag handle on its top edge
-     (the sidebar resize recipe, keyboard steps too, height kept per document);
-     also seen: Stop stays enabled after "Finished."
+     Owner: DOCUMENTS_PLAN 23 and Brief 42 (the p5 kind, code completion on code documents); Briefs 69 to 71 for the IDE.
 
 737. **The owner, 2026-10-06, verbatim**: "can the debugging run for other languages
      as well?? also error messages, syntax errors, code suggestions and more". Then:
@@ -142,18 +85,7 @@ with its owner named in the entry.
      runner, a linter per language (eslint-linter-browserify, ruff-wasm). For
      DOCUMENTS_PLAN: errors pinned to their line, syntax errors for py and html,
      a run for Python first.
-
-738. **The owner, 2026-10-06, verbatim**: "the graph always loads in really zoomed in
-     before it rights sitself with thr fitted xoom". The first frame draws at the
-     default zoom before the fit runs; fix: compute the fit from the first settled
-     positions (or the saved layout) before the first paint, or hold the canvas
-     hidden until the fit, with a fade in. Measure the first painted frame's scale.
-
-739. **The owner, 2026-10-06, verbatim**: "also want auto naming of the whiteboards,
-     mindmaps and documents like \"untitled #\" so the user isnt forced to name a
-     new object". Create works with the name field empty: "Untitled board 3",
-     "Untitled map 2", "Untitled document 4" (the next free number per kind), the
-     name selected for typing over, renamed later from the title.
+     Owner: DOCUMENTS_PLAN 23 decisions D1 to D9, Briefs 69 to 71; the vendoring candidates are Brief 75.
 
 741. **The owner, 2026-10-06, verbatim**: "will the composer get better at writing,
      sentence structure, more variations and natural language, betetr to understand,
@@ -174,12 +106,14 @@ with its owner named in the entry.
      opening words plus "says:". First fix in the voice track: name a note by
      its title or topic once, then speak the content directly ("You planned
      Lisbon for May; the hotel is booked") with the citation as a marker.
+     Owner: composer-voice-1006.md (merged: no "your note starting with ... says", casual phrasings, typos, 847 slang entries, voices) and CHAT_PLAN Phase 6, Brief 39 (the realiser). Open: speak the content directly with the citation as a marker (measured today: Ask now answers "Also, the hobbies I want to try: ..." with no "says"); the remaining eval numbers are in that file.
 
 742. **The owner, 2026-10-07, verbatim**: "atlas doesnt seem to change emotions alot
      if at all?? maybe log that for next pr". Next PR: measure how often Atlas's
      mood changes in a session (the mood triggers in atlas-life.js and
      companion code) and widen what drives it (answers found, nothing found,
      reminders done, idle, time of day), each visible within a few seconds.
+     Owner: Brief 34 (companion), the second part; the mood-change count per session is its first number.
 
 743. **The owner, 2026-10-07, verbatim**: "and I want more mouse interaction with the
      companion like rubbing its head. flipping it upside down?? doing things or
@@ -204,66 +138,65 @@ with its owner named in the entry.
      that offers to show the companion (first run, after hiding it, or a
      notification with a Show companion action), measure its button against
      the toast-with-action recipe in DESIGN.md, and fix what is off.
+     Owner: Brief 34 (companion), second part, and OPEN.md Atlas rows (INBOX 752): gestures, the enlarged view mirroring the corner, the framed Atlas clipped to its oval, the Show companion notice measured against the toast recipe.
 
-744. **The owner, 2026-10-07, verbatim**, with Chat answering "test notes" (no
-     model): "whiteboard shows as a note and clicking it takes me to the notes page.
-     also it didn mention other matching records i dont think". Sources listed 5
-     (test, test board, test draft, a test-driven development note, a picture
-     note); the answer quoted 2. Next PR: (a) check the search result's kind for
-     "test board" (`raw_results` in routes_chat meta; the card takes
-     `source.kind`, chat-agent.js near `Sources:`): a board must say board and
-     open the board; (b) the composer names the sources it did not quote ("3
-     more notes match by title: test, test board, test draft") rather than
-     leaving them unsaid; (c) the "Only 1 of 4 sentences here is quoted" notice
-     reads as an alarm on an ordinary answer: word it calmly or show it only
-     when most of the answer is not quoted.
+771. **The owner, 2026-10-10, 16:02Z, verbatim.** "I am sleeping so continue
+     autonomously. Impress me a lot. I want to fall off my chair lol with how
+     good the changes, fixes, improvements, additions, and nire are when I
+     wake up in the morning lol." Read: no cap on the night's work beyond the
+     agent cap (four Opus, Sonnet extra); every open brief in SESSION_BRIEFS
+     order; the PR stays green and the docs current at each merge. Owner:
+     HANDOVER "Now" (the night's queue).
 
-745. **The owner, 2026-10-07, verbatim**: "note dates arent in the corner like i
-     asked, i thought that was fixed. also notes ask questions but there is no way
-     to view the questions asked by notes if they have any from the notes
-     themselves"; then, of the Questions list (11 open: "What daring deed hath
-     led thee to this street?", "- \"If you were a spice, which one would you be
-     and why?", "\" or \"What's the most adventurous thing...", "What's an
-     astronaut's favorite drink?", "Why did the student eat his homework?"):
-     "these are just random questions form my notes?? I didnt actually have any
-     questions for myself, they are unrelated and mostly from test notes".
-     Next PR:
-     (a) Card dates: INBOX 719 put the time at the bottom right of the card's
-     content; a card stretched taller than its content (grid rows) shows it
-     mid-card. Pin it to the card's own bottom edge, measured on cards of
-     unequal height in one row.
-     (b) Open questions (`ai/facts.py` candidates, kind "question"): only the
-     person's own open questions. Skip a question inside quotation marks, a
-     list item or example ("Examples:", "like \"..."), a line starting with a
-     quote fragment, a joke setup (answered on the next line), dialogue or
-     script (Act, Scene), and pasted or AI-written guide text; strip markdown
-     (`**`, `- `, `* `) from the question and from the note title shown. Re-run
-     on the owner's 11: none of them should remain. Tombstone what is dropped,
-     so a re-read does not bring them back.
-     (c) A note's own questions on the note (a line under it, "2 open
-     questions", opening them), and the Questions list grouped by note.
-     (d) First run, verbatim: "should it have gone straight to the graph
-     tour?? i clicked add some example notes". Add some example notes opened
-     the Graph with its tour running ("Moving around, 1 of 3"). It should add
-     the notes, stay put (or show them in Notes) and say so in a toast with
-     "See them on the graph" and "Take the tour"; a tour starts only when
-     asked for. Grep the example-notes action in onboarding.js and tour.js.
-     Then, verbatim: "well it added them then I pressed the continue or
-     whatever button and a wierd blank tour panel showed in the top left corner
-     for a couple seconds then it righted itself and went to the graph tour".
-     So the tour came from onboarding's continue, and its card drew empty at
-     the top left (no target yet: the Graph tab and its lazy code still
-     loading) before placing itself. The card must stay hidden until its
-     target exists and is measured, then appear in place; and the continue
-     should say where it goes.
-     Then, verbatim, with the Library tour at "A card's menu, 3 of 5": "the
-     hover menu button doesn show on the tour". The step highlights the card's
-     ⋯, which only shows on hover, so the ring frames an empty square. A tour
-     step that points at a hover-only control reveals it while the step is up
-     (a class on the card, removed on the next step), and a sweep checks every
-     tour step's target is visible and non-empty.
+772. **Decision needed, found by the companion agent (Brief 34), 2026-10-10.**
+     Under the system's reduce-motion hint Atlas keeps its calm CSS loops (an
+     earlier decision, `08-consistency.css:5056`): 1,579 style recalcs a
+     minute. Decision 7 says reduced motion keeps poses without loops.
+     Recommendation, taken: decision 7 wins; the system hint and the app's
+     own Reduce setting both stop every loop and keep the pose. Owner: Brief
+     34 continues (companion2).
 
 ## Placed (last 20, newest first)
+
+- 2026-10-10: 798 and 799 placed in GRAPH_PLAN "Placed from INBOX, 2026-10-10 (the owner on the graph, again)".
+
+- 2026-10-10: 797 (whiteboard and mind map feature depth) placed in WHITEBOARD_PLAN and MINDMAP_PLAN "Placed from INBOX, 2026-10-10 (the owner on feature depth)", the next Opus brief.
+
+- 2026-10-10: 788 to 796 (the owner's afternoon reports) placed in UI_MODERNISATION_PLAN "Placed from INBOX, 2026-10-10 (the owner's afternoon reports)" and DOCUMENTS_PLAN "Placed from INBOX, 2026-10-10 (code as documents)".
+
+- 2026-10-10: 776, 777, 779, 780, 782, 783 placed in UI_MODERNISATION_PLAN "Placed from INBOX, 2026-10-10 (the owner's morning UI reports)", owner the uipolish agent.
+
+- 2026-10-10: 781 placed in WORLD_CLASS_PLAN "Placed from INBOX, 2026-10-10 (filing suggestions)", an Opus brief after the running ones.
+
+- 2026-10-10: 767 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the notice agent.
+
+- 2026-10-10: 766 placed as CHAT_PLAN decision 62, amending 61.
+
+- 2026-10-10: 729, 731, 734, 744 placed in CHAT_PLAN "Placed from INBOX, 2026-10-10 (the coverage pass over 729 to 744)" and Briefs 37, 39, 67, 84; 561, 725, 728, 730, 735 to 737, 741 to 743, 745 hold their Owner lines here; 694, 727, 739 fixed.
+
+- 2026-10-10: 765 placed in HANDOVER, ROADMAP Direction, CHAT_PLAN decision 61 and DOCUMENTS_PLAN (docx).
+
+- 2026-10-10: 764 placed as CHAT_PLAN decision 60 and the amendment to 32 and 58.
+
+- 2026-10-10: 762 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the mapnotes agent.
+
+- 2026-10-10: 760 and 761 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the carddate and mapnotes agents.
+
+
+- 2026-10-10: 759 taken (the audio go) in WORLD_CLASS_PLAN "Audio in the notebook" and 28.5.
+
+
+- 2026-10-10: 753 to 758 placed (HANDOVER Skills note; CHAT_PLAN decisions 58 and 59, F5, Brief 84; UI_MODERNISATION decision 23 and 13.R; WORLD_CLASS decision 63 and Brief 60).
+
+- 2026-10-10: 752 placed in SESSION_BRIEFS Brief 34 (second part) and OPEN.md Atlas rows.
+
+- 2026-10-10: 751 placed as SESSION_BRIEFS Brief 75.
+
+- 2026-10-10: 750 placed in WORLD_CLASS_PLAN 28 and SESSION_BRIEFS Briefs 72 to 74.
+
+- 2026-10-10: 748 placed in DOCUMENTS_PLAN 23, SESSION_BRIEFS Briefs 69 to
+  71 and CHAT_PLAN decision 57; 749 placed in UI_MODERNISATION_PLAN "12z
+  Learnability" and the existing programme sections.
 
 - 2026-10-07: 740, 746, 747 (connector arrows on rotated shapes, template
   connectors that do not follow, Reset style) placed in WHITEBOARD_PLAN.md,

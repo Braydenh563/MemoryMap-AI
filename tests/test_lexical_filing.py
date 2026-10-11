@@ -71,24 +71,34 @@ def test_it_abstains_rather_than_guessing(client):
     assert status["filed_by"] == "none"
 
 
-def test_a_clear_lead_files_even_when_a_stray_word_splits_the_share(monkeypatch):
+def test_a_clear_lead_files_even_when_a_stray_word_splits_the_share(session):
     """CI's E2E run, 2026-10-06: "Tried a sourdough focaccia: 75% hydration,
-    olive oil, rosemary, baked hot" stayed Uncategorised with no model. The
-    tally (measured on the E2E fixture) gave its own category 2.6 times the
-    runner-up's vote but only 63% of the whole, because "oil" and "hot" also
-    sit in other categories' notes, and the share rule alone abstained.
-    `scratchpad/filing_eval.py`: coverage 0.15 to 0.17, precision 0.667 to
-    0.706 with the lead rule. A close race still abstains."""
+    olive oil, rosemary, baked hot" stayed Uncategorised with no model,
+    because "oil" and "hot" also sit in other categories' notes and the share
+    rule alone abstained. The decision (WORLD_CLASS 23) files on a lead
+    (`FILE_LEAD`); a close race still abstains."""
     from memorymap.ai import lexical_filing
+    from memorymap.entry import manager
 
-    def tally(votes, supporters):
-        monkeypatch.setattr(lexical_filing, "_tally", lambda *_a, **_k: (votes, supporters))
-
-    tally({"Cooking": 0.681, "Home": 0.264, "Health": 0.138}, {"Cooking": 3, "Home": 2, "Health": 1})
-    match = lexical_filing.lexical_category(None, "sourdough focaccia")
+    for content, category in (
+        ("Sourdough loaf, 70% hydration, baked in a hot oven", "Cooking"),
+        ("Focaccia with rosemary and olive oil", "Cooking"),
+        ("Pasta with garlic and chilli oil", "Cooking"),
+        ("Oil the squeaky hinge on the back door", "Home"),
+        ("The hot water tank needs a new thermostat", "Home"),
+        ("Hot bath for the sore back", "Health"),
+        ("Physio exercises for the back", "Health"),
+        ("Red notebook, spiral bound", "Stationery"),
+        ("Red notebook for the desk", "Desk"),
+        ("Red notebook, ruled", "Stationery"),
+        ("Red notebook by the phone", "Desk"),
+    ):
+        manager.create_entry(session, content, category_name=category)
+    session.commit()
+    match = lexical_filing.lexical_category(session, "Tried a sourdough focaccia: 75% hydration, olive oil, rosemary, baked hot")
     assert match is not None and match.name == "Cooking" and match.confidence < 85
-    tally({"Cooking": 0.6, "Home": 0.4}, {"Cooking": 3, "Home": 2})
-    assert lexical_filing.lexical_category(None, "a close race") is None
+    assert match.why
+    assert lexical_filing.lexical_category(session, "a red notebook") is None
 
 
 def test_a_category_named_in_the_note_counts(client):

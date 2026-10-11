@@ -118,11 +118,20 @@ def test_a_caller_already_on_the_canvas_does_not_reveal_it_again():
 
 
 def test_the_library_menu_names_its_kind_and_does_not_show_the_canvas_itself():
-    for button, kind in (("wb-boards-new", "board"), ("wb-boards-new-map", "map")):
+    """New whiteboard and New mind map make an untitled one at once (Brief 77
+    row 2, MINDMAP_PLAN 15 row 1); From a template is the dialog."""
+    for button, call in (
+        ("wb-boards-new", "wbNewUntitledBoard()"),
+        ("wb-boards-new-map", 'wbNewUntitledBoard("map")'),
+        ("library-boards-new-map", 'wbNewUntitledBoard("map")'),
+    ):
         start = WB.index(f'$("{button}")?.addEventListener("click"')
-        handler = WB[start : WB.index("\n  });", start)]
-        assert f'createNewBoard("{kind}", {{ reveal: true }})' in handler, handler
-        assert "wbShowCanvasView" not in handler, handler
+        line = WB[start : WB.index("\n", start)]
+        assert call in line, line
+        assert "wbShowCanvasView" not in line, line
+    start = WB.index('$("wb-boards-new-template")?.addEventListener("click"')
+    handler = WB[start : WB.index("\n  });", start)]
+    assert 'createNewBoard("board", { reveal: true })' in handler, handler
 
 
 # --- 733: the deleted empty card -------------------------------------------------
@@ -172,12 +181,15 @@ def _notice() -> str:
     return _function(STATUS, "function renderAiOfflineNotice(")
 
 
-def test_chat_and_ask_banners_are_dismissible_and_the_others_are_not():
+def test_chat_ask_and_agent_banners_are_dismissible_and_the_others_are_not():
+    """The agent joined Ask and Chat when it learned to run with no model
+    (AGENT_SKILLS_REFORM "Deepened 2026-10-10" row 1)."""
     block = STATUS[STATUS.index("  renderAiOfflineNotice(\n    $(\"ask-offline\")") : STATUS.index("  syncAgentPaletteAvailability();")]
-    asks = re.search(r'\$\("ask-offline"\),.*?\{ dismissible: true \}\s*\)', block, re.S)
-    chat = re.search(r'\$\("chat-offline"\),.*?\{ dismissible: true \}\s*\)', block, re.S)
-    assert asks and chat, block
-    assert block.count("dismissible: true") == 2, block
+    asks = re.search(r'\$\("ask-offline"\),.*?\{ dismissible: true[,}][^)]*\)', block, re.S)
+    chat = re.search(r'\$\("chat-offline"\),.*?\{ dismissible: true[,}][^)]*\)', block, re.S)
+    agent = re.search(r'\$\("command-palette-offline"\),.*?\{ dismissible: true[,}][^)]*\)', block, re.S)
+    assert asks and chat and agent, block
+    assert block.count("dismissible: true") == 3, block
 
 
 def test_a_dismissed_banner_is_remembered_for_the_session_not_the_device():

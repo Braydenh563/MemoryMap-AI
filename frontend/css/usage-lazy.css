@@ -1,0 +1,34 @@
+/* usage-lazy.css: the chat context pill's popover (usage-ledger.js
+   `renderChatContextPop`, on the help popover's shell), loaded by that file
+   (its `lazyScript` call) rather than at boot, for the boot CSS budget.
+   The popover is wired by that bundle, so it cannot open before this loads. */
+
+.chat-context-pop.help-popover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(20rem, calc(100vw - var(--space-6)));
+}
+
+.chat-context-pop p {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.chat-context-pop-bar {
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+}
+
+.chat-context-pop-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.chat-context-pop > .row {
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

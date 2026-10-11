@@ -478,6 +478,14 @@ still unverified on real macOS/Linux hardware rather than reasoned from the
 code: the honest status is "should work," not "confirmed." The PyInstaller
 builds above are the part with no cross-platform equivalent yet at all.
 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+
 ---
 
 ## 8. Open bug list
@@ -1250,6 +1258,7 @@ history. What's still weak:
   whether the tool registry can get there first before reaching for UI
   automation.
   **Next:** a decision for the owner (it needs its own cancellation and audit story); the `GET /chat/tools` and `POST /chat/tools/execute` registry (WORLD_CLASS_PLAN B8) is the cheaper route and is built.
+- (Odysseus, fourth read 2026-10-10) 
 
 ---
 
@@ -1852,6 +1861,7 @@ them are close to being built:
   worth asking what it would let someone do that the app's own web UI, PWA
   and desktop window don't, before scoping anything. **(needs owner)**
 - ~~**A browser clipper.**~~ **Built 2026-10-05** (WORLD_CLASS_PLAN row 24, D9): `POST /links/clip-page` (`routes_webclip.py`), the "Clip to MemoryMap" bookmarklet and `frontend/clip.html` / `clip.js`, `tests/test_webclip_page.py`. A packaged browser extension is not built; the bookmarklet is the capture path (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)").
+- (Odysseus, fourth read 2026-10-10) 
 
 ## 29c. Whiteboard, brainstormed: not yet triaged
 
@@ -2240,6 +2250,8 @@ build. Also inherits the same tray/threading question above and would
 need its own answer, not an assumption it behaves like Linux. Worth
 deciding deliberately rather than discovering after building the rest.
 **Next:** `packaging/macos/` does not exist; the Apple Developer account and notarization are the owner's, so nothing is buildable here (the Linux spec, `packaging/linux/memorymap.spec`, is the template).
+
+- (Odysseus, fourth read 2026-10-10) 
 
 ---
 
@@ -4145,3 +4157,135 @@ twenty); open, by impact with the rest of this file.
     it is still elsewhere (with a `Tour:` log line when it is). Headless
     walks of all 15 steps at 1.25x scale, with and without real scrollbars,
     were correct before and after, so the owner's run is the test.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Nothing here has a brief yet.
+
+### Ideas
+
+- "Read all my requests and chat messages sent during and since october 7, analyse them and log them for a new session as I want to start a new one. I also have A LOT of issues and bugs and things Ive written down and ive also tried to get gemini to improve the composer so Ill need oyu in the next session to analyse that open branch as well as the other open branches and fix znd improve everything but I wont send my lists in this session and instead at the start of the next one"
+  Recommendation: a process item, not a feature. The next session's first step is to read the owner's chat messages since 2026-10-07 and the owner's lists from that session, log them in the plans, then take the open Gemini branch under Brief 35. Not a brief; the orchestrator owns it.
+- "Like this is somewhat a hobby but it is also about ai, local llms and other things."
+  Recommendation: context for the scope of the insights and research work, not a request in its own right. Read it with Brief 40 and the insights item in CHAT_PLAN.
+- "Is it possible to create custom libraries like the ones vendored that are really good and extensive in their purpose, which can be open sourced and used across projects?? Maybe?? Maybe too much idk."
+  Recommendation: a later idea: a small, separately licensed library package built from the vendored engines, after the engine lands under Brief 39. Not scheduled.
+
+
+## Placed from Brief 40, 2026-10-10 (research and placement)
+
+Each row is a recommendation taken (standing order 3); the evidence is in
+[ANALYSIS.md](ANALYSIS.md) "Parity matrix, 2026-10-10" and "Repositories and
+libraries read, 2026-10-10".
+
+- **A Docker image.** Recommendation: build it, in two flavours from one
+  Dockerfile. Draft at `docker/Dockerfile` and `compose.yaml`
+  (not built: the sandbox has no Docker daemon). Measured from a venv of the
+  core requirements without `sentence-transformers`: 213 MB of site-packages
+  (numpy 70 with its libs, sqlalchemy 28, cryptography 16, uvloop 16), plus
+  the app's `src` 28 MB and `frontend` 35 MB (Harper's WASM is 16 of them),
+  plus the slim Python base (about 125 MB): about 400 MB on disk, roughly 150
+  MB pulled. With `sentence-transformers` and CPU torch (769 MB for torch
+  alone in this repository's own venv, 1.5 GB for the whole venv): about 1.6
+  GB. Volume layout: `/data` (`MEMORYMAP_DATA_DIR`: database, files, the LAN
+  certificate, backups) and `/models` (`HF_HOME` and
+  `SENTENCE_TRANSFORMERS_HOME`: the embedder, Whisper, RapidOCR, the Pyodide
+  and needle downloads), so a notebook reset never re-downloads a model.
+  Ollama stays on the host (`OLLAMA_URL=http://host.docker.internal:11434`).
+  **Blocker found, three small changes first** (a brief, not a session):
+  `__main__.py:32` binds `127.0.0.1` as a constant, and `netbind.bind_host`
+  widens it only when the LAN preference is on and a password exists; a
+  browser reaching the container through Docker's bridge is "the network",
+  and an app with no password answers every network request 403 (SEC-01).
+  So the image needs `MEMORYMAP_BIND` (default unchanged), a first-password
+  environment variable or `--set-password` (today only `--reset-password`
+  exists), and a decision on TLS (a reverse proxy in front, with plain http
+  inside the compose network). **What the Windows launcher does that a
+  container cannot:** the desktop window (pywebview) and tray, the Start menu
+  and the Repair shortcut, native file dialogs (`core/desktop_dialog.py`),
+  watching a folder on the host, the capture hotkey (`--capture`), OS
+  reminders and notifications, the firewall prompt and port search, and
+  launching Ollama and detecting a GPU. Everything else (the venv, the
+  update check, the health check) a container replaces. Keep for the owner's
+  NAS and server users; drop as a desktop install path.
+- **Reuse the system Python's packages.** Recommendation: offer it, never
+  default it. `start.sh` line 1070 and `start.bat` line 602 run
+  `python -m venv .venv`; the choice is `--system-site-packages` on that
+  line, chosen only when the installer can import `torch` and
+  `sentence_transformers` from the system Python (a saved 770 MB and a
+  working CUDA torch if the person has one) and the `--doctor` import check
+  passes afterwards; otherwise a clean venv, as now. Risks, in the order they
+  bite: (1) a system torch built against numpy 1.x imports the venv's numpy
+  2.4 and crashes at import; (2) a broken or half-removed global
+  site-packages (a bad `.pth`, a stale `dist-info`) poisons every launch with
+  an error that points nowhere near the cause; (3) `pip install -r
+  requirements.txt` sees a system package that satisfies the range and
+  silently does not install its own, so the app drifts when the system
+  package is upgraded; (4) the venv is no longer relocatable when the system
+  Python is replaced. Mitigation: record the choice in `.venv/pyvenv.cfg`
+  (it is already there as `include-system-site-packages`), print it in
+  `--doctor`, and fall back to a clean venv on the first import failure.
+- **Does a first install need the internet? Yes, once, and the app says so
+  in one place only.** `README.md` (line about "The first launch downloads
+  the search model"), `docs/INSTALL.md` (line 130) and
+  `docs/TROUBLESHOOTING.md` (line 64) say it about the search model;
+  `start.sh` line 1118 prints "Installing, this can take a few minutes" and
+  `start.bat` has no equivalent, with no word that it needs a connection;
+  the app's onboarding says nothing (no "internet" in `onboarding.js`).
+  Measured: the core packages are 213 MB installed, the search model adds
+  several hundred MB (more on Windows, where it brings torch). A person on a
+  train with a fresh clone gets pip errors that `is_network_error` turns into
+  a retry, which is right but late. Recommendation, three edits, one brief:
+  (1) the launchers print, before any download, "First start only: this
+  installs about 210 MB of packages and needs the internet once. After that
+  MemoryMap runs offline."; (2) the same sentence as the first line of
+  README "Install" and INSTALL.md "Before you start"; (3) onboarding's model
+  step says "Search by meaning needs a one-time download of a few hundred MB.
+  Skip it and keyword search still works." with a Skip. The packaged app
+  already has the Windows installer page line (`installer.iss` line 218).
+- **Parity programme, the next brief per surface** (full tables in
+  ANALYSIS.md). Whiteboard: the draw.io reader and shape-library converter,
+  connection points, named layers, five templates. Mind map: OPML and
+  FreeMind export, branch-by-branch presenting, centrality as a perspective.
+  Documents (prose): highlights (Brief 42), a thesaurus from the trimmed
+  table, footnotes. Documents (code): completion and the p5 kind (Brief 42),
+  editor commands in the palette and a split view, rename within a file.
+  Tables: paste-to-table and sort, cell formulas through the safe evaluator,
+  chart this table. PDF and OCR: highlights and comments stored in the
+  notebook, the encrypted-PDF prompt. Images and Library: EXIF used (date
+  taken on the timeline, GPS), rating and flag, crop and rotate. Audio and
+  meetings: timestamped transcript with click to seek and SRT or VTT export,
+  playback speed, markers. Presentations: speaker notes and a presenter view,
+  a per-frame PDF export checked on a real board.
+- **Library verdicts to carry into Brief 35's stripping**: drop networkx
+  (write the 60 lines `notebook_stats.py` uses), whoosh, pint, langdetect,
+  dateutil, pyspellchecker, thefuzz and rapidfuzz (difflib and the trigram
+  repair); keep flashtext, rake and the porter stemmer; vaderSentiment only
+  where a test shows the gain. Optional downloads, never vendored: Pyodide
+  (already), sql.js (new, 700 KB), eslint-linter-browserify (only if Brief 42
+  measures a gap). Re-implement small, each with an eval first: bigram
+  collocation, tag co-occurrence counting, multinomial Naive Bayes for filing,
+  K-means and DBSCAN for merge suggestions, SimHash for near duplicates.
+## Expert audit, 2026-10-10
+
+Brief 43. Each row: the probe (command), the number, the cause, the fix shape and the size (S under an hour, M a session, L a plan). Ranked by what a person feels. Measured on a host at load 6 to 14 on four cores, which inflates every time below roughly 2 to 3 times; the ratios between rows and the byte and row counts are exact. Fixed in the audit itself (not rows): a full backup now carries settings; markdown re-import keeps date and pin; the Tidy count (23 s to about 1.4 s, idle server CPU 14.7 percent to 0.3); a safety copy before a migration; select openers named with their value; no 401 on the lock screen; six test modules that could not be collected alone.
+
+| # | Probe and number | Cause | Fix shape | Size |
+| --- | --- | --- | --- | --- |
+| 1 | `audit-hw.js`, `audit-payload.js` at 5,000 seeded notes: the dashboard is drawn at 4.1 s unthrottled and 6.1 s at 4x CPU (2.2 s on an empty notebook, same host); 25 sequential `GET /entries?limit=200` pages, 3.8 MB, on every unlock | `_loadEntries` (notes-list.js) pages the whole notebook into `allEntries` so search, the sidebar and keyboard navigation work on one array | A windowed list: the first page and counts from the server, the rest on scroll or search; the dashboard widgets that "want the whole of it" (`dashEntries`) ask for their own aggregate endpoints. Re-measure the 2.5 s boot target on a quiet machine first | L |
+| 2 | `audit-down.js`, server refused after load: 7 of 7 tabs say "Can't reach MemoryMap. Retrying" (0 blank), but Graph and Library throw `ReferenceError: graphLayout is not defined` and `loadLibrary is not defined` from `switchTab` (navigation.js:1911, 1949) and sit on "Opening the graph…" | The lazy bundle never arrived, and `switchTab` calls its functions unguarded | `switchTab` awaits `ensureModule` and, when it resolves false, draws the `surfaceFailed` notice with Retry in the tab | S |
+| 3 | `scratchpad/search-relevance-1010.py`, 60 queries over the showcase notebook (71 notes): hybrid precision at 5 is 0.93, top-1 0.88, any right note in 5 is 0.98; lexical 0.76 / 0.82 / 0.83. Paraphrase top-1 is only 0.68 ("trainers wearing out", "how much did the holiday cost", "quick dinner ideas" put a wrong note first); the typo `pricng` finds nothing relevant (`w_standup`) | No correction offered for a one-letter drop in a six-letter word; paraphrase leans on the meaning signal available here (no embedding model installed) | Typo repair on short words (keyboard-distance already exists in question_noise.py: other agent's file); a paraphrase row set in the evals. Semantic search with a real embedder is not measured | M |
+| 4 | The Duplicates review, `entry/tidy.py` via `GET /tidy`: 4.4 to 5.8 s the first time at 5,000 near-identical notes; now cached until the notebook changes | The scan is quadratic in the notebook (already dense-matrix since ARCH-11) | Compute in a background job after a change and serve the last result; or a MinHash prefilter | M |
+| 5 | Exports re-imported: markdown now round-trips date and pin; `GET /export/json` has no import route at all; the HTML, docx and PDF round trips are unverified because markitdown, python-docx and a PDF writer are not installed in the sandbox | JSON export was built as a take-away; `POST /import/document` needs the `documents` extra | An "Import a MemoryMap JSON export" door beside Import markdown; run the docx and PDF diff on a machine with the extra | M |
+| 6 | Launcher update rollback: `start.sh` self-updates by `git pull --ff-only`; there is no way back to the previous version, and rolled-back code against a newer-stamped database logs "Can't locate revision" and carries on | No release pinning or previous-version record; the safety copy now covers the data only | Record the head before a pull; a `--rollback` flag that checks it out and says which backup to restore | M |
+| 7 | Attachments are accepted by extension only (`ATTACHMENT_SUFFIXES`, routes_files.py:94); the media upload at routes_files.py:3483 has a magic-number check, attachments do not | The suffix allowlist predates the sniffing helper | Run the media check on attachments whose suffix claims an image, PDF or archive | S |
+| 8 | The vendored engines broke the base branch's gates: `ruff` reports 1,140 errors in `src/memorymap/vendor/` (whoosh, networkx), `test_plan_hygiene` finds a conflict marker at `vendor/networkx/conftest.py:3`, `test_outbound_inventory` finds `vendor/vaderSentiment.py` and `vendor/whoosh/compat.py` able to open connections and unlisted, `test_readme_freshness` says the README's tool count (67) is stale; CodeQL's config does not ignore `vendor/` | Brief 39's vendoring landed without the exclusions the lints and the CodeQL config need | `extend-exclude` vendor in pyproject, `paths-ignore` it in `.github/codeql/codeql-config.yml`, add the two modules to `INVENTORY` as imported and never called, delete the marker, fix the README count | S |
+| 9 | `tests/test_chat_intent.py`: `classify("what can you do?")` returns `smalltalk`, not `about_app`; the capability prompt lacks "asking what you can do" (2 failures on the base) | The composer branch's change to intent.py or the composer tables (other agent's files) | Reproduce against `main`, then restore the capability route | S |
+| 10 | `axe.js`, light, 1440 px: 7 `label-content-name-mismatch` left after the select fix: `#status-notes`, `#entry-attach-existing`, `button[title="Add this note to a document"]`, `Sort results` (find), `Small model mode`, `Run Embeddings backfill now`, `How Atlas writes its answers`, a heatmap day button (`data-key`) | Icon-and-count buttons whose aria-label drops the visible count or word | Put the visible text first in each aria-label (status.js is another agent's file) | S |
+| 11 | `server rss` 285 MB with 5,000 notes after boot and a full list load (target 300); the page heap is 15 MB | The server holds the engines and caches; nothing measured per component | Profile with tracemalloc at 5,000 and 20,000 notes before it crosses 300 | S |
+| 12 | `GET /graph?slim=1` is 1.2 MB at 5,000 notes and is fetched twice per boot (`audit-payload.js`); the graph worker's frame time at 2,000 nodes was not measured (no linked fixture; graph*.js is another agent's) | The payload carries every node | Cap or tile the slim payload; run `gwperf.js` with `scratchpad/graph-fixture.js 2000` | M |
+| 13 | `python -m alembic upgrade head` on an empty file fails at the bookmarks migration (`NoSuchTableError: bookmarks`) | The table is born by `create_all()` after the baseline, so the chain only works behind `DatabaseManager`; `tests/test_alembic_full_chain.py` pins the supported path | Create the table in a migration, or document that Alembic is only run by the app | S |
+| 14 | `tests/test_learned_spec.py` and `tests/test_resurface_spec.py` still say "Strict-xfail until built", and CLAUDE.md section 7 says the specs are strict-xfail; `grep xfail tests/` finds no marker, and all 63 spec tests pass | The markers were removed as the features landed; the sentences were not | Reword the two docstrings and the CLAUDE.md paragraph | S |
+| 15 | Process: `git stash` is shared by every worktree. Two agents popped each other's stash in this audit (a packaging agent's 13 files appeared in this worktree) | A worktree's `git stash pop` takes whatever is on top | Add "never `git stash`; commit a WIP instead" to `scratchpad/AGENT_COMMON.md` and the brief protocol | S |
+
+Passed with a number, no row needed: the frontend lint set, three serial runs of 429 tests, 51 to 58 s each, no flake; `--durations=20` over the 17 `test_api*` and `test_chat*` files, 192 tests in 103 s serial, slowest 2.4 s; `fe1005-offline.js`, seven tabs in a French locale, zero requests to any other origin; the service worker has no `fetch` handler and caches nothing, stamped assets are `public, max-age=31536000, immutable`, the shell is `no-cache`; `keyboard.js`, `dockeyboard.js` and `errors.js` at four widths, zero findings; `a11yname.js`, zero unnamed controls; the router-walk test `tests/test_every_route_is_locked.py` already exists and passes (every route answers 401 to a stranger, an allowlist of 18 open paths with reasons); the unlock throttle exists with tests; the app's CSP has no `unsafe-inline` (the sandboxed Run pages keep theirs by design, on an opaque origin); CodeQL runs on every push and PR plus Mondays, `security-and-quality` queries, Python only, `.github/workflows/codeql.yml`; `autogrowfast.js` 3 of 3, 0 mismatches. The 0.3.0 schema itself cannot be rebuilt (history was squashed at 0.4.1); the baseline revision to head with data in place is the earliest testable chain.

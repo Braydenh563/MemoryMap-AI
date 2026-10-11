@@ -16,13 +16,14 @@ import logging
 import re
 from urllib.parse import urlsplit
 from collections.abc import Iterator
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, cards, context, fence, librarian, memory, source_check, tools
+from memorymap.ai import act_registry, budget as run_budget, cards, context, fence, librarian, memory, source_check, tools
 from memorymap.ai.model_manager import SMALL_MODEL_PARAMS_B, ModelManager, parameter_count
 from memorymap.ai.ollama_client import (
     OllamaClient,
@@ -2284,6 +2285,74 @@ def _tool_event(name: str, arguments: dict, result: dict) -> dict:
     }
 
 
+def _tool_events(event: dict, result: dict) -> Iterator[dict]:
+    """The tool's chip, then the card it asks the chat to draw beside it."""
+    if result.get("proposal"):
+        # `save_user_preference` no longer saves anything: it asks.
+        # The row exists but is inactive and flagged `proposed`, and
+        # it stays out of every system prompt until somebody says
+        # yes. Carrying the id and the text on the event is what
+        # lets the chat draw the accept/decline card next to the
+        # tool chip, so the answer is given where the suggestion was
+        # made rather than three clicks away in Settings.
+        event["proposal"] = result["proposal"]
+    yield event
+    if result.get("act_card"):
+        #: A model's act (`propose_act`, decision 53): the registry's own card,
+        #: drawn as a typed act's is, waiting for Confirm; nothing ran.
+        yield result["act_card"]
+
+
+def _finish_handover(
+    session: Session, plan: _TurnPlan, state: _TurnState, name: str, arguments: dict, handover: dict
+) -> Iterator[dict]:
+    """Hand the turn over; True when it ends.
+
+    `propose_act` is the one handover whose card needs the session, so the
+    handler runs here and the turn stops only when a card was drawn. A sentence
+    the app does not read as an act goes back to the model as an ordinary error.
+    """
+    if handover.get("type") == "act_proposal":
+        result = yield from _run_and_record(session, plan, state, name, arguments)
+        return "error" not in result
+    if handover.get("type") == "run_plan":
+        #: The writes each step will make, on the card the person approves
+        #: once (AGENT_SKILLS_REFORM "Deepened 2026-10-10" row 3).
+        handover = {**handover, "writes": _plan_writes(session, handover["steps"])}
+    yield handover
+    return True
+
+
+def _plan_writes(session: Session, steps: list[str], tools_too: bool = False) -> list[list[str]]:
+    """Each step's writes (`ai/plan_writes.py`), or with `tools_too` the
+    tools those writes need."""
+    plans = _plans()
+    return (plans.plan_tools if tools_too else plans.plan_writes)(session, steps, plan_now())
+
+
+def plan_now() -> datetime:
+    """The naive local time a plan's steps are read against (dates in a step
+    such as "on Friday" resolve on the reader's clock)."""
+    from memorymap.core import deps
+    from memorymap.core.config import user_now
+
+    return user_now(deps.get_config()).replace(tzinfo=None)
+
+
+def _plans():  # noqa: ANN202
+    """`ai/plan_writes.py` through the act registry's leaf (it imports this module)."""
+    if act_registry.plans is None:
+        raise RuntimeError("memorymap.ai.plan_writes is not imported, so no plan can be read")
+    return act_registry.plans
+
+
+def _change_diff(name: str, arguments: dict, undo: dict | None) -> dict | None:
+    """An edit's lines out and in, drawn under its step (row 3's diff after)."""
+    if name != "edit_note" or not isinstance(undo, dict) or "content" not in (arguments or {}):
+        return None
+    return _plans().edit_diff(str((undo.get("arguments") or {}).get("content") or ""), str(arguments["content"]))
+
+
 def _run_and_record(
     session: Session, plan: _TurnPlan, state: _TurnState, name: str, arguments: dict
 ) -> Iterator[dict]:
@@ -2353,6 +2422,7 @@ def _run_and_record(
         change = {
             "tool": name,
             "label": result.get("label") or name,
+            "diff": _change_diff(name, arguments, undo),
             "note_id": _change_note_id(name, result),
             "document_id": _change_document_id(name, result),
             "reminder_id": _change_reminder_id(name, result),
@@ -2381,16 +2451,7 @@ def _run_and_record(
     event = _tool_event(name, arguments, result)
     if change:
         event["change"] = change
-    if result.get("proposal"):
-        # `save_user_preference` no longer saves anything: it asks.
-        # The row exists but is inactive and flagged `proposed`, and
-        # it stays out of every system prompt until somebody says
-        # yes. Carrying the id and the text on the event is what
-        # lets the chat draw the accept/decline card next to the
-        # tool chip, so the answer is given where the suggestion was
-        # made rather than three clicks away in Settings.
-        event["proposal"] = result["proposal"]
-    yield event
+    yield from _tool_events(event, result)
     return result
 
 
@@ -2525,8 +2586,7 @@ def _dispatch_call(
                 "error": str(exc),
             }
             return False
-        yield handover
-        return True
+        return (yield from _finish_handover(session, plan, state, name, arguments, handover))
     elif spec is not None and (spec.destructive or (state.tainted and name in _PARK_WHEN_TAINTED and not _cleared_page(state, name, arguments))) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
         # **A destructive tool cannot paper the turn with confirm
         # cards.** Parking one hands the model `AWAITING_CONFIRMATION`

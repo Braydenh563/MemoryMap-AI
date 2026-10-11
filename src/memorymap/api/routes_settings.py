@@ -507,6 +507,9 @@ class PreferencesBody(BaseModel):
     #: the next load. `tests/test_preferences_roundtrip.py` now compares
     #: every key the frontend sends with this body.
     ai_first_filing: bool | None = None
+    #: WORLD_CLASS 23, decision 6: health, money, relationships, the law and
+    #: identity are suggested, not filed, unless this is on.
+    auto_file_sensitive: bool | None = None
     #: WORLD_CLASS_PLAN section 17 row 3 (`librarian.FILING_STYLES`).
     filing_style: Literal["topic", "project", "time"] | None = None
     background_filing: bool | None = None
@@ -614,6 +617,9 @@ class PreferencesBody(BaseModel):
 
     # Named filters the user has saved from the Notes tab.
     saved_searches: list["SavedSearch"] | None = Field(default=None, max_length=30)
+    # Named searches from the search box, its rows in the Notes sidebar
+    # (search.js): the box searches every kind, a saved filter only notes.
+    saved_finds: list["SavedSearch"] | None = Field(default=None, max_length=30)
 
 
 class SavedSearch(BaseModel):
@@ -713,6 +719,7 @@ def get_preferences() -> dict:
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
         "ai_first_filing": config.get_preference("ai_first_filing", True),
+        "auto_file_sensitive": config.get_preference("auto_file_sensitive", False),
         "filing_style": config.get_preference("filing_style", "topic"),
         "background_filing": config.get_preference("background_filing", True),
         "auto_caption_images": config.get_preference("auto_caption_images", True),
@@ -780,6 +787,7 @@ def get_preferences() -> dict:
         "disabled_tools": config.get_preference("disabled_tools", []),
         "voice_model": config.get_preference("voice_model", "base"),
         "saved_searches": config.get_preference("saved_searches", []),
+        "saved_finds": config.get_preference("saved_finds", []),
         # Echoed back so the browser can tell whether the zone it just
         # detected is already the stored one, and skip a pointless write on
         # every startup.
@@ -2493,6 +2501,33 @@ MAX_IMPORT_FILES = 500
 _APP_KEYS = {"category", "tags", "created", "updated", "pinned"}
 
 
+def _exported_created(values: list[str] | None):
+    """The `created:` the export wrote, as the naive UTC the database holds,
+    or None when it is absent, unreadable, or in the future (a vault from
+    elsewhere may use any date format; only a clean past ISO stamp is trusted)."""
+    from datetime import datetime, timezone
+
+    if not values:
+        return None
+    try:
+        parsed = datetime.fromisoformat(values[0].strip())
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed if parsed <= datetime.now(timezone.utc).replace(tzinfo=None) else None
+
+
+def _keep_exported_state(session: Session, entry, meta: dict) -> None:
+    """Put back the date and pin an exported note carried."""
+    if meta.get("created"):
+        entry.created_at = meta["created"]
+    if meta.get("pinned"):
+        entry.pinned = True
+    if meta.get("created") or meta.get("pinned"):
+        session.commit()
+
+
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
     """(metadata, content). `category` and `tags` become the note's own
     fields; `created` and `updated` are the export's and are dropped; every
@@ -2510,6 +2545,14 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
         meta["category"] = found["category"][0]
     if "tags" in found:
         meta["tags"] = [t for t in found["tags"] if t]
+    # What this app's own export wrote (audit 2026-10-10, item 1): a note
+    # exported and imported again kept its words and lost its date and pin,
+    # so the timeline reshuffled to "everything today".
+    stamp = _exported_created(found.get("created"))
+    if stamp is not None:
+        meta["created"] = stamp
+    if (found.get("pinned") or [""])[0].lower() == "true":
+        meta["pinned"] = True
     kept: list[str] = []
     skipping = False
     for line in text[:end].rstrip("\n").split("\n")[1:-1]:
@@ -2716,6 +2759,7 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
                 entry.source_path = relative
                 if meta.get("category"):
                     entry.user_filed = True
+                _keep_exported_state(session, entry, meta)
                 deps.store_quietly(session, entry)
                 imported += 1
                 made.append(entry)
@@ -2864,6 +2908,7 @@ def _import_markdown_files(files: list[UploadFile], session: Session) -> dict:
         if meta.get("category"):
             entry.user_filed = True  # the file said where it belongs
             session.commit()
+        _keep_exported_state(session, entry, meta)
         deps.store_quietly(session, entry)
         imported += 1
         ids.append(entry.id)

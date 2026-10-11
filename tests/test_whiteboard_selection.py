@@ -13,7 +13,7 @@ from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 WB = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
-CSS = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+CSS = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
 
 
 def test_a_one_item_sweep_becomes_the_single_selection() -> None:
@@ -150,7 +150,8 @@ def test_every_undo_door_leads_to_the_board_while_one_is_open() -> None:
     assert "function boardHistoryActive()" in app
     #: One decision for every door: the board's history, a document's, or
     #: the app's (the owner, 2026-10-05: "local undos and redos").
-    assert app.count("const surface = surfaceHistory();") >= 3
+    assert app.count("const surface = surfaceHistory();") >= 2
+    assert app.count("const surface = surfaceHistory(\"redo\");") >= 1
     assert "canUndo: window.wbCanUndo, canRedo: window.wbCanRedo" in app
     assert "canUndo: window.docCanUndo, canRedo: window.docCanRedo" in app
     assert "window.wbCanUndo = () => (wbHistoryFor(), wbUndoStack.length > 0);" in WB

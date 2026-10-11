@@ -37,9 +37,12 @@ def _searchable_rows() -> list[str]:
 
 
 def test_the_palette_matches_keywords_as_well_as_the_label():
-    matches = SOURCE[SOURCE.index("function paletteMatches(") :]
+    #: The scorer reads them since Brief 90 (`paletteScore`, which
+    #: `paletteMatches` reaches through `paletteRanked`).
+    matches = SOURCE[SOURCE.index("function paletteScore(") :]
     matches = matches[: matches.index("\n}\n")]
-    assert "c.keywords" in matches, "a row's keywords must be searched with its label"
+    assert "row.keywords" in matches, "a row's keywords must be searched with its label"
+    assert "paletteRanked(" in SOURCE[SOURCE.index("function paletteMatches(") :]
 
 
 def test_the_words_the_audit_typed_each_find_a_row():
@@ -60,3 +63,13 @@ def test_the_guided_tour_is_one_ctrl_k_away():
     row = body[body.index("Take the guided tour") :]
     row = row[: row.index("}")]
     assert 'openTour("basics")' in row, row
+
+
+def test_the_guide_is_one_ctrl_k_away():
+    """CHAT_PLAN 9 row 3 (Brief 88): Ctrl+K "guide" found the tour and not
+    the Guide. A row now opens it, through the reveal entry that opens it."""
+    body = _commands_body()
+    row = body[body.index('"ph:question Ask the Guide"') :]
+    row = row[: row.index("}")]
+    assert 'reveal: "atlas-help"' in row
+    assert "guide" in row and "help" in row

@@ -1760,12 +1760,82 @@ Phases 14a to 14e are built (HISTORY.md, "Moved from the plans, 2026-10-05
 - **Linked stickers** (Illustrator's symbols): edit one placed icon or emoji
   and every copy follows. Needs a `library_ref` that is followed, which
   decision 25 of WHITEBOARD_PLAN keeps as "kept, never followed".
-- **Topic effects** (Photoshop's layer styles): shadow and glow per topic and
-  per level; a level field each, under decision 40's rule.
+- ~~Topic effects~~ built 2026-10-10: HISTORY.md ("Moved from the plans, 2026-10-10 (boardmap-1010)"); not yet in the PNG or SVG picture.
 - **Reaction stamps and voting** (Miro): a count of stamps on a topic or card.
 - **The whiteboard half of 641's research**, beyond stickers.
-- The exported picture draws every topic as one box: the levels, shapes and a
-  Phosphor icon do not reach PNG or SVG (an emoji icon does, as text).
+- The exported picture draws each topic's shape since 2026-10-10 (boardmap-1010); a
+  topic's effect and a Phosphor icon still do not reach PNG or SVG (an emoji icon does, as text).
 - The document editor's `:shortcode:` completion keeps its own 248-entry table
   (`DOC_EMOJI_SOURCE`); fold it into `ICON_EMOJI_SOURCE` when the completion
   can wait on the picker's script.
+
+## Placed from the owner's list, 2026-10-10
+
+Every entry built 2026-10-10 (boardmap-1010). Moved to HISTORY.md ("Moved from the plans, 2026-10-10 (boardmap-1010)").
+
+## 15. Deepened 2026-10-10 (Brief 72a, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72a.js` (fresh data dir, no model,
+three runs on a shared four-core machine, ranges across runs) and
+`boardundo.js`. Sections 13 and 14 hold the map's own phases; these rows are
+the trust contract's (WORLD_CLASS_PLAN 28).
+
+**What renders today**
+
+| Measure | 1440 | 390 (touch) |
+| --- | --- | --- |
+| Controls in `#library-view-whiteboard`, a five-topic map, one topic selected | 44 (top bar 9) | 24 (top bar 6) |
+| Clicks from the dashboard to a new map | 5 (Library, Boards & maps, New, Map, Create) and a name typed; the palette 1, but it says "New concept map" where the Library's picker and the toast say "mind map" | the same |
+| Time from Create to the first topic painted | 314 to 1,092 ms | 724 to 2,148 ms |
+| Add a child, 20 in a row | 102 to 208 ms each | 424 ms each |
+| Undo | add a child, Undo, Redo: both exact; `boardundo.js` 43/43 covers fold, layout, theme, detach, copy branch, expand all | not driven |
+| Overflow | 0 past the viewport, 0 clipped; 4 overlaps: on the selected topic an icon-only grip sits over "Add a child to" | 8 overlaps (the grips and "Put a topic between these two"); 4 grips past the edge on the pannable canvas (not a defect) |
+| No model | 0 AI controls on the map; the map palette has 33 commands | the same |
+
+**The professional bar.** XMind: a map from the keyboard alone (Tab,
+Enter, arrows), structures beyond the tree (logic chart, org chart,
+fishbone, timeline, tree table), an outline view that edits the same map,
+Zen mode, pitch mode, and every topic act one undo step.
+
+**The rows, by impact**
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: New, Mind map makes "Untitled map N" with its root in edit (`wbNewUntitledBoard("map")`) | `map78.js`: clicks 5 to 3 as deepen72a counts (6 to 4 with the menu's opening) | 2, 13 |
+| 2 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: "mind map" everywhere a person reads, `tests/test_terms.py` from DESIGN.md's glossary | "concept map" 14 to 0 | 10 |
+| 3 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: the selected topic's lines stand their `+` aside, hidden grips leave the page, no invisible `+` on touch, the strip clears the add row | `map78.js`: overlaps 6 to 0 at 1440, 11 to 0 at 390; 0 unnamed | 7, 8, 9 |
+| 4 | optimisation | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: one render per add (the adopt re-keys its lines), the accent read once per accent | style passes over 300 elements per add 8 to 4 (CDP, 390); press to editable 24 to 27 ms at 1440, 140 to 159 at 390 (not under 50 there; see the remaining file); Create to first topic 155 to 214 ms warm at 390 | 13 |
+| 5 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: the More sheet lists the map palette's rows (`wbSyncMoreMapRows`) | `map78.js`: 6 of 33 to 40 of 40 at 390 | 8, 2 |
+| 6 | expansion | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: logic chart, timeline, fishbone, tree table (`wbMapColumnPositions`, `WB_MAP_LAYOUT_NAMES`) | `maplayouts.js`: each 0 overlaps at 12 and 200, stored, lined; 38/39 (the fail is the base's) | 6 |
+| 7 | expansion | Linked stickers, reaction stamps and voting (14.4) | 14.4's rows | 6 |
+| 8 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: `wbExportTopicEffect`, `wbExportTopicGlyph` | `map78-export.js` + pngpixel: shadow 242 against 255, glow 251,231,231 against 255, the icon's ink in its slot | 11 |
+| 9 | optimisation | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: `#wb-help-about` names each; WB_COMMANDS and the map palette gain the missing rows | `map78.js`: no popover 9 to 0, no palette row 5 to 0 | 6 |
+
+**Briefs.** 36 (14.4), 78 (rows 1 to 6, 8, 9).
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC12, Harper on node labels** (S, rank 12). The mind map's labels are prose that no checker reads; the worker already exists and takes any string. Measure: a label with a seeded agreement error is flagged and its suggestion applies as one undo step; no lint call on a drag.
+
+## Placed from Brief 60, 2026-10-10 (the measured census)
+
+- Measured nearly clean (WORLD_CLASS 26.5): the showcase map at rest 0 long tasks, 0 gaps over 20 ms; a drag of one node 4 gaps over 20 ms of 605 frames and one 50 ms long task (`frames.js`). A map of hundreds of nodes is not measured.
+
+## Placed from INBOX, 2026-10-10 (the owner on feature depth)
+
+- INBOX 797, the owner 2026-10-10 23:02Z: "Also I feel like the mindmap and whiteboard are still missing a lot of features and options and stuff that draw.io and other things like the craft repos have :(" Owner: an Opus brief (canvasdepth), next Opus slot: re-audit the mind map against draw.io, designcraft and the other craft references in ANALYSIS.md ("Whiteboard, against draw.io and designcraft", "Mind map, against designcraft's canvas"), plus tldraw, Excalidraw, XMind and MindNode; rank every gap by how often a person meets it; build the top ones measured (connection points, the shape library at scale, named layers with visibility, swimlanes, more Mermaid kinds, and for maps: themes, branch styles, relationship lines, boundaries, summaries, outline import and export, presentation mode), each a commit with a test.
+
+### canvasdepth, ranked by how often a person meets the gap (2026-10-10)
+
+From ANALYSIS.md "Mind map, against designcraft's canvas", re-read against
+XMind and MindNode. The brief's list (themes, branch styles, relationship
+lines, boundaries, summaries, outline in and out, presentation, Tab, Enter
+and F2) is built; what is open:
+
+1. A structure per branch (XMind): `layout` on a topic, read by `wbMapColumnPositions` for its subtree.
+2. Callouts on a topic.
+3. Labels drawn under a topic.
+4. `.xmind` export.
+5. Stickers and votes (14.4).

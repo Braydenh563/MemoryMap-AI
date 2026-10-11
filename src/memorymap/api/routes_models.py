@@ -252,6 +252,7 @@ def _builtin_embedding_install_state() -> dict:
         state = extras.current()
         return {
             "builtin_embedding_installed": bool(extras.is_installed(extra)),
+            "builtin_embedding_download_mb": extras.download_mb(extra),
             "builtin_embedding_installing": bool(state.running and state.extra_id == "semantic"),
         }
     except Exception:  # noqa: BLE001 - a status field must never fail the status
@@ -307,6 +308,12 @@ def _tools_engine() -> str | None:
         return None
 
 
+def _model_ready(running: bool, installed: list[dict], provider: str, chat_model: str) -> bool:
+    """A model can write a reply now. Ollama answers with the name asked for;
+    an OpenAI-dialect server answers with what it has loaded, so any model does."""
+    return running and bool(installed) and (provider != "ollama" or _name_matches(chat_model, installed))
+
+
 @router.get("/status")
 def status(session: Session = Depends(get_session)) -> dict:
     """One call that tells the UI everything: is Ollama up, what's
@@ -357,6 +364,14 @@ def status(session: Session = Depends(get_session)) -> dict:
         # backend is answering", which is the question the pill asks whoever
         # is answering it.
         "ollama_running": running,
+        #: **A model can answer right now** (INBOX 778, the owner: "agent mode
+        #: was still an option when I was on the chat with no ai running").
+        #: `ollama_running` only says a server answered; a server up with
+        #: nothing installed, or (Ollama) without the chosen chat model, still
+        #: cannot write a reply. An OpenAI-dialect server answers with whatever
+        #: it has loaded, so any listed model counts there. The Chat tab's
+        #: Agent mode gates on this, not on `ollama_running`.
+        "model_ready": _model_ready(running, installed, provider, chat_model),
         #: What can still call tools with no model (INBOX 725): "needle" when
         #: its extra is on disk (`tool_fallback.for_tools`'s own test, a
         #: folder check, no import), so the Chat tab's Agent mode is greyed

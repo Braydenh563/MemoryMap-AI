@@ -153,6 +153,9 @@ a = Analysis(
         # The About panel's release notes, read from the bundle root when
         # frozen (api/app.py `/changelog`); the Windows spec says more.
         (str(REPO_ROOT / "CHANGELOG.md"), "."),
+        # The taxonomy pack filing reads (ai/taxonomy.py `DATA_DIR`): JSON
+        # beside the module, so it goes where the module's package is.
+        (str(REPO_ROOT / "src" / "memorymap" / "ai" / "data" / "taxonomy"), "memorymap/ai/data/taxonomy"),
     ],
     hiddenimports=[
         # uvicorn picks its event loop / protocol implementations at

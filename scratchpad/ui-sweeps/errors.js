@@ -82,7 +82,8 @@ async function runWidth(browser,width){
     page.on('response',r=>{if(r.status()>=500)errs.push(`[${where}] HTTP ${r.status()} ${r.request().method()} ${r.url().replace(BASE,'')}`);});
     page.on('console',m=>{if(m.type()==='error'&&!/401|Failed to load resource/.test(m.text()))errs.push(`[${where}] console: ${m.text().slice(0,140)}`);});
     await page.goto(BASE+'/',{waitUntil:'domcontentloaded'}); await page.waitForSelector('#lock-password',{state:'visible',timeout:20000});
-    await page.fill('#lock-password',PW); await page.click('#lock-submit'); await page.waitForTimeout(2500);
+    //: Wait for the unlock itself, not a fixed 2.5 s: on a loaded machine it took 5.8 s at 390, and the retry below then typed into a field mid-unlock and timed out (Brief 87).
+    await page.fill('#lock-password',PW); await page.click('#lock-submit'); await page.waitForFunction(()=>!document.getElementById('lock-password')?.offsetParent,null,{timeout:20000}).catch(()=>{});
     if(await page.$('#lock-password')&&await page.isVisible('#lock-password')){await page.fill('#lock-password',PW);await page.click('#lock-submit');await page.waitForTimeout(2500);}
     await page.evaluate(()=>{const o=document.getElementById('onboarding-overlay');if(o)o.classList.add('hidden');}); await page.waitForTimeout(500);
     const findings=[];

@@ -26,6 +26,8 @@ the graph unasked, as it never writes to a note (I1).
 
 from __future__ import annotations
 
+import re
+
 import json
 from typing import Any
 
@@ -74,11 +76,19 @@ def state_of(question: DerivedFact, answer: DerivedFact | None) -> str:
     return "open"
 
 
+def _plain(text: str) -> str:
+    """Text as a row shows it: no list marker, no `**` or `__` (INBOX 745
+    (b): "strip markdown from the question and from the note title shown").
+    The stored text keeps them, being the note's span exactly."""
+    text = re.sub(r"^\s*(?:[-*+]|\d+[.)])\s+", "", text or "")
+    return re.sub(r"(\*\*|__)", "", text).strip()
+
+
 def _title(content: str) -> str:
     """What a row calls a note: its first sentence of its first line, or the
     line cut at 60 characters. A one-line note's whole text as its "title"
     read as the sentence twice beside the quote of it (questions.js)."""
-    first = (content or "").strip().split("\n", 1)[0].strip().lstrip("#").strip()
+    first = _plain((content or "").strip().split("\n", 1)[0].strip().lstrip("#").strip())
     #: The first `.`, `!` or `?` that ends a word (followed by a space or the
     #: end), after at least one character, and only if the sentence fits in
     #: 60: so only the first 60 characters are ever read. This was
@@ -97,6 +107,7 @@ def _as_json(question: DerivedFact, answer: DerivedFact | None, notes: dict[int,
         "id": question.id,
         "entry_id": question.entry_id,
         "text": question.text,
+        "display": _plain(question.text),
         "span": [question.span_start, question.span_end],
         "asked_at": note.created_at.isoformat() if note is not None and note.created_at else None,
         "note_title": _title(note.content) if note is not None else "",
@@ -132,7 +143,27 @@ def _as_json(question: DerivedFact, answer: DerivedFact | None, notes: dict[int,
     return out
 
 
-def listing(session: Session, *, state: str | None = None, limit: int = 50, offset: int = 0) -> dict:
+def open_counts(session: Session, entry_ids: list[int]) -> dict[str, int]:
+    """Open questions per note, for the notes asked about that have any
+    (INBOX 745 (c): a card says "2 open questions")."""
+    if not entry_ids:
+        return {}
+    facts._retire_not_own_questions(session)
+    rows = list(session.scalars(
+        facts._visible(select(DerivedFact))
+        .where(DerivedFact.kind == "question", DerivedFact.entry_id.in_(entry_ids))
+    ).all())
+    answers = _answers_by_question(session, [row.id for row in rows]) if rows else {}
+    counts: dict[str, int] = {}
+    for row in rows:
+        if state_of(row, answers.get(row.id)) == "open":
+            counts[str(row.entry_id)] = counts.get(str(row.entry_id), 0) + 1
+    return counts
+
+
+def listing(
+    session: Session, *, state: str | None = None, limit: int = 50, offset: int = 0, entry_id: int | None = None
+) -> dict:
     """One page of questions in `state` (all when None), newest note first,
     with the count in each state.
 
@@ -140,10 +171,16 @@ def listing(session: Session, *, state: str | None = None, limit: int = 50, offs
     Python after the states are known. Measured against the gate (500
     questions under 100 ms) by `tests/test_questions_view.py`.
     """
+    #: Rows an older rule stored (a quoted prompt, a piece of one cut at its
+    #: closing quote) leave the list now, not at the next night pass: that
+    #: pass runs only with background tasks on, and the list kept showing
+    #: `" or "What's the most ...` hours after the rule was fixed (INBOX 785).
+    facts._retire_not_own_questions(session)
     questions = list(
         session.scalars(
             facts._visible(select(DerivedFact))
             .where(DerivedFact.kind == "question")
+            .where(DerivedFact.entry_id == entry_id if entry_id is not None else True)
             .order_by(DerivedFact.entry_id.desc(), DerivedFact.span_start, DerivedFact.id)
         ).all()
     )

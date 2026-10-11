@@ -18,7 +18,7 @@ const ROUTE_NOTES_SECTIONS = ["capture", "writing-room", "ask", "questions"];
 //: The Library's sub-tabs by the word the address uses. Images and Files are
 //: one view (`library-view-media`) in two kinds, so their sections carry the
 //: kind; "All" is the view whose id kept the old name, documents.
-const ROUTE_LIBRARY = { all: "library-view-documents", documents: "library-view-docs", boards: "library-view-whiteboard", images: "library-view-media:images", files: "library-view-media:files", skills: "library-view-skills", links: "library-view-links", contents: "library-view-contents" };
+const ROUTE_LIBRARY = { all: "library-view-documents", documents: "library-view-docs", boards: "library-view-whiteboard", images: "library-view-media:images", files: "library-view-media:files", skills: "library-view-skills", links: "library-view-links", contents: "library-view-contents", recordings: "library-view-recordings" };
 
 //: The things with an address of their own: the tab, the history section's
 //: prefix and the path word before the id. One table for `routeHash` (a
@@ -197,7 +197,9 @@ function routerOnVisit(entry, pushed) {
 //: on its own, the way it did before there was a router.
 function routerGo(delta) {
   const here = tabHistory.stack[tabHistory.index];
-  if (!delta || !here || !history.state || history.state.navId !== here.navId) return false;
+  //: `edited`: rows taken off the list (nav-history.js) put the stack and the
+  //: browser's history out of step, so the stack walks on its own from then.
+  if (!delta || tabHistory.edited || !here || !history.state || history.state.navId !== here.navId) return false;
   history.go(delta);
   return true;
 }

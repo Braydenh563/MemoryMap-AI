@@ -29,6 +29,7 @@ LISTY_CALLS = {"list", "sorted", "all", "_to_out_bulk", "scalars"}
 
 #: Unpaged list routes, each with why its size is bounded (2026-10-05).
 BOUNDED = {
+    "/insights/patterns": "one line per pattern rule, a fixed set in ai/insights.py",
     "/ask-history/{turn_id}": "one saved turn's raw results, capped when the turn was saved",
     "/backups": "one row per backup file, made on purpose and few",
     "/chat/modes": "the chat modes this app ships",
@@ -53,6 +54,7 @@ BOUNDED = {
     "/insights/tag-cloud": "the top sixty tags",
     "/learned/export": "an export, read whole on purpose, capped at 10,000 facts",
     "/privacy/receipt": "this app's own switches",
+    "/read/words": "the app's own Settings word groups (ai/filters.py SETTING_WORDS), a fixed table",
     "/spaces": "the person's spaces, a handful",
     "/tidy/{key}": "capped at tidy.MAX_ROWS (300) rows; `count` still says how many the review found",
     "/websearch/providers": "the search providers this app knows",

@@ -43,7 +43,7 @@ def test_it_is_lazy_and_reached_from_the_dock():
 
 def test_it_is_in_the_palette_tools_and_features_and_the_guide():
     assert "openTidySheet()" in _read("app-palette.js")
-    catalogue = _read("dashboard.js")
+    catalogue = _read("app-features.js")  # featureCatalog moved here with the boot diet (Brief 80)
     for reveal in ("tidy", "tidy-links", "tidy-duplicates", "tag-manager", "notes-review"):
         assert f'reveal: "{reveal}"' in catalogue
     topics = help_chat._matching_topics("how do I tidy up weak links without the ai")
@@ -119,7 +119,8 @@ def test_every_review_button_says_what_it_changes_in_plain_words():
 
 
 def test_the_review_picker_is_an_overview_of_all_nine_not_a_dropdown():
-    """INBOX 718: "is it possible to see all issues identified??". Nine rows
+    """INBOX 718: "is it possible to see all issues identified??". A row per
+    review (eleven since WORLD_CLASS 23 added the two category reviews)
     (icon, name, count, one line on what it finds), the empty ones last, a
     row opens its review and a back button returns."""
     from memorymap.entry import tidy as rules
@@ -129,7 +130,7 @@ def test_the_review_picker_is_an_overview_of_all_nine_not_a_dropdown():
     block = tidy[tidy.index("const TIDY_ICONS") : tidy.index("async function openTidySheet")]
     icons = re.findall(r'^\s*"?([\w-]+)"?: "([\w-]+)",$', block, re.M)
     assert {k for k, _ in icons} == set(rules.REVIEWS), "every review has its glyph"
-    assert len({v for _, v in icons}) == 9, "and no two share one"
+    assert len({v for _, v in icons}) == len(rules.REVIEWS), "and no two share one"
     font = (ROOT / "frontend" / "vendor" / "phosphor" / "style.css").read_text(encoding="utf-8")
     for _, glyph in icons:
         assert f".ph-{glyph}:" in font, glyph
@@ -164,3 +165,25 @@ def test_a_help_popover_is_never_laid_over_its_own_trigger():
     assert "menuSidePlan(box.height, anchor, 10, margin)" in place
     assert "innerHeight - margin - box.height" not in place.replace("window.", "")
     assert 'panel.style.maxHeight = ""' in menus
+
+
+def test_the_badge_does_not_ask_the_server_while_the_app_is_locked():
+    """Audit 2026-10-10: `wiring.js` loads this module 4 s after the page, and
+    on the lock screen `GET /tidy` went out with no token: a 401 and a console
+    error on every launch."""
+    badge = _read("tidy.js").split("async function tidyBadge(", 1)[1].split("\n}\n", 1)[0]
+    assert badge.index("if (!authToken()) return;") < badge.index('apiJson("/tidy"')
+
+
+def test_a_suggestion_can_be_dismissed_for_good_from_its_row():
+    """INBOX 783, the owner: "how do I delete a suggestion??". The cross sits
+    beside the label (a button inside a label is a second control in the
+    first), asks the server to remember it, and the toast's Undo brings it
+    back; the '?' says so."""
+    tidy = _read("tidy.js")
+    assert 'dismiss.className = "ghost icon-only small tidy-dismiss"' in tidy
+    assert "li.append(label, dismiss)" in tidy
+    assert "/dismiss`" in tidy and "/undismiss`" in tidy
+    assert "the cross hides a row" in tidy
+    css = (ROOT / "frontend" / "css" / "tidy-lazy.css").read_text(encoding="utf-8")
+    assert ".tidy-row-item" in css and ".tidy-dismiss" in css

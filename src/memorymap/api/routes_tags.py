@@ -111,3 +111,39 @@ def bulk_edit_tags(body: BulkBody, session: Session = Depends(get_session)) -> d
 def restore_tags(body: RestoreBody, session: Session = Depends(get_session)) -> dict:
     """Put notes' tags back to the given lists: the undo of the writes above."""
     return _answer(manager.undo_tag_edit(session, body.notes))
+
+
+#: How many turned-down tags the tag manager lists.
+TURNED_DOWN_LISTED = 50
+
+
+@router.get("/turned-down")
+def list_turned_down(
+    response: Response,
+    limit: int = Query(default=TURNED_DOWN_LISTED, ge=1, le=1000),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """The tags turned down when offered, most often first, and whether that
+    now makes them offered less (INBOX 781: learning from discards across
+    notes, with a way back)."""
+    from memorymap.ai import tagging
+
+    rows = sorted(tagging.turned_down(session).values(), key=lambda row: (-row[1], row[0].casefold()))
+    response.headers["X-Total-Count"] = str(len(rows))
+    return [
+        {"tag": tag, "notes": notes, "damped": notes >= tagging.TURNED_DOWN_OFTEN}
+        for tag, notes in rows[:limit]
+    ]
+
+
+class OfferAgainBody(BaseModel):
+    tag: str = Field(min_length=1, max_length=60)
+
+
+@router.post("/turned-down/offer-again")
+def offer_tag_again(body: OfferAgainBody, session: Session = Depends(get_session)) -> dict:
+    """Forget the turn-downs so far: the tag is offered as before."""
+    from memorymap.ai import tagging
+
+    tagging.offer_again(session, body.tag)
+    return {"ok": True}

@@ -64,7 +64,7 @@ const WB_FMT_FIELDS = {
   shape: ["stroke", "width", "dash", "fill", "alpha", "shadow", "text", "geometry", "flip", "style-lib"],
   line: ["stroke", "width", "dash", "alpha", "shadow", "geometry", "flip", "style-lib"],
   link: ["stroke", "width", "dash", "alpha", "route", "jumps", "caps", "label-t"],
-  text: ["stroke", "fill", "alpha", "shadow", "text", "geometry", "angle", "style-lib"],
+  text: ["stroke", "fill", "alpha", "shadow", "fold", "text", "geometry", "angle", "style-lib"],
   image: ["alpha", "shadow", "geometry", "angle"],
   frame: ["geometry"],
   note: ["geometry", "angle"],
@@ -100,6 +100,10 @@ function wbFmtValue(entry, field) {
     case "bold": return Boolean(kind === "shape" ? s.label_bold : o.bold);
     case "italic": return Boolean(kind === "shape" ? s.label_italic : o.italic);
     case "align": return (kind === "shape" ? s.label_align : o.align) || (kind === "shape" ? "center" : "left");
+    //: Words in a shape sit in its middle and a text box's at its top unless
+    //: told otherwise (the owner, 2026-10-10: "there's no way to vertically
+    //: centre text").
+    case "valign": return (kind === "shape" ? s.label_valign : o.valign) || (kind === "shape" ? "middle" : "top");
     case "ink": return (kind === "shape" ? s.label_color : o.color) || "#1f2430";
     default: return null;
   }
@@ -290,6 +294,8 @@ function wbFormatSync() {
   const kinds = new Set(entries.map(wbFmtKind).filter(Boolean));
   const fields = new Set();
   for (const k of kinds) for (const f of WB_FMT_FIELDS[k] || []) fields.add(f);
+  //: The folded corner is a sticky note's, not a plain text box's.
+  if (!entries.some((e) => e.kind === "object" && wbIsSticky(e.item))) fields.delete("fold");
   const empty = document.getElementById("wb-format-empty");
   const map = kinds.has("topic");
   if (empty) {
@@ -331,11 +337,16 @@ function wbFormatSync() {
     if (fillField) fillField.disabled = !wbFmtValue(first, "fill-on");
   }
   if (takes.has("shadow")) set("wb-fmt-shadow", wbFmtValue(first, "shadow"), "checked");
+  const sticky = entries.find((e) => e.kind === "object" && wbIsSticky(e.item));
+  if (sticky) set("wb-fmt-fold", wbStickyFolds(sticky.item), "checked");
   const alphaOut = document.getElementById("wb-fmt-alpha-out");
   if (alphaOut && takes.has("alpha")) alphaOut.textContent = `${wbFmtValue(first, "alpha")}%`;
   if (["shape", "text"].includes(wbFmtKind(first))) {
     for (const button of panel.querySelectorAll("#wb-fmt-align [data-align]")) {
       button.setAttribute("aria-pressed", String(button.dataset.align === wbFmtValue(first, "align")));
+    }
+    for (const button of panel.querySelectorAll("#wb-fmt-valign [data-valign]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.valign === wbFmtValue(first, "valign")));
     }
     document.getElementById("wb-fmt-bold")?.setAttribute("aria-pressed", String(wbFmtValue(first, "bold")));
     document.getElementById("wb-fmt-italic")?.setAttribute("aria-pressed", String(wbFmtValue(first, "italic")));
@@ -401,16 +412,13 @@ onDomReady(() => {
   const panel = wbFormatPanel();
   if (!panel) return;
   wbFormatCommandButtons();
-  //: The panel's two end lists are the bar's, word for word, without the
-  //: bar's "Start:" and "End:" (the panel's row label says which end).
+  //: The panel's two end lists are the bar's, groups and drawn examples
+  //: included (the row label says which end).
   for (const which of ["start", "end"]) {
     const from = document.getElementById(`wb-prop-${which}cap`);
     const to = document.getElementById(`wb-fmt-${which}cap`);
     if (!from || !to || to.options.length) continue;
-    for (const option of from.options) {
-      const words = option.textContent.replace(/^(Start|End): /, "");
-      to.add(new Option(words.charAt(0).toUpperCase() + words.slice(1), option.value));
-    }
+    for (const node of from.children) to.append(node.cloneNode(true));
   }
   const on = (id, type, fn) => document.getElementById(id)?.addEventListener(type, fn);
   on("wb-format-close", "click", () => wbFormatClose());
@@ -467,6 +475,7 @@ onDomReady(() => {
     const pct = Math.max(10, Math.min(100, Number(e.target.value) || 100));
     wbFmtApply("alpha", () => ({ alpha: pct >= 100 ? undefined : pct / 100 }), `Opacity ${pct}%.`);
   });
+  on("wb-fmt-fold", "change", (e) => wbFmtApply("fold", (entry) => (entry.kind === "object" && wbIsSticky(entry.item) ? { fold: e.target.checked } : null), e.target.checked ? "Corner folded." : "Corner flat."));
   on("wb-fmt-shadow", "change", (e) => wbFmtApply("shadow", () => ({ shadow: e.target.checked || undefined }), e.target.checked ? "Shadow on." : "Shadow off."));
   on("wb-fmt-route", "change", (e) => wbSetLinkRoute(e.target.value));
   on("wb-fmt-jumps", "change", (e) => {
@@ -501,6 +510,17 @@ onDomReady(() => {
     const button = e.target.closest("[data-align]");
     if (!button) return;
     wbFmtApply("text", textPatch("label_align", "align", button.dataset.align), `Text aligned ${button.dataset.align}.`);
+  });
+  on("wb-fmt-valign", "click", (e) => {
+    const button = e.target.closest("[data-valign]");
+    if (!button) return;
+    const at = button.dataset.valign;
+    //: The kind's own default is stored as no value, so a reset style and a
+    //: box never touched read the same.
+    wbFmtApply("text", (entry, kind) => {
+      const plain = kind === "shape" ? "middle" : "top";
+      return kind === "shape" ? { label_valign: at === plain ? undefined : at } : { valign: at === plain ? undefined : at };
+    }, `Text at the ${at}.`);
   });
   for (const axis of ["x", "y", "w", "h"]) {
     on(`wb-fmt-${axis}`, "change", (e) => wbFmtGeometry(axis, Number(e.target.value)));

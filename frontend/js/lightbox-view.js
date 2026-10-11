@@ -1098,7 +1098,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
         },
       });
     }
-    return kebabMenu(
+    const menu = kebabMenu(
       [
         ...items,
         {
@@ -1140,6 +1140,12 @@ function openLightbox(items, startIndex = 0, opts = {}) {
       ],
       "More actions for this image"
     );
+    //: The row's height, as Save and Find are (the owner, 2026-10-10: "These
+    //: elements in the lightbox aren't the same height"; measured at 1440:
+    //: this ⋯ 28px beside 32px). Inline: boot CSS is at its cap.
+    const opener = menu.querySelector("button");
+    opener.style.minHeight = opener.style.minWidth = "max(2rem, var(--target-min))";
+    return menu;
   };
   const syncMoreMenu = (item) => {
     moreMenu?.remove();
@@ -1415,6 +1421,18 @@ function openLightbox(items, startIndex = 0, opts = {}) {
           payload.message || "There's no readable text in this file.",
           ...editNotes,
         ].join(" · ");
+        //: **The way to fix it, beside the reason** (the owner, 2026-10-10: "it
+        //: failed to let me view the pdf doc I had as the package wasn't
+        //: installed, it should have given me a link to nav to install or an
+        //: install button directly"): one Install, opening Settings at that
+        //: package's row, as the OCR engine line does (DESIGN.md).
+        if (payload.extra) {
+          const install = smallButton("ph:download-simple Install", "Open Settings, Packages at this package", () => {
+            close();
+            revealFeature("extra-row", payload.extra);
+          }, false);
+          docNote.append(" ", install);
+        }
         docNote.classList.remove("hidden");
         return;
       }

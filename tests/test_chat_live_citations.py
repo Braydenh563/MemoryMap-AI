@@ -10,7 +10,7 @@ step), and the late-bound hook reaches the timeline.
 
 from __future__ import annotations
 
-from _app_js import app_js_text
+from tests._app_js import app_js_text
 
 
 def test_chat_stream_routes_grounding_live_into_the_markers():

@@ -1,0 +1,106 @@
+"""Every background thread or task is registered (WORLD_CLASS_PLAN 26.2, decision 58): a ratchet.
+
+A thread nobody can list or stop is the bug behind "the app would not quit"
+and "a second embedding pass started under the first". Decision 58 puts the
+registry in `core/background.py`, with `core/jobs.py` and `core/jobruns.py`
+as the only modules allowed to start work themselves. That module is not
+built yet (Brief 63's neighbour), so until it is this test holds the line:
+the sites below are the 26 found on 2026-10-10, each keyed by file, enclosing
+function, kind and position. A new `Thread(`, `Timer(`, executor,
+`create_task`, `ensure_future`, `run_in_executor` or `add_task` outside the
+owning modules fails; a seeded site that is gone or moved into the registry
+fails too, so the list only shrinks.
+"""
+
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+
+#: The modules whose job is to start work.
+OWNERS = {"core/jobs.py", "core/jobruns.py", "core/background.py"}
+
+_KINDS = {
+    "Thread": "thread",
+    "Timer": "timer",
+    "ThreadPoolExecutor": "executor",
+    "ProcessPoolExecutor": "executor",
+    "create_task": "task",
+    "ensure_future": "task",
+    "run_in_executor": "executor",
+    "add_task": "request-task",
+}
+
+SEED = frozenset(
+    """
+__main__.py::_boot_and_swap::thread::1
+__main__.py::_serve_with_lan.serve_both::task::1
+__main__.py::_serve_with_lan.serve_both::task::2
+__main__.py::_start_tray::thread::1
+ai/autonomous.py::start::thread::1
+ai/autonomous.py::trigger_now::thread::1
+ai/embeddings.py::EmbeddingService._maybe_auto_install_missing_package::thread::1
+ai/embeddings.py::start_warmup::thread::1
+ai/janitor.py::_chat_within_deadline::thread::1
+ai/model_manager.py::start_pull::thread::1
+ai/tools/__init__.py::prefetch_web::executor::1
+api/app.py::_start_searxng_if_asked::thread::1
+api/routes_backups.py::export_bundle::request-task::1
+api/routes_import.py::export_notebook_folder::request-task::1
+api/routes_models.py::_installed_or_last_known::thread::1
+api/routes_settings.py::export_backup::request-task::1
+api/routes_settings.py::import_directory::request-task::1
+api/routes_settings.py::restart_app::request-task::1
+api/routes_settings.py::set_console_mode::request-task::1
+api/routes_tasks.py::shutdown::timer::1
+api/routes_update.py::apply_update::thread::1
+api/routes_update.py::apply_update::thread::2
+core/embedmodels.py::_spawn_download::thread::1
+core/jobstore.py::_schedule::timer::1
+core/security.py::_backend_addresses::thread::1
+search/searxng_install.py::install_source::thread::1
+search/searxng_manager.py::_run_streaming::thread::1
+""".strip().splitlines()
+)
+
+
+def sites() -> set[str]:
+    found: set[str] = set()
+    for path in sorted(SRC.rglob("*.py")):
+        rel_src = path.relative_to(SRC).as_posix()
+        if "vendor" in path.parts or rel_src in OWNERS:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+
+        def visit(node: ast.AST, scope: str, counts: dict[str, int]) -> None:
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    visit(child, f"{scope}.{child.name}" if scope else child.name, counts)
+                    continue
+                if isinstance(child, ast.Call):
+                    fn = child.func
+                    name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+                    kind = _KINDS.get(name)
+                    if kind:
+                        key = f"{rel_src}::{scope or '<module>'}::{kind}"
+                        counts[key] = counts.get(key, 0) + 1
+                        found.add(f"{key}::{counts[key]}")
+                visit(child, scope, counts)
+
+        visit(tree, "", {})
+    return found
+
+
+def test_no_unregistered_background_site() -> None:
+    new = sites() - SEED
+    assert not new, (
+        "a thread, timer, executor or task started outside core/jobs.py, core/jobruns.py "
+        "and core/background.py; route it through the pool or register it:\n  " + "\n  ".join(sorted(new))
+    )
+
+
+def test_the_seed_only_shrinks() -> None:
+    stale = SEED - sites()
+    assert not stale, "gone or registered, so delete it from SEED:\n  " + "\n  ".join(sorted(stale))

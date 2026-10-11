@@ -40,11 +40,17 @@ ALLOWED = {
     "status.js": 2,
     # A staged picture's `blob:` address in this tab, not a request.
     "attachment-actions.js": 1,
+    # A pasted picture's `blob:` or `data:` address on the way into a Word
+    # file, not a request; the notebook's own pictures go through `api()`.
+    "documents-word.js": 1,
     # Pages of their own with no app.js and so no `api()`: the quick capture
     # window (capture.html) and the web clipper (clip.html), one request each,
     # carrying the token themselves.
     "capture.js": 1,
     "clip.js": 1,
+    # A Web Worker (the offline translator, Brief 83) has no app.js and so no
+    # `api()`: its engine (.wasm) and model files, from an open route.
+    "translate-worker.js": 2,
 }
 
 #: `fetch(` as a call: not `.fetch(` (a method), not a word ending in fetch.

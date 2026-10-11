@@ -335,7 +335,7 @@ def test_every_url_sink_the_audit_named_goes_through_safe_href():
         ("chat-agent.js", "card.href = safeHref(source.url)"),
         ("palette.js", "row.href = safeHref(source.url)"),
         ("markdown.js", "card.href = safeHref(url)"),
-        ("menus.js", "window.open(safeHref(mark.url)"),
+        ("connections.js", "window.open(safeHref(mark.url)"),  # moved with Connections (INBOX 784)
     ):
         assert needle in (root / name).read_text(encoding="utf-8"), name
 

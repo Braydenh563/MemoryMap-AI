@@ -29,7 +29,11 @@ from sqlalchemy.orm import Session
 from memorymap.core.database import Entity, EntityMention, Entry, EntryLink, EntryProperty
 
 STRUCTURAL = ("type", "prop", "links", "rel", "entity")
-_TOKEN = re.compile(r'(-?)(?:(\w+):)?(\[\[[^\]]{1,120}\]\]|"[^"]{1,200}"|\S+)')
+#: `key<op>"a value"` is one token (2026-10-10): a property's value with a
+#: space in it, as a card's and the graph panel's value chips write it.
+_TOKEN = re.compile(
+    r'(-?)(?:(\w+):)?(\[\[[^\]]{1,120}\]\]|"[^"]{1,200}"|[^\s"=<>!]{1,60}[=<>!]{1,2}"[^"]{1,200}"|\S+)'
+)
 _OPERATORS = ("!=", ">=", "<=", "=", ">", "<")
 
 

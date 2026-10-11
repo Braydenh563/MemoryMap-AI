@@ -292,3 +292,222 @@ document.addEventListener("click", (event) => {
   else if (button.id === "wb-history-restore") wbHistRestore(false);
   else if (button.id === "wb-history-restore-selection") wbHistRestore(true);
 });
+
+// --- A change from elsewhere is one step (Brief 77, WHITEBOARD_PLAN
+// "Deepened 2026-10-10" row 3; WORLD_CLASS 28.1 rule 1) -----------------------
+//
+// An agent's tool or another tab writing to the open board used to change it
+// under the stack: the 2026-10-05 audit found neither on it, so Ctrl+Z
+// stepped back past them to an older step of one's own. Now the board is read
+// afresh inside a recorded gesture (`wbRecordGesture`, as a restore is), so
+// whatever the read changed is one entry, named by where it came from, and
+// Ctrl+Z puts the board back as it was before it.
+//
+// Two doorways: the chat stream's board tools (`mm:board-changed`, sent by
+// capture-ask.js with `source` "Atlas"), and this tab's own writes told to
+// the others over a BroadcastChannel ("Another tab").
+
+const wbElsewhere = { busy: false, pending: null, timer: 0, tab: Math.random().toString(36).slice(2), channel: null };
+
+//: Reads the open board afresh as one Undo step, labelled by `source`.
+//: Resolves with the number of items the change touched (0 when the board
+//: was already current, or not the board named, or History is showing).
+async function wbTakeChangeFromElsewhere(boardId, source) {
+  const open = window.currentBoardId ?? null;
+  if (wbHist.open || !wbState || String(open) !== String(boardId ?? null)) return 0;
+  if (wbElsewhere.busy || wbRecordDepth > 0) {
+    wbElsewhere.pending = { boardId, source };
+    return 0;
+  }
+  wbElsewhere.busy = true;
+  let count = 0;
+  try {
+    const top = wbUndoStack[wbUndoStack.length - 1];
+    //: The write came past this tab's `api`, so its read cache never heard.
+    clearApiCache();
+    await wbRecordGesture(async () => {
+      await fetchWhiteboardState();
+    });
+    const entry = wbUndoStack[wbUndoStack.length - 1];
+    if (entry && entry !== top) {
+      count = entry.action === "batch" ? entry.entries.length : 1;
+      entry.label = `${source} changed ${count} ${count === 1 ? "item" : "items"}`;
+      renderWhiteboardNow();
+      const said = `${entry.label} on this board. Ctrl+Z takes it back.`;
+      wbAnnounce(said);
+      toast(said);
+    }
+  } catch (err) {
+    recordBrowserLog("WARN", [`[Board] reading a change from ${source}: ${err.message || err}`]);
+  } finally {
+    wbElsewhere.busy = false;
+    const next = wbElsewhere.pending;
+    wbElsewhere.pending = null;
+    if (next) setTimeout(() => wbTakeChangeFromElsewhere(next.boardId, next.source), 0);
+  }
+  return count;
+}
+
+//: A burst (an agent's several tool calls, a drag that saves twice) is read
+//: once, a beat after it ends.
+function wbChangeFromElsewhereSoon(boardId, source) {
+  clearTimeout(wbElsewhere.timer);
+  wbElsewhere.timer = setTimeout(() => wbTakeChangeFromElsewhere(boardId, source), 300);
+}
+
+document.addEventListener("mm:board-changed", (event) => {
+  const detail = event.detail || {};
+  const boardId = detail.boardId ?? window.currentBoardId ?? null;
+  wbChangeFromElsewhereSoon(boardId, detail.source || "Atlas");
+  //: The agent wrote on the server, past this tab's `apiJson`: the other
+  //: tabs hear of it here.
+  wbElsewhere.channel?.postMessage({ tab: wbElsewhere.tab, boardId });
+});
+
+//: This tab's writes to a board, told to the other tabs. The wrapper sits
+//: under History's guard (`wbHistGuard` keeps whatever `apiJson` it finds),
+//: and says nothing for a write that failed.
+if ("BroadcastChannel" in window) {
+  try {
+    wbElsewhere.channel = new BroadcastChannel("memorymap-boards");
+    wbElsewhere.channel.onmessage = (event) => {
+      const data = event.data || {};
+      if (data.tab === wbElsewhere.tab) return;
+      wbChangeFromElsewhereSoon(data.boardId, "Another tab");
+    };
+    const real = window.apiJson;
+    window.apiJson = async (path, options = {}) => {
+      const result = await real(path, options);
+      const method = String(options.method || "GET").toUpperCase();
+      if (method !== "GET" && /^\/whiteboard\//.test(String(path))) {
+        wbElsewhere.channel.postMessage({ tab: wbElsewhere.tab, boardId: window.currentBoardId ?? null });
+      }
+      return result;
+    };
+  } catch (err) {
+    wbElsewhere.channel = null;
+  }
+}
+
+// --- Snapshots: the History sheet as a revision list (Brief 77, row 4) ------
+//
+// draw.io keeps named revisions with a picture of each; the slider above
+// shows moments but cannot name one or find it again next week. A snapshot
+// is a name on the board's newest event (`routes_board_history.py`); its
+// picture is the Library card's own (`mapPreview`) drawn from the board as it
+// was then, and Restore is the moment restore inside a recorded gesture, so
+// it is one Undo step and Ctrl+Z gives the board back.
+
+//: The past rows as the Library card's preview fields: each item's box in
+//: 0..1 of the whole board's, as `_preview_items` sends them.
+function wbSnapshotPreviewBoard(rows) {
+  const all = [...(rows.objects || []), ...(rows.nodes || []), ...(rows.sketches || [])]
+    .filter((r) => Number.isFinite(r.x) && Number.isFinite(r.y));
+  if (!all.length) return { preview_items: [] };
+  const box = (r) => [r.x, r.y, r.x + (r.width || 40), r.y + (r.height || 30)];
+  const xs = all.flatMap((r) => [box(r)[0], box(r)[2]]);
+  const ys = all.flatMap((r) => [box(r)[1], box(r)[3]]);
+  const [x0, y0] = [Math.min(...xs), Math.min(...ys)];
+  const w = Math.max(1, Math.max(...xs) - x0);
+  const h = Math.max(1, Math.max(...ys) - y0);
+  const items = all.slice(0, 120).map((r) => ({
+    x: (r.x - x0) / w,
+    y: (r.y - y0) / h,
+    w: (r.width || 40) / w,
+    h: (r.height || 30) / h,
+    kind: rows.sketches?.includes(r) ? "sketch" : "card",
+    label: String(r.data?.content || r.text || r.title || "").slice(0, 24),
+  }));
+  return { preview_items: items, preview_aspect: w / h };
+}
+
+//: Puts the board back as it was at `eventId`, as one Undo step.
+async function wbRestoreToEvent(boardId, eventId) {
+  await fetchWhiteboardState();
+  await wbRecordGesture(async () => {
+    await apiJson(`/whiteboard/history/${eventId}/restore?board_id=${boardId}`, { method: "POST", body: JSON.stringify({ keys: null }) });
+    await fetchWhiteboardState();
+  });
+  renderWhiteboardNow();
+}
+
+function wbSnapshotRow(snap, boardId, redraw, close) {
+  const row = document.createElement("div");
+  row.className = "wb-snapshot-row";
+  const picture = document.createElement("div");
+  picture.className = "wb-snapshot-preview";
+  apiJson(`/whiteboard/history/${snap.event_id}?board_id=${boardId}`, { silent: true })
+    .then((rows) => {
+      picture.append(mapPreview(wbSnapshotPreviewBoard(rows), { size: "card" }));
+    })
+    .catch(() => picture.classList.add("is-gone"));
+  const words = document.createElement("div");
+  words.className = "wb-snapshot-words";
+  const name = document.createElement("strong");
+  name.textContent = snap.name;
+  const when = document.createElement("span");
+  when.className = "muted";
+  when.textContent = relativeTime(snap.at);
+  words.append(name, when);
+  const restore = smallButton("ph:arrow-counter-clockwise Restore", `Put the board back as it was at "${snap.name}"; Ctrl+Z takes it back`, async () => {
+    close();
+    try {
+      await wbRestoreToEvent(boardId, snap.event_id);
+      const said = `Board put back as it was at "${snap.name}". Ctrl+Z undoes it.`;
+      wbAnnounce(said);
+      toast(said);
+    } catch (err) {
+      toast(err.message || "The board could not be put back.", true);
+      await fetchWhiteboardState();
+      renderWhiteboardNow();
+    }
+  });
+  const remove = smallButton("ph:trash", `Delete the snapshot "${snap.name}" (the board is not changed)`, async () => {
+    await apiJson(`/whiteboard/history/snapshots/${snap.id}?board_id=${boardId}`, { method: "DELETE" }).catch((err) => toast(err.message, true));
+    redraw();
+  });
+  row.append(picture, words, restore, remove);
+  return row;
+}
+
+async function wbOpenSnapshots() {
+  const boardId = window.currentBoardId;
+  if (!boardId) {
+    toast("The scratch board keeps no snapshots. Open or make a named board first.");
+    return;
+  }
+  openSheet({
+    label: "Snapshots",
+    name: "wb-snapshots",
+    build: (card, close) => {
+      card.classList.add("wb-snapshots-card");
+      const save = smallButton("ph:camera Save a snapshot…", "Name the board as it is now, to come back to", async () => {
+        const at = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const name = await promptDialog("Name this snapshot:", `Snapshot ${at}`, { confirmLabel: "Save" });
+        if (name === null || name === undefined) return;
+        try {
+          await apiJson("/whiteboard/history/snapshots", { method: "POST", body: JSON.stringify({ board_id: boardId, name: String(name).trim() || `Snapshot ${at}` }) });
+          redraw();
+        } catch (err) {
+          toast(err.message || "The snapshot was not saved.", true);
+        }
+      }, false);
+      save.id = "wb-snapshot-save";
+      const list = document.createElement("div");
+      list.className = "sheet-list wb-snapshot-list";
+      const redraw = async () => {
+        const out = await apiJson(`/whiteboard/history/snapshots?board_id=${boardId}`, { silent: true }).catch(() => ({ snapshots: [] }));
+        const rows = (out.snapshots || []).map((snap) => wbSnapshotRow(snap, boardId, redraw, close));
+        if (!rows.length) {
+          const empty = document.createElement("p");
+          empty.className = "muted";
+          empty.textContent = "No snapshots yet. Save one before a big change, and Restore puts the board back.";
+          rows.push(empty);
+        }
+        list.replaceChildren(...rows);
+      };
+      card.append(save, list);
+      redraw();
+    },
+  });
+}

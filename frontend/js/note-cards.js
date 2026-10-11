@@ -135,17 +135,10 @@ function mapPreviewMeasurer() {
   }
   return mapPreviewMeasureCtx;
 }
-//: Take or discard the tags filing suggested (INBOX 440); the list redraws
-//: from the server's answer, so the card and every other view agree.
-async function answerSuggestedTags(entry, body) {
-  try {
-    await apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(body) });
-    await refreshEntries([entry.id]);
-    const tag = (body.take || body.discard || [])[0];
-    toast(body.take ? `Tagged #${tag}.` : `Won't suggest #${tag} for this note again.`);
-  } catch (error) {
-    toast(error.message || "Couldn't change the tags.", true);
-  }
+//: Take, discard or restore a suggested tag: tag-suggest.js's
+//: `answerSuggestedTags` (lazy: the boot gzip ratchet), fetched on the press.
+function answerTags(entry, body) {
+  ensureModule("tagSuggest").then(() => answerSuggestedTags(entry, body));
 }
 
 function mapPreviewTextWidth(text, fontSize) {
@@ -927,7 +920,7 @@ function mapChip(board, { onOpen = null, count = true, interactive = true } = {}
     chip.addEventListener("click", (event) => {
       event.stopPropagation();
       if (onOpen) onOpen(board);
-      else if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(board?.id ?? null);
+      else openWhiteboardBoard(board?.id ?? null);
     });
   }
   return chip;
@@ -1315,9 +1308,11 @@ function fitNoteMetas(metas) {
     //: Still too long (a phone, with its ⋯ on the line): the facts after
     //: the tags keep their icon and lose their words, the words on the
     //: title, from the end; the low-score warning goes last.
-    const isReview = (text) => text.parentElement.classList.contains("review");
+    //: Ask's match reason folds last too (INBOX 728): an icon-only "70%
+    //: similar" beside a worded one read as two different facts.
+    const isLast = (text) => text.parentElement.matches(".review, .result-reason-chip");
     const words = [...line.meta.querySelectorAll(":scope > .chip:not(.category, .filing-sure, [data-tag]) > .ph-text")]
-      .reverse().sort((x, y) => isReview(x) - isReview(y));
+      .reverse().sort((x, y) => isLast(x) - isLast(y));
     for (const text of words) {
       if (over <= 0) break;
       over -= right(text) - before(text);
@@ -1329,6 +1324,8 @@ function fitNoteMetas(metas) {
     for (const el of icons) {
       el.classList.add("is-icon");
       el.title ||= el.textContent;
+      //: Its words are hidden now, so the title alone named it.
+      if (el.getAttribute("role") === "button") el.setAttribute("aria-label", el.title);
     }
     more.hidden = !fold.length;
     more.firstChild.textContent = `+${fold.length}`;
@@ -1358,7 +1355,7 @@ function noteMetaMore(entry) {
     const items = [...more.parentElement.querySelectorAll(":scope > [data-tag][hidden]")].map((el) => {
       const tag = el.dataset.tag;
       return el.classList.contains("suggested-tag")
-        ? { label: `ph:plus ${tag}`, title: `Suggested: add #${tag}`, group: "Suggested", run: () => answerSuggestedTags(entry, { take: [tag] }) }
+        ? { label: `ph:plus ${tag}`, title: `Suggested: add #${tag}`, group: "Suggested", run: () => answerTags(entry, { take: [tag] }) }
         : { label: `ph:hash ${tag}`, title: `Show every note tagged #${tag}`, group: "Tags", run: () => filterNotesByTag(tag) };
     });
     openMenuAtPoint(items, "More tags", at.left, at.bottom);
@@ -1509,7 +1506,17 @@ function entryItem(entry, options = {}) {
       const dt = document.createElement("dt");
       dt.textContent = key;
       const dd = document.createElement("dd");
-      dd.textContent = (values || []).join(", ").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1") || "–";
+      //: Each value finds its notes (`prop:key=value` in the filter box).
+      for (const value of (values || []).filter(Boolean)) {
+        const shown = String(value).replace(/^\[\[|\]\]$/g, "");
+        const find = chip(shown, "refs", (event) => {
+          event.stopPropagation();
+          filterNotesBy(propQuery(key, shown));
+        });
+        find.title = `Find the notes whose ${key} is ${shown}`;
+        dd.append(find, " ");
+      }
+      if (!dd.firstChild) dd.textContent = "–";
       table.append(dt, dd);
     }
     li.appendChild(table);
@@ -1664,6 +1671,10 @@ function entryItem(entry, options = {}) {
         )
       );
     }
+  } else if (entry.board_kind) {
+    //: A board or a mind map says so where a note says its category (the
+    //: owner: "a whitebaord showed as a note"); it has none of its own.
+    meta.appendChild(chip(entry.board_kind === "map" ? "ph:tree-structure Mind map" : "ph:pencil-circle Board", "category"));
   } else {
     //: `category` names the chip for the meta line's own styles (08-
     //: consistency.css, "one line of facts"): before it had a class, the
@@ -1759,10 +1770,13 @@ function entryItem(entry, options = {}) {
     const take = document.createElement("span");
     take.className = "suggested-tag-take";
     setLabel(take, `ph:plus ${tag}`);
-    take.title = `Suggested: add #${tag}`;
+    //: Each suggestion says what in the note backs it (WORLD_CLASS 23,
+    //: decision 5): "It mentions “exam”."
+    const reason = entry.suggested_tag_reasons?.[tag];
+    take.title = reason ? `Suggested: add #${tag}. ${reason}` : `Suggested: add #${tag}`;
     take.addEventListener("click", (event) => {
       event.stopPropagation();
-      answerSuggestedTags(entry, { take: [tag] });
+      answerTags(entry, { take: [tag] });
     });
     makeUnlinkAccessible(take);
     group.appendChild(take);
@@ -1772,7 +1786,7 @@ function entryItem(entry, options = {}) {
     discard.title = `Not #${tag}: stop suggesting it for this note`;
     discard.addEventListener("click", (event) => {
       event.stopPropagation();
-      answerSuggestedTags(entry, { discard: [tag] });
+      answerTags(entry, { discard: [tag] });
     });
     makeUnlinkAccessible(discard);
     group.appendChild(discard);
@@ -1812,6 +1826,8 @@ function entryItem(entry, options = {}) {
   //: patches the chip in afterwards for cards rendered before they had.
   const refs = referenceCountChip(entry, options);
   if (refs) meta.appendChild(refs);
+  const topicMark = options.actions || options.facts ? noteTopicChip(entry) : null;
+  if (topicMark) meta.appendChild(topicMark);
   //: **And what it made you promise to do** (INBOX 309). Same cache, same
   //: patch-in, same line: a reminder that came out of this note is a fact
   //: about the note in exactly the way "on 1 board" is.
@@ -1985,7 +2001,7 @@ function entryItem(entry, options = {}) {
   //: that wrapped put it on a line of its own). The line never wraps now
   //: (`fitNoteMetas`), so this is the line's last fact at its right edge.
   //: The suffix its own span: a phone drops it before the category (UX-13).
-  if (edited && !byEdit) date.append(Object.assign(document.createElement("span"), { className: "entry-edited", textContent: " · edited" }));
+  if (edited && !byEdit) date.append(Object.assign(document.createElement("span"), { className: "entry-edited", textContent: "\u00a0· edited" }));
   meta.appendChild(date);
   meta.appendChild(metaEnd);
 
@@ -2330,31 +2346,11 @@ function noteReviewActions(entry) {
 //: A document is a node of its own (`document:<id>`, routes_graph.py) that the
 //: map draws only while its Documents switch is on, so asking for one turns
 //: that switch on first, the way the map's own Show switches would.
-async function showNoteInGraph(id, { document: isDocument = false } = {}) {
+//: The graph's own half is `graphShowNote` (graph.js, 2026-10-10: the boot
+//: script budget); the tab switch loads it first.
+async function showNoteInGraph(id, options = {}) {
   await switchTab("graph");
-  if (isDocument) {
-    const box = $("graph-documents");
-    if (box && !box.checked) {
-      box.checked = true;
-      box.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  }
-  const nodeId = isDocument ? `document:${id}` : id;
-  const deadline = Date.now() + 4000;
-  let node = null;
-  while (Date.now() < deadline) {
-    node = graphNodeById(nodeId);
-    if (node && Number.isFinite(node.x)) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  if (!node || !Number.isFinite(node.x)) {
-    toast(`That ${isDocument ? "document" : "note"} is not on the graph right now: a filter or the view may be hiding it.`, "info");
-    return;
-  }
-  focusGraphNode(node);
-  if (typeof graphSvg !== "undefined" && graphSvg && typeof graphZoom !== "undefined" && graphZoom) {
-    graphSvg.transition().duration(400).call(graphZoom.translateTo, node.x, node.y);
-  }
+  return graphShowNote(id, options);
 }
 
 //: Start a chat about one note. Named by its title in the words a person
@@ -2403,4 +2399,23 @@ function entryListSetStop(items, stop) {
     li.tabIndex = li === stop ? 0 : -1;
     entryCardControls(li, li === stop);
   }
+}
+
+// The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own
+// keyboard support and never got it retrofitted, mouse-only, same gap
+// chip() already closed once this session for the "Go to note" chip.
+// Dispatches a real click rather than duplicating each call site's own
+// handler, so this stays a one-line addition wherever a `.unlink` span
+// already has its click listener attached.
+function makeUnlinkAccessible(span) {
+  span.setAttribute("role", "button");
+  //: A title alone never shows on touch; callers set it first.
+  if (span.title) span.setAttribute("aria-label", span.title);
+  span.setAttribute("tabindex", "0");
+  span.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      span.click();
+    }
+  });
 }

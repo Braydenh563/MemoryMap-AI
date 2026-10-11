@@ -48,7 +48,7 @@ def test_every_control_a_command_presses_is_in_the_markup(table):
 def test_no_two_commands_claim_the_same_chord(table):
     """Two actions on one key means one of them quietly stops working, which
     is the same rule the app's rebinding dialog enforces for its own list."""
-    keys = [k for k in re.findall(r'keys: "([^"]*)"', table) if k]
+    keys = [k for k in re.findall(r'keys: "([^"]*)"', table) if k and k != "none"]
     assert keys, "no command carries a chord"
     duplicates = sorted({k for k in keys if keys.count(k) > 1})
     assert not duplicates, f"two commands claim the same chord: {duplicates}"
@@ -85,3 +85,17 @@ def test_the_sheet_and_the_palette_read_the_same_table():
     assert "DOC_COMMANDS" in palette[:800]
     sheet = source[source.index("function renderDocShortcutSheet("):]
     assert "DOC_COMMANDS" in sheet[:800]
+
+
+def test_every_row_has_a_chord_or_says_none(table):
+    """DOCUMENTS_PLAN section 25 row 6: 0 rows without a shortcut or a
+    "none" (29 of 52 in a code document had neither, docs42b). The list
+    chords are Google Docs' and are bound in `docCmKeymap`."""
+    keys = re.findall(r'keys: "([^"]*)"', table)
+    assert "" not in keys, f"{keys.count('')} rows have neither a chord nor \"none\""
+    source = DOCUMENTS_JS.read_text(encoding="utf-8")
+    keymap = source[source.index("function docCmKeymap("):]
+    keymap = keymap[: keymap.index("\n}\n")]
+    for chord, binding in (("Ctrl+Shift+8", "Mod-Shift-8"), ("Ctrl+Shift+7", "Mod-Shift-7"), ("Ctrl+Shift+9", "Mod-Shift-9")):
+        assert f'keys: "{chord}"' in table and f'key: "{binding}"' in keymap
+    assert 'command.keys === "none" ? "" : command.keys' in source

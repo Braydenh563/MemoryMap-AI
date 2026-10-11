@@ -911,6 +911,19 @@ def _notebook_overview(session: Session, args: dict) -> dict:
     }
 
 
+def _search_help(session: Session, args: dict) -> dict:
+    """The app's own help for a feature, so a question about how MemoryMap
+    works is answered from its guide rather than from the notes or the
+    model's guesses (the same block `help_chat` adds to an app question)."""
+    from memorymap.ai import help_chat
+    query = args.get("query") or ""
+    text = help_chat.help_block_for(query)
+    return {
+        "guide_text": text,
+        "label": f"ph:book-open Read the guide on “{_clip(query, 40)}”",
+    }
+
+
 def _get_current_time(session: Session, args: dict) -> dict:
     """Time-aware answers: the model can ask what 'now' is.
 
@@ -926,6 +939,73 @@ def _get_current_time(session: Session, args: dict) -> dict:
         "human": now.strftime("%A %d %B %Y, %H:%M"),
         "label": "ph:clock Checked the current time",
     }
+
+
+# --- the deterministic layer, offered to the model (CHAT_PLAN section 2, the agent row) ---
+#
+# A 1 to 3B model miscounts days and fumbles a percentage; these hand it the
+# app's own answers (the recogniser, the utilities, the validators) so it
+# computes nothing itself. Each result says how it read the input, and its
+# numbers are a tool result, which `source_check` counts as a source.
+
+
+def _calculate(session: Session, args: dict) -> dict:
+    from memorymap.ai import arithmetic, utilities
+    from memorymap.core.config import user_now
+
+    question = str(args.get("question") or "").strip()[:300]
+    if not question:
+        return {"error": "Say what to work out, for example: 15% of 240."}
+    now = user_now(deps.get_config())
+    parts = utilities.answer(question, now) or utilities.answer(f"what is {question}", now)
+    if not parts:
+        try:
+            value = arithmetic.spoken(arithmetic.evaluate(question))
+        except arithmetic.NotArithmetic:
+            return {"error": "That is not a sum, a percentage, a conversion or a date question the app can work out."}
+        parts = [("computed", f"{question} is {value}.")]
+    text = "".join(t for kind, t in parts if kind == "computed").strip()
+    answer, _, read_as = text.partition("\nRead as ")
+    return {"answer": answer.strip(), "read_as": read_as.strip().rstrip(".") or question, "label": "ph:calculator Worked it out"}
+
+
+def _read_text(session: Session, args: dict) -> dict:
+    from memorymap.ai import recognise
+    from memorymap.core.config import user_now
+
+    text = str(args.get("text") or "")[:2000]
+    spans = recognise.recognise(text, now=user_now(deps.get_config()))
+    return {
+        "read": [{"kind": s.kind, "said": s.text, "read_as": s.read_as, "value": s.json()["value"]} for s in spans if not s.rank][:40],
+        "label": "ph:magnifying-glass Read the dates and amounts",
+    }
+
+
+def _check_answer(session: Session, args: dict) -> dict:
+    from memorymap.ai import validate
+
+    answer = str(args.get("answer") or "")[:6000]
+    sources = [str(s)[:20000] for s in (args.get("sources") or [])][:40]
+    checked = validate.check_model_answer(answer, sources)
+    return {"unsourced": checked["unbacked"], "ok": checked["ok"], "label": "ph:seal-check Checked the answer"}
+
+
+def _propose_act(session: Session, args: dict) -> dict:
+    """A model's act, through the act registry (CHAT_PLAN decision 53, F3's
+    `acts.propose`): the sentence is read by the same grammar a typed act is,
+    previewed as its card and left waiting for the person's Confirm. The
+    model proposes, the engine decides; nothing is written here."""
+    from memorymap.ai import act_registry
+    from memorymap.core.config import user_now
+
+    sentence = str(args.get("sentence") or "").strip()[:400]
+    planned = act_registry.propose(session, sentence, user_now(deps.get_config()))
+    if planned is None:
+        return {"error": "That is not an act the app knows. Say it as: remind me to ..., tag the note about ... with ..., pin the note about ..."}
+    out = {"line": planned.get("line", ""), "label": "ph:hand-pointing Proposed, waiting for you"}
+    if planned.get("card"):
+        out["act_card"] = planned["card"]
+    return out
 
 
 def _summarize_notes(session: Session, args: dict) -> dict:
@@ -2265,6 +2345,20 @@ def validate_make_plan(arguments: dict) -> dict:
     }
 
 
+def validate_propose_act(arguments: dict, history: list[dict] | None) -> dict:
+    """The proposal `propose_act` hands over, or a ToolError saying what is missing.
+
+    The card itself needs the session, which a handover validator does not
+    have: the agent loop sees the `act_proposal` type and runs the tool's
+    handler (which writes nothing) so the card is drawn and the turn stops
+    there, waiting for Confirm.
+    """
+    sentence = " ".join(str(arguments.get("sentence") or "").split())
+    if not sentence:
+        raise ToolError("Say the change in the person's words: remind me to ..., tag the note about ... with ...")
+    return {"type": "act_proposal", "sentence": sentence}
+
+
 #: The tools whose whole effect is to end the turn and hand over, mapped to the
 #: validator that turns the model's arguments into the event the UI receives.
 #: A dispatch table rather than a chain of name checks in the agent loop: the
@@ -2279,6 +2373,7 @@ HANDOFFS: dict[str, Callable[[dict, list[dict] | None], dict]] = {
     "run_skill": lambda arguments, history: validate_run_skill(arguments),
     "make_plan": lambda arguments, history: validate_make_plan(arguments),
     "compress_chat": validate_compress_chat,
+    "propose_act": validate_propose_act,
 }
 
 #: The handovers that start a *run*. A run must not start another run: each one
@@ -2582,10 +2677,9 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "related_notes",
             "Walk the connections around a note: what it links to, what "
-            "replies to it, and what shares its tags. Each result says HOW it "
-            "connects and how far away it is. Set include_suggestions to also "
-            "get notes that READ alike but were never linked, those are "
-            "guesses, not connections.",
+            "replies to it, and what shares its tags, each with HOW it "
+            "connects and how far away. include_suggestions adds notes that "
+            "READ alike but were never linked: guesses, not connections.",
             {
                 "type": "object",
                 "properties": {
@@ -2605,11 +2699,10 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "path_between",
-            "Answer 'how are these two notes related?'. Returns the chain of "
-            "connections joining them: each step says whether it is a link "
-            "somebody made, a reply thread, or a tag the two share. Use this "
-            "for a question about two specific notes; use related_notes for "
-            "what surrounds one.",
+            "Answer 'how are these two notes related?': the chain of "
+            "connections joining them, each step a link somebody made, a "
+            "reply thread, or a shared tag. For what surrounds one note, use "
+            "related_notes.",
             {
                 "type": "object",
                 "properties": {
@@ -2648,13 +2741,11 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "list_notes",
-            "Walk through the user's notes, newest first, optionally filtered "
-            "by category, tag, age, or untagged. Returns previews one page at "
-            "a time: check has_more and call again with next_offset to see "
-            "the rest. Set untagged:true for 'tag my untagged notes' rather "
-            "than listing everything and working out which have none. "
-            "Use this for 'go through my X notes' style requests; use "
-            "search_notes when you're looking for something specific.",
+            "Walk through the user's notes, newest first, optionally by "
+            "category, tag, age or untagged. Previews one page at a time: "
+            "while has_more, call again with next_offset. Set untagged:true "
+            "for 'tag my untagged notes'. Use it for 'go through my X notes'; "
+            "use search_notes to find something specific.",
             {
                 "type": "object",
                 "properties": {
@@ -2689,10 +2780,9 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "count_notes",
-            "Count the user's notes: in total, broken down per category, or "
-            "for one category, tag, age or notes with no tags at all. Returns "
-            "numbers only, so it's the cheap way to answer 'how many…' "
-            "without reading any notes.",
+            "Count the user's notes: in total, per category, or for one "
+            "category, tag, age or untagged. Numbers only: the cheap way to "
+            "answer 'how many…'.",
             {
                 "type": "object",
                 "properties": {
@@ -2728,22 +2818,18 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "notebook_overview",
-            "Categories, tags and the total note count, in one call. Use this "
-            "instead of list_categories + list_tags + count_notes when you "
-            "want the notebook's overall shape (filing it, auditing it, "
-            "summarising how it's organised): one call for what those three "
-            "would otherwise cost separately. For one specific number "
-            "(notes in a category, notes with a tag) count_notes alone is "
-            "still the right call.",
+            "Categories, tags and the total note count, in one call: use it "
+            "instead of list_categories + list_tags + count_notes for the "
+            "notebook's overall shape. For one specific number, count_notes "
+            "alone is still the right call.",
             {"type": "object", "properties": {}},
             _notebook_overview,
         ),
         ToolSpec(
             "list_documents",
             "List the user's long-form documents, newest first, optionally "
-            "filtered by a word in the title or body. Documents are separate "
-            "from notes and are never searched automatically, so use this "
-            "whenever the question is about something they wrote up properly.",
+            "filtered by a word in the title or body. Documents are never "
+            "searched with notes: use this for anything they wrote up properly.",
             {
                 "type": "object",
                 "properties": {
@@ -2759,11 +2845,10 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "search_files",
-            "Search the files the user has uploaded, photos, scans, PDFs, "
-            "attachments: by name, by the caption the app wrote for them, or "
-            "by the text read out of them. Use this for anything about a "
-            "picture or a document file: notes are searched separately and "
-            "never contain a file's contents.",
+            "Search the files the user has uploaded (photos, scans, PDFs, "
+            "attachments) by name, caption or the text read out of them. Use "
+            "it for anything about a picture or file: notes never contain a "
+            "file's contents.",
             {
                 "type": "object",
                 "properties": {
@@ -2780,11 +2865,8 @@ TOOLS: dict[str, ToolSpec] = {
             "read_file",
             "Read everything the app knows about one file: its caption and "
             "the text read out of it. Takes the `kind` and `id` exactly as "
-            "search_files returned them: uploads and attachments are "
-            "different things with their own numbering. The extracted text "
-            "is capped; for a multi-page scan or a long document, pass "
-            "query to get the text around where it actually appears "
-            "instead of just the first page.",
+            "search_files returned them (uploads and attachments are numbered "
+            "separately). The text is capped: for a long file, pass query.",
             {
                 "type": "object",
                 "properties": {
@@ -2795,10 +2877,8 @@ TOOLS: dict[str, ToolSpec] = {
                     "file_id": {"type": "integer", "description": "The file's id"},
                     "query": {
                         "type": "string",
-                        "description": "Optional: a word or phrase you're looking "
-                        "for in this file. Returns the text around where it "
-                        "appears instead of only the start of the reading, which "
-                        "matters for anything longer than a page or two.",
+                        "description": "Optional: a word or phrase to find; returns "
+                        "the text around it, not only the start.",
                     },
                 },
                 "required": ["kind", "file_id"],
@@ -2839,18 +2919,16 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "get_document",
             "Read one document in full, by id. Use after list_documents, "
-            "whose results are only previews. For a long document, pass "
-            "query to get back the few paragraphs most relevant to it "
-            "instead of a plain head-of-document truncation.",
+            "whose results are only previews. For a long one, pass query "
+            "to get its most relevant paragraphs instead of the head.",
             {
                 "type": "object",
                 "properties": {
                     "document_id": {"type": "integer", "description": "The document's id"},
                     "query": {
                         "type": "string",
-                        "description": "Optional: what you're looking for in this "
-                        "document. Narrows a long document down to its most "
-                        "relevant paragraphs instead of just the start.",
+                        "description": "Optional: what to look for; returns the "
+                        "most relevant paragraphs.",
                     },
                 },
                 "required": ["document_id"],
@@ -2892,10 +2970,8 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "add_whiteboard_card",
-            "Place an existing note as a card on a whiteboard board, the "
-            "building block of drawing a diagram from a description. Call "
-            "read_whiteboard first so a note already on the board isn't "
-            "placed a second time.",
+            "Place an existing note as a card on a whiteboard board. Call "
+            "read_whiteboard first so a note is not placed twice.",
             {
                 "type": "object",
                 "properties": {
@@ -2913,9 +2989,8 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "add_whiteboard_link",
-            "Draw a link between two cards already on a whiteboard board, "
-            "the connecting step of building a diagram from a description. "
-            "Both cards must already exist (add_whiteboard_card first).",
+            "Draw a link between two cards already on a whiteboard board "
+            "(add_whiteboard_card first).",
             {
                 "type": "object",
                 "properties": {
@@ -2930,8 +3005,7 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "generate_diagram",
             "Place a whole tree of notes on a whiteboard board in one call, "
-            "for 'draw a diagram/mind map of X' when several connected cards "
-            "are needed at once. Each node is either a new note (give "
+            "for 'draw a diagram/mind map of X'. Each node is either a new note (give "
             "'title') or an existing one ('note_id'), plus a short local "
             "'ref' other nodes reference as their 'parent_ref'. Exactly one "
             "node has no parent_ref (the root). Positions are computed "
@@ -2941,14 +3015,13 @@ TOOLS: dict[str, ToolSpec] = {
                 "properties": {
                     "nodes": {
                         "type": "array",
-                        "description": "Each: {ref, title OR note_id, parent_ref (omit for the root)}",
                         "items": {
                             "type": "object",
                             "properties": {
                                 "ref": {"type": "string", "description": "Short local id, e.g. 'a'"},
                                 "title": {"type": "string", "description": "Content for a new note"},
                                 "note_id": {"type": "integer", "description": "An existing note's id instead"},
-                                "parent_ref": {"type": "string", "description": "Another node's ref; omit for the root"},
+                                "parent_ref": {"type": "string", "description": "Omit for the root"},
                             },
                             "required": ["ref"],
                         },
@@ -2976,11 +3049,10 @@ TOOLS: dict[str, ToolSpec] = {
         # thing they never ask the model for is a coordinate.
         ToolSpec(
             "read_mindmap",
-            "Read a mindmap as an indented outline, the map's title, then "
-            "every node with its own id, its kind, and the id of any note or "
-            "document it stands for. Use this before adding to a map, and "
-            "for 'what's in my X map?'. Needs the map's board_id; "
-            "search_whiteboard finds it by name.",
+            "Read a mindmap as an indented outline: its title, then every "
+            "node with its id, kind and any note or document it stands for. "
+            "Use it before adding to a map and for 'what's in my X map?'. "
+            "Needs the map's board_id; search_whiteboard finds it by name.",
             {
                 "type": "object",
                 "properties": {
@@ -3013,11 +3085,10 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "add_map_node",
-            "Add ONE node to a mindmap, under a parent node or as a new "
-            "root. Call read_mindmap (or create_mindmap) first for the ids. "
-            "Positions are worked out automatically, never invent x/y. Use "
-            "kind 'topic' for plain text, or kind 'note' with note_id to put "
-            "an existing note on the map.",
+            "Add ONE node to a mindmap, under a parent or as a new root. "
+            "Call read_mindmap (or create_mindmap) first for the ids. Never "
+            "invent x/y. Kind 'topic' is plain text; kind 'note' with "
+            "note_id puts an existing note on the map.",
             {
                 "type": "object",
                 "properties": {
@@ -3043,10 +3114,9 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "link_map_nodes",
-            "Draw a cross-link between two nodes on the same mindmap, the "
-            "connection a tree can't express ('this branch depends on that "
-            "one'). Both nodes must already exist; read_mindmap gives their "
-            "ids.",
+            "Draw a cross-link between two existing nodes on one mindmap, "
+            "what a tree can't express ('this depends on that'); read_mindmap "
+            "gives their ids.",
             {
                 "type": "object",
                 "properties": {
@@ -3275,8 +3345,8 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "save_skill",
             "Create a saved skill, or update one by using the same name. A "
-            "skill is a repeatable job the user runs with one click: what to "
-            "do, the steps to do it in, and the tools it needs.",
+            "skill is a job the user runs with one click: what to do, the "
+            "steps, and the tools it needs.",
             {
                 "type": "object",
                 "properties": {
@@ -3308,23 +3378,20 @@ TOOLS: dict[str, ToolSpec] = {
                     #: the "Build a skill" skill drives.
                     "verify_tool": {
                         "type": "string",
-                        "description": "A read-only tool that counts something, "
-                        "e.g. count_notes, to check the skill worked (optional)",
+                        "description": "Optional read-only counting tool, e.g. "
+                        "count_notes, to check the skill worked",
                     },
                     "verify_expect": {
                         "type": "string",
-                        "description": "What that count should be afterwards: "
-                        "one of min, max, equals, unchanged",
+                        "description": "min, max, equals or unchanged",
                     },
                     "verify_value": {
                         "type": "integer",
-                        "description": "The number to compare against (not "
-                        "needed for unchanged)",
+                        "description": "The number to compare (not for unchanged)",
                     },
                     "verify_untagged": {
                         "type": "boolean",
-                        "description": "Count only notes with no tags "
-                        "(optional, for count_notes)",
+                        "description": "Count only untagged notes (count_notes)",
                     },
                 },
                 "required": ["name", "prompt"],
@@ -3344,11 +3411,58 @@ TOOLS: dict[str, ToolSpec] = {
             destructive=True,
         ),
         ToolSpec(
+            "search_help",
+            #: Short on purpose: every tool's schema must fit a 32k window
+            #: untrimmed (tests/test_prompt_budget.py), and this one tipped it.
+            "How a MemoryMap feature or setting works, from its guide.",
+            {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+            _search_help,
+        ),
+        ToolSpec(
             "get_current_time",
             "Get the current local date and time. Use this for time-aware "
             "answers and to compute reminder times.",
             {"type": "object", "properties": {}},
             _get_current_time,
+        ),
+        ToolSpec(
+            "calculate",
+            "Work out a sum, percentage, unit or currency conversion, or count "
+            "of days, the way the app does. Use it for every number you would "
+            "otherwise compute; say the result and how it was read.",
+            {"type": "object", "properties": {"question": {"type": "string", "description": "e.g. 15% of 240, 5 km in miles, days until 25 December"}},
+             "required": ["question"]},
+            _calculate,
+        ),
+        ToolSpec(
+            "read_text",
+            "Read the dates, times, durations, amounts and units in a piece of "
+            "text exactly as the app reads them, each with how it was read. "
+            "Use it instead of working out what a date means yourself.",
+            {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
+            _read_text,
+        ),
+        ToolSpec(
+            "check_answer",
+            "Check a draft answer against the text it came from: lists any "
+            "number or name in the answer the sources do not contain.",
+            {"type": "object", "properties": {"answer": {"type": "string"},
+                                              "sources": {"type": "array", "items": {"type": "string"}}},
+             "required": ["answer", "sources"]},
+            _check_answer,
+        ),
+        ToolSpec(
+            "propose_act",
+            "Propose one change in the user's words (\"remind me to call Sam on "
+            "Friday at 9\", \"pin the dentist note\"): the app shows a card and "
+            "the user confirms. Use it when unsure a change is wanted; then stop.",
+            {"type": "object", "properties": {"sentence": {"type": "string"}}, "required": ["sentence"]},
+            _propose_act,
+            ends_turn=True,
         ),
         ToolSpec(
             "summarize_notes",
@@ -3481,9 +3595,8 @@ TOOLS: dict[str, ToolSpec] = {
                     "reason": {
                         "type": "string",
                         "description": (
-                            "Optional: why these notes are connected, in a few words "
-                            "(e.g. 'both about scheduling'). Shown on the graph and in "
-                            "Trace. Skip it when the connection is obvious."
+                            "Optional: why they are connected, in a few words "
+                            "(e.g. 'both about scheduling'). Skip it when obvious."
                         ),
                     },
                     "link_type": {
@@ -3801,8 +3914,29 @@ CORE_TOOLS = [
 # fires when it needn't costs a few hundred characters, and one that fails to
 # fire costs the user the thing they asked for.
 TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
+    #: The app's own guide, for a question about MemoryMap rather than the
+    #: notes (2026-10-10 triage, decision 4: it found the right help entry for
+    #: eight of ten sample questions). A group, not a core tool: most turns
+    #: are about the notes, and a core tool's schema is paid on every round.
     (
-        ("set_reminder", "list_reminders", "complete_reminder"),
+        ("search_help",),
+        (
+            "how do i", "how to", "where is", "where do i", "where are", "setting",
+            "feature", "button", "shortcut", "the app", "memorymap", "this app",
+        ),
+    ),
+    (
+        #: The app's own working (CHAT_PLAN section 2, the agent row): a small
+        #: model asked for a number is handed the tool that works it out.
+        ("calculate", "read_text", "check_answer"),
+        (
+            "calculate", "work out", "how many", "how much", "percent", "%", "convert",
+            "total", "add up", "average", "days until", "days since", "how long until",
+            "what date", "which day", "sum of", "times", "divided",
+        ),
+    ),
+    (
+        ("set_reminder", "list_reminders", "complete_reminder", "propose_act"),
         (
             "remind", "reminder", "forget", "due", "deadline", "tomorrow",
             "tonight", "later", "schedule", "chase", "follow up", "o'clock",
@@ -3811,7 +3945,7 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
     ),
     (
-        ("tag_note", "rename_tag", "delete_tag"),
+        ("tag_note", "rename_tag", "delete_tag", "propose_act"),
         ("tag", "label", "untagged", "retag", "categorise", "categorize"),
     ),
     (

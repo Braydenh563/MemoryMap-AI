@@ -207,7 +207,9 @@ MemoryMap-AI/
 │   ├── entry/               # notes
 │   │   ├── manager.py       # create/read/update/soft-delete, links, audit
 │   │   ├── tagnames.py      # the one rule for what a list of tags may hold
-│   │   ├── app_import.py    # Notion, Obsidian, Evernote and Apple Notes in
+│   │   ├── app_import.py    # Notion, Obsidian, Evernote, Apple Notes and a MemoryMap folder in
+│   │   ├── export_folder.py # the whole notebook as a markdown folder, and back
+│   │   ├── import_report.py # what an import read, wrote and left out, kept as a page
 │   │   ├── properties.py    # a note's `---` properties block (KG4)
 │   │   ├── timewords.py     # what "tomorrow" meant, resolved at capture
 │   │   ├── duplicates.py    # near-duplicate finder + AI merge
@@ -452,7 +454,7 @@ gate** (`routes_auth.require_unlock`). Routers are grouped by feature area:
 | `routes_entities` | `/entities`, `/entities/{id}`, `/entities/{id}/merge` | the entity layer: the list, an entity's page (mentions in context, co-mentions, dates), kind, rename, other names and a merge by hand (GRAPH_PLAN KG5) |
 | `routes_relations` | `/relation-types`, `/relation-types/{key}` | kinds of link: the six built-ins (code) and a person's own (`RelationType`), each with its name from the other end; a deleted kind leaves its links untyped (GRAPH_PLAN KG3) |
 | `routes_properties` | `/entries/{id}/properties`, `/note-types` | a note's properties (the `---` block in its text, `entry/properties.py`; `EntryProperty` is the index) and note types with fields (GRAPH_PLAN KG4) |
-| `routes_import` | `/import/app` | notes from Notion, Obsidian, Evernote or Apple Notes; the readers and the writer are `entry/app_import.py` |
+| `routes_import` | `/import/app`, `/import/reports/{id}`, `/export/folder` | notes from Notion, Obsidian, Evernote, Apple Notes or a MemoryMap folder (a job with Stop and a kept report); the readers and the writer are `entry/app_import.py` and `entry/export_folder.py` |
 | `routes_questions` | `/questions` | open questions: the list and its states |
 | `routes_editor` | `/editor` | `POST /editor/read`: the margin reader's one route |
 | `routes_vision` | `/review-queue`, `/most-opened`, `/tidy-proposals`, `/charts/question` | the original vision's open rows: the review queue, most opened notes, tidy proposals and a chart from a counting question |
@@ -1378,7 +1380,7 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
 
 ## 12. Testing & CI
 
-- **Run locally:** `PYTHONPATH=src pytest -n auto` (about 830 files, 8,200+ tests,
+- **Run locally:** `PYTHONPATH=src pytest -n auto` (about 830 files, 9,200+ tests,
   under nine minutes on four cores and about 25 serially). Uses a throwaway database and fakes every AI call
   (`tests/fakes.py` + `tests/conftest.py`), so it is fully offline. The
   routine local gate is `bash scripts/gate.sh --changed` (the lint set,

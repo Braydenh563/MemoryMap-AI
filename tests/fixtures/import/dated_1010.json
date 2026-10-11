@@ -1,0 +1,18 @@
+{
+ "_about": "Imported notes whose day is in the export (CHAT_PLAN section 2, the import row): each file, the day its note must land on in the timeline, and the dated mentions read on that day. tests/test_import_dates.py.",
+ "imports": [
+  {"source": "obsidian", "files": {
+    "Vault/Daily/2024-03-14.md": "Standup with Sam Carter in Lisbon. Follow up tomorrow.",
+    "Vault/Trips/Porto.md": "---\ndate: 2023-07-02\n---\nFlew to Porto with Ana.",
+    "Vault/Ideas/Undated.md": "A thought with no day in it."
+  }},
+  {"source": "notion", "files": {
+    "Export/Kickoff 0123456789abcdef0123456789abcdef.md": "# Kickoff\n\nCreated: March 9, 2024 9:41 AM\n\nAgreed next friday for the review."
+  }},
+  {"source": "apple", "files": {
+    "Notes/Home/Boiler.txt": "Written: 14 February 2025\nBoiler serviced, a call with Ken."
+  }}
+ ],
+ "days": {"2024-03-14": "2024-03-14", "Porto": "2023-07-02", "Kickoff": "2024-03-09", "Boiler": "2025-02-14", "Undated": null},
+ "mentions": {"2024-03-14": [["tomorrow", "2024-03-15"]], "Kickoff": [["next friday", "2024-03-15"]]}
+}

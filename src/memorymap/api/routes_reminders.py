@@ -14,8 +14,9 @@ from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
-from typing import Literal
+from typing import Annotated, Literal
 
+from memorymap.ai import recognise as rec
 from memorymap.core import deps
 from memorymap.core.database import Document, Entry, Reminder, utcnow
 from memorymap.core.deps import get_session
@@ -25,7 +26,14 @@ from memorymap.entry.properties import strip as strip_properties
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
 Priority = Literal["low", "normal", "high"]
-Recurring = Literal["none", "daily", "weekly", "monthly"]
+#: The three words, or a rule the reader keeps as itself (every weekday,
+#: every 2 weeks, the last Friday of the month: TIMELINE_PLAN 11 row 8).
+Recurring = Annotated[
+    str,
+    Field(max_length=80, pattern=r"^(?:none|daily|weekly|monthly|" + rec.STORED_RULE.pattern + r")$"),
+]
+#: Up to thirty days ahead, in minutes.
+AlertMinutes = Annotated[int, Field(ge=1, le=43200)]
 
 
 class ReminderCreate(BaseModel):
@@ -36,6 +44,7 @@ class ReminderCreate(BaseModel):
     document_id: int | None = None
     priority: Priority = "normal"
     recurring: Recurring = "none"
+    alert_minutes: AlertMinutes | None = None
     #: Undo's door (INBOX 537): a deleted reminder made again as it was, its
     #: due time in the past and its done mark included, which the past-date
     #: rule below otherwise refuses.
@@ -57,6 +66,8 @@ class ReminderUpdate(BaseModel):
     done: bool | None = None
     priority: Priority | None = None
     recurring: Recurring | None = None
+    #: 0 clears the alert (None leaves it as it is).
+    alert_minutes: int | None = Field(default=None, ge=0, le=43200)
     #: Undo's door for a snooze (WORLD_CLASS_PLAN row 32): the time it goes
     #: back to is the old one, which is usually already past (an overdue
     #: reminder is what gets snoozed), so the past-date rule must not refuse it.
@@ -129,7 +140,39 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
         "target_title": target_title,
         "priority": reminder.priority,
         "recurring": reminder.recurring,
+        "alert_minutes": reminder.alert_minutes,
+        #: How the repeat and the alert read back, from the reader that read them.
+        "repeat_words": _repeat_words(reminder.recurring),
+        "alert_words": rec.alert_words(reminder.alert_minutes) if reminder.alert_minutes else None,
     }
+
+
+def _repeat_words(recurring: str) -> str | None:
+    """"every 2 weeks", "every last Friday of the month": a stored repeat said back."""
+    if not recurring or recurring == "none":
+        return None
+    return recurring if recurring in ("daily", "weekly", "monthly") else _rule_words(recurring)
+
+
+_DAY_NAMES = {"MO": "Monday", "TU": "Tuesday", "WE": "Wednesday", "TH": "Thursday", "FR": "Friday", "SA": "Saturday", "SU": "Sunday"}
+_NTH_WORDS = {"-1": "last", "1": "first", "2": "second", "3": "third", "4": "fourth"}
+
+
+def _rule_words(rule: str) -> str:
+    parts = dict(item.split("=", 1) for item in rule.split(";") if "=" in item)
+    unit = {"DAILY": "day", "WEEKLY": "week", "MONTHLY": "month", "YEARLY": "year"}.get(parts.get("FREQ", ""), "time")
+    n = int(parts.get("INTERVAL", 1))
+    byday = parts.get("BYDAY", "")
+    if byday == "MO,TU,WE,TH,FR":
+        return "every weekday"
+    if byday == "SA,SU":
+        return "every weekend"
+    if byday[:1] in "-1234" and byday[-2:] in _DAY_NAMES and len(byday) > 2:
+        return f"every {_NTH_WORDS.get(byday[:-2], byday[:-2])} {_DAY_NAMES[byday[-2:]]} of the month"
+    every = "every other" if n == 2 else f"every {n}" if n > 1 else "every"
+    if byday in _DAY_NAMES:
+        return f"{every} {_DAY_NAMES[byday]}"
+    return f"{every} {unit}{'s' if n > 2 else ''}"
 
 
 def _existing(session: Session, reminder_id: int) -> Reminder:
@@ -273,13 +316,15 @@ def _ics_event(session: Session, reminder: Reminder, stamp: str) -> list[str]:
     rule = _ICS_RRULE.get(reminder.recurring)
     if rule:
         lines.append(f"RRULE:FREQ={rule}")
+    elif reminder.recurring.startswith("FREQ="):
+        lines.append(f"RRULE:{reminder.recurring}")
     if reminder.done:
         lines.append("STATUS:COMPLETED")
     lines += [
         "BEGIN:VALARM",
         "ACTION:DISPLAY",
         f"DESCRIPTION:{_ics_text(reminder.text)}",
-        "TRIGGER:PT0M",
+        f"TRIGGER:-PT{reminder.alert_minutes}M" if reminder.alert_minutes else "TRIGGER:PT0M",
         "END:VALARM",
         "END:VEVENT",
     ]
@@ -380,6 +425,7 @@ def create_reminder(body: ReminderCreate, session: Session = Depends(get_session
         document_id=body.document_id,
         priority=body.priority,
         recurring=body.recurring,
+        alert_minutes=body.alert_minutes,
         done=body.restore and body.done,
     )
     session.add(reminder)
@@ -387,6 +433,30 @@ def create_reminder(body: ReminderCreate, session: Session = Depends(get_session
     log_action(session, "created", "reminder", reminder.id, body.text[:80])
     session.commit()
     return _to_out(session, reminder)
+
+
+class WhenBody(BaseModel):
+    text: str = Field(min_length=1, max_length=200)
+    tz_offset_minutes: int | None = Field(default=None, ge=-840, le=840)
+
+
+@router.post("/when")
+def read_when(body: WhenBody) -> dict:
+    """A typed date or time ("next friday", "3pm") as wall-clock parts.
+
+    The date and time pickers' typed entry (UI_MODERNISATION_PLAN Phase 12
+    decision 5): `ai/when` reads it with no model, on the person's clock, and
+    nothing is made. 422 when the words are not a time.
+    """
+    from memorymap.ai import when
+
+    zone = timezone(timedelta(minutes=body.tz_offset_minutes or 0))
+    at = when.resolve(body.text, utcnow().astimezone(zone))
+    if at is None:
+        raise HTTPException(status_code=422, detail="I couldn't read a date or time from that.")
+    if at.tzinfo is not None:
+        at = at.astimezone(zone)
+    return {"date": at.strftime("%Y-%m-%d"), "time": at.strftime("%H:%M")}
 
 
 @router.post("/parse", status_code=201)
@@ -448,7 +518,13 @@ def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_sessio
         due_at = due_at.replace(tzinfo=user_zone)
     due_at = due_at.astimezone(timezone.utc)
     reminder = Reminder(
-        text=parsed["text"], due_at=due_at, priority=parsed["priority"]
+        text=parsed["text"],
+        due_at=due_at,
+        priority=parsed["priority"],
+        # "water the plants every tuesday" repeats (engine probe: it was saved
+        # once, as "Water the plants every").
+        recurring=parsed.get("recurring", "none"),
+        alert_minutes=parsed.get("alert_minutes"),
     )
     session.add(reminder)
     session.flush()
@@ -472,6 +548,8 @@ def update_reminder(
         reminder.priority = body.priority
     if body.recurring is not None:
         reminder.recurring = body.recurring
+    if body.alert_minutes is not None:
+        reminder.alert_minutes = body.alert_minutes or None
     if body.done is not None and body.done != reminder.done:
         reminder.done = body.done
         log_action(
@@ -483,6 +561,38 @@ def update_reminder(
         )
     session.commit()
     return _to_out(session, reminder)
+
+
+@router.post("/{reminder_id}/complete")
+def complete_reminder(
+    reminder_id: int,
+    tz_offset_minutes: int = Query(default=0, ge=-840, le=840),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Done, or for a repeating reminder its next time: the rule is rolled on
+    from the due time (`recognise.next_occurrence`) until it is ahead of now,
+    so a weekday reminder ticked on Friday lands on Monday. The rule's days
+    are the person's (`tz_offset_minutes`, minutes east of UTC): 9am Monday
+    in Auckland is Sunday evening in UTC. The answer keeps the time it was
+    due, for the undo."""
+    reminder = _existing(session, reminder_id)
+    was = reminder.due_at.isoformat()
+    if reminder.recurring and reminder.recurring != "none":
+        shift = timedelta(minutes=tz_offset_minutes)
+        due = reminder.due_at.replace(tzinfo=None) + shift
+        now = utcnow().replace(tzinfo=None) + shift
+        for _ in range(1000):
+            due = rec.next_occurrence(reminder.recurring, due)
+            if due > now:
+                break
+        reminder.due_at = due - shift
+        reminder.done = False
+        log_action(session, "edited", "reminder", reminder.id, "rolled on")
+    else:
+        reminder.done = True
+        log_action(session, "edited", "reminder", reminder.id, "done")
+    session.commit()
+    return {**_to_out(session, reminder), "was_due_at": was}
 
 
 @router.delete("/{reminder_id}")

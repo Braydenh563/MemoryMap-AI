@@ -3,7 +3,8 @@ it has answered, not just the last five as a chip row.
 
 Turns are written by routes_chat.py's `chat_stream` (the only caller of the
 Ask box) once a real answer has landed; nothing here writes a turn. This
-file is read, search, pin and delete only.
+file is read, search, pin and delete only (a delete or a clear also
+marks the audit log, so the Ask again row forgets it).
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from memorymap.core import deps
 from memorymap.core.database import LIKE_ESCAPE, AskTurn, Entry, like_escape
 from memorymap.core.deps import get_session
 from memorymap.ai.grounding import support as grounding_support
+from memorymap.entry import manager
 
 router = APIRouter(prefix="/ask-history", tags=["ask-history"])
 
@@ -169,6 +171,8 @@ def pin_ask_turn(turn_id: int, pinned: bool, session: Session = Depends(get_sess
 @router.delete("/{turn_id}")
 def delete_ask_turn(turn_id: int, session: Session = Depends(get_session)) -> dict:
     turn = deps.get_or_404(session, AskTurn, turn_id, "That question is not in your history.")
+    #: And off the Ask again row, as `forget_recent_question` does.
+    manager.log_action(session, "forgot", "chat", detail=turn.question)
     session.delete(turn)
     session.commit()
     return {"deleted": True}
@@ -187,5 +191,8 @@ def clear_ask_history(
     rows = session.scalars(query).all()
     for row in rows:
         session.delete(row)
+    #: The Ask again row under the box is these questions too, read from the
+    #: audit log (routes_chat `_recent_questions`); a marker ends it there.
+    manager.log_action(session, "cleared", "chat")
     session.commit()
     return {"deleted": len(rows)}

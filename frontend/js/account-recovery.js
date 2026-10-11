@@ -282,7 +282,16 @@ async function showRecoveryKey(key, { title = "Your recovery key", lead = RECOVE
 //: The step after setup: skippable, recommended. `password` is the one just
 //: chosen, so the offer need not ask for it again; it lives in this call
 //: only, and is dropped when the dialog closes either way.
+//: **A turn in the first-run queue** (`firstRunTurn`, onboarding.js). The
+//: welcome is queued first (it is what this app is), so on a fresh data dir
+//: the order measured is welcome, tour, this offer, the update question.
+//: Measured before: this dialog drew over the welcome card, 478x172 px.
 async function offerRecoveryKey(password) {
+  await ensureModule("onboarding");
+  return firstRunTurn(() => showRecoveryOffer(password));
+}
+
+async function showRecoveryOffer(password) {
   await whenLockLifted();
   const dialog = wireRecoveryDialog();
   $("recovery-key-title").textContent = "Make a recovery key?";

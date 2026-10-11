@@ -67,45 +67,7 @@ use `el.style.x =` or a class).
 
 ---
 
-## Brief 1 (Mon, Sonnet): the em-dash sweep and its lint
-
-**Status: done on 2026-09-08 (sweep 7b9ed67, lint `tests/test_no_em_dashes.py`, suite green in CI). Start at Brief 2.**
-
-**Goal.** Zero em-dashes in `frontend/` and `src/`, with a lint that keeps
-it so, and no test broken by the change.
-
-**Done when.** `grep -rc ', ' frontend src | grep -v ':0'` prints nothing;
-`tests/test_no_em_dashes.py` exists and passes; the full suite is green.
-
-**Decisions made.** The replacement rules are in `scratchpad/emdash.py`
-(bullet, pair, short-lead colon, long-lead comma). Do not invent new rules;
-if a line reads badly after the sweep, fix that line by hand and note it.
-`docs/` is not in scope (comments and plans may keep their dashes; the
-owner's complaint is the app's own copy).
-
-**Steps.**
-1. `git merge` any open agent branches first if told to; otherwise start.
-2. `python3 scratchpad/emdash.py frontend src tests` and read the printed
-   per-file counts.
-3. `node --check` every `frontend/js/*.js`; `.venv/bin/ruff check .`.
-4. Run `python -m pytest -q tests/` (7 to 8 minutes). Tests that asserted a
-   string with an em-dash now fail; fix the expected strings in the tests,
-   never the code, unless the code's new string is wrong.
-5. Grep the results for lines that now read badly: `git diff | grep "^+" |
-   grep -E ": [a-z]|, [A-Z]" | head -50` and fix by hand.
-6. Add `tests/test_no_em_dashes.py`: walk `frontend/` (excluding `vendor/`)
-   and `src/`, assert no file contains an em-dash, with the message "an
-   em-dash in <path>:<line>; rewrite the sentence (colon, comma or full
-   stop)".
-7. Commit: "No em-dashes in the app's own files, with the lint that keeps
-   it so". Push.
-
-**Traps.** The system prompt of the agent (`src/memorymap/ai/agent.py`) is
-budgeted by `PROSE_BUDGET_CHARS`; the sweep shortens it, so the assertion
-still passes. `frontend/vendor/` is third-party: exclude it in both the
-sweep and the lint.
-
----
+### Brief 1: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
 ## Brief 2 (Mon, Sonnet): the consistency lints
 
@@ -345,17 +307,7 @@ one's.
 
 ---
 
-## Brief 7 (Thu, Opus): the event log (B1)
-
-**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B1 and
-SESSION_BRIEFS Brief 7: the event log". `AuditLog` carries `actor` and
-`payload`, `core/events.py` is the only writer, every public write in
-`entry/manager.py` records exactly one event with a whole-field payload,
-`tests/test_events.py` passes with no xfail markers left, and history,
-restore and `GET /events?since=` are live. What is still open is in
-`docs/roadmap/archive/agent-remaining/brief7-event-log.md`.
-
----
+### Brief 7: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
 ## Brief 8 (Thu, Opus): `[[` autocomplete and the connections rail
 
@@ -471,41 +423,9 @@ agent's miniature renderer; use it, do not draw a second one.
 
 ---
 
-## Brief 11 (Sat, Opus): the retrieval engine (B3), with explanations
+### Brief 11: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B3 and
-SESSION_BRIEFS Brief 11: the retrieval engine". One index over every kind
-(`search/index.py`), one `search()` with three scores and an explanation per
-hit (`search/engine.py`), the operators of §5.1 on the existing parser,
-`GET /search`, the Notes list's "why this result" line, and a vector matrix
-that ended three per-request scans of every stored vector. Every marker in
-`tests/test_search_engine_spec.py` is off. What is left is in
-`docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
-
----
-
-## Brief 12 (Sat, Opus): per-claim citations in Chat (D3)
-
-**Goal.** Each sentence of an answer carries a source mark; hovering
-highlights the source; the "I don't know" state is designed.
-
-**Done when.** On the ten fixture questions in `tests/fixtures/chat/`
-(create them), ≥ 95% of answer sentences carry a citation to a source in
-the retrieval set; the composer is ≤ 2 rows at rest at 1024.
-
-**Decisions made.** The stream already emits `grounding`, `related`,
-`answer` and `stats` events (`routes_chat.py`). Add a `cite` event
-`{sentence_index, source_ids}` computed server-side after each answer
-chunk boundary by matching sentence n-grams against the retrieved
-sources (no second model call; `ai/grounding.py` has the matcher to
-extend). Unsupported sentences get a hollow mark and the "I don't know"
-copy is triggered when < 50% of sentences are supported. The composer:
-one field, a "+" menu (attach, scope, persona, skill), send.
-
-**Steps.** Fixtures; the matcher test; the event; the marks in `app.js`'s
-answer renderer; the composer; the empty and unsupported states.
-
----
+### Brief 12: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
 ## Brief 13 (Sun, Opus): the harness verifier, budget and corrections (B5)
 
@@ -537,47 +457,7 @@ WORLD_CLASS_PLAN §11's last paragraph.
 
 ---
 
-## Brief 15 (any day, Opus): network hardening before LAN mode
-
-**Goal.** WORLD_CLASS_PLAN §12 items S1, S2, S3, S5 closed, proven by a
-test that runs the app bound to 0.0.0.0.
-
-**Done when.** `tests/test_lan_mode.py` passes: media URLs carry a
-short-lived media token, not the session token, and the session token in
-`?token=` is refused; five wrong unlocks from one client address do not
-throttle another; `import_directory` returns 403 when the bind is not
-loopback; a bookmark or clip of `http://127.0.0.1:8781/` and of
-`http://10.0.0.1/` is refused by `assert_public_url()`; uvicorn access
-logs contain no `token=`.
-
-**Decisions made.** Media token = HMAC-SHA256 over `path|expiry` with a
-per-process key, 10 minutes, minted by `/media/token?path=` and cached by
-`mediaSrc`; the session token stays a header. Throttle keyed by
-`request.client.host` with the global list kept as a ceiling. The
-outbound guard lives in `core/security.py` and reuses `websearch.py`'s
-resolver (~689). Settings gets "Allow other devices on this network"
-only after this brief merges.
-
-**Steps.** Test file first (subprocess app on a free port, bound
-0.0.0.0); S1; S2; S3; S5; the log scrubber; the Settings toggle last.
-
-**State 2026-09-24.** S1, S2, S3, the rest of S5, S6's redirect half and
-`/debug/health`'s paths are built, each with its own test (HISTORY.md, "Moved
-from the plans, 2026-09-24"). Two of the decisions above were taken
-differently, and are recorded here rather than silently: S1 is an HttpOnly,
-SameSite=Strict cookie scoped to `/media` and `/files` holding a ticket that
-names the session, not an HMAC token in the URL, because a ticket in the URL
-is still a credential in history, logs and pasted text and `mediaSrc` is
-synchronous at fifty call sites; S3 confines `import_directory` to home and
-the data folder (with symlink escapes checked) rather than refusing it off
-loopback, which holds on loopback too. **2026-09-26:** `tests/test_lan_mode.py`
-passes (the real launcher on 0.0.0.0, reached over this machine's network
-address), with the switch's route, the launcher's bind and a Host guard
-against DNS rebinding (HISTORY.md, "Moved from the plans, 2026-09-26"). Left:
-the Settings toggle, built the same night (Account and security, "Allow
-other devices on this network").
-
----
+### Brief 15: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
 ## The quarter's briefs (shorter; expand each into the shape above when
 its session starts)
@@ -849,290 +729,17 @@ blurred at rest with the art off; every number in the plan's Built block;
 no em-dashes, no exclamation marks, sentence case; commit trailers;
 push per batch.
 
-## Brief 19 (Opus agent): DOCUMENTS Phase 2 steps 2 to 4, the engine
+### Brief 19: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-Relaunch text, verbatim, when the agent dies (its worktree survives:
-`git worktree list`, resume with the same words). Read CLAUDE.md, then
-DOCUMENTS_PLAN "Phase 2" and "Built, Phase 2 step 1", then DESIGN.md.
-Own worktree, commit per working piece, never push, five-line report,
-`archive/agent-remaining/documents-engine.md` before stopping.
+### Brief 20: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-Decisions (not remade): the bundle loads on demand via `loadCodeMirror()`
-(script-inject `/vendor/codemirror/codemirror.min.js`, no `?v=`), the
-textarea stays as the fallback; one adapter `docSurface()` (text get/set,
-`selection()`, `setSelection`, `replaceRange`, `onChange`, `coordsAt`,
-`focus`, `scrollTop`, `lineAt`) is the only thing documents.js and
-editor.js touch (the 18 `.value` reads, listeners at ~3081, 3097, 3113,
-3116, 3573; editor.js's 8); the view mounts in `#doc-source-wrap` as
-`#doc-editor`; Live = the same view with a decorations Compartment on,
-Source = off; `setDocView` (~200) keeps its contract; `renderDocLive`
-(~1504) and the `.lp-*` CSS are deleted once acceptance passes; Live
-decorations in value order (headings with hidden markers, inline marks
-with markers hidden until the caret enters, links as chips, task boxes
-that toggle, quotes and callouts, images as widgets, `[[wiki]]` chips via
-`layerDocWikiLinks`), computed from the lezer tree over
-`view.visibleRanges`; findings (docProseFindings ~4187,
-docBackdropFindings ~4437, docFindingAtOffset ~5201, docOpenSuggestFor
-~5258) become `cm-finding cm-finding-<kind>` marks, the backdrop layer
-retired; undo = CM6 history, the docUndo* stack (~6260 to 6440) retired
-after the editor.js sweep gate passes; find/replace = CM6 search panel
-restyled by CSS; folding on headings with the gutter preference; line
-numbers via CM6 for the document, `mountGutterFor` (~1139) stays for the
-other textareas; the `/` menu, `[[` autocomplete (~4819 to 4940), the
-toolbar (wrapDocSelection ~2359, wireMarkdownToolbar ~3301,
-wireMdFormatShortcuts ~3379) and selection to chat re-point at the
-adapter; styling via `EditorView.theme` from tokens plus a new
-`frontend/css/09-editor.css` linked with `?v=`; dark via
-`dataset.mode`; code files get their language (js/ts, py, css, html,
-json, yaml, stream modes), unknown plain.
+### Brief 21: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-Tests first: `tests/test_doc_surface.py` is on the branch, strict-xfail;
-remove each marker as it passes. Gates: doctype.js under 30 ms keydown to
-paint in Live at 20k words; editor.js undo gate; documents-chrome.js
-unchanged; errors.js clean at four widths; zero `securitypolicyviolation`;
-the bundle absent from the boot request list. Serve on 8786; never pkill
-uvicorn; CSP rejects `style=`; no em-dashes; commit trailers.
+### Brief 22: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-## Brief 20 (Opus agent): graph node panel, Library image cards, whiteboard panels
+### Brief 23: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md, INBOX 59, 56, 52, 64,
-65 and GRAPH_PLAN "Phase 6: the node panel". Own worktree, commit per
-item, never push, five-line report, `archive/agent-remaining/visual-c.md`. Do not
-touch documents.js or editor.js.
-
-Item 1, the graph node panel (grep "Favourite" and "Trace" together in
-graph.js/app.js and the panel in index.html): header (title, one category
-chip, confidence as a small muted mark), one muted meta line, the
-attachment as a compact row, the content editor four lines minimum and
-autogrowing, tags, one primary Save shown only when changed; actions as
-one icon toolbar row in three hairline-divided groups: read (Open,
-Similar, Trace), shape (Grow, Focus, Link, Remind), keep (Favourite; Bin
-last, ghost); Open the one filled button; the panel scrolls inside.
-Measure at 1440, 1024 and 390 (buttons per row, scrollHeight vs
-clientHeight, nothing under 36px, nothing clipped); graph4b.js passes.
-
-Item 2, Library image cards (library.js ~5271 `.library-image-tile`, CSS
-in 05 and 07): thumbnail with the file name as a scrim caption, one line
-"Used in <chip>" or "Not used yet", the description clamped to three
-lines with a "More" ghost button, OCR text under one disclosure,
-provenance as one muted foot line "Described by X · read by Y", edit and
-delete controls unchanged. Measure card height before/after with a long
-description, three font sizes per card, nothing clipped at 1024.
-
-Item 3, whiteboard panels: the bottom tool bar (`.whiteboard-floating-
-panel.bottom-center`, zoom pill `.bottom-right`, CSS in 07): one surface,
-hairline dividers, no per-control background except the active tool, the
-zoom pill on the same recipe and height; the properties panel (INBOX 64):
-sections Style, Guides, Arrange, Notes; Arrange as one icon toolbar row
-(align x3, distribute x2, group/ungroup pair) with tooltips; Extract notes
-as the section's one text button; no two control rects intersect; the
-panel scrolls inside. Measure: elements with their own background inside
-the bar, bar height equals the zoom pill, touch.js and docks.js
-unchanged, errors.js clean. Serve on 8788. Every new glass surface goes on
-the `[data-glass="off"]` list. Sentence case, no em-dashes, tokens only,
-commit trailers.
-
-## Brief 21 (Opus agent): UI_MODERNISATION Phases 9 and 10, the rest of the plan
-
-Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md (the recipe index and
-"Taken from Liquid Glass and the HIG"), UI_MODERNISATION_PLAN Phase 9
-(the breakpoint table and its rules), Phase 10 and its placed items
-(INBOX 60, 94, 100 to 104), and `archive/agent-remaining/responsive.md`. Own
-worktree, commit per step, never push, five-line report,
-`archive/agent-remaining/responsive.md` rewritten before stopping.
-
-Scope rules, because two other agents are running: every new CSS goes in
-a new `frontend/css/10-responsive.css` linked after 08-consistency.css
-with `?v=` (tests/test_asset_cache_busting.py); edits to existing CSS
-files only when a rule must be removed; do not touch documents.js,
-editor.js, whiteboard.js, library.js, graph.js or graph-canvas.js (their
-owners are mid-flight); app.js and index.html edits kept to the tab bar,
-the sidebars, the docks' responsive behaviour and the scroll-edge
-listener.
-
-Phase 9, in the plan's order: the four breakpoints as stated once
-(≥1100, 820 to 1100, 600 to 820, <600) with what changes app-wide;
-`--target-min` steps up in the 820 block; safe-area insets; sidebars
-collapse to icons then become sheets; docks keep identity, search, Filter
-and the primary under 820 with the rest in ⋯; two-up grids on iPad
-portrait; on the phone every tab gets the Phase 5 rules (strips scroll,
-one control row, the primary pinned bottom-right, bottom docks above the
-keyboard), the tab bar pinned to the bottom. Gate: errors.js and touch.js
-at 1440, 1024, 820, 600 and 390; no horizontal page scroll at any width;
-docks.js unchanged at desktop; the numbers per width in the commit.
-
-Phase 10, each with its own commit and measurement: 100 the scroll edge
-effect (`data-scrolled` set by one listener, a 16px gradient under
-`.dock`, the sub-tab strips and the top bar; absent at scrollTop 0;
-contrast.js on a scrolled list); 101 `--radius-inner` and the
-test_style_scale rule; 102 `.glass-clear` with `--glass-scrim` for the
-panels over the art and `--text-on-glass` on every blurred surface
-(contrast.js over aurora and constellation); 103 menus morphing from
-their opener (`kebabMenu`, `details.dock-menu`; off under Reduce motion)
-and sheets inset by `--space-3` then `--modal-bg` at full height (menus.js,
-touch.js); 104 the phone tab bar receding on scroll down, back on scroll
-up, never hidden; then 94 (the background animations: a measured frame
-cost per style, still under Performance mode, no seams, the intensity
-slider visible at every step) and 60 (the dashboard start section per its
-decision). Every new glass surface goes on the `[data-glass="off"]` list
-(tests/test_ui_recipes.py). Serve on 8790; never pkill uvicorn; sentence
-case; no em-dashes; tokens only; commit trailers.
-
-
-## Brief 22 (Opus agent): the three Notes sub-tabs, Capture, Write with AI and Ask
-
-**Built.** Moved to HISTORY.md, "From SESSION_BRIEFS Brief 22: the three
-Notes sub-tabs". Capture's controls are two heights (36 for the head row and
-the formatting strip, 40 for everything you act on) with the note box inside
-the composer's own surface at last; Write with AI is two of the same column,
-both 472.6px with both boxes 330.3px; the Ask card sits on one 9.6px step;
-and the three owner reports that came in with it (INBOX 119's preview gutter
-and menu gap, 120's duplicated suggestion rows) are fixed with their numbers
-in HISTORY's "INBOX resolved". What is left is in
-`docs/roadmap/archive/agent-remaining/notes-subtabs.md`.
-
----
-
-## Brief 23 (Opus agent, backend first): the corrections loop and resurfacing
-
-WORLD_CLASS_PLAN 15, I7 and I9, plus I4. The two largest unbuilt specs left
-on this branch: `tests/test_learned_spec.py` (15 strict-xfail markers) and
-`tests/test_resurface_spec.py` (7). Own worktree, commit per step,
-`scripts/gate.sh --changed` per step, never push, five-line report,
-`archive/agent-remaining/learning-loop.md` before stopping.
-
-**Read this before writing a line of it.** A part of I7 already exists, in a
-different shape from the one the spec names, and rebuilding it is this
-project's most expensive recurring mistake (CLAUDE.md section 1). What is
-there, found 2026-09-12: `ai/librarian.py` from line 908, "filing
-corrections", records a correction as an `AuditLog` row with
-`action="correction"` and a payload of `{from, to, excerpt}`, written by
-`entry/manager.update_entry` when a note the AI filed is moved by hand, and
-read back by `filing_corrections`, `corrections_note` and `filing_prompt`,
-which put the last five into the next filing prompt. It has its own
-constants (`CORRECTIONS_REMEMBERED = 5`, `CORRECTION_EXCERPT_CHARS = 80`).
-
-The spec asks for `ai/learning.py` with `record`, `corrections`, `boosts`,
-`filing_evidence`, `centroid_excluded`, `decayed` and `MAX_BOOST`, over a
-`corrections` table and a derived `learned_boosts`. **Decide, in the first
-commit, one of two things, and write the reason into the plan:** either the
-`learning` module owns the store and `librarian`'s three functions become
-readers of it (the `AuditLog` rows migrating once), or the `AuditLog` row
-stays the store and `learning` is the layer over it. Whichever you choose,
-there must be exactly one place a correction is written and one place it is
-read. The spec's own header allows the second: "a session that needs a
-different shape changes the test in the same commit, with the reason."
-
-Order, because the later work depends on the earlier:
-
-1. **I7, the store and the boosts** (`test_learned_spec.py`, the first five
-   tests). `record`/`corrections`/`boosts`/`decayed`/`MAX_BOOST`, bounded
-   and halving in 30 days, plus `POST /learned/corrections`.
-2. **I7's three consumers.** Filing (`filing_evidence` returns the matching
-   corrections *and* the nearest filed notes; `centroid_excluded` stops a
-   category two refiles have moved away from), search
-   (`search_manager.retrieve` reorders on an `open_after_ask` boost), and
-   link suggestions (a dismissed pair never returns from
-   `/entries/link-suggestions`).
-3. **I4, resurfacing** (`test_resurface_spec.py`, all seven).
-   `ai/resurface.py` with `compute_scores`, `ranked`, `for_context`, a
-   `note_scores` table written nightly, `GET /resurface` and
-   `POST /resurface/compute`. The endpoint is under 50 ms on 500 notes
-   because the scores are precomputed; the daily three are stable within a
-   day (`?as_of=`) and differ across days; a notebook of five notes returns
-   nothing rather than the same three forever; a `dismiss_resurface`
-   correction is honoured across restarts, which is why this comes after 1.
-4. **I9, the Settings section**, last and only if the frontend is free: ask
-   the orchestrator before touching `index.html` or `app.js`, two agents are
-   usually in them. Every derived row listed with its source span, model and
-   time; edit (never overwritten after), delete (never re-derived), reset,
-   a switch per runner and a master switch, "forget everything" leaving
-   notes and revisions byte-identical (the spec hashes the tables), a
-   private note's facts never listed, and a readable JSON export.
-
-Remove a strict-xfail marker only when its test passes on its own, and never
-weaken a test to make it pass: if a test is wrong, change it in the same
-commit and say why in the message. No em-dashes; sentence case; commit
-trailers; never `pkill -f uvicorn`; own port through
-`scratchpad/ui-sweeps/serve.sh` if you need a server at all.
-
-## Brief 24 (Opus agent, backend only): the derived facts pipeline (I9)
-
-The ten strict-xfail markers left in `tests/test_learned_spec.py`, after
-Brief 23 built I7 and I4. Written 2026-09-12 by the orchestrator, from
-`archive/agent-remaining/learning-loop.md`, which is the file to read first: it says
-what exists, and it is the reason this is a brief of its own.
-
-**The finding that makes it one.** I9 reads like a Settings section in
-WORLD_CLASS_PLAN 15. It is not. Every one of the ten tests drives a pipeline
-that does not exist yet: a night pass that derives facts from notes, a table
-for them carrying provenance, an edit and delete and reset lifecycle with
-tombstones, and a switch per runner. The screen is the last hour of the work,
-not the first.
-
-**Decisions, made here, so the session does not remake them:**
-
-1. **The night pass is a fourth task in `ai/autonomous.py`**, not a new
-   runtime. That module already has the scheduler, the cancel and snooze
-   protocol, `_enabled_tasks` reading a preference per task, and the
-   `system:librarian` attribution that answers "who did this". A new
-   scheduler beside it would be a second answer to every one of those.
-2. **The derived rows get their own table**, unlike corrections, which stayed
-   in `AuditLog` (Brief 23's decision, and its reason was that a store with
-   the index, retention and compaction already existed). A derived fact needs
-   columns `AuditLog` has no room for and must carry: `entry_id`, `kind`,
-   `text`, `span_start`, `span_end`, `model`, `confidence`, `computed_at`,
-   `edited_by_user`, `original_text`, `deleted_at`. The last two are the
-   lifecycle: an edited row is never overwritten by a re-run, a deleted row
-   is never re-derived, and both have to survive `force=True`.
-3. **A delete is also a correction.** `test_a_deleted_fact_is_not_rederived`
-   asserts a `delete_fact` kind in `GET /learned/corrections`, so the
-   tombstone is the derived table's own `deleted_at` *and* a
-   `learning.record` row: the first stops the re-derivation, the second is
-   what the loop learns from.
-4. **Private notes are filtered at the read, not at the write.** The spec
-   makes a note private *after* its facts are derived and expects them gone
-   from the listing. Filtering only on the way in would leave them listed.
-5. **"Forget everything" touches the derived tables only.** The spec hashes
-   `entries` and `entry_revisions` before and after and requires them byte
-   identical, which is the whole promise: what the app learned is separable
-   from what you wrote.
-
-**Tests first**, in this order, removing a marker only when its test passes on
-its own: list with span, edit survives a re-run, delete is not re-derived,
-reset, the per-runner switch, the master switch, forget everything, private
-notes, export. Never weaken a test to make it pass; if one is wrong, change it
-in the same commit and say why.
-
-**Files.** `src/memorymap/ai/autonomous.py` (the fourth task),
-`src/memorymap/ai/facts.py` (new: derive, store, lifecycle),
-`src/memorymap/core/database.py` (the table and its index),
-`src/memorymap/api/routes_learned.py` (the routes: `POST /night/run`,
-`GET /learned`, `GET|PATCH|DELETE /learned/{id}`, `POST /learned/{id}/reset`,
-`GET|PUT /learned/switches`, `DELETE /learned`, `GET /learned/export`), and
-`tests/test_learned_spec.py`. `ai/extractor.py` and `ai/tensions.py` already
-pull statements out of a note's text and are where to look before writing a
-third way to do it. The frontend is not in this brief: ask the orchestrator
-before touching `index.html` or `app.js`, and expect the answer to be no
-while the documents and whiteboard agents hold them.
-
-**Traps.**
-
-- The specs run on `ai_client` and `fake_ollama`, so whatever the fake
-  transport returns *is* the model's answer. Read `tests/fakes.py` before
-  designing the prompt: a pipeline that only derives facts from a real
-  model's phrasing cannot pass its own tests.
-- The span is asserted against the note's own text
-  (`content[span[0]:span[1]].endswith("?")`), so the derivation has to carry
-  offsets out of the text it read, not re-find the sentence afterwards.
-- `budget` is a real limit, not decoration: `POST /night/run` takes one and
-  the pass has to stop inside it.
-- Standing order 4 (CLAUDE.md): own port and data dir if a server is needed,
-  never `pkill -f uvicorn`, `git commit -- <paths>` and never `git add`, no
-  em-dashes, commit trailers, `scripts/gate.sh --changed` per step, the full
-  suite once before the final report, never push.
-- Before stopping: `archive/agent-remaining/learning-loop.md` updated to the state it
-  is actually in, and a five-line report.
+### Brief 24: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
 ## Briefs 25 to 31: the plans the owner asked to see finished
 
@@ -1627,3 +1234,498 @@ avatars.js.
   Open: `namemarks.js` finds one pair of 23 names under its 15% floor
   (13.9%), since neighbouring natural skin tones differ less than the gel
   colours did.
+
+## Briefs 35 to 42 (2026-10-10, Fable orchestrating): the owner's list, the engine, the direction
+
+Shared rules for all eight: `docs/roadmap/agent-remaining/agent_common.md`
+plus the 2026-10-10 additions in HANDOVER's top block (effort by task; Sonnet
+and Haiku for well-defined and mechanical work). Every item below is the
+owner's, verbatim where quoted; the complete 2026-10-10 list is placed in each
+plan under "Placed from the owner's list, 2026-10-10" by Brief 40. ROADMAP's
+"Direction, 2026-10-10" is the thesis these serve.
+
+### Brief 35 (Opus, high): the Gemini branch triaged
+Goal: boot works with no new dependencies; unused vendoring gone; grounded
+back to 1.0 on the showcase; credits file. Facts and decisions: ROADMAP
+Direction policy 1 and the agent's own brief (the orchestrator's prompt,
+2026-10-10). Files: `src/memorymap/vendor/`, `ai/composer.py`,
+`ai/question_noise.py`, `ai/composer_tables.py`, `ai/intent.py`,
+`ai/lexical_filing.py`, `ai/presets.py`, `ai/tools/__init__.py`,
+`api/routes_chat.py`, `frontend/js/skills.js`, `requirements.txt`,
+`tests/_composer_eval.py`. Numbers: grounded 1.0 to 0.25 (Gemini head), to
+1.0; import time 1.08 s to under 0.5 s; vendor 15 MB to under 1 MB; lints
+green. Running as the `triage` agent.
+
+### Brief 36 (Opus, high): whiteboard and mind map
+Goal: the fifteen board and map items of the owner's list (edge arrows,
+port anchors, vertical text, note sidebar clipping, ghost preview and the
+clipped frame, comments edited and with links, sticky versus text box, slash
+menus in boxes and nodes, the icon library findable, the empty Boards state
+and auto-naming, rounded rectangles on the map, branch colour and spacing on
+insert, Enter as newline, appearance options) with WHITEBOARD_PLAN "Placed
+from INBOX, 2026-10-07". Files: `whiteboard.js`, `whiteboard-map.js`,
+`07-whiteboard-misc.css`. Sweeps: wbregress.sh, wbrotatelinks.js, wbports.js,
+mapcore.js, mindmap.js. Running as the `boardmap` agent.
+
+### Brief 37 (Opus, high): Chat, Ask, first run and the owner's UI bugs
+Goal: model gating per CHAT_PLAN decision 22; the first-run queue with zero
+overlapping panels; the tour handoff (INBOX 745 (d)); 32 chat, Ask, notes and
+settings items from the owner's list (token pill popover, histories cleared,
+source kinds, searching indicator, similarity numbers, composed bubble label
+and fade, web sources and retry, the no-model tag-suggestion tracebacks,
+questions list, packages progress, OCR in quick access and palette, logs of
+background tasks, suppressed suggestions list, metadata rows). Also (INBOX 745
+(d), the owner: "the hover menu button doesn show on the tour"): a tour step
+that points at a hover-only control reveals it while the step is up (a class
+on the card, removed on the next step), and a sweep checks every tour step's
+target is visible and non-empty. Running as the `chatui` agent.
+
+### Brief 38 (Opus, high): the graph, topics first-class, note properties
+Goal: view switches end fitted; the first paint fitted (INBOX 738); even fit
+margins; Shape gated to Force; topics renamed, dragged as a group and shown
+on the note; the local map redraw; custom note properties. Files:
+`graph.js`, `graph-canvas.js`, `note-properties.js`. Running as the `graph`
+agent.
+
+### Brief 39 (Opus, high): the deterministic engine
+Goal: CHAT_PLAN Phase 6, decisions 30 to 40, steps 1 to 10 in order, each a
+commit with the eval numbers. Starts when Brief 35 has merged (same files).
+Files: `ai/composer.py`, new `ai/factgraph.py`, `ai/realise.py`,
+`ai/commands.py` (from `git show origin/wip/composer-acts:src/memorymap/ai/commands.py`
+and its test), `ai/composer_tables.py`, `ai/question_noise.py`, `ai/when.py`,
+`ai/facts.py`, `api/routes_chat.py`, `frontend/js/chat-agent.js` (the bubble
+label, the quotation style, the web source list), `tests/_composer_eval.py`
+and `tests/fixtures/composer/`. Numbers: grounded 1.0 on every set;
+first_line 25/25; openers_distinct and lead_in_repeats over a 20-turn
+session; measured-sentence accuracy 1.0; import time under 0.5 s. Traps: a
+rewrite rule that changes meaning (test pairs for every rule); a measured
+sentence whose number cannot be re-derived from the fixture (the lint);
+quoting with quote characters (offsets).
+
+### Brief 39b (Opus, high): filing and the taxonomy
+Goal: WORLD_CLASS_PLAN section 23, steps 1 to 5. Starts when Brief 35 has
+merged. The pack is at the orchestrator's scratchpad
+(`up/final/MemoryMap_Final/`) until step 2 lands it under
+`src/memorymap/ai/data/taxonomy/`. Files: `ai/lexical_filing.py`,
+`ai/janitor.py`, `ai/taxonomy.py` (replaced), `frontend/js/tidy.js`,
+`tag-suggest.js`, Settings. Numbers: top-1 accuracy on the 120-note fixture
+with and without the embedder, before and after each step; the "Study" bug
+reproduced then gone.
+
+### Brief 40 (Sonnet, medium; Haiku for the placement pass): research and placement
+Goal: (a) place every item of the owner's 2026-10-10 list (the orchestrator's
+`owner-1010.txt`) that Briefs 35 to 39b do not already carry into its plan
+under "Placed from the owner's list, 2026-10-10", verbatim, one line of
+recommendation each, bugs first; INBOX stays under twenty. (b) Research,
+recorded in ANALYSIS.md under "Repositories and libraries read, 2026-10-10":
+for each of the owner's forks (storytold's wordcraft, designcraft, deckcraft,
+gridcraft, photocraft, lightcraft, pdfcraft, soundcraft, filmcraft; jgraph's
+drawio) the licence, stack, size, and the three things worth taking as
+ideas or formats; haifengl/smile (Java) the algorithms worth re-implementing
+small; candidate vendorable libraries (pure Python or plain JS, offline,
+licence, size, what it would replace: for example symspell as an algorithm
+not a package, parsedatetime versus `when.py`, KaTeX, mermaid, Pyodide size,
+ruff-wasm, eslint-linter-browserify, sql.js, transformers.js) each with a
+keep or drop and why; NLTK and WordNet's size against a trimmed table.
+(d) The gap matrix of ROADMAP's parity programme: one table per surface in ANALYSIS.md, from each fork's README, feature list and command catalogue (WebFetch; the forks are public), each row checked against the running app. (c) Answers, each as a plan row or BACKLOG row with a recommendation: a
+Docker image (a `Dockerfile` and compose file, offline model volumes,
+measured image size); reusing the system Python's packages
+(`--system-site-packages` as a setup choice with its risks); whether the MCP
+server works (run it, list its tools, say what is broken); the phone over
+HTTPS (self-signed trust flow on iOS Safari and Brave, the "connection was
+lost" cause, a QR code and a one-page trust guide, mkcert-style local CA as
+an option); whether a first install needs the internet and where the app
+says so. Files: ANALYSIS.md, BACKLOG.md, the plans, `scratchpad/` for any
+probe. Numbers: counts placed; image size; the MCP tool list.
+
+### Brief 41 (Opus, high): UI density, refinement and WCAG 2.2
+Goal: UI_MODERNISATION_PLAN Phase 12, steps 1 to 7. Invoke the
+ui-ux-pro-max skill for the research step and record the ten rules taken in
+DESIGN.md first. Files: `00-tokens-shell.css`, `08-consistency.css`,
+`01-forms-settings.css`, `sheets-selects.js`, `timeline.js`,
+`notecardmeta`-related CSS, DESIGN.md. Numbers: the census before and after
+(control heights, gaps, radii, hover boxes, topbar height), the axe sweep
+counts per surface, contrast minima. Traps: a token change that flattens a
+card (`NaN` once did); glass-off list; help moves with every control.
+
+### Brief 42 (Opus, high): documents
+Goal: DOCUMENTS_PLAN section 21 (the code editor to VS Code standard, writing
+checks everywhere) and the owner's items: INBOX 735 (p5 sketch kind; code
+completion on code documents), 736 (output panel height; Stop state),
+highlights on pages ("I want to be able to highlight sections on pages like
+key passages and references"), comments with bookmarks and links, embedded
+link cards with a viewer ("a way to embed and render embedded links and a
+special viewer for them"), the long-form preference at first run
+("when the user logs in, they should be able to choose their preferred style
+of taking notes"), and the idea in the owner's list of labelled and linked
+sections inside a document with a local graph embedded (a Phase row in
+DOCUMENTS_PLAN with decisions, built only after the rest). Files:
+`documents.js`, `documents-code.js`, `documents-prose.js`, `09-editor.css`,
+`frontend/vendor/codemirror`. Numbers: doctype.js under 30 ms; the
+completion switch measured on a .js document; highlights persisted and
+re-rendered.
+
+The owner, 2026-10-10, on the code editor: "it leaves a lot to be desired
+and just sucks compared to vs code and other IDEs. make sure to make full
+use of the vendored repositories and libraries, are there any others that
+should be vendored??" Brief 42 therefore starts from ANALYSIS.md's
+"documents (code) against VS Code" parity table and DOCUMENTS 21, and
+evaluates these against ROADMAP policy 1 (plain JS or WASM, offline, small,
+lazy-loaded, licence beside it), each with a measured size and a keep or
+drop before any is vendored: the CodeMirror 6 packages not yet in
+`frontend/vendor/codemirror` (lint, merge for a diff view, more `lang-*`
+modes and lezer grammars, indentation markers, the search panel's
+replace), `ruff-wasm` (Python lint and format), `eslint-linter-browserify`
+(JS and TS lint), `js-beautify` or `prettier` standalone (formatting, the
+smaller first), `KaTeX` (maths in prose and code comments), `mermaid`
+(already decided in BACKLOG), Pyodide only as an optional package through
+the packages system (too large to ship), and a tree-sitter WASM grammar
+only if the outline and symbol navigation cannot be had from lezer. The
+editor's bar is VS Code's everyday feel: bracket pairs and guides, active
+line and gutter, multi-cursor, find and replace with regex, go to line and
+symbol, folding, minimap off by default, format on demand, diagnostics
+pinned to their line, completion that knows the language, a command
+palette inside the editor, and a diff view against the last saved version.
+
+### Brief 34 continues (Opus, high): Atlas and the companion
+INBOX 742 and 743 and the owner's list ("atlas's arm movements on both
+versions need a lot better animating as they are basically permanently in a
+downward arc except for when hanging"; "experiment with more tail behaviour
+and movement as well, and give the rings, as well as nebular flow and lower
+body subtle animations that are all cheap"; "the companion doesn't really have
+any variation in how it moves around at various distances"; "more mouse
+interaction with the companion like rubbing its head, flipping it upside
+down"; "the behaviour of the companion is not often reflected in the enlarged
+view"). Numbers: mood changes per session before and after; layouts and
+paints per second at rest (companionperf.js); the arm's angle range over a
+walk cycle.
+
+
+Second part (INBOX 752, the owner: "better npc behaviour at the level of real life ... so incredibly smoothe between everything and every event"): one behaviour model for the companion and every avatar, a state machine whose every transition blends (no pose snaps: each joint eases over 120 to 400 ms through the same curve table), idle variation drawn from a weighted pool that never repeats within five picks, reactions to every app event (save, error, reminder, the model thinking, a long task, the lock screen) with a reaction budget per minute, a gaze and lean toward what the person is doing, and the enlarged view driven by the same state. Numbers: transitions per minute that snap (bar 0, measured by sampling joint angles at 60 Hz in `companionperf.js`), distinct idle motions per ten minutes (bar 12), reaction latency from event to first frame (bar under 100 ms), long tasks per second at rest (unchanged from the first part).
+
+### Brief 43 (Opus, high; Sonnet medium for the fixes it names): the expert audit
+The owner, 2026-10-10: "I have only given you everything I have noticed but I
+am not an expert ... fix, improve and extend and add everything I have missed
+or havent thought of." The things a notebook of this kind must get right that
+no report has asked for, each a measured probe with its command, fixed when
+small, else a BACKLOG row with the number:
+1. **Data safety**: a backup made, the data dir deleted, the backup restored,
+   every note, board, map, document, reminder, tag and setting compared
+   (`backupbundle.js`; a Python round-trip test over a 500-note fixture);
+   every export (markdown, HTML, docx, PDF, JSON) re-imported and diffed;
+   the alembic chain from 0.3.0's schema to head on a copied database.
+2. **Old hardware**: boot to interactive under 2.5 s with the CPU throttled
+   4x in Chromium, idle CPU under 1 percent (`idlecpu.js`), memory under 300
+   MB with 5,000 notes seeded (`seed-timeline-bulk.py`), every list paged,
+   the graph worker's frame under 16 ms at 2,000 nodes, no layout thrash on
+   typing (`autogrowfast.js`), the service worker's cache honouring the
+   version stamps.
+3. **Offline and privacy**: a run with the network blocked (Playwright
+   `route` abort) makes zero requests to anything but localhost and shows no
+   broken surface; every outbound call (model pulls, web search, updates)
+   behind an explicit setting with its own line in Settings, Network.
+4. **Keyboard and screen reader**: every surface completed by keyboard alone
+   (`keyboard.js`, `dockeyboard.js`, `keyreach`), axe clean (`axe.js`), names
+   on every control (`a11yname.js`), focus never lost after a dialog closes.
+5. **Error and empty states**: every API error path renders a designed
+   notice with a way out (WORLD_CLASS_PLAN 21): kill the server mid-session
+   and count the surfaces that fail silently; the empty state of every tab
+   and widget measured against the recipe.
+6. **Search quality**: a 60-query relevance set over the showcase notebook
+   (lexical, semantic, hybrid) with precision at 5 recorded; typos and
+   synonyms from the noisy set included.
+7. **Security**: CodeQL clean, the CSP without unsafe-inline, auth on every
+   write route (a test that walks the router), rate limits on the lock
+   screen, the LAN mode's cert (Brief 40's findings), uploads type-checked.
+8. **Upgrade path**: the app updated from the previous tag with data in
+   place; the release notes rendered; the launcher's rollback.
+9. **Tests**: the suite's slowest 20 tests and any flaky one (three runs of
+   the frontend lints), the xfail markers still honest.
+Report the numbers per item; fixes under one hour land in the brief; the
+rest become BACKLOG rows "Expert audit, 2026-10-10" ranked by user impact.
+
+### Brief 44 (Sonnet high for the catalogue and converter; Opus high for the editor phases): the draw.io programme
+The owner, 2026-10-10: "deep analyse and catalog everything in draw.io as
+well, use, replicate, take and implement it and then build on it and make it
+the best editor the world has ever seen." draw.io is Apache-2.0 (inbound to
+AGPL is fine, notices kept). Part 1 (Sonnet): read the fork
+(Braydenh563/drawio, upstream jgraph/drawio: `src/main/webapp/js/diagramly`,
+`grapheditor` (Format.js, Actions.js, Menus.js, Sidebar*.js, EditorUi.js,
+Graph.js), `stencils/*.xml`, `templates/`, `shapes/`) and write
+WHITEBOARD_PLAN "The draw.io programme, 2026-10-10": a complete catalogue in
+tables by area (Format panel: Style, Text, Arrange tabs, every control;
+Arrange menu; Edit style and edit data; edge styles, waypoints, jumps,
+routing, arrowheads, labels on edges; connection points and constraints;
+layers and pages; shape libraries and the stencil XML format; templates;
+find and replace; outline and navigation; keyboard shortcuts; selection and
+grouping, containers and swimlanes; images, math, embedded links and
+tooltips; export formats; the sidebar search; what collaboration or cloud
+features are out of scope), each row: feature, MemoryMap has it (checked),
+how draw.io does it (one line, file named), how MemoryMap would do it on its
+canvas model (one line), cost. Then the converter: `scratchpad/stencils/`
+`convert_stencils.py` turns a stencil XML library into the board's shape
+JSON (paths, fills, text regions, connection constraints), run on the basic,
+flowchart, arrows, UML and network libraries; the count converted, the ones
+that fail and why, five rendered in Chromium beside draw.io's PNG of the same
+shape, measured. Part 2 (Opus, after Brief 36 merges): the programme's
+phases in WHITEBOARD_PLAN order, each gated by wbregress.sh and the matrix
+rows, starting with the Format panel's three tabs and edge routing.
+
+The owner, 2026-10-10, on part 2: "its not just draw.io's catalogue but all
+the ways tools, and functions and other things work and function and how
+refined it is." So part 2 is **mechanics parity, measured**, not a feature
+list: for every tool and gesture the board has, a behaviour spec taken from
+draw.io's own handlers (Graph.js, mxGraphHandler, mxVertexHandler,
+mxEdgeHandler, mxRubberband, mxPanningHandler, the Sidebar's drop and hover
+code) in one table: the gesture (select, multi-select, rubber band, move,
+resize with and without aspect, rotate, snap to grid and to guides, connect
+by hover port, drag a connector end, add and move a waypoint, double-click
+to edit text, pan with space and with the wheel, zoom to the cursor, undo
+granularity, copy and paste placement, keyboard nudge and its step sizes,
+duplicate with offset, group and ungroup, z-order, lock); draw.io's exact
+behaviour (thresholds in pixels, modifier keys, timing, cursor, what the
+guides show, what the preview draws); MemoryMap's today (driven in
+Playwright, frame by frame where it matters); the gap; the fix. Every
+mechanic lands with a sweep that measures it (pixel thresholds, handle
+sizes, snap distances, guide appearance, undo steps), and the phase is
+done when the table has no gap marked "worse". The same table shape is
+then written for the mind map (against the best of the plan's references)
+and the documents editor (against VS Code and wordcraft) in Briefs 36 and
+42, so refinement is measured on every surface, not asserted.
+
+### Brief 45 (Sonnet medium for the census; Opus high for the review): structure and complexity
+The owner, 2026-10-10: "find all the missing utility and features, sub par
+implementations, issues, poor design or structural or programmatic
+decisions, high complexity." Part 1 (Sonnet): a census, written to
+WORLD_CLASS_PLAN "## 24. Codebase census, 2026-10-10": per file the lines,
+functions, longest function, functions over 80 lines, cyclomatic complexity
+(an ast walk for Python; branch counting for JS), duplicated blocks (a
+normalised 8-line shingle scan across frontend/js and src), functions never
+referenced anywhere (dead code candidates, with the grep that found none),
+globals defined in the 27 classic scripts and read by other files (the
+coupling map), TODO and FIXME counts, the ten largest files, the backend
+routes with no test naming them, the frontend ids with no handler and
+handlers with no id (the lints' own lists), the CSS selectors used by no
+markup, console errors by surface (errors.js). Numbers only, with the
+script under scratchpad/census/ kept as a sweep. Part 2 (Opus): the review
+that the numbers point at: split whiteboard.js (19.8k lines) and
+whiteboard-map.js along their seams with no behaviour change (the lints and
+wbregress.sh prove it), the duplicated blocks folded into recipes, the dead
+code removed, the structural decisions named and judged (the 27-script
+global scope against modules; the per-tab CSS files; the route layout;
+the event bus), each as a decision row with its measurement, and the
+"missing utility" list: for every surface, the actions a professional
+tool offers that this one lacks, from the parity tables.
+
+## Briefs 46 to 55 (2026-10-10, Fable): the whole app against world class
+
+All from WORLD_CLASS_PLAN section 25 (the table, decisions 46 to 54, the
+phases with gates); shared rules as Briefs 35 to 42. Brief 46 runs first and
+alone, because every other brief here builds against a number it produces.
+
+### Brief 46 (Sonnet, medium): measure the table
+Section 25.2's "today" column, row by row, with the command or sweep that
+produced each number: paint time of the notes list at 5,000 notes, search
+latency at 5,000 notes, boot to first paint and first interaction, board open
+at 500 objects, document open at 50,000 words, the dashboard widgets' use
+(which open, click or act), the settings keys with no help line, the
+shortcuts outside `DEFAULT_SHORTCUTS`, the undo implementations, what
+`routes_search` already indexes, what `versioning.py` keeps, what the bundle
+export contains. Writes the numbers into 25.2 and 24.6; no fixes.
+
+### Brief 47 (Opus, high): search everywhere (25a, decision 46)
+`frontend/js/search.js` (new, lazy), `routes_search.py`, `search_manager.py`;
+the recipe is the command palette's list (`palette.js`); help popover, Guide
+topic and manual parity in the same commit. Gate: 25.4.
+
+### Brief 48 (Opus, high): import and export round trip (25b)
+`entry/app_import.py`, `routes_import.py`, `routes_backups.py`, a new
+`entry/export_folder.py`; the import report page from the job line
+(`core/jobruns`). Gate: 25.4.
+
+### Brief 49 (Opus, high): first run and the manual (25c)
+`first-run.spec.js`, `dashboard.js` (`gettingStartedCard`), `routes_help.py`,
+a manual page built from `help_chat.py` and `help_topics_more.py`. Gate: 25.4.
+
+### Brief 50 (Sonnet, high): the PWA shell (25d, decision 49)
+`frontend/sw.js`, `manifest.webmanifest`, `app.py` (`_stamp_for`), a share
+target into capture. Gate: 25.4; the two-stamp staleness test.
+
+### Brief 51 (Opus, high): never lose a note (25e, decision 48; rule 1.8)
+`routes_backups.py`, `core/database.py` (the boot integrity check),
+`api/versioning.py`, `status.js` (`pushUndo`), the six undo folds. Gate:
+25.4 and `test_undo_contract.py`.
+
+### Brief 52 (Opus, high): settings as a product (25f, decision 52)
+`settings.js`, `settings-panes.js`, `settings-wiring.js`,
+`routes_settings.py`. Gate: 25.4.
+
+### Brief 53 (Sonnet, high): budgets per interaction (25g, decision 54)
+`tests/test_budgets.py`, `routes_bench.py`, the README performance table.
+Gate: 25.4.
+
+### Brief 54 (Opus, high): skill reliability (AGENT_SKILLS_REFORM Phase E)
+`ai/skill_runner.py`, `ai/tools/verify.py` (new), `tests/fixtures/skills/`,
+`tests/test_skills_evals.py`. Gate: the plan's.
+
+### Brief 55 (Opus, high): the calendar view (TIMELINE_PLAN Phase 5)
+`timeline.js`, `routes_timeline.py`, `routes_reminders.py`, the view
+segment; `scratchpad/ui-sweeps/calendar.js` (new). Gate: the plan's table.
+
+## Briefs 56 to 59 (2026-10-10, Fable): the design review
+
+From UI_MODERNISATION_PLAN Phase 13 (the principles table, the surface
+table, decisions 9 to 22, the phases). Brief 56 first and alone.
+
+### Brief 56 (Sonnet, medium): measure the design review
+Phase 13.0: `scratchpad/ui-sweeps/hierarchy.js` (new): per page at 1440 and
+390, visible buttons, visible `.primary`, visible inputs and selects, docks
+and their item counts; the 15 dialogs classified (dialog or sheet); every
+icon-only button without a label, markup and JS-built; `axe.js` and
+`contrast.js` per surface; confirms counted. Writes numbers into 13.1 and
+13.2; no fixes except the unlabelled buttons.
+
+### Brief 57 (Opus, high): the stylesheet's grammar (13a)
+`frontend/css/*.css`, `tests/test_style_scale.py`, a new
+`tests/test_hover_focus_pairs.py`; decisions 9 to 17 with a ratchet each.
+
+### Brief 58 (Opus, high): the stylesheet's structure (13b)
+`08-consistency.css` and `10-responsive.css` dissolved into the component
+files; the 236 unused selectors removed; decisions 18 and 19 with ratchets.
+
+### Brief 59 (Opus, high): the surfaces (13c)
+`index.html`, `status.js`, `capture-ask.js`, `notes-list.js`, `chat.js`,
+`phone-shell.js`, the CSS they own; decisions 20 to 22; help moves with the
+UI in the same commits.
+
+## Briefs 60 to 63 (2026-10-10, Fable): the backend review
+
+From WORLD_CLASS_PLAN 26 (the layer table, decisions 55 to 62, the phases)
+and 27 (features and popups; its rows name Briefs 42, 47 to 55 and 59).
+
+### Brief 60 (Sonnet, medium): measure and the three ratchets (26.0, 26a)
+Import times, resident memory with and without the embedder, the index
+audit, the 54 untested routes, the 21 swallows, the 32 thread sites; then
+`tests/test_no_silent_except.py`, `tests/test_routes_named.py`, the
+background registry lint and ruff `T201`, each seeded with today's list.
+Then WORLD_CLASS decision 63 (INBOX 756): the complexity census over `src/`
+(functions over 15 listed, ratchet), the import cycles, the profiled hot
+routes, the handler list over `frontend/js`, `scratchpad/ui-sweeps/frames.js`
+(long tasks and frames over 16 ms on whiteboard, graph, mind map, companion,
+at rest and under drag), the at-rest ratchet. Findings go to the surface
+plans as rows; this brief fixes nothing. Budget 120 tool calls; split at 26a.
+
+### Brief 61 (Opus, high): services for whiteboard and files (26b)
+`api/routes_whiteboard.py` to `whiteboard/service.py`, `api/routes_files.py`
+to `files/service.py`; no behaviour change; route tests prove it.
+
+### Brief 62 (Opus, high): data out of code (26c)
+`ai/question_noise.py`, `ai/composer_tables.py`, the help topics and the
+taxonomy as JSON under `src/memorymap/data/`, lazy and cached;
+`tests/test_import_time.py`; the composer eval unchanged.
+
+### Brief 63 (Opus, high): the runners and the embedder (26d)
+`ai/agent.py` `run_agent` and `ai/skill_runner.py` `_run_one_step` as state
+machines; `ai/embeddings.py` lazy load and idle unload with its setting;
+`ai/tools/` one file per family.
+
+## Briefs 64 to 68 (CHAT_PLAN "The deterministic foundation")
+
+### Brief 64 (Sonnet, medium): measure the foundation (F0)
+Count the files compiling date-word or unit patterns outside
+`ai/recognise.py` and `entry/timewords.py` (a script in `scratchpad/`, its
+number into CHAT_PLAN section 3's ratchet); re-run the probe tables in
+`agent-remaining/engine-probe-1010.md` on the merged head; the variety
+metric (twenty asks of ten questions from `showcase_725`, distinct openers)
+and the maxims count (facts per sentence, unsourced numbers) with
+`tests/_composer_eval.py`. Numbers into sections 2 and 3; no fixes.
+
+### Brief 65 (Opus, high): the recogniser and the reading (F1)
+`ai/recognise.py` and `ai/reading.py` per CHAT_PLAN section 3, decisions
+46 to 48. `when.resolve`, `reminder_parser.parse_relative`,
+`entry/timewords.find`, `search/query` date filters and the composer's
+utility branches delegate, signatures kept. Fixture
+`tests/fixtures/composer/recognise_1010.json` (200 rows, from the probe's
+date, reminder and None phrases outward) at 1.0; `tests/test_one_reader.py`
+ratchet. Coordinate with Brief 39's engine agent: `ai/composer.py` stays
+theirs; land the modules first, the delegation second.
+
+### Brief 66 (Opus, high): quick add and the palette (F2)
+Decision 50. One grammar (`frontend/js/quickadd.js`, lazy) for the quick
+note sheet, the reminders input, the meeting date field, timeline entries
+and `app-palette.js`: chips for date, time, recurrence, place, person, tag
+under the field; a missing slot asks once; Enter saves what the chips say.
+Server side through `/api/read` (the reading, decision 47). Sweep
+`scratchpad/ui-sweeps/quickadd.js`: chips within 150 ms, saved equals chip,
+60 phrases at 1.0. Help moves with the UI (standing order 13).
+
+### Brief 67 (Opus, high): the realiser, the validators and the acts (F3)
+`ai/realise.py` from `composer._pick` (protected spans, salt, variety floor
+measured), `ai/validate.py` (source_check, grounding, the maxims lint, slot
+completeness, decision 54's computed rule), `ai/acts.py` seeded from
+`origin/wip/composer-acts` `commands.py` with preview, run, inverse and a
+help line per act; chat and Ask become clients. Decisions 51 to 54.
+
+### Brief 68 (Opus, high): the surfaces (F4, after 65 to 67)
+CHAT_PLAN section 2's rows outside chat, one commit each with its measure:
+the note editor's offers, the dashboard digest, documents' counts, the
+whiteboard and mind map acts, the graph, library and settings filters,
+import recognition, the Guide's generated act topics, the agent's tools,
+and system copy through the realiser surface by surface (decision 55).
+
+## Briefs 69 to 71 (DOCUMENTS_PLAN 23: the IDE; after Brief 42)
+
+### Brief 69 (Opus, high): run, preview and test (I1)
+DOCUMENTS 23 decisions D1, D4 to D7 and D9. Files: `documents-code.js`
+("Run, and its output"), new `frontend/js/run/*.js`, `api/run_sandbox.py`,
+`core/extras.py`, `09-editor.css`. Each vendored file measured gzipped and
+decided before it lands (sucrase, sql.js, pytest wheel). Numbers: a `.ts`,
+`.sql`, `.css`, `.svg` and p5 document each run or preview in the sweep;
+tests listed with state and time; Python `input()` answered from the panel.
+
+### Brief 70 (Opus, high): the debugger (I2)
+D2 and D3. Files: `api/run_sandbox.py` (the two headers), the Python
+sandbox worker, new `frontend/vendor/js-interpreter`, `frontend/js/run/debug-*.js`,
+the breakpoint gutter in `documents-code.js`. Numbers: a scripted session
+per language hits a breakpoint, steps three times, reads a watched value and
+stops on an exception; the time from Debug to the first stop.
+
+### Brief 71 (Opus, high): the IDE shell (I3)
+D8 and the shell rows of DOCUMENTS 23. Files: `documents-code.js`,
+`09-editor.css`, `help_chat.py`, `help_topics_more.py`, `test_manual_parity.py`.
+Numbers: palette command count; every keybinding on the sheet exercised by
+`scratchpad/ui-sweeps/code-keys.js`; the four panels' heights remembered
+across a reload.
+
+## Briefs 72 to 74 (WORLD_CLASS_PLAN 28: the trust contract)
+Brief 72a (Opus, high): deepen, per decision 71, the documents editor, code editor, whiteboard, mind map, OCR workspace and the audio set (meeting notes, transcription, live captions, translator). Brief 72b (Opus, high): the timeline, reminders and notifications (decision 69), calendar, the agent and its harness, the deterministic features, the statistics, utilities, chat access, the Guide, the palette and Find anything. Each writes measured "Deepened 2026-10-10" blocks into the plans, no code. Brief 73 (Opus, high): rules 4, 5 and 14 built (the Activity panel, model stop, error contract, Health page). Brief 74 (Sonnet, high): the three sweeps of T0 and the numbers into 28.1.
+
+### Brief 75 (Sonnet, high): every vendored library at full use (INBOX 751)
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." For each entry in `docs/THIRD_PARTY.md`: exports available against exports called (a script, `scratchpad/vendor_use.py`), the unused capabilities ranked by what they would give a surface, each placed as a row in that surface's plan with its measure; `tests/test_vendor_utilisation.py` ratchets the called count. No code beyond the script and the test.
+
+## Briefs 76 onward (from Briefs 72a and 72b)
+
+- Brief 76 (Opus, high): the documents and code editor trust pass, DOCUMENTS_PLAN 24 rows 1 to 4, 7, 9, 11 and 25 rows 1, 2, 6, 7. Files: `documents.js`, `documents-code.js`, `09-editor.css`. Numbers: document acts that undo 2/11 to 11/11; overlaps at 390 20 to 0 (13 on code) and 12 controls past the edge to 0; cold open 1,743 ms to under 800; `deepen72a.js` and `overlap.js` before and after.
+- Brief 77 (Opus, high): the whiteboard trust pass, WHITEBOARD_PLAN "Deepened 2026-10-10" rows 1 to 4, 8, 9. Files: `whiteboard.js`, `whiteboard-commands.js`, `whiteboard-history.js`, `07-whiteboard-misc.css`. Numbers: commands with a phone path to 100% at 390; a new board 4 clicks to 3; `boardundo.js` 43/43 to 44/44 with the agent's change.
+- Brief 78 (Opus, high): the mind map trust pass, MINDMAP_PLAN 15 rows 1 to 6, 8, 9. Files: `whiteboard-map.js`, `settings-panes.js` (the palette row), `07-whiteboard-misc.css`. Numbers: a new map 5 clicks to 3; 0 "concept map"; grip overlaps 4 and 8 to 0; add a child under 50 ms; `maplayouts.js` per new structure.
+- Brief 79 (Opus, high): the OCR workspace, WORLD_CLASS_PLAN 28.4 rows 2 to 5, 7, 9 (row 1 is Brief 37's). Files: `library.js` (the OCR functions), `ocr-engine.js`, `core/ocr.py`, the OCR CSS. Numbers: reading acts that undo 0/5 to 5/5; a synthetic Ctrl+wheel zooms; 390 past-the-edge 3 to 0; a drag-select copies the words.
+- Brief 80 (Opus, high; after the orchestrator confirms the go in 28.5): recordings as objects and the Audio section, 28.5 rows 1, 3 to 6. Files: `meetings.js`, `routes_voice.py`, `routes_files.py` (the allowlist, only as far as the object needs), a new recordings surface from DESIGN.md's recipes. Numbers: Record with no add-on keeps the audio; meeting acts that undo 1/6 to 6/6; a crash at 2 min keeps 1:50.
+- Brief 81 (Opus, high): meetings and transcripts without a model, 28.5 rows 2, 7, 11. Files: `entry/meetings.py`, `routes_meetings.py`, `meetings.js`. Numbers: 0 dead controls with no model; a sample meeting's 3 actions found; a transcript line seeks within 0.5 s; SRT and VTT out.
+- Brief 82 (Opus, high; research first, Sonnet medium): live captions, 28.5 row 9, under decision 4's optional-helper contract. Numbers: speech to caption latency; the helper's size and licence; the suite never reaches for it.
+- Brief 83 (Sonnet medium for the evaluation, Opus high to build): the offline translator, 28.5 row 10. Numbers: Bergamot's licence (ANALYSIS licence line), WASM and per-pair pack sizes, time for a paragraph, quality on ten sample sentences; a keep or drop before anything is vendored.
+- Brief 85 (Opus, high; from Brief 72b): the timeline and reminders trust pass, TIMELINE_PLAN 10 rows 1, 3, 7, 8 and 11 rows 1, 2, 5, 6, 8. Files: `timeline.js`, `shell-reminders.js`, `status.js` (the due timer), the timeline and reminders CSS. Numbers: timeline 390 past-the-edge 6 to 0 and overlaps 3 to 0; reminder acts that undo 3/6 to 6/6; presets-menu overlaps 7 to 0; due to fire up to 60 s to under 5 s; click to rows under 300 ms; `deepen72b.js` before and after.
+- Brief 86 (Opus, high; research first): reminders reach the desktop and the browser (decision 69), TIMELINE_PLAN 11 rows 3, 4. Files: `__main__.py` (the launcher's notifier, no new dependency), `sw.js` (`showNotification` and its actions), `status.js`. Numbers: a reminder due in 60 s fires once with the window hidden (Linux in CI; Windows and macOS by hand, said so); a hidden tab fires; Done from the notification marks it done.
+- Brief 87 (Opus, high): the agent panel trust pass, AGENT_SKILLS_REFORM "Deepened 2026-10-10" rows 1 to 4, 7 (after Brief 67's act registry). Files: `palette.js`, `chat-agent.js`, `agent-activity.js`, `phone-shell.js`. Numbers: disabled controls with no model 16 to 0; the agent opens at 390; overlaps 2 to 0; Ctrl+Z after a run restores its last write.
+- Brief 88 (Opus, high): chat and the Guide trust pass, CHAT_PLAN foundation 8 rows 1, 2, 5 to 7 and 9 rows 2, 3. Files: `chat-agent.js`, `chat-attach.js`, `help-chat.js`, `reveal-targets.js`, the chat CSS. Numbers: head overlaps 3 to 0; source-card overlaps 82 and 136 measured then 0; chat acts that undo to 100%; click to composer at 390 1,913 ms to under 500; every Guide topic's target visible.
+- Brief 89 (Opus, high): statistics and utilities, UI_MODERNISATION "Deepened 2026-10-10" statistics rows 1, 2, 5 and utilities rows 2 to 5 (row 1 is Briefs 65 and 66). Files: a Statistics surface from DESIGN.md's recipes, `dashboard.js`, `app-palette.js`, `ai/notebook_stats.py`. Numbers: statistics 3 clicks to 1; palette rows for statistics and timer 0 to 1 each; stats answers under 300 ms.
+- Brief 90 (Opus, high): the palette and Find anything, UI_MODERNISATION "Deepened 2026-10-10" palette rows 1, 3, 5, 7 (rows 2 and 4 are Brief 47's). Files: `app-palette.js`, `settings-panes.js` (`paletteCommands`), `spaces-find.js`. Numbers: the 11 empty queries find their command; "ocr" 0 rows to a suggestion; small targets 2 to 0; `deepen72b.js` palette and finder rows before and after.
+
+### Brief 84 (Opus, high): Atlas everywhere (F5, after 68)
+CHAT_PLAN decision 59 (INBOX 758), gated on decision 58's scorecard from
+Brief 68's report. Four steps, one commit each, the scorecard re-run after
+each: access (every read tool and act, `ai/acts.py`), output forms (table,
+list, card, chart through the chat's blocks), conversation (per-chat context
+of the last readings; voice tables with the salt), the Guide on the reading
+(`ai/help_chat.py` `_matching_topics` and `topics_for` through
+`ai/reading.py`; `tests/test_help_chat*.py` and `test_manual_parity.py`
+green). Report the six scorecard columns before and after.

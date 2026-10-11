@@ -9,7 +9,7 @@
 // (`LAZY_ENTRY_POINTS`). The Ask scope (`askScope`, `setAskScope`) stays in
 // capture-ask.js, since `askQuestion` reads it.
 
-const questionsView = { state: "open", offset: 0, ready: false };
+const questionsView = { state: "open", offset: 0, ready: false, entry: null, last: null };
 
 function questionWhen(iso) {
   const when = iso ? new Date(iso) : null;
@@ -25,8 +25,9 @@ function questionButton(icon, label, onClick) {
 function questionRow(item) {
   const li = evidenceSpan("night-fact question-row", "", "li");
   const text = evidenceSpan("dash-list-text");
-  const asked = ["Asked", questionWhen(item.asked_at), item.note_title ? `in “${item.note_title}”` : ""].filter(Boolean).join(" ");
-  text.append(evidenceSpan("dash-list-title night-fact-text", item.text), evidenceSpan("dash-list-preview", asked));
+  //: The words without their markdown (`display`, INBOX 745 (b)); the note
+  //: is the group's heading above, so the line under says only when.
+  text.append(evidenceSpan("dash-list-title night-fact-text", item.display || item.text), evidenceSpan("dash-list-preview", ["Asked", questionWhen(item.asked_at)].filter(Boolean).join(" ")));
   const by = item.answered_by;
   if (item.state === "answered" && by) {
     //: The answered-by link (I3, decided 2026-10-04): the answering sentence,
@@ -72,16 +73,43 @@ async function loadQuestions({ more = false } = {}) {
   const list = $("questions-list");
   if (!list) return;
   if (!more) questionsView.offset = 0;
+  //: The newest load wins: the sub-tab's own load and a card's "kept to this
+  //: note" one start together, and the slower answer drew last (measured:
+  //: the unfiltered list replaced the filtered one).
+  const seq = (questionsView.seq = (questionsView.seq || 0) + 1);
   let reply;
   try {
-    reply = await apiJson(`/questions?state=${questionsView.state}&limit=30&offset=${questionsView.offset}`, { silent: true });
+    const one = questionsView.entry ? `&entry_id=${questionsView.entry.id}` : "";
+    reply = await apiJson(`/questions?state=${questionsView.state}&limit=30&offset=${questionsView.offset}${one}`, { silent: true });
   } catch {
     surfaceFailed(list, "your questions", () => loadQuestions());
     return;
   }
-  if (!more) list.replaceChildren();
+  if (seq !== questionsView.seq) return;
+  if (!more) {
+    list.replaceChildren();
+    questionsView.last = null;
+  }
   const items = reply.items || [];
-  for (const item of items) list.appendChild(questionRow(item));
+  //: **Grouped by the note that asks them** (INBOX 745 (c)): the listing is
+  //: note by note already, so a heading goes in where the note changes, the
+  //: note's title as a button that opens it.
+  for (const item of items) {
+    if (item.entry_id !== questionsView.last) {
+      questionsView.last = item.entry_id;
+      const head = document.createElement("li");
+      head.className = "question-group";
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "question-group-link";
+      open.title = "Open the note that asks these";
+      setLabel(open, `ph:note ${item.note_title || "A note"}`);
+      open.addEventListener("click", () => flashEntry(item.entry_id));
+      head.append(open);
+      list.appendChild(head);
+    }
+    list.appendChild(questionRow(item));
+  }
   questionsView.offset += items.length;
   const counts = reply.counts || {};
   //: The counts ride on the select's rows (INBOX 665), "Answered (2)", and
@@ -96,7 +124,25 @@ async function loadQuestions({ more = false } = {}) {
   ask.disabled = !counts.open;
   ask.title = counts.open ? "Ask about the questions you have not answered yet" : "No open questions to ask about";
   const lead = $("questions-lead");
-  lead.textContent = reply.total ? "" : QUESTIONS_EMPTY[questionsView.state];
+  lead.replaceChildren(reply.total ? "" : QUESTIONS_EMPTY[questionsView.state]);
+  //: Kept to one note (its card's count): said, with the way back to all.
+  if (questionsView.entry) {
+    const all = document.createElement("button");
+    all.type = "button";
+    all.className = "ghost small";
+    setLabel(all, "ph:x Show every note's");
+    all.addEventListener("click", () => questionsForNote(null));
+    lead.replaceChildren(`Only the questions in “${questionsView.entry.title}”. `, all);
+  }
+}
+
+//: Open the list kept to one note, or to every note again with null.
+function questionsForNote(entryId) {
+  initQuestionsView();
+  const entry = entryId && allEntries.find((e) => e.id === entryId);
+  questionsView.entry = entryId ? { id: entryId, title: entry ? clipText(notePreviewText(flattenNoteMarkdown(entry.title || entry.content || "")), 48) : "this note" } : null;
+  questionsView.state = $("questions-state").value = "open";
+  loadQuestions();
 }
 
 function initQuestionsView() {

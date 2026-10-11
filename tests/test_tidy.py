@@ -90,6 +90,8 @@ def test_the_summary_names_every_review_with_a_count(client):
         "lookalike-tags",
         "uncategorised",
         "duplicates",
+        "similar-categories",
+        "category-names",
         "short-notes",
         "stale-reminders",
     ]
@@ -282,6 +284,34 @@ def test_short_notes_go_to_the_bin_and_come_back(client, session):
     assert not session.get(Entry, short["id"]).is_deleted
 
 
+def test_a_dismissed_row_stays_gone_and_comes_back_on_undismiss(client, session):
+    """INBOX 783 ("how do I delete a suggestion??"): a row dismissed for good is
+    not listed again, not counted, not applied, and Undo puts it back."""
+    short = _save(client, "todo")
+    other = _save(client, "buy milk")
+    rows = _review(client, "short-notes")["rows"]
+    assert len(rows) == 2
+    target = next(r["id"] for r in rows if r["entry_ids"] == [short["id"]])
+    shown = client.post("/tidy/short-notes/dismiss", json={"ids": [target, "nonsense"]})
+    assert shown.status_code == 200 and shown.json()["dismissed"] == 1
+    after = _review(client, "short-notes")
+    assert [r["entry_ids"] for r in after["rows"]] == [[other["id"]]]
+    counts = {r["key"]: r["count"] for r in client.get("/tidy").json()["reviews"]}
+    assert counts["short-notes"] == 1
+    assert _apply(client, "short-notes", [target])["applied"] == 0
+    # Dismissing twice is the same as once.
+    again = client.post("/tidy/short-notes/dismiss", json={"ids": [target]})
+    assert again.status_code == 200
+    back = client.post("/tidy/short-notes/undismiss", json={"ids": [target]})
+    assert back.status_code == 200 and back.json()["dismissed"] == 0
+    assert len(_review(client, "short-notes")["rows"]) == 2
+
+
+def test_dismissing_in_an_unknown_review_is_a_404(client):
+    refused = client.post("/tidy/nope/dismiss", json={"ids": ["note:1"]})
+    assert refused.status_code == 404
+
+
 def test_stale_reminders_are_marked_done_with_undo(client, session):
     old = Reminder(text="Renew passport", due_at=datetime.now() - timedelta(days=40))
     recent = Reminder(text="Water plants", due_at=datetime.now() - timedelta(days=2))
@@ -378,3 +408,69 @@ def test_each_review_has_a_finds_line_and_a_description_that_names_its_change(cl
         assert len(review["finds"]) <= 60, review["finds"]
         assert "\u2014" not in review["finds"] and "!" not in review["finds"]
         assert review["finds"] != review["about"]
+
+
+def test_the_badge_count_for_uncategorised_does_not_run_the_per_note_matcher(client, session, monkeypatch):
+    """Audit 2026-10-10: `GET /tidy` (the Notes dock's badge, fetched on every
+    list redraw) took 23 s at 5,000 notes, 11.5 s of it matching each loose
+    note against the others only to count it. The count is the number of
+    uncategorised notes, whichever branch each row takes, so it needs no match;
+    the review's own list still does."""
+    from memorymap.ai import lexical_filing
+
+    for text in ("sourdough starter feeding", "sourdough loaf proving"):
+        _save(client, text, category="Baking")
+    _save(client, "sourdough starter smells sour", category="Uncategorised")
+    _save(client, "zzz qqq", category="Uncategorised")
+    listed = len(_review(client, "uncategorised")["rows"])
+
+    def refuse(*_a, **_k):
+        raise AssertionError("the badge must not match each note")
+
+    monkeypatch.setattr(lexical_filing, "lexical_category", refuse)
+    counts = {r["key"]: r["count"] for r in client.get("/tidy").json()["reviews"]}
+    assert counts["uncategorised"] == listed == 2
+
+
+def test_the_duplicates_count_is_kept_until_the_notebook_changes(client, session, monkeypatch):
+    """Audit 2026-10-10: the scan is quadratic and the badge asks on every
+    redraw, so an unchanged notebook answers from the last scan; any new note,
+    edit or deletion is a different notebook and scans again."""
+    from memorymap.entry import duplicates
+
+    calls = []
+    real = duplicates.find_duplicates
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(duplicates, "find_duplicates", counted)
+    tidy._duplicates_seen.clear()
+    first = _save(client, "Call the plumber about the kitchen leak on Monday")
+    _save(client, "Call the plumber about the kitchen leak on Monday morning")
+    assert client.get("/tidy").json()["reviews"][6]["count"] == 1
+    assert client.get("/tidy").json()["reviews"][6]["count"] == 1
+    assert len(calls) == 1, "an unchanged notebook must not be scanned twice"
+
+    client.put(f"/entries/{first['id']}", json={"content": "Something else entirely about gardening tools"})
+    assert client.get("/tidy").json()["reviews"][6]["count"] == 0
+    assert len(calls) == 2, "an edit is a different notebook"
+
+
+def test_a_sensitive_note_is_listed_unticked_and_never_moved_by_itself(session, app_state):
+    """WORLD_CLASS 23, decision 6: a note that reads as health is suggested
+    in Tidy with its why, unticked, and the automatic run leaves it alone."""
+    from memorymap.core import deps
+
+    for text in ("Dentist check-up booked for the 21st", "GP says blood pressure is fine", "Physio for the shoulder"):
+        manager.create_entry(session, text, category_name="Health")
+    held = manager.create_entry(session, "Dentist appointment moved to Friday", category_name=manager.UNCATEGORISED)
+    session.commit()
+    row = next(r for r in tidy.rows(session, "uncategorised") if r["id"] == f"note:{held.id}")
+    assert row["change"] == "Move to Health" and row["selectable"] and not row["ticked"]
+    assert row["detail"].startswith("Waits for you: it reads as") and "dentist" in row["detail"]
+    tidy.set_auto(deps.get_config(), "uncategorised", True)
+    tidy.run_automatic(session, force=True)
+    session.refresh(held)
+    assert manager.category_name_for(session, held) == manager.UNCATEGORISED

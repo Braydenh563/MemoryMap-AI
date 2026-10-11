@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 
-from memorymap.ai import lexical_filing
+from memorymap.ai import tagging
 
 
 def _settled(client, entry_id, timeout=10.0):
@@ -30,20 +30,20 @@ def _seed(client):
 
 def test_the_nearest_notes_tags_are_suggested(client, session):
     _seed(client)
-    tags = lexical_filing.suggest_tags(session, "Front squats today, legs wrecked", have=[])
+    tags = tagging.suggest(session, "Front squats today, legs wrecked", have=[])
     assert tags[:2] == ["gym", "legs"] or set(tags[:2]) == {"gym", "legs"}
     assert "recipe" not in tags
 
 
 def test_a_tag_already_on_the_note_is_not_suggested(client, session):
     _seed(client)
-    tags = lexical_filing.suggest_tags(session, "Front squats today, legs wrecked", have=["Gym"])
+    tags = tagging.suggest(session, "Front squats today, legs wrecked", have=["Gym"])
     assert "gym" not in [t.lower() for t in tags]
 
 
 def test_a_vocabulary_tag_the_note_names_is_suggested(client, session):
     _seed(client)
-    assert "cardio" in lexical_filing.suggest_tags(session, "Some cardio after work", have=[])
+    assert "cardio" in tagging.suggest(session, "Some cardio after work", have=[])
 
 
 def test_filing_keeps_the_suggestions_on_the_note(client):
@@ -76,7 +76,7 @@ def test_the_card_offers_them_and_shows_the_confidence():
 
     js = app_js_text()
     assert 'setLabel(take, `ph:plus ${tag}`);' in js and 'const group = chip("", "tag suggested-tag");' in js
-    assert "answerSuggestedTags(entry, { discard: [tag] })" in js
+    assert "answerTags(entry, { discard: [tag] })" in js
     assert '"item-fact filing-sure"' in js
 
 

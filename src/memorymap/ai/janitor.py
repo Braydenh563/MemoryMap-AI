@@ -130,6 +130,19 @@ def settled_state(method: str) -> str:
     return "done"
 
 
+def _unless_held(content: str, found: tuple[str, int, str] | None) -> tuple[str, int, str] | None:
+    """A filer's answer, or None when decision 6 holds it: a sensitive note
+    is suggested by the words path below, never filed, until Settings lets
+    it (`lexical_filing.holds_sensitive`, INBOX 770)."""
+    if found is None:
+        return None
+    topic = lexical_filing.holds_sensitive(content, found[0])
+    if topic is None:
+        return found
+    logger.info("janitor: '%s' by %s held for the person (%s)", safe_value(found[0], 60), found[2], safe_value(topic, 40))
+    return None
+
+
 def categorise(
     session: Session,
     content: str,
@@ -186,9 +199,9 @@ def categorise(
     # decline). Flagged as a real latency change when it shipped; this is the
     # honest fix for it, rather than reverting the accuracy for everyone.
     if not deps.get_config().get_preference("ai_first_filing", True):
-        semantic = _semantic_category(
+        semantic = _unless_held(content, _semantic_category(
             session, content, embeddings, exclude_entry_id=exclude_entry_id
-        )
+        ))
         if semantic is not None:
             return semantic
 
@@ -204,6 +217,8 @@ def categorise(
         if not embeddings.is_ready():
             return UNCATEGORISED, 0, "none"
         method = "none"
+    if method != "none" and _unless_held(content, (category, confidence, method)) is None:
+        category, confidence, method = UNCATEGORISED, 0, "none"
     if method != "none":
         # The category can come straight from the chat model, so it is
         # untrusted text on the way to a log line like any other.
@@ -215,9 +230,9 @@ def categorise(
         )
         return category, confidence, method
 
-    semantic = _semantic_category(
+    semantic = _unless_held(content, _semantic_category(
         session, content, embeddings, exclude_entry_id=exclude_entry_id
-    )
+    ))
     if semantic is not None:
         return semantic
 

@@ -106,6 +106,12 @@ def test_css_comments_go_and_strings_and_urls_stay():
     )
 
 
+def test_css_comment_lines_leave_no_empty_lines_behind():
+    """A stylesheet is never named by line in a stack trace, so the empty lines
+    a stripped comment leaves are dropped (INBOX 776: 7 KB of the boot CSS)."""
+    assert strip_css("/* a\n b */\n.a { x: 1; }\n\n\n/* c */\n.b { y: 2; }\n") == "\n.a { x: 1; }\n.b { y: 2; }\n"
+
+
 def test_html_comments_go_but_not_inside_text_elements_or_attributes():
     src = (
         "<div>\n  <!-- a note -->\n  <p title=\"<!-- not -->\">a<!-- x -->b</p>\n"

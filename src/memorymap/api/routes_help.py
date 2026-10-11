@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from memorymap.ai import help_chat
-from memorymap.core import deps
+from memorymap.core import activity, deps
 
 router = APIRouter(prefix="/help", tags=["help"])
 
@@ -97,7 +97,7 @@ def ask_stream(body: AskBody) -> StreamingResponse:
             yield json.dumps(event) + "\n"
 
     return StreamingResponse(
-        lines(),
+        activity.tracked_stream("generation", "Answering in the Guide", lines()),
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )

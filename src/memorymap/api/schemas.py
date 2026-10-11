@@ -244,6 +244,11 @@ class EntryOut(BaseModel):
     ai_confidence: int
     #: Offered at filing, not yet taken or discarded (INBOX 440).
     suggested_tags: list[str] = []
+    #: Each offered tag's why, the words in the note that back it
+    #: (WORLD_CLASS 23, decision 5).
+    suggested_tag_reasons: dict[str, str] = {}
+    #: Suggestions turned down on this note, which `restore` offers again.
+    discarded_tags: list[str] = []
     access_count: int = 0
     last_opened_at: datetime | None = None
     #: When a person last changed the text, title, tags or category; null if
@@ -263,6 +268,8 @@ class EntryOut(BaseModel):
     #: a note list, or labelled as what it is, every surface either treated
     #: it as a note or hard-coded a second fetch of `/whiteboard/boards`.
     is_board: bool = False
+    #: "board" or "map" for a board, None for a note (`Entry.board_kind`).
+    board_kind: str | None = None
     #: A topic a map gesture made (`Entry.map_topic`, audit UX-06).
     map_topic: bool = False
     # Where a web-reader clipping came from, when it was one (BACKLOG §65).

@@ -42,7 +42,7 @@ import time
 from dataclasses import dataclass
 from datetime import timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from memorymap.core import events
 from memorymap.core.database import AuditLog, Entry, EntryLink, Reminder, utcnow
@@ -52,6 +52,10 @@ logger = logging.getLogger("memorymap.tidy")
 
 ACTOR = "system:tidy"
 PREF_AUTO = "tidy_auto"
+#: Rows a person dismissed for good, `{review key: [row ids]}` (INBOX 783).
+PREF_DISMISSED = "tidy_dismissed"
+#: Dismissed rows kept per review: a long-lived notebook never grows the file.
+MAX_DISMISSED = 2000
 LOG_ACTION = "tidied"
 LOG_ENTITY = "tidy"
 #: The actors whose writes are a person's own (`events.ACTOR_USER*`).
@@ -124,6 +128,16 @@ REVIEWS: dict[str, Review] = {
             "duplicates", "Near-duplicate notes",
             "Notes that say much the same thing, compared word by word. Merge notes keeps the first of each set, adds the others' words and tags to it, and moves the others to the bin.",
             False, False, finds="Notes that say much the same thing.",
+        ),
+        Review(
+            "similar-categories", "Categories that overlap",
+            "Two categories about the same topics, in their words and in meaning. Merge categories moves the smaller one's notes into the larger and remembers it as your name for those topics; Undo puts them back.",
+            False, False, finds="Categories that hold the same kind of note.",
+        ),
+        Review(
+            "category-names", "Category names",
+            "A category whose notes are mostly about one topic it is not named for. Rename gives it the topic list's name for them; Undo puts the old name back.",
+            False, False, finds="Categories whose name hides what they hold.",
         ),
         Review(
             "short-notes", "Empty or very short notes",
@@ -383,12 +397,174 @@ def _rows_uncategorised(session, _level: str) -> list[dict]:  # noqa: ANN001
     for entry in entries:
         if names.get(entry.category_id, manager.UNCATEGORISED) != manager.UNCATEGORISED:
             continue
-        match = lexical_filing.lexical_category(session, entry.content or "", exclude_entry_id=entry.id)
-        if match and match.name != manager.UNCATEGORISED:
-            rows.append(_row(f"note:{entry.id}", _title(entry), f"Its words point to {match.name} ({match.confidence}%)", f"Move to {match.name}", [entry.id]))
+        decision = lexical_filing.decide(session, entry.content or "", exclude_entry_id=entry.id)
+        best = decision.filed or (decision.ranked[0] if decision.held and decision.ranked else None)
+        if best is not None and best.name != manager.UNCATEGORISED:
+            row = _row(f"note:{entry.id}", _title(entry), best.why, f"Move to {best.name}", [entry.id])
+            if decision.held:
+                #: A sensitive note (WORLD_CLASS 23, decision 6): listed for the
+                #: person, unticked, and never moved by the automatic run.
+                row["detail"] = f"Waits for you: it reads as {decision.sensitive}. {best.why}"
+                row["sensitive"] = True
+            rows.append(row)
         else:
             rows.append(_row(f"note:{entry.id}", _title(entry), "No clear match in your other notes", "File it by hand", [entry.id], selectable=False))
     return rows
+
+
+#: WORLD_CLASS 23, decision 4: two categories are offered as one when their
+#: topic profiles overlap this much and their notes sit this close in meaning
+#: (cosine distance of the two categories' mean vectors). With no search model
+#: there is no meaning to measure, so the topics alone must overlap
+#: `MERGE_TOPIC_OVERLAP_ALONE`, and the row says so.
+MERGE_TOPIC_OVERLAP = 0.6
+MERGE_CENTROID_DISTANCE = 0.15
+MERGE_TOPIC_OVERLAP_ALONE = 0.8
+#: A rename is offered when one topic holds this share of what a category's
+#: notes name, over at least `RENAME_MIN_NOTES` notes.
+RENAME_SHARE = 0.6
+RENAME_MIN_NOTES = 3
+
+
+def _category_ids(session) -> dict[str, int]:  # noqa: ANN001
+    from memorymap.core.database import Category
+
+    return {name: id_ for id_, name in session.execute(select(Category.id, Category.name)).all()}
+
+
+def _meaning_centroids(session) -> dict | None:  # noqa: ANN001
+    """Each category's mean note vector, unit length, from the search
+    model's matrix; None when the model is not loaded (decision 4's second
+    measure is then unavailable, never guessed)."""
+    from memorymap.ai import janitor
+    from memorymap.core import deps
+
+    try:
+        embeddings = deps.get_embeddings()
+        if not embeddings.is_ready():
+            return None
+        labelled = janitor._labelled_vectors(session, embeddings)
+    except Exception:  # noqa: BLE001 - no model is a state; the review falls back to topics
+        logger.info("no search model for the overlap review; comparing topics alone", exc_info=True)
+        return None
+    if labelled is None or not labelled.names:
+        return None
+    import numpy as np
+
+    centroids = {}
+    for name in set(labelled.names):
+        rows = labelled.rows[[i for i, n in enumerate(labelled.names) if n == name and not labelled.private[i]]]
+        if rows.shape[0]:
+            mean = rows.mean(axis=0)
+            norm = float(np.linalg.norm(mean))
+            if norm:
+                centroids[name] = mean / norm
+    return centroids
+
+
+def _top_topics(profile: dict[str, float], other: dict[str, float] | None = None, n: int = 2) -> list[str]:
+    keys = [t for t in profile if other is None or t in other]
+    return sorted(keys, key=lambda t: -(profile[t] * (other or {}).get(t, 1.0)))[:n]
+
+
+def _rows_similar_categories(session, _level: str) -> list[dict]:  # noqa: ANN001
+    """One row per group of categories that overlap: pairs that clear both
+    measures join into a group (Gym, Fitness and Misc together, not three
+    rows that undo one another), kept under its largest category."""
+    from memorymap.ai import lexical_filing
+
+    profiles = lexical_filing.category_profiles(session)
+    ids = _category_ids(session)
+    centroids = _meaning_centroids(session)
+    names = sorted(profiles, key=str.casefold)
+    group: dict[str, str] = {name: name for name in names}
+
+    def root(name: str) -> str:
+        while group[name] != name:
+            name = group[name]
+        return name
+
+    measures: dict[frozenset, tuple[float, float | None]] = {}
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            overlap = lexical_filing.topic_overlap(profiles[a][1], profiles[b][1])
+            if overlap < MERGE_TOPIC_OVERLAP:
+                continue
+            distance = None
+            if centroids is not None and a in centroids and b in centroids:
+                distance = 1.0 - float(centroids[a] @ centroids[b])
+                if distance > MERGE_CENTROID_DISTANCE:
+                    continue
+            elif overlap < MERGE_TOPIC_OVERLAP_ALONE:
+                continue
+            measures[frozenset((a, b))] = (overlap, distance)
+            group[root(a)] = root(b)
+    members: dict[str, list[str]] = {}
+    for name in names:
+        members.setdefault(root(name), []).append(name)
+    rows = []
+    for together in members.values():
+        if len(together) < 2:
+            continue
+        keep, *folds = sorted(together, key=lambda n: (-profiles[n][0], n.casefold()))
+        pairs = [m for pair, m in measures.items() if pair <= set(together)]
+        overlap = min(m[0] for m in pairs)
+        distances = [m[1] for m in pairs if m[1] is not None]
+        measure = (
+            f"topics overlap {overlap:.2f}, {max(distances):.2f} apart in meaning"
+            if distances and len(distances) == len(pairs)
+            else f"topics overlap {overlap:.2f} (by topics alone: the search model is off)"
+        )
+        shared = ", ".join(_top_topics(profiles[keep][1], profiles[folds[0]][1]))
+        folded = " and ".join(folds)
+        counts = ", ".join(str(profiles[n][0]) for n in (keep, *folds))
+        rows.append(_row(
+            f"merge:{'-'.join(str(ids[n]) for n in folds)}:{ids[keep]}",
+            f"Merge {folded} into {keep}?",
+            f"{counts} notes, all about {shared}; {measure}",
+            f"Merge {folded} into {keep}",
+            [],
+        ))
+    return rows
+
+
+def _rows_category_names(session, _level: str) -> list[dict]:  # noqa: ANN001
+    from memorymap.ai import lexical_filing, taxonomy
+
+    profiles = lexical_filing.category_profiles(session)
+    ids = _category_ids(session)
+    taken = {name.casefold() for name in ids}
+    rows = []
+    for name in sorted(profiles, key=str.casefold):
+        count, _profile, own = profiles[name]
+        total = sum(own.values())
+        if count < RENAME_MIN_NOTES or not total:
+            continue
+        topic = max(own, key=own.__getitem__)
+        share = own[topic] / total
+        if share < RENAME_SHARE or topic in taxonomy.name_topics(name) or topic.casefold() in taken:
+            continue
+        rows.append(_row(
+            f"rename:{ids[name]}",
+            f"Rename {name} to {topic}?",
+            f"{round(share * 100)}% of what its {count} notes are about is {topic}",
+            f"Rename to {topic}",
+            [],
+        ))
+    return rows
+
+
+def _count_uncategorised(session) -> int:  # noqa: ANN001
+    """How many rows `_rows_uncategorised` would list, without building them.
+
+    Every uncategorised note becomes a row (one that points at a category or
+    "no clear match"), so the badge's count is the number of such notes. Making
+    the rows matches each note's words against every other note, 2.3 ms apiece:
+    11.5 s of the 23 s `GET /tidy` took at 5,000 notes (audit 2026-10-10), paid
+    on every redraw of the notes list just to print a number."""
+    entries = _live_entries(session)
+    names = manager.bulk_category_names(session, entries)
+    return sum(1 for e in entries if names.get(e.category_id, manager.UNCATEGORISED) == manager.UNCATEGORISED)
 
 
 def _rows_duplicates(session, _level: str) -> list[dict]:  # noqa: ANN001
@@ -460,19 +636,82 @@ _RULES = {
     "lookalike-tags": _rows_lookalike_tags,
     "uncategorised": _rows_uncategorised,
     "duplicates": _rows_duplicates,
+    "similar-categories": _rows_similar_categories,
+    "category-names": _rows_category_names,
     "short-notes": _rows_short_notes,
     "stale-reminders": _rows_stale_reminders,
 }
 
 
+#: The duplicates count last taken, with the notebook's state when it was
+#: taken. The scan is the one review whose cost grows with the square of the
+#: notebook (4.7 to 5.8 s at 5,000 notes even after ARCH-11), and the badge
+#: asks again on every redraw of the notes list. A different count of live
+#: notes, a newer edit or a new id is a different notebook; the same
+#: signature is the same answer.
+_duplicates_seen: dict = {}
+
+
+def _count_duplicates(session) -> int:  # noqa: ANN001
+    #: The database's own address leads the signature: two notebooks (a test's
+    #: throwaway one, a space switch) must never share an answer.
+    signature = (str(session.get_bind().url), *session.execute(
+        select(func.count(Entry.id), func.max(Entry.updated_at), func.max(Entry.id)).where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+        )
+    ).one())
+    if _duplicates_seen.get("signature") == signature:
+        return _duplicates_seen["count"]
+    count = len(_rows_duplicates(session, ""))
+    _duplicates_seen.update(signature=signature, count=count)
+    return count
+
+
+#: Reviews whose count is cheaper to take than their rows are to build.
+_COUNTERS = {"uncategorised": _count_uncategorised, "duplicates": _count_duplicates}
+
+
 def rows(session, key: str, level: str | None = None) -> list[dict]:  # noqa: ANN001
     """What review `key` finds now, each row ticked or not by the review's
     default. Raises KeyError for an unknown review."""
+    from memorymap.core import deps
+
     review = REVIEWS[key]
-    found = _RULES[key](session, level or review.level)
+    gone = dismissed_ids(deps.get_config(), key)
+    found = [row for row in _RULES[key](session, level or review.level) if row["id"] not in gone]
     for row in found:
-        row["ticked"] = review.ticked and row["selectable"]
+        row["ticked"] = review.ticked and row["selectable"] and not row.get("sensitive")
     return found
+
+
+def dismissed_ids(config, key: str) -> set[str]:  # noqa: ANN001
+    """The row ids of review `key` a person dismissed for good."""
+    stored = config.get_preference(PREF_DISMISSED, {}) or {}
+    return set(stored.get(key) or ())
+
+
+def dismiss(session, config, key: str, ids: list[str]) -> int:  # noqa: ANN001
+    """Dismiss rows review `key` finds now, so they are not listed, counted or
+    applied again (INBOX 783). Ids it does not find are ignored. Returns how
+    many are dismissed in all."""
+    wanted = set(ids)
+    found = {row["id"] for row in rows(session, key) if row["id"] in wanted}
+    stored = dict(config.get_preference(PREF_DISMISSED, {}) or {})
+    kept = list(stored.get(key) or [])
+    kept.extend(i for i in sorted(found) if i not in kept)
+    stored[key] = kept[-MAX_DISMISSED:]
+    config.set_preference(PREF_DISMISSED, stored)
+    return len(stored[key])
+
+
+def undismiss(config, key: str, ids: list[str]) -> int:  # noqa: ANN001
+    """Bring dismissed rows back. Returns how many stay dismissed."""
+    stored = dict(config.get_preference(PREF_DISMISSED, {}) or {})
+    drop = set(ids)
+    stored[key] = [i for i in stored.get(key) or [] if i not in drop]
+    config.set_preference(PREF_DISMISSED, stored)
+    return len(stored[key])
 
 
 # --- applying, and putting back ---------------------------------------------------
@@ -571,6 +810,50 @@ def _apply_merge_notes(session, chosen: list[dict]) -> tuple[int, dict]:  # noqa
     return len(undo), {"merged": undo}
 
 
+def _apply_merge_categories(session, chosen: list[dict]) -> tuple[int, dict]:  # noqa: ANN001
+    """Fold each ticked category into the other, and write the folded name's
+    topics as the person's alias for the kept one (decision 7), so the next
+    note about them files there. Undo moves the notes back (the category is
+    made again by name) and takes the aliases away."""
+    from memorymap.ai import learning, taxonomy
+    from memorymap.core.database import Category
+
+    moved, aliases = [], []
+    merged = 0
+    for row in chosen:
+        _kind, fold_ids, keep_id = row["id"].split(":")
+        keep = session.get(Category, int(keep_id))
+        if keep is None:
+            continue
+        for fold_id in fold_ids.split("-"):
+            fold = session.get(Category, int(fold_id))
+            if fold is None:
+                continue
+            for entry in session.scalars(select(Entry).where(Entry.category_id == fold.id, Entry.is_deleted == False)):  # noqa: E712
+                moved.append({"id": entry.id, "category": fold.name, "user_filed": bool(entry.user_filed)})
+            for topic in taxonomy.name_topics(fold.name):
+                correction = learning.record(session, kind="alias", subject={"topic": topic}, from_value=fold.name, to_value=keep.name)
+                aliases.append(correction.id)
+            manager.rename_category(session, fold.id, keep.name)
+        merged += 1
+    return merged, {"moved": moved, "aliases": aliases}
+
+
+def _apply_rename_categories(session, chosen: list[dict]) -> tuple[int, dict]:  # noqa: ANN001
+    from memorymap.core.database import Category
+
+    renamed = []
+    for row in chosen:
+        category = session.get(Category, _id_number(row["id"]))
+        if category is None or not row["change"].startswith("Rename to "):
+            continue
+        new = row["change"][len("Rename to "):]
+        entries = [e.id for e in session.scalars(select(Entry).where(Entry.category_id == category.id))]
+        renamed.append({"id": category.id, "from": category.name, "to": new, "entries": entries})
+        manager.rename_category(session, category.id, new)
+    return len(renamed), {"renamed": renamed}
+
+
 def _apply_bin(session, chosen: list[dict]) -> tuple[int, dict]:  # noqa: ANN001
     binned = []
     for row in chosen:
@@ -602,6 +885,8 @@ _APPLY = {
     "lookalike-tags": _apply_merge_tags,
     "uncategorised": _apply_move,
     "duplicates": _apply_merge_notes,
+    "similar-categories": _apply_merge_categories,
+    "category-names": _apply_rename_categories,
     "short-notes": _apply_bin,
     "stale-reminders": _apply_done,
 }
@@ -614,13 +899,15 @@ _DONE_WORDS = {
     "lookalike-tags": "Merged {n} set{s} of look-alike tags",
     "uncategorised": "Moved {n} note{s} to a category",
     "duplicates": "Merged {n} set{s} of duplicates",
+    "similar-categories": "Merged {n} group{s} of categories",
+    "category-names": "Renamed {n} categor{ies}",
     "short-notes": "Moved {n} short note{s} to the bin",
     "stale-reminders": "Marked {n} old reminder{s} done",
 }
 
 
 def _log(session, key: str, applied: int, undo: dict) -> AuditLog | None:  # noqa: ANN001
-    message = _DONE_WORDS[key].format(n=applied, s="" if applied == 1 else "s")
+    message = _DONE_WORDS[key].format(n=applied, s="" if applied == 1 else "s", ies="y" if applied == 1 else "ies")
     return manager.log_action(
         session, LOG_ACTION, LOG_ENTITY, None, message,
         payload={"review": key, "count": applied, "undo": undo, "undone": False},
@@ -645,6 +932,8 @@ def _touched_entry_ids(session, undo: dict) -> list[int]:  # noqa: ANN001
         found.add(int(item["keeper"]))
         found.update(int(entry_id) for entry_id in item["binned"])
     found.update(int(entry_id) for entry_id in undo.get("binned", []))
+    for item in undo.get("renamed", []):
+        found.update(int(entry_id) for entry_id in item["entries"])
     return sorted(found)
 
 
@@ -714,6 +1003,17 @@ def _undo_payload(session, undo: dict) -> int:  # noqa: ANN001
         if entry is not None and entry.is_deleted:
             manager.restore_entry(session, entry)
             restored += 1
+    for item in undo.get("renamed", []):
+        from memorymap.core.database import Category
+
+        category = session.get(Category, item["id"])
+        if category is not None and category.name == item["to"]:
+            manager.rename_category(session, category.id, item["from"])
+            restored += 1
+    for alias_id in undo.get("aliases", []):
+        row = session.get(AuditLog, alias_id)
+        if row is not None and row.action == "correction":
+            session.delete(row)
     for reminder_id in undo.get("done", []):
         reminder = session.get(Reminder, reminder_id)
         if reminder is not None and reminder.done:
@@ -789,7 +1089,8 @@ def summary(session, config) -> dict:  # noqa: ANN001
     out = []
     for key, review in REVIEWS.items():
         try:
-            count = len(rows(session, key))
+            counter = _COUNTERS.get(key) if not dismissed_ids(config, key) else None
+            count = counter(session) if counter else len(rows(session, key))
         except Exception:  # noqa: BLE001  # one rule failing never hides the others
             logger.warning("tidy review %s failed", key, exc_info=True)
             count = 0
@@ -824,7 +1125,7 @@ def run_automatic(session, force: bool = False) -> dict[str, int]:  # noqa: ANN0
             for key, on in autos.items():
                 if not on:
                     continue
-                found = [r["id"] for r in rows(session, key) if r["selectable"]]
+                found = [r["id"] for r in rows(session, key) if r["selectable"] and not r.get("sensitive")]
                 if found:
                     result = apply(session, key, found)
                     if result["applied"]:

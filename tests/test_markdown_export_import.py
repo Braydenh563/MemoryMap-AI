@@ -163,3 +163,32 @@ def test_the_cli_export_reports_rather_than_raises_on_an_unwritable_path(client,
     blocker = tmp_path / "blocker"
     blocker.write_text("not a directory", encoding="utf-8")
     assert _export_markdown(str(blocker / "sub" / "notes.zip")) == 1
+
+
+def test_a_note_exported_and_imported_again_keeps_its_date_and_pin(client):
+    """Audit 2026-10-10: the words came back, the date and the pin did not."""
+    from memorymap.core import deps
+    from memorymap.core.database import Entry
+
+    made = client.post("/entries", json={"content": "dated and pinned note"}).json()
+    session = deps.get_db().session()
+    try:
+        entry = session.get(Entry, made["id"])
+        entry.created_at = entry.created_at.replace(year=2023, month=3, day=14)
+        entry.pinned = True
+        session.commit()
+        stamp = entry.created_at
+    finally:
+        session.close()
+    archive = zipfile.ZipFile(io.BytesIO(client.get("/export/markdown").content))
+    files = [("files", (n, archive.read(n), "text/markdown")) for n in archive.namelist() if n.endswith(".md")]
+    client.delete(f"/entries/{made['id']}")
+    imported = client.post("/import/markdown", files=files).json()["imported"]
+    assert imported == 1
+    session = deps.get_db().session()
+    try:
+        back = session.query(Entry).filter(Entry.content == "dated and pinned note", Entry.is_deleted == False).one()  # noqa: E712
+        assert back.created_at == stamp
+        assert back.pinned is True
+    finally:
+        session.close()

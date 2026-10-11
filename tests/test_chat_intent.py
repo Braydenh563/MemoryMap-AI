@@ -35,12 +35,18 @@ def test_capability_questions_are_about_the_app(message):
 @pytest.mark.parametrize(
     "message",
     ["what did I write about pasta", "summarise my notes", "what jokes have I saved?",
-     "remind me to call mum", "tell me about my week", "pasta recipe",
+     "tell me about my week", "pasta recipe",
      "hey, what have I saved about jokes"],
 )
 def test_real_questions_go_to_the_notebook(message):
     """Including one wearing a greeting, the question is what matters."""
     assert intent.classify(message) == intent.NOTES
+
+
+def test_a_reminder_said_as_a_command_is_an_act():
+    """CHAT_PLAN decision 38 (Phase 6 step 7): "remind me to call mum" sets a
+    reminder (with Undo), where it used to be searched for."""
+    assert intent.classify("remind me to call mum") == intent.ACT
 
 
 def test_unknown_messages_fall_back_to_notes():

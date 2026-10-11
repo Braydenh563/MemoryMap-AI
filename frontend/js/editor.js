@@ -105,6 +105,10 @@ function editorSurfaceKind(box) {
 function editorSurfaceFor(box) {
   if (!box) return null;
   if (box.kind === "textarea" || box.kind === "codemirror") return box;
+  //: A board's text box or map topic while it is being typed in carries its
+  //: own surface (whiteboard.js `wbEditableSurface`): it is a contenteditable,
+  //: which no adapter in documents.js speaks.
+  if (box.wbEditorSurface) return box.wbEditorSurface;
   if (typeof asSurface !== "function") {
     editorEnsureSurfaceModule(box);
     return null;
@@ -467,8 +471,11 @@ function editorApplyAction(textarea, action) {
       .split("\n")
       .map((line) => (line.startsWith(action.line) ? line : action.line + line))
       .join("\n");
+    //: An empty line has nothing to select: the caret goes after the
+    //: marker, so "/todo" then typing writes the item (measured on a board
+    //: text box, 2026-10-10: the selected "- [ ] " was typed over).
     editorSplice(textarea, lineStart, Math.max(lineEnd, end), prefixed, {
-      from: 0,
+      from: target.trim() ? 0 : prefixed.length,
       to: prefixed.length,
     });
     return;
@@ -568,7 +575,12 @@ async function editorInsertBoardObject(textarea) {
 //: never drift from what the buttons do. The slash token is removed by
 //: `editorRunItem` before `run` is called, so the question is left clean.
 function chatCommands() {
-  const press = (id) => () => document.getElementById(id)?.click();
+  //: Run `fn` once the press that chose the row is over (see `pick`).
+  const afterPress = (fn) => () => {
+    if (!editorMenuState.pressing) return fn();
+    document.addEventListener("mouseup", () => setTimeout(fn), { once: true, capture: true });
+  };
+  const press = (id) => afterPress(() => document.getElementById(id)?.click());
   //: **On the next frame, not in this one** (the owner, 2026-09-21: pressing
   //: "A document" in the slash menu showed the picker "for a split second but
   //: then disappears"). Both halves run inside the handler for the click that
@@ -576,7 +588,17 @@ function chatCommands() {
   //: close-on-click-outside listener, and then that very click carried on
   //: bubbling to the document and closed it again. Anything that opens a
   //: surface from inside a click has to let the click finish first.
-  const pick = (source) => () => {
+  //:
+  //: **And after the button comes up, when a pointer chose it** (the owner,
+  //: 2026-10-10: "I tried to press a note on the slash menu in the chat tab
+  //: and the panel flickered then nothing happened"). The row runs on
+  //: `mousedown`; a press held longer than a frame (measured: 250 ms) let the
+  //: picker open before the `mouseup`, and that press's own `click`, on the
+  //: page once the menu had gone, was the picker's click-away. A fast click
+  //: passed, which is why the frame alone looked like the fix. The Skills
+  //: and Web rows open popovers with the same click-away, so `press` waits
+  //: too.
+  const pick = (source) => afterPress(() => {
     if (typeof openNotePicker !== "function") return;
     requestAnimationFrame(() => {
       openNotePicker();
@@ -588,7 +610,7 @@ function chatCommands() {
           ?.click();
       });
     });
-  };
+  });
   const mode = (name) => () =>
     document.querySelector(`#chat-mode-seg button[data-chat-mode="${name}"]`)?.click();
   return [
@@ -877,9 +899,17 @@ function editorBackOverTrail(textarea) {
   textarea.setSelectionRange(at, at);
 }
 
+//: **A context that is the note's rows, cut** (the boards' text boxes, map
+//: topics and comments, 2026-10-10): context to the row ids it keeps, filled
+//: by the lazy file that owns those surfaces (whiteboard.js
+//: `WB_EDITOR_CONTEXT_ROWS`), so the lists cost the boot nothing.
+const EDITOR_CONTEXT_ROWS = {};
+
 function editorCommands(context) {
   if (context === "chat") return chatCommands();
   if (context === "skill") return skillCommands();
+  const keep = EDITOR_CONTEXT_ROWS[context];
+  if (keep) return editorBlockRows("note").filter((row) => keep.includes(row.id));
   const commands = editorBlockRows(context);
 
   // --- AI actions ---
@@ -1111,7 +1141,9 @@ function editorLinkMatches(needle) {
       id: `note-${entry.id}`,
       group: "Notes",
       icon: "ph:note",
-      label: noteLabel(entry, 60),
+      //: The note's opening line only: its whole text flattened read as the
+      //: title then the picture's alt text then the title again (INBOX 784).
+      label: noteLabel({ content: (entry.content || "").split("\n")[0] }, 60),
       hint: "note",
       //: The note itself, for the preview: its first lines are what "is
       //: this the one I mean" is answered by (`editorRenderPreview`).
@@ -1293,7 +1325,14 @@ function editorRenderMenu() {
     // caret position the insertion depends on is already gone.
     row.addEventListener("mousedown", (event) => {
       event.preventDefault();
-      editorRunItem(position);
+      //: Said to `run` for the press's length: a row that opens a surface
+      //: waits for the button to come up (`chatCommands`'s `pick`).
+      editorMenuState.pressing = true;
+      try {
+        editorRunItem(position);
+      } finally {
+        editorMenuState.pressing = false;
+      }
     });
     //: The pointer chooses what the preview shows, without redrawing the
     //: list under it. `mousemove`, not `mouseenter`: a menu that opens under
@@ -1313,7 +1352,7 @@ function editorRenderMenu() {
 }
 
 //: **The preview**, for "/" rows and for a note a "[[" row would link to
-//: (its first lines, `richPickerLines`), and only with room for it (44rem, the
+//: (an excerpt and its first picture, `richPickerNote`), and only with room for it (44rem, the
 //: width the template dialog's preview also needs before it shows). What it
 //: renders is the row's `sample`, through `renderMarkdown`, the renderer the
 //: page itself uses, so the preview is the block and not a picture of it.
@@ -1331,10 +1370,16 @@ function editorRenderPreview(item) {
   if (!show) return;
   if (pane.dataset.for === item.id) return;
   pane.dataset.for = item.id || "";
-  let sample = item.entry ? richPickerLines(item.entry.content) : null;
-  if (!sample && item.sample) {
+  let sample = null;
+  if (item.sample) {
     sample = document.createElement("div");
     renderMarkdown(sample, item.sample);
+    //: A narrow pane: the bar's Copy is an icon like its ⋯, so the caption
+    //: keeps one line and the two buttons sit side by side.
+    for (const copy of sample.querySelectorAll(".code-copy")) {
+      copy.classList.add("icon-only");
+      copy.querySelector(".ph-text")?.remove();
+    }
   }
   richPickerPreview(pane, {
     icon: editorMenuIcon(item),
@@ -1344,6 +1389,7 @@ function editorRenderPreview(item) {
     sample,
     keys: item.keys,
   });
+  if (item.entry) richPickerNote(pane, item);
 }
 
 //: Move the highlight without redrawing the list: the row's classes, the

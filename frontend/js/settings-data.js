@@ -241,12 +241,27 @@ function renderStorageSpaceNotice(storage) {
   );
 }
 
+//: The notebook file's check at start (WORLD_CLASS 25e), beside the list
+//: that is the way back. Silent when it passed.
+function renderIntegrityNotice(check) {
+  const line = $("integrity-notice");
+  if (!line) return;
+  const failed = check && check.ok === false;
+  line.classList.toggle("hidden", !failed);
+  if (!failed) {
+    line.replaceChildren();
+    return;
+  }
+  setLabel(line, `ph:warning ${integrityWords()}`);
+}
+
 async function renderBackupRetention() {
   const input = $("backup-retention");
   if (!input) return;
   const storage = await apiJson("/storage", { silent: true }).catch(() => null);
   if (!storage) return;
   renderStorageSpaceNotice(storage);
+  renderIntegrityNotice(storage.integrity);
   input.min = storage.backup_retention_min;
   input.max = storage.backup_retention_max;
   input.value = storage.backup_retention_count;
@@ -291,17 +306,29 @@ function undoImport(result, status) {
   const ids = result.ids || [];
   if (!ids.length) return;
   const n = ids.length;
-  toastAction(`Imported ${n} note${n === 1 ? "" : "s"}.`, "Undo", async () => {
-    let binned = 0;
+  //: Eight at a time, each settled on its own, so one note already gone does
+  //: not stop the rest; answers how many went.
+  const each = async (send) => {
+    let done = 0;
     for (let at = 0; at < ids.length; at += 8) {
-      const settled = await Promise.allSettled(
-        ids.slice(at, at + 8).map((id) => apiJson(`/entries/${id}`, { method: "DELETE", silent: true })),
-      );
-      binned += settled.filter((s) => s.status === "fulfilled").length;
+      const settled = await Promise.allSettled(ids.slice(at, at + 8).map(send));
+      done += settled.filter((s) => s.status === "fulfilled").length;
     }
-    status.textContent = `Undone: ${binned} imported note${binned === 1 ? "" : "s"} moved to the bin.`;
     loadEntries().catch(() => {});
-  });
+    return done;
+  };
+  //: Rule 1.8: the import is one entry on the undo stack (the bar, Ctrl+Z,
+  //: the history menu) and the toast's Undo is that entry. Undo bins exactly
+  //: the notes it made; redo takes them back out of the bin.
+  const binThem = async () => {
+    const binned = await each((id) => apiJson(`/entries/${id}`, { method: "DELETE", silent: true }));
+    if (status) status.textContent = `Undone: ${binned} imported note${binned === 1 ? "" : "s"} moved to the bin.`;
+  };
+  const restoreThem = async () => {
+    const back = await each((id) => apiJson(`/entries/${id}/restore`, { method: "POST", silent: true }));
+    if (status) status.textContent = `Imported ${back} note${back === 1 ? "" : "s"} again.`;
+  };
+  offerUndo(`Imported ${n} note${n === 1 ? "" : "s"}`, `Imported ${n} note${n === 1 ? "" : "s"}.`, binThem, restoreThem);
 }
 
 async function importMarkdown(inputId = "import-md-files") {

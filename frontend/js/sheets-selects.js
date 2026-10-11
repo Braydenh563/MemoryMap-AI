@@ -294,18 +294,24 @@ const SIDEBAR_RAIL_NAMES = {
 
 //: A resize grip says its value (WCAG 4.1.2: a focusable separator requires
 //: `aria-valuenow`). Read by an observer, so every way of resizing reports it.
-function trackSeparatorValue(handle, panel, min, max) {
+function trackSeparatorValue(handle, panel, min, max, axis = "width") {
   handle.setAttribute("aria-valuemin", String(min));
   handle.setAttribute("aria-valuemax", String(max));
-  const write = (width) => {
-    const now = Math.round(width);
+  //: A horizontal separator (the code editor's output panel) reports its height.
+  const tall = axis === "height";
+  const size = () => (tall ? panel.getBoundingClientRect().height : panel.getBoundingClientRect().width);
+  const write = (px) => {
+    const now = Math.round(px);
     if (!now) return; // hidden or folded away: keep the last real value
     handle.setAttribute("aria-valuenow", String(Math.min(Math.max(now, min), max)));
-    handle.setAttribute("aria-valuetext", `${now} pixels wide`);
+    handle.setAttribute("aria-valuetext", `${now} pixels ${tall ? "tall" : "wide"}`);
   };
-  write(panel.getBoundingClientRect().width || min);
+  write(size() || min);
   if (typeof ResizeObserver === "function") {
-    new ResizeObserver((entries) => write(entries[entries.length - 1].borderBoxSize?.[0]?.inlineSize ?? panel.getBoundingClientRect().width)).observe(panel);
+    new ResizeObserver((entries) => {
+      const box = entries[entries.length - 1].borderBoxSize?.[0];
+      write((tall ? box?.blockSize : box?.inlineSize) ?? size());
+    }).observe(panel);
   }
 }
 
@@ -765,6 +771,19 @@ function enhanceSelect(select) {
   const syncValue = () => {
     const chosen = select.options[select.selectedIndex];
     valueText.textContent = chosen ? chosen.textContent.trim() : "";
+    //: **The name contains what is written on the button** (WCAG 2.5.3, Label
+    //: in Name; axe `label-content-name-mismatch`, 22 findings in 2026-10-10's
+    //: sweep, every sort and model picker). "Sort notes" was the whole name
+    //: while the face read "Newest first", so a person saying the words they
+    //: can see ("click newest first") reached nothing. Now "Sort notes: Newest
+    //: first". An icon-only opener shows no text, so keeps the plain label.
+    if (!opener.classList.contains("select-opener-icon")) {
+      const shown = valueText.textContent;
+      opener.setAttribute(
+        "aria-label",
+        shown && !label.toLowerCase().includes(shown.toLowerCase()) ? `${label}: ${shown}` : label
+      );
+    }
     opener.disabled = select.disabled;
     for (const row of menu.querySelectorAll("[role='option']")) {
       const on = row.dataset.value === select.value;
@@ -974,6 +993,80 @@ function enhanceAllSelects(root) {
   }
 }
 
+//: **A date or a time, picked** (UI_MODERNISATION_PLAN Phase 12 decision 5;
+//: the owner: "the reminder dropdowns for setting datetimes and stuff, they
+//: need a custom style"). The native field keeps the value, so every caller
+//: that reads or writes `.value` is unchanged (a write repaints the face, a
+//: `.focus()` lands on the face); what is seen and tabbed to is the select
+//: recipe's opener, and what opens is the help popover shell holding the
+//: Timeline month pop's grid (DESIGN.md, "A date picked from a month") or the
+//: times of the day in the person's clock. A phrase typed in its field ("next
+//: friday", "3pm") is read by `ai/when` on the reminders route. The fields in
+//: the page at boot are enhanced; one built later stays native. The panel is a
+//: lazy piece (date-field.js, the boot scripts are at their gzip cap): the
+//: first press loads it, wires it and presses again.
+function dateFieldFace(value, isTime) {
+  if (isTime) {
+    const [h, m] = value.split(":").map(Number);
+    return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  const day = new Date(`${value}T00:00:00`);
+  const year = day.getFullYear() === new Date().getFullYear() ? undefined : "numeric";
+  return day.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year });
+}
+
+function enhanceDateField(input) {
+  if (!input || input.dataset.dateField || !/^(date|time)$/.test(input.type)) return;
+  input.dataset.dateField = "1";
+  const isTime = input.type === "time";
+  const label = input.getAttribute("aria-label") || (isTime ? "Time" : "Date");
+  const shell = document.createElement("span");
+  shell.className = "select-shell date-field";
+  const opener = document.createElement("button");
+  opener.type = "button";
+  opener.className = "select-opener";
+  opener.setAttribute("aria-haspopup", "dialog");
+  opener.setAttribute("aria-expanded", "false");
+  const icon = document.createElement("i");
+  icon.className = `ph ${isTime ? "ph-clock" : "ph-calendar-blank"} select-icon`;
+  icon.setAttribute("aria-hidden", "true");
+  const face = document.createElement("span");
+  face.className = "select-value";
+  opener.append(icon, face);
+  const panel = document.createElement("div");
+  panel.className = "timeline-monthpop hidden";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", label);
+  input.parentNode.insertBefore(shell, input);
+  shell.append(input, opener, panel);
+  input.classList.add("select-native-hidden");
+  input.tabIndex = -1;
+  input.setAttribute("aria-hidden", "true");
+  const paint = () => {
+    const value = input.value;
+    face.textContent = value ? dateFieldFace(value, isTime) : label;
+    opener.setAttribute("aria-label", `${label}: ${value ? face.textContent : "not set"}`);
+  };
+  const native = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  Object.defineProperty(input, "value", {
+    configurable: true,
+    get() { return native.get.call(this); },
+    set(value) { native.set.call(this, value); paint(); },
+  });
+  input.focus = (options) => opener.focus(options);
+  paint();
+  const first = async (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    opener.removeEventListener("click", first, true);
+    if (await ensureModule("dateField")) {
+      dateFieldWire(input, opener, panel, label, isTime);
+      opener.click();
+    }
+  };
+  opener.addEventListener("click", first, true);
+}
+
 // **Focus a `<select>`. Never call `.focus()` on one directly.**
 // `enhanceSelect` hides the native control (`tabIndex = -1`, `aria-hidden`)
 // behind a `.select-opener`, so `select.focus()` focuses nothing and keys go
@@ -999,6 +1092,7 @@ function focusSelect(select) {
 // than asking every render path to remember to call this.
 function watchForSelects() {
   enhanceAllSelects(document);
+  for (const field of document.querySelectorAll('input:is([type="date"], [type="time"])')) enhanceDateField(field);
   annotateSliders(document);
   new MutationObserver((records) => {
     for (const record of records) {
@@ -1606,6 +1700,7 @@ async function loadConversationList() {
             method: "PUT",
             body: JSON.stringify({ pinned: !conversation.pinned }),
           });
+          chatWriteRecord("chatPinUndo", conversation.id, !conversation.pinned);
           loadConversationList();
         }
       )
@@ -1618,6 +1713,8 @@ async function loadConversationList() {
           method: "PUT",
           body: JSON.stringify({ title: next.trim() }),
         });
+        chatWriteRecord("chatTitleUndo", conversation.id, conversation.title, next.trim());
+        if (chatConv.id === conversation.id) $("chat-title").textContent = next.trim();
         loadConversationList();
       })
     );
@@ -1654,6 +1751,7 @@ async function loadConversationList() {
       // again from the Library's Shelved filter.
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
         await apiJson(`/conversations/${conversation.id}/archive`, { method: "PUT" });
+        chatWriteRecord("chatArchiveUndo", conversation.id, conversation.title);
         if (chatConv.id === conversation.id) newChatConversation();
         toast("Archived.");
         loadConversationList();

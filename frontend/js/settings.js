@@ -458,6 +458,23 @@ async function loadChangelog() {
 //: the same "rebuilt each open rather than cached" rule `openSettingsModal`
 //: already uses for the model-status and backup rows just above this one in
 //: the file.
+function paintIntegrity(check) {
+  $("health-integrity").textContent = check && check.at
+    ? `${check.ok ? "Sound" : `Problems: ${check.result}`} · ${Object.entries(check.index || {}).filter(([k, v]) => v && k !== "notes").map(([k, v]) => `${v} ${k} indexed`).join(", ") || "nothing indexed"} of ${check.index?.notes ?? 0} notes · ${relativeTime(check.at)}`
+    : "Not checked yet";
+}
+
+$("health-integrity-check")?.addEventListener("click", async () => {
+  const button = $("health-integrity-check");
+  setLabel(button, "ph:spin Checking");
+  try {
+    paintIntegrity(await apiJson("/debug/health/integrity", { method: "POST" }));
+  } catch (e) {
+    toast(`The integrity check could not run: ${e.message}`, true, { action: ["Try again", () => button.click()] });
+  }
+  setLabel(button, "Check now");
+});
+
 async function renderHealthBlock() {
   const dbSize = $("health-db-size");
   const counts = $("health-counts");
@@ -505,13 +522,19 @@ async function renderHealthBlock() {
   if (c.attachments) parts.push(plural(c.attachments, "attachment", "attachments"));
   parts.push(plural(c.reminders ?? 0, "reminder", "reminders"));
   counts.textContent = parts.join(" · ");
-  const running = health.jobs?.running || [];
-  jobs.textContent = running.length
-    ? running.map((job) => job.label).join(", ")
-    : "Nothing running";
-  const errors = health.recent_errors || [];
-  const last = errors[errors.length - 1];
-  lastError.textContent = last ? `[${last.level}] ${last.message}` : "None recorded";
+  //: Rule 14 (WORLD_CLASS_PLAN 28.1): each field present and dated.
+  const trust = health.trust || {};
+  const when = (iso) => (iso ? `${relativeTime(iso)} (${new Date(iso).toLocaleString()})` : "");
+  const asOf = ` as of ${new Date(trust.checked_at || Date.now()).toLocaleTimeString()}`;
+  $("health-checked").textContent = `Checked${asOf}.`;
+  const backup = trust.last_backup || {};
+  $("health-last-backup").textContent = backup.at ? `${when(backup.at)} · ${backup.name}` : `No backup yet${asOf}`;
+  $("health-data-dir").textContent = `${formatFileSize(trust.data_dir_bytes) || "0 B"}${asOf}`;
+  paintIntegrity(trust.integrity);
+  const running = trust.running || health.jobs?.running || [];
+  jobs.textContent = (running.length ? running.map((job) => job.label).join(", ") : "Nothing running") + asOf;
+  const last = trust.last_error || {};
+  lastError.textContent = last.at ? `${when(last.at)} · ${last.line}` : `None recorded${asOf}`;
   // PLAN B9's p50/p95, per task kind. The endpoint carried them from the
   // start; the block did not draw them (BACKLOG §116.1 item 2). Seconds with
   // one decimal, because a caption takes 3.2s and a re-index 40s, and "3210
@@ -635,11 +658,16 @@ function filterSettings(term) {
   }
 
   let matches = 0;
+  //: Each word, or a word meaning the same thing (settings-find.js
+  //: `settingQueryAlts`, once that file has loaded): "night" keeps the
+  //: section with the theme in it.
+  const alts = typeof settingQueryAlts === "function" ? settingQueryAlts(query) : [[query]];
+  const holds = (text) => text.includes(query) || alts.every((said) => said.some((w) => text.includes(w)));
   for (const button of buttons) {
     const section = $(`settings-${button.dataset.section}`);
     const hit =
-      button.textContent.toLowerCase().includes(query) ||
-      (section && settingsSectionText(section).includes(query));
+      holds(button.textContent.toLowerCase()) ||
+      (section && holds(settingsSectionText(section)));
     button.classList.toggle("hidden", !hit);
     if (hit) matches += 1;
   }
@@ -3238,6 +3266,22 @@ document.addEventListener("click", (event) => {
 $("log-source").addEventListener("change", renderActiveLogView);
 $("log-level").addEventListener("change", renderActiveLogView);
 $("log-requests").addEventListener("change", renderActiveLogView);
+//: **A finished task's log** (Background tasks' history, its Logs button):
+//: Logs, with the filter set to the most particular words the row has, the
+//: package or model in its brackets ("sentence-transformers"), else the
+//: model it names, else its label. A log line names what it worked on, not
+//: the sentence the row says, so the brackets are tried first.
+function taskLogButton(item) {
+  return smallButton("ph:scroll Logs", "Open the log, filtered to this task", () => openTaskLog(item));
+}
+
+async function openTaskLog(item) {
+  await openSettingsModal("logs");
+  const filter = $("log-filter");
+  filter.value = /\(([^)]+)\)/.exec(item.label || "")?.[1] || item.name || item.label || "";
+  filter.dispatchEvent(new Event("input"));
+}
+
 let logFilterDebounceTimeout;
 $("log-filter").addEventListener("input", () => {
   clearTimeout(logFilterDebounceTimeout);

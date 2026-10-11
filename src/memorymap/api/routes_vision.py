@@ -260,57 +260,29 @@ def dismiss_tidy(body: DismissBody) -> dict:
 
 # --- charts from questions -------------------------------------------------------------
 
-_MONTHS = {
-    name: i
-    for i, name in enumerate(
-        ["january", "february", "march", "april", "may", "june", "july", "august",
-         "september", "october", "november", "december"],
-        start=1,
-    )
-}
 _COUNTING = re.compile(r"\b(how many|number of|count|trend|chart|graph|plot|over time|per|each)\b")
 _ABOUT_NOTES = re.compile(r"\b(notes?|entries|wrote|written|write|captured|saved)\b")
 
 
-def _month_bounds(year: int, month: int) -> tuple[date, date]:
-    start = date(year, month, 1)
-    end = date(year + (month == 12), month % 12 + 1, 1)
-    return start, end
-
-
 def _period(text: str, today: date) -> tuple[date | None, date | None, str]:
-    """(since, until exclusive, words) for the period a question names."""
-    if "today" in text:
-        return today, today + timedelta(days=1), "today"
-    if "this week" in text:
-        start = today - timedelta(days=today.weekday())
-        return start, today + timedelta(days=1), "this week"
-    if "last week" in text:
-        start = today - timedelta(days=today.weekday() + 7)
-        return start, start + timedelta(days=7), "last week"
-    if "this month" in text:
-        return today.replace(day=1), today + timedelta(days=1), "this month"
-    if "last month" in text:
-        first = today.replace(day=1)
-        prev = first - timedelta(days=1)
-        return prev.replace(day=1), first, "last month"
-    if "this year" in text:
-        return date(today.year, 1, 1), today + timedelta(days=1), "this year"
-    if "last year" in text:
-        return date(today.year - 1, 1, 1), date(today.year, 1, 1), "last year"
-    found = re.search(r"\b(?:last|past) (\d{1,3}) days\b", text)
-    if found:
-        n = int(found.group(1))
-        return today - timedelta(days=n - 1), today + timedelta(days=1), f"the last {n} days"
-    found = re.search(r"\bin (" + "|".join(_MONTHS) + r")(?: (\d{4}))?\b", text)
-    if found:
-        year = int(found.group(2)) if found.group(2) else today.year
-        start, end = _month_bounds(year, _MONTHS[found.group(1)])
-        return start, end, f"{found.group(1).capitalize()} {year}"
-    found = re.search(r"\bin (\d{4})\b", text)
-    if found:
-        year = int(found.group(1))
-        return date(year, 1, 1), date(year + 1, 1, 1), str(year)
+    """(since, until exclusive, words) for the period a question names, read
+    by `ai/recognise.py` in the past tense (CHAT_PLAN decision 46): "this
+    week", "last month", "in March", "in 2026", "the last 30 days", "since
+    Friday", "yesterday". The end is never after today."""
+    from memorymap.ai import recognise
+
+    for found in recognise.recognise(text, now=datetime.combine(today, datetime.min.time()), tense="past"):
+        if found.rank or found.kind not in ("date", "range"):
+            continue
+        first, last, grain = found.value if found.kind == "range" else (found.value, found.value, "day")
+        if not isinstance(first, date):
+            continue  # a stretch of hours: no period of days
+        words = found.text.strip().lower()
+        if grain == "month" and first.day == 1 and words.startswith(("in ", "during ")):
+            words = first.strftime("%B %Y")
+        elif grain == "year" and words.startswith(("in ", "during ")):
+            words = str(first.year)
+        return first, min(last, today) + timedelta(days=1), words
     return None, None, "all time"
 
 

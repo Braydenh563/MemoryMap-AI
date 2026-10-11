@@ -51,6 +51,31 @@ CSS_FILES = [
     CSS_DIR / "recovery-lazy.css",
     #: Tidy's sheet (`LAZY_MODULES.tidy`, INBOX 691).
     CSS_DIR / "tidy-lazy.css",
+    #: The Graph tab's late styles (`LAZY_MODULES.graph`, 2026-10-10).
+    CSS_DIR / "graph-lazy.css",
+    #: An answer composed from the notes (loaded by ask-compose.js, CHAT_PLAN
+    #: decision 33): the quote style of a sentence said from a note.
+    CSS_DIR / "ask-compose-lazy.css",
+    #: The chat context pill's popover (usage-ledger.js loads it).
+    CSS_DIR / "usage-lazy.css",
+    #: The Guide's streamed bubble (help-chat.js loads it).
+    CSS_DIR / "help-chat-lazy.css",
+    #: The chips under a quick-add field (quickadd.js, CHAT_PLAN decision 50).
+    CSS_DIR / "quickadd-lazy.css",
+    #: The search box's kind chip, Show more and saved-search rows (search.js).
+    CSS_DIR / "search-lazy.css",
+    #: Atlas's faces at 28 and 20px (atlas.js `atlasSheet`, Brief 34 continues).
+    CSS_DIR / "atlas-lazy.css",
+    #: The Statistics page and This week (statistics.js, Brief 89).
+    CSS_DIR / "utilities-lazy.css",
+    #: The live captions dock (captions.js, Brief 82).
+    CSS_DIR / "captions-lazy.css",
+    #: The Notes tab's Questions view (questions-view.js loads it).
+    CSS_DIR / "questions-lazy.css",
+    #: The voice-note recorder and Library, Recordings (meetings.js, Brief 80).
+    CSS_DIR / "meetings-lazy.css",
+    #: The quoted span a source opens at (`LAZY_MODULES.reveal`, Brief 88).
+    CSS_DIR / "reveal-lazy.css",
 ]
 
 

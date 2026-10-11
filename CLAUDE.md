@@ -64,7 +64,8 @@ disagree, the most recent dated entry wins.
    be cut from an old base and a reset is refused. It commits per step and
    at least every 20 minutes, so a usage limit never loses work, and writes
    its remaining list before stopping. The orchestrator merges, gates and
-   pushes.
+   pushes. Every brief begins with `docs/roadmap/agent-remaining/agent_common.md`
+   and the `orient` skill.
 5. **Quality does not drop with the model.** Tests first, measure before
    claiming, one commit per step, push per batch, five-line reports
    (status, commits, numbers, not verified, found-not-fixed).
@@ -254,6 +255,9 @@ here is new" is a fact rather than a guess.
   `app_js_text()` from `tests/_app_js.py`, never `frontend/js/app.js`
   (now only the head: api, auth, the lazy loader).
   `grep -n "^function name" frontend/js/*.js` finds a function's file.
+  `docs/CODEMAP.md` lists every function, id, route, CSS section, module,
+  test file and plan heading as `name | file:line`; `python scripts/codemap.py`
+  regenerates it, and `tests/test_codemap_fresh.py` fails when it is stale.
 - These lints exist because the suite cannot see the DOM:
   `test_style_scale.py`, `test_ui_signatures.py`, `test_css_braces.py`,
   `test_frontend_ids.py`, `test_frontend_handlers.py`, `test_dock_grammar.py`,

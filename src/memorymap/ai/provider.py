@@ -605,6 +605,15 @@ class Provider:
     def is_running(self) -> bool:
         raise NotImplementedError
 
+    def loaded_models(self) -> list[str] | None:
+        """What the backend holds in memory, where it can say (None: unknown)."""
+        return None
+
+    def unload(self, model: str) -> tuple[bool, str]:
+        """Stop the model (rule 5). A server this app did not start keeps its
+        own model loaded, so the honest answer is where to stop it."""
+        return False, "This server keeps its own model loaded; stop it from the program that runs it."
+
     def list_models(self) -> list[dict]:
         raise NotImplementedError
 

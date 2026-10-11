@@ -79,7 +79,7 @@ async function dashRenderBoards(body) {
       body,
       boards.length
         ? "Nothing on your boards yet. Add a card or a sketch to one and it shows up here."
-        : "Draw a board or build a concept map and it will show up here.",
+        : "Draw a board or build a mind map and it will show up here.",
       boards.length
         ? { label: "ph:squares-four Open boards", run: "tab", tab: "library", sub: "library-view-whiteboard" }
         : { label: "ph:plus New board", run: "new-board", tab: "library", sub: "library-view-whiteboard" },

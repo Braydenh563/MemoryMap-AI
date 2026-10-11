@@ -43,11 +43,12 @@ import posixpath
 import re
 import zipfile
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, time, timezone
 from urllib.parse import unquote
 
-SOURCES = ("notion", "obsidian", "evernote", "apple")
-LABELS = {"notion": "Notion", "obsidian": "Obsidian", "evernote": "Evernote", "apple": "Apple Notes"}
+SOURCES = ("notion", "obsidian", "evernote", "apple", "memorymap")
+LABELS = {"notion": "Notion", "obsidian": "Obsidian", "evernote": "Evernote", "apple": "Apple Notes",
+          "memorymap": "a MemoryMap folder"}
 
 #: Per file, and over a whole archive once unpacked: a zip bomb stops here.
 MAX_FILE_BYTES = 5 * 1024 * 1024
@@ -75,12 +76,19 @@ class Imported:
     created: datetime | None = None
     #: Front matter keys other than category and tags, kept in the text.
     path: str = ""
+    #: A MemoryMap folder's sidecar, every field (`export_folder.read`).
+    record: dict | None = None
+    #: Its attachments, by the file name the sidecar gives.
+    files: dict = field(default_factory=dict)
 
 
 @dataclass
 class ReadResult:
     notes: list[Imported] = field(default_factory=list)
+    #: "name: reason", one per file or note left out: the import report lists them.
     skipped: list[str] = field(default_factory=list)
+    #: What a source carries besides notes (a MemoryMap folder's documents).
+    extra: dict = field(default_factory=dict)
 
 
 class TooBig(ValueError):
@@ -90,12 +98,15 @@ class TooBig(ValueError):
 # --- files in, files out ------------------------------------------------------
 
 
-def expand(files: list[tuple[str, bytes]]) -> list[tuple[str, bytes]]:
+def expand(files: list[tuple[str, bytes]], skipped: list[str] | None = None,
+           max_file: int = MAX_FILE_BYTES) -> list[tuple[str, bytes]]:
     """Every file, with zips (and zips inside zips, one level) opened.
 
     Nothing is written to disk: members are read into memory, so a name with
-    `..` in it is only a string. The sizes are capped as they are read.
+    `..` in it is only a string. The sizes are capped as they are read. A
+    file left out is named in `skipped`, with why, for the import report.
     """
+    skipped = [] if skipped is None else skipped
     out: list[tuple[str, bytes]] = []
     total = 0
 
@@ -105,6 +116,7 @@ def expand(files: list[tuple[str, bytes]]) -> list[tuple[str, bytes]]:
             try:
                 archive = zipfile.ZipFile(io.BytesIO(data))
             except zipfile.BadZipFile:
+                skipped.append(f"{name}: not a zip that can be opened")
                 return
             for info in archive.infolist():
                 if info.is_dir():
@@ -119,7 +131,8 @@ def expand(files: list[tuple[str, bytes]]) -> list[tuple[str, bytes]]:
                     continue
                 add(inner, archive.read(info), depth + 1)
             return
-        if len(data) > MAX_FILE_BYTES and not name.lower().endswith(".enex"):
+        if len(data) > max_file and not name.lower().endswith(".enex"):
+            skipped.append(f"{name}: larger than {max_file // (1024 * 1024)} MB")
             return
         out.append((name.replace("\\", "/").lstrip("/"), data))
 
@@ -251,6 +264,7 @@ def read_obsidian(files: list[tuple[str, bytes]], parse_frontmatter) -> ReadResu
                 body=body.strip(),
                 tags=list(tags) if isinstance(tags, list) else [str(tags)],
                 category=meta.get("category") or None,
+                created=meta.get("created"),
                 path=name,
             )
         )
@@ -348,7 +362,27 @@ def read_apple(files: list[tuple[str, bytes]]) -> ReadResult:
 def read(source: str, files: list[tuple[str, bytes]], parse_frontmatter=None) -> ReadResult:  # noqa: ANN001
     if source not in SOURCES:
         raise ValueError(source)
-    expanded = expand(files)
+    skipped: list[str] = []
+    result = _read_expanded(source, expand(files, skipped, _max_file(source)), parse_frontmatter)
+    result.skipped[:0] = skipped
+    if len(result.notes) > MAX_NOTES:
+        result.skipped.append(f"{len(result.notes) - MAX_NOTES} more notes past the {MAX_NOTES} one import takes")
+        result.notes = result.notes[:MAX_NOTES]
+    return result
+
+
+def _max_file(source: str) -> int:
+    from memorymap.entry import export_folder
+
+    return export_folder.MAX_ATTACHMENT_BYTES if source == "memorymap" else MAX_FILE_BYTES
+
+
+def _read_expanded(source: str, expanded: list[tuple[str, bytes]], parse_frontmatter) -> ReadResult:  # noqa: ANN001
+    if source == "memorymap":
+        from memorymap.entry import export_folder
+
+        notes, skipped, extra = export_folder.read(expanded, parse_frontmatter)
+        return ReadResult(notes=[Imported(**note) for note in notes], skipped=skipped, extra=extra)
     if source == "notion":
         result = read_notion(expanded)
     elif source == "obsidian":
@@ -357,10 +391,57 @@ def read(source: str, files: list[tuple[str, bytes]], parse_frontmatter=None) ->
         result = read_evernote(expanded)
     else:
         result = read_apple(expanded)
-    if len(result.notes) > MAX_NOTES:
-        result.skipped.append(f"{len(result.notes) - MAX_NOTES} more notes past the {MAX_NOTES} one import takes")
-        result.notes = result.notes[:MAX_NOTES]
     return result
+
+
+# --- the day a note was written (CHAT_PLAN section 2, the import row) -------------
+
+#: The property lines an export writes the day under: Obsidian's `date:` and
+#: `created:`, Notion's "Created:" and "Created time:", a hand-made "Written:".
+_WRITTEN_KEYS = re.compile(r"^\s*(?:created(?: time| at| on)?|date(?: created)?|written(?: on)?)\s*:\s*(.+?)\s*$", re.I | re.M)
+_YEAR = re.compile(r"\b\d{4}\b")
+
+
+def _absolute_day(text: str) -> datetime | None:
+    """The first day in `text` said with its year, read by the one
+    recogniser (decision 46): "2024-03-14", "March 14, 2024 9:41 AM",
+    "14 March 2024". A day said without a year ("friday", "tomorrow") is
+    relative to a moment the export does not record, so it is not read."""
+    from memorymap.ai import recognise
+
+    for span in recognise.recognise(text, now=datetime.now(timezone.utc)):
+        if span.rank or span.kind not in ("date", "datetime") or not _YEAR.search(span.text):
+            continue
+        value = span.value
+        if isinstance(value, datetime):
+            return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
+        #: Midday, so the day stays the day in every zone the timeline is read in.
+        return datetime.combine(value, time(12))
+    return None
+
+
+def written_on(title: str, body: str) -> datetime | None:
+    """The day a note says it was written: a `created:` or `date:` line in
+    its first lines, else its title (a daily note named "2024-03-14"). None
+    when neither names a day with its year."""
+    head = "\n".join((body or "").split("\n")[:12])
+    for found in _WRITTEN_KEYS.finditer(head):
+        day = _absolute_day(found.group(1))
+        if day is not None:
+            return day
+    return _absolute_day(title or "")
+
+
+def people_and_places(body: str) -> dict:
+    """The people and places a note names, as the recogniser reads them, for
+    the import's summary."""
+    from memorymap.ai import recognise
+
+    found: dict[str, set[str]] = {"person": set(), "place": set()}
+    for span in recognise.recognise((body or "")[:20000], now=datetime.now(timezone.utc)):
+        if span.kind in found and not span.rank:
+            found[span.kind].add(span.text)
+    return {"people": sorted(found["person"]), "places": sorted(found["place"])}
 
 
 # --- the writer ---------------------------------------------------------------
@@ -371,14 +452,11 @@ def source_key(source: str, key: str) -> str:
     return f"{source}:{key}"[:500]
 
 
-def write(session, source: str, notes: list[Imported]) -> dict:  # noqa: ANN001
-    """Make the notes that are not already here. Returns the counts and ids."""
+def _already_here(session, keys: list[str]) -> set[str]:  # noqa: ANN001
     from sqlalchemy import select
 
     from memorymap.core.database import Entry
-    from memorymap.entry import manager
 
-    keys = [source_key(source, n.key) for n in notes]
     existing: set[str] = set()
     for at in range(0, len(keys), 500):
         existing.update(
@@ -386,28 +464,63 @@ def write(session, source: str, notes: list[Imported]) -> dict:  # noqa: ANN001
                 select(Entry.source_path).where(Entry.source_path.in_(keys[at : at + 500]), Entry.is_deleted.is_(False))
             ).all()
         )
+    return existing
+
+
+def _make(session, note: Imported, key: str):  # noqa: ANN001, ANN202
+    from memorymap.entry import manager
+
+    entry = manager.create_entry(
+        session,
+        note.body,
+        category_name=note.category or manager.UNCATEGORISED,
+        tags=note.tags,
+        ai_confidence=100 if note.category else 0,
+    )
+    entry.source_path = key
+    if note.category:
+        entry.user_filed = True  # the app it came from said where it belongs
+    created = note.created or written_on(note.title, note.body)
+    if created is not None:
+        entry.created_at = created
+        #: "Tomorrow" in a note from 2024 meant a day in 2024: the dated
+        #: mentions are read again on the day the note was written.
+        manager.record_dates(session, entry)
+    return entry
+
+
+def write(session, source: str, notes: list[Imported], progress=None) -> dict:  # noqa: ANN001
+    """Make the notes that are not already here. Returns the counts and ids.
+
+    `progress` (`export_folder.Progress`) is told every hundred notes and
+    asked before each one whether to stop; each note is committed as it is
+    made (`create_entry`), so a stop keeps what was written."""
+    from memorymap.entry import export_folder
+
+    progress = progress or export_folder.Progress()
+    keys = [source_key(source, n.key) for n in notes]
+    existing = _already_here(session, keys)
     ids: list[int] = []
     made: list = []
     seen: set[str] = set()
     already = 0
-    for note, key in zip(notes, keys):
+    named: dict[str, set[str]] = {"people": set(), "places": set()}
+    stopped = False
+    for done, (note, key) in enumerate(zip(notes, keys), 1):
+        if progress.stopped is not None and progress.stopped():
+            stopped = True
+            break
+        if progress.step is not None and done % progress.every == 0:
+            progress.step(done, len(notes))
         if key in existing or key in seen:
             already += 1
             continue
         seen.add(key)
-        entry = manager.create_entry(
-            session,
-            note.body,
-            category_name=note.category or manager.UNCATEGORISED,
-            tags=note.tags,
-            ai_confidence=100 if note.category else 0,
-        )
-        entry.source_path = key
-        if note.category:
-            entry.user_filed = True  # the app it came from said where it belongs
-        if note.created is not None:
-            entry.created_at = note.created
+        entry = _make(session, note, key)
+        for kind, names in people_and_places(note.body).items():
+            named[kind].update(names)
         ids.append(entry.id)
         made.append(entry)
     session.commit()
-    return {"imported": len(ids), "already": already, "ids": ids, "entries": made}
+    return {"imported": len(ids), "already": already, "ids": ids, "entries": made, "stopped": stopped,
+            "people": sorted(named["people"])[:50], "places": sorted(named["places"])[:50]}

@@ -1,0 +1,131 @@
+{
+ "today": "2026-10-06",
+ "notes": [
+  {
+   "id": 1,
+   "content": "# Gym log\n\nI went to the gym on Monday and did squats, 5 sets of 5 at 80 kg. I like the morning sessions best.",
+   "created_at": "2026-10-04",
+   "tags": [
+    "gym"
+   ]
+  },
+  {
+   "id": 2,
+   "content": "# Gym plan\n\nI plan to go three times a week. Decided to go with the strength programme.",
+   "created_at": "2026-09-27",
+   "tags": [
+    "gym"
+   ]
+  },
+  {
+   "id": 3,
+   "content": "# Golf, first round\n\nI played golf after work at the Lakeside course. Shot 94.",
+   "created_at": "2026-09-05",
+   "tags": [
+    "golf"
+   ]
+  },
+  {
+   "id": 4,
+   "content": "# Golf, second round\n\nGolf again after work, 91 this time. The driver finally behaved.",
+   "created_at": "2026-09-12",
+   "tags": [
+    "golf"
+   ]
+  },
+  {
+   "id": 5,
+   "content": "# Golf, practice\n\nRange session after work, golf swing drills for an hour.",
+   "created_at": "2026-09-19",
+   "tags": [
+    "golf"
+   ]
+  },
+  {
+   "id": 6,
+   "content": "# Golf, third round\n\nGolf on Sunday morning, 88. I am going again next week.",
+   "created_at": "2026-10-03",
+   "tags": [
+    "golf"
+   ]
+  },
+  {
+   "id": 7,
+   "content": "# Harbor launch plan\n\nShip Harbor to the public on the 14th of next month. Budget is $1,200 for the store listing.",
+   "created_at": "2026-09-06",
+   "tags": [
+    "harbor"
+   ]
+  },
+  {
+   "id": 8,
+   "content": "# Harbor board\n\nHarbor risks: offline mode is hard to find.",
+   "created_at": "2026-09-28",
+   "kind": "board",
+   "title": "Harbor board"
+  },
+  {
+   "id": 9,
+   "content": "# Dentist\n\nCheck-up booked for the 21st. Ask about the night guard.",
+   "created_at": "2026-09-27"
+  },
+  {
+   "id": 10,
+   "content": "# Meeting with Sam\n\nSam and I met on Friday to talk about the roadmap.",
+   "created_at": "2026-10-02"
+  },
+  {
+   "id": 11,
+   "content": "# Meeting notes, Thursday\n\nThe meeting covered the hiring plan.",
+   "created_at": "2026-09-24"
+  },
+  {
+   "id": 12,
+   "content": "# Shopping\n\n- [x] Milk\n- [ ] Rice\n- [ ] Eggs\n- [ ] Coffee",
+   "created_at": "2026-10-01"
+  },
+  {
+   "id": 13,
+   "content": "# Quote of the day\n\nSam wrote: \"I am not sure we should ship it.\" Then we moved on.",
+   "created_at": "2026-09-30"
+  },
+  {
+   "id": 14,
+   "content": "# Garden\n\nThe garden shed roof leaks in the north corner.",
+   "created_at": "2026-10-04"
+  },
+  {
+   "id": 15,
+   "content": "# Photos\n\n- shed.jpg: shows a wet wooden roof with a dark stain",
+   "created_at": "2026-10-04"
+  },
+  {
+   "id": 16,
+   "content": "# Reading list\n\n- Designing Data-Intensive Applications\n- The Mom Test",
+   "created_at": "2026-08-27"
+  },
+  {
+   "id": 17,
+   "content": "# Questions\n\nWhy does the sync conflict rule drop edits?",
+   "created_at": "2026-09-25"
+  },
+  {
+   "id": 18,
+   "content": "# Running\n\nI ran 5 km on Saturday in 28 minutes.",
+   "created_at": "2026-10-03",
+   "tags": [
+    "running"
+   ]
+  },
+  {
+   "id": 19,
+   "content": "# Rice\n\nCook rice: rinse twice, then simmer for 12 minutes.",
+   "created_at": "2026-09-16"
+  },
+  {
+   "id": 20,
+   "content": "# Sync rewrite\n\nThe sync rewrite keeps both versions and asks.",
+   "created_at": "2026-09-26"
+  }
+ ]
+}

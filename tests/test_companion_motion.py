@@ -1354,7 +1354,13 @@ def test_the_way_there_is_chosen_by_the_shape_of_the_move() -> None:
     cases = "[[20,0,0.1],[20,0,0.5],[20,0,0.9],[160,0,0.5],[60,-160,0.5],[10,120,0.5],[150,60,0.5],[400,0,0.5],[400,200,0.5]]"
     script = src + f"\nconsole.log(JSON.stringify({cases}.map(([dx, dy, r]) => nameMarkBuddyRoute(dx, dy, 64, false, false, r)).concat([nameMarkBuddyRoute(100, 0, 64, true, false, 0), nameMarkBuddyRoute(400, 0, 64, true, false, 0), nameMarkBuddyRoute(20, 0, 64, false, true, 0)])));"
     out = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
-    assert out == ["hop", "shuffle", "scoot", "walk", "climb", "climb", "leap", "far", "far", "float", "glide", "walk"]
+    assert out == ["hop", "shuffle", "scoot", "walk", "climb", "climb", "leap", "far", "far", "float", "far", "walk"]
+    # A flyer (Atlas) varies by distance too (the owner, 2026-10-10: "no
+    # variation in how it moves around at various distances"): it used to
+    # float or glide and nothing else.
+    fly = src + "\nconsole.log(JSON.stringify([[20,0,0.1],[20,0,0.9],[60,-120,0.2],[60,-120,0.8],[150,0,0.2],[400,0,0.5]].map(([dx, dy, r]) => nameMarkBuddyRoute(dx, dy, 64, true, false, r))));"
+    flown = json.loads(subprocess.run(["node", "-e", fly], capture_output=True, text=True, check=True).stdout)
+    assert flown == ["hop", "float", "leap", "float", "float", "far"]
     go = _fn("nameMarkBuddyGo")
     # Far: the geometry says which far ways are open (a walk only on the level).
     assert 'nameMarkBuddyFarWay([...(distance > size * NMB_FAR_POOF_SIZES ? ["poof"] : []), "glide", ...(Math.abs(dy) <= 36 ? ["walk"] : [])])' in go
@@ -1623,3 +1629,83 @@ def test_the_first_entrance_after_an_unlock_is_a_drop_once() -> None:
     assert "{ duration: 640," in enter[drop:]
     # A hanging or bar perch uses its own way out of the bar, never the bare fade.
     assert "const how = unlockFirst ? ways[0] :" in enter
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_a_rub_and_a_shake_are_strokes_back_and_forth() -> None:
+    # INBOX 743, the owner: "more mouse interaction with the companion like
+    # rubbing its head. flipping it upside down". A rub is the pointer going
+    # back and forth over its head, a flip a shake while it is carried: both
+    # read from the same pure count of direction changes, so a pass across it
+    # or a hand's tremor is neither.
+    def strokes(samples, axis, travel, window):
+        return _run_pure(["nameMarkBuddyStrokes"], f"nameMarkBuddyStrokes({json.dumps(samples)}, {axis}, {travel}, {window})")
+
+    rub = [[x, 30, i * 150] for i, x in enumerate([0, 20, 0, 20, 0, 20])]
+    assert strokes(rub, 0, 5, 1600) == 4
+    # A straight pass, and a tremor of two pixels, are no strokes at all.
+    assert strokes([[x, 30, i * 40] for i, x in enumerate(range(0, 60, 6))], 0, 5, 1600) == 0
+    assert strokes([[x, 30, i * 60] for i, x in enumerate([0, 2, 0, 2, 0, 2, 0])], 0, 5, 1600) == 0
+    # The same rub spread over four seconds is not one rub: only the last
+    # 1.6s counts.
+    slow = [[x, 30, i * 800] for i, x in enumerate([0, 20, 0, 20, 0, 20])]
+    assert strokes(slow, 0, 5, 1600) < 4
+    # A shake is the other axis, with longer strokes.
+    shake = [[100, y, i * 120] for i, y in enumerate([0, 40, 0, 40, 0])]
+    assert strokes(shake, 1, 14, 900) == 3
+    assert strokes(shake, 0, 14, 900) == 0
+
+
+def test_rubbed_and_flipped_are_wired_to_the_pointer() -> None:
+    build = _fn("nameMarkBuddyBuild")
+    # Rubbed: the pointer over it, not pressing; flipped: shaken while carried,
+    # and set right with a dizzy face when it is let go.
+    assert "nameMarkBuddyStrokes(rub, 0," in build and "nameMarkBuddyRubbed(" in build
+    assert "nameMarkBuddyStrokes(drag.samples" not in build
+    assert "nameMarkBuddyStrokes(drag.shake, 1," in build and "nameMarkBuddyFlip(buddy, true)" in build
+    assert "nameMarkBuddyFlip(buddy, false)" in build
+    rubbed = _fn("nameMarkBuddyRubbed")
+    # Never under Still motion, never in a hidden window, and it soothes a sulk.
+    assert "nameMarkBuddyStill()" in rubbed and "document.hidden" in rubbed
+    assert "nmb.grumpyUntil = 0" in rubbed
+
+
+def test_nothing_runs_behind_the_lock_and_an_idle_page_is_not_polled() -> None:
+    # Brief 34 decision 7: nothing runs hidden or locked; under 1ms of main
+    # thread per idle minute. Measured before (companionperf.js IDLE=1): the
+    # perch check walked the tab's controls every 1.5s on a page nobody
+    # touched, under the lock screen too, and Atlas's tail asked for a frame
+    # sixty times a second at rest.
+    poll = AV[AV.index("const NMB_CHECK_IDLE_MS") :]
+    poll = poll[: poll.index("}, 1500);")]
+    assert "nameMarkBuddyCurtained()" in poll and "document.hidden" in poll
+    assert "!nmb.checkDue" in poll and "NMB_CHECK_IDLE_MS" in poll
+    assert "nameMarkBuddyLockSync();" in _fn("nameMarkBuddyBuild")
+    assert '"none"' in _fn("nameMarkBuddyLockSync")
+    life = (ROOT / "frontend" / "js" / "atlas-life.js").read_text(encoding="utf-8")
+    frame = _fn("atlasTailFrame", life)
+    assert 'data-atlas-hidden' in frame and "tail.calm" in frame and "ATLAS_TAIL_CALM_MS" in frame
+    # The large view keeps the frame loop: it is the one thing on screen.
+    assert '!box.closest(".nm-viewer-figure")' in _fn("atlasTailCalm", life)
+    # At rest the tail is a held drawing swayed on the compositor (Brief 34
+    # continues, step 2): its layer root's transform, nothing drawn per beat.
+    assert "atlasTailRest(tail, p)" in frame and "tail.resting" in frame
+    rest = _fn("atlasTailRest", life)
+    assert "svg.animate(" in rest and "transform:" in rest and "setAttribute" not in rest
+    assert "getComputedStyle(svg).transform" in _fn("atlasTailUnrest", life)
+    atlas = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
+    sync = _fn("atlasHiddenSync", atlas)
+    assert "lock-overlay" in sync and "atlasTailWake(box)" in sync
+
+
+def test_atlas_changes_face_on_its_own_and_on_more_events() -> None:
+    # INBOX 742: "atlas doesnt seem to change emotions alot if at all".
+    atlas = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
+    drift = _fn("atlasDrift", atlas)
+    assert 'atlasMoodNow !== "calm"' in drift and "data-atlas-hidden" in drift
+    assert "atlasDriftState.recent" in drift and "35000 + Math.random() * 40000" in drift
+    on = _fn("atlasOn", atlas)
+    assert 'event === "done"' in on and 'event === "found" || event === "nothing"' in on
+    js = ROOT / "frontend" / "js"
+    assert 'atlasOn(hits.length ? "found" : "nothing")' in (js / "search.js").read_text(encoding="utf-8")
+    assert 'atlasOn("done")' in (js / "shell-reminders.js").read_text(encoding="utf-8")

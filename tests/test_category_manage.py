@@ -122,3 +122,24 @@ def test_the_ai_can_propose_a_split_and_the_tags_are_the_fallback(client, fake_o
     assert fallback["basis"] == "tags" and fallback["ai_unavailable"] is True
     # Nothing moved either way.
     assert _cats(client)["Admin"]["count"] == 5
+
+
+def test_undoing_a_move_puts_back_who_filed_the_note(client):
+    """A note the model filed stays the model's to refile after Undo.
+
+    The move marks a note `user_filed`; the undo used to be the same call
+    with the old name, so it kept the mark and the note dropped out of
+    auto-filing (TIMELINE_PLAN 10 row 3: undo.js's selection bar found the
+    note changed after Ctrl+Z). `previous` says how each note was filed and
+    the undo call puts it back.
+    """
+    entry = client.post("/entries", json={"content": "Filed by the model"}).json()
+    assert client.get(f"/entries/{entry['id']}").json()["user_filed"] is False
+    moved = client.post("/categories/move", json={"entry_ids": [entry["id"]], "category": "Projects"}).json()
+    prev = moved["previous"][0]
+    assert prev["user_filed"] is False
+    assert client.get(f"/entries/{entry['id']}").json()["user_filed"] is True
+    back = {"entry_ids": [prev["id"]], "category": prev["category"], "user_filed": prev["user_filed"]}
+    client.post("/categories/move", json=back)
+    after = client.get(f"/entries/{entry['id']}").json()
+    assert after["user_filed"] is False and after["category"] == prev["category"]

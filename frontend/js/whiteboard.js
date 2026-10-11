@@ -139,6 +139,9 @@ let wbZoom = d3
   .filter(wbZoomFilter)
   .on("zoom", handleWbZoom)
   .on("end.shield", wbEndPanShield);
+//: Whether the view is where the last "Fit to screen" put it (INBOX 792):
+//: the destination, and until when the fit's own animation is running.
+const wbFit = { on: false, target: null, until: 0 };
 let wbState = { nodes: [], sketches: [], objects: [] };
 let wbHintForcedOpen = false; // the "?" help button's override: see renderWhiteboard
 let wbInitialized = false;
@@ -494,6 +497,9 @@ function wbEndPanShield() {
 }
 
 function handleWbZoom(e) {
+  //: A view that is not where the last fit put it is not "fitted" any more,
+  //: so a panel opening does not pull it back (`wbRefitIfFitted`).
+  if (wbFit.on && (e.sourceEvent || (Date.now() > wbFit.until && !wbSameView(e.transform, wbFit.target)))) wbFit.on = false;
   wbStartPanShield(e);
   wbApplyZoomTransform(e.transform);
   wbZoomPending = e.transform;
@@ -733,14 +739,33 @@ const WB_INV_ZOOM_GRIPS = [
   ".wb-clone-grip",
   ".wb-map-edge-handle",
   ".wb-map-resize-grip",
+  ".wb-map-actions",
   ".wb-sketch-rotate-handle",
   ".wb-rotate-handle-stem",
 ];
 let wbInvZoomSheet = null;
 let wbInvZoomValue = "1";
 
+//: **The board's layers are rasterised again once a zoom has settled**
+//: (INBOX 791, "labels look pixelated"). A layer promoted with `will-change:
+//: transform` keeps the raster it was first painted at, and a compositor
+//: that does not re-raster on a later scale change draws a link label, which
+//: is SVG text, as a stretched bitmap. Dropping the hint for one frame and
+//: restoring the sheet's own makes the next paint at the current scale; all
+//: three go in the same frame so the pan pipelines stay together.
+function wbRefreshRaster() {
+  const layers = ["wb-html-layer", "wb-svg-layer", "wb-overlay-layer"].map((id) => document.getElementById(id)).filter(Boolean);
+  for (const layer of layers) layer.style.willChange = "auto";
+  requestAnimationFrame(() => {
+    for (const layer of layers) layer.style.willChange = "";
+  });
+}
+
 function wbPublishInvZoom(el, inv) {
   wbInvZoomValue = inv;
+  wbRefreshRaster();
+  //: The clone arrows stand a fixed number of screen pixels off their sides.
+  wbLayoutCloneGrips();
   const supported =
     typeof CSSStyleSheet !== "undefined"
     && "replaceSync" in CSSStyleSheet.prototype
@@ -1115,6 +1140,8 @@ function wbApplyBackground() {
   el.style.setProperty("--wb-bg-image", bg.image ? `url("${mediaSrc(bg.image)}")` : "none");
   const picker = document.getElementById("wb-bg-color-picker");
   if (picker && (bg.color || themeHex)) picker.value = bg.color || themeHex;
+  const fold = document.getElementById("wb-sticky-fold");
+  if (fold) fold.checked = bg.sticky_fold !== false;
   const imageButton = document.getElementById("wb-bg-image");
   if (imageButton) {
     const words = bg.image ? "Remove the background image" : "Set a background image";
@@ -1138,11 +1165,13 @@ async function wbSetBackground(patch, { undo = true } = {}) {
     if (String(window.currentBoardId ?? "") !== String(id)) return false;
     wbState.background = out.background || {};
   } catch (err) {
-    toast(err.message || "Couldn't change the background.", true);
+    toast(err.message || voiceLine("failed", { what: "change the background" }), true);
     wbApplyBackground();
     return false;
   }
   wbApplyBackground();
+  //: The sticky notes' fold follows the board's default.
+  if ("sticky_fold" in patch) wbScheduleRender();
   if (undo) wbPushUndo({ action: "background", before });
   return true;
 }
@@ -1316,7 +1345,16 @@ function wbArrowHeadPath(tipX, tipY, approachAngle, headLen) {
 //: sketch as the one path they already know how to handle), "arrow" here
 //: is exactly `wbArrowHeadPath`'s own two-line V, kept for a single call
 //: site to switch on.
-const WB_CAP_KINDS = ["none", "arrow", "circle", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
+//: **The plain ends, drawn closed or open** (INBOX 792, the owner: "there is
+//: only one actual arrow option for the links"): `arrow` is the open V,
+//: `triangle` the solid arrowhead, `diamond` and `diamond-filled` the UML
+//: aggregation and composition marks, `bar` a stop line at the tip. A filled
+//: end is a closed outline with smaller copies of itself inside it, a stroke's
+//: width apart: the end stays one more subpath of the shaft's own `d`, so a
+//: line with a solid head is still one stroked path (hit-testing, move,
+//: resize and every export read it as before) and no end needs a fill.
+const WB_CAP_KINDS = ["none", "arrow", "triangle", "diamond", "diamond-filled", "bar", "circle", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
+const WB_SOLID_CAPS = new Set(["triangle", "diamond-filled"]);
 
 //: The entity-relationship ends (the features audit W4): what is nearest the
 //: line's body, then what is at the tip. `null` near: one mark only.
@@ -1358,6 +1396,35 @@ function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
     const tip = far === "many" ? foot() : bar(headLen * 0.3);
     const inner = near === "zero" ? ring(headLen * 0.85) : bar(headLen * 0.85);
     return near ? `${inner} ${tip}` : tip;
+  }
+  if (kind === "bar") {
+    const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+    const half = headLen * 0.5;
+    return `M ${tipX - sin * half} ${tipY + cos * half} L ${tipX + sin * half} ${tipY - cos * half}`;
+  }
+  if (kind === "triangle" || kind === "diamond" || kind === "diamond-filled") {
+    const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+    //: Points in the line's own frame: along (back from the tip) and across.
+    const shape = kind === "triangle"
+      ? [[0, 0], [headLen, headLen * 0.4], [headLen, -headLen * 0.4]]
+      : [[0, 0], [headLen * 0.55, headLen * 0.34], [headLen * 1.1, 0], [headLen * 0.55, -headLen * 0.34]];
+    const mid = [shape.reduce((n, p) => n + p[0], 0) / shape.length, 0];
+    const draw = (scale) => {
+      const pts = shape.map(([back, across]) => {
+        const b = mid[0] + (back - mid[0]) * scale, a = across * scale;
+        return `${+(tipX - cos * b - sin * a).toFixed(2)} ${+(tipY - sin * b + cos * a).toFixed(2)}`;
+      });
+      return `M ${pts.join(" L ")} Z`;
+    };
+    if (!WB_SOLID_CAPS.has(kind)) return draw(1);
+    //: The copies step in by a stroke width (the head is `width * 4 + 6` long),
+    //: until one would be thinner than the stroke itself.
+    const stroke = Math.max(1, (headLen - 6) / 4);
+    const reach = Math.min(...shape.map(([back, across]) => Math.hypot(back - mid[0], across))) || headLen / 2;
+    const step = (stroke * 0.8) / reach;
+    const out = [];
+    for (let scale = 1; scale > step * 0.5; scale -= step) out.push(draw(scale));
+    return out.join(" ");
   }
   if (kind === "circle") {
     const r = headLen / 3;
@@ -1662,6 +1729,62 @@ function wbContentBounds() {
   return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
 }
 
+//: **What a fit fits into: the canvas the person can see** (INBOX 792, the
+//: owner: "the fitting to screen features ... should be based on what panels
+//: are currently showing and the screen resolution/size"). The canvas is one
+//: box under the top bar, the tools dock, the sidebar and the Format panel,
+//: so a fit to the box parked content under them. The free area is the box
+//: less whichever of those is showing, each taken off the side it sits on
+//: (a wide one off the top or bottom, a tall one off the left or right), in
+//: the box's own coordinates. A window too narrow to leave a third of the box
+//: (the sidebar a sheet over a phone) keeps its sides, since a fit into a
+//: sliver is worse than one that runs under a sheet.
+const WB_FIT_OCCLUDERS = ["#wb-topbar", "#wb-tools-panel", "#wb-sidebar", "#wb-format"];
+
+function wbFreeArea(container) {
+  const box = container.getBoundingClientRect();
+  const area = { left: 0, top: 0, right: box.width, bottom: box.height };
+  const sides = { left: 0, top: 0, right: box.width, bottom: box.height };
+  for (const selector of WB_FIT_OCCLUDERS) {
+    const el = document.querySelector(selector);
+    if (!el || el.hidden || el.closest(".hidden")) continue;
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") continue;
+    const r = el.getBoundingClientRect();
+    const x0 = r.left - box.left, x1 = r.right - box.left, y0 = r.top - box.top, y1 = r.bottom - box.top;
+    if (r.width < 4 || r.height < 4 || x1 <= 0 || x0 >= box.width || y1 <= 0 || y0 >= box.height) continue;
+    const tall = r.height >= box.height * 0.5 && r.width < box.width * 0.6;
+    if (tall) {
+      if (x0 + x1 < box.width) sides.left = Math.max(sides.left, x1);
+      else sides.right = Math.min(sides.right, x0);
+    } else if (y0 + y1 < box.height) sides.top = Math.max(sides.top, y1);
+    else sides.bottom = Math.min(sides.bottom, y0);
+  }
+  area.top = sides.top;
+  area.bottom = sides.bottom;
+  if (sides.right - sides.left >= box.width / 3) {
+    area.left = sides.left;
+    area.right = sides.right;
+  }
+  if (area.bottom - area.top < box.height / 3) {
+    area.top = 0;
+    area.bottom = box.height;
+  }
+  return area;
+}
+
+function wbSameView(a, b) {
+  return Boolean(a && b) && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
+}
+
+//: A panel opening, closing or the window changing size refits a view that
+//: is still where the last fit put it, and leaves any other view alone.
+function wbRefitIfFitted() {
+  const container = document.getElementById("whiteboard-container");
+  if (!wbFit.on || !container || !container.offsetParent || !container.clientWidth) return;
+  wbZoomToFit();
+}
+
 /**
  * Put everything on the board on screen at once.
  *
@@ -1679,20 +1802,23 @@ function wbZoomToFit({ animate = true, padding = 64 } = {}) {
     (animate ? sel.transition().duration(300) : sel).call(wbZoom.transform, d3.zoomIdentity);
     return;
   }
-  const rect = container.getBoundingClientRect();
+  const free = wbFreeArea(container);
   const k = Math.max(
     0.1,
     Math.min(
       1,
-      (rect.width - padding * 2) / Math.max(bounds.width, 1),
-      (rect.height - padding * 2) / Math.max(bounds.height, 1),
+      (free.right - free.left - padding * 2) / Math.max(bounds.width, 1),
+      (free.bottom - free.top - padding * 2) / Math.max(bounds.height, 1),
     ),
   );
   const cx = (bounds.minX + bounds.maxX) / 2;
   const cy = (bounds.minY + bounds.maxY) / 2;
   const target = d3.zoomIdentity
-    .translate(rect.width / 2 - k * cx, rect.height / 2 - k * cy)
+    .translate((free.left + free.right) / 2 - k * cx, (free.top + free.bottom) / 2 - k * cy)
     .scale(k);
+  wbFit.on = true;
+  wbFit.target = target;
+  wbFit.until = Date.now() + (animate ? 600 : 100);
   if (!animate) {
     sel.call(wbZoom.transform, target);
     return;
@@ -1771,7 +1897,7 @@ function wbCenterOn(box, { animate = true, minScale = 0.55 } = {}) {
   const container = document.getElementById("whiteboard-container");
   if (!container || !box) return;
   const sel = d3.select(container);
-  const rect = container.getBoundingClientRect();
+  const free = wbFreeArea(container);
   const current = d3.zoomTransform(container);
   // Jumping to a match at 0.12x would land on a card too small to read, so
   // ease the zoom up to something legible, but never zoom *out* to get
@@ -1780,7 +1906,7 @@ function wbCenterOn(box, { animate = true, minScale = 0.55 } = {}) {
   const cx = (box.minX + box.maxX) / 2;
   const cy = (box.minY + box.maxY) / 2;
   const target = d3.zoomIdentity
-    .translate(rect.width / 2 - k * cx, rect.height / 2 - k * cy)
+    .translate((free.left + free.right) / 2 - k * cx, (free.top + free.bottom) / 2 - k * cy)
     .scale(k);
   (animate ? sel.transition().duration(300) : sel).call(wbZoom.transform, target);
 }
@@ -2197,14 +2323,75 @@ function wbSearchTextFor(kind, item, byId) {
     // A text box keeps its words in the same `data` JSON blob an image keeps
     // its URL in (see WhiteboardObject's own docstring), so a bad parse here
     // means "not searchable", never a thrown render.
+    //: `data` arrives parsed (`_object_to_out`); a string is read too. It
+    //: was only ever parsed, so `JSON.parse` of an object threw and no text
+    //: box was ever found (measured, canvasdepth: "SHIP" in a text box, 0).
     try {
-      const data = JSON.parse(item.data || "{}");
+      const data = typeof item.data === "string" ? JSON.parse(item.data || "{}") : item.data || {};
       return String(data.content || "").toLowerCase();
     } catch {
       return "";
     }
   }
+  //: A shape's or a connector's label (canvasdepth): what draw.io's find
+  //: reads first, and what this one missed.
+  if (kind === "sketch") return String(wbSketchData(item)?.label || "").toLowerCase();
   return "";
+}
+
+//: Pure (node-tested): every case-insensitive occurrence of `find` in
+//: `text` swapped for `to`, both taken literally (no pattern, no `$&`).
+function wbReplaceText(text, find, to) {
+  const source = String(text ?? "");
+  const needle = String(find || "");
+  if (!needle) return { text: source, count: 0 };
+  const lower = source.toLowerCase(), low = needle.toLowerCase();
+  let out = "", from = 0, count = 0;
+  for (let at = lower.indexOf(low); at >= 0; at = lower.indexOf(low, from)) {
+    out += source.slice(from, at) + to;
+    from = at + needle.length;
+    count += 1;
+  }
+  return { text: out + source.slice(from), count };
+}
+
+//: **Replace all** (canvasdepth; WHITEBOARD_PLAN section 9): text boxes,
+//: shape labels and connector labels, one undo step. A card is a note and
+//: keeps its words; the announcement says how many cards hold the words.
+async function wbBoardReplaceAll(find, to) {
+  const needle = String(find || "").trim() ? String(find) : "";
+  if (!needle) return 0;
+  const undo = [];
+  let changes = 0, cards = 0;
+  for (const kind of ["object", "sketch", "node"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
+      if (wbItemHidden(kind, item) || wbIsLocked(kind, item)) continue;
+      if (kind === "node") {
+        if (wbSearchTextFor("node", item, null).includes(needle.toLowerCase())) cards += 1;
+        continue;
+      }
+      const field = kind === "object" ? item.data?.content : wbSketchData(item)?.label;
+      if (typeof field !== "string") continue;
+      const done = wbReplaceText(field, needle, to);
+      if (!done.count) continue;
+      undo.push({ action: "move", kind, id: item.id, before: WB_KIND_INFO[kind].payload(item) });
+      if (kind === "object") {
+        item.data = { ...item.data, content: done.text };
+        await wbSaveObject(item);
+      } else {
+        await wbSaveSketchProps(item, { label: done.text });
+      }
+      changes += done.count;
+    }
+  }
+  wbPushMoveBatch(undo);
+  wbScheduleRender();
+  const said = `Replaced ${changes} time${changes === 1 ? "" : "s"} in ${undo.length} item${undo.length === 1 ? "" : "s"}`
+    + `${cards ? `; ${cards} card${cards === 1 ? "" : "s"} hold it too, edited in their note` : ""}.`;
+  wbAnnounce(said);
+  toast(said);
+  wbBoardSearchRun(document.getElementById("wb-search-input")?.value || "");
+  return changes;
 }
 
 function wbBoardSearchRun(query) {
@@ -2219,7 +2406,7 @@ function wbBoardSearchRun(query) {
         e,
       ]),
     );
-    for (const kind of ["node", "object"]) {
+    for (const kind of ["node", "object", "sketch"]) {
       for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
         if (!wbItemHidden(kind, item) && wbSearchTextFor(kind, item, byId).includes(needle)) {
           wbBoardSearch.matches.push({ kind, id: item.id });
@@ -2284,6 +2471,13 @@ function wbBoardSearchGo(delta) {
   const item = wbSearchItem(match);
   const box = item ? wbItemBBox(match.kind, item) : null;
   if (box) wbCenterOn(box);
+  //: A drawing has no element to ring, so a matched shape or connector is
+  //: selected instead, which draws its handles.
+  if (match.kind === "sketch" && item) {
+    clearWbSelection();
+    wbSelectedItem = { kind: "sketch", id: item.id };
+    wbApplySelectionHighlight();
+  }
   wbApplySearchHighlight();
   wbUpdateSearchCount();
 }
@@ -2299,13 +2493,65 @@ function wbCloseBoardSearch() {
   document.getElementById("whiteboard-container")?.focus?.();
 }
 
-function wbOpenBoardSearch() {
+//: The Replace row, built on first use so the boot page carries none of it:
+//: a toggle after the find field, and under it a field and Replace all.
+function wbEnsureReplaceRow(bar) {
+  if (document.getElementById("wb-replace-toggle")) return;
+  const toggle = smallButton("ph:swap", "Replace (Ctrl+H)", () => wbToggleReplace());
+  toggle.id = "wb-replace-toggle";
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-controls", "wb-replace-row");
+  document.getElementById("wb-search-count")?.before(toggle);
+  const row = document.createElement("div");
+  row.id = "wb-replace-row";
+  row.className = "wb-replace-row";
+  row.hidden = true;
+  const field = document.createElement("input");
+  field.id = "wb-replace-input";
+  field.type = "text";
+  field.placeholder = "Replace with";
+  field.setAttribute("aria-label", "Replace with");
+  field.autocomplete = "off";
+  field.spellcheck = false;
+  const all = document.createElement("button");
+  all.type = "button";
+  all.id = "wb-replace-all";
+  all.className = "small";
+  all.textContent = "Replace all";
+  const go = () => wbBoardReplaceAll(document.getElementById("wb-search-input")?.value || "", field.value);
+  all.addEventListener("click", go);
+  field.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      go();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      wbCloseBoardSearch();
+    }
+  });
+  row.append(field, all);
+  bar.append(row);
+}
+
+function wbToggleReplace(on = null) {
+  const row = document.getElementById("wb-replace-row");
+  if (!row) return;
+  const show = on ?? row.hidden;
+  row.hidden = !show;
+  document.getElementById("wb-replace-toggle")?.setAttribute("aria-expanded", String(show));
+  document.getElementById("wb-search-bar")?.classList.toggle("is-replacing", show);
+  if (show) document.getElementById("wb-replace-input")?.focus();
+}
+
+function wbOpenBoardSearch({ replace = false } = {}) {
   const bar = document.getElementById("wb-search-bar");
   const input = document.getElementById("wb-search-input");
   if (!bar || !input) return;
+  wbEnsureReplaceRow(bar);
   bar.classList.remove("hidden");
   input.focus();
   input.select();
+  if (replace) wbToggleReplace(true);
 }
 
 //: Real anchor/connection points for links (asked for directly, "take
@@ -2455,6 +2701,13 @@ function wbPortFractions(kind, item) {
   if (kind !== "sketch") return WB_FIXED_ANCHORS;
   const parsed = wbSketchParsedData(item);
   if (!parsed || typeof parsed.d !== "string") return WB_FIXED_ANCHORS;
+  //: A converted draw.io shape carries its stencil's own ports (decision 2
+  //: of the draw.io programme): those are where its author put them, so they
+  //: come before anything guessed from the path.
+  if (Array.isArray(parsed.ports) && parsed.ports.length) {
+    const own = parsed.ports.filter((q) => Number.isFinite(q?.x) && Number.isFinite(q?.y));
+    if (own.length) return own;
+  }
   const cached = wbPortCache.get(item.id);
   if (cached && cached.d === parsed.d) return cached.ports;
   const ports = wbPortsForPath(parsed.d, WB_FILLABLE_SHAPES.has(parsed.shape)) || WB_FIXED_ANCHORS;
@@ -3486,6 +3739,37 @@ async function wbDistributeSelection(axis) {
   wbPushMoveBatch(pushed);
 }
 
+//: **A grid of N across** (CHAT_PLAN section 2, the board's acts: "arrange
+//: as a grid of 3" in the command palette, `acts.board_parse`). The selection,
+//: or the whole board when fewer than two are selected, in reading order
+//: (top, then left), into cells the size of the largest item with the paste
+//: grid's gap, from the group's own top-left corner so it stays where it was.
+//: One across is a column, all across a row; one move batch, so Undo takes the
+//: whole arrangement back.
+async function wbArrangeGridSelection(columns) {
+  if (wbSelectionEntries().length < 2) wbSelectAllItems();
+  const entries = wbSelectionEntries();
+  if (entries.length < 2) {
+    toast("Select two or more items to arrange them.");
+    return;
+  }
+  const across = Math.max(1, Math.min(entries.length, columns || Math.ceil(Math.sqrt(entries.length))));
+  entries.sort((a, b) => a.bbox.minY - b.bbox.minY || a.bbox.minX - b.bbox.minX);
+  const width = Math.max(...entries.map((e) => e.bbox.maxX - e.bbox.minX));
+  const height = Math.max(...entries.map((e) => e.bbox.maxY - e.bbox.minY));
+  const left = Math.min(...entries.map((e) => e.bbox.minX));
+  const top = Math.min(...entries.map((e) => e.bbox.minY));
+  const { gap } = WB_PASTE_STICKY;
+  const pushed = [];
+  for (const [i, e] of entries.entries()) {
+    const dx = left + (i % across) * (width + gap) - e.bbox.minX;
+    const dy = top + Math.floor(i / across) * (height + gap) - e.bbox.minY;
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+    pushed.push(await wbMoveItemBy(e.kind, e.id, e.item, dx, dy));
+  }
+  wbPushMoveBatch(pushed);
+}
+
 //: **Same size**, the third of WHITEBOARD_PLAN decision 3's eleven arrange
 //: actions and the one that had no function at all. Every selected item takes
 //: the largest one's width (or height); the largest rather than the
@@ -3563,7 +3847,7 @@ function wbExtractNotes() {
     .filter(Boolean)
     .join("\n\n---\n\n");
   if (!text.trim()) {
-    toast("Couldn't read the selected notes' content: try reloading the Notes tab first.");
+    toast(voiceLine("failed", { what: "read the selected notes' content: try reloading the Notes tab first" }));
     return;
   }
   openExtractPreview(text, { sourceEntryIds: entryIds });
@@ -3846,7 +4130,7 @@ const WB_CONTEXT_CONTROLS = {
 
 //: Every group and menu section the table can name, so hiding "everything
 //: else" never has to list them.
-const WB_CONTEXT_GROUPS = ["tool", "ink", "route", "caps", "stroke", "fill", "text", "arrange", "order", "mapmulti"];
+const WB_CONTEXT_GROUPS = ["tool", "ink", "route", "caps", "stroke", "fill", "paper", "text", "arrange", "order", "mapmulti"];
 const WB_CONTEXT_MENU_SECTIONS = ["more-style", "more-card", "more-guides", "more-notes", "more-mindmap"];
 
 //: Which row of the table a selection reads. Returns null when the bar has
@@ -4059,6 +4343,13 @@ function wbFillContextBar() {
   }
 
   if (which === "text") {
+    //: A sticky's papers, first on its bar, the current one pressed.
+    const paper = document.querySelector('#wb-context [data-wb-ctx="paper"]');
+    if (paper) {
+      const sticky = wbIsSticky(item);
+      paper.classList.toggle("hidden", !sticky);
+      if (sticky) wbFillPaperSwatches(paper, item);
+    }
     for (const button of document.querySelectorAll("#wb-prop-align button")) {
       button.classList.toggle("active", button.dataset.align === (item.data.align || "left"));
     }
@@ -4360,7 +4651,7 @@ function wbEditNodeText(nodeId, firstKey = "") {
         // render would use the old content and the edit would look discarded.
         await loadEntries();
       } catch (err) {
-        toast(err.message || "Couldn't save that.", true);
+        toast(err.message || voiceLine("failed", { what: "save that" }), true);
       }
     }
     // **Put the text back by hand, not by re-rendering.** Found live: after
@@ -4716,6 +5007,7 @@ function wbQueueSelectionBar() {
     wbSelectionBarFrame = 0;
     wbUpdateSelectionBar();
     wbPaintCommentMarks();
+    wbLayoutCloneGrips();
     if (wbIsMap()) wbRenderMapStructure();
   });
 }
@@ -4966,7 +5258,10 @@ function wbUpdateSelectionBar() {
   // text box (`.wb-rotate-handle`, 12px tall), and a bar placed just over
   // the item covered it, reported: "I can't rotate objects because that
   // panel appears."
-  const gapAbove = 44, gapBelow = 10;
+  //: 58 while the clone arrows show: the top one stands past the rotation
+  //: handle (42px up, 8px tall), and the bar over it hid it (the owner,
+  //: 2026-10-10: "you cant even see the top one").
+  const gapAbove = document.getElementById("wb-clone-grips") ? 58 : 44, gapBelow = 10;
   //: Clear of the board's two side panels (the sidebar's rail on the left,
   //: the Format panel on the right), which stand over the canvas: a shape
   //: near the left edge put the bar's first controls under the rail.
@@ -4979,7 +5274,12 @@ function wbUpdateSelectionBar() {
   if (moving && !held) moving.origin.barMeasure = { rect, hostRect, w, h, topBar, sideEdges };
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
-  if (y < floor) y = bottom + gapBelow;
+  //: Below a topic, clear of its add row too (MINDMAP_PLAN 15 row 3): the
+  //: row hangs under the node, and the strip dropped there covered it
+  //: (measured at 390: three overlaps, the add buttons under Text and Larger).
+  const grips = mapNode && !held ? container.querySelector(`.wb-object[data-id="${mapNode.id}"] .wb-map-actions`) : null;
+  const gripsBottom = grips ? grips.getBoundingClientRect().bottom - hostRect.top : bottom;
+  if (y < floor) y = Math.max(bottom, gripsBottom) + gapBelow;
   //: **At phone width the board bar is pinned to the top of the canvas**
   //: (WHITEBOARD_PLAN section 7's open question, answered 2026-09-20 by
   //: building both and measuring them: `scratchpad/ui-sweeps/wbcontextphone.js`,
@@ -5267,7 +5567,14 @@ function wbItemHidden(kind, item) {
   if (!item) return false;
   if (kind === "node") return Boolean(item.hidden);
   const data = kind === "sketch" ? wbSketchData(item) : item.data;
-  return Boolean(data && data.hidden);
+  return Boolean(data && (data.hidden || wbNamedLayerFlag(data.layer, "hidden")));
+}
+
+//: A named layer's flag (canvasdepth): an item on a hidden layer is hidden,
+//: on a locked one locked, whatever its own flag says.
+function wbNamedLayerFlag(id, flag) {
+  if (!id || !wbState.layers?.length) return false;
+  return Boolean(wbState.layers.find((l) => l.id === id)?.[flag]);
 }
 
 //: One step for every selected item, one undo step for the lot. Forward
@@ -5880,7 +6187,7 @@ async function wbCreateCopies(items, dx, dy) {
       wbState[list].push(made);
       created.push({ action: "create", kind, id: made.id });
     } catch (err) {
-      toast(err.message || "Couldn't make that copy.", true);
+      toast(err.message || voiceLine("failed", { what: "make that copy" }), true);
     }
   }
   return created;
@@ -6239,7 +6546,7 @@ async function wbPasteText(text, at) {
         const y = top + Math.floor(i / cols) * (h + gap);
         const sticky = await wbCreateObject(
           "text",
-          { content: line.slice(0, 2000), bg: "#fff4a3", border_color: "#e8d56a", color: "#2a2a1f", font_size: 16 },
+          { content: line.slice(0, 2000), sticky: true, bg: WB_STICKY_PAPERS[0].value, color: "#2a2a1f", font_size: 16 },
           x, y, w, h
         );
         if (sticky) made.push(sticky);
@@ -6406,9 +6713,16 @@ const WB_CLONE_DIRS = {
   down: { x: 0, y: 1, icon: "M -6 -4 L 0 4 L 6 -4 Z", words: "below" },
   up: { x: 0, y: -1, icon: "M -6 4 L 0 -4 L 6 4 Z", words: "above" },
 };
-//: No arrow above: that is where the rotate grip stands. Alt+Shift+Up still
-//: copies upward.
-const WB_CLONE_GRIP_DIRS = ["right", "down", "left"];
+//: All four sides (the owner, 2026-10-10: "you cant even see the top one").
+//: The top arrow stands beyond the rotate grip on the same line out of the
+//: side rather than on it: the grip is 12px across at 28px up, so the arrow
+//: sits at 42px, a clear gap past it, and the grip keeps its place
+//: (decision 6: the rotate stem is on top). The context bar stands that much
+//: higher while the arrows show (`wbUpdateSelectionBar`).
+const WB_CLONE_GRIP_DIRS = ["up", "right", "down", "left"];
+//: How far out from each side the arrow's centre sits, in screen pixels: the
+//: grips are drawn one size to the hand at any zoom, so their distance is too.
+const WB_CLONE_GRIP_OUT = { up: 42, right: 22, down: 22, left: 22 };
 
 //: The one selected item clone-and-connect works on, or null.
 function wbCloneSource() {
@@ -6431,7 +6745,11 @@ async function wbCloneConnect(dirName) {
     return;
   }
   const w = source.bbox.maxX - source.bbox.minX, h = source.bbox.maxY - source.bbox.minY;
-  const dx = dir.x * (w + WB_CLONE_GAP), dy = dir.y * (h + WB_CLONE_GAP);
+  //: A turned box copies along its own turned side, as its arrow points, and
+  //: the copy keeps the turn (the payload carries it).
+  const rot = wbItemRotation(source.kind, source.item);
+  const step = wbRotatePoint({ x: dir.x * (w + WB_CLONE_GAP), y: dir.y * (h + WB_CLONE_GAP) }, { x: 0, y: 0 }, rot);
+  const dx = Math.round(step.x), dy = Math.round(step.y);
   let copy = null;
   await wbRecordGesture(async () => {
     const [made] = await wbCreateCopies([{ kind: source.kind, payload: WB_KIND_INFO[source.kind].payload(source.item) }], dx, dy);
@@ -6444,6 +6762,17 @@ async function wbCloneConnect(dirName) {
           type: "link-straight", route: "elbow",
           sourceId: source.id, sourceKind: source.kind === "node" ? undefined : source.kind,
           targetId: made.id, targetKind: made.kind === "node" ? undefined : made.kind,
+          //: **Fixed ports at both ends** (the owner, 2026-10-10: "when I move
+          //: the new connected sticky note, the point at which the link line
+          //: connects to it changes vertically depending on where I drag it").
+          //: With no anchor an end floats: it is wherever the line between the
+          //: two centres crosses the outline, so it slid along the side with
+          //: every move. draw.io's clone-and-connect joins the side the arrow
+          //: was on to the facing side of the copy, and so does this: the
+          //: middle of each, stored as box fractions (`wbAnchorPoint`), which
+          //: turn and stretch with the box and never re-anchor.
+          sourceAnchor: { x: 0.5 + dir.x / 2, y: 0.5 + dir.y / 2 },
+          targetAnchor: { x: 0.5 - dir.x / 2, y: 0.5 - dir.y / 2 },
           color: (source.kind === "sketch" && wbSketchParsedData(source.item)?.color) || window.currentStrokeColor || "#888888",
           width: 2, endCap: "arrow",
         }),
@@ -6459,7 +6788,8 @@ async function wbCloneConnect(dirName) {
 }
 
 //: The four arrow grips round the selected shape, drawn in the overlay layer
-//: like the other grips, rebuilt with the selection.
+//: like the other grips, rebuilt with the selection and laid out by
+//: `wbLayoutCloneGrips`.
 function wbRenderCloneGrips() {
   document.getElementById("wb-clone-grips")?.remove();
   const source = wbCloneSource();
@@ -6468,19 +6798,14 @@ function wbRenderCloneGrips() {
   const ns = "http://www.w3.org/2000/svg";
   const group = document.createElementNS(ns, "g");
   group.setAttribute("id", "wb-clone-grips");
-  const { bbox } = source;
-  const cx = (bbox.minX + bbox.maxX) / 2, cy = (bbox.minY + bbox.maxY) / 2;
-  const out = 22;
   for (const name of WB_CLONE_GRIP_DIRS) {
     const dir = WB_CLONE_DIRS[name];
-    const x = dir.x > 0 ? bbox.maxX + out : dir.x < 0 ? bbox.minX - out : cx;
-    const y = dir.y > 0 ? bbox.maxY + out : dir.y < 0 ? bbox.minY - out : cy;
     //: The place on an outer group and the arrow inside it, so the arrow's
     //: stylesheet scale (one size to the hand at any zoom) does not replace
     //: the place, which a `transform` attribute and a CSS one on one element
     //: would.
     const at = document.createElementNS(ns, "g");
-    at.setAttribute("transform", `translate(${x} ${y})`);
+    at.dataset.dir = name;
     const grip = document.createElementNS(ns, "path");
     grip.setAttribute("class", "wb-clone-grip");
     grip.setAttribute("d", dir.icon);
@@ -6497,6 +6822,43 @@ function wbRenderCloneGrips() {
     group.append(at);
   }
   zoomGroup.append(group);
+  wbLayoutCloneGrips();
+}
+
+//: **The arrows follow the box they belong to** (INBOX 740 and the owner's
+//: 2026-10-07 and 2026-10-10 reports: "the edge arrows are still not moving").
+//: They were placed once, when the selection was drawn, off the box's upright
+//: bounds: a drag, a resize or a turn left them where the box had been, and
+//: on a turned box they stood off its unturned sides. Each is now put just
+//: outside the middle of its side of the box as it is this frame (the live
+//: path of a shape being stretched or turned, a text box's rendered size),
+//: turned with it, and pointing out of its side. Called by the selection
+//: bar's frame, which every move, resize and turn already asks for, and by
+//: the zoom, since the distance out is in screen pixels.
+function wbLayoutCloneGrips() {
+  const group = document.getElementById("wb-clone-grips");
+  if (!group) return;
+  const source = wbCloneSource();
+  if (!source) {
+    group.remove();
+    return;
+  }
+  const { item } = source;
+  const live = source.kind === "sketch" && typeof item._liveD === "string" ? wbPathBBox(item._liveD) : null;
+  const box = live || source.bbox;
+  const container = document.getElementById("whiteboard-container");
+  const k = (container && d3.zoomTransform(container).k) || 1;
+  const rot = wbItemRotation(source.kind, item);
+  const c = wbBoxCenter(box);
+  const hw = (box.maxX - box.minX) / 2, hh = (box.maxY - box.minY) / 2;
+  for (const at of group.children) {
+    const name = at.dataset.dir;
+    const dir = WB_CLONE_DIRS[name];
+    if (!dir) continue;
+    const out = (WB_CLONE_GRIP_OUT[name] || 22) / k;
+    const p = wbRotatePoint({ x: c.x + dir.x * (hw + out), y: c.y + dir.y * (hh + out) }, c, rot);
+    at.setAttribute("transform", `translate(${p.x} ${p.y})${rot ? ` rotate(${rot})` : ""}`);
+  }
 }
 
 //: Ctrl+D: a copy of the selection beside it, one undo step, the copies
@@ -7225,6 +7587,10 @@ document.addEventListener("click", (e) => {
   if (!e.target.closest("#wb-map-link-radial")) wbCloseMapLinkRadial();
 });
 document.addEventListener("keydown", (e) => {
+  //: A keydown with no `key` (the owner's log, 2026-10-10: "Cannot read
+  //: properties of undefined (reading 'startsWith')" here, from the desktop
+  //: webview) is nobody's shortcut; every reader below wants a string.
+  if (typeof e.key !== "string") return;
   if (e.key === "Escape") {
     wbCloseContextMenu();
     wbCloseMapRadial();
@@ -7750,7 +8116,175 @@ function wbBeginTextEdit(contentEl) {
   contentEl.setAttribute("contenteditable", "plaintext-only");
   if (contentEl.contentEditable !== "plaintext-only") contentEl.setAttribute("contenteditable", "true");
   contentEl.closest(".wb-object")?.classList.add("wb-text-editing");
+  wbAttachEditorMenu(contentEl);
   contentEl.focus();
+}
+
+//: **The editor's "/" and "[[" menus, in a box on the board** (the owner,
+//: 2026-10-10: "/ command menus don't appear in text boxes in the
+//: whiteboard"; "the / command menu and [[ adding notes etc doesn't work on
+//: mind map nodes"). editor.js drives a textarea or CodeMirror through a
+//: surface (documents.js `textareaSurface`); a board box is a
+//: `plaintext-only` contenteditable, so it gets a surface of its own with
+//: the same members the menu reads: its text, the caret as offsets into
+//: that text, a splice, and the caret's point on screen. The offsets are
+//: the text nodes' (and a `<br>` as one "\n"), the model `wbEditedText`
+//: and `wbIndentEditableLines` already use. The context names what the menu
+//: offers: a text box renders markdown and keeps the blocks; a topic keeps
+//: links, an emoji and the date (`EDITOR_BOARD_ROWS`, editor.js).
+const WB_EDITOR_SURFACES = { "wb-text-edit": "board", "wb-topic-edit": "topic" };
+
+//: What each of the boards' contexts offers (the owner, 2026-10-10: "/
+//: command menus don't appear in text boxes in the whiteboard", "the /
+//: command menu and [[ adding notes etc doesn't work on mind map nodes", and
+//: links "in comments on documents and boards/maps"): the note's rows, cut
+//: to what each place can draw. A text box renders markdown, so it keeps the
+//: blocks; a map topic is a line or two, so it keeps links, an emoji and the
+//: date; a comment keeps links. Handed to editor.js's `EDITOR_CONTEXT_ROWS`
+//: with the surfaces, so they cost the boot nothing.
+const WB_EDITOR_CONTEXT_ROWS = {
+  board: ["bullets", "numbered", "checklist", "quote", "h1", "heading", "h3", "divider", "emoji", "wikilink", "bookmark-link", "link-card", "weblink", "math-inline", "stamp-date", "stamp-time", "stamp-datetime"],
+  topic: ["emoji", "wikilink", "bookmark-link", "weblink", "stamp-date", "stamp-time"],
+  comment: ["wikilink", "bookmark-link", "link-card", "weblink", "emoji", "stamp-date", "stamp-time"],
+};
+
+function wbRegisterEditorContexts() {
+  if (typeof EDITOR_CONTEXT_ROWS === "object") Object.assign(EDITOR_CONTEXT_ROWS, WB_EDITOR_CONTEXT_ROWS);
+}
+
+function wbAttachEditorMenu(el) {
+  if (typeof EDITOR_SURFACES !== "object" || el.wbEditorSurface) return;
+  //: A frame's title and a connector's label are one-line names: no menu.
+  const id = el.classList.contains("wb-map-text")
+    ? "wb-topic-edit"
+    : el.classList.contains("wb-text-content") || el.classList.contains("wb-shape-label-editor")
+      ? "wb-text-edit"
+      : null;
+  if (!id) return;
+  Object.assign(EDITOR_SURFACES, WB_EDITOR_SURFACES);
+  wbRegisterEditorContexts();
+  el.wbEditorSurface = wbEditableSurface(el, id);
+}
+
+function wbDetachEditorMenu(el) {
+  if (!el?.wbEditorSurface) return;
+  if (typeof editorMenuState === "object" && editorMenuState.open && editorMenuState.textarea === el.wbEditorSurface) editorCloseMenu();
+  delete el.wbEditorSurface;
+}
+
+function wbEditableSurface(el, id) {
+  //: Every text node and line break in order, with where each starts.
+  const pieces = () => {
+    const out = [];
+    let at = 0;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        out.push({ node, at, length: node.length });
+        at += node.length;
+      } else if (node.nodeName === "BR") {
+        out.push({ node, at, length: 1, br: true });
+        at += 1;
+      }
+    }
+    return out;
+  };
+  const text = () => pieces().map((p) => (p.br ? "\n" : p.node.data)).join("");
+  //: A DOM point to an offset into `text()`.
+  const offsetOf = (container, offset) => {
+    if (container.nodeType !== Node.TEXT_NODE) {
+      //: An element point counts child nodes: every piece wholly before it.
+      const before = document.createRange();
+      before.setStart(el, 0);
+      before.setEnd(container, offset);
+      let n = 0;
+      for (const p of pieces()) if (before.intersectsNode(p.node)) n = p.at + p.length;
+      return n;
+    }
+    const hit = pieces().find((p) => p.node === container);
+    return hit ? hit.at + Math.min(offset, hit.length) : 0;
+  };
+  //: An offset to a DOM point: inside the text node that holds it.
+  const pointAt = (target) => {
+    const list = pieces();
+    for (const p of list) {
+      if (p.br) {
+        if (target <= p.at) return [p.node.parentNode, [...p.node.parentNode.childNodes].indexOf(p.node)];
+        continue;
+      }
+      if (target <= p.at + p.length) return [p.node, Math.max(0, target - p.at)];
+    }
+    return [el, el.childNodes.length];
+  };
+  const range = () => {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !el.contains(sel.anchorNode)) {
+      const end = text().length;
+      return { from: end, to: end };
+    }
+    const r = sel.getRangeAt(0);
+    return { from: offsetOf(r.startContainer, r.startOffset), to: offsetOf(r.endContainer, r.endOffset) };
+  };
+  const surface = {
+    el,
+    kind: "textarea",
+    id,
+    isDocument: false,
+    scrollEl: el,
+    get value() { return text(); },
+    //: One text node again, the shape `wbBeginTextEdit` starts from.
+    set value(next) { el.textContent = next; },
+    get text() { return text(); },
+    set text(next) { el.textContent = next; },
+    get selectionStart() { return range().from; },
+    get selectionEnd() { return range().to; },
+    get classList() { return el.classList; },
+    get dataset() { return el.dataset; },
+    selection() { return range(); },
+    setSelectionRange(from, to = from) {
+      const sel = window.getSelection();
+      if (!sel) return;
+      const r = document.createRange();
+      r.setStart(...pointAt(from));
+      r.setEnd(...pointAt(to));
+      sel.removeAllRanges();
+      sel.addRange(r);
+    },
+    setSelection(from, to = from) { surface.setSelectionRange(from, to); },
+    setRangeText(insert, from, to) {
+      const value = text();
+      el.textContent = value.slice(0, from) + insert + value.slice(to);
+      surface.setSelectionRange(from + insert.length);
+    },
+    //: The caret's point on screen: a collapsed range's rect, or the box's
+    //: own first line when the caret sits on an empty line (no rect).
+    coordsAt(pos) {
+      const r = document.createRange();
+      r.setStart(...pointAt(pos));
+      r.collapse(true);
+      let rect = r.getClientRects()[0] || r.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+      const line = parseFloat(getComputedStyle(el).lineHeight) || 20;
+      const scale = box.width / (el.offsetWidth || box.width) || 1;
+      if (!rect || (!rect.width && !rect.height && !rect.top && !rect.left)) rect = { top: box.top, left: box.left, height: line * scale };
+      return { top: rect.top, left: rect.left, lineHeight: rect.height || line * scale, offscreen: rect.top > window.innerHeight || rect.top + (rect.height || 0) < 0 };
+    },
+    lineAt(pos) {
+      const value = text();
+      const at = Math.max(0, Math.min(pos, value.length));
+      const from = value.lastIndexOf("\n", at - 1) + 1;
+      const found = value.indexOf("\n", at);
+      const to = found === -1 ? value.length : found;
+      return { number: value.slice(0, from).split("\n").length, from, to, text: value.slice(from, to) };
+    },
+    onChange(fn) { el.addEventListener("input", fn); },
+    focus() { el.focus({ preventScroll: true }); },
+    blur() { el.blur(); },
+    rect() { return el.getBoundingClientRect(); },
+    getBoundingClientRect() { return el.getBoundingClientRect(); },
+    dispatchEvent(event) { return el.dispatchEvent(event); },
+  };
+  return surface;
 }
 
 //: What a text box or topic being edited says, with its line breaks. See
@@ -7819,6 +8353,7 @@ function wbIndentEditableLines(contentEl, outdent) {
 
 function wbEndTextEdit(contentEl) {
   if (!contentEl) return;
+  wbDetachEditorMenu(contentEl);
   contentEl.setAttribute("contenteditable", "false");
   contentEl.closest(".wb-object")?.classList.remove("wb-text-editing");
 }
@@ -7949,10 +8484,16 @@ async function wbApplyHistoryEntry(from, to) {
   //: a theme is a patch, so a field the old theme lacked is sent as null.
   //: A board's look (decision 24): put back whole, every field the step
   //: did not have sent as null.
+  if (entry.action === "layers") {
+    const current = wbState.layers || [];
+    await wbSaveNamedLayers(entry.before || [], { undo: false });
+    to.push({ action: "layers", before: current });
+    return true;
+  }
   if (entry.action === "background") {
     const current = { ...wbBoardBackground() };
     const was = entry.before || {};
-    await wbSetBackground({ color: was.color ?? null, image: was.image ?? null }, { undo: false });
+    await wbSetBackground({ color: was.color ?? null, image: was.image ?? null, sticky_fold: was.sticky_fold ?? null }, { undo: false });
     to.push({ action: "background", before: current });
     return true;
   }
@@ -8091,7 +8632,7 @@ async function wbUndo() {
     }
     wbScheduleRender();
   } catch {
-    toast("Couldn't undo that.", true);
+    toast(voiceLine("failed", { what: "undo that" }), true);
   }
 }
 
@@ -8107,7 +8648,7 @@ async function wbRedo() {
     wbUpdateUndoRedoButtons();
     wbScheduleRender();
   } catch {
-    toast("Couldn't redo that.", true);
+    toast(voiceLine("failed", { what: "redo that" }), true);
   }
 }
 
@@ -8126,7 +8667,7 @@ async function wbCreateObject(kind, data, x, y, width, height, z = 1) {
     await refreshBoardList();
     return created;
   } catch (err) {
-    toast(err.message || "Couldn't add that to the board.", true);
+    toast(err.message || voiceLine("failed", { what: "add that to the board" }), true);
     return null;
   }
 }
@@ -8140,11 +8681,42 @@ async function wbCreateObject(kind, data, x, y, width, height, z = 1) {
 //: `box`, when given, is the rectangle a press-drag drew with the tool
 //: (`wbPlaceBox`): the note takes that size and corner instead of the default
 //: one centred on the click.
+//: **Paper, lifted, with a folded corner** (the owner, 2026-10-10: "there's
+//: no real way to visually distinguish between a text box and a note. and
+//: note appearances arent changable"). `sticky: true` says it is one; its
+//: colour is `bg`, one of the papers below from its bar's swatches (or any
+//: colour from the "..." menu). The papers are light, so the one ink reads
+//: on all of them (measured on `wbstickylook.js`).
+const WB_STICKY_PAPERS = [
+  { value: "#fff4a3", label: "Yellow" },
+  { value: "#ffd8a8", label: "Orange" },
+  { value: "#ffc9de", label: "Pink" },
+  { value: "#e5d4ff", label: "Purple" },
+  { value: "#cfe8ff", label: "Blue" },
+  { value: "#d3f5c4", label: "Green" },
+  { value: "#ececec", label: "Grey" },
+];
+
+//: A sticky, and one made before the flag existed: those were the yellow
+//: paper with the warm edge `wbCreateSticky` gave every one of them.
+//: Whether a sticky's corner is drawn folded (INBOX 792): the note's own
+//: `fold`, else the board's default (`background.sticky_fold`, folded unless
+//: it says `false`).
+function wbStickyFolds(item) {
+  return item?.data?.fold ?? wbBoardBackground().sticky_fold !== false;
+}
+
+function wbIsSticky(item) {
+  const data = item?.data || {};
+  if (data.sticker) return false;
+  return Boolean(data.sticky) || (data.border_color === "#e8d56a" && Boolean(data.bg));
+}
+
 async function wbCreateSticky(x, y, box = null) {
   const at = box || { x: x - 90, y: y - 70, w: 180, h: 140 };
   const created = await wbCreateObject(
     "text",
-    { content: "", bg: "#fff4a3", border_color: "#e8d56a", color: "#2a2a1f", font_size: 16 },
+    { content: "", sticky: true, bg: WB_STICKY_PAPERS[0].value, color: "#2a2a1f", font_size: 16 },
     at.x, at.y, at.w, at.h
   );
   if (!created) return;
@@ -8153,6 +8725,47 @@ async function wbCreateSticky(x, y, box = null) {
     const el = document.querySelector(`.wb-object[data-id="${created.id}"] .wb-text-content`);
     if (el) wbBeginTextEdit(el);
   });
+}
+
+//: The swatches, made once from `WB_STICKY_PAPERS` (the colours are the
+//: buttons' own CSS custom property, set by script: the CSP refuses an
+//: inline `style=`), then pressed to match the selected note.
+function wbFillPaperSwatches(group, item) {
+  if (!group.children.length) {
+    for (const paper of WB_STICKY_PAPERS) {
+      const swatch = document.createElement("button");
+      swatch.type = "button";
+      swatch.className = "wb-paper-swatch";
+      swatch.dataset.paper = paper.value;
+      swatch.style.setProperty("--swatch", paper.value);
+      swatch.title = `${paper.label} paper`;
+      swatch.setAttribute("aria-label", `${paper.label} paper`);
+      swatch.addEventListener("click", () => wbSetStickyPaper(paper.value));
+      group.appendChild(swatch);
+    }
+  }
+  const now = String(item.data.bg || "").toLowerCase();
+  for (const swatch of group.children) swatch.setAttribute("aria-pressed", swatch.dataset.paper === now ? "true" : "false");
+}
+
+//: Every selected sticky takes the paper, one undo step each, as the
+//: "..." menu's Background does for one.
+async function wbSetStickyPaper(value) {
+  //: A key is "kind:id" (`wbMultiKey`).
+  const targets = wbMultiSelection.size
+    ? [...wbMultiSelection].filter((key) => key.startsWith("object:")).map((key) => wbFindItem("object", Number(key.slice(7))))
+    : [wbSelectedTextObjectOrNull()];
+  const stickies = targets.filter((obj) => obj && wbIsSticky(obj));
+  for (const obj of stickies) {
+    wbPushUndo({ action: "move", kind: "object", id: obj.id, before: WB_KIND_INFO.object.payload(obj) });
+    const data = { ...obj.data, bg: value, sticky: true };
+    delete data.border_color;
+    obj.data = data;
+    await wbSaveObject(obj);
+  }
+  wbScheduleRender();
+  const group = document.querySelector('#wb-context [data-wb-ctx="paper"]');
+  if (group && stickies[0]) wbFillPaperSwatches(group, stickies[0]);
 }
 
 async function wbCreateTextBox(x, y, box = null) {
@@ -8196,9 +8809,8 @@ function wbSketchData(sketch) {
 function wbIsLocked(kind, item) {
   if (!item) return false;
   if (kind === "node") return Boolean(item.locked);
-  if (kind === "object") return Boolean(item.data?.locked);
-  if (kind === "sketch") return Boolean(wbSketchData(item)?.locked);
-  return false;
+  const data = kind === "object" ? item.data : kind === "sketch" ? wbSketchData(item) : null;
+  return Boolean(data && (data.locked || wbNamedLayerFlag(data.layer, "locked")));
 }
 
 function wbLockedItems() {
@@ -8488,8 +9100,12 @@ function wbPaintCommentMarks() {
   const wanted = [];
   for (const kind of ["node", "object", "sketch"]) {
     for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
-      const count = wbItemComments(kind, item).length;
-      if (count) wanted.push([kind, item, count]);
+      //: The mark counts what is still open; a thread that is all resolved
+      //: keeps a quiet tick, so it can still be opened and read.
+      //: A reply is as open as the comment it answers.
+      const thread = wbItemComments(kind, item);
+      const shut = new Set(thread.filter((c) => c.resolved).map((c) => c.id));
+      if (thread.length) wanted.push([kind, item, thread.filter((c) => !shut.has(c.id) && !shut.has(c.reply_to)).length]);
     }
   }
   if (!wanted.length) {
@@ -8535,8 +9151,10 @@ function wbPaintCommentMarks() {
       host.appendChild(pin);
     }
     const mark = pin.firstElementChild;
-    mark.lastElementChild.textContent = String(count);
-    const words = `${count} comment${count === 1 ? "" : "s"}`;
+    mark.lastElementChild.textContent = count ? String(count) : "";
+    mark.classList.toggle("is-resolved", !count);
+    mark.firstElementChild.className = `ph ${count ? "ph-chat-circle" : "ph-check"}`;
+    const words = count ? `${count} open comment${count === 1 ? "" : "s"}` : "Every comment resolved";
     mark.setAttribute("aria-label", `${words}. Open the thread`);
     mark.title = words;
     pin.style.left = `${box.maxX}px`;
@@ -8588,10 +9206,50 @@ function wbOpenComments(kind, id, anchor = null) {
   newButton.setAttribute("aria-controls", composer.id);
   const box = document.createElement("textarea");
   box.className = "wb-comments-box";
+  //: An editing surface (`EDITOR_SURFACES`, context "comment"): "/" offers
+  //: links, bookmarks, a board, an emoji and the date, "[[" a note.
+  box.id = "wb-comments-box";
+  wbRegisterCommentSurfaces();
   box.rows = 2;
   box.maxLength = 2000;
-  box.placeholder = "Write a comment";
+  box.placeholder = "Write a comment, / for links";
   box.setAttribute("aria-label", "New comment");
+  //: Shown while the box answers one comment; its X goes back to a new one.
+  const replying = document.createElement("div");
+  replying.className = "wb-comments-replying muted";
+  replying.hidden = true;
+  const replyingText = document.createElement("span");
+  const replyingClear = smallButton("ph:x", "Not a reply", () => setReplyTo(null));
+  replying.append(replyingText, replyingClear);
+  let replyTo = null;
+  const setReplyTo = (comment) => {
+    replyTo = comment ? comment.id : null;
+    replying.hidden = !comment;
+    replyingText.textContent = comment ? `Replying to "${clipText(String(comment.text).replace(/\s+/g, " "), 48)}"` : "";
+    box.setAttribute("aria-label", comment ? "Reply" : "New comment");
+  };
+  //: **Attach** (the owner, 2026-10-10: "attach bookmarks, web links and
+  //: more in comments"): the app's one-thing picker, and what it hands back
+  //: written into the box as the markdown the thread draws. A saved link
+  //: goes on a line of its own, which `renderMarkdown` draws as the app's
+  //: link card; a note, document or board is a `[[link]]` chip.
+  const attach = smallButton("ph:paperclip Attach", "Attach a bookmark, note, document or board", async () => {
+    if (typeof pickLibraryItemDialog !== "function") return;
+    const chosen = await pickLibraryItemDialog("Attach to this comment", { sources: ["link", "note", "document", "board"] });
+    if (!chosen) return;
+    const piece = wbCommentAttachMarkdown(chosen);
+    if (!piece) return;
+    const at = box.selectionStart ?? box.value.length;
+    const before = box.value.slice(0, at);
+    const after = box.value.slice(box.selectionEnd ?? at);
+    const lead = chosen.kind === "link" && before && !before.endsWith("\n") ? "\n" : before && !/\s$/.test(before) ? " " : "";
+    const tail = chosen.kind === "link" ? "\n" : " ";
+    box.value = `${before}${lead}${piece}${tail}${after}`.slice(0, box.maxLength);
+    const caret = Math.min(box.value.length, (before + lead + piece + tail).length);
+    box.focus({ preventScroll: true });
+    box.setSelectionRange(caret, caret);
+  });
+  attach.classList.add("wb-comments-attach");
   const post = document.createElement("button");
   post.type = "button";
   post.className = "small wb-comments-post";
@@ -8608,11 +9266,12 @@ function wbOpenComments(kind, id, anchor = null) {
   const actions = document.createElement("span");
   actions.className = "wb-comments-actions";
   actions.append(cancel, post);
-  foot.append(hint, actions);
-  composer.append(box, foot);
+  foot.append(attach, actions);
+  composer.append(replying, box, hint, foot);
   panel.append(list, newButton, composer);
   const hasThread = () => wbItemComments(kind, wbFindItem(kind, id)).length > 0;
-  const openComposer = () => {
+  const openComposer = (answering = null) => {
+    setReplyTo(answering);
     composer.hidden = false;
     newButton.hidden = true;
     newButton.setAttribute("aria-expanded", "true");
@@ -8622,6 +9281,7 @@ function wbOpenComments(kind, id, anchor = null) {
   //: back to, so the popover closes instead.
   const closeComposer = () => {
     box.value = "";
+    setReplyTo(null);
     if (!hasThread()) {
       wbCloseComments({ restoreFocus: true });
       return;
@@ -8631,7 +9291,7 @@ function wbOpenComments(kind, id, anchor = null) {
     newButton.setAttribute("aria-expanded", "false");
     newButton.focus({ preventScroll: true });
   };
-  newButton.addEventListener("click", openComposer);
+  newButton.addEventListener("click", () => openComposer());
   cancel.addEventListener("click", closeComposer);
   const send = async () => {
     const text = box.value.trim();
@@ -8647,11 +9307,15 @@ function wbOpenComments(kind, id, anchor = null) {
     }
     box.value = "";
     const made = { id: crypto.randomUUID ? crypto.randomUUID() : `c${Date.now()}${Math.random().toString(36).slice(2, 12)}`, text, at: new Date().toISOString() };
+    //: A reply answers the thread's top comment (one level, as Miro and
+    //: Figma draw it), and the parent must still be there.
+    const parent = replyTo ? thread.find((c) => c.id === replyTo) : null;
+    if (parent) made.reply_to = parent.reply_to && thread.some((c) => c.id === parent.reply_to) ? parent.reply_to : parent.id;
     await wbSetComments(kind, now, [...thread, made]);
     wbFillComments();
-    list.lastElementChild?.scrollIntoView({ block: "nearest" });
+    list.querySelector(`[data-comment-id="${CSS.escape(made.id)}"]`)?.scrollIntoView({ block: "nearest" });
     closeComposer();
-    wbAnnounce("Comment added.");
+    wbAnnounce(parent ? "Reply added." : "Comment added.");
   };
   post.addEventListener("click", send);
   //: Every key typed here is the thread's: the board's keys stay out.
@@ -8662,6 +9326,8 @@ function wbOpenComments(kind, id, anchor = null) {
       if (!composer.hidden) closeComposer();
       else wbCloseComments({ restoreFocus: true });
     } else if (event.key === "Enter" && !event.shiftKey && event.target === box) {
+      //: The editor's own menu, open on the box, has taken an Enter already
+      //: (`editorMenuState`, capture phase): this one is the post.
       event.preventDefault();
       send();
     }
@@ -8672,7 +9338,7 @@ function wbOpenComments(kind, id, anchor = null) {
   };
   document.addEventListener("pointerdown", outside, true);
   document.body.appendChild(panel);
-  wbCommentState = { key, kind, id, panel, anchor: target, outside };
+  wbCommentState = { key, kind, id, panel, anchor: target, outside, openComposer };
   if (target.classList.contains("wb-comment-mark")) target.setAttribute("aria-expanded", "true");
   wbFillComments();
   if (hasThread()) {
@@ -8686,7 +9352,11 @@ function wbOpenComments(kind, id, anchor = null) {
   }
 }
 
-//: The thread, oldest first, each with its time and a delete.
+//: The thread, oldest first, each reply under the comment it answers; each
+//: comment with its time, Reply, Edit, Resolve and Delete. Resolved threads
+//: fold into one "N resolved" disclosure at the foot (the owner, 2026-10-10:
+//: comments "need a lot of improvement"; decision 17 had no resolve, and
+//: deleting was the only way to close a point).
 function wbFillComments() {
   const state = wbCommentState;
   if (!state) return;
@@ -8701,50 +9371,191 @@ function wbFillComments() {
     list.appendChild(empty);
     return;
   }
-  for (const comment of thread) {
-    const row = document.createElement("div");
-    row.className = "wb-comment";
-    row.setAttribute("role", "listitem");
-    const text = document.createElement("p");
-    text.className = "wb-comment-text";
-    text.textContent = comment.text;
-    const meta = document.createElement("div");
-    meta.className = "wb-comment-meta";
-    const when = document.createElement("time");
-    when.className = "muted";
-    when.dateTime = comment.at || "";
-    when.textContent = comment.at ? relativeTime(comment.at) : "";
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "ghost icon-only small";
-    del.setAttribute("aria-label", "Delete this comment");
-    del.title = "Delete this comment";
-    const glyph = document.createElement("i");
-    glyph.className = "ph ph-trash";
-    glyph.setAttribute("aria-hidden", "true");
-    del.appendChild(glyph);
-    del.addEventListener("click", async () => {
-      const now = wbFindItem(state.kind, state.id);
-      if (!now) return;
-      await wbSetComments(state.kind, now, wbItemComments(state.kind, now).filter((c) => c.id !== comment.id));
-      wbFillComments();
-      //: The focus goes where the reader is: the button, or the box when
-      //: the last comment went and the thread is empty again.
-      const button = state.panel.querySelector(".wb-comments-new");
-      const composer = state.panel.querySelector(".wb-comments-composer");
-      if (!wbItemComments(state.kind, wbFindItem(state.kind, state.id)).length) {
-        composer.hidden = false;
-        button.hidden = true;
-        state.panel.querySelector(".wb-comments-box")?.focus({ preventScroll: true });
-      } else if (!button.hidden) {
-        button.focus({ preventScroll: true });
-      }
-      wbAnnounce("Comment deleted. Ctrl+Z brings it back.");
-    });
-    meta.append(when, del);
-    row.append(text, meta);
-    list.appendChild(row);
+  const ids = new Set(thread.map((c) => c.id));
+  const tops = thread.filter((c) => !c.reply_to || !ids.has(c.reply_to));
+  const repliesOf = (c) => thread.filter((r) => r.reply_to === c.id);
+  const open = tops.filter((c) => !c.resolved);
+  const done = tops.filter((c) => c.resolved);
+  for (const top of open) {
+    list.appendChild(wbCommentRow(state, top, false));
+    for (const reply of repliesOf(top)) list.appendChild(wbCommentRow(state, reply, true));
   }
+  if (done.length) {
+    const fold = document.createElement("details");
+    fold.className = "wb-comments-resolved";
+    if (state.showResolved || !open.length) fold.open = true;
+    fold.addEventListener("toggle", () => { state.showResolved = fold.open; });
+    const summary = document.createElement("summary");
+    summary.textContent = `${done.length} resolved`;
+    fold.appendChild(summary);
+    for (const top of done) {
+      fold.appendChild(wbCommentRow(state, top, false));
+      for (const reply of repliesOf(top)) fold.appendChild(wbCommentRow(state, reply, true));
+    }
+    list.appendChild(fold);
+  }
+}
+
+//: One comment: its words drawn by the app's own markdown (a link alone on
+//: a line is a link card, `[[a note]]` a chip), then its time and actions.
+function wbCommentRow(state, comment, isReply) {
+  const row = document.createElement("div");
+  row.className = "wb-comment";
+  row.classList.toggle("wb-comment-reply", isReply);
+  row.classList.toggle("is-resolved", Boolean(comment.resolved));
+  row.dataset.commentId = comment.id;
+  row.setAttribute("role", "listitem");
+  const text = document.createElement("div");
+  text.className = "wb-comment-text";
+  //: A link on a line of its own is set apart as its own paragraph first:
+  //: a comment is typed as lines ("See the spec", then the address), and
+  //: the markdown reads two lines as one paragraph, which keeps a link inline.
+  renderMarkdown(text, String(comment.text).split("\n").map((line) => (LONE_LINK.test(line) ? `\n${line}\n` : line)).join("\n"));
+  wbCommentWikiChips(text);
+  const meta = document.createElement("div");
+  meta.className = "wb-comment-meta";
+  const when = document.createElement("time");
+  when.className = "muted";
+  when.dateTime = comment.at || "";
+  when.textContent = [comment.at ? relativeTime(comment.at) : "", comment.edited ? "edited" : ""].filter(Boolean).join(", ");
+  if (comment.edited) when.title = `Edited ${relativeTime(comment.edited)}`;
+  const tools = document.createElement("span");
+  tools.className = "wb-comment-tools";
+  //: Every change is the whole thread written back, one undo step, read
+  //: fresh from state so a second panel action never writes a stale copy.
+  const change = async (mutate, said) => {
+    const now = wbFindItem(state.kind, state.id);
+    if (!now) return;
+    await wbSetComments(state.kind, now, mutate(wbItemComments(state.kind, now)));
+    wbFillComments();
+    if (said) wbAnnounce(said);
+  };
+  const reply = smallButton("ph:arrow-bend-up-left", "Reply", () => state.openComposer?.(comment));
+  const edit = smallButton("ph:pencil-simple", "Edit this comment", () => wbEditCommentRow(state, row, comment, change));
+  tools.append(reply, edit);
+  if (!isReply) {
+    const resolve = smallButton(
+      comment.resolved ? "ph:arrow-counter-clockwise" : "ph:check-circle",
+      comment.resolved ? "Reopen this comment" : "Resolve this comment",
+      () => change(
+        (list) => list.map((c) => (c.id === comment.id ? { ...c, resolved: comment.resolved ? undefined : true } : c)),
+        comment.resolved ? "Comment reopened." : "Comment resolved. Ctrl+Z reopens it."
+      )
+    );
+    tools.appendChild(resolve);
+  }
+  const del = smallButton("ph:trash", "Delete this comment", async () => {
+    //: Its replies go with it: an answer to nothing reads as a stray.
+    await change((list) => list.filter((c) => c.id !== comment.id && c.reply_to !== comment.id), "Comment deleted. Ctrl+Z brings it back.");
+    //: The focus goes where the reader is: the button, or the box when
+    //: the last comment went and the thread is empty again.
+    const button = state.panel.querySelector(".wb-comments-new");
+    const composer = state.panel.querySelector(".wb-comments-composer");
+    if (!wbItemComments(state.kind, wbFindItem(state.kind, state.id)).length) {
+      composer.hidden = false;
+      button.hidden = true;
+      state.panel.querySelector(".wb-comments-box")?.focus({ preventScroll: true });
+    } else if (!button.hidden) {
+      button.focus({ preventScroll: true });
+    }
+  });
+  tools.appendChild(del);
+  for (const button of tools.children) button.classList.add("icon-only");
+  meta.append(when, tools);
+  row.append(text, meta);
+  return row;
+}
+
+//: Edit in place: the words become a box with the comment's own text, Enter
+//: (or Save) keeps it and stamps it edited, Escape (or Cancel) puts the words
+//: back. The box is an editing surface too, so "/" and "[[" work in it.
+function wbEditCommentRow(state, row, comment, change) {
+  const text = row.querySelector(".wb-comment-text");
+  const meta = row.querySelector(".wb-comment-meta");
+  if (!text || row.querySelector(".wb-comments-edit")) return;
+  const box = document.createElement("textarea");
+  box.className = "wb-comments-box wb-comments-edit";
+  box.id = "wb-comments-edit";
+  wbRegisterCommentSurfaces();
+  box.rows = Math.min(6, Math.max(2, String(comment.text).split("\n").length));
+  box.maxLength = 2000;
+  box.value = comment.text;
+  box.setAttribute("aria-label", "Edit comment");
+  const save = smallButton("Save", "Keep this edit", () => keep(), false);
+  const cancel = smallButton("Cancel", "Put the comment back as it was", () => back());
+  const actions = document.createElement("span");
+  actions.className = "wb-comments-actions";
+  actions.append(cancel, save);
+  const back = () => {
+    box.remove();
+    actions.remove();
+    text.hidden = false;
+    meta.hidden = false;
+    row.querySelector(".wb-comment-tools [aria-label='Edit this comment']")?.focus({ preventScroll: true });
+  };
+  const keep = async () => {
+    const next = box.value.trim();
+    if (!next) {
+      box.focus({ preventScroll: true });
+      return;
+    }
+    if (next === comment.text) return back();
+    await change((list) => list.map((c) => (c.id === comment.id ? { ...c, text: next, edited: new Date().toISOString() } : c)), "Comment edited.");
+  };
+  box.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      keep();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      back();
+    }
+  });
+  text.hidden = true;
+  meta.hidden = true;
+  row.append(box, actions);
+  box.focus({ preventScroll: true });
+  box.setSelectionRange(box.value.length, box.value.length);
+}
+
+//: `renderMarkdown` is the answer renderer and leaves `[[a note]]` as text;
+//: the note card's own inline renderer draws it as the chip that opens the
+//: note, document or board. Applied to the text runs only, never inside a
+//: link or code.
+function wbCommentWikiChips(root) {
+  if (typeof renderNoteInline !== "function") return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => (node.data.includes("[[") && !node.parentElement?.closest("a, code, pre") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
+  });
+  const runs = [];
+  while (walker.nextNode()) runs.push(walker.currentNode);
+  for (const run of runs) {
+    const span = document.createElement("span");
+    renderNoteInline(span, run.data, []);
+    run.replaceWith(span);
+  }
+}
+
+//: What an attached thing is written as in a comment.
+function wbCommentAttachMarkdown(chosen) {
+  const row = chosen.row || {};
+  const label = String(chosen.label || row.title || "").replace(/[[\]|]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  if (chosen.kind === "link") {
+    const url = String(row.url || "").replace(/ /g, "%20").replace(/\)/g, "%29");
+    return url ? `[${label || url}](${url})` : "";
+  }
+  if (chosen.kind === "board") return `[[${row.type === "board" ? "board" : "map"}:${chosen.id ?? row.id}|${label || "Board"}]]`;
+  return label ? `[[${label}]]` : "";
+}
+
+//: The two comment boxes are editing surfaces of their own context.
+function wbRegisterCommentSurfaces() {
+  if (typeof EDITOR_SURFACES !== "object") return;
+  wbRegisterEditorContexts();
+  EDITOR_SURFACES["wb-comments-box"] = "comment";
+  EDITOR_SURFACES["wb-comments-edit"] = "comment";
 }
 
 function wbCloseComments({ restoreFocus = false } = {}) {
@@ -9006,7 +9817,7 @@ async function wbDeleteBoard(id, title) {
   try {
     await wbBinBoard(id, true);
   } catch (err) {
-    toast(err.message || "Couldn't delete that board.", true);
+    toast(err.message || voiceLine("failed", { what: "delete that board" }), true);
     return false;
   }
   const action = pushUndo(`Deleted "${title}"`, () => wbBinBoard(id, false), () => wbBinBoard(id, true));
@@ -9044,7 +9855,7 @@ async function wbClearBoard() {
   wbScheduleRender();
   await refreshBoardList();
   const left = wbState.nodes.length + wbState.sketches.length + (wbState.objects?.length || 0);
-  toast(left ? "Couldn't clear the whole board; what is left is shown." : "Board cleared.", Boolean(left));
+  toast(left ? voiceLine("failed", { what: "clear the whole board; what is left is shown" }) : "Board cleared.", Boolean(left));
 }
 
 // --- Whiteboard export (asked for directly: "a way to screen clip a or a
@@ -9246,6 +10057,47 @@ function wbExportPaint(el, inkEl) {
     edge: edgeWidth > 0 ? wbExportColour(style.borderTopColor) : null,
     ink: wbExportColour(getComputedStyle(inkEl || el).color) || "#1f2430",
   };
+}
+
+//: A map topic's effect in the exported picture: a filter attribute for its
+//: box, with the filter defined once in `parts`. The glow's ring is a rect
+//: drawn under the box. Nothing for a topic drawn without a box.
+function wbExportTopicEffect(topicEl, colour, rx, ry, size, parts) {
+  const effect = topicEl?.dataset.shape === "none" ? null : topicEl?.dataset.effect;
+  if (effect === "shadow") {
+    if (!parts.includes(WB_EXPORT_SHADOW_DEF)) parts.push(WB_EXPORT_SHADOW_DEF);
+    return ' filter="url(#wb-export-shadow)"';
+  }
+  if (effect !== "glow") return "";
+  const ink = wbSvgEscape(colour);
+  const id = `wb-export-glow-${String(colour).replace(/[^a-z0-9]/gi, "")}`;
+  const def = `<defs><filter id="${id}" x="-40%" y="-40%" width="180%" height="180%">` +
+    `<feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="${ink}" flood-opacity="0.45"/></filter></defs>`;
+  if (!parts.includes(def)) parts.push(def);
+  parts.push(`<rect x="-3" y="-3" width="${size.w + 6}" height="${size.h + 6}" rx="${Math.round((rx + 3) * 10) / 10}" ry="${Math.round((ry + 3) * 10) / 10}" fill="${ink}" fill-opacity="0.22" />`);
+  return ` filter="url(#${id})"`;
+}
+
+//: A topic's Phosphor icon as a PNG data URL, drawn from the glyph the
+//: topic shows (its `::before` in the icon font), in the colour it is drawn
+//: in; null for no icon, an emoji (that travels as text) or a font not ready.
+function wbExportTopicGlyph(topicEl) {
+  const iconEl = topicEl?.querySelector(".wb-map-node-icon.ph");
+  if (!iconEl || iconEl.hidden) return null;
+  const before = getComputedStyle(iconEl, "::before");
+  const glyph = (before.content || "").replace(/^["']|["']$/g, "");
+  if (!glyph || glyph === "none") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = 48;
+  canvas.height = 48;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.font = `40px ${before.fontFamily}`;
+  ctx.fillStyle = getComputedStyle(iconEl).color || "#1f2430";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(glyph, 24, 26);
+  return canvas.toDataURL("image/png");
 }
 
 function wbBuildExportSvg(scope, { transparent = false } = {}) {
@@ -9450,9 +10302,22 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
       const colour = exportMapColors?.get(obj.id) || "#8888aa";
       const topicEl = document.querySelector(`#wb-html-layer .wb-object[data-id="${obj.id}"]`);
       const topicPaint = wbExportPaint(topicEl, topicEl?.querySelector(".wb-map-text")) || topicFallback;
+      //: **Its own shape, not always the rounded box** (MINDMAP_PLAN, the
+      //: owner's list 2026-10-10: the rounded rectangle "its export"): the
+      //: corner the topic is drawn with, read off the drawn topic, so a
+      //: pill, an ellipse, a box and the rounded rectangle each export as
+      //: themselves. A percentage is of the box (the ellipse's 50%).
+      const corner = topicEl ? getComputedStyle(topicEl).borderTopLeftRadius : "8px";
+      const pct = /%$/.test(corner) ? parseFloat(corner) / 100 : null;
+      const rx = pct != null ? size.w * pct : Math.min(parseFloat(corner) || 0, size.h / 2, size.w / 2);
+      const ry = pct != null ? size.h * pct : rx;
+      //: **Its effect travels too** (MINDMAP_PLAN 15, row 8): the shadow as
+      //: the board's own export shadow, the glow as a ring and a blur in the
+      //: branch colour, read off the drawn topic as the shape is.
+      const fx = wbExportTopicEffect(topicEl, colour, rx, ry, size, parts);
       parts.push(
-        `<rect width="${size.w}" height="${size.h}" rx="8" fill="${topicPaint?.fill || "#ffffffee"}" ` +
-          `stroke="${wbSvgEscape(topicPaint?.edge || colour)}" stroke-width="1.5" />`
+        `<rect width="${size.w}" height="${size.h}" rx="${Math.round(rx * 10) / 10}" ry="${Math.round(ry * 10) / 10}" fill="${topicPaint?.fill || "#ffffffee"}" ` +
+          `stroke="${wbSvgEscape(topicPaint?.edge || colour)}" stroke-width="1.5"${fx} />`
       );
       parts.push(
         `<rect width="4" height="${size.h}" rx="2" fill="${wbSvgEscape(colour)}" />`
@@ -9498,11 +10363,18 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
       //: An emoji icon is a character, so it travels (decision 46); a
       //: Phosphor one is the icon font's, which does not.
       const icon = obj.data?.icon && !/^[a-z0-9-]+$/.test(obj.data.icon) ? `${obj.data.icon} ` : "";
-      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + icon + wbMapLabel(obj), size.w - 28, 4, 7.5);
+      //: A Phosphor icon travels as its own picture (row 8): the glyph drawn
+      //: once from the font the topic is showing it in, before the label.
+      const glyph = wbExportTopicGlyph(topicEl);
+      const textLeft = glyph ? 34 : 14;
+      if (glyph) {
+        parts.push(`<image href="${glyph}" x="14" y="${labelTop - 13}" width="16" height="16" />`);
+      }
+      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + icon + wbMapLabel(obj), size.w - 28 - (textLeft - 14), 4, 7.5);
       //: In the map's own face when it has one (§13e's remainder): the file is
       //: the second place a map's text is drawn, and a serif map exported in
       //: sans-serif is two pictures of one map.
-      parts.push(wbSvgText(lines, 14, labelTop, {
+      parts.push(wbSvgText(lines, textLeft, labelTop, {
         fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17,
         fontFamily: wbMapFontStack() || "sans-serif",
       }));
@@ -9677,7 +10549,7 @@ async function wbGenerateMapFromNotes() {
       body: JSON.stringify({ note_ids: chosen.map((note) => note.id) }),
     });
   } catch (error) {
-    toast(error.message || "Couldn't propose a map from those notes.", true);
+    toast(error.message || voiceLine("failed", { what: "propose a map from those notes" }), true);
     return;
   }
 
@@ -9700,7 +10572,7 @@ async function wbGenerateMapFromNotes() {
     await openWhiteboardBoard(board.id);
     await wbMapTidyFresh();
   } catch (error) {
-    toast(error.message || "Couldn't create that map.", true);
+    toast(error.message || voiceLine("failed", { what: "create that map" }), true);
   }
 }
 
@@ -9842,7 +10714,7 @@ async function wbImportOutlineFile(event) {
     //: it (W5). Everything else is text.
     content = format === "xmind" ? wbBase64(await file.arrayBuffer()) : await file.text();
   } catch {
-    toast("Couldn't read that file.", true);
+    toast(voiceLine("failed", { what: "read that file" }), true);
     return;
   }
   if (!content.trim()) {
@@ -9879,14 +10751,14 @@ async function wbImportOutlineFile(event) {
     // The server's own message, not a generic one: it names the actual
     // refusal ("Unknown import format", a DOCTYPE in the OPML, a parse
     // failure), and those are the only things a person can act on.
-    toast(error.message || "Couldn't import that outline.", true);
+    toast(error.message || voiceLine("failed", { what: "import that outline" }), true);
   }
 }
 
 async function wbExportSvg(scope) {
   let { svg } = wbBuildExportSvg(scope);
   //: **The board rides inside the picture** (W5, draw.io's re-editable SVG):
-  //: its rows in `<metadata>`, which Insert, Mermaid or board SVG brings back
+  //: its rows in `<metadata>`, which Insert, Mermaid, draw.io or board SVG brings back
   //: as shapes and connectors. A map's topics are a tree, not rows to drop.
   if (!wbIsMap()) svg = svg.replace(/(<svg[^>]*>)/, `$1${wbBoardSvgMetadata(wbExportRows(scope))}`);
   await saveFile(wbExportFileName(scope, "svg"), new Blob([await wbInlineSvgImages(svg)], { type: "image/svg+xml" }));
@@ -10342,7 +11214,7 @@ function wbExportBoard() {
     try {
       await chosen.run(where);
     } catch (err) {
-      toast(err.message || "Couldn't export the board.", true);
+      toast(err.message || voiceLine("failed", { what: "export the board" }), true);
     }
   };
 
@@ -10612,6 +11484,12 @@ async function initWhiteboard() {
   //: these call the same functions Tab, Enter, F and the node's own chevron
   //: call, so the two routes cannot drift.
   $("wb-map-add-root")?.addEventListener("click", () => wbMapAddChild(null));
+  //: The emoji and icon library, on the dock of both surfaces (the owner,
+  //: 2026-10-10: "Idk where it is or how to use it"); the picker opens
+  //: beside the button that asked.
+  for (const id of ["wb-add-sticker", "wb-map-add-sticker"]) {
+    $(id)?.addEventListener("click", (event) => wbOpenStickerPicker(event.currentTarget));
+  }
   //: Focus is one key in both directions (see the F handler), so it is one
   //: button in both directions too.
   $("wb-map-focus-here")?.addEventListener("click", () => {
@@ -10879,6 +11757,13 @@ async function initWhiteboard() {
   //: The bar on the node's edge (item 177). Same empty-is-the-default rule as
   //: the shape above it: solid is what a map has always drawn, so choosing it
   //: stores nothing rather than pinning the node to today's stylesheet.
+  //: A topic's shadow or glow (MINDMAP_PLAN §14.4). Empty is no effect of
+  //: its own; `none` (the row a level with an effect adds) keeps it plain.
+  $("wb-map-effect")?.addEventListener("change", (e) => {
+    if (wbMapStripSyncing) return;
+    const node = wbSelectedMapNode();
+    if (node) wbMapSetNodeStyle(node, { effect: e.target.value || null });
+  });
   $("wb-map-spine")?.addEventListener("change", (e) => {
     if (wbMapStripSyncing) return;
     const node = wbSelectedMapNode();
@@ -11145,6 +12030,22 @@ async function initWhiteboard() {
     }
   }
 
+  //: A panel opening or closing, or the window changing size, refits a view
+  //: that is still where the last fit put it (INBOX 792). Settled for a
+  //: moment first: the sidebar's width eases, and a refit per frame of it
+  //: would chase it.
+  if (typeof ResizeObserver !== "undefined") {
+    let refitTimer = 0;
+    const refit = () => {
+      clearTimeout(refitTimer);
+      refitTimer = setTimeout(wbRefitIfFitted, 200);
+    };
+    for (const id of ["whiteboard-container", "wb-sidebar", "wb-format", "wb-tools-panel"]) {
+      const el = document.getElementById(id);
+      if (el) new ResizeObserver(refit).observe(el);
+    }
+  }
+
   // Asked for directly: once a panel's been dragged there was no way back to
   // its default corner short of clearing localStorage by hand. Clears every
   // panel's saved position and its drag-time inline styles (left/top/right/
@@ -11181,6 +12082,7 @@ async function initWhiteboard() {
       $("wb-snap-toggle").disabled = e.target.value === "none";
     });
   }
+  $("wb-sticky-fold")?.addEventListener("change", (e) => wbSetBackground({ sticky_fold: e.target.checked }));
   const snapToggle = $("wb-snap-toggle");
   if (snapToggle) {
     snapToggle.checked = prefs.get("wb-snap", null) === "on";
@@ -11216,7 +12118,7 @@ async function initWhiteboard() {
       });
       if (await wbSetBackground({ image: uploaded.url })) toast("Background image set.");
     } catch (err) {
-      toast(err.message || "Couldn't set that background image.", true);
+      toast(err.message || voiceLine("failed", { what: "set that background image" }), true);
     }
   });
   wbApplyGrid();
@@ -12193,9 +13095,11 @@ async function initWhiteboard() {
       //: On the view too, so the board's sidebar can stand beside a side dock
       //: rather than over it (INBOX 596; 07-whiteboard-misc.css).
       viewHost?.setAttribute("data-wb-dock", dock);
-      dockToggle.title = dock === "bottom" ? "Dock as a sidebar" : "Dock as a bottom bar";
-      // The button reads as the current state, the tooltip as the action.
-      setLabel(dockToggle, dock === "bottom" ? "ph:sidebar-simple Bottom" : "ph:sidebar-simple Side");
+      //: A menu row, so its words are the action (INBOX 793).
+      const words = dock === "bottom" ? "Dock the tools at the side" : "Dock the tools at the bottom";
+      dockToggle.title = words;
+      dockToggle.setAttribute("aria-label", words);
+      setLabel(dockToggle, `ph:sidebar-simple ${words}`);
     };
     applyDock(prefs.get("wb-toolbar-dock", null) || "bottom");
     dockToggle.addEventListener("click", () => {
@@ -12340,6 +13244,7 @@ async function initWhiteboard() {
   });
 
   document.addEventListener("keydown", (e) => {
+    if (typeof e.key !== "string") return; // a keydown with no key (see the ring's handler above)
     const view = document.getElementById("library-view-whiteboard");
     if (!view || view.classList.contains("hidden")) return;
     //: **Escape takes back a gesture in flight** before it does anything
@@ -12371,6 +13276,13 @@ async function initWhiteboard() {
       && (tag === "input" || tag === "textarea" || active.isContentEditable)
       && active.offsetParent !== null;
     if (typing) return;
+    //: Ctrl+H is find and replace, as in draw.io and every editor; the
+    //: browser's history window has no meaning inside the app.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "h" && !wbIsMap()) {
+      e.preventDefault();
+      wbOpenBoardSearch({ replace: true });
+      return;
+    }
     if (wbMapCatchTypeahead(e)) return;
     // **Shift+N for the overview, because bare N is the sticky note**
     // (WHITEBOARD_PLAN.md decision 8). This took the bare letter first,
@@ -13054,6 +13966,33 @@ async function initWhiteboard() {
   //: and removed when it ends, redrawn at most once a frame from the last
   //: pointer position of that frame. It keeps the dashed accent edge and the
   //: 12% accent wash the SVG rectangle had.
+  //: **A box being placed is drawn as what it will be** (the owner,
+  //: 2026-10-10: "dragging to create any object should ghost preview that
+  //: object, not be the drag selection", and "I tried dragging to create a
+  //: frame and it randomly visually cut off half way on the screen"). The
+  //: frame, sticky and text tools drew the selection marquee, a dashed
+  //: accent wash on a canvas the size of the container as it was when the
+  //: drag began, which said "select" rather than "a frame goes here" and was
+  //: cut wherever that canvas ended. The ghost is an element of the card
+  //: layer in board units, drawn in the placed kind's own look (a frame's
+  //: edge and title, a sticky's paper, a text box's dashed field), so it pans
+  //: and zooms with the board and covers the whole box the release makes.
+  //: The selection marquee keeps its canvas (INBOX 410's cost).
+  function wbBeginPlaceGhost(pointerId, place) {
+    const layer = document.getElementById("wb-html-layer");
+    if (!layer) return wbBeginMarqueeRect(pointerId);
+    wbMarqueeEl = document.createElement("div");
+    wbMarqueeEl.className = "wb-place-ghost";
+    wbMarqueeEl.dataset.kind = place;
+    wbMarqueeEl.dataset.label = place === "frame" ? "Frame" : place === "sticky" ? "" : "Text";
+    wbMarqueeEl.setAttribute("aria-hidden", "true");
+    layer.appendChild(wbMarqueeEl);
+    try {
+      containerEl.setPointerCapture(pointerId);
+    } catch (err) {
+      // A synthetic press has no real pointer; the window listeners end it.
+    }
+  }
   function wbBeginMarqueeRect(pointerId) {
     wbMarqueeEl = document.createElement("canvas");
     wbMarqueeEl.className = "wb-marquee";
@@ -13091,7 +14030,8 @@ async function initWhiteboard() {
       // a press that never becomes a drag draws nothing and claims nothing.
       if (Math.abs(x - wbMarqueeStart.x) < 4 && Math.abs(y - wbMarqueeStart.y) < 4) return;
       wbMarqueeStart.pending = false;
-      wbBeginMarqueeRect(wbMarqueeStart.pointerId);
+      if (wbMarqueeStart.place) wbBeginPlaceGhost(wbMarqueeStart.pointerId, wbMarqueeStart.place);
+      else wbBeginMarqueeRect(wbMarqueeStart.pointerId);
       // Placed now, before its first paint, so it never shows as a dot at
       // the container's corner for a frame.
       wbMarqueeAt = [x, y];
@@ -13108,13 +14048,21 @@ async function initWhiteboard() {
     if (!wbMarqueeEl || !wbMarqueeStart || !wbMarqueeAt) return;
     const t = d3.zoomTransform(containerEl);
     //: A box being placed is drawn at the size it will be made, minimum and
-    //: all, so what the dashed edge shows is what the release creates.
+    //: all, so what the ghost shows is what the release creates.
     const box = wbMarqueeStart.place ? wbPlaceBox(wbMarqueeStart, wbMarqueeAt[0], wbMarqueeAt[1]) : null;
+    if (box && wbMarqueeEl.classList.contains("wb-place-ghost")) return wbMoveSizeGhost(box);
     const x0 = t.applyX(box ? box.x : wbMarqueeStart.x), y0 = t.applyY(box ? box.y : wbMarqueeStart.y);
     const x1 = t.applyX(box ? box.x + box.w : wbMarqueeAt[0]), y1 = t.applyY(box ? box.y + box.h : wbMarqueeAt[1]);
     const l = Math.round(Math.min(x0, x1)), top = Math.round(Math.min(y0, y1));
     const w = Math.round(Math.abs(x1 - x0)), h = Math.round(Math.abs(y1 - y0));
     const ratio = window.devicePixelRatio || 1;
+    //: **The canvas follows the container, every frame** (the owner,
+    //: 2026-10-10: a drag preview "randomly visually cut off half way on the
+    //: screen"). It was sized once, when the drag began; a container that
+    //: grew during the drag (a panel closing, the window maximised, a rail
+    //: still animating when the press landed) left the rest of the rectangle
+    //: past the canvas's edge, undrawn. Two reads and a compare per frame.
+    wbFitMarqueeCanvas(ratio);
     const g = wbMarqueeEl.getContext("2d");
     g.setTransform(ratio, 0, 0, ratio, 0, 0);
     g.clearRect(0, 0, wbMarqueeEl.width, wbMarqueeEl.height);
@@ -13149,6 +14097,26 @@ async function initWhiteboard() {
   //: board did and stays under the pointer. A rotation is excluded (an
   //: angle does not need room), and so are the pen tools and the hand.
   const wbEdgePan = { x: 0, y: 0, buttons: 0, frame: 0, turn: false, band: 56, max: 22 };
+  //: The placing ghost is a box in board space, not the marquee canvas: it
+  //: moves by transform (its layer, `will-change`) and takes the size the
+  //: release will create, so the only per-move layout is its own.
+  function wbMoveSizeGhost(box) {
+    wbMarqueeEl.style.transform = `translate(${box.x}px, ${box.y}px)`;
+    wbMarqueeEl.style.width = `${box.w}px`;
+    wbMarqueeEl.style.height = `${box.h}px`;
+  }
+  //: The canvas's bitmap and box follow the container's size, compared
+  //: before written: a style write on every move would re-layerize the
+  //: page (tests/test_marquee_cost.py), so this is a resize, not a draw.
+  function wbFitMarqueeCanvas(ratio) {
+    const cw = containerEl.clientWidth, ch = containerEl.clientHeight;
+    const bw = Math.max(1, Math.round(cw * ratio)), bh = Math.max(1, Math.round(ch * ratio));
+    if (wbMarqueeEl.width === bw && wbMarqueeEl.height === bh) return;
+    wbMarqueeEl.width = bw;
+    wbMarqueeEl.height = bh;
+    wbMarqueeEl.style.width = `${cw}px`;
+    wbMarqueeEl.style.height = `${ch}px`;
+  }
   window.addEventListener("pointerdown", (e) => {
     wbEdgePan.turn = Boolean(e.target?.closest?.(".wb-rotate-handle, .wb-sketch-rotate-handle"));
   }, true);
@@ -13767,7 +14735,7 @@ async function initWhiteboard() {
       const height = width * ((naturalSize.h || 200) / (naturalSize.w || 300));
       await wbCreateObject("image", { url: uploaded.url }, x - width / 2, y - height / 2, width, height);
     } catch (err) {
-      toast(err.message || "Couldn't add that image.", true);
+      toast(err.message || voiceLine("failed", { what: "add that image" }), true);
     }
   }
 
@@ -14119,7 +15087,7 @@ async function initWhiteboard() {
       //: screen rather than in a console nobody has open.
       const why = (err && err.message) || "the server refused it";
       console.error("Error creating node:", why);
-      toast(`Could not add that note to the board: ${why}`, true);
+      toast(voiceLine("failed", { what: "add that note to the board", why: why }), true);
     }
   });
 
@@ -14153,9 +15121,28 @@ function renderWbLibrary() {
     // whiteboard's own card renderer two hundred lines up included, so this
     // was the last place a note's markdown leaked into a label.
     const text = notePreviewText(entry.content || entry.preview || "");
-    //: Two lines cut by the stylesheet at a word, not 40 characters cut by
-    //: code mid-word ("This g...", INBOX 463).
-    li.textContent = text ? text.replace(/\s+/g, " ").trim().slice(0, 240) : entry.id;
+    //: **A name over one muted line** (the owner, 2026-10-10: "text gets cut
+    //: off on the note sidebar in the whiteboard"). The row was the title and
+    //: the body run together and clamped to two lines by `-webkit-line-clamp`
+    //: on the padded row itself, and a clamp paints the next line on into the
+    //: row's bottom padding, which `overflow: hidden` clips at the padding
+    //: edge: a third line showed sliced through its middle under every long
+    //: row. The picker row's shape instead (DESIGN.md, `richPickerRow`): the
+    //: note's first line as its name and the rest as one quiet line, each
+    //: ellipsised by the stylesheet at the row's edge, never by a count.
+    const firstLine = stripFrontmatter(entry.content || "").split("\n").map((l) => l.trim()).find(Boolean) || "";
+    const name = entry.is_private ? "Private note" : notePreviewText(flattenNoteMarkdown(entry.title || firstLine)).replace(/^[#>\s]+/, "").trim();
+    const rest = entry.is_private ? "" : notePreviewText(bodyWithoutTitleLine(entry.content || "")).replace(/\s+/g, " ").trim();
+    const title = document.createElement("span");
+    title.className = "wb-library-item-title";
+    title.textContent = name || (text ? text.slice(0, 120) : `Note ${entry.id}`);
+    li.append(title);
+    if (rest) {
+      const more = document.createElement("span");
+      more.className = "wb-library-item-preview";
+      more.textContent = rest.slice(0, 240);
+      li.append(more);
+    }
     li.title = text || String(entry.id);
     li.draggable = true;
     li.addEventListener("dragstart", (e) => {
@@ -14233,8 +15220,15 @@ async function refreshBoardList(justCreated = null) {
   //: To the end, not the first page: `GET /whiteboard/boards` is paged now
   //: (`BOARDS_PAGE_SIZE`), and a picker that offers some of your boards is
   //: worse than one that takes a second request to offer all of them.
-  const boards = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
-  if (!boards) return;
+  const listed = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
+  if (!listed) return;
+  //: **The scratch board is offered when something is on it** (WHITEBOARD_PLAN
+  //: decision 38; the owner, 2026-10-10: "also si there meant to be a
+  //: default board??"). The server always lists it (`id: null`, "Default
+  //: board"); the Library's gallery and counts already hid it while empty
+  //: (`libraryListsBoard`), and this picker was the one place that offered
+  //: an empty board nobody made. Kept while it is the board on screen.
+  const boards = listed.filter((b) => libraryListsBoard(b) || (b.id == null && window.currentBoardId == null));
   if (justCreated && !boards.some((b) => b.id === justCreated.id)) {
     boards.push({ ...justCreated, node_count: 0, sketch_count: 0, object_count: 0 });
   }
@@ -14319,21 +15313,110 @@ function wbSyncBoardCount() {
   if (opt.textContent !== text) opt.textContent = text;
 }
 
+//: **The name is edited where it is read** (Brief 77, WHITEBOARD_PLAN
+//: "Deepened 2026-10-10" row 2): a field takes the board picker's place in
+//: the top bar, its words selected, so typing replaces them. Enter or leaving
+//: the field saves, Escape puts the name back; an empty or unchanged name
+//: writes nothing. Resolves with the saved title, or null.
 async function renameCurrentBoard() {
-  if (!window.currentBoardId) return;
-  const current = document.getElementById("wb-board-select")?.selectedOptions?.[0]?.dataset.title || "";
-  const name = await promptDialog("Rename this board:", current);
-  if (!name || !name.trim()) return;
-  try {
-    const board = await apiJson(`/whiteboard/boards/${window.currentBoardId}`, {
-      method: "PUT",
-      body: JSON.stringify({ title: name.trim() }),
+  const boardId = window.currentBoardId;
+  const select = document.getElementById("wb-board-select");
+  const bar = document.getElementById("wb-topbar");
+  if (!boardId || !select || !bar) return Promise.resolve(null);
+  document.getElementById("wb-name-field")?.blur();
+  const current = select.selectedOptions?.[0]?.dataset.title || select.selectedOptions?.[0]?.textContent?.trim() || "";
+  const field = document.createElement("input");
+  field.type = "text";
+  field.id = "wb-name-field";
+  field.className = "wb-name-field";
+  field.maxLength = 100;
+  field.autocomplete = "off";
+  field.value = current;
+  field.setAttribute("aria-label", "Board name: Enter saves, Escape keeps the old one");
+  field.title = "Enter saves, Escape keeps the old name";
+  //: In the picker's place and at its width, so the bar does not move.
+  const shell = select.closest(".select-shell") || select;
+  field.style.width = `${Math.max(96, shell.getBoundingClientRect().width)}px`;
+  shell.after(field);
+  shell.hidden = true;
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = async (save) => {
+      if (done) return;
+      done = true;
+      const name = field.value.trim();
+      field.remove();
+      shell.hidden = false;
+      if (!save || !name || name === current || window.currentBoardId !== boardId) return resolve(null);
+      try {
+        const board = await apiJson(`/whiteboard/boards/${boardId}`, {
+          method: "PUT",
+          body: JSON.stringify({ title: name }),
+        });
+        await refreshBoardList(board);
+        resolve(board.title);
+      } catch (err) {
+        toast(err.message || voiceLine("failed", { what: "rename that board" }), true);
+        resolve(null);
+      }
+    };
+    //: The board's own keys (Delete, V, N) must not see what is typed here.
+    field.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finish(true);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        finish(false);
+      }
     });
-    await refreshBoardList(board);
-    toast(`Board renamed to "${board.title}".`);
-  } catch (err) {
-    toast(err.message || "Couldn't rename that board.", true);
+    field.addEventListener("blur", () => finish(true));
+    field.focus({ preventScroll: true });
+    field.select();
+  });
+}
+
+//: **New makes the board, then asks for its name in place** (Brief 77, row
+//: 2: a new board was four presses and a typed name, behind a dialog that
+//: had to be answered before there was anything to draw on). It is "Untitled
+//: board N" (`wbUntitledNames`, INBOX 739) and open at once; the templates
+//: stay one row away in the same New menu and in the Board menu.
+//: **A map the same way** (MINDMAP_PLAN 15, row 1: five presses and a typed
+//: name). It opens with its root topic in edit, because the root is what a
+//: person names first; what they type there names the map as well, while the
+//: map still carries the number it was given.
+async function wbNewUntitledBoard(kind = "board") {
+  //: The name is asked for while the canvas comes up, not before it: one
+  //: round trip off the press-to-first-topic time (row 4).
+  const names = wbUntitledNames();
+  wbShowCanvasView();
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  const name = (await names)[kind];
+  try {
+    localStorage.setItem(WB_LAST_BOARD_KIND, kind);
+  } catch (err) { /* see wbRememberedBoardKind */ }
+  await wbCreateBlankBoard(name, kind);
+  const boardId = window.currentBoardId;
+  if (!boardId) return;
+  if (kind !== "map") {
+    renameCurrentBoard();
+    return;
   }
+  const root = wbMapIndex().roots[0];
+  if (!root) return;
+  wbMapEditNode(root.id);
+  requestAnimationFrame(() => {
+    const label = document.querySelector(`.wb-object[data-id="${root.id}"] .wb-map-text`);
+    label?.addEventListener("blur", () => setTimeout(async () => {
+      const typed = (label.textContent || "").trim();
+      if (!typed || typed === name || window.currentBoardId !== boardId) return;
+      try {
+        const board = await apiJson(`/whiteboard/boards/${boardId}`, { method: "PUT", body: JSON.stringify({ title: typed.slice(0, 100) }) });
+        await refreshBoardList(board);
+      } catch (err) { /* the map keeps its number; the topic kept its words */ }
+    }), { once: true });
+  });
 }
 
 //: Create a board: or a map, which is the same thing with a `type` on it
@@ -14398,7 +15481,7 @@ async function createNewBoard(preset = null, { reveal = false } = {}) {
       wbZoomToFit({ animate: false });
       toast(`"${board.title}" started from a template.`);
     } catch (err) {
-      toast(err.message || "Couldn't create that board.", true);
+      toast(err.message || voiceLine("failed", { what: "create that board" }), true);
     }
     return;
   }
@@ -14426,9 +15509,10 @@ async function createNewBoard(preset = null, { reveal = false } = {}) {
       ],
     },
   });
-  const name = answer?.text || "";
-  const kind = answer?.choice === "map" ? "map" : "board";
-  if (!name || !name.trim()) return;
+  if (!answer) return;
+  const kind = answer.choice === "map" ? "map" : "board";
+  const name = (answer.text || "").trim()
+    || (await wbUntitledNames())[kind];
   await showCanvas();
   //: Remembered on the way out, not on the click: a dialog someone dismissed
   //: said nothing about what they want next time.
@@ -14463,7 +15547,7 @@ async function wbCreateBlankBoard(name, kind) {
       await apiJson(`/whiteboard/boards/${board.id}/nodes`, {
         method: "POST",
         body: JSON.stringify({ kind: "topic", parent_id: null, text: name.trim() }),
-      }).catch((err) => toast(err.message || "Couldn't add the root topic.", true));
+      }).catch((err) => toast(err.message || voiceLine("failed", { what: "add the root topic" }), true));
     }
     // `list_boards` only lists a board once something is actually placed on
     // it (see its own docstring), an empty new one is invisible to both
@@ -14499,7 +15583,7 @@ async function wbCreateBlankBoard(name, kind) {
       toast(`Board "${board.title}" created.`);
     }
   } catch (err) {
-    toast(err.message || "Couldn't create that board.", true);
+    toast(err.message || voiceLine("failed", { what: "create that board" }), true);
   }
 }
 
@@ -14762,19 +15846,22 @@ function wbShapeLabelKind(parsed) {
 //: hold a word.
 function wbShapeLabelArea(kind, bbox, area = null) {
   const pad = 8;
+  //: `h` is the band the words may sit in up and down (the Vertical row);
+  //: a shape's own default is its middle, so `h` only matters when moved.
   if (area && Number.isFinite(area.w)) {
     return {
       cx: bbox.minX + bbox.width * ((area.x || 0) + area.w / 2),
       cy: bbox.minY + bbox.height * ((area.y || 0) + (area.h ?? 1) / 2),
       w: Math.max(24, bbox.width * area.w - pad * 2),
+      h: Math.max(0, bbox.height * (area.h ?? 1) - pad * 2),
     };
   }
   const cx = bbox.minX + bbox.width / 2;
   if (kind === "triangle") {
-    return { cx, cy: bbox.minY + (bbox.height * 2) / 3, w: Math.max(24, bbox.width * 0.5 - pad) };
+    return { cx, cy: bbox.minY + (bbox.height * 2) / 3, w: Math.max(24, bbox.width * 0.5 - pad), h: Math.max(0, bbox.height / 3) };
   }
   const share = kind === "circle" ? 0.7 : kind === "diamond" ? 0.5 : 1;
-  return { cx, cy: bbox.minY + bbox.height / 2, w: Math.max(24, bbox.width * share - pad * 2) };
+  return { cx, cy: bbox.minY + bbox.height / 2, w: Math.max(24, bbox.width * share - pad * 2), h: Math.max(0, bbox.height * share - pad * 2) };
 }
 
 //: Greedy word wrap against the label's own rendered width
@@ -14849,7 +15936,14 @@ function wbLayoutShapeLabel(groupEl) {
   const lines = label.__wbLines.length;
   const x = label.dataset.align === "left" ? area.cx - area.w / 2 : label.dataset.align === "right" ? area.cx + area.w / 2 : area.cx;
   label.setAttribute("x", String(x));
-  label.setAttribute("y", String(area.cy - ((lines - 1) * lineHeight) / 2));
+  const block = (lines - 1) * lineHeight;
+  //: Top and bottom put the first or last line's middle half a line in from
+  //: the band's edge; a block taller than the band stays centred.
+  const room = (area.h || 0) - block - lineHeight;
+  const y = room > 0 && label.dataset.valign === "top" ? area.cy - area.h / 2 + lineHeight / 2
+    : room > 0 && label.dataset.valign === "bottom" ? area.cy + area.h / 2 - lineHeight / 2 - block
+      : area.cy - block / 2;
+  label.setAttribute("y", String(y));
   for (const span of label.children) span.setAttribute("x", String(x));
 }
 
@@ -14901,6 +15995,8 @@ function wbPaintShapeLabel(groupEl, parsed) {
   label.style.fontStyle = parsed.label_italic ? "italic" : "";
   const align = ["left", "right"].includes(parsed.label_align) ? parsed.label_align : "center";
   label.dataset.align = align;
+  if (parsed.label_valign === "top" || parsed.label_valign === "bottom") label.dataset.valign = parsed.label_valign;
+  else delete label.dataset.valign;
   label.setAttribute("text-anchor", align === "left" ? "start" : align === "right" ? "end" : "middle");
   wbLayoutShapeLabel(groupEl);
 }
@@ -16134,6 +17230,24 @@ function wbRenderMultiSelectionHandles() {
   layoutGroupChrome(bbox);
 }
 
+//: **A shape's lines and clone arrows follow it while it is stretched or
+//: turned**, not only when it is moved (INBOX 740, 746). A move already keeps
+//: its live path in `_dragLiveD`, which `wbItemBBox` and the outline a link
+//: meets both read; a resize and a turn now put theirs there too for the
+//: length of the gesture, and `null` takes it away at the end, before the
+//: save writes the path for good.
+function wbFollowLiveShape(sketch, liveD) {
+  if (liveD == null) {
+    delete sketch._dragLiveD;
+    delete sketch._followLinks;
+    return;
+  }
+  sketch._dragLiveD = liveD;
+  if (!sketch._followLinks) sketch._followLinks = wbLinkedSketchesFor(sketch.id, "sketch");
+  if (sketch._followLinks.length) wbUpdateLinkedSketches(sketch.id, sketch._followLinks);
+  wbQueueSelectionBar();
+}
+
 function wbRenderSketchHandles() {
   wbClearSketchHandles();
   if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return;
@@ -16237,8 +17351,10 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
             wbLayoutShapeLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
             sketch._liveD = newD; // read at drag end, without waiting for a full render
+            wbFollowLiveShape(sketch, newD);
           })
           .on("end", async () => {
+            wbFollowLiveShape(sketch, null);
             const before = sketch._resizeUndoBefore;
             delete sketch._resizeUndoBefore;
             if (wbEndGesture(sketch._gesture)) delete sketch._liveD;
@@ -16313,8 +17429,10 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
           document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
           document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
           wbLayoutShapeLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
+          wbFollowLiveShape(sketch, newD);
         })
         .on("end", async () => {
+          wbFollowLiveShape(sketch, null);
           const before = sketch._rotateUndoBefore;
           delete sketch._rotateUndoBefore;
           if (wbEndGesture(sketch._gesture)) rotateLiveD = null;
@@ -17011,6 +18129,7 @@ function renderWhiteboard() {
         );
         el.style.transform = wbItemTransform(d);
         if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
+        wbQueueSelectionBar();
       })
       .on("end", async (event, d) => {
         const before = d._rotateUndoBefore;
@@ -17551,7 +18670,72 @@ function wbMapNodeTakeBack(d) {
 // genuinely different element shapes (an <img>, a contenteditable <div>)
 // sharing one drag+resize+select scaffold reads better factored out than
 // inlined a third time.
+//: **A sticky's day is a chip** (CHAT_PLAN section 2, the board's row): the
+//: first day a sticky names ("launch friday 3pm") shows as a chip on its
+//: paper, read by the server in one request for the board (`POST
+//: /read/dates`, the one recogniser; quoted words skipped), and a day still
+//: to come is a reminder a press away, with Undo. Painted on a pause after a
+//: render, from a cache keyed by the words, so a pan or a move asks nothing.
+const wbStickyDates = { timer: 0, read: new Map() };
+
+function wbScheduleStickyDates() {
+  clearTimeout(wbStickyDates.timer);
+  wbStickyDates.timer = setTimeout(wbPaintStickyDates, 250);
+}
+
+async function wbPaintStickyDates() {
+  const papers = [...document.querySelectorAll("#whiteboard-container .wb-sticky")];
+  const words = (el) => String(el.__data__?.data?.content || "");
+  const ask = [...new Set(papers.map(words).filter((t) => t.trim() && !wbStickyDates.read.has(t)))].slice(0, 200);
+  if (ask.length) {
+    try {
+      const got = await apiJson("/read/dates", { method: "POST", silent: true, body: JSON.stringify({ texts: ask, tz_offset_minutes: -new Date().getTimezoneOffset() }) });
+      ask.forEach((text, i) => wbStickyDates.read.set(text, got.dates[i] || null));
+    } catch {
+      return;
+    }
+  }
+  for (const paper of papers) {
+    const day = wbStickyDates.read.get(words(paper));
+    let tag = paper.querySelector(":scope > .wb-sticky-date");
+    if (!day) {
+      tag?.remove();
+      continue;
+    }
+    if (!tag) {
+      tag = chip("", "tag wb-sticky-date", (event) => {
+        event.stopPropagation();
+        wbStickyRemind(paper.__data__, wbStickyDates.read.get(words(paper)));
+      });
+      tag.addEventListener("pointerdown", (event) => event.stopPropagation());
+      paper.appendChild(tag);
+    }
+    setLabel(tag, `${day.reminder ? "ph:bell-simple" : "ph:calendar-blank"} ${day.short}`);
+    tag.title = day.reminder ? `Read as ${day.read_as}. Press to set a reminder.` : `Read as ${day.read_as}.`;
+    tag.setAttribute("aria-label", tag.title);
+  }
+}
+
+async function wbStickyRemind(d, day) {
+  if (!d || !day?.reminder) return;
+  try {
+    const reminder = await apiJson("/reminders", {
+      method: "POST",
+      body: JSON.stringify({ text: day.reminder.text, due_at: day.reminder.due_at, priority: "normal", recurring: "none" }),
+    });
+    loadReminders();
+    toast(`Reminder set: ${relativeWhen(reminder.due_at)}.`);
+    pushUndo("Reminder set", async () => {
+      await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
+      loadReminders();
+    });
+  } catch (error) {
+    toast(`The reminder was not set: ${error.message}`, true);
+  }
+}
+
 function renderWbObjects(canvas) {
+  wbScheduleStickyDates();
   async function deleteObject(d) {
     // The same rule as the map's own subtree delete, at the other door: this
     // is what the Delete tool, the context menu's Delete and the selection
@@ -17877,6 +19061,7 @@ function renderWbObjects(canvas) {
         //: card's resize: a proportion held with Shift is a proportion of the
         //: box you took hold of, and a per-frame delta has no memory of it.
         d._resizeStart = { x: d.x, y: d.y, w: d.width, h: d.height, dx: 0, dy: 0 };
+        d._linkedSketches = wbLinkedSketchesFor(d.id, "object");
         d._gesture = wbBeginGesture(() => wbRestoreBox("object", d, d._resizeUndoBefore));
       })
       .on("drag", function (event, d) {
@@ -17902,9 +19087,19 @@ function renderWbObjects(canvas) {
         el.style("width", `${d.width}px`)
           .style("height", `${d.height}px`)
           .style("transform", wbItemTransform(d));
+        //: **The lines and the clone arrows follow a resize as they follow a
+        //: move** (INBOX 746's "the arrows dont resize either"). The box a
+        //: link aims at is read from the measured size the last render
+        //: cached, so that entry goes first; without both lines a stretched
+        //: sticky kept its links ending where its old sides were until the
+        //: next render (measured 14.7 and 48 board units off the outline).
+        wbMapNodeSizeCache?.delete(d.id);
+        if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
+        wbQueueSelectionBar();
       })
       .on("end", async (event, d) => {
         delete d._resizeStart;
+        delete d._linkedSketches;
         const before = d._resizeUndoBefore;
         delete d._resizeUndoBefore;
         const cancelled = wbEndGesture(d._gesture);
@@ -17943,6 +19138,7 @@ function renderWbObjects(canvas) {
         );
         el.style.transform = wbItemTransform(d);
         if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
+        wbQueueSelectionBar();
       })
       .on("end", async (event, d) => {
         const before = d._rotateUndoBefore;
@@ -18192,6 +19388,7 @@ function renderWbObjects(canvas) {
     //: `wbMapThemedData` merges the theme underneath every node's own data.
     layout: mapIndex ? wbMapLayout() : "",
     theme: mapIndex ? JSON.stringify(wbMapTheme()) : "",
+    fold: wbBoardBackground().sticky_fold !== false,
   };
   // An image's own src can change (rare: nothing in this UI replaces one
   // yet, but a future paste-to-replace shouldn't need this rewritten) and a
@@ -18248,12 +19445,23 @@ function renderWbObjects(canvas) {
       if (title && !title.isContentEditable) title.textContent = wbFrameTitle(d);
       wbPaintFrame(this, d);
     } else {
-      el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
+      const sticky = wbIsSticky(d);
+      el.classed("wb-sticky", sticky);
+      el.classed("wb-no-fold", sticky && !wbStickyFolds(d));
+      //: The paper's colour is the fold's too (`.wb-sticky::after`); a
+      //: sticky's edge is its lift, never a drawn border.
+      if (sticky) this.style.setProperty("--wb-paper", d.data.bg || WB_STICKY_PAPERS[0].value);
+      else this.style.removeProperty("--wb-paper");
+      el.style("background", d.data.bg || "").style("border-color", sticky ? "" : d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
       //: **A sticker** (MINDMAP_PLAN.md decision 44): an emoji with no card,
       //: its glyph sized to its box, so resizing it is resizing the emoji.
       const sticker = Boolean(d.data.sticker);
       el.classed("wb-sticker", sticker);
+      //: Up and down the box (the Format panel's Vertical row): the
+      //: stylesheet centres or bottoms the text from this.
+      if (d.data.valign === "middle" || d.data.valign === "bottom") this.dataset.valign = d.data.valign;
+      else delete this.dataset.valign;
       //: A card with a fill and no ink of its own takes the ink that reads
       //: on that fill (`wbCoreInkFor`), not the theme's: a dark blue card in
       //: the light theme drew dark text on it (the owner at release, the
@@ -18354,7 +19562,8 @@ function wbObjectPaintKey(d, ctx) {
   //: update pass above). The one paint that reads a topic's own x is the
   //: both-sides spine, added below with its parent's.
   const base = `${d.kind}|${d.z}|${d.width}|${d.rotation ?? ""}|${JSON.stringify(d.data ?? null)}`;
-  if (!WB_MAP_KINDS.has(d.kind)) return `${base}|${d.height}`;
+  //: The board's sticky-fold default is read by the paint (`wbStickyFolds`).
+  if (!WB_MAP_KINDS.has(d.kind)) return `${base}|${d.height}|${ctx.fold}`;
   const index = ctx.index;
   const children = index?.childrenOf.get(d.id)?.length || 0;
   const buried = d.data?.collapsed && index ? wbMapSubtree(index, d.id).length - 1 : 0;
@@ -18792,14 +20001,17 @@ onDomReady(() => {
   //: "Whiteboard" says Board whatever kind was made last (INBOX 733: it
   //: opened on Mind map after a map), and the canvas is shown by the dialog's
   //: answer, never before it.
-  $("wb-boards-new")?.addEventListener("click", async () => {
+  //: The empty tab's New mind map (decision 38): the gallery on its Mind
+  //: map tab. Bound here, not in navigation.js's empty-state table, because
+  //: the empty state is drawn by this file, and the boot scripts are capped.
+  $("library-boards-new-map")?.addEventListener("click", () => wbNewUntitledBoard("map"));
+  $("wb-boards-new")?.addEventListener("click", () => wbNewUntitledBoard());
+  $("wb-boards-new-template")?.addEventListener("click", async () => {
     await createNewBoard("board", { reveal: true });
   });
-  // The same dialog, opened with the Mind map segment already chosen, not a
-  // second creation path with its own copy of the create-and-open sequence.
-  $("wb-boards-new-map")?.addEventListener("click", async () => {
-    await createNewBoard("map", { reveal: true });
-  });
+  //: Made at once and named "Untitled map N" (row 1 of MINDMAP_PLAN 15);
+  //: the map templates are the From a template row, one row up.
+  $("wb-boards-new-map")?.addEventListener("click", () => wbNewUntitledBoard("map"));
   //: Import (§5 item 17). The button opens the hidden input, the input does
   //: the work: the app's own file-picking pattern (`pickJsonFile`,
   //: `importMarkdown`), so a file arrives the same way here as everywhere
@@ -19440,7 +20652,7 @@ async function createConceptMap() {
     if (placed) wbCenterOn(wbItemBBox("node", placed), { animate: false });
     toast(`“${title}”: press Tab for a branch, Enter for a sibling.`);
   } catch (err) {
-    toast(err.message || "Couldn't create that map.", true);
+    toast(err.message || voiceLine("failed", { what: "create that map" }), true);
   }
 }
 window.createConceptMap = createConceptMap;
@@ -19568,6 +20780,7 @@ function wbStartPresenting() {
     focus: document.activeElement,
   };
   toggleWhiteboardFullscreen(true);
+  wbPresentLaserButton();
   host.classList.add("wb-presenting");
   document.getElementById("wb-present-bar")?.classList.remove("hidden");
   //: After the chrome has gone, so the frame is fitted to the room it has.
@@ -19610,10 +20823,65 @@ function wbPresentShow(index) {
   if (next) next.disabled = at === steps.length - 1;  if (wbStudy.on) wbMapStudySyncBar();
 }
 
+//: **A laser pointer while presenting** (canvasdepth; Excalidraw's and
+//: tldraw's): L or the bar's button; the pointer leaves a short trail that
+//: fades by CSS (`wb-laser-fade`), so no frame loop runs for it, and it
+//: draws nothing on the board.
+function wbPresentLaserButton() {
+  if (document.getElementById("wb-present-laser")) return;
+  const button = smallButton("ph:cursor-click", "Laser pointer (L)", () => {});
+  button.id = "wb-present-laser";
+  button.setAttribute("aria-pressed", "false");
+  document.getElementById("wb-present-end")?.before(button);
+}
+
+function wbPresentLaser(on = null) {
+  const container = document.getElementById("whiteboard-container");
+  const show = on ?? !container?.classList.contains("wb-laser-on");
+  if (!container || (show && !wbPresent)) return;
+  //: The tool's cursor is set inline (`updateWbCursor`), so it is kept and
+  //: swapped inline too: the dot is the pointer while the laser is on.
+  if (show && !container.classList.contains("wb-laser-on")) {
+    wbPresentLaser.cursor = container.style.cursor;
+    container.style.cursor = "none";
+  } else if (!show && container.classList.contains("wb-laser-on")) {
+    container.style.cursor = wbPresentLaser.cursor || "";
+  }
+  container.classList.toggle("wb-laser-on", show);
+  document.getElementById("wb-present-laser")?.setAttribute("aria-pressed", String(show));
+  let layer = document.getElementById("wb-laser-layer");
+  if (show && !layer) {
+    layer = document.createElement("div");
+    layer.id = "wb-laser-layer";
+    layer.className = "wb-laser-layer";
+    layer.setAttribute("aria-hidden", "true");
+    document.body.append(layer);
+    container.addEventListener("pointermove", wbLaserTrail);
+  }
+  if (!show && layer) {
+    container.removeEventListener("pointermove", wbLaserTrail);
+    layer.remove();
+  }
+  if (on === null) wbAnnounce(show ? "Laser pointer on." : "Laser pointer off.");
+}
+
+function wbLaserTrail(event) {
+  const layer = document.getElementById("wb-laser-layer");
+  if (!layer) return;
+  const dot = document.createElement("span");
+  dot.className = "wb-laser-dot";
+  dot.style.left = `${event.clientX}px`;
+  dot.style.top = `${event.clientY}px`;
+  dot.addEventListener("animationend", () => dot.remove(), { once: true });
+  layer.append(dot);
+  while (layer.childElementCount > 48) layer.firstElementChild.remove();
+}
+
 function wbStopPresenting() {
   if (!wbPresent) return;
   const { wasFull, camera, focus } = wbPresent;
   wbPresent = null;
+  wbPresentLaser(false);
   wbMapEndStudy();
   document.getElementById("library-view-whiteboard")?.classList.remove("wb-presenting");
   document.getElementById("wb-present-bar")?.classList.add("hidden");
@@ -19651,6 +20919,7 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   if (event.key === "Escape") wbStopPresenting();
+  else if (event.key === "l" || event.key === "L") wbPresentLaser();
   else if (event.key === "Home") wbPresentShow(0);
   else if (event.key === "End") wbPresentShow(wbPresent.steps.length - 1);
   else if (step) wbPresentShow(wbPresent.at + step);
@@ -19663,6 +20932,7 @@ document.addEventListener("click", (event) => {
   if (button.id === "wb-present-prev") wbPresentShow(wbPresent.at - 1);
   else if (button.id === "wb-present-next") wbPresentShow(wbPresent.at + 1);
   else if (button.id === "wb-present-end") wbStopPresenting();
+  else if (button.id === "wb-present-laser") wbPresentLaser();
   else if (button.id === "wb-study-show") wbMapStudyShow();
   else if (button.id === "wb-study-knew") wbMapStudyMark(true);
   else if (button.id === "wb-study-missed") wbMapStudyMark(false);

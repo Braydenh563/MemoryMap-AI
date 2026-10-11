@@ -23,6 +23,12 @@
 
 let paletteIndex = 0;
 
+//: What the palette was opened over (Brief 89, utilities rows 3 and 4): the
+//: field that had the focus and the text selected in it, caught before the
+//: palette's own box takes the focus, so Count words and Insert template act
+//: on the editor the person was in.
+const paletteCaught = { target: null, selection: "", start: null, end: null, range: null };
+
 //: The usage ledger's counts (core/usage.py, WORLD_CLASS_PLAN H9): with
 //: nothing typed, the commands this person runs most come first.
 const paletteUsage = new Map();
@@ -36,10 +42,12 @@ function paletteFeature(match) {
 //: counted once either way. The handoff row ("Search everything for") is a
 //: way into another surface, not a feature, and is not counted.
 function paletteRun(match) {
+  const typed = $("palette-input").value.trim().toLowerCase();
   closePalette();
   if (!match.handoff) {
     const name = paletteFeature(match);
     if (name) usageCount(name);
+    if (name && typed) palettePick(typed, name);
   }
   match.run();
 }
@@ -51,11 +59,22 @@ async function openPalette() {
   window.paletteEarly = null;
   if (early) $("palette-input").removeEventListener("keydown", early.onKey);
   overlayReturnFocus = early ? early.returnFocus : document.activeElement;
+  //: A text box keeps its own caret through a blur; a rich editor's lives in
+  //: the document's selection, which the palette's box is about to take.
+  const held = window.getSelection();
+  Object.assign(paletteCaught, {
+    target: overlayReturnFocus,
+    selection: early ? early.selection : String(held || ""),
+    start: overlayReturnFocus?.selectionStart ?? null,
+    end: overlayReturnFocus?.selectionEnd ?? null,
+    range: early ? early.range : held?.rangeCount ? held.getRangeAt(0).cloneRange() : null,
+  });
   const typed = early ? $("palette-input").value : "";
   $("palette-overlay").classList.remove("hidden");
   $("palette-input").value = typed;
   paletteIndex = 0;
   renderPalette(typed);
+  quickAddAttach($("palette-input"), "palette");
   $("palette-input").focus();
   const first = early?.enter && paletteMatches(typed)[0];
   if (first) return paletteRun(first);
@@ -83,8 +102,44 @@ function paletteText(value) {
   return typeof value === "string" ? value.toLowerCase() : "";
 }
 
+//: **The editor's palette** (DOCUMENTS_PLAN 23, I3): a query that starts
+//: with ">" is VS Code's Ctrl+Shift+P, which the code editor opens this
+//: palette on (`docIdeOpenPalette`): the open document's commands only,
+//: matched as VS Code matches, the letters in order with gaps allowed,
+//: runs and word starts first.
+function paletteFuzzyScore(label, needle) {
+  if (!needle) return 0;
+  const hay = label.toLowerCase();
+  let at = -1;
+  let score = 0;
+  let last = -2;
+  for (const ch of needle) {
+    if (ch === " ") continue;
+    at = hay.indexOf(ch, at + 1);
+    if (at < 0) return -1;
+    score += at === last + 1 ? 3 : 1;
+    if (at === 0 || /[\s:(,-]/.test(hay[at - 1])) score += 2;
+    last = at;
+  }
+  //: A typed word found whole counts for more than the same letters
+  //: scattered: "run tests" means the row that says "tests".
+  for (const word of needle.split(/\s+/)) if (word && hay.includes(word)) score += word.length * 2;
+  return score;
+}
+
+function paletteEditorMatches(needle) {
+  const rows = paletteCommands().filter((c) => c.group === "This document");
+  if (!needle) return rows;
+  return rows
+    .map((c, order) => ({ c, order, score: paletteFuzzyScore(String(c.label).replace(/^ph:[\w-]+\s*/, ""), needle) }))
+    .filter((r) => r.score >= 0)
+    .sort((a, b) => b.score - a.score || a.order - b.order)
+    .map((r) => r.c);
+}
+
 function paletteMatches(query) {
   const lowered = query.trim().toLowerCase();
+  if (lowered.startsWith(">")) return paletteEditorMatches(lowered.slice(1).trim());
   //: **The app's own commands get a group name too, now that something can
   //: sit above them.** They had none because they were always first and a
   //: header over the top of a list says nothing; with the editor's group
@@ -93,17 +148,20 @@ function paletteMatches(query) {
   //: already claimed one, so the editor's stays its own.
   //: The notes rows (`notesPaletteCommands`, below, INBOX 432): a
   //: category to go to, a #tag to show, Move for the note in hand.
-  const commands = [...paletteCommands(), ...notesPaletteCommands(lowered)]
-    //: UX-08: `keywords`, other words for a row ("trash", "theme").
-    .filter((c) => paletteText(`${c.label} ${c.keywords || ""}`).includes(lowered))
-    .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
+  const base = paletteBase(lowered);
   if (!lowered) {
     //: Most used first, within each group, so a group's heading still
     //: comes once; ties keep the registry's own order (a stable sort).
     const used = (c) => paletteUsage.get(paletteFeature(c)) || 0;
-    const groups = [...new Set(commands.map((c) => c.group))];
-    return groups.flatMap((g) => commands.filter((c) => c.group === g).sort((a, b) => used(b) - used(a)));
+    const groups = [...new Set(base.map((c) => c.group))];
+    return groups.flatMap((g) => base.filter((c) => c.group === g).sort((a, b) => used(b) - used(a)));
   }
+  //: Typed text reaches the generated rows too (Brief 90): every feature,
+  //: every act and every setting, ranked by `paletteRanked`. At rest the
+  //: list stays the hand-written one, which is the app's own short list.
+  const pool = palettePool(base, lowered);
+  const commands = paletteRanked(pool, lowered);
+  if (!commands.length) commands.push(...paletteNearestRows(pool, lowered));
 
   //: **A question typed into the palette is a question** (INBOX 224). The
   //: palette is a jump list, so "how do I turn off web search?" matches
@@ -128,11 +186,336 @@ function paletteMatches(query) {
   const handoff = {
     group: "Search",
     label: `ph:magnifying-glass Search everything for \u201c${typed}\u201d`,
-    about: "Find anything searches your notes, documents, files and the app.",
+    //: With nothing else listed, the row says why (row 3).
+    about: commands.length
+      ? "Find anything searches your notes, documents, files and the app."
+      : `No command or setting is called \u201c${typed}\u201d. Find anything searches what you keep.`,
     handoff: true,
     run: () => openFinder(typed),
   };
-  return [...commands, handoff];
+  //: The act the words describe, first (quickadd.js, CHAT_PLAN decision 50):
+  //: "remind me friday 9 dentist" is a reminder, its chips under the box.
+  //: Over a board, a sentence that arranges it (whiteboard-commands.js).
+  const act = (typeof quickAddPaletteRow === "function" ? quickAddPaletteRow(query) : null)
+    || (typeof wbPaletteActRow === "function" ? wbPaletteActRow(query) : null);
+  return [...(act ? [act] : []), ...utilityPaletteRows(lowered), ...commands, handoff];
+}
+
+//: "timer 10 minutes", "25 min timer", "countdown 90s": a length read from
+//: the words, minutes when no unit is given.
+const PALETTE_TIMER = /^(?:start (?:a )?)?(?:timer|countdown)(?: for)? (\d+(?:\.\d+)?) ?([a-z]*)$|^(\d+(?:\.\d+)?) ?([a-z]*) (?:timer|countdown)$/;
+const PALETTE_UNITS = { h: 60, hr: 60, hrs: 60, hour: 60, hours: 60, s: 1 / 60, sec: 1 / 60, secs: 1 / 60, second: 1 / 60, seconds: 1 / 60 };
+
+//: The small tools' rows built from what was typed (UI_MODERNISATION
+//: utilities rows 2 and 4): a timer of the length named, and the templates
+//: (Settings, Templates) for "insert template" or "template meeting".
+function utilityPaletteRows(lowered) {
+  const rows = [];
+  const timer = lowered.match(PALETTE_TIMER);
+  if (timer) {
+    const amount = Number(timer[1] || timer[3]);
+    const unit = timer[2] || timer[4] || "m";
+    const minutes = amount * (PALETTE_UNITS[unit] || (/^m/.test(unit) ? 1 : 0));
+    if (minutes > 0) {
+      rows.push({
+        group: "Do it",
+        label: `ph:timer Start a timer: ${amount} ${PALETTE_UNITS[unit] === 60 ? "hour" : PALETTE_UNITS[unit] ? "second" : "minute"}${amount === 1 ? "" : "s"}`,
+        about: "Counts down on the status bar and says when the time is up. Press it to stop.",
+        run: () => ensureModule("utilities").then(() => startUtilityTimer(minutes)),
+      });
+    }
+  }
+  const asked = lowered.match(/^(?:insert )?(?:a )?(?:templates?|snippets?)\b ?(.*)$/);
+  if (asked) {
+    //: Before note-templates.js has loaded this is its stand-in's promise:
+    //: the rows come on the redraw it ends with.
+    const catalogue = templateCatalogue();
+    if (catalogue instanceof Promise) {
+      catalogue.then(() => renderPalette($("palette-input").value)).catch(() => {});
+      return rows;
+    }
+    const { builtin, custom } = catalogue;
+    const caught = { ...paletteCaught };
+    for (const template of [...custom, ...builtin].filter((t) => t.name.toLowerCase().includes(asked[1].trim())).slice(0, 10)) {
+      rows.push({
+        group: "Insert a template",
+        label: `ph:note-blank Insert template: ${template.name}`,
+        about: template.description || "From Settings, Templates; it goes in where the cursor was.",
+        run: () => ensureModule("utilities").then(() => insertTemplate(template, caught)),
+      });
+    }
+  }
+  return rows;
+}
+
+// ---- generated rows (UI_MODERNISATION "the command palette", rows 1, 3 and 5; Brief 90) ----
+// Measured before: 11 of 18 words typed here found no command ("statistics",
+// "timer", "word count", "find anything"), while "Tools and features" listed
+// most of them by name. The palette was a second hand-written list drifting
+// from the first, so typed text now also reaches three sets written once
+// where they live (CHAT_PLAN decision 53; tests/test_palette_coverage.py).
+
+//: The acts and the Settings index arrive after the palette opens: the acts
+//: are the server's table, the index is in the lazy Settings bundle.
+const paletteGen = { acts: null, actsAsked: false, settings: false, settingsAsked: false };
+
+//: Other words for a row, by where it lands: the words people type that the
+//: row's own name does not use. A key is a reveal target, `tab:<tab>` or
+//: `settings:<pane>` (tests/test_palette_coverage.py checks each exists).
+const PALETTE_ALIASES = {
+  "todays-note": "calendar daily journal diary",
+  "tab:reminders": "calendar due todo to-do task tasks",
+  "board-create": "whiteboard canvas",
+  "board-overview": "whiteboard minimap",
+  "board-find": "whiteboard",
+  "map-create": "mind map mindmap whiteboard",
+  "tab:graph": "network links connections",
+  "shortcuts": "keys hotkeys keybindings",
+  "settings:models": "llm ai ollama download",
+  "settings:privacy": "online internet offline network",
+  "library-bin": "recycle",
+  "page-reader": "ocr scan image picture photo read text",
+  "extra-row": "ocr tesseract rapidocr",
+  "widget-focus": "timer pomodoro countdown stopwatch",
+  "widget-pace": "statistics stats",
+  "widget-heatmap": "statistics stats",
+  "widget-streak": "statistics stats",
+  "doc-word-goal": "word count reading time",
+  "chat-answers": "calculator calculate sum maths math percent convert conversion units currency",
+  "finder": "find anything search everything",
+};
+
+//: Words that say nothing about which row is meant ("how do I", "the").
+const PALETTE_FILLER = new Set(["a", "an", "the", "to", "from", "my", "of", "for", "in", "on", "and", "how", "do", "i", "me", "with", "is"]);
+
+//: The hand-written rows: the app's commands and the notes rows
+//: (`notesPaletteCommands`, below, INBOX 432: a category to go to, a #tag to
+//: show, Move for the note in hand), each with a group.
+function paletteBase(lowered) {
+  return [...paletteCommands(), ...notesPaletteCommands(lowered)].map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
+}
+
+//: Everything typed text can reach: the hand-written rows and the three
+//: generated sets.
+function palettePool(base, lowered) {
+  return [...base, ...paletteFeatureRows(base), ...paletteActRows(), ...paletteSettingRows(lowered)];
+}
+
+//: Where a row lands, the key `PALETTE_ALIASES` is read by.
+function paletteTarget(row) {
+  if (row.reveal) return row.reveal;
+  return row.tab ? `tab:${row.tab}` : "";
+}
+
+//: Re-draw an open palette when a generated set arrives after the first draw.
+function paletteRefresh() {
+  const input = $("palette-input");
+  if (!$("palette-overlay").classList.contains("hidden") && input.value.trim()) renderPalette(input.value);
+}
+
+//: Every feature "Tools and features" lists that no hand-written row already
+//: lands on. A shared landing ("notes-capture" is three features) keeps all
+//: of them, so "note links" still finds its row.
+function paletteFeatureRows(commands) {
+  const covered = new Set(commands.map(paletteTarget).filter(Boolean));
+  const said = commands.map((c) => paletteText(c.label));
+  const items = featureCatalog().flatMap((group) => group.items);
+  const landings = new Map();
+  for (const item of items) landings.set(paletteTarget(item), (landings.get(paletteTarget(item)) || 0) + 1);
+  return items
+    .filter((item) => {
+      const target = paletteTarget(item);
+      if (said.some((label) => label.includes(paletteText(item.name)))) return false;
+      return !(target && covered.has(target) && landings.get(target) === 1);
+    })
+    .map((item) => ({ group: "Features", label: `ph:compass ${item.name}`, about: item.desc, reveal: item.reveal, tab: item.tab, run: item.run }));
+}
+
+//: Every act Chat does from one sentence (`act_registry.palette_rows`), as a
+//: row that starts it there with its words in the box and the caret after them.
+function paletteActRows() {
+  if (!paletteGen.actsAsked) {
+    paletteGen.actsAsked = true;
+    apiJson("/read/acts", { silent: true })
+      .then((got) => {
+        paletteGen.acts = got.rows || [];
+        paletteRefresh();
+      })
+      .catch(() => {});
+  }
+  return (paletteGen.acts || []).map((act) => ({
+    group: "Say it in Chat",
+    label: `ph:lightning ${act.label}`,
+    about: act.help,
+    keywords: act.example,
+    run: () => paletteStartAct(act.stem || `${String(act.example || "").split(" ")[0]} `),
+  }));
+}
+
+//: Chat, with the act's opening words typed and the caret after them. After
+//: the tab's own focus handling has settled (measured in toggleAgentPalette:
+//: a same-turn focus was gone by the next frame).
+async function paletteStartAct(words) {
+  await switchTab("chat");
+  setTimeout(() => {
+    const box = $("chat-input");
+    box.value = words;
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    box.focus();
+    box.setSelectionRange(words.length, words.length);
+  }, 80);
+}
+
+//: The Settings index's matches (`findSettings`, settings-find.js), four at
+//: most: a setting is found by what it does, not only by its pane's name.
+function paletteSettingRows(query) {
+  if (!paletteGen.settingsAsked) {
+    paletteGen.settingsAsked = true;
+    ensureModule("settingsUi").then((ok) => {
+      paletteGen.settings = ok;
+      paletteRefresh();
+    });
+  }
+  if (!paletteGen.settings) return [];
+  return findSettings(query, 4).map((row) => ({
+    group: "Settings",
+    label: `ph:gear ${row.text}`,
+    about: `In Settings, ${row.sectionLabel}${row.where ? `, under ${row.where}` : ""}.`,
+    keywords: row.haystack,
+    run: paletteLater(async () => {
+      await openSettingsModal(row.section);
+      openSettingRow(row);
+    }),
+  }));
+}
+
+//: The words that name something: "how do I read text from an image" is
+//: read, text, image.
+function paletteWords(lowered) {
+  const words = lowered.split(/\s+/).filter(Boolean);
+  const named = words.filter((w) => !PALETTE_FILLER.has(w));
+  return named.length ? named : words;
+}
+
+//: How well a row answers the words: a word of its name starting with them
+//: (4: "timeline" is as much "Go to Timeline" as "Timeline bands") or its
+//: name holding them (3), its other words (2: keywords and aliases), its line of
+//: what it does (1). 0 is no match.
+function paletteScore(row, phrase, words) {
+  const label = paletteText(row.label).replace(/(^|\s)ph:[\w-]+\s*/g, " ").trim();
+  if (label.startsWith(phrase) || label.includes(` ${phrase}`)) return 4;
+  if (label.includes(phrase)) return 3;
+  const named = `${label} ${paletteText(row.keywords)} ${PALETTE_ALIASES[paletteTarget(row)] || ""}`;
+  if (named.includes(phrase) || words.every((w) => named.includes(w))) return 2;
+  return words.every((w) => `${named} ${paletteText(row.about)}`.includes(w)) ? 1 : 0;
+}
+
+//: The matching rows, best first, each group's heading once: groups in the
+//: order of their best row, rows within a group by score, then by use.
+//: Rows found only by their line of what they do are three at most: "note"
+//: is in half the app's descriptions.
+function paletteRanked(rows, lowered) {
+  const words = paletteWords(lowered);
+  const picks = palettePicks()[lowered] || {};
+  const scored = [];
+  let loose = 0;
+  rows.forEach((row, index) => {
+    const score = paletteScore(row, lowered, words);
+    if (!score || (score === 1 && ++loose > 3)) return;
+    const name = paletteFeature(row);
+    scored.push({ row, score, index, picked: picks[name] || 0, used: paletteUsage.get(name) || 0 });
+  });
+  scored.sort((a, b) => b.picked - a.picked || b.score - a.score || b.used - a.used || a.index - b.index);
+  const groups = [...new Set(scored.map((s) => s.row.group))];
+  return groups.flatMap((g) => scored.filter((s) => s.row.group === g).map((s) => ({ ...s.row, why: paletteWhy(s, lowered) })));
+}
+
+//: **Learned ranking** (row 5): the row a person ran for these exact words
+//: comes first the next time they type them, ahead of how well its name
+//: matches (Raycast's and Alfred's learned order). Kept per browser in the
+//: prefs module, the 80 most recent queries, each the counts of what was run.
+function palettePicks() {
+  return prefs.json("palette-picks", {});
+}
+
+function palettePick(typed, name) {
+  const picks = palettePicks();
+  const counts = { ...(picks[typed] || {}) };
+  counts[name] = (counts[name] || 0) + 1;
+  delete picks[typed];
+  picks[typed] = counts;
+  const keys = Object.keys(picks);
+  for (const old of keys.slice(0, Math.max(0, keys.length - 80))) delete picks[old];
+  prefs.setJSON("palette-picks", picks);
+}
+
+//: Why a row is where it is, in one line: the row's title, so the order can
+//: be asked about with a hover rather than guessed.
+const PALETTE_WHY = ["", "Its description has these words", "Another word for it matches", "Its name holds these words", "A word of its name starts with these letters"];
+function paletteWhy({ score, picked, used }, typed) {
+  const times = (n) => (n === 1 ? "once" : `${n} times`);
+  const reason = picked ? `First because you chose it for \u201c${typed}\u201d ${times(picked)}` : PALETTE_WHY[score];
+  return used ? `${reason}; used ${times(used)}.` : `${reason}.`;
+}
+
+//: **Nothing matched says why, and offers the nearest name** (row 3, CHAT_PLAN
+//: decision 49). Measured before: a word one letter out ("calculater",
+//: "remidner") left the handoff row alone, a list that reads as "this app
+//: has no such thing" when it has. The nearest word of any row's name, its
+//: other words or its aliases, within a letter in four.
+function paletteNearest(rows, typed) {
+  let best = null;
+  const said = paletteWords(typed).filter((w) => w.length > 2);
+  for (const row of rows) {
+    const words = `${paletteText(row.label)} ${paletteText(row.keywords)} ${PALETTE_ALIASES[paletteTarget(row)] || ""}`
+      .replace(/(^|\s)ph:[\w-]+/g, " ")
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 2);
+    for (const one of said) {
+      for (const word of words) {
+        const d = paletteDistance(one, word);
+        if (d <= Math.max(1, Math.floor(one.length / 4)) && (!best || d < best.d)) best = { row, word, d };
+      }
+    }
+  }
+  return best;
+}
+
+//: Edits between two words (Levenshtein), 99 when the lengths alone rule a
+//: near miss out.
+function paletteDistance(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 99;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+//: The nearest row, as a row of its own under "Nearest" that says why it is
+//: there; none when nothing is close.
+function paletteNearestRows(rows, typed) {
+  const near = paletteNearest(rows, typed);
+  if (!near) return [];
+  const { text } = richPickerSplitLabel(near.row.label);
+  return [{ ...near.row, group: "Nearest", about: `Nothing here is called “${typed}”; the nearest is ${text}.` }];
+}
+
+//: Find anything's door into the same rows (search.js): its action rows, and
+//: the nearest feature when nothing at all matched.
+function paletteFind(query) {
+  const lowered = query.trim().toLowerCase();
+  return lowered ? paletteRanked(palettePool(paletteBase(lowered), lowered), lowered) : [];
+}
+
+function paletteNearestCommand(query) {
+  const lowered = query.trim().toLowerCase();
+  const near = lowered && paletteNearest(palettePool(paletteBase(lowered), lowered), lowered);
+  return near ? near.row : null;
 }
 
 //: **The rich picker** (rich-picker.js, DESIGN.md's recipe index): the "/"
@@ -164,6 +547,7 @@ function renderPalette(query) {
       query: needle && parts.label.toLowerCase().includes(needle) ? needle : "",
       id: `palette-row-${index}`,
     });
+    if (match.why) row.title = match.why;
     row.addEventListener("click", () => paletteRun(match));
     row.addEventListener("mousemove", () => {
       if (paletteIndex === index) return;

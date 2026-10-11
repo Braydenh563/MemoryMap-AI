@@ -74,11 +74,17 @@ function fillTagSuggest() {
   //: Starts-with first, then contains, each most used first (the route's
   //: own order).
   names.sort((a, b) => Number(!a.toLowerCase().startsWith(wanted)) - Number(!b.toLowerCase().startsWith(wanted)));
+  //: **Nothing typed: the tags the note says first** (WORLD_CLASS 23, the
+  //: "Study" bug). An empty field listed the most used tags first, so
+  //: "study" and "university" headed the list on every note whatever it was
+  //: about; a tag whose words are in the note's text now leads, and says so.
+  const said = wanted ? new Set() : tagSuggestSaid(input, names);
+  if (said.size) names.sort((a, b) => Number(!said.has(a)) - Number(!said.has(b)));
   const rows = names.slice(0, 40).map((tag, i) => {
     const row = richPickerRow({
       icon: "ph:hash",
       label: tag,
-      about: `${counts[tag]} note${counts[tag] === 1 ? "" : "s"}`,
+      about: `${counts[tag]} note${counts[tag] === 1 ? "" : "s"}${said.has(tag) ? ", in this note" : ""}`,
       query: wanted,
       id: `tag-suggest-${i}`,
     });
@@ -108,6 +114,19 @@ function fillTagSuggest() {
   tagSuggest.box.classList.toggle("hidden", !rows.length);
   input.setAttribute("aria-expanded", String(rows.length > 0));
   if (rows.length) placeTagSuggest();
+}
+
+//: The tags among `names` whose every word is in the note this field
+//: belongs to: Capture's box, or the edit form's.
+function tagSuggestSaid(input, names) {
+  const box = input.id === "entry-tags" ? document.getElementById("entry-content") : input.closest("form, .card, li")?.querySelector("textarea");
+  const words = new Set((box?.value || "").toLowerCase().match(/[a-z0-9]+/g) || []);
+  if (!words.size) return new Set();
+  const has = (word) => words.has(word) || words.has(`${word}s`) || (word.endsWith("s") && words.has(word.slice(0, -1)));
+  return new Set(names.filter((tag) => {
+    const parts = tag.toLowerCase().match(/[a-z0-9]+/g) || [];
+    return parts.length > 0 && parts.every(has);
+  }));
 }
 
 function takeTagSuggest(tag) {
@@ -193,4 +212,24 @@ async function openTagSuggest(input) {
   window.addEventListener("scroll", onWindow, true);
   tagSuggest = { input, box, list, counts, rows: [], active: -1, moved: false, onInput, onKey, onBlur, onWindow };
   fillTagSuggest();
+}
+
+//: **Take, discard or restore a suggested tag** (INBOX 440), moved here from
+//: note-cards.js for the boot gzip ratchet (`answerTags` fetches this file).
+//: The list redraws from the server's answer, so the card and every other
+//: view agree. A tag turned down says so with an Undo (the owner, 2026-10-10:
+//: "if I click the not about [this tag], don't show this again, is there a
+//: way to undo it or see the list"); the list is the note's edit form's
+//: "Not suggested" line (note-edit-panels.js).
+async function answerSuggestedTags(entry, body) {
+  try {
+    await apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(body) });
+    await refreshEntries([entry.id]);
+    const tag = (body.take || body.discard || body.restore || [])[0];
+    if (body.take) toast(`Tagged #${tag}.`);
+    else if (body.restore) toast(`#${tag} can be suggested for this note again.`);
+    else toastAction(`Won't suggest #${tag} for this note again.`, "Undo", () => answerSuggestedTags(entry, { restore: [tag] }), { record: false });
+  } catch (error) {
+    toast(error.message || "Couldn't change the tags.", true);
+  }
 }

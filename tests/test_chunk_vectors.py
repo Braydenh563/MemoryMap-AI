@@ -14,6 +14,7 @@ import json
 
 from sqlalchemy import delete, func, select
 
+from memorymap.ai import chunks as chunk_rules
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai.embeddings import paragraph_chunks
 from memorymap.core.database import ChunkVector, EmbeddingRecord, Entry
@@ -71,12 +72,12 @@ def test_a_very_long_paragraph_is_cut_at_sentence_ends():
     for start, end in spans:
         piece = text[start:end]
         assert piece.endswith(".")
-        assert len(piece.split()) <= embeddings_module.CHUNK_MAX_WORDS + 10
+        assert len(piece.split()) <= chunk_rules.CHUNK_MAX_WORDS + 10
 
 
 def test_a_note_stores_at_most_the_cap():
-    text = "\n\n".join([JOKES] * (embeddings_module.CHUNK_MAX_PER_NOTE + 10))
-    assert len(paragraph_chunks(text)) == embeddings_module.CHUNK_MAX_PER_NOTE
+    text = "\n\n".join([JOKES] * (chunk_rules.CHUNK_MAX_PER_NOTE + 10))
+    assert len(paragraph_chunks(text)) == chunk_rules.CHUNK_MAX_PER_NOTE
 
 
 # --- storing -------------------------------------------------------------------

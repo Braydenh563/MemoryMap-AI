@@ -148,8 +148,11 @@ def test_ask_is_never_disabled_when_the_model_is_off():
         block = re.search(r'\sid="%s"[^>]*>' % never, MARKUP)
         assert block, never
         assert "data-needs-model" not in block.group(0), never
-    assert "dataset.needsModel =" not in APP
-    assert "setAttribute(\"data-needs-model\"" not in APP
+    # Other controls may be marked from script (the digest button, the skills
+    # trigger); Ask's three never are, so the check names them.
+    for line in APP.splitlines():
+        if "dataset.needsModel =" in line or 'setAttribute("data-needs-model"' in line:
+            assert not re.search(r"ask-btn|\bquestion\b|stop-btn|askBtn|stopBtn", line), line
 
 
 # --- the popup agent (CHAT_PLAN.md decision 9) --------------------------------
@@ -268,13 +271,16 @@ def test_the_open_note_toggle_scopes_the_run_to_what_is_open():
     #: palette stays open while you move around the app.
     start = APP.index("async function cmdPaletteAsk(")
     ask = APP[start : APP.index("\n}\n", start)]
-    assert "...agentScopeForRun()" in ask
+    assert "...agentScopeForRun(text)" in ask
 
 
 def test_the_toggle_never_offers_to_use_nothing():
     start = APP.index("function syncAgentOpenNoteToggle(")
     body = APP[start : APP.index("\n}\n", start)]
-    assert "box.disabled = !subject" in body
+    #: Hidden, not disabled, when nothing is open (AGENT_SKILLS_REFORM
+    #: "Deepened 2026-10-10" row 1: 0 disabled controls with no model).
+    assert 'label.classList.toggle("hidden", !subject)' in body
+    assert "box.disabled" not in body
     #: The words are written onto a span, not onto the label: a label's own
     #: `textContent` includes the checkbox inside it.
     assert "command-palette-use-note-text" in body
@@ -301,18 +307,19 @@ def test_the_offline_note_is_one_click_from_connecting_a_model():
         assert f'id="{element}"' in MARKUP, element
 
 
-def test_the_agents_field_is_disabled_rather_than_hidden_and_stays_that_way():
-    """Visible, disabled, with the reason on it. And `cmdPaletteBusy` runs at
-    the end of every turn, so it has to honour the same state or the guard
-    comes off the first time anything runs."""
+def test_the_agents_field_stays_open_with_no_model():
+    """AGENT_SKILLS_REFORM "Deepened 2026-10-10" row 1 replaces decision 11's
+    "visible, disabled" for the agent: with no model it runs acts and
+    readings (`ai/starter_acts.py`), so neither the field nor a starter is
+    disabled, and `cmdPaletteBusy` closes the field only while a run is in
+    hand."""
     start = APP.index("function syncAgentPaletteAvailability(")
     body = APP[start : APP.index("\n}\n", start)]
-    assert "input.disabled = off" in body
-    assert "chip.disabled = off" in body
+    assert "disabled" not in body
 
     start = APP.index("function cmdPaletteBusy(")
     busy = APP[start : APP.index("\n}\n", start)]
-    assert "busy || aiIsOff()" in busy
+    assert "cmdPaletteInput.disabled = busy;" in busy
 
 
 # --- links the AI writes (CHAT_PLAN.md decision 12, INBOX 172) ----------------

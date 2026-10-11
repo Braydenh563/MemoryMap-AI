@@ -1067,7 +1067,20 @@ if [ ! -x "$VENV_PY" ]; then
             "Install a newer Python and run this again."
   fi
   echo "        Using $($PYTHON --version) to create the virtual environment..."
-  if ! "$PYTHON" -m venv .venv; then
+  # Opt-in only: share the system's packages (a CUDA torch already installed)
+  # instead of a second copy. Refused with a reason when the system torch is
+  # outside requirements.txt's range; scripts/system_site_packages.py decides.
+  MM_VENV_ARGS=()
+  if [ "${MEMORYMAP_SYSTEM_SITE_PACKAGES:-0}" = "1" ]; then
+    if MM_SSP_ANSWER="$("$PYTHON" scripts/system_site_packages.py 2>/dev/null)"; then
+      MM_VENV_ARGS=(--system-site-packages)
+      echo "        Sharing this computer's installed packages (MEMORYMAP_SYSTEM_SITE_PACKAGES=1)."
+    else
+      echo "        Not sharing the system packages: ${MM_SSP_ANSWER#refuse: }."
+      echo "        Building the usual self-contained environment instead."
+    fi
+  fi
+  if ! "$PYTHON" -m venv ${MM_VENV_ARGS[@]+"${MM_VENV_ARGS[@]}"} .venv; then
     mm_status "$MM_STEP_PYTHON" "Python" "Could not create .venv" "failed"
     echo "        On Debian and Ubuntu this is usually a missing package:"
     echo "        sudo apt install python3-venv"
@@ -1116,6 +1129,7 @@ fi
 
 if [ "$NEED_INSTALL" = "1" ]; then
   mm_status "$MM_STEP_DEPS" "Dependencies" "Installing, this can take a few minutes" "active"
+  echo "        First setup only: this needs the internet once. After that MemoryMap works offline."
   echo "        pip's own progress prints below as it happens:"
   # `--timeout 5 --retries 0` makes pip fail fast per-connection instead of
   # its default (a 15s socket timeout retried 5 times, which is several

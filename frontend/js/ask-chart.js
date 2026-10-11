@@ -103,7 +103,9 @@ function askChartTable(chart) {
   const table = document.createElement("table");
   table.className = "ask-chart-table";
   const head = table.createTHead().insertRow();
-  for (const name of [{ category: "Category", tag: "Tag" }[chart.by] || "When", "Notes"]) {
+  //: `columns` names a chart that is not notes counted (the Statistics
+  //: page's Most used: a feature and its uses).
+  for (const name of chart.columns || [{ category: "Category", tag: "Tag" }[chart.by] || "When", "Notes"]) {
     const th = document.createElement("th");
     th.scope = "col";
     th.textContent = name;
@@ -174,7 +176,13 @@ async function renderAskChart(question, host, isCurrent = () => true) {
     //: (`backgroundWriteFailed`), and the answer above it stands alone.
   }).catch(backgroundWriteFailed);
   if (!isCurrent()) return;
-  const chart = answer && answer.chart;
+  drawAskChart(host, answer && answer.chart);
+}
+
+//: The drawing alone, from a chart object: the Ask box's fetched one above,
+//: and a Chat answer's bar of counts (CHAT_PLAN decision 59, step 2: a
+//: `chart` stream event from `realise.chart`, drawn by chat-attach.js).
+function drawAskChart(host, chart) {
   if (!chart || !chart.rows || !chart.rows.length) {
     host.replaceChildren();
     host.classList.add("hidden");
@@ -187,8 +195,9 @@ async function renderAskChart(question, host, isCurrent = () => true) {
   title.textContent = chart.title;
   const total = document.createElement("span");
   total.className = "muted text-sm";
-  if (chart.total != null) total.textContent = `${chart.total.toLocaleString()} in all, from your notes`;
-  else total.textContent = "From your notes";
+  const source = chart.source || "from your notes";
+  if (chart.total != null) total.textContent = `${chart.total.toLocaleString()} in all, ${source}`;
+  else total.textContent = source[0].toUpperCase() + source.slice(1);
   const svg = askChartSvg(chart);
   const save = smallButton("ph:download-simple Save as PNG", "Save this chart as a picture", () =>
     askChartPng(svg, chart.title).catch((error) => toast(error.message, true))

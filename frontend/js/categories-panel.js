@@ -492,12 +492,7 @@ function colourCategoriesFromPanel(metas) {
               return;
             }
             const message = `${metas.length} categories are now ${categoryColourName(key).toLowerCase()}.`;
-            const undo = () => apply((name) => before.get(name));
-            const action = pushUndo(message, undo, () => apply(() => key));
-            toastAction(message, "Undo", async () => {
-              settleUndoFromToast(action);
-              await undo();
-            });
+            offerUndo(message, message, () => apply((name) => before.get(name)), () => apply(() => key));
           },
         });
         card.append(preview, picker);
@@ -841,13 +836,17 @@ async function deleteCategory(meta, name, count) {
 
 //: Moves notes back to where they were, from the `previous` a move returned.
 async function restoreCategoryMoves(previous) {
-  const byCategory = new Map();
-  for (const { id, category } of previous) {
-    if (!byCategory.has(category)) byCategory.set(category, []);
-    byCategory.get(category).push(id);
+  //: Grouped by the category and by who filed it: a note the model filed is
+  //: the model's to refile again after the undo (`user_filed`).
+  const groups = new Map();
+  for (const { id, category, user_filed } of previous) {
+    const key = JSON.stringify([category, user_filed ?? null]);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(id);
   }
-  for (const [category, ids] of byCategory) {
-    await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category }) });
+  for (const [key, ids] of groups) {
+    const [category, filed] = JSON.parse(key);
+    await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category, user_filed: filed }) });
   }
 }
 
@@ -900,13 +899,20 @@ function chooseNoteCategory(ids, current = "") {
 //: Moving chosen notes, from the batch bar's Move to or a drop: one call,
 //: one toast, one undo.
 async function moveNotesToCategory(ids, category) {
+  //: A move to a name typed now makes the category; its undo takes the empty
+  //: category away again, or Undo left a stray "Probe" in the sidebar
+  //: (TIMELINE_PLAN 10 row 3, measured by undo.js's selection bar).
+  const made = !categoryMeta.has(category);
   try {
     const result = await apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: ids, category }) });
     const previous = result.previous;
     if (previous.length) {
       offerCategoryUndo(
         `Moved ${previous.length} note${previous.length === 1 ? "" : "s"} to "${category}".`,
-        () => restoreCategoryMoves(previous),
+        async () => {
+          await restoreCategoryMoves(previous);
+          if (made) await dropEmptyCategory(category);
+        },
         () => apiJson("/categories/move", { method: "POST", body: JSON.stringify({ entry_ids: previous.map((p) => p.id), category }) })
       );
     }
@@ -916,6 +922,11 @@ async function moveNotesToCategory(ids, category) {
     toast(error.message, true);
     return null;
   }
+}
+
+async function dropEmptyCategory(name) {
+  const row = (await apiJson("/categories")).find((c) => c.name === name);
+  if (row && !row.count) await apiJson(`/categories/${row.id}`, { method: "DELETE" });
 }
 
 //: **The colour picker** (INBOX 441 (4), the owner: "there is no way to
@@ -1011,12 +1022,7 @@ function pickCategoryColour(meta) {
             return;
           }
           const message = `${meta.name} is now ${categoryColourName(key).toLowerCase()}.`;
-          const undo = () => saveCategoryColour(meta, before);
-          const action = pushUndo(message, undo, () => saveCategoryColour(meta, key));
-          toastAction(message, "Undo", async () => {
-            settleUndoFromToast(action);
-            await undo();
-          });
+          offerUndo(message, message, () => saveCategoryColour(meta, before), () => saveCategoryColour(meta, key));
         },
       });
       card.append(preview, picker);
@@ -1031,12 +1037,11 @@ function pickCategoryColour(meta) {
 //: One toast and one undo-stack entry per change, so the toast's Undo and
 //: Ctrl+Z are the same act.
 function offerCategoryUndo(message, undo, redo) {
-  const action = pushUndo(message, async () => { await undo(); await refreshAfterCategoryChange(); }, async () => { await redo(); await refreshAfterCategoryChange(); });
-  toastAction(message, "Undo", async () => {
-    settleUndoFromToast(action);
-    await undo();
+  const refreshed = (act) => async () => {
+    await act();
     await refreshAfterCategoryChange();
-  });
+  };
+  offerUndo(message, message, refreshed(undo), refreshed(redo));
 }
 
 // Moved from notes-list.js (boot gzip): every caller is in this file.

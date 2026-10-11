@@ -401,7 +401,8 @@ EXTRAS: tuple[Extra, ...] = (
         id="voice",
         label="Voice notes (faster-whisper)",
         enables="The dictation buttons: speak a note or a question and have it typed "
-        "out, transcribed on this machine.",
+        "out, transcribed on this machine. Recordings are kept without it, "
+        "and it transcribes them too.",
         packages=("faster-whisper",),
         module="faster_whisper",
         size="~50 MB, plus a model on first use",
@@ -449,24 +450,6 @@ EXTRAS: tuple[Extra, ...] = (
         packages=("markitdown[pdf,docx,pptx]",),
         module="markitdown",
         size="~20 MB",
-    ),
-    Extra(
-        id="docx",
-        label="Export to Word (python-docx)",
-        enables="The Word (.docx) item in a document's Export menu: headings, "
-        "lists, quotes, tables, links, pictures and code written as a real Word file "
-        "rather than as markdown with a different extension, and suggested "
-        "changes as Word's own tracked changes.",
-        packages=("python-docx",),
-        module="docx",
-        size="~5 MB",
-        # No caveat, and deliberately no `unavailable`: unlike the two entries
-        # that install a library nothing calls, the writer behind this one is
-        # built (`core/docexport.to_docx`) and the button that reaches it is on
-        # the document's Export menu already. What was missing was only the row
-        # here, so `GET /documents/{id}/export.docx`'s 501 could name a package
-        # and nothing else: the one thing a no-terminal app must never do is
-        # tell somebody what they lack without saying where the button is.
     ),
     Extra(
         id="ocr",
@@ -540,7 +523,7 @@ EXTRAS: tuple[Extra, ...] = (
         module="",
         size="~7 MB download, 14 MB on disk",
         caveat="The standard library only: packages such as numpy are not "
-        "included, and input() gets the end of the input.",
+        "included. input() reads its lines from the Input box in the Output panel.",
         kind="download",
         version="314.0.7",
         licence="MPL-2.0",
@@ -651,6 +634,84 @@ EXTRAS: tuple[Extra, ...] = (
             ),
         ),
     ),
+    #: **The offline translator (WORLD_CLASS 28.5 row 10, Brief 83).** The
+    #: owner, 2026-10-10: "What about ai free translations?" Bergamot, the
+    #: engine behind Firefox's translations (marian-nmt compiled to
+    #: WebAssembly), and one language pair, English to Spanish. The engine
+    #: runs in a Web Worker in the page (`frontend/js/translate-worker.js`)
+    #: under the app's own policy, which already allows WebAssembly for the
+    #: grammar checker; these files are served from the data dir by
+    #: `api/routes_translate.py`, never from the repository.
+    #:
+    #: Licences, read 2026-10-10: the engine is MPL-2.0 (the repository's
+    #: LICENSE, downloaded with it, and the npm package's `license`); the
+    #: model files are MPL-2.0 (`mozilla/translations` README). The WASM
+    #: carries marian-nmt and intgemm (MIT), sentencepiece, ruy and
+    #: ssplit-cpp (Apache-2.0); docs/THIRD_PARTY.md lists them.
+    #:
+    #: Measured (Brief 83, Node 22 and Chromium): a 94-word paragraph in
+    #: 340 to 550 ms on one thread; the first call pays about 1.4 s to load.
+    #:
+    #: **To bump:** the engine is `@browsermt/bergamot-translator` on npm
+    #: (`npm view @browsermt/bergamot-translator dist`, then `sha256sum` the
+    #: tarball); a model's three files and their sizes are in the registry
+    #: at `mozilla/translations`' `db/models.json`. A new pair is a new
+    #: entry here and a row in `ai/translate.PAIRS`.
+    Extra(
+        id="translate",
+        label="Translate offline (Bergamot, English to Spanish)",
+        short_label="the translator",
+        enables="Translate this, in the command palette: a passage of a note, "
+        "a document or a reading turned into Spanish on this computer in "
+        "about a second, with no model and nothing sent anywhere.",
+        packages=("bergamot-translator 0.4.9", "en-es model"),
+        module="",
+        size="~27 MB download, 42 MB on disk",
+        caveat="A small on-device model: good for the gist and a first draft, "
+        "not for legal or medical text. English to Spanish only for now.",
+        kind="download",
+        version="0.4.9-enes-1",
+        licence="MPL-2.0",
+        downloads=(
+            Download(
+                url="https://registry.npmjs.org/@browsermt/bergamot-translator/-/"
+                "bergamot-translator-0.4.9.tgz",
+                sha256="9011be93222d839d7448ffdf00549d53ce8f541fd782ffc79779d1756397c41f",
+                size=1852075,
+                unpack="tar",
+                members=tuple(
+                    (f"package/worker/{name}", name)
+                    for name in ("bergamot-translator-worker.js", "bergamot-translator-worker.wasm")
+                ),
+            ),
+            Download(
+                url="https://raw.githubusercontent.com/browsermt/bergamot-translator/v0.4.5/LICENSE",
+                sha256="1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+                size=16725,
+                unpack="file",
+                members=(("", "LICENSE"),),
+            ),
+            *(
+                Download(
+                    url="https://storage.googleapis.com/moz-fx-translations-data--303e-prod-"
+                    "translations-data/models/en-es/retrain_hr_fix_names_CUAEXUHoQum_cFqh-"
+                    f"ZAryw/exported/{name}.gz",
+                    sha256=sha,
+                    size=size,
+                    unpack="gzip",
+                    members=(("", name),),
+                )
+                for name, sha, size in (
+                    ("model.enes.intgemm.alphas.bin",
+                     "fe4025fde24a4d5f80533cfb7acd53d0eb7f194dfc2d8f427f0d4563cfb6ac06", 22698792),
+                    ("lex.50.50.enes.s2t.bin",
+                     "37a067966f28ff0ba430fddb7412bc5b07afa2cd2fd5a46d9ad74045a1a06380", 2265250),
+                    ("vocab.enes.spm",
+                     "ae2760c04bc6eb5362b16e5c2f145c376bb04bac421c33ba3c0766805e6f03b3", 409312),
+                )
+            ),
+        ),
+    ),
     Extra(
         id="localllm",
         label="Built-in model runner (llama-cpp-python)",
@@ -676,7 +737,52 @@ EXTRAS: tuple[Extra, ...] = (
         "owning model load/unload, for a capability llama-server already "
         "gives you today.",
     ),
+    #: **Live captions (WORLD_CLASS_PLAN 28.5 row 9, Brief 82).** whisper.cpp's
+    #: `whisper-server` (MIT), a separate executable, never a Python import.
+    #: The captions code in `ai/captions.py` already speaks to it through
+    #: `MEMORYMAP_CAPTIONS_URL`; what is missing is the pinned download. A
+    #: `Download` needs a URL, a sha256 and a byte size read from a release
+    #: asset, and the release page was not readable when this was written
+    #: (caption82-1010.md), so a guessed pin would be a fabricated checksum.
+    #: Listed so Settings, Packages names the feature and says what is left.
+    #: Not `kind="download"` until then: a download row is a pinned version
+    #: and files (test_extras_download.py), and this one has neither.
+    Extra(
+        id="captions",
+        label="Live captions (whisper.cpp)",
+        short_label="Live captions",
+        enables="Live captions over any screen: what the microphone hears, "
+        "written as you speak and saved as a note, on this computer.",
+        packages=("whisper.cpp server",),
+        module="",
+        size="~35 MB for the helper and the tiny.en model",
+        licence="MIT",
+        unavailable="The helper isn't packaged for one-click install yet. To "
+        "try captions now, run whisper.cpp's whisper-server on this computer "
+        "and start MemoryMap with MEMORYMAP_CAPTIONS_URL set to its address "
+        "(for example http://127.0.0.1:8080).",
+    ),
 )
+
+
+def _extra_size(extra_id: str) -> str:
+    found = next((extra for extra in EXTRAS if extra.id == extra_id), None)
+    return (found.size or "").lstrip("~") if found else ""
+
+
+#: The OCR workspace's offer says each install's size from this table
+#: (`ocr.engine_state`); ocr.py cannot import this module (the cycle lint).
+ocr.extra_size = _extra_size
+
+def download_mb(extra: "Extra") -> int:
+    """The `size` text ("~2 GB: ...", "~16 MB") as megabytes, for one sentence
+    that says how much a first setup downloads; 0 when it cannot be read."""
+    found = re.match(r"~?\s*([\d.]+)\s*(GB|MB)", extra.size)
+    if not found:
+        return 0
+    value = float(found.group(1)) * (1000 if found.group(2) == "GB" else 1)
+    return int(round(value))
+
 
 EXTRAS_BY_ID = {extra.id: extra for extra in EXTRAS}
 
@@ -707,8 +813,8 @@ BUNDLES: tuple[Bundle, ...] = (
     Bundle(
         id="documents",
         label="Documents",
-        about="Import PDFs, Word files and slides, read scanned PDFs, and export to Word.",
-        extras=("documents", "docx", "pdfpages"),
+        about="Import PDFs, Word files and slides, and read scanned PDFs.",
+        extras=("documents", "pdfpages"),
     ),
     Bundle(
         id="vision",
@@ -729,10 +835,22 @@ BUNDLES: tuple[Bundle, ...] = (
         extras=("voice",),
     ),
     Bundle(
+        id="captions",
+        label="Live captions",
+        about="Captions over any screen as you speak, written on this computer.",
+        extras=("captions",),
+    ),
+    Bundle(
         id="desktop",
         label="Desktop",
         about="MemoryMap in its own window, with a tray icon on Windows.",
         extras=("desktop",),
+    ),
+    Bundle(
+        id="languages",
+        label="Languages",
+        about="Translate a passage into Spanish on this computer, with no model.",
+        extras=("translate",),
     ),
     Bundle(
         id="code",

@@ -50,8 +50,8 @@ def test_a_typo_still_finds_its_topic():
 
 def test_the_offline_answer_leads_with_one_topic_and_names_the_rest():
     reply = help_chat.offline_answer("how do I scan a document")
-    assert reply["content"].count("\n\n") >= 1
-    body = reply["content"].split("\n\n", 1)[1]
+    #: The layout is the answer's "From the help" view since INBOX 787.
+    body = reply["system"]["content"]
     first = help_chat._matching_topics("how do I scan a document")[0]
     # Laid out (INBOX 430): the entry's title as a heading, then its text.
     assert body.startswith(f"### {help_chat.topic_title(first)}")

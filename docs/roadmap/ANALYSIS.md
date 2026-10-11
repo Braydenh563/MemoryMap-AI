@@ -3788,3 +3788,700 @@ owner keeps finding are partly this file's shape, patches on patches.
 defended: the no-build frontend, SQLite as the one store, the prompt budget
 discipline, the lint suite that turns every past mistake into a failing test,
 and the rule that a number shown to the user is measured.
+
+## Parity matrix, 2026-10-10
+
+ROADMAP "Direction, 2026-10-10", parity programme item 1. One table per
+surface: the fork's README and feature list (fetched from the public
+`storytold/*` repositories and `jgraph/drawio` on 2026-10-10) against the
+running app's code. "Checked where" names the file or element id that was
+grepped; nothing here was driven in a browser, so a "yes" means the control
+and its handler exist, not that it renders well (CLAUDE.md section 1:
+"already exists" is the start of triage). Cost: S under half a session, M
+about one, L several. Keep or drop is judged by Direction policy 2: the forks
+are a source of feature lists and formats, not code. Where a row says
+"drop", the reason is stated.
+
+### Whiteboard, against draw.io and designcraft
+
+draw.io facts used: Apache-2.0 JavaScript editor, shape and stencil
+libraries, pages, layers, format panel, orthogonal routing with connection
+points, Mermaid and CSV import, re-editable SVG. designcraft facts used:
+frames and threaded stories, parent pages, swatches, paragraph and character
+styles, text wrap, a Properties panel.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Format panel (stroke, fill, alpha, shadow, route, caps, jumps, label) | yes (`wb-format`, `wb-fmt-*` in index.html, `whiteboard-format.js`) | none | none | done |
+| Numeric X, Y, W, H, angle, flip | yes (`wb-fmt-x/y/w/h/angle/flip-h/flip-v`) | no resize from centre | S | keep, small |
+| Snap to grid and a grid style | yes (`wb-snap-toggle`, `wb-grid-select`: none, lines, dots, iso) | grid size is not user-set | S | keep |
+| Smart guides (edge, centre, spacing) | yes (`wb-guide-color-*`, `whiteboard-map.js`) | none | none | done |
+| Align, distribute, same size | yes (`whiteboard-commands.js` align-*, distribute-*, same-width/height) | none | none | done |
+| Group, ungroup, lock, z-order | yes (commands `group`, `lock`, `order-*`) | none | none | done |
+| Layers panel | yes (`wb-layers-tree`: per-item eye, lock, rename, restack) | no named layer that holds many items | M | keep, name and hide layers |
+| Pages | partly (`wb-side-tab-pages`: frames are the pages, WHITEBOARD_PLAN decision 22) | no separate pages per board by design | none | done by decision |
+| Connectors: straight, curved, elbow, labels, caps, dash, line jumps | yes (`line-elbow`, `wb-fmt-jumps`, `wb-fmt-label-t`) | none | none | done |
+| Connection points on a shape (fixed anchors, ports) | yes (`wbPortFractions`; a link stores `sourceAnchor` as a fraction, so a resize keeps it); re-read 2026-10-10 | a draw.io shape's own stencil ports were not read | S | keep |
+| Waypoint editing on a connector | yes (`waypoint` in `whiteboard-map.js`, `whiteboard.js`) | none | none | done |
+| Shape library at scale (hundreds of stencils, search) | partly (7 sets, 1,530 icons, search by name, tag, set); re-read 2026-10-10 | the five converted draw.io sets (196 shapes, `board-library/drawio/`) were never listed | S | keep |
+| Shape library import (draw.io `mxlibrary`) | no (`stencil` appears only in `ai/help_chat.py`) | no reader | M | keep, one converter script |
+| Containers and swimlanes | partly (frames hold items; `frames.json` has Frame and Timeline lane) | no pool with lanes | S | keep, as frame presets |
+| Tables on a board | no (`wbTable` has no match in the whiteboard files) | draw.io has a table shape | M | drop for now; a note card with a Markdown table covers it |
+| Mermaid in and out, outline export, re-editable SVG | yes (`whiteboard-interchange.js`) | Mermaid in: flowchart only; sequence, class and state pasted from a document do nothing | M | keep, add the three |
+| draw.io file import (`.drawio`, `mxfile`) | no (`mxfile` appears nowhere in `frontend/`; `ai/tools/__init__.py` mentions the format) | boards from draw.io cannot be opened | M | keep, an offline reader is a pure parse of `mxGraphModel` |
+| Import and export: PNG, SVG, PDF, JSON | yes (`wb-export`, `export-frame`) | no `.drawio` export | S | keep with the importer |
+| Data and tooltips on a shape (custom properties) | no (`tooltip` hits are UI hints) | no key-value data on an object | M | drop; a linked note holds data |
+| Links on an object, not only a card | yes (`whiteboard.js` object links; WHITEBOARD_PLAN decision) | not verified live | none | done |
+| Layout algorithms (tree, radial, org chart) | partly (`wb-mindmap-tree`, `wb-mindmap-radial`, `wb-map-layout`) | free boards have no auto-layout | M | keep, reuse the map layout |
+| Swatches and saved palettes | yes (`save-palette`, library "palette" kind) | none | none | done |
+| Hand-drawn style (draw.io sketch, Excalidraw's whole look, tldraw's draw style) | no | the look Excalidraw is known for | M | keep, a board option (re-read 2026-10-10) |
+| Laser pointer while presenting (Excalidraw, tldraw) | no | a pointer trail that fades | S | keep |
+| Find and replace (draw.io) | find only (`wb-search-bar`) | no replace | S | keep |
+| Rulers, guides the user places | no (no `ruler` in whiteboard files) | none | S | drop |
+| Version history | yes (`wb-history-bar`, `whiteboard-history.js`) | none | none | done |
+| Present, step through frames | yes (`wb-present-bar`) | no per-slide notes, no timer | S | keep |
+| Templates | yes (17 board, 15 map; re-read 2026-10-10) | none | none | done |
+| Comments on objects | yes (command `comment`) | none | none | done |
+| Find on board | yes (`wb-search-bar`) | none | none | done |
+| Text wrap around objects, threaded text (designcraft) | no | page layout, not a whiteboard need | L | drop |
+| Parent pages and spreads (designcraft) | no | print layout | L | drop |
+
+Ranked by how often a person meets the gap (canvasdepth, 2026-10-10; the
+plan rows follow this order): draw.io sets in the panel with their ports,
+Mermaid sequence, class and state, `.drawio` import, a pool with lanes, named
+layers, find and replace, the hand-drawn look, tables, a laser pointer, edit
+data. Earlier: (1) the draw.io reader and shape-library converter
+(`mxfile` import, stencil XML to our JSON, a starter set of 60 shapes),
+(2) connection points with a fixed-anchor connector, (3) named layers with
+visibility, plus five more templates.
+
+### Mind map, against designcraft's canvas and MINDMAP_PLAN's references
+
+The map is a board of kind map (MINDMAP_PLAN section 2). References: Obsidian
+Canvas Mindmap, XMind, Coggle, MindMeister, Kumu (MINDMAP_PLAN section 3).
+designcraft contributes only canvas habits (frames, swatches, a properties
+panel); it has no map concept.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Keyboard-first: child, sibling, delete, collapse | yes (`wb-radial-child/sibling/collapse/delete`, clone-right, clone-down) | none | none | done |
+| Structures: tree four ways, radial, logic chart, timeline, fishbone, tree table | yes (`WB_MAP_LAYOUT_NAMES`) | one per map; XMind sets one per branch | L | keep |
+| Themes, levels, branch line style (curve, elbow, straight), per-branch colour | yes (`wbMapTheme`, `edge_style`, `_map_branch_colors`) | none | none | done |
+| Callouts, labels under a topic (XMind) | no | a note bubble; tags drawn under a topic | M | keep |
+| Fold to level 1, 2, 3 | yes (`fold-level-1..3`) | none | none | done |
+| Topic styling: colour, size, bold, italic, align, shape | yes (`wb-map-strip`, `wb-map-text-menu`, `wb-map-shape-menu`) | none | none | done |
+| Edge styling: width, shape, dashed, arrow | yes (`wb-map-line-menu`, `wb-map-edge-*`) | none | none | done |
+| Icons and markers on a topic | yes (131 `icon` and 42 `marker` hits in `whiteboard-map.js`) | none | none | done |
+| Boundaries, summaries, floating topics | yes (`boundary` 16 hits, `wb-mapmulti-summary`, floating topic 4 hits) | relationship lines with labels exist as links; not verified | S | keep |
+| Pictures on a topic | yes (`wb-map-picture-input`) | none | none | done |
+| Tasks on topics | yes (`wb-mapmulti-task`) | no due dates in the map | S | keep |
+| Numbered outline | yes (`wb-map-numbered`) | none | none | done |
+| Import: OPML, FreeMind, XMind, Markdown | yes (`wb-import-map-file` accepts .opml .xml .mm .xmind .md; `routes_whiteboard.py`) | none | none | done |
+| Export: image, document, Markdown, OPML, FreeMind | yes (`wbExportMapText`) | no `.xmind` out | M | keep |
+| Perspectives (colour by meaning), legend, focus, filter | yes (`wb-map-perspective`, `wb-map-legend`, `wb-map-focus`, `wb-map-filter`) | Kumu metrics (centrality) not on the map | M | keep, reuse the graph's metrics |
+| Notes linked to topics, graph shows map links | yes (`wb-add-note`, `wb-extract-notes`) | none | none | done |
+| AI: summarise a branch, suggest branches | yes (`summarise-branch`, `suggest-branches`) | none | none | done |
+| Study mode (show, knew, missed) | yes (`wb-map-study`, `wb-study-*`) | none | none | done |
+| Templates for maps | yes (`wb-map-templates`) | count not checked | S | keep |
+| Presenting a map as slides | yes, by branch (`wbMapPresentSteps`) | none | none | done |
+| Cross links between branches with labels | yes (`wb-link-label`, `wb-map-link-radial`) | none | none | done |
+| Collaboration, real-time | no | Coggle's main feature | L | drop (single-user by design) |
+| Frames and swatches from designcraft | partly (frames and palettes on free boards) | not on maps | S | drop |
+
+Re-read 2026-10-10 (canvasdepth) against XMind and MindNode: the brief's
+map list is built; open, by how often met: a structure per branch, callouts,
+labels, `.xmind` out, stickers and votes. Earlier: (1) OPML and FreeMind export so a round trip is
+closed, (2) a branch-by-branch presentation, (3) Kumu-style metrics
+(centrality, communities) as a perspective, computed by the graph's own code.
+
+### Documents (prose), against wordcraft
+
+wordcraft facts used: 389 commands, styles, tables with formulas, TOC,
+footnotes, citations, comments, track changes, compare, accessibility
+checker, mail merge, docx round trip, a spelling dictionary from the Moby
+Hyphenator list. A document here is Markdown in CodeMirror.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Find and replace, regex | yes (`doc-find-bar`, `doc-replace-one/all`) | regex toggle not checked | S | keep, verify |
+| Spelling with a personal dictionary | yes (`doc-dictionary-*`, `doc-spelling-variant`, Harper) | none | none | done |
+| Grammar | yes (`docGrammarAsk`, `doc-grammar-check`, Harper WASM) | none | none | done |
+| Track changes and accept or reject | yes (`doc-suggest-*`, `docSuggestResolve`) | none | none | done |
+| Margin comments | yes (`doc-comments`, `doc-margin`) | links and bookmarks in comments: Brief 42 | M | in Brief 42 |
+| Thesaurus | no (no thesaurus handler in `documents*.js`) | none | S | keep, trimmed table (policy 2) |
+| Word count and goal | yes (`doc-word-goal`, `doc-counts`) | none | none | done |
+| Outline and navigation pane | yes (`doc-outline`, `doc-sidebar-outline`) | none | none | done |
+| Table of contents | yes (`docFillToc`) | none | none | done |
+| Tables (insert, Tab between cells, alignment) | yes (`docFillTable`, markdown.js alignment) | no merge, no sort, no formulas | M | keep sort and formulas, see tables |
+| Footnotes, citations, bibliography | no (grep: no citation handler) | APA or MLA output | M | keep footnotes only; drop styles |
+| Styles gallery, themes, page layout | no | Markdown has no styles; width menu and serif toggle exist | L | drop (wrong model) |
+| Headers, footers, page numbers, columns | no | page layout is not a notebook need | L | drop |
+| Docx export | yes (`doc-export-docx`) | none | none | done |
+| Docx and odt and rtf import | partly (`docview.docx_to_markdown`, markitdown for others) | odt and rtf depend on the extra | S | keep |
+| PDF export | yes (`doc-export-pdf`) | none | none | done |
+| HTML, Markdown, zip export | yes (`doc-export-html/md/zip`) | none | none | done |
+| Focus mode, typewriter, dim others | yes (`doc-focus-*`, `doc-typewriter`, `doc-dim-others`) | none | none | done |
+| Read aloud | yes (`docReadAloudStart`) | none | none | done |
+| Autocorrect, smart punctuation, list autoformat | yes (`doc-autocorrect`, `doc-smart-punctuation`, `docListEnter`) | none | none | done |
+| Slash fills (date, table, TOC, emoji, signature) | yes (`docFillToken` and friends) | none | none | done |
+| Version history | yes (`doc-history-dialog`) | none | none | done |
+| AI actions with a diff | yes (`doc-ai-panel`, `doc-ai-diff`) | none | none | done |
+| Compare two documents | partly (history diff only) | arbitrary two-document compare | S | keep |
+| Accessibility checker | yes (`docAccessFindings`) | none | none | done |
+| Mail merge, envelopes | no | none | L | drop |
+| Macros | no | the skills system covers repeated work | L | drop |
+| Highlights on pages (key passages) | no | the owner's ask, Brief 42 | M | in Brief 42 |
+| Word-style shortcuts (F7 spell, F4 repeat) | partly | not checked as a set | S | keep, one shortcut audit |
+
+Next brief builds first: (1) highlights and annotations with persisted ranges
+(Brief 42), (2) a thesaurus from the trimmed table with a right-click action,
+(3) footnotes with a Markdown extension that exports to docx footnotes.
+
+### Documents (code), against VS Code's editor features
+
+VS Code's editor features list (basic editing, multi-cursor, IntelliSense,
+code navigation, refactoring, debugging, integrated terminal, tasks, source
+control); the extension ecosystem is out of scope. CodeMirror 6 is vendored
+(`frontend/vendor/codemirror/entry.js` exports state, view, commands, search,
+language, autocomplete, lint and the language packs).
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Syntax highlighting, 25+ languages | yes (entry.js: JS, Python, CSS, HTML, JSON, YAML, shell, SQL, TOML, Go, Rust, C family, Ruby, XML, Swift, R, Dockerfile, properties) | no TypeScript or PHP pack | S | keep |
+| Diagnostics and lint gutter | yes (`CM.lint`, `lintGutter` in `documents-code.js`, `core/syntaxcheck.py`) | JS and Python depth: Brief 42 | M | in Brief 42 |
+| Completion | yes (`autocompletion`, snippets, Emmet) | Brief 42 item 735 | M | in Brief 42 |
+| Hover docs | yes (`hoverTooltip`) | none | none | done |
+| Go to definition, references, find in documents | yes (`documents-code.js` header) | single file only | M | keep, cross-document later |
+| Rename symbol | no | none | M | keep, per file |
+| Code folding | yes (`foldGutter` in `documents.js`) | none | none | done |
+| Multiple cursors, rectangular selection | yes (`allowMultipleSelections`, `rectangularSelection` in `documents.js`) | not verified in a browser | none | done |
+| Bracket matching, auto-close, bracket colours | yes (`closeBrackets`, bracket colours) | none | none | done |
+| Indent guides, sticky scroll, colour swatches | yes (`documents-code.js` header) | none | none | done |
+| Go to line, command palette | partly (go to line yes; `openPalette` only the app palette) | editor commands are not in the palette | S | keep |
+| Minimap | partly (2 hits in `documents.js`; not verified) | confirm it renders | S | keep, verify |
+| Format document | yes (`doc-code-format`) | formatter per language not checked | S | keep |
+| Run code | yes (`doc-code-run`, JS sandbox, Python via the Pyodide extra) | output panel height and Stop: Brief 42 | M | in Brief 42 |
+| Whitespace render, word wrap | yes (`doc-whitespace`, `doc-code-wrap`) | none | none | done |
+| Diff view | partly (history diff) | side-by-side editing diff | M | keep, low |
+| Breadcrumbs / symbol outline | yes (`doc-crumbs`, code symbols in the outline) | none | none | done |
+| Quick fixes | yes (header of `documents-code.js`: "quick fixes") | none | none | done |
+| Split editor, tabs for several files | no | one document at a time | M | keep, split first |
+| Debugger | no | none | L | drop |
+| Integrated terminal, tasks, source control | no | not a notebook need | L | drop |
+| Vim or Emacs keymaps | no | none | S | drop |
+| Settings sync, workspaces | n/a | the notebook is the workspace | none | drop |
+| Problems panel | yes (`problems` 28 hits) | none | none | done |
+| p5 sketch kind | no (INBOX 735) | Brief 42 | M | in Brief 42 |
+
+Next brief builds first: (1) the completion switch and the p5 kind (Brief 42),
+(2) editor commands in the command palette and a split view, (3) rename
+symbol within a file.
+
+### Tables in notes and documents, against gridcraft
+
+gridcraft facts used: 500+ functions, dynamic arrays, a dependency-graph
+engine, sort and autofilter, conditional formats, validation, pivot tables,
+17 chart types, xlsx round trip, CSV and TSV. A table here is a Markdown
+table; the app has no sheet object.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Insert a table, Tab between cells | yes (`docFillTable`, toolbar `table` in `note-edit-panels.js`) | none | none | done |
+| Column alignment | yes (`markdown.js` separator row) | none | none | done |
+| Copy as TSV or CSV, save as CSV | yes (`markdown.js` lines 855 to 869, "Save as CSV") | none | none | done |
+| Paste CSV or TSV into a table | no (no paste converter found in `documents.js`) | pasted spreadsheet cells stay plain text | S | keep |
+| Sort a column | no (no `sort` in `markdown.js`) | none | S | keep |
+| Formulas (SUM, AVERAGE, a cell reference) | no for the user (`simpleeval` is used only by the composer's calculator) | none | M | keep: a `=SUM(B2:B9)` in a cell, evaluated at render, 12 functions |
+| Number formats | no | currency and percent | S | keep, three formats |
+| Filter rows | no | none | S | keep |
+| Totals row | no | follows formulas | S | keep with formulas |
+| Conditional formatting, data bars | no | none | M | drop |
+| Pivot tables | no | none | L | drop; a chart question answers most of it |
+| Charts from a table | partly (`ask-chart.js` charts from questions, not from a selected table) | chart this table | M | keep |
+| xlsx and csv open | partly (`docview.py` reads .xlsx and .csv to Markdown through markitdown) | read only, one sheet view | S | keep |
+| xlsx write | no | none | M | drop; CSV export suffices |
+| Sheet as a document kind | no | a real grid with a cell editor | L | drop for now; revisit after formulas land |
+| Data validation, freeze panes, named ranges | no | none | M | drop |
+| Query a table in Ask | partly (composer tables, `ai/composer_tables.py`) | tables in notes are read as text | M | keep |
+
+Next brief builds first: (1) paste-to-table and column sort, (2) cell formulas
+with a small function set evaluated through the existing safe evaluator,
+(3) a chart-this-table action.
+
+### PDF viewer and OCR workspace, against pdfcraft
+
+pdfcraft facts used: render, search, bookmarks panel, page grid, merge,
+extract, split, forms, comments, redaction, passwords, accessibility checker,
+corpus-tested repair. MemoryMap reads PDFs for text and renders pages as
+images (`core/pdfpages.py`, pypdfium2 under an optional extra), and the OCR
+workspace sits on those images.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| View pages with zoom and fit | yes (`ocr-zoom-*`, `ocr-view` modes) | none | none | done |
+| Page rail and pager | yes (`ocr-rail`, `ocr-pager`) | none | none | done |
+| Text extraction | yes (`docview.extract`, markitdown, vision fallback) | none | none | done |
+| Search inside the file | yes (`ocr-find`, `ocr-find-count`) | none | none | done |
+| Region read and describe | yes (`ocr-region-read`, `ocr-region-describe`) | none | none | done |
+| Choice of readers and engines | yes (`ocr-reader-menu`, `ocr-engine`, RapidOCR install) | none | none | done |
+| Edit and save a reading | yes (`ocr-edit-*`) | none | none | done |
+| Send to note or chat | yes (`ocr-to-note`, `ocr-to-chat`) | none | none | done |
+| Bookmarks and outline of the PDF | partly (`library.js` and `routes_files.py` reference outline; not verified) | confirm the panel | S | keep, verify |
+| Highlights and comments on a PDF | no (grep for pdf annotate finds nothing) | the main reading tool | M | keep, stored apart from the file |
+| Page labels, thumbnails | partly (rail shows page images) | page labels | S | keep |
+| Merge, split, extract pages | no (`pdfpages.py` only renders) | page operations | M | drop; use a PDF tool, and pure-Python writers need a library |
+| Rotate, delete pages | no | none | M | drop |
+| Fill forms | no | none | M | drop |
+| Redaction | no | privacy use | M | drop |
+| Passwords | no (no decrypt path found) | encrypted PDFs are skipped | S | keep, ask for the password |
+| Table of contents from headings | partly | none | S | keep |
+| Accessibility check | no | none | M | drop |
+| Command palette | partly (the app palette lists the workspace) | none | none | done |
+
+Next brief builds first: (1) highlights and comments on PDF pages stored in
+the notebook, (2) the encrypted-PDF prompt, (3) verify the outline panel.
+
+### Image notes and the Library, against photocraft and lightcraft
+
+photocraft is layers and filters (Photoshop). lightcraft is a RAW developer
+plus a library (ratings, flags, collections, smart albums, compare and survey
+views, XMP). Only lightcraft's library half and a few photocraft basics fit a
+notebook.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Library grid with filters and a selection bar | yes (`library.js`: `renderLibraryView`, `createLibrarySelectbar`) | none | none | done |
+| Lightbox with next and previous | yes (`lightbox.js`, `lightbox-view.js`) | none | none | done |
+| Captions and descriptions by a vision model | yes (`ai/captioning.py`, `ocr-describe`) | none | none | done |
+| Search by caption | yes (captions are indexed text) | none | none | done |
+| Sketch and annotate | yes (`media.js` sketch tools, `attachment-actions.js`) | arrows and shapes on a photo | S | keep |
+| EXIF read | partly (`core/imagesize.py`; EXIF fields not shown in the UI) | date taken, camera, place | S | keep |
+| Date taken on the timeline | no | photos by capture date | M | keep |
+| Ratings, flags, colour labels | no | culling | S | keep: a 0 to 5 rating and a flag |
+| Albums and smart albums | partly (categories and tags apply; no album object) | collections of images | M | keep through tags and saved filters |
+| Compare and survey view | no | none | M | drop |
+| Crop, rotate, flip | no (`icon-picker.js` crop is the avatar picker) | basic fix before filing | M | keep, canvas-based |
+| Brightness, contrast | no | none | S | drop |
+| Layers, masks, adjustment layers, filters | no | Photoshop scope | L | drop |
+| RAW decode | no | none | L | drop |
+| Duplicate detection | no | none | M | keep, perceptual hash in pure Python |
+| Face and people | no | none | L | drop (no models without torch) |
+| GPS to a map | no | none | M | keep after EXIF |
+| Colour palette from an image | no | none | S | keep for the palette picker |
+| Export with a size and format | no | none | S | drop |
+| Bulk delete and select | yes (`bulkDeleteLibraryMedia`) | none | none | done |
+
+Next brief builds first: (1) EXIF shown and used (date taken to the timeline,
+GPS), (2) rating and flag, (3) crop and rotate with a canvas editor.
+
+### Audio notes and meetings, against soundcraft
+
+soundcraft is a DAW (tracks, mixing, plugins, MIDI). What carries over to a
+notebook: waveform and time display, markers, loudness, record with punch and
+pre-roll, autosave, audio file formats. Meetings sit on `meetings.js` and
+`routes_meetings.py`.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Record with a level meter and timer | yes (`meeting-record`, `meeting-wave`, `meeting-timer`, `startMicLevelMeter`) | none | none | done |
+| Pause and resume | yes (`meeting-pause`, `toggleMeetingPause`) | none | none | done |
+| Transcribe | yes (`meeting-transcript`, `meetings.js`) | no speaker labels | M | keep, WORLD_CLASS_PLAN audio |
+| Summary and action items with reminders | yes (`meetingSummarise`, `meetingRemind`) | none | none | done |
+| Save as note or document | yes (`meeting-save`, `meeting-save-doc`) | none | none | done |
+| Dictation into a field | yes (`toggleDictation`) | none | none | done |
+| Read aloud | yes (`speakText`, `docReadAloud`) | none | none | done |
+| Waveform of a saved recording | partly (live wave only; playback waveform not found) | none | M | keep |
+| Click a transcript line to seek | no (no seek handler found) | none | M | keep, needs timestamps |
+| Playback speed | no | the long-recording need | S | keep |
+| Markers and bookmarks while recording | no | none | S | keep |
+| Live captions | no | in WORLD_CLASS_PLAN | M | keep |
+| Export SRT or VTT | no | none | S | keep, from timestamps |
+| Silence trim, strip silence | no | none | M | drop |
+| Loudness (LUFS) | no | none | M | drop |
+| Fades, crossfades, edits, mixing, plugins | no | DAW scope | L | drop |
+| MIDI, notation, surround | no | none | L | drop |
+| Speaker diarization | no | needs a model | L | keep, behind the model gate |
+| Audio file formats (wav, mp3, flac, m4a) | partly (browser decoders; uploads accepted) | none | S | keep |
+| Autosave and crash recovery of a recording | not verified | long meetings | S | keep, verify |
+
+Next brief builds first: (1) timestamped transcript with click-to-seek and
+SRT or VTT export, (2) playback speed and a saved-recording waveform, (3)
+markers while recording.
+
+### Presentations from boards and maps, against deckcraft
+
+deckcraft facts used: masters and layouts, 150+ shapes, transitions and
+animations, presenter view, rehearse timings, pen, notes pages, pptx open and
+save, PDF and PNG export.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Step through frames as slides | yes (`wb-present-bar`, `wb-present-prev/next/count/end`) | none | none | done |
+| Reorder slides | yes (Pages tab, decision 22) | none | none | done |
+| Full screen | yes (`wb-fullscreen`) | none | none | done |
+| Export a frame as an image | yes (`export-frame`) | none | none | done |
+| Export all frames as a PDF | partly (`wb-export` PDF; per-frame pages not checked) | one page per frame | S | keep, verify |
+| Speaker notes per frame | no | none | S | keep |
+| Presenter view (notes, next slide, timer) | no | none | M | keep |
+| Pen and laser while presenting | partly (board tools stay active; no laser) | none | S | keep |
+| Transitions between frames | partly (pan and zoom to the frame; no fade or morph choice) | none | S | keep, two options |
+| Build steps within a frame (reveal one item at a time) | no | maps: branch by branch | M | keep |
+| pptx export | no | opening in PowerPoint | L | drop; PDF is the exchange format |
+| pptx import | partly (`docview.py` reads .pptx text through markitdown) | read only | none | done |
+| Master slides, layouts, themes | no | none | L | drop; frames and templates cover it |
+| Rehearse timings | no | none | S | drop |
+| Outline to slides | partly (outline export exists; slides from an outline not) | none | M | keep |
+| Slides from a document | no | none | M | keep, headings become frames |
+
+Next brief builds first: (1) speaker notes per frame with a presenter view,
+(2) a per-frame PDF export checked on a real board, (3) branch-by-branch
+reveal for maps.
+
+## Repositories and libraries read, 2026-10-10
+
+Brief 40 part (b). Facts come from the repositories' public pages fetched on
+2026-10-10, PyPI's and npm's registry records, and jsDelivr headers for file
+sizes (measured, not remembered). The pages do not state a repository's disk
+size, and the GitHub API is not reachable from the sandbox without the
+repository attached, so "size" below is stars, commits and the size of what a
+build would ship, not a clone size. The yardstick is ROADMAP Direction policy
+1: pure Python or plain JS/WASM, offline, small, no compiled extensions,
+nothing added for what the stdlib or the app already does.
+
+### The forks and draw.io
+
+All nine ArtCraft repositories share one licence line: MIT or Apache-2.0 at
+the user's option, copyright ArtCraft Team and the repository's contributors,
+with the ArtCraft name, wordmark and logos excluded (forks must remove them).
+Bundled fonts and icons keep their own licences. Every one is a pure-Rust
+Cargo workspace with an egui front end, a `wgpu` or `vello_cpu` renderer, a
+WebAssembly build, a CLI, a JSON control channel and an MCP server over a
+command registry. None can be vendored into a no-build vanilla JS app
+(multi-megabyte WASM, canvas without a DOM), which is policy 2.
+
+| Repository | Licence | Stack | Scale (page figures) | Three things worth taking |
+| --- | --- | --- | --- | --- |
+| wordcraft | MIT or Apache-2.0; Moby hyphenation list is public domain | Rust, 389 commands, ~250 tests, krilla PDF | 46 commits, 2.2k stars | 1. The command catalogue as a checklist for the documents toolbar (styles, TOC, footnotes, track changes). 2. Its docx read and write behaviour as the reference for `docx_to_markdown`. 3. Agent tools (`inspect_document`, `batch`, `render_page`) as the shape for a document MCP surface. |
+| designcraft | MIT or Apache-2.0; fonts SIL OFL | Rust, Knuth-Plass composer, IDML, PDF/X-4, EPUB | 458 commits, 2.3k stars | 1. Frames, threaded stories and parent pages as a vocabulary for board frames and presentation layouts. 2. Named swatches (CMYK-aware) and character and paragraph styles for the board format panel. 3. EPUB and IDML as export targets worth knowing about; not for this app. |
+| deckcraft | MIT or Apache-2.0 | Rust, pptx open and save, 200+ commands | 43 commits, 1.1k stars | 1. Presenter view, rehearse timings, notes pages and handouts as the feature list for board presenting. 2. 150+ preset shapes with adjust handles as a catalogue to generate our shape JSON from. 3. Glued connectors and merge operations (union, subtract, intersect) as names for what shapes need. |
+| gridcraft | MIT or Apache-2.0 | Rust, 500+ functions, xlsx round trip, dependency-graph calc | 26 commits, 1.4k stars | 1. The function list ranked by use (SUM, AVERAGE, IF, VLOOKUP, XLOOKUP, COUNTIF) for a 12-function table formula set. 2. Dependency-graph recalculation as the model if formulas ever span tables. 3. Number format language (accounting, percent, date) for three formats. |
+| photocraft | MIT or Apache-2.0 | Rust, wgpu, 24 crates, PSD from Adobe's public spec | 1,123 commits, 37.4k stars | 1. The tile-based copy-on-write undo idea (cheap snapshots). 2. Its filter list ordered by use (crop, rotate, levels, sharpen) for a canvas editor. 3. Export As (format, quality, scale, size estimate) as the dialog shape. |
+| lightcraft | MIT or Apache-2.0; Inter font OFL | Rust, own RAW decoders, wgpu compute, XMP sidecars | 1,498 commits, 8.1k stars | 1. The library model: ratings 0 to 5, flags, colour labels, smart albums, field search (rating, ISO, camera, date, keyword). 2. XMP sidecar fields for what a photo carries (read `crs:`, keywords). 3. Compare and survey culling views as the pattern for choosing between near duplicates. |
+| pdfcraft | MIT or Apache-2.0 | Rust, `hayro` renderer, own PDF repair, 11 crates | 549 commits, 6.8k stars | 1. Its corpus method: open every file of the pdf.js test corpus and count (963 of 983). 2. Search as you type with step-through, a bookmarks panel with nested search, page labels. 3. Incremental saves and password handling (RC4 to AES-256) as the checklist for encrypted PDFs. |
+| soundcraft | MIT or Apache-2.0 | Rust, CLAP and VST3 hosting, audio-io for WAV, FLAC, MP3 | 145 commits, 1.1k stars | 1. Time display formats and markers (the notebook needs min:sec and timecode). 2. Loudness (LUFS) reporting on bounce, a measured number to show beside a recording. 3. Session audio health report (media missing, rate mismatch) as the model for a recording check. |
+| filmcraft | MIT or Apache-2.0; ffmpeg test oracle only | Rust, in-house codecs, OTIO and FCPXML interchange | 842 commits, 7.5k stars | 1. Caption tracks and SRT, WebVTT, SCC import and export (what meetings need). 2. Interchange formats (OpenTimelineIO, EDL) as proof that a timeline can be plain JSON. 3. The keyboard shortcut editor with Premiere, Final Cut and Avid presets as a pattern for a rebinding screen. |
+| jgraph/drawio | Apache-2.0 for code; icon sets, stencils and templates have separate terms including an Atlassian-product restriction | JavaScript, client side, distributed as war, Docker image, desktop | 126 commits on the page, 8.7k stars | 1. Stencil XML and the `mxfile` format: an offline converter to our shape JSON (BACKLOG 29e). 2. Connection points and the orthogonal router. 3. The format panel's grouping (Style, Text, Arrange), which `wb-format` already follows. Trap: the stencil terms differ from the code licence; read them before converting a library into the notebook. |
+
+### haifengl/smile: algorithms worth re-implementing small
+
+smile is Java under GPL-3.0 (as the sidebar lists it; commercial terms are
+also offered), so nothing is copied: only algorithm names are read for ideas,
+and any port is written from the published method. Its families include
+classification (Naive Bayes, SVM, trees), clustering (BIRCH, DBSCAN,
+K-Means, hierarchical, spectral), manifold (PCA, t-SNE, UMAP), NLP (bigram
+test, keyword extraction, stemmer), FP-growth association rules, nearest
+neighbour search (BK-tree, SimHash, LSH) and HMM and CRF.
+
+| Algorithm | What it would do here | Size of a small version | Verdict |
+| --- | --- | --- | --- |
+| Bigram collocation test (log-likelihood ratio) | Finds two-word terms in a notebook ("machine learning") for taxonomy suggestions and better keywords than RAKE alone | about 40 lines of Python | build, with a measured gain on the filing eval |
+| FP-growth, or plain pair counting | Tags and categories that co-occur ("notes tagged X are usually also Y"): the filing suggestions' second signal | pair counting 25 lines; FP-growth 80 | pair counting first |
+| Multinomial Naive Bayes | A second classifier for filing beside TF-IDF votes, trained on the person's own filed notes | about 50 lines with numpy | build if the eval beats TF-IDF alone |
+| K-means and DBSCAN over embeddings or TF-IDF | Merge suggestions for near-duplicate categories and topic discovery | K-means 40 lines, DBSCAN 35 | build when the embedder is on; TF-IDF otherwise |
+| SimHash | Near-duplicate notes and images (perceptual hash for photos) | about 30 lines | build |
+| BK-tree | A typo lookup alternative to SymSpell, needs no precomputed delete index | about 35 lines | skip; the trigram repair exists |
+| PCA through numpy SVD | A cheap 2-D projection for a "map of my notes" view | 6 lines | build with the graph track |
+| t-SNE, UMAP, spectral, BIRCH | Layout and streaming clusters | hundreds of lines each | drop |
+| HMM, CRF, SVM, boosting | Tagging and classification | large | drop; no measured need |
+
+### Candidate libraries
+
+Sizes are measured (jsDelivr content-length or the PyPI wheel) unless marked.
+
+| Candidate | Licence | Size | Pure Python or plain JS, offline | Replaces here | Verdict |
+| --- | --- | --- | --- | --- | --- |
+| symspell (algorithm only; symspellpy 6.10.0 is MIT) | MIT | wheel 2.6 MB (frequency dictionaries) | pure Python | spell repair for Ask typos (`question_noise.py` uses thefuzz; the app has trigram repair) | drop the package; the algorithm (precomputed deletes) is 60 lines but the trigram repair already runs; add it only if the eval shows misses |
+| parsedatetime 2.6 | Apache-2.0 | wheel 40 KB | pure Python | `ai/when.py` (378 lines) and `reminder_parser.py` (207) | drop; keep `when.py`, use parsedatetime's test phrases as extra cases (a read, not a dependency) |
+| KaTeX 0.16 | MIT | 275 KB script, 23 KB css, plus fonts | plain JS | the math renderer | drop; documents.js already renders a TeX subset as MathML and records why (about line 6650) |
+| mermaid 11 | MIT | 2.57 MB minified script | plain JS | the diagram fences in documents | drop; the app has its own Mermaid subset parser and renderer (`docRenderMermaidIn`, `whiteboard-interchange.js`) |
+| Pyodide 0.27 (v314 on npm now) | MPL-2.0 | stdlib zip 2.36 MB, WASM runtime about 10 MB, packages extra | WASM, offline once fetched | running Python documents | keep as the existing opt-in download (Settings, Packages); never vendor |
+| ruff-wasm (`@astral-sh/ruff-wasm-web`) | MIT | 8.7 MB wasm | WASM | Python lint and format in the browser | drop; the server side checks (`core/syntaxcheck.py`) and CodeMirror's parser are enough; revisit as a download |
+| eslint-linter-browserify | MIT | 1.29 MB minified | plain JS | JavaScript diagnostics beyond syntax | keep as an optional download if Brief 42 measures a gap; not vendored |
+| sql.js 1.11 | MIT | 653 KB wasm plus 49 KB js | WASM | running SQL in a SQL document | keep as an optional download; small and genuinely new |
+| transformers.js 3 and 4 | Apache-2.0 | about 10 MB library, models extra | WASM and WebGPU | in-browser embeddings without torch | drop for now; the embedder and Ollama paths cover it, and CPU WASM inference is slow on the old hardware this app targets |
+| vaderSentiment 3.3.2 | MIT | wheel 130 KB, lexicon 420 KB (vendored) | pure Python | composer sentiment | keep only where a test shows the gain (policy 1); the vendored copy already exists |
+| RAKE | MIT | 10 KB | pure Python (needs a stoplist; the NLTK dependency is avoided by the vendored copy) | keyword extraction | keep, vendored |
+| FlashText 2.7 | MIT | 10 KB | pure Python | taxonomy keyword candidates | keep (kept by policy 1) |
+| Whoosh 2.7.4 | BSD-2 | 1.9 MB vendored, wheel 470 KB | pure Python, unmaintained | search | drop; search is SQLite FTS5 plus bm25 (`search/engine.py`, `search/index.py`) |
+| networkx 3.x | BSD-3 | 8.1 MB vendored | pure Python | `notebook_stats.py` graph metrics | drop; write the metrics (degree, components, shortest path) in about 60 lines; the graph's layout is d3 in `graph-worker.js` |
+| NLTK 3.10 with WordNet | Apache-2.0 (WordNet has its own permissive licence) | wheel 1.8 MB; WordNet data tens of MB unpacked (not measured here) | pure Python plus data | synonyms, lemmas | drop; a trimmed synonym table from the Perplexity pack and the app's groups, measured on the eval (policy 2) |
+| textblob 0.20 | MIT | wheel 620 KB, requires NLTK | pure Python | sentiment, noun phrases | drop |
+| snips-nlu 0.20 | Apache-2.0 | wheel 140 KB; requires numpy under 2 and scikit-learn | needs compiled dependencies | intent parsing | drop; archived and blocked by numpy 2 |
+| adapt-parser 1.0 | Apache-2.0 | wheel 30 KB | pure Python | intent from keywords and entities | drop; `ai/intent.py` does this; its entity-and-require design is worth a read |
+| hunspell | MPL, GPL, LGPL by dictionary | C library plus dictionaries | compiled | spelling | drop; Harper WASM and the wordlist cover it |
+| Harper | Apache-2.0 | 16 MB in `frontend/vendor/harper` | WASM | grammar | keep (vendored); the 16 MB must stay lazy and off the boot gzip budget |
+| pyspellchecker 0.9 | MIT | wheel 7.2 MB | pure Python | already imported in `composer.py` line 403 | drop (policy 1 names it); trigram repair replaces it |
+| thefuzz and rapidfuzz | MIT | rapidfuzz is compiled, 1.2 to 2 MB wheels | compiled | `question_noise.py` line 4982 | drop; `difflib` (policy 1) |
+
+Found along the way (not Brief 40's to fix, recorded here): `requirements.txt`
+lists `sentence-transformers` (which requires torch) and the venv at
+`/home/user/MemoryMap-AI/.venv` is 1.5 GB because torch alone is 769 MB, which
+contradicts CLAUDE.md section 7's "do not install torch"; and `pint`,
+`langdetect`, `dateutil` and `networkx` are vendored (about 12 MB together).
+Both belong to Brief 35's triage.
+
+## Odysseus, fourth read 2026-10-10 (INBOX 747)
+
+Asked for directly (INBOX 747): *"analyse absolutely everything about it, from
+its features, how they are designed, metadata and libraries used. how it is
+packaged and more."* §33, §60 and "Odysseus read deeply, 2026-09-21" settled
+the provider layer, the tool and skill token budget, passive capture, MCP,
+hybrid search, compaction, endpoint fallback, Compare, Deep Research and three
+warnings; their "take" items stand in BACKLOG §11 and §18 and are not re-argued.
+This pass covers what changed since, and what those passes never looked at:
+packaging, metadata, provenance, the companion, the design system.
+
+**Method and its limit.** Head `a8c147b` (2026-10-07, `odysseus-dev/odysseus`),
+shallow clone read as files only; nothing was run (no launcher, script, test or
+container). History came from one `git fetch --depth=300`, which reaches back
+to 2026-08-20 (442 commits since 2026-09-15, 366 without merges), so the log
+is complete from the third read's date on but the tracker, review threads and
+CI results are not visible. Counts are `git ls-files` plus `wc -l`; "ours" is
+this repository at `79d82a486`. Every claim about our side was grepped first.
+Verdict words: **take** (build it), **adapt** (take the idea, change the shape),
+**decline** (with why), **have** (we already do it; the comparison is stated).
+
+### 1. What changed since 2026-09-14
+
+| Measure | Third read (`3b6c169`) | Now (`a8c147b`) | Note |
+| --- | --- | --- | --- |
+| Python lines, all | 247,751 | 471,497 | non-test 255,902; tests 215,595 |
+| Test files / lines | 839 / 109,308 | 1,328 / 215,595 | 9,996 test functions by grep (ours: 924 files, 159,142 lines, 8,543); 4 CI shards |
+| JS / CSS / HTML lines | 166,420 / 41,402 / 4,917 | 205,050 / 51,925 / 5,186 | CSS now 22 files; `style.css` (36,653 lines in §60) is gone |
+| Files tracked | not counted | 2,478 | diff since: 1,414 files, +374,395 / -111,339 |
+| Growth by directory | | tests +118,636; static +100,807 / -56,186; src +87,398; scripts +34,579; routes +18,147 / -10,413 | `services` -35,362 (catalogs emptied) |
+| Authors in the window | | three carry 435 of 442 commits | 197, 173 and 65; the other seven wrote one or two each |
+| Commit style | | 166 untyped, 106 fix, 36 test, 19 feat, 14 docs, 13 refactor | Conventional Commits asked for, not kept |
+
+| What changed | Evidence | Relevance to us |
+| --- | --- | --- |
+| Agent runtime rebuilt in "waves" 1 to 5 | `src/agent_runtime/` 17 files, 6,195 lines; `src/containment.py` 1,694; `process_lifecycle.py` 670; 20 files, 2,480 lines of Markdown in `docs/runtime-decomposition/` | A shell-wielding agent's problem. We have no shell tool (§33 declined it). Principles only: section 5 rows 1 and 2 |
+| Truthful completion: claim, outcome, observation, verdict | `agent_runtime/effects.py` 823 lines: `ExecutionOutcome`, `Impact`, `CleanupState` kept apart; "request, admission, dispatch, execution, verification are five facts" | The idea behind our `unsupported_claims` (agent.py:1203); theirs is stricter. Decline the machinery |
+| Turn contract: classify, then freeze what a turn may call | `docs/AGENT_TURN_CONTRACT.md`; `src/turn_contract.py` | Section 5 row 1 |
+| 159 commits on 09-17 and 09-18 alone (web research, artifact completion) | harness 0.20.6 to 0.20.19; `docs/search-quality-audit-20260917.md`: "not solved; no quality promotion claimed" | One bug class worth stealing: the harness appended citations the model never made (row 4) |
+| `style.css` (36,653 lines) split into 21 ordered fragments, mechanically, rules not regrouped | `static/css/00-tokens.css` header; `tests/css_snapshot/` | Section 7 |
+| `settings.js` into `settings/` (14 files), email library into `emailLibrary/` (12) and `routes/email/` | commits 09-29 and 09-30 | They are catching up to a split we did by file purpose |
+| Security sweep 10-05 and 10-06: NAT64 SSRF, ReDoS, parser DoS, delegated authority, cost-ledger key isolation, approval gate default on | 28 non-merge commits name it; `tests/test_redos_core_parsers.py` 859 lines | Gate and ReDoS: we have both (row 2). NAT64 and IPv6 loopback: row 3 |
+| Publication clearance: 21 assets removed, 14 restored with sha256, catalogs emptied | `PUBLICATION_ASSET_DECISIONS.md`, `THIRD_PARTY_PROVENANCE.json` | Section 4 |
+| CI and test infrastructure | 11 workflows (1,029 lines), pytest in 4 shards, `scripts/generate_env_reference.py`, `tests/smoke/`, `scripts/odysseus-dev` | Sections 2 and 5 |
+| Multiple ChatGPT subscriptions with usage, lazy Featherless discovery | `routes/chatgpt_subscription_routes.py`, `static/js/chatgptSubscriptionUsage.js` | Decline: account-bridging cloud providers |
+| Governance: private `lab`, public `dev`, curated `main`; ref-parity audit script | `scripts/ref_parity_audit.py`, `.github/pull_request_template.md` | Decline: a two-repo flow. Their agent-PR policy, see section 9 |
+
+Net read: +90% Python in 23 days and tests doubled, spent mostly on
+containment, test isolation and publication hygiene rather than new surfaces;
+`ROADMAP.md` still opens with "SQUASH BUGS" and prompt bloat.
+
+### 2. Packaging and distribution
+
+Odysseus ships four ways: Docker Compose (the README's only quick start), a
+PyInstaller "portable" Windows folder, a macOS launcher `.app` and `.dmg`, and a
+systemd unit. It has no installer, no signing, no release tags (none in the clone), no CHANGELOG, and no packaged-app smoke test. Our packaging is further
+along on every desktop row; the gaps are Docker, supply chain and macOS.
+
+| Piece (file:line) | What it does | Ours | Verdict |
+| --- | --- | --- | --- |
+| `Odysseus.spec`, `build-windows-portable.ps1`, `launcher.py` | PyInstaller onedir, `console=False`, `upx=True`, `hiddenimports=[]`, 9 data dirs/files. `launcher.py`: tkinter splash on a thread before app imports, `NullWriter` for windowless streams (l.25), `multiprocessing.freeze_support()` (l.22), pystray tray, browser opened after a fixed 3.5 s sleep | `packaging/windows/memorymap.spec` 289 lines lists every module by file (a hidden-import guard, measured 198/200 before), `installer.iss` 408, `installer.wxs` 157, `frozen_smoke.py` 400, `package-check.yml` 299 | **have**; theirs is the weaker design (fixed sleep, no import list, no smoke) |
+| `build-macos-app.sh` (179 lines) | Builds `dist/Odysseus.app` that runs the checkout's own venv (no Python bundled), install path baked in, `osascript` dialogs, port 7860 (7000 is held by AirPlay Receiver), `.icns` from `sips`, `.dmg` by `hdiutil` UDZO. Opens the UI in a chrome-less window with Chrome, Edge, Brave or Chromium `--app=URL` (l.109), else the default browser | Nothing for macOS: BACKLOG §79 says Gatekeeper needs a paid account and notarization. `start-desktop.sh` is the macOS path | **adapt**: a launcher the person builds on their own Mac is never quarantined, so Gatekeeper never sees it. `packaging/macos/make-app.sh` (S) plus the `--app=` window as the fallback when pywebview is absent (also Linux). Unverified without a Mac |
+| `install-service.sh` + `odysseus-ui.service` (19 lines) | Copies a unit with `YOURUSER` placeholders and `--host 0.0.0.0`, port 7000 (the app now defaults to 7011): stale and unsafe as shipped | Nothing; INSTALL.md has Docker for "a server or a NAS" | **adapt**: a user unit (`systemctl --user`), bound to 127.0.0.1, generated with real paths by `python -m memorymap --print-unit` (S). Decline their copy |
+| `Dockerfile` (132 lines) | `python:3.14-slim`, 21 apt packages (build-essential, cmake, git, nodejs, npm, chromium, tmux, nmap, ping, ssh, gosu...), Docker CLI tarball, agent-browser from npm; second stage only builds patched Real-ESRGAN wheels; `INSTALL_OPTIONAL` build arg keeps AGPL PyMuPDF out by default; no `HEALTHCHECK` | `docker/Dockerfile` 52 lines, slim 3.13, `WITH_EMBEDDER` arg (same idea), non-root `mm`, two volumes, no HEALTHCHECK | **have**; ours is a tenth of the surface, which is the point. Two defects of ours below |
+| `docker/entrypoint.sh` (155 lines) | `PUID`/`PGID` pattern: create the user, `chown` bind mounts on every start, skip recursive repair when a mount maps to a broad root such as `/home` or `/srv` (l.54, l.87), `gosu` so SIGTERM reaches uvicorn | Named volumes, `USER mm`; **no `mkdir`/`chown` for `/data` or `/models`** | **take** the cure, not the script: `RUN mkdir /data /models && chown mm:mm` before `USER` so the named volume inherits the owner (unverified: no daemon). Likely first-run `Permission denied` today |
+| `docker-compose.yml` (189 lines, 4 services) | odysseus + chromadb + searxng (pinned by tag and digest, with the issue number that forced it) + ntfy; `image:` GHCR with `build: .` as fallback; loopback port binds; searxng `cap_drop: ALL` | `docker/compose.yaml` 25 lines, one service | **have**. **Defect, measured**: our `build.context: ../..` resolves to `/home/user` (`docker compose -f docker/compose.yaml config`), so the build cannot find `docker/Dockerfile`. Fix is `..` |
+| `docker/gpu.*.yml` (19, 34), `host-docker.yml` (12), `host-network.yml` (21), `host-workspace.yml` (11) | Capabilities as opt-in overlays named in `COMPOSE_FILE`, each with a comment saying what it hands over ("raw socket access grants broad control"). The top-level `docker-compose.gpu-*.yml` are 208/211-line full copies (drift risk, guarded by `tests/test_gpu_compose_standalone.py`) | No overlays; a GPU Ollama is outside the container | **adapt** the pattern if we ever add an elevated mode: overlay, never a flag in the base file. Decline the copies |
+| `.github/workflows/docker-publish.yml` (153 lines) | Native amd64 and arm64 runners (no QEMU), push by digest, then one manifest-merge job; tags `latest`, `X.Y.Z`, immutable `X.Y.Z-<sha7>`, `dev`; `imagetools inspect` proves the tags resolved. README says pin the `-sha` tag in production | `release.yml` attaches a Windows installer and a Linux zip; **no container registry image**; `docker build` is by hand | **take** (M): GHCR multi-arch on tag, with the `X.Y.Z-<sha>` pin. Needs the owner's call on publishing an image |
+| `container-scan.yml`, `container-trivy.yml` | hadolint blocks (ignores DL3008 with a reason); Trivy advisory, PR runs hold a read-only token, SARIF upload only on a push to main | None | **take** (S): hadolint on `docker/Dockerfile`; Trivy once an image is published |
+| `.dockerignore` (root, 58 lines) with a test that secrets stay excluded | `tests/test_docker_devops_hardening.py` 293 lines: compose forwards every env var, base compose never mounts the socket, overlays do, entrypoint repairs stay inside mounts | `docker/.dockerignore` (7 lines) sits beside the Dockerfile; with `-f docker/Dockerfile` and context at the repo root BuildKit reads `docker/Dockerfile.dockerignore` or the root file, so ours is probably never read and the 461 MB `.git` goes in the context. No Docker test at all | **take** (S): move to `Dockerfile.dockerignore`, plus a static test that the compose context holds the Dockerfile, the ignore file sits where BuildKit looks, and `/data` is owned by `mm` |
+| `update_windows.bat`, `launch-windows.ps1` (173 lines) | Docker update script; venv bootstrap that detects the Windows `bash.exe` stubs in `System32` and `WindowsApps` (`Test-WindowsBashStub`) | `start.bat`, `start-desktop.bat`, installer | **have**; the stub-bash check is a good trap to know, we run no bash on Windows |
+
+The frozen-app story is a clean split: they never ran a frozen build in CI, we
+run one on every packaging pull request. Nothing here changes the §33 verdict
+that single-process SQLite is the simpler shape; their compose file needs three
+sidecars (ChromaDB, SearXNG, ntfy) before the app starts, which is also why
+their ROADMAP asks for "degraded-state reporting" for each of them.
+
+### 3. Metadata and dependencies
+
+| Piece | Odysseus | Ours | Verdict |
+| --- | --- | --- | --- |
+| `pyproject.toml` | 29 lines, pytest settings only: no `[project]`, not installable, run as `uvicorn app:app` from the checkout. Markers `area_*` (8), `sub_*` (from filenames, `tests/_taxonomy.py`), `slow`, `serial` | Full `[project]` (classifiers, urls, `memorymap` script, `voice`/`desktop` extras), ruff with `BLE001` | **have**; their `area_*` marker derived from the filename, with no file moves, is a cheap way to run "security tests only" (`-m area_security`). **adapt** (S) if a slice is ever wanted; `gate.sh --changed` already covers the routine case |
+| `requirements.txt` split | 36 packages, **4 carry any version bound** (`httpcore`, `pydantic`, `pydantic-settings`, `mcp<2`); `-optional` 9 packages with a licence reason on each (PyMuPDF AGPL, kokoro pinned with `python_version >= "3.11" and < "3.13"`); `-dev` is `-r requirements.txt` plus xdist; Dependabot groups pip, npm, actions and docker weekly | 19 packages, each with an upper bound by the file's own rule; `make lock` for exact pins; extras in `pyproject` | **have**; ours is the safer shape. One rule to copy: `markitdown==0.1.6` is "a release more than 30 days old" (their issue #485), a dependency-age floor against a poisoned fresh release. **adapt** (S): one line in `docs/CONTRIBUTING.md` and a Dependabot `cooldown` |
+| `package.json` | Private; dev only: `@playwright/test ^1.62.1` and `@antithesishq/bombadil ^0.7.0` (a property-based UI explorer: `tests/bombadil-spec.ts`, 107 lines of `always`/`eventually` rules over a random click walk) | `tests-e2e/` Playwright, 11 specs; `scratchpad/ui-sweeps/e2e648-crawl.js` presses every visible non-destructive button and flags dead ones and endless spinners | **have**; decline the dependency |
+| Two version numbers | `APP_VERSION = "1.0.3"` (`src/constants.py:8`) is the release; `HARNESS_VERSION` (0.20.19) is the behaviour build and must match `APP_BUILD_VERSION` (`tests/test_harness_version.py`). `/api/version` returns version, build and `source_commit` (`app.py:961`, `git rev-parse HEAD` with a 2 s timeout, `ODYSSEUS_SOURCE_COMMIT` override, "unknown" without `.git`); a footer under the Settings nav shows it to admins and hides "unknown" (`tests/test_settings_sidebar_build_provenance.py`) | `/health` returns `version` only (`api/app.py:1301`); no commit, no start time. CLAUDE.md §5 records "a stale uvicorn is why a correct fix did not work twice" | **take** (S): `source_commit` and `started_at` in `/health` and About; frozen builds stamp the commit at build time. Answers "is this the code I just changed" without a terminal |
+| Environment variables | `.env.example` has 3 live keys; the rest of the 117 `ODYSSEUS_*` reads are in a **generated** page, `website/configuration-reference.md` (286 lines, 81 for operators, 36 internal), built by an AST walk that also finds reads through helper functions and inside script strings; `tests/test_env_reference.py` fails when the page is stale or a variable lacks a note | 11 distinct `MEMORYMAP_*` names in `src`; all but `MEMORYMAP_DESKTOP` (internal) appear in INSTALL, PRIVACY, TROUBLESHOOTING or ARCHITECTURE | **decline** the generator at this size; **adapt** (S) a 15-line test that every `MEMORYMAP_*` read in `src` is named in `docs/` |
+| `config/` | One file: `config/searxng/settings.yml`, a template with a `__SEARXNG_SECRET__` placeholder substituted by the compose entrypoint, so no secret lives in the repository | `search/searxng_docker.py` writes its own | **have** |
+| Libraries worth a look | `nh3` (Rust HTML sanitizer) for LLM-written report HTML; `croniter`, `icalendar`, `caldav`, `pyotp`; `qrcode[pil]` (server-side QR; SAN-162 dropped the vendored browser QR bundle); `rapidocr`; `markitdown`; `psd-tools` | Our clips become Markdown text server-side, so no untrusted HTML reaches the DOM; OCR is Tesseract or RapidOCR; no QR library | `nh3`, `psd-tools`: **decline**. `qrcode` (BSD, pure Python, has an SVG factory) is **take** only if the "trust this notebook on your phone" QR (WORLD_CLASS_PLAN, Placed from Brief 40) is built |
+
+### 4. Provenance and publication practice
+
+Odysseus spent roughly 2026-10-05 to 10-07 on a publication clearance: a maintainer
+review listed every non-code artifact, decided
+keep or drop, and wrote the result down. The record is worth more than the
+decisions. What the pasted `THIRD_PARTY_PROVENANCE.json` is, measured:
+
+| Layer | What it holds | Size and enforcement |
+| --- | --- | --- |
+| `THIRD_PARTY_PROVENANCE.json` | Top level: `scope` ("no broader asset clearance is asserted"), `authority_manifest_sha256`, `starting_tree`. Six `retained` entries, each: `action_id`, `identity`, `version`, `identity_proof` (byte-identical to a named release member, with sizes), `upstream_urls`, `license_basis`, `bundled_components` (the transitive libraries inside a minified bundle), `artifacts[]` (path, sha256, git oid, size), `modified: false`, `source_records[]` (url, final_url, bytes, sha256, saved path, what it `proves`), `notice`, `notice_sha256` | 49,157 bytes. `tests/test_publication_plan_b.py:19-28` recomputes size and sha256 of every artifact and notice from disk |
+| `licenses/` | 12 files, 167,050 bytes; two are generated aggregates (docx 34,658 bytes for 22 component licences; mammoth 41,096 bytes for 28) | A bundle's own licence is not enough: a UMD build carries its dependencies' |
+| `ACKNOWLEDGMENTS.md` (9,205 bytes) | Sections: adapted code (opencode MIT, llmfit MIT, Tongyi DeepResearch Apache-2.0, each with the files it was adapted into), services pulled by compose with their licence, vendored front-end libraries, runtime CDN libraries, fonts, Python dependencies with licence, "interoperated with, not bundled", and licence-compatibility notes | Linked from the provenance file; names the AGPL-optional PyMuPDF consequence |
+| `PUBLICATION_ASSET_DECISIONS.md` (7,661 bytes) | A ledger: `SAN-nnn` for 21 removed paths, then `RESTORE-nnn` for 14 put back with the sha256 and the commit that introduced each. States "omission is not a finding of infringement" | `test_publication_plan_b.py:31-75` asserts 21 and 14 entries, restored files hash-match, the still-omitted 7 do not exist and **no tracked file mentions their names** |
+| Packaging check | `Odysseus.spec`, the `.ps1`, the macOS script and the Dockerfile must each name `licenses`, `THIRD_PARTY_PROVENANCE.json` and `ACKNOWLEDGMENTS.md` | `test_distribution_paths_include_all_notices` (l.135) |
+| Scanner hygiene | `.gitleaks.toml` allows four package ids that look like keys, only in that file and only for that rule; `.gitattributes` keeps `static/lib/**` byte-identical | |
+| Data, not only code | `services/hwfit/data/*.json` were copied model catalogs; replaced by `[]`, 35,362 lines gone from `services`, with a README saying cold installs have no recommendations until a rescan | The "runtime metadata is user data, not a redistributable snapshot" rule |
+
+Ours, measured against it: `docs/THIRD_PARTY.md` (39 lines) has 7 browser rows
+and 1 Python row, each with version, licence and "used by"; no hashes, no
+upstream URL for the bundled-in parts, no notice-file hash.
+`tests/test_vendor_manifest.py` and `test_vendor_licences.py` check presence of a
+row and a LICENSE file, not content.
+
+| Finding | Evidence | Verdict |
+| --- | --- | --- |
+| **Not credited**: `frontend/board-library/drawio/` (5 stencil sets, 0.4 MB, converted from jgraph/drawio, Apache-2.0) and `icons.json` (2.4 MB, Phosphor glyphs as paths) | Neither is in `docs/THIRD_PARTY.md`; the manifest test only walks `vendor/` directories. The drawio folder has its own `LICENSE` and `NOTICE.txt` | **take** (S): rows now, and the manifest test walks `board-library/` too |
+| **No licence ships with the app**: no LICENSE text, no THIRD_PARTY.md in the installer, zip, MSI or image | `grep -in licen` over `installer.iss`, `installer.wxs`, both specs and `docker/Dockerfile` finds nothing; the spec bundles `CHANGELOG.md` only (`memorymap.spec:169`). AGPL asks that a conveyed copy carry the licence; MIT, BSD and Apache notices ask the same of a binary | **take** (S): bundle `LICENSE`, `docs/THIRD_PARTY.md` and `frontend/vendor/*/LICENSE`; the installer shows the AGPL on its first page; add their `test_distribution_paths_include_all_notices` shape. Unverified: whether PyInstaller already collects each wheel's `dist-info` licence files, check a built folder |
+| No byte check on vendored files | Their sha256 test would also have caught a silently re-built CodeMirror (ours is a patched build: `test_codemirror_bundle_is_the_patched_build` greps for the patch string only) | **adapt** (M): `frontend/vendor/PROVENANCE.json`, one row per artifact: path, sha256, size, version, upstream URL, licence id, notice path, and for built bundles `build: build.sh` plus `package.json` instead of an `identity_proof`. Test recomputes. Skip `bundled_components` except for CodeMirror and Harper |
+| Data tables of unknown origin | THIRD_PARTY.md already admits one (`ai/question_noise.py` misspellings, maybe CC BY-SA 4.0) | **adapt**: a "Data" row per shipped table with its origin and licence (the word list already has one; `SUGGESTED_MODELS` is hand-kept, so say so) |
+| A removal ledger | Their `SAN-`/`RESTORE-` ids with a test that omitted files stay omitted and unreferenced | **adapt** (S): a short "Removed" list in THIRD_PARTY.md when something leaves for licence reasons; the 15 MB / `.exe` case already named in `test_vendor_manifest.py` is the first entry |
+| The cleanest idea in the set: a *scope line* | "No broader asset clearance is asserted" | **take** (free): THIRD_PARTY.md says what it does and does not clear |
+
+### 5. Features by surface, not covered before
+
+Surfaces §33, §60 and the third read already judged (providers, tool and skill
+budget, passive memory, MCP, hybrid search, compaction, fallback, Compare, Deep
+Research, CalDAV, OCR, graph, whiteboard, timeline) are not repeated.
+
+| Surface | Odysseus (file:line, design) | Ours (grepped) | Verdict |
+| --- | --- | --- | --- |
+| Agent: turn contract | `src/turn_contract.py`; `docs/AGENT_TURN_CONTRACT.md:12-22`: classify capabilities, then freeze `required <= offered <= executable`; a required capability that is not offered **stops before inference** and says so | `focus_detail` offers by keyword and records why (`tools/__init__.py:4085`); a tool Settings has off is still tried and returns a `ToolError` (`:1753`, `:4777`) | **adapt** (S): when the words ask for a capability that is off ("search the web" with web off), answer in one line without a model call. A test per tool group |
+| Agent: approval gate | `THREAT_MODEL.md`: once untrusted content is in a run, state-changing tools wait for a separate approval; was off by default until 2026-10-06 | `_PARK_WHEN_TAINTED` (`agent.py:1257-1266`) parks writes and outbound tools, always on, no setting; `tests/test_injection_fence.py` | **have**; ours is stronger (a constant, not an env switch) |
+| Agent: what a source list means | Their own audit found the harness appended citations the model never made; fixed 2026-09-17 | Sources panel is built from what tools returned (`agent.py:906`, `:2232`); notes answers check each sentence (`grounding.ground_answer_sentences`) | **have**. Keep the rule: a source list is what was fetched |
+| Agent: background result into a chat | `docs/BACKGROUND_TOOL_JOBS.md`: dispatcher-supplied `origin_chat_id`; message and delivery marker commit in **one transaction** with a deterministic id; a startup worker reconciles missed callbacks; if synthesis is unavailable, an honest notice plus the report link | `DurableJob` and `JobRun` (`core/jobs.py`); no producer delivers into a chat | **adapt** when the first long job (a research read, a night run) must post into a conversation: deterministic message id, one transaction |
+| Agent: skills audit | `docs/skills-lifecycle.md`: at most 8 records per pass, oldest first; inconclusive retries after 1 day, failed repair after 1 week; All / Built-in / Approved / Draft | `AGENT_SKILLS_REFORM.md`; skills are the owner's, not auto-extracted at scale | **decline** the queue; the 1-day and 1-week retry ladder is a fair default if we ever audit |
+| Agent: bundled procedures | `resources/skills/` 12 `SKILL.md` in 6 groups; `verified-state-change`: read the target, change once, read it back, compare, repair only the mismatch | `unsupported_claims` (`agent.py:1203`) catches "saved" with no write; the write tools return the change | **have** in code; the 6 steps are a good test script for a real model (`pytest -m evals`) |
+| Agent: shell, containment, effect log | `src/containment.py` (bwrap, "no silent downgrade"), `process_lifecycle.py`, `effect_log.py` (append-only, fsync before dispatch) | No shell tool by decision (§33) | **decline**; the "report which dimensions were actually enforced" shape is the one idea, for the day `run_sandbox.py` grows limits |
+| Eval method | `docs/runtime-decomposition/COMPARISON_PROTOCOL.md`: the unit is one scenario; measured and estimated usage never summed; "useful work per round" as raw counts, no weighted score; a denial is not an unauthorized effect | `usage_source` marks estimated vs reported; `ai/bench.py` | **have** the first rule; adopt the second and third in any score we publish |
+| Security: SSRF address test | `src/url_safety.py:58-73`: `64:ff9b::/96` is decoded to its embedded IPv4 and judged strictly | `core/security.py` `is_internal_address` is `... or not address.is_global`. **Measured on Python 3.13.16: `64:ff9b::a9fe:a9fe` (NAT64 of 169.254.169.254), `64:ff9b::a00:1` and `64:ff9b::7f00:1` all report `is_global == True`**, so `public_addresses` lets them through | **take** (S): decode the /96 first, then judge the IPv4. Low risk (needs a NAT64 network and a hostile URL) but it is a measured hole |
+| Security: documentation | `THREAT_MODEL.md` (7,797 bytes): trust boundary, a role by capability table, the reserved-username sentinel, and a **Known gaps** list with issue numbers; `SECURITY.md` has a "publishing a fork" `git grep` for key patterns | `docs/SECURITY.md` (75 lines) has scope notes but no gap list; gaps live in WORLD_CLASS_PLAN 12 | **adapt** (S): a short "Known gaps" list in `docs/SECURITY.md` |
+| Backup | `scripts/odysseus-backup`: SQLite `.backup` API, `verify PATH` walks the tarball read-only, `restore --yes`; skips `deep_research/` and `mail-attachments/` unless asked | `core/backup.py:186` `verify_copy` at creation; integrity check before replace (`:294`); sealed bundles | **have**; a read-only "check this backup" before restoring is optional (S) |
+| Readiness | `src/readiness.py`: `/api/ready` is 503 unless the database answers and `data/` is writable; `/api/health` is liveness | `/health` (liveness), `/debug/health` (counts) | **adapt** with the Docker `HEALTHCHECK`: `/health` is enough; add `data_dir_writable` to it (S) |
+| Command line | 22 `scripts/odysseus-*` CLIs, 5,214 lines, all JSON, `odysseus <name>` dispatcher (git style), bash and zsh completions (92 and 72 lines); most read SQLite directly | `--export`, `--capture`, `memorymap.mcp_server` (210 lines, non-destructive tools only) | **adapt** (S): `python -m memorymap tool NAME --json` over `mcp_server.offered_tools()`, so a script gets the registry's rules. **Decline** the direct-DB pattern: their own Codex README forbids it for agents because it bypasses Settings |
+| External agents | `integrations/claude`, `integrations/codex`: the app serves a skill zip behind a scoped token; the skill is an intent router ("reminder at 5pm is a todo with a due date, not a calendar event") and a 403 rule ("treat 403 as an intentional restriction") | Settings has an MCP row with a connection snippet (`renderMcpSnippet`, `skills.js:912`) | **adapt** (S): add a `SKILL.md` to that row: note vs reminder vs board vs document, and "a refused tool is the person's choice". No tokens: stdio keeps the local boundary |
+| Dev loop | `scripts/odysseus-dev`: ports derived from the worktree path hash, own data dir, never adopts another checkout's index, readiness by `/api/ready`, detached with a recorded stop handle, `--from-pr N`; `odysseus-smoke`: one scenario per area, a table that prints `NOT RUN` and `NOT COVERED` with the reason (`tests/smoke/areas.py`) | `scratchpad/ui-sweeps/serve.sh PORT DIR` by hand; `tests-e2e` 11 specs; agents are told their port | **adapt** (S): port from `sha1(path)`, and a coverage table with declared gaps beside `tests-e2e` |
+| Reminders and notes | `routes/note/` (943 lines): a Keep-style flat `Note` (17 columns), `repeat`, `ai_classification` gated by a content hash, a button that spawns a chat to "solve this todo"; ntfy delivery with retry (`src/builtin_actions.py`, 2026-10-07) | Reminders with tray and browser notifications; checklists feed the Unfinished widget; no general tasks (BACKLOG §17) | **decline**: ours is richer and a task system is a decision, not a copy |
+| Weather, YouTube, email, vault, contacts, signatures, TTS/STT cloud, face recognition, ChatGPT/Copilot/Codex bridges | `src/agent_tools/weather_tools.py` (keyless Open-Meteo) and the rest | Offline by design; web is one opt-in | **decline** |
+| Photo editor | `static/js/editor/` 91 files, `13-image-editor.css` 4,902 lines, 29 Playwright specs, 3 plans (812 lines) | Boards and documents; no raster editing | **decline**: not a notebook |
+| Floating tool windows | `tileManager.js` 415, `modalSnap.js` 1,079, `modalManager.js` 1,573 lines: drag, snap to edge, minimise | `.dock` grammar (DESIGN.md) | **decline** |
+| Tests: what they assert | `tests/TESTING_STANDARD.md:116-135`: "behavioral-first", source-text assertions only with a docstring reason; 349 of 1,300 test files call `read_text` (27%) | **497 of 915 of ours call `read_text`** (54%; an upper bound, some read fixtures and docs), because the DOM is invisible to pytest and lints stand in | **adapt** (S): new source-text tests carry a docstring line saying why behaviour cannot be driven; count them in `gate.sh` output so the ratio is visible. Do not convert old ones |
+
+### 6. The companion and device pairing
+
+Four files, 531 lines (`companion/`), five routes under `/api/companion`:
+`ping`, `info`, `models` (the caller's own endpoints, never key material), `GET
+pair` (a form that never mints) and `POST pair` (admin cookie; mints). The phone
+client is an Expo app that is **not in this repository**; the server side is a
+contract of `{"v":1,"host","port","token"}` shown as a QR.
+
+| Design point | Where | Ours | Verdict |
+| --- | --- | --- | --- |
+| One-time `ody_` token, bcrypt hash plus 8-character prefix stored, scope `chat`, shown once | `pairing.py:182-205` | Single user; the password is the gate; LAN mode is HTTPS on 8443 with a certificate fingerprint to compare (`docs/PRIVACY.md`) | **decline** tokens: they add storage, a revoke screen and scopes (their THREAT_MODEL gap 4 says scopes are "coarse" and only `chat` or `admin`) |
+| Mint only on POST; GET renders a form | `routes.py:11-18` | Pairing is by password | **have** the lesson (never mint on a navigation) |
+| Host validation for a URL a phone will reuse | `pairing.py:40-72`: ASCII only, DNS labels, no `xn--`, **a single decimal or `0x` label is refused because a WHATWG URL parser reads `134744072` as `8.8.8.8` and the phone would send its token to a public address**; accepted: one label, `.local`, or IPv4 in 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.168/16 | `netbind.host_allowed`, `lan_addresses` | **adapt**: when the QR trust guide is built (WORLD_CLASS_PLAN, Placed from Brief 40, item 2), the encoded URL goes through one validator with this test case |
+| LAN address discovery by UDP `connect` to 8.8.8.8, no packet sent | `pairing.py:131` | `netbind.py:315` does the same probe, plus IPv6 | **have** |
+| A QR carrying the pairing payload | `pairing_qr_png_data_uri` (`qrcode`) | WORLD_CLASS_PLAN lists a QR trust guide, unbuilt | **take** with that item (section 3, `qrcode`) |
+| Plain `http` only, because "the deployed v1 client understands only HTTP" | `parse_companion_base_url` | HTTPS, with iOS certificate rules measured (Brief 40) | Ours is the harder and better path; no change |
+
+### 7. Design system
+
+| Measure | Odysseus | Ours |
+| --- | --- | --- |
+| CSS | 51,925 lines, 22 files (a 36,653-line `style.css` split on 2026-09-29, **rules moved verbatim, not regrouped**) | 73,672 lines, 16 files, grouped by purpose |
+| `!important` | 1,930 (3.7 per 100 lines); their header counts 1,151 redeclared selectors | 174 (0.24 per 100 lines) |
+| Custom properties defined | 48, colour only (`00-tokens.css`: 180 lines, no spacing, radius, type or motion tokens) | 483, spacing, radius, type, motion and palette tokens (`test_style_scale.py`) |
+| Hex literals / `px` font-size declarations | 820 / 1,436 | 392 / 2 |
+| Themes | 19 presets, 10 animated background patterns, light as `:root.light`, 8 saved custom themes | 10 palettes, dark and light each, up to 20 saved looks |
+| Density | `density-compact` and `density-spacious` root classes | auto / comfortable / compact; Phase 12 refines it |
+| Fonts | 8 bundled WOFF2, 984 KB: Fira Code (UI default, so the whole UI is monospace), Inter, OpenDyslexic | System fonts plus the Phosphor icon font; a dyslexia face is BACKLOG item at `:1114` |
+| Accessibility markup in `index.html` | 136 `aria-` and 21 `role=` in 2,675 lines | 2,494 and 494 in 13,749 lines (about 18 and 3.6 per 100 lines, against 5 and 0.8) |
+| Reduced motion | 27 `prefers-reduced-motion` blocks | 45, plus an explicit Moving override |
+| Guardrails | `CONTRIBUTING.md` rules enforced by review: reuse variables, no emoji, no parallel components, screenshot required | `DESIGN.md` recipe index, `test_ui_recipes.py` (166 tests), `test_style_scale.py` (22) |
+| Cache busting | hand-bumped `?v=20260916...` strings; they document that two versions of one import path give two module instances | hash stamp (`_stamp_for`), classic scripts, no module identity problem |
+| Frontend map | `static/js/MODULE_SUMMARY.md`, 229 lines by hand | `docs/CODEMAP.md` generated, `test_codemap_fresh.py` |
+| Production strays | 4 design-exploration pages in `static/` (`*-variants.html`, 33 KB) served in production | none |
+
+The one thing they have that we do not is the **computed-style snapshot**
+(`tests/css_snapshot/README.md`, `scripts/css_snapshot.py`): Playwright reads
+`getComputedStyle` for 122 pinned properties on 676 elements (76 in the app
+shell, 14 on login, 586 synthesised from every selector declared more than once)
+in 24 variants (4 viewports x dark and light x 3 densities) = 16,224 snapshots in
+about 21 seconds, hashed into a committed `baseline.json`; a failure names the
+elements and variants whose hash moved, and the baseline is re-recorded only
+when the change was meant. Built because a mechanical file split can flip which
+rule wins and nothing else notices. **Adapt** (M): the same harness over our
+palettes and phone widths, run only at phase gates that move CSS
+(UI_MODERNISATION_PLAN Phases 12 and 13), not on every commit, since active UI
+work would re-record it daily. Our `ui-sweeps` measure one thing at a time
+(contrast, docks, touch); none can say "nothing else moved".
+
+### 8. The strongest things worth taking, ranked
+
+Size is S (under a day), M (a day or two). Each row is placed in
+`docs/roadmap/agent-remaining/odyssey-1010.md` for the orchestrator.
+
+| # | Take | Evidence | Size | Belongs in |
+| --- | --- | --- | --- | --- |
+| 1 | **Supply-chain hygiene for CI.** Pin every action to a commit SHA, `persist-credentials: false` on every checkout, `permissions: {}` by default, an actionlint and zizmor workflow, a checksum-pinned gitleaks job, dependency-review (blocking) and pip-audit (advisory), Dependabot weekly with grouped updates | Theirs: 53 of 53 `uses:` pinned, 11 workflows. Ours: **0 of 26 pinned, 0 of 5 workflows set `persist-credentials`**, no zizmor, no secret-scan job, no pip-audit. The riskiest line is `release.yml:115` `softprops/action-gh-release@v3` holding `contents: write` | S to M | WORLD_CLASS_PLAN 12 (security review) |
+| 2 | **Ship the licences and credit every shipped file.** AGPL text, `THIRD_PARTY.md` and each vendored LICENSE inside the installer, MSI, Linux zip and image, with a test per build file; credit `board-library/drawio/` (Apache-2.0) and `icons.json`; add `frontend/vendor/PROVENANCE.json` (sha256, size, version, upstream URL, licence, notice) with a recomputing test; a scope line in THIRD_PARTY.md | Section 4: nothing licence-shaped is in any packaging file; the manifest test walks `vendor/` only | S then M | BACKLOG 7; `docs/THIRD_PARTY.md`; `tests/test_vendor_manifest.py` |
+| 3 | **Docker that builds, with a test.** `build.context: ..`; `mkdir /data /models && chown mm` before `USER`; `Dockerfile.dockerignore`; `HEALTHCHECK` on `/health`; hadolint; a static test of those four. A GHCR multi-arch image with an immutable `X.Y.Z-<sha>` tag if the owner wants one | Measured: compose context resolves to `/home/user`; `.git` is 461 MB; no daemon here, so the volume owner is reasoned, not run | S | BACKLOG 7 |
+| 4 | **A running-build stamp** (`source_commit`, `started_at`, data dir id) in `/health` and Settings, About | Answers CLAUDE.md §5's stale-uvicorn trap; theirs is `app.py:961` plus a footer | S | WORLD_CLASS_PLAN 7 (small things) |
+| 5 | **NAT64 in the SSRF address test** | Measured on Python 3.13.16, three NAT64 addresses report global | S | WORLD_CLASS_PLAN 12 |
+| 6 | **A macOS launcher the person builds on their own Mac**, plus the Chromium `--app=URL` window as the fallback shell | `build-macos-app.sh:109`; unquarantined because it never left the machine; unverified without a Mac | S | BACKLOG 79 |
+| 7 | **Computed-style snapshot baseline** for CSS refactors, at phase gates only | 16,224 snapshots in about 21 s on their side; ours has no "nothing else moved" check | M | UI_MODERNISATION_PLAN Phases 12 and 13 |
+| 8 | **Say it before inference when a capability is off**, with a test per tool group | `turn_contract.py`; ours returns a `ToolError` after the model tried | S | CHAT_PLAN "The deterministic foundation" |
+| 9 | **Command line and a `SKILL.md` over the tool registry** | 22 CLIs and two integration skills on their side; ours is stdio MCP plus a snippet row | S | BACKLOG 29 |
+| 10 | **Dev loop details**: port from a hash of the worktree path; a smoke table that prints `NOT COVERED` with a reason | `scripts/odysseus-dev`, `tests/smoke/areas.py` | S | HANDOVER (agents table); `tests-e2e/README` |
+| 11 | **Visible test-honesty ratio**: new source-text tests say why in the docstring; `gate.sh` prints the count | 54% of our test files read file text, against 27% of theirs | S | WORLD_CLASS_PLAN 1 (consistency contract) |
+| 12 | **A Known gaps list** in `docs/SECURITY.md`, and a dependency-age floor (30 days) in CONTRIBUTING | `THREAT_MODEL.md` last section; `requirements-optional.txt` comment on issue #485 | S | `docs/SECURITY.md`; `docs/CONTRIBUTING.md` |
+
+### 9. Declined, with why
+
+| Declined | Why |
+| --- | --- |
+| The agent runtime waves (containment, effect log, resource authority, 6,195 lines plus 2,480 lines of design) | They answer a shell tool. We have none; our confirm cards and the taint gate cover the writes we do have |
+| Three sidecars (ChromaDB, SearXNG, ntfy) and a fat image (Chromium, nmap, Docker CLI, build-essential) | One process and SQLite is the product; their own ROADMAP asks for "degraded-state reporting" for each sidecar |
+| Account bridges: several ChatGPT subscriptions, Copilot, Codex, 33 provider specs | Not a local-first path; each is an ongoing break-fix |
+| Token pairing and `ody_` API tokens | One user, one password; tokens need storage, scopes and a revoke screen |
+| Photo editor, floating snap windows, 4 variant pages in production | Not a notebook; `.dock` is the window grammar |
+| Offline service-worker cache (`sw.js`, 318 lines) | The owner chose network-only so a stopped server fails loudly (`frontend/sw.js` header) |
+| CDN libraries at runtime (Pyodide, PDFObject from jsdelivr, CSP allows the host) | Contradicts "100% offline"; our extras download once into the data folder |
+| The internal loopback bearer token (`INTERNAL_TOOL_TOKEN`) | §60 settled it; our tools run in process. `THREAT_MODEL.md` shows the cost: a reserved username that grants admin |
+| Hand-bumped `?v=` strings, a mechanical CSS split with 1,930 `!important` | Our hash stamp and grouped files already avoid both |
+| Sharded CI (`tests/_shards.py`, 4 jobs), a generated env reference | Our suite is under 9 minutes on four cores and we read 11 `MEMORYMAP_*` names; revisit past the 25-minute CI timeout |
+| Bombadil UI explorer, SFT corpus tooling (about 60 scripts), `odysseus-*` CLIs that open SQLite directly | We have a button crawler; we do not train models; direct DB access bypasses Settings |
+| PR-description gates, `lab`/`dev`/`main`, an "open an issue first" rule for agent PRs | Our PRs come from the owner's own sessions |
+
+### 10. Not verified
+
+- Nothing in the repository was run: no launcher, build, compose file, test or
+  script. Container behaviour, PyInstaller output and CI results are source
+  reads only.
+- Our Docker findings come from `docker compose config` (parse only; there is
+  no daemon) and reading the Dockerfile. The root-owned `/data` volume and the
+  unread `docker/.dockerignore` are reasoned from Docker's documented rules.
+- The NAT64 result is from Python's `ipaddress` in this sandbox (3.13.16);
+  other Python versions differ in `is_global`. No NAT64 network was available.
+- Whether PyInstaller already copies each wheel's `dist-info` licence files into
+  our frozen folder was not checked; a built folder is needed.
+- Line and file counts are `git ls-files` plus `wc -l`; the 442-commit window
+  starts at the depth-300 fetch, which could hide earlier commits only if the
+  history is not linear. "Test files that call `read_text`" is a grep, not a
+  classification.
+- Their ROADMAP asks "do integrations even work", so no feature of theirs is
+  credited as working, only as designed.

@@ -1,0 +1,18 @@
+{
+  "about": "CHAT_PLAN decision 59, step 2 (output forms, Brief 84): data and the form it asks for. tests/test_output_forms.py.",
+  "rows": [
+    {"data": [{"name": "health", "notes": 4}, {"name": "home", "notes": 2}], "form": "chart"},
+    {"data": [{"name": "Cooking", "notes": 9}, {"name": "Work", "notes": 3}, {"name": "Garden", "notes": 1}], "form": "chart"},
+    {"data": [{"Reminder": "call mum", "When": "tomorrow at 9am"}, {"Reminder": "pay rent", "When": "Friday at 10am"}], "form": "table"},
+    {"data": [{"Skill": "Weekly review", "When to use it": "On Sundays"}, {"Skill": "Tidy", "When to use it": "When it is messy"}], "form": "table"},
+    {"data": [{"title": "Boiler", "category": "House", "tags": "home"}, {"title": "Gym", "category": "Health", "tags": "gym"}], "form": "table"},
+    {"data": {"Notes": 12, "Categories": "Health and House", "Tags": "gym and home"}, "form": "card"},
+    {"data": [{"Reminder": "call mum", "When": "tomorrow at 9am"}], "form": "card"},
+    {"data": ["Boiler pressure", "Gym plan", "Sourdough"], "form": "list"},
+    {"data": [{"name": "a"}, {"name": "b"}], "form": "list"},
+    {"data": [{"a": 1}, {"b": 2}], "form": "list"},
+    {"data": [], "form": null},
+    {"data": {}, "form": null},
+    {"data": "a sentence", "form": null}
+  ]
+}

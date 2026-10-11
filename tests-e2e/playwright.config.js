@@ -135,3 +135,6 @@ module.exports = defineConfig({
 module.exports.BASE_URL = BASE_URL;
 module.exports.FRESH_URL = FRESH_URL;
 module.exports.E2E_PASSWORD = "e2e-smoke-test-password";
+module.exports.PORT = PORT;
+module.exports.DATA_ROOT = DATA_ROOT;
+module.exports.PYTHON = PYTHON;

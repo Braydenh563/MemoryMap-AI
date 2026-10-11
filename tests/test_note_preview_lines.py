@@ -3,7 +3,7 @@ title. The body kept the blank line after the title (or a second one), and
 the two-line clamp spent its lines on blanks. The preview strips every blank
 line after the title and, while clamped, runs the paragraphs together."""
 
-from _app_js import app_js_text
+from tests._app_js import app_js_text
 
 
 def test_every_blank_line_after_the_title_goes():

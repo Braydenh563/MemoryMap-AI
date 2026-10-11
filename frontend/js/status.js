@@ -633,9 +633,16 @@ function closeNotifications() {
 // Asked when a reminder is SET, not on first load. A permission prompt with no
 // context is refused by default, and a refusal is close to permanent, the
 // browser will not ask again, and most people never find the site settings.
+//: A refused permission says so once, in the reminders list and in Settings,
+//: rather than every due reminder quietly falling back to a toast.
+function syncNotifBlocked() {
+  const blocked = "Notification" in window && Notification.permission === "denied";
+  for (const line of document.querySelectorAll(".notif-blocked")) line.classList.toggle("hidden", !blocked);
+}
+
 function askNotificationPermission() {
   if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission().catch(() => {});
+    Notification.requestPermission().then(syncNotifBlocked, syncNotifBlocked);
   }
 }
 
@@ -755,11 +762,36 @@ function setTitleView(view) {
   paintTitle();
 }
 
+//: **On time, not up to a minute late** (TIMELINE_PLAN 11 row 5): one
+//: timeout set to the soonest open reminder's due time, re-set by every
+//: check and every list load, so a reminder fires within a second of its
+//: minute. The minute poll stays as the backstop: a hidden tab's timeout is
+//: throttled, and a reminder made on another device is not in this list.
+//: A one-shot timeout, not a second interval: it wakes the page once per
+//: due reminder and never at rest.
+const reminderDueTimer = { id: 0 };
+function armReminderTimer(list) {
+  clearTimeout(reminderDueTimer.id);
+  const now = Date.now();
+  //: An early alert is a time of its own ("1 day before").
+  const times = (list || []).filter((r) => !r.done).flatMap((r) => {
+    const due = new Date(r.due_at).getTime();
+    return r.alert_minutes ? [due, due - r.alert_minutes * 60000] : [due];
+  });
+  const next = Math.min(...times.filter((t) => t > now));
+  if (!Number.isFinite(next)) return;
+  //: Past the browser's 24.8-day ceiling a timeout fires at once; the poll
+  //: re-arms long before such a reminder comes due.
+  if (next - now > 2 ** 31 - 1) return;
+  reminderDueTimer.id = setTimeout(checkDueReminders, next - now + 250);
+}
+
 async function checkDueReminders() {
   // Before the unlock there is no token, and asking anyway is a guaranteed 401
   // on every load: visible in the browser's network log, and in the server's
   // own log, where it looks like an auth failure worth investigating.
   if (!authToken()) return;
+  syncNotifBlocked();
   //: Open ones only. The route orders by `due_at` ascending with ticked-off
   //: rows included by default, so this poll's one page was the *oldest*
   //: reminders, done or not: a notebook whose oldest two hundred were done
@@ -770,11 +802,20 @@ async function checkDueReminders() {
   if (!all) return; // server asleep or locked, say nothing rather than guess
   const now = Date.now();
   const due = all.filter((r) => !r.done && new Date(r.due_at).getTime() <= now);
+  armReminderTimer(all);
   updateReminderBadge(all);
   setTitleCount(due.length);
 
   const already = announcedReminders();
-  const fresh = due.filter((r) => !already.has(r.id));
+  //: An early alert (TIMELINE_PLAN 11 row 8) is announced once, under its
+  //: own key, with how long is left; the due time is announced as before.
+  const early = all
+    .filter((r) => {
+      const at = new Date(r.due_at).getTime();
+      return !r.done && r.alert_minutes && at > now && at - r.alert_minutes * 60000 <= now && !already.has(`e${r.id}`);
+    })
+    .map((r) => ({ ...r, id: `e${r.id}`, early: true, text: `${r.text}, ${relativeWhen(r.due_at)}` }));
+  const fresh = [...due.filter((r) => !already.has(r.id)), ...early];
   if (!fresh.length) return;
   rememberAnnounced(fresh.map((r) => r.id));
   playReminderChime();
@@ -788,7 +829,7 @@ async function checkDueReminders() {
     recordNotification({
       kind: "reminder",
       title: reminder.text,
-      detail: "Came due",
+      detail: reminder.early ? "Coming up" : "Came due",
       key: `reminder:${reminder.id}`,
       action: { tab: "reminders" },
     });
@@ -920,7 +961,7 @@ function reopenAnswerPanel({ panel, answer } = {}) {
     if (cmdPaletteOverlay.classList.contains("hidden")) toggleAgentPalette();
     list = cmdPaletteResults;
   } else if (panel === "guide") {
-    if (typeof openHelpChat === "function") openHelpChat();
+    openHelpChat();
     list = $("help-chat-messages");
   }
   if (!list || !answer) return;
@@ -1115,7 +1156,30 @@ let lastToastAt = 0;
 //:   design (`api()` in app.js notes each 4xx message in `toast.refused`).
 //: Only a 5xx, a network failure or an unexpected exception keeps the red
 //: style and the report button. `tests/test_error_toasts.py` pins both.
-function toast(message, isError = false, { exempt = false } = {}) {
+//:
+//: **An error explains and offers** (WORLD_CLASS_PLAN 28.1 rule 4): an error
+//: toast always carries one action. A caller that knows the way forward passes
+//: it, `{ action: ["Try again", fn] }`; one that does not gets Open the logs,
+//: Settings, Logs, where the why is written (the message says what happened).
+//: `tests/test_error_toasts.py` holds the literal faults to an action of their own.
+//: **The app's voice for what it says itself** (CHAT_PLAN decision 55,
+//: Brief 68 row 9): one register for a failure, "Couldn't open that
+//: document.", never "Could not" beside "Couldn't", never an exclamation. The
+//: table is the realiser's (`ai/realise.py` `VOICE`); tests/test_voice_tables.py
+//: holds the two equal and counts the surfaces moved onto it (the Library,
+//: the board and the map first, the three with the most toasts).
+const VOICE = {
+  failed: "Couldn't {what}.",
+  failed_why: "Couldn't {what}: {why}",
+};
+
+function voiceLine(key, slots = {}) {
+  const why = slots.why ? String(slots.why).trim() : "";
+  const shape = VOICE[key === "failed" && why ? "failed_why" : key] || "";
+  return shape.replace(/\{(\w+)\}/g, (_, name) => (name === "why" ? why : String(slots[name] ?? "")));
+}
+
+function toast(message, isError = false, { exempt = false, action = null } = {}) {
   if (isError === "info" || (isError === true && [...toast.refused].some((m) => String(message).includes(m)))) {
     isError = false;
     exempt = true;
@@ -1139,6 +1203,11 @@ function toast(message, isError = false, { exempt = false } = {}) {
   //: button that saves the support bundle and opens a mail to the owner
   //: with the message already in it. Plain toasts stay plain.
   if (isError) {
+    const [label, run] = action || ["Open the logs", () => openSettingsModal("logs")];
+    note.appendChild(toastActionButton(note, label, () => {
+      clearTimeout(timer);
+      run();
+    }));
     const help = document.createElement("button");
     help.type = "button";
     help.className = "ghost small toast-help";
@@ -1239,11 +1308,28 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   const text = document.createElement("span");
   text.className = "toast-msg";
   text.textContent = message;
-  note.toastTimer = setTimeout(() => dismissToast(note), 8000);
+  // `sticky`: a notice that stays true until acted on (a damaged notebook
+  // file) is not timed out; its close button is the way to put it away.
+  note.toastTimer = opts.sticky ? null : setTimeout(() => dismissToast(note), 8000);
   const buttons = [toastActionButton(note, actionLabel, run)];
   if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
   note.append(text, ...buttons, toastCloseButton(note, note.toastTimer));
   toastStack(box, () => box.appendChild(note));
+}
+
+//: The notebook file's check at start (`GET /backups/integrity`, WORLD_CLASS
+//: 25e) in one sentence that says what to do. Shared by the boot notice and
+//: Settings, Import & export, so both say the same thing.
+function integrityWords() {
+  return "Your notebook file failed its check at start. Restore the newest backup in Settings, Import & export.";
+}
+
+function noteDamagedNotebook(check) {
+  if (!check || check.ok !== false) return;
+  toastAction(integrityWords(), "Open backups", () => openSettingsModal("data", "backup-now"), {
+    go: { settings: "data", focus: "backup-now" },
+    sticky: true,
+  });
 }
 
 //: The second button of every "Moved to the bin." notice: the bin is the
@@ -1380,6 +1466,80 @@ function pushUndo(label, undo, redo) {
   return action;
 }
 
+//: **An insight line's two verdicts** (CHAT_PLAN decision 60): Confirm writes
+//: it as a fact the person vouched for ("Golf is a hobby of yours (confirmed
+//: by you, 10 October)"), said that way from the next answer on; Not right
+//: keeps it, and every near-variant of it, from being shown again. **One
+//: compact pair on the sentence's own row** (INBOX 782, the owner: "redesign
+//: the confirm and not right buttons ... and any other similar instances"): a
+//: check and a cross with their words, quiet at rest, right-aligned, drawn by
+//: `insightLine` for Chat and Tidy's Patterns and by `INSIGHT_VERDICT_ITEMS`
+//: for the dashboard's ⋯. `onDone(verdict, result)` lets the surface replace
+//: the line; a confirmed insight is drawn with no pair.
+const INSIGHT_VERDICT_ITEMS = [
+  { verdict: "confirm", label: "ph:check Confirm", title: "This is right: say it as a fact from now on" },
+  { verdict: "dismiss", label: "ph:x Not right", title: "Not right: never show this or anything like it again" },
+];
+
+function insightSend(insight, verdict) {
+  return apiJson(`/insights/${verdict}`, { method: "POST", body: JSON.stringify(insight) });
+}
+
+function insightVerdicts(insight, onDone) {
+  const group = document.createElement("span");
+  group.className = "insight-verdicts";
+  group.setAttribute("role", "group");
+  group.setAttribute("aria-label", "Is this right?");
+  for (const item of INSIGHT_VERDICT_ITEMS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `insight-verdict is-${item.verdict}`;
+    if (item.title) button.title = item.title;
+    setLabel(button, item.label);
+    button.addEventListener("click", () =>
+      insightSend(insight, item.verdict)
+        .then((result) => onDone?.(item.verdict === "confirm" ? "confirmed" : "dismissed", result))
+        .catch((error) => toast(error.message, true))
+    );
+    group.appendChild(button);
+  }
+  return group;
+}
+
+//: One insight sentence with its pair on the same row: the words take the
+//: room, the pair sits at the end and wraps under them on a narrow screen.
+function insightLine(insight, text, onDone, extraClass = "") {
+  const line = document.createElement("p");
+  line.className = `insight-line ${extraClass}`.trim();
+  const words = document.createElement("span");
+  words.className = "insight-text";
+  words.textContent = text;
+  line.append(words, insightVerdicts(insight, (verdict, result) => onDone?.(line, verdict, result)));
+  return line;
+}
+
+
+//: **Rule 1.8's one shape** (WORLD_CLASS 1.8) for an act that reached the
+//: server: an entry on the undo stack (the bar, Ctrl+Z, the history menu) and
+//: a toast whose Undo is that same entry, taken off the stack when pressed so
+//: Ctrl+Z cannot run it a second time. `tests/test_undo_contract.py` holds
+//: every other function named for an undo to this file's contract.
+function offerUndo(label, message, undo, redo, opts = {}) {
+  const action = pushUndo(label, undo, redo);
+  toastAction(
+    message,
+    "Undo",
+    async () => {
+      settleUndoFromToast(action);
+      await Promise.resolve()
+        .then(undo)
+        .catch((error) => toast(error.message, true));
+    },
+    opts
+  );
+  return action;
+}
+
 // A few call sites also offer an immediate toast "Undo" button alongside the
 // global stack (Wave J's pattern, from before this stack existed). If that
 // button is used, the action has to come off the undo stack, otherwise a
@@ -1388,6 +1548,7 @@ function pushUndo(label, undo, redo) {
 function settleUndoFromToast(action) {
   const idx = undoStack.indexOf(action);
   if (idx !== -1) undoStack.splice(idx, 1);
+  action.undoneAt = Date.now();
   redoStack.push(action);
   renderUndoBar();
 }
@@ -1433,15 +1594,32 @@ function boardHistoryActive() {
 //: editor history (kept per document for the session, `docResetDocument`).
 //: Anywhere else: the app's stack below, for notes, tags, categories, links,
 //: reminders and the rest. Inside a text field Ctrl+Z is always the field's.
-function surfaceHistory() {
+//: `dir` is "redo" for the redo door: on a document the two can differ.
+function surfaceHistory(dir = "undo") {
   if (boardHistoryActive()) {
     return { where: "board", undo: () => window.wbUndo(), redo: () => window.wbRedo?.(), canUndo: window.wbCanUndo, canRedo: window.wbCanRedo };
   }
   const docs = document.getElementById("tab-documents");
-  if (docs && !docs.classList.contains("hidden") && typeof currentDoc !== "undefined" && currentDoc && window.docCanUndo) {
+  if (docs && !docs.classList.contains("hidden") && typeof currentDoc !== "undefined" && currentDoc && window.docCanUndo && !appStackIsNewer(dir)) {
     return { where: "document", undo: () => window.docUndo(), redo: () => window.docRedo(), canUndo: window.docCanUndo, canRedo: window.docCanRedo };
   }
   return null;
+}
+
+//: **One timeline on an open document** (DOCUMENTS 24 row 1). A document's
+//: own acts (rename, archive, a version restored, a note unlinked) reach the
+//: server and sit on the app's stack; its typing sits in the editor's history.
+//: Ctrl+Z walks whichever of the two holds the newer step, so a rename after a
+//: paragraph undoes first and the paragraph next, the order they were made.
+//: Before this the document's history took every press while one was open,
+//: and an act on the stack could only be undone from its toast.
+function appStackIsNewer(dir) {
+  if (dir === "redo") {
+    const top = redoStack[redoStack.length - 1];
+    return Boolean(top) && (top.undoneAt || 0) >= (window.docRedoAt?.() || 0);
+  }
+  const top = undoStack[undoStack.length - 1];
+  return Boolean(top) && top.at >= (window.docUndoAt?.() || 0);
 }
 
 async function performUndo() {
@@ -1455,6 +1633,7 @@ async function performUndo() {
   if (!action) return;
   try {
     await action.undo();
+    action.undoneAt = Date.now();
     redoStack.push(action);
     toast(`Undone: ${action.label}`);
   } catch (error) {
@@ -1467,7 +1646,7 @@ async function performUndo() {
 }
 
 async function performRedo() {
-  const surface = surfaceHistory();
+  const surface = surfaceHistory("redo");
   if (surface) {
     await surface.redo();
     renderUndoBar();
@@ -1505,40 +1684,37 @@ function renderUndoBar() {
   //: are "move this shape back", not a sentence), so the pair falls back to
   //: the plain verbs while one is open, and takes its enabled state from the
   //: board's counts: a button that is lit when there is nothing behind it is
-  //: the thing that makes people stop trusting it.
+  //: the thing that makes people stop trusting it. Each button asks for its
+  //: own history, since on a document the newer step decides (`appStackIsNewer`).
   const surface = surfaceHistory();
-  const last = surface ? null : undoStack[undoStack.length - 1];
-  const next = surface ? null : redoStack[redoStack.length - 1];
-  undoBtn.disabled = surface ? !surface.canUndo?.() : !last;
-  redoBtn.disabled = surface ? !surface.canRedo?.() : !next;
+  paintUndoDoor(undoBtn, "undo", surface, undoStack);
+  paintUndoDoor(redoBtn, "redo", surfaceHistory("redo"), redoStack);
+}
+
+function paintUndoDoor(button, verb, surface, stack) {
+  const redo = verb === "redo";
+  const Verb = redo ? "Redo" : "Undo";
+  const icon = redo ? "ph:arrow-u-up-right" : "ph:arrow-u-up-left";
   if (surface) {
+    const can = redo ? surface.canRedo?.() : surface.canUndo?.();
     const where = surface.where === "board" ? "on this board" : "in this document";
-    paintStatusItem("status-undo", {
-      icon: "ph:arrow-u-up-left",
-      title: surface.canUndo?.() ? `Undo the last change ${where}` : `Nothing to undo ${where}`,
-      shortcut: surface.canUndo?.() ? "undo" : "",
-    });
-    paintStatusItem("status-redo", {
-      icon: "ph:arrow-u-up-right",
-      title: surface.canRedo?.() ? `Redo the last change ${where}` : `Nothing to redo ${where}`,
-      shortcut: surface.canRedo?.() ? "redo" : "",
+    button.disabled = !can;
+    paintStatusItem(button.id, {
+      icon,
+      title: can ? `${Verb} the last change ${where}` : `Nothing to ${verb} ${where}`,
+      shortcut: can ? verb : "",
     });
     return;
   }
-  paintStatusItem("status-undo", {
-    icon: "ph:arrow-u-up-left",
+  const top = stack[stack.length - 1];
+  button.disabled = !top;
+  paintStatusItem(button.id, {
+    icon,
+    title: top ? `${Verb}: ${top.label}` : `Nothing to ${verb}`,
+    shortcut: top ? verb : "",
     //: The right-click gesture is named here because a hidden gesture is not a
     //: feature: the same reason the nav pair's tooltips name theirs.
-    title: last
-      ? `Undo: ${last.label}`
-      : "Nothing to undo",
-    shortcut: last ? "undo" : "",
-    rest: last ? `right-click for the last ${undoStack.length}` : "",
-  });
-  paintStatusItem("status-redo", {
-    icon: "ph:arrow-u-up-right",
-    title: next ? `Redo: ${next.label}` : "Nothing to redo",
-    shortcut: next ? "redo" : "",
+    rest: top && !redo ? `right-click for the last ${stack.length}` : "",
   });
 }
 
@@ -1638,6 +1814,7 @@ async function loadRecentQuestions() {
     again.title = question;
     box.appendChild(again);
   }
+  ensureModule("askHistory").then(() => askAgainMenu(box, questions));
 }
 
 async function loadMostUsed() {
@@ -1873,15 +2050,82 @@ function aiIsOff() {
 //: of a question. A plain `disabled = off` would hand all of those back mid-run
 //: on the next tick. So the gate records that it was the one that closed a
 //: control and reopens only what it closed.
+//: **A gated control that answers when pressed** (DOCUMENTS 24 row 3, the
+//: CHAT_PLAN gating pattern). One marked `data-model-offer` is not disabled
+//: with no model: it is `aria-disabled`, still a Tab stop, and a press opens a
+//: popover saying why, what still works here (the attribute's own line) and
+//: one way on, Set up a model. A disabled button explains nothing to someone
+//: who presses it: the no-model sweep counted the documents' two as dead.
+function closeModelGate(control) {
+  if (control.dataset.modelOffer !== undefined) {
+    control.setAttribute("aria-disabled", "true");
+    return;
+  }
+  if (control.disabled) return;
+  control.dataset.modelGated = "1";
+  control.disabled = true;
+}
+
+function openModelGate(control) {
+  if (control.dataset.modelOffer !== undefined) control.removeAttribute("aria-disabled");
+  if (!control.dataset.modelGated) return;
+  control.disabled = false;
+  delete control.dataset.modelGated;
+}
+
+function openModelOffer(control) {
+  closeHelpPopovers();
+  const panel = document.createElement("div");
+  panel.className = "help-body model-offer";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Needs a model");
+  const why = document.createElement("p");
+  why.textContent = `${control.dataset.needsModel}, and no model is connected. ${control.dataset.modelOffer}`.trim();
+  const setUp = smallButton("ph:plugs Set up a model", "Open Settings at Models, where a local or remote model is connected", () => {
+    entry.close();
+    openSettingsModal("models");
+  });
+  setUp.classList.add("primary");
+  panel.append(why, setUp);
+  const entry = {
+    panel,
+    trigger: control,
+    close() {
+      openHelpPopovers.delete(entry);
+      panel.remove();
+      control.setAttribute("aria-expanded", "false");
+    },
+  };
+  panel.style.visibility = "hidden";
+  panel.classList.add("help-popover");
+  (control.closest("dialog[open]") || document.body).appendChild(panel);
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  openHelpPopovers.add(entry);
+  control.setAttribute("aria-expanded", "true");
+  placeHelpPopover(panel, control);
+  setUp.focus();
+}
+
+//: Capture, so the control's own handler (which would start the AI act)
+//: never sees a press made while the gate is shut.
+document.addEventListener(
+  "click",
+  (event) => {
+    const control = event.target.closest?.('[data-model-offer][aria-disabled="true"]');
+    if (!control) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openModelOffer(control);
+  },
+  true
+);
+
 function syncModelGatedControls(status = modelStatus) {
   const off = status ? status.ollama_running === false : false;
   for (const control of document.querySelectorAll("[data-needs-model]")) {
     const reason = control.dataset.needsModel;
     if (off) {
-      if (!control.disabled) {
-        control.dataset.modelGated = "1";
-        control.disabled = true;
-      }
+      closeModelGate(control);
       //: `=== undefined`, not a truthiness test, and the saved copy is dropped
       //: once it has been put back. A control whose own title is empty saves
       //: "" here, and `!""` is true, so on the next tick of the poll (one
@@ -1894,10 +2138,7 @@ function syncModelGatedControls(status = modelStatus) {
       }
       control.title = `${reason}. ${AI_OFFLINE_HINT}.`;
     } else {
-      if (control.dataset.modelGated) {
-        control.disabled = false;
-        delete control.dataset.modelGated;
-      }
+      openModelGate(control);
       if (control.dataset.enabledTitle !== undefined) {
         control.title = control.dataset.enabledTitle;
         delete control.dataset.enabledTitle;
@@ -1920,30 +2161,50 @@ function syncModelGatedControls(status = modelStatus) {
   //: beside it) and says so, the popup agent cannot and says that.
   renderAiOfflineNotice(
     $("ask-offline"),
-    "No model is connected, so this answers from your notes alone: the matching records are below.",
-    { dismissible: true }
+    "No model connected. Ask shows the matching records below.",
+    { dismissible: true, detail: "Ask answers from your notes alone until one is connected." }
   );
-  renderAiOfflineNotice($("command-palette-offline"), "No model is connected, so the agent cannot run.");
+  //: The agent with no model runs acts and readings (AGENT_SKILLS_REFORM
+  //: "Deepened 2026-10-10" row 1, `ai/starter_acts.py`), so the line says
+  //: what a model adds rather than that nothing runs.
+  renderAiOfflineNotice(
+    $("command-palette-offline"),
+    "No model connected. The agent runs acts and reads your notes.",
+    { dismissible: true, detail: "Reminders, notes, tags, links and the day's changes work now. Open questions and drafting need a model." }
+  );
   //: The Chat tab (INBOX 266 part 1, then 725): with no model a message is
   //: answered from the notes by the composer, so the box stays open and the
   //: line says what a model would add rather than that nothing answers.
   renderAiOfflineNotice(
     $("chat-offline"),
-    "No model is connected, so Chat answers from your notes, quoting them. Connecting one adds AI answers and Agent mode.",
-    { dismissible: true }
+    "No model connected. Chat answers from your notes.",
+    { dismissible: true, detail: "Chat quotes your notes until one is connected. A model adds AI answers and Agent mode." }
   );
   //: And the writing desk, which is the third surface that is nothing but
   //: Atlas: with no model it cannot draft at all, and before this the only
   //: thing that said so was a title on a button that could not be pressed.
   renderAiOfflineNotice(
     $("draft-offline"),
-    "No model is connected, so nothing can be drafted here yet. Everything else on this tab still works."
+    "No model connected, so nothing can be drafted. The rest of this tab works."
   );
   //: UX-12: any other AI-only widget names its own line.
   for (const line of document.querySelectorAll("[data-offline-line]")) renderAiOfflineNotice(line, line.dataset.offlineLine);
   syncAgentPaletteAvailability();
   renderChatModeSeg();
 }
+
+//: **A control built after the last poll is gated when it arrives** (the
+//: owner, 2026-10-10: "I can still activate skills ... when I have no model
+//: running"). The poll applies `data-needs-model` every tick, but idle that is
+//: thirty seconds, and the chat dock's Skills button is built by skills.js when
+//: the dock first draws: it stayed pressable for up to half a minute after
+//: boot (measured: enabled 2.5 s in, with the attribute set). Watching for added
+//: nodes covers every lazily built control, including ones not written yet,
+//: rather than asking each builder to remember a call. The records of one
+//: task arrive together, so one gate pass however many nodes land.
+new MutationObserver((records) => {
+  if (modelStatus && records.some((r) => [...r.addedNodes].some((n) => n.querySelector?.("[data-needs-model]") || n.matches?.("[data-needs-model]")))) syncModelGatedControls();
+}).observe(document.body, { childList: true, subtree: true });
 
 //: **A banner can be closed for the session** (INBOX 732: "a way to
 //: temporarily hide these no ai popups, they can appear again when the user
@@ -1969,25 +2230,32 @@ function dismissAiOffline(id) {
   } catch (err) { /* memory alone still lasts until the window closes */ }
 }
 
-//: One line and one button, in a named container, or nothing at all. Rebuilt
+//: One row (DESIGN.md, "A notice"): an icon, one short sentence, the button
+//: that fixes it, then the close when it has one. The container carries
+//: `.notice`; what a surface says beyond the sentence goes in `detail`, which
+//: becomes the button's title (INBOX 767: the long sentence was the ugly part).
+//: Rebuilt
 //: rather than toggled because the status poll calls this every tick and a
 //: stale sentence is worse than none. `dismissible` adds the close (DESIGN.md,
 //: "A notice that can be closed"): a dismissed one stays hidden for the session.
-function renderAiOfflineNotice(container, what, { dismissible = false } = {}) {
+function renderAiOfflineNotice(container, what, { dismissible = false, detail = "" } = {}) {
   if (!container) return;
   container.replaceChildren();
   const off = aiIsOff();
   const closed = dismissible && aiOfflineDismissed(container.id);
   container.classList.toggle("hidden", !off || closed);
   if (!off || closed) return;
+  //: The icon is the container's first child, which is where `.notice > .ph`
+  //: styles it; `setLabel` on the container builds exactly that.
+  setLabel(container, "ph:plugs");
   const text = document.createElement("span");
-  text.className = "muted";
+  text.className = "ai-offline-text";
   text.textContent = what;
   const link = document.createElement("button");
   link.type = "button";
   link.className = "ghost small";
-  setLabel(link, `ph:plugs ${AI_OFFLINE_HINT}`);
-  link.title = "Open Settings at Models, where a local or remote model is connected";
+  link.textContent = AI_OFFLINE_HINT;
+  link.title = `Open Settings at Models, where a local or remote model is connected.${detail ? ` ${detail}` : ""}`;
   link.addEventListener("click", () => openSettingsModal("models"));
   container.append(text, link);
   if (!dismissible) return;
@@ -2006,20 +2274,12 @@ function renderAiOfflineNotice(container, what, { dismissible = false } = {}) {
   container.append(close);
 }
 
-//: The popup agent is the one surface with nothing to fall back to, so its
-//: field and its starters are disabled with the rest (decision 11's "visible,
-//: disabled": never hidden, so a reader can still see what it would offer).
+//: The popup agent no longer closes with no model (row 1 above): every
+//: starter and any act the reading knows runs without one, so its field and
+//: starters stay open and only say, on hover, what is answered how.
 function syncAgentPaletteAvailability() {
-  const off = aiIsOff();
   const input = $("command-palette-input");
-  if (input) {
-    input.disabled = off;
-    input.title = off ? `${AI_OFFLINE_HINT}.` : "";
-  }
-  for (const chip of document.querySelectorAll("#command-palette-starters [data-example]")) {
-    chip.disabled = off;
-    if (off) chip.title = `${AI_OFFLINE_HINT}.`;
-  }
+  if (input) input.title = aiIsOff() ? "No model: acts and readings from your notes" : "";
 }
 
 // What the AI is doing, as one decision.
@@ -2352,7 +2612,7 @@ function renderStatusBar() {
       label: others > 0 ? `${task.label} (+${others})` : task.label,
       title:
         `${task.label}${task.detail ? `, ${task.detail}` : ""}` +
-        "\n\nClick to open Background tasks.",
+        "\n\nClick to open Activity, where it can stop.",
     });
   }
 
@@ -2522,6 +2782,15 @@ function renderSearchEngineHealth(status) {
 //, every other reader in the app already consults it, and a second store for
 // the same fact is how two of them end up disagreeing. These buttons just show
 // it and set it.
+//: Whether Agent mode can run right now: a model that can answer
+//: (`model_ready`: a reachable server is not enough, INBOX 778), or the Needle
+//: extra on disk (decision 22). No status yet or a failed poll counts as
+//: neither. One reader, so the segment, the "Ask about this" switch and the Web
+//: toggle's title cannot disagree.
+function agentModeAvailable() {
+  return modelStatus?.model_ready === true || !!modelStatus?.tools_engine;
+}
+
 function renderChatModeSeg() {
   //: **Agent mode needs something that can call tools** (INBOX 725, the
   //: owner: "maybe agent mode should be disabled though unless needle is used
@@ -2530,17 +2799,18 @@ function renderChatModeSeg() {
   //: saved choice, which comes back with the model. With Needle ready it runs
   //: there, and says so.
   const engine = modelStatus?.tools_engine || null;
-  const gated = aiIsOff() && !engine;
+  const gated = !agentModeAvailable();
   const agentButton = document.querySelector('#chat-mode-seg [data-chat-mode="agent"]');
   if (agentButton) {
     if (agentButton.dataset.enabledTitle === undefined) agentButton.dataset.enabledTitle = agentButton.title;
     agentButton.disabled = gated;
     agentButton.title = gated
       ? `Agent mode needs a model, or the Needle extra, to call tools. ${AI_OFFLINE_HINT}.`
-      : aiIsOff() && engine
+      : engine
         ? "Agent mode runs on Needle with no model: it calls tools and writes no prose of its own."
         : agentButton.dataset.enabledTitle;
   }
+  renderWebSearchToggle();
   const agent = $("tools-toggle").checked && !gated;
   // Two `addEventListener` calls for Quit and Clear-history used to sit here,
   // spliced into the middle of this function by an editing accident. It parsed,

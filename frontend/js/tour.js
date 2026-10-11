@@ -726,6 +726,8 @@ function tourUsable(el) {
 //: anyway: it costs one extra `getBoundingClientRect` per step and it is the
 //: difference between a card beside a button and a card in another postcode.
 function tourPlaceFixed(el, left, top) {
+  //: Placed, so it may be seen (hidden in `openTour` until now).
+  if (el.id === "tour-card") el.style.visibility = "";
   //: **Measured against a probe that never moves, then checked a frame
   //: later** (INBOX 397, the owner's desktop window, three reports). The
   //: old pass wrote a position, read the element straight back and added
@@ -1296,6 +1298,9 @@ async function tourWaitForTarget(step) {
   let last = "";
   for (;;) {
     const found = tourResolve(step);
+    // Before the visibility test: a hover-only control is not visible until
+    // its card is revealed, and would otherwise time out and be dropped.
+    tourReveal(found.el);
     if (tourVisible(found.el)) {
       const box = found.el.getBoundingClientRect();
       const key = [box.left, box.top, box.width, box.height].map(Math.round).join(",");
@@ -1419,7 +1424,7 @@ async function tourWhiteboard(face) {
   const id = face === "map" ? context.map : context.board;
   if (face === "map" && id == null) return;
   if (onCanvas && (window.currentBoardId ?? null) === (id ?? null)) return;
-  if (typeof openWhiteboardBoard === "function") await openWhiteboardBoard(id ?? null);
+  await openWhiteboardBoard(id ?? null);
 }
 
 //: **A settings step opens the fold its control is folded into** (INBOX 426
@@ -1613,8 +1618,17 @@ function tourVerifyCard(tries = 0) {
   );
 }
 
+//: A card's actions show on hover only, so a step pointing at one framed an
+//: empty square (INBOX 745 d). The card holding the target takes `tour-reveal`,
+//: which the hover rules also match, for as long as the step shows.
+function tourReveal(el) {
+  for (const card of document.querySelectorAll(".tour-reveal")) card.classList.remove("tour-reveal");
+  el?.closest?.(".library-card")?.classList.add("tour-reveal");
+}
+
 async function tourShow() {
   const run = tourRun;
+  tourReveal(null);
   //: **One walk at a time.** Next pressed twice while a tab is loading used to
   //: start a second walk over the same run while the first was still
   //: awaiting, and the two then spliced and rendered over each other. Each
@@ -1752,6 +1766,7 @@ function openTour(sectionId) {
     if (typeof toast === "function") {
       toast("There is nothing to show in that part of the tour.");
     }
+    document.dispatchEvent(new Event("tour-closed"));
     return;
   }
   tourRun = {
@@ -1768,6 +1783,14 @@ function openTour(sectionId) {
     // the tour ends, whether it ends at the last card, at Skip or at Escape.
     returnFocus: document.activeElement,
   };
+  //: **Hidden until it has a place** (INBOX 745 (d): "a wierd blank tour
+  //: panel showed in the top left corner for a couple seconds then it righted
+  //: itself"). The card was shown with the layers, empty and at its last
+  //: position, while the first step's tab and lazy code loaded. It keeps its
+  //: box (visibility, not display, so it can be measured) and is shown by
+  //: `tourPlaceFixed` once the step's text is in it and it has been placed.
+  //: Inline rather than a class: the boot CSS budget (test_boot_budget.py).
+  document.getElementById("tour-card").style.visibility = "hidden";
   for (const id of TOUR_LAYERS) document.getElementById(id).classList.remove("hidden");
   tourStep();
 }
@@ -1776,7 +1799,10 @@ function tourClose(finished) {
   if (!tourRun) return;
   const run = tourRun;
   tourRun = null;
+  tourReveal(null);
   for (const id of TOUR_LAYERS) document.getElementById(id).classList.add("hidden");
+  //: The first-run queue's cue that the screen is the next surface's.
+  document.dispatchEvent(new Event("tour-closed"));
   // Finished or skipped, the answer is the same: this person has been offered
   // the tour and nothing may offer it to them again by itself. Kept beside
   // `onboardingDone`, and mirrored to the notebook's own preferences by

@@ -442,6 +442,7 @@ async function openTagsSheet(focusName = null) {
         "Sort by name, by how many notes carry a tag, or by the one used most recently. Used once shows the tags only one note carries, the usual place for a typo. The count after a tag shows its notes.",
         "Remove from all notes takes the tag off every note. The notes themselves are never deleted, and every change can be undone.",
         "To add or remove tags on particular notes, choose Select in the Notes list, tick them and press Tags. To change one note's tags, right-click a tag on its card.",
+        "A suggested tag you turn down on three notes or more is offered less on every note. Turned down, under the list, lists them; Offer again puts one back.",
         "Keys: arrows move, Space selects, Enter shows the notes, F2 renames, Delete removes.",
       ]) {
         const p = document.createElement("p");
@@ -489,7 +490,12 @@ async function openTagsSheet(focusName = null) {
       footer.className = "manage-cat-footer hidden";
       footer.setAttribute("role", "region");
       footer.setAttribute("aria-label", "Selected tags");
-      card.append(sub, helpBody, tools, suggest, list, footer);
+      const turnedDown = document.createElement("div");
+      turnedDown.className = "manage-suggest hidden";
+      turnedDown.setAttribute("role", "region");
+      turnedDown.setAttribute("aria-label", "Tags turned down often");
+      card.append(sub, helpBody, tools, suggest, list, footer, turnedDown);
+      drawTurnedDown(turnedDown);
       initHelpToggles(card);
       function redraw() {
         drawTagRows(list, footer, state);
@@ -515,6 +521,40 @@ async function openTagsSheet(focusName = null) {
       requestAnimationFrame(() => (start || filter).focus());
     },
   });
+}
+
+//: **Learning from turn-downs, with a way back** (INBOX 781). A suggested tag
+//: discarded on several notes is offered less everywhere (`ai/tagging.py`,
+//: `TURNED_DOWN_OFTEN`); this lists those, the look-alike rows' recipe, and
+//: Offer again forgets the turn-downs so far.
+async function drawTurnedDown(box) {
+  const rows = ((await apiJson("/tags/turned-down", { silent: true }).catch(() => [])) || []).filter((row) => row.damped);
+  box.replaceChildren();
+  box.classList.toggle("hidden", !rows.length);
+  if (!rows.length) return;
+  const head = document.createElement("p");
+  head.className = "manage-suggest-head";
+  setLabel(head, "ph:thumbs-down Turned down: offered less");
+  box.appendChild(head);
+  for (const { tag, notes } of rows.slice(0, 5)) {
+    const row = document.createElement("div");
+    row.className = "manage-suggest-row";
+    const names = document.createElement("span");
+    names.className = "manage-suggest-names";
+    names.textContent = `${tag}, turned down on ${notes} notes`;
+    const again = smallButton("ph:arrow-counter-clockwise Offer again", `Suggest ${tag} as before`, async () => {
+      try {
+        await apiJson("/tags/turned-down/offer-again", { method: "POST", body: JSON.stringify({ tag }) });
+        toast(`${tag} is suggested again.`);
+      } catch (error) {
+        toast(`Could not offer ${tag} again: ${error.message}`, true);
+      }
+      drawTurnedDown(box);
+    });
+    again.setAttribute("aria-label", `Offer ${tag} again`);
+    row.append(names, again);
+    box.appendChild(row);
+  }
 }
 
 function drawTagRows(list, footer, state) {

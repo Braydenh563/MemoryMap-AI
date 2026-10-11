@@ -28,7 +28,8 @@ def _rule(selector: str) -> str:
 
 
 def test_the_reason_is_a_fact_in_the_facts_line_not_a_row_of_its_own():
-    assert '(row.querySelector(":scope > .entry-meta") || row).appendChild(badge);' in ASK
+    assert "placeResultBadge(row, badge);" in ASK
+    assert 'meta.insertBefore(badge, meta.querySelector(":scope > .entry-date"));' in ASK
     assert "row.appendChild(badge);" not in ASK
     quiet = _rule("#raw-results .entry-meta > .result-reason-chip")
     for decl in ("background: none;", "color: var(--muted);", "font-weight: 400;", "padding-inline: 0;"):

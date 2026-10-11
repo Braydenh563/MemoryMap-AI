@@ -12,6 +12,7 @@ four tool schemas instead of twenty-six (§11a).
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -1115,8 +1116,6 @@ def test_no_shipped_step_names_a_tool_it_does_not_check_for():
     The one exception is the step that *forbids* the call, where requiring it
     would be the opposite of what the step is for.
     """
-    import re
-
     from memorymap.ai import skills as skills_mod
 
     tools = {t for sk in skills_mod.BUILTIN_SKILLS for t in (sk.get("tools") or [])}
@@ -1215,3 +1214,32 @@ def test_no_built_in_step_asks_the_model_for_the_time_to_set_a_reminder():
     assert "get_current_time" not in daily["tools"]
     remind = next(text for text in texts if "set_reminder" in text)
     assert "own words" in remind
+
+
+def _agent_intent_words() -> set[str]:
+    source = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "skills.js").read_text(encoding="utf-8")
+    block = source.split("const AGENT_INTENT_RE = new RegExp(", 1)[1].split('"i"', 1)[0]
+    joined = "".join(re.findall(r'^\s*"([^"]*)"', block, re.M))
+    return set(joined.replace("\\\\b(?:", "").replace(")\\\\b", "").split("|"))
+
+
+def test_agent_nudge_verbs_ask_for_an_action_not_a_question() -> None:
+    """The owner's 2026-10-10 triage: "how do I format a date" is a question,
+    so "format", "fix", "plan" and the like do not offer Agent mode; "draft",
+    "outline" and "generate" ask for something written and do."""
+    words = _agent_intent_words()
+    assert {"draft", "outline", "generate"} <= words
+    assert not words & {"fix", "repair", "modify", "adjust", "plan", "build", "format", "translate"}
+
+
+def test_the_skill_nudge_waits_for_a_model_and_tools() -> None:
+    """The owner: "The ai model isnt running, skills are disabled, and it
+    still suggests skills". The offer is gated on both, and the skills button
+    carries the model gate every other AI control uses."""
+    app = app_js_text()
+    nudge = app.split("function renderChatNudge(", 1)[1].split("\nfunction ", 1)[0]
+    skill_offer = nudge.split('chatNudgeDismissed.has("skill")', 1)
+    assert len(skill_offer) == 2, "the skill offer moved; this test must follow it"
+    gate = skill_offer[1].split("{", 1)[0]
+    assert "aiIsOff()" in gate and '$("tools-toggle")?.checked' in gate
+    assert 'trigger.dataset.needsModel = "' in app.split("async function loadChatSkills(", 1)[1].split("\nfunction ", 1)[0]

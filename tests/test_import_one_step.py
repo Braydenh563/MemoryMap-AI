@@ -58,7 +58,8 @@ def test_each_import_is_one_button_over_a_hidden_picker():
 
 def test_the_import_offers_undo_with_the_ids():
     assert DATA.count("undoImport(") >= 3, "both imports offer the undo"
-    assert "toastAction(" in DATA
+    # Rule 1.8: the toast's Undo is an entry on the undo stack (offerUndo).
+    assert "offerUndo(" in DATA
 
 
 def test_no_native_file_input_is_drawn():

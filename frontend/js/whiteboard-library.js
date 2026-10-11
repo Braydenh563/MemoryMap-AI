@@ -153,7 +153,7 @@ function wbSyncSidebarKind() {
 function wbRenderSideMap() {
   const host = document.getElementById("wb-side-map-facts");
   if (!host || !wbIsMap()) return;
-  host.replaceChildren(wbMapStatsList(wbMapStats(wbMapIndex())));
+  host.replaceChildren(wbMapStatsList(wbMapStats(wbMapIndex()), { tiles: true }));
 }
 
 // --- loading -------------------------------------------------------------------
@@ -183,6 +183,24 @@ async function wbLoadLibrary({ force = false } = {}) {
       wbLibSets.set(s.key, await res.json());
     } catch {
       // A set that does not load is left out; the rest still show.
+    }
+  }));
+  wbRenderLibrary();
+}
+
+//: The converted draw.io sets (`shape_sets`, 196 shapes, 0.37 MB) are not
+//: fetched with the panel: a set comes when its group is opened, and all of
+//: them when a search is typed, so a search finds a router or a gateway
+//: without the person knowing which set holds it.
+async function wbLoadShapeSets(keys = null) {
+  const want = (wbLibState.lib?.shape_sets || []).filter((s) => !wbLibSets.has(s.key) && (!keys || keys.includes(s.key)));
+  if (!want.length) return;
+  await Promise.all(want.map(async (s) => {
+    try {
+      const res = await api(`/board-library/${s.path}${lazyAssetStamp()}`, { silent: true });
+      wbLibSets.set(s.key, { ...(await res.json()), name: s.name });
+    } catch {
+      // A set that does not load stays a closed group; the rest still show.
     }
   }));
   wbRenderLibrary();
@@ -249,7 +267,7 @@ async function wbPlaceSticker(choice, at = null) {
     await wbLoadIcons();
     const entry = wbLibIconEntry(choice.value);
     if (!entry) {
-      toast("That icon is not in the library's set.", true);
+      toast("That icon is not in the library's set.", "info");
       return null;
     }
     await wbLibPlace(entry, point);
@@ -264,8 +282,8 @@ async function wbPlaceSticker(choice, at = null) {
 
 //: The board's Insert, Emoji and icons…: the picker stays open, so several
 //: can be placed or dragged; a pick lands in the middle of the view.
-function wbOpenStickerPicker() {
-  const anchor = document.querySelector('[aria-controls="wb-insert-menu"]');
+function wbOpenStickerPicker(from = null) {
+  const anchor = from?.isConnected ? from : document.querySelector('[aria-controls="wb-insert-menu"]');
   pickIconOrEmoji({
     anchor,
     title: "Emoji and icons to place",
@@ -325,7 +343,11 @@ function wbLibThumb(entry) {
   //: A branch and a drawing are drawn by whiteboard-templates.js, so a tile,
   //: the New board dialog and a new map's offer draw one picture (INBOX 715).
   if (entry.kind === "branch" || payload.branch) return wbThumbSvg(wbMapThumbSpec(entry));
-  return wbThumbSvg(wbBoardThumbSpec(entry.kind === "template" ? payload.element || {} : payload));
+  //: A tile of something that is placed draws it as placed: in the pen's ink
+  //: (a template's picture is a whole board at a glance and stays as it was).
+  return entry.kind === "template"
+    ? wbThumbSvg(wbBoardThumbSpec(payload.element || {}))
+    : wbThumbSvg(wbBoardThumbSpec(payload, { placed: true, ink: wbLibInk() }));
 }
 
 function wbLibTile(entry) {
@@ -347,7 +369,7 @@ function wbLibTile(entry) {
   tile.append(name);
   if (entry.favourite) {
     const star = document.createElement("i");
-    star.className = "ph-fill ph-star wb-lib-star";
+    star.className = "ph ph-star star-fill wb-lib-star";
     star.setAttribute("aria-hidden", "true");
     tile.append(star);
   }
@@ -358,7 +380,7 @@ function wbLibTile(entry) {
   return tile;
 }
 
-function wbLibGroup(host, key, title, entries, { open = true, extra = null } = {}) {
+function wbLibGroup(host, key, title, entries, { open = true, extra = null, count: shown = null } = {}) {
   if (!entries.length && !extra) return;
   const details = document.createElement("details");
   details.className = "wb-lib-group";
@@ -373,7 +395,7 @@ function wbLibGroup(host, key, title, entries, { open = true, extra = null } = {
   words.textContent = title;
   const count = document.createElement("span");
   count.className = "muted wb-lib-count";
-  count.textContent = String(entries.length || "");
+  count.textContent = String(entries.length || shown || "");
   summary.append(caret, words, count);
   details.append(summary);
   const grid = document.createElement("div");
@@ -386,6 +408,7 @@ function wbLibGroup(host, key, title, entries, { open = true, extra = null } = {
   details.addEventListener("toggle", () => {
     wbLibFolds.set(key, details.open);
     if (key === "set:icons" && details.open && !wbLibState.libIcons) wbLoadIcons().then(() => wbRenderLibrary());
+    if (key.startsWith("set:drawio-") && details.open && !wbLibSets.has(key.slice(4))) wbLoadShapeSets([key.slice(4)]);
   });
   host.append(details);
 }
@@ -420,6 +443,7 @@ function wbRenderLibrary() {
     }
     wbLibGroup(list, "search", found.length ? `Results for "${query}"` : "Nothing matches", found);
     if (!map && !wbLibState.libIcons) wbLoadIcons().then(() => wbRenderLibrary());
+    if (!map) wbLoadShapeSets();
   } else {
     const byRef = new Map(all.map((e) => [e.ref, e]));
     const favourites = all.filter((e) => e.favourite);
@@ -431,7 +455,8 @@ function wbRenderLibrary() {
     //: map the one built-in set that applies there, its templates, which are
     //: branches; an empty set draws nothing.
     const order = (wbLibState.lib.sets || []).map((x) => x.key);
-    const sets = [...wbLibSets].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+    const shapeSets = wbLibState.lib.shape_sets || [];
+    const sets = [...wbLibSets].filter(([key]) => order.includes(key)).sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
     for (const [key, set] of sets) {
       wbLibGroup(list, `set:${key}`, set.name, all.filter((e) => e.group === `set:${key}`), { open: ["templates", "maps", "general", "flowchart"].includes(key) });
     }
@@ -454,6 +479,16 @@ function wbRenderLibrary() {
         more.textContent = "1,530 icons, drawn as shapes. Search finds one by name.";
       }
       wbLibGroup(list, "set:icons", "Icons", iconEntries, { open: false, extra: more });
+      for (const s of shapeSets) {
+        const loaded = wbLibSets.has(s.key);
+        let note = null;
+        if (!loaded) {
+          note = document.createElement("p");
+          note.className = "muted wb-lib-note";
+          note.textContent = wbLibFolds.get(`set:${s.key}`) ? "Loading…" : `${s.count} shapes from draw.io, each with its own connection points.`;
+        }
+        wbLibGroup(list, `set:${s.key}`, s.name, all.filter((e) => e.group === `set:${s.key}`), { open: false, extra: note, count: s.count });
+      }
     }
     for (const lib of wbLibState.lib.libraries || []) {
       const mine = all.filter((e) => e.group === `lib:${lib.id}`);
@@ -1387,6 +1422,22 @@ onDomReady(() => {
     const moved = await wbMapTidy({ quiet: true });
     toast(moved ? `Tidied ${moved} node${moved === 1 ? "" : "s"}.` : "Everything is already where this layout puts it.");
   });
+  //: The tiles are drawn in the pen's ink (`wbLibThumb`), so a new ink draws
+  //: them again, once the picker has settled, where the list was scrolled to.
+  let inkTimer = 0;
+  for (const type of ["input", "change"]) {
+    document.getElementById("wb-rail-ink")?.addEventListener(type, () => {
+      clearTimeout(inkTimer);
+      inkTimer = setTimeout(() => {
+        const panel = document.getElementById("wb-sidebar-panel");
+        if (!wbLibState.lib || !panel || panel.classList.contains("hidden") || wbSideState().tab !== "library") return;
+        const list = document.getElementById("wb-lib-list");
+        const was = list?.scrollTop || 0;
+        wbRenderLibrary();
+        if (list) list.scrollTop = was;
+      }, 150);
+    });
+  }
   const importInput = document.getElementById("wb-lib-import");
   importInput?.addEventListener("change", () => {
     const file = importInput.files?.[0];
@@ -1471,9 +1522,181 @@ function wbLayerButton(className, icon, title) {
   return button;
 }
 
+// --- Named layers (canvasdepth, INBOX 797; WHITEBOARD_PLAN section 6) ------
+//
+// draw.io's layers: a named set of items that hides, shows and locks
+// together. The board keeps the list (`layers` in its settings), an item
+// names its layer in `data.layer`, and `wbItemHidden` and `wbIsLocked` read
+// the layer's flags, so every place that skips a hidden or locked item
+// skips these too. Above the paint-order tree, one row per layer: the eye,
+// the lock, the name with its count, and a menu.
+
+function wbNamedLayerOf(kind, item) {
+  if (kind === "sketch") return wbSketchData(item)?.layer || null;
+  return kind === "object" ? item.data?.layer || null : null;
+}
+
+async function wbSaveNamedLayers(layers, { undo = true, said = "" } = {}) {
+  const id = window.currentBoardId;
+  if (!id) {
+    toast("The default board has no layers. Make a board of your own to use them.", "info");
+    return false;
+  }
+  const before = (wbState.layers || []).map((x) => ({ ...x }));
+  try {
+    const out = await apiJson(`/whiteboard/boards/${id}`, { method: "PUT", body: JSON.stringify({ layers }) });
+    if (String(window.currentBoardId ?? "") !== String(id)) return false;
+    wbState.layers = out.layers || [];
+  } catch (err) {
+    toast(err.message || voiceLine("failed", { what: "change the layers" }), true);
+    return false;
+  }
+  if (undo) wbPushUndo({ action: "layers", before });
+  wbScheduleRender();
+  wbRenderLayers();
+  if (said) wbAnnounce(said);
+  return true;
+}
+
+//: Puts the selection on a layer (null: off every layer), one undo step.
+async function wbMoveSelectionToLayer(layerId) {
+  const entries = wbSelectionEntries().map((e) => [e.kind, e.item]);
+  if (wbSelectedItem) {
+    const item = wbFindItem(wbSelectedItem.kind, wbSelectedItem.id);
+    if (item && !entries.some(([k, i]) => k === wbSelectedItem.kind && i === item)) entries.push([wbSelectedItem.kind, item]);
+  }
+  const movable = entries.filter(([kind]) => kind !== "node");
+  if (!movable.length) {
+    toast(entries.length ? "Cards stay off layers; select shapes, text or drawings." : "Select something to put on the layer first.", "info");
+    return 0;
+  }
+  const undo = [];
+  for (const [kind, item] of movable) {
+    if (wbNamedLayerOf(kind, item) === layerId) continue;
+    undo.push({ action: "move", kind, id: item.id, before: WB_KIND_INFO[kind].payload(item) });
+    if (kind === "object") {
+      const data = { ...item.data };
+      if (layerId) data.layer = layerId;
+      else delete data.layer;
+      item.data = data;
+      await wbSaveObject(item);
+    } else {
+      await wbSaveSketchProps(item, { layer: layerId || undefined });
+    }
+  }
+  wbPushMoveBatch(undo);
+  wbScheduleRender();
+  wbRenderLayers();
+  const name = (wbState.layers || []).find((x) => x.id === layerId)?.name;
+  wbAnnounce(`${undo.length} item${undo.length === 1 ? "" : "s"} ${name ? `moved to ${name}` : "taken off their layer"}.`);
+  return undo.length;
+}
+
+async function wbNewNamedLayer() {
+  const layers = wbState.layers || [];
+  const name = await promptDialog("Name the new layer", `Layer ${layers.length + 1}`, { confirmLabel: "Add layer" });
+  if (!name || !name.trim()) return;
+  const layer = { id: `l${Date.now().toString(36)}`, name: name.trim().slice(0, 60), hidden: false, locked: false };
+  if (await wbSaveNamedLayers([...layers, layer], { said: `Layer ${layer.name} added.` }) && (wbMultiSelection.size || wbSelectedItem)) {
+    await wbMoveSelectionToLayer(layer.id);
+  }
+}
+
+function wbNamedLayerSet(id, patch, said) {
+  return wbSaveNamedLayers((wbState.layers || []).map((x) => (x.id === id ? { ...x, ...patch } : x)), { said });
+}
+
+function wbNamedLayerItems(id) {
+  const out = [];
+  for (const kind of ["object", "sketch"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) if (wbNamedLayerOf(kind, item) === id) out.push([kind, item]);
+  }
+  return out;
+}
+
+function wbNamedLayerMenu(layer) {
+  return kebabMenu([
+    { label: "ph:arrow-square-in Move the selection here", run: () => wbMoveSelectionToLayer(layer.id) },
+    { label: "ph:selection-all Select what is on it", run: () => {
+      clearWbSelection();
+      for (const [kind, item] of wbNamedLayerItems(layer.id)) wbMultiSelection.add(wbMultiKey(kind, item.id));
+      wbApplySelectionHighlight();
+      wbUpdateSelectionBar();
+    } },
+    { label: "ph:pencil-simple Rename", run: async () => {
+      const name = await promptDialog("Rename the layer", layer.name, { confirmLabel: "Rename" });
+      if (name && name.trim()) wbNamedLayerSet(layer.id, { name: name.trim().slice(0, 60) }, "Layer renamed.");
+    } },
+    { label: "ph:trash Delete the layer", title: "Its items stay on the board, on no layer", group: "delete", run: async () => {
+      const items = wbNamedLayerItems(layer.id);
+      if (items.length) {
+        clearWbSelection();
+        for (const [kind, item] of items) wbMultiSelection.add(wbMultiKey(kind, item.id));
+        await wbMoveSelectionToLayer(null);
+        clearWbSelection();
+      }
+      wbSaveNamedLayers((wbState.layers || []).filter((x) => x.id !== layer.id), { said: `Layer ${layer.name} deleted; its items stay.` });
+    } },
+  ], `More for the layer ${layer.name}`);
+}
+
+function wbRenderNamedLayers(tree) {
+  let box = document.getElementById("wb-named-layers");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "wb-named-layers";
+    box.className = "wb-named-layers";
+    tree.before(box);
+  }
+  box.replaceChildren();
+  box.hidden = wbIsMap();
+  if (box.hidden) return;
+  const head = document.createElement("div");
+  head.className = "wb-named-layers-head";
+  const title = document.createElement("span");
+  title.className = "wb-layer-head";
+  title.textContent = "Layers";
+  const add = smallButton("ph:plus", "New layer, with the selection on it", () => wbNewNamedLayer());
+  add.classList.add("wb-named-layer-add");
+  head.append(title, add);
+  box.append(head);
+  const list = document.createElement("ul");
+  list.className = "wb-named-layer-list";
+  list.setAttribute("aria-label", "Named layers");
+  for (const layer of wbState.layers || []) {
+    const li = document.createElement("li");
+    li.className = "wb-named-layer";
+    li.dataset.layer = layer.id;
+    li.classList.toggle("is-hidden", layer.hidden);
+    li.classList.toggle("is-locked", layer.locked);
+    const eye = smallButton(layer.hidden ? "ph:eye-slash" : "ph:eye", `${layer.hidden ? "Show" : "Hide"} the layer ${layer.name}`,
+      () => wbNamedLayerSet(layer.id, { hidden: !layer.hidden }, `${layer.name} ${layer.hidden ? "shown" : "hidden"}.`));
+    eye.setAttribute("aria-pressed", String(layer.hidden));
+    const lock = smallButton(layer.locked ? "ph:lock-simple" : "ph:lock-simple-open", `${layer.locked ? "Unlock" : "Lock"} the layer ${layer.name}`,
+      () => wbNamedLayerSet(layer.id, { locked: !layer.locked }, `${layer.name} ${layer.locked ? "unlocked" : "locked"}.`));
+    lock.setAttribute("aria-pressed", String(layer.locked));
+    const name = document.createElement("span");
+    name.className = "wb-layer-name";
+    name.textContent = layer.name;
+    const count = document.createElement("span");
+    count.className = "muted wb-lib-count";
+    count.textContent = String(wbNamedLayerItems(layer.id).length);
+    li.append(eye, lock, name, count, wbNamedLayerMenu(layer));
+    list.append(li);
+  }
+  if (!(wbState.layers || []).length) {
+    const none = document.createElement("li");
+    none.className = "muted wb-lib-note";
+    none.textContent = "None yet. Select things and press + to put them on a layer you can hide or lock.";
+    list.append(none);
+  }
+  box.append(list);
+}
+
 function wbRenderLayers() {
   const tree = document.getElementById("wb-layers-tree");
   if (!tree || tree.closest("[hidden]")) return;
+  wbRenderNamedLayers(tree);
   const map = wbIsMap();
   const activeKey = tree.querySelector("[tabindex='0']")?.dataset.key;
   tree.replaceChildren();

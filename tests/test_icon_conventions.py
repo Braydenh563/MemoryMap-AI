@@ -36,11 +36,12 @@ STRAY_OVERFLOW = ("dots-three-circle", "dots-three-outline", "dots-three-circle-
 #: markup. A new vertical one is a decision, so it is a line here.
 VERTICAL_KEBABS = {
     "categories-panel.js": 1,  # Manage categories, one row per category
-    "documents.js": 1,  # the documents rail's rows
+    "documents.js": 2,  # the documents rail's rows; a history version's row (Brief 76)
     "link-types.js": 1,  # the relation types list
     "note-cards.js": 1,  # a note's connection rows
     "note-properties.js": 1,  # the note types list
     "notes-list.js": 1,  # the Notes categories rail
+    "search.js": 1,  # the saved searches under the Notes categories rail (Brief 47)
     "settings-packages.js": 2,  # a package row, a bundle row
     "sheets-selects.js": 1,  # the Chats rail
     "shell-reminders.js": 1,  # a reminder row
@@ -160,7 +161,7 @@ AGENT_ICON = "strategy"
 #: Where the agent glyph is drawn, by file. Each is the agent itself or one of
 #: its runs; a new place is a decision, so it is a line here.
 AGENT_ICON_PLACES = {
-    "index.html": 5,  # the popup agent's head and input, Agent activity, Agent mode (toggle, segment)
+    "index.html": 4,  # the popup agent's head and input, Agent mode (toggle, segment); Activity wears ph-activity (decision 70)
     "agent-activity.js": 1,  # the status bar's runs
     "chat-attach.js": 1,  # an agent turn's run in the activity panel
     "chat.js": 1,  # a past turn answered in Agent mode
@@ -285,7 +286,8 @@ def test_ask_and_agent_wear_the_two_glyphs_in_the_chat_dock() -> None:
     agent = re.search(r'<button data-chat-mode="agent"[^>]*>\s*<i class="ph (ph-[\w-]+)', HTML)
     assert ask and ask.group(1) == f"ph-{AI_ICON}", ask and ask.group(1)
     assert agent and agent.group(1) == f"ph-{AGENT_ICON}", agent and agent.group(1)
-    assert f'ph-{AGENT_ICON} ph-lead" aria-hidden="true"></i> Agent activity' in HTML
+    #: The panel is Activity now, every job and the agent's runs (decision 70).
+    assert 'ph-activity ph-lead" aria-hidden="true"></i> Activity' in HTML
 
 
 def test_design_md_has_the_ai_and_agent_row() -> None:

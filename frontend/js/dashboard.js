@@ -71,7 +71,7 @@ const DASH_WIDGETS = {
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
   "on-this-day": { title: "ph:calendar-blank On this day", description: "What you wrote on this date in earlier months and years.", render: renderOnThisDayWidget },
-  digest: { title: "ph:newspaper Weekly digest", description: "A short roundup of what you wrote and did this week.", render: renderDigestWidget },
+  digest: { title: "ph:newspaper Digest", description: "Your day from the notes: what is due, open questions, what changed and quiet topics; Atlas writes the week on request.", render: renderDigestWidget },
   capture: { title: "ph:pencil-simple Quick capture", description: "A one-line box to jot a note without leaving the dashboard.", render: renderQuickCaptureWidget },
   reminders: { title: "ph:alarm Reminders", description: "Upcoming and overdue reminders, soonest first.", render: renderRemindersWidget },
   focus: { title: "ph:timer Focus timer", description: "A start/stop timer for focused writing sessions.", render: renderFocusTimerWidget },
@@ -117,6 +117,9 @@ const DASH_WIDGETS = {
   //: since it was the original and removing `onthisday` here needed no
   //: layout migration: `dashLayout()` already drops any saved id that
   //: isn't in this object.)
+  //: Brief 89 (statistics row 2): Screen Time's weekly report, drawn by
+  //: statistics.js, which also holds the page it opens.
+  week: { title: "ph:calendar-dots This week", description: "Notes made, words written and reminders done this week, against last week.", render: (body) => renderWeekWidget(body) },
   pace: { title: "ph:chart-line-up Writing pace", description: "How many words you have written each day this fortnight.", render: renderPaceWidget },
 };
 
@@ -145,7 +148,7 @@ const DASH_DEFAULT_WIDE = ["heatmap"];
 //: layout that has never been saved is affected; any saved choice wins.
 const DASH_DEFAULT_SHOWN = [
   "reminders", "recent-notes", "pinned", "capture",
-  "documents", "boards", "digest", "on-this-day", "heatmap",
+  "documents", "boards", "digest", "on-this-day", "heatmap", "week",
 ];
 
 //: Widgets added after the dashboard shipped that start switched off. The
@@ -153,7 +156,7 @@ const DASH_DEFAULT_SHOWN = [
 //: offered in the picker rather than appended to every existing dashboard.
 //: Applied only while a saved layout has never seen the widget: once anybody
 //: adds it, or saves a layout with it hidden, the saved layout decides.
-const DASH_OPT_IN = ["activity", "night"];
+const DASH_OPT_IN = ["activity", "night", "week"];
 
 function dashLayout() {
   const saved = (prefsCache && prefsCache.dashboard_layout) || {};
@@ -426,7 +429,7 @@ function fetchDashGraph() {
 //: `/reminders` three times over (WORLD_CLASS_PLAN A2). To the end of the
 //: list, not the first page: `/reminders` is `due_at` ascending, so a first
 //: page of old, ticked-off rows would hide everything upcoming
-//: (`agent-remaining/list-paging.md`).
+//: (`archive/agent-remaining/list-paging.md`).
 let dashRemindersInflight = null;
 let dashRemindersAt = 0;
 function dashReminders() {
@@ -458,13 +461,16 @@ async function dashEntries() {
 async function renderDashSubmessage() {
   const el = $("dash-submessage");
   if (!el) return;
-  const [stats, reminders] = await Promise.all([
+  const [stats, reminders, patterns] = await Promise.all([
     fetchDashStats().catch(() => null),
     // To the end: `/reminders` is `due_at` ascending, so a first page of
     // old, ticked-off rows would hide everything upcoming from this count
     // (`archive/agent-remaining/list-paging.md`); `dashReminders` shares
     // the one fetch across the widgets that need it.
     dashReminders().catch(() => []),
+    //: The Patterns line (CHAT_PLAN decision 32), its short form here and
+    //: the measured sentence on hover; Tidy shows it whole.
+    apiJson("/insights/patterns", { silent: true }).catch(() => null),
   ]);
   const bits = [];
   if (stats) {
@@ -489,15 +495,32 @@ async function renderDashSubmessage() {
     atlasStreak(streak);
     nameMarkBuddyStreak(streak);
   }
+  const pattern = patterns?.patterns?.[0];
+  if (pattern) bits.push(["patterns", `Patterns: ${pattern.short}`, pattern.text]);
   //: One span per fact, its separator inside it, so a view can fold one fact
   //: away whole: the Focused hero's glance says what is due (INBOX 675), and
   //: hides the reminders fact here rather than saying it twice.
   el.replaceChildren(
-    ...bits.map(([kind, text], i) => {
+    ...bits.map(([kind, text, whole], i) => {
       const bit = document.createElement("span");
       bit.className = "dash-sub-bit";
       bit.dataset.bit = kind;
       bit.textContent = i ? ` · ${text}` : text;
+      if (whole) bit.title = whole;
+      //: The pattern's Confirm and Not right (CHAT_PLAN decision 60) behind
+      //: one ⋯, so the line stays one line; a confirmed one has neither.
+      if (kind === "patterns" && !pattern.confirmed) {
+        const send = (verdict) =>
+          insightSend(pattern, verdict)
+            .then(() => renderDashSubmessage())
+            .catch((error) => toast(error.message, true));
+        bit.appendChild(
+          kebabMenu(
+            INSIGHT_VERDICT_ITEMS.map((item) => ({ label: item.label, title: item.title, run: () => send(item.verdict) })),
+            "Is this pattern right?"
+          )
+        );
+      }
       return bit;
     })
   );
@@ -1323,12 +1346,21 @@ function renderQuickLinks() {
   const box = $("dash-quicklinks");
   if (!box) return;
   if (quickEditing) return quickAccessEdit();
+  //: The tiles' lines come from the lazy catalogue (app-features.js), already in
+  //: by the idle load; a first paint ahead of it waits and draws once.
+  if (typeof featureCatalog !== "function") return void lazyScript("/js/app-features.js").then(renderQuickLinks);
   const heading = document.createElement("p");
   heading.className = "launch-label";
   heading.textContent = "Quick access";
   const head = document.createElement("div");
   head.className = "launch-head";
-  head.append(heading);
+  //: **Its own ⋯ on the title's line, at the right** (the owner, 2026-10-10:
+  //: "a subtle like meatball icon in the top right on the same line as the
+  //: quick access title ... for easier and more intuitive access to these
+  //: buttons"): the Quick access half of Customise (Edit, Reset highlights,
+  //: Reset), the same items, so the two cannot disagree. On the heading's
+  //: line it covers nothing, which was the fault of the ⋯ this row had once.
+  head.append(heading, kebabMenu(dashCustomiseItems().filter((item) => item.group === "quick"), "Quick access options"));
   const row = document.createElement("div");
   row.className = "launch-row launch-row-start";
   const tints = quickTints();
@@ -1473,192 +1505,7 @@ async function renderDashMore() {
   if (serial === dashMoreSerial && host.isConnected) build(entries);
 }
 
-// --- the "everything this app does" browser ----------------------------------
-// Grouped, searchable, and every entry either jumps you there or explains
-// itself: the fastest way to discover features you didn't know existed.
-function featureCatalog() {
-  return [
-    { group: "Capture & notes", items: [
-      { name: "Capture a thought", desc: "Save anything; Atlas files it into a category and suggests tags.", reveal: "notes-capture" },
-      { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", reveal: "notes-template" },
-      { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", reveal: "notes-improve" },
-      // The writing room is a sub-tab of Notes and was in the palette but in
-      // no catalogue row, which is the shape this audit was for: a surface
-      // that shipped, got a command, and never got its line in the list of
-      // what the app can do.
-      { name: "Writing room", desc: "Turn rough thoughts into a drafted note, section by section.", reveal: "writing-room" },
-      { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", reveal: "sketch" },
-      { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", reveal: "notes-dictation" },
-      { name: "New meeting", desc: "A meeting note: when, who, agenda, notes, decisions and action items.", reveal: "meeting-new" },
-      { name: "Record a meeting", desc: "Transcribe a meeting or lecture as it happens, saved as a meeting note.", reveal: "meeting" },
-      { name: "Attachments", desc: "Attach files and images to any note.", reveal: "notes-attach" },
-      // Beside Attachments, which is the entry a person who has files in the
-      // notebook is already reading. Asked for directly: "I want an easier and
-      // more accessible way to access the ocr workspace as a proper and more
-      // central feature." This browser and the command palette are the app's
-      // two answers to that, and the reader had been in neither.
-      { name: "Page reader", desc: "Open a PDF or picture beside the text read from it, page by page.", reveal: "page-reader" },
-      //: The reader's own row in Settings, Packages (the target `extra-row`,
-      //: which the OCR workspace's Manage and Install also go to).
-      { name: "Reading engines", desc: "Tesseract and RapidOCR, which read the text in pictures, and whether each is installed.", reveal: "extra-row", arg: "ocr" },
-      { name: "Threads", desc: "Continue a thought to build a train of related notes.", reveal: "notes-thread" },
-      { name: "Note links", desc: "Type [[ to point one note at another; the link works both ways.", reveal: "notes-capture" },
-      { name: "Checklists", desc: "Tick items off inside a note; the dashboard tracks what is left.", reveal: "notes-checklist" },
-      { name: "Private notes", desc: "Encrypt a note so it is readable only while the app is unlocked.", reveal: "notes-private" },
-      { name: "Pins & tags", desc: "Pin important notes and organise with tags.", reveal: "notes-favourite" },
-      //: INBOX 691: the tidying tools, each findable here (the owner: "no use
-      //: having them if the user doesnt know about them").
-      { name: "Tidy", desc: "Reviews with no AI: weak links, stray tags, notes without a category, duplicates, old reminders.", reveal: "tidy" },
-      { name: "Specific link reasons", desc: "Name what two linked notes share, a tag, a name or a week, instead of “similar in meaning”.", reveal: "tidy-links" },
-      { name: "Find duplicates", desc: "Notes that say much the same thing, merged into one with nothing lost.", reveal: "tidy-duplicates" },
-      { name: "Manage tags", desc: "Rename, merge or remove tags across every note.", reveal: "tag-manager" },
-      { name: "Filings to check", desc: "Notes Atlas filed with little certainty, each with Accept, Refile and Split.", reveal: "notes-review" },
-      { name: "Bin", desc: "Deleted notes, documents and reminders are recoverable until the bin is cleared.", reveal: "recycle-bin" },
-    ]},
-    { group: "Ask & chat", items: [
-      { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", reveal: "notes-ask" },
-      { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", reveal: "chat-input" },
-      { name: "Attach to a message", desc: "Point a message at notes, documents, files, images or a map you already have.", reveal: "chat-attach" },
-      { name: "Saved conversations", desc: "Every chat is kept, searchable, and can be picked up later.", reveal: "chat-conversations" },
-      { name: "Personas", desc: "Change the voice Atlas writes in: its own, Coach, Analyst, or yours.", reveal: "settings:personas" },
-      { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", reveal: "settings:skills" },
-      { name: "Agent mode", desc: "Let Atlas use its tools, search your notes, open a page, create, tag, link and organise.", reveal: "chat-agent-mode" },
-      // The popup agent has the same capability as Chat's agent mode and is
-      // reachable from every tab, which is exactly why it needs a row: a chord
-      // nobody has been told about is not a feature anyone has.
-      { name: "Ask from anywhere", desc: "Ctrl+Shift+A opens Atlas over whatever you are working on.", reveal: "agent-palette" },
-      { name: "What it remembers", desc: "See and edit the facts Atlas has kept about you.", reveal: "settings:memory" },
-      { name: "Web search", desc: "Opt-in, off by default: one of the two features that can go online.", reveal: "chat-web-search" },
-      { name: "Export chat", desc: "Download a conversation as Markdown.", reveal: "chat-export" },
-      { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", reveal: "set-search-relevance" },
-    ]},
-    // **Documents had no rows at all**, and the editor is one of the largest
-    // surfaces in the app: blocks, an outline, breadcrumbs, a spelling and
-    // style check with its own dictionary, tables, properties, block links and
-    // embeds, version history. Every row below opens the control it names on
-    // the newest document (`revealDocument`, app.js), and with no document at
-    // all it rings New document instead: a document-scoped action with no
-    // document open is a row that would otherwise do nothing.
-    { group: "Documents", items: [
-      { name: "New document", desc: "Long-form writing in Markdown, with live formatting as you type.", reveal: "doc-new" },
-      { name: "Document templates", desc: "Start from a prefilled document instead of a blank page.", reveal: "doc-templates" },
-      { name: "Blocks and the “/” menu", desc: "Type / for headings, quotes, callouts, tables, columns and embeds.", reveal: "doc-insert" },
-      { name: "Outline", desc: "Every heading as a list you can jump around by, marking where you are.", reveal: "doc-outline" },
-      { name: "Breadcrumbs", desc: "The heading trail above the text says where in the document the caret is.", reveal: "doc-crumbs" },
-      { name: "Find and replace", desc: "Search the document, step through matches, replace one or all.", reveal: "doc-find" },
-      { name: "Focus mode", desc: "Hide everything but the text you are writing.", reveal: "doc-focus" },
-      { name: "Document properties", desc: "Title, tags and your own fields, stored as front matter at the top.", reveal: "doc-properties" },
-      { name: "Tables", desc: "Build and edit Markdown tables without counting pipes.", reveal: "doc-tables" },
-      { name: "Block links and embeds", desc: "Link or quote a single paragraph from anywhere, by its own short id.", reveal: "doc-insert" },
-      { name: "Backlinks", desc: "What points at this document, from notes, maps, chats and other documents.", reveal: "doc-connections" },
-      { name: "Spelling and style", desc: "Findings in the margin for spelling, repeated words and clumsy phrasing.", reveal: "doc-prose" },
-      { name: "Your dictionary", desc: "Words you have taught it, so they stop being flagged everywhere.", reveal: "doc-dictionary" },
-      { name: "Word goal", desc: "Set a target and watch the count, reading time and structure as you write.", reveal: "doc-word-goal" },
-      { name: "Version history", desc: "Earlier saves of a document, with what changed, restorable.", reveal: "doc-history" },
-      { name: "AI edit", desc: "Rewrite, shorten, translate or review a passage, with the change reviewable before it lands.", reveal: "doc-ai" },
-      { name: "Export a document", desc: "Download it as Markdown, or print it to PDF with its formatting kept.", reveal: "doc-export" },
-    ]},
-    // Boards and maps were in the same position as Documents: built, reached
-    // from the Library's own sub-tab, and mentioned nowhere in the list of
-    // what the app does. A map is a board (see `createConceptMap`), so the two
-    // share a group rather than pretending to be separate canvases.
-    { group: "Boards, maps & drawing", items: [
-      { name: "New board", desc: "A whiteboard of cards, drawings, images and links you arrange yourself.", reveal: "board-new" },
-      { name: "Concept maps", desc: "A mind map made of real notes: branches, links and a reason on each connection.", reveal: "map-create" },
-      { name: "Grow a map by keyboard", desc: "Tab adds a branch off the selected topic, Enter one beside it.", reveal: "map-keyboard" },
-      { name: "Map templates", desc: "Start a map from a shape: a decision, a project, a subject to revise.", reveal: "map-templates" },
-      { name: "Arrange as mind map", desc: "Re-tidy a sprawling board into a readable tree in one move.", reveal: "board-arrange" },
-      { name: "Board overview", desc: "A miniature of the whole board, to see where you are and jump.", reveal: "board-overview" },
-      { name: "Find a card", desc: "Search the board you are on and step through the matches.", reveal: "board-find" },
-      { name: "The tool rail", desc: "Select, draw, shapes, text, links and images, grouped by what they do.", reveal: "board-tools" },
-      { name: "Context bar", desc: "The properties of whatever is selected, above the selection itself.", reveal: "board-context" },
-      { name: "Export a board", desc: "Save the board, or just what you selected, as an image.", reveal: "board-export" },
-    ]},
-    // The Library is the app's filing cabinet and had no rows either, which
-    // left six sub-tabs of real surfaces undiscoverable from here.
-    { group: "Library", items: [
-      { name: "Everything in one place", desc: "Notes, chats, documents, files and boards in one list you can filter.", tab: "library" },
-      { name: "Your documents", desc: "Every document, with its size, when you last touched it, and a preview.", reveal: "library-docs" },
-      { name: "Images", desc: "Every picture in the notebook, with its caption and where it is used.", reveal: "library-images" },
-      { name: "Files", desc: "PDFs and other files, with a first-page preview and what has been read from them.", reveal: "library-files" },
-      { name: "Bookmarks", desc: "Bookmarks, grouped, with the page's own title and description.", reveal: "library-links" },
-      { name: "AI skills", desc: "The skills you can run, what each one does, and how to add your own.", reveal: "library-skills" },
-      { name: "Contents", desc: "A table of contents for the whole notebook, by category and tag.", reveal: "library-contents" },
-      { name: "Where a file is used", desc: "Every file says which notes, documents and boards reference it.", reveal: "library-files" },
-    ]},
-    { group: "Map & discovery", items: [
-      { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", tab: "graph" },
-      { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", reveal: "graph-edit" },
-      { name: "Physics controls", desc: "Gravity, Spread and Link force sliders reshape the layout; Reshuffle layout deals a new one.", reveal: "graph-physics" },
-      { name: "Suggestions", desc: "Links to add, disagreements, names to merge and link types, decided one by one.", reveal: "suggestions" },
-      { name: "Suggested links", desc: "Atlas proposes connections between related notes.", reveal: "graph-suggest" },
-      { name: "People and things", desc: "Everyone and everything your notes name, each with its own page.", reveal: "entities" },
-      { name: "Kinds of link", desc: "Say what a link is (Part of, Cites, your own), with its name from the other end.", reveal: "relation-types" },
-      { name: "Note types", desc: "Meeting, Book, your own: a kind of note with its fields, kept at the top of each note.", reveal: "note-types" },
-      { name: "Timeline", desc: "Everything you have made, in order, as a grid or a branching line.", tab: "timeline" },
-      { name: "Zoom the timeline", desc: "By day, week, month or year, with a jump back to today.", reveal: "timeline-zoom" },
-      { name: "Timeline bands", desc: "Group the timeline by category, tag or kind of thing.", reveal: "timeline-bands" },
-      { name: "On this day", desc: "Notes you captured on this date in past months resurface.", reveal: "widget-on-this-day" },
-      { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", reveal: "notes-related" },
-      { name: "Find on this screen", desc: "Ctrl+F searches whatever tab you are looking at.", reveal: "global-find" },
-    ]},
-    { group: "Plan & focus", items: [
-      { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", tab: "reminders" },
-      { name: "Magic add", desc: "Type “call mum tomorrow evening” and Atlas schedules it.", reveal: "reminder-magic" },
-      { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", reveal: "widget-focus" },
-      { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", reveal: "widget-digest" },
-      { name: "Tensions", desc: "Find where your notes contradict each other, a decision reversed, a date that moved.", reveal: "tensions" },
-      // Resurfacing had shipped on two surfaces (the sort and the widget) and
-      // was named on neither list.
-      { name: "Forgotten first", desc: "Sort your notes by what is slipping out of reach: old, unlinked, unopened.", reveal: "notes-forgotten" },
-      { name: "Rediscover", desc: "Three faded notes a day, with the reason each one surfaced.", reveal: "widget-rediscover" },
-      { name: "Loose ends", desc: "How much of the notebook is connected, and the oldest notes that are not.", reveal: "widget-orphans" },
-      { name: "Unfinished", desc: "Notes with checklist items still waiting to be ticked.", reveal: "widget-unfinished" },
-      { name: "Writing pace", desc: "How many words you have written each day this fortnight.", reveal: "widget-pace" },
-      { name: "Activity heatmap", desc: "A year of capture activity at a glance.", reveal: "widget-heatmap" },
-      { name: "Streaks", desc: "How many days in a row you've captured something.", reveal: "widget-streak" },
-    ]},
-    { group: "Make it yours", items: [
-      { name: "Theme", desc: "Light, dark, or follow your system.", reveal: "set-theme" },
-      { name: "Accent colour", desc: "Presets or any custom colour you like.", reveal: "set-accent" },
-      { name: "Typography & density", desc: "Font, text size, and how roomy the layout feels.", reveal: "set-typography" },
-      { name: "Corner rounding & glass", desc: "Tune the shape and blur of every surface.", reveal: "set-radius" },
-      { name: "Animated background", desc: "Aurora, constellations, blobs or particles behind the app.", reveal: "set-background" },
-      { name: "A companion on screen", desc: "A small character that finds a free spot on each page and reacts to what you do.", reveal: "set-companion" },
-      { name: "Your look", desc: "Shuffle the face drawn from your name, or choose its parts yourself.", reveal: "settings:preferences" },
-      { name: "Accessibility", desc: "High-contrast mode and reduce-motion.", reveal: "set-contrast" },
-      { name: "Custom CSS", desc: "For tinkerers: your own style overrides.", reveal: "set-custom-css" },
-      { name: "Zoom the whole app", desc: "Ctrl with plus or minus scales every surface, and Ctrl+0 puts it back.", act: () => nudgeZoom(1) },
-      { name: "Dashboard layout", desc: "Show, hide, reorder and widen widgets.", reveal: "dash-layout" },
-      // Workspaces are the top-left control every tab is filtered by, and
-      // nothing in either list said they existed.
-      { name: "Workspaces", desc: "Keep work, study and home in separate notebooks that share one app.", reveal: "workspace-new" },
-      { name: "Note templates", desc: "Edit the shapes a new note can start from, or write your own.", reveal: "settings:templates" },
-    ]},
-    { group: "Data & control", items: [
-      { name: "Export", desc: "Download everything as JSON, Markdown or CSV.", reveal: "set-export" },
-      { name: "Import markdown", desc: "Bring in notes from an Obsidian-style vault.", reveal: "set-import-md" },
-      { name: "Backups", desc: "Snapshot your notebook and restore it later.", reveal: "set-backups" },
-      { name: "Models", desc: "Choose the chat, utility, vision and reading models, and download more.", reveal: "settings:models" },
-      { name: "Search and index", desc: "The search engine, the index it builds, and how strict a match must be.", reveal: "settings:searchindex" },
-      { name: "AI tool permissions", desc: "Decide exactly what Atlas is allowed to do.", reveal: "settings:tools" },
-      { name: "Background tasks", desc: "What the app is doing in the background, and what it has finished.", reveal: "settings:tasks" },
-      { name: "Packages", desc: "The optional extras (OCR, speech, vision) and whether they are installed.", reveal: "settings:extras" },
-      { name: "Account & security", desc: "Change your password, and what happens when the app locks.", reveal: "settings:account" },
-      { name: "Where your data went", desc: "Every connection the app made, and whether anything left this computer.", reveal: "settings:privacy" },
-      { name: "Logs", desc: "What the app and the models have been doing, in plain text.", reveal: "settings:logs" },
-      { name: "Lock", desc: "Password-protect the app on shared devices.", act: () => lockNow() },
-      { name: "Command palette", desc: "Ctrl/⌘-K to run a command or go to a place; its last row searches everything.", reveal: "palette" },
-      { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", reveal: "shortcuts" },
-      { name: "Help", desc: "How the parts of the app fit together, in the app itself.", reveal: "settings:help" },
-      { name: "Updates", desc: "Which version you are on, and whether a newer one is out.", reveal: "set-updates" },
-      { name: "Welcome tour", desc: "Replay the introduction to MemoryMap.", reveal: "onboarding" },
-    ]},
-    //: Each row declares where it goes (`tab`, `reveal` or `act`) and
-    //: `catalogueRun` (settings-panes.js) makes the `run` the dialog calls, so every row
-    //: lands on what it names (tests/test_catalogue_reveal.py).
-  ].map((group) => ({ ...group, items: group.items.map(catalogueRun) }));
-}
+//: The rows of "Tools and features" are `featureCatalog()` in app-features.js (lazy).
 
 let featureAiTools = null; // fetched once per session
 
@@ -1666,6 +1513,7 @@ async function openFeatures() {
   overlayReturnFocus = document.activeElement;
   $("features-overlay").classList.remove("hidden");
   $("features-search").value = "";
+  await lazyScript("/js/app-features.js");
   renderFeatures("");
   $("features-search").focus();
   if (featureAiTools === null) {
@@ -1927,6 +1775,8 @@ async function renderDashboard({ refresh = false } = {}) {
   // which on a cold start is startApp's own. It used to be a second
   // `GET /preferences` here, and the dashboard is the first tab, so a cold
   // start made it every time (WORLD_CLASS_PLAN A2).
+  //: The catalogue (app-features.js) loads beside the preferences, for Quick access.
+  lazyScript("/js/app-features.js");
   await loadPreferences().catch(() => null);
   renderDashboardGreeting();
   renderQuickLinks();
@@ -2289,7 +2139,7 @@ function dashWidgetRow(name, layout, position = null) {
 //: Anything unlisted falls into "other", so a widget added later still appears
 //:, silently vanishing from the picker is the one failure this must not have.
 const DASH_WIDGET_GROUPS = {
-  stats: "overview", streak: "overview", heatmap: "overview", pace: "overview",
+  stats: "overview", streak: "overview", heatmap: "overview", pace: "overview", week: "overview",
   digest: "overview", art: "overview",
   pinned: "notes", random: "notes", categories: "notes", "on-this-day": "notes",
   unfinished: "notes", orphans: "notes", tensions: "notes", boards: "notes",
@@ -3318,7 +3168,66 @@ async function streamDigest(onDelta) {
   return { text, cacheable };
 }
 
-async function renderDigestWidget(body) {
+//: **The day, from the engine** (CHAT_PLAN section 2, the dashboard row):
+//: what is due, the open questions, what changed since yesterday and the
+//: topics gone quiet, from `/insights/day` with no model. Every line is a
+//: count or words quoted from one note or reminder, and a quote opens where
+//: it came from. The model's week stays below, on request.
+async function renderDayDigest(box) {
+  let day;
+  try {
+    day = await apiJson("/insights/day", { silent: true });
+  } catch {
+    box.replaceChildren();
+    return;
+  }
+  //: The dashboard's own list (`.dash-list`): every line opens where it came
+  //: from, a quote its note or the reminders, a count the list it counted.
+  const list = document.createElement("ul");
+  list.className = "dash-list digest-day-lines";
+  const opens = {
+    due: () => switchTab("reminders"),
+    questions: async () => {
+      await switchTab("notes");
+      showNotesSection("questions");
+    },
+    changed: () => switchTab("notes"),
+    quiet: async (line) => {
+      await switchTab("notes");
+      showCategoryNotes(line.category);
+    },
+  };
+  for (const line of day.lines || []) {
+    const li = document.createElement("li");
+    li.className = line.kind === "quote" ? "digest-day-line muted text-sm" : "digest-day-line";
+    li.dataset.kind = line.kind;
+    li.dataset.part = line.part;
+    li.textContent = line.text;
+    const source = line.source || {};
+    const open = source.entry_id ? () => flashEntry(source.entry_id) : () => opens[line.part](line);
+    li.setAttribute("role", "link");
+    li.tabIndex = 0;
+    li.addEventListener("click", open);
+    li.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") open();
+    });
+    list.appendChild(li);
+  }
+  if (!list.childElementCount) {
+    const quiet = document.createElement("p");
+    quiet.className = "muted";
+    quiet.textContent = day.empty || "";
+    box.replaceChildren(quiet);
+    return;
+  }
+  box.replaceChildren(list);
+}
+
+async function renderDigestWidget(outer) {
+  const dayBox = document.createElement("div");
+  const body = document.createElement("div");
+  outer.replaceChildren(dayBox, body);
+  renderDayDigest(dayBox);
   const showDigest = (text) => {
     const out = document.createElement("div");
     renderMarkdown(out, text);
@@ -3386,8 +3295,8 @@ async function renderDigestWidget(body) {
     //: button, which a keyboard cannot focus and a phone cannot hover. The
     //: same line and Settings link as Ask and Chat, kept by the status poll.
     const offline = document.createElement("div");
-    offline.className = "ai-offline-note hidden";
-    offline.dataset.offlineLine = "No model is connected, so the digest cannot be written yet.";
+    offline.className = "ai-offline-note notice hidden";
+    offline.dataset.offlineLine = "No model connected, so the digest cannot be written yet.";
     body.append(generate, offline);
     syncModelGatedControls();
   }
@@ -3512,6 +3421,10 @@ async function renderHeatmapWidget(body) {
   //: as one, and the tab stop Chromium gives it still scrolls with arrows.
   grid.setAttribute("role", "img");
   grid.setAttribute("aria-label", `Activity over the last year, ${data.total} notes`);
+  //: axe `scrollable-region-focusable` (serious): the grid scrolls sideways
+  //: and nothing in it takes focus. An explicit stop, with a ring below
+  //: (`.heatmap:focus-visible`), so the arrow keys reach the older weeks.
+  grid.tabIndex = 0;
   body.appendChild(grid);
 
   //: **Full size, full year, scrolled rather than shrunk.** The first
@@ -3583,7 +3496,17 @@ async function renderHeatmapWidget(body) {
   const summary = document.createElement("p");
   summary.className = "muted";
   summary.textContent = `${data.total} notes in the last year · busiest day ${data.busiest}`;
-  body.appendChild(summary);
+  //: Brief 89 (statistics row 1): the page is one click from here, the
+  //: grid itself and the button below, where it was three (Settings,
+  //: General, What you use).
+  const stats = smallButton("ph:chart-bar Statistics", "Open the Statistics page: notebook, reminders and usage, counted", () => openStatistics());
+  stats.id = "heatmap-statistics";
+  grid.addEventListener("click", () => openStatistics());
+  //: In a row so the button is its own width beside the line, not a bar.
+  const foot = document.createElement("div");
+  foot.className = "row";
+  foot.append(summary, stats);
+  body.appendChild(foot);
 }
 
 // --- category breakdown ------------------------------------------------------
@@ -4950,13 +4873,15 @@ function renderOnThisDayWidget(body) {
   const shown = [];
   for (const entry of entries) {
     const at = new Date(entry.created_at);
-    const years = thisYear - at.getFullYear();
-    const key = years > 0 ? `${years}y` : `${month - at.getMonth()}m`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    shown.push({ entry, when: years > 0
-      ? `${years} year${years === 1 ? "" : "s"} ago`
-      : `${month - at.getMonth()} month${month - at.getMonth() === 1 ? "" : "s"} ago` });
+    //: Counted in months: 10 November last year, seen on 10 October, is
+    //: eleven months ago, not "1 year ago", and it used to take the year's
+    //: one place from the note written on this very date (Brief 85).
+    const months = (thisYear - at.getFullYear()) * 12 + month - at.getMonth();
+    const years = months / 12;
+    const when = Number.isInteger(years) ? `${years} year${years === 1 ? "" : "s"} ago` : `${months} month${months === 1 ? "" : "s"} ago`;
+    if (seen.has(when)) continue;
+    seen.add(when);
+    shown.push({ entry, when });
     if (shown.length >= 4) break;
   }
   const list = document.createElement("ul");
@@ -5052,3 +4977,12 @@ function renderPaceWidget(body) {
   caption.textContent = `Best day: ${best.at.toLocaleDateString(undefined, { weekday: "long" })}, ${best.words.toLocaleString()} words`;
   body.appendChild(caption);
 }
+
+//: Recordings a killed tab left: the server finishes them at each start and
+//: meetings.js says so once. Hooked here, after agent-activity.js's own hook, because
+//: app.js and the files up to agent-activity.js sit under a gzip total (tests/test_static_compression.py).
+const startAppBeforeRecover = window.startApp;
+window.startApp = async function () {
+  if (startAppBeforeRecover) await startAppBeforeRecover.apply(this, arguments);
+  apiJson("/recordings/recover", { method: "POST", silent: true }).then((r) => r.length && ensureModule("meetings").then(() => noteRecoveredRecordings(r))).catch(() => {});
+};

@@ -111,7 +111,7 @@ def test_an_extra_already_installed_is_not_a_failure(monkeypatch):
         raise AssertionError("nothing should be installed")
 
     monkeypatch.setattr(extras, "_dispatch", boom)
-    assert extras.install_blocking(["voice", "docx"]) == 0
+    assert extras.install_blocking(["voice", "pdfpages"]) == 0
 
 
 def test_an_unknown_id_is_still_a_failure():
@@ -163,12 +163,12 @@ def test_remove_deletes_from_the_packaged_apps_own_folder(frozen, monkeypatch):
     target.mkdir(parents=True)
     _fake_dist(
         target,
-        "python-docx",
-        {"docx/__init__.py": "", "docx/api.py": "", "docx/templates/default.docx": "x"},
+        "faster-whisper",
+        {"faster_whisper/__init__.py": "", "faster_whisper/api.py": "", "faster_whisper/assets/silero.onnx": "x"},
     )
-    _fake_dist(target, "lxml", {"lxml/__init__.py": ""})
-    (target / "docx" / "__pycache__").mkdir()
-    (target / "docx" / "__pycache__" / "api.cpython-312.pyc").write_text("")
+    _fake_dist(target, "ctranslate2", {"ctranslate2/__init__.py": ""})
+    (target / "faster_whisper" / "__pycache__").mkdir()
+    (target / "faster_whisper" / "__pycache__" / "api.cpython-312.pyc").write_text("")
 
     def no_python(*a, **k):
         raise AssertionError("removing from the bundle's folder needs no Python")
@@ -176,14 +176,14 @@ def test_remove_deletes_from_the_packaged_apps_own_folder(frozen, monkeypatch):
     monkeypatch.setattr(extras.subprocess, "Popen", no_python)
     monkeypatch.setattr(extras, "find_system_python", no_python)
 
-    extras._run_uninstall(extras.EXTRAS_BY_ID["docx"])
+    extras._run_uninstall(extras.EXTRAS_BY_ID["voice"])
 
     state = extras.current()
     assert state.outcome == "completed", state.step
-    assert not (target / "docx").exists()
-    assert not list(target.glob("python_docx-*.dist-info"))
+    assert not (target / "faster_whisper").exists()
+    assert not list(target.glob("faster_whisper-*.dist-info"))
     # Only what the entry named: its dependency stays, as on a source install.
-    assert (target / "lxml" / "__init__.py").is_file()
+    assert (target / "ctranslate2" / "__init__.py").is_file()
 
 
 def test_remove_never_deletes_outside_the_folder(frozen):
@@ -191,19 +191,19 @@ def test_remove_never_deletes_outside_the_folder(frozen):
     target.mkdir(parents=True)
     outside = frozen / "notes-that-matter.txt"
     outside.write_text("keep")
-    _fake_dist(target, "python-docx", {"docx/__init__.py": ""})
-    record = next(target.glob("python_docx-*.dist-info")) / "RECORD"
+    _fake_dist(target, "faster-whisper", {"faster_whisper/__init__.py": ""})
+    record = next(target.glob("faster_whisper-*.dist-info")) / "RECORD"
     record.write_text(record.read_text() + "../../notes-that-matter.txt,,\n")
 
-    extras._run_uninstall(extras.EXTRAS_BY_ID["docx"])
+    extras._run_uninstall(extras.EXTRAS_BY_ID["voice"])
 
     assert outside.read_text() == "keep"
-    assert not (target / "docx").exists()
+    assert not (target / "faster_whisper").exists()
 
 
 def test_remove_of_something_never_installed_says_so(frozen):
     extras.frozen_extras_dir().mkdir(parents=True)
-    extras._run_uninstall(extras.EXTRAS_BY_ID["docx"])
+    extras._run_uninstall(extras.EXTRAS_BY_ID["voice"])
     state = extras.current()
     assert state.outcome == "completed"
     assert "not installed" in state.step

@@ -1,0 +1,623 @@
+{
+ "about": "Brief 66's quick-add set (CHAT_PLAN decision 50): each phrase typed into its surface with the clock at `now`, and what its save must carry. Scored by scratchpad/ui-sweeps/quickadd.js; tests/test_quickadd.py checks the shape. \"renew insurance in 2 weeks\" names a day and no time, so it is asked (decision 50: never guessed).",
+ "now": "2026-10-14T10:00:00",
+ "phrases": [
+  {
+   "surface": "reminder",
+   "text": "dentist friday 9am",
+   "expect": {
+    "title": "dentist",
+    "date": "2026-10-16",
+    "time": "09:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "call mum tomorrow at 6pm",
+   "expect": {
+    "title": "call mum",
+    "date": "2026-10-15",
+    "time": "18:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "pay rent on the 1st at 9am",
+   "expect": {
+    "title": "pay rent",
+    "date": "2026-11-01",
+    "time": "09:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "water the plants every day at 8am",
+   "expect": {
+    "title": "water the plants",
+    "date": "2026-10-15",
+    "time": "08:00",
+    "recurring": "daily"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "team standup every monday at 9:30",
+   "expect": {
+    "title": "team standup",
+    "date": "2026-10-19",
+    "time": "09:30",
+    "recurring": "weekly"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "submit report in 2 hours",
+   "expect": {
+    "title": "submit report",
+    "date": "2026-10-14",
+    "time": "12:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "take out the bins tonight at 7",
+   "expect": {
+    "title": "take out the bins",
+    "date": "2026-10-14",
+    "time": "19:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "book flights next tuesday at 10am",
+   "expect": {
+    "title": "book flights",
+    "date": "2026-10-20",
+    "time": "10:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "renew passport on 3 november at noon",
+   "expect": {
+    "title": "renew passport",
+    "date": "2026-11-03",
+    "time": "12:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "gym at 7am tomorrow",
+   "expect": {
+    "title": "gym",
+    "date": "2026-10-15",
+    "time": "07:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "pick up the kids at 3:15pm",
+   "expect": {
+    "title": "pick up the kids",
+    "date": "2026-10-14",
+    "time": "15:15",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "call the bank in 30 minutes",
+   "expect": {
+    "title": "call the bank",
+    "date": "2026-10-14",
+    "time": "10:30",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "pay the electricity bill monthly on the 20th at 9am",
+   "expect": {
+    "title": "pay the electricity bill",
+    "date": "2026-10-20",
+    "time": "09:00",
+    "recurring": "monthly"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "dinner with Sam on saturday at 7:30pm",
+   "expect": {
+    "title": "dinner with Sam",
+    "date": "2026-10-17",
+    "time": "19:30",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "review budget friday",
+   "expect": {
+    "ask": true
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "buy milk",
+   "expect": {
+    "ask": true
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "doctor appointment on 21 october at 4pm",
+   "expect": {
+    "title": "doctor appointment",
+    "date": "2026-10-21",
+    "time": "16:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "remind me to stretch every morning at 7",
+   "expect": {
+    "title": "stretch",
+    "date": "2026-10-15",
+    "time": "07:00",
+    "recurring": "daily"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "remind me to call Priya at 5pm",
+   "expect": {
+    "title": "call Priya",
+    "date": "2026-10-14",
+    "time": "17:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "file taxes 15 april 2027 at 9am",
+   "expect": {
+    "title": "file taxes",
+    "date": "2027-04-15",
+    "time": "09:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "check the oven in 45 minutes",
+   "expect": {
+    "title": "check the oven",
+    "date": "2026-10-14",
+    "time": "10:45",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "weekly review every friday at 4pm",
+   "expect": {
+    "title": "weekly review",
+    "date": "2026-10-16",
+    "time": "16:00",
+    "recurring": "weekly"
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "renew insurance in 2 weeks",
+   "expect": {
+    "ask": true
+   }
+  },
+  {
+   "surface": "reminder",
+   "text": "call grandma sunday 11am",
+   "expect": {
+    "title": "call grandma",
+    "date": "2026-10-18",
+    "time": "11:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "note",
+   "text": "Idea for the garden #home #ideas",
+   "expect": {
+    "tags": [
+     "home",
+     "ideas"
+    ],
+    "reminder": null
+   }
+  },
+  {
+   "surface": "note",
+   "text": "Meeting notes from the harbor project #work",
+   "expect": {
+    "tags": [
+     "work"
+    ],
+    "reminder": null
+   }
+  },
+  {
+   "surface": "note",
+   "text": "#reading finish chapter 4",
+   "expect": {
+    "tags": [
+     "reading"
+    ],
+    "reminder": null
+   }
+  },
+  {
+   "surface": "note",
+   "text": "remind me to call the plumber tomorrow at 10am #house",
+   "expect": {
+    "tags": [
+     "house"
+    ],
+    "reminder": {
+     "title": "call the plumber",
+     "date": "2026-10-15",
+     "time": "10:00"
+    }
+   }
+  },
+  {
+   "surface": "note",
+   "text": "Lunch with Ana friday was great",
+   "expect": {
+    "tags": [],
+    "reminder": null
+   }
+  },
+  {
+   "surface": "note",
+   "text": "groceries: eggs, milk, bread #shopping",
+   "expect": {
+    "tags": [
+     "shopping"
+    ],
+    "reminder": null
+   }
+  },
+  {
+   "surface": "note",
+   "text": "remind me to back up the laptop sunday at 8pm",
+   "expect": {
+    "tags": [],
+    "reminder": {
+     "title": "back up the laptop",
+     "date": "2026-10-18",
+     "time": "20:00"
+    }
+   }
+  },
+  {
+   "surface": "note",
+   "text": "Book club picks #books #club",
+   "expect": {
+    "tags": [
+     "books",
+     "club"
+    ],
+    "reminder": null
+   }
+  },
+  {
+   "surface": "note",
+   "text": "Thought about the Lisbon trip #travel",
+   "expect": {
+    "tags": [
+     "travel"
+    ],
+    "reminder": null
+   }
+  },
+  {
+   "surface": "note",
+   "text": "Quarterly goals draft #work #planning",
+   "expect": {
+    "tags": [
+     "work",
+     "planning"
+    ],
+    "reminder": null
+   }
+  },
+  {
+   "surface": "meeting",
+   "text": "Sync with Ana friday 2pm",
+   "expect": {
+    "title": "Sync with Ana",
+    "date": "2026-10-16",
+    "time": "14:00",
+    "people": [
+     "Ana"
+    ]
+   }
+  },
+  {
+   "surface": "meeting",
+   "text": "Design review tomorrow at 11am",
+   "expect": {
+    "title": "Design review",
+    "date": "2026-10-15",
+    "time": "11:00",
+    "people": []
+   }
+  },
+  {
+   "surface": "meeting",
+   "text": "1:1 with Tom monday 10am",
+   "expect": {
+    "title": "1:1 with Tom",
+    "date": "2026-10-19",
+    "time": "10:00",
+    "people": [
+     "Tom"
+    ]
+   }
+  },
+  {
+   "surface": "meeting",
+   "text": "Budget planning next wednesday at 3pm",
+   "expect": {
+    "title": "Budget planning",
+    "date": "2026-10-21",
+    "time": "15:00",
+    "people": []
+   }
+  },
+  {
+   "surface": "meeting",
+   "text": "Weekly sync",
+   "expect": {
+    "title": "Weekly sync",
+    "date": null,
+    "time": null,
+    "people": []
+   }
+  },
+  {
+   "surface": "meeting",
+   "text": "Kickoff with Priya and Sam on 22 october at 9:30am",
+   "expect": {
+    "title": "Kickoff with Priya and Sam",
+    "date": "2026-10-22",
+    "time": "09:30",
+    "people": [
+     "Priya",
+     "Sam"
+    ]
+   }
+  },
+  {
+   "surface": "meeting",
+   "text": "Retro thursday at 4pm",
+   "expect": {
+    "title": "Retro",
+    "date": "2026-10-15",
+    "time": "16:00",
+    "people": []
+   }
+  },
+  {
+   "surface": "meeting",
+   "text": "Coffee with Maria tomorrow 8:30am",
+   "expect": {
+    "title": "Coffee with Maria",
+    "date": "2026-10-15",
+    "time": "08:30",
+    "people": [
+     "Maria"
+    ]
+   }
+  },
+  {
+   "surface": "meeting",
+   "text": "Board meeting on 2 november at 10am",
+   "expect": {
+    "title": "Board meeting",
+    "date": "2026-11-02",
+    "time": "10:00",
+    "people": []
+   }
+  },
+  {
+   "surface": "meeting",
+   "text": "Interview with James today at 3pm",
+   "expect": {
+    "title": "Interview with James",
+    "date": "2026-10-14",
+    "time": "15:00",
+    "people": [
+     "James"
+    ]
+   }
+  },
+  {
+   "surface": "timeline",
+   "text": "harbor last week",
+   "expect": {
+    "range": {
+     "start": "2026-10-05",
+     "end": "2026-10-11"
+    },
+    "rest": "harbor"
+   }
+  },
+  {
+   "surface": "timeline",
+   "text": "garden yesterday",
+   "expect": {
+    "range": {
+     "start": "2026-10-13",
+     "end": "2026-10-13"
+    },
+    "rest": "garden"
+   }
+  },
+  {
+   "surface": "timeline",
+   "text": "in september",
+   "expect": {
+    "range": {
+     "start": "2026-09-01",
+     "end": "2026-09-30"
+    },
+    "rest": ""
+   }
+  },
+  {
+   "surface": "timeline",
+   "text": "budget this month",
+   "expect": {
+    "range": {
+     "start": "2026-10-01",
+     "end": "2026-10-31"
+    },
+    "rest": "budget"
+   }
+  },
+  {
+   "surface": "timeline",
+   "text": "trip last month",
+   "expect": {
+    "range": {
+     "start": "2026-09-01",
+     "end": "2026-09-30"
+    },
+    "rest": "trip"
+   }
+  },
+  {
+   "surface": "timeline",
+   "text": "on 3 october",
+   "expect": {
+    "range": {
+     "start": "2026-10-03",
+     "end": "2026-10-03"
+    },
+    "rest": ""
+   }
+  },
+  {
+   "surface": "timeline",
+   "text": "work this week",
+   "expect": {
+    "range": {
+     "start": "2026-10-12",
+     "end": "2026-10-18"
+    },
+    "rest": "work"
+   }
+  },
+  {
+   "surface": "timeline",
+   "text": "ideas last year",
+   "expect": {
+    "range": {
+     "start": "2025-01-01",
+     "end": "2025-12-31"
+    },
+    "rest": "ideas"
+   }
+  },
+  {
+   "surface": "palette",
+   "text": "remind me friday 9 dentist",
+   "expect": {
+    "act": "remind",
+    "title": "dentist",
+    "date": "2026-10-16",
+    "time": "09:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "palette",
+   "text": "remind me to call mum tomorrow at 6pm",
+   "expect": {
+    "act": "remind",
+    "title": "call mum",
+    "date": "2026-10-15",
+    "time": "18:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "palette",
+   "text": "remind me in 20 minutes to check the oven",
+   "expect": {
+    "act": "remind",
+    "title": "check the oven",
+    "date": "2026-10-14",
+    "time": "10:20",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "palette",
+   "text": "remind me every monday at 9am to plan the week",
+   "expect": {
+    "act": "remind",
+    "title": "plan the week",
+    "date": "2026-10-19",
+    "time": "09:00",
+    "recurring": "weekly"
+   }
+  },
+  {
+   "surface": "palette",
+   "text": "remind me to pay rent on the 1st at 9am",
+   "expect": {
+    "act": "remind",
+    "title": "pay rent",
+    "date": "2026-11-01",
+    "time": "09:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "palette",
+   "text": "remind me sunday at 6pm to call grandma",
+   "expect": {
+    "act": "remind",
+    "title": "call grandma",
+    "date": "2026-10-18",
+    "time": "18:00",
+    "recurring": "none"
+   }
+  },
+  {
+   "surface": "palette",
+   "text": "settings",
+   "expect": {
+    "act": null
+   }
+  },
+  {
+   "surface": "palette",
+   "text": "dark mode",
+   "expect": {
+    "act": null
+   }
+  }
+ ]
+}

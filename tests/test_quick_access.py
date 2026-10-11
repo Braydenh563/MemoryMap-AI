@@ -154,7 +154,9 @@ def test_customise_and_reset_are_rows_of_the_dashboard_customise_menu():
     over it. Editing and resetting the row are rows of the dock's Customise
     menu now, beside the view, the widgets and the layout."""
     draw = _block(DASH, "function renderQuickLinks()", "\n}\n")
-    assert "kebabMenu(" not in draw
+    #: Since 2026-10-10 the heading's line carries the same rows as a ⋯ (the
+    #: owner's ask); it is the Customise items, never a menu of its own.
+    assert draw.count("kebabMenu(") == 1 and "kebabMenu(dashCustomiseItems().filter(" in draw
     custom = _block(DASH, "function dashCustomiseItems()", "\n}\n")
     assert "Edit quick access" in custom and "Reset quick access" in custom
     assert "saveQuickAccess([])" in custom and "quickEditing = true" in custom

@@ -22,6 +22,7 @@ the same way, and the message says "password", which is the likelier cause.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sqlite3
@@ -45,6 +46,18 @@ _FOLDERS = ("media", "uploads")
 #: A zip that claims more than this once unpacked is refused before anything
 #: is written (a zip bomb, or a notebook this app was never going to hold).
 MAX_UNPACKED_BYTES = 64 * 1024**3
+
+
+#: The settings file inside the zip. Audit 2026-10-10 (item 1): the bundle
+#: carried the database and the files but not `preferences.json`, so a restore
+#: onto a new machine came back with every note and none of the settings (model,
+#: timezone, dashboard layout, templates, skills).
+PREFERENCES_MEMBER = "preferences.json"
+#: Settings a backup never carries. `llm_api_key` would sit in plain text in an
+#: unsealed zip; the other two describe the machine or the sign-in, and a
+#: restore must not be the thing that turns sign-in off or points the export
+#: folder at a path that exists only on the old computer.
+_NOT_BACKED_UP = frozenset({"llm_api_key", "ask_password_on_open", "export_save_dir"})
 
 
 class BundleError(ValueError):
@@ -106,8 +119,9 @@ def decrypt_file(source: Path, destination: Path, password: str) -> None:
 
 def build_zip(data_dir: Path, db_path: Path, destination: Path) -> None:
     """The portable zip: a cleaned snapshot of the database (never the live
-    WAL-mode file, which misses what the log still holds, ARCH-18) and every
-    file under `media/` and `uploads/`."""
+    WAL-mode file, which misses what the log still holds, ARCH-18), every
+    file under `media/` and `uploads/`, and the settings file minus the keys
+    in `_NOT_BACKED_UP`."""
     snapshot_fd, snapshot_name = tempfile.mkstemp(suffix=".db", prefix="memorymap_snapshot_")
     os.close(snapshot_fd)
     snapshot_path = Path(snapshot_name)
@@ -117,6 +131,9 @@ def build_zip(data_dir: Path, db_path: Path, destination: Path) -> None:
         with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:
             if db_path.exists():
                 archive.write(snapshot_path, "memorymap.db")
+            settings = _readable_preferences(data_dir / "preferences.json")
+            if settings:
+                archive.writestr(PREFERENCES_MEMBER, json.dumps(settings, indent=2))
             for name in _FOLDERS:
                 folder = data_dir / name
                 if not folder.is_dir():
@@ -131,6 +148,18 @@ def build_zip(data_dir: Path, db_path: Path, destination: Path) -> None:
                 stray.unlink()
             except OSError:
                 pass  # never written, or already gone
+
+
+def _readable_preferences(path: Path) -> dict:
+    """The settings worth carrying, or {} when the file is missing or damaged
+    (a backup must not fail because settings were unreadable)."""
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(loaded, dict):
+        return {}
+    return {k: v for k, v in loaded.items() if k not in _NOT_BACKED_UP}
 
 
 def _safe_target(data_dir: Path, member: str) -> Path | None:
@@ -152,7 +181,9 @@ def restore_zip(archive_path: Path, db_path: Path, data_dir: Path, keep: int) ->
     the live notebook untouched. Files are merged over the folders (a file
     the zip lacks is kept, not deleted: a restore must never be the thing
     that removes an attachment). The caller disposes the engine first and
-    reloads after, as for `restore_backup`."""
+    reloads after, as for `restore_backup`. The settings in the zip come back
+    in the result under "preferences" for the caller to merge over the live
+    ones (this module has no config object)."""
     try:
         archive = zipfile.ZipFile(archive_path)
     except zipfile.BadZipFile as exc:
@@ -174,9 +205,20 @@ def restore_zip(archive_path: Path, db_path: Path, data_dir: Path, keep: int) ->
                 raise BundleError(backup.DAMAGED_BACKUP) from exc
         finally:
             staged.unlink(missing_ok=True)
+        preferences: dict = {}
+        if PREFERENCES_MEMBER in names:
+            info = archive.getinfo(PREFERENCES_MEMBER)
+            # A settings file is a few KB; anything large is not one.
+            if info.file_size <= 4 * 1024 * 1024:
+                try:
+                    loaded = json.loads(archive.read(info).decode("utf-8"))
+                except ValueError:
+                    loaded = {}
+                if isinstance(loaded, dict):
+                    preferences = {k: v for k, v in loaded.items() if k not in _NOT_BACKED_UP}
         restored = skipped = 0
         for info in archive.infolist():
-            if info.is_dir() or info.filename == "memorymap.db":
+            if info.is_dir() or info.filename in ("memorymap.db", PREFERENCES_MEMBER):
                 continue
             target = _safe_target(data_dir, info.filename)
             if target is None:
@@ -187,4 +229,4 @@ def restore_zip(archive_path: Path, db_path: Path, data_dir: Path, keep: int) ->
                 while chunk := source.read(CHUNK_BYTES):
                     sink.write(chunk)
             restored += 1
-    return {"files": restored, "skipped": skipped}
+    return {"files": restored, "skipped": skipped, "preferences": preferences}

@@ -83,6 +83,14 @@ async function loadOnboardingDiagnostics(forSlide) {
       : "No model is running yet, and MemoryMap works without one: notes are " +
           "searched by keyword, and filing catches up once a model is on."
   );
+  //: A first install needs the internet once (BACKLOG, Brief 40): said where
+  //: the download is offered, with the size of the set that would come down.
+  if (models?.builtin_embedding_installed === false && models.builtin_embedding_download_mb) {
+    lines.push(
+      "The first setup downloads the search model and the packages you chose " +
+        `(about ${models.builtin_embedding_download_mb} MB); after that MemoryMap works offline.`
+    );
+  }
   if (storage) {
     //: Where it lives, and its size once there is one (INBOX 472).
     const mb = (storage.database_bytes || 0) / (1024 * 1024);
@@ -170,11 +178,33 @@ function renderOnboardingActions(models, notebook) {
           event.target.disabled = true;
           try {
             const result = await apiJson("/entries/seed-examples", { method: "POST" });
-            event.target.textContent =
-              result && result.created
-                ? `Added ${result.created}: look for the "welcome" tag`
-                : "Added";
+            const count = result && result.created ? result.created : 0;
+            event.target.textContent = count ? `Added ${count} example notes` : "Added";
             loadEntries();
+            //: **Added, and the welcome stays put** (INBOX 745 (d), the
+            //: owner: "should it have gone straight to the graph tour?? i
+            //: clicked add some example notes"). Where to see them, and the
+            //: tour, are two offers in one toast, each said in words; nothing
+            //: opens until one is pressed. The welcome's own primary still
+            //: names where it goes ("Start the tour").
+            toastAction(
+              count ? `Added ${count} example notes, tagged "welcome".` : "Added the example notes.",
+              "See them on the graph",
+              () => {
+                closeOnboarding(false);
+                switchTab("graph");
+              },
+              {
+                record: false,
+                also: {
+                  label: "Take the tour",
+                  run: () => {
+                    closeOnboarding(true);
+                    openTour("basics");
+                  },
+                },
+              }
+            );
           } catch (error) {
             event.target.disabled = false;
             toast(error.message || "Couldn't add the example notes.", true);
@@ -249,7 +279,68 @@ function renderOnboardingSlide() {
   skip.setAttribute("aria-label", skip.title);
 }
 
+//: **First run: one thing at a time** (the owner, 2026-10-10: "popups and
+//: notifications clash with each other, the tour gets cancelled, to much goes
+//: on"). Measured on a fresh data dir before this: the recovery-key offer drew
+//: over the welcome card (478x172 px of overlap), and the update question
+//: opened on "onboarding-closed" at the same moment as the tour, so the tour
+//: judged its steps against the question's overlay, kept one ("1 of 1, Find
+//: ... not on screen") and drew its card on top of the question. Each first-run
+//: surface now takes a turn, in the order measured on a fresh data dir: the
+//: welcome, the tour if the welcome started it, the recovery-key offer, then
+//: the update question. `show` returns a promise that settles when its surface is done;
+//: the next turn also waits until nothing modal is on screen, so a surface
+//: that forgets to say when it closed cannot open the next one on top of it.
+const firstRun = { chain: Promise.resolve() };
+
+function firstRunSurfaceOpen() {
+  const shown = (id) => {
+    const el = $(id);
+    return Boolean(el && !el.classList.contains("hidden"));
+  };
+  return shown("onboarding-overlay") || shown("tour-card") ||
+    Boolean(document.querySelector("dialog[open], .confirm-overlay"));
+}
+
+function whenFirstRunClear() {
+  return new Promise((resolve) => {
+    const tick = () => (firstRunSurfaceOpen() ? setTimeout(tick, 250) : resolve());
+    tick();
+  });
+}
+
+function firstRunTurn(show) {
+  const turn = firstRun.chain.then(whenFirstRunClear).then(() => show()).catch(() => {});
+  firstRun.chain = turn.then(whenFirstRunClear);
+  return turn;
+}
+
+//: The welcome's turn ends when the welcome closes and, when its last button
+//: started the tour, when the tour ends too (`tour-closed`, tour.js). Without
+//: the second wait the gap while tour.js loads looked like a clear screen.
+function showOnboardingTurn() {
+  return new Promise((resolve) => {
+    document.addEventListener("onboarding-closed", (event) => {
+      if (!event.detail?.tour) return resolve();
+      document.addEventListener("tour-closed", () => resolve(), { once: true });
+      //: A tour that never opens (tour.js failed to load) must not hold the
+      //: queue for ever.
+      setTimeout(() => {
+        if (!firstRunSurfaceOpen()) resolve();
+      }, 8000);
+    }, { once: true });
+    showOnboarding();
+  });
+}
+
+
+//: A first run's welcome waits its turn; "Replay the welcome" opens at once.
 function openOnboarding() {
+  if (!prefs.get("onboardingDone", null)) return firstRunTurn(showOnboardingTurn);
+  showOnboarding();
+}
+
+function showOnboarding() {
   onboardingRun.index = 0;
   overlayReturnFocus = document.activeElement;
   renderOnboardingSlide();
@@ -257,7 +348,7 @@ function openOnboarding() {
   $("onboarding-next").focus();
 }
 
-function closeOnboarding() {
+function closeOnboarding(withTour = false) {
   $("onboarding-overlay").classList.add("hidden");
   localStorage.setItem("onboardingDone", "1");
   // Skipping the welcome is also an answer about the tour: whoever closed this
@@ -268,13 +359,16 @@ function closeOnboarding() {
   localStorage.setItem("tourDone", "1");
   overlayReturnFocus?.focus?.();
   //: Whatever waited for the welcome (the first start's update question).
-  document.dispatchEvent(new Event("onboarding-closed"));
+  //: `tour` says the tour is opening next, so the first-run queue
+  //: (`firstRunTurn`, above) waits for it as well.
+  document.dispatchEvent(new CustomEvent("onboarding-closed", { detail: { tour: withTour === true } }));
   overlayReturnFocus = null;
 }
 
 function onboardingNext() {
   if (onboardingRun.index >= ONBOARDING_SLIDES.length - 1) {
-    closeOnboarding();
+    const tourOn = typeof TOUR_ENABLED === "undefined" || TOUR_ENABLED;
+    closeOnboarding(tourOn);
     // The hand-off: the welcome says what this is, the tour says where things
     // are, and the last press of the one starts the other. Guarded because
     // tour.js is a separate file loaded after this one, and a page served
@@ -283,9 +377,7 @@ function onboardingNext() {
     //: flag, and the welcome's primary is relabelled to match.
     //: Before tour.js has loaded (a lazy bundle) the flag is not defined
     //: yet and `openTour` is the stand-in that fetches it.
-    if (typeof TOUR_ENABLED === "undefined" || TOUR_ENABLED) {
-      openTour("basics");
-    }
+    if (tourOn) openTour("basics");
     return;
   }
   onboardingRun.index += 1;
@@ -300,7 +392,7 @@ function onboardingBack() {
 
 $("onboarding-next").addEventListener("click", onboardingNext);
 $("onboarding-back").addEventListener("click", onboardingBack);
-$("onboarding-skip").addEventListener("click", closeOnboarding);
+$("onboarding-skip").addEventListener("click", () => closeOnboarding(false));
 
 // Moved from app.js (its gzip cap); `startApp` loads this bundle for it
 // only while the question is unanswered.

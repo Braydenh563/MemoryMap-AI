@@ -4,8 +4,9 @@
 total); `GET /tidy/{key}` lists one; `POST /tidy/{key}/apply` acts on the ids
 ticked and answers with one `undo_id`; `POST /tidy/undo/{id}` puts a run
 back; `GET /tidy/history` is the recent runs; `PUT /tidy/auto` switches a
-review's automatic run; `POST /tidy/link-reasons/run` queues the whole-notebook
-reason pass as a durable job, and `.../stop` asks it to stop.
+review's automatic run; `POST /tidy/{key}/dismiss` drops rows for good and
+`.../undismiss` brings them back; `POST /tidy/link-reasons/run` queues the
+whole-notebook reason pass as a durable job, and `.../stop` asks it to stop.
 """
 
 from __future__ import annotations
@@ -35,6 +36,10 @@ def _level(review: tidy.Review, level: str) -> str:
 class ApplyBody(BaseModel):
     ids: list[str] = Field(default_factory=list, max_length=2000)
     level: str = Field(default="", max_length=20)
+
+
+class DismissBody(BaseModel):
+    ids: list[str] = Field(default_factory=list, max_length=2000)
 
 
 class AutoBody(BaseModel):
@@ -94,6 +99,20 @@ def tidy_rows(key: str, level: str = Query(default="", max_length=20), session: 
         "key": key, "label": review.label, "about": review.about, "level": _level(review, level),
         "levels": list(review.levels), "count": len(found), "rows": found[: tidy.MAX_ROWS],
     }
+
+
+@router.post("/{key}/dismiss")
+def tidy_dismiss(key: str, body: DismissBody, session: Session = Depends(get_session)) -> dict:
+    """Dismiss suggestions for good: the rows are not listed, counted or applied
+    again. `dismissed` is how many this review has dismissed in all."""
+    _review(key)
+    return {"dismissed": tidy.dismiss(session, deps.get_config(), key, body.ids)}
+
+
+@router.post("/{key}/undismiss")
+def tidy_undismiss(key: str, body: DismissBody) -> dict:
+    _review(key)
+    return {"dismissed": tidy.undismiss(deps.get_config(), key, body.ids)}
 
 
 @router.post("/{key}/apply")

@@ -52,6 +52,8 @@ const SURFACES = [
   { tab: 'notes', label: 'Notes sub-tabs', sel: '#notes-subtabs' },
   { tab: 'chat', label: 'Chat composer', sel: '.chat-dock' },
   { tab: 'dashboard', label: 'Dashboard', sel: '#tab-dashboard' },
+  // Find anything (Brief 90, row 7): its field was 22px tall.
+  { tab: 'dashboard', label: 'Find anything', sel: '#finder-overlay', openFn: 'openFinder()', close: '#finder-close' },
   { tab: 'graph', label: 'Graph dock', sel: '[data-dock-name="graph"]' },
   { tab: 'timeline', label: 'Timeline dock', sel: '[data-dock-name="timeline"]' },
   { tab: 'reminders', label: 'Reminders dock', sel: '[data-dock-name="reminders"]' },
@@ -72,6 +74,25 @@ const SURFACES = [
   // One row per section worth a finger: the sheet shows a single section at a
   // time, so "Settings" measured one section's controls and said nothing of the
   // rest.
+  // The code editor's run panel (Brief 69): a .js document run once, so the
+  // panel's head, its grip (`extra`: a separator is a control a finger drags)
+  // and its Input box are measured. Run only by name (ONLY=Run), since it
+  // creates a document.
+  { tab: 'library', label: 'Run panel', sel: '.cm-run-panel', extra: '[role="separator"]', wait: 7000, byName: true,
+    openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-run.js', content: 'console.log(1)', file_type: 'js' }) }); await loadDocuments(d.id); await new Promise((r) => setTimeout(r, 800)); await docRunCode(); })()" },
+  // Brief 71 (I3): the panel on its Console tab (the tabs, the console's
+  // line), the editor's palette (Ctrl+Shift+P) and the keys sheet, at 390.
+  { tab: 'library', label: 'Run panel console', sel: '.cm-run-panel', extra: '[role="separator"]', wait: 7000, byName: true,
+    openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-console.js', content: 'console.log(1)', file_type: 'js' }) }); await loadDocuments(d.id); await new Promise((r) => setTimeout(r, 800)); await docRunCode(); docRunShowTab('console'); })()" },
+  { tab: 'library', label: 'Editor palette', sel: '#palette-card', wait: 6000, byName: true, closeFn: 'closePalette()',
+    openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-palette.js', content: 'let a = 1;', file_type: 'js' }) }); await loadDocuments(d.id); for (let i = 0; i < 40 && typeof docIdeOpenPalette !== 'function'; i++) await new Promise((r) => setTimeout(r, 250)); await docIdeOpenPalette(); })()" },
+  { tab: 'library', label: 'Editor keys sheet', sel: '#doc-keys-overlay .modal-card', wait: 6000, byName: true, closeFn: 'docIdeCloseKeys()',
+    openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-keys.js', content: 'let a = 1;', file_type: 'js' }) }); await loadDocuments(d.id); for (let i = 0; i < 40 && typeof docIdeOpenKeys !== 'function'; i++) await new Promise((r) => setTimeout(r, 250)); docIdeOpenKeys(); })()" },
+  // The Debug tab (Brief 70): the same panel paused on a breakpoint inside a
+  // call, with a watch, so the five actions, the stack and breakpoint rows,
+  // the watch's remove and its field are all there to measure. ONLY=Debug.
+  { tab: 'library', label: 'Debug tab', sel: '.cm-run-panel', wait: 7000, byName: true,
+    openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-debug.js', content: 'function f(n) {\\n  return n * 2;\\n}\\nvar x = f(1);\\n', file_type: 'js' }) }); await loadDocuments(d.id); await new Promise((r) => setTimeout(r, 800)); docDebugToggleAt(docCmView, docCmView.state.doc.line(2).from); DOC_DEBUG.watches.push('n'); await docRunCode({ mode: 'debug' }); })()" },
   ...['general', 'models', 'appearance', 'preferences', 'data', 'privacy', 'account'].map((section) => ({
     tab: 'notes', label: `Settings ${section}`, sel: `#settings-modal #settings-${section}`,
     openFn: `openSettingsModal('${section}')`, close: '#settings-close' })),
@@ -127,6 +148,7 @@ const SURFACES = [
   const only = process.env.ONLY ? new RegExp(process.env.ONLY, 'i') : null;
   for (const surface of SURFACES) {
     if (only && !only.test(surface.label)) continue;
+    if (surface.byName && !only) continue;
     // A tab with no visible button in the bar (Dashboard, Timeline and
     // Reminders live behind the phone's More sheet below 600) cannot be
     // clicked, and the old `.catch(() => {})` swallowed that: the page stayed on
@@ -142,18 +164,18 @@ const SURFACES = [
       // header kebab below 600, so it is opened through the function the kebab
       // row calls.
       await page.evaluate((src) => { (0, eval)(src); }, surface.openFn);
-      await page.waitForTimeout(900);
+      await page.waitForTimeout(surface.wait || 900);
     } else if (surface.open) {
       await page.click(surface.open).catch(() => {});
       await page.waitForTimeout(700);
     }
 
-    const result = await page.evaluate(({ sel, MIN }) => {
+    const result = await page.evaluate(({ sel, MIN, extra }) => {
       const root = document.querySelector(sel);
       if (!root) return { missing: true };
       const visible = (e) => e.checkVisibility
         && e.checkVisibility({ visibilityProperty: true, opacityProperty: true, contentVisibilityAuto: true });
-      const controls = [...root.querySelectorAll('button, select, summary, input:not([type="hidden"]), .seg')]
+      const controls = [...root.querySelectorAll(`button, select, summary, input:not([type="hidden"]), .seg${extra ? ', ' + extra : ''}`)]
         .filter(visible)
         // Three kinds of element are deliberately unreachable and each has a
         // visible control standing for it: a `<select>` kept only as the value
@@ -161,7 +183,7 @@ const SURFACES = [
         // screen-reader recipes (`.visually-hidden`, `.sr-only` — the chat
         // composer's file input is one, driven by a visible paperclip), and a
         // `.seg` group, whose own buttons are what a finger lands on.
-        .filter((e) => !e.closest('.dock-native-hidden, .visually-hidden, .sr-only'))
+        .filter((e) => !e.closest('.dock-native-hidden, .select-native-hidden, .visually-hidden, .sr-only'))
         .filter((e) => !e.classList.contains('seg'))
         .filter((e) => !e.closest('.dock-menu-list'));
 
@@ -270,10 +292,16 @@ const SURFACES = [
         }
       }
       return { count: controls.length, small, covered, shared };
-    }, { sel: surface.sel, MIN });
+    }, { sel: surface.sel, MIN, extra: surface.extra || "" });
 
     if (surface.close) {
       await page.click(surface.close).catch(() => {});
+      await page.waitForTimeout(400);
+    }
+    //: An overlay with no close button of its own (the palette) shuts by its
+    //: own function, so the next row's tab is not under it.
+    if (surface.closeFn) {
+      await page.evaluate((src) => { (0, eval)(src); }, surface.closeFn);
       await page.waitForTimeout(400);
     }
 

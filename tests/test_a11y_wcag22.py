@@ -95,7 +95,7 @@ def test_the_editors_have_names():
 
 
 def test_find_anything_is_a_listbox_only_while_it_lists():
-    find = _read("spaces-find.js")
+    find = _read("search.js")
     role = _function(find, "finderResultsRole")
     assert 'listing ? "listbox" : "group"' in role
     assert "finderResultsRole(results, false);" in _function(find, "finderRenderEmpty")
@@ -142,3 +142,138 @@ def test_single_key_shortcuts_can_be_turned_off():
     assert 'singleKeys && e.key === "m" && !e.ctrlKey' in wiring
     assert 'prefs.get("singleKeys", null) !== "off"' in _function(wiring, "singleKeysOn")
     assert 'id="pref-single-keys"' in _read("index.html")
+
+
+def test_a_select_opener_name_contains_the_words_on_its_face():
+    """axe `label-content-name-mismatch` (2026-10-10, 22 findings per theme):
+    every sort and model picker was named "Sort notes" while its face read
+    "Newest first". Label in Name (2.5.3) wants the visible words inside the
+    accessible name; the opener's aria-label is rewritten with the value."""
+    selects = _read("sheets-selects.js")
+    sync = selects[selects.index("const syncValue = () => {"):]
+    sync = sync[: sync.index("opener.disabled = select.disabled;")]
+    assert 'opener.setAttribute(' in sync and '`${label}: ${shown}`' in sync
+    assert "select-opener-icon" in sync, "an icon-only opener shows no text and keeps the plain label"
+
+
+# The 13 buttons that `index.html` ships with no text, `aria-label` or
+# `title` (Brief 56, `scratchpad/ui-sweeps/hierarchy.js`): the plan counted
+# them as unlabelled icon-only buttons from the markup alone. Observed in the
+# running app, none of them is: JS paints each before it can be seen (the
+# status bar's `paintStatusItem`, the Logs dock's `renderCopyLogsLabel`), and
+# the live scan of 20 surfaces, 7 menus per surface and 19 dialogs found no
+# visible control without a name. The set is pinned so a new empty button in
+# the markup fails here, with the painter it has to have named in the message.
+EMPTY_MARKUP_BUTTONS = {
+    "status-notes", "status-reminders", "status-task", "status-activity",
+    "status-command", "status-agent", "status-guide", "status-find",
+    "status-back", "status-forward", "status-undo", "status-redo", "logs-copy",
+    #: The utility clock chip (Brief 89): hidden until a timer or stopwatch
+    #: runs, and `paintUtilityChip` (utility-tools.js) names it before it shows.
+    "status-timer",
+}
+
+
+def _all_js() -> str:
+    return "\n".join(p.read_text(encoding="utf-8") for p in sorted((FRONTEND / "js").glob("*.js")))
+
+
+def _empty_markup_buttons() -> set[str]:
+    from html.parser import HTMLParser
+
+    found: set[str] = set()
+
+    class Parser(HTMLParser):
+        current = None
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "button":
+                self.current = {"attrs": dict(attrs), "text": ""}
+
+        def handle_data(self, data):
+            if self.current is not None:
+                self.current["text"] += data
+
+        def handle_endtag(self, tag):
+            if tag != "button" or self.current is None:
+                return
+            attrs, text = self.current["attrs"], self.current["text"]
+            self.current = None
+            if not text.strip() and not attrs.get("aria-label") and not attrs.get("title"):
+                found.add(attrs.get("id") or f"<button class={attrs.get('class')!r}>")
+
+    Parser().feed(_read("index.html"))
+    return found
+
+
+def test_an_empty_markup_button_is_one_that_js_paints():
+    found = _empty_markup_buttons()
+    assert found == EMPTY_MARKUP_BUTTONS, (
+        "a button in index.html has no text, aria-label or title: give it one, "
+        f"or paint it from JS and add its id here. Difference: {sorted(found ^ EMPTY_MARKUP_BUTTONS)}"
+    )
+    js = _all_js()
+    for button_id in EMPTY_MARKUP_BUTTONS:
+        assert f'paintStatusItem("{button_id}"' in js or f'$("{button_id}")' in js, button_id
+    # The status items are named by the text paintStatusItem writes into them.
+    paint = _function(js, "paintStatusItem")
+    assert "button.replaceChildren();" in paint and "text.textContent = label;" in paint
+
+
+def test_buttons_js_builds_hidden_are_named_when_they_show():
+    # hierarchy.js found these in the DOM with no name while `hidden`; each is
+    # named in the pass that un-hides it.
+    js = _all_js()
+    map_js = _read("whiteboard-map.js")
+    for marker in (
+        'box.setAttribute("aria-label", task === "done" ? "Done" : "Not done");',
+        'noteMark.setAttribute("aria-label", "Open the note behind this topic");',
+        'link.setAttribute("aria-label", `Open the page this topic links to`);',
+        'chevron.setAttribute("aria-label", chevron.title);',
+        'badge.setAttribute("aria-label", label);',
+    ):
+        assert marker in map_js, marker
+    ai = _read("ai-tools.js")
+    assert "badge.hidden = !name;" in ai and "badge.textContent = missing" in ai
+    assert "renderCopyLogsLabel" in js
+def test_a_task_checkbox_in_a_note_card_is_named_by_its_task():
+    """axe `label` (critical, 20 boxes, 2026-10-10): the disabled checkbox a
+    "- [ ] task" line draws had no name. Done or To do, then the words."""
+    cards = _read("notes-list.js")
+    start = cards.index('box.type = "checkbox";')
+    block = cards[start: start + 900]
+    assert 'box.setAttribute("aria-label", `${box.checked ? "Done" : "To do"}: ' in block
+
+
+def test_the_heatmap_scroller_is_a_tab_stop_with_a_ring():
+    """axe `scrollable-region-focusable` (serious, 2026-10-10): `.heatmap`
+    scrolls sideways and held nothing focusable."""
+    dash = _function(_read("dashboard.js"), "renderHeatmapWidget")
+    assert "grid.tabIndex = 0;" in dash
+    assert 'grid.setAttribute("aria-label"' in dash
+    # The ring is the base `:focus-visible` rule's, not a heatmap rule: a tab
+    # stop gets it for free and the boot CSS has no bytes to spare.
+    base = (CSS / "02-chat-graph.css").read_text(encoding="utf-8")
+    assert re.search(r"^:focus-visible \{\s*outline: ", base, re.M)
+
+
+def test_the_folded_tags_chip_keeps_a_24px_target():
+    """axe `target-size` (serious, 2026-10-10): the "+N" chip was 23.6 by 24
+    px at 390. WCAG 2.5.8 wants 24 on both sides."""
+    css = (CSS / "08-consistency.css").read_text(encoding="utf-8")
+    rule = re.search(r"\.note-meta > \.note-meta-more \{([^}]*)\}", css)
+    assert rule, ".note-meta-more rule missing"
+    assert "min-width: 24px;" in rule.group(1)  # the height is the chip's own 24
+    assert 'chip("+0", "note-meta-more"' in _read("note-cards.js")
+
+
+def test_an_icon_only_control_is_named_by_aria_label_not_title_alone():
+    """a11yname.js (2026-10-10): 93 icon-only controls in the Notes list at
+    1440 had a `title` and no `aria-label`; a title never shows on touch. The
+    x buttons (`.unlink`) share one helper (note-cards.js: app.js is at its
+    size ratchet), and a chip folded to its icon
+    keeps its words as the name."""
+    helper = _function(_read("note-cards.js"), "makeUnlinkAccessible")
+    assert 'span.setAttribute("aria-label", span.title)' in helper
+    cards = _read("note-cards.js")
+    assert 'el.setAttribute("aria-label", el.title)' in cards[cards.index('el.classList.add("is-icon")'):][:400]

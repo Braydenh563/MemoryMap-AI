@@ -54,3 +54,28 @@ def test_the_counts_name_the_new_kinds(client, session):
     counts = client.get("/library").json()["counts"]
     assert counts.get("map") == 1
     assert counts.get("note", 0) == 0
+
+
+def test_an_entry_says_which_kind_of_board_it_is(client, session):
+    """The owner, 2026-10-10: "a whitebaord showed as a note in the notes ask
+    subtab matching records column" (INBOX 744: and clicking it took them to
+    the Notes page). An entry the Ask box, Chat's Sources and every other
+    list receives says `board_kind` ("board", "map", or null for a note), the
+    same rule as the Library's own `_entry_kind`, so a card can draw and open
+    it as what it is."""
+    note = client.post("/entries", json={"content": "A plain thought"}).json()
+    board = client.post("/entries", json={"content": "test board"}).json()
+    mind = client.post("/entries", json={"content": "bubble tea"}).json()
+    session.get(Entry, board["id"]).is_board = True
+    row = session.get(Entry, mind["id"])
+    row.is_board = True
+    row.board_settings = json.dumps({"type": "map"})
+    session.commit()
+    kinds = {e["id"]: e["board_kind"] for e in client.get("/entries", params={"include_boards": True}).json()}
+    got = {
+        "note": client.get(f"/entries/{note['id']}").json()["board_kind"],
+        "board": client.get(f"/entries/{board['id']}").json()["board_kind"],
+        "map": client.get(f"/entries/{mind['id']}").json()["board_kind"],
+    }
+    assert got == {"note": None, "board": "board", "map": "map"}
+    assert kinds.get(note["id"], None) is None

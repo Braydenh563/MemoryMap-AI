@@ -73,11 +73,12 @@ def measured_values(notes: list[dict], on: date) -> set[str]:
     for note in notes:
         day = date.fromisoformat(str(note["created_at"])[:10])
         month = composer._MONTHS[day.month - 1]
-        values |= {f"{day.day} {month}", f"{day.day} {month} {day.year}"}
+        #: A span by month (INBOX 787's overview: "from July to September").
+        values |= {f"{day.day} {month}", f"{day.day} {month} {day.year}", month, f"{month} {day.year}"}
         if day == on:
-            values.add("today")
+            values |= {"today", "Today"}
         if (on - day).days == 1:
-            values.add("yesterday")
+            values |= {"yesterday", "Yesterday"}
     return values
 
 
@@ -89,6 +90,35 @@ def _in_note(text: str, content: str) -> bool:
         return False
     flat = _flat(content)
     return body[1:] in flat and (body in flat or body[0].lower() + body[1:] in flat or body[0].upper() + body[1:] in flat)
+
+
+def shifted_failure(part: tuple, content: str, on: date) -> str | None:
+    """A sentence said back in the second person (CHAT_PLAN decision 33):
+    its original is in the note, and the realiser's rules, run again on it,
+    give exactly what was said. None when both hold."""
+    from memorymap.ai import realise
+
+    text, original = part[1], part[3]
+    again = realise.shift_person(original)
+    forms = {f[:1].lower() + f[1:] for f in (again, realise.past_plan(again, date.min, on))}
+    if not _in_note(original, content):
+        return f"shifted: its original is not in note {part[2]}: {original!r}"
+    if text[:1].lower() + text[1:] not in forms:
+        return f"shifted: not what the rules give for {original!r}: {text!r}"
+    return None
+
+
+def rederived_insights(question: str, notes: list[dict], on: date) -> set[str]:
+    """Every insight line the rules give over these notes for the question's
+    subject (CHAT_PLAN decision 32): a measured sentence counts as measured
+    only when running the rule again gives it word for word."""
+    from memorymap.ai import insights
+
+    terms = composer.subject_terms(question)
+    subjects = {composer._asked_span(question, terms), *terms} - {""}
+    found = [i for subject in subjects for i in insights.for_subject(subject, notes, on, question)]
+    #: After a lead that said the count, a recurrence closes in its short form.
+    return {i.text for i in found} | {insights.after_lead(i) for i in found if i.rule == "recurrence"}
 
 
 def trace_failures(result: dict, question: str, notes: list[dict], on: date, asked_from: str = "") -> list[str]:
@@ -112,6 +142,18 @@ def trace_failures(result: dict, question: str, notes: list[dict], on: date, ask
         elif kind in ("quote", "picture"):
             if not _in_note(text, by_id[part[2]]["content"]):
                 failures.append(f"{kind} not in note {part[2]}: {text!r}")
+        elif kind == "help":
+            #: The help register (CHAT_PLAN decision 36): a sentence of the
+            #: app's own Help topic it names.
+            from memorymap.ai import help_chat
+
+            body = next((t["body"] for t in help_chat.HELP_TOPICS if t["id"] == part[2]), "")
+            if text not in body:
+                failures.append(f"not in Help topic {part[2]}: {text!r}")
+        elif kind == "shifted":
+            problem = shifted_failure(part, by_id[part[2]]["content"], on)
+            if problem:
+                failures.append(problem)
         elif kind == "title":
             first = re.sub(r"[*_`#]", "", by_id[part[2]]["content"].split("\n", 1)[0]).strip()
             if not first.startswith(text.rstrip("…")):
@@ -122,17 +164,35 @@ def trace_failures(result: dict, question: str, notes: list[dict], on: date, ask
             if text.lower() not in filed:
                 failures.append(f"not a tag of note {part[2]}: {text!r}")
         elif kind == "measure":
-            if text not in measured:
+            if text not in measured and text not in rederived_insights(question, notes, on):
                 failures.append(f"not a measured value: {text!r}")
+        elif kind == "term":
+            #: A word of the notes as written there, naming a thread or a
+            #: name that links them (INBOX 787's overview).
+            if not re.search(rf"\b{re.escape(text)}\b", by_id[part[2]]["content"]):
+                failures.append(f"not a word of note {part[2]}: {text!r}")
         elif kind == "asked":
             if text.lower() not in f"{question} {asked_from}".lower():
                 failures.append(f"not from the question: {text!r}")
+        elif kind == "confirmed":
+            #: The person's own word on an insight (decision 60): its source
+            #: is in the line, "confirmed by you, <date>".
+            if "(confirmed by you, " not in text:
+                failures.append(f"a confirmed line with no source: {text!r}")
+        elif kind == "computed":
+            #: Worked out from the question alone (CHAT_PLAN decision 41): the
+            #: utility, run again, says the same sentence.
+            from memorymap.ai import utilities
+
+            again = [t for k, t in (utilities.answer(question, salt=result.get("salt", "")) or []) if k == "computed"]
+            if text not in again and not text.startswith(("It is ", "Today is ")):
+                failures.append(f"not computed from the question: {text!r}")
         else:
             failures.append(f"unknown part kind {kind!r}")
     for row in result["grounding"]:
         content = by_id[row["note_id"]]["content"]
         span = _flat(content[row["start"]:row["end"]])
-        body = row["sentence"].rstrip("…").rstrip(".")
+        body = row.get("original", row["sentence"]).rstrip("…").rstrip(".")
         if not (span[:1].lower() == body[:1].lower() and span[1:].startswith(body[1:])):
             failures.append(f"row {row['sentence']!r} does not point at its own text: {span!r}")
         if row["sentence"] not in result["text"]:
@@ -148,7 +208,7 @@ def _factual_parts(result: dict) -> int:
 
 def redundancy(result: dict) -> float:
     """The most two quoted sentences in one answer share, token Jaccard."""
-    quotes = list(dict.fromkeys(part[1] for part in result["parts"] if part[0] in ("quote", "picture")))
+    quotes = list(dict.fromkeys(part[1] for part in result["parts"] if part[0] in ("quote", "picture", "shifted")))
     words = [set(composer._words(q)) for q in quotes]
     best = 0.0
     for i, a in enumerate(words):
@@ -192,22 +252,24 @@ def answers_shape(result: dict, shape: str) -> bool:
     if not line:
         return False
     text = "".join(p[1] for p in line)
-    quoted = " ".join(p[1] for p in line if p[0] in ("quote", "picture"))
+    quoted = " ".join(p[1] for p in line if p[0] in ("quote", "picture", "shifted"))
     measures = [p[1] for p in line if p[0] == "measure"]
     dated = any(re.search(r"\d+ [A-Z][a-z]+|today|yesterday", m) for m in measures)
     if text.rstrip().endswith(":") and not quoted and shape not in ("list", "compare", "recent"):
         #: A list the person wrote, introduced by its count ("Your note
         #: **Launch risks** lists three:") with its entries on the lines
         #: below, is the list answer's own layout, whatever was asked.
-        return bool(measures) and any(p[0] == "quote" for p in result["parts"][len(line):len(line) + 4])
+        return bool(measures) and any(p[0] in ("quote", "shifted") for p in result["parts"][len(line):len(line) + 4])
     if shape == "count":
         return bool(_FIGURE.search(quoted))
     if shape == "when":
         return bool(composer._DATE_CUE.search(quoted)) or (dated and bool(quoted))
     if shape == "status":
         return dated and bool(quoted)
-    if shape in ("list", "compare", "recent"):
+    if shape in ("list", "compare", "recent", "recall"):
         return bool(measures) or bool(quoted)
+    if shape == "utility":
+        return any(p[0] == "computed" for p in line) or any(p[0] == "template" for p in line)
     return bool(quoted)
 
 
@@ -314,6 +376,55 @@ def opener(result: dict) -> str:
         if re.search(r"[A-Za-z]", part[1]):
             return part[1]
     return ""
+
+
+def joiner_phrases() -> set[str]:
+    """Every wording, in either voice, of the joining and opening phrases."""
+    from memorymap.ai import composer_tables
+
+    keys = set(JOINERS)
+    for voice in composer_tables.VOICES:
+        for key in JOINERS:
+            keys.update(composer_tables.VOICE_VARIANTS[voice].get(key, ()))
+    return {composer.PHRASES[k] for k in keys if k in composer.PHRASES}
+
+
+def session(data: dict | None = None, turns: int = 20, dialogue: bool = True) -> list[dict]:
+    """The showcase's first `turns` questions asked in one conversation
+    (CHAT_PLAN decision 34): with `dialogue`, each turn knows the ones before
+    (`composer.Dialogue`); without, each is asked alone, the baseline."""
+    data = data or load()
+    on = today(data)
+    talk = composer.Dialogue(salt="eval-session") if dialogue else None
+    rows = []
+    for entry in data["questions"][:turns]:
+        notes = notes_for(entry, data)
+        recent = str(entry.get("search_mode") or "").endswith("recent")
+        result = composer.compose(entry["question"], notes, today=on, recent=recent, dialogue=talk)
+        rows.append({"question": entry["question"], "result": result, "failures": trace_failures(result, entry["question"], notes, on)})
+    return rows
+
+
+def session_summary(rows: list[dict]) -> dict:
+    """Variation across one conversation: how many joining or opening phrases
+    come more than once in the whole session, and how many different ways
+    its answers open."""
+    joiners = joiner_phrases()
+    used = [p[1] for r in rows for p in r["result"]["parts"] if p[0] == "template" and p[1] in joiners]
+    return {
+        "turns": len(rows),
+        "session_lead_in_repeats": len(used) - len(set(used)),
+        "session_openers_distinct": len({opener(r["result"]) for r in rows}),
+        "session_grounded": all(not r["failures"] for r in rows),
+    }
+
+
+def regenerations(question: str = "What do my notes say about running?", times: int = 3) -> list[dict]:
+    """One question asked again `times` times in one chat (Ask again)."""
+    data = load()
+    entry = next(e for e in data["questions"] if e["question"] == question)
+    notes = notes_for(entry, data)
+    return [composer.compose(question, notes, today=today(data), turn=i + 1, salt="eval-again") for i in range(times)]
 
 
 def summary(rows: list[dict]) -> dict:
@@ -620,6 +731,216 @@ def run_did_you_mean() -> dict:
     return {"questions": total, "fired": fired, "right_with_offer": right, "right_without_offer": right_without}
 
 
+# --- CHAT_PLAN Phase 6, decision 40: the five new eval sets -------------------------
+#
+# Each set is a fixture in `fixtures/composer/` (written by a seeded generator;
+# every expected value is worked out from the row itself, never by running
+# the engine) with a `run_*` and a `*_summary`; `tests/test_engine_evals_1010.py`
+# holds the floors.
+
+FIXTURES = Path(__file__).parent / "fixtures" / "composer"
+
+
+def _fixture(name: str) -> dict:
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def run_insights() -> list[dict]:
+    """Each insight row: the line the engine says, and the line the row's own
+    numbers give (the template filled from `expect`, not from the engine)."""
+    from memorymap.ai import composer_tables, insights
+
+    data = _fixture("insights_1010.json")
+    on = date.fromisoformat(data["today"])
+    out = []
+    for row in data["rows"]:
+        expect = row["expect"]
+        if row["rule"] == "drift":
+            said = [i.text for i in insights.notebook(row["notes"], on, limit=5) if i.rule == "drift"]
+        else:
+            result = composer.compose(row["question"], row["notes"], today=on)
+            #: A recurrence after a lead that said its count closes in its short
+            #: form (`insights.after_lead`, decision 52): ends with the hedge.
+            hedges = tuple(f"{h}." for h in composer_tables.INSIGHT_HEDGES.values())
+            said = [p[1] for p in result["parts"] if p[0] == "measure" and (len(p[1]) > 30 or p[1].lower().endswith(hedges))]
+        wanted = None
+        short = None
+        if expect and row["rule"] == "recurrence":
+            after = f", {_count_word(expect['after'])} of them after work" if expect["after"] >= 3 else ""
+            wanted = composer_tables.INSIGHT_TEMPLATES["recurrence"].format(
+                subject=row["subject"], count=expect["count"], since=expect["since"], after=after, hedge=expect["hedge"])
+            tail = after.lstrip(", ")
+            short = f"{tail[:1].upper()}{tail[1:]}; {expect['hedge']}." if tail else f"{expect['hedge'][:1].upper()}{expect['hedge'][1:]}."
+        elif expect and row["rule"] == "streak":
+            wanted = composer_tables.INSIGHT_TEMPLATES["streak"].format(subject=row["subject"], weeks=expect["weeks"])
+        elif expect and row["rule"] == "drift":
+            wanted = composer_tables.INSIGHT_TEMPLATES["drift"].format(plan=expect["plan"], since=expect["since"])
+        out.append({"id": row["id"], "positive": row["positive"], "said": said, "wanted": wanted, "short": short,
+                    "right": (wanted in said or (short is not None and short in said)) if row["positive"] else not said})
+    return out
+
+
+def insights_summary(rows: list[dict]) -> dict:
+    positives = [r for r in rows if r["positive"]]
+    negatives = [r for r in rows if not r["positive"]]
+    return {
+        "rows": len(rows),
+        "positive_recall": round(sum(r["right"] for r in positives) / len(positives), 3),
+        "negatives_silent": sum(r["right"] for r in negatives),
+        "negatives": len(negatives),
+        #: Every line said is one the row's numbers give, word for word.
+        "measured_rederived": all(not r["said"] or r["said"][0] in (r["wanted"], r["short"]) for r in rows if r["positive"]),
+    }
+
+
+def run_dialogues() -> list[dict]:
+    """Thirty conversations of twenty turns over the showcase notebook: each
+    terse turn's reading (`follow_on`'s kind) against the row's, every answer
+    traced, and the variation inside each conversation."""
+    data = _fixture("dialogues_1010.json")
+    show = load()
+    on = today(show)
+    entries = show["questions"]
+    out = []
+    for dialogue in data["dialogues"]:
+        talk = composer.Dialogue(salt=dialogue["id"])
+        turns = []
+        for turn in dialogue["turns"]:
+            entry = entries[turn["base"]]
+            notes = notes_for(entry, show)
+            follow = composer.follow_on(turn["text"], talk.history) if talk.history else None
+            got = follow.kind if follow else None
+            if turn["effect"] == "social":
+                turns.append({**turn, "got": got, "right": got is None, "failures": []})
+                continue
+            result = composer.compose(turn["text"], notes, today=on, dialogue=talk)
+            read = follow.question if follow else turn["text"]
+            turns.append({**turn, "got": got, "right": got == turn["kind"], "failures": trace_failures(result, read, notes, on, turn["text"]), "result": result})
+        answered = [t for t in turns if "result" in t]
+        joiners = joiner_phrases()
+        used = [p[1] for t in answered for p in t["result"]["parts"] if p[0] == "template" and p[1] in joiners]
+        out.append({
+            "id": dialogue["id"],
+            "turns": turns,
+            "lead_in_repeats": len(used) - len(set(used)),
+            "openers_distinct": len({opener(t["result"]) for t in answered}),
+        })
+    return out
+
+
+def dialogues_summary(rows: list[dict]) -> dict:
+    turns = [t for r in rows for t in r["turns"]]
+    tagged = {}
+    for effect in ("none", "ellipsis", "control", "reference", "correction", "social"):
+        group = [t for t in turns if t["effect"] == effect]
+        if group:
+            tagged[effect] = round(sum(t["right"] for t in group) / len(group), 3)
+    return {
+        "dialogues": len(rows),
+        "turns": len(turns),
+        "kind_accuracy": round(sum(t["right"] for t in turns) / len(turns), 3),
+        "by_effect": tagged,
+        "grounded": all(not t["failures"] for t in turns),
+        "lead_in_repeats_max": max(r["lead_in_repeats"] for r in rows),
+        "openers_distinct_min": min(r["openers_distinct"] for r in rows),
+    }
+
+
+def run_acts() -> list[dict]:
+    from datetime import datetime
+
+    from memorymap.ai import commands
+
+    data = _fixture("acts_1010.json")
+    now = datetime.fromisoformat(data["now"])
+    out = []
+    for act in data["acts"]:
+        cmd = commands.parse(act["phrase"], now)
+        got = (cmd.verb, cmd.object, cmd.confirm) if cmd else None
+        out.append({"phrase": act["phrase"], "got": got, "right": got == (act["verb"], act["object"], act["confirm"]), "lookalike": False})
+    for phrase in data["lookalikes"]:
+        cmd = commands.parse(phrase, now)
+        out.append({"phrase": phrase, "got": cmd and cmd.verb, "right": cmd is None, "lookalike": True})
+    return out
+
+
+def acts_summary(rows: list[dict]) -> dict:
+    acts = [r for r in rows if not r["lookalike"]]
+    looks = [r for r in rows if r["lookalike"]]
+    return {
+        "acts": len(acts),
+        "parse_accuracy": round(sum(r["right"] for r in acts) / len(acts), 3),
+        "lookalikes": len(looks),
+        "false_positive_acts": sum(not r["right"] for r in looks),
+    }
+
+
+def run_web() -> list[dict]:
+    data = _fixture("web_1010.json")
+    on = date.fromisoformat(data["today"])
+    out = []
+    for row in data["rows"]:
+        sources = [{"id": -(i + 1), "kind": "web", "url": p["url"], "content": f"{p['title']}\n\n{p['text']}"} for i, p in enumerate(row["pages"])]
+        result = composer.compose(row["question"], sources, today=on)
+        pages = {p["url"]: p for p in row["pages"]}
+        spans = all(g.get("url") in pages and g["sentence"].rstrip(".") in pages[g["url"]]["text"] for g in result["grounding"])
+        out.append({
+            "id": row["id"],
+            "answered": bool(result["grounding"]),
+            "spans": spans and bool(result["grounding"]),
+            "by_url": all(g.get("kind") == "web" and g.get("url") for g in result["grounding"]),
+            "first_right": bool(result["grounding"]) and result["grounding"][0].get("url") == row["answer_url"],
+        })
+    return out
+
+
+def web_summary(rows: list[dict]) -> dict:
+    n = len(rows)
+    return {
+        "rows": n,
+        "web_spans": round(sum(r["spans"] for r in rows) / n, 3),
+        "cited_by_url": round(sum(r["by_url"] for r in rows) / n, 3),
+        "first_from_the_right_page": round(sum(r["first_right"] for r in rows) / n, 3),
+    }
+
+
+def run_sources() -> list[dict]:
+    data = _fixture("sources_1010.json")
+    on = date.fromisoformat(data["today"])
+    out = []
+    for row in data["rows"]:
+        result = composer.compose(row["question"], row["sources"], today=on)
+        first = result["grounding"][0] if result["grounding"] else {}
+        expect = row["expect"]
+        out.append({
+            "id": row["id"],
+            "kind_right": first.get("kind") == expect["kind"] and first.get("note_id") == expect["id"],
+            "said_right": first.get("said") == expect["said"],
+            "failures": trace_failures(result, row["question"], row["sources"], on),
+        })
+    return out
+
+
+def sources_summary(rows: list[dict]) -> dict:
+    n = len(rows)
+    return {
+        "rows": n,
+        "kind_right": round(sum(r["kind_right"] for r in rows) / n, 3),
+        "caption_and_quote_right": round(sum(r["said_right"] for r in rows) / n, 3),
+        "grounded": all(not r["failures"] for r in rows),
+    }
+
+
+def phase6_report() -> dict:
+    return {
+        "insights": insights_summary(run_insights()),
+        "dialogues": dialogues_summary(run_dialogues()),
+        "acts": acts_summary(run_acts()),
+        "web": web_summary(run_web()),
+        "sources": sources_summary(run_sources()),
+    }
+
+
 if __name__ == "__main__":  # pragma: no cover - the report's table
     import sys
 
@@ -634,6 +955,9 @@ if __name__ == "__main__":  # pragma: no cover - the report's table
         )
     print(json.dumps(summary(rows), indent=1))
     print(json.dumps(context_summary(context_rows()), indent=1))
+    print(json.dumps({"alone": session_summary(session(dialogue=False)), "in_one_chat": session_summary(session())}, indent=1))
+    if "--phase6" in sys.argv:
+        print(json.dumps(phase6_report(), indent=1))
 
 
     if "--voice" in sys.argv:

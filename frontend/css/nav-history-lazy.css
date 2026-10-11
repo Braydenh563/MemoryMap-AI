@@ -52,3 +52,38 @@
 .nav-history-empty {
   padding: var(--space-2) var(--space-3);
 }
+
+/* A row and its remove X (nav-history.js `navHistoryItem`): the X shows
+   while the row is pointed at or focused, as a notification row's does, and
+   always on touch. */
+.nav-history-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.nav-history-row > .nav-history-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-history-remove {
+  flex: none;
+  opacity: 0;
+}
+
+.nav-history-row:hover > .nav-history-remove,
+.nav-history-row:focus-within > .nav-history-remove {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .nav-history-remove {
+    opacity: 1;
+  }
+}
+
+.nav-history-clear {
+  align-self: flex-start;
+  margin: var(--space-1) var(--space-2);
+}

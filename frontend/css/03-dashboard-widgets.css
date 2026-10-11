@@ -1167,22 +1167,6 @@ header#top-bar select,
   white-space: nowrap;
 }
 
-/* The model is the same on every turn of a conversation, so it is context
-   rather than news: present, and never the thing your eye lands on. **And
-   never longer than its place in the line** (INBOX 458): a pulled model id
-   runs to fifty characters ("hf.co/bartowski/...-GGUF:Q4_K_M") and wrapped
-   the whole facts line; it is cut with an ellipsis and its title carries the
-   whole name. `block` because an ellipsis needs a block box to land in, and
-   this item's text is a bare text node in a flex row. */
-.msg-meta-model {
-  display: block;
-  min-width: 0;
-  max-width: 20ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: 0.7;
-}
-
 .msg-meta-icon {
   font-size: var(--text-xs);
 }
@@ -2502,7 +2486,6 @@ header#top-bar select,
    the text; a second 6.4px gap above the meta row on top of that stacked
    two visual breaks where one reads as clearly as two. */
 #entry-list:not(.is-rows) .entry-meta {
-  margin-top: 0.1rem;
   gap: 0.4rem;
   align-items: center;
 }
@@ -2546,10 +2529,6 @@ header#top-bar select,
 #entry-list.is-rows .entry-meta {
   gap: 0.4rem;
   align-items: center;
-}
-
-#entry-list .entry-date {
-  font-size: 0.75rem;
 }
 
 /* Same ask: the title's own gap to the body below it, and its leading,
@@ -2601,6 +2580,11 @@ header#top-bar select,
 /* The evidence button on its own line under the sources, at the left. */
 .ev-foot {
   flex-basis: 100%;
+}
+
+/* A grounding chip is a control: the band's floor, not the chip's 21px. */
+.answer-grounding .result-reason-chip {
+  min-height: var(--target-min);
 }
 
 .answer-grounding.hidden {
@@ -2689,19 +2673,33 @@ button.chat-trail-link {
   background: var(--surface-2);
 }
 
-/* "No model is connected", with the one click that changes it (CHAT_PLAN.md
-   decision 11). A quiet row, not a warning: running with no AI is a supported
-   way to use this app, the same judgement the AI status pill makes when it
-   colours an offline setup amber rather than red. */
-.ai-offline-note {
-  display: flex;
-  flex-wrap: wrap;
+/* The no-model line (INBOX 767): `.notice` is the box and does not wrap, so this
+   is one row; a phone gets a grid so the close stays on the first row. */
+.ai-offline-note.notice {
   align-items: center;
-  gap: var(--space-3);
-  /* Both sides: with only a top margin, the row after it (the writing desk's
-     chips, the agent palette's description) sat flush against the button
-     (owner, two screenshots: "these elements have no gaps between them"). */
   margin-block: var(--space-3);
+}
+
+.ai-offline-text {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 599.98px) {
+  .ai-offline-note.notice {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+  }
+
+  .ai-offline-note > .ghost:not(.icon-only) {
+    grid-area: 2 / 2;
+    justify-self: start;
+  }
+
+  .ai-offline-note > .icon-only {
+    grid-area: 1 / 3;
+  }
 }
 
 /* The Ask tab's answer foot (CHAT_PLAN.md Phase 3): "Elsewhere in your
@@ -3885,14 +3883,18 @@ button.answer-figure-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  /* The icon button's own corner, not a circle (the owner, 2026-10-10: "Some
+     tooltip buttons are circles and some are rounded squares"): measured at
+     1440, the '?' in a dock took `--radius-md` from the dock's rule and the
+     rest kept 50%, five circles beside thirty-five rounded squares. */
+  border-radius: var(--radius-md);
 }
 
 /* **Every "?" in the app is this button.** Direct instruction: "make sure
    all the tooltip question mark buttons across the application are
    consistent." They were not, and it was measurable rather than a matter of
    taste: of the twelve in the DOM, nine carried `.graph-help-toggle` and
-   rendered as 32px circles, while the Settings hint toggle rendered 43x28
+   rendered as 32px circles (rounded squares since 2026-10-10, above), while the Settings hint toggle rendered 43x28
    with a 9.8px radius (a wide rounded rect, photographed in the report) and
    the whiteboard's help button was a third shape again. The size/shape half
    of the recipe is shared here; `margin-left: auto` deliberately stays
@@ -3908,7 +3910,7 @@ button.answer-figure-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius-md);
   flex: 0 0 auto;
 }
 
@@ -4922,37 +4924,6 @@ button.answer-figure-open {
   flex: 1 1 16rem;
   min-width: 0;
   margin: 0;
-  overflow-wrap: anywhere;
-}
-
-/* The Notes tab's Questions view (WORLD_CLASS_PLAN I3, row 7): the morning
-   card's finding row, a question over where it was asked, and the
-   answered-by link under it as a quiet ghost line that wraps. */
-.dash-list.questions-list {
-  margin: var(--space-2) 0 0;
-}
-
-.dash-list.questions-list > li.question-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  cursor: default;
-}
-
-.question-row > .dash-list-text {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.question-row .question-answer-link {
-  align-self: flex-start;
-  height: auto;
-  min-height: 0;
-  margin-top: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  font-weight: 400;
-  text-align: left;
-  white-space: normal;
   overflow-wrap: anywhere;
 }
 

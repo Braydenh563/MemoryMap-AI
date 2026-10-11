@@ -148,6 +148,9 @@ class ViewedFile:
     source: str  # "file" | "converted" | "vision-ocr"
     truncated: bool = False
     message: str = ""  # why there is no text, when there is none
+    #: The optional package (`core/extras.py` id) that would read it, when its
+    #: absence is the reason: the viewer offers Install beside the message.
+    extra: str = ""
 
 
 #: --- two readers that need nothing installed -------------------------------
@@ -377,8 +380,8 @@ def docx_to_markdown(path: Path) -> str:
     part), bold, italic and strike keep their markers, and Word's tracked
     changes become suggestion mode's marks (`{++…++}`, `{--…--}`), so a draft
     reviewed in Word arrives with its revisions still to accept or reject.
-    This is the other half of `docexport.to_docx`, and
-    `tests/test_prose_tools.py` sends one through both.
+    A Word file brought into the Library is read in the browser by Mammoth
+    (`documents-word.js`); this is the server's path for one filed as a note.
 
     Returns "" for anything it cannot read, which is what puts the caller back
     on its existing "no text found" path rather than a traceback.
@@ -780,7 +783,7 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
 
     if not importer.markitdown_available():
         return ViewedFile(
-            text="", kind="plain", source="converted", message=importer.INSTALL_HINT
+            text="", kind="plain", source="converted", message=importer.INSTALL_HINT, extra="documents"
         )
     # Two different "can't read this", and they need two different next
     # steps. Telling someone to install a rasteriser they already have is as
@@ -797,6 +800,7 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
                 "Packages, and pick a vision or text-reading model in "
                 "Settings, Models."
             ),
+            extra="pdfpages",
         )
     return ViewedFile(
         text="",

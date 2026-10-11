@@ -64,8 +64,22 @@ const WB_MAP_ICONS = {
 //: `MAP_ROW`/`MAP_COL` from routes_whiteboard.py: those are where the server
 //: drops a node when nobody said, which only has to be "not on top of its
 //: parent"; a tidy layout measures real node sizes and needs only the gap.
-const WB_MAP_GAP_BREADTH = 26;
-const WB_MAP_GAP_DEPTH = 76;
+const WB_MAP_GAP_BREADTH_BASE = 26;
+const WB_MAP_GAP_DEPTH_BASE = 76;
+//: **The map's spacing** (theme `spacing`; the owner, 2026-10-10: "the
+//: spacing is really close to the other things and bunched up"): Compact,
+//: normal (no value) or Roomy, the tidy's two gaps scaled. Read as two
+//: names below so every reader of a gap takes the map's.
+const WB_MAP_SPACING = Object.freeze({ compact: 0.6, roomy: 1.6 });
+function wbMapSpacing() {
+  return (wbIsMap() && WB_MAP_SPACING[wbMapTheme().spacing]) || 1;
+}
+function wbMapGapBreadth() {
+  return Math.round(WB_MAP_GAP_BREADTH_BASE * wbMapSpacing());
+}
+function wbMapGapDepth() {
+  return Math.round(WB_MAP_GAP_DEPTH_BASE * wbMapSpacing());
+}
 
 //: A node's size when it is not in the DOM, collapsed away, or being laid
 //: out before its first paint. Matches `wbMapCreateNode`'s own defaults, so a
@@ -152,6 +166,9 @@ function wbMapThemedData(node) {
 function wbMapThemeDefault(field, node = wbSelectedMapNode()) {
   const look = wbMapLevelLook(node);
   if (look[field] !== undefined) return look[field];
+  //: A core topic's blank shape is the ellipse, so its strip offers
+  //: "As the map draws (ellipse)" and the Rounded pin, as a level's does.
+  if (field === "shape" && node?.data?.core) return "ellipse";
   return WB_MAP_THEME_META.has(field) ? undefined : wbMapTheme()[field];
 }
 
@@ -166,12 +183,12 @@ function wbMapThemeDefault(field, node = wbSelectedMapNode()) {
 
 //: The two theme keys that are not a look a topic can take: the preset's name
 //: and the per-level overrides. Never merged onto a topic's data.
-const WB_MAP_THEME_META = new Set(["hierarchy", "levels"]);
+const WB_MAP_THEME_META = new Set(["hierarchy", "levels", "spacing"]);
 
 //: The seven fields a level can set (the server's `MAP_LEVEL_FIELDS`). `fill`
 //: here is `solid`, `tint` or `none`: a level's fill, read by the paint pass
 //: only where the topic and its branch said nothing (`wbMapFillOf`).
-const WB_MAP_LEVEL_FIELDS = ["font_size", "bold", "italic", "shape", "spine", "fill", "edge_width"];
+const WB_MAP_LEVEL_FIELDS = ["font_size", "bold", "italic", "shape", "spine", "fill", "edge_width", "effect"];
 
 //: **The four presets** (decision 39), one look per level: 0 the centre, 1 a
 //: main branch, 2 everything deeper and a floating topic. Classic is the
@@ -204,9 +221,9 @@ const WB_MAP_HIERARCHIES = Object.freeze({
 //: next. `looksFor` and `looks`: the looks per level for the open map's theme,
 //: allocated once per theme rather than once per read (13a: read per topic and
 //: per edge on every drag frame). `accentInk`: the ink for the accent, read once
-//: per render (`wbMapLevels` clears it), since a computed-style read per topic
+//: per accent (`wbMapAccentInk` keys it), since a computed-style read per topic
 //: inside the paint loop would force a style recalculation per topic.
-const wbMapCache = { levelById: new Map(), looksFor: null, looks: null, accentInk: null };
+const wbMapCache = { levelById: new Map(), looksFor: null, looks: null, accentInk: null, accentFor: null };
 
 //: **The level of every topic** (decision 38). The first root is the centre,
 //: as is any root with topics under it; a root with nothing under it is a
@@ -225,7 +242,6 @@ function wbMapLevels(index) {
     walk(root, top);
   });
   wbMapCache.levelById = levels;
-  wbMapCache.accentInk = null;
   return levels;
 }
 
@@ -805,6 +821,9 @@ const WB_MAP_THEME_GROUPS = [
       { key: "font", label: "Font", kind: "select", options: [
         ["", "The app's own"], ["serif", "Serif"], ["mono", "Monospace"], ["wide", "Wide sans"],
       ] },
+      { key: "spacing", label: "Spacing", kind: "select", options: [
+        ["", "Normal"], ["compact", "Compact"], ["roomy", "Roomy"],
+      ] },
     ],
   },
   {
@@ -874,11 +893,13 @@ async function wbMapSetTheme(patch) {
     if ("palette" in patch) await wbRefreshMapState();
     wbApplyMapFont();
     renderWhiteboardNow();
+    //: New gaps mean new places: the whole map, laid out again.
+    if ("spacing" in patch && wbMapLayout() !== "free") await wbMapTidy({ quiet: true });
     const selected = wbSelectedMapNode();
     if (selected) wbSyncMapStrip(selected);
     return true;
   } catch (err) {
-    toast(err.message || "Couldn't change how this map draws.", true);
+    toast(err.message || voiceLine("failed", { what: "change how this map draws" }), true);
     return false;
   }
 }
@@ -911,7 +932,7 @@ async function wbMapClearEveryTopic() {
       ? `${count} topic${count === 1 ? "" : "s"} back to following this map.`
       : "Every topic was already following this map.");
   } catch (err) {
-    toast(err.message || "Couldn't reset the topics.", true);
+    toast(err.message || voiceLine("failed", { what: "reset the topics" }), true);
   }
 }
 
@@ -1010,6 +1031,7 @@ const WB_MAP_LEVEL_ROWS = [
   { key: "spine", label: "Edge bar", options: [["solid", "Solid bar"], ["dashed", "Dashed bar"], ["none", "No bar"]] },
   { key: "fill", label: "Fill", options: [["solid", "Solid colour"], ["tint", "Tinted"], ["none", "No fill"]] },
   { key: "edge_width", label: "Line into it", options: [["thin", "Thin line"], ["normal", "Line"], ["thick", "Thick line"]] },
+  { key: "effect", label: "Effect", options: [["shadow", "Shadow"], ["glow", "Glow"], ["none", "No effect"]] },
 ];
 
 const WB_MAP_LEVEL_NAMES = ["the centre", "the main branches", "the sub-topics"];
@@ -1129,31 +1151,63 @@ function wbShowMapStats() {
 
 //: The facts as a list: the dialog's body, and the sidebar's This map tab
 //: (INBOX 596), one builder so the two never say different things.
-function wbMapStatsList(stats) {
+//:
+//: `tiles` is the sidebar's shape (INBOX 791, the owner: "this side tab looks
+//: a little messy"): the seven counts as a grid of number-over-label tiles
+//: two across, the two sentences (the widest branch, loose roots) as stacked
+//: lines under it, instead of a two-column list whose values wrapped to three
+//: lines in 130px. The facts and their words are the same rows.
+function wbMapStatsList(stats, { tiles = false } = {}) {
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
   const rows = [
-    ["Nodes", `${stats.nodes} (${stats.references} from the library, ${stats.topics} topics of their own)`],
-    ["Depth", `${stats.depth} level${stats.depth === 1 ? "" : "s"}`],
-    ["Ends", `${stats.leaves} node${stats.leaves === 1 ? "" : "s"} with nothing under them`],
-    ["Widest branch", stats.widest ? `${stats.widest.label} (${stats.widest.kids} children)` : "None yet"],
-    ["Cross-links", `${stats.crossLinks}`],
-    ["Categories behind it", `${stats.categories}`],
-    ["Collapsed", `${stats.collapsed}`],
+    ["Nodes", `${stats.nodes} (${stats.references} from the library, ${stats.topics} topics of their own)`, stats.nodes],
+    ["Depth", `${plural(stats.depth, "level", "levels")}`, stats.depth],
+    ["Ends", `${plural(stats.leaves, "node", "nodes")} with nothing under them`, stats.leaves],
+    ["Widest branch", stats.widest ? `${stats.widest.label} (${stats.widest.kids} children)` : "None yet", null],
+    ["Cross-links", `${stats.crossLinks}`, stats.crossLinks],
+    ["Categories behind it", `${stats.categories}`, stats.categories],
+    ["Collapsed", `${stats.collapsed}`, stats.collapsed],
   ];
   if (stats.orphans) {
     rows.push([
       "Loose roots",
-      `${stats.orphans} branch${stats.orphans === 1 ? "" : "es"} not hanging off the first one`,
+      `${plural(stats.orphans, "branch", "branches")} not hanging off the first one`,
+      null,
     ]);
   }
-  const body = document.createElement("dl");
-  body.className = "wb-map-stats";
-  for (const [term, value] of rows) {
+  const body = document.createElement(tiles ? "div" : "dl");
+  body.className = tiles ? "wb-map-tiles" : "wb-map-stats";
+  const counts = document.createElement("dl");
+  counts.className = "wb-map-stat-grid";
+  for (const [term, value, count] of rows) {
     const name = document.createElement("dt");
     name.textContent = term;
     const said = document.createElement("dd");
-    said.textContent = value;
-    body.append(name, said);
+    if (!tiles) {
+      said.textContent = value;
+      body.append(name, said);
+      continue;
+    }
+    if (count === null) {
+      //: A sentence, not a count: a line of its own under the grid.
+      const line = document.createElement("p");
+      line.className = "wb-map-stat-line";
+      const label = document.createElement("span");
+      label.className = "muted";
+      label.textContent = term;
+      line.append(label, document.createTextNode(value));
+      body.append(line);
+      continue;
+    }
+    const tile = document.createElement("div");
+    tile.className = "wb-map-stat";
+    tile.title = value;
+    name.textContent = term === "Categories behind it" ? "Categories" : term;
+    said.textContent = String(count);
+    tile.append(said, name);
+    counts.append(tile);
   }
+  if (tiles) body.prepend(counts);
   return body;
 }
 
@@ -1258,7 +1312,7 @@ function wbSyncMapTemplates(passed = null) {
 }
 
 //: **The first-open hint, shown once for this browser** (MINDMAP_PLAN §12.5,
-//: "the empty map says how to start"; the audit in `agent-remaining/mindmap.md`
+//: "the empty map says how to start"; the audit in `archive/agent-remaining/mindmap.md`
 //: found six actions reachable only from a ring nobody meets by accident).
 //:
 //: The lifetime the decision asks for is "gone on the first topic added and
@@ -1444,6 +1498,21 @@ function wbMapColors(index) {
   const colors = new Map();
   const seen = new Set();
   let branch = 0;
+  //: **A branch is as old as its oldest topic** (the owner, 2026-10-10:
+  //: "when I added a mindmap node in between, it changed the colour of the
+  //: other nodes in the branch"): a topic inserted between a root and its
+  //: child is the newest id on the map, and by its own id it went to the end
+  //: of the palette, shifting every branch after it. The server's
+  //: `_map_branch_colors` orders a root's children the same way.
+  const oldest = new Map();
+  const ageOf = (node) => {
+    if (oldest.has(node.id)) return oldest.get(node.id);
+    oldest.set(node.id, node.id);
+    let min = node.id;
+    for (const child of index.childrenOf.get(node.id) || []) min = Math.min(min, ageOf(child));
+    oldest.set(node.id, min);
+    return min;
+  };
   const walk = (node, inherited) => {
     if (seen.has(node.id)) return;
     seen.add(node.id);
@@ -1452,7 +1521,7 @@ function wbMapColors(index) {
     //: Creation order, not sibling order: a branch keeps its colour when it
     //: is moved up or down (INBOX 445), and the Library's thumbnail, which
     //: hands out `MAP_BRANCH_PALETTE` by id on the server, keeps agreeing.
-    const kids = [...(index.childrenOf.get(node.id) || [])].sort((a, b) => a.id - b.id);
+    const kids = [...(index.childrenOf.get(node.id) || [])].sort((a, b) => ageOf(a) - ageOf(b) || a.id - b.id);
     for (const child of kids) {
       // `inherited == null` is true for exactly one generation, the roots'
       // own children, which *are* the first-level topics. Starting the colours
@@ -1759,9 +1828,27 @@ function wbBuildMapNode(el, d) {
       // fire: the same `stopPropagation` the card editor above needs, and
       // for the same reason.
       event.stopPropagation();
-      if (event.key === "Escape" || (event.key === "Enter" && !event.shiftKey)) {
+      //: **Enter is a new line in the name** (the owner, 2026-10-10:
+      //: "Pressing enter when typing on a mindmap node makes a new node
+      //: instead of a new line"). A topic's name wraps (`pre-wrap`), so a
+      //: second line is a real thing to want; plain Enter is the browser's
+      //: own line break. The branch gestures stay one key away while typing,
+      //: each committing the name first (the blur below saves it): Tab adds
+      //: a child, Ctrl+Enter a sibling below, Shift+Enter a sibling above
+      //: (the canvas's own Enter and Shift+Enter, MINDMAP_PLAN 3), and
+      //: Escape, a press elsewhere or Ctrl+S's blur keep the name.
+      const id = Number(this.closest(".wb-object")?.dataset.id);
+      if (event.key === "Escape") {
         event.preventDefault();
         this.blur();
+      } else if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        this.blur();
+        if (id) wbMapAddChild(id);
+      } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey || event.shiftKey)) {
+        event.preventDefault();
+        this.blur();
+        if (id) wbMapAddSibling(id, { above: event.shiftKey && !event.ctrlKey && !event.metaKey });
       }
     });
     text.on("pointerdown", function (event) {
@@ -1885,7 +1972,7 @@ function wbBuildMapNode(el, d) {
       event.stopPropagation();
       wbMapAddReference(d.id);
     })
-    .append("i").attr("class", "ph ph-bookmarks-simple").attr("aria-hidden", "true");
+    .append("i").attr("class", "ph ph-link-simple").attr("aria-hidden", "true");
 }
 
 //: **The ink a core node's label takes on its own fill** (INBOX 201: "I want
@@ -1937,9 +2024,19 @@ function wbRelativeLuminance(channels) {
 }
 
 
+//: **Read again only when the accent can have changed** (MINDMAP_PLAN 15,
+//: row 4): once per render was a forced style recalculation of the whole tab
+//: inside every add's paint (840 elements, the first of three per add at
+//: 390). The accent comes from the root's own attributes (the theme, the
+//: palette, Settings' custom colour on its style) and the system scheme, so
+//: those, read without a style pass, say when to read it again.
 function wbMapAccentInk(node) {
-  if (wbMapCache.accentInk == null) {
+  const root = document.documentElement;
+  let sig = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "d" : "l";
+  for (const attr of root.attributes) sig += `|${attr.name}=${attr.value}`;
+  if (wbMapCache.accentInk == null || wbMapCache.accentFor !== sig) {
     wbMapCache.accentInk = wbCoreInkFor(getComputedStyle(node).getPropertyValue("--accent").trim()) || "";
+    wbMapCache.accentFor = sig;
   }
   return wbMapCache.accentInk || null;
 }
@@ -2145,7 +2242,7 @@ async function wbMapSetNumbered(on) {
     wbAnnounce(on ? "Branches numbered." : "Branches not numbered.");
     return true;
   } catch (err) {
-    toast(err.message || "Couldn't change the numbering.", true);
+    toast(err.message || voiceLine("failed", { what: "change the numbering" }), true);
     wbSyncMapChrome();
     return false;
   }
@@ -2280,7 +2377,10 @@ function wbPaintMapNodeStyle(node, d) {
   //: reason `align` is: they are exclusive, and a class per value is a class
   //: somebody forgets to remove. The stylesheet holds the four looks; an
   //: unset shape is the rounded card this map has always drawn.
-  const shape = wbMapDrawn(data, "shape");
+  //: The rounded pin is drawn as itself, unlike every other pin: a core
+  //: topic with no shape is the ellipse (the stylesheet's
+  //: `:not([data-shape])`), so "Rounded" chosen on one has to say so.
+  const shape = wbMapDrawn(data, "shape") || (data.shape === WB_MAP_APP_DEFAULT_PINS.shape ? "rounded" : undefined);
   if (shape) node.dataset.shape = shape;
   else delete node.dataset.shape;
   //: The bar down the node's leading edge (MINDMAP_PLAN.md item 177), an
@@ -2289,6 +2389,10 @@ function wbPaintMapNodeStyle(node, d) {
   const spine = wbMapDrawn(data, "spine");
   if (spine) node.dataset.spine = spine;
   else delete node.dataset.spine;
+  //: Its effect (MINDMAP_PLAN §14.4): its own, else its level's; `none` is
+  //: one topic kept plain on a level that has one, drawn as no attribute.
+  if (data.effect === "shadow" || data.effect === "glow") node.dataset.effect = data.effect;
+  else delete node.dataset.effect;
   const align = wbMapDrawn(data, "align");
   if (align) node.dataset.align = align;
   else delete node.dataset.align;
@@ -2683,7 +2787,7 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag", before = null
     }
     Object.assign(d, await move(d.id, targetId));
   } catch (err) {
-    toast(err.message || "Couldn't move that branch.", true);
+    toast(err.message || voiceLine("failed", { what: "move that branch" }), true);
     return false;
   }
   if (d.data?.pinned) {
@@ -2755,7 +2859,7 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag", before = null
 //: branch is moved as a whole so its topic sits where a topic added under the
 //: same parent would, beside the parent and under its last child, or level
 //: with the parent when it is the first. The gaps are
-//: the tidy's own (`WB_MAP_GAP_DEPTH`, `WB_MAP_GAP_BREADTH`), so a free map
+//: the tidy's own (`wbMapGapDepth()`, `wbMapGapBreadth()`), so a free map
 //: and a tidied one space a branch alike. A free map has no growing side, so
 //: "beside" is the right, where the server puts a new child of a topic on a
 //: free map too (`_next_position`). "Under its last child" is under that
@@ -2766,7 +2870,7 @@ async function wbMapPlaceAsChild(d, target, branch) {
   const size = (node) => wbMapNodeSize(node);
   const targetSize = size(target);
   const siblings = (index.childrenOf.get(target.id) || []).filter((node) => !moving.has(node.id));
-  let x = target.x + targetSize.w + WB_MAP_GAP_DEPTH;
+  let x = target.x + targetSize.w + wbMapGapDepth();
   let y = target.y + (targetSize.h - size(d).h) / 2;
   if (siblings.length) {
     x = Math.min(...siblings.map((node) => node.x));
@@ -2774,7 +2878,7 @@ async function wbMapPlaceAsChild(d, target, branch) {
     for (const sibling of siblings) {
       for (const node of wbMapSubtree(index, sibling.id)) bottom = Math.max(bottom, node.y + size(node).h);
     }
-    y = bottom + WB_MAP_GAP_BREADTH;
+    y = bottom + wbMapGapBreadth();
   }
   const dx = x - d.x, dy = y - d.y;
   if (!dx && !dy) return;
@@ -3003,8 +3107,22 @@ function wbMapEdgeAnchors(parent, child, layout) {
   //: Every sideways layout is horizontal, whichever way it grows: the
   //: `leftward` test below already reads the direction off the two boxes, so
   //: tree-left and both-sides need nothing of their own here.
-  let horizontal = layout === "tree-right" || layout === "tree-left" || layout === "tree-both";
-  if (layout === "radial" || layout === "free") {
+  let horizontal = layout === "tree-right" || layout === "tree-left" || layout === "tree-both" || layout === "logic-right";
+  const fromRoot = parent.parent_id == null;
+  //: A timeline's events sit on the axis through the centre; their branches
+  //: hang below or above them.
+  if (layout === "timeline") horizontal = fromRoot;
+  //: A tree table's rows: down from the parent's left, then into the row.
+  if (layout === "tree-table" && !fromRoot) {
+    return { horizontal: true, x1: parent.x + WB_MAP_INDENT / 2, y1: parent.y + p.h, x2: child.x, y2: child.y + c.h / 2 };
+  }
+  //: A fishbone's rib leaves the spine at the head's left edge
+  //: (`wbMapEdgePathD` runs it along the spine to the rib's foot).
+  if (layout === "fishbone" && fromRoot) {
+    const up = child.y + c.h / 2 < parent.y + p.h / 2;
+    return { horizontal: false, rib: true, x1: parent.x, y1: parent.y + p.h / 2, x2: child.x + c.w / 2, y2: up ? child.y + c.h : child.y };
+  }
+  if (layout === "radial" || layout === "free" || layout === "fishbone") {
     horizontal = Math.abs(child.x - parent.x) >= Math.abs(child.y - parent.y);
   }
   if (horizontal) {
@@ -3148,7 +3266,7 @@ const WB_MAP_EDGE_CONTROL_GAP = 26;
 function wbMapEdgeHandlePoint(parent, child, layout) {
   const a = wbMapEdgeAnchors(parent, child, layout);
   const w = wbMapEdgeWaypoint(a, child);
-  if ((wbMapThemedData(child).edge_style || "curve") === "elbow") return wbMapEdgeElbowTurn(a, w);
+  if (wbMapEdgeStyle(child) === "elbow") return wbMapEdgeElbowTurn(a, w);
   return { x: w.x, y: w.y };
 }
 
@@ -3169,13 +3287,17 @@ function wbMapEdgePathD(parent, child, layout) {
   //: the two points. The elbow turns at the same midpoint the curve's control
   //: points sit on, which is what keeps a column of siblings reading as one
   //: branch in either style.
-  const style = wbMapThemedData(child).edge_style || "curve";
+  const style = wbMapEdgeStyle(child);
   //: The waypoint composes with all three shapes rather than only the curve
   //: (§12.1 item 5's third: "it now has to compose with the three line shapes
   //: item 4 added"). Each shape bends in the way that shape can: the curve
   //: passes through the point, the straight line kinks at it, and the elbow
   //: moves its turn to it. An unbent line is the same string it always was.
   const w = wbMapEdgeWaypoint(a, child);
+  if (a.rib && !w.bent) {
+    const foot = Math.min(a.x1, a.x2 + Math.abs(a.y2 - a.y1) * 0.5);
+    return `M${a.x1} ${a.y1} L${foot} ${a.y1} L${a.x2} ${a.y2}`;
+  }
   if (style === "straight") {
     return w.bent
       ? `M${a.x1} ${a.y1} L${w.x} ${w.y} L${a.x2} ${a.y2}`
@@ -3357,7 +3479,7 @@ function wbMapSmoothThrough(points, at) {
 //: fill rule is invisible.
 function wbMapEdgeIsRibbon(child) {
   const themed = wbMapThemedData(child);
-  return (themed.edge_style || "curve") === "curve" && !themed.edge_dashed;
+  return (themed.edge_style || WB_MAP_LAYOUT_EDGE[wbMapLayout()] || "curve") === "curve" && !themed.edge_dashed;
 }
 
 //: The tree edges touching `id` (its own edge up to its parent, and one per
@@ -3786,7 +3908,7 @@ function wbMapEdgeApply(wrap, geom) {
 //: `+` off the end.
 function wbMapEdgePlusPoint(parent, child, layout) {
   const a = wbMapEdgeAnchors(parent, child, layout);
-  const style = wbMapThemedData(child).edge_style || "curve";
+  const style = wbMapEdgeStyle(child);
   const middle = wbMapEdgeHandlePoint(parent, child, layout);
   let dx;
   let dy;
@@ -3954,6 +4076,18 @@ async function wbMapInsertBetween(parentId, childId) {
   if (top?.action === "create" && top.id === created.id) wbUndoStack.pop();
   const history = [];
   const child = (wbState.objects || []).find((o) => o.id === childId);
+  //: **It takes its child's place** (the owner, 2026-10-10: "when I added a
+  //: mindmap node in between, it changed the colour of the other nodes in the
+  //: branch and the spacing is really close"): the child's spot, so the
+  //: both-sides split keeps the branch on its side and the tidy opens the
+  //: gap from where the branch was, and its slot among the siblings, so the
+  //: branch does not jump to the end of the list.
+  if (child) {
+    created.x = child.x;
+    created.y = child.y;
+    created.data = { ...created.data, order: wbMapOrderKey(child) };
+    await wbSaveObject(created);
+  }
   if (child) {
     try {
       const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/${childId}/move`, {
@@ -3963,7 +4097,7 @@ async function wbMapInsertBetween(parentId, childId) {
       Object.assign(child, moved);
       history.push({ action: "reparent", kind: "object", id: childId, parentId });
     } catch (err) {
-      toast(err.message || "Couldn't move that topic under the new one.", true);
+      toast(err.message || voiceLine("failed", { what: "move that topic under the new one" }), true);
     }
   }
   history.push({ action: "create", kind: "object", id: created.id });
@@ -4027,7 +4161,7 @@ async function wbMapCreateNode({ parentId = null, kind = "topic", text = WB_MAP_
     wbPushUndo({ action: "create", kind: "object", id: created.id });
     return created;
   } catch (err) {
-    toast(err.message || "Couldn't add that node.", true);
+    toast(err.message || voiceLine("failed", { what: "add that node" }), true);
     return null;
   }
 }
@@ -4065,11 +4199,20 @@ function wbMapTypeaheadLive() {
 //: closes on the typed text as soon as it opens. Keys after it are swallowed
 //: rather than appended: they were typed after the name was finished, and a
 //: shortcut fired from them would act on a topic that is not there yet.
+//: Since 2026-10-10 Enter in the editor is a line break (the owner: "Pressing
+//: enter when typing on a mindmap node makes a new node instead of a new
+//: line"), so an Enter typed ahead is one too, and Escape is the key held
+//: as `commit`, the editor's own way to end a name.
 function wbMapCatchTypeahead(e) {
   if (!wbMapTypeaheadLive() || e.ctrlKey || e.metaKey || e.altKey) return false;
-  if (e.key === "Enter" && !e.shiftKey) {
+  if (e.key === "Escape") {
     e.preventDefault();
     wbMapTypeahead.commit = true;
+    return true;
+  }
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    if (!wbMapTypeahead.commit) wbMapTypeahead.text += "\n";
     return true;
   }
   if (e.key.length !== 1) return false;
@@ -4184,7 +4327,7 @@ async function wbMapPasteText(text) {
       body: JSON.stringify({ parent_id: node ? node.id : null, text: text.slice(0, 200000) }),
     });
   } catch (err) {
-    toast(err.message || "Couldn't paste that onto the map.", true);
+    toast(err.message || voiceLine("failed", { what: "paste that onto the map" }), true);
     return 0;
   }
   wbState.objects = [...(wbState.objects || []), ...made];
@@ -4262,7 +4405,7 @@ async function wbMapWriteDocument() {
   try {
     tree = await apiJson(`/whiteboard/boards/${boardId}/tree`);
   } catch (err) {
-    toast(err.message || "Couldn't read this map.", true);
+    toast(err.message || voiceLine("failed", { what: "read this map" }), true);
     return null;
   }
   //: The index may predate a map made a moment ago; it is refreshed once.
@@ -4278,7 +4421,7 @@ async function wbMapWriteDocument() {
       body: JSON.stringify({ title: title.slice(0, 200), content: `${boardEmbedMarkdown(board)}\n\n${body}\n` }),
     });
   } catch (err) {
-    toast(err.message || "Couldn't make that document.", true);
+    toast(err.message || voiceLine("failed", { what: "make that document" }), true);
     return null;
   }
   switchTab("documents");
@@ -4306,6 +4449,11 @@ function mapPaletteCommands() {
   if (node) {
     row("This topic", "ph:arrow-elbow-down-right Add a child topic", () => wbMapAddChild(node.id), "Tab");
     row("This topic", "ph:arrow-down Add a sibling topic", () => wbMapAddSibling(node.id), "Enter");
+    //: The topic's grips by name (row 9): the library `+` and the corner.
+    row("This topic", "ph:link-simple Add a child that points at a note, document, file or link", () => wbMapAddReference(node.id));
+    row("This topic", "ph:corners-in Resize this topic to the usual width", () => wbMapResetTopicSize(node.id));
+    //: The line's mid `+` by name: a touch screen has no hover to find it.
+    if (node.parent_id != null) row("This topic", "ph:arrow-elbow-left-up Put a topic between this and its parent", () => wbMapInsertBetween(node.parent_id, node.id));
     if (node.kind === "topic") row("This topic", "ph:pencil-simple Rename the topic", () => wbMapEditNode(node.id), "F2");
     row("This topic", "ph:caret-down Fold or unfold the branch", () => wbMapToggleCollapse(node.id), "C");
     row("This topic", "ph:crosshair Focus on this branch", () => wbMapSetFocus(node.id));
@@ -4323,7 +4471,7 @@ function mapPaletteCommands() {
   if (wbMapFocusState) {
     row("This map", "ph:x-circle Show the whole map again", () => wbMapClearFocus());
   }
-  row("This map", "ph:palette Change the map's look", () => wbMapThemeDialog());
+  row("This map", "ph:palette How this map looks", () => wbMapThemeDialog());
   const numbered = Boolean(window.wbMapState?.numbered);
   row("This map", numbered ? "ph:list-bullets Stop numbering the topics" : "ph:list-numbers Number the topics", () => wbMapSetNumbered(!numbered));
   row("This map", "ph:chart-bar What this map is made of", () => wbShowMapStats());
@@ -4333,7 +4481,7 @@ function mapPaletteCommands() {
   if (wbMarkerUi.filter) row("This map", "ph:x-circle Stop filtering by marker", () => wbMapSetMarkerFilter(null));
   row("This map", wbOutlineShowing() ? "ph:list-dashes Hide the outline" : "ph:list-dashes Show the map as an outline", () => wbOutlineToggle());
   row("This map", "ph:frame-corners Zoom to fit the map", () => wbZoomToFit());
-  for (const [value, name] of [["tree-right", "Tree, to the right"], ["tree-left", "Tree, to the left"], ["tree-both", "Tree, both sides"], ["tree-down", "Tree, downward"], ["radial", "Radial"], ["free", "Free"]]) {
+  for (const [value, name] of WB_MAP_LAYOUT_NAMES) {
     if (value !== wbMapLayout()) row("Map layout", `ph:tree-structure Layout: ${name}`, () => wbMapSetLayout(value));
   }
   row("This map", "ph:file-text Write this map as a document", () => wbMapWriteDocument());
@@ -4341,6 +4489,20 @@ function mapPaletteCommands() {
     row("Export the map", `ph:export Export as ${name}`, () => wbExportMapText(format));
   }
   return rows;
+}
+
+//: The resize grip's undo by name: the usual width again and the height its
+//: words need, one Undo step.
+function wbMapResetTopicSize(id) {
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  if (!node) return;
+  wbPushUndo({ action: "move", kind: "object", id: node.id, before: WB_KIND_INFO.object.payload(node) });
+  node.width = WB_MAP_NODE_W;
+  node.height = null;
+  wbClearMapNodeSizeCache();
+  wbSaveObject(node);
+  renderWhiteboardNow();
+  if (wbMapLayout() !== "free") wbMapTidy({ quiet: true });
 }
 
 //: Where a new topic starts, before any tidy: beside its parent and under
@@ -4364,12 +4526,12 @@ function wbMapFreshPlace(row, parent) {
   if (like && !row.height) row.height = size(like).h;
   if (!parent) {
     row.x = index.roots.length ? Math.min(...index.roots.map((r) => r.x)) : 0;
-    row.y = index.roots.length ? below(index.roots) + WB_MAP_GAP_DEPTH : 0;
+    row.y = index.roots.length ? below(index.roots) + wbMapGapDepth() : 0;
     return;
   }
   const siblings = index.childrenOf.get(parent.id) || [];
-  row.x = siblings.length ? Math.min(...siblings.map((n) => n.x)) : parent.x + size(parent).w + WB_MAP_GAP_DEPTH;
-  row.y = siblings.length ? below(siblings) + WB_MAP_GAP_BREADTH : parent.y;
+  row.x = siblings.length ? Math.min(...siblings.map((n) => n.x)) : parent.x + size(parent).w + wbMapGapDepth();
+  row.y = siblings.length ? below(siblings) + wbMapGapBreadth() : parent.y;
 }
 
 //: The provisional topic made real: POST it where the tidy put it, swap its
@@ -4391,7 +4553,7 @@ async function wbMapAdoptProvisional(row, { expand = null, origin = null, order 
     wbState.objects = (wbState.objects || []).filter((o) => o !== row);
     const step = wbUndoStack.find((e) => e.action === "create" && e.id === tempId);
     if (step) wbDropUndoEntry(step);
-    toast(err.message || "Couldn't add that node.", true);
+    toast(err.message || voiceLine("failed", { what: "add that node" }), true);
     wbScheduleRender();
     return false;
   }
@@ -4415,8 +4577,11 @@ async function wbMapAdoptProvisional(row, { expand = null, origin = null, order 
   if (order != null || typed) wbSaveObject(row);
   if (expand) wbSaveObject(expand);
   if (origin?.size) wbSaveBulkMove(origin);
-  //: The edge and anything keyed by the old id are drawn again under the new.
-  wbScheduleRender();
+  //: The lines into and out of it are keyed by the old id: they, their
+  //: mid-line `+` and its waypoint handle are drawn again under the new. Not
+  //: a whole render (MINDMAP_PLAN 15, row 4: one render per act, not two);
+  //: the topic itself took its new id on its element above.
+  wbRenderMapEdges();
   return true;
 }
 
@@ -4583,7 +4748,7 @@ async function wbMapOutdent(id) {
     wbPushUndo(history.length === 1 ? history[0] : { action: "batch", entries: history });
     renderWhiteboardNow();
   } catch (err) {
-    toast(err.message || "Couldn't move that node.", true);
+    toast(err.message || voiceLine("failed", { what: "move that node" }), true);
   }
 }
 
@@ -4729,7 +4894,7 @@ async function wbMapClearToOneTopic() {
       gone.add(root.id);
       wbState.objects = (wbState.objects || []).filter((o) => !gone.has(o.id));
     } catch (err) {
-      toast(err.message || "Couldn't clear the map.", true);
+      toast(err.message || voiceLine("failed", { what: "clear the map" }), true);
       return;
     }
   }
@@ -4763,7 +4928,7 @@ async function wbMapDeleteSubtree(id) {
     deleted = Array.isArray(res.deleted) ? res.deleted : [];
     links = Array.isArray(res.links) ? res.links : [];
   } catch (err) {
-    toast(err.message || "Couldn't delete that.", true);
+    toast(err.message || voiceLine("failed", { what: "delete that" }), true);
     return;
   }
   const gone = new Set(deleted.map((row) => row.id));
@@ -4860,7 +5025,7 @@ async function wbMapRestoreRows(rows, links = []) {
       if (!remap.has(row.parent_id) || row.parent_id == null) tops.push(made.id);
       wbState.objects.push({ ...made, ...full, parent_id: made.parent_id });
     } catch (err) {
-      toast(err.message || "Couldn't restore that node.", true);
+      toast(err.message || voiceLine("failed", { what: "restore that node" }), true);
       break;
     }
   }
@@ -4900,7 +5065,7 @@ async function wbMapRestoreRows(rows, links = []) {
       wbState.sketches = wbState.sketches || [];
       wbState.sketches.push(made);
     } catch (err) {
-      toast(err.message || "Couldn't restore a link.", true);
+      toast(err.message || voiceLine("failed", { what: "restore a link" }), true);
     }
   }
   wbRemapUndoIds(remap, linkRemap);
@@ -5049,6 +5214,155 @@ function wbTidyApportion(v, defaultAncestor, breadthOf, gap) {
   return defaultAncestor;
 }
 
+//: **The structures XMind has beyond the tree** (MINDMAP_PLAN 15, row 6):
+//: a timeline, a fishbone and a tree table. Each lays a main branch out as a
+//: column, the topic then its whole branch one row each, indented by depth,
+//: and differs only in where the columns go: along an axis through the
+//: centre (timeline, branches below and above in turn), off a spine that
+//: runs left from the head (fishbone, pairs above and below), or side by
+//: side under the centre (tree table). A new topic moves its neighbours'
+//: columns, so these tidy the whole map on an add (`wbMapTidyBranchScope`).
+const WB_MAP_COLUMN_LAYOUTS = new Set(["timeline", "fishbone", "tree-table"]);
+//: The line a layout draws when neither the topic nor the map's look sets
+//: one: right angles for the logic chart and the table, straight ribs for
+//: the fishbone.
+const WB_MAP_LAYOUT_EDGE = Object.freeze({ "logic-right": "elbow", "tree-table": "elbow", fishbone: "straight" });
+const WB_MAP_INDENT = 24;
+//: Every layout by its picker's words, in the picker's order (index.html's
+//: `#wb-map-layout`, `tests/test_map_layouts.py` holds the two together).
+const WB_MAP_LAYOUT_NAMES = Object.freeze([
+  ["tree-right", "Tree, to the right"], ["tree-left", "Tree, to the left"], ["tree-both", "Tree, both sides"],
+  ["tree-down", "Tree, downward"], ["radial", "Radial"], ["logic-right", "Logic chart"], ["timeline", "Timeline"],
+  ["fishbone", "Fishbone"], ["tree-table", "Tree table"], ["free", "Free"],
+]);
+
+function wbMapEdgeStyle(child) {
+  return wbMapThemedData(child).edge_style || WB_MAP_LAYOUT_EDGE[wbMapLayout()] || "curve";
+}
+
+function wbMapColumnPositions(index, layout) {
+  const positions = new Map();
+  const size = (o) => wbMapNodeSize(o);
+  const gapB = wbMapGapBreadth();
+  const gapD = wbMapGapDepth();
+  const kidsOf = (o) => (o.data?.collapsed ? [] : index.childrenOf.get(o.id) || []);
+  //: A branch as rows: each descendant of `top` with its depth under it.
+  const rowsUnder = (top) => {
+    const out = [];
+    const walk = (o, depth) => {
+      for (const kid of kidsOf(o)) {
+        out.push({ o: kid, depth });
+        walk(kid, depth + 1);
+      }
+    };
+    walk(top, 0);
+    return out;
+  };
+  const extent = (rows) => {
+    let w = 0;
+    let h = 0;
+    for (const r of rows) {
+      const s = size(r.o);
+      w = Math.max(w, r.depth * WB_MAP_INDENT + s.w);
+      h += s.h + gapB;
+    }
+    return { w, h: rows.length ? h - gapB : 0 };
+  };
+  //: Rows from `y` down, or up from `y` (each row's bottom at the cursor),
+  //: nearest first either way, so a branch reads away from its topic.
+  const stack = (rows, x, y, up) => {
+    let cursor = y;
+    for (const r of rows) {
+      const s = size(r.o);
+      if (up) {
+        cursor -= s.h;
+        positions.set(r.o.id, { x: x + r.depth * WB_MAP_INDENT, y: cursor });
+        cursor -= gapB;
+      } else {
+        positions.set(r.o.id, { x: x + r.depth * WB_MAP_INDENT, y: cursor });
+        cursor += s.h + gapB;
+      }
+    }
+  };
+  const [root, ...others] = index.roots;
+  const rs = size(root);
+  const kids = kidsOf(root);
+  positions.set(root.id, { x: 0, y: 0 });
+  let bottom = rs.h;
+  if (layout === "timeline") {
+    const axis = rs.h / 2;
+    let x = rs.w + gapD;
+    kids.forEach((kid, i) => {
+      const ks = size(kid);
+      const rows = rowsUnder(kid);
+      const ext = extent(rows);
+      positions.set(kid.id, { x, y: axis - ks.h / 2 });
+      if (i % 2 === 0) stack(rows, x, axis + ks.h / 2 + gapB, false);
+      else stack(rows, x, axis - ks.h / 2 - gapB, true);
+      bottom = Math.max(bottom, axis + ks.h / 2 + gapB + ext.h);
+      x += Math.max(ks.w, ext.w) + gapD;
+    });
+  } else if (layout === "tree-table") {
+    const top = rs.h + gapD;
+    let x = 0;
+    for (const kid of kids) {
+      const ks = size(kid);
+      const rows = rowsUnder(kid).map((r) => ({ o: r.o, depth: r.depth + 1 }));
+      const ext = extent(rows);
+      positions.set(kid.id, { x, y: top });
+      stack(rows, x, top + ks.h + gapB, false);
+      bottom = Math.max(bottom, top + ks.h + gapB + ext.h);
+      x += Math.max(ks.w, ext.w) + gapB;
+    }
+    //: The centre over the middle of its columns.
+    positions.set(root.id, { x: Math.max(0, (x - gapB - rs.w) / 2), y: 0 });
+  } else {
+    //: Fishbone: the head on the right, pairs of main branches above and
+    //: below a spine at its middle, each pair one slot further left, the
+    //: main topic farthest from the spine and its causes between.
+    const spine = rs.h / 2;
+    let right = -gapD;
+    for (let i = 0; i < kids.length; i += 2) {
+      const pair = kids.slice(i, i + 2).map((kid) => {
+        const rows = rowsUnder(kid);
+        return { kid, rows, ext: extent(rows), ks: size(kid) };
+      });
+      const w = Math.max(...pair.map((b) => Math.max(b.ks.w, b.ext.w)));
+      const x = right - w;
+      pair.forEach((b, side) => {
+        const tall = b.ks.h + (b.rows.length ? gapB + b.ext.h : 0);
+        if (side === 0) {
+          const y = spine - gapD - tall;
+          positions.set(b.kid.id, { x, y });
+          stack(b.rows, x, y + b.ks.h + gapB, false);
+        } else {
+          stack(b.rows, x, spine + gapD, false);
+          positions.set(b.kid.id, { x, y: spine + gapD + tall - b.ks.h });
+          bottom = Math.max(bottom, spine + gapD + tall);
+        }
+      });
+      right = x - gapD;
+    }
+  }
+  //: Any other root, with its branch, in a column under everything.
+  let y = bottom + gapD;
+  for (const other of others) {
+    positions.set(other.id, { x: 0, y });
+    const rows = rowsUnder(other).map((r) => ({ o: r.o, depth: r.depth + 1 }));
+    stack(rows, 0, y + size(other).h + gapB, false);
+    y += size(other).h + gapB + extent(rows).h + gapD;
+  }
+  //: The first root keeps its place, as in `wbMapTidyPositions`.
+  const anchor = positions.get(root.id);
+  const dx = root.x - anchor.x;
+  const dy = root.y - anchor.y;
+  for (const pos of positions.values()) {
+    pos.x += dx;
+    pos.y += dy;
+  }
+  return positions;
+}
+
 //: The tidy positions for every map node, as `Map(id -> {x, y})`.
 //:
 //: Pure: it reads sizes and the tree and returns coordinates, touching neither
@@ -5058,6 +5372,10 @@ function wbTidyApportion(v, defaultAncestor, breadthOf, gap) {
 //: had a lag bug of exactly that shape (task #71).
 function wbMapTidyPositions(index, layout) {
   if (!index.roots.length) return new Map();
+  //: XMind's logic chart is the sideways tree with right-angled lines
+  //: (`WB_MAP_LAYOUT_EDGE`); the places are the same.
+  if (layout === "logic-right") return wbMapTidyPositions(index, "tree-right");
+  if (WB_MAP_COLUMN_LAYOUTS.has(layout)) return wbMapColumnPositions(index, layout);
   //: **Both sides, Coggle's signature** (MINDMAP_PLAN §12.0's own list of
   //: eight layouts, §13.4: "tree-left and both-sides are missing, and
   //: both-sides is Coggle's signature"). It is not a third algorithm: it is
@@ -5083,8 +5401,31 @@ function wbMapTidyPositions(index, layout) {
     const leftKids = [];
     let rightWeight = 0;
     let leftWeight = 0;
+    //: **A branch stays on its side** (the owner, 2026-10-10: "New mind map
+    //: nodes don't take into account direction of flow for that branch").
+    //: Measured: one topic added under a left branch re-ran the greedy split
+    //: and sent two other branches across the trunk (A R, B L, C L, D R to
+    //: A R, B L, C R, D L). Once the map is already split, each branch that
+    //: has a place keeps the side it is drawn on; only a new one (`_fresh`,
+    //: or not yet given an id) is dealt to the lighter side. A map not yet
+    //: split (just switched to this layout) is dealt from scratch.
+    const trunkMid = trunk.x + wbMapNodeSize(trunk).w / 2;
+    const placed = (kid) => !kid._fresh && kid.id > 0 && Number.isFinite(kid.x);
+    const sideOf = (kid) => (kid.x + wbMapNodeSize(kid).w / 2 < trunkMid ? "left" : "right");
+    const drawn = kids.filter(placed).map(sideOf);
+    const split = drawn.includes("left") && drawn.includes("right");
     for (const kid of kids) {
       const weight = wbMapSubtree(index, kid.id).length;
+      if (split && placed(kid)) {
+        if (sideOf(kid) === "left") {
+          leftKids.push(kid);
+          leftWeight += weight;
+        } else {
+          rightKids.push(kid);
+          rightWeight += weight;
+        }
+        continue;
+      }
       if (rightWeight <= leftWeight) {
         rightKids.push(kid);
         rightWeight += weight;
@@ -5137,10 +5478,10 @@ function wbMapTidyPositions(index, layout) {
   const breadthOf = (w) => {
     if (!w.obj) return 0; // the virtual root below has no size of its own
     const s = sizes.get(w.obj.id) || { w: WB_MAP_NODE_W, h: WB_MAP_NODE_H };
-    if (radial) return (s.w + WB_MAP_GAP_BREADTH) / Math.max(1, w.depth);
+    if (radial) return (s.w + wbMapGapBreadth()) / Math.max(1, w.depth);
     return vertical ? s.w : s.h;
   };
-  const gap = radial ? 0 : WB_MAP_GAP_BREADTH;
+  const gap = radial ? 0 : wbMapGapBreadth();
 
   // One virtual root over the real ones, so a map with two top-level topics
   // is laid out as one tree rather than two overlapping ones. It is dropped
@@ -5173,12 +5514,12 @@ function wbMapTidyPositions(index, layout) {
     w.children.forEach(collect);
   };
   collect(virtual);
-  const ring = Math.max(...perDepth.filter(Number.isFinite), WB_MAP_NODE_W) + WB_MAP_GAP_DEPTH;
+  const ring = Math.max(...perDepth.filter(Number.isFinite), WB_MAP_NODE_W) + wbMapGapDepth();
   const offsets = [0];
   for (let d = 1; d < perDepth.length; d += 1) {
     // Radial does not use these: its radius per ring is worked out below,
     // from the span the first walk actually produced.
-    offsets[d] = offsets[d - 1] + (perDepth[d - 1] || 0) + WB_MAP_GAP_DEPTH;
+    offsets[d] = offsets[d - 1] + (perDepth[d - 1] || 0) + wbMapGapDepth();
   }
 
   const flat = [];
@@ -5199,7 +5540,7 @@ function wbMapTidyPositions(index, layout) {
     // was wrong for the same reason the breadths above are divided by depth:
     // it is not a quantity in this unit at all.
     const extentOf = (f) =>
-      ((sizes.get(f.obj.id)?.w || WB_MAP_NODE_W) + WB_MAP_GAP_BREADTH) / Math.max(1, f.depth);
+      ((sizes.get(f.obj.id)?.w || WB_MAP_NODE_W) + wbMapGapBreadth()) / Math.max(1, f.depth);
     const min = Math.min(...flat.map((f) => f.breadth));
     const max = Math.max(...flat.map((f) => f.breadth));
     const span = max - min + Math.min(...flat.map(extentOf)) || 1;
@@ -5374,6 +5715,7 @@ async function wbMapTidyBranch(parentId) {
 // every other branch has to sit, so tidying only the new one would leave it
 // sitting on top of its neighbour.
 function wbMapTidyBranchScope(parentId) {
+  if (WB_MAP_COLUMN_LAYOUTS.has(wbMapLayout())) return null;
   const index = wbMapIndex();
   const parent = parentId != null ? index.byId.get(parentId) : null;
   return parent && parent.parent_id != null ? parent.parent_id : null;
@@ -5649,7 +5991,7 @@ function wbSyncMapToolState() {
 //: full; link is a web address on the topic, drawn as a marker that opens it;
 //: **image is not built** (it needs the upload path a board image uses, and a
 //: node whose body is a picture rather than a label), and
-//: `agent-remaining/mindmap.md` carries the next step for it.
+//: `archive/agent-remaining/mindmap.md` carries the next step for it.
 //:
 //: Size and alignment reuse `font_size` and `align`, which a text box already
 //: stores in the same units, rather than inventing a second vocabulary for
@@ -5702,6 +6044,7 @@ const WB_MAP_PICK_GLYPHS = {
   "wb-map-shape": { "": "svg:rounded", rounded: "svg:rounded", pill: "svg:pill", rect: "svg:rect", ellipse: "svg:ellipse", none: "svg:plain" },
   "wb-map-spine": { "": "svg:bar", solid: "svg:bar", dashed: "svg:bar-dashed", none: "svg:bar-none" },
   "wb-map-fill": { "": "svg:fill-none", none: "svg:fill-none", self: "svg:fill-tint", branch: "svg:fill-branch", solid: "svg:fill-solid" },
+  "wb-map-effect": { "": "svg:fill-none", none: "svg:fill-none", shadow: "svg:effect-shadow", glow: "svg:effect-glow" },
   "wb-map-edge-width": { thin: "svg:line-thin", "": "svg:line", normal: "svg:line", thick: "svg:line-thick" },
   "wb-map-edge-shape": { "": "svg:curve", curve: "svg:curve", elbow: "svg:elbow", straight: "svg:straight" },
 };
@@ -5725,6 +6068,15 @@ const WB_MAP_PICK_SHAPES = {
     ["rect", { x: 1, y: 1, width: 10, height: 6, rx: 1.5, fill: "currentColor", "fill-opacity": 0.35 }],
     ["path", { d: "M6 7v3.5h3" }],
     ["rect", { x: 9, y: 8, width: 10, height: 5, rx: 1.5, fill: "currentColor", "fill-opacity": 0.35 }],
+  ],
+  //: A box with its shadow below and right of it; a box inside a faint halo.
+  "effect-shadow": [
+    ["rect", { x: 4, y: 4.5, width: 15, height: 8.5, rx: 2, fill: "currentColor", "fill-opacity": 0.3, stroke: "none" }],
+    ["rect", { x: 1.5, y: 2, width: 15, height: 8.5, rx: 2 }],
+  ],
+  "effect-glow": [
+    ["rect", { x: 0.75, y: 0.75, width: 18.5, height: 12.5, rx: 4, "stroke-opacity": 0.35, "stroke-width": 1.5 }],
+    ["rect", { x: 3.5, y: 3.5, width: 13, height: 7, rx: 2 }],
   ],
   "line-thin": [["path", { d: "M2 7h16", "stroke-width": 1 }]],
   line: [["path", { d: "M2 7h16", "stroke-width": 2 }]],
@@ -6167,7 +6519,7 @@ function wbSyncMapStrip(node) {
     //: `enhanceSelect` rebuilds its shell from a MutationObserver on the
     //: select's subtree, so changing an option's text reaches the drawn menu
     //: without anything here having to know about the shell.
-    const nameBlank = (id, field) => {
+    const nameBlank = (id, field, pinValue = WB_MAP_APP_DEFAULT_PINS[field]) => {
       const el = document.getElementById(id);
       const blank = el?.querySelector('option[value=""]');
       if (!blank) return;
@@ -6196,7 +6548,7 @@ function wbSyncMapStrip(node) {
       if (!pin) {
         pin = document.createElement("option");
         pin.dataset.appPin = "";
-        pin.value = String(WB_MAP_APP_DEFAULT_PINS[field]);
+        pin.value = String(pinValue);
         pin.textContent = blank.dataset.appDefault;
         blank.after(pin);
       }
@@ -6209,6 +6561,8 @@ function wbSyncMapStrip(node) {
       ["wb-map-shape", "shape"], ["wb-map-spine", "spine"],
       ["wb-map-edge-width", "edge_width"], ["wb-map-edge-shape", "edge_style"],
     ]) nameBlank(id, field);
+    //: An effect has no pin of the app's own: its "not here" is `none`.
+    nameBlank("wb-map-effect", "effect", "none");
     const setSelect = (id, value) => {
       const el = document.getElementById(id);
       if (!el || el.value === value) return;
@@ -6237,6 +6591,9 @@ function wbSyncMapStrip(node) {
     setSelect("wb-map-strip-icon", data.icon || "");
     setSelect("wb-map-shape", shown("shape"));
     setSelect("wb-map-spine", shown("spine"));
+    setSelect("wb-map-effect", data.effect === "none"
+      ? (wbMapThemeDefault("effect") == null ? "" : "none")
+      : data.effect || "");
     wbSyncMapFill(node);
     for (const draw of WB_MAP_CHOICE_REDRAWS) draw();
     //: The line into this topic (item 177). A trunk has none, so the group is
@@ -6481,7 +6838,7 @@ async function wbMapTakePicture(file) {
     await wbMapSetNodeStyle(node, { image: uploaded.url });
     renderWhiteboardNow();
   } catch (err) {
-    toast(err.message || "Couldn't add that picture.", true);
+    toast(err.message || voiceLine("failed", { what: "add that picture" }), true);
   }
 }
 
@@ -7069,7 +7426,7 @@ const WB_MAP_COPY_MAX = 120;
 const WB_MAP_STYLE_KEYS = [
   "color", "bold", "italic", "font_size", "align", "icon", "link", "edge_label",
   "edge_label_dx", "edge_label_dy",
-  "shape", "core", "spine", "fill", "edge_style", "edge_dashed", "edge_width", "edge_arrow",
+  "shape", "core", "spine", "fill", "effect", "edge_style", "edge_dashed", "edge_width", "edge_arrow",
   //: The waypoint on the line (§12.1 item 5's third) belongs with the other
   //: four for the same reason: it is written from the line itself onto the
   //: node, and a branch copied without it comes out drawn differently from the
@@ -7134,7 +7491,7 @@ async function wbMapRemoveKeepingBranch(id) {
       }
     }
   } catch (err) {
-    toast(err.message || "Couldn't move that branch up.", true);
+    toast(err.message || voiceLine("failed", { what: "move that branch up" }), true);
     return;
   }
   await wbMapDeleteSubtree(id);
@@ -7162,7 +7519,7 @@ async function wbMapSever(id) {
     });
     Object.assign(node, moved);
   } catch (err) {
-    toast(err.message || "Couldn't cut that topic free.", true);
+    toast(err.message || voiceLine("failed", { what: "cut that topic free" }), true);
     return;
   }
   // A severed topic keeps the colour it had as part of the branch it left,
@@ -7181,7 +7538,7 @@ async function wbMapSever(id) {
       await wbMapTidyBranch(oldParent);
       renderWhiteboardNow();
     } catch (err) {
-      toast(err.message || "Couldn't put it back.", true);
+      toast(err.message || voiceLine("failed", { what: "put it back" }), true);
     }
   });
 }
@@ -7239,7 +7596,7 @@ async function wbMapResetToBranch(id) {
 //: the line's label or its waypoint: a pasted look that renamed a topic's
 //: icon or bent its line would be pasting content.
 const WB_MAP_PASTE_STYLE_KEYS = [
-  "color", "bold", "italic", "font_size", "align", "shape", "spine", "fill",
+  "color", "bold", "italic", "font_size", "align", "shape", "spine", "fill", "effect",
   "edge_style", "edge_dashed", "edge_width", "edge_arrow",
 ];
 
@@ -7386,6 +7743,18 @@ function wbSyncMapEdgeHandles() {
     if (!want.has(handle)) handle.classList.remove("is-shown");
   }
   for (const handle of want) if (!handle.classList.contains("is-shown")) handle.classList.add("is-shown");
+  //: **The selected topic's own lines lend their middle to its grips**
+  //: (MINDMAP_PLAN 15, row 3): their mid-line `+` sat under the add row and
+  //: the waypoint handle (`deepen72a.js`, 4 overlaps at 1440, 8 at 390), so a
+  //: press there was a guess between three controls. Hover still finds it
+  //: on every other line.
+  const layer = document.querySelector("#wb-html-layer .wb-map-plus-layer");
+  if (!layer) return;
+  const aside = new Set(id ? layer.querySelectorAll(`.wb-map-edge-plus[data-parent="${id}"], .wb-map-edge-plus[data-child="${id}"]`) : []);
+  for (const plus of layer.querySelectorAll(".wb-map-edge-plus.is-aside")) {
+    if (!aside.has(plus)) plus.classList.remove("is-aside");
+  }
+  for (const plus of aside) plus.classList.add("is-aside");
 }
 
 //: Dragging one waypoint handle (§12.1 item 5's third).
@@ -7638,7 +8007,7 @@ async function wbMapReverseCrossLink(sketchId) {
     });
     Object.assign(info.sketch, saved);
   } catch (err) {
-    toast(err.message || "Couldn't turn that cross-link around.", true);
+    toast(err.message || voiceLine("failed", { what: "turn that cross-link around" }), true);
     return;
   }
   renderWhiteboardNow();
@@ -7680,7 +8049,7 @@ async function wbMapCutCrossLink(sketchId) {
   try {
     await apiJson(`/whiteboard/sketches/${sketchId}`, { method: "DELETE" });
   } catch (err) {
-    toast(err.message || "Couldn't cut that cross-link.", true);
+    toast(err.message || voiceLine("failed", { what: "cut that cross-link" }), true);
     return;
   }
   wbState.sketches = (wbState.sketches || []).filter((x) => x.id !== sketchId);
@@ -7711,7 +8080,7 @@ async function wbMapReverseEdge(childId) {
     Object.assign(child, await move(child.id, grandparent));
     Object.assign(parent, await move(parent.id, child.id));
   } catch (err) {
-    toast(err.message || "Couldn't turn that line around.", true);
+    toast(err.message || voiceLine("failed", { what: "turn that line around" }), true);
     return;
   }
   await wbMapTidy({ quiet: true });
@@ -7834,7 +8203,7 @@ async function wbMapSetLayout(layout) {
       ? "Layout set to Free, nodes stay where you put them."
       : `Laid out ${moved} node${moved === 1 ? "" : "s"}.`);
   } catch (err) {
-    toast(err.message || "Couldn't change the layout.", true);
+    toast(err.message || voiceLine("failed", { what: "change the layout" }), true);
   }
 }
 
@@ -8323,13 +8692,56 @@ function wbOutlineRowEl(node, depth) {
   field.value = wbMapLabel(node);
   field.setAttribute("aria-label", `Topic, level ${depth}`);
   field.spellcheck = true;
+  //: **A row reads until it is asked to be edited** (INBOX 792, the owner: "i
+  //: dont think i should be typing in these outline options in the sidebar
+  //: unless i like double click on them or press an edit button"). A read-only
+  //: field still takes focus and the arrow keys, so the list walks like a
+  //: tree; a double click, F2, Enter or the pencil on the row opens it
+  //: (`wbOutlineEdit`), Enter saves and Escape puts the old name back.
+  field.readOnly = true;
+  row.appendChild(field);
   //: A reference's name is the note or file behind it, not the map's to edit.
   if (node.kind !== "topic") {
-    field.readOnly = true;
     field.title = "This topic's name comes from the item it points at";
+  } else {
+    const pencil = document.createElement("button");
+    pencil.type = "button";
+    pencil.className = "ghost small icon-only wb-outline-edit";
+    pencil.tabIndex = -1;
+    pencil.title = "Rename this topic (F2)";
+    pencil.setAttribute("aria-label", "Rename this topic");
+    setLabel(pencil, "ph:pencil-simple");
+    row.appendChild(pencil);
   }
-  row.appendChild(field);
   return row;
+}
+
+function wbOutlineEditing(row) {
+  return Boolean(row?.classList.contains("is-editing"));
+}
+
+//: Opens a row's field for typing; `select` takes the whole name so the first
+//: key replaces it, as a new topic's "New topic" is.
+function wbOutlineEdit(row, { select = false } = {}) {
+  const field = row?.firstChild;
+  if (!field || row._node.kind !== "topic") return;
+  row.classList.add("is-editing");
+  field.readOnly = false;
+  field.focus({ preventScroll: true });
+  if (select) field.select();
+  else field.setSelectionRange(field.value.length, field.value.length);
+}
+
+//: Back to reading. `cancel` puts the saved name back first, on the canvas too.
+function wbOutlineStopEdit(row, { cancel = false } = {}) {
+  const field = row?.firstChild;
+  if (!field) return;
+  if (cancel) {
+    field.value = wbMapLabel(row._node);
+    wbOutlineMirror(row._node, field.value);
+  }
+  field.readOnly = true;
+  row.classList.remove("is-editing");
 }
 
 //: Called after every render of the board (`wbScheduleRender`,
@@ -8349,6 +8761,7 @@ function wbOutlineSync(force = false) {
     //: saved) and its selection, so a new topic adopting its real id while
     //: "New topic" is selected does not leave the next key typed before it.
     const focusNode = focused?.closest(".wb-outline-row")?._node || null;
+    const wasEditing = wbOutlineEditing(focused?.closest(".wb-outline-row"));
     const typing = focused
       ? { value: focused.value, start: focused.selectionStart, end: focused.selectionEnd }
       : null;
@@ -8356,8 +8769,10 @@ function wbOutlineSync(force = false) {
     tree.dataset.shape = shape;
     if (focusNode) {
       wbOutlineFocus(focusNode);
-      const field = wbOutlineRowOf(focusNode)?.firstChild;
+      const row = wbOutlineRowOf(focusNode);
+      const field = row?.firstChild;
       if (field && field === document.activeElement) {
+        if (wasEditing) wbOutlineEdit(row);
         field.value = typing.value;
         field.setSelectionRange(typing.start, typing.end);
       }
@@ -8367,7 +8782,7 @@ function wbOutlineSync(force = false) {
   for (const row of tree.children) {
     const field = row.firstChild;
     const label = wbMapLabel(row._node);
-    if (field !== now && field.value !== label) field.value = label;
+    if (!(field === now && wbOutlineEditing(row)) && field.value !== label) field.value = label;
     row.setAttribute("aria-selected", String(row._node.id === selected));
   }
 }
@@ -8384,7 +8799,7 @@ function wbOutlineFocus(node, { caret = null, select = false } = {}) {
   if (!field) return;
   field.focus({ preventScroll: true });
   field.scrollIntoView({ block: "nearest" });
-  if (select) field.select();
+  if (select) wbOutlineEdit(wbOutlineRowOf(node), { select: true });
   else {
     const at = caret == null ? field.value.length : Math.min(caret, field.value.length);
     field.setSelectionRange(at, at);
@@ -8503,7 +8918,17 @@ function wbOutlineStep(field, by) {
 
 document.getElementById("wb-outline-tree")?.addEventListener("input", (event) => {
   const row = event.target.closest(".wb-outline-row");
-  if (row && row._node.kind === "topic") wbOutlineMirror(row._node, event.target.value);
+  if (row && row._node.kind === "topic" && wbOutlineEditing(row)) wbOutlineMirror(row._node, event.target.value);
+});
+
+document.getElementById("wb-outline-tree")?.addEventListener("dblclick", (event) => {
+  const row = event.target.closest(".wb-outline-row");
+  if (row && event.target.matches(".wb-outline-text")) wbOutlineEdit(row);
+});
+
+document.getElementById("wb-outline-tree")?.addEventListener("click", (event) => {
+  const pencil = event.target.closest(".wb-outline-edit");
+  if (pencil) wbOutlineEdit(pencil.closest(".wb-outline-row"), { select: true });
 });
 
 document.getElementById("wb-outline-tree")?.addEventListener("focusin", (event) => {
@@ -8515,21 +8940,34 @@ document.getElementById("wb-outline-tree")?.addEventListener("focusin", (event) 
 
 document.getElementById("wb-outline-tree")?.addEventListener("focusout", (event) => {
   const row = event.target.closest(".wb-outline-row");
-  if (row) wbOutlineCommit(row._node, event.target);
+  if (!row || !event.target.matches(".wb-outline-text")) return;
+  if (wbOutlineEditing(row)) wbOutlineStopEdit(row);
+  wbOutlineCommit(row._node, event.target);
 });
 
 document.getElementById("wb-outline-tree")?.addEventListener("keydown", (event) => {
   const field = event.target;
   const row = field.closest?.(".wb-outline-row");
   if (!row || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (!field.matches(".wb-outline-text")) return;
   const node = row._node;
+  const editing = wbOutlineEditing(row);
   const done = () => {
     event.preventDefault();
     event.stopPropagation();
   };
-  if (event.key === "Enter" && !event.shiftKey) {
+  if (event.key === "F2" && !editing) {
+    done();
+    wbOutlineEdit(row);
+  } else if (event.key === "Enter" && event.shiftKey) {
     done();
     wbOutlineAddAfter(node, field);
+  } else if (event.key === "Enter") {
+    done();
+    if (editing) {
+      wbOutlineStopEdit(row);
+      wbOutlineCommit(node, field);
+    } else wbOutlineEdit(row);
   } else if (event.key === "Tab") {
     done();
     if (event.shiftKey) wbOutlineOutdent(node, field);
@@ -8537,13 +8975,15 @@ document.getElementById("wb-outline-tree")?.addEventListener("keydown", (event) 
   } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     done();
     wbOutlineStep(field, event.key === "ArrowUp" ? -1 : 1);
-  } else if (event.key === "Backspace" && field.value === "" && node.kind === "topic") {
+  } else if (event.key === "Backspace" && editing && field.value === "" && node.kind === "topic") {
     done();
     wbOutlineRemoveEmpty(node);
   } else if (event.key === "Escape") {
     done();
-    field.value = wbMapLabel(node);
-    wbOutlineMirror(node, field.value);
+    if (editing) {
+      wbOutlineStopEdit(row, { cancel: true });
+      return;
+    }
     document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
   }
 });
@@ -8695,7 +9135,7 @@ function wbMapDueRow(node, parts, set) {
         await apiJson("/reminders", { method: "POST", body: JSON.stringify({ text: wbMapLabel(node) || "Map topic", due_at: at.toISOString() }) });
         toast(`Reminder set for ${wbMapDueWords(parts.due).words}, 9:00.`);
       } catch (error) {
-        toast(error.message || "Couldn't set that reminder.", true);
+        toast(error.message || voiceLine("failed", { what: "set that reminder" }), true);
       }
     });
     wrap.append(clear, remind);
@@ -9019,7 +9459,7 @@ async function wbMapFromDocument(doc, text) {
       body: JSON.stringify({ format: "markdown", content: outline, name: (doc.title || "Untitled document").slice(0, 100) }),
     });
   } catch (err) {
-    toast(err.message || "Couldn't make that map.", true);
+    toast(err.message || voiceLine("failed", { what: "make that map" }), true);
     return null;
   }
   try {

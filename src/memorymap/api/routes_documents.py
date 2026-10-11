@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import tempfile
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -23,8 +24,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.api.edit_conflicts import content_hash, refuse_if_stale
-from memorymap.ai import drafter, vision_ocr
-from memorymap.core import deps, docexport, docmeta, docview, filetypes, syntaxcheck
+from memorymap.ai import drafter, utilities, vision_ocr
+from memorymap.core import activity, deps, docexport, docmeta, docview, filetypes, syntaxcheck
+from memorymap.core.config import user_now
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Bookmark,
@@ -381,6 +383,20 @@ def list_documents(
     live = Document.archived_at.is_(None)
     filters = [live]
     term = q.strip()
+    #: **A window in the search is a window** (CHAT_PLAN section 2, the
+    #: documents row): "harbor last week" is the documents about the harbor
+    #: edited in the last week, read by the notes search's own reader
+    #: (`search.query.understand`, through the one recogniser), so a phrase
+    #: means one stretch of days in every search box.
+    if term:
+        from memorymap.search import query as search_query
+
+        understood = search_query.understand(term, user_now(deps.get_config()))
+        if understood.since is not None:
+            filters.append(Document.updated_at >= datetime.combine(understood.since, time.min))
+            if understood.until is not None:
+                filters.append(Document.updated_at < datetime.combine(understood.until + timedelta(days=1), time.min))
+            term = understood.subject if not understood.time_only else ""
     if term:
         like = f"%{like_escape(term)}%"
         filters.append(
@@ -410,28 +426,13 @@ def list_documents(
 #: editor.
 OUTLINE_DOCUMENTS = 500
 OUTLINE_HEADINGS = 40
-_HEADING_LINE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t#]*$")
 
 
 def _document_headings(content: str) -> list[dict]:
     """`{line, level, text}` for each markdown heading, `line` zero-based (the
-    editor's `jumpToDocLine` takes that), fenced code skipped so a `# comment`
-    in a code block is not a section."""
-    found: list[dict] = []
-    fenced = False
-    for index, line in enumerate((content or "").split("\n")):
-        stripped = line.strip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            fenced = not fenced
-            continue
-        if fenced:
-            continue
-        match = _HEADING_LINE.match(line)
-        if match and match.group(2).strip():
-            found.append({"line": index, "level": len(match.group(1)), "text": match.group(2).strip()[:200]})
-            if len(found) >= OUTLINE_HEADINGS:
-                break
-    return found
+    editor's `jumpToDocLine` takes that): `utilities.outline`, the one
+    outline the editor, this index and the agent share."""
+    return utilities.outline(content, limit=OUTLINE_HEADINGS)
 
 
 @router.get("/outline")
@@ -488,6 +489,41 @@ def create_document(
 #: different questions: how big a picture may be, and how big a document may
 #: be: and a future change to one should not silently move the other.
 MAX_IMPORT_BYTES = 50 * 1024 * 1024
+
+
+class ContentItem(BaseModel):
+    id: int
+    content: str = Field(max_length=MAX_CONTENT)
+
+
+class ContentBatch(BaseModel):
+    documents: list[ContentItem] = Field(max_length=1000)
+
+
+@router.post("/contents")
+def write_contents(body: ContentBatch, session: Session = Depends(get_session)) -> dict:
+    """Many documents' text in one transaction (DOCUMENTS 24 row 9): Replace in
+    every document writes its results here, and its one undo step writes the
+    originals back the same way, so a replace over fifty documents lands, or
+    is taken back, whole. Every id is checked before anything is written; each
+    changed document keeps the version it replaced in its history."""
+    ids = [item.id for item in body.documents]
+    if len(set(ids)) != len(ids):
+        raise HTTPException(status_code=422, detail="A document is listed twice.")
+    documents = {doc.id: doc for doc in (_existing(session, doc_id) for doc_id in ids)}
+    updated = []
+    for item in body.documents:
+        document = documents[item.id]
+        if item.content == document.content:
+            continue
+        _record_document_revision(session, document, source="edit")
+        document.content = item.content
+        document.updated_at = utcnow()
+        updated.append(document.id)
+    if updated:
+        log_action(session, "edited", "document", updated[0], f"{len(updated)} documents in one replace")
+    session.commit()
+    return {"updated": updated}
 
 
 @router.post("/import", status_code=201)
@@ -674,7 +710,7 @@ def _record_document_revision(session: Session, document: Document, source: str 
             if previous.tzinfo is not None:
                 previous = previous.replace(tzinfo=None)
             reference = now.replace(tzinfo=None) if now.tzinfo is not None else now
-            if (reference - previous).total_seconds() < REVISION_QUIET_SECONDS:
+            if not latest.name and (reference - previous).total_seconds() < REVISION_QUIET_SECONDS:
                 latest.title = document.title
                 latest.content = document.content
                 latest.source = source
@@ -1005,47 +1041,6 @@ def export_bundle(
     )
 
 
-@router.get("/{document_id}/export.docx")
-def export_docx(document_id: int, session: Session = Depends(get_session)) -> Response:
-    """The document as a Word file, when this install has the extra.
-
-    python-docx is an optional extra by decision (Phase 7): a .docx writer is
-    a dependency most people who keep their notes in markdown will never want,
-    and nothing else in the app needs it. Absent, this is a 501 with the name
-    of the extra in it rather than a 500: the request was fine, the install
-    cannot answer it.
-    """
-    document = _existing(session, document_id)
-    kind = filetypes.get(document.file_type)
-    if kind.ext != "md":
-        raise HTTPException(
-            status_code=400,
-            detail=f"A Word export is for a markdown document; this one is {kind.label}.",
-        )
-    if not docexport.docx_available():
-        raise HTTPException(
-            status_code=501,
-            detail="This install has no Word exporter yet. Turn it on in "
-            "Settings, Packages, "
-            "\u201cExport to Word\u201d. Markdown, the zip bundle and HTML "
-            "are available now.",
-        )
-    #: Its pictures come from the media folder (FEAT-18), as the bundle's do.
-    media_dir = deps.get_config().data_dir / "media"
-    data = docexport.to_docx(document.title, document.content or "", media_dir=media_dir)
-    return Response(
-        content=data,
-        media_type=(
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ),
-        headers={
-            "Content-Disposition": (
-                f'attachment; filename="{_safe_filename(document.title, "docx")}"'
-            )
-        },
-    )
-
-
 @router.post("/{document_id}/ai-edit")
 def ai_edit(
     document_id: int, body: AiEditBody, session: Session = Depends(get_session)
@@ -1165,7 +1160,7 @@ def ai_check(
             yield json.dumps(event) + "\n"
 
     return StreamingResponse(
-        lines(),
+        activity.tracked_stream("generation", "Reviewing a document", lines()),
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
@@ -1222,6 +1217,8 @@ class DocumentRevisionOut(BaseModel):
     title: str
     source: str
     created_at: str
+    #: Set on a named version, null on an ordinary sitting.
+    name: str | None = None
     #: The size of the change, so the list says *how much* happened without
     #: making anyone open each entry: a history where every row looks the same
     #: is a history you have to read linearly.
@@ -1266,6 +1263,7 @@ def document_revisions(
                 title=row.title or document.title,
                 source=row.source or "edit",
                 created_at=row.created_at.isoformat(),
+                name=row.name or None,
                 words=words,
                 word_delta=newer_words - words,
                 preview=_preview(row.content or ""),
@@ -1290,7 +1288,53 @@ def document_revision(
         "content": row.content,
         "source": row.source,
         "created_at": row.created_at.isoformat(),
+        "name": row.name or None,
     }
+
+
+class RevisionNameBody(BaseModel):
+    #: Empty or blank takes the name off.
+    name: str = Field(default="", max_length=120)
+
+
+@router.post("/{document_id}/revisions", status_code=201)
+def name_current_version(
+    document_id: int, body: RevisionNameBody, session: Session = Depends(get_session)
+) -> dict:
+    """Name the document as it stands now (DOCUMENTS 24 row 4, Google Docs's
+    "Name current version"): a revision holding the current text, never
+    coalesced into by the edits after it."""
+    document = _existing(session, document_id)
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="A version needs a name.")
+    row = DocumentRevision(
+        document_id=document.id,
+        title=document.title,
+        content=document.content,
+        source="edit",
+        name=name,
+    )
+    session.add(row)
+    session.commit()
+    return {"id": row.id, "name": row.name, "created_at": row.created_at.isoformat()}
+
+
+@router.put("/{document_id}/revisions/{revision_id}")
+def rename_version(
+    document_id: int,
+    revision_id: int,
+    body: RevisionNameBody,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Name, rename or un-name one version; the text it holds is untouched."""
+    _existing(session, document_id)
+    row = session.get(DocumentRevision, revision_id)
+    if row is None or row.document_id != document_id:
+        raise HTTPException(status_code=404, detail="That revision could not be found.")
+    row.name = body.name.strip() or None
+    session.commit()
+    return {"id": row.id, "name": row.name}
 
 
 @router.post("/{document_id}/revisions/{revision_id}/restore")

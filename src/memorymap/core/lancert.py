@@ -9,7 +9,7 @@ listener read the password at unlock and the seven-day session token after.
 - Made once, at the first LAN start (or when the switch is turned on), and
   reused after that, so a phone that trusted it once is not asked again on
   every launch. It is made again only when asked (Settings, "Regenerate
-  certificate"), when it is close to expiring, or when the file cannot be read.
+  certificate"), when an address is not on it (DHCP gave a new one), when it is close to expiring, or when the file cannot be read.
 - Kept in the data folder, `lan-tls/`, the folder 0700 and both files 0600:
   the key is the one thing that lets another machine pretend to be this one.
 - Its names (the SAN) are this computer's host name, its `.local` name,
@@ -28,10 +28,13 @@ from __future__ import annotations
 import contextlib
 import datetime as dt
 import ipaddress
+import logging
 import os
 import socket
 from dataclasses import dataclass
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 FOLDER = "lan-tls"
 CERT_FILE = "cert.pem"
@@ -191,14 +194,38 @@ def generate(data_dir: Path, names: list[str] | None = None) -> CertInfo:
     return CertInfo(cert_path, key_path, _fingerprint(cert), _not_after(cert), _san_names(cert))
 
 
+def _norm(name: str) -> str:
+    """One spelling per name, so an IPv6 address compares equal however written."""
+    try:
+        return str(ipaddress.ip_address(name))
+    except ValueError:
+        return name.lower()
+
+
+def missing_names(info: CertInfo, wanted: list[str]) -> list[str]:
+    """Names a device could type that the certificate on disk does not carry."""
+    have = {_norm(n) for n in info.names}
+    return [n for n in wanted if _norm(n) not in have]
+
+
 def ensure(data_dir: Path, names: list[str] | None = None) -> CertInfo:
-    """The certificate to serve: the one on disk while it is good, else a new one."""
+    """The certificate to serve: the one on disk while it is good, else a new one.
+
+    Good means unexpired and naming every current address. A DHCP change gives
+    the computer a new address; a certificate that does not name it makes the
+    phone report "wrong name" (Safari: "connection lost"), so it is made again
+    (the phone is asked to trust the new one once).
+    """
+    wanted = names if names is not None else default_names()
     info = read(data_dir)
     if info is not None and info.not_after - _now() > RENEW_BEFORE:
-        _private(info.cert_path)
-        _private(info.key_path)
-        return info
-    return generate(data_dir, names)
+        absent = missing_names(info, wanted)
+        if not absent:
+            _private(info.cert_path)
+            _private(info.key_path)
+            return info
+        log.info("LAN certificate made again: it did not name %s", ", ".join(absent))
+    return generate(data_dir, wanted)
 
 
 #: The live HTTPS server's TLS context, so a regenerated certificate takes

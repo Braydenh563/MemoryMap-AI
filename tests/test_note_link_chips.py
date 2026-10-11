@@ -6,7 +6,7 @@ chip read the linked note's raw Markdown ("something lol [something](https://
 something.com..."): the server clips the preview at 60 characters, so a link
 or a `**` arrives cut in half and the inline renderer printed it as typed."""
 
-from _app_js import app_js_text
+from tests._app_js import app_js_text
 
 
 def _links_block():

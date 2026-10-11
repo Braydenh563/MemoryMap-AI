@@ -64,8 +64,8 @@ def test_every_type_can_be_commented_somehow():
     """Ctrl+/ has to do something on every type the picker offers. A type
     with neither form would be a keystroke that silently does nothing."""
     for ft in filetypes.FILE_TYPES:
-        if ft.ext in {"txt"}:
-            continue  # plain text genuinely has no comment syntax
+        if ft.ext in {"txt", "diff"}:
+            continue  # plain text and a patch genuinely have no comment syntax
         assert ft.line_comment or ft.block_comment, ft.ext
 
 
@@ -84,3 +84,25 @@ def test_the_served_table_is_json_safe():
     by_ext = {t["ext"]: t for t in filetypes.as_dicts()}
     assert by_ext["html"]["block_comment"] == ["<!-- ", " -->"]
     assert by_ext["py"]["block_comment"] is None
+
+
+def test_patches_dockerfiles_and_visual_basic_are_types_with_a_mode():
+    """VC7 and section 21 (docs42b): the modes were bundled with the editor
+    already (entry.js), so each type is a row here and a case in
+    `docCmLanguageFor`, 0 bytes more. A Dockerfile has no extension, so its
+    whole lowercased name is the key."""
+    from pathlib import Path
+
+    assert filetypes.normalise("Dockerfile") == "dockerfile"
+    assert filetypes.normalise("fix.patch") == "diff"
+    assert filetypes.normalise("a.diff") == "diff"
+    assert filetypes.normalise("Module1.vb") == "vb"
+    assert filetypes.normalise("run.vbs") == "vbs"
+    root = Path(__file__).resolve().parents[1]
+    docs = (root / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
+    body = docs[docs.index("function docCmLanguageFor(") :]
+    body = body[: body.index("\n}\n")]
+    entry = (root / "frontend" / "vendor" / "codemirror" / "entry.js").read_text(encoding="utf-8")
+    for ext, mode in (("diff", "diff"), ("dockerfile", "dockerFile"), ("vb", "vb"), ("vbs", "vbScript")):
+        assert f'case "{ext}": return stream(CM.{mode});' in body
+        assert f"export {{ {mode} }}" in entry

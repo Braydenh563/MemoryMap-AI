@@ -90,6 +90,8 @@ class MergeBody(BaseModel):
 class MoveBody(BaseModel):
     entry_ids: list[int] = Field(min_length=1, max_length=5000)
     category: str = Field(min_length=1, max_length=100)
+    #: An undo's own: how the notes were filed before the move it reverses.
+    user_filed: bool | None = None
 
 
 class SplitBody(BaseModel):
@@ -123,14 +125,17 @@ def _ids_in(session: Session, category_id: int) -> list[int]:
     return list(session.scalars(select(Entry.id).where(Entry.category_id == category_id)))
 
 
-def _move(session: Session, entries: list, name: str) -> list[dict]:
-    """Move notes into a category by name (made if new); each note's old one back."""
+def _move(session: Session, entries: list, name: str, user_filed: bool | None = None) -> list[dict]:
+    """Move notes into a category by name (made if new); each note's old one
+    back, and whether a person had filed it, so the undo can say so again."""
     previous = []
     for entry in entries:
         before = manager.category_name_for(session, entry)
         if before != name:
+            previous.append({"id": entry.id, "category": before, "user_filed": bool(entry.user_filed)})
             manager.update_entry(session, entry, category_name=name)
-            previous.append({"id": entry.id, "category": before})
+        if user_filed is not None:
+            entry.user_filed = user_filed
     session.commit()
     return previous
 
@@ -167,7 +172,7 @@ def create_category(body: CreateBody, session: Session = Depends(get_session)) -
 def move_notes(body: MoveBody, session: Session = Depends(get_session)) -> dict:
     """Move chosen notes into a category, made if it does not exist yet."""
     entries = list(session.scalars(select(Entry).where(Entry.id.in_(body.entry_ids), Entry.is_deleted == False)))  # noqa: E712
-    previous = _move(session, entries, body.category.strip())
+    previous = _move(session, entries, body.category.strip(), body.user_filed)
     return {"category": body.category.strip(), "moved": len(previous), "previous": previous}
 
 

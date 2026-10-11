@@ -1356,6 +1356,42 @@ def graph_structure(
 TOPIC_NAMES_KEY = "graph_topic_names"
 
 
+#: How many notes one `/graph/topics/of` asks about: a page of cards.
+TOPICS_OF_IDS_MAX = 200
+
+
+@router.get("/graph/topics/of")
+def graph_topics_of(
+    ids: str = Query(default="", description="Comma-separated note ids"),
+    members: bool = Query(default=False),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Each asked-for note's topic, named, for a note card's topic chip (the
+    owner, 2026-10-10: "Should topics from the graph be more integrated app
+    wide??"). The same cached topics as `/graph/structure?topics=1` with the
+    renames laid over; a note in no topic is absent. Answered under `topics`
+    in the shape the cards' batched counts read (`CARD_COUNT_SOURCES`)."""
+    wanted = [int(part) for part in ids.split(",") if part.strip().isdigit()][:TOPICS_OF_IDS_MAX]
+    if not wanted:
+        return {"topics": {}}
+    fingerprint = _graph_fingerprint(session)
+    found = _cached("topics", fingerprint, lambda: _build_topics(session))
+    named = topic_finder.apply_names(
+        found["topics"], deps.get_config().get_preference(TOPIC_NAMES_KEY, [])
+    )
+    by_id = {topic["id"]: topic for topic in named}
+    out = {}
+    for note in wanted:
+        topic = by_id.get(found["topic_of"].get(str(note)))
+        if topic is not None:
+            row = {"id": topic["id"], "name": topic["name"], "size": topic["size"]}
+            #: A note's panel renames its topic, which is stored by the notes.
+            if members:
+                row["ids"] = topic["ids"]
+            out[str(note)] = row
+    return {"topics": out}
+
+
 class TopicNameBody(BaseModel):
     ids: list[int] = Field(min_length=1, max_length=5000)
     name: str = Field(default="", max_length=80)
@@ -1737,6 +1773,37 @@ def pin_node(
     entry.graph_pin_y = body.y
     session.commit()
     return {"id": entry.id, "graph_pin_x": entry.graph_pin_x, "graph_pin_y": entry.graph_pin_y}
+
+
+class PinRow(BaseModel):
+    id: int
+    x: float
+    y: float
+
+
+class PinsBody(BaseModel):
+    pins: list[PinRow] = Field(min_length=1, max_length=5000)
+
+
+@router.put("/graph/pins")
+def pin_nodes(body: PinsBody, session: Session = Depends(get_session)) -> dict:
+    """Pin several notes in one write: a topic dragged by its name moves and
+    pins every member (the owner, 2026-10-10: "I want to be able to drag
+    whole topics around on the graph"), which was one `PUT /graph/pin` a
+    member. Both coordinates are required here (a release is `pin_node` or
+    Unpin all), and a note that is gone is skipped rather than failing the
+    rest."""
+    wanted = {row.id: row for row in body.pins}
+    entries = (
+        session.query(Entry)
+        .filter(Entry.id.in_(wanted), Entry.is_deleted == False)  # noqa: E712
+        .all()
+    )
+    for entry in entries:
+        entry.graph_pin_x = wanted[entry.id].x
+        entry.graph_pin_y = wanted[entry.id].y
+    session.commit()
+    return {"pinned": len(entries)}
 
 
 @router.post("/graph/unpin-all")

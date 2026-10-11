@@ -198,12 +198,6 @@ const STAGED_URL_PREFIX = "staged:";
 //: Save produces an id. See `handleFileUpload` for the whole arrangement.
 let captureStagedImages = [];
 
-//: The one place that knows the placeholder's shape, so the renderer and the
-//: rewrite cannot disagree about it.
-function stagedImageUrl(key) {
-  return `${STAGED_URL_PREFIX}${key}`;
-}
-
 function stagedImageByUrl(url) {
   if (typeof url !== "string" || !url.startsWith(STAGED_URL_PREFIX)) return null;
   const key = url.slice(STAGED_URL_PREFIX.length);
@@ -427,7 +421,10 @@ async function api(path, options = {}) {
     fetchOptions.signal = fetchOptions.signal || controller.signal;
   }
   let response;
-  try {
+  //: Rule 4: a network-level failure of a read (GET, HEAD) retries itself
+  //: twice, 300 then 600 ms apart, before anything is said; `api.retries`
+  //: counts them. A write is never resent: it may have arrived.
+  for (let attempt = 0; ; attempt++) try {
     response = await fetch(path, {
       ...fetchOptions,
       headers: {
@@ -441,7 +438,13 @@ async function api(path, options = {}) {
         ...fetchOptions.headers,
       },
     });
+    break;
   } catch (networkErr) {
+    if (attempt < 2 && networkErr instanceof TypeError && /^(GET|HEAD)$/.test(fetchOptions.method || "GET")) {
+      api.retries++;
+      await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+      continue;
+    }
     // fetch() itself threw: this is a real network failure (offline, CORS,
     // connection refused). Log it explicitly so it always appears in Logs.
     //: A timeout (`AbortSignal.timeout`, name "TimeoutError") is a slow
@@ -535,6 +538,7 @@ async function api(path, options = {}) {
   }
   return response;
 }
+api.retries = 0;
 // F5 (tests/test_no_bare_fetch.py)
 api.upload = (path, body, options) => api(path, { method: "POST", body, ...options });
 api.stream = api;
@@ -825,72 +829,6 @@ function showLockScreen(setupMode) {
   if (!setupMode && autoSessionOffered && !lockedByHand) resumeWithoutPassword();
 }
 
-async function submitLockForm() {
-  const password = $("lock-password").value;
-  const errorLine = $("lock-error");
-  errorLine.textContent = "";
-  const mode = $("lock-overlay").dataset.mode;
-  //: A new password needs 8 (SEC-17); one set before that still unlocks.
-  const floor = mode === "setup" ? 8 : 4;
-  if (password.length < floor) {
-    errorLine.textContent = `Use at least ${floor} characters.`;
-    return;
-  }
-  if (mode === "prompt") {
-    const prompt = lockPrompt;
-    if (!prompt) return;
-    try {
-      await prompt.submit(password);
-    } catch (error) {
-      errorLine.textContent = error.message;
-      return;
-    }
-    settleLockPrompt(true);
-    return;
-  }
-  try {
-    const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
-      method: "POST",
-      body: JSON.stringify({ password }),
-    });
-    localStorage.setItem("token", body.token);
-    if (body.warning) toast(body.warning, "info");
-    vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
-    lockedByHand = false;
-    $("lock-password").value = "";
-    // **Give the focus back, or every single-key shortcut in the app is
-    // dead.** Hiding the overlay does not move focus off the field inside
-    // it, so `document.activeElement` stayed `#lock-password` for the whole
-    // session that followed. Every handler that (correctly) refuses to steal
-    // a keystroke while someone is typing, the whiteboard's V/H/P tool keys,
-    // its `n` and `/`, and the same guard elsewhere, therefore returned
-    // immediately on every press, until the reader happened to click some
-    // other focusable control. Found while testing the tool shortcuts: they
-    // did nothing at all from a freshly unlocked app.
-    $("lock-password").blur();
-    //: The overlay stays up as the opening curtain and fades over the
-    //: drawn page (`curtainShell`, `liftLockScreen`).
-    $("lock-btn").classList.remove("hidden");
-    // Signing in starts a session, and a session starts at the front of every
-    // tab: see `resetNavigationForNewSession`. Here as well as at load
-    // because the lock screen is an *overlay*, not a page: unlocking after an
-    // idle lock never reloads anything, so the load-time reset alone would
-    // leave every sub-tab exactly where it was hours ago. Called before
-    // `startApp()`, which is what reads the stored section back.
-    resetNavigationToDefaults();
-    setBusy($("lock-submit"), true, "Opening…");
-    const opening = startApp();
-    curtainShell(opening);
-    //: The step after setup (INBOX 663): a recovery key, offered once the
-    //: app is drawn, skippable. The password just chosen goes with it so
-    //: the offer does not ask for it again; account-recovery.js drops it
-    //: when the dialog closes.
-    if (mode === "setup") offerRecoveryKey(password);
-  } catch (error) {
-    errorLine.textContent = error.message;
-  }
-}
-
 //: **The containers that hold the user's own words**, cleared when the
 //: notebook locks. Enumerated explicitly rather than derived, because this is
 //: a privacy boundary and a reviewer should be able to read exactly what is
@@ -994,9 +932,8 @@ async function initAuth() {
   //: a start lifts it with the shell (`curtainShell`).
   if (!status || status.setup_required || (!status.auto_session && !authToken())) hideBootSplash();
   if (!status) {
-    $("save-status").textContent =
-      "Can't reach the MemoryMap server, check it's running, then refresh.";
-    toast("Can't reach the MemoryMap server. Is it running?", true);
+    $("save-status").textContent = "Can't reach the MemoryMap server. Is it running?";
+    toast("Can't reach the MemoryMap server. Is it running?", true, { action: ["Reload", () => location.reload()] });
     return;
   }
   if (status.setup_required) {
@@ -1090,6 +1027,8 @@ function startApp() {
   if (shellStatus) shellStatus.textContent = "";
   // Warm the filing model, retry stand-ins (routes_models.warm_filing).
   api("/models/warm-filing", { method: "POST", silent: true }).catch(() => {});
+  // The notebook file's quick check at start: silent when it passed.
+  apiJson("/backups/integrity", { silent: true }).then(noteDamagedNotebook).catch(() => {});
 
   // The desktop window's own title bar already shows the app's icon, so the
   // header's logo tile under it is the same mark twice (INBOX 705). The server
@@ -1223,7 +1162,7 @@ function startApp() {
   // preference gates it either). "Only if the app auto updates though,
   // not every time they login", the endpoint self-clears after one read,
   // so this only ever fires the run right after a real update landed.
-  step("check for a source-checkout update notice", checkForSourceUpdateNotice);
+  step("check for an update notice", checkForSourceUpdateNotice);
   step("load conversations", loadConversationList);
   step("check the model status", refreshModelStatus);
   // Reminders poll on their own timer once running (see startReminderWatch);
@@ -1267,35 +1206,6 @@ function startApp() {
   //: first tab drawn.
   return Promise.all([looksReady, tabReady]);
 }
-// The browser is the only thing that knows where the user actually is. The
-// server may be running in UTC, a container, a NAS, a machine whose clock was
-// never set: and every relative time the AI computes ("in 10 minutes",
-// "tomorrow at 9") is resolved against that. So the zone is reported once at
-// startup, and again whenever it changes (travel, or a DST shift).
-//
-// Only the IANA NAME is sent, never coordinates: "Australia/Brisbane" is what
-// makes the arithmetic right, and it is far less identifying than a location.
-async function reportTimezone() {
-  let zone = "";
-  try {
-    zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-  } catch {
-    return; // an environment without Intl still works, just on server time
-  }
-  //: Awaited, not read straight off `prefsCache` (A2): every `startApp` step
-  //: runs in parallel, so this one used to reach the comparison before the
-  //: boot GET had answered, find `prefsCache` still null, and PUT the same
-  //: zone the server already had on every single cold start. With the shared
-  //: reader the comparison has something to compare.
-  await loadPreferences().catch(() => null);
-  if (!zone || (prefsCache && prefsCache.timezone === zone)) return;
-  prefsCache = await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ timezone: zone }),
-    silent: true,
-  }).catch(() => prefsCache);
-}
-
 // The per-tab data loads switchTab performs, without the tab-switching itself.
 // Kept beside switchTab's own dispatch so the two can't drift apart.
 async function refreshActiveTab() {
@@ -1516,23 +1426,6 @@ function setBusy(button, busy, label = null) {
   button._busyWas = null;
   button.replaceChildren(...was.kids);
   button.disabled = was.disabled;
-}
-
-// The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own
-// keyboard support and never got it retrofitted, mouse-only, same gap
-// chip() already closed once this session for the "Go to note" chip.
-// Dispatches a real click rather than duplicating each call site's own
-// handler, so this stays a one-line addition wherever a `.unlink` span
-// already has its click listener attached.
-function makeUnlinkAccessible(span) {
-  span.setAttribute("role", "button");
-  span.setAttribute("tabindex", "0");
-  span.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      span.click();
-    }
-  });
 }
 
 // --- asking before something irreversible (§35F) ----------------------------------
@@ -1899,10 +1792,14 @@ const LAZY_MODULES = {
   //: d3 (90 KB gzipped) comes with the two surfaces that use it, not at boot
   //: (audit FE-07); `ensureModule` fetches a file once whichever bundle names
   //: it first.
-  graph: ["/vendor/d3.v7.min.js", "/js/graph.js", "/js/graph-canvas.js"],
+  graph: ["/vendor/d3.v7.min.js", "/css/graph-lazy.css", "/js/graph.js", "/js/graph-canvas.js"],
   //: The image viewer (2026-09-27, the boot-script gzip budget): see
   //: lightbox-view.js's header.
   lightbox: ["/js/lightbox-view.js"],
+  activity: ["/js/activity-panel.js"],
+  //: Run, preview and test for a code document (DOCUMENTS_PLAN 23, D1): the
+  //: protocol and its languages, loaded on the first Run.
+  run: ["/js/run-core.js", "/js/run-tests.js", "/js/run-debug.js"],
   editConflict: ["/js/edit-conflict.js"],
   categories: ["/js/categories-panel.js"],
   //: The tag manager and the bulk tag dialog (INBOX 447): see tag-manager.js.
@@ -1912,12 +1809,14 @@ const LAZY_MODULES = {
   noteHistory: ["/js/note-history.js"],
   askHistory: ["/js/ask-history.js", "/js/ask-chart.js"],
   //: The Ask box's Use AI switch (ask-compose.js), preloaded below.
-  askCompose: ["/js/ask-compose.js"],
+  askCompose: ["/css/ask-compose-lazy.css", "/js/ask-compose.js"],
   //: Notes, Questions (questions-view.js), behind two stand-ins.
-  questionsView: ["/js/questions-view.js"],
+  questionsView: ["/css/questions-lazy.css", "/js/questions-view.js"],
   settingsData: ["/js/settings-data.js"],
   settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
+  //: The writing desk's model passes (compose, title, save as note); see writing-desk.js.
+  writingDesk: ["/js/writing-desk.js"],
   //: An attachment card's click (INBOX 440 (2)): attachment-actions.js.
   attachments: ["/js/attachment-actions.js"],
   //: Tesseract's status line (INBOX 443 (3)): see ocr-engine.js.
@@ -1925,6 +1824,8 @@ const LAZY_MODULES = {
   //: Quick note and the note outbox (INBOX 434): see quick-note.js.
   quickNote: ["/js/quick-note.js"],
   fieldClear: ["/js/field-clear.js"],
+  //: A date or time field's panel (Phase 12): see date-field.js.
+  dateField: ["/js/date-field.js"],
   //: The app emblem as an assistant head (INBOX 463 (2)): assistant-avatar.js.
   assistantAvatar: ["/js/assistant-avatar.js"],
   //: Arranging the dashboard's Quick access row (INBOX 461): quick-access.js.
@@ -1935,12 +1836,13 @@ const LAZY_MODULES = {
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
   inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
   //: 2026-10-05 (gzip budget), the next seven: each file's header says why.
-  reveal: ["/js/reveal-targets.js"],
+  reveal: ["/css/reveal-lazy.css", "/js/reveal-targets.js"],
   onboarding: ["/js/onboarding.js"],
   tour: ["/js/tour.js"],
   updates: ["/js/update-dialogs.js"],
-  appPalette: ["/js/app-palette.js"],
-  notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js"],
+  //: With the feature rows it lists (app-features.js).
+  appPalette: ["/js/app-features.js", "/js/app-palette.js"],
+  notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js", "/js/note-pick-preview.js"],
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],
   attachTo: ["/js/pick-row.js", "/js/attach-to.js"],
@@ -1951,7 +1853,7 @@ const LAZY_MODULES = {
   modelBench: ["/js/model-bench.js"],
   webClip: ["/js/web-clip.js"],
   appImport: ["/js/app-import.js"],
-  usageLedger: ["/js/usage-ledger.js"],
+  usageLedger: ["/css/usage-lazy.css", "/js/usage-ledger.js"],
   //: The Library tab's list without the editors (audit FE-03(c)): one click
   //: on Library fetched both editors, d3 and the whiteboard, about 900 KB
   //: gzipped, to draw a list. `library` below still holds library.js, so
@@ -1960,12 +1862,24 @@ const LAZY_MODULES = {
   libraryList: ["/css/library-lazy.css", "/js/library.js"],
   //: The Capture box's template picker (note-templates.js's header).
   noteTemplates: ["/js/note-templates.js"],
-  meetings: ["/js/meetings.js"],
+  meetings: ["/css/meetings-lazy.css", "/js/meetings.js"],
+  quickAdd: ["/css/quickadd-lazy.css", "/js/quickadd.js"],
+  //: The Statistics page and This week (statistics.js's header).
+  statistics: ["/css/utilities-lazy.css", "/js/ask-chart.js", "/js/statistics.js"],
+  utilities: ["/js/utility-tools.js"],
+  //: Live captions (captions.js's header; Brief 82).
+  captions: ["/css/captions-lazy.css", "/js/captions.js"],
+  //: Translate this, the offline translator's sheet (translate.js's header).
+  translate: ["/css/utilities-lazy.css", "/js/translate.js"],
+  //: The search box, Find anything, and its saved searches (search.js's header).
+  search: ["/css/search-lazy.css", "/js/search.js"],
   //: Atlas's blink and arm rig (atlas-motion.js's header): the drawing is
   //: boot's, the motion arrives with the first figure that mounts.
   atlasMotion: ["/js/atlas-motion.js"],
   //: Atlas the Guide as a chat (help-chat.js's header), on first ask.
-  helpChat: ["/js/help-chat.js"],
+  helpChat: ["/css/help-chat-lazy.css", "/js/help-chat.js"],
+  //: Atlas's mood cues and bold small-size brows (atlas.js `atlasSheet`).
+  atlasFaces: ["/css/atlas-lazy.css"],
   //: A selection's Move to space (batch-space.js's header).
   batchSpace: ["/js/batch-space.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
@@ -2233,6 +2147,8 @@ document.addEventListener("keydown", (event) => {
 //:    caption came back. Skipping is the right answer when the Library has
 //:    never been opened; opening it loads and renders it anyway.
 const LAZY_ENTRY_POINTS = {
+  //: The palette's Live captions row (captions.js; Brief 82): nobody reads its return.
+  captions: ["toggleLiveCaptions"],
   lightbox: ["openLightbox"],
   editConflict: ["editConflictPrompt"],
   noteHistory: ["openEntryHistory", "undoSkillRun"],
@@ -2244,7 +2160,7 @@ const LAZY_ENTRY_POINTS = {
   //: The icon and emoji picker: reached through `pickIconOrEmoji` (editor.js).
   iconPicker: ["openIconPicker"],
   //: Async, and reached from a Settings pane drawn before the window's own await.
-  settingsControls: ["refreshSearxngHost", "renderStatusBarSettings"],
+  settingsControls: ["refreshSearxngHost", "renderStatusBarSettings", "renderMcpSnippet", "renderLanAccess"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",
@@ -2256,6 +2172,7 @@ const LAZY_ENTRY_POINTS = {
     "importDocument",
   ],
   tagSuggest: ["openTagSuggest"],
+  writingDesk: ["composeDraft", "suggestDraftTitle", "saveDraftAsNote"],
   //: Each called for its effect when a figure mounts or moves; nothing reads a result.
   atlasMotion: ["atlasBlinkStart", "atlasRigAttach", "atlasRigWake"],
   companionMenu: ["nameMarkBuddyMenu", "openNameMarkViewer"],
@@ -2271,12 +2188,16 @@ const LAZY_ENTRY_POINTS = {
   tour: ["openTour", "renderTourReplay"],
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog", "askUpdateChoiceOnce"],
   appPalette: ["openPalette"],
-  notePanels: ["beginOrCompleteLink", "toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],
+  notePanels: ["beginOrCompleteLink", "toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm", "richPickerNote"],
   vault: ["unlockPrivateNotes", "ensureVaultOpen"],
   accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey", "recoveryAccountRow"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate", "templateCatalogue"],
-  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument", "resetMeetingUI"],
+  quickAdd: ["quickAddAttach", "quickAddSlots", "quickAddAsk", "quickAddClear", "magicAddReminder"],
+  //: Opened by a gesture; the closers are called only once it is open.
+  search: ["openFinder"],
+  statistics: ["openStatistics", "renderWeekWidget"],
+  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "saveMeetingNote", "resetMeetingUI"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",
@@ -2387,4 +2308,4 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
 }
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
-setTimeout(() => ["quickNote", "fieldClear", "chordGuide", "notePanels", "dragEdge", "askCompose"].forEach((name) => ensureModule(name)), 3000);
+setTimeout(() => ["quickNote", "quickAdd", "fieldClear", "chordGuide", "notePanels", "dragEdge", "askCompose", "search"].forEach((name) => ensureModule(name)), 3000);

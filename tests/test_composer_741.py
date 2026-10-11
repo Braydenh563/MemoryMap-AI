@@ -37,7 +37,7 @@ def test_an_untitled_note_is_never_named_by_its_first_words():
         assert text.count(" ".join(note["content"].split()[:4])) <= 1
     assert "**" not in text
     assert not re.search(r"\b(?:says|said): ", text)
-    assert "(your note, " in text
+    assert "[your note, " in text
 
 
 def test_no_pile_of_also_or_furthermore():
@@ -52,7 +52,7 @@ def test_a_titled_note_is_named_once_after_its_sentence():
     ]
     text = ask("What about the hotel?", notes)["text"]
     assert text.count("**Lisbon trip**") == 1 and text.count("**Budget**") == 1
-    assert "(**Lisbon trip**)" in text
+    assert "[**Lisbon trip**]" in text
     #: The content comes before the name, not after "Your note ... says".
     assert text.index("hotel is booked for May") < text.index("**Lisbon trip**")
 

@@ -296,3 +296,35 @@ details.tidy-history > summary.tidy-history-head {
     justify-content: flex-end;
   }
 }
+
+/* A row and the cross that dismisses it for good (INBOX 783), beside the label
+   rather than inside it. Quiet at rest, full on the row's hover and focus and
+   always full under a finger. */
+.tidy-row-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.tidy-row-item > label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tidy-dismiss {
+  flex: 0 0 auto;
+  margin-top: var(--space-1);
+  color: var(--muted);
+  opacity: 0.6;
+  transition: opacity var(--ui-base) var(--ease-out);
+}
+
+.tidy-row-item:is(:hover, :focus-within) > .tidy-dismiss {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .tidy-dismiss {
+    opacity: 1;
+  }
+}

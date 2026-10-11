@@ -1,0 +1,85 @@
+/* search-lazy.css: what the search box adds to Find anything's card and the
+   Notes sidebar, fetched with search.js (app.js `LAZY_MODULES.search`; the
+   card's own rules stay in 07-whiteboard-misc.css). Brief 47, decision 46. */
+
+/* The kind chip on every row: the display chip, at the head's end beside the
+   date, never shrinking; the title is still the one part that gives. */
+.finder-row-head .finder-kind {
+  flex: none;
+  margin-inline-start: auto;
+}
+
+/* "Show more results": an action on the list, after its last row. */
+.finder-more {
+  align-self: center;
+}
+
+/* The operators in the '?' help, one per line. */
+.finder-help-ops {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+/* Saved searches in the Notes sidebar: the sidebar's own rows (`#sidebar li`,
+   01-forms-settings.css), under a heading spaced like Most used's. */
+#saved-finds-box h2 {
+  margin-top: var(--space-4);
+}
+
+#saved-finds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* A zero chip is quieter by its ink, not its opacity: at 0.55 it measured
+   2.32:1 in axe-core (Brief 47's sweep), and it is still a control. */
+.finder-chip.is-zero {
+  color: var(--muted);
+}
+
+/* A phone's card nearly fills the window, so it starts near the top: under
+   the overlay's 15vh drop it ran 111px past a 390x844 window (the sweep). */
+@media (max-width: 599.98px) {
+  .finder-overlay {
+    padding-top: var(--space-3);
+  }
+}
+
+/* A saved search's ⋯ is the category row's (04-chat-dock-appearance.css,
+   `.category-actions`): out of the way until the row is pointed at or
+   focused, always there on touch, a quiet ghost button. */
+#saved-finds li {
+  position: relative;
+}
+
+#saved-finds li:is(:hover, :focus-within) .category-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#saved-finds li:focus-visible {
+  outline-offset: -2px;
+}
+
+#saved-finds li .category-actions button {
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+#saved-finds li .category-actions button:hover {
+  background: var(--ghost-btn-bg);
+}
+
+@media (hover: none) {
+  #saved-finds li .category-actions {
+    position: static;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

@@ -635,16 +635,43 @@ def delete_turn(
     start = index * 2
     if index < 0 or start >= len(messages):
         raise HTTPException(status_code=404, detail="That turn could not be found.")
+    removed = messages[start : start + 2]
     del messages[start : start + 2]
     if not messages:
+        # The last turn takes the chat with it, so Undo needs the whole row.
+        kept = _restore_row(conversation)
         log_action(session, "deleted", "conversation", conversation.id)
         session.delete(conversation)
         session.commit()
-        return {"deleted": True, "conversation_deleted": True, "turns": 0}
+        return {"deleted": True, "conversation_deleted": True, "turns": 0, "restore": kept}
     conversation.messages = json.dumps(messages)
     conversation.updated_at = utcnow()
     session.commit()
-    return {**_summary(conversation), "deleted": True, "conversation_deleted": False}
+    return {**_summary(conversation), "deleted": True, "conversation_deleted": False, "removed": removed}
+
+
+class TurnRestoreBody(BaseModel):
+    messages: list[dict] = Field(min_length=1, max_length=2)
+
+
+@router.post("/{conversation_id}/turns/{index}/restore")
+def restore_turn(
+    conversation_id: int, index: int, body: TurnRestoreBody, session: Session = Depends(get_session)
+) -> dict:
+    """Undo a deleted message (CHAT_PLAN 8 row 5): the pair the turn's DELETE
+    answered with, put back at its own index."""
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    start = index * 2
+    if index < 0 or start > len(messages):
+        raise HTTPException(status_code=404, detail="That turn could not be put back there.")
+    if any(m.get("role") not in ("user", "assistant") for m in body.messages):
+        raise HTTPException(status_code=422, detail="Only a question and its answer can be put back.")
+    messages[start:start] = body.messages
+    conversation.messages = json.dumps(messages)
+    conversation.updated_at = utcnow()
+    session.commit()
+    return _summary(conversation)
 
 
 class TruncateBody(BaseModel):
@@ -875,23 +902,30 @@ def rename_conversation(
     return _summary(conversation)
 
 
+def _restore_row(conversation: Conversation) -> dict:
+    """The whole row, for Undo to send back to `POST /conversations/restore`
+    (undo-1005): a chat is one row, so this is all of it."""
+    def iso(when: datetime | None) -> str | None:
+        return when.isoformat() if when else None
+
+    return {
+        "id": conversation.id,
+        "title": conversation.title,
+        "messages": conversation.messages,
+        "pinned": bool(conversation.pinned),
+        "archived_at": iso(conversation.archived_at),
+        "created_at": iso(conversation.created_at),
+        "updated_at": iso(conversation.updated_at),
+        "workspace_id": conversation.workspace_id,
+    }
+
+
 @router.delete("/{conversation_id}")
 def delete_conversation(
     conversation_id: int, session: Session = Depends(get_session)
 ) -> dict:
     conversation = _existing(session, conversation_id)
-    # The whole row, for Undo to send back to `POST /conversations/restore`
-    # (undo-1005): a chat is one row, so this is all of it.
-    kept = {
-        "id": conversation.id,
-        "title": conversation.title,
-        "messages": conversation.messages,
-        "pinned": bool(conversation.pinned),
-        "archived_at": conversation.archived_at.isoformat() if conversation.archived_at else None,
-        "created_at": conversation.created_at.isoformat() if conversation.created_at else None,
-        "updated_at": conversation.updated_at.isoformat() if conversation.updated_at else None,
-        "workspace_id": conversation.workspace_id,
-    }
+    kept = _restore_row(conversation)
     log_action(session, "deleted", "conversation", conversation.id)
     session.delete(conversation)
     session.commit()

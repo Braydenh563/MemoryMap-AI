@@ -14,6 +14,7 @@
 // spec asked for no database row at all, so the running transcript lives
 // only in this module-level array, it survives a tab switch (this module
 // never reloads) but not a page reload, exactly as specified.
+
 let helpChatHistory = [];
 let helpChatBusy = false;
 
@@ -45,17 +46,83 @@ function helpChatAppendRow(row) {
 }
 
 //: A button that opens where a help entry points: a tab, a Settings
-//: section, or one row in it (the document-level `[data-goto-*]` handler
-//: above does the going).
+//: section, or one row in it, and lands on a control there, lit.
 function helpChatOpenButton(link, label) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "chip chip-interactive";
-  if (link.tab) btn.dataset.gotoTab = link.tab;
-  if (link.section) btn.dataset.gotoSection = link.section;
-  if (link.target) btn.dataset.gotoTarget = link.target;
+  btn.dataset.guideLand = link.section ? `${link.section}/${link.target || ""}` : link.tab;
+  btn.addEventListener("click", () => guideLand(link));
   chipWords(btn, label || link.label);
   return btn;
+}
+
+//: **Where a topic about a whole tab lands** (CHAT_PLAN 9 row 2): the
+//: control the tab is for, rather than its top, which left the eye to find
+//: the thing the answer was about.
+const GUIDE_TAB_LANDING = {
+  notes: "entry-content",
+  chat: "chat-input",
+  graph: "graph-search",
+  reminders: "reminder-magic",
+  timeline: "timeline-search",
+  library: "library-subtabs",
+  dashboard: "dash-find",
+  //: The Library's New on a wide window, the open document's title on a
+  //: phone (its New is in the drawer, off the left edge).
+  documents: "library-docs-new doc-title",
+};
+
+//: Resolves to the element once it has a box (a lazy tab's bundle, a
+//: section built on open), or null when `ms` runs out.
+async function guideShown(find, ms) {
+  for (let waited = 0; waited < ms; waited += 100) {
+    const el = find();
+    if (el?.getClientRects().length) return el;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return null;
+}
+
+//: When the named control is not there to see (a row shown only with a
+//: model, a phone's folded field), the first control on the page instead:
+//: a section's top is a heading, and a heading is nothing to press.
+//: On screen across: a drawer's control has a box off the left edge.
+function guideOnScreen(el) {
+  const box = el?.getClientRects().length ? el.getBoundingClientRect() : null;
+  return Boolean(box && box.right > 0 && box.left < window.innerWidth);
+}
+
+function guideFirstControl(root) {
+  const shown = (el) => guideOnScreen(el) && !el.closest(".hidden, [hidden]") && !el.dataset.helpFor;
+  return [...(root?.querySelectorAll("input, select, textarea, button, [role=switch]") || [])].find(shown) || null;
+}
+
+async function guideLand(link) {
+  closeOverlaysForChord();
+  if (link.section) await openSettingsModal(link.section, link.target || null);
+  else await switchTab(link.tab);
+  //: Notes opens on its list; the topics are about writing one.
+  if (link.tab === "notes") showNotesSection("capture");
+  const ids = (link.target || (link.section ? "" : GUIDE_TAB_LANDING[link.tab])).split(" ").filter(Boolean);
+  const live = (id) => (guideOnScreen($(id)) ? $(id) : null);
+  //: A row hidden on purpose (no model, not the desktop app) is not waited for.
+  const onPurpose = ids.every((id) => $(id)?.closest(".hidden, [hidden]"));
+  const named = onPurpose ? null : await guideShown(() => ids.map(live).find(Boolean), 2000);
+  const root = link.section ? $(`settings-${link.section}`) : $(`tab-${link.tab}`);
+  //: Waited for too: a pane that builds its rows on open has none at first.
+  const el = named || (await guideShown(() => guideFirstControl(root), 2500));
+  if (!el) return;
+  flashRevealed(el);
+  //: flashRevealed scrolls only a menu's own list inside a sheet, and the
+  //: phone's Settings is a sheet whose pane is laid out again as its rows
+  //: arrive: a row below the fold, or pushed past it, was ringed unseen. So
+  //: for a second and a half it is put back in view whenever it has left.
+  for (const pause of [300, 500, 700]) {
+    await new Promise((resolve) => setTimeout(resolve, pause));
+    const box = el.getBoundingClientRect();
+    if (box.top < 0 || box.top > window.innerHeight - 40) el.scrollIntoView({ block: "center" });
+  }
 }
 
 function renderHelpChatMessage(role, content, badges = [], sources = [], system = null) {
@@ -180,7 +247,7 @@ const HELP_CONTEXT_CHARS = 1200;
 //: `title` and `aria-label` on a control are authored markup and can hold
 //: nothing a person wrote.
 function helpChatOnScreenHelp() {
-  const tab = typeof agentCurrentTab === "function" ? agentCurrentTab() : null;
+  const tab = agentCurrentTab();
   const root = tab ? document.getElementById(`tab-${tab}`) : null;
   if (!root) return "";
   const parts = [];
@@ -296,7 +363,7 @@ async function submitHelpChatQuestion(question) {
       body: {
         question,
         history: helpChatHistory,
-        tab: typeof agentCurrentTab === "function" ? agentCurrentTab() : null,
+        tab: agentCurrentTab(),
         context: helpChatOnScreenHelp(),
       },
     });
@@ -314,6 +381,7 @@ async function submitHelpChatQuestion(question) {
       signal.aborted ? [] : result?.sources || [],
       signal.aborted ? null : result?.system || null
     );
+    if (answerRow && result?.greeting && !signal.aborted) renderHelpChatGreeting(answerRow);
     helpChatHistory.push({ role: "user", content: question });
     helpChatHistory.push({ role: "assistant", content });
   } catch (error) {
@@ -401,10 +469,15 @@ async function helpChatStreamTurn({ pending, signal, body, line = null }) {
   //: below not after the text being streamed"). The rule in
   //: 01-forms-settings.css walks one level further for this class.
   prose.className = "help-chat-prose";
-  //: The phase line stays under the head row for the whole turn, and goes
-  //: when the answer is complete (below).
+  //: The thinking first, then the phase line, then the answer (the owner,
+  //: 2026-10-10: "on the guide the thinking shows below the thinking
+  //: indicator and stuff with no gap either"; measured 1px between the line's
+  //: foot and the fold). The line says what is happening now, so it sits
+  //: next to where the answer will appear, and goes when the answer is
+  //: complete (below). The fold's gap is `--space-2` (help-chat-lazy.css).
+  pending.append(think);
   if (line) pending.append(line);
-  pending.append(think, prose);
+  pending.append(prose);
   const list = $("help-chat-messages");
   const toBottom = () => keepAtBottom(list);
 
@@ -451,6 +524,7 @@ async function helpChatStreamTurn({ pending, signal, body, line = null }) {
     badges: done?.badges || [],
     sources: done?.sources || [],
     system: done?.system || null,
+    greeting: !!done?.greeting,
     shown: text,
   };
 }
@@ -561,7 +635,7 @@ function renderAtlasStarters() {
     //: way the table itself was: settings.js runs whether or not app.js has.
     const questions =
       typeof atlasStartersFor === "function"
-        ? atlasStartersFor(typeof agentCurrentTab === "function" ? agentCurrentTab() : null)
+        ? atlasStartersFor(agentCurrentTab())
         : typeof ATLAS_STARTERS === "object"
           ? ATLAS_STARTERS
           : [];
@@ -580,6 +654,25 @@ function renderAtlasStarters() {
       host.appendChild(chip);
     }
   }
+}
+
+//: **A greeting gets three things to ask** (INBOX 787: "hey" was answered
+//: with the open tab's topic). The reply says who is answering; the tab's
+//: starters go under it as chips, the same ones the empty state offers.
+function renderHelpChatGreeting(row) {
+  const host = document.createElement("div");
+  host.className = "help-chat-badges";
+  const tab = agentCurrentTab();
+  for (const question of atlasStartersFor(tab)) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "ghost small atlas-starter";
+    chip.textContent = question;
+    chip.title = `Ask Atlas: ${question}`;
+    chip.addEventListener("click", () => askAtlas(question));
+    host.appendChild(chip);
+  }
+  row.appendChild(host);
 }
 
 //: The one way in with a question already chosen: used by the starters, and

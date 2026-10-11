@@ -30,8 +30,10 @@ import math
 import re
 from collections import Counter
 
-from memorymap.ai.embeddings import paragraph_chunks
-from memorymap.search.search_manager import _meaningful_terms
+#: `search_manager._meaningful_terms` is this function by another name;
+#: imported from `query` so this module does not pull the search manager,
+#: and with it SQLAlchemy and the embeddings, into a no-model answer.
+from memorymap.search.query import search_terms as _meaningful_terms
 
 # Below this fraction of a sentence's own meaningful words being found in a
 # note, the "match" is coincidence (shared stopword-adjacent filler) rather
@@ -403,7 +405,7 @@ def _graph_nearness(note: dict) -> float | None:
 
 
 def paragraph_ordinal(content: str, start: int, end: int | None = None) -> int:
-    """Which paragraph of `content` (`embeddings.paragraph_chunks`) a passage
+    """Which paragraph of `content` (`chunks.paragraph_chunks`) a passage
     sits in: the one it overlaps most.
 
     The same split the paragraph vectors were stored with, so an ordinal here
@@ -412,6 +414,8 @@ def paragraph_ordinal(content: str, start: int, end: int | None = None) -> int:
     on a twenty-word stride and often begins at the tail of the paragraph
     before the one it is about.
     """
+    from memorymap.ai.chunks import paragraph_chunks
+
     spans = paragraph_chunks(content or "")
     if not spans:
         return 0

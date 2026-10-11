@@ -1,0 +1,612 @@
+{
+  "version": "5.0.0-consolidated",
+  "status": "seed_data_not_event_or_relation_extractor",
+  "actions": {
+    "Apply": [
+      "apply",
+      "submit application"
+    ],
+    "Attend": [
+      "attend",
+      "participate in"
+    ],
+    "Book": [
+      "book",
+      "booking",
+      "reserve",
+      "make a reservation"
+    ],
+    "Cancel": [
+      "cancel",
+      "cancelling",
+      "canceling",
+      "call off"
+    ],
+    "Reschedule": [
+      "reschedule",
+      "move the appointment"
+    ],
+    "Renew": [
+      "renew"
+    ],
+    "Register": [
+      "register"
+    ],
+    "Enrol": [
+      "enrol",
+      "enroll",
+      "enrolment",
+      "enrollment"
+    ],
+    "Study": [
+      "study"
+    ],
+    "Teach": [
+      "teach"
+    ],
+    "Practise": [
+      "practise",
+      "practice",
+      "rehearse"
+    ],
+    "Work": [
+      "work"
+    ],
+    "Volunteer": [
+      "volunteer"
+    ],
+    "Travel": [
+      "travel"
+    ],
+    "Commute": [
+      "commute"
+    ],
+    "Visit": [
+      "visit"
+    ],
+    "Move": [
+      "move"
+    ],
+    "Arrive": [
+      "arrive"
+    ],
+    "Depart": [
+      "depart"
+    ],
+    "Meet": [
+      "meet"
+    ],
+    "Contact": [
+      "contact"
+    ],
+    "Call": [
+      "call"
+    ],
+    "Email": [
+      "email"
+    ],
+    "Message": [
+      "message"
+    ],
+    "Ask": [
+      "ask"
+    ],
+    "Answer": [
+      "answer"
+    ],
+    "Discuss": [
+      "discuss"
+    ],
+    "Decide": [
+      "decide"
+    ],
+    "Compare": [
+      "compare"
+    ],
+    "Research": [
+      "research"
+    ],
+    "Review": [
+      "review"
+    ],
+    "Plan": [
+      "plan"
+    ],
+    "Prepare": [
+      "prepare"
+    ],
+    "Start": [
+      "start"
+    ],
+    "Continue": [
+      "continue"
+    ],
+    "Pause": [
+      "pause"
+    ],
+    "Finish": [
+      "finish"
+    ],
+    "Submit": [
+      "submit"
+    ],
+    "Approve": [
+      "approve"
+    ],
+    "Reject": [
+      "reject"
+    ],
+    "Pay": [
+      "pay"
+    ],
+    "Receive": [
+      "receive"
+    ],
+    "Buy": [
+      "buy"
+    ],
+    "Sell": [
+      "sell"
+    ],
+    "Return": [
+      "return"
+    ],
+    "Refund": [
+      "refund"
+    ],
+    "Borrow": [
+      "borrow"
+    ],
+    "Lend": [
+      "lend"
+    ],
+    "Save": [
+      "save"
+    ],
+    "Budget": [
+      "budget"
+    ],
+    "Donate": [
+      "donate"
+    ],
+    "Collect": [
+      "collect",
+      "pick up"
+    ],
+    "Deliver": [
+      "deliver",
+      "drop off"
+    ],
+    "Send": [
+      "send"
+    ],
+    "Receive Delivery": [
+      "receive delivery"
+    ],
+    "Repair": [
+      "repair"
+    ],
+    "Replace": [
+      "replace"
+    ],
+    "Maintain": [
+      "maintain"
+    ],
+    "Clean": [
+      "clean"
+    ],
+    "Wash": [
+      "wash"
+    ],
+    "Cook": [
+      "cook"
+    ],
+    "Bake": [
+      "bake"
+    ],
+    "Feed": [
+      "feed"
+    ],
+    "Care For": [
+      "care for",
+      "look after"
+    ],
+    "Supervise": [
+      "supervise"
+    ],
+    "Exercise": [
+      "exercise"
+    ],
+    "Rest": [
+      "rest"
+    ],
+    "Sleep": [
+      "sleep"
+    ],
+    "Read": [
+      "read"
+    ],
+    "Write": [
+      "write"
+    ],
+    "Create": [
+      "create"
+    ],
+    "Build": [
+      "build"
+    ],
+    "Design": [
+      "design"
+    ],
+    "Test": [
+      "test"
+    ],
+    "Install": [
+      "install"
+    ],
+    "Update": [
+      "update"
+    ],
+    "Back Up": [
+      "back up",
+      "backup"
+    ],
+    "Restore": [
+      "restore"
+    ],
+    "Report": [
+      "report"
+    ],
+    "Complain": [
+      "complain"
+    ],
+    "Resolve": [
+      "resolve"
+    ],
+    "Negotiate": [
+      "negotiate"
+    ],
+    "Celebrate": [
+      "celebrate"
+    ],
+    "Host": [
+      "host"
+    ],
+    "Invite": [
+      "invite"
+    ],
+    "Accept": [
+      "accept"
+    ],
+    "Decline Invitation": [
+      "decline invitation"
+    ],
+    "Remind": [
+      "remind"
+    ],
+    "Follow Up": [
+      "follow up",
+      "follow-up",
+      "check back"
+    ],
+    "Track": [
+      "track"
+    ],
+    "Observe": [
+      "observe"
+    ],
+    "Learn": [
+      "learn"
+    ],
+    "Support": [
+      "support"
+    ],
+    "Organise": [
+      "organise",
+      "organize"
+    ],
+    "Withdraw": [
+      "withdraw"
+    ],
+    "Transfer": [
+      "transfer"
+    ],
+    "Change": [
+      "change"
+    ],
+    "Sign": [
+      "sign"
+    ],
+    "Verify": [
+      "verify"
+    ]
+  },
+  "event_types": [
+    "Appointment",
+    "Medical Appointment",
+    "Dental Appointment",
+    "Therapy Appointment",
+    "Veterinary Appointment",
+    "Interview",
+    "Job Interview",
+    "Admissions Interview",
+    "Meeting",
+    "Team Meeting",
+    "Parent-Teacher Meeting",
+    "Board Meeting",
+    "Union Meeting",
+    "Consultation",
+    "Inspection",
+    "Rental Inspection",
+    "Building Inspection",
+    "Exam",
+    "Practical Assessment",
+    "Audition",
+    "Lesson",
+    "Lecture",
+    "Seminar",
+    "Workshop",
+    "Training Session",
+    "Induction",
+    "Orientation",
+    "School Assembly",
+    "School Sports Day",
+    "School Trip",
+    "School Camp",
+    "Graduation",
+    "Commencement",
+    "Award Ceremony",
+    "Wedding",
+    "Engagement Party",
+    "Birthday Party",
+    "Anniversary Celebration",
+    "Baby Shower",
+    "Naming Ceremony",
+    "Baptism",
+    "Religious Service",
+    "Festival",
+    "Public Holiday",
+    "Family Gathering",
+    "Reunion",
+    "Funeral",
+    "Memorial Service",
+    "Concert",
+    "Theatre Performance",
+    "Film Screening",
+    "Exhibition",
+    "Museum Visit",
+    "Conference",
+    "Convention",
+    "Trade Show",
+    "Meetup",
+    "Networking Event",
+    "Competition",
+    "Tournament",
+    "Sports Match",
+    "Race",
+    "Charity Fundraiser",
+    "Volunteer Shift",
+    "Community Cleanup",
+    "Market Day",
+    "Open House",
+    "Open Day",
+    "House Move",
+    "Product Launch",
+    "Election",
+    "Public Consultation",
+    "Demonstration",
+    "Hearing",
+    "Court Appearance",
+    "Travel Departure",
+    "Travel Arrival",
+    "Check-In",
+    "Check-Out",
+    "Delivery",
+    "Collection",
+    "Service Visit",
+    "Emergency Drill",
+    "Evacuation",
+    "Work Shift",
+    "Deadline",
+    "Renewal Date",
+    "Payment Due Date",
+    "Subscription Expiry",
+    "Retirement Celebration",
+    "Farewell",
+    "Welcome Event",
+    "Cultural Ceremony",
+    "Pilgrimage Gathering"
+  ],
+  "venue_types": [
+    "School",
+    "Primary School",
+    "Secondary School",
+    "Nursery",
+    "Preschool",
+    "Kindergarten",
+    "College",
+    "University",
+    "Training Centre",
+    "Library",
+    "Classroom",
+    "Lecture Hall",
+    "Laboratory",
+    "Campus",
+    "Office",
+    "Branch Office",
+    "Coworking Space",
+    "Factory",
+    "Workshop",
+    "Warehouse",
+    "Construction Site",
+    "Mine Site",
+    "Farm",
+    "Retail Store",
+    "Supermarket",
+    "Shopping Centre",
+    "Market",
+    "Restaurant",
+    "Cafe",
+    "Hotel",
+    "Hostel",
+    "Guesthouse",
+    "Homestay",
+    "Apartment",
+    "House",
+    "Share House",
+    "Student Residence",
+    "Retirement Village",
+    "Care Home",
+    "Supported Housing",
+    "Emergency Shelter",
+    "Community Centre",
+    "Youth Centre",
+    "Senior Centre",
+    "Hospital",
+    "Clinic",
+    "Dental Clinic",
+    "Pharmacy",
+    "Health Centre",
+    "Veterinary Clinic",
+    "Bank",
+    "Post Office",
+    "Government Office",
+    "Courthouse",
+    "Embassy",
+    "Consulate",
+    "Police Station",
+    "Fire Station",
+    "Religious Venue",
+    "Museum",
+    "Art Gallery",
+    "Theatre",
+    "Cinema",
+    "Concert Hall",
+    "Stadium",
+    "Sports Ground",
+    "Gym",
+    "Swimming Pool",
+    "Park",
+    "Playground",
+    "Garden",
+    "Nature Reserve",
+    "National Park",
+    "Beach",
+    "Mountain",
+    "Forest",
+    "Lake",
+    "River",
+    "Island",
+    "Historic Site",
+    "Tourist Attraction",
+    "Airport",
+    "Train Station",
+    "Bus Station",
+    "Ferry Terminal",
+    "Port",
+    "Car Park",
+    "Service Station",
+    "Charging Station",
+    "Motorway Service Area",
+    "Campground",
+    "Caravan Park",
+    "Resort",
+    "Event Venue",
+    "Meeting Room",
+    "Private Home",
+    "Public Square",
+    "Public Toilet",
+    "Accessible Toilet",
+    "Recycling Centre",
+    "Waste Facility",
+    "Repair Shop",
+    "Salon",
+    "Animal Shelter",
+    "Animal Sanctuary",
+    "Food Bank"
+  ],
+  "entity_types": [
+    "person",
+    "organisation",
+    "school",
+    "university",
+    "employer",
+    "workplace_site",
+    "department",
+    "team",
+    "job_role",
+    "project",
+    "course",
+    "class",
+    "club",
+    "community_group",
+    "service_provider",
+    "customer",
+    "supplier",
+    "venue",
+    "destination",
+    "geographic_place",
+    "address",
+    "route",
+    "transport_service",
+    "event_instance",
+    "product",
+    "device",
+    "account",
+    "subscription",
+    "document",
+    "asset",
+    "pet"
+  ],
+  "assertion_modes": [
+    "asserted",
+    "negated",
+    "question",
+    "hypothetical",
+    "conditional",
+    "quoted",
+    "reported_by_other",
+    "unknown"
+  ],
+  "temporal_statuses": [
+    "past",
+    "present",
+    "future",
+    "unspecified"
+  ],
+  "workflow_statuses": [
+    "proposed",
+    "requested",
+    "pending",
+    "confirmed",
+    "in_progress",
+    "completed",
+    "cancelled",
+    "declined",
+    "unknown"
+  ],
+  "relation_types": [
+    "mentions",
+    "located_at",
+    "part_of",
+    "performed_by",
+    "requested_by",
+    "assigned_to",
+    "attends",
+    "works_for",
+    "studies_at",
+    "travels_to",
+    "travels_from",
+    "appointment_with",
+    "booked_at",
+    "due_on",
+    "scheduled_for",
+    "cancelled_on",
+    "rescheduled_to",
+    "uses",
+    "purchased_from",
+    "paid_to",
+    "cares_for",
+    "associated_with"
+  ]
+}

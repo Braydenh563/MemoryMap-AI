@@ -17,7 +17,7 @@
 #      Alembic stamp on a fresh data dir. No traceback in the app's output,
 #      and nothing written inside the bundle.
 #   2. The wizard's optional-packages step works from the frozen exe:
-#      `--install-extras docx,pyodide` borrows the runner's Python for pip,
+#      `--install-extras pdfpages,pyodide` borrows the runner's Python for pip,
 #      downloads and unpacks Pyodide itself, installs both into the data
 #      folder, and the running app then reports them installed and serves
 #      the About panel's release notes.
@@ -124,25 +124,27 @@ jobs:
       # (installer.iss [Run]). The frozen exe has no pip of its own; it must
       # find the runner's Python (setup-python put one on PATH), install
       # wheels for its own interpreter into the data folder, and exit 0.
-      # python-docx because it is small and pulls one compiled wheel (lxml).
+      # pypdfium2 (the pdfpages extra) because it pulls compiled wheels
+      # (pypdfium2, Pillow); python-docx went with Brief 42 (Word is written
+      # in the browser).
       # Pyodide is the other kind of extra: no pip at all, a pinned download
       # the app fetches, checks against its sha256 and unpacks (tar.bz2) by
       # itself, which proves the frozen build's TLS certificates, bz2 and
       # tarfile, and is 7 MB.
-      - name: The frozen exe installs two optional packages (--install-extras docx,pyodide)
+      - name: The frozen exe installs two optional packages (--install-extras pdfpages,pyodide)
         shell: pwsh
         env:
           MEMORYMAP_DATA_DIR: ${{ runner.temp }}\mm-extras
         run: |
           $exe = Join-Path $PWD "dist\MemoryMap AI\MemoryMap AI.exe"
-          $p = Start-Process -FilePath $exe -ArgumentList "--install-extras","docx,pyodide" -Wait -PassThru
+          $p = Start-Process -FilePath $exe -ArgumentList "--install-extras","pdfpages,pyodide" -Wait -PassThru
           Write-Host "exit code: $($p.ExitCode)"
           Get-ChildItem "$env:MEMORYMAP_DATA_DIR\python-extras" -Recurse -Depth 1 -ErrorAction SilentlyContinue | Select-Object -First 20 FullName
           $log = "$env:MEMORYMAP_DATA_DIR\logs\desktop-stdio.log"
           if (Test-Path $log) { Get-Content $log -Tail 40 }
-          if ($p.ExitCode -ne 0) { throw "--install-extras docx,pyodide exited $($p.ExitCode)" }
-          $docx = Get-ChildItem "$env:MEMORYMAP_DATA_DIR\python-extras\*\docx\__init__.py" -ErrorAction SilentlyContinue
-          if (-not $docx) { throw "python-docx is not in the data folder's python-extras" }
+          if ($p.ExitCode -ne 0) { throw "--install-extras pdfpages,pyodide exited $($p.ExitCode)" }
+          $pdfium = Get-ChildItem "$env:MEMORYMAP_DATA_DIR\python-extras\*\pypdfium2\__init__.py" -ErrorAction SilentlyContinue
+          if (-not $pdfium) { throw "pypdfium2 is not in the data folder's python-extras" }
           if (-not (Test-Path "$env:MEMORYMAP_DATA_DIR\extras\pyodide\pyodide.asm.wasm")) { throw "Pyodide is not in the data folder's extras" }
 
       - name: The running app sees the package and its release notes
@@ -162,18 +164,18 @@ jobs:
             | python -c "import json,sys; print(json.load(sys.stdin)['token'])")
           failed=0
           curl -sf -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/extras > extras.json || failed=1
-          python -c "import json; rows={r['id']: r for r in json.load(open('extras.json', encoding='utf-8'))['extras']}; assert rows['docx']['installed'], rows['docx']; assert rows['pyodide']['installed'], rows['pyodide']; print('docx and pyodide installed')" || failed=1
+          python -c "import json; rows={r['id']: r for r in json.load(open('extras.json', encoding='utf-8'))['extras']}; assert rows['pdfpages']['installed'], rows['pdfpages']; assert rows['pyodide']['installed'], rows['pyodide']; print('pdfpages and pyodide installed')" || failed=1
           curl -sf -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/changelog > changelog.json || failed=1
           python -c "import json; md=json.load(open('changelog.json', encoding='utf-8'))['markdown']; assert len(md) > 1000, len(md); print('changelog chars:', len(md))" || failed=1
           # The Remove button on a packaged build (extras._remove_from_frozen_target).
-          curl -sf -X POST -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/extras/docx/uninstall > /dev/null || failed=1
+          curl -sf -X POST -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/extras/pdfpages/uninstall > /dev/null || failed=1
           for i in $(seq 1 30); do
             curl -sf -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/extras > extras.json
             python -c "import json,sys; sys.exit(0 if not json.load(open('extras.json', encoding='utf-8'))['running'] else 1)" && break
             sleep 1
           done
           python -c "import json; d=json.load(open('extras.json', encoding='utf-8')); print('remove:', d['outcome'], d['step']); assert d['outcome'] == 'completed', d" || failed=1
-          ls "$MEMORYMAP_DATA_DIR"/python-extras/*/docx 2>/dev/null && { echo "docx is still on disk after Remove"; failed=1; }
+          ls "$MEMORYMAP_DATA_DIR"/python-extras/*/pypdfium2 2>/dev/null && { echo "pypdfium2 is still on disk after Remove"; failed=1; }
           kill $pid || true
           exit $failed
 

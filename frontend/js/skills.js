@@ -372,6 +372,7 @@ async function loadChatSkills() {
   trigger.type = "button";
   trigger.id = "chat-skills-btn";
   trigger.className = "ghost small";
+  trigger.dataset.needsModel = "Skills require an AI model";
   trigger.setAttribute("aria-haspopup", "dialog");
   trigger.setAttribute("aria-expanded", "false");
   trigger.setAttribute("aria-controls", "chat-skills-panel");
@@ -591,6 +592,10 @@ const AGENT_INTENT_RE = new RegExp(
     "tag|untag|re-?tag|link|unlink|organi[sz]e|tidy|clean ?up|sort|categori[sz]e|" +
     "create|make|add|save|append|update|edit|change|move|" +
     "schedule|remind me|set a reminder|" +
+    //: "Draft", "outline" and "generate" ask for something written; "fix",
+    //: "plan", "format" and "translate" are left out because "how do I
+    //: format a date" is a question, not a request to act.
+    "draft|outline|generate|" +
     "summari[sz]e (?:my|all|the|every)|go through (?:my|all|the)" +
     ")\\b",
   "i"
@@ -674,7 +679,10 @@ function renderChatNudge() {
       run: () => setChatMode("agent"),
     });
   }
-  if (!chatNudgeDismissed.has("skill")) {
+  //: A skill runs on a model with tools, so the offer waits for both (the
+  //: owner: "The ai model isnt running, skills are disabled, and it still
+  //: suggests skills").
+  if (!chatNudgeDismissed.has("skill") && $("tools-toggle")?.checked && !aiIsOff()) {
     const skill = skillMatchingDraft(text);
     if (skill) {
       offers.push({
@@ -901,6 +909,7 @@ async function saveToolSwitch(check, name) {
 }
 
 async function renderToolSettings() {
+  renderMcpSnippet();
   const list = $("tool-list");
   showSkeletons(list, 4, "li");
   const [catalog, prefs] = await Promise.all([
@@ -1253,6 +1262,7 @@ function enterSelectMode() {
   fillBatchCategories();
   fillBatchMore();
   fillBatchCategories("timeline-batch-category-host");
+  fillBatchMore("timeline-batch-more-host");
   updateBatchCount();
   show("batch-bar");
   $("select-btn").classList.add("active");

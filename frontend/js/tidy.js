@@ -20,8 +20,8 @@
 const TIDY_HELP = [
   "Tidy finds clean-up jobs by rule, with no AI.",
   "Open a review, tick rows, press its button.",
-  "One Undo reverses a whole batch.",
-  "Apply automatically never merges or bins.",
+  "One Undo reverses a batch; the cross hides a row.",
+  "Confirm keeps a pattern; Not right hides it.",
 ];
 
 //: The open sheet's state, and the count's last fetch and its pending
@@ -33,6 +33,11 @@ const TIDY = { state: null, badgeAt: 0, badgeTimer: 0 };
 //: module arrives, after a change made here, and when the notes list redraws
 //: (debounced, at most every 20 s), so a note filed elsewhere moves it.
 async function tidyBadge(force = false) {
+  //: Not while locked. `wiring.js` loads this module 4 s after the page does,
+  //: and on a lock screen that ran `GET /tidy` with no token: a 401 and a
+  //: console error on every launch (audit 2026-10-10). The notes list redraws
+  //: after unlock and the watcher below asks again then.
+  if (!authToken()) return;
   const now = Date.now();
   if (!force && now - TIDY.badgeAt < 20000) return;
   TIDY.badgeAt = now;
@@ -70,6 +75,8 @@ const TIDY_ICONS = {
   "lookalike-tags": "arrows-merge",
   uncategorised: "folder-dashed",
   duplicates: "copy",
+  "similar-categories": "folders",
+  "category-names": "textbox",
   "short-notes": "note-blank",
   "stale-reminders": "clock-countdown",
 };
@@ -125,8 +132,13 @@ async function openTidySheet(review = "") {
       const history = document.createElement("details");
       history.className = "tidy-history";
       history.id = "tidy-history";
-      Object.assign(state, { overview, pane, title, about, tools, list, foot, history });
-      card.append(overview, pane, history);
+      //: The Patterns line (CHAT_PLAN decision 32): what the notes measure,
+      //: each a count or a date with one fixed hedge; shown with the overview.
+      const patterns = document.createElement("div");
+      patterns.className = "muted inbox-desc tidy-patterns";
+      patterns.hidden = true;
+      Object.assign(state, { overview, patterns, pane, title, about, tools, list, foot, history });
+      card.append(overview, patterns, pane, history);
     },
   });
   const body = await apiJson("/tidy", { silent: true }).catch(() => null);
@@ -141,6 +153,32 @@ async function openTidySheet(review = "") {
   tidyCounts(body);
   if (review && state.reviews[review]) await tidyShow(review);
   tidyHistory();
+  tidyPatterns(state);
+}
+
+//: "Patterns: You have written about golf 4 times since 5 September; that
+//: keeps coming up." From `/insights/patterns`, no model; nothing when no
+//: rule fires, which is most notebooks most days.
+async function tidyPatterns(state) {
+  const body = await apiJson("/insights/patterns", { silent: true }).catch(() => null);
+  if (TIDY.state !== state || !body?.patterns.length) return;
+  //: One line per pattern, each with Confirm and Not right (decision 60); a
+  //: confirmed one is said as the person's word and carries neither.
+  state.patterns.replaceChildren(
+    ...body.patterns.map((pattern) => {
+      if (pattern.confirmed) {
+        const line = document.createElement("p");
+        line.className = "insight-line";
+        line.textContent = `Patterns: ${pattern.text}`;
+        return line;
+      }
+      return insightLine(pattern, `Patterns: ${pattern.text}`, (line, verdict, result) => {
+        if (verdict === "dismissed") line.remove();
+        else line.textContent = `Patterns: ${result.line}`;
+      });
+    })
+  );
+  state.patterns.hidden = state.view !== "overview";
 }
 
 //: The head: the title, its '?', then the close (the inbox's head).
@@ -257,6 +295,7 @@ function tidyOverview(focusKey = "") {
   state.view = "overview";
   state.key = "";
   state.overview.hidden = false;
+  if (state.patterns.textContent) state.patterns.hidden = false;
   state.pane.hidden = true;
   tidyOverviewDraw();
   state.overview.querySelector(`[data-review="${focusKey}"]`)?.focus();
@@ -269,6 +308,7 @@ async function tidyShow(key, level = "") {
   state.view = "review";
   state.key = key;
   state.overview.hidden = true;
+  state.patterns.hidden = true;
   state.pane.hidden = false;
   const review = state.reviews[key];
   state.level = level || review.level || "";
@@ -413,8 +453,37 @@ function tidyRow(row) {
   check.appendChild(tick);
   label.append(box, lines, check);
   if (!row.selectable) label.classList.add("is-off");
-  li.appendChild(label);
+  //: **Dismiss for good** (INBOX 783, the owner: "how do I delete a
+  //: suggestion??"): a cross beside the row, not inside its label (a button in
+  //: a label is a second control in the first). The server remembers it, so the
+  //: row is not listed, counted or applied again; the toast's Undo brings it back.
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.className = "ghost icon-only small tidy-dismiss";
+  dismiss.title = "Dismiss: do not suggest this again";
+  dismiss.setAttribute("aria-label", `Dismiss “${row.title}”`);
+  setLabel(dismiss, "ph:x");
+  dismiss.addEventListener("click", () => tidyDismiss(row));
+  li.className = "tidy-row-item";
+  li.append(label, dismiss);
   return li;
+}
+
+async function tidyDismiss(row) {
+  const state = TIDY.state;
+  const key = state.key;
+  const path = `/tidy/${encodeURIComponent(key)}`;
+  const body = JSON.stringify({ ids: [row.id] });
+  const sent = await apiJson(`${path}/dismiss`, { method: "POST", body }).catch((e) => {
+    toast(e.message, true);
+    return null;
+  });
+  if (!sent) return;
+  await tidyAfterChange([]);
+  toastAction("Dismissed. It will not be suggested again.", "Undo", async () => {
+    await apiJson(`${path}/undismiss`, { method: "POST", body });
+    await tidyAfterChange([]);
+  });
 }
 
 //: The foot: how many are ticked, Select all and none, then the one filled
@@ -464,6 +533,8 @@ const TIDY_APPLY = {
   "lookalike-tags": ["Merge tags", "Merge {n} set of tags", "Merge {n} sets of tags"],
   uncategorised: ["Move notes", "Move {n} note", "Move {n} notes"],
   duplicates: ["Merge notes", "Merge {n} set of notes", "Merge {n} sets of notes"],
+  "similar-categories": ["Merge categories", "Merge {n} group", "Merge {n} groups"],
+  "category-names": ["Rename", "Rename {n} category", "Rename {n} categories"],
   "short-notes": ["Move to bin", "Move {n} note to bin", "Move {n} notes to bin"],
   "stale-reminders": ["Mark done", "Mark {n} done", "Mark {n} done"],
 };
@@ -474,11 +545,19 @@ function tidyApplyWords(key, n) {
   return n ? words[n === 1 ? 1 : 2].replace("{n}", String(n)) : words[0];
 }
 
+//: The reviews that change categories ask first (WORLD_CLASS 23, decision
+//: 4: "applying asks"); Undo is still one press after.
+const TIDY_ASKS = {
+  "similar-categories": "Merge these categories?\n\nTheir notes move into the largest one; Undo puts them back.",
+  "category-names": "Rename these categories?\n\nUndo puts the old names back.",
+};
+
 async function tidyApply(button) {
   const state = TIDY.state;
   const key = state.key;
   const ids = [...state.ticked];
   const level = state.level;
+  if (TIDY_ASKS[key] && !(await confirmDialog(TIDY_ASKS[key], { confirmLabel: tidyApplyWords(key, ids.length), danger: false }))) return;
   setBusy(button, true, "Working…");
   const result = await apiJson(`/tidy/${encodeURIComponent(key)}/apply`, { method: "POST", body: JSON.stringify({ ids, level }) }).catch((e) => {
     toast(e.message, true);

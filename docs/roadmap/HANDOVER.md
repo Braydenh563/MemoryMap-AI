@@ -1,5 +1,22 @@
 # HANDOVER
 
+> **Agent mix, the owner 2026-10-10 21:40Z (INBOX 774):** the orchestrator moved off Fable for cost (half the weekly usage went in one day); "do just as good of a job as it". At most three Opus agents, the latest word on the cap; Sonnet and Haiku wherever they reach the same standard.
+> **Overnight, the owner 2026-10-10 16:02Z (INBOX 771):** "I am sleeping so continue autonomously. Impress me a lot." The queue, in order, as Opus slots free (cap four, Sonnet extra): 70, 71 (after 69), 84 (after 68), 76 to 83, 85 to 90, 48, 49, 52, 54, 55, 57 to 59, 61 to 63; Sonnet now: 50, 53. Each merge: gate, CHANGELOG, Built block to HISTORY, push.
+
+> **Decisions asked, the owner 2026-10-10 (INBOX 765):** audience "Public release now" (installers for Windows, macOS and Linux, a GitHub release and a landing page are release work, not a later phase; the friends-on-a-phone path stays inside it); model "A small ollama model (2B-9B), or no model at all because ollama makes my computer slow and drains battery so I can only run it when on charge and not trying to play video games etc." (so no model is the first mode of the app, a 2B to 9B model the second, and the app must never start or keep a model running without saying so and offering Stop: CHAT_PLAN decision 61); priority "The deterministic chatbot first and foremost, then the trust and polish, then the code editor and IDE, then the companion and avatars. all of the above but in that order" (the Now order below follows it); Word files: Mammoth and docx vendored (DOCUMENTS_PLAN). Then (INBOX 766): "the app needs to work with all models though, dont base things off only what I use, it is a public app so it needs to suit everything and everyone": CHAT_PLAN decision 62, the provider matrix is the contract and the owner's setup is one row of it.
+
+> **Skills, the owner 2026-10-10:** "make use of all relevant skills if you feel the need but dont let them limit you. they are a guide and tool. you ai models are improving all the time and sometimes outdated skills cna be a hindrance." Read: a skill is consulted, not obeyed; when its advice and a measurement disagree, the measurement wins and the brief says which skill was overruled and why. `docs/DESIGN.md` still overrides the vendored design skill for anything in `frontend/`.
+
+> **Polish, the owner 2026-10-10:** "keep improving, redesigning, modernising and proffesionalising and imrpoving ui and especially ux across the app. add more small taken for granted features, more utility, more abilities and function. clean everything, polish everything." Read: UX before UI; every brief that touches a surface adds the small expected things (keyboard, undo, empty states, hover and focus, counts, remembered state, a help popover) and lists them in its report.
+
+> **Mandate, the owner 2026-10-10:** "keep improving, on expanding, bug fixing and bettering the deterministic features and chat bot composer a well. cover absolutely all of my requests but dont stop there, you know sooo much more than me and I believe you can do so much more to iomprove and things that I havent even thought of. I trust you to better the app while remaining token effcient and throrough." Then (INBOX 757): "and more". Read: every placed request is the floor; each brief adds what a professional would expect that the owner did not name, measured, and reports it under found-not-fixed or builds it when small.
+
+> **Token spend, measured 2026-10-10 (Fable):** over 33 agents this session, cache reads were about 95% of every agent's tokens, so an agent's cost is its turn count times the context it carries, not its model alone. Two Opus agents of 600 to 700 turns (chatui, boardmap) cost more, at list-price ratios, than the nineteen Sonnet agents together; Sonnet for the same turn count was a fifth to a tenth. Standing practice from here: every brief carries a tool-call budget (research and measurement 120, building 160), briefs are split rather than run long, agents batch reads and read ranges, the orchestrator gates agents that land together in one pass, and the owner's asks are batched into one message where possible (each mid-turn message re-reads the orchestrator's whole context).
+
+> **Coverage and authority, the owner 2026-10-10:** "make sure nothing from all my requests and bugs and issues has been missed and is missed. and then go further. fix any issues or architectural decisions you dont agree with as I trust you more than it." So: every owner item is placed verbatim in a plan (Brief 40 (a)) and checked off at merge; Brief 43 goes past the list; and the orchestrator may overturn a recorded decision when the evidence says so, writing the reversal and its measurement next to the old decision rather than deleting it.
+>
+> **Agents, the owner 2026-10-10:** "make use of sonnet 5.5 as well as it is cheaper, maybe even haiku 5.5 ... just maximise the amount of use I can get token wise from my usage. be thorough. miss no bugs or flaws." and "maybe change effort for agents based on the task?? just make sure quality doesnt suffer". So: effort set per task (high for design and engine work, medium for named fixes, low only for mechanical passes); Opus for design judgement, Sonnet for well-defined fixes and research, Haiku for placement, sweeps and copy moves; up to four Opus at once plus Sonnet or Haiku extras (the 2026-10-05 allowance). Never Fable agents. Quality bar unchanged: measure, test, commit per step, five-line report.
+>
 > **Models and count, the owner 2026-10-05:** mainly Opus; Sonnet for well defined, labour tasks ("actually mainly use opus but just remember that sonnet is there for well defined and labour tasks"). Once the current four finish, at most three agents at once.
 >
 > **More Sonnet, the owner 2026-10-05:** "focus on finishing everything open. work faster, be thorough, be more token efficient. Ill allow more agents if they are sonnet 5.5". At most four Opus; extra agents beyond that are Sonnet. Shared rules: agent-remaining/agent_rules_1005.md.
@@ -292,6 +309,7 @@ after a usage reset. Either way, without asking anything:
    claiming, no em-dashes, no scope creep, the four failure shapes checked
    in every diff. If a decision seems needed, it is already written in a
    plan file; find it.
+- (Odysseus, fourth read 2026-10-10) 
 
 ### How far each plan actually is (honest, as of 2026-10-03)
 
@@ -314,6 +332,53 @@ state now. The line-by-line ledger of what is left is
 | WORLD_CLASS_PLAN / SESSION_BRIEFS | Briefs 1 to 34 written; the row check of 2026-09-24, F3, `similar_pairs`, S1 to S3 and S5, the llama.cpp runner | The ranked list of 38 (plan section 8): Brief 15's LAN tail, B2 durable jobs, D2, I1, chunk vectors then I6, I3 |
 
 ### State of the branch (`claude/notes-flow-rebuild`, PR #162)
+
+**Now (2026-10-10, branch gemini/composer-improvements, Fable orchestrating):** the owner's order (INBOX 765): the deterministic chatbot (CHAT_PLAN Phase 6 and the foundation, Briefs 64 to 68, then 84), then trust and polish (WORLD_CLASS 28, Briefs 72 to 74 and the design rows), then the code editor as an IDE (DOCUMENTS 23, Briefs 69 to 71), then the companion (Brief 34); release work (installers, GitHub release, landing page) runs beside them because the audience is "Public release now". Merged by 19:30Z: 84 (Atlas everywhere), 34 second round (the faces and the tail), 70 (the debugger), the CI batch (21 tests at cause, guards 281 to 277), 71 (the IDE shell, Debug as its fifth tab) and 79 (OCR: five undos, pinch, Live Text); and 89 (Statistics: one page, the week card, timer and stopwatch, Count words, insert template); and 78 (the mind map: Untitled map N, "mind map" everywhere, grips apart, one render per add, every command at 390, four layouts, effects in the export); and 90 (the palette: UI_MODERNISATION palette rows 1, 3, 5, 7; spelling offer, act rows, learned order); and 85 (timeline and reminders: undo 6/6 and 15/15, firing on time, recurrence and early alerts, On this day, 100-row pages); 83's evaluation says keep (MPL-2.0, 5 MB engine, 25 MB a pair, a paragraph in 0.35 to 0.55 s; the build waits for an Opus slot); and 87 (the agent: every starter answered with no model through ai/starter_acts.py, the agent as a sheet at 390, a plan's writes listed and confirmed, each write on the undo bar); and 82 (live captions: the whisper.cpp helper contract, a fake helper, ai/captions.py, the dock, the palette and Packages rows; the packaged helper's download pins are left); 76 (documents: rows 24.1 to 24.4, 24.9, 25.7); 83 (offline translation, English to Spanish, in the browser) and 80 (recordings as objects, the Audio group, recovery of a killed take); running Opus: 88, 48, graphfeel; Sonnet: uipolish, agentgate, pickers (the owner's morning reports, INBOX 775 to 785) (INBOX 775, the owner's live graph report) (three Opus from here, INBOX 774); next 81 after 80, then 49, 52, 54, 55.
+the Gemini session's 12 commits are under triage (Brief 35: boot broken by a
+`thefuzz` import, 15 MB of unused vendoring, grounded 1.0 to 0.25); four Opus
+agents run (triage, boardmap, chatui, graph: Briefs 35 to 38) on the owner's
+2026-10-10 list, INBOX 727 to 745 and the plans' placed items; the direction
+for everything after is ROADMAP "Direction, 2026-10-10", with CHAT_PLAN Phase
+6 (the deterministic engine), WORLD_CLASS_PLAN 23 (filing and the taxonomy
+pack), UI_MODERNISATION Phase 12 (density, WCAG 2.2) and SESSION_BRIEFS 35 to
+42. The whole app against world class is WORLD_CLASS_PLAN 25 (every
+surface, its bar, its gap, its owner; Briefs 46 to 55), the design review
+UI_MODERNISATION Phase 13 (Briefs 56 to 59), the backend review
+WORLD_CLASS 26 (Briefs 60 to 63) and the features pass WORLD_CLASS 27. The deterministic layer under every surface (INBOX 746) is CHAT_PLAN "The deterministic foundation" (decisions 46 to 56, Briefs 64 to 68). The code editor as an IDE (INBOX 748) is DOCUMENTS_PLAN 23 (decisions D1 to D9, Briefs 69 to 71, after 42); the owner's "full improvement" ask (INBOX 749) is the programme already placed, plus learnability measured in UI_MODERNISATION 12z. The owner's trust conditions (INBOX 750) are WORLD_CLASS 28 (rules 1 to 14, decisions 67 to 71, Briefs 72 to 74).
+Merged by 14:30Z: 35, 36 to 38, 39, 39b, 42 steps 1 to 4, 56, 72a, 72b, 73,
+74, 75, chatui, the filing decision 6 hold on every path, CodeQL (46 alerts on
+the day, all at cause); by 15:10Z also 65 (the one reader, `ai/recognise.py`
+and `GET /read`) and 66 (quick add on five surfaces, 56 of 60 before 65's
+fixes: re-run `scratchpad/ui-sweeps/quickadd.js`) and 67 (the validators and
+the act registry; its sweep found every Chat send throwing on the pushed head
+after a ratchet commit took out a `let` another file read: a ratchet fix is
+checked in the browser, not only by the lint), and 47 (search everywhere:
+"Find anything" moved into lazy `search.js` with a chat kind, kind chips,
+paging, operator help and saved searches; WORLD_CLASS 25a built), and 42's
+remainder (python-docx retired, Word round trip with pictures and tracked
+changes, four file types, js-beautify, every code command keyed, the grip at
+24 px), and 41 (density: the top bar 64 to 44, docks at 28, icon hover on
+the glyph, the date picker; Phase 12 steps 1 to 4 and 6). Merged 51 (never lose a note, 16:30Z); 60, 50 and 34's first round by
+17:05Z; 68, 77 (rows 1 to 4) and 69 by 17:30Z, pushed as 07048214e with the CI
+fixes for c9e9a4ccc's ten red tests. 84 (Atlas everywhere) and 34's second round
+(the companion's faces, tail, reduce motion, arms) merged 18:40Z. Running:
+70 (the debugger, debug70), 71 (the IDE shell, shell71), 78 (the mind map,
+map78), 79 (the OCR workspace, ocr79) and a Sonnet cifix agent on the 21
+tests CI found red on 1fdf9d50d (brief-cifix.md). Next: 85, 89, 90, then 76
+after 71, 87 and 88 after 84's merge settles, 80 to 83; Sonnet 53 when load
+allows. Brief 75's script and ratchet already exist; its placed rows run
+inside each surface's brief. The PR merges when the gate,
+the sweeps and one full suite run are green.
+
+**A trap the batch merge paid for (2026-10-10).** `scripts/gate.sh` runs the
+lint set, not the ratchets: six agent squashes gated green and CI then failed
+17 suite ratchets (`test_global_scope_ratchet`, `test_list_limits`,
+`test_feature_catalog`, `test_error_toasts`, `test_prefs_module`,
+`test_vendor_utilisation`, `test_a11y_wcag22`, the Quick access and tag
+tests) plus 11 filing tests on a hold that read "Dad Jokes" as Relationships.
+Before pushing a batch, run `gate.sh --changed` (the tests that name the
+changed files) or the ratchet files above by hand; the lint gate alone is
+not a merge gate for a batch.
 
 **Now (2026-10-07, main, 0.4.1 complete):** everything since PR 167 is on main
 and folded into CHANGELOG 0.4.1 (composer voice and vocabulary, background

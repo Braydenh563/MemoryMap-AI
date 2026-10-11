@@ -188,7 +188,9 @@ def test_the_m_chord_key_map_is_unchanged_by_the_redesign():
 def test_every_document_command_key_is_in_the_editor_entries():
     docs = (FRONTEND / "js" / "documents.js").read_text(encoding="utf-8")
     table = _table(docs, "const DOC_COMMANDS = [", "\n];")
-    keys = {k for k in re.findall(r'keys: "([^"]*)"', table) if k}
+    #: "none" is a decision recorded in the table, not a key to name.
+    #: Read as the string it is: "Ctrl+\\" in the source is the chord Ctrl+\.
+    keys = {k.replace("\\\\", "\\") for k in re.findall(r'keys: "([^"]*)"', table) if k and k != "none"}
     assert len(keys) > 15, "DOC_COMMANDS has moved; this test cannot read it"
     body = _body("documents-controls") + " " + _body("code-files")
     missing = sorted(k for k in keys if not all(_named(part.strip(), body) for part in k.split(" / ")))
@@ -222,7 +224,14 @@ def test_every_whiteboard_tool_key_is_in_the_whiteboard_entry():
 
 def _longest_offline_answer() -> str:
     return max(
-        (help_chat.offline_answer(t["id"].replace("-", " ") + " shortcuts")["content"] for t in help_chat.HELP_TOPICS),
+        #: Either view of the answer (INBOX 787): the composed one the panel
+        #: keeps, or the help text word for word.
+        (
+            text
+            for t in help_chat.HELP_TOPICS
+            for reply in [help_chat.offline_answer(t["id"].replace("-", " ") + " shortcuts")]
+            for text in (reply["content"], (reply.get("system") or {}).get("content", ""))
+        ),
         key=len,
     )
 
@@ -230,7 +239,7 @@ def _longest_offline_answer() -> str:
 @pytest.mark.parametrize("route", ["/help/ask", "/help/ask/stream"])
 def test_the_question_after_a_controls_answer_is_still_answered(client, route):
     first = client.post("/help/ask", json={"question": "what are all the whiteboard shortcuts"}).json()
-    assert len(first["content"]) > help_chat.MAX_MESSAGE_CHARS, "the case this guards is a long answer"
+    assert len(first["system"]["content"]) > help_chat.MAX_MESSAGE_CHARS, "the case this guards is a long answer"
     history = [
         {"role": "user", "content": "what are all the whiteboard shortcuts"},
         {"role": "assistant", "content": _longest_offline_answer()},

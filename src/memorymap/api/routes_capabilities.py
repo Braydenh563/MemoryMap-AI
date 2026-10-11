@@ -49,7 +49,20 @@ def _mcp() -> dict:
             "installed": False,
             "reason": "The packaged app cannot start the MCP server; it runs from a source checkout.",
         }
-    return {"installed": True, "command": "python -m memorymap.mcp_server"}
+    from memorymap.core.config import resolved_data_dir
+
+    #: The snippet an outside client's config takes (Settings, Tools it can
+    #: use): this interpreter, because the client's own `python` rarely has the
+    #: app's packages, and this notebook's folder, so it opens the same notes.
+    return {
+        "installed": True,
+        "command": "python -m memorymap.mcp_server",
+        "config": {
+            "command": sys.executable,
+            "args": ["-m", "memorymap.mcp_server"],
+            "env": {"MEMORYMAP_DATA_DIR": str(resolved_data_dir())},
+        },
+    }
 
 
 def _installed(module: str) -> bool:

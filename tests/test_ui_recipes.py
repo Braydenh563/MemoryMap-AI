@@ -735,6 +735,11 @@ def test_every_board_tool_names_its_own_cursor() -> None:
     assert len(tools) >= 18, tools
     body = js[js.index("function wbCursorForTool(") : js.index("// The visible half of Select")]
     brushes = set(re.findall(r'"([a-z]+)"', js[js.index("const WB_BRUSH_TOOLS"):js.index("const WB_HIGHLIGHTER_ALPHA")]))
+    # The flyout's further shapes are brushes by the spread of their table's
+    # keys; the keys are read off the table, so a new one is still checked.
+    if "...Object.keys(WB_MORE_SHAPES)" in js[js.index("const WB_BRUSH_TOOLS"):js.index("const WB_HIGHLIGHTER_ALPHA")]:
+        more = js[js.index("const WB_MORE_SHAPES"):js.index("const WB_BRUSH_TOOLS")]
+        brushes |= set(re.findall(r'^  "(shape-[a-z-]+)": \{', more, re.M))
     # Pan is the one tool that deliberately returns "": the container's own
     # grab/grabbing pair is its cursor, and the comment on that line says so.
     assert 'return ""; // pan' in body

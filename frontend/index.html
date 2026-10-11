@@ -6985,7 +6985,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="wb-tool-section" data-wb-surface="board" role="group" aria-label="Shapes">
         <span class="wb-tool-section-label" title="Lines, arrows and boxes, with their fill and stroke">Shapes</span>
         <div class="wb-tool-section-row">
-        <!-- Six shape tools (line/arrow/rect/circle/triangle/diamond) collapsed
+        <!-- The shape tools (line/arrow, the four boxes, and the more shapes) collapsed
              into one dropdown: asked for directly ("the tool bar is getting
              quite long"). Still plain `data-tool` buttons underneath, so the
              existing delegated click handler on #wb-tool-group (which reads
@@ -7025,6 +7025,39 @@ Link to another note with [[its first few words]]."></textarea>
               </button>
               <button class="ghost icon-button" data-tool="diamond" title="Diamond (D)" aria-label="Diamond (D)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 12 L12 21 L3 12 Z"></path></svg>
+              </button>
+            </div>
+            <div class="wb-shape-menu-divider" role="separator"></div>
+            <!-- More shapes (the owner, 2026-10-11: "can you add more shapes"),
+                 drawn by dragging like the four above; `WB_MORE_SHAPES` in
+                 whiteboard.js holds their outlines. -->
+            <div class="wb-shape-menu-group wb-shape-menu-more">
+              <button class="ghost icon-button" data-tool="shape-rounded" title="Rounded rectangle" aria-label="Rounded rectangle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 6.5 5 L 17.5 5 A 3.5 3.5 0 0 1 21 8.5 L 21 15.5 A 3.5 3.5 0 0 1 17.5 19 L 6.5 19 A 3.5 3.5 0 0 1 3 15.5 L 3 8.5 A 3.5 3.5 0 0 1 6.5 5 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-ellipse" title="Ellipse" aria-label="Ellipse">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 2 12 A 10 7 0 1 1 22 12 A 10 7 0 1 1 2 12 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-hexagon" title="Hexagon" aria-label="Hexagon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 5.8 4 L 18.3 4 L 22 12 L 18.3 20 L 5.8 20 L 2 12 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-parallelogram" title="Parallelogram" aria-label="Parallelogram">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 5.5 5 L 22 5 L 18.5 19 L 2 19 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-star" title="Star" aria-label="Star">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 2 L 14.5 9.2 L 21.5 9.7 L 16.1 14.5 L 17.9 22 L 12 17.9 L 6.1 22 L 7.9 14.5 L 2.5 9.7 L 9.5 9.2 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-cylinder" title="Cylinder" aria-label="Cylinder">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 4.7 A 8 2.7 0 0 1 20 4.7 L 20 19.3 A 8 2.7 0 0 1 4 19.3 Z M 4 4.7 A 8 2.7 0 0 0 20 4.7"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-cloud" title="Cloud" aria-label="Cloud">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 6.2 18.6 C 2.5 18.6 2 12.9 5.2 11.8 C 4.9 7.2 9.6 5.7 11.5 9.3 C 13.1 5 18.8 6.1 18.6 11.5 C 22 12.2 21.7 19 17.8 18.6 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-callout" title="Speech bubble" aria-label="Speech bubble">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 3 L 21 3 L 21 16.7 L 10.2 16.7 L 7 21 L 7.5 16.7 L 3 16.7 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-block-arrow" title="Block arrow" aria-label="Block arrow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 2 8 L 15.3 8 L 15.3 4 L 22 12 L 15.3 20 L 15.3 16 L 2 16 Z"></path></svg>
               </button>
             </div>
           </div>
@@ -7204,6 +7237,10 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="both">Both ends</option>
           <option value="none">Plain</option>
         </select>
+        <!-- Which mark those ends wear (the owner, 2026-10-11: "more arrow
+             options"): the selection's own end list, copied in at start
+             (`wbInitToolHead`), so the two can never offer different ends. -->
+        <select id="wb-arrow-head" aria-label="Arrowhead" title="Arrowhead: the mark the Line and Arrow tools put on their ends" data-wb-tool-setting="head"></select>
         <select id="wb-stroke-style" aria-label="Line style" title="Line style" data-wb-tool-setting="dash">
           <option value="solid">Solid</option>
           <option value="dashed">Dashed</option>
@@ -7214,9 +7251,27 @@ Link to another note with [[its first few words]]."></textarea>
           <label class="wb-snap-label" title="Fill the shape, instead of just its outline"><input type="checkbox" id="wb-fill-on"><span>Fill</span></label>
         </span>
       </div>
-      <!-- A drawn line, arrow or shape, and a text box's own ink. -->
+      <!-- **Fill, then Border, side by side and named** (the owner, 2026-10-11:
+           "I didnt know how to select the border to change the colour"). The
+           fill group comes first so a shape's two colours sit together; each
+           swatch opens the colour well (whiteboard-format.js), which has the
+           other one, Same as and Swap. -->
+      <div class="wb-context-group hidden" data-wb-ctx="fill">
+        <label class="wb-context-field" title="The colour inside the shape">
+          <span class="wb-context-label">Fill</span>
+          <input type="color" id="wb-prop-shapefill" class="wb-color-picker" aria-label="Fill colour" title="Fill colour">
+        </label>
+        <label class="wb-snap-label" title="Fill the shape with the colour beside it, instead of just its outline">
+          <input type="checkbox" id="wb-prop-shapefill-on" aria-label="Filled"><span>Filled</span>
+        </label>
+      </div>
+      <!-- A drawn line, arrow or shape, and a text box's own ink: its word
+           says which (Border, Line or Text, `wbFillContextBar`). -->
       <div class="wb-context-group hidden" data-wb-ctx="ink">
-        <input type="color" id="wb-prop-color" class="wb-color-picker" aria-label="Colour" title="Colour">
+        <label class="wb-context-field" title="Its colour">
+          <span class="wb-context-label" id="wb-prop-color-word">Border</span>
+          <input type="color" id="wb-prop-color" class="wb-color-picker" aria-label="Colour" title="Colour">
+        </label>
         <label class="wb-context-field" title="Line thickness">
           <span class="wb-context-label">Width</span>
           <input type="number" id="wb-prop-width" aria-label="Line thickness" title="Line thickness" min="1" max="40" step="1">
@@ -7242,10 +7297,12 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="none" data-menu-class="wb-cap wb-cap-none wb-cap-start">None</option>
             <option value="arrow" data-menu-class="wb-cap wb-cap-arrow wb-cap-start">Open arrow</option>
             <option value="triangle" data-menu-class="wb-cap wb-cap-triangle wb-cap-start">Filled triangle</option>
+            <option value="triangle-open" data-menu-class="wb-cap wb-cap-triangle-open wb-cap-start">Open triangle</option>
             <option value="diamond" data-menu-class="wb-cap wb-cap-diamond wb-cap-start">Diamond</option>
             <option value="diamond-filled" data-menu-class="wb-cap wb-cap-diamond-filled wb-cap-start">Filled diamond</option>
             <option value="bar" data-menu-class="wb-cap wb-cap-bar wb-cap-start">Bar</option>
             <option value="circle" data-menu-class="wb-cap wb-cap-circle wb-cap-start">Circle</option>
+            <option value="circle-filled" data-menu-class="wb-cap wb-cap-circle-filled wb-cap-start">Filled circle</option>
             <option value="square" data-menu-class="wb-cap wb-cap-square wb-cap-start">Square</option>
             <option value="multiline" data-menu-class="wb-cap wb-cap-multiline wb-cap-start">Multi-line</option>
           </optgroup>
@@ -7253,7 +7310,7 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="er-one" data-menu-class="wb-cap wb-cap-er-one wb-cap-start">One</option>
             <option value="er-one-only" data-menu-class="wb-cap wb-cap-er-one-only wb-cap-start">One and only one</option>
             <option value="er-zero-one" data-menu-class="wb-cap wb-cap-er-zero-one wb-cap-start">Zero or one</option>
-            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many wb-cap-start">Many</option>
+            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many wb-cap-start">Many (crow's foot)</option>
             <option value="er-one-many" data-menu-class="wb-cap wb-cap-er-one-many wb-cap-start">One or many</option>
             <option value="er-zero-many" data-menu-class="wb-cap wb-cap-er-zero-many wb-cap-start">Zero or many</option>
           </optgroup>
@@ -7263,10 +7320,12 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="none" data-menu-class="wb-cap wb-cap-none">None</option>
             <option value="arrow" data-menu-class="wb-cap wb-cap-arrow">Open arrow</option>
             <option value="triangle" data-menu-class="wb-cap wb-cap-triangle">Filled triangle</option>
+            <option value="triangle-open" data-menu-class="wb-cap wb-cap-triangle-open">Open triangle</option>
             <option value="diamond" data-menu-class="wb-cap wb-cap-diamond">Diamond</option>
             <option value="diamond-filled" data-menu-class="wb-cap wb-cap-diamond-filled">Filled diamond</option>
             <option value="bar" data-menu-class="wb-cap wb-cap-bar">Bar</option>
             <option value="circle" data-menu-class="wb-cap wb-cap-circle">Circle</option>
+            <option value="circle-filled" data-menu-class="wb-cap wb-cap-circle-filled">Filled circle</option>
             <option value="square" data-menu-class="wb-cap wb-cap-square">Square</option>
             <option value="multiline" data-menu-class="wb-cap wb-cap-multiline">Multi-line</option>
           </optgroup>
@@ -7274,7 +7333,7 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="er-one" data-menu-class="wb-cap wb-cap-er-one">One</option>
             <option value="er-one-only" data-menu-class="wb-cap wb-cap-er-one-only">One and only one</option>
             <option value="er-zero-one" data-menu-class="wb-cap wb-cap-er-zero-one">Zero or one</option>
-            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many">Many</option>
+            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many">Many (crow's foot)</option>
             <option value="er-one-many" data-menu-class="wb-cap wb-cap-er-one-many">One or many</option>
             <option value="er-zero-many" data-menu-class="wb-cap wb-cap-er-zero-many">Zero or many</option>
           </optgroup>
@@ -7286,12 +7345,6 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="dashed">Dashed</option>
           <option value="dotted">Dotted</option>
         </select>
-      </div>
-      <div class="wb-context-group hidden" data-wb-ctx="fill">
-        <input type="color" id="wb-prop-shapefill" class="wb-color-picker" aria-label="Shape fill" title="Shape fill">
-        <label class="wb-snap-label" title="Fill the shape with the colour beside it, instead of just its outline">
-          <input type="checkbox" id="wb-prop-shapefill-on" aria-label="Filled"><span>Filled</span>
-        </label>
       </div>
       <!-- A sticky note's paper: one swatch per colour, filled by
            `wbFillPaperSwatches` (the owner, 2026-10-10: "note appearances
@@ -7799,7 +7852,10 @@ Link to another note with [[its first few words]]."></textarea>
         <p id="wb-format-empty" class="muted empty-line">Select something on the board to format it.</p>
         <p id="wb-format-none" class="muted wb-lib-keys" hidden>Nothing on this tab for what is selected.</p>
         <section class="wb-fmt-section" data-format-panel="style" aria-label="Style">
-          <label class="wb-fmt-row" data-fmt="stroke"><span class="wb-fmt-label">Line</span><input type="color" id="wb-fmt-stroke" class="wb-color-picker" aria-label="Line colour" title="Line colour"></label>
+          <div class="wb-fmt-row" data-fmt="fill"><span class="wb-fmt-label">Fill</span>
+            <span class="wb-fmt-buttons"><label class="wb-snap-label" title="Filled"><input type="checkbox" id="wb-fmt-fill-on" aria-label="Filled"></label><input type="color" id="wb-fmt-fill" class="wb-color-picker" aria-label="Fill colour" title="Fill colour"></span>
+          </div>
+          <label class="wb-fmt-row" data-fmt="stroke"><span class="wb-fmt-label" id="wb-fmt-stroke-word">Line</span><input type="color" id="wb-fmt-stroke" class="wb-color-picker" aria-label="Line colour" title="Line colour"></label>
           <label class="wb-fmt-row" data-fmt="width"><span class="wb-fmt-label">Width</span><input type="number" id="wb-fmt-width" min="1" max="40" step="1" aria-label="Line width" title="Line width"></label>
           <label class="wb-fmt-row" data-fmt="dash"><span class="wb-fmt-label">Pattern</span>
             <select id="wb-fmt-dash" aria-label="Line pattern" title="Line pattern">
@@ -7808,9 +7864,6 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="dotted">Dotted</option>
             </select>
           </label>
-          <div class="wb-fmt-row" data-fmt="fill"><span class="wb-fmt-label">Fill</span>
-            <span class="wb-fmt-buttons"><label class="wb-snap-label" title="Filled"><input type="checkbox" id="wb-fmt-fill-on" aria-label="Filled"></label><input type="color" id="wb-fmt-fill" class="wb-color-picker" aria-label="Fill colour" title="Fill colour"></span>
-          </div>
           <label class="wb-fmt-row" data-fmt="alpha"><span class="wb-fmt-label">Opacity</span>
             <span class="wb-fmt-buttons"><input type="range" id="wb-fmt-alpha" min="10" max="100" step="5" aria-label="Opacity" title="Opacity"><output id="wb-fmt-alpha-out" for="wb-fmt-alpha" class="wb-fmt-out">100%</output></span>
           </label>

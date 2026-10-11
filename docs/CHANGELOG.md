@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Library: flicking quickly through the sub-tabs no longer flashes the other kind's tiles or jumps the layout (Images and Files redraw from what is loaded, an overtaken load never draws, placeholders are tile-sized).
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
 - Attach: a picture's selection circle sits inside its corner.
 - Running jobs and Activity: every answer, agent turn and background job is listed with a plain title, who started it and how long it took; each opens to its own timed lines, live while it runs.

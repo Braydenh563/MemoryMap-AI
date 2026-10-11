@@ -710,6 +710,22 @@
   break-inside: avoid;
   margin-bottom: var(--space-6);
 }
+/* The Images and Files placeholders are their tiles' height (measured at 1440:
+   an image tile 188px), so the swap to the real tiles moves
+   nothing: the default 3.2rem bars were a layout shift of 0.226 on the first
+   switch to Files (INBOX 852). */
+.library-image-grid > .skeleton {
+  height: 11.75rem;
+  margin-bottom: 0;
+}
+/* While placeholders are up the grid keeps the tile layout whichever kind is
+   chosen: a press on Files before the first answer flipped the six
+   placeholders from a grid to a column (a shift of 0.44). */
+.library-image-grid.library-file-rows[aria-busy="true"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--space-6);
+}
 .timeline-feed > .skeleton {
   height: 2.6rem;
   margin-bottom: var(--row-gap);

@@ -3439,6 +3439,13 @@ let libraryImagesCache = [];
 //: and comparing those would make this test always fail, which is the bug
 //: again with extra steps.
 let libraryImagesSignature = "";
+//: INBOX 852: a render only paints if it is still the newest (a press that
+//: lands while an older fetch is out would otherwise let the older answer
+//: redraw the grid after the newer one), and a sub-tab switch repaints from
+//: the cache at once when there is one, so the previous kind's tiles are never
+//: on screen under the new heading while the fetch is out.
+let libraryImagesGen = 0;
+let libraryImagesLoaded = false;
 function libraryImagesFingerprint(rows) {
   return JSON.stringify(
     (rows || []).map((row) => [
@@ -8091,6 +8098,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   if (!grid) return;
+  const gen = ++libraryImagesGen;
   //: The grid is rebuilt from scratch on every render, so the view class has
   //: to be re-applied with it, the toggle is a property of the list, not of
   //: the tiles that happen to be in it right now.
@@ -8110,6 +8118,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   //: back when the gallery really is empty.
   if (grid.querySelector(":scope > .skeleton")) empty?.classList.add("hidden");
   const images = await apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => null);
+  if (gen !== libraryImagesGen) return;
   // A note's own attached file (`Attachment`, not `MediaUpload`) never came
   // from `/media` at all: reported directly, twice: "a pdf I uplaoded to a
   // note doesnt show in the libary" and "my uploaded pdf file isnt shown in
@@ -8125,6 +8134,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   // `/media/{name}.ext` row: would silently call every attachment a "file"
   // regardless of its real mime.
   const attachments = await apiPagedList("/files/gallery", 200, { silent: true }).catch(() => []);
+  if (gen !== libraryImagesGen) return;
   clearSkeletons(grid);
   // **These two loops are load-bearing and were once silently lost.**
   // Reported: "none of the images and sketches are in the images library
@@ -8149,6 +8159,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
     item.vision_ocr_text = item.vision_ocr_text || "";
   }
   libraryImagesCache = [...(images || []), ...(attachments || [])];
+  libraryImagesLoaded = true;
   const fingerprint = libraryImagesFingerprint(libraryImagesCache);
   const unchanged = fingerprint === libraryImagesSignature;
   libraryImagesSignature = fingerprint;
@@ -9916,7 +9927,16 @@ onDomReady(() => {
         librarySectionShownAt[targetId] = now;
         if (targetId === "library-view-media") {
           setLibraryMediaKind(btn.dataset.mediaKind);
-          renderLibraryImagesGallery();
+          //: Images and Files share one grid: with the cache in hand the new
+          //: kind is drawn in this same frame and the fetch only redraws when
+          //: the answer differs, so the other kind's tiles (or placeholders)
+          //: never show under this heading (INBOX 852).
+          if (libraryImagesLoaded) {
+            filterLibraryImagesGallery();
+            renderLibraryImagesGallery({ ifUnchanged: "skip" });
+          } else {
+            renderLibraryImagesGallery();
+          }
           startLibraryImagesPoll();
         } else if (fresh) {
           stopLibraryImagesPoll();

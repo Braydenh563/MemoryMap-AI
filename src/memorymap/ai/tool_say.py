@@ -74,12 +74,24 @@ def _title(content: object, size: int = 60) -> str:
     return cut_title(lines[0].lstrip("#").strip() or "Untitled", size)
 
 
+def _gist(text: object, size: int = 90) -> str:
+    """A note's first line after its heading: what a list row says of it."""
+    lines = [ln.strip() for ln in str(text or "").splitlines() if ln.strip()]
+    body = [ln for ln in lines[1:] if not ln.startswith(("#", "!["))]
+    first = re.sub(r"^(?:[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)", "", body[0]) if body else ""
+    first = re.sub(r"[*_`]", "", first).strip()
+    return cut_title(first, size) if first else ""
+
+
 def _note_row(note: dict, extra: str = "") -> str:
-    """One note as a list row: its title linked, where it is filed."""
+    """One note as a list row: its title linked, its first line, where it
+    is filed."""
     text = note.get("content") or note.get("preview") or note.get("title") or ""
     filed = note.get("category")
     tags = [str(t) for t in note.get("tags") or []]
-    where = f" · {filed}" if filed else ""
+    gist = _gist(text) if note.get("content") else ""
+    where = f": {gist}" if gist else ""
+    where += f" · {filed}" if filed else ""
     where += f" · {', '.join('#' + t for t in tags[:3])}" if tags else ""
     return f"- {link(_title(text), note_at(note.get('id') or note.get('note_id')))}{where}{extra}"
 
@@ -145,7 +157,7 @@ def _found_notes(lead: str, notes: list[dict], total: int, empty: str, more_at: 
     rows = [_note_row(n) for n in notes[:limit]]
     shown = min(len(notes), limit)
     more = f" Here are the first {count_noun(shown, 'note').split(' ', 1)[0]}." if total > shown and " of " not in lead else ""
-    chips = [("Open the first one", note_at(notes[0].get("id") or notes[0].get("note_id")))]
+    chips = [("Open it" if len(notes) == 1 else "Open the first one", note_at(notes[0].get("id") or notes[0].get("note_id")))]
     if total > shown:
         chips.append(("Show all notes", more_at))
     return lead + more, "\n".join(rows), _chips(*chips)
@@ -157,7 +169,7 @@ def _found_notes(lead: str, notes: list[dict], total: int, empty: str, more_at: 
 def _time(result: dict, args: dict) -> Said:
     place = result.get("place")
     human = str(result.get("human") or "").strip()
-    return (f"In {place} it is {human}." if place else f"It is {human}."), "", ""
+    return (f"It is {human} in {place}." if place else f"It is {human}."), "", ""
 
 
 def _calculate(result: dict, args: dict) -> Said:
@@ -186,14 +198,31 @@ def _count(result: dict, args: dict) -> Said:
 def _list_notes(result: dict, args: dict) -> Said:
     notes = [n for n in result.get("notes") or [] if isinstance(n, dict)]
     total = int(result.get("total_matching") or result.get("total") or len(notes))
-    lead = f"Here are your {count_noun(min(len(notes), 8), 'note').split(' ', 1)[0]} newest notes" if len(notes) > 1 else "Here is your newest note"
+    shown = count_noun(min(len(notes), 8), "note").split(" ", 1)[0]
+    filed = str(args.get("category") or result.get("category") or "").strip()
+    #: The category as the notebook spells it ("Work" for "work").
+    filed = next((str(n["category"]) for n in notes if str(n.get("category") or "").lower() == filed.lower() and filed), filed)
+    tag = str(args.get("tag") or "").strip().lstrip("#")
+    if filed or tag:
+        #: "Here are your two Work notes, newest first." (ledger row 442).
+        if len(notes) > 1:
+            lead = f"Here are your {shown} {filed} notes" if filed else f"Here are your {shown} notes tagged #{tag}"
+        else:
+            lead = f"Here is your {filed} note" if filed else f"Here is your note tagged #{tag}"
+        lead += ", newest first" if len(notes) > 1 else ""
+        lead += f", of {total} in all." if total > len(notes[:8]) else "."
+        return _found_notes(lead, notes, total, "You have no notes that fit yet.")
+    lead = f"Here are your {shown} newest notes" if len(notes) > 1 else "Here is your newest note"
     lead += f", of {total} in all." if total > len(notes[:8]) else "."
     return _found_notes(lead, notes, total, "You have no notes that fit yet.")
 
 
 def _search_notes(result: dict, args: dict) -> Said:
     notes = [n for n in result.get("notes") or [] if isinstance(n, dict) and not n.get("why")]
-    query = str(args.get("query") or "").strip()
+    #: The words searched for: the call's own, else its label's quote
+    #: ("Searched notes for “dentist”").
+    said = re.search(r"“([^”]+)”", str(result.get("label") or ""))
+    query = str(args.get("query") or (said.group(1) if said else "")).strip()
     about = f" about “{query}”" if query else ""
     total = int(result.get("found") or len(notes))
     if result.get("search_mode") == "recent":
@@ -515,6 +544,8 @@ def _tagged(result: dict, args: dict) -> Said:
 
 
 def _pinned(result: dict, args: dict) -> Said:
+    if not _number(result.get("id") or args.get("note_id")) and result.get("label"):
+        return _sentence(_plain(result["label"])), "", ""
     at = note_at(result.get("id") or args.get("note_id"))
     on = result.get("pinned", args.get("pinned", True))
     lead = f"{'Added' if on else 'Took'} {link(_title(result.get('content')), at)} {'to' if on else 'out of'} Favourites."
@@ -735,8 +766,8 @@ def _error(tool: str, message: str, args: dict) -> Said:
     name, at = _screen(tool)
     if missing:
         kind = missing.group(1).lower()
-        number = f" {missing.group(2)}" if missing.group(2) else ""
-        return f"I could not find {kind}{number}.", f"It may have been deleted, or the number is wrong. Look for it in {name}.", _chips((f"Open {name}", at))
+        named = f"{kind} {missing.group(2)}" if missing.group(2) else f"that {kind}"
+        return f"I could not find {named}.", f"It may have been deleted, or the number is wrong. Look for it in {name}.", _chips((f"Open {name}", at))
     for key, words in _ARG_WORDS.items():
         text = re.sub(rf"\b{key}\b", words, text)
     for other in SAYERS:
@@ -763,4 +794,4 @@ def say(tool: str, result: object, args: dict | None = None, today: date | None 
         except (TypeError, ValueError, KeyError, AttributeError):
             lead, body, chips = (_sentence(_plain(result.get("label"))) or "Done.", "", "")
     text = "\n\n".join(part for part in (lead, body, chips) if part)
-    return {"text": text, "links": re.findall(r"\]\((#/[^)]+|https?://[^)]+)\)", text)}
+    return {"text": text, "lead": lead, "body": body, "chips": chips, "links": re.findall(r"\]\((#/[^)]+|https?://[^)]+)\)", text)}

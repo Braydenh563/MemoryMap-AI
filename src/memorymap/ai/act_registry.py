@@ -175,6 +175,21 @@ ACT_TOOLS: dict[str, str] = {
 #: A utility's kind (`utilities.kind_of`) to the tool a model would call for it.
 UTILITY_TOOLS: dict[str, str] = {"clock": "get_current_time", "dates": "get_current_time"}
 
+def _listing(nouns: str) -> str:
+    """A request for the whole list of one kind of thing, said any of the
+    ways people say it ("what tags do I have", "show me every tag I have",
+    "all my tags", "which categories are there"), and nothing after the
+    noun that makes it a question about one note ("what tags does the
+    dentist note have" is not the list). Routing gold:
+    `tests/fixtures/composer/routing_1011.json`."""
+    ask = r"(?:(?:can|could|would) you |please |pls )?(?:list|show|give|tell|what|which)(?: me)?(?: all| every)?(?: of)?"
+    tail = (
+        r"(?: (?:do|have|did) i (?:have|got|use|used|made|got going)| i (?:have|use|used|made)| (?:are|r) there| exist| i(?:'ve| have) got)?"
+        r"(?: (?:the )?most| so far| now| atm)?(?: (?:please|pls|plz))?[?.]*$"
+    )
+    return rf"^(?:{ask} |all |every )?(?:(?:are|r) )?(?:all |every )?(?:my |the |your )?(?:{nouns}){tail}"
+
+
 #: The words that name one tool, most particular first: the first pattern
 #: that matches the lowered sentence names the tool, ahead of the act or
 #: question the sentence also reads as ("remove the tag urgent from every
@@ -196,15 +211,15 @@ TOOL_CUES: tuple[tuple[str, str], ...] = (
     ("path_between", r"\bhow (?:is|are) .+ (?:related|connected) to\b|\bpath between\b"),
     ("related_notes", r"\bwhat(?:'s| is) (?:connected|linked) to\b|\b(?:connected|linked) to the .+ note\b"),
     ("find_similar_notes", r"\bsimilar to\b|\blike the .+ note\b"),
-    ("notebook_structure", r"\b(?:shape|structure|clusters?) of (?:my|the) notebook\b"),
-    ("notebook_overview", r"\boverview of (?:my|the) notebook\b|\bnotebook overview\b"),
+    ("notebook_structure", r"\b(?:shape|structure|clusters?) of (?:my|the) notebook\b|^how (?:are|r) (?:all )?my notes (?:connected|linked)\b"),
+    ("notebook_overview", r"\boverview of (?:my|the) notebook\b|\bnotebook overview\b|^how (?:big|large) is (?:my|the) notebook\b"),
     ("count_notes", r"\bcount (?:my |the )?notes\b|\bnotes per (?:category|tag)\b"),
-    ("list_tags", r"\b(?:list|show|what are) (?:me )?(?:all )?my tags\b|\bwhich tags\b"),
-    ("list_categories", r"\b(?:list|show|what are) (?:me )?(?:all )?my categories\b|\bwhich categories\b"),
-    ("list_reminders", r"\b(?:what|which|list|show)\b.*\breminders\b"),
+    ("list_tags", r"\b(?:list|show|what are) (?:me )?(?:all )?my tags\b|" + _listing("tags?")),
+    ("list_categories", r"\b(?:list|show|what are) (?:me )?(?:all )?my categories\b|" + _listing("categories|categorys|category")),
+    ("list_reminders", r"\b(?:what|which|list|show)\b.*\breminders\b|^any reminders\b"),
     ("complete_reminder", r"\bmark\b.*\breminder\b.*\bdone\b|\btick off\b.*\breminder\b"),
-    ("list_documents", r"^(?:list|show)(?: me)? (?:all )?my documents[?.]?$"),
-    ("list_skills", r"\b(?:list|show) (?:me )?(?:all )?my skills\b|\bwhat skills\b"),
+    ("list_documents", r"^(?:list|show)(?: me)? (?:all )?my documents[?.]?$|" + _listing("documents|docs")),
+    ("list_skills", r"\b(?:list|show) (?:me )?(?:all )?my skills\b|\bwhat skills\b|" + _listing("skills")),
     ("run_skill", r"\brun the .+ skill\b"),
     ("save_skill", r"\bsave (?:this|that|it) as a skill\b"),
     ("delete_skill", r"\bdelete the .+ skill\b"),

@@ -166,6 +166,11 @@ def trace_failures(result: dict, question: str, notes: list[dict], on: date, ask
         elif kind == "measure":
             if text not in measured and text not in rederived_insights(question, notes, on):
                 failures.append(f"not a measured value: {text!r}")
+        elif kind == "address":
+            #: A link around a note's name: "[" and "](#/notes/<a note found>)".
+            linked = re.fullmatch(r"\]\(#/notes/(\d+)\)", text)
+            if text != "[" and not (linked and int(linked.group(1)) in by_id):
+                failures.append(f"not a link to a note found: {text!r}")
         elif kind == "term":
             #: A word of the notes as written there, naming a thread or a
             #: name that links them (INBOX 787's overview).
@@ -280,7 +285,7 @@ def answers_shape(result: dict, shape: str) -> bool:
     if shape == "count":
         return bool(_FIGURE.search(quoted))
     if shape == "when":
-        return bool(composer._DATE_CUE.search(quoted)) or (dated and bool(quoted))
+        return bool(composer.rec.looks_dated(quoted)) or (dated and bool(quoted))
     if shape == "status":
         return dated and bool(quoted)
     if shape in ("list", "compare", "recent", "recall"):

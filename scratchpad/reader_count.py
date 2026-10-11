@@ -38,7 +38,7 @@ VERDICT = {
     "src/memorymap/search/query.py": "reader: today, yesterday, this/last week|month|year, 'N units back' to a date range",
     "src/memorymap/ai/notebook_stats.py": "not a reader since Brief 65: weekday names for the busiest-day answer (windows read by recognise)",
     "src/memorymap/api/routes_vision.py": "reader (keyword): _period, 'this week' in text to a date range",
-    "src/memorymap/ai/composer.py": "cue: _DATE_CUE scores a sentence as dated (no value), beside the calls to when.resolve",
+    "src/memorymap/ai/composer.py": "not a reader since ledger row 453: its cue and window patterns are recognise.looks_dated and without_windows",
     "src/memorymap/ai/question_noise.py": "not a reader: hr, hrs, mins in the slang map",
     "src/memorymap/ai/source_check.py": "not a reader: weekday and month names in a stop list of non-names",
     # Brief 65 (F1), 2026-10-10: the readers above delegate to ai/recognise.py.

@@ -48,7 +48,7 @@ SLANG: dict[str, str] = {
     "cn": "can", "hv": "have", "hav": "have", "shld": "should", "shud": "should", "cld": "could",
     "cud": "could", "wld": "would", "wud": "would", "mny": "many", "meny": "many", "mch": "much",
     "mor": "more", "lng": "long", "oftn": "often", "wy": "why", "btwn": "between", "betw": "between",
-    "kno": "know", "knw": "know", "ne": "any", "evry": "every", "abt": "about", "bout": "about", "abour": "about", "b4": "before", "w/": "with",
+    "shw": "show", "kno": "know", "knw": "know", "ne": "any", "evry": "every", "abt": "about", "bout": "about", "abour": "about", "b4": "before", "w/": "with",
     "w/o": "without", "thru": "through", "tho": "though", "altho": "although", "bc": "because",
     "b/c": "because", "cuz": "because", "coz": "because", "cos": "because", "bcuz": "because",
     "becuz": "because", "v": "very", "rly": "really", "rlly": "really", "prolly": "probably",
@@ -56,7 +56,7 @@ SLANG: dict[str, str] = {
     "obv": "obviously", "obvi": "obviously", "srsly": "seriously", "lil": "little", "ne1": "anyone",
     "any1": "anyone", "some1": "someone", "every1": "everyone", "no1": "no one", "sum1": "someone",
     # Question words.
-    "wat": "what", "wot": "what", "wut": "what", "wht": "what", "wha": "what", "whut": "what",
+    "wat's": "what's", "wat": "what", "wot": "what", "wut": "what", "wht": "what", "wha": "what", "whut": "what",
     "whn": "when", "wen": "when", "wn": "when", "hw": "how", "hu": "who", "wher": "where",
     "whr": "where", "wer": "where", "whats": "what is", "wats": "what is", "hows": "how is",
     "wheres": "where is", "whens": "when is", "whos": "who is", "whys": "why is",
@@ -92,7 +92,7 @@ SLANG: dict[str, str] = {
     "mon": "Monday", "tue": "Tuesday", "tues": "Tuesday", "weds": "Wednesday", "thu": "Thursday",
     "thur": "Thursday", "thurs": "Thursday", "fri": "Friday", "feb": "February", "apr": "April",
     "aug": "August", "sept": "September", "oct": "October", "nov": "November", "dec": "December",
-    "xmas": "Christmas", "bday": "birthday", "b-day": "birthday",
+    "xmas": "Christmas", "bday": "birthday", "b-day": "birthday", "til": "till",
     # Things.
     "msg": "message", "msgs": "messages", "txt": "text", "pic": "picture", "pics": "pictures",
     "vid": "video", "vids": "videos", "info": "information", "appt": "appointment",

@@ -51,7 +51,7 @@ MAX_APP_WORDS = 40
 #: Parts that are the app's own words (decision 52's lint reads them).
 APP_KINDS = frozenset({"template"})
 #: Parts that may carry a number: a fact, the person's question, or a sum.
-NUMBERED_KINDS = frozenset({"confirmed", "quote", "title", "filed", "picture", "measure", "asked", "computed", "help", "web", "reminder", "term"})
+NUMBERED_KINDS = frozenset({"address", "confirmed", "quote", "title", "filed", "picture", "measure", "asked", "computed", "help", "web", "reminder", "term"})
 
 
 @dataclass(frozen=True)

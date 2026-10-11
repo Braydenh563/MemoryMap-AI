@@ -234,11 +234,13 @@ def test_compare_draws_two_sides_with_measured_counts():
     text = result["text"]
     assert text.startswith(
         tuple(
-            f"{lead}one mentions Lisbon and one mentions Porto. {each}"
+            f"{lead}one mentions Lisbon and one mentions Porto.\n\n**Lisbon**\n"
             for lead in composer.phrase_options("of_found") + composer.phrase_options("across_found")
-            for each in composer.phrase_options("each_side")
         )
-    )
+    ), text
+    #: The lead names only what follows (probe P15, ledger row 443): no
+    #: sentence promising the sides before the sides, under 14 words.
+    assert len(text.split("\n", 1)[0].split()) <= 14, text
     #: Each side's count is said once, by the lead (decision 52), not again
     #: beside its heading.
     assert "**Lisbon**\n" in text and "**Porto**\n" in text and "(one note)" not in text

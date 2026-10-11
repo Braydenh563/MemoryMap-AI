@@ -78,6 +78,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from memorymap.ai import act_registry, composer_ack, composer_overview, composer_replies, composer_tables, grounding, phrasing, question_noise, realise, spelling, utilities, variants
+from memorymap.ai import recognise as rec
 from memorymap.ai import when as when_words
 from memorymap.search import query as query_understanding
 
@@ -248,6 +249,22 @@ PHRASES: dict[str, str] = {
     "missing": "None of these notes mention ",
     "newest_lead": "Your ",
     "newest_mid": " newest notes",
+    "until_ahead_days": " days from today, on ",
+    "until_ahead_day": " day from today, on ",
+    "until_ago_days": " days ago, on ",
+    "until_ago_day": " day ago, on ",
+    "until_today": "That is today",
+    "until_by_note": ", going by your note: ",
+    "open_some": " items are still open on ",
+    "open_one": " items is still open on ",
+    "open_all_a": "All ",
+    "open_all_b": " items on ",
+    "open_all_c": " are still open",
+    "open_single_a": "The one item on ",
+    "open_single_b": " is still open",
+    "open_none_a": "Everything on ",
+    "open_none_b": " is done: all ",
+    "open_none_c": " items are ticked.",
     #: No answer, said plainly and asked back (CHAT_PLAN decision 24; INBOX
     #: 741: "when nothing matches at all, it asks a short clarifying
     #: question instead of returning nothing").
@@ -397,13 +414,6 @@ _ASKING_WORDS = frozenset(
 #: A time phrase names a window, not a subject: "last week", "3 days ago",
 #: "this month" come off whole before the subject is read, so "week 4"
 #: stays a subject and "last week" is not one.
-_TIME_PHRASE = re.compile(
-    r"\b(?:(?:the\s+)?(?:last|this|next|past|previous|coming)\s+(?:few\s+|couple\s+of\s+|\d{1,3}\s+|two\s+|three\s+)?"
-    r"(?:days?|weeks?|weekend|months?|years?|night|morning|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
-    r"|(?:the\s+)?week\s+before\s+last|(?:\d{1,3}|a|an|one|two|three|four|five|six)\s+(?:days?|weeks?|months?|years?)\s+ago"
-    r"|(?:since|in|during)\s+(?:january|february|march|april|may|june|july|august|september|october|november|december))\b",
-    re.I,
-)
 
 #: The wrappers a casual or indirect question comes in, taken off before its
 #: shape and its subject are read (INBOX 741, the owner: "better to
@@ -650,7 +660,7 @@ def subject_terms(question: str) -> list[str]:
     #: bare "the list is slow" reads to the parser as a list command.
     question = re.sub(r"^how come\b", "why", question, flags=re.I)
     question = re.sub(r"^(?:what time|how many (?:of my )?notes (?:mention|are about|about|on))\b", "", question, flags=re.I)
-    question = _TIME_PHRASE.sub(" ", question)
+    question = rec.without_windows(question)
     understood = query_understanding.understand(question)
     source = understood.subject or question
     #: "List my ..." and "Name the ..." ask; "the reading list" names. Only the
@@ -998,12 +1008,6 @@ def read_note(note: dict, rank: int) -> NoteView | None:
 
 # --- scoring --------------------------------------------------------------------
 
-_DATE_CUE = re.compile(
-    r"\b(\d{1,2}(st|nd|rd|th)|\d{4}|today|tomorrow|tonight|yesterday|next (week|month|year)|"
-    r"last (week|month|year)|this (week|month|year)|weekend|"
-    + "|".join(m.lower() for m in _MONTHS) + "|" + "|".join(sorted(_WEEKDAYS)) + r")\b",
-    re.I,
-)
 _NUMBER_CUE = re.compile(
     r"\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|"
     r"hundred|thousand|dozen|half|twice|double)\b",
@@ -1021,7 +1025,7 @@ def _cue(shape: str, text: str) -> float:
     """What the question's shape looks for in an answer: a date for a "when",
     a number for a "how many", a person for a "who"."""
     if shape == "when":
-        return 1.2 if _DATE_CUE.search(text) else 0.0
+        return 1.2 if rec.looks_dated(text) else 0.0
     if shape == "count":
         return 1.2 if _NUMBER_CUE.search(text) else 0.0
     if shape == "explain":
@@ -1312,6 +1316,7 @@ class _Answer:
     - ("title", text, note_id): a note's name, as `_title` read it;
     - ("filed", text, note_id): one of the note's tags or its category;
     - ("measure", text): a count or a day the app measured;
+    - ("address", text): a link's brackets and in-app address;
     - ("asked", text): a word or phrase from the question itself.
     """
 
@@ -1405,6 +1410,12 @@ class _Answer:
 
     def m(self, text: str) -> _Answer:
         self.parts.append(("measure", text))
+        return self
+
+    def address(self, text: str) -> _Answer:
+        """A link's brackets and its in-app address ("](#/notes/12)"):
+        markup around a name, never a claim or a count."""
+        self.parts.append(("address", text))
         return self
 
     def asked(self, text: str) -> _Answer:
@@ -1855,7 +1866,7 @@ def _opening(out: _Answer, s: Sentence, shape: str, question: str) -> None:
         return
     if shape == "count" and _NUMBER_CUE.search(s.text):
         options = ["", "open_figure", "open_notes"]
-    elif shape == "when" and _DATE_CUE.search(s.text):
+    elif shape == "when" and when_words.find(s.text):
         options = ["", "open_date"]
     elif shape == "when" and view.written:
         #: No date in the sentence: the day the note was written is the one
@@ -1897,7 +1908,9 @@ def _span(out: _Answer, views: list[NoteView]) -> None:
     if not days:
         return
     if days[0] == days[-1]:
-        out.t("on_day").m(out.day(days[0]))
+        #: ", from today", never ", on today" (the routing gold, 2026-10-11).
+        said = out.day(days[0])
+        out.t("from_span" if said in ("today", "yesterday") else "on_day").m(said)
     else:
         out.t("from_span").m(out.day(days[0])).t("to_span").m(out.day(days[-1]))
 
@@ -2171,7 +2184,9 @@ def _compare(out: _Answer, sides: tuple[str, str], views: list[NoteView], meanin
         if i:
             out.t("and")
         out.m(out.count(n)).t("mentions_one" if n == 1 else "mention_many").asked(label)
-    out.t("stop", "space", "each_side")
+    #: The lead names only what follows (probe P15): no "Here is what
+    #: each says." before the two headings that say it.
+    out.t("stop")
     for label, picks, side_terms in ((sides[0], a_only, a_terms), (sides[1], b_only, b_terms)):
         out.t("para", "bold").asked(label).t("bold")
         #: The lead said each side's count ("one mentions Lisbon and two
@@ -2433,6 +2448,99 @@ def _body(
     return lead
 
 
+#: "what is still open on the harbor launch", "whats left to do for X",
+#: "what do I still need to do for X" (ledger row 444).
+_STILL_OPEN = re.compile(
+    r"^(?:what(?:'s|s| is| are)?|which)(?: things?| items?| tasks?)?(?: is| are)?(?: still)? "
+    r"(?:open|left(?: to do)?|outstanding|remaining|not done|undone|unticked|unchecked|to do|todo|pending)(?: still)? "
+    r"(?:on|for|in|from|with) (?P<a>.+?)[?.]*$"
+    r"|^what (?:do|have) i (?:still |got )?(?:have |need |got )?(?:left )?to do (?:on|for|in) (?P<b>.+?)[?.]*$",
+    re.I,
+)
+
+
+def _still_open(out: _Answer, question: str, views: list[NoteView]) -> bool:
+    """The checklist items not ticked on the note the question names: how
+    many of how many, then those items. False when the question is not
+    that, or no note found names it with a checklist."""
+    asked = question_noise.repair(question_noise.tidy(" ".join((question or "").split())))
+    found = _STILL_OPEN.match(asked)
+    if not found:
+        return False
+    wanted = {_stem(w) for w in _words(found.group("a") or found.group("b"))} - {_stem(w) for w in _NOTE_NOUNS}
+    for view in sorted(views, key=lambda v: v.rank):
+        tasks = [s for s in view.sentences if s.kind == "task"]
+        if not tasks or not wanted or not wanted & ({_stem(w) for w in view.title_words} | {_stem(w) for w in view.words}):
+            continue
+        still = [s for s in tasks if not s.done]
+        total = len(tasks)
+        if not still:
+            out.t("open_none_a").name(view).t("open_none_b").m(out.count(total)).t("open_none_c")
+            return True
+        if total == 1:
+            out.t("open_single_a").name(view).t("open_single_b")
+        elif len(still) == total:
+            out.t("open_all_a").m(out.count(total)).t("open_all_b").name(view).t("open_all_c")
+        else:
+            out.m(out.count(len(still)).capitalize()).t("checklist_of").m(out.count(total))
+            out.t("open_one" if len(still) == 1 else "open_some").name(view)
+        out.t("end_colon", "para")
+        for i, s in enumerate(still):
+            if i:
+                out.t("line")
+            out.item(s, list(wanted))
+        return True
+    return False
+
+
+_DAY_AND_MONTH = re.compile(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b", re.I)
+
+
+def _until_note(out: _Answer, question: str, views: list[NoteView], today: date) -> bool:
+    """"How many days until the dentist": the day is in a note, so the
+    count is from today to the nearest day the note on the subject names
+    (ledger row 441, `utilities.until_subject`). False, and nothing said,
+    when no note found names the subject with a day."""
+    from memorymap.ai import factgraph
+
+    asked = utilities.until_subject(question)
+    if not asked:
+        return False
+    ahead = asked[0] == "future"
+    wanted = {_stem(w) for w in _words(asked[1])} - {_stem(w) for w in _NOTE_NOUNS}
+    for view in sorted(views, key=lambda v: v.rank):
+        if not wanted or not wanted & {_stem(w) for w in _words(str(view.note.get("content") or ""))}:
+            continue
+        dated = []
+        for fact in factgraph.facts(view.note):
+            if fact.kind != "date" or not fact.when or fact.when[2] != "day":
+                continue
+            day = fact.when[0]
+            #: "Mum turns 60 on 3 December", written last year: a day and
+            #: month with no year is the next (or last) one from today.
+            phrase = str(fact.attrs.get("phrase") or "")
+            if ahead and _DAY_AND_MONTH.search(phrase) and not re.search(r"\d{4}", phrase):
+                again = when_words.span(phrase, today, asked[0])
+                day = again[0] if again else day
+            if day >= today if ahead else day <= today:
+                dated.append((day, fact.start))
+        if not dated:
+            continue
+        day, at = min(dated, key=lambda d: abs((d[0] - today).days))
+        sentence = next((s for s in view.sentences if s.start <= at < s.end), None)
+        if sentence is None:
+            continue
+        days = abs((day - today).days)
+        if days == 0:
+            out.t("until_today")
+        else:
+            unit = "day" if days == 1 else "days"
+            out.m(out.count(days).capitalize()).t(f"until_{'ahead' if ahead else 'ago'}_{unit}").m(out.day(day))
+        out.t("until_by_note").q(sentence, list(wanted)).cite(view)
+        return True
+    return False
+
+
 def _newest(out: _Answer, views: list[NoteView]) -> None:
     """The newest notes, each by its first sentence, newest first."""
     shown = [v for v in views if v.sentences][:5]
@@ -2443,8 +2551,16 @@ def _newest(out: _Answer, views: list[NoteView]) -> None:
     out.t("end_colon")
     for view in shown:
         out.t("line", "bullet")
+        #: Each line's name opens its note (brief composer item 4: a listing
+        #: offers the way to what it lists, as the tools' lists do).
+        linked = view.kind == "note" and isinstance(view.id, int) and view.id > 0 and view.titled
+        if linked:
+            out.address("[")
         if view.titled:
-            out.name(view).dated(view)
+            out.name(view)
+            if linked:
+                out.address(f"](#/notes/{view.id})")
+            out.dated(view)
         elif view.written:
             out.t("list_from").m(out.day(view.written))
         else:
@@ -3986,6 +4102,13 @@ def _compose(
         pool = sorted(_score(shape, side_terms, views_list), key=lambda s: (-s.score, s.rank, s.order))[:MEANING_POOL]
         return _Meaning(pool, embed, {_stem(t) for t in side_terms})
 
+    if not said:
+        if _still_open(out, question, views_list):
+            return _result(out.parts, "list", out.rows)
+        #: Read as repaired: "hw many days til the dentst" is the same count.
+        until = question_noise.repair(question_noise.tidy(" ".join((question or "").split())))
+        if utilities.kind_of(until) == "until_note" and _until_note(out, until, views_list, today):
+            return _result(out.parts, "when", out.rows)
     if p.kind == "recall" and p.window and not said:
         shape = "recall"
         _recall(out, p, views_list, question)

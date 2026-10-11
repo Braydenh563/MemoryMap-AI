@@ -2154,19 +2154,36 @@ def _tool_read_events(req: _StreamRequest) -> list[dict]:
     names the tool (`reading.tool_of`), Chat runs it with no arguments, and
     the realiser says it in one line and draws it in its form. Empty when the
     sentence names no such tool, so the composer answers as before."""
-    from memorymap.ai import act_registry, reading, realise
+    from memorymap.ai import act_registry, question_noise, reading, realise, tool_say
     from memorymap.ai import tools as agent_tools
 
     now = user_now(deps.get_config())
-    got = reading.read(req.question, now=now)
+    #: Read as repaired: "shwo me evry tag i hav plz" is the tag list, as
+    #: "list my tags" is (the routing gold, `fixtures/composer/routing_1011.json`).
+    asked = question_noise.repair(question_noise.tidy(req.question or ""))
+    filed = reading.filed_listing(asked)
+    if filed:
+        #: "list my work notes": the Work notes, or the notes tagged work
+        #: (ledger row 442); a name that is neither is the composer's.
+        for key in ("category", "tag"):
+            args = {key: filed}
+            result = agent_tools.execute_tool(req.session, "list_notes", args)
+            if isinstance(result, dict) and result.get("total_matching"):
+                said = tool_say.say("list_notes", result, args, now.date())
+                return [{"type": "answer", "delta": said["text"]}]
+    got = reading.read(asked, now=now)
     if got.tool not in act_registry.NO_MODEL_READS or got.intent in act_registry.ACTS:
         return []
-    said = realise.tool_answer(got.tool, agent_tools.execute_tool(req.session, got.tool, {}), now.date())
-    if said is None:
-        return []
-    out = [{"type": "answer", "delta": said["text"]}]
-    if said["chart"]:
-        out.append({"type": "chart", "chart": said["chart"]})
+    result = agent_tools.execute_tool(req.session, got.tool, {})
+    drawn = realise.tool_answer(got.tool, result, now.date())
+    #: Said with its links to what it lists and the place to open
+    #: (`tool_say`); a chart, when the counts make one, stands for the table.
+    said = tool_say.say(got.tool, result, {}, now.date())
+    chart = drawn["chart"] if drawn else None
+    parts = (said["lead"], "" if chart else said["body"], said["chips"])
+    out = [{"type": "answer", "delta": "\n\n".join(p for p in parts if p)}]
+    if chart:
+        out.append({"type": "chart", "chart": chart})
     return out
 
 

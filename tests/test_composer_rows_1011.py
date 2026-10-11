@@ -100,3 +100,62 @@ def test_a_next_question_chip_names_the_subject_not_the_word_notes(question):
     chips = composer.compose(question, notes, today=date(2026, 10, 1))["next"]
     assert chips, question
     assert not [c for c in chips if re.search(r"\bnotes? (?:about|on|abt)\b", c)], chips
+
+
+_DATED = [
+    {"id": 1, "content": "# Dentist\n\nCheck-up booked for 21 October. Ask about the night guard.", "tags": ["health"], "category": "Admin", "created_at": "2026-10-01T10:00:00"},
+    {"id": 2, "content": "# Harbor launch\n\nShip the app on the 14th of November.\n\n- [x] Beta feedback\n- [ ] Store listing\n- [ ] Press kit", "tags": ["harbor"], "category": "Work", "created_at": "2026-10-02T10:00:00"},
+    {"id": 5, "content": "# Mum birthday\n\nMum turns 60 on 3 December.", "tags": ["family"], "category": "Personal", "created_at": "2025-09-06T10:00:00"},
+]
+
+
+@pytest.mark.parametrize(
+    ("question", "lead"),
+    [
+        ("how many days until the dentist", "Ten days from today, on 21 October"),
+        ("hw many days til the dentst", "Ten days from today, on 21 October"),
+        ("how many days till my dentist appointment", "Ten days from today, on 21 October"),
+        ("how long until the harbor launch", "34 days from today, on 14 November"),
+        ("how many dayz until mums bday", "53 days from today, on 3 December"),
+    ],
+)
+def test_days_until_a_day_a_note_names(question, lead):
+    """Row 441 (P10): "how many days until the dentist" counts to the day
+    the dentist note names, and quotes the sentence that names it. Found
+    writing it: "booked for 21 October" read as last year's (the booking is
+    past, the day is not), and "on the 14th of November" as the 14th of
+    this month."""
+    from datetime import date
+
+    from memorymap.ai import composer
+
+    said = composer.compose(question, _DATED, today=date(2026, 10, 11))
+    assert lead in said["text"], said["text"]
+    assert said["grounding"] and "[**" in said["text"], said["text"]
+
+
+def test_days_until_something_no_note_dates_is_not_counted():
+    from datetime import date
+
+    from memorymap.ai import composer
+
+    said = composer.compose("how many days until the standup", _DATED, today=date(2026, 10, 11))
+    assert "days from today" not in said["text"], said["text"]
+
+
+@pytest.mark.parametrize(
+    "question",
+    ["what is still open on the harbor launch", "whats left to do for harbor", "wat's stil open on the harbor launch", "what do i still need to do for the harbor launch"],
+)
+def test_what_is_still_open_lists_the_unticked_items(question):
+    """Row 444 (P16): "what is still open on X" quoted the whole checklist
+    and ended "None of these notes say anything about “open”"; it says how
+    many are open and lists only those."""
+    from datetime import date
+
+    from memorymap.ai import composer
+
+    said = composer.compose(question, _DATED, today=date(2026, 10, 11))["text"]
+    assert "Two of three items are still open on **Harbor launch**:" in said, said
+    assert "- [ ] Store listing" in said and "- [ ] Press kit" in said and "Beta feedback" not in said, said
+    assert "anything about" not in said, said

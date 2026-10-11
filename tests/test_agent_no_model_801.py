@@ -210,7 +210,9 @@ def test_found_notes_are_said_as_the_answer():
     }
     messages = [{"role": "user", "content": "x"}, {"role": "tool", "tool_name": "search_notes", "content": json.dumps(result)}]
     reply = needle_provider.NeedleProvider().chat_tools("any", messages, TOOLS)
-    assert reply["content"] == "I found one note about “dentist”.\n\n- **Dentist**: Check-up booked for the 21st."
+    #: Said by `tool_say` (the owner, 2026-10-11): each note linked, with
+    #: its first line, and the next tap.
+    assert reply["content"] == "I found one note about “dentist”.\n\n- [Dentist](#/notes/1): Check-up booked for the 21st.\n\n[Open it](#/notes/1)"
 
 
 def test_the_time_and_a_sum_are_said_as_the_answer():
@@ -230,7 +232,10 @@ def test_an_unsaid_result_is_said_by_its_label_and_an_error_by_its_reason():
         {"role": "tool", "tool_name": "tag_note", "content": json.dumps({"error": "No note has that id."})},
     ]
     reply = needle_provider.NeedleProvider().chat_tools("any", messages, TOOLS)
-    assert reply["content"] == "Pinned “Dentist”.\n\nThat did not work: No note has that id."
+    assert reply["content"] == (
+        "Pinned “Dentist”.\n\nI could not find that note.\n\n"
+        "It may have been deleted, or the number is wrong. Look for it in Notes.\n\n[Open Notes](#/notes)"
+    )
 
 
 def test_the_route_asks_needle_only_when_the_engine_has_no_answer():

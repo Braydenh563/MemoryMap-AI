@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Tooling: two sweeps measure memory over a long session (scratchpad/ui-sweeps/memserver.py for the server, memgrowth.js for the page); a 10-minute run found no leak.
 - Board: Alt while resizing keeps the centre and grows both sides, for cards and drawn shapes.
 - CI: a weekly pip-audit job over requirements.txt (non-blocking at first); the app itself makes no request.
 - Appearance: Font has a Readable choice, Atkinson Hyperlegible (SIL OFL), vendored with its licence so it works offline.

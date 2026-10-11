@@ -34,7 +34,8 @@ def _run(entries: list[dict], query: str) -> list[str]:
 const allEntries = {json.dumps(entries)};
 const editorDocumentCache = [];
 const editorFileCache = [];
-const noteLabel = (entry) => entry.content.split('\\n')[0].replace(/^#+\\s*/, '');
+// editorLinkMatches names a note by noteNamePlain (chat-attach.js, INBOX 820); its own tests cover the Markdown.
+const noteNamePlain = (content, limit = 0) => {{ const name = String(content).split('\\n').find((l) => l.trim()).replace(/^#+\\s*/, '').trim(); return limit ? name.slice(0, limit) : name; }};
 {match.group(0)}
 process.stdout.write(JSON.stringify(editorLinkMatches({json.dumps(query)}).filter((i) => i.group === 'Notes').map((i) => i.value)));
 """

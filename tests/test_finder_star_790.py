@@ -32,7 +32,8 @@ def test_an_active_favourite_is_a_filled_star():
     rule = re.search(r"\.is-favourite > \.ph-star::before,[^{]*\.ph-star\.star-fill::before \{([^}]*)\}", CSS)
     assert rule, "the filled star rule"
     body = rule.group(1)
-    assert "clip-path: polygon(" in body and "background: currentColor" in body
+    # A mask, not a clip-path polygon: the round-joined star matches the outline star (46ebf127e).
+    assert "-webkit-mask: url(" in body and "background: currentColor" in body
 
 
 def test_the_finder_star_toggles_and_shows_its_state():

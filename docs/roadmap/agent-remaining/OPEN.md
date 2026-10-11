@@ -485,7 +485,7 @@ Detail: [canvasdepth-1010.md](../archive/agent-remaining/canvasdepth-1010.md).
 
 - Whiteboard gaps open: the hand-drawn look, tables, edit data, a current layer new items land in, .drawio pages after the first; an item's eye on a hidden named layer changes nothing visible.
 - Mind map gaps open: a structure per branch, callouts, labels under a topic, .xmind export, stickers and votes.
-- The Guide topics board-library and whiteboard-controls sit at 1,918 of 1,920 characters: the next board help line needs a split topic.
+- The Guide topics at the 1,920-character reply budget now are ask-chat 1,918, chat-controls and answers-from-notes 1,913, code-files 1,905, tidy 1,899 and graph-controls 1,896; the board topics were split in two earlier (whiteboard-controls 659 and whiteboard-selection 1,504, board-library 1,496 and board-library-saving 672). [room101-1011]
 - The laser sweep's 390 threshold was lowered from 10 dots to 3 and not re-run; a real draw.io file and dark theme not verified.
 
 ## Left by the budgets53 agent (Brief 53, merged 2026-10-11)
@@ -520,7 +520,6 @@ Detail: [canvasui-1010.md](../archive/agent-remaining/canvasui-1010.md).
 - Link-label blur not reproduced headless; the re-raster after zoom is untested on a GPU compositor or the desktop webview.
 - Mind map library schematics (wbMapThumbSpec) are monochrome, not tinted with branch colours; a hollow diamond draws the shaft through it.
 - The AI board tools and import/export do not carry a note's fold.
-- Guide topics whiteboard-controls (1915 of 1920) and mind-map-features are at the reply budget.
 - At 390 the whiteboard sidebar is a full-width sheet, so the fit ignores it there.
 
 ## Left by the export48 agent (Brief 48, merged 2026-10-10)
@@ -562,7 +561,7 @@ Detail: [chat88-1010.md](../archive/agent-remaining/chat88-1010.md).
 
 Detail: [bootdiet-1010.md](../archive/agent-remaining/bootdiet-1010.md).
 
-- `TOTAL_CAP` (all app scripts) has 32 bytes of headroom; the next lever is the meeting overlay's listeners in settings-wiring.js.
+- `TOTAL_CAP` (all app scripts) has 3,449 bytes of headroom since the bell's panel and the meeting recorder's buttons moved out of the 27 counted scripts (room101-1011); `BOOT_CSS_CAP` has 6,930.
 - A slow or failed fetch of app-features.js and a late Quick access first paint were not exercised.
 
 ## Left by the pickers agent (INBOX 784, 785, merged 2026-10-10)

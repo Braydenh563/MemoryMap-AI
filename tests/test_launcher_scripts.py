@@ -57,6 +57,10 @@ START_SH = ROOT / "start.sh"
 START_BAT = ROOT / "start.bat"
 START_DESKTOP_SH = ROOT / "start-desktop.sh"
 START_DESKTOP_BAT = ROOT / "start-desktop.bat"
+#: One-double-click files for the launcher's actions (the owner 2026-10-11:
+#: "I just need easy ways to run the set scripts and actions").
+ACTION_SH = [ROOT / n for n in ("doctor.sh", "reinstall.sh", "tools.sh")]
+ACTION_BAT = ["doctor.bat", "reinstall.bat", "tools.bat"]
 UNINSTALL_SH = ROOT / "uninstall.sh"
 UNINSTALL_BAT = ROOT / "uninstall.bat"
 
@@ -113,7 +117,8 @@ class TestPortFromEnv:
 
 class TestTheShellScriptsParse:
     @pytest.mark.parametrize(
-        "script", ["start.sh", "start-desktop.sh", "uninstall.sh"]
+        "script",
+        ["start.sh", "start-desktop.sh", "uninstall.sh", "doctor.sh", "reinstall.sh", "tools.sh"],
     )
     def test_bash_n(self, script):
         result = subprocess.run(
@@ -122,7 +127,7 @@ class TestTheShellScriptsParse:
         assert result.returncode == 0, result.stderr
 
     def test_they_are_executable(self):
-        for script in (START_SH, START_DESKTOP_SH, UNINSTALL_SH):
+        for script in (START_SH, START_DESKTOP_SH, UNINSTALL_SH, *ACTION_SH):
             assert os.access(script, os.X_OK), script
 
 
@@ -226,7 +231,7 @@ class TestBatchFileRules:
         out = re.sub(r"(?i)\becho\(", "echo ", out)
         return out.replace("^(", "").replace("^)", "")
 
-    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat"])
+    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat", *ACTION_BAT])
     def test_no_parenthesis_inside_an_echo_within_a_block(self, name):
         """cmd reads the ) as the end of the block and the script dies."""
         depth = 0
@@ -242,7 +247,7 @@ class TestBatchFileRules:
             depth += unquoted.count("(") - unquoted.count(")")
         assert not offenders, offenders
 
-    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat"])
+    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat", *ACTION_BAT])
     def test_the_blocks_balance(self, name):
         depth = 0
         for ln in self._lines(ROOT / name):
@@ -252,7 +257,7 @@ class TestBatchFileRules:
             assert depth >= 0, ln
         assert depth == 0
 
-    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat"])
+    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", *ACTION_BAT])
     def test_every_goto_and_call_target_exists(self, name):
         text = _read(ROOT / name)
         labels = {
@@ -1362,3 +1367,39 @@ def test_a_path_with_an_apostrophe_survives_the_shortcut_powershell():
     assert "'!MM_PS_LNK!'" in line and "'!MM_PS_HOME!start.bat'" in line
     assert "!MM_LNK!'" not in line and "'!MM_HOME!" not in line
     assert 'set "MM_PS_HOME=!MM_HOME:\'=\'\'!"' in text
+
+
+class TestTheActionFiles:
+    """Each action file runs the launcher's own flag, so an action has one
+    implementation; read, never run (reinstall deletes `.venv`)."""
+
+    @pytest.mark.parametrize(
+        "name,flag",
+        [("doctor.sh", "--doctor"), ("doctor.bat", "--doctor"),
+         ("reinstall.sh", "--reinstall"), ("reinstall.bat", "--reinstall")],
+    )
+    def test_it_calls_the_launcher_flag(self, name, flag):
+        assert re.search(r"start\.(sh|bat)\"? " + re.escape(flag), _read(ROOT / name))
+
+    @pytest.mark.parametrize("name", ["reinstall.sh", "reinstall.bat"])
+    def test_reinstall_asks_first(self, name):
+        text = _read(ROOT / name)
+        assert "Continue?" in text and "--yes" in text
+
+    @pytest.mark.parametrize("name", ["tools.sh", "tools.bat"])
+    def test_the_menu_offers_every_launcher_action(self, name):
+        text = _read(ROOT / name)
+        for flag in ("--doctor", "--logs", "--shortcut", "--version"):
+            assert flag in text, flag
+        for script in ("start-desktop", "reinstall", "uninstall"):
+            assert script in text, script
+
+    def test_the_menu_quits_on_q(self):
+        out = subprocess.run(
+            ["bash", str(ROOT / "tools.sh")], input="q\n", capture_output=True, text=True, timeout=30
+        )
+        assert out.returncode == 0 and "Tessellate tools" in out.stdout
+
+    @pytest.mark.parametrize("name", ACTION_BAT)
+    def test_bat_files_are_crlf_on_disk(self, name):
+        assert b"\r\n" in (ROOT / name).read_bytes()

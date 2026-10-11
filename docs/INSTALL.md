@@ -116,6 +116,11 @@ You should now be inside the `MemoryMap-AI` folder. `ls` (macOS and Linux) or
   browser tab instead.
 - **macOS and Linux:** run `./start-desktop.sh` for the app's own window, or
   `./start.sh` for a browser tab.
+- **The other actions, one double-click each:** `doctor` checks the machine
+  and prints a fix for each problem, `reinstall` rebuilds the app's Python
+  environment (it asks first; notes and settings are untouched), and `tools`
+  is a menu of every launcher action. Each comes as `.sh` (macOS and Linux)
+  and `.bat` (Windows).
 
 The launcher builds a virtual environment, installs everything, starts the app
 and opens <http://localhost:8000>. The first run takes a few minutes. After

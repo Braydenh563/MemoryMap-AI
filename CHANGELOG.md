@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Recordings: the waveform track has visibly rounded corners and its own tint, with the bars kept inside them.
 - Recordings: the playback speed menu is the same height as the menu button beside it.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).

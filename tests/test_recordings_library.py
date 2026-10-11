@@ -226,3 +226,14 @@ def test_the_speed_opener_is_the_kebabs_height():
     rule = _rule(".recording-act .select-shell > .select-opener")
     for part in ("height: var(--target-min)", "min-height: var(--target-min)", "padding-block: 0"):
         assert part in rule
+
+
+def test_the_track_has_visible_round_corners():
+    """The owner, 2026-10-11: "can this audio track have curved corners??".
+    It had 2.4px of corner and a fill the card's own tint matched; now the
+    recorder's corner, the track tint, and bars kept off the corners (the
+    corner pixel measured transparent)."""
+    rule = _rule(".recording-wave")
+    assert "border-radius: var(--radius-md)" in rule and "background: var(--chip-bg)" in rule
+    paint = JS.split("function recordingPaint(")[1].split("\n}\n")[0]
+    assert "borderTopLeftRadius" in paint and "inset + i * bar" in paint

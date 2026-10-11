@@ -73,13 +73,20 @@
   gap: var(--space-2);
 }
 
+/* The track (the owner, 2026-10-11: "can this audio track have curved
+   corners??"). Measured before: `--radius-sm` drew 2.4px on a 40px track,
+   and its `--inner` fill (247,246,244) sat on the card's own tint
+   (rgba(31,36,48,0.04) on white), so the shape never showed and the bars'
+   square extent was all the eye had. Now the recorder's own line's corner
+   (`.meeting-wave`, `--radius-md`) and the track tint (`--chip-bg`, DESIGN.md
+   "A field and a track"); `recordingPaint` keeps the bars inside the corners. */
 .recording-wave {
   display: block;
   width: 100%;
   /* A seek control: one touch target tall. */
   height: var(--control-h-touch);
-  border-radius: var(--radius-sm);
-  background: var(--inner);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
   cursor: pointer;
   touch-action: none;
 }

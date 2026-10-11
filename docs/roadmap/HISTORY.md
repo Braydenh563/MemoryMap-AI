@@ -48368,6 +48368,17 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
   beside the 28px kebab at 1440 light before; 28 and 28 at 1440 light and
   dark, 44 and 44 at 390 dark after. Test:
   `test_the_speed_opener_is_the_kebabs_height`.
+- **The owner, 2026-10-11, verbatim.** "can this audio track have curved
+  corners??". What painted the square: `.recording-wave` had `--radius-sm`
+  (2.4px on a 40px track in this look) and an `--inner` fill (247,246,244)
+  the card's own tint (rgba(31,36,48,0.04) on white) matched, so only the
+  bars' square extent showed. **Fixed (uiset, the recording track commit).**
+  The recorder's own corner (`--radius-md`, as `.meeting-wave`), the track
+  tint (`--chip-bg`), and the bars, marks, playhead and seek inset by the
+  corner. Measured (rec.js): radius 2.4 to 4.8px, fill
+  rgba(28,28,26,0.05) light and rgba(236,235,232,0.06) dark, the corner
+  pixel transparent, at 1440 and 390. Test:
+  `test_the_track_has_visible_round_corners`.
 
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 

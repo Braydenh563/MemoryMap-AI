@@ -229,11 +229,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `categoryMenuItems` | frontend/js/notes-list.js:2730 |
 | `clearSkeletons` | frontend/js/notes-list.js:2796 |
 | `compareCategoryNames` | frontend/js/notes-list.js:2686 |
-| `dockConnectionsInRail` | frontend/js/notes-list.js:3506 |
+| `dockConnectionsInRail` | frontend/js/notes-list.js:3510 |
 | `engineQueryIds` | frontend/js/notes-list.js:194 |
-| `ensureCardCounts` | frontend/js/notes-list.js:3197 |
-| `ensureMapChipsFor` | frontend/js/notes-list.js:3239 |
-| `ensureOneCardCount` | frontend/js/notes-list.js:3201 |
+| `ensureCardCounts` | frontend/js/notes-list.js:3201 |
+| `ensureMapChipsFor` | frontend/js/notes-list.js:3243 |
+| `ensureOneCardCount` | frontend/js/notes-list.js:3205 |
 | `entryListItems` | frontend/js/notes-list.js:2386 |
 | `entryListOrder` | frontend/js/notes-list.js:2968 |
 | `entryNeedsReview` | frontend/js/notes-list.js:225 |
@@ -267,15 +267,15 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `noteQueryIsEmpty` | frontend/js/notes-list.js:343 |
 | `noteSemanticLoaded` | frontend/js/notes-list.js:377 |
 | `noteSortName` | frontend/js/notes-list.js:1769 |
-| `noteTopicChip` | frontend/js/notes-list.js:3128 |
-| `notesRailFocusSubject` | frontend/js/notes-list.js:3499 |
-| `notesRailHiddenByChoice` | frontend/js/notes-list.js:3326 |
-| `notesRailNearGroup` | frontend/js/notes-list.js:3470 |
-| `notesRailSync` | frontend/js/notes-list.js:3337 |
-| `notesRailWanted` | frontend/js/notes-list.js:3354 |
-| `nudgeReviewQueue` | frontend/js/notes-list.js:3250 |
-| `nudgeUntaggedNotes` | frontend/js/notes-list.js:3271 |
-| `offerWikiRename` | frontend/js/notes-list.js:3590 |
+| `noteTopicChip` | frontend/js/notes-list.js:3132 |
+| `notesRailFocusSubject` | frontend/js/notes-list.js:3503 |
+| `notesRailHiddenByChoice` | frontend/js/notes-list.js:3330 |
+| `notesRailNearGroup` | frontend/js/notes-list.js:3474 |
+| `notesRailSync` | frontend/js/notes-list.js:3341 |
+| `notesRailWanted` | frontend/js/notes-list.js:3358 |
+| `nudgeReviewQueue` | frontend/js/notes-list.js:3254 |
+| `nudgeUntaggedNotes` | frontend/js/notes-list.js:3275 |
+| `offerWikiRename` | frontend/js/notes-list.js:3594 |
 | `openNoteEditor` | frontend/js/notes-list.js:76 |
 | `orderedNotesForCurrentView` | frontend/js/notes-list.js:1969 |
 | `paginateNotesForDisplay` | frontend/js/notes-list.js:1935 |
@@ -284,32 +284,32 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `parseNoteQuery` | frontend/js/notes-list.js:247 |
 | `propQuery` | frontend/js/notes-list.js:2191 |
 | `readableUrl` | frontend/js/notes-list.js:885 |
-| `referenceCountChip` | frontend/js/notes-list.js:3065 |
-| `referenceCountText` | frontend/js/notes-list.js:3053 |
+| `referenceCountChip` | frontend/js/notes-list.js:3069 |
+| `referenceCountText` | frontend/js/notes-list.js:3057 |
 | `refreshEntries` | frontend/js/notes-list.js:2976 |
 | `refreshNoteSearchWhy` | frontend/js/notes-list.js:1727 |
-| `reminderCountChip` | frontend/js/notes-list.js:3108 |
+| `reminderCountChip` | frontend/js/notes-list.js:3112 |
 | `renderEntries` | frontend/js/notes-list.js:2232 |
 | `renderIncrementally` | frontend/js/notes-list.js:1840 |
 | `renderInlineMarkdown` | frontend/js/notes-list.js:902 |
 | `renderNoteInline` | frontend/js/notes-list.js:1554 |
 | `renderNoteText` | frontend/js/notes-list.js:1423 |
-| `renderNotesRail` | frontend/js/notes-list.js:3373 |
+| `renderNotesRail` | frontend/js/notes-list.js:3377 |
 | `renderSidebar` | frontend/js/notes-list.js:2518 |
 | `resolveCategoryChoice` | frontend/js/notes-list.js:127 |
 | `resolveNotePage` | frontend/js/notes-list.js:2009 |
 | `resolveWikiTarget` | frontend/js/notes-list.js:1313 |
 | `safeHref` | frontend/js/notes-list.js:835 |
 | `scheduleEntriesProgress` | frontend/js/notes-list.js:2835 |
-| `scheduleNotesRail` | frontend/js/notes-list.js:3349 |
+| `scheduleNotesRail` | frontend/js/notes-list.js:3353 |
 | `searchHighlightTerms` | frontend/js/notes-list.js:1699 |
-| `setNotesRailHidden` | frontend/js/notes-list.js:3512 |
+| `setNotesRailHidden` | frontend/js/notes-list.js:3516 |
 | `setNotesViewMode` | frontend/js/notes-list.js:2092 |
 | `showEntrySkeletons` | frontend/js/notes-list.js:2767 |
 | `showNotesFilter` | frontend/js/notes-list.js:236 |
 | `showSkeletons` | frontend/js/notes-list.js:2785 |
 | `sortEntries` | frontend/js/notes-list.js:1773 |
-| `syncNotesRailToggle` | frontend/js/notes-list.js:3362 |
+| `syncNotesRailToggle` | frontend/js/notes-list.js:3366 |
 | `toggleExpandAllRows` | frontend/js/notes-list.js:2081 |
 | `toggleRowExpanded` | frontend/js/notes-list.js:2114 |
 | `unlatex` | frontend/js/notes-list.js:753 |
@@ -2204,7 +2204,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderCopyLogsLabel` | frontend/js/settings.js:1181 |
 | `renderCustomThemes` | frontend/js/settings.js:2000 |
 | `renderHealthBlock` | frontend/js/settings.js:486 |
-| `renderJobOverview` | frontend/js/settings.js:4708 |
+| `renderJobOverview` | frontend/js/settings.js:4715 |
 | `renderLearned` | frontend/js/settings.js:4496 |
 | `renderLearnedFromYou` | frontend/js/settings.js:4487 |
 | `renderLearnedList` | frontend/js/settings.js:4262 |
@@ -8840,17 +8840,17 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | 7. Meta looks like meta | frontend/css/08-consistency.css:1028 |
 | 8. A panel head is identity, one fact, then the actions, and it does not | frontend/css/08-consistency.css:2363 |
 | A CALMER TOP, NOTHING TAKEN AWAY (Full view) | frontend/css/03-dashboard-widgets.css:4859 |
-| A card's date is in the same corner on every card (INBOX 719) | frontend/css/08-consistency.css:10360 |
+| A card's date is in the same corner on every card (INBOX 719) | frontend/css/08-consistency.css:10361 |
 | A chip's x: a round target inset evenly (INBOX 403) | frontend/css/08-consistency.css:4674 |
 | A dialog's head: title, its '?', icon-only actions, Close last | frontend/css/08-consistency.css:8980 |
 | A diff of two versions of the same text (DOCUMENTS_PLAN Phase 5 items 2, 3) | frontend/css/09-editor.css:556 |
 | A member of a group selection shows that it is selected, not how to | frontend/css/library-lazy.css:5005 |
 | A note card's text leads; its metadata steps back (INBOX 505) | frontend/css/08-consistency.css:9850 |
-| A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10243 |
+| A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10244 |
 | A note's time: the same corner on every card | frontend/css/08-consistency.css:8358 |
 | A notification's two controls are a column of their own (INBOX 874) | frontend/css/06-timeline-dialogs.css:3459 |
-| A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10420 |
-| A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10344 |
+| A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10421 |
+| A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10345 |
 | Ask history: the personal-notes-browser panel (§ROADMAP item 6) | frontend/css/01-forms-settings.css:2827 |
 | Atlas's life: loops while the mark is on screen and motion is on | frontend/css/08-consistency.css:7951 |
 | Atlas, the app's guide (INBOX 224) | frontend/css/08-consistency.css:1783 |
@@ -8891,8 +8891,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Ocean: cool teal and deep blue. Crisp rather than cosy. | frontend/css/05-sidebars-themes.css:3304 |
 | On paper (DOCUMENTS_PLAN Phase 5 item 4, the print stylesheet) | frontend/css/09-editor.css:916 |
 | On this day | frontend/css/03-dashboard-widgets.css:4636 |
-| One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10313 |
-| One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10389 |
+| One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10314 |
+| One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10390 |
 | PLAN.md D1: the documents dock's formatting strip hides entirely | frontend/css/07-whiteboard-misc.css:7918 |
 | Parchment: paper, ink and a little gold. Made for long writing. | frontend/css/05-sidebars-themes.css:3231 |
 | Phase 10, INBOX 100: the scroll edge effect | frontend/css/10-responsive.css:159 |
@@ -8951,7 +8951,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | The Library's hover tick says what it is (INBOX 722) | frontend/css/library-lazy.css:4160 |
 | The OCR workspace tool row (INBOX 717). Here rather than in the boot | frontend/css/library-lazy.css:3665 |
 | The chat header stays one line (INBOX 91) | frontend/css/08-consistency.css:2229 |
-| The compact row: one line, one anchor, one chevron (INBOX 676) | frontend/css/08-consistency.css:10175 |
+| The compact row: one line, one anchor, one chevron (INBOX 676) | frontend/css/08-consistency.css:10176 |
 | The connection pill's menu button, concentric with the pill | frontend/css/08-consistency.css:8338 |
 | The documents editor: layout around the engine (DOCUMENTS_PLAN Phase 2) | frontend/css/09-editor.css:1 |
 | The five whiteboard menus (Insert, Edit, Arrange, View, Board) | frontend/css/08-consistency.css:1251 |
@@ -9329,7 +9329,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/05-sidebars-themes.css | 6228 |
 | frontend/css/06-timeline-dialogs.css | 3713 |
 | frontend/css/07-whiteboard-misc.css | 11943 |
-| frontend/css/08-consistency.css | 10461 |
+| frontend/css/08-consistency.css | 10462 |
 | frontend/css/09-editor.css | 1116 |
 | frontend/css/10-responsive.css | 2586 |
 | frontend/css/ask-compose-lazy.css | 33 |

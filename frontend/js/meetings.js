@@ -1632,7 +1632,9 @@ function recordingWave(rec, audio, time) {
   };
   const at = (event) => {
     const box = canvas.getBoundingClientRect();
-    return (event.clientX - box.left) / (box.width || 1);
+    //: The same inset as the bars (`recordingPaint`), so a press lands where it is drawn.
+    const inset = parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0;
+    return (event.clientX - box.left - inset) / (box.width - 2 * inset || 1);
   };
   //: Press and drag: the pointer is captured so a drag past the end still
   //: seeks, and the playhead follows the finger before the audio has caught up.
@@ -1682,7 +1684,9 @@ function recordingPaint(canvas, rec, played) {
   const rest = style.getPropertyValue("--muted").trim() || "#888";
   const ink = style.getPropertyValue("--text").trim() || "#222";
   const peaks = rec.peaks.length ? rec.peaks : [8];
-  const bar = canvas.width / peaks.length;
+  //: Bars stay off the rounded ends: inset by the track's own corner.
+  const inset = (parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0) * ratio;
+  const bar = (canvas.width - 2 * inset) / peaks.length;
   const mid = canvas.height / 2;
   //: Bars no thinner than 2 device pixels with a gap, so a long recording
   //: reads as a shape rather than a grey slab.
@@ -1691,20 +1695,20 @@ function recordingPaint(canvas, rec, played) {
     const h = Math.max(2 * ratio, (peak / 100) * (canvas.height - 8 * ratio));
     paint.globalAlpha = i / peaks.length < played ? 1 : 0.55;
     paint.fillStyle = i / peaks.length < played ? accent : rest;
-    paint.fillRect(i * bar, mid - h / 2, width, h);
+    paint.fillRect(inset + i * bar, mid - h / 2, width, h);
   });
   paint.globalAlpha = 1;
   //: A mark is a short tick from the top with a dot, so it never reads as
   //: the playhead, which runs the full height.
   paint.fillStyle = accent;
   for (const mark of rec.marks || []) {
-    const x = (mark.at / (rec.duration_ms || 1)) * canvas.width;
+    const x = inset + (mark.at / (rec.duration_ms || 1)) * (canvas.width - 2 * inset);
     paint.fillRect(x - ratio / 2, 0, ratio, canvas.height * 0.35);
     paint.beginPath();
     paint.arc(x, 3 * ratio, 3 * ratio, 0, Math.PI * 2);
     paint.fill();
   }
-  const x = Math.max(ratio, Math.min(canvas.width - ratio, played * canvas.width));
+  const x = Math.max(ratio, Math.min(canvas.width - ratio, inset + played * (canvas.width - 2 * inset)));
   paint.fillStyle = ink;
   paint.fillRect(x - ratio, 0, 2 * ratio, canvas.height);
 }

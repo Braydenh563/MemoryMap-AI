@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Whiteboard: more line ends. Open triangle and filled circle join the lists (seventeen ends, crow's foot named), a plain line shows Start and End before it has an end, the Format panel takes them for a drawn line, and the Line and Arrow tools choose the mark as well as which ends.
 - Whiteboard: an undone delete of a shape kept off every layer restores it exactly, with no empty layer field added.
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Security: a phone or another computer on the network can no longer make this computer act. Opening a folder, restarting or quitting the app, installing or running software (extras, updates, SearXNG), importing a folder of this computer's files, changing the model server and restoring a whole backup now answer "Only this computer can do that" to any other device.

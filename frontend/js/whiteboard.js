@@ -1360,7 +1360,11 @@ function wbArrowHeadPath(tipX, tipY, approachAngle, headLen) {
 //: width apart: the end stays one more subpath of the shaft's own `d`, so a
 //: line with a solid head is still one stroked path (hit-testing, move,
 //: resize and every export read it as before) and no end needs a fill.
-const WB_CAP_KINDS = ["none", "arrow", "triangle", "diamond", "diamond-filled", "bar", "circle", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
+//: `triangle-open` (UML's inheritance mark) and `circle-filled` were added for
+//: the owner's "more arrow options" (2026-10-11): the hollow triangle stops the
+//: shaft at its base like the other hollow ends; the filled circle is rings
+//: stepping in by a stroke width, the solid ends' own trick.
+const WB_CAP_KINDS = ["none", "arrow", "triangle", "triangle-open", "diamond", "diamond-filled", "bar", "circle", "circle-filled", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
 const WB_SOLID_CAPS = new Set(["triangle", "diamond-filled"]);
 
 //: The entity-relationship ends (the features audit W4): what is nearest the
@@ -1379,7 +1383,7 @@ const WB_ER_CAPS = {
 //: owner: the shaft shows through the shape). How far back from the tip the
 //: shape reaches along the line is the inset: the diamond's rear point, the
 //: circle's and the square's diameter. Solid ends and open marks need none.
-const WB_HOLLOW_INSET = { diamond: (h) => h * 1.1, circle: (h) => (h * 2) / 3, square: (h) => (h * 2) / 2.6 };
+const WB_HOLLOW_INSET = { diamond: (h) => h * 1.1, "triangle-open": (h) => h, circle: (h) => (h * 2) / 3, square: (h) => (h * 2) / 2.6 };
 function wbHollowInset(kind, headLen) {
   return WB_HOLLOW_INSET[kind]?.(headLen) || 0;
 }
@@ -1429,10 +1433,10 @@ function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
     const half = headLen * 0.5;
     return `M ${tipX - sin * half} ${tipY + cos * half} L ${tipX + sin * half} ${tipY - cos * half}`;
   }
-  if (kind === "triangle" || kind === "diamond" || kind === "diamond-filled") {
+  if (kind === "triangle" || kind === "triangle-open" || kind === "diamond" || kind === "diamond-filled") {
     const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
     //: Points in the line's own frame: along (back from the tip) and across.
-    const shape = kind === "triangle"
+    const shape = kind === "triangle" || kind === "triangle-open"
       ? [[0, 0], [headLen, headLen * 0.4], [headLen, -headLen * 0.4]]
       : [[0, 0], [headLen * 0.55, headLen * 0.34], [headLen * 1.1, 0], [headLen * 0.55, -headLen * 0.34]];
     const mid = [shape.reduce((n, p) => n + p[0], 0) / shape.length, 0];
@@ -1453,12 +1457,18 @@ function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
     for (let scale = 1; scale > step * 0.5; scale -= step) out.push(draw(scale));
     return out.join(" ");
   }
-  if (kind === "circle") {
+  if (kind === "circle" || kind === "circle-filled") {
     const r = headLen / 3;
     // Centred a radius back from the tip along the shaft, so the circle
     // sits *at* the end rather than half hanging past it.
     const cx = tipX - r * Math.cos(approachAngle), cy = tipY - r * Math.sin(approachAngle);
-    return `M ${cx - r} ${cy} A ${r} ${r} 0 1 0 ${cx + r} ${cy} A ${r} ${r} 0 1 0 ${cx - r} ${cy} Z`;
+    const ring = (q) => `M ${+(cx - q).toFixed(2)} ${+cy.toFixed(2)} A ${+q.toFixed(2)} ${+q.toFixed(2)} 0 1 0 ${+(cx + q).toFixed(2)} ${+cy.toFixed(2)} A ${+q.toFixed(2)} ${+q.toFixed(2)} 0 1 0 ${+(cx - q).toFixed(2)} ${+cy.toFixed(2)} Z`;
+    if (kind === "circle") return `M ${cx - r} ${cy} A ${r} ${r} 0 1 0 ${cx + r} ${cy} A ${r} ${r} 0 1 0 ${cx - r} ${cy} Z`;
+    //: Filled: rings a stroke's width apart down to the centre.
+    const step = Math.max(0.8, ((headLen - 6) / 4) * 0.8);
+    const out = [];
+    for (let q = r; q > step * 0.25; q -= step) out.push(ring(q));
+    return out.join(" ");
   }
   if (kind === "square") {
     const s = headLen / 2.6;
@@ -4006,8 +4016,8 @@ function wbNudgeSelection(dx, dy) {
 const WB_TOOL_SETTINGS = {
   draw: ["size", "dash"],
   highlighter: ["size"],
-  line: ["size", "ends", "dash"],
-  arrow: ["size", "ends", "dash"],
+  line: ["size", "ends", "head", "dash"],
+  arrow: ["size", "ends", "head", "dash"],
   rect: ["size", "dash", "fill"],
   circle: ["size", "dash", "fill"],
   triangle: ["size", "dash", "fill"],
@@ -4373,7 +4383,7 @@ function wbFillContextBar() {
     // plan's section 2 item 4, and a live report before it): a drawn line
     // reported "Arrow" at both ends because the control was showing
     // `window.currentArrowStyle` rather than what was on the shape.
-    const isArrow = wbSketchIsArrow(parsed.d);
+    const isArrow = wbSketchTakesCaps(parsed);
     document.querySelector('#wb-context [data-wb-ctx="caps"]')?.classList.toggle("hidden", !isArrow);
     if (isArrow) {
       const caps = wbSketchCaps(parsed);
@@ -12458,6 +12468,23 @@ async function initWhiteboard() {
     arrowStyleSelect.value = wbCurrentEndStyle();
     arrowStyleSelect.addEventListener("change", (e) => wbSetCurrentEndStyle(e.target.value));
   }
+  //: **The mark those ends wear** (the owner, 2026-10-11: "more arrow
+  //: options"): any of the selection's end kinds, one remembered choice for
+  //: both tools; the ends list above says where it goes.
+  const arrowHeadSelect = document.getElementById("wb-arrow-head");
+  const endList = document.getElementById("wb-prop-endcap");
+  if (arrowHeadSelect && endList && !arrowHeadSelect.options.length) {
+    for (const node of endList.children) arrowHeadSelect.append(node.cloneNode(true));
+    arrowHeadSelect.querySelector('option[value="none"]')?.remove();
+  }
+  window.currentArrowHead = WB_CAP_KINDS.includes(prefs.get("wb-arrow-head", null)) ? prefs.get("wb-arrow-head", null) : "arrow";
+  if (arrowHeadSelect) {
+    arrowHeadSelect.value = window.currentArrowHead;
+    arrowHeadSelect.addEventListener("change", (e) => {
+      window.currentArrowHead = WB_CAP_KINDS.includes(e.target.value) ? e.target.value : "arrow";
+      localStorage.setItem("wb-arrow-head", window.currentArrowHead);
+    });
+  }
 
   // Fill/stroke-style controls for the shape tools, asked for directly
   // ("stroke width, style, and colour... fill colour/transparency...
@@ -12644,7 +12671,7 @@ async function initWhiteboard() {
       return;
     }
     const parsed = wbSketchParsedData(sketch);
-    if (!parsed || !wbSketchIsArrow(parsed.d)) return;
+    if (!wbSketchTakesCaps(parsed)) return;
     const current = wbSketchCaps(parsed);
     current[which] = value;
     const headLen = (parsed.width || WB_STROKE_WIDTH) * 4 + 6;
@@ -15169,13 +15196,8 @@ async function initWhiteboard() {
         // *can* carry an arrowhead, but each tool keeps its own remembered
         // default (Line: none, Arrow: end): see the live-reported bug fix
         // on `currentLineEndStyle`/`currentArrowEndStyle` in `initWhiteboard`.
-        const angle = Math.atan2(y - sy, x - sx);
-        const headLen = WB_STROKE_WIDTH * 4 + 6;
-        let d = `M ${sx} ${sy} L ${x} ${y}`;
-        const style = (window.currentTool === "line" ? window.currentLineEndStyle : window.currentArrowEndStyle) || "none";
-        if (style === "end" || style === "both") d += " " + wbArrowHeadPath(x, y, angle, headLen);
-        if (style === "start" || style === "both") d += " " + wbArrowHeadPath(sx, sy, angle + Math.PI, headLen);
-        currentDrawPath.setAttribute("d", d);
+        const caps = wbToolCaps();
+        currentDrawPath.setAttribute("d", wbRegenerateShapeCaps(`M ${sx} ${sy} L ${x} ${y}`, caps.startCap, caps.endCap, WB_STROKE_WIDTH * 4 + 6));
       } else if (window.currentTool === "rect") {
         const mx = Math.min(sx, x), my = Math.min(sy, y);
         const { w, h } = wbShapeDims(x - sx, y - sy, e.shiftKey);
@@ -15247,6 +15269,9 @@ async function initWhiteboard() {
       width: isHighlighter ? wbHighlighterWidth(WB_STROKE_WIDTH) : WB_STROKE_WIDTH,
       shape: window.currentTool,
     };
+    //: The ends are stored by kind, so the bar and the Format panel read
+    //: what was drawn rather than sniffing it out of the path.
+    if (window.currentTool === "line" || window.currentTool === "arrow") Object.assign(blob, wbToolCaps());
     if (isHighlighter) {
       blob.opacity = WB_HIGHLIGHTER_ALPHA;
     } else {
@@ -16526,6 +16551,26 @@ async function wbBucketFillSketch(sketch) {
 //: stroke without a dedicated `kind` field on every sketch.
 function wbSketchIsArrow(d) {
   return (d.match(/M/g) || []).length > 1;
+}
+
+//: **A straight line takes ends whether or not it has one yet** (the owner,
+//: 2026-10-11: a plain line offered no arrowheads, because the bar showed the
+//: end lists only for a path that already carried one).
+function wbSketchTakesCaps(parsed) {
+  if (!parsed || typeof parsed.d !== "string") return false;
+  if (!/^M\s*-?[\d.]+(?:e-?\d+)?\s+-?[\d.]+(?:e-?\d+)?\s+L\s*-?[\d.]+(?:e-?\d+)?\s+-?[\d.]+(?:e-?\d+)?(?:\s+M|\s*$)/.test(parsed.d)) return false;
+  return parsed.shape === "line" || parsed.shape === "arrow" || wbSketchIsArrow(parsed.d);
+}
+
+//: What the Line or Arrow tool puts on its two ends: which ends (`End`,
+//: `Start`, `Both`, `Plain`) and the mark (`window.currentArrowHead`).
+function wbToolCaps() {
+  const style = (window.currentTool === "line" ? window.currentLineEndStyle : window.currentArrowEndStyle) || "none";
+  const head = WB_CAP_KINDS.includes(window.currentArrowHead) ? window.currentArrowHead : "arrow";
+  return {
+    startCap: style === "start" || style === "both" ? head : "none",
+    endCap: style === "end" || style === "both" ? head : "none",
+  };
 }
 
 //: Rebuilds a line/arrow's own two end caps from its shaft, the shaft is

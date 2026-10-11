@@ -7171,6 +7171,10 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="both">Both ends</option>
           <option value="none">Plain</option>
         </select>
+        <!-- Which mark those ends wear (the owner, 2026-10-11: "more arrow
+             options"): the selection's own end list, copied in at start
+             (`wbInitToolHead`), so the two can never offer different ends. -->
+        <select id="wb-arrow-head" aria-label="Arrowhead" title="Arrowhead: the mark the Line and Arrow tools put on their ends" data-wb-tool-setting="head"></select>
         <select id="wb-stroke-style" aria-label="Line style" title="Line style" data-wb-tool-setting="dash">
           <option value="solid">Solid</option>
           <option value="dashed">Dashed</option>
@@ -7209,10 +7213,12 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="none" data-menu-class="wb-cap wb-cap-none wb-cap-start">None</option>
             <option value="arrow" data-menu-class="wb-cap wb-cap-arrow wb-cap-start">Open arrow</option>
             <option value="triangle" data-menu-class="wb-cap wb-cap-triangle wb-cap-start">Filled triangle</option>
+            <option value="triangle-open" data-menu-class="wb-cap wb-cap-triangle-open wb-cap-start">Open triangle</option>
             <option value="diamond" data-menu-class="wb-cap wb-cap-diamond wb-cap-start">Diamond</option>
             <option value="diamond-filled" data-menu-class="wb-cap wb-cap-diamond-filled wb-cap-start">Filled diamond</option>
             <option value="bar" data-menu-class="wb-cap wb-cap-bar wb-cap-start">Bar</option>
             <option value="circle" data-menu-class="wb-cap wb-cap-circle wb-cap-start">Circle</option>
+            <option value="circle-filled" data-menu-class="wb-cap wb-cap-circle-filled wb-cap-start">Filled circle</option>
             <option value="square" data-menu-class="wb-cap wb-cap-square wb-cap-start">Square</option>
             <option value="multiline" data-menu-class="wb-cap wb-cap-multiline wb-cap-start">Multi-line</option>
           </optgroup>
@@ -7220,7 +7226,7 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="er-one" data-menu-class="wb-cap wb-cap-er-one wb-cap-start">One</option>
             <option value="er-one-only" data-menu-class="wb-cap wb-cap-er-one-only wb-cap-start">One and only one</option>
             <option value="er-zero-one" data-menu-class="wb-cap wb-cap-er-zero-one wb-cap-start">Zero or one</option>
-            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many wb-cap-start">Many</option>
+            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many wb-cap-start">Many (crow's foot)</option>
             <option value="er-one-many" data-menu-class="wb-cap wb-cap-er-one-many wb-cap-start">One or many</option>
             <option value="er-zero-many" data-menu-class="wb-cap wb-cap-er-zero-many wb-cap-start">Zero or many</option>
           </optgroup>
@@ -7230,10 +7236,12 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="none" data-menu-class="wb-cap wb-cap-none">None</option>
             <option value="arrow" data-menu-class="wb-cap wb-cap-arrow">Open arrow</option>
             <option value="triangle" data-menu-class="wb-cap wb-cap-triangle">Filled triangle</option>
+            <option value="triangle-open" data-menu-class="wb-cap wb-cap-triangle-open">Open triangle</option>
             <option value="diamond" data-menu-class="wb-cap wb-cap-diamond">Diamond</option>
             <option value="diamond-filled" data-menu-class="wb-cap wb-cap-diamond-filled">Filled diamond</option>
             <option value="bar" data-menu-class="wb-cap wb-cap-bar">Bar</option>
             <option value="circle" data-menu-class="wb-cap wb-cap-circle">Circle</option>
+            <option value="circle-filled" data-menu-class="wb-cap wb-cap-circle-filled">Filled circle</option>
             <option value="square" data-menu-class="wb-cap wb-cap-square">Square</option>
             <option value="multiline" data-menu-class="wb-cap wb-cap-multiline">Multi-line</option>
           </optgroup>
@@ -7241,7 +7249,7 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="er-one" data-menu-class="wb-cap wb-cap-er-one">One</option>
             <option value="er-one-only" data-menu-class="wb-cap wb-cap-er-one-only">One and only one</option>
             <option value="er-zero-one" data-menu-class="wb-cap wb-cap-er-zero-one">Zero or one</option>
-            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many">Many</option>
+            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many">Many (crow's foot)</option>
             <option value="er-one-many" data-menu-class="wb-cap wb-cap-er-one-many">One or many</option>
             <option value="er-zero-many" data-menu-class="wb-cap wb-cap-er-zero-many">Zero or many</option>
           </optgroup>

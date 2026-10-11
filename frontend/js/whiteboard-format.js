@@ -56,13 +56,16 @@ function wbFmtKind(entry) {
   }
   if (String(parsed?.type || "").startsWith("link-")) return wbLinkTakesLabel(entry.item, parsed) ? "link" : null;
   if (typeof parsed?.d !== "string") return null;
-  return wbShapeLabelKind(parsed) ? "shape" : "line";
+  if (wbShapeLabelKind(parsed)) return "shape";
+  return wbSketchTakesCaps(parsed) ? "arrow" : "line";
 }
 
 //: The fields each kind takes, by the `data-fmt` names in index.html.
 const WB_FMT_FIELDS = {
   shape: ["stroke", "width", "dash", "fill", "alpha", "shadow", "rough", "text", "geometry", "flip", "style-lib", "props"],
   line: ["stroke", "width", "dash", "alpha", "shadow", "rough", "geometry", "flip", "style-lib", "props"],
+  //: A straight line or arrow: a line that takes ends.
+  arrow: ["stroke", "width", "dash", "caps", "alpha", "shadow", "rough", "geometry", "flip", "style-lib", "props"],
   link: ["stroke", "width", "dash", "alpha", "rough", "route", "jumps", "caps", "label-t", "props"],
   text: ["stroke", "fill", "alpha", "shadow", "fold", "text", "geometry", "angle", "style-lib", "props"],
   image: ["alpha", "shadow", "geometry", "angle", "props"],
@@ -95,8 +98,8 @@ function wbFmtValue(entry, field) {
     case "rough": return wbDrawsRough(s, false);
     case "route": return wbLinkRouteName(s);
     case "jumps": return WB_JUMP_STYLES.includes(s?.jumps) ? s.jumps : "none";
-    case "startcap": return wbLinkCaps(s).startCap;
-    case "endcap": return wbLinkCaps(s).endCap;
+    case "startcap": return (kind === "arrow" ? wbSketchCaps(s) : wbLinkCaps(s)).startCap;
+    case "endcap": return (kind === "arrow" ? wbSketchCaps(s) : wbLinkCaps(s)).endCap;
     case "label-t": return Math.round(wbLinkLabelT(s) * 100);
     case "size": return kind === "shape" ? s.label_size || 16 : o.font_size || 16;
     case "bold": return Boolean(kind === "shape" ? s.label_bold : o.bold);
@@ -573,9 +576,16 @@ onDomReady(() => {
     wbFmtApply("jumps", () => ({ jumps: style === "none" ? undefined : style }), `Line jumps: ${e.target.selectedOptions[0]?.textContent || style}.`);
   });
   for (const which of ["start", "end"]) {
-    on(`wb-fmt-${which}cap`, "change", (e) => wbFmtApply("caps", (entry) => {
-      const caps = wbLinkCaps(wbFmtSketch(entry));
+    on(`wb-fmt-${which}cap`, "change", (e) => wbFmtApply("caps", (entry, kind) => {
+      const parsed = wbFmtSketch(entry);
+      //: A drawn line carries its ends in its path, so the path is redrawn;
+      //: a connector's are drawn from the two fields at render time.
+      const caps = kind === "arrow" ? wbSketchCaps(parsed) : wbLinkCaps(parsed);
       caps[`${which}Cap`] = e.target.value;
+      if (kind === "arrow") {
+        const d = wbRegenerateShapeCaps(parsed.d, caps.startCap, caps.endCap, (parsed.width || 3) * 4 + 6);
+        return { d, startCap: caps.startCap, endCap: caps.endCap };
+      }
       return { startCap: caps.startCap, endCap: caps.endCap, endStyle: undefined };
     }, `${which === "start" ? "Start" : "End"}: ${e.target.selectedOptions[0]?.textContent || e.target.value}.`));
   }

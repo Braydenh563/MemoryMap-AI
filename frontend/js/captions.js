@@ -139,7 +139,7 @@ async function startLiveCaptions() {
   }
   let stream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: micAudioConstraints() });
   } catch {
     toast("Microphone access was blocked, allow it in your browser.", "info");
     return;

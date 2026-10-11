@@ -2197,7 +2197,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened by a gesture; the closers are called only once it is open.
   search: ["openFinder"],
   statistics: ["openStatistics", "renderWeekWidget"],
-  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "saveMeetingNote", "resetMeetingUI"],
+  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "saveMeetingNote", "resetMeetingUI", "openRecordings"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import threading
 from datetime import timedelta
 from pathlib import Path
 
@@ -105,6 +106,66 @@ def marks_of(recording: Recording) -> list[dict]:
     return out
 
 
+# --- transcription in the background (UI_MODERNISATION V1, INBOX 828) ----------
+#
+# A run per recording, in memory and for this process: closing the dialog or
+# the Recordings tab never stops it, and the row reads its state and progress
+# from here. The run itself is an `activity` job, so the running panel lists it
+# with Stop, and the ledger keeps it after it ends.
+
+_runs_lock = threading.Lock()
+_runs: dict[int, dict] = {}
+_done: dict[int, threading.Event] = {}
+
+
+def transcription_of(recording_id: int) -> dict | None:
+    with _runs_lock:
+        run = _runs.get(recording_id)
+        return dict(run) if run else None
+
+
+def begin_transcription(recording_id: int, job_id: str) -> bool:
+    """False when one is already running for this recording."""
+    with _runs_lock:
+        if (_runs.get(recording_id) or {}).get("state") == "running":
+            return False
+        _runs[recording_id] = {"state": "running", "progress": 0.0, "job_id": job_id, "error": "", "words": 0}
+        _done[recording_id] = threading.Event()
+        return True
+
+
+def note_progress(recording_id: int, progress: float | None) -> None:
+    with _runs_lock:
+        if recording_id in _runs and progress is not None:
+            _runs[recording_id]["progress"] = round(max(0.0, min(1.0, progress)), 3)
+
+
+def end_transcription(recording_id: int, state: str, error: str = "", words: int = 0) -> None:
+    with _runs_lock:
+        run = _runs.setdefault(recording_id, {"job_id": ""})
+        run.update(state=state, error=error, words=words, progress=1.0 if state == "done" else run.get("progress"))
+        event = _done.pop(recording_id, None)
+    if event is not None:
+        event.set()
+
+
+def wait_transcription(recording_id: int, timeout: float) -> bool:
+    """For tests and shutdown: True once the run has ended (or none ran)."""
+    with _runs_lock:
+        event = _done.get(recording_id)
+    return True if event is None else event.wait(timeout)
+
+
+def _forget_runs() -> None:
+    """A fresh data dir starts with no runs; its ids are reused."""
+    with _runs_lock:
+        _runs.clear()
+        _done.clear()
+
+
+deps.register_cache_reset(_forget_runs)
+
+
 def as_dict(recording: Recording) -> dict:
     marks = marks_of(recording)
     return {
@@ -120,6 +181,7 @@ def as_dict(recording: Recording) -> dict:
         #: The lines themselves are read on their own route: an hour is
         #: about 700 of them, and the shelf lists 500 recordings.
         "transcribed": (recording.segments or "[]") != "[]",
+        "transcription": transcription_of(recording.id),
         "entry_id": recording.entry_id,
         "source_id": recording.source_id,
         "state": recording.state,

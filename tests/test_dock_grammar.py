@@ -65,6 +65,8 @@ ZONES = ["dock-identity", "dock-find", "dock-arrange", "dock-actions"]
 ON_THE_GRAMMAR = {
     # The live captions dock, floated over any surface (captions.js, Brief 82).
     "captions",
+    # A recording that outlives its dialog (meetings.js, UI_MODERNISATION V1).
+    "recording",
     "chat",
     "graph",
     "library",

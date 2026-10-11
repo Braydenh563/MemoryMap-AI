@@ -844,10 +844,37 @@ function setMeetingState(state) {
   $("meeting-marker").classList.toggle("hidden", !live);
   $("meeting-timer").classList.toggle("hidden", !live);
   $("meeting-progress").classList.toggle("hidden", state !== "transcribing");
+  $("meeting-stop-transcribe")?.classList.toggle("hidden", state !== "transcribing");
+  $("meeting-discard-take")?.classList.toggle("hidden", !live);
   const review = state === "review";
   $("meeting-transcript").classList.toggle("hidden", !review);
   $("meeting-save-row").classList.toggle("hidden", !review);
   stagePrimary("meeting-record", "meeting-save", review);
+  syncRecordingDock();
+}
+
+//: **A recording outlives its dialog** (UI_MODERNISATION V1, INBOX 828):
+//: closed while recording, the dialog folds into this dock over every
+//: surface, with the clock, Pause and Stop, and Open to bring it back.
+function syncRecordingDock() {
+  const dock = $("recording-dock");
+  if (!dock) return;
+  const state = $("meeting-card").dataset.state;
+  const live = state === "recording" || state === "paused";
+  const shown = live && $("meeting-overlay").classList.contains("hidden");
+  //: Its place over every surface is the captions dock's rule (captions-lazy.css).
+  if (shown) ensureModule("captions");
+  dock.classList.toggle("hidden", !shown);
+  dock.classList.toggle("is-paused", state === "paused");
+  setLabel($("recording-dock-pause"), state === "paused" ? "ph:play Resume" : "ph:pause Pause");
+  $("recording-dock-title").textContent = ($("meeting-title")?.value || "").trim() || "Recording";
+}
+
+//: The clock in the dialog and the dock, from one place.
+function meetingTick() {
+  const text = meetingElapsedText();
+  $("meeting-timer").textContent = text;
+  if ($("recording-dock-time")) $("recording-dock-time").textContent = text;
 }
 
 // Resets the overlay to "ready to record", whether it's opening fresh or
@@ -874,6 +901,9 @@ function resetMeetingUI() {
 //: global-scope ratchet).
 
 async function openMeetingRecorder() {
+  //: A recording folded into the dock is brought back, not reset.
+  if (meetingRecorder) return showMeetingRecorder();
+  nameMeetingMic();
   overlayReturnFocus = document.activeElement;
   delete $("meeting-overlay").dataset.target;
   $("meeting-overlay").classList.remove("meeting-into", "voice-note");
@@ -892,10 +922,32 @@ function openVoiceNote() {
   $("meeting-overlay").classList.add("voice-note");
 }
 
-// Recording is stopped (discarded, not transcribed) rather than left running
-// in the background: a MediaRecorder with no owner is a live microphone
-// nobody is looking at.
+function showMeetingRecorder() {
+  $("meeting-overlay").classList.remove("hidden");
+  syncRecordingDock();
+  $("meeting-record").focus();
+}
+
+//: Closed while recording, the recording goes on in the dock (V1): a live
+//: microphone is never ownerless, because the dock says it is listening and
+//: stops it. Discard is the way to throw a take away
+//: (`discardMeetingTake`). Closed in any other state the dialog just goes;
+//: a transcription carries on in the background.
 function closeMeetingRecorder() {
+  if (meetingRecorder && meetingRecorder.state !== "inactive") {
+    $("meeting-overlay").classList.add("hidden");
+    syncRecordingDock();
+    overlayReturnFocus?.focus?.();
+    overlayReturnFocus = null;
+    return;
+  }
+  $("meeting-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
+}
+
+//: Discard while recording: what was sent goes to the bin, not nowhere.
+function discardMeetingTake() {
   if (meetingRecorder && meetingRecorder.state !== "inactive") {
     // A discard is not transcribed: the stop listener reads this (`onstop = null`
     // here removed nothing, the listener is an `addEventListener` one).
@@ -908,9 +960,8 @@ function closeMeetingRecorder() {
   meetingRecorder = null;
   meetingStream = null;
   stopMeetingTimer();
-  $("meeting-overlay").classList.add("hidden");
-  overlayReturnFocus?.focus?.();
-  overlayReturnFocus = null;
+  resetMeetingUI();
+  meetingSay("Discarded. The audio is in the bin.");
 }
 
 async function toggleMeetingRecording() {
@@ -934,7 +985,7 @@ async function toggleMeetingRecording() {
     voiceStatus = await apiJson("/voice/status").catch(() => ({ available: false }));
   }
   try {
-    meetingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    meetingStream = await navigator.mediaDevices.getUserMedia({ audio: micAudioConstraints() });
   } catch {
     meetingSay("Microphone access was blocked, allow it in your browser.", true);
     return;
@@ -969,9 +1020,7 @@ function meetingSay(text, error = false) {
 function meetingRecordingStarted(button) {
   meetingStartedAt = Date.now();
   $("meeting-timer").textContent = meetingElapsedText();
-  meetingTimerHandle = setInterval(() => {
-    $("meeting-timer").textContent = meetingElapsedText();
-  }, 1000);
+  meetingTimerHandle = setInterval(meetingTick, 1000);
   button.classList.add("recording");
   setLabel(button, "ph:stop Stop");
   // Appended after setLabel, not before: setLabel's replaceChildren() wipes
@@ -1013,33 +1062,63 @@ async function meetingRecordingStopped(recorder, button) {
     return;
   }
   const length = meetingClockText(saved.duration_ms);
+  const away = $("meeting-overlay").classList.contains("hidden");
   if (!voiceStatus?.available) {
     setMeetingState("saved");
     meetingSay(`Saved a ${length} recording (${meetingContainerName(saved.mime)}). Transcribing it needs the Voice notes add-on, in Settings, Packages.`);
+    //: Stopped from the dock: the dialog is not on screen to say so.
+    if (away) toastAction(`Saved “${saved.title || "Recording"}”, ${length}.`, "Open", () => openRecordings(saved.id));
     return;
   }
   return meetingTranscribeTake(saved, length);
 }
 
+//: **Transcribed in the background** (V1): the run is the server's, so
+//: closing this dialog never stops it. While it is open the bar shows how far
+//: it is and Stop ends it; done with the dialog still on this take, the
+//: transcript comes back here to review; otherwise a notification says so.
 async function meetingTranscribeTake(saved, length) {
-  meetingSay(`Saved a ${length} recording. Transcribing it; a long recording can take a while on CPU.`);
+  meetingSay(`Saved a ${length} recording. Transcribing it in the background: close this if you like, you will be told when it is done.`);
+  const progress = $("meeting-progress");
+  progress.removeAttribute("value");
   try {
-    const body = await apiJson(`/recordings/${saved.id}/transcribe`, { method: "POST" });
-    const text = (body.text || "").trim();
-    if (!text) {
-      setMeetingState("saved");
-      meetingSay(`Nothing was heard in that recording. The ${length} of audio is kept in Recordings.`);
-      return;
-    }
-    meetingSay(`Transcript of ${length}. Read it, trim it, then save. The audio is kept in Recordings.`);
-    $("meeting-transcript").value = text;
-    setMeetingState("review");
-    autoGrow($("meeting-transcript"));
-    $("meeting-transcript").focus();
+    await startRecordingTranscription(saved, {
+      progress: (run) => {
+        if (meetingTake.id !== saved.id || run.progress == null) return;
+        progress.max = 1;
+        progress.value = run.progress;
+        meetingSay(`Transcribing ${length}: ${Math.round(run.progress * 100)}%. Close this if you like; you will be told when it is done.`);
+      },
+      here: () => meetingTake.id === saved.id && !$("meeting-overlay").classList.contains("hidden") && $("meeting-card").dataset.state === "transcribing",
+      done: async (run) => {
+        const body = await apiJson(`/recordings/${saved.id}/transcript`).catch(() => ({ segments: [] }));
+        const text = body.segments.map((seg) => seg.text).join(" ").trim();
+        if (!text) {
+          setMeetingState("saved");
+          return meetingSay(`Nothing was heard in that recording. The ${length} of audio is kept in Recordings.`);
+        }
+        meetingSay(`Transcript of ${length}. Read it, trim it, then save. The audio is kept in Recordings.`);
+        $("meeting-transcript").value = text;
+        setMeetingState("review");
+        autoGrow($("meeting-transcript"));
+        $("meeting-transcript").focus();
+      },
+      ended: (run) => {
+        if (meetingTake.id !== saved.id) return;
+        setMeetingState("saved");
+        if (run.state === "failed") meetingSay(`Saved a ${length} recording, but it couldn't be transcribed: ${run.error}`, true);
+        else meetingSay(`Stopped transcribing. The ${length} of audio is kept in Recordings; Transcribe from its ⋯ starts again.`);
+      },
+    });
   } catch (error) {
     setMeetingState("saved");
     meetingSay(`Saved a ${length} recording, but it couldn't be transcribed: ${error.message}`, true);
   }
+}
+
+//: The dialog's Stop while transcribing.
+async function stopMeetingTranscription() {
+  if (meetingTake.id) await stopRecordingTranscription(meetingTake.id);
 }
 
 //: Closed while recording: what was sent goes to the bin, not nowhere, so
@@ -1081,9 +1160,7 @@ function toggleMeetingPause() {
     // Push the start forward by however long the pause lasted, so the timer
     // keeps reading as the length of the audio rather than of the sitting.
     meetingStartedAt += Date.now() - meetingPausedAt;
-    meetingTimerHandle = setInterval(() => {
-      $("meeting-timer").textContent = meetingElapsedText();
-    }, 1000);
+    meetingTimerHandle = setInterval(meetingTick, 1000);
     setLabel(button, "ph:pause Pause");
     setMeetingState("recording");
     $("meeting-status").textContent = "Recording.";
@@ -1289,6 +1366,8 @@ function recordingRow(rec) {
   if (rec.transcribed) li.append(...recordingTranscript(rec, audio));
   li.append(audio);
   recordingMarksFill(li);
+  recordingRunLine(li);
+  if (rec.transcription?.state === "running" && !recordingWatches.has(rec.id)) watchRecordingTranscription(rec, {});
   //: M on the card marks the playhead, as M marks the moment while
   //: recording; stopped here because M also opens the app's chords.
   li.addEventListener("keydown", (event) => {
@@ -1673,21 +1752,131 @@ async function binRecording(rec) {
   toastAction(`“${rec.title || "Recording"}” is in the bin.`, "Undo", undo);
 }
 
+//: The ⋯'s Transcribe: a background run (V1), its progress on the card and
+//: in the running panel; when it ends the transcript is saved as a note and
+//: a notification says so, with Open.
 async function transcribeRecording(rec) {
-  toast("Transcribing; a long recording can take a while on this computer.", "info");
   try {
-    const body = await apiJson(`/recordings/${rec.id}/transcribe`, { method: "POST" });
-    //: Its lines, with their times, now sit under the recording.
-    renderRecordings();
-    const text = (body.text || "").trim();
-    if (!text) return toast("Nothing was heard in that recording.", "info");
-    const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${rec.title || "Recording"}\n\n${text}` }) });
-    const binned = meetingBinPair("note", made.id);
-    pushUndo("Saved a transcript as a note", binned.undo, binned.redo);
-    await refreshEntries([made.id]).catch(() => {});
-    toastAction("Transcript saved as a note.", "Open", () => flashEntry(made.id));
+    await startRecordingTranscription(rec, {
+      done: async () => {
+        const body = await apiJson(`/recordings/${rec.id}/transcript`).catch(() => ({ segments: [] }));
+        const text = body.segments.map((seg) => seg.text).join(" ").trim();
+        if (!text) return toast(`Nothing was heard in “${rec.title || "Recording"}”.`, "info");
+        const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${rec.title || "Recording"}\n\n${text}` }) });
+        const binned = meetingBinPair("note", made.id);
+        pushUndo("Saved a transcript as a note", binned.undo, binned.redo);
+        await refreshEntries([made.id]).catch(() => {});
+      },
+    });
+    toast("Transcribing in the background; you will be told when it is done.", "info");
   } catch (error) {
     toast(error.message || "Couldn't transcribe that recording.", true);
+  }
+}
+
+// --- background transcription (UI_MODERNISATION V1, INBOX 828) ---------------
+//
+// The run is the server's (`POST /recordings/{id}/transcribe/start`); this
+// page watches it, once per recording, from the moment it starts until it
+// ends, whatever is on screen. Every card of that recording shows its
+// progress and a Stop; the ending is a notification with Open, so it is
+// found after the dialog, the tab or the panel that started it has gone.
+// A reload loses the watch, not the run: the card still reads its state.
+
+const RECORDING_WATCH_MS = 1500;
+const recordingWatches = new Map();
+
+async function startRecordingTranscription(rec, hooks = {}) {
+  const body = await apiJson(`/recordings/${rec.id}/transcribe/start`, { method: "POST" });
+  watchRecordingTranscription(rec, hooks);
+  recordingCardsRun(rec.id, body.transcription);
+  return body;
+}
+
+async function stopRecordingTranscription(id) {
+  try {
+    const body = await apiJson(`/recordings/${id}/transcribe/stop`, { method: "POST" });
+    if (!body.stopped) toast(body.detail, "info");
+  } catch (error) {
+    toast(error.message || "Couldn't stop that.", true);
+  }
+}
+
+function watchRecordingTranscription(rec, hooks) {
+  clearTimeout(recordingWatches.get(rec.id));
+  const poll = async () => {
+    const now = await apiJson(`/recordings/${rec.id}`, { silent: true }).catch(() => null);
+    const run = now?.transcription;
+    if (!run || run.state === "running") {
+      if (run) {
+        hooks.progress?.(run);
+        recordingCardsRun(rec.id, run);
+      }
+      recordingWatches.set(rec.id, setTimeout(poll, RECORDING_WATCH_MS));
+      return;
+    }
+    recordingWatches.delete(rec.id);
+    await recordingTranscriptionEnded(now, run, hooks);
+  };
+  recordingWatches.set(rec.id, setTimeout(poll, RECORDING_WATCH_MS));
+}
+
+async function recordingTranscriptionEnded(rec, run, hooks) {
+  const name = rec.title || "Recording";
+  for (const li of document.querySelectorAll(`#recordings-list [data-recording-id="${Number(rec.id)}"]`)) {
+    if (li.recording) li.recording.rec.transcribed = rec.transcribed;
+  }
+  recordingCardsRun(rec.id, run);
+  const here = hooks.here?.() || false;
+  if (run.state === "done") {
+    await hooks.done?.(run);
+    if (!here) {
+      recordNotification({ kind: "task", title: `Transcript ready: “${name}”`, detail: `${run.words} words`, key: `transcription:${rec.id}:${Date.now()}`, action: { open: "recording", id: rec.id } });
+      toastAction(`Transcript ready: “${name}”.`, "Open", () => openRecordings(rec.id));
+    }
+  } else if (run.state === "failed") {
+    hooks.ended?.(run);
+    recordNotification({ kind: "error", title: `Couldn't transcribe “${name}”`, detail: run.error, key: `transcription:${rec.id}:${Date.now()}`, action: { open: "recording", id: rec.id } });
+    if (!here) toastAction(`Couldn't transcribe “${name}”: ${run.error}`, "Open", () => openRecordings(rec.id));
+  } else {
+    hooks.ended?.(run);
+    if (!here) toast(`Stopped transcribing “${name}”.`, "info");
+  }
+  if (!$("library-view-recordings")?.classList.contains("hidden")) renderRecordings();
+}
+
+//: Every card of the recording, told how its run is going: the facts line,
+//: and a bar with Stop while it runs.
+function recordingCardsRun(id, run) {
+  for (const li of document.querySelectorAll(`#recordings-list [data-recording-id="${Number(id)}"]`)) {
+    if (!li.recording) continue;
+    li.recording.rec.transcription = run;
+    li.recording.facts.textContent = recordingFacts(li.recording.rec);
+    recordingRunLine(li);
+  }
+}
+
+function recordingRunLine(li) {
+  const { rec } = li.recording;
+  const running = rec.transcription?.state === "running";
+  let line = li.querySelector(".recording-run");
+  if (!running) return line?.remove();
+  if (!line) {
+    line = document.createElement("div");
+    line.className = "recording-run";
+    const bar = document.createElement("progress");
+    bar.className = "recording-run-bar";
+    bar.setAttribute("aria-label", `Transcribing ${rec.title || "this recording"}`);
+    const stop = smallButton("ph:stop Stop", "Stop transcribing; nothing is kept", () => stopRecordingTranscription(rec.id));
+    stop.classList.add("quiet");
+    line.append(bar, stop);
+    li.querySelector(".recording-player").after(line);
+  }
+  const bar = line.querySelector("progress");
+  if (rec.transcription.progress == null) bar.removeAttribute("value");
+  else {
+    bar.max = 1;
+    bar.value = rec.transcription.progress;
   }
 }
 
@@ -1838,10 +2027,216 @@ $("meeting-pause")?.addEventListener("click", toggleMeetingPause);
 //: its name field is the same; stopped here, because M is also the first key
 //: of the app's chords (m then s), and while recording it is the marker.
 $("meeting-marker")?.addEventListener("click", addMeetingMarker);
+$("meeting-discard-take")?.addEventListener("click", discardMeetingTake);
+$("meeting-stop-transcribe")?.addEventListener("click", stopMeetingTranscription);
+//: The dock (V1) is in the page from boot but shows only once this bundle
+//: has started a recording, so its handlers are this bundle's.
+$("recording-dock-open")?.addEventListener("click", showMeetingRecorder);
+$("recording-dock-pause")?.addEventListener("click", () => {
+  toggleMeetingPause();
+  syncRecordingDock();
+});
+$("recording-dock-stop")?.addEventListener("click", () => toggleMeetingRecording());
 $("meeting-overlay")?.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() !== "m" || event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.target.closest("input, textarea") || $("meeting-marker").classList.contains("hidden")) return;
   event.preventDefault();
   event.stopPropagation();
   addMeetingMarker();
+});
+
+// --- the microphone, chosen and tested (UI_MODERNISATION V2, INBOX 828) -------
+//
+// One set of controls, drawn into the recorder's Microphone fold and into
+// Settings, General, Microphone: which input, the browser's noise
+// suppression, echo cancellation and automatic gain (each a switch, on by
+// default, kept on this computer and read by `micAudioConstraints`), a live
+// level and a three-second test that plays back what it heard. A device
+// list carries names only once the browser has been allowed the microphone,
+// so the test also fills them in.
+
+const MIC_SWITCHES = [
+  ["micNoise", "Noise suppression", "Quietens steady background noise: fans, hum, traffic"],
+  ["micEcho", "Echo cancellation", "Removes the speakers' sound coming back into the microphone"],
+  ["micGain", "Automatic gain", "Evens out loud and quiet speech"],
+];
+const MIC_TEST_MS = 3000;
+
+function micControlsInto(host) {
+  host.replaceChildren();
+  host.classList.add("mic-controls");
+  const id = `mic-device-${host.id || Math.random().toString(36).slice(2, 7)}`;
+  const select = document.createElement("select");
+  select.id = id;
+  select.className = "mic-device";
+  select.setAttribute("aria-label", "Microphone");
+  select.addEventListener("change", () => {
+    prefs.set("micDevice", select.value);
+    syncMicSelects(select);
+  });
+  const deviceRow = document.createElement("div");
+  deviceRow.className = "row space-between setting-row";
+  const label = document.createElement("label");
+  label.htmlFor = id;
+  label.textContent = "Microphone";
+  deviceRow.append(label, select);
+  host.appendChild(deviceRow);
+  for (const [key, name, hint] of MIC_SWITCHES) {
+    const row = document.createElement("label");
+    row.className = "check-row";
+    row.title = hint;
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.dataset.micPref = key;
+    box.checked = prefs.bool(key, true);
+    box.addEventListener("change", () => {
+      prefs.set(key, box.checked ? "1" : "0");
+      document.querySelectorAll(`input[data-mic-pref="${key}"]`).forEach((other) => (other.checked = box.checked));
+    });
+    const words = document.createElement("span");
+    words.textContent = name;
+    row.append(box, words);
+    host.appendChild(row);
+  }
+  const test = document.createElement("div");
+  test.className = "mic-test";
+  const level = document.createElement("div");
+  level.className = "mic-level";
+  level.setAttribute("role", "meter");
+  level.setAttribute("aria-label", "Microphone level");
+  level.setAttribute("aria-valuemin", "0");
+  level.setAttribute("aria-valuemax", "100");
+  level.setAttribute("aria-valuenow", "0");
+  const fill = document.createElement("span");
+  fill.className = "mic-level-fill";
+  level.appendChild(fill);
+  const status = document.createElement("p");
+  status.className = "muted mic-test-status";
+  status.setAttribute("role", "status");
+  status.textContent = "Test records three seconds and plays them back.";
+  const button = smallButton("ph:microphone Test", "Record three seconds with these settings and play them back", () => testMicrophone(level, status, button));
+  button.classList.add("mic-test-button");
+  test.append(button, level);
+  host.append(test, status);
+  enhanceSelect(select);
+  fillMicDevices(select);
+}
+
+async function fillMicDevices(select) {
+  const chosen = prefs.get("micDevice", "");
+  const all = (await navigator.mediaDevices?.enumerateDevices?.().catch(() => [])) || [];
+  const inputs = all.filter((d) => d.kind === "audioinput" && d.deviceId !== "default" && d.deviceId !== "communications");
+  const options = [new Option("The system default", "", !chosen, !chosen)];
+  inputs.forEach((d, i) => options.push(new Option(d.label || `Microphone ${i + 1}`, d.deviceId, false, d.deviceId === chosen)));
+  //: Remembered but not plugged in now: kept, said so, still chosen.
+  if (chosen && !inputs.some((d) => d.deviceId === chosen)) options.push(new Option("The last microphone chosen (not connected)", chosen, true, true));
+  select.replaceChildren(...options);
+}
+
+//: Every other copy of the controls follows a change made in one.
+function syncMicSelects(from) {
+  document.querySelectorAll("select.mic-device").forEach((other) => {
+    if (other === from) return;
+    other.value = from.value;
+  });
+}
+
+//: Three seconds through the chosen settings: the level moves while it
+//: listens, then it plays back. Names the device it used.
+async function testMicrophone(level, status, button) {
+  let stream = null;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: micAudioConstraints() });
+  } catch {
+    status.textContent = "Microphone access was blocked; allow it in your browser.";
+    return;
+  }
+  button.disabled = true;
+  const used = stream.getAudioTracks()[0]?.label || "the microphone";
+  document.querySelectorAll("select.mic-device").forEach(fillMicDevices);
+  const stopLevel = micLevelInto(stream, level);
+  const chunks = [];
+  const recorder = new MediaRecorder(stream);
+  recorder.addEventListener("dataavailable", (e) => e.data.size && chunks.push(e.data));
+  const stopped = new Promise((resolve) => recorder.addEventListener("stop", resolve, { once: true }));
+  recorder.start();
+  status.textContent = `Listening on ${used}: say something…`;
+  await new Promise((r) => setTimeout(r, MIC_TEST_MS));
+  recorder.stop();
+  await stopped;
+  stopLevel();
+  stream.getTracks().forEach((t) => t.stop());
+  const peak = Number(level.dataset.peak || 0);
+  const audio = document.createElement("audio");
+  audio.src = URL.createObjectURL(new Blob(chunks, { type: recorder.mimeType }));
+  status.textContent = peak < 4 ? `Heard almost nothing on ${used}. Check it is not muted, or choose another microphone.` : `Playing back what ${used} heard.`;
+  audio.addEventListener("ended", () => {
+    URL.revokeObjectURL(audio.src);
+    button.disabled = false;
+    if (peak >= 4) status.textContent = `${used} works. Its loudest moment reached ${peak}%.`;
+  });
+  audio.play().catch(() => (button.disabled = false));
+}
+
+//: The live level as a bar (the evidence track's recipe: a track and a fill
+//: whose width is set): RMS, square-rooted as the recorder's line is so
+//: ordinary speech sits mid-bar. With reduced motion it steps four times a
+//: second rather than every frame.
+function micLevelInto(stream, level) {
+  let ctx = null;
+  try {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    return () => {};
+  }
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 1024;
+  ctx.createMediaStreamSource(stream).connect(analyser);
+  const samples = new Uint8Array(analyser.fftSize);
+  const fill = level.querySelector(".mic-level-fill");
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  level.dataset.peak = "0";
+  let stopped = false;
+  let last = 0;
+  const tick = (now) => {
+    if (stopped) return;
+    if (!still || now - last > 250) {
+      last = now;
+      analyser.getByteTimeDomainData(samples);
+      let sum = 0;
+      for (const v of samples) sum += ((v - 128) / 128) ** 2;
+      const pct = Math.round(Math.min(1, Math.sqrt(Math.sqrt(sum / samples.length)) * 1.6) * 100);
+      fill.style.width = `${pct}%`;
+      level.setAttribute("aria-valuenow", String(pct));
+      level.dataset.peak = String(Math.max(pct, Number(level.dataset.peak)));
+    }
+    requestAnimationFrame(tick);
+  };
+  ctx.resume().then(() => requestAnimationFrame(tick), () => requestAnimationFrame(tick));
+  return () => {
+    stopped = true;
+    fill.style.width = "0%";
+    level.setAttribute("aria-valuenow", "0");
+    ctx.close().catch(() => {});
+  };
+}
+
+//: The recorder's Microphone fold, drawn when first opened; its summary
+//: names the input in use, so a wrong microphone is seen before recording.
+async function nameMeetingMic() {
+  const chosen = prefs.get("micDevice", "");
+  let name = "the system default";
+  if (chosen) {
+    const all = (await navigator.mediaDevices?.enumerateDevices?.().catch(() => [])) || [];
+    name = all.find((d) => d.deviceId === chosen)?.label || "the one chosen";
+  }
+  if ($("meeting-mic-name")) $("meeting-mic-name").textContent = `Microphone: ${name}`;
+}
+
+$("meeting-mic")?.addEventListener("toggle", () => {
+  const host = $("meeting-mic-controls");
+  if ($("meeting-mic").open && !host.childElementCount) micControlsInto(host);
+});
+$("meeting-mic")?.addEventListener("change", (event) => {
+  if (event.target.matches("select.mic-device")) nameMeetingMic();
 });

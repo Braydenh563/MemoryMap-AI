@@ -265,3 +265,148 @@
     grid-row: 1;
   }
 }
+
+/* A recording outlives its dialog (UI_MODERNISATION V1): the captions dock's
+   recipe floated over every surface while recording with the dialog
+   closed, one filled Stop. */
+/* Its place and layer are the captions dock's (captions-lazy.css); here
+   only what differs: narrower, and tighter round its three buttons. */
+.recording-dock {
+  max-width: 36rem;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+}
+
+/* (0,3,0), past the phone band's `.dock:not(:has(.dock-find)) .dock-identity`. */
+.dock.recording-dock .dock-identity {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.recording-dock h2 {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The clock never gives way: it is the one fact the dock is for. */
+#recording-dock-time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one sign it is listening: a dot in the error ink that breathes, still
+   when paused or when motion is reduced. */
+.recording-dock-dot {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--error);
+  animation: recording-dot 1.6s ease-in-out infinite;
+}
+
+.recording-dock.is-paused .recording-dock-dot {
+  background: var(--muted);
+  animation: none;
+}
+
+@keyframes recording-dot {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recording-dock-dot {
+    animation: none;
+  }
+}
+
+/* A background transcription on its card: the bar and a quiet Stop. */
+.recording-run {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.recording-run-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 599.98px) {
+  /* Two rows on a phone: what is recording and for how long, then the
+     three controls at the trailing edge. */
+  .dock.recording-dock {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .dock.recording-dock .dock-identity {
+    flex-basis: 100%;
+  }
+
+  .recording-dock .dock-actions {
+    margin-left: auto;
+  }
+}
+
+/* Stop transcribing sits under the bar at its own width (V1). */
+#meeting-stop-transcribe {
+  align-self: flex-start;
+}
+
+/* The microphone's controls (V2), in the recorder's fold and in Settings:
+   the device select, three switches, then Test beside the live level (the
+   evidence track's recipe: a 4px track on --border, an --accent fill whose
+   width is set from the analyser). */
+.mic-controls {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.mic-controls .setting-row {
+  gap: var(--space-3);
+}
+
+.mic-controls .setting-row select {
+  min-width: 0;
+  max-width: min(22rem, 100%);
+}
+
+.mic-test {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mic-level {
+  flex: 1 1 auto;
+  height: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.mic-level-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+}
+
+.mic-test-status {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.meeting-mic > summary {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.meeting-mic[open] > summary {
+  margin-bottom: var(--space-2);
+}

@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Microphone: choose the input, and switch noise suppression, echo cancellation and automatic gain, with a live level and a three-second test, in the recorder and in Settings, General; dictation, recordings and live captions all use them.
+- Recordings: each recording is a card with a playhead, the time ("1:12 / 4:30") and drag to seek; M or the pin marks a moment with a comment, listed under the player and linked to the transcript.
+- Voice notes: closing the recorder keeps recording in a small bar with the clock, Pause, Stop and Open; transcription runs in the background with its progress on the card, a Stop, and a notification when it is done or fails.
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
 - Attach: a picture's selection circle sits inside its corner.
 - Running jobs and Activity: every answer, agent turn and background job is listed with a plain title, who started it and how long it took; each opens to its own timed lines, live while it runs.

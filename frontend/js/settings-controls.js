@@ -2033,3 +2033,9 @@ async function renderLanAccess() {
     $("account-lan-state").classList.add("hidden");
   }
 }
+
+//: Settings, General, Microphone (UI_MODERNISATION V2): drawn by the
+//: recorder's bundle, so the two copies are one set of controls.
+ensureModule("meetings").then((ok) => {
+  if (ok && $("mic-settings-controls") && typeof micControlsInto === "function") micControlsInto($("mic-settings-controls"));
+});

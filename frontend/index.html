@@ -8152,7 +8152,7 @@ Link to another note with [[its first few words]]."></textarea>
             title="About recordings" aria-label="About recordings"><i class="ph ph-question" aria-hidden="true"></i></button>
           <div class="help-body hidden" id="recordings-help" role="dialog" aria-label="About recordings">
             <p>Everything recorded in the app: meetings, lectures and voice notes. The audio is saved every 10 seconds while it records, so closing the tab keeps all but the last few seconds, and the next start says "Recording recovered".</p>
-            <p>Play at 0.5 to 2x; press or drag the waveform to jump, the line on it and the time beside it say where you are. Press M or the pin to mark the playhead with an optional comment (M or Marker while recording marks the moment too); each mark under the player plays from its time and opens the transcript at that line. Trim keeps a part as a new recording; the original stays until you empty the bin. Delete puts a recording in the bin. Once transcribed, Transcript lists its lines with their times: press one to play from that moment, and the ⋯ menu downloads them as subtitles (SRT or VTT). With the local AI on, each turn is labelled with who spoke, read from what was said (Name the speakers does it again). Kept as the browser recorded it (webm or ogg), or wav after a trim.</p>
+            <p>Play at 0.5 to 2x; press or drag the waveform to jump, the line on it and the time beside it say where you are. Press M or the pin to mark the playhead with an optional comment (M or Marker while recording marks the moment too); each mark under the player plays from its time and opens the transcript at that line. Trim keeps a part as a new recording; the original stays until you empty the bin. Delete puts a recording in the bin. Transcribe in the ⋯ runs in the background: the card shows how far it is with a Stop, and a notification says when it is done. Once transcribed, Transcript lists its lines with their times: press one to play from that moment, and the ⋯ menu downloads them as subtitles (SRT or VTT). With the local AI on, each turn is labelled with who spoke, read from what was said (Name the speakers does it again). Kept as the browser recorded it (webm or ogg), or wav after a trim.</p>
           </div>
           <button id="recordings-record" class="small" type="button" title="Record a voice note">
             <i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Record</button>
@@ -8295,6 +8295,22 @@ Link to another note with [[its first few words]]."></textarea>
          at this size and what Phase 11 specifies. -->
     <button type="button" id="phone-more-btn" class="phone-tab-more"
       aria-haspopup="dialog" aria-expanded="false" aria-label="More"><i class="ph ph-dots-three tab-icon" aria-hidden="true"></i><span class="tab-label">More</span></button>
+  </div>
+
+  <!-- A recording that outlives its dialog (meetings.js `syncRecordingDock`,
+       UI_MODERNISATION V1): the captions dock's recipe, shown only while
+       recording with the dialog closed. -->
+  <div id="recording-dock" class="dock recording-dock hidden" data-dock-name="recording" role="region" aria-label="Recording in progress">
+    <div class="dock-identity">
+      <span class="recording-dock-dot" aria-hidden="true"></span>
+      <h2 id="recording-dock-title">Recording</h2>
+      <span id="recording-dock-time" class="dock-chip" role="timer">0:00</span>
+    </div>
+    <div class="dock-actions">
+      <button type="button" id="recording-dock-open" class="ghost small" title="Show the recorder"><i class="ph ph-arrows-out-simple ph-lead" aria-hidden="true"></i> Open</button>
+      <button type="button" id="recording-dock-pause" class="ghost small" title="Pause the recording"><i class="ph ph-pause ph-lead" aria-hidden="true"></i> Pause</button>
+      <button type="button" id="recording-dock-stop" class="small" title="Stop and save the recording"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
+    </div>
   </div>
 
   <!-- Live captions (captions.js, lazy; Brief 82): the dock recipe floated
@@ -11625,6 +11641,14 @@ Link to another note with [[its first few words]]."></textarea>
               </label>
               <p class="muted">Curly quotes as you type, and two hyphens become a dash; never inside code.</p>
             </div>
+            <!-- The microphone (UI_MODERNISATION V2): the same controls as the
+                 recorder's Microphone fold, drawn by meetings.js
+                 `micControlsInto` when this section first opens. -->
+            <div class="settings-group" id="mic-settings">
+              <h3>Microphone</h3>
+              <p class="muted">Which input records and how the browser cleans it up, for dictation, voice notes, meetings and live captions.</p>
+              <div id="mic-settings-controls"></div>
+            </div>
             <!-- Simple mode and the usage ledger (WORLD_CLASS_PLAN H9, row 27):
                  usage-ledger.js (lazy) wires both; theme-boot.js applies
                  simple mode before first paint. -->
@@ -14016,7 +14040,14 @@ Link to another note with [[its first few words]]."></textarea>
           it the recording is kept and the sheet says how long it is.
         </p>
         <p>
-          The transcript comes back for you to read and trim before anything is
+          Microphone, under the name, chooses the input and switches the
+          browser's noise suppression, echo cancellation and automatic gain;
+          Test records three seconds and plays them back (the same controls
+          are in Settings, General). Close this while recording and it keeps recording in a small bar at
+          the bottom with the clock, Pause, Stop and Open; Discard throws the
+          take away. Transcribing runs in the background: close this and a
+          notification says when it is done, with Open; Stop transcribing ends
+          it. The transcript comes back for you to read and trim before anything is
           saved. Saved, it is a meeting note with the transcript under Notes, or,
           opened from a meeting's Record into it, it goes under that meeting's
           Notes. An hour of talking can be a document instead.
@@ -14026,6 +14057,12 @@ Link to another note with [[its first few words]]."></textarea>
       <input type="text" id="meeting-title" maxlength="120" class="meeting-title"
         placeholder="e.g. Tuesday standup, Lecture 4, thermodynamics"
         aria-label="A name for this recording">
+      <!-- The microphone in use, and its controls folded under it (V2): the
+           same set as Settings, General, Microphone. -->
+      <details class="settings-fold meeting-mic" id="meeting-mic">
+        <summary><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> <span id="meeting-mic-name">Microphone: the system default</span></summary>
+        <div id="meeting-mic-controls"></div>
+      </details>
       <!-- **The recorder is one object, not three loose ones.** The button, the
            clock and the line that moves while you talk were three siblings of
            the dialog with nothing to join them, so the clock read as a number
@@ -14040,6 +14077,9 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- A moment marked while recording (28.5 row 6): the button, or M. -->
           <button id="meeting-marker" type="button" class="ghost hidden" title="Mark this moment (M)"><i class="ph ph-push-pin ph-lead" aria-hidden="true"></i> Marker</button>
           <span id="meeting-timer" class="meeting-timer hidden" role="timer">0:00</span>
+          <!-- Throws the take away (to the bin); closing the dialog keeps it
+               recording in the dock (V1). -->
+          <button id="meeting-discard-take" type="button" class="ghost hidden meeting-discard" title="Stop and put this recording in the bin">Discard</button>
         </div>
         <!-- The line that moves while you talk. Reported twice: "there is still
              no line animation that visually picks up the user's voice when
@@ -14062,6 +14102,9 @@ Link to another note with [[its first few words]]."></textarea>
              bar is the browser's own indeterminate one (a `progress` with no
              value), under a status line that says how much audio is in it. -->
         <progress id="meeting-progress" class="meeting-progress hidden" aria-label="Transcribing"></progress>
+        <!-- The run is the server's (V1): closing the dialog leaves it going;
+             this ends it and keeps nothing. -->
+        <button id="meeting-stop-transcribe" type="button" class="ghost small hidden" title="Stop transcribing; the audio is kept"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop transcribing</button>
       </div>
       <p id="meeting-status" class="status" role="status"></p>
       <!-- Editable, not saved straight away: a raw transcript carries every

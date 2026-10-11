@@ -29,6 +29,7 @@ under `src/memorymap/vendor/` or `frontend/vendor/` is missing from this page.
 | Mammoth | `mammoth/` | 1.13.0 (`mammoth.browser.min.js`) | BSD-2-Clause (`mammoth/LICENSE`) | https://github.com/mwilliamson/mammoth.js | reading a .docx imported into the Library, loaded on demand by `documents-word.js` |
 | docx | `docx/` | 9.9.0 (`dist/index.iife.js` minified) | MIT (`docx/LICENSE`) | https://github.com/dolanmiu/docx | writing a document as .docx (Download as Word), loaded on demand by `documents-word.js` |
 | English word list | `wordlist/` | built by `wordlist/build.sh` | the English Speller Database licence (`wordlist/LICENSE`) | https://wordlist.aspell.net | the documents editor's spelling check |
+| Python standard library table | `python-stdlib/` | built by `scripts/gen_python_completions.py` | PSF License Agreement (`python-stdlib/LICENSE`) | https://docs.python.org/3/license.html | a Python document's completions after `module.` and its hover card |
 
 ## Optional downloads (Settings, Packages)
 

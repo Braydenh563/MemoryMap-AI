@@ -445,6 +445,20 @@ function matchesSearch(entry) {
   return query.words.every((word) => haystack.includes(word));
 }
 
+// The inline marks the writing side inserts (MD_ACTIONS' toolbars in
+// documents.js, which editor.js's "/" menu reuses) and INLINE_MD below reads
+// back. One table, so a mark cannot be written that the renderer does not
+// draw: the Red/Grey highlight bug lived in the gap between the two.
+// tests/test_docs_1011.py runs each mark through INLINE_MD. `$` math is
+// drawn by documents.js's docMathTree; `%%` comments are never rendered.
+const MD_INLINE_MARKS = {
+  bold: "**",
+  italic: "*",
+  strike: "~~",
+  code: "`",
+  highlight: "==",
+};
+
 // Inline markdown in note text, deliberately only the inline kind: block
 // markdown (headings, tables, lists) makes a list of notes very tall, and
 // what people type in a note is bold, a little italic, the odd `code`.

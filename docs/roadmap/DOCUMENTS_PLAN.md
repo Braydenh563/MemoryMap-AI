@@ -1157,6 +1157,17 @@ open; the decisions stay.
    A code document is spoken to in code's words ("Explain, simplify, add
    types", "the N lines you selected"); prose wording stays in prose. A
    model connecting gives everything back live (`mm-model-gate`).
+11. **Two emoji tables, on purpose** (OPEN 1084): `:smile:` shortcodes are
+   GitHub's names so a document round-trips; the picker searches Unicode
+   names. One table would break one of the two.
+12. **The Python completion table is read from CPython's `inspect`**, not
+   Pyodide's (OPEN 1070): the same standard library, no browser in the
+   generator; a regeneration on another version is a reviewed diff.
+13. **Markdown's inline marks are one table, not one module** (OPEN 1130,
+   1132): `MD_INLINE_MARKS` (notes-list.js) is what the toolbars and the "/"
+   menu write; `INLINE_MD` stays a hand-written regex, because the renderer
+   addresses its capture groups by number, and a test reads every mark back
+   through it.
 
 ## 18. The slash menus as one system: built 2026-09-21
 

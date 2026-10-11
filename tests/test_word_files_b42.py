@@ -61,6 +61,7 @@ def test_pictures_suggestions_lists_and_code_are_written_as_word_means_them() ->
     assert "D.InsertedTextRun" in text and "D.DeletedTextRun" in text
     blocks = _function(word, "docWordBlocks")
     assert "docWordListShape(ctx.lines" in blocks and "numbering: {" in blocks
-    assert "style: DOC_WORD_CODE_STYLE" in blocks
+    #: The code style, or its per-language child (OPEN 1097), on every line.
+    assert ": DOC_WORD_CODE_STYLE;" in blocks and "new D.Paragraph({ style, children" in blocks
     imp = _function(word, "docWordImport")
     assert "styleMap: DOC_WORD_STYLE_MAP" in imp and "convertImage" in imp

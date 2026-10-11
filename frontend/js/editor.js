@@ -857,6 +857,11 @@ function editorBlockRows(context) {
     add({ id: "image-caption", group: "Media", icon: "ph:image-square", label: "Image with caption", about: "Centred, with a line under it", keys: "![Caption|center](url)", keywords: ["image", "caption", "figure", "photo", "centre", "center"], run: (t) => editorBlock(t, "![A caption|center](", "https://", ")") });
   }
   add({ id: "codeblock", group: "Media", icon: "ph:code", label: "Code block", about: "Pick a language next; highlighted and copyable", keys: "```", keywords: ["code", "fence", "snippet", "program", "language", "syntax"], sample: "```js\nconst answer = 42;\n```", run: (t) => { editorBlock(t, "```", "", ""); editorBackOverTrail(t); editorOpenMenu(t, "```"); } });
+  if (inDocument) {
+    //: A starter the document's Live view draws at once (OPEN 1119): an empty
+    //: ```mermaid fence drew nothing until its syntax was looked up.
+    add({ id: "flowchart", group: "Media", icon: "ph:flow-arrow", label: "Flowchart", about: "Boxes and arrows, drawn from the text", keys: "```mermaid", keywords: ["flowchart", "diagram", "mermaid", "chart", "boxes", "arrows", "process"], sample: "flowchart TD\n  A[Start] --> B[Next]", run: (t) => editorBlock(t, "```mermaid\nflowchart TD\n  A[Start] --> B[Next]\n```", "", "") });
+  }
   add({ id: "math", group: "Media", icon: "ph:function", label: "Maths block", about: "A formula on its own line, typeset", keys: "$$ ... $$", keywords: ["math", "maths", "formula", "equation", "latex", "tex", "block"], sample: "$$ e^{i\\pi} + 1 = 0 $$", run: (t) => editorBlock(t, "$$ ", "x^2 + y^2 = z^2", " $$") });
   add({ id: "math-inline", group: "Media", icon: "ph:math-operations", label: "Inline maths", about: "A formula inside a sentence", keys: "$ ... $", keywords: ["math", "inline", "formula", "latex", "tex"], run: act("math") });
 

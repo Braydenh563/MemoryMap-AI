@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Documents: the "/" menu has a Flowchart starter the Live view draws at once; the toolbars' inline marks and the renderer share one table (`MD_INLINE_MARKS`); the Dashboard's open-question line shows the question without its markdown; the code editor's completions have their own Guide topic.
+- Settings: Evidence checks now turns an answer's evidence view off and on (it was stored and shown and switched nothing).
+- Documents: a Python document offers the standard library's names after an imported module's dot (math., os.path.), with signatures, and pointing at one shows its signature and first doc line.
+- Documents: a .docx with tracked changes imports with them kept as suggestions, a code block's language survives a round trip through Word, a single word typed in suggestion mode is spell-checked, and a code file's finding card stays closed while a menu is open.
 - Documents: with no model, the code Assistant's and the document assistant's model-only controls stay visible but disabled with the reason and a Settings link; the model-free tools stay live, and a code question the tools can answer (format, run the tests, where is a name used) runs that tool. The inline Ask bar in a code document speaks of lines and code. All of it comes back live when a model connects.
 - Documents: the split view's second half has completions, lint and snippets; Ctrl+K in a code file waits for its second chord, so Ctrl+K Ctrl+S opens the keys sheet without the palette flashing first.
 - Documents: a SQL document's query can read a CSV document as a table by its name (Sales 2026.csv is sales_2026). Library: Live Text is on every page of a PDF in the scroll layout, not only the single-page view.

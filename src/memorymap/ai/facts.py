@@ -523,12 +523,6 @@ def run(
     # until it is edited or the pass is forced, the same cursor rule as any
     # note the pass has already read.
     questions_on = config is None or enabled(config, "open_questions")
-    # `evidence_checks` is pass 4, each new claim against the claims of other
-    # notes (a tension is a note that contradicts another), which is what its
-    # Settings line says it does (OPEN row 1073: it was stored and shown and
-    # gated nothing). Off, the claims are still read and the tensions already
-    # found stay listed.
-    tensions_on = config is None or enabled(config, "evidence_checks")
     from memorymap.core.database import NightRun
 
     night = NightRun(trigger=trigger, budget=budget, started_at=utcnow())
@@ -641,7 +635,6 @@ def run(
                 counts=counts,
                 models_used=models_used,
                 questions_on=questions_on,
-                tensions_on=tensions_on,
             )
             derived += paired
     except BaseException:
@@ -948,7 +941,6 @@ def _pair_passes(
     counts: dict[str, int],
     models_used: set[str],
     questions_on: bool = True,
-    tensions_on: bool = True,
 ) -> tuple[int, int, str]:
     """Passes 4 and 5 over what pass 3 just found. Returns `(spent, derived,
     stopped)`; never raises past a single pair.
@@ -958,7 +950,7 @@ def _pair_passes(
     new spends nothing here, which is the plan's "zero tokens" test.
     """
     claims, questions = _open_claims_and_questions(session)
-    new_claims = [row for row in claims if row.run_id == night.id] if tensions_on else []
+    new_claims = [row for row in claims if row.run_id == night.id]
     new_questions = [row for row in questions if row.run_id == night.id] if questions_on else []
     if not (new_claims or new_questions):
         return spent, 0, "done"

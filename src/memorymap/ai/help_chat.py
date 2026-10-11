@@ -266,7 +266,7 @@ HELP_TOPICS: list[dict] = [
             "commenting. \"Check with AI\" reviews a document for wording issues "
             "a spellchecker can't catch. The menu's Map the headings turns its "
             "headings into a new mind map. A mermaid code block (flowchart TD, "
-            "A --> B) draws as a diagram in Read and Live and in a print; press "
+            "A --> B, or the \"/\" menu's Flowchart) draws as a diagram in Read and Live and in a print; press "
             "it to edit its text, and any other Mermaid stays as code. Print or "
             "save as PDF first asks for the page size, orientation, margins and "
             "page numbers, and a plain Ctrl+P uses the last choice. In Live, drag "
@@ -1158,10 +1158,8 @@ HELP_TOPICS.extend(
                 "A document can be code: give it the extension (fix.py, index.html). "
                 "You get syntax colours, error underlines listed in the Problems "
                 "panel, hover notes, colour swatches, indent guides and brackets "
-                "that close themselves. Completions open as you type (Enter or Tab "
-                "takes one, and the grey ghost text is taken with Tab); snippets "
-                "expand short words such as for, if, try, class, main or sout, and "
-                "Tab walks their stops. HTML and CSS have Emmet: type ! or ul>li*3 "
+                "that close themselves. Completions and snippets open as you type "
+                "(the Code completions topic). HTML and CSS have Emmet: type ! or ul>li*3 "
                 "and press Enter or Tab; the command palette (Ctrl+K) has Emmet "
                 "wrap and balance inward or outward. Keys: Shift+Alt+F formats, "
                 "Ctrl+/ toggles a line comment, Shift+Alt+A a block comment, Alt+Z "
@@ -1186,6 +1184,24 @@ HELP_TOPICS.extend(
                 "caret. Minimap (Editor and layout, "
                 "off at first) maps the whole file; Compare with a saved version "
                 "(palette) shows the changes inline, with Reject to put a hunk back."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "code-completions",
+            "keywords": (
+                "completion", "completions", "autocomplete", "auto complete", "intellisense", "snippet",
+                "snippets", "ghost text", "standard library", "stdlib", "signature",
+            ),
+            #: Split from `code-files` when that entry passed the Guide's reply
+            #: cap; written from `docCodeEditing`'s sources (documents-code.js).
+            "body": (
+                "Completions open as you type in a code document: Enter or Tab "
+                "takes one, and the grey ghost text is taken with Tab. Snippets "
+                "expand short words such as for, if, try, class, main or sout, and "
+                "Tab walks their stops. In Python, a standard library module the "
+                "file imports offers its names after the dot (math., os.path.), "
+                "each with its signature, and pointing at one shows it."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1631,10 +1647,12 @@ HELP_TOPICS.extend(
                 "all at once), Read aloud (Esc stops), autocorrect, and word "
                 "suggestions (Tab accepts). Word: Download as .docx is written in "
                 "the app, nothing to install, and keeps headings, emphasis, "
-                "links, nested lists, tables, code, pictures, and suggested "
-                "changes as Word's tracked changes; a .docx added in the Library "
-                "is read with its headings, nested lists, tables, code blocks "
-                "and pictures kept; other downloads are .md, .html, a .zip "
+                "links, nested lists, tables, code (with its language), pictures, "
+                "and suggested changes as Word's tracked changes; a .docx added "
+                "in the Library is read with its headings, nested lists, tables, "
+                "code blocks and pictures kept, and one with tracked changes "
+                "keeps them as suggestions to accept or reject; other downloads "
+                "are .md, .html, a .zip "
                 "with images, and print or save as PDF."
             ),
             "badge": {"label": "Library", "tab": "library"},

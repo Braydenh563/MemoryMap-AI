@@ -72,7 +72,7 @@ def test_every_documents_text_is_read_in_one_request(client):
     assert got.status_code == 200
     rows = {row["id"]: row for row in got.json()}
     assert set(rows) == {d["id"] for d in docs}
-    assert rows[docs[1]["id"]] == {"id": docs[1]["id"], "title": "Doc 1", "content": "text 1"}
+    assert rows[docs[1]["id"]] == {"id": docs[1]["id"], "title": "Doc 1", "file_type": "md", "content": "text 1"}
 
 
 def test_the_scan_is_one_request_and_the_dock_menu_has_the_row():

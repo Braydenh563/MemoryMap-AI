@@ -3993,7 +3993,7 @@ const LEARNED_SWITCH_COPY = {
   margin_reader: ["Margin reader", "Adds notes in the margin of a note as you read it."],
   open_questions: ["Open questions", "Collects the questions your notes leave unanswered."],
   resurfacing: ["Resurfacing", "Brings notes you have not looked at in a while back to the dashboard."],
-  evidence_checks: ["Evidence checks", "Compares each new claim with your other notes and flags the ones that disagree."],
+  evidence_checks: ["Evidence checks", "Shows each sentence of an answer beside the passage in your notes it came from."],
   corrections: ["Learning from corrections", "Remembers when you refile a note or dismiss a suggestion, and stops repeating it."],
   model_bench: ["Model bench", "Compares your installed models on your own notes."],
 };
@@ -4135,6 +4135,8 @@ async function learnedSetSwitch(name, value) {
   //: Re-read rather than trust the click: the master turns the other seven
   //: off in the *reply*, not in the request, so the only correct picture of
   //: the switches after any write is the one the server just sent back.
+  //: The answers' evidence view reads Evidence checks again too.
+  if (typeof evidenceSwitchReset === "function") evidenceSwitchReset();
   await renderLearnedSwitches();
 }
 

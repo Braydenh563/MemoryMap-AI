@@ -3077,8 +3077,9 @@ async function importLibraryDocuments(files) {
     try {
       //: A Word file is read here by Mammoth (documents-word.js, Brief 42),
       //: which keeps its headings, lists and tables; the server's extraction
-      //: keeps only the words.
-      const word = /\.docx$/i.test(file.name) && (await lazyScript("/js/documents-word.js"))
+      //: keeps only the words. One with tracked changes goes to the server,
+      //: whose reader keeps them as suggestions (`docWordHasRevisions`).
+      const word = /\.docx$/i.test(file.name) && (await lazyScript("/js/documents-word.js")) && !(await docWordHasRevisions(file))
         ? await docWordImport(file)
         : null;
       const document_ = word

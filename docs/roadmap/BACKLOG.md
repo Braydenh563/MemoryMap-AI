@@ -3698,11 +3698,7 @@ anything already built is named as such so nobody rebuilds it.
   reversed. Now a preference (`ai_first_filing`), so this is a *choice*
   rather than a cost, but it is worth measuring on a slow model before
   assuming the default suits everyone.
-- **Three places independently decide what markdown means**: **Next:** one grammar module under `frontend/js/` (a table of token, open, close, label) read by `MD_ACTIONS` (`documents.js:8833`), `INLINE_MD` (`markdown.js`) and editor.js's "/" menu, load order per `tests/test_frontend_load_order.py`; `tests/test_highlight_colours.py` already pins the colour lists. `MD_ACTIONS`
-  (toolbars), `INLINE_MD`/`INLINE_MD_LEGACY` (the renderer), and editor.js's
-  "/" menu. The Red/Grey highlight bug (§110) lived precisely in the gap
-  between two of them. `tests/test_highlight_colours.py` pins the colour
-  lists, but the general fix is one grammar module the three consume.
+- **Three places independently decide what markdown means**: built 2026-10-11, DOCUMENTS_PLAN decision 13 (`MD_INLINE_MARKS`, read back through `INLINE_MD` by `tests/test_docs_1011.py`).
 
 ### 111.2 Features worth building, ranked by value per unit of work
 
@@ -3842,9 +3838,7 @@ Ranked by the gap between what it costs to build and what it would be worth.
   `dashboard.js`, `settings.js`, `documents.js`) worked and stopped. The next
   natural seams are chat (~6k lines), the lightbox (~1.2k) and the notifications
   centre. Each is a session's work and each makes the next bug cheaper to find.
-- **Three grammars for markdown** (§111.1): **Next:** section 111.1 carries the brief. `MD_ACTIONS`, `INLINE_MD`, and
-  editor.js's "/" menu each decide independently what the syntax means. Every
-  bug in the gap between them has been a real reported bug. One module.
+- **Three grammars for markdown** (§111.1): built 2026-10-11, see the entry above (DOCUMENTS_PLAN decision 13).
 - **The suite is 2,700 tests and ~8 minutes.** Still fine; worth watching. The
   lints (`test_style_scale`, `test_frontend_ids`, `test_icon_only_buttons`,
   `test_icon_label_gap`) are the cheapest tests in the file and have caught the

@@ -540,7 +540,8 @@ def test_hover_docs_are_our_own_words_and_on_the_hover_card():
     hover = _function("docHoverDocs")
     assert "CM.view.hoverTooltip" in hover
     assert '{ PropertyName: "css", TagName: "html", AttributeName: "attr" }' in hover
-    assert '["css", "html"].includes(type.ext) ? docHoverDocs(CM) : []' in _function("docCompletionExtras")
+    #: Python joined for its standard library signatures (OPEN 1070).
+    assert '["css", "html", "py"].includes(type.ext) ? docHoverDocs(CM) : []' in _function("docCompletionExtras")
     theme = source.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
     assert '".cm-hover-doc-values": { color: "var(--muted)"' in theme
 

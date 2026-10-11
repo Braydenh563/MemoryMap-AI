@@ -25,12 +25,18 @@ def _fn(src: str, name: str) -> str:
     return src[start : end + 2]
 
 
-def _node(prelude: str, expr: str):
+def _node(prelude: str, expr: str, tmp_path: Path | None = None):
+    """Run in node; with `tmp_path`, from a file, for source that says "pip"
+    (conftest's `_no_test_runs_pip` reads every argument)."""
     node = shutil.which("node")
     if not node:  # pragma: no cover - node is in the sandbox and in CI
         pytest.skip("node is not available")
     script = f"{prelude}\nprocess.stdout.write(JSON.stringify({expr}));"
-    done = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=60, check=False)
+    argv = [node, "-e", script]
+    if tmp_path is not None:
+        (tmp_path / "run.js").write_text(script, encoding="utf-8")
+        argv = [node, str(tmp_path / "run.js")]
+    done = subprocess.run(argv, capture_output=True, text=True, timeout=60, check=False)
     assert done.returncode == 0, done.stderr
     return json.loads(done.stdout)
 
@@ -340,3 +346,188 @@ def test_jsx_in_a_js_document_gets_the_jsx_pass_and_nothing_else(tmp_path):
     #: Only the JSX pass: a type annotation in a .js file is still an error.
     assert got["typed"].startswith("Could not read this as JSX")
     assert "React.createElement" in got["ran"] and "<div>" not in got["ran"]
+
+
+# Row 1070: Python's standard library had no completion after a dot.
+def test_the_stdlib_table_answers_after_an_imported_modules_dot():
+    table = json.loads((ROOT / "frontend/vendor/python-stdlib/stdlib.json").read_text(encoding="utf-8"))
+    modules = table["modules"]
+    for name in ("math", "os.path", "json", "datetime", "collections", "re"):
+        assert modules[name], name
+    sqrt = next(r for r in modules["math"] if r[0] == "sqrt")
+    assert sqrt[1] == "function" and sqrt[2].startswith("sqrt(") and sqrt[3]
+    #: Small enough to fetch once, lazily (never at boot).
+    assert len((ROOT / "frontend/vendor/python-stdlib/stdlib.json").read_bytes()) < 160_000
+    code = (JS / "documents-code.js").read_text(encoding="utf-8")
+    mods = {"math": [["pi"]], "os.path": [["join"]], "json": [["dumps"]]}
+    prelude = "\n".join([f"const MODS = {json.dumps(mods)};", _fn(code, "docPyImports"), _fn(code, "docPyStdlibRows")])
+    src = "import math, json as j\nfrom os import path\nfrom collections import (Counter as C)\n"
+    got = _node(
+        prelude,
+        "{ imports: [...docPyImports(" + json.dumps(src) + ")],"
+        " math: docPyStdlibRows(MODS, docPyImports(" + json.dumps(src) + "), 'math'),"
+        " path: docPyStdlibRows(MODS, docPyImports(" + json.dumps(src) + "), 'path'),"
+        " j: docPyStdlibRows(MODS, docPyImports(" + json.dumps(src) + "), 'j'),"
+        " none: docPyStdlibRows(MODS, docPyImports(" + json.dumps(src) + "), 'random') }",
+    )
+    assert got["imports"] == [["math", "math"], ["j", "json"], ["path", "os.path"], ["C", "collections.Counter"]]
+    assert got["math"] == [["pi"]] and got["path"] == [["join"]] and got["j"] == [["dumps"]]
+    #: Not imported, not offered.
+    assert got["none"] is None
+    assert 'api("/vendor/python-stdlib/stdlib.json", { silent: true })' in code
+    assert '["css", "html", "py"].includes(type.ext) ? docHoverDocs(CM) : []' in code
+
+
+# Row 1088: a word touching a suggestion's marker was never a spelling finding.
+def test_a_suggestion_marker_is_a_word_boundary_for_the_spelling_check():
+    docs = (JS / "documents.js").read_text(encoding="utf-8")
+    prelude = _fn(docs, "docSpellable")
+    cases = {
+        "inserted": ["{++faque++}", 3, 8],
+        "deleted": ["{--faque--}", 3, 8],
+        "substituted": ["{~~old~>faque~~}", 8, 13],
+        "comment": ["{>>faque<<}", 3, 8],
+        "plus": ["a+faque", 2, 7],
+        "path": ["dir/faque", 4, 9],
+    }
+    expr = "Object.fromEntries(Object.entries(" + json.dumps(cases) + ").map(([k, [t, s, e]]) => [k, docSpellable(t, t.slice(s, e), s, e)]))"
+    got = _node(prelude, expr)
+    assert got == {"inserted": True, "deleted": True, "substituted": True, "comment": True, "plus": False, "path": False}
+
+
+# Row 1097: a fenced block's language was not written to Word.
+def test_a_code_blocks_language_goes_to_word_and_comes_back(tmp_path):
+    word = (JS / "documents-word.js").read_text(encoding="utf-8")
+    start = word.index('const DOC_WORD_CODE_STYLE = "Code";')
+    tables = word[start : word.index("];", word.index("const DOC_WORD_STYLE_MAP")) + 2]
+    vendor = ROOT / "frontend/vendor"
+    script = f"""
+const vm = require("vm"), fs = require("fs");
+global.window = global; global.self = global;
+vm.runInThisContext(fs.readFileSync({json.dumps(str(vendor / "docx/docx.min.js"))}, "utf8"));
+vm.runInThisContext(fs.readFileSync({json.dumps(str(vendor / "mammoth/mammoth.browser.min.js"))}, "utf8"));
+{tables}
+const D = global.docx;
+(async () => {{
+  const para = (style, text) => new D.Paragraph({{ style, children: [new D.TextRun({{ text }})] }});
+  const doc = new D.Document({{
+    styles: {{ paragraphStyles: [{{ id: "Code", name: "Code", basedOn: "Normal" }}, {{ id: "Code-py", name: "Code py", basedOn: "Code" }}] }},
+    sections: [{{ children: [para("Code-py", "x = 1"), para("Code-py", "print(x)"), para("Code", "plain")] }}],
+  }});
+  const buf = await D.Packer.toBuffer(doc);
+  const out = await global.mammoth.convertToHtml({{ arrayBuffer: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) }}, {{ styleMap: DOC_WORD_STYLE_MAP }});
+  process.stdout.write(JSON.stringify(out.value));
+}})().catch((e) => {{ console.error(e); process.exit(1); }});
+"""
+    path = tmp_path / "word.js"
+    path.write_text(script, encoding="utf-8")
+    done = subprocess.run([shutil.which("node") or "node", str(path)], capture_output=True, text=True, timeout=120, check=False)
+    assert done.returncode == 0, done.stderr[-2000:]
+    html = json.loads(done.stdout)
+    assert '<pre class="language-py">x = 1\nprint(x)</pre>' in html and "<pre>plain</pre>" in html
+    assert "const lang = docWordCodeLang(el);" in word and "ctx.langs.add(lang)" in word
+    #: The paste converter fences a language-named block with its language.
+    docs = (JS / "documents.js").read_text(encoding="utf-8")
+    assert 'out.push("```" + lang + "\\n" + code + "\\n```");' in docs
+
+
+# Row 1096: Mammoth accepted a .docx's tracked changes on the reader's behalf.
+def test_a_word_file_with_tracked_changes_is_seen_before_mammoth_reads_it(tmp_path):
+    word = (JS / "documents-word.js").read_text(encoding="utf-8")
+    vendor = ROOT / "frontend/vendor"
+    script = f"""
+const vm = require("vm"), fs = require("fs");
+global.window = global; global.self = global;
+vm.runInThisContext(fs.readFileSync({json.dumps(str(vendor / "docx/docx.min.js"))}, "utf8"));
+async {_fn(word, "docWordHasRevisions")}
+const D = global.docx;
+(async () => {{
+  const make = async (run) => {{
+    const buf = await D.Packer.toBuffer(new D.Document({{ sections: [{{ children: [new D.Paragraph({{ children: [new D.TextRun("kept "), run] }})] }}] }}));
+    return {{ arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) }};
+  }};
+  const out = {{
+    ins: await docWordHasRevisions(await make(new D.InsertedTextRun({{ text: "new", id: 1, author: "A", date: "2026-10-11T00:00:00Z" }}))),
+    del: await docWordHasRevisions(await make(new D.DeletedTextRun({{ text: "old", id: 2, author: "A", date: "2026-10-11T00:00:00Z" }}))),
+    plain: await docWordHasRevisions(await make(new D.TextRun("plain"))),
+    junk: await docWordHasRevisions({{ arrayBuffer: async () => new ArrayBuffer(10) }}),
+  }};
+  process.stdout.write(JSON.stringify(out));
+}})().catch((e) => {{ console.error(e); process.exit(1); }});
+"""
+    path = tmp_path / "revisions.js"
+    path.write_text(script, encoding="utf-8")
+    done = subprocess.run([shutil.which("node") or "node", str(path)], capture_output=True, text=True, timeout=120, check=False)
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert json.loads(done.stdout) == {"ins": True, "del": True, "plain": False, "junk": False}
+    lib = (JS / "library.js").read_text(encoding="utf-8")
+    assert '!(await docWordHasRevisions(file))' in lib
+
+
+# Row 1073: the Evidence checks switch was stored and shown and gated nothing.
+def test_the_evidence_checks_switch_hides_the_answers_evidence_view():
+    ask = (JS / "capture-ask.js").read_text(encoding="utf-8")
+    prelude = "\n".join(
+        [
+            "let evidenceSwitchLoad = null; let evidenceChecksKnown = null; let calls = 0; let reply = { evidence_checks: false };",
+            "const apiJson = async () => { calls += 1; return reply; };",
+            _fn(ask, "evidenceChecksOn"),
+            _fn(ask, "evidenceSwitchReset"),
+        ]
+    )
+    script = prelude + (
+        "\n(async () => { const off = await evidenceChecksOn(); const known = evidenceChecksKnown; await evidenceChecksOn();"
+        " const once = calls; reply = { evidence_checks: true }; evidenceSwitchReset(); const on = await evidenceChecksOn();"
+        " process.stdout.write(JSON.stringify({ off, known, once, on, calls })); })();"
+    )
+    done = subprocess.run([shutil.which("node") or "node", "-e", script], capture_output=True, text=True, timeout=60, check=False)
+    assert done.returncode == 0, done.stderr
+    assert json.loads(done.stdout) == {"off": False, "known": False, "once": 1, "on": True, "calls": 2}
+    assert 'foot.classList.toggle("hidden", evidenceChecksKnown === false);' in ask
+    settings = (JS / "settings.js").read_text(encoding="utf-8")
+    assert 'if (typeof evidenceSwitchReset === "function") evidenceSwitchReset();' in settings
+
+
+# Rows 1130 and 1132: the writing side and the reading grammar decided apart
+# what a mark means. One table of marks; each written mark must read back.
+def _const_block(src: str, name: str) -> str:
+    start = src.index(f"const {name} =")
+    end = src.index(";\n", start)
+    return src[start : end + 1]
+
+
+def test_every_written_inline_mark_reads_back_through_inline_md():
+    marks = _const_block(NOTES_LIST, "MD_INLINE_MARKS")
+    reader = _const_block(NOTES_LIST, "INLINE_MD")
+    got = _node(
+        marks + "\n" + reader,
+        "Object.entries(MD_INLINE_MARKS).map(([k, w]) => {"
+        " const text = w + 'word' + w; const m = new RegExp(INLINE_MD.source).exec(text);"
+        " return [k, Boolean(m && m[0] === text)]; })",
+    )
+    assert got and all(ok for _, ok in got), got
+    docs = (JS / "documents.js").read_text(encoding="utf-8")
+    actions = docs[docs.index("const MD_ACTIONS = {") :]
+    for name, _ in got:
+        assert re.search(rf"\n  {name}: \{{ wrap: MD_INLINE_MARKS\.{name},", actions), name
+
+
+# Row 1114: the widget audit found the Dashboard's open-questions line printing
+# a question's markdown ("**why**") where the Questions view shows `display`.
+def test_the_dashboard_question_line_shows_the_plain_words():
+    dash = (JS / "dashboard.js").read_text(encoding="utf-8")
+    assert "oldest.display || oldest.text" in dash
+
+
+# Row 1119: the "/" menu's Flowchart inserts a starter the Live view draws.
+def test_the_flowchart_starter_is_one_the_live_view_can_draw(tmp_path):
+    editor = (JS / "editor.js").read_text(encoding="utf-8")
+    row = re.search(r'add\(\{ id: "flowchart".*?run: \(t\) => editorBlock\(t, "```mermaid\\n(.*?)\\n```"', editor)
+    assert row, "the Flowchart row has moved"
+    docs = (JS / "documents.js").read_text(encoding="utf-8")
+    start = docs.index("const MERMAID_")
+    end = docs.index("\n}\n", docs.index("function mermaidFlowParse(")) + 2
+    helpers = docs[start:end]
+    source = row.group(1).replace("\\n", "\n")
+    graph = _node(helpers, f"mermaidFlowParse({json.dumps(source)})", tmp_path)
+    assert graph and len(graph["nodes"]) == 2, graph

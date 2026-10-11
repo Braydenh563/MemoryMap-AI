@@ -1849,8 +1849,34 @@ function renderAnswerGrounding(
   const foot = document.createElement("div");
   foot.className = "ev-foot";
   foot.appendChild(evidenceToggle(target, sentences, rawResults, answerEl, support, numberFor));
+  //: Settings, What the notebook learned, Evidence checks (WORLD_CLASS I6,
+  //: OPEN 1073): off, the answer has no evidence view to open.
+  foot.classList.toggle("hidden", evidenceChecksKnown === false);
+  evidenceChecksOn().then((on) => foot.classList.toggle("hidden", !on));
   target.appendChild(foot);
   target.classList.remove("hidden");
+}
+
+//: The Evidence checks switch, read once and again after Settings writes it
+//: (`evidenceSwitchReset`). Unknown counts as on: the view is the default.
+let evidenceSwitchLoad = null;
+let evidenceChecksKnown = null;
+
+function evidenceChecksOn() {
+  if (!evidenceSwitchLoad) {
+    evidenceSwitchLoad = apiJson("/learned/switches")
+      .then((switches) => (evidenceChecksKnown = switches?.evidence_checks !== false))
+      .catch(() => {
+        evidenceSwitchLoad = null;
+        return true;
+      });
+  }
+  return evidenceSwitchLoad;
+}
+
+function evidenceSwitchReset() {
+  evidenceSwitchLoad = null;
+  evidenceChecksKnown = null;
 }
 
 //: Show the evidence (I6, row 6): each sentence beside its passages, the

@@ -591,15 +591,93 @@ let docNativeSnippetCache = null;
 function docNativeSnippets(CM, ext) {
   if (!docNativeSnippetCache) {
     const quiet = ["String", "FormatString", "TemplateString", "Comment", "LineComment", "BlockComment", "RegExp"];
-    const source = (key) => CM.autocomplete.ifNotIn(quiet, CM.autocomplete.completeFromList(docCodeSnippetOptions(CM, key)));
+    //: Never after a dot: `math.` is a member, not the start of a statement.
+    const source = (key) => {
+      const list = CM.autocomplete.ifNotIn(quiet, CM.autocomplete.completeFromList(docCodeSnippetOptions(CM, key)));
+      return (context) => (context.matchBefore(/\.\w*$/) ? null : list(context));
+    };
     docNativeSnippetCache = {
-      py: CM.python.pythonLanguage.data.of({ autocomplete: source("py") }),
+      py: [
+        CM.python.pythonLanguage.data.of({ autocomplete: source("py") }),
+        CM.python.pythonLanguage.data.of({ autocomplete: CM.autocomplete.ifNotIn(quiet, docPyStdlibSource(CM)) }),
+      ],
       js: CM.javascript.javascriptLanguage.data.of({ autocomplete: source("js") }),
     };
   }
   if (ext === "py") return docNativeSnippetCache.py;
   if (ext === "js" || ext === "ts") return docNativeSnippetCache.js;
   return [];
+}
+
+//: **The standard library after a dot** (D9, OPEN 1070): `math.` offers
+//: math's names, each with its signature and its doc's first line, from a
+//: table generated from CPython's `inspect` (scripts/gen_python_completions.py,
+//: frontend/vendor/python-stdlib/stdlib.json, 28 KB gzipped, fetched the first time a
+//: Python file asks). A module counts when the file imports it, by its name
+//: or its `as` name; `from os import path` makes `path.` os.path's.
+let docPyStdlibLoad = null;
+
+function docPyStdlibTable() {
+  if (!docPyStdlibLoad) {
+    docPyStdlibLoad = api("/vendor/python-stdlib/stdlib.json", { silent: true })
+      .then((response) => response.json())
+      .then((table) => table?.modules || {})
+      .catch(() => {
+        docPyStdlibLoad = null;
+        return {};
+      });
+  }
+  return docPyStdlibLoad;
+}
+
+//: The file's module names: alias to module, from its import lines.
+function docPyImports(text) {
+  const found = new Map();
+  for (const m of String(text).matchAll(/^[ \t]*import[ \t]+([^\n#]+)/gm)) {
+    for (const part of m[1].split(",")) {
+      const [, mod, alias] = /^\s*([\w.]+)(?:\s+as\s+(\w+))?\s*$/.exec(part) || [];
+      if (mod) found.set(alias || mod, mod);
+    }
+  }
+  for (const m of String(text).matchAll(/^[ \t]*from[ \t]+([\w.]+)[ \t]+import[ \t]+\(?([^\n#)]+)/gm)) {
+    for (const part of m[2].split(",")) {
+      const [, name, alias] = /^\s*(\w+)(?:\s+as\s+(\w+))?\s*$/.exec(part) || [];
+      if (name) found.set(alias || name, `${m[1]}.${name}`);
+    }
+  }
+  return found;
+}
+
+//: The rows for `name.` (or `a.b.`) in a file, or null.
+function docPyStdlibRows(modules, imports, dotted) {
+  const head = dotted.split(".")[0];
+  const base = imports.get(head);
+  if (!base) return null;
+  const full = [base, ...dotted.split(".").slice(1)].join(".");
+  return modules[full] || null;
+}
+
+function docPyStdlibSource(CM) {
+  return async (context) => {
+    const before = context.matchBefore(/[A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*\.\w*/);
+    if (!before) return null;
+    const dot = before.text.lastIndexOf(".");
+    const modules = await docPyStdlibTable();
+    const rows = docPyStdlibRows(modules, docPyImports(context.state.doc.toString()), before.text.slice(0, dot));
+    if (!rows) return null;
+    const type = { function: "function", class: "class", constant: "constant", namespace: "namespace" };
+    return {
+      from: before.from + dot + 1,
+      validFor: /^\w*$/,
+      options: rows.map(([label, kind, signature, doc]) => ({
+        label,
+        boost: 2,
+        type: type[kind] || "variable",
+        detail: signature ? signature.slice(label.length) : "",
+        info: doc || undefined,
+      })),
+    };
+  };
 }
 
 let docCodeCompletionCache = null;
@@ -641,6 +719,15 @@ function docCodeCompletionData(CM) {
   return docCodeCompletionDataCache;
 }
 
+//: The checks' timing, and no hover card of findings while a pointer menu
+//: is open (OPEN 1089): the menu is what the pointer is on, and prose
+//: documents already hold their own finding cards back the same way
+//: (`docOpenSuggestFor`).
+const DOC_LINT_CONFIG = {
+  delay: DOC_CHECK_DELAY_MS,
+  tooltipFilter: (diagnostics) => (docPointerMenuOpen() ? [] : diagnostics),
+};
+
 //: The code tools for the open document, or nothing. Whether a type counts
 //: as code is the file-type table's own answer (`previewable` is prose);
 //: plain text and CSV have no syntax and no vocabulary, so they get neither.
@@ -658,7 +745,7 @@ function docCodeTools(CM) {
   }
   const native = ["js", "ts", "py", "css", "html"].includes(type.ext);
   return [
-    CM.lint.linter(docCodeLintSource(CM), { delay: DOC_CHECK_DELAY_MS }),
+    CM.lint.linter(docCodeLintSource(CM), DOC_LINT_CONFIG),
     CM.lint.lintGutter(),
     //: The list, opening as you type; Emmet, the CSS values, the ghost text
     //: and Tab (`docCompletionExtras`, part three below).
@@ -1944,6 +2031,7 @@ let docHoverDocsCache = null;
 function docHoverDocs(CM) {
   if (docHoverDocsCache) return docHoverDocsCache;
   docHoverDocsCache = CM.view.hoverTooltip((view, pos, side) => {
+    if (docFileType().ext === "py") return docPyHover(CM, view, pos, side);
     const node = CM.language.syntaxTree(view.state).resolveInner(pos, side);
     const kind = { PropertyName: "css", TagName: "html", AttributeName: "attr" }[node.name];
     if (!kind) return null;
@@ -1971,6 +2059,40 @@ function docHoverDocs(CM) {
     };
   });
   return docHoverDocsCache;
+}
+
+//: A standard library name under the pointer in a Python file (`math.sqrt`,
+//: OPEN 1070): its signature and its doc's first line, the signature help
+//: VS Code's hover gives. Only once the table has been fetched (the first
+//: completion after a dot fetches it), so a hover never waits on a request.
+async function docPyHover(CM, view, pos, side) {
+  const node = CM.language.syntaxTree(view.state).resolveInner(pos, side);
+  if (node.name !== "PropertyName" || node.parent?.name !== "MemberExpression") return null;
+  const dotted = view.state.sliceDoc(node.parent.from, node.from).replace(/\.\s*$/, "").replace(/\s+/g, "");
+  if (!/^[A-Za-z_][\w.]*$/.test(dotted)) return null;
+  const rows = docPyStdlibRows(await docPyStdlibTable(), docPyImports(view.state.doc.toString()), dotted);
+  const name = view.state.sliceDoc(node.from, node.to);
+  const row = rows?.find((r) => r[0] === name);
+  if (!row) return null;
+  return {
+    pos: node.from,
+    end: node.to,
+    above: true,
+    create: () => {
+      const dom = document.createElement("div");
+      dom.className = "cm-hover-doc";
+      const head = document.createElement("code");
+      head.textContent = row[2] || `${dotted}.${name}`;
+      dom.appendChild(head);
+      if (row[3]) {
+        const line = document.createElement("div");
+        line.className = "cm-hover-doc-line";
+        line.textContent = row[3];
+        dom.appendChild(line);
+      }
+      return { dom };
+    },
+  };
 }
 
 //: **Indentation guides** (INBOX 402): a hairline at each indent step of a
@@ -3107,7 +3229,7 @@ const DOC_RUN_EMPTY = {
 //: three lines, the Guide's "Running code" topic at length.
 const DOC_RUN_HELP = [
   "Run sends this file to a sandbox with no network and none of your notes. What it prints and its errors come back in Output; Line N goes to the line.",
-  "JavaScript, TypeScript (types removed, not checked), SQL (an empty SQLite per run) and Python (once installed; Input feeds input()) run. HTML, CSS, SVG and p5.js sketches show as a page; Live refreshes it as you type.",
+  "JavaScript, TypeScript (types removed, not checked), SQL (a SQLite per run, with any CSV document the query names as a table) and Python (once installed; Input feeds input()) run. HTML, CSS, SVG and p5.js sketches show as a page; Live refreshes it as you type.",
   "Problems lists every finding the checks underline. Tests lists each test with its time, a failure underlined on its line. Console evaluates a line in what the last run left: Python for a .py file, JavaScript for the rest.",
   "Debug (F5, or the Debug tab's first button) runs JavaScript, TypeScript or Python to the first breakpoint (F9, or click beside a line number; right-click for a condition), then steps: F10 over, F11 in, Shift+F11 out, Shift+F5 stop. The tab shows variables, watches, the call stack and the breakpoints.",
   "The head's buttons are icons; point at one for its name. Ctrl+J shows or hides the panel, Ctrl+Shift+M opens Problems, Ctrl+Shift+Y the Console, Ctrl+Shift+D Debug; drag the top edge for its height, kept for each tab. A run still going after two seconds is in Activity, where Stop ends it too.",
@@ -4350,7 +4472,7 @@ function docCompletionExtras(CM, type) {
     type.ext === "xml" ? CM.state.EditorState.languageData.of(() => docEmmetXmlData) : [],
     type.ext === "xml" ? docXmlAutoClose(CM) : [],
     ["css", "html"].includes(type.ext) ? docColorSwatches(CM) : [],
-    ["css", "html"].includes(type.ext) ? docHoverDocs(CM) : [],
+    ["css", "html", "py"].includes(type.ext) ? docHoverDocs(CM) : [],
     docIndentGuides(CM, type.indent || "  "),
     DOC_SYMBOL_EXTS.has(type.ext) ? docStickyScroll(CM) : [],
     docNativeSnippets(CM, type.ext),

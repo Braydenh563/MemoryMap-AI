@@ -398,7 +398,7 @@ function docIdeSplitTools(CM) {
   if (type.ext === "css") config.override = docCssSources(CM);
   const native = ["js", "ts", "py", "css", "html"].includes(type.ext);
   return [
-    CM.lint.linter(docCodeLintSource(CM), { delay: DOC_CHECK_DELAY_MS }),
+    CM.lint.linter(docCodeLintSource(CM), DOC_LINT_CONFIG),
     CM.lint.lintGutter(),
     CM.autocomplete.autocompletion(config),
     docNativeSnippets(CM, type.ext),

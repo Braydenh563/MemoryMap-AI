@@ -203,6 +203,41 @@ with its owner named in the entry.
      and a list (each tour a row with its one line and length), the recipe
      applied wherever the sweep finds the same wall.
 
+810. **The owner, 2026-10-11, verbatim** (screenshots: the personas' quiet
+     Edit and Delete text buttons; Keyboard shortcuts with a bordered tinted
+     "Change" on every row; What it learned, three "Claim" cards with a large
+     checkbox and a tall empty bottom, one of them a joke): "also on the
+     personas, see the edit and delete buttons?? I want the same styling for
+     other areas on the app and/or settings like with the change buttons on
+     the keyboard shortcuts?? maybe?? is that a good design decision?? I want
+     your opinion. I want controls and tools and stuff around the app to be
+     cleaned up more. also in the what it learned, some of the things like me
+     writing when my uni days are are correct, but with other test notes, like
+     with the homework joke i had are incorrect. if it learns something it
+     also needs to make sure that the context od the thing it thinks it is
+     learning is correct, like that note is tagged as a joke yk?? the composer
+     needs A LOT more contextual understanding and needs to actually do its job
+     right. it needs to be the siri for the application, the user should be
+     able to ask it general questions like for maths, timezones, statistics,
+     what the app cna do, what the user can do on the app, things like history
+     records, maybe if it web searches it can show a panel of the web results
+     in a dropdown like with the thinking box?? maybe if it finds a web site it
+     can render the extracted website in a dropdown or panel?? things like that
+     are only the surface. the composer. like I asked if it could web search
+     and then searched the web for the word "web" and then didnt even output
+     the results. it needs soo much more work. also using the composer for
+     other application functions in the background and suggestions and search
+     history, prefilling responses or suggesting sentence or word completions
+     with the greyed out text that they can tab to or use arrows to accept etc
+     yk?? and also if the app collects insights or questions, then I thing the
+     ai should be able to or go through and clean them up and audit them to
+     make sure they are correct, maybe as a bg job, skill, runnable audit etc.
+     things like that. expand on this to a full feature and improvement, Im
+     just spurting out words but I know there is so much more I havent
+     covered." Placed: CHAT_PLAN "Placed from INBOX, 2026-10-11 (the owner:
+     Atlas as the app's assistant)", decisions 65 to 69; the row actions to
+     grammar57 (DESIGN.md "Row actions").
+
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 801 (Agent mode and the composer with no model) placed in CHAT_PLAN; 802 (drag the force graph like main) in GRAPH_PLAN; 803 (buttons, OCR, the constellation, the capture gutter) in UI_MODERNISATION_PLAN, each "Placed from INBOX, 2026-10-11".

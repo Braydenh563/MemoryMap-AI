@@ -1753,3 +1753,62 @@ Each row: the owner's words by item number, the measure that closes it, the brie
 Owner: the noagent agent (Opus), next; CHAT_PLAN Phase 6 and decisions 46 to 56 hold.
 
 - INBOX 801, bug and composer, the owner 2026-10-11 03:40Z, six screenshots, verbatim: "It said waking a model when no model is connected" / "Cant do basic utility" / "Should agent mode be enabled if the model isnt available?? Because right now it still is" / "This is wrong. The composer still needs a lot of understanding, intent, and better utility." / "it doesnt account for accidental extra characters like a backslash, tit doesnt clean up the user query or use cleaned tool calls" / "it doesnt output tool results with the composer". Seen: with no model the Agent segment stays live; the thinking line says "Waking the model..."; "what's the time in western australia" and "5 + 5" get "None of my tools fits that"; "NOTEBOOK STATS" calls search_notes with an empty query; every run ends "Done: <tool> ran, and its result is in the step above" and "Couldn't ask user"; a trailing backslash stays in the query and the plan title. Recommendation, taken: with no model, Agent runs the deterministic planner only and says so (no "Waking the model"); the query is cleaned before routing; the composer writes each tool's result as an answer (the time, the sum, the counts, the found notes); tools that cannot run without a model are not planned.
+
+## Placed from INBOX, 2026-10-11 (the owner: Atlas as the app's assistant)
+
+INBOX 810, verbatim there: "it needs to be the siri for the application".
+Read against what exists: the assistant catalogue (section 2's ids) and
+"Build first" already name most capabilities. The owner's test shows the gap
+is reach and finish, not missing rows. "can you search the web?" searched
+the web for "web" and showed nothing. Each row below is the gate it must
+pass, measured in the app with no model first (decision 61).
+
+Decisions, taken (standing order 3; numbered after 64):
+
+65. **A question about Atlas is answered about Atlas.** Questions about
+    capability ("can you", "do you", "are you able", "what can I do here")
+    route to the capability line (C15, U18). It is generated from the
+    registered acts and utilities, with the switch that turns each on. They
+    never reach search or the web. Measured: 40 phrasings, 0 tool calls.
+66. **Web results are a source panel, and a page is read in place.** A web
+    search shows its results in a collapsible block, the thinking box's
+    recipe: title, site, one line, opened in place. "Read this page" renders
+    the extracted text (`routes_chat._web_answer`'s reader) in the same panel,
+    with its address and fetch time. The answer quotes the results and never
+    returns empty after a search that found pages.
+67. **A fact is learned only in its context.** A note tagged joke, quote,
+    fiction, test or draft, or a sentence inside a quote, a list of jokes or
+    a Q-and-A, is never a claim about the person. `facts.candidates` reads the
+    note's tags and kind before a sentence becomes a claim. A claim shows its
+    note and sentence. "Not right" suppresses it and its near-variants
+    (decision 60).
+68. **The learned store audits itself.** "Check what it learned" is a
+    runnable pass. It runs as a scheduled background job (Settings,
+    Schedules), as a skill and from What it learned's bar. It re-reads every
+    open claim, insight and question against its note as written now. Edited
+    or deleted notes, context per decision 67, duplicates, contradictions and
+    stale dates are retired or flagged with a reason. Each run is a job with
+    lines (INBOX 805's ledger) and an undo.
+69. **Completions are ghost text from the person's own words.** In the
+    capture box, the chat box and search: a greyed suggestion after the caret,
+    Tab or Right accepts, Esc or typing past dismisses. It comes from the
+    engine (their tags, titles, phrases, recent searches) and the model only
+    when on and idle. One recipe in DESIGN.md. Off by one switch. Never over
+    a password or code field.
+
+| # | Ask (the owner's words) | What exists | Gate |
+| --- | --- | --- | --- |
+| A1 | "general questions like for maths, timezones, statistics" | T1 to T5 and T13 utilities; "Build first" 6 | Utilities answer "time in Western Australia", "5 + 5", "average of 3, 8, 10", "days until 25 Dec" with "Read as", no notes search and no model call. 60 phrasings at 95% |
+| A2 | "what the app can do, what the user can do" | C15, the Guide (decision 63) | Decision 65 |
+| A3 | "history records" | taskhistory, Activity, search history | "what did I search yesterday", "what ran overnight", "when did I last back up" answered from the records with times |
+| A4 | Web results in a dropdown, a page rendered in a panel | `_web_answer`, `_web_events` | Decision 66; "can you search the web" is decision 65's, not a search for "web" |
+| A5 | Uses its tools and shows the results | the tool summary (Build first 14) | Every tool result shows in the answer as a card (notes, reminders, web, a computed row). No turn ends with a tool result unshown. Measured on the owner's log questions (INBOX 808) |
+| A6 | "contextual understanding" | `Dialogue` (Build first 8), question_noise | Corrections, ellipsis and references across 5 turns. The query is cleaned (stray `\`, quotes, filler) before every search and tool argument (INBOX 808) |
+| A7 | The composer in background functions and suggestions | the suggestions inbox, search | Search suggests from history and titles. The New note title is prefilled. A note's "related" line and the filing reason are composed sentences, not lists |
+| A8 | Ghost-text completions | none | Decision 69 |
+| A9 | Learned facts in context, audit insights and questions | `facts.py`, `insights.py`, `questions.py` | Decisions 67 and 68. Measured: the owner's homework joke and the movie review are not claims; uni days is |
+| A10 | What it learned's cards | the list | A card is one row: kind chip, sentence, source note link, sure and age, actions at the end. No tall empty footer; the checkbox matches the control size |
+
+Owner: an Opus agent, "assistant" (A1 to A8), queued after transparency
+and graph; A9 and A10, an Opus agent, "learnaudit", queued after it. Not
+verified: every model-side claim (CLAUDE.md section 4).

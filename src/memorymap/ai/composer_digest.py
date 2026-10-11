@@ -34,7 +34,7 @@ import re
 import sys
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 
@@ -55,6 +55,17 @@ PHRASES = {
     "nothing_yet": "Nothing yet on {facets}.",
     "remind": "Remind you to {action}?",
     "checklist": "Make it a checklist?",
+    "pick_note": "Note the {side} as your pick?",
+    "start_list": "Start a list of {noun}s to watch next?",
+    "gather": "Gather them into one note?",
+    "go_again": "Remind you to go to {place} again?",
+    "try_one": "Remind you to try {item}?",
+    "log_weekly": "Remind you each week to log your spending?",
+    "track_table": "Track your {what} in a table?",
+    "only_week": "It's the only week you've written down.",
+    "only_names": "It's the only note that names {name}.",
+    "none_own": "None of them has a note of its own yet.",
+    "gone_quiet": "Nothing on {word} since {month}.",
 }
 
 #: A note under one of these tags is someone else's words or not a claim
@@ -187,6 +198,9 @@ class _Out:
     lines: list[str] = field(default_factory=list)
     rows: list[dict] = field(default_factory=list)
     offer: dict | None = None
+    #: The "so what" after the facts (B1, B4): how alone or how stale they
+    #: are, said once, before the offer.
+    closing: list[str] = field(default_factory=list)
 
 
 def _day(d: date | None, today: date) -> str:
@@ -262,10 +276,48 @@ def _second_person(text: str) -> str:
     return text
 
 
-def _tidy(text: str) -> str:
-    #: "next week" said on the day of the note is stale by now, so a loose
-    #: one goes; "the 14th of next month" is the date itself and stays.
-    text = _RELATIVE.sub(lambda m: m.group(0) if re.search(r"\bof\s*$", text[:m.start()]) else "", text)
+#: The day the note being read was written and the day it is now, so a
+#: relative time is said as the day it meant (B3).
+_TODAY: ContextVar[date | None] = ContextVar("digest_today", default=None)
+#: Every note the route read, for "none of them has a note of its own".
+_VIEWS: ContextVar[list] = ContextVar("digest_views", default=[])
+_PIN = re.compile(
+    r"\b(?P<pre>(?:before|by|until|in|from) )?(?:the (?P<nth>\d{1,2})(?:st|nd|rd|th) of )?(?P<which>next|this|last) (?P<unit>week|month|weekend)\b",
+    re.I,
+)
+
+
+def _pin(text: str, written: date) -> str:
+    """"This week" written on 17 July is "the week of 17 July" now (CHAT_PLAN
+    B3): true on the day it was written, and wrong said today with no day.
+    "The 14th of next month" written in October is 14 November."""
+    today = _TODAY.get() or written
+
+    def said(m: re.Match) -> str:
+        step = {"next": 1, "this": 0, "last": -1}[m.group("which").lower()]
+        pre, unit = m.group("pre") or "", m.group("unit").lower()
+        if unit == "month":
+            index = written.month - 1 + step
+            year, month = written.year + index // 12, index % 12 + 1
+            name = composer._MONTHS[month - 1] + (f" {year}" if year != today.year else "")
+            if m.group("nth"):
+                return f"{pre}{int(m.group('nth'))} {name}"
+            return f"{pre if pre.strip().lower() != 'in' else ''}in {name}"
+        if unit == "weekend":
+            saturday = written + timedelta(days=(5 - written.weekday()) % 7 + 7 * step)
+            return f"{pre}the weekend of {_day(saturday, today)}"
+        return f"{pre}the week of {_day(written + timedelta(days=7 * step), today)}"
+
+    return _PIN.sub(said, text)
+
+
+def _tidy(text: str, written: date | None = None) -> str:
+    if written is not None:
+        text = _pin(text, written)
+    else:
+        #: With no day to pin it to, "next week" is stale by now and goes;
+        #: "the 14th of next month" is the date itself and stays.
+        text = _RELATIVE.sub(lambda m: m.group(0) if re.search(r"\bof\s*$", text[:m.start()]) else "", text)
     text = re.sub(r"\s+([,.;])", r"\1", text)
     return text.strip().rstrip(".!").strip()
 
@@ -339,13 +391,13 @@ def _facts(view: composer.NoteView, names: set[str], subject: set[str] | None = 
                 continue
             strong = next((name for name, cue in _CUES[:_STRONG_CUES] if cue.search(piece)), "")
             cue = fixed or (label if own else "") or strong or note_label or next((name for name, cue in _CUES if cue.search(piece)), "")
-            said = _tidy(_second_person(piece))
+            said = _tidy(_second_person(piece), view.written)
             if cue == "Your week":
                 said = re.sub(r"\b(?:are|is) (on|every)\b", r"\1", said)
             if cue == "What you want":
                 said = re.sub(r"^you (?:want|need) (?:it|one|them) ", "", said)
             if said:
-                out.append(Fact(view, s, cue, said, _tidy(action) if piece is pieces[0][0] else ""))
+                out.append(Fact(view, s, cue, said, _tidy(action, view.written) if piece is pieces[0][0] else ""))
     return out
 
 
@@ -475,6 +527,9 @@ def _overview(out: _Out, question: str, members, facts, today: date, kind: str) 
     moved = _progress(members, today) if _GOING.search(question) else ""
     if moved:
         out.lines.append(moved)
+        quiet = _gone_quiet(members)
+        if quiet:
+            out.closing.append(quiet)
     elif kind == "likes":
         times = "once" if len(members) == 1 else ("twice" if len(members) == 2 else f"{realise.count_word(len(members))} times")
         out.lines.append(PHRASES["likes"].format(topic=topic, times=times, span=_span(members, today)))
@@ -516,6 +571,22 @@ def _progress(members: list[composer.NoteView], today: date) -> str:
     return ""
 
 
+def _gone_quiet(members: list[composer.NoteView]) -> str:
+    """"Nothing on bench since September": a measure an earlier note gives
+    that the latest one does not (B4, how fresh)."""
+    dated = [v for v in members if v.written]
+    if len(dated) < 2:
+        return ""
+    said_last = {m.group(1).lower() for s in dated[-1].sentences for m in _MEASURE.finditer(s.text)}
+    for v in reversed(dated[:-1]):
+        for s in v.sentences:
+            for m in _MEASURE.finditer(s.text):
+                word = m.group(1).lower()
+                if word not in said_last:
+                    return PHRASES["gone_quiet"].format(word=word, month=composer._MONTHS[v.written.month - 1])
+    return ""
+
+
 def _best(facts: list[Fact], question: str, cue: re.Pattern | None = None) -> Fact | None:
     stems = {composer._stem(t) for t in composer.subject_terms(clean(question))}
 
@@ -534,6 +605,9 @@ def _say_fact(out: _Out, lead: Fact, today: date, question: str) -> None:
         #: "Hobbies I want to try: bouldering, film photography, ukulele":
         #: asked what the hobbies are, the answer is the count and the list.
         out.lines.append(f"{realise.count_word(len(items)).capitalize()}, from your note of {_day(lead.view.written, today)}: {realise.join_items(items)}.")
+        others = [v for v in _VIEWS.get() if v.id != lead.view.id]
+        if not any(composer._holds(composer._stem(w), v.words) for v in others for i in items for w in composer.subject_terms(i)[-1:]):
+            out.closing.append(PHRASES["none_own"])
     elif lead.label:
         out.lines.append(f"From your {lead.label[0].lower() + lead.label[1:]} note, {_day(lead.view.written, today)}: {body}.")
     else:
@@ -585,11 +659,13 @@ def _single(out: _Out, kind: str, question: str, members, facts, today: date) ->
         main = next((c for c in clauses if any(composer._holds(st, set(composer._words(c))) for st in stems)), clauses[0])
         said = _second_person(main)
         said = re.sub(r"\bthis week\b", f"in the week of {_day(lead.view.written, today)}", said)
-        said = _tidy(said)
+        said = _tidy(said, lead.view.written)
         out.lines.append(said[0].upper() + said[1:] + ".")
         out.rows.append(_row(said, lead))
+        if "week of" in said and len(members) == 1:
+            out.closing.append(PHRASES["only_week"])
         extra = [c for c in clauses if c is not main]
-        rest = [Fact(lead.view, lead.sentence, "Also that week", _tidy(_second_person(c)).lstrip("you spent ").strip(), "") for c in extra]
+        rest = [Fact(lead.view, lead.sentence, "Also that week", _tidy(_second_person(c), lead.view.written).lstrip("you spent ").strip(), "") for c in extra]
         rest += [f for f in facts if f is not lead and f.view.id == lead.view.id]
     else:
         _say_fact(out, lead, today, question)
@@ -606,13 +682,14 @@ def _who(out: _Out, name: str, views, names: set[str], today: date) -> bool:
         return False
     notes = {v.id for v, _ in found}
     view, s = found[0]
-    fact = _tidy(_second_person(s.text.strip()))
+    fact = _tidy(_second_person(s.text.strip()), view.written)
     if len(notes) == 1:
         out.lines.append(PHRASES["who_once"].format(name=name[:1].upper() + name[1:], day=_day(view.written, today), fact=fact))
+        out.closing.append(PHRASES["only_names"].format(name=name[:1].upper() + name[1:]))
     else:
         out.lines.append(PHRASES["who_many"].format(name=name[:1].upper() + name[1:], count=_count(len(notes)), span=_span([v for v, _ in found], today)))
         for v, s2 in found[:LINES["overview"]]:
-            body = _tidy(_second_person(s2.text.strip()))
+            body = _tidy(_second_person(s2.text.strip()), v.written)
             out.lines.append(f"**{_day(v.written, today)}:** {body}.")
     out.rows.append({"sentence": fact, "note_id": view.note.get("source_id", view.id), "source": s.text, "score": 1.0, "digest": True})
     return True
@@ -654,11 +731,12 @@ def _compare(out: _Out, a: str, b: str, views, today: date, names: set[str]) -> 
                     against = [x.text for x in v.sentences if x is not s and (about(a, x.text) or about(b, x.text))]
                     why = "you're leaning towards it"
                     if against:
-                        reason = _tidy(_second_person(re.sub(r"^[^:]{2,30}:\s+", "", against[0])))
+                        reason = _tidy(_second_person(re.sub(r"^[^:]{2,30}:\s+", "", against[0])), v.written)
                         why += f" after {_lower_first(reason, names)}"
     if not winner:
         return False
     out.lines.append(PHRASES["pick"].format(side=winner[:1].upper() + winner[1:], why=why))
+    out.offer = _note_offer(PHRASES["pick_note"].format(side=winner[:1].upper() + winner[1:]), f"My pick: the {full[winner]}")
     out.rows.append({"sentence": why, "note_id": why_view.note.get("source_id", why_view.id), "source": why, "score": 1.0, "digest": True})
     for side in (a, b):
         bits = []
@@ -686,6 +764,8 @@ def answer(question: str, notes: list[dict], *, today: date | None = None) -> di
         return None
     names = _capitalised_inside(views)
     _NAMES.set(names)
+    _TODAY.set(today)
+    _VIEWS.set(views)
     wants_context = bool(set(composer._words(asked)) & {composer._stem(t) for t in CONTEXT_TAGS})
     if not wants_context:
         views = [v for v in views if not _context_note(v)]
@@ -731,8 +811,74 @@ def answer(question: str, notes: list[dict], *, today: date | None = None) -> di
         missing = _missing(members)
         if missing:
             out.lines.append(missing)
-    out.offer = _offer(facts)
+    out.offer = out.offer or _offer(facts) or _kind_offer(kind, asked, members, facts, today, out)
     return _result(out, kind, asked)
+
+
+_PLACE = re.compile(r"\b(?:the )?(driving range|range|gym|pool|court|course|track|studio|climbing wall|park)\b", re.I)
+_REVIEWED = re.compile(r"\b(film|movie|book|show|series|album|game)s?\b", re.I)
+
+
+def _note_offer(label: str, text: str) -> dict:
+    return {"kind": "note", "label": label, "text": text}
+
+
+def _kind_offer(kind: str, question: str, members, facts: list[Fact], today: date, out: _Out) -> dict | None:
+    """The one acting offer when the notes name no to-do of their own (B12):
+    what the kind of question suggests doing with the answer, each one a
+    thing the app does in one press (a reminder or a note)."""
+    text = " ".join(s.text for v in members for s in v.sentences)
+    if kind == "likes":
+        places = sorted({m.group(1).lower() for m in _PLACE.finditer(text)}, key=len, reverse=True)
+        if places:
+            where = "the " + places[0]
+            return {"kind": "reminder", "label": PHRASES["go_again"].format(place=where), "text": f"Go to {where}"}
+    if kind == "opinion":
+        noun = _REVIEWED.search(question + " " + " ".join(str(t) for v in members for t in (v.note.get("tags") or [])) + " " + text)
+        noun_word = {"movie": "film"}.get(noun.group(1).lower(), noun.group(1).lower()) if noun else "film"
+        return _note_offer(PHRASES["start_list"].format(noun=noun_word), f"{noun_word.capitalize()}s to watch next\n\n- [ ] ")
+    if kind == "count" and re.search(r"\$\s?\d", text) and re.search(r"\b(spen[dt]|budget|cost)", question + " " + text, re.I):
+        return {"kind": "reminder", "label": PHRASES["log_weekly"], "text": "Log your spending every Sunday"}
+    if kind == "fact":
+        listed = re.search(r"^\w+, from your note of [^:]+: (.+)\.$", out.lines[0]) if out.lines else None
+        if listed:
+            first = re.split(r",\s*| and ", listed.group(1))[0].strip()
+            return {"kind": "reminder", "label": PHRASES["try_one"].format(item=first), "text": f"Try {first}"}
+    if kind == "overview" and members and all(_context_note(v) for v in members) and len(members) >= 2:
+        pieces = [f.body for f in facts]
+        topic = _topic(question, members)
+        return _note_offer(PHRASES["gather"], f"{topic[:1].upper() + topic[1:]}\n\n" + "\n\n".join(pieces))
+    if kind == "overview" and _GOING.search(question):
+        table = _lift_table(members, today)
+        if table:
+            return _note_offer(PHRASES["track_table"].format(what=table[0]), table[1])
+    landed = next((f for f in facts if f.label == "Where you landed"), None)
+    if landed:
+        side = re.search(r"towards (?:the )?(.+)$", landed.body)
+        if side:
+            return _note_offer(PHRASES["pick_note"].format(side=side.group(1).strip()), f"My pick: the {side.group(1).strip()}")
+    return None
+
+
+def _lift_table(members, today: date) -> tuple[str, str] | None:
+    """Each dated note's measures as one table row ("Track your lifts in a
+    table?"): the columns are the measures any note gives."""
+    rows, columns = [], []
+    for v in members:
+        found = {}
+        for s in v.sentences:
+            for m in _MEASURE.finditer(s.text):
+                found.setdefault(m.group(1).lower(), f"{m.group(2)} {m.group(3)}")
+        if found and v.written:
+            rows.append((v.written, found))
+            columns += [c for c in found if c not in columns]
+    if len(rows) < 2:
+        return None
+    what = "lifts" if any(r[1].endswith("kg") for _, f in rows for r in [tuple(f.items())[0]]) else "numbers"
+    head = "| Day | " + " | ".join(c.capitalize() for c in columns) + " |"
+    rule = "| --- |" + " --- |" * len(columns)
+    body = ["| " + _day(d, today) + " | " + " | ".join(f.get(c, "") for c in columns) + " |" for d, f in rows]
+    return what, "\n".join([what.capitalize(), "", head, rule, *body])
 
 
 def _left(out: _Out, question: str, members, views, names: set[str], today: date) -> bool:
@@ -770,7 +916,7 @@ def _left(out: _Out, question: str, members, views, names: set[str], today: date
 def _result(out: _Out, kind: str, question: str) -> dict:
     #: One paragraph a line: a single newline inside a paragraph is a space
     #: to every markdown reader, so the labelled lines ran together.
-    paragraphs = list(out.lines)
+    paragraphs = list(out.lines) + out.closing[:1]
     if out.offer:
         paragraphs.append(out.offer["label"])
     text = "\n\n".join(paragraphs)

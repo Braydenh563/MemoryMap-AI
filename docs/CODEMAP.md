@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5436, frontend ids 2350, CSS sections 489, backend routes 550, backend modules 4582, test files 1051, tests 9619, plan headings 977.
+Counts: frontend functions 5436, frontend ids 2350, CSS sections 489, backend routes 550, backend modules 4587, test files 1051, tests 9623, plan headings 977.
 
 ## Frontend functions (5436)
 
@@ -2344,7 +2344,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `askAnswerFrom` | frontend/js/ask-compose.js:29 |
-| `digestOffer` | frontend/js/ask-compose.js:347 |
+| `digestOffer` | frontend/js/ask-compose.js:348 |
 | `linkCitedTitles` | frontend/js/ask-compose.js:78 |
 | `markSaidSentences` | frontend/js/ask-compose.js:139 |
 | `readWebPage` | frontend/js/ask-compose.js:298 |
@@ -9580,7 +9580,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4582)
+## Backend modules (4587)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10067,42 +10067,47 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `split_parts` | src/memorymap/ai/composer.py:2783 |
 | `subject_terms` | src/memorymap/ai/composer.py:625 |
 
-### src/memorymap/ai/composer_digest.py (32)
+### src/memorymap/ai/composer_digest.py (37)
 
 | Name | File:line |
 |---|---|
-| `Fact` | src/memorymap/ai/composer_digest.py:177 |
-| `_Out` | src/memorymap/ai/composer_digest.py:186 |
-| `_best` | src/memorymap/ai/composer_digest.py:519 |
-| `_capitalised_inside` | src/memorymap/ai/composer_digest.py:211 |
-| `_compare` | src/memorymap/ai/composer_digest.py:621 |
-| `_context_note` | src/memorymap/ai/composer_digest.py:273 |
-| `_count` | src/memorymap/ai/composer_digest.py:469 |
-| `_day` | src/memorymap/ai/composer_digest.py:192 |
-| `_dictionary` | src/memorymap/ai/composer_digest.py:232 |
-| `_facts` | src/memorymap/ai/composer_digest.py:278 |
-| `_left` | src/memorymap/ai/composer_digest.py:738 |
-| `_lines` | src/memorymap/ai/composer_digest.py:405 |
-| `_lower_first` | src/memorymap/ai/composer_digest.py:243 |
-| `_members` | src/memorymap/ai/composer_digest.py:356 |
-| `_missing` | src/memorymap/ai/composer_digest.py:441 |
-| `_offer` | src/memorymap/ai/composer_digest.py:452 |
-| `_overview` | src/memorymap/ai/composer_digest.py:473 |
-| `_progress` | src/memorymap/ai/composer_digest.py:494 |
-| `_result` | src/memorymap/ai/composer_digest.py:770 |
-| `_row` | src/memorymap/ai/composer_digest.py:431 |
-| `_say_fact` | src/memorymap/ai/composer_digest.py:530 |
-| `_second_person` | src/memorymap/ai/composer_digest.py:256 |
-| `_single` | src/memorymap/ai/composer_digest.py:544 |
-| `_span` | src/memorymap/ai/composer_digest.py:199 |
-| `_subject` | src/memorymap/ai/composer_digest.py:352 |
-| `_tidy` | src/memorymap/ai/composer_digest.py:265 |
-| `_topic` | src/memorymap/ai/composer_digest.py:384 |
-| `_who` | src/memorymap/ai/composer_digest.py:603 |
-| `answer` | src/memorymap/ai/composer_digest.py:675 |
-| `clean` | src/memorymap/ai/composer_digest.py:150 |
-| `kind_of` | src/memorymap/ai/composer_digest.py:164 |
-| `web` | src/memorymap/ai/composer_digest.py:800 |
+| `Fact` | src/memorymap/ai/composer_digest.py:188 |
+| `_Out` | src/memorymap/ai/composer_digest.py:197 |
+| `_best` | src/memorymap/ai/composer_digest.py:590 |
+| `_capitalised_inside` | src/memorymap/ai/composer_digest.py:225 |
+| `_compare` | src/memorymap/ai/composer_digest.py:698 |
+| `_context_note` | src/memorymap/ai/composer_digest.py:325 |
+| `_count` | src/memorymap/ai/composer_digest.py:521 |
+| `_day` | src/memorymap/ai/composer_digest.py:206 |
+| `_dictionary` | src/memorymap/ai/composer_digest.py:246 |
+| `_facts` | src/memorymap/ai/composer_digest.py:330 |
+| `_gone_quiet` | src/memorymap/ai/composer_digest.py:574 |
+| `_kind_offer` | src/memorymap/ai/composer_digest.py:826 |
+| `_left` | src/memorymap/ai/composer_digest.py:884 |
+| `_lift_table` | src/memorymap/ai/composer_digest.py:863 |
+| `_lines` | src/memorymap/ai/composer_digest.py:457 |
+| `_lower_first` | src/memorymap/ai/composer_digest.py:257 |
+| `_members` | src/memorymap/ai/composer_digest.py:408 |
+| `_missing` | src/memorymap/ai/composer_digest.py:493 |
+| `_note_offer` | src/memorymap/ai/composer_digest.py:822 |
+| `_offer` | src/memorymap/ai/composer_digest.py:504 |
+| `_overview` | src/memorymap/ai/composer_digest.py:525 |
+| `_pin` | src/memorymap/ai/composer_digest.py:290 |
+| `_progress` | src/memorymap/ai/composer_digest.py:549 |
+| `_result` | src/memorymap/ai/composer_digest.py:916 |
+| `_row` | src/memorymap/ai/composer_digest.py:483 |
+| `_say_fact` | src/memorymap/ai/composer_digest.py:601 |
+| `_second_person` | src/memorymap/ai/composer_digest.py:270 |
+| `_single` | src/memorymap/ai/composer_digest.py:618 |
+| `_span` | src/memorymap/ai/composer_digest.py:213 |
+| `_subject` | src/memorymap/ai/composer_digest.py:404 |
+| `_tidy` | src/memorymap/ai/composer_digest.py:314 |
+| `_topic` | src/memorymap/ai/composer_digest.py:436 |
+| `_who` | src/memorymap/ai/composer_digest.py:679 |
+| `answer` | src/memorymap/ai/composer_digest.py:753 |
+| `clean` | src/memorymap/ai/composer_digest.py:161 |
+| `kind_of` | src/memorymap/ai/composer_digest.py:175 |
+| `web` | src/memorymap/ai/composer_digest.py:946 |
 
 ### src/memorymap/ai/composer_overview.py (13)
 
@@ -10450,7 +10455,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/memorymap/ai/help_topics_more.py:2198 |
+| `_act_topic` | src/memorymap/ai/help_topics_more.py:2200 |
 
 ### src/memorymap/ai/inbox.py (7)
 
@@ -15451,7 +15456,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (9619)
+## Tests (9623)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -15837,7 +15842,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_gate_owner_cache.py | 3 |
 | tests/test_gate_staged_once.py | 3 |
 | tests/test_global_scope_ratchet.py | 3 |
-| tests/test_gold_answers.py | 10 |
+| tests/test_gold_answers.py | 14 |
 | tests/test_graph_api.py | 32 |
 | tests/test_graph_centrality_slot.py | 3 |
 | tests/test_graph_click_threshold.py | 2 |

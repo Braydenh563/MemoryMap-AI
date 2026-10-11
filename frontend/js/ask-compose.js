@@ -339,11 +339,12 @@ async function readWebPage(fold, list, reader, source) {
   }
 }
 
-//: The digest's one offer (CHAT_PLAN decision 70): its last line, a question
-//: the answer asks ("Remind you to ask the tutor on Thursday?"), made the
-//: button that does it. Plain tier (`.linklike`): an action in running text.
-//: A reminder goes through the same door Quick add uses (`/reminders/parse`,
-//: rules first, the person's clock); a checklist is a new note of boxes.
+//: The digest's one offer (CHAT_PLAN decision 70, B12): its last line, a
+//: question the answer asks ("Remind you to ask the tutor on Thursday?"),
+//: made the button that does it. Plain tier (`.linklike`): an action in
+//: running text. A reminder goes through the same door Quick add uses
+//: (`/reminders/parse`, rules first, the person's clock); a checklist or a
+//: note is a new note. Each one says what it did, with Undo.
 function digestOffer(answerEl, offer) {
   if (!answerEl || !offer || !offer.label) return;
   const line = [...answerEl.querySelectorAll("p")].reverse().find((p) => p.textContent.trim() === offer.label);
@@ -355,19 +356,34 @@ function digestOffer(answerEl, offer) {
   button.addEventListener("click", async () => {
     button.disabled = true;
     try {
+      let undo = null;
+      let said = "";
       if (offer.kind === "reminder") {
         const made = await apiJson("/reminders/parse", {
           method: "POST",
           body: JSON.stringify({ text: offer.text, tz_offset_minutes: -new Date().getTimezoneOffset() }),
         });
-        line.textContent = `Reminder set: ${made.text}, ${relativeWhen(made.due_at)}.`;
+        const repeats = { daily: ", then every day", weekly: ", then every week", monthly: ", then every month" }[made.recurring] || "";
+        said = `Reminder set: ${made.text}, ${relativeWhen(made.due_at)}${repeats}.`;
+        undo = () => apiJson(`/reminders/${made.id}`, { method: "DELETE" });
         if (typeof loadReminders === "function") loadReminders();
-      } else if (offer.kind === "checklist") {
+      } else if (offer.kind === "checklist" || offer.kind === "note") {
         const items = (offer.items || []).map((item) => `- [ ] ${item}`).join("\n");
-        await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${offer.text}\n\n${items}` }) });
-        line.textContent = `Made a checklist note: ${offer.text}.`;
+        const content = offer.kind === "checklist" ? `${offer.text}\n\n${items}` : offer.text;
+        const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content }) });
+        said = `Saved a note: ${String(offer.text).split("\n")[0]}.`;
+        undo = () => apiJson(`/entries/${made.id}`, { method: "DELETE" });
       }
+      line.textContent = said;
       line.classList.add("muted");
+      if (undo) {
+        toastAction(said, "Undo", async () => {
+          await undo();
+          line.replaceChildren(button);
+          line.classList.remove("muted");
+          button.disabled = false;
+        });
+      }
     } catch (error) {
       button.disabled = false;
       toast(error.message, true);

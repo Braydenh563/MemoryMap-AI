@@ -26,8 +26,9 @@ NOTES = [
 KEYS = {n["key"]: i + 1 for i, n in enumerate(FIXTURE["notes"])}
 NOTE_ANSWERS = [a for a in FIXTURE["answers"] if a["kind"] == "notes"]
 #: Measured 2026-10-11: before the digest the note answers scored 49 on
-#: average through the app; after, 80. The floor sits under the measure.
-NOTES_FLOOR = 76
+#: average through the app; after, 80; with B1, B3, B4 and B12 (the "so
+#: what" line, pinned times, one offer a kind), 88. The floor sits under it.
+NOTES_FLOOR = 85
 
 
 def _answer(item: dict) -> dict:
@@ -113,3 +114,54 @@ def test_a_comparison_names_the_one_the_notes_lean_to():
     result = composer_digest.answer("Logitech or Razer?", NOTES, today=TODAY)
     assert result["text"].startswith("The Logitech, by your notes: you're leaning towards it")
     assert "**Razer Viper V3:** $200." in result["text"]
+
+
+@pytest.mark.parametrize(("text", "said"), [
+    ("Gym three times this week", "Gym three times the week of 17 July"),
+    ("Uni starts back next week", "Uni starts back the week of 24 July"),
+    ("Cleaned the garage last weekend", "Cleaned the garage the weekend of 11 July"),
+    ("Ship it on the 14th of next month", "Ship it on 14 August"),
+    ("Spent more this month", "Spent more in July"),
+    ("Pay it before next week", "Pay it before the week of 24 July"),
+])
+def test_a_relative_time_is_pinned_to_the_day_it_meant(text, said):
+    """CHAT_PLAN B3: "this week" written 17 July becomes "the week of 17 July"."""
+    from datetime import date
+
+    assert composer_digest._tidy(text, date(2026, 7, 17)) == said
+
+
+@pytest.mark.parametrize(("question", "kind", "label", "text"), [
+    ("what did I think of Dune?", "note", "Start a list of films to watch next?", "Films to watch next\n\n- [ ] "),
+    ("how much did I spend on groceries?", "reminder", "Remind you each week to log your spending?", "Log your spending every Sunday"),
+    ("Logitech or Razer?", "note", "Note the Logitech as your pick?", "My pick: the Logitech G Pro X Superlight"),
+    ("do I like golf?", "reminder", "Remind you to go to the driving range again?", "Go to the driving range"),
+    ("what hobbies do I want to try?", "reminder", "Remind you to try bouldering?", "Try bouldering"),
+])
+def test_every_kind_ends_with_one_offer_the_app_can_do(question, kind, label, text):
+    """CHAT_PLAN B12: one acting offer, the answer's last line, done in one
+    press (a reminder or a note); never two."""
+    result = composer_digest.answer(question, NOTES, today=TODAY)
+    assert result["offer"] == {"kind": kind, "label": label, "text": text}
+    assert result["text"].split("\n\n")[-1] == label
+    assert result["text"].count("?") == 1
+
+
+def test_how_its_going_says_the_change_what_went_quiet_and_offers_a_table():
+    """B1 and B4: the change, then what an earlier note had that the latest
+    does not, then the lifts as a table note."""
+    result = composer_digest.answer("how's the gym going?", NOTES, today=TODAY)
+    lines = result["text"].split("\n\n")
+    assert lines[0] == "Going up: your squats went from 80 kg to 90 kg, 8 September to 2 October."
+    assert "Nothing on bench since September." in lines
+    assert result["offer"]["label"] == "Track your lifts in a table?"
+    assert "| 8 September | 80 kg | 60 kg |" in result["offer"]["text"]
+
+
+@pytest.mark.parametrize(("question", "closing"), [
+    ("what hobbies do I want to try?", "None of them has a note of its own yet."),
+    ("how much did I spend on groceries?", "It's the only week you've written down."),
+    ("who is Sam?", "It's the only note that names Sam."),
+])
+def test_the_so_what_line_says_how_alone_the_facts_are(question, closing):
+    assert closing in composer_digest.answer(question, NOTES, today=TODAY)["text"].split("\n\n")

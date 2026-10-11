@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Ask and Chat with no model: an answer now ends with what the facts mean ("It's the only week you've written down", "Nothing on bench since September") and one offer for its kind you press to do (a reminder, a weekly reminder, a list or a table as a note), with Undo; "this week" in an old note is said as the week it meant.
 - Chat with web search on: a search that found pages always answers, a line a page; the pages sit in a Web results fold under the answer, each with its site and one line, and a title opens the page to read right there.
 - Ask and Chat: "can you search the web?", "can you do maths?" or "what can you do?" is answered about the app, whether and how, and whether its switch is on, never searched for, with or without a model.
 - Ask and Chat with no model: an answer about your notes now reads like a person wrote it, the count and the days first, the facts under bold labels in your terms, what the notes do not cover, and one offer you can press (a reminder, a checklist); no bracketed dates, quote bars, Grounded in chips or count under it.

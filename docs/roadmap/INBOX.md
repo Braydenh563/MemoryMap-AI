@@ -156,6 +156,53 @@ with its owner named in the entry.
      own Reduce setting both stop every loop and keep the pose. Owner: Brief
      34 continues (companion2).
 
+804. **The owner, 2026-10-11, verbatim.** "there are more backups than my max
+     set number of 3, this console line's border clashes with the line above,
+     also these buttons and ui in the documents editor need to be fixed in
+     their design and height and stlying etc." (screenshots: four backups
+     under "Keep this many backups 3"; the Python console's `>>>` input with a
+     focus border meeting the rule above; the document assistant's
+     suggestion buttons over an "Ask about this code..." field and a send
+     button of another height). Backups fixed in b928a7d9c (every start
+     prunes to the number). Owner: grammar57 (the console line and the
+     assistant's field, send and suggestions, in the button grammar).
+
+805. **The owner, 2026-10-11, verbatim.** "it is unclear which backup is the
+     latest, and also the backups need more file info and details I feel. all
+     information and processes across the app need to be 100% transparent. so
+     all things that use the ai or composer and all background processes need
+     to be logged and shown in bg processes wtc, along with their individual
+     logs and process lines to show thier process live and when they are
+     finished as well. whena ny process is running it needs to be clear to the
+     suer." Owner: the transparency agent (next Opus slot): one process
+     ledger every AI, composer and background run writes to, live lines per
+     run in the background processes panel, a running indicator in the
+     shell, and the backup rows (latest marked, date in words, what made it,
+     size, checked).
+
+807. **The owner, 2026-10-11, verbatim.** "it isnt really clear exactly what
+     these were for" (screenshot: Where your data went, rows such as
+     "huggingface.co (2600:...:443) The internet, Optional downloads,
+     connected 4 times"). Owner: the transparency agent: each destination
+     says what it fetched or sent (the model or file name, the search
+     words) and why, the address behind a disclosure.
+
+808. **The owner, 2026-10-11, verbatim** (a log): Agent mode calls
+     `ask_user` with one option three times ("ask_user needs at least 2
+     different options"), calls `search_notes` with no query on "NOTEBOOK
+     STATS", searches `'what is there about a gaming mouse?\\'` with the
+     backslash kept, "can you search the web?" finds 0 notes via none, and
+     "Grammar check off for this session: the grammar worker did not start".
+     Owner: noagent (the agent's calls and the query clean-up); the grammar
+     worker to grammar57.
+
+809. **The owner, 2026-10-11, verbatim.** "is there a way to redesign areas
+     in the app like these??" (screenshot: Help, "Welcome and tours", a wall
+     of fourteen bordered tinted buttons with one filled "Start the tour").
+     Owner: grammar57: a wall of tinted buttons becomes one primary action
+     and a list (each tour a row with its one line and length), the recipe
+     applied wherever the sweep finds the same wall.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 801 (Agent mode and the composer with no model) placed in CHAT_PLAN; 802 (drag the force graph like main) in GRAPH_PLAN; 803 (buttons, OCR, the constellation, the capture gutter) in UI_MODERNISATION_PLAN, each "Placed from INBOX, 2026-10-11".

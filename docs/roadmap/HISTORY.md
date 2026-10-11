@@ -48264,6 +48264,11 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      graph readjusts it just appears there :(". The cluster's bubbles still
      overlap; outliers sit far out on long links.
 
+806. **The owner, 2026-10-11, verbatim.** "this ui is wrong and clashing"
+     (screenshots: the changed-setting bar drawn on the text edge of "Corner
+     companion" and "Atlas look"). Fixed in b928a7d9c: the bar is in the
+     gutter, one `--space-3` outside the text.
+
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 
 INBOX 797, the owner: "I feel like the mindmap and whiteboard are still

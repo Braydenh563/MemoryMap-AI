@@ -10645,7 +10645,7 @@ function docExportHtmlDocument(title, bodyHtml, savedOn) {
 // DOC-EXPORT-HTML-END
 
 //: What comes out of the app and what does not. Everything in this list is
-//: something that works only inside a running MemoryMap: a button with a
+//: something that works only inside a running Tessellate: a button with a
 //: listener that no longer exists, an icon whose font is not in the file, a
 //: link to `/documents/12`. Shipped as-is they would be an empty square, a
 //: dead control and a 404; dropped, the page reads.
@@ -15558,7 +15558,7 @@ function docSpellable(text, word, start, end) {
   if (word.length < 2) return false;
   //: An acronym (API, HTTP, NASA) is not in any word list and is not a typo.
   if (word === word.toUpperCase()) return false;
-  //: An internal capital means an identifier or a product name: MemoryMap,
+  //: An internal capital means an identifier or a product name: Tessellate,
   //: docSurface, YouTube. Splitting and checking the halves would flag half
   //: the identifiers in any technical note.
   if (/[A-Z]/.test(word.slice(1))) return false;
@@ -18139,7 +18139,7 @@ function docFindingAnswerRows(finding) {
     kind: "action",
     id: "ignore",
     label: "ph:eye-slash Ignore in this document",
-    title: "Stop flagging this wording in this document until MemoryMap is restarted",
+    title: "Stop flagging this wording in this document until Tessellate is restarted",
     run: (close = () => {}) => {
       close();
       docProseIgnore(finding);
@@ -19096,7 +19096,7 @@ function loadCodeMirror() {
     //: Said out loud once. Silence here would be the "policy silently
     //: refusing the work" shape: the editor would quietly stay a textarea and
     //: nobody would know why the new features were missing.
-    console.warn(`MemoryMap: ${error.message}. The plain editor is still available.`);
+    console.warn(`Tessellate: ${error.message}. The plain editor is still available.`);
     return null;
   });
   return docCmLoad;
@@ -20813,7 +20813,7 @@ async function ensureDocEditor() {
   } catch (error) {
     docCmBroken = true;
     console.warn(
-      `MemoryMap: the editor could not start (${error.message}). The plain editor is still available.`
+      `Tessellate: the editor could not start (${error.message}). The plain editor is still available.`
     );
     return null;
   }

@@ -1,4 +1,4 @@
-// MemoryMap AI: the graph's force simulation, off the main thread.
+// Tessellate: the graph's force simulation, off the main thread.
 //
 // GRAPH_PLAN.md §4 ("Simulation off the main thread") and §5 Phase 1. The SVG
 // renderer this replaces ran `d3.forceSimulation` on the main thread and wrote

@@ -212,7 +212,7 @@ def test_the_app_may_frame_blobs_and_itself_but_nothing_else():
     policy = security.build_csp([])
     assert "frame-src 'self' blob:" in policy
     assert "frame-ancestors 'none'" in policy, (
-        "the other direction is unchanged: nothing may frame MemoryMap"
+        "the other direction is unchanged: nothing may frame Tessellate"
     )
 
 

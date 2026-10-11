@@ -818,7 +818,7 @@ artefact, and it is the moat §7 argues is hardest to copy.
 
 ## 3.1 What "good" looks like, in five sentences
 
-MemoryMap is the notebook you can *believe*: every answer shows the notes it
+Tessellate is the notebook you can *believe*: every answer shows the notes it
 came from, every action the agent takes is visible, undoable and logged, and
 nothing ever leaves the machine. It opens on a quiet page where the content is
 the first thing you see and the chrome is the last, at every window size from a

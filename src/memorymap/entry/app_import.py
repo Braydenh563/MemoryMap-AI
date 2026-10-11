@@ -48,7 +48,7 @@ from urllib.parse import unquote
 
 SOURCES = ("notion", "obsidian", "evernote", "apple", "memorymap")
 LABELS = {"notion": "Notion", "obsidian": "Obsidian", "evernote": "Evernote", "apple": "Apple Notes",
-          "memorymap": "a MemoryMap folder"}
+          "memorymap": "a Tessellate folder"}
 
 #: Per file, and over a whole archive once unpacked: a zip bomb stops here.
 MAX_FILE_BYTES = 5 * 1024 * 1024
@@ -76,7 +76,7 @@ class Imported:
     created: datetime | None = None
     #: Front matter keys other than category and tags, kept in the text.
     path: str = ""
-    #: A MemoryMap folder's sidecar, every field (`export_folder.read`).
+    #: A Tessellate folder's sidecar, every field (`export_folder.read`).
     record: dict | None = None
     #: Its attachments, by the file name the sidecar gives.
     files: dict = field(default_factory=dict)
@@ -87,7 +87,7 @@ class ReadResult:
     notes: list[Imported] = field(default_factory=list)
     #: "name: reason", one per file or note left out: the import report lists them.
     skipped: list[str] = field(default_factory=list)
-    #: What a source carries besides notes (a MemoryMap folder's documents).
+    #: What a source carries besides notes (a Tessellate folder's documents).
     extra: dict = field(default_factory=dict)
 
 

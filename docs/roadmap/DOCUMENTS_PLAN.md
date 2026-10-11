@@ -753,7 +753,7 @@ is the half that makes the other half true.
 assumed: code fences, inline code, addresses, markdown link destinations,
 reference definitions, html tags, `[[note links]]` and frontmatter are
 masked out of every prose rule, not only the spelling one; acronyms
-(`HTTP`), internal capitals (`MemoryMap`, `docSurface`) and letter runs
+(`HTTP`), internal capitals (`Tessellate`, `docSurface`) and letter runs
 touching a digit, a slash, an `@` or a dotted name (`utf-8`, `app.js`) are
 never checked. Measured on 8,000 characters of this project's own README:
 six findings, five distinct words, every one of them a product name or a
@@ -872,7 +872,7 @@ whiteboard's PNG export takes for the same reason: the drawing exists, export
 what is drawn.
 
 **What "self-contained" is taken to mean**, because the word is doing all the
-work: the file opens on a machine with no network, no MemoryMap and no account.
+work: the file opens on a machine with no network, no Tessellate and no account.
 That is one assertion and everything below follows from it.
 
 - **The stylesheet is written out, not borrowed.** The app's eleven sheets are

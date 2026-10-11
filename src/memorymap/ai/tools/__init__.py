@@ -912,7 +912,7 @@ def _notebook_overview(session: Session, args: dict) -> dict:
 
 
 def _search_help(session: Session, args: dict) -> dict:
-    """The app's own help for a feature, so a question about how MemoryMap
+    """The app's own help for a feature, so a question about how Tessellate
     works is answered from its guide rather than from the notes or the
     model's guesses (the same block `help_chat` adds to an app question)."""
     from memorymap.ai import help_chat
@@ -3438,7 +3438,7 @@ TOOLS: dict[str, ToolSpec] = {
             "search_help",
             #: Short on purpose: every tool's schema must fit a 32k window
             #: untrimmed (tests/test_prompt_budget.py), and this one tipped it.
-            "How a MemoryMap feature or setting works, from its guide.",
+            "How a Tessellate feature or setting works, from its guide.",
             {
                 "type": "object",
                 "properties": {"query": {"type": "string"}},
@@ -3938,7 +3938,7 @@ CORE_TOOLS = [
 # fires when it needn't costs a few hundred characters, and one that fails to
 # fire costs the user the thing they asked for.
 TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
-    #: The app's own guide, for a question about MemoryMap rather than the
+    #: The app's own guide, for a question about Tessellate rather than the
     #: notes (2026-10-10 triage, decision 4: it found the right help entry for
     #: eight of ten sample questions). A group, not a core tool: most turns
     #: are about the notes, and a core tool's schema is paid on every round.

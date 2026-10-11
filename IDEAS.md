@@ -29,7 +29,7 @@ they live, because their wording is what a future session will search for.
 - Allow saving custom appearances and themes: thirteen themes and saved looks, in
   Settings, Appearance.
 - Collapsible sidebars.
-- Make MemoryMap AI cross-platform: a Windows installer and a Linux package, and
+- Make Tessellate cross-platform: a Windows installer and a Linux package, and
   macOS from source.
 - Package the application, and improve the Settings models page: the installers,
   and Settings, Models with fit badges and a model per feature.
@@ -42,7 +42,7 @@ they live, because their wording is what a future session will search for.
   restart, health): Settings, Background tasks, Packages, Logs and About.
 - Improve the console in settings and show all console messages: Settings, Logs.
 - A way to run the application on a phone: a layout built for the phone, the
-  Share to MemoryMap action, and, for a phone on your own network, LAN mode over
+  Share to Tessellate action, and, for a phone on your own network, LAN mode over
   HTTPS (Settings, Account & security).
 - The help area in settings has an ask-AI feature that knows the program's
   documentation: the Guide, and Ask Atlas about the app (`Ctrl`+`Shift`+`H`).

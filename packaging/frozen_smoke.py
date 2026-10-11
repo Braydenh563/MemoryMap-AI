@@ -1,4 +1,4 @@
-"""Smoke-test a running packaged MemoryMap: every asset and the API paths
+"""Smoke-test a running packaged Tessellate: every asset and the API paths
 that only a frozen build can get wrong.
 
     python packaging/frozen_smoke.py --base http://127.0.0.1:8765 --data-dir DIR

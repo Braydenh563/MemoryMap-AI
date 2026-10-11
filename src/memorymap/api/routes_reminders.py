@@ -341,7 +341,7 @@ def _ics_event(session: Session, reminder: Reminder, stamp: str) -> list[str]:
 
 def _ics_response(session: Session, reminders: list[Reminder], filename: str) -> Response:
     stamp = _ics_time(utcnow())
-    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//MemoryMap AI//Reminders//EN", "CALSCALE:GREGORIAN"]
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Tessellate//Reminders//EN", "CALSCALE:GREGORIAN"]
     for reminder in reminders:
         lines += _ics_event(session, reminder, stamp)
     lines.append("END:VCALENDAR")

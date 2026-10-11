@@ -1,5 +1,5 @@
 <#
-  MemoryMap AI - launch splash.
+  Tessellate - launch splash.
 
   WHY THIS EXISTS
   ---------------
@@ -110,7 +110,7 @@ try {
   $form.BackColor       = $bg
   $form.TopMost         = $true
   $form.ShowInTaskbar   = $true
-  $form.Text            = "Starting MemoryMap AI"
+  $form.Text            = "Starting Tessellate"
 
   # The window's icon, and therefore the taskbar button's. Best-effort in
   # every direction: the icon file may genuinely not be there yet - this
@@ -179,7 +179,7 @@ try {
   })
 
   $title           = New-Object System.Windows.Forms.Label
-  $title.Text      = "MemoryMap AI"
+  $title.Text      = "Tessellate"
   $title.ForeColor = $ink
   $title.Font      = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]17), ([System.Drawing.FontStyle]::Bold)
   $title.Location  = New-Object System.Drawing.Point(108, 34)
@@ -513,7 +513,7 @@ try {
     # thing being diagnosed worse. The doctor is one command away in a
     # terminal; this is what only the splash knows.
     try {
-      $lines = @("MemoryMap AI launch diagnostics", (Get-Date).ToString("u"), "")
+      $lines = @("Tessellate launch diagnostics", (Get-Date).ToString("u"), "")
       foreach ($s in @($st.rows)) {
         $lines += ("[{0}] {1}/{2} {3}: {4}" -f $s.State, $s.Step, $s.Total, $s.Title, $s.Detail)
       }

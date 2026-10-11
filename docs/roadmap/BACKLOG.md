@@ -353,7 +353,7 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
   - ~~live-preview editing where the markup renders in place instead of in a
     second pane~~ **Built (the CodeMirror 6 engine, DOCUMENTS_PLAN Phase 2 and section 17, `doclivemd.js`)**, the one that would change the feel and also the one that
     means giving up the textarea; worth doing deliberately, and last
-  - **Sub-pages.** **Next:** not in DOCUMENTS_PLAN and `documents` still has no `parent_id` (`core/database.py:1205`); needs a decision row there first, then an Alembic revision, `routes_documents.py` list/move routes and the sidebar tree in `documents.js`. Docs area, so it waits for the documents agent. Notion's documents nest into a tree; MemoryMap's are
+  - **Sub-pages.** **Next:** not in DOCUMENTS_PLAN and `documents` still has no `parent_id` (`core/database.py:1205`); needs a decision row there first, then an Alembic revision, `routes_documents.py` list/move routes and the sidebar tree in `documents.js`. Docs area, so it waits for the documents agent. Notion's documents nest into a tree; Tessellate's are
     flat. Worth deciding this one early rather than late, since it's a data
     model question (`documents` would need a `parent_id`) that every other
     item in this list is easier to build on top of than to retrofit under.
@@ -1843,7 +1843,7 @@ don't have a shape yet, recorded so they aren't lost, not because any of
 them are close to being built:
 
 - **MCP tool support**: **Pointer:** WORLD_CLASS_PLAN B8 "Extensions" and PLAN.md harness row A7 ("MCP in and out"); the consume half waits on the trust model. "an in-built browser with MCP tool abilities to
-  accompany the web search". The Model Context Protocol would let MemoryMap
+  accompany the web search". The Model Context Protocol would let Tessellate
   either expose its own tools (§7 of `ARCHITECTURE.md`'s 58-tool registry) to
   other MCP clients, or consume external MCP servers as more tools for its
   own agent. Either direction is a real integration, not a checkbox, it
@@ -2815,7 +2815,7 @@ preview is read-only because the text is *extracted*, `core/docview.py`'s
 own docstring makes the point that editing would mean writing text back into
 a format it was never in. Editing a .docx in place is not a feature this app
 can honestly offer. What it *can* offer, and what is probably meant: **import
-the extracted text as a real MemoryMap document**, which is then editable
+the extracted text as a real Tessellate document**, which is then editable
 like any other, with the original file kept as the source. That is a
 different feature from "edit the upload", and much more achievable, scope
 it as import, not as in-place editing.
@@ -2939,7 +2939,7 @@ laziness.
    raising the full window is small, purely local, and matches a pattern
    several competitors treat as table stakes.
 6. ~~**Inline citations in chat answers that point back to a specific note**~~ **Built (section 109.3 table row 6), see `ai/grounding.py` (numbered citations resolved against the retrieved notes) and CHAT_PLAN Phase 1.**
-   clickable to jump there. MemoryMap's retrieval already knows which
+   clickable to jump there. Tessellate's retrieval already knows which
    notes it drew on (`search_manager.retrieve_detailed`); what's unclear
    without a live model to check is whether the *rendered answer text*
    itself carries a per-claim link back to its source note, versus only a
@@ -3768,7 +3768,7 @@ Every competitor in this category is either cloud-first with AI (Notion AI, Mem,
 Reflect, Tana, NotebookLM, Saner) or local-first without it (Obsidian, Logseq,
 Anytype, Zettlr). The first group cannot promise privacy because the model is
 somebody else's server; the second cannot promise intelligence because there is
-nothing to ask. **MemoryMap is local-first *and* has a model**, and that is not a
+nothing to ask. **Tessellate is local-first *and* has a model**, and that is not a
 feature list: it is a category of its own, and almost nothing in the product
 currently *says* so.
 

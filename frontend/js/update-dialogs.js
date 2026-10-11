@@ -98,7 +98,7 @@ async function askUpdateChoiceOnce() {
     await new Promise((resolve) => firstRunTurn(() => resolve()));
   }
   const yes = await confirmDialog(
-    "Check for updates automatically?\n\nMemoryMap AI can look for a newer version each time it starts. " +
+    "Check for updates automatically?\n\nTessellate can look for a newer version each time it starts. " +
       "Nothing about your notes is sent. You can change this in Settings, About.",
     { confirmLabel: "Check automatically", cancelLabel: "Don't check", danger: false }
   );
@@ -161,11 +161,11 @@ function showUpdateAvailableDialog(result) {
   const text = document.createElement("p");
   text.className = "confirm-text";
   text.textContent = result.can_auto_apply
-    ? `MemoryMap AI ${result.latest} is out: you're on ${result.current}. ` +
-      "Update automatically (downloads and installs it, then closes MemoryMap " +
+    ? `Tessellate ${result.latest} is out: you're on ${result.current}. ` +
+      "Update automatically (downloads and installs it, then closes Tessellate " +
       "AI: reopen it in a minute or two to start using the new version), or " +
       "download it yourself from the release page."
-    : `MemoryMap AI ${result.latest} is out: you're on ${result.current}. ` +
+    : `Tessellate ${result.latest} is out: you're on ${result.current}. ` +
       "This app never updates itself without asking: download the new " +
       "version yourself whenever you're ready.";
   const progress = document.createElement("p");
@@ -244,12 +244,12 @@ function showSourceUpdatedDialog(result) {
   overlay.className = "modal-overlay confirm-overlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "MemoryMap AI was updated");
+  overlay.setAttribute("aria-label", "Tessellate was updated");
 
   const card = document.createElement("div");
   card.className = "card modal-card confirm-card";
   const heading = document.createElement("h3");
-  heading.textContent = "MemoryMap AI was updated";
+  heading.textContent = "Tessellate was updated";
   const text = document.createElement("p");
   text.className = "confirm-text";
   text.textContent = result.from

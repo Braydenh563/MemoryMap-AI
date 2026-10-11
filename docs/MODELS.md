@@ -1,6 +1,6 @@
 # Choosing an AI model
 
-MemoryMap works without any AI at all: you get full-text search and
+Tessellate works without any AI at all: you get full-text search and
 `Uncategorised` filing. For auto-filing and chat answers, install
 [Ollama](https://ollama.com) and pull a model:
 
@@ -115,7 +115,7 @@ Models shows this under "Can use tools" beside the chat model, read from the
 model rather than guessed. `qwen3.5:9b` and `llama3.1:8b` are the most reliable of the list
 above; the smallest models can use tools but forget to.
 
-**A small model on a large notebook is fine.** MemoryMap never stuffs the
+**A small model on a large notebook is fine.** Tessellate never stuffs the
 whole notebook into one prompt: it retrieves a handful of relevant notes
 first, so prompt size stays small regardless of how many notes you have. A
 smaller model reasons less well about what it is given; it does not choke on
@@ -161,7 +161,7 @@ Text-only mirrors exist for the
 [26B-A4B](https://huggingface.co/braydenh563/Gemma4-26B-A4B-Uncensored-HauhauCS-Bal-Ollama-Text)
 and
 [35B-A3B](https://huggingface.co/braydenh563/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggr-Ollama-Text)
-lines. Take one when MemoryMap is only handling text: it is a smaller
+lines. Take one when Tessellate is only handling text: it is a smaller
 download with nothing to configure.
 
 Two things worth knowing before you pick from this table. The Gemma 26B-A4B
@@ -192,7 +192,7 @@ and need the projector supplied by hand.
 ## OCR models
 
 OCR models are not vision chat models: they are tuned to transcribe, keep
-layout, read tables, and emit Markdown. MemoryMap uses one to read scanned PDFs
+layout, read tables, and emit Markdown. Tessellate uses one to read scanned PDFs
 and text in images, and the OCR workspace lets you check and correct each
 region before it becomes a note.
 
@@ -221,7 +221,7 @@ Use `--temp 0` for OCR: you want transcription, not invention.
 
 ## Not using Ollama?
 
-**Settings, Models, Model backend** points MemoryMap at anything that serves
+**Settings, Models, Model backend** points Tessellate at anything that serves
 the OpenAI API instead. **LM Studio**, **llama.cpp**'s `llama-server`, **Jan**
 and **vLLM** are all the same choice, differing only by address. Pick
 "LM Studio / llama.cpp / Jan / vLLM", enter the server's address, and press
@@ -247,7 +247,7 @@ thinking models, and the token counts on each message. Two differences
 worth knowing: downloading models is an Ollama feature (every other server
 is handed a model you already have, so that panel hides itself), and Ollama
 is the only one that lets the app *ask* for a context window. Elsewhere the
-window is whatever the server was started with, so MemoryMap reads it and
+window is whatever the server was started with, so Tessellate reads it and
 rations the prompt to fit.
 
 Pulling a GGUF from Hugging Face into Ollama needs a compatible
@@ -259,7 +259,7 @@ licence while you are there.
 ## Embeddings
 
 The **embedding** model for search by meaning (`BAAI/bge-small-en-v1.5`) runs
-inside MemoryMap and downloads itself the first time it is needed, along with
+inside Tessellate and downloads itself the first time it is needed, along with
 the `sentence-transformers` package it needs (several hundred MB, and more on
 Windows, where it brings torch). Settings, Search and index, Search engine
 names whichever one is actually loaded. No Ollama pull is required, and you can

@@ -295,11 +295,11 @@ def test_chat_endpoint_threads_history_to_model(ai_client, fake_ollama):
 
 
 def test_a_starter_names_a_category_as_it_reads_in_a_sentence():
-    # The seeded notebook's "About MemoryMap" gave "What have I saved about
+    # The seeded notebook's "About Tessellate" gave "What have I saved about
     # about memorymap?": the category's own "About" doubled and a name lower-cased.
     from memorymap.api.routes_chat import _about
 
-    assert _about("About MemoryMap") == "MemoryMap"
+    assert _about("About Tessellate") == "Tessellate"
     assert _about("Travel plans") == "travel plans"
     assert _about("Jokes") == "jokes"
     assert _about("About") == "about"

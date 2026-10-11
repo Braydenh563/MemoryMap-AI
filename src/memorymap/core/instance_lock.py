@@ -13,7 +13,7 @@ hours later.
 
 - A server that starts writes `instance.lock` into its data directory: its
   port, its pid, when it started, and a random token.
-- A launch reads that file first. If the port answers `/health` as MemoryMap,
+- A launch reads that file first. If the port answers `/health` as Tessellate,
   the notebook is already open: the launch asks the running server to bring
   its window forward (`POST /instance/focus`, carrying the token, which only
   someone who can read the data directory has), or, with the Advanced
@@ -200,14 +200,20 @@ def _opener():
     return urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
+#: What `/health` and `/instance` call the app: the current name first, then
+#: the name a server started before the rename to Tessellate still answers
+#: with, so a launch after an update recognises the copy already running.
+APP_NAMES = ("Tessellate", "MemoryMap AI")  # brand: keep
+
+
 def answers(port: int, host: str = "127.0.0.1", timeout: float = 1.5) -> bool:
-    """Whether MemoryMap answers `/health` on this port."""
+    """Whether Tessellate answers `/health` on this port."""
     try:
         with _opener().open(f"http://{host}:{port}/health", timeout=timeout) as response:
             body = json.loads(response.read(4096).decode("utf-8", "replace"))
     except (OSError, ValueError):
         return False
-    return isinstance(body, dict) and body.get("app") == "MemoryMap AI"
+    return isinstance(body, dict) and body.get("app") in APP_NAMES
 
 
 def find_running(

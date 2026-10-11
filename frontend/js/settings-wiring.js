@@ -777,7 +777,7 @@ document.addEventListener("keydown", (e) => {
       && !boardOwns
     ) {
       tabJumpArmedAt = performance.now();
-      //: Asked for: "m" rather than "g" (m for MemoryMap, and "g" collided
+      //: Asked for: "m" rather than "g" (m for Tessellate, and "g" collided
       //: with Graph's own letter), and "some visual assistance and guides":
       //: the first key shows the chord's targets for as long as it is armed,
       //: so the second key is never a guess.
@@ -865,7 +865,7 @@ function maybeShowOnboarding() {
   if (typeof openTour !== "function") return;
   if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;
   localStorage.setItem("tourDone", "1");
-  toastAction("There is a guided tour of MemoryMap now.", "Take the tour", () => {
+  toastAction("There is a guided tour of Tessellate now.", "Take the tour", () => {
     openTour("basics");
   });
 }
@@ -1074,7 +1074,7 @@ restampShortcutHints();
 // establishes the disabled state the HTML already carries, not a real render.
 renderUndoBar();
 
-// "m" then a letter jumps tabs (m for MemoryMap), GitHub and Gmail's own "go to" chord, and
+// "m" then a letter jumps tabs (m for Tessellate), GitHub and Gmail's own "go to" chord, and
 // the reason it isn't in DEFAULT_SHORTCUTS/rebindable above: a chord needs
 // somewhere to hold the first keypress while it waits for the second, and
 // that's state this file has to own regardless, so it lives beside the

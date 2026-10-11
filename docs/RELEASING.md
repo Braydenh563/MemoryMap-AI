@@ -1,4 +1,4 @@
-# Releasing MemoryMap AI
+# Releasing Tessellate
 
 How to cut a version and publish the Windows installer and the Linux package.
 Everything after you push a tag is automatic. This page is mostly about the few
@@ -38,7 +38,7 @@ git commit -m "Release 0.4.0" && git push
 git tag v0.4.0
 git push origin v0.4.0
 
-# 5. Watch https://github.com/Braydenh563/MemoryMap-AI/actions
+# 5. Watch https://github.com/Braydenh563/Tessellate/actions
 #    Jobs run as: resolve-version, github-release, then
 #    build-windows-installer and build-linux-package in parallel
 #    (about 10 to 15 minutes each). When all are green, the .exe, the
@@ -187,11 +187,11 @@ not as something you `pip install`; the reason is in the comment at the top of
 
 ## Verifying the release
 
-1. Open the [Actions tab](https://github.com/Braydenh563/MemoryMap-AI/actions)
+1. Open the [Actions tab](https://github.com/Braydenh563/Tessellate/actions)
    and confirm every job finished green. The two build jobs are the ones that can
    genuinely fail (a dependency drifting, an Inno Setup syntax error, PyInstaller
    missing a hidden import), so watch them rather than assume.
-2. Open the [release itself](https://github.com/Braydenh563/MemoryMap-AI/releases)
+2. Open the [release itself](https://github.com/Braydenh563/Tessellate/releases)
    and confirm:
    - the description matches what you wrote in `CHANGELOG.md`, not GitHub's
      generic notes (a sign the header rename was missed);

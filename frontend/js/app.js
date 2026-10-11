@@ -1,4 +1,4 @@
-// MemoryMap AI frontend: plain JS, no framework (locked decision, plan §2).
+// Tessellate frontend: plain JS, no framework (locked decision, plan §2).
 // All DOM nodes are built with createElement/textContent, never innerHTML,
 // so a note containing <script> is just text, not code.
 //
@@ -387,7 +387,7 @@ document.addEventListener(
 // is in the temporal dead zone until its own declaration executes, so the
 // very first request the app ever made threw `ReferenceError: Cannot access
 // 'SPACE_ALL' before initialization`, caught by api()'s own try/catch and
-// surfaced only as "Can't reach the MemoryMap server", the lock screen
+// surfaced only as "Can't reach the Tessellate server", the lock screen
 // never appeared, with no console error and no failed network request,
 // because the fetch was never reached. `node --check` cannot catch this: the
 // file is syntactically valid, only wrong in execution order. Declared here,
@@ -467,7 +467,7 @@ async function api(path, options = {}) {
       noteServerDown();
     }
     //: "Failed to fetch" and its kin go to the log above; the toast gets a sentence.
-    if (networkErr instanceof TypeError) networkErr.message = "MemoryMap is not answering. Is it still running?";
+    if (networkErr instanceof TypeError) networkErr.message = "Tessellate is not answering. Is it still running?";
     throw networkErr;
   } finally {
     if (timer) clearTimeout(timer);
@@ -796,7 +796,7 @@ new MutationObserver(() => {
 function showLockScreen(setupMode) {
   settleLockPrompt(false);
   $("lock-overlay").classList.remove("hidden");
-  $("lock-title").textContent = setupMode ? "Welcome to MemoryMap" : "Unlock MemoryMap";
+  $("lock-title").textContent = setupMode ? "Welcome to Tessellate" : "Unlock Tessellate";
   //: **The trust moment, and it used to say nothing about trust.** This is the
   //: first screen of the app and it asks for a credential; a person deciding
   //: whether to hand one over is deciding whether to believe the product, and
@@ -933,8 +933,8 @@ async function initAuth() {
   //: a start lifts it with the shell (`curtainShell`).
   if (!status || status.setup_required || (!status.auto_session && !authToken())) hideBootSplash();
   if (!status) {
-    $("save-status").textContent = "Can't reach the MemoryMap server. Is it running?";
-    toast("Can't reach the MemoryMap server. Is it running?", true, { action: ["Reload", () => location.reload()] });
+    $("save-status").textContent = "Can't reach the Tessellate server. Is it running?";
+    toast("Can't reach the Tessellate server. Is it running?", true, { action: ["Reload", () => location.reload()] });
     return;
   }
   if (status.setup_required) {
@@ -975,7 +975,7 @@ async function initAuth() {
 // --- a share from the phone's share sheet lands in Capture -------------------
 // UI_MODERNISATION_PLAN Phase 11 item 5, "upload from the share sheet". The
 // installed app is a Web Share Target (manifest.webmanifest): a page, a
-// link or a selection shared to MemoryMap opens the app at `/` with
+// link or a selection shared to Tessellate opens the app at `/` with
 // `share_title`, `share_text` and `share_url` in the query, the GET form,
 // which needs no service worker and works on a locked notebook because the
 // query survives the lock screen (this runs once the entries have loaded,
@@ -1473,7 +1473,7 @@ function confirmDialog(message, options = {}) {
     // usually the consequence ("This cannot be undone"), which is the part
     // worth reading, so it is not run together with the first.
     //: With more than one paragraph the first is the question ("Quit
-    //: MemoryMap?", "Delete this note?") and is set as the dialog's title,
+    //: Tessellate?", "Delete this note?") and is set as the dialog's title,
     //: the consequence under it in the body voice, the shape every native
     //: confirm has. One paragraph stays one paragraph.
     const parts = String(message).split(/\n{2,}/);

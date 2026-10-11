@@ -9,7 +9,7 @@ endpoint, so this runs the document shell in node (the model lives between
 and no app globals in it) and reads the rest out of the source.
 
 "Self-contained" is the whole promise: the file has to open on a machine with
-no network, no MemoryMap and no account. Every assertion here is one way that
+no network, no Tessellate and no account. Every assertion here is one way that
 promise could quietly stop being true, and the one that matters most is the
 cheapest to break: a stylesheet that grows a webfont `@import` is still a file
 that looks right on the machine that made it.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ====================================================================
-#  MemoryMap AI - uninstaller for macOS / Linux
+#  Tessellate - uninstaller for macOS / Linux
 #
 #  Removes the virtual environment (.venv) that start.sh built, plus the
 #  caches that came with it, so the app stops being runnable from this
@@ -51,7 +51,7 @@ BAD_FLAG=""
 
 mm_help() {
   cat <<MM_HELP
-MemoryMap AI uninstaller
+Tessellate uninstaller
 
 Usage: ./uninstall.sh [options]
 
@@ -174,16 +174,17 @@ mm_port_is_memorymap() {
               cat <&3) 2>/dev/null || true )"
   fi
   case "$body" in
-    *"MemoryMap AI"*) return 0 ;;
+    # Tessellate, or a copy started before the rename (brand: keep-next)
+    *"Tessellate"*|*"MemoryMap AI"*) return 0 ;;
   esac
   return 1
 }
 
-echo "${TEAL}MemoryMap AI - uninstall${RESET}"
+echo "${TEAL}Tessellate - uninstall${RESET}"
 echo
 
 if mm_port_open "$MM_PORT" && mm_port_is_memorymap "$MM_PORT"; then
-  echo " ${RED}[x]${RESET} MemoryMap is still running on port $MM_PORT."
+  echo " ${RED}[x]${RESET} Tessellate is still running on port $MM_PORT."
   echo "        Close the app window, or press Ctrl+C in the terminal running it,"
   echo "        then run this again. Nothing was changed."
   exit 1
@@ -215,7 +216,8 @@ if [ "$SHORTCUTS" = "1" ]; then
   # else's launcher.
   for path in "$HOME/.local/share/applications/memorymap-ai.desktop" \
               "$HOME/Desktop/memorymap-ai.desktop" \
-              "$HOME/Desktop/MemoryMap AI"; do
+              "$HOME/Desktop/Tessellate" \
+              "$HOME/Desktop/MemoryMap AI"; do  # brand: keep, made before the rename
     # -L as well as -e: the macOS fallback is a symlink, and a symlink
     # whose target is already gone fails -e while still being a file on
     # someone's Desktop.

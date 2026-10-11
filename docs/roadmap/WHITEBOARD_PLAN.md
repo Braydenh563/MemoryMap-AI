@@ -978,11 +978,11 @@ checking each row (CLAUDE.md "already exists" rule):
 
 draw.io: `StyleFormatPanel.init` (Format.js 6359) builds collapsible
 sections Fill, Line, Line jumps, Opacity, Effects, then Edit and Style
-operations. MemoryMap: `wb-format` (index.html, `whiteboard-format.js`) with
+operations. Tessellate: `wb-format` (index.html, `whiteboard-format.js`) with
 the same three tabs (Style, Text, Arrange); fields per kind in
 `WB_FMT_FIELDS`.
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Fill colour, on or off | yes (`wb-fmt-fill-on`, `wb-fmt-fill`) | `addFill` (Format.js 6861), `createCellColorOption` `fillColor` | done | none |
 | Gradient: second colour plus direction (north, east, south, west, radial) | no | `addFill`: `gradientColor`, `gradientDirection` (Format.js 6925) | `data.gradient {to, dir}`, drawn as an SVG `linearGradient` or `radialGradient` in the board's `<defs>`; export clones defs so SVG and PNG keep it | M |
@@ -1010,10 +1010,10 @@ the same three tabs (Style, Text, Arrange); fields per kind in
 ### 2. Format panel, Text tab, and the Arrange tab
 
 draw.io: `TextFormatPanel` (Format.js 4439) and `ArrangePanel` (2002).
-MemoryMap: the Text and Arrange tabs of `wb-format`; text controls per kind
+Tessellate: the Text and Arrange tabs of `wb-format`; text controls per kind
 are `size`, `ink`, `bold`, `italic`, `align`.
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Font family | no (size only) | `fontFamily` menu (Menus.js 137), `STYLE_FONTFAMILY` | `label_font` from a short list of the app's loaded faces plus system stacks | S |
 | Font size | yes (`wb-fmt-size`) | `fontSize` menu (Menus.js 227) | done | none |
@@ -1053,7 +1053,7 @@ are `size`, `ink`, `bold`, `italic`, `align`.
 
 ### 3. Edit style, Edit data, placeholders, tooltips
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Edit style as text | no | `editStyle` (Actions.js 1717): a dialog with the `key=value;` string | an "Edit data" dialog showing the item's `data` JSON, parsed and validated on Apply, one undo step; the same field is how AI sees it | M |
 | Edit data: custom properties | yes, 2026-10-11 (canvasdepth2; HISTORY) | `EditDataDialog` (Dialogs.js 3707): key and value rows, id, placeholders toggle | `data.props {key: value}` shown as a two-column editor; search and the AI tools read it | M |
@@ -1067,7 +1067,7 @@ are `size`, `ink`, `bold`, `italic`, `align`.
 
 ### 4. Connectors: edge styles, waypoints, jumps, arrowheads, labels
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Straight, curved, elbow routes | yes (three: `wb-fmt-route`, `line-curved/straight/elbow`) | `edgeStyle` menu (Menus.js 59): straight, orthogonal, curved, entity relation, elbow horizontal and vertical, isometric horizontal and vertical, sequence | done | none |
 | Orthogonal routing that avoids other shapes | partly: elbow detours around its own two end boxes only (`wbElbowRoute`, `wbElbowDetour`) | mxEdgeStyle plus libavoid (`LibavoidRouting.js`, `libavoidRouting=1`), loaded when the extensions bundle is | an obstacle grid over item boxes (A* on a coarse grid, then simplify to corners); `route: "elbow"` keeps its shape, the router becomes the default behind it | L |
@@ -1087,7 +1087,7 @@ are `size`, `ink`, `bold`, `italic`, `align`.
 
 ### 5. Connection points and constraints
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Fixed ports on a shape (eight, or polygon corners and side middles) | yes (`wbPortFractions`, `wbPortsForPath`, whiteboard.js 2321 to 2510) | `getAllConnectionConstraints` (Graph.js 23647): the `points` style, else the shape's `getConstraints`, else the stencil's `constraints` | done; `data.ports` (section "Decisions") supplies a shape's own list first | S |
 | Ports from a stencil (names, perimeter flag) | no (converter writes them; the board does not read them) | `mxStencil` `<connections><constraint x y perimeter name>` | `wbPortFractions` returns `parsed.ports` when present; names become port tooltips; `perimeter` ports snap to the outline | S |
@@ -1101,7 +1101,7 @@ are `size`, `ink`, `bold`, `italic`, `align`.
 
 ### 6. Layers and pages
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Named layers: add, rename, duplicate, delete | no: `wb-layers-tree` lists items grouped by kind (`wbRenderLayers`, whiteboard-library.js 1474) | `LayersWindow` (Dialogs.js 4593): `addLayer`, `rename`, `duplicate`, `delete`, an `mxCell` child of the root per layer | `board.layers [{id, name, visible, locked}]` in the board settings row; items carry `layer` in `data` (sketch, object) or a card column; the tree gains a Layers group above the item groups | M |
 | Show and hide a layer | no | eye toggle per layer, `show`, `hide` | filtered out in render and in hit-testing (`wbItemHidden` already exists for search) | S |
@@ -1117,7 +1117,7 @@ are `size`, `ink`, `bold`, `italic`, `align`.
 
 ### 7. Shape libraries and the stencil format
 
-Library state in MemoryMap: five built-in sets (`frontend/board-library/`,
+Library state in Tessellate: five built-in sets (`frontend/board-library/`,
 `index.json`): templates 17, maps 15, general 19, flowchart 13, arrows 8,
 frames 2, icons 1,530 (Phosphor), plus the user's own rows
 (`routes_board_library.py`: kinds element, style, palette, preset, shape,
@@ -1126,7 +1126,7 @@ whiteboard-library.js 400). draw.io: `Sidebar.prototype.addStencilPalette`
 (Sidebar.js 6365) loads a stencil file; palettes are listed in
 `Sidebar.prototype.updateEntries` (diagramly/sidebar/Sidebar.js).
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Stencil libraries at scale | no: four primitives plus the sets above | 204 libraries, 9,090 shapes in `stencils.min.js`, loaded per palette by `mxStencilRegistry.loadStencil` | the converter (`scratchpad/stencils/convert_stencils.py`) makes one `memorymap-library-set` per library; five ship in `frontend/board-library/drawio/` (basic 30, flowchart 36, arrows 34, bpmn 39, networks 57 shapes; 0.37 MB), all 204 convert (24.5 MB, so the rest stay offline and load on request) | S to ship, M for the loader |
 | JS-drawn shape classes (cylinder, cube, callout, step, hexagon, UML actor and lifeline, folder, note, tape, document, process...) | no | `Shapes.js`: 99 `mxCellRenderer.registerShape` classes (for example `cylinder3` at Shapes.js, `umlActor`, `callout`) drawn by `redrawPath` | a `wbShapePath(kind, w, h)` table of 40 of them that returns M/L/C/Z, with the shape name stored in `data.shape` so the path regenerates on resize (stencils scale; these keep corner radii) | M |
@@ -1189,12 +1189,12 @@ no set loads them yet; `frontend/board-library/*.json` is globbed
 non-recursively by `routes_board_library.py`, which is why they sit one
 folder down), stroke width fidelity (draw.io's `strokewidth` is in shape
 units; the converter writes 2 board pixels per unit), and the Atlassian
-restriction in upstream's `stencils/LICENSE` (MemoryMap is not an Atlassian
+restriction in upstream's `stencils/LICENSE` (Tessellate is not an Atlassian
 product; the NOTICE says so).
 
 ### 8. Templates
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Template gallery with categories, search, preview | yes: the New board dialog (`whiteboard-templates.js`, INBOX 715): 17 board templates, 15 map templates | `templates/index.xml` plus 15 category folders, 156 `.xml` files each with a `.png`; `NewDialog` (diagramly/Dialogs.js) | done; add categories as tags | S |
 | Insert a template into the current board | no | `insertTemplate` action (diagramly/Menus.js 257) | `import` of a library template entry at the viewport centre (the library already places items) | S |
@@ -1203,7 +1203,7 @@ product; the NOTICE says so).
 
 ### 9. Find and replace
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Find text, next and previous, highlight, count | yes for cards and objects (`wbBoardSearchRun`, whiteboard.js 2210; `wb-search-*`; Ctrl+F) | `FindWindow` (diagramly/Dialogs.js 9512), `findReplace` action (Ctrl+F) | done; extend to shape and connector labels (`label`) and `data.props` | S |
 | Replace and replace all | no | `FindWindow` with `withReplace`: replace field, Replace, Replace all | a second field and two buttons on `wb-search-bar`; one undo step per Replace all through `wbRecordGesture` | S |
@@ -1213,7 +1213,7 @@ product; the NOTICE says so).
 
 ### 10. Outline, navigation and view
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Outline window (a minimap) | yes (`wb-navigator`, Shift+N) | `outline` action (Actions.js 2187), Ctrl+Shift+O, `mxOutline` | done | none |
 | Fit window, fit page width, fit page, two pages, custom zoom, zoom list | partly (fit everything Shift+1, 100 percent, in and out) | `viewZoom` menu (Menus.js 444): 25 to 400 percent list, `fitWindow`, `fitPage`, `fitTwoPages`, `fitPageWidth`, `customZoom` (Ctrl+0) | a zoom list in the zoom strip's menu; fit selection (F) exists per the decisions | S |
@@ -1229,11 +1229,11 @@ product; the NOTICE says so).
 ### 11. Keyboard shortcuts
 
 draw.io's list is `EditorUi.js` 8543 to 8612 plus `diagramly/EditorUi.js`
-19743 to 19755. MemoryMap's is `WB_COMMANDS` (whiteboard-commands.js) and
+19743 to 19755. Tessellate's is `WB_COMMANDS` (whiteboard-commands.js) and
 decision 8 above. "Differs" means the same action sits on another key; a
 clash is listed so the choice is made once.
 
-| draw.io | Action | MemoryMap | Note |
+| draw.io | Action | Tessellate | Note |
 | --- | --- | --- | --- |
 | Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y | undo, redo | Ctrl+Z, Ctrl+Y | add Ctrl+Shift+Z |
 | Ctrl+X, C, V | cut, copy, paste | same | paste here and paste size: none |
@@ -1289,7 +1289,7 @@ clash is listed so the choice is made once.
 
 ### 12. Selection, grouping, containers, swimlanes, tables
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Rubber-band, lasso, shift-add, select all of a kind | yes (select, lasso K; Ctrl+A); no select-by-kind | `mxRubberband`, `selectVertices`, `selectEdges` (Actions.js 517, 518) | two commands | S |
 | Groups with nesting | partly: `group_id` (18 hits in whiteboard.js); nested depth not checked | `group`, `ungroup`, `removeFromGroup` (Actions.js 644 to 705); `Graph.updateGroupBounds` (Graph.js 16483) | check the depth, add remove from group | S |
@@ -1302,12 +1302,12 @@ clash is listed so the choice is made once.
 
 ### 13. Images, math, links and tooltips
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Insert an image (file, URL, drag, paste), embedded data URI | yes (`insert-image`, I; media rows) | `image...` (Actions.js 1998), `shape=image;image=data:...` | done | none |
 | Image as a shape fill (`image` style on any shape) | no | `STYLE_IMAGE`, `shape=image` | drop; an image is its own item | none |
 | Crop, replace, border | no | `crop` (Actions.js 2112), `editImage` | section 1 | M |
-| Math typesetting (LaTeX in labels) | no | `mathematicalTypesetting` action (diagramly/Menus.js 840), `Editor.initMath` (diagramly/Editor.js 4701) loads MathJax | KaTeX is MIT and offline-friendly; a `$...$` span in text objects and shape labels rendered to SVG `foreignObject`; MemoryMap's markdown has no math today, so it would come with notes | L |
+| Math typesetting (LaTeX in labels) | no | `mathematicalTypesetting` action (diagramly/Menus.js 840), `Editor.initMath` (diagramly/Editor.js 4701) loads MathJax | KaTeX is MIT and offline-friendly; a `$...$` span in text objects and shape labels rendered to SVG `foreignObject`; Tessellate's markdown has no math today, so it would come with notes | L |
 | Hyperlinks on shapes, to a URL, a page, or a note | yes for objects; links to a note are the app's own | `editLink`, `link=` | add to sketches; targets: note, frame, URL | S |
 | Tooltips | no | `editTooltip`, `getTooltipForCell`, `tooltips` toggle | section 3 | S |
 | Embedded notes | no (comments) | `editNote` | comments cover it | none |
@@ -1315,7 +1315,7 @@ clash is listed so the choice is made once.
 
 ### 14. Export and import formats
 
-| Format | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Format | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | PNG with scale and transparent | yes (`wbExportPng`, `WB_EXPORT_FORMATS`) | `ExportDialog` (grapheditor/Dialogs.js 3582) zoom, width, height, dpi, transparent, grid, border width; "include a copy of my diagram" embeds the XML in the PNG | add border width, DPI; embedding the board JSON in a PNG `tEXt` chunk makes the PNG re-importable | S |
 | JPG, WebP, GIF | no | `exportJpg`, `exportWebp`, `exportAnimatedGif` (diagramly/Menus.js 1170 to 1181) | JPG and WebP are one canvas call each | S |
@@ -1326,13 +1326,13 @@ clash is listed so the choice is made once.
 | `.drawio` import and export (mxfile with `diagram`, `mxGraphModel`, `mxCell`, `mxGeometry`, `UserObject`) | no (`mxfile` appears nowhere in `frontend/`) | `Editor.getGraphXml` (grapheditor/Editor.js 1563), `setGraphXml` (1508), compressed or plain `diagram` text, `mxCodec` | a pure parse in `whiteboard-interchange.js`: cells to items (vertex style `shape`, `fillColor`, `strokeColor`, `rounded`, `ellipse`, `rhombus`, `text`, `swimlane`, `image` to sketch, text, frame, image rows; edge `source` and `target` to link rows with `sourceAnchor` from `exitX`/`entryX`), pages to frames, `UserObject` label and link to `data.props`; the reverse writes plain `mxfile`; the Style mapping is the "Decisions" table | L |
 | VSDX import and export, Gliffy, Lucidchart, draw.io CSV import | no | `vsdx/importer.js` (15,344 lines), `exportVsdx` (1431), `importFrom` (3410), `csv` action | drop VSDX and Lucid; the CSV importer is S to M and gives the AI a way to draw org charts | M |
 | Mermaid in and out; PlantUML | yes for Mermaid flowcharts (`whiteboard-interchange.js`); no PlantUML | `mermaid`, `plantUml` actions (insertAdvanced menu) | keep the Mermaid subset; PlantUML needs a server, drop | none |
-| Outline, Markdown, OPML, FreeMind, plain text | yes (for maps and outline) | no | MemoryMap's own | none |
+| Outline, Markdown, OPML, FreeMind, plain text | yes (for maps and outline) | no | Tessellate's own | none |
 | Export selection, visible area, whole board, one frame | yes | `selection only`, `crop`, page range | done | none |
 | Copy as image, copy as SVG | no | `copyAsImage`, `copyAsSvg` (diagramly/Menus.js 1186, 1194) | two commands that write to the clipboard | S |
 
 ### 15. Insert menu, shape picker and the sidebar search
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Insert menu: text, note, rectangle, ellipse, rhombus, line, polygon, freehand, image, link, template, table | yes except polygon, table (Insert menu, `insert-*` commands) | diagramly/Menus.js 4516 to 4574 | add "Polygon" (click points, double-click to close) writing a closed `d`; table with section 12 | S |
 | Shape picker at the cursor (a search box that inserts the match) | no | `showShapePicker` (diagramly/Menus.js 4507), `ShapePicker` | the command palette already searches commands; add a "Shape..." mode that searches the library and places the match at the last pointer position | M |
@@ -1343,7 +1343,7 @@ clash is listed so the choice is made once.
 
 ### 16. Layouts
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Tidy a board | yes (Tidy in the top bar, `whiteboard-map.js`) | `runLayout` (diagramly/Menus.js 1666), `runLastLayout` | done | none |
 | Mind map layouts (radial, tree, left, right) | yes (layout select, MINDMAP_PLAN) | n/a | done | none |
@@ -1353,7 +1353,7 @@ clash is listed so the choice is made once.
 
 ### 17. The Format panel with nothing selected, and diagram options
 
-| Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
+| Feature | Tessellate has it | How draw.io does it | How Tessellate would | Cost |
 | --- | --- | --- | --- | --- |
 | Background colour or image | yes | `DiagramFormatPanel.addView` (Format.js 8906) | done | none |
 | Grid: size, colour, on or off | partly (style, snap) | `addGridOption` (Format.js 9103) | grid size | S |
@@ -1489,7 +1489,7 @@ JS-drawn shape classes, the shape picker, and the shortcut gaps in section 11.
    bundle and the converter regenerates any of them on request.
 5. **The licence trail travels with the data.** `NOTICE.txt` and the Apache
    `LICENSE` sit beside the JSON; the Atlassian clause is stated and
-   observed (MemoryMap is not an Atlassian product); templates are CC BY
+   observed (Tessellate is not an Atlassian product); templates are CC BY
    4.0 and each converted template names its source in its library note.
    No THIRD_PARTY.md exists in this tree, so the entry is the NOTICE plus
    `agent-remaining/drawio-1010.md`.

@@ -11445,7 +11445,7 @@ function contentsGroups(entries) {
       //: them??"*, three fair questions, and the label answered none of
       //: them. It is not a folder you can make: folders in this app are the
       //: directories of an imported Obsidian vault, and a note typed into
-      //: MemoryMap has no path at all. The heading now says that.
+      //: Tessellate has no path at all. The heading now says that.
       addTo(path ? folder || CONTENTS_VAULT_ROOT : CONTENTS_NO_FOLDER, entry);
     }
   } else if (contentsMode === "topic") {
@@ -11465,7 +11465,7 @@ function contentsGroups(entries) {
 //: The two synthetic folder headings. Named constants because three places
 //: need to agree on them, the grouper, the ordering (they sort last) and the
 //: explanation shown when they are all there is.
-const CONTENTS_NO_FOLDER = "Written in MemoryMap (no folder)";
+const CONTENTS_NO_FOLDER = "Written in Tessellate (no folder)";
 const CONTENTS_VAULT_ROOT = "Top level of the vault";
 
 function contentsSectionLabel(key) {
@@ -11928,7 +11928,7 @@ async function renderContents() {
   if (hint && contentsMode === "folder" && groups.size === 1 && groups.has(CONTENTS_NO_FOLDER)) {
     hint.textContent =
       "Folders come from an imported Obsidian vault, they are not created in "
-      + "MemoryMap. Nothing has been imported yet, so every note is grouped "
+      + "Tessellate. Nothing has been imported yet, so every note is grouped "
       + "here. Import a vault from Settings → Import & export to see its folder tree.";
     hint.classList.remove("hidden");
   }

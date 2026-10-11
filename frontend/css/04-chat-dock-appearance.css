@@ -2053,7 +2053,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 /* Task #40: the restart row (`#about-restart-row`, added after this
    `.about-hero p` override was written) is a `.row`, not a `<p>`, so the
    centred `text-align` above still reached it, measured before this fix,
-   "Restart MemoryMap" wrapped to two lines that each centred independently
+   "Restart Tessellate" wrapped to two lines that each centred independently
    (57px vs 73px wide, left edges 8px apart) and the muted hint beside it did
    the same. `.row` covers the hint (`text-align` inherits into its `<span>`
    fine), but a `<button>` does not take an inherited `text-align`, the UA

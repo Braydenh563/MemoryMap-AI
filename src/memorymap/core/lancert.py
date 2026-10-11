@@ -247,9 +247,13 @@ def _new_authority(data_dir: Path, names: list[str]):  # noqa: ANN202  # (certif
 
     key = ec.generate_private_key(ec.SECP256R1())
     host = next((n for n in names if n not in ("localhost", "127.0.0.1", "::1")), "this computer")
+    # The authority's subject is what a phone that already
+    # trusts it shows and what every leaf names as its issuer: it keeps
+    # the old name through the rename to Tessellate, so no phone has to
+    # install a new authority (rebrand-1011).
     subject = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, f"MemoryMap AI on {host}"[:64]),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "MemoryMap AI on this computer"),
+        x509.NameAttribute(NameOID.COMMON_NAME, f"MemoryMap AI on {host}"[:64]),  # brand: keep
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "MemoryMap AI on this computer"),  # brand: keep
     ])
     now = _now()
     cert = (
@@ -311,7 +315,7 @@ def generate(data_dir: Path, names: list[str] | None = None, *, authority=None) 
     common = next((n for n in names if n not in ("localhost", "127.0.0.1", "::1")), "localhost")
     subject = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, common[:64]),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "MemoryMap AI on this computer"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "MemoryMap AI on this computer"),  # brand: keep
     ])
     now = _now()
     not_after = min(now + dt.timedelta(days=VALID_DAYS), _not_after(ca_cert))

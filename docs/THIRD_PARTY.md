@@ -1,6 +1,6 @@
 # Third-party code and data
 
-MemoryMap is AGPL-3.0 and runs offline, so what it borrows ships inside the
+Tessellate is AGPL-3.0 and runs offline, so what it borrows ships inside the
 repository rather than being fetched. This page credits every library vendored
 into it, with the version and licence it came under; each one's licence text
 sits beside it. `tests/test_vendor_manifest.py` fails the build when a file
@@ -55,7 +55,7 @@ unpacked into `<data dir>/extras/<id>/` with its licence beside it.
 
 ## Data
 
-- `ai/data/taxonomy/` is the MemoryMap taxonomy pack, 5.0.0-consolidated
+- `ai/data/taxonomy/` is the Tessellate taxonomy pack, 5.0.0-consolidated
   (527 categories, 6,478 phrase assignments, 1,109 roles, 44 institutions,
   facets and 30 context rules), commissioned by the project's owner and
   generated with Perplexity from the owner's own uploaded taxonomy; it ships

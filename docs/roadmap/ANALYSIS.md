@@ -1,7 +1,7 @@
 # Analysis and outside reads
 
 
-> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, §66, §104 and §114, the product-strategy read, including the licence constraint, MemoryMap is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
+> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, §66, §104 and §114, the product-strategy read, including the licence constraint, Tessellate is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
 Split out of `ROADMAP.md`. These sections are **reference, not work**, they
 record judgements, a competitor read, and what was deliberately *not* taken, so
@@ -35,14 +35,14 @@ hitting the same access wall may fabricate the same way again:
 
 - **Hardware-aware model routing, bundled model packs, checksums, delta
   updates, rollback.** All of this assumes the app ships models. It doesn't:
-  Ollama does that job, has its own model management, and MemoryMap already
+  Ollama does that job, has its own model management, and Tessellate already
   has a thin layer over it (`ai/model_manager.py`, Settings → Models: list,
   pull, switch chat/embedding/utility model). Nothing here to build.
 - **Backend abstraction across llama.cpp / MLX / ONNX / Vulkan / CUDA.**
   Same premise. The real version of "don't lock into one backend" is already
   scoped, correctly, in §6, an OpenAI-compatible provider interface over
   Ollama, LM Studio, llama.cpp's server, Jan and vLLM, at the HTTP layer
-  MemoryMap actually talks to, not the inference layer it never touches.
+  Tessellate actually talks to, not the inference layer it never touches.
 - **Opt-in anonymous telemetry / crash reporting.** Weighed deliberately, not
   just discarded for being off-brief: design principle 1 is "no feature may
   depend on a cloud service," and the pitch to users is "no account, no
@@ -87,7 +87,7 @@ hitting the same access wall may fabricate the same way again:
 - **Dynamic LoRA adapter loading (`unsloth`), a local vision/RAG pipeline
   built on LlamaIndex/ChromaDB, and anything else describing the fabricated
   first-pass architecture.** Not evaluated on the merits, because there's
-  nothing to merge: MemoryMap doesn't fine-tune or swap adapters, and its
+  nothing to merge: Tessellate doesn't fine-tune or swap adapters, and its
   retrieval stack is the app's own `search/` module (keyword + local
   embeddings), not a third-party RAG framework. Recorded so it's clear these
   were seen and set aside deliberately, not missed.
@@ -248,26 +248,26 @@ judge the import against it, rather than porting whatever looks impressive.
 
 **The repository**: `pewdiepie-archdaemon/odysseus`, a self-hosted AI workspace
 - chat, agents, deep research, documents, email, calendar, a model "cookbook",
-an image gallery. Roughly 60k lines of Python against MemoryMap's ~6k, and a
-much wider product: MemoryMap is a notebook that happens to have an AI in it,
+an image gallery. Roughly 60k lines of Python against Tessellate's ~6k, and a
+much wider product: Tessellate is a notebook that happens to have an AI in it,
 odysseus is an AI workspace that happens to store things.
 
 ---
 
 ### The constraint that governs everything below, **now half-lifted**
 
-**MemoryMap moved from MIT to AGPL-3.0. Odysseus is AGPL-3.0-or-later. The two
+**Tessellate moved from MIT to AGPL-3.0. Odysseus is AGPL-3.0-or-later. The two
 are now the same licence family, so the barrier that made this section
 "lessons only" is no longer symmetrical.**
 
 What changed, precisely, because this is the kind of thing that gets
 misremembered in one direction or the other:
 
-- **AGPL → MemoryMap is now permissible.** Copying odysseus source in no
+- **AGPL → Tessellate is now permissible.** Copying odysseus source in no
   longer relicenses anything, because this project is already AGPL. It still
   requires the ordinary things copyleft requires: keep the notices, attribute
   the source, and do not strip the licence header off a file you took.
-- **MemoryMap → an MIT project is still closed**, and is now *more* closed
+- **Tessellate → an MIT project is still closed**, and is now *more* closed
   than before. Anything taken out of here carries AGPL with it.
 - **The habit in this section is still the right one.** Everything below is
   written as a design lesson, an idea, a failure mode, a shape, and §6 did
@@ -278,7 +278,7 @@ misremembered in one direction or the other:
   Copy only where there is a real reason to, and record where it came from.
 
 **The AGPL clause that actually matters for an app like this** is §13:
-someone who modifies MemoryMap and lets other people use it *over a network*
+someone who modifies Tessellate and lets other people use it *over a network*
 must offer those users the modified source. A plain GPL would not require
 that: running a service is not distribution. Since the whole premise here is
 "your notebook, on your machine", the licence now says the same thing the
@@ -289,7 +289,7 @@ Two smaller things worth recording so nobody re-derives them:
 - Odysseus's own dependency notes and `ACKNOWLEDGMENTS.md` are worth a look
   before adding any dependency it uses, because its licence tolerances are
   wider than this project's.
-- The reverse direction is also closed. Nothing from MemoryMap should be
+- The reverse direction is also closed. Nothing from Tessellate should be
   offered upstream to odysseus as a patch without deciding, deliberately, to
   license that contribution under AGPL.
 
@@ -308,7 +308,7 @@ Asked directly: *"does it handle tools and skills more efficiently such that
 smaller models can better use them?"* The answer is the other way round, and
 the numbers are worth keeping because they settle it.
 
-| | MemoryMap | Odysseus |
+| | Tessellate | Odysseus |
 | --- | ---: | ---: |
 | Tools in the registry | 34 | 69 |
 | Total description text | 3,849 chars | 17,792 chars |
@@ -316,8 +316,8 @@ the numbers are worth keeping because they settle it.
 | Longest single tool | 306 chars | 1,205 chars |
 
 Odysseus carries **twice the tools and 4.6× the description text**, and its
-longest single tool description costs more than MemoryMap's ten shortest
-combined. Its RAG tool retrieval is not a refinement that MemoryMap lacks, it
+longest single tool description costs more than Tessellate's ten shortest
+combined. Its RAG tool retrieval is not a refinement that Tessellate lacks, it
 is the thing that makes a 17,792-character registry usable at all. Adopting the
 retrieval without the bloat would be adopting a cure for an illness this app
 does not have.
@@ -332,7 +332,7 @@ small is to not have two tools that a model could confuse.** Every time a new
 tool here needs a sentence explaining when *not* to use it, that sentence is
 evidence the boundary is in the wrong place.
 
-**What MemoryMap already does that odysseus does not.** Worth recording so it
+**What Tessellate already does that odysseus does not.** Worth recording so it
 does not get "improved" away:
 
 - `tools.within_budget` fits the schemas to the model's *reported* window and
@@ -345,7 +345,7 @@ does not get "improved" away:
   A cue that doesn't fire is a predictable failure; a retrieval that ranks
   wrong is not.
 
-**Where MemoryMap's tools genuinely could improve**, in order:
+**Where Tessellate's tools genuinely could improve**, in order:
 
 1. ~~**The agent cannot run a skill.**~~ **built.** Flagged stale by this
    session's backlog audit: `run_skill` exists in `ai/tools.py`'s `HANDOFFS`
@@ -373,10 +373,10 @@ copy.
 1. ~~**An `ask_user` tool that ends the turn (§18, §14).**~~ **built.** Odysseus's agent can
    stop mid-task and ask a multiple-choice question; the user gets clickable
    buttons and their answer arrives as the next message. This is the honest
-   answer to a class of failure MemoryMap currently handles by guessing: an
+   answer to a class of failure Tessellate currently handles by guessing: an
    ambiguous instruction ("file this properly") becomes a confident wrong
    action. It also matches an IDEAS.md line directly ("an agent ask for
-   permission dialogue in the chat"). MemoryMap already has the hard half,
+   permission dialogue in the chat"). Tessellate already has the hard half,
    the destructive-action confirm card is exactly this UI, so this is mostly
    a second event type and a tool.
 
@@ -387,10 +387,10 @@ copy.
 
 3. **Semantic tool retrieval, replacing keyword `focus_for` (§11a, §14).**
    Odysseus embeds its tool descriptions and retrieves the top-K per message,
-   with a deliberately tiny always-available core. MemoryMap's `tools.focus_for`
+   with a deliberately tiny always-available core. Tessellate's `tools.focus_for`
    does the same job with keyword cues and already cut fixed overhead from
    ~3,157 to ~1,439 tokens. **The honest note: this is an upgrade, not a fix.**
-   MemoryMap has the embedding service to do it, but the current version works
+   Tessellate has the embedding service to do it, but the current version works
    and the failure mode of the semantic one is worse, a cue that doesn't fire
    is predictable, a retrieval that ranks wrong is not. Worth doing *with a
    measurement*, the way §11 did: if it doesn't beat keyword cues on a set of
@@ -399,7 +399,7 @@ copy.
 4. **A richer skill format.** Odysseus's `SKILL.md` carries frontmatter
    (`description`, `version`, `tags`, `requires_toolsets`, `confidence`,
    `source: learned|taught|imported`) and body sections: **When to Use**,
-   **Procedure**, **Pitfalls**, **Verification**. MemoryMap's skills (§21) have
+   **Procedure**, **Pitfalls**, **Verification**. Tessellate's skills (§21) have
    ordered steps and a tool allowlist, the execution half, but nothing that
    says *when* a skill applies or *how to tell it worked*. "When to Use" is the
    one to steal first: it is what makes a skill findable by the model instead
@@ -411,7 +411,7 @@ copy.
 
 5. **A completion verifier for effectful turns.** After a turn that used a
    writing tool, odysseus runs an independent check that the claimed work
-   actually happened, capped at two rounds. MemoryMap has a cheaper version of
+   actually happened, capped at two rounds. Tessellate has a cheaper version of
    this already: `_CLAIM_PATTERN` catches a model that says it saved something
    when no write tool ran, and the cheap version covers the common case. The
    upgrade is checking that what was written is what was *asked for*, not just
@@ -419,7 +419,7 @@ copy.
 
 6. **Better degraded-state reporting.** Odysseus's own roadmap asks for this
    about its own app, which is a useful signal: it is a real gap in a system
-   with this many optional parts. MemoryMap is in better shape here (the status
+   with this many optional parts. Tessellate is in better shape here (the status
    pill, the embedding error line, the support bundle), but the same principle
    applies to the new provider work, "reachable but wants a key" is a
    different state from "off", and only the endpoint knows it today.
@@ -434,7 +434,7 @@ Recording these so a future session doesn't re-evaluate them from scratch.
   detect the GPU and RAM, score every candidate model on quantisation, VRAM
   fit, architecture age and expected tokens/second. It is the most impressive
   thing in the repository and it is a *product of its own*, thousands of lines
-  plus a curated model database that has to be maintained or it rots. MemoryMap
+  plus a curated model database that has to be maintained or it rots. Tessellate
   has `SUGGESTED_MODELS`, a hand-written list of five models that work well on
   a laptop, and for a notebook app that is the right size of answer. Revisit
   only if "which model should I run" becomes a question people actually ask
@@ -442,10 +442,10 @@ Recording these so a future session doesn't re-evaluate them from scratch.
 
 - **Sub-sessions, pipelines and agent-to-agent messaging** (`create_session`,
   `send_to_session`, `pipeline`). Real capability, and completely out of scope
-  for a single-user notebook: MemoryMap deliberately refuses to run with more
+  for a single-user notebook: Tessellate deliberately refuses to run with more
   than one worker.
 
-- **`bash` and `python` tools.** Odysseus gives its agent a shell. MemoryMap
+- **`bash` and `python` tools.** Odysseus gives its agent a shell. Tessellate
   should not, and this is not a close call, the whole safety story here is
   that the agent's blast radius is the notebook, destructive actions are
   confirmed, and everything is undoable. A shell tool ends all three properties
@@ -455,7 +455,7 @@ Recording these so a future session doesn't re-evaluate them from scratch.
 
 - **Their search ranking (`services/search/ranking.py`).** Genuinely nice:
   recency scoring, domain quality, per-term title/snippet weighting. Not taken
-  because MemoryMap's web search is a *reader*, not a search engine: results go
+  because Tessellate's web search is a *reader*, not a search engine: results go
   to the model with a reader view, and the ranking that matters is the one
   SearXNG already did. Reconsider if §13 ever grows a results page people
   browse themselves.
@@ -481,7 +481,7 @@ itself before starting any item above.
 
 **Almost everything odysseus does better, it does by being bigger.** The
 context tracking, the tool retrieval, the skill format, the provider layer,
-each is a more elaborate version of something MemoryMap already has, and in
+each is a more elaborate version of something Tessellate already has, and in
 every case the elaborate version costs code that has to keep working. The
 items adopted above were the ones where the idea was small and the *failure
 mode* was the valuable part: `loaded_context_length` beating
@@ -814,7 +814,7 @@ Odysseus carries its own Phase-0 refactor audit,
 own issue #4082, *"codebase readability improvements"*). Its numbers, not a
 guess:
 
-| | Odysseus (its own audit) | MemoryMap (this repo) |
+| | Odysseus (its own audit) | Tessellate (this repo) |
 | --- | --- | --- |
 | `src/`-equivalent flat files | 95 (`src/`), no domain grouping | 5 subpackages (`ai/api/core/entry/search`) |
 | Route handlers | 54 flat files in `routes/` | grouped by domain under `api/` |
@@ -835,7 +835,7 @@ agent tools reach the app's own HTTP API via a **loopback bearer token**
 (`core/middleware.py`'s `INTERNAL_TOOL_TOKEN` / `X-Odysseus-Internal-Token`,
 because *"the agent's tool calls don't carry the admin user's session
 cookie"*), an internal auth-bypass surface that has to be kept secret and
-kept in sync with every admin-gated route. MemoryMap's tools
+kept in sync with every admin-gated route. Tessellate's tools
 (`ai/tools.py`) call the same `Session`/manager objects the routes call,
 in-process, with no HTTP hop and nothing to leak. Not a gap; a simpler
 architecture that happens to also be safer, worth naming so it doesn't get
@@ -1497,7 +1497,7 @@ two weeks, see which number you'd act on.
 
 **C1. Notebook-to-notebook exchange, no server.** A signed, encrypted
 `.mmpack` of a *slice* (notes + links + attachments + provenance) that another
-MemoryMap imports as a linked, attributed sub-graph. Not sync: no server, no
+Tessellate imports as a linked, attributed sub-graph. Not sync: no server, no
 account, no conflict resolution. Defensible because the format plus the
 attribution model is a standard others would have to adopt; AGPL keeps it
 open. E/R: L/High. *Experiment:* export/import a 20-note slice round-trip and
@@ -1757,21 +1757,21 @@ would land if picked up.
 Both source files are deleted with this commit; nothing in them was left
 unrecorded.
 
-## Six repositories read for MemoryMap, 2026-09-20
+## Six repositories read for Tessellate, 2026-09-20
 
 Asked for directly: whether anything in six named repositories can be used
-or taken for MemoryMap, plus a separate question about vendoring
+or taken for Tessellate, plus a separate question about vendoring
 `pytesseract`. Each was shallow-cloned (`git clone --depth 1`) into the
 sandbox and read: README, licence file, top-level layout, and the parts
 that looked relevant. Per this file's own rule, nothing below is proposed
 without checking it against the running code first, named by file.
 
 **Licences, checked against the constraint at the top of this file
-(MemoryMap is AGPL-3.0; MIT, BSD and Apache code may come in with its
+(Tessellate is AGPL-3.0; MIT, BSD and Apache code may come in with its
 notices kept; AGPL and GPL code may come in; anything GPL-incompatible or
 proprietary may not, and nothing of ours goes out to an MIT project):**
 
-| Repository | Licence | May its code come into MemoryMap? |
+| Repository | Licence | May its code come into Tessellate? |
 | --- | --- | --- |
 | Harper (Automattic) | Apache-2.0 | Yes |
 | blobatar (Alain00) | MIT | Yes |
@@ -1793,7 +1793,7 @@ LanguageTool's multi-gigabyte n-gram dataset.
 **Licence.** Apache-2.0, confirmed in the repository's root `LICENSE`
 file. Comes in clean, notice kept.
 
-**What exists in MemoryMap today, checked before proposing anything
+**What exists in Tessellate today, checked before proposing anything
 (grepped "writing check", "proofread," and spelling/grammar in
 `src/memorymap/ai` and `frontend/js/documents.js`, per the brief).** Three
 separate things answer to "writing help," and the document editor's own
@@ -1830,11 +1830,11 @@ full binary and a `slimBinary` variant built for size-conscious embedding
 (used by the Obsidian plugin specifically for that reason), plus a
 `WorkerLinter` that runs the WASM module off the main thread so linting
 never blocks typing. Because it is a self-contained WASM module with a
-small JS loader and no server, it fits MemoryMap's "works with the plug
+small JS loader and no server, it fits Tessellate's "works with the plug
 pulled" rule exactly: it never leaves the machine, unlike the model call
 `improve_writing` makes today. **Not verified:** this shallow, source-only
 clone has no Rust/`wasm-pack` toolchain run against it, so there is no
-built `.wasm` file to measure; I cannot give MemoryMap's own byte count
+built `.wasm` file to measure; I cannot give Tessellate's own byte count
 for the slim binary from this session. Harper's own README claims are
 about speed and RAM, not download size, and I did not fetch a live build
 to check. Before vendoring, a real build-and-measure pass (`wasm-pack
@@ -1884,7 +1884,7 @@ Svelte, Solid, Preact, React Native).
 
 **Licence.** MIT, confirmed in `LICENSE`. Comes in clean with notice.
 
-**What exists in MemoryMap today.** Grepped "avatar" across
+**What exists in Tessellate today.** Grepped "avatar" across
 `frontend/js/*.js` and `src/memorymap`: the app has no per-person avatars at
 all. What it has is two fixed icon glyphs, a user-icon box for the
 person's own chat bubble and a p5.js-rendered app emblem for the
@@ -1938,7 +1938,7 @@ documents (PDF/Word/PPT/web), build a RAG-backed knowledge base with
 DeepSeek, Ollama), with one-click mind-map generation already listed as
 done in its own roadmap and quiz/PPT generation marked in progress.
 
-**Licence.** GPL-3.0, confirmed in `LICENSE`. Combines into MemoryMap's
+**Licence.** GPL-3.0, confirmed in `LICENSE`. Combines into Tessellate's
 AGPL-3.0 codebase under AGPL-3.0 section 13's explicit GPLv3-compatibility
 clause; the project's own licence note (top of this file) already
 anticipates this case ("AGPL and GPL code may come in").
@@ -1948,28 +1948,28 @@ first open-source project... it's still early." The `src/` tree is about
 27,000 lines of TypeScript, but a large share is Electron/IPC/provider
 boilerplate rather than novel algorithmic work; there is no test
 directory at all at the top level. It is conceptually close to
-MemoryMap, upload documents, ask questions with citations, all local,
-but it is earlier in its life than MemoryMap already is on the same
-problem (MemoryMap already has hybrid search, a document reader, a
+Tessellate, upload documents, ask questions with citations, all local,
+but it is earlier in its life than Tessellate already is on the same
+problem (Tessellate already has hybrid search, a document reader, a
 librarian pass, and a graph; KnowNote's own roadmap lists RAG-over-docs
 and mind maps as what it has just gotten to).
 
-**(a) ideas and UX patterns.** The one feature MemoryMap does not have
+**(a) ideas and UX patterns.** The one feature Tessellate does not have
 and KnowNote's roadmap does: "quiz generation from documents" (marked
 in-development, not built, in KnowNote's own README) and "one-click PPT
 generation from notes" (also in development). Both are plausible,
-lightweight prompts over material MemoryMap's own librarian and drafter
+lightweight prompts over material Tessellate's own librarian and drafter
 modules (`src/memorymap/ai/librarian.py`, `drafter.py`) already have
 access to; neither is implemented in KnowNote itself yet, so there is
 nothing built to look at, only the idea.
 
 **(b) code or assets that could be vendored as they are.** None. Electron
 IPC handlers, a React/Zustand renderer, and Drizzle-ORM migrations do not
-map onto MemoryMap's FastAPI-and-vanilla-JS shape at all; porting would
+map onto Tessellate's FastAPI-and-vanilla-JS shape at all; porting would
 mean rewriting, not vendoring.
 
 **(c) nothing else worth separating out;** the RAG pipeline, provider
-abstraction, and vector store are all things MemoryMap already has its
+abstraction, and vector store are all things Tessellate already has its
 own, more mature versions of (`search/`, `ai/provider.py`,
 `ai/embeddings.py`).
 
@@ -1981,7 +1981,7 @@ surface, callable the same way any other skill is today.
 **Size: S** for a single quiz-generation skill as a proof of concept
 (a prompt plus the existing document-reading tools); **L** if "PPT
 generation" is read literally as a slide-deck exporter rather than a
-skill that drafts an outline, since MemoryMap has no presentation-export
+skill that drafts an outline, since Tessellate has no presentation-export
 path today and would need one built from nothing.
 
 **Recommendation: take an idea only** (a "quiz me" skill), and only as a
@@ -2002,25 +2002,25 @@ desktop app (Electron is listed in its own acknowledgements).
 
 **Licence.** Apache-2.0 by default (confirmed in `LICENSE` and the
 README's own licence section), with one named exception: a patched
-`@ghostery/adblocker-electron` package under MPL-2.0, which MemoryMap
+`@ghostery/adblocker-electron` package under MPL-2.0, which Tessellate
 would never touch since it has no browser/adblock surface. Comes in
 clean.
 
 **Honestly, this one is not thin, it is the closest of the six to what
-MemoryMap already is,** and the overlap cuts both ways: Surf's "Smart
+Tessellate already is,** and the overlap cuts both ways: Surf's "Smart
 Notes with citations back to the exact source" is functionally what
-MemoryMap's own Ask-answer object already does (per-sentence citations,
+Tessellate's own Ask-answer object already does (per-sentence citations,
 confirmed in `tests/test_ask_answer_object.py`, cited in
 WORLD_CLASS_PLAN section H2's own description of what exists). The
 genuinely new piece is Surflets.
 
 **(a) ideas and UX patterns.** Surflets, a prompt-generated small
 interactive applet (a chart, a physics demo, a simple game) that lives
-inside a note, is a real idea with no equivalent in MemoryMap today: the
+inside a note, is a real idea with no equivalent in Tessellate today: the
 closest surface is the whiteboard (`WHITEBOARD_PLAN.md`), which is a
 drawing/arrangement canvas, not a code-generation surface. `@`-mention
 context-building ("typing `@` launches a menu to search everything in
-Surf") is close to, but more general than, what MemoryMap's chat already
+Surf") is close to, but more general than, what Tessellate's chat already
 does when attaching a note or file as context, worth checking whether the
 chat's own attach flow reaches every surface (notes, files, graph nodes,
 whiteboard items) as uniformly as Surf's single `@` menu does.
@@ -2033,14 +2033,14 @@ would be a from-scratch build informed by the idea, not a port.
 
 **(c) nothing else** beyond the two ideas above; the tabs/split-view
 browser chrome, the local-model provider list, and the web-search tool
-are all things MemoryMap already has in its own shape.
+are all things Tessellate already has in its own shape.
 
 **Where it would land.** Surflets maps to a new capability on the
 whiteboard or as a chat-generated artifact (closest existing hook:
 `src/memorymap/ai/skills.py`'s tool-calling agent, which already runs
 code-adjacent tools); this is speculative and not scoped, a research
 line, not a plan item, until someone decides whether "the agent writes a
-small runnable applet into a note" is a feature MemoryMap actually wants,
+small runnable applet into a note" is a feature Tessellate actually wants,
 given its own "no code execution sandbox" posture would need deciding
 first (a real security question, not a UI one).
 
@@ -2064,7 +2064,7 @@ agent); Clawd-Code is "A Complete Python Reimplementation Based on Real
 Claude Code Source," a from-scratch Python port of the same tool
 (a `Task.ts`-equivalent agent loop, tool-calling, a `SKILL.md`
 slash-command runtime, a REPL). Neither is a notebook, a document tool,
-or anything in MemoryMap's actual domain; both are coding-CLI agents.
+or anything in Tessellate's actual domain; both are coding-CLI agents.
 
 **Licence, and a fact worth stating plainly rather than adjudicating.**
 better-clawd's `package.json` claims `"license": "MIT"`, but the cloned
@@ -2081,7 +2081,7 @@ recorded here as a fact about what the README says, not a legal opinion.
 skill runtime (markdown frontmatter declaring a description, an
 `allowed-tools` list, and named arguments) was checked against
 `src/memorymap/ai/skills.py` specifically, since it is the one plausibly
-relevant idea. MemoryMap's own skill system is already ahead of it on the
+relevant idea. Tessellate's own skill system is already ahead of it on the
 exact axis that matters: `skills.py`'s own docstring records that skills
 used to be "just presaved mini prompts" and were rebuilt in a session to
 add explicit tool allowlists, ordered steps with per-step contracts
@@ -2089,7 +2089,7 @@ add explicit tool allowlists, ordered steps with per-step contracts
 limits" and "named arguments" Clawd-Code's `SKILL.md` format offers.
 Nothing here is a gap.
 
-**(c) nothing.** Both are out of MemoryMap's domain (a coding agent, not
+**(c) nothing.** Both are out of Tessellate's domain (a coding agent, not
 a notebook), and the one idea worth checking (the skill format) turns out
 already built, more thoroughly, in this codebase.
 
@@ -2243,7 +2243,7 @@ credential vault, contacts, and a scripted device-pairing flow for a mobile
 companion. Line counts by extension, this checkout, everything outside
 `.git`: **247,751 Python, 166,420 JavaScript, 41,402 CSS, 4,917 HTML**
 (`find . -name '*.py' | xargs wc -l`, and so on per extension), 459,915 lines
-total against MemoryMap's low tens of thousands. `routes/` alone is 60-some
+total against Tessellate's low tens of thousands. `routes/` alone is 60-some
 flat and domain-grouped route files; `src/` is 95-odd modules with five
 purpose-built subdirectories (`agent_tools/`, `tools/`, `model_capability_readers/`,
 `search/`, a thin `src/search/` re-export shim); `static/js/` is 100+ files
@@ -2256,9 +2256,9 @@ anything this repository has needed to build yet.
 
 **Licence:** `LICENSE` is the GNU AGPL, and its own text says "version 3 of
 the License, or (at your option) any later version", i.e. AGPL-3.0-or-later,
-confirming §33's read. MemoryMap is AGPL-3.0 (see §33's licence section for
+confirming §33's read. Tessellate is AGPL-3.0 (see §33's licence section for
 what that permits and still requires: keep notices, attribute the source,
-never send anything of MemoryMap's the other way to an MIT project). Nothing
+never send anything of Tessellate's the other way to an MIT project). Nothing
 in this pass changes that analysis.
 
 **How alive:** the one commit this clone can see is nine days old at the
@@ -2269,7 +2269,7 @@ fresh-install smoke tests across three OSes, and, tellingly, **"Agent
 prompt/context bloat... tool schemas, skills, memory, documents, and
 instructions can eat the context before the user request really starts"** as
 still-open work. That is the exact problem §33's token measurement found
-MemoryMap already ahead on (`tools.within_budget`, `focus_for`, a skill
+Tessellate already ahead on (`tools.within_budget`, `focus_for`, a skill
 allowlist). Their own roadmap agreeing with §33's outside read is worth
 recording as corroboration, not just repetition: the size gap is real,
 current, and not a symptom of decline. `docker-compose.yml` ships three
@@ -2280,7 +2280,7 @@ surface, not an abandoned one.
 
 ### 2. Surface by surface, against this app
 
-Each line: what odysseus does, what MemoryMap does (file or plan), a
+Each line: what odysseus does, what Tessellate does (file or plan), a
 verdict. Surfaces §33/§60 already covered in depth (provider dialects, the
 tool/skill token budget, passive capture, MCP) are one line here for
 completeness, not re-argued.
@@ -2289,17 +2289,17 @@ completeness, not re-argued.
   (`src/tools/notes.py:do_manage_notes`) is CRUD on a flat `Note` model plus
   checklists, reached only through the agent tool, with action aliases
   (`create`/`new`/`save`/`remind` all map to `add`) so a model's near-miss verb
-  still lands. MemoryMap's notes are the whole app (`entry/manager.py`,
+  still lands. Tessellate's notes are the whole app (`entry/manager.py`,
   `api/routes_entries.py`), first-class, with tags, links, categories,
   staleness, private notes, and their own UI, not a tool bolted onto a chat
   workspace. Verdict: not comparable in scope. Odysseus's alias table is a
-  small, real idea worth a two-minute check against MemoryMap's own tool
+  small, real idea worth a two-minute check against Tessellate's own tool
   argument parsing for the same "closest verb, not exact string" tolerance,
   but not worth a dedicated backlog line on its own.
 - **Documents.** Odysseus's `document_processor.py` and `routes/document/`
   give a writing-first editor with AI edits/suggestions across
   Markdown/HTML/CSV, plus PDF/office-doc ingestion
-  (`office_doc.py`, `pdf_form_doc.py`). MemoryMap's Documents surface is
+  (`office_doc.py`, `pdf_form_doc.py`). Tessellate's Documents surface is
   `DOCUMENTS_PLAN.md` and `api/routes_documents.py`; the Kortex read (§66)
   already flagged the concrete gap (no slash commands, no block nesting) and
   filed it as BACKLOG §64. Checked here whether odysseus's own document
@@ -2312,18 +2312,18 @@ completeness, not re-argued.
   (`src/rag_vector.py:VectorRAG.search`) blends a fixed
   `VECTOR_WEIGHT = 0.7` / `KEYWORD_WEIGHT = 0.3`, where the keyword half is a
   plain set-overlap ratio (`len(query_words & doc_words) / len(query_words)`,
-  no IDF, no stemming). MemoryMap's `search/engine.py` fuses three real
+  no IDF, no stemming). Tessellate's `search/engine.py` fuses three real
   signals with measured weights (`WEIGHTS = {"bm25": 0.5, "cosine": 0.35,
   "graph": 0.15}`), where the lexical half is SQLite FTS5's own IDF-weighted
   `bm25()` over a Porter-stemmed index
   (`search/index.py:BM25_WEIGHTS`), not a raw word-overlap count. Verdict:
-  MemoryMap's hybrid search is more principled than odysseus's on this read,
+  Tessellate's hybrid search is more principled than odysseus's on this read,
   worth recording plainly since it cuts the other way from most of this
   section (see part 4). One thing odysseus does that is worth a passing
   mention: `embedding_lanes.py` keeps FastEmbed-fallback vectors in a
   separate ChromaDB collection from a user-configured embedding model's
   vectors, because Chroma fixes a collection's dimension on first insert.
-  MemoryMap hit the same failure mode from the other direction (switching
+  Tessellate hit the same failure mode from the other direction (switching
   embedding models leaves old, narrower vectors in the same table) and
   already fixed it, differently and after the fact
   (`search/search_manager.py:280-324`: group by vector width, skip the
@@ -2337,7 +2337,7 @@ completeness, not re-argued.
   self-summarises older turns via the same LLM into a structured block (a
   "Cursor-style" prompt asking for turn count and compaction count), and
   special-cases small-context models (`SMALL_CONTEXT_LIMIT = 8192`) for more
-  aggressive trimming. MemoryMap tracks and reports how full the window got
+  aggressive trimming. Tessellate tracks and reports how full the window got
   (`usage_source`, `ollama_client.py`/`openai_client.py`) but, checked
   directly across `ai/agent.py` and `api/routes_chat.py`, has no compaction
   step: a long chat on a small local window is reported as full, not kept
@@ -2349,7 +2349,7 @@ completeness, not re-argued.
   item 4: frontmatter, `when_to_use`, progressive disclosure, all already
   triaged). Nothing new turned up this pass beyond what §33 already recorded.
 - **The graph.** Odysseus has none: no `graph` route, no force-directed view,
-  no equivalent of `GRAPH_PLAN.md`. MemoryMap's graph (§9/§10C per §30's
+  no equivalent of `GRAPH_PLAN.md`. Tessellate's graph (§9/§10C per §30's
   reading) is a real thing odysseus's much larger codebase does not have at
   all, not a smaller version of one.
 - **Boards / whiteboard.** Same finding: no whiteboard or freeform canvas
@@ -2362,7 +2362,7 @@ completeness, not re-argued.
   equivalent either.
 - **Reminders.** Odysseus's `task_scheduler.py` (2,675 lines) runs scheduled
   agent tasks generally, of which reminders are one shape, plus
-  `reminder_personas.py` for tone. MemoryMap has a dedicated reminder parser
+  `reminder_personas.py` for tone. Tessellate has a dedicated reminder parser
   and route (`ai/reminder_parser.py`, `api/routes_reminders.py`),
   purpose-built rather than a slice of a general task scheduler. Verdict:
   comparable coverage for the actual feature (parse a phrase into a
@@ -2373,10 +2373,10 @@ completeness, not re-argued.
 - **Files and OCR.** Odysseus reads scanned PDF pages by handing each page
   image to a vision-language model (`document_processor.py:136`,
   `analyze_image_with_vl`) rather than running OCR proper; it has no
-  tesseract dependency anywhere in `requirements*.txt`. MemoryMap already
+  tesseract dependency anywhere in `requirements*.txt`. Tessellate already
   built dedicated, deterministic OCR (`core/ocr.py`: pytesseract, with
   `attempt_binary_install` for the system `tesseract` binary itself, since
-  no PyPI wheel ships it). Verdict: MemoryMap's approach is cheaper, offline
+  no PyPI wheel ships it). Verdict: Tessellate's approach is cheaper, offline
   by default, and does not depend on a vision-capable model being
   configured; odysseus's VL-read approach could in principle handle a
   diagram or handwriting an OCR engine garbles, but costs a full model call
@@ -2385,24 +2385,24 @@ completeness, not re-argued.
   text), not a replacement for what `core/ocr.py` already does.
 - **Sync.** Odysseus syncs tasks/reminders to an external calendar over
   CalDAV, two-way (`src/caldav_sync.py`, 722 lines; `caldav_writeback.py`,
-  311 lines). MemoryMap has no calendar sync of any kind; BACKLOG.md §17's
-  "A second device" entry is about a second instance of MemoryMap itself,
+  311 lines). Tessellate has no calendar sync of any kind; BACKLOG.md §17's
+  "A second device" entry is about a second instance of Tessellate itself,
   not about talking to an existing external calendar server. A one-way or
   two-way CalDAV bridge for reminders is a real, scoped, self-hostable
-  (Nextcloud, Radicale) feature MemoryMap does not have and has not
+  (Nextcloud, Radicale) feature Tessellate does not have and has not
   evaluated; recorded here as a gap, not scoped, since it is a new surface
   (external protocol client, its own auth/config) rather than an
   improvement to something that exists.
 - **Packaging.** Odysseus's primary path is Docker Compose, three services
   by default (`odysseus`, `chromadb`, `searxng`) plus an optional fourth
   (`ntfy`); native installs exist but are the secondary path per its own
-  README ("Quick Start" is `docker compose up -d --build`). MemoryMap is one
+  README ("Quick Start" is `docker compose up -d --build`). Tessellate is one
   process, SQLite, no required sidecar service, `start-desktop.sh`/`.bat`
   (`src/memorymap/__main__.py`) plus the installer scripts CLAUDE.md §5
   already documents at length (cache-busting, the `_BOOT_TOKEN` splice).
-  Verdict: MemoryMap's packaging is simpler by design and stays simpler
+  Verdict: Tessellate's packaging is simpler by design and stays simpler
   here too; nothing to take.
-- **Anything else it has that MemoryMap does not**, beyond what §33/§60
+- **Anything else it has that Tessellate does not**, beyond what §33/§60
   already named (email, calendar, hwfit/Cookbook, sub-sessions, a shell
   tool, teacher escalation, multi-user/TOTP, face recognition, STT/TTS,
   YouTube, ChatGPT/Copilot/Codex bridges, all already looked at and declined
@@ -2415,7 +2415,7 @@ completeness, not re-argued.
   Think, then Search, then Extract, then Synthesise loop, credited in its
   own docstring as "IterResearch-style... Inspired by Alibaba's
   IterResearch approach", where the LLM itself drives what to search next,
-  what is missing, and when to stop, distinct from MemoryMap's own web
+  what is missing, and when to stop, distinct from Tessellate's own web
   search which §33 already correctly characterises as "a reader, not a
   search engine": a single search-and-summarise pass, not a multi-round,
   self-directed research loop that produces a synthesised report. Both are
@@ -2469,7 +2469,7 @@ now permits a literal copy with notices kept.
    multi-round autonomous loop, its own prompt budget, its own stopping
    criteria, its own UI for a report the user did not ask a single question
    for). Risk: real: this is exactly the kind of unsupervised, many-round
-   tool-calling chain MemoryMap has deliberately kept narrow (no shell tool,
+   tool-calling chain Tessellate has deliberately kept narrow (no shell tool,
    confirmed destructive actions, a scoped tool registry per §33's "not
    taken" list), and a small local model let loose on ten rounds of
    self-directed searching is a cost and a runaway-output risk odysseus's
@@ -2485,7 +2485,7 @@ now permits a literal copy with notices kept.
    (`ai/model_manager.py`). Size: **S**, genuinely small and
    self-contained: no new subsystem, just a route that fans one prompt to
    two already-configured endpoints and a small UI for the blind reveal.
-   Risk: low; the only real design question is whether MemoryMap's answer
+   Risk: low; the only real design question is whether Tessellate's answer
    quality (accuracy against notes, tool-use correctness) is a fairer
    comparison than "which reply reads better", since a blind vote on prose
    quality alone does not test the thing a notebook AI is actually judged
@@ -2496,7 +2496,7 @@ now permits a literal copy with notices kept.
    not overlap counting, confirmed by contrast rather than by assumption.**
    Not a thing to take from odysseus, the opposite: reading
    `rag_vector.py:search`'s `keyword_score = overlap / len(query_words)`
-   next to MemoryMap's own `bm25()`-based `search/index.py` is what makes
+   next to Tessellate's own `bm25()`-based `search/index.py` is what makes
    the comparison in part 2 concrete rather than asserted. Recorded as a
    "strongest thing" in the sense that it strengthens confidence in an
    existing design choice: nothing to change, a reason not to.
@@ -2505,17 +2505,17 @@ now permits a literal copy with notices kept.
 
 Honestly, and briefly, so nothing here gets chased:
 
-- **Its own hybrid search is a weaker ranking function than MemoryMap's**
+- **Its own hybrid search is a weaker ranking function than Tessellate's**
   (part 2/3 above): a fixed 0.7/0.3 blend with a non-IDF keyword score,
   against a three-signal, measured-weight fusion over real BM25.
 - **It admits, in its own `ROADMAP.md`, the exact prompt-bloat problem §33's
-  measurement already found MemoryMap ahead on**, and its own internal
+  measurement already found Tessellate ahead on**, and its own internal
   refactor audit (`specs/architecture-runtime-inventory.md`, already read in
   §60) calls its largest files "HIGH risk" and its own CSS file "a swamp".
   Bigger has not become better-organised between §60's read and this one.
 - **A loopback bearer-token internal-auth-bypass surface** (§60 already
   found this: `core/middleware.py`'s `INTERNAL_TOOL_TOKEN`) that has to be
-  kept secret and in sync with every admin route, where MemoryMap's tools
+  kept secret and in sync with every admin route, where Tessellate's tools
   call the same in-process objects the routes call, nothing to leak.
 - **A documented, silent dependency-conflict failure mode**: its own
   `website/setup.md` (lines 410-416) warns that installing `chromadb-client`
@@ -2540,11 +2540,11 @@ this codebase once rather than filing as an odysseus problem only:
   pinned by a dedicated regression test,
   `tests/test_vault_password_not_in_argv.py`, that greps the source for the
   old vulnerable call shape as well as testing the new one. Checked directly
-  against MemoryMap: every `subprocess.run`/`subprocess.Popen` call
+  against Tessellate: every `subprocess.run`/`subprocess.Popen` call
   (`search/searxng_docker.py`, `search/searxng_manager.py`,
   `search/searxng_process.py`, `api/routes_update.py`, `core/ocr.py`,
   `core/extras.py`) passes a fixed argument table with no secret in it, so
-  this specific bug is not present today, but MemoryMap has no equivalent
+  this specific bug is not present today, but Tessellate has no equivalent
   pinning test, and this class of bug is exactly the kind that a future
   subprocess call (a new installer step, a new external-tool integration)
   could reintroduce without anyone noticing, since it degrades quietly
@@ -2556,7 +2556,7 @@ this codebase once rather than filing as an odysseus problem only:
   personal-document folder-watching each had their own hidden/junk-directory
   skip list, and they drifted apart, leaving the keyword path sweeping
   `.obsidian/`, `.git/`, and `node_modules/` after the vector path had
-  already been fixed to skip them. Checked directly against MemoryMap: there
+  already been fixed to skip them. Checked directly against Tessellate: there
   is no equivalent today (notes and documents are indexed from database rows,
   not from two independent filesystem walks, `grep` for `os.walk`/`rglob`
   outside `api/routes_files.py` turns up nothing), so this is not a live bug
@@ -2570,7 +2570,7 @@ this codebase once rather than filing as an odysseus problem only:
   alongside a same-named or same-namespace sibling degrading into a reduced
   mode rather than refusing to start, is worth a moment's check the next
   time an optional/lite variant of an existing dependency is considered for
-  `requirements-optional.txt`; nothing in MemoryMap's current dependency
+  `requirements-optional.txt`; nothing in Tessellate's current dependency
   list (CLAUDE.md §7's pinned install line) has this shape today.
 
 Not verified: anything about odysseus's actual runtime behaviour (whether
@@ -2585,7 +2585,7 @@ than trusting the read.
 
 Clean verdict; the review moved whole to HISTORY.md, "Moved from the plans, 2026-10-11 (ANALYSIS size cap)".
 
-## Twenty-four repositories read for MemoryMap, 2026-09-21
+## Twenty-four repositories read for Tessellate, 2026-09-21
 
 Asked for directly: *"there are some repos I want you to look at, evaluate
 and see if we can take anything from them"*, four named, then a fifth
@@ -2598,17 +2598,17 @@ section, with the depth of each read stated rather than implied. Each was shallo
 four) into a scratch directory and read: README, licence file, top-level
 layout, and the parts that looked relevant, then deleted. **Nothing was
 run.** Every proposal below was checked against
-MemoryMap's own code by grep before it was written down, per this file's
+Tessellate's own code by grep before it was written down, per this file's
 standing rule and the four earlier reads (§33, §59, §60, "Six repositories
 read for MemoryMap, 2026-09-20"), and where the answer was "the app already
 does this", that is stated as plainly as a gap.
 
 **Licences, checked against the constraint at the top of this file
-(MemoryMap is AGPL-3.0; MIT, BSD and Apache code may come in with its
+(Tessellate is AGPL-3.0; MIT, BSD and Apache code may come in with its
 notices kept; AGPL and GPL code may come in; nothing of ours goes out to an
 MIT project):**
 
-| Repository | Licence | May its code come into MemoryMap? |
+| Repository | Licence | May its code come into Tessellate? |
 | --- | --- | --- |
 | quickLiquid (amarnath3003) | MIT, root `LICENSE` and `packages/quick-liquid/LICENSE` | Yes, notice kept |
 | needle (cactus-compute) | Apache-2.0 in the repo; the weights repo `Cactus-Compute/needle3` also carries `license: apache-2.0` | Yes, notice kept, code and weights both |
@@ -2645,7 +2645,7 @@ release line.
 
 **Licence.** MIT, confirmed in both `LICENSE` files.
 
-**What MemoryMap has today, and the decision already on the table.** The app
+**What Tessellate has today, and the decision already on the table.** The app
 has a complete glass system, and it also has a recorded decision against
 exactly this. `docs/DESIGN.md`, "Deliberately not taken": *"Refraction and
 lensing (a displacement filter on every glass surface is the one effect
@@ -2664,7 +2664,7 @@ the facts the decision rested on.
 **It does not.** quickLiquid's own cost model (`OPTIMIZATION.md` section 0)
 prices `feDisplacementMap` at roughly twice a streaming filter pass over the
 filter region, and its headline win is cutting the chain from `12A` to `2A`
-for frosted materials: that is a reduction in the multiplier, and MemoryMap's
+for frosted materials: that is a reduction in the multiplier, and Tessellate's
 measured problem was `A` itself, the blurred area per frame on an integrated
 GPU. A displacement tap is added on top of a blur that is already there, so
 the app's cheapest surface gets more expensive, not less.
@@ -2715,7 +2715,7 @@ written to a stated rule set, in the file's own words: every closed set is an
 enum, every number has bounds, *"no correct call ever needs a value the user
 did not say"*, and an enum value must not hide inside a likely query word
 (*"a room named office poisons an off action, so this home has a study"*).
-Checked against MemoryMap: the 15 tools in `src/memorymap/ai/tools/__init__.py`
+Checked against Tessellate: the 15 tools in `src/memorymap/ai/tools/__init__.py`
 carry exactly two `"enum"` keys between them (the reminder priority, line
 3265), no numeric bounds anywhere, and `create_reminder` requires `due_at` as
 an ISO datetime the model must synthesise (line 1502), which is the clearest
@@ -2731,7 +2731,7 @@ tool's JSON schema alongside the arguments a model produced and flag any
 `date`/`date-time` field whose year appears nowhere in the user's text,
 unless the text reasons relatively ("tomorrow", "next week"), in which case
 the system date's year is licensed too; `_grounded_number_paths` does the
-same for numbers. MemoryMap has grounding, twice, and neither one is this:
+same for numbers. Tessellate has grounding, twice, and neither one is this:
 `ai/grounding.py` grounds each sentence of a Q&A answer in a retrieved note,
 and `unsupported_claims` checks the agent's narrated actions. Nothing checks
 a **tool argument** against the words that asked for it, and
@@ -2808,7 +2808,7 @@ the embedding warm-up, and named three directions of which the second is
 *"ONNX Runtime instead of torch for inference. Same model, a fraction of the
 resident cost, no scipy or sklearn in the import graph. This is the change
 with the best ratio and the most work"*, marked *"none yet taken"*.
-MemoryMap's default embedding backend is `sentence-transformers` with
+Tessellate's default embedding backend is `sentence-transformers` with
 `BAAI/bge-small-en-v1.5` (`ai/embeddings.py`, `DEFAULT_ST_MODEL`), and
 fastembed's own default is that same model in ONNX form. So the "most work"
 half of that item is largely a packaging question already answered by someone
@@ -2824,7 +2824,7 @@ the torch model's, so a switch is the same "two vector widths in one table"
 problem `search/search_manager.py:280-324` already survives by grouping on
 width and logging a reindex hint; the honest shape is a reindex, not a silent
 mix. And none of this is measured here: the 65MB is cognee's comment, the
-776MB is MemoryMap's own earlier measurement of the present state, and the
+776MB is Tessellate's own earlier measurement of the present state, and the
 result of the swap is measured nowhere yet.
 
 **Recommendation: take it, as the named implementation for WORLD_CLASS_PLAN
@@ -2850,7 +2850,7 @@ own notes.
 with notices intact and no clause to reason about. That is the one licence in
 this batch that costs nothing, and it is not enough on its own.
 
-**What MemoryMap could take: close to nothing, and the specifics are worth
+**What Tessellate could take: close to nothing, and the specifics are worth
 recording so a later session does not look again.**
 
 - **File importance** (`src/anatomy/importance.ts`) is a hand-rolled PageRank
@@ -2868,7 +2868,7 @@ recording so a later session does not look again.**
   `> Archived session: <id>` pointer, the archive is re-hashed and verified
   before the live file is rewritten, and restore refuses on a checksum
   mismatch. That is a real answer to "prune without losing anything". It does
-  not port: MemoryMap's equivalent guarantee comes from a transaction over
+  not port: Tessellate's equivalent guarantee comes from a transaction over
   `EntryRevision` and `AuditLog` rather than from a hash over a Markdown
   block. What could port is the phrasing of the promise, which the
   resurface and archive copy could borrow.
@@ -2923,7 +2923,7 @@ which parts are not.**
 - **Not memory.** `openjarvis/memory/` is 978 lines that ask a small local
   model after each exchange for a JSON array of durable facts about the user
   and append them to a deduped, capped JSON file
-  (`memory/extractor.py`, `memory/store.py`). MemoryMap does the same idea
+  (`memory/extractor.py`, `memory/store.py`). Tessellate does the same idea
   more carefully and has already argued it out in code comments:
   `ai/passive_capture.py` writes **drafts** rather than finished rows
   precisely because *"a background job that mis-files something nobody asked
@@ -2934,7 +2934,7 @@ which parts are not.**
   contract at all, which is the thing WORLD_CLASS_PLAN I9 makes
   non-negotiable here.
 - **Not the skills subsystem**, with one note. `openjarvis/skills/` is 2,448
-  lines to MemoryMap's 3,368 across `ai/skills.py` and `ai/skill_runner.py`,
+  lines to Tessellate's 3,368 across `ai/skills.py` and `ai/skill_runner.py`,
   and the overlap (a manifest, a tool adapter, a per-skill capability list)
   is already built. The one shape that is not: `skills/overlay.py` keeps
   optimiser output (few-shot examples learned from traces) in a sidecar file
@@ -2949,7 +2949,7 @@ sends nothing anywhere.** It is a local SQLite record of every inference
 (`telemetry/store.py`, `aggregator.py`) with per-phase metrics, inter-token
 latency (`itl.py`), FLOPs (`flops.py`) and energy read from Intel RAPL,
 NVIDIA, AMD and Apple counters (`energy_*.py`), aggregated per model and per
-engine. MemoryMap measures a piece of the same thing once per response and
+engine. Tessellate measures a piece of the same thing once per response and
 then throws it away: `ai/ollama_client.py:551` computes `eval_ms` from the
 Ollama payload and `frontend/js/app.js:21270` renders "3.9k/8k window · 12 tok/s
 · llama3.2" onto the message. There is no table for it: `core/database.py`
@@ -2996,7 +2996,7 @@ is no `LICENSE` file, no `license` field in `package.json`, and
 `"private": true` is set. No licence granted means default copyright: not the
 code, not the sprites, not a file of it may come into an AGPL-3.0 project. So
 nothing below is taken from it. The owner's question stands on its own, and
-what follows answers it from MemoryMap's own code.
+what follows answers it from Tessellate's own code.
 
 **Part one: playing files the person already owns. The app does not do it,
 and the gap is already scoped, here.** Checked before proposing anything:
@@ -3152,7 +3152,7 @@ threshold, and WASM builds (`whisper.wasm`, `stream.wasm`). Weights are ggml
 conversions of OpenAI's Whisper, fetched by
 `models/download-ggml-model.sh`, so it does not run without a download and
 neither does what this app has today. **What it is worth here is not a
-replacement.** MemoryMap already transcribes with the same model family
+replacement.** Tessellate already transcribes with the same model family
 through a pip package that needs no compiler, and swapping that for a native
 binary the person must build or fetch is CLAUDE.md section 6's first shape, a
 working thing rewritten into a riskier one. What whisper.cpp has that
@@ -3282,7 +3282,7 @@ shallow read of fourteen is worth less than a real read of five.
 | onyx-dot-app/onyx | MIT outside the `ee/` directories, which are proprietary | 1.24M lines, alive | Enterprise RAG with fifty-plus connectors. The connector breadth is the product; this app is deliberately one machine and one notebook | Skim |
 
 **Why those five.** khoj and reor are the two projects doing the same thing
-as MemoryMap rather than something adjacent; Trilium is the mature notebook
+as Tessellate rather than something adjacent; Trilium is the mature notebook
 with the data model closest to this app's; mem0 (with letta) is the memory
 architecture behind the part this app calls learning; and karakeep earned its
 place with one specific finding that is worth more than the other skims put
@@ -3298,13 +3298,13 @@ automations, and clients for browser, Obsidian, Emacs, desktop and phone.
 workflow, last commit 2026-08-02, with the team's newest energy visibly
 moving to a separate product (Pipali).
 
-**Licence.** AGPL-3.0, the same as MemoryMap.
+**Licence.** AGPL-3.0, the same as Tessellate.
 
 **Where khoj is better, specifically: it reranks and this app does not.**
 `src/khoj/search_type/text_search.py` retrieves with a bi-encoder and then
 runs `cross_encoder_score` and `rerank_and_sort_results` over the hits, with
 `mixedbread-ai/mxbai-rerank-xsmall-v1` as the default cross encoder
-(`database/models/__init__.py:566`). MemoryMap has no rerank stage at all:
+(`database/models/__init__.py:566`). Tessellate has no rerank stage at all:
 `search/engine.py` fuses three scores with fixed weights (`bm25 0.5,
 cosine 0.35, graph 0.15`) and sorts. Fusion and reranking are not the same
 move: fusion trades off signals computed independently of each other, while a
@@ -3319,12 +3319,12 @@ argument for answering that one first and getting two features out of it.
 
 **Where this app is better, and it is not a close call on two of them.**
 First, khoj's retrieval is semantic-plus-rerank with no lexical leg;
-MemoryMap's has FTS5 `bm25()` over a Porter-stemmed index beside the vectors,
+Tessellate's has FTS5 `bm25()` over a Porter-stemmed index beside the vectors,
 so an exact phrase or a rare proper noun cannot fall through, and
 `_explain()` tells the person which signal matched. Second, and bluntly:
 **khoj phones home by default.** `src/khoj/utils/state.py` reads
 `KHOJ_TELEMETRY_DISABLE`, so telemetry is opt-out, and `src/telemetry/` is
-their own FastAPI collector forwarding to PostHog. MemoryMap sends nothing,
+their own FastAPI collector forwarding to PostHog. Tessellate sends nothing,
 ever, and its one online feature is off until switched on. For an app whose
 pitch is a personal AI, that is a real difference in kind, not in degree.
 Third, khoj's local mode needs torch and sentence-transformers as ordinary
@@ -3359,7 +3359,7 @@ WORLD_CLASS_PLAN 19.1 item, not a new idea.
 **Where this app is better, and it is the feature reor is named for.** reor's
 related-notes sidebar (`src/components/Sidebars/SimilarFilesSidebar.tsx`,
 `SemanticSidebar/SimilarEntriesComponent.tsx`) lists notes by raw vector
-similarity and says nothing about why. MemoryMap has the same panel live
+similarity and says nothing about why. Tessellate has the same panel live
 while a note is open (`frontend/js/app.js:9158`), and every link carries a
 reason that starts as "similar in meaning" and is then rewritten by
 `ai/links.py` into the specific thing connecting the two notes, with
@@ -3386,7 +3386,7 @@ every note rows of `type` (`label` or `relation`), `name`, `value`, with
 labels carrying arbitrary key-value data and relations pointing at another
 note, plus "promoted attributes" which are the ones a note type chooses to
 show as fields in the UI. One mechanism covers tagging, typed metadata,
-and typed links between notes. MemoryMap spreads the same ground over four
+and typed links between notes. Tessellate spreads the same ground over four
 separate things: a `tags` JSON column on `Entry`, a `Category`,
 `EntryLink` with its reason, and `Entity`/`EntityMention`. **That is not a
 recommendation to unify them**: this app's four each carry behaviour the
@@ -3398,7 +3398,7 @@ a typed field (a due date, a status, an amount) has nowhere to put it here
 except free text.
 
 **Where this app is better.** Trilium's AI is bolted on and optional;
-MemoryMap's filing, linking, resurfacing and Q&A are the product, and
+Tessellate's filing, linking, resurfacing and Q&A are the product, and
 `ai/janitor.py`'s four-tier filing cascade (model, then category centroid,
 then nearest-neighbour vote, then Uncategorised at confidence zero) has no
 equivalent there at all.
@@ -3411,7 +3411,7 @@ carry named fields" rather than as "adopt attributes".
 
 **What it is.** A self-hostable bookmark-everything app (links, notes,
 images, PDFs) with an AI tagging pass, full-text search, lists and rules.
-149,000 lines, alive (2026-09-19). Narrower than MemoryMap, and read here
+149,000 lines, alive (2026-09-19). Narrower than Tessellate, and read here
 only for the tagging worker.
 
 **Licence.** AGPL-3.0.
@@ -3422,7 +3422,7 @@ included, truncated to a budget for exactly the reason the constant is named:
 `RELEVANT_TAG_TRUNCATE_LENGTH = 1000`, *"the maximum length of the relevant
 tag names to avoid bloating the inference context"*. The model is asked to
 reuse the vocabulary that already exists before inventing a new word.
-MemoryMap does not do this. `librarian.suggest_tags(text, existing, ...)`
+Tessellate does not do this. `librarian.suggest_tags(text, existing, ...)`
 passes `existing` as *"tags already on the note (don't repeat)"* and nothing
 else: the notebook's own tag vocabulary is never shown to the model, so every
 note is tagged from a blank slate and a notebook accumulates `work-project`,
@@ -3454,7 +3454,7 @@ it did not see. Both are Apache-2.0.
 (`mem0/configs/prompts.py:176`) does not just add: the model is handed the
 new fact and the similar existing memories and must answer **ADD, UPDATE,
 DELETE or NONE**, so a contradicted memory is rewritten and a retracted one
-is removed. MemoryMap's `_save_user_preference`
+is removed. Tessellate's `_save_user_preference`
 (`ai/tools/__init__.py:2148`) checks only for an exact case-insensitive
 duplicate, then caps at `MAX_ACTIVE_PREFERENCES` and tells the model to *"ask
 the user which one to drop"*. So "answer briefly" and a later "give me more
@@ -3470,7 +3470,7 @@ argues for at length.
 treats memory as named blocks with descriptions and a size the agent is
 responsible for, and its `context-doctor` skill audits memory for *"duplicate
 or contradictory facts/instructions, stale content"* and for which files
-dominate the context estimate. MemoryMap's memory stream is bounded by
+dominate the context estimate. Tessellate's memory stream is bounded by
 `MEMORY_STREAM_BUDGET_CHARS = 600` in `ai/memory.py` with newest-wins
 truncation, which is a sound rule and is **invisible**: a person with twenty
 saved preferences is not told which ones actually reached the model this
@@ -3479,7 +3479,7 @@ budget", is a small honesty feature of exactly the kind this app already
 builds everywhere else.
 
 **Where this app is better.** mem0's pipeline writes to memory on its own
-judgement; MemoryMap proposes and waits, with the reason written in the code
+judgement; Tessellate proposes and waits, with the reason written in the code
 (*"a model that misread one sentence gave itself a permanent rule the user
 never agreed to"*). Keep that. Take the comparison, not the autonomy.
 
@@ -3498,7 +3498,7 @@ app's whiteboard.** Its connector routing is A star over an obstacle graph:
 `blocksuite/affine/gfx/connector/src/connector-manager.ts:1158` builds an
 `AStarRunner` (exported from `blocksuite/affine/blocks/surface/src/utils/
 a-star.js`) and takes its path, so an elbow connector routes *around* the
-shapes between its two ends. MemoryMap's elbow connectors are careful about
+shapes between its two ends. Tessellate's elbow connectors are careful about
 the things AFFiNE's are also careful about, leaving a card perpendicular to
 the side they attach to and turning at a computed midpoint
 (`frontend/js/whiteboard.js:1640`, `:4725`, `wbMapEdgeElbowTurn`), and they do
@@ -3556,7 +3556,7 @@ rather than "nothing we could learn". One line each, and where the answer is
   fix that fits inside the existing decision.
 - **openwolf.** Better at one thing this app has no view of: it audits and
   prices the always-on context a project pays for every turn
-  (`src/daemon/context-audit.ts`). MemoryMap shows a per-message window
+  (`src/daemon/context-audit.ts`). Tessellate shows a per-message window
   figure and lints its static prompt text (`agent.PROSE_BUDGET_CHARS`), but
   nothing shows what the prompt was actually made of on a given turn. Small,
   and it converges with the letta finding below. Everything else in openwolf
@@ -3600,7 +3600,7 @@ rather than "nothing we could learn". One line each, and where the answer is
   weights licence was read from Hugging Face hub metadata, not from a file in
   a clone.
 - **The fastembed numbers are cognee's comment**, and the 776MB resident
-  figure is MemoryMap's own earlier measurement of its current state. The
+  figure is Tessellate's own earlier measurement of its current state. The
   result of swapping one for the other is measured nowhere yet, which is why
   the recommendation's first step is a measurement.
 - **quickLiquid's cost model was read, not reproduced.** No browser
@@ -3721,7 +3721,7 @@ points, Mermaid and CSV import, re-editable SVG. designcraft facts used:
 frames and threaded stories, parent pages, swatches, paragraph and character
 styles, text wrap, a Properties panel.
 
-| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
 | --- | --- | --- | --- | --- |
 | Format panel (stroke, fill, alpha, shadow, route, caps, jumps, label) | yes (`wb-format`, `wb-fmt-*` in index.html, `whiteboard-format.js`) | none | none | done |
 | Numeric X, Y, W, H, angle, flip | yes (`wb-fmt-x/y/w/h/angle/flip-h/flip-v`) | no resize from centre | S | keep, small |
@@ -3773,7 +3773,7 @@ Canvas Mindmap, XMind, Coggle, MindMeister, Kumu (MINDMAP_PLAN section 3).
 designcraft contributes only canvas habits (frames, swatches, a properties
 panel); it has no map concept.
 
-| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
 | --- | --- | --- | --- | --- |
 | Keyboard-first: child, sibling, delete, collapse | yes (`wb-radial-child/sibling/collapse/delete`, clone-right, clone-down) | none | none | done |
 | Structures: tree four ways, radial, logic chart, timeline, fishbone, tree table | yes (`WB_MAP_LAYOUT_NAMES`) | one per map; XMind sets one per branch | L | keep |
@@ -3812,7 +3812,7 @@ footnotes, citations, comments, track changes, compare, accessibility
 checker, mail merge, docx round trip, a spelling dictionary from the Moby
 Hyphenator list. A document here is Markdown in CodeMirror.
 
-| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
 | --- | --- | --- | --- | --- |
 | Find and replace, regex | yes (`doc-find-bar`, `doc-replace-one/all`) | regex toggle not checked | S | keep, verify |
 | Spelling with a personal dictionary | yes (`doc-dictionary-*`, `doc-spelling-variant`, Harper) | none | none | done |
@@ -3856,7 +3856,7 @@ control); the extension ecosystem is out of scope. CodeMirror 6 is vendored
 (`frontend/vendor/codemirror/entry.js` exports state, view, commands, search,
 language, autocomplete, lint and the language packs).
 
-| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
 | --- | --- | --- | --- | --- |
 | Syntax highlighting, 25+ languages | yes (entry.js: JS, Python, CSS, HTML, JSON, YAML, shell, SQL, TOML, Go, Rust, C family, Ruby, XML, Swift, R, Dockerfile, properties) | no TypeScript or PHP pack | S | keep |
 | Diagnostics and lint gutter | yes (`CM.lint`, `lintGutter` in `documents-code.js`, `core/syntaxcheck.py`) | JS and Python depth: Brief 42 | M | in Brief 42 |
@@ -3895,7 +3895,7 @@ engine, sort and autofilter, conditional formats, validation, pivot tables,
 17 chart types, xlsx round trip, CSV and TSV. A table here is a Markdown
 table; the app has no sheet object.
 
-| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
 | --- | --- | --- | --- | --- |
 | Insert a table, Tab between cells | yes (`docFillTable`, toolbar `table` in `note-edit-panels.js`) | none | none | done |
 | Column alignment | yes (`markdown.js` separator row) | none | none | done |
@@ -3923,11 +3923,11 @@ with a small function set evaluated through the existing safe evaluator,
 
 pdfcraft facts used: render, search, bookmarks panel, page grid, merge,
 extract, split, forms, comments, redaction, passwords, accessibility checker,
-corpus-tested repair. MemoryMap reads PDFs for text and renders pages as
+corpus-tested repair. Tessellate reads PDFs for text and renders pages as
 images (`core/pdfpages.py`, pypdfium2 under an optional extra), and the OCR
 workspace sits on those images.
 
-| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
 | --- | --- | --- | --- | --- |
 | View pages with zoom and fit | yes (`ocr-zoom-*`, `ocr-view` modes) | none | none | done |
 | Page rail and pager | yes (`ocr-rail`, `ocr-pager`) | none | none | done |
@@ -3959,7 +3959,7 @@ plus a library (ratings, flags, collections, smart albums, compare and survey
 views, XMP). Only lightcraft's library half and a few photocraft basics fit a
 notebook.
 
-| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
 | --- | --- | --- | --- | --- |
 | Library grid with filters and a selection bar | yes (`library.js`: `renderLibraryView`, `createLibrarySelectbar`) | none | none | done |
 | Lightbox with next and previous | yes (`lightbox.js`, `lightbox-view.js`) | none | none | done |
@@ -3992,7 +3992,7 @@ notebook: waveform and time display, markers, loudness, record with punch and
 pre-roll, autosave, audio file formats. Meetings sit on `meetings.js` and
 `routes_meetings.py`.
 
-| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
 | --- | --- | --- | --- | --- |
 | Record with a level meter and timer | yes (`meeting-record`, `meeting-wave`, `meeting-timer`, `startMicLevelMeter`) | none | none | done |
 | Pause and resume | yes (`meeting-pause`, `toggleMeetingPause`) | none | none | done |
@@ -4025,7 +4025,7 @@ deckcraft facts used: masters and layouts, 150+ shapes, transitions and
 animations, presenter view, rehearse timings, pen, notes pages, pptx open and
 save, PDF and PNG export.
 
-| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
 | --- | --- | --- | --- | --- |
 | Step through frames as slides | yes (`wb-present-bar`, `wb-present-prev/next/count/end`) | none | none | done |
 | Reorder slides | yes (Pages tab, decision 22) | none | none | done |

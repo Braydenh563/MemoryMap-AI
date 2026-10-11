@@ -1,4 +1,4 @@
-// MemoryMap AI: Whiteboard subsystem (extracted from app.js).
+// Tessellate: Whiteboard subsystem (extracted from app.js).
 //
 // This is the "Whiteboard" tab: boards, cards, sketches-as-objects, links,
 // mind-mapping, export: the OneNote/draw.io-style canvas built across
@@ -11068,7 +11068,7 @@ function wbExportDescription(scope) {
   const kind = wbIsMap() ? "mind map" : "whiteboard";
   const part = scope === "selection" ? "Part of the " : "The ";
   const named = title ? ` "${title}"` : "";
-  return `${part}${kind}${named}, exported from MemoryMap.`;
+  return `${part}${kind}${named}, exported from Tessellate.`;
 }
 
 async function uploadToLibrary(filename, blob, description = "") {
@@ -11098,7 +11098,7 @@ async function uploadToLibrary(filename, blob, description = "") {
     await apiJson(`/media/${uploaded.id}/caption`, {
       method: "POST",
       //: `source: "app"` (the owner, 2026-09-24): the app wrote this line, nobody typed
-      //: it, so it is stored as written by MemoryMap rather than as a hand
+      //: it, so it is stored as written by Tessellate rather than as a hand
       //: edit, and the lightbox and the card say so.
       body: JSON.stringify({ text: description, source: "app" }),
     }).catch(() => {

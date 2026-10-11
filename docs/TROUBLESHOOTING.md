@@ -23,7 +23,7 @@ error from the previous run's log. If the environment looks broken, `--reinstall
 rebuilds it from scratch. `--logs` opens the folder of launcher logs, which hold
 the last ten runs.
 
-**Installed with the Windows installer?** Use the **Repair MemoryMap AI**
+**Installed with the Windows installer?** Use the **Repair Tessellate**
 shortcut in the Start Menu. It clears the window's cached profile and starts the
 app again, and never touches your notes or settings. A startup error is written
 to `desktop-stdio.log` in the `logs` folder inside your data folder
@@ -35,11 +35,11 @@ expected, because the build is not code-signed yet. Click **More info**, then
 
 ## The port is already in use
 
-MemoryMap serves on port 8000. If something else has it, `--doctor` says so, and
+Tessellate serves on port 8000. If something else has it, `--doctor` says so, and
 `--port N` starts the app on another one (`./start.sh --port 8010`). For the
 packaged apps and `python -m memorymap`, set `MEMORYMAP_PORT` instead. An
-already-running MemoryMap on that port is not an error: open it, and use Settings,
-Background tasks, Quit MemoryMap if you want it closed.
+already-running Tessellate on that port is not an error: open it, and use Settings,
+Background tasks, Quit Tessellate if you want it closed.
 
 ## A phone or another computer cannot open it, or warns about the certificate
 
@@ -73,7 +73,7 @@ same place, or set `MEMORYMAP_NO_AUTO_INSTALL` to stop the automatic install.
 
 You see a banner like *"The specified procedure could not be found. Error loading
 ...\torch\lib\torch_xpu.dll"*. The app is fine. torch's default Windows wheel
-ships an Intel GPU library that cannot load on your machine, and MemoryMap needs
+ships an Intel GPU library that cannot load on your machine, and Tessellate needs
 only the **CPU** build.
 
 **Fresh installs are already handled.** `requirements.txt` installs the CPU-only
@@ -127,7 +127,7 @@ rate-limited, and the app says so rather than showing an empty panel. Waiting a
 few minutes usually clears it.
 
 The real fix is your own SearXNG instance: **Settings, Web search, Start
-SearXNG**. MemoryMap installs it (in a container if you have Docker, otherwise
+SearXNG**. Tessellate installs it (in a container if you have Docker, otherwise
 in a virtual environment of its own), configures the JSON API, and points search
 at it.
 
@@ -136,7 +136,7 @@ at it.
 Everything you need is in **Settings, Web search**:
 
 - **The port line** says whether port 8888 is free, held by a working SearXNG
-  (fine, MemoryMap will use it), or held by something else, which is the only
+  (fine, Tessellate will use it), or held by something else, which is the only
   case you have to fix. `MEMORYMAP_SEARXNG_PORT` picks another port.
 - **What SearXNG reported** is a fold with the instance's own output: the actual
   traceback, not a guess. It is kept in `searxng/searxng.log` in your data folder

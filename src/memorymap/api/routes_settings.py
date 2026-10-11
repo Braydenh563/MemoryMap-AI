@@ -1089,12 +1089,12 @@ def import_preferences(payload: dict, session: Session = Depends(get_session)) -
     so an imported value is cleaned exactly as one typed into Settings is.
     """
     if payload.get("kind") != SETTINGS_FILE_KIND:
-        raise HTTPException(status_code=422, detail="That file is not a MemoryMap settings file.")
+        raise HTTPException(status_code=422, detail="That file is not a Tessellate settings file.")
     version = payload.get("version")
     if not isinstance(version, int) or version > SETTINGS_FILE_VERSION:
         raise HTTPException(
             status_code=422,
-            detail="That settings file is from a newer version of MemoryMap; update this one first.",
+            detail="That settings file is from a newer version of Tessellate; update this one first.",
         )
     incoming = payload.get("preferences")
     if not isinstance(incoming, dict):
@@ -2300,7 +2300,7 @@ def _redacted_preferences(preferences: dict) -> dict:
     return {"included": kept, "withheld": withheld}
 
 
-BUNDLE_README = """MemoryMap AI: support bundle
+BUNDLE_README = """Tessellate: support bundle
 =============================
 
 What this is
@@ -2465,7 +2465,7 @@ def export_backup(background_tasks: BackgroundTasks):
 def export_json(session: Session = Depends(get_session)) -> Response:
     categories, entries, links = _export_rows(session)
     payload = {
-        "app": "MemoryMap AI",
+        "app": "Tessellate",
         "version": __version__,
         "exported_at": utcnow().isoformat(),
         "categories": [{"id": c.id, "name": c.name} for c in categories],

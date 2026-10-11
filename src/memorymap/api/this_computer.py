@@ -26,7 +26,7 @@ _FORWARDING = ("forwarded", "x-forwarded-for", "x-forwarded-host", "x-forwarded-
 #: this device??" It names the device, not the computer, because the phone
 #: is where it is read; downloads are not refused (an export saves on the
 #: device that asked), so the wording does not mention them.
-REFUSAL = "Not available on this device. Do it on the computer MemoryMap runs on."
+REFUSAL = "Not available on this device. Do it on the computer Tessellate runs on."
 
 
 def is_another_device(request: Request) -> bool:

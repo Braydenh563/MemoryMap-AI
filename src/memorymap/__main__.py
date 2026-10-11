@@ -141,7 +141,7 @@ _LOADING_HTML = """<!doctype html>
   }
 </style></head>
 <body>
-  <div class="mark"><svg viewBox="0 0 100 100" role="img" aria-label="MemoryMap AI">
+  <div class="mark"><svg viewBox="0 0 100 100" role="img" aria-label="Tessellate">
     <defs>
       <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0%" stop-color="#5b7cff"/><stop offset="55%" stop-color="#4664f0"/>
@@ -165,7 +165,7 @@ _LOADING_HTML = """<!doctype html>
     </g>
     <circle cx="50" cy="50" r="13" fill="#4664f0"/>
     <circle cx="50" cy="50" r="9.5" fill="#ffffff"/>
-  </svg><span>MemoryMap AI</span></div>
+  </svg><span>Tessellate</span></div>
   <ul class="steps" id="steps"></ul>
   <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
   <div id="status">Starting…</div>
@@ -890,7 +890,7 @@ def _port_holder(port: int) -> str:
     """Who has `port` on HOST: "free", "memorymap" (another copy of this
     app on this launch's data directory, which answers `/health` with its
     name and `/instance` with the folder) or "other" (anything else, a
-    MemoryMap on a different data directory included).
+    Tessellate on a different data directory included).
 
     A bind first, not a connect: on Windows a connect to a closed local port
     is retried for about two seconds before it is refused, and this runs on
@@ -920,13 +920,15 @@ def _port_holder(port: int) -> str:
                 return "other"
         except OSError:
             return "free"
-    if isinstance(body, dict) and body.get("app") == "MemoryMap AI":
+    from memorymap.core.instance_lock import APP_NAMES
+
+    if isinstance(body, dict) and body.get("app") in APP_NAMES:
         return "memorymap" if _serves_this_notebook(port) else "other"
     return "other"
 
 
 def _serves_this_notebook(port: int) -> bool:
-    """Whether the MemoryMap on `port` serves *this* launch's data directory
+    """Whether the Tessellate on `port` serves *this* launch's data directory
     (WORLD_CLASS 423 g). `/health` only carries the app's name, so a second
     copy pointed at a different folder used to be taken for this one and the
     window opened onto the wrong notebook. `/instance` reports a hash of the
@@ -948,8 +950,8 @@ def _desktop_port() -> int:
 
     **Why.** The window waits for *something* to answer on the port and then
     opens it. Port 8000 is the default of half the development servers in
-    existence, and with one of them running, the MemoryMap window opened that
-    program's page, with the MemoryMap server failing to bind behind it and
+    existence, and with one of them running, the Tessellate window opened that
+    program's page, with the Tessellate server failing to bind behind it and
     nothing on screen saying so. Another copy of this app on the port is
     left alone: a second launch opening a window onto the first copy's
     server is what a second double-click has always done.
@@ -1556,15 +1558,15 @@ def _warn_webview2_missing() -> None:
     problem has made the problem worse, not explained it.
     """
     message = (
-        "MemoryMap AI needs the Microsoft Edge WebView2 Runtime to show its "
+        "Tessellate needs the Microsoft Edge WebView2 Runtime to show its "
         "window, and this machine does not have it installed.\n\n"
         "Opening the Microsoft installer page now. Run the installer, then "
-        "start MemoryMap AI again."
+        "start Tessellate again."
     )
     try:
         import ctypes
 
-        ctypes.windll.user32.MessageBoxW(0, message, "MemoryMap AI", 0x30)  # MB_ICONWARNING
+        ctypes.windll.user32.MessageBoxW(0, message, "Tessellate", 0x30)  # MB_ICONWARNING
     except Exception as exc:  # noqa: BLE001
         logger.warning("could not show the WebView2 message box: %s", exc)
     try:
@@ -1602,7 +1604,7 @@ def _existing_instance():
 
     state, lock = instance_lock.find_running(resolved_data_dir())
     if state == "starting":
-        _splash_status("MemoryMap is already starting...")
+        _splash_status("Tessellate is already starting...")
         state = "live" if instance_lock.wait_until_answering(lock.port) else "stale"
     return state, lock
 
@@ -1634,7 +1636,7 @@ def _hand_off_to_running(lock, action: str) -> None:
             except Exception as exc:  # noqa: BLE001 - best effort
                 logger.debug("AllowSetForegroundWindow failed: %s", exc)
         if instance_lock.request_focus(lock):
-            print(f"MemoryMap is already running (port {lock.port}); brought its window forward.")
+            print(f"Tessellate is already running (port {lock.port}); brought its window forward.")
             return
     _open_window_onto(lock.port)
 
@@ -1650,13 +1652,13 @@ def _open_window_onto(port: int) -> None:
     except ImportError:
         import webbrowser
 
-        print(f"MemoryMap is already running; opening {url}")
+        print(f"Tessellate is already running; opening {url}")
         webbrowser.open(url)
         return
     from memorymap.core.config import resolved_data_dir
 
     window = webview.create_window(
-        "MemoryMap AI", url=url, width=1200, height=800, min_size=(420, 500), text_select=True
+        "Tessellate", url=url, width=1200, height=800, min_size=(420, 500), text_select=True
     )
     storage = resolved_data_dir() / "webview"
     storage.mkdir(parents=True, exist_ok=True)
@@ -1766,7 +1768,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     _claim_notebook()
     _splash_status("Opening the window...")
     window = webview.create_window(
-        "MemoryMap AI",
+        "Tessellate",
         html=_loading_html(),
         width=1200,
         height=800,
@@ -1939,7 +1941,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
                             "Still running here. Click the icon to bring the "
                             "window back, or right-click → Quit to close it "
                             "properly.",
-                            "MemoryMap AI",
+                            "Tessellate",
                         )
                     except Exception as exc:  # noqa: BLE001  # balloons are optional
                         logger.debug("couldn't show the tray balloon: %s", exc)
@@ -2226,7 +2228,7 @@ def _start_tray(
         # the user clicks Restart, the window closes, and nothing comes back.
         argv = list(sys.argv) if getattr(sys, "frozen", False) else [sys.executable, *sys.argv]
         # A Restart is not a repair: launched from the Start Menu's "Repair
-        # MemoryMap AI", the argv carries --reinstall, and restarting with it
+        # Tessellate", the argv carries --reinstall, and restarting with it
         # cleared the window's saved sign-in and theme a second time.
         argv = [argv[0], *(arg for arg in argv[1:] if arg != "--reinstall")]
         _stop_background_work()
@@ -2291,7 +2293,7 @@ def _start_tray(
     # on the app, get to the settings that matter. Each item lands on the
     # feature rather than on the tab that contains it, see `_go`.
     menu_items = [
-        pystray.MenuItem("Open MemoryMap AI", _open, default=True),
+        pystray.MenuItem("Open Tessellate", _open, default=True),
         pystray.MenuItem("New note", _new_note),
         pystray.MenuItem(
             "Ask a question",
@@ -2342,7 +2344,7 @@ def _start_tray(
     icon = pystray.Icon(
         "memorymap",
         image,
-        "MemoryMap AI",
+        "Tessellate",
         pystray.Menu(*menu_items),
     )
     threading.Thread(target=icon.run, daemon=True).start()
@@ -2472,7 +2474,7 @@ def _reset_password() -> int:
 
 
 def _repair_install() -> None:
-    """What the "Repair MemoryMap AI" shortcut (packaging/windows/
+    """What the "Repair Tessellate" shortcut (packaging/windows/
     installer.iss, beside the ordinary Start Menu one) runs, and what
     `--reinstall` means on a packaged build: INBOX 253, "automatically
     recoverable and revivable for the user with one click."
@@ -2512,7 +2514,7 @@ def _repair_install() -> None:
 
 def _capture() -> int:
     """`memorymap --capture`: open the one-line capture window onto the copy
-    of MemoryMap already running on this notebook (WORLD_CLASS_PLAN H9, quick
+    of Tessellate already running on this notebook (WORLD_CLASS_PLAN H9, quick
     capture from anywhere). Bound to a key in the system's own keyboard
     settings, it is a global capture hotkey with no hook of this app's in the
     operating system and no new dependency: the window is a page in the
@@ -2522,7 +2524,7 @@ def _capture() -> int:
 
     state, running = _existing_instance()
     if state != "live":
-        print("MemoryMap is not running on this notebook. Start it, then capture again.")
+        print("Tessellate is not running on this notebook. Start it, then capture again.")
         return 1
     webbrowser.open(f"http://{HOST}:{running.port}/capture.html", new=1)
     return 0
@@ -2530,11 +2532,11 @@ def _capture() -> int:
 
 def main() -> None:
     _ensure_std_streams()
-    parser = argparse.ArgumentParser(prog="memorymap", description="MemoryMap AI")
+    parser = argparse.ArgumentParser(prog="memorymap", description="Tessellate")
     parser.add_argument(
         "--desktop",
         action="store_true",
-        help="open MemoryMap in its own app window (needs pywebview)",
+        help="open Tessellate in its own app window (needs pywebview)",
     )
     parser.add_argument(
         "--export",
@@ -2552,13 +2554,13 @@ def main() -> None:
         "--reinstall",
         action="store_true",
         help="one-click repair: clear the cached window profile, then start "
-        "normally (what the installer's \"Repair MemoryMap AI\" shortcut runs; "
+        "normally (what the installer's \"Repair Tessellate\" shortcut runs; "
         "notes and preferences are never touched)",
     )
     parser.add_argument(
         "--capture",
         action="store_true",
-        help="open a one-line capture window on the running MemoryMap and exit "
+        help="open a one-line capture window on the running Tessellate and exit "
         "(bind it to a key in your system's keyboard settings)",
     )
     # Internal: set by _maybe_relaunch_hidden's own pythonw.exe relaunch to
@@ -2570,7 +2572,7 @@ def main() -> None:
     # runs this after copying the app, with the ids the person ticked.
     parser.add_argument("--install-extras", metavar="IDS", help=argparse.SUPPRESS)
     args = parser.parse_args()
-    _splash_status("Loading MemoryMap AI...")
+    _splash_status("Loading Tessellate...")
     from memorymap.core import extras
 
     extras.activate_frozen_extras()
@@ -2600,7 +2602,7 @@ def main() -> None:
         state, _running = _existing_instance()
         if state in ("live", "starting"):
             print(
-                "MemoryMap is open, so its window cache is in use and was not "
+                "Tessellate is open, so its window cache is in use and was not "
                 "cleared. Quit it from the tray icon, then run Repair again."
             )
         else:
@@ -2614,7 +2616,7 @@ def main() -> None:
             # One server per data directory in browser mode as well: the
             # launcher scripts already open a browser onto a copy on their
             # own port, and this covers a copy on another port.
-            print(f"MemoryMap is already running on this notebook: http://{HOST}:{running.port}")
+            print(f"Tessellate is already running on this notebook: http://{HOST}:{running.port}")
             return
         _run_server_holding_lock()
 

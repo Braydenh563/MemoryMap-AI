@@ -207,7 +207,7 @@ def test_desktop_launcher_still_starts_the_window(monkeypatch, tmp_path):
     launcher._run_desktop()
 
     assert calls["create_window"] is not None
-    assert calls["create_window"]["title"] == "MemoryMap AI"
+    assert calls["create_window"]["title"] == "Tessellate"
     assert calls["start"] is not None
     # The window opens on the loading placeholder, not the real server URL, 
     # see the loading-window tests below for the handoff itself.
@@ -578,7 +578,7 @@ def test_tray_has_no_hide_console_item_without_a_real_console(monkeypatch, tmp_p
     # just the tabs or settings modal", every entry between "New note" and
     # "View Logs" is the answer to that.
     assert texts == [
-        "Open MemoryMap AI",
+        "Open Tessellate",
         "New note",
         "Ask a question",
         "Search everything",

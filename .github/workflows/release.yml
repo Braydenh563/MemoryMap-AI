@@ -322,8 +322,8 @@ jobs:
         # here by mistake.
         run: |
           cd dist
-          tar -czf "../MemoryMap-AI-${VERSION}-linux-x86_64.tar.gz" "MemoryMap AI"
-          zip -qr "../MemoryMap-AI-${VERSION}-linux-x86_64.zip" "MemoryMap AI"
+          tar -czf "../MemoryMap-AI-${VERSION}-linux-x86_64.tar.gz" "MemoryMap AI"  # brand: keep, the bundle folder
+          zip -qr "../MemoryMap-AI-${VERSION}-linux-x86_64.zip" "MemoryMap AI"  # brand: keep, the bundle folder
 
       - name: Upload package to the release
         uses: softprops/action-gh-release@v3

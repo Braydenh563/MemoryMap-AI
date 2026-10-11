@@ -231,14 +231,21 @@ def _about(name: str) -> str:
 
     Lower-cased word by word as a noun in running text ("Travel plans" to
     "travel plans"), but a word with capitals inside it is a name and keeps
-    them ("MemoryMap"), and a category already named "About X" gives "X":
-    the seeded notebook's "About MemoryMap" came out as "What have I saved
-    about about memorymap?" (the devibe pass, a 1440 still of the empty chat).
+    them ("iPhone"), as does the app's own name, and a category already named
+    "About X" gives "X": the seeded notebook's "About Tessellate" came out as
+    "What have I saved about about ..." (the devibe pass, a 1440 still of the
+    empty chat).
     """
     words = name.split()
     if len(words) > 1 and words[0].lower() == "about":
         words = words[1:]
-    return " ".join(w if any(c.isupper() for c in w[1:]) else w.lower() for w in words)
+    return " ".join(
+        w if w in _NAMES or any(c.isupper() for c in w[1:]) else w.lower() for w in words
+    )
+
+
+#: Proper nouns `_about` keeps capitalised although they have no inner capital.
+_NAMES = frozenset({"Tessellate"})
 
 
 @router.get("/suggestions", response_model=list[str])

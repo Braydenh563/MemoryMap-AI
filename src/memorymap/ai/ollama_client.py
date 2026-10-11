@@ -1,6 +1,6 @@
 """Ollama's native `/api` dialect (plan §6.5, generalised in §6).
 
-One of two backends MemoryMap speaks. The parts of this file that were never
+One of two backends Tessellate speaks. The parts of this file that were never
 about Ollama: the think-tag splitter, the tool-text gate and recovery, the
 error classes, the context ceiling, now live in `ai/provider.py` and are
 shared with `ai/openai_client.py`; they are re-exported below so the imports

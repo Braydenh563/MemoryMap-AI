@@ -224,7 +224,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="MemoryMap AI",
+    name="MemoryMap AI",  # brand: keep (the bundle and exe name installed copies run)
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -243,5 +243,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="MemoryMap AI",
+    name="MemoryMap AI",  # brand: keep (the bundle and exe name installed copies run)
 )

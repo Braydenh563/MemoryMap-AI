@@ -5,7 +5,7 @@
   now, 0.5px from the centre measured from pixels.
 * The companion, perched on the status bar, drew over the AI status popup:
   a bar with an open popup steps above the companion's band (z 50).
-* Settings, Models said "Can't reach the MemoryMap server" while the app ran:
+* Settings, Models said "Can't reach the Tessellate server" while the app ran:
   shown on a first open before the status answered and on a slow poll.
 * A note nothing could file offers its likely categories as one-tap chips.
 """
@@ -43,7 +43,7 @@ def test_models_says_cannot_reach_only_when_the_server_is_down():
     render = code[code.index("function renderSettings() {"):]
     render = render[: render.index("\n}\n")]
     assert '"Checking the models…"' in render
-    assert 'down: "Can\'t reach the MemoryMap server."' in render
+    assert 'down: "Can\'t reach the Tessellate server."' in render
     assert 'slow: "The model server is slow to answer. Checking again…"' in render
     poll = code[code.index("async function refreshModelStatus() {"):]
     poll = poll[: poll.index("\n}\n")]

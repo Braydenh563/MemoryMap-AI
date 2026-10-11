@@ -197,7 +197,7 @@ function featureCatalog() {
       { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", reveal: "shortcuts" },
       { name: "Help", desc: "How the parts of the app fit together, in the app itself.", reveal: "settings:help" },
       { name: "Updates", desc: "Which version you are on, and whether a newer one is out.", reveal: "set-updates" },
-      { name: "Welcome tour", desc: "Replay the introduction to MemoryMap.", reveal: "onboarding" },
+      { name: "Welcome tour", desc: "Replay the introduction to Tessellate.", reveal: "onboarding" },
     ]},
     //: Each row declares where it goes (`tab`, `reveal` or `act`) and
     //: `catalogueRun` (settings-panes.js) makes the `run` the dialog calls, so every row

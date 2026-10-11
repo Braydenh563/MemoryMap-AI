@@ -1,6 +1,6 @@
 @echo off
 REM ===================================================================
-REM  MemoryMap AI - open in its own app window (Windows)
+REM  Tessellate - open in its own app window (Windows)
 REM
 REM  Double-click this instead of start.bat to get a real application
 REM  window rather than a browser tab. Everything else is identical:

@@ -1,4 +1,4 @@
-"""In-app guidance chat: "how do I..." answers about MemoryMap itself.
+"""In-app guidance chat: "how do I..." answers about Tessellate itself.
 
 ROADMAP.md item 40's "mini AI chat half", deliberately its own path,
 separate from `librarian.converse`/`librarian.answer`, because those two
@@ -23,7 +23,7 @@ the three cases rather than leaving it to be read off this sentence.
 
 **Grounded, not just instructed.** A first version of this module told the
 model "don't invent a feature you're not sure exists" and gave it nothing
-else to go on, for a small local model that has never heard of MemoryMap,
+else to go on, for a small local model that has never heard of Tessellate,
 that is an instruction with no way to follow it: refusing to guess and
 guessing wrong look identical from inside the prompt. `HELP_TOPICS` below is
 the fix: a short, factual reference entry per feature area, and what
@@ -59,7 +59,7 @@ from memorymap.ai.provider import Provider
 #: capabillity and knowledge"; CHAT_PLAN.md section 4 decision 15, which
 #: supersedes decision 13's naming half). An atlas is a book of maps, the thing
 #: you open to find your way around a place you are already standing in, which
-#: is exactly what this chat is for an app called MemoryMap. It is a name for a
+#: is exactly what this chat is for an app called Tessellate. It is a name for a
 #: reference work rather than for a person, so decision 13's actual objection
 #: still holds: nothing here claims a personality, or to know the reader, or to
 #: have read a word of their notebook.
@@ -70,11 +70,11 @@ from memorymap.ai.provider import Provider
 GUIDE_NAME = AI_NAME  # one name for the notebook's AI (INBOX 225), spelt once in ai/__init__
 
 SYSTEM_PROMPT = (
-    f"You are {GUIDE_NAME}, the in-app guide to MemoryMap, a local-first "
+    f"You are {GUIDE_NAME}, the in-app guide to Tessellate (formerly MemoryMap AI), a local-first "
     "notebook. Your name is the name of a book of maps: you are a reference "
     "the person opens to find their way around the app, and you say so if "
     "asked who you are. You answer ONLY questions "
-    "about how to use the MemoryMap app itself: its features, tabs, and "
+    "about how to use the Tessellate app itself: its features, tabs, and "
     "settings. You have no access to the user's notes or documents, so if "
     "asked a question about their notebook's own content, say plainly that "
     "this chat is for app guidance only and point them to the Chat or Ask "
@@ -340,7 +340,7 @@ HELP_TOPICS: list[dict] = [
         "id": "memory",
         "keywords": ("remember", "passive capture", "auto capture", "learn about me"),
         "body": (
-            "MemoryMap can pick up small facts and preferences as you write and "
+            "Tessellate can pick up small facts and preferences as you write and "
             "chat, always asking first, never assumed. Accept or decline each "
             "suggestion right in the chat, and review or forget anything it has "
             "learned in Settings, What it remembers."
@@ -475,7 +475,7 @@ HELP_TOPICS: list[dict] = [
             "exactly where it is on disk, and lets you export as JSON, CSV or "
             "Markdown, export the whole notebook as a folder (Export notebook "
             "folder: each note as markdown with its attachments and a .json file of "
-            "every field, plus documents and boards, which From a MemoryMap folder "
+            "every field, plus documents and boards, which From a Tessellate folder "
             "reads back), save a full backup (sealed with a password if you like) and "
             "restore one from a file, and manage or restore backups."
         ),
@@ -641,7 +641,7 @@ HELP_TOPICS: list[dict] = [
         ),
         "body": (
             "Atlas is this app's in-app guide, named for a book of maps. It "
-            "answers how-to questions about MemoryMap itself from the app's "
+            "answers how-to questions about Tessellate itself from the app's "
             "own help: where a feature lives, what a setting does, which tab "
             "to be on. It answers on the utility model in Settings, Models "
             "while smart model routing is on, on the chat model while that is "
@@ -827,7 +827,7 @@ HELP_TOPICS: list[dict] = [
             "inconsistent", "changed my mind", "out of date",
         ),
         "body": (
-            "MemoryMap can look for places where two of your notes disagree, a "
+            "Tessellate can look for places where two of your notes disagree, a "
             "decision you reversed, a fact you later corrected, and show them "
             "side by side with the dates, so you can see which is current. It "
             "runs on demand rather than constantly, because it is a real pass "
@@ -1024,7 +1024,7 @@ HELP_TOPICS.extend(
                 "Appearance: it switches off the glass, the background art and most "
                 "animation. The built-in search engine uses about 650 MB of memory "
                 "while the app is open; choosing Ollama's nomic-embed-text for "
-                "embeddings in Settings, Search and index keeps MemoryMap itself near 100 MB."
+                "embeddings in Settings, Search and index keeps Tessellate itself near 100 MB."
             ),
             "badge": {"label": "Appearance", "section": "appearance"},
         },
@@ -1112,6 +1112,17 @@ HELP_TOPICS.extend(
                 "updates itself when it starts, following the same setting, and "
                 "turning automatic updates off stops it. The Check for updates "
                 "button checks once, whatever the switch says."
+            ),
+            "badge": {"label": "About", "section": "about"},
+        },
+        {
+            "id": "name",
+            "keywords": ("memorymap", "memory map", "old name", "former name", "new name", "why the name changed", "tessellate", "called before"),
+            "body": (
+                "Tessellate, formerly MemoryMap AI, is the same app under a new "
+                "name. Only the name changed: your notes, settings, password and "
+                "the folder they are kept in stay where they were, and an update "
+                "keeps all of it. Settings, About shows the name and the version."
             ),
             "badge": {"label": "About", "section": "about"},
         },
@@ -2851,6 +2862,6 @@ def help_block_for(question: str) -> str:
     if len(text) > HELP_BLOCK_MAX_CHARS:
         text = text[: HELP_BLOCK_MAX_CHARS - 1].rstrip() + "…"
     return (
-        "From MemoryMap's own help (use this if the question is about how the "
+        "From Tessellate's own help (use this if the question is about how the "
         f"app works; it is not one of my notes):\n{text}\n\n"
     )

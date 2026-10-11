@@ -481,10 +481,10 @@ def _group(files: list[tuple[str, bytes]], prefix: str, skipped: list[str]) -> t
         if rel == MANIFEST:
             manifest = _json(data)
             if manifest is None or manifest.get("format") != FORMAT:
-                skipped.append(f"{name}: not a MemoryMap folder manifest")
+                skipped.append(f"{name}: not a Tessellate folder manifest")
                 manifest = None
         elif not _place(rel, data, bases, groups):
-            skipped.append(f"{name}: not part of a MemoryMap folder export")
+            skipped.append(f"{name}: not part of a Tessellate folder export")
     return groups, manifest
 
 

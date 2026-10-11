@@ -806,7 +806,7 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
         if not body.data.url or not MEDIA_URL_RE.match(body.data.url):
             raise HTTPException(
                 status_code=422,
-                detail="An image has to be one that was uploaded to MemoryMap first.",
+                detail="An image has to be one that was uploaded to Tessellate first.",
             )
     elif body.kind in ("text", FRAME_KIND, MAP_TOPIC_KIND) and body.data.content is None:
         raise HTTPException(
@@ -4714,7 +4714,7 @@ def _export_xmind(title: str, roots: list[dict], cross_links: list[dict], layout
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("content.json", json.dumps([sheet], ensure_ascii=False))
-        archive.writestr("metadata.json", json.dumps({"creator": {"name": "MemoryMap AI"}}))
+        archive.writestr("metadata.json", json.dumps({"creator": {"name": "Tessellate"}}))
         archive.writestr("manifest.json", json.dumps({"file-entries": {"content.json": {}, "metadata.json": {}}}))
     return out.getvalue()
 
@@ -4869,7 +4869,7 @@ def _parse_xml_document(content: str, label: str):
             status_code=503,
             detail=(
                 f"{label} import needs a safe XML reader (the defusedxml package), "
-                "which is missing from this install. Install it, then restart MemoryMap."
+                "which is missing from this install. Install it, then restart Tessellate."
             ),
         ) from exc
 

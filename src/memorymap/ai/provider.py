@@ -1,6 +1,6 @@
 """What every chat backend has to answer, and the parts that don't vary (§6).
 
-MemoryMap talked to Ollama and only Ollama. Ollama is not the only thing that
+Tessellate talked to Ollama and only Ollama. Ollama is not the only thing that
 serves a model on localhost any more: LM Studio, llama.cpp's server, Jan and
 vLLM all speak the OpenAI shape on some other port, and asking for "LM Studio
 support" specifically would have bought one backend instead of all of them.

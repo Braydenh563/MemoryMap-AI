@@ -269,6 +269,14 @@ with its owner named in the entry.
      and 894 (each device's connection on the privacy receipt as an
      incoming row in the local-network total).
 
+903. **The owner, 2026-10-11, verbatim.** "alright lets rename and
+     retrademark to Tessellate update absolutely everything including all
+     the documentation and the pages site. make sure to still note the
+     former name though." Placed: the rebrand agent (agent/rebrand-1011):
+     step 1 the brand (`scripts/rebrand.py`, re-run after every merge;
+     `tests/test_brand_name.py`), step 2 the internal identifiers with
+     fallbacks for existing installs, as its own last commit.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 899 ("dont notes also already work out timewords and time references?? can the composer and agents ... pull from those") sent to atlas; 900 ("click on the lan icon in the bototm bar and easily be able to toggle it on or off ... without having to restert") folded into 896; 901 (show more and less awkward on wide paragraphs, two screenshots) sent to tags89; 902 (companion physics, entries, organic movement, no jolts, Atlas behaviours, the expanded panel's hanging arms, the arm that rises on a click) sent to throw.
@@ -299,7 +307,7 @@ with its owner named in the entry.
 
 - 2026-10-11: 827 (the extracted text on a file row, the Recordings empty state, a link's details, folders, icons and highlights for links) placed in DOCUMENTS_PLAN "Placed from INBOX, 2026-10-11 (Files, Recordings and Links; libraryup)", owner libraryup.
 
-- 2026-10-11: 826 (the edge arrows missing on a note card, more ends and a MemoryMap end, guides while drawing, the board, map and editor feature gap) placed in WHITEBOARD_PLAN "Placed from INBOX, 2026-10-11 (ends, edge arrows, guides while drawing; canvasdepth3)", owner canvasdepth3.
+- 2026-10-11: 826 (the edge arrows missing on a note card, more ends and a Tessellate end, guides while drawing, the board, map and editor feature gap) placed in WHITEBOARD_PLAN "Placed from INBOX, 2026-10-11 (ends, edge arrows, guides while drawing; canvasdepth3)", owner canvasdepth3.
 
 - 2026-10-11: 809, 811 and 813 (the tours wall, the notifications panel's buttons, one bar control grammar) placed in UI_MODERNISATION_PLAN "Placed from INBOX, 2026-10-11 (bars, notifications and tours; grammar57)", owner grammar57.
 

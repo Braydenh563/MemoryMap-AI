@@ -53,7 +53,7 @@ logger = logging.getLogger("memorymap.update")
 
 DOWNLOAD_TIMEOUT = 300  # a ~150MB installer on a slow connection, generously
 CHUNK_SIZE = 1 << 16
-GITHUB_REPO_API = "https://api.github.com/repos/Braydenh563/MemoryMap-AI"
+GITHUB_REPO_API = "https://api.github.com/repos/Braydenh563/Tessellate"
 GITHUB_HEADERS = {"Accept": "application/vnd.github+json"}
 ASSET_PREFIX = "MemoryMap-AI-Setup-"
 ASSET_SUFFIX = ".exe"
@@ -347,7 +347,7 @@ def _run_apply(download_url: str, asset_name: str) -> None:
         )
         _state.outcome = "launched"
         _state.step = (
-            "Installing in the background. MemoryMap AI closes now and reopens "
+            "Installing in the background. Tessellate closes now and reopens "
             "by itself in a minute or two, on the new version."
         )
         logger.info("update installer launched (%s), exiting to let it run", asset_name)
@@ -548,7 +548,7 @@ def check_for_update(manual: bool = False) -> dict:
         "current": __version__,
         "latest": latest,
         "update_available": update_available,
-        "url": "https://github.com/Braydenh563/MemoryMap-AI/releases/latest",
+        "url": "https://github.com/Braydenh563/Tessellate/releases/latest",
         "can_auto_apply": asset is not None and bool(asset.get("download_url")),
         "asset": asset,
     }

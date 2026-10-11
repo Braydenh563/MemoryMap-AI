@@ -463,7 +463,7 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
 
     rows = payload.get("results") if isinstance(payload, dict) else None
     if not isinstance(rows, list):
-        raise WebSearchError("SearXNG sent back something MemoryMap couldn't read.")
+        raise WebSearchError("SearXNG sent back something Tessellate couldn't read.")
 
     results = []
     for row in rows[:limit]:

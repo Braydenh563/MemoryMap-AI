@@ -103,7 +103,7 @@ Sources at the end. Grouped by what it would mean here.
   detection**, and a **focus mode** that starts from one element and unfolds the
   network step by step. It supports **systems maps and causal loop diagrams**
   (signed, directional edges), not just trees.
-- That maps onto MemoryMap directly: a map's nodes are often *real notes*, which
+- That maps onto Tessellate directly: a map's nodes are often *real notes*, which
   already have tags and categories, so "perspectives" is a filter over data the
   app already holds: and the graph tab already computes some of these metrics.
 

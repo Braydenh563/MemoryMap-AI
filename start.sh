@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ====================================================================
-#  MemoryMap AI - one-click launcher for macOS / Linux
+#  Tessellate - one-click launcher for macOS / Linux
 #
 #  Run ./start.sh - it sets everything up the first time, then just runs
 #  the app after that:
@@ -92,7 +92,7 @@ MM_BAD_FLAG=""
 
 mm_help() {
   cat <<MM_HELP
-MemoryMap AI launcher
+Tessellate launcher
 
 Usage: ./start.sh [options]
 
@@ -181,7 +181,7 @@ fi
 
 if [ "$MM_ACTION" = "version" ]; then
   MM_VERSION="$(sed -n 's/__version__ = "\(.*\)"/\1/p' src/memorymap/__init__.py 2>/dev/null | head -1)"
-  echo "MemoryMap AI ${MM_VERSION:-unknown}"
+  echo "Tessellate ${MM_VERSION:-unknown}"
   echo "Installed at: $(pwd)"
   echo "Your notes:   $MM_DATA_DIR"
   exit 0
@@ -285,7 +285,7 @@ if [ "$MM_TTY" = "0" ] && [ "$MM_ACTION" = "" ] && command -v zenity >/dev/null 
     # lost, it moved inside the active step on the Windows splash, which can
     # draw both at once; zenity cannot.
     zenity --progress --no-cancel --auto-close \
-           --title="MemoryMap AI" --text="Starting" --percentage=0 \
+           --title="Tessellate" --text="Starting" --percentage=0 \
            < "$MM_SPLASH_FIFO" >/dev/null 2>&1 &
     MM_SPLASH_PID=$!
     # Held open on fd 9 for the life of the script: closing it is what tells
@@ -571,7 +571,7 @@ mm_update_plan() {
 mm_ask_update_choice() {
   [ -t 0 ] || return 0
   local answer=""
-  printf ' Check for updates automatically each time MemoryMap starts? It asks once; Settings can change it later. [y/N] ' >&2
+  printf ' Check for updates automatically each time Tessellate starts? It asks once; Settings can change it later. [y/N] ' >&2
   if ! read -r -t 60 answer; then
     printf '\n' >&2
     return 0
@@ -586,7 +586,7 @@ mm_ask_update_choice() {
 # Two questions, not one: "is the port busy" and "is it busy with US". The
 # second one turns the commonest support message in this whole project ("it
 # says the address is in use") into an answer rather than an error, because
-# the right thing to do about a MemoryMap that is already running is to open
+# the right thing to do about a Tessellate that is already running is to open
 # it, not to report a conflict.
 #
 # bash's own /dev/tcp rather than lsof/ss/netstat, none of which are reliably
@@ -598,7 +598,7 @@ mm_port_open() {
   (exec 3<>"/dev/tcp/127.0.0.1/$1") >/dev/null 2>&1
 }
 
-# Empty output means "nothing answered like MemoryMap".
+# Empty output means "nothing answered like Tessellate".
 mm_port_is_memorymap() {
   local body=""
   if command -v curl >/dev/null 2>&1; then
@@ -609,7 +609,8 @@ mm_port_is_memorymap() {
               cat <&3) 2>/dev/null || true )"
   fi
   case "$body" in
-    *"MemoryMap AI"*) return 0 ;;
+    # Tessellate, or a copy started before the rename (brand: keep-next)
+    *"Tessellate"*|*"MemoryMap AI"*) return 0 ;;
   esac
   return 1
 }
@@ -656,7 +657,7 @@ mm_dir_size() {
 }
 
 mm_doctor() {
-  echo "${TEAL}MemoryMap AI - checks${RESET}"
+  echo "${TEAL}Tessellate - checks${RESET}"
   echo
 
   # 1. Python. Version AND path: "I installed Python" and "this script can
@@ -717,7 +718,7 @@ mm_doctor() {
   if ! mm_port_open "$MM_PORT"; then
     mm_row ok "Port $MM_PORT" "free"
   elif mm_port_is_memorymap "$MM_PORT"; then
-    mm_row ok "Port $MM_PORT" "MemoryMap is already running, open $MM_URL"
+    mm_row ok "Port $MM_PORT" "Tessellate is already running, open $MM_URL"
   else
     mm_row x "Port $MM_PORT" "in use by something else" "Close that program, or start on another port: ./start.sh --port 8010"
   fi
@@ -840,7 +841,9 @@ mm_shortcut() {
       # A symlink is not a Finder alias, but it opens the same file and it
       # works when Finder scripting is refused (a locked-down Mac, or a
       # first run before Automation permission has been granted).
-      ln -sf "$here/start.sh" "$desktop/MemoryMap AI" 2>/dev/null \
+      # A link made before the rename to Tessellate goes (brand: keep-next)
+      [ -L "$desktop/MemoryMap AI" ] && rm -f "$desktop/MemoryMap AI"
+      ln -sf "$here/start.sh" "$desktop/Tessellate" 2>/dev/null \
         && echo " ${TEAL}[done]${RESET} Link to start.sh created on your Desktop." \
         || mm_fail "Could not create the shortcut on your Desktop." "Check that $desktop is writable."
     fi
@@ -852,7 +855,7 @@ mm_shortcut() {
   {
     echo "[Desktop Entry]"
     echo "Type=Application"
-    echo "Name=MemoryMap AI"
+    echo "Name=Tessellate"
     echo "Comment=Your notebook, on your own machine"
     echo "Exec=$here/start.sh --desktop"
     echo "Path=$here"
@@ -888,7 +891,7 @@ fi
 # notebook.
 if mm_port_open "$MM_PORT"; then
   if mm_port_is_memorymap "$MM_PORT"; then
-    echo " ${TEAL}[ok]${RESET} MemoryMap is already running on port $MM_PORT - opening it."
+    echo " ${TEAL}[ok]${RESET} Tessellate is already running on port $MM_PORT - opening it."
     [ "$MM_NO_BROWSER" = "1" ] || mm_open_url "$MM_URL"
     mm_splash_done
     exit 0
@@ -1063,7 +1066,7 @@ if [ ! -x "$VENV_PY" ]; then
   # fail once something actually needs a 3.11-only feature.
   if ! "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
     mm_status "$MM_STEP_PYTHON" "Python" "Too old" "failed"
-    mm_fail "Found $($PYTHON --version 2>&1), but MemoryMap AI needs Python 3.11 or newer." \
+    mm_fail "Found $($PYTHON --version 2>&1), but Tessellate needs Python 3.11 or newer." \
             "Install a newer Python and run this again."
   fi
   echo "        Using $($PYTHON --version) to create the virtual environment..."
@@ -1129,7 +1132,7 @@ fi
 
 if [ "$NEED_INSTALL" = "1" ]; then
   mm_status "$MM_STEP_DEPS" "Dependencies" "Installing, this can take a few minutes" "active"
-  echo "        First setup only: this needs the internet once. After that MemoryMap works offline."
+  echo "        First setup only: this needs the internet once. After that Tessellate works offline."
   echo "        pip's own progress prints below as it happens:"
   # `--timeout 5 --retries 0` makes pip fail fast per-connection instead of
   # its default (a 15s socket timeout retried 5 times, which is several
@@ -1269,7 +1272,7 @@ mm_bail_if_cancelled
 mm_status "$MM_STEP_START" "Start" "Starting the app" "active"
 
 if [ -n "${MM_DESKTOP:-}" ]; then
-  echo "        MemoryMap AI is opening in its own window."
+  echo "        Tessellate is opening in its own window."
   echo "        Close the window to stop it."
   echo
   echo " ${TEAL}Installed at:${RESET} $(pwd)"
@@ -1280,7 +1283,7 @@ if [ -n "${MM_DESKTOP:-}" ]; then
   exec "$VENV_PY" -m memorymap --desktop
 fi
 
-echo "        MemoryMap AI is at $MM_URL"
+echo "        Tessellate is at $MM_URL"
 if [ "$MM_NO_BROWSER" = "1" ]; then
   echo "        No browser will be opened (--no-browser). Press Ctrl+C to stop."
 else

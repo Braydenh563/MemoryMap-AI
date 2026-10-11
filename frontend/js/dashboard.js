@@ -1589,7 +1589,7 @@ function renderFeatures(query) {
 
   $("features-count").textContent = q
     ? `${shown} match${shown === 1 ? "" : "es"}`
-    : `${shown} things MemoryMap can do`;
+    : `${shown} things Tessellate can do`;
   if (!shown) {
     const none = document.createElement("p");
     none.className = "muted";
@@ -3795,7 +3795,7 @@ function focusTimerTick() {
     if (focusTimer.remaining === 0) {
       stopFocusTimer();
       toast("Focus session complete. Nice work.");
-      notify("MemoryMap", "Focus session complete. Nice work.");
+      notify("Tessellate", "Focus session complete. Nice work.");
     }
   }
 }

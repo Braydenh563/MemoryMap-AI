@@ -73,7 +73,7 @@ let settingsNavWalking = false;
 
 function ensureSettingsPaneTitle(box, name) {
   //: Not "any `.help-head` child": Background tasks ends on one (Quit
-  //: MemoryMap), which used to count as its title and left the pane with none.
+  //: Tessellate), which used to count as its title and left the pane with none.
   if (!box || box.querySelector(":scope > .settings-pane-title, :scope > .dock")) return;
   const label = document.querySelector(`#settings-nav [data-section="${name}"]`)?.textContent.trim();
   if (!label) return;

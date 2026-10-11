@@ -240,7 +240,7 @@ def run_now(kind: str) -> tuple[bool, str]:
     if not pool.enqueue("pass", _run, kind, name=_label(kind), dedupe_key=("pass", kind)):
         with _lock:
             _running.discard(kind)
-        return False, "MemoryMap is shutting down, so nothing was started."
+        return False, "Tessellate is shutting down, so nothing was started."
     return True, f"{_label(kind)} started."
 
 

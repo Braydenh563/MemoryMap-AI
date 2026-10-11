@@ -3,7 +3,7 @@
 **Status: written by direct instruction, for the sessions after this one
 (Opus and Sonnet, with a Fable review when one is available).** The
 instruction, condensed: research the competitors, find what they have that
-MemoryMap does not, find how MemoryMap can stand out, and plan every aspect
+Tessellate does not, find how Tessellate can stand out, and plan every aspect
 of the frontend, the backend, the missing features, the poor utility and the
 small things that make an app feel professional rather than like a demo; make
 the backend revolutionary; revolutionise UI design, backend structure,
@@ -222,14 +222,14 @@ the editors' histories and the board history module, unless it calls
 `inlineAiUndo`) are the ratchet's starting list and fold into `pushUndo`
 in Brief 51.
 
-## 2. Competitors: what they have that MemoryMap does not (checked, not
+## 2. Competitors: what they have that Tessellate does not (checked, not
 assumed)
 
 `§114.1` has the positioning teardown. This is the feature-level gap list,
 organised by what a switcher would miss on day one. "Have" means shipped
 and used, as of mid-2026.
 
-| Capability | Obsidian | Notion | OneNote | Kortex | Logseq | Capacities | Reflect | MemoryMap today | Gap |
+| Capability | Obsidian | Notion | OneNote | Kortex | Logseq | Capacities | Reflect | Tessellate today | Gap |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Block editor with slash commands | plugin | yes | no | yes | yes | yes | yes | textarea + toolbar | DOCUMENTS_PLAN Phases 2 to 4 |
 | Wiki-links with autocomplete and backlinks pane | yes | yes | no | yes | yes | yes | yes | links exist, no `[[` autocomplete, no pane | Dossier D2 |
@@ -253,7 +253,7 @@ and used, as of mid-2026.
 | Command palette | yes | yes | no | yes | yes | yes | yes | yes | keep; make it complete |
 | Plugin / extension API | yes | limited | no | no | yes | no | no | MCP server | Dossier B8 |
 
-**Where MemoryMap can stand out** (the things no one on that table has, all
+**Where Tessellate can stand out** (the things no one on that table has, all
 of which the code is already half way to):
 
 1. **The checkable answer.** Every sentence of an AI answer carries the
@@ -823,7 +823,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 21 | ~~I8, H3~~ | ~~the model bench~~ built 2026-10-05: `ai/bench.py`, `/models/bench`, Settings, Models, Test my models (`tests/test_bench_spec.py`); left: a run against a real model for the 30-minute and rerun gates | done | HISTORY |
 | 22 | ~~I2, H8~~ | ~~the margin reader~~ built 2026-10-05 for documents: `ai/margin.py`, `POST /editor/read`, `margin-reader.js` (`tests/test_margin_reader_spec.py`); left: the note editor, typing latency in Chromium | S | HISTORY; I2 |
 | 23 | ~~I5, H8~~ | ~~time travel: `as_of` on chat, then-and-now~~ built 2026-10-05 (`ai/timetravel.py`; 200 candidates rewound in under a second); left: a model's judgement over the pairs, past texts re-embedded, cards grouped by month | done | HISTORY |
-| 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to MemoryMap bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
+| 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to Tessellate bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
 | 25 | H6, §5.7 | ~~Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; a first-run path timed to a first answer~~ built 2026-10-05 (HISTORY); left: multi-window | M | H6 |
 | 26 | ~~H7~~ | ~~boot JS under 1 MB~~ built (691,724 bytes as served, `tests/test_boot_budget.py` gates it; the corrected 2026-10-05 measure, H7); every list over 200 rows measured 2026-10-05 (chunk-on-scroll, scroll p95 under 25 ms, `ui-sweeps/s2-1005.js` MODE=rows); first paint measured 2026-10-05 (`boottime.js`, fresh data dir, 1440, five cold loads, load average 10 on four cores): DOMContentLoaded median 585 ms, first contentful paint median 272 ms, dashboard panel readable (text in it, splash gone) median 974 ms (920 to 1,326); not optimised; left: the 300 ms line on the reference laptop with a quiet machine, and the 974 ms to the dashboard's text | S | `boottime.js` |
 | 27 | ~~H9~~ | ~~usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval~~ built 2026-10-05 (HISTORY); left: `boottime.js` in the CI workflow | S | HISTORY |
@@ -1072,7 +1072,7 @@ explicit; the order at the end respects them.
 ### The asymmetry these exploit
 
 Every cloud notebook rations model calls, because each call costs money.
-MemoryMap's model is local, idle 99% of the time, and free per token. That
+Tessellate's model is local, idle 99% of the time, and free per token. That
 is the one thing a cloud product cannot copy: **the notebook can spend
 hours of model time on itself while nobody is watching**, and show its
 work in the morning. Inventions 1, 3, 5 and 8 are built on that. The
@@ -1785,7 +1785,7 @@ Built 2026-10-05 with I8: moved to HISTORY.md, "Moved from the plans, 2026-10-05
 ### H4 The notebook as a local service for other agents (B7 and B8; M, Opus)
 
 The next year's local agents (coding agents, desktop assistants) will want
-a memory. MemoryMap already has the tools (58 in `ai/tools/`), the
+a memory. Tessellate already has the tools (58 in `ai/tools/`), the
 permission gates and the audit log. Build: a versioned `/api/v1` contract
 generated from the routers (schema behind auth, B7), and an MCP server in
 `src/memorymap/mcp/` exposing the same tools with the same "asks first"
@@ -2697,7 +2697,7 @@ Open, moved whole from INBOX so the tray stays under twenty; each is worked from
     `/media/{id}/ocr-clean-loops`, which runs `cut_reading_loops` over
     whichever of `vision_ocr_text`/`ocr_text` are set and saves what
     changed; the panel repaints from the response. `tests/test_ocr_clean_loops.py`,
-    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()` took any MemoryMap on the port for this one: built
+    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()` took any Tessellate on the port for this one: built
     (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)", 423(g)). (h) Chat replies saved before
     2026-09-24 always show Atlas's mark (their persona was never stored).
     (i) The server-mode process takes 5 to 9s to exit after uvicorn
@@ -3778,7 +3778,7 @@ World class for a local notebook is five things, each measurable:
 | Settings | VS Code settings: searchable, each with a description and a default, reset per item | measured: `PreferencesBody` 72 fields; 105 help popovers (69 in the Settings modal); 10 keys with a control and no help; a settings search box already exists (`settings-find.js`) (24.6b) | built 2026-10-11 (25f): rows, reset, the settings file | 25f |
 | Help and guide | a searchable manual with a "?" on every control | 51 plus 35 Guide topics; `test_manual_parity` | no offline manual page with search; no "what changed" | 25c |
 | First run | Linear: value in 60 seconds, the model optional and said so | `first-run.spec.js`, `gettingStartedCard`, the name nudge | no sample notebook; the three-step path is implicit | 25c |
-| Import and export | Obsidian, Notion, Evernote, Apple Notes in; a markdown folder out | `app_import.py` (five sources, a MemoryMap folder the fifth), `export_folder.py` (the whole notebook as a markdown folder with sidecars and attachments, `GET /export/folder`), the import report page, web clip, media upload; export per note `.md`, per document md, zip, docx; backups and a bundle | built 2026-10-10 (25b); left: a 5,000-note write is 45.9 s on the loaded sandbox (one commit per note) | 25b |
+| Import and export | Obsidian, Notion, Evernote, Apple Notes in; a markdown folder out | `app_import.py` (five sources, a Tessellate folder the fifth), `export_folder.py` (the whole notebook as a markdown folder with sidecars and attachments, `GET /export/folder`), the import report page, web clip, media upload; export per note `.md`, per document md, zip, docx; backups and a bundle | built 2026-10-10 (25b); left: a 5,000-note write is 45.9 s on the loaded sandbox (one commit per note) | 25b |
 | Data safety | never lose a note | measured: bundle is `memorymap.db` (all 57 tables) plus `media/` and `uploads/`; per-note history is `EntryRevision`, 20 per note, with a panel; `versioning.py` is the `/api/v1` middleware (24.6b) | restore is not verified by a test; no integrity check at boot; versions not visible per note; crash recovery of a draft unmeasured | 25e |
 | Phone and PWA | installable, an offline shell, a share target | `phone-shell.js` 2,139 lines; `sw.js` 59 lines and by design no cache (a transparent worker) | no offline shell; the hashed asset URLs make a safe cache possible now (decision 49) | 25d, Brief 40 |
 | Performance | VS Code: boot under a second on old hardware | measured: boot 10.5 s DOMContentLoaded and 4.5 s to interactive on a saturated machine; idle server 63 to 66% of a core with the dashboard open, 2 to 16% on Notes; 319,799 bytes gzipped over 27 scripts (24.6b) | budgets exist for weight only; none for interaction time | 25g |

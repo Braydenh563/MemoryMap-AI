@@ -20,7 +20,7 @@
   stays per-user so someone without admin rights can still install the .exe
   with no UAC prompt. What *is* kept identical between the two, per the
   brief: the app name shown everywhere, the publisher, the version string,
-  the installed folder's own name ("MemoryMap AI", though it sits under a
+  the installed folder's own name ("MemoryMap AI", though it sits under a  brand: keep
   different root — Program Files here vs. the per-user Programs folder
   there, following from the scope difference above), and the Start Menu
   shortcut's name and launch arguments (the desktop launch flag, same as
@@ -47,15 +47,15 @@
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package
-      Name="MemoryMap AI"
-      Manufacturer="MemoryMap AI"
+      Name="Tessellate"
+      Manufacturer="Tessellate"
       Version="$(var.Version)"
       UpgradeCode="CBD8BB0B-98C1-4982-B7E4-29BF9FA9D111"
       Language="1033"
       Compressed="yes"
       Scope="perMachine">
 
-    <SummaryInformation Description="MemoryMap AI installer" Manufacturer="MemoryMap AI" />
+    <SummaryInformation Description="Tessellate installer" Manufacturer="Tessellate" />
 
     <!-- Replaces any older install rather than sitting beside it — the same
          upgrade behaviour Inno gives installer.iss's .exe via its fixed
@@ -72,11 +72,11 @@
          ARPPRODUCTICON is the MSI equivalent of the latter. -->
     <Icon Id="AppIcon.ico" SourceFile="..\..\frontend\icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/Braydenh563/MemoryMap-AI/issues" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Braydenh563/MemoryMap-AI" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Braydenh563/Tessellate/issues" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Braydenh563/Tessellate" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="MemoryMap AI" />
+      <Directory Id="INSTALLFOLDER" Name="MemoryMap AI" /> <!-- brand: keep, the folder an upgrade installs over -->
     </StandardDirectory>
 
     <!-- Everything PyInstaller's COLLECT step produced, recursively — the
@@ -92,7 +92,7 @@
     <!-- A single Start Menu shortcut, directly under the Start Menu root —
          matching installer.iss's DisableProgramGroupPage=yes, which puts
          its own shortcut at {autoprograms}\{#MyAppName} rather than inside
-         a "MemoryMap AI" subfolder. The desktop launch flag is identical to
+         a "Tessellate" subfolder. The desktop launch flag is identical to
          installer.iss's [Icons] comment — the installed app always opens
          in its own window, never bare-server mode. The HKLM keypath (not a
          file) is the standard WiX shape for a component that only ever
@@ -102,8 +102,8 @@
       <Component Id="ApplicationShortcut" Guid="*">
         <Shortcut
             Id="ApplicationStartMenuShortcut"
-            Name="MemoryMap AI"
-            Description="MemoryMap AI"
+            Name="Tessellate"
+            Description="Tessellate"
             Target="[INSTALLFOLDER]MemoryMap AI.exe"
             Arguments="--desktop"
             WorkingDirectory="INSTALLFOLDER"
@@ -127,8 +127,8 @@
              to click by habit. -->
         <Shortcut
             Id="RepairStartMenuShortcut"
-            Name="Repair MemoryMap AI"
-            Description="Repair MemoryMap AI: clears the app's cached window profile, never your notes"
+            Name="Repair Tessellate"
+            Description="Repair Tessellate: clears the app's cached window profile, never your notes"
             Target="[INSTALLFOLDER]MemoryMap AI.exe"
             Arguments="--desktop --reinstall"
             WorkingDirectory="INSTALLFOLDER"
@@ -153,7 +153,7 @@
          here means the *program* comes off; someone's notebook is not a
          build artifact. -->
 
-    <Feature Id="MainApplication" Title="MemoryMap AI" Level="1">
+    <Feature Id="MainApplication" Title="Tessellate" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
       <ComponentRef Id="ApplicationShortcut" />
     </Feature>

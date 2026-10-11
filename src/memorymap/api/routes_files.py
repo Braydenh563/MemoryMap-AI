@@ -1858,7 +1858,7 @@ class CaptionBody(BaseModel):
     #: Who wrote `text` (the owner, 2026-09-24). "hand" is a person at a caption field,
     #: which is every caller but one. "app" is the app describing a picture
     #: it made itself, a board export's "Part of the mind map ..., exported
-    #: from MemoryMap" line: stored as written by `APP_CAPTION_AUTHOR` and not
+    #: from Tessellate" line: stored as written by `APP_CAPTION_AUTHOR` and not
     #: as edited, so the lightbox and the Library card stop saying "typed by
     #: hand" about text nobody typed, and a vision model that later replaces
     #: it is credited alone rather than read as a person's edit. Kept in
@@ -1868,7 +1868,9 @@ class CaptionBody(BaseModel):
 
 
 #: The name the app's own captions are credited to (see `CaptionBody.source`).
-APP_CAPTION_AUTHOR = "MemoryMap"
+#: A stored sentinel, not copy: captions written before the rename to
+#: Tessellate carry it, so it stays; the lightbox shows the current name.
+APP_CAPTION_AUTHOR = "MemoryMap"  # brand: keep
 
 
 @router.post("/media/{upload_id}/caption", response_model=MediaUploadOut)

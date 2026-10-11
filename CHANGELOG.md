@@ -1,13 +1,14 @@
 # Changelog
 
-All notable changes to MemoryMap AI are recorded here. The format is loosely
+All notable changes to Tessellate (formerly MemoryMap AI) are recorded here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows a "waves and phases" development history (see the milestones
 below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-- Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
+- Renamed to Tessellate; formerly MemoryMap AI. Every title, window, shortcut, help page, document and the website say Tessellate; your notes, settings and data folder stay where they were, and the repository moved to github.com/Braydenh563/Tessellate (the old address redirects).
+- Security: an action refused from another device now reads "Not available on this device. Do it on the computer Tessellate runs on."
 - Security: a phone or another computer on the network can no longer make this computer act. Opening a folder, restarting or quitting the app, installing or running software (extras, updates, SearXNG), importing a folder of this computer's files, changing the model server and restoring a whole backup now answer "Only this computer can do that" to any other device.
 - Dashboard: without a model the welcome line is composed: seven times of day (small hours to late evening) with seven or eight lines each, weekday lines (a new week, Friday, the weekend), and lines from your notebook (a writing streak, a busy day, back after some days, the subject on your mind lately). It changes each hour and holds steady within one.
 - Phone: Settings and every dialog fit the visible screen in Safari, with its toolbars showing, so the top, the close button and the bottom can be reached; a dialog taller than the screen scrolls instead of being centred off both edges.

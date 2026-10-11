@@ -56,7 +56,7 @@ function rememberAnnounced(ids) {
 
 // --- the notifications centre (§36E) ----------------------------------------
 //
-// MemoryMap already *produces* all of these events, a reminder comes due, a
+// Tessellate already *produces* all of these events, a reminder comes due, a
 // background task finishes, a skill run stalls, and shows each of them in its
 // own way: a system notification, a toast, a status pill, a step timeline.
 // Every one of those is a moment. Miss the moment and the event is gone.
@@ -789,7 +789,7 @@ function notify(title, body) {
 
 // The count in the title bar, the one surface that works while the app is in
 // a background tab, which is where it usually is when a reminder comes due.
-const BASE_TITLE = "MemoryMap AI";
+const BASE_TITLE = "Tessellate";
 let titleCount = 0;
 //: The view and the open thing (router.js, WORLD_CLASS_PLAN 22.1 item 1):
 //: "Half marathon, week 4 · Notes", before the app's name, after the count.
@@ -1090,7 +1090,7 @@ async function emailSupportReport(about) {
   //: The version is read off the page's own stamped script URL, the one
   //: thing every build carries without another request.
   const stamp = (document.querySelector('script[src*="app.js?v="]')?.getAttribute("src") || "").split("?v=")[1] || "";
-  const subject = encodeURIComponent(`MemoryMap AI report${stamp ? ` (${stamp.split("-")[0]})` : ""}`);
+  const subject = encodeURIComponent(`Tessellate report${stamp ? ` (${stamp.split("-")[0]})` : ""}`);
   const body = encodeURIComponent(
     (about ? `What happened: ${about}\n\n` : "What happened: \n\n") +
       "Please attach memorymap-support-bundle.zip, which was just saved to your downloads.\n"
@@ -1171,7 +1171,7 @@ function plainHttpError(status, detail, fallback = "") {
   if (status === 404) return "That could not be found. It may have been deleted.";
   if (status === 400 || status === 405 || status === 422) return "That was not accepted. Try again.";
   if (status === 403) return "That is not allowed.";
-  if (status >= 500) return "Something went wrong inside MemoryMap. Try again; if it keeps happening, Settings > Logs has the details.";
+  if (status >= 500) return "Something went wrong inside Tessellate. Try again; if it keeps happening, Settings > Logs has the details.";
   return "That did not work. Try again.";
 }
 
@@ -1405,7 +1405,7 @@ function showServerDownBanner() {
   note.className = "toast error server-down-toast";
   const text = document.createElement("span");
   text.className = "toast-msg";
-  text.textContent = "Can't reach MemoryMap. Retrying…";
+  text.textContent = "Can't reach Tessellate. Retrying…";
   const button = document.createElement("button");
   button.className = "small toast-action";
   button.textContent = "Retry";
@@ -2374,7 +2374,7 @@ function aiStatusState() {
     }
     return {
       level: "error",
-      title: "Can't reach MemoryMap",
+      title: "Can't reach Tessellate",
       detail:
         "The app can't read its own status, which usually means the server " +
         "stopped. Your notes are safe on disk.",
@@ -2973,7 +2973,7 @@ function renderSettings() {
       {
         slow: "The model server is slow to answer. Checking again…",
         error: "Couldn't read the models' status. Checking again…",
-        down: "Can't reach the MemoryMap server.",
+        down: "Can't reach the Tessellate server.",
       }[modelStatusProblem] || "Checking the models…";
     ollamaLine.className = `status ${modelStatusProblem === "down" ? "off" : "is-checking"}`;
     //: The pane's shape under the line while it waits, never the line alone

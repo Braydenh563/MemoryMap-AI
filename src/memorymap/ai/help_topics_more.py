@@ -249,7 +249,7 @@ MORE_TOPICS: list[dict] = [
             "(recommended, about 650 MB of memory while the app is open) or an "
             "Ollama embedding model such as nomic-embed-text. The built-in one "
             "needs the sentence-transformers package (about 2 GB with PyTorch), "
-            "which MemoryMap installs in the background the first time it is "
+            "which Tessellate installs in the background the first time it is "
             "needed, with a notice that says so and a Don't install button; "
             "the switch Install search by meaning automatically turns that "
             "off, and search then uses keywords until you press Install in "
@@ -264,7 +264,7 @@ MORE_TOPICS: list[dict] = [
             "them instead; each row's ⋮ has Use, Install or Reinstall, and "
             "Uninstall (refused on the model in use). Found on this computer "
             "lists embedding models already here (the Hugging Face cache, "
-            "Ollama, LM Studio), with Use where MemoryMap can load them and "
+            "Ollama, LM Studio), with Use where Tessellate can load them and "
             "why not where it cannot. Pull a model by name takes a Hugging Face "
             "repo (owner/name) or an Ollama name and checks it online only when "
             "you press Pull. Search index: Rebuild search index after an "
@@ -297,7 +297,7 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "background tasks", "running now", "what is it doing", "job", "jobs",
             "battery", "battery-efficient", "save power", "quit the app",
-            "quit memorymap", "stop the server", "close the app properly",
+            "quit tessellate", "quit memorymap", "stop the server", "close the app properly",
             "last run", "last ran", "background jobs", "job history", "did it run",
             "run now", "night shift", "stop a job", "cancel a job", "scheduled pass",
             "process log", "what did it do", "who started it",
@@ -321,7 +321,7 @@ MORE_TOPICS: list[dict] = [
             "failure says why in a few words. Autonomous background AI is here "
             "too. Battery-efficient "
             "mode pauses background AI, heavy graph work and the moving "
-            "artwork. Quit MemoryMap stops the app and its server properly, so "
+            "artwork. Quit Tessellate stops the app and its server properly, so "
             "the next start finds its port free."
         ),
         "badge": {"label": "Background tasks", "section": "tasks"},
@@ -374,7 +374,7 @@ MORE_TOPICS: list[dict] = [
             "bundle", "bundles", "reinstall", "uninstall", "install several",
         ),
         "body": (
-            "Settings, Packages lists what MemoryMap can do with one more "
+            "Settings, Packages lists what Tessellate can do with one more "
             "package installed: nothing there is needed to write, search, tag "
             "or organise notes, each one switches on a feature that is "
             "otherwise off, downloaded from PyPI to this machine. Bundles "
@@ -525,11 +525,11 @@ MORE_TOPICS: list[dict] = [
         "id": "tabs-overview",
         "keywords": (
             "tabs", "what tabs", "overview", "getting started", "where do i start",
-            "what is memorymap", "what does this app do", "tour of the app",
+            "what is tessellate", "what is memorymap", "what does this app do", "tour of the app",
             "parts of the app",
         ),
         "body": (
-            "MemoryMap has seven tabs along the top. Dashboard: your day at a "
+            "Tessellate has seven tabs along the top. Dashboard: your day at a "
             "glance and quick actions. Notes: capture and your notes list. "
             "Chat: ask and let the agent act on your notes. Graph: how notes "
             "connect. Library: documents, whiteboards, mind maps, files and "
@@ -645,15 +645,15 @@ MORE_TOPICS: list[dict] = [
     {
         "id": "web-clipper-bookmark",
         "keywords": (
-            "bookmarklet", "clip to memorymap", "clip a page from my browser", "browser extension",
+            "bookmarklet", "clip to tessellate", "clip to memorymap", "clip a page from my browser", "browser extension",
             "save this page", "clipper bookmark", "keep a web page", "clip a web page",
             "from my browser", "clip from the browser",
         ),
         "body": (
             "Settings, Import & export, Web clipper has a bookmark called Clip to "
-            "MemoryMap. Drag it to your browser's bookmarks bar (or press Copy the "
+            "Tessellate. Drag it to your browser's bookmarks bar (or press Copy the "
             "bookmark and make a bookmark with it as the address). On any page, "
-            "press it: a small MemoryMap window opens beside the page with its "
+            "press it: a small Tessellate window opens beside the page with its "
             "title and address, and Save as a note keeps the page's main text, or "
             "only the text you had selected. Your own browser sends the page, so "
             "nothing is fetched from the web: it works with web search off and on "
@@ -677,7 +677,7 @@ MORE_TOPICS: list[dict] = [
             "From Obsidian (choose the vault folder), From Evernote (choose the "
             ".enex files you exported), From Apple Notes (choose the folder an "
             "exporter app wrote, one HTML, Markdown or text file per note) and "
-            "From a MemoryMap folder (the zip Export notebook folder writes, every "
+            "From a Tessellate folder (the zip Export notebook folder writes, every "
             "field back as it was). "
             "Choosing starts the import and the toast's Undo moves exactly those "
             "notes to the recycle bin. Folders and notebooks become categories, "
@@ -892,8 +892,8 @@ MORE_TOPICS: list[dict] = [
             "settings: on Windows a desktop shortcut with it as the target and a "
             "Shortcut key, on macOS a Shortcuts action, on Linux a custom keyboard "
             "shortcut. Pressing the key over any app opens a one-line box on the "
-            "MemoryMap that is already running; Enter saves the note, filed like "
-            "any other, and the box closes. On a phone, Share to MemoryMap does "
+            "Tessellate that is already running; Enter saves the note, filed like "
+            "any other, and the box closes. On a phone, Share to Tessellate does "
             "the same."
         ),
         "badge": {"label": "Capture from anywhere", "section": "shortcuts", "target": "capture-anywhere-box"},
@@ -903,18 +903,18 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "install", "install the app", "install as an app", "add to home screen",
             "home screen", "pwa", "own window", "app icon", "share sheet",
-            "share to memorymap", "not running on this computer", "offline page",
+            "share to tessellate", "share to memorymap", "not running on this computer", "offline page",
         ),
         "body": (
-            "Settings, About, Install as an app gives MemoryMap its own window "
+            "Settings, About, Install as an app gives Tessellate its own window "
             "and icon, and adds it to your phone's share sheet, so a page or a "
             "selection shared to it lands in Capture. The button appears only "
             "when your browser offers the install and the app is not installed "
             "yet; on an iPhone, tap Share, then Add to Home Screen. It is the "
             "same app, still served by the copy running on this computer. When "
             "that copy is not running, the installed app shows a page saying "
-            "MemoryMap is not running on this computer, with a Retry button, "
-            "never an empty notebook: open MemoryMap from the Start menu or "
+            "Tessellate is not running on this computer, with a Retry button, "
+            "never an empty notebook: open Tessellate from the Start menu or "
             "the launcher, then press Retry."
         ),
         "badge": {"label": "Install as an app", "section": "about", "target": "about-install"},
@@ -1008,7 +1008,7 @@ MORE_TOPICS.extend(
                 "save while offline", "saved offline", "connection lost", "try now",
             ),
             "body": (
-                "A note saved while the MemoryMap server is not answering (from "
+                "A note saved while the Tessellate server is not answering (from "
                 "Capture, Save as draft, Quick note or the dashboard's Quick "
                 "capture) is kept on this device rather than lost, and is sent by "
                 "itself when the server is back. It sits at the top of the notes "
@@ -1824,6 +1824,7 @@ TOPIC_META: dict[str, dict] = {
     "personas": {"title": "Personas", "path": "Settings, Personas"},
     "templates": {"title": "Templates", "path": "Settings, Templates"},
     "updates": {"title": "Updates", "path": "Settings, About"},
+    "name": {"title": "The name, formerly MemoryMap AI", "path": "Settings, About"},
     "notifications": {"title": "Notifications", "path": "The bell in the top bar"},
     "companion": {"title": "The corner companion", "path": "Settings, Appearance, Atlas and faces, Corner companion", "steps": (
         "Open Settings, Appearance, Atlas and faces.", "Pick who it is under Corner companion.", "Right-click it on the page for its menu; Ctrl+Shift+Y shows or hides it.")},
@@ -1946,7 +1947,7 @@ TOPIC_META: dict[str, dict] = {
 HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Getting started", (
         "tabs-overview", "first-steps", "tour", "guide", "manual", "hidden-features", "shortcuts",
-        "command-palette", "find-anything", "search", "addresses", "settings-overview", "settings-reset", "install-app",
+        "command-palette", "find-anything", "search", "addresses", "settings-overview", "settings-reset", "install-app", "name",
     )),
     ("Writing notes", (
         "capture", "quick-note", "quick-add", "editor-offers", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",

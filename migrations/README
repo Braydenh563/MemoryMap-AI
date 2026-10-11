@@ -1,4 +1,4 @@
-Alembic migrations for MemoryMap AI.
+Alembic migrations for Tessellate.
 
 **Read `core/database.py`'s `_ensure_alembic_baseline` docstring first.**
 This exists alongside `DatabaseManager`'s own additive auto-migrator

@@ -1,4 +1,4 @@
-// MemoryMap AI: the graph, drawn to a Canvas 2D surface.
+// Tessellate: the graph, drawn to a Canvas 2D surface.
 //
 // GRAPH_PLAN.md §4 ("Renderer: Canvas 2D first") and §5 Phase 1. This is the
 // other half of `graph-worker.js`: the worker decides where the notes are,

@@ -1,5 +1,5 @@
 // Import from another app: Notion, Obsidian, Evernote, Apple Notes and a
-// MemoryMap notebook folder (WORLD_CLASS_PLAN H6, 5.7, row 25 and 25b).
+// Tessellate notebook folder (WORLD_CLASS_PLAN H6, 5.7, row 25 and 25b).
 // Settings, Import & export. Every import keeps a report, opened here
 // (`openImportReport`) from the status line, the Activity panel and the
 // Background jobs line.
@@ -18,7 +18,7 @@ const APP_IMPORTS = [
   { source: "obsidian", button: "import-obsidian", input: "import-obsidian-file", label: "Obsidian", keep: /\.(md|markdown|txt)$/i },
   { source: "evernote", button: "import-evernote", input: "import-evernote-file", label: "Evernote" },
   { source: "apple", button: "import-apple", input: "import-apple-file", label: "Apple Notes", keep: /\.(md|markdown|txt|html?)$/i },
-  { source: "memorymap", button: "import-memorymap", input: "import-memorymap-file", label: "MemoryMap" },
+  { source: "memorymap", button: "import-memorymap", input: "import-memorymap-file", label: "Tessellate" },
 ];
 
 async function importFromApp(spec) {

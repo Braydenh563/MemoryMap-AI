@@ -1389,7 +1389,7 @@ function docLoadEmmet() {
     script.async = true;
     script.addEventListener("load", () => resolve(true));
     script.addEventListener("error", () => {
-      console.warn("MemoryMap: the Emmet bundle could not be loaded; completions are the language's own.");
+      console.warn("Tessellate: the Emmet bundle could not be loaded; completions are the language's own.");
       resolve(false);
     });
     document.head.appendChild(script);

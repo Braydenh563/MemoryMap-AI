@@ -989,6 +989,7 @@ def _lan_state(config: ConfigManager, request: Request) -> dict:
     info = lancert.read(config.data_dir)
     trust = lantrust.load(config.data_dir)
     here = _from_this_computer(request)
+    here_key = _current_network_key(config)
     return {
         "allow_lan": netbind.lan_enabled(config),
         **netbind.describe(config, request.url.port),
@@ -997,18 +998,18 @@ def _lan_state(config: ConfigManager, request: Request) -> dict:
         #: who is waiting. Devices and requests are this computer's to see.
         "any_network": trust["any_network"],
         "ask_new_devices": trust["ask_new_devices"],
-        "networks": [
-            {k: n.get(k, "") for k in ("key", "label", "gateway", "subnet", "added")} for n in trust["networks"]
-        ],
+        #: One row per network (`lantrust.listed`): a Wi-Fi name over its
+        #: subnet, whichever of its records were read more or less fully.
+        "networks": lantrust.listed(trust["networks"], here_key),
         "devices": lantrust.devices(config.data_dir) if here else [],
         "pending": lantrust.pending() if here else [],
         #: INBOX 896: networks the port stayed closed on, and those the
         #: person stopped trusting (`blocked`), to trust or forget.
         "untrusted": [
-            {**{k: n.get(k, "") for k in ("key", "label", "gateway", "subnet", "added")}, "blocked": bool(n.get("blocked"))}
-            for n in trust["untrusted"]
+            {**n, "blocked": bool(n.get("blocked"))}
+            for n in lantrust.listed([{**n, "blocked": bool(n.get("blocked"))} for n in trust["untrusted"]], here_key)
         ],
-        "current_network": _current_network_key(config),
+        "current_network": here_key,
         #: INBOX 900: the switch applies while the app runs.
         "live": lanlive.attached(),
         #: When LAN mode last switched itself off for lack of use (a date).

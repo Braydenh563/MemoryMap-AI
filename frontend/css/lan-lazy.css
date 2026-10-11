@@ -102,3 +102,11 @@
 .lan-panel .entry-list {
   margin: 0;
 }
+/* A network row's Stop trusting, Trust and Forget are always on screen
+   (the owner: "wierd empty gap where buttons are when no hover"). The
+   notes list's rule hides an `.entry-list` row's actions until hover and
+   keeps their room, which here read as a gap under the name, and a finger
+   has no hover at all. */
+.entry-list li.lan-network-row .entry-actions {
+  opacity: 1;
+}

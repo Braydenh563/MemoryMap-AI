@@ -2289,7 +2289,7 @@ function entryItem(entry, options = {}) {
       linkChip.appendChild(linkPreview);
       const reasonNote = link.reason
         ? link.reason_confidence != null
-          ? `${link.reason} (${Math.round(link.reason_confidence * 100)}% confidence, deduced)`
+          ? `${link.reason} (deduced, ${deducedStrength(link.reason_confidence)})`
           : link.reason
         : null;
       const wayRound = outgoing ? "This note links to" : "Links to this note";
@@ -2524,4 +2524,13 @@ function makeUnlinkAccessible(span) {
       span.click();
     }
   });
+}
+
+//: A deduced link reason's confidence as a word, not a percentage (ledger
+//: 943): a percentage claimed a precision the guess does not have. Used
+//: by the card's link chips and the graph's line tooltip and peek.
+function deducedStrength(confidence) {
+  if (confidence >= 0.75) return "a strong guess";
+  if (confidence >= 0.5) return "a fair guess";
+  return "a loose guess";
 }

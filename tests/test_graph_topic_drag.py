@@ -88,3 +88,23 @@ def test_a_plate_double_click_renames_in_place():
     body = _function("gcRenameTopicInline")
     assert 'event.key === "Enter"' in body and 'event.key === "Escape"' in body
     assert 'addEventListener("blur", () => finish(true))' in body
+
+
+def test_a_topic_drag_is_one_pin_write_with_its_core_note():
+    """Ledger 931: the core note's pin went out as its own PUT /graph/pin
+    beside the group's PUT /graph/pins. It now joins the group's write."""
+    end = CANVAS[CANVAS.index("function gcDragEnd(event)") : CANVAS.index('s.canvas.addEventListener("pointermove"')]
+    assert "if (pins.length) pins.push({ id: node.id, x: node.fx, y: node.fy });" in end
+    assert "else apiJson(`/graph/pin/${node.id}`" in end
+    assert end.index("pins.push({ id: node.id") < end.rindex("if (pins.length) savePins();")
+
+
+def test_a_topic_card_files_its_notes_as_a_category_only_when_asked():
+    """Ledger 945 ("How are they different from categories??"): the card
+    offers File as a category; one move with one Undo, named for the topic."""
+    card = CANVAS[CANVAS.index("function gcShowTopic(") : CANVAS.index("async function gcSaveTopicName(")]
+    assert "ph:folder-simple-plus File as a category" in card
+    assert "await moveNotesToCategory(topic.ids, wanted)" in card
+    assert 'topic.name.replace(/^#/, "")' in card, "a tag-named topic files under the word, not the hash"
+    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    assert "File as a category files its notes under one category" in guide

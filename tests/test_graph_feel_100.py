@@ -307,16 +307,21 @@ console.log(JSON.stringify({ from, drop, mid, midEnded, end, ended, freed }));
 
 
 @needs_node
-def test_a_dropped_note_settles_where_it_was_put_and_is_free_at_rest():
+def test_a_dropped_note_settles_near_where_it_was_put_and_is_never_pinned():
     # INBOX 802: measured in the app (scratchpad/g100 drag.js), a note dropped
-    # 286px away came 268px back within a second; held until rest, 0.
+    # 286px away came 268px back within a second. Held until rest, it then
+    # never moved again (the owner, 2026-10-11: "moving nodes keeps them
+    # stuck there"). Now let go on release at a low heat: it eases into place
+    # near the drop (a 360-unit drop: 43 at 40 ticks, 58 at rest; 86 at the
+    # 0.05 tried first) and is free (it moves under a reheat).
     out = _node_args(DROP, str(ROOT / "frontend"))
     dist = lambda a, b: ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5  # noqa: E731
-    assert not out["midEnded"] and dist(out["mid"], out["drop"]) < 1, out
-    assert out["ended"] and dist(out["end"], out["drop"]) < 1, out
-    assert dist(out["freed"], out["drop"]) > 0.5, out
+    assert not out["midEnded"] and 0.5 < dist(out["mid"], out["drop"]) < 60, out
+    assert out["ended"] and dist(out["end"], out["drop"]) < 60, out
+    assert dist(out["freed"], out["end"]) > 0.5, out
     worker = (ROOT / "frontend" / "js" / "graph-worker.js").read_text(encoding="utf-8")
-    assert "  if (settled) {\n    releaseDropped();" in worker
+    release = worker[worker.index("if (!message.keep) {\n          node.fx = null;") :][:200]
+    assert "simulation.alpha(Math.min(Math.max(simulation.alpha(), RELEASE_ALPHA_MIN), RELEASE_ALPHA))" in release
 
 
 def _node_args(script: str, *args: str) -> dict:

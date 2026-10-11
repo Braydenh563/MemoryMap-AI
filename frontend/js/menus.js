@@ -322,6 +322,12 @@ function wireHelpPopover(trigger, panel) {
     closeHelpPopovers();
     //: Still leaving from the last close: its home is the one already known.
     clearTimeout(panel._exitTimer);
+    //: The '?' stops its click (below), so the page's outside-click close
+    //: never reaches an open menu: they stacked (INBOX 796, app-wide as
+    //: ledger 936). Opening one shuts the others.
+    if (!trigger.closest(".action-menu")) closeActionMenus();
+    const home = trigger.closest(".doc-dock-menu-list")?._escapedHome?.parent;
+    for (const menu of document.querySelectorAll("details.dock-menu[open]")) if (menu !== home && !menu.contains(trigger)) menu.open = false;
     if (!panel.classList.contains("help-popover")) {
       homeParent = panel.parentElement;
       homeNext = panel.nextSibling;

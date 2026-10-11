@@ -2343,6 +2343,21 @@ function buildArtParticles(p, categories, total, width, height) {
 //: busy machine's late frames did the same mid-glide. Hence the glide's own
 //: clock below. `scratchpad/ui-sweeps/constellation686.js` measures it.
 const ART_GLIDE_MS = 800;
+//: A light-theme star's core lightness: 40, or darker until it is 3:1 on the
+//: well (ledger 934: yellow was 2.1:1, cyan 2.0). Saturation 80, as drawn.
+const artCoreLights = new Map();
+function artCoreLight(hue) {
+  if (artCoreLights.has(hue)) return artCoreLights.get(hue);
+  const lum = (l) => {
+    const a = 0.8 * Math.min(l, 1 - l);
+    const c = (n) => { const k = (n + hue / 30) % 12; const v = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * c(0) + 0.7152 * c(8) + 0.0722 * c(4);
+  };
+  let l = 40;
+  while (l > 20 && 0.83 / (lum(l / 100) + 0.05) < 3) l -= 2;
+  artCoreLights.set(hue, l);
+  return l;
+}
 const ART_GLIDE_FPS = 60;
 //: The most of the glide's clock one frame may spend: 25 ms is three fifths
 //: of an eighth of the journey even at the ease's fastest, its first frame.
@@ -2583,7 +2598,7 @@ async function startArt(holder) {
         const twinkle = (0.6 + 0.4 * Math.sin(t * 2 + dot.phase)) * dot.vis;
         p.fill(dot.hue, 75, dark ? 65 : 55, 0.14 * twinkle);
         p.circle(dot.x, dot.y, dot.drawSize * 4); // glow
-        p.fill(dot.hue, 80, dark ? 78 : 40, twinkle);
+        p.fill(dot.hue, 80, dark ? 78 : artCoreLight(dot.hue), twinkle);
         p.circle(dot.x, dot.y, dot.drawSize); // core
       }
       if (fade && !settled) {

@@ -121,3 +121,23 @@ def test_the_worker_thaws_the_view_s_notes_once_it_settles():
         "before the reheat is done would let the saved notes drift while the "
         "new one is still being placed"
     )
+
+
+def test_a_restore_holds_its_notes_from_the_first_step_and_never_warms():
+    # Claim #238: a view re-picks its layout, which clears the fit, so the
+    # init warmed (450ms of steps) before the separate `freeze` arrived and
+    # every saved note moved (726px with a note added since). The hold rides
+    # in the init and a restore neither warms nor plays an intro.
+    source = _text(GRAPH_CANVAS)
+    fn = re.search(r"(?s)function gcStartWorker\(nodes, edges, world, s = gcTab, viewSeed = null\) \{.*?\n\}\n", source)
+    body = fn.group(0)
+    assert "held: held.has(n.id)," in body
+    assert "warm: reframe && !restoring &&" in body
+    assert "intro: !gcStill() && !restoring," in body
+    render = re.search(r"(?s)async function renderGraphCanvas\(s = gcTab\) \{.*?\n\}\n", source).group(0)
+    assert render.index("const restoring = Boolean(graphPendingViewPositions)") < render.index("graphPendingViewPositions = null")
+    assert "restore: restoring," in render
+    worker = _text(GRAPH_CANVAS.parent / "graph-worker.js")
+    init = worker[worker.index('case "init": {') : worker.index('case "params":')]
+    assert "if (!n.held || node.fx != null || node.x === undefined) return;" in init
+    assert init.index("node.frozenByDrag = true;") < init.index("simulation = d3")

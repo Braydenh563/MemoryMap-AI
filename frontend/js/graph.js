@@ -2347,7 +2347,7 @@ async function renderGraphSvg() {
       // the AI typed doesn't, so this only ever shows up on the guessed kind.
       const text =
         d.reason_confidence != null
-          ? `${d.reason} (${Math.round(d.reason_confidence * 100)}% confidence, deduced)`
+          ? `${d.reason} (deduced, ${deducedStrength(d.reason_confidence)})`
           : d.reason;
       el.append("title").text(text);
     }
@@ -3805,7 +3805,7 @@ function openGraphLinkPeek(edge, event, nodes) {
   const facts = document.createElement("p");
   facts.className = "library-file-meta graph-link-peek-meta";
   facts.textContent = edge.reason_confidence != null
-    ? `Deduced, ${Math.round(edge.reason_confidence * 100)}% confidence`
+    ? `Deduced, ${deducedStrength(edge.reason_confidence)}`
     : edge.reason ? "In your words" : "";
   const notes = document.createElement("div");
   notes.className = "graph-link-peek-notes";
@@ -3938,7 +3938,7 @@ function openGraphLinkPanel(edge, nodes) {
   if (edge.reason_confidence != null) {
     const note = document.createElement("p");
     note.className = "muted";
-    note.textContent = `Deduced (${Math.round(edge.reason_confidence * 100)}% confidence): editing replaces it with your own words.`;
+    note.textContent = `Deduced (${deducedStrength(edge.reason_confidence)}): editing replaces it with your own words.`;
     card.appendChild(note);
   }
 
@@ -4123,12 +4123,48 @@ function renderGraphPopupMedia(entry) {
   placeGraphPopup();
 }
 
+//: **The room a graph panel has** (the owner, 2026-10-11: "the graph popups
+//: get cut off now at the bottom", the action dock behind the status bar at
+//: a 1000px window): the map's box, ending where the shell's status bar
+//: starts if the box runs under it. Read from the bar's own box, which is
+//: `--status-bar-h` tall (00-tokens-shell.css), so the bound follows the
+//: shell's layout rather than a number copied here. Returns the box with
+//: `room`, the usable height from the box's top.
+function graphPanelRoom() {
+  const box = $("graph-box").getBoundingClientRect();
+  const bar = document.getElementById("status-bar");
+  const barTop = bar && bar.offsetParent !== null ? bar.getBoundingClientRect().top : innerHeight;
+  const bottom = Math.min(box.bottom, barTop, innerHeight);
+  return { box, room: Math.max(0, bottom - box.top) };
+}
+
+//: Placed again whenever it changes size after it was placed (the body's
+//: editor mounting, a picture arriving, the action row folding): placing
+//: only at known moments is what let a panel that grew afterwards hang
+//: past the map's bottom edge.
+let graphPopupResize = null;
+function watchGraphPopupSize(popup, place) {
+  if (typeof ResizeObserver !== "function" || popup.dataset.placeWatch) return;
+  popup.dataset.placeWatch = "1";
+  let frame = 0;
+  graphPopupResize = graphPopupResize || new ResizeObserver((entries) => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      for (const e of entries) e.target.graphPlace?.();
+    });
+  });
+  popup.graphPlace = place;
+  graphPopupResize.observe(popup);
+}
+
 // Clamp the popup inside the graph box. Called on open and again once the
 // note has loaded, since the popup is taller by then.
 function placeGraphPopup() {
   const popup = $("graph-popup");
+  watchGraphPopupSize(popup, placeGraphPopup);
   if (!graphPopupAnchor || popup.classList.contains("hidden")) return;
-  const box = $("graph-box").getBoundingClientRect();
+  const { box, room } = graphPanelRoom();
   //: **On a phone the panel is a sheet, and JS has to be the one to say so**
   //: (GRAPH_PLAN Phase 6). The position is inline `left`/`top` written here,
   //: which no stylesheet rule can override without `!important`, so a media
@@ -4138,16 +4174,16 @@ function placeGraphPopup() {
     popup.classList.add("graph-popup-sheet");
     // Three quarters of the map: enough to read the note, and the map it
     // came from stays visible above it so the sheet has an origin.
-    popup.style.maxHeight = `${Math.max(160, Math.round(box.height * 0.75))}px`;
+    popup.style.maxHeight = `${Math.max(160, Math.round(room * 0.75))}px`;
     popup.style.left = "0px";
     const sheet = popup.getBoundingClientRect();
-    popup.style.top = `${Math.max(0, Math.round(box.height - sheet.height))}px`;
+    popup.style.top = `${Math.max(0, Math.round(room - sheet.height))}px`;
     return;
   }
   popup.classList.remove("graph-popup-sheet");
-  // Never taller than the map it sits in, beyond that the popup scrolls
-  // itself rather than growing off the edge.
-  popup.style.maxHeight = `${Math.max(120, box.height - 16)}px`;
+  // Never taller than the room it has, beyond that its body scrolls inside
+  // it and the action dock stays pinned at its foot (the CSS's sticky row).
+  popup.style.maxHeight = `${Math.max(120, room - 16)}px`;
   const size = popup.getBoundingClientRect();
   const left = Math.min(
     Math.max(graphPopupAnchor.x - box.left + 12, 8),
@@ -4155,7 +4191,7 @@ function placeGraphPopup() {
   );
   const top = Math.min(
     Math.max(graphPopupAnchor.y - box.top + 12, 8),
-    Math.max(8, box.height - size.height - 8)
+    Math.max(8, room - size.height - 8)
   );
   popup.style.left = `${left}px`;
   popup.style.top = `${top}px`;
@@ -4673,21 +4709,32 @@ function openGraphNewNote(event, linkFrom = null) {
     ? "This note will be linked to the one you grew it from."
     : "It joins the map as soon as you add it.";
   popup.classList.remove("hidden");
+  graphNewAt = event ? { x: event.clientX, y: event.clientY } : null;
+  placeGraphNewNote();
+  watchGraphPopupSize(popup, placeGraphNewNote);
+  $("graph-new-content").focus();
+}
 
-  const box = $("graph-box").getBoundingClientRect();
-  // Never taller than the map it sits in, beyond that the popup scrolls
+//: Where New note was asked for, kept so a later size change (its fields
+//: settling, the tag row) places it again from the same point: measured,
+//: it grew 30px after opening and its foot went under the status bar.
+let graphNewAt = null;
+function placeGraphNewNote() {
+  const popup = $("graph-new");
+  if (popup.classList.contains("hidden")) return;
+  const { box, room } = graphPanelRoom();
+  // Never taller than the room it has, beyond that the popup scrolls
   // itself rather than growing off the edge (same fix placeGraphPopup()
   // already has; this popup was missing it, so on a short viewport its
   // Save/Close/Tags controls rendered below the fold with nothing to
   // scroll them into view).
-  popup.style.maxHeight = `${Math.max(120, box.height - 16)}px`;
+  popup.style.maxHeight = `${Math.max(120, room - 16)}px`;
   const size = popup.getBoundingClientRect();
   // Centre it when there's no click position (toolbar button).
-  const rawX = event ? event.clientX - box.left + 12 : (box.width - size.width) / 2;
-  const rawY = event ? event.clientY - box.top + 12 : 60;
+  const rawX = graphNewAt ? graphNewAt.x - box.left + 12 : (box.width - size.width) / 2;
+  const rawY = graphNewAt ? graphNewAt.y - box.top + 12 : 60;
   popup.style.left = `${Math.min(Math.max(rawX, 8), Math.max(8, box.width - size.width - 8))}px`;
-  popup.style.top = `${Math.min(Math.max(rawY, 8), Math.max(8, box.height - size.height - 8))}px`;
-  $("graph-new-content").focus();
+  popup.style.top = `${Math.min(Math.max(rawY, 8), Math.max(8, room - size.height - 8))}px`;
 }
 
 function closeGraphNewNote() {

@@ -37,10 +37,12 @@ const { boot } = require('./lib.js');
     };
   });
 
-  const light = await page.evaluate(() => {
+  const light = await page.evaluate(async () => {
     // A one-item lightbox is the same object the node panel's attachment
     // opens; what it holds does not matter to a stacking question.
-    openLightbox([{ filename: 'A picture.png', getUrl: () => '/icon-512.png' }], 0);
+    // openLightbox is lazy: its bundle loads first, so wait for the box.
+    await openLightbox([{ filename: 'A picture.png', getUrl: () => '/icon-512.png' }], 0);
+    for (let i = 0; i < 50 && !document.querySelector('.lightbox'); i++) await new Promise((r) => setTimeout(r, 100));
     const box = document.querySelector('.lightbox');
     if (!box) return { built: false };
     const r = box.getBoundingClientRect();

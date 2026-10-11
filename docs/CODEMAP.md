@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5659, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4769, test files 1088, tests 9953, plan headings 997.
+Counts: frontend functions 5659, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4769, test files 1088, tests 9954, plan headings 998.
 
 ## Frontend functions (5659)
 
@@ -3583,14 +3583,14 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `gcArmTouchLasso` | frontend/js/graph-canvas.js:3711 |
-| `gcArriving` | frontend/js/graph-canvas.js:5761 |
+| `gcArriving` | frontend/js/graph-canvas.js:5772 |
 | `gcArrows` | frontend/js/graph-canvas.js:806 |
 | `gcAutoFitDone` | frontend/js/graph-canvas.js:180 |
 | `gcBalanceFit` | frontend/js/graph-canvas.js:1521 |
 | `gcBornAlpha` | frontend/js/graph-canvas.js:1676 |
 | `gcBowPoint` | frontend/js/graph-canvas.js:820 |
 | `gcBoxLineCount` | frontend/js/graph-canvas.js:677 |
-| `gcCachedPositions` | frontend/js/graph-canvas.js:4515 |
+| `gcCachedPositions` | frontend/js/graph-canvas.js:4524 |
 | `gcClampBox` | frontend/js/graph-canvas.js:591 |
 | `gcClickNode` | frontend/js/graph-canvas.js:4092 |
 | `gcClipEdge` | frontend/js/graph-canvas.js:664 |
@@ -3619,7 +3619,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `gcFillSparks` | frontend/js/graph-canvas.js:2846 |
 | `gcFilterChip` | frontend/js/graph-canvas.js:1218 |
 | `gcFitInsets` | frontend/js/graph-canvas.js:1602 |
-| `gcFrameIntro` | frontend/js/graph-canvas.js:4530 |
+| `gcFrameIntro` | frontend/js/graph-canvas.js:4539 |
 | `gcGlideFinish` | frontend/js/graph-canvas.js:1886 |
 | `gcGlideStep` | frontend/js/graph-canvas.js:1867 |
 | `gcHexToRgb` | frontend/js/graph-canvas.js:1001 |
@@ -3635,7 +3635,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `gcLabelText` | frontend/js/graph-canvas.js:3086 |
 | `gcLabelWidth` | frontend/js/graph-canvas.js:3044 |
 | `gcLabelZoom` | frontend/js/graph-canvas.js:794 |
-| `gcLegendEdgeKey` | frontend/js/graph-canvas.js:5224 |
+| `gcLegendEdgeKey` | frontend/js/graph-canvas.js:5235 |
 | `gcLineGrid` | frontend/js/graph-canvas.js:608 |
 | `gcLinkKindHidden` | frontend/js/graph-canvas.js:1209 |
 | `gcLinkSpark` | frontend/js/graph-canvas.js:2801 |
@@ -3654,34 +3654,34 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `gcPlateAtWorld` | frontend/js/graph-canvas.js:1465 |
 | `gcPlateTitle` | frontend/js/graph-canvas.js:1472 |
 | `gcPointInPolygon` | frontend/js/graph-canvas.js:3690 |
-| `gcPositionsSig` | frontend/js/graph-canvas.js:4500 |
+| `gcPositionsSig` | frontend/js/graph-canvas.js:4509 |
 | `gcPost` | frontend/js/graph-canvas.js:4146 |
 | `gcPruneSimilarity` | frontend/js/graph-canvas.js:409 |
 | `gcQuadAt` | frontend/js/graph-canvas.js:2791 |
 | `gcRadius` | frontend/js/graph-canvas.js:248 |
 | `gcReadTokens` | frontend/js/graph-canvas.js:300 |
 | `gcRefitForPanels` | frontend/js/graph-canvas.js:1632 |
-| `gcRelinkPairs` | frontend/js/graph-canvas.js:5741 |
+| `gcRelinkPairs` | frontend/js/graph-canvas.js:5752 |
 | `gcRenameTopicInline` | frontend/js/graph-canvas.js:1400 |
 | `gcRenderFilterChips` | frontend/js/graph-canvas.js:1230 |
 | `gcRequestDraw` | frontend/js/graph-canvas.js:1902 |
 | `gcRequestMinimapFrame` | frontend/js/graph-canvas.js:1923 |
 | `gcReshuffle` | frontend/js/graph-canvas.js:4199 |
 | `gcResize` | frontend/js/graph-canvas.js:885 |
-| `gcReveal` | frontend/js/graph-canvas.js:5769 |
-| `gcRuleDomain` | frontend/js/graph-canvas.js:5029 |
-| `gcRuleKey` | frontend/js/graph-canvas.js:5011 |
-| `gcRuleScale` | frontend/js/graph-canvas.js:5035 |
-| `gcSavePositions` | frontend/js/graph-canvas.js:4503 |
+| `gcReveal` | frontend/js/graph-canvas.js:5780 |
+| `gcRuleDomain` | frontend/js/graph-canvas.js:5040 |
+| `gcRuleKey` | frontend/js/graph-canvas.js:5022 |
+| `gcRuleScale` | frontend/js/graph-canvas.js:5046 |
+| `gcSavePositions` | frontend/js/graph-canvas.js:4512 |
 | `gcSaveTopicName` | frontend/js/graph-canvas.js:1377 |
-| `gcSeedBesideNeighbours` | frontend/js/graph-canvas.js:4650 |
+| `gcSeedBesideNeighbours` | frontend/js/graph-canvas.js:4659 |
 | `gcSelectedNodes` | frontend/js/graph-canvas.js:3803 |
 | `gcSelectionChanged` | frontend/js/graph-canvas.js:3793 |
 | `gcSetAutoFitDone` | frontend/js/graph-canvas.js:184 |
 | `gcSetHovered` | frontend/js/graph-canvas.js:196 |
 | `gcShape` | frontend/js/graph-canvas.js:4182 |
-| `gcShowEmpty` | frontend/js/graph-canvas.js:4596 |
-| `gcShowEveryNote` | frontend/js/graph-canvas.js:4625 |
+| `gcShowEmpty` | frontend/js/graph-canvas.js:4605 |
+| `gcShowEveryNote` | frontend/js/graph-canvas.js:4634 |
 | `gcShowNodeMenu` | frontend/js/graph-canvas.js:3993 |
 | `gcShowTopic` | frontend/js/graph-canvas.js:1291 |
 | `gcSimilarityBand` | frontend/js/graph-canvas.js:452 |
@@ -3699,28 +3699,28 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `gcTopicMembers` | frontend/js/graph-canvas.js:1480 |
 | `gcTreeIndex` | frontend/js/graph-canvas.js:3144 |
 | `gcTweenFromPrior` | frontend/js/graph-canvas.js:1646 |
-| `gcUnlinkPairs` | frontend/js/graph-canvas.js:5734 |
+| `gcUnlinkPairs` | frontend/js/graph-canvas.js:5745 |
 | `gcVisibleAtTime` | frontend/js/graph-canvas.js:1979 |
 | `gcWireInteraction` | frontend/js/graph-canvas.js:3224 |
 | `gcWireLasso` | frontend/js/graph-canvas.js:3726 |
 | `gcWireNodeMenu` | frontend/js/graph-canvas.js:3940 |
 | `gcWireSelectionDock` | frontend/js/graph-canvas.js:3807 |
 | `gcWorkerParams` | frontend/js/graph-canvas.js:4157 |
-| `gcWorldFor` | frontend/js/graph-canvas.js:4547 |
+| `gcWorldFor` | frontend/js/graph-canvas.js:4556 |
 | `gcWorldPoint` | frontend/js/graph-canvas.js:3168 |
 | `gcWriteUnresolved` | frontend/js/graph-canvas.js:4130 |
-| `graphPaneColour` | frontend/js/graph-canvas.js:5526 |
-| `graphPaneDocumentNote` | frontend/js/graph-canvas.js:5662 |
-| `graphPaneEnsure` | frontend/js/graph-canvas.js:5504 |
-| `graphPaneFollow` | frontend/js/graph-canvas.js:5616 |
-| `graphPaneWire` | frontend/js/graph-canvas.js:5671 |
-| `graphRenderLegend` | frontend/js/graph-canvas.js:5052 |
-| `graphRenderStats` | frontend/js/graph-canvas.js:5264 |
-| `graphSyncLayoutChip` | frontend/js/graph-canvas.js:5304 |
-| `graphSyncTimeSlider` | frontend/js/graph-canvas.js:5331 |
-| `graphWireTimePlay` | frontend/js/graph-canvas.js:5370 |
-| `renderGraphCanvas` | frontend/js/graph-canvas.js:4681 |
-| `renderGraphPane` | frontend/js/graph-canvas.js:5532 |
+| `graphPaneColour` | frontend/js/graph-canvas.js:5537 |
+| `graphPaneDocumentNote` | frontend/js/graph-canvas.js:5673 |
+| `graphPaneEnsure` | frontend/js/graph-canvas.js:5515 |
+| `graphPaneFollow` | frontend/js/graph-canvas.js:5627 |
+| `graphPaneWire` | frontend/js/graph-canvas.js:5682 |
+| `graphRenderLegend` | frontend/js/graph-canvas.js:5063 |
+| `graphRenderStats` | frontend/js/graph-canvas.js:5275 |
+| `graphSyncLayoutChip` | frontend/js/graph-canvas.js:5315 |
+| `graphSyncTimeSlider` | frontend/js/graph-canvas.js:5342 |
+| `graphWireTimePlay` | frontend/js/graph-canvas.js:5381 |
+| `renderGraphCanvas` | frontend/js/graph-canvas.js:4690 |
+| `renderGraphPane` | frontend/js/graph-canvas.js:5543 |
 
 ### frontend/js/graph-worker.js (51)
 
@@ -16013,7 +16013,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9953)
+## Tests (9954)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16438,7 +16438,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_graph_similarity.py | 7 |
 | tests/test_graph_slim.py | 3 |
 | tests/test_graph_topic_drag.py | 6 |
-| tests/test_graph_view_positions.py | 5 |
+| tests/test_graph_view_positions.py | 6 |
 | tests/test_greeting_compose.py | 5 |
 | tests/test_greeting_name.py | 9 |
 | tests/test_grounding.py | 28 |
@@ -17108,7 +17108,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (997)
+## Plan headings (998)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -17681,15 +17681,16 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Decision made, 2026-09-13: a Show switch that is off means absent | docs/roadmap/GRAPH_PLAN.md:273 |
 | Decision made, 2026-09-20: three of the six options sections are folds | docs/roadmap/GRAPH_PLAN.md:243 |
 | Decision made, 2026-09-21: a restored view holds, it does not re-settle | docs/roadmap/GRAPH_PLAN.md:349 |
-| Decision made, 2026-09-24: similarity is each note's two closest matches | docs/roadmap/GRAPH_PLAN.md:372 |
-| Decision made, 2026-09-26: the hubs are named, over a dot if they must be | docs/roadmap/GRAPH_PLAN.md:401 |
-| Decision made, 2026-10-03: the shape follows the links, and the unlinked sit on a ring | docs/roadmap/GRAPH_PLAN.md:427 |
-| Decision made, 2026-10-04: a Display fold | docs/roadmap/GRAPH_PLAN.md:476 |
-| Decision made, 2026-10-04: a Filter fold | docs/roadmap/GRAPH_PLAN.md:489 |
-| Decision made, 2026-10-04: names on plates, clear of lines, and a calmer palette | docs/roadmap/GRAPH_PLAN.md:455 |
-| Decision made, 2026-10-05: one PageRank, the map's | docs/roadmap/GRAPH_PLAN.md:497 |
-| Decision made, 2026-10-10: a category is where a note is filed, a topic is what its links say it is about | docs/roadmap/GRAPH_PLAN.md:579 |
+| Decision made, 2026-09-24: similarity is each note's two closest matches | docs/roadmap/GRAPH_PLAN.md:387 |
+| Decision made, 2026-09-26: the hubs are named, over a dot if they must be | docs/roadmap/GRAPH_PLAN.md:416 |
+| Decision made, 2026-10-03: the shape follows the links, and the unlinked sit on a ring | docs/roadmap/GRAPH_PLAN.md:442 |
+| Decision made, 2026-10-04: a Display fold | docs/roadmap/GRAPH_PLAN.md:491 |
+| Decision made, 2026-10-04: a Filter fold | docs/roadmap/GRAPH_PLAN.md:504 |
+| Decision made, 2026-10-04: names on plates, clear of lines, and a calmer palette | docs/roadmap/GRAPH_PLAN.md:470 |
+| Decision made, 2026-10-05: one PageRank, the map's | docs/roadmap/GRAPH_PLAN.md:512 |
+| Decision made, 2026-10-10: a category is where a note is filed, a topic is what its links say it is about | docs/roadmap/GRAPH_PLAN.md:594 |
 | Decision made, 2026-10-11: a drag moves, a double-click pins | docs/roadmap/GRAPH_PLAN.md:322 |
+| Decision made, 2026-10-11: the drawn map is for reading | docs/roadmap/GRAPH_PLAN.md:377 |
 | Decisions left to the owner | docs/roadmap/ANALYSIS.md:3633 |
 | Decisions made | docs/roadmap/AGENT_SKILLS_REFORM.md:141 |
 | Decisions made | docs/roadmap/MINDMAP_PLAN.md:911 |
@@ -17858,7 +17859,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from Brief 40, 2026-10-10 (the phone over HTTPS) | docs/roadmap/WORLD_CLASS_PLAN.md:3137 |
 | Placed from Brief 60, 2026-10-10 (the measured census) | docs/roadmap/CHAT_PLAN.md:1761 |
 | Placed from Brief 60, 2026-10-10 (the measured census) | docs/roadmap/DOCUMENTS_PLAN.md:1572 |
-| Placed from Brief 60, 2026-10-10 (the measured census) | docs/roadmap/GRAPH_PLAN.md:625 |
+| Placed from Brief 60, 2026-10-10 (the measured census) | docs/roadmap/GRAPH_PLAN.md:640 |
 | Placed from Brief 60, 2026-10-10 (the measured census) | docs/roadmap/MINDMAP_PLAN.md:1822 |
 | Placed from Brief 60, 2026-10-10 (the measured census) | docs/roadmap/WHITEBOARD_PLAN.md:1548 |
 | Placed from INBOX, 2026-09-09 | docs/roadmap/CHAT_PLAN.md:595 |
@@ -17899,7 +17900,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from INBOX, 2026-10-03 (the chat stutter, INBOX 413) | docs/roadmap/CHAT_PLAN.md:689 |
 | Placed from INBOX, 2026-10-03 (the tray at its cap) | docs/roadmap/WORLD_CLASS_PLAN.md:2576 |
 | Placed from INBOX, 2026-10-04 (design work for the next Opus slots) | docs/roadmap/WORLD_CLASS_PLAN.md:3035 |
-| Placed from INBOX, 2026-10-04: parity with Obsidian's graph | docs/roadmap/GRAPH_PLAN.md:529 |
+| Placed from INBOX, 2026-10-04: parity with Obsidian's graph | docs/roadmap/GRAPH_PLAN.md:544 |
 | Placed from INBOX, 2026-10-05 | docs/roadmap/MINDMAP_PLAN.md:1487 |
 | Placed from INBOX, 2026-10-05 | docs/roadmap/WHITEBOARD_PLAN.md:843 |
 | Placed from INBOX, 2026-10-05 (OPEN.md triage) | docs/roadmap/AGENT_SKILLS_REFORM.md:339 |
@@ -17917,7 +17918,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from INBOX, 2026-10-10 (the coverage pass over 729 to 744) | docs/roadmap/CHAT_PLAN.md:1752 |
 | Placed from INBOX, 2026-10-10 (the owner on feature depth) | docs/roadmap/MINDMAP_PLAN.md:1826 |
 | Placed from INBOX, 2026-10-10 (the owner on feature depth) | docs/roadmap/WHITEBOARD_PLAN.md:1552 |
-| Placed from INBOX, 2026-10-10 (the owner on the graph, again) | docs/roadmap/GRAPH_PLAN.md:630 |
+| Placed from INBOX, 2026-10-10 (the owner on the graph, again) | docs/roadmap/GRAPH_PLAN.md:645 |
 | Placed from INBOX, 2026-10-10 (the owner's afternoon reports) | docs/roadmap/UI_MODERNISATION_PLAN.md:1533 |
 | Placed from INBOX, 2026-10-11 (Files, Recordings and Links; libraryup) | docs/roadmap/DOCUMENTS_PLAN.md:1580 |
 | Placed from INBOX, 2026-10-11 (Tidy, undoing a pattern, menu gaps) | docs/roadmap/UI_MODERNISATION_PLAN.md:1585 |
@@ -17927,7 +17928,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from INBOX, 2026-10-11 (fit a frame to its contents) | docs/roadmap/WHITEBOARD_PLAN.md:1614 |
 | Placed from INBOX, 2026-10-11 (one export panel for the whole app) | docs/roadmap/WHITEBOARD_PLAN.md:1573 |
 | Placed from INBOX, 2026-10-11 (the owner on buttons, OCR and the constellation) | docs/roadmap/UI_MODERNISATION_PLAN.md:1554 |
-| Placed from INBOX, 2026-10-11 (the owner on dragging the force graph) | docs/roadmap/GRAPH_PLAN.md:635 |
+| Placed from INBOX, 2026-10-11 (the owner on dragging the force graph) | docs/roadmap/GRAPH_PLAN.md:650 |
 | Placed from INBOX, 2026-10-11 (the owner's sweep request) | docs/roadmap/UI_MODERNISATION_PLAN.md:1548 |
 | Placed from INBOX, 2026-10-11 (the owner: Atlas as the app's assistant) | docs/roadmap/CHAT_PLAN.md:1765 |
 | Placed from INBOX, 2026-10-11 (the topic's tools) | docs/roadmap/MINDMAP_PLAN.md:1843 |
@@ -17937,13 +17938,13 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/BACKLOG.md:4161 |
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/CHAT_PLAN.md:841 |
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/DOCUMENTS_PLAN.md:1530 |
-| Placed from the owner's list, 2026-10-10 | docs/roadmap/GRAPH_PLAN.md:612 |
+| Placed from the owner's list, 2026-10-10 | docs/roadmap/GRAPH_PLAN.md:627 |
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/MINDMAP_PLAN.md:1772 |
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/TIMELINE_PLAN.md:198 |
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/UI_MODERNISATION_PLAN.md:1236 |
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/WHITEBOARD_PLAN.md:917 |
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/WORLD_CLASS_PLAN.md:3080 |
-| Placed from the owner, 2026-10-11: a tessellation view (next PR) | docs/roadmap/GRAPH_PLAN.md:641 |
+| Placed from the owner, 2026-10-11: a tessellation view (next PR) | docs/roadmap/GRAPH_PLAN.md:656 |
 | Placed from the settings agent, 2026-10-11 (a decision taken by standing order 3) | docs/roadmap/WORLD_CLASS_PLAN.md:4190 |
 | Policies (taken 2026-10-10) | docs/ROADMAP.md:49 |
 | Presentations from boards and maps, against deckcraft | docs/roadmap/ANALYSIS.md:4022 |
@@ -17995,7 +17996,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Steps | docs/roadmap/UI_MODERNISATION_PLAN.md:1091 |
 | Steps | docs/roadmap/WORLD_CLASS_PLAN.md:1534 |
 | Still open | docs/roadmap/WORLD_CLASS_PLAN.md:2267 |
-| Still open after KG1 to KG9 | docs/roadmap/GRAPH_PLAN.md:550 |
+| Still open after KG1 to KG9 | docs/roadmap/GRAPH_PLAN.md:565 |
 | Still open: the upload split, and what it collides with | docs/roadmap/BACKLOG.md:2779 |
 | Table | docs/roadmap/ANALYSIS.md:4430 |
 | Tables in notes and documents, against gridcraft | docs/roadmap/ANALYSIS.md:3891 |
@@ -18015,7 +18016,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | The harness does the work the model is worst at: decided 2026-09-21 | docs/roadmap/AGENT_SKILLS_REFORM.md:134 |
 | The instruction, verbatim | docs/roadmap/AGENT_SKILLS_REFORM.md:7 |
 | The instruction, verbatim | docs/roadmap/UI_MODERNISATION_PLAN.md:8 |
-| The knowledge graph, 2026-10-04 (INBOX 528) | docs/roadmap/GRAPH_PLAN.md:535 |
+| The knowledge graph, 2026-10-04 (INBOX 528) | docs/roadmap/GRAPH_PLAN.md:550 |
 | The moves that would outshine everything else, in order of leverage | docs/roadmap/WORLD_CLASS_PLAN.md:1025 |
 | The night's merges reviewed line by line, 2026-09-21 | docs/roadmap/ANALYSIS.md:2584 |
 | The one process change worth making | docs/roadmap/ANALYSIS.md:612 |
@@ -18046,7 +18047,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Vendor candidates, 2026-10-11 | docs/roadmap/ANALYSIS.md:4400 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/CHAT_PLAN.md:1745 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/DOCUMENTS_PLAN.md:1561 |
-| Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/GRAPH_PLAN.md:619 |
+| Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/GRAPH_PLAN.md:634 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/MINDMAP_PLAN.md:1816 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/TIMELINE_PLAN.md:248 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/UI_MODERNISATION_PLAN.md:1436 |

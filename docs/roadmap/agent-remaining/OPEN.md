@@ -651,8 +651,6 @@ Detail: [docs76-1010.md](../archive/agent-remaining/docs76-1010.md).
 
 - Not verified against a real model: whether it plans act-shaped steps `plan_writes` can preview and uses the narrowed tools a planned step is offered (`skill_runner._plan_step_offer`); rows 3 and 4 ran against the scripted fake only.
 - Not verified in the browser: Chat's own path for the plan card and per-write undo (`chat-attach.js` onTool); an edit's diff under a step (pytest only).
-- Stop is between steps, not mid-call: a step whose model call has already returned still writes when Stop lands during the call (the sync generator's thread cannot be interrupted).
-- After Undo the run, the per-write stack entries stay; a later Ctrl+Z re-runs an already applied inverse (harmless for pin, tag and edit). `agentUndoActions`.
 - The other tabs' starters (Notes, Chat, Graph, Library, Documents) are not in `ai/starter_acts.py`; with no model they get the composed answer (palette.js AGENT_TAB_STARTERS).
 - The reading does not take a note by its number ("pin note 12"): `commands._one_target`.
 - Dashboard quick links overflow by 4 px at 1440 and 390 (`#dash-quicklinks .launch-group`).
@@ -664,11 +662,8 @@ Detail: [docs76-1010.md](../archive/agent-remaining/docs76-1010.md).
 - Reminders at 390: the floating New (`#reminders-new`) can lie over the row under it (2 overlaps in one run, 0 in the final; 10-responsive.css:1762).
 - Timeline at 390: the On this day row moves the list down 44 px; a phone may want it folded (`#timeline-recall`).
 - deepen72b.js's timeline row at 390 waits for `.timeline-rows` but the phone keeps the table view, so it times out (deepen72b.js:61).
-- The reminder edit form cannot change an alert (shell-reminders.js `reminderEditForm`); an alert is set by words only.
-- A monthly repeat from the 31st lands on the 28th in February and stays there (recognise.py `_add_months`).
 - A `timeline-days` preference arriving after the click renders the timeline twice (once in nine runs at 5,000 notes).
 - timelinepaging.js: the strip-click check fails on the base too; its 100 ms frame check passed once and failed twice under load.
-- A load-more in flight when the range changes leaves the new range at 100 rows until a scroll (timeline.js `timelineLoadMore`).
 - Not verified: Firefox and Safari permission help, the webview's denied state, firing in a hidden tab (falls to the minute poll), a real non-UTC browser for the completion day maths, Move to an existing category, space or Publish drafts from the timeline bar.
 
 ## Left by the palette90 agent (Brief 90, merged 2026-10-10)

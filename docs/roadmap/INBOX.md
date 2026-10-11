@@ -288,6 +288,15 @@ with its owner named in the entry.
      one), one filter trigger, one view switch order (list, grid), and in a
      bar only the primary is filled; a lint counts each.
 
+814. **The owner, 2026-10-11, verbatim.** "also when I change stuff in the
+     tools for a mindmap node, I cant actually see what the difference is
+     until I click off it 😅" (screenshot: a topic's Shape popover, rows Core
+     idea, Box, Edge bar, Fill, Effect; selected options drawn three ways
+     (accent fill, a bordered box, a grey fill) and the resets in two
+     colours). Placed: the Sonnet mapfix agent: a change paints the topic
+     at once while it stays selected, the popover never covers the topic it
+     edits, and one selected look and one reset look in the popover.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 801 (Agent mode and the composer with no model) placed in CHAT_PLAN; 802 (drag the force graph like main) in GRAPH_PLAN; 803 (buttons, OCR, the constellation, the capture gutter) in UI_MODERNISATION_PLAN, each "Placed from INBOX, 2026-10-11".

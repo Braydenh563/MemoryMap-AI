@@ -1620,7 +1620,7 @@ $("reminders-import-ics-file").addEventListener("change", async (event) => {
     for (const id of result.added) await apiJson(path(id), { method });
     loadReminders();
   };
-  if (!result.added.length) return void toast(message, Boolean(result.skipped.length));
+  if (!result.added.length) return void toast(message, "info");
   offerUndo("Imported reminders", message, each((id) => `/reminders/${id}`, "DELETE"), each((id) => `/reminders/${id}/restore`, "POST"));
 });
 

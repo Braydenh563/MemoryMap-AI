@@ -647,7 +647,7 @@ async function timelineCalDrop(event) {
   const hour = target.dataset.calHour === undefined ? null : Number(target.dataset.calHour);
   if (row.kind === "reminder") return timelineCalMoveReminder(row, day, hour);
   if (timelineIsDailyNote(row) && row.kind === "note") return timelineCalMovePage(row, day);
-  toast("Only a reminder or a day page moves by dragging; a meeting's date is in its note.", true);
+  toast("Only a reminder or a day page moves by dragging; a meeting's date is in its note.", "info");
 }
 
 async function timelineCalMoveReminder(row, day, hour) {
@@ -656,7 +656,7 @@ async function timelineCalMoveReminder(row, day, hour) {
   after.setHours(hour === null ? row.when.getHours() : hour, row.when.getMinutes(), 0, 0);
   if (after.getTime() === row.when.getTime()) return;
   if (after < new Date()) {
-    toast("A reminder moves only to a time still ahead: drop it on today or later.", true);
+    toast("A reminder moves only to a time still ahead: drop it on today or later.", "info");
     return;
   }
   const put = (due, restore) => async () => {
@@ -681,7 +681,7 @@ async function timelineCalMovePage(row, day) {
   const from = timelineBucketKey(row.when, "day");
   if (from === day) return;
   if (timelineCalDays(timelineCal.rows).get(day)?.page) {
-    toast("That day already has a page; open it to write there.", true);
+    toast("That day already has a page; open it to write there.", "info");
     return;
   }
   const retitle = (fromKey, toKey) => async () => {

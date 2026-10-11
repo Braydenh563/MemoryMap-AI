@@ -393,6 +393,25 @@ def days_from_today(day, today) -> str:  # noqa: ANN001
     return f"in {gap} days" if gap > 0 else f"{-gap} days ago"
 
 
+_WEEK_CHOICES = {"monday": 0, "saturday": 5, "sunday": 6}
+
+
+def week_first_day(config: "ConfigManager") -> int:
+    """The person's first day of the week as Python's weekday (0 Monday).
+
+    Their choice in Settings wins; on "auto" it is the day the browser's
+    locale reports (`week_start_locale`), and Monday when it reported none.
+    """
+    choice = str(config.get_preference("week_start", "auto") or "auto")
+    if choice in _WEEK_CHOICES:
+        return _WEEK_CHOICES[choice]
+    try:
+        reported = int(config.get_preference("week_start_locale", 0))
+    except (TypeError, ValueError):
+        return 0
+    return reported if 0 <= reported <= 6 else 0
+
+
 def user_now(config: "ConfigManager") -> datetime:
     """Right now, on the user's own clock.
 

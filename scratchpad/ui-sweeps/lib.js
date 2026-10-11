@@ -58,6 +58,22 @@ async function boot(opts={}) {
       if (look) localStorage.setItem('themePreset', look);
     } catch (e) {}
   }, process.env.LOOK || '');
+  // LOOK= must not leak into the data dir (ledger 1541): the app mirrors the
+  // look to the server's preferences, so a later sweep on the same dir would
+  // inherit it. The preset stays in this context's localStorage (set above);
+  // the write that would carry it to the server loses the key.
+  if (process.env.LOOK) {
+    await ctx.route((url) => /\/preferences$/.test(url.pathname), async (route) => {
+      const req = route.request();
+      if (req.method() !== 'PUT') return route.continue();
+      try {
+        const body = JSON.parse(req.postData() || '{}');
+        const strip = (o) => { if (o && typeof o === 'object') { delete o.themePreset; for (const k of Object.keys(o)) strip(o[k]); } };
+        strip(body);
+        return route.continue({ postData: JSON.stringify(body) });
+      } catch (e) { return route.continue(); }
+    });
+  }
   // GLASS=off (or on) sets the glass preference over whatever the look says,
   // for a sweep that has to hold with the glass-off list applied.
   await ctx.addInitScript((glass) => {
@@ -97,7 +113,10 @@ async function boot(opts={}) {
   //: `clock`: the page's clock starts there and runs on (quickadd.js's phrase
   //: set is written for one "now").
   if (opts.clock) await page.clock.install({ time: new Date(opts.clock) });
-  await page.goto(BASE + '/', {waitUntil:'domcontentloaded', timeout:Number(process.env.BOOT_MS||30000)});
+  //: PW_TIMEOUT=120000 on a machine so loaded that a page takes over 30 s to
+  //: answer (load average 40+): every wait in the sweep gets the longer limit.
+  if (process.env.PW_TIMEOUT) page.setDefaultTimeout(Number(process.env.PW_TIMEOUT));
+  await page.goto(BASE + '/', {waitUntil:'domcontentloaded', timeout: Number(process.env.PW_TIMEOUT) || 30000});
   //: **Two ways in** (OPEN.md, 0.3.3): a notebook with "Ask for a password
   //: when the app opens" turned off never shows `#lock-password` on this
   //: computer, and waiting for it timed out every sweep on such a data dir.

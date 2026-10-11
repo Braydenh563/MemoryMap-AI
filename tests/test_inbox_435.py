@@ -49,6 +49,13 @@ def test_models_says_cannot_reach_only_when_the_server_is_down():
     poll = poll[: poll.index("\n}\n")]
     assert 'modelStatusProblem = up ? "error" : "down";' in poll
     assert '"TimeoutError"' in poll
+    # A slow answer keeps the last good status and flags itself (ledger 1520);
+    # only a fault or an unreachable server drops it.
+    slow = poll[poll.index('modelStatusProblem = "slow"'):]
+    assert "modelStatus = null" not in poll[: poll.index('modelStatusProblem = "slow"')]
+    assert slow.index("modelStatus = null") > slow.index("else {")
+    assert 'if (modelStatusProblem === "slow") {' in render
+    assert "Showing the last answer." in render
 
 
 def test_an_unfiled_note_offers_one_tap_categories():

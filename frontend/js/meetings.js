@@ -1890,6 +1890,7 @@ function recordingMenu(rec) {
     const name = (rec.title || "recording").replace(/[^A-Za-z0-9._ -]/g, "_");
     //: Row 11: offered only with a model on; with none, no label is shown.
     if (!aiIsOff()) items.push(makeMenuItem("ph:users-three Name the speakers", "Let the local AI name who speaks each turn, from what is said", () => nameRecordingSpeakers(rec)));
+    items.push(makeMenuItem("ph:user-switch Rename a speaker", "Change a speaker's name everywhere in this transcript", () => renameRecordingSpeaker(rec)));
     items.push(
       makeMenuItem("ph:closed-captioning Subtitles (SRT)", "Download the transcript with its times as an SRT file", () => downloadFromApi(`/recordings/${rec.id}/transcript.srt`, `${name}.srt`)),
       makeMenuItem("ph:closed-captioning Subtitles (VTT)", "Download the transcript with its times as a WebVTT file", () => downloadFromApi(`/recordings/${rec.id}/transcript.vtt`, `${name}.vtt`))
@@ -1897,6 +1898,33 @@ function recordingMenu(rec) {
   }
   items.push(makeMenuItem("ph:trash Delete", "Put it in the bin", () => binRecording(rec)));
   return items;
+}
+
+//: Ledger 1514: speaker names are the person's to correct. Which speaker
+//: first (only asked when there are several), then the new name; blank drops
+//: the label. Undo puts the old name back.
+async function renameRecordingSpeaker(rec) {
+  try {
+    const body = await apiJson(`/recordings/${rec.id}/transcript`);
+    const names = [...new Set(body.segments.map((seg) => seg.speaker).filter(Boolean))];
+    if (!names.length) {
+      toast("This transcript has no speaker names yet. Name the speakers first.", "info");
+      return;
+    }
+    let from = names[0];
+    if (names.length > 1) {
+      const picked = await promptDialog(`Which speaker? ${names.join(", ")}`, names[0], { confirmLabel: "Next" });
+      if (picked === null || picked === undefined || !names.includes(picked.trim())) return;
+      from = picked.trim();
+    }
+    const to = await promptDialog(`New name for ${from}`, from, { confirmLabel: "Rename" });
+    if (to === null || to === undefined || to.trim() === from) return;
+    const put = (a, b) => apiJson(`/recordings/${rec.id}/speakers`, { method: "PUT", body: JSON.stringify({ from_name: a, to_name: b }) }).then(renderRecordings);
+    await put(from, to.trim());
+    pushUndo("Renamed a speaker", () => put(to.trim() || from, from), () => put(from, to.trim()));
+  } catch (error) {
+    toast(error.message || "Couldn't rename that speaker.", true);
+  }
 }
 
 async function nameRecordingSpeakers(rec) {

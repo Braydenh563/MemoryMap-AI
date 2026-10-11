@@ -68,7 +68,7 @@ jobs:
           pip install -e .
 
       - name: Run the test suite
-        run: python -m pytest -n auto
+        run: python -m pytest -n auto --durations=15
 
   pdf:
     # Fourteen tests need the PDF rasteriser (pypdfium2 plus Pillow), which is

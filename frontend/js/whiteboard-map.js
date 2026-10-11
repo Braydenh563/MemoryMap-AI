@@ -9528,6 +9528,33 @@ function wbMapMarkerSeg(label, options, current, choose) {
   return wrap;
 }
 
+//: A marker that is only on or off is one pressed-state button, not two
+//: previews (ledger 1546): it shows the mark it puts on the topic, and a press
+//: flips it. Same row, label and button class as `wbMapMarkerSeg`'s picks.
+function wbMapMarkerToggle(label, on, choose) {
+  const wrap = document.createElement("div");
+  wrap.className = "wb-map-markers-row";
+  const name = document.createElement("span");
+  name.className = "wb-map-markers-label";
+  name.textContent = label;
+  const row = document.createElement("div");
+  row.className = "wb-map-picks";
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", label);
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "ghost small icon-only wb-map-pick";
+  b.append(wbMapMarkerGlyph(label, true));
+  b.setAttribute("aria-label", `${label} ${on ? "on" : "off"}`);
+  b.title = on ? `${label} on, press to clear` : `Mark with a ${label.toLowerCase()}`;
+  b.classList.toggle("active", on);
+  b.setAttribute("aria-pressed", String(on));
+  b.addEventListener("click", () => choose(!on));
+  row.appendChild(b);
+  wrap.append(name, row);
+  return wrap;
+}
+
 //: The mark a choice puts on the topic, drawn by the one painter
 //: (`wbMapPaintMarkers`, decision 34) into a scratch row, so the button shows
 //: exactly what pressing it does and no second copy of the marks exists.
@@ -9615,7 +9642,7 @@ function wbMapOpenMarkers(id, anchor = null) {
         parts.priority, (value) => set({ priority: value })),
       wbMapMarkerSeg("Progress", [[null, "None"], [0, "0%"], [25, "25%"], [50, "50%"], [75, "75%"], [100, "Done"]],
         parts.progress, (value) => set({ progress: value })),
-      wbMapMarkerSeg("Flag", [[false, "Off"], [true, "On"]], parts.flag, (value) => set({ flag: value || null })),
+      wbMapMarkerToggle("Flag", Boolean(parts.flag), (value) => set({ flag: value || null })),
       wbMapDueRow(live, parts, set),
       iconRow,
       hint,

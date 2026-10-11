@@ -2615,6 +2615,14 @@ class DatabaseManager:
         ("ix_whiteboard_sketches_board", "whiteboard_sketches (board_id)"),
         ("ix_reminders_entry", "reminders (entry_id)"),
         ("ix_entry_bookmarks_entry", "entry_bookmarks (entry_id)"),
+        # The last five foreign keys with no index leading on them (the
+        # Brief 60 census, WORLD_CLASS_PLAN 26.4): deleting an entry, an
+        # entity, a document or a bookmark scanned these join tables.
+        ("ix_entry_bookmarks_bookmark", "entry_bookmarks (bookmark_id)"),
+        ("ix_document_bookmarks_document", "document_bookmarks (document_id)"),
+        ("ix_document_bookmarks_bookmark", "document_bookmarks (bookmark_id)"),
+        ("ix_entity_mentions_entry", "entity_mentions (entry_id)"),
+        ("ix_entity_mentions_entity", "entity_mentions (entity_id)"),
         # **The all-spaces orders** (WORLD_CLASS_PLAN 19.3, the whole
         # `EXPLAIN QUERY PLAN` pass, 2026-10-05: scratchpad/
         # plat1005_query_plans.py over every GET route at 5,000 notes). Every

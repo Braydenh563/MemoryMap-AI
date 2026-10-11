@@ -319,6 +319,14 @@ class PreferencesBody(BaseModel):
     #: The register the composer writes its connecting words in when no model
     #: answers (`ai/composer_tables.py`): plain and friendly, or formal.
     composer_voice: Literal["natural", "professional"] | None = None
+    #: The first day of the week for the Statistics page: the person's pick,
+    #: or "auto" to follow the locale the browser reports (`week_start_locale`,
+    #: a Python weekday, 0 Monday to 6 Sunday).
+    week_start: Literal["auto", "monday", "saturday", "sunday"] | None = None
+    week_start_locale: int | None = Field(default=None, ge=0, le=6)
+    #: Minutes of no use after which the search-by-meaning model is dropped from
+    #: memory (decision 62; it loads again on the next search or save). 0 keeps it.
+    embedder_idle_unload_minutes: int | None = Field(default=None, ge=0, le=1440)
     #: **The writing checker's own two settings.** Both belong on the server
     #: rather than in `localStorage`, and the reason is the same for each: a
     #: dictionary you have to rebuild when you clear your browser data is a
@@ -757,6 +765,9 @@ def _preferences_from(config) -> dict:
         "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
         "composer_voice": config.get_preference("composer_voice", "natural"),
+        "week_start": config.get_preference("week_start", "auto"),
+        "week_start_locale": config.get_preference("week_start_locale", 0),
+        "embedder_idle_unload_minutes": config.get_preference("embedder_idle_unload_minutes", 60),
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),
@@ -1115,7 +1126,7 @@ SETTINGS_FILE_VERSION = 1
 #: not a choice a person would carry to another one: the detected time zone, a
 #: folder path on this disk, and the one-time "seen it" flags.
 _NOT_EXPORTED = frozenset(
-    {"timezone", "export_save_dir", "console_view_intro_seen", "tray_hide_explained"}
+    {"timezone", "week_start_locale", "export_save_dir", "console_view_intro_seen", "tray_hide_explained"}
 )
 
 
@@ -2323,6 +2334,7 @@ DIAGNOSTIC_PREFERENCES = frozenset(
         "recycle_bin_days",
         "conversation_retention_days",
         "timezone",
+        "week_start",
         "web_search_enabled",
         "searxng_autostart",
         "search_provider",

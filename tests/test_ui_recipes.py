@@ -5707,3 +5707,13 @@ def test_the_local_chip_shows_the_privacy_verdict_and_opens_the_record() -> None
     assert '"privacy-chip"' in rows
     responsive = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
     assert "#top-bar #privacy-chip" in responsive
+
+
+def test_the_flag_marker_is_one_toggle_not_two_previews():
+    """Ledger 1546 (seg665 item 5): an on/off marker is a single pressed-state button."""
+    wm = frontend_text("whiteboard-map.js")
+    assert 'wbMapMarkerToggle("Flag"' in wm
+    assert 'wbMapMarkerSeg("Flag"' not in wm
+    toggle = wm[wm.index("function wbMapMarkerToggle("):]
+    toggle = toggle[: toggle.index("\n}\n")]
+    assert "aria-pressed" in toggle and "choose(!on)" in toggle

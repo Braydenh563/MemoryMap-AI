@@ -1739,9 +1739,14 @@ async function refreshModelStatus() {
     statusEverAnswered = true;
     modelStatusProblem = null;
   } catch (err) {
-    modelStatus = null; // locked or unreachable: pill shows the worst case
+    //: **A slow answer keeps the last good status** (OPEN ledger 1520): the
+    //: Agent panel and the pill used to grey on every timeout and flicker
+    //: back on the next poll. Only "slow" is flagged (`modelStatusProblem`),
+    //: and Settings still says so. A fault or an unreachable server drops the
+    //: status as before, so the pill shows the worst case.
     if (err?.name === "TimeoutError" || err?.name === "AbortError") modelStatusProblem = "slow";
     else {
+      modelStatus = null; // locked or unreachable: pill shows the worst case
       const up = await fetch("/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false);
       modelStatusProblem = up ? "error" : "down";
     }
@@ -1822,8 +1827,15 @@ const AI_OFFLINE_HINT = "Connect a model in Settings";
 
 //: Unknown status (locked, still loading) is available: better to let a click
 //: fail than to grey out a working button on a slow start.
+//:
+//: **Off means no model can answer, not only no server** (ledger 1521;
+//: INBOX 778: a reachable server with no chat model installed answers
+//: nothing). `model_ready` is the server's own verdict; the Needle engine
+//: (`tools_engine`) answers without one, so it keeps the gate open.
 function aiIsOff() {
-  return modelStatus ? modelStatus.ollama_running === false : false;
+  if (!modelStatus) return false;
+  if (modelStatus.ollama_running === false) return true;
+  return modelStatus.model_ready === false && !modelStatus.tools_engine;
 }
 
 //: **Why this restores rather than enables.** The status poll runs this every
@@ -2718,6 +2730,12 @@ function renderSettings() {
     ? `${backend} is running`
     : status.unreachable_hint || `${backend} isn't running`;
   ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
+  //: A slow poll keeps the last answer on screen (see refreshModelStatus), so
+  //: the line says so instead of presenting a stale answer as fresh.
+  if (modelStatusProblem === "slow") {
+    ollamaLine.textContent = "The model server is slow to answer. Showing the last answer.";
+    ollamaLine.className = "status is-checking";
+  }
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);
@@ -2779,10 +2797,13 @@ function renderSettings() {
   // built-in one, which needs no Ollama. Only the Ollama half of it depends
   // on Ollama being up.
   renderEmbeddingPicker(status);
+  //: Always, not only while a backend answers: the rows come from saved
+  //: settings, and a person with the server down still needs to see and clear
+  //: an override (WORLD_CLASS_PLAN 20, "Still open").
+  renderFeatureModels(status);
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
-    renderFeatureModels(status);
     renderVisionModelPicker(status);
   renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);

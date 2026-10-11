@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
+from memorymap.core import background
 from memorymap.core.database import Attachment, Category, ChunkVector, EmbeddingRecord, Entry
 from memorymap.core.logbuffer import safe_value
 
@@ -217,7 +218,7 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
     # process, it runs once at startup, and putting it on the shared queue
     # would make the first search of a session wait behind whatever OCR a
     # bulk import had already queued. One is not a concurrency problem.
-    threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
+    background.start("embedding-warmup", run)
 
 
 # How many gaps to close per startup. Bounded so a huge notebook doesn't spend
@@ -344,9 +345,11 @@ def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa
         )
         if chunked:
             run.result += f"; {chunked} long note{'' if chunked == 1 else 's'} got paragraph vectors"
-    except Exception as exc:  # noqa: BLE001  # a failed backfill must not stop startup
+    except Exception:  # noqa: BLE001  # a failed backfill must not stop startup
         session.rollback()
-        run.fail(exc)
+        #: A sentence, not `str(exc)` (ledger 1547); the traceback goes to the log.
+        logger.warning("embedding backfill failed", exc_info=True)
+        run.fail("Couldn't finish adding the missing search vectors. The log has the reason.")
     finally:
         session.close()
     return fixed
@@ -655,7 +658,13 @@ class EmbeddingService:
     def __init__(self, model_manager: ModelManager, ollama_client: OllamaClient) -> None:
         self._models = model_manager
         self._ollama = ollama_client
-        self._st_model = None  # loaded lazily, exactly once
+        self._st_model = None  # loaded lazily; dropped after an idle hour (`unload_if_idle`)
+        #: When the model last encoded something, and whether it ever loaded:
+        #: an unloaded model is still "ready" (a reload from the disk cache,
+        #: seconds, not a first-time download), so the status pill and the
+        #: keyword-only notice do not flip on an idle hour.
+        self._last_used = 0.0
+        self._was_loaded = False
         self._load_failed_at: float | None = None
         # Why the last embed failed, for the Models screen, None = fine.
         self.last_error: str | None = None
@@ -739,7 +748,54 @@ class EmbeddingService:
         Drives the UI's status pill."""
         if self._models.embedding_backend() == "ollama":
             return self._ollama.is_running()
-        return self._st_model is not None
+        return self._st_model is not None or self._was_loaded
+
+    #: Idle time after which the model is dropped, in seconds (decision 62; the
+    #: `embedder_idle_unload_minutes` preference, 0 turns it off). Torch holds
+    #: about 430 MB resident once loaded (WORLD_CLASS_PLAN 19.1).
+    IDLE_UNLOAD_SECONDS = 3600
+    _idle_watch_started = False
+
+    def unload_if_idle(self, now: float | None = None) -> bool:
+        """Drop the sentence-transformers model when nothing has used it for the
+        idle window. True when it was dropped. The next embed loads it again."""
+        if self._st_model is None:
+            return False
+        try:
+            minutes = float(self._models._config.get_preference("embedder_idle_unload_minutes", 60))
+        except (TypeError, ValueError, AttributeError):
+            minutes = 60.0
+        if minutes <= 0:
+            return False
+        moment = time.monotonic() if now is None else now
+        if moment - self._last_used < minutes * 60:
+            return False
+        self._st_model = None
+        import gc
+
+        gc.collect()
+        logger.info("embedding model unloaded after %.0f minutes idle", minutes)
+        return True
+
+    def _watch_idle(self) -> None:
+        """One registered thread per loaded model: checks every five minutes and
+        ends when it has unloaded (the next load starts a new one)."""
+        from memorymap.core import background
+
+        if self._idle_watch_started:
+            return
+        self._idle_watch_started = True
+        stop = threading.Event()
+
+        def run() -> None:
+            try:
+                while not stop.wait(300):
+                    if self.unload_if_idle() or self._st_model is None:
+                        return
+            finally:
+                self._idle_watch_started = False
+
+        background.start("embedder-idle-watch", run, stop=stop.set)
 
     def embed_text(self, text: str) -> np.ndarray | None:
         """Vector for one text, or None if the backend is unavailable.
@@ -852,6 +908,7 @@ class EmbeddingService:
                 # Heavy import (pulls in torch): deferred so the app
                 # starts fast and still runs if the package is missing.
                 self._st_model = self._load_st_model()
+                self._was_loaded = True
                 self._load_failed_at = None
             import numpy as np
 
@@ -862,6 +919,8 @@ class EmbeddingService:
                 self._st_model.encode(self._prefixed(text), show_progress_bar=False), dtype="float32"
             )
             self.last_error = None
+            self._last_used = time.monotonic()
+            self._watch_idle()
             return result
         except Exception as exc:
             # No semantic features right now; the rest of the app must

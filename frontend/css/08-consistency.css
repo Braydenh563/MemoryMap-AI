@@ -10242,6 +10242,15 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   min-height: var(--target-min);
   padding-inline-end: calc(var(--target-min) * 5);
 }
+/* An opened row with no title starts with its text, and that first line is
+   shorter than the chevron's (14.7px text, 22.8px line against the 28px
+   chevron: centres 19.4 and 22, 2.6px apart, ledger 1548). Give the text's
+   first line the same height a title line has, `--target-min`, so both
+   centres are the anchor. `::first-line` takes `line-height` and follows the
+   user's text size; no number per font size. */
+#entry-list.is-rows > li.row-expanded:not(:has(> .entry-title)) > .entry-content::first-line {
+  line-height: var(--target-min);
+}
 /* A collapsed row's preview is one line in its own grid column, nowhere near
    the strip, so the float that keeps an opened card's first line out from
    under it (`.entry-content::before`, above) would only cut 104px off the
@@ -10516,3 +10525,23 @@ html[data-other-device] [data-this-computer="hide"] {
   margin: var(--space-1) var(--space-1) var(--space-2);
 }
 
+
+/* **Counts and totals hold still** (WORLD_CLASS_PLAN 7, "Numbers: tabular
+   figures"). A number that changes while you watch (a count beside a title, a
+   find tally, a total) must not shift its neighbours as digits change width.
+   One rule for the whole naming family instead of one declaration in each of
+   forty classes; `:where` keeps its specificity at zero so a rule that sets
+   its own figures still wins. */
+:where([class$="-count"], [class*="-count "], [class$="-total"], [class*="-total "]) {
+  font-variant-numeric: tabular-nums;
+}
+
+/* **A note that arrives after the list is drawn fades in** (ledger 1538).
+   `row-enter` is set by `entryItem` on a card whose id was not on screen at the
+   previous render; the duration is `--ui-slow`, which is 0s under reduced motion. */
+@keyframes row-enter {
+  from { opacity: 0; }
+}
+#entry-list li.row-enter {
+  animation: row-enter var(--ui-slow) ease-out;
+}

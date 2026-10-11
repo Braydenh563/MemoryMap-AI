@@ -984,7 +984,9 @@ def _reindex_pass(
         logging.getLogger("memorymap.search").warning("re-index failed", exc_info=True)
         job.status = "error"
         job.error = str(exc)
-        run.fail(exc)
+        #: A sentence on the last-run line, not the exception: its text can carry
+        #: a path or a library's wording (ledger 1547). The log has the traceback.
+        run.fail("The re-index stopped before it finished. The log has the reason.")
         # The ending that mattered most and was hardest to see: a re-index that
         # dies halfway used to leave exactly the same empty screen as one that
         # finished, with the reason only in the log console.

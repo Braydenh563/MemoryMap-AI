@@ -284,6 +284,12 @@ plugin surface beyond the MCP server (B8). Of the six standouts, 2 and 4 are
 built, 1 and 3 are half built (I6, B4), and 5 (a privacy receipt page) and 6
 (the offline studio) are not built: no code names either.
 
+**State 2026-10-11 (by grep):** built since: typed properties (`entry/properties.py`),
+the web clipper (`clip.html`), importers for notion, obsidian, evernote and
+apple (`routes_import.py`), and the privacy receipt (5) as Settings, "Where
+your data went" (`core/egress.py`). Still gaps: sync (B6), PDF annotation
+(D10), recall cards (A1), the offline studio (6), a plugin surface (B8).
+
 ---
 
 ## 3. Frontend dossiers (one per surface, each a hand-off brief)
@@ -2314,9 +2320,9 @@ mobile first, as the owner's web design class teaches. Measured with
    it, and the strip centred (INBOX 430). S, Sonnet.
 4. **Leaving with unsaved work.** Built 2026-09-27 for the note edit form,
    the Capture box and a document mid-autosave, the three surfaces with a
-   plain dirty flag (HISTORY.md, "Moved from the plans, 2026-09-27"). Left:
-   a board mid-drag and a chat mid-stream, which have no such flag yet. S,
-   Sonnet.
+   plain dirty flag (HISTORY.md, "Moved from the plans, 2026-09-27"), and a
+   chat mid-stream (2026-10-11, `chatMidStream`). Left: a board mid-drag, which
+   has no such flag yet. S, Sonnet.
 5. **Two windows, one note.** Built 2026-09-27 for the note edit form and
    the document editor (HISTORY.md, "Moved from the plans, 2026-09-27").
    Left: the other note writers (a card's checkbox, the graph's tag edit,

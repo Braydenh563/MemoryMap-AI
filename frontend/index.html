@@ -9548,7 +9548,13 @@ Link to another note with [[its first few words]]."></textarea>
                   Settings, Packages.
                 </p>
               </div>
+            </div>
 
+            <!-- **Outside #models-config** (WORLD_CLASS_PLAN 20, "Still open"):
+                 with no model server answering, #models-config is hidden whole,
+                 and an override set earlier could be neither seen nor cleared.
+                 The list and its reset need only the saved settings. -->
+            <div id="feature-models-config" class="settings-group">
               <!-- **A model per feature**, asked for directly: "allow the user
                    to alter the model they use for that specific feature if they
                    wish such as for the write with ai area, the chat tab and
@@ -11750,6 +11756,16 @@ Link to another note with [[its first few words]]."></textarea>
                 <label for="pref-bin-days" class="muted">Auto-clear binned notes, documents, reminders and OCR readings after</label>
                 <input id="pref-bin-days" type="number" min="1" max="365">
                 <span class="muted">days</span>
+              </div>
+              <h3>Calendar</h3>
+              <div class="row">
+                <label for="pref-week-start" class="muted">First day of the week</label>
+                <select id="pref-week-start" title="Where the Statistics week starts">
+                  <option value="auto">From my language and region (default)</option>
+                  <option value="monday">Monday</option>
+                  <option value="saturday">Saturday</option>
+                  <option value="sunday">Sunday</option>
+                </select>
               </div>
               <h3>Chat history</h3>
               <div class="row">

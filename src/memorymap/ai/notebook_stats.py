@@ -42,7 +42,7 @@ from datetime import date, datetime, time, timedelta
 from sqlalchemy import and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Category, Document, Entry, EntryLink, Reminder, utcnow
+from memorymap.core.database import Category, Document, Entry, EntryLink, EntryRevision, Reminder, utcnow
 
 #: How many rows a "top N" answer lists. Ten is a glance; fifty is a report
 #: nobody reads in a chat bubble, and the follow-up question ("show me all of
@@ -737,10 +737,49 @@ def _reminder_block(session: Session, now: datetime) -> dict:
     return {"made": made, "done": int(done), "late": int(late), "open": made - int(done)}
 
 
-def week_start(now: datetime) -> datetime:
-    """Monday 00:00 of `now`'s week, on `now`'s own clock."""
-    day = now.date() - timedelta(days=now.weekday())
+def week_start(now: datetime, first_day: int = 0) -> datetime:
+    """00:00 of the first day of `now`'s week, on `now`'s own clock.
+    `first_day` is Python's weekday number: 0 Monday, 5 Saturday, 6 Sunday."""
+    day = now.date() - timedelta(days=(now.weekday() - first_day) % 7)
     return datetime.combine(day, time(0), now.tzinfo)
+
+
+def _words_added_by_edits(session: Session, a: datetime, b: datetime) -> int:
+    """Words added to notes made before `a` by edits made in `[a, b)` (ledger 1525).
+
+    No per-edit delta is stored, but `EntryRevision` keeps each text an edit
+    replaced, so an edit's gain is the words of what came after it (the next
+    revision, or the note as it stands) less the words of what it replaced.
+    Only gains count: a trim is not "words written". A revision the app folded
+    into a recent one (rapid saves) is one edit here, so this is a floor.
+    """
+    ids = [
+        row[0]
+        for row in session.execute(
+            _visible(select(Entry.id))
+            .join(EntryRevision, EntryRevision.entry_id == Entry.id)
+            .where(Entry.created_at < a, EntryRevision.created_at >= a, EntryRevision.created_at < b)
+            .distinct()
+        )
+    ]
+    if not ids:
+        return 0
+    current = dict(session.execute(select(Entry.id, Entry.content).where(Entry.id.in_(ids))).all())
+    chain: dict[int, list[tuple[datetime, str]]] = {}
+    for entry_id, made, content in session.execute(
+        select(EntryRevision.entry_id, EntryRevision.created_at, EntryRevision.content)
+        .where(EntryRevision.entry_id.in_(ids))
+        .order_by(EntryRevision.entry_id, EntryRevision.id)
+    ):
+        chain.setdefault(entry_id, []).append((made, content))
+    added = 0
+    for entry_id, revisions in chain.items():
+        for index, (made, before) in enumerate(revisions):
+            if not (a <= made < b):
+                continue
+            after = revisions[index + 1][1] if index + 1 < len(revisions) else current.get(entry_id)
+            added += max(0, _words(after) - _words(before))
+    return added
 
 
 def _week_counts(session: Session, start: datetime, end: datetime) -> dict:
@@ -756,16 +795,17 @@ def _week_counts(session: Session, start: datetime, end: datetime) -> dict:
         "end": (end - timedelta(seconds=1)).date().isoformat(),
         "notes": len(texts),
         "words": sum(_words(text) for text in texts),
+        "edited_words": _words_added_by_edits(session, a, b),
         "reminders_done": done,
     }
 
 
-def week_review(session: Session, now: datetime) -> dict:
+def week_review(session: Session, now: datetime, first_day: int = 0) -> dict:
     """This week so far against the whole of last week (Screen Time's shape):
     notes made, words written in them, reminders ticked off. "Done" is when
     the tick was made (`Reminder.done_at`); one ticked before that column
     existed has no week, so it is in neither."""
-    this = week_start(now)
+    this = week_start(now, first_day)
     last = this - timedelta(days=7)
     return {
         "this": _week_counts(session, this, now + timedelta(seconds=1)),
@@ -773,14 +813,14 @@ def week_review(session: Session, now: datetime) -> dict:
     }
 
 
-def page(session: Session, now: datetime, usage_summary: dict) -> dict:
+def page(session: Session, now: datetime, usage_summary: dict, first_day: int = 0) -> dict:
     """Everything the Statistics page draws, in one answer."""
     features = list(usage_summary.get("features") or [])[:USAGE_ROWS]
     return {
         "as_of": now.isoformat(),
         "notebook": _notebook_block(session, now),
         "reminders": _reminder_block(session, now),
-        "week": week_review(session, now),
+        "week": week_review(session, now, first_day),
         "usage": {
             "features": features,
             "unused_days": usage_summary.get("unused_days"),

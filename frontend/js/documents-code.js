@@ -1400,8 +1400,9 @@ function docLoadEmmet() {
 //: **js-beautify, for Format on a whole JavaScript, CSS or HTML document**
 //: (Brief 42, kept in the vendoring table at a third of prettier's size).
 //: Loaded the first time Format runs on one of the three, never at boot, as
-//: Emmet is; a selection, every other type, and a failed load keep the
-//: conservative re-indent below, which never moves a token.
+//: Emmet is; every other type, and a failed load, keep the conservative
+//: re-indent below, which never moves a token. A selection of whole lines
+//: goes through the library at its first line's indent level (ledger 1565).
 const DOC_BEAUTIFY_BUNDLE = "/vendor/js-beautify/beautify.min.js";
 const DOC_BEAUTIFY_TYPES = new Set(["js", "css", "html"]);
 const docBeautify = { load: null };
@@ -1425,14 +1426,15 @@ function docLoadBeautify() {
 
 //: The file type's own indent unit, blank lines kept (at most one in a
 //: row), and one line break at the end, as the conservative path does.
-function docBeautifyText(text, ext, unit) {
+function docBeautifyText(text, ext, unit, { level = 0, endWithNewline = true } = {}) {
   if (!text.trim()) return { text, changed: false };
   const tabs = unit === "\t";
   const base = {
     indent_size: tabs ? 1 : unit.length,
     indent_char: tabs ? "\t" : " ",
     indent_with_tabs: tabs,
-    end_with_newline: true,
+    end_with_newline: endWithNewline,
+    indent_level: level,
     preserve_newlines: true,
     max_preserve_newlines: 2,
   };
@@ -5647,7 +5649,7 @@ async function docFormatCode(scope = "auto") {
     toast(refusal, "info");
     return false;
   }
-  const beautify = !selection && DOC_BEAUTIFY_TYPES.has(type.ext) && (await docLoadBeautify());
+  const beautify = DOC_BEAUTIFY_TYPES.has(type.ext) && (await docLoadBeautify());
   //: The server check is a round trip, and so is the formatter's first
   //: load; typing during either would make the result a format of text
   //: that is no longer there.
@@ -5670,6 +5672,15 @@ async function docFormatCode(scope = "auto") {
     result = docFormatJsonText(piece, unit, /^[ \t]*/.exec(first.text)[0], false);
     if (result.error) result.error = result.error.replace("Not formatted:", "Not formatted, the selection is not a whole JSON value:");
     if (!result.error) changes = docFormatChanges(piece, result.text, sel.from);
+  } else if (selection && beautify) {
+    //: A selection of whole lines goes through js-beautify too (ledger 1565),
+    //: at the indent level of the line it starts on and with no newline added
+    //: at its end, so it drops back into the document where it came from.
+    const piece = state.sliceDoc(first.from, last.to);
+    const lead = /^[ \t]*/.exec(first.text)[0];
+    const level = unit === "\t" ? lead.split("\t").length - 1 : Math.floor(lead.length / unit.length);
+    result = docBeautifyText(piece, type.ext, unit, { level, endWithNewline: false });
+    if (!result.error) changes = docFormatChanges(piece, result.text, first.from);
   } else {
     if (type.ext === "json") result = docFormatJsonText(text, unit);
     else if (beautify) result = docBeautifyText(text, type.ext, unit);

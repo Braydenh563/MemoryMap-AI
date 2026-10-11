@@ -22,7 +22,11 @@ from fastapi import HTTPException, Request
 #: one is asking for somebody somewhere else (routes_auth reads the same).
 _FORWARDING = ("forwarded", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-real-ip")
 
-REFUSAL = "Only this computer can do that. Do it on the computer MemoryMap runs on."
+#: The owner, 2026-10-11: "Shouldn't the notice be ... action denied on
+#: this device??" It names the device, not the computer, because the phone
+#: is where it is read; downloads are not refused (an export saves on the
+#: device that asked), so the wording does not mention them.
+REFUSAL = "Not available on this device. Do it on the computer MemoryMap runs on."
 
 
 def is_another_device(request: Request) -> bool:

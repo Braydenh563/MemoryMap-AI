@@ -915,11 +915,13 @@ def _mm_line(exc):
     return line
 
 
-def _mm_tests(code, emit, emit_test, offset=0):
+def _mm_tests(code, emit, emit_test, offset=0, stopped=None):
     """Tests are a kind of run (D7): every `unittest.TestCase` in the
     document, and every plain `test*` function (pytest's shape, bare
     `assert`, without pytest), in the order they are written. Each sends
-    `emit_test(name, state, ms, text, line)`; the totals come back."""
+    `emit_test(name, state, ms, text, line)`; the totals come back.
+    Under Debug, `stopped()` says Stop was pressed: the test it stopped in
+    is not reported and the rest do not run."""
     import time
     import unittest
 
@@ -991,12 +993,16 @@ def _mm_tests(code, emit, emit_test, offset=0):
                 state, text, where = "pass", "", None
                 try:
                     test()
+                except bdb.BdbQuit:
+                    break
                 except BaseException as exc:  # a plain test fails on anything it raises
                     state, where = "fail", _mm_line(exc)
                     text = "".join(traceback.format_exception_only(type(exc), exc)).strip()
                     if isinstance(exc, AssertionError) and not str(exc):
                         text = "AssertionError: the assert on this line was false."
             out.flush(); err.flush()
+            if stopped and stopped():
+                break
             ms = round((time.perf_counter() - start) * 1000)
             counts[{"pass": "passed", "fail": "failed", "skip": "skipped"}[state]] += 1
             emit_test(name, state, ms, text, where or line or None)
@@ -1136,11 +1142,18 @@ class _MMDebugger(bdb.Bdb):
             return
 
 
-def _mm_debug(code, emit, exchange, offset=0, stdin="", breaks="[]", watches="[]"):
+#: The totals of the last file of tests run under Debug, for the worker's
+#: `tests-done` row.
+_MM_DEBUG_TESTS = [None]
+
+
+def _mm_debug(code, emit, exchange, offset=0, stdin="", breaks="[]", watches="[]", emit_test=None):
     """Run the document under `_MMDebugger`. An exception nothing caught
     stops at the line that raised it, in the frame that raised it, with the
     traceback's text, before the run ends (the frame's locals are kept by
-    the traceback). Returns how the run ended: done, stopped or error."""
+    the traceback). Returns how the run ended: done, stopped or error.
+    With `emit_test`, a file of tests runs through `_mm_tests` under the
+    debugger, so a breakpoint in a test stops there (OPEN row 563)."""
     import io
     import json
     import linecache
@@ -1162,10 +1175,14 @@ def _mm_debug(code, emit, exchange, offset=0, stdin="", breaks="[]", watches="[]
         return value.get("line") if isinstance(value, dict) else None
 
     _MM_ASK[0] = ask
+    _MM_DEBUG_TESTS[0] = None
     debugger = _MMDebugger(exchange, json.loads(breaks or "[]"), json.loads(watches or "[]"))
     try:
         # `Bdb.run` swallows the BdbQuit that Stop raises, so it is asked.
-        debugger.run(compile(source, "<document>", "exec"), {"__name__": "__main__", "input": _mm_input})
+        if emit_test is not None:
+            _MM_DEBUG_TESTS[0] = debugger.runcall(_mm_tests, code, emit, emit_test, offset, lambda: debugger.ended_by_stop)
+        else:
+            debugger.run(compile(source, "<document>", "exec"), {"__name__": "__main__", "input": _mm_input})
         return "stopped" if debugger.ended_by_stop else "done"
     except SystemExit as stop:
         out.flush(); err.flush()
@@ -1287,13 +1304,13 @@ self.onmessage = async (e) => {
       postMessage({ run, idle: true });
       return;
     }
-    if (e.data.tests) {
+    const t0 = performance.now();
+    const emitTest = (name, state, ms, text, line) => post({
+      t: "test", name: String(name), state: String(state), ms: Number(ms) || 0,
+      text: String(text || ""), line: line == null ? null : Number(line),
+    });
+    if (e.data.tests && !e.data.debug) {
       //: Tests (D7): one `test` row per test, then the totals.
-      const t0 = performance.now();
-      const emitTest = (name, state, ms, text, line) => post({
-        t: "test", name: String(name), state: String(state), ms: Number(ms) || 0,
-        text: String(text || ""), line: line == null ? null : Number(line),
-      });
       const tester = p.globals.get("_mm_tests");
       let counts = null;
       try {
@@ -1310,7 +1327,17 @@ self.onmessage = async (e) => {
       let ended = "done";
       try {
         ended = String(debug(String(e.data.source || ""), emit, exchange, Number(e.data.lineOffset) || 0,
-          String(e.data.stdin || ""), JSON.stringify(e.data.breaks || []), JSON.stringify(e.data.watches || [])));
+          String(e.data.stdin || ""), JSON.stringify(e.data.breaks || []), JSON.stringify(e.data.watches || []),
+          e.data.tests ? emitTest : null));
+        //: A file of tests debugged (row 563) ends with its totals, as Run's does.
+        const held = p.globals.get("_MM_DEBUG_TESTS");
+        const totals = e.data.tests ? held.get(0) : null;
+        held.destroy();
+        if (totals) {
+          const t = totals.toJs({ dict_converter: Object.fromEntries });
+          post({ t: "tests-done", passed: t.passed, failed: t.failed, skipped: t.skipped, ms: Math.round(performance.now() - t0) });
+          totals.destroy();
+        }
       } finally { debug.destroy(); }
       post({ t: "done", ended });
       postMessage({ run, idle: true });

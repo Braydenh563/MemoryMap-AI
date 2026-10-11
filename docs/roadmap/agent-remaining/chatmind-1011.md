@@ -11,7 +11,7 @@ No real model in this sandbox: `scratchpad/llama-dev.sh check` finds neither lla
 | 549 | blocked | a caveat; the chips' model choice needs a real model (none here) |
 | 550 | done-already | a rule for the next head, held by the panel-head lint; nothing to build |
 | 551 | composer agent | the Guide's no-model answer wording (help_chat.system_answer) |
-| 552 | done | search-suggest.js SEARCH_SUGGEST_LISTS, searchSuggestTitleHits; tests/test_search_suggest_lists.py |
+| 552 | done | search-suggest.js SEARCH_SUGGEST_LISTS, searchSuggestTitleHits; tests/test_search_suggest_lists.py. Measured (sugg552.js, "gar" in Documents): 2 "In this list" rows, list 299px under a 262px box at 390, 446 under 408 at 1440, no horizontal overflow at either |
 | 553 | done | activity.StreamNarrator reads thinking, delta and item (Guide, drafting, review); chat and agent turns not announced is decided (routes_tasks.WATCHED_KINDS: a watched turn is listed, never announced) |
 | 554 | done-already | meetings marks use rowActions (meetings.js:1731); tag and category managers fold every action into one ⋮ per row and the count button is Show notes; the suggestions inbox's accept is the card's purpose, not a repeated row action (decided here, standing order 3) |
 | 555 | done | utilities.SEVERAL_ZONES; tests/test_utilities_zones.py |
@@ -21,6 +21,9 @@ No real model in this sandbox: `scratchpad/llama-dev.sh check` finds neither lla
 | 559 | done-already | help_chat.py:1268 board-library-saving and :1388 whiteboard-selection are already split topics |
 | 560 | deferred-next-PR | measured 137 tab badges with no `target` (library 60, notes 44, chat 11, others 22): L, not S |
 | 562 | done | starter_acts tag_open, save_answer, open_links, open_board, open_note for documents; tests/test_starter_acts_tabs.py |
+| 561 | done-already | measured (remind561.js, 1440): "remind me to call the dentist tomorrow at 9" leaves one p "Done: remind you tomorrow at 9: call the dentist." in the bubble; innerText holds it once |
+| 563 | done | Python: _mm_debug runs _mm_tests under the debugger (runcall), test rows and totals; tests/test_run_debugger.py. JavaScript: deferred-next-PR (L: the harness is async with spread, both refused by the ES5 stepper; needs an ES5 harness inside JS-Interpreter) |
+| 564 | done | chat-attach.js chatTurnObjects puts each answer's note titles on its turn; ChatTurn.objects; reading._follow_other matches a title holding the named subject; tests/test_spoken_followups.py |
 | 565 | blocked | needs the Guide run against a real model to read the fallback's log line (none here) |
 | 569 | blocked | the chat screenshot needs a real model's answer (none here) |
 | 573 | blocked | #chat-model-panel opens only with a model connected (none here) |
@@ -32,4 +35,4 @@ No real model in this sandbox: `scratchpad/llama-dev.sh check` finds neither lla
 | 604 | pack agent | pack-1011 row 319: `--mcp` built there; `/mcp` HTTP deferred there (needs a client key) |
 | 605 | done-already | Settings, Tools MCP snippet (#mcp-config-snippet, settings-controls.js) |
 
-done: f0f9d97 rows 555 to 557; 5fffcea rows 552 to 554, 558. next: rows 559 to 573 (B27).
+done: f0f9d97 rows 555 to 557; 5fffcea rows 552 to 554, 558; 99b27e7 row 562. next: rows 559 to 573 (B27).

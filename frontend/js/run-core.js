@@ -182,7 +182,12 @@ const RUN_LANGS = {
     run: (request) => ({ ...runBase(request, "py"), stdin: String(request.stdin || "") }),
     test: (request) => ({ ...RUN_LANGS.py.run(request), tests: true }),
     //: D2: `bdb` in the Pyodide worker, which needs the page isolated.
-    debug: (request) => ({ ...RUN_LANGS.py.run(request), debug: true }),
+    //: A file of tests debugs through the harness, so a breakpoint in a
+    //: test stops there (OPEN row 563).
+    debug: (request) => ({
+      ...RUN_LANGS.py.run(request), debug: true,
+      tests: runLooksLikeTests("py", String(request.source || "")),
+    }),
   },
 };
 
@@ -208,7 +213,8 @@ async function runPrepare(request, mode = "run") {
     shows: Boolean(shows ?? lang.shows),
     //: A preview refreshes itself while "Live" is on (D6).
     preview: Boolean(preview ?? lang.preview),
-    tests: mode === "test",
+    //: Debug on a Python file of tests lists them too (row 563).
+    tests: mode === "test" || Boolean(message.tests),
     debug: mode === "debug",
     notice: lang.notice || "",
     message,

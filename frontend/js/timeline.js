@@ -510,7 +510,9 @@ const timelineRenders = { n: 0 };
 // what the scrubber draws.
 let timelineDensity = {};
 let timelineNextCursor = null;
-let timelinePaging = false;
+//: The render a page is being fetched for (0: none). A page in flight for a
+//: superseded range must not stop the new range asking for its own.
+let timelinePagingFor = 0;
 let timelineRows = [];
 // By id, so a row that continues another can name it without a scan per row:
 // `find` per row is the shape that turns 1,500 rows into a million comparisons
@@ -681,15 +683,15 @@ function syncTimelineYears(range) {
 //: (`created_at|id`, base64url), so a note saved while someone is reading
 //: cannot shift the page under them.
 //:
-//: One request at a time, and the flag is cleared in a `finally`: a rejected
+//: One request at a time per range, and the flag is cleared in a `finally`: a rejected
 //: fetch that left it set would stop the feed paging for the rest of the
 //: session, and the only symptom would be a timeline that ends early.
 async function timelineLoadMore(limit = TIMELINE_PAGE) {
-  if (!timelineNextCursor || timelinePaging) return;
-  timelinePaging = true;
+  if (!timelineNextCursor || timelinePagingFor === timelineRenders.n) return;
+  const render = timelineRenders.n;
+  timelinePagingFor = render;
   try {
     const url = `${timelineQuery()}&limit=${limit}&cursor=${encodeURIComponent(timelineNextCursor)}`;
-    const render = timelineRenders.n;
     const body = await apiJson(url).catch(() => null);
     if (!body || render !== timelineRenders.n) return;
     timelineNextCursor = body.next_cursor || null;
@@ -708,7 +710,7 @@ async function timelineLoadMore(limit = TIMELINE_PAGE) {
     else appendTimelineRows(fresh);
     drawTimelineScrubber();
   } finally {
-    timelinePaging = false;
+    if (timelinePagingFor === render) timelinePagingFor = 0;
   }
 }
 

@@ -50,7 +50,7 @@ from collections.abc import Iterator
 
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
-from memorymap.ai import act_registry, presets, question_noise, spelling
+from memorymap.ai import act_registry, presets, spelling
 from memorymap.ai.help_topics_more import HELP_GROUPS, MORE_TOPICS, TOPIC_META
 from typing import TYPE_CHECKING
 

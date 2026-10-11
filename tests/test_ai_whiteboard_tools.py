@@ -393,7 +393,7 @@ def test_generate_diagram_can_grow_from_a_card_already_on_the_board(session):
     assert placed["x"]["x"] > flights["x"] and placed["z"]["x"] > placed["x"]["x"]  # grows to the right
     assert abs((placed["x"]["y"] + placed["y"]["y"]) / 2 - flights["y"]) < 1  # centred on its parent
     links = [json.loads(s.data) for s in session.query(WhiteboardSketch)]
-    assert any(l.get("sourceId") == flights["card_id"] and l.get("targetId") == placed["x"]["card_id"] for l in links)
+    assert any(link.get("sourceId") == flights["card_id"] and link.get("targetId") == placed["x"]["card_id"] for link in links)
 
 
 def test_generate_diagram_refuses_a_missing_card_or_a_mix_of_root_and_card(session):

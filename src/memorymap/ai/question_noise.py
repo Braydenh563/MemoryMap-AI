@@ -406,15 +406,37 @@ _EMOTICON = re.compile(r"(?:^|\s)(?:[:;=8][-']?[)(DPp/\\|*]+|<3|\^_?\^)(?=\s|$)"
 #: doesnt account for accidental extra characters like a backslash"): a stray
 #: `\\`, `|`, backtick, `~` or `^` against a word. One beside a colon or a
 #: semicolon is an emoticon (":\\", ";|") and stays.
-_STRAY_TAIL = re.compile(r"(?<=[\w?.!)\"'\s])(?:[\\|`~^]+|(?<=[?.!])/+)\s*$")
+_STRAY_KEYS = "\\|`~^"
+_BEFORE_STRAY = "?.!)\"'"
 _STRAY_HEAD = re.compile(r"^\s*[\\|`~^]+(?=\w)")
 _RUN_OF_SPACES = re.compile(r"[ \t]{2,}")
+
+
+def _strip_stray_tail(text: str) -> str:
+    """The trailing stray keys off a text, by a scan from the end rather than a
+    regex: an anchored-at-the-end pattern rescans a long run of backslashes
+    from every start (CodeQL, polynomial regex on user input). A run of stray
+    keys goes when a word, a space or closing punctuation stands before it; a
+    run of slashes only after a sentence's end ("why?/")."""
+    body = text.rstrip()
+    end = len(body)
+    start = end
+    while start > 0 and body[start - 1] in _STRAY_KEYS:
+        start -= 1
+    if start < end and start > 0 and (body[start - 1].isalnum() or body[start - 1] == "_" or body[start - 1].isspace() or body[start - 1] in _BEFORE_STRAY):
+        return body[:start]
+    start = end
+    while start > 0 and body[start - 1] == "/":
+        start -= 1
+    if start < end and start > 0 and body[start - 1] in "?.!":
+        return body[:start]
+    return text
 
 
 def strip_strays(text: str) -> str:
     """Stray keys off a text's edges and runs of spaces made one; nothing
     else changes (a tool's argument, INBOX 808)."""
-    text = _STRAY_HEAD.sub("", _STRAY_TAIL.sub("", str(text or "")))
+    text = _STRAY_HEAD.sub("", _strip_stray_tail(str(text or "")))
     return _RUN_OF_SPACES.sub(" ", text).strip()
 
 

@@ -647,6 +647,7 @@ function openFinder(prefill = "", opts = {}) {
     input.focus();
     input.select();
   }
+  syncFinderStar();
   if (finderQuery.trim()) finderSearch();
   else finderRenderEmpty();
 }
@@ -662,12 +663,29 @@ function closeFinder() {
   finderState.opener = null;
 }
 
+//: The star is a favourite toggle: filled while the words in the box are a
+//: saved search (INBOX 790), pressed again it forgets that search.
+function finderSavedAs(query) {
+  return savedFinds().filter((item) => item.query === query.trim().slice(0, 200));
+}
+
+function syncFinderStar() {
+  const button = document.getElementById("finder-save");
+  if (!button) return;
+  const on = Boolean(document.getElementById("finder-input")?.value.trim()) && finderSavedAs(document.getElementById("finder-input").value).length > 0;
+  button.firstElementChild?.classList.toggle("star-fill", on);
+  button.setAttribute("aria-pressed", String(on));
+  button.setAttribute("aria-label", on ? "Remove this saved search" : "Save this search");
+  button.title = on ? "Remove this saved search from the Notes sidebar" : "Save this search to the Notes sidebar";
+}
+
 function wireFinder() {
   const overlay = finderOverlay();
   const input = document.getElementById("finder-input");
   if (!overlay || !input) return;
   input.addEventListener("input", () => {
     finderQuery = input.value;
+    syncFinderStar();
     clearTimeout(finderState.timer);
     //: Long enough that a typist does not fire a query per letter, short
     //: enough that the list feels attached to the keyboard. The abort is the
@@ -723,12 +741,19 @@ async function persistSavedFinds(next) {
     body: JSON.stringify({ saved_finds: next }),
   });
   renderSavedFinds();
+  syncFinderStar();
 }
 
 async function saveFinderSearch() {
   const query = (document.getElementById("finder-input")?.value || "").trim();
   if (!query) {
     toast("Type a search first, then save it.", "info");
+    return;
+  }
+  const already = finderSavedAs(query);
+  if (already.length) {
+    await persistSavedFinds(savedFinds().filter((item) => !already.includes(item)));
+    toast("Removed the saved search.");
     return;
   }
   const name = await promptDialog("Name this search:", query.slice(0, 40), { confirmLabel: "Save search" });

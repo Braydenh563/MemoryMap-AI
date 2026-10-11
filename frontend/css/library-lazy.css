@@ -1712,6 +1712,42 @@
   visibility: hidden;
 }
 
+/* **The node's add buttons are buttons** (INBOX 791, the owner: "a little
+   hard to see and interact with"). They were transparent ghost glyphs in the
+   muted ink, 28px of nothing. Now a surface of their own (the card, a 3:1
+   hairline, a small lift) so they read on any branch colour or canvas, the
+   target is `--target-min` (28, and 44 on touch), the glyph is body size, and
+   the row keeps one size to the hand at every zoom like the grips
+   (`--wb-inv-zoom`, `WB_INV_ZOOM_GRIPS`). */
+.wb-map-actions {
+  transform: scale(var(--wb-inv-zoom));
+  transform-origin: 0 0;
+}
+
+/* `:not(#wb-map-actions-row)` lifts these over the ghost icon button's own
+   `:is(.icon-only):not(.active):not([aria-pressed])...` rule, which paints the
+   button transparent (the `:not(#glide)` lift's precedent). */
+.wb-map-actions > button:not(#wb-map-actions-row) {
+  width: var(--target-min);
+  height: var(--target-min);
+  min-width: 0;
+  padding: 0;
+  background: var(--modal-bg-opaque);
+  border: 1px solid var(--ghost-btn-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+}
+
+.wb-map-actions > button:not(#wb-map-actions-row):hover {
+  background: var(--ghost-btn-bg);
+  border-color: var(--ghost-btn-border-hover);
+}
+
+.wb-map-actions > button > i {
+  font-size: var(--text-body);
+}
+
 /* **A line you can actually point at.** The drawn edge is 2px wide, which is
    a target nobody can hit; so every edge is drawn twice, once visibly and once
    as a transparent stroke wide enough to grab. Same technique as
@@ -2071,10 +2107,52 @@
   font-weight: 600;
 }
 
-#wb-outline-tree .wb-outline-text:focus {
+/* Reading rows focus as a selected row (the tint, a ring), not as a field: the
+   field look is for the one being edited (`.is-editing`, INBOX 792). */
+#wb-outline-tree .wb-outline-text:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  cursor: default;
+}
+
+#wb-outline-tree .wb-outline-text:read-only {
+  cursor: default;
+}
+
+#wb-outline-tree .wb-outline-row.is-editing > .wb-outline-text {
   border-color: var(--accent);
   background: var(--card);
   outline: none;
+}
+
+/* The row is the text and a pencil that shows on the row under the pointer or
+   holding the focus (and always on touch, where there is no pointer to rest
+   on a row). The pencil sits over the row's end. */
+#wb-outline-tree .wb-outline-row {
+  position: relative;
+}
+
+#wb-outline-tree .wb-outline-edit {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--space-1);
+  margin: auto 0;
+  opacity: 0;
+}
+
+#wb-outline-tree .wb-outline-row:is(:hover, :focus-within):not(.is-editing) > .wb-outline-edit,
+#wb-outline-tree .wb-outline-edit:focus-visible {
+  opacity: 1;
+}
+
+#wb-outline-tree .wb-outline-row.is-editing > .wb-outline-edit {
+  display: none;
+}
+
+@media (hover: none) {
+  #wb-outline-tree .wb-outline-row:not(.is-editing) > .wb-outline-edit {
+    opacity: 1;
+  }
 }
 
 /* A finger's row: the 44px target floor on a touch screen. */
@@ -3010,6 +3088,37 @@ button.ghost.doc-template-choice.wb-template-choice {
   border-inline-start: 1px solid color-mix(in srgb, currentColor 30%, transparent);
 }
 
+/* **The ghost split is one control too** (INBOX 790: "redesign or restyle
+   these buttons in the ocr workspace header"). Over a reading the pair steps
+   back to ghost, and the caret, kebabMenu's own opener, kept its transparent
+   border and full radius, so it read as a second, unrelated button. Both
+   halves now share the hairline: the caret's start edge overlaps the main
+   half's end edge by 1px so there is one seam, and the pair lifts together
+   under the pointer or the keyboard. The caret's selector names its
+   `.menu-wrap` because `.dock .menu-wrap > button.ghost` (08-consistency.css)
+   quiets every opener in a bar and would otherwise win. */
+.split-button > .split-button-main.ghost,
+.split-button .menu-wrap > .split-button-caret.ghost {
+  border: 1px solid var(--ghost-btn-border);
+}
+
+.split-button .menu-wrap > .split-button-caret.ghost {
+  background: var(--btn-quiet-bg);
+  margin-inline-start: -1px;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+.split-button > .split-button-main.ghost:hover,
+.split-button .menu-wrap > .split-button-caret.ghost:hover,
+.split-button > .split-button-main.ghost:focus-visible,
+.split-button .menu-wrap > .split-button-caret.ghost:focus-visible {
+  position: relative;
+  z-index: 1;
+  background: var(--ghost-btn-bg);
+  border-color: var(--ghost-btn-border-hover);
+}
+
 /* The popover's own lines: the state, then the language over its select. */
 .ocr-reader-list .ocr-engine-line {
   flex-direction: column;
@@ -3873,3 +3982,445 @@ button.ghost.doc-template-choice.wb-template-choice {
   box-shadow: none;
   background: transparent;
 }
+
+/* --- moved from 07-whiteboard-misc.css (canvasui, the boot CSS budget): board-only rules whose class names no boot file draws and no later boot rule competes with, in their old order --- */
+
+.wb-comment-pin {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  transform: scale(var(--wb-inv-zoom));
+}
+
+/* A map's boundary and summary (MINDMAP_PLAN.md decisions 19, 20): the
+   branch colour as `--wb-boundary` (set in JS, the accent when the branch has
+   none), a tint inside a boundary and the colour on its edge and on the
+   brace; their words in the line label's recipe. Never a pointer target. */
+.wb-map-boundaries,
+.wb-map-summaries {
+  --wb-boundary: var(--accent);
+  pointer-events: none;
+}
+
+.wb-map-boundary-dashed {
+  stroke-dasharray: 6 4;
+}
+
+/* The rectangle marquee-select drag draws while it's active: reported
+   directly ("area select... missing"). A real SVG element in board space,
+   appended/removed by the marquee's own pointerdown/pointerup, not a fixed
+   part of any template. */
+/* Smart alignment guides while dragging, asked for directly ("draw.io and
+   Microsoft PowerPoint have... dotted alignment rule guides"). Colour is
+   set per-line by `wbShowAlignmentGuides` (edge/center/spacing each get
+   their own, user-alterable colour, see `WB_ALIGN_GUIDE_COLORS`), so this
+   rule deliberately leaves `stroke` unset: an SVG presentation attribute
+   only wins over an *unset* CSS property, not a set one, so a `stroke` here
+   would silently override every line to one colour again. Every other
+   whiteboard overlay (anchor hints, selection outline, marquee) uses the
+   app's own `--accent` instead: a guide line stays deliberately distinct
+   from that so it still reads as a momentary "you're aligned" signal. */
+.wb-align-guide-line {
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
+/* The selection rectangle: a canvas over the whole container, drawn by
+   `wbDrawMarquee` (its dashed accent edge and 12% wash are painted there),
+   because drawing on a canvas is the one per-frame change that does not
+   re-layerize the page (INBOX 410, the numbers are on
+   `wbBeginMarqueeRect`). Last in the container's order, so it draws over
+   the cards it is about to select, and its own layer. */
+.wb-marquee {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.wb-map-stats dt {
+  color: var(--muted);
+}
+
+.wb-nav-item-object {
+  opacity: 0.55;
+}
+
+.wb-nav-item-sketch {
+  opacity: 0.22;
+}
+
+.wb-nav-viewport {
+  fill: var(--accent);
+  fill-opacity: 0.12;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.wb-help-row:last-child {
+  border-bottom: none;
+}
+
+.wb-help-row-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.wb-help-row-keys kbd {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.wb-text-content.wb-text-md ul,
+.wb-text-content.wb-text-md ol {
+  margin: 0.2em 0;
+  padding-left: 1.2em;
+}
+
+/* A preview is drawn in the button's own ink, so the chosen one reads in
+   `--on-accent` on the accent with no rule of its own. */
+.wb-map-pick-preview {
+  width: 1.25rem;
+  height: 0.875rem;
+  flex: none;
+}
+
+.wb-map-pick-emoji {
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
+/* A done task: struck through and quieter, the convention every task list
+   uses, so the open ones are what the eye lands on. */
+.wb-map-task-done .wb-map-text {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+.wb-link-preview-crosslink {
+  stroke-dasharray: 6 5;
+}
+
+/* The SVG half. `transform-box: fill-box` is what makes `center` mean the
+   element's own middle rather than the SVG view box's origin, which is where
+   an SVG transform-origin otherwise resolves and would fling the handle across
+   the board.
+   A link's bend grip belongs here too and was the one that did not: measured
+   at 24px across at 2x against the 12px it is at 1x, which is the shape of
+   miss this whole block exists to stop. */
+.wb-sketch-resize-handle,
+.wb-link-endpoint-handle,
+.wb-link-bend-handle,
+/* A map line's waypoint grip is centred on the point it moves, so its own
+   centre is the anchor, exactly like the link bend grip above it. Added with
+   the grip itself rather than after it, because the paragraph above says the
+   next handle follows this rule and a 7-unit circle on a map zoomed out to
+   0.3 is a 4px target. */
+.wb-map-edge-handle {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(var(--wb-inv-zoom));
+}
+
+/* A sketch's rotate handle and its stem are two sibling elements rather than
+   one element with a pseudo-element, so their shared anchor (the point on the
+   shape's own top edge where the stem meets it) is a pair of board
+   coordinates only the code that draws them knows. `wbRenderSketchHandles`
+   sets `transform-origin` on both from the bbox it already has; this rule is
+   the other half, and `transform-box` stays at its `view-box` default so that
+   origin is read in the same user units the bbox is in.
+   **A grip drawn by this rule with no origin set is a bug, not a default.**
+   The scale then resolves about the SVG view box's origin and multiplies the
+   grip's own coordinates by `1 / k`: the group selection's rotate grip did
+   exactly that until INBOX 278, measured at board (680, 1344) at 0.5x and
+   (170, 336) at 2x for a box whose top centre is (340, 672), which is the
+   owner's "off to the top left or right, or below the top border". Anything
+   added to this selector list sets its origin where it is drawn. */
+.wb-sketch-rotate-handle,
+.wb-rotate-handle-stem {
+  transform: scale(var(--wb-inv-zoom));
+}
+
+/* --- A member of a group selection shows that it is selected, not how to
+   resize itself (INBOX 278) -------------------------------------------------
+   A card and a text box carry eight resize handles and a rotate grip as
+   children, which `.wb-selected` reveals. In a group that is one set per
+   member on top of the group's own: measured on a three-item group, eight
+   rotate knobs and sixteen resize handles at once, which is why the stem the
+   eye lands on rises from a member's centre rather than the group box's. The
+   outline the class also draws stays, because "the shapes and lines arent
+   selected visually and individually" was its own report and is still true
+   without the grips. */
+.node-card.wb-in-group .wb-resize-handle,
+.node-card.wb-in-group .wb-rotate-handle,
+.wb-object.wb-in-group .wb-resize-handle,
+.wb-object.wb-in-group .wb-rotate-handle {
+  display: none;
+}
+
+.wb-map-node,
+.wb-map-edge-label {
+  font-family: var(--wb-map-font);
+}
+
+.wb-layer-depth-1 {
+  padding-left: var(--space-5);
+}
+
+.wb-link-waypoint-handle,
+.wb-link-waypoint-add,
+.wb-link-label-handle,
+.wb-clone-grip {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(var(--wb-inv-zoom));
+}
+
+/* **The "This map" tab** (INBOX 791, the owner: "this side tab looks a little
+   messy and needs a redesign"). The counts are two-across tiles (the number
+   over its label), the two sentences are lines under them, the actions are
+   one group of full-width quiet buttons, and the Library hint is the help
+   popover recipe, not a loose paragraph. */
+.wb-map-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.wb-map-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.wb-map-stat {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.wb-map-stat > dd {
+  margin: 0;
+  font-size: var(--text-h3);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.wb-map-stat > dt {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.wb-map-stat-line {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.wb-map-stat-line > .muted {
+  font-size: var(--text-sm);
+}
+
+.wb-side-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.wb-side-actions > button {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.wb-side-help {
+  justify-content: space-between;
+  margin-top: var(--space-4);
+}
+
+.wb-side-help > .muted {
+  font-size: var(--text-sm);
+}
+
+/* **Each line end drawn in its own row** (INBOX 792, the owner: "improve these
+   arrow options and also show examples in the options"). The Start and End
+   lists group the plain ends and the entity-relationship ends, and every row
+   leads with a small drawing of its end: the path `wbCapPath` makes at line
+   width 1.5 (`tests/test_wb_line_ends.py` runs the renderer and checks each
+   drawing against it), as a mask in the row's ink. Start rows are the same
+   drawing turned round. The closed face keeps the word Start or End, which
+   the rows no longer repeat. */
+.wb-cap::before {
+  content: "";
+  flex: none;
+  width: 2.75rem;
+  aspect-ratio: 11 / 4;
+  background: currentColor;
+  mask: var(--wb-cap) center / contain no-repeat;
+}
+
+.wb-cap-start::before {
+  transform: scaleX(-1);
+}
+
+#wb-prop-startcap ~ .select-opener .select-value::before {
+  content: "Start: ";
+  color: var(--muted);
+}
+
+#wb-prop-endcap ~ .select-opener .select-value::before {
+  content: "End: ";
+  color: var(--muted);
+}
+
+.wb-cap-none {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8'/%3E%3C/svg%3E");
+}
+
+.wb-cap-arrow {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 38 8 L 27.61 14 M 38 8 L 27.61 2.0'/%3E%3C/svg%3E");
+}
+
+.wb-cap-triangle {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 38 8 L 26 12.8 L 26 3.2 Z M 36.46 8 L 26.77 11.88 L 26.77 4.12 Z M 34.93 8 L 27.54 10.96 L 27.54 5.04 Z M 33.39 8 L 28.3 10.03 L 28.3 5.97 Z M 31.85 8 L 29.07 9.11 L 29.07 6.89 Z'/%3E%3C/svg%3E");
+}
+
+.wb-cap-diamond {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 38 8 L 31.4 12.08 L 24.8 8 L 31.4 3.92 Z'/%3E%3C/svg%3E");
+}
+
+.wb-cap-diamond-filled {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 38 8 L 31.4 12.08 L 24.8 8 L 31.4 3.92 Z M 36.06 8 L 31.4 10.88 L 26.74 8 L 31.4 5.12 Z M 34.12 8 L 31.4 9.68 L 28.68 8 L 31.4 6.32 Z'/%3E%3C/svg%3E");
+}
+
+.wb-cap-bar {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 38 14 L 38 2'/%3E%3C/svg%3E");
+}
+
+.wb-cap-circle {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 30 8 A 4 4 0 1 0 38 8 A 4 4 0 1 0 30 8 Z'/%3E%3C/svg%3E");
+}
+
+.wb-cap-square {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 28.77 3.38 L 38 3.38 L 38 12.62 L 28.77 12.62 Z'/%3E%3C/svg%3E");
+}
+
+.wb-cap-multiline {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 33.8 3.2 L 33.8 12.8 M 29 3.2 L 29 12.8'/%3E%3C/svg%3E");
+}
+
+.wb-cap-er-one {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 34.4 2.6 L 34.4 13.4'/%3E%3C/svg%3E");
+}
+
+.wb-cap-er-one-only {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 27.8 2.6 L 27.8 13.4 M 34.4 2.6 L 34.4 13.4'/%3E%3C/svg%3E");
+}
+
+.wb-cap-er-zero-one {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 22.52 8 A 2.64 2.64 0 1 0 27.8 8 A 2.64 2.64 0 1 0 22.52 8 Z M 34.4 2.6 L 34.4 13.4'/%3E%3C/svg%3E");
+}
+
+.wb-cap-er-many {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 29.6 8 L 38 13.4 M 29.6 8 L 38 2.6'/%3E%3C/svg%3E");
+}
+
+.wb-cap-er-one-many {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 27.8 2.6 L 27.8 13.4 M 29.6 8 L 38 13.4 M 29.6 8 L 38 2.6'/%3E%3C/svg%3E");
+}
+
+.wb-cap-er-zero-many {
+  --wb-cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 3 8 L 38 8 M 22.52 8 A 2.64 2.64 0 1 0 27.8 8 A 2.64 2.64 0 1 0 22.52 8 Z M 29.6 8 L 38 13.4 M 29.6 8 L 38 2.6'/%3E%3C/svg%3E");
+}
+
+/* A sticky without its folded corner (INBOX 792: "the option to hide the flap
+   in the corner of sticky notes"): a note's own `fold`, else the board's
+   `sticky_fold` (`wbStickyFolds`). The date chip may then use the foot's whole
+   width, as the fold no longer takes the right of it. */
+.wb-object-text.wb-sticky.wb-no-fold::after {
+  display: none;
+}
+
+.wb-object-text.wb-sticky.wb-no-fold > .wb-sticky-date {
+  max-width: calc(100% - var(--space-4));
+}
+
+
+/* **The board menus' rows are one shape** (INBOX 793, the owner: the View and
+   Board menus "need a bit of a redesign and/or restyle"). An action is a row
+   (icon, name, key at the far end); a control row (a switch, a select, the
+   background's swatch) is the same row with its control at the far end; both
+   take the menu item's height and inset, and a head sits over each group on
+   the same inset. What destroys is `.wb-menu-danger`: red, last. */
+.wb-board-menu .wb-panel-group-label {
+  padding-inline: var(--space-5);
+}
+
+.wb-board-menu .wb-menu-row {
+  padding-inline: var(--space-5);
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.wb-board-menu .wb-menu-row > :first-child {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wb-board-menu .wb-menu-row > :first-child > .ph-lead {
+  flex: none;
+  width: 1.25em;
+  margin: 0;
+  text-align: center;
+}
+
+.wb-board-menu :is(.wb-menu-item, .wb-menu-row) {
+  min-height: max(2.25rem, var(--target-min));
+  padding-block: 0;
+}
+
+.wb-board-menu label.wb-menu-row:hover {
+  background: var(--accent-soft);
+}
+
+.wb-board-menu .wb-menu-item > kbd {
+  margin-inline-start: auto;
+}
+
+.wb-board-menu .wb-menu-item.wb-menu-danger,
+.wb-board-menu .wb-menu-item.wb-menu-danger > .ph-lead {
+  color: var(--error);
+}
+
+.wb-board-menu .wb-menu-item.wb-menu-danger:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+}
+
+/* The help button used to be a round 2rem glyph in the zoom cluster
+   (03-dashboard-widgets.css `#wb-help-btn`); in the Board menu it is a row
+   like the others, so that rule's size, padding and centring are taken back. */
+#wb-board-menu #wb-help-btn {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  height: auto;
+  padding-inline: var(--space-5);
+  border-radius: var(--radius-md);
+}
+

@@ -3872,8 +3872,7 @@ button.is-on {
 }
 .notes-subtabs[data-scrolled="1"],
 .library-subtabs[data-scrolled="1"] {
-  background: var(--card);
-  backdrop-filter: blur(16px);
+  background: var(--modal-bg-opaque);
 }
 /* UX-18 (audit 2026-10-05): the notes list's dock (filter, sort, Select, New
    note) scrolled away with the list, 1,244px up after one long scroll, so
@@ -3909,7 +3908,7 @@ button.is-on {
 .tabs-line > button {
   position: relative;
   flex: 0 0 auto;
-  height: max(var(--control-h-dense), var(--target-min));
+  height: max(var(--control-h-body), var(--target-min));
   /* The floor is for the short word: "All" measured 42.5px wide on touch,
      and "Ask" 50px beside 80 to 133px tabs, its underline and focus ring a
      sliver (INBOX 605: "the ask subtab is very thin in width"). 4.5rem is

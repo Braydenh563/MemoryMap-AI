@@ -473,6 +473,8 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         #: inside it (INBOX 715, the board templates); None on a plain text.
         "tint": None,
         "hint": None,
+        # And with the sticky note's corner flap, per note (INBOX 792).
+        "fold": None,
     }
 
     moved = board_client.put(

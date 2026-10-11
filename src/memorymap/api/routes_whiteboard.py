@@ -419,6 +419,9 @@ class WhiteboardObjectData(BaseModel):
     #: visually distinguish between a text box and a note"): a text object
     #: drawn as paper, lifted, with a folded corner. Its colour is `bg`.
     sticky: bool | None = None
+    #: A sticky note's own say on its folded corner (INBOX 792), over the
+    #: board's default (`background.sticky_fold`). `None` follows the board.
+    fold: bool | None = None
     #: How a topic is drawn (MINDMAP_PLAN.md §12.1 item 3, decided in §12.0).
     #: Five values and not the plan's eight: `None` is the rounded card this
     #: map has always drawn, and `pill`, `rect`, `ellipse` and `none` are the
@@ -1184,6 +1187,10 @@ class BoardBackground(BaseModel):
 
     color: str | None = Field(default=None, max_length=7)
     image: str | None = Field(default=None, max_length=300)
+    #: Whether a sticky note's corner is drawn folded over (INBOX 792: "the
+    #: option to hide the flap in the corner"). Folded is the default, so only
+    #: `false` is ever stored; a note's own `fold` overrides it.
+    sticky_fold: bool | None = None
 
     @field_validator("color")
     @classmethod
@@ -1224,6 +1231,8 @@ def _board_background(entry: Entry | None) -> dict:
         out["color"] = color
     if isinstance(image, str) and MEDIA_URL_RE.match(image):
         out["image"] = image
+    if stored.get("sticky_fold") is False:
+        out["sticky_fold"] = False
     return out
 
 
@@ -1233,7 +1242,7 @@ def _store_board_background(entry: Entry, patch: BoardBackground) -> dict:
     merged = _board_background(entry)
     for field in patch.model_fields_set:
         value = getattr(patch, field)
-        if value is None:
+        if value is None or (field == "sticky_fold" and value is True):
             merged.pop(field, None)
         else:
             merged[field] = value

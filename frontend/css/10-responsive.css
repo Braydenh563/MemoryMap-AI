@@ -222,7 +222,7 @@ header#top-bar[data-scrolled="1"],
 .notes-subtabs[data-scrolled="1"],
 .library-subtabs[data-scrolled="1"] {
   box-shadow:
-    inset 0 -1px 0 var(--border),
+    inset 0 -1px 0 var(--ghost-btn-border),
     0 var(--space-2) var(--space-6) calc(-1 * var(--space-3)) var(--scroll-edge);
 }
 /* The edge appears at once: a shadow's size is never animated (the motion

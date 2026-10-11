@@ -13,7 +13,7 @@ from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 WB = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
-CSS = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+CSS = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
 
 
 def test_a_one_item_sweep_becomes_the_single_selection() -> None:

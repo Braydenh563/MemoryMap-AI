@@ -292,7 +292,10 @@ HELP_TOPICS: list[dict] = [
             "\"put them in a row\", \"stack them\", \"align left\", \"space "
             "them evenly\", \"same width\"; Undo takes it back. A sticky that "
             "names a day shows it as a chip at its foot; press it to set a "
-            "reminder for a day still to come."
+            "reminder for a day still to come. Fit (Shift+1) goes into the canvas you "
+            "can see, clear of an open sidebar, Format panel, top bar and tools "
+            "dock, and refits when one opens or closes until you pan or zoom "
+            "yourself."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -1336,7 +1339,7 @@ HELP_TOPICS.extend(
                 "format panel", "format", "exact position", "position", "x and y", "width and height",
                 "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
                 "text size in a shape", "align text", "elbow", "right angle", "orthogonal", "connector shape",
-                "line shape", "bend", "waypoint", "label position", "crow's foot", "crows foot", "er diagram",
+                "line shape", "line end", "line ends", "arrowhead", "arrow end", "diamond end", "label position", "bend", "waypoint", "crow's foot", "crows foot", "er diagram",
                 "connection point", "connection points", "port", "ports", "anchor point",
                 "line jumps", "line jump", "crossing lines", "lines cross", "hop over",
                 "entity relationship", "mermaid", "subgraph", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
@@ -1347,7 +1350,7 @@ HELP_TOPICS.extend(
                 "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
                 "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
                 "its line jumps (where it crosses a line under it, it hops over with an arc, a gap or a "
-                "sharp peak), its two ends and where its label sits along it. Text: the size, colour, weight, "
+                "sharp peak), its two ends (each drawn in its list) and where its label sits along it. Text: the size, colour, weight, "
                 "alignment and vertical place (top, middle, bottom) of a text box or a shape's words. Arrange: X, Y, width, height and "
                 "angle as numbers, flip, and the order, align, spacing, group and lock buttons. Every "
                 "change is one undo step. Every connector takes bends: drag the small ring in the middle "
@@ -1439,8 +1442,8 @@ HELP_TOPICS.extend(
                 "Content, Markers sets a priority (1 to 5), how far along it is, a "
                 "flag, a due day and up to six icons; View, Filter by marker dims every topic "
                 "without the one you pick. The sidebar's Outline tab (View, "
-                "Outline) lists the map as an indented outline: type to rename, "
-                "Enter adds a topic, Tab and Shift+Tab move it in and out a level. "
+                "Outline) lists the map as an indented outline: F2 renames, "
+                "Shift+Enter adds a topic, Tab and Shift+Tab move it in and out a level. "
                 "A topic's menu makes "
                 "it a task: press its box to tick it, and every topic above "
                 "counts the done ones (1/2); Markdown exports write tasks as - [ "

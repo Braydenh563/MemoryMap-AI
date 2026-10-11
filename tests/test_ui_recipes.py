@@ -631,7 +631,7 @@ def test_a_radial_places_its_slots_without_the_transform_properties() -> None:
     the chat jump-to-latest pill, both of which were reported before the cue
     was rewritten; this stops the ring re-learning it.
     """
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     placed = False
     for selector, body in _rules(css):
         if ".wb-map-radial-slot" not in selector:
@@ -658,7 +658,7 @@ def test_the_radial_band_is_cut_to_its_tiles() -> None:
     slots, and the caption hangs under the outer edge; a rule that goes back
     to sizing the band from the radius alone brings the overhang back.
     """
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     #: The map layer is whiteboard-map.js since the split; read both.
     js = "".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
     band = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial::before"]
@@ -684,7 +684,7 @@ def test_the_radial_is_one_ring_cut_into_sectors() -> None:
     ring's own keys walk the sectors. A rule that goes back to sizing a slot
     as a tile, or a fit that stops writing the clip, is the old ring again.
     """
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     js = "".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
     slot = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial .wb-map-radial-slot"]
     assert slot, "the sector rule is gone"
@@ -751,7 +751,7 @@ def test_an_item_does_not_promise_a_drag_under_a_tool_that_does_not_drag() -> No
     its text and a whiteboard object: 32 of those pairs answered `grab`
     while the click would have deleted, erased, drawn, filled or linked.
     """
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     guard = (
         '#whiteboard-container:not([data-current-tool="select"])'
         ':not([data-current-tool="pan"])'
@@ -2370,7 +2370,7 @@ def test_every_inverse_scaled_grip_sets_its_own_anchor():
         "(INBOX 278, WHITEBOARD_PLAN)"
     )
 
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     rule = css.split(".wb-sketch-rotate-handle,\n.wb-rotate-handle-stem {")[1].split("}")[0]
     assert "scale(var(--wb-inv-zoom))" in rule, (
         "the grip rule this lint guards is gone or renamed; the lint and the "
@@ -2408,7 +2408,7 @@ def test_every_canvas_grip_is_one_size_to_the_hand():
     across at 2x against the 12px it is at 1x. This is that paragraph as a
     lint, so the next grip added is measured against it rather than after it.
     """
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     missing = [
         grip for grip in CANVAS_GRIPS
         if "scale(var(--wb-inv-zoom))" not in _rules_for(css, grip)
@@ -2432,7 +2432,7 @@ def test_a_grip_that_is_invisible_does_not_take_the_pointer():
     `display: none` at rest, `tests/test_board_pan_layers.py`), and that grip
     is revealed, so it takes the pointer on purpose. Those blocks are left out
     of the read rather than given a `pointer-events` that would never apply."""
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     css = re.sub(r"@starting-style\s*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", css)
     offenders = []
     for grip in CANVAS_GRIPS:
@@ -2687,7 +2687,7 @@ def test_a_coarse_pointer_gets_the_touch_floor_at_every_width() -> None:
     iPad in landscape is 1024. The `:root` token and the dock's own floor are
     the two a regression would lose first."""
     touch_query = "@media (max-width: 819.98px), (pointer: coarse)"
-    shell = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    shell = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     token = re.search(r"@media[^{\n]*\{\s*:root\s*\{\s*--target-min:\s*2\.75rem;", shell)
     assert token and token.group(0).startswith(touch_query), (
         "the 44px --target-min is no longer declared for a coarse pointer at every width"
@@ -3482,7 +3482,7 @@ def test_a_field_is_the_button_s_shape():
     forms = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
     base = next(body for sel, body in _rules(forms) if 'input[type="datetime-local"]' in sel and "box-sizing: border-box" in body)
     assert "border-radius: var(--radius-md)" in base
-    misc = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    misc = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     opener = next(body for sel, body in _rules(misc) if sel.strip() == ".select-opener")
     assert "border-radius: var(--radius-md)" in opener
 
@@ -3605,7 +3605,7 @@ def test_dialogs_and_panels_share_one_radius_token() -> None:
     bad = {cls: value for cls, value in last.items() if not allowed.fullmatch(value)}
     assert bad == {}, f"a dialog or panel has its own corner: {bad}"
     assert "notif-panel" in last and "agent-monitor" in last
-    misc = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    misc = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     shell = next(body for sel, body in _rules(misc) if ".help-popover" in sel and ".action-menu" in sel and "border-radius" in body)
     assert "border-radius: var(--radius-lg)" in shell, "the popover shell's corner moved off --radius-lg"
 
@@ -3720,7 +3720,7 @@ def test_every_dialog_dims_the_page_with_the_one_scrim_token() -> None:
             m = re.search(r"(?<![\w-])background:\s*([^;]+);", body)
             if m and re.search(r"rgba\(\s*10,\s*12,\s*(18|24)", m.group(1)):
                 raise AssertionError(f"{path.name}: {selector!r} dims with a literal; use var(--scrim)")
-    misc = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    misc = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     rule = next(body for sel, body in _rules(misc) if ".command-palette-overlay" in sel and ".finder-overlay" in sel)
     assert "background: var(--scrim)" in rule, "Find anything must dim the app like the popup agent does, not replace it"
 
@@ -4062,7 +4062,7 @@ def test_a_frame_is_one_kind_reached_three_ways() -> None:
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     wbmap = (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     assert 'f: "frame",' in wb
     assert '"sticky", "text", "frame",' in wbmap, "a map's F never picks the frame"
     assert 'data-tool="frame"' in index and 'data-wb-insert="frame"' in index
@@ -4085,7 +4085,7 @@ def test_a_locked_item_is_out_of_reach_in_one_way() -> None:
     by asking `wbIsLocked`: Select all, the marquee, the lasso, a group's
     click and a frame's drag. The way back is on the board's own menu."""
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     assert "#whiteboard-container .wb-locked,\n#whiteboard-container .wb-locked * {\n  pointer-events: none;" in css
     assert "return out.filter(([kind, item]) => !wbIsLocked(kind, item) && !wbHiddenOnBoard(kind, item));" in wb
     assert wb.count('if (wbIsLocked("object", obj)) continue;') == 2, "the marquee and the lasso"
@@ -4140,7 +4140,7 @@ def test_presenting_is_one_mode_with_one_bar() -> None:
     phase so no board key acts; the bar's text is a polite live region."""
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     assert 'data-wb-fn="present" data-wb-surface="board"' in index
     assert 'data-wb-fn="present" data-wb-surface="map"' in index, "a map presents by branch (MINDMAP_PLAN 21)"
     #: Studying a map (MINDMAP_PLAN decision 36) is the same mode and bar.
@@ -4161,7 +4161,7 @@ def test_the_text_box_grip_stands_on_an_opaque_ground() -> None:
     """The "⠿" tab on a text box or sticky's top edge: `--card-bg` is a glass
     in most looks, so on a sticky's yellow the muted glyph measured 1.68:1 in
     dark (`scratchpad/ui-sweeps/wbgripink.js`; 7.86:1 on the opaque ground)."""
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     rule = css[css.index(".wb-object-grip {") :][:900]
     assert "background: var(--modal-bg-opaque);" in rule and "var(--card-bg)" not in rule.split("}")[0]
 
@@ -4174,7 +4174,7 @@ def test_a_maps_boundaries_and_summaries_are_drawn_in_one_pass() -> None:
     pointer; and a theme reset keeps them."""
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     wm = (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     render = wb[wb.index("function renderWhiteboard()") :]
     assert render.index("wbRenderMapStructure();") > render.index("wbRenderMapEdges();")
     assert "if (wbIsMap()) wbRenderMapStructure();" in wb[wb.index("function wbQueueSelectionBar()") :][:400]
@@ -4211,7 +4211,7 @@ def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
     shell; every change goes through `wbSetComments`; the marks are painted
     after every render and follow a drag on the selection bar's frame."""
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     assert wb.count("wbOpenComments(") == 4, "the definition, the mark, the item menu, the topic menu"
     assert 'panel.className = "help-popover wb-comments";' in wb
     #: The window is the function's own length (it grew Attach and replies,
@@ -4685,7 +4685,7 @@ def test_an_empty_line_in_a_small_panel_is_the_recipe():
         if "empty-line" not in classes and "empty-state" not in classes:
             off.add(ident.group(1))
     assert off <= EMPTY_LINES_NOT_YET, f"an empty line off the recipe: {sorted(off - EMPTY_LINES_NOT_YET)}"
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     rule = next(body for sel, body in _rules(css) if sel.strip() == ".empty-line")
     for part in ("var(--muted)", "var(--text-md)", "text-align: start", "margin: var(--space-3) 0"):
         assert part in rule, f".empty-line lost {part}"

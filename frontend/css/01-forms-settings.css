@@ -3165,9 +3165,12 @@ mark.global-find-hit.global-find-current {
    it"). A confirm is opened from any surface, including the lightbox
    (`.lightbox`, z-index 1020, 02-chat-graph.css) and the full-screen graph
    (1000), and the shared `.modal-overlay` (1010) sat under the first of
-   them. It is the last word on the screen, so it takes the top of the scale. */
+   them. It is the last word on the screen, so it takes the top of the scale.
+   2100 since INBOX 790: the Find anything and command palette overlays are
+   2000, so "Name this search" opened behind its own star and the press looked
+   like it only darkened the page. */
 .modal-overlay.confirm-overlay {
-  z-index: 1040;
+  z-index: 2100;
 }
 .modal-card {
   width: min(880px, 96vw);

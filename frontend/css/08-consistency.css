@@ -4271,19 +4271,6 @@ body .chip.item-label,
 .dash-reminder-when {
   font-size: var(--text-sm);
 }
-/* The View menu's two columns break before Panels, by name rather than by
-   wherever the column balancing happens to fall, so the second column
-   starts with a group and not with a hairline over nothing (measured: the
-   balanced columns put the Panels group's top rule at the head of column
-   two). Look and the map's own group are one column, the panels and the
-   camera the other. One column below 600, where the rule comes back. */
-@media (min-width: 600px) {
-  #wb-view-menu .wb-menu-section[aria-label="Panels"] {
-    break-before: column;
-    border-top: 0;
-    padding-top: 0;
-  }
-}
 /* **A 44px target, a lighter box** (the phone pass's first open item). On a
    coarse pointer `--target-min` is the 44px floor, and the tick recipe in
    07-whiteboard-misc.css draws its box at the full target size: a bordered,
@@ -8736,24 +8723,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    not a new size of its own. */
 .doc-view-menu > .doc-dock-menu-list {
   min-width: 10rem;
-}
-/* The board's View menu on a phone: "one column again" was written as
-   `column-count: 1`, which still makes it a multi-column box, and a
-   multi-column box with a height cap (the menu is capped to the window)
-   does not scroll its overflow, it adds columns beside it. Measured at 390
-   on a mind map (sixteen rows): the Zoom section drew at x 281 to 538 in a
-   menu that ends at 280, reachable only by scrolling the menu sideways
-   (menus.js). No columns at all is what one column means. */
-@media (max-width: 599.98px) {
-  #wb-view-menu {
-    column-count: auto;
-  }
-}
-/* The same on a desktop window too short for the two columns: whiteboard.js
-   adds this when the capped menu starts growing sideways. */
-#wb-view-menu.wb-menu-one-col {
-  column-count: auto;
-  width: min(17rem, calc(100vw - var(--space-5) * 2));
 }
 /* `kebabMenu`'s group hairline, in a menu written in markup (Quick set). */
 .doc-dock-menu-list > .menu-sep {

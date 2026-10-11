@@ -6450,16 +6450,30 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="wb-board-menu-wrap">
           <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="How the board looks and which panels are open" aria-haspopup="true" aria-expanded="false" aria-controls="wb-view-menu"><i class="ph ph-eye wb-menu-icon" aria-hidden="true"></i><span class="wb-menu-label">View</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
           <div id="wb-view-menu" class="wb-board-menu hidden" role="menu" aria-label="View">
-            <!-- Groups are told apart by a hairline, not a printed heading
-                 (DESIGN.md, the recipe index: a heading over every group is
-                 what made this menu so tall). Each group keeps its name for
-                 a screen reader as `aria-label`. -->
+            <!-- **One column, three named groups** (INBOX 793, the owner: "the
+                 view and board dropdown menus ... need a bit of a redesign").
+                 It was two columns of rows with mixed shapes (a switch, a
+                 select, a button, a key) and a Panels group printed twice.
+                 Now Panels (what is open: switches), Canvas (the ground you
+                 draw on: background, grid, snap, sticky corners) and Zoom
+                 (rows with their keys right-aligned), a head over each, every
+                 row one height and one inset, an icon leading each (the
+                 recipe the other board menus use). A map's own group sits
+                 between Canvas and Zoom and is hidden on a whiteboard. -->
             <div class="wb-menu-section" role="group" aria-label="Panels">
+              <span class="wb-panel-group-label">Panels</span>
               <button type="button" class="wb-menu-item" data-wb-cmd="format-panel"><i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i><span>Format panel</span><kbd>Ctrl+Shift+P</kbd></button>
+              <label class="wb-menu-row wb-snap-label" title="Show the context bar above the selection, and above the rail while a drawing tool is held"><span><i class="ph ph-selection-plus ph-lead" aria-hidden="true"></i>Context bar</span><input type="checkbox" id="wb-panel-props" checked></label>
+              <label class="wb-menu-row wb-snap-label" title="The board overview (Shift+N)"><span><i class="ph ph-map-trifold ph-lead" aria-hidden="true"></i>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
+              <label class="wb-menu-row wb-snap-label" title="The sidebar: the library, notes and layers"><span><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i>Sidebar</span><input type="checkbox" id="wb-panel-library"></label>
+              <label class="wb-menu-row wb-snap-label" data-wb-surface="map" hidden title="The map as an indented list you can edit"><span><i class="ph ph-list-dashes ph-lead" aria-hidden="true"></i>Outline</span><input type="checkbox" id="wb-panel-outline"></label>
+              <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i>Search</span><input type="checkbox" id="wb-panel-search"></label>
+              <button id="wb-dock-toggle" class="wb-menu-item" type="button" title="Dock the tools as a sidebar" aria-label="Dock the tools as a sidebar"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i><span>Dock the tools at the side</span></button>
             </div>
-            <div class="wb-menu-section" role="group" aria-label="Look">
+            <div class="wb-menu-section" role="group" aria-label="Canvas">
+              <span class="wb-panel-group-label">Canvas</span>
               <div class="wb-menu-row">
-                <span>Background</span>
+                <span><i class="ph ph-palette ph-lead" aria-hidden="true"></i>Background</span>
                 <span class="wb-menu-controls">
                   <input type="color" id="wb-bg-color-picker" aria-label="Canvas background colour" title="This board's background colour, kept with the board on every device; PNG and SVG exports keep it too" value="#1b1f2c" class="wb-color-picker">
                   <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset the background colour to the theme default" aria-label="Reset the background colour to the theme default"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
@@ -6467,7 +6481,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </div>
               <div class="wb-menu-row">
-                <span>Grid</span>
+                <span><i class="ph ph-grid-four ph-lead" aria-hidden="true"></i>Grid</span>
                 <select id="wb-grid-select" aria-label="Grid style" title="Grid style" class="ghost small">
                   <option value="none">None</option>
                   <option value="lines">Lines</option>
@@ -6475,18 +6489,17 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="iso">Isometric</option>
                 </select>
               </div>
-              <label class="wb-menu-row wb-snap-label" title="Snap items to the grid while dragging">
-                <span>Snap to grid</span>
-                <input type="checkbox" id="wb-snap-toggle">
-              </label>
+              <label class="wb-menu-row wb-snap-label" title="Snap items to the grid while dragging"><span><i class="ph ph-magnet ph-lead" aria-hidden="true"></i>Snap to grid</span><input type="checkbox" id="wb-snap-toggle"></label>
+              <label class="wb-menu-row wb-snap-label" data-wb-surface="board" title="Draw the bottom corner of this board's sticky notes folded over; a note's Format panel can differ"><span><i class="ph ph-note ph-lead" aria-hidden="true"></i>Folded sticky corners</span><input type="checkbox" id="wb-sticky-fold" checked></label>
             </div>
             <!-- Map views (MINDMAP_PLAN.md §5 items 19 and 20). Both rows
                  are hidden on an ordinary whiteboard by `wbSyncMapChrome`,
                  the same rule the top bar's map controls follow: a control
                  that can never apply here is not one worth reading past. -->
             <div class="wb-menu-section" id="wb-view-map-section" role="group" aria-label="Map" hidden>
+              <span class="wb-panel-group-label">Map</span>
               <div class="wb-menu-row" hidden>
-                <span>Colour by</span>
+                <span><i class="ph ph-swatches ph-lead" aria-hidden="true"></i>Colour by</span>
                 <select id="wb-map-perspective" class="ghost small" aria-label="What a node's colour means" title="What a node's colour means">
                   <option value="branch">Branch</option>
                   <option value="category">Category</option>
@@ -6502,28 +6515,18 @@ Link to another note with [[its first few words]]."></textarea>
                    half of this section that was already built. -->
               <!-- Numbered branches (MINDMAP_PLAN.md decision 17): a map-wide
                    on/off, the menu's own switch row, like the Panels group. -->
-              <label class="wb-menu-row wb-snap-label" hidden title="Number every topic by its place in the outline: 1, 1.1, 1.2"><span>Number the branches</span><input type="checkbox" id="wb-map-numbered"></label>
+              <label class="wb-menu-row wb-snap-label" hidden title="Number every topic by its place in the outline: 1, 1.1, 1.2"><span><i class="ph ph-list-numbers ph-lead" aria-hidden="true"></i>Number the branches</span><input type="checkbox" id="wb-map-numbered"></label>
               <button type="button" class="wb-menu-item" id="wb-map-theme-item" hidden><i class="ph ph-palette ph-lead" aria-hidden="true"></i><span>How this map looks</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-expand-all" hidden><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i><span>Open every folded branch</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-filter-item" data-wb-surface="map" hidden title="Dim every topic that does not carry one marker"><i class="ph ph-funnel ph-lead" aria-hidden="true"></i><span>Filter by marker…</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-stats-item" hidden><i class="ph ph-chart-bar ph-lead" aria-hidden="true"></i><span>What this map is made of</span></button>
-            </div>
-            <div class="wb-menu-section" role="group" aria-label="Panels">
-              <label class="wb-menu-row wb-snap-label" title="Show the context bar above the selection, and above the rail while a drawing tool is held"><span>Context bar</span><input type="checkbox" id="wb-panel-props" checked></label>
-              <label class="wb-menu-row wb-snap-label" title="The board overview (Shift+N)"><span>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
-              <label class="wb-menu-row wb-snap-label" title="The sidebar: the library, notes and layers"><span>Sidebar</span><input type="checkbox" id="wb-panel-library"></label>
-              <label class="wb-menu-row wb-snap-label" data-wb-surface="map" hidden title="The map as an indented list you can edit"><span>Outline</span><input type="checkbox" id="wb-panel-outline"></label>
-              <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span>Search</span><input type="checkbox" id="wb-panel-search"></label>
-              <div class="wb-menu-row">
-                <span>Toolbar</span>
-                <button id="wb-dock-toggle" class="ghost small" type="button" title="Dock as a sidebar" aria-label="Dock as a sidebar"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Bottom</button>
-              </div>
             </div>
             <!-- Zoom in and Zoom out are the zoom bar's two buttons already,
                  one click away at the foot of the canvas, so they are not
                  here a second time; what the bar has no button for (100%)
                  and what is worth its key (Shift+1, Ctrl+0) is. -->
             <div class="wb-menu-section" role="group" aria-label="Zoom">
+              <span class="wb-panel-group-label">Zoom</span>
               <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-fit"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Fit everything</span><kbd>Shift+1</kbd></button>
               <button type="button" class="wb-menu-item" id="wb-zoom-actual"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i><span>Zoom to 100%</span><kbd>Ctrl+0</kbd></button>
               <button type="button" class="wb-menu-item" data-wb-click="wb-fullscreen"><i class="ph ph-arrows-out ph-lead" aria-hidden="true"></i><span>Full screen</span><kbd>Esc leaves</kbd></button>
@@ -6551,14 +6554,21 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="wb-rename-board" type="button" class="wb-menu-item" title="Rename this board"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i><span>Rename this board</span></button>
               <button id="wb-new-board" type="button" class="wb-menu-item" title="Create a new board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span>New board</span></button>
             </div>
+            <!-- **Plain icon rows, never a label with an action beside it**
+                 (INBOX 793, the owner: the Board menu "needs a bit of a
+                 redesign"). Export, Clear, Add to a note, Copy app link and
+                 Delete were each a muted label on the left and a small button
+                 on the right ("This board itself ... Delete"): two things to
+                 read and a button the size of a chip in a menu of rows. They
+                 are rows like the rest, with the same ids and the same
+                 `data-wb-closes`; what destroys is last and red. Kind says
+                 what it will do ("Turn into a mind map") and the map-only
+                 rows are hidden on a whiteboard by `wbSyncMapChrome`. -->
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">This board</span>
               <button type="button" class="wb-menu-item" data-wb-cmd="history"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i><span>History…</span></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="snapshots"><i class="ph ph-camera ph-lead" aria-hidden="true"></i><span>Snapshots…</span></button>
-              <div class="wb-menu-row">
-                <span>Export</span>
-                <button id="wb-export" data-wb-closes class="ghost small" type="button" title="Export this board"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export…</button>
-              </div>
+              <button id="wb-export" data-wb-closes type="button" class="wb-menu-item" title="Export this board"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i><span>Export…</span></button>
               <!-- Which kind of board this is, changeable. Reported: "when I
                    press the boards dropdown to change boards, I cant tell
                    which one is a whiteboard and which one is a mindmap". The
@@ -6568,58 +6578,38 @@ Link to another note with [[its first few words]]."></textarea>
                    no way to say otherwise. `PUT /whiteboard/boards/{id}` has
                    taken a `type` all along; this is the control it never
                    had. -->
-              <div class="wb-menu-row">
-                <span>Kind</span>
-                <button id="wb-board-kind" class="ghost small" type="button" title="Switch between a whiteboard and a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span id="wb-board-kind-label">Turn into a mind map</span></button>
-              </div>
-              <div class="wb-menu-row">
-                <span>Everything on it</span>
-                <button id="wb-clear-board" data-wb-closes class="ghost small wb-panel-danger" type="button" title="Clear this board"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i> Clear</button>
-              </div>
-              <!-- Reported: "there's no way to delete a board while in that
-                   board on the whiteboard and mindmap". Deleting one existed
-                   only on the gallery card's kebab, so the way to throw away
-                   the board you are looking at was to leave it first and then
-                   find it again in the list. The action belongs on the board
-                   as well as beside it. Clear takes the eraser icon here, so
-                   the two are not one trash can each: Clear empties the board
-                   and keeps it, Delete takes the board with it. -->
+              <button id="wb-board-kind" type="button" class="wb-menu-item" title="Switch between a whiteboard and a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i><span id="wb-board-kind-label">Turn into a mind map</span></button>
               <!-- INBOX 309, the owner: "there is also no way to attach a
                    whiteboard or mindmap to a note as like an object in the
                    notes". Two doorways were asked for, and this is the one
                    that starts from the board: the other is the "/" menu's
-                   own "Board or mind map" inside a note. A feature with only
-                   the editor's half is a feature you have to already know
-                   about, which is how the map chips stayed unused. -->
-              <div class="wb-menu-row">
-                <span>A note</span>
-                <button id="wb-add-to-note" data-wb-closes class="ghost small" type="button" title="Put this board in a note as an object"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Add to a note…</button>
-              </div>
+                   own "Board or mind map" inside a note. -->
+              <button id="wb-add-to-note" data-wb-closes type="button" class="wb-menu-item" title="Put this board in a note as an object"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span>Add to a note…</span></button>
               <!-- A map's outline as a document (audit brief M5): headings by
                    depth, then lists, notes as paragraphs, the map's card at
                    the head. Maps only. -->
-              <div class="wb-menu-row" data-wb-surface="map">
-                <span>A document</span>
-                <button id="wb-map-to-doc" data-wb-closes class="ghost small" type="button" title="Write this map as a new document: its branches as headings, the rest as lists"><i class="ph ph-file-text ph-lead" aria-hidden="true"></i> Write as a document</button>
-              </div>
+              <button id="wb-map-to-doc" data-wb-closes data-wb-surface="map" type="button" class="wb-menu-item" title="Write this map as a new document: its branches as headings, the rest as lists"><i class="ph ph-file-text ph-lead" aria-hidden="true"></i><span>Write as a document</span></button>
               <!-- Study the map (MINDMAP_PLAN decision 36): each branch hidden
                    until recalled, full screen. Maps only. -->
-              <div class="wb-menu-row" data-wb-surface="map">
-                <span>Revise it</span>
-                <button id="wb-map-study" class="ghost small" type="button" title="Recall what is under each branch before it is shown; your marks are kept for this map on this device"><i class="ph ph-student ph-lead" aria-hidden="true"></i> Study the map</button>
-              </div>
-              <div class="wb-menu-row">
-                <span>Its address</span>
-                <button id="wb-copy-link" data-wb-closes class="ghost small" type="button" title="Copy this board's or mind map's address to open it in the app"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Copy app link</button>
-              </div>
-              <div class="wb-menu-row">
-                <span>This board itself</span>
-                <button id="wb-delete-board" data-wb-closes class="ghost small wb-panel-danger" type="button" title="Delete this board and everything on it"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
-              </div>
+              <button id="wb-map-study" data-wb-surface="map" type="button" class="wb-menu-item" title="Recall what is under each branch before it is shown; your marks are kept for this map on this device"><i class="ph ph-student ph-lead" aria-hidden="true"></i><span>Study the map</span></button>
+              <button id="wb-copy-link" data-wb-closes type="button" class="wb-menu-item" title="Copy this board's or mind map's address to open it in the app"><i class="ph ph-link ph-lead" aria-hidden="true"></i><span>Copy app link</span></button>
               <!-- The whole board into the library as a template (decision 25). -->
               <button type="button" class="wb-menu-item" data-wb-cmd="save-template"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i><span>Save this board as a template…</span></button>
+            </div>
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Help</span>
               <!-- The board's help and shortcut sheet (INBOX 566), also "?". -->
               <button id="wb-help-btn" type="button" class="wb-menu-item" title="Every key and gesture on a board"><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i><span>Keys and controls</span><kbd>?</kbd></button>
+            </div>
+            <!-- Clear empties the board and keeps it; Delete takes the board
+                 with it (the eraser and the trash are two glyphs on purpose).
+                 There was no way to delete the board you were looking at
+                 except to leave it first, so Delete is on the board as well
+                 as on the gallery card's kebab. Last, and red. -->
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Remove</span>
+              <button id="wb-clear-board" data-wb-closes type="button" class="wb-menu-item wb-menu-danger" title="Clear this board"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i><span>Clear everything on it</span></button>
+              <button id="wb-delete-board" data-wb-closes type="button" class="wb-menu-item wb-menu-danger" title="Delete this board and everything on it"><i class="ph ph-trash ph-lead" aria-hidden="true"></i><span>Delete this board</span></button>
             </div>
           </div>
         </div>
@@ -7078,30 +7068,46 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <div class="wb-context-group hidden" data-wb-ctx="caps">
         <select id="wb-prop-startcap" aria-label="Line start style" title="Line start style">
-          <option value="none">Start: none</option>
-          <option value="arrow">Start: arrow</option>
-          <option value="circle">Start: circle</option>
-          <option value="square">Start: square</option>
-          <option value="multiline">Start: multi-line</option>
-          <option value="er-one">Start: one (ER)</option>
-          <option value="er-one-only">Start: one and only one (ER)</option>
-          <option value="er-zero-one">Start: zero or one (ER)</option>
-          <option value="er-many">Start: many (ER)</option>
-          <option value="er-one-many">Start: one or many (ER)</option>
-          <option value="er-zero-many">Start: zero or many (ER)</option>
+          <optgroup label="Plain ends">
+            <option value="none" data-menu-class="wb-cap wb-cap-none wb-cap-start">None</option>
+            <option value="arrow" data-menu-class="wb-cap wb-cap-arrow wb-cap-start">Open arrow</option>
+            <option value="triangle" data-menu-class="wb-cap wb-cap-triangle wb-cap-start">Filled triangle</option>
+            <option value="diamond" data-menu-class="wb-cap wb-cap-diamond wb-cap-start">Diamond</option>
+            <option value="diamond-filled" data-menu-class="wb-cap wb-cap-diamond-filled wb-cap-start">Filled diamond</option>
+            <option value="bar" data-menu-class="wb-cap wb-cap-bar wb-cap-start">Bar</option>
+            <option value="circle" data-menu-class="wb-cap wb-cap-circle wb-cap-start">Circle</option>
+            <option value="square" data-menu-class="wb-cap wb-cap-square wb-cap-start">Square</option>
+            <option value="multiline" data-menu-class="wb-cap wb-cap-multiline wb-cap-start">Multi-line</option>
+          </optgroup>
+          <optgroup label="Entity-relationship ends">
+            <option value="er-one" data-menu-class="wb-cap wb-cap-er-one wb-cap-start">One</option>
+            <option value="er-one-only" data-menu-class="wb-cap wb-cap-er-one-only wb-cap-start">One and only one</option>
+            <option value="er-zero-one" data-menu-class="wb-cap wb-cap-er-zero-one wb-cap-start">Zero or one</option>
+            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many wb-cap-start">Many</option>
+            <option value="er-one-many" data-menu-class="wb-cap wb-cap-er-one-many wb-cap-start">One or many</option>
+            <option value="er-zero-many" data-menu-class="wb-cap wb-cap-er-zero-many wb-cap-start">Zero or many</option>
+          </optgroup>
         </select>
         <select id="wb-prop-endcap" aria-label="Line end style" title="Line end style">
-          <option value="none">End: none</option>
-          <option value="arrow">End: arrow</option>
-          <option value="circle">End: circle</option>
-          <option value="square">End: square</option>
-          <option value="multiline">End: multi-line</option>
-          <option value="er-one">End: one (ER)</option>
-          <option value="er-one-only">End: one and only one (ER)</option>
-          <option value="er-zero-one">End: zero or one (ER)</option>
-          <option value="er-many">End: many (ER)</option>
-          <option value="er-one-many">End: one or many (ER)</option>
-          <option value="er-zero-many">End: zero or many (ER)</option>
+          <optgroup label="Plain ends">
+            <option value="none" data-menu-class="wb-cap wb-cap-none">None</option>
+            <option value="arrow" data-menu-class="wb-cap wb-cap-arrow">Open arrow</option>
+            <option value="triangle" data-menu-class="wb-cap wb-cap-triangle">Filled triangle</option>
+            <option value="diamond" data-menu-class="wb-cap wb-cap-diamond">Diamond</option>
+            <option value="diamond-filled" data-menu-class="wb-cap wb-cap-diamond-filled">Filled diamond</option>
+            <option value="bar" data-menu-class="wb-cap wb-cap-bar">Bar</option>
+            <option value="circle" data-menu-class="wb-cap wb-cap-circle">Circle</option>
+            <option value="square" data-menu-class="wb-cap wb-cap-square">Square</option>
+            <option value="multiline" data-menu-class="wb-cap wb-cap-multiline">Multi-line</option>
+          </optgroup>
+          <optgroup label="Entity-relationship ends">
+            <option value="er-one" data-menu-class="wb-cap wb-cap-er-one">One</option>
+            <option value="er-one-only" data-menu-class="wb-cap wb-cap-er-one-only">One and only one</option>
+            <option value="er-zero-one" data-menu-class="wb-cap wb-cap-er-zero-one">Zero or one</option>
+            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many">Many</option>
+            <option value="er-one-many" data-menu-class="wb-cap wb-cap-er-one-many">One or many</option>
+            <option value="er-zero-many" data-menu-class="wb-cap wb-cap-er-zero-many">Zero or many</option>
+          </optgroup>
         </select>
       </div>
       <div class="wb-context-group hidden" data-wb-ctx="stroke">
@@ -7574,17 +7580,29 @@ Link to another note with [[its first few words]]."></textarea>
              three rows are the Board menu's map-wide actions. -->
         <section class="wb-side-section" data-side-panel="map" aria-label="This map" hidden>
           <div id="wb-side-map-facts"></div>
-          <button type="button" class="wb-menu-item" id="wb-side-map-look"><i class="ph ph-palette ph-lead" aria-hidden="true"></i><span>How this map looks…</span></button>
-          <button type="button" class="wb-menu-item" id="wb-side-map-expand"><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i><span>Open every folded branch</span></button>
-          <button type="button" class="wb-menu-item" id="wb-side-map-tidy"><i class="ph ph-broom ph-lead" aria-hidden="true"></i><span>Lay the map out again</span></button>
-          <p class="muted wb-lib-keys">Templates to drag in are in the Library tab.</p>
+          <div class="wb-side-actions" role="group" aria-label="Map actions">
+            <button type="button" class="ghost small" id="wb-side-map-look"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> How this map looks…</button>
+            <button type="button" class="ghost small" id="wb-side-map-expand"><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i> Open every folded branch</button>
+            <button type="button" class="ghost small" id="wb-side-map-tidy"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Lay the map out again</button>
+          </div>
+          <div class="row help-head wb-side-help">
+            <span class="muted">Where are the templates?</span>
+            <button type="button" class="icon-only ghost small graph-help-toggle"
+              data-help-for="wb-side-map-help" aria-controls="wb-side-map-help"
+              aria-expanded="false" title="Where are the templates?" aria-label="Where are the templates?">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="help-body hidden" id="wb-side-map-help" role="dialog" aria-label="Where are the templates?">
+            <p>Templates to drag in are in the Library tab.</p>
+          </div>
         </section>
         <section class="wb-side-section" data-side-panel="outline" aria-label="Outline" hidden>
-          <!-- The map as an outline (MINDMAP_PLAN decision 33): one field per
-               topic in the tree's order, edited in place and kept in step with
-               the canvas both ways (`wbOutlineSync`, whiteboard-map.js). -->
+          <!-- The map as an outline (MINDMAP_PLAN decision 33): one row per
+               topic in the tree's order, read-only until a double click, F2 or
+               its pencil opens it, and kept in step with the canvas both ways (`wbOutlineSync`, whiteboard-map.js). -->
           <div id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-label="Outline"></div>
-          <p class="wb-outline-hint muted">Enter adds a topic, Tab and Shift+Tab move it in and out a level.</p>
+          <p class="wb-outline-hint muted">Double-click or F2 renames, Enter saves, Esc cancels. Shift+Enter adds a topic, Tab and Shift+Tab move it in and out a level.</p>
         </section>
       </div>
     </aside>
@@ -7621,6 +7639,7 @@ Link to another note with [[its first few words]]."></textarea>
           <label class="wb-fmt-row" data-fmt="alpha"><span class="wb-fmt-label">Opacity</span>
             <span class="wb-fmt-buttons"><input type="range" id="wb-fmt-alpha" min="10" max="100" step="5" aria-label="Opacity" title="Opacity"><output id="wb-fmt-alpha-out" for="wb-fmt-alpha" class="wb-fmt-out">100%</output></span>
           </label>
+          <div class="wb-fmt-row" data-fmt="fold"><span class="wb-fmt-label">Folded corner</span><span class="wb-fmt-buttons"><label class="wb-snap-label" title="Draw this note's bottom corner folded over; off, the paper is flat"><input type="checkbox" id="wb-fmt-fold" aria-label="Folded corner"></label></span></div>
           <div class="wb-fmt-row" data-fmt="shadow"><span class="wb-fmt-label">Shadow</span><span class="wb-fmt-buttons"><label class="wb-snap-label" title="A soft shadow under it"><input type="checkbox" id="wb-fmt-shadow" aria-label="Shadow"></label></span></div>
           <label class="wb-fmt-row" data-fmt="route"><span class="wb-fmt-label">Line shape</span>
             <select id="wb-fmt-route" aria-label="Line shape" title="Line shape">

@@ -12,6 +12,7 @@ open it (`GET /import/reports/{id}`).
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -61,17 +62,27 @@ def save(data_dir: Path, report: dict) -> str:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S%f")
     report_id = f"{stamp}-{re.sub('[^a-z]', '', report['source'])[:12] or 'import'}"
     report["id"] = report_id
-    (where / f"{report_id}.json").write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
+    _inside(where, report_id).write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
     for old in sorted(where.glob("*.json"))[:-KEEP]:
         old.unlink(missing_ok=True)
     return report_id
 
 
+def _inside(where: Path, report_id: str) -> Path:
+    """The report's file, refused unless it resolves inside the reports folder
+    (the id is checked by shape too; this is the check a path needs)."""
+    base = os.path.realpath(where)
+    path = os.path.realpath(os.path.join(base, f"{report_id}.json"))
+    if not path.startswith(base + os.sep):
+        raise ValueError("not a report of this notebook")
+    return Path(path)
+
+
 def load(data_dir: Path, report_id: str) -> dict | None:
     if not _ID.match(report_id or ""):
         return None
-    path = folder(data_dir) / f"{report_id}.json"
     try:
+        path = _inside(folder(data_dir), report_id)
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None

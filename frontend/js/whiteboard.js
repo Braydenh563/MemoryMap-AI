@@ -139,6 +139,9 @@ let wbZoom = d3
   .filter(wbZoomFilter)
   .on("zoom", handleWbZoom)
   .on("end.shield", wbEndPanShield);
+//: Whether the view is where the last "Fit to screen" put it (INBOX 792):
+//: the destination, and until when the fit's own animation is running.
+const wbFit = { on: false, target: null, until: 0 };
 let wbState = { nodes: [], sketches: [], objects: [] };
 let wbHintForcedOpen = false; // the "?" help button's override: see renderWhiteboard
 let wbInitialized = false;
@@ -494,6 +497,9 @@ function wbEndPanShield() {
 }
 
 function handleWbZoom(e) {
+  //: A view that is not where the last fit put it is not "fitted" any more,
+  //: so a panel opening does not pull it back (`wbRefitIfFitted`).
+  if (wbFit.on && (e.sourceEvent || (Date.now() > wbFit.until && !wbSameView(e.transform, wbFit.target)))) wbFit.on = false;
   wbStartPanShield(e);
   wbApplyZoomTransform(e.transform);
   wbZoomPending = e.transform;
@@ -733,14 +739,31 @@ const WB_INV_ZOOM_GRIPS = [
   ".wb-clone-grip",
   ".wb-map-edge-handle",
   ".wb-map-resize-grip",
+  ".wb-map-actions",
   ".wb-sketch-rotate-handle",
   ".wb-rotate-handle-stem",
 ];
 let wbInvZoomSheet = null;
 let wbInvZoomValue = "1";
 
+//: **The board's layers are rasterised again once a zoom has settled**
+//: (INBOX 791, "labels look pixelated"). A layer promoted with `will-change:
+//: transform` keeps the raster it was first painted at, and a compositor
+//: that does not re-raster on a later scale change draws a link label, which
+//: is SVG text, as a stretched bitmap. Dropping the hint for one frame and
+//: restoring the sheet's own makes the next paint at the current scale; all
+//: three go in the same frame so the pan pipelines stay together.
+function wbRefreshRaster() {
+  const layers = ["wb-html-layer", "wb-svg-layer", "wb-overlay-layer"].map((id) => document.getElementById(id)).filter(Boolean);
+  for (const layer of layers) layer.style.willChange = "auto";
+  requestAnimationFrame(() => {
+    for (const layer of layers) layer.style.willChange = "";
+  });
+}
+
 function wbPublishInvZoom(el, inv) {
   wbInvZoomValue = inv;
+  wbRefreshRaster();
   //: The clone arrows stand a fixed number of screen pixels off their sides.
   wbLayoutCloneGrips();
   const supported =
@@ -1117,6 +1140,8 @@ function wbApplyBackground() {
   el.style.setProperty("--wb-bg-image", bg.image ? `url("${mediaSrc(bg.image)}")` : "none");
   const picker = document.getElementById("wb-bg-color-picker");
   if (picker && (bg.color || themeHex)) picker.value = bg.color || themeHex;
+  const fold = document.getElementById("wb-sticky-fold");
+  if (fold) fold.checked = bg.sticky_fold !== false;
   const imageButton = document.getElementById("wb-bg-image");
   if (imageButton) {
     const words = bg.image ? "Remove the background image" : "Set a background image";
@@ -1145,6 +1170,8 @@ async function wbSetBackground(patch, { undo = true } = {}) {
     return false;
   }
   wbApplyBackground();
+  //: The sticky notes' fold follows the board's default.
+  if ("sticky_fold" in patch) wbScheduleRender();
   if (undo) wbPushUndo({ action: "background", before });
   return true;
 }
@@ -1318,7 +1345,16 @@ function wbArrowHeadPath(tipX, tipY, approachAngle, headLen) {
 //: sketch as the one path they already know how to handle), "arrow" here
 //: is exactly `wbArrowHeadPath`'s own two-line V, kept for a single call
 //: site to switch on.
-const WB_CAP_KINDS = ["none", "arrow", "circle", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
+//: **The plain ends, drawn closed or open** (INBOX 792, the owner: "there is
+//: only one actual arrow option for the links"): `arrow` is the open V,
+//: `triangle` the solid arrowhead, `diamond` and `diamond-filled` the UML
+//: aggregation and composition marks, `bar` a stop line at the tip. A filled
+//: end is a closed outline with smaller copies of itself inside it, a stroke's
+//: width apart: the end stays one more subpath of the shaft's own `d`, so a
+//: line with a solid head is still one stroked path (hit-testing, move,
+//: resize and every export read it as before) and no end needs a fill.
+const WB_CAP_KINDS = ["none", "arrow", "triangle", "diamond", "diamond-filled", "bar", "circle", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
+const WB_SOLID_CAPS = new Set(["triangle", "diamond-filled"]);
 
 //: The entity-relationship ends (the features audit W4): what is nearest the
 //: line's body, then what is at the tip. `null` near: one mark only.
@@ -1360,6 +1396,35 @@ function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
     const tip = far === "many" ? foot() : bar(headLen * 0.3);
     const inner = near === "zero" ? ring(headLen * 0.85) : bar(headLen * 0.85);
     return near ? `${inner} ${tip}` : tip;
+  }
+  if (kind === "bar") {
+    const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+    const half = headLen * 0.5;
+    return `M ${tipX - sin * half} ${tipY + cos * half} L ${tipX + sin * half} ${tipY - cos * half}`;
+  }
+  if (kind === "triangle" || kind === "diamond" || kind === "diamond-filled") {
+    const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+    //: Points in the line's own frame: along (back from the tip) and across.
+    const shape = kind === "triangle"
+      ? [[0, 0], [headLen, headLen * 0.4], [headLen, -headLen * 0.4]]
+      : [[0, 0], [headLen * 0.55, headLen * 0.34], [headLen * 1.1, 0], [headLen * 0.55, -headLen * 0.34]];
+    const mid = [shape.reduce((n, p) => n + p[0], 0) / shape.length, 0];
+    const draw = (scale) => {
+      const pts = shape.map(([back, across]) => {
+        const b = mid[0] + (back - mid[0]) * scale, a = across * scale;
+        return `${+(tipX - cos * b - sin * a).toFixed(2)} ${+(tipY - sin * b + cos * a).toFixed(2)}`;
+      });
+      return `M ${pts.join(" L ")} Z`;
+    };
+    if (!WB_SOLID_CAPS.has(kind)) return draw(1);
+    //: The copies step in by a stroke width (the head is `width * 4 + 6` long),
+    //: until one would be thinner than the stroke itself.
+    const stroke = Math.max(1, (headLen - 6) / 4);
+    const reach = Math.min(...shape.map(([back, across]) => Math.hypot(back - mid[0], across))) || headLen / 2;
+    const step = (stroke * 0.8) / reach;
+    const out = [];
+    for (let scale = 1; scale > step * 0.5; scale -= step) out.push(draw(scale));
+    return out.join(" ");
   }
   if (kind === "circle") {
     const r = headLen / 3;
@@ -1664,6 +1729,62 @@ function wbContentBounds() {
   return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
 }
 
+//: **What a fit fits into: the canvas the person can see** (INBOX 792, the
+//: owner: "the fitting to screen features ... should be based on what panels
+//: are currently showing and the screen resolution/size"). The canvas is one
+//: box under the top bar, the tools dock, the sidebar and the Format panel,
+//: so a fit to the box parked content under them. The free area is the box
+//: less whichever of those is showing, each taken off the side it sits on
+//: (a wide one off the top or bottom, a tall one off the left or right), in
+//: the box's own coordinates. A window too narrow to leave a third of the box
+//: (the sidebar a sheet over a phone) keeps its sides, since a fit into a
+//: sliver is worse than one that runs under a sheet.
+const WB_FIT_OCCLUDERS = ["#wb-topbar", "#wb-tools-panel", "#wb-sidebar", "#wb-format"];
+
+function wbFreeArea(container) {
+  const box = container.getBoundingClientRect();
+  const area = { left: 0, top: 0, right: box.width, bottom: box.height };
+  const sides = { left: 0, top: 0, right: box.width, bottom: box.height };
+  for (const selector of WB_FIT_OCCLUDERS) {
+    const el = document.querySelector(selector);
+    if (!el || el.hidden || el.closest(".hidden")) continue;
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") continue;
+    const r = el.getBoundingClientRect();
+    const x0 = r.left - box.left, x1 = r.right - box.left, y0 = r.top - box.top, y1 = r.bottom - box.top;
+    if (r.width < 4 || r.height < 4 || x1 <= 0 || x0 >= box.width || y1 <= 0 || y0 >= box.height) continue;
+    const tall = r.height >= box.height * 0.5 && r.width < box.width * 0.6;
+    if (tall) {
+      if (x0 + x1 < box.width) sides.left = Math.max(sides.left, x1);
+      else sides.right = Math.min(sides.right, x0);
+    } else if (y0 + y1 < box.height) sides.top = Math.max(sides.top, y1);
+    else sides.bottom = Math.min(sides.bottom, y0);
+  }
+  area.top = sides.top;
+  area.bottom = sides.bottom;
+  if (sides.right - sides.left >= box.width / 3) {
+    area.left = sides.left;
+    area.right = sides.right;
+  }
+  if (area.bottom - area.top < box.height / 3) {
+    area.top = 0;
+    area.bottom = box.height;
+  }
+  return area;
+}
+
+function wbSameView(a, b) {
+  return Boolean(a && b) && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
+}
+
+//: A panel opening, closing or the window changing size refits a view that
+//: is still where the last fit put it, and leaves any other view alone.
+function wbRefitIfFitted() {
+  const container = document.getElementById("whiteboard-container");
+  if (!wbFit.on || !container || !container.offsetParent || !container.clientWidth) return;
+  wbZoomToFit();
+}
+
 /**
  * Put everything on the board on screen at once.
  *
@@ -1681,20 +1802,23 @@ function wbZoomToFit({ animate = true, padding = 64 } = {}) {
     (animate ? sel.transition().duration(300) : sel).call(wbZoom.transform, d3.zoomIdentity);
     return;
   }
-  const rect = container.getBoundingClientRect();
+  const free = wbFreeArea(container);
   const k = Math.max(
     0.1,
     Math.min(
       1,
-      (rect.width - padding * 2) / Math.max(bounds.width, 1),
-      (rect.height - padding * 2) / Math.max(bounds.height, 1),
+      (free.right - free.left - padding * 2) / Math.max(bounds.width, 1),
+      (free.bottom - free.top - padding * 2) / Math.max(bounds.height, 1),
     ),
   );
   const cx = (bounds.minX + bounds.maxX) / 2;
   const cy = (bounds.minY + bounds.maxY) / 2;
   const target = d3.zoomIdentity
-    .translate(rect.width / 2 - k * cx, rect.height / 2 - k * cy)
+    .translate((free.left + free.right) / 2 - k * cx, (free.top + free.bottom) / 2 - k * cy)
     .scale(k);
+  wbFit.on = true;
+  wbFit.target = target;
+  wbFit.until = Date.now() + (animate ? 600 : 100);
   if (!animate) {
     sel.call(wbZoom.transform, target);
     return;
@@ -1773,7 +1897,7 @@ function wbCenterOn(box, { animate = true, minScale = 0.55 } = {}) {
   const container = document.getElementById("whiteboard-container");
   if (!container || !box) return;
   const sel = d3.select(container);
-  const rect = container.getBoundingClientRect();
+  const free = wbFreeArea(container);
   const current = d3.zoomTransform(container);
   // Jumping to a match at 0.12x would land on a card too small to read, so
   // ease the zoom up to something legible, but never zoom *out* to get
@@ -1782,7 +1906,7 @@ function wbCenterOn(box, { animate = true, minScale = 0.55 } = {}) {
   const cx = (box.minX + box.maxX) / 2;
   const cy = (box.minY + box.maxY) / 2;
   const target = d3.zoomIdentity
-    .translate(rect.width / 2 - k * cx, rect.height / 2 - k * cy)
+    .translate((free.left + free.right) / 2 - k * cx, (free.top + free.bottom) / 2 - k * cy)
     .scale(k);
   (animate ? sel.transition().duration(300) : sel).call(wbZoom.transform, target);
 }
@@ -8229,7 +8353,7 @@ async function wbApplyHistoryEntry(from, to) {
   if (entry.action === "background") {
     const current = { ...wbBoardBackground() };
     const was = entry.before || {};
-    await wbSetBackground({ color: was.color ?? null, image: was.image ?? null }, { undo: false });
+    await wbSetBackground({ color: was.color ?? null, image: was.image ?? null, sticky_fold: was.sticky_fold ?? null }, { undo: false });
     to.push({ action: "background", before: current });
     return true;
   }
@@ -8435,6 +8559,13 @@ const WB_STICKY_PAPERS = [
 
 //: A sticky, and one made before the flag existed: those were the yellow
 //: paper with the warm edge `wbCreateSticky` gave every one of them.
+//: Whether a sticky's corner is drawn folded (INBOX 792): the note's own
+//: `fold`, else the board's default (`background.sticky_fold`, folded unless
+//: it says `false`).
+function wbStickyFolds(item) {
+  return item?.data?.fold ?? wbBoardBackground().sticky_fold !== false;
+}
+
 function wbIsSticky(item) {
   const data = item?.data || {};
   if (data.sticker) return false;
@@ -11760,6 +11891,22 @@ async function initWhiteboard() {
     }
   }
 
+  //: A panel opening or closing, or the window changing size, refits a view
+  //: that is still where the last fit put it (INBOX 792). Settled for a
+  //: moment first: the sidebar's width eases, and a refit per frame of it
+  //: would chase it.
+  if (typeof ResizeObserver !== "undefined") {
+    let refitTimer = 0;
+    const refit = () => {
+      clearTimeout(refitTimer);
+      refitTimer = setTimeout(wbRefitIfFitted, 200);
+    };
+    for (const id of ["whiteboard-container", "wb-sidebar", "wb-format", "wb-tools-panel"]) {
+      const el = document.getElementById(id);
+      if (el) new ResizeObserver(refit).observe(el);
+    }
+  }
+
   // Asked for directly: once a panel's been dragged there was no way back to
   // its default corner short of clearing localStorage by hand. Clears every
   // panel's saved position and its drag-time inline styles (left/top/right/
@@ -11796,6 +11943,7 @@ async function initWhiteboard() {
       $("wb-snap-toggle").disabled = e.target.value === "none";
     });
   }
+  $("wb-sticky-fold")?.addEventListener("change", (e) => wbSetBackground({ sticky_fold: e.target.checked }));
   const snapToggle = $("wb-snap-toggle");
   if (snapToggle) {
     snapToggle.checked = prefs.get("wb-snap", null) === "on";
@@ -12808,9 +12956,11 @@ async function initWhiteboard() {
       //: On the view too, so the board's sidebar can stand beside a side dock
       //: rather than over it (INBOX 596; 07-whiteboard-misc.css).
       viewHost?.setAttribute("data-wb-dock", dock);
-      dockToggle.title = dock === "bottom" ? "Dock as a sidebar" : "Dock as a bottom bar";
-      // The button reads as the current state, the tooltip as the action.
-      setLabel(dockToggle, dock === "bottom" ? "ph:sidebar-simple Bottom" : "ph:sidebar-simple Side");
+      //: A menu row, so its words are the action (INBOX 793).
+      const words = dock === "bottom" ? "Dock the tools at the side" : "Dock the tools at the bottom";
+      dockToggle.title = words;
+      dockToggle.setAttribute("aria-label", words);
+      setLabel(dockToggle, `ph:sidebar-simple ${words}`);
     };
     applyDock(prefs.get("wb-toolbar-dock", null) || "bottom");
     dockToggle.addEventListener("click", () => {
@@ -19092,6 +19242,7 @@ function renderWbObjects(canvas) {
     //: `wbMapThemedData` merges the theme underneath every node's own data.
     layout: mapIndex ? wbMapLayout() : "",
     theme: mapIndex ? JSON.stringify(wbMapTheme()) : "",
+    fold: wbBoardBackground().sticky_fold !== false,
   };
   // An image's own src can change (rare: nothing in this UI replaces one
   // yet, but a future paste-to-replace shouldn't need this rewritten) and a
@@ -19150,6 +19301,7 @@ function renderWbObjects(canvas) {
     } else {
       const sticky = wbIsSticky(d);
       el.classed("wb-sticky", sticky);
+      el.classed("wb-no-fold", sticky && !wbStickyFolds(d));
       //: The paper's colour is the fold's too (`.wb-sticky::after`); a
       //: sticky's edge is its lift, never a drawn border.
       if (sticky) this.style.setProperty("--wb-paper", d.data.bg || WB_STICKY_PAPERS[0].value);
@@ -19264,7 +19416,8 @@ function wbObjectPaintKey(d, ctx) {
   //: update pass above). The one paint that reads a topic's own x is the
   //: both-sides spine, added below with its parent's.
   const base = `${d.kind}|${d.z}|${d.width}|${d.rotation ?? ""}|${JSON.stringify(d.data ?? null)}`;
-  if (!WB_MAP_KINDS.has(d.kind)) return `${base}|${d.height}`;
+  //: The board's sticky-fold default is read by the paint (`wbStickyFolds`).
+  if (!WB_MAP_KINDS.has(d.kind)) return `${base}|${d.height}|${ctx.fold}`;
   const index = ctx.index;
   const children = index?.childrenOf.get(d.id)?.length || 0;
   const buried = d.data?.collapsed && index ? wbMapSubtree(index, d.id).length - 1 : 0;

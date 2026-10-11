@@ -1151,31 +1151,63 @@ function wbShowMapStats() {
 
 //: The facts as a list: the dialog's body, and the sidebar's This map tab
 //: (INBOX 596), one builder so the two never say different things.
-function wbMapStatsList(stats) {
+//:
+//: `tiles` is the sidebar's shape (INBOX 791, the owner: "this side tab looks
+//: a little messy"): the seven counts as a grid of number-over-label tiles
+//: two across, the two sentences (the widest branch, loose roots) as stacked
+//: lines under it, instead of a two-column list whose values wrapped to three
+//: lines in 130px. The facts and their words are the same rows.
+function wbMapStatsList(stats, { tiles = false } = {}) {
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
   const rows = [
-    ["Nodes", `${stats.nodes} (${stats.references} from the library, ${stats.topics} topics of their own)`],
-    ["Depth", `${stats.depth} level${stats.depth === 1 ? "" : "s"}`],
-    ["Ends", `${stats.leaves} node${stats.leaves === 1 ? "" : "s"} with nothing under them`],
-    ["Widest branch", stats.widest ? `${stats.widest.label} (${stats.widest.kids} children)` : "None yet"],
-    ["Cross-links", `${stats.crossLinks}`],
-    ["Categories behind it", `${stats.categories}`],
-    ["Collapsed", `${stats.collapsed}`],
+    ["Nodes", `${stats.nodes} (${stats.references} from the library, ${stats.topics} topics of their own)`, stats.nodes],
+    ["Depth", `${plural(stats.depth, "level", "levels")}`, stats.depth],
+    ["Ends", `${plural(stats.leaves, "node", "nodes")} with nothing under them`, stats.leaves],
+    ["Widest branch", stats.widest ? `${stats.widest.label} (${stats.widest.kids} children)` : "None yet", null],
+    ["Cross-links", `${stats.crossLinks}`, stats.crossLinks],
+    ["Categories behind it", `${stats.categories}`, stats.categories],
+    ["Collapsed", `${stats.collapsed}`, stats.collapsed],
   ];
   if (stats.orphans) {
     rows.push([
       "Loose roots",
-      `${stats.orphans} branch${stats.orphans === 1 ? "" : "es"} not hanging off the first one`,
+      `${plural(stats.orphans, "branch", "branches")} not hanging off the first one`,
+      null,
     ]);
   }
-  const body = document.createElement("dl");
-  body.className = "wb-map-stats";
-  for (const [term, value] of rows) {
+  const body = document.createElement(tiles ? "div" : "dl");
+  body.className = tiles ? "wb-map-tiles" : "wb-map-stats";
+  const counts = document.createElement("dl");
+  counts.className = "wb-map-stat-grid";
+  for (const [term, value, count] of rows) {
     const name = document.createElement("dt");
     name.textContent = term;
     const said = document.createElement("dd");
-    said.textContent = value;
-    body.append(name, said);
+    if (!tiles) {
+      said.textContent = value;
+      body.append(name, said);
+      continue;
+    }
+    if (count === null) {
+      //: A sentence, not a count: a line of its own under the grid.
+      const line = document.createElement("p");
+      line.className = "wb-map-stat-line";
+      const label = document.createElement("span");
+      label.className = "muted";
+      label.textContent = term;
+      line.append(label, document.createTextNode(value));
+      body.append(line);
+      continue;
+    }
+    const tile = document.createElement("div");
+    tile.className = "wb-map-stat";
+    tile.title = value;
+    name.textContent = term === "Categories behind it" ? "Categories" : term;
+    said.textContent = String(count);
+    tile.append(said, name);
+    counts.append(tile);
   }
+  if (tiles) body.prepend(counts);
   return body;
 }
 
@@ -1940,7 +1972,7 @@ function wbBuildMapNode(el, d) {
       event.stopPropagation();
       wbMapAddReference(d.id);
     })
-    .append("i").attr("class", "ph ph-bookmarks-simple").attr("aria-hidden", "true");
+    .append("i").attr("class", "ph ph-link-simple").attr("aria-hidden", "true");
 }
 
 //: **The ink a core node's label takes on its own fill** (INBOX 201: "I want
@@ -4418,7 +4450,7 @@ function mapPaletteCommands() {
     row("This topic", "ph:arrow-elbow-down-right Add a child topic", () => wbMapAddChild(node.id), "Tab");
     row("This topic", "ph:arrow-down Add a sibling topic", () => wbMapAddSibling(node.id), "Enter");
     //: The topic's grips by name (row 9): the library `+` and the corner.
-    row("This topic", "ph:bookmarks-simple Add a child that points at a note, document, file or link", () => wbMapAddReference(node.id));
+    row("This topic", "ph:link-simple Add a child that points at a note, document, file or link", () => wbMapAddReference(node.id));
     row("This topic", "ph:corners-in Resize this topic to the usual width", () => wbMapResetTopicSize(node.id));
     //: The line's mid `+` by name: a touch screen has no hover to find it.
     if (node.parent_id != null) row("This topic", "ph:arrow-elbow-left-up Put a topic between this and its parent", () => wbMapInsertBetween(node.parent_id, node.id));
@@ -8660,13 +8692,56 @@ function wbOutlineRowEl(node, depth) {
   field.value = wbMapLabel(node);
   field.setAttribute("aria-label", `Topic, level ${depth}`);
   field.spellcheck = true;
+  //: **A row reads until it is asked to be edited** (INBOX 792, the owner: "i
+  //: dont think i should be typing in these outline options in the sidebar
+  //: unless i like double click on them or press an edit button"). A read-only
+  //: field still takes focus and the arrow keys, so the list walks like a
+  //: tree; a double click, F2, Enter or the pencil on the row opens it
+  //: (`wbOutlineEdit`), Enter saves and Escape puts the old name back.
+  field.readOnly = true;
+  row.appendChild(field);
   //: A reference's name is the note or file behind it, not the map's to edit.
   if (node.kind !== "topic") {
-    field.readOnly = true;
     field.title = "This topic's name comes from the item it points at";
+  } else {
+    const pencil = document.createElement("button");
+    pencil.type = "button";
+    pencil.className = "ghost small icon-only wb-outline-edit";
+    pencil.tabIndex = -1;
+    pencil.title = "Rename this topic (F2)";
+    pencil.setAttribute("aria-label", "Rename this topic");
+    setLabel(pencil, "ph:pencil-simple");
+    row.appendChild(pencil);
   }
-  row.appendChild(field);
   return row;
+}
+
+function wbOutlineEditing(row) {
+  return Boolean(row?.classList.contains("is-editing"));
+}
+
+//: Opens a row's field for typing; `select` takes the whole name so the first
+//: key replaces it, as a new topic's "New topic" is.
+function wbOutlineEdit(row, { select = false } = {}) {
+  const field = row?.firstChild;
+  if (!field || row._node.kind !== "topic") return;
+  row.classList.add("is-editing");
+  field.readOnly = false;
+  field.focus({ preventScroll: true });
+  if (select) field.select();
+  else field.setSelectionRange(field.value.length, field.value.length);
+}
+
+//: Back to reading. `cancel` puts the saved name back first, on the canvas too.
+function wbOutlineStopEdit(row, { cancel = false } = {}) {
+  const field = row?.firstChild;
+  if (!field) return;
+  if (cancel) {
+    field.value = wbMapLabel(row._node);
+    wbOutlineMirror(row._node, field.value);
+  }
+  field.readOnly = true;
+  row.classList.remove("is-editing");
 }
 
 //: Called after every render of the board (`wbScheduleRender`,
@@ -8686,6 +8761,7 @@ function wbOutlineSync(force = false) {
     //: saved) and its selection, so a new topic adopting its real id while
     //: "New topic" is selected does not leave the next key typed before it.
     const focusNode = focused?.closest(".wb-outline-row")?._node || null;
+    const wasEditing = wbOutlineEditing(focused?.closest(".wb-outline-row"));
     const typing = focused
       ? { value: focused.value, start: focused.selectionStart, end: focused.selectionEnd }
       : null;
@@ -8693,8 +8769,10 @@ function wbOutlineSync(force = false) {
     tree.dataset.shape = shape;
     if (focusNode) {
       wbOutlineFocus(focusNode);
-      const field = wbOutlineRowOf(focusNode)?.firstChild;
+      const row = wbOutlineRowOf(focusNode);
+      const field = row?.firstChild;
       if (field && field === document.activeElement) {
+        if (wasEditing) wbOutlineEdit(row);
         field.value = typing.value;
         field.setSelectionRange(typing.start, typing.end);
       }
@@ -8704,7 +8782,7 @@ function wbOutlineSync(force = false) {
   for (const row of tree.children) {
     const field = row.firstChild;
     const label = wbMapLabel(row._node);
-    if (field !== now && field.value !== label) field.value = label;
+    if (!(field === now && wbOutlineEditing(row)) && field.value !== label) field.value = label;
     row.setAttribute("aria-selected", String(row._node.id === selected));
   }
 }
@@ -8721,7 +8799,7 @@ function wbOutlineFocus(node, { caret = null, select = false } = {}) {
   if (!field) return;
   field.focus({ preventScroll: true });
   field.scrollIntoView({ block: "nearest" });
-  if (select) field.select();
+  if (select) wbOutlineEdit(wbOutlineRowOf(node), { select: true });
   else {
     const at = caret == null ? field.value.length : Math.min(caret, field.value.length);
     field.setSelectionRange(at, at);
@@ -8840,7 +8918,17 @@ function wbOutlineStep(field, by) {
 
 document.getElementById("wb-outline-tree")?.addEventListener("input", (event) => {
   const row = event.target.closest(".wb-outline-row");
-  if (row && row._node.kind === "topic") wbOutlineMirror(row._node, event.target.value);
+  if (row && row._node.kind === "topic" && wbOutlineEditing(row)) wbOutlineMirror(row._node, event.target.value);
+});
+
+document.getElementById("wb-outline-tree")?.addEventListener("dblclick", (event) => {
+  const row = event.target.closest(".wb-outline-row");
+  if (row && event.target.matches(".wb-outline-text")) wbOutlineEdit(row);
+});
+
+document.getElementById("wb-outline-tree")?.addEventListener("click", (event) => {
+  const pencil = event.target.closest(".wb-outline-edit");
+  if (pencil) wbOutlineEdit(pencil.closest(".wb-outline-row"), { select: true });
 });
 
 document.getElementById("wb-outline-tree")?.addEventListener("focusin", (event) => {
@@ -8852,21 +8940,34 @@ document.getElementById("wb-outline-tree")?.addEventListener("focusin", (event) 
 
 document.getElementById("wb-outline-tree")?.addEventListener("focusout", (event) => {
   const row = event.target.closest(".wb-outline-row");
-  if (row) wbOutlineCommit(row._node, event.target);
+  if (!row || !event.target.matches(".wb-outline-text")) return;
+  if (wbOutlineEditing(row)) wbOutlineStopEdit(row);
+  wbOutlineCommit(row._node, event.target);
 });
 
 document.getElementById("wb-outline-tree")?.addEventListener("keydown", (event) => {
   const field = event.target;
   const row = field.closest?.(".wb-outline-row");
   if (!row || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (!field.matches(".wb-outline-text")) return;
   const node = row._node;
+  const editing = wbOutlineEditing(row);
   const done = () => {
     event.preventDefault();
     event.stopPropagation();
   };
-  if (event.key === "Enter" && !event.shiftKey) {
+  if (event.key === "F2" && !editing) {
+    done();
+    wbOutlineEdit(row);
+  } else if (event.key === "Enter" && event.shiftKey) {
     done();
     wbOutlineAddAfter(node, field);
+  } else if (event.key === "Enter") {
+    done();
+    if (editing) {
+      wbOutlineStopEdit(row);
+      wbOutlineCommit(node, field);
+    } else wbOutlineEdit(row);
   } else if (event.key === "Tab") {
     done();
     if (event.shiftKey) wbOutlineOutdent(node, field);
@@ -8874,13 +8975,15 @@ document.getElementById("wb-outline-tree")?.addEventListener("keydown", (event) 
   } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     done();
     wbOutlineStep(field, event.key === "ArrowUp" ? -1 : 1);
-  } else if (event.key === "Backspace" && field.value === "" && node.kind === "topic") {
+  } else if (event.key === "Backspace" && editing && field.value === "" && node.kind === "topic") {
     done();
     wbOutlineRemoveEmpty(node);
   } else if (event.key === "Escape") {
     done();
-    field.value = wbMapLabel(node);
-    wbOutlineMirror(node, field.value);
+    if (editing) {
+      wbOutlineStopEdit(row, { cancel: true });
+      return;
+    }
     document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
   }
 });

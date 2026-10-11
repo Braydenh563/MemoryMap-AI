@@ -153,7 +153,7 @@ function wbSyncSidebarKind() {
 function wbRenderSideMap() {
   const host = document.getElementById("wb-side-map-facts");
   if (!host || !wbIsMap()) return;
-  host.replaceChildren(wbMapStatsList(wbMapStats(wbMapIndex())));
+  host.replaceChildren(wbMapStatsList(wbMapStats(wbMapIndex()), { tiles: true }));
 }
 
 // --- loading -------------------------------------------------------------------
@@ -325,7 +325,11 @@ function wbLibThumb(entry) {
   //: A branch and a drawing are drawn by whiteboard-templates.js, so a tile,
   //: the New board dialog and a new map's offer draw one picture (INBOX 715).
   if (entry.kind === "branch" || payload.branch) return wbThumbSvg(wbMapThumbSpec(entry));
-  return wbThumbSvg(wbBoardThumbSpec(entry.kind === "template" ? payload.element || {} : payload));
+  //: A tile of something that is placed draws it as placed: in the pen's ink
+  //: (a template's picture is a whole board at a glance and stays as it was).
+  return entry.kind === "template"
+    ? wbThumbSvg(wbBoardThumbSpec(payload.element || {}))
+    : wbThumbSvg(wbBoardThumbSpec(payload, { placed: true, ink: wbLibInk() }));
 }
 
 function wbLibTile(entry) {
@@ -347,7 +351,7 @@ function wbLibTile(entry) {
   tile.append(name);
   if (entry.favourite) {
     const star = document.createElement("i");
-    star.className = "ph-fill ph-star wb-lib-star";
+    star.className = "ph ph-star star-fill wb-lib-star";
     star.setAttribute("aria-hidden", "true");
     tile.append(star);
   }
@@ -1387,6 +1391,22 @@ onDomReady(() => {
     const moved = await wbMapTidy({ quiet: true });
     toast(moved ? `Tidied ${moved} node${moved === 1 ? "" : "s"}.` : "Everything is already where this layout puts it.");
   });
+  //: The tiles are drawn in the pen's ink (`wbLibThumb`), so a new ink draws
+  //: them again, once the picker has settled, where the list was scrolled to.
+  let inkTimer = 0;
+  for (const type of ["input", "change"]) {
+    document.getElementById("wb-rail-ink")?.addEventListener(type, () => {
+      clearTimeout(inkTimer);
+      inkTimer = setTimeout(() => {
+        const panel = document.getElementById("wb-sidebar-panel");
+        if (!wbLibState.lib || !panel || panel.classList.contains("hidden") || wbSideState().tab !== "library") return;
+        const list = document.getElementById("wb-lib-list");
+        const was = list?.scrollTop || 0;
+        wbRenderLibrary();
+        if (list) list.scrollTop = was;
+      }, 150);
+    });
+  }
   const importInput = document.getElementById("wb-lib-import");
   importInput?.addEventListener("change", () => {
     const file = importInput.files?.[0];

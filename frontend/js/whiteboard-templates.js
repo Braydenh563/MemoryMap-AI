@@ -186,8 +186,21 @@ function wbMapThumbSpec(entry) {
 //: picture is one size (the owner's screenshots had three: the size was
 //: worked out per frame from the length of its name), the largest that
 //: still fits the narrowest frame's name.
-function wbBoardThumbSpec(element) {
+//: **`placed`: the tile draws what placing it makes** (INBOX 794, the owner:
+//: the previews "arent visually accurate to what is actually placed and are a
+//: bit misleading"). A placed shape takes the pen's ink wherever the library's
+//: payload says `ink` (colour and fill) and keeps its own weight, dash and
+//: fill opacity (`routes_board_library.py` `_place_element`), but the tile drew
+//: every ink as the page's text colour, lifted a faint fill to 18% and gave
+//: every line one hairline, so a cyan pen still showed grey shapes. With
+//: `placed` set the tile resolves the ink to `opts.ink`, and the fill opacity,
+//: width and dash are the payload's own (the width in the tile's board units,
+//: the dash the board's own ratios). The New board dialog's pictures are
+//: drawings of whole templates at a glance, so they keep the old legibility.
+function wbBoardThumbSpec(element, opts = {}) {
   const R = wbThumbRound;
+  const placed = opts.placed === true;
+  const pen = /^#[0-9a-f]{6}$/i.test(opts.ink || "") ? opts.ink : "currentColor";
   const box = element?.box || { w: 100, h: 100 };
   const span = Math.max(box.w, box.h);
   const pad = span * 0.04;
@@ -215,14 +228,21 @@ function wbBoardThumbSpec(element) {
       const data = typeof item.data === "string" ? (() => { try { return JSON.parse(item.data); } catch { return {}; } })() : item.data || {};
       if (!data.d) continue;
       const a = { d: data.d, "stroke-linejoin": "round" };
-      const ink = !data.color || data.color === "ink" ? "currentColor" : data.color;
-      const fill = data.fill === "ink" ? "currentColor" : data.fill;
+      const inkOf = (v) => (v === "ink" ? (placed ? pen : "currentColor") : v);
+      const ink = !data.color ? "currentColor" : inkOf(data.color);
+      const fill = inkOf(data.fill);
       a.fill = fill || "none";
-      if (fill && data.fillOpacity != null) a["fill-opacity"] = String(data.fill === "ink" && data.fillOpacity < 1 ? Math.max(0.18, data.fillOpacity) : data.fillOpacity);
+      if (fill && data.fillOpacity != null) {
+        a["fill-opacity"] = String(placed || !(data.fill === "ink" && data.fillOpacity < 1) ? data.fillOpacity : Math.max(0.18, data.fillOpacity));
+      }
       if (data.noStroke) a.stroke = "none";
       else {
+        const width = placed && data.width > 0 ? data.width : strokeW;
         a.stroke = ink;
-        a["stroke-width"] = R(strokeW);
+        a["stroke-width"] = R(width);
+        //: The board's own ratios (`wbDashArray`, whiteboard.js).
+        if (placed && data.dash === "dashed") a["stroke-dasharray"] = `${R(width * 3)} ${R(width * 2)}`;
+        else if (placed && data.dash === "dotted") a["stroke-dasharray"] = `${R(width)} ${R(width * 1.6)}`;
       }
       parts.push({ tag: "path", cls: "", a });
       continue;

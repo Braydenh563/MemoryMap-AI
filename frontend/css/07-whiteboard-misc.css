@@ -116,28 +116,12 @@
   width: 0;
   height: 0;
 }
-.wb-comment-pin {
-  position: absolute;
-  width: 0;
-  height: 0;
-  transform-origin: 0 0;
-  transform: scale(var(--wb-inv-zoom));
-}
+
 #library-view-whiteboard.wb-presenting .wb-comment-marks {
   display: none;
 }
-/* A map's boundary and summary (MINDMAP_PLAN.md decisions 19, 20): the
-   branch colour as `--wb-boundary` (set in JS, the accent when the branch has
-   none), a tint inside a boundary and the colour on its edge and on the
-   brace; their words in the line label's recipe. Never a pointer target. */
-.wb-map-boundaries,
-.wb-map-summaries {
-  --wb-boundary: var(--accent);
-  pointer-events: none;
-}
-.wb-map-boundary-dashed {
-  stroke-dasharray: 6 4;
-}
+
+
 /* The thread, in the help popover's shell: the comments, then a quiet "New
    comment" that opens the box with its Post and Cancel (INBOX 570). */
 .help-popover.wb-comments {
@@ -382,38 +366,8 @@
 #wb-overlay-layer .wb-sketch-rotate-handle {
   pointer-events: auto;
 }
-/* The rectangle marquee-select drag draws while it's active: reported
-   directly ("area select... missing"). A real SVG element in board space,
-   appended/removed by the marquee's own pointerdown/pointerup, not a fixed
-   part of any template. */
-/* Smart alignment guides while dragging, asked for directly ("draw.io and
-   Microsoft PowerPoint have... dotted alignment rule guides"). Colour is
-   set per-line by `wbShowAlignmentGuides` (edge/center/spacing each get
-   their own, user-alterable colour, see `WB_ALIGN_GUIDE_COLORS`), so this
-   rule deliberately leaves `stroke` unset: an SVG presentation attribute
-   only wins over an *unset* CSS property, not a set one, so a `stroke` here
-   would silently override every line to one colour again. Every other
-   whiteboard overlay (anchor hints, selection outline, marquee) uses the
-   app's own `--accent` instead: a guide line stays deliberately distinct
-   from that so it still reads as a momentary "you're aligned" signal. */
-.wb-align-guide-line {
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
-  pointer-events: none;
-}
-/* The selection rectangle: a canvas over the whole container, drawn by
-   `wbDrawMarquee` (its dashed accent edge and 12% wash are painted there),
-   because drawing on a canvas is the one per-frame change that does not
-   re-layerize the page (INBOX 410, the numbers are on
-   `wbBeginMarqueeRect`). Last in the container's order, so it draws over
-   the cards it is about to select, and its own layer. */
-.wb-marquee {
-  position: absolute;
-  left: 0;
-  top: 0;
-  pointer-events: none;
-  will-change: transform;
-}
+
+
 .wb-resize-handle[data-handle="nw"] {
   top: -5px;
   left: -5px;
@@ -4559,9 +4513,7 @@ summary:not(.icon-only):not(.icon-button) {
     height: 2.25rem;
   }
 }
-.wb-map-stats dt {
-  color: var(--muted);
-}
+
 /* The first head sits under the lead line rather than against it; every
    later one opens a group, so it gets the space above that says so. */
 .wb-map-theme .setting-subhead {
@@ -5956,6 +5908,17 @@ button.connection-row {
 .entry-actions button.is-favourite:hover {
   border-color: color-mix(in srgb, var(--warn) 60%, transparent);
 }
+/* A filled star for an active favourite (INBOX 790): Phosphor here is the regular weight only, so the glyph becomes a clipped box. */
+.is-favourite > .ph-star::before,
+.chip > .ph-star::before,
+.ph-star.star-fill::before {
+  content: "";
+  display: block;
+  width: 1em;
+  height: 1em;
+  background: currentColor;
+  clip-path: polygon(50% 4%, 62% 37%, 96% 38%, 69% 60%, 79% 93%, 50% 73%, 21% 93%, 31% 60%, 4% 38%, 38% 37%);
+}
 /* A toast that is announcing work in progress rather than reporting a result.
    The dots sit before the sentence on the same baseline, see `toastProgress`
    in status.js for why a long job needed a toast that does not expire. */
@@ -6383,19 +6346,9 @@ button.connection-row {
   margin: 0;
   font-size: var(--text-xs);
 }
-.wb-nav-item-object {
-  opacity: 0.55;
-}
-.wb-nav-item-sketch {
-  opacity: 0.22;
-}
-.wb-nav-viewport {
-  fill: var(--accent);
-  fill-opacity: 0.12;
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  pointer-events: none;
-}
+
+
+
 .wb-search-bar {
   position: absolute;
   /* Measured, not guessed: at `top: 1rem` this bar rendered 439x52 at x=500
@@ -6838,20 +6791,6 @@ button.connection-row {
 .wb-board-menu-wrap {
   position: relative;
 }
-/* **Two columns, because the third report about this menu was about its
-   height and the first two fixed its placement.** Measured on a map board:
-   five sections, eighteen rows, 714px of content in a 272px column. That fits
-   a 900px window and nothing smaller: at 1440x700 it clipped 32px, and the
-   owner's screenshot showed it cut just below the Grid row with a scroll thumb
-   at the top of a tall track. Two rounds of arithmetic in `fitMenuToViewport`
-   made the *placement* exactly right and could not help, because 714px of
-   content does not fit under any edge of a 700px window.
-   So the menu gets shorter instead, and nothing is hidden or moved behind a
-   click to do it: `column-count` flows the same five sections into two, which
-   halves the height and costs width the dock has. `break-inside: avoid` keeps
-   a section whole, which is the whole point of the grouping. Below the phone
-   breakpoint it goes back to one column and scrolls, where a 480px-wide panel
-   would not fit at all. */
 .wb-board-menu {
   position: absolute;
   top: calc(100% + var(--space-2));
@@ -6859,49 +6798,18 @@ button.connection-row {
   z-index: 30;
   display: flex;
   flex-direction: column;
-  width: 17rem;
+  width: 19rem;
 }
-/* **The two columns are the View menu's, not every board menu's.** Written
-   first as `.wb-board-menu`, which was wrong and was reported the same day:
-   "the 'this board' dropdown menu needs a bit of ui fixing", with a screenshot
-   of the Board menu's four rows crammed into the left half and the right half
-   empty.
-   The cause is the pairing of the two rules. `column-count: 2` with
-   `break-inside: avoid` on the sections means a menu with ONE section cannot
-   fill both columns: the section goes in the first, the second stays empty,
-   and every row inside is laid out against a box half the menu's width.
-   Measured on the Board menu: rows 245px wide inside a 512px panel, with the
-   controls ending at 995 against a menu edge at 1005 and nothing at all to
-   their right.
-   The View menu has five sections and 714px of content, which is what the
-   columns were for. The Board menu has four rows. So the id carries it. */
-#wb-view-menu {
-  display: block;
-  column-count: 2;
-  column-gap: var(--space-3);
-  width: 32rem;
-}
-/* A section is the unit the columns flow, so it is never split down the
-   middle: "Zoom" with two of its five rows at the foot of one column and
-   three at the head of the next is worse than the tall menu this replaced. */
-#wb-view-menu .wb-menu-section {
-  break-inside: avoid;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  /* The gap the flex column provides in every other board menu. */
-  margin-bottom: var(--space-3);
-}
-#wb-view-menu .wb-menu-section:last-child {
-  margin-bottom: 0;
-}
-@media (max-width: 599.98px) {
-  /* One column again: 32rem is wider than the window, and a menu that
-     overflows sideways is worse than one that scrolls. */
-  #wb-view-menu {
-    column-count: 1;
-    width: min(17rem, calc(100vw - var(--space-5) * 2));
-  }
+/* **One column, and the groups carry it** (INBOX 793). The View menu was two
+   columns because its eighteen rows were 714px tall (the owner's third report
+   about its height); the answer now is fewer shapes, not a second column: a
+   head over each group, every row one height and one inset, and a menu that
+   is capped to the window and scrolls inside it where it is still taller
+   (`escapeAndCapMenu`). */
+.wb-board-menu .wb-menu-section + .wb-menu-section {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--divider);
 }
 .wb-board-menu .wb-panel-group-label {
   font-size: var(--text-xs);
@@ -7451,13 +7359,8 @@ button.connection-row {
   line-height: 1.4;
   color: var(--ink);
 }
-.wb-help-row:last-child {
-  border-bottom: none;
-}
-.wb-help-row-label {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
+
+
 .wb-help-row-keys {
   display: flex;
   flex-wrap: wrap;
@@ -7465,12 +7368,7 @@ button.connection-row {
   gap: var(--space-1);
   min-width: 0;
 }
-.wb-help-row-keys kbd {
-  max-width: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  text-align: center;
-}
+
 .wb-help-none {
   margin: 0;
 }
@@ -7554,14 +7452,6 @@ button.connection-row {
     display: none;
   }
 }
-/* The help button used to be a round 2rem glyph in the zoom cluster
-   (03-dashboard-widgets.css); in a menu row it is a normal small button. */
-#wb-board-menu #wb-help-btn {
-  width: auto;
-  height: 2rem;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-}
 /* Every floating surface on the board is a `.card`, and `.card` carries a
    1rem bottom margin that an absolutely positioned box still honours, 
    three of these were found one at a time (dock, overview, selection
@@ -7611,11 +7501,7 @@ button.connection-row {
   font-size: 1.25em;
   margin: 0.3em 0;
 }
-.wb-text-content.wb-text-md ul,
-.wb-text-content.wb-text-md ol {
-  margin: 0.2em 0;
-  padding-left: 1.2em;
-}
+
 /* `.contents-head-actions` lived here: a wrapper that existed to hold the
    Contents header's two icon buttons together and to cancel
    `.graph-help-toggle`'s own `margin-left: auto`. `.dock-actions` does both
@@ -8728,17 +8614,8 @@ input[type="file"] {
   white-space: nowrap;
   font-size: var(--text-sm);
 }
-/* A preview is drawn in the button's own ink, so the chosen one reads in
-   `--on-accent` on the accent with no rule of its own. */
-.wb-map-pick-preview {
-  width: 1.25rem;
-  height: 0.875rem;
-  flex: none;
-}
-.wb-map-pick-emoji {
-  font-size: var(--text-md);
-  line-height: 1;
-}
+
+
 /* Chosen: the choice control's selected state (DESIGN.md: `--accent-surface`
    behind `--on-accent`, no shadow), on the previews and on the door's own
    toggles (Bold, Italic, Core idea, Dashed, Arrowhead) alike, so one door
@@ -9048,12 +8925,7 @@ input[type="file"] {
   gap: var(--space-2);
   padding: var(--space-3);
 }
-/* A done task: struck through and quieter, the convention every task list
-   uses, so the open ones are what the eye lands on. */
-.wb-map-task-done .wb-map-text {
-  text-decoration: line-through;
-  opacity: 0.65;
-}
+
 /* On a core topic's full colour and on a filled topic's tint the muted ink
    is not a quiet grey any more: measured, 4.39:1 on the blue branch's tint in
    light. The label's own ink there, which the fill was chosen to keep legible;
@@ -9088,9 +8960,7 @@ input[type="file"] {
   outline: 2px dashed var(--muted);
   outline-offset: 3px;
 }
-.wb-link-preview-crosslink {
-  stroke-dasharray: 6 5;
-}
+
 /* A pinned node keeps the place it was dragged to when the map is tidied
    (`wbMapPinOnDrag`). Stated on the node, quietly, because "why did Tidy
    move everything except this one" is otherwise unanswerable from the screen. */
@@ -10721,60 +10591,9 @@ header#top-bar {
   transform-origin: 50% 28px;
   transform: scale(var(--wb-inv-zoom));
 }
-/* The SVG half. `transform-box: fill-box` is what makes `center` mean the
-   element's own middle rather than the SVG view box's origin, which is where
-   an SVG transform-origin otherwise resolves and would fling the handle across
-   the board.
-   A link's bend grip belongs here too and was the one that did not: measured
-   at 24px across at 2x against the 12px it is at 1x, which is the shape of
-   miss this whole block exists to stop. */
-.wb-sketch-resize-handle,
-.wb-link-endpoint-handle,
-.wb-link-bend-handle,
-/* A map line's waypoint grip is centred on the point it moves, so its own
-   centre is the anchor, exactly like the link bend grip above it. Added with
-   the grip itself rather than after it, because the paragraph above says the
-   next handle follows this rule and a 7-unit circle on a map zoomed out to
-   0.3 is a 4px target. */
-.wb-map-edge-handle {
-  transform-box: fill-box;
-  transform-origin: center;
-  transform: scale(var(--wb-inv-zoom));
-}
-/* A sketch's rotate handle and its stem are two sibling elements rather than
-   one element with a pseudo-element, so their shared anchor (the point on the
-   shape's own top edge where the stem meets it) is a pair of board
-   coordinates only the code that draws them knows. `wbRenderSketchHandles`
-   sets `transform-origin` on both from the bbox it already has; this rule is
-   the other half, and `transform-box` stays at its `view-box` default so that
-   origin is read in the same user units the bbox is in.
-   **A grip drawn by this rule with no origin set is a bug, not a default.**
-   The scale then resolves about the SVG view box's origin and multiplies the
-   grip's own coordinates by `1 / k`: the group selection's rotate grip did
-   exactly that until INBOX 278, measured at board (680, 1344) at 0.5x and
-   (170, 336) at 2x for a box whose top centre is (340, 672), which is the
-   owner's "off to the top left or right, or below the top border". Anything
-   added to this selector list sets its origin where it is drawn. */
-.wb-sketch-rotate-handle,
-.wb-rotate-handle-stem {
-  transform: scale(var(--wb-inv-zoom));
-}
-/* --- A member of a group selection shows that it is selected, not how to
-   resize itself (INBOX 278) -------------------------------------------------
-   A card and a text box carry eight resize handles and a rotate grip as
-   children, which `.wb-selected` reveals. In a group that is one set per
-   member on top of the group's own: measured on a three-item group, eight
-   rotate knobs and sixteen resize handles at once, which is why the stem the
-   eye lands on rises from a member's centre rather than the group box's. The
-   outline the class also draws stays, because "the shapes and lines arent
-   selected visually and individually" was its own report and is still true
-   without the grips. */
-.node-card.wb-in-group .wb-resize-handle,
-.node-card.wb-in-group .wb-rotate-handle,
-.wb-object.wb-in-group .wb-resize-handle,
-.wb-object.wb-in-group .wb-rotate-handle {
-  display: none;
-}
+
+
+
 /* **A swept-up shape looks selected.** Reported: "shapes like circles and
    lines dont visibly select and show anchor points when I highlight select
    over them". A one-item sweep now promotes to the single selection, which
@@ -11580,10 +11399,7 @@ button.finder-row:hover,
 #library-view-whiteboard {
   --wb-map-font: var(--ui-font);
 }
-.wb-map-node,
-.wb-map-edge-label {
-  font-family: var(--wb-map-font);
-}
+
 /* **The board's sidebar** (WHITEBOARD_PLAN decision 26). A rail of tab
    glyphs on the board's left edge, between the top bar and the tool rail,
    and the panel beside it while a tab is open. A floating panel over the
@@ -11769,9 +11585,7 @@ button.finder-row:hover,
   font-size: var(--text-sm);
   cursor: pointer;
 }
-.wb-layer-depth-1 {
-  padding-left: var(--space-5);
-}
+
 .wb-layer-row:hover {
   background: var(--hover-veil);
 }
@@ -11986,14 +11800,7 @@ button.finder-row:hover,
 .wb-clone-grip:hover {
   fill-opacity: 1;
 }
-.wb-link-waypoint-handle,
-.wb-link-waypoint-add,
-.wb-link-label-handle,
-.wb-clone-grip {
-  transform-box: fill-box;
-  transform-origin: center;
-  transform: scale(var(--wb-inv-zoom));
-}
+
 /* Pages (decision 22): the frames in presentation order, on the Layers
    tab's row recipe with the page's number in front. */
 .wb-pages-list {

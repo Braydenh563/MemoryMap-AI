@@ -24,6 +24,17 @@ below). Versioning is `0.x` while the app stabilises.
 - Code editor: a diagnostic card shows a severity icon and colour, the message, then its fix as a button on its own row, with room around it and a gap from the line it is about.
 - Documents sidebar: the Outline is one tree (each heading's chevron stands left of its own text, task counts end on one edge, the current section is filled whole), its headings carry their counts on the right, and the empty band under the tab strip is gone; References are one row each (icon and title) with insert-at-caret and remove icons that show on hover or focus, and always on touch; Attach a bookmark is a quiet row.
 - Graph: a topic's card is a title row (colour dot, name, rename and close icons) with the note count as a muted line under it; renaming puts the name field in the same row with Save and Cancel, and the card no longer changes height or wraps "7 notes" while you edit.
+- OCR workspace: the Read split button keeps one shared border over a reading, so its caret reads as part of the same control.
+- Find anything: the star saves the search (its naming box opened behind the finder before) and turns into a filled star while the search is saved; an active favourite is a filled star everywhere.
+- Sticky sub-tab strips are opaque, a body control tall and edged while a list scrolls under them.
+- Mind map: a topic's add buttons are real buttons (28px, 44 on touch, one size at every zoom) with a link glyph for the reference, and the board is rasterised again after a zoom so link labels stay crisp.
+- Mind map: the "This map" tab is number-over-label tiles, one group of action buttons and a help popover for the templates hint.
+- Mind map: Outline rows read until a double click, F2, Enter or their pencil opens one; Enter saves, Escape cancels, Shift+Enter adds a topic.
+- Whiteboard: line ends gain filled triangle, diamond, filled diamond and bar beside the open arrow; the Start and End lists group plain and entity-relationship ends and draw each end in its row.
+- Whiteboard: sticky notes can hide their folded corner, per note (Format panel) or as the board's default (View, Folded sticky corners).
+- Whiteboard and mind map: Fit to screen fits the canvas you can see (not under the top bar, tools dock, sidebar or Format panel) and refits when a panel opens or closes until you pan or zoom.
+- Whiteboard: the View menu is one column in Panels, Canvas and Zoom, and the Board menu is plain icon rows under section heads with Clear and Delete last and red; every row is one height.
+- Whiteboard Library: shape tiles are drawn in the pen's ink with the shape's own fill opacity, width and dash, as the shape is placed.
 - Translate this, in the command palette: a selected passage of a note, a document or a reading turned from English into Spanish on this computer with no model, then copied or put in place of the selection (Ctrl+Z undoes it). It needs "Translate offline", a 27 MB download in Settings, Packages (new bundle Languages); until it is installed the row says so and opens that page.
 
 - Recording never refuses: with no Voice notes add-on a meeting or a voice note is still kept, as a recording with its length; the add-on transcribes it when installed.

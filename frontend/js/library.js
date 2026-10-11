@@ -1375,6 +1375,7 @@ function libraryCard(item) {
     const isChat = item.kind === "chat";
     const pin = document.createElement("span");
     setLabel(pin, isChat ? "ph:push-pin" : "ph:star");
+    if (!isChat) pin.firstElementChild?.classList.add("star-fill");
     pin.title = isChat ? "Pinned" : "Favourite";
     top.appendChild(pin);
   }

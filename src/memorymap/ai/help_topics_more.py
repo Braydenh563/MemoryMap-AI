@@ -1520,7 +1520,9 @@ MORE_TOPICS.extend(
                 "faint dashed edge. Select a sticky and its bar starts with seven "
                 "papers (yellow, orange, pink, purple, blue, green, grey); any other "
                 "colour, and a text box's own fill or edge, are under the bar's ... "
-                "menu, Box. Each change is one Undo step. Typing in either, / offers "
+                "menu, Box. The folded corner can be switched off for one note (Format "
+                "panel, Folded corner) or as the board's default (View, Folded sticky "
+                "corners). Each change is one Undo step. Typing in either, / offers "
                 "lists, a to-do, headings, links and an emoji, and [[ links a note."
             ),
             "badge": {"label": "Library", "tab": "library"},

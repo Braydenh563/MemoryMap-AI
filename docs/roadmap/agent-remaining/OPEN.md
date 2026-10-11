@@ -333,6 +333,16 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the canvasui agent (INBOX 790 to 794, merged 2026-10-11)
+
+Detail: [canvasui-1010.md](../archive/agent-remaining/canvasui-1010.md).
+
+- Link-label blur not reproduced headless; the re-raster after zoom is untested on a GPU compositor or the desktop webview.
+- Mind map library schematics (wbMapThumbSpec) are monochrome, not tinted with branch colours; a hollow diamond draws the shaft through it.
+- The AI board tools and import/export do not carry a note's fold.
+- Guide topics whiteboard-controls (1915 of 1920) and mind-map-features are at the reply budget.
+- At 390 the whiteboard sidebar is a full-width sheet, so the fit ignores it there.
+
 ## Left by the export48 agent (Brief 48, merged 2026-10-10)
 
 Detail: [export48-1010.md](../archive/agent-remaining/export48-1010.md).

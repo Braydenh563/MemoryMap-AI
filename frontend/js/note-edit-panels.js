@@ -622,12 +622,12 @@ function forgetNoteEditLocally() {
 //: edit away (found by tests-e2e/specs/draft-recovery.spec.js). A locked
 //: or unreachable server keeps the copy; a lock waits for the unlock, which
 //: runs `startApp` again.
-let keptEditAwaitsUnlock = false;
+const keptEdit = { awaitsUnlock: false };
 const startAppBeforeKeptEdit = window.startApp;
 window.startApp = async function () {
   const opened = startAppBeforeKeptEdit ? await startAppBeforeKeptEdit.apply(this, arguments) : undefined;
-  if (keptEditAwaitsUnlock) {
-    keptEditAwaitsUnlock = false;
+  if (keptEdit.awaitsUnlock) {
+    keptEdit.awaitsUnlock = false;
     offerKeptNoteEdit();
   }
   return opened;
@@ -640,7 +640,7 @@ async function offerKeptNoteEdit() {
   try {
     note = await apiJson(`/entries/${kept.id}`, { silent: true });
   } catch (error) {
-    if (error.isLockout) keptEditAwaitsUnlock = true;
+    if (error.isLockout) keptEdit.awaitsUnlock = true;
     if (error.isLockout || error.status !== 404) return;
   }
   const keptText = withTitle(String(kept.content || "").trim(), kept.title);

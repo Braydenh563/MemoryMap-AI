@@ -751,7 +751,7 @@ function settingsPrefsSeen(before, data) {
 }
 
 //: The change a coalescing tick continues, and the toast that will offer its Undo.
-let settingFresh = null;
+const settingFresh = { last: null };
 
 //: `change`: {kind, changes: [{key, old, new}], ...}; `words` overrides the
 //: line; `quiet` keeps it off the toast (the caller raised its own Undo).
@@ -760,7 +760,7 @@ function noteSettingChange(change, { quiet = false } = {}) {
   change.sig = `${change.kind}:${change.words || ""}:${change.changes.map((c) => c.key).sort().join(",")}`;
   //: A slider or a typed field is one change, however many ticks: the first
   //: value it had stays the way back.
-  const last = settingFresh;
+  const last = settingFresh.last;
   if (last && last.change.sig === change.sig && change.at - last.change.at < 2500) {
     change.changes.forEach((c, i) => {
       const before = last.change.changes.find((p) => p.key === c.key);
@@ -769,13 +769,13 @@ function noteSettingChange(change, { quiet = false } = {}) {
     clearTimeout(last.timer);
   }
   change.label = settingChangeWords(change);
-  settingFresh = { change, timer: 0 };
+  settingFresh.last = { change, timer: 0 };
   settingsHistoryAdd(change);
   if (quiet) return;
   //: One notice, with the Undo and long enough to use: the toast the control
   //: raised for its own change (a "Saved", found by its enter animation still
   //: running) makes way for this one, which waits for it.
-  settingFresh.timer = setTimeout(() => {
+  settingFresh.last.timer = setTimeout(() => {
     for (const note of toastHost().querySelectorAll(".toast:not(.error)")) {
       if (note.getAnimations().some((a) => a.currentTime < 700)) note.remove();
     }
@@ -904,6 +904,11 @@ async function settingsHistoryApply(change, side) {
 async function settingsHistoryUndo(change) {
   try {
     await settingsHistoryApply(change, "old");
+    //: Through the one undo contract (status.js, rule 1.8): an undone change
+    //: waits on the redo side, so Redo and Ctrl+Y reach it like any other.
+    const action = pushUndo(change.label, () => settingsHistoryApply(change, "old"), () => settingsHistoryApply(change, "new"));
+    action.settingChange = change;
+    settleUndoFromToast(action);
     toast(`Undone: ${change.label}`);
   } catch (error) {
     toast(error.message || "Couldn't undo that.", true);
@@ -913,6 +918,10 @@ async function settingsHistoryUndo(change) {
 async function settingsHistoryRedo(change) {
   try {
     await settingsHistoryApply(change, "new");
+    //: Done again here, so the redo that waited for it (above) is spent.
+    const waiting = redoStack.findIndex((action) => action.settingChange === change);
+    if (waiting !== -1) redoStack.splice(waiting, 1);
+    renderUndoBar();
     toast(`Done again: ${change.label}`);
   } catch (error) {
     toast(error.message || "Couldn't do that again.", true);

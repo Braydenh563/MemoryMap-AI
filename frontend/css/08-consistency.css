@@ -3489,9 +3489,10 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   visibility: hidden;
 }
 /* The head's hover fill stays under the '?' while the pointer is on it, as
-   it did when the '?' was inside the head. */
-.fold-help-wrap:has(> .fold-help:hover) > details > summary:not(.icon-only):not(.icon-button),
-.fold-help-wrap:has(> .fold-help:focus-visible) > details > summary:not(.icon-only):not(.icon-button) {
+   it did when the '?' was inside the head. No keyboard twin: the '?' shows its
+   own focus ring, and a `:has(> .fold-help:focus-visible)` before a bare
+   `summary` is an unkeyed rule (tests/test_has_invalidation.py). */
+.fold-help-wrap:has(> .fold-help:hover) > details > summary:not(.icon-only):not(.icon-button) {
   background: var(--ghost-btn-bg);
 }
 /* The shortcut rows are ruled rows, so the divider is their separation: the

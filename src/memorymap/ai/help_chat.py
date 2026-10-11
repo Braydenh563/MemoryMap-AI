@@ -49,7 +49,7 @@ from collections.abc import Iterator
 
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
-from memorymap.ai import act_registry, presets, question_noise
+from memorymap.ai import act_registry, presets, question_noise, spelling
 from memorymap.ai.help_topics_more import HELP_GROUPS, MORE_TOPICS, TOPIC_META
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
@@ -2013,6 +2013,8 @@ HELP_TOPICS.extend(
 #: (INBOX 430): the second half of the reference, in its own module
 #: (help_topics_more.py) so this one stays about how an answer is found.
 HELP_TOPICS.extend(MORE_TOPICS)
+# The speller reads the help text for the app's own vocabulary (see spelling.set_topic_source).
+spelling.set_topic_source(lambda: [*HELP_TOPICS, *MORE_TOPICS])
 
 #: **Which entry answers "the keys of" a surface.** A question that names a
 #: surface and asks about its keys, controls or hidden corners is about that

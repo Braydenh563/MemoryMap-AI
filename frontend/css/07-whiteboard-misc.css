@@ -4729,12 +4729,18 @@ summary:not(.icon-only):not(.icon-button) {
 .library-board-card:hover .board-minimap path,
 .library-board-card:hover .board-minimap ellipse,
 .library-board-card:hover .board-minimap polygon,
-.library-board-card:hover .board-minimap line,
-.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap rect:not(.board-minimap-paper, .board-minimap-branch),
-.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap path,
-.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap ellipse,
-.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap polygon,
-.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap line {
+.library-board-card:hover .board-minimap line {
+  opacity: 0.8;
+}
+/* The keyboard's lift names the minimap's marks by class: a
+   `:has(:focus-visible)` before a bare `rect` or `path` is an unkeyed rule
+   (tests/test_has_invalidation.py). The empty board's ghost is not lifted. */
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-card,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-object,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-image,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-image-mark,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-edge,
+.library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-sketch {
   opacity: 0.8;
 }
 /* --- Capture: three families, three rows --------------------------------

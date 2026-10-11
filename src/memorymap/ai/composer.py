@@ -3732,32 +3732,17 @@ def compose(
     is a correction's words ("no, the gym one"), whose notes come first.
     """
     if voice == "help":
-        #: The help register (decision 36): a how-to answered from the app's
-        #: own Help, the Guide's topics, so the Guide and Chat are one engine.
-        session = _SESSION.set(f"{salt or (dialogue.salt if dialogue else '')}:{turn}" if (salt or turn or dialogue) else "")
-        try:
-            helped = _help_answer(question)
-        finally:
-            _SESSION.reset(session)
+        helped = _help_result(question, salt=salt, turn=turn, dialogue=dialogue, previous=previous)
         if helped:
-            return _acknowledged(helped, question, voice=composer_tables.DEFAULT_VOICE, seed=f"{question.strip().lower()}:{salt}:{turn}",
-                                 history=dialogue.history if dialogue else [{"answer": previous}], previous=previous)
+            return helped
         voice = composer_tables.DEFAULT_VOICE
     #: In a conversation (decision 34, 35): the turn and the chat's salt
     #: choose the wording, and a terse turn is read against the ones before.
     asked = question
     if dialogue is not None:
-        salt = salt or dialogue.salt
-        turn = turn if turn is not None else dialogue.turns + 1
-        follow = follow_on(question, dialogue.history) if dialogue.history and not resolved else None
-        if follow:
-            question = follow.question
-            prefer = prefer or follow.prefer
-            if follow.kind == "more":
-                said = "\n".join([said, *dialogue.quoted]).strip()
-            if follow.kind == "correction":
-                dialogue.corrections.append(follow.prefer)
-        previous = previous or (dialogue.history[-1]["answer"] if dialogue.history else "")
+        question, salt, turn, said, prefer, previous = _read_in_dialogue(
+            question, dialogue, salt=salt, turn=turn, said=said, prefer=prefer, previous=previous, resolved=resolved
+        )
     token = _SESSION.set(f"{salt}:{turn}" if (salt or turn) else "")
     #: `learned`: what the person said of insights (`insights.memory`).
     known = _LEARNED.set(learned)
@@ -3775,6 +3760,38 @@ def compose(
     if dialogue is not None:
         dialogue.record(asked, result)
     return result
+
+
+def _help_result(question: str, *, salt: str, turn: int | None, dialogue: Dialogue | None, previous: str) -> dict | None:
+    """The help register (decision 36): a how-to answered from the app's own
+    Help, the Guide's topics, so the Guide and Chat are one engine."""
+    session = _SESSION.set(f"{salt or (dialogue.salt if dialogue else '')}:{turn}" if (salt or turn or dialogue) else "")
+    try:
+        helped = _help_answer(question)
+    finally:
+        _SESSION.reset(session)
+    if not helped:
+        return None
+    return _acknowledged(helped, question, voice=composer_tables.DEFAULT_VOICE, seed=f"{question.strip().lower()}:{salt}:{turn}",
+                         history=dialogue.history if dialogue else [{"answer": previous}], previous=previous)
+
+
+def _read_in_dialogue(question: str, dialogue: Dialogue, *, salt: str, turn: int | None, said: str, prefer: str,
+                      previous: str, resolved: bool) -> tuple:
+    """`(question, salt, turn, said, prefer, previous)` once a terse turn is
+    read against the ones before it."""
+    salt = salt or dialogue.salt
+    turn = turn if turn is not None else dialogue.turns + 1
+    follow = follow_on(question, dialogue.history) if dialogue.history and not resolved else None
+    if follow:
+        question = follow.question
+        prefer = prefer or follow.prefer
+        if follow.kind == "more":
+            said = "\n".join([said, *dialogue.quoted]).strip()
+        if follow.kind == "correction":
+            dialogue.corrections.append(follow.prefer)
+    previous = previous or (dialogue.history[-1]["answer"] if dialogue.history else "")
+    return question, salt, turn, said, prefer, previous
 
 
 def _note_words(notes: list[dict]) -> frozenset:

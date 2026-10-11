@@ -456,8 +456,13 @@
 .timeline-table tbody tr {
   cursor: pointer;
 }
-.timeline-table tbody tr:hover td,
-.timeline-table tbody tr:is(:focus-visible, :has(:focus-visible)) td {
+.timeline-table tbody tr:hover td {
+  background: var(--surface-2);
+}
+/* The keyboard's veil is on the row, which the transparent cells show: a
+   `:has(:focus-visible)` before a bare `td` is an unkeyed rule
+   (tests/test_has_invalidation.py). */
+.timeline-table tbody tr:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-2);
 }
 .timeline-trow:focus-visible {

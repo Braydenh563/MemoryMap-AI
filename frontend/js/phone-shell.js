@@ -645,6 +645,8 @@ const PHONE_STATUS_ROWS = [
   { id: "status-redo", label: "ph:arrow-clockwise Redo" },
   { id: "status-task", label: "ph:gear Background tasks" },
   { id: "status-find", label: "ph:magnifying-glass Find" },
+  //: INBOX 896: the bar's button opens a sheet itself when it has no box.
+  { id: "status-lan", label: "ph:wifi-high Other devices" },
 ];
 
 function initPhoneHeaderMore() {

@@ -1251,6 +1251,9 @@ async def lan_watch(request: Request, since: int = -1, config: ConfigManager = D
         #: network change reaches the icon within the watch's own beat.
         "allow_lan": netbind.lan_enabled(config),
         "live": lanlive.attached(),
+        "error": lanlive.last_error(),
+        "network": (trust["network"] or {}).get("label", "") if serving else "",
+        "reason": trust["reason"] if serving else "",
         "switched_off": lantrust.load(config.data_dir)["switched_off"],
     }
 

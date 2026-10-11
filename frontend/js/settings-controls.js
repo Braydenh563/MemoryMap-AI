@@ -65,25 +65,31 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
   const box = event.target;
   const wanted = box.checked;
   box.checked = !wanted; // the server's answer decides what it shows
+  const state = await lanSwitch(wanted);
+  if (state) renderLanState(state);
+});
+
+//: **The switch, in one place** (INBOX 896): Settings and the status bar's
+//: Other devices panel (lan-watch.js) both call this. On asks for the
+//: password, off asks nothing; the answer is the new state, or null. Since
+//: INBOX 900 the launcher's supervisor opens or closes the LAN port while
+//: the app runs and the route waits for it, so `restart_required` is true
+//: only for a server started without it (a `MEMORYMAP_BIND` run).
+async function lanSwitch(wanted) {
   try {
     if (!wanted) {
       const off = await apiJson("/auth/lan-access", {
         method: "POST",
         body: JSON.stringify({ enabled: false }),
       });
-      renderLanState(off);
-      //: The bind itself doesn't drop until the next launch (`netbind`'s own
-      //: comment on `restart_required`), the same as turning it on: this
-      //: computer's own access never depended on it, but another device
-      //: already in can still reach the app until the app is restarted.
       if (off.restart_required) {
         toastAction("Restart to close the app to other devices now.", "Restart now", () =>
           restartMemoryMap({ confirm: false })
         );
       } else {
-        toast("Only this computer will be able to open the app.");
+        toast("Only this computer can open the app now.");
       }
-      return;
+      return off;
     }
     let reply = null;
     const done = await askPasswordPrompt({
@@ -99,20 +105,22 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
         return reply;
       },
     });
-    if (done && reply) {
-      renderLanState(reply);
-      if (reply.restart_required) {
-        toastAction("Other devices can open the app after a restart.", "Restart now", () =>
-          restartMemoryMap({ confirm: false })
-        );
-      } else {
-        toast("Other devices can already open the app at this address.");
-      }
+    if (!done || !reply) return null;
+    if (reply.restart_required) {
+      toastAction("Other devices can open the app after a restart.", "Restart now", () =>
+        restartMemoryMap({ confirm: false })
+      );
+    } else if (reply.other_devices) {
+      toast("Other devices on this network can open the app now, with your password.");
+    } else {
+      toast("On, and closed on this network until you trust it.");
     }
+    return reply;
   } catch (error) {
     toast(error.message, true);
+    return null;
   }
-});
+}
 
 $("account-lan-restart")?.addEventListener("click", () => restartMemoryMap({ confirm: false }));
 
@@ -1930,6 +1938,12 @@ const STATUS_SLOTS = [
     label: "Find anything",
     hint: "Search your notes, documents, files and the app itself",
   },
+  //: INBOX 896. Shown on this computer only; another device never sees it.
+  {
+    key: "lan",
+    label: "Other devices",
+    hint: "Whether a phone on this network can open the app: open, closed or off",
+  },
 ];
 
 function renderStatusBarSettings() {
@@ -2032,6 +2046,10 @@ function renderLanState(state) {
     words = addresses.length
       ? "Other devices on this network can open it, with your password, at:"
       : "Other devices can open the app at this computer's network address.";
+  } else if (!state.allow_lan && state.switched_off) {
+    //: The 14-day rule (lantrust.UNUSED_DAYS): said here as well as in the
+    //: bell, since this is where a person goes to turn it back on.
+    words = `Turned itself off on ${state.switched_off}: no other device opened the app for ${state.unused_days || 14} days.`;
   }
   line.classList.toggle("hidden", !words);
   if (words) setLabel(line, `${icon} ${words}`);
@@ -2105,6 +2123,8 @@ const LAN_HELD_REASONS = {
   new_network: "it is not a network you allowed",
   unknown_network: "this network could not be identified",
   public_network: "Windows calls this network public",
+  untrusted_network: "you stopped trusting it",
+  no_network: "this computer is not on a network",
 };
 
 function lanListRow(title, facts, actions) {
@@ -2173,16 +2193,69 @@ function renderLanTrust(state) {
         )
       : [lanEmptyRow("None yet. A phone is added when you allow its first sign-in.")])
   );
-  const networks = state.networks || [];
+  const rows = lanNetworkRows(state, renderLanState);
   $("account-lan-networks").replaceChildren(
-    ...(networks.length
-      ? networks.map((network) =>
-          lanListRow(network.label, [network.subnet, network.added && `allowed ${network.added}`], [
-            { label: "Remove", title: "Other devices stay out on this network until it is allowed again", danger: true, run: () => lanCall(`/auth/lan-networks/${encodeURIComponent(network.key)}`, { method: "DELETE" }) },
-          ])
-        )
-      : [lanEmptyRow("None yet. Turning other devices on remembers the network you are on.")])
+    ...(rows.trusted.length ? rows.trusted : [lanEmptyRow("None yet. Turning other devices on trusts the network you are on.")])
   );
+  $("account-lan-untrusted-wrap").classList.toggle("hidden", !rows.untrusted.length);
+  $("account-lan-untrusted").replaceChildren(...rows.untrusted);
+}
+
+//: **Trusted and untrusted networks, as rows** (INBOX 896), for Settings and
+//: the status bar's panel; `paint(state)` redraws whichever asked. Trust is
+//: a loosening, so it asks for the password (the server also refuses it from
+//: another device); Stop trusting and Forget only ever let fewer in.
+function lanNetworkRows(state, paint) {
+  const send = async (path, options) => {
+    try {
+      paint(await apiJson(path, options));
+    } catch (error) {
+      toast(error.message, true);
+    }
+  };
+  const here = state.current_network || "";
+  const name = (network) => (network.key === here ? `${network.label} (this network)` : network.label);
+  const path = (network, verb = "") => `/auth/lan-networks/${encodeURIComponent(network.key)}${verb && `/${verb}`}`;
+  const forget = (network) => ({
+    label: "Forget",
+    title: "Forget: take it off both lists; it comes back untrusted if the app sees it again",
+    danger: true,
+    run: () => send(path(network), { method: "DELETE" }),
+  });
+  const trusted = (state.networks || []).map((network) =>
+    lanListRow(name(network), [network.subnet, network.added && `trusted ${network.added}`], [
+      { label: "Stop trusting", title: "Stop trusting: keep other devices out on this network", run: () => send(path(network, "untrust"), { method: "POST" }) },
+      forget(network),
+    ])
+  );
+  const untrusted = (state.untrusted || []).map((network) =>
+    lanListRow(name(network), [network.subnet, network.blocked ? "you stopped trusting it" : network.added && `seen ${network.added}`], [
+      { label: "Trust", title: "Trust: let other devices in on this network; asks for your password", run: () => lanTrustNetwork(network, paint) },
+      forget(network),
+    ])
+  );
+  return { trusted, untrusted };
+}
+
+async function lanTrustNetwork(network, paint) {
+  let reply = null;
+  const done = await askPasswordPrompt({
+    title: `Trust ${network.label}`,
+    message: "Enter your password to let devices on this network open the app. It is remembered for next time.",
+    submitLabel: "Trust",
+    submit: async (password) => {
+      reply = await apiJson(`/auth/lan-networks/${encodeURIComponent(network.key)}/trust`, {
+        method: "POST",
+        body: JSON.stringify({ current_password: password }),
+        ownsAuthErrors: true,
+      });
+      return reply;
+    },
+  });
+  if (done && reply) {
+    paint(reply);
+    toast(`${network.label} is trusted. Other devices there can open the app with your password.`);
+  }
 }
 
 //: A looser setting asks for the password, like the switch; a safer one
@@ -2211,12 +2284,17 @@ async function setLanOption(box, name, looser) {
 $("account-lan-ask")?.addEventListener("change", (event) => setLanOption(event.target, "ask_new_devices", (on) => !on));
 $("account-lan-any")?.addEventListener("change", (event) => setLanOption(event.target, "any_network", (on) => on));
 
-$("account-lan-allow-here")?.addEventListener("click", async () => {
+$("account-lan-allow-here")?.addEventListener("click", () => lanAllowHere(renderLanState));
+
+//: Allow on this network (`/auth/lan-networks/allow`), password first:
+//: Settings' button, and the status bar panel's Trust this network for a
+//: network the app has not listed yet (INBOX 896).
+async function lanAllowHere(paint) {
   let reply = null;
   const done = await askPasswordPrompt({
-    title: "Allow on this network",
+    title: "Trust this network",
     message: "Enter your password to let devices on this network open the app. It is remembered for next time.",
-    submitLabel: "Allow",
+    submitLabel: "Trust",
     submit: async (password) => {
       reply = await apiJson("/auth/lan-networks/allow", {
         method: "POST",
@@ -2227,10 +2305,10 @@ $("account-lan-allow-here")?.addEventListener("click", async () => {
     },
   });
   if (done && reply) {
-    renderLanState(reply);
+    paint(reply);
     toast("Other devices can open the app on this network now.");
   }
-});
+}
 
 async function renderLanAccess() {
   if (!$("account-allow-lan")) return;

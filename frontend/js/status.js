@@ -585,12 +585,20 @@ async function checkDueReminders() {
 //: listeners each time: after four lock and unlock cycles an idle minute
 //: asked `/reminders` five times. The first call wires everything; a later
 //: one only checks now, which is what an unlock wants.
+//: The status bar's Other devices panel (INBOX 896) from the shortcut, the
+//: palette and a notice's Review: lan-watch.js draws it.
+function openLanPanel() {
+  lazyScript("/js/lan-watch.js").then((ok) => {
+    if (ok && typeof lanOpenPanel === "function") lanOpenPanel();
+  });
+}
+
 let reminderWatchStarted = false;
 function startReminderWatch() {
   checkDueReminders();
   //: Other devices asking to sign in, and a network nobody allowed (INBOX
-  //: 867): lan-watch.js, lazy, starts itself once; it stops at once when
-  //: LAN mode is off.
+  //: 867): lan-watch.js, lazy, starts itself once; it also paints the status
+  //: bar's Other devices icon (INBOX 896), and stops only on another device.
   lazyScript("/js/lan-watch.js");
   if (reminderWatchStarted) return;
   reminderWatchStarted = true;

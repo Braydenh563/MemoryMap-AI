@@ -1380,6 +1380,9 @@ def list_skills() -> dict:
 class PreferenceBody(BaseModel):
     content: str | None = Field(default=None, max_length=200)
     active: bool | None = None
+    #: Undo of answering a proposal (INBOX 898) puts the question back; Redo
+    #: answers it again by sending `proposed: false` with the verdict.
+    proposed: bool | None = None
 
 
 class ProposalAnswer(BaseModel):
@@ -1541,6 +1544,8 @@ def update_memory(
         row.content = text_
     if body.active is not None:
         row.active = body.active
+    if body.proposed is not None and hasattr(row, "proposed"):
+        row.proposed = body.proposed
     session.commit()
     session.refresh(row)
     return _preference_out(row)

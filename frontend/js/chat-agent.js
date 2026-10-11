@@ -1882,6 +1882,7 @@ function renderMemoryProposal(holder, proposal) {
         method: "POST",
         body: JSON.stringify({ accept }),
       });
+      pushRequestUndo(accept ? "Remembered a preference" : "Declined a preference", `/memory/${proposal.id}`, "PATCH", { proposed: true, active: false }, { proposed: false, active: accept }, () => renderMemorySettings());
     } catch (error) {
       answered = false;
       toast(error.message, true);

@@ -104,6 +104,7 @@ function flushNoteOutbox() {
         const saved = await apiJson("/entries", { method: "POST", body: JSON.stringify(payload), silent: true });
         writeNoteOutbox(noteOutbox().filter((held) => held.client_key !== item.client_key));
         sent += 1;
+        pushEntryCreateUndo(saved, "Saved a note kept on this device");
         if (saved.filing_state === "pending") watchFiling(saved, { quiet: true });
       } catch (error) {
         if (noteServerGone(error) || error.isLockout || !error.status || error.status >= 500 || error.status === 429) break;
@@ -504,4 +505,19 @@ async function reminderFromChatAnswer(answer) {
   } catch (error) {
     toast(error.message || "Couldn't set a reminder.", true);
   }
+}
+
+//: A note saved in a stand-alone window (capture.html, clip.html) lands on this
+//: window's Undo stack and Redo list (INBOX 898); the reply tells that window
+//: it need not offer an Undo of its own (standalone-undo.js).
+try {
+  const standaloneNotes = new BroadcastChannel("memorymap-undo");
+  standaloneNotes.onmessage = (event) => {
+    if (event.data?.type !== "note-made" || event.data.id == null) return;
+    pushEntryCreateUndo({ id: event.data.id }, event.data.label || "Saved a note");
+    loadEntries().catch(() => {});
+    standaloneNotes.postMessage({ type: "note-made-ack", id: event.data.id });
+  };
+} catch {
+  // No BroadcastChannel: the stand-alone window offers its own Undo.
 }

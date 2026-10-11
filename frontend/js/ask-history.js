@@ -231,13 +231,19 @@ async function toggleAskHistoryPin(id, pinned) {
 }
 
 async function deleteAskHistoryTurn(id) {
-  // Permanent: no restore endpoint behind this one, unlike a note's bin.
+  // Kept in the server's undo bin, so Undo can bring it back.
   // "Clear all" right next to this already confirms; a single turn deleted
   // by the same one-click miss deserves the same guard, not less.
   if (!(await confirmDialog("Delete this question and answer?"))) return;
-  await apiJson(`/ask-history/${id}`, { method: "DELETE" }).catch((error) =>
+  const gone = await apiJson(`/ask-history/${id}`, { method: "DELETE" }).catch((error) =>
     toast(error.message || "Couldn't delete that question.", true)
   );
+  if (gone) pushTokenUndo("Deleted a question", [{ del: [`/ask-history/${id}`, "DELETE"], restore: "/ask-history/restore", token: gone.undo_token }], askHistoryRepaint, "Question deleted.");
+  askHistoryRepaint();
+}
+
+//: What shows the history, repainted after a delete, a clear or either one's Undo.
+function askHistoryRepaint() {
   loadAskHistoryPage(true);
   loadAskHistoryBadge();
   loadRecentQuestions();
@@ -262,7 +268,19 @@ function askAgainMenu(box, questions) {
 
 async function forgetRecentQuestion(question) {
   try {
-    await apiJson(`/chat/recent?question=${encodeURIComponent(question)}`, { method: "DELETE" });
+    const gone = await apiJson(`/chat/recent?question=${encodeURIComponent(question)}`, { method: "DELETE" });
+    //: The audit log is a history, so Undo writes a "remembered" row naming the
+    //: forgetting (by id); Redo forgets again and keeps the new row's id.
+    let marker = gone.marker_id;
+    const forget = async () => {
+      marker = (await apiJson(`/chat/recent?question=${encodeURIComponent(question)}`, { method: "DELETE" })).marker_id;
+      loadRecentQuestions();
+    };
+    const remember = async () => {
+      await apiJson("/chat/recent/restore", { method: "POST", body: JSON.stringify({ marker_id: marker }) });
+      loadRecentQuestions();
+    };
+    offerUndo("Forgot a question", "Question forgotten.", remember, forget);
   } catch (error) {
     toast(error.message || "Couldn't forget that question.", true);
     return;
@@ -273,14 +291,13 @@ async function forgetRecentQuestion(question) {
 
 async function clearAskHistory() {
   const ok = await confirmDialog(
-    "Clear your question history?\n\nPinned questions are kept. This cannot be undone for the rest.",
+    "Clear your question history?\n\nPinned questions are kept. Undo brings the rest back.",
     { confirmLabel: "Clear history", danger: true }
   );
   if (!ok) return;
-  await apiJson("/ask-history", { method: "DELETE" }).catch((error) =>
+  const cleared = await apiJson("/ask-history", { method: "DELETE" }).catch((error) =>
     toast(error.message || "Couldn't clear the history.", true)
   );
-  loadAskHistoryPage(true);
-  loadAskHistoryBadge();
-  loadRecentQuestions();
+  if (cleared) pushTokenUndo("Cleared the question history", [{ del: ["/ask-history", "DELETE"], restore: "/ask-history/restore", token: cleared.undo_token }], askHistoryRepaint, "Question history cleared.");
+  askHistoryRepaint();
 }

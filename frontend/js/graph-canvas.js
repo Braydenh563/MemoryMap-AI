@@ -1269,8 +1269,13 @@ function gcShowTopic(topic, colour) {
 //: chips (`noteTopicsCache`, notes-list.js) the next time they draw.
 async function gcSaveTopicName(topic, wanted) {
   const found = topic.found_name || topic.name;
+  const was = topic.named ? topic.name : "";
   const row = await apiJson("/graph/topics/name", { method: "PUT", body: JSON.stringify({ ids: topic.ids, name: wanted }) }).catch(() => null);
   if (!row) return false;
+  pushRequestUndo(`Renamed the topic “${found}”`, "/graph/topics/name", "PUT", { ids: topic.ids, name: was }, { ids: topic.ids, name: wanted }, async () => {
+    if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
+    await renderGraph();
+  });
   topic.found_name = found;
   topic.named = Boolean(row.name);
   topic.name = row.name || found;
@@ -3333,6 +3338,7 @@ function gcWireInteraction(s = gcTab) {
     const keep = node._dragShift || node._wasPinned;
     gcPost({ type: "drag", phase: "end", id: node.id, keep }, s);
     const pins = [];
+    const steps = [];
     for (const mate of s.dragGroup) {
       const mateKeeps = node._dragShift || mate.wasPinned;
       gcPost({ type: "drag", phase: "end", id: mate.node.id, keep: mateKeeps }, s);
@@ -3347,6 +3353,7 @@ function gcWireInteraction(s = gcTab) {
         mate.node.graph_pin_x = mate.node.fx;
         mate.node.graph_pin_y = mate.node.fy;
         pins.push({ id: mate.node.id, x: mate.node.fx, y: mate.node.fy });
+        steps.push({ id: mate.node.id, before: mate.wasPinned ? { x: mate.startX, y: mate.startY } : null, after: { x: mate.node.fx, y: mate.node.fy } });
       }
     }
     //: One write for the carried notes (`PUT /graph/pins`): a topic of forty
@@ -3354,6 +3361,7 @@ function gcWireInteraction(s = gcTab) {
     const savePins = () => apiJson("/graph/pins", { method: "PUT", body: JSON.stringify({ pins }) })
       .catch(() => toast("The moved notes were not pinned where you left them.", true, { action: ["Try again", savePins] }));
     if (pins.length) savePins();
+    graphPinStep(`Moved ${pins.length} pinned note${pins.length === 1 ? "" : "s"}`, steps);
     s.dragGroup = [];
     const wasTopic = s.dragTopic;
     s.dragTopic = null;
@@ -3383,6 +3391,11 @@ function gcWireInteraction(s = gcTab) {
       //: then had to find and undo.
       node.graph_pin_x = node.fx;
       node.graph_pin_y = node.fy;
+      graphPinStep("Moved a pinned note", [{
+        id: node.id,
+        before: node._wasPinned ? { x: node._dragStartX, y: node._dragStartY } : null,
+        after: { x: node.fx, y: node.fy },
+      }]);
       apiJson(`/graph/pin/${node.id}`, {
         method: "PUT",
         body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
@@ -3522,6 +3535,11 @@ function gcTogglePin(node, s = gcTab) {
   if (node.isGroup) return;
   node.graph_pin_x = wasPinned ? null : node.fx;
   node.graph_pin_y = wasPinned ? null : node.fy;
+  graphPinStep(wasPinned ? "Unpinned a note" : "Pinned a note", [{
+    id: node.id,
+    before: wasPinned ? { x: node.x, y: node.y } : null,
+    after: node.graph_pin_x == null ? null : { x: node.graph_pin_x, y: node.graph_pin_y },
+  }]);
   apiJson(`/graph/pin/${node.id}`, {
     method: "PUT",
     body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
@@ -3764,6 +3782,7 @@ function gcWireSelectionDock(s = gcTab) {
       toast("Could not create the map.");
       return;
     }
+    pushBinPairUndo(`Made the mind map “${name}”`, `/entries/${board.id}`, `/entries/${board.id}/restore`, true, () => (typeof refreshBoardList === "function" ? refreshBoardList() : null));
     //: **The way to it, on the notice and in the bell** (INBOX 607: "the
     //: notification included no link to it"). Open lays the map out against
     //: its topics' real sizes as it opens, the step an import takes too.

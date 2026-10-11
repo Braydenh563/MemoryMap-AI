@@ -91,31 +91,145 @@ function pushBinPairUndo(label, binPath, restorePath, restored, refresh) {
 
 //: **Two routes that undo each other** (archive and unarchive, pin and unpin,
 //: hide and show): `back` and `again` are `[path, method]` pairs, or lists of
-//: them for a bulk act.
+//: them for a bulk act; a third item is the request body.
 function pushRoutePairUndo(label, back, again, refresh) {
   const run = (routes) => async () => {
     const list = Array.isArray(routes[0]) ? routes : [routes];
-    for (const [path, method] of list) await api(path, { method });
+    for (const [path, method, body] of list) await api(path, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
     await refresh?.();
   };
   return pushUndo(label, run(back), run(again));
 }
 
-//: **Accepting a contradiction makes a `contradicts` link** and the server
-//: does not say which row: Undo reads the earlier note, finds that link by
-//: its other end and kind, and removes it; Redo accepts the pair again.
-function pushTensionLinkUndo(earlierId, laterId) {
+//: **Deciding a contradiction** (accept, or "not a contradiction"): Undo asks
+//: the server to reopen the pair (`/entries/tensions/reopen`), which also takes
+//: the `contradicts` link away when this accept made it and drops what the
+//: decision taught the learning loop; Redo decides it again.
+function pushTensionLinkUndo(earlierId, laterId, verdict = "accept", made = true) {
+  const pair = { earlier_id: earlierId, later_id: laterId };
+  const post = (path, body) => apiJson(path, { method: "POST", body: JSON.stringify(body) });
+  const settle = () => refreshEntries([earlierId, laterId]).catch(() => {});
   return pushUndo(
-    "Linked two notes as contradicting",
+    verdict === "accept" ? "Linked two notes as contradicting" : "Said two notes do not contradict",
     async () => {
-      const note = await apiJson(`/entries/${earlierId}`);
-      const link = (note.links || []).find((l) => l.entry_id === laterId && l.link_type === "contradicts");
-      if (link) await api(`/entries/${earlierId}/links/${link.link_id}`, { method: "DELETE" });
-      await refreshEntries([earlierId, laterId]).catch(() => {});
+      await post("/entries/tensions/reopen", { ...pair, remove_link: verdict === "accept" && made });
+      await settle();
     },
     async () => {
-      await apiJson("/entries/tensions/accept", { method: "POST", body: JSON.stringify({ earlier_id: earlierId, later_id: laterId }) });
-      await refreshEntries([earlierId, laterId]).catch(() => {});
+      await post(`/entries/tensions/${verdict === "accept" ? "accept" : "dismiss"}`, pair);
+      await settle();
+    }
+  );
+}
+
+//: **A delete the server kept in its undo bin** (core/undo_bin.py, INBOX
+//: 898): a picture, a file, a past question, what was learned, a board
+//: library. Each item is `{ del: [path, method, body?], restore, token }`:
+//: Undo posts `{ token }` to `restore`, Redo sends the delete again and
+//: keeps the new token it answers with. `refresh` repaints whatever showed it.
+function pushTokenUndo(label, items, refresh, message) {
+  const list = items.filter((item) => item?.token);
+  if (!list.length) return null;
+  const send = ([path, method, body]) => apiJson(path, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const undo = async () => {
+    for (const item of list) await apiJson(item.restore, { method: "POST", body: JSON.stringify({ token: item.token }) });
+    await refresh?.();
+  };
+  const redo = async () => {
+    for (const item of list) item.token = (await send(item.del))?.undo_token ?? item.token;
+    await refresh?.();
+  };
+  //: With a `message` the step also gets the toast whose Undo is this entry.
+  return message ? offerUndo(label, message, undo, redo) : pushUndo(label, undo, redo);
+}
+
+//: **An upload as one step** (the Library's Upload, a picture added to a
+//: chat or a board): Undo moves the file to the bin, Redo brings it back.
+//: `base` is `/media` or `/files`; `made` is the upload's answer.
+function pushUploadUndo(label, base, made, refresh) {
+  if (made?.id == null) return null;
+  let id = made.id;
+  let token = null;
+  return pushUndo(
+    label,
+    async () => {
+      token = (await apiJson(`${base}/${id}`, { method: "DELETE" }))?.undo_token ?? null;
+      await refresh?.();
+    },
+    async () => {
+      if (token) id = (await apiJson(`${base}/restore`, { method: "POST", body: JSON.stringify({ token }) }))?.id ?? id;
+      await refresh?.();
+    }
+  );
+}
+
+//: **A correction this act recorded** (a dismissed suggestion, a verdict
+//: on an answer): Undo takes that one row back by the id the POST answered
+//: with, Redo records it again.
+function pushCorrectionUndo(label, body, made, refresh) {
+  let id = made?.id;
+  if (id == null) return null;
+  return pushUndo(
+    label,
+    async () => {
+      await api(`/learned/corrections/${id}`, { method: "DELETE" });
+      await refresh?.();
+    },
+    async () => {
+      id = (await apiJson("/learned/corrections", { method: "POST", body: JSON.stringify(body) }))?.id ?? id;
+      await refresh?.();
+    }
+  );
+}
+
+//: **Something this act made, whose inverse is deleting it** (a card put on
+//: a board, a space, a recording): Undo deletes it through `deletePath(made)`,
+//: Redo makes it again from the same request and keeps the new answer, so
+//: the next Undo deletes that one. `make` is `[path, method, body]`.
+function pushMadeUndo(label, make, made, deletePath, refresh) {
+  if (!made) return null;
+  let live = made;
+  return pushUndo(
+    label,
+    async () => {
+      await api(deletePath(live), { method: "DELETE" });
+      await refresh?.();
+    },
+    async () => {
+      live = await apiJson(make[0], { method: make[1], body: JSON.stringify(make[2]) });
+      await refresh?.();
+    }
+  );
+}
+
+//: **Text put into a box by an act that is not typing** (a file dropped
+//: into a note, a picture pasted): Undo writes the box as it was, Redo as it
+//: became, and the box is told it changed so its editor and draft follow.
+function pushTextUndo(label, box, before, after) {
+  const put = (value) => () => {
+    box.value = value;
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  return pushUndo(label, put(before), put(after));
+}
+
+//: **`[[old]]` rewritten as the new name in other notes** (a renamed note's
+//: offer): the answer names each note changed and the version it held before.
+//: Undo puts those versions back; Redo rewrites again, and keeps the new list.
+function pushWikiRenameUndo(entryId, old, done) {
+  const notes = done?.notes || [];
+  if (!notes.length) return null;
+  const settle = () => refreshEntries(notes.map((note) => note.id)).catch(() => {});
+  return pushUndo(
+    `Renamed [[${old}]] in ${notes.length} note${notes.length === 1 ? "" : "s"}`,
+    async () => {
+      for (const note of notes) await api(`/entries/${note.id}/history/${note.revision_id}/restore`, { method: "POST" });
+      await settle();
+    },
+    async () => {
+      const again = await apiJson(`/entries/${entryId}/wiki-rename`, { method: "POST", body: JSON.stringify({ old }) });
+      notes.splice(0, notes.length, ...(again.notes || []));
+      await settle();
     }
   );
 }

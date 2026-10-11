@@ -73,15 +73,17 @@ async function renderAttachToBoard(entry, wrap) {
         const id = Number(picker.value);
         const title = picker.selectedOptions[0]?.dataset.title || "that board";
         try {
-          await apiJson("/whiteboard/nodes", {
+          const card = { entry_id: entry.id, board_id: id, x: 80, y: 80, z: 1 };
+          const made = await apiJson("/whiteboard/nodes", {
             method: "POST",
             //: Placed rather than dropped at the origin: every board already
             //: has something at 0,0 sooner or later, and a card that lands
             //: exactly under another one reads as "nothing happened". This is
             //: the same offset the board's own "add a card" starts from, and
             //: the card is draggable the moment it is there.
-            body: JSON.stringify({ entry_id: entry.id, board_id: id, x: 80, y: 80, z: 1 }),
+            body: JSON.stringify(card),
           });
+          pushMadeUndo(`Put a note on “${title}”`, ["/whiteboard/nodes", "POST", card], made, (node) => `/whiteboard/nodes/${node.id}`, () => refreshEntries([entry.id]));
           inlineAction = null;
           await refreshEntries([entry.id]);
           toastAction(`Put on \u201c${title}\u201d.`, "Open", () => {

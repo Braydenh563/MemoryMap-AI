@@ -17,10 +17,10 @@ reason starts with a class: `auth`, `read`, `send`, `settings` (has its own
 Reset or history), `telemetry`, `job` (starts or stops work, deletes nothing),
 `inverse` (is the undo or redo of an act that offers one), `board` (the
 board's own history, reached by Ctrl+Z on an open board), `purge` (permanent
-by design, behind a confirm that says so) or `GAP` (a user
-data write with no undo yet; each is a line in
-`docs/roadmap/agent-remaining/undoall-1011.md`). Fixing a function removes its
-line; the test also fails on a line that is no longer needed.
+by design, behind a confirm that says so). There is no class for a write
+that has no undo yet: INBOX 898 closed the last of them, so a new write
+offers one or explains here why undo is meaningless. The test also fails on
+a line that is no longer needed.
 
 Set `UNDO_COVERAGE_DUMP=1` to print what is uncovered.
 """
@@ -40,6 +40,8 @@ JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 SEEDS = {
     "pushUndo", "offerUndo", "settleUndoFromToast", "performUndo",
     "docUndo", "wbUndo", "wbPushUndo", "wbPushDragUndo", "wbPushMoveBatch", "wbPushCall",
+    #: Records the board rows before and after its callback and pushes the diff (whiteboard.js).
+    "wbRecordGesture",
     #: Chat loads its helpers (chat-undo.js) on the first write and names one.
     "chatWriteRecord",
     #: Takes an act and its inverse and puts the step on the stack (skills.js).
@@ -47,7 +49,7 @@ SEEDS = {
 }
 #: Whole acts that do their write and put the step on the stack themselves, so
 #: a caller that hands them the work is covered.
-WRAPPERS = {"toastEntityMerge", "graphRemoveLink"}
+WRAPPERS = {"toastEntityMerge", "graphRemoveLink", "wbBoardMadeStep", "graphPinStep", "wbBoardPutStep", "wbLibPairStep"}
 #: Closures that are the inverse of an act, named for it. They take the
 #: coverage of the function that owns them.
 INVERSE_NAMES = {
@@ -298,11 +300,17 @@ def analyse():
             if f[2]:
                 by_name[f[2]] |= ids
     helpers = set(SEEDS)
-    #: A function named for an undo that puts the step on the stack itself.
-    for fn, (_, _, funcs, parent, _) in files.items():
-        for f in funcs:
-            if f[2] and "ndo" in f[2] and direct[(fn, f[0])] & SEEDS:
-                helpers.add(f[2])
+    #: A function named for an undo that puts the step on the stack itself, or
+    #: through another such function (taken to a fixed point, so a wrapper of
+    #: `pushTokenUndo` counts as the helper it is).
+    grew = True
+    while grew:
+        grew = False
+        for fn, (_, _, funcs, parent, _) in files.items():
+            for f in funcs:
+                if f[2] and "ndo" in f[2] and f[2] not in helpers and direct[(fn, f[0])] & helpers:
+                    helpers.add(f[2])
+                    grew = True
     helpers |= WRAPPERS
     helper_call = re.compile(r"\b(" + "|".join(sorted(map(re.escape, helpers))) + r")\(")
 
@@ -465,7 +473,6 @@ EXEMPT: dict[str, str] = {
     "navigation.js:(anonymous /search/warm)": "telemetry: telemetry or a background warm-up; no user data",
     "model-bench.js:(anonymous /models/bench/stop)": "job: starts or stops work or a model; deletes no user data",
     "library.js:(anonymous /recycle-bin/empty)": "purge: Empty bin is permanent by design, behind a confirm that says so",
-    "library.js:(anonymous /media/upload)": "GAP: POST /media/upload",
     "library.js:(anonymous /entries/${id}/purge)": "purge: Delete for good is permanent by design, behind a confirm that says so",
     "library.js:(anonymous /audit?entity_type=skill)": "telemetry: clears a skill's run log, not the person's data",
     "library.js:(anonymous ${base}/page-caption?page=${ocrWorks)": "read: reads a page's caption, shown for review",
@@ -473,43 +480,20 @@ EXEMPT: dict[str, str] = {
     "documents.js:(anonymous /preferences)": "settings: a setting with its own Reset or the settings history",
     "dashboard.js:(anonymous /recordings/recover)": "job: starts or stops work or a model; deletes no user data",
     "app.js:(anonymous path)": "read: the api.upload shorthand itself; each caller is scanned as its own site",
-    "whiteboard.js:wbPlaceUploadedImage": "GAP: POST /media/upload",
-    "whiteboard.js:wbCloneConnect": "GAP: POST /whiteboard/sketches",
-    "whiteboard.js:wbClearBoard": "GAP: DELETE ${base}/${item.id}",
+    "whiteboard.js:wbPlaceUploadedImage": "board: the image is placed by wbCreateObject, which pushes the board's create step; the file stays in the Library",
     "whiteboard.js:wbApplyHistoryEntry": "inverse: applies the board history's own undo and redo",
-    "whiteboard.js:initWhiteboard": "GAP: POST /media/upload",
-    "whiteboard-map.js:wbMapTakePicture": "GAP: POST /media/upload",
-    "whiteboard-map.js:wbMapSuggestBranches": "read: asks the model for branch ideas",
-    "whiteboard-map.js:wbMapSever": "GAP: PUT /whiteboard/boards/${boardId}/nodes/${id}/move",
-    "whiteboard-map.js:wbMapRemoveKeepingBranch": "GAP: PUT /whiteboard/boards/${boardId}/nodes/move-many",
-    "whiteboard-map.js:wbMapPasteText": "GAP: POST /whiteboard/boards/${boardId}/nodes/outline",
-    "whiteboard-map.js:wbMapCutCrossLink": "GAP: DELETE /whiteboard/sketches/${sketchId}",
-    "whiteboard-map.js:wbMapCrossLinkToBranch": "GAP: DELETE /whiteboard/sketches/${sketchId}",
-    "whiteboard-map.js:wbMapClearToOneTopic": "GAP: DELETE /whiteboard/objects/${root.id}",
-    "whiteboard-library.js:wbLibPlace": "GAP: POST /whiteboard/boards/${boardId}/place",
-    "whiteboard-interchange.js:wbMermaidPlaceNode": "GAP: POST /whiteboard/sketches",
-    "whiteboard-interchange.js:wbImportMermaid": "GAP: POST /whiteboard/sketches",
-    "whiteboard-interchange.js:wbImportBoardRows": "GAP: POST /whiteboard/sketches",
-    "whiteboard-interchange.js:wbDrawioPlace": "GAP: POST /whiteboard/sketches",
-    "whiteboard-interchange.js:post": "GAP: POST /whiteboard/sketches",
-    "whiteboard-history.js:wbRestoreToEvent": "board: restoring a board to an earlier moment is the board's version history",
-    "whiteboard-history.js:wbHistRestore": "board: restoring a board to an earlier moment is the board's version history",
+    "whiteboard.js:initWhiteboard": "board: the background image is set through wbSetBackground, which pushes the board step; the file stays in the Library",
+    "whiteboard-map.js:wbMapTakePicture": "board: the picture is set on the topic through wbMapSetNodeStyle, which pushes the board step; the file stays in the Library",
     "tidy.js:tidyRunLinkReasons": "job: starts a background pass",
-    "settings.js:learnedDelete": "GAP: DELETE /learned/${fact.id}",
     "meetings.js:nameRecordingSpeakers": "read: asks the model to name speakers, shown for review",
     "library.js:ocrRunRegion": "read: reads a region of a picture, shows the text for review",
     "chat.js:compressChatContext": "read: asks the model to shorten the chat's context; writes nothing",
-    "whiteboard.js:wbRestoreLinks": "GAP: POST /whiteboard/sketches",
-    "whiteboard-map.js:wbMapWriteDocument": "GAP: POST /documents",
-    "whiteboard-map.js:wbMapSetNumbered": "GAP: PUT /whiteboard/boards/${boardId}",
-    "whiteboard-map.js:wbMapSetLayout": "GAP: PUT /whiteboard/boards/${boardId}",
-    "whiteboard-map.js:wbMapReverseEdge": "GAP: PUT /whiteboard/boards/${boardId}/nodes/${id}/move",
-    "whiteboard-map.js:wbMapReverseCrossLink": "GAP: PUT /whiteboard/sketches/${sketchId}",
-    "whiteboard-map.js:wbMapRestoreRows": "GAP: POST /whiteboard/boards/${boardId}/nodes",
-    "whiteboard-map.js:wbMapAdoptProvisional": "GAP: POST /whiteboard/boards/${row.board_id}/nodes",
-    "settings-wiring.js:commitCaptureImages": "GAP: POST /media/upload",
-    "notes-list.js:offerWikiRename": "GAP: POST /entries/${entryId}/wiki-rename",
-    "library.js:noteRead": "GAP: PUT /bookmarks/${bookmark.id}",
+    "graph.js:graphSetPin": "inverse: writes a pin for the pin step's own Undo and Redo (graphPinStep)",
+    "whiteboard.js:wbRestoreLinks": "inverse: draws a deleted item's links again for the board history's own Undo",
+    "whiteboard-map.js:wbMapRestoreRows": "inverse: puts back a deleted branch for the board history's own Undo and Redo",
+    "whiteboard-map.js:wbMapAdoptProvisional": "board: gives a topic already on the board's history (its create step is remapped to the server id)",
+    "settings-wiring.js:commitCaptureImages": "send: uploads the pictures of a note being saved; the save is the step (Undo bins the note)",
+    "library.js:noteRead": "telemetry: opening a saved link marks it read, as visiting a page does; reading is not an edit",
     "chat-undo.js:chatPut": "inverse: the chat undo helpers' own PUT",
     "batch-space.js:batchSpaceRequest": "inverse: the move request itself; batchMoveToSpace pushes the step with the answer's old places",
     "settings-controls.js:restoreFullBackup": "job: a confirmed restore that snapshots the current notebook first; the snapshot is the way back",
@@ -537,37 +521,25 @@ EXEMPT: dict[str, str] = {
     "app.js:startWithoutPassword": "auth: sign-in, recovery or lock; no user data",
     "ask-chart.js:renderAskChart": "read: reads or asks the model; shows a result, writes nothing",
     "ask-compose.js:renderActCard": "read: reads or asks the model; shows a result, writes nothing",
-    "ask-history.js:clearAskHistory": "GAP: DELETE /ask-history",
-    "ask-history.js:deleteAskHistoryTurn": "GAP: DELETE /ask-history/${id}",
-    "ask-history.js:forgetRecentQuestion": "GAP: DELETE /chat/recent?question=${encodeURIComponent(quest",
-    "attach-to.js:renderAttachToBoard": "GAP: POST /whiteboard/nodes",
     "attachment-actions.js:caption": "read: asks the model for a caption shown for review",
     "attachment-actions.js:describe": "read: asks the model for a description shown for review",
-    "attachment-actions.js:remove": "GAP: DELETE /files/${spec.attachment.id}",
     "boot-guard.js:report": "telemetry: telemetry or a background warm-up; no user data",
     "captions.js:captionSendNext": "read: reads or asks the model; shows a result, writes nothing",
     "captions.js:startLiveCaptions": "read: reads or asks the model; shows a result, writes nothing",
     "captions.js:stopLiveCaptions": "read: reads or asks the model; shows a result, writes nothing",
-    "capture-ask.js:renderAnswerGrounding": "GAP: POST /learned/corrections",
+    "capture-ask.js:renderAnswerGrounding": "telemetry: a click on a source records that the note was opened after the question, to rank later answers; there is nothing to take back",
     "capture-ask.js:renderAskFollowups": "read: reads or asks the model; shows a result, writes nothing",
     "capture-ask.js:scheduleCaptureTagSuggestions": "read: reads or asks the model; shows a result, writes nothing",
-    "capture.js:save": "GAP: POST /entries",
-    "categories-panel.js:drawCategoryTidy": "GAP: POST /tidy-proposals/dismiss",
     "categories-panel.js:propose": "read: asks for a split proposal",
-    "chat-agent.js:answer": "GAP: POST /memory/${proposal.id}/answer",
     "chat-agent.js:renderToolConfirm": "send: runs a tool the agent asked for, in the chat's own turn history",
-    "chat-attach.js:commitStagedImages": "GAP: POST /media/upload",
+    "chat-attach.js:commitStagedImages": "send: uploads the pictures of a chat message at the moment it is sent; the message is in the chat's own turn history",
     "chat-attach.js:offerFollowups": "read: reads or asks the model; shows a result, writes nothing",
     "chat-attach.js:openExtractPreview": "read: reads or asks the model; shows a result, writes nothing",
     "chat-attach.js:saveFollowups": "telemetry: stores suggested follow-up chips",
     "chat-attach.js:sendChatMessage": "send: a chat message, kept by the chat's own turn history",
     "chat-attach.js:writeCheckpoint": "send: a chat message, kept by the chat's own turn history",
-    "chat-edit.js:editAndResend": "GAP: POST /conversations/${chatConv.id}/truncate",
     "chat.js:setResponseMode": "settings: a setting with its own Reset or the settings history",
     "chat.js:setWebSearxngRunning": "job: starts or stops work or a model; deletes no user data",
-    "clip.js:save": "GAP: POST /links/clip-page",
-    "dashboard.js:nightFactRow": "GAP: POST /entries/tensions/accept",
-    "dashboard.js:paintFadedNotes": "GAP: POST /learned/corrections",
     "dashboard.js:renderNightCard": "job: starts or stops work or a model; deletes no user data",
     "dashboard.js:saveDashLayout": "settings: a setting with its own Reset or the settings history",
     "dashboard.js:saveQuickAccess": "settings: a setting with its own Reset or the settings history",
@@ -578,52 +550,39 @@ EXEMPT: dict[str, str] = {
     "documents-code.js:docFormatRemoteRefusal": "read: reads or asks the model; shows a result, writes nothing",
     "documents-code.js:docRemoteDiagnostics": "read: reads or asks the model; shows a result, writes nothing",
     "documents-codekit.js:docAssistAsk": "read: reads or asks the model; shows a result, writes nothing",
-    "documents-word.js:docWordUploadPicture": "GAP: POST /media/upload",
+    "documents-word.js:docWordUploadPicture": "job: a picture inside a Word file being imported goes to the media store; the imported document is the step (Undo bins it)",
     "documents.js:docDesktopFullscreenToggle": "job: starts or stops work or a model; deletes no user data",
     "documents.js:docDictionaryWrite": "settings: a setting with its own Reset or the settings history",
     "documents.js:docPutFields": "board: document field write; its callers push their own undo",
     "documents.js:docSuggestAnswers": "read: reads or asks the model; shows a result, writes nothing",
     "documents.js:ensureDocumentExists": "board: creates the document being typed into; the editor's history starts there",
     "documents.js:openDocAiHistory": "inverse: reverts an AI edit from its log, which is itself the undo",
-    "documents.js:runDocAiEdit": "GAP: POST /documents/${currentDoc.id}/ai-edit",
+    "documents.js:runDocAiEdit": "read: asks the model for a revision shown for review; accepting it pushes pushDocAiUndo",
     "documents.js:saveDocument": "board: the document editor's autosave; typing is the editor's own docUndo history",
-    "editor.js:inlineAiSubmit": "GAP: POST /documents/${currentDoc.id}/ai-edit",
+    "editor.js:inlineAiSubmit": "read: asks the model for a revision shown for review; accepting it is an editor change with the document's own history",
     "embed-choices.js:embedChoiceInstall": "job: starts or stops work or a model; deletes no user data",
     "embed-choices.js:embedChoiceUninstall": "job: starts or stops work or a model; deletes no user data",
     "embed-choices.js:embedChoiceUse": "settings: a setting with its own Reset or the settings history",
     "embed-choices.js:embedPullTyped": "job: starts or stops work or a model; deletes no user data",
     "first-run.js:firstStepName": "settings: a setting with its own Reset or the settings history",
     "first-run.js:firstStepsSample": "job: starts or stops work or a model; deletes no user data",
-    "graph-canvas.js:gcDragEnd": "GAP: PUT /graph/pins",
-    "graph-canvas.js:gcSaveTopicName": "GAP: PUT /graph/topics/name",
     "graph-canvas.js:gcShowTopic": "read: reads a topic summary",
-    "graph-canvas.js:gcTogglePin": "GAP: PUT /graph/pin/${node.id}",
-    "graph-canvas.js:gcWireSelectionDock": "GAP: PUT /entries/${node.id}",
     "graph.js:openGraphLinkPanel": "read: reads or asks the model; shows a result, writes nothing",
-    "graph.js:renderGraphSvg": "GAP: PUT /graph/pin/${d.id}",
     "help-chat.js:helpChatStreamTurn": "read: reads or asks the model; shows a result, writes nothing",
     "library.js:analyseMediaRow": "read: asks the model to read a picture",
-    "library.js:bulkDeleteLibraryMedia": "GAP: DELETE endpoint",
-    "library.js:filterLibraryImagesGallery": "GAP: DELETE endpoint",
-    "library.js:finish": "GAP: PUT /graph/topics/name",
-    "library.js:libraryActions": "GAP: PUT /conversations/${item.id}/pin",
+    "library.js:libraryActions": "purge: Delete for good in the bin is permanent by design, behind a confirm that says so",
     "library.js:ocrReadRange": "read: reads or asks the model; shows a result, writes nothing",
     "lightbox-view.js:buildMoreMenu": "read: menu of analysis actions on a picture",
-    "lightbox-view.js:readingDelete": "GAP: POST /media/${id}/${source === vision ? vision-ocr : ",
-    "lightbox-view.js:run": "GAP: PUT /media/${item.id}",
     "lightbox.js:reevaluateEntry": "read: asks the model to re-check a note, applied through renderReevaluateResult",
     "lightbox.js:renderInlineAction": "read: asks the model about a note",
     "margin-reader.js:marginAsk": "read: reads or asks the model; shows a result, writes nothing",
-    "media.js:saveSketch": "GAP: POST /media/upload",
     "meetings.js:meetingSummarise": "read: asks the model for a summary",
-    "meetings.js:meetingTakeBegin": "GAP: POST /recordings",
-    "meetings.js:meetingTakeDiscard": "GAP: DELETE /recordings/${id}",
-    "meetings.js:meetingTakeFinish": "GAP: POST /recordings/${meetingTake.id}/finish",
+    "meetings.js:meetingTakeBegin": "job: opens the recording's object when a take starts; the finished recording is the step (Undo bins it)",
     "meetings.js:meetingTranscribeTake": "read: transcribes a take",
     "model-bench.js:benchRow": "settings: a setting with its own Reset or the settings history",
     "model-bench.js:runModelBench": "job: starts or stops work or a model; deletes no user data",
     "navigation.js:usageFlush": "telemetry: telemetry or a background warm-up; no user data",
-    "note-cards.js:entryItem": "GAP: PUT /entries/${entry.id}",
+    "note-cards.js:entryItem": "job: stops the background filing pass on a note; the note's category changes are edits with their own Undo",
     "note-history.js:toggleThenAndNow": "read: reads a comparison",
     "note-history.js:undoSkillRun": "inverse: reverses a skill run's writes after a confirm (existing UNFOLDED entry)",
     "ocr-engine.js:ocrEngineLanguagePicker": "settings: a setting with its own Reset or the settings history",
@@ -634,7 +593,6 @@ EXEMPT: dict[str, str] = {
     "phone-shell.js:openExportsFromNotification": "job: starts or stops work or a model; deletes no user data",
     "phone-shell.js:quitApp": "auth: sign-in, recovery or lock; no user data",
     "questions-view.js:initQuestionsView": "job: starts or stops work or a model; deletes no user data",
-    "quick-note.js:flushNoteOutbox": "GAP: POST /entries",
     "quickadd.js:noteOffersFetch": "read: reads or asks the model; shows a result, writes nothing",
     "reminder-notify.js:showReminderNotification": "telemetry: telemetry or a background warm-up; no user data",
     "search.js:persistSavedFinds": "settings: a setting with its own Reset or the settings history",
@@ -673,13 +631,10 @@ EXEMPT: dict[str, str] = {
     "settings-panes.js:savePrefs": "settings: a setting with its own Reset or the settings history",
     "settings-panes.js:saveSearchProvider": "settings: a setting with its own Reset or the settings history",
     "settings-panes.js:setPreference": "settings: a setting with its own Reset or the settings history",
-    "settings-wiring.js:handleFileUpload": "GAP: POST /media/upload",
     "settings-wiring.js:persistSavedSearches": "settings: a setting with its own Reset or the settings history",
     "settings-wiring.js:submitLockForm": "auth: sign-in, recovery or lock; no user data",
     "settings.js:clearLogs": "telemetry: telemetry or a background warm-up; no user data",
     "settings.js:deleteSavedTheme": "settings: a setting with its own Reset or the settings history",
-    "settings.js:learnedBulk": "GAP: POST /learned/bulk",
-    "settings.js:learnedForget": "GAP: DELETE /learned",
     "settings.js:learnedRunNow": "job: starts or stops work or a model; deletes no user data",
     "settings.js:learnedSetSwitch": "settings: a setting with its own Reset or the settings history",
     "settings.js:renderJobOverview": "job: starts or stops work or a model; deletes no user data",
@@ -690,21 +645,17 @@ EXEMPT: dict[str, str] = {
     "sheets-selects.js:savePersonaList": "settings: a setting with its own Reset or the settings history",
     "shell-reminders.js:refreshMediaSession": "auth: sign-in, recovery or lock; no user data",
     "skills.js:onchange": "settings: a setting with its own Reset or the settings history",
-    "skills.js:saveFile": "GAP: POST /files/save",
+    "skills.js:saveFile": "job: writes an export the person asked for to the exports folder, as a download does; it deletes nothing",
     "skills.js:saveSkillList": "settings: a setting with its own Reset or the settings history",
     "skills.js:saveToolSwitch": "settings: a setting with its own Reset or the settings history",
-    "spaces-find.js:initSpaceSwitcher": "GAP: POST /spaces",
+    "spaces-find.js:initSpaceSwitcher": "job: a new space opens with a page reload, which empties the session's Undo; Delete space on it has Undo",
     "spaces-find.js:saveTemplateList": "settings: a setting with its own Reset or the settings history",
     "status.js:insightSend": "settings: a verdict on an insight, either way reversible by the other verdict",
     "status.js:setChatMode": "settings: a setting with its own Reset or the settings history",
     "status.js:toggleNotificationMute": "settings: a setting with its own Reset or the settings history",
     "suggestions-inbox.js:fillReasons": "read: reads or asks the model; shows a result, writes nothing",
-    "suggestions-inbox.js:inboxCorrection": "GAP: POST /learned/corrections",
     "suggestions-inbox.js:inboxLinksPane": "read: reads or asks the model; shows a result, writes nothing",
-    "suggestions-inbox.js:inboxTypeRow": "GAP: POST /suggestions/types/accept",
-    "suggestions-inbox.js:tensionCard": "GAP: POST /entries/tensions/accept",
     "tag-manager.js:drawTurnedDown": "settings: turned-down tag suggestions list, a preference",
-    "tidy.js:tidyDismiss": "GAP: POST ${path}/dismiss",
     "tidy.js:tidyHistory": "inverse: undoes a past tidy run from the history list",
     "tidy.js:tidyTools": "settings: a setting with its own Reset or the settings history",
     "update-dialogs.js:applyUpdateNow": "job: installs an update, with its own confirm",
@@ -713,30 +664,15 @@ EXEMPT: dict[str, str] = {
     "vault-unlock.js:unlockPrivateNotes": "auth: sign-in, recovery or lock; no user data",
     "whiteboard-history.js:build": "board: board snapshot list, the board's version history",
     "whiteboard-history.js:wbSnapshotRow": "board: board snapshot list, the board's version history",
-    "whiteboard-library.js:run": "GAP: DELETE /board-library/libraries/${lib.id}",
-    "whiteboard-library.js:wbLibImportFile": "GAP: POST /board-library/import",
-    "whiteboard-library.js:wbLibNewBoardFrom": "GAP: POST /board-library/new-board",
-    "whiteboard-library.js:wbLibNewLibrary": "GAP: POST /board-library/libraries",
-    "whiteboard-library.js:wbLibReplace": "GAP: PUT /board-library/${entry.ref.slice(5)}",
-    "whiteboard-map.js:wbMapClearEveryTopic": "GAP: POST /whiteboard/boards/${boardId}/nodes/clear-style",
-    "whiteboard-map.js:wbMapFromDocument": "GAP: POST /whiteboard/boards/import",
-    "whiteboard-map.js:wbMapSetTheme": "GAP: PUT /whiteboard/boards/${boardId}",
     "whiteboard-map.js:wbMapSummariseBranch": "read: asks the model for a summary",
-    "whiteboard.js:createConceptMap": "GAP: POST /whiteboard/boards",
-    "whiteboard.js:createNewBoard": "GAP: POST /board-library/new-board",
-    "whiteboard.js:finish": "GAP: PUT /whiteboard/boards/${boardId}",
-    "whiteboard.js:uploadToLibrary": "GAP: POST /media/upload",
-    "whiteboard.js:wbCreateBlankBoard": "GAP: POST /whiteboard/boards",
+    "whiteboard.js:uploadToLibrary": "job: a board export saved to the Library as a picture; the Library's Delete (with Undo) removes it",
     "whiteboard.js:wbCreateCopies": "board: low-level board create; its callers push wbPushUndo",
-    "whiteboard.js:wbGenerateMapFromNotes": "read: asks the model for a proposal",
-    "whiteboard.js:wbImportOutlineFile": "GAP: POST /whiteboard/boards/import",
-    "whiteboard.js:wbNewUntitledBoard": "GAP: PUT /whiteboard/boards/${boardId}",
     "whiteboard.js:wbPaintStickyDates": "read: reads dates out of sticky text",
     "whiteboard.js:wbSaveMapBulkMove": "board: low-level board save; its callers push wbPushUndo",
     "whiteboard.js:wbSaveNode": "board: low-level board save; its callers push wbPushUndo",
     "whiteboard.js:wbSaveObject": "board: low-level board save; its callers push wbPushUndo",
     "whiteboard.js:wbSaveSketchProps": "board: low-level board save; its callers push wbPushUndo",
-    "wiring.js:applyPendingChatTitle": "GAP: PUT /conversations/${conversationId}",
+    "wiring.js:applyPendingChatTitle": "send: names a chat as its first message creates it; renaming a chat afterwards has Undo",
 }
 
 
@@ -767,6 +703,89 @@ def test_exempt_only_shrinks():
 
 
 def test_exempt_reasons_are_classed():
-    classes = ("auth", "read", "send", "settings", "telemetry", "job", "inverse", "board", "purge", "GAP")
+    classes = ("auth", "read", "send", "settings", "telemetry", "job", "inverse", "board", "purge")
     bad = [k for k, v in EXEMPT.items() if not v.startswith(tuple(c + ":" for c in classes))]
     assert not bad, "EXEMPT reasons start with a class and a colon:\n  " + "\n  ".join(bad)
+
+
+# --- every step carries a redo (owner, 2026-10-11) ----------------------------
+#
+# "Make sure everything that can be undone and be redone as well." A step on
+# the stack with no redo (or one that does nothing) turns Ctrl+Shift+Z into a
+# no-op after that Undo. The calls that take the redo as an argument are held
+# to passing a real one; the kit helpers and the board history build theirs.
+
+#: name -> how many arguments make the call complete (the redo is the last).
+REDO_ARGS = {"pushUndo": 3, "offerUndo": 4, "offerCategoryUndo": 3, "wbPushCall": 3}
+#: `file:line: reason`. Shrink-only, like EXEMPT; empty on purpose.
+NO_REDO: dict[str, str] = {}
+_EMPTY_FN = re.compile(r"^(null|undefined|noop|\(\)\s*=>\s*(\{\s*\}|null|undefined)|async\s*\(\)\s*=>\s*\{\s*\})$")
+
+
+def redo_gaps() -> list[str]:
+    found = []
+    call = re.compile(r"(?<![\w$.])(" + "|".join(REDO_ARGS) + r")\(")
+    for path in sorted(JS.glob("*.js")):
+        src = path.read_text(encoding="utf-8")
+        m = mask(src)
+        for hit in call.finditer(m):
+            end = _call_end(m, hit.end())
+            args, depth, start = [], 0, hit.end()
+            for i in range(hit.end(), end - 1):
+                c = m[i]
+                if c in "([{":
+                    depth += 1
+                elif c in ")]}":
+                    depth -= 1
+                elif c == "," and depth == 0:
+                    args.append(src[start:i].strip())
+                    start = i + 1
+            tail = src[start:end - 1].strip()
+            if tail:
+                args.append(tail)
+            need = REDO_ARGS[hit.group(1)]
+            line = src.count("\n", 0, hit.start()) + 1
+            #: The definition itself (`function pushUndo(label, undo, redo)`) is not a call.
+            if m[max(0, hit.start() - 9):hit.start()].endswith(("function ", "function*")):
+                continue
+            if len(args) < need:
+                found.append(f"{path.name}:{line}: {hit.group(1)} has no redo")
+            elif _EMPTY_FN.match(args[need - 1]):
+                found.append(f"{path.name}:{line}: {hit.group(1)} redo does nothing")
+    return found
+
+
+def test_every_step_on_the_stack_has_a_redo():
+    left = [g for g in redo_gaps() if g not in NO_REDO]
+    assert not left, (
+        "These steps put an Undo on the stack with no working Redo. Pass the redo "
+        "(the same act again, or its inverse's inverse):\n  " + "\n  ".join(left)
+    )
+
+
+def test_no_redo_list_only_shrinks():
+    now = set(redo_gaps())
+    stale = sorted(k for k in NO_REDO if k not in now)
+    assert not stale, "Remove from NO_REDO, they now carry a redo:\n  " + "\n  ".join(stale)
+
+
+# --- the stand-alone windows (INBOX 898) ----------------------------------------
+#
+# capture.html and clip.html save a note in a window of their own, through one
+# `call` the scanner cannot read as a write. They announce the note to the app
+# window (which puts it on its Undo stack) or offer their own Undo.
+
+
+def test_the_standalone_windows_put_what_they_save_on_an_undo():
+    frontend = JS.parent
+    for name in ("capture.js", "clip.js"):
+        text = (JS / name).read_text(encoding="utf-8")
+        assert "standaloneUndo.announce(" in text and "standaloneUndo.offer(" in text, name
+    for page in ("capture.html", "clip.html"):
+        html = (frontend / page).read_text(encoding="utf-8")
+        assert html.index("standalone-undo.js") < html.index('/js/' + page.replace(".html", ".js")), page
+    kit = (JS / "standalone-undo.js").read_text(encoding="utf-8")
+    assert "note-made" in kit and "/restore" in kit, "Undo bins the note and Redo restores it"
+    #: The app window's half: it answers, so the other window can close.
+    app_side = (JS / "quick-note.js").read_text(encoding="utf-8")
+    assert "note-made-ack" in app_side and "pushEntryCreateUndo(" in app_side

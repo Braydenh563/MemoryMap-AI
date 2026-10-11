@@ -8561,6 +8561,18 @@ function wbBoardMadeStep(board) {
   wbPushCall(`Made the board “${board.title || "Untitled"}”`, () => wbBinBoard(board.id, true), () => wbBinBoard(board.id, false));
 }
 
+//: A board's own fields changed by `PUT /whiteboard/boards/{id}` (its name, its
+//: kind; INBOX 898): the step writes `before` or `after` and repaints the
+//: board list, and reopens the board when the change redraws it (a kind).
+function wbBoardPutStep(label, boardId, before, after, reopen = false) {
+  const put = (body) => async () => {
+    const board = await apiJson(`/whiteboard/boards/${boardId}`, { method: "PUT", body: JSON.stringify(body) });
+    await refreshBoardList(board);
+    if (reopen && window.currentBoardId === boardId) await openWhiteboardBoard(boardId);
+  };
+  return wbPushCall(label, put(before), put(after));
+}
+
 //: A step that is a pair of calls rather than a board edit (the library
 //: panel's acts, INBOX 898): the history swaps the two on every press.
 function wbPushCall(label, undo, redo) {
@@ -13322,6 +13334,7 @@ async function initWhiteboard() {
     //: chrome, different tools and a different renderer, and a half-switched
     //: board is the shape of bug this file has had before.
     await openWhiteboardBoard(boardId);
+    wbBoardPutStep(becomingMap ? "Made the board a mind map" : "Made the map a whiteboard", boardId, { type: becomingMap ? "board" : "map" }, { type: becomingMap ? "map" : "board" }, true);
     toast(becomingMap ? "Now a mind map." : "Now a whiteboard.");
   });
 
@@ -15648,6 +15661,7 @@ async function renameCurrentBoard() {
           body: JSON.stringify({ title: name }),
         });
         await refreshBoardList(board);
+        wbBoardPutStep(`Renamed the board to “${board.title}”`, boardId, { title: current }, { title: board.title });
         resolve(board.title);
       } catch (err) {
         toast(err.message || voiceLine("failed", { what: "rename that board" }), true);
@@ -15708,6 +15722,7 @@ async function wbNewUntitledBoard(kind = "board") {
       try {
         const board = await apiJson(`/whiteboard/boards/${boardId}`, { method: "PUT", body: JSON.stringify({ title: typed.slice(0, 100) }) });
         await refreshBoardList(board);
+        wbBoardPutStep(`Named the map “${board.title}”`, boardId, { title: name }, { title: board.title });
       } catch (err) { /* the map keeps its number; the topic kept its words */ }
     }), { once: true });
   });
@@ -19026,10 +19041,7 @@ async function wbStickyRemind(d, day) {
     });
     loadReminders();
     toast(`Reminder set: ${relativeWhen(reminder.due_at)}.`);
-    pushUndo("Reminder set", async () => {
-      await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
-      loadReminders();
-    });
+    pushBinPairUndo("Reminder set", `/reminders/${reminder.id}`, `/reminders/${reminder.id}/restore`, true, loadReminders);
   } catch (error) {
     toast(`The reminder was not set: ${error.message}`, true);
   }

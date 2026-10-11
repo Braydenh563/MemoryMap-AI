@@ -1009,8 +1009,9 @@ function libraryActions(item) {
       // (`library-bulk-delete` already has a `file` branch), but nothing
       // offered it from the one place someone looks first.
       makeMenuItem("ph:trash Delete", "Remove this file permanently", async () => {
-        if (!(await confirmDialog(`Delete "${item.title}"?\n\nThis cannot be undone.`))) return;
-        await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+        if (!(await confirmDialog(`Delete "${item.title}"?\n\nIt moves out of the Library; Undo brings it back.`))) return;
+        const gone = await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+        if (gone) pushTokenUndo(`Deleted “${item.title}”`, [{ del: [`/files/${item.id}`, "DELETE"], restore: "/files/restore", token: gone.undo_token }], reload);
         toast("Deleted.");
         reload();
       }),
@@ -8084,6 +8085,18 @@ function mediaRowDeleteEndpoint(image) {
   return `/media/${image.id}`;
 }
 
+//: A deleted Library file in the undo kit's shape (INBOX 898): the server kept
+//: its row and bytes under `gone.undo_token`.
+function libraryMediaBinItem(image, endpoint, gone) {
+  return { del: [endpoint, "DELETE"], restore: `${image._isAttachment ? "/files" : "/media"}/restore`, token: gone.undo_token };
+}
+
+//: What shows the Library's files, drawn again after a delete's Undo or Redo.
+const libraryMediaRepaint = (notesToo) => async () => {
+  await renderLibraryImagesGallery();
+  if (notesToo) loadEntries().catch(() => {});
+};
+
 function syncLibraryMediaSelectbar() {
   const bar = document.getElementById("library-media-selectbar");
   const count = document.getElementById("library-media-selected-count");
@@ -8114,14 +8127,17 @@ async function bulkDeleteLibraryMedia() {
     },
   );
   if (!answer.ok) return;
+  const kept = [];
   for (const image of rows) {
     const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
-    await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
+    const gone = await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
       toast(err.message, true)
     );
+    if (gone) kept.push(libraryMediaBinItem(image, endpoint, gone));
     const idx = libraryImagesCache.indexOf(image);
     if (idx !== -1) libraryImagesCache.splice(idx, 1);
   }
+  pushTokenUndo(rows.length === 1 ? `Deleted “${rows[0].original_name}”` : `Deleted ${rows.length} files`, kept, libraryMediaRepaint(answer.checked));
   libraryMediaSelection.clear();
   syncLibraryMediaSelectbar();
   filterLibraryImagesGallery();
@@ -8566,9 +8582,10 @@ function filterLibraryImagesGallery() {
       // would either 404 or, worse, delete an unrelated MediaUpload row
       // that happened to share the same numeric id.
       const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
-      await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
+      const gone = await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
         toast(err.message, true)
       );
+      if (gone) pushTokenUndo(`Deleted “${image.original_name}”`, [libraryMediaBinItem(image, endpoint, gone)], libraryMediaRepaint(answer.checked));
       //: The notes on screen are now out of date by exactly the edit the
       //: server just made, so they are refetched rather than left showing a
       //: picture that is gone from both the disk and the note.
@@ -10117,7 +10134,8 @@ onDomReady(() => {
         //: decoration: a new row takes its space from it, and this upload,
         //: hand-rolled without it, once landed in "default" rather than the
         //: space being worked in. A refusal throws the server's sentence.
-        await api.upload("/media/upload", form);
+        const made = await (await api.upload("/media/upload", form)).json().catch(() => null);
+        pushUploadUndo(`Uploaded “${file.name}”`, "/media", made, renderLibraryImagesGallery);
         uploaded++;
       } catch (error) {
         toast(`${file.name}: ${error.message}`, true);
@@ -11938,8 +11956,12 @@ function contentsRenameTopic(heading, topic) {
     const row = await rename()
       .catch((e) => { toast(`The topic was not renamed: ${e?.message || e}.`, true, { action: ["Try again", rename] }); return null; });
     if (!row) return;
-    if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
-    renderContents();
+    const repaint = () => {
+      if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
+      return renderContents();
+    };
+    pushRequestUndo(`Renamed the topic “${topic.name}”`, "/graph/topics/name", "PUT", { ids: topic.ids, name: topic.name }, { ids: topic.ids, name: wanted }, repaint);
+    repaint();
   };
   field.addEventListener("keydown", (event) => {
     event.stopPropagation();

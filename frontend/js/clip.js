@@ -77,20 +77,24 @@
     describe();
   });
 
+  //: The window's one request: signed in, in the space open in the app.
+  const call = (path, method, body) =>
+    fetch(path, {
+      method,
+      headers: { "Content-Type": "application/json", "X-Auth-Token": token(), "X-Workspace-ID": stored("spaceId") || "all" },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+
   async function save() {
     const button = $("clip-save");
     button.disabled = true;
     status("Saving…");
     try {
-      const response = await fetch("/links/clip-page", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Auth-Token": token(), "X-Workspace-ID": stored("spaceId") || "all" },
-        body: JSON.stringify({
-          url: clip.url,
-          title: $("clip-title").value.trim() || clip.title,
-          html: clip.selection ? "" : clip.html,
-          selection: clip.selection,
-        }),
+      const response = await call("/links/clip-page", "POST", {
+        url: clip.url,
+        title: $("clip-title").value.trim() || clip.title,
+        html: clip.selection ? "" : clip.html,
+        selection: clip.selection,
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -100,6 +104,12 @@
       saved = true;
       status(body.existing ? "Already in your notes, so nothing new was saved." : "Saved as a note. It is being filed now.");
       $("clip-open").classList.remove("hidden");
+      //: A clip that made a note is on the app window's Undo stack when one is
+      //: open, and otherwise offers its own Undo here (standalone-undo.js).
+      const made = body.entry;
+      if (!body.existing && made?.id != null && !(await window.standaloneUndo.announce(made, "Clipped a page"))) {
+        window.standaloneUndo.offer({ id: made.id, send: call, status, row: document.querySelector(".clip-actions") });
+      }
       try {
         window.opener?.postMessage("memorymap-clip-ok", "*");
       } catch {

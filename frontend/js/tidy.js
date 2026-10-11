@@ -480,10 +480,11 @@ async function tidyDismiss(row) {
   });
   if (!sent) return;
   await tidyAfterChange([]);
-  toastAction("Dismissed. It will not be suggested again.", "Undo", async () => {
-    await apiJson(`${path}/undismiss`, { method: "POST", body });
+  const send = (verb) => async () => {
+    await apiJson(`${path}/${verb}`, { method: "POST", body });
     await tidyAfterChange([]);
-  });
+  };
+  offerUndo("Dismissed a tidy suggestion", "Dismissed. It will not be suggested again.", send("undismiss"), send("dismiss"));
 }
 
 //: The foot: how many are ticked, Select all and none, then the one filled

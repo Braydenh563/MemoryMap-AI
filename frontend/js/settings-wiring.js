@@ -2084,6 +2084,7 @@ async function handleFileUpload(textarea, files) {
   textarea.value = originalText.substring(0, cursorPosition) + textToInsert + originalText.substring(selectionEnd);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
+  let added = 0;
   for (const file of files) {
     const formData = new FormData();
     formData.append("file", file);
@@ -2104,6 +2105,7 @@ async function handleFileUpload(textarea, files) {
         : `[${res.filename}](${res.url})\n`;
       textarea.value = textarea.value.replace(`![Uploading ${file.name}…]()\n`, fileMarkdown);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      added += 1;
     } catch (err) {
       // Reported directly (§89 item 2): an upload failure rendered as if it
       // were the AI's own message: literal error text left sitting in the
@@ -2118,6 +2120,7 @@ async function handleFileUpload(textarea, files) {
       toast(err.message || `Couldn't upload "${file.name}".`, true);
     }
   }
+  if (added) pushTextUndo("Added a file", textarea, originalText, textarea.value);
 }
 
 // ROADMAP.md Tier 2 §16c: paste and drag-drop already reached Capture (the

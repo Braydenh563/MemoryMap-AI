@@ -50,6 +50,39 @@ let graphSvg = null;
 let graphZoom = null;
 let graphCanvas = null;
 let graphNodesRef = null;
+
+//: **A pin as a step on the undo stack** (INBOX 898). `before` and `after` are
+//: `{ x, y }` or null for "not pinned". Undo and Redo write the pin through
+//: `PUT /graph/pin/{id}` and set it on the live node of whichever renderer is
+//: drawn, so the map shows it without a reload.
+async function graphSetPin(id, point) {
+  const x = point ? point.x : null;
+  const y = point ? point.y : null;
+  await apiJson(`/graph/pin/${id}`, { method: "PUT", body: JSON.stringify({ x, y }) });
+  const live = (typeof gcTab !== "undefined" && gcTab?.byId?.get(id)) || (graphNodesRef || []).find((n) => n.id === id);
+  if (!live) return;
+  live.graph_pin_x = x;
+  live.graph_pin_y = y;
+  live.fx = x;
+  live.fy = y;
+  if (point) {
+    live.x = x;
+    live.y = y;
+  }
+  if (typeof gcTab !== "undefined" && gcTab?.byId?.get(id)) {
+    gcPost(point ? { type: "pin", id, x, y } : { type: "unpin", id }, gcTab);
+    gcRequestDraw(gcTab);
+  } else {
+    renderGraph();
+  }
+}
+
+function graphPinStep(label, changes) {
+  const each = (key) => async () => {
+    for (const change of changes) await graphSetPin(change.id, change[key]);
+  };
+  if (changes.length) pushUndo(label, each("before"), each("after"));
+}
 // A saved view's node positions (GRAPH_PLAN Phase 5, INBOX 275's neighbour
 // row), one render's worth. `graphApplyView` stashes `view.positions` here;
 // the next `renderGraphCanvas()` (graph-canvas.js, the default renderer)
@@ -2561,6 +2594,11 @@ async function renderGraphSvg() {
             d3.select(this).classed("graph-held", true);
             d.graph_pin_x = d.fx;
             d.graph_pin_y = d.fy;
+            graphPinStep("Moved a pinned note", [{
+              id: d.id,
+              before: d.wasPinnedBeforeThisDrag ? { x: d.dragStartX, y: d.dragStartY } : null,
+              after: { x: d.fx, y: d.fy },
+            }]);
             apiJson(`/graph/pin/${d.id}`, {
               method: "PUT",
               body: JSON.stringify({ x: d.graph_pin_x, y: d.graph_pin_y }),
@@ -2630,6 +2668,8 @@ async function renderGraphSvg() {
       if (d.isGroup) return;
       d.graph_pin_x = wasPinned ? null : d.fx;
       d.graph_pin_y = wasPinned ? null : d.fy;
+      const was = wasPinned ? { x: d.fx ?? d.x, y: d.fy ?? d.y } : null;
+      graphPinStep(wasPinned ? "Unpinned a note" : "Pinned a note", [{ id: d.id, before: was, after: d.graph_pin_x == null ? null : { x: d.graph_pin_x, y: d.graph_pin_y } }]);
       apiJson(`/graph/pin/${d.id}`, {
         method: "PUT",
         body: JSON.stringify({ x: d.graph_pin_x, y: d.graph_pin_y }),
@@ -5918,10 +5958,15 @@ function graphResetToDefaults() {
     return;
   }
   graphApplySettings(GRAPH_DEFAULTS);
-  toastAction("Map settings reset to defaults.", "Undo", () => {
-    graphApplySettings(before);
-    toast("Map settings restored.");
-  });
+  offerUndo(
+    "Reset the map's settings",
+    "Map settings reset to defaults.",
+    () => {
+      graphApplySettings(before);
+      toast("Map settings restored.");
+    },
+    () => graphApplySettings(GRAPH_DEFAULTS)
+  );
 }
 
 document.getElementById("graph-options-reset")?.addEventListener("click", graphResetToDefaults);

@@ -27,6 +27,14 @@
     $("capture-status").classList.toggle("error", isError);
   }
 
+  //: The window's one request: signed in, in the space open in the app.
+  const call = (path, method, body) =>
+    fetch(path, {
+      method,
+      headers: { "Content-Type": "application/json", "X-Auth-Token": token(), "X-Workspace-ID": stored("spaceId") || "all" },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+
   async function save() {
     const content = $("capture-text").value.trim();
     if (!content || saving) return;
@@ -39,21 +47,22 @@
     $("capture-save").disabled = true;
     status("Saving…");
     try {
-      const response = await fetch("/entries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Auth-Token": token(), "X-Workspace-ID": stored("spaceId") || "all" },
-        body: JSON.stringify({ content }),
-      });
+      const response = await call("/entries", "POST", { content });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(response.status === 401 ? "Sign in to MemoryMap in this browser first, then capture again." : (typeof body.detail === "string" && body.detail) || "Couldn't save that note.");
       }
+      const made = await response.json().catch(() => null);
       $("capture-text").value = "";
       //: A window the person's own browser opened for the command cannot be
       //: closed by its script in every browser, so the line says what to do
       //: either way and the box is ready for the next note.
       status("Saved and being filed. Type another, or close this window.");
-      setTimeout(() => window.close(), 700);
+      //: The app window, when open, keeps the note on its Undo stack; with none
+      //: open this window stays and offers the Undo itself (standalone-undo.js).
+      const taken = made?.id != null && (await window.standaloneUndo.announce(made, "Captured a note"));
+      if (taken || made?.id == null) setTimeout(() => window.close(), 700);
+      else window.standaloneUndo.offer({ id: made.id, send: call, status, row: document.querySelector(".clip-actions") });
     } catch (error) {
       status(error.message || "Couldn't save that note.", true);
     } finally {

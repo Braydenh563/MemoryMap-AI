@@ -3597,6 +3597,7 @@ function offerWikiRename(entryId, saved) {
   toastAction(`${who} to [[${offer.old}]].`, `Rename to [[${offer.new}]]`, async () => {
     try {
       const done = await apiJson(`/entries/${entryId}/wiki-rename`, { method: "POST", body: JSON.stringify({ old: offer.old }) });
+      pushWikiRenameUndo(entryId, offer.old, done);
       toast(`Updated ${done.rewritten} note${done.rewritten === 1 ? "" : "s"}.`);
       await loadEntries().catch(() => {});
     } catch (error) {

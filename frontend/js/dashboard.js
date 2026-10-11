@@ -3625,10 +3625,9 @@ function paintFadedNotes(body, items) {
     const dismiss = smallButton("ph:x", "Never again: stop showing this note here", async () => {
       dismiss.disabled = true;
       try {
-        await apiJson("/learned/corrections", {
-          method: "POST",
-          body: JSON.stringify({ kind: "dismiss_resurface", subject: { entry_id: item.id } }),
-        });
+        const said = { kind: "dismiss_resurface", subject: { entry_id: item.id } };
+        const made = await apiJson("/learned/corrections", { method: "POST", body: JSON.stringify(said) });
+        pushCorrectionUndo("Hid a note from Rediscover", said, made, () => renderRandomNoteWidget(body));
         card.remove();
         // Emptied by dismissals: ask again rather than leaving a blank panel,
         // the next three are already ranked.
@@ -4075,11 +4074,11 @@ function nightFactRow(fact, onGone) {
     keep.addEventListener("click", async () => {
       keep.disabled = true;
       try {
-        await apiJson("/entries/tensions/accept", {
+        const done = await apiJson("/entries/tensions/accept", {
           method: "POST",
           body: JSON.stringify({ earlier_id: fact.pair.entry_id, later_id: fact.entry_id }),
         });
-        pushTensionLinkUndo(fact.pair.entry_id, fact.entry_id);
+        pushTensionLinkUndo(fact.pair.entry_id, fact.entry_id, "accept", done?.created !== false);
         toast("Linked as disagreeing");
       } catch (error) {
         keep.disabled = false;
@@ -4105,6 +4104,7 @@ function nightFactRow(fact, onGone) {
     dismiss.disabled = true;
     try {
       await api(`/learned/${fact.id}`, { method: "DELETE" });
+      pushRoutePairUndo("Dismissed a learned thing", [`/learned/${fact.id}/restore`, "POST"], [`/learned/${fact.id}`, "DELETE"], () => renderDashboard({ refresh: true }));
       li.remove();
       onGone();
     } catch (error) {
@@ -4795,8 +4795,8 @@ function dashTensionRow(tension, onGone) {
     const pressed = event.currentTarget;
     pressed.disabled = true;
     try {
-      await apiJson(path, { method: "POST", body: ids });
-      if (path.endsWith("/accept")) pushTensionLinkUndo(tension.earlier_id, tension.later_id);
+      const done = await apiJson(path, { method: "POST", body: ids });
+      pushTensionLinkUndo(tension.earlier_id, tension.later_id, path.endsWith("/accept") ? "accept" : "dismiss", done?.created !== false);
       toast(done);
       li.remove();
       onGone();

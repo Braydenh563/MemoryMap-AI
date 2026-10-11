@@ -880,7 +880,13 @@ const WB_MAP_THEME_GROUPS = [
 //: topic is painted rather than written onto every topic: that is what makes
 //: it reversible, and what makes a deliberate per-topic choice impossible to
 //: overwrite with it.
-async function wbMapSetTheme(patch) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapSetTheme(...args) {
+  return wbRecordGesture(wbMapSetThemeNow, args);
+}
+
+async function wbMapSetThemeNow(patch) {
   const boardId = window.currentBoardId;
   if (!boardId || !wbIsMap()) return false;
   try {
@@ -917,7 +923,13 @@ async function wbMapSetTheme(patch) {
 //: One endpoint and one transaction, `move-many`'s own reason: a reset that
 //: is one request per topic leaves a two-hundred-topic map half done if any
 //: one of them fails.
-async function wbMapClearEveryTopic() {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapClearEveryTopic(...args) {
+  return wbRecordGesture(wbMapClearEveryTopicNow, args);
+}
+
+async function wbMapClearEveryTopicNow() {
   const boardId = window.currentBoardId;
   if (!boardId || !wbIsMap()) return;
   const ok = await confirmDialog(
@@ -2278,7 +2290,13 @@ function wbMapNumberOf(index, id) {
 
 //: Turn the numbering on or off for this map: one `PUT`, then a render,
 //: because every topic's prefix changes with it.
-async function wbMapSetNumbered(on) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapSetNumbered(...args) {
+  return wbRecordGesture(wbMapSetNumberedNow, args);
+}
+
+async function wbMapSetNumberedNow(on) {
   const boardId = window.currentBoardId;
   if (!boardId || !wbIsMap()) return false;
   try {
@@ -4499,6 +4517,7 @@ async function wbMapWriteDocument() {
     toast(err.message || voiceLine("failed", { what: "make that document" }), true);
     return null;
   }
+  pushBinPairUndo(`Wrote “${title}” as a document`, `/documents/${doc.id}`, `/documents/${doc.id}/restore`, true, () => (typeof loadDocuments === "function" ? loadDocuments() : null));
   switchTab("documents");
   await openDocument(doc.id);
   toast(`Wrote “${title}” as a document.`);
@@ -4959,7 +4978,13 @@ function wbMapRefuseLastTopic() {
 //: Deleting the roots is enough to delete the map: `DELETE
 //: /whiteboard/objects/{id}` takes a node's whole subtree with it (§9.1), so
 //: one request per root removes every descendant too.
-async function wbMapClearToOneTopic() {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapClearToOneTopic(...args) {
+  return wbRecordGesture(wbMapClearToOneTopicNow, args);
+}
+
+async function wbMapClearToOneTopicNow() {
   if (!wbIsMap()) return;
   const roots = wbMapIndex().roots;
   for (const root of roots) {
@@ -5018,8 +5043,14 @@ async function wbMapDeleteSubtree(id) {
   //: the delete instead. The toast's Undo is now the same entry, taken off
   //: the stack wherever it sits, so the two can never restore it twice.
   const entry = { action: "subtree", kind: "object", rows: deleted, links };
-  wbPushUndo(entry);
   const count = deleted.length;
+  //: Inside a recorded gesture the gesture pushes the one step for the whole
+  //: act; the toast's Undo is then the board's own.
+  if (wbRecordDepth > 0) {
+    toastAction(`Deleted ${count} node${count === 1 ? "" : "s"}.`, "Undo", () => wbUndo());
+    return;
+  }
+  wbPushUndo(entry);
   toastAction(
     `Deleted ${count} node${count === 1 ? "" : "s"}.`,
     "Undo",
@@ -7716,7 +7747,13 @@ async function wbMapSetExtra(node, patch, said) {
 //: that runs the cycle check (`wbMapOutdent`'s own comment), and children
 //: first so a failure leaves the branch attached to something rather than
 //: orphaned under a node that no longer exists.
-async function wbMapRemoveKeepingBranch(id) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapRemoveKeepingBranch(...args) {
+  return wbRecordGesture(wbMapRemoveKeepingBranchNow, args);
+}
+
+async function wbMapRemoveKeepingBranchNow(id) {
   const boardId = window.currentBoardId;
   const index = wbMapIndex();
   const node = index.byId.get(id);
@@ -7763,7 +7800,13 @@ async function wbMapRemoveKeepingBranch(id) {
 //: of its own, branch and all. `parent_id: null` is a move the endpoint
 //: already supports; floating topics are allowed by §12.0 ("multiple roots
 //: are allowed"), so this needs no new rule, only a way to ask for it.
-async function wbMapSever(id) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapSever(...args) {
+  return wbRecordGesture(wbMapSeverNow, args);
+}
+
+async function wbMapSeverNow(id) {
   const boardId = window.currentBoardId;
   const index = wbMapIndex();
   const node = index.byId.get(id);
@@ -7789,19 +7832,7 @@ async function wbMapSever(id) {
   if (node.data?.color) await wbMapSetNodeStyle(node, { color: null });
   await wbMapTidyBranch(oldParent);
   renderWhiteboardNow();
-  toastAction("Cut free as its own trunk.", "Put it back", async () => {
-    try {
-      const back = await apiJson(`/whiteboard/boards/${boardId}/nodes/${id}/move`, {
-        method: "PUT",
-        body: JSON.stringify({ parent_id: oldParent }),
-      });
-      Object.assign(node, back);
-      await wbMapTidyBranch(oldParent);
-      renderWhiteboardNow();
-    } catch (err) {
-      toast(err.message || voiceLine("failed", { what: "put it back" }), true);
-    }
-  });
+  toastAction("Cut free as its own trunk.", "Put it back", () => wbUndo());
 }
 
 //: What the line into a topic says. Stored on the child, which is the end of
@@ -8242,7 +8273,13 @@ function wbSyncMapLinkRadial(child, index) {
 //: it: a cross-link is not stored on either topic, so nothing in the tree
 //: moves and nothing has to be tidied. The anchors swap with them, or a line
 //: turned around would leave from the edge its far end used to arrive at.
-async function wbMapReverseCrossLink(sketchId) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapReverseCrossLink(...args) {
+  return wbRecordGesture(wbMapReverseCrossLinkNow, args);
+}
+
+async function wbMapReverseCrossLinkNow(sketchId) {
   const info = wbMapCrossLinkInfo(sketchId);
   if (!info) return;
   const data = {
@@ -8282,7 +8319,13 @@ async function wbMapReverseCrossLink(sketchId) {
 //: this is the way back for the case it guessed wrong. The far end moves
 //: under the near one, its own branch comes with it, and the cross-link row
 //: goes: keeping it would draw a dashed line over the branch it just became.
-async function wbMapCrossLinkToBranch(sketchId) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapCrossLinkToBranch(...args) {
+  return wbRecordGesture(wbMapCrossLinkToBranchNow, args);
+}
+
+async function wbMapCrossLinkToBranchNow(sketchId) {
   const info = wbMapCrossLinkInfo(sketchId);
   if (!info) return;
   const { source, target, index } = info;
@@ -8304,7 +8347,13 @@ async function wbMapCrossLinkToBranch(sketchId) {
 
 //: Cut a cross-link: the row goes and neither topic is touched, which is the
 //: difference between this and cutting a branch (that one re-parents).
-async function wbMapCutCrossLink(sketchId) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapCutCrossLink(...args) {
+  return wbRecordGesture(wbMapCutCrossLinkNow, args);
+}
+
+async function wbMapCutCrossLinkNow(sketchId) {
   const info = wbMapCrossLinkInfo(sketchId);
   if (!info) return;
   try {
@@ -8326,7 +8375,13 @@ async function wbMapCutCrossLink(sketchId) {
 //: exactly the ring `/move`'s cycle check refuses, so the child is lifted to
 //: the parent's own parent first: after that neither is a descendant of the
 //: other and the second move is an ordinary re-parent.
-async function wbMapReverseEdge(childId) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapReverseEdge(...args) {
+  return wbRecordGesture(wbMapReverseEdgeNow, args);
+}
+
+async function wbMapReverseEdgeNow(childId) {
   const boardId = window.currentBoardId;
   const index = wbMapIndex();
   const child = index.byId.get(childId);
@@ -8448,7 +8503,13 @@ function wbSyncMapChrome() {
 //: applying it would leave the picker saying "tree-down" over a map still
 //: arranged sideways, which is a control that reports a state the screen
 //: disagrees with: the shape of bug this app has been bitten by repeatedly.
-async function wbMapSetLayout(layout) {
+//: One Undo step on the board's history (INBOX 898): the rows and the map's
+//: settings are compared before and after, whatever the act wrote.
+function wbMapSetLayout(...args) {
+  return wbRecordGesture(wbMapSetLayoutNow, args);
+}
+
+async function wbMapSetLayoutNow(layout) {
   const boardId = window.currentBoardId;
   if (!boardId || !wbIsMap()) return;
   try {
@@ -9759,6 +9820,7 @@ async function wbMapFromDocument(doc, text) {
   }
   await openWhiteboardBoard(board.id);
   await wbMapTidyFresh();
+  wbBoardMadeStep(board);
   toast(`Mapped the headings of “${doc.title || "this document"}”.`);
   return board;
 }

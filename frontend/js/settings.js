@@ -3967,10 +3967,29 @@ async function learnedBulk(action) {
     if (!ok) return;
   }
   try {
+    const picked = [...learnedSelected.values()];
     const reply = await apiJson("/learned/bulk", {
       method: "POST",
       body: JSON.stringify({ ids, action }),
     });
+    const bulk = (what) => ["/learned/bulk", "POST", { ids, action: what }];
+    if (action === "delete") {
+      pushRoutePairUndo(`Deleted ${ids.length} learned thing${ids.length === 1 ? "" : "s"}`, bulk("restore"), bulk("delete"), () => renderLearnedList());
+    } else {
+      //: A reset puts the model's words back; Undo writes each edited text again.
+      const edited = picked.filter((fact) => fact.edited_by_user);
+      pushUndo(
+        `Reset ${edited.length} learned thing${edited.length === 1 ? "" : "s"}`,
+        async () => {
+          for (const fact of edited) await apiJson(`/learned/${fact.id}`, { method: "PATCH", body: JSON.stringify({ text: fact.text }) });
+          renderLearnedList();
+        },
+        async () => {
+          await apiJson("/learned/bulk", { method: "POST", body: JSON.stringify({ ids: edited.map((fact) => fact.id), action: "reset" }) });
+          renderLearnedList();
+        }
+      );
+    }
     const verb = action === "delete" ? "Deleted" : "Reset";
     const gone = reply.missing?.length ? `, ${reply.missing.length} already gone` : "";
     toast(`${verb} ${reply.done}${gone}.`);
@@ -4155,6 +4174,7 @@ async function learnedDelete(fact) {
   if (!ok) return;
   try {
     await api(`/learned/${fact.id}`, { method: "DELETE" });
+    pushRoutePairUndo("Deleted a learned thing", [`/learned/${fact.id}/restore`, "POST"], [`/learned/${fact.id}`, "DELETE"], () => { renderLearnedList(); renderLearnedSwitches(); });
     //: The page can be left holding nothing if the last row of the last page
     //: went, which reads as a bug ("it deleted everything"). Step back one
     //: page first, exactly as the note list does.
@@ -4170,15 +4190,16 @@ async function learnedDelete(fact) {
 
 async function learnedForget() {
   const ok = await confirmDialog(
-    "Forget everything the notebook has worked out?\n\nEvery derived claim, question and learned preference goes. Your notes, their history and everything you told it to remember are untouched. This cannot be undone.",
+    "Forget everything the notebook has worked out?\n\nEvery derived claim, question and learned preference goes. Your notes, their history and everything you told it to remember are untouched. Undo brings it all back.",
     { confirmLabel: "Forget it all" }
   );
   if (!ok) return;
   try {
-    await api("/learned", {
+    const gone = await apiJson("/learned", {
       method: "DELETE",
       body: JSON.stringify({ confirm: true }),
     });
+    pushTokenUndo("Forgot everything learned", [{ del: ["/learned", "DELETE", { confirm: true }], restore: "/learned/unforget", token: gone.undo_token }], renderLearned);
     learnedOffset = 0;
     toast("Forgotten. Your notes are exactly as they were.");
     renderLearned();

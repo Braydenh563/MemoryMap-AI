@@ -1013,6 +1013,7 @@ async function meetingRecordingStopped(recorder, button) {
     return;
   }
   const length = meetingClockText(saved.duration_ms);
+  pushBinPairUndo(`Recorded ${length}`, `/recordings/${saved.id}`, `/recordings/${saved.id}/restore`, true, () => (typeof loadLibrary === "function" ? loadLibrary() : null));
   if (!voiceStatus?.available) {
     setMeetingState("saved");
     meetingSay(`Saved a ${length} recording (${meetingContainerName(saved.mime)}). Transcribing it needs the Voice notes add-on, in Settings, Packages.`);
@@ -1050,6 +1051,7 @@ async function meetingTakeDiscard() {
   try {
     await meetingTakeFinish();
     await apiJson(`/recordings/${id}`, { method: "DELETE" });
+    pushBinPairUndo("Discarded a recording", `/recordings/${id}`, `/recordings/${id}/restore`, false, () => (typeof loadLibrary === "function" ? loadLibrary() : null));
   } catch {
     // An empty take is removed by its finish; nothing is left to bin.
   }

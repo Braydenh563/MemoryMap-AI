@@ -194,7 +194,9 @@ const ATTACHMENT_ACTIONS = {
     if (spec.attachment) {
       if (!(await confirmDialog(`Delete “${label}” from this note?`, { confirmLabel: "Delete" }))) return;
       try {
-        await api(`/files/${spec.attachment.id}`, { method: "DELETE" });
+        const id = spec.attachment.id;
+        const gone = await apiJson(`/files/${id}`, { method: "DELETE" });
+        pushTokenUndo(`Deleted “${label}”`, [{ del: [`/files/${id}`, "DELETE"], restore: "/files/restore", token: gone.undo_token }], () => spec.onChange?.(), `Deleted “${label}”.`);
         spec.onChange?.();
       } catch (error) {
         toast(error.message || `Couldn't delete “${label}”.`, true);
@@ -202,32 +204,52 @@ const ATTACHMENT_ACTIONS = {
       return;
     }
     if (spec.file) {
-      captureStagedFiles = captureStagedFiles.filter((f) => f !== spec.file);
-      renderCaptureFiles();
-      toastAction(`“${label}” won't be attached.`, "Undo", () => {
-        captureStagedFiles.push(spec.file);
+      const unstage = () => {
+        captureStagedFiles = captureStagedFiles.filter((f) => f !== spec.file);
         renderCaptureFiles();
-      });
+      };
+      unstage();
+      offerUndo(
+        `Removed “${label}”`,
+        `“${label}” won't be attached.`,
+        () => {
+          captureStagedFiles.push(spec.file);
+          renderCaptureFiles();
+        },
+        unstage
+      );
       return;
     }
     const box = spec.textarea;
     if (!box || !spec.markdown) return;
     const before = box.value;
-    box.value = before.replace(spec.markdown, "").replace(/\n{3,}/g, "\n\n");
-    box.dispatchEvent(new Event("input", { bubbles: true }));
-    let undone = false;
-    toastAction(`Removed “${label}”.`, "Undo", () => {
-      undone = true;
-      box.value = before;
+    const after = before.replace(spec.markdown, "").replace(/\n{3,}/g, "\n\n");
+    const setText = (value) => {
+      box.value = value;
       box.dispatchEvent(new Event("input", { bubbles: true }));
-    });
+    };
+    setText(after);
+    let undone = false;
+    let binned = null;
+    offerUndo(
+      `Removed “${label}”`,
+      `Removed “${label}”.`,
+      async () => {
+        undone = true;
+        setText(before);
+        //: The picture was tidied away after the toast; it comes back with the text.
+        if (binned) await apiJson("/media/restore", { method: "POST", body: JSON.stringify({ token: binned }) });
+        binned = null;
+      },
+      () => setText(after)
+    );
     if (!/^\/media\//.test(spec.url)) return;
     setTimeout(async () => {
       if (undone || box.value.includes(spec.url)) return;
       try {
         const upload = await attachmentUpload(spec.url, true);
         if (upload && !upload.used_by?.length && !upload.usage_incomplete) {
-          await apiJson(`/media/${upload.id}`, { method: "DELETE" });
+          binned = (await apiJson(`/media/${upload.id}`, { method: "DELETE" }))?.undo_token ?? null;
         }
       } catch (err) {
         console.error("Couldn't tidy the removed upload", err);

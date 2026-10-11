@@ -1892,6 +1892,7 @@ function entryItem(entry, options = {}) {
       unlink.addEventListener("click", async (event) => {
         event.stopPropagation(); // the chip itself opens the document
         await api(`/documents/${doc.id}/notes/${entry.id}`, { method: "DELETE" });
+        pushRoutePairUndo(`Detached from “${doc.title}”`, [`/documents/${doc.id}/notes`, "POST", { entry_id: entry.id }], [`/documents/${doc.id}/notes/${entry.id}`, "DELETE"], () => loadEntries());
         await loadEntries();
         toast(`Detached from “${doc.title}”.`);
       });

@@ -442,6 +442,7 @@ function openSpaceEdit(id, name, icon) {
   $("space-edit-id").value = id;
   $("space-edit-name").value = name;
   $("space-edit-icon").value = icon;
+  $("space-edit-dialog").dataset.was = JSON.stringify({ name, icon });
   $("space-edit-error").textContent = "";
   spaceIconPicker($("space-edit-icon-picker"), $("space-edit-icon"));
   $("space-edit-dialog").showModal();
@@ -574,10 +575,12 @@ function initSpaceSwitcher() {
       return;
     }
     try {
+      const now = { name, icon: $("space-edit-icon").value };
       await apiJson(`/spaces/${encodeURIComponent(id)}`, {
         method: "PUT",
-        body: JSON.stringify({ name, icon: $("space-edit-icon").value }),
+        body: JSON.stringify(now),
       });
+      pushRequestUndo(`Renamed the space to “${name}”`, `/spaces/${encodeURIComponent(id)}`, "PUT", JSON.parse($("space-edit-dialog").dataset.was || "{}"), now, loadSpaces);
       $("space-edit-dialog").close();
       await loadSpaces();
       toast(`Renamed to “${name}”.`);

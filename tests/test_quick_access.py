@@ -134,6 +134,18 @@ def test_the_default_ids_are_the_only_hard_coded_tiles():
     assert re.findall(r'label: "([^"]+)"', start) == ["New note", "Ask AI", "Sketch", "Remind me", "New meeting"]
 
 
+def test_an_act_row_is_a_tile_only_when_it_opts_in_with_quick():
+    """Live captions is a palette act (no tab, no reveal), so it was never a
+    tile (libr-1011 row 1220). An act row names itself with `quick`, which is
+    its stable `act:` id; an act without it stays out of the picker."""
+    catalogue = _block(DASH, "function quickCatalogue()", "\n}\n")
+    assert "row.quick ? `act:${row.quick}`" in catalogue
+    panes = (ROOT / "frontend" / "js" / "settings-panes.js").read_text(encoding="utf-8")
+    row = panes[panes.index('label: "ph:closed-captioning Live captions"') :].split("\n", 1)[0]
+    assert 'quick: "captions"' in row and "act: () => toggleLiveCaptions()" in row
+    assert len(re.findall(r'\bquick: "', panes)) == 1
+
+
 def test_the_row_draws_from_the_command_catalogue_not_a_list_of_its_own():
     """Added tiles come from `paletteCommands` rows that declare a `tab` or a
     `reveal`, with the line the row already says: no second list of what the

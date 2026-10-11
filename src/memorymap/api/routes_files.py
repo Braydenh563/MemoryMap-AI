@@ -2287,7 +2287,21 @@ def _stored_regions(key: tuple[str, int] | None, page: int) -> OcrRegionsOut | N
         blob = (row[0] if row else "") or ""
         if not blob.strip():
             return None
-        return OcrRegionsOut(**json.loads(blob))
+        stored = json.loads(blob)
+        out = OcrRegionsOut(**stored)
+        #: **A cache stored before words were kept has boxes and no `words`
+        #: key at all**, so Live Text stays empty with no reason (libr-1011
+        #: row 1228). A read since then writes the key, empty or not, which is
+        #: how an old cache is told from a reader that found no words. Said in
+        #: the line the workspace already shows; reading again replaces it.
+        if (
+            out.source == "tesseract"
+            and out.regions
+            and not out.message
+            and any("words" not in region for region in stored.get("regions", []))
+        ):
+            out.message = "Read this page again to select its words on the picture."
+        return out
     except Exception:  # noqa: BLE001 - an unreadable cache is an empty one
         logger.debug("could not load the stored regions for a page", exc_info=True)
         return None

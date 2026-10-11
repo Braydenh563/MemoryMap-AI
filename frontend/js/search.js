@@ -53,6 +53,8 @@ const FINDER_KINDS = [
   { key: "reminder", icon: "ph:alarm", one: "reminder", many: "reminders" },
   //: A saved chat and an Ask turn, both `chat` in the index (decision 46).
   { key: "chat", icon: "ph:chat-circle", one: "chat", many: "chats" },
+  //: A kept recording, found by its name and by what was said in it.
+  { key: "recording", icon: "ph:microphone", one: "recording", many: "recordings" },
   { key: "action", icon: "ph:lightning", one: "action", many: "actions" },
 ];
 
@@ -87,6 +89,7 @@ const FINDER_OPEN = {
   file: (hit) => flashLibraryItem("file", hit.id),
   bookmark: (hit) => flashLibraryItem("link", hit.id),
   reminder: () => switchTab("reminders"),
+  recording: (hit) => ensureModule("meetings").then(() => openRecordings(hit.id)),
   //: A chat opens in Chat; an Ask turn where a live answer renders, the Ask
   //: section of Notes (`viewAskHistoryTurn`, ask-history.js).
   chat: (hit) => {

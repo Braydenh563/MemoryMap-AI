@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9938, plan headings 996.
+Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4769, test files 1087, tests 9950, plan headings 996.
 
 ## Frontend functions (5655)
 
@@ -1813,150 +1813,150 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `activityActorName` | frontend/js/dashboard.js:4527 |
-| `activityUndoControl` | frontend/js/dashboard.js:4605 |
-| `activityUndoPlanText` | frontend/js/dashboard.js:4534 |
-| `activityUndoStarts` | frontend/js/dashboard.js:4590 |
-| `afterFrames` | frontend/js/dashboard.js:1885 |
+| `activityActorName` | frontend/js/dashboard.js:4529 |
+| `activityUndoControl` | frontend/js/dashboard.js:4607 |
+| `activityUndoPlanText` | frontend/js/dashboard.js:4536 |
+| `activityUndoStarts` | frontend/js/dashboard.js:4592 |
+| `afterFrames` | frontend/js/dashboard.js:1887 |
 | `applyDashDensity` | frontend/js/dashboard.js:1189 |
-| `artDriftMs` | frontend/js/dashboard.js:2196 |
-| `artEaseOut` | frontend/js/dashboard.js:2352 |
-| `artLineFade` | frontend/js/dashboard.js:2360 |
-| `artRetarget` | frontend/js/dashboard.js:2370 |
-| `artSeed` | frontend/js/dashboard.js:2236 |
-| `buildArtParticles` | frontend/js/dashboard.js:2295 |
+| `artDriftMs` | frontend/js/dashboard.js:2198 |
+| `artEaseOut` | frontend/js/dashboard.js:2354 |
+| `artLineFade` | frontend/js/dashboard.js:2362 |
+| `artRetarget` | frontend/js/dashboard.js:2372 |
+| `artSeed` | frontend/js/dashboard.js:2238 |
+| `buildArtParticles` | frontend/js/dashboard.js:2297 |
 | `cachedGreetingPhrase` | frontend/js/dashboard.js:283 |
-| `categoryHue` | frontend/js/dashboard.js:2220 |
-| `closeFeatures` | frontend/js/dashboard.js:1529 |
-| `dashActionRow` | frontend/js/dashboard.js:4086 |
-| `dashActivityItems` | frontend/js/dashboard.js:4438 |
-| `dashContinueNote` | frontend/js/dashboard.js:1386 |
-| `dashCustomiseItems` | frontend/js/dashboard.js:1435 |
+| `categoryHue` | frontend/js/dashboard.js:2222 |
+| `closeFeatures` | frontend/js/dashboard.js:1531 |
+| `dashActionRow` | frontend/js/dashboard.js:4088 |
+| `dashActivityItems` | frontend/js/dashboard.js:4440 |
+| `dashContinueNote` | frontend/js/dashboard.js:1388 |
+| `dashCustomiseItems` | frontend/js/dashboard.js:1437 |
 | `dashDensity` | frontend/js/dashboard.js:1084 |
 | `dashDragOverCard` | frontend/js/dashboard.js:22 |
-| `dashEmpty` | frontend/js/dashboard.js:4138 |
+| `dashEmpty` | frontend/js/dashboard.js:4140 |
 | `dashEntries` | frontend/js/dashboard.js:455 |
-| `dashFillingSkeleton` | frontend/js/dashboard.js:1896 |
-| `dashFillingSkeletonDone` | frontend/js/dashboard.js:1923 |
+| `dashFillingSkeleton` | frontend/js/dashboard.js:1898 |
+| `dashFillingSkeletonDone` | frontend/js/dashboard.js:1925 |
 | `dashGlanceFacts` | frontend/js/dashboard.js:575 |
-| `dashGridShape` | frontend/js/dashboard.js:1690 |
+| `dashGridShape` | frontend/js/dashboard.js:1692 |
 | `dashLayout` | frontend/js/dashboard.js:161 |
 | `dashMarkMenu` | frontend/js/dashboard.js:1157 |
 | `dashMeetingWhen` | frontend/js/dashboard.js:654 |
-| `dashMoreItems` | frontend/js/dashboard.js:1403 |
-| `dashRelativeTime` | frontend/js/dashboard.js:4696 |
+| `dashMoreItems` | frontend/js/dashboard.js:1405 |
+| `dashRelativeTime` | frontend/js/dashboard.js:4698 |
 | `dashReminders` | frontend/js/dashboard.js:435 |
-| `dashStreak` | frontend/js/dashboard.js:2736 |
-| `dashTensionRow` | frontend/js/dashboard.js:4928 |
-| `dashWidgetRow` | frontend/js/dashboard.js:1979 |
-| `dashWidgetToggle` | frontend/js/dashboard.js:1953 |
-| `dashWidgetsSummary` | frontend/js/dashboard.js:2091 |
+| `dashStreak` | frontend/js/dashboard.js:2738 |
+| `dashTensionRow` | frontend/js/dashboard.js:4930 |
+| `dashWidgetRow` | frontend/js/dashboard.js:1981 |
+| `dashWidgetToggle` | frontend/js/dashboard.js:1955 |
+| `dashWidgetsSummary` | frontend/js/dashboard.js:2093 |
 | `dashboardGreetingText` | frontend/js/dashboard.js:268 |
 | `fallbackGreetingPhrase` | frontend/js/dashboard.js:240 |
 | `fetchDashGraph` | frontend/js/dashboard.js:415 |
 | `fetchDashStats` | frontend/js/dashboard.js:390 |
-| `firstNoteImage` | frontend/js/dashboard.js:2820 |
-| `focusChime` | frontend/js/dashboard.js:3872 |
-| `focusRing` | frontend/js/dashboard.js:3813 |
-| `focusStep` | frontend/js/dashboard.js:3946 |
-| `focusTimeLabel` | frontend/js/dashboard.js:3795 |
-| `focusTimerEnded` | frontend/js/dashboard.js:3893 |
-| `focusTimerTick` | frontend/js/dashboard.js:3861 |
-| `focusTodaySeconds` | frontend/js/dashboard.js:3802 |
-| `generateDigest` | frontend/js/dashboard.js:3083 |
+| `firstNoteImage` | frontend/js/dashboard.js:2822 |
+| `focusChime` | frontend/js/dashboard.js:3874 |
+| `focusRing` | frontend/js/dashboard.js:3815 |
+| `focusStep` | frontend/js/dashboard.js:3948 |
+| `focusTimeLabel` | frontend/js/dashboard.js:3797 |
+| `focusTimerEnded` | frontend/js/dashboard.js:3895 |
+| `focusTimerTick` | frontend/js/dashboard.js:3863 |
+| `focusTodaySeconds` | frontend/js/dashboard.js:3804 |
+| `generateDigest` | frontend/js/dashboard.js:3085 |
 | `greetingBlock` | frontend/js/dashboard.js:231 |
 | `greetingCacheSlot` | frontend/js/dashboard.js:274 |
-| `hueFor` | frontend/js/dashboard.js:2210 |
-| `loadDigestCache` | frontend/js/dashboard.js:3069 |
-| `miniEntryList` | frontend/js/dashboard.js:2856 |
-| `mountWidgetBody` | frontend/js/dashboard.js:1617 |
-| `moveDashWidget` | frontend/js/dashboard.js:1960 |
-| `nightFactRow` | frontend/js/dashboard.js:4195 |
-| `nightKindLine` | frontend/js/dashboard.js:4285 |
-| `nightKindWords` | frontend/js/dashboard.js:4183 |
-| `nightRunSummary` | frontend/js/dashboard.js:4188 |
-| `noteRowFile` | frontend/js/dashboard.js:2851 |
-| `noteRowImage` | frontend/js/dashboard.js:2837 |
+| `hueFor` | frontend/js/dashboard.js:2212 |
+| `loadDigestCache` | frontend/js/dashboard.js:3071 |
+| `miniEntryList` | frontend/js/dashboard.js:2858 |
+| `mountWidgetBody` | frontend/js/dashboard.js:1619 |
+| `moveDashWidget` | frontend/js/dashboard.js:1962 |
+| `nightFactRow` | frontend/js/dashboard.js:4197 |
+| `nightKindLine` | frontend/js/dashboard.js:4287 |
+| `nightKindWords` | frontend/js/dashboard.js:4185 |
+| `nightRunSummary` | frontend/js/dashboard.js:4190 |
+| `noteRowFile` | frontend/js/dashboard.js:2853 |
+| `noteRowImage` | frontend/js/dashboard.js:2839 |
 | `noteSkillRun` | frontend/js/dashboard.js:948 |
 | `openAskFromDashboard` | frontend/js/dashboard.js:854 |
-| `openFeatures` | frontend/js/dashboard.js:1514 |
+| `openFeatures` | frontend/js/dashboard.js:1516 |
 | `paintDashClock` | frontend/js/dashboard.js:359 |
 | `paintDashEmblem` | frontend/js/dashboard.js:1111 |
-| `paintFadedNotes` | frontend/js/dashboard.js:3597 |
-| `paintFocusTimer` | frontend/js/dashboard.js:3834 |
-| `quickAccessCurrent` | frontend/js/dashboard.js:1343 |
-| `quickAccessItems` | frontend/js/dashboard.js:1307 |
+| `paintFadedNotes` | frontend/js/dashboard.js:3599 |
+| `paintFocusTimer` | frontend/js/dashboard.js:3836 |
+| `quickAccessCurrent` | frontend/js/dashboard.js:1345 |
+| `quickAccessItems` | frontend/js/dashboard.js:1309 |
 | `quickCatalogue` | frontend/js/dashboard.js:1290 |
 | `quickLinkButton` | frontend/js/dashboard.js:1250 |
 | `quickTintColours` | frontend/js/dashboard.js:1244 |
 | `quickTintKey` | frontend/js/dashboard.js:1233 |
-| `quickTints` | frontend/js/dashboard.js:1320 |
+| `quickTints` | frontend/js/dashboard.js:1322 |
 | `recentSkillLinks` | frontend/js/dashboard.js:1019 |
 | `refreshAiGreeting` | frontend/js/dashboard.js:303 |
-| `refreshArtForTheme` | frontend/js/dashboard.js:2264 |
-| `refreshDashWidgets` | frontend/js/dashboard.js:1665 |
-| `renderActivityWidget` | frontend/js/dashboard.js:4451 |
-| `renderArtWidget` | frontend/js/dashboard.js:2382 |
-| `renderBoardsWidget` | frontend/js/dashboard.js:4159 |
-| `renderBookmarksWidget` | frontend/js/dashboard.js:4672 |
-| `renderCategoriesWidget` | frontend/js/dashboard.js:3490 |
+| `refreshArtForTheme` | frontend/js/dashboard.js:2266 |
+| `refreshDashWidgets` | frontend/js/dashboard.js:1667 |
+| `renderActivityWidget` | frontend/js/dashboard.js:4453 |
+| `renderArtWidget` | frontend/js/dashboard.js:2384 |
+| `renderBoardsWidget` | frontend/js/dashboard.js:4161 |
+| `renderBookmarksWidget` | frontend/js/dashboard.js:4674 |
+| `renderCategoriesWidget` | frontend/js/dashboard.js:3492 |
 | `renderDashGlance` | frontend/js/dashboard.js:671 |
-| `renderDashMore` | frontend/js/dashboard.js:1484 |
+| `renderDashMore` | frontend/js/dashboard.js:1486 |
 | `renderDashSubmessage` | frontend/js/dashboard.js:461 |
-| `renderDashWidgetsList` | frontend/js/dashboard.js:2120 |
-| `renderDashboard` | frontend/js/dashboard.js:1694 |
+| `renderDashWidgetsList` | frontend/js/dashboard.js:2122 |
+| `renderDashboard` | frontend/js/dashboard.js:1696 |
 | `renderDashboardGreeting` | frontend/js/dashboard.js:529 |
-| `renderDayDigest` | frontend/js/dashboard.js:3146 |
-| `renderDigestWidget` | frontend/js/dashboard.js:3202 |
-| `renderDocumentsWidget` | frontend/js/dashboard.js:4636 |
-| `renderFeatures` | frontend/js/dashboard.js:1535 |
-| `renderFirstStepsLazy` | frontend/js/dashboard.js:1605 |
-| `renderFocusTimerWidget` | frontend/js/dashboard.js:3953 |
-| `renderHeatmapWidget` | frontend/js/dashboard.js:3372 |
-| `renderMostLinkedWidget` | frontend/js/dashboard.js:2989 |
-| `renderMostOpenedWidget` | frontend/js/dashboard.js:2952 |
-| `renderMostUsedWidget` | frontend/js/dashboard.js:2978 |
+| `renderDayDigest` | frontend/js/dashboard.js:3148 |
+| `renderDigestWidget` | frontend/js/dashboard.js:3204 |
+| `renderDocumentsWidget` | frontend/js/dashboard.js:4638 |
+| `renderFeatures` | frontend/js/dashboard.js:1537 |
+| `renderFirstStepsLazy` | frontend/js/dashboard.js:1607 |
+| `renderFocusTimerWidget` | frontend/js/dashboard.js:3955 |
+| `renderHeatmapWidget` | frontend/js/dashboard.js:3374 |
+| `renderMostLinkedWidget` | frontend/js/dashboard.js:2991 |
+| `renderMostOpenedWidget` | frontend/js/dashboard.js:2954 |
+| `renderMostUsedWidget` | frontend/js/dashboard.js:2980 |
 | `renderNameNudge` | frontend/js/dashboard.js:735 |
-| `renderNightCard` | frontend/js/dashboard.js:4368 |
-| `renderNightWidget` | frontend/js/dashboard.js:4340 |
-| `renderOnThisDayWidget` | frontend/js/dashboard.js:4985 |
-| `renderOrphanNotesWidget` | frontend/js/dashboard.js:4754 |
-| `renderPaceWidget` | frontend/js/dashboard.js:5060 |
-| `renderPinnedWidget` | frontend/js/dashboard.js:2947 |
-| `renderQuestionsWidget` | frontend/js/dashboard.js:3038 |
-| `renderQuickCaptureWidget` | frontend/js/dashboard.js:3281 |
-| `renderQuickLinks` | frontend/js/dashboard.js:1347 |
-| `renderRandomNoteWidget` | frontend/js/dashboard.js:3569 |
-| `renderRandomShuffle` | frontend/js/dashboard.js:3653 |
-| `renderRecentNotesWidget` | frontend/js/dashboard.js:3008 |
-| `renderRemindersWidget` | frontend/js/dashboard.js:3334 |
-| `renderReviewWidget` | frontend/js/dashboard.js:2957 |
-| `renderStatsWidget` | frontend/js/dashboard.js:2777 |
-| `renderStreakWidget` | frontend/js/dashboard.js:2745 |
-| `renderTagCloudWidget` | frontend/js/dashboard.js:3756 |
-| `renderTensionsWidget` | frontend/js/dashboard.js:4866 |
-| `renderTopTagsWidget` | frontend/js/dashboard.js:3017 |
-| `renderUnfinishedWidget` | frontend/js/dashboard.js:4717 |
+| `renderNightCard` | frontend/js/dashboard.js:4370 |
+| `renderNightWidget` | frontend/js/dashboard.js:4342 |
+| `renderOnThisDayWidget` | frontend/js/dashboard.js:4987 |
+| `renderOrphanNotesWidget` | frontend/js/dashboard.js:4756 |
+| `renderPaceWidget` | frontend/js/dashboard.js:5062 |
+| `renderPinnedWidget` | frontend/js/dashboard.js:2949 |
+| `renderQuestionsWidget` | frontend/js/dashboard.js:3040 |
+| `renderQuickCaptureWidget` | frontend/js/dashboard.js:3283 |
+| `renderQuickLinks` | frontend/js/dashboard.js:1349 |
+| `renderRandomNoteWidget` | frontend/js/dashboard.js:3571 |
+| `renderRandomShuffle` | frontend/js/dashboard.js:3655 |
+| `renderRecentNotesWidget` | frontend/js/dashboard.js:3010 |
+| `renderRemindersWidget` | frontend/js/dashboard.js:3336 |
+| `renderReviewWidget` | frontend/js/dashboard.js:2959 |
+| `renderStatsWidget` | frontend/js/dashboard.js:2779 |
+| `renderStreakWidget` | frontend/js/dashboard.js:2747 |
+| `renderTagCloudWidget` | frontend/js/dashboard.js:3758 |
+| `renderTensionsWidget` | frontend/js/dashboard.js:4868 |
+| `renderTopTagsWidget` | frontend/js/dashboard.js:3019 |
+| `renderUnfinishedWidget` | frontend/js/dashboard.js:4719 |
 | `saveDashLayout` | frontend/js/dashboard.js:194 |
-| `saveQuickAccess` | frontend/js/dashboard.js:1316 |
-| `saveQuickTint` | frontend/js/dashboard.js:1328 |
-| `saveQuickTints` | frontend/js/dashboard.js:1335 |
-| `setFocusTimer` | frontend/js/dashboard.js:3936 |
+| `saveQuickAccess` | frontend/js/dashboard.js:1318 |
+| `saveQuickTint` | frontend/js/dashboard.js:1330 |
+| `saveQuickTints` | frontend/js/dashboard.js:1337 |
+| `setFocusTimer` | frontend/js/dashboard.js:3938 |
 | `sizeDashWidgetSpan` | frontend/js/dashboard.js:783 |
 | `sizeDashWidgets` | frontend/js/dashboard.js:787 |
 | `skillRunTimes` | frontend/js/dashboard.js:939 |
-| `startArt` | frontend/js/dashboard.js:2442 |
+| `startArt` | frontend/js/dashboard.js:2444 |
 | `startDashClock` | frontend/js/dashboard.js:332 |
-| `startFocusTimer` | frontend/js/dashboard.js:3916 |
-| `stopArt` | frontend/js/dashboard.js:2244 |
+| `startFocusTimer` | frontend/js/dashboard.js:3918 |
+| `stopArt` | frontend/js/dashboard.js:2246 |
 | `stopDashClock` | frontend/js/dashboard.js:327 |
-| `stopFocusTimer` | frontend/js/dashboard.js:3925 |
-| `streamDigest` | frontend/js/dashboard.js:3102 |
-| `todayStamp` | frontend/js/dashboard.js:3065 |
+| `stopFocusTimer` | frontend/js/dashboard.js:3927 |
+| `streamDigest` | frontend/js/dashboard.js:3104 |
+| `todayStamp` | frontend/js/dashboard.js:3067 |
 | `toggleDashWidgetHidden` | frontend/js/dashboard.js:205 |
 | `toggleDashWidgetWide` | frontend/js/dashboard.js:213 |
-| `truncateMarkdownSafe` | frontend/js/dashboard.js:3554 |
-| `undoActorFrom` | frontend/js/dashboard.js:4552 |
+| `truncateMarkdownSafe` | frontend/js/dashboard.js:3556 |
+| `undoActorFrom` | frontend/js/dashboard.js:4554 |
 | `watchDashWidgets` | frontend/js/dashboard.js:805 |
 | `wireDashDensity` | frontend/js/dashboard.js:1218 |
 | `withDisplayName` | frontend/js/dashboard.js:252 |
@@ -4725,36 +4725,36 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `closeFinder` | frontend/js/search.js:655 |
-| `finderActions` | frontend/js/search.js:109 |
-| `finderFeatureOffer` | frontend/js/search.js:352 |
-| `finderKindOffer` | frontend/js/search.js:295 |
-| `finderMove` | frontend/js/search.js:614 |
-| `finderOffer` | frontend/js/search.js:286 |
-| `finderOverlay` | frontend/js/search.js:104 |
-| `finderRender` | frontend/js/search.js:442 |
-| `finderRenderEmpty` | frontend/js/search.js:234 |
-| `finderRenderFilters` | frontend/js/search.js:381 |
-| `finderRenderNothing` | frontend/js/search.js:262 |
-| `finderResultsRole` | frontend/js/search.js:230 |
-| `finderSavedAs` | frontend/js/search.js:668 |
-| `finderSearch` | frontend/js/search.js:131 |
-| `finderSorted` | frontend/js/search.js:212 |
-| `finderSpellingOffer` | frontend/js/search.js:339 |
-| `finderSpellings` | frontend/js/search.js:327 |
-| `finderSyncFilterEdges` | frontend/js/search.js:375 |
-| `finderUse` | frontend/js/search.js:306 |
-| `finderWhyNothing` | frontend/js/search.js:280 |
-| `finderWordlist` | frontend/js/search.js:316 |
-| `forgetSavedFind` | frontend/js/search.js:777 |
-| `openFinder` | frontend/js/search.js:637 |
-| `persistSavedFinds` | frontend/js/search.js:738 |
-| `renameSavedFind` | frontend/js/search.js:768 |
-| `renderSavedFinds` | frontend/js/search.js:786 |
-| `saveFinderSearch` | frontend/js/search.js:747 |
-| `savedFinds` | frontend/js/search.js:734 |
-| `syncFinderStar` | frontend/js/search.js:672 |
-| `wireFinder` | frontend/js/search.js:682 |
+| `closeFinder` | frontend/js/search.js:658 |
+| `finderActions` | frontend/js/search.js:112 |
+| `finderFeatureOffer` | frontend/js/search.js:355 |
+| `finderKindOffer` | frontend/js/search.js:298 |
+| `finderMove` | frontend/js/search.js:617 |
+| `finderOffer` | frontend/js/search.js:289 |
+| `finderOverlay` | frontend/js/search.js:107 |
+| `finderRender` | frontend/js/search.js:445 |
+| `finderRenderEmpty` | frontend/js/search.js:237 |
+| `finderRenderFilters` | frontend/js/search.js:384 |
+| `finderRenderNothing` | frontend/js/search.js:265 |
+| `finderResultsRole` | frontend/js/search.js:233 |
+| `finderSavedAs` | frontend/js/search.js:671 |
+| `finderSearch` | frontend/js/search.js:134 |
+| `finderSorted` | frontend/js/search.js:215 |
+| `finderSpellingOffer` | frontend/js/search.js:342 |
+| `finderSpellings` | frontend/js/search.js:330 |
+| `finderSyncFilterEdges` | frontend/js/search.js:378 |
+| `finderUse` | frontend/js/search.js:309 |
+| `finderWhyNothing` | frontend/js/search.js:283 |
+| `finderWordlist` | frontend/js/search.js:319 |
+| `forgetSavedFind` | frontend/js/search.js:780 |
+| `openFinder` | frontend/js/search.js:640 |
+| `persistSavedFinds` | frontend/js/search.js:741 |
+| `renameSavedFind` | frontend/js/search.js:771 |
+| `renderSavedFinds` | frontend/js/search.js:789 |
+| `saveFinderSearch` | frontend/js/search.js:750 |
+| `savedFinds` | frontend/js/search.js:737 |
+| `syncFinderStar` | frontend/js/search.js:675 |
+| `wireFinder` | frontend/js/search.js:685 |
 
 ### frontend/js/semantic-notice.js (5)
 
@@ -9528,16 +9528,16 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/files/{attachment_id}` | DELETE | `delete_file` | src/memorymap/api/routes_files.py:906 |
 | `/files/{attachment_id}` | PUT | `rename_file` | src/memorymap/api/routes_files.py:928 |
 | `/files/{attachment_id}/analyse` | POST | `analyse_attachment` | src/memorymap/api/routes_files.py:449 |
-| `/files/{attachment_id}/ocr-clean-loops` | POST | `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3857 |
-| `/files/{attachment_id}/ocr-page-read` | POST | `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3435 |
-| `/files/{attachment_id}/ocr-range-read` | POST | `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3399 |
-| `/files/{attachment_id}/ocr-regions` | GET | `attachment_ocr_regions` | src/memorymap/api/routes_files.py:2531 |
-| `/files/{attachment_id}/page-caption` | POST | `attachment_page_caption` | src/memorymap/api/routes_files.py:3640 |
-| `/files/{attachment_id}/page-reads` | GET | `attachment_page_reads` | src/memorymap/api/routes_files.py:3678 |
-| `/files/{attachment_id}/page-reads/{page}` | DELETE | `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3735 |
+| `/files/{attachment_id}/ocr-clean-loops` | POST | `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3871 |
+| `/files/{attachment_id}/ocr-page-read` | POST | `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3449 |
+| `/files/{attachment_id}/ocr-range-read` | POST | `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3413 |
+| `/files/{attachment_id}/ocr-regions` | GET | `attachment_ocr_regions` | src/memorymap/api/routes_files.py:2545 |
+| `/files/{attachment_id}/page-caption` | POST | `attachment_page_caption` | src/memorymap/api/routes_files.py:3654 |
+| `/files/{attachment_id}/page-reads` | GET | `attachment_page_reads` | src/memorymap/api/routes_files.py:3692 |
+| `/files/{attachment_id}/page-reads/{page}` | DELETE | `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3749 |
 | `/files/{attachment_id}/pdf-info` | GET | `attached_file_pdf_info` | src/memorymap/api/routes_files.py:769 |
-| `/files/{attachment_id}/readings/{source}` | DELETE | `delete_attachment_reading` | src/memorymap/api/routes_files.py:3794 |
-| `/files/{attachment_id}/region-read` | POST | `attachment_region_read` | src/memorymap/api/routes_files.py:3606 |
+| `/files/{attachment_id}/readings/{source}` | DELETE | `delete_attachment_reading` | src/memorymap/api/routes_files.py:3808 |
+| `/files/{attachment_id}/region-read` | POST | `attachment_region_read` | src/memorymap/api/routes_files.py:3620 |
 | `/files/{attachment_id}/text` | GET | `attached_file_text` | src/memorymap/api/routes_files.py:664 |
 | `/files/{attachment_id}/text` | PUT | `save_attached_file_text` | src/memorymap/api/routes_files.py:711 |
 | `/followups` | POST | `chat_followups` | src/memorymap/api/routes_chat.py:291 |
@@ -9619,16 +9619,16 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/media/{upload_id}` | PUT | `rename_media` | src/memorymap/api/routes_files.py:1819 |
 | `/media/{upload_id}/caption` | POST | `caption_media` | src/memorymap/api/routes_files.py:1874 |
 | `/media/{upload_id}/ocr` | POST | `ocr_media` | src/memorymap/api/routes_files.py:1979 |
-| `/media/{upload_id}/ocr-clean-loops` | POST | `clean_media_reading_loops` | src/memorymap/api/routes_files.py:3883 |
-| `/media/{upload_id}/ocr-page-read` | POST | `media_ocr_page_read` | src/memorymap/api/routes_files.py:3452 |
-| `/media/{upload_id}/ocr-range-read` | POST | `media_ocr_range_read` | src/memorymap/api/routes_files.py:3417 |
-| `/media/{upload_id}/ocr-regions` | GET | `media_ocr_regions` | src/memorymap/api/routes_files.py:2497 |
-| `/media/{upload_id}/page-caption` | POST | `media_page_caption` | src/memorymap/api/routes_files.py:3661 |
-| `/media/{upload_id}/page-reads` | GET | `media_page_reads` | src/memorymap/api/routes_files.py:3694 |
-| `/media/{upload_id}/page-reads/{page}` | DELETE | `delete_media_page_read` | src/memorymap/api/routes_files.py:3749 |
-| `/media/{upload_id}/readings/{source}` | DELETE | `delete_media_reading` | src/memorymap/api/routes_files.py:3784 |
-| `/media/{upload_id}/region-read` | POST | `media_region_read` | src/memorymap/api/routes_files.py:3626 |
-| `/media/{upload_id}/vision-ocr` | POST | `vision_ocr_media` | src/memorymap/api/routes_files.py:3936 |
+| `/media/{upload_id}/ocr-clean-loops` | POST | `clean_media_reading_loops` | src/memorymap/api/routes_files.py:3897 |
+| `/media/{upload_id}/ocr-page-read` | POST | `media_ocr_page_read` | src/memorymap/api/routes_files.py:3466 |
+| `/media/{upload_id}/ocr-range-read` | POST | `media_ocr_range_read` | src/memorymap/api/routes_files.py:3431 |
+| `/media/{upload_id}/ocr-regions` | GET | `media_ocr_regions` | src/memorymap/api/routes_files.py:2511 |
+| `/media/{upload_id}/page-caption` | POST | `media_page_caption` | src/memorymap/api/routes_files.py:3675 |
+| `/media/{upload_id}/page-reads` | GET | `media_page_reads` | src/memorymap/api/routes_files.py:3708 |
+| `/media/{upload_id}/page-reads/{page}` | DELETE | `delete_media_page_read` | src/memorymap/api/routes_files.py:3763 |
+| `/media/{upload_id}/readings/{source}` | DELETE | `delete_media_reading` | src/memorymap/api/routes_files.py:3798 |
+| `/media/{upload_id}/region-read` | POST | `media_region_read` | src/memorymap/api/routes_files.py:3640 |
+| `/media/{upload_id}/vision-ocr` | POST | `vision_ocr_media` | src/memorymap/api/routes_files.py:3950 |
 | `/meetings` | POST | `create_meeting` | src/memorymap/api/routes_meetings.py:52 |
 | `/memory` | GET | `list_memory` | src/memorymap/api/routes_settings.py:1421 |
 | `/memory` | POST | `add_memory` | src/memorymap/api/routes_settings.py:1456 |
@@ -9656,8 +9656,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/objects/{object_id}` | DELETE | `delete_object` | src/memorymap/api/routes_whiteboard.py:3085 |
 | `/objects/{object_id}` | PUT | `update_object` | src/memorymap/api/routes_whiteboard.py:3051 |
 | `/ocr-model` | POST | `set_ocr_model` | src/memorymap/api/routes_models.py:750 |
-| `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3205 |
-| `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3254 |
+| `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3219 |
+| `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3268 |
 | `/on-this-day` | GET | `on_this_day` | src/memorymap/api/routes_insights.py:464 |
 | `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1351 |
 | `/outline` | GET | `documents_outline` | src/memorymap/api/routes_documents.py:438 |
@@ -9683,8 +9683,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/read/near` | POST | `near_rows` | src/memorymap/api/routes_read.py:132 |
 | `/read/offers` | POST | `note_offers` | src/memorymap/api/routes_read.py:64 |
 | `/read/words` | GET | `setting_words` | src/memorymap/api/routes_read.py:117 |
-| `/reading-bin/{bin_id}/purge` | DELETE | `purge_binned_reading` | src/memorymap/api/routes_files.py:3828 |
-| `/reading-bin/{bin_id}/restore` | POST | `restore_binned_reading` | src/memorymap/api/routes_files.py:3810 |
+| `/reading-bin/{bin_id}/purge` | DELETE | `purge_binned_reading` | src/memorymap/api/routes_files.py:3842 |
+| `/reading-bin/{bin_id}/restore` | POST | `restore_binned_reading` | src/memorymap/api/routes_files.py:3824 |
 | `/receipt` | GET | `receipt` | src/memorymap/api/routes_privacy.py:95 |
 | `/recent` | DELETE | `forget_recent_question` | src/memorymap/api/routes_chat.py:171 |
 | `/recent` | GET | `recent_questions` | src/memorymap/api/routes_chat.py:165 |
@@ -9921,7 +9921,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4768)
+## Backend modules (4769)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -12882,62 +12882,62 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `MediaRenameBody` | src/memorymap/api/routes_files.py:1815 |
 | `MediaUploadOut` | src/memorymap/api/routes_files.py:1314 |
 | `OcrBody` | src/memorymap/api/routes_files.py:1961 |
-| `OcrLanguageBody` | src/memorymap/api/routes_files.py:3248 |
-| `OcrPageReadOut` | src/memorymap/api/routes_files.py:2564 |
-| `OcrRangeReadOut` | src/memorymap/api/routes_files.py:3266 |
-| `OcrReadersOut` | src/memorymap/api/routes_files.py:3170 |
+| `OcrLanguageBody` | src/memorymap/api/routes_files.py:3262 |
+| `OcrPageReadOut` | src/memorymap/api/routes_files.py:2578 |
+| `OcrRangeReadOut` | src/memorymap/api/routes_files.py:3280 |
+| `OcrReadersOut` | src/memorymap/api/routes_files.py:3184 |
 | `OcrRegionBox` | src/memorymap/api/routes_files.py:2039 |
 | `OcrRegionOut` | src/memorymap/api/routes_files.py:2056 |
-| `OcrRegionReadOut` | src/memorymap/api/routes_files.py:3469 |
+| `OcrRegionReadOut` | src/memorymap/api/routes_files.py:3483 |
 | `OcrRegionsOut` | src/memorymap/api/routes_files.py:2120 |
 | `OcrStoredReadingOut` | src/memorymap/api/routes_files.py:2079 |
 | `OcrWordOut` | src/memorymap/api/routes_files.py:2048 |
 | `PdfInfoOut` | src/memorymap/api/routes_files.py:753 |
-| `ReadingBinnedOut` | src/memorymap/api/routes_files.py:3761 |
-| `ReadingRestoredOut` | src/memorymap/api/routes_files.py:3803 |
+| `ReadingBinnedOut` | src/memorymap/api/routes_files.py:3775 |
+| `ReadingRestoredOut` | src/memorymap/api/routes_files.py:3817 |
 | `SaveFileBody` | src/memorymap/api/routes_files.py:999 |
-| `VisionOcrBody` | src/memorymap/api/routes_files.py:3910 |
+| `VisionOcrBody` | src/memorymap/api/routes_files.py:3924 |
 | `_attachment_out` | src/memorymap/api/routes_files.py:425 |
 | `_attachment_size` | src/memorymap/api/routes_files.py:395 |
-| `_bin_file_reading` | src/memorymap/api/routes_files.py:3770 |
-| `_checked_engine` | src/memorymap/api/routes_files.py:2741 |
-| `_checked_reader` | src/memorymap/api/routes_files.py:2715 |
-| `_clean_reading_fields` | src/memorymap/api/routes_files.py:3837 |
-| `_describe_page` | src/memorymap/api/routes_files.py:3062 |
+| `_bin_file_reading` | src/memorymap/api/routes_files.py:3784 |
+| `_checked_engine` | src/memorymap/api/routes_files.py:2755 |
+| `_checked_reader` | src/memorymap/api/routes_files.py:2729 |
+| `_clean_reading_fields` | src/memorymap/api/routes_files.py:3851 |
+| `_describe_page` | src/memorymap/api/routes_files.py:3076 |
 | `_embed_pattern` | src/memorymap/api/routes_files.py:1742 |
-| `_engine_choice` | src/memorymap/api/routes_files.py:2735 |
+| `_engine_choice` | src/memorymap/api/routes_files.py:2749 |
 | `_existing_attachment` | src/memorymap/api/routes_files.py:166 |
 | `_exports_dir` | src/memorymap/api/routes_files.py:990 |
-| `_forget_page_read` | src/memorymap/api/routes_files.py:3704 |
-| `_forget_regions` | src/memorymap/api/routes_files.py:2331 |
-| `_local_regions` | src/memorymap/api/routes_files.py:2764 |
-| `_local_text` | src/memorymap/api/routes_files.py:2757 |
+| `_forget_page_read` | src/memorymap/api/routes_files.py:3718 |
+| `_forget_regions` | src/memorymap/api/routes_files.py:2345 |
+| `_local_regions` | src/memorymap/api/routes_files.py:2778 |
+| `_local_text` | src/memorymap/api/routes_files.py:2771 |
 | `_media_size` | src/memorymap/api/routes_files.py:1591 |
 | `_media_upload_path` | src/memorymap/api/routes_files.py:1657 |
-| `_page_read_count_map` | src/memorymap/api/routes_files.py:2926 |
-| `_page_read_key` | src/memorymap/api/routes_files.py:2769 |
-| `_page_read_text_map` | src/memorymap/api/routes_files.py:2886 |
-| `_parse_page_spec` | src/memorymap/api/routes_files.py:3290 |
+| `_page_read_count_map` | src/memorymap/api/routes_files.py:2940 |
+| `_page_read_key` | src/memorymap/api/routes_files.py:2783 |
+| `_page_read_text_map` | src/memorymap/api/routes_files.py:2900 |
+| `_parse_page_spec` | src/memorymap/api/routes_files.py:3304 |
 | `_pdf_regions_for` | src/memorymap/api/routes_files.py:2167 |
-| `_read_page` | src/memorymap/api/routes_files.py:3019 |
-| `_read_range` | src/memorymap/api/routes_files.py:3325 |
-| `_read_region` | src/memorymap/api/routes_files.py:3523 |
-| `_reader_model` | src/memorymap/api/routes_files.py:2609 |
-| `_region_image` | src/memorymap/api/routes_files.py:3500 |
-| `_regions_for` | src/memorymap/api/routes_files.py:2396 |
-| `_regions_text` | src/memorymap/api/routes_files.py:2963 |
-| `_reindex_file` | src/memorymap/api/routes_files.py:2826 |
-| `_remember_page_caption` | src/memorymap/api/routes_files.py:2844 |
-| `_remember_page_read` | src/memorymap/api/routes_files.py:2778 |
-| `_remember_regions` | src/memorymap/api/routes_files.py:2296 |
-| `_set_edited_reading` | src/memorymap/api/routes_files.py:2364 |
-| `_stored_page_reads` | src/memorymap/api/routes_files.py:2981 |
-| `_stored_range` | src/memorymap/api/routes_files.py:3375 |
+| `_read_page` | src/memorymap/api/routes_files.py:3033 |
+| `_read_range` | src/memorymap/api/routes_files.py:3339 |
+| `_read_region` | src/memorymap/api/routes_files.py:3537 |
+| `_reader_model` | src/memorymap/api/routes_files.py:2623 |
+| `_region_image` | src/memorymap/api/routes_files.py:3514 |
+| `_regions_for` | src/memorymap/api/routes_files.py:2410 |
+| `_regions_text` | src/memorymap/api/routes_files.py:2977 |
+| `_reindex_file` | src/memorymap/api/routes_files.py:2840 |
+| `_remember_page_caption` | src/memorymap/api/routes_files.py:2858 |
+| `_remember_page_read` | src/memorymap/api/routes_files.py:2792 |
+| `_remember_regions` | src/memorymap/api/routes_files.py:2310 |
+| `_set_edited_reading` | src/memorymap/api/routes_files.py:2378 |
+| `_stored_page_reads` | src/memorymap/api/routes_files.py:2995 |
+| `_stored_range` | src/memorymap/api/routes_files.py:3389 |
 | `_stored_readings` | src/memorymap/api/routes_files.py:2089 |
 | `_stored_regions` | src/memorymap/api/routes_files.py:2271 |
 | `_strip_embeds` | src/memorymap/api/routes_files.py:1748 |
-| `_tesseract_read_page` | src/memorymap/api/routes_files.py:3127 |
-| `_vision_read_page` | src/memorymap/api/routes_files.py:2626 |
+| `_tesseract_read_page` | src/memorymap/api/routes_files.py:3141 |
+| `_vision_read_page` | src/memorymap/api/routes_files.py:2640 |
 | `_within_dir` | src/memorymap/api/routes_files.py:1064 |
 | `_within_exports` | src/memorymap/api/routes_files.py:1021 |
 | `analyse_attachment` | src/memorymap/api/routes_files.py:450 |
@@ -12945,54 +12945,54 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `attached_file_pdf_info` | src/memorymap/api/routes_files.py:770 |
 | `attached_file_pdf_page` | src/memorymap/api/routes_files.py:806 |
 | `attached_file_text` | src/memorymap/api/routes_files.py:665 |
-| `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3436 |
-| `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3400 |
-| `attachment_ocr_regions` | src/memorymap/api/routes_files.py:2532 |
-| `attachment_page_caption` | src/memorymap/api/routes_files.py:3641 |
-| `attachment_page_reads` | src/memorymap/api/routes_files.py:3679 |
-| `attachment_region_read` | src/memorymap/api/routes_files.py:3607 |
+| `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3450 |
+| `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3414 |
+| `attachment_ocr_regions` | src/memorymap/api/routes_files.py:2546 |
+| `attachment_page_caption` | src/memorymap/api/routes_files.py:3655 |
+| `attachment_page_reads` | src/memorymap/api/routes_files.py:3693 |
+| `attachment_region_read` | src/memorymap/api/routes_files.py:3621 |
 | `caption_media` | src/memorymap/api/routes_files.py:1875 |
-| `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3858 |
-| `clean_media_reading_loops` | src/memorymap/api/routes_files.py:3884 |
+| `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3872 |
+| `clean_media_reading_loops` | src/memorymap/api/routes_files.py:3898 |
 | `clean_orphaned_media` | src/memorymap/api/routes_files.py:1525 |
-| `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3736 |
-| `delete_attachment_reading` | src/memorymap/api/routes_files.py:3795 |
+| `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3750 |
+| `delete_attachment_reading` | src/memorymap/api/routes_files.py:3809 |
 | `delete_file` | src/memorymap/api/routes_files.py:907 |
 | `delete_media` | src/memorymap/api/routes_files.py:1787 |
-| `delete_media_page_read` | src/memorymap/api/routes_files.py:3750 |
-| `delete_media_reading` | src/memorymap/api/routes_files.py:3785 |
+| `delete_media_page_read` | src/memorymap/api/routes_files.py:3764 |
+| `delete_media_reading` | src/memorymap/api/routes_files.py:3799 |
 | `download_export` | src/memorymap/api/routes_files.py:1172 |
 | `download_file` | src/memorymap/api/routes_files.py:171 |
 | `file_readings` | src/memorymap/api/routes_files.py:274 |
-| `get_media` | src/memorymap/api/routes_files.py:4008 |
+| `get_media` | src/memorymap/api/routes_files.py:4022 |
 | `list_attachment_gallery` | src/memorymap/api/routes_files.py:298 |
 | `list_exports` | src/memorymap/api/routes_files.py:1134 |
 | `list_media` | src/memorymap/api/routes_files.py:1393 |
 | `list_orphaned_media` | src/memorymap/api/routes_files.py:1494 |
 | `media_meta` | src/memorymap/api/routes_files.py:1550 |
-| `media_ocr_page_read` | src/memorymap/api/routes_files.py:3453 |
-| `media_ocr_range_read` | src/memorymap/api/routes_files.py:3418 |
-| `media_ocr_regions` | src/memorymap/api/routes_files.py:2498 |
-| `media_page_caption` | src/memorymap/api/routes_files.py:3662 |
-| `media_page_reads` | src/memorymap/api/routes_files.py:3695 |
+| `media_ocr_page_read` | src/memorymap/api/routes_files.py:3467 |
+| `media_ocr_range_read` | src/memorymap/api/routes_files.py:3432 |
+| `media_ocr_regions` | src/memorymap/api/routes_files.py:2512 |
+| `media_page_caption` | src/memorymap/api/routes_files.py:3676 |
+| `media_page_reads` | src/memorymap/api/routes_files.py:3709 |
 | `media_pdf_info` | src/memorymap/api/routes_files.py:1668 |
 | `media_pdf_page` | src/memorymap/api/routes_files.py:1708 |
-| `media_region_read` | src/memorymap/api/routes_files.py:3627 |
+| `media_region_read` | src/memorymap/api/routes_files.py:3641 |
 | `media_text` | src/memorymap/api/routes_files.py:1600 |
 | `ocr_media` | src/memorymap/api/routes_files.py:1980 |
-| `ocr_readers` | src/memorymap/api/routes_files.py:3206 |
+| `ocr_readers` | src/memorymap/api/routes_files.py:3220 |
 | `open_exports_folder` | src/memorymap/api/routes_files.py:1183 |
-| `purge_binned_reading` | src/memorymap/api/routes_files.py:3829 |
+| `purge_binned_reading` | src/memorymap/api/routes_files.py:3843 |
 | `rename_file` | src/memorymap/api/routes_files.py:929 |
 | `rename_media` | src/memorymap/api/routes_files.py:1820 |
-| `restore_binned_reading` | src/memorymap/api/routes_files.py:3811 |
+| `restore_binned_reading` | src/memorymap/api/routes_files.py:3825 |
 | `safe_filename` | src/memorymap/api/routes_files.py:1007 |
 | `save_attached_file_text` | src/memorymap/api/routes_files.py:712 |
 | `save_generated_file` | src/memorymap/api/routes_files.py:1086 |
-| `set_ocr_language` | src/memorymap/api/routes_files.py:3255 |
+| `set_ocr_language` | src/memorymap/api/routes_files.py:3269 |
 | `upload_file` | src/memorymap/api/routes_files.py:98 |
 | `upload_media` | src/memorymap/api/routes_files.py:1244 |
-| `vision_ocr_media` | src/memorymap/api/routes_files.py:3937 |
+| `vision_ocr_media` | src/memorymap/api/routes_files.py:3951 |
 
 ### src/memorymap/api/routes_graph.py (42)
 
@@ -15777,45 +15777,46 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `vectors_by_id` | src/memorymap/search/engine.py:1406 |
 | `warm_vectors` | src/memorymap/search/engine.py:342 |
 
-### src/memorymap/search/index.py (35)
+### src/memorymap/search/index.py (36)
 
 | Name | File:line |
 |---|---|
-| `Row` | src/memorymap/search/index.py:121 |
-| `Source` | src/memorymap/search/index.py:138 |
-| `UnknownSource` | src/memorymap/search/index.py:159 |
-| `_ask_turn_row` | src/memorymap/search/index.py:898 |
-| `_attachment_row` | src/memorymap/search/index.py:801 |
-| `_board_words` | src/memorymap/search/index.py:572 |
-| `_boards_touched_by_objects` | src/memorymap/search/index.py:330 |
-| `_bookmark_row` | src/memorymap/search/index.py:838 |
-| `_conversation_row` | src/memorymap/search/index.py:867 |
-| `_document_row` | src/memorymap/search/index.py:786 |
-| `_entry_kind` | src/memorymap/search/index.py:552 |
-| `_entry_row` | src/memorymap/search/index.py:602 |
-| `_first_line` | src/memorymap/search/index.py:526 |
-| `_index_on_flush` | src/memorymap/search/index.py:284 |
-| `_media_row` | src/memorymap/search/index.py:823 |
-| `_register_all` | src/memorymap/search/index.py:654 |
-| `_reminder_row` | src/memorymap/search/index.py:852 |
-| `_rowid` | src/memorymap/search/index.py:229 |
-| `_scan_entries` | src/memorymap/search/index.py:640 |
-| `_table_missing` | src/memorymap/search/index.py:265 |
-| `_tagstext` | src/memorymap/search/index.py:536 |
-| `_write` | src/memorymap/search/index.py:233 |
-| `_written` | src/memorymap/search/index.py:544 |
-| `counts` | src/memorymap/search/index.py:505 |
-| `ensure_table` | src/memorymap/search/index.py:208 |
-| `forget` | src/memorymap/search/index.py:432 |
-| `last_rebuild` | src/memorymap/search/index.py:470 |
-| `rebuild` | src/memorymap/search/index.py:474 |
-| `reconcile_boards` | src/memorymap/search/index.py:376 |
-| `reconcile_sources` | src/memorymap/search/index.py:917 |
-| `register` | src/memorymap/search/index.py:163 |
-| `source_for` | src/memorymap/search/index.py:180 |
-| `sources` | src/memorymap/search/index.py:197 |
-| `sources_for_kind` | src/memorymap/search/index.py:201 |
-| `touch` | src/memorymap/search/index.py:416 |
+| `Row` | src/memorymap/search/index.py:123 |
+| `Source` | src/memorymap/search/index.py:140 |
+| `UnknownSource` | src/memorymap/search/index.py:161 |
+| `_ask_turn_row` | src/memorymap/search/index.py:913 |
+| `_attachment_row` | src/memorymap/search/index.py:816 |
+| `_board_words` | src/memorymap/search/index.py:574 |
+| `_boards_touched_by_objects` | src/memorymap/search/index.py:332 |
+| `_bookmark_row` | src/memorymap/search/index.py:853 |
+| `_conversation_row` | src/memorymap/search/index.py:882 |
+| `_document_row` | src/memorymap/search/index.py:801 |
+| `_entry_kind` | src/memorymap/search/index.py:554 |
+| `_entry_row` | src/memorymap/search/index.py:604 |
+| `_first_line` | src/memorymap/search/index.py:528 |
+| `_index_on_flush` | src/memorymap/search/index.py:286 |
+| `_media_row` | src/memorymap/search/index.py:838 |
+| `_recording_row` | src/memorymap/search/index.py:926 |
+| `_register_all` | src/memorymap/search/index.py:656 |
+| `_reminder_row` | src/memorymap/search/index.py:867 |
+| `_rowid` | src/memorymap/search/index.py:231 |
+| `_scan_entries` | src/memorymap/search/index.py:642 |
+| `_table_missing` | src/memorymap/search/index.py:267 |
+| `_tagstext` | src/memorymap/search/index.py:538 |
+| `_write` | src/memorymap/search/index.py:235 |
+| `_written` | src/memorymap/search/index.py:546 |
+| `counts` | src/memorymap/search/index.py:507 |
+| `ensure_table` | src/memorymap/search/index.py:210 |
+| `forget` | src/memorymap/search/index.py:434 |
+| `last_rebuild` | src/memorymap/search/index.py:472 |
+| `rebuild` | src/memorymap/search/index.py:476 |
+| `reconcile_boards` | src/memorymap/search/index.py:378 |
+| `reconcile_sources` | src/memorymap/search/index.py:952 |
+| `register` | src/memorymap/search/index.py:165 |
+| `source_for` | src/memorymap/search/index.py:182 |
+| `sources` | src/memorymap/search/index.py:199 |
+| `sources_for_kind` | src/memorymap/search/index.py:203 |
+| `touch` | src/memorymap/search/index.py:418 |
 
 ### src/memorymap/search/query.py (11)
 
@@ -16008,7 +16009,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9938)
+## Tests (9950)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16701,6 +16702,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_ocr_engine_ui.py | 6 |
 | tests/test_ocr_find_marks.py | 3 |
 | tests/test_ocr_model.py | 17 |
+| tests/test_ocr_old_cache_hint.py | 3 |
 | tests/test_ocr_page_range.py | 7 |
 | tests/test_ocr_page_read.py | 4 |
 | tests/test_ocr_page_read_tasks.py | 4 |
@@ -16790,7 +16792,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_question_noise.py | 27 |
 | tests/test_questions_own.py | 8 |
 | tests/test_questions_spec.py | 9 |
-| tests/test_quick_access.py | 26 |
+| tests/test_quick_access.py | 27 |
 | tests/test_quickadd.py | 13 |
 | tests/test_raw_fetch_headers.py | 2 |
 | tests/test_reading.py | 12 |
@@ -16855,6 +16857,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_search_prefix.py | 7 |
 | tests/test_search_provider.py | 13 |
 | tests/test_search_recall.py | 3 |
+| tests/test_search_recordings.py | 8 |
 | tests/test_search_spaces.py | 2 |
 | tests/test_search_suggest_1011.py | 6 |
 | tests/test_search_surfaces.py | 10 |

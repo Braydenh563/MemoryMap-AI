@@ -953,8 +953,8 @@ HELP_TOPICS.extend(
             "keywords": ("search", "find", "find anything", "look for", "filter", "where did", "locate", "ctrl p", "operator", "search my notes", "saved search", "search chats"),
             "body": (
                 "Find anything (Ctrl+P, or the search box on the dashboard) looks "
-                "through notes, documents, boards, mind maps, files, links, reminders "
-                "and chats at once, by your words and by meaning; each result wears "
+                "through notes, documents, boards, mind maps, files, links, reminders, "
+                "chats and recordings (by title and by what was said) at once, by your words and by meaning; each result wears "
                 "its kind, and the chips narrow it to one. Operators: tag:work, "
                 "in:work for a space, kind:chat, before:2026-01, after:2025-06-30, "
                 "has:image, is:pinned, a \"quoted phrase\", and -word to leave something "

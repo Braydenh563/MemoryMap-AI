@@ -16,3 +16,4 @@ Next: Brief 88 and the coordinator's three items (eased starts/stops, expanded p
 - done d3c759ed5 throw flight; next: per-throw feel (Brief 88 b), avatars.js nameMarkBuddyThrowFeel
 - done 2b3840584 throw feel; next: click-arm (atlas-motion.js atlasRigGesture), panel resting pose, eased starts/stops
 - done 9d1c69832 click-arm (clickarm.js: hand y 47..56 to 16, 0 bad); large view resting limbs (viewerpose.js: arms 150/-151 deg at 300 ms to their float targets 28/-50); next: eased walk/act starts and stops (jolts.js)
+- done (next commit) eased starts and stops (jolts.js: walk start leg 5.5px and head 4.8px, cut-short body 5.1px, act over a walk 3.2 deg; after: Atlas and me PASS, max 0.4px) and three manners per act, three strides per walk or float (variety.js PASS, both kinds); next: Brief 88 (a) prop contrast, more Atlas actions, the large view actions

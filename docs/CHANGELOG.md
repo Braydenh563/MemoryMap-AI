@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Companion: no snap as a move starts or stops: a walk's legs, body and head ease into their stride and out of it, a move cut short in a landing or a float's lean eases out of it, and an act's start no longer drops the body's lean in one frame.
+- Companion: every act has three manners (brisk, easy with its weight on one foot, full with a give at the knees) and every walk or float three strides, never the same as the last time.
 - The companion's large view opens on its own resting limbs: Atlas hanging from a panel no longer shows both arms up in the large view while they swing down.
 - Atlas: an arm raised out (a wave when you click it, a lifted arm) bends its forearm up towards its head instead of letting it hang down from the elbow; a wave holds the forearm about upright.
 - Companion: thrown, it flies. It carries on at the speed it was let go (the pointer's last 80ms, by mouse or touch), falls under gravity, bounces off the window's edges and the floor, leans into the throw, squashes as it lands and stays where it comes down. It used to slide on for a quarter of a second and take a perch the tab chose, which could be back on the side it came from. Reduce motion crossfades to the same landing.

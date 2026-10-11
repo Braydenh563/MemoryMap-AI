@@ -456,7 +456,7 @@ def test_a_walk_is_paced_too() -> None:
     assert 'const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging") || !!nmb.visit;' in tempo
     assert "nmb-walking" not in tempo[tempo.index("const busy") : tempo.index("const still")]
     move = _fn("nameMarkBuddyGo")
-    walk = move[move.index('buddy.classList.add("nmb-walking");') :]
+    walk = move[move.index('nameMarkBuddyBlend(buddy, () => buddy.classList.add("nmb-walking"), NMB_BLEND_IN_MS);') :]
     assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]
 
 
@@ -694,7 +694,7 @@ def test_every_change_of_place_is_travelled_by_its_body() -> None:
     go = _fn("nameMarkBuddyGo") + _fn("nameMarkBuddyRoute")
     for way in ("if (nameMarkBuddyNoTravel()) {", "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)",
                 "if (route === \"float\") {", "if (d < size * NMB_HOP_SIZES && !poseChanged)",
-                'buddy.classList.add("nmb-walking");'):
+                'nameMarkBuddyBlend(buddy, () => buddy.classList.add("nmb-walking"), NMB_BLEND_IN_MS);'):
         assert way in go, way
     # Distances are in its own size, not pixels.
     assert "const size = NMB_W * Math.max(0.7, nmb.scale || 1);" in go
@@ -940,7 +940,7 @@ def test_a_variant_is_never_the_one_it_played_last() -> None:
 def test_acts_have_variants_and_their_own_tempo_each_time() -> None:
     act = _fn("nameMarkBuddyAct")
     assert "const v = nameMarkBuddyPickVariant(variants, nmb.variant?.[act] ?? -1);" in act
-    assert "if (!NMB_RESTING_ACTS.has(act)) nameMarkBuddyVary(buddy);" in act
+    assert "if (!NMB_RESTING_ACTS.has(act)) nameMarkBuddyVary(buddy, act, ms || spec?.ms || 1200);" in act
     assert "anim.playbackRate = rate;" in _fn("nameMarkBuddyVary")
     for rule in ('&.nmb-act-wave[data-variant="1"]', '&.nmb-act-hop[data-variant="2"]', '&.nmb-act-nap[data-variant="2"]'):
         assert rule in CSS08, rule
@@ -1604,12 +1604,15 @@ def test_inbox_669_a_lean_held_by_a_rule_is_eased_back_too() -> None:
     # end the bob came back over the rule's transition and the lean went in
     # a frame (the head 9px). The blend reads the body before and after.
     blend = _fn("nameMarkBuddyBlend")
-    before = blend.index('el.querySelector(".nm-buddy-char")')
-    after = blend.index("change();\n  const eased")
+    # The body and, since the jolts pass (2026-10-11), its limbs.
+    before = blend.index("querySelectorAll(NMB_BLEND_PARTS)")
+    assert ".nm-buddy-char" in AV[AV.index("const NMB_BLEND_PARTS") :][:200]
+    after = blend.index("change();\n  for (const { anim, el, from } of held)")
     assert before < after
     tail = blend[after:]
     assert "BODY.filter((key) => style[key] !== from[key])" in tail and "el.animate([{ ...moved, offset: 0 }]" in tail
-    assert "if (eased.has(el)) continue;" in tail
+    # A part the held loop eased is read again for what else moved.
+    assert "if (eased.has(el)) continue;" not in tail and "A part eased above is read again" in tail
 
 
 def test_the_first_entrance_after_an_unlock_is_a_drop_once() -> None:

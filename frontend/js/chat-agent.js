@@ -795,7 +795,21 @@ function agentTimeline(holder, options = {}) {
         //: wrote, as one plan to confirm (`undoSkillRun`, note-history.js).
         //: One change has its row's own Undo, so it is offered from two.
         if (span && changes.length > 1) {
-          const all = smallButton("ph:arrow-counter-clockwise Undo the run", "Put back every note this run changed", () => undoSkillRun(span, all));
+          //: The run's Undo puts everything back at once, so the per-write
+          //: entries on the app's stack and the rows' own Undo buttons come
+          //: off too: left, a later Ctrl+Z (or a row's Undo) would run an
+          //: inverse that is already applied (Brief 101b).
+          const settleRun = () => {
+            for (const change of changes) {
+              const action = change.undo ? agentUndoActions.get(JSON.stringify(change.undo)) : null;
+              if (action && undoStack.includes(action)) settleUndoFromToast(action);
+            }
+            for (const row of box.querySelectorAll(".skill-change")) {
+              row.classList.add("skill-change-undone");
+              row.querySelectorAll("[data-change-undo]").forEach((button) => button.remove());
+            }
+          };
+          const all = smallButton("ph:arrow-counter-clockwise Undo the run", "Put back every note this run changed", () => undoSkillRun(span, all, settleRun));
           title.append(" ", all);
         }
         box.appendChild(title);
@@ -1273,6 +1287,7 @@ function changeRow(change, options = {}) {
         toast(error.message || "Couldn't undo that.", true);
       }
     });
+    undo.dataset.changeUndo = "1";
     row.appendChild(undo);
   }
   if (change.diff) row.appendChild(changeDiff(change.diff));

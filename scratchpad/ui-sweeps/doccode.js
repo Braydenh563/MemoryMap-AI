@@ -70,7 +70,9 @@ const ok = (n, c, d) => {
     `${m.underline} vs ${m.errorInk}, ${m.style}`);
   ok("with none of the library's own squiggle image left under it", m.bgImage === "none", m.bgImage);
   ok("and a dot in the gutter in the same ink", m.mark === m.errorInk && m.markBox > 4, `${m.mark} ${m.markBox}`);
-  ok("the error gutter is outside the line numbers", /cm-gutter-lint/.test(m.firstGutter), m.firstGutter);
+  // Brief 70 put the debugger's breakpoint gutter leftmost and the error dot
+  // lives in it for code; either way the marker sits outside the line numbers.
+  ok("the error gutter is outside the line numbers", /cm-gutter-lint|cm-debug-gutter/.test(m.firstGutter), m.firstGutter);
   // Hover shows the message.
   const tip = await page.evaluate(async () => {
     const r = document.querySelector("#doc-editor .cm-lintRange-error").getBoundingClientRect();
@@ -165,7 +167,9 @@ const ok = (n, c, d) => {
   await page.keyboard.press("Enter");
   await page.waitForTimeout(200);
   const accepted = await page.evaluate(() => docCmView.state.doc.toString());
-  ok("Enter takes the completion", /\nfunc$/.test(accepted.trimEnd()), JSON.stringify(accepted.slice(-12)));
+  // Go's "func" completion is the library snippet (func name(params) type {...}),
+  // so the file now holds the whole snippet, not the bare keyword.
+  ok("Enter takes the completion", /\nfunc\b/.test(accepted) && accepted.length > "package main\n\nfunc".length, JSON.stringify(accepted.slice(-40)));
   c = await complete("py", "import os\n\n", "pri");
   ok("Python keeps its own completions (print)", !!c && c.options.some((o) => o.includes("print")),
     JSON.stringify(c));

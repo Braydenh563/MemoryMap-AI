@@ -95,19 +95,26 @@ async function panel(page) {
 
   await open();
   let line = await engineLine(page);
+  // The line fills from /ocr-readers; on a loaded machine that lands after the
+  // fixed wait in open(), so poll rather than read an empty shell.
+  for (let i = 0; i < 40 && !line.shown; i++) { await page.waitForTimeout(500); line = await engineLine(page); }
   console.log("engine line:", JSON.stringify(line));
   await page.screenshot({ path: `${SHOTS}/ocrflow-${MODE}-opened.png` });
 
   if (MODE === "missing") {
-    check("missing: the engine line is shown and says it can't read", line.shown && /can't read yet/.test(line.text), line.text);
-    check("missing: it names the cause", /isn't installed/.test(line.text));
+    check("missing: the engine line is shown and says it can't read", line.shown && /Nothing can read pages yet/.test(line.text), line.text);
+    check("missing: it names the cause", /Install RapidOCR/.test(line.text) && /Tesseract/.test(line.text));
     check("missing: one Install button", line.buttons.filter((b) => /Install Tesseract/.test(b)).length === 1, line.buttons.join(" | "));
     // A read with nothing available: an error that says what to do, no success.
     toasts.length = 0;
     await page.evaluate(() => document.getElementById("ocr-read-page").click());
     await page.waitForTimeout(800);
+    // RapidOCR joined Tesseract, and Read is aria-disabled while nothing can
+    // read (ocrSyncCanRead): the press toasts the reason and opens the reader
+    // menu on the installs (ocrRefusedPress), it no longer writes into the panel.
     let p = await panel(page);
-    check("missing: Read says what to do", /Install Tesseract|start an AI model/.test(p.message), p.message);
+    const menuOpen = await page.evaluate(() => !!document.getElementById("ocr-reader-menu")?.open);
+    check("missing: Read says what to do", toasts.some((t) => /Nothing can read yet/.test(t)) && menuOpen, toasts.join(" | ") + " menuOpen=" + menuOpen);
     check("missing: no 'Read <file>.' success toast", !toasts.some((t) => /^Read .*\.$/.test(t) && !/can't|Nothing/.test(t)), toasts.join(" | "));
     // The Install flow, with the server's answers mocked so nothing is installed.
     let installed = false;
@@ -152,7 +159,9 @@ async function panel(page) {
     await page.evaluate(() => [...document.querySelectorAll(".confirm-overlay button")].find((b) => /install|ok|yes|confirm/i.test(b.textContent) && !/cancel/i.test(b.textContent))?.click());
     await page.waitForTimeout(2200);
     line = await engineLine(page);
-    check("install failure: says why and offers Try again", /by hand/.test(line.text) && line.buttons.some((b) => /Try again/.test(b)), line.text.slice(0, 160));
+    for (let i = 0; i < 30 && !/Settings, Packages/.test(line.text); i++) { await page.waitForTimeout(500); line = await engineLine(page); }
+    console.log("failed line:", JSON.stringify(line));
+    check("install failure: says why and offers Try again", /by hand/.test(line.text) && line.buttons.some((b) => /Try (Tesseract )?again/.test(b)), line.text.slice(0, 160));
     check("install failure: points at the log", /Settings, Packages/.test(line.text));
     await page.screenshot({ path: `${SHOTS}/ocrflow-missing-failed.png` });
     // Packages: the row offers Install and does not claim it is installed.

@@ -39,6 +39,8 @@ const { boot } = require('./lib.js');
 
   await page.evaluate(() => switchTab('graph'));
   await page.waitForTimeout(2500); // let the worker settle the initial layout
+  await page.waitForFunction(() => (graphNodesRef || []).length >= 8, null, { timeout: 60000 }); // slow machines draw late
+  await page.waitForTimeout(1500);
 
   const captured = await page.evaluate(() => {
     const positions = {};
@@ -75,6 +77,7 @@ const { boot } = require('./lib.js');
   });
   await page.waitForTimeout(1500);
 
+  console.log('displaced node id:', await page.evaluate(() => (graphNodesRef || [])[0]?.id));
   const disturbed = await page.evaluate(() => {
     const positions = {};
     for (const n of graphNodesRef || []) positions[n.id] = { x: n.x, y: n.y };
@@ -89,7 +92,23 @@ const { boot } = require('./lib.js');
     sel.value = 'pos sweep';
     sel.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await page.waitForTimeout(300); // right after apply: case A must already hold
+  // Since INBOX 586 a computed layout glides to its place instead of cutting, so
+  // "right after apply" at a fixed 300 ms measured the middle of the glide on a
+  // loaded machine. Wait until the nodes stop moving (a step under 0.5 px for
+  // four samples in a row, 12 s at most), then compare with what was saved.
+  const settle = async () => {
+    let prev = null, still = 0;
+    for (let i = 0; i < 48 && still < 4; i++) {
+      await page.waitForTimeout(250);
+      const cur = await page.evaluate(() => (graphNodesRef || []).map((n) => [n.id, n.x, n.y]));
+      if (prev) {
+        const step = Math.max(0, ...cur.map((c, k) => (prev[k] && prev[k][0] === c[0] ? Math.hypot(c[1] - prev[k][1], c[2] - prev[k][2]) : 99)));
+        still = step < 0.5 ? still + 1 : 0;
+      }
+      prev = cur;
+    }
+  };
+  await settle();
 
   const soonAfterApply = await page.evaluate(() => {
     const positions = {};
@@ -108,8 +127,20 @@ const { boot } = require('./lib.js');
   const dist = (a, b, id) =>
     a[id] && b[id] ? Math.hypot(a[id].x - b[id].x, a[id].y - b[id].y) : Infinity;
   const ids = Object.keys(captured);
+  // d5567b1ec: the graph "fits to the middle", re-centring the world after a render, so
+  // raw coordinates move together by a rigid shift while the picture is unchanged.
+  // Compare the arrangement: remove the mean shift between the two maps, then take
+  // the largest residual. A fresh force solution still shows as hundreds of px.
+  const shifted = (a, b) => {
+    const both = ids.filter((id) => a[id] && b[id]);
+    const dx = both.reduce((t, id) => t + (a[id].x - b[id].x), 0) / (both.length || 1);
+    const dy = both.reduce((t, id) => t + (a[id].y - b[id].y), 0) / (both.length || 1);
+    const worst = both.map((id) => [id, Math.round(Math.hypot(a[id].x - b[id].x - dx, a[id].y - b[id].y - dy))]).sort((x, y) => y[1] - x[1]).slice(0, 4);
+    return { dx: Math.round(dx), dy: Math.round(dy), n: both.length, worst, resid: Math.max(0, ...both.map((id) => Math.hypot(a[id].x - b[id].x - dx, a[id].y - b[id].y - dy))) };
+  };
   const maxDriftFromDisturbed = Math.max(...ids.map((id) => dist(disturbed, soonAfterApply, id)));
-  const maxDriftFromSaved = Math.max(...ids.map((id) => dist(captured, soonAfterApply, id)));
+  const savedShift = shifted(captured, soonAfterApply);
+  const maxDriftFromSaved = savedShift.resid;
   const maxDriftAfterHolding = Math.max(...ids.map((id) => dist(soonAfterApply, longAfterApply, id)));
 
   // Case B: add a note *after* the save, then reapply. The saved notes
@@ -130,14 +161,15 @@ const { boot } = require('./lib.js');
     sel.value = 'pos sweep';
     sel.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await page.waitForTimeout(3000); // let the new note's own settle finish
+  await settle(); // let the new note's own settle finish
 
   const withNewNote = await page.evaluate((newId) => {
     const positions = {};
     for (const n of graphNodesRef || []) positions[n.id] = { x: n.x, y: n.y };
     return { positions, newNodePresent: positions[newId] != null };
   }, newId);
-  const maxDriftWithNewNote = Math.max(...ids.map((id) => dist(captured, withNewNote.positions, id)));
+  const newShift = shifted(captured, withNewNote.positions);
+  const maxDriftWithNewNote = newShift.resid;
 
   const ok = (v) => (v ? 'PASS' : 'FAIL');
   console.log(JSON.stringify({
@@ -145,6 +177,8 @@ const { boot } = require('./lib.js');
     maxDriftFromSaved,
     maxDriftAfterHolding,
     maxDriftWithNewNote,
+    savedShift,
+    newShift,
     newNodePresent: withNewNote.newNodePresent,
     errors: errs,
   }, null, 1));

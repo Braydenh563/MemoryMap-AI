@@ -271,6 +271,11 @@ async function submitLockForm() {
     const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
       method: "POST",
       body: JSON.stringify({ password }),
+      //: A 401 here is "that password is wrong", said under the field. Left
+      //: unclaimed, apiJson read it as an expired session and the field said
+      //: "Locked".
+      ownsAuthErrors: true,
+      silent: true,
     });
     localStorage.setItem("token", body.token);
     if (body.warning) toast(body.warning, "info");

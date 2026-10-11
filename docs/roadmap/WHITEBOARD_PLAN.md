@@ -433,6 +433,18 @@ accessibility, and learnability") are why.
     gallery's name field may stay empty: Create makes "Untitled board N" or
     "Untitled map N", the next number after the highest there is, shown as
     the field's placeholder (`wbUntitledNames`).
+39. **The board's top bar is one row on a phone** (taken 2026-10-11, row
+    1637, WORLD_CLASS_PLAN's "`#wb-topbar` is 104px at 390"). Below 600 the
+    bar is the back arrow (its word kept for a screen reader), the picker,
+    Insert, Edit, View and More. The Board menu leaves: every row of it is a
+    `WB_COMMANDS` row, so More lists it once its toggle is gone, and it is
+    the menu used least often (once per board, not once per edit). The
+    Library button leaves too (Insert's Shapes, icons and frames; View's
+    Library switch), with the two dividers. Measured with `wbbar.js`: 348x104
+    in two rows to 348x54 in one, six controls, all 44px tall; at 320 it
+    still wraps to two rows rather than crushing the picker. This revises
+    UI_MODERNISATION_PLAN's "Insert, Edit, View and Board stay" for the phone
+    only; above 600 the bar is unchanged.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

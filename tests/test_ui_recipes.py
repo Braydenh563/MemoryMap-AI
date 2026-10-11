@@ -5597,3 +5597,22 @@ def test_file_reading_text_fits_up_to_a_page():
     assert m and "max-height: min(28rem, 55vh)" in m.group(1)
     shell = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text()
     assert re.search(r"\.library-image-card-fold > \.library-image-reading-body \{\s*max-height: 11rem", shell)
+
+
+def test_a_panel_head_is_a_title_and_not_the_eyebrow() -> None:
+    """Row 1586: `h3.panel-head` (and the board sidebar's and Format panel's
+    `h3.wb-sidebar-title`) names a whole card or column, so it draws in the
+    dialog title's voice; `.card h3` (the eyebrow, 12px) is for a label over
+    one group. Measured: five panel heads and both board panel heads at 12px
+    beside the Web panel's 16px."""
+    consistency = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    rule = next(
+        body for sel, body in _rules(consistency)
+        if ".card h3.panel-head" in sel and "h3.wb-sidebar-title" in sel
+    )
+    assert "font-size: var(--text-body)" in rule
+    assert "text-transform: none" in rule
+    assert "color: var(--ink)" in rule
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    heads = re.findall(r'<(\w+) class="panel-head\b', html)
+    assert heads and set(heads) == {"h3"}, f"a panel head left the h3 recipe: {sorted(set(heads))}"

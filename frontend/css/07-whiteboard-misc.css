@@ -1380,15 +1380,11 @@ body.has-agent-monitor #timeline-scroll {
   gap: var(--space-1);
   margin-left: auto;
 }
-/* **The size here is the card's, not this panel's.** `font-size: var(--text-lg)`
-   was declared and never applied: `.card h3` is the app's eyebrow recipe
-   (01-forms-settings.css, 12px/600/uppercase/muted) at (0,1,1), and a bare
-   `.monitor-title` at (0,1,0) loses to it, measured at 12px before and after
-   this line came out. Removed rather than out-specified: every other card and
-   dialog head in the app is that eyebrow, including the dialogs beside this
-   one, and a panel title in its own size would be the odd one. What stays is
-   the margin, which `.card .row > h3` already zeroes for a head row but which
-   this panel would otherwise inherit for its own reasons. */
+/* The title's type is the panel head's (`h3.panel-head`, 08-consistency.css,
+   row 1586: 16px like every dialog title, where it measured 12px as the
+   `.card h3` eyebrow). What stays here is the margin, which `.card .row > h3`
+   already zeroes for a head row but which this panel would otherwise inherit
+   for its own reasons. */
 .monitor-title {
   margin: 0;
 }
@@ -7495,8 +7491,8 @@ button.connection-row:is(:hover, :focus-visible) {
      anything: the menu's own rows are labelled "2+ selected" and "3+
      selected". A phone that has managed to select two objects has the context
      bar in front of it already.
-     Insert, Edit, View and Board stay, because each of those is the only way
-     to what it holds. */
+     Insert, Edit and View stay, because each of those is the only way to
+     what it holds; Board leaves below 600 (the rule after this block). */
   .wb-topbar #wb-fullscreen,
   .wb-topbar .wb-board-menu-wrap:has([aria-controls="wb-arrange-menu"]) {
     display: none;
@@ -7523,6 +7519,46 @@ button.connection-row:is(:hover, :focus-visible) {
      pinch and in the View menu's Zoom rows. */
   .whiteboard-floating-panel.bottom-right {
     display: none;
+  }
+}
+/* **One row on a phone** (row 1637, WHITEBOARD_PLAN decision 39). Measured
+   at 390 before it (`wbbar.js`): 348x104 in two rows, eight controls, the
+   right half wrapped under the left because a wrapping row breaks on each
+   half's own width (the picker asked for 224px). Below 600 the bar is the
+   back arrow, the picker, Insert, Edit, View and More: the Board menu's rows
+   (rename, new, export, switch kind, add to a note, copy link, keys, clear,
+   delete) are all `WB_COMMANDS` rows, so More lists them the moment their
+   toggle is gone (`wbPhoneCarries`); the Library is Insert's Shapes, icons
+   and frames and View's Library switch; the dividers and the back button's
+   word go (the word stays for a screen reader). The left half asks for
+   7.5rem, so at 320 it still wraps rather than crushing the picker. */
+@media (max-width: 599.98px) {
+  .wb-topbar .wb-board-menu-wrap:has([aria-controls="wb-board-menu"]),
+  .wb-topbar #wb-add-note,
+  .wb-topbar .wb-topbar-divider {
+    display: none;
+  }
+  .wb-topbar .wb-back-label {
+    position: absolute;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .wb-topbar #wb-back-to-boards {
+    min-width: var(--target-min);
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .wb-topbar #wb-back-to-boards .ph-lead {
+    margin: 0;
+  }
+  .wb-topbar-left {
+    flex: 1 1 7.5rem;
+  }
+  .wb-topbar #wb-board-select,
+  .wb-topbar .select-shell {
+    min-width: 0;
+    flex: 1 1 auto;
   }
 }
 /* Every floating surface on the board is a `.card`, and `.card` carries a
@@ -11611,12 +11647,11 @@ button.finder-row:is(:focus-visible, :has(:focus-visible)) {
   gap: var(--space-1);
   flex: none;
 }
+/* Its type is the panel title's (08-consistency.css, row 1586). */
 .wb-sidebar-title {
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-size: var(--text-md);
-  font-weight: 600;
 }
 .wb-side-section {
   flex: 1 1 auto;

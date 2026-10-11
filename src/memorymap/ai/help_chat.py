@@ -1298,7 +1298,7 @@ HELP_TOPICS.extend(
                 "Menus: Insert, Edit, Arrange (align, distribute, size, order, group, "
                 "lock), View (background, grid, snap, zoom, full screen) and Board "
                 "(rename, new, export, kind, clear, delete, keys). On a phone, "
-                "More has the rest, a map's too."
+                "More has the rest, the Board menu's rows and a map's too."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

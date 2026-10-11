@@ -977,7 +977,7 @@ Each of these was found by measuring and deferred with evidence; the
   a copy decision for the owner. Owner: responsive.md.
 - Notes (8) and Graph (9) docks are over the seven-control ceiling. Owner:
   docks.md; the fix is a second "more" group, not hiding.
-- `#wb-topbar` is 104px at 390. Owner: responsive.md.
+- ~~`#wb-topbar` is 104px at 390.~~ One row, 54px, since 2026-10-11 (WHITEBOARD_PLAN decision 39).
 - ~~The whiteboard's five menus were restyled but never driven.~~ Driven:
   `kebab-viewport.js` opens all five at three window sizes (15 cases OK) and
   `wbtopbar.js` gates their keyboard and ARIA (WHITEBOARD_PLAN 43; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)").
@@ -4190,3 +4190,7 @@ Brief 74 measured rules 1, 2 and 7 on 12 surfaces (`undo.js`, `reach.js`, `overl
 ## Placed from the settings agent, 2026-10-11 (a decision taken by standing order 3)
 
 - 25f: the 14 appearance settings kept only in this browser do not follow the person to a second browser. Decision, taken: mirror them all to the notebook's preferences except `perf` (performance mode is a property of the machine). Owner: a Sonnet brief after the running ones.
+
+## Decided by the rows agent, 2026-10-11 (standing order 3; house2 ledger rows)
+
+- 1586, panel heads: `h3.panel-head` and the board's `h3.wb-sidebar-title` name a whole card or column, so they are titles (`--text-body`, 600, ink, the dialog title's voice); a label over one group inside a panel (`.doc-outline-title`) stays the eyebrow. Built, DESIGN.md's panel-head row.

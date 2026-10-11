@@ -297,6 +297,12 @@ with its owner named in the entry.
      at once while it stays selected, the popover never covers the topic it
      edits, and one selected look and one reset look in the popover.
 
+815. **The owner, 2026-10-11, verbatim.** "and I want to be able to preview
+     any and all exports and to be able to adjust them in a panel before I
+     export anything, for documents, boards, maps and notes etc." Placed:
+     WHITEBOARD_PLAN "Placed from INBOX, 2026-10-11 (one export panel for
+     the whole app)"; the exports agent (Opus, queued).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 801 (Agent mode and the composer with no model) placed in CHAT_PLAN; 802 (drag the force graph like main) in GRAPH_PLAN; 803 (buttons, OCR, the constellation, the capture gutter) in UI_MODERNISATION_PLAN, each "Placed from INBOX, 2026-10-11".

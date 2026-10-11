@@ -1056,7 +1056,7 @@ are `size`, `ink`, `bold`, `italic`, `align`.
 | Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
 | --- | --- | --- | --- | --- |
 | Edit style as text | no | `editStyle` (Actions.js 1717): a dialog with the `key=value;` string | an "Edit data" dialog showing the item's `data` JSON, parsed and validated on Apply, one undo step; the same field is how AI sees it | M |
-| Edit data: custom properties | no | `EditDataDialog` (Dialogs.js 3707): key and value rows, id, placeholders toggle | `data.props {key: value}` shown as a two-column editor; search and the AI tools read it | M |
+| Edit data: custom properties | yes, 2026-10-11 (canvasdepth2; HISTORY) | `EditDataDialog` (Dialogs.js 3707): key and value rows, id, placeholders toggle | `data.props {key: value}` shown as a two-column editor; search and the AI tools read it | M |
 | Placeholders `%name%` in labels | no | `Graph.replacePlaceholders` (Graph.js 14099), `updatePlaceholders` (13534) | the label renderer replaces `%key%` from `data.props`, `%date%`, `%page%`; export bakes the values | M |
 | Tooltip | no (a title attribute is set for control tooltips only) | `getTooltipForCell` (Graph.js 17291), `editTooltip` | `data.tip` rendered as a hover popover on the SVG item; a link row already exists for notes | S |
 | Note on a shape | no (comments exist, `comment` command) | `editNote` (Actions.js 786) | covered by board comments | none |
@@ -1106,7 +1106,7 @@ are `size`, `ink`, `bold`, `italic`, `align`.
 | Named layers: add, rename, duplicate, delete | no: `wb-layers-tree` lists items grouped by kind (`wbRenderLayers`, whiteboard-library.js 1474) | `LayersWindow` (Dialogs.js 4593): `addLayer`, `rename`, `duplicate`, `delete`, an `mxCell` child of the root per layer | `board.layers [{id, name, visible, locked}]` in the board settings row; items carry `layer` in `data` (sketch, object) or a card column; the tree gains a Layers group above the item groups | M |
 | Show and hide a layer | no | eye toggle per layer, `show`, `hide` | filtered out in render and in hit-testing (`wbItemHidden` already exists for search) | S |
 | Lock a layer | partly: per-item `lock` (`wbIsLocked`) | `lock`, `unlock` | `wbIsLocked` also reads the layer's flag | S |
-| Current layer (new items land in it) | no | `currentLayer` radio | `wbState.layer`, read by every `create` path | S |
+| Current layer (new items land in it) | yes, 2026-10-11 (canvasdepth2; HISTORY) | `currentLayer` radio | `wbState.layer`, read by every `create` path | S |
 | Move selection to a layer, select all in a layer | no | `moveSelectionTo`, `selectObjectsInLayer` (LayersWindow) | two commands in `WB_COMMANDS` | S |
 | Layer order | no (z is per item) | `toFront`, `toBack` on the layer | layer z base added to item z | S |
 | Pages (tabs) in one file: insert, duplicate, rename, delete, move, sort | by decision (WHITEBOARD_PLAN decision 22: frames are the pages; boards are separate rows) | `Pages.js` (2,834 lines), `insertPage`, `removePage`, `renamePage`, `duplicatePage`, `sortPages` (diagramly/Menus.js 264 to 292) | done by decision; a "Pages" side tab already lists frames (`wb-side-tab-pages`) | none |
@@ -1296,7 +1296,7 @@ clash is listed so the choice is made once.
 | Containers (a shape that holds children, drop target highlight, children move with it, auto-resize) | partly: frames hold items (`frames.json`); no drop highlight, no resize with children | `container=1`, `isContainer` (Graph.js 11233), `getDropTarget` (26334), `dropTarget`, `recursiveResize`, `collapsible`, `foldCells` (15610) | frames gain "fit to children", a drop highlight, and collapse; the frame-as-container rule is an existing decision | M |
 | Swimlanes and pools (header strip, lanes in a stack) | no (matrix: partly) | `swimlane;startSize=...`, `childLayout=stackLayout`, `horizontalStack`, `resizeParent`, `resizeLast` | a "Lane" frame preset (frames.json already has "Timeline lane") with a header strip and a stack layout in `wbFrameLayout`: new lane appended in line, children keep their offsets | M |
 | Child layouts (stack, tree, flow, rack) | no | `childLayout` styles (Graph.js, 68 hits), `mxStackLayout`, `rackLayout` | the stack layout on lanes only; others are the Layout menu (section 16) | M |
-| Tables: rows, columns, cell merge, stripes, header | no (a note card with a Markdown table covers it; matrix: drop for now) | `Graph.createTable` (Graph.js 18553), `insertTableRow` (29524), `insertTableColumn` (29349), `setTableRowHeight` (19762), `tableLine`, `tableRow` shapes, Arrange panel `addTable` (Format.js 2162) | a `table` item: a grid frame with row and column sizes, cells as text objects, resize by dragging a line; Markdown paste converts into one | L |
+| Tables: rows, columns, cell merge, stripes, header | rows, columns and a header, 2026-10-11 (canvasdepth2; HISTORY); open: merge, stripes, a line dragged to size one row or column, Markdown paste | `Graph.createTable` (Graph.js 18553), `insertTableRow` (29524), `insertTableColumn` (29349), `setTableRowHeight` (19762), `tableLine`, `tableRow` shapes, Arrange panel `addTable` (Format.js 2162) | a `table` item: a grid frame with row and column sizes, cells as text objects, resize by dragging a line; Markdown paste converts into one | L |
 | Lock, hide and "locked" cursor | yes | `lockUnlock` (Actions.js 521), `locked=1` | done | none |
 | Z-order within a container | yes (z per item) | child order | done | none |
 
@@ -1561,11 +1561,52 @@ measure at 1440 and 390, or left here.
 
 1. Built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (canvasdepth)"): the draw.io sets in the Library with their own ports.
 2. Built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (canvasdepth)"): Mermaid state, class and sequence in.
-3. Built 2026-10-10 (same HISTORY block): `.drawio` import, first page.
+3. Built 2026-10-10 (same HISTORY block): `.drawio` import, first page; every page, each in a frame, built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"). Open: `.drawio` export, rotation, images.
 4. Built 2026-10-10 (same HISTORY block): swimlanes in the Frames set.
-5. Built 2026-10-10 (same HISTORY block): named layers with show, hide and lock. Open from section 6: a current layer new items land in, layer order.
+5. Built 2026-10-10 (same HISTORY block): named layers with show, hide and lock. The current layer built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"). Open from section 6: layer order.
 6. Built 2026-10-10 (same HISTORY block): find reads labels and text boxes; Ctrl+H replaces. Open from section 9: regex, whole word, notes' own text.
-7. The hand-drawn look (Excalidraw), a board option.
-8. Tables (section 12).
+7. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): the hand-drawn look, a board option and an item style.
+8. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): tables (section 12). Open from section 12: a column's own width, merged cells.
 9. Built 2026-10-10 (same HISTORY block): a laser pointer while presenting.
-10. Edit data and placeholders (section 3).
+10. Edit data built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"). Open from section 3: `%name%` placeholders in labels, find reading the values.
+
+## Placed from INBOX, 2026-10-11 (one export panel for the whole app)
+
+INBOX 815, the owner: "I want to be able to preview any and all exports and
+to be able to adjust them in a panel before I export anything, for
+documents, boards, maps and notes etc." What exists: the board's export
+dialog (WHITEBOARD_PLAN Phase 3, built), with no live preview; documents
+export straight to .docx, .html and .pdf (`documents.js` ~10459 to 11040);
+notes and chats export from Settings and menus with no step between;
+`exportGraphPng` likewise.
+
+Decisions, taken (standing order 3):
+
+1. **One export panel, one recipe.** Every Export opens the same panel: a
+   live preview on the left, options on the right, and one primary "Export"
+   with the file name. Surfaces: a note or a selection of notes, a document,
+   a board or frame or selection, a mind map, the graph, a chat, the Timeline
+   view. Settings' whole-notebook exports keep their rows, and each gains
+   "Preview".
+2. **The preview is the file.** It renders from the same function that
+   writes the file: the PDF's pages, the PNG at its scale, the HTML in a
+   sandboxed frame, the Markdown as text and rendered. It updates within 300
+   ms of an option change; a large export previews its first pages and says
+   so.
+3. **The options per format.**
+   - All formats: the format and file name.
+   - PDF: page size, orientation, margins, light or print theme, a
+     header or footer, and the date.
+   - Images: scale, a transparent or page background, padding, and the area
+     (all, selection, frame, the view).
+   - Text formats: what to include (tags, dates, links, attachments,
+     comments) and the heading level.
+   The last choices per surface are remembered.
+4. **Nothing is lost silently.** The panel lists what the format cannot
+   carry (an ink stroke in Markdown, a video in a PDF) before export.
+
+Gates: the panel at 1440 and 390 inside the viewport. The preview and the
+written file match for each surface and format: the PNG pixel-diffs under
+1%, the PDF has the same page count, the text is byte-equal. Help moves
+with it (standing order 13). Owner: the exports agent (Opus), queued after
+the graph agent.

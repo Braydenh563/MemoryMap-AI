@@ -46,6 +46,9 @@ VERDICT = {
     "src/memorymap/ai/utilities.py": "not a reader: weekday names for writing a date (units and date questions read by recognise)",
     "src/memorymap/ai/factgraph.py": "not a reader: time-unit names a count is not (dates, money, durations read by recognise)",
     # Brief 67 (F3), 2026-10-10.
+    # 2026-10-12 (the week-start setting): the three first days a week can start on.
+    "src/memorymap/api/routes_settings.py": "not a reader: the week_start choices (monday, saturday, sunday) of a setting",
+    "src/memorymap/core/config.py": "not a reader: _WEEK_CHOICES, the week_start setting's first-day names to weekday numbers",
     "src/memorymap/ai/commands.py": "not a reader: _TIME_FIRST, the words that open a reminder's time part (weekday words included), to split it from the task; the date is read by when, which delegates to recognise",
 }
 

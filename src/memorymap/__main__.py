@@ -2608,7 +2608,7 @@ def main() -> None:
         action="store_true",
         help="serve this notebook's tools, notes and skills to an MCP client "
         "(Claude Desktop) over standard input and output, then exit when it "
-        "closes; Settings, Tools shows the config to paste",
+        "closes; Settings, Tools it can use shows the config to paste",
     )
     parser.add_argument(
         "--reset-password",

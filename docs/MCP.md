@@ -73,7 +73,7 @@ With default settings the server offers **54 tools** (of 72 in the registry). Ea
 | `tag_note` | write | Add and/or remove individual tags on one or multiple notes. |
 | `unlink_notes` | write | Remove a connection between two notes that shouldn't be linked. |
 
-The list follows the registry, so it grows as the app does: `tools/list` from your own install is the exact answer, and Settings, Tools shows what is on.
+The list follows the registry, so it grows as the app does: `tools/list` from your own install is the exact answer, and Settings, Tools it can use shows what is on.
 
 ## Start it
 
@@ -84,7 +84,7 @@ You do not normally start it by hand: the client launches it. It speaks stdio, o
 | Source checkout | `python -m memorymap.mcp_server` (with `PYTHONPATH=src` from the repo root, or the venv that has the app's packages) |
 | Packaged app | `Tessellate --mcp` |
 
-The app need not be running. Settings, Tools shows the exact config for your install, with this interpreter and your data folder filled in. Copy that rather than the examples below if they differ.
+The app need not be running. Settings, Tools it can use shows the exact config for your install, with this interpreter and your data folder filled in. Copy that rather than the examples below if they differ.
 
 ## Client configuration
 
@@ -137,7 +137,7 @@ Packaged app (the in-app snippet fills in the real executable path):
 ## Troubleshooting
 
 - **The client says the server failed to start:** run the same command in a terminal. It should wait silently for input; press Ctrl+C to exit. An import error means the `python` in the config lacks the app's packages: use the app's venv or set `PYTHONPATH`.
-- **Notes are missing or it shows an empty notebook:** `MEMORYMAP_DATA_DIR` is not the folder the app uses. Settings, Tools shows the right one.
+- **Notes are missing or it shows an empty notebook:** `MEMORYMAP_DATA_DIR` is not the folder the app uses. Settings, Tools it can use shows the right one.
 - **`Tessellate --mcp` says it needs standard input and output:** it was run by hand in a window. A client has to launch it.
 - **A tool you expect is absent:** it is destructive, interactive or chat-only, or switched off in Settings, Tools. Restart the client after changing it.
 - **Changes in the app do not show up:** the server opens a fresh database session per call, so reloading the client's tool list is enough; restart it if a switch changed.

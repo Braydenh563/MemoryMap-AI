@@ -907,7 +907,7 @@ MORE_TOPICS: list[dict] = [
             "it as a note tagged captions. Translate, once the offline translator is "
             "installed (Settings, Packages), writes each finished line in Spanish "
             "under the captions; the note keeps what was said. Keep the audio of live "
-            "captions (Settings, General, Microphone, off until you turn it on) makes Stop "
+            "captions (off until you turn it on, in Settings, General, Microphone) makes Stop "
             "save the audio too, in Library, Recordings, with the lines as its transcript. "
             "While a voice note records, the same "
             "captions write its words into the dialog as you speak, and the "

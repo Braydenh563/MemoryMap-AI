@@ -1597,21 +1597,51 @@ function syncPhoneMoreButton(activeTabName) {
 // keyboard, so what is tested here is that the property is written, that it
 // is 0 with no keyboard, and that the two docks read it. The behaviour with
 // a real keyboard on a real phone is reasoned, not observed.
+// `scratchpad/ui-sweeps/kbinset.js` stubs the visual viewport (height and
+// offsetTop, three pan states) and measures the composer's bottom against the
+// visible bottom.
 function initKeyboardInset() {
   const viewport = window.visualViewport;
   if (!viewport) return;
+  const root = document.documentElement;
   const write = () => {
-    const covered = window.innerHeight - viewport.height - viewport.offsetTop;
+    // A pinch zoom shrinks the visual viewport exactly as a keyboard does
+    // (height is innerHeight over the scale), so a zoomed page is not a
+    // covered one: only a page at rest scale can have a keyboard on it.
+    const zoomed = (viewport.scale || 1) > 1.05;
+    const covered = zoomed ? 0 : window.innerHeight - viewport.height - viewport.offsetTop;
     // Clamped at zero: `offsetTop` is negative while a page is rubber-banding
     // on iOS, which would otherwise write a negative padding.
-    document.documentElement.style.setProperty(
-      "--keyboard-inset",
-      `${Math.max(0, Math.round(covered))}px`
-    );
+    const inset = Math.max(0, Math.round(covered));
+    root.style.setProperty("--keyboard-inset", `${inset}px`);
+    // The class is what a bulky strip keys off to step aside (the no-model
+    // notice above the composer, 10-responsive.css): a threshold, because a
+    // few pixels of covered strip is a toolbar settling, not a keyboard.
+    root.classList.toggle("keyboard-open", inset > 120);
   };
   viewport.addEventListener("resize", write);
   viewport.addEventListener("scroll", write);
   write();
+  // iOS animates the keyboard in over about a quarter of a second and does
+  // not always fire a resize at the end of it, so the covered strip written
+  // at the start can be stale for the whole time the person is typing (the
+  // owner: "opening up the phone keyboard actually covers the text box").
+  // Reading again as a field takes focus, and a few times while the
+  // animation settles, closes that; and when the field is left, the page is
+  // put back to the top, because iOS scrolls the document to show a focused
+  // field and leaves it scrolled.
+  const fieldSelector = "input, textarea, select, [contenteditable]";
+  const settle = () => [0, 120, 320, 700].forEach((delay) => setTimeout(write, delay));
+  document.addEventListener("focusin", (event) => {
+    if (event.target.closest?.(fieldSelector)) settle();
+  });
+  document.addEventListener("focusout", (event) => {
+    if (!event.target.closest?.(fieldSelector)) return;
+    settle();
+    setTimeout(() => {
+      if (!document.activeElement?.closest?.(fieldSelector) && window.scrollY) window.scrollTo(0, 0);
+    }, 350);
+  });
 }
 
 initKeyboardInset();

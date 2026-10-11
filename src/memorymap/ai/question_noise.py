@@ -281,7 +281,7 @@ _SOCIAL_FILLER = frozenset(
     "for the a lot help helping that this it again man mate bro dude buddy friend all very really much so"
     #: "i'm tired" is tiredness and "you're useless" a complaint, not "ok"
     #: (measured 2026-10-11: both read as an acknowledgement).
-    " i i'm im am feel feeling you're youre ur bot was today".split()
+    " i i'm im am feel feeling you're youre ur bot was today too tbh".split()
 )
 
 SLANG.update({
@@ -1900,6 +1900,14 @@ SOCIAL_PHRASES.update({
     "you suck": "insult", "you're great": "compliment", "you are great": "compliment",
     "ur great": "compliment", "nice work": "compliment", "great job": "compliment",
     "great work": "compliment", "love it": "compliment", "feeling down": "emotion",
+    #: Agreeing (ledger row 543): "think", "plan" and "idea" are note words,
+    #: so "I think so" and "good plan" were searched for.
+    "i think so": "ack", "i guess so": "ack", "i suppose so": "ack", "i hope so": "ack",
+    "i believe so": "ack", "i think": "ack", "sounds like a plan": "ack", "sure thing": "ack",
+    "good plan": "compliment", "gud plan": "compliment", "nice plan": "compliment",
+    "great plan": "compliment", "good idea": "compliment", "gud idea": "compliment",
+    "nice idea": "compliment", "great idea": "compliment", "good call": "compliment",
+    "good point": "compliment", "nice one": "compliment",
 })
 SOCIAL.update({
     "bored": "emotion", "anxious": "emotion", "lonely": "emotion", "sleepy": "emotion",

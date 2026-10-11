@@ -365,8 +365,10 @@ def stored_repeat(rule: str) -> str | None:
     head = rule.split(";BYHOUR=")[0]
     if head in _STORED_REPEATS:
         return _STORED_REPEATS[head]
-    found = re.fullmatch(r"FREQ=(WEEKLY|MONTHLY);BY(?:DAY=[A-Z]{2}|MONTHDAY=\d{1,2})", head)
-    if found:
+    found = re.fullmatch(r"FREQ=(WEEKLY|MONTHLY);BY(?:DAY=[A-Z]{2}|MONTHDAY=(\d{1,2}))", head)
+    #: The 29th to the 31st is not in every month: "monthly" would carry
+    #: February's 28th on into March (ledger row 414), so the day stays.
+    if found and int(found.group(2) or 0) < 29:
         return _STORED_REPEATS["FREQ=" + found.group(1)]
     return head if STORED_RULE.fullmatch(head) else None
 
@@ -417,6 +419,13 @@ def _add_months(at: datetime, months: int, parts: dict) -> datetime:
         want = int(parts.get("BYMONTHDAY", at.day))
         day = date(year, month, max(d for d in range(1, want + 1) if _valid_day(year, month, d)))
     return datetime.combine(day, at.timetz())
+
+
+def anchored(rule: str, due: date) -> str:
+    """A plain "monthly" set on the 29th to the 31st, as the rule that keeps
+    that day: the first roll on lands on the 28th of February, and a bare
+    "monthly" would stay there (ledger row 414)."""
+    return f"FREQ=MONTHLY;BYMONTHDAY={due.day}" if rule == "monthly" and due.day >= 29 else rule
 
 
 def next_occurrence(rule: str, after: datetime) -> datetime:

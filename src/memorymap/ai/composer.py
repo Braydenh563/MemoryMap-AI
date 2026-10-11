@@ -77,7 +77,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from memorymap.ai import act_registry, composer_ack, composer_overview, composer_replies, composer_tables, grounding, phrasing, question_noise, realise, utilities, variants
+from memorymap.ai import act_registry, composer_ack, composer_overview, composer_replies, composer_tables, grounding, phrasing, question_noise, realise, spelling, utilities, variants
 from memorymap.ai import when as when_words
 from memorymap.search import query as query_understanding
 
@@ -2459,6 +2459,7 @@ def _newest(out: _Answer, views: list[NoteView]) -> None:
 
 #: A suggested question longer than this is not a chip (`followups.MAX_LENGTH`).
 NEXT_MAX_CHARS = 90
+_NOTE_NOUNS = frozenset({"note", "notes", "entry", "entries", "jotting", "jottings"})
 
 
 def _next_questions(question: str, shape: str, terms: list[str], views: list[NoteView], cited: set[int]) -> list[list[tuple]]:
@@ -2497,8 +2498,11 @@ def _next_questions(question: str, shape: str, terms: list[str], views: list[Not
         break
     #: The question's own subject, when it is a short name ("dentist
     #: check-up", "sourdough"), asked the other way round in time.
-    subject = _asked_span(question, terms)
-    if subject and len(subject.split()) == len(terms) <= 3 and shape not in ("status", "recent", "compare"):
+    #: "notes" is how the question was put, not what it is about: the chip
+    #: once asked "What is the latest on notes about sourdough?" (row 410).
+    own = [t for t in terms if t.lower() not in _NOTE_NOUNS]
+    subject = _asked_span(question, own)
+    if subject and len(subject.split()) == len(own) <= 3 and shape not in ("status", "recent", "compare"):
         prefix = "next_latest_a" if shape == "when" or _pick(question, "next", ["a", "b"]) == "a" else "next_when_a"
         picks.append([("template", PHRASES[prefix]), ("asked", subject), ("template", PHRASES["next_tag_b"])])
     out = [p for p in picks if len("".join(part[1] for part in p)) <= NEXT_MAX_CHARS]
@@ -2955,7 +2959,9 @@ def _fit_terms(terms: list[str], views: list[NoteView], report: list | None = No
         stem = _stem(term)
         #: Four letters at least, the same first letter, and never to a
         #: shorter word: "peru" is not a typo of "per", "hotle" is of "hotel".
-        if len(stem) < 4 or _holds(stem, vocabulary):
+        #: A dictionary word is what was meant: "rust" is not "rest" (it
+        #: once quoted a soup recipe for "what do I know about rust").
+        if len(stem) < 4 or _holds(stem, vocabulary) or term.lower() in spelling.english():
             fitted.append(term)
             continue
         allowed = question_noise.allowance(stem)

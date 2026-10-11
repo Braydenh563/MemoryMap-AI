@@ -419,7 +419,9 @@ def _say_named(tool: str, result: dict, today: date) -> tuple[str, dict]:
 
 def _say_count(tool: str, result: dict, today: date) -> tuple[str, dict]:
     per = [{"name": k, "notes": int(v)} for k, v in (result.get("by_category") or {}).items()]
-    lead = f"You have {count_noun(int(result.get('total') or 0), 'note')}."
+    #: A scoped count ("tagged harbor") is `count`; the whole notebook's is
+    #: `total`. Reading only `total` said "You have no notes." to the first.
+    lead = f"You have {count_noun(int(result.get('total') or result.get('count') or 0), 'note')}."
     return lead, render(per, title="Notes per category", by="category") if len(per) > 1 else _EMPTY
 
 

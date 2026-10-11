@@ -655,6 +655,7 @@ def _complete(session: Session, reminder: Reminder, tz_offset_minutes: int) -> N
         shift = timedelta(minutes=tz_offset_minutes)
         due = reminder.due_at.replace(tzinfo=None) + shift
         now = utcnow().replace(tzinfo=None) + shift
+        reminder.recurring = rec.anchored(reminder.recurring, due.date())
         for _ in range(1000):
             due = rec.next_occurrence(reminder.recurring, due)
             if due > now:

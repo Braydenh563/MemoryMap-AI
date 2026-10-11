@@ -49,6 +49,9 @@ _DOING = re.compile(r"^\s*what\s+am\s+i\s+(?:working\s+on|doing|up\s+to|busy\s+w
 #: A subject that is itself an asking frame is no subject ("my notes").
 _NOT_TOPIC = re.compile(r"^(?:my|all|the|recent|latest|new|old|last|these|those|other|some|any|what|which)$", re.I)
 _TRAILING_NOTES = re.compile(r"\s+notes?$", re.I)
+#: "what are my notes about sourdough" is about sourdough: the subject was
+#: once "notes about sourdough" ("There are two notes on notes about ...").
+_LEADING_NOTES = re.compile(r"^(?:notes?|entries|entry)\s+(?:about|on|for|of|abt|re|regarding)\s+", re.I)
 
 
 def topic(question: str) -> str | None:
@@ -59,7 +62,7 @@ def topic(question: str) -> str | None:
     for pattern in _ASKS:
         found = pattern.match(text)
         if found:
-            subject = _TRAILING_NOTES.sub("", found.group("t")).strip(" ?.,")
+            subject = _LEADING_NOTES.sub("", _TRAILING_NOTES.sub("", found.group("t"))).strip(" ?.,")
             subject = re.sub(r"^(?:the|a|an)\s+", "", subject, flags=re.I)
             if subject and not _NOT_TOPIC.match(subject):
                 return subject

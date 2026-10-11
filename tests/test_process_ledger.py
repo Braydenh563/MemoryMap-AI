@@ -43,10 +43,15 @@ def test_a_run_carries_its_title_origin_and_timed_lines():
 
 
 def test_a_failed_run_keeps_its_reason_and_lines():
-    with pytest.raises(RuntimeError):
+    def export_that_fails():
         with jobruns.job_run("export", persist=False) as run:
             run.say("Wrote 3 notes.")
             raise RuntimeError("disk full")
+
+    #: Raised inside a helper, so the reads after `pytest.raises` are not
+    #: "unreachable" to CodeQL, which does not model the context manager.
+    with pytest.raises(RuntimeError):
+        export_that_fails()
     done = jobruns.finished()[0]
     assert done["outcome"] == "failed" and done["detail"] == "disk full"
     assert done["lines"][0]["text"] == "Wrote 3 notes."

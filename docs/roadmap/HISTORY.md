@@ -49881,3 +49881,7 @@ Left: `python3 scratchpad/help-audit/count.py frontend/index.html` prints TOTAL 
 - **The panel on the stream**: `/jobs/stream` carries a `tasks` event (the `/tasks` body, resent only when its rows change, looked at each second); Settings, Running now repaints from it (`renderTasks`, the one row recipe) and the status poll stops painting the panel while the stream is open.
 
 Decisions taken (standing order 3): a **skill run** stays on its chat request, not a pool job: it is a turn streamed to the person, and replaying it after a kill would repeat its tool calls. The **startup embedding backfill** stays at the end of the warm-up thread (the A3 reason recorded there); its Run now is durable through `pass`.
+
+### Brief 45 part 2, the dead defs (briefs-1011)
+
+**Built 2026-10-11 (briefs-1011).** WORLD_CLASS_PLAN 24.3's 40 Python candidates rechecked by grep over `src`, `tests`, `frontend` and `scripts`: 3 removed (`composer._yes_no_wrapped`, `timetravel.notebook_began`, `vault.has_recovery`: only their definitions); 1 already gone (`fast_matcher.extract_concepts`); 2 in use now (`taxonomy.extract_categories`, `__main__` `capture_signals`, a uvicorn hook); the other 34 are test hooks (`reset_for_tests` and kin) or `HTMLParser` callbacks, kept.

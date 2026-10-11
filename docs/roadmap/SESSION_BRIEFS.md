@@ -456,7 +456,8 @@ Second part (INBOX 752, the owner: "better npc behaviour at the level of real li
 
 ### Brief 45 part 2 (Opus, high): structure and complexity, acted on
 
-Part 1 (the census, WORLD_CLASS_PLAN 24) is built. Left (`agent-remaining/census-1010.md`): split `whiteboard.js` (21,567 lines; `initWhiteboard` 3,730 lines) and `documents.js` along their seams with no behaviour change (the lints and `wbregress.sh` prove it); fold the 133 duplicated blocks into recipes; remove the 40 Python dead-def candidates (24.3) that a grep confirms; judge the structural decisions as decision rows with their numbers.
+Part 1 (the census, WORLD_CLASS_PLAN 24) is built; the dead defs are done (HISTORY, Brief 45 dead defs). Left (`agent-remaining/census-1010.md`): split `whiteboard.js` (21,567 lines; `initWhiteboard` 3,730 lines) and `documents.js` along their seams with no behaviour change (the lints and `wbregress.sh` prove it); fold the 133 duplicated blocks into recipes; judge the structural decisions as decision rows with their numbers.
+Run it when no agent holds the two files: on 2026-10-11 the wbs, docs and chatmind worktrees had uncommitted edits in them, and a split under live edits turns each of their merges into a hand rebase. 96 test files read `whiteboard.js` by name and 86 `documents.js`; the split moves their assertions to the new file in the same commit.
 
 ## Briefs 46 to 55: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 

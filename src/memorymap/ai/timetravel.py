@@ -30,7 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import Entry, EntryRevision, like_escape, LIKE_ESCAPE
@@ -149,11 +149,6 @@ def day_words(day) -> str:  # noqa: ANN001
     """"1 January 2025": the day number by hand, not `%-d`, which is glibc's
     and raises on Windows (agent.py says so where it bit)."""
     return f"{day.day} {day:%B %Y}"
-
-
-def notebook_began(session: Session) -> datetime | None:
-    """When the first note still in the notebook was written."""
-    return _aware(session.scalar(select(func.min(Entry.created_at))))
 
 
 # --- then and now -----------------------------------------------------------------

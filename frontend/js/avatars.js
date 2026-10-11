@@ -3948,7 +3948,11 @@ function nameMarkBuddyObstacles(tab) {
 //: the control it rings showed through the hole and ran out under the dim
 //: (tourspill.js: 86 to 90px past the ring on Library's "Make something
 //: new" and the status bar's "Find").
-const NMB_POPUPS = "#notif-panel:not(.hidden), .action-menu:not(.hidden), .select-menu:not(.hidden), .help-popover:not(.hidden), #tour-spot:not(.hidden), #tour-card:not(.hidden)";
+//: A dock's "more" menu is a `<details>`, not an `.action-menu`, so it was
+//: missed (the owner, 2026-10-11, over Notes' Reload / Manage tags menu:
+//: "the companion still covers some parts of the ui and doesnt move out of
+//: the way"); any open details menu and any shown menu or listbox counts.
+const NMB_POPUPS = "#notif-panel:not(.hidden), .action-menu:not(.hidden), .select-menu:not(.hidden), .help-popover:not(.hidden), #tour-spot:not(.hidden), #tour-card:not(.hidden), details[open][class*=\"menu\"] > :not(summary), [role=\"menu\"]:not(.hidden), [role=\"listbox\"]:not(.hidden)";
 function nameMarkBuddyPopups() {
   const boxes = [];
   for (const el of document.querySelectorAll(NMB_POPUPS)) {

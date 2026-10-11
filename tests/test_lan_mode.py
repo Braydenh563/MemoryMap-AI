@@ -635,3 +635,16 @@ def test_without_a_password_the_network_gets_nothing(client):
     assert lan.get("/auth/status").status_code == 200
     assert lan.get("/entries?limit=5").status_code == 401
 
+
+
+def test_a_second_notebook_on_this_computer_takes_the_next_lan_port(monkeypatch):
+    """The owner, 2026-10-11: "what if multiple people are running memory map
+    and want to connect over the same lan connection??" Two accounts on one
+    computer: the second used to go local-only when 8443 was held."""
+    from memorymap.core import netbind
+
+    monkeypatch.delenv("MEMORYMAP_LAN_PORT", raising=False)
+    assert netbind.lan_port_candidates(8443)[:3] == [8443, 8444, 8445]
+    assert len(netbind.lan_port_candidates(8443)) == netbind.LAN_PORT_TRIES
+    monkeypatch.setenv("MEMORYMAP_LAN_PORT", "9000")
+    assert netbind.lan_port_candidates(9000) == [9000]

@@ -252,20 +252,28 @@ function renderNavHistoryMenu() {
   }
   //: Say so rather than silently truncating: a jump list that quietly forgets
   //: where you were is worse than one that admits its own limit.
+  //: **One footer row** (INBOX 845, the owner: "can you redesign ... this
+  //: 'clear this list' button??"): the count of older steps on the left and
+  //: the clear action on the right, a quiet text action, muted until it is
+  //: pointed at, no icon and no fill. It was a bordered, tinted button with a
+  //: trash can on a row of its own, the loudest thing in the list.
+  const foot = document.createElement("div");
+  foot.className = "nav-history-foot";
   if (older > 0) {
-    const more = document.createElement("div");
+    const more = document.createElement("span");
     more.className = "muted text-xs nav-history-more";
     more.textContent = `${older} older ${older === 1 ? "step" : "steps"} not shown`;
-    menu.appendChild(more);
+    foot.appendChild(more);
   }
   if (tabHistory.stack.length > 1) {
     const clear = document.createElement("button");
     clear.type = "button";
-    clear.className = "ghost small nav-history-clear";
+    clear.className = "nav-history-clear";
     clear.setAttribute("role", "menuitem");
-    setLabel(clear, "ph:trash Clear this list");
+    clear.textContent = "Clear this list";
     clear.title = "Forget every place but this one";
     clear.addEventListener("click", navHistoryClear);
-    menu.appendChild(clear);
+    foot.appendChild(clear);
   }
+  if (foot.childElementCount) menu.appendChild(foot);
 }

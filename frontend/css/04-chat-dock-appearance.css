@@ -979,6 +979,15 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
      hairline above is what separates it, and that is enough. */
 }
 
+/* The one-line hint under the composer when Agent runs with no model
+   (INBOX 840). Muted and small, one line that wraps rather than clips. */
+.chat-agent-hint {
+  margin: 0;
+  padding-inline: var(--space-2);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
 /* One strip rather than three stacked rows.
    Asked for: "make the bottom dock in the chat cleaner and better structured
    ui wise so it's not as bulky". The height was the complaint and the cause
@@ -1148,6 +1157,14 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
   background-position: right 0.75rem center, right 0.6rem center;
   background-repeat: no-repeat;
+}
+
+/* The settings gear is an icon-only button, so it takes the icon-button corner
+   (DESIGN.md, "An icon-only button": `--radius-md`, never a circle). The pill
+   above is for the strip's wide chips and fields; on a 32px square it drew a
+   perfect circle beside the composer row's rounded squares (INBOX 841). */
+.chat-dock-controls .chat-dock-more>button.icon-only {
+  border-radius: var(--radius-md);
 }
 
 .chat-dock-controls select:hover,

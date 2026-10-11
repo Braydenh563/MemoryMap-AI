@@ -76,6 +76,8 @@ ON_THE_GRAMMAR = {
     #: Library, Recordings (WORLD_CLASS_PLAN 28.5 row 6, Brief 80).
     "library-recordings",
     "library-skills",
+    #: The quick sketch pad's bar, inside its dialog (INBOX 839).
+    "sketch",
     "notes",
     "timeline",
     "reminders",

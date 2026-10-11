@@ -565,23 +565,33 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
     trust = lantrust.refresh(config.data_dir)
     requested = bind
 
-    def make_socket():  # noqa: ANN202
+    def make_socket(port: int):  # noqa: ANN202
         #: LAN mode over IPv6 (WORLD_CLASS_PLAN §12, row 2): "::" is one
         #: dual-stack socket made here, since uvicorn's own bind of "::" is
         #: IPv6 only on Windows. If it cannot be made, IPv4 as before.
-        made = netbind.listening_socket(requested, lan_port)
+        made = netbind.listening_socket(requested, port)
         return made or socket_module.create_server(
-            (netbind.ALL_INTERFACES if requested == netbind.ALL_INTERFACES_V6 else requested, lan_port)
+            (netbind.ALL_INTERFACES if requested == netbind.ALL_INTERFACES_V6 else requested, port)
         )
 
     sock = None
     if trust["open"]:
-        try:
-            sock = make_socket()
-        except OSError as exc:
+        #: A second notebook on this computer (another person's account)
+        #: already holds 8443: take the next free port rather than going
+        #: local-only; Settings shows whichever address was taken.
+        first_error: OSError | None = None
+        for candidate in netbind.lan_port_candidates(lan_port):
+            try:
+                sock = make_socket(candidate)
+            except OSError as exc:
+                first_error = first_error or exc
+                continue
+            lan_port = candidate
+            break
+        if sock is None:
             logger.warning(
-                "Other devices can't reach this notebook: port %s is taken (%s). "
-                "Listening on this computer only.", lan_port, exc,
+                "Other devices can't reach this notebook: port %s and the next %s are taken (%s). "
+                "Listening on this computer only.", lan_port, netbind.LAN_PORT_TRIES - 1, first_error,
             )
             netbind.set_current(HOST)
             uvicorn.run(app, host=HOST, port=PORT, log_level="info")
@@ -648,7 +658,7 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
         second = asyncio.ensure_future(
             lanserve.serve(
                 lan, sock, port=lan_port, gate=lantrust.is_open,
-                refresh=lambda: lantrust.refresh(config.data_dir), reopen=make_socket,
+                refresh=lambda: lantrust.refresh(config.data_dir), reopen=lambda: make_socket(lan_port),
             )
         )
         while not first.done() and not second.done():

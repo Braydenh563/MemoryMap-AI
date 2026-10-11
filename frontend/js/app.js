@@ -79,7 +79,7 @@ for (const level of ["log", "info", "warn", "error"]) {
 //: notice being reported as a failure.
 const BENIGN_BROWSER_NOTICE = /^ResizeObserver loop (completed with undelivered notifications|limit exceeded)/;
 window.addEventListener("error", (e) =>
-  BENIGN_BROWSER_NOTICE.test(e.message || "") ? undefined :
+  BENIGN_BROWSER_NOTICE.test(e.message || "") || !e.filename ? undefined :
   // e.error.stack, when present, is what actually locates the bug, the
   // message/filename/lineno triple alone has sent more than one session
   // hunting for a null-dereference with no line number to start from.

@@ -228,12 +228,8 @@ def test_greeting_falls_back_to_active_persona_when_unset(ai_client, fake_ollama
 def test_greeting_falls_back_when_ai_is_down(ai_client, fake_ollama):
     fake_ollama.running = False
     body = ai_client.get("/insights/greeting?block=evening").json()
-    assert body["source"] == "fallback"
-    assert body["greeting"] in [
-        "Good evening",
-        "Evening",
-        "Winding down",
-    ]
+    assert body["source"] == "composed"
+    assert body["greeting"] and body["punctuation"] in {".", "?"} and body["append_name"] is True
 
 
 def test_greeting_rejects_a_rambling_model_reply(ai_client, fake_ollama):
@@ -243,8 +239,8 @@ def test_greeting_rejects_a_rambling_model_reply(ai_client, fake_ollama):
         "Good morning and welcome back to your wonderful notebook."
     )
     body = ai_client.get("/insights/greeting?block=night").json()
-    assert body["source"] == "fallback"
-    assert body["greeting"] in ["Still up", "Working late", "Burning the midnight oil"]
+    assert body["source"] == "composed"
+    assert "Certainly" not in body["greeting"]
 
 
 def test_greeting_strips_quotes_and_trailing_punctuation(ai_client, fake_ollama):

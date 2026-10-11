@@ -194,8 +194,9 @@ def _read_authority(data_dir: Path):  # noqa: ANN202  # (certificate, key) or No
 
 def _constraint_trees(names: list[str]):  # noqa: ANN202  # list[x509.GeneralName]
     """The authority's permitted names: the private ranges, `.local`, and
-    each name and address this computer has now (a public address too, as a
-    single host, so a computer on one still gets a working certificate)."""
+    each name and address this computer has now (a public IPv4 address as a
+    single host, a global IPv6 one as its /64, so a computer on one still
+    gets a working certificate)."""
     from cryptography import x509
 
     nets = [ipaddress.ip_network(n) for n in PRIVATE_NETS]
@@ -208,7 +209,10 @@ def _constraint_trees(names: list[str]):  # noqa: ANN202  # list[x509.GeneralNam
                 dns.append(name.lower())
             continue
         if not any(ip in net for net in nets):
-            nets.append(ipaddress.ip_network(ip))
+            # A global IPv6 address rotates within its /64 (privacy
+            # addresses), so the network is permitted, not the one address.
+            prefix = 64 if ip.version == 6 else 32
+            nets.append(ipaddress.ip_network(f"{ip}/{prefix}", strict=False))
     return [x509.DNSName(d) for d in dns] + [x509.IPAddress(n) for n in nets]
 
 

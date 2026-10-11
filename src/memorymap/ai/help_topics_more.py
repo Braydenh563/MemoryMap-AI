@@ -2012,7 +2012,8 @@ MORE_TOPICS.extend([
     {
         "id": "phone",
         "keywords": ("phone", "on my phone", "mobile", "iphone", "android", "tablet", "ipad", "use it on my phone",
-                     "open it on my phone", "public wifi", "public network", "allow a device", "new device"),
+                     "open it on my phone", "install on my phone", "phone storage", "runs on my phone",
+                     "public wifi", "public network", "allow a device", "new device"),
         "body": (
             "Your phone opens this computer's notebook over your own network: turn "
             "on Allow other devices on this network (Settings, Account & security, "
@@ -2029,7 +2030,9 @@ MORE_TOPICS.extend([
             "works: the app sends the phone on to https. If the phone cannot connect, "
             "both must be on the same Wi-Fi (not a guest one) and this computer's "
             "firewall must let the app in. The phone reads and writes the same "
-            "notebook; nothing goes through the internet, so the computer has to be on."
+            "notebook; nothing goes through the internet, so the computer has to be on. "
+            "Nothing installs on the phone: it is only a browser window, and search, "
+            "the models and the notes all run and stay on this computer."
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },

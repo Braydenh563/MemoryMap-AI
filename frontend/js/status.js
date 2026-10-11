@@ -2878,11 +2878,12 @@ function renderChatModeSeg() {
     agentButton.title = gated
       ? `Agent mode needs a model, or the Needle extra, to call tools. ${AI_OFFLINE_HINT}.`
       : engine
-        ? "With no model, Agent answers with the app's own tools: the time, sums, counts, notes on a topic and acts. Needle picks a tool for the rest. A model does more."
+        ? "Agent, app tools only. With no model, Agent answers with the app's own tools: the time, sums, counts, notes on a topic and acts. Needle picks a tool for the rest. A model does more."
         : agentButton.dataset.enabledTitle;
   }
   renderWebSearchToggle();
   const agent = $("tools-toggle").checked && !gated;
+  if (!(agent && modelStatus?.model_ready !== true)) showAgentNoModelHint(false);
   // Two `addEventListener` calls for Quit and Clear-history used to sit here,
   // spliced into the middle of this function by an editing accident. It parsed,
   // so nothing complained: but this function runs on every chat-mode change,
@@ -2897,9 +2898,20 @@ function renderChatModeSeg() {
   }
 }
 
+//: Agent with no model (INBOX 840, CHAT_PLAN 22a): the first choice of it says
+//: so under the composer; the segment's title always does.
+function showAgentNoModelHint(on) {
+  const line = $("chat-agent-hint");
+  if (line) line.classList.toggle("hidden", !on);
+}
+
 async function setChatMode(mode) {
   const agent = mode === "agent";
   $("tools-toggle").checked = agent;
+  if (agent && agentModeAvailable() && modelStatus?.model_ready !== true && !prefs.has("agentNoModelHint")) {
+    prefs.set("agentNoModelHint", "1");
+    showAgentNoModelHint(true);
+  }
   renderChatModeSeg();
   // Remembered, because it is a way of working rather than a per-message
   // choice: the same preference the checkbox always wrote.

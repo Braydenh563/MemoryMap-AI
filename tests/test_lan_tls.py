@@ -161,6 +161,14 @@ def test_a_public_address_gets_an_authority_that_covers_it(tmp_path):
     assert not lancert._covers(_authority(tmp_path), ["203.0.113.6"])
 
 
+def test_a_global_ipv6_address_is_covered_by_its_64(tmp_path):
+    """Windows rotates a privacy IPv6 address inside the same /64 daily; a
+    /128 would make a new authority (and a phone reinstall) every day."""
+    lancert.ensure(tmp_path, ["localhost", "2001:db8:6355:b600::17"])
+    assert lancert._covers(_authority(tmp_path), ["2001:db8:6355:b600:abcd::9"])
+    assert not lancert._covers(_authority(tmp_path), ["2001:db8:6355:b601::9"])
+
+
 def test_a_self_signed_certificate_from_before_is_replaced_by_the_pair(tmp_path):
     info = lancert.ensure(tmp_path, NAMES)
     for path in lancert.authority_paths(tmp_path):

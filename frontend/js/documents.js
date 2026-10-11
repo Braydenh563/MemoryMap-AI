@@ -1159,6 +1159,7 @@ function docMentionsHost(create = false) {
     host = document.createElement("div");
     host.className = "doc-outline-wrap doc-mentions-wrap";
     const heading = document.createElement("h3");
+    heading.className = "doc-outline-title";
     heading.append(
       document.createTextNode("Unlinked mentions "),
       docSectionCount("doc-mentions-count")

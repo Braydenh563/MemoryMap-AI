@@ -2697,9 +2697,9 @@ body.resizing-sidebar {
    `#doc-outline-wrap` is deliberately not in this list. It is what the tab is
    called, so it keeps its heading and answers with a sentence instead
    (`#doc-outline-empty`), which `docoutline.js` asserts. */
-#doc-backlinks-wrap:has(> .doc-outline:empty) > h3,
-#doc-notes-wrap:has(> .doc-outline:empty) > h3,
-#doc-bookmarks-wrap:has(> .doc-outline:empty) > h3,
+#doc-backlinks-wrap:has(> .doc-outline:empty) > .doc-outline-title,
+#doc-notes-wrap:has(> .doc-outline:empty) > .doc-outline-title,
+#doc-bookmarks-wrap:has(> .doc-outline:empty) > .doc-outline-title,
 #doc-backlinks-wrap:has(> .doc-outline:empty) > .doc-outline,
 #doc-notes-wrap:has(> .doc-outline:empty) > .doc-outline,
 #doc-bookmarks-wrap:has(> .doc-outline:empty) > .doc-outline {
@@ -5828,7 +5828,7 @@ button.ghost.doc-template-choice[aria-checked="true"] {
 }
 /* The empty collapse the three sections above already have, for the one the
    script makes. */
-.doc-mentions-wrap:has(> .doc-mentions:empty) > h3,
+.doc-mentions-wrap:has(> .doc-mentions:empty) > .doc-outline-title,
 .doc-mentions-wrap:has(> .doc-mentions:empty) > .doc-mentions-help {
   display: none;
 }

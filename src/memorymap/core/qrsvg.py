@@ -92,12 +92,21 @@ class _Matrix:
             self.put(6, i, i % 2 == 0)
             self.put(i, 6, i % 2 == 0)
         for cx, cy in ((3, 3), (size - 4, 3), (3, size - 4)):
-            for dy in range(-4, 5):
-                for dx in range(-4, 5):
-                    x, y = cx + dx, cy + dy
-                    if 0 <= x < size and 0 <= y < size:
-                        dist = max(abs(dx), abs(dy))
-                        self.put(x, y, dist not in (2, 4))
+            self._finder(cx, cy)
+        self._alignment_patterns()
+        self.format_bits(0)
+        self.version_bits()
+
+    def _finder(self, cx: int, cy: int) -> None:
+        """One finder pattern and its separator, centred at (cx, cy)."""
+        for dy in range(-4, 5):
+            for dx in range(-4, 5):
+                x, y = cx + dx, cy + dy
+                if 0 <= x < self.size and 0 <= y < self.size:
+                    self.put(x, y, max(abs(dx), abs(dy)) not in (2, 4))
+
+    def _alignment_patterns(self) -> None:
+        """The small squares, everywhere but on the three finders."""
         positions = _alignment_positions(self.version)
         last = len(positions) - 1
         for i, ax in enumerate(positions):
@@ -107,8 +116,6 @@ class _Matrix:
                 for dy in range(-2, 3):
                     for dx in range(-2, 3):
                         self.put(ax + dx, ay + dy, max(abs(dx), abs(dy)) != 1)
-        self.format_bits(0)
-        self.version_bits()
 
     def format_bits(self, mask: int) -> None:
         data = _ECL_BITS << 3 | mask
@@ -180,28 +187,8 @@ class _Matrix:
     def penalty(self) -> int:
         size = self.size
         grid = self.dark
-        score = 0
         lines = [row[:] for row in grid] + [[grid[y][x] for y in range(size)] for x in range(size)]
-        finder = (True, False, True, True, True, False, True)
-        for line in lines:
-            run = 1
-            for i in range(1, size + 1):
-                if i < size and line[i] == line[i - 1]:
-                    run += 1
-                    continue
-                if run >= 5:
-                    score += 3 + run - 5
-                run = 1
-            #: Rule 3: the finder's 1:1:3:1:1 with four light modules on a
-            #: side, the light side allowed to run past the edge.
-            padded = [False] * 4 + line + [False] * 4
-            for i in range(len(padded) - 6):
-                if tuple(padded[i:i + 7]) != finder:
-                    continue
-                before = padded[max(0, i - 4):i]
-                after = padded[i + 7:i + 11]
-                if (len(before) == 4 and not any(before)) or (len(after) == 4 and not any(after)):
-                    score += 40
+        score = sum(_run_penalty(line) + _finder_penalty(line) for line in lines)
         for y in range(size - 1):
             for x in range(size - 1):
                 c = grid[y][x]
@@ -213,17 +200,63 @@ class _Matrix:
         return score + k * 10
 
 
+def _run_penalty(line: list[bool]) -> int:
+    """Rule 1: a run of five or more alike scores 3 plus one for each beyond five."""
+    score, run = 0, 1
+    for i in range(1, len(line) + 1):
+        if i < len(line) and line[i] == line[i - 1]:
+            run += 1
+            continue
+        if run >= 5:
+            score += 3 + run - 5
+        run = 1
+    return score
+
+
+def _finder_penalty(line: list[bool]) -> int:
+    """Rule 3: the finder's 1:1:3:1:1 with four light modules on a side, the
+    light side allowed to run past the edge."""
+    finder = (True, False, True, True, True, False, True)
+    score = 0
+    padded = [False] * 4 + line + [False] * 4
+    for i in range(len(padded) - 6):
+        if tuple(padded[i:i + 7]) != finder:
+            continue
+        before = padded[max(0, i - 4):i]
+        after = padded[i + 7:i + 11]
+        if (len(before) == 4 and not any(before)) or (len(after) == 4 and not any(after)):
+            score += 40
+    return score
+
+
 def encode(text: str, mask: int | None = None) -> list[list[bool]]:
     """The QR matrix for `text` (UTF-8, byte mode, level M): rows of
     booleans, True dark, without the quiet zone. `mask` forces one of the
     eight masks (for tests); otherwise the lowest penalty wins."""
     payload = text.encode("utf-8")
+    version, count_bits = _version_for(len(payload))
+    interleaved = _interleaved_codewords(version, _data_bits(payload, version, count_bits))
+    matrix = _Matrix(version)
+    matrix.function_patterns()
+    matrix.codewords(interleaved)
+    if mask is None:
+        mask = _best_mask(matrix)
+    matrix.apply_mask(mask)
+    matrix.format_bits(mask)
+    return matrix.dark
+
+
+def _version_for(length: int) -> tuple[int, int]:
+    """The smallest QR version that holds `length` bytes, with its count field width."""
     for version in range(1, MAX_VERSION + 1):
         count_bits = 8 if version <= 9 else 16
-        if 4 + count_bits + len(payload) * 8 <= _data_codewords(version) * 8:
-            break
-    else:
-        raise ValueError("too long for a QR code here")
+        if 4 + count_bits + length * 8 <= _data_codewords(version) * 8:
+            return version, count_bits
+    raise ValueError("too long for a QR code here")
+
+
+def _data_bits(payload: bytes, version: int, count_bits: int) -> list[int]:
+    """Mode, length, bytes, terminator and the alternating pad bytes, as bits."""
     capacity = _data_codewords(version) * 8
     bits: list[int] = []
 
@@ -240,8 +273,12 @@ def encode(text: str, mask: int | None = None) -> list[list[bool]]:
     while len(bits) < capacity:
         append(pad, 8)
         pad ^= 0xEC ^ 0x11
-    data = [int("".join(map(str, bits[i:i + 8])), 2) for i in range(0, len(bits), 8)]
+    return bits
 
+
+def _interleaved_codewords(version: int, bits: list[int]) -> list[int]:
+    """The data codewords with their error-correction blocks, interleaved."""
+    data = [int("".join(map(str, bits[i:i + 8])), 2) for i in range(0, len(bits), 8)]
     blocks_n = _BLOCKS[version]
     ecc_len = _ECC_PER_BLOCK[version]
     raw_codewords = _raw_modules(version) // 8
@@ -263,23 +300,20 @@ def encode(text: str, mask: int | None = None) -> list[list[bool]]:
         for j, block in enumerate(blocks):
             if i != short_len - ecc_len or j >= short_count:
                 interleaved.append(block[i])
+    return interleaved
 
-    matrix = _Matrix(version)
-    matrix.function_patterns()
-    matrix.codewords(interleaved)
-    if mask is None:
-        best = None
-        for candidate in range(8):
-            matrix.apply_mask(candidate)
-            matrix.format_bits(candidate)
-            score = matrix.penalty()
-            if best is None or score < best[0]:
-                best = (score, candidate)
-            matrix.apply_mask(candidate)
-        mask = best[1]
-    matrix.apply_mask(mask)
-    matrix.format_bits(mask)
-    return matrix.dark
+
+def _best_mask(matrix: "_Matrix") -> int:
+    """The mask (0 to 7) with the lowest penalty."""
+    best = None
+    for candidate in range(8):
+        matrix.apply_mask(candidate)
+        matrix.format_bits(candidate)
+        score = matrix.penalty()
+        if best is None or score < best[0]:
+            best = (score, candidate)
+        matrix.apply_mask(candidate)
+    return best[1]
 
 
 def svg(text: str, *, quiet: int = 4) -> str:

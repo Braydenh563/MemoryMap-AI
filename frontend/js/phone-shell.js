@@ -987,6 +987,20 @@ function openNotePage(entry, returnFocus = null) {
   }
 }
 
+//: A change from another device (`followNoteChanges`, notes-list.js) reaches
+//: an open note page too: its text is swapped for the fresh card's, in place,
+//: so the page keeps its scroll and its action bar.
+function refreshNotePage(ids) {
+  if (notePageOpenId === null || !ids.includes(notePageOpenId)) return;
+  const entry = allEntries.find((e) => e.id === notePageOpenId);
+  const old = document.querySelector('.sheet-overlay[data-sheet="note"] .note-page-list .entry-content');
+  if (!entry || !old) return;
+  const fresh = entryItem(entry, { actions: true }).querySelector(".entry-content");
+  if (!fresh) return;
+  fresh.classList.remove("entry-clamped");
+  old.replaceWith(fresh);
+}
+
 function closeNotePageIfGone() {
   if (notePageOpenId === null || !notePageClose) return;
   if (!allEntries.some((e) => e.id === notePageOpenId)) notePageClose();

@@ -2410,6 +2410,61 @@ def count_entries(session: Session = Depends(get_session)) -> dict:
     return {"count": session.scalar(select(func.count(Entry.id))) or 0}
 
 
+#: The most ids one `/entries/changes` answer carries; past it, `more` says
+#: re-read the list (a bulk retag or an import touched more than a patch is
+#: worth).
+CHANGES_IDS_MAX = 60
+#: How far behind the newest change the next stamp starts (see below).
+CHANGES_OVERLAP_SECONDS = 2.0
+
+
+@router.get("/changes")
+def entry_changes(
+    since: str = Query(default="", max_length=40),
+    session: Session = Depends(get_session),
+) -> dict:
+    """**Which notes changed since `since`** (INBOX 881, the owner: "what if I
+    make a change on my phone?? does it live update??"). The notes list on
+    another device asks every few seconds and patches those ids in with
+    `refreshEntries`. With no `since` it is only a stamp to ask from next.
+
+    By `updated_at`, which every write moves (an edit, a filing, a bin, an
+    archive, an open too: a refresh of an unchanged row costs one small read
+    and is the price of not missing a change made by a path that forgot
+    `edited_at`). Boards are left out, as the list leaves them out. The stamp
+    sent back is two seconds behind now, so a write whose
+    transaction committed a moment after this read is asked about again
+    rather than missed (and never further back than the newest change, so a
+    change is not sent for ever); the client drops ids it has already seen at
+    the same `updated_at`, which `stamps` carries."""
+    now = utcnow()
+    overlap = timedelta(seconds=CHANGES_OVERLAP_SECONDS)
+    if not since:
+        return {"since": (now - overlap).isoformat(), "ids": [], "stamps": {}, "more": False}
+    try:
+        after = datetime.fromisoformat(since)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="since is not a time this app wrote.") from exc
+    if after.tzinfo is None:
+        after = after.replace(tzinfo=now.tzinfo)
+    rows = session.execute(
+        select(Entry.id, Entry.updated_at)
+        .where(Entry.updated_at > after, Entry.is_board.is_(False))
+        .order_by(Entry.updated_at.desc())
+        .limit(CHANGES_IDS_MAX + 1)
+    ).all()
+    more = len(rows) > CHANGES_IDS_MAX
+    rows = rows[:CHANGES_IDS_MAX]
+    newest = max((r.updated_at for r in rows), default=None)
+    stamp = max(after, min(newest, now - overlap) if newest is not None else now - overlap)
+    return {
+        "since": stamp.isoformat(),
+        "ids": [r.id for r in rows],
+        "stamps": {str(r.id): r.updated_at.isoformat() for r in rows},
+        "more": more,
+    }
+
+
 @router.post("/seed-examples")
 def seed_example_entries(session: Session = Depends(get_session)) -> dict:
     """The onboarding tour's "add example notes" offer (ROADMAP.md's

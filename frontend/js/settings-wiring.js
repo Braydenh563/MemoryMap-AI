@@ -268,10 +268,7 @@ async function submitLockForm() {
     return;
   }
   try {
-    const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
-      method: "POST",
-      body: JSON.stringify({ password }),
-    });
+    const body = await lockRequest(mode, password, errorLine);
     localStorage.setItem("token", body.token);
     if (body.warning) toast(body.warning, "info");
     vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
@@ -307,6 +304,41 @@ async function submitLockForm() {
     if (mode === "setup") offerRecoveryKey(password);
   } catch (error) {
     errorLine.textContent = error.message;
+  }
+}
+
+//: **A new device waits for Allow by itself** (lansafe-1011's leftover): the
+//: server holds an unlock from an unknown phone 45 s for this computer's
+//: Allow, then answers 403 with `device_pending`. Asking again at once picks
+//: the same held request back up, so the phone keeps waiting, up to
+//: `LOCK_DEVICE_WAIT_MS`, instead of telling its owner to press Unlock again
+//: after walking to the computer. Editing the field stops it.
+const LOCK_DEVICE_WAIT_MS = 180_000;
+async function lockRequest(mode, password, errorLine) {
+  const until = Date.now() + LOCK_DEVICE_WAIT_MS;
+  for (;;) {
+    try {
+      const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
+        method: "POST",
+        body: JSON.stringify({ password }),
+      });
+      errorLine.textContent = "";
+      return body;
+    } catch (error) {
+      const waiting = error.body?.device_pending && Date.now() < until && $("lock-password").value === password;
+      if (!waiting) {
+        setBusy($("lock-submit"), false);
+        throw error;
+      }
+      errorLine.textContent = "Waiting for the computer to allow this device. Choose Allow in the notice there.";
+      setBusy($("lock-submit"), true, "Waiting…");
+      //: A full wait queue answers at once; a pause keeps that from spinning.
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      if ($("lock-password").value !== password) {
+        setBusy($("lock-submit"), false);
+        throw error;
+      }
+    }
   }
 }
 

@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Phone: a note changed on one device shows on the other within seconds. The notes list asks every 15 seconds while it is on screen, and at once when you come back to it, which notes changed and redraws only those; a note open as a page on the phone takes the new text, and a note you are editing keeps yours (Save still offers Keep mine or Take theirs).
+- Phone: after the computer chooses Allow for a new phone, the phone's lock screen opens by itself. It waits up to three minutes, saying so on the button, and stops if you change the password field.
+- Help: the Guide's phone answer says an iPhone's browser needs Local Network on and a VPN or ad-blocking app (AdGuard's local VPN) paused when the phone cannot connect.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
 - Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.

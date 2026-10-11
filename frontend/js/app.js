@@ -518,6 +518,7 @@ async function api(path, options = {}) {
     error.status = response.status;
     if (response.status < 500) toast.refused.add(errMsg);
     error.detail = detail.detail;
+    error.body = detail;
     throw error;
   }
   //: A write that can leave a model running on a background thread gets the

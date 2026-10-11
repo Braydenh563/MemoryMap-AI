@@ -101,6 +101,7 @@ from memorymap.api import (
     routes_map_from_notes,
 )
 from memorymap.api.routes_auth import require_unlock
+from memorymap.api.this_computer import is_another_device
 from memorymap.core import (
     backup,
     bgtasks,
@@ -112,6 +113,7 @@ from memorymap.core import (
     jobs,
     logbuffer,
     netbind,
+    origin,
     passes,
     security,
     startup_status,
@@ -1091,6 +1093,10 @@ def _content_length(scope) -> int | None:  # noqa: ANN001
 _JOB_SHUTDOWN_SECONDS = 3.0
 
 
+#: A request that changes something: someone at this computer acting.
+_ACTS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
 class RequestPulse:
     """Pure ASGI, one line of work per request: tells the embedding warm-up
     that the app is busy, so the model load waits for a quiet moment rather
@@ -1101,9 +1107,17 @@ class RequestPulse:
         self.app = app
 
     async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001
-        if scope.get("type") == "http":
-            embeddings.note_request()
-        await self.app(scope, receive, send)
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        embeddings.note_request()
+        #: Which device this request is for (core/origin.py): carried into
+        #: the jobs it queues, so a phone's save cannot start an install here.
+        another = is_another_device(Request(scope))
+        if not another and scope.get("method") in _ACTS and origin.has_deferred():
+            origin.run_deferred()
+        with origin.acting_for(another):
+            await self.app(scope, receive, send)
 
 
 def _start_services() -> Path:
@@ -1367,7 +1381,6 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
 
     @app.get("/health", tags=["system"])
     def health(request: Request) -> dict[str, str | bool]:
-        from memorymap.api.this_computer import is_another_device
         from memorymap.core import reminder_notifier
 
         #: The desktop shell and its notifier belong to this computer. A phone

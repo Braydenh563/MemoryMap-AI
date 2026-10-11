@@ -38,7 +38,9 @@ function privacyGroups(rows) {
 
 function privacyAddressLine(row) {
   const address = row.port ? `${row.host}:${row.port}` : row.host;
-  const verb = row.kind === "lookup" ? "Looked up" : "Connected to";
+  //: INBOX 894: a device on this network opening the app is a row too,
+  //: by its address only; it came in, nothing here reached out to it.
+  const verb = row.kind === "lookup" ? "Looked up" : row.kind === "incoming" ? "Came in from" : "Connected to";
   return `${verb} ${address}, ${row.count} time${row.count === 1 ? "" : "s"}, last ${privacyWhen(row.last)}`;
 }
 
@@ -65,7 +67,8 @@ function privacyDestinationRow(group) {
   const connects = group.rows.filter((row) => row.kind !== "lookup");
   const counted = connects.length ? connects : group.rows;
   const count = counted.reduce((sum, row) => sum + (row.count || 0), 0);
-  const verb = connects.length ? "connected" : "looked up";
+  const incoming = connects.length && connects.every((row) => row.kind === "incoming");
+  const verb = incoming ? "came in" : connects.length ? "connected" : "looked up";
   const what = group.roles.length ? group.roles.join(", ") : "No feature named";
   const meta = document.createElement("p");
   meta.className = "library-file-meta privacy-row-meta";

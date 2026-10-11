@@ -74,7 +74,10 @@ def test_a_command_that_fails_reads_as_unknown(monkeypatch):
 
 
 def _state(**over):
-    state = {"networks": [], "devices": [], "any_network": False, "ask_new_devices": True}
+    state = {
+        "networks": [], "devices": [], "any_network": False, "ask_new_devices": True,
+        "untrusted": [], "turned_on": 0.0, "last_used": 0.0, "switched_off": "",
+    }
     state.update(over)
     return state
 
@@ -345,3 +348,42 @@ def test_addresses_put_the_phones_network_first_and_drop_virtual_adapters():
     )
     assert shown == ["192.168.0.107", "10.8.0.2", "2001:8003::3ef2", "2001:8003::87db"]
     assert netbind.order_addresses(["172.17.0.2"], netid.Network("a", "b", virtual=("172.17.0.2",), address="172.17.0.2")) == ["172.17.0.2"]
+
+
+# --- the looser direction is this computer's (secscan-1011) -------------------
+
+
+def _signed_in_phone(client) -> TestClient:
+    from memorymap.core import deps
+
+    lantrust.set_flag(deps.get_config().data_dir, "ask_new_devices", False)
+    phone = _phone(client)
+    phone.headers["X-Auth-Token"] = phone.post("/auth/unlock", json={"password": PASSWORD}).json()["token"]
+    return phone
+
+
+def test_a_phone_cannot_loosen_the_lan_options(lan_app):
+    """A phone with the password used to turn "Allow on any network" on and
+    "Ask before a new device signs in" off; the safer direction stays open."""
+    from memorymap.api.this_computer import REFUSAL
+
+    phone = _signed_in_phone(lan_app)
+    for body in (
+        {"name": "any_network", "enabled": True, "current_password": PASSWORD},
+        {"name": "ask_new_devices", "enabled": False, "current_password": PASSWORD},
+    ):
+        refused = phone.post("/auth/lan-options", json=body)
+        assert refused.status_code == 403 and refused.json()["detail"] == REFUSAL
+    assert lantrust.load(lantrust_dir(lan_app))["any_network"] is False
+    assert phone.post("/auth/lan-options", json={"name": "ask_new_devices", "enabled": True}).status_code == 200
+    assert phone.post("/auth/lan-options", json={"name": "any_network", "enabled": False}).status_code == 200
+
+
+def test_a_phone_cannot_allow_the_network_it_is_on(lan_app):
+    from memorymap.api.this_computer import REFUSAL
+
+    phone = _signed_in_phone(lan_app)
+    refused = phone.post("/auth/lan-networks/allow", json={"current_password": PASSWORD})
+    assert refused.status_code == 403 and refused.json()["detail"] == REFUSAL
+    assert lantrust.load(lantrust_dir(lan_app))["networks"] == []
+    assert _here(lan_app).post("/auth/lan-networks/allow", json={"current_password": PASSWORD}).status_code == 200

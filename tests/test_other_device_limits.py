@@ -105,8 +105,11 @@ def test_the_phone_cannot_loosen_the_computers_own_sign_in(phone, here):
 def test_the_phone_cannot_turn_the_network_on_or_remake_its_certificate(phone):
     on = {"enabled": True, "current_password": PASSWORD}
     assert phone.post("/auth/lan-access", json=on).status_code == 403
-    assert phone.post("/auth/lan-access", json={"enabled": False}).status_code == 200
     assert phone.post("/auth/lan-certificate").status_code == 403
+    # Off is open to any signed-in device (it only lets fewer in), and it
+    # signs every other device out, the phone that asked included.
+    assert phone.post("/auth/lan-access", json={"enabled": False}).status_code == 200
+    assert phone.post("/auth/lan-certificate").status_code == 401
 
 
 def test_a_short_old_pin_cannot_open_the_notebook_to_the_network(app, session):

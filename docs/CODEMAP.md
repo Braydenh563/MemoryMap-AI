@@ -8600,7 +8600,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Atlas, the app's guide (INBOX 224) | frontend/css/08-consistency.css:1814 |
 | Atlas, the assistant's own character (atlas.js) | frontend/css/08-consistency.css:6672 |
 | BOARD NAVIGATOR AND BOARD SEARCH | frontend/css/07-whiteboard-misc.css:6381 |
-| BREADCRUMBS: WHERE THE CARET IS | frontend/css/05-sidebars-themes.css:5835 |
+| BREADCRUMBS: WHERE THE CARET IS | frontend/css/05-sidebars-themes.css:5854 |
 | Boards, 2026-10-10 (boardmap-1010): lazy with the board, off the boot | frontend/css/library-lazy.css:3455 |
 | Capture: the add tools as a quiet toolbar (INBOX 395) | frontend/css/08-consistency.css:4613 |
 | Capture: the two labelled rows under the note box | frontend/css/07-whiteboard-misc.css:2750 |
@@ -8778,8 +8778,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | activity heatmap + tag cloud widgets | frontend/css/03-dashboard-widgets.css:2267 |
 | activity log | frontend/css/01-forms-settings.css:2769 |
 | activity, as a timeline rather than as cards | frontend/css/library-lazy.css:2357 |
-| an embedded document, drawn as a card (INBOX 421 b) | frontend/css/05-sidebars-themes.css:5943 |
-| and inside a small phone | frontend/css/05-sidebars-themes.css:5721 |
+| an embedded document, drawn as a card (INBOX 421 b) | frontend/css/05-sidebars-themes.css:5962 |
+| and inside a small phone | frontend/css/05-sidebars-themes.css:5740 |
 | appearance settings: grouped, scannable rows | frontend/css/04-chat-dock-appearance.css:1997 |
 | assistant message layout | frontend/css/05-sidebars-themes.css:4215 |
 | attaching notes to a chat message | frontend/css/04-chat-dock-appearance.css:2872 |
@@ -9004,7 +9004,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the page scrollers scroll on the compositor | frontend/css/08-consistency.css:4392 |
 | the page shell (§35L) | frontend/css/00-tokens-shell.css:3560 |
 | the palette on a touch screen (INBOX 464) | frontend/css/10-responsive.css:2495 |
-| the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5690 |
+| the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5709 |
 | the picker itself | frontend/css/05-sidebars-themes.css:3554 |
 | the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10270 |
 | the quick-nav chord's guide | frontend/css/10-responsive.css:418 |
@@ -9028,7 +9028,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the strip's three doors (MINDMAP_PLAN.md §13b) | frontend/css/07-whiteboard-misc.css:8624 |
 | the strips that appear only when they apply | frontend/css/00-tokens-shell.css:1844 |
 | the structural blocks (INBOX 421 b) | frontend/css/05-sidebars-themes.css:1286 |
-| the suggestion menu, the dictionary, and the goal | frontend/css/05-sidebars-themes.css:4965 |
+| the suggestion menu, the dictionary, and the goal | frontend/css/05-sidebars-themes.css:4984 |
 | the switch's hit target (MODERNISATION_AUDIT.md Brief 8) | frontend/css/07-whiteboard-misc.css:7917 |
 | the tab strip is centred on the window, not on whatever is left of it | frontend/css/07-whiteboard-misc.css:7640 |
 | the timeline, de-vibecoded | frontend/css/08-consistency.css:3165 |
@@ -9068,7 +9068,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/02-chat-graph.css | 5875 |
 | frontend/css/03-dashboard-widgets.css | 5147 |
 | frontend/css/04-chat-dock-appearance.css | 6493 |
-| frontend/css/05-sidebars-themes.css | 6053 |
+| frontend/css/05-sidebars-themes.css | 6072 |
 | frontend/css/06-timeline-dialogs.css | 3717 |
 | frontend/css/07-whiteboard-misc.css | 11986 |
 | frontend/css/08-consistency.css | 10618 |

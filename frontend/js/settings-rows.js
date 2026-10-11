@@ -30,6 +30,7 @@ const SETTING_ROWS = [
   { key: "communication_style", id: "pref-style" },
   { key: "composer_voice", id: "pref-voice" },
   { key: "smart_punctuation", id: "pref-smart-punctuation" },
+  { key: "autocorrect", id: "pref-autocorrect" },
   { key: "profile_enabled", id: "pref-profile-enabled" },
   { key: "notifications_muted_except_reminders", id: "pref-notif-mute-except-reminders" },
   { key: "session_idle_ttl_minutes", id: "account-idle-ttl" },

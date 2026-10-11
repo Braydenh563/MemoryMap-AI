@@ -1954,7 +1954,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "command-palette", "find-anything", "search", "addresses", "settings-overview", "settings-reset", "install-app",
     )),
     ("Writing notes", (
-        "capture", "quick-note", "quick-add", "editor-offers", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
+        "capture", "quick-note", "quick-add", "editor-offers", "autocorrect", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
         "write-with-atlas", "translate", "translate-offline", "extract-notes", "voice", "live-captions", "meetings",
     )),
@@ -2220,3 +2220,27 @@ def _act_topic() -> dict:
 
 MORE_TOPICS.append(_act_topic())
 TOPIC_META["chat-acts"] = {"title": "Things Chat does for you", "path": "Chat tab"}
+
+
+#: Autocorrect outside the editor (Brief 94, INBOX 850): autocorrect.js.
+MORE_TOPICS.append({
+    "id": "autocorrect",
+    "keywords": (
+        "autocorrect", "auto correct", "autocorrection", "turn off autocorrect",
+        "fix my typos", "it changed my word", "undo a correction", "corrected my word",
+    ),
+    "body": (
+        "Autocorrect fixes a clear typo, such as teh or hwo, as you finish the "
+        "word, in the note boxes, the chat and Ask composers and the titles. "
+        "The corrected word is underlined for five seconds: click it to put "
+        "back what you typed, or press Backspace or Ctrl+Z straight after, and "
+        "the toast carries Undo too. A word you put back is left alone for the "
+        "rest of the session, and a word in your dictionary never changes. It "
+        "never runs in code, links, tags or search boxes. Turn it off in "
+        "Settings, General, Writing; a document has its own switch in the "
+        "editor's ... menu."
+    ),
+    "badge": {"label": "General", "section": "general", "target": "pref-autocorrect"},
+})
+TOPIC_META["autocorrect"] = {"title": "Autocorrect", "path": "Settings, General, Writing", "target": "pref-autocorrect"}
+

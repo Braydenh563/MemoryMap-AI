@@ -333,6 +333,14 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the meet81 agent (Brief 81, merged 2026-10-11)
+
+Detail: [meet81-1010.md](../archive/agent-remaining/meet81-1010.md).
+
+- The recorder saves plain transcript text into the meeting note; the timed lines live only on the recording. `/voice/transcribe-meeting` still returns text only.
+- Speaker names cannot be edited; the decision and action rules read English cue words only.
+- Not verified: real Whisper segments, a real model's rewording and speaker naming, "Name the speakers" driven in the page.
+
 ## Left by the notify86 agent (Brief 86, merged 2026-10-11)
 
 Detail: [notify86-1010.md](../archive/agent-remaining/notify86-1010.md).

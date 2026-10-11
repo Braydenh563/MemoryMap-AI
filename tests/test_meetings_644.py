@@ -195,11 +195,16 @@ def test_append_writes_through_the_notes_route(client) -> None:
     assert unknown.status_code == 422
 
 
-def test_summarise_without_a_model_says_so(client) -> None:
+def test_summarise_without_a_model_reads_by_rules_and_says_so(client) -> None:
+    """28.5 row 2: no model is no longer a 503. The rules read the notes and
+    the answer says, in one line, that they did."""
     note = _make(client)
     response = client.post(f"/entries/{note['id']}/meeting/summarise")
-    assert response.status_code == 503
-    assert "local AI" in response.json()["detail"]
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["by"] == "rules" and "local AI is off" in body["note"]
+    #: "Sam will send the deck" is already "Send the deck @Sam by Friday".
+    assert body["actions"] == []
 
 
 # --- the timeline ------------------------------------------------------------
@@ -277,6 +282,7 @@ def test_summarise_with_a_model(app_state, fake_ollama) -> None:
     body = response.json()
     assert body["lines"]["decisions"] == ["- Launch in November, from “Launch moves to November”"]
     assert body["actions"] == [] and body["dropped"] == 1
+    assert body["by"] == "model" and body["note"] == ""
     #: Nothing was written: the note is as it was.
     kept = client.get(f"/entries/{note['id']}").json()
     assert kept["content"] == NOTE

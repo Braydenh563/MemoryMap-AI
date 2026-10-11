@@ -77,6 +77,64 @@
   display: none;
 }
 
+/* The transcript (28.5 row 7): a line per segment, each a button that
+   plays from its moment; the line being spoken is marked. */
+.recording-transcript-toggle {
+  align-self: flex-start;
+}
+
+.recording-transcript-toggle .ph-caret-down {
+  transition: transform var(--ui-base);
+}
+
+.recording-transcript-toggle[aria-expanded="true"] .ph-caret-down {
+  transform: rotate(180deg);
+}
+
+.recording-transcript {
+  display: grid;
+  gap: var(--space-1);
+  /* About seven lines, then it scrolls inside the row. */
+  max-height: calc(var(--control-h-touch) * 7);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.recording-line {
+  display: flex;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.recording-line:hover {
+  background: var(--inner);
+}
+
+.recording-line.is-now {
+  background: var(--accent-soft);
+}
+
+.recording-line-at {
+  flex: none;
+  min-width: 5ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.recording-line-who {
+  flex: none;
+  font-weight: 600;
+}
+
 .recording-act {
   display: flex;
   align-items: center;

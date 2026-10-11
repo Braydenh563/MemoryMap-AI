@@ -13,6 +13,7 @@ the list is read, marked recovered so the app says so once.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Response, UploadFile
@@ -20,12 +21,14 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from memorymap.ai import voice
+from memorymap.ai import speakers, voice
 from memorymap.api import paging
-from memorymap.core import activity, deps, recordings
-from memorymap.core.database import Recording, utcnow
+from memorymap.core import activity, deps, recordings, transcript
+from memorymap.core.database import Entry, Recording, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import bin as other_bin
+from memorymap.entry import manager
+from memorymap.entry import meetings as meeting_shape
 from memorymap.entry.manager import log_action
 
 router = APIRouter(tags=["recordings"])
@@ -226,8 +229,9 @@ def purge_recording(recording_id: int, session: Session = Depends(get_session)) 
 
 @router.post("/recordings/{recording_id}/transcribe")
 def transcribe_recording(recording_id: int, session: Session = Depends(get_session)) -> dict:
-    """The kept audio, transcribed by the optional add-on (decision 4). With
-    no add-on: 503 and the hint, and the recording is unaffected."""
+    """The kept audio, transcribed by the optional add-on (decision 4), its
+    segments kept with their times on the recording (28.5 row 7). With no
+    add-on: 503 and the hint, and the recording is unaffected."""
     row = _get(session, recording_id)
     if not voice.whisper_available():
         raise HTTPException(status_code=503, detail=voice.INSTALL_HINT)
@@ -236,7 +240,7 @@ def transcribe_recording(recording_id: int, session: Session = Depends(get_sessi
         raise HTTPException(status_code=404, detail="That recording's audio is missing.")
     try:
         with activity.track("transcription", "Transcribing a recording", stoppable=False):
-            text = voice.transcribe(
+            segments = voice.transcribe_segments(
                 Path(path), model_size=deps.get_config().get_preference("voice_model", "base")
             )
     except RuntimeError as exc:
@@ -246,9 +250,83 @@ def transcribe_recording(recording_id: int, session: Session = Depends(get_sessi
         raise HTTPException(
             status_code=422, detail="Couldn't transcribe that recording. Try recording it again."
         ) from exc
+    kept = transcript.clean(segments)
+    if deps.get_ollama().is_running():
+        kept = _named(session, row, kept)
+    row.segments = transcript.dumps(kept)
     log_action(session, "transcribed", "recording", row.id)
     session.commit()
-    return {"text": text}
+    return {"text": " ".join(seg["text"] for seg in kept), "segments": kept}
+
+
+def _people_at(session: Session, row: Recording) -> list[str]:
+    """The attendees of the meeting it was recorded into: names the model
+    may use, read from the note, never guessed."""
+    entry = session.get(Entry, row.entry_id) if row.entry_id else None
+    return meeting_shape.attendees(manager.readable_content(entry)) if entry else []
+
+
+def _named(session: Session, row: Recording, segments: list[dict]) -> list[dict]:
+    """Row 11: the segments with the model's speaker for each turn, or as
+    they were when the model fails (a transcript is never lost to a label)."""
+    try:
+        return transcript.clean(
+            speakers.label(segments, _people_at(session, row), deps.get_model_manager(), deps.get_ollama())
+        )
+    except Exception:  # noqa: BLE001  # any model failure leaves the lines unlabelled
+        logger.warning("naming the speakers failed", exc_info=True)
+        return segments
+
+
+def _segments_of(session: Session, recording_id: int) -> tuple[Recording, list[dict]]:
+    row = _get(session, recording_id)
+    segments = transcript.loads(row.segments)
+    if not segments:
+        raise HTTPException(status_code=404, detail="That recording has no transcript yet. Transcribe it first.")
+    return row, segments
+
+
+@router.get("/recordings/{recording_id}/transcript")
+def read_transcript(recording_id: int, session: Session = Depends(get_session)) -> dict:
+    """The transcript's lines with their times, each one a moment the player
+    seeks to."""
+    _row, segments = _segments_of(session, recording_id)
+    return {"segments": segments, "speakers": any(seg["speaker"] for seg in segments)}
+
+
+@router.post("/recordings/{recording_id}/speakers")
+def name_speakers(recording_id: int, session: Session = Depends(get_session)) -> dict:
+    """Name the turns of a transcript made while the model was off (row 11).
+    Behind the model gate: with none, 503 and the sentence the menu never
+    needs to show, since it offers this only when a model is on."""
+    row, segments = _segments_of(session, recording_id)
+    if not deps.get_ollama().is_running():
+        raise HTTPException(status_code=503, detail="Naming the speakers needs the local AI, which is off.")
+    named = _named(session, row, [{**seg, "speaker": None} for seg in segments])
+    row.segments = transcript.dumps(named)
+    session.commit()
+    return {"segments": named, "speakers": any(seg["speaker"] for seg in named)}
+
+
+def _subtitles(session: Session, recording_id: int, ext: str) -> Response:
+    row, segments = _segments_of(session, recording_id)
+    body = transcript.to_srt(segments) if ext == "srt" else transcript.to_vtt(segments)
+    name = re.sub(r"[^A-Za-z0-9._ -]", "_", row.title or "").strip(". ")[:80] or f"recording-{row.id}"
+    return Response(
+        content=body.encode("utf-8"),
+        media_type="application/x-subrip" if ext == "srt" else "text/vtt",
+        headers={"Content-Disposition": f'attachment; filename="{name}.{ext}"'},
+    )
+
+
+@router.get("/recordings/{recording_id}/transcript.srt")
+def transcript_srt(recording_id: int, session: Session = Depends(get_session)) -> Response:
+    return _subtitles(session, recording_id, "srt")
+
+
+@router.get("/recordings/{recording_id}/transcript.vtt")
+def transcript_vtt(recording_id: int, session: Session = Depends(get_session)) -> Response:
+    return _subtitles(session, recording_id, "vtt")
 
 
 @media_router.get("/media/recordings/{recording_id}")

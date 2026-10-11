@@ -550,7 +550,10 @@ HELP_TOPICS: list[dict] = [
             "into it) and \"Voice note\" keep the audio as a recording, saved "
             "every 10 seconds, even with no add-on; with the Voice notes add-on "
             "the transcript is offered to save. Library, Recordings plays them "
-            "at 0.5 to 2x, with markers (M while recording) and Trim. "
+            "at 0.5 to 2x, with markers (M while recording) and Trim; a "
+            "transcribed one lists its lines with their times (press one to "
+            "play from it) and downloads them as SRT or VTT subtitles; with "
+            "the AI on, each turn is labelled with who spoke. "
             "Read-aloud plays a note or answer back to you."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
@@ -577,8 +580,10 @@ HELP_TOPICS: list[dict] = [
             "action items in your notes, each with the words it came from, and "
             "adds them only when you press Add (Undo takes them back); Record "
             "into it transcribes on this machine and adds the transcript under "
-            "Notes; Date and people changes when and who. Everything but "
-            "Summarise works with no AI. Every meeting is under Notes, "
+            "Notes; Date and people changes when and who. All of it works "
+            "with no AI: Summarise then reads lines saying decided, agreed, "
+            "Action or TODO, or a name taking a task, and says so; with the AI "
+            "on it rewords the same list. Every meeting is under Notes, "
             "Meetings, and sits on the Timeline at its own date."
         ),
         "badge": {"label": "Notes", "tab": "notes"},

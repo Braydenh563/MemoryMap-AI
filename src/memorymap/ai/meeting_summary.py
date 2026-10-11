@@ -96,16 +96,50 @@ def parse_reply(reply: str, source: str) -> dict:
     return {"decisions": decisions[:MAX_LINES], "actions": actions[:MAX_LINES], "dropped": dropped}
 
 
+def _cite(item: dict) -> str:
+    """`, from “...”`, or nothing when the line is the quote itself: a
+    sentence copied from the notes (the rules pass, `entry/meetings.find_items`)
+    is its own source, and its "by Friday" is then the reminder's day."""
+    if item.get("verbatim"):
+        return ""
+    return f", from “{item['quote']}”"
+
+
 def as_lines(result: dict) -> dict[str, list[str]]:
     """The markdown each kept item becomes in the note, its source after it:
     `- Launch in November, from “launch moves to November”`. The quote is the
     citation a reader checks against the Notes section above it."""
-    decisions = [f"- {d['text']}, from “{d['quote']}”" for d in result.get("decisions", [])]
+    decisions = [f"- {d['text']}{_cite(d)}" for d in result.get("decisions", [])]
     actions = []
     for a in result.get("actions", []):
         owner = f" @{a['owner']}" if a.get("owner") and f"@{a['owner']}".lower() not in a["text"].lower() else ""
-        actions.append(f"- [ ] {a['text']}{owner}, from “{a['quote']}”")
+        actions.append(f"- [ ] {a['text']}{owner}{_cite(a)}")
     return {"decisions": decisions, "actions": actions}
+
+
+def _same_source(a: dict, b: dict) -> bool:
+    qa, qb = _norm(a["quote"]), _norm(b["quote"])
+    return bool(qa and qb) and (qa in qb or qb in qa)
+
+
+def merge(rules: dict, model: dict) -> dict:
+    """The rules' list with the model's words on top (28.5 row 2): an item
+    both found from the same sentence keeps the model's sentence and the
+    rules' owner and day; what only one found is kept as it is. The model
+    rewrites the list; it never shortens it."""
+    out: dict = {"dropped": model.get("dropped", 0)}
+    for kind in ("decisions", "actions"):
+        written = list(model.get(kind, []))
+        kept = []
+        for item in rules.get(kind, []):
+            twin = next((m for m in written if _same_source(item, m)), None)
+            if twin is None:
+                kept.append(item)
+                continue
+            written.remove(twin)
+            kept.append({**item, **{k: v for k, v in twin.items() if v}, "verbatim": False})
+        out[kind] = (kept + written)[:MAX_LINES]
+    return out
 
 
 def summarise(source: str, model_manager, ollama) -> dict:  # noqa: ANN001

@@ -280,3 +280,136 @@ def reminder_text(item: dict) -> str:
     """What the reminder an action item becomes says: the task, its owner
     kept as written so "@Sam" still says whose it is."""
     return _clean(item["text"], 300)
+
+
+# --- decisions and actions read with no model (WORLD_CLASS 28.5 row 2) ------
+#
+# Summarise used to answer 503 with no model, so "Find the decisions and
+# action items" was a dead control on every machine without one. These rules
+# read what a minute-taker reads: a sentence saying decided or agreed is a
+# decision, and one marked Action or TODO, or a person committing to a task,
+# is an action item. The day and the name are read by `ai/recognise.py`
+# (the one reader of dates); nothing here parses a date word. The model,
+# when there is one, rewrites the same list in its own words
+# (`routes_meetings.summarise_meeting`).
+
+_SENTENCE = re.compile(r"(?<=[.!?])[ \t]+(?=[\"“A-Z@])|\n+")
+_ACTION_MARK = re.compile(
+    r"^(?:action(?:[ \t]+item)?|todo|to[ -]do|next[ \t]+step|follow[ -]up)[ \t]*[:\-][ \t]*", re.I
+)
+_DECISION_WORDS = re.compile(
+    r"\b(?:decided|decision|agreed|agree that|we will|we'll|we are going to|we're going to|"
+    r"resolved|approved|settled on|going with|the plan is)\b",
+    re.I,
+)
+#: A person taking a task on: "Sam will", "Priya to book", "Alex needs to".
+#: A bare "Alex updates" counts only under an Action or TODO mark.
+_COMMIT = r"(?:will|'ll|to|needs to|need to|is going to|has to|must|should|agreed to|offered to)\b"
+_SUBJECT = re.compile(r"^@?([A-Z][a-z]+)(?:[ \t]+[A-Z][a-z]+)?[ \t]+" + _COMMIT)
+_MARKED_SUBJECT = re.compile(r"^@?([A-Z][a-z]+)\b")
+_NOT_A_NAME = frozenset(
+    "We I You They He She It This That There Everyone Everybody Someone Nobody The A An "
+    "Let Lets Okay Ok So And But Then Next First Also Thanks".split()
+)
+_WORD = re.compile(r"[a-z][a-z'-]+")
+_FILLER = frozenset(
+    "the and for with will to by of on in at a an is be our we that this it from as "
+    "can should must needs need going has have was were".split()
+)
+MAX_FOUND = 30
+
+
+def _sentences(source: str) -> list[str]:
+    out = []
+    for raw in _SENTENCE.split(str(source or "")):
+        #: A checkbox is an action item already, wherever it was written
+        #: (`action_items`); offered again it would be a second checkbox.
+        if _TASK.match(raw):
+            continue
+        line = _BULLET.sub(r"\1", raw.strip()).strip()
+        if len(line) >= 8:
+            out.append(line)
+    return out
+
+
+def _owner_of(line: str, marked: bool, spans: list, names: set[str]) -> str | None:
+    """The person a line gives a task to: a mention, an attendee named in
+    it, or the name the sentence starts with when it commits to something."""
+    mention = _OWNER.search(line)
+    if mention:
+        return mention.group(1)
+    subject = (_MARKED_SUBJECT if marked else _SUBJECT).match(line)
+    if subject and subject.group(1) not in _NOT_A_NAME:
+        return subject.group(1)
+    for span in spans:
+        if span.kind == "person" and span.rank == 0:
+            return str(span.value).split(" ")[0]
+    for word in re.findall(r"\b[A-Z][a-z]+\b", line):
+        if word.lower() in names:
+            return word
+    return None
+
+
+def _as_owned(text: str, owner: str | None) -> str:
+    """The owner as the `@Name` every action item is read by, written where
+    the name already stands so the line is not "Sam will ... @Sam"."""
+    if not owner or f"@{owner}".lower() in text.lower():
+        return text
+    named = re.compile(rf"(?<![\w@]){re.escape(owner)}\b")
+    if named.search(text):
+        return named.sub(f"@{owner}", text, count=1)
+    return f"{text} @{owner}"
+
+
+def _read_line(line: str, now, names: set[str]) -> tuple[str, dict] | None:  # noqa: ANN001
+    from memorymap.ai.recognise import recognise
+
+    marked = bool(_ACTION_MARK.match(line))
+    text = _ACTION_MARK.sub("", line).rstrip(" .")
+    spans = recognise(text, now=now, tense="future")
+    owner = _owner_of(text, marked, spans, names)
+    if marked or (owner and _SUBJECT.match(text.lstrip("@"))):
+        due = next((s for s in spans if s.kind in {"date", "datetime"} and s.rank == 0), None)
+        item = {"text": _as_owned(text, owner), "quote": line, "owner": owner, "due": due.read_as if due else None}
+        return "actions", {**item, "verbatim": True}
+    if _DECISION_WORDS.search(text):
+        return "decisions", {"text": text, "quote": line, "verbatim": True}
+    return None
+
+
+def find_items(source: str, people: list[str] | None = None, now=None) -> dict:  # noqa: ANN001
+    """`{"decisions", "actions", "dropped": 0}` read from the meeting's notes
+    by rules alone, in the shape `ai/meeting_summary.parse_reply` returns,
+    so the sheet, the citations and `as_lines` treat both alike. `quote` is
+    the sentence as written; each item is in the notes word for word."""
+    from datetime import datetime
+
+    names = {str(p).lstrip("@").split(" ")[0].lower() for p in people or [] if p}
+    found: dict[str, list[dict]] = {"decisions": [], "actions": []}
+    seen: set[str] = set()
+    for line in _sentences(source):
+        read = _read_line(line, now or datetime.now(), names)
+        key = line.lower()
+        if read is None or key in seen:
+            continue
+        seen.add(key)
+        found[read[0]].append(read[1])
+    return {"decisions": found["decisions"][:MAX_FOUND], "actions": found["actions"][:MAX_FOUND], "dropped": 0}
+
+
+def _content_words(text: str) -> set[str]:
+    return {w for w in _WORD.findall(strip_cite(text).lower().replace("@", "")) if w not in _FILLER}
+
+
+def already_written(content: str, section: str, text: str) -> bool:
+    """True when the section already holds this item in other words: three
+    in four of its words are in one line there. Run twice, Summarise does
+    not offer "Sam will send the deck" under "Send the deck @Sam by Friday"."""
+    words = _content_words(text)
+    if not words:
+        return True
+    for line in section_items(content, section):
+        have = _content_words(line)
+        if len(words & have) >= 0.75 * len(words):
+            return True
+    return False

@@ -10,8 +10,9 @@ note does not already live (`entry/meetings.py` says why).
 
 **It works with no model.** Making, reading and reminding need none: an
 action item's due is read by the same rules Magic Add uses before it ever
-asks a model ("by Friday", "tomorrow at 3pm", "in 2 days"). Only Summarise
-needs one, and says so with a 503 the sheet shows as a sentence.
+asks a model ("by Friday", "tomorrow at 3pm", "in 2 days"). Summarise reads
+decisions and actions by rules first and lets a model reword them when there
+is one (WORLD_CLASS 28.5 row 2).
 """
 
 from __future__ import annotations
@@ -187,11 +188,56 @@ def append_to_meeting(
     )
 
 
+#: What the sheet says under the list, one line each way (28.5 row 2).
+RULES_NOTE = "Found by reading the words (decided, agreed, action, a name and a day); the local AI is off."
+FAILED_NOTE = "The local AI could not reword these just now, so they were found by reading the words."
+
+
+def _model_pass(source: str, found: dict) -> tuple[dict, str, str]:
+    """The model's words on top of the rules' list, or the list as it is
+    with a line saying why: Summarise never answers with nothing to press."""
+    from memorymap.ai import meeting_summary
+
+    ollama = deps.get_ollama()
+    if not ollama.is_running():
+        return found, "rules", RULES_NOTE
+    try:
+        written = meeting_summary.summarise(source, deps.get_model_manager(), ollama)
+    except Exception:  # noqa: BLE001  # any model failure leaves the rules' list
+        logging.getLogger("memorymap.meetings").warning("meeting summary failed", exc_info=True)
+        return found, "rules", FAILED_NOTE
+    return meeting_summary.merge(found, written), "model", ""
+
+
+def _not_yet_written(content: str, result: dict) -> dict:
+    """Drop what the Decisions and Action items sections already hold, so a
+    second Summarise does not offer the same lines again."""
+    sections = {"decisions": shape.DECISIONS, "actions": shape.ACTIONS}
+    return {
+        **result,
+        **{
+            kind: [i for i in result.get(kind, []) if not shape.already_written(content, section, i["text"])]
+            for kind, section in sections.items()
+        },
+    }
+
+
+def _held_at(content: str) -> datetime | None:
+    """The meeting's own date: "tomorrow" in its notes is the day after it
+    was held, not the day after Summarise was pressed."""
+    try:
+        return datetime.fromisoformat(shape.meeting_date(content).replace(" ", "T"))
+    except ValueError:
+        return None
+
+
 @router.post("/entries/{entry_id}/meeting/summarise")
 def summarise_meeting(entry_id: int, session: Session = Depends(get_session)) -> dict:
     """Decisions and action items read out of the meeting's notes, each with
-    the words it came from. Nothing is written: the sheet shows them and the
-    person adds them (through `/meeting/append`, with Undo)."""
+    the words it came from. The rules read them first, with no model
+    (`entry/meetings.find_items`); a model, when there is one, rewords the
+    same list. Nothing is written: the sheet shows them and the person adds
+    them (through `/meeting/append`, with Undo)."""
     from memorymap.ai import meeting_summary
 
     entry = _meeting_entry(session, entry_id)
@@ -201,15 +247,7 @@ def summarise_meeting(entry_id: int, session: Session = Depends(get_session)) ->
     source = shape.section_text(content, shape.NOTES) or shape.note_properties.strip(content)
     if len(source.strip()) < 20:
         raise HTTPException(status_code=422, detail="Write some notes first: there is nothing to summarise yet.")
-    ollama = deps.get_ollama()
-    if not ollama.is_running():
-        raise HTTPException(
-            status_code=503,
-            detail="Summarise needs the local AI, which is off. Everything else here works without it.",
-        )
-    try:
-        result = meeting_summary.summarise(source, deps.get_model_manager(), ollama)
-    except Exception:  # noqa: BLE001  # any model failure is one sentence to the person
-        logging.getLogger("memorymap.meetings").warning("meeting summary failed", exc_info=True)
-        raise HTTPException(status_code=503, detail="The local AI could not summarise this just now. Try again in a moment.")
-    return {**result, "lines": meeting_summary.as_lines(result)}
+    found = shape.find_items(source, shape.attendees(content), _held_at(content))
+    result, by, note = _model_pass(source, found)
+    result = _not_yet_written(content, result)
+    return {**result, "by": by, "note": note, "lines": meeting_summary.as_lines(result)}

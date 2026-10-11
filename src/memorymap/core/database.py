@@ -1675,6 +1675,10 @@ class Recording(Base, WorkspaceMixin):
     peaks: Mapped[str] = mapped_column(Text, default="[]")
     #: Markers pressed while recording, a JSON list of milliseconds.
     markers: Mapped[str] = mapped_column(Text, default="[]")
+    #: The add-on's transcript, a JSON list of `{start, end, text, speaker}`
+    #: in milliseconds (WORLD_CLASS 28.5 row 7, `core/transcript.py`); added
+    #: by the auto-migrator to a database made before it.
+    segments: Mapped[str] = mapped_column(Text, default="[]")
     #: The meeting note it was recorded into, if any (no foreign key: the
     #: note may be binned and purged while the recording is kept).
     entry_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)

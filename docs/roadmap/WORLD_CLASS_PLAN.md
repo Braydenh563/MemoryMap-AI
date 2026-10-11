@@ -4157,16 +4157,16 @@ Translate (offline language packs).
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
 | 1 | fix | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: a recording is an object (`recordings`, decision 2); transcription only with the add-on | no add-on: a 5 s take kept, "Saved a 0:05 recording (webm)" | 12, 3 |
-| 2 | fix | The meeting's decisions and actions found with no model (lines saying decided, agreed, action, TODO, a name and a date); the model writes prose on top | 0 dead controls; a sample meeting's 3 actions found | 12, 4 |
+| 2 | fix | **Built 2026-10-10 (Brief 81; HISTORY "WORLD_CLASS 28.5, Brief 81")**: the meeting's decisions and actions found with no model; the model rewords the same list | 1 to 0 dead controls of 4; the sample's 3 of 3 decisions and 3 of 3 actions | 12, 4 |
 | 3 | redesign | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: the Audio group: New meeting, Record, Voice note, Dictate, Recordings, Live captions (Brief 82); Translate waits for `/voice/status` `translate` (Brief 83) | 5/5 one press from the palette and one click as a tile, 1440 and 390 | 2, 6, 10 |
 | 4 | fix | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: create, remind, save into, save as a meeting, save as a document on `pushUndo` | 1/6 to 6/6 | 1 |
 | 5 | fix | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: a 10 s slice appended per chunk; `POST /recordings/recover` at start | tab killed at 2:00: "Recording recovered", 1:50 (110,306 ms) kept | 3 |
 | 6 | expansion | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: Library, Recordings: play, 0.5 to 2x, the saved waveform (seek), markers (M and a button), trim to a new wav, delete to the bin | `audio80.js` ACT=library at 1440 and 390: each act passes, seek 2.25 of 2.25 s, overflow 0 | 6 |
-| 7 | expansion | A timestamped transcript: a line seeks the audio, SRT and VTT out | a click seeks within 0.5 s | 6 |
+| 7 | expansion | **Built 2026-10-10 (Brief 81; HISTORY "WORLD_CLASS 28.5, Brief 81")**: a timestamped transcript: a line seeks the audio, SRT and VTT out | every line within 0.27 s, 1440 and 390; SRT and VTT byte for byte | 6 |
 | 8 | fix | Transcription is a job with progress and Stop (decision 70) | a 60-minute file lists, reports, stops | 5 |
 | 9 | expansion | Live captions: built against a fake helper; open: the packaged helper download and a run on the reference laptop | Built by Brief 82; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (WORLD_CLASS 28.5 row 9, live captions, Brief 82)"); the open rows are in archive/agent-remaining/caption82-1010.md | |
 | 10 | expansion | **Built 2026-10-10 (Brief 83; HISTORY "WORLD_CLASS 28.5, Brief 83")**: Translate this, offline (Bergamot, MPL-2.0, in a page Worker; English to Spanish as the package "Translate offline"); documents, notes, readings; a caption is a selection like any other (live translated captions not built) | 94-word paragraph warm in Chromium: median 591 ms, 27 of 29 runs under 1 s (load 6 to 9 on 4 shared cores); 27.2 MB download, 41.8 MB on disk | 12 |
-| 11 | expansion | Speaker labels behind the model gate (ANALYSIS keeps it) | 2 speakers labelled on a sample | 12 |
+| 11 | expansion | **Built 2026-10-10 (Brief 81; HISTORY "WORLD_CLASS 28.5, Brief 81")**: speaker labels behind the model gate (ANALYSIS keeps it) | 2 speakers labelled on the sample (fake transport) | 12 |
 
 Briefs: 73 (row 8), 80 (rows 1, 3 to 6), 81 (rows 2, 7, 11), 82 (row 9),
 83 (row 10).

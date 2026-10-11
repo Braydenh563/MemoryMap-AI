@@ -52,6 +52,11 @@ def _get_model(size: str):  # noqa: ANN202  # faster_whisper types are optional
 
 
 def transcribe(audio_path: Path, model_size: str = "base") -> str:
+    """The clip's words as one line of text (see `transcribe_segments`)."""
+    return " ".join(seg["text"] for seg in transcribe_segments(audio_path, model_size)).strip()
+
+
+def transcribe_segments(audio_path: Path, model_size: str = "base") -> list[dict]:
     """Turn one recorded clip into text. Raises RuntimeError with the
     install hint when Whisper isn't available, and RuntimeError with a
     distinct message when the model itself can't be loaded.
@@ -79,4 +84,10 @@ def transcribe(audio_path: Path, model_size: str = "base") -> str:
             "check your internet connection and try again."
         ) from exc
     segments, _info = model.transcribe(str(audio_path))
-    return " ".join(segment.text.strip() for segment in segments).strip()
+    #: Each segment with its times (28.5 row 7): a transcript line seeks the
+    #: player to its moment, and SRT and VTT are written from these.
+    return [
+        {"start": round(segment.start * 1000), "end": round(segment.end * 1000), "text": segment.text.strip()}
+        for segment in segments
+        if segment.text.strip()
+    ]

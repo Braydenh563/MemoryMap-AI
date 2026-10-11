@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5269, frontend ids 2313, CSS sections 490, backend routes 534, backend modules 4391, test files 1024, tests 9420, plan headings 962.
+Counts: frontend functions 5273, frontend ids 2313, CSS sections 490, backend routes 538, backend modules 4425, test files 1027, tests 9441, plan headings 962.
 
-## Frontend functions (5269)
+## Frontend functions (5273)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -4102,69 +4102,73 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `marginRender` | frontend/js/margin-reader.js:107 |
 | `marginSchedule` | frontend/js/margin-reader.js:167 |
 
-### frontend/js/meetings.js (59)
+### frontend/js/meetings.js (63)
 
 | Name | File:line |
 |---|---|
-| `addMeetingMarker` | frontend/js/meetings.js:1550 |
-| `binRecording` | frontend/js/meetings.js:1398 |
-| `closeMeetingRecorder` | frontend/js/meetings.js:893 |
+| `addMeetingMarker` | frontend/js/meetings.js:1642 |
+| `binRecording` | frontend/js/meetings.js:1488 |
+| `closeMeetingRecorder` | frontend/js/meetings.js:898 |
 | `meetingActionRow` | frontend/js/meetings.js:265 |
-| `meetingAppendUndoable` | frontend/js/meetings.js:542 |
+| `meetingAppendUndoable` | frontend/js/meetings.js:547 |
 | `meetingBinPair` | frontend/js/meetings.js:108 |
-| `meetingClockText` | frontend/js/meetings.js:628 |
-| `meetingContainerName` | frontend/js/meetings.js:641 |
-| `meetingCreateUndoable` | frontend/js/meetings.js:561 |
-| `meetingElapsedMs` | frontend/js/meetings.js:623 |
-| `meetingElapsedText` | frontend/js/meetings.js:636 |
+| `meetingClockText` | frontend/js/meetings.js:633 |
+| `meetingContainerName` | frontend/js/meetings.js:646 |
+| `meetingCreateUndoable` | frontend/js/meetings.js:566 |
+| `meetingElapsedMs` | frontend/js/meetings.js:628 |
+| `meetingElapsedText` | frontend/js/meetings.js:641 |
 | `meetingFormRow` | frontend/js/meetings.js:89 |
 | `meetingNowValue` | frontend/js/meetings.js:18 |
-| `meetingPeaksSummary` | frontend/js/meetings.js:676 |
+| `meetingPeaksSummary` | frontend/js/meetings.js:681 |
 | `meetingPeopleField` | frontend/js/meetings.js:40 |
-| `meetingRecordInto` | frontend/js/meetings.js:576 |
-| `meetingRecordingStarted` | frontend/js/meetings.js:964 |
-| `meetingRecordingStopped` | frontend/js/meetings.js:988 |
+| `meetingRecordInto` | frontend/js/meetings.js:581 |
+| `meetingRecordingStarted` | frontend/js/meetings.js:969 |
+| `meetingRecordingStopped` | frontend/js/meetings.js:993 |
 | `meetingRemind` | frontend/js/meetings.js:306 |
-| `meetingSaveTranscript` | frontend/js/meetings.js:514 |
-| `meetingSay` | frontend/js/meetings.js:959 |
+| `meetingSaveTranscript` | frontend/js/meetings.js:519 |
+| `meetingSay` | frontend/js/meetings.js:964 |
 | `meetingSummarise` | frontend/js/meetings.js:424 |
-| `meetingTakeAppend` | frontend/js/meetings.js:661 |
-| `meetingTakeBegin` | frontend/js/meetings.js:645 |
-| `meetingTakeDiscard` | frontend/js/meetings.js:1042 |
-| `meetingTakeFinish` | frontend/js/meetings.js:687 |
-| `meetingTranscribeTake` | frontend/js/meetings.js:1019 |
+| `meetingTakeAppend` | frontend/js/meetings.js:666 |
+| `meetingTakeBegin` | frontend/js/meetings.js:650 |
+| `meetingTakeDiscard` | frontend/js/meetings.js:1047 |
+| `meetingTakeFinish` | frontend/js/meetings.js:692 |
+| `meetingTranscribeTake` | frontend/js/meetings.js:1024 |
 | `meetingWhenText` | frontend/js/meetings.js:29 |
-| `noteRecoveredRecordings` | frontend/js/meetings.js:1143 |
-| `openMeetingRecorder` | frontend/js/meetings.js:871 |
+| `nameRecordingSpeakers` | frontend/js/meetings.js:1469 |
+| `noteRecoveredRecordings` | frontend/js/meetings.js:1148 |
+| `openMeetingRecorder` | frontend/js/meetings.js:876 |
 | `openMeetingSheet` | frontend/js/meetings.js:334 |
 | `openNewMeeting` | frontend/js/meetings.js:131 |
-| `openRecordingTrim` | frontend/js/meetings.js:1429 |
-| `openRecordings` | frontend/js/meetings.js:1181 |
-| `openVoiceNote` | frontend/js/meetings.js:885 |
-| `recordingFacts` | frontend/js/meetings.js:1219 |
-| `recordingMarkers` | frontend/js/meetings.js:1366 |
-| `recordingMenu` | frontend/js/meetings.js:1379 |
-| `recordingPaint` | frontend/js/meetings.js:1341 |
-| `recordingReady` | frontend/js/meetings.js:1272 |
-| `recordingRow` | frontend/js/meetings.js:1230 |
-| `recordingSpeed` | frontend/js/meetings.js:1294 |
-| `recordingTrimField` | frontend/js/meetings.js:1474 |
-| `recordingWav` | frontend/js/meetings.js:1518 |
-| `recordingWave` | frontend/js/meetings.js:1312 |
-| `recordingsEmpty` | frontend/js/meetings.js:1212 |
-| `renameRecording` | frontend/js/meetings.js:1389 |
-| `renderRecordings` | frontend/js/meetings.js:1195 |
-| `resetMeetingUI` | frontend/js/meetings.js:850 |
-| `saveMeetingDocument` | frontend/js/meetings.js:1092 |
-| `saveMeetingNote` | frontend/js/meetings.js:1132 |
-| `saveVoiceNoteText` | frontend/js/meetings.js:1150 |
-| `setMeetingState` | frontend/js/meetings.js:833 |
-| `startMeetingWave` | frontend/js/meetings.js:713 |
-| `stopMeetingTimer` | frontend/js/meetings.js:814 |
-| `toggleMeetingPause` | frontend/js/meetings.js:1064 |
-| `toggleMeetingRecording` | frontend/js/meetings.js:911 |
-| `transcribeRecording` | frontend/js/meetings.js:1411 |
-| `trimRecording` | frontend/js/meetings.js:1494 |
+| `openRecordingTrim` | frontend/js/meetings.js:1521 |
+| `openRecordings` | frontend/js/meetings.js:1186 |
+| `openVoiceNote` | frontend/js/meetings.js:890 |
+| `recordingFacts` | frontend/js/meetings.js:1224 |
+| `recordingMarkers` | frontend/js/meetings.js:1372 |
+| `recordingMenu` | frontend/js/meetings.js:1450 |
+| `recordingPaint` | frontend/js/meetings.js:1347 |
+| `recordingReady` | frontend/js/meetings.js:1278 |
+| `recordingRow` | frontend/js/meetings.js:1235 |
+| `recordingSpeed` | frontend/js/meetings.js:1300 |
+| `recordingTranscript` | frontend/js/meetings.js:1389 |
+| `recordingTranscriptFill` | frontend/js/meetings.js:1403 |
+| `recordingTranscriptNow` | frontend/js/meetings.js:1441 |
+| `recordingTrimField` | frontend/js/meetings.js:1566 |
+| `recordingWav` | frontend/js/meetings.js:1610 |
+| `recordingWave` | frontend/js/meetings.js:1318 |
+| `recordingsEmpty` | frontend/js/meetings.js:1217 |
+| `renameRecording` | frontend/js/meetings.js:1479 |
+| `renderRecordings` | frontend/js/meetings.js:1200 |
+| `resetMeetingUI` | frontend/js/meetings.js:855 |
+| `saveMeetingDocument` | frontend/js/meetings.js:1097 |
+| `saveMeetingNote` | frontend/js/meetings.js:1137 |
+| `saveVoiceNoteText` | frontend/js/meetings.js:1155 |
+| `setMeetingState` | frontend/js/meetings.js:838 |
+| `startMeetingWave` | frontend/js/meetings.js:718 |
+| `stopMeetingTimer` | frontend/js/meetings.js:819 |
+| `toggleMeetingPause` | frontend/js/meetings.js:1069 |
+| `toggleMeetingRecording` | frontend/js/meetings.js:916 |
+| `transcribeRecording` | frontend/js/meetings.js:1501 |
+| `trimRecording` | frontend/js/meetings.js:1586 |
 
 ### frontend/js/model-bench.js (7)
 
@@ -8781,7 +8785,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/help-chat-lazy.css | 32 |
 | frontend/css/icon-picker.css | 100 |
 | frontend/css/library-lazy.css | 4512 |
-| frontend/css/meetings-lazy.css | 119 |
+| frontend/css/meetings-lazy.css | 177 |
 | frontend/css/nav-history-lazy.css | 89 |
 | frontend/css/questions-lazy.css | 84 |
 | frontend/css/quickadd-lazy.css | 35 |
@@ -8792,7 +8796,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/usage-lazy.css | 34 |
 | frontend/css/utilities-lazy.css | 116 |
 
-## Backend routes (534)
+## Backend routes (538)
 
 `@router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, sorted by path. The line is the decorator's.
 
@@ -8928,10 +8932,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/embedding-models/{model_id}` | DELETE | `remove_embedding_model` | src/memorymap/api/routes_settings.py:1947 |
 | `/embedding-models/{model_id}/download` | POST | `download_embedding_model` | src/memorymap/api/routes_settings.py:1928 |
 | `/entries/{entry_id}/files` | POST | `upload_file` | src/memorymap/api/routes_files.py:96 |
-| `/entries/{entry_id}/meeting` | GET | `read_meeting` | src/memorymap/api/routes_meetings.py:89 |
-| `/entries/{entry_id}/meeting/append` | POST | `append_to_meeting` | src/memorymap/api/routes_meetings.py:175 |
-| `/entries/{entry_id}/meeting/remind` | POST | `remind_action` | src/memorymap/api/routes_meetings.py:134 |
-| `/entries/{entry_id}/meeting/summarise` | POST | `summarise_meeting` | src/memorymap/api/routes_meetings.py:190 |
+| `/entries/{entry_id}/meeting` | GET | `read_meeting` | src/memorymap/api/routes_meetings.py:90 |
+| `/entries/{entry_id}/meeting/append` | POST | `append_to_meeting` | src/memorymap/api/routes_meetings.py:176 |
+| `/entries/{entry_id}/meeting/remind` | POST | `remind_action` | src/memorymap/api/routes_meetings.py:135 |
+| `/entries/{entry_id}/meeting/summarise` | POST | `summarise_meeting` | src/memorymap/api/routes_meetings.py:234 |
 | `/entries/{entry_id}/properties` | GET | `entry_properties` | src/memorymap/api/routes_properties.py:45 |
 | `/entries/{entry_id}/properties` | PUT | `put_properties` | src/memorymap/api/routes_properties.py:61 |
 | `/events` | GET | `event_feed` | src/memorymap/api/routes_settings.py:1656 |
@@ -9055,7 +9059,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/media/{upload_id}/readings/{source}` | DELETE | `delete_media_reading` | src/memorymap/api/routes_files.py:3783 |
 | `/media/{upload_id}/region-read` | POST | `media_region_read` | src/memorymap/api/routes_files.py:3625 |
 | `/media/{upload_id}/vision-ocr` | POST | `vision_ocr_media` | src/memorymap/api/routes_files.py:3935 |
-| `/meetings` | POST | `create_meeting` | src/memorymap/api/routes_meetings.py:51 |
+| `/meetings` | POST | `create_meeting` | src/memorymap/api/routes_meetings.py:52 |
 | `/memory` | GET | `list_memory` | src/memorymap/api/routes_settings.py:1297 |
 | `/memory` | POST | `add_memory` | src/memorymap/api/routes_settings.py:1332 |
 | `/memory/{preference_id}` | DELETE | `forget_memory` | src/memorymap/api/routes_settings.py:1428 |
@@ -9110,17 +9114,21 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/receipt` | GET | `receipt` | src/memorymap/api/routes_privacy.py:95 |
 | `/recent` | DELETE | `forget_recent_question` | src/memorymap/api/routes_chat.py:170 |
 | `/recent` | GET | `recent_questions` | src/memorymap/api/routes_chat.py:164 |
-| `/recordings` | GET | `list_recordings` | src/memorymap/api/routes_recordings.py:78 |
-| `/recordings` | POST | `create_recording` | src/memorymap/api/routes_recordings.py:108 |
-| `/recordings/recover` | POST | `recover_recordings` | src/memorymap/api/routes_recordings.py:100 |
-| `/recordings/{recording_id}` | DELETE | `bin_recording` | src/memorymap/api/routes_recordings.py:197 |
-| `/recordings/{recording_id}` | GET | `read_recording` | src/memorymap/api/routes_recordings.py:177 |
-| `/recordings/{recording_id}` | PATCH | `update_recording` | src/memorymap/api/routes_recordings.py:182 |
-| `/recordings/{recording_id}/chunk` | POST | `append_chunk` | src/memorymap/api/routes_recordings.py:131 |
-| `/recordings/{recording_id}/finish` | POST | `finish_recording` | src/memorymap/api/routes_recordings.py:159 |
-| `/recordings/{recording_id}/purge` | POST | `purge_recording` | src/memorymap/api/routes_recordings.py:216 |
-| `/recordings/{recording_id}/restore` | POST | `restore_recording` | src/memorymap/api/routes_recordings.py:207 |
-| `/recordings/{recording_id}/transcribe` | POST | `transcribe_recording` | src/memorymap/api/routes_recordings.py:227 |
+| `/recordings` | GET | `list_recordings` | src/memorymap/api/routes_recordings.py:81 |
+| `/recordings` | POST | `create_recording` | src/memorymap/api/routes_recordings.py:111 |
+| `/recordings/recover` | POST | `recover_recordings` | src/memorymap/api/routes_recordings.py:103 |
+| `/recordings/{recording_id}` | DELETE | `bin_recording` | src/memorymap/api/routes_recordings.py:200 |
+| `/recordings/{recording_id}` | GET | `read_recording` | src/memorymap/api/routes_recordings.py:180 |
+| `/recordings/{recording_id}` | PATCH | `update_recording` | src/memorymap/api/routes_recordings.py:185 |
+| `/recordings/{recording_id}/chunk` | POST | `append_chunk` | src/memorymap/api/routes_recordings.py:134 |
+| `/recordings/{recording_id}/finish` | POST | `finish_recording` | src/memorymap/api/routes_recordings.py:162 |
+| `/recordings/{recording_id}/purge` | POST | `purge_recording` | src/memorymap/api/routes_recordings.py:219 |
+| `/recordings/{recording_id}/restore` | POST | `restore_recording` | src/memorymap/api/routes_recordings.py:210 |
+| `/recordings/{recording_id}/speakers` | POST | `name_speakers` | src/memorymap/api/routes_recordings.py:297 |
+| `/recordings/{recording_id}/transcribe` | POST | `transcribe_recording` | src/memorymap/api/routes_recordings.py:230 |
+| `/recordings/{recording_id}/transcript` | GET | `read_transcript` | src/memorymap/api/routes_recordings.py:289 |
+| `/recordings/{recording_id}/transcript.srt` | GET | `transcript_srt` | src/memorymap/api/routes_recordings.py:322 |
+| `/recordings/{recording_id}/transcript.vtt` | GET | `transcript_vtt` | src/memorymap/api/routes_recordings.py:327 |
 | `/recover` | POST | `recover` | src/memorymap/api/routes_auth.py:1361 |
 | `/recovery-key` | POST | `make_recovery_key` | src/memorymap/api/routes_auth.py:1284 |
 | `/recovery-key/save` | POST | `save_recovery_key` | src/memorymap/api/routes_auth.py:1331 |
@@ -9333,7 +9341,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4391)
+## Backend modules (4425)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10111,30 +10119,30 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_of` | src/memorymap/ai/help_chat.py:2167 |
-| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2098 |
-| `_guide_lead` | src/memorymap/ai/help_chat.py:2548 |
-| `_guide_opening` | src/memorymap/ai/help_chat.py:2556 |
-| `_help_sentences` | src/memorymap/ai/help_chat.py:2531 |
-| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2052 |
-| `_matching_topics` | src/memorymap/ai/help_chat.py:2206 |
-| `_normalise_keys` | src/memorymap/ai/help_chat.py:2075 |
-| `_place` | src/memorymap/ai/help_chat.py:2526 |
-| `_prompt_for` | src/memorymap/ai/help_chat.py:2399 |
-| `_reading_topics` | src/memorymap/ai/help_chat.py:2189 |
-| `_second_sentence` | src/memorymap/ai/help_chat.py:2535 |
-| `answer` | src/memorymap/ai/help_chat.py:2692 |
-| `answer_stream` | src/memorymap/ai/help_chat.py:2630 |
-| `badges_for` | src/memorymap/ai/help_chat.py:2347 |
-| `composed_answer` | src/memorymap/ai/help_chat.py:2570 |
-| `help_block_for` | src/memorymap/ai/help_chat.py:2756 |
-| `help_listing` | src/memorymap/ai/help_chat.py:2318 |
-| `offline_answer` | src/memorymap/ai/help_chat.py:2588 |
-| `social_reply` | src/memorymap/ai/help_chat.py:2499 |
-| `source_names` | src/memorymap/ai/help_chat.py:2314 |
-| `system_answer` | src/memorymap/ai/help_chat.py:2296 |
-| `topic_title` | src/memorymap/ai/help_chat.py:2282 |
-| `topics_for` | src/memorymap/ai/help_chat.py:2361 |
+| `_act_of` | src/memorymap/ai/help_chat.py:2172 |
+| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2103 |
+| `_guide_lead` | src/memorymap/ai/help_chat.py:2553 |
+| `_guide_opening` | src/memorymap/ai/help_chat.py:2561 |
+| `_help_sentences` | src/memorymap/ai/help_chat.py:2536 |
+| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2057 |
+| `_matching_topics` | src/memorymap/ai/help_chat.py:2211 |
+| `_normalise_keys` | src/memorymap/ai/help_chat.py:2080 |
+| `_place` | src/memorymap/ai/help_chat.py:2531 |
+| `_prompt_for` | src/memorymap/ai/help_chat.py:2404 |
+| `_reading_topics` | src/memorymap/ai/help_chat.py:2194 |
+| `_second_sentence` | src/memorymap/ai/help_chat.py:2540 |
+| `answer` | src/memorymap/ai/help_chat.py:2697 |
+| `answer_stream` | src/memorymap/ai/help_chat.py:2635 |
+| `badges_for` | src/memorymap/ai/help_chat.py:2352 |
+| `composed_answer` | src/memorymap/ai/help_chat.py:2575 |
+| `help_block_for` | src/memorymap/ai/help_chat.py:2761 |
+| `help_listing` | src/memorymap/ai/help_chat.py:2323 |
+| `offline_answer` | src/memorymap/ai/help_chat.py:2593 |
+| `social_reply` | src/memorymap/ai/help_chat.py:2504 |
+| `source_names` | src/memorymap/ai/help_chat.py:2319 |
+| `system_answer` | src/memorymap/ai/help_chat.py:2301 |
+| `topic_title` | src/memorymap/ai/help_chat.py:2287 |
+| `topics_for` | src/memorymap/ai/help_chat.py:2366 |
 
 ### src/memorymap/ai/help_topics_more.py (1)
 
@@ -10339,16 +10347,19 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_vector` | src/memorymap/ai/margin.py:71 |
 | `read` | src/memorymap/ai/margin.py:181 |
 
-### src/memorymap/ai/meeting_summary.py (6)
+### src/memorymap/ai/meeting_summary.py (9)
 
 | Name | File:line |
 |---|---|
+| `_cite` | src/memorymap/ai/meeting_summary.py:99 |
 | `_found` | src/memorymap/ai/meeting_summary.py:49 |
 | `_norm` | src/memorymap/ai/meeting_summary.py:45 |
 | `_one_line` | src/memorymap/ai/meeting_summary.py:54 |
-| `as_lines` | src/memorymap/ai/meeting_summary.py:99 |
+| `_same_source` | src/memorymap/ai/meeting_summary.py:120 |
+| `as_lines` | src/memorymap/ai/meeting_summary.py:108 |
+| `merge` | src/memorymap/ai/meeting_summary.py:125 |
 | `parse_reply` | src/memorymap/ai/meeting_summary.py:58 |
-| `summarise` | src/memorymap/ai/meeting_summary.py:111 |
+| `summarise` | src/memorymap/ai/meeting_summary.py:145 |
 
 ### src/memorymap/ai/memory.py (1)
 
@@ -10875,6 +10886,14 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `sources_from_messages` | src/memorymap/ai/source_check.py:102 |
 | `unbacked_claims` | src/memorymap/ai/source_check.py:114 |
 
+### src/memorymap/ai/speakers.py (3)
+
+| Name | File:line |
+|---|---|
+| `_prompt` | src/memorymap/ai/speakers.py:37 |
+| `label` | src/memorymap/ai/speakers.py:66 |
+| `parse_names` | src/memorymap/ai/speakers.py:51 |
+
 ### src/memorymap/ai/starter_acts.py (20)
 
 | Name | File:line |
@@ -11329,12 +11348,13 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `vision_ocr_in_background` | src/memorymap/ai/vision_ocr.py:422 |
 | `vision_ocr_text` | src/memorymap/ai/vision_ocr.py:161 |
 
-### src/memorymap/ai/voice.py (3)
+### src/memorymap/ai/voice.py (4)
 
 | Name | File:line |
 |---|---|
 | `_get_model` | src/memorymap/ai/voice.py:43 |
 | `transcribe` | src/memorymap/ai/voice.py:54 |
+| `transcribe_segments` | src/memorymap/ai/voice.py:59 |
 | `whisper_available` | src/memorymap/ai/voice.py:39 |
 
 ### src/memorymap/api/app.py (32)
@@ -12364,21 +12384,24 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `suggest_branches` | src/memorymap/api/routes_map_suggest.py:147 |
 | `summarise_branch` | src/memorymap/api/routes_map_suggest.py:309 |
 
-### src/memorymap/api/routes_meetings.py (11)
+### src/memorymap/api/routes_meetings.py (14)
 
 | Name | File:line |
 |---|---|
-| `AppendBody` | src/memorymap/api/routes_meetings.py:167 |
-| `MeetingCreate` | src/memorymap/api/routes_meetings.py:39 |
-| `RemindBody` | src/memorymap/api/routes_meetings.py:117 |
-| `_meeting_entry` | src/memorymap/api/routes_meetings.py:73 |
-| `_read_due` | src/memorymap/api/routes_meetings.py:127 |
-| `_reminders_for` | src/memorymap/api/routes_meetings.py:80 |
-| `append_to_meeting` | src/memorymap/api/routes_meetings.py:176 |
-| `create_meeting` | src/memorymap/api/routes_meetings.py:52 |
-| `read_meeting` | src/memorymap/api/routes_meetings.py:90 |
-| `remind_action` | src/memorymap/api/routes_meetings.py:135 |
-| `summarise_meeting` | src/memorymap/api/routes_meetings.py:191 |
+| `AppendBody` | src/memorymap/api/routes_meetings.py:168 |
+| `MeetingCreate` | src/memorymap/api/routes_meetings.py:40 |
+| `RemindBody` | src/memorymap/api/routes_meetings.py:118 |
+| `_held_at` | src/memorymap/api/routes_meetings.py:225 |
+| `_meeting_entry` | src/memorymap/api/routes_meetings.py:74 |
+| `_model_pass` | src/memorymap/api/routes_meetings.py:196 |
+| `_not_yet_written` | src/memorymap/api/routes_meetings.py:212 |
+| `_read_due` | src/memorymap/api/routes_meetings.py:128 |
+| `_reminders_for` | src/memorymap/api/routes_meetings.py:81 |
+| `append_to_meeting` | src/memorymap/api/routes_meetings.py:177 |
+| `create_meeting` | src/memorymap/api/routes_meetings.py:53 |
+| `read_meeting` | src/memorymap/api/routes_meetings.py:91 |
+| `remind_action` | src/memorymap/api/routes_meetings.py:136 |
+| `summarise_meeting` | src/memorymap/api/routes_meetings.py:235 |
 
 ### src/memorymap/api/routes_mentions.py (5)
 
@@ -12498,26 +12521,34 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `read_text` | src/memorymap/api/routes_read.py:37 |
 | `setting_words` | src/memorymap/api/routes_read.py:118 |
 
-### src/memorymap/api/routes_recordings.py (16)
+### src/memorymap/api/routes_recordings.py (24)
 
 | Name | File:line |
 |---|---|
-| `RecordingCreate` | src/memorymap/api/routes_recordings.py:40 |
-| `RecordingFinish` | src/memorymap/api/routes_recordings.py:48 |
-| `RecordingPatch` | src/memorymap/api/routes_recordings.py:54 |
-| `_get` | src/memorymap/api/routes_recordings.py:60 |
-| `append_chunk` | src/memorymap/api/routes_recordings.py:132 |
-| `bin_recording` | src/memorymap/api/routes_recordings.py:198 |
-| `create_recording` | src/memorymap/api/routes_recordings.py:109 |
-| `finish_recording` | src/memorymap/api/routes_recordings.py:160 |
-| `list_recordings` | src/memorymap/api/routes_recordings.py:79 |
-| `purge_recording` | src/memorymap/api/routes_recordings.py:217 |
-| `read_recording` | src/memorymap/api/routes_recordings.py:178 |
-| `recording_audio` | src/memorymap/api/routes_recordings.py:255 |
-| `recover_recordings` | src/memorymap/api/routes_recordings.py:101 |
-| `restore_recording` | src/memorymap/api/routes_recordings.py:208 |
-| `transcribe_recording` | src/memorymap/api/routes_recordings.py:228 |
-| `update_recording` | src/memorymap/api/routes_recordings.py:183 |
+| `RecordingCreate` | src/memorymap/api/routes_recordings.py:43 |
+| `RecordingFinish` | src/memorymap/api/routes_recordings.py:51 |
+| `RecordingPatch` | src/memorymap/api/routes_recordings.py:57 |
+| `_get` | src/memorymap/api/routes_recordings.py:63 |
+| `_named` | src/memorymap/api/routes_recordings.py:269 |
+| `_people_at` | src/memorymap/api/routes_recordings.py:262 |
+| `_segments_of` | src/memorymap/api/routes_recordings.py:281 |
+| `_subtitles` | src/memorymap/api/routes_recordings.py:311 |
+| `append_chunk` | src/memorymap/api/routes_recordings.py:135 |
+| `bin_recording` | src/memorymap/api/routes_recordings.py:201 |
+| `create_recording` | src/memorymap/api/routes_recordings.py:112 |
+| `finish_recording` | src/memorymap/api/routes_recordings.py:163 |
+| `list_recordings` | src/memorymap/api/routes_recordings.py:82 |
+| `name_speakers` | src/memorymap/api/routes_recordings.py:298 |
+| `purge_recording` | src/memorymap/api/routes_recordings.py:220 |
+| `read_recording` | src/memorymap/api/routes_recordings.py:181 |
+| `read_transcript` | src/memorymap/api/routes_recordings.py:290 |
+| `recording_audio` | src/memorymap/api/routes_recordings.py:333 |
+| `recover_recordings` | src/memorymap/api/routes_recordings.py:104 |
+| `restore_recording` | src/memorymap/api/routes_recordings.py:211 |
+| `transcribe_recording` | src/memorymap/api/routes_recordings.py:231 |
+| `transcript_srt` | src/memorymap/api/routes_recordings.py:323 |
+| `transcript_vtt` | src/memorymap/api/routes_recordings.py:328 |
+| `update_recording` | src/memorymap/api/routes_recordings.py:186 |
 
 ### src/memorymap/api/routes_relations.py (10)
 
@@ -13211,17 +13242,17 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 |---|---|
 | `AskTurn` | src/memorymap/core/database.py:1032 |
 | `Attachment` | src/memorymap/core/database.py:955 |
-| `AuditLog` | src/memorymap/core/database.py:2079 |
+| `AuditLog` | src/memorymap/core/database.py:2083 |
 | `Base` | src/memorymap/core/database.py:128 |
 | `BinnedReading` | src/memorymap/core/database.py:1616 |
-| `BoardLibrary` | src/memorymap/core/database.py:1855 |
-| `BoardLibraryItem` | src/memorymap/core/database.py:1873 |
-| `BoardLibraryMark` | src/memorymap/core/database.py:1897 |
+| `BoardLibrary` | src/memorymap/core/database.py:1859 |
+| `BoardLibraryItem` | src/memorymap/core/database.py:1877 |
+| `BoardLibraryMark` | src/memorymap/core/database.py:1901 |
 | `Bookmark` | src/memorymap/core/database.py:1078 |
 | `Category` | src/memorymap/core/database.py:274 |
 | `ChunkVector` | src/memorymap/core/database.py:880 |
 | `Conversation` | src/memorymap/core/database.py:997 |
-| `DatabaseManager` | src/memorymap/core/database.py:2260 |
+| `DatabaseManager` | src/memorymap/core/database.py:2264 |
 | `DateTime` | src/memorymap/core/database.py:90 |
 | `DerivedFact` | src/memorymap/core/database.py:1221 |
 | `DerivedTension` | src/memorymap/core/database.py:1287 |
@@ -13229,8 +13260,8 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `DocumentAiEdit` | src/memorymap/core/database.py:1474 |
 | `DocumentBookmark` | src/memorymap/core/database.py:1134 |
 | `DocumentLink` | src/memorymap/core/database.py:1451 |
-| `DocumentRevision` | src/memorymap/core/database.py:1691 |
-| `DurableJob` | src/memorymap/core/database.py:2008 |
+| `DocumentRevision` | src/memorymap/core/database.py:1695 |
+| `DurableJob` | src/memorymap/core/database.py:2012 |
 | `EmbeddingRecord` | src/memorymap/core/database.py:865 |
 | `Entity` | src/memorymap/core/database.py:536 |
 | `EntityMention` | src/memorymap/core/database.py:576 |
@@ -13241,10 +13272,10 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `EntryOpen` | src/memorymap/core/database.py:1377 |
 | `EntryProperty` | src/memorymap/core/database.py:763 |
 | `EntryRevision` | src/memorymap/core/database.py:1359 |
-| `JobRun` | src/memorymap/core/database.py:1981 |
+| `JobRun` | src/memorymap/core/database.py:1985 |
 | `LinkProps` | src/memorymap/core/database.py:625 |
 | `LinkReason` | src/memorymap/core/database.py:587 |
-| `MediaUpload` | src/memorymap/core/database.py:1909 |
+| `MediaUpload` | src/memorymap/core/database.py:1913 |
 | `NightRun` | src/memorymap/core/database.py:1330 |
 | `NoteScore` | src/memorymap/core/database.py:1191 |
 | `NoteType` | src/memorymap/core/database.py:785 |
@@ -13255,18 +13286,18 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `Space` | src/memorymap/core/database.py:131 |
 | `StagedEmbedding` | src/memorymap/core/database.py:928 |
 | `User` | src/memorymap/core/database.py:239 |
-| `UserPreference` | src/memorymap/core/database.py:2051 |
+| `UserPreference` | src/memorymap/core/database.py:2055 |
 | `Vault` | src/memorymap/core/database.py:250 |
-| `WhiteboardNode` | src/memorymap/core/database.py:1733 |
-| `WhiteboardObject` | src/memorymap/core/database.py:1792 |
-| `WhiteboardSketch` | src/memorymap/core/database.py:1775 |
+| `WhiteboardNode` | src/memorymap/core/database.py:1737 |
+| `WhiteboardObject` | src/memorymap/core/database.py:1796 |
+| `WhiteboardSketch` | src/memorymap/core/database.py:1779 |
 | `WorkspaceMixin` | src/memorymap/core/database.py:153 |
 | `_add_workspace_filter` | src/memorymap/core/database.py:176 |
-| `_ensure_alembic_baseline` | src/memorymap/core/database.py:2155 |
+| `_ensure_alembic_baseline` | src/memorymap/core/database.py:2159 |
 | `_hide_binned` | src/memorymap/core/database.py:215 |
-| `_migrations_root` | src/memorymap/core/database.py:2120 |
+| `_migrations_root` | src/memorymap/core/database.py:2124 |
 | `_only_a_person_moves_a_boards_time` | src/memorymap/core/database.py:676 |
-| `_safety_copy_before_migrating` | src/memorymap/core/database.py:2135 |
+| `_safety_copy_before_migrating` | src/memorymap/core/database.py:2139 |
 | `_set_workspace` | src/memorymap/core/database.py:230 |
 | `_stamp_done_at` | src/memorymap/core/database.py:1184 |
 | `like_escape` | src/memorymap/core/database.py:62 |
@@ -13980,20 +14011,20 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_binned` | src/memorymap/core/recordings.py:126 |
+| `_binned` | src/memorymap/core/recordings.py:129 |
 | `as_dict` | src/memorymap/core/recordings.py:87 |
-| `binned` | src/memorymap/core/recordings.py:143 |
+| `binned` | src/memorymap/core/recordings.py:146 |
 | `clean_markers` | src/memorymap/core/recordings.py:80 |
 | `clean_peaks` | src/memorymap/core/recordings.py:75 |
 | `container` | src/memorymap/core/recordings.py:44 |
 | `directory` | src/memorymap/core/recordings.py:61 |
-| `empty` | src/memorymap/core/recordings.py:154 |
+| `empty` | src/memorymap/core/recordings.py:157 |
 | `matches` | src/memorymap/core/recordings.py:56 |
 | `new_filename` | src/memorymap/core/recordings.py:67 |
 | `path_of` | src/memorymap/core/recordings.py:71 |
-| `purge` | src/memorymap/core/recordings.py:148 |
-| `purge_expired` | src/memorymap/core/recordings.py:162 |
-| `recover_stale` | src/memorymap/core/recordings.py:104 |
+| `purge` | src/memorymap/core/recordings.py:151 |
+| `purge_expired` | src/memorymap/core/recordings.py:165 |
+| `recover_stale` | src/memorymap/core/recordings.py:107 |
 
 ### src/memorymap/core/reminder_notifier.py (17)
 
@@ -14075,6 +14106,20 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `latency_percentiles` | src/memorymap/core/taskhistory.py:150 |
 | `recent` | src/memorymap/core/taskhistory.py:128 |
 | `record` | src/memorymap/core/taskhistory.py:70 |
+
+### src/memorymap/core/transcript.py (9)
+
+| Name | File:line |
+|---|---|
+| `_ms` | src/memorymap/core/transcript.py:24 |
+| `_stamp` | src/memorymap/core/transcript.py:63 |
+| `_vtt_text` | src/memorymap/core/transcript.py:80 |
+| `clean` | src/memorymap/core/transcript.py:31 |
+| `dumps` | src/memorymap/core/transcript.py:52 |
+| `loads` | src/memorymap/core/transcript.py:56 |
+| `to_srt` | src/memorymap/core/transcript.py:70 |
+| `to_vtt` | src/memorymap/core/transcript.py:84 |
+| `turns` | src/memorymap/core/transcript.py:94 |
 
 ### src/memorymap/core/usage.py (5)
 
@@ -14454,19 +14499,26 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `wiki_shown` | src/memorymap/entry/manager.py:3182 |
 | `wiki_target` | src/memorymap/entry/manager.py:3171 |
 
-### src/memorymap/entry/meetings.py (15)
+### src/memorymap/entry/meetings.py (22)
 
 | Name | File:line |
 |---|---|
+| `_as_owned` | src/memorymap/entry/meetings.py:353 |
 | `_body_offset` | src/memorymap/entry/meetings.py:142 |
 | `_clean` | src/memorymap/entry/meetings.py:96 |
+| `_content_words` | src/memorymap/entry/meetings.py:400 |
 | `_is_placeholder` | src/memorymap/entry/meetings.py:234 |
+| `_owner_of` | src/memorymap/entry/meetings.py:335 |
+| `_read_line` | src/memorymap/entry/meetings.py:364 |
 | `_section_of` | src/memorymap/entry/meetings.py:138 |
 | `_sections` | src/memorymap/entry/meetings.py:151 |
+| `_sentences` | src/memorymap/entry/meetings.py:322 |
 | `action_items` | src/memorymap/entry/meetings.py:175 |
+| `already_written` | src/memorymap/entry/meetings.py:404 |
 | `append_to_section` | src/memorymap/entry/meetings.py:243 |
 | `attendees` | src/memorymap/entry/meetings.py:274 |
 | `compose` | src/memorymap/entry/meetings.py:100 |
+| `find_items` | src/memorymap/entry/meetings.py:380 |
 | `is_meeting` | src/memorymap/entry/meetings.py:129 |
 | `meeting_date` | src/memorymap/entry/meetings.py:268 |
 | `reminder_text` | src/memorymap/entry/meetings.py:279 |
@@ -14958,7 +15010,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (9420)
+## Tests (9441)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -15535,6 +15587,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_media_size.py | 3 |
 | tests/test_media_size_backfill.py | 3 |
 | tests/test_meeting_notes.py | 15 |
+| tests/test_meeting_rules_81.py | 9 |
 | tests/test_meeting_summary.py | 6 |
 | tests/test_meeting_undo.py | 2 |
 | tests/test_meetings_644.py | 23 |
@@ -15807,6 +15860,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_source_check.py | 7 |
 | tests/test_space_delete_cascades.py | 1 |
 | tests/test_spaces.py | 22 |
+| tests/test_speakers_81.py | 6 |
 | tests/test_speculative_retrieval.py | 4 |
 | tests/test_spinner_recipe.py | 16 |
 | tests/test_spoken_followups.py | 6 |
@@ -15887,6 +15941,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_topics_kg6.py | 7 |
 | tests/test_touched_notes.py | 15 |
 | tests/test_tour_follow.py | 7 |
+| tests/test_transcript_81.py | 6 |
 | tests/test_translate_offline.py | 7 |
 | tests/test_tray.py | 18 |
 | tests/test_ui_batch_726.py | 8 |

@@ -93,6 +93,9 @@ def as_dict(recording: Recording) -> dict:
         "duration_ms": recording.duration_ms,
         "peaks": json.loads(recording.peaks or "[]"),
         "markers": json.loads(recording.markers or "[]"),
+        #: The lines themselves are read on their own route: an hour is
+        #: about 700 of them, and the shelf lists 500 recordings.
+        "transcribed": (recording.segments or "[]") != "[]",
         "entry_id": recording.entry_id,
         "source_id": recording.source_id,
         "state": recording.state,

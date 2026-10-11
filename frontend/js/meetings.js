@@ -439,11 +439,14 @@ async function meetingSummarise(entryId, proposal, status, button, redraw) {
   const dropped = result.dropped
     ? ` ${result.dropped === 1 ? "One line had" : `${result.dropped} lines had`} no source in your notes and ${result.dropped === 1 ? "was" : "were"} left out.`
     : "";
+  //: With no model the rules read the notes (28.5 row 2), and the sheet
+  //: says so in one line rather than going quiet.
+  const how = result.note ? ` ${result.note}` : "";
   if (!lines.length) {
-    status.textContent = `Nothing to add: no decision or action item was found in the notes.${dropped}`;
+    status.textContent = `Nothing to add: no decision or action item was found in the notes.${dropped}${how}`;
     return;
   }
-  status.textContent = "";
+  status.textContent = result.note || "";
   proposal.replaceChildren();
   proposal.classList.remove("hidden");
   const head = document.createElement("p");
@@ -454,7 +457,9 @@ async function meetingSummarise(entryId, proposal, status, button, redraw) {
   for (const item of [...result.decisions.map((d) => ({ ...d, kind: "Decision" })), ...result.actions.map((a) => ({ ...a, kind: "Action" }))]) {
     const li = document.createElement("li");
     const what = document.createElement("span");
-    what.textContent = `${item.kind}: ${item.text}${item.owner ? ` (${item.owner})` : ""}`;
+    const named = item.owner && item.text.includes(`@${item.owner}`);
+    const facts = [named ? "" : item.owner, item.due].filter(Boolean).join(", ");
+    what.textContent = `${item.kind}: ${item.text}${facts ? ` (${facts})` : ""}`;
     const cite = document.createElement("q");
     cite.className = "muted meeting-cite";
     cite.textContent = item.quote;
@@ -1252,6 +1257,7 @@ function recordingRow(rec) {
   facts.textContent = recordingFacts(rec);
   const wave = recordingWave(rec, audio);
   main.append(name, facts, wave, recordingMarkers(rec, audio));
+  if (rec.transcribed) main.append(...recordingTranscript(rec, audio));
   const act = document.createElement("div");
   act.className = "recording-act";
   const speed = recordingSpeed(audio);
@@ -1376,14 +1382,98 @@ function recordingMarkers(rec, audio) {
   return row;
 }
 
+//: **The transcript under its recording** (28.5 row 7): each line a button
+//: that plays from its moment, the line being spoken marked, as Otter's
+//: are. Read when first opened: an hour is about 700 lines, and the shelf
+//: lists every recording.
+function recordingTranscript(rec, audio) {
+  const list = document.createElement("ol");
+  list.className = "recording-transcript hidden";
+  const toggle = smallButton("ph:caret-down Transcript", "Show the transcript; a line plays from its moment", async () => {
+    const open = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(open));
+    list.classList.toggle("hidden", !open);
+    if (open && !list.childElementCount) await recordingTranscriptFill(rec, audio, list);
+  });
+  toggle.classList.add("recording-transcript-toggle");
+  toggle.setAttribute("aria-expanded", "false");
+  return [toggle, list];
+}
+
+async function recordingTranscriptFill(rec, audio, list) {
+  let body = null;
+  try {
+    body = await apiJson(`/recordings/${rec.id}/transcript`);
+  } catch (error) {
+    list.replaceChildren(recordingsEmpty(error.message || "Couldn't read the transcript."));
+    return;
+  }
+  const lines = body.segments.map((seg) => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "recording-line";
+    button.dataset.start = String(seg.start);
+    const at = document.createElement("span");
+    at.className = "muted recording-line-at";
+    at.textContent = meetingClockText(seg.start);
+    const said = document.createElement("span");
+    said.textContent = seg.text;
+    //: A speaker only when the model named the turns (row 11).
+    if (seg.speaker) {
+      const who = document.createElement("span");
+      who.className = "recording-line-who";
+      who.textContent = seg.speaker;
+      button.append(at, who, said);
+    } else button.append(at, said);
+    button.addEventListener("click", async () => {
+      await recordingReady(audio);
+      audio.currentTime = seg.start / 1000;
+      audio.play();
+    });
+    li.appendChild(button);
+    return li;
+  });
+  list.replaceChildren(...lines);
+  audio.addEventListener("timeupdate", () => recordingTranscriptNow(list, body.segments, audio.currentTime * 1000));
+}
+
+function recordingTranscriptNow(list, segments, ms) {
+  const now = segments.findLastIndex((seg) => seg.start <= ms);
+  list.querySelectorAll(".recording-line").forEach((button, i) => {
+    button.classList.toggle("is-now", i === now);
+    if (i === now) button.setAttribute("aria-current", "true");
+    else button.removeAttribute("aria-current");
+  });
+}
+
 function recordingMenu(rec) {
   const items = [
     makeMenuItem("ph:pencil-simple Rename", "Give this recording a name", () => renameRecording(rec)),
     makeMenuItem("ph:scissors Trim", "Keep part of it as a new recording; the original stays until the bin is emptied", () => openRecordingTrim(rec)),
   ];
   if (voiceStatus?.available) items.push(makeMenuItem("ph:text-aa Transcribe", "Transcribe it on this computer", () => transcribeRecording(rec)));
+  if (rec.transcribed) {
+    const name = (rec.title || "recording").replace(/[^A-Za-z0-9._ -]/g, "_");
+    //: Row 11: offered only with a model on; with none, no label is shown.
+    if (!aiIsOff()) items.push(makeMenuItem("ph:users-three Name the speakers", "Let the local AI name who speaks each turn, from what is said", () => nameRecordingSpeakers(rec)));
+    items.push(
+      makeMenuItem("ph:closed-captioning Subtitles (SRT)", "Download the transcript with its times as an SRT file", () => downloadFromApi(`/recordings/${rec.id}/transcript.srt`, `${name}.srt`)),
+      makeMenuItem("ph:closed-captioning Subtitles (VTT)", "Download the transcript with its times as a WebVTT file", () => downloadFromApi(`/recordings/${rec.id}/transcript.vtt`, `${name}.vtt`))
+    );
+  }
   items.push(makeMenuItem("ph:trash Delete", "Put it in the bin", () => binRecording(rec)));
   return items;
+}
+
+async function nameRecordingSpeakers(rec) {
+  try {
+    const body = await apiJson(`/recordings/${rec.id}/speakers`, { method: "POST" });
+    await renderRecordings();
+    toast(body.speakers ? "Named the speakers; open Transcript to see them." : "The local AI could not tell the speakers apart.", "info");
+  } catch (error) {
+    toast(error.message || "Couldn't name the speakers.", true);
+  }
 }
 
 async function renameRecording(rec) {
@@ -1412,6 +1502,8 @@ async function transcribeRecording(rec) {
   toast("Transcribing; a long recording can take a while on this computer.", "info");
   try {
     const body = await apiJson(`/recordings/${rec.id}/transcribe`, { method: "POST" });
+    //: Its lines, with their times, now sit under the recording.
+    renderRecordings();
     const text = (body.text || "").trim();
     if (!text) return toast("Nothing was heard in that recording.", "info");
     const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${rec.title || "Recording"}\n\n${text}` }) });

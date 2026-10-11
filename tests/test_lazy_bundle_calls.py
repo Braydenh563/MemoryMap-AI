@@ -99,6 +99,8 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: Background jobs, Report: the click awaits ensureModule('appImport') first.
+    "openImportReport": "appImport, called after `await ensureModule('appImport')` in the Report button's click",
     #: Connections, opened in the .then of lazyScript('/js/connections.js') at its three callers.
     "openConnections": "connections, called in the .then of lazyScript('/js/connections.js')",
     #: The palette's Translate this row, in the .then of ensureModule('translate').

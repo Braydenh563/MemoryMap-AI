@@ -6194,3 +6194,25 @@ select {
   gap: var(--space-1) var(--space-3);
   min-width: 0;
 }
+
+/* A Settings section fades in when its nav button shows it (ledger 1420): the
+   section is shown by dropping `.hidden`, so the animation restarts each time.
+   CSS only; Interface animations off and reduced motion zero it globally. */
+#settings-modal .settings-section:not(.hidden) {
+  animation: settings-pane-in var(--motion-slow) var(--ease-out);
+}
+@keyframes settings-pane-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* A finished job's Logs button sits at the row's right end, on the title line,
+   so it is at the same x on every row (the row-actions recipe). */
+#task-history .entry-meta > .row-actions {
+  margin-inline-start: auto;
+}
+/* No lines to show: the empty state takes the list's place, not an empty bar. */
+.log-none {
+  display: none;
+}

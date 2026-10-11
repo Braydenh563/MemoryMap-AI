@@ -36,6 +36,7 @@ from memorymap.ai import model_manager as jobs
 from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, jobruns, jobstore, taskhistory
 from memorymap.core import jobs as bgpool
 from memorymap.api.this_computer import this_computer_only
+from memorymap.entry import import_report
 
 router = APIRouter(tags=["tasks"])
 
@@ -538,6 +539,9 @@ def jobs_last_runs() -> dict:
     extra = passes.overview()
     for run in runs:
         run.update(extra.get(run["kind"], {}))
+        #: An import that kept a page: the overview offers it (ledger 1406).
+        if run["kind"] == "import" and run.get("ran"):
+            run["report"] = import_report.latest(deps.get_config().data_dir)
     return {"jobs": runs}
 
 

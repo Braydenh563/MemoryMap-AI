@@ -66,3 +66,26 @@ def test_1461_an_empty_notebook_is_offered_its_notes_from_elsewhere():
     body = _fn(frontend_text("onboarding.js"), "renderOnboardingActions")
     assert '"ph:file-arrow-up Bring in your notes"' in body
     assert 'closeOnboarding(false);\n        openSettingsModal("data", "import-md");' in body
+
+
+def test_a_job_run_writes_its_lines_to_the_app_log_under_its_run_id(caplog):
+    """The history row's Logs button filters on "[run-N]" (owner 2026-10-11)."""
+    import logging
+
+    from memorymap.core import jobruns
+
+    with caplog.at_level(logging.INFO, logger="memorymap.jobruns"):
+        with jobruns.job_run("reindex", origin="you") as run:
+            run.say("Reading notes")
+    lines = [r.getMessage() for r in caplog.records]
+    assert any(m.startswith(f"[{run.id}] ") and "Reading notes" in m for m in lines), lines
+    assert any(m.startswith(f"[{run.id}] ") and "finished" in m for m in lines), lines
+
+
+def test_the_logs_button_filters_on_the_run_and_an_empty_log_is_the_empty_state():
+    js = frontend_text("settings.js")
+    assert "`[${item.run_id}]`" in js
+    shared = _fn(js, "renderLogSharedUI")
+    assert "This job wrote no log lines" in shared and '"log-none"' in shared
+    html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
+    assert re.search(r'id="logs-empty" class="empty-state hidden"', html)

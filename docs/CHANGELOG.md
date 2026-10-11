@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Notes, Questions and Library, Recordings show the empty state block with an icon, the sentence and the action; a Settings section fades in; Background jobs has a Report button for the last import.
 - Settings, Themes: resting the pointer or focus on a theme shows it on the whole app, and Surprise me applies a random one.
 - Long menu labels are cut with an ellipsis inside the row and shown whole on hover, in every font; the no-model notice steps its button down in a narrow card; Settings, Help, Credits has a Guide topic.
 - Toasts stack neatly: the same notice inside 4 s is one card with a count, three show and the rest fold into a "+N more" card that opens the bell; no two cards cross while they move.

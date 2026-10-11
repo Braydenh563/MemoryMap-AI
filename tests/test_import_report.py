@@ -126,3 +126,13 @@ def test_5000_files_list_report_per_100_and_stop_within_2_seconds(app_state, ses
     assert steps[:3] == [100, 200, 300]
     kept = session.query(Entry).filter(Entry.source_path.like("obsidian:%")).count()
     assert kept == out["imported"] and 300 <= kept < 5000
+
+
+def test_the_background_jobs_overview_carries_the_last_import_report(client, folder_with_bad_files):
+    """Ledger 1406: the overview's import row offers a Report button."""
+    data, _ = folder_with_bad_files
+    before = {r["kind"]: r for r in client.get("/jobs/last-runs").json()["jobs"]}
+    assert "report" not in before["import"]
+    body = client.post("/import/app?source=memorymap", files=[("files", ("notebook.zip", data, "application/zip"))]).json()
+    after = {r["kind"]: r for r in client.get("/jobs/last-runs").json()["jobs"]}
+    assert after["import"]["report"] == body["report"]

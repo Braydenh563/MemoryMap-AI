@@ -244,6 +244,10 @@
    own item: the list owns the whole sub-tab, so the full block, not a line. */
 .recordings-empty {
   list-style: none;
+  min-height: 40vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
 }
 
 .recording-trim .prop-row {

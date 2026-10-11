@@ -13416,7 +13416,12 @@ Link to another note with [[its first few words]]."></textarea>
             <ul id="log-list" class="log-list"></ul>
             <pre id="log-terminal" class="log-terminal hidden" tabindex="0"
               aria-label="Server and browser logs, terminal style"></pre>
-            <p id="logs-empty" class="muted empty-line hidden">No log records yet.</p>
+            <div id="logs-empty" class="empty-state hidden">
+              <span class="empty-icon" aria-hidden="true"><i class="ph ph-scroll ph-lead" aria-hidden="true"></i></span>
+              <p class="empty-title" id="logs-empty-title">No log lines match</p>
+              <p id="logs-empty-text">Nothing fits the filters above.</p>
+              <button id="logs-empty-clear" class="ghost small" type="button"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear filters</button>
+            </div>
             <p id="logs-filtered-out" class="muted hidden"></p>
           </section>
 

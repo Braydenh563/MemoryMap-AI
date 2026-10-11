@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9938, plan headings 996.
+Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4769, test files 1085, tests 9941, plan headings 996.
 
 ## Frontend functions (5655)
 
@@ -9921,7 +9921,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4768)
+## Backend modules (4769)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -14233,24 +14233,25 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_unquote` | src/memorymap/core/docmeta.py:82 |
 | `properties` | src/memorymap/core/docmeta.py:89 |
 
-### src/memorymap/core/docview.py (14)
+### src/memorymap/core/docview.py (15)
 
 | Name | File:line |
 |---|---|
-| `ViewedFile` | src/memorymap/core/docview.py:136 |
-| `_HtmlToMarkdown` | src/memorymap/core/docview.py:165 |
-| `_clip` | src/memorymap/core/docview.py:588 |
-| `_docx_list_kinds` | src/memorymap/core/docview.py:337 |
-| `_docx_part` | src/memorymap/core/docview.py:325 |
-| `_extract_converted` | src/memorymap/core/docview.py:697 |
-| `_read_text_file` | src/memorymap/core/docview.py:594 |
-| `docx_has_revisions` | src/memorymap/core/docview.py:358 |
-| `docx_to_markdown` | src/memorymap/core/docview.py:370 |
-| `editability` | src/memorymap/core/docview.py:616 |
-| `extract` | src/memorymap/core/docview.py:668 |
-| `html_to_markdown` | src/memorymap/core/docview.py:295 |
-| `kind_for` | src/memorymap/core/docview.py:574 |
-| `write_text_file` | src/memorymap/core/docview.py:653 |
+| `ViewedFile` | src/memorymap/core/docview.py:152 |
+| `_HtmlToMarkdown` | src/memorymap/core/docview.py:181 |
+| `_clip` | src/memorymap/core/docview.py:604 |
+| `_docx_list_kinds` | src/memorymap/core/docview.py:353 |
+| `_docx_part` | src/memorymap/core/docview.py:341 |
+| `_extract_converted` | src/memorymap/core/docview.py:713 |
+| `_read_text_file` | src/memorymap/core/docview.py:610 |
+| `docx_has_revisions` | src/memorymap/core/docview.py:374 |
+| `docx_to_markdown` | src/memorymap/core/docview.py:386 |
+| `editability` | src/memorymap/core/docview.py:632 |
+| `effective_suffix` | src/memorymap/core/docview.py:92 |
+| `extract` | src/memorymap/core/docview.py:684 |
+| `html_to_markdown` | src/memorymap/core/docview.py:311 |
+| `kind_for` | src/memorymap/core/docview.py:590 |
+| `write_text_file` | src/memorymap/core/docview.py:669 |
 
 ### src/memorymap/core/egress.py (29)
 
@@ -16008,7 +16009,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9938)
+## Tests (9941)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16273,7 +16274,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_document_bookmarks.py | 7 |
 | tests/test_document_diff.py | 3 |
 | tests/test_document_export_html.py | 4 |
-| tests/test_document_import.py | 9 |
+| tests/test_document_import.py | 12 |
 | tests/test_document_links.py | 12 |
 | tests/test_document_rephrase.py | 9 |
 | tests/test_document_revisions.py | 14 |

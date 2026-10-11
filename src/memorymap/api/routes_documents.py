@@ -548,7 +548,7 @@ def import_document(
     order and "import" is not an int, the same trap `/file-types` sits above.
     """
     name = (file.filename or "file").strip() or "file"
-    suffix = Path(name).suffix[:12].lower()
+    suffix = docview.effective_suffix(name)
     if suffix not in docview.VIEWABLE_SUFFIXES:
         raise HTTPException(
             status_code=415,

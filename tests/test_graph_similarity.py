@@ -259,7 +259,10 @@ def test_similarity_is_drawn_beneath_the_links() -> None:
     text = CANVAS_JS.read_text(encoding="utf-8")
     draw = text[text.find("function gcDraw(") :]
     draw = draw[: draw.find("\n}\n")]
-    assert "gcSimilarityBand(" in draw, "gcDraw does not grade similarity lines by score"
+    # Graded once per render in `gcEdgeLook` (Brief 100), which gcDraw calls.
+    look = text[text.find("function gcEdgeLook(") :]
+    look = look[: look.find("\n}\n")]
+    assert "gcEdgeLook(" in draw and "gcSimilarityBand(" in look, "gcDraw does not grade similarity lines by score"
     under = draw.find("simBuckets")
     over = draw.find("for (const bucket of buckets.values())")
     assert under != -1 and over != -1

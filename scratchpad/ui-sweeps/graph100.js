@@ -114,7 +114,7 @@ const { boot } = require('./lib.js');
       await new Promise((done) => {
         const loop = (now) => {
           const born = s.nodes.filter((n) => n._born !== undefined).length;
-          series.push([now - t0, s.nodes.length, s.leaving ? s.leaving.length : 0, born, s.gliding ? 1 : 0]);
+          series.push([now - t0, s.nodes.length, s.leaving ? s.leaving.ghosts.length : 0, born, s.gliding ? 1 : 0]);
           if (now - t0 < 1500) requestAnimationFrame(loop); else done();
         };
         requestAnimationFrame(loop);

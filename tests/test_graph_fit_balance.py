@@ -48,7 +48,9 @@ SCRIPT = "\n".join(
         _function(GRAPH, "graphMinimapFinite"),
         _function(GRAPH, "graphFitFrame"),
         _function(CANVAS, "gcBalanceFit"),
+        _function(CANVAS, "gcStill"),
         """
+const document = { documentElement: { dataset: {} } };
 const gcFitInsets = () => null;
 const window = { matchMedia: () => ({ matches: false }) };
 const gcVisibleAtTime = () => true;

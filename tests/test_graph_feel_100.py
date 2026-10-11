@@ -95,3 +95,86 @@ def test_the_cache_is_read_on_a_first_draw_and_written_at_rest():
 def test_the_map_arrives_over_a_fade_the_reader_can_see():
     reveal = _fn("gcReveal")
     assert 'opacity calc(var(--ui-slow) * 2) var(--ease-out)' in reveal
+
+
+@needs_node
+def test_the_hover_eases_over_the_motion_tokens_and_cuts_with_less_motion():
+    script = "\n".join(
+        [
+            _const("GC_FADE_MS"),
+            _fn("gcMs"),
+            _fn("gcStill"),
+            _fn("gcFadeStep"),
+            """
+let reduce = false, appMotion = "auto";
+const window = { matchMedia: () => ({ matches: reduce }) };
+const document = { documentElement: { dataset: { get motion() { return appMotion; } } } };
+let gcTokens = { fadeMs: gcMs("0.2s") };
+let t = 1000;
+const performance = { now: () => t };
+const s = {};
+gcFadeStep(s, false);
+t += 16.7;
+const step = gcFadeStep(s, gcStill());
+appMotion = "reduced";
+const appStill = gcStill();
+appMotion = "auto"; reduce = true;
+const osStill = gcStill();
+reduce = false;
+gcTokens = { fadeMs: gcMs("0s") };
+t += 16.7;
+const off = gcFadeStep(s, gcStill());
+console.log(JSON.stringify({ ms: [gcMs("0.2s"), gcMs("120ms"), gcMs("0s"), gcMs("")], step, appStill, osStill, off }));
+""",
+        ]
+    )
+    out = _node(script)
+    assert out["ms"] == [200, 120, 0, 0]
+    assert abs(out["step"] - 16.7 / 200) < 1e-9, "a frame moves a 200 ms fade by its share"
+    assert out["appStill"] is True and out["osStill"] is True, "the app's Reduce motion counts, not only the system's"
+    assert out["off"] == 1, "interface animations off (a 0s token) lands the fade at once"
+
+
+@needs_node
+def test_a_new_note_starts_beside_its_neighbours_not_on_the_centre_spiral():
+    script = "\n".join(
+        [
+            _fn("gcSeedBesideNeighbours"),
+            """
+const nodes = [
+  { id: 1, x: 100, y: 100, category: "A" },
+  { id: 2, x: 300, y: 100, category: "A" },
+  { id: 3, category: "A" },
+  { id: 4, category: "A" },
+  { id: 5, category: "B" },
+];
+const s = { adj: new Map([[1, new Set([3])], [2, new Set([3])], [3, new Set([1, 2])], [4, new Set()], [5, new Set()]]),
+  byId: new Map(nodes.map((n) => [n.id, n])) };
+gcSeedBesideNeighbours(s, nodes);
+console.log(JSON.stringify(nodes.map((n) => [n.x ?? null, n.y ?? null])));
+""",
+        ]
+    )
+    out = _node(script)
+    assert abs(out[2][0] - 200) <= 12.5 and abs(out[2][1] - 100) <= 12.5, "beside the middle of its linked notes"
+    assert abs(out[3][0] - 200) <= 12.5 and abs(out[3][1] - 100) <= 12.5, "unlinked: beside its category"
+    assert out[4] == [None, None], "nothing placed to stand beside: left for the spiral"
+
+
+def test_an_update_reheats_like_a_drag_and_leaving_notes_keep_their_look():
+    start = _fn("gcStartWorker")
+    assert _const("GC_UPDATE_ALPHA") == "const GC_UPDATE_ALPHA = 0.3;"
+    assert "if (init.alpha === 1 && viewSeed?.holdIfSettled && s.lastForces === forces) init.alpha = GC_UPDATE_ALPHA;" in start
+    mark = _fn("gcMarkLeaving")
+    assert "sprite: n._sprite || null," in mark and "lines.lineTo(b.x, b.y);" in mark
+    assert _const("GC_LEAVING_MAX") == "const GC_LEAVING_MAX = 2500;", "a category of hundreds fades too"
+    draw = _fn("gcDraw")
+    assert draw.index("gcDrawLeavingLines(ctx, s, performance.now());") < draw.index("gcDrawLeaving(ctx, s, bornAt);")
+
+
+def test_a_frame_of_a_hover_fade_builds_no_style_objects_or_keys():
+    draw = _fn("gcDraw")
+    assert "{ ...style" not in draw, "an edge's look is worked out once per render (gcEdgeLook)"
+    assert "edge._keys[slot] ||" in draw
+    assert "gcBowPoint(a, b, gcBowScratch, edge._side)" in draw
+    assert "node._spritePx !== px" in draw

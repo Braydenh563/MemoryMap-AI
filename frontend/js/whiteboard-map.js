@@ -5859,8 +5859,19 @@ function wbMapTidyOrigin(onlyBranch, layout = wbMapLayout()) {
     // still take their tidy positions, the fold is in the branch, not the
     // whole map.
     if (obj.data?.pinned) continue;
-    if (Math.abs(obj.x - pos.x) < 0.5 && Math.abs(obj.y - pos.y) < 0.5) continue;
-    origin.set(wbMultiKey("object", id), { kind: "object", id, item: obj, x: pos.x, y: pos.y });
+    //: **A branch under a pinned topic is tidied where that topic sits** (the
+    //: owner, 2026-10-11: a child added under a dragged topic took the
+    //: layout's own column, 1,400px away, with its line across the map). Its
+    //: tidy place is shifted by how far the nearest pinned ancestor was
+    //: dragged from its own, so the branch keeps its shape beside it.
+    let ancestor = obj.parent_id != null ? index.byId.get(obj.parent_id) : null;
+    for (let hops = 0; ancestor && !ancestor.data?.pinned && hops < 200; hops++) {
+      ancestor = ancestor.parent_id != null ? index.byId.get(ancestor.parent_id) : null;
+    }
+    const home = ancestor ? positions.get(ancestor.id) : null;
+    const to = home ? { x: pos.x + (ancestor.x - home.x), y: pos.y + (ancestor.y - home.y) } : pos;
+    if (Math.abs(obj.x - to.x) < 0.5 && Math.abs(obj.y - to.y) < 0.5) continue;
+    origin.set(wbMultiKey("object", id), { kind: "object", id, item: obj, x: to.x, y: to.y });
   }
   return origin;
 }

@@ -7,7 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-- Mind map: a topic added under one on a left-hand branch now starts to its left, under its last sibling, instead of back on the trunk side (it stayed there on a Free map). Launcher banners in `start.sh` and `start.bat` read Tessellate.
+- Mind map: a topic added under one you had dragged (on any layout, Timeline included) is placed beside it instead of in the layout's own column far across the map. A topic added under one on a left-hand branch now starts to its left, under its last sibling, instead of back on the trunk side (it stayed there on a Free map). Launcher banners in `start.sh` and `start.bat` read Tessellate.
 
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).

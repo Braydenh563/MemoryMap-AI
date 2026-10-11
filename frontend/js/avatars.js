@@ -1872,7 +1872,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       if (tail === "tuft") shape("circle", { cx: 60, cy: 55, r: 2.8, fill: creature?.mane && creature.mane !== "rainbow" ? creature.mane : line }, t);
     }
   }
-  const toneKey = NAME_MARK_HAIR_TONE_KINDS.includes(style.hairTone) ? style.hairTone : skin.hair[((style.hairColour || 0) + (style.outfit || "").length) % skin.hair.length];
+  const toneKey = NAME_MARK_HAIR_TONE_KINDS.includes(style.hairTone) ? style.hairTone : skin.hair[((style.hairColour || 0) + (style.hair || "").length) % skin.hair.length];
   const hairColour = creature?.hairTone || NM_CHAR_HAIR_TONES[toneKey];
   //: Hair's own outline: darker than the hair, except on near-black hair,
   //: where it is a faint lighter rim so the shape holds on a dark page.

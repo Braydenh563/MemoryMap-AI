@@ -452,7 +452,6 @@ EXEMPT: dict[str, str] = {
     "meetings.js:enhanceRecording": "send: part of finishing a recording; the cleaned copy becomes the take and the save is the step",
     "meetings.js:startRecordingTranscription": "job: starts or stops work or a model; deletes no user data",
     "meetings.js:stopRecordingTranscription": "job: starts or stops work or a model; deletes no user data",
-    "notifications.js:openExportsFromNotification": "read: opens the exports folder; writes nothing",
     "settings-controls.js:(anonymous /auth/pin)": "auth: sign-in, recovery or lock; no user data",
     "settings-controls.js:(anonymous /auth/pin/forget)": "auth: sign-in, recovery or lock; no user data",
     "settings-controls.js:makeMaintenanceShortcut": "job: starts or stops work or a model; deletes no user data",

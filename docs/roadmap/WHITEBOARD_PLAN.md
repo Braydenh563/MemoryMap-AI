@@ -1610,3 +1610,7 @@ written file match for each surface and format: the PNG pixel-diffs under
 1%, the PDF has the same page count, the text is byte-equal. Help moves
 with it (standing order 13). Owner: the exports agent (Opus), queued after
 the graph agent.
+
+## Placed from INBOX, 2026-10-11 (fit a frame to its contents)
+
+INBOX 821, the owner, verbatim: "can you add the ability to double tap a resize anchor to resize that edge or the whole frame to snugly fit all the content in it with a comfortable margin??" (screenshot: "Frame 1" far larger than its cards, sticky, sketch and links). Not built (no fit in `whiteboard*.js`). Target: double-click or double-tap an edge handle and that edge moves to the contents' bound plus a 32-unit margin; a corner handle fits its two edges; "Fit to contents" on the frame's menu fits all four. The contents are the items the frame holds (`wbFrameContents`), links' curves included. A frame holding nothing does not move. One Undo step; the move animates in 150 ms (instant under reduced motion). Gate: after fitting each edge, the gap is 32 ± 1 units at 1440 and 390, and nothing the frame held falls outside it. Help moves with it. Owner: the mapfix agent.

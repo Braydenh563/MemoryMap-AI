@@ -1494,7 +1494,7 @@ function insightVerdicts(insight, onDone) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `insight-verdict is-${item.verdict}`;
-    button.title = item.title;
+    if (item.title) button.title = item.title;
     setLabel(button, item.label);
     button.addEventListener("click", () =>
       insightSend(insight, item.verdict)

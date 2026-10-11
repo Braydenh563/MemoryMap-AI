@@ -56,5 +56,5 @@ def test_a_bracket_name_is_refused_and_the_note_is_left_alone(client, session):
 
 
 def test_the_button_is_disabled_with_the_reason_for_an_unlinkable_row():
-    menus = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "menus.js").read_text(encoding="utf-8")
+    menus = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "connections.js").read_text(encoding="utf-8")  # Connections moved here (INBOX 784)
     assert "m.linkable === false" in menus and "link.disabled = true" in menus

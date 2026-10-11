@@ -157,5 +157,6 @@ def test_one_function_draws_a_backlink_sentence():
     text = "".join(path.read_text(encoding="utf-8") for path in sorted(js.glob("*.js")))
     assert text.count("function docBacklinkContext(") == 1
     assert text.count('"doc-backlink-context"') == 1
-    menus = (js / "menus.js").read_text(encoding="utf-8")
+    #: Connections moved from menus.js to the lazy connections.js (INBOX 784).
+    menus = (js / "connections.js").read_text(encoding="utf-8")
     assert "/backlinks`" in menus and "mentions/link`" in menus

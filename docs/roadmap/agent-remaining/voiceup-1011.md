@@ -3,10 +3,11 @@
 Done:
 - Brief 96, the recording card (9adf87480): waveform, playhead, time, marks with comments.
 - V1 and V2 (70f2622cc): background transcription with Stop and a notification; the recording dock; the microphone fold and Settings, Microphone.
-- V3 to V7: enhancement on save, the still meter, live words while recording, the doors to live captions, the recorder redesign.
-- V8: the focus timer. T1 and T2: Tidy's review pane and Recent runs.
+- V3 to V7 (72fc97ee8): enhancement on save, the still meter, live words while recording, the doors to live captions, the recorder redesign.
+- V8 (1a27526f8): the focus timer. T1 and T2 (2e9f2fbe3): Tidy's review pane and Recent runs.
 
 Left:
+- One commit per item was not kept for V1 with V2 and V3 to V7: a staged gate took 12 to 25 minutes under load, so items sharing meetings.js were gated together.
 - The plan's Built blocks for V1 to V8, T1, T2 (UI_MODERNISATION_PLAN "Placed from INBOX, 2026-10-11 (voice notes ...)" and "(Tidy ...)") move to HISTORY at merge.
 
 Not verified:

@@ -5543,7 +5543,7 @@ input.doc-title-input::placeholder {
   scrollbar-width: none;
 }
 
-.note-picker-sources > button {
+.note-picker-sources.tabs-line > button {
   display: inline-flex;
   flex: 1 1 auto;
   align-items: center;
@@ -5577,7 +5577,7 @@ input.doc-title-input::placeholder {
     flex-wrap: nowrap;
   }
 
-  .note-picker-sources button {
+  .note-picker-sources.tabs-line > button {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;

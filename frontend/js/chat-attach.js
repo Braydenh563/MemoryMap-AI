@@ -845,6 +845,14 @@ function attachedNotes() {
     .filter(Boolean);
 }
 
+//: The notes an answer named, as short titles, sent back on its history turn
+//: so "delete the other one" can name the note (`reading.follow`, decision 57).
+function chatTurnObjects(sources) {
+  return (sources || []).filter((s) => s.kind === "note").slice(0, 5)
+    .map((s) => String(s.label || "").replace(/…$/, "").split(/[:.!?]/)[0].trim().slice(0, 80))
+    .filter(Boolean);
+}
+
 function noteLabel(entry, length = 40) {
   const text = notePreviewText(entry.content).replace(/\s+/g, " ").trim();
   return text.length > length ? `${text.slice(0, length - 1)}…` : text || "(empty note)";
@@ -1517,10 +1525,18 @@ function appendRunResumeControls(bubble, spec) {
   }
 }
 
+//: A stray key typed against the last word ("dentist\\") goes before the bubble
+//: shows it, as the server already reads it (question_noise); an emoticon
+//: (":\\") and a lone key stay.
+function chatTidyTyped(text) {
+  const m = /([\w?.!)"'])[\\|`~^]+\s*$/.exec(text);
+  return m ? text.slice(0, m.index + 1) : text;
+}
+
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
-  const typed = (preset ?? input.value).trim();
+  const typed = chatTidyTyped((preset ?? input.value).trim());
   if (!typed) return;
 
   // Plan mode is applied here, on the way out, rather than by whatever control
@@ -2513,9 +2529,9 @@ async function sendChatMessage(preset, opts = {}) {
 
   // Regenerate replaces the last turn; a normal send appends a new one.
   if (opts.replaceLast && convRef.turns.length) {
-    convRef.turns[convRef.turns.length - 1] = { question, answer: answerRaw };
+    convRef.turns[convRef.turns.length - 1] = { question, answer: answerRaw, objects: chatTurnObjects(turnSources) };
   } else {
-    convRef.turns.push({ question, answer: answerRaw });
+    convRef.turns.push({ question, answer: answerRaw, objects: chatTurnObjects(turnSources) });
   }
   // Persist the finished turn so the chat survives restarts. A checkpoint
   // still on its way is let land first, so this sees its id and replaces its

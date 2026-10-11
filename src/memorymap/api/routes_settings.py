@@ -1139,6 +1139,22 @@ _NOT_EXPORTED = frozenset(
 )
 
 
+#: Lists a settings file adds to rather than replaces (OPEN row 558): an
+#: item with the same name is the file's, every other one stays. Undo sends
+#: `replace_lists` so the list it puts back is the one that was there.
+_MERGED_LISTS = {"skills": 30, "personas": 20, "custom_templates": 20}
+
+
+def _merged_list(current: object, incoming: list, cap: int) -> list:
+    names = {str(item.get("name") or "").strip().lower() for item in incoming if isinstance(item, dict)}
+    kept = [
+        item
+        for item in (current if isinstance(current, list) else [])
+        if isinstance(item, dict) and str(item.get("name") or "").strip().lower() not in names
+    ]
+    return [*incoming, *kept][:cap]
+
+
 def _exportable_keys() -> list[str]:
     return [key for key in PreferencesBody.model_fields if key not in _NOT_EXPORTED]
 
@@ -1194,6 +1210,8 @@ def import_preferences(payload: dict, request: Request, session: Session = Depen
             except ValueError:
                 skipped.append({"key": key, "reason": "not a value this setting takes"})
                 continue
+            if key in _MERGED_LISTS and isinstance(value, list) and not payload.get("replace_lists"):
+                value = _merged_list(current.get(key), value, _MERGED_LISTS[key])
             if value is not None and current.get(key) != value:
                 valid[key] = value
             else:
@@ -1385,17 +1403,7 @@ def _validated_backup_copy_dir(raw: str) -> str:
 
 
 def _small_class(config) -> bool:
-    """Whether skill runs get the small-model treatment now: the setting's
-    On, or Auto with a chat model whose name says it is small."""
-    setting = str(config.get_preference("small_model_mode", "auto") or "auto").lower()
-    if setting in ("on", "true", "always"):
-        return True
-    if setting != "auto":
-        return False
-    try:
-        return deps.get_model_manager().chat_model_is_small() is True
-    except Exception:  # noqa: BLE001  # a label is not worth failing the list over
-        return False
+    return skills.small_class(config)
 
 
 @router.get("/skills")

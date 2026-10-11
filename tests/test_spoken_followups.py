@@ -73,3 +73,40 @@ def test_chat_with_no_model_acts_on_a_spoken_followup(ai_client, fake_ollama, se
     card = next(e for e in events if e["type"] == "act")
     assert card["steps"] == [{"name": "delete_note", "arguments": {"note_id": 1}}]
     assert "Passport renewal" in card["label"]
+
+
+def test_the_other_one_reads_the_titles_chat_sends(ai_client, fake_ollama, session):
+    """OPEN row 564: chat-attach.js puts each answer's note titles on its
+    history turn, and "the other one" names the title the turn did not."""
+    from memorymap.ai import tools
+
+    fake_ollama.running = False
+    tools.execute_tool(session, "create_note", {"content": "Passport renewal: forms in the drawer"})
+    tools.execute_tool(session, "create_note", {"content": "Budget 2026: the rent goes up in March"})
+    session.commit()
+    history = [{"question": "find my note about the passport", "answer": "Two notes match.",
+                "objects": ["Passport renewal", "Budget 2026"]}]
+    events = []
+    with ai_client.stream("POST", "/chat/stream", json={"question": "delete the other one", "use_tools": True, "history": history}) as response:
+        for line in response.iter_lines():
+            if line.strip():
+                events.append(json.loads(line))
+    card = next(e for e in events if e["type"] == "act")
+    assert card["steps"] == [{"name": "delete_note", "arguments": {"note_id": 2}}]
+
+
+def test_chat_sends_an_answers_note_titles_on_its_turn():
+    import subprocess
+
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "chat-attach.js").read_text("utf-8")
+    start = js.index("function chatTurnObjects")
+    fn = js[start:js.index("\n}\n", start) + 2]
+    probe = fn + """
+console.log(JSON.stringify(chatTurnObjects([
+  { kind: "note", label: "Passport renewal: forms in the drawer" },
+  { kind: "web", label: "A page" },
+  { kind: "note", label: "Budget 2026 and the rent going up in Ma…" },
+])));"""
+    out = subprocess.run(["node", "-e", probe], capture_output=True, text=True, check=True).stdout
+    assert json.loads(out) == ["Passport renewal", "Budget 2026 and the rent going up in Ma"]
+    assert "objects: chatTurnObjects(turnSources)" in js

@@ -1096,6 +1096,7 @@ from .whiteboard import (  # noqa: E402
     _create_mindmap,
     _generate_diagram,
     _link_map_nodes,
+    _map_from_note,
     _read_mindmap,
     _read_whiteboard,
     _search_whiteboard,
@@ -2127,6 +2128,12 @@ def validate_run_skill(arguments: dict) -> dict:
             + (f"The ones that exist are: {known}." if known else "There are none saved.")
             + " Call list_skills to see them, or don't run one."
         )
+    held = skills.held_back_reason(deps.get_config(), skill["name"])
+    if held:
+        raise ToolError(
+            f"“{skill['name']}” needs a larger model than the one in use: {held} "
+            "Do the job step by step with your tools instead, or say so."
+        )
 
     raw = arguments.get("inputs")
     if isinstance(raw, str):
@@ -3107,6 +3114,22 @@ TOOLS: dict[str, ToolSpec] = {
             _create_mindmap,
         ),
         ToolSpec(
+            "map_from_note",
+            "Make a mind map from one note in one call, for 'turn this note "
+            "into a map': its title is the centre, its headings and lists the "
+            "branches. Use this rather than create_mindmap plus add_map_node "
+            "when the map is one note's outline.",
+            {
+                "type": "object",
+                "properties": {
+                    "note_id": {"type": "integer", "description": "The note to map"},
+                    "title": {"type": "string", "description": "The map's name (defaults to the note's title)"},
+                },
+                "required": ["note_id"],
+            },
+            _map_from_note,
+        ),
+        ToolSpec(
             "add_map_node",
             "Add ONE node to a mindmap, under a parent or as a new root. "
             "Call read_mindmap (or create_mindmap) first for the ids. Never "
@@ -3884,6 +3907,7 @@ WRITE_TOOLS = {
     "add_whiteboard_link",
     "generate_diagram",
     "create_mindmap",
+    "map_from_note",
     "add_map_node",
     "link_map_nodes",
     "move_board_item",
@@ -4101,7 +4125,7 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             # one, and a question about a map that was offered the board
             # tools and not the map tools is the worst of both, the model
             # answers by placing cards on a canvas instead.
-            "read_mindmap", "create_mindmap", "add_map_node", "link_map_nodes",
+            "read_mindmap", "create_mindmap", "map_from_note", "add_map_node", "link_map_nodes",
             "move_board_item", "edit_board_item", "delete_board_item", "add_board_shape",
             "list_library", "place_library_item",
         ),

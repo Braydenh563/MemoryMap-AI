@@ -5150,7 +5150,7 @@ html[data-chrome="native"] #top-bar #brand-logo {
   box-shadow: none;
   cursor: pointer;
 }
-.autocorrect-mark:hover {
+.autocorrect-mark:is(:hover, :focus-visible) {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 /* --- the suggestion menu, the dictionary, and the goal ------------------------

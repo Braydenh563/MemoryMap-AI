@@ -136,15 +136,19 @@ def test_the_board_menu_is_section_heads_and_plain_icon_rows_with_delete_last_an
     assert menu.count("wb-menu-danger") == 2
 
 
-def test_the_view_menu_is_one_column_in_three_named_groups():
+def test_the_view_menu_is_two_columns_parted_by_hairlines():
+    """The map's View menu measured 785px in one column under four printed
+    heads (`mapviewmenu.js` holds it to 450): two columns, Panels and Zoom
+    beside Canvas and Map, the groups parted by a hairline, not a heading."""
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     menu = _menu(html, "wb-view-menu")
+    assert 'class="wb-board-menu wb-menu-two-col hidden"' in menu
     groups = re.findall(r'role="group" aria-label="([^"]+)"', menu)
-    assert groups == ["Panels", "Canvas", "Map", "Zoom"]
-    assert re.findall(r'wb-panel-group-label">([^<]+)<', menu) == ["Panels", "Canvas", "Map", "Zoom"]
+    assert groups == ["Panels", "Zoom", "Canvas", "Map"]
+    assert menu.count('<div class="wb-menu-col">') == 2
+    assert "wb-panel-group-label" not in menu
     css = "\n".join(p.read_text(encoding="utf-8") for p in CSS_FILES)
-    assert "#wb-view-menu {" not in css, "the two columns are gone"
-    assert "wb-menu-one-col" not in css
+    assert ".wb-board-menu.wb-menu-two-col {" in css and ".wb-menu-two-col > .wb-menu-col + .wb-menu-col {" in css
     lazy = (ROOT / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
     assert ".wb-board-menu :is(.wb-menu-item, .wb-menu-row) {\n  min-height: max(2.25rem, var(--target-min));" in lazy
     assert ".wb-board-menu .wb-menu-item.wb-menu-danger" in lazy

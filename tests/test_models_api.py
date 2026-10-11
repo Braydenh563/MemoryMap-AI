@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 from sqlalchemy import select
 
@@ -540,3 +541,28 @@ def test_status_reports_a_runner_that_goes_away_when_it_answers(client, monkeypa
     state["up"] = False
     body = client.get("/models/status").json()
     assert body["ollama_running"] is False and body["installed_models"] == []
+
+
+def test_a_start_up_choice_is_said_with_its_reason_until_one_is_picked(client, monkeypatch):
+    """The owner, 2026-10-07: a fresh install with models present said Atlas
+    "was running llama3.2, which is not installed any more". Never chosen
+    reads as never chosen; a start-up choice carries its why until a model
+    is picked by hand."""
+    from memorymap.api import app as app_module
+    from memorymap.core import deps
+
+    ollama = deps.get_ollama()
+    monkeypatch.setattr(ollama, "is_running", lambda: True)
+    monkeypatch.setattr(ollama, "list_models", lambda: [{"name": "granite4.1:3b", "size": 2 * 1024**3}])
+    #: A fresh install: nothing stored, so the default name stands in.
+    deps.get_config()._preferences.pop("chat_model", None)
+    body = client.get("/models/status").json()
+    assert body["chat_model_chosen"] is False and body["chat_model_chosen_why"] == ""
+    app_module._choose_chat_model_if_missing()
+    body = client.get("/models/status").json()
+    assert body["chat_model"] == "granite4.1:3b" and body["chat_model_chosen"] is True
+    assert "llama3.2 is not installed" in body["chat_model_chosen_why"]
+    assert client.post("/models/chat-model", json={"name": "granite4.1:3b"}).status_code == 200
+    assert client.get("/models/status").json()["chat_model_chosen_why"] == ""
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    assert "sayChatModelChosen(modelStatus);" in js and '"Change"' in js.split("function sayChatModelChosen", 1)[1][:900]

@@ -788,6 +788,7 @@ function openHelpChat() {
     //: lines at 1440. The variant is a class on the recipe, so every other
     //: sheet in the app is untouched.
     variant: "corner",
+    modal: false,
     build: (card) => {
       card.appendChild(group);
       group.classList.add("atlas-docked");

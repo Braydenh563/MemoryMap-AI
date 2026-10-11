@@ -1775,6 +1775,22 @@ async function loadMostUsed() {
 // --- model manager (Phase 3.5) ---------------------------------------------------
 
 let modelStatus = null; // latest /models/status payload
+
+//: **The start-up choice, said once with Change** (the owner, 2026-10-07: on
+//: a fresh install with five models it ran a llama3.2 it did not have). Once
+//: per chosen model in this browser; Settings, Models keeps the why.
+function sayChatModelChosen(status) {
+  const why = status?.chat_model_chosen_why;
+  if (!why || typeof toastAction !== "function") return;
+  const key = `chatModelChosen:${status.chat_model}`;
+  try {
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+  } catch {
+    return;
+  }
+  toastAction(`${aiNameNow()} now runs ${status.chat_model}: ${why}.`, "Change", () => openSettingsModal("models", "chat-model-select"));
+}
 // Has the status endpoint ever answered? "We haven't asked yet" and "we asked
 // and got nothing" are both `modelStatus === null`, but they mean opposite
 // things to the user: the first is normal for the first second of every
@@ -1930,6 +1946,7 @@ async function refreshModelStatus() {
   syncFeatureModelSelects();
   renderAiPill();
   syncModelGatedControls();
+  sayChatModelChosen(modelStatus);
   // The status bar's job slot rides this loop rather than starting one of its
   // own, so it inherits the whole cadence: one second while something is
   // running, thirty when idle, two minutes behind a hidden tab. Idle, `/tasks`

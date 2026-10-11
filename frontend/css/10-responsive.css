@@ -802,6 +802,13 @@ header#top-bar[data-scrolled="1"],
      where the home indicator is. */
   padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
 }
+/* A dialog stamped a sheet on a phone (`phoneSheetDialogs`) takes the
+   sheet's width even where its id gave the card one: History and
+   Connections measured 359 of 390 wide, 16px off the edge they rise from. */
+:is(#history-card, #connections-card).sheet-card {
+  width: 100%;
+  max-width: 100%;
+}
 /* **The way out** (a sheet used to vanish in one frame, where a menu fades).
    `openSheet` adds `.sheet-leaving` and removes the overlay once --ui-exit
    has run (`close` reads the computed duration, so it is 0 and the removal is

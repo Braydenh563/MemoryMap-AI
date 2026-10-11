@@ -1568,7 +1568,7 @@ def _recent_text(history: list[dict] | None) -> str:
 _CANVAS_TOOLS = frozenset(
     {
         "read_whiteboard", "search_whiteboard", "add_whiteboard_card", "add_whiteboard_link",
-        "generate_diagram", "read_mindmap", "create_mindmap", "add_map_node", "link_map_nodes",
+        "generate_diagram", "read_mindmap", "create_mindmap", "map_from_note", "add_map_node", "link_map_nodes",
     }
 )
 #: Words that ask for a board to be changed, which keep the board tools.

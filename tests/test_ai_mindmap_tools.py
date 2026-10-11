@@ -255,3 +255,79 @@ def test_the_map_tools_are_registered_and_gated_like_the_board_tools(session):
     focus = tools.focus_for("make me a mind map of my thesis notes")
     assert focus is None or "create_mindmap" in focus
     assert toolwords  # imported for the group the assertion above exercises
+
+
+NOTE = """# Garden plan
+
+Notes for the spring.
+
+## Vegetables
+
+- Carrots
+  - Early Nantes
+- **Leeks**
+
+## Flowers
+
+1. Sweet peas
+2. [x] Dahlias
+"""
+
+
+def _topics(session, board_id):
+    rows = session.query(WhiteboardObject).filter(WhiteboardObject.board_id == board_id).all()
+    by_id = {r.id: r for r in rows}
+    return {json.loads(r.data)["content"]: (json.loads(by_id[r.parent_id].data)["content"] if r.parent_id else None) for r in rows}, rows
+
+
+def test_map_from_note_builds_the_notes_outline_in_one_call(session):
+    """WHITEBOARD_PLAN row 9 (OPEN row 566): a board from a note is one chat tool."""
+    note = _note(session, NOTE)
+    result = tools.TOOLS["map_from_note"].handler(session, {"note_id": note.id})
+    tree, rows = _topics(session, result["board_id"])
+    assert tree == {
+        "Garden plan": None, "Vegetables": "Garden plan", "Carrots": "Vegetables", "Early Nantes": "Carrots",
+        "Leeks": "Vegetables", "Flowers": "Garden plan", "Sweet peas": "Flowers", "Dahlias": "Flowers",
+    }
+    root = next(r for r in rows if r.parent_id is None)
+    assert root.kind == "note" and json.loads(root.data)["ref_id"] == note.id
+    assert result["nodes"] == 8 and result["title"] == "Garden plan"
+    assert json.loads(session.get(Entry, result["board_id"]).board_settings)["type"] == "map"
+
+
+def test_map_from_note_reads_paragraphs_when_there_is_no_outline(session):
+    note = _note(session, "Trip to Lisbon\n\nBook the flights first. Then the hotel.\n\nPack light.")
+    result = tools.TOOLS["map_from_note"].handler(session, {"note_id": note.id})
+    tree, _rows = _topics(session, result["board_id"])
+    assert tree == {"Trip to Lisbon": None, "Book the flights first.": "Trip to Lisbon", "Pack light.": "Trip to Lisbon"}
+
+
+def test_map_from_note_refuses_a_private_note_and_a_board(session):
+    with pytest.raises(ToolError):
+        tools.TOOLS["map_from_note"].handler(session, {"note_id": _note(session, NOTE, private=True).id})
+    board_id, _root = _map(session)
+    with pytest.raises(ToolError):
+        tools.TOOLS["map_from_note"].handler(session, {"note_id": board_id})
+
+
+def test_map_from_note_is_a_write_with_a_verifier_and_a_cue():
+    from memorymap.ai import act_registry
+    from memorymap.ai.tools import verify
+
+    assert "map_from_note" in tools.WRITE_TOOLS and "map_from_note" in verify.VERIFIERS
+    cue = dict(act_registry.TOOL_CUES)["map_from_note"]
+    import re
+
+    assert re.search(cue, "turn the garden note into a mind map")
+
+
+def test_the_note_menu_makes_the_same_map_with_no_model(client, session):
+    note = client.post("/entries", json={"content": NOTE}).json()
+    made = client.post(f"/whiteboard/maps/from-note/{note['id']}")
+    assert made.status_code == 201 and made.json()["type"] == "map" and made.json()["object_count"] == 8
+    private = client.post("/entries", json={"content": NOTE}).json()
+    session.get(Entry, private["id"]).is_private = True
+    session.commit()
+    assert client.post(f"/whiteboard/maps/from-note/{private['id']}").status_code in (404, 422)
+    empty = client.post("/entries", json={"content": "# Only a title"}).json()
+    assert client.post(f"/whiteboard/maps/from-note/{empty['id']}").status_code == 422

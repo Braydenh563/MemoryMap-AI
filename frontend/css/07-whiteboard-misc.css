@@ -6875,16 +6875,49 @@ button.connection-row:is(:hover, :focus-visible) {
   flex-direction: column;
   width: 19rem;
 }
-/* **One column, and the groups carry it** (INBOX 793). The View menu was two
-   columns because its eighteen rows were 714px tall (the owner's third report
-   about its height); the answer now is fewer shapes, not a second column: a
-   head over each group, every row one height and one inset, and a menu that
-   is capped to the window and scrolls inside it where it is still taller
-   (`escapeAndCapMenu`). */
+/* **Groups parted by one hairline** (INBOX 793): every row one height and
+   one inset, and a menu that is capped to the window and scrolls inside it
+   where it is still taller (`escapeAndCapMenu`). */
 .wb-board-menu .wb-menu-section + .wb-menu-section {
   margin-top: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--divider);
+}
+/* **The View menu is two columns** (the map's was 785px tall in one, past
+   the 450px `mapviewmenu.js` holds it to): each `.wb-menu-col` keeps its own
+   hairlines between groups, and below 600 the columns stack, the second
+   parted from the first by the same hairline. Full screen is a row only
+   where the top bar's own button is hidden (below 820); beside that button
+   it was a second copy and the twentieth row (467px, measured). */
+.wb-board-menu.wb-menu-two-col {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-4);
+  width: 38rem;
+  max-width: calc(100vw - var(--space-4) * 2);
+}
+.wb-menu-two-col > .wb-menu-col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+@media (min-width: 820px) {
+  .wb-board-menu .wb-menu-item[data-wb-click="wb-fullscreen"] {
+    display: none;
+  }
+}
+@media (max-width: 599.98px) {
+  .wb-board-menu.wb-menu-two-col {
+    flex-direction: column;
+    align-items: stretch;
+    width: 19rem;
+  }
+  .wb-menu-two-col > .wb-menu-col + .wb-menu-col {
+    border-top: 1px solid var(--divider);
+    padding-top: var(--space-2);
+  }
 }
 .wb-board-menu .wb-panel-group-label {
   font-size: var(--text-xs);

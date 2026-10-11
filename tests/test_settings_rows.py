@@ -183,3 +183,29 @@ def test_registry_is_valid_json_shape():
     block = ROWS_JS[ROWS_JS.index("const SETTING_ROWS"):ROWS_JS.index("];", ROWS_JS.index("const SETTING_ROWS"))]
     assert block.count("key:") == len(_registry_keys())
     json.dumps(_registry_keys())
+
+
+def test_import_merges_personas_and_templates_by_name(client):
+    """OPEN row 558: a settings file replaced each list whole, so importing a
+    file with one persona dropped every other persona this notebook had."""
+    client.put("/preferences", json={"personas": [
+        {"name": "Coach", "prompt": "Be encouraging."},
+        {"name": "Editor", "prompt": "Be strict."},
+    ]})
+    exported = client.get("/preferences/export").json()
+    exported["preferences"] = {"personas": [
+        {"name": "Editor", "prompt": "Be gentle."},
+        {"name": "Poet", "prompt": "Rhyme."},
+    ]}
+    result = client.post("/preferences/import", json=exported).json()
+    assert result["applied"] == ["personas"]
+    names = {p["name"]: p["prompt"] for p in client.get("/preferences").json()["personas"]}
+    assert names == {"Coach": "Be encouraging.", "Editor": "Be gentle.", "Poet": "Rhyme."}
+    # Undo puts the list back whole, which a merge alone could not.
+    exported["preferences"] = {"personas": [
+        {"name": "Coach", "prompt": "Be encouraging."},
+        {"name": "Editor", "prompt": "Be strict."},
+    ]}
+    exported["replace_lists"] = True
+    client.post("/preferences/import", json=exported)
+    assert [p["name"] for p in client.get("/preferences").json()["personas"]] == ["Coach", "Editor"]

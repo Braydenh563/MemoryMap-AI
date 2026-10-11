@@ -39,6 +39,7 @@ FALSE_CLAIMS = {
     "link_map_nodes": ({}, {"link_id": 999_999}),
     "generate_diagram": ({}, {"cards": [{"card_id": 999_999}]}),
     "create_mindmap": ({}, {"board_id": 999_999, "root_id": 1}),
+    "map_from_note": ({}, {"board_id": 999_999, "nodes": 3}),
     "add_map_node": ({}, {"node_id": 999_999, "board_id": 1}),
     "move_board_item": ({"x": 0, "y": 0}, {"kind": "card", "item_id": 999_999}),
     "edit_board_item": ({}, {"kind": "object", "item_id": 999_999}),

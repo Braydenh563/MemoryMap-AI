@@ -410,6 +410,11 @@ def status(session: Session = Depends(get_session)) -> dict:
         "chat_model": chat_model,
         # None = unknown because Ollama is off (don't warn about nothing)
         "chat_model_installed": _name_matches(chat_model, installed) if running else None,
+        #: False on a fresh install that never chose one (the stored default
+        #: "llama3.2"): Settings says no model is chosen rather than that the
+        #: one it "was running" is gone. The why is the start-up choice's.
+        "chat_model_chosen": manager._config.get_preference("chat_model") is not None,
+        "chat_model_chosen_why": manager._config.get_preference("chat_model_chosen_why", ""),
         # **The model that actually answers** (owner, packaged app: "it said in
         # the chat header that I had llama3.2 set when it was a completely
         # different model and I didnt even have llama3.2 installed"). An
@@ -716,6 +721,7 @@ def set_chat_model(body: ChatModelBody, session: Session = Depends(get_session))
             detail=f"'{body.name}' isn't available on {_backend_label()}.",
         )
     deps.get_model_manager().set_chat_model(body.name)
+    deps.get_config().set_preference("chat_model_chosen_why", "")
     log_action(session, "edited", "preferences", detail=f"chat_model={body.name}")
     session.commit()
     return {"chat_model": body.name}

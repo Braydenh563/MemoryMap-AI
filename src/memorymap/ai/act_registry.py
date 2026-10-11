@@ -216,6 +216,7 @@ TOOL_CUES: tuple[tuple[str, str], ...] = (
     ("edit_board_item", r"\bchange the (?:words|text|colour|color|fill) on the (?:sticky|card|shape|frame)\b"),
     ("link_map_nodes", r"\bcross-?link\b"),
     ("add_map_node", r"\badd a node\b"),
+    ("map_from_note", r"\b(?:turn|make) (?:the |this |my )?.*note into a (?:mind ?)?map\b|\bmind ?map (?:from|of) (?:the|this|my) .*note\b"),
     ("create_mindmap", r"\b(?:start|make|create) a (?:new )?mind ?map\b"),
     ("read_mindmap", r"\bread the .*mind ?map\b|\bwhat(?:'s| is) on the .*mind ?map\b"),
     ("rename_tag", r"\brename the tag\b"),

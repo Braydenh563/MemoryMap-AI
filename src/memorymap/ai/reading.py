@@ -437,7 +437,9 @@ def _follow_other(raw: str, low: str, turns: list[dict], now: datetime) -> tuple
     for turn in reversed(turns):
         objects = [str(o) for o in turn.get("objects") or []]
         named = _turn_object(turn, now)
-        others = [o for o in objects if not named or o.lower() != named.lower()]
+        #: The chat sends whole titles ("Passport renewal") where the turn
+        #: named a subject ("passport"): a title holding it is the named one.
+        others = [o for o in objects if not named or named.lower() not in o.lower()]
         if len(objects) < 2 or not others:
             continue
         standing = re.sub(r"^(?:and |what about |how about )?" + _OTHER + r"[?.]*$", "", low).strip()

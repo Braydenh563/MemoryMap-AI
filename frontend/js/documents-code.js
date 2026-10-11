@@ -4375,7 +4375,8 @@ async function docRunCode(options = {}) {
     DOC_RUN_TEST_MARKS.doc = currentDoc?.id ?? null;
     DOC_RUN_TEST_MARKS.marks = [];
     docRun.testsLog.replaceChildren();
-    docRunShowTab("tests");
+    //: Debug keeps its own pane in front; the Tests tab fills behind it.
+    if (!prepared.debug) docRunShowTab("tests");
   }
   docRun.options = { mode: options.mode, range: options.range };
   docRun.live.classList.toggle("hidden", !prepared.preview);

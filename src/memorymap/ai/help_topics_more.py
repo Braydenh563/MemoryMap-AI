@@ -498,8 +498,8 @@ MORE_TOPICS: list[dict] = [
             "browser you sign in from. Settings, "
             "Import & export, Your settings: Export settings saves every setting "
             "as one .json file (no notes in it); Import settings reads one back, "
-            "applies each setting it can, says which it skipped and why, and "
-            "offers Undo."
+            "applies each setting it can, adds its skills, personas and templates "
+            "to yours by name, says which it skipped and why, and offers Undo."
         ),
         "badge": {"label": "Import & export", "section": "data"},
     },
@@ -1873,7 +1873,9 @@ MORE_TOPICS.extend(
                 "over a line, F11 into a call, Shift+F11 out of the function, F5 "
                 "continues and Shift+F5 stops; the same five are buttons at the "
                 "top of the tab. An error nothing catches stops on the line that "
-                "raised it, with its traceback and the frame's variables. Python's "
+                "raised it, with its traceback and the frame's variables. A Python "
+                "file of tests debugs through its tests: a breakpoint inside one "
+                "stops there, and the Tests tab lists each result. Python's "
                 "input() asks in the panel mid-run. Python debugging needs a window "
                 "that gives SharedArrayBuffer (the app's own does); JavaScript is "
                 "stepped by an interpreter that reads ES5, so let, const, arrow "

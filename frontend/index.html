@@ -2408,7 +2408,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
             <div class="dock-actions">
-              <button id="select-btn" class="ghost small" aria-pressed="false" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> <span class="dock-word">Select</span></button>
+              <button id="select-btn" class="ghost small" aria-pressed="false" data-fold-narrow title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> <span class="dock-word">Select</span></button>
               <button id="search-help" data-help-for="search-help-hint" class="icon-only ghost small graph-help-toggle" type="button"
                 aria-expanded="false" aria-controls="search-help-hint"
                 title="What can I type here?" aria-label="What can I type here?">
@@ -3801,7 +3801,7 @@ Link to another note with [[its first few words]]."></textarea>
                already folded them into the gear's sheet). A zone a surface
                does not have simply is not there. -->
           <div class="dock-actions">
-            <button id="graph-refresh" class="ghost small icon-only" type="button" title="Reload the map from your notes" aria-label="Reload the map from your notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <button id="graph-refresh" class="ghost small icon-only" type="button" data-fold-narrow title="Reload the map from your notes" aria-label="Reload the map from your notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="graph-help-toggle" data-help-for="graph-help-panel" class="icon-only ghost small graph-help-toggle"
               title="How to use this map" aria-label="How to use this map"
             aria-controls="graph-help-panel" aria-expanded="false">
@@ -6646,19 +6646,23 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
         <div class="wb-board-menu-wrap">
           <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="How the board looks and which panels are open" aria-haspopup="true" aria-expanded="false" aria-controls="wb-view-menu"><i class="ph ph-eye wb-menu-icon" aria-hidden="true"></i><span class="wb-menu-label">View</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
-          <div id="wb-view-menu" class="wb-board-menu hidden" role="menu" aria-label="View">
-            <!-- **One column, three named groups** (INBOX 793, the owner: "the
+          <div id="wb-view-menu" class="wb-board-menu wb-menu-two-col hidden" role="menu" aria-label="View">
+            <!-- **Two columns, groups parted by a hairline** (the map's View menu
+                 measured 785px, 20 rows under four printed heads; a board's
+                 706px; the mapviewmenu sweep's ceiling is 450). What is open
+                 and how you look at it on the left (Panels, Zoom), the ground
+                 and the map on the right (Canvas, Map); one column below 600.
+                 The history: INBOX 793, the owner: "the
                  view and board dropdown menus ... need a bit of a redesign").
                  It was two columns of rows with mixed shapes (a switch, a
                  select, a button, a key) and a Panels group printed twice.
                  Now Panels (what is open: switches), Canvas (the ground you
                  draw on: background, grid, snap, sticky corners) and Zoom
-                 (rows with their keys right-aligned), a head over each, every
-                 row one height and one inset, an icon leading each (the
-                 recipe the other board menus use). A map's own group sits
-                 between Canvas and Zoom and is hidden on a whiteboard. -->
+                 (rows with their keys right-aligned), every row one height
+                 and one inset, an icon leading each. A map's own group sits
+                 under Canvas and is hidden on a whiteboard. -->
+            <div class="wb-menu-col">
             <div class="wb-menu-section" role="group" aria-label="Panels">
-              <span class="wb-panel-group-label">Panels</span>
               <button type="button" class="wb-menu-item" data-wb-cmd="format-panel"><i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i><span>Format panel</span><kbd>Ctrl+Shift+P</kbd></button>
               <label class="wb-menu-row wb-snap-label" title="Show the context bar above the selection, and above the rail while a drawing tool is held"><span><i class="ph ph-selection-plus ph-lead" aria-hidden="true"></i>Context bar</span><input type="checkbox" id="wb-panel-props" checked></label>
               <label class="wb-menu-row wb-snap-label" title="The board overview (Shift+N)"><span><i class="ph ph-map-trifold ph-lead" aria-hidden="true"></i>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
@@ -6667,8 +6671,20 @@ Link to another note with [[its first few words]]."></textarea>
               <label class="wb-menu-row wb-snap-label" title="Find on this board (Ctrl+F)"><span><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i>Search</span><input type="checkbox" id="wb-panel-search"></label>
               <button id="wb-dock-toggle" class="wb-menu-item" type="button" title="Dock the tools as a sidebar" aria-label="Dock the tools as a sidebar"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i><span>Dock the tools at the side</span></button>
             </div>
+            <!-- Zoom in and Zoom out are the zoom bar's two buttons already,
+                 one click away at the foot of the canvas, so they are not
+                 here a second time; what the bar has no button for (100%)
+                 and what is worth its key (Shift+1, Ctrl+0) is. -->
+            <div class="wb-menu-section" role="group" aria-label="Zoom">
+              <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-fit"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Fit everything</span><kbd>Shift+1</kbd></button>
+              <button type="button" class="wb-menu-item" id="wb-zoom-actual"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i><span>Zoom to 100%</span><kbd>Ctrl+0</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-fullscreen"><i class="ph ph-arrows-out ph-lead" aria-hidden="true"></i><span>Full screen</span><kbd>Esc leaves</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-fn="present" data-wb-surface="board" title="Show the board's frames one at a time, full screen"><i class="ph ph-presentation ph-lead" aria-hidden="true"></i><span>Present frames</span><kbd>arrows · Esc</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-fn="present" data-wb-surface="map" title="Show the map one branch at a time, full screen"><i class="ph ph-presentation ph-lead" aria-hidden="true"></i><span>Present branches</span><kbd>arrows · Esc</kbd></button>
+            </div>
+            </div>
+            <div class="wb-menu-col">
             <div class="wb-menu-section" role="group" aria-label="Canvas">
-              <span class="wb-panel-group-label">Canvas</span>
               <div class="wb-menu-row">
                 <span><i class="ph ph-palette ph-lead" aria-hidden="true"></i>Background</span>
                 <span class="wb-menu-controls">
@@ -6695,7 +6711,6 @@ Link to another note with [[its first few words]]."></textarea>
                  the same rule the top bar's map controls follow: a control
                  that can never apply here is not one worth reading past. -->
             <div class="wb-menu-section" id="wb-view-map-section" role="group" aria-label="Map" hidden>
-              <span class="wb-panel-group-label">Map</span>
               <div class="wb-menu-row" hidden>
                 <span><i class="ph ph-swatches ph-lead" aria-hidden="true"></i>Colour by</span>
                 <select id="wb-map-perspective" class="ghost small" aria-label="What a node's colour means" title="What a node's colour means">
@@ -6719,17 +6734,6 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="wb-menu-item" id="wb-map-filter-item" data-wb-surface="map" hidden title="Dim every topic that does not carry one marker"><i class="ph ph-funnel ph-lead" aria-hidden="true"></i><span>Filter by marker…</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-stats-item" hidden><i class="ph ph-chart-bar ph-lead" aria-hidden="true"></i><span>What this map is made of</span></button>
             </div>
-            <!-- Zoom in and Zoom out are the zoom bar's two buttons already,
-                 one click away at the foot of the canvas, so they are not
-                 here a second time; what the bar has no button for (100%)
-                 and what is worth its key (Shift+1, Ctrl+0) is. -->
-            <div class="wb-menu-section" role="group" aria-label="Zoom">
-              <span class="wb-panel-group-label">Zoom</span>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-fit"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Fit everything</span><kbd>Shift+1</kbd></button>
-              <button type="button" class="wb-menu-item" id="wb-zoom-actual"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i><span>Zoom to 100%</span><kbd>Ctrl+0</kbd></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-fullscreen"><i class="ph ph-arrows-out ph-lead" aria-hidden="true"></i><span>Full screen</span><kbd>Esc leaves</kbd></button>
-              <button type="button" class="wb-menu-item" data-wb-fn="present" data-wb-surface="board" title="Show the board's frames one at a time, full screen"><i class="ph ph-presentation ph-lead" aria-hidden="true"></i><span>Present frames</span><kbd>arrows · Esc</kbd></button>
-              <button type="button" class="wb-menu-item" data-wb-fn="present" data-wb-surface="map" title="Show the map one branch at a time, full screen"><i class="ph ph-presentation ph-lead" aria-hidden="true"></i><span>Present branches</span><kbd>arrows · Esc</kbd></button>
             </div>
           </div>
           <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
@@ -12538,7 +12542,9 @@ Link to another note with [[its first few words]]."></textarea>
                 </p>
                 <p>
                   Importing applies each setting it can and lists any it
-                  skipped and why. Undo puts every setting back as it was.
+                  skipped and why. Skills, personas and templates are added
+                  to yours by name, the file's winning a clash. Undo puts
+                  every setting back as it was.
                 </p>
               </div>
               <div class="row">

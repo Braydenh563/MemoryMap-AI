@@ -428,6 +428,27 @@ PLACE_ZONES: dict[str, str] = {
     "utc": "UTC", "gmt": "UTC",
 }
 
+#: A country that keeps several mainland zones is answered with each, west to
+#: east, rather than with its capital's alone (OPEN row 555: "the time in
+#: Australia" said Sydney's, two hours out for Perth). A region the person
+#: names ("western australia") keeps its one zone above.
+SEVERAL_ZONES: dict[str, tuple[tuple[str, str], ...]] = {
+    "australia": (("Perth", "Australia/Perth"), ("Adelaide", "Australia/Adelaide"),
+                  ("Brisbane", "Australia/Brisbane"), ("Sydney", "Australia/Sydney")),
+    "usa": (("Los Angeles", "America/Los_Angeles"), ("Denver", "America/Denver"),
+            ("Chicago", "America/Chicago"), ("New York", "America/New_York")),
+    "canada": (("Vancouver", "America/Vancouver"), ("Edmonton", "America/Edmonton"),
+               ("Winnipeg", "America/Winnipeg"), ("Toronto", "America/Toronto"), ("Halifax", "America/Halifax")),
+    "russia": (("Kaliningrad", "Europe/Kaliningrad"), ("Moscow", "Europe/Moscow"),
+               ("Yekaterinburg", "Asia/Yekaterinburg"), ("Novosibirsk", "Asia/Novosibirsk"),
+               ("Vladivostok", "Asia/Vladivostok")),
+    "brazil": (("Manaus", "America/Manaus"), ("Sao Paulo", "America/Sao_Paulo")),
+    "indonesia": (("Jakarta", "Asia/Jakarta"), ("Makassar", "Asia/Makassar"), ("Jayapura", "Asia/Jayapura")),
+    "mexico": (("Tijuana", "America/Tijuana"), ("Mexico City", "America/Mexico_City"), ("Cancun", "America/Cancun")),
+}
+for _alias in ("us", "america", "united states", "united states of america"):
+    SEVERAL_ZONES[_alias] = SEVERAL_ZONES["usa"]
+
 _CLOCK_IN = re.compile(
     r"^(?:what(?:'s| is) the (?:current )?time|what time is it|whats the time|(?:the |current )?time)"
     r"(?: now| right now)? (?:in|at|over in) (?:the )?(?P<place>[a-z][a-z .'-]{1,40}?)(?: now| right now)?$",
@@ -538,7 +559,14 @@ def _clock(text: str, now: datetime) -> list[tuple]:
         from datetime import timezone
         from zoneinfo import ZoneInfo
 
-        place = place_name_for(match.group("place").strip()) or match.group("place").strip()
+        place = match.group("place").strip()
+        several = SEVERAL_ZONES.get(" ".join(place.replace(".", "").lower().split()))
+        if several:
+            base = now if now.tzinfo else datetime.now(timezone.utc)
+            times = ", ".join(f"{base.astimezone(ZoneInfo(z)):%H:%M} in {city}" for city, z in several)
+            return [("computed", f"{_place_said(place)} has several time zones. It is {times}."),
+                    ("computed", "\nRead from this computer's clock; name a state or city for one of them.")]
+        place = place_name_for(place) or place
         zone = zone_for(place)
         there = (now if now.tzinfo else datetime.now(timezone.utc)).astimezone(ZoneInfo(zone))
         return [("computed", f"It's {there:%H:%M}{_other_day(there, now)} in {_where(place, zone)} ({_zone_said(there)})."),

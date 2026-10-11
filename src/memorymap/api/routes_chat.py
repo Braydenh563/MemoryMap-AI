@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import date, timezone
 from itertools import chain
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -349,6 +349,10 @@ def chat_followups(body: FollowupBody) -> list[str]:
 class ChatTurn(BaseModel):
     question: str
     answer: str
+    #: The notes the answer named, by title, for a spoken follow-up such as
+    #: "delete the other one" (`reading.follow`, decision 57). Optional, and
+    #: dropped from the dump when absent, so a turn without it is unchanged.
+    objects: list[Annotated[str, Field(max_length=200)]] | None = Field(default=None, max_length=8)
 
 
 class PlanRun(BaseModel):
@@ -1713,7 +1717,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     shared = {
         "style": prepared["style"],
         "profile": prepared["profile"],
-        "history": [turn.model_dump() for turn in body.history],
+        "history": [turn.model_dump(exclude_none=True) for turn in body.history],
         "persona_prompt": _resolve_persona(body.persona, session),
     }
     if prepared["stats"] is not None:
@@ -2626,7 +2630,8 @@ def _starter_events(req: _StreamRequest, starter: tuple[str, dict]) -> Iterator[
     """The starter's answer line, then its act card (`ai/starter_acts.py`)."""
     kind, slots = starter
     yield from starter_acts.events(
-        req.session, kind, slots, user_now(deps.get_config()), req.body.note_ids, req.history
+        req.session, kind, slots, user_now(deps.get_config()), req.body.note_ids, req.history,
+        document_ids=req.body.document_ids, board_ids=req.body.board_ids,
     )
 
 
@@ -3199,7 +3204,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     #: loop included, goes on asking for `chat_model()` and gets this
     #: surface's answer without knowing features exist.
     model_manager = deps.get_model_manager().for_feature(_feature_for(body))
-    history = [turn.model_dump() for turn in body.history]
+    history = [turn.model_dump(exclude_none=True) for turn in body.history]
     persona_prompt = _resolve_persona(body.persona, session)
     mode = _resolve_mode(body.mode)
     images_raw = _resolve_chat_images(session, body.image_media_ids)

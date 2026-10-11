@@ -1808,6 +1808,20 @@ function entryOverflowMenu(entry) {
           }
         },
       },
+      //: OPEN row 566: the note's headings and lists as a mind map, the same
+      //: build as the agent's `map_from_note`, so no model is needed.
+      ...(entry.is_private ? [] : [{
+        label: "ph:tree-structure Make a mind map",
+        title: "A mind map of this note: its title in the centre, its headings and lists as branches",
+        run: async () => {
+          try {
+            const board = await apiJson(`/whiteboard/maps/from-note/${entry.id}`, { method: "POST" });
+            await openWhiteboardBoard(board.id);
+          } catch (err) {
+            toast(err.message || "Couldn't make a mind map of this note.", true);
+          }
+        },
+      }]),
       //: Section 17 row 1: settle a filing from the note itself.
       ...(entryNeedsReview(entry)
         ? [{

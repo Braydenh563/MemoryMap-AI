@@ -2771,6 +2771,9 @@ function nameMarkViewerBlinks(figure) {
 //: stand down), it cannot be carried off or have its menu opened, and its
 //: beat is the view's. A walk under way is finished first: the view shows
 //: where it was going, not the path.
+//: How long after it arrives in the view a pointer it landed under is not
+//: yet a hover (the view's fit runs over its first two frames).
+const NMB_VISIT_SETTLE_MS = 700;
 function nameMarkBuddyVisit(host) {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || nmb.visit || buddy.classList.contains("nm-buddy-dragging")) return null;
@@ -2802,7 +2805,7 @@ function nameMarkBuddyVisit(host) {
     sway.push(loop([{ rotate: "-2deg" }, { rotate: "2deg" }], 6700), loop([{ translate: "0 1.2px" }, { translate: "0 -1.4px" }], 4300));
   }
   const watch = new MutationObserver(mirror);
-  nmb.visit = { home: buddy.parentNode, next: buddy.nextSibling, watch, sway, pose: nmb.pose, legs: nmb.legs };
+  nmb.visit = { home: buddy.parentNode, next: buddy.nextSibling, watch, sway, pose: nmb.pose, legs: nmb.legs, at: Date.now() };
   buddy.classList.remove("nmb-dodge");
   //: **Free of its perch in there** (INBOX 619, the owner: "in the enlarged
   //: preview atlas is still hanging, it should be slightly separate from the
@@ -7379,6 +7382,9 @@ function nameMarkBuddyTick() {
   nameMarkBuddyContext(buddy);
   const awake = Date.now() < (nmb.awakeUntil || 0);
   if (idle > NMB_SLEEP_MS && !awake) {
+    //: An act under way ends as it drops off (the owner, 2026-10-11, the
+    //: large view: a wave played on under the Zs, a pose stuck half way).
+    if (nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) nameMarkBuddyAct("");
     //: Drifting off over seconds, not snapping shut.
     if (!buddy.classList.contains("nmb-sleep")) nameMarkBuddyEase(buddy, 3200);
     buddy.classList.remove("nmb-drowsy");
@@ -8582,6 +8588,9 @@ document.addEventListener("visibilitychange", () => {
     clearTimeout(nmb.timer);
     nmb.timer = 0;
   } else {
+    //: Hiding cleared the timer that ends an act (`nmb.timer`), so an act
+    //: caught by it would hold its pose until the next beat: it ends now.
+    if (nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) nameMarkBuddyAct("");
     //: Back after a long absence, it is found asleep, and the next input
     //: wakes it.
     if (Date.now() - nmb.lastInput > NMB_SLEEP_MS) document.getElementById("nm-buddy")?.classList.add("nmb-sleep");
@@ -9104,6 +9113,11 @@ function nameMarkBuddyBuild() {
   };
   face.addEventListener("pointerenter", (event) => {
     if (event.pointerType !== "mouse" || drag) return;
+    //: Carried into its large view under a pointer that has not moved: the
+    //: figure arrived, the pointer did not come to it, so it is not a pet
+    //: and does not wake it (viewersleep.js: asleep, it yawned awake 1.8s
+    //: after the view opened and its Zs went with it).
+    if (nmb.visit && Date.now() - nmb.visit.at < NMB_VISIT_SETTLE_MS) return;
     unpet();
     nameMarkBuddyHover(0);
     pet = setTimeout(() => {

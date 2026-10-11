@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Companion: asleep, it keeps its Zs in its large view. It no longer wakes because the view opened under a still pointer, an act under way ends as it falls asleep (a wave no longer plays on under the Zs), and an act caught by the window being hidden ends when you come back rather than holding its pose. Its keyboard focus is a soft glow behind the figure instead of a box, and a click shows none.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
 - Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.

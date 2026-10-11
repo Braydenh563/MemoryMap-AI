@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Other devices: a phone can now trust the notebook for good. The certificate is a small authority made on this computer, limited to your own network, signing the server certificate (an address change no longer asks the phone again); Trust this certificate on your phone downloads it without a sign-in error; and an address typed without https is sent on to https instead of failing.
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), a missing apostrophe is read ("doesn follow"), and a stray semicolon inside a word or two words run together are put right ("natura;l", "thenthe"); the Guide, the clock and the other utilities read the repaired question.
+- Graph: a small pull on a note moves its neighbours a little and settles at once, instead of reheating the whole map.
+- Quick sketch: the tool bar is a single row of 32px tools with no group labels (names are in tooltips), the ink is one chip that opens its colours, and the bar is a third of its height on a phone.
+- Back and forward list: Clear this list is a quiet text action in a footer beside the older-steps count, not a bordered button with a trash icon.
+- Back and forward list: each row's remove cross sits inside the row's highlight rather than past it.
+- Dashboard: changing theme no longer collapses the notebook constellation for a frame or restarts its drift, so it keeps its shape while it fades.
+- Agent: with no model its button says it runs the app's own tools only, and the first time you choose it a line under the box says the same.
+- Timeline: the years are one menu beside the month picker rather than a chip row of their own.
+- Chat: the settings button in the bottom dock has the same rounded-square corner as the other icon buttons.
+- Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), and a missing apostrophe is read ("doesn follow"); the Guide, the clock and the other utilities read the repaired question.
 - Ask: an answer to a question that needed a spelling repair opens by saying how it was read ("I took that to mean ..."), in wording that changes from one answer to the next.
 - Settings: Import & export has Clear and forget (recent searches in every box, saved previews, the Guide's conversation, dismissed suggestions), each saying how much it removes and each undoable for ten seconds.
 - Settings: every change and clear is undoable from its toast and listed with its Undo in Recent changes (the last twenty).

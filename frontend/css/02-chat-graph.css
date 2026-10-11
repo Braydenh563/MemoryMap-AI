@@ -1696,229 +1696,132 @@ body.graph-fullscreen-on .sidebar-panel {
 #sketch-canvas {
   cursor: crosshair;
 }
-/* --- the sketch pad's tool palette -------------------------------------------
-   One bar, six labelled sections, one hairline between them: the grammar
-   `.wb-tool-section` states (06-timeline-dialogs.css) and DESIGN.md's recipe
-   index now names for any palette of many tools. This file holds only what is
-   particular to *this* palette, its surface, its control height and its two
-   controls that exist nowhere else (a colour dot, a size readout).
-   Why a surface at all, when the whiteboard's rail floats over a canvas
-   without one: this bar sits inside a dialog card, against the card's own
-   fill, so without a panel of its own the sections would be a run of icons
-   loose on the card. `--radius-inner` is the concentric corner for a shape
-   inside a `.card` (DESIGN.md, "Concentric corners"), and the canvas and the
-   foot below take the same one, which is the "the bottom section below the
-   canvas needs fixing ui wise" half of INBOX 123: three stacked surfaces that
-   disagreed about their corners now share one. */
+/* --- the sketch pad's bar: a dock (INBOX 839) --------------------------------
+   The pad's bar is the dock grammar (07-whiteboard-misc.css `.dock`): one
+   `.dock-arrange` run of tools on a single row, the sheet's own actions as
+   `.dock-actions` at the far end. It was a palette of five labelled sections,
+   which at 390 wrapped to five rows (326px of the bar) and at 1440 spent a
+   label line on names the tooltips already carry. The surface stays: this bar
+   sits inside a dialog card, so a field-inset ground, no edge, the concentric
+   corner (DESIGN.md, "Concentric corners") the canvas and the foot share.
+   Every control is `--control-h-lg` (32px), and the touch floor on a phone. */
 .sketch-toolbar {
-  display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  /* No column gap: the hairline on `.wb-tool-section + .wb-tool-section` owns
-     the space between groups, and a gap on top of it would double the inset
-     on one side of every rule. The row gap is what a wrap below 900px lands
-     on. Written as the two long-hands rather than as `gap: var(--space-3) 0`,
-     which `test_ui_signatures.py` reads as a fourth distinct row gap in a
-     family that is allowed three: the pair says the same thing and says it
-     about the axis it is actually about. */
-  row-gap: var(--space-3);
-  column-gap: 0;
-  /* **Quieter** (INBOX 620): a borderless tint, the field-inset ground the
-     tab well uses, where it was a card-white panel with an edge on a card,
-     a box drawn inside a box. */
   background: var(--field-inset);
   border: 0;
-  /* `--space-2` at the ends rather than `--space-4`: the first and last groups
-     already carry their own inset (a section centres its content inside a box
-     the leftover space has grown), so the bar's own side padding is only the
-     distance from the panel edge to a group's box, and at Spacious density
-     `--space-4` was 29px of the 796 this bar gets at its tightest. The pair is
-     one the row family already uses rather than a twelfth distinct padding,
-     which `test_ui_signatures.py` counts and refuses. */
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-inner);
-  /* Room under the head row (INBOX 620, the owner: "a bit more of a gap
-     below the top row title and close button"): it was 0px. */
+  /* Room under the head row (INBOX 620). */
   margin-top: var(--space-6);
   margin-bottom: var(--space-4);
 }
-/* **The groups share out whatever the bar has, so the bar is never wider than
-   its contents.** Reported on the second pass: "if the bar is wider than its
-   contents, either the contents should distribute across it or the bar should
-   shrink to fit them", against a screenshot with 140px empty at the right of
-   the first row and one group alone on a second. `flex-grow` on the sections
-   spends the leftover on the gaps between them rather than leaving it in a
-   heap at the end, and because each section centres its own content
-   (`.wb-tool-section` is a centred column), the hairline at a section's left
-   edge ends up the same distance from the group before it as from the group
-   after it. At a tight setting the sections shrink back to their contents and
-   the hairlines hug, which is exactly what they should do there. */
-.sketch-toolbar .wb-tool-section {
-  flex: 1 0 auto;
+/* Two classes, to outrank `.dock`'s own dense control height. */
+.dock.sketch-toolbar {
+  --control-h: var(--control-h-lg);
 }
-/* The hairline between two groups keeps its line and gives back its margin.
-   The shared recipe writes the separator as `padding-left: var(--space-2)` plus
-   `margin-left: var(--space-1)`, which is right for the whiteboard's rail,
-   where nothing grows and the margin is the only space there is. Here the
-   leftover width is already being shared out between the sections above, so
-   the fixed margin is 39px of four gaps that the grow is about to add back
-   anyway, and it was 39px this bar did not have at its tightest setting. */
-/* And no line (INBOX 620): the groups already share out the bar's width,
-   so space and each group's label tell them apart; four drawn rules in a
-   bar of five groups were the busiest thing on the card. */
-.sketch-toolbar .wb-tool-section + .wb-tool-section {
-  padding-left: var(--space-1);
-  margin-left: 0;
-  border-left: 0;
-}
-/* One height for every row of controls, whatever is in it: a section holding
-   colour dots and a section holding buttons would otherwise put their labels
-   at two different heights and give the bar the ragged top edge the report
-   calls clumped. */
-.sketch-toolbar .wb-tool-section-row {
-  min-height: var(--target-min);
-  /* The tightest step on the scale between two buttons of one group: measured
-     at `--space-2` the six sections came to 873px inside an 829px card and the
-     last of them wrapped, which is the same defect in a better shape. The
-     hairline between sections is what separates them; inside one, the buttons
-     belong together and read better close. */
+.sketch-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-1);
+  min-width: 0;
 }
-/* **`--target-min`, and the reason is that this card is capped in pixels while
-   everything in it is sized in rem.** The bar was reported wrapping a second
-   time, and it did not reproduce at 1440 or 1024: `sketchbar.js` sweeps the
-   appearance settings as well as the widths and found it at once. The card is
-   `min(900px, 96vw)`, so Large text (an 18px root, 1.125x every rem in here)
-   or Spacious density (a 1.35x spacing scale) buys the contents width the card
-   never gets: 21 controls measured 938px of content inside a 796px bar at both
-   settings together, against 821 inside 831 at the defaults, which is why one
-   machine saw a tidy bar and another saw Paper on a second row.
-   So the controls come down a step, to the app's own hit-target floor, which
-   is the same 1.75rem the `.seg` cells in every other strip are and which
-   steps up to 2.75rem under 820px where the pointer is a finger. Thirteen
-   controls at half a rem less is 117px at Large text, and that plus the
-   merged Canvas group is what buys the bar its slack at every setting. */
 .sketch-toolbar .ghost.icon-button {
-  width: var(--target-min);
-  height: var(--target-min);
+  width: max(var(--control-h-lg), var(--target-min));
+  height: max(var(--control-h-lg), var(--target-min));
   padding: 0;
   border-radius: var(--radius-md);
 }
 /* The selected tool is the filled recipe, as every other selected toggle in
    the app (DESIGN.md, the button ramp: "a selected toggle is the filled
-   recipe: on is the accent"). The whiteboard's rail says exactly this for
-   `.wb-tool-group button.active`; this bar is not inside one, so it says it
-   again for itself rather than widening that selector to the whole app. */
+   recipe: on is the accent"). */
 .sketch-toolbar .ghost.icon-button.active {
   background: var(--accent-surface);
   border-color: transparent;
   color: var(--on-accent);
   box-shadow: none;
 }
-.sketch-colors {
-  display: flex;
-  align-items: center;
+/* The ink chip and its palette. The chip is an icon button holding a dot in
+   the colour in use (painted by `sketchShowInk`); it never takes the
+   selected-tool fill, so the dot stays the colour it names. */
+.sketch-ink {
+  position: relative;
+  display: inline-flex;
 }
-/* A swatch is not a hit target the size of a button: seven of them in a row is
-   the widest group in the bar, and at 1.25rem with `--space-2` between them it
-   was 205px of the 796 available at the tightest setting. A rem down and on
-   the tightest gap, it is the same seven colours in 138. */
-.sketch-color {
+.sketch-toolbar .ghost.icon-button.sketch-ink-chip.active,
+.sketch-toolbar .ghost.icon-button.sketch-ink-chip[aria-expanded="true"] {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+.sketch-ink-dot {
   width: 1rem;
   height: 1rem;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1px var(--control-edge);
+}
+.sketch-palette {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  /* Over the canvas below it, which is positioned and later in the order. */
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Sized by its swatches, not by the 32px chip it hangs from. */
+  width: max-content;
+  max-width: min(18rem, 80vw);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--modal-bg-opaque);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+.sketch-palette.hidden {
+  display: none;
+}
+/* A swatch is not a hit target the size of a button: a disc at 1rem inside a
+   `--target-min` square keeps seven colours in one short row. */
+.sketch-color {
+  width: 1.25rem;
+  height: 1.25rem;
   border-radius: var(--radius-pill);
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
+  position: relative;
   transition: transform var(--motion-slow) var(--ease-spring);
 }
 .sketch-color:hover,
 .sketch-color:is(:focus-visible, :has(:focus-visible)) {
   transform: scale(1.2);
 }
-/* **INBOX 276: one row at 820 on Large text.** The bar was 19px short there
-   (rows 706px plus four separators, 724, in a 705px inner bar), and the width
-   is in the rows, not in the group labels the first recommendation named:
-   those sit above their rows and are all narrower than them. Between the
-   phone band and 1024 the dots drop the gap between them: a dot's own 2px
-   transparent ring already keeps the coloured discs 4px apart, so seven
-   colours stay seven distinct targets, 27px narrower at Large text. From 820
-   only: below it the dots are 2rem with a target a gap wider than the disc,
-   and with no gap the targets overlap (6 pairs at 700, Large and Spacious). */
-@media (min-width: 820px) and (max-width: 1023px) {
-  /* The long-hand, for the axis this is about: `gap: 0` would be a fourth
-     distinct row gap in the toolbar family (`test_ui_signatures.py`). */
-  .sketch-toolbar .wb-tool-section-row.sketch-colors {
-    column-gap: 0;
-  }
+/* The touch floor for a dialog's buttons (07-whiteboard-misc.css, under 820)
+   would stretch a swatch into a tall oval; the ::before below is its target. */
+#sketch-overlay #sketch-palette .sketch-color {
+  min-width: 0;
+  min-height: 0;
+}
+/* The target grows past the paint with a transparent ::before, the pattern the
+   painted switches use (DESIGN.md, "Hit targets"), so a swatch stays a small
+   disc and a full-size target. */
+.sketch-color::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--target-min) - 1.25rem) / -2);
 }
 /* The selected dot keeps its ring and loses the scale: a transform moved the
-   dot off the row's own baseline by a pixel, which is what made the colour
-   section measure as two rows in `popupdialogs.js` while looking like one. */
+   dot off the row's own baseline by a pixel. */
 .sketch-color.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
-/* The white ink is a white dot on a near-white bar, and the black one a
-   black dot on the dark theme's bar: ringed, or they are not there to pick
-   (INBOX 620, both seen missing at 1440). */
+/* The white ink is a white dot on a near-white card, and the black one a black
+   dot on the dark theme's: ringed, or they are not there to pick (INBOX 620). */
 .sketch-color[data-color="#f9fafb"]:not(.active),
 :root[data-mode="dark"] .sketch-color[data-color="#111827"]:not(.active) {
   box-shadow: inset 0 0 0 1px var(--control-edge);
-}
-/* ==================== AN INK DOT FOR A FINGER ============================
-   Below 820 the pointer is a finger and every control in this bar steps to
-   `--target-min` (2.75rem there). The swatches did not: seven 16px dots in a
-   bar of 44px buttons, which `touch.js` never caught because it does not open
-   this dialog.
-   Two steps rather than one, because seven dots at 44px is 308px of a 311px
-   bar at 390 and they would touch each other:
-   - the paint goes to 2rem, over the 28px floor `--target-min` is at every
-     other width and well over WCAG 2.5.8's 24px. Seven of those plus their
-     gaps is 248px of the 311 the bar has at 390, so the ink group stays one
-     row;
-   - the target goes the rest of the way with a transparent `::before`, the
-     same pattern the painted switches use (DESIGN.md, "Hit targets"): full
-     `--target-min` height, and half the gap on each side, so a target is
-     36x44 and two neighbours meet without overlapping. An overlapping target
-     would be worse than a small one: the dot on top would take presses meant
-     for the one beside it. */
-@media (max-width: 819.98px) {
-  .sketch-color {
-    width: 2rem;
-    height: 2rem;
-    position: relative;
-  }
-  .sketch-color::before {
-    content: "";
-    position: absolute;
-    left: calc(var(--space-1) / -2);
-    right: calc(var(--space-1) / -2);
-    top: calc((var(--target-min) - 2rem) / -2);
-    bottom: calc((var(--target-min) - 2rem) / -2);
-  }
-  /* The dots wrap rather than run off the end of their own bar: seven at
-     2rem plus their gaps is 248px of the 311 this bar has at 390, but at
-     Large text with Spacious density it is 288px of 284 and the row overflowed
-     by 12. A colour group that becomes two rows of four and three is the same
-     seven colours; a group that overflows loses one. */
-  .sketch-colors {
-    gap: var(--space-1);
-    flex-wrap: wrap;
-    justify-content: center;
-    max-width: 100%;
-  }
-  /* `flex-wrap` alone did nothing: a section is `flex: 1 0 auto` with the
-     default `min-width: auto`, so it refused to be narrower than its widest
-     row and the dots ran 12px past the bar instead of wrapping inside it.
-     `flex-shrink` with it: the section is `flex: 1 0 auto`, so a shrink
-     factor of zero meant the min-width alone changed nothing. Scoped to this
-     bar rather than to `.wb-tool-section`, which the whiteboard's own rail
-     shares. */
-  .sketch-toolbar .wb-tool-section {
-    min-width: 0;
-    flex-shrink: 1;
-  }
 }
 /* The slider and its number as one control, wearing the tonal recipe so that
    it is the same object as the buttons either side of it rather than a track
@@ -1928,7 +1831,7 @@ body.graph-fullscreen-on .sidebar-panel {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: var(--target-min);
+  height: max(var(--control-h-lg), var(--target-min));
   padding-inline: var(--space-2);
   background: var(--ghost-btn-bg);
   border: 1px solid var(--ghost-btn-border);
@@ -1963,8 +1866,8 @@ body.graph-fullscreen-on .sidebar-panel {
    ring that survives its own value: the same reason the whiteboard's board
    background picker carries one (06-timeline-dialogs.css). */
 .sketch-bg-swatch {
-  width: var(--target-min);
-  height: var(--target-min);
+  width: max(var(--control-h-lg), var(--target-min));
+  height: max(var(--control-h-lg), var(--target-min));
   padding: 0;
   border: 1px solid var(--muted);
   border-radius: var(--radius-md);
@@ -2383,6 +2286,11 @@ kbd {
   position: relative;
   border-radius: var(--radius-lg);
   overflow: hidden;
+  /* The sketch is 220px tall (dashboard.js `height`). The holder took its
+     height from the canvas alone, and a theme change swaps the canvas for a
+     veil that is absolutely placed: the holder, and the card around it, fell
+     to 0 for a frame and sprang back (INBOX 838, measured: 0 to 220px). */
+  min-height: 13.75rem;
   line-height: 0;
   /* no stray gap under the canvas */
 }

@@ -2183,6 +2183,10 @@ function renderDashWidgetsList(filterText = "") {
 
 let artInstance = null; // the one live p5 instance, if any
 let artNonce = 0; // bumped by "Regenerate" for a fresh arrangement
+//: The drift reads a page-lifetime clock, so a rebuilt sketch (theme change,
+//: INBOX 838) carries on instead of restarting every star's drift at phase 0.
+const artEpoch = performance.now();
+const artDriftMs = () => performance.now() - artEpoch;
 // Bumped on every startArt call. A run that finds it has changed while it was
 // waiting knows it was superseded and must not mount its canvas, see the
 // comment in startArt for the stacking bug this fixes (§35G).
@@ -2613,7 +2617,7 @@ async function startArt(holder) {
     //: Save PNG takes the settled sky, then puts the frame in hand back
     //: before the browser paints, so the save never shows on screen.
     p.saveSettled = () => {
-      const t = reduceMotion ? 0 : p.millis() * 0.0003;
+      const t = reduceMotion ? 0 : artDriftMs() * 0.0003;
       scene(t, true);
       p.saveCanvas("memorymap-constellation", "png");
       scene(t);
@@ -2651,7 +2655,7 @@ async function startArt(holder) {
     //: `frameCount * 0.005` at sixty frames a second advanced `t` by 0.3 a
     //: second, and `millis() * 0.0003` advances it by 0.3 a second full stop.
     p.draw = () => {
-      scene(reduceMotion ? 0 : p.millis() * 0.0003);
+      scene(reduceMotion ? 0 : artDriftMs() * 0.0003);
       const now = p.millis();
       if (glide && glide.elapsed >= ART_GLIDE_MS) {
         glide = null;

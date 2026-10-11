@@ -649,14 +649,29 @@ async function renderTimelineRecall() {
     seen.add(ago);
     chips.push(button(`ph:clock-counter-clockwise On this day, ${ago}: ${clipText(memory.title, 30)}`, "Show what you wrote on this date in earlier months and years", range("onthisday")));
   }
-  const custom = $("timeline-days").value === "custom" ? $("timeline-start-date").value.slice(0, 4) : "";
-  for (const [year, count] of Object.entries(timelineRecall.years).sort()) {
-    const one = button(`${year} (${count})`, `Show ${year}`, range("custom", `${year}-01-01`, `${year}-12-31`));
-    one.classList.toggle("active", custom === year);
-    chips.push(one);
-  }
+  syncTimelineYears(range);
   row.replaceChildren(...chips);
   row.classList.toggle("hidden", !chips.length);
+}
+
+//: **The years, in the strip's head** (INBOX 842: "that year button in the
+//: timeline takes up a whole row on its own"). One select beside the month
+//: picker, "2026 (42)" per year; it was a chip per year on a row under the
+//: strip. "Any year" is the select's resting value and, chosen while a year is
+//: on, goes back to Everything. Hidden with no dated notes.
+function syncTimelineYears(range) {
+  const select = $("timeline-year");
+  if (!select) return;
+  const years = Object.entries(timelineRecall.years).sort();
+  const active = $("timeline-days").value === "custom" ? $("timeline-start-date").value.slice(0, 4) : "";
+  select.replaceChildren(
+    new Option("Any year", ""),
+    ...years.map(([year, count]) => new Option(`${year} (${count})`, year)),
+  );
+  select.value = years.some(([year]) => year === active) ? active : "";
+  select.classList.toggle("hidden", !years.length);
+  select.closest(".select-shell")?.classList.toggle("hidden", !years.length);
+  select.onchange = () => (select.value ? range("custom", `${select.value}-01-01`, `${select.value}-12-31`)() : range("0")());
 }
 
 //: **A page at a time, as the reader reaches the end of the last one**

@@ -249,28 +249,9 @@ with its owner named in the entry.
      judged against written gold answers, not rule counts), first in the
      assistant brief; the empty badges and Atlas over the answer to ownerfix.
 
-867. **The owner, 2026-10-11, verbatim.** "Also I use an Apple phone" and
-     "Also what if memory map is open to lan on a public network or wifi?? Is
-     that a security risk?? Should the connection type or way the user
-     accesses it be different?? Just make sure everything is handled for the
-     user automatically with possible manual overrides or alterations".
-     Placed: SESSION_BRIEFS Brief 102 (LAN safe by default: allowed networks,
-     new-device approval, private-address clients only, the iPhone flow).
-
-868. **The owner, 2026-10-11, verbatim.** "Also I think there should be a time
-     stamp on each chat message in the chat tab and sessions". Placed:
-     SESSION_BRIEFS Brief 103.
-
-869. **The owner, 2026-10-11, verbatim.** "also make sure the composer doesnt
-     mistake split words or typos as slang or shortened words, it should take
-     into account the context fot the sentence and maybe use pobability ro
-     smth to make sure it understands it correctly. idk smth like that".
-     Placed: SESSION_BRIEFS Brief 104 (a noisy-channel reading: candidate
-     readings scored by edit likelihood times a context model from the
-     notebook and the lexicon; slang and abbreviations only win on context).
-
 ## Placed (last 20, newest first)
 
+- 2026-10-11: 867 (iPhone; LAN on a public network, automatic with overrides) placed as SESSION_BRIEFS Brief 102 (lansafe running); 868 (a time on every chat message and session) as Brief 103 (chattime running); 869 (typos read in context, not as slang) as Brief 104; 870 (composer answers with real openings, joining clauses and a close that adds something) into the atlas agent's running brief (CHAT_PLAN decision 70). Verbatims in SESSION_BRIEFS.
 - 2026-10-11: the reqaudit pass (153 asks, 41 unplaced found-not-fixed rows) placed as SESSION_BRIEFS Brief 101; 845 ("can you redesign or change the design of this \"clear this list\" button??") and 846 ("there's an excessive gap on the right for the x close buttons on the nav history, can you integrate them together??") with ownerfix2; 848 ("on these screenshots from the search suggestions agent, these button text clashes") and 849 ("should search suggestion dropdown panels be the width of the search bar with the minimum being what the panel default is??", yes) with search86.
 
 - 2026-10-11: 862 (a full functionality and experience scan) placed as SESSION_BRIEFS Brief 99; 864 and 865 (the graph appearing and updating smoothly, eased hover, a better node, the glow kept) with 802 as Brief 100; 863 (Peek slightly too see-through) fixed in the typos90 merge commit (the body 22% to 32%, the ground 8% to 14%).

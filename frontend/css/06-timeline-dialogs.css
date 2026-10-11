@@ -3548,6 +3548,25 @@ aside[data-resizable="1"] {
 .timeline-daystrip-label .ph {
   color: var(--muted);
 }
+/* The year menu (INBOX 842): a quiet select beside the month, in the head's
+   own run, so the years take no row of their own. It reads as the month
+   picker does (no fill or edge at rest, the ghost ground under the pointer)
+   and takes the row's control height rather than the select opener's
+   padding, which made it 37px beside the 32px month. */
+.timeline-daystrip-head .select-shell > .select-opener {
+  height: max(var(--control-h), var(--target-min));
+  min-height: max(var(--control-h), var(--target-min));
+  padding-block: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--text-md);
+}
+.timeline-daystrip-head .select-shell > .select-opener:hover,
+.timeline-daystrip-head .select-shell > .select-opener:is(:focus-visible, :has(:focus-visible)),
+.timeline-daystrip-head .select-shell > .select-opener[aria-expanded="true"] {
+  background: var(--ghost-btn-bg);
+}
 .timeline-days {
   container-type: inline-size;
   container-name: timeline-days;
@@ -3641,6 +3660,12 @@ aside[data-resizable="1"] {
   .timeline-daystrip-head {
     flex: 1 1 100%;
     justify-content: space-between;
+  }
+  /* Four items in 330px: the month gives up some of its fixed width (the
+     later arrow still stays put while it changes) so the year menu stays in
+     the run instead of wrapping to a row of its own. */
+  .timeline-daystrip-label.ghost.small {
+    min-width: 7.5rem;
   }
 }
 /* A daily note's head: the day before and the day after, under its title

@@ -4233,22 +4233,6 @@ def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
     assert "Right-click an item, Comment…" in guide and "Comment… starts a thread" in guide
 
 
-def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
-    """INBOX 276: the pad's bar wrapped at 820 on Large text, 19px short, and
-    the width was in the rows (the group labels sit above them and are all
-    narrower). From 820 to 1023px the dots drop their gap; their own
-    transparent ring keeps them apart. Below 820 they are 2rem with a target a
-    gap wider than the disc, so the gap must stay (the band used to start at
-    600 and 6 pairs of targets overlapped at 700 on Large text with Spacious).
-    `scratchpad/ui-sweeps/sketchbar.js` is the measurement; this keeps the
-    rule from being lost in a merge."""
-    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
-    assert "@media (min-width: 600px) and (max-width: 1023px) {\n  /* The long-hand" not in css
-    at = css.index("@media (min-width: 820px) and (max-width: 1023px) {")
-    block = css[at : css.index("\n}", at)]
-    assert ".sketch-toolbar .wb-tool-section-row.sketch-colors" in block and "column-gap: 0;" in block
-
-
 def test_the_writing_rooms_selects_get_their_own_line_on_a_phone() -> None:
     """OPEN.md, "Writing Room at phone width": one nowrap row held what to
     write, tone, length and Use notes, so each select was 62px wide at 390 with

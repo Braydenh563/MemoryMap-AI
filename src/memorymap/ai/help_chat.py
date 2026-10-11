@@ -330,7 +330,7 @@ HELP_TOPICS: list[dict] = [
             "shows today's date in earlier months and years. In the feed, Ctrl and "
             "the mouse wheel, or a pinch, makes the date groups finer or coarser, "
             "as do + and - on a row. The strip under the bar walks your daily pages, and the "
-            "chips under it offer On this day and a chip per year with its count. A note that names a "
+            "chip under it offers On this day, and the year menu beside the month narrows the list to one year. A note that names a "
             "day (\"on Friday\") sits on that day and says All day; one that "
             "names a time too (\"on Friday at 3pm\") shows that time."
         ),

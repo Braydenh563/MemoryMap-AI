@@ -48670,3 +48670,14 @@ notes and the history to what the window holds. So odysseus's compaction
 idea, which is still the owner's to decide, is a refinement of a guard that
 exists rather than a missing one, and nothing is silently overflowing while
 the decision waits.
+
+## Moved from the plans, 2026-10-11 (Brief 91)
+
+> ## Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842)
+>
+> Verbatim, each with its decision:
+> - 838: "swapping between light and dark mode collapses the notebook constellation and joltingly redraws it without it staying the same shape and smoothly animating the transition". The constellation keeps its positions across a theme change and crossfades its colours (no re-layout); reduced motion swaps at once.
+> - 839: "can you also improve and modernise/professionalise and make consistent the design of the quick sketch panel?? also sometimes small adjustments and graph nodes being pulled in slightly are glitchy and jittery, not smooth". The sketch panel's bar is a `.dock` (DESIGN), group labels off (tooltips carry them), one row of 32px tools, the swatches a single colour chip that opens a palette, the caption and Save as note on one footer; the graph: a small drag or a node pulled in settles without oscillation (alpha target and velocity decay measured over 60 frames, no frame with a position change above 1px after settle).
+> - 840: "I can still select agent when the ai isnt running, is that intentional??" Intentional (CHAT_PLAN decision 22a: with no model, Agent runs the app's own tools); not learnable, so the segment says it: "Agent, app tools only" in its tooltip and a one-line hint under the composer the first time Agent is chosen with no model.
+> - 841: "i dont think the settings button in the bottom chat doc should be a circle when everything else is a curved corner rectangle". The chat dock's settings button takes the dock's control radius.
+> - 842: "that year button in the timeline takes up a whole row on its own". The year chip ("2026 (42)") moves into the calendar bar's row as a quiet control beside the month picker, or folds into the table's Date column header; no row of its own.

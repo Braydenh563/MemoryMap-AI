@@ -57,3 +57,22 @@ def test_the_readers_own_day_not_utcs(client, session):
 def test_a_bad_day_is_refused(client):
     assert client.get("/timeline", params={"on": "13-45"}).status_code == 422
     assert client.get("/timeline", params={"on": "3-5"}).status_code == 422
+
+
+def test_the_years_are_one_select_in_the_strip_head_not_a_row_of_chips():
+    """"that year button in the timeline takes up a whole row on its own"
+    (INBOX 842). The year filter is `#timeline-year` in the day strip's head,
+    beside the month picker; `renderTimelineRecall` no longer builds a chip per
+    year, so the recall row holds only On this day chips and is hidden
+    without them."""
+    from pathlib import Path
+
+    from tests._app_js import frontend_text
+
+    html = (Path(__file__).resolve().parents[1] / "frontend" / "index.html").read_text(encoding="utf-8")
+    head = html[html.index('class="timeline-daystrip-head"') :]
+    head = head[: head.index('id="timeline-daystrip-days"')]
+    assert 'id="timeline-year"' in head and 'id="timeline-month-btn"' in head
+    js = frontend_text("timeline.js")
+    assert "function syncTimelineYears(" in js
+    assert 'button(`${year} (${count})`' not in js

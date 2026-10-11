@@ -2463,6 +2463,68 @@ def _run_and_record(
     return result
 
 
+def _tidied_arguments(name: str, arguments: dict, messages: list[dict]) -> dict:
+    """A call's one-line string arguments with stray keys off their edges
+    (INBOX 808: a search logged as "a gaming mouse?\\"); multi-line text (a
+    note's body, a document) is the person's content and is left alone. A
+    search sent with no query is given the request's topic ("NOTEBOOK STATS"
+    searched for nothing)."""
+    if not isinstance(arguments, dict):
+        return arguments
+    from memorymap.ai import question_noise
+
+    out = {k: question_noise.strip_strays(v) if isinstance(v, str) and "\n" not in v else v for k, v in arguments.items()}
+    if name == "search_notes" and not str(out.get("query") or "").strip():
+        asked = next((m.get("content") for m in reversed(messages) if m.get("role") == "user"), "")
+        out["query"] = question_noise.topic_of(asked if isinstance(asked, str) else "") or out.get("query", "")
+    return out
+
+
+#: Told to the model when it asks with one choice (INBOX 808, the owner's
+#: log: three one-option asks in a row, each "Couldn't ask user").
+ONE_OPTION_NOTE = (
+    "There is only one option, so there is nothing to ask. Do it now with the "
+    "right tool, or answer. ask_user is not available for the rest of this turn."
+)
+
+
+def _one_option_ask(state: "_TurnState", name: str) -> bool:
+    """A one-option ask is stopped before it reaches the person: no card and
+    no failed step on screen, the model told to answer or act, and ask_user
+    taken out of what it is offered for the rest of the turn, so it cannot
+    loop on the same refusal. Still counted, so a model that calls it anyway
+    meets the cap."""
+    state.count_failure(name)
+    state.offered = [t for t in state.offered if t.get("function", {}).get("name") != name]
+    state.messages.append({"role": "tool", "tool_name": name, "content": json.dumps({"error": ONE_OPTION_NOTE})})
+    return False
+
+
+def _handoff_refused(state: "_TurnState", name: str, signature: tuple, exc: Exception) -> Iterator[dict]:
+    """A malformed question, or a skill named that doesn't exist.
+    Recoverable mistakes, not dead turns: hand the model the reason and let
+    it try again or answer directly. An ask with one choice is not shown at
+    all (INBOX 808: three "Couldn't ask user" steps in a row)."""
+    if isinstance(exc, tools.OneOptionAsk):
+        return _one_option_ask(state, name)
+    state.failed_calls.add(signature)
+    state.count_failure(name)
+    state.messages.append(
+        {
+            "role": "tool",
+            "tool_name": name,
+            "content": json.dumps({"error": str(exc), "what_to_do": _HANDOFF_RECOVERY.get(name, _ASK_RECOVERY)}),
+        }
+    )
+    yield {
+        "type": "tool",
+        "label": f"ph:warning couldn't {name.replace('_', ' ')}",
+        "ok": False,
+        "error": str(exc),
+    }
+    return False
+
+
 def _dispatch_call(
     session: Session,
     plan: _TurnPlan,
@@ -2484,7 +2546,7 @@ def _dispatch_call(
     branch's comment says why it is where it is, and the existing agent tests
     are the only gate on this split.
     """
-    name, arguments = call["name"], call.get("arguments") or {}
+    name, arguments = call["name"], _tidied_arguments(call["name"], call.get("arguments") or {}, state.messages)
     spec = tools.TOOLS.get(name)
     signature = (name, json.dumps(arguments, sort_keys=True))
     if name in plan.barred:
@@ -2568,32 +2630,7 @@ def _dispatch_call(
         try:
             handover = tools.handoff_event(name, arguments, history)
         except tools.ToolError as exc:
-            # A malformed question, or a skill named that doesn't
-            # exist. Recoverable mistakes, not dead turns: hand the
-            # model the reason and let it try again or answer directly.
-            state.failed_calls.add(signature)
-            state.count_failure(name)
-            state.messages.append(
-                {
-                    "role": "tool",
-                    "tool_name": name,
-                    "content": json.dumps(
-                        {
-                            "error": str(exc),
-                            "what_to_do": _HANDOFF_RECOVERY.get(
-                                name, _ASK_RECOVERY
-                            ),
-                        }
-                    ),
-                }
-            )
-            yield {
-                "type": "tool",
-                "label": f"ph:warning couldn't {name.replace('_', ' ')}",
-                "ok": False,
-                "error": str(exc),
-            }
-            return False
+            return (yield from _handoff_refused(state, name, signature, exc))
         return (yield from _finish_handover(session, plan, state, name, arguments, handover))
     elif spec is not None and (spec.destructive or (state.tainted and name in _PARK_WHEN_TAINTED and not _cleared_page(state, name, arguments))) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
         # **A destructive tool cannot paper the turn with confirm

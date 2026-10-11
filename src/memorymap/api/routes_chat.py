@@ -42,6 +42,7 @@ from memorymap.ai import (
     memory,
     notebook_stats,
     presets,
+    question_noise,
     questions,
     skill_runner,
     skills,
@@ -2532,6 +2533,10 @@ def _note_tool_read(req: _StreamRequest, prepared: dict, ollama_running: bool) -
     notebook's, so the notes retrieval found are not its sources."""
     if not ollama_running and prepared["stats"] is None and prepared["intent"] != intent.ACT:
         prepared["tool_read"] = _tool_read_events(req)
+        if prepared["tool_read"]:
+            #: Not composed from them either: the Ask box's "Composed from
+            #: your notes" label is for a quoted answer (INBOX 801).
+            prepared["notes"] = []
 
 
 def _follow_up(req: _StreamRequest):
@@ -2563,6 +2568,35 @@ def _checks_grounding(prepared: dict, agentic: bool, composing: bool, conversati
     96 in your notes" under "You have 96 notes" was the check misreading it
     (Brief 89)."""
     return not agentic and not composing and not conversational and prepared["stats"] is None
+
+
+def _engine_answers(req: _StreamRequest, prepared: dict) -> bool:
+    """Whether the app's own engine answers this turn with no model (INBOX
+    801): a count, a worked utility, a read tool, an act, a starter, or notes
+    the composer can quote. The Needle extra never shadows those: it picked
+    search_notes with an empty query for "NOTEBOOK STATS" and "None of my
+    tools fits that" for "5 + 5", which the engine answers exactly."""
+    return (
+        prepared["stats"] is not None
+        or bool(prepared.get("tool_read"))
+        or prepared["intent"] in (intent.UTILITY, intent.ACT)
+        or bool(prepared["notes"])
+        or _starter_read(req, False) is not None
+    )
+
+
+def _tools_provider(req: _StreamRequest, prepared: dict, ollama_running: bool):  # noqa: ANN202
+    """Who answers a tool-using turn. INBOX 302 (the owner, 2026-09-24: needle
+    "Yes, as an extra"): with no backend answering, a turn that may use tools
+    can still run them through the needle extra when it is installed
+    (`ai/tool_fallback.py` says why the order is what it is). Only the agent
+    branch uses it: needle writes no prose, so a plain answer or a skill's
+    written steps still need a model server, and `ollama_running` keeps
+    saying the truth about that one. INBOX 801: and only for a turn the
+    engine has no answer for (`_engine_answers`)."""
+    if not ollama_running and req.use_tools and not req.skill and not _engine_answers(req, prepared):
+        return tool_fallback.for_tools(req.ollama) or req.ollama
+    return req.ollama
 
 
 def _stream_lines(req: _StreamRequest) -> Iterator[str]:
@@ -2610,16 +2644,8 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         #: same, and it can ask and plan (decision 38 is for no model).
         prepared["intent"] = intent.NOTES
     composed = _composed(req, ollama_running)
-    #: INBOX 302 (the owner, 2026-09-24: needle "Yes, as an extra"): with no
-    #: backend answering, a turn that may use tools can still run them
-    #: through the needle extra when it is installed (`ai/tool_fallback.py`
-    #: says why the order is what it is). Only the agent branch below uses
-    #: it: needle writes no prose, so a plain answer or a skill's written
-    #: steps still need a model server, and `ollama_running` keeps saying
-    #: the truth about that one.
-    tools_provider = req.ollama
-    if not ollama_running and req.use_tools and not req.skill:
-        tools_provider = tool_fallback.for_tools(req.ollama) or req.ollama
+    _note_tool_read(req, prepared, ollama_running)
+    tools_provider = _tools_provider(req, prepared, ollama_running)
     tools_only = tools_provider is not req.ollama
     # In agent mode the model can act even when nothing matched, "save a
     # note about X" must work on an empty notebook.
@@ -2643,7 +2669,6 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     if will_answer and not tools_only:
         _assist(req, prepared)
-    _note_tool_read(req, prepared, ollama_running)
 
     yield event(
         {
@@ -2928,7 +2953,9 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     skill = _resolve_skill(body) or _resolve_plan(body)
     if body.as_of is not None and not skill:
         use_tools = False
-    question = skill["question"] if skill else body.question
+    #: Cleaned before anything reads it (INBOX 801): a stray backslash, a run
+    #: of spaces, a sentence typed in capitals (`question_noise.tidy`).
+    question = skill["question"] if skill else question_noise.tidy(body.question) or body.question
     allowed_tools = skill["tools"] if skill else None
     if skill and skill["acts"]:
         # An action skill without tools is just a paragraph, so the route

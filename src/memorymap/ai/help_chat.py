@@ -155,7 +155,8 @@ HELP_TOPICS: list[dict] = [
             "the line under it says what is happening: Reaching Atlas, Reading "
             "your notes, Waking the model, Atlas is thinking, Atlas is writing, "
             "or Atlas followed by the tool's name (a persona's name replaces "
-            "Atlas); with Progress indicators set to Still, without the dots."
+            "Atlas), or with no model Working it out without a model; with "
+            "Progress indicators set to Still, without the dots."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },

@@ -466,10 +466,48 @@ def _say_listed(tool: str, result: dict, today: date) -> tuple[str, dict]:
     return f"You have {count_noun(total, noun)}" + (", newest first." if tool != "list_skills" else "."), shaped
 
 
+def _title_and_line(content: str) -> tuple[str, str]:
+    """A note's title (its first line, heading marks off) and its first line
+    of body, for a one-line row."""
+    lines = [ln.strip() for ln in str(content or "").splitlines() if ln.strip()]
+    if not lines:
+        return "Untitled", ""
+    title = lines[0].lstrip("#").strip() or "Untitled"
+    return cut_title(title, 60), cut_title(lines[1].lstrip("#-*> ").strip(), 100) if len(lines) > 1 else ""
+
+
+def _say_found(tool: str, result: dict, today: date) -> tuple[str, dict]:
+    """search_notes (INBOX 801: "it doesnt output tool results with the
+    composer"): the titles found, one line each, in the order found."""
+    notes = [n for n in result.get("notes") or [] if isinstance(n, dict) and not n.get("why")]
+    asked = re.search(r"“(.+)”", str(result.get("label") or ""))
+    about = f" about “{asked.group(1)}”" if asked else ""
+    if not notes:
+        return f"I found no notes{about}.", _EMPTY
+    rows = []
+    for note in notes[:5]:
+        title, line = _title_and_line(note.get("content"))
+        rows.append(f"- **{title}**" + (f": {line}" if line else ""))
+    more = f" The first five of {int(result.get('found') or len(notes))}." if len(notes) > 5 else ""
+    return f"I found {count_noun(len(notes), 'note')}{about}.{more}", {"form": "list", "text": "\n".join(rows), "chart": None}
+
+
+def _say_time(tool: str, result: dict, today: date) -> tuple[str, dict]:
+    where = f" in {result['place']}" if result.get("place") else ""
+    return f"It is {result.get('human') or 'unknown'}{where}.", _EMPTY
+
+
+def _say_worked(tool: str, result: dict, today: date) -> tuple[str, dict]:
+    answer = str(result.get("answer") or "").strip()
+    read = str(result.get("read_as") or "").strip()
+    return (answer + (f"\nRead as {read}." if read and read not in answer else "")), _EMPTY
+
+
 _SAYERS = {
     "list_tags": _say_named, "list_categories": _say_named, "count_notes": _say_count,
     "notebook_overview": _say_overview, "notebook_structure": _say_structure, "list_reminders": _say_reminders,
     "list_documents": _say_listed, "list_notes": _say_listed, "list_skills": _say_listed,
+    "search_notes": _say_found, "get_current_time": _say_time, "calculate": _say_worked,
 }
 
 

@@ -2458,6 +2458,12 @@ function streamChat(options) {
       return options.onStatus?.(event);
     },
     onMeta: (meta) => {
+      //: No model connected: nothing is being woken (INBOX 801), so the line
+      //: says the engine is answering and no "Waking the model…" is armed.
+      if (meta?.ollama_running === false) {
+        phase("engine");
+        return options.onMeta?.(meta);
+      }
       phase(meta?.raw_results?.length ? "reading" : "reaching");
       timer = setTimeout(() => phase("loading"), MODEL_LOAD_HINT_MS);
       return options.onMeta?.(meta);

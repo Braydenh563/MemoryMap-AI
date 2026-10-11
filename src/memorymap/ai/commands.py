@@ -326,6 +326,16 @@ _OPEN_HEADS = ("take me to ", "jump to ", "pull up ", "bring up ", "go to ", "op
 _FREE_FIND = ("find ", "search for ", "search ", "look for ", "look up ")
 
 
+_ON_THE_WEB = re.compile(r"(?:the )?(?:web|internet|online)\b", re.I)
+
+
+def _note_topic(rest: str) -> bool:
+    """Whether what follows "search" is a topic in the notes: not a question,
+    and not the web ("search the web for trains" is a web search, not a note
+    find about "web", INBOX 801)."""
+    return not _ASKING.match(rest) and not _ON_THE_WEB.match(rest)
+
+
 def _find(text: str) -> dict | None:
     low = text.lower()
     for heads, intent in ((_OPEN_HEADS, "open"), (_FIND_HEADS, "find")):
@@ -339,7 +349,7 @@ def _find(text: str) -> dict | None:
         found = _target(rest)
         if found and found.get("about"):
             return {"intent": intent, "about": found["about"]}
-        if intent == "find" and head in _FREE_FIND and rest and not _ASKING.match(rest):
+        if intent == "find" and head in _FREE_FIND and rest and _note_topic(rest):
             about = _drop_article(rest)
             return {"intent": "find", "about": about} if about else None
         return None

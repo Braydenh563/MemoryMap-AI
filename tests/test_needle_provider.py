@@ -283,7 +283,9 @@ def test_a_json_result_is_not_pasted_into_the_reply(fake_engine):
         {"role": "tool", "tool_name": "notebook_overview", "content": '{"total_notes": 0}'},
     ]
     reply = needle_provider.NeedleProvider().chat_tools("any", messages, TOOLS)
-    assert "{" not in reply["content"] and "notebook_overview" in reply["content"]
+    #: Said as an answer (INBOX 801), never the step's name or the raw JSON.
+    assert "{" not in reply["content"] and "notebook_overview" not in reply["content"]
+    assert reply["content"] and "step above" not in reply["content"]
 
 
 def test_prose_is_refused_plainly(fake_engine):

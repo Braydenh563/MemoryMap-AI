@@ -51,6 +51,7 @@ def test_the_decided_words_for_every_phase():
         [
             'reaching: progressPhaseText("reaching")',
             'loading: progressPhaseText("loading")',
+            'engine: progressPhaseText("engine")',
             'reading: progressPhaseText("reading")',
             'thinking: progressPhaseText("thinking")',
             'writing: progressPhaseText("writing")',
@@ -62,6 +63,7 @@ def test_the_decided_words_for_every_phase():
     assert out == {
         "reaching": "Reaching Atlas…",
         "loading": "Waking the model…",
+        "engine": "Working it out without a model…",
         "reading": "Reading your notes…",
         "thinking": "Atlas is thinking…",
         "writing": "Atlas is writing…",
@@ -144,6 +146,8 @@ def test_the_stream_client_maps_each_event_to_a_phase():
     assert 'phase("reaching")' in wrapper  # the request leaving
     assert 'phase("reading")' in wrapper  # status: searching, and meta with notes
     assert 'phase("loading")' in wrapper  # quiet after meta
+    #: INBOX 801: with no model connected nothing is woken.
+    assert 'if (meta?.ollama_running === false) {\n        phase("engine");' in wrapper
     assert 'phase("thinking")' in wrapper  # reasoning deltas
     assert 'phase("writing")' in wrapper  # answer deltas
     assert 'phase("tool", event.ok ? toolPhaseVerb(event.label) : null)' in wrapper

@@ -81,13 +81,23 @@ def evaluate(expression: str) -> float:
     return _walk(tree)
 
 
+#: A sum typed bare ("5 + 5", INBOX 801: it got "None of my tools fits
+#: that") needs an operator no date or code uses: `+ * x × ÷ ^ %`, or a minus
+#: or a slash with a space on each side. "2024-10-11" and "10/11" are dates.
+_BARE_OPERATOR = re.compile(r"[+*x×÷^%]|\s[-/]\s")
+
+
 def sum_in(question: str) -> str | None:
-    """The sum a question asks for ("what is 2 + 2?" gives "2 + 2"), or None
-    when the question is not only a sum."""
+    """The sum a question asks for ("what is 2 + 2?" gives "2 + 2", and "5 + 5"
+    on its own gives "5 + 5"), or None when the question is not only a sum."""
     match = _ASK.match(question or "")
-    if not match:
+    if match:
+        expr = match.group("expr")
+    elif _BARE_OPERATOR.search(question or ""):
+        expr = (question or "").strip()
+    else:
         return None
-    expr = match.group("expr").rstrip(" \t?=.")
+    expr = expr.rstrip(" \t?=.")
     try:
         evaluate(expr)
     except NotArithmetic:

@@ -2793,7 +2793,7 @@ function renderChatModeSeg() {
     agentButton.title = gated
       ? `Agent mode needs a model, or the Needle extra, to call tools. ${AI_OFFLINE_HINT}.`
       : engine
-        ? "Agent mode runs on Needle with no model: it calls tools and writes no prose of its own."
+        ? "With no model, Agent answers with the app's own tools: the time, sums, counts, notes on a topic and acts. Needle picks a tool for the rest. A model does more."
         : agentButton.dataset.enabledTitle;
   }
   renderWebSearchToggle();

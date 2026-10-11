@@ -10,6 +10,10 @@ below). Versioning is `0.x` while the app stabilises.
 - Ask: a question about notes in one category stays inside that category rather than widening into another.
 - Backups: every start holds the backups folder to the number you keep, so a safety copy before an update no longer leaves one too many.
 - Settings: the bar that marks a changed setting sits in the margin beside the row rather than on the text.
+- Chat: with no model, Agent answers with the app's own tools first: the time in a named place ("what's the time in western australia"), a bare sum ("5 + 5"), your notebook's counts in any case, the notes on a topic, and "can you search the web?" (whether web search is on, and how to turn it on). The thinking line says "Working it out without a model…", never "Waking the model…".
+- Chat: a stray backslash or a run of spaces is cleaned from the question and from every tool's one-line arguments; a search sent with no words searches the question's topic.
+- Chat: with the Needle extra, a tool's result is said as the answer (the time, the sum, the counts, the notes found with a line each), never "its result is in the step above"; Needle is never offered a question to ask you.
+- Agent: a question with only one choice is never shown and never retried; the agent answers or acts instead.
 - Skills: every change a skill or the agent makes to a document, a board, a map or a saved skill is read back before it is reported as done, as notes, tags and reminders already were.
 - Skills: a skill can cap its own tool calls and steps; a run that passes a cap stops, says which, and keeps its changes for Undo.
 - Skills: with small model mode on, a skill measured as unreliable on small models is shown as needing a larger model, with the reason.

@@ -402,11 +402,62 @@ _EMOJI = re.compile(
 _EMOTICON = re.compile(r"(?:^|\s)(?:[:;=8][-']?[)(DPp/\\|*]+|<3|\^_?\^)(?=\s|$)")
 
 
+#: Keys hit by accident at a sentence's edge (INBOX 801, the owner: "it
+#: doesnt account for accidental extra characters like a backslash"): a stray
+#: `\\`, `|`, backtick, `~` or `^` against a word. One beside a colon or a
+#: semicolon is an emoticon (":\\", ";|") and stays.
+_STRAY_TAIL = re.compile(r"(?<=[\w?.!)\"'\s])(?:[\\|`~^]+|(?<=[?.!])/+)\s*$")
+_STRAY_HEAD = re.compile(r"^\s*[\\|`~^]+(?=\w)")
+_RUN_OF_SPACES = re.compile(r"[ \t]{2,}")
+
+
+def strip_strays(text: str) -> str:
+    """Stray keys off a text's edges and runs of spaces made one; nothing
+    else changes (a tool's argument, INBOX 808)."""
+    text = _STRAY_HEAD.sub("", _STRAY_TAIL.sub("", str(text or "")))
+    return _RUN_OF_SPACES.sub(" ", text).strip()
+
+
+def tidy(text: str) -> str:
+    """A question as it was meant before anything reads it (INBOX 801): stray
+    keys off its edges, runs of spaces made one (line breaks kept, a pasted
+    passage keeps its shape), and a sentence typed all in capitals
+    ("NOTEBOOK STATS") put in lower case. One capitalised word ("NASA") is a
+    name and stays. Words are never changed here: `repair` does that, for
+    the readers that want it."""
+    text = strip_strays(text)
+    words = re.findall(r"[A-Za-z]{2,}", text)
+    if len(words) >= 2 and len(text) <= 200 and not re.search(r"[a-z]", text):
+        text = text.lower()
+    return text
+
+
 def strip_symbols(text: str) -> str:
     """Emoji and emoticons off, the rest kept."""
     text = _EMOJI.sub(" ", text or "")
     text = _EMOTICON.sub(" ", text)
     return " ".join(text.split())
+
+
+#: The asking words before a topic ("what is there about", "search my notes
+#: for"), taken off to leave the topic a search_notes call is given.
+_ASKING_HEAD = re.compile(
+    r"^(?:(?:can|could|would) you |please )?(?:what(?:'s| is)? (?:there |do i have |have i got |did i write )?(?:about|on)|"
+    r"search (?:my |the )?(?:notes? )?(?:for|about)|search|find (?:my )?(?:notes? )?(?:about|on)?|look (?:for|up)|"
+    r"(?:show|list) (?:me )?(?:my )?notes? (?:about|on)|notes? (?:about|on)|anything (?:about|on))(?:\s+|$)",
+    re.I,
+)
+
+
+def topic_of(text: str) -> str:
+    """The topic a request names, cleaned (`tidy`), with its
+    asking words and trailing punctuation off: "what is there about dentist\\"
+    gives "dentist". "" when nothing is left."""
+    #: The agent's user message carries the notes first and the request
+    #: last, after "My request: " (`agent.build_agent_messages`).
+    text = str(text or "").rsplit("My request: ", 1)[-1]
+    words = _ASKING_HEAD.sub("", tidy(text).strip(" ?.!,;:")).strip(" ?.!,;:")
+    return re.sub(r"^(?:the|my|our|a|an)\s+", "", words, flags=re.I)
 
 
 #: Conversational turns of more than one word, read whole (INBOX 741, the

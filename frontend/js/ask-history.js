@@ -5,6 +5,12 @@
 // is opened. Its state (`askHistoryOpen` and the paging counters) and the
 // badge stay in capture-ask.js, since boot code reads them.
 
+const ASK_HISTORY_PAGE = 20;
+
+let askHistoryOffset = 0;
+
+let askHistoryTotal = 0;
+
 function askHistoryRow(turn) {
   const li = document.createElement("li");
   li.className = "ask-history-item";

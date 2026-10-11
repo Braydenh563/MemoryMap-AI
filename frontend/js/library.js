@@ -12165,3 +12165,15 @@ async function remindAbout({ title, entryId = null, documentId = null }) {
     return false;
   });
 }
+
+//: A note's picture, wherever it lives, the markdown, or the attachments
+//: table. See `noteRowImage` in dashboard.js for the report behind this: an
+//: *attached* image appears nowhere in the note's text, so every surface that
+//: looked for `![](…)` alone showed nothing for a note whose only picture was
+//: attached rather than pasted.
+function noteAnyImage(entry) {
+  const embedded = noteFirstImage(entry?.content);
+  if (embedded) return embedded;
+  const attached = (entry?.attachments || []).find((file) => file.is_image);
+  return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
+}

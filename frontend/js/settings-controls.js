@@ -2033,3 +2033,33 @@ async function renderLanAccess() {
     $("account-lan-state").classList.add("hidden");
   }
 }
+
+// Open a picker, parse the chosen file, hand the object to `apply`.
+function pickJsonFile(inputId, apply) {
+  const input = $(inputId);
+  input.onchange = async () => {
+    const file = input.files[0];
+    input.value = "";
+    if (!file) return;
+    try {
+      apply(JSON.parse(await file.text()));
+    } catch {
+      toast("That file isn't valid JSON.", "info");
+    }
+  };
+  input.click();
+}
+
+function textToSteps(text) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function textToInputs(text) {
+  return textToSteps(text).map((line) => {
+    const [name, ...rest] = line.split(":");
+    return { name: name.trim(), label: rest.join(":").trim(), required: true };
+  });
+}

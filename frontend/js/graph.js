@@ -3980,7 +3980,7 @@ function openGraphLinkPanel(edge, nodes) {
 //: picture is a library upload referenced from its own markdown drew nothing
 //: at all, `#graph-popup-media` hidden with 0 children. Pasted, dropped and
 //: AI-attached pictures all end up as `![alt](/media/...)` in the body and
-//: there is no column that mirrors them (`noteAnyImage` in shell-reminders.js says the
+//: there is no column that mirrors them (`noteAnyImage` in library.js says the
 //: same thing about the other direction), so a panel that reads only
 //: `entry.attachments` is blind to the commonest kind of image note there is.
 //:

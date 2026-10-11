@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Start-up: the bell's panel and the meeting recorder's buttons load the first time they are used, and 89 Library-only style rules load with the Library; the app starts with about 3.2 KB less script and 1.5 KB less style (gzipped).
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), and a missing apostrophe is read ("doesn follow"); the Guide, the clock and the other utilities read the repaired question.
 - Ask: an answer to a question that needed a spelling repair opens by saying how it was read ("I took that to mean ..."), in wording that changes from one answer to the next.
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.

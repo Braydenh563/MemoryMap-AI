@@ -551,7 +551,6 @@ async function renderAccount() {
 // since the ledger on disk began. Nothing here can change a setting: the
 // switches listed at the bottom are facts, each set where it lives.
 
-let privacyReceipt = null;
 let privacyRange = "launch";
 
 for (const button of document.querySelectorAll("#privacy-range [data-range]")) {
@@ -843,7 +842,6 @@ async function checkForSourceUpdateNotice() {
   showSourceUpdatedDialog(result);
 }
 
-
 //: Which checkbox in Settings mirrors which one elsewhere in the app. Two
 //: controls for one preference is a reasonable convenience and a reliable way
 //: to get them out of step; this is the list that keeps them honest.
@@ -1066,7 +1064,6 @@ async function downloadExport(kind) {
 // --- Wave F: backups UI -------------------------------------------------------------
 
 // --- Wave F: command palette (Ctrl/Cmd-K) -------------------------------------------
-
 
 // Static commands; note search results are appended live as you type.
 //: Interface zoom, in one place so the slider, the +/- buttons, the keyboard
@@ -1484,7 +1481,6 @@ function paletteCommands() {
     { label: "ph:lock Lock MemoryMap", about: "Close the notebook until the password is typed again.", act: lockNow },
   ].map(catalogueRun);
 }
-
 
 //: **A row's keycap: the way to run it without the palette.** A chord the
 //: row declares by its registry name (`chord`, read from the live

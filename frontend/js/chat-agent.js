@@ -1112,24 +1112,6 @@ function repaintAssistantAvatars(emblemsOnly = false) {
   }
 }
 
-//: **The reply head of surfaces that are not a Chat bubble** (INBOX 471): the
-//: guide's rows build one (`assistantHeadRow`), Ask's answer and the writing
-//: room's draft carry static `[data-assistant-head]` holders that
-//: `paintAssistantHeads` fills once; all paint through `paintAssistantAvatar`,
-//: so the Appearance setting and its live repaint reach them.
-function assistantHeadRow(name = aiNameNow()) {
-  const row = document.createElement("div");
-  row.className = "msg-role msg-role-assistant";
-  const avatar = document.createElement("span");
-  avatar.className = "msg-avatar";
-  avatar.setAttribute("aria-hidden", "true");
-  const who = document.createElement("span");
-  who.textContent = name;
-  row.append(avatar, who);
-  paintAssistantAvatar(avatar, 20);
-  return row;
-}
-
 function paintAssistantHeads() {
   for (const holder of document.querySelectorAll("[data-assistant-head]")) {
     if (!holder.firstChild) paintAssistantAvatar(holder, 20);
@@ -2781,17 +2763,6 @@ function undoDraft() {
 // reloading the page. Each now runs against an AbortController so it can be
 // cancelled, and shows that it's working while it does.
 let draftController = null;
-
-function setDraftBusy(busy) {
-  $("draft-compose").classList.toggle("hidden", busy);
-  $("draft-cancel").classList.toggle("hidden", !busy);
-  $("draft-undo").disabled = busy || draftUndoStack.length === 0;
-  // The draft box is being written into while this runs, so editing it would
-  // be editing something that is about to be overwritten by the next chunk.
-  $("draft-text").readOnly = busy;
-  $("draft-refine").disabled = busy;
-  $("writing-room").classList.toggle("draft-writing", busy);
-}
 
 function cancelDraft() {
   draftController?.abort();

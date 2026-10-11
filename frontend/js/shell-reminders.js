@@ -699,17 +699,6 @@ function safeMdSlice(text, maxChars) {
 //: skipped on purpose: the CSP blocks it (`img-src 'self' data: blob:`), so a
 //: thumbnail built from one would be a guaranteed broken frame, which is worse
 //: than no thumbnail at all.
-//: A note's picture, wherever it lives, the markdown, or the attachments
-//: table. See `noteRowImage` in dashboard.js for the report behind this: an
-//: *attached* image appears nowhere in the note's text, so every surface that
-//: looked for `![](…)` alone showed nothing for a note whose only picture was
-//: attached rather than pasted.
-function noteAnyImage(entry) {
-  const embedded = noteFirstImage(entry?.content);
-  if (embedded) return embedded;
-  const attached = (entry?.attachments || []).find((file) => file.is_image);
-  return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
-}
 
 function noteFirstImage(content) {
   const match = /!\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\n]{1,500})\)/.exec(content || "");

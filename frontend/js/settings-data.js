@@ -5,6 +5,8 @@
 // pressed. Their state and their button wiring stay at boot, and reach these
 // through LAZY_ENTRY_POINTS.
 
+let privacyReceipt = null;
+
 function privacyWhen(iso) {
   if (!iso) return "";
   return typeof relativeTime === "function" ? relativeTime(iso) : new Date(iso).toLocaleString();

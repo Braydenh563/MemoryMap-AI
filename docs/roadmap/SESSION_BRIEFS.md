@@ -1460,8 +1460,8 @@ layers and pages; shape libraries and the stencil XML format; templates;
 find and replace; outline and navigation; keyboard shortcuts; selection and
 grouping, containers and swimlanes; images, math, embedded links and
 tooltips; export formats; the sidebar search; what collaboration or cloud
-features are out of scope), each row: feature, MemoryMap has it (checked),
-how draw.io does it (one line, file named), how MemoryMap would do it on its
+features are out of scope), each row: feature, Tessellate has it (checked),
+how draw.io does it (one line, file named), how Tessellate would do it on its
 canvas model (one line), cost. Then the converter: `scratchpad/stencils/`
 `convert_stencils.py` turns a stencil XML library into the board's shape
 JSON (paths, fills, text regions, connection constraints), run on the basic,
@@ -1484,7 +1484,7 @@ to edit text, pan with space and with the wheel, zoom to the cursor, undo
 granularity, copy and paste placement, keyboard nudge and its step sizes,
 duplicate with offset, group and ungroup, z-order, lock); draw.io's exact
 behaviour (thresholds in pixels, modifier keys, timing, cursor, what the
-guides show, what the preview draws); MemoryMap's today (driven in
+guides show, what the preview draws); Tessellate's today (driven in
 Playwright, frame by frame where it matters); the gap; the fix. Every
 mechanic lands with a sweep that measures it (pixel thresholds, handle
 sizes, snap distances, guide appearance, undo steps), and the phase is

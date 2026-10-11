@@ -418,6 +418,8 @@ def _bcrypt_input(password: str) -> bytes:
     # hash in front of bcrypt reads to a scanner (CodeQL, py/weak-sensitive-
     # data-hashing) as the password's only hash. A fixed salt is right here:
     # this only fits the input to bcrypt's 72 bytes, bcrypt salts the result.
+    # The salt keeps the app's old name for good, through the rename to
+    # Tessellate: a new one would fail every stored long password.
     return b"mm-pbkdf2:" + base64.b64encode(hashlib.pbkdf2_hmac("sha256", raw, b"memorymap-bcrypt-input", 10_000))
 
 
@@ -556,7 +558,7 @@ def _no_password_yet(request: Request, session: Session) -> bool:
 
 
 #: What another device is told while this notebook has no password.
-NO_PASSWORD_ELSEWHERE = "Set a password on the computer MemoryMap runs on first."
+NO_PASSWORD_ELSEWHERE = "Set a password on the computer Tessellate runs on first."
 
 
 def require_unlock(

@@ -185,7 +185,7 @@ def test_first_setup_says_it_needs_the_internet_once():
 
     js = frontend_text("onboarding.js")
     assert "The first setup downloads the search model and the packages you chose" in js
-    assert "after that MemoryMap works offline." in js
+    assert "after that Tessellate works offline." in js
     assert extras.download_mb(extras.EXTRAS_BY_ID["semantic"]) == 2000
     assert extras.download_mb(extras.EXTRAS_BY_ID["documents"]) > 0
     for doc in ("README.md", "docs/INSTALL.md"):

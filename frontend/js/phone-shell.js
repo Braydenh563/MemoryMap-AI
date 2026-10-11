@@ -8,7 +8,7 @@
 // --- Wave O: the p5 brand emblem (unique each load, reused app-wide) ----------
 
 // A tiny generative emblem next to the title: a ring of linked nodes (the
-// MemoryMap motif), coloured in the accent, seeded randomly each visit so
+// Tessellate motif), coloured in the accent, seeded randomly each visit so
 // it's one-of-a-kind, with a slow rotation.
 // One identity per visit: every emblem in the app draws from the same seed, so
 // the logo in the top bar, on the lock screen and in the empty states is
@@ -48,7 +48,7 @@ function watchEmblemVisibility(holder, canvas) {
   emblemObservers.set(holder, observer);
 }
 
-// The shared emblem sketch: a small ring of linked nodes, the MemoryMap motif
+// The shared emblem sketch: a small ring of linked nodes, the Tessellate motif
 //, in the current accent. Animated only where it's worth the frames.
 //: **p5 is fetched the first time an emblem is drawn, not at boot.** It is a
 //: 1,034 KB file (the largest asset the page loads, 18% of all boot JS) and
@@ -669,8 +669,8 @@ function initPhoneHeaderMore() {
       { label: "ph:gear Settings", title: "Settings", run: () => openSettingsModal(), group: "app" },
       { label: "ph:lock Lock", title: "Lock the app", run: () => lockNow(), group: "app" },
       {
-        label: "ph:power Quit MemoryMap",
-        title: "Quit MemoryMap: stops the app and its server",
+        label: "ph:power Quit Tessellate",
+        title: "Quit Tessellate: stops the app and its server",
         run: () => quitApp(),
         danger: true,
         group: "app",
@@ -2021,7 +2021,7 @@ async function quitApp() {
   // server is down, the button that would bring it back is on the page that
   // just stopped being served.
   if (!(await confirmDialog(
-    "Quit MemoryMap?\n\nThe app and its server will stop. Your notes are already saved.",
+    "Quit Tessellate?\n\nThe app and its server will stop. Your notes are already saved.",
     { confirmLabel: "Quit" }
   ))) {
     return;
@@ -2036,7 +2036,7 @@ async function quitApp() {
   }
   document.body.innerHTML =
     '<div class="farewell">' +
-    "<h1>MemoryMap has stopped.</h1>" +
+    "<h1>Tessellate has stopped.</h1>" +
     "<p>Your notes are saved. You can close this tab.</p></div>";
 }
 $("quit-btn")?.addEventListener("click", quitApp);

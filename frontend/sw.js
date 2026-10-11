@@ -4,7 +4,7 @@
 // Two decisions meet here and agree once the offline answer is an honest page:
 //
 // 1. The owner, earlier: *"if the backend is closed the ui should fail to load
-//    or connect on browsers until started back up again."* MemoryMap is a front
+//    or connect on browsers until started back up again."* Tessellate is a front
 //    end for a local server that holds every note, file and model call. With
 //    the server down, a cached shell painted tabs, toolbars and empty lists: a
 //    working-looking app over an empty notebook, the most alarming thing it
@@ -20,7 +20,7 @@
 //    are cache-first, and a reload no longer waits on the disk cache's
 //    revalidation.
 //
-// What a failed navigation gets is `/offline.html`: "MemoryMap is not running
+// What a failed navigation gets is `/offline.html`: "Tessellate is not running
 // on this computer", one line of what to do, and Retry. It is kept at install
 // together with the stylesheets and script it links.
 //

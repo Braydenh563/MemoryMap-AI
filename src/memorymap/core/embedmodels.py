@@ -152,7 +152,7 @@ EMBED_MODELS: tuple[EmbedModel, ...] = (
         one_press=False,
         terms_url="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5",
         why_not="Built in, it runs Python code from its own repository, which "
-        "MemoryMap never does. The same model is nomic-embed-text in Ollama.",
+        "Tessellate never does. The same model is nomic-embed-text in Ollama.",
         prefix="search_query: ",
     ),
     EmbedModel(
@@ -220,7 +220,7 @@ class OllamaEmbedModel:
     why_not: str = ""
 
 
-#: Through Ollama: the model lives in Ollama, so MemoryMap stays near 100 MB
+#: Through Ollama: the model lives in Ollama, so Tessellate stays near 100 MB
 #: of memory. Licences are the upstream repositories' (read on the Hub,
 #: 2026-10-06); sizes are Ollama's library pages'.
 OLLAMA_EMBED_MODELS: tuple[OllamaEmbedModel, ...] = (
@@ -686,7 +686,7 @@ def hub_refusal(meta: dict) -> str:
     ):
         return "It has no weights the built-in engine can read."
     if "custom_code" in tags:
-        return "It needs Python code from its own repository to load, which MemoryMap never runs."
+        return "It needs Python code from its own repository to load, which Tessellate never runs."
     if meta.get("gated"):
         return "It is gated behind terms on Hugging Face: read and accept them there first."
     licence = str((meta.get("cardData") or {}).get("license") or "")
@@ -695,7 +695,7 @@ def hub_refusal(meta: dict) -> str:
     if not licence:
         return "It states no licence, so it is not fetched in one press."
     if licence.lower() not in OPEN_LICENCES:
-        return f"Its licence is {licence}, not an open one MemoryMap fetches in one press: read its terms on Hugging Face."
+        return f"Its licence is {licence}, not an open one Tessellate fetches in one press: read its terms on Hugging Face."
     return ""
 
 

@@ -22,7 +22,7 @@ def test_seeding_creates_five_notes_across_two_categories(client):
     entries = client.get("/entries").json()
     assert len(entries) == 5
     categories = {e["category"] for e in entries}
-    assert categories == {"About MemoryMap", "Personal"}
+    assert categories == {"About Tessellate", "Personal"}
 
 
 def test_wiki_links_resolve(client, session):

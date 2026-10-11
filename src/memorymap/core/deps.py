@@ -90,7 +90,7 @@ def refuse_multiple_workers() -> None:
     if workers is None or workers <= 1:
         return
     raise MultipleWorkersError(
-        f"MemoryMap cannot run with {workers} workers: it is a single-user "
+        f"Tessellate cannot run with {workers} workers: it is a single-user "
         "app, and its configuration, database handle, log buffer, unlock "
         "sessions and SearXNG subprocess are one-per-process. With more than "
         "one worker each of those silently becomes per-worker: logs would show "

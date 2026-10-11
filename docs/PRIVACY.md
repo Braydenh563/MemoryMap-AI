@@ -75,7 +75,7 @@ Off until you turn it on in **Settings, Web search**. When it is on:
 - tracking parameters (`utm_*`, `fbclid`, `gclid` and the like) are stripped
   from result URLs before you see them;
 - **your own [SearXNG](https://searxng.org) is the recommended engine.**
-  MemoryMap installs and runs it for you in one click, with no Docker and no
+  Tessellate installs and runs it for you in one click, with no Docker and no
   account, and the query then never leaves your own network. The default,
   *Automatic*, uses it whenever it is running and falls back to DuckDuckGo
   until you have one, so search works either way;
@@ -152,7 +152,7 @@ request from the network before a password exists is refused.
 
 ## Signing in and sessions
 
-MemoryMap is single-user by design: one notebook and one password, all on this
+Tessellate is single-user by design: one notebook and one password, all on this
 machine. To keep separate notebooks, use a different data folder
 (`MEMORYMAP_DATA_DIR`), or Spaces inside one notebook, rather than a second
 account.
@@ -178,7 +178,7 @@ in another tab, which can ask your browser to send requests to
 `http://localhost:8000` on your behalf. This is how local dev servers and
 Ollama itself have been attacked. So:
 
-- a request that states an origin other than MemoryMap's own is **refused**,
+- a request that states an origin other than Tessellate's own is **refused**,
   including before you have set a password, when nothing else stands between a
   stray page and your new notebook;
 - a strict **Content-Security-Policy** on every response allows scripts and

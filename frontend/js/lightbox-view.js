@@ -1330,7 +1330,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     clearFind();
     find.classList.remove("hidden");
 
-    // A native MemoryMap document (the Documents list) or a real Attachment
+    // A native Tessellate document (the Documents list) or a real Attachment
     // row each has its own text/info endpoint; a `/media/` upload has a
     // third. All three converge on the same `AttachedFileTextOut` shape, so
     // everything past this point reads one variable rather than branching

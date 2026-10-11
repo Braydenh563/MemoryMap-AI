@@ -395,7 +395,7 @@ async function packagesInstallOne(extra) {
           `${extra.source} and checked against its pinned checksum. ` +
           "After that it works offline, with no restart."
       : `Install ${extra.label}?\n\n${extra.size}. It is downloaded from ` +
-          "PyPI to this machine, and MemoryMap needs a restart afterwards " +
+          "PyPI to this machine, and Tessellate needs a restart afterwards " +
           "before the feature works."
   );
   if (!ok) return;
@@ -441,7 +441,7 @@ async function packagesBulk(action, extras, bundleId = null) {
   const count = extras.length === 1 ? "1 package" : `${extras.length} packages`;
   const names = extras.map((extra) => (action === "install" ? `${extra.label}, ${extra.size}` : extra.label)).join("\n");
   const restart = extras.some((extra) => extra.kind === "pip")
-    ? " A package from PyPI needs a restart of MemoryMap before its feature works."
+    ? " A package from PyPI needs a restart of Tessellate before its feature works."
     : "";
   const message = {
     install: `Install ${count}?\n\n${names}\n\nEach is downloaded to this machine, one after another; one that fails does not stop the rest.${restart}`,

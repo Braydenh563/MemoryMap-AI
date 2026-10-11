@@ -271,7 +271,7 @@ def test_with_the_server_down_a_navigation_gets_the_offline_page_not_the_app(tmp
     out = run_worker(
         tmp_path,
         """
-        net.routes["/offline.html"] = () => new Response("<h1>MemoryMap is not running on this computer</h1>");
+        net.routes["/offline.html"] = () => new Response("<h1>Tessellate is not running on this computer</h1>");
         await lifecycle("install");
         net.down = true;
         const home = await (await fire("/", { mode: "navigate", destination: "document" })).text();
@@ -334,7 +334,7 @@ def test_activate_drops_the_old_version_and_the_retired_shell_caches(tmp_path):
 
 def test_the_offline_page_says_the_one_true_thing_and_has_a_retry():
     html = OFFLINE.read_text(encoding="utf-8")
-    assert "MemoryMap is not running on this computer" in html
+    assert "Tessellate is not running on this computer" in html
     assert "Start menu" in html and "launcher" in html
     assert 'id="offline-retry"' in html and ">Retry<" in html
     assert "!" not in re.sub(r"<!--.*?-->|<!DOCTYPE[^>]*>", "", html, flags=re.S), "no exclamation marks"

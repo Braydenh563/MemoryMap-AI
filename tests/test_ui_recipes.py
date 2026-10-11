@@ -5597,7 +5597,7 @@ def test_file_reading_text_fits_up_to_a_page():
     assert m and "max-height: min(28rem, 55vh)" in m.group(1)
     shell = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text()
     assert re.search(r"\.library-image-card-fold > \.library-image-reading-body \{\s*max-height: 11rem", shell)
-#: DESIGN.md, "A control that acts on the computer MemoryMap runs on". Every
+#: DESIGN.md, "A control that acts on the computer Tessellate runs on". Every
 #: static control that reaches a `this_computer_only` route or a this-computer
 #: preference (routes_settings `_THIS_COMPUTER_PREFERENCES`).
 THIS_COMPUTER_CONTROLS = {

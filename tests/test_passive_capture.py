@@ -2,7 +2,7 @@
 
 The odysseus read's own one-line answer to "any features overlooked?" was
 this one: *"nothing in this app turns an offhand mention in ordinary chat
-into a filed note"*. MemoryMap files a note on an explicit instruction or an
+into a filed note"*. Tessellate files a note on an explicit instruction or an
 explicit tool call and never otherwise.
 
 Three properties carry the design and are what these tests are for. Each is a

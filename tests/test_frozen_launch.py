@@ -4,7 +4,7 @@ Every packaging smoke in CI sets `MEMORYMAP_DATA_DIR`, and an installed app
 never has it set: the Start Menu shortcut runs `MemoryMap AI.exe --desktop`
 and nothing else. So the questions here are the ones those smokes could not
 ask. Where does a frozen build with no variable write its log and its window
-profile, and what does the "Repair MemoryMap AI" shortcut clear? What
+profile, and what does the "Repair Tessellate" shortcut clear? What
 happens when port 8000 belongs to something else? Does Settings' Restart
 button relaunch an exe that has no `-m`? Does the page arrive with the right
 types on a machine whose registry says `.js` is text?
@@ -38,7 +38,7 @@ def installed(monkeypatch, tmp_path):
     cwd = tmp_path / "started-in"
     cwd.mkdir()
     monkeypatch.chdir(cwd)
-    return home / "MemoryMap AI", cwd
+    return home / "MemoryMap AI", cwd  # brand: keep, the data folder (config._default_data_dir)
 
 
 # --- the data directory, with no variable set ------------------------------
@@ -125,7 +125,7 @@ def test_a_free_port_is_free():
 
 
 def test_another_copy_of_this_app_is_recognised(listener):
-    port = listener({"status": "ok", "app": "MemoryMap AI"})
+    port = listener({"status": "ok", "app": "Tessellate"})
     assert entry._port_holder(port) == "memorymap"
 
 
@@ -137,7 +137,7 @@ def test_something_else_on_the_port_is_not_this_app(listener):
 def test_the_window_moves_off_a_port_another_program_holds(listener, monkeypatch):
     """Port 8000 is every dev server's default. The window used to wait for
     *anything* to answer on it, then open whatever that was, inside the
-    MemoryMap window."""
+    Tessellate window."""
     port = listener({"app": "not us"})
     monkeypatch.setattr(entry, "PORT", port)
     chosen = entry._desktop_port()
@@ -149,7 +149,7 @@ def test_the_window_keeps_its_port_when_it_is_free_or_ours(listener, monkeypatch
     free = _free_port()
     monkeypatch.setattr(entry, "PORT", free)
     assert entry._desktop_port() == free
-    ours = listener({"app": "MemoryMap AI"})
+    ours = listener({"app": "Tessellate"})
     monkeypatch.setattr(entry, "PORT", ours)
     assert entry._desktop_port() == ours
 
@@ -158,16 +158,16 @@ def test_the_window_keeps_its_port_when_it_is_free_or_ours(listener, monkeypatch
 
 
 class _Notebook(http.server.BaseHTTPRequestHandler):
-    """A MemoryMap that answers `/health` and `/instance` the way the real
+    """A Tessellate that answers `/health` and `/instance` the way the real
     routes do, for a data-dir id the test chooses."""
 
     data_dir_id = ""
 
     def do_GET(self):  # noqa: N802
         if self.path == "/instance":
-            body = {"app": "MemoryMap AI", "data_dir_id": self.data_dir_id}
+            body = {"app": "Tessellate", "data_dir_id": self.data_dir_id}
         else:
-            body = {"status": "ok", "app": "MemoryMap AI"}
+            body = {"status": "ok", "app": "Tessellate"}
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
@@ -200,7 +200,7 @@ def test_instance_route_reports_the_data_dir_id(client, app_state):
     response = client.get("/instance")
     body = response.json()
     assert response.status_code == 200
-    assert body["app"] == "MemoryMap AI"
+    assert body["app"] == "Tessellate"
     assert body["data_dir_id"] == instance_lock.data_dir_id(app_state.data_dir)
     # The id is a hash: the folder's path (it carries the user name) is not in it.
     assert str(app_state.data_dir) not in json.dumps(body)
@@ -239,7 +239,7 @@ def test_a_server_without_the_instance_route_keeps_the_old_benefit_of_the_doubt(
     listener, monkeypatch, tmp_path
 ):
     monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
-    port = listener({"status": "ok", "app": "MemoryMap AI"})
+    port = listener({"status": "ok", "app": "Tessellate"})
     assert entry._port_holder(port) == "memorymap"
 
 

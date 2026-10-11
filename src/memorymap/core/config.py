@@ -221,7 +221,9 @@ def _default_data_dir() -> str:
         base = str(Path.home() / "Library" / "Application Support")
     else:
         base = os.getenv("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-    return str(Path(base) / "MemoryMap AI")
+    # Installs made before the rename to Tessellate keep their notes in the
+    # old folder; it moves only with a fallback (rebrand step 2).
+    return str(Path(base) / "MemoryMap AI")  # brand: keep
 
 
 def resolved_data_dir() -> Path:
@@ -236,7 +238,7 @@ def resolved_data_dir() -> Path:
     and nothing sets the variable. The packaged build's log and window
     profile landed in `data\\` under whatever folder Windows started it in
     (the install folder, or `System32`, which a standard account cannot
-    write), and the Start Menu's "Repair MemoryMap AI" cleared a folder that
+    write), and the Start Menu's "Repair Tessellate" cleared a folder that
     held nothing, so the repair repaired nothing. Every packaging smoke set
     the variable, which is why none of them saw it.
     """

@@ -1,4 +1,4 @@
-// MemoryMap AI: Graph view subsystem (extracted from app.js).
+// Tessellate: Graph view subsystem (extracted from app.js).
 //
 // This is the "Graph" tab: the Obsidian-style force-directed map, its
 // alternate layouts (tree/radial/arc), path tracing between two notes,

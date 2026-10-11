@@ -940,7 +940,7 @@ input[type="checkbox"] {
 /* **A button gets a floor, not a ceiling**, and the difference broke a
    real control. The first version of this rule gave buttons the same fixed
    `height` as the fields beside them, which is right until a label wraps:
-   "Restart MemoryMap" is two lines in its column, so a 2.2rem box squashed
+   "Restart Tessellate" is two lines in its column, so a 2.2rem box squashed
    it, reported with a screenshot as the button being broken. A field is
    single-line by nature and can be pinned; a button has to be able to grow
    to its own text. `min-height` still lines the row up, a one-line button
@@ -4241,7 +4241,7 @@ html.modal-open body {
 /* **The app's own mark, not three generic dots.** Asked for: "can you add to
    the thinking dots animation with a themed animation unique to the
    application?"
-   MemoryMap's emblem is a small constellation, nodes joined by edges, which
+   Tessellate's emblem is a small constellation, nodes joined by edges, which
    is what a notebook of linked notes looks like from above. So the indicator
    is that: three nodes on a hairline edge, with the signal travelling along
    the edge and lighting each node as it passes, read as a graph rather than
@@ -5106,7 +5106,7 @@ select {
   box-sizing: border-box;
 }
 /* A fixed height and a wrapping label cannot both be right. Reported with a
-   screenshot of the About page: "Restart MemoryMap" and "Reload the app"
+   screenshot of the About page: "Restart Tessellate" and "Reload the app"
    each broke onto two lines inside a 36px box, so the second line sat over
    the button's own bottom border. Widening is the correct give here -- these
    rows wrap, so a wider button moves to the next line instead of pushing

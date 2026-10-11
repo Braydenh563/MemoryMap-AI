@@ -240,7 +240,7 @@ function wireRecoveryDialog() {
     const key = $("recovery-key-value").textContent;
     if (!key) return;
     const text = [
-      "MemoryMap recovery key",
+      "Tessellate recovery key",
       "",
       key,
       "",

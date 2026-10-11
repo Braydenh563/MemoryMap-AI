@@ -3395,15 +3395,15 @@ def rewrite_wiki_name(session: Session, entry: Entry, old: str, new: str) -> int
 #: what makes the two real [[links]] below actually resolve.
 _EXAMPLE_NOTES = [
     (
-        "About MemoryMap",
+        "About Tessellate",
         ["welcome"],
-        "Local-first, always: MemoryMap keeps everything on this machine, "
+        "Local-first, always: Tessellate keeps everything on this machine, "
         "notes, search, even the AI, if you point it at a local model. "
         "Nothing is sent anywhere unless you explicitly turn on web search.",
         9,
     ),
     (
-        "About MemoryMap",
+        "About Tessellate",
         ["welcome", "graph"],
         "Linking notes together: type [[Local-first, always]] and it "
         "becomes a real link, click it, or see it drawn on the Graph tab. "
@@ -3411,7 +3411,7 @@ _EXAMPLE_NOTES = [
         7,
     ),
     (
-        "About MemoryMap",
+        "About Tessellate",
         ["welcome", "ai"],
         "Try asking a question: open the Ask tab and try something like "
         "\"what's in my notebook about being local-first?\" The answer will "
@@ -3428,7 +3428,7 @@ _EXAMPLE_NOTES = [
         3,
     ),
     (
-        "About MemoryMap",
+        "About Tessellate",
         ["welcome"],
         "Delete these whenever: these five notes are just here so the "
         "Graph, Timeline and Dashboard have something to show on a "

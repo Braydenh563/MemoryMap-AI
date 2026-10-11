@@ -39,7 +39,7 @@ from memorymap.core.subproc import NO_WINDOW
 
 logger = logging.getLogger(__name__)
 
-APP_NAME = "MemoryMap AI"
+APP_NAME = "Tessellate"
 #: The id the launcher gives its process (`_run_desktop`) and both installers
 #: give the Start menu shortcut; Windows shows a desktop app's toast only
 #: under an id a shortcut carries.

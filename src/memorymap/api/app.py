@@ -749,7 +749,7 @@ def _start_searxng_if_asked() -> None:
     app should do to a machine without being asked. In a thread, because the
     start can take tens of seconds pulling an image and a slow engine must not
     be a slow app, and inside a try, for the reason the two functions above
-    give: a failure here must never stop MemoryMap from opening.
+    give: a failure here must never stop Tessellate from opening.
     """
     try:
         config = deps.get_config()
@@ -978,7 +978,7 @@ def _register_error_handlers(app: FastAPI) -> None:
             status_code=500,
             content={
                 "detail": (
-                    "Something went wrong inside MemoryMap. Try again, and if it "
+                    "Something went wrong inside Tessellate. Try again, and if it "
                     "keeps happening, check Settings > Logs."
                 ),
                 "code": "internal",
@@ -1390,7 +1390,7 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
         here = not is_another_device(request)
         return {
             "status": "ok",
-            "app": "MemoryMap AI",
+            "app": "Tessellate",
             "version": __version__,
             # Whether we are being viewed through the pywebview window rather
             # than a browser tab. The frontend needs to know because a
@@ -1408,14 +1408,14 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
     @app.get("/instance", tags=["system"])
     def instance() -> dict[str, str]:
         """Which notebook this server is serving, for a launch deciding
-        whether a MemoryMap already on its port is *this* one (WORLD_CLASS 423
+        whether a Tessellate already on its port is *this* one (WORLD_CLASS 423
         g). Open like `/health`: the asking process has no session. It carries
         a hash of the resolved data directory (`instance_lock.data_dir_id`),
         never the path."""
         from memorymap.core import instance_lock
 
         return {
-            "app": "MemoryMap AI",
+            "app": "Tessellate",
             "data_dir_id": instance_lock.data_dir_id(deps.get_config().data_dir),
         }
 
@@ -1535,7 +1535,7 @@ def create_app() -> FastAPI:
     # in that audit not already handled. The schema is mounted again below,
     # behind the same `locked` dependency every data route carries.
     app = FastAPI(
-        title="MemoryMap AI",
+        title="Tessellate",
         version=__version__,
         lifespan=lifespan,
         docs_url=None,

@@ -57,11 +57,11 @@ _SMALLTALK_PATTERNS = (
 
 # "What can you do?", questions about the assistant rather than the notebook.
 _ABOUT_APP_PATTERNS = (
-    r"what can (?:you|this|the app|memorymap) do",
+    r"what can (?:you|this|the app|tessellate|memorymap) do",
     r"what (?:are|do) (?:you|your) (?:capable of|abilities|features|tools|powers|limits|limitations)",
     r"what (?:tools|features|skills|commands|actions) (?:do|can) you (?:have|use|offer|run|execute)",
     r"what are you able to do|how can you help(?: me)?",
-    r"how (?:do|does) (?:this|the app|memorymap|you) work",
+    r"how (?:do|does) (?:this|the app|tessellate|memorymap|you) work",
     r"(?:show|list|tell) me (?:your|the|what) (?:tools|features|commands|skills|capabilities)",
     r"what (?:should|can) i (?:ask|tell you|say)",
     r"(?:help me|how to) get started|how do i (?:start|use this|navigate)",
@@ -71,13 +71,13 @@ _ABOUT_APP_PATTERNS = (
     #: setting, where a control is, what the app is, what changed in it.
     r"how (?:do|can|would) i (?:change|turn (?:on|off)|switch|enable|disable|set(?: up)?|use|find|open|export|import|back ?up|"
     r"reset|sync|install|update|lock|unlock|share|print) .{0,40}\b(?:theme|dark mode|light mode|settings?|export|backup|"
-    r"password|shortcuts?|sidebar|font|language|model|the app|memorymap|graph(?: view)?|tabs?|buttons?|account|vault|"
+    r"password|shortcuts?|sidebar|font|language|model|the app|tessellate|memorymap|graph(?: view)?|tabs?|buttons?|account|vault|"
     r"recovery key|notifications?|phone|another computer|data)\b",
     r"where (?:is|are|do i find|can i find) (?:the |my )?.{0,40}\b(?:button|setting|settings|menu|tab|panel|option|toggle|switch)\b",
-    r"what(?:'s| is) (?:memorymap|memory map|this app|atlas)",
+    r"what(?:'s| is) (?:tessellate|memorymap|memory map|this app|atlas)",
     r"(?:can|could) you help(?: me)?",
     r"help",
-    r"what(?:'s| is) new(?: in (?:the app|memorymap|this version))?",
+    r"what(?:'s| is) new(?: in (?:the app|tessellate|memorymap|this version))?",
 )
 
 # Words that mean the message really is about the notebook, even when it is
@@ -111,7 +111,7 @@ def _normalise(text: str) -> str:
 def _matches_any(text: str, patterns: tuple[str, ...]) -> bool:
     """True if the whole message is one of these phrases, allowing a
     trailing name or address ("hey there", "hi mate")."""
-    tail = r"(?:\s+(?:there|mate|buddy|friend|again|assistant|memorymap|bot))*"
+    tail = r"(?:\s+(?:there|mate|buddy|friend|again|assistant|tessellate|memorymap|bot))*"
     return any(re.fullmatch(rf"{pattern}{tail}", text) for pattern in patterns)
 
 

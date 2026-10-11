@@ -17,7 +17,7 @@ written, nothing leaves the machine.
 sentence-transformers' format (`modules.json` or
 `config_sentence_transformers.json`, with weights) is loaded by repo id from
 the cache, offline. One whose `config.json` names its own Python code
-(`auto_map`) is listed and refused: MemoryMap never runs a repository's code.
+(`auto_map`) is listed and refused: Tessellate never runs a repository's code.
 The old sentence-transformers cache and LM Studio's GGUF files are listed
 with why they cannot be used, and what would.
 
@@ -107,7 +107,7 @@ def _hub_rows() -> list[dict]:
         if not _has_weights(snap):
             why = "Only part of it is here (no weights); a download that stopped half way."
         elif _needs_own_code(snap):
-            why = "It needs Python code from its own repository to load, which MemoryMap never runs."
+            why = "It needs Python code from its own repository to load, which Tessellate never runs."
         rows.append(_row(f"found:{repo}", "sentence-transformers", repo, repo, "Hugging Face cache", why))
     return rows
 
@@ -126,7 +126,7 @@ def _legacy_rows() -> list[dict]:
         rows.append(
             _row(
                 f"found-legacy:{folder.name}", "sentence-transformers", "", name, "Old sentence-transformers cache",
-                "In the cache older versions of sentence-transformers used, which MemoryMap does not load from. "
+                "In the cache older versions of sentence-transformers used, which Tessellate does not load from. "
                 "Use the same model from the list above, or download it once.",
             )
         )

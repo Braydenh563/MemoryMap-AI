@@ -717,7 +717,7 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    - **The share sheet: built** (2026-09-20). The installed app is a Web
      Share Target (`manifest.webmanifest`, the GET form: no service worker,
      and the query survives the lock screen). A page, a link or a
-     selection shared to MemoryMap opens it at `/` with `share_title`,
+     selection shared to Tessellate opens it at `/` with `share_title`,
      `share_text` and `share_url`; once the entries have loaded
      (`takeSharedIntake`, a boot step) the three become one capture (the
      title as a heading, the text, the link on its own line), Capture

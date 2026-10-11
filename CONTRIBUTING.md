@@ -1,11 +1,11 @@
-# Contributing to MemoryMap AI
+# Contributing to Tessellate
 
 Thanks for your interest. This is a small, focused project with one guiding
 principle, so a little context goes a long way.
 
 ## The one rule that shapes everything
 
-**MemoryMap AI is 100% offline and local-first.** Every feature must work on the
+**Tessellate is 100% offline and local-first.** Every feature must work on the
 user's own machine with no cloud dependency. Two features may reach the
 internet, web search and the update check, and both are opt-in: web search is
 off by default, the update check waits for your answer to a question the first

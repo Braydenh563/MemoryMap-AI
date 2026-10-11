@@ -1,6 +1,6 @@
 {
-  "name": "MemoryMap AI",
-  "short_name": "MemoryMap",
+  "name": "Tessellate",
+  "short_name": "Tessellate",
   "description": "Your offline, self-filing AI notebook: everything stays on your machine.",
   "start_url": "/",
   "display": "standalone",

@@ -970,7 +970,7 @@ class EmbeddingService:
                 # there: invalidate_caches() is the documented fix
                 # (importlib docs, "Caching and invalidation"), and is what
                 # makes this an actual same-process fix rather than a
-                # "restart MemoryMap" instruction in different words.
+                # "restart Tessellate" instruction in different words.
                 import importlib
 
                 importlib.invalidate_caches()

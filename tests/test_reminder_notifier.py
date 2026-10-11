@@ -210,7 +210,7 @@ def test_several_at_once_are_one_summary_without_buttons(client, tmp_path):
     for text in ("One", "Two", "Three"):
         client.post("/reminders", json={"text": text, "due_at": due.isoformat()})
     notifier.tick(due.replace(tzinfo=None) + timedelta(seconds=1))
-    assert [argv[-2:] for argv in calls] == [["MemoryMap AI", "3 reminders are due"]]
+    assert [argv[-2:] for argv in calls] == [["Tessellate", "3 reminders are due"]]
 
 
 def test_the_session_check_is_signed_in_or_no_password(app_state, session, monkeypatch):

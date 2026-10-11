@@ -126,7 +126,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ),
     (
         "search/searxng_process.py",
-        "Every port MemoryMap tried for SearXNG was already in use ({}). Free "
+        "Every port Tessellate tried for SearXNG was already in use ({}). Free "
         "one of them, or choose another port with the MEMORYMAP_SEARXNG_PORT "
         "setting, and press Start again.",
     ): (

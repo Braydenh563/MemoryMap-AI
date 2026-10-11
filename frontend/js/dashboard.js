@@ -1589,7 +1589,7 @@ function renderFeatures(query) {
 
   $("features-count").textContent = q
     ? `${shown} match${shown === 1 ? "" : "es"}`
-    : `${shown} things MemoryMap can do`;
+    : `${shown} things Tessellate can do`;
   if (!shown) {
     const none = document.createElement("p");
     none.className = "muted";
@@ -3897,7 +3897,7 @@ function focusTimerEnded() {
   const minutes = Math.round(focusTimer.total / 60);
   const title = wasBreak ? "Break over" : `Focus session done: ${minutes} min`;
   const detail = wasBreak ? "Start the next session when you are ready." : `${Math.floor(focusTodaySeconds() / 60)} min focused today.`;
-  notify("MemoryMap", `${title}. ${detail}`);
+  notify("Tessellate", `${title}. ${detail}`);
   recordNotification({ kind: "task", title, detail, key: `focus:${Date.now()}` });
   toast(`${title}. ${detail}`);
   if (!wasBreak && prefs.bool("focusBreaks", false)) {

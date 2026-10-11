@@ -1,7 +1,7 @@
 ; Inno Setup script for the Windows installer.
 ;
 ; Built in CI (.github/workflows/release.yml) with ISCC.exe, from the
-; "MemoryMap AI" folder PyInstaller's COLLECT step produces (see
+; "MemoryMap AI" folder PyInstaller's COLLECT step produces (see  brand: keep
 ; memorymap.spec in this same folder) — build that first, this script
 ; expects it to already exist one directory up as ..\..\dist\MemoryMap AI\.
 ;
@@ -15,7 +15,13 @@
 ; Local build/test (from a Windows machine, Inno Setup installed):
 ;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=<__version__> packaging\windows\installer.iss
 
-#define MyAppName "MemoryMap AI"
+#define MyAppName "Tessellate"
+; The folders keep the name they had before the rename to Tessellate: an
+; upgrade installs over the same folder, and the notes stay where they are
+; (%APPDATA%\MemoryMap AI, config._default_data_dir). Only names a person
+; reads (shortcuts, Add/Remove Programs, the wizard) say Tessellate.
+; brand: keep-next
+#define MyAppDirName "MemoryMap AI"
 
 ; **The version is src\memorymap\__init__.py's `__version__`, never typed
 ; here.** It used to come from MEMORYMAP_VERSION with a hard-coded "0.1.0"
@@ -33,8 +39,8 @@
 #if GetEnv("MEMORYMAP_VERSION") != "" && GetEnv("MEMORYMAP_VERSION") != MyAppVersion
   #error MEMORYMAP_VERSION (the release tag) does not match __version__ in src\memorymap\__init__.py
 #endif
-#define MyAppPublisher "MemoryMap AI"
-#define MyAppURL "https://github.com/Braydenh563/MemoryMap-AI"
+#define MyAppPublisher "Tessellate"
+#define MyAppURL "https://github.com/Braydenh563/Tessellate"
 #define MyAppExeName "MemoryMap AI.exe"
 
 [Setup]
@@ -52,7 +58,7 @@ PrivilegesRequired=lowest
 ; also admits Windows on ARM, which runs x64 programs under emulation.
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-DefaultDirName={autopf}\{#MyAppName}
+DefaultDirName={autopf}\{#MyAppDirName}
 DisableProgramGroupPage=yes
 ; The installer's own .exe icon, and the icon shown in Add/Remove Programs.
 SetupIconFile=..\..\frontend\icon.ico
@@ -93,6 +99,11 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 ; PyInstaller's folder and holds nothing of the person's (the notes are in
 ; %APPDATA%), so it goes whole before the new one is copied in.
 Type: filesandordirs; Name: "{app}\_internal"
+; The shortcuts an install from before the rename to Tessellate made, so an
+; upgrade leaves one "Tessellate" shortcut rather than two names for one app.
+Type: files; Name: "{autoprograms}\MemoryMap AI.lnk"
+Type: files; Name: "{autodesktop}\MemoryMap AI.lnk"
+Type: filesandordirs; Name: "{autoprograms}\MemoryMap AI"
 
 [Files]
 ; Everything PyInstaller's COLLECT step produced, recursively — the exe
@@ -393,8 +404,8 @@ var
 begin
   if CurUninstallStep <> usPostUninstall then
     Exit;
-  Extras := ExpandConstant('{userappdata}\{#MyAppName}\python-extras');
-  Downloads := ExpandConstant('{userappdata}\{#MyAppName}\extras');
+  Extras := ExpandConstant('{userappdata}\{#MyAppDirName}\python-extras');
+  Downloads := ExpandConstant('{userappdata}\{#MyAppDirName}\extras');
   if (not DirExists(Extras)) and (not DirExists(Downloads)) then
     Exit;
   if UninstallSilent then

@@ -14,7 +14,7 @@
     {"q": "change password", "want": ["Change your password", "Passwords and locking", "password"]},
     {"q": "chnage pasword", "want": ["Change your password", "Passwords and locking", "password"]},
     {"q": "forgot my password", "want": ["If you forget your password", "Recovery key", "Passwords and locking"]},
-    {"q": "lock the app", "want": ["Lock MemoryMap", "Auto-lock", "Ask for a password", "Passwords and locking"]},
+    {"q": "lock the app", "want": ["Lock Tessellate", "Auto-lock", "Ask for a password", "Passwords and locking"]},
     {"q": "stop the animations", "want": ["Reduce motion", "Interface animations", "Animated background"]},
     {"q": "too much moving stuff", "want": ["Reduce motion", "Interface animations", "Companion movement", "Movement"]},
     {"q": "battery drain", "want": ["Battery-efficient mode", "Performance mode"]},

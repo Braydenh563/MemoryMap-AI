@@ -1093,9 +1093,9 @@ async function desktopShell() {
 
 //: The words the server refuses with (`api/this_computer.py` REFUSAL), shown
 //: before the press rather than after it. tests/test_ui_recipes.py holds them equal.
-const THIS_COMPUTER_ONLY = "Not available on this device. Do it on the computer MemoryMap runs on.";
+const THIS_COMPUTER_ONLY = "Not available on this device. Do it on the computer Tessellate runs on.";
 
-//: DESIGN.md, "A control that acts on the computer MemoryMap runs on": on
+//: DESIGN.md, "A control that acts on the computer Tessellate runs on": on
 //: another device, each `[data-this-computer]` block gets one note line and
 //: dimmed controls, `="hide"` is hidden, and a press toasts the note instead
 //: of asking the server for a 403. Help toggles inside still open.

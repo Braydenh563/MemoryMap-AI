@@ -213,7 +213,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "could not download the latest release's installer" }
           $setup = Get-ChildItem "previous\MemoryMap-AI-Setup-*.exe" | Select-Object -First 1
           Write-Host "previous release: $($setup.Name)"
-          $dir = Join-Path $env:RUNNER_TEMP "MemoryMap Jos$([char]0x00E9) test"
+          $dir = Join-Path $env:RUNNER_TEMP "Tessellate Jos$([char]0x00E9) test"
           $p = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=`"$dir`"" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "the previous release's setup exited $($p.ExitCode)" }
           $exe = Join-Path $dir "MemoryMap AI.exe"
@@ -240,7 +240,7 @@ jobs:
           Remove-Item Env:MEMORYMAP_DATA_DIR -ErrorAction SilentlyContinue
           $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
           $setup = "dist\installer\MemoryMap-AI-Setup-$version-windows-x86_64.exe"
-          $dir = Join-Path $env:RUNNER_TEMP "MemoryMap Jos$([char]0x00E9) test"
+          $dir = Join-Path $env:RUNNER_TEMP "Tessellate Jos$([char]0x00E9) test"
           $p = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "setup exited $($p.ExitCode)" }
           $exe = Join-Path $dir "MemoryMap AI.exe"
@@ -256,7 +256,7 @@ jobs:
 
           $programs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
           $shell = New-Object -ComObject WScript.Shell
-          foreach ($pair in @(@("MemoryMap AI.lnk", "--desktop"), @("MemoryMap AI\Repair MemoryMap AI.lnk", "--desktop --reinstall"))) {
+          foreach ($pair in @(@("Tessellate.lnk", "--desktop"), @("Tessellate\Repair Tessellate.lnk", "--desktop --reinstall"))) {
             $lnk = Join-Path $programs $pair[0]
             if (-not (Test-Path $lnk)) { throw "no Start Menu shortcut $lnk" }
             $link = $shell.CreateShortcut($lnk)
@@ -264,8 +264,12 @@ jobs:
               throw "the shortcut $lnk runs '$($link.TargetPath)' '$($link.Arguments)', expected '$exe' '$($pair[1])'"
             }
           }
+          # The previous release's shortcuts, from before the rename, are gone (brand: keep-next)
+          foreach ($old in @("MemoryMap AI.lnk", "MemoryMap AI")) {
+            if (Test-Path (Join-Path $programs $old)) { throw "the upgrade left the old Start Menu entry $old" }
+          }
 
-          $data = Join-Path $env:APPDATA "MemoryMap AI"
+          $data = Join-Path $env:APPDATA "MemoryMap AI"  # brand: keep, the notes stay in the old folder
           $env:MEMORYMAP_PORT = "8767"
           $app = Start-Process -FilePath $exe -WorkingDirectory $env:RUNNER_TEMP -PassThru
           python packaging/frozen_smoke.py --base http://127.0.0.1:8767 --only api --expect-note --data-dir "$data" --log (Join-Path $data "logs\desktop-stdio.log")
@@ -282,8 +286,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $dir = Join-Path $env:RUNNER_TEMP "MemoryMap Jos$([char]0x00E9) test"
-          $data = Join-Path $env:APPDATA "MemoryMap AI"
+          $dir = Join-Path $env:RUNNER_TEMP "Tessellate Jos$([char]0x00E9) test"
+          $data = Join-Path $env:APPDATA "MemoryMap AI"  # brand: keep, the notes stay in the old folder
           Start-Sleep 2
           Start-Process -FilePath (Join-Path $dir "unins000.exe") -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
           # The uninstaller hands off to a copy of itself in %TEMP% and
@@ -294,7 +298,7 @@ jobs:
             throw "the uninstaller left the install folder $dir behind"
           }
           $programs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
-          foreach ($left in @("MemoryMap AI.lnk", "MemoryMap AI")) {
+          foreach ($left in @("Tessellate.lnk", "Tessellate", "MemoryMap AI.lnk", "MemoryMap AI")) {  # brand: keep
             if (Test-Path (Join-Path $programs $left)) { throw "the uninstaller left the Start Menu entry $left" }
           }
           if (-not (Test-Path (Join-Path $data "memorymap.db"))) { throw "the uninstaller deleted the notebook" }

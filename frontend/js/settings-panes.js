@@ -1482,7 +1482,7 @@ function paletteCommands() {
     { label: "ph:arrow-left Go back", about: "To the page or view you were on before.", chord: "navigateBack", act: () => stepTabHistory(-1) },
     { label: "ph:arrow-right Go forward", about: "Forward again, after going back.", chord: "navigateForward", act: () => stepTabHistory(1) },
     { label: "ph:arrows-clockwise Reload the app", about: "Clears cached files first, so the newest version loads.", chord: "forceReload", act: () => forceReloadApp() },
-    { label: "ph:lock Lock MemoryMap", about: "Close the notebook until the password is typed again.", act: lockNow },
+    { label: "ph:lock Lock Tessellate", about: "Close the notebook until the password is typed again.", act: lockNow },
   ].map(catalogueRun);
 }
 

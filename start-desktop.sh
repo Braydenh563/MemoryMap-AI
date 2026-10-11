@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ===================================================================
-#  MemoryMap AI - open in its own app window (macOS / Linux)
+#  Tessellate - open in its own app window (macOS / Linux)
 #
 #  Run ./start-desktop.sh instead of ./start.sh to get a real
 #  application window rather than a browser tab. Everything else is

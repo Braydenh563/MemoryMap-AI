@@ -17,7 +17,7 @@
 const ONBOARDING_SLIDES = [
   {
     icon: "ph:sparkle",
-    title: "Welcome to MemoryMap",
+    title: "Welcome to Tessellate",
     //: **"Out of the box", not "ever".** Measured 2026-09-21: two features
     //: make outbound requests, web search and the update check, and both are
     //: off by default (`core/config.py`), so the claim is exactly true until
@@ -48,7 +48,7 @@ const ONBOARDING_SLIDES = [
   // both shorter to read and the only version that can point at anything.
   //
   // What stays here is what an anchored card cannot do. The welcome says what
-  // MemoryMap is before there is any interface to point at, and the setup
+  // Tessellate is before there is any interface to point at, and the setup
   // slide is a live check of Ollama and the notebook's folder with its two
   // one-click offers (pull a model, seed example notes) on it: a card the size
   // of a sentence, hung off a control, is the wrong place for either. So the
@@ -80,7 +80,7 @@ async function loadOnboardingDiagnostics(forSlide) {
   lines.push(
     models && models.ollama_running
       ? "Ollama is running, so Atlas will file your notes and answer questions."
-      : "No model is running yet, and MemoryMap works without one: notes are " +
+      : "No model is running yet, and Tessellate works without one: notes are " +
           "searched by keyword, and filing catches up once a model is on."
   );
   //: A first install needs the internet once (BACKLOG, Brief 40): said where
@@ -88,7 +88,7 @@ async function loadOnboardingDiagnostics(forSlide) {
   if (models?.builtin_embedding_installed === false && models.builtin_embedding_download_mb) {
     lines.push(
       "The first setup downloads the search model and the packages you chose " +
-        `(about ${models.builtin_embedding_download_mb} MB); after that MemoryMap works offline.`
+        `(about ${models.builtin_embedding_download_mb} MB); after that Tessellate works offline.`
     );
   }
   if (storage) {
@@ -110,7 +110,7 @@ async function loadOnboardingDiagnostics(forSlide) {
       lines.push(
         "That folder isn't writable right now, so new notes and edits won't " +
           "save. Check its permissions, or move the notebook somewhere " +
-          "MemoryMap can write to (Settings → Account & security)."
+          "Tessellate can write to (Settings → Account & security)."
       );
     }
   } else {
@@ -412,7 +412,7 @@ async function maybeShowConsoleViewIntro() {
   if (!(await desktopShell())) return;
   if (!prefsCache || prefsCache.console_view_intro_seen) return;
   const wantsDevView = await confirmDialog(
-    "Keep a console window open when MemoryMap AI starts?\n\n" +
+    "Keep a console window open when Tessellate starts?\n\n" +
       "Dev view shows a terminal window alongside the app, useful for " +
       "logs and troubleshooting. User view runs quietly in the background " +
       "with no console window at all, just this app window and a system " +

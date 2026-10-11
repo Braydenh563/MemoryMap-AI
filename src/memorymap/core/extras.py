@@ -412,7 +412,7 @@ EXTRAS: tuple[Extra, ...] = (
         label="Desktop window (pywebview)",
         # Copy a reader of Settings sees: no command line (a stray ", `python
         # -m memorymap --desktop`" printed its backticks raw on the card).
-        enables="Runs MemoryMap in its own app window instead of a browser tab. "
+        enables="Runs Tessellate in its own app window instead of a browser tab. "
         "On Windows it also adds a tray icon (open, view logs, restart, quit), "
         "so closing the window keeps the app running; elsewhere closing the "
         "window quits.",
@@ -578,7 +578,7 @@ EXTRAS: tuple[Extra, ...] = (
         module="",
         size="~36 MB",
         caveat="Runs offline, inside the app. needle's own tools send usage "
-        "data by default; MemoryMap uses only its engine, checks at install "
+        "data by default; Tessellate uses only its engine, checks at install "
         "that it imports no network calls, and switches that setting off "
         "anyway. Nothing for you to do.",
         kind="download",
@@ -759,7 +759,7 @@ EXTRAS: tuple[Extra, ...] = (
         licence="MIT",
         unavailable="The helper isn't packaged for one-click install yet. To "
         "try captions now, run whisper.cpp's whisper-server on this computer "
-        "and start MemoryMap with MEMORYMAP_CAPTIONS_URL set to its address "
+        "and start Tessellate with MEMORYMAP_CAPTIONS_URL set to its address "
         "(for example http://127.0.0.1:8080).",
     ),
 )
@@ -843,7 +843,7 @@ BUNDLES: tuple[Bundle, ...] = (
     Bundle(
         id="desktop",
         label="Desktop",
-        about="MemoryMap in its own window, with a tray icon on Windows.",
+        about="Tessellate in its own window, with a tray icon on Windows.",
         extras=("desktop",),
     ),
     Bundle(
@@ -1224,12 +1224,12 @@ def _remove_from_frozen_target(extra: Extra, target: Path) -> None:
         _state.log.extend(f"In use: {path}" for path in stuck[:20])
         _state.outcome = "failed"
         _state.step = (
-            f"Some of {extra.label} is still in use. Restart MemoryMap and "
+            f"Some of {extra.label} is still in use. Restart Tessellate and "
             "remove it again: Windows keeps files that are open."
         )
     elif removed:
         _state.outcome = "completed"
-        _state.step = f"{extra.label} removed: restart MemoryMap to free it."
+        _state.step = f"{extra.label} removed: restart Tessellate to free it."
     else:
         _state.outcome = "completed"
         _state.step = f"{extra.label} was not installed, so there was nothing to remove."
@@ -1280,7 +1280,7 @@ def _run_uninstall(extra: Extra) -> None:
         code = process.wait()
         _state.outcome = "completed" if code == 0 else "failed"
         _state.step = (
-            f"{extra.label} removed: restart MemoryMap to free it."
+            f"{extra.label} removed: restart Tessellate to free it."
             if code == 0
             else _pip_reason(_state.log, f"pip exited with code {code}")
         )
@@ -1479,7 +1479,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             ocr.clear_language_cache()
             _state.log.append(binary_message)
             #: Said as it is (INBOX 443 (3)): this used to say "installed:
-            #: restart MemoryMap to use it" even when the program was missing
+            #: restart Tessellate to use it" even when the program was missing
             #: and a restart would change nothing. The reader imports lazily,
             #: so a ready engine needs no restart.
             _state.step = (
@@ -1488,7 +1488,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
                 else f"The Python part is installed, but the Tesseract program is not. {binary_message}"
             )
         else:
-            _state.step = f"{extra.label} installed: restart MemoryMap to use it."
+            _state.step = f"{extra.label} installed: restart Tessellate to use it."
         if code == 0:
             activate_frozen_extras()
     except (OSError, subprocess.SubprocessError):
@@ -1627,7 +1627,7 @@ def _dispatch(func, *args: object, name: str = "") -> None:  # noqa: ANN001
         return
     _state.running = False
     _state.outcome = "failed"
-    _state.step = "MemoryMap is shutting down, so nothing was started."
+    _state.step = "Tessellate is shutting down, so nothing was started."
     if _bulk.running:
         _bulk.running = False
         _bulk.outcome = "failed"
@@ -1854,7 +1854,7 @@ def _finish_bulk() -> None:
     if _bulk.cancelled:
         parts.append("Stopped before the rest.")
     if _bulk.action != "uninstall" and any(EXTRAS_BY_ID[item["id"]].kind == "pip" for item in done):
-        parts.append("Restart MemoryMap to use what was installed.")
+        parts.append("Restart Tessellate to use what was installed.")
     _bulk.message = " ".join(parts)
     from memorymap.core import taskhistory
 
@@ -1893,7 +1893,7 @@ def _loaded_in_process_reason(extra: Extra) -> str:
         module = sys.modules.get("memorymap.ai.needle_provider")
         if module is not None and module.loaded():
             return (
-                "Restart MemoryMap first. The needle engine is loaded from an "
+                "Restart Tessellate first. The needle engine is loaded from an "
                 "earlier turn, and Windows can't replace or delete it while it "
                 "is in use: a restart releases it."
             )
@@ -1904,7 +1904,7 @@ def _loaded_in_process_reason(extra: Extra) -> str:
 
     if voice._loaded is not None:  # noqa: SLF001  # this module's whole job is knowing this
         return (
-            "Restart MemoryMap first. The voice model is loaded in memory from "
+            "Restart Tessellate first. The voice model is loaded in memory from "
             "an earlier recording, and Windows can't replace those files while "
             "they're in use: a restart releases them."
         )

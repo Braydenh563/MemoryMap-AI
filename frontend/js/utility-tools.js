@@ -90,7 +90,7 @@ function utilityTimerDone() {
   utilityClock.kind = "";
   paintUtilityChip();
   toast(`Time is up: the ${name} timer has finished.`);
-  notify("MemoryMap", `Time is up: the ${name} timer has finished.`);
+  notify("Tessellate", `Time is up: the ${name} timer has finished.`);
 }
 
 $("status-timer").addEventListener("click", stopUtilityClock);

@@ -120,7 +120,7 @@ def detect_searxng(url: str = "", session: Session = Depends(get_session)) -> di
 
 @router.get("/websearch/searxng/status")
 def searxng_status() -> dict:
-    """Is a MemoryMap-managed SearXNG installed, running, and answering?"""
+    """Is a Tessellate-managed SearXNG installed, running, and answering?"""
     from memorymap.search import searxng_manager
 
     data_dir = deps.get_config().data_dir

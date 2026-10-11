@@ -284,7 +284,7 @@ $("local-only-ai").addEventListener("change", async (e) => {
   toast(
     on
       ? "Atlas is locked to this machine."
-      : "Off: MemoryMap will now let you point Atlas at a server on the internet."
+      : "Off: Tessellate will now let you point Atlas at a server on the internet."
   );
   refreshModelStatus();
 });
@@ -384,7 +384,7 @@ $("update-install-version").addEventListener("click", async () => {
   if (!tag) return;
   if (
     !(await confirmDialog(
-      `Download and install ${tag} now? MemoryMap AI will close once the installer starts.`,
+      `Download and install ${tag} now? Tessellate will close once the installer starts.`,
       { confirmLabel: "Install" }
     ))
   ) {
@@ -465,8 +465,8 @@ $("pref-close-to-tray")?.addEventListener("change", (e) => {
   setPreference("close_to_tray", checked);
   toast(
     checked
-      ? "Closing the window will keep MemoryMap in the tray."
-      : "Closing the window will quit MemoryMap."
+      ? "Closing the window will keep Tessellate in the tray."
+      : "Closing the window will quit Tessellate."
   );
 });
 
@@ -728,7 +728,7 @@ $("searxng-autostart").addEventListener("change", async (event) => {
   });
   toast(
     on
-      ? "SearXNG will start with MemoryMap from now on."
+      ? "SearXNG will start with Tessellate from now on."
       : "SearXNG will only start when you press Start."
   );
 });
@@ -903,7 +903,7 @@ $("settings-nav-forward")?.addEventListener("click", () => stepTabHistory(1));
 // nothing at all (found by listing every id in index.html that no JS file and
 // no stylesheet mentions), and wiring both to the same call then made the
 // About one say "tour" and open the welcome card instead. They are not the
-// same thing: the card is five slides about what MemoryMap is, the tour is
+// same thing: the card is five slides about what Tessellate is, the tour is
 // anchored cards on the real controls. So the welcome button opens the
 // welcome and the tour button opens the tour.
 $("show-guide-btn")?.addEventListener("click", () => {
@@ -925,7 +925,7 @@ $("about-take-tour")?.addEventListener("click", () => {
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 //: The whole notebook as a folder (WORLD_CLASS 25b): notes, attachments,
-//: documents and boards, which From a MemoryMap folder reads back whole.
+//: documents and boards, which From a Tessellate folder reads back whole.
 $("export-folder").addEventListener("click", async () => saveFile("memorymap-notebook.zip", await (await api("/export/folder")).blob()));
 
 //: One step (INBOX 464 (18)): the button opens its picker and choosing
@@ -1492,7 +1492,7 @@ async function saveWebSearchSettings() {
   }
 }
 
-//: **Shared with the About panel's own "Restart MemoryMap" button**
+//: **Shared with the About panel's own "Restart Tessellate" button**
 //: (`#about-restart`, phone-shell.js): one restart mechanism, `/system/restart`
 //: (Windows desktop only; everywhere else it answers `restarting: false` and
 //: this says so), so the LAN switch's own restart offer below reuses it
@@ -1504,7 +1504,7 @@ async function restartMemoryMap({ confirm = true } = {}) {
   if (
     confirm &&
     !(await confirmDialog(
-      "Restart MemoryMap?\n\nThe app closes and reopens. Your notes are already saved."
+      "Restart Tessellate?\n\nThe app closes and reopens. Your notes are already saved."
     ))
   ) {
     return;
@@ -1515,7 +1515,7 @@ async function restartMemoryMap({ confirm = true } = {}) {
       toast("Restarting…");
       waitForRestart();
     } else {
-      toast("Restart isn't available in this build, close and reopen MemoryMap by hand.", "info");
+      toast("Restart isn't available in this build, close and reopen Tessellate by hand.", "info");
     }
   } catch (error) {
     toast(error.message || "Couldn't restart.", true);

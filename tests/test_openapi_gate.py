@@ -25,7 +25,7 @@ def test_the_schema_is_served_once_unlocked(client):
     response = client.get("/openapi.json", headers=headers)
     assert response.status_code == 200
     body = response.json()
-    assert body["info"]["title"] == "MemoryMap AI"
+    assert body["info"]["title"] == "Tessellate"
     assert "/entries" in body["paths"]
     # The gate itself is not in the document it gates.
     assert "/openapi.json" not in body["paths"]

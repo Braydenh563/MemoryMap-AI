@@ -685,7 +685,7 @@ def import_library(body: ImportBody, db: Session = Depends(get_session)) -> dict
     """A library file into a new library named from it. New ids throughout;
     a picture this notebook does not have is dropped and counted."""
     if body.format != EXPORT_FORMAT or body.version != 1:
-        raise _fail("This is not a MemoryMap library file.")
+        raise _fail("This is not a Tessellate library file.")
     if len(body.items) > 2000:
         raise _fail("A library file holds at most 2,000 items.")
     have = {f"/media/{name}" for name in db.scalars(select(MediaUpload.filename)).all()}

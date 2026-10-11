@@ -19,7 +19,7 @@ step for a surface redesign.
 The same upstream commit also supplied six sibling skills: `design`,
 `design-system`, `ui-styling`, `brand`, `slides` and `banner-design`. They were
 removed because none had ever been invoked, they target logo, banner, slide
-and brand work or React, Tailwind and shadcn stacks that MemoryMap does not
+and brand work or React, Tailwind and shadcn stacks that Tessellate does not
 use, and their descriptions cost prompt space every turn. `git log -- .claude/skills`
 recovers them; an upstream re-copy brings them back too, so copy only
 `ui-ux-pro-max`.
@@ -56,7 +56,7 @@ from the bundled CSVs, the repo's tests do not walk this directory, and
 `ruff check .` is unaffected.
 
 **Not checked: any design output.** The corpus mostly targets React, Next.js,
-Tailwind and shadcn. MemoryMap's frontend is vanilla JS and CSS custom
+Tailwind and shadcn. Tessellate's frontend is vanilla JS and CSS custom
 properties under `docs/DESIGN.md`, enforced by `tests/test_style_scale.py`.
 Treat its advice as input to a decision; `docs/DESIGN.md` wins on anything that
 lands in `frontend/`.

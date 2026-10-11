@@ -24,7 +24,7 @@ def test_the_user_agent_does_not_announce_this_app():
     """It used to be "MemoryMapAI/0.1 (personal notebook)", a near-unique
     fingerprint linking every site visited back to one piece of software."""
     agent = websearch.PRIVACY_HEADERS["User-Agent"]
-    for giveaway in ["MemoryMap", "memorymap", "notebook"]:
+    for giveaway in ["Tessellate", "memorymap", "notebook"]:
         assert giveaway not in agent
     assert agent.startswith("Mozilla/5.0")
 

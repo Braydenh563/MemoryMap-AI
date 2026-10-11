@@ -1172,7 +1172,7 @@ async function wbLibImportFile(file) {
   try {
     body = JSON.parse(await file.text());
   } catch {
-    return toast("That file is not a MemoryMap library.", "info");
+    return toast("That file is not a Tessellate library.", "info");
   }
   try {
     const out = await apiJson("/board-library/import", { method: "POST", body: JSON.stringify(body) });

@@ -326,7 +326,7 @@ def _fetch_source(src: Path, state: dict) -> None:
             "SearXNG downloaded, but no setup.py or pyproject.toml turned up in %s", src
         )
         raise SearxngError(
-            "SearXNG downloaded, but its files weren't laid out the way MemoryMap "
+            "SearXNG downloaded, but its files weren't laid out the way Tessellate "
             "expects. Try again, or reinstall."
         )
 
@@ -409,7 +409,7 @@ def install_source(data_dir: Path, on_ready=None) -> None:
                 python = find_system_python()
                 if python is None:
                     raise SearxngError(
-                        "MemoryMap can't find Python on this computer, and it "
+                        "Tessellate can't find Python on this computer, and it "
                         "needs Python to set SearXNG up. Install Python from "
                         "python.org (any recent version, and tick “Add python.exe "
                         "to PATH” during setup), then try again, or use the "

@@ -1,6 +1,6 @@
 """The backend address is the one setting that can send notes off this machine.
 
-Everything else about MemoryMap is local by construction: the server binds to
+Everything else about Tessellate is local by construction: the server binds to
 localhost, the database is a file, nothing phones home. §6 made the *chat
 backend* an address the user types, and the server posts their notes to
 whatever it names on every turn. That is a new outbound surface and it needs a

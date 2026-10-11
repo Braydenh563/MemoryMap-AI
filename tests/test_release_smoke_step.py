@@ -48,7 +48,7 @@ def test_windows_job_smoke_tests_the_exe_before_the_installer():
 def test_linux_job_smoke_tests_the_binary_before_packing():
     job = _job("build-linux-package")
     smoke = job.index("Smoke test the frozen app")
-    assert 'MemoryMap AI" &' in job[smoke:]
+    assert 'MemoryMap AI" &' in job[smoke:]  # brand: keep, the frozen bundle's own name
     #: Named "Pack the build" since the Linux download became a tarball as
     #: well as a zip. This test caught the rename, which is what it is for:
     #: the assertion is that the smoke test runs *before* whatever packages
@@ -126,7 +126,7 @@ def test_windows_msi_filename_carries_name_version_platform_and_arch():
     # The brief's own naming convention (<name>-<version>-<platform>-<arch>),
     # matched to what the Linux job already produces
     # (MemoryMap-AI-${VERSION}-linux-x86_64.zip), so the exact same shape
-    # of filename identifies a MemoryMap AI release on either platform.
+    # of filename identifies a Tessellate release on either platform.
     job = _job("build-windows-installer")
     msi_step = job[job.index("Build the .msi installer") : job.index("Upload installers to the release")]
     assert "MemoryMap-AI-" in msi_step, "the MSI filename is missing the app name"
@@ -184,8 +184,8 @@ def test_installer_wxs_exists_and_is_well_formed_xml():
 
 def test_installer_wxs_matches_the_exe_installer_on_name_publisher_and_version():
     text = WXS.read_text(encoding="utf-8")
-    assert 'Name="MemoryMap AI"' in text, "the MSI's product name must match the .exe installer's AppName"
-    assert 'Manufacturer="MemoryMap AI"' in text, (
+    assert 'Name="Tessellate"' in text, "the MSI's product name must match the .exe installer's AppName"
+    assert 'Manufacturer="Tessellate"' in text, (
         "the MSI's manufacturer must match the .exe installer's AppPublisher"
     )
     # Both installers take their version from the same workflow output

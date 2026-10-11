@@ -43,7 +43,7 @@ NOTES = [
     (8, "2026-09-09", ["games"], "Games to try: Hollow Knight, Hades, Celeste. Hades is on sale until Friday."),
     (9, "2026-09-14", ["ideas"], "Side project ideas from the hackathon\n\nJake suggested a campus map app. I think a lecture recording summariser could win."),
     (10, "2026-09-29", [], "Jake's birthday is 12 October. He wants the new Zelda game."),
-    (11, "2026-09-28", ["projects"], "Working on: the MemoryMap clone for my portfolio. Today I got the search working with SQLite FTS."),
+    (11, "2026-09-28", ["projects"], "Working on: the Tessellate clone for my portfolio. Today I got the search working with SQLite FTS."),
     (12, "2026-09-30", [], "This week I am working on the study planner backend and the COMP1511 assignment."),
     (13, "2026-09-22", ["uni"], "Lecture slide\n\n![slide.png](/media/slide1.png)" + _pictures(
         "slide.png", "The image contains a lecture slide about binary search trees with a diagram.",

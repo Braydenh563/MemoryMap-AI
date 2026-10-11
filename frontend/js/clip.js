@@ -49,7 +49,7 @@
         ? "The page's main text, without its menus and footer."
         : "The address and title only (this page did not send its text).";
     $("clip-save").disabled = !clip.url || saved;
-    status(token() ? "Check the title, then save." : "Sign in to MemoryMap in this browser first, then clip again.", !token());
+    status(token() ? "Check the title, then save." : "Sign in to Tessellate in this browser first, then clip again.", !token());
     $("clip-open").classList.toggle("hidden", Boolean(token()));
   }
 
@@ -95,7 +95,7 @@
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         const detail = typeof body.detail === "string" ? body.detail : "";
-        throw new Error(response.status === 401 ? "Sign in to MemoryMap in this browser first, then clip again." : detail || "Couldn't save this page.");
+        throw new Error(response.status === 401 ? "Sign in to Tessellate in this browser first, then clip again." : detail || "Couldn't save this page.");
       }
       saved = true;
       status(body.existing ? "Already in your notes, so nothing new was saved." : "Saved as a note. It is being filed now.");
@@ -119,7 +119,7 @@
 
   fromFragment();
   if (clip.url) describe();
-  else status("Open this from the Clip to MemoryMap bookmark on the page you want to keep.");
+  else status("Open this from the Clip to Tessellate bookmark on the page you want to keep.");
   // Ask the opener for the page itself. The message carries nothing.
   try {
     window.opener?.postMessage("memorymap-clip-ready", "*");

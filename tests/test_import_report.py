@@ -65,7 +65,7 @@ def test_the_report_names_every_skip_with_its_reason(client, folder_with_bad_fil
         "notes/Garden/9001-broken.json": "the sidecar could not be read",
         "notes/Garden/9002-empty.md": "empty",
         "notes/Garden/9003-binary.md": "not a text file",
-        "stray.exe": "not part of a MemoryMap folder export",
+        "stray.exe": "not part of a Tessellate folder export",
         dropped: "attachment missing from the folder",
     }
     #: 20 notes and 3 boards read; the three bad notes were never notes.

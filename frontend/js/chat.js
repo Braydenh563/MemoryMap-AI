@@ -1188,7 +1188,7 @@ function buildWebResultRow(result) {
         {
           group: "read",
           label: "ph:book-open-text Read here",
-          title: "Read this page as text, inside MemoryMap",
+          title: "Read this page as text, inside Tessellate",
           run: () => openWebReader(result.url),
         },
         {

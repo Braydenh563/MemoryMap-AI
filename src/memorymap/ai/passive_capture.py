@@ -2,7 +2,7 @@
 
 **The one real feature gap the odysseus read found** (ANALYSIS.md §60 item 2,
 and its own one-line answer to "any features overlooked?"): *"nothing in this
-app turns an offhand mention in ordinary chat into a filed note"*. MemoryMap
+app turns an offhand mention in ordinary chat into a filed note"*. Tessellate
 files a note on an explicit instruction or an explicit tool call and never
 otherwise: which is a strange gap for an app whose pitch is "a local AI files
 your notes". Odysseus's `services/memory/memory_extractor.py` sends the last

@@ -288,7 +288,7 @@ function bgGrid(W, H, cell, cap) {
 // multiplier and modulus, so the same string always grows the same species
 // and moving one letter changes all of them. helixlabs builds a species
 // from a DNA string a person types; here the string is the person's display
-// name (or "MemoryMap" when they have not set one), so each person's
+// name (or "Tessellate" when they have not set one), so each person's
 // background is an ecosystem of its own.
 function bgArtGenome(text) {
   let sum = 0;
@@ -316,7 +316,7 @@ function bgArtGenome(text) {
 
 function bgArtSeedOf(text) {
   const t = text ? String(text).trim() : "";
-  return t || "MemoryMap";
+  return t || "Tessellate";
 }
 
 // The strains one name grows. Each is a rotation of the name plus a letter

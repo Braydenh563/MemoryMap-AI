@@ -162,7 +162,7 @@ function meaningAlts(query, vocab) {
 
 //: A word held whole, or with an ending ("delet" in "deleted", "animation" in
 //: "animations"), never as the start of another word ("memory" is not in
-//: "MemoryMap", "pin" not in "spinning").
+//: "Tessellate", "pin" not in "spinning").
 const MEANING_ENDING = "(?:s|es|ed|d|e|ing|ings|er|ers|ion|ions|ly|y)?";
 const meaningPatterns = new Map();
 function meaningPattern(word) {

@@ -136,7 +136,7 @@ EXPECTED = {
     'settings-controls.js': [
         '"No skills found in that file."',
         '"No personas found in that file."',
-        '"Restart isn\'t available in this build, close and reopen MemoryMap by hand."',
+        '"Restart isn\'t available in this build, close and reopen Tessellate by hand."',
     ],
     'settings-models.js': [
         '"Couldn\'t copy it from here."',
@@ -185,7 +185,7 @@ EXPECTED = {
     ],
     'whiteboard-library.js': [
         '"That file is too large to be a library (8 MB at most)."',
-        '"That file is not a MemoryMap library."',
+        '"That file is not a Tessellate library."',
     ],
     'whiteboard-map.js': [
         '"That topic\'s link is not a web address."',
@@ -220,7 +220,7 @@ for _name, _messages in EXPECTED_RULE4.items():
 #: `.message` has to appear here.
 FAULTS = {
     'app.js': {
-        '"Can\'t reach the MemoryMap server. Is it running?"': 'network failure: the server cannot be reached',
+        '"Can\'t reach the Tessellate server. Is it running?"': 'network failure: the server cannot be reached',
     },
     'chat-attach.js': {
         '"Couldn\'t save this chat turn."': 'saving a chat turn failed after the model answered: lost data',

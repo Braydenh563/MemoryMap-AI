@@ -31,7 +31,7 @@
     const content = $("capture-text").value.trim();
     if (!content || saving) return;
     if (!token()) {
-      status("Sign in to MemoryMap in this browser first, then capture again.", true);
+      status("Sign in to Tessellate in this browser first, then capture again.", true);
       $("capture-open").classList.remove("hidden");
       return;
     }
@@ -46,7 +46,7 @@
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error(response.status === 401 ? "Sign in to MemoryMap in this browser first, then capture again." : (typeof body.detail === "string" && body.detail) || "Couldn't save that note.");
+        throw new Error(response.status === 401 ? "Sign in to Tessellate in this browser first, then capture again." : (typeof body.detail === "string" && body.detail) || "Couldn't save that note.");
       }
       $("capture-text").value = "";
       //: A window the person's own browser opened for the command cannot be

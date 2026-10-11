@@ -473,7 +473,7 @@ def merge_reviewed_topic_terms(existing: dict, reviewed_entries: list[dict]) -> 
 
 
 # --- what filing reads (WORLD_CLASS_PLAN 23, decisions 2, 5 and 6) ----------
-# `memorymap_filing.json` is MemoryMap's own, beside the pack: the topics
+# `memorymap_filing.json` is Tessellate's own, beside the pack: the topics
 # that are sensitive, and everyday category names the pack's phrases miss.
 
 

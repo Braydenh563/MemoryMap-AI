@@ -86,6 +86,6 @@ async function showReminderNotification(title, body, reminderId) {
 async function announceReminders(fresh) {
   const one = fresh.length === 1 ? fresh[0] : null;
   const text = one ? one.text : `${fresh.length} reminders are due`;
-  await showReminderNotification(one ? "Reminder" : "MemoryMap", text, one && !one.early ? one.id : null);
+  await showReminderNotification(one ? "Reminder" : "Tessellate", text, one && !one.early ? one.id : null);
   toast(text, false, { exempt: true });
 }

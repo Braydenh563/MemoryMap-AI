@@ -165,8 +165,8 @@ class TestOneLauncherTwoSpellings:
     """`start --doctor` has to be the same sentence on both platforms."""
 
     def test_the_help_texts_list_the_same_flags_in_the_same_order(self):
-        sh = _help_flags(_read(START_SH), "MemoryMap AI launcher", "MM_HELP\n}")
-        bat = _help_flags(_read(START_BAT), "echo MemoryMap AI launcher", "\n:log")
+        sh = _help_flags(_read(START_SH), "Tessellate launcher", "MM_HELP\n}")
+        bat = _help_flags(_read(START_BAT), "echo Tessellate launcher", "\n:log")
         assert sh == FLAG_ORDER, sh
         assert bat == FLAG_ORDER, bat
 
@@ -420,7 +420,7 @@ class TestTheDoctorRunsHere:
         # under a full suite running beside it, and did not reproduce in
         # forty runs afterwards, so the next occurrence needs to arrive
         # with its own evidence rather than a bare label name.
-        assert "MemoryMap AI - checks" in out, out + result.stderr
+        assert "Tessellate - checks" in out, out + result.stderr
         for label in ("Python", ".venv", "Disk", "Port", "Updates", "Notes", "Last run"):
             assert label in out, f"{label} missing from:\n{out}"
         assert "[ok]" in out or "[x]" in out, out
@@ -463,7 +463,7 @@ class TestTheDoctorRunsHere:
             timeout=60,
         )
         assert result.returncode == 0
-        assert "MemoryMap AI" in result.stdout
+        assert "Tessellate" in result.stdout
         assert "Your notes:" in result.stdout
 
 
@@ -1059,7 +1059,7 @@ class TestAFlagMissingItsValue:
         result = self._run("start.sh", ["--port"], tmp_path)
         assert result.returncode == 2, result.stdout + result.stderr
         assert "--port needs a number" in result.stdout
-        assert "MemoryMap AI launcher" in result.stdout
+        assert "Tessellate launcher" in result.stdout
 
     def test_uninstall_sh_export_with_no_value(self, tmp_path):
         result = self._run("uninstall.sh", ["--export"], tmp_path)
@@ -1086,7 +1086,7 @@ class TestTheDesktopShortcut:
         env = dict(os.environ)
         env["HOME"] = str(home)
         env["MEMORYMAP_DATA_DIR"] = str(tmp_path / "data")
-        # Nothing must be able to look like a running MemoryMap and stop the
+        # Nothing must be able to look like a running Tessellate and stop the
         # uninstaller half way through this test.
         env["MEMORYMAP_PORT"] = "9"
         return env
@@ -1176,7 +1176,7 @@ class TestBothUninstallersRejectAnExportWithNoPath:
 def test_the_self_update_relaunch_cannot_run_an_empty_command():
     """Reported with a screenshot: "Checking for updates..." then
     `'""' is not recognized as an internal or external command` and
-    "MemoryMap AI has stopped".
+    "Tessellate has stopped".
 
     That is the self-update relaunch with `MM_SELF` empty: cmd reports the
     empty program name and the script exits, so the app never starts. The
@@ -1353,7 +1353,7 @@ def test_the_windows_shortcut_lands_on_the_desktop_the_shell_shows():
     for name, text in (("start.bat", start_bat), ("uninstall.bat", uninstall_bat)):
         assert "%USERPROFILE%\\Desktop\\MemoryMap AI.lnk" not in text, name
         assert "[Environment]::GetFolderPath('Desktop')" in text, name
-        assert 'set "MM_LNK=!MM_DESKTOP!\\MemoryMap AI.lnk"' in text, name
+        assert 'set "MM_LNK=!MM_DESKTOP!\\Tessellate.lnk"' in text, name
     sub = start_bat.split("\n:desktop_dir", 1)[1].split("exit /b 0", 1)[0]
     assert "GetFolderPath" in sub
     assert sub == uninstall_bat.split("\n:desktop_dir", 1)[1].split("exit /b 0", 1)[0]

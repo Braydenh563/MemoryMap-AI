@@ -296,7 +296,7 @@ function settingsIndexHeads(pane) {
 
 //: The pane's own title: a `.settings-pane-title`, or a `.help-head` only
 //: when it opens the pane. A `.help-head` further down is a group's head
-//: (Tasks ends with "Quit MemoryMap" as one), and anchoring the strip after
+//: (Tasks ends with "Quit Tessellate" as one), and anchoring the strip after
 //: it put the strip at the bottom of the pane (INBOX 541).
 function settingsPaneTitleHead(pane) {
   const title = pane.querySelector(":scope > .settings-pane-title");

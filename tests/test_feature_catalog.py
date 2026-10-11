@@ -335,7 +335,7 @@ def test_no_two_rows_claim_the_same_thing():
 def test_the_count_in_the_heading_is_counted_not_typed():
     """The number is the list's own length, or it is a number that drifts.
 
-    "105 things MemoryMap can do" was accurate on the day it was written. It is
+    "105 things Tessellate can do" was accurate on the day it was written. It is
     computed from the rendered rows (`shown` in `renderFeatures`), and this
     keeps it that way: a literal in that string would be a promise the file
     stops keeping the moment a row is added.
@@ -346,6 +346,6 @@ def test_the_count_in_the_heading_is_counted_not_typed():
     assert "${shown}" in heading.group(0), (
         "the heading must count the rows it just rendered, not carry a number"
     )
-    assert not re.search(r"\b\d{2,}\s+things MemoryMap can do", source), (
+    assert not re.search(r"\b\d{2,}\s+things Tessellate can do", source), (
         "the count in the heading is hard-coded; it has to come from the list"
     )

@@ -30,7 +30,7 @@ SAMPLE_NOTES: list[dict] = [
         "tags": ["welcome"],
         "content": (
             "About these sample notes\n\n"
-            "These notes show what MemoryMap does with yours. Ask \"where is the "
+            "These notes show what Tessellate does with yours. Ask \"where is the "
             "spare key?\" in Notes, Ask, and the answer comes from the notes, with "
             "no AI model needed. The Graph shows the two Juniper notes linked, and "
             "the Timeline has the boiler service on its date. When you are done, "

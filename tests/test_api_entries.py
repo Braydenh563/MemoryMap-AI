@@ -154,7 +154,7 @@ def test_entries_limit_is_validated(client):
 def test_frontend_served_at_root(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "MemoryMap AI" in response.text
+    assert "Tessellate" in response.text
     assert client.get("/js/app.js").status_code == 200
     # Whiteboard subsystem split out of app.js into its own file (ROADMAP.md
     # Priority 0 item 2), loaded by a second <script> tag in index.html.

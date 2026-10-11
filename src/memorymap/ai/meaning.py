@@ -178,7 +178,7 @@ def alts(query: str, vocab: set[str] | frozenset[str] = frozenset()) -> list[lis
 
 
 #: A word held whole, or with an ending ("delet" in "deleted"), never as the
-#: start of another word ("memory" is not in "MemoryMap").
+#: start of another word ("memory" is not in "Tessellate").
 _ENDING = "(?:s|es|ed|d|e|ing|ings|er|ers|ion|ions|ly|y)?"
 
 

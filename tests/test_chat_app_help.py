@@ -11,7 +11,7 @@ from memorymap.ai import help_chat, librarian
 
 def test_a_how_to_question_about_the_app_gets_the_help():
     block = help_chat.help_block_for("how should I use the knowledge graph??")
-    assert "MemoryMap's own help" in block
+    assert "Tessellate's own help" in block
     assert "Graph" in block
 
 
@@ -22,8 +22,8 @@ def test_a_question_about_the_notes_gets_none():
 
 def test_the_block_rides_with_the_question_not_the_system_prompt():
     messages = librarian.build_messages("how do I use the graph?", [])
-    assert "MemoryMap's own help" not in messages[0]["content"]
-    assert "MemoryMap's own help" in messages[-1]["content"]
+    assert "Tessellate's own help" not in messages[0]["content"]
+    assert "Tessellate's own help" in messages[-1]["content"]
 
 
 def test_the_block_is_bounded():
@@ -34,5 +34,5 @@ def test_the_block_is_bounded():
 def test_the_agent_request_carries_it(ai_client, fake_ollama):
     ai_client.post("/chat/stream", json={"question": "how do I use the graph?", "use_tools": True})
     sent = fake_ollama.tool_rounds[0]
-    assert "MemoryMap's own help" in sent[-1]["content"]
-    assert "MemoryMap's own help" not in sent[0]["content"]
+    assert "Tessellate's own help" in sent[-1]["content"]
+    assert "Tessellate's own help" not in sent[0]["content"]

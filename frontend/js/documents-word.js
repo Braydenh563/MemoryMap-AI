@@ -149,7 +149,7 @@ async function docWordBlob(D, title, text) {
     style: { paragraph: { indent: { left: 720 * (level + 1), hanging: 360 } } },
   }));
   const doc = new D.Document({
-    creator: "MemoryMap",
+    creator: "Tessellate",
     title: title || "Document",
     styles: {
       paragraphStyles: [{ id: DOC_WORD_CODE_STYLE, name: DOC_WORD_CODE_STYLE, basedOn: "Normal", run: { font: "Consolas" }, paragraph: { spacing: { before: 0, after: 0 } } }],
@@ -184,7 +184,7 @@ function docWordText(D, text, style, ctx) {
     else if (piece && !ctx.mode) runs.push(new D.TextRun({ text: piece, ...style }));
     else if (piece) {
       const Run = ctx.mode === "ins" ? D.InsertedTextRun : D.DeletedTextRun;
-      runs.push(new Run({ text: piece, id: ctx.revision, author: "MemoryMap", date: ctx.date, ...style }));
+      runs.push(new Run({ text: piece, id: ctx.revision, author: "Tessellate", date: ctx.date, ...style }));
       ctx.revision += 1;
     }
   }

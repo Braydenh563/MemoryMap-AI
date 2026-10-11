@@ -27,7 +27,7 @@ file had grown to soak up all of them at once:
 - `searxng_docker.py`, the Docker container lifecycle.
 - `searxng_install.py`, downloading and installing SearXNG from source.
 - `searxng_process.py`, running the source install as a child process.
-- `searxng_settings.py`, the settings.yml MemoryMap generates, and the
+- `searxng_settings.py`, the settings.yml Tessellate generates, and the
   environment (including the Windows `pwd` shim) it runs SearXNG in.
 
 Everything those modules exposed before the split is still reachable as
@@ -581,7 +581,7 @@ def port_report() -> dict:
         "held_by_searxng": answering,
         "detail": (
             f"A working SearXNG is already answering on port {host_port()}, "
-            "MemoryMap can use it as it is."
+            "Tessellate can use it as it is."
             if answering
             else f"Something is using port {host_port()}, and it isn't answering "
             "as SearXNG. Starting will move to the next free port on its own "
@@ -625,9 +625,9 @@ def status(data_dir: Path | None = None) -> dict:
         # this is only reached if `source_available` has been overridden.
         detail = (
             "Docker is installed but its daemon isn't running: start Docker "
-            "Desktop, or MemoryMap will set SearXNG up in a virtualenv instead."
+            "Desktop, or Tessellate will set SearXNG up in a virtualenv instead."
             if _self.docker_installed()
-            else "SearXNG can't be set up automatically here. Point MemoryMap "
+            else "SearXNG can't be set up automatically here. Point Tessellate "
             "at a SearXNG you run yourself."
         )
         return {
@@ -681,7 +681,7 @@ def start(data_dir: Path, on_ready=None) -> dict:
     backend = preferred_backend()
     if backend is None:
         raise SearxngError(
-            "SearXNG can't be set up automatically here. Point MemoryMap at a "
+            "SearXNG can't be set up automatically here. Point Tessellate at a "
             "SearXNG you run yourself."
         )
     # Settle the port before anything binds it, so the settings file, the
@@ -700,7 +700,7 @@ def stop(data_dir: Path | None = None) -> dict:
     """Stop the instance but keep it (and its settings) for next time."""
     backend = preferred_backend()
     if backend is None:
-        raise SearxngError("There is no SearXNG here that MemoryMap started.")
+        raise SearxngError("There is no SearXNG here that Tessellate started.")
     if backend == "source":
         if data_dir is None:
             raise SearxngError("Couldn't find the SearXNG install.")

@@ -1,19 +1,21 @@
 <div align="center">
 
-<img src="frontend/icon-512.png" alt="MemoryMap AI" width="120">
+<img src="frontend/icon-512.png" alt="Tessellate" width="120">
 
-# MemoryMap AI
+# Tessellate
+
+<sub>Formerly MemoryMap AI</sub>
 
 **A notebook that files itself. Local AI, your machine, nothing sent anywhere unless you ask.**
 
-[Download](https://github.com/Braydenh563/MemoryMap-AI/releases/latest) ·
+[Download](https://github.com/Braydenh563/Tessellate/releases/latest) ·
 [Quick start](#quick-start) ·
-[Website](https://braydenh563.github.io/MemoryMap-AI/) ·
+[Website](https://braydenh563.github.io/Tessellate/) ·
 [Documentation](#documentation)
 
-[![CI](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml)
-[![Latest release](https://img.shields.io/github/v/release/Braydenh563/MemoryMap-AI)](https://github.com/Braydenh563/MemoryMap-AI/releases/latest)
+[![CI](https://github.com/Braydenh563/Tessellate/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/Tessellate/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Braydenh563/Tessellate/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/Tessellate/actions/workflows/codeql.yml)
+[![Latest release](https://img.shields.io/github/v/release/Braydenh563/Tessellate)](https://github.com/Braydenh563/Tessellate/releases/latest)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-green)](LICENSE)
 
@@ -59,7 +61,7 @@ Open a section for the detail.
   icon in the toolbar, the Insert menu and the `/` menu): an emoji as itself,
   one of 1,530 icons as `:ph-name:`.
 - Bring notes in from a folder of Markdown files, a PDF, Word file or slide
-  deck, Notion, Obsidian, Evernote, Apple Notes or a MemoryMap notebook folder,
+  deck, Notion, Obsidian, Evernote, Apple Notes or a Tessellate notebook folder,
   or clip a web page with a bookmarklet. Importing the same thing twice adds
   only what is new.
 - Attach any file. Images are captioned, read by a vision model and run
@@ -285,13 +287,13 @@ Captured from the app in the dark theme at 1440 by 900.
 Pick the way that suits you. Only the last needs a terminal.
 
 **Windows.** Download `MemoryMap-AI-Setup-*.exe` from the
-[latest release](https://github.com/Braydenh563/MemoryMap-AI/releases/latest)
+[latest release](https://github.com/Braydenh563/Tessellate/releases/latest)
 and run it. The app opens in its own window. Windows shows a "protected your
 PC" screen because the installer is not code-signed yet:
 [what to click](docs/INSTALL.md#windows-installer).
 
 **Linux.** Download `MemoryMap-AI-*-linux-x86_64.tar.gz` from the same page,
-unpack it with `tar -xzf` and run `MemoryMap AI`. Use the tarball rather than
+unpack it with `tar -xzf` and run `Tessellate`. Use the tarball rather than
 the `.zip` beside it: a zip may drop the executable bit and leave a launcher
 that will not start. The window needs GTK and WebKit (`python3-gi` and
 `gir1.2-webkit2-4.1` on Debian and Ubuntu).
@@ -316,7 +318,7 @@ version for first-time terminal users.
    Settings, Models.
 3. Write a note, then ask about it in Notes, Ask.
 
-**A first install needs the internet once.** The first setup downloads the search model and the packages you chose; after that MemoryMap works offline.
+**A first install needs the internet once.** The first setup downloads the search model and the packages you chose; after that Tessellate works offline.
 
 **The first launch downloads the search model.** Search and filing by meaning
 use a built-in model that needs the `sentence-transformers` package. If it is
@@ -440,7 +442,7 @@ frontend's load order.
 
 You may use, study, modify and share this, and anything built on it must stay
 under the same licence, including a modified copy run as a network service.
-MemoryMap is a local-first app, and the AGPL keeps a closed, hosted version of
+Tessellate is a local-first app, and the AGPL keeps a closed, hosted version of
 it from being offered back to the people it was written for.
 
 The libraries vendored into the app, with their versions and licences, are

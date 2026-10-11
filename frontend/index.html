@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-  <title>MemoryMap AI</title>
+  <title>Tessellate</title>
   <!-- The SVG is the icon; the PNG is the fallback for the handful of places
        that still won't take one: Safari's touch icon in particular, which
        also composites onto white, so the mark carries its own tile. -->
@@ -91,7 +91,7 @@
   <div id="boot-splash" class="boot-splash" aria-hidden="true">
     <div class="boot-splash-mark">
       <img src="/favicon.svg" alt="" width="40" height="40">
-      <span>MemoryMap&nbsp;AI</span>
+      <span>Tessellate</span>
     </div>
     <span class="typing-dots boot-splash-dots" role="status" aria-label="Loading">
       <span></span><span></span><span></span>
@@ -122,7 +122,7 @@
   <!-- One compact, sticky top bar: brand · tabs · controls. -->
   <header id="top-bar">
     <img id="brand-logo" src="/favicon.svg" alt="" aria-hidden="true" width="34" height="34">
-    <h1 title="Your offline, self-filing notebook">MemoryMap&nbsp;AI</h1>
+    <h1 title="Your offline, self-filing notebook">Tessellate</h1>
     <!-- Space switcher. It sits next to the wordmark, not among the controls
          on the right, because it is not a control, it says WHICH notebook
          everything else on the page is showing. Scope reads left, actions
@@ -222,7 +222,7 @@
             </span>
             <span class="notif-head-actions dialog-head-actions">
               <button id="notif-mute-toggle" class="ghost small icon-only dialog-head-btn" aria-pressed="false" type="button"
-                title="Mute notifications except reminders. Nothing fires while MemoryMap is closed, it has no background service, by design."
+                title="Mute notifications except reminders. Nothing fires while Tessellate is closed, it has no background service, by design."
                 aria-label="Mute notifications except reminders"><i class="ph ph-bell-slash" aria-hidden="true"></i></button>
               <button id="notif-close" class="ghost small icon-only dialog-head-btn" type="button"
                 title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
@@ -291,8 +291,8 @@
            theme button is how you reach for light mode and get a password
            prompt instead. -->
       <button id="lock-btn" class="ghost small icon-only hidden" title="Lock the app" aria-label="Lock the app"><i class="ph ph-lock" aria-hidden="true"></i></button>
-      <button id="quit-btn" data-this-computer="hide" class="ghost small icon-only" title="Quit MemoryMap: stops the app and its server"
-        aria-label="Quit MemoryMap"><i class="ph ph-power" aria-hidden="true"></i></button>
+      <button id="quit-btn" data-this-computer="hide" class="ghost small icon-only" title="Quit Tessellate: stops the app and its server"
+        aria-label="Quit Tessellate"><i class="ph ph-power" aria-hidden="true"></i></button>
       </span>
     </div>
   </header>
@@ -301,7 +301,7 @@
   <div id="lock-overlay" class="lock-overlay hidden">
     <div class="card lock-card" id="lock-card">
       <div id="lock-emblem" class="emblem emblem-lock" aria-hidden="true"></div>
-      <h2 id="lock-title">Unlock MemoryMap</h2>
+      <h2 id="lock-title">Unlock Tessellate</h2>
       <p id="lock-message" class="muted"></p>
       <div class="lock-password-wrap">
         <input id="lock-password" type="password" placeholder="Password or PIN"
@@ -355,7 +355,7 @@
           <p>
             iPhone: press Install the certificate in Safari and choose Allow.
             Then, in the iPhone's own Settings app, General, VPN and Device
-            Management, MemoryMap, Install. Then General, About, Certificate
+            Management, Tessellate, Install. Then General, About, Certificate
             Trust Settings, and switch it on.
           </p>
           <p>
@@ -588,7 +588,7 @@
         <p>
           Atlas is named for a book of maps: it is the reference you open to
           find your way around this app. Quick "how do I…" answers about
-          MemoryMap itself, not your notes, and nothing here is saved.
+          Tessellate itself, not your notes, and nothing here is saved.
           It answers on your utility model while smart model routing is on,
           on the chat model while it is off, and Settings, Models can give
           the guide a model of its own.
@@ -1292,7 +1292,7 @@
            above it: a second banner over a banner is just two headers. -->
       <div id="dash-hero-emblem" class="emblem dash-hero-emblem" aria-hidden="true"></div>
       <div class="dash-hero-text">
-        <p class="dash-wordmark">MemoryMap<span> AI</span></p>
+        <p class="dash-wordmark">Tessellate</p>
         <h2 id="dash-greeting" class="dash-greeting"></h2>
         <p id="dash-submessage" class="dash-submessage"></p>
       </div>
@@ -5679,7 +5679,7 @@ Link to another note with [[its first few words]]."></textarea>
         <p>Chrome and Edge: the icon left of the address, then Notifications, Allow.</p>
         <p>Firefox: the icon left of the address, then clear Notifications blocked, and reload.</p>
         <p>Safari: its own Settings (Websites, then Notifications), then Allow for this site.</p>
-        <p>The desktop app: your system's notification settings for MemoryMap.</p>
+        <p>The desktop app: your system's notification settings for Tessellate.</p>
       </div>
       <div class="library-filters" id="reminder-filter" role="group" aria-label="Filter reminders">
         <button type="button" class="library-chip active" aria-pressed="true" data-filter="open"><i class="ph ph-circle ph-lead" aria-hidden="true"></i> Open</button>
@@ -8471,7 +8471,7 @@ Link to another note with [[its first few words]]."></textarea>
       <!-- The generated emblem, which followed the status dot down: it is an AI
            presence marker and it belongs beside the thing that says what the AI
            is doing, which is the reason it was next to it in the header. -->
-      <span id="ai-mark" class="emblem emblem-mark" data-status-slot="ai" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
+      <span id="ai-mark" class="emblem emblem-mark" data-status-slot="ai" title="Tessellate's AI, running on this machine" aria-hidden="true"></span>
       <span class="ai-status-wrap" data-status-slot="ai">
         <button id="ai-status" class="ai-status" type="button"
           aria-expanded="false" aria-describedby="ai-status-popup">
@@ -8500,7 +8500,7 @@ Link to another note with [[its first few words]]."></textarea>
            appears only once there is something to show. -->
       <button id="status-activity" class="status-item hidden" type="button"></button>
       <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On"><i class="ph ph-battery-full ph-lead" aria-hidden="true"></i> Saver On</span>
-      <!-- Offline badge. MemoryMap works offline by design, that is the whole
+      <!-- Offline badge. Tessellate works offline by design, that is the whole
            point of it: so this is not an error state and must not read as one.
            What it tells you is narrower and genuinely useful: the two things
            that DO need the network (web search, and any cloud model you have
@@ -9773,10 +9773,10 @@ Link to another note with [[its first few words]]."></textarea>
                      loads, 774MB after. The only memory lever left once the
                      imports were lazy, so it is said where the choice is. -->
                 <p>
-                  The built-in engine runs inside MemoryMap, so the app holds
+                  The built-in engine runs inside Tessellate, so the app holds
                   it in memory while it is open: about 650 MB with the default
                   model. With Ollama the model lives in Ollama instead and
-                  MemoryMap itself stays near 100 MB.
+                  Tessellate itself stays near 100 MB.
                 </p>
               </div>
               <!-- Same treatment as the tool-focus group in Settings → Tools:
@@ -9811,7 +9811,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>
                   Search by meaning needs one Python package, sentence-transformers,
                   which brings PyTorch with it: about 2 GB, downloaded once, and
-                  it needs the internet. With this on, MemoryMap starts that
+                  it needs the internet. With this on, Tessellate starts that
                   install by itself the first time it is needed. It runs in the
                   background (Settings, Background tasks shows it, with Stop)
                   and search uses keywords until it finishes.
@@ -10595,7 +10595,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="help-body hidden" id="mcp-config-help" role="dialog" aria-label="What is MCP">
                 <p>
                   MCP is a standard way for an app such as Claude Desktop to use
-                  another program's tools. This snippet starts MemoryMap's tool
+                  another program's tools. This snippet starts Tessellate's tool
                   server on this computer, using the same notebook and the same
                   Tools it can use switches as Atlas.
                 </p>
@@ -10839,7 +10839,7 @@ Link to another note with [[its first few words]]."></textarea>
 
               <!-- §37E: "my computer is a small 13-inch laptop so I need to go
                    to like 80% browser zoom to see everything." A browser's own
-                   zoom resets on every launch and isn't a MemoryMap setting, 
+                   zoom resets on every launch and isn't a Tessellate setting, 
                    this is. Scales the root font-size, not a CSS `zoom` or
                    `transform: scale`: the whole app is already built on rem,
                    so control heights, icons and spacing (all in rem) follow
@@ -11418,10 +11418,10 @@ Link to another note with [[its first few words]]."></textarea>
                 <h3 class="inline-h3">Packages</h3>
                 <span class="fold-help-slot" aria-hidden="true"></span>
               </div></summary>
-              <p class="muted">Things MemoryMap can do with one more package installed.</p>
+              <p class="muted">Things Tessellate can do with one more package installed.</p>
               <div class="help-body hidden" id="packages-help" role="dialog" aria-label="About packages">
                 <p>
-                  Things MemoryMap can do with one more package installed.
+                  Things Tessellate can do with one more package installed.
                   Nothing here is needed to write, search, tag or organise
                   your notes, each one turns on a feature that is otherwise
                   switched off, and everything is downloaded from PyPI to
@@ -11603,9 +11603,9 @@ Link to another note with [[its first few words]]."></textarea>
                   then its Properties, Shortcut key.
                   macOS: Shortcuts, a Run Shell Script action, then a keyboard
                   shortcut. Linux: your desktop's Keyboard settings, a custom
-                  shortcut. The key opens a one-line box on the MemoryMap that is
+                  shortcut. The key opens a one-line box on the Tessellate that is
                   already running; Enter saves the note and the box closes. On a
-                  phone, Share to MemoryMap does the same.
+                  phone, Share to Tessellate does the same.
                 </p>
               </div>
               <div class="row gap">
@@ -11748,7 +11748,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>Chrome and Edge: the icon left of the address, then Notifications, Allow.</p>
                 <p>Firefox: the icon left of the address, then clear Notifications blocked, and reload.</p>
                 <p>Safari: its own Settings (Websites, then Notifications), then Allow for this site.</p>
-                <p>The desktop app: your system's notification settings for MemoryMap.</p>
+                <p>The desktop app: your system's notification settings for Tessellate.</p>
               </div>
               <div class="help-body hidden" id="notifications-help" role="dialog" aria-label="About muting notifications">
                 <p>
@@ -11875,16 +11875,16 @@ Link to another note with [[its first few words]]."></textarea>
                 </button>
               </div>
             </div>
-            <p class="muted">The one part of MemoryMap that goes online, and it is off by default.</p>
+            <p class="muted">The one part of Tessellate that goes online, and it is off by default.</p>
             <div class="help-body hidden" id="websearch-help" role="dialog" aria-label="About web search">
               <p>
-                This is the one part of MemoryMap that goes online. It is
+                This is the one part of Tessellate that goes online. It is
                 off until you turn it on, and even then only your search
                 words leave this computer: never your notes.
               </p>
               <ul>
                 <li>The request looks like an ordinary browser's and never
-                  names MemoryMap.</li>
+                  names Tessellate.</li>
                 <li>No cookies are kept between searches, so one search
                   cannot be joined to the next.</li>
                 <li>Your words are sent in the body of the request, not in
@@ -11933,12 +11933,12 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="help-body hidden" id="searxng-help" role="dialog" aria-label="About SearXNG">
               <p>
                 <strong>SearXNG is the recommended way to search.</strong> It
-                is a self-hosted search engine that MemoryMap can install
+                is a self-hosted search engine that Tessellate can install
                 and run for you in one click, you don't need Docker, an
                 account, or any setup of your own. It gives better results
                 than scraping DuckDuckGo, it can't be rate-limited the way
                 scraping can, and the query never leaves your own network.
-                It has to be on this machine or your own network, MemoryMap
+                It has to be on this machine or your own network, Tessellate
                 won't send searches to somebody else's instance, and the
                 one it runs for you listens on <code>127.0.0.1</code> only.
               </p>
@@ -11946,7 +11946,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="searxng-host" data-this-computer>
               <div class="row space-between">
                 <span class="row help-head">
-                  <strong>Let MemoryMap run SearXNG</strong>
+                  <strong>Let Tessellate run SearXNG</strong>
                   <button type="button" class="icon-only ghost small graph-help-toggle"
                     data-help-for="searxng-host-help" aria-controls="searxng-host-help" aria-expanded="false"
                     title="About running SearXNG" aria-label="About running SearXNG">
@@ -11958,7 +11958,7 @@ Link to another note with [[its first few words]]."></textarea>
               <p class="muted">SearXNG is set up for you, so there is nothing to edit.</p>
               <div class="help-body hidden" id="searxng-host-help" role="dialog" aria-label="About running SearXNG">
                 <p>
-                  MemoryMap can start and stop SearXNG for you and sets it up
+                  Tessellate can start and stop SearXNG for you and sets it up
                   itself, so there's nothing to edit.
                 </p>
               </div>
@@ -11995,7 +11995,7 @@ Link to another note with [[its first few words]]."></textarea>
                    thing you turn on once and then stop thinking about. -->
               <label class="setting-check searxng-autostart-row">
                 <input type="checkbox" id="searxng-autostart">
-                <span>Start SearXNG automatically when MemoryMap opens</span>
+                <span>Start SearXNG automatically when Tessellate opens</span>
               </label>
               <!-- An install runs for minutes. Without a bar and a live line
                    from the tool itself, slow and stuck look identical. -->
@@ -12012,7 +12012,7 @@ Link to another note with [[its first few words]]."></textarea>
             <details class="help-accordion">
               <summary>Prefer to run it yourself?</summary>
               <p class="muted">
-                SearXNG is a separate service, so MemoryMap runs it beside
+                SearXNG is a separate service, so Tessellate runs it beside
                 itself rather than inside itself. If you'd rather drive it
                 yourself, it's a single command with Docker:
               </p>
@@ -12023,7 +12023,7 @@ Link to another note with [[its first few words]]."></textarea>
                 It must return JSON, so add <code>- json</code> under
                 <code>search.formats</code> in its <code>settings.yml</code>, then
                 restart it. Come back here and hit <strong>Auto-detect</strong>, 
-                MemoryMap checks the usual ports and fills this in for you.
+                Tessellate checks the usual ports and fills this in for you.
               </p>
             </details>
             </div>
@@ -12319,7 +12319,7 @@ Link to another note with [[its first few words]]."></textarea>
 
             <div class="settings-group">
               <div class="row help-head">
-                <h3>Quit MemoryMap</h3>
+                <h3>Quit Tessellate</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="quit-help" aria-controls="quit-help" aria-expanded="false"
                   title="About quitting" aria-label="About quitting">
@@ -12365,7 +12365,7 @@ Link to another note with [[its first few words]]."></textarea>
                   anywhere: one markdown file per note with its attachments
                   beside it, a .json file beside each with every field (dates,
                   pins, links, reminders), documents and boards. From a
-                  MemoryMap folder, under Import from another app, reads it back.
+                  Tessellate folder, under Import from another app, reads it back.
                 </p>
               </div>
               <div class="row">
@@ -12608,7 +12608,7 @@ Link to another note with [[its first few words]]."></textarea>
                   Atlas treats imported text as someone else's words.
                 </p>
                 <p>
-                  From a MemoryMap folder reads the zip Export notebook folder
+                  From a Tessellate folder reads the zip Export notebook folder
                   writes, every field back as it was. Each import keeps a report
                   of what it read, wrote and left out, with the reason for each:
                   See the report, after it ends, or Report in the Activity panel.
@@ -12629,7 +12629,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="import-apple" class="ghost small" type="button"><i class="ph ph-folder-simple-plus ph-lead" aria-hidden="true"></i> From Apple Notes</button>
                 <input id="import-memorymap-file" type="file" accept=".zip" class="hidden"
                   aria-label="Choose a notebook folder export" title="Choose a notebook folder export">
-                <button id="import-memorymap" class="ghost small" type="button"><i class="ph ph-file-arrow-up ph-lead" aria-hidden="true"></i> From a MemoryMap folder</button>
+                <button id="import-memorymap" class="ghost small" type="button"><i class="ph ph-file-arrow-up ph-lead" aria-hidden="true"></i> From a Tessellate folder</button>
               </div>
               <p id="import-app-status" class="status" role="status" aria-live="polite"></p>
             </div>
@@ -12649,7 +12649,7 @@ Link to another note with [[its first few words]]."></textarea>
               <p class="muted">Drag this to your bookmarks bar, then press it on any page to keep that page as a note.</p>
               <div class="help-body hidden" id="web-clip-help" role="dialog" aria-label="About the web clipper">
                 <p>
-                  The bookmark opens a small MemoryMap window beside the page and
+                  The bookmark opens a small Tessellate window beside the page and
                   sends it the page as your browser shows it: its address, its
                   title, its main text, or only the text you selected. Nothing is
                   fetched from the web, so it works with web search off and on
@@ -12664,7 +12664,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <div class="row gap">
                 <a id="web-clip-bookmarklet" class="web-clip-bookmarklet" href="/clip.html" draggable="true"
-                  title="Drag to your bookmarks bar"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Clip to MemoryMap</a>
+                  title="Drag to your bookmarks bar"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Clip to Tessellate</a>
                 <button id="web-clip-copy" class="ghost small" type="button"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy the bookmark</button>
               </div>
               <p id="web-clip-status" class="status" role="status" aria-live="polite"></p>
@@ -12852,10 +12852,10 @@ Link to another note with [[its first few words]]."></textarea>
                 </button>
               </div>
             </div>
-            <p class="muted">MemoryMap is a single-user app: one notebook, one password.</p>
+            <p class="muted">Tessellate is a single-user app: one notebook, one password.</p>
             <div class="help-body hidden" id="account-help" role="dialog" aria-label="About accounts">
               <p>
-                MemoryMap is a <strong>single-user app</strong>: one
+                Tessellate is a <strong>single-user app</strong>: one
                 notebook, one password, all on this machine. To keep
                 separate notebooks, run the app with a different data
                 folder rather than a second account.
@@ -13046,7 +13046,7 @@ Link to another note with [[its first few words]]."></textarea>
                     iPhone: open the address in Safari, press Install the
                     certificate on the lock screen (or the button here once
                     signed in), and choose Allow. Then, in the iPhone's own Settings
-                    app, General, VPN and Device Management, MemoryMap,
+                    app, General, VPN and Device Management, Tessellate,
                     Install. Then General, About, Certificate Trust Settings,
                     and switch the certificate on for full trust.
                   </p>
@@ -13549,12 +13549,13 @@ Link to another note with [[its first few words]]."></textarea>
                  question it answers. -->
             <div class="settings-group about-hero">
               <div id="about-emblem" class="emblem" aria-hidden="true"></div>
-              <h3>MemoryMap AI</h3>
+              <h3>Tessellate</h3>
               <p class="muted">
                 A 100% offline, local-first notebook where a local AI files your
                 thoughts and answers questions about them. Your data never leaves
                 this computer.
               </p>
+              <p class="muted">Formerly MemoryMap AI.</p>
               <p class="muted" id="about-version"></p>
               <p class="muted">Free software, licensed under the GNU Affero General Public License v3.</p>              <!-- How much the companion moves and why (`nameMarkBuddyMotion`):
                    checkable here when it seems not to move. -->
@@ -13566,7 +13567,7 @@ Link to another note with [[its first few words]]."></textarea>
                    at all) and shown once app.js's own /system/console-mode-
                    style probe confirms it can actually do something. -->
               <div class="row hidden" id="about-restart-row">
-                <button id="about-restart" class="ghost small" type="button">Restart MemoryMap</button>
+                <button id="about-restart" class="ghost small" type="button">Restart Tessellate</button>
                 <button id="about-force-reload" data-shortcut="forceReload" class="ghost small" type="button"
                   title="Reload the app and clear its cached files">Reload the app</button>
                 <span class="muted">Some changes, an installed extra, a switched model backend, only take effect after a restart.</span>
@@ -13587,7 +13588,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <div class="help-body hidden" id="about-install-help" role="dialog" aria-label="About installing the app">
                 <p>
-                  Installing gives MemoryMap its own window and icon, and puts
+                  Installing gives Tessellate its own window and icon, and puts
                   it in your phone's share sheet, so a page or a selection
                   shared to it lands in Capture. It is the same app, still
                   served by the copy running on this computer: when that is
@@ -13840,7 +13841,7 @@ Link to another note with [[its first few words]]."></textarea>
                    wants the X button to mean what it says. -->
               <label class="check-row hidden" id="desktop-tray-row">
                 <input type="checkbox" id="pref-close-to-tray">
-                <span>Closing the window keeps MemoryMap in the tray</span>
+                <span>Closing the window keeps Tessellate in the tray</span>
               </label>
               <p class="muted hidden" id="desktop-tray-hint">
                 With this on, the X button hides the window and the app keeps
@@ -14484,7 +14485,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="search-field">
         <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
         <input id="features-search" type="search" class="search-field-input" autocomplete="off"
-          placeholder="Search everything MemoryMap can do…" aria-label="Search features">
+          placeholder="Search everything Tessellate can do…" aria-label="Search features">
       </div>
       <p class="muted" id="features-count" aria-live="polite"></p>
       <div id="features-list" class="features-list"></div>
@@ -14493,7 +14494,7 @@ Link to another note with [[its first few words]]."></textarea>
 
   <!-- First-run welcome tour (learnability). Re-runnable from Settings → Help. -->
   <div id="onboarding-overlay" class="modal-overlay hidden" role="dialog"
-    aria-modal="true" aria-label="Welcome to MemoryMap">
+    aria-modal="true" aria-label="Welcome to Tessellate">
     <div class="card modal-card" id="onboarding-card">
       <div class="onboarding-slide" id="onboarding-slide">
         <div id="onboarding-emblem" class="emblem emblem-centred" aria-hidden="true"></div>

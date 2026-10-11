@@ -1391,6 +1391,16 @@ def _prepare(
             stats = notebook_stats.StatAnswer(kind="utility", text=worked["text"], facts=[])
         else:
             detected = intent.SMALLTALK
+    if stats is None and as_of is None and not attached:
+        #: **The app's own records** (CHAT_PLAN A3): "what did I search
+        #: yesterday", "what ran overnight", "when did I last back up" are
+        #: read from History, the job records and the backup folder, with
+        #: times, and never searched for in the notes.
+        from memorymap.ai import records
+
+        if records.asks(question):
+            config = deps.get_config()
+            stats = records.answer(question, session, now=user_now(config), data_dir=config.data_dir)
     connected_ids: set[int] = set()
     match_info: dict = {}
     when_phrase = ""

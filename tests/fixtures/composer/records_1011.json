@@ -1,0 +1,60 @@
+{
+  "_about": "CHAT_PLAN A3: questions about the app's own records, by kind, and questions that are not. tests/test_records_a3.py.",
+  "searches": [
+    "what did I search yesterday",
+    "what did i search for today",
+    "what have I searched this week",
+    "what did I ask yesterday",
+    "what did I ask you yesterday",
+    "what did I look up last week",
+    "what did i ask atlas on monday",
+    "my searches today",
+    "show my search history",
+    "what was my last search",
+    "what was my last question",
+    "what did I last search",
+    "which questions did I ask yesterday",
+    "whatd I search yesterday",
+    "what did I google this morning"
+  ],
+  "ran": [
+    "what ran overnight",
+    "what ran last night",
+    "what ran today",
+    "did anything run overnight",
+    "did anything fail last night",
+    "what jobs ran today",
+    "what background tasks ran yesterday",
+    "did the night shift run",
+    "did the reindex finish",
+    "has anything failed",
+    "what happened in the background overnight",
+    "what has run this week"
+  ],
+  "backup": [
+    "when did I last back up",
+    "when was my last backup",
+    "when was the last backup",
+    "have I backed up",
+    "is my notebook backed up",
+    "are my notes backed up",
+    "did the backup run last night",
+    "have I got any backups",
+    "do I have a backup",
+    "when did it last backup"
+  ],
+  "not_records": [
+    "how do I back up",
+    "how do I search my notes",
+    "back up my notes",
+    "search for gaming mice",
+    "what did I save yesterday",
+    "what did I do last week",
+    "what did I eat last night",
+    "how's the gym going?",
+    "what have I saved about courses & study?",
+    "when did I last go to the gym",
+    "what did the tutor ask",
+    "can you search the web"
+  ]
+}

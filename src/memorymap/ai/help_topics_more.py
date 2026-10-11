@@ -305,6 +305,7 @@ MORE_TOPICS: list[dict] = [
             "quit memorymap", "stop the server", "close the app properly",
             "last run", "last ran", "background jobs", "job history", "did it run",
             "run now", "night shift", "stop a job", "cancel a job", "scheduled pass",
+            "what ran overnight", "when did i last back up",
         ),
         "body": (
             "Settings, Background tasks shows what the app is doing right now "
@@ -320,7 +321,9 @@ MORE_TOPICS: list[dict] = [
             "control (Back up now, Rebuild search index, Find duplicates, the "
             "importers) a line reads, for example, \"Last run 2h ago, "
             "succeeded, 412 notes indexed\", with the exact time on hover; a "
-            "failure says why in a few words. Autonomous background AI is here "
+            "failure says why in a few words. Ask \"what ran overnight\" or "
+            "\"when did I last back up\" and the answer comes from these "
+            "records, with times. Autonomous background AI is here "
             "too. Battery-efficient "
             "mode pauses background AI, heavy graph work and the moving "
             "artwork. Quit MemoryMap stops the app and its server properly, so "

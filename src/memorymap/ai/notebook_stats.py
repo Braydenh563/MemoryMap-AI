@@ -678,7 +678,9 @@ def _general_stats(session: Session) -> StatAnswer:
     offer = {"kind": "open", "label": "Open Statistics for the full picture?", "surface": "statistics"}
     return StatAnswer(
         "overview",
-        "\n\n".join([lines[0], "\n".join(labelled), offer["label"]]),
+        #: One paragraph per labelled line: the Ask box's markdown joins a
+        #: single newline into one run-on paragraph (measured, records.js).
+        "\n\n".join([lines[0], *labelled, offer["label"]]),
         [
             {"label": "notes", "count": note_total},
             {"label": "documents", "count": doc_total},

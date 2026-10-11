@@ -88,7 +88,7 @@ CAPABILITIES: tuple[Capability, ...] = (
     Capability("voice", re.compile(r"\b(voice|speak|talk|read (?:it )?(?:aloud|out)|dictat\w*|microphone|listen)\b", re.I),
                "Yes.", "Press the microphone to dictate, or the speaker under an answer to hear it."),
     Capability("history", re.compile(r"\b(history|records?|what i searched|log)\b", re.I),
-               "Yes.", "Ask \"what did I search yesterday\" or open History beside the Ask box."),
+               "Yes.", "Ask \"what did I search yesterday\", \"what ran overnight\" or \"when did I last back up\"; History beside the Ask box keeps every answer."),
 )
 
 #: The overview, grouped (the gold answer's shape: an opening, three bold lines).

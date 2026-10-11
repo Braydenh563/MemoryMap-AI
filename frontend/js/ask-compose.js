@@ -433,7 +433,11 @@ function digestOffer(answerEl, offer) {
       let said = "";
       if (offer.kind === "open") {
         //: A page, not a thing made: nothing to undo, and the line stays.
+        //: "settings:tasks" opens that section; "ask-history" the panel
+        //: beside the Ask box (A3's records answers).
         if (offer.surface === "statistics") openStatistics();
+        else if (offer.surface === "ask-history") { if (!askHistoryOpen) toggleAskHistoryPanel(); }
+        else if (offer.surface.startsWith("settings:")) openSettingsModal(offer.surface.slice("settings:".length));
         else actNavigate(offer.surface);
         button.disabled = false;
         return;

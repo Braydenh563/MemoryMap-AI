@@ -37,7 +37,7 @@ Owner reports done first: speed opener height (07d447054), track corners (aef9d7
 | 1417 | not-verified | OLED and gamma reading need hardware |
 | 1418 | not-verified | Write with AI with a model running needs a model (CLAUDE.md section 4) |
 | 1419 | built | Help popovers fade out like menus (.help-popover.hidden joins the exit transition; wireHelpPopover moves home after the exit) (e9bf48384) |
-| 1420 | not-built | A sub-tab panel cross-fade needs a class set on switch; S, not started |
+| 1420 | deferred | Sub-tab cross-fade: no panel named, needs a class on switch and boot JS room; left for the next PR |
 | 1421 | decided | 444 decision 10: Tools and Appearance stay indexed, not split (the index is the recipe); closed |
 | 1422 | not-verified | Doc-focus panels 720 to 819px not driven in a sweep |
 | 1423 | built | scroll-padding-block: var(--ring-room) now covers .library-view-section (was .tab-page, .dash-body) (e9bf48384) |
@@ -73,7 +73,7 @@ Owner reports done first: speed opener height (07d447054), track corners (aef9d7
 | 1453 | deferred | A decision for the owner, not a build |
 | 1454 | pointer | Screen-reader pass: BACKLOG section 115 row 4, axe sweep; not started |
 | 1455 | not-built | Opt-in retention rules: L, needs a decision and a backend job |
-| 1456 | not-built | Saved swatches panel: M (audit C9) |
+| 1456 | deferred | Saved swatches panel: M, spans swatchPicker, whiteboard and categories; left for the next PR |
 | 1457 | pointer | Memory as a surface: PLAN A3; not started |
 | 1458 | done-already | BACKLOG section 110.2: the gallery kebab closes on capture; fixed then |
 | 1459 | done-already | BACKLOG section 110.2: zero flex basis on the status span; fixed then |

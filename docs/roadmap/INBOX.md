@@ -280,15 +280,6 @@ with its owner named in the entry.
      and 894 (each device's connection on the privacy receipt as an
      incoming row in the local-network total).
 
-897. **The owner, 2026-10-11, verbatim.** "the size of things should be
-     proportional and individual to the device, so if I change the size of
-     say the companion and the zoom on my computer, it shouldnt affect my
-     phone." Read: `ai-tools.js` mirrors LOOK_KEYS (with `zoom`,
-     `fontsize`, `density`) to the server's `ui_state`, so a size set on
-     one device arrives on every other. Placed: the devsize agent: sizes
-     (zoom, font size, density, the companion's size and spots) stay on the
-     device; colours and themes still follow you.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 892 ("Could we do connection to phone via Bluetooth and or hotspot??") and 894 ("make sure a phone connecting is logged as an outgoing connection") placed with 896 (the lanbar agent).

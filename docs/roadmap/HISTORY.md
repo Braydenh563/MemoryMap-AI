@@ -48340,6 +48340,16 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      firewall). Tests: `test_lan_tls.py`, `test_lan_serve.py` (real
      sockets, OpenSSL verifying the chain). Not verified: a real phone.
 
+897. **The owner, 2026-10-11, verbatim.** "the size of things should be
+     proportional and individual to the device, so if I change the size of
+     say the companion and the zoom on my computer, it shouldnt affect my
+     phone." Read: `ai-tools.js` mirrors LOOK_KEYS (with `zoom`,
+     `fontsize`, `density`) to the server's `ui_state`, so a size set on
+     one device arrives on every other. Placed: the devsize agent: sizes
+     (zoom, font size, density, the companion's size and spots) stay on the
+     device; colours and themes still follow you.
+     **Fixed f8597d361.** Measured (scratchpad/ui-sweeps/devsize.js, 1440 desktop + 390 phone, one server): desktop zoom 130 and companion 1.4 left the phone at zoom 1 and --nmb-scale 1; ui_state held no size key; the accent reached the phone; legacy sizes in the notebook were ignored and cleaned. Sizes are not in saved looks (looks are colours).
+
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 
 INBOX 797, the owner: "I feel like the mindmap and whiteboard are still

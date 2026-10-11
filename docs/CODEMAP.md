@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4625, test files 1065, tests 9754, plan headings 995.
+Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4625, test files 1066, tests 9757, plan headings 995.
 
 ## Frontend functions (5511)
 
@@ -15621,7 +15621,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9754)
+## Tests (9757)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16554,6 +16554,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_test_imports.py | 1 |
 | tests/test_text_indent.py | 3 |
 | tests/test_text_utilities.py | 6 |
+| tests/test_theme_pins.py | 3 |
 | tests/test_thinking_and_stream.py | 7 |
 | tests/test_thinking_budget.py | 8 |
 | tests/test_thinking_words.py | 10 |

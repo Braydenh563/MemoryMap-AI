@@ -5340,8 +5340,11 @@ def test_a_changed_setting_is_marked_by_the_rows_recipe():
     others = [p.name for p in JS if p.name != "settings-rows.js" and "setting-modified" in p.read_text(encoding="utf-8")]
     assert not others, f"a changed setting marked outside settings-rows.js: {others}"
     css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
-    rule = re.search(r"#settings-modal \.setting-modified \{([^}]*)\}", css)
-    assert rule and "inset 2px 0 0 var(--accent-text)" in rule.group(1) and "border" not in rule.group(1)
+    #: The bar sits in the gutter, outside the text edge (the owner,
+    #: 2026-10-11: an inset bar on the text edge clashed with the label).
+    rule = re.search(r"#settings-modal \.setting-modified::before \{([^}]*)\}", css)
+    assert rule and "background: var(--accent-text)" in rule.group(1)
+    assert "inset-inline-start: calc(-1 * var(--space-3))" in rule.group(1) and "border:" not in rule.group(1)
 
 
 def test_one_calendar_grid_of_dom_cells() -> None:

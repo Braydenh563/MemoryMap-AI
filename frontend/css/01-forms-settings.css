@@ -5890,10 +5890,20 @@ select {
 
 /* A setting changed from its default (WORLD_CLASS_PLAN 25f, settings-rows.js):
    a bar on the row's inline-start edge, the way an editor marks a modified
-   setting, with its reset at the row's end. A shadow rather than a border, so
-   the row keeps its geometry and the switch stays on the group's text edge. */
+   setting, with its reset at the row's end. Drawn in the gutter outside the
+   text edge, so the row keeps its geometry and the bar never touches the
+   label (an inset bar on the text edge clashed with it, 2026-10-11). */
 #settings-modal .setting-modified {
-  box-shadow: inset 2px 0 0 var(--accent-text);
+  position: relative;
+}
+#settings-modal .setting-modified::before {
+  content: "";
+  position: absolute;
+  inset-block: var(--space-2);
+  inset-inline-start: calc(-1 * var(--space-3));
+  width: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-text);
 }
 #settings-modal .setting-scope,
 #settings-modal .setting-reset,

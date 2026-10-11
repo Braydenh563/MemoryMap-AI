@@ -712,6 +712,11 @@ def _backup_if_due() -> None:
             with jobruns.job_run("backup") as run:
                 path = backup.backup_now(config.db_path, config.data_dir, keep, run)
                 run.result = f"saved {path.name} (the daily backup at start)"
+        #: Every start holds the folder to the retention number, not only a
+        #: day with a backup due: the safety copy before a migration
+        #: (`database.py`) is taken with no notebook preference to read, and
+        #: it left four backups under a limit of three (the owner, 2026-10-11).
+        backup.prune(config.data_dir, keep)
     except Exception:  # noqa: BLE001  # a failed backup must never block startup
         # This one matters more than it looks: the user believes they have
         # daily local backups, and without this line a backup that has been

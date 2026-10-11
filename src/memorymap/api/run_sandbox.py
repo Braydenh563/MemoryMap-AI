@@ -218,11 +218,33 @@ _JS_DEBUG_WORKER = r"""
     if (v instanceof I.Object) return v.class === "Function" ? "function" : v.class === "Array" ? "array" : "object";
     return typeof v;
   }
+  //: A list or an object opens one level into its children (OPEN row 1058),
+  //: CHILDREN at most; a child's own children are its short form.
+  var CHILDREN = 50;
+  function children(v) {
+    if (!(v instanceof I.Object) || (v.class !== "Array" && v.class !== "Object")) return null;
+    var p = v.properties || {}, rows = [], total = 0;
+    if (v.class === "Array") {
+      total = Number(p.length) || 0;
+      for (var i = 0; i < Math.min(total, CHILDREN); i++) rows.push({ name: "[" + i + "]", value: clip(show(p[i], 1)), type: kind(p[i]) });
+    } else {
+      for (var k in p) {
+        if (!own(p, k)) continue;
+        total++;
+        if (rows.length < CHILDREN) rows.push({ name: k, value: clip(show(p[k], 1)), type: kind(p[k]) });
+      }
+    }
+    if (total > CHILDREN) rows.push({ name: "...", value: (total - CHILDREN) + " more", type: "" });
+    return rows.length ? rows : null;
+  }
   function names(props, skip) {
     var rows = [];
     for (var k in props) {
       if (!own(props, k) || (skip && skip[k])) continue;
-      rows.push({ name: k, value: clip(show(props[k])), type: kind(props[k]) });
+      var row = { name: k, value: clip(show(props[k])), type: kind(props[k]) };
+      var kids = children(props[k]);
+      if (kids) row.children = kids;
+      rows.push(row);
       if (rows.length >= NAMES) break;
     }
     return rows;
@@ -1021,12 +1043,46 @@ def _mm_show(value):
     return text if len(text) <= _MM_REPR else text[: _MM_REPR - 3] + "..."
 
 
+#: A container opens one level into this many children (VS Code's tree,
+#: OPEN row 1058); a child's own children are its repr.
+_MM_CHILDREN = 50
+
+
+def _mm_children(value):
+    import itertools
+    import types
+
+    try:
+        if isinstance(value, (str, bytes, bytearray, type, types.ModuleType)) or callable(value):
+            return None
+        if isinstance(value, dict):
+            pairs = ((repr(k), v) for k, v in value.items())
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            pairs = ((f"[{i}]", v) for i, v in enumerate(value))
+        elif hasattr(value, "__dict__") and isinstance(vars(value), dict):
+            pairs = ((str(k), v) for k, v in vars(value).items() if not str(k).startswith("__"))
+        else:
+            return None
+        rows = [{"name": n, "value": _mm_show(v), "type": type(v).__name__}
+                for n, v in itertools.islice(pairs, _MM_CHILDREN)]
+        more = len(value) - _MM_CHILDREN if hasattr(value, "__len__") and not hasattr(value, "__dict__") else 0
+    except BaseException:  # a container that cannot be walked shows its repr only
+        return None
+    if more > 0:
+        rows.append({"name": "...", "value": f"{more} more", "type": ""})
+    return rows or None
+
+
 def _mm_names(space, skip=()):
     rows = []
     for name, value in list(space.items()):
         if (name.startswith("__") and name.endswith("__")) or name in skip:
             continue
-        rows.append({"name": str(name), "value": _mm_show(value), "type": type(value).__name__})
+        row = {"name": str(name), "value": _mm_show(value), "type": type(value).__name__}
+        children = _mm_children(value)
+        if children:
+            row["children"] = children
+        rows.append(row)
         if len(rows) >= _MM_NAMES:
             break
     return rows
@@ -1224,6 +1280,7 @@ _PY_WORKER = (
     + f"const MAX_LINES = {MAX_LINES};\n"
     + r"""
 let py = null;
+let interruptSet = false;
 //: D2's buffer, from the page when it is cross-origin isolated: [0] is the
 //: flag this worker waits on, [1] the reply's length, the reply's bytes
 //: after. `exchange` posts a stop (or an input() prompt) and blocks on
@@ -1263,6 +1320,10 @@ self.onmessage = async (e) => {
   current = post;
   try {
     const p = await load(post);
+    if (e.data.interrupt instanceof SharedArrayBuffer && !interruptSet) {
+      p.setInterruptBuffer(new Uint8Array(e.data.interrupt));
+      interruptSet = true;
+    }
     post({ t: "started" });
     //: The app stops a run at 500 lines, but only once it has read 500:
     //: measured in Chromium, a `while True: print(i)` posted lines far
@@ -1346,6 +1407,11 @@ RUN_SANDBOX_PY_HTML = (
   //: a run still runs, and the app says Debug cannot.
   var REPLY_MAX = 65536;
   var shared = self.crossOriginIsolated && typeof SharedArrayBuffer === "function" ? new SharedArrayBuffer(8 + REPLY_MAX) : null;
+  //: Pyodide's interrupt buffer (OPEN row 1065): a 2 written here raises
+  //: KeyboardInterrupt in the line that is running, so a console line that
+  //: never ends is stopped and the namespace the last run left is kept.
+  //: Without isolation the only stop is the worker going.
+  var interrupt = shared ? new Uint8Array(new SharedArrayBuffer(1)) : null;
   function reply(value) {
     if (!shared) return;
     var bytes = new TextEncoder().encode(JSON.stringify(value == null ? null : value));
@@ -1384,6 +1450,7 @@ RUN_SANDBOX_PY_HTML = (
     var d = e.data || {};
     if (e.source !== parent || typeof d.mmRun !== "number") return;
     if (d.type === "stop") { stop(); return; }
+    if (d.type === "interrupt") { if (interrupt && busy && worker) interrupt[0] = 2; else stop(); return; }
     //: The console (D8): one line in the namespace the last run left, in
     //: the same worker (a fresh one, and a fresh namespace, after a Stop).
     if (d.type === "eval") {
@@ -1394,7 +1461,8 @@ RUN_SANDBOX_PY_HTML = (
       evalId = Number(d.mmEval) || 0;
       if (!worker) boot();
       busy = true;
-      worker.postMessage({ run: current, eval: true, source: String(d.source || "") });
+      if (interrupt) interrupt[0] = 0;
+      worker.postMessage({ run: current, eval: true, source: String(d.source || ""), interrupt: interrupt && interrupt.buffer });
       return;
     }
     if (d.type === "reply") { if (d.mmRun === current) reply(d.value); return; }
@@ -1405,8 +1473,10 @@ RUN_SANDBOX_PY_HTML = (
     current = d.mmRun;
     if (!worker) boot();
     busy = true;
+    if (interrupt) interrupt[0] = 0;
     worker.postMessage({
       run: current,
+      interrupt: interrupt && interrupt.buffer,
       source: String(d.source != null ? d.source : d.code || ""),
       lineOffset: Number(d.lineOffset) || 0,
       tests: Boolean(d.tests),

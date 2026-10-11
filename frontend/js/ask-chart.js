@@ -26,11 +26,24 @@ function askChartSvgEl(name, attrs = {}) {
   return el;
 }
 
-//: Round numbers for the axis: 0 and the top, and a middle when there is room.
+//: Round numbers for the axis: a step of 1, 2, 2.5 or 5 times a power of ten
+//: (2.5 only from 25 up, so a count never ticks at a fraction), at most four
+//: steps, the last at or above the top. A step of max / 4 put 310, 620 and
+//: 930 on a 0 to 1,240 axis.
 function askChartTicks(max) {
   if (max <= 4) return Array.from({ length: max + 1 }, (_, i) => i);
-  const step = Math.ceil(max / 4);
-  return [0, step, step * 2, step * 3, step * 4];
+  const raw = max / 4;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw && Number.isInteger(s));
+  const out = [];
+  for (let tick = 0; tick < max + step; tick += step) out.push(tick);
+  return out;
+}
+
+//: The axis is 36 of the chart's 640 units: four digits fit beside it, five
+//: do not, so ten thousand and up is said in thousands.
+function askChartTickLabel(tick) {
+  return tick >= 10000 ? `${Math.round(tick / 1000)}k` : String(tick);
 }
 
 function askChartLabel(chart, label) {
@@ -58,7 +71,7 @@ function askChartSvg(chart) {
   for (const tick of ticks) {
     svg.appendChild(askChartSvgEl("line", { x1: pl, x2: ASK_CHART_W - pr, y1: y(tick), y2: y(tick), class: "ask-chart-grid" }));
     const text = askChartSvgEl("text", { x: pl - 6, y: y(tick) + 4, "text-anchor": "end", class: "ask-chart-axis" });
-    text.textContent = String(tick);
+    text.textContent = askChartTickLabel(tick);
     svg.appendChild(text);
   }
   const slot = plotW / Math.max(1, rows.length);

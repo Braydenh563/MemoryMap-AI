@@ -372,16 +372,52 @@ def _zone_cities() -> dict[str, str]:
     return {z.rsplit("/", 1)[-1].replace("_", " ").lower(): z for z in sorted(zones) if "/" in z}
 
 
-def zone_for(place: str) -> str | None:
-    """The IANA zone for a place's name ("western australia", "Tokyo",
-    "Europe/Paris"), or None."""
+def place_name_for(place: str) -> str | None:
+    """The name `zone_for` reads a place as: the table's or the zone
+    database's own spelling, or the nearest one to a misspelling
+    ("westen australia" is "western australia"), or None."""
     raw = " ".join(str(place or "").replace(".", "").split())
     key = raw.lower()
-    if key in PLACE_ZONES:
-        return PLACE_ZONES[key]
+    if key in PLACE_ZONES or key in _zone_cities():
+        return key
     if "/" in raw and raw in _zone_cities().values():
         return raw
-    return _zone_cities().get(key)
+    #: A misspelling is read only for a name of five letters or more, and only
+    #: within one edit (two from nine letters; a swapped pair is one), so "wz"
+    #: or "cat" never becomes a zone. A tie goes to the table, read first.
+    if len(key) < 5:
+        return None
+    allowed = 2 if len(key) >= 9 else 1
+    best = None
+    for name in (*PLACE_ZONES, *_zone_cities()):
+        if len(name) < 5 or abs(len(name) - len(key)) > allowed:
+            continue
+        cost = _edits(key, name)
+        if cost <= allowed and (best is None or cost < best[0]):
+            best = (cost, name)
+    return best[1] if best else None
+
+
+def _edits(a: str, b: str) -> int:
+    """Edits between two names: insert, delete, change, or swap two letters."""
+    prev2, prev = None, list(range(len(b) + 1))
+    for i in range(1, len(a) + 1):
+        row = [i] + [0] * len(b)
+        for j in range(1, len(b) + 1):
+            row[j] = min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1]))
+            if prev2 is not None and i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                row[j] = min(row[j], prev2[j - 2] + 1)
+        prev2, prev = prev, row
+    return prev[-1]
+
+
+def zone_for(place: str) -> str | None:
+    """The IANA zone for a place's name ("western australia", "Tokyo",
+    "Europe/Paris", "westen australia"), or None."""
+    name = place_name_for(place)
+    if name is None:
+        return None
+    return PLACE_ZONES.get(name) or _zone_cities().get(name) or name
 
 
 def _is_clock(text: str) -> bool:
@@ -403,7 +439,7 @@ def _clock(text: str, now: datetime) -> list[tuple]:
         from datetime import timezone
         from zoneinfo import ZoneInfo
 
-        place = match.group("place").strip()
+        place = place_name_for(match.group("place").strip()) or match.group("place").strip()
         zone = zone_for(place)
         there = (now if now.tzinfo else datetime.now(timezone.utc)).astimezone(ZoneInfo(zone))
         offset = there.strftime("%z")

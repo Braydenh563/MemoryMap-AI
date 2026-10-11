@@ -2680,6 +2680,38 @@ function docDebugBreaks() {
   return rows;
 }
 
+//: A document's breakpoints outlive a reload (OPEN row 1059), as VS Code
+//: keeps them in the workspace: kept on this device per document, the
+//: DOC_DEBUG_BREAKS_DOCS most recently set, read once into DOC_DEBUG.breaks.
+const DOC_DEBUG_BREAKS_KEY = "doc-debug-breakpoints";
+const DOC_DEBUG_BREAKS_DOCS = 100;
+
+function docDebugSavedBreaks(id) {
+  if (DOC_DEBUG.breaks.has(id)) return DOC_DEBUG.breaks.get(id);
+  let rows = [];
+  try {
+    const saved = JSON.parse(localStorage.getItem(DOC_DEBUG_BREAKS_KEY) || "{}")[id];
+    if (Array.isArray(saved)) rows = saved.filter((r) => Number.isInteger(r?.line)).map((r) => ({ line: r.line, cond: String(r.cond || "") }));
+  } catch { /* storage refused or unreadable: this tab's breakpoints only */ }
+  DOC_DEBUG.breaks.set(id, rows);
+  return rows;
+}
+
+function docDebugKeepBreaks(id, rows) {
+  //: Typing calls this on every key; storage is written only on a change.
+  const same = JSON.stringify(DOC_DEBUG.breaks.get(id) || []) === JSON.stringify(rows);
+  DOC_DEBUG.breaks.set(id, rows);
+  if (same) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem(DOC_DEBUG_BREAKS_KEY) || "{}");
+    delete saved[id];
+    if (rows.length) saved[id] = rows.map((r) => ({ line: r.line, cond: r.cond || "" }));
+    const ids = Object.keys(saved);
+    for (const old of ids.slice(0, Math.max(0, ids.length - DOC_DEBUG_BREAKS_DOCS))) delete saved[old];
+    localStorage.setItem(DOC_DEBUG_BREAKS_KEY, JSON.stringify(saved));
+  } catch { /* storage refused: kept for this tab only */ }
+}
+
 //: The gutter, the lit line and the keys, built once (the field keeps its
 //: identity across documents; each document's breakpoints come back from
 //: DOC_DEBUG.breaks when its state is made).
@@ -2703,7 +2735,7 @@ function docDebugExtension(CM) {
   const toggle = CM.state.StateEffect.define({ map: (value, mapping) => ({ ...value, pos: mapping.mapPos(value.pos) }) });
   const field = CM.state.StateField.define({
     create: (state) => {
-      const rows = DOC_DEBUG.breaks.get(docHistoryOwner) || [];
+      const rows = docHistoryOwner == null ? [] : docDebugSavedBreaks(docHistoryOwner);
       const ranges = rows.filter((r) => r.line >= 1 && r.line <= state.doc.lines).map((r) => new DebugMark(r.cond).range(state.doc.line(r.line).from));
       return CM.state.RangeSet.of(ranges, true);
     },
@@ -2766,7 +2798,7 @@ function docDebugExtension(CM) {
   const keep = CM.view.EditorView.updateListener.of((update) => {
     const changed = update.transactions.some((tr) => tr.effects.some((e) => e.is(toggle)));
     if (!changed && !update.docChanged) return;
-    if (docHistoryOwner != null) DOC_DEBUG.breaks.set(docHistoryOwner, docDebugBreaks());
+    if (docHistoryOwner != null) docDebugKeepBreaks(docHistoryOwner, docDebugBreaks());
     if (changed) {
       docDebugRender();
       if (DOC_DEBUG.stop) docDebugAct("eval");
@@ -2914,7 +2946,9 @@ function docDebugView() {
 }
 
 //: A name and its value, as one row: text only, never markup.
-function docDebugValueRow(name, value, type, error = false) {
+//: A list, a dict or an object opens one level into its children, as VS
+//: Code's Variables tree does (OPEN row 1058); the row is a disclosure then.
+function docDebugValueRow(name, value, type, error = false, children = null) {
   const li = document.createElement("li");
   li.className = `cm-debug-row${error ? " is-error" : ""}`;
   const n = document.createElement("span");
@@ -2924,7 +2958,20 @@ function docDebugValueRow(name, value, type, error = false) {
   v.className = "cm-debug-value";
   v.textContent = value;
   if (type) v.title = type;
-  li.append(n, v);
+  if (!Array.isArray(children) || !children.length) {
+    li.append(n, v);
+    return li;
+  }
+  li.classList.add("has-children");
+  const tree = document.createElement("details");
+  tree.className = "cm-debug-tree";
+  const summary = document.createElement("summary");
+  summary.append(n, v);
+  const list = document.createElement("ul");
+  list.className = "cm-debug-list cm-debug-children";
+  for (const child of children) list.appendChild(docDebugValueRow(String(child.name), String(child.value), String(child.type || "")));
+  tree.append(summary, list);
+  li.appendChild(tree);
   return li;
 }
 
@@ -2993,14 +3040,14 @@ function docDebugRender() {
   else {
     const locals = Array.isArray(stop.locals) ? stop.locals : [];
     const globals = Array.isArray(stop.globals) ? stop.globals : [];
-    for (const row of locals) parts.vars.appendChild(docDebugValueRow(String(row.name), String(row.value), String(row.type || "")));
+    for (const row of locals) parts.vars.appendChild(docDebugValueRow(String(row.name), String(row.value), String(row.type || ""), false, row.children));
     if (!locals.length) docDebugEmpty(parts.vars, "No local names yet.");
     if (globals.length) {
       const head = document.createElement("li");
       head.className = "cm-debug-sub";
       head.textContent = "Globals";
       parts.vars.appendChild(head);
-      for (const row of globals) parts.vars.appendChild(docDebugValueRow(String(row.name), String(row.value), String(row.type || "")));
+      for (const row of globals) parts.vars.appendChild(docDebugValueRow(String(row.name), String(row.value), String(row.type || ""), false, row.children));
     }
   }
 
@@ -3463,11 +3510,28 @@ async function docConsoleEval(source) {
   docRunSetStatus("Evaluating", true);
   docRunSend({ type: "eval", mmRun: Math.max(0, docRun.id), mmEval: seq, source: text });
   clearTimeout(docRun.timer);
-  //: Python's first line may start the runtime: a minute, as a run's start.
-  docRun.timer = setTimeout(() => {
-    if (docRun && docRun.evalId === seq) docRunStop("Stopped: the line was still running.");
-  }, lang === "python" ? DOC_RUN_START_MS : DOC_RUN_TIMEOUT_MS);
+  //: Python's first line may start the runtime: a minute, as a run's start,
+  //: until the sandbox says the line has started (`docConsoleMessage`).
+  docRun.timer = setTimeout(() => docConsoleOvertime(seq, lang), lang === "python" ? DOC_RUN_START_MS : DOC_RUN_TIMEOUT_MS);
   return true;
+}
+
+//: A console line still running at its limit (OPEN row 1065). Python is
+//: interrupted (KeyboardInterrupt in the line, through Pyodide's interrupt
+//: buffer), so the namespace the last run left is kept; the worker goes only
+//: if that does not answer within DOC_CONSOLE_INTERRUPT_MS. A JavaScript
+//: loop cannot be interrupted inside its worker, so that worker goes.
+const DOC_CONSOLE_INTERRUPT_MS = 3000;
+
+function docConsoleOvertime(seq, lang) {
+  if (!docRun || docRun.evalId !== seq) return;
+  if (lang !== "python" || docRun.interrupted === seq) {
+    docRunStop("Stopped: the line was still running.");
+    return;
+  }
+  docRun.interrupted = seq;
+  docRunSend({ type: "interrupt", mmRun: Math.max(0, docRun.id) });
+  docRun.timer = setTimeout(() => docConsoleOvertime(seq, lang), DOC_CONSOLE_INTERRUPT_MS);
 }
 
 //: What the sandbox says about an evaluation: its prints and errors as rows,
@@ -3479,14 +3543,24 @@ function docConsoleMessage(data) {
     docRunSetStatus(String(data.text || "Evaluating"), true);
     return;
   }
+  if (data.t === "started") {
+    //: The runtime is up and the line is running: its own ten seconds now.
+    const seq = docRun.evalId;
+    clearTimeout(docRun.timer);
+    docRun.timer = setTimeout(() => docConsoleOvertime(seq, docConsoleLang()), DOC_RUN_TIMEOUT_MS);
+    return;
+  }
   if (data.t === "log") {
     docRunRow(String(data.level || "log"), String(data.text ?? ""), Number(data.line) || null, log);
     return;
   }
   if (data.t !== "eval-done") return;
   clearTimeout(docRun.timer);
+  const interrupted = docRun.interrupted === docRun.evalId;
   docRun.evalId = 0;
+  docRun.interrupted = 0;
   if (typeof data.text === "string" && data.text !== "") docRunRow(data.ok === false ? "error" : "result", String(data.text), null, log);
+  if (interrupted) docRunRow("info", `Stopped after ${DOC_RUN_TIMEOUT_MS / 1000} seconds. The names the last run left are kept.`, null, log, false);
   docRunSetStatus("Ready.", false);
 }
 

@@ -7,6 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Documents: the debugger's Variables open a list, a dict or an object into its first fifty items, and a document's breakpoints are kept on this device after a reload. Ctrl+Shift+D (the Debug tab) is listed in the keys sheet and the palette.
+- Documents: a Python console line still running after ten seconds is interrupted (KeyboardInterrupt) rather than its runtime ended, so the names the last run left are kept.
+- Notes: a card no longer shows a topic chip that repeats one of its own tags (a topic the graph named after the tag).
+- Chat: the time somewhere answers for a place typed one letter off ("westen australia" is read as Western Australia), and the answer names the place as read.
+- Documents: Replace in every document reads every document's text in one request (it read one page of the list and then each document by itself, so documents past the first page were missed), and it has a row in the document's ⋯ menu.
+- Statistics and Ask charts: the axis ticks at round numbers (0, 500, 1000, 1500 rather than 310, 620, 930), and ten thousand and up reads 10k so a five-digit label is not cut off.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
 - Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.

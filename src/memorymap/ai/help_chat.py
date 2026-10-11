@@ -1585,7 +1585,7 @@ HELP_TOPICS.extend(
                 "Alt+Down moves a section from the outline, and typing / opens "
                 "the blocks menu. Ctrl+F finds and replaces (Enter next, "
                 "Shift+Enter previous, Esc closes), Ctrl+Shift+F finds in every "
-                "document, and Replace in every document (Ctrl+K) replaces across "
+                "document, and Replace in every document (the ⋯ menu or Ctrl+K) replaces across "
                 "them all, plain or a regular expression, as one undo step. Views: Edit, where Live renders as you write, Source "
                 "is the markdown and Split puts a preview beside it, or Read. The "
                 "sidebar's Outline lists the headings (with a filter when there "

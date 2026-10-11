@@ -500,6 +500,26 @@ class ContentBatch(BaseModel):
     documents: list[ContentItem] = Field(max_length=1000)
 
 
+#: The most documents `GET /contents` reads, the same bound the write takes.
+CONTENTS_READ_MAX = 1000
+
+
+@router.get("/contents")
+def read_contents(session: Session = Depends(get_session)) -> list[dict]:
+    """Every live document's id, title and text in one response, for Replace
+    in every document's scan (OPEN row 1055). It read `GET ""` (one page)
+    and then each document by its own request, so past the first page it
+    missed documents, and at fifty it cost fifty-one requests. The pattern is
+    matched in the browser because it may be a regular expression."""
+    rows = session.scalars(
+        select(Document)
+        .where(Document.archived_at.is_(None))
+        .order_by(Document.updated_at.desc(), Document.id.desc())
+        .limit(CONTENTS_READ_MAX)
+    )
+    return [{"id": d.id, "title": d.title, "content": d.content or ""} for d in rows]
+
+
 @router.post("/contents")
 def write_contents(body: ContentBatch, session: Session = Depends(get_session)) -> dict:
     """Many documents' text in one transaction (DOCUMENTS 24 row 9): Replace in

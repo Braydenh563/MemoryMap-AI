@@ -2813,6 +2813,8 @@ const DOC_COMMANDS = [
     code: true, run: () => docPanelToggle(null) },
   { id: "console", icon: "ph:terminal", label: "Open the console: a line of Python or JavaScript in what the last run left", keys: "Ctrl+Shift+Y",
     code: true, run: () => docPanelToggle("console") },
+  { id: "debug-panel", icon: "ph:bug", label: "Open the Debug tab: variables, watches, the call stack and breakpoints", keys: "Ctrl+Shift+D",
+    code: true, run: () => docPanelToggle("debug") },
   { id: "command-palette", icon: "ph:command", label: "Run an editor command by name (also F1)", keys: "Ctrl+Shift+P",
     code: true, run: () => docIdeOpenPalette() },
   { id: "split", icon: "ph:columns", label: "Split the editor: this file again, beside itself", keys: "Ctrl+\\",
@@ -12440,12 +12442,10 @@ async function openDocReplace() {
 //: The documents a replace would change, read fresh: the list's own rows hold
 //: no text, and a count from stale text would promise a change it cannot make.
 async function docReplaceScan(pattern) {
-  const list = await apiJson("/documents");
   const out = [];
-  for (const doc of list) {
-    const full = await apiJson(`/documents/${doc.id}`);
-    const count = (full.content || "").match(pattern)?.length || 0;
-    if (count) out.push({ id: full.id, title: full.title, content: full.content || "", count });
+  for (const doc of await apiJson("/documents/contents")) {
+    const count = doc.content.match(pattern)?.length || 0;
+    if (count) out.push({ ...doc, count });
   }
   return out;
 }
@@ -14338,6 +14338,7 @@ $("doc-find-next").addEventListener("click", () => docFindStep(1));
 $("doc-find-prev").addEventListener("click", () => docFindStep(-1));
 $("doc-replace-one").addEventListener("click", docReplaceOne);
 $("doc-replace-all").addEventListener("click", docReplaceAll);
+$("doc-replace-everywhere").addEventListener("click", () => openDocReplace());
 
 //: Leaving with unsaved edits would lose them; autosave hasn't fired yet.
 //: The `beforeunload` guard for this is centralised in navigation.js
@@ -19701,6 +19702,12 @@ function docCmTheme(CM) {
       ".cm-debug-name": { flex: "none", maxWidth: "45%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--accent-text)" },
       ".cm-debug-value": { flex: "1", minWidth: "0", whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: "var(--text)" },
       ".cm-debug-row.is-error .cm-debug-value": { color: "var(--error)" },
+      ".cm-debug-row.has-children": { display: "block" },
+      ".cm-debug-tree > summary": { display: "flex", alignItems: "baseline", gap: "var(--space-2)", minWidth: "0", cursor: "pointer", listStyle: "none" },
+      ".cm-debug-tree > summary::-webkit-details-marker": { display: "none" },
+      ".cm-debug-tree > summary::before": { content: '"\\25B8"', flex: "none", color: "var(--muted)" },
+      ".cm-debug-tree[open] > summary::before": { content: '"\\25BE"' },
+      ".cm-debug-children": { paddingInlineStart: "var(--space-3)", borderInlineStart: "1px solid var(--border)", marginInlineStart: "var(--space-1)" },
       ".cm-debug-sub": { marginTop: "var(--space-1)", color: "var(--muted)", fontSize: "var(--text-xs)" },
       ".cm-debug-empty": { color: "var(--muted)" },
       ".cm-debug-go": { minWidth: "0", textAlign: "start", fontFamily: "var(--mono, ui-monospace, monospace)" },

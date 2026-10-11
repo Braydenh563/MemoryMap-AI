@@ -148,3 +148,17 @@ def test_a_dom_script_debugs_against_a_stand_in():
     })["dom"]
     assert {"t": "log", "level": "log", "text": "out hi", "line": 3} in out
     assert out[-1] == {"t": "done", "ended": "done"}
+
+
+def test_a_list_or_an_object_opens_into_its_children():
+    """OPEN row 1058: Variables showed one level, a repr, as the only view."""
+    src = "var xs = [1, 'a'];\nvar o = {k: 2, f: function () {}};\nvar n = 3;\nn;\n"
+    out = _node({"s": ["session", src, [{"line": 4}], [], [{"cmd": "stop"}]]})["s"]
+    stop = next(m for m in out if m["t"] == "stop")
+    by = {row["name"]: row for row in stop["locals"]}
+    assert by["n"] == {"name": "n", "value": "3", "type": "number"}
+    assert by["xs"]["children"] == [
+        {"name": "[0]", "value": "1", "type": "number"},
+        {"name": "[1]", "value": '"a"', "type": "string"},
+    ]
+    assert [c["name"] for c in by["o"]["children"]] == ["k", "f"]

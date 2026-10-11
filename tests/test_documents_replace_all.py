@@ -59,3 +59,30 @@ def test_the_dialog_replaces_through_one_request_and_one_undo_step():
     html = INDEX_HTML.read_text(encoding="utf-8")
     for control in ("doc-replace-find", "doc-replace-with", "doc-replace-regex", "doc-replace-case", "doc-replace-run"):
         assert f'id="{control}"' in html, control
+
+
+def test_every_documents_text_is_read_in_one_request(client):
+    """OPEN row 1055: the scan read `/documents` (one page) and then each
+    document by its own request, so past the first page it missed documents
+    and at fifty it cost fifty-one requests."""
+    docs = [_make(client, f"Doc {n}", f"text {n}") for n in range(3)]
+    archived = _make(client, "Shelved", "text shelved")
+    client.put(f"/documents/{archived['id']}/archive")
+    got = client.get("/documents/contents")
+    assert got.status_code == 200
+    rows = {row["id"]: row for row in got.json()}
+    assert set(rows) == {d["id"] for d in docs}
+    assert rows[docs[1]["id"]] == {"id": docs[1]["id"], "title": "Doc 1", "content": "text 1"}
+
+
+def test_the_scan_is_one_request_and_the_dock_menu_has_the_row():
+    from tests._app_js import INDEX_HTML, JS_DIR
+
+    js = (JS_DIR / "documents.js").read_text(encoding="utf-8")
+    start = js.index("async function docReplaceScan(")
+    body = js[start: js.index("\n}\n", start)]
+    assert 'apiJson("/documents/contents")' in body and "/documents/${" not in body
+    html = INDEX_HTML.read_text(encoding="utf-8")
+    menu = html[html.index('id="doc-dock-menu"'): html.index("</details>", html.index('id="doc-dock-menu"'))]
+    assert 'id="doc-replace-everywhere"' in menu
+    assert '$("doc-replace-everywhere")' in js

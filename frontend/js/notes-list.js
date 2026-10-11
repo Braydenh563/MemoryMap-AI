@@ -3125,9 +3125,18 @@ function reminderCountChip(entry, options = {}) {
 const noteTopicsCache = new Map();
 const _noteTopicsInFlight = new Set();
 
+//: A topic the graph named after a tag repeats the tag chip already on the
+//: card, so it is left off there; case, a leading # and separators do not count.
+function topicRepeatsTag(name, tags) {
+  const key = (text) => String(text || "").toLowerCase().replace(/^#/, "").replace(/[\s_-]+/g, " ").trim();
+  const topic = key(name);
+  return Boolean(topic) && (tags || []).some((tag) => key(tag) === topic);
+}
+
 function noteTopicChip(entry) {
   const topic = noteTopicsCache.get(entry.id);
   if (!topic || entry.is_board || entry.is_draft) return null;
+  if (topicRepeatsTag(topic.name, entry.tags)) return null;
   const mark = chip(`ph:circles-three ${topic.name}`, "refs topic", async (event) => {
     event.stopPropagation();
     await switchTab("graph");

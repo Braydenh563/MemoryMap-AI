@@ -1954,6 +1954,7 @@ header#top-bar select,
   --quick-tint-ink: var(--accent-text);
   background: color-mix(in oklab, var(--quick-tint) 14%, var(--card));
   border-color: color-mix(in oklab, var(--quick-tint) 55%, transparent);
+  border-radius: var(--radius-md);
 }
 
 .quick-link-tinted .quick-link-icon {

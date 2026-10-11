@@ -115,7 +115,8 @@ async function fileDropImport(files) {
       //: The upload is the commit, as the Library's own button (library.js).
       form.append("direct", "true");
       try {
-        await api.upload("/media/upload", form);
+        const made = await (await api.upload("/media/upload", form)).json().catch(() => null);
+        pushUploadUndo(`Added “${file.name}”`, "/media", made, () => (typeof renderLibraryImagesGallery === "function" ? renderLibraryImagesGallery() : undefined));
         added++;
       } catch (error) {
         toast(`${file.name}: ${error.message}`, true);

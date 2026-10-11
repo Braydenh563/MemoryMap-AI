@@ -449,7 +449,9 @@ function digestOffer(answerEl, offer) {
     button.disabled = true;
     try {
       let undo = null;
+      let redo = null;
       let said = "";
+      let label = "";
       if (offer.kind === "open") {
         //: A page, not a thing made: nothing to undo, and the line stays.
         //: "settings:tasks" opens that section; "ask-history" the panel
@@ -472,24 +474,39 @@ function digestOffer(answerEl, offer) {
         });
         const repeats = { daily: ", then every day", weekly: ", then every week", monthly: ", then every month" }[made.recurring] || "";
         said = `Reminder set: ${made.text}, ${relativeWhen(made.due_at)}${repeats}.`;
-        undo = () => apiJson(`/reminders/${made.id}`, { method: "DELETE" });
-        if (typeof loadReminders === "function") loadReminders();
+        label = "Set a reminder from an answer";
+        const repaint = () => (typeof loadReminders === "function" ? loadReminders() : undefined);
+        undo = () => apiJson(`/reminders/${made.id}`, { method: "DELETE" }).then(repaint);
+        redo = () => apiJson(`/reminders/${made.id}/restore`, { method: "POST" }).then(repaint);
+        repaint();
       } else if (offer.kind === "checklist" || offer.kind === "note") {
         const items = (offer.items || []).map((item) => `- [ ] ${item}`).join("\n");
         const content = offer.kind === "checklist" ? `${offer.text}\n\n${items}` : offer.text;
         const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content, defer_filing: true }) });
         said = `Saved a note: ${noteNamePlain(offer.text, 80)}.`;
-        undo = () => apiJson(`/entries/${made.id}`, { method: "DELETE" });
+        label = "Saved a note from an answer";
+        undo = () => apiJson(`/entries/${made.id}`, { method: "DELETE" }).then(() => refreshEntries([made.id]));
+        redo = () => apiJson(`/entries/${made.id}/restore`, { method: "POST" }).then(() => refreshEntries([made.id]));
+        refreshEntries([made.id]).catch(() => {});
       }
       line.textContent = said;
       line.classList.add("muted");
       if (undo) {
-        toastAction(said, "Undo", async () => {
-          await undo();
-          line.replaceChildren(button);
-          line.classList.remove("muted");
-          button.disabled = false;
-        });
+        offerUndo(
+          label,
+          said,
+          async () => {
+            await undo();
+            line.replaceChildren(button);
+            line.classList.remove("muted");
+            button.disabled = false;
+          },
+          async () => {
+            await redo();
+            line.textContent = said;
+            line.classList.add("muted");
+          }
+        );
       }
     } catch (error) {
       button.disabled = false;
@@ -523,7 +540,8 @@ function citationVerdictRow(source, content) {
     offerUndo(
       kind === "pinned" ? "Pinned a line as true" : "Marked a line wrong",
       kind === "pinned" ? "Pinned: your answers say it as your word from now on." : "Marked wrong: your answers leave it out from now on.",
-      () => Promise.all(ids.map((id) => api(`/learned/${id}`, { method: "DELETE" })))
+      () => Promise.all(ids.map((id) => api(`/learned/${id}`, { method: "DELETE" }))),
+      () => Promise.all(ids.map((id) => api(`/learned/${id}/restore`, { method: "POST" })))
     );
     return { kind };
   };
@@ -572,7 +590,11 @@ async function askKeepAsDocument() {
       method: "POST",
       body: JSON.stringify({ title, content: `# ${title}\n\n${askKept.text}\n` }),
     });
-    pushUndo("Saved an answer as a document", () => api(`/documents/${doc.id}`, { method: "DELETE" }));
+    pushUndo(
+      "Saved an answer as a document",
+      () => api(`/documents/${doc.id}`, { method: "DELETE" }),
+      () => api(`/documents/${doc.id}/restore`, { method: "POST" })
+    );
     toastAction("Saved to your documents.", "Open it", () => {
       switchTab("documents");
       if (typeof openDocument === "function") openDocument(doc.id);
@@ -591,7 +613,11 @@ async function askKeepAsMap() {
     body: JSON.stringify({ name, note_ids: ids }),
   }).catch(() => null);
   if (!board?.id) return toast("Could not make the map.");
-  pushUndo("Made a mind map from an answer", () => api(`/entries/${board.id}`, { method: "DELETE" }));
+  pushUndo(
+    "Made a mind map from an answer",
+    () => api(`/entries/${board.id}`, { method: "DELETE" }),
+    () => api(`/entries/${board.id}/restore`, { method: "POST" })
+  );
   toastAction(
     `Mind map \u201c${name}\u201d made from ${ids.length} note${ids.length === 1 ? "" : "s"}.`,
     "Open",

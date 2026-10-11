@@ -1816,6 +1816,7 @@ function entryOverflowMenu(entry) {
         run: async () => {
           try {
             const board = await apiJson(`/whiteboard/maps/from-note/${entry.id}`, { method: "POST" });
+            pushBinPairUndo("Made a mind map from a note", `/entries/${board.id}`, `/entries/${board.id}/restore`, true, () => refreshEntries([board.id]));
             await openWhiteboardBoard(board.id);
           } catch (err) {
             toast(err.message || "Couldn't make a mind map of this note.", true);

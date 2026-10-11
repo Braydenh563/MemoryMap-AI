@@ -333,6 +333,15 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the firstrun49 agent (Brief 49, merged 2026-10-11)
+
+Detail: [firstrun49-1011.md](../archive/agent-remaining/firstrun49-1011.md).
+
+- smallButton (app.js) names every worded button by its tooltip (WCAG 2.5.3); only the first-steps buttons are fixed.
+- Most used in the sidebar keeps a binned note for up to 30 s (status.js cacheMs).
+- The first-run queue (welcome, recovery key, updates) costs 3 acts before the dashboard.
+- Not verified: printed manual output, real-model answers, iOS zoom on the 13.6px name field.
+
 ## Left by the followups agent (merged 2026-10-11)
 
 Detail: [followups-1011.md](../archive/agent-remaining/followups-1011.md).

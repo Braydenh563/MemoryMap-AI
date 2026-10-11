@@ -18,6 +18,8 @@ function offerJumpToNewNote(saved, status) {
   jump.title = "Open this note in your list";
   jump.addEventListener("click", () => flashEntry(saved.id));
   status.append(" ", jump);
+  //: A notebook's first note: the first steps' third, asking, offered here (25c).
+  if (allEntries.length === 1) status.append(" ", smallButton("ph:chat-circle Ask about it", "Ask your notebook; the answer comes from your notes", openAskFromDashboard));
 }
 
 // A deferred note's filing runs after its POST returns, so the composer has

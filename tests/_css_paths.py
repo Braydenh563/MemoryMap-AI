@@ -76,6 +76,10 @@ CSS_FILES = [
     CSS_DIR / "meetings-lazy.css",
     #: The quoted span a source opens at (`LAZY_MODULES.reveal`, Brief 88).
     CSS_DIR / "reveal-lazy.css",
+    #: The manual (manual.js loads it, WORLD_CLASS_PLAN 25c).
+    CSS_DIR / "manual-lazy.css",
+    #: The dashboard's first steps (first-run.js loads it, WORLD_CLASS_PLAN 25c).
+    CSS_DIR / "first-run-lazy.css",
 ]
 
 

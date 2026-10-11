@@ -1343,6 +1343,9 @@
       <button type="button" id="dash-widgets-open" class="ghost small"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i> Widgets</button>
       <button type="button" id="dash-edit" class="small">Done</button>
     </div>
+    <!-- The first steps (first-run.js, WORLD_CLASS_PLAN 25c): filled while a
+         new notebook is being set up, empty after. -->
+    <div id="dash-first-steps" class="dash-first-steps"></div>
     <div id="dash-grid"></div>
   </div>
 
@@ -13046,7 +13049,12 @@ Link to another note with [[its first few words]]."></textarea>
                  same `data-goto-*` button the Guide's answer chips are. The
                  group heads give the pane its sticky index, and the Settings
                  search finds a topic by its title or its keywords. -->
-            <p class="muted">Every feature, grouped: what it does and where it is.</p>
+            <!-- The same topics as one page to read through, search and print
+                 (manual.js, WORLD_CLASS_PLAN 25c). -->
+            <div class="row space-between help-manual-row">
+              <p class="muted flush">Every feature, grouped: what it does and where it is.</p>
+              <button type="button" id="help-open-manual" class="ghost small"><i class="ph ph-book-open-text ph-lead" aria-hidden="true"></i> Open the manual</button>
+            </div>
             <div id="help-topics" class="help-topics" aria-busy="true"></div>
             <p id="help-empty" class="muted empty-line hidden">Nothing in Help matches</p>
 

@@ -1035,6 +1035,17 @@ The measure60 agent's Built line, moved from WORLD_CLASS_PLAN 26.3 at its step b
 
 Built Brief 60, 26.0 and 26a, decision 63): WORLD_CLASS_PLAN 26.4 and 26.5 (numbers); `tests/test_no_silent_except.py` (21), `tests/test_routes_named.py` (49), `tests/test_background_registry.py` (26), ruff `T201` on `src`, `scripts/complexity.py` and `tests/test_complexity.py` (260 functions over 15, cycles), `scripts/handlers.py` and `tests/test_frontend_wake_sources.py` (97 file and kind rows), `scripts/profile_routes.py`, `scratchpad/ui-sweeps/frames.js` with its at-rest budget; rows in the five surface plans; item 434's progress records moved to HISTORY to fit the plan cap.
 
+## Moved from the plans, 2026-10-11 (WORLD_CLASS 25c, Brief 49)
+
+The firstrun49 agent's Built block (first run and the manual), moved whole from WORLD_CLASS_PLAN 25.4 at its step boundary (standing order 10).
+
+- The manual: `frontend/js/manual.js` and `manual-lazy.css` (lazy, 0 boot bytes), opened from Settings, Help (Open the manual), the Guide's ... menu and the first steps. The keys-sheet recipe: contents that follow the reading, a search keeping topics that hold every word, print (`body.manual-print`, only the manual on the page, every shown topic, no scroll pane). Built from `GET /help/topics`, so it is the Guide's own table. Measured: opens in 338 ms at 1440 and 432 ms at 390, 143 topics in 13 groups, no horizontal scroll.
+- The gate: `test_the_manual_search_finds_every_named_control` runs manual.js's own `manualWords` and `manualMatches` under node over every manual path and small tool `test_manual_parity` names: 35 of 41 found before, 41 of 41 after (New category, Merge into, the timer chip and three board controls added to their topics).
+- The first steps: `frontend/js/first-run.js` and `first-run-lazy.css` (lazy) above the dashboard grid, replacing `gettingStartedCard`: 1. your name typed in place (`PUT /preferences`), 2. a note, 3. an answer from the notes with no model; each ticked when done, kept past the first note, gone when all three are done or on Hide. Saving the notebook's first note offers Ask about it (capture-ask.js).
+- The sample notebook: `entry/sample_notebook.py`, `GET`/`POST`/`DELETE /help/sample-notebook`: eight notes in six categories, tagged `sample-notebook`, one wiki link, saved through `create_entry`; offered once per notebook (a preference, not the browser); Remove bins them and deletes the categories it made (six left at 0 before that fix).
+- The path, measured on a fresh data dir with no model (`scratchpad` sweep fr49-path.js): before, 11 acts and 17.3 s from first open to the note found again, the Ask step found only by knowing the Notes sub-tab; after, 13 acts (11 without the name) and 20.6 s on the loaded sandbox, every act on screen.
+- "What changed" was already built (Settings, About, What's new, from CHANGELOG.md); the manual topic points at it.
+
 ## Moved from the plans, 2026-10-11 (WORLD_CLASS 25g, Brief 53)
 
 The budgets53 agent's Built block, moved whole from WORLD_CLASS_PLAN 25.4 at its step boundary (standing order 10).

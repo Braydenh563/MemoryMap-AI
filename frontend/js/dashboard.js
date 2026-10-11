@@ -1596,94 +1596,15 @@ function renderFeatures(query) {
   }
 }
 
-// The day-one dashboard. Deliberately a small number of real actions rather
-// than a tour of everything: the widgets appear on their own as soon as there
-// is something for them to hold, and that is a better demonstration than a
-// description of them.
-function gettingStartedCard() {
-  const card = document.createElement("section");
-  card.className = "card dash-widget dash-getting-started";
-
-  const title = document.createElement("h2");
-  //: Not "Your notebook is empty" again: the hero line above already says
-  //: so, and the comma joined two sentences (INBOX 472, the first-run walk).
-  title.textContent = "How MemoryMap works";
-
-  const blurb = document.createElement("p");
-  blurb.className = "muted";
-  blurb.textContent =
-    "Type a thought, and it gets filed for you. Later, ask a question in " +
-    "plain English and get an answer plus the notes behind it. Everything " +
-    "stays on this machine.";
-
-  const steps = document.createElement("div");
-  steps.className = "start-steps";
-  const actions = [
-    {
-      icon: "ph:pencil-simple",
-      label: "Write your first note",
-      note: "Anything at all: a half sentence is fine.",
-      run: () => startNewNote(),
-    },
-    {
-      icon: "ph:chat-circle",
-      label: "Ask your notebook",
-      note: "Works on keywords even with no AI running.",
-      run: () => openAskFromDashboard(),
-    },
-    {
-      icon: "ph:backpack",
-      label: "Bring notes in",
-      note: "Import from a file in Settings → Import & export.",
-      run: () => openSettingsModal("data"),
-    },
-    {
-      icon: "ph:compass",
-      label: "Take the tour",
-      //: The tour, not the welcome card. These are two different things and
-      //: this tile used to run the wrong one: `openOnboarding` is the five
-      //: slides that say what MemoryMap is, while the tour (tour.js) points
-      //: at the real controls and says where they are. A tile that says
-      //: "take the tour" and opens a slideshow teaches that the tour is a
-      //: slideshow, and there was then no door to the tour on the dashboard
-      //: at all. The welcome card keeps its own doors, both correctly
-      //: worded: Settings, Help's "Replay the welcome" and the
-      //: features browser's "Welcome tour" row.
-      note: "Two minutes through what's here.",
-      //: tour.js is a lazy file; `openTour` is a LAZY_ENTRY_POINTS stand-in
-      //: (app.js), so it is always defined here and needs no guard.
-      run: () => openTour("basics"),
-    },
-  ];
-  for (const action of actions) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "start-step";
-    const icon = document.createElement("span");
-    icon.className = "start-step-icon";
-    setLabel(icon, action.icon);
-    icon.setAttribute("aria-hidden", "true");
-    const text = document.createElement("span");
-    const label = document.createElement("strong");
-    setLabel(label, action.label);
-    const note = document.createElement("span");
-    note.className = "muted";
-    setLabel(note, action.note);
-    text.append(label, note);
-    button.append(icon, text);
-    button.addEventListener("click", action.run);
-    steps.appendChild(button);
-  }
-
-  const footer = document.createElement("p");
-  footer.className = "muted start-footer";
-  footer.textContent =
-    "Streaks, tags, a map of your notes and more appear here as you write.";
-
-  //: No mark of its own (INBOX 436): the hero directly above already turns
-  //: the app's emblem, and two turning marks on one screen is one too many.
-  card.append(title, blurb, steps, footer);
-  return card;
+//: **The first steps** (first-run.js, lazy; WORLD_CLASS_PLAN 25c): your
+//: name, a first note and a first answer, ticked as each is done, and the
+//: sample notebook. Above the grid rather than in it, so they stay past the
+//: first note; a notebook that hid them, or finished them, never loads it.
+function renderFirstStepsLazy() {
+  const host = $("dash-first-steps");
+  if (!host || !entriesEverLoaded) return;
+  if (dashEditMode || (allEntries.length && prefs.get("firstStepsHidden", null) === "1")) return void host.replaceChildren();
+  lazyScript("/js/first-run.js").then((ok) => ok && renderFirstSteps(host));
 }
 
 //: A widget that throws, or never draws, says so and offers Retry (INBOX
@@ -1782,6 +1703,7 @@ async function renderDashboard({ refresh = false } = {}) {
   renderQuickLinks();
   renderDashMore();
   wireDashDensity();
+  renderFirstStepsLazy();
   const grid = $("dash-grid");
   const layout = dashLayout();
   const shape = dashGridShape(layout);
@@ -1801,15 +1723,14 @@ async function renderDashboard({ refresh = false } = {}) {
   // A brand-new notebook filled this grid with a dozen cards each politely
   // saying it had nothing to show. Every message was fine on its own; together
   // they made a working app look broken on the day someone starts using it.
-  // One card that says what to do instead, and only until there's anything
-  // to show, which is the first note.
+  // No widgets until there is anything to show, which is the first note; the
+  // first steps above the grid say what to do instead (`renderFirstStepsLazy`).
   // `entriesEverLoaded` and not just the length: before the first GET /entries
   // comes back these are indistinguishable, and guessing "empty" paints the
   // brand-new-notebook card over a notebook full of notes.
   if (entriesEverLoaded && !allEntries.length && !dashEditMode) {
-    grid.appendChild(gettingStartedCard());
     //: It has nothing to wait for. Left on, `.dash-filling` (added above)
-    //: kept a brand-new notebook's only card hidden for good.
+    //: kept a brand-new notebook's empty grid hidden for good.
     grid.classList.remove("dash-filling");
     window.dashSettled = Promise.resolve();
     return;

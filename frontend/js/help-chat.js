@@ -613,6 +613,12 @@ function renderHelpChatMenu() {
           disabled: !said,
           run: () => (said ? helpChatNewChat() : undefined),
         },
+        //: Every topic Atlas answers from, as one page (manual.js, 25c).
+        {
+          label: "ph:book-open-text Open the manual",
+          title: "Every help topic on one page: search it, read it through or print it",
+          run: () => lazyScript("/js/manual.js").then((ok) => ok && openManual()),
+        },
       ],
       "More actions for this chat"
     )

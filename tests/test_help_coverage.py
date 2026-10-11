@@ -26,6 +26,9 @@ from memorymap.ai.help_topics_more import HELP_GROUPS, TOPIC_META
 #: (feature, words every one of which some entry's body must contain, a
 #: question in the words a person would use).
 FEATURES: list[tuple[str, tuple[str, ...], str]] = [
+    # Help itself (WORLD_CLASS_PLAN 25c)
+    ("manual", ("Open the manual", "printer button"), "is there a manual I can print"),
+    ("first-steps", ("Try a sample notebook", "Remove the sample notes"), "how do I get rid of the sample notes"),
     # Writing notes
     ("quick-note", ("Alt+N", "Quick note"), "keyboard shortcut for quick note"),
     ("offline-outbox", ("kept on this device", "Try now"), "what happens if I save a note while the server is down"),

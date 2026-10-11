@@ -708,6 +708,8 @@ function helpSearchBind() {
   const input = $("help-search");
   if (!input || input._bound) return;
   input._bound = true;
+  //: The manual (manual.js, lazy): the same topics as one page.
+  $("help-open-manual")?.addEventListener("click", () => lazyScript("/js/manual.js").then((ok) => ok && openManual()));
   input.addEventListener("input", () => helpApplySearch(input.value));
   input.addEventListener("keydown", (e) => {
     //: Escape clears the query before it closes the window.

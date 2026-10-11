@@ -730,11 +730,51 @@ MORE_TOPICS: list[dict] = [
             "minutes) and Start a stopwatch, or type a length, such as timer 10 "
             "minutes, 90s timer or countdown 2h, and press Enter. The time runs "
             "on the status bar (on a phone the bar comes back while it runs); "
-            "press it to stop. When a timer runs out it says so in a message and "
-            "a notification. The Dashboard's Focus timer widget is a separate "
-            "timer with its own Start and Reset."
+            "press that timer chip in the status bar to stop it. When a timer "
+            "runs out it says so in a message and a notification. The "
+            "Dashboard's Focus timer widget is a separate timer with its own "
+            "Start and Reset."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
+    },
+    {
+        #: WORLD_CLASS_PLAN 25c: the dashboard's first steps (first-run.js).
+        "id": "first-steps",
+        "keywords": (
+            "first steps", "start in three steps", "sample notebook", "sample notes", "example notes",
+            "remove the sample notes", "demo notes", "try it out", "hide these steps",
+        ),
+        "body": (
+            "A new notebook's Dashboard shows Start in three steps: 1. Your name, "
+            "2. Write a note, 3. Ask your notebook. Each is ticked when it is done, "
+            "and none of them needs an AI model: Ask answers from your notes' own "
+            "words, and saving your first note offers Ask about it beside "
+            "Saved. Try a sample notebook adds eight example notes, tagged "
+            "sample-notebook, to explore (ask \"where is the spare key?\", see two "
+            "linked notes in the Graph); it is offered until you write your own "
+            "first note. Remove the sample notes moves them all to the bin, where "
+            "Restore brings one back, and takes away the categories they made. The steps leave once all three are done and "
+            "the sample notes are gone, or with Hide these steps."
+        ),
+        "badge": {"label": "Dashboard", "tab": "dashboard"},
+    },
+    {
+        #: WORLD_CLASS_PLAN 25c: the Guide's topics as one page (manual.js).
+        "id": "manual",
+        "keywords": (
+            "manual", "user manual", "user guide", "documentation", "docs", "handbook",
+            "print the help", "read all the help", "every help topic", "help page",
+        ),
+        "body": (
+            "The manual is every topic Atlas answers from, on one page: Settings, "
+            "Help, Open the manual, or Open the manual in the Guide's ... menu. "
+            "The contents on the left jump to a group, the search box keeps only "
+            "the topics that hold every word you type, and the printer button "
+            "prints what is shown (or saves it as a PDF). It is made from the "
+            "Guide's own topics, so the two never disagree. What changed in each "
+            "version is under Settings, About, What's new."
+        ),
+        "badge": {"label": "Help", "section": "help"},
     },
     {
         "id": "live-captions",
@@ -1117,8 +1157,9 @@ MORE_TOPICS.extend(
             ),
             "body": (
                 "Manage categories (the Categories head in the notes sidebar, a "
-                "category's ... menu, Settings or the command palette) renames, "
-                "merges, splits and deletes categories, asking where the notes "
+                "category's ... menu, Settings or the command palette) makes one "
+                "(New category), renames, merges (a category's menu, Merge into), "
+                "splits and deletes categories, asking where the notes "
                 "go; every change can be undone, and deleting one can always keep "
                 "its notes in Uncategorised. A split can be suggested from the "
                 "notes' tags or by Atlas, which reads the notes and proposes "
@@ -1724,6 +1765,8 @@ TOPIC_META: dict[str, dict] = {
     "usage-ledger": {"title": "What you use", "path": "Settings, General, What you use", "target": "usage-box"},
     "statistics": {"title": "Statistics", "path": "Dashboard, Activity heatmap, Statistics"},
     "timer": {"title": "Timer and stopwatch", "path": "Command palette, timer"},
+    "manual": {"title": "The manual", "path": "Settings, Help, Open the manual"},
+    "first-steps": {"title": "First steps and the sample notebook", "path": "Dashboard, Start in three steps"},
     "live-captions": {"title": "Live captions", "path": "Command palette, Live captions"},
     "count-words": {"title": "Count words", "path": "Command palette, Count words"},
     "translate-offline": {"title": "Translate this, offline", "path": "Command palette, Translate this"},
@@ -1866,7 +1909,7 @@ TOPIC_META: dict[str, dict] = {
 #: entry is in no group, or in two.
 HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Getting started", (
-        "tabs-overview", "tour", "guide", "hidden-features", "shortcuts",
+        "tabs-overview", "first-steps", "tour", "guide", "manual", "hidden-features", "shortcuts",
         "command-palette", "find-anything", "search", "addresses", "settings-overview", "install-app",
     )),
     ("Writing notes", (

@@ -29,7 +29,13 @@ def _lazy() -> set[str]:
     app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     table = re.search(r"const LAZY_MODULES = \{(.*?)\n\};", app, re.S)
     assert table, "app.js has no LAZY_MODULES table"
-    return set(re.findall(r'"/css/([A-Za-z0-9_.-]+\.css)"', table.group(1)))
+    listed = set(re.findall(r'"/css/([A-Za-z0-9_.-]+\.css)"', table.group(1)))
+    #: A lazy file can also load its own sheet with `lazyScript("/css/x.css")`
+    #: (Brief 49: first-run.js, manual.js) without a LAZY_MODULES row.
+    loaded = set()
+    for path in (FRONTEND / "js").glob("*.js"):
+        loaded |= set(re.findall(r'lazyScript\("/css/([A-Za-z0-9_.-]+\.css)"\)', path.read_text(encoding="utf-8")))
+    return listed | loaded
 
 
 def test_every_stylesheet_is_linked_or_loaded_by_a_bundle():

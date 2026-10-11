@@ -15,7 +15,12 @@ panel (notes-list.js, `routes_categories.py`).
 
 from __future__ import annotations
 
+import json
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from memorymap.ai.tools import WRITE_TOOLS
 
@@ -146,3 +151,58 @@ def test_every_utility_has_its_way_in_and_a_guide_topic():
         assert "about:" in row, f"the palette's {label} row has no line of help"
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
     assert 'data-help-for="templates-help"' in html and "insert template" in html.split('id="templates-help"', 1)[1][:1200]
+
+
+#: **The manual finds every control named here** (WORLD_CLASS_PLAN 25c, its
+#: gate in 25.4). The manual (manual.js) is the Guide's topics as one page with
+#: a search; every manual path above and every small tool's way in must be
+#: found by that search, run as manual.js runs it (`manualWords`,
+#: `manualMatches`) over what `GET /help/topics` serves. Six were not when
+#: this was written (New category, Merge into, the timer chip, and three board
+#: controls): their topics now name them.
+_PROBE = """
+const fs = require("fs"), vm = require("vm");
+const ctx = {}; vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[2], "utf8"), ctx);
+const topics = JSON.parse(fs.readFileSync(process.argv[3], "utf8")).groups.flatMap((g) => g.topics);
+const out = {};
+for (const q of JSON.parse(fs.readFileSync(process.argv[4], "utf8"))) {
+  out[q] = topics.filter((t) => ctx.manualMatches(t, ctx.manualWords(q))).map((t) => t.id);
+}
+console.log(JSON.stringify(out));
+"""
+
+
+def test_the_manual_search_finds_every_named_control(tmp_path):
+    from memorymap.ai import help_chat
+
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    names = sorted({where for (_, _, where) in MANUAL.values()} | {row[2] for row in UTILITIES.values()})
+    (tmp_path / "probe.js").write_text(_PROBE, encoding="utf-8")
+    (tmp_path / "listing.json").write_text(json.dumps(help_chat.help_listing()), encoding="utf-8")
+    (tmp_path / "names.json").write_text(json.dumps(names), encoding="utf-8")
+    run = subprocess.run(
+        [node, str(tmp_path / "probe.js"), str(FRONTEND / "js" / "manual.js"), str(tmp_path / "listing.json"), str(tmp_path / "names.json")],
+        capture_output=True, text=True, timeout=60, check=False,
+    )
+    assert run.returncode == 0, run.stderr
+    found = json.loads(run.stdout)
+    missing = [name for name in names if not found.get(name)]
+    assert not missing, "The manual's search finds nothing for: " + "; ".join(missing)
+
+
+def test_the_manual_is_the_guides_topics_with_a_door_from_help_and_the_guide():
+    manual = (FRONTEND / "js" / "manual.js").read_text(encoding="utf-8")
+    #: One source: the Guide's own table, never a copy.
+    assert 'apiJson("/help/topics")' in manual
+    assert "window.print()" in manual and 'search.placeholder = "Search the manual";' in manual
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    assert 'id="help-open-manual"' in html
+    find = (FRONTEND / "js" / "settings-find.js").read_text(encoding="utf-8")
+    assert '$("help-open-manual")?.addEventListener("click", () => lazyScript("/js/manual.js")' in find
+    guide = (FRONTEND / "js" / "help-chat.js").read_text(encoding="utf-8")
+    assert '"ph:book-open-text Open the manual"' in guide
+    css = (FRONTEND / "css" / "manual-lazy.css").read_text(encoding="utf-8")
+    assert "@media print" in css and "body.manual-print > :not(.manual-overlay)" in css

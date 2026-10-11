@@ -9,6 +9,46 @@ const { watchErrors, openApp, openTab, api, captureNote, waitFiled, noteExists, 
 
 test.describe.configure({ mode: "serial" });
 
+// First, while the notebook is new (WORLD_CLASS_PLAN 25c): the dashboard's
+// three steps, ticked as each is done; the sample notebook, offered once,
+// answered from with no model, and taken away again to the bin.
+test("a new notebook starts in three steps, and the sample notebook comes and goes", async ({ page }) => {
+  const errors = watchErrors(page);
+  await openApp(page);
+  // A new notebook asks once whether to check for updates: this walk says no.
+  await page.locator(".confirm-overlay button", { hasText: "Don't check" }).click({ timeout: 10_000 }).catch(() => {});
+  await openTab(page, "dashboard");
+  const steps = page.locator(".first-steps");
+  await expect(steps.getByText("Start in three steps")).toBeVisible();
+  await expect(steps.locator(".start-step.is-done")).toHaveCount(0);
+
+  // Step one is typed where it is asked.
+  await page.fill("#first-steps-name", "Robin");
+  await page.press("#first-steps-name", "Enter");
+  await expect(steps.locator(".start-step.is-done")).toHaveCount(1);
+
+  await steps.getByRole("button", { name: "Try a sample notebook" }).click();
+  // Eight saves, the first loading the search model: allowed a minute.
+  await expect.poll(async () => (await api(page, "/help/sample-notebook")).live, { timeout: 60_000 }).toBe(8);
+
+  // Step three with no model: the answer is the sample's own sentence.
+  await steps.locator(".start-step").nth(2).click();
+  await page.fill("#question", "where is the spare key?");
+  await page.press("#question", "Enter");
+  await expect(page.locator("#tab-notes")).toContainText("blue flowerpot");
+
+  await openTab(page, "dashboard");
+  // Your name and an answer; the sample notes are not your first note.
+  await expect(steps.locator(".start-step.is-done")).toHaveCount(2);
+  await steps.getByRole("button", { name: "Remove the sample notes" }).click();
+  await expect.poll(async () => (await api(page, "/help/sample-notebook")).live).toBe(0);
+  // Offered once: not again on this notebook.
+  await expect(steps.getByRole("button", { name: "Try a sample notebook" })).toHaveCount(0);
+  const categories = (await api(page, "/categories")).map((c) => c.name);
+  expect(categories, "the sample's categories went with it").not.toContain("Recipes");
+  expect(errors).toEqual([]);
+});
+
 test("the empty notebook says what to do, and a first note is saved and says why it is Uncategorised", async ({ page }) => {
   const errors = watchErrors(page);
   await openApp(page);

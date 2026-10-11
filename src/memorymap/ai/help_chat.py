@@ -297,7 +297,10 @@ HELP_TOPICS: list[dict] = [
             "reminder for a day still to come. Fit (Shift+1) goes into the canvas you "
             "can see, clear of an open sidebar, Format panel, top bar and tools "
             "dock, and refits when one opens or closes until you pan or zoom "
-            "yourself."
+            "yourself. Drag an item to move it, or type its X and Y in the "
+            "Format panel; the context bar over a selection, or the Format "
+            "panel, changes its colour, line and words. Draw a link between "
+            "cards with the connector (C), from one card to the other."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

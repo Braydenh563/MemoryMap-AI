@@ -5,12 +5,17 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.orm import Session
 
 from memorymap.ai import help_chat
+from memorymap.api import routes_entries
+from memorymap.api.schemas import EntryCreate
 from memorymap.core import activity, deps
+from memorymap.core.deps import get_session
+from memorymap.entry import manager, sample_notebook
 
 router = APIRouter(prefix="/help", tags=["help"])
 
@@ -101,3 +106,53 @@ def ask_stream(body: AskBody) -> StreamingResponse:
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
+
+
+#: Offered once per notebook, not per browser: kept with the notebook's own
+#: preferences, so a second window or device does not offer it again.
+SAMPLE_ADDED_KEY = "sample_notebook_added"
+#: The categories the sample made, so Remove takes those away too.
+SAMPLE_CATEGORIES_KEY = "sample_notebook_categories"
+
+
+@router.get("/sample-notebook")
+def sample_notebook_state(session: Session = Depends(get_session)) -> dict:
+    """How many sample notes are here, and whether they were ever added."""
+    return {
+        "live": len(sample_notebook.live_samples(session)),
+        "added": bool(deps.get_config().get_preference(SAMPLE_ADDED_KEY, False)),
+    }
+
+
+@router.post("/sample-notebook", status_code=201)
+def add_sample_notebook(session: Session = Depends(get_session)) -> dict:
+    """The sample notes (WORLD_CLASS_PLAN 25c), each saved the way a typed
+    note is (`routes_entries.create_entry`: its dates, its [[links]], its
+    search index), with its category named so nothing waits on a model."""
+    if sample_notebook.live_samples(session):
+        raise HTTPException(status_code=409, detail="The sample notes are already in this notebook.")
+    before = sample_notebook.category_ids(session)
+    ids = []
+    for note in sample_notebook.SAMPLE_NOTES:
+        body = EntryCreate(
+            content=note["content"],
+            category=note["category"],
+            tags=[*note["tags"], sample_notebook.SAMPLE_TAG],
+        )
+        ids.append(routes_entries.create_entry(body=body, session=session).id)
+    config = deps.get_config()
+    config.set_preference(SAMPLE_ADDED_KEY, True)
+    config.set_preference(SAMPLE_CATEGORIES_KEY, sorted(sample_notebook.category_ids(session) - before))
+    return {"created": len(ids), "ids": ids}
+
+
+@router.delete("/sample-notebook")
+def remove_sample_notebook(session: Session = Depends(get_session)) -> dict:
+    """Every sample note still here, to the bin, where each can be restored."""
+    samples = sample_notebook.live_samples(session)
+    for entry in samples:
+        manager.soft_delete_entry(session, entry)
+    config = deps.get_config()
+    dropped = sample_notebook.drop_emptied_categories(session, config.get_preference(SAMPLE_CATEGORIES_KEY, []) or [])
+    config.set_preference(SAMPLE_CATEGORIES_KEY, [])
+    return {"binned": len(samples), "ids": [entry.id for entry in samples], "categories_removed": dropped}

@@ -120,7 +120,9 @@ def test_edit_mode_is_a_line_above_the_grid_with_its_way_out():
 
 
 def test_the_empty_notebook_card_draws_no_second_emblem():
-    card = _function("gettingStartedCard")
+    #: The card is the first steps now (first-run.js, WORLD_CLASS_PLAN 25c).
+    steps = (ROOT / "frontend" / "js" / "first-run.js").read_text(encoding="utf-8")
+    card = steps[steps.index("function firstStepsCard(") :].split("\n}\n")[0]
     assert "renderEmblem(" not in card and "emblem-centred" not in card
 
 

@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5682, frontend ids 2425, CSS sections 490, backend routes 563, backend modules 4773, test files 1087, tests 9975, plan headings 996.
+Counts: frontend functions 5684, frontend ids 2425, CSS sections 490, backend routes 563, backend modules 4773, test files 1087, tests 9976, plan headings 996.
 
-## Frontend functions (5682)
+## Frontend functions (5684)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -170,7 +170,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderInlineAction` | frontend/js/lightbox.js:141 |
 | `renderReevaluateResult` | frontend/js/lightbox.js:35 |
 
-### frontend/js/selection.js (30)
+### frontend/js/selection.js (32)
 
 | Name | File:line |
 |---|---|
@@ -185,7 +185,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `libraryPickAbout` | frontend/js/selection.js:436 |
 | `libraryPickLabel` | frontend/js/selection.js:427 |
 | `noteFieldPickButton` | frontend/js/selection.js:328 |
-| `openSelectionMenuFromKeyboard` | frontend/js/selection.js:1090 |
+| `openSelectionMenuFromKeyboard` | frontend/js/selection.js:1138 |
 | `pickEntryDialog` | frontend/js/selection.js:297 |
 | `pickLibraryItemDialog` | frontend/js/selection.js:468 |
 | `pickMediaDialog` | frontend/js/selection.js:612 |
@@ -199,7 +199,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `saveSelectionAsNote` | frontend/js/selection.js:30 |
 | `selectionIsActionable` | frontend/js/selection.js:989 |
 | `selectionMenuItems` | frontend/js/selection.js:743 |
+| `selectionPointInRange` | frontend/js/selection.js:1099 |
 | `selectionPopup` | frontend/js/selection.js:859 |
+| `selectionRestoreOnContextMenu` | frontend/js/selection.js:1108 |
 | `selectionSource` | frontend/js/selection.js:10 |
 | `showSelectionPopupAt` | frontend/js/selection.js:913 |
 | `syncSelectionPopup` | frontend/js/selection.js:1003 |
@@ -16043,7 +16045,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9975)
+## Tests (9976)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17031,7 +17033,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_translate_offline.py | 7 |
 | tests/test_tray.py | 18 |
 | tests/test_ui_batch_726.py | 8 |
-| tests/test_ui_recipes.py | 193 |
+| tests/test_ui_recipes.py | 194 |
 | tests/test_ui_signatures.py | 2 |
 | tests/test_ui_state.py | 6 |
 | tests/test_uisweep_1011.py | 11 |

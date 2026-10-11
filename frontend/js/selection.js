@@ -1083,6 +1083,54 @@ function initSelectionPopup() {
   });
   window.addEventListener("scroll", hideSelectionPopup, true);
   window.addEventListener("resize", hideSelectionPopup);
+  document.addEventListener("contextmenu", selectionRestoreOnContextMenu);
+}
+
+//: **A selection popup that has gone can be brought back: right-click the
+//: selection** (the owner, 2026-10-11). Escape, a scroll and a click outside
+//: all dismiss the bubble, and until now the only way back was to select again.
+//: One helper for every selection bubble (the editor's format bar in
+//: editor.js, the kebab above): it answers only while the right-click lands on
+//: a non-empty selection inside a surface that owns a bubble, and otherwise
+//: leaves the browser's menu alone. A menu another handler already opened
+//: (`defaultPrevented`: a flagged word, a link, a row) wins. Touch is left to
+//: the system's own selection menu. DESIGN.md recipe "Selection bubble",
+//: `tests/test_ui_recipes.py` keeps the surfaces to this one listener.
+function selectionPointInRange(x, y) {
+  const selection = window.getSelection();
+  if (!selection || !selection.rangeCount || selection.isCollapsed) return null;
+  const rects = [...selection.getRangeAt(0).getClientRects()];
+  if (!rects.length) return null;
+  const slack = 4;
+  return rects.some((r) => x >= r.left - slack && x <= r.right + slack && y >= r.top - slack && y <= r.bottom + slack);
+}
+
+function selectionRestoreOnContextMenu(event) {
+  if (event.defaultPrevented || event.pointerType === "touch") return false;
+  const x = event.clientX;
+  const y = event.clientY;
+  const host = document.activeElement;
+  const inHost = Boolean(host && (host.contains(event.target) || host.closest?.(".cm-editor")?.contains(event.target)));
+  //: A textarea's selection has no geometry, so being inside the field is the
+  //: test; a rendered or CodeMirror selection must be under the pointer.
+  const hit = host?.tagName === "TEXTAREA" || host?.tagName === "INPUT" ? inHost : inHost && selectionPointInRange(x, y);
+  let shown = false;
+  if (inHost && hit) {
+    const surface = typeof editorSurfaceFor === "function" ? editorSurfaceFor(host) : null;
+    if (surface && isEditorSurface(surface) && surface.selectionStart !== surface.selectionEnd && inlineAiState.phase === "idle") {
+      selectionBarShow(surface);
+      shown = true;
+    }
+  }
+  const field = fieldSelection();
+  const domHit = !field && selectionPointInRange(x, y) && !event.target.closest?.(".selection-popup, #selection-bar");
+  if ((field && inHost) || domHit) {
+    selectionPointerPoint = { x, y };
+    syncSelectionPopup();
+    shown = shown || Boolean(selectionPopupText);
+  }
+  if (shown) event.preventDefault();
+  return shown;
 }
 
 // Open the selection menu from the keyboard, for a Shift+Arrow selection:

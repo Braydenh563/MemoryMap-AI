@@ -4186,6 +4186,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
         //: What just came to rest, so the next render of exactly these
         //: inputs can hold it instead of settling it again (`gcStartWorker`).
         s.settledSig = s.layoutSig;
+        gcSavePositions(s);
         if (s.size === "full") graphMinimapQueuePaint();
         if (!gcAutoFitDone(s) && s.nodes.length) {
           gcSetAutoFitDone(s, true);
@@ -4316,6 +4317,50 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
 //: (the worker's `intro`, INBOX 775): the notes then move into a frame that
 //: already holds them, rather than the frame chasing the notes (INBOX 738's
 //: zoomed-in start). Instant, and the map is shown here.
+//: **The map opens where it was left** (Brief 100 (a); INBOX 864, and the
+//: owner 2026-10-11: "there is still no smooth transition loading up the app
+//: nd viewing the graph, it kinda just appears"). Measured before
+//: (`load.js`, 200 notes, the app loading onto Graph): the canvas waited
+//: hidden, came in at 0.8 opacity in one frame, and the spiral then spread
+//: from 241 to 630 px wide in four frames. The settled positions are kept in
+//: this browser, for the layout and the forces they were settled under, and
+//: a page's first draw starts from them the way a saved view does
+//: (`graphApplyView`): every note they know holds, a note they do not is
+//: placed by the settle with the rest held, and the first fit frames the
+//: picture the reader last saw. A per-viewer convenience only: an empty,
+//: stale or blocked store gives the warm-up as before.
+const GC_POS_KEY = "graphPositions";
+const GC_POS_MAX = 5000;
+function gcPositionsSig(s) {
+  return JSON.stringify([s.layoutSeed || 0, gcWorkerParams(s)]);
+}
+function gcSavePositions(s) {
+  if (s.size !== "full" || s.tree || graphFocusModeId || !s.nodes.length || s.nodes.length > GC_POS_MAX) return;
+  const at = {};
+  for (const node of s.nodes) {
+    if (Number.isFinite(node.x) && Number.isFinite(node.y)) at[node.id] = [Math.round(node.x), Math.round(node.y)];
+  }
+  try {
+    localStorage.setItem(GC_POS_KEY, JSON.stringify({ sig: gcPositionsSig(s), at }));
+  } catch (e) {
+    // A full or blocked store costs only the next open's head start.
+  }
+}
+function gcCachedPositions(s) {
+  if (s.size !== "full" || graphFocusModeId) return null;
+  try {
+    const kept = JSON.parse(localStorage.getItem(GC_POS_KEY) || "null");
+    if (!kept || kept.sig !== gcPositionsSig(s) || !kept.at) return null;
+    const out = {};
+    for (const [id, xy] of Object.entries(kept.at)) {
+      if (Array.isArray(xy) && Number.isFinite(xy[0]) && Number.isFinite(xy[1])) out[id] = { x: xy[0], y: xy[1] };
+    }
+    return out;
+  } catch (e) {
+    return null;
+  }
+}
+
 function gcFrameIntro(s, positions) {
   if (gcAutoFitDone(s) || !s.nodes.length || positions.length < s.nodes.length * 2) return;
   s.fittedOnce = true;
@@ -4594,7 +4639,8 @@ async function renderGraphCanvas(s = gcTab) {
   // inherits the result forward through `prior`, above, the same as any
   // other re-render already does. Only meaningful for force: a tree/radial/
   // arc layout is recomputed deterministically below and never reads this.
-  const viewPositions = graphPendingViewPositions;
+  const viewPositions =
+    graphPendingViewPositions || (s.layoutKind === "force" && !prior.size ? gcCachedPositions(s) : null);
   graphPendingViewPositions = null;
   // Decision made, 2026-09-21 (GRAPH_PLAN): a restored arrangement holds, it
   // does not re-settle. A note the view captured gets exactly its saved
@@ -5493,10 +5539,13 @@ async function gcRelinkPairs(pairs) {
   renderGraph();
 }
 
+//: The map arrives over two `--ui-slow` (Brief 100): over `--ui-fast` it was
+//: one frame on a busy machine, which read as the graph simply appearing.
+//: The token is 0 with interface animations off, so that case cuts.
 function gcReveal(s) {
   s.shown = true;
   if (s.canvas && s.canvas.style.opacity === "0") {
-    s.canvas.style.transition = "opacity var(--ui-fast) var(--ease-out)";
+    s.canvas.style.transition = "opacity calc(var(--ui-slow) * 2) var(--ease-out)";
     s.canvas.style.opacity = "";
   }
 }

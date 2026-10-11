@@ -274,13 +274,22 @@ def warm_filing() -> dict:
     from memorymap.api import routes_entries
     from memorymap.core import jobs
 
-    jobs.enqueue(
-        "warm-filing",
-        janitor.warm_filing_model,
-        deps.get_model_manager(),
-        deps.get_ollama(),
-        dedupe_key="warm-filing",
-    )
+    ollama = deps.get_ollama()
+    #: Only when a model answers: with none the job returned at once, yet
+    #: still showed "Warming up the filing model" in the bell and Activity on
+    #: every launch (scan 2026-10-11).
+    try:
+        reachable = bool(ollama.is_running())
+    except Exception:  # noqa: BLE001 - a probe that fails is "not reachable"
+        reachable = False
+    if reachable:
+        jobs.enqueue(
+            "warm-filing",
+            janitor.warm_filing_model,
+            deps.get_model_manager(),
+            ollama,
+            dedupe_key="warm-filing",
+        )
     #: Only when a note is waiting: queued unconditionally, a launch with no
     #: notes still showed "Filing a note" in Activity and in the bell (scan
     #: 2026-10-11, one more row per page load).

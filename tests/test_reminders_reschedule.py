@@ -67,3 +67,19 @@ def test_the_timeline_row_follows_the_move(client):
     rows = client.get(f"/timeline?kind=reminder&start={start}&end={end}&limit=1000").json()["rows"]
     assert [row["id"] for row in rows] == [made["id"]]
     assert rows[0]["at"].startswith(new.strftime("%Y-%m-%dT%H:%M"))
+
+
+def test_the_edit_forms_alert_is_set_and_cleared_through_the_same_put(client):
+    """OPEN.md: the reminder edit form could not change an alert. The form's
+    select sends `alert_minutes` (0 clears it); the reminder keeps the rest."""
+    from pathlib import Path
+
+    made = _make(client, alert_minutes=15)
+    changed = client.put(f"/reminders/{made['id']}", json={"alert_minutes": 60})
+    assert changed.status_code == 200 and changed.json()["alert_minutes"] == 60
+    cleared = client.put(f"/reminders/{made['id']}", json={"alert_minutes": 0})
+    assert cleared.json()["alert_minutes"] is None and cleared.json()["priority"] == "high"
+    form = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "shell-reminders.js").read_text(encoding="utf-8")
+    body = form[form.index("function reminderEditForm("):form.index("async function reminderPutUndoably(")]
+    assert "alert_minutes: Number(alertSelect.value)" in body and "alert_minutes: alertNow" in body
+    assert "recurringSelect, alertSelect, row" in body

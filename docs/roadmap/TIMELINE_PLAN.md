@@ -240,6 +240,17 @@ disagree.
     the room its height measures (`timelineCalFit`), the last slot "+n more";
     dots are the fallback for a cell too short for a chip beside its "+n"
     (this supersedes the "dots, not rows" of decision 15 for tall cells).
+21. **Dates written out are read** (the owner, 2026-10-11: "things written
+    on specific dates dont show"): `timewords` reads `2026-10-25`, `16
+    October 2026`, `Friday 16 October` and `Oct 3rd` as the day a note is
+    about (a date without a year is the occurrence nearest the day it was
+    written); a note naming a clock sits on its hour in the week and the
+    day. Numeric `3/4/2026` is not read: its order is the reader's locale.
+    A document has no date of its own and stays on the day it was started.
+22. **No streak count, and no backfill of `done_at`** (tline-1011): the dock
+    is at its grammar and `.dock-chip-row` is held at zero uses, so a streak
+    has no surface; a reminder ticked before `done_at` existed has no known
+    moment, so it stays in no week rather than in an invented one.
 
 ### Gates
 

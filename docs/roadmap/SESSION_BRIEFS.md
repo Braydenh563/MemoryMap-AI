@@ -71,6 +71,8 @@ use `el.style.x =` or a class).
 
 ## Brief 2 (Mon, Sonnet): the consistency lints
 
+**Status 2026-10-11 (tline-1011): built.** `tests/test_consistency_contract.py` and `tests/test_flaw_class_lints.py` hold the rules.
+
 **Goal.** The five rules of WORLD_CLASS_PLAN §1 become tests that fail the
 build. Nothing else changes in this session unless a lint finds a real
 violation that is a one-line fix.
@@ -115,6 +117,8 @@ for the shape). The CSS files are eight numbered files plus
 ---
 
 ## Brief 3 (Tue, Sonnet): `prefs`, `api.stream/upload`, the two `innerHTML`s
+
+**Status 2026-10-11 (tline-1011): built, one clause open.** `frontend/js/prefs.js`, `tests/test_prefs_module.py`, `tests/test_no_bare_fetch.py` and `tests/test_no_innerhtml_interpolation.py` exist; `localStorage.getItem` still appears in seven other files (`app.js` 3, `theme-boot.js` 5, `capture.js`, `clip.js`, `graph-canvas.js`, `lan-watch.js`, `whiteboard-format.js`).
 
 **Goal.** Flaw classes F1, F5 and F8 from WORLD_CLASS_PLAN §10 closed with
 lints.
@@ -167,6 +171,8 @@ before everything and must keep working without `prefs`.
 
 ## Brief 4 (Tue, Sonnet): Settings two-pane, and the last 54 paragraphs
 
+**Status 2026-10-11 (tline-1011): open.** `python3 scratchpad/help-audit/count.py frontend/index.html` prints TOTAL 28 (was 54), not 0; tracked as ledger row 966.
+
 **Goal.** Settings becomes a section list on the left and one section on
 the right, searchable; every long paragraph in the app moves behind a '?'
 popover using the wiring already merged (`data-help-for`, `.help-body`,
@@ -214,6 +220,8 @@ working example.
 ---
 
 ## Brief 5 (Wed, Opus): the Timeline, Phases 1 and 2
+
+**Status 2026-10-11 (tline-1011): built.** `TIMELINE_PLAN.md` exists and `scratchpad/ui-sweeps/timeline.js` is the sweep; the plan's Phases 1 to 5 are in HISTORY.
 
 **Goal.** The line view and the table view rebuilt on one row model, per
 the measured baseline already in the repo.
@@ -263,6 +271,8 @@ min-height: 0 }` in a column flex).
 ---
 
 ## Brief 6 (Wed, Opus): pagination on all 25 lists, and one scheduler
+
+**Status 2026-10-11 (tline-1011): built under other names.** Paging is covered by `tests/test_entries_keyset_paging.py`, `tests/test_list_paging_f2.py` and `tests/test_gallery_paging.py`; the file the brief names, `tests/test_lists_paginate.py`, was never written, and `scratchpad/audit/idle.js` is the idle measure.
 
 **Goal.** Flaw classes F2 and F6 closed.
 

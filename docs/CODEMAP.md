@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5661, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4770, test files 1085, tests 9947, plan headings 996.
+Counts: frontend functions 5662, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4770, test files 1085, tests 9952, plan headings 996.
 
-## Frontend functions (5661)
+## Frontend functions (5662)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -14,50 +14,50 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 |---|---|
 | `$` | frontend/js/app.js:166 |
 | `api` | frontend/js/app.js:396 |
-| `apiJson` | frontend/js/app.js:635 |
-| `apiPagedList` | frontend/js/app.js:570 |
-| `askPasswordPrompt` | frontend/js/app.js:753 |
+| `apiJson` | frontend/js/app.js:637 |
+| `apiPagedList` | frontend/js/app.js:572 |
+| `askPasswordPrompt` | frontend/js/app.js:755 |
 | `authToken` | frontend/js/app.js:172 |
-| `chip` | frontend/js/app.js:1365 |
-| `chipWords` | frontend/js/app.js:1360 |
-| `clearApiCache` | frontend/js/app.js:631 |
-| `confirmDialog` | frontend/js/app.js:1453 |
-| `confirmVerb` | frontend/js/app.js:1446 |
-| `ensureModule` | frontend/js/app.js:2023 |
-| `enterWithoutPassword` | frontend/js/app.js:710 |
+| `chip` | frontend/js/app.js:1367 |
+| `chipWords` | frontend/js/app.js:1362 |
+| `clearApiCache` | frontend/js/app.js:633 |
+| `confirmDialog` | frontend/js/app.js:1455 |
+| `confirmVerb` | frontend/js/app.js:1448 |
+| `ensureModule` | frontend/js/app.js:2025 |
+| `enterWithoutPassword` | frontend/js/app.js:712 |
 | `hide` | frontend/js/app.js:168 |
-| `hideBootSplash` | frontend/js/app.js:913 |
-| `initAuth` | frontend/js/app.js:926 |
-| `kickBackgroundTaskPoll` | frontend/js/app.js:600 |
-| `lazyAssetStamp` | frontend/js/app.js:1962 |
-| `lazyScript` | frontend/js/app.js:2003 |
-| `lockNow` | frontend/js/app.js:887 |
+| `hideBootSplash` | frontend/js/app.js:915 |
+| `initAuth` | frontend/js/app.js:928 |
+| `kickBackgroundTaskPoll` | frontend/js/app.js:602 |
+| `lazyAssetStamp` | frontend/js/app.js:1964 |
+| `lazyScript` | frontend/js/app.js:2005 |
+| `lockNow` | frontend/js/app.js:889 |
 | `mediaSrc` | frontend/js/app.js:255 |
-| `mountNoteSurfaceNow` | frontend/js/app.js:2058 |
-| `onDomReady` | frontend/js/app.js:1994 |
-| `promptDialog` | frontend/js/app.js:1563 |
-| `purgeLockedContent` | frontend/js/app.js:873 |
+| `mountNoteSurfaceNow` | frontend/js/app.js:2060 |
+| `onDomReady` | frontend/js/app.js:1996 |
+| `promptDialog` | frontend/js/app.js:1565 |
+| `purgeLockedContent` | frontend/js/app.js:875 |
 | `recordBrowserLog` | frontend/js/app.js:23 |
-| `refreshActiveTab` | frontend/js/app.js:1210 |
+| `refreshActiveTab` | frontend/js/app.js:1212 |
 | `refuseStagedUrls` | frontend/js/app.js:232 |
 | `replaceMissingMedia` | frontend/js/app.js:303 |
-| `resumeWithoutPassword` | frontend/js/app.js:720 |
-| `setBusy` | frontend/js/app.js:1405 |
-| `setLabel` | frontend/js/app.js:1279 |
-| `settingsModalOpen` | frontend/js/app.js:1353 |
-| `settleLockPrompt` | frontend/js/app.js:731 |
-| `sharedCaptureText` | frontend/js/app.js:987 |
+| `resumeWithoutPassword` | frontend/js/app.js:722 |
+| `setBusy` | frontend/js/app.js:1407 |
+| `setLabel` | frontend/js/app.js:1281 |
+| `settingsModalOpen` | frontend/js/app.js:1355 |
+| `settleLockPrompt` | frontend/js/app.js:733 |
+| `sharedCaptureText` | frontend/js/app.js:989 |
 | `show` | frontend/js/app.js:167 |
-| `showLockScreen` | frontend/js/app.js:794 |
-| `smallButton` | frontend/js/app.js:1751 |
-| `spinnerEl` | frontend/js/app.js:1396 |
-| `stagePrimary` | frontend/js/app.js:1389 |
+| `showLockScreen` | frontend/js/app.js:796 |
+| `smallButton` | frontend/js/app.js:1753 |
+| `spinnerEl` | frontend/js/app.js:1398 |
+| `stagePrimary` | frontend/js/app.js:1391 |
 | `stagedImageByUrl` | frontend/js/app.js:200 |
-| `startApp` | frontend/js/app.js:1019 |
-| `startWithoutPassword` | frontend/js/app.js:695 |
-| `takeSharedIntake` | frontend/js/app.js:998 |
-| `whenScriptsLoaded` | frontend/js/app.js:1943 |
-| `wireBackdropClose` | frontend/js/app.js:1739 |
+| `startApp` | frontend/js/app.js:1021 |
+| `startWithoutPassword` | frontend/js/app.js:697 |
+| `takeSharedIntake` | frontend/js/app.js:1000 |
+| `whenScriptsLoaded` | frontend/js/app.js:1945 |
+| `wireBackdropClose` | frontend/js/app.js:1741 |
 | `zoomWheelDelta` | frontend/js/app.js:249 |
 
 ### frontend/js/prefs.js (5)
@@ -1013,173 +1013,174 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `syncSketchSizeReadout` | frontend/js/media.js:260 |
 | `toggleDictation` | frontend/js/media.js:650 |
 
-### frontend/js/status.js (108)
+### frontend/js/status.js (109)
 
 | Name | File:line |
 |---|---|
 | `agentActivityNotice` | frontend/js/status.js:642 |
 | `agentActivityQuiet` | frontend/js/status.js:634 |
-| `agentModeAvailable` | frontend/js/status.js:2568 |
-| `aiIsOff` | frontend/js/status.js:1816 |
-| `aiOffGlyph` | frontend/js/status.js:2185 |
-| `aiOfflineDismissed` | frontend/js/status.js:1991 |
-| `aiStatusState` | frontend/js/status.js:2072 |
+| `agentModeAvailable` | frontend/js/status.js:2576 |
+| `aiIsOff` | frontend/js/status.js:1824 |
+| `aiOffGlyph` | frontend/js/status.js:2193 |
+| `aiOfflineDismissed` | frontend/js/status.js:1999 |
+| `aiStatusState` | frontend/js/status.js:2080 |
 | `announcedReminders` | frontend/js/status.js:42 |
-| `appStackIsNewer` | frontend/js/status.js:1362 |
+| `appStackIsNewer` | frontend/js/status.js:1370 |
 | `armReminderTimer` | frontend/js/status.js:517 |
 | `askNotificationPermission` | frontend/js/status.js:387 |
-| `backendLabel` | frontend/js/status.js:2631 |
-| `boardHistoryActive` | frontend/js/status.js:1331 |
+| `backendLabel` | frontend/js/status.js:2639 |
+| `boardHistoryActive` | frontend/js/status.js:1339 |
 | `checkDueReminders` | frontend/js/status.js:533 |
-| `closeModelGate` | frontend/js/status.js:1833 |
+| `closeModelGate` | frontend/js/status.js:1841 |
 | `closeNotifications` | frontend/js/status.js:367 |
-| `dismissAiOffline` | frontend/js/status.js:2000 |
+| `dismissAiOffline` | frontend/js/status.js:2008 |
 | `dismissToast` | frontend/js/status.js:745 |
 | `dismissedNotificationIds` | frontend/js/status.js:241 |
 | `emailSupportReport` | frontend/js/status.js:788 |
 | `forcedReadIds` | frontend/js/status.js:202 |
 | `forcedUnreadIds` | frontend/js/status.js:171 |
-| `insightLine` | frontend/js/status.js:1258 |
-| `insightSend` | frontend/js/status.js:1231 |
-| `insightVerdicts` | frontend/js/status.js:1235 |
-| `integrityWords` | frontend/js/status.js:1070 |
+| `insightLine` | frontend/js/status.js:1266 |
+| `insightSend` | frontend/js/status.js:1239 |
+| `insightVerdicts` | frontend/js/status.js:1243 |
+| `integrityWords` | frontend/js/status.js:1078 |
 | `isNotificationUnread` | frontend/js/status.js:220 |
-| `jobsRunning` | frontend/js/status.js:1680 |
+| `jobsRunning` | frontend/js/status.js:1688 |
 | `keepToastAction` | frontend/js/status.js:346 |
-| `lastAnswerLine` | frontend/js/status.js:2207 |
-| `loadMostUsed` | frontend/js/status.js:1566 |
-| `loadRecentQuestions` | frontend/js/status.js:1539 |
-| `noteDamagedNotebook` | frontend/js/status.js:1074 |
-| `noteServerDown` | frontend/js/status.js:1130 |
-| `noteServerUp` | frontend/js/status.js:1139 |
-| `noticeTaskTransitions` | frontend/js/status.js:2877 |
+| `lastAnswerLine` | frontend/js/status.js:2215 |
+| `loadMostUsed` | frontend/js/status.js:1574 |
+| `loadRecentQuestions` | frontend/js/status.js:1547 |
+| `noteDamagedNotebook` | frontend/js/status.js:1082 |
+| `noteServerDown` | frontend/js/status.js:1138 |
+| `noteServerUp` | frontend/js/status.js:1147 |
+| `noticeTaskTransitions` | frontend/js/status.js:2885 |
 | `noticeUnwatchedAnswer` | frontend/js/status.js:677 |
 | `notificationsMuted` | frontend/js/status.js:619 |
 | `notificationsReadAt` | frontend/js/status.js:153 |
 | `notify` | frontend/js/status.js:461 |
-| `nudgeEmbeddingProblem` | frontend/js/status.js:2250 |
-| `offerUndo` | frontend/js/status.js:1273 |
-| `openModelGate` | frontend/js/status.js:1843 |
-| `openModelOffer` | frontend/js/status.js:1850 |
-| `openUndoHistoryMenu` | frontend/js/status.js:1480 |
-| `paintStatusItem` | frontend/js/status.js:2304 |
+| `nudgeEmbeddingProblem` | frontend/js/status.js:2258 |
+| `offerUndo` | frontend/js/status.js:1281 |
+| `openModelGate` | frontend/js/status.js:1851 |
+| `openModelOffer` | frontend/js/status.js:1858 |
+| `openUndoHistoryMenu` | frontend/js/status.js:1488 |
+| `paintStatusItem` | frontend/js/status.js:2312 |
 | `paintTitle` | frontend/js/status.js:494 |
-| `paintUndoDoor` | frontend/js/status.js:1440 |
-| `performRedo` | frontend/js/status.js:1394 |
-| `performUndo` | frontend/js/status.js:1371 |
+| `paintUndoDoor` | frontend/js/status.js:1448 |
+| `performRedo` | frontend/js/status.js:1402 |
+| `performUndo` | frontend/js/status.js:1379 |
 | `plainHttpError` | frontend/js/status.js:861 |
 | `playReminderChime` | frontend/js/status.js:427 |
-| `pollServerHealth` | frontend/js/status.js:1167 |
+| `pollServerHealth` | frontend/js/status.js:1175 |
 | `primeReminderAudio` | frontend/js/status.js:402 |
-| `pushEntryPutUndo` | frontend/js/status.js:1306 |
-| `pushUndo` | frontend/js/status.js:1204 |
+| `pushEntryPutUndo` | frontend/js/status.js:1314 |
+| `pushUndo` | frontend/js/status.js:1212 |
 | `recordNotification` | frontend/js/status.js:97 |
-| `refreshBackgroundTasks` | frontend/js/status.js:2806 |
-| `refreshModelStatus` | frontend/js/status.js:1708 |
+| `refreshBackgroundTasks` | frontend/js/status.js:2814 |
+| `refreshModelStatus` | frontend/js/status.js:1716 |
 | `rememberAnnounced` | frontend/js/status.js:50 |
 | `reminderNoticeKey` | frontend/js/status.js:237 |
 | `renderAgentActivityMode` | frontend/js/status.js:713 |
-| `renderAiOfflineNotice` | frontend/js/status.js:2015 |
-| `renderAiPill` | frontend/js/status.js:2215 |
-| `renderBackendPicker` | frontend/js/status.js:2641 |
-| `renderChatModeSeg` | frontend/js/status.js:2572 |
+| `renderAiOfflineNotice` | frontend/js/status.js:2023 |
+| `renderAiPill` | frontend/js/status.js:2223 |
+| `renderBackendPicker` | frontend/js/status.js:2649 |
+| `renderChatModeSeg` | frontend/js/status.js:2580 |
 | `renderNotifMuteToggle` | frontend/js/status.js:276 |
 | `renderNotificationBadge` | frontend/js/status.js:256 |
-| `renderSearchEngineHealth` | frontend/js/status.js:2497 |
-| `renderSettings` | frontend/js/status.js:2674 |
-| `renderStatusBar` | frontend/js/status.js:2340 |
-| `renderUndoBar` | frontend/js/status.js:1425 |
+| `renderSearchEngineHealth` | frontend/js/status.js:2505 |
+| `renderSettings` | frontend/js/status.js:2682 |
+| `renderStatusBar` | frontend/js/status.js:2348 |
+| `renderUndoBar` | frontend/js/status.js:1433 |
 | `reopenAnswerPanel` | frontend/js/status.js:692 |
-| `resetStatusCadence` | frontend/js/status.js:1630 |
-| `retryServerNow` | frontend/js/status.js:1180 |
-| `scheduleServerDownRetry` | frontend/js/status.js:1154 |
-| `scheduleUndoBar` | frontend/js/status.js:1417 |
-| `setChatMode` | frontend/js/status.js:2615 |
+| `resetStatusCadence` | frontend/js/status.js:1638 |
+| `retryServerNow` | frontend/js/status.js:1188 |
+| `scheduleServerDownRetry` | frontend/js/status.js:1162 |
+| `scheduleUndoBar` | frontend/js/status.js:1425 |
+| `setChatMode` | frontend/js/status.js:2623 |
 | `setForcedReadIds` | frontend/js/status.js:211 |
 | `setForcedUnreadIds` | frontend/js/status.js:180 |
 | `setTitleCount` | frontend/js/status.js:499 |
 | `setTitleView` | frontend/js/status.js:504 |
-| `settingsOpen` | frontend/js/status.js:1647 |
+| `settingsOpen` | frontend/js/status.js:1655 |
 | `settleNotification` | frontend/js/status.js:118 |
 | `settleStartedNotification` | frontend/js/status.js:138 |
-| `settleUndoFromToast` | frontend/js/status.js:1294 |
-| `showAgentNoModelHint` | frontend/js/status.js:2610 |
-| `showServerDownBanner` | frontend/js/status.js:1113 |
+| `settleUndoFromToast` | frontend/js/status.js:1302 |
+| `showAgentNoModelHint` | frontend/js/status.js:2618 |
+| `showServerDownBanner` | frontend/js/status.js:1121 |
 | `startReminderWatch` | frontend/js/status.js:596 |
 | `storedNotifications` | frontend/js/status.js:84 |
-| `surfaceHistory` | frontend/js/status.js:1344 |
-| `syncAgentPaletteAvailability` | frontend/js/status.js:2054 |
-| `syncModelGatedControls` | frontend/js/status.js:1897 |
+| `surfaceHistory` | frontend/js/status.js:1352 |
+| `syncAgentPaletteAvailability` | frontend/js/status.js:2062 |
+| `syncModelGatedControls` | frontend/js/status.js:1905 |
 | `syncNotifBlocked` | frontend/js/status.js:382 |
 | `taskEndingWords` | frontend/js/status.js:145 |
-| `taskKey` | frontend/js/status.js:2858 |
-| `toast` | frontend/js/status.js:916 |
-| `toastAction` | frontend/js/status.js:1050 |
-| `toastActionButton` | frontend/js/status.js:1030 |
-| `toastActions` | frontend/js/status.js:1021 |
+| `taskKey` | frontend/js/status.js:2866 |
+| `toast` | frontend/js/status.js:924 |
+| `toastAction` | frontend/js/status.js:1058 |
+| `toastActionButton` | frontend/js/status.js:1038 |
+| `toastActions` | frontend/js/status.js:1029 |
 | `toastCloseButton` | frontend/js/status.js:753 |
 | `toastHost` | frontend/js/status.js:830 |
-| `toastProgress` | frontend/js/status.js:986 |
+| `toastName` | frontend/js/status.js:912 |
+| `toastProgress` | frontend/js/status.js:994 |
 | `toastStack` | frontend/js/status.js:729 |
-| `toggleAiStatusPopup` | frontend/js/status.js:2482 |
+| `toggleAiStatusPopup` | frontend/js/status.js:2490 |
 | `toggleNotificationMute` | frontend/js/status.js:292 |
 | `unreadNotifications` | frontend/js/status.js:250 |
-| `voiceLine` | frontend/js/status.js:910 |
+| `voiceLine` | frontend/js/status.js:918 |
 
 ### frontend/js/ai-tools.js (50)
 
 | Name | File:line |
 |---|---|
 | `_namesSignature` | frontend/js/ai-tools.js:372 |
-| `applyEmbeddingBackend` | frontend/js/ai-tools.js:1391 |
+| `applyEmbeddingBackend` | frontend/js/ai-tools.js:1392 |
 | `applyFeatureModel` | frontend/js/ai-tools.js:736 |
-| `applyImprove` | frontend/js/ai-tools.js:1373 |
-| `applyPalette` | frontend/js/ai-tools.js:1734 |
-| `clearEmbeddingBackendLatch` | frontend/js/ai-tools.js:1438 |
-| `closeImprove` | frontend/js/ai-tools.js:1330 |
+| `applyImprove` | frontend/js/ai-tools.js:1374 |
+| `applyPalette` | frontend/js/ai-tools.js:1735 |
+| `clearEmbeddingBackendLatch` | frontend/js/ai-tools.js:1439 |
+| `closeImprove` | frontend/js/ai-tools.js:1331 |
 | `featureModelChoiceLabel` | frontend/js/ai-tools.js:730 |
-| `featureModelMenuItem` | frontend/js/ai-tools.js:929 |
+| `featureModelMenuItem` | frontend/js/ai-tools.js:930 |
 | `featureModelRow` | frontend/js/ai-tools.js:712 |
 | `featureModelState` | frontend/js/ai-tools.js:720 |
 | `fillModelSelect` | frontend/js/ai-tools.js:376 |
 | `followTaskLines` | frontend/js/ai-tools.js:185 |
-| `improveReady` | frontend/js/ai-tools.js:1319 |
-| `looksLikeEmbeddingModel` | frontend/js/ai-tools.js:1387 |
-| `mirroredUiKeys` | frontend/js/ai-tools.js:1542 |
+| `improveReady` | frontend/js/ai-tools.js:1320 |
+| `looksLikeEmbeddingModel` | frontend/js/ai-tools.js:1388 |
+| `mirroredUiKeys` | frontend/js/ai-tools.js:1543 |
 | `openChatModelPanel` | frontend/js/ai-tools.js:543 |
 | `openFeatureModelSheet` | frontend/js/ai-tools.js:854 |
-| `openImprove` | frontend/js/ai-tools.js:1295 |
+| `openImprove` | frontend/js/ai-tools.js:1296 |
 | `paintLiveRunLines` | frontend/js/ai-tools.js:221 |
 | `paintTaskRunLines` | frontend/js/ai-tools.js:161 |
 | `placeChatModelPanel` | frontend/js/ai-tools.js:511 |
-| `renderAutonomousModelPicker` | frontend/js/ai-tools.js:1062 |
+| `renderAutonomousModelPicker` | frontend/js/ai-tools.js:1063 |
 | `renderChatActiveModelBadge` | frontend/js/ai-tools.js:436 |
 | `renderChatModelPicker` | frontend/js/ai-tools.js:409 |
-| `renderEmbeddingPicker` | frontend/js/ai-tools.js:1077 |
+| `renderEmbeddingPicker` | frontend/js/ai-tools.js:1078 |
 | `renderFeatureModels` | frontend/js/ai-tools.js:756 |
-| `renderOcrModelPicker` | frontend/js/ai-tools.js:1043 |
-| `renderReindex` | frontend/js/ai-tools.js:1239 |
+| `renderOcrModelPicker` | frontend/js/ai-tools.js:1044 |
+| `renderReindex` | frontend/js/ai-tools.js:1240 |
 | `renderTaskHistory` | frontend/js/ai-tools.js:278 |
 | `renderTasks` | frontend/js/ai-tools.js:20 |
 | `renderUtilityModelPicker` | frontend/js/ai-tools.js:637 |
 | `renderVisionModelPicker` | frontend/js/ai-tools.js:660 |
-| `runImprove` | frontend/js/ai-tools.js:1336 |
-| `saveUiState` | frontend/js/ai-tools.js:1600 |
-| `seedUiStateFromServer` | frontend/js/ai-tools.js:1676 |
-| `syncEmbeddingPickerState` | frontend/js/ai-tools.js:1176 |
-| `syncFeatureModelSelects` | frontend/js/ai-tools.js:964 |
+| `runImprove` | frontend/js/ai-tools.js:1337 |
+| `saveUiState` | frontend/js/ai-tools.js:1601 |
+| `seedUiStateFromServer` | frontend/js/ai-tools.js:1677 |
+| `syncEmbeddingPickerState` | frontend/js/ai-tools.js:1177 |
+| `syncFeatureModelSelects` | frontend/js/ai-tools.js:965 |
 | `taskElapsed` | frontend/js/ai-tools.js:229 |
 | `taskLinesWanted` | frontend/js/ai-tools.js:181 |
 | `taskOriginWords` | frontend/js/ai-tools.js:122 |
 | `taskRunFold` | frontend/js/ai-tools.js:138 |
 | `taskRunLinesText` | frontend/js/ai-tools.js:128 |
 | `taskSteps` | frontend/js/ai-tools.js:247 |
-| `uiStateFingerprint` | frontend/js/ai-tools.js:1589 |
-| `uiStatePayload` | frontend/js/ai-tools.js:1576 |
-| `uiStateRememberSynced` | frontend/js/ai-tools.js:1710 |
-| `watchMirroredUiKeys` | frontend/js/ai-tools.js:1645 |
-| `wireFeatureModelSelects` | frontend/js/ai-tools.js:1025 |
-| `wireReindexButton` | frontend/js/ai-tools.js:1218 |
+| `uiStateFingerprint` | frontend/js/ai-tools.js:1590 |
+| `uiStatePayload` | frontend/js/ai-tools.js:1577 |
+| `uiStateRememberSynced` | frontend/js/ai-tools.js:1711 |
+| `watchMirroredUiKeys` | frontend/js/ai-tools.js:1646 |
+| `wireFeatureModelSelects` | frontend/js/ai-tools.js:1026 |
+| `wireReindexButton` | frontend/js/ai-tools.js:1219 |
 
 ### frontend/js/phone-shell.js (51)
 
@@ -3785,47 +3786,47 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `applyGraphHighlight` | frontend/js/graph.js:3471 |
 | `arcPath` | frontend/js/graph.js:454 |
 | `askLinkDetails` | frontend/js/graph.js:1353 |
-| `clearGraphKeyboardFocus` | frontend/js/graph.js:4556 |
+| `clearGraphKeyboardFocus` | frontend/js/graph.js:4557 |
 | `clearTrace` | frontend/js/graph.js:821 |
 | `closeGraphLinkPeek` | frontend/js/graph.js:3723 |
-| `closeGraphNewNote` | frontend/js/graph.js:4641 |
-| `closeGraphPopup` | frontend/js/graph.js:4542 |
+| `closeGraphNewNote` | frontend/js/graph.js:4642 |
+| `closeGraphPopup` | frontend/js/graph.js:4543 |
 | `drawTrace` | frontend/js/graph.js:1202 |
-| `exportGraphPng` | frontend/js/graph.js:4774 |
+| `exportGraphPng` | frontend/js/graph.js:4775 |
 | `fillTracePickers` | frontend/js/graph.js:629 |
 | `fitGraphToView` | frontend/js/graph.js:3374 |
 | `focusGraphNode` | frontend/js/graph.js:3138 |
 | `frameTree` | frontend/js/graph.js:473 |
-| `graphApplySettings` | frontend/js/graph.js:5979 |
-| `graphApplyView` | frontend/js/graph.js:5511 |
+| `graphApplySettings` | frontend/js/graph.js:5980 |
+| `graphApplyView` | frontend/js/graph.js:5512 |
 | `graphCalmScheme` | frontend/js/graph.js:1749 |
-| `graphCaptureSettings` | frontend/js/graph.js:5948 |
-| `graphCaptureView` | frontend/js/graph.js:5457 |
+| `graphCaptureSettings` | frontend/js/graph.js:5949 |
+| `graphCaptureView` | frontend/js/graph.js:5458 |
 | `graphCategoryScale` | frontend/js/graph.js:1759 |
-| `graphCloseOtherMenus` | frontend/js/graph.js:5715 |
+| `graphCloseOtherMenus` | frontend/js/graph.js:5716 |
 | `graphColourMode` | frontend/js/graph.js:1568 |
-| `graphControlsSheetParts` | frontend/js/graph.js:6054 |
+| `graphControlsSheetParts` | frontend/js/graph.js:6055 |
 | `graphEndpoint` | frontend/js/graph.js:1793 |
 | `graphFill` | frontend/js/graph.js:1819 |
 | `graphFitFrame` | frontend/js/graph.js:3351 |
-| `graphGlideMs` | frontend/js/graph.js:5147 |
+| `graphGlideMs` | frontend/js/graph.js:5148 |
 | `graphGroupColour` | frontend/js/graph.js:1599 |
 | `graphGroupNode` | frontend/js/graph.js:212 |
 | `graphGroups` | frontend/js/graph.js:1584 |
-| `graphInlineComputedStyle` | frontend/js/graph.js:4720 |
+| `graphInlineComputedStyle` | frontend/js/graph.js:4721 |
 | `graphLayout` | frontend/js/graph.js:133 |
 | `graphLayoutIsComputed` | frontend/js/graph.js:157 |
 | `graphLinkKind` | frontend/js/graph.js:3730 |
 | `graphLocalQuery` | frontend/js/graph.js:1784 |
-| `graphMinimapCanShow` | frontend/js/graph.js:4936 |
-| `graphMinimapChildren` | frontend/js/graph.js:4965 |
-| `graphMinimapEdgePairs` | frontend/js/graph.js:4877 |
-| `graphMinimapFinite` | frontend/js/graph.js:5158 |
-| `graphMinimapFrame` | frontend/js/graph.js:5172 |
-| `graphMinimapPaint` | frontend/js/graph.js:4991 |
-| `graphMinimapQueuePaint` | frontend/js/graph.js:4943 |
-| `graphMinimapSet` | frontend/js/graph.js:4984 |
-| `graphMinimapShown` | frontend/js/graph.js:4914 |
+| `graphMinimapCanShow` | frontend/js/graph.js:4937 |
+| `graphMinimapChildren` | frontend/js/graph.js:4966 |
+| `graphMinimapEdgePairs` | frontend/js/graph.js:4878 |
+| `graphMinimapFinite` | frontend/js/graph.js:5159 |
+| `graphMinimapFrame` | frontend/js/graph.js:5173 |
+| `graphMinimapPaint` | frontend/js/graph.js:4992 |
+| `graphMinimapQueuePaint` | frontend/js/graph.js:4944 |
+| `graphMinimapSet` | frontend/js/graph.js:4985 |
+| `graphMinimapShown` | frontend/js/graph.js:4915 |
 | `graphNeighbourInDirection` | frontend/js/graph.js:3117 |
 | `graphNodeById` | frontend/js/graph.js:3110 |
 | `graphNodeLabel` | frontend/js/graph.js:3836 |
@@ -3836,37 +3837,37 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `graphPopupFileCard` | frontend/js/graph.js:4016 |
 | `graphPopupMediaRefs` | frontend/js/graph.js:3993 |
 | `graphQueryMatch` | frontend/js/graph.js:3464 |
-| `graphRasterizeSvg` | frontend/js/graph.js:4731 |
+| `graphRasterizeSvg` | frontend/js/graph.js:4732 |
 | `graphReadPhrase` | frontend/js/graph.js:3449 |
 | `graphRemoveLink` | frontend/js/graph.js:3678 |
 | `graphRenderGroups` | frontend/js/graph.js:1621 |
 | `graphRenderer` | frontend/js/graph.js:1730 |
-| `graphResetToDefaults` | frontend/js/graph.js:6011 |
+| `graphResetToDefaults` | frontend/js/graph.js:6012 |
 | `graphResolveGroups` | frontend/js/graph.js:1606 |
-| `graphRestoreSwitches` | frontend/js/graph.js:5648 |
-| `graphSaveCurrentView` | frontend/js/graph.js:5501 |
-| `graphSavedViews` | frontend/js/graph.js:5448 |
+| `graphRestoreSwitches` | frontend/js/graph.js:5649 |
+| `graphSaveCurrentView` | frontend/js/graph.js:5502 |
+| `graphSavedViews` | frontend/js/graph.js:5449 |
 | `graphSetGroups` | frontend/js/graph.js:1593 |
-| `graphSettingsEqual` | frontend/js/graph.js:5968 |
+| `graphSettingsEqual` | frontend/js/graph.js:5969 |
 | `graphShowNote` | frontend/js/graph.js:4127 |
 | `graphSizeMode` | frontend/js/graph.js:1531 |
 | `graphSizeRadius` | frontend/js/graph.js:1536 |
 | `graphSyncFocusChip` | frontend/js/graph.js:1693 |
-| `graphSyncSimilarityRow` | frontend/js/graph.js:5852 |
+| `graphSyncSimilarityRow` | frontend/js/graph.js:5853 |
 | `graphTopicFor` | frontend/js/graph.js:4183 |
-| `graphZoomBy` | frontend/js/graph.js:5729 |
+| `graphZoomBy` | frontend/js/graph.js:5730 |
 | `hierarchyPath` | frontend/js/graph.js:436 |
-| `initGraphDockHeightToken` | frontend/js/graph.js:5259 |
+| `initGraphDockHeightToken` | frontend/js/graph.js:5260 |
 | `initGraphGroups` | frontend/js/graph.js:1655 |
 | `initGraphKeyboard` | frontend/js/graph.js:3180 |
-| `initGraphMinimap` | frontend/js/graph.js:5277 |
-| `initGraphViews` | frontend/js/graph.js:5605 |
+| `initGraphMinimap` | frontend/js/graph.js:5278 |
+| `initGraphViews` | frontend/js/graph.js:5606 |
 | `layoutHierarchy` | frontend/js/graph.js:306 |
 | `linkByDrop` | frontend/js/graph.js:1462 |
-| `openGraphControlsSheet` | frontend/js/graph.js:6070 |
+| `openGraphControlsSheet` | frontend/js/graph.js:6071 |
 | `openGraphLinkPanel` | frontend/js/graph.js:3851 |
 | `openGraphLinkPeek` | frontend/js/graph.js:3738 |
-| `openGraphNewNote` | frontend/js/graph.js:4610 |
+| `openGraphNewNote` | frontend/js/graph.js:4611 |
 | `openGraphPopup` | frontend/js/graph.js:3584 |
 | `pickTraceEnd` | frontend/js/graph.js:705 |
 | `placeGraphPopup` | frontend/js/graph.js:4075 |
@@ -3874,20 +3875,20 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `radialFlip` | frontend/js/graph.js:268 |
 | `radialRings` | frontend/js/graph.js:277 |
 | `renderGraph` | frontend/js/graph.js:1767 |
-| `renderGraphPopupActions` | frontend/js/graph.js:4464 |
+| `renderGraphPopupActions` | frontend/js/graph.js:4465 |
 | `renderGraphPopupHeader` | frontend/js/graph.js:3551 |
 | `renderGraphPopupInfo` | frontend/js/graph.js:4248 |
 | `renderGraphPopupMedia` | frontend/js/graph.js:4020 |
 | `renderGraphPopupProps` | frontend/js/graph.js:4220 |
 | `renderGraphPopupTopic` | frontend/js/graph.js:4158 |
 | `renderGraphSvg` | frontend/js/graph.js:1842 |
-| `renderGraphViews` | frontend/js/graph.js:5575 |
+| `renderGraphViews` | frontend/js/graph.js:5576 |
 | `renderTraceReadout` | frontend/js/graph.js:1017 |
 | `renderTraceState` | frontend/js/graph.js:733 |
 | `replyLoops` | frontend/js/graph.js:297 |
 | `runTrace` | frontend/js/graph.js:847 |
-| `saveGraphNewNote` | frontend/js/graph.js:4646 |
-| `saveGraphPopup` | frontend/js/graph.js:4571 |
+| `saveGraphNewNote` | frontend/js/graph.js:4647 |
+| `saveGraphPopup` | frontend/js/graph.js:4572 |
 | `selectTraceRoute` | frontend/js/graph.js:916 |
 | `setGraphPhysicsEnabled` | frontend/js/graph.js:165 |
 | `setTraceEnd` | frontend/js/graph.js:790 |
@@ -3896,7 +3897,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `showTraceMessage` | frontend/js/graph.js:813 |
 | `storyPrompt` | frontend/js/graph.js:1004 |
 | `syncGraphPopupSave` | frontend/js/graph.js:3667 |
-| `toggleGraphFullscreen` | frontend/js/graph.js:5744 |
+| `toggleGraphFullscreen` | frontend/js/graph.js:5745 |
 | `traceLabel` | frontend/js/graph.js:726 |
 | `tracePath` | frontend/js/graph.js:1172 |
 
@@ -4574,7 +4575,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `clearQuickNote` | frontend/js/quick-note.js:248 |
-| `clipPastedLink` | frontend/js/quick-note.js:349 |
+| `clipPastedLink` | frontend/js/quick-note.js:351 |
 | `createNoteSafely` | frontend/js/quick-note.js:74 |
 | `flushNoteOutbox` | frontend/js/quick-note.js:96 |
 | `keepQuickNoteDraft` | frontend/js/quick-note.js:238 |
@@ -4583,16 +4584,16 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `noteOutboxAdd` | frontend/js/quick-note.js:64 |
 | `noteServerGone` | frontend/js/quick-note.js:59 |
 | `openQuickNote` | frontend/js/quick-note.js:208 |
-| `pasteClipboardAsNote` | frontend/js/quick-note.js:413 |
+| `pasteClipboardAsNote` | frontend/js/quick-note.js:415 |
 | `quickNoteBox` | frontend/js/quick-note.js:198 |
-| `quickNoteReminder` | frontend/js/quick-note.js:311 |
+| `quickNoteReminder` | frontend/js/quick-note.js:313 |
 | `quickNoteStatus` | frontend/js/quick-note.js:202 |
-| `quickNoteToCapture` | frontend/js/quick-note.js:327 |
-| `reminderFromChatAnswer` | frontend/js/quick-note.js:479 |
+| `quickNoteToCapture` | frontend/js/quick-note.js:329 |
+| `reminderFromChatAnswer` | frontend/js/quick-note.js:481 |
 | `renderNoteOutbox` | frontend/js/quick-note.js:139 |
 | `renderPendingNoteRows` | frontend/js/quick-note.js:157 |
 | `returnNoteToCapture` | frontend/js/quick-note.js:129 |
-| `saveChatAnswerAsNote` | frontend/js/quick-note.js:452 |
+| `saveChatAnswerAsNote` | frontend/js/quick-note.js:454 |
 | `saveQuickNote` | frontend/js/quick-note.js:256 |
 | `scheduleNoteOutboxFlush` | frontend/js/quick-note.js:88 |
 | `writeNoteOutbox` | frontend/js/quick-note.js:42 |
@@ -4935,8 +4936,8 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `packagesBulk` | frontend/js/settings-packages.js:439 |
-| `packagesBulkFromBar` | frontend/js/settings-packages.js:487 |
+| `packagesBulk` | frontend/js/settings-packages.js:441 |
+| `packagesBulkFromBar` | frontend/js/settings-packages.js:489 |
 | `packagesCan` | frontend/js/settings-packages.js:105 |
 | `packagesInstallOne` | frontend/js/settings-packages.js:388 |
 | `packagesPost` | frontend/js/settings-packages.js:425 |
@@ -4946,8 +4947,8 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `packagesRow` | frontend/js/settings-packages.js:239 |
 | `packagesRowMenu` | frontend/js/settings-packages.js:367 |
 | `packagesStatusLine` | frontend/js/settings-packages.js:90 |
-| `packagesSyncBar` | frontend/js/settings-packages.js:466 |
-| `renderEmbedModels` | frontend/js/settings-packages.js:509 |
+| `packagesSyncBar` | frontend/js/settings-packages.js:468 |
+| `renderEmbedModels` | frontend/js/settings-packages.js:511 |
 | `renderExtras` | frontend/js/settings-packages.js:30 |
 
 ### frontend/js/settings-rows.js (34)
@@ -16016,7 +16017,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9947)
+## Tests (9952)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16665,7 +16666,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_no_glyph_icons.py | 1 |
 | tests/test_no_import_cycles.py | 1 |
 | tests/test_no_innerhtml_interpolation.py | 2 |
-| tests/test_no_report_on_expected.py | 3 |
+| tests/test_no_report_on_expected.py | 7 |
 | tests/test_no_silent_except.py | 2 |
 | tests/test_no_style_attribute_writes.py | 1 |
 | tests/test_no_tracked_symlinks.py | 3 |
@@ -16697,7 +16698,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_notes_rail.py | 7 |
 | tests/test_notes_rows_719.py | 8 |
 | tests/test_notes_select_tick.py | 2 |
-| tests/test_notif_dismiss.py | 3 |
+| tests/test_notif_dismiss.py | 4 |
 | tests/test_notification_actions.py | 12 |
 | tests/test_notifications_centre.py | 8 |
 | tests/test_object_actions.py | 6 |
@@ -17118,7 +17119,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 0. Performance and "not device heavy" (cross-cutting, first) | docs/roadmap/PLAN.md:26 |
 | 0. The diagnosis in one page | docs/roadmap/WORLD_CLASS_PLAN.md:25 |
 | 0. The operating protocol (read every session, it is short) | docs/roadmap/SESSION_BRIEFS.md:17 |
-| 1. Decisions made (do not remake) | docs/roadmap/SESSION_BRIEFS.md:975 |
+| 1. Decisions made (do not remake) | docs/roadmap/SESSION_BRIEFS.md:985 |
 | 1. Format panel, Style tab | docs/roadmap/WHITEBOARD_PLAN.md:977 |
 | 1. Live log console (started, not finished) | docs/roadmap/BACKLOG.md:32 |
 | 1. Research read, 2026-10-10, and what each changes here | docs/roadmap/CHAT_PLAN.md:1582 |
@@ -17153,7 +17154,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 1.9 The main user journeys | docs/roadmap/MODERNISATION_AUDIT.md:241 |
 | 10. Built: Phase 2 (frontend) | docs/roadmap/MINDMAP_PLAN.md:295 |
 | 10. Chat and the agent surface | docs/roadmap/PLAN.md:198 |
-| 10. Deepened 2026-10-10: the timeline (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:262 |
+| 10. Deepened 2026-10-10: the timeline (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:273 |
 | 10. Flaws found by static probes (cheap to reproduce, each with its command) | docs/roadmap/WORLD_CLASS_PLAN.md:861 |
 | 10. Not verified | docs/roadmap/ANALYSIS.md:4381 |
 | 10. Outline, navigation and view | docs/roadmap/WHITEBOARD_PLAN.md:1214 |
@@ -17165,7 +17166,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 109.3 The competitor gap analysis, triaged | docs/roadmap/BACKLOG.md:3549 |
 | 109.4 Brainstormed: not asked for, worth doing | docs/roadmap/BACKLOG.md:3588 |
 | 11. Built: the previews, Phase 4 and Phase 5 | docs/roadmap/MINDMAP_PLAN.md:299 |
-| 11. Deepened 2026-10-10: reminders and notifications (Brief 72b, decisions 69 and 71) | docs/roadmap/TIMELINE_PLAN.md:300 |
+| 11. Deepened 2026-10-10: reminders and notifications (Brief 72b, decisions 69 and 71) | docs/roadmap/TIMELINE_PLAN.md:311 |
 | 11. Graph | docs/roadmap/PLAN.md:210 |
 | 11. Keyboard shortcuts | docs/roadmap/WHITEBOARD_PLAN.md:1229 |
 | 11. Performance, accuracy and AI efficiency | docs/roadmap/BACKLOG.md:708 |
@@ -17196,7 +17197,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 116.2 Mindmaps, Phases 4-5 (MINDMAP_PLAN.md §5 items 14-21) | docs/roadmap/BACKLOG.md:3911 |
 | 116.3 PLAN.md rows not started (by track) | docs/roadmap/BACKLOG.md:3915 |
 | 116.4 Tooling | docs/roadmap/BACKLOG.md:3922 |
-| 12. Deepened 2026-10-10: the calendar (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:341 |
+| 12. Deepened 2026-10-10: the calendar (Brief 72b, decision 71) | docs/roadmap/TIMELINE_PLAN.md:352 |
 | 12. Does the AI know it is an agent? | docs/roadmap/BACKLOG.md:956 |
 | 12. Library | docs/roadmap/PLAN.md:220 |
 | 12. Security review (read, not penetration-tested; each item names the file) | docs/roadmap/WORLD_CLASS_PLAN.md:917 |
@@ -17266,7 +17267,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 19.5 What the review has not covered yet | docs/roadmap/WORLD_CLASS_PLAN.md:2057 |
 | 2. Competitors: what they have that MemoryMap does not (checked, not | docs/roadmap/WORLD_CLASS_PLAN.md:225 |
 | 2. Documents: to the level of Obsidian / Typora / iA Writer | docs/roadmap/PLAN.md:61 |
-| 2. Done when | docs/roadmap/SESSION_BRIEFS.md:1005 |
+| 2. Done when | docs/roadmap/SESSION_BRIEFS.md:1015 |
 | 2. Format panel, Text tab, and the Arrange tab | docs/roadmap/WHITEBOARD_PLAN.md:1010 |
 | 2. Packaging and distribution | docs/roadmap/ANALYSIS.md:4195 |
 | 2. Quick wins | docs/roadmap/BACKLOG.md:85 |
@@ -17343,7 +17344,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 3. Backend: fix and redesign | docs/roadmap/PLAN.md:81 |
 | 3. Chat page: Chat / Agent / Browse sub-tabs | docs/roadmap/BACKLOG.md:118 |
 | 3. Edit style, Edit data, placeholders, tooltips | docs/roadmap/WHITEBOARD_PLAN.md:1054 |
-| 3. Files | docs/roadmap/SESSION_BRIEFS.md:1032 |
+| 3. Files | docs/roadmap/SESSION_BRIEFS.md:1042 |
 | 3. Frontend dossiers (one per surface, each a hand-off brief) | docs/roadmap/WORLD_CLASS_PLAN.md:289 |
 | 3. Metadata and dependencies | docs/roadmap/ANALYSIS.md:4222 |
 | 3. Research: what the field actually offers | docs/roadmap/MINDMAP_PLAN.md:79 |
@@ -17372,7 +17373,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 34. Where I'd take this: an outside read | docs/roadmap/ANALYSIS.md:494 |
 | 34b. Judging another agent's branch: what was kept, and on what grounds | docs/roadmap/ANALYSIS.md:625 |
 | 4. Agent harness: "the ultimate agent harness" | docs/roadmap/PLAN.md:99 |
-| 4. Agents | docs/roadmap/SESSION_BRIEFS.md:1041 |
+| 4. Agents | docs/roadmap/SESSION_BRIEFS.md:1051 |
 | 4. Connectors: edge styles, waypoints, jumps, arrowheads, labels | docs/roadmap/WHITEBOARD_PLAN.md:1068 |
 | 4. Decisions made (do not re-decide) | docs/roadmap/CHAT_PLAN.md:74 |
 | 4. Decisions made (do not re-decide) | docs/roadmap/TIMELINE_PLAN.md:58 |
@@ -17401,7 +17402,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 5. Ship order (suggested sprints, each ends green + measured) | docs/roadmap/PLAN.md:114 |
 | 5. The feature set, in build order | docs/roadmap/MINDMAP_PLAN.md:156 |
 | 5. The phases | docs/roadmap/DOCUMENTS_PLAN.md:160 |
-| 5. Traps | docs/roadmap/SESSION_BRIEFS.md:1052 |
+| 5. Traps | docs/roadmap/SESSION_BRIEFS.md:1062 |
 | 5. Warnings: bug classes, not features to copy | docs/roadmap/ANALYSIS.md:2529 |
 | 59. Three sibling repos, read and triaged, claude-obsidian, cognee, graphify | docs/roadmap/ANALYSIS.md:682 |
 | 6. Competitor matrix (what the plan takes from whom) | docs/roadmap/DOCUMENTS_PLAN.md:482 |
@@ -17414,7 +17415,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 6. Measuring "professional" without telemetry | docs/roadmap/WORLD_CLASS_PLAN.md:713 |
 | 6. Not verified | docs/roadmap/CHAT_PLAN.md:1654 |
 | 6. OpenAI-compatible backends: **done** | docs/roadmap/BACKLOG.md:389 |
-| 6. Rows added after this brief (the owner's later asks land here) | docs/roadmap/SESSION_BRIEFS.md:1062 |
+| 6. Rows added after this brief (the owner's later asks land here) | docs/roadmap/SESSION_BRIEFS.md:1072 |
 | 6. Semantic search and the knowledge graph, "the ultimate upgrade" | docs/roadmap/PLAN.md:128 |
 | 6. The companion and device pairing | docs/roadmap/ANALYSIS.md:4295 |
 | 60. Odysseus, re-read: the repo tripled in size, and this time the question was answered from its own words | docs/roadmap/ANALYSIS.md:792 |
@@ -17466,7 +17467,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 9. Risks | docs/roadmap/DOCUMENTS_PLAN.md:528 |
 | 9. The graph: make it a tool, and give it a look | docs/roadmap/BACKLOG.md:574 |
 | A real, narrow bug this comparison surfaced | docs/roadmap/ANALYSIS.md:844 |
-| A. Bugs and fixes first (INBOX, Fable or Sonnet, one day) | docs/roadmap/SESSION_BRIEFS.md:667 |
+| A. Bugs and fixes first (INBOX, Fable or Sonnet, one day) | docs/roadmap/SESSION_BRIEFS.md:677 |
 | A. Bugs that had gone unnoticed (found this session) | docs/roadmap/AUDIT.md:20 |
 | A. Model and backend | docs/roadmap/BACKLOG.md:2363 |
 | A. UI design and visual consistency | docs/roadmap/MODERNISATION_AUDIT.md:264 |
@@ -17483,7 +17484,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Audio in the notebook: the architecture decided 2026-09-21, the build deferred | docs/roadmap/WORLD_CLASS_PLAN.md:2135 |
 | Audio notes and meetings, against soundcraft | docs/roadmap/ANALYSIS.md:3988 |
 | Audit, 2026-09-13 night (INBOX 209: "poke holes in this application") | docs/roadmap/WORLD_CLASS_PLAN.md:783 |
-| B. Documents (DOCUMENTS_PLAN), the owner's first priority | docs/roadmap/SESSION_BRIEFS.md:678 |
+| B. Documents (DOCUMENTS_PLAN), the owner's first priority | docs/roadmap/SESSION_BRIEFS.md:688 |
 | B. Retrieval and context: where the real quality ceiling is | docs/roadmap/BACKLOG.md:2388 |
 | B. Schema and backend: what a professional backend would change | docs/roadmap/AUDIT.md:41 |
 | B. UX, feedback states and accessibility | docs/roadmap/MODERNISATION_AUDIT.md:364 |
@@ -17501,118 +17502,118 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | B6 · Designed states: Medium | docs/roadmap/MODERNISATION_AUDIT.md:454 |
 | B7 The API contract | docs/roadmap/WORLD_CLASS_PLAN.md:642 |
 | B8 Extensions | docs/roadmap/WORLD_CLASS_PLAN.md:654 |
-| Brief 10 (Fri, Sonnet): Library one card recipe, Dashboard widget frame | docs/roadmap/SESSION_BRIEFS.md:399 |
-| Brief 100 (Opus, graph): the graph's feel (INBOX 802, 864, 865) | docs/roadmap/SESSION_BRIEFS.md:1817 |
-| Brief 101 (Sonnet, three agents): the found-not-fixed ledger, placed (the owner: "make sure you cover all bugs and issues found and not fixed as well") | docs/roadmap/SESSION_BRIEFS.md:1822 |
-| Brief 102 (Opus, lansafe): LAN safe by default on any network (INBOX 867) | docs/roadmap/SESSION_BRIEFS.md:1831 |
-| Brief 103 (Sonnet, chattime): a time on every chat message (INBOX 868) | docs/roadmap/SESSION_BRIEFS.md:1840 |
-| Brief 104 (Opus, after atlas): typos read in context, not as slang (INBOX 869) | docs/roadmap/SESSION_BRIEFS.md:1844 |
-| Brief 11: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:426 |
-| Brief 12: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:428 |
-| Brief 13 (Sun, Opus): the harness verifier, budget and corrections (B5) | docs/roadmap/SESSION_BRIEFS.md:430 |
-| Brief 14 (Sun, Sonnet): the docs, condensed | docs/roadmap/SESSION_BRIEFS.md:443 |
-| Brief 15: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:460 |
-| Brief 16 (any day, Sonnet): the documentation, refined | docs/roadmap/SESSION_BRIEFS.md:507 |
-| Brief 17 (any day, Opus): the launchers, the uninstallers and the splash, made impressive | docs/roadmap/SESSION_BRIEFS.md:549 |
-| Brief 18 (the next session, Fable orchestrating): the complete open scope | docs/roadmap/SESSION_BRIEFS.md:660 |
-| Brief 19: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:732 |
+| Brief 10 (Fri, Sonnet): Library one card recipe, Dashboard widget frame | docs/roadmap/SESSION_BRIEFS.md:409 |
+| Brief 100 (Opus, graph): the graph's feel (INBOX 802, 864, 865) | docs/roadmap/SESSION_BRIEFS.md:1827 |
+| Brief 101 (Sonnet, three agents): the found-not-fixed ledger, placed (the owner: "make sure you cover all bugs and issues found and not fixed as well") | docs/roadmap/SESSION_BRIEFS.md:1832 |
+| Brief 102 (Opus, lansafe): LAN safe by default on any network (INBOX 867) | docs/roadmap/SESSION_BRIEFS.md:1841 |
+| Brief 103 (Sonnet, chattime): a time on every chat message (INBOX 868) | docs/roadmap/SESSION_BRIEFS.md:1850 |
+| Brief 104 (Opus, after atlas): typos read in context, not as slang (INBOX 869) | docs/roadmap/SESSION_BRIEFS.md:1854 |
+| Brief 11: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:436 |
+| Brief 12: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:438 |
+| Brief 13 (Sun, Opus): the harness verifier, budget and corrections (B5) | docs/roadmap/SESSION_BRIEFS.md:440 |
+| Brief 14 (Sun, Sonnet): the docs, condensed | docs/roadmap/SESSION_BRIEFS.md:453 |
+| Brief 15: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:470 |
+| Brief 16 (any day, Sonnet): the documentation, refined | docs/roadmap/SESSION_BRIEFS.md:517 |
+| Brief 17 (any day, Opus): the launchers, the uninstallers and the splash, made impressive | docs/roadmap/SESSION_BRIEFS.md:559 |
+| Brief 18 (the next session, Fable orchestrating): the complete open scope | docs/roadmap/SESSION_BRIEFS.md:670 |
+| Brief 19: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:742 |
 | Brief 1: W3-1: one visibility-aware scheduler (PLAN P1) | docs/roadmap/MODERNISATION_AUDIT.md:1111 |
 | Brief 1: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:70 |
 | Brief 2 (Mon, Sonnet): the consistency lints | docs/roadmap/SESSION_BRIEFS.md:72 |
-| Brief 20: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:734 |
-| Brief 21: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:736 |
-| Brief 22: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:738 |
-| Brief 23: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:740 |
-| Brief 24: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:742 |
-| Brief 25 (Opus): TIMELINE Phases 1 to 4 | docs/roadmap/SESSION_BRIEFS.md:767 |
-| Brief 26 (Opus): CHAT Phases 2 and 3 | docs/roadmap/SESSION_BRIEFS.md:779 |
-| Brief 27 (Opus): UI Phase 11, the phone | docs/roadmap/SESSION_BRIEFS.md:792 |
-| Brief 28 (Opus): DOCUMENTS Phases 5 to 8 | docs/roadmap/SESSION_BRIEFS.md:802 |
-| Brief 29 (Opus): GRAPH Phase 4 part two, the local pane | docs/roadmap/SESSION_BRIEFS.md:811 |
+| Brief 20: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:744 |
+| Brief 21: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:746 |
+| Brief 22: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:748 |
+| Brief 23: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:750 |
+| Brief 24: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:752 |
+| Brief 25 (Opus): TIMELINE Phases 1 to 4 | docs/roadmap/SESSION_BRIEFS.md:777 |
+| Brief 26 (Opus): CHAT Phases 2 and 3 | docs/roadmap/SESSION_BRIEFS.md:789 |
+| Brief 27 (Opus): UI Phase 11, the phone | docs/roadmap/SESSION_BRIEFS.md:802 |
+| Brief 28 (Opus): DOCUMENTS Phases 5 to 8 | docs/roadmap/SESSION_BRIEFS.md:812 |
+| Brief 29 (Opus): GRAPH Phase 4 part two, the local pane | docs/roadmap/SESSION_BRIEFS.md:821 |
 | Brief 2: W2-1: collapse the Notes chrome stack | docs/roadmap/MODERNISATION_AUDIT.md:1157 |
-| Brief 3 (Tue, Sonnet): `prefs`, `api.stream/upload`, the two `innerHTML`s | docs/roadmap/SESSION_BRIEFS.md:117 |
-| Brief 30 (Opus): MINDMAP section 12 | docs/roadmap/SESSION_BRIEFS.md:837 |
-| Brief 31 (Opus or Sonnet): SKILLS Phase D, recovery | docs/roadmap/SESSION_BRIEFS.md:844 |
-| Brief 32 (Opus): templates and base layouts, for boards, maps and documents | docs/roadmap/SESSION_BRIEFS.md:891 |
-| Brief 33 (the PR after #144, Fable orchestrating): the rest of WORLD_CLASS_PLAN, every untouched plan, then professional use | docs/roadmap/SESSION_BRIEFS.md:850 |
-| Brief 34 (Opus, two agents): characters, the faces, the companion and Atlas, to the end | docs/roadmap/SESSION_BRIEFS.md:952 |
-| Brief 34 continues (Opus, high): Atlas and the companion | docs/roadmap/SESSION_BRIEFS.md:1390 |
-| Brief 35 (Opus, high): the Gemini branch triaged | docs/roadmap/SESSION_BRIEFS.md:1247 |
-| Brief 36 (Opus, high): whiteboard and mind map | docs/roadmap/SESSION_BRIEFS.md:1259 |
-| Brief 37 (Opus, high): Chat, Ask, first run and the owner's UI bugs | docs/roadmap/SESSION_BRIEFS.md:1270 |
-| Brief 38 (Opus, high): the graph, topics first-class, note properties | docs/roadmap/SESSION_BRIEFS.md:1283 |
-| Brief 39 (Opus, high): the deterministic engine | docs/roadmap/SESSION_BRIEFS.md:1290 |
-| Brief 39b (Opus, high): filing and the taxonomy | docs/roadmap/SESSION_BRIEFS.md:1305 |
+| Brief 3 (Tue, Sonnet): `prefs`, `api.stream/upload`, the two `innerHTML`s | docs/roadmap/SESSION_BRIEFS.md:119 |
+| Brief 30 (Opus): MINDMAP section 12 | docs/roadmap/SESSION_BRIEFS.md:847 |
+| Brief 31 (Opus or Sonnet): SKILLS Phase D, recovery | docs/roadmap/SESSION_BRIEFS.md:854 |
+| Brief 32 (Opus): templates and base layouts, for boards, maps and documents | docs/roadmap/SESSION_BRIEFS.md:901 |
+| Brief 33 (the PR after #144, Fable orchestrating): the rest of WORLD_CLASS_PLAN, every untouched plan, then professional use | docs/roadmap/SESSION_BRIEFS.md:860 |
+| Brief 34 (Opus, two agents): characters, the faces, the companion and Atlas, to the end | docs/roadmap/SESSION_BRIEFS.md:962 |
+| Brief 34 continues (Opus, high): Atlas and the companion | docs/roadmap/SESSION_BRIEFS.md:1400 |
+| Brief 35 (Opus, high): the Gemini branch triaged | docs/roadmap/SESSION_BRIEFS.md:1257 |
+| Brief 36 (Opus, high): whiteboard and mind map | docs/roadmap/SESSION_BRIEFS.md:1269 |
+| Brief 37 (Opus, high): Chat, Ask, first run and the owner's UI bugs | docs/roadmap/SESSION_BRIEFS.md:1280 |
+| Brief 38 (Opus, high): the graph, topics first-class, note properties | docs/roadmap/SESSION_BRIEFS.md:1293 |
+| Brief 39 (Opus, high): the deterministic engine | docs/roadmap/SESSION_BRIEFS.md:1300 |
+| Brief 39b (Opus, high): filing and the taxonomy | docs/roadmap/SESSION_BRIEFS.md:1315 |
 | Brief 3: W4-1: the error contract (PLAN B3) | docs/roadmap/MODERNISATION_AUDIT.md:1199 |
-| Brief 4 (Tue, Sonnet): Settings two-pane, and the last 54 paragraphs | docs/roadmap/SESSION_BRIEFS.md:168 |
-| Brief 40 (Sonnet, medium; Haiku for the placement pass): research and placement | docs/roadmap/SESSION_BRIEFS.md:1315 |
-| Brief 41 (Opus, high): UI density, refinement and WCAG 2.2 | docs/roadmap/SESSION_BRIEFS.md:1341 |
-| Brief 42 (Opus, high): documents | docs/roadmap/SESSION_BRIEFS.md:1351 |
-| Brief 43 (Opus, high; Sonnet medium for the fixes it names): the expert audit | docs/roadmap/SESSION_BRIEFS.md:1406 |
-| Brief 44 (Sonnet high for the catalogue and converter; Opus high for the editor phases): the draw.io programme | docs/roadmap/SESSION_BRIEFS.md:1447 |
-| Brief 45 (Sonnet medium for the census; Opus high for the review): structure and complexity | docs/roadmap/SESSION_BRIEFS.md:1496 |
-| Brief 46 (Sonnet, medium): measure the table | docs/roadmap/SESSION_BRIEFS.md:1526 |
-| Brief 47 (Opus, high): search everywhere (25a, decision 46) | docs/roadmap/SESSION_BRIEFS.md:1536 |
-| Brief 48 (Opus, high): import and export round trip (25b) | docs/roadmap/SESSION_BRIEFS.md:1541 |
-| Brief 49 (Opus, high): first run and the manual (25c) | docs/roadmap/SESSION_BRIEFS.md:1546 |
+| Brief 4 (Tue, Sonnet): Settings two-pane, and the last 54 paragraphs | docs/roadmap/SESSION_BRIEFS.md:172 |
+| Brief 40 (Sonnet, medium; Haiku for the placement pass): research and placement | docs/roadmap/SESSION_BRIEFS.md:1325 |
+| Brief 41 (Opus, high): UI density, refinement and WCAG 2.2 | docs/roadmap/SESSION_BRIEFS.md:1351 |
+| Brief 42 (Opus, high): documents | docs/roadmap/SESSION_BRIEFS.md:1361 |
+| Brief 43 (Opus, high; Sonnet medium for the fixes it names): the expert audit | docs/roadmap/SESSION_BRIEFS.md:1416 |
+| Brief 44 (Sonnet high for the catalogue and converter; Opus high for the editor phases): the draw.io programme | docs/roadmap/SESSION_BRIEFS.md:1457 |
+| Brief 45 (Sonnet medium for the census; Opus high for the review): structure and complexity | docs/roadmap/SESSION_BRIEFS.md:1506 |
+| Brief 46 (Sonnet, medium): measure the table | docs/roadmap/SESSION_BRIEFS.md:1536 |
+| Brief 47 (Opus, high): search everywhere (25a, decision 46) | docs/roadmap/SESSION_BRIEFS.md:1546 |
+| Brief 48 (Opus, high): import and export round trip (25b) | docs/roadmap/SESSION_BRIEFS.md:1551 |
+| Brief 49 (Opus, high): first run and the manual (25c) | docs/roadmap/SESSION_BRIEFS.md:1556 |
 | Brief 4: W1-3: glass as shell furniture, with an O(1) invariant | docs/roadmap/MODERNISATION_AUDIT.md:1243 |
-| Brief 5 (Wed, Opus): the Timeline, Phases 1 and 2 | docs/roadmap/SESSION_BRIEFS.md:216 |
-| Brief 50 (Sonnet, high): the PWA shell (25d, decision 49) | docs/roadmap/SESSION_BRIEFS.md:1550 |
-| Brief 51 (Opus, high): never lose a note (25e, decision 48; rule 1.8) | docs/roadmap/SESSION_BRIEFS.md:1554 |
-| Brief 52 (Opus, high): settings as a product (25f, decision 52) | docs/roadmap/SESSION_BRIEFS.md:1559 |
-| Brief 53 (Sonnet, high): budgets per interaction (25g, decision 54) | docs/roadmap/SESSION_BRIEFS.md:1563 |
-| Brief 54 (Opus, high): skill reliability (AGENT_SKILLS_REFORM Phase E) | docs/roadmap/SESSION_BRIEFS.md:1567 |
-| Brief 55 (Opus, high): the calendar view (TIMELINE_PLAN Phase 5) | docs/roadmap/SESSION_BRIEFS.md:1571 |
-| Brief 56 (Sonnet, medium): measure the design review | docs/roadmap/SESSION_BRIEFS.md:1580 |
-| Brief 57 (Opus, high): the stylesheet's grammar (13a) | docs/roadmap/SESSION_BRIEFS.md:1588 |
-| Brief 58 (Opus, high): the stylesheet's structure (13b) | docs/roadmap/SESSION_BRIEFS.md:1592 |
-| Brief 59 (Opus, high): the surfaces (13c) | docs/roadmap/SESSION_BRIEFS.md:1596 |
+| Brief 5 (Wed, Opus): the Timeline, Phases 1 and 2 | docs/roadmap/SESSION_BRIEFS.md:222 |
+| Brief 50 (Sonnet, high): the PWA shell (25d, decision 49) | docs/roadmap/SESSION_BRIEFS.md:1560 |
+| Brief 51 (Opus, high): never lose a note (25e, decision 48; rule 1.8) | docs/roadmap/SESSION_BRIEFS.md:1564 |
+| Brief 52 (Opus, high): settings as a product (25f, decision 52) | docs/roadmap/SESSION_BRIEFS.md:1569 |
+| Brief 53 (Sonnet, high): budgets per interaction (25g, decision 54) | docs/roadmap/SESSION_BRIEFS.md:1573 |
+| Brief 54 (Opus, high): skill reliability (AGENT_SKILLS_REFORM Phase E) | docs/roadmap/SESSION_BRIEFS.md:1577 |
+| Brief 55 (Opus, high): the calendar view (TIMELINE_PLAN Phase 5) | docs/roadmap/SESSION_BRIEFS.md:1581 |
+| Brief 56 (Sonnet, medium): measure the design review | docs/roadmap/SESSION_BRIEFS.md:1590 |
+| Brief 57 (Opus, high): the stylesheet's grammar (13a) | docs/roadmap/SESSION_BRIEFS.md:1598 |
+| Brief 58 (Opus, high): the stylesheet's structure (13b) | docs/roadmap/SESSION_BRIEFS.md:1602 |
+| Brief 59 (Opus, high): the surfaces (13c) | docs/roadmap/SESSION_BRIEFS.md:1606 |
 | Brief 5: W2-3: the note card's actions stop covering its text on touch | docs/roadmap/MODERNISATION_AUDIT.md:1281 |
-| Brief 6 (Wed, Opus): pagination on all 25 lists, and one scheduler | docs/roadmap/SESSION_BRIEFS.md:265 |
-| Brief 60 (Sonnet, medium): measure and the three ratchets (26.0, 26a) | docs/roadmap/SESSION_BRIEFS.md:1606 |
-| Brief 61 (Opus, high): services for whiteboard and files (26b) | docs/roadmap/SESSION_BRIEFS.md:1618 |
-| Brief 62 (Opus, high): data out of code (26c) | docs/roadmap/SESSION_BRIEFS.md:1622 |
-| Brief 63 (Opus, high): the runners and the embedder (26d) | docs/roadmap/SESSION_BRIEFS.md:1627 |
-| Brief 64 (Sonnet, medium): measure the foundation (F0) | docs/roadmap/SESSION_BRIEFS.md:1634 |
-| Brief 65 (Opus, high): the recogniser and the reading (F1) | docs/roadmap/SESSION_BRIEFS.md:1643 |
-| Brief 66 (Opus, high): quick add and the palette (F2) | docs/roadmap/SESSION_BRIEFS.md:1653 |
-| Brief 67 (Opus, high): the realiser, the validators and the acts (F3) | docs/roadmap/SESSION_BRIEFS.md:1662 |
-| Brief 68 (Opus, high): the surfaces (F4, after 65 to 67) | docs/roadmap/SESSION_BRIEFS.md:1669 |
-| Brief 69 (Opus, high): run, preview and test (I1) | docs/roadmap/SESSION_BRIEFS.md:1678 |
+| Brief 6 (Wed, Opus): pagination on all 25 lists, and one scheduler | docs/roadmap/SESSION_BRIEFS.md:273 |
+| Brief 60 (Sonnet, medium): measure and the three ratchets (26.0, 26a) | docs/roadmap/SESSION_BRIEFS.md:1616 |
+| Brief 61 (Opus, high): services for whiteboard and files (26b) | docs/roadmap/SESSION_BRIEFS.md:1628 |
+| Brief 62 (Opus, high): data out of code (26c) | docs/roadmap/SESSION_BRIEFS.md:1632 |
+| Brief 63 (Opus, high): the runners and the embedder (26d) | docs/roadmap/SESSION_BRIEFS.md:1637 |
+| Brief 64 (Sonnet, medium): measure the foundation (F0) | docs/roadmap/SESSION_BRIEFS.md:1644 |
+| Brief 65 (Opus, high): the recogniser and the reading (F1) | docs/roadmap/SESSION_BRIEFS.md:1653 |
+| Brief 66 (Opus, high): quick add and the palette (F2) | docs/roadmap/SESSION_BRIEFS.md:1663 |
+| Brief 67 (Opus, high): the realiser, the validators and the acts (F3) | docs/roadmap/SESSION_BRIEFS.md:1672 |
+| Brief 68 (Opus, high): the surfaces (F4, after 65 to 67) | docs/roadmap/SESSION_BRIEFS.md:1679 |
+| Brief 69 (Opus, high): run, preview and test (I1) | docs/roadmap/SESSION_BRIEFS.md:1688 |
 | Brief 6: W8-1: the audit scripts become the e2e suite | docs/roadmap/MODERNISATION_AUDIT.md:1310 |
-| Brief 70 (Opus, high): the debugger (I2) | docs/roadmap/SESSION_BRIEFS.md:1686 |
-| Brief 71 (Opus, high): the IDE shell (I3) | docs/roadmap/SESSION_BRIEFS.md:1693 |
-| Brief 75 (Sonnet, high): every vendored library at full use (INBOX 751) | docs/roadmap/SESSION_BRIEFS.md:1703 |
+| Brief 70 (Opus, high): the debugger (I2) | docs/roadmap/SESSION_BRIEFS.md:1696 |
+| Brief 71 (Opus, high): the IDE shell (I3) | docs/roadmap/SESSION_BRIEFS.md:1703 |
+| Brief 75 (Sonnet, high): every vendored library at full use (INBOX 751) | docs/roadmap/SESSION_BRIEFS.md:1713 |
 | Brief 7: W5-4: `ai/scheduler.py`, one gate in front of every model call | docs/roadmap/MODERNISATION_AUDIT.md:1347 |
-| Brief 7: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:310 |
-| Brief 8 (Thu, Opus): `[[` autocomplete and the connections rail | docs/roadmap/SESSION_BRIEFS.md:312 |
-| Brief 84 (Opus, high): Atlas everywhere (F5, after 68) | docs/roadmap/SESSION_BRIEFS.md:1723 |
-| Brief 85 (Opus): the launch splash, reimagined (INBOX 834) | docs/roadmap/SESSION_BRIEFS.md:1733 |
-| Brief 86 (built 2026-10-11, search86): search suggestions, history and undo in Settings | docs/roadmap/SESSION_BRIEFS.md:1738 |
-| Brief 87 (Sonnet, research then Opus build): voice, dictation and what to vendor (INBOX 833) | docs/roadmap/SESSION_BRIEFS.md:1742 |
-| Brief 88 (Opus): Atlas and the companions, alive (INBOX 835) | docs/roadmap/SESSION_BRIEFS.md:1748 |
-| Brief 89 (Sonnet): Add tags on lightly tagged notes (INBOX 836) | docs/roadmap/SESSION_BRIEFS.md:1753 |
+| Brief 7: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:320 |
+| Brief 8 (Thu, Opus): `[[` autocomplete and the connections rail | docs/roadmap/SESSION_BRIEFS.md:322 |
+| Brief 84 (Opus, high): Atlas everywhere (F5, after 68) | docs/roadmap/SESSION_BRIEFS.md:1733 |
+| Brief 85 (Opus): the launch splash, reimagined (INBOX 834) | docs/roadmap/SESSION_BRIEFS.md:1743 |
+| Brief 86 (built 2026-10-11, search86): search suggestions, history and undo in Settings | docs/roadmap/SESSION_BRIEFS.md:1748 |
+| Brief 87 (Sonnet, research then Opus build): voice, dictation and what to vendor (INBOX 833) | docs/roadmap/SESSION_BRIEFS.md:1752 |
+| Brief 88 (Opus): Atlas and the companions, alive (INBOX 835) | docs/roadmap/SESSION_BRIEFS.md:1758 |
+| Brief 89 (Sonnet): Add tags on lightly tagged notes (INBOX 836) | docs/roadmap/SESSION_BRIEFS.md:1763 |
 | Brief 8: W1-4: the three 18.4px switches, and making DESIGN.md true | docs/roadmap/MODERNISATION_AUDIT.md:1392 |
-| Brief 9 (Fri, Opus): the job runtime (B2) and thread isolation | docs/roadmap/SESSION_BRIEFS.md:358 |
-| Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837) | docs/roadmap/SESSION_BRIEFS.md:1757 |
-| Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842) | docs/roadmap/SESSION_BRIEFS.md:1762 |
-| Brief 92 (Opus, after the queue): the whole-app pass the owner asked for (INBOX 843) | docs/roadmap/SESSION_BRIEFS.md:1766 |
-| Brief 93 (Sonnet, ownerfix3): the owner's small UI reports, 2026-10-11 evening (INBOX 847, 851 to 856) | docs/roadmap/SESSION_BRIEFS.md:1772 |
-| Brief 94 (Opus): find by meaning everywhere, autocorrect everywhere with undo (INBOX 850, 857) | docs/roadmap/SESSION_BRIEFS.md:1782 |
-| Brief 95 (Opus): themes, dug deep (INBOX 858) | docs/roadmap/SESSION_BRIEFS.md:1788 |
-| Brief 96 (Opus, with voiceup): the recording row and player (INBOX 859) | docs/roadmap/SESSION_BRIEFS.md:1793 |
-| Brief 97 (Opus, after Atlas): the composer as the place to go, the graph maker (INBOX 860) | docs/roadmap/SESSION_BRIEFS.md:1798 |
-| Brief 98 (Opus): goals and lists (INBOX 861) | docs/roadmap/SESSION_BRIEFS.md:1806 |
-| Brief 99 (Sonnet, scan): every feature, element and action, used once (INBOX 862) | docs/roadmap/SESSION_BRIEFS.md:1812 |
-| Briefs 25 to 31: the plans the owner asked to see finished | docs/roadmap/SESSION_BRIEFS.md:744 |
-| Briefs 35 to 42 (2026-10-10, Fable orchestrating): the owner's list, the engine, the direction | docs/roadmap/SESSION_BRIEFS.md:1238 |
-| Briefs 46 to 55 (2026-10-10, Fable): the whole app against world class | docs/roadmap/SESSION_BRIEFS.md:1520 |
-| Briefs 56 to 59 (2026-10-10, Fable): the design review | docs/roadmap/SESSION_BRIEFS.md:1575 |
-| Briefs 60 to 63 (2026-10-10, Fable): the backend review | docs/roadmap/SESSION_BRIEFS.md:1601 |
-| Briefs 64 to 68 (CHAT_PLAN "The deterministic foundation") | docs/roadmap/SESSION_BRIEFS.md:1632 |
-| Briefs 69 to 71 (DOCUMENTS_PLAN 23: the IDE; after Brief 42) | docs/roadmap/SESSION_BRIEFS.md:1676 |
-| Briefs 72 to 74 (WORLD_CLASS_PLAN 28: the trust contract) | docs/roadmap/SESSION_BRIEFS.md:1700 |
-| Briefs 76 onward (from Briefs 72a and 72b) | docs/roadmap/SESSION_BRIEFS.md:1706 |
+| Brief 9 (Fri, Opus): the job runtime (B2) and thread isolation | docs/roadmap/SESSION_BRIEFS.md:368 |
+| Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837) | docs/roadmap/SESSION_BRIEFS.md:1767 |
+| Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842) | docs/roadmap/SESSION_BRIEFS.md:1772 |
+| Brief 92 (Opus, after the queue): the whole-app pass the owner asked for (INBOX 843) | docs/roadmap/SESSION_BRIEFS.md:1776 |
+| Brief 93 (Sonnet, ownerfix3): the owner's small UI reports, 2026-10-11 evening (INBOX 847, 851 to 856) | docs/roadmap/SESSION_BRIEFS.md:1782 |
+| Brief 94 (Opus): find by meaning everywhere, autocorrect everywhere with undo (INBOX 850, 857) | docs/roadmap/SESSION_BRIEFS.md:1792 |
+| Brief 95 (Opus): themes, dug deep (INBOX 858) | docs/roadmap/SESSION_BRIEFS.md:1798 |
+| Brief 96 (Opus, with voiceup): the recording row and player (INBOX 859) | docs/roadmap/SESSION_BRIEFS.md:1803 |
+| Brief 97 (Opus, after Atlas): the composer as the place to go, the graph maker (INBOX 860) | docs/roadmap/SESSION_BRIEFS.md:1808 |
+| Brief 98 (Opus): goals and lists (INBOX 861) | docs/roadmap/SESSION_BRIEFS.md:1816 |
+| Brief 99 (Sonnet, scan): every feature, element and action, used once (INBOX 862) | docs/roadmap/SESSION_BRIEFS.md:1822 |
+| Briefs 25 to 31: the plans the owner asked to see finished | docs/roadmap/SESSION_BRIEFS.md:754 |
+| Briefs 35 to 42 (2026-10-10, Fable orchestrating): the owner's list, the engine, the direction | docs/roadmap/SESSION_BRIEFS.md:1248 |
+| Briefs 46 to 55 (2026-10-10, Fable): the whole app against world class | docs/roadmap/SESSION_BRIEFS.md:1530 |
+| Briefs 56 to 59 (2026-10-10, Fable): the design review | docs/roadmap/SESSION_BRIEFS.md:1585 |
+| Briefs 60 to 63 (2026-10-10, Fable): the backend review | docs/roadmap/SESSION_BRIEFS.md:1611 |
+| Briefs 64 to 68 (CHAT_PLAN "The deterministic foundation") | docs/roadmap/SESSION_BRIEFS.md:1642 |
+| Briefs 69 to 71 (DOCUMENTS_PLAN 23: the IDE; after Brief 42) | docs/roadmap/SESSION_BRIEFS.md:1686 |
+| Briefs 72 to 74 (WORLD_CLASS_PLAN 28: the trust contract) | docs/roadmap/SESSION_BRIEFS.md:1710 |
+| Briefs 76 onward (from Briefs 72a and 72b) | docs/roadmap/SESSION_BRIEFS.md:1716 |
 | Bugs | docs/roadmap/CHAT_PLAN.md:845 |
 | Bugs | docs/roadmap/DOCUMENTS_PLAN.md:1534 |
 | Bugs | docs/roadmap/TIMELINE_PLAN.md:202 |
@@ -17640,7 +17641,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Built: items 1, 3, 4 and 5 | docs/roadmap/UI_MODERNISATION_PLAN.md:262 |
 | C. Capture: the half the app is named for | docs/roadmap/BACKLOG.md:2412 |
 | C. Frontend architecture and code quality | docs/roadmap/MODERNISATION_AUDIT.md:462 |
-| C. Graph (GRAPH_PLAN), the owner's second priority | docs/roadmap/SESSION_BRIEFS.md:691 |
+| C. Graph (GRAPH_PLAN), the owner's second priority | docs/roadmap/SESSION_BRIEFS.md:701 |
 | C. Whiteboard: sub-par against Miro / FigJam / tldraw (after this session's fixes) | docs/roadmap/AUDIT.md:62 |
 | C1 · `app.js` is the architecture, and it is 26,113 lines, Critical | docs/roadmap/MODERNISATION_AUDIT.md:464 |
 | C2 · Four kinds of state, no store, High | docs/roadmap/MODERNISATION_AUDIT.md:496 |
@@ -17649,7 +17650,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Candidate libraries | docs/roadmap/ANALYSIS.md:4108 |
 | Composer decisions, taken with the owner, 2026-10-06 | docs/roadmap/CHAT_PLAN.md:816 |
 | D. Backend architecture and reliability | docs/roadmap/MODERNISATION_AUDIT.md:550 |
-| D. Chat (CHAT_PLAN), folded with the owner's reports | docs/roadmap/SESSION_BRIEFS.md:696 |
+| D. Chat (CHAT_PLAN), folded with the owner's reports | docs/roadmap/SESSION_BRIEFS.md:706 |
 | D. Documents: sub-par against Obsidian / Typora / iA Writer | docs/roadmap/AUDIT.md:78 |
 | D. Trust and safety | docs/roadmap/BACKLOG.md:2432 |
 | D1 Dashboard (M, Sonnet after a Fable/Opus design pass) | docs/roadmap/WORLD_CLASS_PLAN.md:295 |
@@ -17720,7 +17721,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | E. App-wide usability and accessibility, the things that read as "side project" | docs/roadmap/AUDIT.md:95 |
 | E. Local AI: where it is overused or misused | docs/roadmap/MODERNISATION_AUDIT.md:640 |
 | E. Polish worth doing as one pass | docs/roadmap/BACKLOG.md:2451 |
-| E. Whiteboard (WHITEBOARD_PLAN Phase 1) and mind maps (MINDMAP §12) | docs/roadmap/SESSION_BRIEFS.md:702 |
+| E. Whiteboard (WHITEBOARD_PLAN Phase 1) and mind maps (MINDMAP §12) | docs/roadmap/SESSION_BRIEFS.md:712 |
 | E1 · A step is a turn, not a goal, Critical (reasoned) | docs/roadmap/MODERNISATION_AUDIT.md:645 |
 | E2 · The complexity of the AI path is where the next bug will be, High (read) | docs/roadmap/MODERNISATION_AUDIT.md:653 |
 | E3 · Model calls are scattered across request handlers, background threads and module singletons, High (read) | docs/roadmap/MODERNISATION_AUDIT.md:666 |
@@ -17728,7 +17729,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Earlier sessions | docs/roadmap/HANDOVER.md:532 |
 | Expert audit, 2026-10-10 | docs/roadmap/BACKLOG.md:4269 |
 | F. Agent harness: what "ultimate" needs that is not there | docs/roadmap/AUDIT.md:113 |
-| F. Library, dashboard, settings | docs/roadmap/SESSION_BRIEFS.md:707 |
+| F. Library, dashboard, settings | docs/roadmap/SESSION_BRIEFS.md:717 |
 | F. Performance and perceived speed | docs/roadmap/MODERNISATION_AUDIT.md:685 |
 | F1 · Boot is ~1 s and tab switches are ~10–50 ms. The app is not slow; it is *heavy*: Medium | docs/roadmap/MODERNISATION_AUDIT.md:687 |
 | F2 · Fourteen requests in sixty idle seconds, from three separate timers, High | docs/roadmap/MODERNISATION_AUDIT.md:708 |
@@ -17737,10 +17738,10 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Found by an agent while measuring something else (2026-09-08, graph) | docs/roadmap/CHAT_PLAN.md:605 |
 | G. Mobile and responsive | docs/roadmap/MODERNISATION_AUDIT.md:743 |
 | G. Test-suite gaps | docs/roadmap/AUDIT.md:123 |
-| G. The plans' own remainders | docs/roadmap/SESSION_BRIEFS.md:712 |
+| G. The plans' own remainders | docs/roadmap/SESSION_BRIEFS.md:722 |
 | G1 · Primary navigation scrolls off the phone screen, High | docs/roadmap/MODERNISATION_AUDIT.md:748 |
 | G2 · The category sidebar becomes a 182 px banner, Medium | docs/roadmap/MODERNISATION_AUDIT.md:761 |
-| Gates | docs/roadmap/TIMELINE_PLAN.md:244 |
+| Gates | docs/roadmap/TIMELINE_PLAN.md:255 |
 | Guides: curated instructions the AI writes to | docs/roadmap/BACKLOG.md:2505 |
 | H. Missing table stakes, security and privacy | docs/roadmap/MODERNISATION_AUDIT.md:768 |
 | H. Suggested order (feeds PLAN.md's sprints) | docs/roadmap/AUDIT.md:162 |
@@ -18009,7 +18010,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | The features audit's Phase G, what is left (placed 2026-10-05, op3-1005) | docs/roadmap/MINDMAP_PLAN.md:1629 |
 | The forks and draw.io | docs/roadmap/ANALYSIS.md:4062 |
 | The four reports, verbatim | docs/roadmap/CHAT_PLAN.md:673 |
-| The gates that do not move | docs/roadmap/SESSION_BRIEFS.md:722 |
+| The gates that do not move | docs/roadmap/SESSION_BRIEFS.md:732 |
 | The general lesson, which is not about this agent | docs/roadmap/ANALYSIS.md:657 |
 | The harness does the work the model is worst at: decided 2026-09-21 | docs/roadmap/AGENT_SKILLS_REFORM.md:134 |
 | The instruction, verbatim | docs/roadmap/AGENT_SKILLS_REFORM.md:7 |
@@ -18024,7 +18025,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | The owner's brainstorm, 2026-10-11 (after INBOX 812) | docs/roadmap/CHAT_PLAN.md:1847 |
 | The peer apps: fourteen triaged, five read properly | docs/roadmap/ANALYSIS.md:3250 |
 | The plan documents, in one list (read this before opening any of them) | docs/ROADMAP.md:268 |
-| The quarter's briefs (shorter; expand each into the shape above when | docs/roadmap/SESSION_BRIEFS.md:462 |
+| The quarter's briefs (shorter; expand each into the shape above when | docs/roadmap/SESSION_BRIEFS.md:472 |
 | The reform, in phases | docs/roadmap/AGENT_SKILLS_REFORM.md:52 |
 | The road to 1.0: milestones with exit criteria (the owner, 2026-10-10: "still very much a demo and beta") | docs/ROADMAP.md:171 |
 | The scripts, and what each produced | docs/roadmap/MODERNISATION_AUDIT.md:40 |
@@ -18047,7 +18048,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/DOCUMENTS_PLAN.md:1561 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/GRAPH_PLAN.md:595 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/MINDMAP_PLAN.md:1816 |
-| Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/TIMELINE_PLAN.md:256 |
+| Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/TIMELINE_PLAN.md:267 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/UI_MODERNISATION_PLAN.md:1436 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/WHITEBOARD_PLAN.md:1541 |
 | Vendored capabilities to use, 2026-10-10 (Brief 75) | docs/roadmap/WORLD_CLASS_PLAN.md:4177 |
@@ -18061,7 +18062,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | W7: The table-stakes backlog (owner: BE + FE) | docs/roadmap/MODERNISATION_AUDIT.md:1003 |
 | W8: Reliability, testing and observability (owner: QA) | docs/roadmap/MODERNISATION_AUDIT.md:1013 |
 | What "fake / vibe coded / performative" means here, concretely | docs/roadmap/UI_MODERNISATION_PLAN.md:26 |
-| What "quality" means for a smaller model here, in one paragraph | docs/roadmap/SESSION_BRIEFS.md:497 |
+| What "quality" means for a smaller model here, in one paragraph | docs/roadmap/SESSION_BRIEFS.md:507 |
 | What Coggle specifically does that the phases below must keep | docs/roadmap/MINDMAP_PLAN.md:132 |
 | What exists (checked) | docs/roadmap/WORLD_CLASS_PLAN.md:1480 |
 | What is actually open, 2026-09-14 | docs/roadmap/INBOX.md:24 |

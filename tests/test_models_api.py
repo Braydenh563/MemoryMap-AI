@@ -438,8 +438,21 @@ def test_a_launch_with_no_waiting_notes_queues_no_filing_row(client, monkeypatch
 
     queued: list[str] = []
     monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))
+    monkeypatch.setattr(deps.get_ollama().__class__, "is_running", lambda self: True, raising=False)
     client.post("/models/warm-filing")
     assert queued == ["warm-filing"]
+
+
+def test_a_launch_with_no_model_running_does_not_queue_a_warm_up_row(client, monkeypatch):
+    # "Warming up the filing model" showed in the bell and Activity on every
+    # launch of a notebook with no model, for a job that returned at once.
+    from memorymap.core import jobs
+
+    queued: list[str] = []
+    monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))
+    monkeypatch.setattr(deps.get_ollama().__class__, "is_running", lambda self: False, raising=False)
+    client.post("/models/warm-filing")
+    assert queued == []
 
 
 def test_a_launch_with_a_stand_in_note_retries_its_filing(client, monkeypatch):
@@ -450,6 +463,7 @@ def test_a_launch_with_a_stand_in_note_retries_its_filing(client, monkeypatch):
     from memorymap.api import routes_entries
 
     monkeypatch.setattr(routes_entries, "stand_ins_waiting", lambda: 2)
+    monkeypatch.setattr(deps.get_ollama().__class__, "is_running", lambda self: True, raising=False)
     client.post("/models/warm-filing")
     assert queued == ["warm-filing", "file-entry"]
 

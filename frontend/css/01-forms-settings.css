@@ -3026,7 +3026,10 @@ li.link-source {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  z-index: 1050;
+  /* Above the confirm dialog (2100): a toast with an action (the first-run
+     "Allow") sat under the dialog it was asking about and could not be pressed
+     until the dialog closed. Phones set their own, above every sheet. */
+  z-index: 2150;
   /* The box spans the width below 1100px: only its toasts take clicks, so
      the strip beside a narrow toast does not eat clicks meant for the page. */
   pointer-events: none;

@@ -358,7 +358,11 @@
 .timeline-table {
   width: 100%;
   table-layout: fixed;
-  border-collapse: collapse;
+  /* Separate with no spacing, not collapse: a collapsed table ignores
+     `border-radius` on its cells, so a hovered row's ground had square ends.
+     The cells carry only a bottom border, so the look is the same. */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--text-md);
 }
 .timeline-table th,
@@ -458,6 +462,15 @@
 }
 .timeline-table tbody tr:hover td {
   background: var(--surface-2);
+}
+/* The ends of a hovered or selected row follow the radius every row ground has. */
+.timeline-table tbody tr:is(:hover, [aria-selected="true"]) td:first-child {
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+.timeline-table tbody tr:is(:hover, [aria-selected="true"]) td:last-child {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
 }
 /* The keyboard's veil is on the row, which the transparent cells show: a
    `:has(:focus-visible)` before a bare `td` is an unkeyed rule

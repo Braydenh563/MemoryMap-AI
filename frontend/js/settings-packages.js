@@ -425,8 +425,10 @@ async function packagesRemoveOne(extra) {
 async function packagesPost(path, body) {
   const options = { method: "POST" };
   if (body) options.body = JSON.stringify(body);
-  const result = await apiJson(path, options).catch((e) => ({ started: false, message: e.message }));
-  toast(result.message, !result.started);
+  const result = await apiJson(path, options).catch((e) => ({ started: false, failed: true, message: e.message }));
+  //: A refusal the server words ("Another install is already running.",
+  //: "... is already installed.") is a condition, not a fault: a notice, not red.
+  toast(result.message, result.failed ? true : result.started ? false : "info");
   renderExtras();
   return result;
 }
@@ -568,8 +570,8 @@ async function renderEmbedModels() {
             const result = await apiJson(
               `/embedding-models/${model.id}/download?reinstall=true`,
               { method: "POST" }
-            ).catch((e) => ({ started: false, message: e.message }));
-            toast(result.message, !result.started);
+            ).catch((e) => ({ started: false, failed: true, message: e.message }));
+            toast(result.message, result.failed ? true : result.started ? false : "info");
             renderEmbedModels();
           })
         );
@@ -583,8 +585,8 @@ async function renderEmbedModels() {
           ))) return;
           const result = await apiJson(`/embedding-models/${model.id}`, {
             method: "DELETE",
-          }).catch((e) => ({ removed: false, message: e.message }));
-          toast(result.message, !result.removed);
+          }).catch((e) => ({ removed: false, failed: true, message: e.message }));
+          toast(result.message, result.failed ? true : result.removed ? false : "info");
           renderEmbedModels();
         })
       );
@@ -597,8 +599,8 @@ async function renderEmbedModels() {
         ))) return;
         const result = await apiJson(`/embedding-models/${model.id}/download`, {
           method: "POST",
-        }).catch((e) => ({ started: false, message: e.message }));
-        toast(result.message, !result.started);
+        }).catch((e) => ({ started: false, failed: true, message: e.message }));
+        toast(result.message, result.failed ? true : result.started ? false : "info");
         renderEmbedModels();
       });
       // Without huggingface_hub there is nothing to download *with*, so the

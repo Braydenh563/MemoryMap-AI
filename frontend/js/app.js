@@ -475,7 +475,9 @@ async function api(path, options = {}) {
   //: the retry poll's own backoff.
   noteServerUp();
   if (response.status === 401 && !ownsAuthErrors) {
-    if (!silent) showLockScreen(false); // token expired (e.g. app restarted)
+    //: A silent read stays quiet, but a silent write (a setting changed after
+    //: the server restarted) got "Locked" in a toast with no lock screen.
+    if (!silent || fetchOptions.method) showLockScreen(false); // token expired (e.g. app restarted)
     const locked = new Error("Locked");
     // Marked, so `startApp()`'s bootstrap loop can tell "the session expired"
     // apart from "this one endpoint failed". Reported: *"before signing in, a

@@ -4447,11 +4447,12 @@ function graphPopupActionList(entry) {
         closeGraphPopup();
         await refreshEntries([entry.id]).catch(() => {});
         renderGraph();
-        toastAction("Moved to the bin.", "Undo", async () => {
+        const named = toastName(noteNamePlain(entry.content, 48), "the note");
+        toastAction(`Moved ${named} to the bin.`, "Undo", async () => {
           await api(`/entries/${entry.id}/restore`, { method: "POST" });
           await refreshEntries([entry.id]);
           renderGraph();
-          toast("Note restored.");
+          toast(`Restored ${named}.`);
         }, { also: GO_TO_BIN });
       },
     }

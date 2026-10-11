@@ -1139,10 +1139,10 @@ function reminderItem(reminder, label) {
       loadReminders();
     };
     const action = pushUndo("Moved a reminder to the bin", restore, rebin);
-    toastAction("Reminder moved to the bin.", "Undo", async () => {
+    toastAction(`Moved ${toastName(reminder.text, "the reminder")} to the bin.`, "Undo", async () => {
       settleUndoFromToast(action);
       await restore().catch((e) => toast(e.message, true));
-      toast("Reminder restored.");
+      toast(`Restored ${toastName(reminder.text, "the reminder")}.`);
     });
   };
   const menuItems = [];
@@ -1445,6 +1445,22 @@ function reminderEditForm(reminder) {
     reminder.recurring || "none"
   );
   recurringSelect.title = "Repeat";
+  //: An alert had only words to be set by ("remind me 15 minutes before");
+  //: the form now shows it and changes it. A length the menu has no word for
+  //: is kept, as a repeat rule is.
+  const alertNow = reminder.alert_minutes || 0;
+  const alertSelect = buildSelect(
+    [
+      ["0", "No early alert"],
+      ["5", "Alert 5 minutes before"],
+      ["15", "Alert 15 minutes before"],
+      ["60", "Alert 1 hour before"],
+      ["1440", "Alert 1 day before"],
+      ...([0, 5, 15, 60, 1440].includes(alertNow) ? [] : [[String(alertNow), `Alert ${alertNow} minutes before`]]),
+    ],
+    String(alertNow)
+  );
+  alertSelect.title = "Early alert";
   const row = document.createElement("div");
   row.className = "row";
   row.appendChild(
@@ -1455,12 +1471,13 @@ function reminderEditForm(reminder) {
         return;
       }
       editingReminderId = null;
-      const before = { text: reminder.text, due_at: reminder.due_at, priority: reminder.priority || "normal", recurring: reminder.recurring || "none" };
+      const before = { text: reminder.text, due_at: reminder.due_at, priority: reminder.priority || "normal", recurring: reminder.recurring || "none", alert_minutes: alertNow };
       await reminderPutUndoably(reminder.id, "Edited a reminder", before, {
         text,
         due_at: new Date(dueInput.value).toISOString(),
         priority: prioritySelect.value,
         recurring: recurringSelect.value,
+        alert_minutes: Number(alertSelect.value),
       });
     }, false)
   );
@@ -1470,7 +1487,7 @@ function reminderEditForm(reminder) {
       loadReminders();
     })
   );
-  wrap.append(textInput, dueInput, prioritySelect, recurringSelect, row);
+  wrap.append(textInput, dueInput, prioritySelect, recurringSelect, alertSelect, row);
   //: Enter saves and Escape cancels, from any field in the form: the two
   //: keys every inline editor answers. Only the buttons did before.
   wrap.addEventListener("keydown", (event) => {
@@ -1514,7 +1531,8 @@ function reminderMadeUndo(reminder) {
 
 async function addReminder(text, dueValue, entryId = null, opts = {}) {
   if (!text || !dueValue) {
-    toast("A reminder needs text and a due time.");
+    //: Names the one that is missing (not an error: an expected condition).
+    toast(!text && !dueValue ? "A reminder needs text and a due time." : !text ? "Write what to be reminded of." : "Pick a due time for this reminder.");
     return false;
   }
   const made = await apiJson("/reminders", {

@@ -11085,13 +11085,13 @@ async function deleteDocumentWithUndo(doc) {
       await loadDocuments();
     }
   );
-  toastAction("Document moved to the bin.", "Undo", async () => {
+  toastAction(`Moved ${toastName(title, "the document")} to the bin.`, "Undo", async () => {
     await action.undo();
     //: `settleUndoFromToast`, not a bare stack pop: the toast's Undo and the
     //: status bar's Undo are the same action, and without this a later Ctrl+Z
     //: would run the same restore a second time.
     settleUndoFromToast(action);
-    toast("Document restored.");
+    toast(`Restored ${toastName(title, "the document")}.`);
   });
 }
 

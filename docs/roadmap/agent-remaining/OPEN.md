@@ -436,7 +436,6 @@ Full list: [archive/agent-remaining/canvasdepth2-1011.md](../archive/agent-remai
 
 Full list: [archive/agent-remaining/calendar55-1011.md](../archive/agent-remaining/calendar55-1011.md).
 - Touch drag on a tablet, a day page dropped on another day, and a 1,000-note month are built but not driven.
-- The contrast and errors sweeps were not run on the calendar view.
 - The feed's Last-year range filters by when a note was written, so a note about a day this month written over a year ago shows in the calendar and not the feed.
 
 ## Left by the appsync agent (WORLD_CLASS 25f, merged 2026-10-11)
@@ -477,7 +476,6 @@ Detail: [followups-1011.md](../archive/agent-remaining/followups-1011.md).
 - Free lines and arrows (not links) still draw the shaft through hollow ends: their stored path is re-read as the endpoints, so trimming would drift the line.
 - The reminder action token's key is per process (the app has no persisted signing secret): a restart ends open notifications' buttons.
 - Still open from uipolish: the rows-view 28px meta button in a 24px line, the tool-confirm pair, lowering BOOT_CSS_CAP.
-- cifix5: a quit with the reminder notifier running can wait up to the job pool's 5 s deadline (stop_notifier runs after the pool's shutdown path).
 
 ## Left by the codedocs agent (INBOX 788, merged 2026-10-11)
 
@@ -500,7 +498,6 @@ Detail: [meet81-1010.md](../archive/agent-remaining/meet81-1010.md).
 Detail: [notify86-1010.md](../archive/agent-remaining/notify86-1010.md).
 
 - Windows and macOS not run: both need a check by hand. On Windows a toast pressed in the Action Center after 600 s does nothing (needs a COM activator); on macOS osascript notifications have no buttons and a click opens Script Editor.
-- The service worker acts with the session token stored in the notification's data: a scoped reminder token is with the followups agent.
 - A tab hidden over five minutes can fire up to 60 s late (Chromium's timer throttling).
 
 ## Left by the filing agent (INBOX 781, merged 2026-10-11)
@@ -660,14 +657,10 @@ Detail: [docs76-1010.md](../archive/agent-remaining/docs76-1010.md).
 ## Left by the time85 agent (Brief 85, merged 2026-10-10)
 
 - Timeline row 8's bar, click to rows under 300 ms at 96 notes: 329 at load 6 to 8 (app side 73 to 164); a 57 to 70 ms task right after the rows paint; `content-visibility` on the day sections would cut it but the scrubber reads real heights (timeline.js `drawTimelineWindow`). The boot CSS budget is at its cap (183,300 gzipped, 0 bytes left after this merge: the recall row's rule moved into `.library-filters`): the next timeline or reminders CSS goes in a lazy file, or the timeline's stylesheet becomes one.
-- Reminders at 390: the floating New (`#reminders-new`) can lie over the row under it (2 overlaps in one run, 0 in the final; 10-responsive.css:1762).
 - Timeline at 390: the On this day row moves the list down 44 px; a phone may want it folded (`#timeline-recall`).
 - deepen72b.js's timeline row at 390 waits for `.timeline-rows` but the phone keeps the table view, so it times out (deepen72b.js:61).
-- The reminder edit form cannot change an alert (shell-reminders.js `reminderEditForm`); an alert is set by words only.
 - A monthly repeat from the 31st lands on the 28th in February and stays there (recognise.py `_add_months`).
-- A `timeline-days` preference arriving after the click renders the timeline twice (once in nine runs at 5,000 notes).
 - timelinepaging.js: the strip-click check fails on the base too; its 100 ms frame check passed once and failed twice under load.
-- A load-more in flight when the range changes leaves the new range at 100 rows until a scroll (timeline.js `timelineLoadMore`).
 - Not verified: Firefox and Safari permission help, the webview's denied state, firing in a hidden tab (falls to the minute poll), a real non-UTC browser for the completion day maths, Move to an existing category, space or Publish drafts from the timeline bar.
 
 ## Left by the palette90 agent (Brief 90, merged 2026-10-10)
@@ -701,7 +694,6 @@ The remaining file is in `archive/agent-remaining/`; the rows below are what it 
 - Statistics row 4 (Brief 37): the page's "not used lately" list (86 on the fixture) is the feed the weekly offer wants; not wired.
 - The week is Monday-first on `user_now`; a Sunday-first locale reads it a day out (`notebook_stats.week_start`).
 - Words written this week are the words in the notes made that week; edits to older notes are not counted (no per-edit word delta is stored).
-- A reminder ticked before `done_at` existed counts as done but in no week.
 - `EntryLink` rows are counted whole: a link to a binned or private note is still a link on the page (`_notebook_block`).
 
 ## Left by the debug70, shell71 and ocr79 agents (Briefs 70, 71 and 79, merged 2026-10-10)
@@ -1147,10 +1139,6 @@ pane's name, the errors sweep's aside clipping at 390.
   680px is not built, and measured it overlaps nothing, HISTORY.md, "OPEN.md rows
   closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)".
   [graph-wb-0926]
-- **Dismissed reminder notifications**: a dismissed reminder notification never
-  returns (`status.js` `notificationsDismissed`, keyed `reminder:<id>`), so a
-  reminder snoozed and overdue again stays hidden from the bell. By design of
-  INBOX 508; revisit if the owner snoozes reminders. [sweep-1004]
 - **Dashboard and Timeline**: D6's streak (the calendar strip and the day
   before and after are built, `daystrip.js`; a streak count has no surface:
   the dock is at its grammar and `.dock-chip-row` is held at zero uses); "Undo all" for a
@@ -1453,7 +1441,6 @@ Thirty-nine finished agent files moved to [`../archive/agent-remaining/`](../arc
 - Sweeps that wait a fixed 1.2 s for the whiteboard's lazy bundle flake under load (`initWhiteboard is not defined`). `op5-1005.js` and `mapviewmenu.js` wait for the function; the other sweeps with a fixed wait do not. (from op5-1005.md)
 - The board preview labels (`mapPreview` in note-cards.js) run over the next shape ("Cut the sign-up fro…" across a diamond); the label placement is INBOX 263's design and the whiteboard agent's surface. (from qa-1005.md)
 - At 1440 with the Connections rail open, the Notes dock wraps nine controls onto a second row; DESIGN.md says seven at most. A judgement for the dock grammar's owner. (from qa-1005.md)
-- 401s in the server log (`/preferences`, `/insights/*`, `/reminders`) when pages boot while sweeps unlock; not reproduced in one clean boot. (from qa-1005.md)
 - `scratchpad/ui-sweeps/lib.js` LOOK= writes the look into the server's preferences, so later sweeps on that data dir inherit it; run a LOOK=utilitarian sweep last. (from qa-1005.md)
 - installer.iss's ISPP version reader (`#sub`, `#for`, `RPos`) compiles only on Windows; it is not verified until a Windows CI run passes. (from windows-packaging-1005.md)
 - The upgrade step downloads the latest release with `gh` and `github.token`; a fork or a repo without releases fails it loudly. (from windows-packaging-1005.md)
@@ -1543,7 +1530,6 @@ Thirty-nine finished agent files moved to [`../archive/agent-remaining/`](../arc
 - Meeting cards show their section headings as raw `## Agenda` text, as every note card does. A meeting-aware card preview (when, who, open action items) needs its own pass. (from meetings-644.md)
 - The Timeline's table view (a phone's default) has no mark column, so a meeting reads as a Note there; the feed view shows the meeting mark. (from meetings-644.md)
 - Not verified: Summarise against a real small model (the fake model only; its pipe format and quoting are unknown), and transcription (no faster-whisper in the sandbox; the save is driven with a typed transcript). (from meetings-644.md)
-- `settings-packages.js` (lines 421, 562 and 591 on this head): the `toast` call on `result.message` is red when the package action did not start (the flag is the negated `result.started`), often "busy" or "already installed". The reply carries no kind, so it stays red. (from toasts-1006.md)
 - `suggestions-inbox.js` (a partial link run) and `whiteboard.js` (a clear that left items) are red by a computed flag; they are partial failures. (from toasts-1006.md)
 - `ai-tools.js` says "Open Settings, Models" in words, and none is a link. A button on the toast is the next step and is a new control. (from toasts-1006.md)
 - Not verified: the other 100 `toast(..., true)` call sites were not each triggered. A lint covers them; their situations (a formatter refusing a file, Atlas off in Suggestions) were not driven. (from toasts-1006.md)
@@ -1562,7 +1548,6 @@ The five files are in [`../archive/agent-remaining/`](../archive/agent-remaining
 - The rail-dot alignment at 390 (0 px at 1440). (from deepen-b-1010.md)
 - The fixture is 96 notes (the seed ran twice), not 48. (from deepen-b-1010.md)
 - Chat with no model: "what is 15% of 240" quotes a note; "convert 5 km to miles", "what day is it today" and "summarise my week" answer "Nothing in the notes"; "remind me to call Sam tomorrow at 9" makes no reminder (CHAT_PLAN foundation 7). (from deepen-b-1010.md)
-- The reminders presets menu lays out while closed: 7 overlaps over the filter chips at 1440 (TIMELINE_PLAN 11 row 2). (from deepen-b-1010.md)
 - The agent panel with no model: 16 of 20 controls disabled (AGENT_SKILLS_REFORM, Deepened row 1). (from deepen-b-1010.md)
 - Ask cannot show a relevant map as a map. Decision taken: retrieval is notes only (a map's entry text is its title, so it grounds nothing). Owner's words: "mindmaps still appear as notes in the ask subtab search". To surface maps, add a `maps` list to `ChatResponse` (`src/memorymap/api/routes_chat.py:673`) and draw it with `mapChip` in `frontend/js/capture-ask.js` (the `raw_results` loop near line 2296), fed by `search.engine` hits of kind `map`. (from mapnotes-1010.md)
 - `GET /entries/count` (`src/memorymap/api/routes_entries.py:2293`) counts every entry row including boards and the bin; its only reader is onboarding's "is the notebook empty" check (`frontend/js/onboarding.js:73`), so left alone. (from mapnotes-1010.md)
@@ -1573,8 +1558,6 @@ The five files are in [`../archive/agent-remaining/`](../archive/agent-remaining
 - Brief 2 (consistency lints): HISTORY mentions it only as an owner reference; no record of the lint set being built as the brief. (from briefs-1010.md)
 - Brief 3 (prefs, api.stream/upload, innerHTML): HISTORY line 43146 area still lists `api.stream`/`api.upload` and the no-bare-fetch lint as not built. (from briefs-1010.md)
 - Brief 4 (Settings two-pane, 54 paragraphs): WORLD_CLASS_PLAN.md:1019 says the 54 paragraphs "not re-checked here, so still open". (from briefs-1010.md)
-- Brief 5 (Timeline): TIMELINE_PLAN.md:7 names it as the plan's hand-off and the plan is open. (from briefs-1010.md)
-- Brief 6 (pagination, scheduler): `tests/test_lists_paginate.py` the brief names does not exist; TIMELINE_PLAN.md:93 depends on its helper. (from briefs-1010.md)
 - Brief 8 (`[[` autocomplete, connections rail): HISTORY has only the plan table rows, no Built record. (from briefs-1010.md)
 - Brief 9 (job runtime): `tests/test_jobs.py` the brief names does not exist; HISTORY has no Built record. (from briefs-1010.md)
 - Brief 10 (Library card recipe, widget frame): HISTORY has only the plan table rows. (from briefs-1010.md)
@@ -1681,7 +1664,6 @@ The files, with the measured before table and the vendoring keep-or-drop table, 
 The file, with the T0 table, is in [`../archive/agent-remaining/trust-1010.md`](../archive/agent-remaining/trust-1010.md); the plan's pointer is WORLD_CLASS_PLAN 28.6.
 
 - Settings, every switch and choice: 13 pressed, 0 undone by Ctrl+Z (`settings-controls.js` has the only `pushUndo`; 48 write functions in `settings*.js` and `prefs.js`, 3 with an undo path).
-- Reminders: "Add" and "Mark done" push nothing (`shell-reminders.js`; 7 write functions, 3 with an undo path); Ctrl+Z restores neither.
 - Documents: "Delete" shows a toast Undo, but Ctrl+Z goes to the open editor's history (`surfaceHistory` in `status.js`, the Documents branch) so the deleted document stays deleted; "Archive" and "Start a new document" push nothing (21 write functions, 5 with an undo path).
 - Mind map "Add a top-level topic": the board stack grows by one, Ctrl+Z leaves the lists differing (`/whiteboard/` state not equal to before); unverified which list.
 - Chat "Save this chat as a document": creates a document, no undo (`chat.js`; 28 write functions, 7 with an undo path).
@@ -1709,12 +1691,10 @@ The file, with the T0 table, is in [`../archive/agent-remaining/trust-1010.md`](
 - "last week" is the last seven days in search and the previous Monday to Sunday in `recognise`; both written down, the Reading says the search's window. An owner decision if one meaning is wanted. [f1-1010]
 - `when.resolve("in march")`, "march", "q4" give the next one at 09:00 (a reminder is never in the past); the past one comes from `when.window` and `recognise`. By design. [f1-1010]
 - "on my birthday" reads only with a stored birthday (`context["birthday"]`, `birthday=` on `/read`); no setting holds one yet. [f1-1010]
-- "every weekday", "every other friday" and yearly repeats save once: `routes_reminders.Recurring` holds only daily, weekly and monthly; the Reading keeps the RRULE in `slots["repeat"]`. [f1-1010]
 - Quick add is 56 of 60 on `tests/fixtures/composer/quickadd_1010.json` measured before F1's four fixes landed; re-run `scratchpad/ui-sweeps/quickadd.js` on this head and move CHAT_PLAN F2's Built block to HISTORY only at 60 of 60 (decision 50's gate). [f2-1010]
 - `ai/reading.py` reads "review budget friday" (reminder surface) as sure at 09:00 while quickadd.js asks "What time on ...?" (decision 50); the reading should ask the same question. [f2-1010]
 - Quick note: a reminder chip on a note saved while the server is away (the outbox, `saveQuickNote`'s `result.queued` branch) is dropped; the note is kept. [f2-1010]
 - Palette: only the reminder act has a row (`quickAddPaletteRow`); a note or meeting act and the search window chip (CHAT_PLAN section 1 row 7) wait for Brief 67's act registry. [f2-1010]
-- Timeline at 390: a long window chip wraps to two lines (39 px), no overflow. [f2-1010]
 - Not verified by either: a real model's path; a screen reader toggling a chip; a browser locale other than en-US; the full suite. [f1-1010, f2-1010]
 
 ## Left by the F3 agent (Brief 67, the validators and the acts, merged 2026-10-10)
@@ -1791,7 +1771,6 @@ Not verified: Frame figures are one machine at load 5 to 9 on four cores; re-run
 
 - `editor.js:inlineAiUndo` (owner's list of six): the inline AI bar's Undo reverts a CodeMirror transaction on unsaved field text, which rule 1.8 gives to the editor's own history. Recommendation: move it to the lint's editor histories rather than the stack (a stack entry outlives the field it would write to). Needs the decision taken. [safety-1010]
 - `dashboard.js:undoActorFrom` / `activityUndoControl` (and their two helpers) and `note-history.js:undoSkillRun`: an undo of the AI's changes through `POST /events/undo`, which refuses the person's own changes ("Undo works on the AI's changes, not yours", routes_settings.py:1648), so there is no redo to give `pushUndo`. Needs a server redo (re-apply the reversed events) before they can fold. [safety-1010]
-- `pushDocAiUndo` (documents.js:11084) already calls `pushUndo`; nothing to fold. It has no toast by design (the AI edit log is its second way back). [safety-1010]
 - The plan row names a "Versions" row; the note menu's existing row is "History" (versions plus every other event). Not renamed: a rename moves help in five places for no new reach. Recommendation: keep "History", record the decision. [safety-1010]
 - A notice's `go: { settings, focus }` scrolls Settings to the control at 1440 (Back up now at y 499 of 900) but not at 390 (y 1527 of 900): the phone sheet does not scroll to `scrollToId` (settings.js:245). Shared by every notice that opens Settings. [safety-1010]
 - No backup schedule "shown with the last success" (WORLD_CLASS 4018 row) beyond Settings, About, Health's last backup line. [safety-1010]

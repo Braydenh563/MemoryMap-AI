@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Quick note: a note held while the server is away says when its reminder was not set; after a server restart a changed setting shows the lock screen instead of a "Locked" toast; the "Models aren't available yet" notice has an Open Settings, Models button.
+- Reminders: the edit form changes the early alert (none, 5, 15 minutes, 1 hour, 1 day before); a reminder you dismissed, snoozed and that is overdue again comes back to the bell; a reminder made from a note or document says "About <its name>" in its notification and the bell; Add names the missing part (text or time).
+- Toasts: moving a note, document or reminder to the bin names it ("Moved “Passport renewal” to the bin."); a toast with an action is no longer hidden under an open dialog; a package action the server refuses ("Another install is already running") is a notice, not red.
+- Timeline: a hovered or selected table row has rounded ends; a range change while a page was loading no longer leaves the new range at its first rows. Quitting no longer waits for the reminder notifier, and a launch with no model running no longer lists "Warming up the filing model".
 - Timeline: a day in the calendar can be pressed. Click a day, or press Enter or Space on it, to open it as the Day view (from the Day view, Enter opens the day in the feed); a cell tall enough shows what was written as chips with titles, with "+n more" for the rest, and falls back to dots only when it is too short. Each chip opens its note.
 - Notes: dates written out are read. "2026-10-25", "16 October 2026", "Friday 16 October" and "Oct 3rd" place the note on that day in the Timeline and the calendar (a clock beside one, "at 3pm", puts it on its hour); a date without a year is the nearest one to the day you wrote it. Notes already saved are read again the next time they are edited.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.

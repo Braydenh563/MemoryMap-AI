@@ -687,10 +687,15 @@ function syncTimelineYears(range) {
 async function timelineLoadMore(limit = TIMELINE_PAGE) {
   if (!timelineNextCursor || timelinePaging) return;
   timelinePaging = true;
+  //: A range changed while this page was in flight: the new range's own top-up
+  //: was refused by `timelinePaging`, so it is asked again when this one ends
+  //: (it was left at its first rows until a scroll).
+  let stale = false;
   try {
     const url = `${timelineQuery()}&limit=${limit}&cursor=${encodeURIComponent(timelineNextCursor)}`;
     const render = timelineRenders.n;
     const body = await apiJson(url).catch(() => null);
+    if (body && render !== timelineRenders.n) stale = true;
     if (!body || render !== timelineRenders.n) return;
     timelineNextCursor = body.next_cursor || null;
     const fresh = body.rows.map(timelineRow);
@@ -709,6 +714,7 @@ async function timelineLoadMore(limit = TIMELINE_PAGE) {
     drawTimelineScrubber();
   } finally {
     timelinePaging = false;
+    if (stale && timelineNextCursor) timelineLoadMore(TIMELINE_PAGE - TIMELINE_FIRST);
   }
 }
 

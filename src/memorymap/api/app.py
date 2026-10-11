@@ -1492,6 +1492,11 @@ def create_app() -> FastAPI:
         # shutdown that fails to shut down is worse than one that leaves a
         # line in the log.
         bgtasks.stop_all()
+        # The reminder notifier's loop is a job on that pool, so it is told to
+        # end first: otherwise a quit waits the pool's whole deadline for it.
+        from memorymap.core import reminder_notifier
+
+        reminder_notifier.stop_running()
         # The bounded pool (core/jobs.py) is the other half: `stop_all`
         # handles the jobs that own something interruptible, and this one
         # drops the queue of captions and OCR passes behind it. A deadline

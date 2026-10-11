@@ -105,7 +105,7 @@ async function openNotifications({ keepWatermark = false } = {}) {
       kind: "reminder",
       title: reminder.text,
       detail: `Due ${relativeTime(reminder.due_at)}`,
-      key: `reminder:${reminder.id}`,
+      key: reminderNoticeKey(reminder),
       action: { tab: "reminders" },
     });
   }

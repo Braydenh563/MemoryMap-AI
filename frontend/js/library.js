@@ -944,10 +944,10 @@ function libraryActions(item) {
           loadEntries();
         };
         const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
-        toastAction("Moved to the bin.", "Undo", async () => {
+        toastAction(`Moved ${toastName(item.title, "the note")} to the bin.`, "Undo", async () => {
           settleUndoFromToast(action);
           await restoreIt();
-          toast("Note restored.");
+          toast(`Restored ${toastName(item.title, "the note")}.`);
         }, { also: GO_TO_BIN });
       }),
     ];

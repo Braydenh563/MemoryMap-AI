@@ -270,7 +270,9 @@ async function saveQuickNote() {
     clearQuickNote();
     $("quick-note").close();
     if (result.queued) {
-      toast("Saved on this device. It goes into your notebook as soon as the server answers.");
+      //: The reminder chip needs the saved note's id, which a held note does
+      //: not have yet: said, not dropped without a word.
+      toast(`Saved on this device. It goes into your notebook as soon as the server answers.${slots?.due ? " Its reminder was not set: add it once the note is in." : ""}`);
       return;
     }
     const saved = result.saved;

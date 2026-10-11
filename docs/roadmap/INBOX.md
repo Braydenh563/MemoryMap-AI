@@ -262,6 +262,18 @@ with its owner named in the entry.
      in the lan-help popover and the Guide's phone topic. After mergetrain
      (lanserve and lansafe's allowed-network gate meet there).
 
+894. **The owner, 2026-10-11, verbatim.** "Also make sure a phone connecting is
+     logged as an outgoing connection." Read: the privacy receipt
+     (`core/egress.py`, an audit hook on `socket.connect`) sees only
+     connections this app opens; a phone's connection is accepted, so it is
+     never seen and the receipt can say "Nothing has left this computer"
+     while a phone reads the notebook. Recommendation, taken: lanserve's
+     accept loop records each device (one row per address, kind "incoming",
+     feature "Another device on this network", purpose "Opened the
+     notebook"), counted in the local-network total so the verdict says
+     the local network was reached; the receipt names it. With 892, after
+     mergetrain (lansafe rewrites the accept loop; cifix2 touches egress.py).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 893 ("Shouldn’t the notice be "you can only download files on your computer" or "action denied on this device"??") fixed: the refusal reads "Not available on this device. Do it on the computer MemoryMap runs on." (downloads are not refused; an export saves on the device that asked).

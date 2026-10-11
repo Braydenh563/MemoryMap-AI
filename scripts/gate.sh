@@ -189,19 +189,27 @@ fi
 #
 # `git checkout-index` writes the staged content of every tracked file into a
 # scratch tree, and the lints run there, which is what CI will see.
+# The scratch tree is a global with an EXIT trap: a gate killed mid-run
+# (a TERM from an impatient agent) skipped the inline `rm -rf`, and about
+# ninety 99 MB trees filled the disk on 2026-10-11. A trap cannot run on
+# SIGKILL, so each gate also sweeps its own kind left over two hours ago.
+GATE_TMP=""
+gate_cleanup() { [ -n "${GATE_TMP:-}" ] && rm -rf "$GATE_TMP"; GATE_TMP=""; }
+trap gate_cleanup EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'mmgate.*' -type d -mmin +120 -exec rm -rf {} + 2>/dev/null
 staged_lints() {
-  # No RETURN trap: this script runs under `set -u` and the trap body is
-  # evaluated after the local has gone, which fails as "tmp: unbound
-  # variable" and hides the real result. Clean up on both paths instead.
-  local tmp rc
-  tmp="$(mktemp -d)"
+  local rc
+  GATE_TMP="$(mktemp -d -t mmgate.XXXXXX)"
+  local tmp="$GATE_TMP"
   if git -C "$ROOT" checkout-index -a --prefix="$tmp/"; then
     (cd "$tmp" && "$PY" -m pytest -q -p no:warnings "${LINTS[@]}")
     rc=$?
   else
     rc=1
   fi
-  rm -rf "$tmp"
+  gate_cleanup
   return "$rc"
 }
 if [ "$STAGED" = 1 ]; then

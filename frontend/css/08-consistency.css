@@ -4274,6 +4274,47 @@ body .chip.item-label,
 #entry-list > li.selectable {
   user-select: none;
 }
+/* 19. In card view the Select tick sits in the card's left gutter, on the
+       first line of the text, instead of being a flow child that stacked a
+       28px row above the title (INBOX 851: "the selection boxes on notes are
+       weirdly positioned above the note content"; measured, every card grew
+       28px in Select mode). A `--space-7` box (20px at the default density), the radius token; the whole card is
+       still the hit target (note-cards.js). Rows view (the default) had the
+       same fault in a worse form: the tick took a grid row of its own under
+       the title, 45px rows became 73px. There the tick sits between the
+       chevron and the title, on the chevron's own centre line, and
+       `grid-column: auto` takes it out of the full-width placement the rule
+       for "anything else a row grows" would give it. */
+/* `input[type="checkbox"]` in the selector: the list-wide checkbox recipe
+   (07-whiteboard-misc.css) is (1,3,1) and would win on size otherwise. */
+#entry-list > li.selectable > input[type="checkbox"].select-check {
+  position: absolute;
+  width: var(--space-7);
+  height: var(--space-7);
+  min-width: var(--space-7);
+  min-height: var(--space-7);
+  border-radius: var(--radius-sm);
+}
+#entry-list:not(.is-rows) > li.selectable {
+  position: relative;
+  padding-left: calc(var(--space-3) + var(--space-7) + var(--space-3));
+}
+#entry-list:not(.is-rows) > li.selectable > .select-check {
+  left: var(--space-3);
+  /* The card's top padding plus half the gap between the box and a 1.3 title
+     line, so the box and the first line share a centre. */
+  top: calc(var(--space-2) - 0.5px);
+}
+#entry-list.is-rows > li.selectable:not(:has(textarea)) {
+  padding-left: calc(var(--target-min) + var(--space-2) + 0.8rem + var(--space-7) + var(--space-3));
+}
+#entry-list.is-rows > li.selectable > .select-check {
+  grid-column: auto;
+  grid-row: auto;
+  left: calc(0.4rem + var(--target-min) + var(--space-1));
+  top: var(--row-anchor);
+  transform: translateY(-50%);
+}
 /* --- dashboard widgets, de-vibecoded -------------------------------------------
    1. In the Boards & maps widget a map's name was a bold accent pill (the
       shared `mapChip`) while a plain board's name was plain text, one list

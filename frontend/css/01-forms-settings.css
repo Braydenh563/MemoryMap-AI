@@ -2108,6 +2108,20 @@ button:not(.ghost) > .spinner {
     min-height: 44px;
   }
 }
+/* The lock card over the network (INBOX 867): the certificate link and its
+   '?' on one centred row; nowhere else and in no other mode. */
+.lock-lan-cert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lock-lan-cert .lock-forgot {
+  margin: 0;
+}
+:root:not([data-lan]) .lock-lan-cert,
+#lock-overlay:not([data-mode="unlock"]) .lock-lan-cert {
+  display: none;
+}
 /* On the unlock only: setup has nothing to forget, and a prompt for one
    action has "Not now". The card, while open, takes the lock card's place
    (account-recovery.js opens and closes it), and never shows in another

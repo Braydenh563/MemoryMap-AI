@@ -5538,3 +5538,20 @@ def test_a_menu_has_no_gap_at_its_ends() -> None:
     assert re.search(r"\.dock-menu-list > \.dock-menu-section:last-child \{\s*padding-bottom: 0;", css)
     sweep = (ROOT / "scratchpad" / "ui-sweeps" / "menus.js").read_text(encoding="utf-8")
     assert "inset top" in sweep and ".dock-menu-check" in sweep
+
+
+def test_an_address_for_another_device_is_one_block_drawn_by_one_renderer() -> None:
+    """INBOX 867, the owner of the receipt's run-on list of four addresses:
+    "can this be better styled and easier to read??". Settings, Other
+    devices and the privacy receipt draw one block, from one function: the
+    first address large with Copy, the rest behind a disclosure row."""
+    js = ROOT / "frontend" / "js"
+    controls = (js / "settings-controls.js").read_text(encoding="utf-8")
+    body = controls.split("function renderLanAddresses(", 1)[1].split("\n}\n", 1)[0]
+    assert '"lan-address"' in body and "copyToClipboard(" in body
+    assert "disclosure-row" in body and "aria-expanded" in body
+    assert 'renderLanAddresses($("account-lan-addresses")' in controls
+    assert 'renderLanAddresses(where' in (js / "settings-data.js").read_text(encoding="utf-8")
+    for name in ("settings-controls.js", "settings-data.js"):
+        text = (js / name).read_text(encoding="utf-8")
+        assert 'addresses.join(" or ")' not in text and '.join(", ") || listening.host' not in text, name

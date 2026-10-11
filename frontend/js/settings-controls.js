@@ -1998,17 +1998,17 @@ function renderLanState(state) {
     words = state.allow_lan
       ? "Restart the app to let other devices in."
       : "Restart the app to close it to other devices.";
-    if (state.allow_lan && addresses.length) {
-      words += ` Then open ${addresses.join(" or ")} on the other device.`;
-    }
   } else if (state.other_devices) {
     icon = "ph:wifi-high";
+    //: The address is its own block below (INBOX 867, the owner: "can this
+    //: be better styled and easier to read??"), not a run-on sentence.
     words = addresses.length
-      ? `Open ${addresses.join(" or ")} on the other device.`
+      ? "Other devices on this network can open it, with your password, at:"
       : "Other devices can open the app at this computer's network address.";
   }
   line.classList.toggle("hidden", !words);
   if (words) setLabel(line, `${icon} ${words}`);
+  renderLanTrust(state);
   //: The certificate the network is served with (core/lancert.py), shown
   //: while the switch is on so a phone's one-time warning can be checked.
   const cert = $("account-lan-cert");
@@ -2025,6 +2025,184 @@ function renderLanState(state) {
     $("account-lan-authority").textContent = shown ? state.certificate.authority_fingerprint || "" : "";
   }
 }
+
+//: **Where a phone opens the notebook** (INBOX 867): one address, the one on
+//: the network's own interface, large and monospaced with Copy, and the rest
+//: folded under "Other addresses" (IPv6 last, virtual adapters already left
+//: out by the server, `netbind.order_addresses`). Settings, Other devices and
+//: the privacy receipt draw the same block from the same state.
+function renderLanAddresses(holder, state) {
+  if (!holder) return;
+  lazyScript("/css/lan-lazy.css");
+  const addresses = (state.addresses || []).filter(Boolean);
+  holder.replaceChildren();
+  holder.classList.toggle("hidden", !addresses.length);
+  if (!addresses.length) return;
+  const [first, ...rest] = addresses;
+  const main = document.createElement("div");
+  main.className = "lan-address-main";
+  const value = document.createElement("code");
+  value.className = "lan-address";
+  value.textContent = first;
+  const copy = smallButton("ph:copy Copy", "Copy this address", () => copyToClipboard(first, copy));
+  main.append(value, copy);
+  holder.appendChild(main);
+  if (!rest.length) return;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "ghost disclosure-row lan-address-more";
+  toggle.setAttribute("aria-expanded", "false");
+  setLabel(toggle, `ph:caret-right Other addresses (${rest.length})`);
+  const list = document.createElement("ul");
+  list.className = "lan-address-list hidden";
+  list.id = `${holder.id}-more`;
+  toggle.setAttribute("aria-controls", list.id);
+  for (const address of rest) {
+    const li = document.createElement("li");
+    const code = document.createElement("code");
+    code.className = "lan-address-small";
+    code.textContent = address;
+    li.appendChild(code);
+    list.appendChild(li);
+  }
+  toggle.addEventListener("click", () => {
+    const open = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(open));
+    list.classList.toggle("hidden", !open);
+  });
+  holder.append(toggle, list);
+}
+
+const LAN_HELD_REASONS = {
+  new_network: "it is not a network you allowed",
+  unknown_network: "this network could not be identified",
+  public_network: "Windows calls this network public",
+};
+
+function lanListRow(title, facts, actions) {
+  const li = document.createElement("li");
+  const row = document.createElement("div");
+  row.className = "entry-meta";
+  const name = document.createElement("strong");
+  name.textContent = title;
+  row.append(name, rowActions(actions, `More for ${title}`));
+  const detail = document.createElement("p");
+  detail.className = "muted task-detail";
+  detail.textContent = facts.filter(Boolean).join(" · ");
+  li.append(row, detail);
+  return li;
+}
+
+function lanEmptyRow(words) {
+  const li = document.createElement("li");
+  li.className = "muted empty-line";
+  li.textContent = words;
+  return li;
+}
+
+async function lanCall(path, options) {
+  try {
+    renderLanState(await apiJson(path, options));
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+//: The held notice, the address block, the two overrides and the three lists.
+function renderLanTrust(state) {
+  const held = $("account-lan-held");
+  if (!held) return;
+  held.classList.toggle("hidden", !state.held);
+  if (state.held) {
+    const where = state.network?.network?.label || "this network";
+    setLabel(
+      $("account-lan-held-text"),
+      `ph:shield-warning Other devices can't open the notebook on ${where}: ${LAN_HELD_REASONS[state.held] || "it is not allowed"}.`
+    );
+  }
+  renderLanAddresses($("account-lan-addresses"), state.other_devices ? state : { addresses: [] });
+  const trust = $("account-lan-trust");
+  trust.classList.toggle("hidden", !state.allow_lan);
+  $("account-lan-ask").checked = state.ask_new_devices !== false;
+  $("account-lan-any").checked = state.any_network === true;
+  const pending = state.pending || [];
+  $("account-lan-pending-wrap").classList.toggle("hidden", !pending.length);
+  $("account-lan-pending").replaceChildren(
+    ...pending.map((device) =>
+      lanListRow(device.name, [device.address, "gave the right password"], [
+        { label: "Allow", title: "Let this device sign in", run: () => lanCall(`/auth/lan-devices/${encodeURIComponent(device.id)}/allow`, { method: "POST" }) },
+        { label: "Deny", title: "Do not let it in", danger: true, run: () => lanCall(`/auth/lan-devices/${encodeURIComponent(device.id)}/deny`, { method: "POST" }) },
+      ])
+    )
+  );
+  const devices = state.devices || [];
+  $("account-lan-devices").replaceChildren(
+    ...(devices.length
+      ? devices.map((device) =>
+          lanListRow(device.name, [device.address, device.last_seen && `last seen ${device.last_seen}`, device.added && `allowed ${device.added}`], [
+            { label: "Remove", title: "Sign it out; it asks again next time", danger: true, run: () => lanCall(`/auth/lan-devices/${encodeURIComponent(device.id)}`, { method: "DELETE" }) },
+          ])
+        )
+      : [lanEmptyRow("None yet. A phone is added when you allow its first sign-in.")])
+  );
+  const networks = state.networks || [];
+  $("account-lan-networks").replaceChildren(
+    ...(networks.length
+      ? networks.map((network) =>
+          lanListRow(network.label, [network.subnet, network.added && `allowed ${network.added}`], [
+            { label: "Remove", title: "Other devices stay out on this network until it is allowed again", danger: true, run: () => lanCall(`/auth/lan-networks/${encodeURIComponent(network.key)}`, { method: "DELETE" }) },
+          ])
+        )
+      : [lanEmptyRow("None yet. Turning other devices on remembers the network you are on.")])
+  );
+}
+
+//: A looser setting asks for the password, like the switch; a safer one
+//: does not (routes_auth `set_lan_option`).
+async function setLanOption(box, name, looser) {
+  const wanted = box.checked;
+  box.checked = !wanted;
+  if (!looser(wanted)) return lanCall("/auth/lan-options", { method: "POST", body: JSON.stringify({ name, enabled: wanted }) });
+  let reply = null;
+  const done = await askPasswordPrompt({
+    title: name === "any_network" ? "Allow on any network" : "Stop asking about new devices",
+    message: "Enter your password to change how other devices get in.",
+    submitLabel: "Change",
+    submit: async (password) => {
+      reply = await apiJson("/auth/lan-options", {
+        method: "POST",
+        body: JSON.stringify({ name, enabled: wanted, current_password: password }),
+        ownsAuthErrors: true,
+      });
+      return reply;
+    },
+  });
+  if (done && reply) renderLanState(reply);
+}
+
+$("account-lan-ask")?.addEventListener("change", (event) => setLanOption(event.target, "ask_new_devices", (on) => !on));
+$("account-lan-any")?.addEventListener("change", (event) => setLanOption(event.target, "any_network", (on) => on));
+
+$("account-lan-allow-here")?.addEventListener("click", async () => {
+  let reply = null;
+  const done = await askPasswordPrompt({
+    title: "Allow on this network",
+    message: "Enter your password to let devices on this network open the app. It is remembered for next time.",
+    submitLabel: "Allow",
+    submit: async (password) => {
+      reply = await apiJson("/auth/lan-networks/allow", {
+        method: "POST",
+        body: JSON.stringify({ current_password: password }),
+        ownsAuthErrors: true,
+      });
+      return reply;
+    },
+  });
+  if (done && reply) {
+    renderLanState(reply);
+    toast("Other devices can open the app on this network now.");
+  }
+});
 
 async function renderLanAccess() {
   if (!$("account-allow-lan")) return;

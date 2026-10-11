@@ -45,6 +45,18 @@ def _clean():
     vault.close()
 
 
+@pytest.fixture(autouse=True)
+def _devices_already_allowed(client):
+    """These tests are about sessions and the vault, so the phone here is one
+    this computer already allowed; holding a new device is test_lan_trust.py's."""
+    from memorymap.core import deps
+    from memorymap.core import lantrust
+
+    lantrust.set_flag(deps.get_config().data_dir, "ask_new_devices", False)
+    yield
+    lantrust.reset_for_tests()
+
+
 def _local(app) -> TestClient:
     return TestClient(app, base_url="http://127.0.0.1:8795", client=("127.0.0.1", 50000))
 

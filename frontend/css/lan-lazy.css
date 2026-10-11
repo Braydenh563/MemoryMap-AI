@@ -1,0 +1,56 @@
+/* lan-lazy.css: where another device opens the notebook (INBOX 867; the
+   owner: "can this be better styled and easier to read??"). Settings, Other
+   devices and the privacy receipt draw one block (`renderLanAddresses`,
+   settings-controls.js, which loads this): the address a phone types on a
+   line of its own, large and monospaced like a secret shown once
+   (`.recovery-key-value`), with Copy beside it; the rest folded under a
+   disclosure row. */
+
+.lan-addresses {
+  margin: var(--space-2) 0 var(--space-3);
+}
+.lan-address-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.lan-address {
+  flex: 1 1 16rem;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-h3);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+/* A phone's width: one size down, so an IPv4 address and its port stay on
+   one line (measured: 18.4px broke "...107:" from "8443" at 390); the phone break from Phase 9's set. */
+@media (max-width: 599.98px) {
+  .lan-address {
+    font-size: var(--text-lg);
+  }
+}
+.lan-address-more {
+  margin-top: var(--space-2);
+}
+.lan-address-more > .ph {
+  transition: rotate var(--ui-fast) var(--ease-out);
+}
+.lan-address-more[aria-expanded="true"] > .ph {
+  rotate: 90deg;
+}
+.lan-address-list {
+  margin: var(--space-1) 0 0;
+  padding-inline-start: var(--space-4);
+}
+.lan-address-small {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+  user-select: all;
+}

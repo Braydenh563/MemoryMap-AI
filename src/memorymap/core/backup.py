@@ -256,19 +256,11 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None
     """
     #: `run` is the `jobruns.Run` of the caller, when it has one: the steps
     #: and lines the Background tasks row shows while this works.
+    run = run if run is not None else _NoRun()
     aside = copy_dir(data_dir)
-    if run is not None:
-        run.plan(["Copy the database", "Check the copy"] + (["Copy to your folder"] if aside else []) + ["Remove old backups"])
-        run.say("Copying the database.")
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    folder = backups_dir(data_dir)
-    destination = folder / f"memorymap-{stamp}.db"
-    # Two backups in the same second (e.g. the pre-restore safety copy
-    # right after a manual one) must never overwrite each other.
-    counter = 1
-    while destination.exists():
-        destination = folder / f"memorymap-{stamp}-{counter}.db"
-        counter += 1
+    run.plan(["Copy the database", "Check the copy"] + (["Copy to your folder"] if aside else []) + ["Remove old backups"])
+    run.say("Copying the database.")
+    destination = _free_destination(backups_dir(data_dir), datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S"))
     #: **The backup gets its name only once it is a whole backup.** Copying
     #: straight into `destination` means a copy that fails part-way (a full
     #: disk is the measured case) leaves a file named like a backup holding
@@ -280,9 +272,8 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None
     try:
         snapshot(db_path, partial)
         os.replace(partial, destination)
-        if run is not None:
-            run.step(1)
-            run.say("Checking the copy.")
+        run.step(1)
+        run.say("Checking the copy.")
         #: Every copy is checked now, not only one with a run to report to,
         #: so every row can say "checked" (INBOX 805).
         try:
@@ -290,40 +281,72 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None
         except OSError:
             destination.unlink(missing_ok=True)
             raise
-        if run is not None:
-            run.step(2)
-        more: dict[str, str] = {}
-        if aside is not None:
-            #: A second copy that fails is a note on the backup, not a failed
-            #: backup: the one in the data folder is whole and checked.
-            if run is not None:
-                run.say(f"Copying to {aside}.")
-            _write_record(destination, origin, checked=True)  # the record the copy carries
-            try:
-                _copy_aside(destination, aside, keep)
-                more["copied_to"] = str(aside)
-            except OSError as exc:
-                logger.warning("the second copy of %s did not go to %s: %s", destination.name, aside, exc)
-                more["copy_error"] = str(exc)
-            if run is not None:
-                run.step(3)
-                run.say(f"Also copied to {aside}." if "copied_to" in more else f"Not copied: {more['copy_error']}")
+        run.step(2)
+        more = _second_copy(destination, origin, aside, keep, run)
         _write_record(destination, origin, checked=True, **more)
     except BaseException:
-        for stray in (partial, Path(f"{partial}-wal"), Path(f"{partial}-shm")):
-            try:
-                stray.unlink(missing_ok=True)
-            except OSError:
-                # Best-effort: never mask the real failure (out of space,
-                # usually) with the tidy-up that followed it.
-                pass
+        _discard_partial(partial)
         raise
 
     removed = prune(data_dir, keep)
-    if run is not None:
-        run.step(4 if aside else 3)
-        run.say(f"Removed {removed} old backup{'' if removed == 1 else 's'}." if removed else "No old backups to remove.")
+    run.step(4 if aside else 3)
+    run.say(f"Removed {removed} old backup{'' if removed == 1 else 's'}." if removed else "No old backups to remove.")
     return destination
+
+
+class _NoRun:
+    """A run nobody is watching: every report is dropped."""
+
+    def plan(self, steps) -> None:  # noqa: ANN001
+        pass
+
+    def say(self, line: str) -> None:
+        pass
+
+    def step(self, number: int) -> None:
+        pass
+
+
+def _free_destination(folder: Path, stamp: str) -> Path:
+    """The backup's path, never one already taken: two backups in the same
+    second (e.g. the pre-restore safety copy right after a manual one) must
+    never overwrite each other."""
+    destination = folder / f"memorymap-{stamp}.db"
+    counter = 1
+    while destination.exists():
+        destination = folder / f"memorymap-{stamp}-{counter}.db"
+        counter += 1
+    return destination
+
+
+def _second_copy(destination: Path, origin: str, aside, keep: int, run) -> dict[str, str]:  # noqa: ANN001
+    """The copy to the person's own folder, when one is set: what to record about it.
+    A second copy that fails is a note on the backup, not a failed backup:
+    the one in the data folder is whole and checked."""
+    more: dict[str, str] = {}
+    if aside is None:
+        return more
+    run.say(f"Copying to {aside}.")
+    _write_record(destination, origin, checked=True)  # the record the copy carries
+    try:
+        _copy_aside(destination, aside, keep)
+        more["copied_to"] = str(aside)
+    except OSError as exc:
+        logger.warning("the second copy of %s did not go to %s: %s", destination.name, aside, exc)
+        more["copy_error"] = str(exc)
+    run.step(3)
+    run.say(f"Also copied to {aside}." if "copied_to" in more else f"Not copied: {more['copy_error']}")
+    return more
+
+
+def _discard_partial(partial: Path) -> None:
+    """Remove what a failed copy left behind. Best-effort: never mask the real
+    failure (out of space, usually) with the tidy-up that followed it."""
+    for stray in (partial, Path(f"{partial}-wal"), Path(f"{partial}-shm")):
+        try:
+            stray.unlink(missing_ok=True)
+        except OSError:
+            pass  # best-effort, as above
 
 
 def verify_copy(path: Path) -> None:

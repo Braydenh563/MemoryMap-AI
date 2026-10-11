@@ -5556,3 +5556,45 @@ def test_an_address_for_another_device_is_one_block_drawn_by_one_renderer() -> N
     for name in ("settings-controls.js", "settings-data.js"):
         text = (js / name).read_text(encoding="utf-8")
         assert 'addresses.join(" or ")' not in text and '.join(", ") || listening.host' not in text, name
+#: DESIGN.md, "A control that acts on the computer MemoryMap runs on". Every
+#: static control that reaches a `this_computer_only` route or a this-computer
+#: preference (routes_settings `_THIS_COMPUTER_PREFERENCES`).
+THIS_COMPUTER_CONTROLS = {
+    "llm-provider-select", "llm-provider-apply", "local-only-ai", "restore-bundle", "import-dir",
+    "pref-searxng", "searxng-detect", "searxng-start", "searxng-stop", "searxng-reinstall", "searxng-autostart",
+    "pref-update-check", "pref-auto-update", "pref-update-channel-main", "update-install-version",
+    "extras-list", "extras-bulk-install", "embed-models-list", "embed-choices", "embed-pull-go",
+    "embedding-apply", "pref-semantic-auto-install", "quit-btn", "app-quit",
+}
+
+
+class _ThisComputerScan(HTMLParser):
+    VOID = {"input", "img", "br", "hr", "meta", "link", "source", "wbr", "area", "col", "embed", "track"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack: list[bool] = []
+        self.marked: set[str] = set()
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        inside = (bool(self.stack) and self.stack[-1]) or "data-this-computer" in attrs
+        if inside and attrs.get("id"):
+            self.marked.add(attrs["id"])
+        if tag not in self.VOID:
+            self.stack.append(inside)
+
+    def handle_endtag(self, tag):
+        if tag not in self.VOID and self.stack:
+            self.stack.pop()
+
+
+def test_a_control_that_acts_on_this_computer_says_so_elsewhere() -> None:
+    from memorymap.api.this_computer import REFUSAL
+
+    scan = _ThisComputerScan()
+    scan.feed((ROOT / "frontend" / "index.html").read_text(encoding="utf-8"))
+    assert not THIS_COMPUTER_CONTROLS - scan.marked, sorted(THIS_COMPUTER_CONTROLS - scan.marked)
+    skills = (ROOT / "frontend" / "js" / "skills.js").read_text(encoding="utf-8")
+    assert f'const THIS_COMPUTER_ONLY = "{REFUSAL}";' in skills
+    assert "markOtherDevice().catch" in skills

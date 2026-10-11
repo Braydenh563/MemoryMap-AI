@@ -916,7 +916,7 @@ def cancel_job(kind: str, name: str = "") -> dict:
     return {"cancelling": True, "kind": kind, "name": name}
 
 
-@router.post("/embedding-backend")
+@router.post("/embedding-backend", dependencies=[Depends(this_computer_only)])
 def set_embedding_backend(
     body: EmbeddingBackendBody, session: Session = Depends(get_session)
 ) -> dict:
@@ -1005,7 +1005,7 @@ def rebuild_search_index() -> dict:  # noqa: D401  # see the long docstring belo
     return {"reindex_started": bool(started)}
 
 
-@router.post("/delete")
+@router.post("/delete", dependencies=[Depends(this_computer_only)])
 def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dict:
     """Uninstall a model from Ollama to reclaim disk. Refuses to remove a
     model that's currently in use (chat, utility, or Ollama embeddings), so
@@ -1039,7 +1039,7 @@ def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dic
     return {"deleted": True, "name": body.name}
 
 
-@router.post("/pull")
+@router.post("/pull", dependencies=[Depends(this_computer_only)])
 def pull_model(body: PullBody, session: Session = Depends(get_session)) -> dict:
     #: A pasted Hugging Face link becomes ``hf.co/owner/repo:QUANT``, and a name
     #: Ollama could not pull is refused here with the reason, not by a failed

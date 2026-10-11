@@ -1070,13 +1070,68 @@ function downloadJson(filename, payload) {
 // not reliably distinguishable, and a wrong guess here is a silent failure in
 // the direction we are trying to fix.
 let isDesktopShell = null; // null = not yet asked
+//: One `/health` read for both questions below.
+let healthFactsOnce = null;
 
+function healthFacts() {
+  healthFactsOnce ||= apiJson("/health", { silent: true }).catch(() => null);
+  return healthFactsOnce;
+}
+
+//: `/health` answers per device: a phone on the network is never the desktop
+//: shell, so it downloads its exports to itself rather than writing them onto
+//: the computer's disk (the owner, 2026-10-11: "I pressed open file location
+//: for the support bundle on my phone and it opened up file explorer on my
+//: computer").
 async function desktopShell() {
   if (isDesktopShell === null) {
-    const health = await apiJson("/health", { silent: true }).catch(() => null);
+    const health = await healthFacts();
     isDesktopShell = !!(health && health.desktop);
   }
   return isDesktopShell;
+}
+
+//: The words the server refuses with (`api/this_computer.py` REFUSAL), shown
+//: before the press rather than after it. tests/test_ui_recipes.py holds them equal.
+const THIS_COMPUTER_ONLY = "Not available on this device. Do it on the computer MemoryMap runs on.";
+
+//: DESIGN.md, "A control that acts on the computer MemoryMap runs on": on
+//: another device, each `[data-this-computer]` block gets one note line and
+//: dimmed controls, `="hide"` is hidden, and a press toasts the note instead
+//: of asking the server for a 403. Help toggles inside still open.
+async function markOtherDevice() {
+  const health = await healthFacts();
+  if (!health || health.this_computer !== false) return;
+  document.documentElement.dataset.otherDevice = "1";
+  for (const block of document.querySelectorAll("[data-this-computer]:not([data-this-computer='hide'])")) {
+    const note = document.createElement("p");
+    note.className = "muted small this-computer-note";
+    note.textContent = THIS_COMPUTER_ONLY;
+    if (block.tagName === "SECTION") block.prepend(note);
+    else block.before(note);
+  }
+  document.addEventListener("click", refuseOnOtherDevice, true);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") refuseOnOtherDevice(event);
+  }, true);
+}
+
+function onOtherDevice() {
+  return document.documentElement.dataset.otherDevice === "1";
+}
+
+//: At load, not from `startApp`: `/health` is open before the unlock, and the
+//: settings markup is already parsed (app.js is held to its gzip ratchet).
+markOtherDevice().catch(() => {});
+
+function refuseOnOtherDevice(event) {
+  const target = event.target instanceof Element ? event.target : null;
+  const control = target?.closest("button, input, select, textarea, label, a");
+  if (!control?.closest("[data-this-computer]")) return;
+  if (control.closest("[data-help-for], .help-body, summary")) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  toast(THIS_COMPUTER_ONLY, "info");
 }
 
 function blobToBase64(blob) {

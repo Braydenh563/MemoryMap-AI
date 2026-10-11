@@ -21,6 +21,7 @@ import requests
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from memorymap.api.this_computer import this_computer_only
 from memorymap.ai import bench, facts
 from memorymap.core import deps, jobruns, jobs
 from memorymap.core.atomic_io import atomic_write_text
@@ -127,6 +128,9 @@ def budgets(request: Request, live: bool = False, x_auth_token: str | None = Hea
     whether their own notebook is inside the numbers the fixture is held to."""
     if not live:
         return {"budgets": budget_rows()}
+    #: The timed requests go to 127.0.0.1 carrying the caller's token, so to
+    #: the guard they look like this computer: only this computer starts them.
+    this_computer_only(request)
     #: This server over loopback, never the Host header's name: the request's
     #: own auth headers ride along, so the address must be this process.
     port = (request.scope.get("server") or ("127.0.0.1", 8000))[1]

@@ -35,7 +35,7 @@ from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
 from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, jobruns, jobstore, taskhistory
 from memorymap.core import jobs as bgpool
-from memorymap.api.this_computer import this_computer_only
+from memorymap.api.this_computer import is_another_device, this_computer_only
 
 router = APIRouter(tags=["tasks"])
 
@@ -760,14 +760,17 @@ def clear_history() -> dict:
 
 
 @router.get("/desktop/fullscreen")
-def desktop_fullscreen_state() -> dict:
+def desktop_fullscreen_state(request: Request) -> dict:
     """Whether this app runs in a window that can fill the screen itself.
 
     `available` is false in a browser tab, where the page uses the browser's
     own Fullscreen API (see `core.window_hook` for why the desktop window
-    cannot)."""
+    cannot), and on any other device, whose page is a browser tab: told
+    true, a phone pressed full screen and got the 403 the toggle answers it."""
     from memorymap.core import window_hook
 
+    if is_another_device(request):
+        return {"available": False, "fullscreen": False}
     return {"available": window_hook.available(), "fullscreen": window_hook.is_fullscreen()}
 
 

@@ -2446,7 +2446,7 @@ function typingDots(label = null, { persona = null, words = false } = {}) {
         if (next === "writing") stopThinkingWordRotation(dots);
       }
     };
-    if (words && wantsThinkingWords()) {
+    if (words && typeof wantsThinkingWords === "function" && wantsThinkingWords()) {
       startThinkingWordRotation(dots, persona);
     }
     return dots;

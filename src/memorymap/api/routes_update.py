@@ -41,10 +41,12 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from memorymap.core import egress
 from memorymap import __version__
+from memorymap.api.this_computer import this_computer_only
 
 router = APIRouter(prefix="/update", tags=["system"])
 logger = logging.getLogger("memorymap.update")
@@ -194,6 +196,7 @@ def current() -> dict:
 MAX_DOWNLOAD_REDIRECTS = 5
 
 
+@egress.labelled(lambda url, *a, **k: f"Downloading an update: {egress.short(url.rsplit('/', 1)[-1])}")
 def _download(url: str, dest: Path) -> None:
     """Streamed, with progress on `_state`, the installer is well over a
     typical extras wheel, so a caller polling for "still alive" needs an
@@ -423,6 +426,7 @@ def update_choice(body: _ChoiceBody) -> dict:
 
 
 @router.get("/check")
+@egress.labelled("Checking GitHub for a new version")
 def check_for_update(manual: bool = False) -> dict:
     """Is a newer release on GitHub than the one running right now?
 
@@ -551,6 +555,7 @@ def check_for_update(manual: bool = False) -> dict:
 
 
 @router.get("/releases")
+@egress.labelled("Listing the versions on GitHub")
 def list_releases() -> dict:
     """Recent GitHub releases, for a "pick a specific version" control in
     Settings: asked for directly. Only meaningful on the one install type
@@ -655,7 +660,8 @@ def source_update_status() -> dict:
     return {"just_updated": False, "from": "", "to": ""}
 
 
-@router.post("/apply")
+@router.post("/apply", dependencies=[Depends(this_computer_only)])
+@egress.labelled(lambda tag=None, *a, **k: f"Fetching version {tag or 'latest'} from GitHub")
 def apply_update(tag: str | None = None) -> dict:
     """Download the official installer for `tag` (or the latest release
     when omitted) and hand off to it. Never accepts a URL from the request

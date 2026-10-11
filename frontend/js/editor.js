@@ -1143,7 +1143,7 @@ function editorLinkMatches(needle) {
       icon: "ph:note",
       //: The note's opening line only: its whole text flattened read as the
       //: title then the picture's alt text then the title again (INBOX 784).
-      label: noteLabel({ content: (entry.content || "").split("\n")[0] }, 60),
+      label: noteNamePlain(entry.content, 60) || "(empty note)",
       hint: "note",
       //: The note itself, for the preview: its first lines are what "is
       //: this the one I mean" is answered by (`editorRenderPreview`).
@@ -1920,7 +1920,25 @@ function selectionBarShow(textarea) {
   //: the next line of the note instead, which is text you can scroll to and
   //: not a control you might press by mistake.
   if (y < Math.max(margin, boxTop)) y = top + (lineHeight || 20) + 6;
-  const x = Math.max(margin, Math.min(left, window.innerWidth - size.width - margin));
+  let x = Math.max(margin, Math.min(left, window.innerWidth - size.width - margin));
+  //: **A board's text is placed against the selection itself** (INBOX 817,
+  //: the owner: the bar "stays where it opened" when the map pans, and can
+  //: sit across the topic). The caret line above is right for a page that
+  //: scrolls, where a line is a line; on a board the box moves under the bar
+  //: with every pan and zoom frame (`wbZoomFrameWork` calls `selectionBarSync`
+  //: once a frame), and a multi-line selection's first line is not its edge.
+  //: Above the selection with an 8px gap, below it when there is no room
+  //: above, so the bar never lies on the text being formatted.
+  const onBoard = textarea.id === "wb-topic-edit" || textarea.id === "wb-text-edit";
+  const live = onBoard && textarea.el?.isContentEditable ? window.getSelection() : null;
+  const range = live?.rangeCount ? live.getRangeAt(0).getBoundingClientRect() : null;
+  if (range && (range.width || range.height)) {
+    const gap = 8;
+    y = range.top - size.height - gap;
+    if (y < margin) y = range.bottom + gap;
+    if (y + size.height > window.innerHeight - margin) y = Math.max(margin, range.top - size.height - gap);
+    x = Math.max(margin, Math.min(range.left, window.innerWidth - size.width - margin));
+  }
   bar.style.top = `${Math.round(y)}px`;
   bar.style.left = `${Math.round(x)}px`;
 }

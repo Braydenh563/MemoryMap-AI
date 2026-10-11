@@ -78,7 +78,9 @@ def import_app(
         read = app_import.read(source, raw, parse_frontmatter=_parse_frontmatter)
     except app_import.TooBig as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
-    with jobruns.job_run("import") as run, activity.track("import", f"Importing from {label}") as job:
+    with jobruns.job_run("import", title=f"Importing from {label}", origin="you") as run, activity.track(
+        "import", f"Importing from {label}", ledger=False
+    ) as job:
         job.update(0, len(read.notes), f"0 of {len(read.notes)} notes")
         progress = _progress(run, job)
         if source == "memorymap":
@@ -126,7 +128,7 @@ def export_notebook_folder(background_tasks: BackgroundTasks, session: Session =
     os.close(handle)
     background_tasks.add_task(lambda: Path(tmp_path).unlink(missing_ok=True))
     uploads_dir = deps.get_config().uploads_dir
-    with jobruns.job_run("export") as run, zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as archive:
+    with jobruns.job_run("export", origin="you") as run, zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as archive:
         done = export_folder.export(session, uploads_dir, archive, progress=lambda n, total: run.step(n, total, "Writing notes"))
         counts = done.manifest["counts"]
         run.result = f"exported {counts['notes']} notes, {counts['attachments']} attachments" + (

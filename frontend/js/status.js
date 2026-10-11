@@ -94,13 +94,14 @@ function storedNotifications() {
 // runs every thirty seconds and must not add the same fired reminder twice.
 //: Returns the row's id (null when nothing was recorded), so a toast's live
 //: action can be tied to its row (`keepToastAction`).
-function recordNotification({ kind, title, detail = "", key = "", action = null }) {
+function recordNotification({ kind, title, detail = "", key = "", action = null, runId = "" }) {
   if (kind !== "reminder" && notificationsMuted()) return null;
   const items = storedNotifications();
   const id = key || `${kind}:${title}:${Date.now()}`;
   if (key && items.some((n) => n.id === id)) return null;
   if (key && dismissedNotificationIds().has(id)) return null;
-  items.push({ id, kind, title, detail, at: Date.now(), action });
+  //: `runId` ties a "Started:" row to its run, so the ending can replace it.
+  items.push({ id, kind, title, detail, at: Date.now(), action, ...(runId ? { runId } : {}) });
   try {
     localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items.slice(-MAX_NOTIFICATIONS)));
   } catch {
@@ -108,6 +109,45 @@ function recordNotification({ kind, title, detail = "", key = "", action = null 
   }
   renderNotificationBadge();
   return id;
+}
+
+//: **A run's "Started:" row becomes its ending** (INBOX 811 item 4, the
+//: transparency agent's half): "Finished: Warming up the filing model, took
+//: 4 s" or the failure, in the same row and place, under the history's key so
+//: the finished list does not add a second row. Returns whether it settled.
+function settleNotification(id, { key, kind, title, detail = "" }) {
+  const items = storedNotifications();
+  if (items.some((n) => n.id === key)) return true;
+  const row = items.find((n) => n.id === id);
+  if (!row) return false;
+  Object.assign(row, { id: key, kind, title, detail, at: Date.now() });
+  delete row.runId;
+  try {
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items));
+  } catch {
+    return false;
+  }
+  renderNotificationBadge();
+  if (!$("notif-panel")?.classList.contains("hidden")) openNotifications({ keepWatermark: true });
+  return true;
+}
+
+//: The history's half of the same rule: a finished run whose "Started:" row
+//: is still stored (the page reloaded mid-run, so the poll never saw it end)
+//: is settled by its run id.
+function settleStartedNotification(item, key) {
+  if (storedNotifications().some((n) => n.id === key)) return true;
+  const started = item.run_id && storedNotifications().find((n) => n.runId === item.run_id);
+  return Boolean(started) && settleNotification(started.id, { key, ...taskEndingWords(item, item.label) });
+}
+
+//: "Finished: X, took 4 s", "Failed: X" with the reason, "Stopped: X".
+function taskEndingWords(ended, label) {
+  const took = ended ? jobDurationWords(ended.duration_ms) : "";
+  const name = (ended && ended.label) || label;
+  if (ended && ended.outcome === "failed") return { kind: "error", title: `Failed: ${name}`, detail: ended.detail || "" };
+  if (ended && ended.outcome === "cancelled") return { kind: "task", title: `Stopped: ${name}`, detail: ended.detail || "" };
+  return { kind: "task", title: `Finished: ${name}${took ? `, took ${took}` : ""}`, detail: (ended && ended.detail) || "" };
 }
 
 function notificationsReadAt() {
@@ -379,20 +419,26 @@ function notificationGoes(action) {
   return Boolean(action && (action.tab || action.exports || action.panel || action.settings || NOTICE_TARGETS[action.open]));
 }
 
-//: The row's own button for its action (INBOX 585): the toast's label, or a
-//: plain one for the rows that only ever had a target. Disabled, with the
-//: reason beside it, once a one-shot action is spent or out of date.
+//: The row's own action (INBOX 585), a quiet text button at the end of its
+//: meta line (INBOX 811: a grey bordered block on a line of its own was
+//: heavier than the message). Once a one-shot action is spent or out of
+//: date there is nothing to press: the line says so in its own words ("Undo
+//: expired", "Done"), never a disabled button beside the reason.
 function notificationActionButton(item) {
   const action = item.action;
   if (!action || !(action.label || notificationGoes(action))) return null;
   const live = noticeLive.get(item.id);
+  const label = action.label || (action.exports ? "Open folder" : action.filter ? "Show them" : "Open");
+  if (!noticeLiveValid(live) && (action.once || !notificationGoes(action))) {
+    const state = document.createElement("span");
+    state.className = "notif-cta-state";
+    state.textContent = live?.used || redoStack.includes(live?.stacked) ? "Done" : /^undo$/i.test(label) ? "Undo expired" : "Expired";
+    return state;
+  }
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "small toast-action notif-cta";
-  button.textContent = action.label || (action.exports ? "Open folder" : action.filter ? "Show them" : "Open");
-  const wrap = document.createElement("div");
-  wrap.className = "notif-cta-row";
-  wrap.append(button);
+  button.className = "ghost small quiet notif-cta";
+  button.textContent = label;
   if (noticeLiveValid(live)) {
     button.addEventListener("click", async (event) => {
       event.stopPropagation();
@@ -403,20 +449,14 @@ function notificationActionButton(item) {
       live.used = live.once;
       await live.run();
     });
-  } else if (!action.once && notificationGoes(action)) {
+  } else {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       closeNotifications();
       runNotificationGo(action);
     });
-  } else {
-    button.disabled = true;
-    const state = document.createElement("span");
-    state.className = "notif-cta-state muted";
-    state.textContent = live?.used || redoStack.includes(live?.stacked) ? "Done" : "Expired";
-    wrap.append(state);
   }
-  return wrap;
+  return button;
 }
 
 //: `keepWatermark`: a re-render from a row's own read/unread toggle must
@@ -489,14 +529,22 @@ async function openNotifications({ keepWatermark = false } = {}) {
     const unread = isNotificationUnread(item, readAt, forced);
     if (unread) row.classList.add("notif-unread");
 
-    //: **One row recipe** (INBOX 585: "clashing, misaligned, and/or poorly
-    //: spaced"): the unread dot, the icon, the text column, then one side
-    //: column holding the time, which the row's two controls replace while
-    //: it is pointed at. Every column's first line is the title's line
-    //: (06-timeline-dialogs.css), and nothing is laid over the text.
+    //: **One row recipe** (INBOX 585, then 811): the icon column (the unread
+    //: dot in its leading gutter, so a read row and an unread one put their
+    //: icons on one edge), then one block: the message, its detail, and a
+    //: meta line of the time, the row's two controls beside it (shown on
+    //: hover and focus, always under a finger, never in the time's place, so
+    //: every row's time starts on one x) and the row's action at the end.
     const dot = document.createElement("span");
     dot.className = "notif-dot";
-    dot.setAttribute("aria-hidden", "true");
+    //: Named, not only drawn: a dot is a state shown by colour, so it says
+    //: "Unread" to the pointer and to a screen reader (the owner's
+    //: learnability rule, 2026-10-11).
+    if (unread) {
+      dot.setAttribute("role", "img");
+      dot.setAttribute("aria-label", "Unread");
+      dot.title = "Unread";
+    } else dot.setAttribute("aria-hidden", "true");
     const icon = document.createElement("span");
     icon.className = "notif-icon";
     setLabel(icon, NOTIFICATION_ICONS[item.kind] || NOTIFICATION_ICONS.info);
@@ -526,8 +574,9 @@ async function openNotifications({ keepWatermark = false } = {}) {
       meta.textContent = item.detail;
       body.append(meta);
     }
-    const cta = notificationActionButton(item);
-    if (cta) body.append(cta);
+    const foot = document.createElement("div");
+    foot.className = "notif-foot";
+    body.append(foot);
     row.append(dot, icon, body);
 
     //: The dot is the control. A row is either new or it is not, so this is a
@@ -578,11 +627,10 @@ async function openNotifications({ keepWatermark = false } = {}) {
     const actions = document.createElement("span");
     actions.className = "notif-row-actions";
     actions.append(readToggle, dismiss);
-    const side = document.createElement("span");
-    side.className = "notif-side";
-    side.append(time, actions);
+    foot.append(time, actions);
+    const cta = notificationActionButton(item);
+    if (cta) foot.append(cta);
     row.dataset.at = String(item.at);
-    row.append(side);
 
     // A notification you cannot act on is a notification you learn to ignore.
     // The whole row goes where its target is; a one-shot action (an Undo) is
@@ -1285,7 +1333,8 @@ function toastActionButton(note, label, run) {
 //: already in the bell (`keepToastAction`); `also: {label, run}`, a second
 //: button beside the first (a bin notice's "Go to bin" next to its Undo,
 //: INBOX 705). It is the toast's own and is not kept in the bell: its row
-//: keeps the one action it always had.
+//: keeps the one action it always had. `ms` is how long it stays (8 s by
+//: default; a clear that can be undone passes 10 s).
 function toastAction(message, actionLabel, onAction, opts = {}) {
   const run = keepToastAction(message, actionLabel, onAction, opts);
   const box = toastHost();
@@ -1296,7 +1345,7 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   text.textContent = message;
   // `sticky`: a notice that stays true until acted on (a damaged notebook
   // file) is not timed out; its close button is the way to put it away.
-  note.toastTimer = opts.sticky ? null : setTimeout(() => dismissToast(note), 8000);
+  note.toastTimer = opts.sticky ? null : setTimeout(() => dismissToast(note), opts.ms || 8000);
   const buttons = [toastActionButton(note, actionLabel, run)];
   if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
   note.append(text, ...buttons, toastCloseButton(note, note.toastTimer));
@@ -1889,6 +1938,34 @@ let embeddingFallbackRunning = false;
 function settingsOpen() {
   // The Models section lives inside the settings modal now (Wave A).
   return settingsModalOpen();
+}
+
+// --- every Settings change has its way back (settings-data.js, Recent changes) --
+//
+// The owner, 2026-10-11: "undo thing in settings??". Two choke points see every
+// change, so no control has to remember: every `/preferences` answer passes the
+// wrapper below (the last one kept as text, so a PUT can be diffed against it),
+// and ai-tools.js reports a look key. All the rest (the diff, the list, the
+// Undo) is the lazy settings-data.js, loaded only when a change is made while
+// Settings is open: the boot scripts are at their gzip cap, and `apiJson` is
+// wrapped here rather than edited at its twenty callers.
+let settingsPrefsLast = null;
+//: `settingsHistoryBusy` is set while an Undo or Redo writes, so its own write is
+//: not noted again.
+let settingsHistoryBusy = false;
+{
+  const apiJsonInner = apiJson;
+  apiJson = async (path, options = {}) => {
+    const data = await apiJsonInner(path, options);
+    if (path === "/preferences") {
+      const was = settingsPrefsLast;
+      settingsPrefsLast = JSON.stringify(data);
+      if (was && options.method === "PUT" && !settingsHistoryBusy && settingsOpen()) {
+        ensureModule("settingsData").then(() => settingsPrefsSeen(JSON.parse(was), data));
+      }
+    }
+    return data;
+  };
 }
 
 function jobsRunning() {
@@ -2594,13 +2671,17 @@ function renderStatusBar() {
   const slot = $("status-task");
   slot.classList.toggle("hidden", !task);
   if (task) {
-    const others = backgroundTasks.length - 1;
+    //: "2 running: Answering 'what is a mouse'" (INBOX 805): how many, and
+    //: the newest concern by name. The ring is the shared working mark
+    //: (`ph:spin`), which only breathes under reduced motion.
+    const count = backgroundTasks.length;
     paintStatusItem("status-task", {
-      icon: "ph:gear",
-      label: others > 0 ? `${task.label} (+${others})` : task.label,
+      icon: "ph:spin",
+      value: count,
+      label: `running: ${task.label}`,
       title:
-        `${task.label}${task.detail ? `, ${task.detail}` : ""}` +
-        "\n\nClick to open Activity, where it can stop.",
+        backgroundTasks.map((t) => `${t.label}${t.detail ? `, ${t.detail}` : ""}`).join("\n") +
+        "\n\nClick to open Activity, where each run shows its lines and can stop.",
     });
   }
 
@@ -2795,11 +2876,12 @@ function renderChatModeSeg() {
     agentButton.title = gated
       ? `Agent mode needs a model, or the Needle extra, to call tools. ${AI_OFFLINE_HINT}.`
       : engine
-        ? "With no model, Agent answers with the app's own tools: the time, sums, counts, notes on a topic and acts. Needle picks a tool for the rest. A model does more."
+        ? "Agent, app tools only. With no model, Agent answers with the app's own tools: the time, sums, counts, notes on a topic and acts. Needle picks a tool for the rest. A model does more."
         : agentButton.dataset.enabledTitle;
   }
   renderWebSearchToggle();
   const agent = $("tools-toggle").checked && !gated;
+  if (!(agent && modelStatus?.model_ready !== true)) showAgentNoModelHint(false);
   // Two `addEventListener` calls for Quit and Clear-history used to sit here,
   // spliced into the middle of this function by an editing accident. It parsed,
   // so nothing complained: but this function runs on every chat-mode change,
@@ -2814,9 +2896,20 @@ function renderChatModeSeg() {
   }
 }
 
+//: Agent with no model (INBOX 840, CHAT_PLAN 22a): the first choice of it says
+//: so under the composer; the segment's title always does.
+function showAgentNoModelHint(on) {
+  const line = $("chat-agent-hint");
+  if (line) line.classList.toggle("hidden", !on);
+}
+
 async function setChatMode(mode) {
   const agent = mode === "agent";
   $("tools-toggle").checked = agent;
+  if (agent && agentModeAvailable() && modelStatus?.model_ready !== true && !prefs.has("agentNoModelHint")) {
+    prefs.set("agentNoModelHint", "1");
+    showAgentNoModelHint(true);
+  }
   renderChatModeSeg();
   // Remembered, because it is a way of working rather than a per-message
   // choice: the same preference the checkbox always wrote.
@@ -3091,6 +3184,9 @@ function noticeTaskTransitions(running, history) {
   for (const [key, task] of now) {
     if (seenRunningTasks.has(key)) continue;
     seenRunningTasks.set(key, task);
+    //: A chat answer, a transcription: the person is watching it where they
+    //: started it. The status bar and Running jobs list it; nothing announces it.
+    if (task.watched) continue;
     const run = addAgentRun({
       kind: "job",
       name: task.label,
@@ -3101,10 +3197,11 @@ function noticeTaskTransitions(running, history) {
     renderAgentRunSummary(run);
     backgroundRunRows.set(key, run);
     if (!QUIET_TASK_KINDS.has(task.kind)) openPanelForRun(run);
-    recordNotification({
+    task.noticeId = recordNotification({
       kind: "task",
       title: `Started: ${task.label}`,
       detail: task.detail || "",
+      runId: task.run_id || "",
       // Keyed per *start*, not per job. It used to be `task-start:${key}`,
       // which deduped against localStorage, so the second time the
       // autonomous pass (or any recurring job) ran, its start recorded
@@ -3121,12 +3218,20 @@ function noticeTaskTransitions(running, history) {
     seenRunningTasks.delete(key);
     const row = backgroundRunRows.get(key);
     backgroundRunRows.delete(key);
+    if (task.watched) continue;
     // The outcome comes from the server's own history, on this same payload, 
     // "it stopped appearing in the running list" is true of a job that died as
     // much as one that succeeded, and a cheerful toast over a failure is how
     // people learn to ignore toasts. Newest first, so `find` takes the ending
     // that just happened rather than a previous run of the same job.
-    const ended = history.find((item) => (item.kind || "job") === (task.kind || "job"));
+    const ended =
+      history.find((item) => task.run_id && item.run_id === task.run_id) ||
+      history.find((item) => (item.kind || "job") === (task.kind || "job"));
+    //: Its "Started:" row now says how it ended (INBOX 811 item 4).
+    if (task.noticeId) {
+      const endKey = ended ? `task:${ended.kind || ended.label}:${ended.at}` : `${task.noticeId}:end`;
+      settleNotification(task.noticeId, { key: endKey, ...taskEndingWords(ended, task.label) });
+    }
     if (ended && ended.outcome === "failed") {
       endAgentRun(row, { state: "failed" });
       agentActivityNotice(`Failed: ${ended.label || task.label}`, { isError: true });

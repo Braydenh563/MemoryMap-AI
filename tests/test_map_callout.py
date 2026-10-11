@@ -1,7 +1,7 @@
 """A callout on a topic, and labels under it (INBOX 797, canvasdepth2; MINDMAP_PLAN "canvasdepth,
 ranked" row 2, XMind's). `data.callout`, a few words drawn in a bubble over
 the topic's own as a row of its card, so a tidy measures it. The browser
-half is `scratchpad/ui-sweeps/mapcallout.js`."""
+half is `scratchpad/ui-sweeps/mapdepth2.js mapcallout`."""
 
 from __future__ import annotations
 

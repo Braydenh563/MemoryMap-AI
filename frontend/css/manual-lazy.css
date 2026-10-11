@@ -46,7 +46,8 @@
   text-align: start;
   white-space: normal;
 }
-.manual-jump:hover {
+.manual-jump:hover,
+.manual-jump:is(:focus-visible, :has(:focus-visible)) {
   background: var(--hover-veil);
   color: var(--ink);
 }

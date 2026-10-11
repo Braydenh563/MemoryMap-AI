@@ -1,3 +1,77 @@
+/* --- Wave J: accent presets + appearance picker --------------------------------- */
+/* Each preset overrides just the accent + its soft tint + the primary
+   background blob; --page and text stay theme-driven, so every accent
+   works in both light and dark. */
+:root[data-accent="emerald"] {
+  --accent: #0e9f6e;
+  --accent-soft: rgba(14, 159, 110, 0.16);
+  --blob-a: rgba(14, 159, 110, 0.18);
+}
+:root[data-accent="rose"] {
+  --accent: #ec4899;
+  --accent-soft: rgba(236, 72, 153, 0.16);
+  --blob-a: rgba(236, 72, 153, 0.18);
+}
+:root[data-accent="amber"] {
+  --accent: #d97706;
+  --accent-soft: rgba(217, 119, 6, 0.16);
+  --blob-a: rgba(217, 119, 6, 0.18);
+}
+:root[data-accent="violet"] {
+  --accent: #7c3aed;
+  --accent-soft: rgba(124, 58, 237, 0.16);
+  --blob-a: rgba(124, 58, 237, 0.18);
+}
+:root[data-accent="teal"] {
+  --accent: #0d9488;
+  --accent-soft: rgba(13, 148, 136, 0.16);
+  --blob-a: rgba(13, 148, 136, 0.18);
+}
+:root[data-accent="sky"] {
+  --accent: #0ea5e9;
+  --accent-soft: rgba(14, 165, 233, 0.16);
+  --blob-a: rgba(14, 165, 233, 0.18);
+}
+:root[data-accent="lime"] {
+  --accent: #65a30d;
+  --accent-soft: rgba(101, 163, 13, 0.16);
+  --blob-a: rgba(101, 163, 13, 0.18);
+}
+:root[data-accent="crimson"] {
+  --accent: #dc2626;
+  --accent-soft: rgba(220, 38, 38, 0.15);
+  --blob-a: rgba(220, 38, 38, 0.18);
+}
+:root[data-accent="fuchsia"] {
+  --accent: #c026d3;
+  --accent-soft: rgba(192, 38, 211, 0.16);
+  --blob-a: rgba(192, 38, 211, 0.18);
+}
+:root[data-accent="slate"] {
+  --accent: #64748b;
+  --accent-soft: rgba(100, 116, 139, 0.18);
+  --blob-a: rgba(100, 116, 139, 0.20);
+}
+:root[data-accent="sunset"] {
+  --accent: #f97316;
+  --accent-soft: rgba(249, 115, 22, 0.16);
+  --blob-a: rgba(249, 115, 22, 0.20);
+}
+:root[data-accent="ocean"] {
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.16);
+  --blob-a: rgba(37, 99, 235, 0.18);
+}
+:root[data-accent="mint"] {
+  --accent: #10b981;
+  --accent-soft: rgba(16, 185, 129, 0.16);
+  --blob-a: rgba(16, 185, 129, 0.18);
+}
+:root[data-accent="grape"] {
+  --accent: #9333ea;
+  --accent-soft: rgba(147, 51, 234, 0.16);
+  --blob-a: rgba(147, 51, 234, 0.20);
+}
 /* --- sidebar heading rows ----------------------------------------------------
    All three sidebars (Categories, Chats, Recent documents) now open with the
    same row: a heading on the left, at most one action on the right, and a
@@ -252,7 +326,7 @@
   line-height: 1.5;
 }
 .msg-edit-hint {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   margin: 0;
 }
 .msg-edit-actions {
@@ -308,7 +382,7 @@ select.ai-unavailable {
 }
 .chip .thumb-wrap .unlink {
   background: var(--page);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   width: 20px;
   height: 20px;
   display: flex;
@@ -316,7 +390,8 @@ select.ai-unavailable {
   justify-content: center;
   opacity: 0.8;
 }
-.thumb-wrap .unlink:hover {
+.thumb-wrap .unlink:hover,
+.thumb-wrap .unlink:is(:focus-visible, :has(:focus-visible)) {
   opacity: 1;
 }
 .entry-content s {
@@ -383,7 +458,8 @@ select.ai-unavailable {
   --att-tint: var(--ok);
 }
 @media (hover: hover) {
-  .att-card:hover {
+  .att-card:hover,
+  .att-card:is(:focus-visible, :has(:focus-visible)) {
     border-color: var(--accent);
     background: var(--hover-veil);
   }
@@ -627,10 +703,20 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 .shortcut-list li>span {
   flex: 1 1 auto;
 }
-/* The row's Change is a fixed hit target: shrinking with the row cut its
+/* The row's buttons are fixed hit targets: shrinking with the row cut a
    label at 390 (devibe.js: 55px of text in a 53px button). */
 .shortcut-list li>button {
   flex: 0 0 auto;
+}
+/* The keys are the rebind button (INBOX 810): the chip draws itself, the
+   button is only its hit area (`--target-min`, past WCAG 2.2's 24px), the
+   ghost tint under the pointer or the keyboard and the focus ring. A fixed
+   column, so the descriptions start on one edge. */
+.shortcut-list button.shortcut-key {
+  justify-content: flex-start;
+  min-width: 7.5rem;
+  min-height: var(--target-min);
+  padding: 0 var(--space-1);
 }
 /* The keys are one item, not one item per key. Every `<kbd>` in a row used
    to be its own flex child, so a chord row's keys and the separators between
@@ -699,7 +785,7 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
   background: var(--chip-bg);
   color: var(--ink);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   max-width: 100%;
   min-width: 0;
@@ -785,9 +871,13 @@ button.map-chip:focus-visible {
    <body> while open, placed in window coordinates under (or over) the field
    at the field's own width; the escaped menus' tier, so it shows over the
    edit form inside a sheet or a dialog as well. */
+.tag-suggest,
+.search-suggest,
+.search-suggest-ghost {
+  z-index: 2550;
+}
 .tag-suggest {
   position: fixed;
-  z-index: 2550;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -801,6 +891,99 @@ button.map-chip:focus-visible {
 .tag-suggest > .rich-picker-list {
   min-height: 0;
   flex: 1 1 auto;
+}
+/* Every search box's suggestions (search-suggest.js, LAZY_MODULES.searchSuggest;
+   Brief 86). The list is the rich picker's rows in a box lifted to <body> and
+   placed under (or over) the search field, at the escaped menus' tier like the
+   tag list (`.tag-suggest`). Opaque on purpose: no blur to keep off the
+   glass-off list, and a list over text must not show it through. */
+.search-suggest {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.search-suggest.hidden {
+  display: none;
+}
+.search-suggest > .search-suggest-list {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.search-suggest .rich-picker-row {
+  cursor: pointer;
+}
+/* A recent search's own remove: the third column of its row, quiet until the
+   row is lit, always there where there is no pointer to light it (the floor
+   under a hit target is 44px under touch). */
+.search-suggest-recent > .search-suggest-remove {
+  display: inline-grid;
+  place-items: center;
+  width: var(--target-min);
+  height: var(--target-min);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+}
+.search-suggest-recent > .search-suggest-remove:hover,
+.search-suggest-recent > .search-suggest-remove:is(:focus-visible, :has(:focus-visible)) {
+  background: var(--card);
+  color: var(--ink);
+}
+@media (hover: hover) {
+  .search-suggest-recent:not(.active) > .search-suggest-remove {
+    opacity: 0;
+  }
+}
+/* The foot: the one action that empties the recents, and the key that removes
+   one. The key is no use under a finger, so it goes where there is none. */
+.search-suggest-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* Each part keeps its one line: the Clear link never shrinks, and the key's
+   hint gives way with an ellipsis before it would wrap (INBOX 849). */
+.search-suggest-clear {
+  flex: none;
+}
+.search-suggest-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-suggest-foot.hidden {
+  display: none;
+}
+@media (pointer: coarse) {
+  .search-suggest-hint {
+    display: none;
+  }
+}
+/* Ghost text: the rest of the best completion, laid on the box's own line in
+   the muted colour at full strength (measured 5.9:1 light, 8.3:1 dark; 0.85
+   opacity dropped light to 4.2:1) (CHAT_PLAN decision 69). Fixed to the window and given the
+   box's font by the script, so it follows the caret's line without touching
+   the box's markup. */
+.search-suggest-ghost {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: pre;
+  color: var(--muted);
+  pointer-events: none;
+}
+.search-suggest-ghost.hidden {
+  display: none;
 }
 .rich-picker-list {
   margin: 0;
@@ -1274,7 +1457,8 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   color: var(--ink);
   text-decoration: none;
 }
-.md-toc-item a:hover {
+.md-toc-item a:hover,
+.md-toc-item a:is(:focus-visible, :has(:focus-visible)) {
   color: var(--accent-text);
   text-decoration: underline;
 }
@@ -1451,14 +1635,14 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
 }
 .duplicate-group>p {
   margin: 0 0 0.4rem;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 .duplicate-note {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.25rem 0;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   cursor: pointer;
 }
 .duplicate-note input {
@@ -1475,7 +1659,7 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 .duplicate-group .row label input {
   width: auto;
@@ -1515,11 +1699,11 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
 }
 .history-entry>p:first-child {
   margin: 0 0 0.25rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
 }
 .history-entry>p:nth-child(2) {
   margin: 0 0 0.4rem;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   white-space: pre-wrap;
 }
 /* --- resizable sidebars ------------------------------------------------------- */
@@ -1692,7 +1876,7 @@ body.resizing-sidebar {
   display: inline-block;
   padding: 0.25rem 0;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
   font-style: italic;
 }
 /* --- document formatting toolbar ---------------------------------------------- */
@@ -2013,7 +2197,7 @@ body.resizing-sidebar {
   max-width: 12rem;
   margin: 0;
   padding: 0.25rem var(--space-9) 0.25rem 0.4rem;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background-color: transparent;
@@ -2164,7 +2348,9 @@ body.resizing-sidebar {
 .doc-toolbar button.icon-only:hover,
 .doc-toolbar button.icon-button:hover,
 .doc-toolbar summary:hover,
-.doc-toolbar summary:focus-visible {
+.doc-toolbar summary:focus-visible,
+.doc-toolbar button.icon-only:is(:focus-visible, :has(:focus-visible)),
+.doc-toolbar button.icon-button:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
@@ -2272,13 +2458,13 @@ body.resizing-sidebar {
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
   line-height: 1.3;
 }
 /* Date · turns · tokens, small enough to scan past and there when wanted.
    One line, ellipsised: it's context, never worth stealing a second row. */
 .conv-meta {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -2303,7 +2489,8 @@ body.resizing-sidebar {
   border: 0;
   cursor: default;
 }
-.conv-divider:hover {
+.conv-divider:hover,
+.conv-divider:is(:focus-visible, :has(:focus-visible)) {
   background: var(--border);
 }
 /* The conversation's running total. **Metadata, not a control**, it moved
@@ -2322,7 +2509,7 @@ body.resizing-sidebar {
   border-radius: var(--radius-md);
   background: var(--chip-bg);
   border-left: 3px solid var(--accent);
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 .persona-prompt p {
   margin: 0.25rem 0 0;
@@ -2346,14 +2533,14 @@ body.resizing-sidebar {
   border-bottom: 1px solid var(--border);
 }
 .code-lang {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
 }
 .code-copy {
   padding: 0.15rem 0.5rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
 }
 /* **One control, divided** (the owner: "I want the buttons in the table to
    look like they are properly integrated with the table panel and to have
@@ -2530,7 +2717,8 @@ body.resizing-sidebar {
   cursor: row-resize;
 }
 .md-grip:hover,
-.md-grip:active {
+.md-grip:active,
+.md-grip:is(:focus-visible, :has(:focus-visible)) {
   background: var(--accent);
 }
 .md-table-block > .md-table-wrap {
@@ -2545,7 +2733,7 @@ body.resizing-sidebar {
 .code-block pre code {
   background: none;
   padding: 0;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 /* Editing an answer in place. */
 .answer-editor {
@@ -2554,13 +2742,13 @@ body.resizing-sidebar {
 .answer-editor textarea {
   width: 100%;
   font-family: inherit;
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
   margin-bottom: 0.4rem;
 }
 /* Never let an edited answer pass as the model's own words. */
 .edited-marker {
   display: inline-block;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   padding: 0.05rem 0.4rem;
   border-radius: var(--radius-pill);
   background: var(--warn-soft);
@@ -2679,7 +2867,8 @@ body.resizing-sidebar {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.outline-link:hover {
+.outline-link:hover,
+.outline-link:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-3);
   color: var(--ink);
 }
@@ -2855,7 +3044,7 @@ button.outline-twist:focus-visible {
 .doc-outline-empty {
   margin: 0 0 var(--space-2);
   padding-left: 0.25rem;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   line-height: 1.45;
 }
 /* The heading's own count, beside the word rather than under it. */
@@ -2887,7 +3076,8 @@ button.outline-twist:focus-visible {
   border: 1px solid transparent;
   border-radius: var(--radius-md);
 }
-.doc-comment-item:hover {
+.doc-comment-item:hover,
+.doc-comment-item:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-3);
   border-color: var(--divider);
 }
@@ -2949,7 +3139,8 @@ button.outline-twist:focus-visible {
   color: var(--muted);
 }
 .doc-comment-item:hover .doc-comment-action,
-.doc-comment-action:focus-visible {
+.doc-comment-action:focus-visible,
+.doc-comment-item:is(:focus-visible, :has(:focus-visible)) .doc-comment-action {
   color: var(--accent-text);
 }
 /* A section of remarks is taller than a row of them, and it is the one in this
@@ -2984,7 +3175,7 @@ button.outline-twist:focus-visible {
   max-width: 100%;
   margin-top: var(--space-5);
   padding: var(--space-2) 0;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   text-align: left;
   color: var(--muted);
   text-decoration: none;
@@ -2999,7 +3190,7 @@ button.outline-twist:focus-visible {
   padding: 0.4rem 0.5rem;
   background: var(--chip-bg);
   border-radius: var(--radius-md);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 /* ================================================================================
@@ -3484,7 +3675,8 @@ button.outline-twist:focus-visible {
   transition: border-color var(--ui-base) var(--ease-out), transform var(--ui-base) var(--ease-out);
 }
 @media (hover: hover) {
-  .theme-card:hover {
+  .theme-card:hover,
+  .theme-card:is(:focus-visible, :has(:focus-visible)) {
     border-color: var(--accent);
   }
 }
@@ -3555,7 +3747,7 @@ button.is-on {
   top: 36%;
   width: 1.1rem;
   height: 1.1rem;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--sw-accent);
 }
 /* The palette card's title matches a look card's (`.theme-card-name`), and
@@ -3627,11 +3819,12 @@ button.is-on {
   cursor: pointer;
   text-align: left;
 }
-.start-step:hover {
+.start-step:hover,
+.start-step:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-3);
 }
 .start-step-icon {
-  font-size: 1.3rem;
+  font-size: var(--text-h2);
   line-height: 1.2;
 }
 /* The Quick access tile's two lines, exactly (INBOX 472): the button's 600
@@ -3639,7 +3832,7 @@ button.is-on {
    dashboard drew one tile recipe two ways, a row apart. */
 .start-step strong {
   display: block;
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 .start-step .muted {
@@ -3648,7 +3841,7 @@ button.is-on {
   line-height: 1.3;
 }
 .start-footer {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   max-width: 46rem;
   margin: 0.4rem auto 0;
 }
@@ -3692,7 +3885,7 @@ button.is-on {
     flex-wrap: wrap;
   }
   header#top-bar h1 {
-    font-size: 1rem;
+    font-size: var(--text-body);
   }
   #tab-bar {
     order: 3;
@@ -4019,7 +4212,7 @@ textarea.autogrow {
   vertical-align: middle;
 }
 .name-nudge button {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   /* Pinned rather than left to the padding, which is DESIGN.md's control
      height rule for a row: measured at 1440, "Add your name" came out 29.2px
      from its own padding and the X beside it 28px from `.ghost.small`'s
@@ -4068,7 +4261,7 @@ textarea.autogrow {
 }
 /* "Go to it" beside the save confirmation. */
 .jump-to-note {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   padding: 0.15rem 0.5rem;
 }
 /* --- top bar polish ----------------------------------------------------------
@@ -4165,7 +4358,7 @@ html[data-chrome="native"] #top-bar #brand-logo {
 }
 .install-line {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
   margin: 0;
 }
@@ -4175,7 +4368,7 @@ html[data-chrome="native"] #top-bar #brand-logo {
 /* What a background job is printing, on the tasks screen. */
 .task-log summary {
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   color: var(--muted);
 }
 .task-log-lines {
@@ -4185,7 +4378,7 @@ html[data-chrome="native"] #top-bar #brand-logo {
   padding: 0.4rem 0.5rem;
   background: var(--chip-bg);
   border-radius: var(--radius);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -4628,7 +4821,8 @@ html[data-chrome="native"] #top-bar #brand-logo {
   padding-right: var(--space-1);
   border-radius: var(--radius-md);
 }
-.doc-prose-rowhead:hover {
+.doc-prose-rowhead:hover,
+.doc-prose-rowhead:is(:focus-visible, :has(:focus-visible)) {
   background: var(--hover-veil);
 }
 .doc-prose-acts {
@@ -5217,7 +5411,8 @@ html[data-chrome="native"] #top-bar #brand-logo {
   padding: 0;
 }
 .doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small:hover,
-.doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small[aria-pressed="true"] {
+.doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small[aria-pressed="true"],
+.doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
 }
 .doc-prose-more {
@@ -5865,7 +6060,8 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   font: inherit;
   cursor: pointer;
 }
-.embed-card:hover {
+.embed-card:hover,
+.embed-card:is(:focus-visible, :has(:focus-visible)) {
   background: var(--hover-veil);
   border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
@@ -5918,7 +6114,8 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   border-right: 1px solid var(--divider);
   border-radius: var(--radius-md) 0 0 var(--radius-md);
 }
-.doc-dock-identity > .doc-back:hover {
+.doc-dock-identity > .doc-back:hover,
+.doc-dock-identity > .doc-back:is(:focus-visible, :has(:focus-visible)) {
   color: var(--ink);
 }
 /* **A place, not a button** (INBOX 425 i). The dock's ghost-button rules
@@ -5932,7 +6129,8 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   border-color: transparent var(--divider) transparent transparent;
   box-shadow: none;
 }
-.doc-dock .doc-dock-identity > .doc-back.ghost:hover {
+.doc-dock .doc-dock-identity > .doc-back.ghost:hover,
+.doc-dock .doc-dock-identity > .doc-back.ghost:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
 }
 /* **The list scrolls, the head stays** (INBOX 432). With 36 categories the

@@ -71,6 +71,30 @@ function docGrammarFail(reason) {
   docGrammarWorker = null;
 }
 
+//: The files the worker loads, in its own import order (harper-worker.js
+//: names the two vendored modules; the binary is fetched by the second).
+const DOC_GRAMMAR_FILES = [
+  DOC_GRAMMAR_WORKER_URL,
+  "/vendor/harper/BinaryModule-BmeyZWwZ.js",
+  "/vendor/harper/slimBinary.js",
+];
+
+async function docGrammarWhy() {
+  const found = [];
+  if (typeof WebAssembly !== "object") found.push("this browser has no WebAssembly");
+  for (const file of DOC_GRAMMAR_FILES) {
+    try {
+      const response = await fetch(file, { cache: "no-store" });
+      const type = (response.headers.get("content-type") || "").split(";")[0].trim();
+      if (!response.ok) found.push(`${file} answered ${response.status}`);
+      else if (!/javascript/i.test(type)) found.push(`${file} came as ${type || "no type"}, not JavaScript`);
+    } catch (error) {
+      found.push(`${file} did not load: ${error && error.message ? error.message : error}`);
+    }
+  }
+  return found.join("; ") || "every file it loads answered as JavaScript";
+}
+
 //: One lint of `text`, or null when there is no checker. Never rejects: a
 //: caller that has to catch is a caller that one day will not.
 function docGrammarAsk(text) {
@@ -94,10 +118,16 @@ function docGrammarAsk(text) {
       docGrammarWaiting.delete(data.id);
       resolve(data.lints || []);
     });
-    //: A worker whose script fails to load says so here and nowhere else.
+    //: A worker whose script fails to load says so here and nowhere else,
+    //: and with no message: a module worker refused for its type, its CSP or
+    //: a 404 on one of its imports fires a bare event (INBOX 804, the
+    //: owner's Windows log said only "did not start"). So the reason is
+    //: looked for: each file it loads, fetched the way the worker fetches it
+    //: (through the service worker), with its status and type.
     docGrammarWorker.addEventListener("error", (event) => {
       event.preventDefault?.();
-      docGrammarFail(event.message || "the grammar worker did not start");
+      if (event.message) return docGrammarFail(event.message);
+      docGrammarWhy().then((why) => docGrammarFail(`the grammar worker did not start (${why})`));
     });
   }
   const id = ++docGrammarSeq;

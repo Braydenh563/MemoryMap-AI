@@ -534,6 +534,9 @@ function wbZoomFrameWork() {
   //: view is drawn on the frame it arrives in rather than one later.
   wbCullNow(t, size);
   wbUpdateSelectionBar();
+  //: The format bar of a topic or text box being edited rides the board
+  //: with it (INBOX 817), in the same frame.
+  if (typeof selectionBarState === "object" && (selectionBarState.textarea?.id === "wb-topic-edit" || selectionBarState.textarea?.id === "wb-text-edit")) selectionBarSync();
   // The overview's viewport rectangle is only true for one transform, so it
   // moves with every pan and zoom; the items in it do not, and are not
   // redrawn (`wbNavigatorUpdateViewport`). It returns immediately when the
@@ -764,6 +767,8 @@ function wbRefreshRaster() {
 function wbPublishInvZoom(el, inv) {
   wbInvZoomValue = inv;
   wbRefreshRaster();
+  //: Below half zoom a topic's link button goes (INBOX 816): `inv` is 1 / zoom.
+  el.toggleAttribute("data-wb-zoom-far", Number(inv) > 2);
   //: The clone arrows stand a fixed number of screen pixels off their sides.
   wbLayoutCloneGrips();
   const supported =
@@ -4347,6 +4352,13 @@ function wbFillContextBar() {
     document.getElementById("wb-prop-endcap").value = caps.endCap;
     document.getElementById("wb-prop-dash").value = parsed.dash || "solid";
     document.getElementById("wb-prop-route").value = wbLinkRouteName(parsed);
+    //: The Label button is for a board connector (a map's cross-link is
+    //: worded through its ring); it says "Edit" once there are words.
+    const labelButton = document.getElementById("wb-prop-label");
+    if (labelButton) {
+      labelButton.classList.toggle("hidden", !wbLinkTakesLabel(item, parsed));
+      labelButton.title = parsed.label ? "Change this connector's label (Enter)" : "Add a label to this connector (Enter)";
+    }
     return;
   }
 
@@ -4898,14 +4910,14 @@ function wbItemSpokenName(kind, item) {
   if (kind === "node") {
     const entry = (typeof allEntries !== "undefined" ? allEntries : []).find((e) => String(e.id) === String(item.entry_id));
     //: Plain words, not the note's markdown: a layer row read "**Current Commit..." (INBOX 820).
-    const title = entry ? stripMarkdownPreview(stripFrontmatter(entry.content).trim().split("\n")[0]).trim().slice(0, 60) : "";
+    const title = entry ? noteNamePlain(entry.content, 60) : "";
     return title ? `Note card: ${title}` : "Note card";
   }
   if (item.kind === "image") return "Picture";
   if (item.kind === "frame") return `Frame: ${wbFrameTitle(item)}`;
   const isTopic = WB_MAP_KINDS.has(item.kind);
   const raw = isTopic ? wbMapLabel(item) : item.data?.content;
-  const text = String(raw || "").trim().split("\n")[0].slice(0, 60);
+  const text = noteNamePlain(raw, 60);
   const what = isTopic ? "Topic" : item.data?.bg ? "Sticky note" : "Text box";
   return text ? `${what}: ${text}` : what;
 }
@@ -5019,7 +5031,82 @@ function wbTrackMapStripMenu() {
   for (const { toggle, menu } of wbMapStripToggles()) {
     if (menu.classList.contains("hidden")) continue;
     escapeAndCapMenu(menu, toggle);
+    wbMapStripMenuOffTopic(menu, toggle);
   }
+}
+
+//: **A door never opens on the topic it edits** (INBOX 814, the owner: "when
+//: I change stuff in the tools for a mindmap node, I cant actually see what
+//: the difference is until I click off it"). Measured at 1440x560, 390x844
+//: and 1440x420 (`scratchpad/ui-sweeps/mapfixmenu.js`): the strip sits above
+//: a topic that has room above it, the door hangs under the strip, and a
+//: topic in the middle of the canvas is under a 336px by 210px door, so a
+//: change painted at once and was covered at once. The door is moved to the
+//: first place that has room, in this order: where it already is, above the
+//: strip, beside the topic (right, then left), under the topic, over it.
+//: When none is clear it takes the one that covers least. The topic's own
+//: buttons (+ and link) count as the topic, since they hang off it.
+function wbMapStripMenuOffTopic(menu, toggle) {
+  const el = wbMapStripNodeId != null && document.querySelector(`.wb-object[data-id="${wbMapStripNodeId}"]`);
+  if (!el) return;
+  //: Back to its natural place first when an earlier frame moved it, so the
+  //: door follows the bar on a pan and the answer is never stale.
+  if (menu.classList.contains("action-menu-escaped")) {
+    menu.style.maxHeight = "none";
+    placeEscapedMenu(menu, toggle);
+    const at = menu.getBoundingClientRect().top;
+    menu.style.maxHeight = `${Math.max(120, Math.round(window.innerHeight - at - 8))}px`;
+  }
+  const rects = [el.getBoundingClientRect()];
+  const actions = el.querySelector(".wb-map-actions");
+  if (actions) rects.push(actions.getBoundingClientRect());
+  const pad = 6;
+  const T = {
+    left: Math.min(...rects.map((r) => r.left)) - pad,
+    top: Math.min(...rects.map((r) => r.top)) - pad,
+    right: Math.max(...rects.map((r) => r.right)) + pad,
+    bottom: Math.max(...rects.map((r) => r.bottom)) + pad,
+  };
+  const area = (a, b) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+    * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+  const rectAt = (left, top, w, h) => ({ left, top, right: left + w, bottom: top + h });
+  const box = menu.getBoundingClientRect();
+  if (!box.width || !area(rectAt(box.left, box.top, box.width, box.height), T)) return;
+  const stripRect = document.getElementById("wb-map-strip").getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const m = 8;
+  const w = box.width;
+  const natural = menu.scrollHeight || box.height;
+  const clampLeft = (x) => Math.max(m, Math.min(x, vw - m - w));
+  const clampTop = (y, h) => Math.max(m, Math.min(y, vh - m - h));
+  const spots = [
+    [box.left, stripRect.top - 4 - natural],
+    [T.right + m, T.top],
+    [T.left - m - w, T.top],
+    [box.left, T.bottom + m],
+    [box.left, T.top - m - natural],
+  ];
+  let best = null;
+  for (const [x, y] of spots) {
+    const left = clampLeft(x);
+    const room = vh - m - Math.max(m, y);
+    const h = Math.min(natural, room);
+    const top = clampTop(y, h);
+    const r = rectAt(left, top, w, h);
+    const covered = area(r, T);
+    //: A spot that needed the cap to fit is worse than one that did not.
+    const score = covered * 1000 + area(r, stripRect) + (h < natural ? (natural - h) * 4 : 0);
+    if (!best || score < best.score) best = { score, left, top, h, covered };
+    if (!covered && h >= natural && !area(r, stripRect)) break;
+  }
+  if (!best) return;
+  escapeMenuToBody(menu, toggle);
+  menu.classList.add("action-menu-escaped");
+  menu.classList.remove("action-menu-flip");
+  menu.style.left = `${Math.round(best.left)}px`;
+  menu.style.top = `${Math.round(best.top)}px`;
+  menu.style.maxHeight = `${Math.max(120, Math.round(best.h))}px`;
 }
 
 //: Which topic the strip is currently describing, so a move of the selection
@@ -7318,6 +7405,7 @@ function wbBuildContextMenu(kind) {
   }
   //: A frame is an export scope (WHITEBOARD_PLAN decision 18).
   const frameOn = commentOn?.kind === "object" && commentItem?.kind === "frame" ? commentItem : null;
+  if (frameOn) item("Fit to contents", "Snug the frame to what is inside it, with a margin all round", () => wbFrameFit(frameOn, "nesw"));
   if (frameOn) item("Export this frame…", "The frame and what is inside it, as a picture, PDF or SVG", () => wbExportFrame(frameOn));
   //: Into the library's "Yours" (decision 25): the rows the table says apply.
   subItem("Library", (sub) => {
@@ -9707,6 +9795,77 @@ function wbFrameContents(frame, { withLocked = false } = {}) {
     }
   }
   return keys;
+}
+
+//: **Fit a frame to what it holds** (INBOX 821, the owner: "double tap a
+//: resize anchor to resize that edge or the whole frame to snugly fit all the
+//: content in it with a comfortable margin"). `edges` is any of "n", "e", "s",
+//: "w": the edge handle named fits that edge, a corner handle two, and the
+//: frame's menu all four. Each named edge moves to the bound of what the frame
+//: holds (`wbFrameContents`, the rule a drag of the frame uses) plus a margin
+//: of 32 board units. What a frame holds includes the links between two held
+//: items, by the curve they are drawn on rather than the straight line
+//: between their ends. A frame holding nothing stays where it is. One Undo
+//: step, and the move eases over 150ms (not at all under reduced motion).
+const WB_FRAME_FIT_MARGIN = 32;
+
+async function wbFrameFit(frame, edges = "nesw") {
+  if (!frame || frame.kind !== "frame") return false;
+  const boxes = [];
+  const touching = new Map();
+  for (const key of wbFrameContents(frame, { withLocked: true })) {
+    const [kind, rawId] = key.split(":");
+    const item = wbFindItem(kind, Number(rawId));
+    if (!item) continue;
+    const box = wbItemBBox(kind, item);
+    if (box) boxes.push(box);
+    if (kind === "sketch") continue;
+    for (const link of wbLinkedSketchesFor(item.id, kind)) touching.set(link.id, (touching.get(link.id) || 0) + 1);
+  }
+  for (const [linkId, ends] of touching) {
+    if (ends < 2) continue;
+    const path = document.querySelector(`.sketch-group[data-id="${linkId}"] .sketch-hitbox`);
+    const b = path?.getBBox?.();
+    if (b && (b.width || b.height)) boxes.push({ minX: b.x, minY: b.y, maxX: b.x + b.width, maxY: b.y + b.height });
+  }
+  if (!boxes.length) {
+    toast("This frame holds nothing to fit.");
+    return false;
+  }
+  const minX = Math.min(...boxes.map((b) => b.minX));
+  const minY = Math.min(...boxes.map((b) => b.minY));
+  const maxX = Math.max(...boxes.map((b) => b.maxX));
+  const maxY = Math.max(...boxes.map((b) => b.maxY));
+  const right = frame.x + frame.width;
+  const bottom = frame.y + frame.height;
+  const nextLeft = edges.includes("w") ? Math.round(minX - WB_FRAME_FIT_MARGIN) : frame.x;
+  const nextTop = edges.includes("n") ? Math.round(minY - WB_FRAME_FIT_MARGIN) : frame.y;
+  const nextRight = edges.includes("e") ? Math.round(maxX + WB_FRAME_FIT_MARGIN) : right;
+  const nextBottom = edges.includes("s") ? Math.round(maxY + WB_FRAME_FIT_MARGIN) : bottom;
+  if (nextLeft === frame.x && nextTop === frame.y && nextRight === right && nextBottom === bottom) return true;
+  const before = WB_KIND_INFO.object.payload(frame);
+  frame.x = nextLeft;
+  frame.y = nextTop;
+  frame.width = nextRight - nextLeft;
+  frame.height = nextBottom - nextTop;
+  const el = document.querySelector(`.wb-object[data-id="${frame.id}"]`);
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (el && !still) {
+    el.style.transition = "transform 150ms ease-out, width 150ms ease-out, height 150ms ease-out";
+    el.style.transform = wbItemTransform(frame);
+    el.style.width = `${frame.width}px`;
+    el.style.height = `${frame.height}px`;
+    setTimeout(() => {
+      el.style.transition = "";
+      wbScheduleRender();
+    }, 170);
+  } else {
+    wbScheduleRender();
+  }
+  await wbSaveObject(frame);
+  wbPushUndo({ action: "move", kind: "object", id: frame.id, before });
+  wbUpdateSelectionBar();
+  return true;
 }
 
 function wbFrameDragOrigin(d, alone) {
@@ -12495,6 +12654,10 @@ async function initWhiteboard() {
   }
   document.getElementById("wb-prop-startcap")?.addEventListener("change", (e) => wbSetCap("startCap", e.target.value));
   document.getElementById("wb-prop-route")?.addEventListener("change", (e) => wbSetLinkRoute(e.target.value));
+  document.getElementById("wb-prop-label")?.addEventListener("click", () => {
+    const sketch = wbSelectedItem?.kind === "sketch" ? wbFindItem("sketch", wbSelectedItem.id) : null;
+    if (sketch) wbEditLinkLabel(sketch);
+  });
   document.getElementById("wb-prop-endcap")?.addEventListener("change", (e) => wbSetCap("endCap", e.target.value));
   document.getElementById("wb-prop-bg")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
@@ -12806,6 +12969,25 @@ async function initWhiteboard() {
         menu.style.top = `${Math.max(margin, window.innerHeight - menuRect.height - margin)}px`;
       }
     }
+    wbLiftMenuOffOptionsBar(menu);
+  }
+
+  //: **A tool's kind popover and its options bar are one surface, not two
+  //: that cross** (INBOX 823, the owner's screenshot: the Line and Arrow
+  //: choice drawn under the bar holding Size, Plain and Solid). Measured at
+  //: 1440 (`scratchpad/ui-sweeps/toolpop.js`): the popover (z 20) sat 6,232px2
+  //: under the bar (z 22) it opens next to. Lifted clear of the bar, an 8px
+  //: gap above it, with the individual `translate` property so it composes
+  //: with whichever placement the dock gave it.
+  function wbLiftMenuOffOptionsBar(menu) {
+    menu.style.translate = "";
+    const bar = document.getElementById("wb-context");
+    if (!bar || bar.classList.contains("hidden")) return;
+    const b = bar.getBoundingClientRect();
+    const m = menu.getBoundingClientRect();
+    if (!b.width || !m.width) return;
+    const across = m.left < b.right && m.right > b.left && m.top < b.bottom && m.bottom > b.top;
+    if (across) menu.style.translate = `0 ${Math.round(b.top - 8 - m.bottom)}px`;
   }
 
   function wbCloseDockedMenu(menu, toggle) {
@@ -12821,6 +13003,7 @@ async function initWhiteboard() {
       menu.style.transform = "";
       menu.style.zIndex = "";
     }
+    menu.style.translate = "";
   }
 
   // Asked for directly: a plain click/tap on the toggle's icon selects the
@@ -13018,6 +13201,7 @@ async function initWhiteboard() {
         escapeAndCapMenu(menu, toggle);
         wbKeepMenuBesideBar(menu, edge);
       }
+      if (menu.classList.contains("wb-map-strip-menu")) wbMapStripMenuOffTopic(menu, toggle);
     }
   }
   for (const { toggle, menu } of boardMenus) {
@@ -14270,6 +14454,13 @@ async function initWhiteboard() {
     if (!handle) return;
     e.preventDefault();
     e.stopPropagation();
+    //: A frame fits what it holds, not its own text: the edge named by the
+    //: handle, or the two of a corner (INBOX 821).
+    const frameEl = handle.closest(".wb-object-frame");
+    if (frameEl && handle.dataset.handle) {
+      wbFrameFit((wbState.objects || []).find((o) => o.id === Number(frameEl.dataset.id)), handle.dataset.handle);
+      return;
+    }
     wbFitToText(handle.closest(".wb-object, .node-card"));
   });
 
@@ -15212,8 +15403,7 @@ function renderWbLibrary() {
     //: row. The picker row's shape instead (DESIGN.md, `richPickerRow`): the
     //: note's first line as its name and the rest as one quiet line, each
     //: ellipsised by the stylesheet at the row's edge, never by a count.
-    const firstLine = stripFrontmatter(entry.content || "").split("\n").map((l) => l.trim()).find(Boolean) || "";
-    const name = entry.is_private ? "Private note" : notePreviewText(flattenNoteMarkdown(entry.title || firstLine)).replace(/^[#>\s]+/, "").trim();
+    const name = entry.is_private ? "Private note" : noteNamePlain(entry.title || entry.content);
     const rest = entry.is_private ? "" : notePreviewText(bodyWithoutTitleLine(entry.content || "")).replace(/\s+/g, " ").trim();
     const title = document.createElement("span");
     title.className = "wb-library-item-title";
@@ -18411,7 +18601,9 @@ function renderWhiteboard() {
       .attr("data-handle", handle)
       //: The same title the object handles carry, for the same reason: the
       //: double-click-to-fit gesture had nothing on screen saying it existed.
-      .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the text")
+      .attr("title", (datum) => datum.kind === "frame"
+          ? "Drag to resize, double-click to fit this edge to what is inside"
+          : "Drag to resize: Shift keeps the proportions, double-click fits the text")
       .call(nodeResizeDrag(handle));
   }
   nodeEnter.append("div")

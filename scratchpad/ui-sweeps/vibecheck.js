@@ -25,6 +25,8 @@
 //
 //   BASE=http://127.0.0.1:8781 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node vibecheck.js
 const { boot } = require('./lib.js');
+// WIDTH=390 runs the same checks on the phone shell (touch context), the 2026-10-11 sweep.
+const WIDTH = Number(process.env.WIDTH || 1440), PHONE = WIDTH < 600;
 
 const TABS = ['dashboard', 'notes', 'chat', 'graph', 'timeline', 'documents', 'library', 'files'];
 
@@ -189,7 +191,7 @@ async function deadOnes(page, cdp) {
 }
 
 (async () => {
-  const { page, browser, ctx } = await boot({});
+  const { page, browser, ctx } = await boot(PHONE ? { viewport: { width: WIDTH, height: 844 }, hasTouch: true, isMobile: true } : { viewport: { width: WIDTH, height: 900 } });
   const cdp = await ctx.newCDPSession(page);
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 140)));

@@ -52,14 +52,15 @@ function recordBrowserLog(level, parts) {
     const liveRecord = { ...record, source: "browser", logger: "browser",
       key: `b-live-${Date.now()}-${Math.random()}` };
     logRecords.push(liveRecord);
-    if (typeof sortLogRecords === "function") sortLogRecords();
-    if (logScreenOpen && typeof renderActiveLogView === "function") {
+    //: These four are settings.js's own, like the two names tested above.
+    sortLogRecords();
+    if (logScreenOpen) {
       renderActiveLogView();
       // Scroll to bottom so the new error is visible without manual scroll.
-      if (typeof scrollLogToBottom === "function") scrollLogToBottom();
+      scrollLogToBottom();
     }
     // Bump the error badge in the Logs button so the user knows to check.
-    if (typeof bumpLogErrorBadge === "function") bumpLogErrorBadge(record);
+    bumpLogErrorBadge(record);
   }
 }
 
@@ -78,7 +79,7 @@ for (const level of ["log", "info", "warn", "error"]) {
 //: notice being reported as a failure.
 const BENIGN_BROWSER_NOTICE = /^ResizeObserver loop (completed with undelivered notifications|limit exceeded)/;
 window.addEventListener("error", (e) =>
-  BENIGN_BROWSER_NOTICE.test(e.message || "") ? undefined :
+  BENIGN_BROWSER_NOTICE.test(e.message || "") || !e.filename ? undefined :
   // e.error.stack, when present, is what actually locates the bug, the
   // message/filename/lineno triple alone has sent more than one session
   // hunting for a null-dereference with no line number to start from.
@@ -1815,6 +1816,7 @@ const LAZY_MODULES = {
   settingsData: ["/js/settings-data.js"],
   settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
+  searchSuggest: ["/js/search-suggest.js"],
   //: The writing desk's model passes (compose, title, save as note); see writing-desk.js.
   writingDesk: ["/js/writing-desk.js"],
   //: An attachment card's click (INBOX 440 (2)): attachment-actions.js.

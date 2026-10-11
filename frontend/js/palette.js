@@ -729,8 +729,7 @@ function cmdSourceRow(source, icons) {
   }
   const title = document.createElement("span");
   title.className = "chat-source-row-title";
-  const first = String(entry?.content || "").split("\n").map((line) => line.trim()).find(Boolean);
-  title.textContent = entry?.title || (first && flattenNoteMarkdown(first)) || source.label;
+  title.textContent = entry?.title || noteNamePlain(entry?.content) || source.label;
   const date = document.createElement("span");
   date.className = "chat-source-row-date";
   const when = entry?.edited_at || entry?.created_at;

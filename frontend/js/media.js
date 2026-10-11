@@ -247,6 +247,10 @@ function openSketch() {
     button.classList.toggle("active", button.id === "sketch-tool-pen");
   }
   syncSketchSizeReadout();
+  lazyScript("/js/sketch-pad.js").then(() => {
+    sketchTogglePalette(false);
+    sketchShowInk(sketchPen.color);
+  });
   $("sketch-status").textContent = "";
 }
 

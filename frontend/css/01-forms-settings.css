@@ -178,7 +178,7 @@
   padding: 0.4rem 0.5rem;
   border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
   line-height: 1.35;
 }
 /* Names ellipsise instead of wrapping, so no row is twice the height of its
@@ -193,7 +193,8 @@
   white-space: nowrap;
 }
 @media (hover: hover) {
-  #sidebar li:hover {
+  #sidebar li:hover,
+  #sidebar li:is(:focus-visible, :has(:focus-visible)) {
     background: var(--row-hover-bg);
   }
 }
@@ -213,7 +214,7 @@
   /* Tabular figures so 1, 7 and 12 occupy the same width and the column of
      numbers is actually a column. */
   font-variant-numeric: tabular-nums;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 /* (The sticky rule for #tab-notes #sidebar lives once, above. It used to be
    declared twice, identically, in the same file.) */
@@ -417,7 +418,8 @@ button {
 }
 /* One step deeper, not brighter (INBOX 405): see `--accent-surface-hover`
    (05-sidebars-themes.css) for why a hover is never a `filter`. */
-button:hover:not(:disabled) {
+button:hover:not(:disabled),
+button:is(:focus-visible, :has(:focus-visible)):not(:disabled) {
   --button-ground: var(--accent-surface-hover);
 }
 /* Subtle press feedback across every button, a small, consistent tactile
@@ -564,7 +566,8 @@ button.ghost {
      which is the whole difference. */
   box-shadow: none;
 }
-button.ghost:hover {
+button.ghost:hover,
+button.ghost:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   border-color: var(--ghost-btn-border-hover);
 }
@@ -594,6 +597,71 @@ button.ghost.danger > .ph-lead {
 }
 button.ghost:active:not(:disabled) {
   background: var(--ghost-btn-bg-hover);
+}
+/* **Inside a card, the card is the frame** (INBOX 803, the owner: "Im still
+   iffy about the design use of these buttons styles in some places", on a
+   dashboard card's "Find links to add", the code editor's toolbar and its
+   assistant's tool grid). The tonal face and edge are for a button that
+   stands on its own, in a dialog or a Settings group; in a card, a panel or
+   a toolbar inside one, a secondary action is the quiet tier the dock
+   already uses: no face, no edge, the leading icon's accent as the cue and
+   the tint under the pointer or the keyboard. One rule for the family, so
+   every card changes at once; `:where()` keeps it at the tonal rule's own
+   weight, so a chosen or pressed state written anywhere still wins, and
+   `[data-contrast="on"]` still draws the edge. */
+:where(.card) button.ghost:where(:not(:is(dialog, .modal-card, .modal) *)) {
+  border-color: transparent;
+  background: none;
+  font-weight: 500;
+}
+:where(.card) button.ghost:where(:not(:is(dialog, .modal-card, .modal) *)):hover,
+:where(.card) button.ghost:where(:not(:is(dialog, .modal-card, .modal) *)):is(:focus-visible, :has(:focus-visible)) {
+  border-color: transparent;
+  background: var(--ghost-btn-bg);
+}
+/* The quiet tier by name, for the one place it is not given by a frame: a
+   second action beside a section's one filled button (Help's Replay the
+   welcome beside Start the tour, INBOX 804), and a row's repeated action
+   (DESIGN.md, Row actions). */
+button.ghost.quiet {
+  border-color: transparent;
+  background: none;
+  font-weight: 500;
+}
+button.ghost.quiet:hover,
+button.ghost.quiet:is(:focus-visible, :has(:focus-visible)) {
+  border-color: transparent;
+  background: var(--ghost-btn-bg);
+}
+/* A destructive row action (Delete, Remove) waits in the muted ink and turns
+   the error colour only when it is aimed at (DESIGN.md, Row actions). */
+button.ghost.quiet.danger {
+  color: var(--muted);
+  background: none;
+}
+button.ghost.quiet.danger:hover,
+button.ghost.quiet.danger:is(:focus-visible, :has(:focus-visible)) {
+  color: var(--error);
+  background: var(--error-soft);
+}
+/* **A disclosure is a row, not a boxed button** (INBOX 803: "> 36 claims"
+   drawn as a bordered button). The full width, the words from the leading
+   edge after their caret, no face and no edge; the row's veil under the
+   pointer or the keyboard. */
+button.ghost.disclosure-row {
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  text-align: start;
+  border-color: transparent;
+  background: none;
+  font-weight: 500;
+  padding-inline: var(--space-2);
+}
+button.ghost.disclosure-row:hover,
+button.ghost.disclosure-row:is(:focus-visible, :has(:focus-visible)) {
+  border-color: transparent;
+  background: var(--hover-veil);
 }
 button:focus-visible,
 summary:focus-visible {
@@ -661,7 +729,7 @@ button.small {
      of tags. Touch keeps its 44: the larger of the two wins. */
   min-height: max(var(--target-min), var(--button-min-h));
   padding: 0 0.8rem;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 /* A menu opener standing on its own (`summary.ghost.small` with a label,
    outside a dock) is a small button with a caret, and sizes as one.
@@ -672,7 +740,7 @@ summary.ghost.small:not(.icon-only, .icon-button):not(.dock *) {
   min-height: max(var(--target-min), var(--button-min-h));
   padding-block: 0;
   padding-inline: 0.8rem;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 /* **A stepper is a minus and a plus around the unit they move by**
    (`.stepper`, DESIGN.md "Stepper"). Reminders' nudges were four loose
@@ -712,7 +780,7 @@ summary.ghost.small:not(.icon-only, .icon-button):not(.dock *) {
   padding-inline: var(--space-1);
   min-width: 3.25rem;
   text-align: center;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
@@ -812,12 +880,13 @@ input[type="checkbox"] {
   border-radius: var(--radius-lg);
   background: var(--accent-surface);
   color: var(--on-accent);
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   text-decoration: none;
   box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent);
 }
-.update-dialog-link:hover {
+.update-dialog-link:hover,
+.update-dialog-link:is(:focus-visible, :has(:focus-visible)) {
   background: var(--accent-surface-hover);
 }
 .row {
@@ -921,14 +990,14 @@ input[type="checkbox"] {
 }
 .shortcut-list span {
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
 }
 kbd {
   color: var(--ink);
   white-space: nowrap;
 }
 .status {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: var(--muted);
 }
 .status.error {
@@ -1446,7 +1515,8 @@ progress {
 /* A row is a target you point at, so it has to say so. Cards get this from
    having visible edges; a row in a flat list does not. */
 @media (hover: hover) {
-  .entry-list.is-rows li:hover {
+  .entry-list.is-rows li:hover,
+  .entry-list.is-rows li:is(:focus-visible, :has(:focus-visible)) {
     background: var(--chip-bg);
   }
 }
@@ -1706,9 +1776,16 @@ progress {
   align-items: center;
   padding: 0.1rem 0.6rem;
   border-radius: var(--radius-sm);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   background: var(--accent-soft);
   font-weight: 600;
+}
+/* A badge with nothing in it is not drawn (INBOX 812: on the first Ask after
+   boot, "Atlas" and "Matching records" showed empty tinted boxes, 19x18, until
+   the answer's meta wrote their text). `.answer-model` sets its own display
+   later, so this is two classes and wins. */
+.chip:empty {
+  display: none;
 }
 .chip.tag {
   background: var(--chip-bg);
@@ -1884,7 +1961,7 @@ progress {
   box-sizing: border-box;
   border: var(--spinner-stroke) solid currentColor;
   border-top-color: transparent;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   /* Stated rather than inherited: the rotation is about the ring's own
      centre, and a `transform-origin` set on an ancestor for a different
      purpose must not reach it. */
@@ -1951,7 +2028,7 @@ button:not(.ghost) > .spinner {
   align-items: flex-start;
   gap: var(--space-2);
   margin-bottom: var(--space-2);
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
 }
 /* **There was a `.settings-section label input[type="radio"]` rule here and
    it was deleted, measured (§39).** It drew a 1rem `accent-color` circle, and
@@ -2084,7 +2161,7 @@ button:not(.ghost) > .spinner {
 }
 .entry-actions button {
   padding: 0.15rem 0.5rem;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 .entry-links {
   margin-top: var(--space-2);
@@ -2174,7 +2251,8 @@ button:not(.ghost) > .spinner {
   border: 1px solid transparent;
   border-radius: var(--radius-md);
 }
-.bookmark-row:hover {
+.bookmark-row:hover,
+.bookmark-row:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-2);
   border-color: var(--divider);
 }
@@ -2269,7 +2347,7 @@ button:not(.ghost) > .spinner {
   width: var(--space-3);
   height: var(--space-3);
   border: 1px solid var(--card);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--accent);
 }
 .bookmark-count {
@@ -2466,7 +2544,7 @@ button:not(.ghost) > .spinner {
   flex: 0 0 auto;
   width: 0.6em;
   height: 0.6em;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--category-dot);
 }
 /* One column, under a guide line that starts below the heading's caret, so
@@ -2700,7 +2778,8 @@ button:not(.ghost) > .spinner {
 #entry-list li:focus-within .chip.link .unlink {
   opacity: 0.7;
 }
-#entry-list .chip.link .unlink:hover {
+#entry-list .chip.link .unlink:hover,
+#entry-list .chip.link .unlink:is(:focus-visible, :has(:focus-visible)) {
   opacity: 1;
   color: var(--error);
 }
@@ -2896,7 +2975,8 @@ li.link-source {
   color: var(--muted);
   cursor: pointer;
 }
-.icon-btn:hover {
+.icon-btn:hover,
+.icon-btn:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
   color: var(--ink);
 }
@@ -2928,7 +3008,7 @@ li.link-source {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 #most-used li {
   padding: 0.25rem 0.5rem;
@@ -2939,7 +3019,8 @@ li.link-source {
   gap: 0.4rem;
 }
 @media (hover: hover) {
-  #most-used li:hover {
+  #most-used li:hover,
+  #most-used li:is(:focus-visible, :has(:focus-visible)) {
     background: var(--accent-soft);
   }
 }
@@ -2996,10 +3077,13 @@ li.link-source {
   border-radius: var(--radius-lg);
   padding: 0.6rem 1rem;
   /* 24rem, not 340px (INBOX 584): with a real button and a gap after it,
-     "Finished reading this file." wrapped to two lines beside its Show it. */
-  max-width: 24rem;
+     "Finished reading this file." wrapped to two lines beside its Show it.
+     30rem since INBOX 811: a one-sentence notice with Undo and its close
+     ("Dismissed. It will not be suggested again.") broke onto two lines at
+     24, and two actions left "the bin." alone on the second. */
+  max-width: 30rem;
   box-shadow: var(--glass-shadow);
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
   /* Arrives and leaves: a fade and a step of travel from its edge, on
      `translate` so no transform the toast carries is replaced.
      `dismissToast` (status.js) adds `.is-leaving` and removes the toast when
@@ -3153,6 +3237,11 @@ mark.global-find-hit.global-find-current {
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
+  /* Should a dialog ever be taller than the screen, its top (and its close)
+     stays reachable and the overlay scrolls, rather than centring it off
+     both edges (the iPhone Settings report, beside the dvh cap below). */
+  align-items: safe center;
+  overflow-y: auto;
   justify-content: center;
   /* Was 55, well below #agent-monitor's fixed z-index: 1000: found live:
      Playwright clicking through every Settings nav button hit a real 30s
@@ -3197,6 +3286,12 @@ mark.global-find-hit.global-find-current {
 .modal-card {
   width: min(880px, 96vw);
   max-height: 88vh;
+  /* The visible height, not the large one (the owner, 2026-10-11, iPhone
+     Safari: "the bottom of the settings page gets cut off", "I cant scroll
+     or close the settings page, I think the top is cut off as well"). On
+     iOS `vh` is the viewport with the toolbars hidden, so with them showing
+     the dialog ran past both edges of the overlay and its close with it. */
+  max-height: 88dvh;
   display: flex;
   flex-direction: column;
   margin-bottom: 0;
@@ -3304,7 +3399,8 @@ mark.global-find-hit.global-find-current {
   border-radius: var(--radius-md);
   font-weight: 500;
 }
-.modal-nav button:hover {
+.modal-nav button:hover,
+.modal-nav button:is(:focus-visible, :has(:focus-visible)) {
   background: var(--row-hover-bg);
 }
 .modal-nav button.active {
@@ -3330,14 +3426,14 @@ mark.global-find-hit.global-find-current {
 .stacked-label {
   display: block;
   margin: 0.6rem 0 0.25rem;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--muted);
 }
 .code-block {
   padding: 0.6rem 0.8rem;
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   overflow-x: auto;
   /* a long command scrolls rather than widening the dialog */
 }
@@ -3517,7 +3613,7 @@ html.modal-open body {
   padding: 0.5rem;
   overflow-y: auto;
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   background: var(--chip-bg);
   border-radius: var(--radius-md);
 }
@@ -3555,14 +3651,14 @@ html.modal-open body {
 }
 .live-clock .clock-time {
   display: block;
-  font-size: 1.3rem;
+  font-size: var(--text-h2);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
 .live-clock .clock-date {
   display: block;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 .reminders-head {
   align-items: flex-start;
@@ -3812,7 +3908,7 @@ html.modal-open body {
 .drag-handle {
   cursor: grab;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 /* Consistent internal rhythm so every widget spaces the same, whatever it
    renders: the title row sits a fixed gap above a flex-column body, and the
@@ -3868,7 +3964,7 @@ html.modal-open body {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
 }
 .dash-list li {
   padding: 0.25rem 0.4rem;
@@ -3876,7 +3972,8 @@ html.modal-open body {
   cursor: pointer;
 }
 @media (hover: hover) {
-  .dash-list li:hover {
+  .dash-list li:hover,
+  .dash-list li:is(:focus-visible, :has(:focus-visible)) {
     background: var(--accent-soft);
   }
 }
@@ -4142,7 +4239,7 @@ html.modal-open body {
 .typing-dots .typing-dot {
   width: 0.45rem;
   height: 0.45rem;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--muted);
   animation: dot-bounce 1.2s infinite ease-in-out;
   /* Promote each dot to its own compositor layer so the bounce runs on the
@@ -4430,7 +4527,7 @@ html.modal-open body {
    it is an annotation on the chip and not a second label competing with it.
    The chip carries the name and the styling; this is what follows it. */
 .entry-reference-how {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   margin-left: var(--space-1);
 }
 /* A pressed state for the toolbar's Preview toggle, so it reads as a mode
@@ -4944,8 +5041,11 @@ select {
    `.setting-hint-toggle` already declares 2rem x 2rem, but this rule is an
    id plus a class plus an element, so its height won every time and left a
    32x36 pill where a circle belongs. An icon-only button, a help dot and a
-   hint dot all size themselves; a fixed row height is not theirs to set. */
-#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"]):not([class*="swatch"]):not([class*="preview"]):not(.icon-only):not(.icon-button):not([class*="help"]):not([class*="hint"]):not(.linklike),
+   hint dot all size themselves; a fixed row height is not theirs to set.
+   A row that carries its own description (Help's tour rows, INBOX 804) is
+   a tile by shape, so it is excluded with the tiles, inside the same `:not()`
+   so the rule's weight does not change. */
+#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"], .tour-row):not([class*="swatch"]):not([class*="preview"]):not(.icon-only):not(.icon-button):not([class*="help"]):not([class*="hint"]):not(.linklike),
 #settings-modal .settings-section select,
 #settings-modal .settings-section .select-opener,
 #settings-modal .settings-section summary,
@@ -4966,7 +5066,7 @@ select {
    rows wrap, so a wider button moves to the next line instead of pushing
    anything off screen, and a two-line label in a control strip was never the
    intended look. */
-#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"]):not([class*="swatch"]):not([class*="preview"]):not(.linklike),
+#settings-modal .settings-section button:not([class*="card"]):not([class*="tile"], .tour-row):not([class*="swatch"]):not([class*="preview"]):not(.linklike),
 #settings-modal .settings-section summary {
   white-space: nowrap;
 }
@@ -5407,7 +5507,7 @@ select {
 }
 .learned-meta {
   margin: 0 0 var(--space-2);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
 }
 /* The pager sits under the list, not beside it: the count belongs between
    its two buttons, which is where a reader looks for "where am I". */
@@ -5523,6 +5623,10 @@ select {
 .privacy-row-head > .chip {
   flex: none;
 }
+.privacy-row-why {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
 .privacy-row-meta {
   margin: var(--space-1) 0 0;
 }
@@ -5617,7 +5721,8 @@ select {
   text-align: left;
   white-space: normal;
 }
-#settings-nav .settings-nav-group:hover {
+#settings-nav .settings-nav-group:hover,
+#settings-nav .settings-nav-group:is(:focus-visible, :has(:focus-visible)) {
   background: var(--hover-veil);
   color: var(--ink);
 }
@@ -5823,7 +5928,8 @@ select {
   border: 1px solid transparent;
   border-radius: var(--radius-md);
 }
-.bench-row:hover {
+.bench-row:hover,
+.bench-row:is(:focus-visible, :has(:focus-visible)) {
   background: var(--row-hover-bg);
 }
 .bench-row-title {
@@ -5862,7 +5968,8 @@ select {
   text-decoration: none;
   cursor: grab;
 }
-.web-clip-bookmarklet:hover {
+.web-clip-bookmarklet:hover,
+.web-clip-bookmarklet:is(:focus-visible, :has(:focus-visible)) {
   background: var(--row-hover-bg);
 }
 /* The touch band's hit target, as every button beside it takes there. */
@@ -5960,4 +6067,39 @@ select {
 #settings-modal .setting-reset[hidden],
 #settings-modal .settings-reset-section[hidden] {
   display: none;
+}
+
+/* Settings, Import and export, Recent changes (settings-data.js): each row is
+   its words over when, and the one button that puts it back. An undone row is
+   struck through and quiet, its button now "Do again". */
+.recent-change {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.recent-change-words {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+}
+/* The one action never wraps and never shrinks: the words give way instead. */
+.entry-list .recent-change .row-actions {
+  flex: none;
+  white-space: nowrap;
+  /* The list's rows reveal their actions on hover; this one is the point of
+     the row, so it is there at rest (a control you must find by hovering is
+     not learnable). */
+  opacity: 1;
+}
+.recent-change-label {
+  overflow-wrap: anywhere;
+}
+.recent-change.is-undone .recent-change-label {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.recent-change-empty {
+  list-style: none;
 }

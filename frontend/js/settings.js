@@ -176,7 +176,11 @@ function showSettingsSection(name) {
       .catch(() => {});
   }
   if (name === "models") renderModelBench();
-  if (name === "general") renderUsage();
+  if (name === "general") {
+    renderUsage();
+    //: Search suggestions are kept on this device (search-suggest.js).
+    $("pref-search-suggest").checked = prefs.get("searchSuggest", "on") !== "off";
+  }
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") {
     renderShortcutList();
@@ -189,6 +193,10 @@ function showSettingsSection(name) {
     ensureModule("appImport");
     renderBackups();
     renderBackupRetention();
+    ensureModule("settingsData").then(() => {
+      renderSettingsClear();
+      renderSettingsHistory();
+    });
   }
   if (name === "tasks") renderTasks(); // fill it in now, then poll
   if (name === "extras") renderExtras();
@@ -2044,7 +2052,7 @@ function savedThemeCard(theme) {
   const remove = smallButton("ph:trash", `Delete “${theme.name}”`, () => {
     deleteSavedTheme(theme.name).catch((e) => toast(e.message, true));
   });
-  remove.classList.add("ghost", "icon-button", "saved-look-delete");
+  remove.classList.add("ghost", "icon-button", "quiet", "danger", "saved-look-delete");
   foot.append(name, remove);
 
   card.append(preview, foot);
@@ -2268,6 +2276,8 @@ function applyAppearance() {
   root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = perf ? "reduced" : appearancePref("motion");
   root.dataset.uiMotion = appearancePref("ui-motion");
+  //: The Capture box holds its line-number column from first paint when this is on.
+  root.dataset.noteGutter = prefs.get("doc-gutter", null) === "1" ? "on" : "off";
   root.dataset.progressMotion = appearancePref("progress-motion");
   // The skeleton shimmer follows the OS reduced-motion setting unless "Always move" was chosen.
   root.toggleAttribute("data-progress-chosen", prefs.get("progress-motion", null) === "always");
@@ -2888,6 +2898,12 @@ function toggleBgArt(on) {
 }
 
 $("theme-btn").addEventListener("click", toggleTheme);
+//: The one switch for every box's suggestions (Brief 86, CHAT_PLAN decision
+//: 69), kept on this device: absent reads as on.
+$("pref-search-suggest")?.addEventListener("change", (event) => {
+  prefs.set("searchSuggest", event.target.checked ? "on" : "off");
+  toast(event.target.checked ? "Search boxes suggest as you type." : "Search boxes no longer suggest.");
+});
 $("bg-art-toggle").addEventListener("change", (e) => {
   toggleBgArt(e.target.checked);
   renderAppearance(); // enable/disable the style + intensity rows
@@ -4018,29 +4034,32 @@ function learnedRow(fact) {
   meta.textContent = parts.join(" · ");
   li.appendChild(meta);
 
-  const actions = document.createElement("div");
-  actions.className = "row entry-actions";
+  const acts = [];
   if (fact.entry_id) {
-    actions.appendChild(
-      smallButton("ph:arrow-square-out Open the note", "Open the note this came from", () => {
+    acts.push({
+      label: "ph:arrow-square-out Open the note",
+      title: "Open the note this came from",
+      run: () => {
         closeSettingsModal();
         flashEntry(fact.entry_id);
-      })
-    );
+      },
+    });
   }
-  actions.appendChild(
-    smallButton("ph:pencil-simple Edit", "Correct what this says", () => learnedEdit(fact))
-  );
+  acts.push({ label: "ph:pencil-simple Edit", title: "Correct what this says", run: () => learnedEdit(fact) });
   if (fact.edited_by_user) {
-    actions.appendChild(
-      smallButton("ph:arrow-counter-clockwise Reset", "Put the model's own words back", () =>
-        learnedReset(fact)
-      )
-    );
+    acts.push({
+      label: "ph:arrow-counter-clockwise Reset",
+      title: "Put the model's own words back",
+      run: () => learnedReset(fact),
+    });
   }
-  actions.appendChild(
-    smallButton("ph:trash Delete", "Delete this, and never work it out again", () => learnedDelete(fact))
-  );
+  acts.push({
+    label: "ph:trash Delete",
+    title: "Delete this, and never work it out again",
+    run: () => learnedDelete(fact),
+    danger: true,
+  });
+  const actions = rowActions(acts, "More for this fact");
   li.appendChild(actions);
   return li;
 }
@@ -4520,7 +4539,7 @@ function renderJobOverview() {
         else toast(result.message, "info");
         refreshBackgroundTasks();
       });
-      go.classList.add("job-run-now");
+      go.classList.add("job-run-now", "quiet");
       li.append(when, go);
     }
     list.appendChild(li);

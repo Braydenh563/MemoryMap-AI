@@ -3555,10 +3555,7 @@ function renderGraphPopupHeader(entry, node) {
   //: the chip row below it: the note's own name was nowhere on a panel about
   //: that note. `entry.title` when the AI (or the owner) gave it one, the
   //: first line otherwise, which is what every other note surface shows.
-  const firstLine =
-    typeof notePreviewText === "function"
-      ? notePreviewText(entry.content || "").split("\n")[0]
-      : stripFrontmatter(entry.content).split("\n")[0];
+  const firstLine = noteNamePlain(entry.content);
   titleEl.textContent =
     entry.title || firstLine.slice(0, 80).trim() || node.category || "Note";
   //: The title is ellipsised to one line now, so the whole of it has to be

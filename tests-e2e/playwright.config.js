@@ -115,7 +115,12 @@ module.exports = defineConfig({
     },
     {
       name: "notebook",
-      testIgnore: /first-run\.spec\.js/,
+      // CI runs the budgets alone, after the flows (MEMORYMAP_E2E_BUDGETS_APART):
+      // timed beside two other workers on a shared runner, a different budget
+      // missed on each run while HEAD measured no slower (e2efix2, 2026-10-11).
+      testIgnore: process.env.MEMORYMAP_E2E_BUDGETS_APART
+        ? [/first-run\.spec\.js/, /budgets\.spec\.js/]
+        : /first-run\.spec\.js/,
       use: {
         ...devices["Desktop Chrome"],
         baseURL: BASE_URL,

@@ -33,6 +33,7 @@ from urllib.parse import (
 
 import requests
 
+from memorymap.core import egress
 from memorymap.core.logbuffer import safe_value
 from memorymap.core.security import UnsafeUrl, is_internal_address, public_addresses
 from memorymap.core import webclip
@@ -326,6 +327,7 @@ def settings_from(config) -> tuple[str, str]:
     )
 
 
+@egress.labelled(lambda query, *a, **k: f"Web search for '{egress.short(query)}'")
 def search_web(
     query: str,
     limit: int = 5,
@@ -801,6 +803,7 @@ def fetch_readable_cached(url: str) -> dict:
     return fetch_readable(url)
 
 
+@egress.labelled(lambda url, *a, **k: f"Reading a web page: {egress.short(url, 80)}")
 def fetch_readable(url: str) -> dict:
     """Fetch a page and return its readable text.
 

@@ -57,7 +57,7 @@ async function openNotePropertiesSheet(entry) {
       names.id = "prop-note-names";
       for (const e of (typeof allEntries !== "undefined" ? allEntries : []).slice(0, 300)) {
         const opt = document.createElement("option");
-        opt.value = noteSortName(e).split("\n")[0].slice(0, 80);
+        opt.value = noteNamePlain(e.title || e.content).slice(0, 80);
         names.appendChild(opt);
       }
       //: The type first: a select of the note types; choosing one adds its
@@ -362,7 +362,7 @@ function openQueryTable(ids) {
         const open = document.createElement("button");
         open.type = "button";
         open.className = "linklike";
-        open.textContent = noteSortName(e).split("\n")[0].slice(0, 80) || "Untitled note";
+        open.textContent = noteNamePlain(e.title || e.content).slice(0, 80) || "Untitled note";
         open.addEventListener("click", () => {
           close();
           flashEntry(e.id);

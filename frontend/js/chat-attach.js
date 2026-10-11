@@ -876,6 +876,30 @@ function plainText(md) {
   return stripMarkdownPreview(flattenNoteMarkdown(md)).replace(/\s+/g, " ").trim();
 }
 
+//: A toggle that is on says so to a screen reader as well as to the eye: the
+//: `.active` fill and `aria-pressed` move together (uisweep-1011: the
+//: reminders' List and Calendar, Open, All and Done, and Select had the fill
+//: only).
+function setActiveChoice(button, on) {
+  button.classList.toggle("active", on);
+  button.setAttribute("aria-pressed", String(on));
+}
+
+//: **A note's or document's name as plain words**, the one way (INBOX 820: a
+//: board's Layers row read "Note card: **Current Commit..."). Frontmatter
+//: dropped, the first line that has words, its Markdown (heading, quote and
+//: list marks, bold, italic, code, links, [[wiki links]]) turned into the
+//: words it means. For any label, `title`, `aria-label`, toast or list row
+//: that names a note; `limit` cuts at a whole word with an ellipsis. Not
+//: `plainText`: that deletes every underscore and asterisk, which would turn
+//: `my_file_name` into `myfilename`. `tests/test_ui_recipes.py` bars a
+//: hand-rolled `.split("\n")[0]` on a note's content everywhere else.
+function noteNamePlain(content, limit = 0) {
+  const line = stripFrontmatter(String(content ?? "")).split("\n").map((l) => l.trim()).find(Boolean) || "";
+  const name = notePreviewText(flattenNoteMarkdown(line.replace(/^(?:>\s*|[-*+]\s+\[[ xX]\]\s+)+/, ""))).replace(/^[#>\s]+/, "").trim();
+  return limit ? clipText(name, limit) : name;
+}
+
 //: A badge whose text is a note's own words: `label` in `setLabel`'s grammar,
 //: `md` rendered rather than printed (INBOX 35/40). The chip's CSS width does
 //: the cutting, between whole rendered characters; only a pathological length

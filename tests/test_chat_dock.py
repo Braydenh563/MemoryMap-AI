@@ -237,3 +237,28 @@ def test_the_companion_is_under_every_popup_and_a_dock_popup_is_over_it():
     lift = lift[: lift.index("}")]
     assert "#chat-dock-more-panel:not(.hidden)" in lift and ".chat-skills-panel:not(.hidden)" in lift
     assert band < int(re.search(r"z-index:\s*(\d+)", lift).group(1))
+
+
+def test_the_settings_gear_takes_the_icon_button_corner_not_a_circle():
+    """"i dont think the settings button in the bottom chat doc should be a
+    circle when everything else is a curved corner rectangle" (INBOX 841). The
+    strip's pill rule drew the 32px gear as a circle; DESIGN.md's icon-only row
+    says `--radius-md`, never a circle."""
+    css = _styles()
+    sel = ".chat-dock-controls .chat-dock-more>button.icon-only {"
+    rule = css[css.index(sel) :]
+    assert "border-radius: var(--radius-md);" in rule[: rule.index("\n}")]
+
+
+def test_agent_with_no_model_says_it_runs_the_apps_tools_only():
+    """"I can still select agent when the ai isnt running, is that
+    intentional??" (INBOX 840). It is (CHAT_PLAN 22a), so the fix is
+    learnability: the segment's title opens "Agent, app tools only", and the
+    first choice of Agent with no model shows one line under the composer."""
+    from tests._app_js import frontend_text
+
+    js = frontend_text("status.js")
+    assert '"Agent, app tools only. With no model' in js
+    assert "function showAgentNoModelHint(" in js and 'prefs.has("agentNoModelHint")' in js
+    html = re.sub(r"<!--.*?-->", "", INDEX.read_text(encoding="utf-8"), flags=re.S)
+    assert 'id="chat-agent-hint"' in html and 'role="status"' in html

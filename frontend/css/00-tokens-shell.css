@@ -429,7 +429,6 @@ select optgroup {
   /* The specular top edge that reads as light catching the lip of a glass
      panel. Kept low in the light theme for the reason the sheen gradient
      below already records: white on near-white adds nothing. */
-  --glass-specular: rgba(255, 255, 255, 0.55);
   /* User-tunable in Settings → Appearance (set inline on <html> by JS). */
   /* --- the type scale (§35L) ------------------------------------------------
      Ten steps, extracted the same way the spacing scale was. This file had
@@ -787,7 +786,6 @@ select optgroup {
   --panel: var(--card);
   --card-bg: var(--card);
   --card-bg-hover: var(--inner);
-  --glass-bg: var(--card);
   --border-light: var(--glass-border);
   --font-sans: var(--ui-font);
   /* **Light's shadows are cast in the app's own ink** (`--ink`, 31 36 48).
@@ -852,10 +850,6 @@ select optgroup {
   /* Fallback mode when glass is turned off. Overrides the semi-transparent
      backgrounds and borders with solid colours so contrast holds up without
      the blur behind it. */
-  --fallback-card: #ffffff;
-  --fallback-input: #ffffff;
-  --fallback-inner: #f8f9fa;
-  --fallback-modal: #ffffff;
 }
 /* Interface animations off: the polish is instant (the tokens above). */
 :root[data-ui-motion="off"] {
@@ -975,7 +969,6 @@ select,
   --surface-2: rgba(255, 255, 255, 0.045);
   --surface-3: rgba(255, 255, 255, 0.09);
   --divider: rgba(255, 255, 255, 0.08);
-  --glass-specular: rgba(255, 255, 255, 0.14);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -1052,7 +1045,6 @@ select,
     --surface-2: rgba(255, 255, 255, 0.045);
     --surface-3: rgba(255, 255, 255, 0.09);
     --divider: rgba(255, 255, 255, 0.08);
-    --glass-specular: rgba(255, 255, 255, 0.14);
   }
 }
 * {
@@ -1165,7 +1157,8 @@ body {
   color: var(--accent-text);
   text-underline-offset: 0.15em;
 }
-:where(a):hover {
+:where(a):hover,
+:where(a):is(:focus-visible, :has(:focus-visible)) {
   text-decoration-thickness: 2px;
 }
 /* Appearance → Font. Default (system) leaves --ui-font unset → the fallback. */
@@ -1274,7 +1267,7 @@ header#top-bar {
    tabs, and reclaiming it buys a whole tab's worth of room. */
 header#top-bar h1 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: var(--text-h3);
   letter-spacing: 0.01em;
   white-space: nowrap;
   /* Never shrinks. `flex: 0 1 auto` with `min-width: 0` let the box get
@@ -1322,7 +1315,7 @@ header#top-bar h1 {
   }
   #tab-bar button {
     padding-inline: var(--space-4);
-    font-size: 0.92rem;
+    font-size: var(--text-lg);
   }
 }
 @media (max-width: 599.98px) {
@@ -1511,7 +1504,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding: 0;
   display: grid;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   background: var(--chip-bg);
   color: var(--muted);
@@ -1523,7 +1516,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   box-shadow: none;
 }
 .ai-status-dot {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   font-weight: 700;
   line-height: 1;
   display: block;
@@ -1592,7 +1585,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.6rem 0.8rem;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   font-weight: 400;
   text-align: left;
   /* visibility, not display: it keeps the box measurable and lets the fade
@@ -1608,7 +1601,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 .ai-status-wrap:hover .ai-status-popup,
 .ai-status:focus-visible+.ai-status-popup,
-.ai-status-popup.pinned {
+.ai-status-popup.pinned,
+.ai-status-wrap:is(:focus-visible, :has(:focus-visible)) .ai-status-popup {
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
@@ -1735,7 +1729,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: 0.25rem;
 }
 .extras-install-progress-text {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   max-width: 15rem;
   white-space: nowrap;
   overflow: hidden;
@@ -1999,7 +1993,8 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-weight: 500;
 }
 @media (hover: hover) {
-  .library-chip:hover {
+  .library-chip:hover,
+  .library-chip:is(:focus-visible, :has(:focus-visible)) {
     background: var(--ghost-btn-bg);
     color: var(--ink);
   }
@@ -2595,7 +2590,8 @@ header#top-bar.tabs-wrapped #tab-bar {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.library-image-tile figcaption:hover {
+.library-image-tile figcaption:hover,
+.library-image-tile figcaption:is(:focus-visible, :has(:focus-visible)) {
   color: var(--accent-text);
 }
 /* **The picture and its name are one object** (INBOX 56). The name under the
@@ -2736,7 +2732,8 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: #fff;
   background: color-mix(in srgb, var(--scrim) 45%, #000 55%);
 }
-.library-image-frame figcaption:hover {
+.library-image-frame figcaption:hover,
+.library-image-frame figcaption:is(:focus-visible, :has(:focus-visible)) {
   color: #fff;
   text-decoration: underline;
 }
@@ -2799,7 +2796,8 @@ header#top-bar.tabs-wrapped #tab-bar {
      two-class selector to beat that one, which is the shape of a decision
      being quietly remade. */
 }
-.library-image-reading > summary:hover {
+.library-image-reading > summary:hover,
+.library-image-reading > summary:is(:focus-visible, :has(:focus-visible)) {
   color: var(--ink);
 }
 /* **The count is a line you read, not a control you press** (INBOX 118: the
@@ -2911,7 +2909,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex: 0 0 auto;
   width: 0.3rem;
   height: 0.3rem;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--accent) 70%, transparent);
 }
 /* **Provenance is a byline, not two pills** (INBOX 56). The three model
@@ -3551,7 +3549,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* The tabs you are not on answer the pointer (INBOX 405): full ink and the
    veil, where they used to get only `button:hover`'s 7% brightness, which on
    muted text on a light bar made the label paler, not stronger. */
-#tab-bar button:not(.active):hover {
+#tab-bar button:not(.active):hover,
+#tab-bar button:not(.active):is(:focus-visible, :has(:focus-visible)) {
   color: var(--ink);
   background: var(--hover-veil);
 }
@@ -4113,7 +4112,7 @@ summary.small.icon-button {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 1.15rem;
+  font-size: var(--text-h3);
   font-weight: 600;
   color: var(--ink);
 }

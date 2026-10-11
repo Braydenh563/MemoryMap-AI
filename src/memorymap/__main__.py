@@ -555,7 +555,7 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
     import contextlib
     import socket as socket_module
 
-    from memorymap.core import lancert, netbind
+    from memorymap.core import lancert, lanserve, netbind
 
     lan_port = netbind.lan_port(PORT)
     info = lancert.ensure(config.data_dir)
@@ -566,12 +566,22 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
     if bind == netbind.ALL_INTERFACES_V6 and sock is None:
         bind = netbind.ALL_INTERFACES
     if sock is None:
-        try:
-            sock = socket_module.create_server((bind, lan_port))
-        except OSError as exc:
+        #: A second notebook on this computer (another person's account)
+        #: already holds 8443: take the next free port rather than going
+        #: local-only; Settings shows whichever address was taken.
+        first_error: OSError | None = None
+        for candidate in netbind.lan_port_candidates(lan_port):
+            try:
+                sock = socket_module.create_server((bind, candidate))
+            except OSError as exc:
+                first_error = first_error or exc
+                continue
+            lan_port = candidate
+            break
+        if sock is None:
             logger.warning(
-                "Other devices can't reach this notebook: port %s is taken (%s). "
-                "Listening on this computer only.", lan_port, exc,
+                "Other devices can't reach this notebook: port %s and the next %s are taken (%s). "
+                "Listening on this computer only.", lan_port, netbind.LAN_PORT_TRIES - 1, first_error,
             )
             netbind.set_current(HOST)
             uvicorn.run(app, host=HOST, port=PORT, log_level="info")
@@ -622,7 +632,8 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
             #: the local server rather than start the LAN one.
             first.result()
             return
-        second = asyncio.ensure_future(lan.serve(sockets=[sock]))
+        #: Plain http on this port gets a redirect to https (core/lanserve.py).
+        second = asyncio.ensure_future(lanserve.serve(lan, sock))
         while not first.done() and not second.done():
             if local.should_exit or lan.should_exit:
                 local.should_exit = lan.should_exit = True

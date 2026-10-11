@@ -1,7 +1,7 @@
 """Edit data (INBOX 797, canvasdepth2; WHITEBOARD_PLAN section 3 and
 "canvasdepth, ranked" row 10, draw.io's custom properties). `data.props`, up
 to 30 named values on an item, edited in the Format panel's Data tab. The
-browser half is `scratchpad/ui-sweeps/wbeditdata.js`."""
+browser half is `scratchpad/ui-sweeps/wbdepth2.js wbeditdata`."""
 
 from __future__ import annotations
 

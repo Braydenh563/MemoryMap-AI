@@ -1533,6 +1533,9 @@ function renderNoteText(element, text, terms) {
       //: before the sentence, and the words are the task with its markdown
       //: marks taken off, as the card draws them.
       box.setAttribute("aria-label", `${box.checked ? "Done" : "To do"}: ${task[2].replace(/[*_`~]|\[\[|\]\]/g, "").trim()}`);
+      //: A disabled control says why (vibecheck, "muted disabled"): the card is
+      //: a preview, and a note's tasks are ticked on its own page.
+      box.title = "Open the note to tick this off";
       item.appendChild(box);
       renderNoteInline(item, task[2], terms);
       element.appendChild(item);
@@ -3074,7 +3077,7 @@ function referenceCountChip(entry, options = {}) {
     lazyScript("/js/connections.js").then(() => openConnections(
       "entries",
       entry.id,
-      entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80)
+      entry.title || noteNamePlain(entry.content, 80)
     ));
   });
   refChip.title = "Everything this note is joined to. Open Connections";

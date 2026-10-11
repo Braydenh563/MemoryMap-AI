@@ -640,7 +640,18 @@ function labelledMenu(label, items, ariaLabel, openerClass = "ghost small") {
     else closeActionMenus();
   });
 
+  //: `group` is honoured here as `kebabMenu` honours it (a hairline where the
+  //: name changes): a worded menu past five rows was drawn ungrouped
+  //: (menus.js sweep, "Add this note to a document": 7 rows, no groups).
+  let lastGroup = null;
   for (const item of items) {
+    if (lastGroup !== null && item.group && item.group !== lastGroup) {
+      const rule = document.createElement("div");
+      rule.className = "menu-sep";
+      rule.setAttribute("role", "separator");
+      menu.appendChild(rule);
+    }
+    if (item.group) lastGroup = item.group;
     const button = document.createElement("button");
     button.className = "menu-item";
     button.setAttribute("role", "menuitem");
@@ -1175,6 +1186,27 @@ function openKebabSheet(menu, opener, label) {
 //: passes the `vertical` option; the default stays the horizontal one, and
 //: nothing else draws an overflow glyph (DESIGN.md's recipe index, pinned by
 //: `tests/test_icon_conventions.py`).
+//: **Row actions** (DESIGN.md, INBOX 810): an action repeated on every row of
+//: a list is a quiet text button (no edge, no face at rest; the ghost tint,
+//: the ring and a 24px floor under the pointer or the keyboard), a
+//: destructive one waits in the muted ink until it is aimed at, and three or
+//: more fold into the row's ⋯ behind the first. `actions` are kebabMenu items
+//: (`label`, `title`, `run`, `danger`), so a row moves between the two shapes
+//: without its caller changing.
+function rowActions(actions, ariaLabel) {
+  const wrap = document.createElement("span");
+  wrap.className = "entry-actions row-actions";
+  const button = (action) => {
+    const b = smallButton(action.label, action.title, () => action.run());
+    b.classList.add("quiet");
+    if (action.danger) b.classList.add("danger");
+    return b;
+  };
+  if (actions.length < 3) wrap.append(...actions.map(button));
+  else wrap.append(button(actions[0]), kebabMenu(actions.slice(1), ariaLabel));
+  return wrap;
+}
+
 function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -2103,13 +2135,13 @@ async function loadChatSuggestions() {
   const label = document.createElement("span");
   label.className = "muted";
   //: UX-07: with no model a chip goes to Notes, Ask, and says so.
-  label.textContent = typeof aiIsOff === "function" && aiIsOff() ? "Try in Notes, Ask:" : "Try asking:";
+  label.textContent = aiIsOff() ? "Try in Notes, Ask:" : "Try asking:";
   box.appendChild(label);
   for (const question of picks) {
     //: No model: the chips go to Notes, Ask, like the dashboard's Ask tile
     //: (INBOX 472: they answered "no saved notes" over two notes).
     const chipEl = chip(question, "", async () => {
-      if (typeof aiIsOff === "function" && aiIsOff()) {
+      if (aiIsOff()) {
         await switchTab("notes");
         showNotesSection("ask");
         $("question").value = question;

@@ -949,7 +949,7 @@ function openNotePage(entry, returnFocus = null) {
   if (!entry || notePageOpenId === entry.id) return;
   expandedNotes.add(entry.id);
   notePageOpenId = entry.id;
-  const title = entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80) || "Note";
+  const title = entry.title || noteNamePlain(entry.content, 80) || "Note";
   notePageClose = openSheet({
     label: title,
     name: "note",

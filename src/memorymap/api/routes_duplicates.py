@@ -96,7 +96,7 @@ def list_duplicates(
     # computation to slice it, and recording each would make "last scan" mean
     # "last time someone clicked next".
     if offset == 0:
-        with jobruns.job_run("duplicate-scan") as run:
+        with jobruns.job_run("duplicate-scan", origin="you") as run:
             groups = duplicates.find_duplicates(session, threshold)
             run.result = (
                 f"{len(groups)} possible duplicate group{'' if len(groups) == 1 else 's'}"

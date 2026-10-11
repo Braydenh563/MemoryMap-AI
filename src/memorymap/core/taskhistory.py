@@ -135,6 +135,11 @@ def clear() -> None:
     """Forget the history: used by the UI's clear button, and between tests."""
     with _lock:
         _finished.clear()
+    # The process ledger's endings are the other half of the same list
+    # (`/tasks` merges them), so one Clear forgets both.
+    from memorymap.core import jobruns
+
+    jobruns.clear_finished()
 
 
 def _percentile(sorted_values: list[float], pct: float) -> float:

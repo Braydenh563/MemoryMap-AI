@@ -1331,36 +1331,48 @@ function renderShortcutList() {
   }
 }
 
+//: **The key chip is the button** (INBOX 810, Row actions): a column of
+//: thirty-one bordered "Change" buttons was the heaviest thing in the pane,
+//: louder than the keys it changes. Pressing the keys starts the rebind and
+//: pressing them again cancels it; its words say which ("Change" or
+//: "Cancel"), and the back-to-default is a quiet icon after the words.
 function buildShortcutList(list) {
   list.replaceChildren();
   for (const [id, def] of Object.entries(shortcuts)) {
     const li = document.createElement("li");
-    const combo = document.createElement("kbd");
-    combo.textContent = capturingShortcut === id ? "Press keys…" : def.keys;
-    if (capturingShortcut === id) combo.classList.add("capturing");
-
-    const label = document.createElement("span");
-    label.textContent = def.label;
-
+    const capturing = capturingShortcut === id;
     const change = document.createElement("button");
-    change.className = "ghost small";
+    change.className = "ghost small quiet shortcut-key";
     change.type = "button";
-    change.textContent = capturingShortcut === id ? "Cancel" : "Change";
-    change.setAttribute("aria-label", `Change the shortcut for: ${def.label}`);
+    const combo = document.createElement("kbd");
+    combo.textContent = capturing ? "Press keys…" : def.keys;
+    if (capturing) combo.classList.add("capturing");
+    change.append(combo);
+    change.title = capturing ? "Cancel" : "Change";
+    change.setAttribute(
+      "aria-label",
+      capturing ? `Cancel changing the shortcut for: ${def.label}` : `Change the shortcut for: ${def.label}, now ${def.keys}`
+    );
     change.addEventListener("click", () => {
       capturingShortcut = capturingShortcut === id ? null : id;
       setShortcutStatus(
         capturingShortcut ? "Press the keys you want, or Escape to cancel." : ""
       );
       renderShortcutList();
+      //: The list was redrawn: the focus goes back to the same row's keys.
+      list.querySelector(`[data-shortcut="${id}"] .shortcut-key`)?.focus();
     });
+
+    const label = document.createElement("span");
+    label.textContent = def.label;
+    li.dataset.shortcut = id;
+    li.append(change, label);
 
     // Only offer "default" when it isn't already the default.
     const changed = def.keys !== DEFAULT_SHORTCUTS[id].keys;
-    li.append(combo, label, change);
     if (changed) {
       const revert = document.createElement("button");
-      revert.className = "ghost small";
+      revert.className = "ghost small quiet icon-only";
       revert.type = "button";
       setLabel(revert, "ph:arrow-counter-clockwise");
       revert.title = `Back to ${DEFAULT_SHORTCUTS[id].keys}`;
@@ -1713,113 +1725,6 @@ for (const [id, key] of [["entry-title", "captureDraftTitle"], ["entry-tags", "c
 $("sketch-btn").addEventListener("click", openSketch);
 $("sketch-close").addEventListener("click", closeSketch);
 $("sketch-save").addEventListener("click", saveSketch);
-$("sketch-clear").addEventListener("click", () => {
-  // Clears strokes only: the background layer (§37G's uploaded image, or
-  // blank white) is untouched, so Clear can't lose the photo being annotated.
-  const canvas = $("sketch-canvas");
-  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
-});
-$("sketch-upload-image").addEventListener("click", () => $("sketch-image-input").click());
-$("sketch-image-input").addEventListener("change", () => {
-  const file = $("sketch-image-input").files[0];
-  $("sketch-image-input").value = ""; // lets the same file be picked again
-  sketchUploadImage(file);
-});
-$("sketch-size").addEventListener("input", () => {
-  sketchPen.size = Number($("sketch-size").value);
-  syncSketchSizeReadout();
-});
-// `input` previews live while dragging the swatch; `change` (fires once, on
-// release) is what persists, dragging across ten hues shouldn't write ten
-// times, same reasoning as the whiteboard's own background picker.
-$("sketch-bg-color-picker").addEventListener("input", (e) => {
-  sketchBgColor = e.target.value;
-  sketchDrawBackground();
-  sketchDirty = true; // a background colour is as much a change as a stroke
-});
-$("sketch-bg-color-picker").addEventListener("change", (e) => {
-  localStorage.setItem(SKETCH_BG_KEY, e.target.value);
-});
-for (const button of document.querySelectorAll(".sketch-color")) {
-  button.addEventListener("click", () => {
-    sketchPen.color = button.dataset.color;
-    // Picking a colour means you want to draw, not erase. The eraser button
-    // was renamed `sketch-tool-eraser` when the toolbar became icons, and this
-    // one call kept the old `sketch-eraser` id: so the optional-chain
-    // swallowed it and the eraser stayed lit while the pen drew, which reads
-    // as the colour swatches not working.
-    //
-    // **It does not mean you want the pen**, which is what this did until it
-    // was measured: "highlighter, then yellow" left `sketchTool` at "pen" and
-    // drew an opaque yellow line (one pass at 176.0 luminance on a 255.0
-    // paper, which is the ink's own value, so no translucency at all). The
-    // highlighter, the shapes and the text tool all take the ink too, so only
-    // the eraser is switched away from here.
-    const wasErasing = sketchPen.eraser;
-    sketchPen.eraser = false;
-    if (wasErasing) {
-      sketchTool = "pen";
-      $("sketch-tool-eraser")?.classList.remove("active");
-      $("sketch-tool-pen")?.classList.add("active");
-    }
-    document
-      .querySelectorAll(".sketch-color")
-      .forEach((b) => b.classList.toggle("active", b === button));
-  });
-}
-const sketchCanvas = $("sketch-canvas");
-sketchCanvas.addEventListener("pointerdown", sketchStart);
-sketchCanvas.addEventListener("pointermove", sketchMove);
-sketchCanvas.addEventListener("pointerup", sketchEnd);
-sketchCanvas.addEventListener("pointerleave", sketchEnd);
-
-$("sketch-undo").addEventListener("click", () => {
-  if (sketchHistory.length === 0) return;
-  const canvas = $("sketch-canvas");
-  const ctx = canvas.getContext("2d");
-  sketchRedoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-  const last = sketchHistory.pop();
-  ctx.putImageData(last, 0, 0);
-  sketchDirty = true;
-});
-$("sketch-redo").addEventListener("click", () => {
-  if (sketchRedoStack.length === 0) return;
-  const canvas = $("sketch-canvas");
-  const ctx = canvas.getContext("2d");
-  sketchHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-  const next = sketchRedoStack.pop();
-  ctx.putImageData(next, 0, 0);
-  sketchDirty = true;
-});
-
-const sketchToolsList = ["pen", "highlighter", "eraser", "line", "rect", "circ", "arrow", "text"];
-for (const tool of sketchToolsList) {
-  const btn = $(`sketch-tool-${tool}`);
-  if (btn) {
-    btn.addEventListener("click", () => {
-      sketchTool = tool === "eraser" ? "pen" : tool;
-      sketchPen.eraser = (tool === "eraser");
-      for (const t of sketchToolsList) {
-        const tBtn = $(`sketch-tool-${t}`);
-        if (tBtn) tBtn.classList.toggle("active", t === tool);
-      }
-    });
-  }
-}
-
-document.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && !$("sketch-overlay").classList.contains("hidden")) {
-    if (e.key === "z") {
-      if (e.shiftKey) $("sketch-redo").click();
-      else $("sketch-undo").click();
-      e.preventDefault();
-    } else if (e.key === "y") {
-      $("sketch-redo").click();
-      e.preventDefault();
-    }
-  }
-});
-
 // Wave H: dictation + read-aloud.
 $("mic-note").addEventListener("click", () =>
   toggleDictation($("mic-note"), $("entry-content"))

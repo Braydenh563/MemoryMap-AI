@@ -71,7 +71,8 @@
   box-shadow: none;
 }
 
-#saved-finds li .category-actions button:hover {
+#saved-finds li .category-actions button:hover,
+#saved-finds li .category-actions button:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
 }
 

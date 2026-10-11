@@ -992,7 +992,7 @@ async function wbSaveSelectionToLibrary() {
   const payload = wbLibSelectionPayload();
   if (!payload) return;
   const one = payload.items.length === 1 ? payload.items[0] : null;
-  const guess = one?.data?.label || one?.data?.content?.split("\n")[0]?.slice(0, 40) || `${payload.items.length} items`;
+  const guess = one?.data?.label || noteNamePlain(one?.data?.content, 40) || `${payload.items.length} items`;
   const name = await promptDialog("Save to the library as", guess, { confirmLabel: "Save" });
   if (!name || !name.trim()) return;
   return wbLibCreate("element", name.trim(), payload);
@@ -1467,9 +1467,19 @@ function wbLayerName(kind, item) {
   return own || wbItemSpokenName(kind, item);
 }
 
+//: The frames whose rows are folded shut in the Layers tab (kept for the
+//: session, not saved: it is a view of the list, not of the board).
+const wbLayerFoldedFrames = new Set();
+
+function wbLayerEntryByKey(key) {
+  const [kind, id] = String(key).split(":");
+  const item = wbFindItem(kind, Number(id));
+  return item ? { kind, item } : null;
+}
+
 function wbLayerRows() {
   const rows = [];
-  const layer = (title, entries) => {
+  const layer = (title, entries, held = null) => {
     entries.sort((a, b) => (b.item.z || 0) - (a.item.z || 0) || b.item.id - a.item.id);
     const groups = new Map();
     const top = [];
@@ -1493,7 +1503,13 @@ function wbLayerRows() {
         for (const m of t.members) rows.push({ ...m, level: 3, name: wbLayerName(m.kind, m.item) });
       } else {
         const m = t.group ? t.members[0] : t;
-        rows.push({ ...m, level: 2, name: wbLayerName(m.kind, m.item) });
+        const inside = held?.get(m.item.id) || [];
+        rows.push({ ...m, level: 2, name: wbLayerName(m.kind, m.item), holds: inside.length });
+        if (inside.length && !wbLayerFoldedFrames.has(m.item.id)) {
+          const members = inside.map((key) => wbLayerEntryByKey(key)).filter(Boolean)
+            .sort((a, b) => (b.item.z || 0) - (a.item.z || 0) || b.item.id - a.item.id);
+          for (const h of members) rows.push({ ...h, level: 3, name: wbLayerName(h.kind, h.item), held: true });
+        }
       }
     }
   };
@@ -1503,9 +1519,22 @@ function wbLayerRows() {
   ];
   const frames = (wbState.objects || []).filter((o) => o.kind === "frame").map((item) => ({ kind: "object", item }));
   const drawings = (wbState.sketches || []).filter((s) => wbSketchIsDrawable(s)).map((item) => ({ kind: "sketch", item }));
-  layer("Cards, text and pictures", cards);
-  if (frames.length) layer("Frames", frames);
-  layer("Drawings, shapes and lines", drawings);
+  //: **What a frame holds is nested under it** (INBOX 824, the owner asking
+  //: whether the tint on a row meant "in the frame"): an item lying wholly
+  //: inside a frame (`wbFrameContents`, the same rule a drag of the frame
+  //: uses) is listed once, under the first frame that holds it, indented and
+  //: collapsible, and not again in its kind's own list.
+  const held = new Map();
+  const claimed = new Set();
+  for (const frame of frames) {
+    const keys = wbFrameContents(frame.item, { withLocked: true }).filter((k) => !claimed.has(k));
+    for (const k of keys) claimed.add(k);
+    held.set(frame.item.id, keys);
+  }
+  const unclaimed = (list) => list.filter((e) => !claimed.has(wbMultiKey(e.kind, e.item.id)));
+  layer("Cards, text and pictures", unclaimed(cards));
+  if (frames.length) layer("Frames", frames, held);
+  layer("Drawings, shapes and lines", unclaimed(drawings));
   return rows;
 }
 
@@ -1758,6 +1787,7 @@ function wbRenderLayers() {
   }
   const selected = new Set(wbMultiSelection);
   if (wbSelectedItem) selected.add(wbMultiKey(wbSelectedItem.kind, wbSelectedItem.id));
+  wbLayersSelectedHead(selected.size);
   for (const row of wbLayerRows()) {
     const li = document.createElement("li");
     if (row.head) {
@@ -1806,13 +1836,37 @@ function wbRenderLayers() {
     lock.classList.toggle("is-by-layer", Boolean(lockLayer));
     li.classList.toggle("is-hidden", hidden);
     li.classList.toggle("is-locked", locked);
-    li.append(icon, name, eye, lock);
-    li.setAttribute("aria-label", `${row.name}${hidden ? ", hidden" : ""}${locked ? ", locked" : ""}`);
+    if (row.holds) {
+      //: A frame that holds items folds them (INBOX 824).
+      const folded = wbLayerFoldedFrames.has(row.item.id);
+      li.setAttribute("aria-expanded", folded ? "false" : "true");
+      li.classList.add("has-held");
+      const fold = wbLayerButton("wb-layer-fold", folded ? "ph-caret-right" : "ph-caret-down",
+        `${folded ? "Show" : "Hide"} the ${row.holds} item${row.holds === 1 ? "" : "s"} in this frame`);
+      fold.removeAttribute("aria-hidden");
+      fold.setAttribute("aria-label", fold.title);
+      name.textContent = `${row.name} \u00b7 ${row.holds}`;
+      li.append(fold, icon, name, eye, lock);
+    } else {
+      li.append(icon, name, eye, lock);
+    }
+    li.classList.toggle("is-held", Boolean(row.held));
+    li.setAttribute("aria-label", `${row.name}${row.holds ? `, holds ${row.holds}` : ""}${hidden ? ", hidden" : ""}${locked ? ", locked" : ""}`);
     tree.append(li);
   }
   const items = [...tree.querySelectorAll("[role='treeitem']")];
   const keep = items.find((r) => r.dataset.key === activeKey) || items.find((r) => r.getAttribute("aria-selected") === "true") || items[0];
   if (keep) keep.tabIndex = 0;
+}
+
+//: **The head says what the tint means** (INBOX 824: the owner asked whether
+//: a tinted row meant "in the frame"). A tinted row is selected on the board;
+//: the count is that, and Clear is the way out of it.
+function wbLayersSelectedHead(count) {
+  const label = document.getElementById("wb-layers-selected-count");
+  if (label) label.textContent = count ? `${count} selected on the board` : "Nothing selected";
+  const clear = document.getElementById("wb-layers-clear");
+  if (clear) clear.disabled = !count;
 }
 
 function wbLayerIcon(kind, item) {
@@ -1976,9 +2030,33 @@ onDomReady(() => {
     const li = e.target.closest("[role='treeitem']");
     if (li && !e.target.closest("button")) wbLayerRename(li);
   });
+  const foldFrame = (li, fold) => {
+    const id = Number(li?.dataset.id);
+    if (!id || !li.classList.contains("has-held")) return false;
+    const folded = wbLayerFoldedFrames.has(id);
+    if (fold === folded) return true;
+    if (fold) wbLayerFoldedFrames.add(id);
+    else wbLayerFoldedFrames.delete(id);
+    wbRenderLayers();
+    wbLayerFocus(li.dataset.key);
+    return true;
+  };
+  tree.addEventListener("click", (e) => {
+    const fold = e.target.closest(".wb-layer-fold");
+    if (!fold) return;
+    e.stopPropagation();
+    const li = fold.closest("[role='treeitem']");
+    foldFrame(li, !wbLayerFoldedFrames.has(Number(li.dataset.id)));
+  }, true);
+  document.getElementById("wb-layers-clear")?.addEventListener("click", () => {
+    clearWbSelection();
+    wbRenderLayers();
+  });
   tree.addEventListener("keydown", (e) => {
     const li = e.target.closest("[role='treeitem']");
     if (!li) return;
+    if (e.key === "ArrowLeft" && foldFrame(li, true)) return e.preventDefault();
+    if (e.key === "ArrowRight" && foldFrame(li, false)) return e.preventDefault();
     const rows = [...tree.querySelectorAll("[role='treeitem']")];
     const at = rows.indexOf(li);
     const go = (i) => {
@@ -2081,7 +2159,7 @@ function wbRenderPages() {
     name.className = "wb-layer-name";
     name.textContent = wbFrameTitle(frame);
     const present = wbLayerButton("wb-page-present", "ph-presentation", "Present from this page (P)");
-    li.append(number, name, present);
+    li.append(number, name, present, wbPageMenu(frame));
     li.setAttribute("aria-label", `Page ${i + 1}: ${wbFrameTitle(frame)}`);
     list.append(li);
   });
@@ -2129,6 +2207,45 @@ async function wbPageMove(id, to) {
   wbAnnounce(`${wbFrameTitle(moved)} is page ${to + 1} of ${frames.length}.`);
 }
 
+//: **A page row is renamed in the row** (INBOX 822, the owner: "I cant rename
+//: frames in the pages sidebar"): the same one-line editor as the frame's own
+//: title on the canvas (`wbEditFrameTitle`: Enter keeps, Escape cancels, one
+//: Undo step), on the row's name. The canvas title and the row repaint once
+//: it commits.
+function wbPageRename(id) {
+  const frame = (wbState.objects || []).find((o) => o.id === id);
+  const row = document.querySelector(`#wb-pages-list [data-id="${id}"]`);
+  const nameEl = row?.querySelector(".wb-layer-name");
+  if (!frame || !nameEl || nameEl.isContentEditable) return;
+  row.draggable = false;
+  wbEditFrameTitle(nameEl, frame);
+  nameEl.addEventListener("blur", () => {
+    setTimeout(() => {
+      wbScheduleRender();
+      wbRenderPages();
+      wbPageFocus(id);
+    }, 0);
+  }, { once: true });
+}
+
+//: The row's actions: the kebab recipe, so what a frame's menu on the canvas
+//: offers is also on the page that stands for it.
+function wbPageMenu(frame) {
+  const id = frame.id;
+  const menu = kebabMenu([
+    { label: "ph:pencil-simple Rename", title: "Rename this page (F2)", run: () => wbPageRename(id) },
+    { label: "ph:arrows-in Fit to contents", title: "Snug the frame to what is inside it", run: () => wbFrameFit((wbState.objects || []).find((o) => o.id === id), "nesw") },
+    { label: "ph:presentation Present from here", title: "Start the presentation on this page (P)", run: () => wbPagePresent(id) },
+    { label: "ph:trash Delete the frame", title: "What it holds stays on the board", group: "delete", run: () => {
+      wbPageGo(id);
+      deleteWbSelection();
+      setTimeout(() => wbRenderPages(), 400);
+    } },
+  ], "Actions for this page");
+  menu.classList.add("wb-page-menu");
+  return menu;
+}
+
 function wbPagePresent(id) {
   const at = wbFramesInOrder().findIndex((f) => f.id === id);
   wbStartPresenting();
@@ -2143,7 +2260,16 @@ onDomReady(() => {
     const li = rowOf(e);
     if (!li) return;
     if (e.target.closest(".wb-page-present")) return wbPagePresent(Number(li.dataset.id));
+    if (e.target.closest(".wb-page-menu, .menu-wrap") || e.target.isContentEditable) return;
+    //: The second press of a double-click renames. The first one went to the
+    //: page and redrew the list, so the browser never sees the same element
+    //: twice and sends no `dblclick`: `detail` is what counts the presses.
+    if (e.detail === 2) return wbPageRename(Number(li.dataset.id));
     wbPageGo(Number(li.dataset.id));
+  });
+  list.addEventListener("dblclick", (e) => {
+    const li = rowOf(e);
+    if (li && !e.target.closest("button, .menu-wrap") && !e.target.isContentEditable) wbPageRename(Number(li.dataset.id));
   });
   list.addEventListener("keydown", (e) => {
     const li = rowOf(e);
@@ -2163,6 +2289,7 @@ onDomReady(() => {
     else if (e.key === "End") go(rows.length - 1);
     else if (e.key === "Enter" || e.key === " ") wbPageGo(id);
     else if (plain && e.key.toLowerCase() === "p") wbPagePresent(id);
+    else if (e.key === "F2") wbPageRename(id);
     else return;
     e.preventDefault();
   });
@@ -2227,6 +2354,8 @@ function wbSideRefreshSoon() {
     const list = { layers: "wb-layers-tree", pages: "wb-pages-list" }[tab];
     const host = list && document.getElementById(list);
     if (!host || host.closest("[hidden]")) return;
+    //: A row being renamed is not redrawn under the hand typing in it.
+    if (host.querySelector("[contenteditable]")) return;
     const focused = host.contains(document.activeElement) ? document.activeElement : null;
     const key = focused?.dataset.key || focused?.dataset.id;
     if (tab === "layers") wbRenderLayers();

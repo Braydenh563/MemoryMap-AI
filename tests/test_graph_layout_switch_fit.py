@@ -2,7 +2,7 @@
 
 The owner, 2026-10-10: "I went onto the radial view and it put me on a random
 corner" and "same with the tree". Two causes, measured on 60 notes with
-`scratchpad/ui-sweeps/graphviewswitch.js`:
+`scratchpad/ui-sweeps/graphdepth2.js graphviewswitch`:
 
 1. A race. The switch clears the fit flag and re-renders; while `/graph` is
    fetched, the force simulation being replaced is still cooling, and its tick

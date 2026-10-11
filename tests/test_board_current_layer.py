@@ -2,7 +2,7 @@
 "canvasdepth, ranked" row 5's open half, draw.io's). A board's named layer
 marked `current` is where every new item lands, set by the server on each
 create (`_on_current_layer`), so the hand, paste, import and library paths
-all agree. The browser half is `scratchpad/ui-sweeps/wbcurrentlayer.js`."""
+all agree. The browser half is `scratchpad/ui-sweeps/wbdepth2.js wbcurrentlayer`."""
 
 from __future__ import annotations
 

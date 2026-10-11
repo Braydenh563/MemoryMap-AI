@@ -83,6 +83,7 @@ def test_the_ask_box_draws_the_lines_in_one_fold():
     html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
     assert 'id="ask-why"' in html
     assert 'else if (event.type === "why" && onWhy) onWhy(event);' in js
-    body = js[js.index("function renderAskWhy("):]
+    lazy = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    body = lazy[lazy.index("function renderAskWhy("):]
     body = body[: body.index("\n}\n")]
     assert 'fold.className = "agent-step why-fold"' in body and 'summary.className = "fold-summary"' in body

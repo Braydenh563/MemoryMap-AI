@@ -329,7 +329,7 @@ function noteFieldPickButton(input, after) {
   const button = smallButton("ph:magnifying-glass", "Choose a note", async () => {
     const entry = await pickEntryDialog("Choose a note");
     if (!entry) return;
-    input.value = noteSortName(entry).split("\n")[0].slice(0, 80);
+    input.value = noteNamePlain(entry.title || entry.content).slice(0, 80);
     input.dispatchEvent(new Event("change", { bubbles: true }));
     if (after) after(entry);
   });

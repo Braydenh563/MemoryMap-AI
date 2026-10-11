@@ -1,4 +1,4 @@
-"""Count Atlas's distinct faces per size from atlasfacediff.js's cells.
+"""Count Atlas's distinct faces per size from atlasdepth2.js atlasfacediff's cells.
 
 Two moods are the same face when fewer than 2% of the cell's pixels differ
 by more than DIFF in any of R, G and B (default 48; a gold sign on white moves blue, not the mean); FRAC (default 0.02) sets the share. The count is the number of groups left

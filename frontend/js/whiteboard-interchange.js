@@ -937,7 +937,7 @@ async function wbImportMermaidSequence(source, at = wbViewCentre()) {
 
 function wbCardTitleForExport(node) {
   const entry = (typeof allEntries !== "undefined" ? allEntries : []).find((e) => e.id === node.entry_id);
-  return entry ? notePreviewText(entry.content || "").split("\n")[0].slice(0, 80) : `Note ${node.entry_id}`;
+  return entry ? noteNamePlain(entry.content).slice(0, 80) : `Note ${node.entry_id}`;
 }
 
 //: The innermost frame an item lies wholly inside, for the Mermaid export's

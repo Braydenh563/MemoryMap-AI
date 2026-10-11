@@ -420,11 +420,13 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
 
         # The network gets HTTPS only (the owner, 2026-10-05; SEC-08): the
         # plain http port answers on this computer alone, and the HTTPS one
-        # refuses a plain request.
+        # answers a plain request only with a redirect to itself over https
+        # (INBOX 866: a phone given the address without https:// got nothing).
         with pytest.raises(OSError):
             _Http(network_address, port).call("GET", "/health")
-        with pytest.raises((OSError, http.client.HTTPException)):
-            _Http(network_address, _lan_port(port)).call("GET", "/health")
+        status, data, headers = _Http(network_address, _lan_port(port)).call("GET", "/health")
+        assert status == 301 and data is None
+        assert dict(headers)["Location"] == f"https://{network_address}:{_lan_port(port)}/health"
 
         # It listens on the network address, and says so on the receipt.
         status, body, _ = lan.call("GET", "/auth/status")
@@ -595,3 +597,16 @@ def test_without_a_password_the_network_gets_nothing(client):
     assert lan.get("/auth/status").status_code == 200
     assert lan.get("/entries?limit=5").status_code == 401
 
+
+
+def test_a_second_notebook_on_this_computer_takes_the_next_lan_port(monkeypatch):
+    """The owner, 2026-10-11: "what if multiple people are running memory map
+    and want to connect over the same lan connection??" Two accounts on one
+    computer: the second used to go local-only when 8443 was held."""
+    from memorymap.core import netbind
+
+    monkeypatch.delenv("MEMORYMAP_LAN_PORT", raising=False)
+    assert netbind.lan_port_candidates(8443)[:3] == [8443, 8444, 8445]
+    assert len(netbind.lan_port_candidates(8443)) == netbind.LAN_PORT_TRIES
+    monkeypatch.setenv("MEMORYMAP_LAN_PORT", "9000")
+    assert netbind.lan_port_candidates(9000) == [9000]

@@ -2,7 +2,7 @@
 ranked" row 1, XMind's). A topic's `data.branch_layout` lays the branch under
 it out as that layout inside the map's own; stored and exported like a
 boundary. The browser half, overlap and lines measured, is
-`scratchpad/ui-sweeps/mapbranchstructure.js`."""
+`scratchpad/ui-sweeps/mapdepth2.js mapbranchstructure`."""
 
 from __future__ import annotations
 

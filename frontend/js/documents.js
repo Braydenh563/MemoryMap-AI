@@ -14473,6 +14473,7 @@ function setDocGutter(on) {
   } catch {
     /* private mode: the choice holds for this session only */
   }
+  document.documentElement.dataset.noteGutter = on ? "on" : "off";
   applyDocGutter();
 }
 

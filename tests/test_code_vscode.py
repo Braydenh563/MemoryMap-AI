@@ -531,7 +531,7 @@ def test_run_is_on_a_free_chord_and_in_the_dock_for_code():
     app = app_js_text()
     assert '"Ctrl+Shift+Enter"' not in app
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    assert '<button id="doc-code-run" class="ghost small hidden" type="button"' in html
+    assert '<button id="doc-code-run" class="small hidden" type="button"' in html
     assert '$("doc-code-run")?.classList.toggle("hidden", !docRunnable(type));' in _function("syncDocFileType")
     source = _source()
     table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]

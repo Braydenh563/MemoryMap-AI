@@ -777,7 +777,7 @@
       </div>
       <div class="finder-bar">
         <span class="finder-icon"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></span>
-        <input type="search" id="finder-input" class="finder-input"
+        <input type="search" id="finder-input" data-search-scope="notes" class="finder-input"
           placeholder="Search everything you keep"
           aria-label="Search everything" autocomplete="off" spellcheck="false">
       </div>
@@ -2319,7 +2319,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock-group dock-find">
               <div class="search-field dock-search">
                 <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-                <input id="note-search" class="library-search search-field-input" type="search"
+                <input id="note-search" data-search-scope="notes" class="library-search search-field-input" type="search"
                   placeholder="Filter notes"
                   aria-label="Filter notes. Supports tag: or #tag, cat:, title:, before:, after:, is:favourite, has:, space:, -exclude and quoted phrases"
                   aria-describedby="search-help-hint">
@@ -2357,7 +2357,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
             <div class="dock-actions">
-              <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> <span class="dock-word">Select</span></button>
+              <button id="select-btn" class="ghost small" aria-pressed="false" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> <span class="dock-word">Select</span></button>
               <button id="search-help" data-help-for="search-help-hint" class="icon-only ghost small graph-help-toggle" type="button"
                 aria-expanded="false" aria-controls="search-help-hint"
                 title="What can I type here?" aria-label="What can I type here?">
@@ -3031,6 +3031,13 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="chat-send">Send</button>
             <button id="chat-stop" data-shortcut="stopAI" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
             </div>
+            <!-- Agent with no model (INBOX 840): one muted line, shown the first
+                 time Agent is chosen while no model answers; `setChatMode`
+                 in status.js. -->
+            <p id="chat-agent-hint" class="muted chat-agent-hint hidden" role="status">
+              <i class="ph ph-info ph-lead" aria-hidden="true"></i>
+              Agent, app tools only, until a model is connected.
+            </p>
             <!-- One strip, four groups, hairlines between them.
                  It was three stacked rows, skills, then controls, then the
                  composer: which is most of the height of a short
@@ -3290,7 +3297,7 @@ Link to another note with [[its first few words]]."></textarea>
                only while a search or a page is on its way. -->
           <div class="web-search-field" role="search">
             <i class="ph ph-magnifying-glass web-search-icon" aria-hidden="true"></i>
-            <input id="web-query" type="search" enterkeyhint="search" autocomplete="off"
+            <input id="web-query" data-search-scope="web" type="search" enterkeyhint="search" autocomplete="off"
               placeholder="Search the web" aria-label="Search the web"
               aria-controls="web-results">
             <button id="web-stop" class="ghost small icon-only hidden" type="button"
@@ -3309,7 +3316,7 @@ Link to another note with [[its first few words]]."></textarea>
                  do with the *content* is the action row under the title. -->
             <div class="web-reader-bar">
               <button id="web-reader-back" class="link-button web-reader-back" type="button"
-                title="Back to the results"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i> Results</button>
+                title="Back to the results"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i>Results</button>
               <span class="row web-reader-tools">
                 <button id="web-reader-find" data-shortcut="find" class="ghost small icon-only" type="button"
                   aria-label="Find in this page" title="Find in this page"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
@@ -3380,7 +3387,7 @@ Link to another note with [[its first few words]]."></textarea>
                dimming them in place (TIMELINE_PLAN decision 2). -->
           <div class="search-field dock-search">
             <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-            <input type="search" id="timeline-search" class="timeline-search search-field-input" placeholder="Find notes…" aria-label="Find matching notes">
+            <input type="search" id="timeline-search" data-search-scope="notes" class="timeline-search search-field-input" placeholder="Find notes…" aria-label="Find matching notes">
           </div>
           <!-- Which kinds of thing the journal holds (TIMELINE_PLAN.md Phase 4,
                decision 9), as one control rather than four loose ones. It was
@@ -3515,7 +3522,7 @@ Link to another note with [[its first few words]]."></textarea>
         month walk a week, and the month opens a calendar to jump to any earlier day.
         In the feed, Ctrl and the mouse wheel, or a pinch, makes the date
         groups finer or coarser, as do + and - on a row. The chips under the strip show what you
-        wrote on today's date in earlier years, and a chip per year narrows the list to it;
+        wrote on today's date in earlier years, and the year menu beside the month narrows the list to one year;
         Options, Time range, On this day does the same.
   </p>
   <p>The calendar shows a month, a week or a day: reminders and meetings at
@@ -3542,6 +3549,12 @@ Link to another note with [[its first few words]]."></textarea>
             aria-haspopup="dialog" aria-controls="timeline-month-pop" aria-expanded="false"
             title="Jump to another month"><span id="timeline-month-text"></span><i class="ph ph-caret-down" aria-hidden="true"></i></button>
           <button type="button" id="timeline-days-later" class="ghost small icon-only" title="Later days" aria-label="Later days"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+          <!-- The years (INBOX 842): one quiet select beside the month, filled
+               by `renderTimelineRecall` with a year and its count each. It was
+               a chip per year on a row of its own under the strip. Hidden
+               while the notebook has no dated notes. -->
+          <select id="timeline-year" class="small-select timeline-year hidden" aria-label="Show one year"
+            title="Narrow the timeline to one year"></select>
         </div>
         <div class="timeline-days" id="timeline-daystrip-days"></div>
       </div>
@@ -3549,9 +3562,9 @@ Link to another note with [[its first few words]]."></textarea>
            this day" and Google Photos' year labels, on the timeline and not
            only the dashboard. One wrapping row of filter chips: what was
            written on today's date in earlier months and years (a press shows
-           them, the Time range's On this day), then a chip per year with its
-           count (a press narrows the feed to that year). Built by
-           `renderTimelineRecall`; hidden while it has nothing to say. -->
+           them, the Time range's On this day). The per-year filter is the
+           `#timeline-year` select in the strip's head, not a row of its own.
+           Built by `renderTimelineRecall`; hidden while it has nothing to say. -->
       <div class="library-filters timeline-recall hidden" id="timeline-recall" role="group" aria-label="On this day and the years"></div>
       <div class="timeline-monthpop hidden" id="timeline-month-pop" role="dialog" aria-label="Pick a day">
         <div class="timeline-monthpop-head">
@@ -3724,7 +3737,7 @@ Link to another note with [[its first few words]]."></textarea>
           <div class="dock-group dock-find">
             <div class="search-field dock-search">
               <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-              <input id="graph-search" class="search-field-input" type="search" placeholder="Highlight notes…"
+              <input id="graph-search" data-search-scope="notes" class="search-field-input" type="search" placeholder="Highlight notes…"
                 aria-label="Highlight matching notes in the graph">
             </div>
             <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
@@ -4169,9 +4182,9 @@ Link to another note with [[its first few words]]."></textarea>
                (`gcRenderFilterChips`, graph-canvas.js). -->
           <details class="dock-menu-section settings-fold graph-options-fold" id="graph-filter-section">
             <summary><span class="muted dock-menu-label" id="graph-filter-label">Filter</span></summary>
-            <p class="muted graph-filter-head">Kinds of link</p>
+            <p class="muted graph-filter-head">Kinds of link: press one to hide it; a struck-through kind is hidden</p>
             <div id="graph-link-kinds" class="library-filters graph-filter-chips" role="group" aria-label="Kinds of link drawn on the map"></div>
-            <p class="muted graph-filter-head">Properties</p>
+            <p class="muted graph-filter-head">Properties: press one to light its notes; the lit one is outlined</p>
             <div id="graph-prop-chips" class="library-filters graph-filter-chips" role="group" aria-label="Light the notes with a property"></div>
           </details>
           <div class="dock-menu-section graph-temporal" id="graph-temporal"
@@ -4608,7 +4621,7 @@ Link to another note with [[its first few words]]."></textarea>
                Used to be an open-by-default <details> here; its body was tall
                enough to push the document list down, so the same content now
                lives in #doc-storage-dialog and this is just the door to it. -->
-          <button type="button" id="doc-storage-toggle" class="linklike doc-storage-toggle"><i class="ph ph-question ph-lead" aria-hidden="true"></i> Where are my documents kept?</button>
+          <button type="button" id="doc-storage-toggle" class="linklike doc-storage-toggle"><i class="ph ph-question ph-lead" aria-hidden="true"></i>Where are my documents kept?</button>
         </div>
 
       </aside>
@@ -4769,8 +4782,9 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- Run (INBOX 404, Brief 69): a code document in the sandbox
                  through the one run protocol (run-core.js), its output in a
                  panel under the editor. Shown for the types that run or
-                 preview (DOC_RUN_KINDS, syncDocFileType). -->
-            <button id="doc-code-run" class="ghost small hidden" type="button"
+                 preview (DOC_RUN_KINDS, syncDocFileType). The bar's one
+                 filled action (INBOX 803): a code file is for running. -->
+            <button id="doc-code-run" class="small hidden" type="button"
               title="Run this file in a sandbox and show its output (Ctrl+Shift+Enter)"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Run</button>
             <!-- A .py document before Python is installed: Run is disabled
                  and this one line says what it needs and goes there
@@ -5179,7 +5193,7 @@ Link to another note with [[its first few words]]."></textarea>
                   the needle extra when it is installed, which picks one of those tools.</p>
                 <p>Snippets: pick a row, or press Enter on it, to insert it at the
                   caret; Ctrl+Z takes it out. Built-in rows have stops that Tab walks.</p>
-                <p>Select some code and press Save selection to keep it; words with
+                <p>Select some code and press Save to keep it; words with
                   a # in its name become tags ("Read a file #io"). The search matches
                   names, tags and languages, and this file's language is listed first.
                   Snippets belong to the notebook, not to one document.</p>
@@ -5203,8 +5217,10 @@ Link to another note with [[its first few words]]."></textarea>
                     data-needs-model="Refactoring needs a model" data-model-offer="Format below works without one."
                     title="Make the selected lines, or the file, clearer">Refactor</button>
                 </div>
-                <form id="doc-assist-form" class="doc-assist-form">
-                  <input id="doc-assist-question" type="text" maxlength="2000" autocomplete="off"
+                <!-- One composer row (INBOX 804): the field's well holds the
+                     question and its send, at the asks' height. -->
+                <form id="doc-assist-form" class="search-field doc-assist-form">
+                  <input id="doc-assist-question" class="search-field-input" type="text" maxlength="2000" autocomplete="off"
                     placeholder="Ask about this code…" aria-label="Ask about this code">
                   <button type="submit" id="doc-assist-send" class="small accent icon-only" title="Ask (Enter)" aria-label="Ask"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
                 </form>
@@ -5225,7 +5241,7 @@ Link to another note with [[its first few words]]."></textarea>
                       placeholder="Search snippets…" aria-label="Search snippets" autocomplete="off" spellcheck="false">
                   </div>
                   <button id="doc-snippet-save" class="ghost small" type="button"
-                    title="Save the selected code as a snippet"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>Save selection</button>
+                    title="Save the selected code as a snippet" aria-label="Save the selected code as a snippet"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>Save</button>
                 </div>
                 <ul id="doc-snippet-list" class="doc-snippet-list" aria-label="Snippets"></ul>
                 <p id="doc-snippet-empty" class="muted empty-line hidden"></p>
@@ -5636,9 +5652,9 @@ Link to another note with [[its first few words]]."></textarea>
         <p>The desktop app: your system's notification settings for MemoryMap.</p>
       </div>
       <div class="library-filters" id="reminder-filter" role="group" aria-label="Filter reminders">
-        <button type="button" class="library-chip active" data-filter="open"><i class="ph ph-circle ph-lead" aria-hidden="true"></i> Open</button>
-        <button type="button" class="library-chip" data-filter="all"><i class="ph ph-list-checks ph-lead" aria-hidden="true"></i> All</button>
-        <button type="button" class="library-chip" data-filter="done"><i class="ph ph-check-circle ph-lead" aria-hidden="true"></i> Done</button>
+        <button type="button" class="library-chip active" aria-pressed="true" data-filter="open"><i class="ph ph-circle ph-lead" aria-hidden="true"></i> Open</button>
+        <button type="button" class="library-chip" aria-pressed="false" data-filter="all"><i class="ph ph-list-checks ph-lead" aria-hidden="true"></i> All</button>
+        <button type="button" class="library-chip" aria-pressed="false" data-filter="done"><i class="ph ph-check-circle ph-lead" aria-hidden="true"></i> Done</button>
       </div>
       <div id="reminder-groups"></div>
       <!-- Only ever appears under the Done group, see the note on
@@ -5724,12 +5740,12 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock-group dock-find">
               <div class="search-field dock-search">
                 <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-                <input id="library-search" type="search" class="library-search search-field-input"
+                <input id="library-search" data-search-scope="library" type="search" class="library-search search-field-input"
                   placeholder="Search titles and previews…"
                   aria-label="Search the library">
               </div>
               <details class="doc-dock-menu dock-menu" id="library-filter-menu">
-                <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, include the bin"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> Filter <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+                <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, include the bin"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> <span class="dock-word">Filter</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">
                   <label class="dock-menu-check"
                     title="Also match notes by meaning, not just the words you typed. Documents, chats and images still match on their words.">
@@ -5752,8 +5768,8 @@ Link to another note with [[its first few words]]."></textarea>
               </select>
               <div class="seg seg-compact library-view" id="library-view" role="group"
                 aria-label="How to show the library">
-                <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
                 <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-rows" aria-hidden="true"></i></button>
+                <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Cards"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               </div>
             </div>
             <div class="dock-actions">
@@ -5870,7 +5886,7 @@ Link to another note with [[its first few words]]."></textarea>
           <div class="dock-group dock-find">
             <div class="search-field dock-search">
               <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-              <input id="library-docs-search" class="search-field-input" type="search" placeholder="Search documents…"
+              <input id="library-docs-search" data-search-scope="documents" class="search-field-input" type="search" placeholder="Search documents…"
                 aria-label="Search documents by title or content">
             </div>
           </div>
@@ -6012,7 +6028,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock-group dock-find">
               <div class="search-field dock-search">
                 <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-                <input id="skills-search" class="skills-search search-field-input" type="search"
+                <input id="skills-search" data-search-scope="skills" class="skills-search search-field-input" type="search"
                   placeholder="Search skills…" aria-label="Search your skills">
               </div>
             </div>
@@ -6144,7 +6160,7 @@ Link to another note with [[its first few words]]."></textarea>
                  already returns every board in one small array. -->
             <div class="search-field dock-search">
               <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-              <input id="library-boards-search" class="search-field-input" type="search" placeholder="Search boards…"
+              <input id="library-boards-search" data-search-scope="boards" class="search-field-input" type="search" placeholder="Search boards…"
                 aria-label="Search boards by title">
             </div>
           </div>
@@ -6168,8 +6184,8 @@ Link to another note with [[its first few words]]."></textarea>
                  set it. -->
             <div class="seg seg-compact library-view" id="library-boards-view" role="group"
               aria-label="How to show boards">
-              <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-rows" aria-hidden="true"></i></button>
+              <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Cards"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
             </div>
           </div>
           <div class="dock-actions">
@@ -7185,6 +7201,10 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="straight">Straight</option>
           <option value="elbow">Elbow</option>
         </select>
+        <!-- **Said on screen** (INBOX 819, the owner: nothing on the board says a
+             connector takes a label): it was reachable only by pressing
+             Enter on a selected line. Shown for a board connector alone. -->
+        <button type="button" id="wb-prop-label" class="ghost small" title="Add a label to this connector, or change its words (Enter)" aria-label="Label this connector"><i class="ph ph-tag ph-lead" aria-hidden="true"></i><span>Label</span></button>
       </div>
       <div class="wb-context-group hidden" data-wb-ctx="caps">
         <select id="wb-prop-startcap" aria-label="Line start style" title="Line start style">
@@ -7687,12 +7707,16 @@ Link to another note with [[its first few words]]."></textarea>
           <ul id="wb-library-list" class="wb-library-list"></ul>
         </section>
         <section class="wb-side-section" data-side-panel="layers" aria-label="Layers" hidden>
+          <div class="wb-layers-selected">
+            <span id="wb-layers-selected-count" class="muted" aria-live="polite">Nothing selected</span>
+            <button type="button" id="wb-layers-clear" class="ghost small" title="Select nothing on the board" disabled>Clear</button>
+          </div>
           <ul id="wb-layers-tree" class="wb-layers-tree" role="tree" aria-label="Layers"></ul>
-          <p class="muted wb-lib-keys">Top of the list is in front. Drag a row, or Alt+Up and Alt+Down, to restack.</p>
+          <p class="muted wb-lib-keys">Tinted rows are selected on the board. A frame lists what it holds. Top of the list is in front. Drag a row, or Alt+Up and Alt+Down, to restack.</p>
         </section>
         <section class="wb-side-section" data-side-panel="pages" aria-label="Pages" hidden>
           <ol id="wb-pages-list" class="wb-pages-list" role="tree" aria-label="Pages, in presentation order" aria-describedby="wb-pages-keys"></ol>
-          <p id="wb-pages-keys" class="muted wb-lib-keys">Each frame is a page. Drag a row, or Alt+Up and Alt+Down, to change the presentation's order; P presents from it.</p>
+          <p id="wb-pages-keys" class="muted wb-lib-keys">Each frame is a page. Drag a row, or Alt+Up and Alt+Down, to change the presentation's order; P presents from it; double-click or F2 renames it, and its ⋯ menu fits, presents or deletes it.</p>
         </section>
         <!-- **This map** (INBOX 596): a map's own tab, in the place of the
              board's Notes, Layers and Pages, which do not apply to a tree.
@@ -7882,7 +7906,7 @@ Link to another note with [[its first few words]]."></textarea>
                small enough that a plain substring pass costs nothing. -->
           <div class="search-field dock-search">
             <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-            <input id="library-images-search" type="search" class="library-search search-field-input"
+            <input id="library-images-search" data-search-scope="images" type="search" class="library-search search-field-input"
               placeholder="Search filenames, captions and text found in files…"
               aria-label="Search the images">
           </div>
@@ -8036,7 +8060,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="dock-group dock-find">
           <div class="search-field dock-search">
             <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-            <input id="bookmark-search" type="search" class="library-search search-field-input"
+            <input id="bookmark-search" data-search-scope="bookmarks" type="search" class="library-search search-field-input"
               placeholder="Search saved bookmarks…" aria-label="Search saved bookmarks">
           </div>
         </div>
@@ -8134,7 +8158,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="dock-group dock-find">
           <div class="search-field dock-search">
             <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-            <input id="recordings-search" type="search" class="library-search search-field-input"
+            <input id="recordings-search" data-search-scope="recordings" type="search" class="library-search search-field-input"
               placeholder="Search recordings…" aria-label="Search recordings">
           </div>
         </div>
@@ -10611,7 +10635,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
                 <div class="row setting-control">
                   <input id="accent-custom" type="color" aria-label="Custom accent colour">
-                  <button id="accent-custom-clear" class="ghost small">Clear</button>
+                  <button id="accent-custom-clear" class="ghost small quiet" type="button">Clear</button>
                 </div>
               </div>
 
@@ -10622,7 +10646,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
                 <div class="row setting-control">
                   <input id="page-bg-custom" type="color" aria-label="Page background colour">
-                  <button id="page-bg-clear" class="ghost small">Clear</button>
+                  <button id="page-bg-clear" class="ghost small quiet" type="button">Clear</button>
                 </div>
               </div>
 
@@ -11267,7 +11291,7 @@ Link to another note with [[its first few words]]."></textarea>
                   placeholder=".card { border-width: 2px; }"></textarea>
                 <div class="row">
                   <button id="custom-css-apply" class="ghost small">Apply CSS</button>
-                  <button id="custom-css-clear" class="ghost small">Clear</button>
+                  <button id="custom-css-clear" class="ghost small quiet" type="button">Clear</button>
                   <span id="custom-css-status" class="status" role="status"></span>
                 </div>
               </details>
@@ -11395,7 +11419,7 @@ Link to another note with [[its first few words]]."></textarea>
             <details class="settings-group settings-fold" data-fold-key="shortcuts-yours" open>
               <summary><h3 class="inline-h3">Your shortcuts</h3></summary>
               <p class="muted">
-                Click <strong>Change</strong> and press the keys you want; a button
+                Press a shortcut's keys and then the keys you want; a button
                 with a shortcut shows it when you hover it. Press
                 <kbd>?</kbd> anywhere in the app for the same list as an overlay.
               </p>
@@ -11646,6 +11670,36 @@ Link to another note with [[its first few words]]."></textarea>
               </label>
               <p class="muted">Curly quotes as you type, and two hyphens become a dash; never inside code.</p>
             </div>
+            <!-- Search (Brief 86, CHAT_PLAN decision 69): the one switch for
+                 every box's suggestions; kept on this device like simple mode. -->
+            <div class="settings-group" id="search-suggest-box">
+              <div class="row help-head">
+                <h3>Search</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="search-suggest-help" aria-controls="search-suggest-help" aria-expanded="false"
+                  title="About search suggestions" aria-label="About search suggestions">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <label class="setting-check">
+                <input type="checkbox" id="pref-search-suggest">
+                <span>Suggest as you type in search boxes</span>
+              </label>
+              <p class="muted">Recent searches, then your note titles, tags and categories, with the best match in grey.</p>
+              <div class="help-body hidden" id="search-suggest-help" role="dialog" aria-label="About search suggestions">
+                <p>
+                  Every search box offers what you searched for before, then
+                  the titles, tags and categories of your own notes that start
+                  with your words. Tab, or Right at the end of the words, takes
+                  the grey text; Down and Up walk the list, Enter takes the lit
+                  one, Escape closes it. Shift+Delete removes a lit recent
+                  search. Nothing is sent anywhere: it is built from this
+                  notebook, and remembered on this device. Settings, Import
+                  &amp; export, Clear and forget clears the recent searches in
+                  every box at once.
+                </p>
+              </div>
+            </div>
             <!-- Simple mode and the usage ledger (WORLD_CLASS_PLAN H9, row 27):
                  usage-ledger.js (lazy) wires both; theme-boot.js applies
                  simple mode before first paint. -->
@@ -11889,9 +11943,12 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>
                   Everything the app is doing in the background right now,
                   re-indexing your notes, downloading a model, loading the
-                  embedding model, setting up SearXNG. Jobs that can be stopped
+                  embedding model, setting up SearXNG, and every chat answer
+                  and Agent turn. Each says who started it and has its lines
+                  in a fold, live while it runs. Jobs that can be stopped
                   safely have a Stop button, here and in Activity (the status
-                  bar's job slot opens it); the rest are left to finish.
+                  bar's job slot, "2 running" and the newest by name, opens
+                  it); the rest are left to finish.
                 </p>
               </div>
               <ul id="task-list" class="entry-list"></ul>
@@ -12550,6 +12607,13 @@ Link to another note with [[its first few words]]."></textarea>
                   data folder, they never leave this computer.
                 </p>
                 <p>
+                  Each row says when it was taken, marks the newest Latest,
+                  and says what made it (the daily backup, Back up now, or a
+                  safety copy before an update or a restore), its size, and
+                  whether it was checked: opened and read back after the copy.
+                  Backups from before this say only their size.
+                </p>
+                <p>
                   Each start, the app gives the notebook file a quick check
                   before anything writes to it. If the check fails, a notice
                   says so when the app opens and here: restore the newest
@@ -12583,6 +12647,88 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row">
                 <button id="clear-app-cache" class="ghost small" type="button"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear app cache</button>
               </div>
+            </div>
+
+            <!-- Brief 86 (b), the owner 2026-10-11: "should the user be able to
+                 clear their cache and recent searches in individual and all
+                 places and clear other things". Each row says what it removes
+                 and how much (settings-data.js fills the counts); each clear
+                 is undoable from its toast and from Recent changes below. -->
+            <div class="settings-group" id="clear-box">
+              <div class="row help-head">
+                <h3>Clear and forget</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="clear-help" aria-controls="clear-help" aria-expanded="false"
+                  title="About clearing" aria-label="About clearing">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">None of these touch your notes. Each can be undone for ten seconds, and from Recent changes below.</p>
+              <div class="help-body hidden" id="clear-help" role="dialog" aria-label="About clearing">
+                <p>
+                  Recent searches are what the search boxes remember, on this
+                  device. Previews are the pictures and map thumbnails this
+                  window keeps so lists draw fast; they come back by
+                  themselves, so that clear has nothing to undo. The Guide's
+                  conversation is kept in this window only. Dismissed
+                  suggestions are the ones you said no to (merges, link
+                  types, links, contradictions, reminders of old notes and
+                  insights): clearing them lets the app offer them again.
+                  Clear app cache, above, is the one that reloads the app.
+                </p>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Recent searches, everywhere</span>
+                  <small class="muted" id="clear-recents-what">Every search box's remembered searches.</small>
+                </div>
+                <div class="row"><button id="clear-recents" class="ghost small" type="button"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> Clear recent searches</button></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Cached previews and thumbnails</span>
+                  <small class="muted" id="clear-previews-what">Pictures and map previews this window keeps.</small>
+                </div>
+                <div class="row"><button id="clear-previews" class="ghost small" type="button"><i class="ph ph-image ph-lead" aria-hidden="true"></i> Clear previews</button></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>The Guide's conversation</span>
+                  <small class="muted" id="clear-guide-what">What you asked the Guide in this window.</small>
+                </div>
+                <div class="row"><button id="clear-guide" class="ghost small" type="button"><i class="ph ph-lifebuoy ph-lead" aria-hidden="true"></i> Clear the conversation</button></div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Dismissed suggestions</span>
+                  <small class="muted" id="clear-dismissed-what">Suggestions you said no to.</small>
+                </div>
+                <div class="row"><button id="clear-dismissed" class="ghost small" type="button"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> Clear dismissed suggestions</button></div>
+              </div>
+            </div>
+
+            <!-- Brief 86 (c): every Settings change is kept (twenty), with its
+                 way back. settings-history.js fills the list. -->
+            <div class="settings-group" id="recent-changes-box">
+              <div class="row help-head">
+                <h3>Recent changes</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="recent-changes-help" aria-controls="recent-changes-help" aria-expanded="false"
+                  title="About recent changes" aria-label="About recent changes">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">The last twenty things you changed or cleared here, each with its Undo.</p>
+              <div class="help-body hidden" id="recent-changes-help" role="dialog" aria-label="About recent changes">
+                <p>
+                  Every setting you change and every clear on this page is
+                  listed with what it was before. Undo puts the old value back.
+                  The list is kept on this device, so it is still here after
+                  you close Settings. Changes to your notes are not listed:
+                  they have their own Undo in the status bar and the bin.
+                </p>
+              </div>
+              <ul class="entry-list recent-changes" id="recent-changes-list" aria-label="Recent changes"></ul>
             </div>
           </section>
 
@@ -12662,6 +12808,8 @@ Link to another note with [[its first few words]]."></textarea>
                   on the same network can open it at the address shown here,
                   and always has to give your password, whatever this
                   computer is set to. Private notes still ask for it too.
+                  Nothing installs on the phone: it is a browser window onto
+                  this computer, where search, the models and the notes run.
                 </p>
                 <p>
                   Traffic on your network is encrypted (https, on its own
@@ -12703,6 +12851,8 @@ Link to another note with [[its first few words]]."></textarea>
                 <p class="lan-fingerprint flush" id="account-lan-fingerprint"></p>
                 <p class="muted text-sm flush" id="account-lan-cert-names"></p>
                 <p class="muted text-sm flush" id="account-lan-cert-expiry"></p>
+                <p class="muted text-sm flush">Authority fingerprint, shown when the phone installs it:</p>
+                <p class="lan-fingerprint flush" id="account-lan-authority"></p>
                 <div class="row button-row">
                   <button id="account-lan-download" class="ghost small" type="button">Trust this certificate on your phone</button>
                   <button type="button" class="icon-only ghost small graph-help-toggle"
@@ -12729,10 +12879,18 @@ Link to another note with [[its first few words]]."></textarea>
                     certificate, and pick the file.
                   </p>
                   <p>
-                    If the phone says the name is wrong after this computer's
-                    address changed, the app has already made a new
-                    certificate for the new address: download and trust it
-                    again.
+                    The file is a small certificate authority made on this
+                    computer, which can only vouch for addresses on your own
+                    network. When this computer's address changes, the app
+                    makes a new certificate under the same authority, so a
+                    phone that trusts it is not asked again.
+                  </p>
+                  <p>
+                    If the phone cannot connect at all, check that both are on
+                    the same Wi-Fi (a guest network keeps devices apart), that
+                    the address starts with https, and that this computer's
+                    firewall lets the app in: Windows asks once, so choose
+                    Private networks.
                   </p>
                 </div>
               </div>
@@ -12921,6 +13079,12 @@ Link to another note with [[its first few words]]."></textarea>
                 The interpreter itself reports every connection and every name
                 lookup this app makes, whatever part of it asks, so nothing can
                 leave without appearing here.
+              </p>
+              <p>
+                Each place is one row: what it was for, in words (the file
+                downloaded, the search words, the update checked), which
+                feature reached it, and how often. Its exact addresses are
+                under Addresses.
               </p>
             </div>
 
@@ -13129,9 +13293,12 @@ Link to another note with [[its first few words]]."></textarea>
               <h3>Welcome and tours</h3>
               <p class="muted">See the welcome again, or take the guided tour of the whole app or one part of it.</p>
               <div class="row wrap tour-replay-row">
-                <button id="show-guide-btn" class="ghost small" type="button"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Replay the welcome</button>
-                <div id="tour-replay-buttons" class="tour-replay-buttons"></div>
+                <button id="tour-start-btn" class="small" type="button">Start the tour</button>
+                <button id="show-guide-btn" class="ghost small quiet" type="button"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Replay the welcome</button>
               </div>
+              <!-- One row per part of the app, its name over what it covers
+                   (INBOX 804: it was a wall of fourteen bordered buttons). -->
+              <ul id="tour-replay-buttons" class="tour-replay-buttons" aria-label="Tour one part of the app"></ul>
             </div>
             <!-- **Every help topic, drawn from the Guide's own table** (INBOX
                  448 (1), the owner: "the help settings as well as the help
@@ -13708,7 +13875,7 @@ Link to another note with [[its first few words]]."></textarea>
             title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         </span>
       </div>
-      <p class="muted">Click <strong>Change</strong> and press the keys you want.</p>
+      <p class="muted">Press a shortcut's keys, then the keys you want.</p>
       <ul class="shortcut-list" id="shortcut-list"></ul>
       <p id="shortcut-status" class="status" role="status"></p>
       <div class="row">
@@ -13881,78 +14048,54 @@ Link to another note with [[its first few words]]."></textarea>
             title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         </span>
       </div>
-      <div id="sketch-toolbar" class="sketch-toolbar" role="toolbar" aria-label="Sketch tools">
-        <div class="wb-tool-section" role="group" aria-label="Draw">
-          <span class="wb-tool-section-label">Draw</span>
-          <div class="wb-tool-section-row">
-            <button id="sketch-tool-pen" class="ghost icon-button active" type="button" title="Pen" aria-label="Pen"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
-            <button id="sketch-tool-highlighter" class="ghost icon-button" type="button" title="Highlighter" aria-label="Highlighter"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
-            <button id="sketch-tool-eraser" class="ghost icon-button" type="button" title="Eraser" aria-label="Eraser"><i class="ph ph-eraser" aria-hidden="true"></i></button>
-          </div>
+      <!-- **A dock, not a palette of labelled sections** (INBOX 839, the owner:
+           "improve and modernise/professionalise and make consistent the
+           design of the quick sketch panel"). DESIGN.md's dock grammar: the
+           tools are one `.dock-arrange` run on a single row, every name in a
+           tooltip (the five group labels are gone), the ink is one chip that
+           opens its seven colours, and the sheet's own actions (undo, redo,
+           clear, picture, paper) are the `.dock-actions` run. Every id is the
+           id it had. -->
+      <div id="sketch-toolbar" class="dock sketch-toolbar" data-dock-name="sketch" role="toolbar" aria-label="Sketch tools">
+        <div class="dock-arrange sketch-tools" role="group" aria-label="Draw, shapes, ink and size">
+          <button id="sketch-tool-pen" class="ghost icon-button active" type="button" title="Pen" aria-label="Pen"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
+          <button id="sketch-tool-highlighter" class="ghost icon-button" type="button" title="Highlighter" aria-label="Highlighter"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
+          <button id="sketch-tool-eraser" class="ghost icon-button" type="button" title="Eraser" aria-label="Eraser"><i class="ph ph-eraser" aria-hidden="true"></i></button>
+          <button id="sketch-tool-line" class="ghost icon-button" type="button" title="Line" aria-label="Line"><i class="ph ph-line-segment" aria-hidden="true"></i></button>
+          <button id="sketch-tool-arrow" class="ghost icon-button" type="button" title="Arrow" aria-label="Arrow"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+          <button id="sketch-tool-rect" class="ghost icon-button" type="button" title="Rectangle" aria-label="Rectangle"><i class="ph ph-square" aria-hidden="true"></i></button>
+          <button id="sketch-tool-circ" class="ghost icon-button" type="button" title="Circle" aria-label="Circle"><i class="ph ph-circle" aria-hidden="true"></i></button>
+          <button id="sketch-tool-text" class="ghost icon-button" type="button" title="Text" aria-label="Text"><i class="ph ph-text-t" aria-hidden="true"></i></button>
+          <!-- One chip for the ink: the dot shows the colour in use, a press
+               opens the seven. The swatches keep `.sketch-color` and their
+               `data-color`, so the pick handler is the one it was. -->
+          <span class="sketch-ink">
+            <button id="sketch-ink-chip" class="ghost icon-button sketch-ink-chip" type="button" title="Ink colour" aria-label="Ink colour"
+              aria-haspopup="true" aria-expanded="false" aria-controls="sketch-palette"><span class="sketch-ink-dot" aria-hidden="true"></span></button>
+            <div id="sketch-palette" class="sketch-palette hidden" role="group" aria-label="Ink colour">
+              <button class="sketch-color active" type="button" data-color="#3b82f6" title="Blue" aria-label="Blue"></button>
+              <button class="sketch-color" type="button" data-color="#ef4444" title="Red" aria-label="Red"></button>
+              <button class="sketch-color" type="button" data-color="#22c55e" title="Green" aria-label="Green"></button>
+              <button class="sketch-color" type="button" data-color="#eab308" title="Yellow" aria-label="Yellow"></button>
+              <button class="sketch-color" type="button" data-color="#a855f7" title="Purple" aria-label="Purple"></button>
+              <button class="sketch-color" type="button" data-color="#111827" title="Black" aria-label="Black"></button>
+              <button class="sketch-color" type="button" data-color="#f9fafb" title="White" aria-label="White"></button>
+            </div>
+          </span>
+          <!-- A slider with a number beside it: the field wears the tonal
+               recipe so the pair is one object of the buttons' family; the
+               `<output>` says the value. -->
+          <span class="sketch-size-field" title="Brush size">
+            <input id="sketch-size" type="range" min="2" max="24" value="4" class="sketch-slider" aria-label="Brush size" title="Brush size">
+            <output id="sketch-size-value" class="sketch-size-value" for="sketch-size">4</output>
+          </span>
         </div>
-        <div class="wb-tool-section" role="group" aria-label="Shapes">
-          <span class="wb-tool-section-label">Shapes</span>
-          <div class="wb-tool-section-row">
-            <button id="sketch-tool-line" class="ghost icon-button" type="button" title="Line" aria-label="Line"><i class="ph ph-line-segment" aria-hidden="true"></i></button>
-            <button id="sketch-tool-arrow" class="ghost icon-button" type="button" title="Arrow" aria-label="Arrow"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
-            <button id="sketch-tool-rect" class="ghost icon-button" type="button" title="Rectangle" aria-label="Rectangle"><i class="ph ph-square" aria-hidden="true"></i></button>
-            <button id="sketch-tool-circ" class="ghost icon-button" type="button" title="Circle" aria-label="Circle"><i class="ph ph-circle" aria-hidden="true"></i></button>
-            <button id="sketch-tool-text" class="ghost icon-button" type="button" title="Text" aria-label="Text"><i class="ph ph-text-t" aria-hidden="true"></i></button>
-          </div>
-        </div>
-        <div class="wb-tool-section" role="group" aria-label="Ink colour">
-          <span class="wb-tool-section-label">Ink</span>
-          <div class="wb-tool-section-row sketch-colors">
-            <button class="sketch-color active" type="button" data-color="#3b82f6" title="Blue" aria-label="Blue"></button>
-            <button class="sketch-color" type="button" data-color="#ef4444" title="Red" aria-label="Red"></button>
-            <button class="sketch-color" type="button" data-color="#22c55e" title="Green" aria-label="Green"></button>
-            <button class="sketch-color" type="button" data-color="#eab308" title="Yellow" aria-label="Yellow"></button>
-            <button class="sketch-color" type="button" data-color="#a855f7" title="Purple" aria-label="Purple"></button>
-            <button class="sketch-color" type="button" data-color="#111827" title="Black" aria-label="Black"></button>
-            <button class="sketch-color" type="button" data-color="#f9fafb" title="White" aria-label="White"></button>
-          </div>
-        </div>
-        <!-- **A slider with a number beside it.** The width control was one
-             bare track with no label and no readout, so the only way to know
-             what it was set to was to draw a line and look at it. The section
-             label names it and the `<output>` says the value, which is the
-             whiteboard's own `Size` field in the context bar wearing this
-             bar's grammar. -->
-        <div class="wb-tool-section" role="group" aria-label="Brush size">
-          <span class="wb-tool-section-label">Size</span>
-          <div class="wb-tool-section-row">
-            <!-- **One control, not a track with a number left beside it.**
-                 Reported on the second pass: "the SIZE group also mixes a
-                 slider with a bare numeral in a way none of the other groups
-                 do". Every other group here is a run of controls with an edge
-                 and a fill; this was a bare track and a loose digit. The field
-                 wears the tonal recipe (`--ghost-btn-bg` on a
-                 `--ghost-btn-border` hairline, DESIGN.md's button ramp) so the
-                 pair reads as one object of the same family and the same
-                 height as the buttons in the groups either side. -->
-            <span class="sketch-size-field">
-              <input id="sketch-size" type="range" min="2" max="24" value="4" class="sketch-slider" aria-label="Brush size" title="Brush size">
-              <output id="sketch-size-value" class="sketch-size-value" for="sketch-size">4</output>
-            </span>
-          </div>
-        </div>
-        <!-- **Paper is not a group of its own, and that is the answer to it
-             having been the only one below the fold.** Reported on the second
-             pass: the bar still wrapped, and what dropped was a two-control
-             group nobody had a reason to look at. Undo, redo and clear act on
-             the marks; the picture and the paper colour act on the sheet under
-             them: all five act on the canvas rather than on the pen, which is
-             the line the other four groups are drawn along. One group, one
-             label, one hairline fewer, and nothing left over to wrap. -->
-        <div class="wb-tool-section" role="group" aria-label="Canvas">
-          <span class="wb-tool-section-label">Canvas</span>
-          <div class="wb-tool-section-row">
-            <button id="sketch-undo" class="ghost icon-button" type="button" title="Undo (Ctrl+Z)" aria-label="Undo (Ctrl+Z)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
-            <button id="sketch-redo" class="ghost icon-button" type="button" title="Redo (Ctrl+Y)" aria-label="Redo (Ctrl+Y)"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-            <button id="sketch-clear" class="ghost icon-button" type="button" title="Clear the strokes, keeping the background" aria-label="Clear the strokes"><i class="ph ph-trash" aria-hidden="true"></i></button>
-            <button id="sketch-upload-image" class="ghost icon-button" type="button" title="Add a background image" aria-label="Add a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
-            <input type="color" id="sketch-bg-color-picker" class="sketch-bg-swatch" aria-label="Paper colour" title="Paper colour" value="#ffffff">
-          </div>
+        <div class="dock-actions" role="group" aria-label="The sheet">
+          <button id="sketch-undo" class="ghost icon-button" type="button" title="Undo (Ctrl+Z)" aria-label="Undo (Ctrl+Z)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+          <button id="sketch-redo" class="ghost icon-button" type="button" title="Redo (Ctrl+Y)" aria-label="Redo (Ctrl+Y)"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+          <button id="sketch-clear" class="ghost icon-button" type="button" title="Clear the strokes, keeping the background" aria-label="Clear the strokes"><i class="ph ph-trash" aria-hidden="true"></i></button>
+          <button id="sketch-upload-image" class="ghost icon-button" type="button" title="Add a background image" aria-label="Add a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
+          <input type="color" id="sketch-bg-color-picker" class="sketch-bg-swatch" aria-label="Paper colour" title="Paper colour" value="#ffffff">
         </div>
       </div>
       <input id="sketch-image-input" aria-label="Choose an image to add to the sketch" title="Choose an image to add to the sketch" type="file" accept="image/*" class="hidden">

@@ -130,6 +130,23 @@ function alphaDecayFor(count) {
 //: High enough that the neighbourhood reorganises around where you put the
 //: node, low enough that the rest of the map is not thrown into the air.
 const DRAG_ALPHA = 0.3;
+//: **A small pull heats a small part of the map** (INBOX 839, the owner:
+//: "small adjustments and graph nodes being pulled in slightly are glitchy and
+//: jittery, not smooth"). Raising the target to 0.3 the moment a node is
+//: pressed reheated all 34 notes of a test map for an 8px nudge: every one
+//: moved more than 2px, the busiest travelled 52px and a frame stepped 3.7px
+//: (measured, graphjitter.js). The target now follows how far the node has
+//: been carried from where it was pressed: `DRAG_ALPHA_MIN` for a nudge, the
+//: full 0.3 once it is `DRAG_FULL_DISTANCE` world units away, eased between,
+//: and the alpha only ever rises to it, so a release still decays.
+const DRAG_ALPHA_MIN = 0.04;
+const DRAG_FULL_DISTANCE = 90;
+let dragOrigin = null;
+function dragHeat(x, y) {
+  if (!dragOrigin) return DRAG_ALPHA;
+  const t = Math.min(1, Math.hypot(x - dragOrigin.x, y - dragOrigin.y) / DRAG_FULL_DISTANCE);
+  return DRAG_ALPHA_MIN + (DRAG_ALPHA - DRAG_ALPHA_MIN) * t * t * (3 - 2 * t);
+}
 //: **A fresh layout is warmed before it is shown** (INBOX 738, the owner:
 //: "the graph always loads in really zoomed in before it rights itself with
 //: the fitted zoom"). The notes start on a small spiral and spread over a few
@@ -1688,14 +1705,19 @@ self.onmessage = (event) => {
       const node = nodes[index];
       if (message.phase === "start") {
         dragging = true;
-        simulation.alphaTarget(DRAG_ALPHA).alpha(Math.max(simulation.alpha(), DRAG_ALPHA));
+        dragOrigin = { x: node.x, y: node.y };
+        const heat = dragHeat(message.x, message.y);
+        simulation.alphaTarget(heat).alpha(Math.max(simulation.alpha(), heat));
         node.fx = message.x;
         node.fy = message.y;
       } else if (message.phase === "move") {
         node.fx = message.x;
         node.fy = message.y;
+        const heat = dragHeat(message.x, message.y);
+        simulation.alphaTarget(heat).alpha(Math.max(simulation.alpha(), heat));
       } else {
         dragging = false;
+        dragOrigin = null;
         // alphaTarget(0) rather than a stop: the release is meant to *decay*,
         // which is what makes the neighbourhood settle after you let go
         // instead of freezing mid-rearrangement.

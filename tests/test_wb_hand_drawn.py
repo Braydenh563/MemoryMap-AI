@@ -2,7 +2,7 @@
 ranked" row 7, Excalidraw's). A board option, `background.rough`, and an
 item's own `rough` over it; each line is resampled with a wobble seeded by
 the item's id and drawn twice. The browser half, the paths compared across
-renders, is `scratchpad/ui-sweeps/wbrough.js`."""
+renders, is `scratchpad/ui-sweeps/wbdepth2.js wbrough`."""
 
 from __future__ import annotations
 

@@ -40,6 +40,7 @@ from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
 from memorymap.search import searxng_manager, websearch
+from memorymap.api.this_computer import this_computer_only
 
 router = APIRouter(tags=["settings"])
 
@@ -1131,7 +1132,7 @@ def import_preferences(payload: dict, session: Session = Depends(get_session)) -
     }
 
 
-@router.post("/system/console-mode")
+@router.post("/system/console-mode", dependencies=[Depends(this_computer_only)])
 def set_console_mode(
     body: dict, background_tasks: BackgroundTasks, session: Session = Depends(get_session)
 ) -> dict:
@@ -1200,7 +1201,7 @@ def _desktop_entry():
     return importlib.import_module("memorymap.__main__")
 
 
-@router.post("/system/restart")
+@router.post("/system/restart", dependencies=[Depends(this_computer_only)])
 def restart_app(background_tasks: BackgroundTasks) -> dict:
     """A plain restart, on request rather than tied to any one preference
     changing: ROADMAP item C, asked for directly. Several extras only take
@@ -1897,7 +1898,7 @@ class ExtrasBulkBody(BaseModel):
     bundle: str = Field(default="", max_length=40)
 
 
-@router.post("/extras/bulk")
+@router.post("/extras/bulk", dependencies=[Depends(this_computer_only)])
 def bulk_extras(body: ExtrasBulkBody) -> dict:
     """Install, remove or reinstall several extras, one after another, as one
     background job (INBOX 595). Each package reports its own outcome in
@@ -1906,7 +1907,7 @@ def bulk_extras(body: ExtrasBulkBody) -> dict:
     return {"started": started, "message": message}
 
 
-@router.post("/extras/{extra_id}/install")
+@router.post("/extras/{extra_id}/install", dependencies=[Depends(this_computer_only)])
 def install_extra(extra_id: str, reinstall: bool = False) -> dict:
     """Start installing one extra **from the allowlist**.
 
@@ -1919,7 +1920,7 @@ def install_extra(extra_id: str, reinstall: bool = False) -> dict:
     return {"started": started, "message": message}
 
 
-@router.post("/extras/{extra_id}/uninstall")
+@router.post("/extras/{extra_id}/uninstall", dependencies=[Depends(this_computer_only)])
 def uninstall_extra(extra_id: str) -> dict:
     """Remove one extra, by the same allowlist id the install uses."""
     started, message = extras.remove(extra_id)
@@ -2777,7 +2778,7 @@ def _inside(root: Path, f: Path) -> bool:
 def _run_directory_import(directory_path: str):
     """The background task: the import, recorded as the last "import" run
     (INBOX 438), because a 202 Accepted answers nobody about how it went."""
-    with jobruns.job_run("import") as run:
+    with jobruns.job_run("import", origin="you") as run:
         _import_directory_files(directory_path, run)
 
 
@@ -2933,7 +2934,7 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
         else:
             run.result = "no markdown files found in that folder"
 
-@router.post("/import/directory", status_code=202)
+@router.post("/import/directory", status_code=202, dependencies=[Depends(this_computer_only)])
 def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTasks):
     try:
         p = _validated_import_directory(req.path)
@@ -2961,7 +2962,7 @@ def import_markdown(
             detail=f"{len(files)} files at once is more than one import handles "
             f"({MAX_IMPORT_FILES} max): split it into smaller batches.",
         )
-    with jobruns.job_run("import") as run:
+    with jobruns.job_run("import", origin="you") as run:
         result = _import_markdown_files(files, session)
         run.result = f"imported {result['imported']} note{'' if result['imported'] == 1 else 's'}" + (
             f", skipped {len(result['skipped'])}" if result["skipped"] else ""
@@ -3110,7 +3111,7 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
         )
     sections = all_sections[:MAX_DOCUMENT_IMPORT_NOTES]
 
-    with jobruns.job_run("import") as run:
+    with jobruns.job_run("import", origin="you") as run:
         ids = _create_document_notes(session, sections, Path(file.filename or "document").name)
         imported = len(ids)
         run.result = f"imported {imported} note{'' if imported == 1 else 's'} from {file.filename or 'a document'}"

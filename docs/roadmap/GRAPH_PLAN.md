@@ -469,7 +469,7 @@ backgrounds, Curved links, Cluster glow, then 514's Arrows, Text fade and Link
 thickness; Length by similarity and Group by category move to Physics (they are
 forces) beside Link force, so Show stays four rows. Off, Label backgrounds draws each name
 on the old 3px card-coloured outline; the placement keeps it clear of lines
-either way (`scratchpad/ui-sweeps/graphplates.js`: 19 plates on, 19 outlines
+either way (`scratchpad/ui-sweeps/graphdepth2.js graphplates`: 19 plates on, 19 outlines
 off, off kept after a reload).
 
 ## Decision made, 2026-10-04: a Filter fold

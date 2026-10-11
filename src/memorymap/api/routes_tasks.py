@@ -27,7 +27,7 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -35,6 +35,7 @@ from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
 from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, jobruns, jobstore, taskhistory
 from memorymap.core import jobs as bgpool
+from memorymap.api.this_computer import this_computer_only
 
 router = APIRouter(tags=["tasks"])
 
@@ -377,12 +378,16 @@ def collect() -> list[dict]:
             tasks.append(row)
         row["progress"] = live["progress"]
         row["log"] = live["log"]
+        row["lines"] = live["lines"]
+        row["run_id"] = live["id"]
+        row["origin"] = live["origin"]
         row["started"] = live["started"]
         if live["steps"]:
             row["steps"] = live["steps"]
         if live["detail"]:
             row["detail"] = live["detail"]
 
+    _ledger_rows(tasks)
     _stamp_started(tasks)
 
     # **One table decides, not eight hard-coded booleans.** Every entry above
@@ -403,6 +408,60 @@ def collect() -> list[dict]:
             or bool(task.get("queued") and task.get("job_id"))
         )
     return tasks
+
+
+def _ledger_rows(tasks: list[dict]) -> None:
+    """Every other run in the process ledger (INBOX 805): a chat answer, an
+    Agent turn, a transcription, a pool job's lines. A run another row
+    already shows (`listed`, a pool job) lends that row its lines and title;
+    any other gets its own row, so nothing that runs is missing here."""
+    from memorymap.core import passes
+
+    handled = set(passes.PASS_KINDS) | {"autonomous", "tidy"}
+    for live in jobruns.live():
+        if live["kind"] in handled or any(t.get("run_id") == live["id"] for t in tasks):
+            continue
+        if live.get("listed"):
+            row = next(
+                (
+                    t
+                    for t in tasks
+                    if not t.get("run_id")
+                    and not t.get("queued")
+                    and t["kind"] in (f"job-{live['kind']}", live["kind"])
+                    and (not t.get("name") or t.get("name") in live["title"])
+                ),
+                None,
+            )
+            if row is not None:
+                row.update({"run_id": live["id"], "lines": live["lines"], "origin": live["origin"]})
+                row["log"] = row.get("log") or live["log"]
+            continue
+        if live["kind"] in _RUN_KINDS_IN_COLLECT:
+            continue
+        tasks.append(
+            {
+                "kind": live["kind"],
+                "name": live["id"],
+                "label": live["title"],
+                "detail": live.get("detail", ""),
+                "progress": live.get("progress"),
+                "log": live["log"],
+                "lines": live["lines"],
+                "run_id": live["id"],
+                "origin": live["origin"],
+                "started": live["started"],
+                #: A turn the person is watching in its own surface: listed,
+                #: never announced (`noticeTaskTransitions`).
+                "watched": live["kind"] in WATCHED_KINDS,
+            }
+        )
+
+
+#: Run kinds a person starts and watches where they started it (an answer
+#: streaming in the chat, a transcription under its recorder): the running
+#: list shows them, the notifications centre does not announce them.
+WATCHED_KINDS = frozenset({"generation", "transcription", "ocr", "run"})
 
 
 #: (kind, name) -> when `collect` first saw that row, for a job that keeps no
@@ -459,7 +518,7 @@ def list_tasks() -> dict:
     screen that you have to know to look at.
     """
     #: `now` so the panel counts elapsed time on the server's clock.
-    return {"tasks": collect(), "history": taskhistory.recent(), "now": time.time()}
+    return {"tasks": collect(), "history": jobruns.merged_history(taskhistory.recent()), "now": time.time()}
 
 
 @router.get("/jobs/last-runs")
@@ -539,9 +598,16 @@ async def jobs_stream(
         rows = jobstore.list_jobs(db, limit=limit, labels=bgpool.LABELS)
         return f"event: jobs\ndata: {json.dumps({'jobs': rows})}\n\n"
 
+    def runs() -> str:
+        """The process ledger (INBOX 805): every run in flight with its
+        lines, so an open panel's lines move without a poll of its own."""
+        body = {"running": jobruns.live(), "now": time.time()}
+        return f"event: runs\ndata: {json.dumps(body)}\n\n"
+
     async def events():
         seen = jobstore.version()
-        yield "retry: 3000\n\n" + await asyncio.to_thread(snapshot)
+        seen_runs = jobruns.version()
+        yield "retry: 3000\n\n" + await asyncio.to_thread(snapshot) + runs()
         started = last_sent = time.monotonic()
         while time.monotonic() - started < seconds:
             await asyncio.sleep(_STREAM_POLL_SECONDS)
@@ -552,6 +618,10 @@ async def jobs_stream(
                 seen = now_version
                 last_sent = time.monotonic()
                 yield await asyncio.to_thread(snapshot)
+            if jobruns.version() != seen_runs:
+                seen_runs = jobruns.version()
+                last_sent = time.monotonic()
+                yield runs()
             elif time.monotonic() - last_sent >= _STREAM_PING_SECONDS:
                 last_sent = time.monotonic()
                 yield ": ping\n\n"
@@ -701,7 +771,7 @@ def desktop_fullscreen_state() -> dict:
     return {"available": window_hook.available(), "fullscreen": window_hook.is_fullscreen()}
 
 
-@router.post("/desktop/fullscreen")
+@router.post("/desktop/fullscreen", dependencies=[Depends(this_computer_only)])
 def desktop_fullscreen_toggle() -> dict:
     """Put the desktop window into full screen, or take it out."""
     from memorymap.core import window_hook
@@ -713,7 +783,7 @@ def desktop_fullscreen_toggle() -> dict:
 # --- shutting the app down cleanly -------------------------------------------
 
 
-@router.post("/shutdown")
+@router.post("/shutdown", dependencies=[Depends(this_computer_only)])
 def shutdown() -> dict:
     """Stop the server on purpose, from inside the app.
 
@@ -780,6 +850,10 @@ def activity_rows() -> list[dict]:
 
     rows: list[dict] = []
     for task in collect():
+        #: A ledger run's own row (`_ledger_rows`): drawn below from the run
+        #: or from `activity`, which carries its Stop.
+        if task.get("run_id") and task.get("name") == task["run_id"]:
+            continue
         rows.append({
             "id": f"task:{task['kind']}:{task.get('name', '')}",
             "kind": task["kind"],
@@ -789,6 +863,8 @@ def activity_rows() -> list[dict]:
             "started": task.get("started"),
             "queued": bool(task.get("queued")),
             "stoppable": bool(task.get("cancellable")),
+            "run_id": task.get("run_id", ""),
+            "lines": task.get("lines") or [{"text": line} for line in task.get("log") or []],
         })
     tracked = activity.snapshot()
     #: A job that registered with `activity` itself (an import, with Stop)
@@ -800,12 +876,14 @@ def activity_rows() -> list[dict]:
         rows.append({
             "id": f"run:{live['kind']}",
             "kind": live["kind"],
-            "label": live["label"],
+            "label": live["title"],
             "detail": live.get("detail", ""),
             "progress": live.get("progress"),
             "started": live.get("started"),
             "queued": False,
             "stoppable": False,
+            "run_id": live["id"],
+            "lines": live["lines"],
         })
     rows.extend(tracked)
     return rows

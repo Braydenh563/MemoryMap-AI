@@ -17,6 +17,7 @@ from memorymap.core import deps
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 from memorymap.search import websearch
+from memorymap.api.this_computer import this_computer_only
 
 router = APIRouter(tags=["settings"])
 
@@ -90,7 +91,7 @@ def web_search(
     }
 
 
-@router.post("/websearch/detect-searxng")
+@router.post("/websearch/detect-searxng", dependencies=[Depends(this_computer_only)])
 def detect_searxng(url: str = "", session: Session = Depends(get_session)) -> dict:
     """Test a SearXNG URL, or scan the usual local ports for one.
 
@@ -131,7 +132,7 @@ def searxng_status() -> dict:
     }
 
 
-@router.post("/websearch/searxng/start")
+@router.post("/websearch/searxng/start", dependencies=[Depends(this_computer_only)])
 def searxng_start(session: Session = Depends(get_session)) -> dict:
     """Run SearXNG for the user and switch web search over to it."""
     from memorymap.search import searxng_docker, searxng_manager, websearch
@@ -164,7 +165,7 @@ def searxng_start(session: Session = Depends(get_session)) -> dict:
     return {"running": True, **result}
 
 
-@router.post("/websearch/searxng/reinstall")
+@router.post("/websearch/searxng/reinstall", dependencies=[Depends(this_computer_only)])
 def searxng_reinstall(session: Session = Depends(get_session)) -> dict:
     """Throw the SearXNG install away and build a fresh one.
 
@@ -195,7 +196,7 @@ def searxng_reinstall(session: Session = Depends(get_session)) -> dict:
     return result
 
 
-@router.post("/websearch/searxng/stop")
+@router.post("/websearch/searxng/stop", dependencies=[Depends(this_computer_only)])
 def searxng_stop(session: Session = Depends(get_session)) -> dict:
     """Stop the managed instance and fall back to DuckDuckGo."""
     from memorymap.search import searxng_manager, websearch

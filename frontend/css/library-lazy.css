@@ -1047,7 +1047,8 @@
   cursor: default;
 }
 
-.ocr-region-text-empty:hover {
+.ocr-region-text-empty:hover,
+.ocr-region-text-empty:is(:focus-visible, :has(:focus-visible)) {
   background: none;
 }
 
@@ -1705,7 +1706,8 @@
   visibility: hidden;
 }
 .wb-map-node:hover .wb-map-actions,
-.wb-map-node.wb-selected .wb-map-actions {
+.wb-map-node.wb-selected .wb-map-actions,
+.wb-map-node:is(:focus-visible, :has(:focus-visible)) .wb-map-actions {
   visibility: visible;
 }
 .wb-map-node.wb-radial-open .wb-map-actions {
@@ -1719,9 +1721,47 @@
    target is `--target-min` (28, and 44 on touch), the glyph is body size, and
    the row keeps one size to the hand at every zoom like the grips
    (`--wb-inv-zoom`, `WB_INV_ZOOM_GRIPS`). */
+/* **They scale with the topic, between 20 and 28px** (INBOX 816, the owner:
+   "should these buttons be that big??"; a zoomed-out map showed 50px squares
+   under a topic 60px wide). `--wb-inv-zoom` is 1 / zoom, so `scale(inv)` kept
+   them 28px at every zoom, and 44 under touch. The applied scale is the
+   screen scale `f = clamp(20/28, zoom, 1)` divided by the zoom, which is
+   `clamp(20/28 * inv, 1, inv)`: 28px at 100% and above, shrinking with the
+   topic to 20px at 71% and below. Under touch the same rule runs from 44px
+   (a finger's target at the normal zoom) to 20. Beside the topic, on its left,
+   a column centred on it and scaled about that centre: siblings are stacked
+   26px apart at 100% (13 at 50%) and levels 76 units apart, so a row under
+   the topic landed on the next sibling at every zoom and a row beside it on
+   the parent (measured, mapactions.js). */
 .wb-map-actions {
-  transform: scale(var(--wb-inv-zoom));
-  transform-origin: 0 0;
+  transform: scale(clamp(calc(20 / 28 * var(--wb-inv-zoom)), 1, var(--wb-inv-zoom)));
+  transform-origin: 100% 50%;
+  flex-direction: column;
+  left: auto;
+  /* The padding box ends inside the topic's own edge bar and border (about
+     4 units), so the offset is that plus 4 screen px. */
+  right: calc(100% + var(--space-1) + var(--space-1) * var(--wb-inv-zoom));
+  top: 50%;
+  bottom: auto;
+  translate: 0 -50%;
+}
+@media (pointer: coarse) {
+  .wb-map-actions {
+    transform: scale(clamp(calc(20 / 44 * var(--wb-inv-zoom)), 1, var(--wb-inv-zoom)));
+  }
+}
+/* **Away while the topic's text is edited** (INBOX 817): the + and link
+   buttons, the fold toggle and the resize grip all hang on the edges of the
+   box being typed in, over its text. The class is `wbBeginTextEdit`'s. */
+.wb-map-node.wb-text-editing .wb-map-actions,
+.wb-map-node.wb-text-editing .wb-map-collapse,
+#whiteboard-container[data-current-tool] .wb-map-node.wb-text-editing:not(.wb-in-group) .wb-map-resize-grip {
+  display: none;
+}
+/* Below half zoom only the + stays: two buttons of 20px are wider than the
+   topic they hang from. `wbPublishInvZoom` sets the attribute. */
+#whiteboard-container[data-wb-zoom-far] .wb-map-ref {
+  display: none;
 }
 
 /* `:not(#wb-map-actions-row)` lifts these over the ghost icon button's own
@@ -1739,7 +1779,8 @@
   color: var(--ink);
 }
 
-.wb-map-actions > button:not(#wb-map-actions-row):hover {
+.wb-map-actions > button:not(#wb-map-actions-row):hover,
+.wb-map-actions > button:not(#wb-map-actions-row):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   border-color: var(--ghost-btn-border-hover);
 }
@@ -1951,7 +1992,8 @@
   cursor: grab;
 }
 
-.wb-lib-tile:hover {
+.wb-lib-tile:hover,
+.wb-lib-tile:is(:focus-visible, :has(:focus-visible)) {
   background: var(--hover-veil);
 }
 
@@ -2036,6 +2078,19 @@
 
 .wb-page-row[aria-selected="true"] {
   background: var(--accent-soft);
+}
+/* The number, the name, Present and the row's kebab (INBOX 822). */
+.wb-page-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+.wb-page-row .wb-layer-name[contenteditable] {
+  overflow: visible;
+  text-overflow: clip;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  cursor: text;
 }
 
 /* The hover lock (decision 28): a quiet lock at a locked item's top right
@@ -2188,7 +2243,7 @@
   place-items: center;
   width: 1.15em;
   height: 1.15em;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--on-accent);
   font-size: 0.8em;
@@ -2224,7 +2279,7 @@
   height: 0.95em;
   box-sizing: border-box;
   border: 1.5px solid currentColor;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: conic-gradient(currentColor var(--progress), transparent 0);
 }
 
@@ -2324,7 +2379,8 @@
   font-size: var(--text-md);
 }
 
-.library-activity:hover {
+.library-activity:hover,
+.library-activity:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
   border-color: var(--glass-border);
 }
@@ -2492,7 +2548,7 @@
   border-color: color-mix(in srgb, var(--wb-branch-edge) 70%, transparent);
 }
 
-.wb-map-node.wb-map-solid:not([data-shape="none"]) :is(.wb-map-node-icon, .wb-map-count, .wb-map-number) {
+.wb-map-node.wb-map-solid:not([data-shape="none"]) :is(.wb-map-node-icon, .wb-map-count, .wb-map-number, .wb-map-progress, .wb-map-progress.wb-map-progress-complete) {
   color: var(--wb-core-ink);
 }
 
@@ -3010,7 +3066,8 @@ button.ghost.doc-template-choice.wb-template-choice {
   padding-inline: 0;
 }
 
-.ocr-zoom > button:hover:not(:disabled) {
+.ocr-zoom > button:hover:not(:disabled),
+.ocr-zoom > button:is(:focus-visible, :has(:focus-visible)):not(:disabled) {
   background: var(--ghost-btn-bg);
 }
 
@@ -3052,7 +3109,7 @@ button.ghost.doc-template-choice.wb-template-choice {
   flex: none;
   width: 0.5rem;
   height: 0.5rem;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--muted);
 }
 
@@ -3389,7 +3446,8 @@ button.ghost.doc-template-choice.wb-template-choice {
   transform: translate(-50%, -50%) rotate(45deg);
 }
 
-.library-card-tick:not(:checked):hover::after {
+.library-card-tick:not(:checked):hover::after,
+.library-card-tick:not(:checked):is(:focus-visible, :has(:focus-visible))::after {
   border-color: var(--accent);
   opacity: 1;
 }
@@ -3651,15 +3709,18 @@ button.ghost.doc-template-choice.wb-template-choice {
    the prompt outside a 42px bordered field that filled the pane's whole foot,
    because the app's text-field rule (a well, an edge, roomy padding) outranked
    `.cm-console-input` (a class against an element and an attribute). The
-   child selector below outranks it. The focus ring is the app's, inset. */
+   child selector below outranks it. The focus ring is the app's 2px ring at
+   the field's own edge, and the line keeps `--space-1` above and below the
+   field so the ring never meets the rule over it (INBOX 804: it touched,
+   the field filling the line's whole height). */
 .cm-console-line {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding-inline: var(--space-3);
+  padding: var(--space-1) var(--space-3);
   border-top: 1px solid var(--border);
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
 }
 .cm-console-prompt {
   color: var(--accent-text);
@@ -3669,19 +3730,20 @@ button.ghost.doc-template-choice.wb-template-choice {
 .cm-console-line > .cm-console-input {
   flex: 1;
   min-width: 0;
-  height: var(--control-h-lg);
+  height: var(--control-h);
   min-height: 0;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
   box-shadow: none;
   color: var(--text);
   font: inherit;
 }
 .cm-console-line > .cm-console-input:focus-visible {
-  outline-offset: 2px;
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
 }
 @media (pointer: coarse) {
   .cm-console-line > .cm-console-input {
@@ -3946,13 +4008,15 @@ button.ghost.doc-template-choice.wb-template-choice {
 .outline-row {
   border-radius: var(--radius-md);
 }
-.outline-row:hover {
+.outline-row:hover,
+.outline-row:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-3);
 }
 .outline-row:has(> .outline-link[aria-current]) {
   background: var(--accent-soft);
 }
-.outline-row > .outline-link:is(:hover, [aria-current]) {
+.outline-row > .outline-link:is(:hover, [aria-current]),
+.outline-row > .outline-link:is(:is(:focus-visible, :has(:focus-visible)), [aria-current]) {
   background: transparent;
 }
 /* "Attach a bookmark" is a row of the References list, not a heavier
@@ -4230,6 +4294,19 @@ button.ghost.doc-template-choice.wb-template-choice {
 .wb-layer-depth-1 {
   padding-left: var(--space-5);
 }
+/* A frame that holds items has a fold control before its glyph, and what it
+   holds is indented under it (INBOX 824). */
+.wb-layer-row.has-held {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+}
+.wb-layers-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+  font-size: var(--text-sm);
+}
 
 .wb-link-waypoint-handle,
 .wb-link-waypoint-add,
@@ -4453,7 +4530,8 @@ button.ghost.doc-template-choice.wb-template-choice {
   padding-block: 0;
 }
 
-.wb-board-menu label.wb-menu-row:hover {
+.wb-board-menu label.wb-menu-row:hover,
+.wb-board-menu label.wb-menu-row:is(:focus-visible, :has(:focus-visible)) {
   background: var(--accent-soft);
 }
 
@@ -4515,7 +4593,8 @@ button.ghost.doc-template-choice.wb-template-choice {
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
 }
-.wb-named-layer:hover {
+.wb-named-layer:hover,
+.wb-named-layer:is(:focus-visible, :has(:focus-visible)) {
   background: var(--hover-veil);
 }
 .wb-named-layer.is-hidden .wb-layer-name {
@@ -4576,7 +4655,7 @@ button.ghost.doc-template-choice.wb-template-choice {
   width: var(--space-3);
   height: var(--space-3);
   margin: calc(var(--space-3) / -2) 0 0 calc(var(--space-3) / -2);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--error);
   box-shadow: 0 0 var(--space-2) var(--error);
   animation: wb-laser-fade 0.6s ease-out forwards;
@@ -4659,6 +4738,17 @@ button.ghost.doc-template-choice.wb-template-choice {
 .doc-code-side-bar > .search-field {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* **The save button is the field's height and one line** (INBOX 803, the
+   owner: "Search snippets" and "Save selection" differed in height and the
+   label wrapped). Measured at a 303px panel: the field 32px, the button
+   42.8px with "Save selection" on two lines. The button keeps its words and
+   never gives them up; the field is the one that shrinks. */
+.doc-code-side-bar > button {
+  flex: 0 0 auto;
+  height: var(--control-h-lg);
+  white-space: nowrap;
 }
 
 /* Under the editor below 1100px: a column, the editor keeping at least half
@@ -4809,15 +4899,51 @@ button.ghost.doc-template-choice.wb-template-choice {
   gap: var(--space-1);
 }
 
-.doc-assist-form {
-  display: flex;
-  gap: var(--space-2);
+/* **One height, one composer** (INBOX 804, the owner: the asks, the field
+   and its send were three heights and three looks). The question is the
+   search field's well (`.search-field`) with the send inside it at its end,
+   and the asks and the no-model tools are quiet chips: the `--chip-bg`
+   ground, no edge, the veil's deeper tint under the pointer or the
+   keyboard. All three at `--control-h`, `--target-min` under a finger. */
+.search-field.doc-assist-form {
+  height: var(--control-h);
   margin: var(--space-3) 0;
+  padding-inline-end: var(--space-1);
 }
 
-.doc-assist-form > input {
-  flex: 1 1 auto;
-  min-width: 0;
+#doc-assist-send {
+  flex: none;
+  width: calc(var(--control-h) - 8px);
+  height: calc(var(--control-h) - 8px);
+  min-height: 0;
+  padding: 0;
+}
+
+.doc-assist-asks > button.ghost,
+.doc-assist-tools > button.ghost {
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border-color: transparent;
+  background: var(--chip-bg);
+  font-weight: 500;
+}
+
+.doc-assist-asks > button.ghost:hover,
+.doc-assist-asks > button.ghost:is(:focus-visible, :has(:focus-visible)),
+.doc-assist-tools > button.ghost:hover,
+.doc-assist-tools > button.ghost:is(:focus-visible, :has(:focus-visible)) {
+  border-color: transparent;
+  background: var(--ghost-btn-bg);
+}
+
+@media (pointer: coarse) {
+  .search-field.doc-assist-form,
+  .doc-assist-asks > button.ghost,
+  .doc-assist-tools > button.ghost {
+    height: var(--target-min);
+    min-height: var(--target-min);
+  }
 }
 
 .doc-assist-tools {
@@ -4984,13 +5110,10 @@ button.ghost.doc-template-choice.wb-template-choice {
 }
 
 .wb-table-grid {
-  /* Set per table from its cells (`wbPaintTable`); these are the one-cell
-     table's, for the frame before the first paint. */
-  --wb-table-cols: 1;
-  --wb-table-rows: 1;
+  /* One cell until `wbPaintTable` sets the tracks from the table's cells. */
   display: grid;
-  grid-template-columns: repeat(var(--wb-table-cols), minmax(0, 1fr));
-  grid-template-rows: repeat(var(--wb-table-rows), minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   width: 100%;
   height: 100%;
   overflow: hidden;

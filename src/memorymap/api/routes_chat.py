@@ -3233,7 +3233,21 @@ def _interactive_lines(req):  # noqa: ANN001, ANN202
     #: Listed in Activity while it streams, and Stop there ends it (rule 5).
     label = "Running a skill" if req.skill else "Answering in Chat"
     with model_gate.interactive():
-        yield from activity.tracked_stream("generation", label, _stream_lines(req))
+        yield from activity.tracked_stream("generation", label, _stream_lines(req), title=_run_title(req))
+
+
+def _run_title(req) -> str:  # noqa: ANN001
+    """The process ledger's words for this turn (INBOX 805): what was asked,
+    in the asker's words, cut to a line. A trailing backslash or quote a
+    paste left on the question is not part of it."""
+    asked = " ".join(str(getattr(req.body, "question", "") or "").split()).strip("\\'\" ")
+    if len(asked) > 60:
+        asked = asked[:59] + "…"
+    if req.skill:
+        name = str(req.skill.get("name") or req.skill.get("title") or "a skill")
+        return f"Running {name}" + (f": '{asked}'" if asked else "")
+    agent = req.use_tools and not getattr(req.body, "notes_only", False)
+    return f"{'Agent: ' if agent else 'Answering '}'{asked}'"
 
 
 @router.get("/modes")

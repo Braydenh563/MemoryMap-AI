@@ -2535,8 +2535,7 @@ function wbPaintMapNodeStyle(node, d) {
     const note = typeof d.data?.note === "string" ? d.data.note.trim() : "";
     noteMark.hidden = !note;
     if (note) {
-      const first = note.split("\n")[0];
-      noteMark.title = `Note: ${first.length > 80 ? `${first.slice(0, 79)}…` : first}`;
+      noteMark.title = `Note: ${noteNamePlain(note, 80)}`;
       noteMark.setAttribute("aria-label", "Open the note behind this topic");
     }
   }
@@ -3570,7 +3569,7 @@ function wbMapEdgeContext() {
   const group = document.querySelector(".wb-map-edges");
   if (group) {
     for (const el of group.querySelectorAll(
-      ".wb-map-edge, .wb-map-edge-hit, .wb-map-edge-handle"
+      ".wb-map-edge, .wb-map-edge-hit, .wb-map-edge-handle, .wb-map-edge-label"
     )) {
       const key = `${el.dataset.parent}:${el.dataset.child}`;
       let slot = els.get(key);
@@ -3580,6 +3579,7 @@ function wbMapEdgeContext() {
       // and the handle carry neither it nor each other.
       if (el.classList.contains("wb-map-edge")) slot.el = el;
       else if (el.classList.contains("wb-map-edge-hit")) slot.hit = el;
+      else if (el.classList.contains("wb-map-edge-label")) slot.label = el;
       else slot.grip = el;
     }
   }
@@ -3606,6 +3606,10 @@ function wbMapEdgesFor(id, ctx) {
     // hit twin is here: a handle that stays where the line used to be is a
     // control pointing at nothing the moment either end of the line moves.
     if (slot.grip) slot.el._wbHandle = slot.grip;
+    //: And the line's label (INBOX 818, the owner: "labels on mind map links
+    //: dont move with the links"): it was left at the old place for the whole
+    //: of a drag and only caught up at the drop's full render.
+    slot.el._wbLabel = slot.label || null;
     found.push({ parent, child, el: slot.el, layout });
   };
   const parent = self.parent_id != null ? index.byId.get(self.parent_id) : null;
@@ -3630,6 +3634,11 @@ function wbUpdateMapEdges(edges) {
       const point = wbMapEdgeHandlePoint(parent, child, layout);
       el._wbHandle.setAttribute("cx", String(point.x));
       el._wbHandle.setAttribute("cy", String(point.y));
+    }
+    if (el._wbLabel) {
+      const point = wbMapEdgeHandlePoint(parent, child, layout);
+      el._wbLabel.setAttribute("x", String(point.x + (Number(child.data?.edge_label_dx) || 0)));
+      el._wbLabel.setAttribute("y", String(point.y + (Number(child.data?.edge_label_dy) || 0)));
     }
   }
 }
@@ -3938,7 +3947,12 @@ function wbMapEdgeApply(wrap, geom) {
   if (!text) {
     text = document.createElementNS("http://www.w3.org/2000/svg", "text");
     text.setAttribute("class", "wb-map-edge-label");
-    text.setAttribute("dy", "-0.4em");
+    //: The two ends, which is how `wbMapEdgeContext` finds it again.
+    text.dataset.parent = path.dataset.parent;
+    text.dataset.child = path.dataset.child;
+    //: Centred on the line's own midpoint (INBOX 818), where it was 0.4em
+    //: above it; the card-coloured halo is what lets it read on the line.
+    text.setAttribute("dominant-baseline", "central");
     // bounding-box creates a solid hit area matching the text's box, preventing mis-clicks
     text.style.pointerEvents = "bounding-box";
     text.style.cursor = "move";
@@ -6328,13 +6342,20 @@ function wbMapPickRow(select) {
       const option = isFollow ? options.find(wbMapIsFollow)
         : options.find((o) => o.value === button.dataset.value && !wbMapIsFollow(o));
       const words = (option?.textContent || "").trim();
-      const on = isFollow ? following : !following && chosen === option;
-      button.classList.toggle("active", on);
-      button.setAttribute("aria-pressed", on ? "true" : "false");
+      //: The look a following topic shows is the chosen one (one selected
+      //: state); the reset is a way back, pressable only while there is
+      //: something to go back from, so it has no pressed state of its own.
+      const showsThis = !isFollow && (following ? button.dataset.value === inherits : chosen === option);
+      button.classList.toggle("active", showsThis);
+      if (isFollow) {
+        button.disabled = following;
+        button.removeAttribute("aria-pressed");
+      } else {
+        button.setAttribute("aria-pressed", showsThis ? "true" : "false");
+      }
       button.setAttribute("aria-label", words);
       button.title = isFollow ? (following ? words : `Back to the map: ${words.replace(/^As /, "as ")}`) : words;
-      //: The look the map gives a topic that follows it: ringed, not filled,
-      //: so "this is what you see" and "this is what you chose" differ.
+      //: A hook for the look the map gives a topic that follows it.
       button.classList.toggle("is-inherited", !isFollow && following && button.dataset.value === inherits);
     }
   };

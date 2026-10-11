@@ -317,9 +317,25 @@ def _clock_swap(text: str) -> tuple | None:
     return (found, a, b) if a and b else None
 
 
+def _heard(question: str) -> str:
+    """The question as the utilities read it: as typed when it is a utility,
+    else with its misspellings put right ("the time in westen australia",
+    INBOX 837), when that makes it one."""
+    if _kind_of(question) is not None:
+        return question
+    from memorymap.ai import question_noise
+
+    fixed = question_noise.repair(question)
+    return fixed if fixed != question and _kind_of(fixed) is not None else question
+
+
 def kind_of(question: str) -> str | None:
     """Which utility `question` is, or None: the router's question, answered
     without working anything out."""
+    return _kind_of(_heard(question))
+
+
+def _kind_of(question: str) -> str | None:
     text = _clean(question)
     if not text:
         return None
@@ -529,7 +545,8 @@ _CLOCK_READ = ("computed", "\nRead as the date and time on this computer's clock
 
 def answer(question: str, now: datetime | None = None, salt: str = "", rates: dict | None = None, rates_date: date | None = None) -> list[tuple] | None:
     """The parts of a utility answer to `question`, or None."""
-    kind = kind_of(question)
+    question = _heard(question)
+    kind = _kind_of(question)
     if kind is None or kind == "until_note":
         return None
     now = now or datetime.now()

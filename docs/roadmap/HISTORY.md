@@ -338,6 +338,15 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-11 (Brief 86)
+
+The search86 agent built decisions a to c and INBOX 848 and 849; what is left is in `archive/agent-remaining/search86-1011.md`. The brief, as it stood:
+
+> ## Brief 86 (Sonnet): search suggestions, history and undo in Settings (INBOX 832)
+>
+> The owner 2026-10-11, verbatim: "should searches suggest auto completions?? should the user be able to clear their cache and recent searches in individual and all places and clear other things and undo thing in settings??" Measured: recent searches exist in one place (index.html "Recent searches"); Clear cache exists in Settings (INBOX 487); no search box suggests completions.
+> Decisions: (a) every search box suggests as you type: recent searches first, then note titles, tags and categories that start with the words, as a listbox (DESIGN recipe), Tab or Right accepts the ghost text (CHAT_PLAN decision 69), Up and Down move. (b) Each search box's recents carry a per-row remove and a Clear recent; Settings, Data has "Clear recent searches everywhere", "Clear cached previews and thumbnails", "Clear the Guide's answer cache" and "Clear dismissed suggestions", each saying what it removes and how much. (c) Every Settings change and clear is undoable from the toast for 10 s and from a "Recent changes" list in Settings (last 20).
+
 ## Moved from the plans, 2026-10-11 (CHAT_PLAN, INBOX 801 and 808, Agent with no model)
 
 The noagent agent's Built block (standing order 10); CHAT_PLAN's "Placed from INBOX, 2026-10-11 (the owner on Agent mode with no model)" carries the pointer. Decision 22a records the call on the Agent segment. The placed entry, as it stood:
@@ -352,6 +361,19 @@ The noagent agent's Built block (standing order 10); CHAT_PLAN's "Placed from IN
 - The thinking line: `meta.ollama_running === false` sets the new phase "Working it out without a model…" and arms no "Waking the model…" timer (`streamChat`, `PROGRESS_PHASES.engine`).
 - Measured in Chromium at 1440 (port 8867, a stand-in Needle, no model): the five turns answered in 75 to 778 ms, phases seen "Reaching Atlas…", "Reading your notes…", "Working it out without a model…", "Atlas is writing…", never "Waking the model…"; no "step above" or "Couldn't ask" text. Tests: `tests/test_agent_no_model_801.py`.
 - Help moved with it: the Agent button's title, the Guide's progress line and composed-answer topics.
+
+## Moved from the plans, 2026-10-11 (UI_MODERNISATION 13a, Brief 57, the stylesheet's grammar)
+
+The grammar57 agent's built decisions, moved from UI_MODERNISATION_PLAN 13.4's 13a row at its step boundary (standing order 10). What is left is in `archive/agent-remaining/grammar57-1011.md` and the row. Substitutions from `$S/grammar57-subst.py` (re-runnable), each committed apart from its lint.
+
+- **9, tokens:** nine declared custom properties nothing read deleted, 432 to 423; `test_every_declared_token_is_read`, `TOKEN_BUDGET`.
+- **10, colour:** the fourteen accent presets moved whole to 05-sidebars-themes.css, 240 to 198 literals outside the colour files; `COLOUR_LITERALS_LEFT` per file only falls.
+- **11, type:** 152 font-size rem literals to their `--text-*` token of the same value, 0 left; `test_a_font_size_on_the_ramp_is_written_as_its_token`.
+- **14, motion:** colour, ground and edge transitions never run slow (five hovers 200 to 120ms), one-shot animations on motion tokens; two lints in `test_motion_tokens.py`.
+- **15, hover and focus:** 253 hover selectors without a keyboard twin to 0 (`X:is(:focus-visible, :has(:focus-visible))` in the same rule); one hover and one press for every button family (INBOX 789); `tests/test_hover_focus_pairs.py`, `scratchpad/ui-sweeps/focusbox.js`.
+- **17, circles:** 31 square `50%` boxes to `--radius-pill`, 58 to 27 at 50%, the rest faces, colours and drawn shapes plus six named in `CIRCLES_LEFT`.
+- **12, 13, 16** are ratchets only (115 literal layers, 19 hand-written drop shadows, 128 `!important`); the row keeps them open.
+- Placed with the brief: INBOX 803 (quiet ghosts in cards, disclosure rows, counted chips), 804 and 808 to 811 (row actions and `rowActions`, Help's tour rows, the notification block, the toast's quiet action, the documents assistant's composer, the console ring), 813 (bar controls) and the menu-end gaps; each recipe is a DESIGN.md row with its lint in `test_ui_recipes.py`.
 
 ## Moved from the plans, 2026-10-11 (WORLD_CLASS 25f, Brief 52)
 
@@ -958,7 +980,7 @@ The companion2 agent's Built block (standing order 10); the first round is below
 - Faces at small sizes (step 1): one mood sign beside the head and bold brows
   at 28 and 20 px, from a lazy sheet (`frontend/css/atlas-lazy.css`, atlas.js
   `ATLAS_CUES`, `atlasCue`, `atlasSheet`). Distinct faces of 15 by pixel diff
-  (atlasfacediff.js and .py, DIFF=96 FRAC=0.03, any channel): light 28px 2 to
+  (atlasdepth2.js atlasfacediff and .py, DIFF=96 FRAC=0.03, any channel): light 28px 2 to
   15, 20px 1 to 15; dark 28px 11-13 to 15, 20px 10-11 to 15; both looks.
 - Tail at rest on the compositor (step 2): path draws a minute at rest 900
   (15 a second) to 83 (taildraws probe, 88% of the time resting); Atlas idle
@@ -969,7 +991,7 @@ The companion2 agent's Built block (standing order 10); the first round is below
   Reduce, new `x:appreduce` state), layouts 36 and 9.
 - Calm's arms (step 4): angle off straight down, full size, both looks: 0 to
   5 degrees in all three variants before, -34 to 56 after (atlasarms.js).
-- Smoothness (step 5, atlassmooth.js): reaction latency from the end of the
+- Smoothness (step 5, atlasdepth2.js atlassmooth): reaction latency from the end of the
   debounce to the first frame with the mood: 47, 53, 86, 90 and 169 ms
   (load 5 on four cores, errors.js running); snaps in ten minutes at 60 Hz:
   one (both hands at once, hanging, 261s); distinct in ten minutes: 7 acts,
@@ -1033,7 +1055,7 @@ The companion agent's Built block (standing order 10); the rest of Brief 34 runs
   does on its own. Driven at 1440 for You and Atlas, 0 page errors.
 - Right-click in the enlarged view (owner's list): verified, the menu opens at
   the pointer with Companion, Atlas look and Size (fixed by chatui-1010).
-- Face changes in a 3-minute scripted session (companionmoods.js): Atlas 4 to
+- Face changes in a 3-minute scripted session (companiondepth2.js companionmoods): Atlas 4 to
   12, faces 2 to 5, longest still 78s to 63s; You 7 to 12, faces 4 to 6.
 - Idle cost (companionperf.js IDLE=1, ms of script a minute, loaded machine):
   You 737 to 130, Atlas 3,780 to 2,050 (task 34,952 to 14,992, layouts 1,399
@@ -3993,7 +4015,7 @@ theme's deeper violet (median contrast 1.13 to 1.33, p90 1.40 to 3.28,
 `scratchpad/ui-sweeps/atlaswisps.js`), the waist and tail wisps turned with
 the tail in every pose (offset from the tail lying 7.6 to 14.0 units, 14.0
 standing), the body's edge glow carried down the tail as a fill; masculine
-pixel-identical in six poses and both themes (`atlasstill.js`).
+pixel-identical in six poses and both themes (`atlasdepth2.js atlasstill`).
 `test_atlas_wisps_pose.py`.
 
 ## Moved from the plans, 2026-10-04 (the top bar mode and the glass recipe)
@@ -45603,7 +45625,7 @@ loading page.
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).
      **Fixed** (verified 2026-10-05): Graph, gear, Display, Label
-     backgrounds; `scratchpad/ui-sweeps/graphplates.js` counts 72 plates on,
+     backgrounds; `scratchpad/ui-sweeps/graphdepth2.js graphplates` counts 72 plates on,
      0 off, and still 0 after a reload (kept on this device). With it the
      spec's last open KG rows: rollups on the query table and a searching
      picker for a note field (GRAPH_PLAN, "Still open after KG1 to KG9").
@@ -47130,7 +47152,7 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      glide had not moved `x`/`y` yet) and glided from k 1; it now snaps the glide,
      is instant while hidden, and a fresh layout is warmed in the worker first.
      First visible frame k 1.21 (worst 2.5) to 0.785, settled 0.788
-     (`scratchpad/ui-sweeps/graphfirstframe.js`, 60 notes).
+     (`scratchpad/ui-sweeps/graphdepth2.js graphfirstframe`, 60 notes).
 
 748. **The owner, 2026-10-10, verbatim**: "I also need a major major improvement
      and expansion of the code editor, it needs to have everything and more that
@@ -48284,6 +48306,40 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      companion" and "Atlas look"). Fixed in b928a7d9c: the bar is in the
      gutter, one `--space-3` outside the text.
 
+820. **The owner, 2026-10-11, verbatim.** "layers and potentially other places
+     in the app dont handle inline md rendering or cut it out" (screenshot:
+     the board's Layers panel row "Note card: **Current Commit..."). Fixed for
+     the layer row (`wbItemSpokenName` reads `stripMarkdownPreview`); the
+     sweep of every other place a note's first line is shown as a name is
+     the uisweep agent's, with one helper and a lint.
+
+814. **The owner, 2026-10-11, verbatim.** "also when I change stuff in the
+     tools for a mindmap node, I cant actually see what the difference is
+     until I click off it 😅" (screenshot: a topic's Shape popover, rows Core
+     idea, Box, Edge bar, Fill, Effect; selected options drawn three ways
+     (accent fill, a bordered box, a grey fill) and the resets in two
+     colours). Placed: the Sonnet mapfix agent: a change paints the topic
+     at once while it stays selected, the popover never covers the topic it
+     edits, and one selected look and one reset look in the popover.
+
+866. **The owner, 2026-10-11, verbatim.** "Can you also fix the connection
+     and and security issues when trying to access it on phone over lan??"
+     Fixed, reproduced first against the real launcher with LAN on: (1) the
+     certificate was one self-signed server certificate (CA:FALSE), which iOS
+     will not list under Certificate Trust Settings and Android will not
+     install as a CA certificate, so a phone could never trust it and every
+     visit warned; it is now a name-constrained authority (private ranges,
+     `.local`, this computer's names) signing the server certificate, and a
+     new address reissues only the server certificate; (2) "Trust this
+     certificate on your phone" was a navigation behind the lock, so a 401
+     every time; it now serves the authority's public certificate unlocked;
+     (3) the address without `https://` got an empty response from the TLS
+     port; `core/lanserve.py` reads the first byte and sends plain http a
+     301 to https, only for a Host naming this computer; (4) the help says
+     what to check when a phone cannot connect (same Wi-Fi, not guest; the
+     firewall). Tests: `test_lan_tls.py`, `test_lan_serve.py` (real
+     sockets, OpenSSL verifying the chain). Not verified: a real phone.
+
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 
 INBOX 797, the owner: "I feel like the mindmap and whiteboard are still
@@ -48399,7 +48455,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   branch's layout (`_bl`, `_blTop`), which the lines, the line style and the
   branch bar read. On a Free map only the structured branches are laid out.
   The topic menu's Structure group sets it, one Undo step with its tidy.
-  Measured (`mapbranchstructure.js`, 1440 and 390): 14/14 each; 0 overlapping
+  Measured (`mapdepth2.js mapbranchstructure`, 1440 and 390): 14/14 each; 0 overlapping
   pairs with an org chart and a fishbone inside tree-right, tree-both, radial,
   timeline and tree-table maps. Guide: `mind-map-structure`. Tests:
   `tests/test_map_branch_structure.py`.
@@ -48410,7 +48466,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   changes and removes it; double-click the bubble changes it. The field and
   its tidy are one Undo step (`wbMapSetExtra`, through `wbRecordGesture`).
   Also: the paint key carries a topic's branch structure (`_bl`), so a change
-  of structure repaints its branch bars. Measured (`mapcallout.js`, 1440 and
+  of structure repaints its branch bars. Measured (`mapdepth2.js mapcallout`, 1440 and
   390, light and dark): 8/8 each; the card 44 to 89 px tall, 0 overlapping
   pairs after the tidy, the words on the bubble 14.4:1 light, 12.1:1 dark. Guide:
   `mind-map-callouts`. Tests: `tests/test_map_callout.py`.
@@ -48420,7 +48476,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   under the words, the card's last row (`.wb-map-tags`, `order: 1`), rebuilt
   only when the list changes. The Topic group adds, changes and removes them
   in one comma-separated answer; double-click the row changes them; one Undo
-  step with the tidy (`wbMapSetExtra`). Measured (`maplabels.js`, 1440 and
+  step with the tidy (`wbMapSetExtra`). Measured (`mapdepth2.js maplabels`, 1440 and
   390, light and dark): 7/7 each; "booked, paid ,  receipt, booked" gives
   three chips, the card 44 to 63 px, 0 overlapping pairs, the chips 14.0:1
   light, 11.8:1 dark. Guide: `mind-map-callouts`. Tests:
@@ -48434,7 +48490,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   go under one topic named after the map. The import (`_xmind_style`,
   `_xmind_marks`) now reads the same back, the link held to http, https and
   mailto. In the export dialog and the map's palette rows. Measured
-  (`mapxmind.js`, 1440 and 390): 6/6 each; a 585-byte zip named `.xmind`, read
+  (`mapdepth2.js mapxmind`, 1440 and 390): 6/6 each; a 585-byte zip named `.xmind`, read
   back as the same four topics. Tests: `tests/test_map_xmind_export.py`.
 - **Reaction stamps and votes on a topic (Miro; 14.4).** `data.stamps`, a
   count of 1 to 999 per stamp from six (`up`, `heart`, `star`, `check`,
@@ -48443,7 +48499,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   labels in the card's last row; a press adds one without starting a drag
   (the row stops `pointerdown` on a stamp), the topic menu's Stamps group adds
   each and clears them, one Undo step each (`wbMapAddStamp`, `wbMapSetExtra`).
-  Measured (`mapstamps.js`, 1440 and 390, light and dark): 11/11 each; a press
+  Measured (`mapdepth2.js mapstamps`, 1440 and 390, light and dark): 11/11 each; a press
   on the chip 1 to 2 with the topic unmoved, the chip 20 board px tall on a
   desktop and 44 under touch, its count 13.7:1 light, 11.5:1 dark. Guide:
   `mind-map-callouts`. Tests: `tests/test_map_callout.py`.
@@ -48455,7 +48511,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   re-create sends for an item that had none (`wbKeepOwnLayer`). The layer's
   name in the Layers tab is the switch (`aria-pressed`, the row tinted with an
   accent bar), and its menu has Draw on this layer / Stop drawing on it
-  (`wbSetCurrentLayer`, one Undo step). Measured (`wbcurrentlayer.js`, 1440
+  (`wbSetCurrentLayer`, one Undo step). Measured (`wbdepth2.js wbcurrentlayer`, 1440
   and 390): 9/9 each; a text box, a drawn shape and a placed library item all
   land on the current layer, the name a 28 px target on a desktop and 44
   under touch. Guide: `board-current-layer`. Tests:
@@ -48469,7 +48525,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   band, ports and label keep the true shape. The pen, the highlighter and a
   map's lines are spared (`wbDrawsRough`). The View menu's Hand-drawn look and
   the Format panel's Hand-drawn row set it, each one Undo step. Measured
-  (`wbrough.js`, 1440 and 390): 11/11 each; the same path on a second render
+  (`wbdepth2.js wbrough`, 1440 and 390): 11/11 each; the same path on a second render
   and after a reopen, the rough rectangle within 4 px of the true one, 200 new
   rectangles roughened in 209 to 228 ms (then cached). Guide:
   `board-hand-drawn`. Tests: `tests/test_wb_hand_drawn.py`.
@@ -48484,7 +48540,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   of the cell pressed last, deletes its row or column, and toggles the header
   (`wbTableMenuRows`, `wbTableReshape`), the box growing or shrinking by one
   share; each one Undo step. Insert, Table and the command palette's Table
-  place a 3 by 3 one (`wbInsertTable`). Measured (`wbtable.js`, 1440 and 390):
+  place a 3 by 3 one (`wbInsertTable`). Measured (`wbdepth2.js wbtable`, 1440 and 390):
   11/11 each; 9 cells filling the box, "Name" Tab "Owner" typed straight on,
   a row and a column in at the pressed cell (16 cells, the box 40 px taller and
   120 px wider), a 600 px table's cells wider in proportion. Guide:
@@ -48497,7 +48553,7 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   one save at a time (`wbFmtSaveProps`, `wbFmtWriteProps`); a bad name is
   refused with a toast. The palette's Edit data opens it. The four tabs share
   the panel's width (four at the line's 4.5rem floor scrolled 41 px).
-  Measured (`wbeditdata.js`, 1440 and 390, twice each): 8/8; the tabs 41 to 0
+  Measured (`wbdepth2.js wbeditdata`, 1440 and 390, twice each): 8/8; the tabs 41 to 0
   px of scroll, the remove button 28 px on a desktop. Guide:
   `board-edit-data`. Tests: `tests/test_wb_edit_data.py`.
 - **Every page of a `.drawio` file.** `wbDrawioCells` reads every
@@ -48507,8 +48563,121 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   (`wbDrawioPlace`, `wbDrawioBox`); a one-page file comes in as before, with
   no frame. Frames rather than a board per page because a board's pages are
   its frames (WHITEBOARD_PLAN decision 22): the Pages tab lists them and
-  Present walks them. Measured (`wbdrawiopages.js`, 1440 and 390): 8/8 each;
+  Present walks them. Measured (`wbdepth2.js wbdrawiopages`, 1440 and 390): 8/8 each;
   three pages (one compressed, one empty) gave two frames, Plan and Ship,
   not overlapping, each holding its own two shapes, two joined connectors, one
   Undo to an empty board; `wbdrawio.js` 11/11 still. Tests:
   `tests/test_wb_drawio_import.py`.
+
+## Moved from the plans, 2026-10-11 (ANALYSIS size cap)
+
+Two finished blocks of ANALYSIS.md, moved whole at Brief 87 step 1 so the file stays under its cap (standing order 10). Section 33's adopted list, then the 2026-09-21 merge review.
+
+#### Adopted this session (section 33)
+
+Each of these was re-implemented from scratch. What odysseus supplied was the
+*idea* and, more valuably, the failure mode it had already hit.
+
+- **A provider layer split by dialect, not by product (§6).** Odysseus's
+  `_detect_provider` matches on hostname rather than substring, and falls back
+  to "OpenAI-compatible" for everything unknown: which is right, because that
+  is what the long tail implements. The lesson taken: build the *dialect*, and
+  LM Studio, llama.cpp, Jan and vLLM all arrive together.
+
+- **`loaded_context_length` beats `max_context_length`.** Odysseus reads both
+  and prefers the loaded one. MemoryMap's plan for §6 named only the latter; a
+  128k model *loaded* at 4k would have had its prompt budgeted at 128k and
+  quietly lost its system prompt. This one measurement changed the design.
+
+- **"Known" is a separate fact from "known value".** Odysseus carries a
+  `known` flag beside every context length, because a fallback 128k is not
+  proof a model holds 128k, and a budget scaled off an unproven number is worse
+  than a conservative one. MemoryMap's version of this is `context_length`
+  returning `None` and callers falling back rather than a made-up default
+  propagating.
+
+- **Multi-field catalog probing.** Every OpenAI-compatible server spells the
+  window differently: `max_context_length`, `max_model_len`, `context_length`,
+  nested `meta.n_ctx`. Odysseus reads all of them. So does
+  `provider.context_from_catalog_entry` now.
+
+- **Never auto-pick an embedding model as a chat model.** Odysseus's
+  `_first_chat_model` exists because an OpenAI-style `/models` list routinely
+  puts `text-embedding-ada-002` first and "use the first one" silently picks
+  something that cannot hold a conversation. Re-implemented as
+  `provider.first_chat_model`.
+
+- **Model specs and context usage surfaced in the chat.** Odysseus reports
+  `context_percent`, `usage_source: real|estimated`, and per-model metadata on
+  every turn. This was the single most transferable *product* idea in the repo,
+  and MemoryMap already had every piece needed for it. The message metadata
+  line now says how full the window got, and marks an estimate as an estimate.
+
+- **Read the capability list.** Odysseus tracks what each model supports rather
+  than assuming. MemoryMap now reads Ollama's `capabilities` from `/api/show`,
+  and it immediately caught a bug in the brand-new quick preset, which would
+  have sent `think: false` to models that reject it.
+
+- **SSRF hardening on a user-supplied backend URL.** Odysseus's `url_safety.py`
+  makes exactly the right call for a local-first app: do *not* blanket-block
+  private addresses, because pointing at a local server is the entire use case
+  - block the link-local metadata range instead. Re-implemented as
+  `security.check_backend_url`, plus a warning MemoryMap needs and odysseus
+  does not, because MemoryMap promises the notes never leave the machine.
+
+#### The night's merges reviewed line by line, 2026-09-21
+
+Seventeen merges sit between PR 150's base and its head, 151 files and
+21,091 insertions, and three of them came from worktrees cut 176, 231 and
+250 commits back and were resolved by hand. That is the shape CLAUDE.md
+section 6 is written about, so the head was read against its four questions
+before any more work landed on it. The verdict is clean, and the point of
+recording it is that a clean review is a fact the next session should not
+have to buy twice.
+
+**A feature that never ran once.** Eighty-one functions were added to
+`frontend/js/*.js` and twenty-three defs to `src/`, and every one of them has a
+call site. The three that answer to nothing but a decorator are routes, and
+each is reachable: `/entries/reference-counts` from `ensureReferenceCounts`,
+`/drafts/compose/stream` from `streamDraft`, and `/drafts/compose` from the
+tests that speak this feature's shape, which is what its docstring says it
+is kept for.
+
+**A guard removed while the shape around it was kept.** Every deleted
+`pointerType !== "touch"` line in the diff, and there are six, was deleted
+into `wireLongPress`, which keeps the same guard once instead of six times.
+The SQL `LIKE` escaping that looked dropped in `_list_skills` was
+reformatted around a new `*extra` argument with `like_escape` and
+`LIKE_ESCAPE` both intact.
+
+**A working thing rewritten into a riskier thing.** The writing desk is the
+one real rewrite, and its new streaming path holds up: `streamDraft` carries
+a partial line across chunk boundaries rather than splitting each chunk on
+its own, skips an unparseable frame instead of throwing out of a
+half-written draft, sends `X-Auth-Token`, and sends the lock screen up on a
+401. The empty `title` on every entry in `_sources` is not a loss: an entry
+in this app has no title column, and `drafter` writes a bare `[1]` when the
+title is empty, which is the intended shape.
+
+**What the fake transport cannot see.** `_accumulate_tool_calls` is correct
+for concurrent calls: index-keyed buckets, id, name and arguments folded
+separately, replayed in index order with `call_<index>` as the id of last
+resort. Its one latent flaw is the default in `fragment.get("index", 0)`,
+which is INBOX 285.
+
+Chat history is trimmed today: `agent.build_messages`' `budget` cuts the
+notes and the history to what the window holds. So odysseus's compaction
+idea, which is still the owner's to decide, is a refinement of a guard that
+exists rather than a missing one, and nothing is silently overflowing while
+the decision waits.
+
+## Moved from the plans, 2026-10-11 (Brief 91)
+
+> ## Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842)
+>
+> Verbatim, each with its decision:
+> - 838: "swapping between light and dark mode collapses the notebook constellation and joltingly redraws it without it staying the same shape and smoothly animating the transition". The constellation keeps its positions across a theme change and crossfades its colours (no re-layout); reduced motion swaps at once.
+> - 839: "can you also improve and modernise/professionalise and make consistent the design of the quick sketch panel?? also sometimes small adjustments and graph nodes being pulled in slightly are glitchy and jittery, not smooth". The sketch panel's bar is a `.dock` (DESIGN), group labels off (tooltips carry them), one row of 32px tools, the swatches a single colour chip that opens a palette, the caption and Save as note on one footer; the graph: a small drag or a node pulled in settles without oscillation (alpha target and velocity decay measured over 60 frames, no frame with a position change above 1px after settle).
+> - 840: "I can still select agent when the ai isnt running, is that intentional??" Intentional (CHAT_PLAN decision 22a: with no model, Agent runs the app's own tools); not learnable, so the segment says it: "Agent, app tools only" in its tooltip and a one-line hint under the composer the first time Agent is chosen with no model.
+> - 841: "i dont think the settings button in the bottom chat doc should be a circle when everything else is a curved corner rectangle". The chat dock's settings button takes the dock's control radius.
+> - 842: "that year button in the timeline takes up a whole row on its own". The year chip ("2026 (42)") moves into the calendar bar's row as a quiet control beside the month picker, or folds into the table's Date column header; no row of its own.

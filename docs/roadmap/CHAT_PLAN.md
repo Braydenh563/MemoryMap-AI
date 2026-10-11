@@ -1867,6 +1867,7 @@ more"; volunteered insight "should be togglable and also dynamic".
     (B30 to B32), utilities (rows A1 to A4), then the composer everywhere
     (B20 to B27). Each row is gated by decision 70's gold answers or its own
     measured gate.
+75. **Model up: it leads, the composer's facts are only labelled context (a test per surface); model down: the composer covers every act** (the owner, 2026-10-11, HANDOVER).
 
 | # | Idea | Gate |
 | --- | --- | --- |

@@ -49,7 +49,7 @@ from collections.abc import Iterator
 
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
-from memorymap.ai import act_registry, presets
+from memorymap.ai import act_registry, presets, question_noise
 from memorymap.ai.help_topics_more import HELP_GROUPS, MORE_TOPICS, TOPIC_META
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
@@ -330,7 +330,7 @@ HELP_TOPICS: list[dict] = [
             "shows today's date in earlier months and years. In the feed, Ctrl and "
             "the mouse wheel, or a pinch, makes the date groups finer or coarser, "
             "as do + and - on a row. The strip under the bar walks your daily pages, and the "
-            "chips under it offer On this day and a chip per year with its count. A note that names a "
+            "chip under it offers On this day, and the year menu beside the month narrows the list to one year. A note that names a "
             "day (\"on Friday\") sits on that day and says All day; one that "
             "names a time too (\"on Friday at 3pm\") shows that time."
         ),
@@ -426,7 +426,8 @@ HELP_TOPICS: list[dict] = [
         #: months, and the guide was the one place still teaching the old key.
         "body": (
             "Press ? for the full list; Settings, Keyboard shortcuts rebinds any of "
-            "them, and on a Mac Cmd works in place of Ctrl. A button with a "
+            "them (press a shortcut's keys, then the keys you want), and on a Mac "
+            "Cmd works in place of Ctrl. A button with a "
             "shortcut shows it in its tooltip, in your own binding. Everywhere: Ctrl+K "
             "the command palette, Ctrl+P find anything, Ctrl+F find on this "
             "page, / jump to search (the chat box on Chat), Ctrl+Z undo, "
@@ -505,7 +506,9 @@ HELP_TOPICS: list[dict] = [
             "telemetry, and nothing leaves your machine unless you explicitly "
             "turn on web search. Settings, Privacy, Where your data went lists "
             "every connection the app made, recorded as it happened, Since "
-            "launch or All time; \"Nothing left this computer.\" means none."
+            "launch or All time, one row per place with what it was for (the "
+            "file downloaded, the search words); its addresses are under "
+            "Addresses. \"Nothing left this computer.\" means none."
         ),
         "badge": {"label": "Privacy", "section": "privacy"},
     },
@@ -957,7 +960,13 @@ HELP_TOPICS.extend(
                 "and the line says \"showing results for\" it. When nothing matches, "
                 "it says what was searched and offers one way on: every kind, a "
                 "spelling, or the nearest feature. To narrow only the "
-                "notes list, use Filter notes on the Your notes tab."
+                "notes list, use Filter notes on the Your notes tab. Every search box "
+                "suggests as you type: your recent searches first, then note titles, "
+                "tags and categories that start with your words, with the best match "
+                "in grey (Tab or Right takes it, Down and Up walk the list, Esc closes it). "
+                "A recent search has its own x, the list's foot clears them, Settings, "
+                "Import & export, Clear and forget clears every box's at once, and Settings, "
+                "General, Search turns the suggestions off."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1009,7 +1018,11 @@ HELP_TOPICS.extend(
                 "send if you report a problem. If something looks out of date or "
                 "broken after an update, open Settings, Import & export and press "
                 "Clear app cache: it reloads the app with fresh files and touches "
-                "nothing in your notebook."
+                "nothing in your notebook. Just below it, Clear and forget removes "
+                "the recent searches in every search box, the saved previews, the "
+                "Guide's conversation and the suggestions you dismissed, each with "
+                "an Undo for ten seconds. Every setting you change is undoable too, from "
+                "the toast and from Recent changes in the same section (the last twenty)."
             ),
             "badge": {"label": "Models", "section": "models"},
         },
@@ -1031,7 +1044,8 @@ HELP_TOPICS.extend(
             "body": (
                 "The guided tour walks through the whole app a section at a time, "
                 "pointing at the real controls. Start it from Settings, Help and "
-                "guide. Each section's own button starts there and carries on to the "
+                "guide: Start the tour for all of it, or a part's row, its name over "
+                "what it covers, to start there and carry on to the "
                 "next; Back and Next move through it, and Finish ends it whenever you "
                 "like. The search box at the top of Settings, Help keeps only the "
                 "topics that hold every word you type, with the words marked; Esc "
@@ -1120,9 +1134,9 @@ HELP_TOPICS.extend(
                 "Atlas's suggestions. The number on it is what you have not seen. "
                 "A pop-up with a button (Undo, Open it, Show it) is kept here with "
                 "the same button: an opener still works after a restart, an Undo "
-                "only while it can still be undone, then it says Expired. "
-                "Point at a row for its two controls: the circle marks it read or "
-                "unread, the cross removes just that one; the bin at the bottom "
+                "only while it can still be undone, then its line says Undo expired. "
+                "Point at a row for its two controls beside the time: the circle "
+                "marks it read or unread, the cross removes just that one; the bin at the bottom "
                 "clears them all. "
                 "Reminders also pop up on their own while a tab or the "
                 "desktop app is open."
@@ -1269,8 +1283,9 @@ HELP_TOPICS.extend(
                 "Double-click empty board for a text box, double-click a closed shape "
                 "(or select it and press Enter) to write in it, right-click (or hold on touch) "
                 "for the menu, double-click a line to bend "
-                "it, and select a connector and press Enter to label it. A frame's "
-                "title drags it and what is inside it (Ctrl: the frame alone); its menu exports it. "
+                "it, and select a connector and press Label in its bar (or Enter) to label it. A frame's "
+                "title drags it and what is inside it (Ctrl: the frame alone); its menu exports it or fits it to its contents, and a double-click on one of "
+                "its resize handles fits that edge (a corner, two) to what it holds, with a margin. "
                 "Ctrl+Shift+L locks the selection; Unlock is "
                 "on the board's right-click menu. Right-click an item, Comment…, starts a "
                 "thread; its count reopens it. View, Present frames: one frame "
@@ -1349,8 +1364,10 @@ HELP_TOPICS.extend(
                 "facts, its look, open every fold, lay it out again) and Outline. The Library starts with "
                 "Templates (17 for boards, 15 for maps; see Board and map templates). Pages lists the "
                 "board's frames in presentation order: drag a row or press Alt+Up and Alt+Down to reorder, "
-                "Enter goes to the frame, P presents from it. Layers starts with named layers: + adds one "
-                "holding the selection; its eye and lock act on all of it. A locked item shows a lock when the pointer "
+                "Enter goes to the frame, P presents from it, double-click or F2 renames it, and its ⋯ menu has more. "
+                "Layers starts with named layers: + adds one "
+                "holding the selection; its eye and lock act on all of it. Tinted rows are selected on the board "
+                "(the head counts them; Clear drops them), and a frame lists what it holds under its row. A locked item shows a lock when the pointer "
                 "is on it; right-click it to unlock it. The Library holds "
                 "built-in sets (General shapes, Flowchart, Arrows, Frames (a frame, a timeline lane and swimlanes in rows or columns) "
                 "and 1,530 icons drawn as shapes), five draw.io sets (196 shapes "
@@ -2301,7 +2318,11 @@ def _matching_topics(question: str) -> list[dict]:
       dropped, so the answer is not padded with a topic that matched one
       incidental word.
     """
-    lowered = _normalise_keys(question.lower())
+    #: The question as it was meant (Brief 90, INBOX 837: "noficiations
+    #: panel", "thes ebuttons"): misspellings put right, split words joined,
+    #: before the keywords are read. The keyword typo rule below stays, for a
+    #: word the speller does not know.
+    lowered = _normalise_keys(question_noise.repair(question).lower())
     words = [w for w in _WORD.findall(lowered) if w not in _STOP]
     total = len(HELP_TOPICS)
     scores: dict[str, float] = {}

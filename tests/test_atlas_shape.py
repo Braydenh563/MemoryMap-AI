@@ -214,7 +214,7 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
         assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate", "translate"}, name
     # The second loops run on `.atl-lw` boxes, never on the `<svg>` roots:
     # Chromium does not composite `rotate` or `translate` for an svg root, so
-    # each restyled the page every frame (companioncost.js, 108ms -> 7ms of
+    # each restyled the page every frame (companiondepth2.js companioncost, 108ms -> 7ms of
     # recalc per 2.6s idle).
     assert "& .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s" in CSS
     assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s" in CSS
@@ -392,7 +392,7 @@ def test_the_lean_hook_turns_the_body_and_the_head_follows_with_lag():
     assert "translate(calc(var(--atl-px) + var(--atl-lean-dir) * 0.8px), var(--atl-py))" in CSS
     assert ".nm-atlas.atl-layer-tail { translate: calc(var(--atl-lean-dir) * -1.4px) 0; transition: translate calc(var(--motion-slow) * 4.5)" in CSS
     # None of the lean's, the variant's or the pose's custom properties
-    # inherits (companioncost.js, 2026-10-04): an inherited one restyled all
+    # inherits (companiondepth2.js companioncost, 2026-10-04): an inherited one restyled all
     # 528 descendants of #nm-buddy for each change of an attribute on it
     # (15 to 25ms each). The value is written on the elements that read it.
     for name in ("--atl-lean-dir", "--nmb-lean-pose", "--nmb-lie-shift", "--atl-v1", "--atl-v2", "--atl-chin",
@@ -458,7 +458,7 @@ def test_the_poses_four_numbers_pass_down_by_inherit_along_the_readers_path():
 def test_the_walks_tilt_and_way_do_not_inherit_either():
     # `--nmb-tilt` and `--nmb-lean` are written inline on #nm-buddy when a
     # walk starts; inherited, each write restyled all 528 descendants (28ms,
-    # companionrecalcorder.js). Not inherited, they pass by `inherit` to the
+    # companiondepth2.js companionrecalcorder). Not inherited, they pass by `inherit` to the
     # one element that reads each, and the skirt's root is written to
     # directly: an `inherit` on the `.atl-lw-lower` box above it made an idle
     # companion restyle every frame (6 recalcs in 2s became 105), since that
@@ -774,7 +774,7 @@ def test_a_sleeping_atlas_keeps_its_arms_off_the_rings():
 
 def test_the_props_hang_from_each_look_s_own_hand():
     # The bell and the lantern were drawn about one grip, (48.2, 60), the
-    # old arm's hand: measured by scratchpad/ui-sweeps/atlasprop.js, they sat
+    # old arm's hand: measured by scratchpad/ui-sweeps/atlasdepth2.js atlasprop, they sat
     # 2.1 to 3.9 units off the masculine mitten and about 18 off her held-out
     # hand. Each look names its grip and the props move there.
     # INBOX 568: both hang their arms at rest, and the grips moved with the hands.
@@ -791,7 +791,7 @@ def test_a_head_scratch_reaches_the_head_and_her_arms_carry_no_line():
     for look, al0 in (("masculine", "163deg"), ("feminine", "145deg")):
         rule = re.search(rf'\[data-atlas-look="{look}"\]\[data-atlas-mood="confused"\] \{{([^}}]+)\}}', CSS).group(1)
         assert f"--atl-al0: {al0}" in rule, look
-    # Her pale arms were lost at the companion's size (atlasmoodgrid.js), and
+    # Her pale arms were lost at the companion's size (atlasdepth2.js atlasmoodgrid), and
     # a fine rim line round each was added; INBOX 567 ("the arm on the right
     # of the female atlas still looks disconnected") took it away again: it
     # drew the step where the arm met the body. No line round her arms.
@@ -799,7 +799,7 @@ def test_a_head_scratch_reaches_the_head_and_her_arms_carry_no_line():
 
 
 def test_atlas_moves_by_its_own_look_and_its_rules_out_rank_the_generic_ones():
-    # atlasgait.js: the skirt never swung in a walk (the idle drift's :is()
+    # atlasdepth2.js atlasgait: the skirt never swung in a walk (the idle drift's :is()
     # out-ranked it) and Atlas waved the generic -98 to -128 degrees (its own
     # wave set only animation-name, at lower specificity).
     for glide in ("atl-glide ", "atl-glide-heavy "):
@@ -815,7 +815,7 @@ def test_atlas_moves_by_its_own_look_and_its_rules_out_rank_the_generic_ones():
 
 def test_a_poke_holds_long_enough_to_read_and_eases_back():
     # The companion agent's report: a poke's mood snapped back after 1.8s.
-    # scratchpad/ui-sweeps/atlaswake.js: now 3.8s, then 1.2s of .atl-easing.
+    # scratchpad/ui-sweeps/atlasdepth2.js atlaswake: now 3.8s, then 1.2s of .atl-easing.
     hold = int(re.search(r"const ATLAS_POKE_HOLD_MS = (\d+);", ATLAS).group(1))
     back = int(re.search(r"const ATLAS_POKE_BACK_MS = (\d+);", ATLAS).group(1))
     assert 3000 <= hold <= 5000 and 1000 <= back <= 1500

@@ -306,14 +306,17 @@ MORE_TOPICS: list[dict] = [
             "last run", "last ran", "background jobs", "job history", "did it run",
             "run now", "night shift", "stop a job", "cancel a job", "scheduled pass",
             "what ran overnight", "when did i last back up",
+            "process log", "what did it do", "who started it",
         ),
         "body": (
             "Settings, Background tasks shows what the app is doing right now "
             "(re-indexing, downloading a model, installing packages, setting up "
             "search), each running job with a progress bar (a moving one when "
-            "it cannot count its steps) and how long it has run, with Stop on "
-            "the jobs that can stop safely, and what has finished since it "
-            "started. Background jobs lists every kind of job, the never-run "
+            "it cannot count its steps), how long it has run and who started it, "
+            "with Stop on the jobs that can stop safely, and what has finished "
+            "since it started, with how long it took. Every run, a chat answer "
+            "or an Agent turn too, has its lines in a fold: what it searched, "
+            "each tool it called, done; live while it runs. Background jobs lists every kind of job, the never-run "
             "ones too, with when it last ran and how it went; each scheduled "
             "pass (autonomous background AI, the night shift, the daily backup, "
             "resurfacing, the embeddings backfill, housekeeping) also says when "
@@ -360,8 +363,9 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Activity lists every job running now: indexing, a model loading or "
             "answering, imports, reading text, transcribing, backups and the "
-            "agent's passes, each with a bar and Stop where it can stop part way. "
-            "Open it from the status bar's job slot, its agent runs count, or the "
+            "agent's passes, each with a bar, its lines and Stop where it can stop "
+            "part way. While anything runs, the status bar's job slot says how "
+            "many and names the newest. Open Activity from it, its agent runs count, or the "
             "palette (Activity). Its Agent runs tab lists each run this session "
             "with its steps, and the log is in its menu. Stop the model, in the "
             "menu and in Settings, Models beside Use this model, stops any answer "
@@ -421,7 +425,10 @@ MORE_TOPICS: list[dict] = [
             "Library, Documents, the more menu, Import a file as a document. "
             "Backups: Back up now, and how many to keep; one is also taken "
             "each day the app starts, and restoring snapshots first, so even a "
-            "restore can be undone. App cache, at the bottom: Clear app cache "
+            "restore can be undone. Each backup row says when in words, marks "
+            "the newest Latest, and says what made it (the daily backup, Back "
+            "up now, before an update or a restore), its size and whether it "
+            "was checked. App cache, at the bottom: Clear app cache "
             "reloads the app with fresh files and never touches your notes."
         ),
         "badge": {"label": "Import & export", "section": "data"},
@@ -478,7 +485,9 @@ MORE_TOPICS: list[dict] = [
             "palette's actions too, so \"dark\" finds Toggle light/dark, after the "
             "notes and files. The command palette (Ctrl+K) sends what you type "
             "here: its last row, Search everything for, opens this box with "
-            "the words already searched."
+            "the words already searched. As you type it suggests your recent searches, "
+            "then note titles, tags and categories, with the best match in grey: Tab or "
+            "Right takes it, and Settings, General, Search turns it off."
         ),
         "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
@@ -1803,7 +1812,7 @@ MORE_TOPICS.extend(
                 "first (Show every language for the rest); the search matches "
                 "names, tags and languages, and #io matches the tag io. A row "
                 "inserts at the caret and one Ctrl+Z takes it out; built-in rows "
-                "have stops that Tab walks. Save selection keeps the selected "
+                "have stops that Tab walks. The panel's Save keeps the selected "
                 "code: #words in the name you give become its tags. Each of your "
                 "own rows has a menu to insert, rename or retag, and delete; "
                 "saving, renaming and deleting each undo. Snippets belong to the "
@@ -1865,7 +1874,7 @@ TOPIC_META: dict[str, dict] = {
     "troubleshooting": {"title": "When something does not work", "path": "Settings, Models, then Settings, Logs", "steps": (
         "Open Settings, Models and check a model is connected.", "Start Ollama, LM Studio or a llama.cpp server, pick a model and press Connect.", "Looks out of date or broken after an update: open Settings, Import & export and press Clear app cache.", "Still stuck: open Settings, Logs and press Email it under the support bundle.")},
     "tour": {"title": "The guided tour", "path": "Settings, Help", "steps": (
-        "Open Settings, Help, or press Ctrl+K and choose Take the guided tour.", "Press a section's tour button, or start from the top.", "Next and Back move through it; Finish ends it.")},
+        "Open Settings, Help, or press Ctrl+K and choose Take the guided tour.", "Press Start the tour for all of it, or a part's row (its name over what it covers) for just that part.", "Next and Back move through it; Finish ends it.")},
     "personas": {"title": "Personas", "path": "Settings, Personas"},
     "templates": {"title": "Templates", "path": "Settings, Templates"},
     "updates": {"title": "Updates", "path": "Settings, About"},
@@ -2055,7 +2064,7 @@ MORE_TOPICS.extend([
     {
         "id": "phone",
         "keywords": ("phone", "on my phone", "mobile", "iphone", "android", "tablet", "ipad", "use it on my phone",
-                     "open it on my phone"),
+                     "open it on my phone", "install on my phone", "phone storage", "runs on my phone"),
         "body": (
             "Your phone opens this computer's notebook over your own network: turn "
             "on Allow other devices on this network (Settings, Account & security, "
@@ -2063,8 +2072,13 @@ MORE_TOPICS.extend([
             "port 8443) and sign in with your password. The first visit warns that "
             "the certificate is not trusted: compare the fingerprint shown under the "
             "switch, or use Trust this certificate on your phone, whose ? has the "
-            "iPhone and Android steps. The phone reads and writes the same notebook; "
-            "nothing goes through the internet, so the computer has to be on."
+            "iPhone and Android steps. Typing the address without https still "
+            "works: the app sends the phone on to https. If the phone cannot connect, "
+            "both must be on the same Wi-Fi (not a guest one) and this computer's "
+            "firewall must let the app in. The phone reads and writes the same "
+            "notebook; nothing goes through the internet, so the computer has to be on. "
+            "Nothing installs on the phone: it is only a browser window, and search, "
+            "the models and the notes all run and stay on this computer."
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },

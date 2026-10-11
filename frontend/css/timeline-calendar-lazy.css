@@ -145,7 +145,8 @@
   font-size: var(--text-xs);
   cursor: pointer;
 }
-.timeline-cal-dots:hover {
+.timeline-cal-dots:hover,
+.timeline-cal-dots:is(:focus-visible, :has(:focus-visible)) {
   background: var(--surface-2);
 }
 .timeline-cal-dot {

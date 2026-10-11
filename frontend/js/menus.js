@@ -642,6 +642,13 @@ function escapeMenuIfClipped(menu, opener) {
     box.bottom > bound.bottom + 1 ||
     box.top < bound.top - 1;
   if (!spills) return;
+  escapeMenuToBody(menu, opener);
+}
+
+//: The reparent itself, for a caller that decides to escape for a reason of
+//: its own (the topic strip's doors, which must not sit on their own topic).
+function escapeMenuToBody(menu, opener) {
+  if (menu._escapedHome) return;
   menu._escapedHome = { parent: menu.parentElement, next: menu.nextSibling };
   //: Read by `closeActionMenus`, which otherwise looks for the opener among
   //: the menu's siblings: and once the menu is a child of <body> that search
@@ -1598,7 +1605,7 @@ function entryOverflowMenu(entry) {
           lazyScript("/js/connections.js").then(() => openConnections(
             "entries",
             entry.id,
-            entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80)
+            entry.title || noteNamePlain(entry.content, 80)
           )),
       },
       {
@@ -1707,7 +1714,7 @@ function entryOverflowMenu(entry) {
         label: "ph:brackets-square Copy wiki link",
         title: "Copy a [[wiki link]] to this note, to paste into another note or document",
         run: async () => {
-          const name = noteSortName(entry).split("\n")[0].slice(0, 80).trim();
+          const name = noteNamePlain(entry.title || entry.content).slice(0, 80).trim();
           if (await copyToClipboard(`[[${name}]]`)) toast("Link copied. Paste it into any note.");
         },
       },
@@ -1922,7 +1929,7 @@ async function explainNote(entry) {
   if (!full) return toast("Couldn't read this note.", true, { action: ["Try again", () => explainNote(entry)] });
   const words = stripFrontmatter(full.content || "").replace(/^#+\s*/gm, "").trim();
   const links = full.links || [];
-  const name = (link) => notePreviewText(link.preview || "").split("\n")[0].slice(0, 80) || "a note";
+  const name = (link) => noteNamePlain(link.preview).slice(0, 80) || "a note";
   const lines = links.map((link) => `“${name(link)}”: ${link.reason ? link.reason : "no reason was given for this link"}.`);
   const about = links.length
     ? `It links to ${links.length} note${links.length === 1 ? "" : "s"}. ${lines.join(" ")}`

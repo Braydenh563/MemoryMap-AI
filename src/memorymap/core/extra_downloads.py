@@ -62,6 +62,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
+from memorymap.core import egress
+
 
 #: The file that says an install finished, and which version it was.
 MARKER = "installed.json"
@@ -397,7 +399,8 @@ def install(extra, state) -> None:
             if len(wanted) > 1:
                 label = f"{label} ({number} of {len(wanted)})"
             fetched = staging / ".download.part"
-            _fetch(download, fetched, state, label)
+            with egress.purpose(f"Downloading {label}: {egress.short(download.url.rsplit('/', 1)[-1])}"):
+                _fetch(download, fetched, state, label)
             state.step = f"Unpacking {label}"
             unpacked = _unpack(download, fetched, staging)
             if download.inspect_imports:

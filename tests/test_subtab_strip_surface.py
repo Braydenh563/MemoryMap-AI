@@ -2,7 +2,7 @@
 (INBOX 529: "the subtab menubars are kinda hard to see when scrolled down").
 The scroll-edge marker skipped bars inside the scrolling region, and the
 strips are sticky inside it, so they stayed see-through over the notes.
-`scratchpad/ui-sweeps/subtabscroll.js` and `libscroller.js`: Notes and
+`scratchpad/ui-sweeps/subtabsdepth2.js subtabscroll` and `libscroller.js`: Notes and
 Library both carry `data-scrolled="1"` and a blurred card fill once scrolled."""
 from tests._app_js import app_js_text
 

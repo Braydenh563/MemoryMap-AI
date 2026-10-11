@@ -1017,16 +1017,7 @@ function renderWebPanelMenu(engine) {
     items.push({
       label: "ph:clock-counter-clockwise Clear recent searches",
       title: "Forget the searches listed under the field",
-      run: () => {
-        try {
-          localStorage.removeItem(WEB_SEARCH_HISTORY_KEY);
-        } catch {
-          /* blocked storage: nothing was kept to clear */
-        }
-        renderWebSearchHistory();
-        renderWebPanelMenu(engine);
-        announce("Recent searches cleared.");
-      },
+      run: clearWebSearchHistory,
     });
   }
   host.replaceChildren(kebabMenu(items, "Web search options"));
@@ -1311,6 +1302,12 @@ function pushWebSearchHistory(query) {
   }
 }
 
+//: Forget the web panel's recents with the way back for ten seconds, and a row
+//: in Settings, Recent changes (search-suggest.js `clearRecentSearches`, lazy).
+function clearWebSearchHistory() {
+  ensureModule("searchSuggest").then(() => clearRecentSearches("web"));
+}
+
 // Shown only while the query box is empty and nothing is on screen: recent
 // searches are a way *in*, not chrome that sits above every result list.
 //: Rows rather than the chips they were: a chip is a fact and these are
@@ -1327,21 +1324,27 @@ function renderWebSearchHistory() {
     return;
   }
   box.classList.remove("hidden");
+  //: The head carries its own Clear (a visible control, not only the panel's menu).
   const head = document.createElement("div");
-  head.className = "web-section-label";
-  head.textContent = "Recent";
+  head.className = "web-section-label web-recent-head";
+  head.append("Recent", smallButton("Clear recent", "Forget these searches", clearWebSearchHistory));
   box.appendChild(head);
   for (const query of history) {
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "ghost web-recent";
-    setLabel(row, `ph:clock-counter-clockwise ${query}`);
-    row.title = `Search again: ${query}`;
-    row.addEventListener("click", () => {
+    const line = document.createElement("div");
+    line.className = "web-recent-row";
+    const row = smallButton(`ph:clock-counter-clockwise ${query}`, `Search again: ${query}`, () => {
       $("web-query").value = query;
       runWebSearch();
     });
-    box.appendChild(row);
+    row.classList.add("web-recent");
+    const remove = smallButton("ph:x", `Remove "${query}" from recent searches`, () => {
+      prefs.setJSON(WEB_SEARCH_HISTORY_KEY, history.filter((q) => q !== query));
+      renderWebSearchHistory();
+      renderWebPanelMenu(webEngineInfo);
+    });
+    remove.classList.add("web-recent-remove");
+    line.append(row, remove);
+    box.appendChild(line);
   }
 }
 
@@ -2443,7 +2446,7 @@ function typingDots(label = null, { persona = null, words = false } = {}) {
         if (next === "writing") stopThinkingWordRotation(dots);
       }
     };
-    if (words && typeof wantsThinkingWords === "function" && wantsThinkingWords()) {
+    if (words && wantsThinkingWords()) {
       startThinkingWordRotation(dots, persona);
     }
     return dots;

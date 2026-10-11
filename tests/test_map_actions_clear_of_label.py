@@ -15,13 +15,15 @@ import re
 from tests._css_paths import css_text
 
 
-def test_the_action_row_hangs_below_the_node_where_buttons_are_44px():
+def test_the_action_row_stands_beside_the_node_never_over_its_label():
+    """INBOX 816 moved the row from under the node (where it landed on the next
+    sibling, 26px below at 100% zoom) to a column on the node's left, centred
+    on it. It is outside the node's padding box at every size, so it never
+    reaches the label; `mapactions.js` and `mapaddcover.js` measure it."""
     css = css_text()
-    match = re.search(
-        r"@media \(max-width: 819\.98px\), \(pointer: coarse\) \{\s*\.wb-map-actions \{([^}]*)\}",
-        css,
-    )
-    assert match, "the phone/touch placement of .wb-map-actions is gone"
-    body = match.group(1)
-    assert re.search(r"bottom:\s*auto", body)
-    assert re.search(r"top:\s*calc\(100% \+ var\(--space-\d\)\)", body)
+    lazy = css[css.index("They scale with the topic, between 20 and 28px"):]
+    rule = lazy[lazy.index(".wb-map-actions {"):]
+    rule = rule[: rule.index("}")]
+    assert re.search(r"right:\s*calc\(100% \+", rule), "the row is no longer outside the node's left edge"
+    assert "flex-direction: column" in rule and "translate: 0 -50%" in rule
+    assert 'data-wb-zoom-far' in css and ".wb-map-ref" in css

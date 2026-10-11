@@ -41,7 +41,8 @@ function activityRow(job, now) {
   const row = document.createElement("div");
   row.className = "entry-meta";
   const name = document.createElement("strong");
-  name.textContent = job.label;
+  //: The run's own words ("Answering 'what is a mouse'") over its kind's.
+  name.textContent = job.title || job.label;
   row.appendChild(name);
   if (job.finished) {
     const done = document.createElement("span");
@@ -69,6 +70,9 @@ function activityRow(job, now) {
     detail.textContent = job.detail;
     li.appendChild(detail);
   }
+  //: Its lines (INBOX 805): what it has done so far, in a fold that stays
+  //: open across the two-second repaint (`taskRunFold`, ai-tools.js).
+  if ((job.lines || []).length) li.appendChild(taskRunFold(job.run_id || job.id, job.lines, job.started, job.finished ? "finished" : "running"));
   if (!job.queued && !job.finished) {
     const bar = document.createElement("progress");
     bar.className = "task-progress";

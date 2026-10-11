@@ -2,7 +2,7 @@
 and "canvasdepth, ranked" row 8, draw.io's). An object of kind `table`:
 `data.cells`, a rectangle of text, and `data.header`. The browser half
 (typing, Tab, rows and columns at the pressed cell, resize, reopen, Undo) is
-`scratchpad/ui-sweeps/wbtable.js`."""
+`scratchpad/ui-sweeps/wbdepth2.js wbtable`."""
 
 from __future__ import annotations
 

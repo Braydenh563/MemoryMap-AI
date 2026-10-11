@@ -27,6 +27,7 @@ outside (a subprocess, an HTTP stream). Nothing here kills a thread.
 from __future__ import annotations
 
 import itertools
+import json
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -71,6 +72,9 @@ class Job:
         #: set before the job finishes and it is kept as a finished line.
         self.report: str | None = None
         self.result = ""
+        #: Its run in the process ledger (`jobruns`, INBOX 805): the title,
+        #: who started it and its timed lines, kept after it ends.
+        self.run = None
 
     @property
     def expired(self) -> bool:
@@ -111,6 +115,10 @@ class Job:
             "stoppable": self.stoppable,
             "queued": False,
             "report": self.report,
+            #: The ledger run's title and lines (INBOX 805), for the row's fold.
+            "title": self.run.title if self.run is not None else self.label,
+            "run_id": self.run.id if self.run is not None else "",
+            "lines": self.run.lines() if self.run is not None else [],
         }
 
 
@@ -121,8 +129,18 @@ def start(
     on_stop: Callable[[], object] | None = None,
     stoppable: bool = False,
     lease: float | None = None,
+    title: str = "",
+    ledger: bool = True,
 ) -> Job:
+    """`ledger=False` for a job that already opens its own `jobruns` run
+    (an import), so the ledger lists it once."""
     job = Job(kind, label, on_stop, stoppable, lease)
+    if ledger:
+        from memorymap.core import jobruns
+
+        #: No database: a chat answer is a run to see, not a "last run" row.
+        job.run = jobruns.Run(kind, None, title=title or label, origin="you")
+        job.run.start()
     with _lock:
         _prune()
         _jobs[job.id] = job
@@ -144,6 +162,12 @@ def count(kind: str) -> int:
 def finish(job: Job | None) -> None:
     if job is None:
         return
+    if job.run is not None:
+        if job.stopped:
+            job.run.cancel("stopped")
+        elif job.result:
+            job.run.result = job.result
+        job.run.finish()
     with _lock:
         _jobs.pop(job.id, None)
         if job.report:
@@ -160,24 +184,47 @@ def recent() -> list[dict]:
 
 
 @contextmanager
-def track(kind: str, label: str, *, on_stop: Callable[[], object] | None = None, stoppable: bool = True) -> Iterator[Job]:
+def track(
+    kind: str,
+    label: str,
+    *,
+    on_stop: Callable[[], object] | None = None,
+    stoppable: bool = True,
+    title: str = "",
+    ledger: bool = True,
+) -> Iterator[Job]:
     """Register for the length of the block. `stoppable` defaults to True
     because a block that loops is expected to read `job.stopped`."""
-    job = start(kind, label, on_stop=on_stop, stoppable=stoppable)
+    job = start(kind, label, on_stop=on_stop, stoppable=stoppable, title=title, ledger=ledger)
     try:
         yield job
+    except GeneratorExit:
+        #: The reader went (a closed tab, a new question): a stop, not a failure.
+        if job.run is not None:
+            job.run.cancel("closed before it finished")
+        raise
+    except Exception as exc:
+        if job.run is not None:
+            job.run.fail(str(exc) or type(exc).__name__)
+        raise
     finally:
         finish(job)
 
 
-def tracked_stream(kind: str, label: str, lines: Iterator) -> Iterator:
+def tracked_stream(kind: str, label: str, lines: Iterator, *, title: str = "") -> Iterator:
     """A streamed response that shows in Activity and ends on Stop.
 
     Closing the inner generator runs its `finally`, which is what closes the
-    HTTP stream to the model, so the runner stops generating too."""
-    with track(kind, label) as job:
+    HTTP stream to the model, so the runner stops generating too. Each line
+    the stream sends is read by a `StreamNarrator`, so the run's log says
+    what the answer did (searched, called a tool, wrote) in words."""
+    with track(kind, label, title=title) as job:
+        narrator = StreamNarrator()
         try:
             for line in lines:
+                said = narrator(line)
+                if said and job.run is not None:
+                    job.run.say(said)
                 yield line
                 if job.stopped:
                     break
@@ -185,6 +232,104 @@ def tracked_stream(kind: str, label: str, lines: Iterator) -> Iterator:
             close = getattr(lines, "close", None)
             if close is not None:
                 close()
+            job.result = narrator.summary()
+
+
+#: Longest argument value a log line quotes; a pasted page is not a line.
+_ARG_CHARS = 60
+
+
+def tool_arguments_in_words(arguments: object) -> str:
+    """`{"query": "gaming mouse?\\", "limit": 5}` as `query "gaming mouse?", limit 5`.
+
+    Empty values are left out, a stray backslash or quote a small model
+    leaves on a value is trimmed, and a long value is cut: the line says
+    what was asked for, not the payload."""
+    if not isinstance(arguments, dict) or not arguments:
+        return "no arguments"
+    parts = []
+    for key, value in arguments.items():
+        if value in (None, "", [], {}):
+            continue
+        if isinstance(value, (list, tuple)):
+            value = ", ".join(str(v) for v in list(value)[:3]) + (" and more" if len(value) > 3 else "")
+        text = " ".join(str(value).replace("\\", " ").split()).strip("'\" ")
+        if len(text) > _ARG_CHARS:
+            text = text[: _ARG_CHARS - 1] + "…"
+        parts.append(f'{key} "{text}"' if isinstance(value, str) else f"{key} {text}")
+    return ", ".join(parts) or "no arguments"
+
+
+def _no_icon(text: object) -> str:
+    """A label that starts with an icon token (`ph:warning Search`) without it."""
+    words = str(text or "").split(" ", 1)
+    return words[1] if len(words) == 2 and words[0].startswith("ph:") else str(text or "")
+
+
+class StreamNarrator:
+    """Turns one answer's NDJSON events into the run's log lines.
+
+    Only the events that are a step get a line (searching, what was found,
+    each tool call, writing, done); the hundreds of answer deltas are one
+    "Writing the answer" and a word count at the end."""
+
+    def __init__(self) -> None:
+        self.chars = 0
+        self.text = ""
+        self.tools = 0
+        self.failed = 0
+
+    def __call__(self, line: object) -> str:
+        try:
+            event = json.loads(line) if isinstance(line, (str, bytes)) else None
+        except ValueError:
+            return ""
+        if not isinstance(event, dict):
+            return ""
+        kind = event.get("type")
+        if kind == "status":
+            stage = str(event.get("stage") or "")
+            return "Searching your notes." if stage == "searching" else stage.replace("_", " ").capitalize()
+        if kind == "meta":
+            found = len(event.get("raw_results") or [])
+            mode = event.get("search_mode") or "search"
+            lines = [f"Found {found} note{'' if found == 1 else 's'} ({mode})."]
+            if event.get("composed"):
+                lines.append("Composing the answer from your notes, no model.")
+            elif event.get("answered_by"):
+                lines.append(f"Answering with {event['answered_by']}.")
+            return " ".join(lines)
+        if kind == "tool":
+            self.tools += 1
+            name = event.get("tool") or _no_icon(event.get("label")) or "a tool"
+            if event.get("ok") is False:
+                self.failed += 1
+                return f"{name} did not run: {event.get('error') or 'no reason given'}."
+            return f"Called {name}: {tool_arguments_in_words(event.get('arguments'))}."
+        if kind in ("plan", "step"):
+            return str(event.get("text") or "")
+        if kind == "web_sources":
+            pages = len(event.get("sources") or [])
+            return f"Read {pages} web page{'' if pages == 1 else 's'}."
+        if kind == "answer":
+            delta = str(event.get("delta") or "")
+            first = self.chars == 0 and bool(delta)
+            self.chars += len(delta)
+            if len(self.text) < 20000:
+                self.text += delta
+            return "Writing the answer." if first else ""
+        if kind == "done":
+            return f"Done: {self.summary()}."
+        return ""
+
+    def summary(self) -> str:
+        words = len(self.text.split())
+        said = f"{words} word{'' if words == 1 else 's'}"
+        if self.tools:
+            said += f", {self.tools} tool call{'' if self.tools == 1 else 's'}"
+        if self.failed:
+            said += f" ({self.failed} did not run)"
+        return said
 
 
 def get(job_id: str) -> Job | None:

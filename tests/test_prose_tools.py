@@ -529,3 +529,16 @@ def test_a_grammar_lint_on_a_wiki_link_is_dropped(tmp_path) -> None:
     findings = json.loads(found.stdout)
     assert not [f for f in findings if "[[" in f["text"] or "]]" in f["text"]], findings
     assert any(f["text"] == "The the" for f in findings), findings
+
+
+def test_a_worker_that_does_not_start_says_which_file_and_why():
+    """INBOX 804: the owner's Windows log said only "the grammar worker did not
+    start", the bare event a module worker fires when a file it loads is
+    refused. The page then fetches each file the worker loads and names the
+    one that failed and how; the list is the worker's own imports, in order."""
+    prose = (FRONTEND / "js" / "documents-prose.js").read_text(encoding="utf-8")
+    worker = (FRONTEND / "js" / "harper-worker.js").read_text(encoding="utf-8")
+    imports = ["/vendor/harper/" + name for name in re.findall(r'from "\.\./vendor/harper/([\w.-]+\.js)"', worker)]
+    listed = re.search(r"const DOC_GRAMMAR_FILES = \[\s*DOC_GRAMMAR_WORKER_URL,\s*((?:\"[^\"]+\",\s*)+)\]", prose)
+    assert listed and re.findall(r'"([^"]+)"', listed.group(1)) == imports
+    assert "docGrammarWhy().then((why) => docGrammarFail(" in prose

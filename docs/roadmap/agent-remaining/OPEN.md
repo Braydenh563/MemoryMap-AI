@@ -1,5 +1,15 @@
 # OPEN: everything still open from the agent files, in one place
 
+## Left by the ownerfix2 agent (Brief 91, the owner's small UI reports, merged 2026-10-11)
+
+The file is `docs/roadmap/archive/agent-remaining/ownerfix2-1011.md`.
+
+- INBOX 839, graph: only the drag's heat is changed (graph-worker.js `dragHeat`). A single-tick 7.1px step still shows in one of two 8px runs (a non-dragged node, 3 ticks after release); not traced. The main-thread glide (graph-canvas.js `gcGlideStep`) was not touched.
+- Attach: at 390 `#attach-image` reads a 999px radius while `#attach-note` reads 4.8px in the chat composer row (the owner's 841 asked for one corner; only the gear was in scope). 04-chat-dock-appearance.css, `#attach-image.has-attachments` near line 2854 is the nearest rule.
+- The guide topic `ask-chat` is at 1916 of 1919 characters (`tests/test_help_controls.py`), so Agent-with-no-model could not be named in the Guide without trimming another sentence. The segment's title and the hint line carry it.
+- `graphjitter.js`-style rAF sampling is useless on a loaded machine (frames 50 to 170 ms apart, load average 10 to 33); the worker-tick measure (graphticks.js: per-tick steps from the 'tick' messages, the page's onmessage wrapped) is the one that holds.
+- Nav history on a phone: the popup was measured by calling `openNavHistoryMenu` directly (the status-bar button is not drawn at 390), so its placement on a phone was not verified, only its widths and 44px targets.
+
 ## Left by the 0.3.3 agents (INBOX 426), 2026-09-26
 
 The four agent files of that round (`companion-426.md`, `atlas-fable.md`,
@@ -332,6 +342,78 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
   *Left: a rule for the next head that wants a control.*
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
+
+## Left by the typos90b agent (Brief 90 follow-up, 80 owner typos understood, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/typos90b-1011.md`.
+
+- Not engine-readable, left out of the fixture: "corder" (corner; a one-letter swap in a six-letter word is refused on purpose, it reads "coder"), "nire" (more), "meen", "enout", "thingt", "ohf", "unig".
+- The Guide's no-model system answer still prints no "I took that to mean".
+
+## Left by the e2efix2 agent (CI E2E: draft recovery after a killed server, the documents count race, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/e2efix2-1011.md`.
+
+- The budgets spec flaps in CI (a different budget each run: list, search, board, first_interaction) while it shares the runner with the other specs; HEAD measured no slower than the last green E2E (list 150 vs 198 ms best of five). Recommendation: run `budgets.spec.js` alone in a second Playwright invocation in the CI job; no cap raised.
+
+## Left by the search86 agent (Brief 86, search suggestions, Clear and forget, Recent changes, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/search86-1011.md`.
+
+- The Library's documents, boards, images, bookmarks, recordings and skills boxes suggest recents only, not their own titles.
+- "Clear dismissed suggestions" does not reach per-note "Not suggested" tags; changes are noted only while Settings is open (the top-bar theme button is not in Recent changes); a look change's Undo toast lands about 1.5 s late.
+- App scripts at 320,589 of 320,600 gzipped (11 bytes); seven `typeof` guards removed on eager functions, each path not driven by hand.
+
+## Left by the typos90 agent (Brief 90, the owner's typos as composer fixtures, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/typos90-1011.md`.
+
+- The Guide's no-model system answer (`help_chat.system_answer`) does not say "I took that to mean"; only `composer.compose` answers do.
+- A real word missing from both word lists can be mis-repaired; add it to `common_words.py` and `LEFT_ALONE`.
+- The asking-word nearest rule turns an all-caps token ("NASA") into "has" unless the whole text is capitals.
+- Readings guessed: "liks" (like), "mut" (must), "odf" (of), "ro" (or). Brief 90 is standing: each new prompt's typos join `owner_typos.json`.
+
+## Left by the transparency agent (one ledger, the running panel, backups, where your data went, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/transparency-1011.md`.
+
+- No lint makes a new outbound call site name its purpose (`egress.purpose`, nine sites do).
+- The Guide, drafting and document review get a ledger run but no narrated lines; chat and agent turns are never announced.
+- Measured on synthetic rows and one real destination; the status ring under "auto" motion not measured.
+
+## Left by the grammar57 agent (Brief 57, the stylesheet's grammar, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/grammar57-1011.md`.
+
+- Decisions 12 (layers, 115 literals), 13 (19 drop shadows), 16 (128 `!important`) are ratchets only; 13.R not started.
+- Row actions (`rowActions`) not yet in meetings, the suggestions inbox, the tag manager; "Kinds: all" triggers and the chat strip's pill toggles a different family.
+- Logs More menu `.dock-menu-check` rows 34.9px/8px against 32px/12.8px items; the board's Start and End menus not measured for end gaps.
+- The Windows grammar worker failure not reproduced (now names its reason).
+
+## Left by the mapfix agent (the topic's tools and the board's frames, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/mapfix-1011.md`.
+
+- INBOX 819 (2): a label's look controls (size, bold, colour, chip, position); owner the cards agent.
+- At 25% zoom the 20px + overlaps its parent by about 5px; radial and tree-down layouts not driven.
+- `.wb-resize-handle` title still says "double-click fits the text" on non-frame objects; a dead `.wb-map-actions` coarse-pointer rule pinned by `test_map_actions_clear_of_label.py`.
+
+## Left by the ownerfix agent (the owner's UI items, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/ownerfix-1011.md`.
+
+- INBOX 803 item 4 (the OCR workspace's empty squashed box): not reproduced in five states; needs the owner's screenshot or state.
+- The capture box still moves 2.4px down and 1.6px left on the first click (strip 40 to 42.4px; CodeMirror line padding).
+- Constellation yellow stars are about 2.1:1 in light; the Notes rows/cards toggle is 28x24.
+
+## Left by the uisweep agent (the 2026-10-11 sweep and learnability, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/uisweep-1011.md`.
+
+- Mechanical: the header's six buttons lose 0.5px of their ring at the window top; the Library active sub-tab's border is cut 2.3px at 390; the chat composer's ring is cut 3px each side at 390.
+- Design, for Briefs 57 to 59: the Notes dock has 10 items; Tidy's "40" is a pill badge; 177 controls sit off the 28/32/44 height steps (a 36px family among them); the timeline scrubber reads as a glitch; the Dashboard boards-and-maps miniature overlaps its text; the board view menu's labels sit 26px off the rows' text column; Settings Help has 196 buttons.
+- Not driven: the code IDE, the OCR workspace, the phone More sheet, the lock screen, the board's tools and Present.
+- `settings-reset` is in no help group (`test_help_coverage.py`).
 
 ## Left by the noagent agent (Agent mode with no model, merged 2026-10-11)
 
@@ -686,7 +768,7 @@ The companion (Brief 34, second round: faces at 28 and 20 px, the tail on the co
 - Step 5 not built: one curve table for every joint (120 to 400 ms), the
   idle pool's never-within-five rule and a reaction budget a minute beyond
   the existing 6s gap (avatars.js `NMB_REACT_GAP`). The one snap (both hands
-  jumping over 4px out of stillness while hanging, atlassmooth.js) is likely
+  jumping over 4px out of stillness while hanging, atlasdepth2.js atlassmooth) is likely
   the held arms' crossfade (`atlasRigRead`, -158 degrees); one latency trial
   of five was over 100 ms, the frame wait under load.
 - Arm angle over a walk cycle not measured (atlasarms.js measures still

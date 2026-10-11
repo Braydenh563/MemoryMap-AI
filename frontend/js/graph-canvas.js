@@ -1110,20 +1110,21 @@ function gcLinkKindHidden(edge) {
   return edge.kind === "link" && graphHiddenLinkKinds.has(edge.link_type || "untyped");
 }
 
-function gcFilterChip(label, count, pressed, title, onClick) {
-  const chip = document.createElement("button");
-  chip.type = "button";
-  chip.className = `library-chip${pressed ? " active" : ""}`;
-  chip.setAttribute("aria-pressed", String(pressed));
-  chip.title = title;
-  const name = document.createElement("span");
-  name.textContent = label;
+//: A counted filter is a chip, not a button (INBOX 803: "No kind 31" drawn
+//: as a row of filled, bordered buttons, every kind being on by default).
+//: The tag chip's ground with its count after the words; a link kind turned
+//: off keeps its place struck through (the Read as row's toggle, quickadd),
+//: and a lit property takes the chosen row's accent edge.
+function gcFilterChip(label, count, pressed, title, onClick, { offWhenUnpressed = false } = {}) {
+  const el = chip(label, "tag graph-filter-chip", onClick);
+  el.setAttribute("aria-pressed", String(pressed));
+  el.classList.toggle(offWhenUnpressed ? "is-off" : "is-lit", offWhenUnpressed ? !pressed : pressed);
+  el.title = title;
   const n = document.createElement("span");
   n.className = "library-chip-count";
   n.textContent = String(count);
-  chip.append(name, n);
-  chip.addEventListener("click", onClick);
-  return chip;
+  el.append(n);
+  return el;
 }
 
 function gcRenderFilterChips(data) {
@@ -1149,7 +1150,7 @@ function gcRenderFilterChips(data) {
         /* storage blocked: the choice holds for this visit */
       }
       renderGraph();
-    });
+    }, { offWhenUnpressed: true });
   }));
   if (!byKind.size) kinds.textContent = "No links on the map.";
   const onMap = new Set(data.nodes.map((n) => n.id));

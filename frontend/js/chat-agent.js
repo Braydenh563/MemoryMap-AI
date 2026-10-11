@@ -1900,7 +1900,7 @@ function renderMemoryProposal(holder, proposal) {
     // The Settings list is the other view of the same row; if it happens to
     // be open behind the chat, leaving it stale shows a pending question the
     // user has already answered.
-    if (typeof renderMemorySettings === "function") renderMemorySettings().catch(() => {});
+    renderMemorySettings().catch(() => {});
   };
 
   row.appendChild(

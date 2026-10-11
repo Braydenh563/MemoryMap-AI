@@ -364,3 +364,63 @@ def test_the_skeleton_shimmer_follows_the_os_unless_always_was_chosen():
         )
     settings = (JS_DIR / "settings.js").read_text(encoding="utf-8")
     assert 'toggleAttribute("data-progress-chosen"' in settings
+
+
+# --- Phase 13 decision 14 (Brief 57): the slow token moves things -------------
+
+#: A colour, a ground or an edge changing is feedback, not a move: it runs on
+#: `--ui-fast` (a hover) or `--ui-base` (a state). `--motion-slow` is for a
+#: surface entering, leaving or moving. The one exception is a label whose
+#: colour follows the glide moving under it (`.has-glide`, 08-consistency.css).
+COLOUR_PROPS = re.compile(r"^\s*(color|background(?:-color)?|border(?:-[a-z]+)?-color|outline-color|box-shadow|fill|stroke)\b")
+
+
+def _rules_with_selectors():
+    for path in sorted(CSS_DIR.glob("*.css")):
+        text = _blank_comments(path.read_text(encoding="utf-8"))
+        for m in re.finditer(r"([^{};]+)\{([^{}]*)\}", text):
+            line = text.count("\n", 0, m.start(2)) + 1
+            yield f"{path.name}:{line}", " ".join(m.group(1).split()), m.group(2)
+
+
+def test_a_colour_change_never_runs_on_the_slow_token():
+    offenders = []
+    for where, selector, body in _rules_with_selectors():
+        if ".has-glide" in selector:
+            continue
+        for value in re.findall(r"(?<![-\w])transition\s*:\s*([^;]+)", body):
+            for item in _split_top(value):
+                if COLOUR_PROPS.match(item) and re.search(r"var\(--(motion|ui)-slow\)", item):
+                    offenders.append(f"{where}: {selector[:60]} -> {item.strip()[:60]}")
+    assert not offenders, (
+        "A colour, ground or edge change runs on --ui-fast (hover) or --ui-base (state); "
+        "--motion-slow is for a surface that enters, leaves or moves (DESIGN.md, Motion):\n" + "\n".join(offenders)
+    )
+
+
+#: Keyframes whose timing is the drawing itself, as the docstring above keeps
+#: for `animation`: the companion's body and the board's laser trail.
+EFFECT_SELECTORS = re.compile(r"#nm-buddy|name-mark|\.nm-|\.atl-|nmb-|atlas|wb-laser")
+
+
+def test_an_interface_animation_that_plays_once_runs_on_a_token():
+    """A message arriving, a panel sliding in, a log row fading in: one-shot
+    interface motion takes the motion tokens, so Interface animations and the
+    reduced-motion switch reach it. Loops and the companion keep their own."""
+    offenders = []
+    for where, selector, body in _rules_with_selectors():
+        if EFFECT_SELECTORS.search(selector):
+            continue
+        for value in re.findall(r"(?<![-\w])animation\s*:\s*([^;]+)", body):
+            if "infinite" in value or "!important" in value:
+                continue
+            for item in _split_top(value):
+                if re.search(r"var\(--(motion|ui)-", item):
+                    continue
+                bare = re.sub(r"var\(--[\w-]+\)", "", item)
+                m = DURATION.search(bare)
+                if m and not _off_switch(*m.groups()) and not re.search(r"\b\d+\s+(alternate|normal)\b|\s[2-9]\d*\s", item):
+                    ms = float(m.group(1)) * (1000 if m.group(2) == "s" else 1)
+                    if ms < 1000:
+                        offenders.append(f"{where}: {selector[:60]} -> {item.strip()[:60]}")
+    assert not offenders, "A one-shot interface animation's duration is a motion token:\n" + "\n".join(offenders)

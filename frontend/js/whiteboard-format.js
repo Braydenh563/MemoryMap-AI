@@ -765,8 +765,8 @@ function wbPaintTable(node, d) {
   const key = JSON.stringify([cells, Boolean(d.data?.header)]);
   if (grid.dataset.key === key) return;
   grid.dataset.key = key;
-  grid.style.setProperty("--wb-table-cols", String(cells[0].length));
-  grid.style.setProperty("--wb-table-rows", String(cells.length));
+  grid.style.gridTemplateColumns = `repeat(${cells[0].length}, minmax(0, 1fr))`;
+  grid.style.gridTemplateRows = `repeat(${cells.length}, minmax(0, 1fr))`;
   grid.classList.toggle("has-header", Boolean(d.data?.header));
   grid.replaceChildren(...cells.flatMap((row, r) => row.map((text, c) => {
     const cell = document.createElement("div");

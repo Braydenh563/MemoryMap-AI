@@ -134,7 +134,7 @@ function measure(opIdx) {
   //: **Command rows**, the things a menu is a list of. A labelled select or a
   //: segmented control inside a dock menu is a form row with its own shape,
   //: so it answers to the section-label rule below, not to the row rules.
-  const rowSel = '[role^="menuitem"], [role="option"], .menu-item, .doc-dock-menu-item, .wb-menu-item, .select-option, .nav-history-item, .doc-dock-menu-check, .space-menu-item';
+  const rowSel = '[role^="menuitem"], [role="option"], .menu-item, .doc-dock-menu-item, .wb-menu-item, .select-option, .nav-history-item, .doc-dock-menu-check, .dock-menu-check, .space-menu-item';
   const menuW = mr.width;
   let rows = [...menu.querySelectorAll(rowSel)].filter((e) => visible(e) && !e.closest('.segmented-control')
     && !(e.closest('.select-menu') && !menu.matches('.select-menu')));
@@ -200,7 +200,30 @@ function measure(opIdx) {
   const natural = menu.getBoundingClientRect().width;
   [menu.style.width, menu.style.minWidth, menu.style.maxWidth] = saved;
   const cs = getComputedStyle(menu);
+  //: **Insets** (INBOX, menu gaps: "some dropdown menus across the app have
+  //: wierd gaps at the start and end"): the first and last things drawn in
+  //: the menu, text, a control, a row or a hairline, sit one menu padding
+  //: from its edge. Measured from the leaves, so a wrapper's own padding or
+  //: an empty leading label is the gap it adds rather than hidden by it.
+  const leaves = [...rows.map((r) => r.getBoundingClientRect())];
+  for (const e of menu.querySelectorAll('button, input, select, textarea, [role="separator"], .menu-sep, hr, .select-opener, .segmented-control, .seg')) {
+    if (e.checkVisibility && e.checkVisibility({ visibilityProperty: true }) && e.getBoundingClientRect().width > 2) leaves.push(e.getBoundingClientRect());
+  }
+  const tw = document.createTreeWalker(menu, NodeFilter.SHOW_TEXT, { acceptNode: (t) => t.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+  for (let t = tw.nextNode(); t; t = tw.nextNode()) {
+    if (!t.parentElement.checkVisibility || !t.parentElement.checkVisibility({ visibilityProperty: true, opacityProperty: true })) continue;
+    const range = document.createRange();
+    range.selectNodeContents(t);
+    for (const x of range.getClientRects()) if (x.width > 0) leaves.push(x);
+  }
+  const scrolls = menu.scrollHeight > menu.clientHeight + 1;
+  const inset = leaves.length && !scrolls ? {
+    top: r1(Math.min(...leaves.map((x) => x.top)) - mr.top - parseFloat(cs.borderTopWidth)),
+    bottom: r1(mr.bottom - parseFloat(cs.borderBottomWidth) - Math.max(...leaves.map((x) => x.bottom))),
+    pt: parseFloat(cs.paddingTop), pb: parseFloat(cs.paddingBottom),
+  } : null;
   return {
+    inset,
     role, isSheet, cls: menu.className.toString().slice(0, 60), id: menu.id,
     box: { l: Math.round(mr.left), t: Math.round(mr.top), r: Math.round(mr.right), b: Math.round(mr.bottom), w: Math.round(mr.width), h: Math.round(mr.height) },
     op: or ? { l: Math.round(or.left), t: Math.round(or.top), r: Math.round(or.right), b: Math.round(or.bottom) } : null,
@@ -230,6 +253,15 @@ function judge(m) {
     for (const r of single) counts[r.h] = (counts[r.h] || 0) + 1;
     const mode = +Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
     f.push(`row heights ${JSON.stringify(hs)}; off: ${JSON.stringify(single.filter((r) => Math.abs(r.h - mode) > 1).map((r) => `${r.text}=${r.h}`).slice(0, 4))}`);
+  }
+  //: A row's own box starts at the menu's padding; text inside a row sits
+  //: lower by the row's padding, so the allowance is half a row's height.
+  if (m.inset && !m.isSheet) {
+    const rowPad = rows.length ? Math.min(...rows.map((r) => r.h)) / 2 : 0;
+    const slack = Math.max(m.inset.pt, m.inset.pb) + rowPad + 2;
+    if (m.inset.top > slack || m.inset.bottom > slack || Math.abs(m.inset.top - m.inset.bottom) > Math.max(6, rowPad)) {
+      f.push(`inset top ${m.inset.top} bottom ${m.inset.bottom} (padding ${m.inset.pt}/${m.inset.pb})`);
+    }
   }
   const pls = [...new Set(rows.map((r) => r.pl))];
   if (pls.length > 1) f.push(`row padding-left ${JSON.stringify(pls)}`);

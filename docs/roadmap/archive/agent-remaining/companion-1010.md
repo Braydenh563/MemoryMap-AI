@@ -12,7 +12,7 @@ line each below.
   does on its own. Driven at 1440 for You and Atlas, 0 page errors.
 - Right-click in the enlarged view (owner's list): verified, the menu opens at
   the pointer with Companion, Atlas look and Size (fixed by chatui-1010).
-- Face changes in a 3-minute scripted session (companionmoods.js): Atlas 4 to
+- Face changes in a 3-minute scripted session (companiondepth2.js companionmoods): Atlas 4 to
   12, faces 2 to 5, longest still 78s to 63s; You 7 to 12, faces 4 to 6.
 - Idle cost (companionperf.js IDLE=1, ms of script a minute, loaded machine):
   You 737 to 130, Atlas 3,780 to 2,050 (task 34,952 to 14,992, layouts 1,399

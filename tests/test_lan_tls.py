@@ -103,7 +103,83 @@ def test_the_fingerprint_is_sha256_in_pairs(tmp_path):
     info = lancert.ensure(tmp_path, NAMES)
     parts = info.fingerprint.split(":")
     assert len(parts) == 32 and all(len(p) == 2 for p in parts)
-    assert info.public().keys() == {"fingerprint", "expires", "names"}
+    assert info.public().keys() == {"fingerprint", "authority_fingerprint", "expires", "names"}
+
+
+# --- The authority a phone trusts (INBOX 866) -------------------------------------
+
+
+def _authority(tmp_path):
+    return x509.load_pem_x509_certificate(lancert.authority_pem(tmp_path))
+
+
+def test_the_server_certificate_is_signed_by_an_authority_a_phone_can_install(tmp_path):
+    """iOS lists only authorities under Certificate Trust Settings, Android
+    installs only those as a CA certificate, and Firefox refuses an authority
+    used as a server certificate: so two certificates, not one."""
+    info = lancert.ensure(tmp_path, NAMES)
+    ca = _authority(tmp_path)
+    basic = ca.extensions.get_extension_for_class(x509.BasicConstraints).value
+    assert basic.ca is True and basic.path_length == 0
+    assert ca.extensions.get_extension_for_class(x509.KeyUsage).value.key_cert_sign
+    leaf = _cert(info)
+    assert leaf.issuer == ca.subject != leaf.subject
+    leaf.verify_directly_issued_by(ca)
+    assert info.authority_fingerprint == lancert._fingerprint(ca) != info.fingerprint
+    # The chain the server sends: the server certificate, then the authority.
+    chain = x509.load_pem_x509_certificates(info.cert_path.read_bytes())
+    assert [c.subject for c in chain] == [leaf.subject, ca.subject]
+
+
+def test_the_authority_vouches_only_for_this_network(tmp_path):
+    """A stolen authority key must not let anyone pose as a bank to a phone
+    that trusted it: its name constraints keep it to private addresses,
+    `.local` and this computer's own names."""
+    lancert.ensure(tmp_path, NAMES)
+    ca = _authority(tmp_path)
+    ext = ca.extensions.get_extension_for_class(x509.NameConstraints)
+    assert ext.critical
+    assert lancert._covers(ca, ["192.168.7.20", "10.1.2.3", "studio", "notes.local", "fd00::9"])
+    assert not lancert._covers(ca, ["bank.example"])
+    assert not lancert._covers(ca, ["8.8.8.8"])
+    for path in lancert.authority_paths(tmp_path):
+        assert stat.S_IMODE(os.stat(path).st_mode) == 0o600, path
+
+
+def test_a_new_private_address_keeps_the_authority_the_phone_trusts(tmp_path):
+    first = lancert.ensure(tmp_path, ["localhost", "192.168.1.9"])
+    second = lancert.ensure(tmp_path, ["localhost", "192.168.1.9", "192.168.1.77"])
+    assert second.fingerprint != first.fingerprint
+    assert second.authority_fingerprint == first.authority_fingerprint
+
+
+def test_a_public_address_gets_an_authority_that_covers_it(tmp_path):
+    first = lancert.ensure(tmp_path, ["localhost", "192.168.1.9"])
+    second = lancert.ensure(tmp_path, ["localhost", "192.168.1.9", "203.0.113.5"])
+    assert second.authority_fingerprint != first.authority_fingerprint
+    assert lancert._covers(_authority(tmp_path), ["203.0.113.5"])
+    assert not lancert._covers(_authority(tmp_path), ["203.0.113.6"])
+
+
+def test_a_global_ipv6_address_is_covered_by_its_64(tmp_path):
+    """Windows rotates a privacy IPv6 address inside the same /64 daily; a
+    /128 would make a new authority (and a phone reinstall) every day."""
+    lancert.ensure(tmp_path, ["localhost", "2001:db8:6355:b600::17"])
+    assert lancert._covers(_authority(tmp_path), ["2001:db8:6355:b600:abcd::9"])
+    assert not lancert._covers(_authority(tmp_path), ["2001:db8:6355:b601::9"])
+
+
+def test_a_self_signed_certificate_from_before_is_replaced_by_the_pair(tmp_path):
+    info = lancert.ensure(tmp_path, NAMES)
+    for path in lancert.authority_paths(tmp_path):
+        path.unlink()
+    again = lancert.ensure(tmp_path, NAMES)
+    assert again.fingerprint != info.fingerprint and again.authority_fingerprint
+
+
+def test_regenerate_makes_a_new_authority_too(tmp_path):
+    first = lancert.ensure(tmp_path, NAMES)
+    assert lancert.generate(tmp_path, NAMES).authority_fingerprint != first.authority_fingerprint
 
 
 # --- The routes Settings uses ----------------------------------------------------
@@ -193,9 +269,21 @@ def test_new_address_makes_a_new_certificate(tmp_path, caplog):
     assert lancert.ensure(tmp_path, ["localhost", "192.168.1.77"]).fingerprint == second.fingerprint
 
 
-def test_certificate_download_is_public_certificate_only(client, app_state):
-    lancert.ensure(app_state.data_dir, NAMES)
+def test_certificate_download_is_the_authority_only(client, app_state):
+    info = lancert.ensure(app_state.data_dir, NAMES)
     r = client.get("/auth/lan-certificate.pem")
     assert r.status_code == 200
-    assert b"BEGIN CERTIFICATE" in r.content and b"PRIVATE KEY" not in r.content
+    assert b"PRIVATE KEY" not in r.content and r.content.count(b"BEGIN CERTIFICATE") == 1
+    assert lancert._fingerprint(x509.load_pem_x509_certificate(r.content)) == info.authority_fingerprint
     assert "attachment" in r.headers["content-disposition"]
+
+
+def test_certificate_download_works_by_plain_navigation(client, app_state, owner):
+    """The phone installs it by opening the link (iOS installs a profile only
+    from a navigation, never from a script's download), and a navigation
+    carries no X-Auth-Token: so no unlock is asked. The authority's
+    certificate is public; every TLS handshake already sends it."""
+    lancert.ensure(app_state.data_dir, NAMES)
+    assert client.get("/entries").status_code == 401  # locked: the header is what unlocks
+    r = client.get("/auth/lan-certificate.pem")
+    assert r.status_code == 200 and b"BEGIN CERTIFICATE" in r.content

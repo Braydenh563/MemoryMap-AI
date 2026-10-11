@@ -29,6 +29,7 @@ from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry.manager import log_action
 from memorymap.search import search_manager
+from memorymap.api.this_computer import this_computer_only
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -830,7 +831,7 @@ def reset_feature_models(session: Session = Depends(get_session)) -> dict:
     return {"cleared": cleared, "feature_models": deps.get_model_manager().feature_rows()}
 
 
-@router.post("/provider")
+@router.post("/provider", dependencies=[Depends(this_computer_only)])
 def set_provider(body: ProviderBody, session: Session = Depends(get_session)) -> dict:
     """Point the app at a different chat backend (§6).
 

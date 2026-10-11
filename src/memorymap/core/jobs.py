@@ -57,7 +57,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from memorymap.core import jobstore, model_gate
+from memorymap.core import jobruns, jobstore, model_gate
 
 logger = logging.getLogger("memorymap.jobs")
 
@@ -145,6 +145,30 @@ PENDING_ROWS_PER_KIND = 10
 #: an install as its own row, with pip's step and log, and a second generic
 #: "Background job" row for the same install would say the same thing twice.
 QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex", "extras", "embed-switch", "reminder-notifier"})
+
+#: Pool kinds whose work opens its own `jobruns` run or reports its own
+#: ending (a pass, the bench, a re-index), or never ends (the reminder
+#: loop): the pool does not open a second ledger run around them.
+OWN_RUN_KINDS = frozenset({
+    "pass", "maintenance", "bench", "tidy-link-reasons", "reindex", "embed-switch", "extras",
+    "reminder-notifier", "ledger",
+})
+
+#: Where a pool kind's ending is recorded in `taskhistory` under another
+#: name, the ledger uses that name, so the history lists the run once.
+LEDGER_KINDS = {"vision": "vision_ocr", "vision-pdf": "vision_ocr"}
+
+
+def _ledger_run(job: "_Job"):  # noqa: ANN202
+    """The process ledger's run for one pool job (INBOX 805), or None."""
+    if job.kind in OWN_RUN_KINDS:
+        return None
+    label = LABELS.get(job.kind, job.kind.replace("-", " ").capitalize())
+    run = jobruns.Run(LEDGER_KINDS.get(job.kind, job.kind), None, title=f"{label}: {job.name}" if job.name else label)
+    #: Its row on the running list is the pool's own; the run adds lines.
+    run.listed = True
+    run.start()
+    return run
 
 
 def _start_heartbeat(target):  # noqa: ANN001, ANN202
@@ -392,6 +416,7 @@ class Pool:
                         self._running.pop(job.seq, None)
                     continue
                 error = ""
+                run = _ledger_run(job)
                 try:
                     job.func(*job.args, **job.kwargs)
                 except Exception as exc:
@@ -400,7 +425,11 @@ class Pool:
                     # these run with no request to attach an error to.
                     logger.warning("background %s job failed", job.kind, exc_info=True)
                     error = str(exc) or type(exc).__name__
+                    if run is not None:
+                        run.fail(error)
                 finally:
+                    if run is not None:
+                        run.finish()
                     with self._lock:
                         self._running.pop(job.seq, None)
                     if job.durable_id is not None:

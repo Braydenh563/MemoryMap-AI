@@ -36,6 +36,7 @@ instead (S6: "show the configured URL in the privacy receipt").
 
 from __future__ import annotations
 
+import functools
 import ipaddress
 import json
 import socket
@@ -43,6 +44,8 @@ import sys
 import threading
 import time
 from collections import deque
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -82,6 +85,11 @@ FEATURES = {
     "memorymap.ai.embeddings": "Embedding model",
 }
 
+#: Modules that look a name up on a feature's behalf (the address guard
+#: resolves before every fetch): the feature that called them is named, not
+#: them. Measured 2026-10-11: a clipped page read "Memorymap.core.security".
+_ON_BEHALF = frozenset({"memorymap.core.security"})
+
 _lock = threading.Lock()
 _installed = False
 _since = time.time()
@@ -107,6 +115,74 @@ _recent: deque = deque(maxlen=MAX_RECENT)
 # which name it was probably for ("140.82.112.3" is "api.github.com").
 _last_lookup = threading.local()
 _own_names: frozenset[str] = frozenset()
+
+#: What the code reaching out was doing, in words (INBOX 807, the owner: "it
+#: isnt really clear exactly what these were for"): "Downloading the English
+#: OCR data", "Web search for 'gaming mouse'". Set by the caller around its
+#: request (`purpose`); per thread, with the newest one still open anywhere
+#: as the fallback, because a library that downloads on its own worker
+#: threads (huggingface_hub) connects from a thread the caller never named.
+_purpose = threading.local()
+_open_purposes: list[str] = []
+#: Distinct purposes a destination keeps, newest first.
+MAX_PURPOSES = 5
+
+
+@contextmanager
+def purpose(words: object) -> Iterator[None]:
+    """Name what the connections made inside the block are for."""
+    text = " ".join(str(words or "").split())[:160]
+    before = getattr(_purpose, "value", None)
+    _purpose.value = text
+    with _lock:
+        _open_purposes.append(text)
+    try:
+        yield
+    finally:
+        _purpose.value = before
+        with _lock:
+            if text in _open_purposes:
+                _open_purposes.remove(text)
+
+
+def labelled(words):  # noqa: ANN001, ANN201
+    """`purpose` as a decorator: `words` is a sentence, or a function of the
+    call's own arguments returning one ("Web search for 'gaming mouse'")."""
+
+    def wrap(func):  # noqa: ANN001, ANN202
+        @functools.wraps(func)
+        def inner(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            try:
+                said = words(*args, **kwargs) if callable(words) else words
+            except Exception:  # noqa: BLE001  # the label must never stop the call
+                said = ""
+            with purpose(said):
+                return func(*args, **kwargs)
+
+        return inner
+
+    return wrap
+
+
+def short(text: object, limit: int = 60) -> str:
+    """A value cut to fit a purpose line."""
+    one = " ".join(str(text or "").split())
+    return one if len(one) <= limit else one[: limit - 1] + "…"
+
+
+def _current_purpose() -> str | None:
+    own = getattr(_purpose, "value", None)
+    if own:
+        return own
+    with _lock:
+        return _open_purposes[-1] if _open_purposes else None
+
+
+def _add_purpose(row: dict, words: str | None) -> None:
+    if not words:
+        return
+    kept = [words] + [p for p in row.get("purposes") or [] if p != words]
+    row["purposes"] = kept[:MAX_PURPOSES]
 
 
 def _now_iso(ts: float) -> str:
@@ -155,13 +231,16 @@ def _caller() -> str | None:
     except ValueError:
         return None
     depth = 0
+    helper = None
     while frame is not None and depth < 80:
         name = frame.f_globals.get("__name__", "")
         if isinstance(name, str) and name.startswith("memorymap.") and name != __name__:
-            return name
+            if name not in _ON_BEHALF:
+                return name
+            helper = helper or name
         frame = frame.f_back
         depth += 1
-    return None
+    return helper
 
 
 def _record(kind: str, host: str, port: int | None) -> None:
@@ -182,6 +261,7 @@ def _record(kind: str, host: str, port: int | None) -> None:
             _totals[scope] += 1
         return
     key = (kind, host, port)
+    why = _current_purpose()
     with _lock:
         _totals[scope] += 1
         row = _destinations.get(key)
@@ -194,6 +274,7 @@ def _record(kind: str, host: str, port: int | None) -> None:
         row["last"] = now
         row["via"] = via or row["via"]
         row["name"] = name or row["name"]
+        _add_purpose(row, why)
         _recent.append({"at": now, "kind": kind, "host": host, "port": port, "scope": scope, "via": via})
     # Only what left this computer queues a write: loopback traffic is
     # counted but not tabled, and a local model would otherwise write the
@@ -294,6 +375,7 @@ def _row_out(key: tuple, row: dict) -> dict:
         "last": _now_iso(row["last"]) if isinstance(row["last"], (int, float)) else row["last"],
         "via": via,
         "feature": FEATURES.get(via or "", via),
+        "purposes": list(row.get("purposes") or []),
     }
 
 
@@ -418,6 +500,10 @@ def _flush_locked(path: Path, create: bool) -> dict:
         if previous is not None:
             out["count"] = int(previous.get("count", 0) or 0) + count
             out["first"] = previous.get("first", out["first"])
+            for words in reversed([w for w in previous.get("purposes") or [] if isinstance(w, str)]):
+                if words not in out["purposes"]:
+                    out["purposes"].append(words)
+            out["purposes"] = out["purposes"][:MAX_PURPOSES]
         else:
             out["count"] = count
         stored[key] = out

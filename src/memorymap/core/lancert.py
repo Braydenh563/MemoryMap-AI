@@ -21,6 +21,19 @@ listener read the password at unlock and the seven-day session token after.
 EC P-256 keeps generation instant and every phone browser speaks it. 825
 days is the longest validity Apple's platforms accept for a TLS server
 certificate, trusted by hand or not.
+
+**An authority and a server certificate, not one self-signed certificate**
+(INBOX 866, "the connection and security issues ... on phone over lan"). A
+phone can only be told to trust a certificate authority: iOS lists only
+those under Certificate Trust Settings, Android installs only those as a CA
+certificate, and Firefox refuses an authority used as a server certificate.
+So `ca.pem` is a small authority made here, and `cert.pem` the server
+certificate it signs (with the authority after it, the chain a phone checks).
+The authority is name constrained to private and link-local addresses, the
+`.local` names and this computer's own names, so even a stolen `ca-key.pem`
+cannot vouch for a bank's site on a phone that trusts it. A new address
+inside those ranges only needs a new server certificate: the phone that
+trusted the authority does not have to again.
 """
 
 from __future__ import annotations
@@ -39,7 +52,17 @@ log = logging.getLogger(__name__)
 FOLDER = "lan-tls"
 CERT_FILE = "cert.pem"
 KEY_FILE = "key.pem"
+CA_FILE = "ca.pem"
+CA_KEY_FILE = "ca-key.pem"
 VALID_DAYS = 825
+#: The authority outlives many server certificates, so trusting it is rare.
+CA_VALID_DAYS = 3650
+#: Where the authority may vouch (its name constraints): every private,
+#: shared (carrier and Tailscale) and link-local range, and loopback.
+PRIVATE_NETS = (
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10",
+    "169.254.0.0/16", "127.0.0.0/8", "fc00::/7", "fe80::/10", "::1/128",
+)
 #: Made again this close to the end, so a phone is never met by an expired one.
 RENEW_BEFORE = dt.timedelta(days=30)
 
@@ -51,11 +74,14 @@ class CertInfo:
     fingerprint: str
     not_after: dt.datetime
     names: tuple[str, ...]
+    #: The authority's fingerprint: what a phone shows when it installs it.
+    authority_fingerprint: str = ""
 
     def public(self) -> dict:
         """What Settings shows: never a path, never the key."""
         return {
             "fingerprint": self.fingerprint,
+            "authority_fingerprint": self.authority_fingerprint,
             "expires": self.not_after.date().isoformat(),
             "names": list(self.names),
         }
@@ -68,6 +94,11 @@ def _now() -> dt.datetime:
 def paths(data_dir: Path) -> tuple[Path, Path]:
     folder = Path(data_dir) / FOLDER
     return folder / CERT_FILE, folder / KEY_FILE
+
+
+def authority_paths(data_dir: Path) -> tuple[Path, Path]:
+    folder = Path(data_dir) / FOLDER
+    return folder / CA_FILE, folder / CA_KEY_FILE
 
 
 def default_names(addresses: list[str] | None = None) -> list[str]:
@@ -140,11 +171,124 @@ def read(data_dir: Path) -> CertInfo | None:
         cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
     except (OSError, ValueError):
         return None
-    return CertInfo(cert_path, key_path, _fingerprint(cert), _not_after(cert), _san_names(cert))
+    authority = _read_authority(data_dir)
+    issued = authority is not None and cert.issuer == authority[0].subject and cert.issuer != cert.subject
+    return CertInfo(
+        cert_path, key_path, _fingerprint(cert), _not_after(cert), _san_names(cert),
+        _fingerprint(authority[0]) if issued else "",
+    )
 
 
-def generate(data_dir: Path, names: list[str] | None = None) -> CertInfo:
-    """A new key and certificate, replacing any there were."""
+def _read_authority(data_dir: Path):  # noqa: ANN202  # (certificate, key) or None
+    from cryptography import x509
+    from cryptography.hazmat.primitives import serialization
+
+    ca_path, ca_key_path = authority_paths(data_dir)
+    try:
+        cert = x509.load_pem_x509_certificate(ca_path.read_bytes())
+        key = serialization.load_pem_private_key(ca_key_path.read_bytes(), password=None)
+    except (OSError, ValueError, TypeError):
+        return None
+    return cert, key
+
+
+def _constraint_trees(names: list[str]):  # noqa: ANN202  # list[x509.GeneralName]
+    """The authority's permitted names: the private ranges, `.local`, and
+    each name and address this computer has now (a public IPv4 address as a
+    single host, a global IPv6 one as its /64, so a computer on one still
+    gets a working certificate)."""
+    from cryptography import x509
+
+    nets = [ipaddress.ip_network(n) for n in PRIVATE_NETS]
+    dns = ["localhost", "local"]
+    for name in names:
+        try:
+            ip = ipaddress.ip_address(name)
+        except ValueError:
+            if name.lower() not in dns:
+                dns.append(name.lower())
+            continue
+        if not any(ip in net for net in nets):
+            # A global IPv6 address rotates within its /64 (privacy
+            # addresses), so the network is permitted, not the one address.
+            prefix = 64 if ip.version == 6 else 32
+            nets.append(ipaddress.ip_network(f"{ip}/{prefix}", strict=False))
+    return [x509.DNSName(d) for d in dns] + [x509.IPAddress(n) for n in nets]
+
+
+def _covers(authority, names: list[str]) -> bool:  # noqa: ANN001  # an x509.Certificate
+    """Can this authority vouch for every name? (its name constraints)."""
+    from cryptography import x509
+
+    try:
+        trees = authority.extensions.get_extension_for_class(x509.NameConstraints).value.permitted_subtrees or []
+    except x509.ExtensionNotFound:
+        return False
+    nets = [t.value for t in trees if isinstance(t, x509.IPAddress)]
+    domains = [str(t.value).lower() for t in trees if isinstance(t, x509.DNSName)]
+    for name in names:
+        try:
+            ip = ipaddress.ip_address(name)
+        except ValueError:
+            low = name.lower()
+            if not any(low == d or low.endswith("." + d) for d in domains):
+                return False
+            continue
+        if not any(ip.version == net.version and ip in net for net in nets):
+            return False
+    return True
+
+
+def _new_authority(data_dir: Path, names: list[str]):  # noqa: ANN202  # (certificate, key)
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+
+    key = ec.generate_private_key(ec.SECP256R1())
+    host = next((n for n in names if n not in ("localhost", "127.0.0.1", "::1")), "this computer")
+    subject = x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, f"MemoryMap AI on {host}"[:64]),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "MemoryMap AI on this computer"),
+    ])
+    now = _now()
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(subject)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - dt.timedelta(minutes=5))
+        .not_valid_after(now + dt.timedelta(days=CA_VALID_DAYS))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=False, content_commitment=False, key_encipherment=False,
+                data_encipherment=False, key_agreement=False, key_cert_sign=True, crl_sign=True,
+                encipher_only=False, decipher_only=False,
+            ),
+            critical=True,
+        )
+        .add_extension(x509.NameConstraints(permitted_subtrees=_constraint_trees(names), excluded_subtrees=None),
+                       critical=True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+        .sign(key, hashes.SHA256())
+    )
+    ca_path, ca_key_path = authority_paths(data_dir)
+    _write_private(
+        ca_key_path,
+        key.private_bytes(
+            serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+        ),
+    )
+    _write_private(ca_path, cert.public_bytes(serialization.Encoding.PEM))
+    return cert, key
+
+
+def generate(data_dir: Path, names: list[str] | None = None, *, authority=None) -> CertInfo:  # noqa: ANN001
+    """A new server certificate, replacing any there was, signed by
+    `authority` (a (certificate, key) pair) or by a new authority made now.
+    Settings' "Regenerate certificate" makes both new."""
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import ec
@@ -155,6 +299,7 @@ def generate(data_dir: Path, names: list[str] | None = None) -> CertInfo:
     cert_path.parent.mkdir(parents=True, exist_ok=True)
     with contextlib.suppress(OSError, NotImplementedError):
         os.chmod(cert_path.parent, 0o700)
+    ca_cert, ca_key = authority if authority is not None else _new_authority(data_dir, names)
 
     key = ec.generate_private_key(ec.SECP256R1())
     alt: list[x509.GeneralName] = []
@@ -168,19 +313,29 @@ def generate(data_dir: Path, names: list[str] | None = None) -> CertInfo:
         x509.NameAttribute(NameOID.COMMON_NAME, common[:64]),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, "MemoryMap AI on this computer"),
     ])
-    now = dt.datetime.now(dt.timezone.utc)
+    now = _now()
+    not_after = min(now + dt.timedelta(days=VALID_DAYS), _not_after(ca_cert))
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)
-        .issuer_name(subject)
+        .issuer_name(ca_cert.subject)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - dt.timedelta(minutes=5))
-        .not_valid_after(now + dt.timedelta(days=VALID_DAYS))
+        .not_valid_after(not_after)
         .add_extension(x509.SubjectAlternativeName(alt), critical=False)
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=True, content_commitment=False, key_encipherment=False,
+                data_encipherment=False, key_agreement=False, key_cert_sign=False, crl_sign=False,
+                encipher_only=False, decipher_only=False,
+            ),
+            critical=True,
+        )
         .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
-        .sign(key, hashes.SHA256())
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
+        .sign(ca_key, hashes.SHA256())
     )
     _write_private(
         key_path,
@@ -190,8 +345,22 @@ def generate(data_dir: Path, names: list[str] | None = None) -> CertInfo:
             serialization.NoEncryption(),
         ),
     )
-    _write_private(cert_path, cert.public_bytes(serialization.Encoding.PEM))
-    return CertInfo(cert_path, key_path, _fingerprint(cert), _not_after(cert), _san_names(cert))
+    #: The chain a phone checks: the server certificate, then its authority.
+    _write_private(
+        cert_path,
+        cert.public_bytes(serialization.Encoding.PEM) + ca_cert.public_bytes(serialization.Encoding.PEM),
+    )
+    return CertInfo(
+        cert_path, key_path, _fingerprint(cert), _not_after(cert), _san_names(cert), _fingerprint(ca_cert)
+    )
+
+
+def authority_pem(data_dir: Path) -> bytes | None:
+    """The authority's public certificate, for a phone to install (never a key)."""
+    from cryptography.hazmat.primitives import serialization
+
+    authority = _read_authority(data_dir)
+    return authority[0].public_bytes(serialization.Encoding.PEM) if authority else None
 
 
 def _norm(name: str) -> str:
@@ -211,21 +380,32 @@ def missing_names(info: CertInfo, wanted: list[str]) -> list[str]:
 def ensure(data_dir: Path, names: list[str] | None = None) -> CertInfo:
     """The certificate to serve: the one on disk while it is good, else a new one.
 
-    Good means unexpired and naming every current address. A DHCP change gives
-    the computer a new address; a certificate that does not name it makes the
-    phone report "wrong name" (Safari: "connection lost"), so it is made again
-    (the phone is asked to trust the new one once).
+    Good means unexpired, naming every current address and signed by the
+    authority on disk. A DHCP change gives the computer a new address; a
+    certificate that does not name it makes the phone report "wrong name"
+    (Safari: "connection lost"), so a new one is made. The authority is kept
+    while it can vouch for every name, so a phone that trusted it once is
+    not asked again; a certificate from before the authority existed (one
+    self-signed certificate) is replaced by the pair.
     """
     wanted = names if names is not None else default_names()
     info = read(data_dir)
-    if info is not None and info.not_after - _now() > RENEW_BEFORE:
+    authority = _read_authority(data_dir)
+    if authority is not None and (
+        _not_after(authority[0]) - _now() <= RENEW_BEFORE or not _covers(authority[0], wanted)
+    ):
+        log.info("LAN certificate authority made again: it could not vouch for every name")
+        authority = None
+    if info is not None and info.authority_fingerprint and authority is not None \
+            and info.authority_fingerprint == _fingerprint(authority[0]) \
+            and info.not_after - _now() > RENEW_BEFORE:
         absent = missing_names(info, wanted)
         if not absent:
             _private(info.cert_path)
             _private(info.key_path)
             return info
         log.info("LAN certificate made again: it did not name %s", ", ".join(absent))
-    return generate(data_dir, wanted)
+    return generate(data_dir, wanted, authority=authority)
 
 
 #: The live HTTPS server's TLS context, so a regenerated certificate takes

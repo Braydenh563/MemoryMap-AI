@@ -35,7 +35,8 @@
   border-radius: var(--radius-md);
 }
 
-.recording-row:hover {
+.recording-row:hover,
+.recording-row:is(:focus-visible, :has(:focus-visible)) {
   border-color: var(--border);
 }
 
@@ -116,7 +117,8 @@
   cursor: pointer;
 }
 
-.recording-line:hover {
+.recording-line:hover,
+.recording-line:is(:focus-visible, :has(:focus-visible)) {
   background: var(--inner);
 }
 

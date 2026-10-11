@@ -5549,3 +5549,29 @@ def test_note_card_show_more_hugs_its_label():
     assert "width: fit-content" in body
     assert "text-align: start" in body
     assert "width: 100%" not in body
+
+
+def test_assistant_tools_are_an_even_grid():
+    """The owner: the code assistant's four tool buttons wrapped 3+1."""
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text()
+    assert re.search(r"\.doc-assist-tools \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)", css)
+    assert not re.search(r"\.doc-assist-tools,\s*\.doc-assist-apply", css)
+
+
+def test_no_model_notice_action_keeps_its_border():
+    """The owner: the Connect a model action must read as a button. A card
+    quiets its ghost buttons to edgeless, so the notice restores the edge."""
+    css = (ROOT / "frontend" / "css" / "03-dashboard-widgets.css").read_text()
+    m = re.search(r"\.ai-offline-note > button\.ghost:not\(\.icon-only\) \{([^}]*)\}", css)
+    assert m, "no-model notice action rule missing"
+    assert "border-color: var(--ghost-btn-border)" in m.group(1)
+    assert "transparent" not in m.group(1)
+
+
+def test_file_reading_text_fits_up_to_a_page():
+    """The owner: the extracted text in a Files row was quite short."""
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text()
+    m = re.search(r"\.library-file-reading-text \{([^}]*)\}", css)
+    assert m and "max-height: min(28rem, 55vh)" in m.group(1)
+    shell = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text()
+    assert re.search(r"\.library-image-card-fold > \.library-image-reading-body \{\s*max-height: 11rem", shell)

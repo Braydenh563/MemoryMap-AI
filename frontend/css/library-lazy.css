@@ -1871,7 +1871,10 @@
    the only thing on screen saying there is more to scroll. */
 .library-file-reading-text {
   margin: var(--space-2) 0 0;
-  max-height: calc(4rem + var(--text-sm) * 1.5);
+  /* Fits its text up to a real page's worth (the owner: "quite short when
+     there is quite a lot of text in it"); the old one-and-a-bit-line cap is
+     superseded. Files rows stand alone, so the rows below only move down. */
+  max-height: min(28rem, 55vh);
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -4892,7 +4895,6 @@ button.ghost.doc-template-choice.wb-template-choice {
 }
 
 .doc-assist-asks,
-.doc-assist-tools,
 .doc-assist-apply {
   display: flex;
   flex-wrap: wrap;
@@ -4949,6 +4951,23 @@ button.ghost.doc-template-choice.wb-template-choice {
 .doc-assist-tools {
   padding-top: var(--space-3);
   border-top: 1px solid var(--divider);
+}
+
+/* The no-model tools are an even 2x2 grid (the owner: four pills wrapped 3+1
+   in the narrow sidebar): equal widths, one height, the label truncating
+   rather than the row wrapping to a lone orphan. */
+.doc-assist-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.doc-assist-tools > button.ghost {
+  justify-content: flex-start;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .doc-assist-answer {

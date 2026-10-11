@@ -2725,6 +2725,15 @@ button.chat-trail-link {
   min-width: 0;
 }
 
+/* The action keeps the ghost button's hairline and fill (the owner: "the
+   connect a model button should have a border just to make it evident it is
+   a button"). The notice sits in a card, and a card quiets its ghost buttons
+   to edgeless; this one is the notice's only call to act. */
+.ai-offline-note > button.ghost:not(.icon-only) {
+  border-color: var(--ghost-btn-border);
+  background: var(--btn-quiet-bg);
+}
+
 @media (max-width: 599.98px) {
   .ai-offline-note.notice {
     display: grid;

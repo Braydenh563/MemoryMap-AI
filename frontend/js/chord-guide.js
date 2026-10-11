@@ -136,11 +136,17 @@ function showTabJumpHint() {
         () => switchTab(tab),
         tabIcon(tab),
         tab === current,
-      ])
+      ]).concat(
+        Object.entries(CHORD_ACTIONS)
+          .filter(([, action]) => action.group === "go")
+          .map(([key, action]) => [key, action.label, action.run, action.icon])
+      )
     ),
     chordGuideGroup(
       "Do",
-      Object.entries(CHORD_ACTIONS).map(([key, action]) => [key, action.label, action.run, action.icon])
+      Object.entries(CHORD_ACTIONS)
+        .filter(([, action]) => action.group !== "go")
+        .map(([key, action]) => [key, action.label, action.run, action.icon])
     )
   );
   panel.append(head, body, hint);

@@ -1116,6 +1116,10 @@ const CHORD_ACTIONS = {
   //: the same word the status bar's button uses. The key stays `a`.
   a: { label: "Guide", icon: "ph:compass", run: () => askAtlasAbout("") },
   p: { label: "Popup agent", icon: "ph:strategy", run: () => toggleAgentPalette() },
+  //: A place, not an act (the owner: "add the ocr workspace to the 'm' quick
+  //: nav"): `group: "go"` draws it under "Go to", and it opens the way the
+  //: Library's own door does, through the reveal target.
+  o: { label: "OCR workspace", icon: "ph:scan", group: "go", run: () => revealFeature("page-reader") },
 };
 let tabJumpArmedAt = 0;
 

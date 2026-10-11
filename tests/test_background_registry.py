@@ -63,6 +63,24 @@ core/security.py::_backend_addresses::thread::1
 search/searxng_install.py::install_source::thread::1
 search/searxng_manager.py::_run_streaming::thread::1
 """.strip().splitlines()
+) | frozenset(
+    #: Registered 2026-10-11 with the work that started them, each one named in
+    #: its module: the LAN listener's accept loop, its one first-byte watcher
+    #: and its peek executor (core/lanserve.py, core/lanlive.py: infrastructure
+    #: that must outlive any one request), and a recording's transcription,
+    #: which is also listed in the activity panel (api/routes_recordings.py).
+    """
+api/routes_recordings.py::start_transcription::thread::1
+core/lanlive.py::Listener.start::executor::1
+core/lanlive.py::Listener.start::task::1
+core/lanlive.py::supervise::executor::1
+core/lanserve.py::<module>::executor::1
+core/lanserve.py::_FirstByteWatcher.wait::thread::1
+core/lanserve.py::_route::executor::1
+core/lanserve.py::serve::executor::1
+core/lanserve.py::serve::task::1
+core/lanserve.py::serve::task::2
+""".strip().splitlines()
 )
 
 

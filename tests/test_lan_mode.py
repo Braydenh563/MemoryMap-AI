@@ -515,14 +515,18 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         assert "max-age" in dict(lan.call("GET", "/health")[2]).get("strict-transport-security", "")
 
         # The web reader refuses this machine and the local network, and the
-        # receipt shows nothing was connected to.
+        # receipt shows nothing was connected to: what it counts on the local
+        # network is the phone coming in (INBOX 894), never a reach out.
         for url in (f"http://127.0.0.1:{port}/", "http://10.0.0.1/"):
             status, body, _ = lan.call(
                 "GET", f"/websearch/read?url={url}", headers={"X-Auth-Token": phone}
             )
             assert status == 502, (url, status, body)
         status, receipt, _ = lan.call("GET", "/privacy/receipt", headers={"X-Auth-Token": phone})
-        assert receipt["totals"]["local_network"] == 0
+        outgoing = [d for d in receipt["destinations"] if d["scope"] == "local_network" and d["kind"] != "incoming"]
+        assert outgoing == []
+        incoming = sum(d["count"] for d in receipt["destinations"] if d["kind"] == "incoming")
+        assert receipt["totals"]["local_network"] == incoming > 0
         assert not [d for d in receipt["destinations"] if d["host"] == "10.0.0.1"]
 
         # DNS rebinding: a name that is not this computer is refused.

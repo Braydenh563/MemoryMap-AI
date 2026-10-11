@@ -30,6 +30,7 @@ import socket
 import struct
 import sys
 
+from memorymap.core import lantrust
 from memorymap.core.config import ConfigManager
 
 LOOPBACK = "127.0.0.1"
@@ -400,3 +401,10 @@ def order_addresses(addresses: list[str], network) -> list[str]:  # noqa: ANN001
         return (a != primary, ":" in a)
 
     return sorted(kept, key=rank)
+
+
+def _any_address() -> bool:
+    return bool(lan_addresses(include_v6=True))
+
+
+lantrust.online_probe = _any_address

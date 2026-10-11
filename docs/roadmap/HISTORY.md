@@ -48360,6 +48360,23 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      device; colours and themes still follow you.
      **Fixed f8597d361.** Measured (scratchpad/ui-sweeps/devsize.js, 1440 desktop + 390 phone, one server): desktop zoom 130 and companion 1.4 left the phone at zoom 1 and --nmb-scale 1; ui_state held no size key; the accent reached the phone; legacy sizes in the notebook were ignored and cleaned. Sizes are not in saved looks (looks are colours).
 
+892. **Fixed 2026-10-11 (lanbar-1011, 10e4cf6ff and the status bar commit):** the
+     accept loop re-reads the address set every 5 s and re-issues the
+     certificate under the same authority when it changes (`lanlive.Listener._reissue`,
+     `tests/test_lan_live.py`); the lan-help popover and the Guide's phone topic
+     name the hotspot. **The owner, 2026-10-11, verbatim.** "Could we do connection to phone via
+     Bluetooth and or hotspot??" Read: a hotspot already works (it is a
+     network; an iPhone hotspot's 172.20.10.x and Windows' 192.168.137.x
+     are private, so the trusted authority covers them with no new trust).
+     Bluetooth only as the hotspot's carrier: Safari has no Web Bluetooth and
+     the app is a web page. Gap: the certificate is issued at launch, so a
+     computer that joins a hotspot while running serves one without its new
+     address (Safari: "connection lost") until a restart. Recommendation,
+     taken: re-run `lancert.ensure` and `reload` when the address set
+     changes, checked at most every 10 s from the accept loop; name hotspot
+     in the lan-help popover and the Guide's phone topic. After mergetrain
+     (lanserve and lansafe's allowed-network gate meet there).
+
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 
 INBOX 797, the owner: "I feel like the mindmap and whiteboard are still

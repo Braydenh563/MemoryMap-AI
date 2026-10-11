@@ -8536,6 +8536,17 @@ Link to another note with [[its first few words]]."></textarea>
            was worse than invisible: the engine behind it had no doorway at all.
            Its own slot key so it can be hidden on its own from Settings. -->
       <button id="status-find" class="status-item" type="button" data-status-slot="find"></button>
+      <!-- Other devices (INBOX 896, the owner: "a lan icon in the bottom status
+           bar"): whether a phone on this network can open the app right now,
+           its colour the answer (open, closed on this network, off), and a
+           press opens the switch, the address and the networks it trusts.
+           Hidden until lan-watch.js hears from this computer's server, and
+           never shown on another device: only this computer changes it. -->
+      <button id="status-lan" class="status-item icon-only hidden" type="button" data-status-slot="lan"
+        data-this-computer="hide" aria-haspopup="dialog" aria-expanded="false" aria-controls="lan-popover"
+        aria-label="Other devices" title="Other devices on this network">
+        <i class="ph ph-wifi-slash" aria-hidden="true"></i>
+      </button>
       <!-- Off by default, unlike the STATUS_SLOTS group above (app.js): a
            clock is not one of the bar's existing permanent landmarks, so it
            does not appear for everyone the moment this shipped. Asked for
@@ -8600,6 +8611,11 @@ Link to another note with [[its first few words]]."></textarea>
        once it has a normal containing block again. -->
   <div id="status-nav-history-menu" class="nav-history-menu hidden" role="menu"
     aria-label="Navigation history"></div>
+
+  <!-- The status bar's Other devices panel (INBOX 896), a help popover by
+       recipe (`wireHelpPopover`, lan-watch.js draws it) and a sheet on a
+       phone. Outside the footer for the reason the menu above gives. -->
+  <div id="lan-popover" class="lan-panel hidden" role="dialog" aria-label="Other devices" data-this-computer="hide"></div>
 
   <!-- The undo stack, made visible. Same shape, same placement rules and the
        same stylesheet as the nav-history menu above, right-clicking Undo is
@@ -12920,9 +12936,18 @@ Link to another note with [[its first few words]]."></textarea>
                   once more.
                 </p>
                 <p>
-                  The change takes effect the next time the app starts.
-                  Turning it on asks for your current password, and resetting
-                  the password turns it off.
+                  The change takes effect at once: turning it off signs every
+                  other device out. Turning it on asks for your current
+                  password, and resetting the password turns it off. Unused
+                  for 14 days, it turns itself off and says so here.
+                </p>
+                <p>
+                  The wifi icon in the status bar (Alt+L) shows the same at a
+                  glance: open, closed on this network, or off. Its panel has
+                  the switch, the address, and the networks: trusted ones with
+                  Stop trusting and Forget, and the ones it stayed closed on
+                  with Trust and Forget. Each new network the app sees is
+                  listed there untrusted until you choose.
                 </p>
                 <p>
                   On a network you have not allowed, such as a cafe or an
@@ -12982,8 +13007,14 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
                 <h4 class="setting-subhead">Allowed devices</h4>
                 <ul id="account-lan-devices" class="entry-list"></ul>
-                <h4 class="setting-subhead">Allowed networks</h4>
+                <h4 class="setting-subhead">Trusted networks</h4>
                 <ul id="account-lan-networks" class="entry-list"></ul>
+                <!-- INBOX 896: networks it stayed closed on, and those you
+                     stopped trusting, each with Trust (password) and Forget. -->
+                <div id="account-lan-untrusted-wrap" class="hidden">
+                  <h4 class="setting-subhead">Untrusted networks</h4>
+                  <ul id="account-lan-untrusted" class="entry-list"></ul>
+                </div>
               </div>
               <button id="account-lan-restart" class="ghost small hidden" type="button">Restart now</button>
               <!-- The certificate LAN mode serves (core/lancert.py; SEC-08, the
@@ -13037,6 +13068,12 @@ Link to another note with [[its first few words]]."></textarea>
                     the address starts with https, and that this computer's
                     firewall lets the app in: Windows asks once, so choose
                     Private networks.
+                  </p>
+                  <p>
+                    A phone's hotspot works too: join this computer to it, and
+                    the app makes a certificate for the new address at once,
+                    under the same authority. Bluetooth only carries a hotspot;
+                    the app is a web page and cannot use it directly.
                   </p>
                 </div>
               </div>

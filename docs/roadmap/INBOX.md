@@ -249,26 +249,6 @@ with its owner named in the entry.
      judged against written gold answers, not rule counts), first in the
      assistant brief; the empty badges and Atlas over the answer to ownerfix.
 
-896. **The owner, 2026-10-11, verbatim.** "also I think the outgoing lan
-     connection should have a hotkey, and should also be easily accessible.
-     I think it should also have an icon and popup window available from the
-     bottom status bar" and "its status of open or close should change if
-     the user loses wifi or mobile data connection and or moves to an
-     untrusted network. if the user says they trust a network, they should
-     be able to change this at any time and view a list of trusted and
-     untrusted networks and be able to manage it". Exists on lansafe
-     (merging): the network gate re-read every 30 s, allowed networks and
-     held devices in Settings. Placed: the lanbar agent after mergetrain,
-     with 892 and 894: a status-bar icon (open, closed, no network,
-     untrusted) whose popup shows the address, devices, this network's
-     trust with Trust or Stop trusting, and the managed list of trusted and
-     untrusted networks; a palette hotkey; the state pushed live on a
-     network change, and the toggle from that icon opens or closes the LAN
-     port live, no restart (INBOX 900). With it, 892 (hotspot: re-issue the certificate when the
-     address set changes, so joining a hotspot mid-run needs no restart)
-     and 894 (each device's connection on the privacy receipt as an
-     incoming row in the local-network total).
-
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 899 ("dont notes also already work out timewords and time references?? can the composer and agents ... pull from those") sent to atlas; 900 ("click on the lan icon in the bototm bar and easily be able to toggle it on or off ... without having to restert") folded into 896; 901 (show more and less awkward on wide paragraphs, two screenshots) sent to tags89; 902 (companion physics, entries, organic movement, no jolts, Atlas behaviours, the expanded panel's hanging arms, the arm that rises on a click) sent to throw.

@@ -105,8 +105,11 @@ def test_the_phone_cannot_loosen_the_computers_own_sign_in(phone, here):
 def test_the_phone_cannot_turn_the_network_on_or_remake_its_certificate(phone):
     on = {"enabled": True, "current_password": PASSWORD}
     assert phone.post("/auth/lan-access", json=on).status_code == 403
-    assert phone.post("/auth/lan-access", json={"enabled": False}).status_code == 200
     assert phone.post("/auth/lan-certificate").status_code == 403
+    # Off is open to any signed-in device (it only lets fewer in), and it
+    # signs every other device out, the phone that asked included.
+    assert phone.post("/auth/lan-access", json={"enabled": False}).status_code == 200
+    assert phone.post("/auth/lan-certificate").status_code == 401
 
 
 def test_a_short_old_pin_cannot_open_the_notebook_to_the_network(app, session):
@@ -240,3 +243,21 @@ def test_https_answers_carry_hsts_and_plain_http_does_not(app):
     plain = TestClient(app).get("/health")
     assert secure.headers.get("strict-transport-security", "").startswith("max-age=")
     assert "strict-transport-security" not in plain.headers
+
+
+def test_a_phone_cannot_loosen_the_lan_options_or_allow_a_network_even_with_the_password(phone):
+    """secscan-1011 guards the loosening direction inline (the Host is checked
+    too, which a dependency would not), so the proof is the answer: 403 to the
+    phone for each, 200 for the safer direction."""
+    loosen = phone.post(
+        "/auth/lan-options", json={"name": "any_network", "enabled": True, "current_password": PASSWORD}
+    )
+    assert loosen.status_code == 403 and "Not available on this device" in loosen.json()["detail"]
+    stop_asking = phone.post(
+        "/auth/lan-options", json={"name": "ask_new_devices", "enabled": False, "current_password": PASSWORD}
+    )
+    assert stop_asking.status_code == 403
+    allow = phone.post("/auth/lan-networks/allow", json={"current_password": PASSWORD})
+    assert allow.status_code == 403 and "Not available on this device" in allow.json()["detail"]
+    safer = phone.post("/auth/lan-options", json={"name": "ask_new_devices", "enabled": True})
+    assert safer.status_code == 200

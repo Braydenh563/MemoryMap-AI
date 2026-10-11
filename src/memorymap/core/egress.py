@@ -83,7 +83,12 @@ FEATURES = {
     "memorymap.core.extra_downloads": "Optional downloads",
     "memorymap.core.embedmodels": "Embedding model download",
     "memorymap.ai.embeddings": "Embedding model",
+    #: Not a reach out: a device on this network opening the app (INBOX 894).
+    "memorymap.core.lanserve": "Other devices",
 }
+
+#: What an incoming row is for, in the receipt's "For:" line.
+INCOMING_PURPOSE = "A device on this network opened the app"
 
 #: Modules that look a name up on a feature's behalf (the address guard
 #: resolves before every fetch): the feature that called them is named, not
@@ -243,10 +248,27 @@ def _caller() -> str | None:
     return helper
 
 
-def _record(kind: str, host: str, port: int | None) -> None:
-    scope = scope_of(host)
+def record_incoming(address: str) -> None:
+    """A device on this network connected to the LAN port (INBOX 894).
+
+    The audit hook sees `connect`, never `accept`, so core/lanserve.py calls
+    this for each connection it lets in. One row per device address (its
+    port changes with every connection and is left out), always in the
+    local-network total: lanserve accepts only nearby clients, including a
+    phone's global IPv6 address in this network's /64, which `scope_of`
+    alone would count as the internet. Never what the device asked for."""
+    if not isinstance(address, str) or not address:
+        return
+    host = address.split("%", 1)[0]
+    _record("incoming", host, None, scope="local_network", via="memorymap.core.lanserve", why=INCOMING_PURPOSE)
+
+
+def _record(  # noqa: PLR0913
+    kind: str, host: str, port: int | None, *, scope: str | None = None, via: str | None = None, why: str | None = None
+) -> None:
+    scope = scope or scope_of(host)
     now = time.time()
-    via = _caller() if scope != "this_computer" else None
+    via = via or (_caller() if scope != "this_computer" else None)
     name = None
     if kind == "connect":
         looked = getattr(_last_lookup, "value", None)
@@ -261,7 +283,7 @@ def _record(kind: str, host: str, port: int | None) -> None:
             _totals[scope] += 1
         return
     key = (kind, host, port)
-    why = _current_purpose()
+    why = why or _current_purpose()
     with _lock:
         _totals[scope] += 1
         row = _destinations.get(key)
@@ -369,7 +391,7 @@ def _row_out(key: tuple, row: dict) -> dict:
         "host": host,
         "port": port,
         "name": row.get("name"),
-        "scope": scope_of(host),
+        "scope": "local_network" if kind == "incoming" else scope_of(host),
         "count": row["count"],
         "first": _now_iso(row["first"]) if isinstance(row["first"], (int, float)) else row["first"],
         "last": _now_iso(row["last"]) if isinstance(row["last"], (int, float)) else row["last"],

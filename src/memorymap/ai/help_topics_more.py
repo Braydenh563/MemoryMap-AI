@@ -593,13 +593,13 @@ MORE_TOPICS: list[dict] = [
             "the app opens (private notes and other devices always ask). Other "
             "devices: let a phone or computer on your network open the app, "
             "always with your password, over https on port 8443, and only on "
-            "networks you allowed (Allow on this network, or Allow on any network). "
+            "networks you trusted (the wifi icon in the status bar, Alt+L). "
             "Ask before a new device signs in holds one until you Allow; "
-            "Allowed devices and Allowed networks have Remove. Loosening "
+            "Allowed devices have Remove. Loosening "
             "needs your password. The first "
             "visit warns that the certificate is not trusted: compare its "
             "SHA-256 fingerprint with the one under the switch before you "
-            "continue, and Regenerate certificate makes a new one. Under the fingerprint are the names the certificate carries and when it expires; Trust this certificate on your phone downloads it, and its ? says how to install it on iPhone and Android. If this computer's address changes, the app makes a new certificate at the next start. Change your password or PIN (private "
+            "continue, and Regenerate certificate makes a new one. Under the fingerprint are the names the certificate carries and when it expires; Trust this certificate on your phone downloads it, and its ? says how to install it on iPhone and Android. If this computer's address changes, the app makes a new certificate straight away. Change your password or PIN (private "
             "notes move across; a new one needs at least 8 characters, and an "
             "easy one gets a warning). Re-encrypt private notes (Settings, Account & security) makes "
             "a new encryption key and moves every private note onto it, so an old "
@@ -2023,7 +2023,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "search-index", "packages",
     )),
     ("Privacy and your data", (
-        "privacy", "security", "encryption", "lock", "phone", "two-computers", "delete-data", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
+        "privacy", "security", "encryption", "lock", "phone", "lan-networks", "two-computers", "delete-data", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
     )),
     ("Settings and support", (
         "profile", "general-settings", "updates", "logs", "troubleshooting",
@@ -2054,8 +2054,11 @@ MORE_TOPICS.extend([
             "Management to install it and About, Certificate Trust Settings to trust it; its ? has the "
             "steps. The phone's first sign-in waits until you choose Allow on this "
             "computer (a notice with Allow and Deny); allowed devices are listed "
-            "with Remove. On a network you have not allowed (a cafe, an airport) "
-            "nothing can reach the notebook until you choose Allow on this network. "
+            "with Remove. On a network you have not trusted (a cafe, an airport) "
+            "nothing can reach the notebook until you trust it: the wifi icon in "
+            "the status bar (Alt+L) says open, closed or off, and its panel has "
+            "the switch, the address and the trusted and untrusted networks. "
+            "A phone's hotspot works too, with no restart. "
             "Typing the address without https still "
             "works: the app sends the phone on to https. If the phone cannot connect, "
             "both must be on the same Wi-Fi (not a guest one) and this computer's "
@@ -2127,7 +2130,33 @@ MORE_TOPICS.extend([
         "badge": {"label": "Import & export", "section": "data"},
     },
 ])
+#: INBOX 896, 900: the status bar's Other devices icon and its networks,
+#: a topic of its own so "lock" stays under the reply budget.
+MORE_TOPICS.append({
+    "id": "lan-networks",
+    "keywords": ("wifi icon", "lan icon", "lan mode", "trusted network", "untrusted network",
+                 "trust a network", "trust this network", "stop trusting", "forget a network",
+                 "turn off other devices", "other devices off", "lan off"),
+    "body": (
+        "The wifi icon in the status bar, on this computer only, says whether other "
+        "devices on your network can open the app: green open, amber closed on this "
+        "network (one you have not trusted, or no network at all), plain off. Press "
+        "it, or Alt+L, for its panel (a sheet on a phone-sized window): the switch, "
+        "the address to type, Trust this network, and two lists. Trusted networks "
+        "have Stop trusting and Forget; Untrusted networks, every network the app "
+        "saw and stayed closed on, have Trust (asks your password) and Forget. The "
+        "switch applies at once, with no restart: off closes the port and signs "
+        "every other device out, and when the wifi drops or you join a network you "
+        "have not trusted the port closes by itself. Left on and unused for 14 days, "
+        "it turns itself off and says so in the bell. Each time a phone opens the "
+        "app, the privacy receipt lists it as a connection coming in, with its "
+        "address only. A phone can never turn it on, trust a network or loosen a "
+        "setting: those say Not available on this device."
+    ),
+    "badge": {"label": "Account & security", "section": "account"},
+})
 TOPIC_META.update({
+    "lan-networks": {"title": "Other devices and networks", "path": "The wifi icon in the status bar, or Settings, Account & security, Other devices"},
     "phone": {"title": "On your phone", "path": "Settings, Account & security, Other devices"},
     "two-computers": {"title": "Two computers", "path": "Settings, Import & export"},
     "settings-reset": {"title": "Resetting and moving your settings", "path": "Settings, Import & export, Your settings",

@@ -936,6 +936,13 @@ class EmbeddingService:
         if not self._models._config.get_preference("semantic_auto_install", True):
             logger.info("sentence-transformers is missing and the auto-install is switched off")
             return
+        #: Never started for another device (core/origin.py, secscan-1011's
+        #: decision): a note saved from a phone waits for this computer.
+        from memorymap.core import origin
+
+        if origin.from_another_device():
+            origin.defer("semantic-install", lambda: self._maybe_auto_install_missing_package(exc))
+            return
         self._auto_install_attempted = True
         from memorymap.core import extras
 

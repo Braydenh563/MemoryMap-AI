@@ -1000,6 +1000,9 @@ const DEFAULT_SHORTCUTS = {
   //: for the reason `askAgent` records: collisions are checked here, and the
   //: shortcuts sheet is built from this table.
   toggleCompanion: { keys: "Ctrl+Shift+Y", label: "Show or hide the companion" },
+  //: INBOX 896, the owner: "add a hotkey" for the status bar's Other devices
+  //: panel. Alt+L was free here and in the browsers this runs in; L for LAN.
+  lanPanel: { keys: "Alt+L", label: "Other devices on this network: open the switch and the trusted networks" },
   navigateBack: { keys: "Alt+ArrowLeft", label: "Go back to the previous page or view" },
   navigateForward: { keys: "Alt+ArrowRight", label: "Go forward again" },
 };
@@ -1292,6 +1295,7 @@ function runShortcut(id) {
       switchTab("chat");
       openNotePicker();
     },
+    lanPanel: () => openLanPanel(),
     // Same call the status bar's own Back/Forward buttons already make.
     navigateBack: () => stepTabHistory(-1),
     navigateForward: () => stepTabHistory(1),

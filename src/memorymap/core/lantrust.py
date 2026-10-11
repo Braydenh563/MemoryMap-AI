@@ -17,6 +17,18 @@ devices (api/routes_auth.py):
   random id in a cookie, kept here only as a hash, and listed with Remove.
   Override: "Ask before a new device signs in", on by default.
 - **Nearby clients only** is core/lanserve.py's, with no override.
+- **Untrusted networks** (INBOX 896, the owner: "if the user says they
+  trust a network, they should be able to change this at any time and view
+  a list of trusted and untrusted networks and be able to manage it"). A
+  network the port stayed closed on is listed as untrusted, so it can be
+  trusted later from the list; "Stop trusting" moves a trusted one there
+  and marks it, and a marked network stays closed even with "Allow on any
+  network". No network at all (Wi-Fi and mobile data gone) is its own
+  closed state, never "unknown".
+- **Unused for 14 days, off** (secscan-1011's decision): the last time a
+  device connected is kept, and core/lanlive.py turns the switch off when
+  nobody has for `UNUSED_DAYS`, leaving `switched_off` for this computer's
+  notice.
 
 Kept in `lan-trust.json` in the data folder (0600), never in preferences:
 `PUT /preferences` cannot reach it, and a file that cannot be read gives the
@@ -43,6 +55,10 @@ PENDING_SECONDS = 10 * 60
 MAX_PENDING = 8
 MAX_DEVICES = 50
 MAX_NETWORKS = 20
+#: LAN mode switches itself off after this many days with no device.
+UNUSED_DAYS = 14
+#: The in-memory "a device connected" time is written at most this often.
+USE_WRITE_SECONDS = 3600.0
 
 _lock = threading.RLock()
 _changed = threading.Condition(_lock)
@@ -81,14 +97,28 @@ def load(data_dir: Path) -> dict:
         value = raw.get(name)
         return value if isinstance(value, list) else []
 
+    def when(name: str) -> float:
+        value = raw.get(name)
+        return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else 0.0
+
     networks = [n for n in listed("networks") if isinstance(n, dict) and isinstance(n.get("key"), str)]
     devices = [d for d in listed("devices") if isinstance(d, dict) and isinstance(d.get("id"), str)]
+    trusted = {n["key"] for n in networks}
+    untrusted = [
+        n for n in listed("untrusted")
+        if isinstance(n, dict) and isinstance(n.get("key"), str) and n["key"] not in trusted
+    ]
+    switched_off = raw.get("switched_off")
     return {
         "networks": networks[:MAX_NETWORKS],
         "devices": devices[:MAX_DEVICES],
         # Only a literal True opens anything; only a literal False stops asking.
         "any_network": raw.get("any_network") is True,
         "ask_new_devices": raw.get("ask_new_devices") is not False,
+        "untrusted": untrusted[:MAX_NETWORKS],
+        "turned_on": when("turned_on"),
+        "last_used": when("last_used"),
+        "switched_off": switched_off if isinstance(switched_off, str) else "",
     }
 
 
@@ -111,9 +141,23 @@ def _now_text() -> str:
 # --- networks ------------------------------------------------------------------
 
 
-def evaluate(state: dict, network: netid.Network | None, allowance: dict | None = None) -> tuple[bool, str]:
+def _stopped_trusting(state: dict, network: netid.Network | None) -> bool:
+    """The person said Stop trusting this network."""
+    return network is not None and any(
+        n["key"] == network.key and n.get("blocked") for n in state.get("untrusted") or ()
+    )
+
+
+def evaluate(
+    state: dict, network: netid.Network | None, allowance: dict | None = None, *, online: bool = True
+) -> tuple[bool, str]:
     """(open, reason). Reasons: allowed, any_network, allowed_this_run,
-    unknown_network, new_network, public_network."""
+    unknown_network, new_network, public_network, untrusted_network (the
+    person said Stop trusting) and no_network (no address at all)."""
+    if network is None and not online:
+        return False, "no_network"
+    if _stopped_trusting(state, network):
+        return False, "untrusted_network"
     if network is None:
         if allowance is not None:
             return True, "allowed_this_run"
@@ -129,30 +173,62 @@ def evaluate(state: dict, network: netid.Network | None, allowance: dict | None 
     return False, "new_network"
 
 
+def _entry(network: netid.Network) -> dict:
+    return {
+        "key": network.key,
+        "label": network.label,
+        "gateway": network.gateway,
+        "subnet": network.subnet,
+        "public": network.category == "public",
+        "added": _now_text(),
+    }
+
+
 def _remember(state: dict, network: netid.Network) -> None:
+    state["untrusted"] = [n for n in state.get("untrusted") or () if n["key"] != network.key]
     if any(n["key"] == network.key for n in state["networks"]):
         return
-    state["networks"].append(
-        {
-            "key": network.key,
-            "label": network.label,
-            "gateway": network.gateway,
-            "subnet": network.subnet,
-            "public": network.category == "public",
-            "added": _now_text(),
-        }
-    )
+    state["networks"].append(_entry(network))
     del state["networks"][:-MAX_NETWORKS]
+
+
+def _note_untrusted(state: dict, network: netid.Network) -> bool:
+    """A network the port stayed closed on joins the untrusted list, so it
+    can be trusted later from there. True when the list changed."""
+    listed = state.setdefault("untrusted", [])
+    if any(n["key"] == network.key for n in listed) or any(n["key"] == network.key for n in state["networks"]):
+        return False
+    listed.append({**_entry(network), "blocked": False})
+    del listed[:-MAX_NETWORKS]
+    return True
+
+
+#: Whether any address another device could reach exists; netbind sets it when
+#: it loads (it reads this module in describe, so this module cannot import it).
+online_probe = None
+
+
+def _online() -> bool:
+    """Any address another device could reach: none means Wi-Fi and mobile
+    data are both gone, which closes the port whatever the overrides say."""
+    if online_probe is None:
+        return True
+    try:
+        return bool(online_probe())
+    except OSError:
+        return False
 
 
 _UNREAD = object()
 
 
-def refresh(data_dir: Path, network=_UNREAD) -> dict:  # noqa: ANN001  # a netid.Network, None, or unread
+def refresh(data_dir: Path, network=_UNREAD, *, online: bool | None = None) -> dict:  # noqa: ANN001  # a netid.Network, None, or unread
     """Read the network again and decide whether the LAN port may be open."""
     global _run_allowance
     if network is _UNREAD:
         network = netid.read()
+    if online is None:
+        online = network is not None or _online()
     with _lock:
         state = load(data_dir)
         allowance = _run_allowance
@@ -163,7 +239,9 @@ def refresh(data_dir: Path, network=_UNREAD) -> dict:  # noqa: ANN001  # a netid
             _remember(state, network)
             save(data_dir, state)
             _run_allowance = allowance = None
-        opened, reason = evaluate(state, network, allowance)
+        opened, reason = evaluate(state, network, allowance, online=online)
+        if reason in ("new_network", "public_network") and network is not None and _note_untrusted(state, network):
+            save(data_dir, state)
         before = (_gate["open"], _gate["reason"], _gate["network"] and _gate["network"].key)
         _gate.update(open=opened, reason=reason, network=network, checked=time.time())
         if before != (opened, reason, network and network.key):
@@ -206,8 +284,11 @@ def remember_current(data_dir: Path) -> dict:
     with _lock:
         if network is not None and network.category != "public":
             state = load(data_dir)
-            _remember(state, network)
-            save(data_dir, state)
+            # A network the person said Stop trusting stays that way: the
+            # switch going on is not an answer to that question.
+            if not any(n["key"] == network.key and n.get("blocked") for n in state["untrusted"]):
+                _remember(state, network)
+                save(data_dir, state)
     return refresh(data_dir, network)
 
 
@@ -227,15 +308,124 @@ def allow_current(data_dir: Path) -> dict:
 
 
 def forget_network(data_dir: Path, key: str) -> bool:
+    """Off both lists: a forgotten network is new again next time."""
     with _lock:
         state = load(data_dir)
         kept = [n for n in state["networks"] if n["key"] != key]
-        if len(kept) == len(state["networks"]):
+        unkept = [n for n in state["untrusted"] if n["key"] != key]
+        if len(kept) == len(state["networks"]) and len(unkept) == len(state["untrusted"]):
             return False
-        state["networks"] = kept
+        state["networks"], state["untrusted"] = kept, unkept
         save(data_dir, state)
     refresh(data_dir, _gate["network"])
     return True
+
+
+def trust_network(data_dir: Path, key: str) -> bool:
+    """Trust a network from the untrusted list (or the one this computer is
+    on now): it moves to the trusted list. The route asks for the password."""
+    current = _gate["network"]
+    with _lock:
+        state = load(data_dir)
+        found = next((n for n in state["untrusted"] if n["key"] == key), None)
+        if found is None and not (current is not None and current.key == key):
+            return False
+        if found is not None:
+            entry = {k: v for k, v in found.items() if k != "blocked"}
+            entry["added"] = _now_text()
+            state["untrusted"] = [n for n in state["untrusted"] if n["key"] != key]
+            if not any(n["key"] == key for n in state["networks"]):
+                state["networks"].append(entry)
+                del state["networks"][:-MAX_NETWORKS]
+        else:
+            _remember(state, current)
+        save(data_dir, state)
+    refresh(data_dir, current)
+    return True
+
+
+def untrust_network(data_dir: Path, key: str) -> bool:
+    """"Stop trusting": the network moves to the untrusted list, marked, so
+    it stays closed even with "Allow on any network". Only ever lets fewer
+    in. The port shuts at once when it is the network this computer is on."""
+    current = _gate["network"]
+    with _lock:
+        state = load(data_dir)
+        found = next((n for n in state["networks"] if n["key"] == key), None)
+        if found is None:
+            found = next((n for n in state["untrusted"] if n["key"] == key), None)
+        if found is None and current is not None and current.key == key:
+            found = _entry(current)
+        if found is None:
+            return False
+        state["networks"] = [n for n in state["networks"] if n["key"] != key]
+        state["untrusted"] = [n for n in state["untrusted"] if n["key"] != key]
+        state["untrusted"].append({**found, "blocked": True, "added": _now_text()})
+        del state["untrusted"][:-MAX_NETWORKS]
+        save(data_dir, state)
+    refresh(data_dir, current)
+    return True
+
+
+# --- use, and switching off when unused --------------------------------------------
+
+_used = {"at": 0.0, "written": 0.0}
+
+
+def note_used() -> None:
+    """A device connected (core/lanserve.py's accept loop): in memory only,
+    written by `persist_use` at most hourly."""
+    _used["at"] = time.time()
+
+
+def persist_use(data_dir: Path) -> None:
+    at = _used["at"]
+    if not at or at - _used["written"] < USE_WRITE_SECONDS:
+        return
+    with _lock:
+        state = load(data_dir)
+        state["last_used"] = max(state["last_used"], at)
+        save(data_dir, state)
+    _used["written"] = at
+
+
+def mark_turned_on(data_dir: Path) -> None:
+    """The switch went on: the unused clock starts now, and any notice that
+    it had switched itself off is spent."""
+    with _lock:
+        state = load(data_dir)
+        state["turned_on"] = time.time()
+        state["switched_off"] = ""
+        save(data_dir, state)
+        _bump()
+
+
+def unused_since(state: dict) -> float:
+    return max(state["turned_on"], state["last_used"], _used["at"])
+
+
+def mark_switched_off(data_dir: Path) -> None:
+    with _lock:
+        state = load(data_dir)
+        state["switched_off"] = _now_text()
+        save(data_dir, state)
+        _bump()
+
+
+def clear_switched_off(data_dir: Path) -> None:
+    with _lock:
+        state = load(data_dir)
+        if state["switched_off"]:
+            state["switched_off"] = ""
+            save(data_dir, state)
+            _bump()
+
+
+def touch_version() -> None:
+    """Something the status bar shows changed (the listener started or
+    stopped): the window's held `lan-watch` answers at once."""
+    with _lock:
+        _bump()
 
 
 def set_flag(data_dir: Path, name: str, value: bool) -> None:
@@ -402,4 +592,5 @@ def reset_for_tests() -> None:
         _gate.update(open=False, reason="off", network=None, checked=0.0)
         _run_allowance = None
         _pending.clear()
+        _used.update(at=0.0, written=0.0)
         _bump()

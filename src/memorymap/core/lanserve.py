@@ -68,6 +68,41 @@ _own_v6_prefixes: frozenset = frozenset()
 #: How often the prefixes (and the network gate) are read again: temporary
 #: IPv6 addresses rotate, and a laptop changes networks without restarting.
 REFRESH_SECONDS = 30.0
+#: How often this computer's own address set is compared with the last one
+#: (INBOX 892 and 896): a list read locally, cheap enough to run often, so
+#: losing Wi-Fi or joining a hotspot closes or re-certifies the port in
+#: seconds rather than at the next full read of the network.
+ADDRESS_SECONDS = 5.0
+
+
+def drop_connections(server) -> int:  # noqa: ANN001  # a uvicorn.Server
+    """Close every connection another device holds open on the LAN port.
+    Closing the listening socket stops new ones; a phone's keep-alive
+    connection would otherwise go on answering on a network that was just
+    turned away (INBOX 896) or after LAN mode was switched off (INBOX 900)."""
+    dropped = 0
+    state = getattr(server, "server_state", None)
+    for connection in list(state.connections if state is not None else ()):
+        transport = getattr(connection, "transport", None)
+        if transport is None:
+            continue
+        with contextlib.suppress(Exception):
+            transport.close()
+            dropped += 1
+    return dropped
+
+
+def _record_incoming(address: str) -> None:
+    """INBOX 894: a device on this network opening the app is on the privacy
+    receipt, as an incoming row in the local-network total. The audit hook
+    sees only what this process opens, never what it accepts, so the accept
+    loop says so itself: the device's address, never what it asked for."""
+    from memorymap.core import egress, lantrust
+
+    with contextlib.suppress(Exception):
+        egress.record_incoming(address)
+    with contextlib.suppress(Exception):
+        lantrust.note_used()
 
 
 def own_v6_prefixes(addresses: list[str]) -> frozenset:
@@ -96,6 +131,13 @@ def refresh_own_prefixes() -> None:
         mine = []
     _own_v6_prefixes = own_v6_prefixes(mine)
     _own_addresses = frozenset(mine)
+
+
+def _addresses_now() -> list[str]:
+    try:
+        return netbind.lan_addresses(include_v6=True)
+    except OSError:
+        return []
 
 
 def client_allowed(address: str | None, prefixes: frozenset | None = None) -> bool:
@@ -262,15 +304,7 @@ async def _route(conn: socket.socket, make_protocol, context: ssl.SSLContext, po
         conn.close()
 
 
-async def _refresh_network(loop, refresh) -> None:  # noqa: ANN001
-    """Read the machine's own network again, and the caller's view of it."""
-    await loop.run_in_executor(None, refresh_own_prefixes)
-    if refresh is not None:
-        with contextlib.suppress(Exception):
-            await loop.run_in_executor(None, refresh)
-
-
-async def _port_step(sock, gate, reopen, port):  # noqa: ANN001
+async def _port_step(sock, gate, reopen, port, server):  # noqa: ANN001
     """Close the port when the gate shuts, bind it again when it opens.
     Returns (sock, verdict): "go" to accept, "continue" to try again, "break" to stop."""
     if gate is not None and not gate():
@@ -278,6 +312,9 @@ async def _port_step(sock, gate, reopen, port):  # noqa: ANN001
             log.info("Other devices: this network is not allowed; the LAN port is closed.")
             sock.close()
             sock = None
+            dropped = drop_connections(server)
+            if dropped:
+                log.info("Other devices: %s open connection(s) closed with it.", dropped)
         await asyncio.sleep(0.5)
         return sock, "continue"
     if sock is None:
@@ -320,6 +357,7 @@ async def serve(  # noqa: PLR0913
     gate=None,  # noqa: ANN001  # () -> bool: may the port be open now?
     refresh=None,  # noqa: ANN001  # () -> None: read the network again
     reopen=None,  # noqa: ANN001  # () -> socket: bind the port again
+    on_addresses=None,  # noqa: ANN001  # () -> None: this computer's addresses changed
 ) -> None:
     """Run `server` (TLS configured, `config.load()`ed) on `sock`, sniffing
     each connection's first byte. Returns once the server has exited.
@@ -328,7 +366,12 @@ async def serve(  # noqa: PLR0913
     the socket is closed when it shuts (the computer moved to a network
     nobody allowed) and bound again with `reopen` when it opens, read every
     `REFRESH_SECONDS` with `refresh` and at once after "Allow on this
-    network". `sock` may then start as None."""
+    network". `sock` may then start as None.
+
+    The address set is compared every `ADDRESS_SECONDS`; a change reads the
+    network at once and calls `on_addresses` (INBOX 892: a certificate that
+    names the new address). When the gate shuts, the connections already
+    open are dropped as well as the port (INBOX 896)."""
     config = server.config
     context = config.ssl
     port = sock.getsockname()[1] if sock is not None else port
@@ -345,13 +388,33 @@ async def serve(  # noqa: PLR0913
     if sock is not None:
         sock.setblocking(False)
     pending: set[asyncio.Task] = set()
-    refreshed = 0.0
+    watch = {"refreshed": -REFRESH_SECONDS, "addresses": None}
+
+    def look_again() -> None:
+        """Off the loop: the address set, and the network when it changed or
+        REFRESH_SECONDS have passed (both read this computer only)."""
+        now = frozenset(_addresses_now())
+        changed = watch["addresses"] is not None and now != watch["addresses"]
+        watch["addresses"] = now
+        if not changed and time.monotonic() - watch["refreshed"] < REFRESH_SECONDS:
+            return
+        watch["refreshed"] = time.monotonic()
+        refresh_own_prefixes()
+        if refresh is not None:
+            with contextlib.suppress(Exception):
+                refresh()
+        if changed and on_addresses is not None:
+            log.info("Other devices: this computer's addresses changed.")
+            with contextlib.suppress(Exception):
+                on_addresses()
+
+    looked = -ADDRESS_SECONDS
     try:
         while not running.done() and not server.should_exit:
-            if loop.time() - refreshed >= REFRESH_SECONDS:
-                refreshed = loop.time()
-                await _refresh_network(loop, refresh)
-            sock, verdict = await _port_step(sock, gate, reopen, port)
+            if loop.time() - looked >= ADDRESS_SECONDS:
+                looked = loop.time()
+                await loop.run_in_executor(None, look_again)
+            sock, verdict = await _port_step(sock, gate, reopen, port, server)
             if verdict == "break":
                 break
             if verdict == "continue":
@@ -360,6 +423,7 @@ async def serve(  # noqa: PLR0913
             if accepted is None:
                 continue
             conn, addr = accepted
+            _record_incoming(addr[0])
             task = asyncio.ensure_future(_route(conn, make_protocol, context, port))
             pending.add(task)
             task.add_done_callback(pending.discard)

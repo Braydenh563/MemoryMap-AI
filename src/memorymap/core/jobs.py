@@ -57,7 +57,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from memorymap.core import jobruns, jobstore, model_gate
+from memorymap.core import jobruns, jobstore, model_gate, origin
 
 logger = logging.getLogger("memorymap.jobs")
 
@@ -204,7 +204,8 @@ class _Job:
     `__slots__` keeps 200 of them cheap during a bulk upload."""
 
     __slots__ = (
-        "seq", "kind", "func", "args", "kwargs", "name", "queued_at", "started_at", "dedupe_key", "durable_id", "durable_db"
+        "seq", "kind", "func", "args", "kwargs", "name", "queued_at", "started_at", "dedupe_key", "durable_id", "durable_db",
+        "another_device",
     )
 
     def __init__(
@@ -231,6 +232,9 @@ class _Job:
         #: When a worker took it, for the panel's elapsed time (INBOX 696):
         #: a running row counts from here, a waiting one from `queued_at`.
         self.started_at = 0.0
+        #: Queued while serving another device (core/origin.py): the job runs
+        #: as that device, so it cannot start an install on this computer.
+        self.another_device = origin.from_another_device()
 
 
 class Pool:
@@ -418,7 +422,8 @@ class Pool:
                 error = ""
                 run = _ledger_run(job)
                 try:
-                    job.func(*job.args, **job.kwargs)
+                    with origin.acting_for(job.another_device):
+                        job.func(*job.args, **job.kwargs)
                 except Exception as exc:
                     # One bad job used to be one dead thread and no record.
                     # `exc_info` because the stack is the whole value here:

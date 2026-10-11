@@ -87,7 +87,7 @@ def test_the_editors_have_names():
     name = _function(docs, "noteSurfaceName")
     assert 'split("\\n")[0]' in name
     html = _read("index.html")
-    assert 'id="entry-content" rows="3" class="autogrow" aria-label="New note"' in html
+    assert 'id="entry-content" data-autocorrect rows="3" class="autogrow" aria-label="New note"' in html
     for field in ("persona-prompt", "template-name", "template-description", "template-body"):
         tag = html[html.index(f'id="{field}"'):]
         assert "aria-label=" in tag[: tag.index(">")], field

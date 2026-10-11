@@ -5,7 +5,7 @@ Branch agent/tline-1011, worktree scratchpad/wt-tline, port 8803. `id | status |
 969 | done-already | TIMELINE_PLAN section 9 gates say Built 2026-10-11 (Brief 55, HISTORY); this run fixed the day-cell press and note chips (commit A)
 970 | deferred-next-PR | touch drag has no HTML DnD on a phone (the calendar is the agenda below 768); day-page drop and a 1,000-note month not driven under load 45 to 60
 971 | done | errors: 0 PAGEERROR/CONSOLE-ERR in 5 calendar runs (1440 dark and light, 390); contrast: chips 12px text on --surface-2 over --chip-bg, dark fg 236,235,232 and light fg 28,28,26, no overflow (scrollHeight<=clientHeight, 0 cells)
-972 | deferred-next-PR | feed range filters Entry.created_at; moving it to placement changes paging marks and the density strip; calendar already filters by placement (test_timeline_calendar_window.py)
+972 | built | 927698eac: the feed range keeps a note by the day it is about, as the calendar does
 973 | built | reminder_notifier.stop_running() called by the app's lifespan before jobs.shutdown; tests/test_reminder_notifier.py
 974 | done-already | reminder-notify.js mints a per-reminder token (POST /reminders/<id>/notification-token, core/reminder_token.py); the worker's data holds that token, not the session's
 975 | deferred-next-PR | a timing at 329 vs 300 ms is meaningless at load average 45 to 60; needs a quiet machine
@@ -46,7 +46,7 @@ Branch agent/tline-1011, worktree scratchpad/wt-tline, port 8803. `id | status |
 1010 | built | 06-timeline-dialogs.css: border-collapse separate + radius on the first and last cell of a hovered or selected row; measured 2.4px at all four corners
 1011 | built | #toast-box z-index 2150 (above the confirm overlay 2100); measured: a toast action under an open confirm is hit by elementFromPoint at 1440
 1012 | blocked | the code is on agent/voiceup-1011, not on this base
-1013 | deferred-next-PR | needs a new events table and its UI; no design decision in the plan
+1013 | decided | TIMELINE_PLAN decision 27: no events table; meetings, reminders and dated notes are the events
 1014 | done-already | agent.py:423 'The user can already see which tools you ran, in order. Do not narrate'
 1015 | built | toastName(): bin and restore toasts name the thing (reminders, documents, library and graph notes)
 1016 | built | reminder-notify.js and the bell say 'About <note>' from target_title
@@ -72,6 +72,11 @@ Branch agent/tline-1011, worktree scratchpad/wt-tline, port 8803. `id | status |
 1036 | done-already | #toast-box sits at bottom: status-bar-h + space-3 with is-yielding over the focused control (01-forms-settings.css)
 1037 | not-verified | needs a seeded notebook sweep of every widget
 1038 | deferred-next-PR | composer/engine spec (skipped by the brief)
+
+owner | built | Calendar Month/Week/Day strip slides: the head and the strip are kept between paints (`timelineCalMount`, `timelineCal.spanSeg`), so `glideStrip` has a position to slide from; `tests/test_timeline_cal_span_glide.py`. Chromium 1440: indicator transform at 30 ms steps matrix tx -5.0, -2.6, -0.2, then none; before the fix it was none throughout (moving the strip cancelled the animation). Reduced motion: no mid-glide transform sampled (jumps)
+994a | built | reminders bulk delete/restore: a failure toast offers Try again for just the rows that failed (shell-reminders.js)
+
+Pre-existing red on the base, not touched: `tests/test_error_toasts.py` (stale `skills.js` EXPECTED entry, `settings-controls.js:1538` toast not in FAULTS).
 
 ## Not verified
 - Every browser run was at a load average of 45 to 60 (ten agents gating at once): timings are not claimed anywhere.

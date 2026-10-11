@@ -1849,14 +1849,21 @@ def _composed(req: _StreamRequest, ollama_running: bool) -> bool:
     return bool(req.body.notes_only) and (req.body.answer_from == "notes" or not ollama_running)
 
 
-def _composer_voice() -> str:
-    """The register the composer writes its connecting words in, from the
-    `composer_voice` preference: "natural" (the default) or "professional"."""
+def _answer_voice() -> str:
+    """The voice an answer with no model is said in (CHAT_PLAN decision 72),
+    the `composer_voice` preference: "natural" (Warm and concise, the
+    default), "professional" (Neutral), "playful" or "plain"."""
     try:
         value = deps.get_config().get_preference("composer_voice", "natural")
     except Exception:  # noqa: BLE001  # no preference is the default voice
         return "natural"
-    return value if value in ("natural", "professional") else "natural"
+    return value if value in ("natural", "professional", "playful", "plain") else "natural"
+
+
+def _composer_voice() -> str:
+    """The composer's own register for the same choice: it has two, so
+    Playful joins with Natural's words and Plain with Professional's."""
+    return {"playful": "natural", "plain": "professional"}.get(_answer_voice(), _answer_voice())
 
 
 def _composer_embed():  # noqa: ANN202
@@ -2216,7 +2223,10 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         digest = None
         if not follow and not str(prepared.get("search_mode") or "").endswith("recent"):
             try:
-                digest = composer_digest.answer(req.question, prepared["notes"], today=user_now(deps.get_config()).date())
+                digest = composer_digest.answer(
+                req.question, prepared["notes"], today=user_now(deps.get_config()).date(),
+                voice=_answer_voice(), turn=len(req.history or []),
+            )
             except Exception:  # noqa: BLE001  # the composer's answer stands
                 logging.getLogger("memorymap.chat").exception("chat: the digest failed")
         result = digest or composer.compose(

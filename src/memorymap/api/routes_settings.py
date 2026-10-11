@@ -314,7 +314,7 @@ class PreferencesBody(BaseModel):
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
     #: The register the composer writes its connecting words in when no model
     #: answers (`ai/composer_tables.py`): plain and friendly, or formal.
-    composer_voice: Literal["natural", "professional"] | None = None
+    composer_voice: Literal["natural", "professional", "playful", "plain"] | None = None
     #: **The writing checker's own two settings.** Both belong on the server
     #: rather than in `localStorage`, and the reason is the same for each: a
     #: dictionary you have to rebuild when you clear your browser data is a

@@ -42,7 +42,7 @@ from memorymap.ai import composer, realise
 
 #: The connecting words, one table (decision 72: a voice swaps this, never
 #: the facts). `{}` slots are filled in order.
-PHRASES = {
+_BASE = {
     "overview": "You have {count} about {topic}, {span}.",
     "likes": "It looks that way: you've written about {topic} {times}, {span}.",
     "from_note": "{fact}, from your note of {day}.",
@@ -66,7 +66,112 @@ PHRASES = {
     "only_names": "It's the only note that names {name}.",
     "none_own": "None of them has a note of its own yet.",
     "gone_quiet": "Nothing on {word} since {month}.",
+    "also": "Also",
+    "only_note": "It's your only note on that so far.",
+    "only_kind": "It's your only {noun} so far.",
 }
+
+#: The voices (CHAT_PLAN decision 72): Warm and concise (the default,
+#: stored as "natural", the composer's own name for it), Neutral
+#: ("professional"), Playful and Plain. A voice changes the openings, the
+#: joins and the closings, never a fact or the shape. A tuple is several
+#: openings said in turn, so a conversation does not open the same way five
+#: times running (B6).
+VOICES: dict[str, dict[str, str | tuple[str, ...]]] = {
+    "natural": {
+        "overview": ("You have {count} about {topic}, {span}.",
+                     "There are {count} about {topic}, {span}.",
+                     "{Count} about {topic}, {span}.",
+                     "Your notes on {topic}: {count}, {span}.",
+                     "On {topic} you've written {count}, {span}."),
+    },
+    "professional": {
+        "overview": ("Your notebook holds {count} on {topic}, {span}.",
+                     "{Count} concern {topic}, {span}.",
+                     "On {topic}: {count}, {span}.",
+                     "Recorded on {topic}: {count}, {span}.",
+                     "The notebook has {count} on {topic}, {span}."),
+        "likes": "The notes suggest so: {topic} appears {times}, {span}.",
+        "from_note": "{fact}, as recorded on {day}.",
+        "nothing_yet": "The notes do not yet cover {facets}.",
+        "remind": "Set a reminder to {action}?",
+        "only_one": "This is the only note on {topic}.",
+        "only_week": "This is the only week recorded.",
+        "only_names": "This is the only note naming {name}.",
+        "none_own": "None of them has a note of its own.",
+        "gone_quiet": "No record of {word} since {month}.",
+        "also": "In addition",
+        "only_note": "This is the only note on that.",
+        "only_kind": "This is the only {noun}.",
+    },
+    "playful": {
+        "overview": ("Found {count} about {topic}, {span}.",
+                     "Here's the lot: {count} about {topic}, {span}.",
+                     "Ooh, {topic}: {count}, {span}.",
+                     "Dug up {count} about {topic}, {span}.",
+                     "Right, {topic}: {count}, {span}."),
+        "likes": "Sounds like it: you've written about {topic} {times}, {span}.",
+        "from_note": "{fact}, says your note of {day}.",
+        "nothing_yet": "No word yet on {facets}.",
+        "remind": "Want a nudge to {action}?",
+        "checklist": "Turn it into a checklist?",
+        "only_week": "That's the only week you've jotted down so far.",
+        "none_own": "None of them has its own note yet, so they're all still ideas.",
+        "gone_quiet": "{Word} has gone quiet since {month}.",
+    },
+    "plain": {
+        "overview": ("{Count} about {topic}, {span}.",),
+        "likes": "Yes. {Topic} comes up {times}, {span}.",
+        "from_note": "{fact}. Note of {day}.",
+        "nothing_yet": "Not in your notes: {facets}.",
+        "remind": "Remind you to {action}?",
+        "only_week": "Only one week is written down.",
+        "only_names": "Only one note names {name}.",
+        "none_own": "None has its own note.",
+        "gone_quiet": "No {word} since {month}.",
+        "only_note": "Only one note on that.",
+        "only_kind": "Only one {noun}.",
+    },
+}
+#: The voice and the turn of the answer being written.
+_VOICE: ContextVar[str] = ContextVar("digest_voice", default="natural")
+_TURN: ContextVar[int] = ContextVar("digest_turn", default=0)
+
+
+class _Phrases(dict):
+    """`PHRASES[key]` in the voice of the answer being written; a capital
+    `{Count}` or `{Topic}` in a phrase is that value with a capital letter."""
+
+    def __getitem__(self, key: str) -> str:
+        said = VOICES.get(_VOICE.get(), {}).get(key) or _BASE[key]
+        if isinstance(said, tuple):
+            said = said[_TURN.get() % len(said)]
+        return _Capitals(said)
+
+
+class _Capitals(str):
+    def format(self, *args, **kwargs) -> str:  # noqa: D102
+        for k, v in list(kwargs.items()):
+            if isinstance(v, str) and "{" + k.capitalize() + "}" in self:
+                kwargs[k.capitalize()] = v[:1].upper() + v[1:]
+        return str.format(self, *args, **kwargs)
+
+
+PHRASES = _Phrases(_BASE)
+
+
+def sample(voice: str) -> str:
+    """The live sample Settings shows beside the voice choice: an opening,
+    a missing line and an offer, in that voice."""
+    token = _VOICE.set(voice if voice in VOICES else "natural")
+    try:
+        return " ".join([
+            PHRASES["overview"].format(count="four notes", topic="uni", span="17 July to 4 August"),
+            PHRASES["nothing_yet"].format(facets="assessments or due dates"),
+            PHRASES["remind"].format(action="ask the tutor on Thursday"),
+        ])
+    finally:
+        _VOICE.reset(token)
 
 #: A note under one of these tags is someone else's words or not a claim
 #: about the person (decision 67): left out unless the question asks for it.
@@ -469,7 +574,7 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
             #: Facts with no label of their own, or one label over several
             #: notes ("Gym: ..." twice), read best by their day.
             label = _day(f.view.written, by_day)
-        groups.setdefault(label or "Also", []).append(f)
+        groups.setdefault(label or PHRASES["also"], []).append(f)
     shown = 0
     for label, held in list(groups.items())[:limit]:
         bodies = list(dict.fromkeys(_lower_first(f.body, _NAMES.get()) for f in held))
@@ -485,6 +590,10 @@ def _row(said: str, fact: Fact) -> dict:
         "sentence": said,
         "note_id": fact.view.note.get("source_id", fact.view.id),
         "source": fact.sentence.text,
+        #: Where in the note, so the mark's peek shows the note's own
+        #: sentence under the rewritten line (B5).
+        "start": fact.sentence.start,
+        "end": fact.sentence.end,
         "score": 1.0,
         "digest": True,
     }
@@ -673,7 +782,7 @@ def _single(out: _Out, kind: str, question: str, members, facts, today: date) ->
     _lines(out, rest, LINES.get(kind, 2))
     if len(members) == 1 and kind in ("fact", "opinion"):
         noun = "film review" if kind == "opinion" else "note"
-        out.lines.append(f"It's your only {noun} on that so far." if noun == "note" else f"It's your only {noun} so far.")
+        out.lines.append(PHRASES["only_note"] if noun == "note" else PHRASES["only_kind"].format(noun=noun))
 
 
 def _who(out: _Out, name: str, views, names: set[str], today: date) -> bool:
@@ -750,7 +859,7 @@ def _compare(out: _Out, a: str, b: str, views, today: date, names: set[str]) -> 
     return True
 
 
-def answer(question: str, notes: list[dict], *, today: date | None = None) -> dict | None:
+def answer(question: str, notes: list[dict], *, today: date | None = None, voice: str = "natural", turn: int = 0) -> dict | None:
     """The decision-70 answer to `question` from the route's `notes`, or None
     when the question is not one this shape answers (a sum, a time, a
     command, nothing found): the caller then asks `composer.compose`."""
@@ -765,6 +874,8 @@ def answer(question: str, notes: list[dict], *, today: date | None = None) -> di
     names = _capitalised_inside(views)
     _NAMES.set(names)
     _TODAY.set(today)
+    _VOICE.set(voice if voice in VOICES else "natural")
+    _TURN.set(turn)
     _VIEWS.set(views)
     wants_context = bool(set(composer._words(asked)) & {composer._stem(t) for t in CONTEXT_TAGS})
     if not wants_context:

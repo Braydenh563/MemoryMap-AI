@@ -281,14 +281,15 @@ MORE_TOPICS: list[dict] = [
             "answer style", "concise", "detailed", "shorter answers",
             "longer answers", "friendly", "professional wording", "formal wording",
             "natural wording", "wording when no model", "composer voice",
+            "voice", "playful", "plain answers", "neutral", "how atlas sounds",
         ),
         "body": (
             "Settings, Personas, Answer style: how Atlas words its answers, "
             "Friendly (the default), Concise or Detailed, whichever persona is "
-            "active. Below it, Wording when no model is running sets the "
-            "register of the short connecting phrases Atlas writes when it "
-            "answers from your notes without a model: Natural (the default) "
-            "or Professional. Your notes are quoted the same either way."
+            "active. Below it, How Atlas sounds with no model picks the voice "
+            "it answers from your notes in without a model: Warm and concise "
+            "(the default), Neutral, Playful or Plain, with a sample under it. "
+            "The facts and the sources are the same in every voice."
         ),
         "badge": {"label": "Answer style", "section": "personas", "target": "pref-style"},
     },

@@ -9848,27 +9848,30 @@ Link to another note with [[its first few words]]."></textarea>
                 </select>
               </div>
               <div class="row">
-                <label for="pref-voice" class="muted">Wording when no model is running</label>
-                <select id="pref-voice" title="The register Atlas's connecting words use when it answers from your notes without a model">
-                  <option value="natural">Natural (default)</option>
-                  <option value="professional">Professional</option>
+                <label for="pref-voice" class="muted">How Atlas sounds with no model</label>
+                <select id="pref-voice" title="The voice Atlas answers from your notes in when no model is running">
+                  <option value="natural">Warm and concise (default)</option>
+                  <option value="professional">Neutral</option>
+                  <option value="playful">Playful</option>
+                  <option value="plain">Plain</option>
                 </select>
               </div>
+              <p class="muted voice-sample" id="pref-voice-sample" aria-live="polite"></p>
               <p class="muted">
-                With no model, Atlas joins quotes from your notes with short phrases of its own; this sets their register.
+                With no model, Atlas answers from your notes in this voice; the facts are the same in each.
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="composer-voice-help" aria-controls="composer-voice-help" aria-expanded="false"
-                  title="About this setting" aria-label="About wording when no model is running">
+                  title="About this setting" aria-label="About how Atlas sounds with no model">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
               </p>
-              <div class="help-body hidden" id="composer-voice-help" role="dialog" aria-label="About wording when no model is running">
+              <div class="help-body hidden" id="composer-voice-help" role="dialog" aria-label="About how Atlas sounds with no model">
                 <p>
-                  With no model running, Atlas answers from your notes by
-                  quoting them and joining the quotes with short phrases of
-                  its own. Natural writes those phrases plainly and warmly;
-                  Professional writes them formally, as a record would. Your
-                  notes are quoted the same either way.
+                  With no model running, Atlas answers from your notes in its
+                  own words. Warm and concise talks to you plainly; Neutral
+                  reads like a record; Playful is lighter; Plain says only what
+                  it must. The facts, their order and the sources are the same
+                  in every voice, and the line above shows a sample.
                 </p>
               </div>
             </div>

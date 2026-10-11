@@ -57,7 +57,8 @@ MIRROR = AI_TOOLS[AI_TOOLS.index("const DEVICE_ONLY_KEYS") : AI_TOOLS.index("fun
 
 HARNESS = f"""
 const store = new Map();
-globalThis.window = {{ localStorage: {{
+globalThis.document = {{ addEventListener() {{}}, hidden: false }};
+globalThis.window = {{ addEventListener() {{}}, localStorage: {{
   get length() {{ return store.size; }}, key: (i) => [...store.keys()][i] ?? null,
   getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k),
 }} }};

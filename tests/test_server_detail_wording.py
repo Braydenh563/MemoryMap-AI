@@ -31,9 +31,13 @@ API = ROOT / "src" / "memorymap" / "api"
 #: Route bodies moved out of `api/` into a service (Brief 61). Their
 #: `HTTPException` details still reach the person through the route, so they
 #: are held to the same rules.
-SERVICES = (
-    ROOT / "src" / "memorymap" / "files" / "service.py",
-    ROOT / "src" / "memorymap" / "whiteboard" / "service.py",
+SERVICES = tuple(
+    path
+    for path in (
+        ROOT / "src" / "memorymap" / "files" / "service.py",
+        ROOT / "src" / "memorymap" / "whiteboard" / "service.py",
+    )
+    if path.exists()
 )
 
 

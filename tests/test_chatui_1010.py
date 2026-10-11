@@ -58,8 +58,9 @@ def test_the_ask_again_row_has_its_menu():
     ask = frontend_text("ask-history.js")
     assert "function askAgainMenu(box, questions)" in ask
     assert 'box.appendChild(kebabMenu(items, "Ask again options"));' in ask
-    clear = ask[ask.index("async function clearAskHistory()") :][:600]
-    assert "loadRecentQuestions();" in clear
+    clear = ask[ask.index("async function clearAskHistory()") :][:900]
+    assert "askHistoryRepaint();" in clear
+    assert "loadRecentQuestions();" in ask[ask.index("function askHistoryRepaint()") :][:200]
 
 
 def test_the_places_list_can_lose_a_row_or_be_cleared():
@@ -313,7 +314,8 @@ def test_a_finished_task_opens_its_log():
     "sentence-transformers"."""
     assert "row.append(name, when, taskLogButton(item));" in frontend_text("ai-tools.js")
     settings = frontend_text("settings.js")
-    assert "function taskLogButton(item)" in settings and "async function openTaskLog(item)" in settings
+    assert "function taskLogButton(item)" in settings
+    assert "async function openTaskLog(item)" in frontend_text("settings-controls.js")
 
 
 def test_a_turned_down_tag_can_be_undone_and_listed():
@@ -323,5 +325,5 @@ def test_a_turned_down_tag_can_be_undone_and_listed():
     the edit form reads "Not suggested: #university" with a restore chip.
     Backend: test_suggest_tags_no_model.py."""
     tags = frontend_text("tag-suggest.js")
-    assert 'for this note again.`, "Undo", () => answerSuggestedTags(entry, { restore: [tag] })' in tags
+    assert "for this note again.`, post({ restore: [tag] }), post(body)" in tags
     assert 'down.append("Not suggested:");' in frontend_text("note-edit-panels.js")

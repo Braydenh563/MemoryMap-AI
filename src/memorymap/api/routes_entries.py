@@ -2525,7 +2525,7 @@ def entry_changes(
     try:
         after = datetime.fromisoformat(since)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail="since is not a time this app wrote.") from exc
+        raise HTTPException(status_code=422, detail="That time is not one this app wrote.") from exc
     if after.tzinfo is None:
         after = after.replace(tzinfo=now.tzinfo)
     rows = session.execute(

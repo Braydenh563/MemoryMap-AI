@@ -113,7 +113,6 @@ def test_the_panel_says_which_picture_this_is():
 def test_the_upload_list_carries_the_date_the_panel_shows():
     """The one fact of that kind the browser cannot work out for itself."""
     routes = Path("src/memorymap/api/routes_files.py").read_text(encoding="utf-8")
-    routes += Path("src/memorymap/files/service.py").read_text(encoding="utf-8")
     assert "created_at: str = \"\"" in routes
     assert "created_at=u.created_at.isoformat()" in routes
     library = Path("frontend/js/library.js").read_text(encoding="utf-8")

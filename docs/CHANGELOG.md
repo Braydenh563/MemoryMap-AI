@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Lists: a list past twelve rows can be filtered by typing (listFilter): the keyboard shortcuts and the space menu; Escape clears, and a miss says so in one line.
 - Top bar: the Local chip shows this launch's privacy verdict in one word (Local, Local network, Online) and opens Settings, Privacy; below 1100 it is the icon, on a phone a row of the More menu.
 - Whiteboard on a phone: the top bar is one row (54px, was two rows and 104px at 390). Below 600 the Board menu's commands are in More, the Library is Insert's Shapes, icons and frames, and Boards is its arrow.
 - Panel heads read as titles: Local map, the Ask answer, Matching records, the notes rail's Connections, Activity and the board's Library and Format panels draw at 16px like every dialog title, where they were 12px labels.

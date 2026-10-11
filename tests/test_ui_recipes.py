@@ -5618,6 +5618,34 @@ def test_a_panel_head_is_a_title_and_not_the_eyebrow() -> None:
     assert heads and set(heads) == {"h3"}, f"a panel head left the h3 recipe: {sorted(set(heads))}"
 
 
+#: Filters built by hand before `listFilter` existed (row 1643): each keeps
+#: its own field because its list does more than hide rows (a sort, a scope,
+#: a count). May only shrink; a new long list calls `listFilter`.
+HAND_BUILT_FILTERS = {
+    "Filter widgets…", "Filter notes", "Filter headings…", "Filter this index…",
+    "Filter logs", "Filter tags", "Filter categories", "Filter names",
+}
+
+
+def test_a_long_list_is_typed_to_through_the_one_recipe() -> None:
+    """Row 1643 (WORLD_CLASS_PLAN 22.2, "every list with more than 20 rows
+    can be filtered by typing"): `listFilter` is the one builder, the
+    shortcut list (31 rows) and the space menu use it, and no new
+    hand-built "Filter ..." field joins the eight that predate it."""
+    selects = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    body = selects.split("function listFilter(", 1)[1][:3000]
+    assert 'field.className = "search-field list-filter hidden"' in body
+    assert 'event.key === "Escape"' in body and "list-filter-empty" in body
+    wiring = (ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8")
+    assert "listFilter(list, { label: \"Filter shortcuts\" })" in wiring.split("function buildShortcutList", 1)[1][:4000]
+    spaces = (ROOT / "frontend" / "js" / "spaces-find.js").read_text(encoding="utf-8")
+    assert "listFilter(menu," in spaces.split("function renderSpaceMenu", 1)[1][:3000]
+    found = set()
+    for path in [ROOT / "frontend" / "index.html", *sorted((ROOT / "frontend" / "js").glob("*.js"))]:
+        found |= set(re.findall(r'placeholder\s*=\s*"(Filter[^"]*)"', path.read_text(encoding="utf-8")))
+    assert found <= HAND_BUILT_FILTERS, f"a hand-built filter field: {sorted(found - HAND_BUILT_FILTERS)}; call listFilter"
+    assert found == HAND_BUILT_FILTERS, "a hand-built filter moved to listFilter: shrink HAND_BUILT_FILTERS"
+
 
 def test_the_local_chip_shows_the_privacy_verdict_and_opens_the_record() -> None:
     """Row 1641 (WORLD_CLASS_PLAN 22.1 item 9): the top bar's Local chip reads

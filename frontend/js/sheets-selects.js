@@ -1207,6 +1207,76 @@ function rowActions(actions, ariaLabel) {
   return wrap;
 }
 
+//: **Type to filter a long list** (row 1643, WORLD_CLASS_PLAN 22.2: "every
+//: list with more than 20 rows can be filtered by typing"; DESIGN.md's
+//: recipe row). One `.search-field.list-filter` before `list`, shown only
+//: while the list holds more than `threshold` rows, hiding the rows whose
+//: words do not hold what is typed and saying so in one muted row when none
+//: do. Escape in the field clears it before it closes anything. The list's
+//: owner calls `refresh()` after each redraw, so a filter typed survives a
+//: re-render; rows are `rows` (a selector run on the list), by default its
+//: direct `li` children. `inside` puts the field at the head of the list
+//: itself, for a popup that is its own list (the space menu).
+function listFilter(list, { label, threshold = 12, rows = ":scope > li", inside = false } = {}) {
+  if (!list) return null;
+  if (list._listFilter) return list._listFilter;
+  const field = document.createElement("div");
+  field.className = "search-field list-filter hidden";
+  const glyph = document.createElement("i");
+  glyph.className = "ph ph-magnifying-glass search-field-icon";
+  glyph.setAttribute("aria-hidden", "true");
+  const input = document.createElement("input");
+  input.type = "search";
+  input.className = "search-field-input";
+  input.placeholder = label;
+  input.setAttribute("aria-label", label);
+  input.autocomplete = "off";
+  if (list.id) input.setAttribute("aria-controls", list.id);
+  field.append(glyph, input);
+  if (!inside) list.before(field);
+  const empty = document.createElement(list.tagName === "UL" || list.tagName === "OL" ? "li" : "div");
+  empty.className = "muted list-filter-empty hidden";
+  const refresh = () => {
+    if (inside && field.parentElement !== list) list.prepend(field);
+    const all = [...list.querySelectorAll(rows)].filter((row) => row !== empty);
+    field.classList.toggle("hidden", all.length <= threshold && !input.value);
+    const needle = input.value.trim().toLowerCase();
+    let shown = 0;
+    for (const row of all) {
+      const match = !needle || row.textContent.toLowerCase().includes(needle);
+      // The `hidden` attribute, because a list's own row rule (`display:
+      // flex`) outranks a class; `[hidden]` is the one rule that wins. A row
+      // some other code had hidden keeps that state when the filter clears.
+      if (!match && !row.classList.contains("list-filter-miss")) {
+        row.classList.add("list-filter-miss");
+        if (row.hidden) row.dataset.listFilterWasHidden = "1";
+        row.hidden = true;
+      } else if (match && row.classList.contains("list-filter-miss")) {
+        row.classList.remove("list-filter-miss");
+        row.hidden = row.dataset.listFilterWasHidden === "1";
+        delete row.dataset.listFilterWasHidden;
+      }
+      if (match) shown += 1;
+    }
+    empty.textContent = `Nothing here matches "${input.value.trim()}".`;
+    empty.classList.toggle("hidden", !needle || shown > 0);
+    if (empty.parentElement !== list) list.append(empty);
+    else if (empty.nextElementSibling) list.append(empty);
+  };
+  input.addEventListener("input", refresh);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && input.value) {
+      event.preventDefault();
+      event.stopPropagation();
+      input.value = "";
+      refresh();
+    }
+  });
+  list._listFilter = { field, input, refresh };
+  refresh();
+  return list._listFilter;
+}
+
 function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";

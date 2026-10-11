@@ -10478,3 +10478,18 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
     mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
   }
 }
+/* --- type to filter a long list (row 1643, `listFilter` in sheets-selects.js)
+   The field is the search field's well; a row it hides takes the `hidden`
+   attribute (a list's own `display: flex` row rule outranks a class), and
+   the one muted row says when nothing is left. */
+.list-filter {
+  margin-bottom: var(--space-2);
+}
+.list-filter-empty {
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+}
+#space-menu > .list-filter {
+  margin: var(--space-1) var(--space-1) var(--space-2);
+}
+

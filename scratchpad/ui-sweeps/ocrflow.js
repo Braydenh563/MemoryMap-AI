@@ -161,7 +161,7 @@ async function panel(page) {
     line = await engineLine(page);
     for (let i = 0; i < 30 && !/Settings, Packages/.test(line.text); i++) { await page.waitForTimeout(500); line = await engineLine(page); }
     console.log("failed line:", JSON.stringify(line));
-    check("install failure: says why and offers Try again", /by hand/.test(line.text) && line.buttons.some((b) => /Try again/.test(b)), line.text.slice(0, 160));
+    check("install failure: says why and offers Try again", /by hand/.test(line.text) && line.buttons.some((b) => /Try (Tesseract )?again/.test(b)), line.text.slice(0, 160));
     check("install failure: points at the log", /Settings, Packages/.test(line.text));
     await page.screenshot({ path: `${SHOTS}/ocrflow-missing-failed.png` });
     // Packages: the row offers Install and does not claim it is installed.

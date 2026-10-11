@@ -77,6 +77,7 @@ const { boot } = require('./lib.js');
   });
   await page.waitForTimeout(1500);
 
+  console.log('displaced node id:', await page.evaluate(() => (graphNodesRef || [])[0]?.id));
   const disturbed = await page.evaluate(() => {
     const positions = {};
     for (const n of graphNodesRef || []) positions[n.id] = { x: n.x, y: n.y };
@@ -126,8 +127,20 @@ const { boot } = require('./lib.js');
   const dist = (a, b, id) =>
     a[id] && b[id] ? Math.hypot(a[id].x - b[id].x, a[id].y - b[id].y) : Infinity;
   const ids = Object.keys(captured);
+  // d5567b1ec: the graph "fits to the middle", re-centring the world after a render, so
+  // raw coordinates move together by a rigid shift while the picture is unchanged.
+  // Compare the arrangement: remove the mean shift between the two maps, then take
+  // the largest residual. A fresh force solution still shows as hundreds of px.
+  const shifted = (a, b) => {
+    const both = ids.filter((id) => a[id] && b[id]);
+    const dx = both.reduce((t, id) => t + (a[id].x - b[id].x), 0) / (both.length || 1);
+    const dy = both.reduce((t, id) => t + (a[id].y - b[id].y), 0) / (both.length || 1);
+    const worst = both.map((id) => [id, Math.round(Math.hypot(a[id].x - b[id].x - dx, a[id].y - b[id].y - dy))]).sort((x, y) => y[1] - x[1]).slice(0, 4);
+    return { dx: Math.round(dx), dy: Math.round(dy), n: both.length, worst, resid: Math.max(0, ...both.map((id) => Math.hypot(a[id].x - b[id].x - dx, a[id].y - b[id].y - dy))) };
+  };
   const maxDriftFromDisturbed = Math.max(...ids.map((id) => dist(disturbed, soonAfterApply, id)));
-  const maxDriftFromSaved = Math.max(...ids.map((id) => dist(captured, soonAfterApply, id)));
+  const savedShift = shifted(captured, soonAfterApply);
+  const maxDriftFromSaved = savedShift.resid;
   const maxDriftAfterHolding = Math.max(...ids.map((id) => dist(soonAfterApply, longAfterApply, id)));
 
   // Case B: add a note *after* the save, then reapply. The saved notes
@@ -155,7 +168,8 @@ const { boot } = require('./lib.js');
     for (const n of graphNodesRef || []) positions[n.id] = { x: n.x, y: n.y };
     return { positions, newNodePresent: positions[newId] != null };
   }, newId);
-  const maxDriftWithNewNote = Math.max(...ids.map((id) => dist(captured, withNewNote.positions, id)));
+  const newShift = shifted(captured, withNewNote.positions);
+  const maxDriftWithNewNote = newShift.resid;
 
   const ok = (v) => (v ? 'PASS' : 'FAIL');
   console.log(JSON.stringify({
@@ -163,6 +177,8 @@ const { boot } = require('./lib.js');
     maxDriftFromSaved,
     maxDriftAfterHolding,
     maxDriftWithNewNote,
+    savedShift,
+    newShift,
     newNodePresent: withNewNote.newNodePresent,
     errors: errs,
   }, null, 1));

@@ -41,7 +41,7 @@ const WIDTHS = (process.env.WIDTHS || '390,360,320').split(',').map(Number);
     const page = await ctx.newPage();
     page.on('pageerror', (e) => fail(`pageerror: ${e.message}`));
     await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#lock-password', { state: 'visible', timeout: 20000 });
+    await page.waitForSelector('#lock-password', { state: 'visible', timeout: Number(process.env.BOOT_MS || 20000) });
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(2500);
     if (await page.$('#lock-password') && await page.isVisible('#lock-password')) {
       await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(2500);

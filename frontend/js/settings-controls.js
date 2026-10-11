@@ -1543,7 +1543,7 @@ async function waitForRestart() {
       wentAway = true;
     }
   }
-  toast(wentAway ? "The app hasn't come back yet. Start it again by hand." : "The app didn't restart. Close and reopen it by hand.", true);
+  toast(wentAway ? "The app hasn't come back yet. Start it again by hand." : "The app didn't restart. Close and reopen it by hand.", true, { action: ["Try again", () => restartMemoryMap({ confirm: false })] });
 }
 
 // ---- from wiring.js (search-boot-1005): findDuplicates ----

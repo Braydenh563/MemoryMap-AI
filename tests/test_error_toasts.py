@@ -167,7 +167,6 @@ EXPECTED = {
     ],
     'skills.js': [
         '`“${skill.name}” needs ${item.label || item.name}.`',
-        '"That file isn\'t valid JSON."',
         '"Tick some notes first."',
     ],
     'suggestions-inbox.js': [
@@ -262,6 +261,7 @@ FAULTS = {
     'settings-controls.js': {
         '(status && status.textContent) || "Couldn\'t apply the update."': "the update step failed; the text is the step's own error",
         'status.textContent || "Couldn\'t install that version."': "the install step failed; the text is the step's own error",
+        'wentAway ? "The app hasn\'t come back yet. Start it again by hand." : "The app didn\'t restart. Close and reopen it by hand."': "the restart did not happen or the app did not return; Try again restarts it",
     },
     'settings.js': {
         '"Couldn\'t save that setting."': 'saving a setting failed',

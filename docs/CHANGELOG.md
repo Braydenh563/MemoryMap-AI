@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Launch splash (Windows): a borderless rounded window with the new three-cell mark drawn before the window shows, the tagline "Your notes, pieced together", one status line and one slim accent bar (the green and white system bars are gone). The step list waits for a start that takes over 4 s, and Details, Copy diagnostics and Cancel appear as quiet links after 10 s or on a failure. The desktop loading window carries the new mark and the same accent.
 - The tagline under the Tessellate name in the launchers, the Windows splash and the Linux desktop entry reads "your notes, pieced together".
 
 - Mind map: a topic added under one you had dragged (on any layout, Timeline included) is placed beside it instead of in the layout's own column far across the map. A topic added under one on a left-hand branch now starts to its left, under its last sibling, instead of back on the trunk side (it stayed there on a Free map). Launcher banners in `start.sh` and `start.bat` read Tessellate.

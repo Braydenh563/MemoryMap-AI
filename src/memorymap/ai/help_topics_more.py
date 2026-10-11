@@ -2354,10 +2354,10 @@ MORE_TOPICS.append({
         "attribution", "built with", "what is it built on", "licences", "licenses",
     ),
     "body": (
-        "Settings, Help, Credits lists the libraries and data MemoryMap is "
+        "Settings, Help, Credits lists the libraries and data Tessellate is "
         "built on, each with its licence and a link to its source: the ones in "
         "the server, the ones in the app, the optional downloads and the "
-        "whiteboard's shapes. MemoryMap itself is AGPL-3.0."
+        "whiteboard's shapes. Tessellate itself is AGPL-3.0."
     ),
     "badge": {"label": "Help", "section": "help", "target": "credits-fold"},
 })

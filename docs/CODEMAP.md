@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5731, frontend ids 2434, CSS sections 491, backend routes 576, backend modules 4846, test files 1100, tests 10059, plan headings 996.
+Counts: frontend functions 5731, frontend ids 2434, CSS sections 491, backend routes 576, backend modules 4846, test files 1100, tests 10061, plan headings 996.
 
 ## Frontend functions (5731)
 
@@ -10041,59 +10041,59 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_ancestor_console_hwnds` | src/memorymap/__main__.py:1298 |
-| `_apply_console_visibility` | src/memorymap/__main__.py:1429 |
-| `_boot_and_swap` | src/memorymap/__main__.py:963 |
-| `_bootloader_splash` | src/memorymap/__main__.py:657 |
-| `_bring_forward` | src/memorymap/__main__.py:1623 |
-| `_capture` | src/memorymap/__main__.py:2552 |
-| `_claim_notebook` | src/memorymap/__main__.py:942 |
-| `_close_bootloader_splash` | src/memorymap/__main__.py:695 |
-| `_close_launch_splash` | src/memorymap/__main__.py:713 |
-| `_console_window_targets` | src/memorymap/__main__.py:1414 |
-| `_desktop_port` | src/memorymap/__main__.py:886 |
-| `_ensure_std_streams` | src/memorymap/__main__.py:428 |
-| `_existing_instance` | src/memorymap/__main__.py:1634 |
-| `_export_markdown` | src/memorymap/__main__.py:2391 |
-| `_finish_splash_start_step` | src/memorymap/__main__.py:742 |
-| `_focus_window` | src/memorymap/__main__.py:1015 |
-| `_get_console_hwnd` | src/memorymap/__main__.py:1047 |
-| `_hand_off_to_running` | src/memorymap/__main__.py:1648 |
-| `_loading_html` | src/memorymap/__main__.py:363 |
-| `_mark_start_step_done` | src/memorymap/__main__.py:812 |
-| `_maybe_relaunch_hidden` | src/memorymap/__main__.py:1259 |
-| `_open_window_onto` | src/memorymap/__main__.py:1680 |
-| `_password_exists` | src/memorymap/__main__.py:2430 |
+| `_ancestor_console_hwnds` | src/memorymap/__main__.py:1293 |
+| `_apply_console_visibility` | src/memorymap/__main__.py:1424 |
+| `_boot_and_swap` | src/memorymap/__main__.py:958 |
+| `_bootloader_splash` | src/memorymap/__main__.py:652 |
+| `_bring_forward` | src/memorymap/__main__.py:1618 |
+| `_capture` | src/memorymap/__main__.py:2547 |
+| `_claim_notebook` | src/memorymap/__main__.py:937 |
+| `_close_bootloader_splash` | src/memorymap/__main__.py:690 |
+| `_close_launch_splash` | src/memorymap/__main__.py:708 |
+| `_console_window_targets` | src/memorymap/__main__.py:1409 |
+| `_desktop_port` | src/memorymap/__main__.py:881 |
+| `_ensure_std_streams` | src/memorymap/__main__.py:423 |
+| `_existing_instance` | src/memorymap/__main__.py:1629 |
+| `_export_markdown` | src/memorymap/__main__.py:2386 |
+| `_finish_splash_start_step` | src/memorymap/__main__.py:737 |
+| `_focus_window` | src/memorymap/__main__.py:1010 |
+| `_get_console_hwnd` | src/memorymap/__main__.py:1042 |
+| `_hand_off_to_running` | src/memorymap/__main__.py:1643 |
+| `_loading_html` | src/memorymap/__main__.py:358 |
+| `_mark_start_step_done` | src/memorymap/__main__.py:807 |
+| `_maybe_relaunch_hidden` | src/memorymap/__main__.py:1254 |
+| `_open_window_onto` | src/memorymap/__main__.py:1675 |
+| `_password_exists` | src/memorymap/__main__.py:2425 |
 | `_port_from_env` | src/memorymap/__main__.py:35 |
-| `_port_holder` | src/memorymap/__main__.py:828 |
-| `_push_status_to_window` | src/memorymap/__main__.py:795 |
-| `_pythonw_path` | src/memorymap/__main__.py:1065 |
-| `_recolour_loading_page` | src/memorymap/__main__.py:330 |
-| `_relaunch_argv` | src/memorymap/__main__.py:1171 |
-| `_repair_install` | src/memorymap/__main__.py:2513 |
-| `_replace_process` | src/memorymap/__main__.py:1499 |
-| `_reset_password` | src/memorymap/__main__.py:2443 |
-| `_run_desktop` | src/memorymap/__main__.py:1707 |
-| `_run_server` | src/memorymap/__main__.py:455 |
-| `_run_server_holding_lock` | src/memorymap/__main__.py:2668 |
-| `_serve_with_lan` | src/memorymap/__main__.py:536 |
-| `_serves_this_notebook` | src/memorymap/__main__.py:869 |
-| `_spawn_desktop` | src/memorymap/__main__.py:1076 |
-| `_spawn_detached` | src/memorymap/__main__.py:1189 |
-| `_splash_status` | src/memorymap/__main__.py:680 |
-| `_start_reminder_notifier` | src/memorymap/__main__.py:2028 |
-| `_start_tray` | src/memorymap/__main__.py:2058 |
-| `_stop_background_work` | src/memorymap/__main__.py:1465 |
-| `_stop_lingering_worker_threads` | src/memorymap/__main__.py:592 |
-| `_wait_for_exit` | src/memorymap/__main__.py:1244 |
-| `_wait_for_server` | src/memorymap/__main__.py:628 |
-| `_wait_for_server_with_progress` | src/memorymap/__main__.py:914 |
-| `_warn_webview2_missing` | src/memorymap/__main__.py:1589 |
-| `_webview2_runtime_missing` | src/memorymap/__main__.py:1525 |
-| `_window_class_name` | src/memorymap/__main__.py:1398 |
-| `main` | src/memorymap/__main__.py:2570 |
-| `restart_app` | src/memorymap/__main__.py:1220 |
-| `restart_in_console_mode` | src/memorymap/__main__.py:1148 |
+| `_port_holder` | src/memorymap/__main__.py:823 |
+| `_push_status_to_window` | src/memorymap/__main__.py:790 |
+| `_pythonw_path` | src/memorymap/__main__.py:1060 |
+| `_recolour_loading_page` | src/memorymap/__main__.py:325 |
+| `_relaunch_argv` | src/memorymap/__main__.py:1166 |
+| `_repair_install` | src/memorymap/__main__.py:2508 |
+| `_replace_process` | src/memorymap/__main__.py:1494 |
+| `_reset_password` | src/memorymap/__main__.py:2438 |
+| `_run_desktop` | src/memorymap/__main__.py:1702 |
+| `_run_server` | src/memorymap/__main__.py:450 |
+| `_run_server_holding_lock` | src/memorymap/__main__.py:2663 |
+| `_serve_with_lan` | src/memorymap/__main__.py:531 |
+| `_serves_this_notebook` | src/memorymap/__main__.py:864 |
+| `_spawn_desktop` | src/memorymap/__main__.py:1071 |
+| `_spawn_detached` | src/memorymap/__main__.py:1184 |
+| `_splash_status` | src/memorymap/__main__.py:675 |
+| `_start_reminder_notifier` | src/memorymap/__main__.py:2023 |
+| `_start_tray` | src/memorymap/__main__.py:2053 |
+| `_stop_background_work` | src/memorymap/__main__.py:1460 |
+| `_stop_lingering_worker_threads` | src/memorymap/__main__.py:587 |
+| `_wait_for_exit` | src/memorymap/__main__.py:1239 |
+| `_wait_for_server` | src/memorymap/__main__.py:623 |
+| `_wait_for_server_with_progress` | src/memorymap/__main__.py:909 |
+| `_warn_webview2_missing` | src/memorymap/__main__.py:1584 |
+| `_webview2_runtime_missing` | src/memorymap/__main__.py:1520 |
+| `_window_class_name` | src/memorymap/__main__.py:1393 |
+| `main` | src/memorymap/__main__.py:2565 |
+| `restart_app` | src/memorymap/__main__.py:1215 |
+| `restart_in_console_mode` | src/memorymap/__main__.py:1143 |
 
 ### src/memorymap/ai/act_registry.py (7)
 
@@ -16213,7 +16213,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (10059)
+## Tests (10061)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16716,9 +16716,9 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_lan_serve.py | 11 |
 | tests/test_lan_tls.py | 24 |
 | tests/test_lan_trust.py | 27 |
-| tests/test_launch_splash.py | 24 |
+| tests/test_launch_splash.py | 23 |
 | tests/test_launch_status.py | 25 |
-| tests/test_launcher_scripts.py | 89 |
+| tests/test_launcher_scripts.py | 92 |
 | tests/test_launcher_update_settings.py | 27 |
 | tests/test_lazy_bundle_calls.py | 3 |
 | tests/test_lazy_css.py | 3 |

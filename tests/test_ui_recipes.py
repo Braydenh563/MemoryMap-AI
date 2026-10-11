@@ -5349,6 +5349,12 @@ def test_one_calendar_grid_of_dom_cells() -> None:
     rather than drawing a month of its own."""
     cal = (ROOT / "frontend" / "js" / "timeline-calendar.js").read_text(encoding="utf-8")
     assert "const TIMELINE_CAL_ROWS = 3;" in cal
+    #: A press on a day opens it, and the written notes are chips with titles
+    #: wherever the cell has the room (the owner, 2026-10-11): fitted by
+    #: measuring, never by a count that ignores the cell's height.
+    assert "function timelineCalPick(" in cal and "timelineCalPick(cell.dataset.calDay)" in cal
+    assert 'event.key === "Enter" || event.key === " "' in cal
+    assert "timelineCalFit(grid)" in cal and "cell.clientHeight" in cal
     assert "<svg" not in cal and "createElementNS" not in cal, "the calendar is DOM cells, not SVG"
     assert cal.count('className = "timeline-cal-cell"') == 1, "every day is built by timelineCalCell"
     for event in ("keydown", "dragstart", "dragover", "drop"):

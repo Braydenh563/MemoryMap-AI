@@ -62,3 +62,18 @@ def test_a_meeting_sits_in_the_window_of_its_own_date(client, session):
     session.commit()
     assert meeting["id"] in _ids(client, "2031-02-03T00:00:00", "2031-02-03T23:59:59")
     assert meeting["id"] not in _ids(client, "2024-03-01T00:00:00", "2024-03-31T23:59:59")
+
+
+def test_a_note_with_a_written_out_date_sits_on_that_date(client, session):
+    """The owner, 2026-10-11: "things written on specific dates dont show".
+    A note saying "2031-02-03 at 3pm" was placed by when it was typed, since
+    only relative phrases were read; now the calendar's window for that day
+    holds it, with the clock, and the day it was written does not."""
+    made = _save(client, "Dentist appointment on 2031-02-03 at 3pm, bring forms")
+    session.get(Entry, made["id"]).created_at = datetime(2024, 3, 2, 10, 0)
+    session.commit()
+    assert made["id"] in _ids(client, "2031-02-03T00:00:00", "2031-02-03T23:59:59")
+    assert made["id"] not in _ids(client, "2024-03-01T00:00:00", "2024-03-31T23:59:59")
+    body = client.get("/timeline?kind=note&start=2031-02-03T00:00:00&end=2031-02-03T23:59:59&limit=1000").json()
+    row = next(r for r in body["rows"] if r["id"] == made["id"])
+    assert row["placed_by"] == "mentioned" and row["date"] == "2031-02-03" and row["time"] == "15:00"

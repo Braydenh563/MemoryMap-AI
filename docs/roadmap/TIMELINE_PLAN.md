@@ -232,6 +232,14 @@ disagree.
 19. **One calendar** (INBOX 768, 2026-10-10): section 9's view is the one
     grid; the reminders tab's toggle opens it filtered to reminders, and
     `renderReminderCalendar` goes.
+20. **A day cell opens the day** (the owner, 2026-10-11: "I cant click on or
+    interact with calender dates"): a press on a cell's own ground, Enter or
+    Space opens it as the Day view, and from the Day view Enter opens the
+    day in the feed (decision 18 now applies there); "+n" and the dots still
+    open the feed. A cell shows its written notes as chips with titles up to
+    the room its height measures (`timelineCalFit`), the last slot "+n more";
+    dots are the fallback for a cell too short for a chip beside its "+n"
+    (this supersedes the "dots, not rows" of decision 15 for tall cells).
 
 ### Gates
 

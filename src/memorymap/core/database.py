@@ -1170,6 +1170,11 @@ class Reminder(Base, WorkspaceMixin):
     #: An early alert, minutes before `due_at` ("1 day before"); None for none.
     #: Additive: `_add_missing_columns` puts it on an existing database.
     alert_minutes: Mapped[int | None] = mapped_column(Integer, default=None)
+    #: The day of the month a monthly or yearly repeat means (29 to 31), kept
+    #: when a short month clamps `due_at` to the 28th, so the next long month
+    #: goes back to the 31st. Null: the due day is the day. Cleared when the
+    #: person moves the due time (Brief 101b).
+    repeat_day: Mapped[int | None] = mapped_column(Integer, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     #: In the recycle bin since then (WORLD_CLASS_PLAN 5 item 10); null is live.
     #: Hidden from every read by `_hide_binned`.

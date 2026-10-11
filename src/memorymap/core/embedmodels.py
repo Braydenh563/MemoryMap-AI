@@ -457,22 +457,20 @@ def _file_size(path: Path) -> int:
         return 0
 
 
-def _snapshot_missing(snapshot: Path, floor: int) -> list[str]:
-    """What this one snapshot lacks to load: empty when it is whole."""
-    missing = []
-    modules: list = []
+def _snapshot_modules(snapshot: Path) -> tuple[list, list[str]]:
+    """A snapshot's `modules.json` list, and "modules.json" when it is empty or unreadable."""
     if _file_size(snapshot / "modules.json") == 0:
-        missing.append("modules.json")
-    else:
-        try:
-            parsed = json.loads((snapshot / "modules.json").read_text(encoding="utf-8"))
-            modules = parsed if isinstance(parsed, list) else []
-        except (OSError, ValueError):
-            missing.append("modules.json")
-    if _file_size(snapshot / "config.json") == 0:
-        missing.append("config.json")
-    if not any(_file_size(snapshot / name) > 0 for name in _TOKENIZER_FILES):
-        missing.append("tokenizer")
+        return [], ["modules.json"]
+    try:
+        parsed = json.loads((snapshot / "modules.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return [], ["modules.json"]
+    return (parsed if isinstance(parsed, list) else []), []
+
+
+def _module_configs_missing(snapshot: Path, modules: list) -> list[str]:
+    """The config.json a Pooling or Dense layer keeps in its folder, when absent."""
+    missing = []
     for module in modules:
         if not isinstance(module, dict):
             continue
@@ -483,6 +481,17 @@ def _snapshot_missing(snapshot: Path, floor: int) -> list[str]:
         if sub and isinstance(sub, str) and ".." not in sub.split("/") and kind.endswith((".Pooling", ".Dense")):
             if _file_size(snapshot / sub / "config.json") == 0:
                 missing.append(f"{sub}/config.json")
+    return missing
+
+
+def _snapshot_missing(snapshot: Path, floor: int) -> list[str]:
+    """What this one snapshot lacks to load: empty when it is whole."""
+    modules, missing = _snapshot_modules(snapshot)
+    if _file_size(snapshot / "config.json") == 0:
+        missing.append("config.json")
+    if not any(_file_size(snapshot / name) > 0 for name in _TOKENIZER_FILES):
+        missing.append("tokenizer")
+    missing.extend(_module_configs_missing(snapshot, modules))
     weights = max((_file_size(snapshot / name) for name in _WEIGHT_FILES), default=0)
     if weights == 0:
         missing.append("model weights")

@@ -415,13 +415,7 @@ class Run:
             with self._db.session() as session:
                 row = session.get(JobRun, self.kind)
                 if self._skipped:
-                    if row is not None and row.started_at == self.started_at:
-                        if self._before is None:
-                            session.delete(row)
-                        else:
-                            for name, value in self._before.items():
-                                setattr(row, name, value)
-                        session.commit()
+                    self._undo_skipped(session, row)
                     return
                 if row is None:
                     row = JobRun(kind=self.kind, started_at=self.started_at)
@@ -432,16 +426,29 @@ class Run:
                     and row.started_at > self.started_at
                 ):
                     return  # a newer run is still going and owns the row
-                row.started_at = self.started_at
-                row.finished_at = datetime.now(timezone.utc)
-                row.status = self._status
-                row.result = _clip(self.result) if self._status != "failed" else ""
-                row.error = self._error
-                row.duration_ms = round((time.monotonic() - self._t0) * 1000, 1)
+                self._write_ending(row)
                 session.commit()
         except Exception:  # noqa: BLE001  # see start
             logger.debug("could not record the end of %r", self.kind, exc_info=True)
 
+
+    def _undo_skipped(self, session, row) -> None:  # noqa: ANN001
+        """A skipped run was never a run: put the row back as it was."""
+        if row is not None and row.started_at == self.started_at:
+            if self._before is None:
+                session.delete(row)
+            else:
+                for name, value in self._before.items():
+                    setattr(row, name, value)
+            session.commit()
+
+    def _write_ending(self, row) -> None:  # noqa: ANN001
+        row.started_at = self.started_at
+        row.finished_at = datetime.now(timezone.utc)
+        row.status = self._status
+        row.result = _clip(self.result) if self._status != "failed" else ""
+        row.error = self._error
+        row.duration_ms = round((time.monotonic() - self._t0) * 1000, 1)
 
     def _to_ledger(self) -> None:
         """Keep the ending, with its lines, in the finished ring. Once."""

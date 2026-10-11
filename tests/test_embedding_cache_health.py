@@ -232,10 +232,9 @@ def test_finishing_the_repair_lets_the_model_load_again(tmp_path, monkeypatch):
 
 def test_the_rows_say_files_missing_with_reinstall():
     root = Path(__file__).resolve().parents[1] / "frontend" / "js"
-    packages = (root / "settings-packages.js").read_text(encoding="utf-8")
+    #: The embedding rows moved from the Packages pane into Search and index (INBOX 700).
     choices = (root / "embed-choices.js").read_text(encoding="utf-8")
-    for text in (packages, choices):
-        assert "Files missing" in text and "Reinstall" in text
+    assert "Files missing" in choices and "Reinstall" in choices
 
 
 def test_reinstall_clears_an_incomplete_model_even_when_search_uses_it(tmp_path, monkeypatch, app_state):

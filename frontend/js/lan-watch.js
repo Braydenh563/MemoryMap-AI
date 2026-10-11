@@ -314,9 +314,13 @@ function lanDrawPanel(holder, state, paint) {
   const head = document.createElement("div");
   head.className = "lan-panel-head";
   head.dataset.lanState = look.name;
-  const title = document.createElement("strong");
-  title.textContent = "Other devices";
-  head.append(title, lanPanelLine(`ph:${look.glyph} ${look.words}`));
+  //: A sheet's own head already says it (`openSheet`'s title).
+  if (!holder.closest(".sheet-card")) {
+    const title = document.createElement("strong");
+    title.textContent = "Other devices";
+    head.appendChild(title);
+  }
+  head.appendChild(lanPanelLine(`ph:${look.glyph} ${look.words}`));
   const parts = [head];
 
   if (!state.allow_lan && state.switched_off) {
@@ -370,7 +374,7 @@ function lanDrawPanel(holder, state, paint) {
   const rows = lanNetworkRows(state, paint);
   const trustedList = document.createElement("ul");
   trustedList.className = "entry-list";
-  trustedList.append(...(rows.trusted.length ? rows.trusted : [lanEmptyRow("None yet. Turning this on trusts the network you are on.")]));
+  trustedList.append(...(rows.trusted.length ? rows.trusted : [lanEmptyRow(state.allow_lan ? "None. Trust this network to let other devices in here." : "None yet. Turning this on trusts the network you are on.")]));
   parts.push(lanPanelHeading("Trusted networks"), trustedList);
   if (rows.untrusted.length) {
     const untrustedList = document.createElement("ul");

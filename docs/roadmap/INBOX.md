@@ -249,19 +249,6 @@ with its owner named in the entry.
      judged against written gold answers, not rule counts), first in the
      assistant brief; the empty badges and Atlas over the answer to ownerfix.
 
-892. **The owner, 2026-10-11, verbatim.** "Could we do connection to phone via
-     Bluetooth and or hotspot??" Read: a hotspot already works (it is a
-     network; an iPhone hotspot's 172.20.10.x and Windows' 192.168.137.x
-     are private, so the trusted authority covers them with no new trust).
-     Bluetooth only as the hotspot's carrier: Safari has no Web Bluetooth and
-     the app is a web page. Gap: the certificate is issued at launch, so a
-     computer that joins a hotspot while running serves one without its new
-     address (Safari: "connection lost") until a restart. Recommendation,
-     taken: re-run `lancert.ensure` and `reload` when the address set
-     changes, checked at most every 10 s from the accept loop; name hotspot
-     in the lan-help popover and the Guide's phone topic. After mergetrain
-     (lanserve and lansafe's allowed-network gate meet there).
-
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 893 ("Shouldn’t the notice be "you can only download files on your computer" or "action denied on this device"??") fixed: the refusal reads "Not available on this device. Do it on the computer MemoryMap runs on." (downloads are not refused; an export saves on the device that asked).

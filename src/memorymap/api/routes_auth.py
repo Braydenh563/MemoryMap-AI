@@ -1124,7 +1124,10 @@ def allow_this_network(
 
 @router.delete("/lan-networks/{key}", dependencies=[Depends(require_unlock)])
 def forget_network(key: str, request: Request, config: ConfigManager = Depends(get_config)) -> dict:
-    """Forget an allowed network: only ever lets fewer in, so no password."""
+    """Forget a network, trusted or not: only ever lets fewer in, so no
+    password, but the lists are this computer's to manage (INBOX 896), as
+    Stop trusting is: a phone never edits them."""
+    _require_this_computer(request)
     if not lantrust.forget_network(config.data_dir, key):
         raise HTTPException(status_code=404, detail="That network is not on the list.")
     return _lan_state(config, request)

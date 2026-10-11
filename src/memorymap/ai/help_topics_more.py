@@ -2048,6 +2048,7 @@ MORE_TOPICS.extend([
             "nothing can reach the notebook until you trust it: the wifi icon in "
             "the status bar (Alt+L) says open, closed or off, and its panel has "
             "the switch, the address and the trusted and untrusted networks. "
+            "A phone's hotspot works too, with no restart. "
             "Typing the address without https still "
             "works: the app sends the phone on to https. If the phone cannot connect, "
             "both must be on the same Wi-Fi (not a guest one) and this computer's "

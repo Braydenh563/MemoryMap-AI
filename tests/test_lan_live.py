@@ -15,6 +15,7 @@ request never installs software on the computer (core/origin.py).
 from __future__ import annotations
 
 import http.client
+import re
 import ssl
 import time
 from pathlib import Path
@@ -279,6 +280,9 @@ def test_trust_and_untrust_from_the_list_are_this_computers(lan_app):
     state = here.post(f"/auth/lan-networks/{CAFE.key}/untrust").json()
     assert state["networks"] == [] and state["untrusted"][0]["blocked"] is True
     assert here.post("/auth/lan-networks/nothing/untrust").status_code == 404
+    refused = phone.delete(f"/auth/lan-networks/{CAFE.key}")
+    assert refused.status_code == 403 and refused.json()["detail"] == REFUSAL
+    assert here.delete(f"/auth/lan-networks/{CAFE.key}").status_code == 200
 
 
 def test_switching_off_signs_every_other_device_out(lan_app):
@@ -297,6 +301,8 @@ def test_the_watch_tells_the_status_bar_the_switch_and_the_notice(lan_app):
     lantrust.mark_switched_off(deps.get_config().data_dir)
     watch = here.get("/auth/lan-watch?since=-1").json()
     assert watch["allow_lan"] is False and watch["switched_off"] and watch["live"] is False
+    # Off: the icon's words need no network, no reason and no listener error.
+    assert watch["serving"] is False and watch["network"] == "" and watch["reason"] == "" and watch["error"] == ""
     assert here.post("/auth/lan-notice/dismiss").json()["switched_off"] == ""
 
 
@@ -390,3 +396,58 @@ def test_turning_lan_mode_on_and_off_applies_without_a_restart(tmp_path, network
         assert _wait_listening(network_address, lan_port, cert, up=True, seconds=5)
     finally:
         _stop(proc)
+
+
+# ---- the status bar's Other devices icon and panel (INBOX 896) ------------
+
+FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
+
+
+def _js(name: str) -> str:
+    return (FRONTEND / "js" / name).read_text(encoding="utf-8")
+
+
+def test_the_icon_is_a_tools_doorway_hidden_until_this_computer_answers():
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    footer = html.split('<footer', 1)[1].split("</footer>", 1)[0]
+    tools = footer.split('data-status-zone="tools"', 1)[1].split('data-status-zone="control"', 1)[0]
+    button = re.search(r'<button id="status-lan"[^>]*>', tools)
+    assert button, "the Other devices icon left the tools zone"
+    for attr in ('class="status-item icon-only hidden"', 'data-status-slot="lan"', 'data-this-computer="hide"', 'aria-label="Other devices"'):
+        assert attr in button.group(0), attr
+    # The panel lives outside the footer: its backdrop-filter would contain it.
+    assert 'id="lan-popover"' not in footer and 'id="lan-popover"' in html
+
+
+def test_the_watch_paints_the_icon_and_keeps_going_while_lan_mode_is_off():
+    watch = _js("lan-watch.js")
+    once = watch.split("async function lanWatchOnce(", 1)[1].split("\n}\n", 1)[0]
+    assert 'response.status === 403) return "stop"' in once
+    assert 'if (!state.serving) return "stop"' not in once
+    assert "lanPaintIcon(lanLookFromWatch(state))" in once
+    assert "lanNoticeSwitchedOff(state.switched_off)" in once
+    # The recipes: the help popover on a desktop, the sheet without a box.
+    assert "wireHelpPopover(button, panel)" in watch and "openSheet({" in watch
+    assert "stopImmediatePropagation()" in watch and "getBoundingClientRect().width" in watch
+    # One switch and one set of network rows, shared with Settings.
+    assert "lanSwitch(!state.allow_lan)" in watch and "lanNetworkRows(state, paint)" in watch
+    assert 'shortcutTitle(`Other devices. ${look.words}`, "lanPanel")' in watch
+
+
+def test_the_icon_is_reachable_by_key_palette_slot_and_phone_row():
+    wiring = _js("settings-wiring.js")
+    assert 'lanPanel: { keys: "Alt+L"' in wiring and "lanPanel: () => openLanPanel()," in wiring
+    assert 'chord: "lanPanel", act: () => openLanPanel()' in _js("settings-panes.js")
+    assert 'key: "lan",' in _js("settings-controls.js").split("const STATUS_SLOTS", 1)[1].split("];", 1)[0]
+    assert '{ id: "status-lan", label: "ph:wifi-high Other devices" }' in _js("phone-shell.js")
+    assert "function openLanPanel()" in _js("status.js")
+
+
+def test_settings_lists_untrusted_networks_with_trust_and_forget():
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    assert 'id="account-lan-untrusted"' in html and "Untrusted networks" in html
+    controls = _js("settings-controls.js")
+    rows = controls.split("function lanNetworkRows(", 1)[1].split("\n}\n", 1)[0]
+    for route in ('path(network, "untrust")', "lanTrustNetwork(network, paint)", 'method: "DELETE"'):
+        assert route in rows, route
+    assert "/trust`" in controls.split("async function lanTrustNetwork(", 1)[1].split("\n}\n", 1)[0]

@@ -991,22 +991,23 @@ async function clearDoneReminders() {
   }
   //: One Undo for the lot (INBOX 537): they go to the recycle bin and come
   //: back from it (WORLD_CLASS_PLAN 5 item 10).
-  const drop = async () => {
-    //: Every delete is tried; how many failed is said once (audit
-    //: 2026-10-05, FE-12), where a silent catch let them come back unexplained.
+  //: Every delete is tried; how many failed is said once (audit 2026-10-05,
+  //: FE-12), where a silent catch let them come back unexplained, with a Try
+  //: again for just those rows.
+  const drop = async (rows = done) => {
     const results = await Promise.all(
-      done.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
+      rows.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
     );
-    const failed = results.filter((ok) => !ok).length;
-    if (failed) toast(`Couldn't delete ${failed} of the reminders.`, true);
+    const left = rows.filter((_, i) => !results[i]);
+    if (left.length) toast(`Couldn't delete ${left.length} of the reminders.`, true, { action: ["Try again", () => drop(left)] });
     loadReminders();
   };
-  const remake = async () => {
+  const remake = async (rows = done) => {
     const results = await Promise.all(
-      done.map((r) => api(`/reminders/${r.id}/restore`, { method: "POST" }).then(() => true, () => false))
+      rows.map((r) => api(`/reminders/${r.id}/restore`, { method: "POST" }).then(() => true, () => false))
     );
-    const failed = results.filter((ok) => !ok).length;
-    if (failed) toast(`Couldn't bring back ${failed} of the reminders.`, true);
+    const left = rows.filter((_, i) => !results[i]);
+    if (left.length) toast(`Couldn't bring back ${left.length} of the reminders.`, true, { action: ["Try again", () => remake(left)] });
     loadReminders();
   };
   await drop();

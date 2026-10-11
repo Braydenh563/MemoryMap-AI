@@ -268,8 +268,8 @@ FAULTS = {
         '"Couldn\'t reset those settings."': 'resetting settings failed',
     },
     'shell-reminders.js': {
-        "`Couldn't delete ${failed} of the reminders.`": 'a bulk delete partly failed',
-        "`Couldn't bring back ${failed} of the reminders.`": 'a bulk restore partly failed',
+        "`Couldn't delete ${left.length} of the reminders.`": 'a bulk delete partly failed',
+        "`Couldn't bring back ${left.length} of the reminders.`": 'a bulk restore partly failed',
     },
     'update-dialogs.js': {
         'progress.textContent || "Couldn\'t apply the update."': "the update step failed; the text is the step's own error",

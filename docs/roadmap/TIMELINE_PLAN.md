@@ -273,6 +273,12 @@ disagree.
 26. **No d3 time scale for the Timeline** (VC2): the labels are
     `Intl.DateTimeFormat`, and loading the 280 KB d3 bundle to draw them would
     undo the boot diet; the row stays a vendor-use lead, not a build.
+27. **No `events` table** (BACKLOG "Events as bands"): what an events table
+    would hold is already on the grid as meetings (a note typed Meeting with a
+    `date:`), reminders (at their time) and notes by the dates they name
+    (decision 21), each filterable by kind. A fourth kind that the person
+    must create separately, with a second place to record the same
+    appointment, is the duplication decision 2 exists to prevent.
 
 ### Gates
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import json
+import logging
 import re
 import socket
 import struct
@@ -27,6 +28,8 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 COMMAND_SECONDS = 3.0
 POWERSHELL_SECONDS = 8.0
@@ -333,5 +336,6 @@ def read() -> Network | None:
         if sys.platform == "win32":
             return read_windows()
     except Exception:  # noqa: BLE001  # never let reading the network stop the app: unknown asks
+        log.debug("Could not read this computer's network; treating it as unknown.", exc_info=True)
         return None
     return None

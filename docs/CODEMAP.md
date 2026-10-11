@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5678, frontend ids 2427, CSS sections 491, backend routes 565, backend modules 4808, test files 1088, tests 9986, plan headings 996.
+Counts: frontend functions 5678, frontend ids 2427, CSS sections 491, backend routes 565, backend modules 4809, test files 1088, tests 9986, plan headings 996.
 
 ## Frontend functions (5678)
 
@@ -9952,7 +9952,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4808)
+## Backend modules (4809)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -14743,13 +14743,13 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `refresh_own_prefixes` | src/memorymap/core/lanserve.py:126 |
 | `serve` | src/memorymap/core/lanserve.py:352 |
 
-### src/memorymap/core/lantrust.py (43)
+### src/memorymap/core/lantrust.py (44)
 
 | Name | File:line |
 |---|---|
 | `_bump` | src/memorymap/core/lantrust.py:71 |
 | `_entry` | src/memorymap/core/lantrust.py:176 |
-| `_expire` | src/memorymap/core/lantrust.py:490 |
+| `_expire` | src/memorymap/core/lantrust.py:497 |
 | `_note_untrusted` | src/memorymap/core/lantrust.py:195 |
 | `_now_text` | src/memorymap/core/lantrust.py:137 |
 | `_online` | src/memorymap/core/lantrust.py:211 |
@@ -14759,37 +14759,38 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `allow_current` | src/memorymap/core/lantrust.py:295 |
 | `clear_switched_off` | src/memorymap/core/lantrust.py:415 |
 | `current_network` | src/memorymap/core/lantrust.py:256 |
-| `decide` | src/memorymap/core/lantrust.py:524 |
+| `decide` | src/memorymap/core/lantrust.py:532 |
 | `device_hash` | src/memorymap/core/lantrust.py:444 |
 | `device_known` | src/memorymap/core/lantrust.py:450 |
-| `device_name` | src/memorymap/core/lantrust.py:467 |
-| `devices` | src/memorymap/core/lantrust.py:569 |
+| `device_name` | src/memorymap/core/lantrust.py:474 |
+| `devices` | src/memorymap/core/lantrust.py:577 |
 | `evaluate` | src/memorymap/core/lantrust.py:151 |
-| `forget_device` | src/memorymap/core/lantrust.py:576 |
+| `forget_device` | src/memorymap/core/lantrust.py:584 |
 | `forget_network` | src/memorymap/core/lantrust.py:310 |
-| `hold` | src/memorymap/core/lantrust.py:495 |
+| `hold` | src/memorymap/core/lantrust.py:502 |
 | `is_open` | src/memorymap/core/lantrust.py:252 |
 | `load` | src/memorymap/core/lantrust.py:88 |
 | `mark_switched_off` | src/memorymap/core/lantrust.py:407 |
 | `mark_turned_on` | src/memorymap/core/lantrust.py:392 |
 | `network_for_display` | src/memorymap/core/lantrust.py:263 |
 | `note_used` | src/memorymap/core/lantrust.py:375 |
-| `pending` | src/memorymap/core/lantrust.py:514 |
+| `pending` | src/memorymap/core/lantrust.py:522 |
 | `persist_use` | src/memorymap/core/lantrust.py:381 |
+| `plain_address` | src/memorymap/core/lantrust.py:455 |
 | `refresh` | src/memorymap/core/lantrust.py:225 |
 | `remember_current` | src/memorymap/core/lantrust.py:280 |
-| `reset_for_tests` | src/memorymap/core/lantrust.py:589 |
+| `reset_for_tests` | src/memorymap/core/lantrust.py:597 |
 | `save` | src/memorymap/core/lantrust.py:125 |
 | `set_flag` | src/memorymap/core/lantrust.py:431 |
-| `settle` | src/memorymap/core/lantrust.py:562 |
+| `settle` | src/memorymap/core/lantrust.py:570 |
 | `status` | src/memorymap/core/lantrust.py:271 |
-| `touch_device` | src/memorymap/core/lantrust.py:455 |
+| `touch_device` | src/memorymap/core/lantrust.py:461 |
 | `touch_version` | src/memorymap/core/lantrust.py:424 |
 | `trust_network` | src/memorymap/core/lantrust.py:324 |
 | `untrust_network` | src/memorymap/core/lantrust.py:347 |
 | `unused_since` | src/memorymap/core/lantrust.py:403 |
 | `version` | src/memorymap/core/lantrust.py:77 |
-| `wait_decision` | src/memorymap/core/lantrust.py:544 |
+| `wait_decision` | src/memorymap/core/lantrust.py:552 |
 
 ### src/memorymap/core/launch_status.py (7)
 
@@ -14908,26 +14909,26 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `Network` | src/memorymap/core/netid.py:37 |
-| `_default_route` | src/memorymap/core/netid.py:109 |
-| `_hex_ip` | src/memorymap/core/netid.py:105 |
-| `_linux_address` | src/memorymap/core/netid.py:181 |
-| `_linux_virtual` | src/memorymap/core/netid.py:157 |
-| `_route_subnet` | src/memorymap/core/netid.py:123 |
-| `_run` | src/memorymap/core/netid.py:91 |
-| `_subnet` | src/memorymap/core/netid.py:84 |
-| `_windows_category` | src/memorymap/core/netid.py:259 |
-| `_windows_subnet` | src/memorymap/core/netid.py:264 |
-| `normal_mac` | src/memorymap/core/netid.py:74 |
-| `parse_proc_arp` | src/memorymap/core/netid.py:147 |
-| `parse_proc_route` | src/memorymap/core/netid.py:137 |
-| `parse_route_get` | src/memorymap/core/netid.py:211 |
-| `parse_route_print` | src/memorymap/core/netid.py:295 |
-| `parse_windows_json` | src/memorymap/core/netid.py:269 |
-| `read` | src/memorymap/core/netid.py:326 |
-| `read_linux` | src/memorymap/core/netid.py:192 |
-| `read_macos` | src/memorymap/core/netid.py:222 |
-| `read_windows` | src/memorymap/core/netid.py:311 |
+| `Network` | src/memorymap/core/netid.py:40 |
+| `_default_route` | src/memorymap/core/netid.py:112 |
+| `_hex_ip` | src/memorymap/core/netid.py:108 |
+| `_linux_address` | src/memorymap/core/netid.py:184 |
+| `_linux_virtual` | src/memorymap/core/netid.py:160 |
+| `_route_subnet` | src/memorymap/core/netid.py:126 |
+| `_run` | src/memorymap/core/netid.py:94 |
+| `_subnet` | src/memorymap/core/netid.py:87 |
+| `_windows_category` | src/memorymap/core/netid.py:262 |
+| `_windows_subnet` | src/memorymap/core/netid.py:267 |
+| `normal_mac` | src/memorymap/core/netid.py:77 |
+| `parse_proc_arp` | src/memorymap/core/netid.py:150 |
+| `parse_proc_route` | src/memorymap/core/netid.py:140 |
+| `parse_route_get` | src/memorymap/core/netid.py:214 |
+| `parse_route_print` | src/memorymap/core/netid.py:298 |
+| `parse_windows_json` | src/memorymap/core/netid.py:272 |
+| `read` | src/memorymap/core/netid.py:329 |
+| `read_linux` | src/memorymap/core/netid.py:195 |
+| `read_macos` | src/memorymap/core/netid.py:225 |
+| `read_windows` | src/memorymap/core/netid.py:314 |
 
 ### src/memorymap/core/ocr.py (37)
 

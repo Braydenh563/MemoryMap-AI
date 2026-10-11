@@ -452,8 +452,15 @@ def device_known(data_dir: Path, raw: str | None) -> bool:
     return bool(found) and any(d["id"] == found for d in load(data_dir)["devices"])
 
 
+def plain_address(address: str) -> str:
+    """An IPv4 client on a dual-stack socket arrives as ::ffff:10.1.0.15; the
+    person reads, and the lists keep, 10.1.0.15."""
+    return address[7:] if address[:7].lower() == "::ffff:" and "." in address else address
+
+
 def touch_device(data_dir: Path, raw: str | None, address: str) -> None:
     found = device_hash(raw)
+    address = plain_address(address)
     with _lock:
         state = load(data_dir)
         for device in state["devices"]:
@@ -495,6 +502,7 @@ def _expire(now: float) -> None:
 def hold(raw: str, name: str, address: str) -> dict:
     """Hold a sign-in from a new device until this computer answers."""
     found = device_hash(raw)
+    address = plain_address(address)
     now = time.time()
     with _lock:
         _expire(now)

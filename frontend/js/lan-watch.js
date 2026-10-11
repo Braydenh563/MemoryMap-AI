@@ -271,7 +271,7 @@ function lanRefreshOpenPanel() {
 
 async function lanFillPanel(holder, after) {
   if (!holder.childElementCount) {
-    holder.replaceChildren(lanPanelLine("ph:circle-notch Checking", "muted"));
+    holder.replaceChildren(lanPanelLine("ph:spin Checking", "muted"));
     after?.();
   }
   //: The address block, the network rows and the switch are Settings' own

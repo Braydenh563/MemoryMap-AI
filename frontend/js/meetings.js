@@ -1168,7 +1168,7 @@ async function meetingTranscribeTake(saved, length) {
         if (meetingTake.id !== saved.id) return;
         setMeetingState("saved");
         if (run.state === "failed") meetingSay(`Saved a ${length} recording, but it couldn't be transcribed: ${run.error}`, true);
-        else meetingSay(`Stopped transcribing. The ${length} of audio is kept in Recordings; Transcribe from its ⋯ starts again.`);
+        else meetingSay(`Stopped transcribing. The ${length} of audio is kept in Recordings; Transcribe in its menu starts again.`);
       },
     });
   } catch (error) {

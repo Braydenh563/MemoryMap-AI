@@ -40,7 +40,7 @@ KNOWN_SHORT = frozenset(
 #: Small words a one-letter slip in a short token is read towards, with how
 #: common each is: the prior that makes "odf the" "of" and not "off".
 FUNCTION_PRIOR = {
-    "of": 0.6, "in": 0.4, "on": 0.4, "to": 0.4, "and": 0.6, "the": 0.6, "for": 0.3, "with": 0.3, "from": 0.3,
+    "of": 0.6, "be": 0.3, "in": 0.4, "on": 0.4, "to": 0.4, "and": 0.6, "the": 0.6, "for": 0.3, "with": 0.3, "from": 0.3,
     "but": 0.3, "not": 0.3, "you": 0.3, "are": 0.3, "was": 0.3, "can": 0.3, "all": 0.1, "or": 0.3, "is": 0.3,
     "it": 0.3, "at": 0.2, "by": 0.2, "an": 0.2, "my": 0.2, "me": 0.2, "if": 0.2, "so": 0.2, "do": 0.2,
     "must": 0.2, "will": 0.2, "that": 0.3, "this": 0.3, "have": 0.3, "what": 0.3, "when": 0.3, "how": 0.3,

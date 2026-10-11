@@ -175,7 +175,7 @@ def test_the_acknowledgement_skips_the_last_one_used_even_across_a_plain_turn():
         first = second
 
 
-@pytest.mark.parametrize("typo", ["redeisgn", "knoe", "thier", "suer", "noficiations", "proffesionalising", "westen", "wierd", "ahve", "hwo", "liks", "odf", "mut"])
+@pytest.mark.parametrize("typo", ["redeisgn", "knoe", "thier", "suer", "noficiations", "proffesionalising", "westen", "wierd", "ahve", "hwo", "liks", "odf", "mut", "everythign", "becaus", "ehte", "compoiser", "ot", "eb", "coule", "speach", "everythinf", "liek", "ther", "ist", "bototm", "restert", "typeos", "linal", "capble", "tis"])
 def test_the_owners_misspellings_are_not_in_the_word_list(typo):
     from memorymap.ai import spelling
 

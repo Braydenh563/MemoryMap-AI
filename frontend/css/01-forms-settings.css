@@ -3212,6 +3212,11 @@ mark.global-find-hit.global-find-current {
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
+  /* Should a dialog ever be taller than the screen, its top (and its close)
+     stays reachable and the overlay scrolls, rather than centring it off
+     both edges (the iPhone Settings report, beside the dvh cap below). */
+  align-items: safe center;
+  overflow-y: auto;
   justify-content: center;
   /* Was 55, well below #agent-monitor's fixed z-index: 1000: found live:
      Playwright clicking through every Settings nav button hit a real 30s
@@ -3256,6 +3261,12 @@ mark.global-find-hit.global-find-current {
 .modal-card {
   width: min(880px, 96vw);
   max-height: 88vh;
+  /* The visible height, not the large one (the owner, 2026-10-11, iPhone
+     Safari: "the bottom of the settings page gets cut off", "I cant scroll
+     or close the settings page, I think the top is cut off as well"). On
+     iOS `vh` is the viewport with the toolbars hidden, so with them showing
+     the dialog ran past both edges of the overlay and its close with it. */
+  max-height: 88dvh;
   display: flex;
   flex-direction: column;
   margin-bottom: 0;

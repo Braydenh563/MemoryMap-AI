@@ -1944,6 +1944,7 @@ body.graph-fullscreen-on .sidebar-panel {
   }
   .modal-card {
     max-height: 96vh;
+    max-height: 96dvh;
     width: 96vw;
   }
 }

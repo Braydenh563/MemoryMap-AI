@@ -9,8 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Ask and Chat: "can you search the web?", "can you do maths?" or "what can you do?" is answered about the app, whether and how, and whether its switch is on, never searched for, with or without a model.
 - Ask and Chat with no model: an answer about your notes now reads like a person wrote it, the count and the days first, the facts under bold labels in your terms, what the notes do not cover, and one offer you can press (a reminder, a checklist); no bracketed dates, quote bars, Grounded in chips or count under it.
+- Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
+- Attach: a picture's selection circle sits inside its corner.
+- Ask: a question about notes in one category stays inside that category rather than widening into another.
 - Backups: every start holds the backups folder to the number you keep, so a safety copy before an update no longer leaves one too many.
 - Settings: the bar that marks a changed setting sits in the margin beside the row rather than on the text.
+- Chat: with no model, Agent answers with the app's own tools first: the time in a named place ("what's the time in western australia"), a bare sum ("5 + 5"), your notebook's counts in any case, the notes on a topic, and "can you search the web?" (whether web search is on, and how to turn it on). The thinking line says "Working it out without a model…", never "Waking the model…".
+- Chat: a stray backslash or a run of spaces is cleaned from the question and from every tool's one-line arguments; a search sent with no words searches the question's topic.
+- Chat: with the Needle extra, a tool's result is said as the answer (the time, the sum, the counts, the notes found with a line each), never "its result is in the step above"; Needle is never offered a question to ask you.
+- Agent: a question with only one choice is never shown and never retried; the agent answers or acts instead.
 - Skills: every change a skill or the agent makes to a document, a board, a map or a saved skill is read back before it is reported as done, as notes, tags and reminders already were.
 - Skills: a skill can cap its own tool calls and steps; a run that passes a cap stops, says which, and keeps its changes for Undo.
 - Skills: with small model mode on, a skill measured as unreliable on small models is shown as needing a larger model, with the reason.
@@ -31,6 +38,16 @@ below). Versioning is `0.x` while the app stabilises.
 - Dashboard: a new notebook starts in three steps (your name, typed in place; a first note; a first answer from your notes, which needs no AI model), each ticked when done and kept past the first note; saving the first note offers Ask about it. Try a sample notebook adds eight example notes once per notebook, and Remove the sample notes moves them to the bin.
 - Help: the manual, every topic Atlas answers from on one page with contents, a search that keeps the topics holding every word, and print (Settings, Help, Open the manual, or the Guide's ... menu). Made from the Guide's own topics, so it cannot drift from the help.
 - Settings: a setting changed from its default shows a bar at its edge and a reset at the end of its row, and a section with changes offers Reset N changes in its title bar; appearance settings kept only in this browser say This browser. Import & export, Your settings: export every setting as one .json file and import one back, each setting checked on its own, with what was skipped named and Undo.
+- Whiteboard: a draw.io file with several pages comes in whole, each page in a frame named after it, side by side; the Pages tab lists them and Present walks them.
+- Whiteboard: Edit data, as in draw.io: the Format panel's new Data tab keeps named values on a shape, connector, text box, picture, frame or table.
+- Whiteboard: tables, as in draw.io: Insert, Table places a grid of text cells; double-click a cell to type, Tab to move on, and right-click to add or delete rows and columns or make the first row a header.
+- Whiteboard: a hand-drawn look, as in Excalidraw: the View menu's Hand-drawn look draws every shape and connector with rough strokes, the same each time; one shape can differ from its Format panel.
+- Whiteboard: a current layer, as in draw.io: press a named layer's name in Layers and everything new goes on it, drawn, typed, pasted or placed from the library.
+- Mind maps: stamps and votes on a topic, as on a Miro board: its menu, Stamps, adds a vote, a heart, a star, an agree, a question or a hot, each with its count; press a stamp on the topic to add one more.
+- Mind maps export as XMind (.xmind) from the export dialog, keeping notes, links, labels, callouts, priorities, tasks and each branch's structure; an XMind file imported now brings the same back.
+- Mind maps: labels under a topic, as in XMind: its menu, Topic, Add labels… writes up to eight short tags, drawn as a row of chips under its words; the exports keep them.
+- Mind maps: a topic can carry a callout, a few words in a bubble over it (its menu, Topic, Add a callout…); double-click the bubble to change it. The map makes room for it and the exports keep it.
+- Mind maps: a branch can have its own structure, as in XMind: a topic's menu, Structure, lays the branch under it out as a logic chart, an org chart, a tree table, a timeline, a fishbone, both sides, a tree or radial while the rest of the map keeps its layout.
 - Graph: changing the layout, a return to the tab or a saved view moves the notes from where they were, with the camera easing to the new frame (no more vanishing and reappearing); a tree, radial or arc fits the free space, notes new to the picture fade in, and topic outlines are drawn on the force layout only.
 - Graph: the head's '?', settings and ⋯ menus close each other when one opens, so they no longer stack on top of each other (INBOX 796).
 - Graph: a fresh open shows the layout settling again (the notes move into a frame already set on where they end, about a second, the same on a return to the tab), Fit fills the space the dock, legend, minimap, zoom strip and any open panel leave, a fitted map refits when a panel opens or closes, and a small map spreads so its dots have room (INBOX 775, 792).

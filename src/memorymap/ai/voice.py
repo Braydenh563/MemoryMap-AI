@@ -83,7 +83,16 @@ def transcribe_segments(audio_path: Path, model_size: str = "base") -> list[dict
             "Couldn't load the speech model. The first use downloads it, so "
             "check your internet connection and try again."
         ) from exc
-    segments, _info = model.transcribe(str(audio_path))
+    try:
+        segments, _info = model.transcribe(str(audio_path))
+    except TypeError as exc:
+        #: faster-whisper 1.1 opens the file with `av.open(..., metadata_errors=...)`,
+        #: an argument PyAV 14 removed, so every clip failed on a fresh install
+        #: (the owner's log, 2026-10-11). Decoding it here and handing over the
+        #: samples skips that call on any pair of versions.
+        if "metadata_errors" not in str(exc):
+            raise
+        segments, _info = model.transcribe(_decode_samples(audio_path))
     #: Each segment with its times (28.5 row 7): a transcript line seeks the
     #: player to its moment, and SRT and VTT are written from these.
     return [
@@ -91,3 +100,23 @@ def transcribe_segments(audio_path: Path, model_size: str = "base") -> list[dict
         for segment in segments
         if segment.text.strip()
     ]
+
+
+def _decode_samples(audio_path: Path, rate: int = 16000):  # noqa: ANN202
+    """The clip as mono float32 samples at Whisper's 16 kHz, decoded with PyAV
+    directly: the same steps as faster-whisper's own `decode_audio` (MIT),
+    without the argument newer PyAV refuses."""
+    import av
+    import numpy as np
+
+    resampler = av.AudioResampler(format="s16", layout="mono", rate=rate)
+    chunks = []
+    with av.open(str(audio_path), mode="r") as container:
+        for frame in container.decode(audio=0):
+            for out in resampler.resample(frame):
+                chunks.append(out.to_ndarray().reshape(-1))
+        for out in resampler.resample(None):
+            chunks.append(out.to_ndarray().reshape(-1))
+    if not chunks:
+        return np.zeros(0, dtype=np.float32)
+    return np.concatenate(chunks).astype(np.float32) / 32768.0

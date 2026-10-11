@@ -6479,6 +6479,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="wb-menu-item" data-wb-insert="sticky"><i class="ph ph-note ph-lead" aria-hidden="true"></i><span>Sticky note</span><kbd>click</kbd></button>
               <button type="button" class="wb-menu-item" data-wb-insert="text"><i class="ph ph-text-t ph-lead" aria-hidden="true"></i><span>Text box</span><kbd>T</kbd></button>
               <button type="button" class="wb-menu-item" data-wb-insert="frame" data-wb-surface="board"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Frame</span><kbd>F</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="insert-table" data-wb-surface="board"><i class="ph ph-table ph-lead" aria-hidden="true"></i><span>Table</span></button>
               <button type="button" class="wb-menu-item" data-wb-insert="image"><i class="ph ph-image ph-lead" aria-hidden="true"></i><span>Image from a file…</span></button>
               <button type="button" class="wb-menu-item" data-wb-insert="note"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span>A note from the library</span></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="open-library"><i class="ph ph-shapes ph-lead" aria-hidden="true"></i><span>Shapes, icons and frames…</span></button>
@@ -6606,6 +6607,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <label class="wb-menu-row wb-snap-label" title="Snap items to the grid while dragging"><span><i class="ph ph-magnet ph-lead" aria-hidden="true"></i>Snap to grid</span><input type="checkbox" id="wb-snap-toggle"></label>
               <label class="wb-menu-row wb-snap-label" data-wb-surface="board" title="Draw the bottom corner of this board's sticky notes folded over; a note's Format panel can differ"><span><i class="ph ph-note ph-lead" aria-hidden="true"></i>Folded sticky corners</span><input type="checkbox" id="wb-sticky-fold" checked></label>
+              <label class="wb-menu-row wb-snap-label" data-wb-surface="board" title="Draw this board's shapes and lines rough, as by hand; a shape's Format panel can differ"><span><i class="ph ph-scribble-loop ph-lead" aria-hidden="true"></i>Hand-drawn look</span><input type="checkbox" id="wb-rough-toggle"></label>
             </div>
             <!-- Map views (MINDMAP_PLAN.md §5 items 19 and 20). Both rows
                  are hidden on an ordinary whiteboard by `wbSyncMapChrome`,
@@ -7734,6 +7736,7 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" role="tab" id="wb-format-tab-style" data-format-tab="style" aria-controls="wb-format-body" aria-selected="true">Style</button>
         <button type="button" role="tab" id="wb-format-tab-text" data-format-tab="text" aria-controls="wb-format-body" aria-selected="false" tabindex="-1">Text</button>
         <button type="button" role="tab" id="wb-format-tab-arrange" data-format-tab="arrange" aria-controls="wb-format-body" aria-selected="false" tabindex="-1">Arrange</button>
+        <button type="button" role="tab" id="wb-format-tab-data" data-format-tab="data" aria-controls="wb-format-body" aria-selected="false" tabindex="-1">Data</button>
       </div>
       <div id="wb-format-body" class="wb-format-body" role="tabpanel" aria-labelledby="wb-format-tab-style">
         <p id="wb-format-empty" class="muted empty-line">Select something on the board to format it.</p>
@@ -7756,6 +7759,7 @@ Link to another note with [[its first few words]]."></textarea>
           </label>
           <div class="wb-fmt-row" data-fmt="fold"><span class="wb-fmt-label">Folded corner</span><span class="wb-fmt-buttons"><label class="wb-snap-label" title="Draw this note's bottom corner folded over; off, the paper is flat"><input type="checkbox" id="wb-fmt-fold" aria-label="Folded corner"></label></span></div>
           <div class="wb-fmt-row" data-fmt="shadow"><span class="wb-fmt-label">Shadow</span><span class="wb-fmt-buttons"><label class="wb-snap-label" title="A soft shadow under it"><input type="checkbox" id="wb-fmt-shadow" aria-label="Shadow"></label></span></div>
+          <div class="wb-fmt-row" data-fmt="rough"><span class="wb-fmt-label">Hand-drawn</span><span class="wb-fmt-buttons"><label class="wb-snap-label" title="Draw its lines rough, as by hand; the View menu sets it for the whole board"><input type="checkbox" id="wb-fmt-rough" aria-label="Hand-drawn"></label></span></div>
           <label class="wb-fmt-row" data-fmt="route"><span class="wb-fmt-label">Line shape</span>
             <select id="wb-fmt-route" aria-label="Line shape" title="Line shape">
               <option value="curved">Curved</option>
@@ -7827,6 +7831,14 @@ Link to another note with [[its first few words]]."></textarea>
             </span>
           </div>
           <div id="wb-format-commands" class="wb-fmt-commands"></div>
+        </section>
+        <!-- Edit data (draw.io's; canvasdepth2): an item's own named values. -->
+        <section class="wb-fmt-section" data-format-panel="data" aria-label="Data" hidden>
+          <div class="wb-fmt-props" data-fmt="props">
+            <p class="muted wb-lib-keys">Named values on this item, kept with it and in its exports.</p>
+            <ul id="wb-fmt-props" class="wb-fmt-prop-list" aria-label="Custom properties"></ul>
+            <button type="button" id="wb-fmt-prop-add" class="ghost small" aria-label="Add a property"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>Add a property</button>
+          </div>
         </section>
       </div>
     </aside>

@@ -57,9 +57,11 @@ from __future__ import annotations
 import ctypes
 import json
 import os
+import re
 import sys
 import threading
 import time
+from datetime import datetime
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -203,6 +205,77 @@ def _date_fact() -> str:
     return time.strftime("Today is %A, %Y-%m-%d.")
 
 
+#: Tools needle is never offered (INBOX 801: every run ended "Couldn't ask
+#: user"): asking the person mid-run, and the tools that hand their work to a
+#: chat model (a plan, a skill, a compressed chat, a contradiction or link
+#: audit). With no model they can only fail, so they are not planned.
+NOT_WITHOUT_A_MODEL = frozenset({
+    "ask_user", "make_plan", "run_skill", "save_skill", "compress_chat", "find_contradictions", "audit_link_reasons",
+})
+
+def _cleaned_calls(calls: list, schemas: list[dict], text: str) -> list[dict]:
+    """needle's calls with their arguments cleaned (INBOX 801: "NOTEBOOK
+    STATS" called search_notes with an empty query): every string tidied, an
+    empty search query given the request's topic, and a call still missing a
+    required string, or naming a tool it was not offered, dropped."""
+    offered = {s.get("name"): s for s in schemas}
+    out = []
+    for call in calls:
+        if not isinstance(call, dict) or call.get("name") not in offered:
+            continue
+        args = _cleaned_arguments(call.get("arguments") or {}, offered[call["name"]].get("parameters") or {}, text)
+        if args is not None:
+            out.append({"function": {"name": call["name"], "arguments": args}})
+    return out
+
+
+def _cleaned_arguments(arguments: dict, parameters: dict, text: str) -> dict | None:
+    """One call's arguments tidied, an empty query filled with the topic;
+    None when a required string is still empty."""
+    from memorymap.ai import question_noise
+
+    args = {k: question_noise.tidy(v) if isinstance(v, str) else v for k, v in arguments.items()}
+    if "query" in (parameters.get("properties") or {}) and not args.get("query"):
+        args["query"] = question_noise.topic_of(text)
+    if any(isinstance(args.get(r, ""), str) and not args.get(r) for r in parameters.get("required") or []):
+        return None
+    return args
+
+
+def _said_by_tools(messages: list[dict]) -> str:
+    """What the tools since the last request said, each as an answer (INBOX
+    801: "it doesnt output tool results with the composer"): a result the
+    realiser can say (`realise.tool_answer`: the time, a sum, counts, the
+    notes found) in its words, an error as the reason, anything else by its
+    own label ("Created a note"). Never the raw JSON, never "see the step"."""
+    said = []
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            break
+        said.append(_said_by_one(str(message.get("tool_name") or ""), _text(message.get("content")).strip()))
+    return "\n\n".join(reversed([s for s in said if s]))
+
+
+def _said_by_one(name: str, words: str) -> str:
+    from memorymap.ai import realise
+
+    if words[:1] not in ("{", "["):
+        return words[:600]
+    try:
+        result = json.loads(words)
+    except ValueError:
+        result = None
+    if not isinstance(result, dict):
+        return "Done."
+    if result.get("error"):
+        return f"That did not work: {str(result['error'])[:300]}"
+    shown = realise.tool_answer(name, result, datetime.now().date())
+    if shown:
+        return shown["text"]
+    label = re.sub(r"^ph:[\w-]+\s*", "", str(result.get("label") or "")).strip()
+    return f"{label}." if label and not label.endswith(".") else (label or "Done.")
+
+
 class NeedleProvider(Provider):
     """A `Provider` that can only call tools. See the module docstring."""
 
@@ -253,32 +326,18 @@ class NeedleProvider(Provider):
         last = messages[-1] if messages else {}
         if last.get("role") == "tool":
             # The tools have run. There is no model to write the reply, so the
-            # reply is what they said, in order, since the last request. A
-            # tool that answers in JSON (most of the read tools) is not shown
-            # raw: measured end to end, `notebook_overview`'s result came out
-            # as a JSON blob in the chat bubble. Its step row above already
-            # carries the result, so the reply names the step instead.
-            said = []
-            for message in reversed(messages):
-                if message.get("role") != "tool":
-                    break
-                words = _text(message.get("content")).strip()
-                if words[:1] in ("{", "["):
-                    step = message.get("tool_name") or "the step"
-                    words = f"Done: {step} ran, and its result is in the step above."
-                said.append(words[:600])
-            return self._reply("\n".join(reversed([s for s in said if s])) or "Done.", [], started)
+            # reply is what they said, in order, since the last request.
+            return self._reply(_said_by_tools(messages) or "Done.", [], started)
 
         text = next(
             (_text(m.get("content")) for m in reversed(messages) if m.get("role") == "user"), ""
         )
-        schemas = [t["function"] for t in tools or [] if isinstance(t, dict) and t.get("function")]
-        answer = self._engine().complete(_date_fact(), json.dumps(schemas), text)
-        raw_calls = [
-            {"function": {"name": c.get("name", ""), "arguments": c.get("arguments") or {}}}
-            for c in answer.get("function_calls") or []
-            if isinstance(c, dict)
+        schemas = [
+            t["function"] for t in tools or []
+            if isinstance(t, dict) and t.get("function") and t["function"].get("name") not in NOT_WITHOUT_A_MODEL
         ]
+        answer = self._engine().complete(_date_fact(), json.dumps(schemas), text)
+        raw_calls = _cleaned_calls(answer.get("function_calls") or [], schemas, text)
         return self._reply("" if raw_calls else NO_TOOL_FITS, raw_calls, started, answer)
 
     def chat_tools_stream(

@@ -934,6 +934,25 @@ def _get_current_time(session: Session, args: dict) -> dict:
     from memorymap.core.config import user_now
 
     now = user_now(deps.get_config())
+    place = " ".join(str(args.get("place") or "").split())[:60]
+    if place:
+        #: The time somewhere else (INBOX 801): the place read by the same
+        #: table Chat's own clock answer uses (`utilities.zone_for`).
+        from zoneinfo import ZoneInfo
+
+        from memorymap.ai import utilities
+
+        zone = utilities.zone_for(place)
+        if zone is None:
+            return {"error": f"I do not know which time zone “{place}” is in. Name a city or a zone such as Europe/Paris."}
+        now = now.astimezone(ZoneInfo(zone))
+        return {
+            "iso": now.isoformat(),
+            "human": now.strftime("%A %d %B %Y, %H:%M"),
+            "place": place,
+            "zone": zone,
+            "label": f"ph:clock Checked the time in {zone}",
+        }
     return {
         "iso": now.isoformat(),
         "human": now.strftime("%A %d %B %Y, %H:%M"),
@@ -1974,6 +1993,11 @@ from .categories import (  # noqa: E402
 #: question to be one; six is where a list of buttons stops being quicker to
 #: read than just typing the answer.
 MIN_ASK_OPTIONS = 2
+
+
+class OneOptionAsk(ToolError):
+    """An ask with one choice is not a question (INBOX 808): the loop takes
+    ask_user away for the turn and tells the model to answer or act."""
 MAX_ASK_OPTIONS = 6
 MAX_ASK_QUESTION = 200
 MAX_ASK_OPTION = 80
@@ -2023,7 +2047,7 @@ def validate_ask(arguments: dict) -> tuple[str, list[str]]:
         if text and text not in options:
             options.append(text)
     if len(options) < MIN_ASK_OPTIONS:
-        raise ToolError(
+        raise OneOptionAsk(
             f"ask_user needs at least {MIN_ASK_OPTIONS} different options: "
             "if there is only one sensible answer, just do it."
         )
@@ -3424,9 +3448,9 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "get_current_time",
-            "Get the current local date and time. Use this for time-aware "
-            "answers and to compute reminder times.",
-            {"type": "object", "properties": {}},
+            "The date and time now, here or in a named place; for "
+            "time-aware answers and reminder times.",
+            {"type": "object", "properties": {"place": {"type": "string"}}},
             _get_current_time,
         ),
         ToolSpec(

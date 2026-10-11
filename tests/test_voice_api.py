@@ -178,3 +178,38 @@ def test_the_chosen_voice_model_reaches_the_transcriber(client, monkeypatch):
         "/voice/transcribe", files={"file": ("clip.webm", b"fake-audio", "audio/webm")}
     )
     assert seen["model_size"] == "small"
+
+
+def test_a_clip_is_decoded_here_when_pyav_refuses_faster_whispers_argument(monkeypatch, tmp_path):
+    """The owner's log, 2026-10-11: faster-whisper 1.1 passes `metadata_errors`
+    to `av.open`, PyAV 14 refuses it, and every recording failed to transcribe.
+    The samples are decoded here and handed over instead."""
+    from types import SimpleNamespace
+
+    from memorymap.ai import voice
+
+    class Model:
+        def transcribe(self, audio):
+            if isinstance(audio, str):
+                raise TypeError("open() got an unexpected keyword argument 'metadata_errors'")
+            return [SimpleNamespace(start=0.0, end=1.5, text=" hello there ")], None
+
+    monkeypatch.setattr(voice, "whisper_available", lambda: True)
+    monkeypatch.setattr(voice, "_get_model", lambda size: Model())
+    monkeypatch.setattr(voice, "_decode_samples", lambda path: [0.0] * 16000)
+    assert voice.transcribe_segments(tmp_path / "clip.webm") == [{"start": 0, "end": 1500, "text": "hello there"}]
+
+
+def test_any_other_type_error_from_the_model_is_not_swallowed(monkeypatch, tmp_path):
+    import pytest
+
+    from memorymap.ai import voice
+
+    class Model:
+        def transcribe(self, audio):
+            raise TypeError("something else")
+
+    monkeypatch.setattr(voice, "whisper_available", lambda: True)
+    monkeypatch.setattr(voice, "_get_model", lambda size: Model())
+    with pytest.raises(TypeError, match="something else"):
+        voice.transcribe_segments(tmp_path / "clip.webm")

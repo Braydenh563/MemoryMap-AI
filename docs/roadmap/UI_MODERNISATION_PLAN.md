@@ -1104,49 +1104,10 @@ Steps 1 to 4 and 6, and step 5's pickers, built 2026-10-10 (Brief 41): moved to 
 - 7 on chat bubbles and library cards; 1's panel padding 12 and sidebar gutter 8, not yet measured.
 - One focus ring at 1:1 (Chat, an `.active` button whose ring takes the ground's colour; `focusring.js`).
 
-## Placed from INBOX, 2026-09-09
+## Placed from INBOX, 2026-09-09 to 2026-10-03 (all built)
 
-The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
-
-Built and moved to HISTORY.md ("Moved from the plans, 2026-09-09"): 100 the
-scroll edge effect, 101 the concentric corner token and its lint, 103 the
-menus that open out of their opener.
-
-102. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
-
-104. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
-
-94. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 94 and 282, found built)").
-60. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
-
-279. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
-
-## Placed from INBOX, 2026-09-09 (the owner's evening batch)
-
-All built. Moved whole to HISTORY.md ("Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: UI_MODERNISATION_PLAN)").
-
-## Placed from INBOX, 2026-09-13
-
-186. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
-
-
-165. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
-164. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
-
-## Placed from INBOX, 2026-09-21
-
-282. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 94 and 282, found built)").
-
-## Placed from INBOX, 2026-09-21 (the dashboard's focused hero)
-
-296 is built. Moved whole to [`HISTORY.md`](HISTORY.md) ("INBOX resolved, 2026-09-21"), with what it measured before and after.
-
-## Placed from INBOX, 2026-10-03 (INBOX 393)
-
-Moved whole from INBOX when INBOX 434 arrived (the tray holds under
-twenty); both halves found built 2026-10-05.
-
-393. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 393, both halves found built)").
+Built, each block in HISTORY.md: 100, 101 and 103 ("Moved from the plans, 2026-09-09"); 60, 102, 104 and 279 ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)"); 94 ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 94 and 282, found built)").
+The evening batch of 2026-09-09, and 164, 165, 186, 282, 296 and 393: all built and moved whole to HISTORY.md ("Moved from the plans, 2026-10-05", the UI_MODERNISATION_PLAN blocks; 296 under "INBOX resolved, 2026-09-21").
 
 ## Settings information architecture (INBOX 444)
 
@@ -1595,3 +1556,41 @@ Owners: the uisweep agent (Sonnet, measure and the mechanical fixes), then Brief
 Owners: grammar57 (button families), the ownerfix agent (Sonnet) for the rest.
 
 - INBOX 803, UI and bugs, the owner 2026-10-11 03:35Z to 03:45Z, screenshots (Loose ends, While you were away, Kinds of link, the OCR workspace, the constellation in both themes), verbatim: "Im still iffy about the design use of these buttons styles in some places... also the select button in the all notes top bar is rectangular and not square, should it be square?? in the questions subtab and possibly elsewhere, the icons in the rows get underlined as well." ... "on the ocr workspace, when rapid ocr and potentially the others are reading the text, if that image already has a description or caption, it doesnt show until the image's ocr is read." ... "The ocr workspae regions are a little off, there is an awkward squashed text box at the bottom of the right text area. Should the notebook ocnstellation have an off white background on light mode like with dark?? Also when I switch back and forth between light and dark mode, the notebook constellation adjusts suddenly or jolts a bit and doesn't have a smooth fade transition. Also when I click the capture a note textbox in the capture subtab for the first time, it adjusts a bit because the line numbers werent originally showing." Recommendations, taken: outlined bordered buttons inside dashboard cards become the quiet recipe, and counted chips (link kinds, claims) become chips, not buttons; an icon-only toolbar button is square; a row link never underlines its icon; the caption shows before reading starts; the empty region editor below the read text is not drawn when it has nothing; the constellation sits on a tinted well in light too and fades between themes; the capture box reserves its line-number gutter from the first paint. Then, 03:50Z, three screenshots of the code editor (the assistant's Quick fix, Format, Run tests, Find usages; the snippets panel's Save selection; the toolbar's Format, Run, Assistant, Snippets, each a tinted bordered box): "Im also iffy about the design and use/style of these buttons". Recommendation, taken: a toolbar is quiet buttons in one dock (DESIGN.md `.dock`), the one primary action filled; suggested actions in a panel are quiet rows or chips, never a grid of tinted boxes.
+
+## Placed from INBOX, 2026-10-11 (bars, notifications and tours; grammar57)
+
+- 809, the owner, verbatim: "is there a way to redesign areas in the app like these??" (Help, "Welcome and tours": fourteen bordered tinted buttons and one filled "Start the tour"). Target: one primary, each tour a row with its line and length, the recipe wherever a button wall is found.
+- 811, the owner, verbatim: "something about the design or smth of those buttons in the notifications and buttons in notifications in the noficiations panel is bugging me, can you try redesigning them or fixing it somehow?? I cant quite place it". Target: Undo a quiet text button on the meta line beside the time; read and dismiss on hover and focus in every row, never replacing the time; "Undo expired" as meta text; stale "Started:" rows are the transparency agent's.
+- 813, the owner, verbatim: "also idk but I feel like it looks awkward when some things have borders and other things dont in a header but idk im not an expert. and some dropdowns have different ui styles?? all ui styles and elements needs to be consistent across the app." Target: one bar select (the dock's filled, borderless one), one filter trigger, one view switch order (list, grid), only the primary filled in a bar; a lint counts each.
+
+## Placed from INBOX, 2026-10-11 (voice notes, live captions, the focus timer; voiceup)
+
+- INBOX 828, the owner 2026-10-11, verbatim (the Voice note dialog: transcribing, then "couldn't be transcribed"): "also if I record a meeting or audio thing for a transcription and it is loading, if I close it, can I leave it in running in the background, and access it when it is done or open up the panel again to check on it?? can I get a notification when it is done?? also can I stop it from transcribing or even as a bg process?? the voice note feature and ui needs a massive redeisgn and upgrade, things like noise supression, voice enhancement, audio input devices and ports etc need to be managable, and idk if the line animation even works. also where is the live transcription?? where is the live captions?? are they features yet?? hwo do I use and access them. ..." The failure in the screenshot was PyAV 14 refusing faster-whisper's `metadata_errors` argument: fixed 2026-10-11 (`voice._decode_samples`, tests in `test_voice_api.py`).
+- INBOX 829, the owner 2026-10-11, verbatim (the Focus timer widget): "can you redesign the focus timer as well??" (board and map previews are in WHITEBOARD_PLAN; the toast's buttons went to grammar57 with 811).
+
+Measured from the code: live captions exist (captions.js, Brief 82) but are reached only from the command palette, so the owner could not find them; the voice note has no device, noise or gain control; transcription runs inside the dialog's request.
+
+Decisions made:
+- V1. Transcription is a background run in the one ledger (transparency): closing the dialog never stops it; the Recordings row shows its progress; a notification says done or failed with Open; Stop sits on the row and in the running panel. A recording in progress survives the dialog too, as a shell pill with its timer, Pause and Stop.
+- V2. Input: a device picker (every microphone the browser lists, remembered), noise suppression, echo cancellation and automatic gain as switches (the browser's own constraints), a live level meter and a 3-second mic test; in the dialog and in Settings, Voice.
+- V3. Enhancement on save, local: a high-pass and loudness normalise pass on the kept audio, a switch, on by default; the original is kept until the transcript is accepted.
+- V4. The level line draws the analyser's real signal and is measured to move; with reduced motion it is a static meter.
+- V5. Live transcription: while recording, the captions pipeline writes the words into the dialog as they are spoken; the full pass replaces them after.
+- V6. Live captions are reachable where a person looks: a Captions button in the voice note dialog and the Recordings bar, a row in the shell's tools menu, the palette, and a Guide topic "How do I get live captions".
+- V7. The dialog redesigned from DESIGN recipes: name field, one large record control with the timer, the level line, the device chip, Pause, Stop and Discard; after saving, the transcript's first lines and Open.
+- V8. The focus timer: a ring with the time large, presets as a segmented control plus a custom stepper, Start and Pause as one primary, a chime and a notification at the end, an optional break cycle, and today's focused minutes.
+
+Rows (owner: voiceup, Opus, after libraryup): V1 to V8, each a commit with a test, measured at 1440 and 390, help moving with it (standing order 13).
+
+## Placed from INBOX, 2026-10-11 (Tidy, undoing a pattern, menu gaps)
+
+- INBOX 830, the owner 2026-10-11, verbatim (Tidy's "Category names" review, empty; Patterns rows with Confirm and Not right; "Recent runs (3)"): "this tidy panel is poorly designed and needs a ui/ux fix, redesign and/or restructure. also if I have confirmed a pattern then I cant undo it. also some dropdown menus across the app have wierd gaps at the start and end"
+
+Decisions made:
+- T1. Tidy is one list of reviews with counts; a review opens in place with a back link (not a bordered button beside a small title), its one-line description, and its rows. An empty review says so in one line with no selection bar: All, None and the disabled action show only when there are rows.
+- T2. Recent runs is a quiet disclosure row (DESIGN "Row actions"), not a full-width bordered box.
+- T3. A confirmed or rejected pattern keeps an Undo on its row and in "What it learned" (owner: learnaudit, with decision 68).
+- T4. A menu's first and last items sit one menu padding from its edge, never a group label's or a separator's gap (owner: grammar57, with 813's one dropdown grammar).
+
+Rows: T1 and T2 (owner: voiceup, with V7's dialog work); T3 learnaudit; T4 grammar57.
+

@@ -882,6 +882,8 @@ class Retrieval:
     since: object = None
     until: object = None
     when_phrase: str = ""
+    #: The category the question named as where its notes are, or "".
+    category: str = ""
     #: Why each entry is here, keyed by id, e.g. {"type": "semantic",
     #: "score": 0.81} or {"type": "keyword", "terms": ["gym"]}. Built from
     #: information `_rank`/`_fuse` would otherwise discard once they've
@@ -914,6 +916,7 @@ def retrieve_detailed(
         since=found.get("since"),
         until=found.get("until"),
         when_phrase=found.get("when_phrase", ""),
+        category=found.get("category", ""),
         match_info=found.get("match_info", {}),
     )
 

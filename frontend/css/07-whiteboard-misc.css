@@ -5945,7 +5945,7 @@ button.connection-row:is(:hover, :focus-visible) {
 .entry-actions button.is-favourite:hover {
   border-color: color-mix(in srgb, var(--warn) 60%, transparent);
 }
-/* A filled star for an active favourite (INBOX 790): Phosphor here is the regular weight only, so the glyph becomes a clipped box. */
+/* A filled star for an active favourite (INBOX 790): Phosphor here is the regular weight only, so the glyph becomes a masked box. The mask's star has round joins, as the outline star's points do; a clip-path polygon drew it sharp beside its rounded outline (the owner, 2026-10-11). */
 .is-favourite > .ph-star::before,
 .chip > .ph-star::before,
 .ph-star.star-fill::before {
@@ -5954,7 +5954,8 @@ button.connection-row:is(:hover, :focus-visible) {
   width: 1em;
   height: 1em;
   background: currentColor;
-  clip-path: polygon(50% 4%, 62% 37%, 96% 38%, 69% 60%, 79% 93%, 50% 73%, 21% 93%, 31% 60%, 4% 38%, 38% 37%);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpolygon points='128,24 155,99 232,101 171,151 193,225 128,180 63,225 85,151 24,101 101,99' fill='%23000' stroke='%23000' stroke-width='24' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpolygon points='128,24 155,99 232,101 171,151 193,225 128,180 63,225 85,151 24,101 101,99' fill='%23000' stroke='%23000' stroke-width='24' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 /* A toast that is announcing work in progress rather than reporting a result.
    The dots sit before the sentence on the same baseline, see `toastProgress`

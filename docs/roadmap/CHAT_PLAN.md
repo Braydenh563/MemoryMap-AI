@@ -318,6 +318,22 @@ and every run ends with a verification line and an Undo.
    disk (`/models/status` `tools_engine`), and then it runs on Needle and its
    title says so; the saved mode is never changed by the gate.
 
+22a. **With no model, Agent is the engine first; Needle only for the rest**
+   (INBOX 801 and 808, the owner 2026-10-11: "Should agent mode be enabled if
+   the model isnt available??"). Decided from what the engine reaches: the
+   time anywhere, a bare sum, the notebook's counts in any case, the notes on
+   a topic, an act and "can you search the web?" are all answered with no
+   model, so decision 22 stands: Agent stays live while Needle is on disk,
+   its title says the app's own tools answer and a model does more, and with
+   neither it stays greyed. Needle gets only a turn the engine has no answer
+   for (`routes_chat._engine_answers`), is never offered `ask_user` or a
+   tool that hands its work to a model, and its results are said as answers
+   (`realise.tool_answer`). The thinking line says "Working it out without a
+   model…", never "Waking the model…". The question is tidied before routing
+   (`question_noise.tidy`), and every one-line tool argument loses stray
+   keys (`agent._tidied_arguments`); a one-option ask is never shown and
+   takes ask_user away for the turn.
+
 ## 5. Phases
 
 ### Phase 1: grounding and marks (one session; Brief 12)
@@ -695,9 +711,7 @@ twenty). Open until the owner's next run reports it gone or not.
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
 
-- ~~The Chat tab's Ask mode ignores `grounding_live`~~ Built 2026-10-05 (HISTORY.md, "Moved from the plans, 2026-10-05 (backlog-1005)").
-- The placed lists' triage pass and the question hover row: built 2026-10-05
-  (HISTORY.md, "Moved from the plans, 2026-10-05 (op3-1005)").
+- Built 2026-10-05: Ask honours `grounding_live` (HISTORY.md, "Moved from the plans, 2026-10-05 (backlog-1005)"); the placed lists' triage pass and the question hover row ("... (op3-1005)").
 
 ## Placed from INBOX: the composer everywhere (the owner, 2026-10-06)
 
@@ -1739,20 +1753,14 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 
 Each row: the owner's words by item number, the measure that closes it, the brief that builds it.
 
-- **729, the composer's joins and summary.** Built by Brief 67. Moved to HISTORY.md ("Moved from the plans, 2026-10-10 (CHAT_PLAN Brief 67)").
+- **729 and 734, the composer's joins and summary, the reminder's wording.** Built by Brief 67. Moved to HISTORY.md ("Moved from the plans, 2026-10-10 (CHAT_PLAN Brief 67)").
 - **731, the Guide failing with a model.** "the help guide failed??" (Atlas answering "whiteboard templates" with "Something went wrong asking that"). Not reproduced with no model (stream and one-shot both answer). Close when the model-path failure's server log line is read (Settings, Logs, from the moment) and the Guide falls back to its topic answer instead of an error whenever the model call fails. Brief 84 (F5, the Guide on the reading).
-- **734, the reminder's wording.** Built by Brief 67. Moved to HISTORY.md ("Moved from the plans, 2026-10-10 (CHAT_PLAN Brief 67)").
 - **744 (b) and (c), the unquoted sources and the alarm notice.** "it didn mention other matching records i dont think". (b) the composer names the sources it did not quote ("3 more notes match by title: test, test board, test draft"); (c) the "Only 1 of 4 sentences here is quoted" notice shows only when most of the answer is not quoted, and in calm words. Part (a), a board saying board and opening the board, is decision 37. Close when "test notes" lists every source in the answer's text or its foot and the notice does not show on a 2-of-5 answer. Brief 39 step for the foot, Brief 37 for the notice.
+- INBOX 801 and 808 (Agent mode with no model, placed 2026-10-11): built 2026-10-11, moved to HISTORY.md ("Moved from the plans, 2026-10-11 (CHAT_PLAN, INBOX 801 and 808, Agent with no model)"); decision 22a.
 
 ## Placed from Brief 60, 2026-10-10 (the measured census)
 
 - Two functions here are among the ten most complex in `src` (WORLD_CLASS 26.5): `api/routes_chat.py::_stream_lines` cx 105 over 321 lines and `_plain_events` cx 70 over 261 lines; `ai/agent.py::run_agent` is 78. They are seeded in `tests/complexity_seed.json` and may not grow. The Atlas companion (the plan's neighbour, `avatars.js`) costs 4 to 6 long tasks at rest and 7 to 58 under a pointer sweep and wheel, with gaps up to 367 ms, on a loaded machine; the companion's own surface needs a quiet re-run before a fix.
-
-## Placed from INBOX, 2026-10-11 (the owner on Agent mode with no model)
-
-Owner: the noagent agent (Opus), next; CHAT_PLAN Phase 6 and decisions 46 to 56 hold.
-
-- INBOX 801, bug and composer, the owner 2026-10-11 03:40Z, six screenshots, verbatim: "It said waking a model when no model is connected" / "Cant do basic utility" / "Should agent mode be enabled if the model isnt available?? Because right now it still is" / "This is wrong. The composer still needs a lot of understanding, intent, and better utility." / "it doesnt account for accidental extra characters like a backslash, tit doesnt clean up the user query or use cleaned tool calls" / "it doesnt output tool results with the composer". Seen: with no model the Agent segment stays live; the thinking line says "Waking the model..."; "what's the time in western australia" and "5 + 5" get "None of my tools fits that"; "NOTEBOOK STATS" calls search_notes with an empty query; every run ends "Done: <tool> ran, and its result is in the step above" and "Couldn't ask user"; a trailing backslash stays in the query and the plan title. Recommendation, taken: with no model, Agent runs the deterministic planner only and says so (no "Waking the model"); the query is cleaned before routing; the composer writes each tool's result as an answer (the time, the sum, the counts, the found notes); tools that cannot run without a model are not planned.
 
 ## Placed from INBOX, 2026-10-11 (the owner: Atlas as the app's assistant)
 
@@ -1835,3 +1843,57 @@ Decisions, taken (standing order 3; numbered after 64; 70 added for INBOX 812):
 Owner: an Opus agent, "assistant" (A1 to A8), queued after transparency
 and graph; A9 and A10, an Opus agent, "learnaudit", queued after it. Not
 verified: every model-side claim (CLAUDE.md section 4).
+
+### The owner's brainstorm, 2026-10-11 (after INBOX 812)
+
+The owner, asked four questions, answered: length adapts to the question;
+the voice is picked in Settings; the priorities are "all of the above and
+more"; volunteered insight "should be togglable and also dynamic".
+
+71. **Length adapts.** The question's kind sets the answer's shape: a fact is
+    one line, an overview is decision 70's shape, a compare is a table, a
+    count is a large number with its span, a who is a card, and "what's
+    left" is a checklist. "More" expands, and "shorter" or "longer" persist
+    for the chat.
+72. **Voice is a setting.** The presets are Warm and concise (the default),
+    Neutral, Playful and Plain. One table of openings, joins and closings
+    per preset, so facts and shape do not change between voices. It sits in
+    Settings, Chat, with a live sample.
+73. **Volunteered insight is a switch, and dynamic.** Off, one line, or as
+    found. At "one line" the engine adds at most one gap, bridge, change or
+    offer, scored by novelty and relevance. It stays quiet below a
+    threshold, and the threshold rises when the person dismisses them.
+74. **All four areas, in this order of build:** answers (B1 to B12), trust
+    (B30 to B32), utilities (rows A1 to A4), then the composer everywhere
+    (B20 to B27). Each row is gated by decision 70's gold answers or its own
+    measured gate.
+
+| # | Idea | Gate |
+| --- | --- | --- |
+| B1 | Answer first, then the "so what": one inference the notes support | A gold answer's last line |
+| B2 | A shape per question kind (decision 71) | 10 kinds, each a gold answer |
+| B3 | Rewrite, not quote: merge duplicates, person shift, pin relative time ("this week" written 17 July becomes "the week of 17 July") | 0 raw quotes in an overview |
+| B4 | How sure and how fresh: "said three times", "once, two months ago", stale flag | Each fact carries a count or age |
+| B5 | Short by default, More expands; hovering a citation previews its sentence | Hover shows the sentence |
+| B6 | Varied openings per voice (decision 72) | No opening repeated in 5 turns |
+| B7 | A personal glossary learned from the notes ("CC" is Cloud Computing) | 20 abbreviations resolved |
+| B8 | Dialogue memory: "that class", "the second one", "and last month?" | 5-turn eval |
+| B9 | One clarifying chip when two readings tie | Shown only on a tie |
+| B10 | Context: the open tab, note and named category | "Summarise this" on any tab |
+| B11 | Gaps and next steps, bridges, changes, patterns (decision 73) | Owner's gold answers |
+| B12 | Turn an answer into a note, document, mind map, flashcards or reminder | One click each, with Undo |
+| B20 | Ghost-text completions (decision 69) | Accept rate logged |
+| B21 | A featured answer card above search results | On a question-shaped query only |
+| B22 | A one-line gist on every note card, suggested titles | Gist under 90 characters |
+| B23 | A dashboard digest of the week | Every number links to its list |
+| B24 | Plain language that acts in the command palette ("remind me Tuesday 9am lecture") | The act's preview card |
+| B25 | Why two notes are linked, why a note was filed, settings explained, in sentences | Graph, filing, Settings |
+| B26 | Document edits with no model: summarise selection, tighten, continue a list | Undo per edit |
+| B27 | Reminder and notification text composed, not templated | Reads as one sentence |
+| B30 | "Why this answer": the intent, notes, shape and time, as a job's lines (INBOX 805) | Every answer |
+| B31 | "Wrong fact" on any line, feeding the audit (decision 68) | Suppressed next turn |
+| B32 | "Pin as true": the person's word beats any inference | Quoted as theirs |
+| B40 | A rating on each answer adds it to the gold set; a weekly answer gallery is published for the owner | The gallery link in the PR |
+
+Owner: the Atlas agent (brief-assistant, running) builds 70, then B1 to B12
+and B30 to B32; later rows join its remaining list and the queue.

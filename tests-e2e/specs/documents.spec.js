@@ -13,7 +13,9 @@ test("Library, Create, New document makes a new document, not the last one opene
   const errors = watchErrors(page);
   await openApp(page);
   const before = await documentList(page);
-  const seeded = await api(page, `/documents/${before[0].id}`);
+  // The oldest is the fixture's own: the three workers share one notebook, and
+  // the newest can be another spec's document, written to while this one runs.
+  const seeded = await api(page, `/documents/${before[before.length - 1].id}`);
 
   await openTab(page, "library");
   await page.click("#library-new-doc");
@@ -30,9 +32,13 @@ test("Library, Create, New document makes a new document, not the last one opene
   await expect(page.locator("#doc-saved")).toHaveText("Saved", { timeout: 15_000 });
 
   const after = await documentList(page);
-  expect(after.length, "New document made no document").toBe(before.length + 1);
-  const made = after.find((d) => d.title === title);
-  expect(made, "the new title went to another document").toBeTruthy();
+  // Counted by title and id, not as before.length + 1: another worker's spec
+  // makes documents in the same notebook while this one runs.
+  const known = new Set(before.map((d) => d.id));
+  const named = after.filter((d) => d.title === title);
+  expect(named.length, "the new title went to another document").toBe(1);
+  const made = named[0];
+  expect(known.has(made.id), "New document made no document").toBe(false);
   const untouched = await api(page, `/documents/${seeded.id}`);
   expect(untouched.title).toBe(seeded.title);
   expect(untouched.content).toBe(seeded.content);

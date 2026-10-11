@@ -431,6 +431,14 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "boundary_label": None,
         "summary": None,
         "summary_span": None,
+        # And with a structure per branch (canvasdepth2, XMind's).
+        "branch_layout": None,
+        # And a callout over a topic (canvasdepth2).
+        "callout": None,
+        # And labels under a topic (canvasdepth2).
+        "labels": None,
+        # And reaction stamps and votes on a topic (canvasdepth2).
+        "stamps": None,
         "spine": None,
         # And with a topic's fill (one topic, or its whole branch).
         "fill": None,
@@ -456,6 +464,11 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "hidden": None,
         # The named layer it is on (canvasdepth); None for none.
         "layer": None,
+        # A table's cells and header row (canvasdepth2); None on a text box.
+        "cells": None,
+        "header": None,
+        # Its custom properties, the Format panel's Data tab (canvasdepth2).
+        "props": None,
         "page": None,
         "alpha": None,
         "shadow": None,

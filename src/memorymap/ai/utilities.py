@@ -21,8 +21,10 @@ these. `kind_of(question)` says which utility a question is, for the router.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import re
+import sys
 from datetime import date, datetime
 
 from memorymap.ai import arithmetic, recognise
@@ -259,7 +261,7 @@ def kind_of(question: str) -> str | None:
         return "sum"
     if _PERCENT.match(text):
         return "percent"
-    if _CLOCK.match(text) or _TODAY.match(text) or _YEAR.match(text):
+    if _is_clock(text):
         return "clock"
     if any(p.match(text) for p in _patterns("convert")):
         return "units"
@@ -276,9 +278,150 @@ def kind_of(question: str) -> str | None:
         return "chance"
     if _TRANSLATE.match(text):
         return "translate"
+    if _web_capability(text):
+        return "web"
     if _WEATHER.search(text) and not re.search(r"\b(?:my|notes?|wrote)\b", text, re.I):
         return "weather"
     return None
+
+
+# --- the time somewhere else (INBOX 801: "what's the time in western australia") ----
+
+#: A place people name to the IANA zone that keeps its time. A city the zone
+#: database names itself ("tokyo", "new york") needs no row: `zone_for` reads
+#: the database's own city names. Rows are the regions, countries, states and
+#: coasts it does not name, one zone each (a country with several takes its
+#: capital's or its largest city's).
+PLACE_ZONES: dict[str, str] = {
+    "western australia": "Australia/Perth", "wa": "Australia/Perth", "south australia": "Australia/Adelaide",
+    "northern territory": "Australia/Darwin", "queensland": "Australia/Brisbane", "qld": "Australia/Brisbane",
+    "new south wales": "Australia/Sydney", "nsw": "Australia/Sydney", "victoria": "Australia/Melbourne",
+    "tasmania": "Australia/Hobart", "canberra": "Australia/Sydney", "australia": "Australia/Sydney",
+    "new zealand": "Pacific/Auckland", "nz": "Pacific/Auckland", "uk": "Europe/London",
+    "united kingdom": "Europe/London", "england": "Europe/London", "britain": "Europe/London",
+    "scotland": "Europe/London", "wales": "Europe/London", "ireland": "Europe/Dublin",
+    "france": "Europe/Paris", "germany": "Europe/Berlin", "spain": "Europe/Madrid", "italy": "Europe/Rome",
+    "netherlands": "Europe/Amsterdam", "holland": "Europe/Amsterdam", "portugal": "Europe/Lisbon",
+    "greece": "Europe/Athens", "poland": "Europe/Warsaw", "sweden": "Europe/Stockholm", "norway": "Europe/Oslo",
+    "switzerland": "Europe/Zurich", "russia": "Europe/Moscow", "turkey": "Europe/Istanbul",
+    "egypt": "Africa/Cairo", "south africa": "Africa/Johannesburg", "nigeria": "Africa/Lagos", "kenya": "Africa/Nairobi",
+    "uae": "Asia/Dubai", "india": "Asia/Kolkata", "delhi": "Asia/Kolkata", "new delhi": "Asia/Kolkata",
+    "mumbai": "Asia/Kolkata", "bangalore": "Asia/Kolkata", "pakistan": "Asia/Karachi", "china": "Asia/Shanghai",
+    "beijing": "Asia/Shanghai", "japan": "Asia/Tokyo", "korea": "Asia/Seoul", "south korea": "Asia/Seoul",
+    "thailand": "Asia/Bangkok", "vietnam": "Asia/Ho_Chi_Minh", "indonesia": "Asia/Jakarta",
+    "philippines": "Asia/Manila", "malaysia": "Asia/Kuala_Lumpur", "israel": "Asia/Jerusalem",
+    "usa": "America/New_York", "us": "America/New_York", "america": "America/New_York",
+    "united states": "America/New_York", "east coast": "America/New_York", "eastern time": "America/New_York",
+    "washington dc": "America/New_York", "boston": "America/New_York", "miami": "America/New_York",
+    "west coast": "America/Los_Angeles", "pacific time": "America/Los_Angeles", "california": "America/Los_Angeles",
+    "la": "America/Los_Angeles", "san francisco": "America/Los_Angeles", "seattle": "America/Los_Angeles",
+    "central time": "America/Chicago", "texas": "America/Chicago", "houston": "America/Chicago",
+    "dallas": "America/Chicago", "mountain time": "America/Denver", "hawaii": "Pacific/Honolulu",
+    "alaska": "America/Anchorage", "canada": "America/Toronto", "ontario": "America/Toronto",
+    "british columbia": "America/Vancouver", "quebec": "America/Montreal", "mexico": "America/Mexico_City",
+    "brazil": "America/Sao_Paulo", "argentina": "America/Argentina/Buenos_Aires", "buenos aires": "America/Argentina/Buenos_Aires",
+    "chile": "America/Santiago", "peru": "America/Lima", "colombia": "America/Bogota",
+    "utc": "UTC", "gmt": "UTC",
+}
+
+_CLOCK_IN = re.compile(
+    r"^(?:what(?:'s| is) the (?:current )?time|what time is it|whats the time|(?:the |current )?time)"
+    r"(?: now| right now)? (?:in|at|over in) (?:the )?(?P<place>[a-z][a-z .'-]{1,40}?)(?: now| right now)?$",
+    re.I,
+)
+
+
+@functools.lru_cache(maxsize=1)
+def _zone_cities() -> dict[str, str]:
+    """The zone database's own city names ("new york") to their zones; read
+    once, since `available_timezones` walks the disk on every call."""
+    from zoneinfo import available_timezones
+
+    try:
+        zones = available_timezones()
+    except Exception:  # noqa: BLE001  # no zone database: only the table's places are read
+        return {}
+    return {z.rsplit("/", 1)[-1].replace("_", " ").lower(): z for z in sorted(zones) if "/" in z}
+
+
+def zone_for(place: str) -> str | None:
+    """The IANA zone for a place's name ("western australia", "Tokyo",
+    "Europe/Paris"), or None."""
+    raw = " ".join(str(place or "").replace(".", "").split())
+    key = raw.lower()
+    if key in PLACE_ZONES:
+        return PLACE_ZONES[key]
+    if "/" in raw and raw in _zone_cities().values():
+        return raw
+    return _zone_cities().get(key)
+
+
+def _is_clock(text: str) -> bool:
+    if _CLOCK.match(text) or _TODAY.match(text) or _YEAR.match(text):
+        return True
+    match = _CLOCK_IN.match(text)
+    return bool(match and zone_for(match.group("place")))
+
+
+def _place_said(place: str) -> str:
+    """"western australia" as "Western Australia", "wa" as "WA"."""
+    words = place.split()
+    return " ".join(w.upper() if len(words) == 1 and len(w) <= 3 else w[:1].upper() + w[1:] for w in words)
+
+
+def _clock(text: str, now: datetime) -> list[tuple]:
+    match = _CLOCK_IN.match(text)
+    if match:
+        from datetime import timezone
+        from zoneinfo import ZoneInfo
+
+        place = match.group("place").strip()
+        zone = zone_for(place)
+        there = (now if now.tzinfo else datetime.now(timezone.utc)).astimezone(ZoneInfo(zone))
+        offset = there.strftime("%z")
+        utc = "UTC" if offset in ("+0000", "-0000") else f"UTC{offset[:3]}:{offset[3:]}"
+        return [("computed", f"It is {there:%H:%M} on {_day_words(there.date())} in {_place_said(place)}."),
+                ("computed", f"\nRead as the time in {zone} ({utc}), from this computer's clock.")]
+    if _CLOCK.match(text):
+        return [("computed", f"It is {now:%H:%M} on {_day_words(now.date())}."), _CLOCK_READ]
+    if _YEAR.match(text):
+        return [("computed", f"It is {_MONTH_NAMES[now.month - 1]} {now.year}."), _CLOCK_READ]
+    return [("computed", f"Today is {_day_words(now.date())}."), _CLOCK_READ]
+
+
+# --- asking whether the web can be searched (INBOX 801 and 808) -----------------------
+
+_WEB_ASK = re.compile(
+    r"\b(?:search|look (?:it |things )?up|google|browse|use|access|go)\b.*\b(?:the web|online|the internet|internet)\b|\bweb search\b",
+    re.I,
+)
+_WEB_FILLER = re.compile(
+    r"\b(?:can|could|would|will|do|does|are|is|you|u|please|search|look|up|it|things|stuff|google|browse|use|"
+    r"access|go|on|in|the|web|online|internet|have|has|a|able|to|for|me|there|turned)\b|[?.!,]",
+    re.I,
+)
+
+
+def web_on() -> bool:
+    """The person's web search setting; off when there is none to read."""
+    #: Read only when the app has loaded it: the composer runs without the
+    #: database layer (`tests/test_question_noise.py`), and there it is off.
+    deps = sys.modules.get("memorymap.core.deps")
+    if deps is None:
+        return False
+    try:
+        return bool(deps.get_config().get_preference("web_search_enabled", False))
+    except Exception:  # noqa: BLE001  # no app state yet: off
+        return False
+
+
+def _web_capability(text: str) -> bool:
+    """"can you search the web?" is a question about the app, answered
+    plainly, never a notes search for the word "web" (INBOX 801, 808); with
+    web search off, so is any request to search the web."""
+    if not _WEB_ASK.search(text):
+        return False
+    return not _WEB_FILLER.sub(" ", text).split() or not web_on()
 
 
 #: Decision 54: a computed sentence always says how the question was read.
@@ -304,11 +447,7 @@ def answer(question: str, now: datetime | None = None, salt: str = "", rates: di
         return [("computed", f"{share}% of {whole} is {arithmetic.spoken(worked)}."),
                 ("computed", f"\nRead as {share} hundredths of {whole}.")]
     if kind == "clock":
-        if _CLOCK.match(text):
-            return [("computed", f"It is {now:%H:%M} on {_day_words(now.date())}."), _CLOCK_READ]
-        if _YEAR.match(text):
-            return [("computed", f"It is {_MONTH_NAMES[now.month - 1]} {now.year}."), _CLOCK_READ]
-        return [("computed", f"Today is {_day_words(now.date())}."), _CLOCK_READ]
+        return _clock(text, now)
     if kind == "units":
         return _convert(text)
     if kind == "currency":
@@ -333,6 +472,8 @@ def answer(question: str, now: datetime | None = None, salt: str = "", rates: di
         return [("computed", said), ("computed", f"\nRead as {dice} of a {sides}-sided die, picked at random.")]
     if kind == "translate":
         return [("phrase", "utility_translate")]
+    if kind == "web":
+        return [("phrase", "utility_web_on" if web_on() else "utility_web_off")]
     return [("phrase", "utility_weather")]
 
 

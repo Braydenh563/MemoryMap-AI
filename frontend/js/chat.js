@@ -2357,7 +2357,8 @@ function stopThinkingWordRotation(dots) {
 //: Decided, not to be remade: waiting for the first token "Reaching Atlas…",
 //: a model loading "Waking the model…", retrieval "Reading your notes…",
 //: reasoning tokens "Atlas is thinking…", answer text "Atlas is writing…", a
-//: tool call "Atlas is <tool verb>…". A persona's name replaces Atlas. The
+//: tool call "Atlas is <tool verb>…". With no model connected, "Working it
+//: out without a model…" (INBOX 801). A persona's name replaces Atlas. The
 //: indicator keeps its own two shapes (dots, or the writing trace under
 //: "writing", which CSS keys off `data-phase`); only the words have six
 //: states. Every surface
@@ -2367,6 +2368,9 @@ function stopThinkingWordRotation(dots) {
 const PROGRESS_PHASES = {
   reaching: (who) => `Reaching ${who}…`,
   loading: () => "Waking the model…",
+  //: With no model connected (INBOX 801, the owner: "It said waking a model
+  //: when no model is connected"): the app's own engine is answering.
+  engine: () => "Working it out without a model…",
   reading: () => "Reading your notes…",
   thinking: (who) => `${who} is thinking…`,
   writing: (who) => `${who} is writing…`,

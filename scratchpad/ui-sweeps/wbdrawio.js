@@ -44,7 +44,7 @@ const PACKED = `<mxfile><diagram name="Page-1" id="p1">${zlib.deflateRawSync(Buf
     check(`${name}: swimlane is a frame holding its shapes`, r.frames.length === 1 && r.frames[0] === "Customer" && r.inFrame, [r.frames, r.inFrame]);
     check(`${name}: caption is a text box`, r.texts.length === 1 && r.texts[0] === "A caption", r.texts);
     check(`${name}: 2 connectors joined, elbow and dashed labelled`, r.links.length === 2 && r.links.every((l) => l[4]) && r.links.some((l) => l[0] === "elbow") && r.links.some((l) => l[2] === "yes" && l[3] === "dashed"), r.links);
-    check(`${name}: report names what was not kept`, /cylinder3/.test(r.toast) && (name === "compressed" || /first of 2 pages/.test(r.toast)), r.toast);
+    check(`${name}: report names what was not kept`, /cylinder3/.test(r.toast) && !/pages/.test(r.toast), r.toast);
   }
   check("no page errors", errors.length === 0, errors.slice(0, 3));
   summary();

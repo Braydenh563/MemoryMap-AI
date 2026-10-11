@@ -24,7 +24,7 @@
 // time.
 
 const WB_FMT_KEY = "wb-format";
-const WB_FMT_TABS = ["style", "text", "arrange"];
+const WB_FMT_TABS = ["style", "text", "arrange", "data"];
 
 //: What is selected, as `{kind, id, item, bbox}` rows: the multi-selection
 //: when there is one, else the one selected item.
@@ -46,7 +46,7 @@ function wbFmtKind(entry) {
   if (entry.kind === "object") {
     const k = entry.item.kind;
     if (WB_MAP_KINDS.has(k)) return "topic";
-    return k === "text" || k === "image" || k === "frame" ? k : null;
+    return k === "text" || k === "image" || k === "frame" || k === "table" ? k : null;
   }
   let parsed = null;
   try {
@@ -61,12 +61,13 @@ function wbFmtKind(entry) {
 
 //: The fields each kind takes, by the `data-fmt` names in index.html.
 const WB_FMT_FIELDS = {
-  shape: ["stroke", "width", "dash", "fill", "alpha", "shadow", "text", "geometry", "flip", "style-lib"],
-  line: ["stroke", "width", "dash", "alpha", "shadow", "geometry", "flip", "style-lib"],
-  link: ["stroke", "width", "dash", "alpha", "route", "jumps", "caps", "label-t"],
-  text: ["stroke", "fill", "alpha", "shadow", "fold", "text", "geometry", "angle", "style-lib"],
-  image: ["alpha", "shadow", "geometry", "angle"],
-  frame: ["geometry"],
+  shape: ["stroke", "width", "dash", "fill", "alpha", "shadow", "rough", "text", "geometry", "flip", "style-lib", "props"],
+  line: ["stroke", "width", "dash", "alpha", "shadow", "rough", "geometry", "flip", "style-lib", "props"],
+  link: ["stroke", "width", "dash", "alpha", "rough", "route", "jumps", "caps", "label-t", "props"],
+  text: ["stroke", "fill", "alpha", "shadow", "fold", "text", "geometry", "angle", "style-lib", "props"],
+  image: ["alpha", "shadow", "geometry", "angle", "props"],
+  frame: ["geometry", "props"],
+  table: ["alpha", "shadow", "geometry", "props"],
   note: ["geometry", "angle"],
 };
 
@@ -91,6 +92,7 @@ function wbFmtValue(entry, field) {
     case "fill": return s ? s.fill || "#3355ff" : (o.bg && o.bg !== "transparent" ? o.bg : "#ffffff");
     case "alpha": return Math.round(((s ? s.alpha : o?.alpha) ?? 1) * 100);
     case "shadow": return Boolean(s ? s.shadow : o?.shadow);
+    case "rough": return wbDrawsRough(s, false);
     case "route": return wbLinkRouteName(s);
     case "jumps": return WB_JUMP_STYLES.includes(s?.jumps) ? s.jumps : "none";
     case "startcap": return wbLinkCaps(s).startCap;
@@ -316,6 +318,7 @@ function wbFormatSync() {
   const arrange = document.getElementById("wb-format-commands");
   if (arrange) arrange.hidden = !entries.length || map;
   wbSyncCommandRows(arrange);
+  if (fields.has("props")) wbFmtSyncProps(entries);
   const first = entries.find((e) => wbFmtKind(e) && wbFmtKind(e) !== "topic");
   if (!first) return;
   const set = (id, value, prop = "value") => {
@@ -337,6 +340,7 @@ function wbFormatSync() {
     if (fillField) fillField.disabled = !wbFmtValue(first, "fill-on");
   }
   if (takes.has("shadow")) set("wb-fmt-shadow", wbFmtValue(first, "shadow"), "checked");
+  if (takes.has("rough")) set("wb-fmt-rough", wbFmtValue(first, "rough"), "checked");
   const sticky = entries.find((e) => e.kind === "object" && wbIsSticky(e.item));
   if (sticky) set("wb-fmt-fold", wbStickyFolds(sticky.item), "checked");
   const alphaOut = document.getElementById("wb-fmt-alpha-out");
@@ -362,6 +366,86 @@ function wbFormatSync() {
     if (el) el.disabled = entries.length !== 1;
   }
   set("wb-fmt-angle", Math.round(first.item.rotation || 0));
+}
+
+//: --- Edit data (draw.io's custom properties; canvasdepth2) ----------------
+//:
+//: `data.props {name: value}` on one selected item, as rows of two fields
+//: and a remove button. A change is read off every row at once and written
+//: as one Undo step; a row with no name is not kept.
+const WB_PROP_NAME = /^[A-Za-z][\w .-]{0,39}$/;
+
+function wbFmtProps(entry) {
+  const data = entry.kind === "sketch" ? wbFmtSketch(entry) : entry.item.data || {};
+  return data.props && typeof data.props === "object" ? data.props : {};
+}
+
+function wbFmtPropRow(name = "", value = "") {
+  const li = document.createElement("li");
+  li.className = "wb-fmt-prop";
+  const key = document.createElement("input");
+  key.className = "wb-fmt-prop-name";
+  key.value = name;
+  key.maxLength = 40;
+  key.placeholder = "Name";
+  key.setAttribute("aria-label", "Property name");
+  const val = document.createElement("input");
+  val.className = "wb-fmt-prop-value";
+  val.value = value;
+  val.maxLength = 200;
+  val.placeholder = "Value";
+  val.setAttribute("aria-label", name ? `Value of ${name}` : "Property value");
+  const remove = smallButton("ph:x", name ? `Remove ${name}` : "Remove this property", () => {
+    li.remove();
+    wbFmtSaveProps();
+  });
+  remove.classList.add("wb-fmt-prop-remove");
+  li.append(key, val, remove);
+  return li;
+}
+
+function wbFmtSyncProps(entries) {
+  const list = document.getElementById("wb-fmt-props");
+  if (!list || list.contains(document.activeElement)) return;
+  const add = document.getElementById("wb-fmt-prop-add");
+  const one = entries.length === 1 && WB_FMT_FIELDS[wbFmtKind(entries[0])]?.includes("props") ? entries[0] : null;
+  if (add) add.hidden = !one;
+  list.dataset.item = one ? `${one.kind}:${one.id}` : "";
+  list.replaceChildren(...(one ? Object.entries(wbFmtProps(one)).map(([k, v]) => wbFmtPropRow(k, String(v))) : []));
+  if (!one && entries.length > 1) {
+    const li = document.createElement("li");
+    li.className = "muted wb-lib-note";
+    li.textContent = "Select one item to see and change its data.";
+    list.append(li);
+  }
+}
+
+//: One save at a time, each reading the rows when it runs: a name and then
+//: its value typed straight on are two changes, and two PUTs in flight can
+//: land in either order.
+function wbFmtSaveProps() {
+  wbFmtState.propsChain = (wbFmtState.propsChain || Promise.resolve()).then(wbFmtWriteProps, wbFmtWriteProps);
+  return wbFmtState.propsChain;
+}
+
+function wbFmtWriteProps() {
+  const list = document.getElementById("wb-fmt-props");
+  if (!list) return;
+  const props = {};
+  let refused = "";
+  for (const row of list.querySelectorAll(".wb-fmt-prop")) {
+    const name = row.querySelector(".wb-fmt-prop-name").value.trim();
+    if (!name) continue;
+    if (!WB_PROP_NAME.test(name)) {
+      refused = name;
+      continue;
+    }
+    props[name] = row.querySelector(".wb-fmt-prop-value").value.slice(0, 200);
+  }
+  if (refused) toast(`"${refused}" cannot be a name: start with a letter, then letters, digits, spaces, dots, dashes or underscores.`, "info");
+  const keys = Object.keys(props).slice(0, 30);
+  const value = keys.length ? Object.fromEntries(keys.map((k) => [k, props[k]])) : undefined;
+  return wbFmtApply("props", () => ({ props: value }), "Data saved.");
 }
 
 //: The arrange buttons, from the command table: icon-only, named by the
@@ -477,6 +561,12 @@ onDomReady(() => {
   });
   on("wb-fmt-fold", "change", (e) => wbFmtApply("fold", (entry) => (entry.kind === "object" && wbIsSticky(entry.item) ? { fold: e.target.checked } : null), e.target.checked ? "Corner folded." : "Corner flat."));
   on("wb-fmt-shadow", "change", (e) => wbFmtApply("shadow", () => ({ shadow: e.target.checked || undefined }), e.target.checked ? "Shadow on." : "Shadow off."));
+  //: An item that matches the board's look stores nothing, so it follows the
+  //: board when the board's look changes.
+  on("wb-fmt-rough", "change", (e) => {
+    const board = wbBoardBackground().rough === true;
+    wbFmtApply("rough", () => ({ rough: e.target.checked === board ? undefined : e.target.checked }), e.target.checked ? "Hand-drawn." : "Drawn plain.");
+  });
   on("wb-fmt-route", "change", (e) => wbSetLinkRoute(e.target.value));
   on("wb-fmt-jumps", "change", (e) => {
     const style = WB_JUMP_STYLES.includes(e.target.value) ? e.target.value : "none";
@@ -529,6 +619,288 @@ onDomReady(() => {
   on("wb-fmt-flip-h", "click", () => wbFmtFlip("h"));
   on("wb-fmt-flip-v", "click", () => wbFmtFlip("v"));
   on("wb-fmt-save-style", "click", () => wbRunCommand("save-style"));
+  on("wb-fmt-props", "change", () => wbFmtSaveProps());
+  on("wb-fmt-prop-add", "click", () => {
+    const row = wbFmtPropRow();
+    document.getElementById("wb-fmt-props")?.append(row);
+    row.querySelector("input")?.focus();
+  });
   on("wb-fmt-copy-style", "click", () => document.getElementById("wb-copy-style")?.click());
   on("wb-fmt-paste-style", "click", () => document.getElementById("wb-paste-style")?.click());
 });
+
+//: --- The hand-drawn look (Excalidraw's; canvasdepth2) ---------------------
+//:
+//: A board option (`background.rough`) or an item's own `rough`, over it.
+//: Each line is sampled along its length, given a slow wobble from a
+//: generator seeded by the item's id, and drawn twice, so a shape looks the
+//: same on every render and every machine. The freehand pen and the
+//: highlighter are already by hand; a map's lines keep the map's look.
+const WB_ROUGH_CACHE = new Map();
+const WB_ROUGH_STEP = 6;
+
+function wbDrawsRough(data, mapLine) {
+  if (!data || mapLine || data.shape === "draw" || data.shape === "highlighter" || wbIsMap()) return false;
+  return typeof data.rough === "boolean" ? data.rough : wbBoardBackground().rough === true;
+}
+
+//: mulberry32: small, fast and the same everywhere.
+function wbRoughRandom(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function wbRoughProbe() {
+  let probe = document.getElementById("wb-rough-probe");
+  if (!probe) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("aria-hidden", "true");
+    svg.classList.add("wb-rough-probe");
+    probe = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    probe.id = "wb-rough-probe";
+    svg.append(probe);
+    document.body.append(svg);
+  }
+  return probe;
+}
+
+//: Points through a Catmull-Rom spline, as cubic Béziers.
+function wbRoughSpline(points) {
+  const f = (n) => Math.round(n * 10) / 10;
+  let d = `M${f(points[0][0])} ${f(points[0][1])}`;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+    d += `C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+  }
+  return d;
+}
+
+function wbRoughD(d, seed) {
+  if (!d) return d;
+  const key = `${seed}|${d}`;
+  const hit = WB_ROUGH_CACHE.get(key);
+  if (hit) return hit;
+  const probe = wbRoughProbe();
+  const rand = wbRoughRandom(Number(seed) * 2654435761 || 1);
+  //: Each subpath on its own, or the sampler would join them; a relative
+  //: `m` cannot be split safely, so such a path is sampled whole.
+  const parts = /m/.test(d) ? [d] : d.split(/(?=M)/).filter((part) => part.trim());
+  let out = "";
+  for (const part of parts) {
+    probe.setAttribute("d", part);
+    const total = probe.getTotalLength();
+    if (!(total > 1)) {
+      out += part;
+      continue;
+    }
+    const n = Math.max(6, Math.min(240, Math.round(total / WB_ROUGH_STEP)));
+    const points = [];
+    for (let i = 0; i <= n; i += 1) {
+      const p = probe.getPointAtLength((total * i) / n);
+      points.push([p.x, p.y]);
+    }
+    for (let pass = 0; pass < 2; pass += 1) {
+      const amp = Math.min(2.4, 0.9 + total / 700) * (pass ? 1.25 : 1);
+      const knots = Array.from({ length: Math.ceil(n / 5) + 2 }, () => [(rand() - 0.5) * 2 * amp, (rand() - 0.5) * 2 * amp]);
+      out += wbRoughSpline(points.map(([x, y], i) => {
+        const at = i / 5;
+        const k = Math.floor(at);
+        const t = at - k;
+        const s = t * t * (3 - 2 * t);
+        return [x + knots[k][0] + (knots[k + 1][0] - knots[k][0]) * s, y + knots[k][1] + (knots[k + 1][1] - knots[k][1]) * s];
+      }));
+    }
+  }
+  if (WB_ROUGH_CACHE.size > 4000) WB_ROUGH_CACHE.clear();
+  WB_ROUGH_CACHE.set(key, out);
+  return out;
+}
+
+//: --- Tables (draw.io's; canvasdepth2) -------------------------------------
+//:
+//: An object of kind `table`: `data.cells`, rows of text, and `data.header`
+//: for a bold first row. The grid fills the object's box, so resizing the
+//: table is the object's own resize; each row and column takes an equal
+//: share. Double-click a cell to type in it; Tab and Shift+Tab walk the
+//: cells, Enter keeps the words, Escape drops them. The cell last pressed is
+//: where the menu's rows and columns go in or come out.
+const WB_TABLE_ROW_H = 40;
+const WB_TABLE_COL_W = 120;
+
+function wbTableCells(d) {
+  const cells = Array.isArray(d.data?.cells) && d.data.cells.length ? d.data.cells : [[""]];
+  return cells.map((row) => (Array.isArray(row) ? row.map((c) => String(c ?? "")) : [""]));
+}
+
+function wbBuildTable(el, d) {
+  el.append("div").attr("class", "wb-table-grid").attr("role", "grid").attr("aria-label", "Table")
+    .on("pointerdown", (event) => {
+      const cell = event.target.closest(".wb-table-cell");
+      if (cell) wbFmtState.tableCell = { id: d.id, r: Number(cell.dataset.r), c: Number(cell.dataset.c) };
+      if (cell?.isContentEditable) event.stopPropagation();
+    })
+    .on("dblclick", (event) => {
+      const cell = event.target.closest(".wb-table-cell");
+      if (!cell) return;
+      event.stopPropagation();
+      wbEditTableCell(d.id, Number(cell.dataset.r), Number(cell.dataset.c));
+    });
+}
+
+//: Rebuilt only when the cells or the header change, and never under a
+//: cell being typed in.
+function wbPaintTable(node, d) {
+  const grid = node.querySelector(".wb-table-grid");
+  if (!grid || grid.querySelector("[contenteditable='true']")) return;
+  const cells = wbTableCells(d);
+  const key = JSON.stringify([cells, Boolean(d.data?.header)]);
+  if (grid.dataset.key === key) return;
+  grid.dataset.key = key;
+  grid.style.setProperty("--wb-table-cols", String(cells[0].length));
+  grid.style.setProperty("--wb-table-rows", String(cells.length));
+  grid.classList.toggle("has-header", Boolean(d.data?.header));
+  grid.replaceChildren(...cells.flatMap((row, r) => row.map((text, c) => {
+    const cell = document.createElement("div");
+    cell.className = "wb-table-cell";
+    cell.setAttribute("role", r === 0 && d.data?.header ? "columnheader" : "gridcell");
+    cell.dataset.r = String(r);
+    cell.dataset.c = String(c);
+    cell.textContent = text;
+    return cell;
+  })));
+}
+
+async function wbInsertTable(rows = 3, cols = 3) {
+  const [cx, cy] = wbViewCentre();
+  const w = cols * WB_TABLE_COL_W;
+  const h = rows * WB_TABLE_ROW_H;
+  const cells = Array.from({ length: rows }, () => Array.from({ length: cols }, () => ""));
+  const made = await wbCreateObject("table", { cells, header: true }, cx - w / 2, cy - h / 2, w, h, 2);
+  if (!made) return null;
+  clearWbSelection();
+  wbHandleItemClick("object", made.id, { shiftKey: false });
+  wbAnnounce(`Table added, ${rows} rows by ${cols} columns. Double-click a cell to type in it.`);
+  return made;
+}
+
+//: Writes new cells (and a new size) as one Undo step.
+async function wbSetTable(d, cells, size = null, said = "") {
+  if (!d || wbIsLocked("object", d)) return;
+  wbPushUndo({ action: "move", kind: "object", id: d.id, before: WB_KIND_INFO.object.payload(d) });
+  d.data = { ...d.data, cells };
+  if (size) Object.assign(d, size);
+  await wbSaveObject(d);
+  wbScheduleRender();
+  if (said) wbAnnounce(said);
+}
+
+function wbEditTableCell(id, r, c) {
+  const d = (wbState.objects || []).find((o) => o.id === id);
+  const node = document.querySelector(`.wb-object[data-id="${id}"]`);
+  const cell = node?.querySelector(`.wb-table-cell[data-r="${r}"][data-c="${c}"]`);
+  if (!d || !cell || wbIsLocked("object", d)) return;
+  wbFmtState.tableCell = { id, r, c };
+  const before = cell.textContent;
+  cell.contentEditable = "true";
+  cell.focus();
+  document.getSelection()?.selectAllChildren(cell);
+  let moveTo = null;
+  //: The next cell takes the keyboard before this one is saved, so typing
+  //: straight on after Tab loses nothing; a cell being typed in is never
+  //: redrawn under it (`wbPaintTable`).
+  const done = (keep) => {
+    cell.removeEventListener("keydown", onKey);
+    cell.removeEventListener("blur", onBlur);
+    cell.contentEditable = "false";
+    const text = cell.innerText.replace(/\n+$/, "").slice(0, 500);
+    if (!keep) cell.textContent = before;
+    if (moveTo) wbEditTableCell(id, moveTo[0], moveTo[1]);
+    if (keep && text !== before) {
+      const cells = wbTableCells(d);
+      cells[r][c] = text;
+      wbSetTable(d, cells);
+    }
+  };
+  const onBlur = () => done(true);
+  const onKey = (event) => {
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cell.removeEventListener("blur", onBlur);
+      done(false);
+    } else if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      cell.blur();
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      const cells = wbTableCells(d);
+      const cols = cells[0].length;
+      const at = r * cols + c + (event.shiftKey ? -1 : 1);
+      if (at >= 0 && at < cells.length * cols) moveTo = [Math.floor(at / cols), at % cols];
+      cell.blur();
+    }
+  };
+  cell.addEventListener("keydown", onKey);
+  cell.addEventListener("blur", onBlur);
+}
+
+//: Insert or remove a row or column at `at` (`axis` "row" or "col"); the
+//: table grows or shrinks by one row's or column's share, so the others keep
+//: their size.
+function wbTableReshape(d, axis, at, remove) {
+  const cells = wbTableCells(d);
+  const rows = cells.length;
+  const cols = cells[0].length;
+  if (remove && (axis === "row" ? rows : cols) <= 1) {
+    toast(`A table keeps at least one ${axis === "row" ? "row" : "column"}; delete the table instead.`, "info");
+    return;
+  }
+  if (!remove && (axis === "row" ? rows >= 50 : cols >= 20)) {
+    toast(axis === "row" ? "A table holds up to 50 rows." : "A table holds up to 20 columns.", "info");
+    return;
+  }
+  let next;
+  if (axis === "row") {
+    next = remove ? cells.filter((_, i) => i !== at) : [...cells.slice(0, at), Array(cols).fill(""), ...cells.slice(at)];
+  } else {
+    next = cells.map((row) => (remove ? row.filter((_, i) => i !== at) : [...row.slice(0, at), "", ...row.slice(at)]));
+  }
+  const share = axis === "row" ? d.height / rows : d.width / cols;
+  const size = axis === "row" ? { height: Math.max(WB_TABLE_ROW_H / 2, d.height + (remove ? -share : share)) } : { width: Math.max(WB_TABLE_COL_W / 2, d.width + (remove ? -share : share)) };
+  const word = axis === "row" ? "Row" : "Column";
+  return wbSetTable(d, next, size, `${word} ${remove ? "removed" : "added"}.`);
+}
+
+//: The table's rows for the item menu: around the cell last pressed when it
+//: is this table's, else at the ends.
+function wbTableMenuRows(d) {
+  const cells = wbTableCells(d);
+  const at = wbFmtState.tableCell?.id === d.id ? wbFmtState.tableCell : null;
+  const r = at ? Math.min(at.r, cells.length - 1) : cells.length - 1;
+  const c = at ? Math.min(at.c, cells[0].length - 1) : cells[0].length - 1;
+  const here = at ? "this cell's" : "the last";
+  return [
+    ["Add a row below", `Under ${here} row`, () => wbTableReshape(d, "row", r + 1, false)],
+    ["Add a row above", `Over ${here} row`, () => wbTableReshape(d, "row", r, false)],
+    ["Add a column to the right", `Beside ${here} column`, () => wbTableReshape(d, "col", c + 1, false)],
+    ["Add a column to the left", `Before ${here} column`, () => wbTableReshape(d, "col", c, false)],
+    [at ? "Delete this row" : "Delete the last row", at ? "The row of the cell you pressed" : "Press a cell first to pick another", () => wbTableReshape(d, "row", r, true)],
+    [at ? "Delete this column" : "Delete the last column", at ? "The column of the cell you pressed" : "Press a cell first to pick another", () => wbTableReshape(d, "col", c, true)],
+    [d.data?.header ? "Plain first row" : "First row as a header", "Bold on a tint, or like the rest", async () => {
+      wbPushUndo({ action: "move", kind: "object", id: d.id, before: WB_KIND_INFO.object.payload(d) });
+      d.data = { ...d.data, header: !d.data?.header || undefined };
+      if (!d.data.header) delete d.data.header;
+      await wbSaveObject(d);
+      wbScheduleRender();
+    }],
+  ];
+}

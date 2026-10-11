@@ -104,6 +104,12 @@ function wbMapLayout() {
   return window.wbMapState?.layout || "free";
 }
 
+//: Does a tidy move anything: a laid-out map, or a Free one with a branch
+//: that has its own structure (`wbMapStructuredPositions`).
+function wbMapLaysOut() {
+  return wbMapLayout() !== "free" || (wbState.objects || []).some((o) => o.data?.branch_layout);
+}
+
 //: **The map's own look** (MINDMAP_PLAN.md §13e). Ten of the eleven things a
 //: topic can be given are set here once for the whole map, and a topic that
 //: was never told otherwise follows. `{}` for every map that has never been
@@ -1386,7 +1392,26 @@ function wbMapIndex() {
   // array's, so two renders of an unchanged map are identical.
   for (const list of childrenOf.values()) list.sort(wbMapBySiblingOrder);
   roots.sort(wbMapBySiblingOrder);
-  return { nodes, byId, childrenOf, roots };
+  const index = { nodes, byId, childrenOf, roots };
+  wbMapMarkBranchLayouts(index);
+  return index;
+}
+
+//: **A structure per branch** (XMind; MINDMAP_PLAN "canvasdepth, ranked" row
+//: 1): each topic under one whose `data.branch_layout` is set carries that
+//: layout as `_bl` and the topic that set it as `_blTop`, the nearest one
+//: winning, so the line and bar code reads its own layout without a walk up
+//: the tree per line. Transient, like `_fresh`; never saved.
+function wbMapMarkBranchLayouts(index) {
+  if (!index.nodes.some((o) => o.data?.branch_layout || o._bl)) return;
+  const stack = index.roots.map((o) => [o, null, null]);
+  while (stack.length) {
+    const [node, bl, top] = stack.pop();
+    node._bl = bl || undefined;
+    node._blTop = top ?? undefined;
+    const own = node.data?.branch_layout;
+    for (const kid of index.childrenOf.get(node.id) || []) stack.push([kid, own || bl, own ? node.id : top]);
+  }
 }
 
 //: **A topic's place among its siblings** (INBOX 445; MINDMAP_PLAN §12.0
@@ -1658,6 +1683,31 @@ function wbMapLiveDatum(d) {
 function wbBuildMapNode(el, d) {
   el.classed("wb-map-node", true);
   const body = el.append("div").attr("class", "wb-map-node-body");
+  //: **A callout over the words** (XMind; canvasdepth2): a row of the card's
+  //: own flow, so a tidy measures it and nothing is laid over it. Built for
+  //: every topic and hidden while it has none, the icon's rule.
+  el.append("div").attr("class", "wb-map-callout").property("hidden", true)
+    .on("dblclick", (event) => {
+      event.stopPropagation();
+      wbMapEditCallout(wbMapLiveDatum(d));
+    });
+  //: And labels under them (XMind), the next row of the same flow.
+  //: Its stamps ride the same row; a press on one adds one more (a vote),
+  //: without starting a drag or the labels' double-click.
+  el.append("div").attr("class", "wb-map-tags").property("hidden", true)
+    .on("pointerdown", (event) => {
+      if (event.target.closest(".wb-map-stamp")) event.stopPropagation();
+    })
+    .on("click", (event) => {
+      const stamp = event.target.closest(".wb-map-stamp");
+      if (!stamp) return;
+      event.stopPropagation();
+      wbMapAddStamp(wbMapLiveDatum(d), stamp.dataset.stamp);
+    })
+    .on("dblclick", (event) => {
+      event.stopPropagation();
+      if (!event.target.closest(".wb-map-stamp")) wbMapEditLabels(wbMapLiveDatum(d));
+    });
   //: **Built for every node, hidden when it has nothing to say**, the same
   //: rule the chevron and the count badge already follow here and for the
   //: same reason: a reference node's kind icon and a topic's own chosen icon
@@ -2128,7 +2178,7 @@ function wbPaintMapNode(el, d, index, colors, fills) {
   //: belongs to points at nothing, which is the reason the downward case
   //: exists at all. Per node rather than per view, because both-sides has
   //: topics of both kinds on one map.
-  const layout = wbMapLayout();
+  const layout = d._bl || wbMapLayout();
   let mirrored = layout === "tree-left";
   if (layout === "tree-both" && index) {
     const parent = index.byId.get(d.parent_id);
@@ -2478,6 +2528,7 @@ function wbPaintMapNodeStyle(node, d) {
     }
   }
 
+  wbMapPaintExtras(node, d.data || {});
   //: A note (decision 18): read off the topic's own data, never the theme's.
   const noteMark = node.querySelector(".wb-map-note");
   if (noteMark) {
@@ -3041,6 +3092,9 @@ function wbMapOpenReference(d) {
 let wbMapNodeSizeCache = null;
 
 function wbMapNodeSize(d) {
+  //: A branch with its own structure, standing in for its whole box while
+  //: the map around it is laid out (`wbMapStructuredPositions`).
+  if (d._block) return d._block;
   const cached = wbMapNodeSizeCache?.get(d.id);
   if (cached) return cached;
   const el = document.querySelector(`.wb-object[data-id="${d.id}"]`);
@@ -3101,14 +3155,17 @@ window.addEventListener("pointercancel", wbClearMapNodeSizeCache, true);
 //: down. `radial` and `free` have no fixed direction, so the axis is chosen
 //: per edge from whichever delta is larger, which is what makes a radial map's
 //: edges leave a node on the side the child is actually on.
-function wbMapEdgeAnchors(parent, child, layout) {
+function wbMapEdgeAnchors(parent, child, mapLayout) {
   const p = wbMapNodeSize(parent);
   const c = wbMapNodeSize(child);
+  //: Inside a branch with its own structure, that structure's lines, and its
+  //: top topic is the "root" the column layouts measure from.
+  const layout = child._bl || mapLayout;
   //: Every sideways layout is horizontal, whichever way it grows: the
   //: `leftward` test below already reads the direction off the two boxes, so
   //: tree-left and both-sides need nothing of their own here.
   let horizontal = layout === "tree-right" || layout === "tree-left" || layout === "tree-both" || layout === "logic-right";
-  const fromRoot = parent.parent_id == null;
+  const fromRoot = child._blTop != null ? parent.id === child._blTop : parent.parent_id == null;
   //: A timeline's events sit on the axis through the centre; their branches
   //: hang below or above them.
   if (layout === "timeline") horizontal = fromRoot;
@@ -3120,7 +3177,10 @@ function wbMapEdgeAnchors(parent, child, layout) {
   //: (`wbMapEdgePathD` runs it along the spine to the rib's foot).
   if (layout === "fishbone" && fromRoot) {
     const up = child.y + c.h / 2 < parent.y + p.h / 2;
-    return { horizontal: false, rib: true, x1: parent.x, y1: parent.y + p.h / 2, x2: child.x + c.w / 2, y2: up ? child.y + c.h : child.y };
+    //: A branch's fishbone faces away from its parent, so its bones may run
+    //: right of the head (`wbMapStructuredPositions`).
+    const right = child.x + c.w / 2 > parent.x + p.w;
+    return { horizontal: false, rib: true, right, x1: right ? parent.x + p.w : parent.x, y1: parent.y + p.h / 2, x2: child.x + c.w / 2, y2: up ? child.y + c.h : child.y };
   }
   if (layout === "radial" || layout === "free" || layout === "fishbone") {
     horizontal = Math.abs(child.x - parent.x) >= Math.abs(child.y - parent.y);
@@ -3295,7 +3355,8 @@ function wbMapEdgePathD(parent, child, layout) {
   //: moves its turn to it. An unbent line is the same string it always was.
   const w = wbMapEdgeWaypoint(a, child);
   if (a.rib && !w.bent) {
-    const foot = Math.min(a.x1, a.x2 + Math.abs(a.y2 - a.y1) * 0.5);
+    const slant = Math.abs(a.y2 - a.y1) * 0.5;
+    const foot = a.right ? Math.max(a.x1, a.x2 - slant) : Math.min(a.x1, a.x2 + slant);
     return `M${a.x1} ${a.y1} L${foot} ${a.y1} L${a.x2} ${a.y2}`;
   }
   if (style === "straight") {
@@ -3479,7 +3540,7 @@ function wbMapSmoothThrough(points, at) {
 //: fill rule is invisible.
 function wbMapEdgeIsRibbon(child) {
   const themed = wbMapThemedData(child);
-  return (themed.edge_style || WB_MAP_LAYOUT_EDGE[wbMapLayout()] || "curve") === "curve" && !themed.edge_dashed;
+  return (themed.edge_style || WB_MAP_LAYOUT_EDGE[child._bl || wbMapLayout()] || "curve") === "curve" && !themed.edge_dashed;
 }
 
 //: The tree edges touching `id` (its own edge up to its parent, and one per
@@ -4485,7 +4546,7 @@ function mapPaletteCommands() {
     if (value !== wbMapLayout()) row("Map layout", `ph:tree-structure Layout: ${name}`, () => wbMapSetLayout(value));
   }
   row("This map", "ph:file-text Write this map as a document", () => wbMapWriteDocument());
-  for (const [format, name] of [["markdown", "Markdown outline"], ["opml", "OPML"], ["freemind", "FreeMind (.mm)"], ["text", "plain text"]]) {
+  for (const [format, name] of [["markdown", "Markdown outline"], ["opml", "OPML"], ["freemind", "FreeMind (.mm)"], ["xmind", "XMind (.xmind)"], ["text", "plain text"]]) {
     row("Export the map", `ph:export Export as ${name}`, () => wbExportMapText(format));
   }
   return rows;
@@ -5237,7 +5298,7 @@ const WB_MAP_LAYOUT_NAMES = Object.freeze([
 ]);
 
 function wbMapEdgeStyle(child) {
-  return wbMapThemedData(child).edge_style || WB_MAP_LAYOUT_EDGE[wbMapLayout()] || "curve";
+  return wbMapThemedData(child).edge_style || WB_MAP_LAYOUT_EDGE[child._bl || wbMapLayout()] || "curve";
 }
 
 function wbMapColumnPositions(index, layout) {
@@ -5372,6 +5433,88 @@ function wbMapColumnPositions(index, layout) {
 //: had a lag bug of exactly that shape (task #71).
 function wbMapTidyPositions(index, layout) {
   if (!index.roots.length) return new Map();
+  const tops = index.nodes.filter((o) => o.data?.branch_layout && !o.data?.collapsed && index.childrenOf.get(o.id)?.length);
+  if (tops.length) return wbMapStructuredPositions(index, layout, tops);
+  return layout === "free" ? new Map() : wbMapLayoutPositions(index, layout);
+}
+
+//: **A branch with its own structure is laid out first, then stands in the
+//: map as one box** (XMind's per-branch structure). Innermost first: each
+//: such branch is laid out alone as its own layout, its box measured, and in
+//: the layout round it the topic is a folded stand-in that big
+//: (`_block`, read by `wbMapNodeSize`), so nothing outside can overlap it.
+//: Then every stand-in is opened back out at the place it was given. On a
+//: Free map only the structured branches move, round their own topic.
+function wbMapStructuredPositions(index, layout, tops) {
+  const depth = (o) => {
+    let d = 0;
+    for (let at = o; at?.parent_id != null && d < 500; at = index.byId.get(at.parent_id)) d += 1;
+    return d;
+  };
+  const order = tops.map((o) => [o, depth(o)]).sort((a, b) => b[1] - a[1]).map(([o]) => o);
+  const proxies = new Map();
+  const blocks = new Map();
+  const swap = (o) => proxies.get(o.id) || o;
+  const expand = (positions) => {
+    for (const [id, block] of blocks) {
+      const at = positions.get(id);
+      if (!at || !proxies.has(id)) continue;
+      //: A fishbone's head is on its right; one whose parent is to its left
+      //: is turned round, so the line in meets the head, not the tail.
+      const pid = proxies.get(id).parent_id;
+      const parent = positions.get(pid) || index.byId.get(pid);
+      const turn = block.fish && parent && parent.x < at.x;
+      for (const [inner, r] of block.rel) {
+        const x = turn ? block.w - r.x - wbMapNodeSize(index.byId.get(inner)).w : r.x;
+        positions.set(inner, { x: at.x + x, y: at.y + r.y });
+      }
+    }
+    return positions;
+  };
+  for (const top of order) {
+    //: The top without its own mark, or the layouts that call back into
+    //: `wbMapTidyPositions` (both sides, the logic chart) would find it again.
+    const root = { ...top, data: { ...top.data, branch_layout: null } };
+    const members = wbMapSubtree(index, top.id).map((o) => (o.id === top.id ? root : swap(o)));
+    const sub = {
+      nodes: members,
+      byId: new Map(members.map((o) => [o.id, o])),
+      childrenOf: new Map(members.map((o) => [o.id, (index.childrenOf.get(o.id) || []).map(swap)])),
+      roots: [root],
+    };
+    const positions = expand(wbMapLayoutPositions(sub, top.data.branch_layout));
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [id, pos] of positions) {
+      const s = wbMapNodeSize(index.byId.get(id));
+      minX = Math.min(minX, pos.x);
+      minY = Math.min(minY, pos.y);
+      maxX = Math.max(maxX, pos.x + s.w);
+      maxY = Math.max(maxY, pos.y + s.h);
+    }
+    const rel = new Map([...positions].map(([id, pos]) => [id, { x: pos.x - minX, y: pos.y - minY }]));
+    blocks.set(top.id, { rel, w: maxX - minX, fish: top.data.branch_layout === "fishbone" });
+    proxies.set(top.id, { ...top, data: { ...top.data, collapsed: true }, _block: { w: maxX - minX, h: maxY - minY } });
+  }
+  if (layout === "free") {
+    //: Each outermost structured branch round its own topic, where it is.
+    const out = new Map();
+    for (const top of order) {
+      if (top._bl) continue;
+      const own = blocks.get(top.id).rel.get(top.id);
+      out.set(top.id, { x: top.x - own.x, y: top.y - own.y });
+    }
+    return expand(out);
+  }
+  const outer = {
+    nodes: index.nodes.map(swap),
+    childrenOf: new Map([...index.childrenOf].map(([id, list]) => [id, list.map(swap)])),
+    roots: index.roots.map(swap),
+  };
+  outer.byId = new Map(outer.nodes.map((o) => [o.id, o]));
+  return expand(wbMapLayoutPositions(outer, layout));
+}
+
+function wbMapLayoutPositions(index, layout) {
   //: XMind's logic chart is the sideways tree with right-angled lines
   //: (`WB_MAP_LAYOUT_EDGE`); the places are the same.
   if (layout === "logic-right") return wbMapTidyPositions(index, "tree-right");
@@ -5604,7 +5747,7 @@ function wbMapTidyPositions(index, layout) {
 async function wbMapTidy({ onlyBranch = null, quiet = false } = {}) {
   if (!wbIsMap()) return 0;
   const layout = wbMapLayout();
-  if (layout === "free") {
+  if (!wbMapLaysOut()) {
     if (!quiet) toast("This map's layout is Free, pick a layout to tidy it.");
     return 0;
   }
@@ -5707,7 +5850,7 @@ function wbMapSpillsOffCanvas() {
 //: it. Silent by design: this runs as part of Tab, and a toast per keystroke
 //: while building a map out is noise, not feedback.
 async function wbMapTidyBranch(parentId) {
-  if (!wbIsMap() || wbMapLayout() === "free") return;
+  if (!wbIsMap() || !wbMapLaysOut()) return;
   await wbMapTidy({ onlyBranch: wbMapTidyBranchScope(parentId), quiet: true });
 }
 
@@ -5717,6 +5860,8 @@ async function wbMapTidyBranch(parentId) {
 function wbMapTidyBranchScope(parentId) {
   if (WB_MAP_COLUMN_LAYOUTS.has(wbMapLayout())) return null;
   const index = wbMapIndex();
+  //: A structured branch that grows moves whatever sits beside its box.
+  if (index.nodes.some((o) => o.data?.branch_layout)) return null;
   const parent = parentId != null ? index.byId.get(parentId) : null;
   return parent && parent.parent_id != null ? parent.parent_id : null;
 }
@@ -5725,9 +5870,8 @@ function wbMapTidyBranchScope(parentId) {
 //: placed directly (it has no element yet for a move to carry), or null on a
 //: Free map, where a new topic stays where it was put.
 function wbMapTidyBranchPlan(parentId, fresh) {
-  if (!wbIsMap()) return null;
+  if (!wbIsMap() || !wbMapLaysOut()) return null;
   const layout = wbMapLayout();
-  if (layout === "free") return null;
   const origin = wbMapTidyOrigin(wbMapTidyBranchScope(parentId), layout);
   const own = origin.get(wbMultiKey("object", fresh.id));
   if (own) {
@@ -7447,8 +7591,104 @@ const WB_MAP_STYLE_KEYS = [
 //: And a boundary and a summary (decisions 19, 20): what the map says.
 const WB_MAP_CONTENT_KEYS = [
   "image", "task", "note", "boundary", "boundary_label", "summary", "summary_span",
-  "priority", "progress", "flag", "markers", "due",
+  "priority", "progress", "flag", "markers", "due", "branch_layout", "callout", "labels", "stamps",
 ];
+
+//: **Reaction stamps and votes** (Miro; MINDMAP_PLAN 14.4): six Phosphor
+//: glyphs, not emoji, for decision 34's reason (an emoji is drawn
+//: differently by every system), each with its count.
+const WB_MAP_STAMPS = Object.freeze([
+  ["up", "thumbs-up", "Vote"], ["heart", "heart", "Love it"], ["star", "star", "Star"],
+  ["check", "check-circle", "Agree"], ["question", "question", "Question"], ["fire", "fire", "Hot"],
+]);
+
+//: One more of a stamp on a topic, one Undo step.
+async function wbMapAddStamp(node, name) {
+  const known = WB_MAP_STAMPS.find(([n]) => n === name);
+  if (!node || !known) return;
+  const stamps = { ...(node.data?.stamps || {}) };
+  stamps[name] = Math.min(999, (stamps[name] || 0) + 1);
+  await wbMapSetExtra(node, { stamps }, `${known[2]}: ${stamps[name]}.`);
+}
+
+//: A topic's callout (canvasdepth2), read off its own data: content. The
+//: card wraps (`data-extras`) only while it carries one, so every other topic
+//: keeps the one row it has always been.
+function wbMapPaintExtras(node, data) {
+  const callout = node.querySelector(".wb-map-callout");
+  const words = typeof data.callout === "string" ? data.callout.trim() : "";
+  if (callout) {
+    callout.hidden = !words;
+    if (callout.textContent !== words) callout.textContent = words;
+    callout.title = words ? "Callout: double-click to change it" : "";
+  }
+  const tags = node.querySelector(".wb-map-tags");
+  const labels = Array.isArray(data.labels) ? data.labels.filter((l) => typeof l === "string" && l.trim()) : [];
+  const stamps = WB_MAP_STAMPS.filter(([name]) => data.stamps?.[name] > 0);
+  if (tags) {
+    tags.hidden = !labels.length && !stamps.length;
+    const key = `${labels.join("\u0000")}|${stamps.map(([name]) => `${name}${data.stamps[name]}`).join(",")}`;
+    if (tags.dataset.key !== key) {
+      tags.dataset.key = key;
+      tags.replaceChildren(...labels.map((label) => {
+        const chip = document.createElement("span");
+        chip.className = "wb-map-tag";
+        chip.textContent = label;
+        return chip;
+      }), ...stamps.map(([name, glyph, said]) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "wb-map-stamp";
+        chip.dataset.stamp = name;
+        chip.title = `${said}: press to add one`;
+        chip.setAttribute("aria-label", `${said}, ${data.stamps[name]}. Press to add one.`);
+        const icon = document.createElement("i");
+        icon.className = `ph ph-${glyph}`;
+        icon.setAttribute("aria-hidden", "true");
+        chip.append(icon, String(data.stamps[name]));
+        return chip;
+      }));
+    }
+    tags.title = labels.length ? "Labels: double-click to change them" : "";
+  }
+  if (words || labels.length || stamps.length) node.dataset.extras = "";
+  else delete node.dataset.extras;
+}
+
+//: Labels as one comma-separated answer; an empty answer from a topic that
+//: has some keeps them (Escape is never destructive), removing is its row.
+async function wbMapEditLabels(node) {
+  if (!node) return;
+  const current = Array.isArray(node.data?.labels) ? node.data.labels : [];
+  const answer = String((await promptDialog("Labels for this topic, separated by commas (up to eight).", current.join(", "),
+    { confirmLabel: current.length ? "Change the labels" : "Add the labels" })) ?? "");
+  const next = [...new Set(answer.split(",").map((l) => l.trim().slice(0, 30)).filter(Boolean))].slice(0, 8);
+  if (!next.length || next.join(",") === current.join(",")) return;
+  await wbMapSetExtra(node, { labels: next }, current.length ? "Labels changed." : "Labels added.");
+}
+
+//: Add, change or (with an empty answer from a filled one) keep a callout;
+//: removing is its own menu row, `wbMapEditLink`'s rule for Escape.
+async function wbMapEditCallout(node) {
+  if (!node) return;
+  const current = String(node.data?.callout || "");
+  const next = String((await promptDialog("What should the callout over this topic say?", current,
+    { confirmLabel: current ? "Change the callout" : "Add the callout" })) ?? "").trim().slice(0, 200);
+  if (!next || next === current) return;
+  await wbMapSetExtra(node, { callout: next }, current ? "Callout changed." : "Callout added.");
+}
+
+//: A callout, labels or stamps changed: the field and the tidy that makes
+//: room for the taller card are one Undo step.
+async function wbMapSetExtra(node, patch, said) {
+  await wbRecordGesture(async () => {
+    await wbMapSetNodeStyle(node, patch);
+    renderWhiteboardNow();
+    if (wbMapLaysOut()) await wbMapTidy({ quiet: true });
+  });
+  renderWhiteboardNow();
+  if (said) wbAnnounce(said);
+}
 
 //: Remove this topic and keep its branch: the children move up to its parent
 //: first, then the node goes. Through `/move`, which is the only endpoint
@@ -8205,6 +8445,26 @@ async function wbMapSetLayout(layout) {
   } catch (err) {
     toast(err.message || voiceLine("failed", { what: "change the layout" }), true);
   }
+}
+
+//: A branch's own structure, by the words its menu uses (XMind's list).
+const WB_MAP_BRANCH_STRUCTURES = Object.freeze([
+  ["logic-right", "Logic chart"], ["tree-down", "Org chart"], ["tree-table", "Tree table"], ["timeline", "Timeline"],
+  ["fishbone", "Fishbone"], ["tree-both", "Map, both sides"], ["tree-right", "Tree, to the right"],
+  ["tree-left", "Tree, to the left"], ["radial", "Radial"],
+]);
+
+//: Give a branch its own structure, or `null` to follow the map again: the
+//: field and the tidy it causes are one Undo step.
+async function wbMapSetBranchLayout(node, value) {
+  if (!node) return;
+  await wbRecordGesture(async () => {
+    await wbMapSetNodeStyle(node, { branch_layout: value });
+    await wbMapTidy({ quiet: true });
+  });
+  renderWhiteboardNow();
+  const name = WB_MAP_BRANCH_STRUCTURES.find(([v]) => v === value)?.[1];
+  wbAnnounce(name ? `This branch is laid out as ${name.toLowerCase()}.` : "This branch follows the map's layout again.");
 }
 
 //: **Dragging a node pins it.** The other half of the tidy bargain above: a

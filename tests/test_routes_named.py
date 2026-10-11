@@ -61,7 +61,6 @@ POST /tidy/link-reasons/run
 POST /tidy/link-reasons/stop
 POST /whiteboard/boards/{board_id}/nodes/clear-style
 POST /whiteboard/boards/{board_id}/nodes/outline
-POST /whiteboard/boards/{board_id}/place
 PUT /board-library/libraries/{library_id}
 PUT /conversations/{conversation_id}/archive
 PUT /conversations/{conversation_id}/pin

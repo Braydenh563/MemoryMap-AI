@@ -161,6 +161,10 @@ const WB_COMMANDS = [
   { id: "insert-sticky", group: "Insert", icon: "ph:note", label: "Sticky note", keys: "N", surface: "board", run: wbTool("sticky") },
   { id: "insert-text", group: "Insert", icon: "ph:text-t", label: "Text box", keys: "T", surface: "board", run: wbTool("text") },
   { id: "insert-frame", group: "Insert", icon: "ph:frame-corners", label: "Frame", keys: "F", surface: "board", run: wbTool("frame") },
+  //: canvasdepth2: draw.io's table, rows and columns of text cells.
+  { id: "insert-table", group: "Insert", icon: "ph:table", label: "Table", keys: "", surface: "board", run: () => wbInsertTable() },
+  //: draw.io's Edit data (Ctrl+M): the Format panel's Data tab.
+  { id: "edit-data", group: "Edit", icon: "ph:database", label: "Edit data", keys: "", surface: "board", needs: "selection", run: () => wbFormatOpen("data") },
   { id: "insert-image", group: "Insert", icon: "ph:image", label: "Image from a file", keys: "I", surface: "board", run: wbClickId("wb-add-image") },
   { id: "insert-note", group: "Insert", icon: "ph:note-pencil", label: "A note from the library", keys: "", surface: "both", run: wbClickId("wb-add-note") },
   //: MINDMAP_PLAN decision 44: a sticker, or (dropped on a topic) its icon.

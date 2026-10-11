@@ -1142,6 +1142,8 @@ function wbApplyBackground() {
   if (picker && (bg.color || themeHex)) picker.value = bg.color || themeHex;
   const fold = document.getElementById("wb-sticky-fold");
   if (fold) fold.checked = bg.sticky_fold !== false;
+  const rough = document.getElementById("wb-rough-toggle");
+  if (rough) rough.checked = bg.rough === true;
   const imageButton = document.getElementById("wb-bg-image");
   if (imageButton) {
     const words = bg.image ? "Remove the background image" : "Set a background image";
@@ -1170,8 +1172,8 @@ async function wbSetBackground(patch, { undo = true } = {}) {
     return false;
   }
   wbApplyBackground();
-  //: The sticky notes' fold follows the board's default.
-  if ("sticky_fold" in patch) wbScheduleRender();
+  //: The sticky notes' fold and the hand-drawn look follow the board's.
+  if ("sticky_fold" in patch || "rough" in patch) wbScheduleRender();
   if (undo) wbPushUndo({ action: "background", before });
   return true;
 }
@@ -4895,7 +4897,8 @@ function wbItemSpokenName(kind, item) {
   }
   if (kind === "node") {
     const entry = (typeof allEntries !== "undefined" ? allEntries : []).find((e) => String(e.id) === String(item.entry_id));
-    const title = entry ? stripFrontmatter(entry.content).replace(/^#+\s*/, "").trim().split("\n")[0].slice(0, 60) : "";
+    //: Plain words, not the note's markdown: a layer row read "**Current Commit..." (INBOX 820).
+    const title = entry ? stripMarkdownPreview(stripFrontmatter(entry.content).trim().split("\n")[0]).trim().slice(0, 60) : "";
     return title ? `Note card: ${title}` : "Note card";
   }
   if (item.kind === "image") return "Picture";
@@ -6990,6 +6993,8 @@ function wbBuildContextMenu(kind) {
     Lines: "ph:path Line",
     Branch: "ph:tree-structure Branch",
     Order: "ph:stack Order",
+    Structure: "ph:tree-view Structure",
+    Stamps: "ph:thumbs-up Stamps",
   };
   const subItem = (label, buildSubItems) => {
     const rows = [];
@@ -7082,6 +7087,20 @@ function wbBuildContextMenu(kind) {
             wbAnnounce("Note removed.");
           });
         }
+      }
+      //: A callout over the topic (XMind; canvasdepth2).
+      sub(mapNode.data?.callout ? "Change the callout…" : "Add a callout…", "A few words in a bubble over this topic", () =>
+        wbMapEditCallout(mapNode));
+      if (mapNode.data?.callout) {
+        sub("Remove the callout", "The topic stays; Ctrl+Z brings it back", () =>
+          wbMapSetExtra(mapNode, { callout: null }, "Callout removed."));
+      }
+      //: Labels under the topic (XMind; canvasdepth2).
+      const labelled = Boolean(mapNode.data?.labels?.length);
+      sub(labelled ? "Change the labels…" : "Add labels…", "Short tags drawn under this topic", () => wbMapEditLabels(mapNode));
+      if (labelled) {
+        sub("Remove the labels", "The topic stays; Ctrl+Z brings them back", () =>
+          wbMapSetExtra(mapNode, { labels: null }, "Labels removed."));
       }
       //: Markers (MINDMAP_PLAN decision 34): priority, progress, a flag, icons.
       sub(wbMapMarkerWords(wbMapMarkerParts(mapNode.data)) ? "Change the markers…" : "Markers…",
@@ -7210,6 +7229,30 @@ function wbBuildContextMenu(kind) {
           wbMapSummarise([mapNode]));
       }
     });
+    //: Reaction stamps and votes (Miro; MINDMAP_PLAN 14.4), each one more.
+    subItem("Stamps", sub => {
+      for (const [name, , said] of WB_MAP_STAMPS) {
+        const count = mapNode.data?.stamps?.[name] || 0;
+        sub(count ? `${said} (${count})` : said, "One more of this stamp; or press it on the topic", () => wbMapAddStamp(mapNode, name));
+      }
+      if (Object.keys(mapNode.data?.stamps || {}).length) {
+        sub("Clear the stamps", "Every count on this topic; Ctrl+Z brings them back", () =>
+          wbMapSetExtra(mapNode, { stamps: null }, "Stamps cleared."));
+      }
+    });
+    //: A structure for this branch alone (XMind; canvasdepth2).
+    if (kids) subItem("Structure", sub => {
+      const own = mapNode.data?.branch_layout;
+      if (own) sub("Follow the map's layout", "This branch is laid out as the rest of the map is", () => wbMapSetBranchLayout(mapNode, null));
+      for (const [value, name] of WB_MAP_BRANCH_STRUCTURES) {
+        if (value !== own) sub(name, "This topic's branch only; the map keeps its own layout", () => wbMapSetBranchLayout(mapNode, value));
+      }
+    });
+  }
+  //: A table's rows and columns (canvasdepth2), at the cell last pressed.
+  if (kind === "object" && wbSelectedItem?.kind === "object" && wbMultiSelection.size <= 1) {
+    const table = (wbState.objects || []).find((o) => o.id === wbSelectedItem.id && o.kind === "table");
+    if (table) for (const [label, title, fn] of wbTableMenuRows(table)) item(label, title, fn);
   }
   //: The words for decision 12's gesture, so typing into a shape is found
   //: by someone who has not tried a double-click on it.
@@ -8525,7 +8568,7 @@ async function wbApplyHistoryEntry(from, to) {
   if (entry.action === "background") {
     const current = { ...wbBoardBackground() };
     const was = entry.before || {};
-    await wbSetBackground({ color: was.color ?? null, image: was.image ?? null, sticky_fold: was.sticky_fold ?? null }, { undo: false });
+    await wbSetBackground({ color: was.color ?? null, image: was.image ?? null, sticky_fold: was.sticky_fold ?? null, rough: was.rough ?? null }, { undo: false });
     to.push({ action: "background", before: current });
     return true;
   }
@@ -8551,7 +8594,7 @@ async function wbApplyHistoryEntry(from, to) {
   if (entry.action === "delete") {
     // This entry means "bring back what was deleted". Applying it recreates
     // the item; reversing *that* is deleting the newly-recreated one again.
-    const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
+    const restored = await apiJson(base, { method: "POST", body: JSON.stringify(wbKeepOwnLayer(entry.kind, entry.payload)) });
     wbState[list].push(restored);
     //: **A map topic comes back under its parent, and as itself** (INBOX
     //: 537): the flat create cannot write `parent_id` (only `/move` can, with
@@ -10542,6 +10585,7 @@ async function wbExportMapText(format) {
     opml: { suffix: "opml", said: "OPML" },
     freemind: { suffix: "mm", said: "a FreeMind map" },
     text: { suffix: "txt", said: "a plain-text outline" },
+    xmind: { suffix: "xmind", said: "an XMind map" },
   };
   const chosen = formats[format] || formats.markdown;
   await saveFile(`${safe}.${chosen.suffix}`, blob);
@@ -11050,6 +11094,11 @@ const WB_EXPORT_FORMATS = [
     value: "freemind", label: "FreeMind", scopes: ["whole"], map: true, drawsCards: false,
     note: "For FreeMind and Freeplane.",
     run: () => wbExportMapText("freemind"),
+  },
+  {
+    value: "xmind", label: "XMind", scopes: ["whole"], map: true, drawsCards: false,
+    note: "For XMind: topics, notes, labels, callouts and each branch's structure.",
+    run: () => wbExportMapText("xmind"),
   },
   {
     value: "text", label: "Plain text", scopes: ["whole"], map: true, drawsCards: false,
@@ -12115,6 +12164,7 @@ async function initWhiteboard() {
     });
   }
   $("wb-sticky-fold")?.addEventListener("change", (e) => wbSetBackground({ sticky_fold: e.target.checked }));
+  $("wb-rough-toggle")?.addEventListener("change", (e) => wbSetBackground({ rough: e.target.checked }));
   const snapToggle = $("wb-snap-toggle");
   if (snapToggle) {
     snapToggle.checked = prefs.get("wb-snap", null) === "on";
@@ -17976,6 +18026,9 @@ function renderWhiteboard() {
       }
     } catch(e) {}
     d3.select(this).select(".sketch-hitbox").attr("d", hitboxData ?? pathData);
+    //: The hand-drawn look (canvasdepth2): only the drawn line is roughened,
+    //: so the hit band, the ports and the label keep the true shape.
+    if (wbDrawsRough(shapeData || linkData, Boolean(linkData && wbMapCrossLinkLook(linkData)))) pathData = wbRoughD(pathData, d.id);
     d3.select(this).select(".sketch-path")
       // The highlighter's multiply, re-applied every render and cleared on
       // every other kind so a reused element cannot keep it: the same reason
@@ -19279,6 +19332,8 @@ function renderWbObjects(canvas) {
         });
     } else if (d.kind === "frame") {
       wbBuildFrame(el, d);
+    } else if (d.kind === "table") {
+      wbBuildTable(el, d);
     } else if (WB_MAP_KINDS.has(d.kind)) {
       // A map node, not a text box. Checked before the `else` below because
       // that branch is "everything that isn't an image", which is what drew a
@@ -19384,8 +19439,8 @@ function renderWbObjects(canvas) {
         .call(resizeDrag(handle));
     }
     //: A frame is a region of the board, and a turned region holds nothing
-    //: square (decision 14).
-    if (d.kind === "frame") return;
+    //: square (decision 14); nor does a table's grid.
+    if (d.kind === "frame" || d.kind === "table") return;
     el.append("div")
       .attr("class", "wb-rotate-handle")
       .attr("title", "Drag to rotate: Shift snaps to 15°, double-click stands it upright")
@@ -19476,6 +19531,8 @@ function renderWbObjects(canvas) {
       const title = this.querySelector(".wb-frame-title");
       if (title && !title.isContentEditable) title.textContent = wbFrameTitle(d);
       wbPaintFrame(this, d);
+    } else if (d.kind === "table") {
+      wbPaintTable(this, d);
     } else {
       const sticky = wbIsSticky(d);
       el.classed("wb-sticky", sticky);
@@ -19603,12 +19660,13 @@ function wbObjectPaintKey(d, ctx) {
   //: parent's own box on a both-sides map, and on every other layout the
   //: side is the layout's, so a parent moving cannot change a child's spine.
   let parentBox = "";
-  if (ctx.layout === "tree-both" && index) {
+  //: A branch with its own structure draws its topics by that layout (`_bl`).
+  if ((d._bl || ctx.layout) === "tree-both" && index) {
     const parent = index.byId.get(d.parent_id);
     if (parent) parentBox = `${parent.x}:${parent.width ?? ""}:${d.x}`;
   }
   return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
-    `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}` +
+    `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${d._bl || ""}|${ctx.theme}` +
     `|${ctx.fills?.get(d.id) ?? ""}|${wbMapLevelOf(d) ?? ""}` +
     //: The tasks under it (MINDMAP_PLAN.md decision 15): a child ticked
     //: changes this topic's "1/2" without changing anything of its own.

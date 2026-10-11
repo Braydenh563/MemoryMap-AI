@@ -253,7 +253,11 @@ MAP_TOPIC_KIND = "topic"
 #: nothing, so deleting it leaves what it held where it is.
 FRAME_KIND = "frame"
 
-VALID_OBJECT_KINDS = {"image", "text", FRAME_KIND, MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS
+#: A table (draw.io's; canvasdepth2): rows and columns of text cells.
+TABLE_KIND = "table"
+MAX_TABLE_ROWS = 50
+MAX_TABLE_COLS = 20
+VALID_OBJECT_KINDS = {"image", "text", FRAME_KIND, MAP_TOPIC_KIND, TABLE_KIND} | MAP_REFERENCE_KINDS
 
 
 #: A card/sketch/object's own persisted group, asked for directly (Ctrl+G).
@@ -348,8 +352,21 @@ class WhiteboardObjectData(BaseModel):
     #: Hidden by the Layers tab's eye, and its own name there (decision 27).
     hidden: bool | None = None
     name: str | None = Field(default=None, max_length=80)
+    #: **A table's cells** (canvasdepth2), row by row, every row as long as
+    #: the first (`_require_object_data`); and whether its first row is a
+    #: header, drawn bold on a tint.
+    cells: list[list[Annotated[str, StringConstraints(max_length=500)]]] | None = Field(default=None, max_length=50)
+    header: bool | None = None
+    #: **Edit data** (draw.io's custom properties; canvasdepth2): up to 30
+    #: named values on an item, edited in the Format panel's Data tab.
+    props: dict[
+        Annotated[str, StringConstraints(pattern=r"^[A-Za-z][\w .-]{0,39}$")],
+        Annotated[str, StringConstraints(max_length=200)],
+    ] | None = Field(default=None, max_length=30)
     #: The named layer it is on (canvasdepth); the board's settings hold them.
-    layer: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,24}$")
+    #: `""` is "on no layer, said on purpose": an item brought back by Undo
+    #: says it so it does not land on the current layer (`_on_current_layer`).
+    layer: str | None = Field(default=None, pattern=r"^([A-Za-z0-9_-]{1,24})?$")
     #: Where a placed library item came from (decision 25): `{id, version}`
     #: or `{builtin}`. Kept, never followed.
     library_ref: dict | None = None
@@ -474,6 +491,28 @@ class WhiteboardObjectData(BaseModel):
     #: words, and how many siblings the run takes, this topic first.
     summary: str | None = Field(default=None, max_length=80)
     summary_span: int | None = Field(default=None, ge=1, le=100)
+    #: **A structure for this topic's branch** (XMind; MINDMAP_PLAN
+    #: "canvasdepth, ranked" row 1): the branch under it is laid out as this
+    #: layout whatever the map's own is. Content, like a boundary.
+    branch_layout: str | None = Field(
+        default=None,
+        pattern="^(tree-right|tree-left|tree-both|tree-down|radial|logic-right|timeline|fishbone|tree-table)$",
+    )
+    #: **A callout on a topic** (XMind; canvasdepth2): a few words in a
+    #: bubble over its own. Content, like a note.
+    callout: str | None = Field(default=None, max_length=200)
+    #: **Labels under a topic** (XMind; canvasdepth2): up to eight short tags
+    #: drawn as a row under its words. No comma inside one, since the exports
+    #: write the list as one comma-joined attribute, as markers are.
+    labels: list[Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30, pattern=r"^[^,]+$")]] | None = Field(
+        default=None, max_length=8
+    )
+    #: **Reaction stamps and votes** (Miro; MINDMAP_PLAN 14.4): a count per
+    #: stamp from a fixed set of six, each press one more. Content.
+    stamps: dict[
+        Annotated[str, StringConstraints(pattern=r"^(up|heart|star|question|check|fire)$")],
+        Annotated[int, Field(ge=1, le=999)],
+    ] | None = None
     #: **Markers** (MINDMAP_PLAN decision 34): a priority 1 to 5, how far
     #: along it is (0 to 100, the menu offers quarters), a flag, and up to six
     #: Phosphor glyph names drawn before the label. Content, not a look: a
@@ -584,13 +623,22 @@ class WhiteboardObjectData(BaseModel):
     #: or two rows rather than renumbering the whole branch.
     order: float | None = Field(default=None, ge=-1e12, le=1e12)
 
-    @field_validator("markers", mode="before")
+    @field_validator("markers", "labels", mode="before")
     @classmethod
     def _markers_from_attribute(cls, value):
         """An export writes the list as one comma-joined attribute
         (`_markers="star,warning"`); read back, it is a list again."""
         if isinstance(value, str):
             return [part.strip() for part in value.split(",") if part.strip()]
+        return value
+
+    @field_validator("stamps", mode="before")
+    @classmethod
+    def _stamps_from_attribute(cls, value):
+        """An export writes the counts as one attribute (`up:3,star:1`)."""
+        if isinstance(value, str):
+            pairs = (part.split(":", 1) for part in value.split(",") if ":" in part)
+            return {name.strip(): count.strip() for name, count in pairs}
         return value
 
     @field_validator("icon")
@@ -743,6 +791,16 @@ def _object_to_out(obj: WhiteboardObject) -> WhiteboardObjectOut:
     )
 
 
+def _require_table_cells(cells: list[list[str]] | None) -> None:
+    """A table is a rectangle of cells: 1 to 50 rows of 1 to 20, all as long."""
+    widths = {len(row) for row in cells or []}
+    if not cells or len(widths) != 1 or not 1 <= widths.pop() <= MAX_TABLE_COLS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"A table is 1 to {MAX_TABLE_ROWS} rows of 1 to {MAX_TABLE_COLS} cells, every row as long as the first.",
+        )
+
+
 def _require_object_data(body: WhiteboardObjectBase) -> None:
     if body.kind == "image":
         if not body.data.url or not MEDIA_URL_RE.match(body.data.url):
@@ -754,6 +812,8 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
         raise HTTPException(
             status_code=422, detail=f"A {body.kind} item needs some content."
         )
+    elif body.kind == TABLE_KIND:
+        _require_table_cells(body.data.cells)
     elif body.kind in MAP_REFERENCE_KINDS and body.data.ref_id is None:
         # A reference node with nothing to reference is the map equivalent of
         # a card pointing at note 9999 (this module's own opening comment): it
@@ -1197,6 +1257,9 @@ class BoardLayer(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     hidden: bool = False
     locked: bool = False
+    #: The layer new items land in (draw.io's current layer; canvasdepth2).
+    #: At most one per board: `_store_board_layers` keeps the first.
+    current: bool = False
 
     @field_validator("name")
     @classmethod
@@ -1239,12 +1302,37 @@ def _store_board_layers(entry: Entry, layers: list[BoardLayer]) -> list[dict]:
         if layer.id not in seen:
             seen.add(layer.id)
             out.append(layer.model_dump())
+    current = next((layer for layer in out if layer["current"]), None)
+    for layer in out:
+        layer["current"] = layer is current
     if out:
         existing["layers"] = out
     else:
         existing.pop("layers", None)
     entry.board_settings = json.dumps(existing)
     return out
+
+
+def current_layer(db: Session, board_id: int | None) -> str | None:
+    """The layer a new item on this board lands in, if the board has a
+    current one that is neither hidden nor locked: drawing onto a layer you
+    cannot see or change would make the thing vanish as it is drawn."""
+    if not board_id:
+        return None
+    for layer in _board_layers(db.get(Entry, board_id)):
+        if layer["current"] and not layer["hidden"] and not layer["locked"]:
+            return layer["id"]
+    return None
+
+
+def _on_current_layer(db: Session, board_id: int | None, data: dict) -> dict:
+    """`data` with the current layer, unless it already names one (or says
+    `""`, none on purpose): every way onto a board, hand, paste, import or
+    the library, goes through a create here, so this is the one place."""
+    if "layer" in data:
+        return data
+    layer = current_layer(db, board_id)
+    return {**data, "layer": layer} if layer else data
 
 
 class BoardBackground(BaseModel):
@@ -1258,6 +1346,10 @@ class BoardBackground(BaseModel):
     #: option to hide the flap in the corner"). Folded is the default, so only
     #: `false` is ever stored; a note's own `fold` overrides it.
     sticky_fold: bool | None = None
+    #: **The hand-drawn look** (Excalidraw's; canvasdepth2): every shape and
+    #: line drawn with rough strokes. Plain is the default, so only `true` is
+    #: stored; an item's own `rough` in its data overrides it.
+    rough: bool | None = None
 
     @field_validator("color")
     @classmethod
@@ -1300,6 +1392,8 @@ def _board_background(entry: Entry | None) -> dict:
         out["image"] = image
     if stored.get("sticky_fold") is False:
         out["sticky_fold"] = False
+    if stored.get("rough") is True:
+        out["rough"] = True
     return out
 
 
@@ -1309,7 +1403,7 @@ def _store_board_background(entry: Entry, patch: BoardBackground) -> dict:
     merged = _board_background(entry)
     for field in patch.model_fields_set:
         value = getattr(patch, field)
-        if value is None or (field == "sticky_fold" and value is True):
+        if value is None or (field == "sticky_fold" and value is True) or (field == "rough" and value is False):
             merged.pop(field, None)
         else:
             merged[field] = value
@@ -2828,6 +2922,14 @@ def create_sketch(
 ) -> WhiteboardSketch:
     _require_board(db, sketch_in.board_id)
     sketch = WhiteboardSketch(**sketch_in.model_dump())
+    try:
+        parsed = json.loads(sketch.data)
+    except ValueError:
+        parsed = None
+    if isinstance(parsed, dict):
+        layered = _on_current_layer(db, sketch_in.board_id, parsed)
+        if layered is not parsed:
+            sketch.data = json.dumps(layered)
     db.add(sketch)
     db.flush()  # so the event can name the sketch's id
     events.record(
@@ -2906,7 +3008,7 @@ def create_object(
     _require_object_data(body)
     obj = WhiteboardObject(
         kind=body.kind,
-        data=body.data.model_dump_json(exclude_none=True),
+        data=json.dumps(_on_current_layer(db, body.board_id, body.data.model_dump(mode="json", exclude_none=True)), separators=(",", ":")),
         board_id=body.board_id,
         x=body.x,
         y=body.y,
@@ -3259,6 +3361,10 @@ MAP_STYLE_FIELDS = (
     "boundary_label",
     "summary",
     "summary_span",
+    "branch_layout",
+    "callout",
+    "labels",
+    "stamps",
     "priority",
     "progress",
     "flag",
@@ -3941,7 +4047,7 @@ class MapClearStyleOut(BaseModel):
 #: not list because a node has carried `color` as a key of its own since
 #: before any of this existed.
 MAP_CONTENT_FIELDS = frozenset({
-    "image", "task", "note", "boundary", "boundary_label", "summary", "summary_span",
+    "image", "task", "note", "boundary", "boundary_label", "summary", "summary_span", "branch_layout", "callout", "labels", "stamps",
     "priority", "progress", "flag", "markers", "due",
 })
 MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
@@ -4283,7 +4389,7 @@ _FREEMIND_PRIVATE = {
     "note": "_note",
     #: Decisions 19 and 20: FreeMind's own `<cloud>` is one shape with no
     #: label, and it has no summary at all, so both ride as private ones.
-    **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
+    **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span", "branch_layout", "callout", "labels", "stamps")},
     #: Markers (decision 34): neither format has a place for them that the
     #: other reads, so all four ride as private attributes.
     **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers", "due")},
@@ -4316,7 +4422,7 @@ _OPML_PRIVATE = {
     #: `_note` is the spelling OmniOutliner and Workflowy already write, so
     #: this one reaches another outliner as a note rather than being dropped.
     "note": "_note",
-    **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
+    **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span", "branch_layout", "callout", "labels", "stamps")},
     #: Markers (decision 34): neither format has a place for them that the
     #: other reads, so all four ride as private attributes.
     **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers", "due")},
@@ -4333,6 +4439,8 @@ def _xml_attribute(value) -> str:
         return "false"
     if isinstance(value, (list, tuple)):
         return ",".join(str(part) for part in value)
+    if isinstance(value, dict):
+        return ",".join(f"{key}:{count}" for key, count in value.items())
     return str(value)
 
 
@@ -4534,14 +4642,93 @@ def _export_freemind(title: str, roots: list[dict], cross_links: list[dict] | No
     )
 
 
+#: **XMind's structures** (canvasdepth2, MINDMAP_PLAN "canvasdepth, ranked"
+#: row 4): a layout here and the `structureClass` XMind writes for it, both
+#: ways. The logic chart and the sideways tree are one structure in XMind.
+XMIND_STRUCTURES = {
+    "tree-right": "org.xmind.ui.logic.right",
+    "logic-right": "org.xmind.ui.logic.right",
+    "tree-left": "org.xmind.ui.logic.left",
+    "tree-both": "org.xmind.ui.map.unbalanced",
+    "tree-down": "org.xmind.ui.org-chart.down",
+    "tree-table": "org.xmind.ui.treetable",
+    "timeline": "org.xmind.ui.timeline.horizontal",
+    "fishbone": "org.xmind.ui.fishbone.rightHeaded",
+    "radial": "org.xmind.ui.map.clockwise",
+}
+XMIND_LAYOUTS = {cls: layout for layout, cls in reversed(list(XMIND_STRUCTURES.items()))}
+
+
+def _xmind_topic(node: dict, ids: dict) -> dict:
+    """One topic as XMind Zen's `content.json` writes it: its title, notes,
+    link, labels, callout, priority and task markers and its branch's
+    structure; what XMind has no place for is left out."""
+    style = node.get("style") or {}
+    topic: dict = {"id": ids.setdefault(node["id"], f"mm{node['id']}"), "class": "topic", "title": node["text"] or ""}
+    if style.get("note"):
+        topic["notes"] = {"plain": {"content": style["note"]}}
+    if style.get("link"):
+        topic["href"] = style["link"]
+    if style.get("labels"):
+        topic["labels"] = list(style["labels"])
+    markers = [{"markerId": f"priority-{style['priority']}"}] if style.get("priority") else []
+    if style.get("task"):
+        markers.append({"markerId": "task-done" if style["task"] == "done" else "task-start"})
+    if markers:
+        topic["markers"] = markers
+    if style.get("branch_layout") in XMIND_STRUCTURES:
+        topic["structureClass"] = XMIND_STRUCTURES[style["branch_layout"]]
+    children: dict = {}
+    if node.get("children"):
+        children["attached"] = [_xmind_topic(child, ids) for child in node["children"]]
+    if style.get("callout"):
+        children["callout"] = [{"id": f"{topic['id']}c", "class": "topic", "title": style["callout"]}]
+    if children:
+        topic["children"] = children
+    return topic
+
+
+def _export_xmind(title: str, roots: list[dict], cross_links: list[dict], layout: str) -> bytes:
+    """An XMind (Zen and later) `.xmind`: a zip holding `content.json`, one
+    sheet whose root is the map's one centre (several trunks go under one
+    named after the map, as the FreeMind export does), its layout as the
+    root's structure, and the cross-links as relationships."""
+    import io
+    import zipfile
+
+    ids: dict = {}
+    if len(roots) == 1:
+        root = _xmind_topic(roots[0], ids)
+    else:
+        root = {"id": "mmroot", "class": "topic", "title": title,
+                "children": {"attached": [_xmind_topic(node, ids) for node in roots]}}
+    root["structureClass"] = XMIND_STRUCTURES.get(layout, "org.xmind.ui.map.unbalanced")
+    sheet = {"id": "mmsheet", "class": "sheet", "title": title, "rootTopic": root}
+    relationships = [
+        {"id": f"mmrel{i}", "end1Id": ids[link["from_id"]], "end2Id": ids[link["to_id"]], "title": link["label"]}
+        for i, link in enumerate(cross_links)
+        if link["from_id"] in ids and link["to_id"] in ids
+    ]
+    if relationships:
+        sheet["relationships"] = relationships
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("content.json", json.dumps([sheet], ensure_ascii=False))
+        archive.writestr("metadata.json", json.dumps({"creator": {"name": "MemoryMap AI"}}))
+        archive.writestr("manifest.json", json.dumps({"file-entries": {"content.json": {}, "metadata.json": {}}}))
+    return out.getvalue()
+
+
 #: What each export format is called on the way out: the media type a browser
 #: should treat it as, and the extension the file has to have. A `.md` file
 #: holding OPML is a file nothing will open.
 EXPORT_FORMATS = {
-    "markdown": ("text/markdown", "md"),
-    "opml": ("text/x-opml", "opml"),
-    "freemind": ("application/x-freemind", "mm"),
-    "text": ("text/plain", "txt"),
+    "markdown": ("text/markdown; charset=utf-8", "md"),
+    "opml": ("text/x-opml; charset=utf-8", "opml"),
+    "freemind": ("application/x-freemind; charset=utf-8", "mm"),
+    "text": ("text/plain; charset=utf-8", "txt"),
+    #: A zip, so no charset.
+    "xmind": ("application/vnd.xmind.workbook", "xmind"),
 }
 
 
@@ -4600,9 +4787,13 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
         text = _export_markdown(title, roots, numbered)
     elif format == "text":
         text = _export_text(roots)
-    elif format == "opml":
+    elif format in ("opml", "xmind"):
         links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
-        text = _export_opml(title, roots, links, numbered)
+        writers = {
+            "opml": lambda: _export_opml(title, roots, links, numbered),
+            "xmind": lambda: _export_xmind(title, roots, links, _board_settings(entry)[1]),
+        }
+        text = writers[format]()
     else:
         #: Read only for the two formats that can carry them, so a Markdown
         #: export does not pay for a scan of every sketch on the board to find
@@ -4615,7 +4806,7 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     # twice.
     return Response(
         content=text,
-        media_type=f"{media}; charset=utf-8",
+        media_type=media,
         headers={
             "Content-Disposition": f'attachment; filename="board-{int(board_id)}.{suffix}"'
         },
@@ -4922,6 +5113,34 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
 MAX_XMIND_JSON_BYTES = 8_000_000
 
 
+def _xmind_style(topic: dict) -> dict:
+    """What an XMind topic carries that a topic here can hold: its plain
+    notes, link, labels, first callout, priority and task markers and its
+    branch's structure (canvasdepth2). Validated by `_clean_import_style`."""
+    labels = topic.get("labels")
+    callouts = (topic.get("children") or {}).get("callout")
+    first = callouts[0] if isinstance(callouts, list) and callouts else {}
+    return {
+        "note": ((topic.get("notes") or {}).get("plain") or {}).get("content"),
+        #: `_clean_import_style` holds the link to http, https and mailto.
+        "link": topic.get("href"),
+        "labels": [str(label)[:30].replace(",", " ") for label in labels[:8]] if isinstance(labels, list) else None,
+        "callout": str(first.get("title") or "")[:200] if isinstance(first, dict) else None,
+        **_xmind_marks(topic.get("markers")),
+        "branch_layout": XMIND_LAYOUTS.get(str(topic.get("structureClass") or "")),
+    }
+
+
+def _xmind_marks(markers) -> dict:
+    """XMind's `priority-N` and `task-*` markers as a priority and a task."""
+    marks = [str(m.get("markerId") or "") for m in markers or [] if isinstance(m, dict)]
+    priority = next((int(m[9:]) for m in marks if re.fullmatch(r"priority-[1-5]", m)), None)
+    task = None
+    if any(m.startswith("task-") for m in marks):
+        task = "done" if "task-done" in marks else "open"
+    return {"priority": priority, "task": task}
+
+
 def _parse_xmind(content: str) -> tuple[str, list[dict]]:
     """An XMind (Zen and later) `.xmind` in, `(title, [the central topic])` out.
 
@@ -4978,11 +5197,10 @@ def _parse_xmind(content: str) -> tuple[str, list[dict]]:
                     status_code=422,
                     detail=f"That outline has more than {MAX_IMPORT_NODES} nodes: split it up first.",
                 )
-            note = ((child.get("notes") or {}).get("plain") or {}).get("content")
             out.append(
                 {
                     "text": str(child.get("title") or "").strip()[:MAX_OBJECT_TEXT_CHARS],
-                    "style": _clean_import_style({"note": note}),
+                    "style": _clean_import_style(_xmind_style(child)),
                     "ref": str(child.get("id") or ""),
                     "links": [],
                     "children": walk(child, depth + 1),
@@ -4994,10 +5212,9 @@ def _parse_xmind(content: str) -> tuple[str, list[dict]]:
     #: FreeMind file lost its centre this way, and an XMind map without its
     #: central idea is N loose trunks). It also names the map.
     title = str(root.get("title") or sheet.get("title") or "").strip()
-    note = ((root.get("notes") or {}).get("plain") or {}).get("content")
     centre = {
         "text": title[:MAX_OBJECT_TEXT_CHARS],
-        "style": _clean_import_style({"note": note}),
+        "style": _clean_import_style({**_xmind_style(root), "branch_layout": None}),
         "ref": str(root.get("id") or ""),
         "links": [],
         "children": walk(root, 1),

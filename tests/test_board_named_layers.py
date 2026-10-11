@@ -23,8 +23,8 @@ def test_layers_save_read_back_and_clean(ai_client):
     layers = [{"id": "l1", "name": "Background", "hidden": True, "locked": False}, {"id": "l2", "name": " Notes ", "locked": True}]
     out = ai_client.put(f"/whiteboard/boards/{board['id']}", json={"layers": layers})
     assert out.status_code == 200, out.text
-    assert out.json()["layers"] == [{"id": "l1", "name": "Background", "hidden": True, "locked": False},
-                                    {"id": "l2", "name": "Notes", "hidden": False, "locked": True}]
+    assert out.json()["layers"] == [{"id": "l1", "name": "Background", "hidden": True, "locked": False, "current": False},
+                                    {"id": "l2", "name": "Notes", "hidden": False, "locked": True, "current": False}]
     state = ai_client.get("/whiteboard/", params={"board_id": board["id"]}).json()
     assert [layer["id"] for layer in state["layers"]] == ["l1", "l2"]
     #: A rename alone leaves the layers as they are.

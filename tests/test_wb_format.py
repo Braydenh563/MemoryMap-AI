@@ -23,14 +23,15 @@ def _panel() -> str:
     return INDEX[start : INDEX.index("</aside>", start)]
 
 
-def test_three_tabs_on_a_tabs_line_and_one_tabpanel() -> None:
+def test_four_tabs_on_a_tabs_line_and_one_tabpanel() -> None:
+    #: Data, the fourth, is Edit data (canvasdepth2, `tests/test_wb_edit_data.py`).
     panel = _panel()
     strip = re.search(r'<div class="tabs-line wb-format-tabs" id="wb-format-tabs" role="tablist"[^>]*>(.*?)</div>', panel, re.S)
     assert strip, "the tabs are a .tabs-line (DESIGN.md: a second-level strip)"
-    assert re.findall(r'data-format-tab="(\w+)"', strip.group(1)) == ["style", "text", "arrange"]
+    assert re.findall(r'data-format-tab="(\w+)"', strip.group(1)) == ["style", "text", "arrange", "data"]
     assert "<i " not in strip.group(1), "second-level tabs are words only"
     assert 'role="tabpanel"' in panel
-    assert re.findall(r'data-format-panel="(\w+)"', panel) == ["style", "text", "arrange"]
+    assert re.findall(r'data-format-panel="(\w+)"', panel) == ["style", "text", "arrange", "data"]
 
 
 def test_every_control_is_named() -> None:

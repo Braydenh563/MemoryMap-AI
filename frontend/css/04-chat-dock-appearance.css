@@ -3090,11 +3090,13 @@ span > .chip {
 }
 
 /* On a picture the check sits in its corner, on an opaque ground so it reads
-   over any photo. */
+   over any photo. Its offset is the cell's padding plus one step, so it sits
+   inside the picture's corner rather than on its edge (the owner, 2026-10-11:
+   "push these selection circles ... a little further from the corner"). */
 .note-picker-cell .note-picker-check {
   position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
+  top: calc(var(--space-2) + var(--space-3));
+  right: calc(var(--space-2) + var(--space-3));
   background: var(--modal-bg-opaque);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }

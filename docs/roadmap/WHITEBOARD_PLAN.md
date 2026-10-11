@@ -1056,7 +1056,7 @@ are `size`, `ink`, `bold`, `italic`, `align`.
 | Feature | MemoryMap has it | How draw.io does it | How MemoryMap would | Cost |
 | --- | --- | --- | --- | --- |
 | Edit style as text | no | `editStyle` (Actions.js 1717): a dialog with the `key=value;` string | an "Edit data" dialog showing the item's `data` JSON, parsed and validated on Apply, one undo step; the same field is how AI sees it | M |
-| Edit data: custom properties | no | `EditDataDialog` (Dialogs.js 3707): key and value rows, id, placeholders toggle | `data.props {key: value}` shown as a two-column editor; search and the AI tools read it | M |
+| Edit data: custom properties | yes, 2026-10-11 (canvasdepth2; HISTORY) | `EditDataDialog` (Dialogs.js 3707): key and value rows, id, placeholders toggle | `data.props {key: value}` shown as a two-column editor; search and the AI tools read it | M |
 | Placeholders `%name%` in labels | no | `Graph.replacePlaceholders` (Graph.js 14099), `updatePlaceholders` (13534) | the label renderer replaces `%key%` from `data.props`, `%date%`, `%page%`; export bakes the values | M |
 | Tooltip | no (a title attribute is set for control tooltips only) | `getTooltipForCell` (Graph.js 17291), `editTooltip` | `data.tip` rendered as a hover popover on the SVG item; a link row already exists for notes | S |
 | Note on a shape | no (comments exist, `comment` command) | `editNote` (Actions.js 786) | covered by board comments | none |
@@ -1106,7 +1106,7 @@ are `size`, `ink`, `bold`, `italic`, `align`.
 | Named layers: add, rename, duplicate, delete | no: `wb-layers-tree` lists items grouped by kind (`wbRenderLayers`, whiteboard-library.js 1474) | `LayersWindow` (Dialogs.js 4593): `addLayer`, `rename`, `duplicate`, `delete`, an `mxCell` child of the root per layer | `board.layers [{id, name, visible, locked}]` in the board settings row; items carry `layer` in `data` (sketch, object) or a card column; the tree gains a Layers group above the item groups | M |
 | Show and hide a layer | no | eye toggle per layer, `show`, `hide` | filtered out in render and in hit-testing (`wbItemHidden` already exists for search) | S |
 | Lock a layer | partly: per-item `lock` (`wbIsLocked`) | `lock`, `unlock` | `wbIsLocked` also reads the layer's flag | S |
-| Current layer (new items land in it) | no | `currentLayer` radio | `wbState.layer`, read by every `create` path | S |
+| Current layer (new items land in it) | yes, 2026-10-11 (canvasdepth2; HISTORY) | `currentLayer` radio | `wbState.layer`, read by every `create` path | S |
 | Move selection to a layer, select all in a layer | no | `moveSelectionTo`, `selectObjectsInLayer` (LayersWindow) | two commands in `WB_COMMANDS` | S |
 | Layer order | no (z is per item) | `toFront`, `toBack` on the layer | layer z base added to item z | S |
 | Pages (tabs) in one file: insert, duplicate, rename, delete, move, sort | by decision (WHITEBOARD_PLAN decision 22: frames are the pages; boards are separate rows) | `Pages.js` (2,834 lines), `insertPage`, `removePage`, `renamePage`, `duplicatePage`, `sortPages` (diagramly/Menus.js 264 to 292) | done by decision; a "Pages" side tab already lists frames (`wb-side-tab-pages`) | none |
@@ -1296,7 +1296,7 @@ clash is listed so the choice is made once.
 | Containers (a shape that holds children, drop target highlight, children move with it, auto-resize) | partly: frames hold items (`frames.json`); no drop highlight, no resize with children | `container=1`, `isContainer` (Graph.js 11233), `getDropTarget` (26334), `dropTarget`, `recursiveResize`, `collapsible`, `foldCells` (15610) | frames gain "fit to children", a drop highlight, and collapse; the frame-as-container rule is an existing decision | M |
 | Swimlanes and pools (header strip, lanes in a stack) | no (matrix: partly) | `swimlane;startSize=...`, `childLayout=stackLayout`, `horizontalStack`, `resizeParent`, `resizeLast` | a "Lane" frame preset (frames.json already has "Timeline lane") with a header strip and a stack layout in `wbFrameLayout`: new lane appended in line, children keep their offsets | M |
 | Child layouts (stack, tree, flow, rack) | no | `childLayout` styles (Graph.js, 68 hits), `mxStackLayout`, `rackLayout` | the stack layout on lanes only; others are the Layout menu (section 16) | M |
-| Tables: rows, columns, cell merge, stripes, header | no (a note card with a Markdown table covers it; matrix: drop for now) | `Graph.createTable` (Graph.js 18553), `insertTableRow` (29524), `insertTableColumn` (29349), `setTableRowHeight` (19762), `tableLine`, `tableRow` shapes, Arrange panel `addTable` (Format.js 2162) | a `table` item: a grid frame with row and column sizes, cells as text objects, resize by dragging a line; Markdown paste converts into one | L |
+| Tables: rows, columns, cell merge, stripes, header | rows, columns and a header, 2026-10-11 (canvasdepth2; HISTORY); open: merge, stripes, a line dragged to size one row or column, Markdown paste | `Graph.createTable` (Graph.js 18553), `insertTableRow` (29524), `insertTableColumn` (29349), `setTableRowHeight` (19762), `tableLine`, `tableRow` shapes, Arrange panel `addTable` (Format.js 2162) | a `table` item: a grid frame with row and column sizes, cells as text objects, resize by dragging a line; Markdown paste converts into one | L |
 | Lock, hide and "locked" cursor | yes | `lockUnlock` (Actions.js 521), `locked=1` | done | none |
 | Z-order within a container | yes (z per item) | child order | done | none |
 
@@ -1561,11 +1561,101 @@ measure at 1440 and 390, or left here.
 
 1. Built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (canvasdepth)"): the draw.io sets in the Library with their own ports.
 2. Built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (canvasdepth)"): Mermaid state, class and sequence in.
-3. Built 2026-10-10 (same HISTORY block): `.drawio` import, first page.
+3. Built 2026-10-10 (same HISTORY block): `.drawio` import, first page; every page, each in a frame, built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"). Open: `.drawio` export, rotation, images.
 4. Built 2026-10-10 (same HISTORY block): swimlanes in the Frames set.
-5. Built 2026-10-10 (same HISTORY block): named layers with show, hide and lock. Open from section 6: a current layer new items land in, layer order.
+5. Built 2026-10-10 (same HISTORY block): named layers with show, hide and lock. The current layer built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"). Open from section 6: layer order.
 6. Built 2026-10-10 (same HISTORY block): find reads labels and text boxes; Ctrl+H replaces. Open from section 9: regex, whole word, notes' own text.
-7. The hand-drawn look (Excalidraw), a board option.
-8. Tables (section 12).
+7. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): the hand-drawn look, a board option and an item style.
+8. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): tables (section 12). Open from section 12: a column's own width, merged cells.
 9. Built 2026-10-10 (same HISTORY block): a laser pointer while presenting.
-10. Edit data and placeholders (section 3).
+10. Edit data built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"). Open from section 3: `%name%` placeholders in labels, find reading the values.
+
+## Placed from INBOX, 2026-10-11 (one export panel for the whole app)
+
+INBOX 815, the owner: "I want to be able to preview any and all exports and
+to be able to adjust them in a panel before I export anything, for
+documents, boards, maps and notes etc." What exists: the board's export
+dialog (WHITEBOARD_PLAN Phase 3, built), with no live preview; documents
+export straight to .docx, .html and .pdf (`documents.js` ~10459 to 11040);
+notes and chats export from Settings and menus with no step between;
+`exportGraphPng` likewise.
+
+Decisions, taken (standing order 3):
+
+1. **One export panel, one recipe.** Every Export opens the same panel: a
+   live preview on the left, options on the right, and one primary "Export"
+   with the file name. Surfaces: a note or a selection of notes, a document,
+   a board or frame or selection, a mind map, the graph, a chat, the Timeline
+   view. Settings' whole-notebook exports keep their rows, and each gains
+   "Preview".
+2. **The preview is the file.** It renders from the same function that
+   writes the file: the PDF's pages, the PNG at its scale, the HTML in a
+   sandboxed frame, the Markdown as text and rendered. It updates within 300
+   ms of an option change; a large export previews its first pages and says
+   so.
+3. **The options per format.**
+   - All formats: the format and file name.
+   - PDF: page size, orientation, margins, light or print theme, a
+     header or footer, and the date.
+   - Images: scale, a transparent or page background, padding, and the area
+     (all, selection, frame, the view).
+   - Text formats: what to include (tags, dates, links, attachments,
+     comments) and the heading level.
+   The last choices per surface are remembered.
+4. **Nothing is lost silently.** The panel lists what the format cannot
+   carry (an ink stroke in Markdown, a video in a PDF) before export.
+
+Gates: the panel at 1440 and 390 inside the viewport. The preview and the
+written file match for each surface and format: the PNG pixel-diffs under
+1%, the PDF has the same page count, the text is byte-equal. Help moves
+with it (standing order 13). Owner: the exports agent (Opus), queued after
+the graph agent.
+
+## Placed from INBOX, 2026-10-11 (fit a frame to its contents)
+
+INBOX 821, the owner, verbatim: "can you add the ability to double tap a resize anchor to resize that edge or the whole frame to snugly fit all the content in it with a comfortable margin??" (screenshot: "Frame 1" far larger than its cards, sticky, sketch and links). Not built (no fit in `whiteboard*.js`). Target: double-click or double-tap an edge handle and that edge moves to the contents' bound plus a 32-unit margin; a corner handle fits its two edges; "Fit to contents" on the frame's menu fits all four. The contents are the items the frame holds (`wbFrameContents`), links' curves included. A frame holding nothing does not move. One Undo step; the move animates in 150 ms (instant under reduced motion). Gate: after fitting each edge, the gap is 32 ± 1 units at 1440 and 390, and nothing the frame held falls outside it. Help moves with it. Owner: the mapfix agent.
+
+INBOX 822, the owner, verbatim: "I cant rename frames in the pages sidebar" (screenshot: Pages, row "1 Frame 1" with only a present icon). Target: double-click or F2 on a page row renames the frame inline (the same one-line editor as a frame's title on the canvas, Enter to keep, Esc to cancel, one Undo step); the row's kebab (row actions recipe) holds Rename, Fit to contents, Present from here and Delete; the canvas title updates live. Owner: the mapfix agent.
+
+INBOX 823, the owner, verbatim: "these popups overlap" (screenshot: the line tool's kind popover, line or arrow, drawn under its own options bar, Size, Plain, Solid, which crosses it). Target: one tool's options are one surface: the kind choice joins the options bar as its first segment, or the popover opens above the bar with no intersection (measured, 0 px at 1440 and 390).
+
+INBOX 824, the owner, verbatim: "why are some elements highlighted blue in the sidebar but not others?? is it because they are in the frame??" (screenshot: Layers, five rows tinted, three Drawing rows plain). Read: the tint is the canvas selection (`aria-selected`, `wbRenderLayers`), and nothing on the panel says so. Target: the panel's head says "4 selected" with Clear; a selected row wears the list recipe's selected state (accent bar and tint), distinct from hover; items a frame holds nest under the frame's row (indented, collapsible), so "in the frame" is shown by place, never by colour. Owner: the mapfix agent.
+
+INBOX 825, the owner, verbatim: "also idk why that show less button is there, all the text is showing. but also I think notes and their content should be dynamic in sizing with the show more or less hyperlink showing or not based off how the note is sized, same with the size of images and files in a note and also the note should be freely sizable and shouldn snap to a size, maybe could have guided snaps?? idk this is all in the mindmap and whiteboard" (screenshot: a note card "Current Commitments" with all its text shown and "Show less" under it). Target, boards and maps alike:
+1. "Show more" shows only when the card's content overflows its size, measured by `scrollHeight > clientHeight` after layout and re-measured on resize. "Show less" shows only after a person expanded a card that overflowed. A card that fits shows neither.
+2. Cards resize freely, to any width and height: no snap to preset sizes. Guided snaps instead, while dragging: to a neighbour's width or height, to the grid when the grid is on, and to "fit content". A guide line shows each one. Alt holds them off.
+3. Images and files in a card scale with the card's width: images keep their ratio up to the card's width, and a file chip is one line that truncates its name.
+4. A double-click on a card's resize handle fits the card to its content (the same gesture as a frame's fit, INBOX 821).
+Gate: 0 cards with a stray Show more or Show less on the owner-shaped fixture at 1440 and 390; any width from 120 to 1200 units is reachable by drag. Owner: the cards agent (Sonnet, queued after mapfix).
+
+## Placed from INBOX, 2026-10-11 (ends, edge arrows, guides while drawing; canvasdepth3)
+
+- INBOX 826, the owner 2026-10-11, verbatim (screenshots: a selected note card with no edge arrows; the Start and End menus): "I still feel like the whiteboard, mindmap,a nd text editor are missing a lot of features that other applications have. what happened to those edge triangle arrows?? can there be more arrow options on the links and lines?? can there be a custom memorymapai unique arrow design as well??" and "also dragging out shapes and boxes on the whiteboard doesnt have the alignment lines and assist"
+
+Measured from the code: the edge arrows (`wbCloneSource`, whiteboard.js) show for a shape or a text box only; a note card (`kind === "node"`) and every mind map return null, so the card in the screenshot had none and nothing said why. The ends are 9 plain and 6 entity-relationship (index.html, `wb-cap-*`). Guides run on move and resize, not while a new shape is dragged out.
+
+Decisions made:
+- E1. A note card gets the edge arrows. Its arrow makes a new empty note card joined by a link (copying a note's text would duplicate a note); a shape or text box still copies. The arrow's title says which.
+- E2. Ends added: outlined triangle, concave (stealth) arrow, dot, cross, half arrow, double arrow; and an end size (small, medium, large) beside each end menu. Every end draws the same in export.
+- E3. One signature end, "MemoryMap": an open chevron with the brand mark's node dot at its tip, drawn from the mark's own geometry; it sits first under a "MemoryMap" group, and the default end stays Open arrow.
+- E4. Dragging out a new shape, text box or frame shows the move guides, snaps the moving corner to them, and shows the size ("120 x 80") beside the cursor, as Figma and draw.io do; Alt draws without snapping, as a move does.
+- E5. The feature-depth gap is re-audited for the board, the map and the document editor together (tldraw, Excalidraw, draw.io, Miro, XMind, MindNode, Notion, Google Docs, Word), ranked by how often a person meets each gap, and the top five per surface built, one commit and test each; the rest stay here as rows.
+
+Rows (owner: canvasdepth3, Opus, next free slot after transparency):
+- C1. Decision E1, with help: the arrow's title, the Guide topic and the manual path.
+- C2. Decision E2: the six ends and the end size, in the Start and End menus, the map's link menu and the export.
+- C3. Decision E3: the signature end, three candidates measured at 1x and 2x, one taken.
+- C4. Decision E4: guides, corner snap and the size readout while drawing.
+- C5. Decision E5: the audit table here, then its top five per surface; it lists the small taken-for-granted things too (Brief 87's list).
+
+## Placed from INBOX, 2026-10-11 (board and map previews)
+
+- INBOX 829, the owner 2026-10-11, verbatim (a board card's preview: grey blocks and squiggles): "board map previews need a lot of work, redesigning and maybe even reimagining."
+
+Decisions made:
+- P1. A preview is the board itself, drawn small: the real colours, shapes, connectors and the first words of each card, rendered off-screen to an image when the board changes (debounced, cached by revision), never a schematic of grey blocks.
+- P2. A map's preview is its real tree: the central topic's title legible, branches in their colours, two levels deep.
+- P3. The card shows the preview cropped to the content's bounds, the title, items and last edited; an empty board shows an empty-state line, not a blank frame.
+
+Rows (owner: canvasdepth3, after C5): P1 to P3, each a commit with a test and a measured render time on the budget fixture's 500-object board.
+

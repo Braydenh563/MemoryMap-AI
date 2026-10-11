@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Pickers: the Attach picker's five sources and the library picker's sources are a tab strip with a count on each, not a pill well; it scrolls when the words do not fit (INBOX 715).
 - Live captions: a Translate button in the bar writes each finished line in Spanish under the captions, on this computer, once the offline translator is installed. The note Stop saves keeps what was said.
 - Recordings: the Trim sheet says how much memory a long recording takes (about 12 MB a minute) before it is made, from 20 minutes up.
 - Find anything: a recording is found by its title and by what was said in it, and a press opens it in Library, Recordings. `kind:recording` asks for them alone.

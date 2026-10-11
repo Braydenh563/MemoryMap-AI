@@ -474,7 +474,9 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
     const shell = pickerDialog({ title: message, placeholder: active.placeholder, searchLabel: message });
     const box = pickerListbox(shell, active.label);
     const seg = document.createElement("div");
-    seg.className = "seg";
+    //: A tab strip, never a pill, in a popup (INBOX 715, DESIGN.md "A popup
+    //: that chooses a kind"); each tab carries its count.
+    seg.className = "tabs-line popup-kinds picker-kinds";
     seg.setAttribute("role", "tablist");
     seg.setAttribute("aria-label", "What to point at");
 

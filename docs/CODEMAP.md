@@ -176,34 +176,34 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 |---|---|
 | `appendSelectionToNote` | frontend/js/selection.js:80 |
 | `bookmarkKind` | frontend/js/selection.js:414 |
-| `clampSelectionMenu` | frontend/js/selection.js:877 |
+| `clampSelectionMenu` | frontend/js/selection.js:879 |
 | `clippingMarkdown` | frontend/js/selection.js:20 |
 | `dialogHead` | frontend/js/selection.js:105 |
-| `fieldSelection` | frontend/js/selection.js:713 |
-| `hideSelectionPopup` | frontend/js/selection.js:868 |
-| `initSelectionPopup` | frontend/js/selection.js:1042 |
+| `fieldSelection` | frontend/js/selection.js:715 |
+| `hideSelectionPopup` | frontend/js/selection.js:870 |
+| `initSelectionPopup` | frontend/js/selection.js:1044 |
 | `libraryPickAbout` | frontend/js/selection.js:436 |
 | `libraryPickLabel` | frontend/js/selection.js:427 |
 | `noteFieldPickButton` | frontend/js/selection.js:328 |
-| `openSelectionMenuFromKeyboard` | frontend/js/selection.js:1090 |
+| `openSelectionMenuFromKeyboard` | frontend/js/selection.js:1092 |
 | `pickEntryDialog` | frontend/js/selection.js:297 |
 | `pickLibraryItemDialog` | frontend/js/selection.js:468 |
-| `pickMediaDialog` | frontend/js/selection.js:612 |
+| `pickMediaDialog` | frontend/js/selection.js:614 |
 | `pickerDialog` | frontend/js/selection.js:131 |
 | `pickerEmpty` | frontend/js/selection.js:215 |
 | `pickerListState` | frontend/js/selection.js:195 |
 | `pickerListbox` | frontend/js/selection.js:226 |
 | `pickerNoteAbout` | frontend/js/selection.js:290 |
 | `pickerRememberedSource` | frontend/js/selection.js:455 |
-| `remindFromSelection` | frontend/js/selection.js:687 |
+| `remindFromSelection` | frontend/js/selection.js:689 |
 | `saveSelectionAsNote` | frontend/js/selection.js:30 |
-| `selectionIsActionable` | frontend/js/selection.js:989 |
-| `selectionMenuItems` | frontend/js/selection.js:743 |
-| `selectionPopup` | frontend/js/selection.js:859 |
+| `selectionIsActionable` | frontend/js/selection.js:991 |
+| `selectionMenuItems` | frontend/js/selection.js:745 |
+| `selectionPopup` | frontend/js/selection.js:861 |
 | `selectionSource` | frontend/js/selection.js:10 |
-| `showSelectionPopupAt` | frontend/js/selection.js:913 |
-| `syncSelectionPopup` | frontend/js/selection.js:1003 |
-| `wrapFieldSelection` | frontend/js/selection.js:735 |
+| `showSelectionPopupAt` | frontend/js/selection.js:915 |
+| `syncSelectionPopup` | frontend/js/selection.js:1005 |
+| `wrapFieldSelection` | frontend/js/selection.js:737 |
 
 ### frontend/js/notes-list.js (110)
 
@@ -8943,10 +8943,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Settings rows that wrap their actions under the title (INBOX 82) | frontend/css/08-consistency.css:2195 |
 | Settings: a section's intro sits under its heading, not above it | frontend/css/08-consistency.css:4476 |
 | TENSIONS: THE DISAGREEMENT REVIEW | frontend/css/06-timeline-dialogs.css:3370 |
-| THE CHAT ON A PHONE, MEASURED | frontend/css/04-chat-dock-appearance.css:5586 |
+| THE CHAT ON A PHONE, MEASURED | frontend/css/04-chat-dock-appearance.css:5602 |
 | THE OCR WORKSPACE | frontend/css/07-whiteboard-misc.css:5312 |
 | THE QUIET SIDE OF THE BUTTON RAMP: A RUN OF ROW ACTIONS | frontend/css/08-consistency.css:2286 |
-| THE WRITE WITH AI ROW, ON A NARROW COLUMN | frontend/css/04-chat-dock-appearance.css:5633 |
+| THE WRITE WITH AI ROW, ON A NARROW COLUMN | frontend/css/04-chat-dock-appearance.css:5649 |
 | THE WRITING PHASE: nodes, and an edge drawing itself | frontend/css/01-forms-settings.css:4929 |
 | Technical mono: a cool graphite ground, monospace for the numbers and | frontend/css/05-sidebars-themes.css:3657 |
 | Templates (INBOX 715) | frontend/css/library-lazy.css:3336 |
@@ -9213,7 +9213,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the code editor: gutter + monospace | frontend/css/04-chat-dock-appearance.css:4446 |
 | the code panel, one compact header and a padded body (the owner, | frontend/css/library-lazy.css:4774 |
 | the composer dock (asked for directly) | frontend/css/04-chat-dock-appearance.css:940 |
-| the composer, as one surface | frontend/css/04-chat-dock-appearance.css:5220 |
+| the composer, as one surface | frontend/css/04-chat-dock-appearance.css:5229 |
 | the connections rail (WORLD_CLASS_PLAN D2; `renderNotesRail`) | frontend/css/04-chat-dock-appearance.css:323 |
 | the context bar (WHITEBOARD_PLAN.md Phase 2, decision 2) | frontend/css/07-whiteboard-misc.css:7068 |
 | the dashboard and the labels, de-vibecoded | frontend/css/08-consistency.css:2987 |
@@ -9243,7 +9243,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the graph's floating controls clear its New note (INBOX 430) | frontend/css/10-responsive.css:2180 |
 | the graph's legend: one container, not a pill in a box | frontend/css/08-consistency.css:3066 |
 | the graph's options panel | frontend/css/08-consistency.css:3271 |
-| the guided tour (DESIGN.md, "A guided tour step") | frontend/css/04-chat-dock-appearance.css:5691 |
+| the guided tour (DESIGN.md, "A guided tour step") | frontend/css/04-chat-dock-appearance.css:5707 |
 | the head: identity, one fact as a dot, an all-icon group | frontend/css/03-dashboard-widgets.css:1284 |
 | the help popover is a popover, not a page (INBOX 206) | frontend/css/08-consistency.css:2509 |
 | the in-app confirm dialog (§35F) | frontend/css/06-timeline-dialogs.css:1109 |
@@ -9329,7 +9329,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/01-forms-settings.css | 6160 |
 | frontend/css/02-chat-graph.css | 5914 |
 | frontend/css/03-dashboard-widgets.css | 5217 |
-| frontend/css/04-chat-dock-appearance.css | 6510 |
+| frontend/css/04-chat-dock-appearance.css | 6526 |
 | frontend/css/05-sidebars-themes.css | 6228 |
 | frontend/css/06-timeline-dialogs.css | 3713 |
 | frontend/css/07-whiteboard-misc.css | 11943 |

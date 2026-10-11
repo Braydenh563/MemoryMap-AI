@@ -84,8 +84,8 @@ async function captionToggleTranslate() {
       toast(status?.hint || "Translate needs the offline translator, in Settings, Packages.", "info");
       return;
     }
-    //: Lines said before it was switched on are not translated afterwards.
-    Object.assign(captionTranslate, { on: true, pair: status.pairs[0], out: captionRun.lines.map(() => ""), busy: false });
+    //: The two lines the dock shows are translated at once; older ones are not.
+    Object.assign(captionTranslate, { on: true, pair: status.pairs[0], out: captionRun.lines.slice(0, -2).map(() => ""), busy: false });
   }
   button.setAttribute("aria-pressed", String(captionTranslate.on));
   $("captions-dock").classList.toggle("is-translating", captionTranslate.on);

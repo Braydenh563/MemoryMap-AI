@@ -989,9 +989,6 @@ let notePickerSource = "notes";
 //: until a reload.
 const notePickerCache = { documents: null, files: null, images: null, maps: null };
 
-//: A picture by its name, for the one store (`/media`) that also holds PDFs.
-const NOTE_PICKER_IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i;
-
 //: "In Weekly review", or "In Weekly review and 2 more": where a file or a
 //: picture is used, which places it better than a generated filename does.
 function notePickerUsedIn(row) {
@@ -1509,7 +1506,6 @@ function appendRunResumeControls(bubble, spec) {
     );
   }
 }
-
 
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");

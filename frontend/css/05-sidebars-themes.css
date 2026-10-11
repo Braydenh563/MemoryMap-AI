@@ -2018,11 +2018,6 @@ body.resizing-sidebar {
 .doc-toolbar.is-group-trimmed > .doc-toolbar-tools > :is(.doc-toolbar-layout, .doc-toolbar-collapse) {
   display: none;
 }
-/* A rule at a row's start or end (markDocToolbarSepEdges): kept for its
-   width, not drawn. */
-.doc-toolbar .doc-toolbar-sep.doc-toolbar-sep-edge {
-  visibility: hidden;
-}
 /* `[hidden]` loses to the strip's own `button` sizing rules otherwise. */
 .doc-toolbar .doc-toolbar-more[hidden] {
   display: none;
@@ -2918,9 +2913,6 @@ body.resizing-sidebar {
   /* A span in the same slot on a row with nothing under it: no pointer, no
      ink, exactly the same box. */
   cursor: default;
-}
-button.outline-twist {
-  cursor: pointer;
 }
 button.outline-twist:hover,
 button.outline-twist:focus-visible {
@@ -4702,21 +4694,6 @@ html[data-chrome="native"] #top-bar #brand-logo {
 .doc-prose-panel:has(.doc-prose-row[aria-current]) {
   max-height: min(24vh, 15rem);
 }
-/* **Docked on the right** (INBOX 410, `applyDocProseDock`): the panel is a
-   column in `#doc-panes`, beside the source and the preview, so the editor
-   gives up width instead of height. Its height is the row's, with no ceiling:
-   the ceilings above exist to keep the editor's height, and here none of it is
-   being taken. The width is `--doc-prose-w`, set by the grip, and the text
-   column keeps at least half (clamped in script). */
-#doc-panes.doc-prose-right {
-  flex-direction: row;
-  align-items: stretch;
-}
-#doc-panes.doc-prose-right>.doc-source-wrap,
-#doc-panes.doc-prose-right>.doc-preview {
-  flex: 1 1 0;
-  min-width: 0;
-}
 .doc-prose-panel.doc-prose-right,
 .doc-prose-panel.doc-prose-right:has(.doc-prose-row[aria-current]) {
   flex: 0 0 var(--doc-prose-w);
@@ -5011,15 +4988,6 @@ html[data-chrome="native"] #top-bar #brand-logo {
 }
 .doc-complete-list li.active span {
   color: inherit;
-}
-/* An expansion row (prose autofill): the trigger, then what it writes, in the
-   two inks a word row already uses, the gap between them a spacing step so the
-   detail reads as a caption rather than the rest of the word. A shortcode leads
-   with its glyph at the row's own size. */
-.doc-complete-list li.doc-complete-fill {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
 }
 .doc-complete-list li .doc-complete-detail {
   min-width: 0;
@@ -5406,10 +5374,6 @@ html[data-chrome="native"] #top-bar #brand-logo {
   color: var(--ink);
   white-space: nowrap;
 }
-.doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small.icon-only {
-  width: var(--dialog-head-btn-size);
-  padding: 0;
-}
 .doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small:hover,
 .doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small[aria-pressed="true"],
 .doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small:is(:focus-visible, :has(:focus-visible)) {
@@ -5494,18 +5458,6 @@ html[data-chrome="native"] #top-bar #brand-logo {
 .doc-prose-ai-notice {
   flex: 1 1 100%;
   margin: 0;
-}
-/* The word goal, where the count it is a goal for now lives. The bar is drawn
-   *inside* the button as a background layer rather than as a child element, so
-   the control stays one box with one hit area, a meter beside a button is two
-   things to aim at for one idea. */
-#doc-word-goal.has-goal {
-  --doc-goal-pct: 0%;
-  background-image: linear-gradient(
-    to right,
-    color-mix(in srgb, var(--accent) 28%, transparent) var(--doc-goal-pct),
-    transparent var(--doc-goal-pct)
-  );
 }
 /* The squiggle's rules lived here, shared by the Live view's `<mark>`s and
    the Source view's backdrop. Both are gone: DOCUMENTS_PLAN Phase 2 made the

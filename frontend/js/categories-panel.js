@@ -3,6 +3,8 @@
 // the panel or a category's menu is used, so they stay off the boot
 // scripts' gzip budget (tests/test_static_compression.py).
 
+let manageCategoriesRedraw = null;
+
 //: **The panel, redesigned** (the owner, of the first draft: "needs some ui
 //: redesign and modernisation/professionalisation refinement ... can you
 //: also do those button redesigns like the ai assistant panel in the

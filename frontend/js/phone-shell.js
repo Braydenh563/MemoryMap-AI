@@ -1091,7 +1091,6 @@ function initOcrPhonePage() {
 
 initOcrPhonePage();
 
-
 // --- the chat composer on a phone: attachments and mode in one row -----------
 // UI_MODERNISATION_PLAN Phase 11 item 3, "the composer above the keyboard
 // with the attachments and mode in one row". Measured at 390: the composer
@@ -2064,20 +2063,6 @@ async function clearAppCache() {
 async function forceReloadApp() {
   await clearAppCache();
   location.reload();
-}
-
-//: **Where an export lands, from a notification.** On the desktop the OS file
-//: manager opens on the folder; a browser tab has no file manager to hand
-//: this to, so it gets the Settings list below, where every export has a
-//: download link of its own.
-async function openExportsFromNotification() {
-  if (await desktopShell()) {
-    apiJson("/files/open-exports-folder", { method: "POST" }).catch((error) => {
-      toast(error.message || "Couldn't open the exports folder.", true);
-    });
-    return;
-  }
-  openSettingsModal("data", "exports-recent");
 }
 
 //: **The exports folder, as a list in Settings** (INBOX 159: "an area

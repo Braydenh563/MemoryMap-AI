@@ -1657,6 +1657,13 @@ $("meeting-transcript").addEventListener("input", () => autoGrow($("meeting-tran
 $("recordings-search")?.addEventListener("input", () => renderRecordings());
 $("meeting-save-doc")?.addEventListener("click", saveMeetingDocument);
 $("meeting-pause")?.addEventListener("click", toggleMeetingPause);
+//: Close, backdrop, Record, Save and Discard were wired at boot (settings-wiring.js)
+//: through four stand-ins in app.js; the sheet only opens from this file.
+$("meeting-close").addEventListener("click", closeMeetingRecorder);
+wireBackdropClose($("meeting-overlay"), () => closeMeetingRecorder());
+$("meeting-record").addEventListener("click", toggleMeetingRecording);
+$("meeting-save").addEventListener("click", saveMeetingNote);
+$("meeting-discard").addEventListener("click", resetMeetingUI);
 
 //: Wired when this bundle loads: the Marker button shows only while
 //: recording, which only this bundle starts. M anywhere in the recorder but

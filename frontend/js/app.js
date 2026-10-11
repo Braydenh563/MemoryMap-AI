@@ -1900,6 +1900,8 @@ const LAZY_MODULES = {
   navHistory: ["/css/nav-history-lazy.css", "/js/nav-history.js"],
   //: "Forgot your password?" and the recovery key (INBOX 663): account-recovery.js.
   accountRecovery: ["/css/recovery-lazy.css", "/js/account-recovery.js"],
+  //: The bell's panel and what a row's action does (notifications.js's header).
+  notifications: ["/js/notifications.js"],
   //: Tidy, the reviews with no AI (INBOX 691): tidy.js's header.
   tidy: ["/css/tidy-lazy.css", "/js/tidy.js"],
   semanticNotice: ["/js/semantic-notice.js"],
@@ -2181,6 +2183,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
+  notifications: ["openNotifications"],
   tidy: ["openTidySheet"],
   semanticNotice: ["semanticInstallNotice", "semanticOnboardingOffer"],
   questionsView: ["initQuestionsView", "loadQuestions"],
@@ -2199,7 +2202,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened by a gesture; the closers are called only once it is open.
   search: ["openFinder"],
   statistics: ["openStatistics", "renderWeekWidget"],
-  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "saveMeetingNote", "resetMeetingUI"],
+  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

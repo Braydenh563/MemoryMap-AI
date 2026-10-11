@@ -6,8 +6,9 @@
 // 2026-10-06 (INBOX 688) to keep the boot scripts under their gzip total:
 // nothing here runs until the Questions sub-tab is shown, which calls
 // `initQuestionsView` and `loadQuestions` through their stand-ins
-// (`LAZY_ENTRY_POINTS`). The Ask scope (`askScope`, `setAskScope`) stays in
-// capture-ask.js, since `askQuestion` reads it.
+// (`LAZY_ENTRY_POINTS`). The Ask scope variable (`askScope`) stays in
+// capture-ask.js, since `askQuestion` reads it; its setter, `setAskScope`, is
+// at the end of this file, the only place that calls it.
 
 const questionsView = { state: "open", offset: 0, ready: false, entry: null, last: null };
 
@@ -177,4 +178,9 @@ function initQuestionsView() {
     setAskScope(null);
     $("question")?.focus();
   });
+}
+
+function setAskScope(scope) {
+  askScope = scope || null;
+  $("ask-scope")?.classList.toggle("hidden", !askScope);
 }

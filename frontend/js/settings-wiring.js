@@ -1734,8 +1734,6 @@ $("mic-chat").addEventListener("click", () =>
 );
 $("speak-btn").addEventListener("click", () => speakText($("ai-answer").textContent));
 
-// Meeting notes (§17): the recorder overlay's own listeners are wired by meetings.js.
-
 // PWA (WORLD_CLASS_PLAN decision 49): sw.js caches stamped files, vendored
 // libraries and icons, and shows offline.html when the server is not
 // running; it never caches the shell or the API. When a new service worker

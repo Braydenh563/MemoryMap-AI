@@ -590,10 +590,6 @@
   align-items: center;
   gap: 0.25rem;
 }
-#doc-notes .outline-link {
-  flex: 1 1 auto;
-  min-width: 0;
-}
 /* The chat box grows with the question (capped by AUTOGROW_MAX_PX in JS).
    It replaced an <input>, so it has to keep an input's shape: one line to
    start with, and no manual resize handle fighting the auto-grow. */

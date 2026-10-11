@@ -152,6 +152,9 @@ REACHED_AFTER_LOAD = {
     #: INBOX 644: saveMeetingNote (media.js) awaits ensureModule("meetings")
     #: and calls only when it loaded, as openNavHistoryMenu does.
     "meetingSaveTranscript": "meetings, called by saveMeetingNote after awaiting ensureModule('meetings')",
+    #: Brief 101a: the recorder's Escape (settings-wiring.js) runs only while
+    #: `#meeting-overlay` is showing, and meetings.js is what shows it.
+    "closeMeetingRecorder": "meetings, the Escape handler in settings-wiring.js runs it only while #meeting-overlay is open, which only meetings.js opens",
     "renderAskChart": "askHistory, called from ensureModule('askHistory').then in askQuestion",
     #: The 2026-10-10 triage: a composed answer's cited names are linked
     #: once ask-compose.js is in (`addInlineCitations`, capture-ask.js).

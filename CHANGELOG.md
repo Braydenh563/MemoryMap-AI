@@ -32,6 +32,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Agent: with no model its button says it runs the app's own tools only, and the first time you choose it a line under the box says the same.
 - Timeline: the years are one menu beside the month picker rather than a chip row of their own.
 - Chat: the settings button in the bottom dock has the same rounded-square corner as the other icon buttons.
+- Start-up: the bell's panel and the meeting recorder's buttons load the first time they are used, and 89 Library-only style rules load with the Library; the app starts with about 3.2 KB less script and 1.5 KB less style (gzipped).
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), and a missing apostrophe is read ("doesn follow"); the Guide, the clock and the other utilities read the repaired question.
 - Ask: an answer to a question that needed a spelling repair opens by saying how it was read ("I took that to mean ..."), in wording that changes from one answer to the next.
 - Settings: Import & export has Clear and forget (recent searches in every box, saved previews, the Guide's conversation, dismissed suggestions), each saying how much it removes and each undoable for ten seconds.

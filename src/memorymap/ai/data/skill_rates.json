@@ -1,0 +1,7 @@
+{
+ "about": "AGENT_SKILLS_REFORM Phase E: each shipped skill's measured success rate per model class, from pytest -m evals over tests/fixtures/skills. A skill below the threshold on the small class is labelled needs a larger model while small model mode is on. Empty until a run on the eval model is recorded here; an unmeasured skill is never labelled.",
+ "threshold": 0.8,
+ "classes": {
+  "small": {"model": "", "measured": "", "skills": {}}
+ }
+}

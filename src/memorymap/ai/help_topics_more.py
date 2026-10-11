@@ -148,7 +148,11 @@ MORE_TOPICS: list[dict] = [
             "if Atlas ever misses a tool you asked for. Small model mode offers "
             "a small model one tool at a time (Auto decides from the model's "
             "name, On, Off). Run budget caps what one skill run may spend, in "
-            "tokens per step and in seconds; 0 means no limit. In Agent mode "
+            "tokens per step and in seconds; 0 means no limit. A skill may also "
+            "cap its own tool calls and steps; a run that passes a cap stops, "
+            "says which, and keeps its changes for Undo. With small model mode "
+            "on, a skill measured below 80% on small models shows Needs a "
+            "larger model, with why. In Agent mode "
             "the model's size, read from its name, decides how many tools it "
             "sees and how long one step may write: under 3B and up to 8B get "
             "a short toolbox and a reply that runs long is cut short, 8B and "
@@ -1931,7 +1935,7 @@ TOPIC_META: dict[str, dict] = {
 HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Getting started", (
         "tabs-overview", "first-steps", "tour", "guide", "manual", "hidden-features", "shortcuts",
-        "command-palette", "find-anything", "search", "addresses", "settings-overview", "install-app",
+        "command-palette", "find-anything", "search", "addresses", "settings-overview", "settings-reset", "install-app",
     )),
     ("Writing notes", (
         "capture", "quick-note", "quick-add", "editor-offers", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",

@@ -1,0 +1,81 @@
+{
+ "skill": "Write a document from a tag",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "lisbon-tag",
+   "notebook": [
+    {
+     "content": "Lisbon flights booked for May",
+     "category": "Travel",
+     "tags": [
+      "lisbon"
+     ]
+    },
+    {
+     "content": "Lisbon hotel shortlist: Alfama or Baixa",
+     "category": "Travel",
+     "tags": [
+      "lisbon"
+     ]
+    }
+   ],
+   "expect": {
+    "documents_created_min": 1
+   },
+   "inputs": {
+    "tag": "lisbon"
+   }
+  },
+  {
+   "id": "onboarding-tag",
+   "notebook": [
+    {
+     "content": "Onboarding redesign shipped",
+     "category": "Work",
+     "tags": [
+      "onboarding"
+     ]
+    },
+    {
+     "content": "Onboarding retro: users finish 20% faster",
+     "category": "Work",
+     "tags": [
+      "onboarding"
+     ]
+    }
+   ],
+   "expect": {
+    "documents_created_min": 1
+   },
+   "inputs": {
+    "tag": "onboarding"
+   }
+  },
+  {
+   "id": "garden-tag",
+   "notebook": [
+    {
+     "content": "Tomatoes need staking",
+     "category": "Garden",
+     "tags": [
+      "garden"
+     ]
+    },
+    {
+     "content": "Seed order for spring: beans, peas",
+     "category": "Garden",
+     "tags": [
+      "garden"
+     ]
+    }
+   ],
+   "expect": {
+    "documents_created_min": 1
+   },
+   "inputs": {
+    "tag": "garden"
+   }
+  }
+ ]
+}

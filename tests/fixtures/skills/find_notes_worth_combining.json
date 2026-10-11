@@ -1,0 +1,88 @@
+{
+ "skill": "Find notes worth combining",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "two-soups",
+   "notebook": [
+    {
+     "content": "Lentil soup: onions, carrots, red lentils, cumin",
+     "category": "Cooking",
+     "tags": []
+    },
+    {
+     "content": "Red lentil soup recipe with carrots and cumin",
+     "category": "Cooking",
+     "tags": []
+    },
+    {
+     "content": "Renew the car insurance",
+     "category": "Admin",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "linked_pairs": [
+     [
+      0,
+      1
+     ]
+    ],
+    "notes_kept": true
+   }
+  },
+  {
+   "id": "two-gift-lists",
+   "notebook": [
+    {
+     "content": "Gift ideas for Mum: scarf, garden gloves",
+     "category": "Personal",
+     "tags": []
+    },
+    {
+     "content": "Mum's birthday present ideas: gloves for the garden, a scarf",
+     "category": "Personal",
+     "tags": []
+    },
+    {
+     "content": "Standup moved to 9:30",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "linked_pairs": [
+     [
+      0,
+      1
+     ]
+    ],
+    "notes_kept": true
+   }
+  },
+  {
+   "id": "two-meeting-notes",
+   "notebook": [
+    {
+     "content": "Offsite planning: venue in June, budget 3k",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "June offsite: venue options and the 3k budget",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "linked_pairs": [
+     [
+      0,
+      1
+     ]
+    ],
+    "notes_kept": true
+   }
+  }
+ ]
+}

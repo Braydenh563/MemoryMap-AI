@@ -421,6 +421,20 @@ Gates: the table of rates in this plan (moved to HISTORY when built);
 `test_skill_fixtures.py` green without a model; the three evals green on
 the dev model for every skill marked for the small class.
 
+Built by Brief 54 (the four decisions' machinery, the fixtures and the eval):
+moved to HISTORY.md ("Moved from the plans, 2026-10-11 (AGENT_SKILLS_REFORM
+Phase E, Brief 54)"). **Open: the measured table.** No llama-server or model
+file in the agent sandbox (`llama-dev.sh check`: both missing), so no rate is
+measured and `ai/data/skill_rates.json` ships empty (nothing is labelled). To
+fill it: `MEMORYMAP_EVALS_RATES=/tmp/rates.json pytest -m evals
+tests/test_skills_evals.py -k fixture` on the dev model, copy its `classes`
+into the shipped file, and the rows here:
+
+| Skill | Small class | Rate (small) | Stops at |
+| --- | --- | --- | --- |
+| the 9 marked `small_class` in `tests/fixtures/skills/` | yes | not measured | |
+| the other 12 | no | not measured | |
+
 ## Deepened 2026-10-10: the agent and its harness (Brief 72b, decision 71)
 
 Measured with `scratchpad/ui-sweeps/deepen72b.js` (fresh data dir, no
@@ -453,8 +467,8 @@ of acts that always runs).
 | 5 | fix | The run list is a tab of the Activity panel with Stop that unloads the model (decision 70) | Brief 73's gate | 5 |
 | 6 | fix | A failed step explains and offers: retry the step, do it without the model, open the model setting | `test_error_toasts.py` agent rows carry an action | 4 |
 | 7 | fix | The 2 overlaps at 1440: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 7, 11 |
-| 8 | expansion | Phase E's success table drives the palette ("needs a larger model", with the reason) | every skill below 0.8 on the small class labelled | 6, 4 |
-| 9 | optimisation | Time to the first step and per step on the dev model (`scratchpad/llama-dev.sh`), reported, not assumed | the numbers in this table | 25g budget |
+| 8 | expansion | Phase E's success table drives the palette ("needs a larger model", with the reason): the label is built (Brief 54, HISTORY); open is the table it reads | every skill below 0.8 on the small class labelled | 6, 4 |
+| 9 | optimisation | Time to the first step and per step on the dev model: `run_case` reports `first_step_seconds` and `seconds_per_step` per case; not yet run (no model in the sandbox) | the numbers in this table | 25g budget |
 
 **Briefs.** 54 (rows 8, 9), 67 (row 1's registry), 73 (rows 5, 6), 87 (rows
 1 to 4, 7: built).

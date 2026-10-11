@@ -2353,6 +2353,13 @@ def _change_diff(name: str, arguments: dict, undo: dict | None) -> dict | None:
     return _plans().edit_diff(str((undo.get("arguments") or {}).get("content") or ""), str(arguments["content"]))
 
 
+def _count_call() -> None:
+    """Charge one tool call to the run this turn belongs to, if any (Phase E)."""
+    spend = run_budget.current()
+    if spend is not None:
+        spend.count_call()
+
+
 def _run_and_record(
     session: Session, plan: _TurnPlan, state: _TurnState, name: str, arguments: dict
 ) -> Iterator[dict]:
@@ -2367,6 +2374,7 @@ def _run_and_record(
     result = tools.execute_tool(
         session, name, arguments, context_tokens=plan.window, model=plan.agent_model
     )
+    _count_call()
     # SEC-02: the result carries a clipped or imported note's words (or an
     # imported document's): from here on the turn is tainted, exactly as
     # after a web read. Popped: the flag is for this loop, not the model.

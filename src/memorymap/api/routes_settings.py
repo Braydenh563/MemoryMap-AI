@@ -1295,6 +1295,20 @@ def _validated_export_dir(raw: str) -> str:
     return str(path)
 
 
+def _small_class(config) -> bool:
+    """Whether skill runs get the small-model treatment now: the setting's
+    On, or Auto with a chat model whose name says it is small."""
+    setting = str(config.get_preference("small_model_mode", "auto") or "auto").lower()
+    if setting in ("on", "true", "always"):
+        return True
+    if setting != "auto":
+        return False
+    try:
+        return deps.get_model_manager().chat_model_is_small() is True
+    except Exception:  # noqa: BLE001  # a label is not worth failing the list over
+        return False
+
+
 @router.get("/skills")
 def list_skills() -> dict:
     """Everything runnable: the shipped skills and the user's own.
@@ -1312,6 +1326,9 @@ def list_skills() -> dict:
 
     config = deps.get_config()
     catalog = []
+    #: Phase E, decision 2: on a small model, a skill measured below the bar
+    #: is labelled with why, rather than offered and hoped.
+    rates = skills.measured_rates() if _small_class(config) else {}
     for skill in skills.catalog(config, set(tools.TOOLS)):
         # "This one changes things" is a different question from "this one
         # uses tools", and the UI marks it as such. A skill with steps but no
@@ -1321,6 +1338,7 @@ def list_skills() -> dict:
                 **skill,
                 "changes": bool(set(skill["tools"]) & tools.WRITE_TOOLS)
                 or (not skill["tools"] and bool(skill["steps"])),
+                "needs_larger_model": skills.larger_model_reason(skill["name"], rates) if rates else "",
             }
         )
     where = skill_folder.folder(config)

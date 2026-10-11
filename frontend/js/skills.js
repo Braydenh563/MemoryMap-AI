@@ -415,6 +415,13 @@ function fillSkillSelect(select) {
       // "ph:gear" in the list, since setLabel has no element to build into.
       option.textContent = skill.name + (skill.changes ? "  (edits notes)" : "");
       option.title = skillSummary(skill);
+      //: Phase E, decision 2: measured below the bar on a small model, so
+      //: shown with why rather than offered and hoped.
+      if (skill.needs_larger_model) {
+        option.textContent += "  (needs a larger model)";
+        option.title = skill.needs_larger_model;
+        option.disabled = true;
+      }
       group.appendChild(option);
     }
     select.appendChild(group);
@@ -769,6 +776,11 @@ function skillRow(skill) {
     row.appendChild(from);
   }
   if (skill.changes) row.appendChild(chip("ph:pencil-simple Changes notes", "item-fact item-writes"));
+  if (skill.needs_larger_model) {
+    const larger = chip("Needs a larger model", "item-fact");
+    larger.title = skill.needs_larger_model;
+    row.appendChild(larger);
+  }
   if ((skill.steps || []).length) {
     row.appendChild(chip(`${skill.steps.length} steps`, "item-fact"));
   }

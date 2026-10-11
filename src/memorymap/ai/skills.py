@@ -36,8 +36,12 @@ tool names handed in by the caller rather than importing the registry, because
 
 from __future__ import annotations
 
+import json
 import re
 import threading
+from pathlib import Path
+
+from memorymap.ai.budget import CAP_LIMITS
 
 MAX_SKILLS = 30
 MAX_NAME = 40
@@ -575,9 +579,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
     # Only when it was declared: a skill with no postcondition must round-trip
     # through here unchanged, and a `verify: None` key on every stored skill
     # would be a schema change nothing asked for.
-    verify = verify_spec(raw, known_tools, tools)
-    if verify:
-        skill["verify"] = verify
+    skill.update(_declared_blocks(raw, known_tools, tools))
     # Every placeholder used has to be declared, or running the skill sends
     # the model a literal {{tag}} and it invents a value. Cheaper to catch on
     # save than to debug in a run.
@@ -595,6 +597,41 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
     if raw.get("useTools") or steps or tools:
         skill["useTools"] = True
     return skill
+
+
+def _declared_blocks(raw: dict, known_tools: set[str] | None, tools: list[str]) -> dict:
+    """The `verify` and `budget` blocks, only when declared (a skill without
+    one round-trips unchanged rather than gaining a `None` key)."""
+    blocks: dict = {}
+    verify = verify_spec(raw, known_tools, tools)
+    if verify:
+        blocks["verify"] = verify
+    caps = budget_caps(raw.get("budget"))
+    if caps:
+        blocks["budget"] = caps
+    return blocks
+
+
+def budget_caps(raw) -> dict:
+    """A skill's declared run caps (AGENT_SKILLS_REFORM Phase E, decision 3).
+
+    `{"tool_calls": 20, "steps": 6}` and so on, each a whole number from 1 to
+    its ceiling in `budget.CAP_LIMITS`; the run stops with a readable reason
+    when it passes one (`budget.for_skill`). Absent or empty is no caps.
+    """
+    if not raw:
+        return {}
+    if not isinstance(raw, dict):
+        raise SkillError("A skill's budget is a set of caps, such as tool_calls: 20.")
+    caps = {}
+    for key, value in raw.items():
+        ceiling = CAP_LIMITS.get(key)
+        if ceiling is None:
+            raise SkillError(f"A skill's budget can cap {', '.join(CAP_LIMITS)}, not {str(key)[:30]}.")
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= ceiling:
+            raise SkillError(f"A skill's {key} cap is a whole number from 1 to {ceiling:,}.")
+        caps[key] = value
+    return caps
 
 
 def is_action(skill: dict) -> bool:
@@ -1688,6 +1725,39 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": [*_READING_TOOLS, "ask_user", "list_skills", "save_skill"],
     },
 ]
+
+
+#: Phase E's measured table (AGENT_SKILLS_REFORM decision 2): each shipped
+#: skill's success rate per model class, from `pytest -m evals` over
+#: `tests/fixtures/skills/`. Shipped with the app; empty until measured.
+RATES_FILE = Path(__file__).parent / "data" / "skill_rates.json"
+MAX_RATE_REASON = 200
+
+
+def measured_rates(path: Path | None = None) -> dict:
+    """The table, or {} when it is missing or unreadable (nothing is labelled)."""
+    try:
+        data = json.loads((path or RATES_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def larger_model_reason(name: str, rates: dict, model_class: str = "small") -> str:
+    """Why `name` is held back from `model_class`, or "" when it is not.
+
+    Only a measured rate below the threshold holds a skill back: an unmeasured
+    skill is offered as before, since "we did not test it" is not "it fails".
+    """
+    table = (rates.get("classes") or {}).get(model_class) or {}
+    row = (table.get("skills") or {}).get(name)
+    rate = row.get("rate") if isinstance(row, dict) else None
+    if not isinstance(rate, (int, float)) or rate >= float(rates.get("threshold", 0.8)):
+        return ""
+    step = row.get("failed_step")
+    where = f", most often stopping at step {step + 1}" if isinstance(step, int) else ""
+    why = f": {row['reason']}" if row.get("reason") else ""
+    return f"Finished {rate:.0%} of test runs on a small model{where}{why}."[:MAX_RATE_REASON]
 
 
 def builtins(known_tools: set[str] | None = None) -> list[dict]:

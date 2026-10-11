@@ -1,0 +1,117 @@
+{
+ "skill": "Fix my links",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "wrong-and-missing",
+   "notebook": [
+    {
+     "content": "Tomatoes need staking this week",
+     "category": "Garden",
+     "tags": [],
+     "links": [
+      1
+     ]
+    },
+    {
+     "content": "Quarterly report draft is due Friday",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "Bought bamboo canes for the tomatoes",
+     "category": "Garden",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unlinked_pairs": [
+     [
+      0,
+      1
+     ]
+    ],
+    "linked_pairs": [
+     [
+      0,
+      2
+     ]
+    ]
+   }
+  },
+  {
+   "id": "dentist",
+   "notebook": [
+    {
+     "content": "Dentist appointment on the 14th",
+     "category": "Health",
+     "tags": [],
+     "links": [
+      1
+     ]
+    },
+    {
+     "content": "Grocery list: oats, milk, apples",
+     "category": "Home",
+     "tags": []
+    },
+    {
+     "content": "Dentist said to floss more, recheck in six months",
+     "category": "Health",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unlinked_pairs": [
+     [
+      0,
+      1
+     ]
+    ],
+    "linked_pairs": [
+     [
+      0,
+      2
+     ]
+    ]
+   }
+  },
+  {
+   "id": "lisbon",
+   "notebook": [
+    {
+     "content": "Lisbon flights booked for May",
+     "category": "Travel",
+     "tags": [],
+     "links": [
+      1
+     ]
+    },
+    {
+     "content": "Fix the bike's back brake",
+     "category": "Home",
+     "tags": []
+    },
+    {
+     "content": "Lisbon hotel shortlist: Alfama or Baixa",
+     "category": "Travel",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unlinked_pairs": [
+     [
+      0,
+      1
+     ]
+    ],
+    "linked_pairs": [
+     [
+      0,
+      2
+     ]
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,79 @@
+{
+ "skill": "Summarise my week",
+ "small_class": true,
+ "cases": [
+  {
+   "id": "work-week",
+   "notebook": [
+    {
+     "content": "Shipped the onboarding redesign",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "Onboarding redesign retro: users finish 20% faster",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "Dentist on Thursday",
+     "category": "Health",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "onboarding"
+    ]
+   }
+  },
+  {
+   "id": "garden-week",
+   "notebook": [
+    {
+     "content": "Planted the tomatoes out",
+     "category": "Garden",
+     "tags": []
+    },
+    {
+     "content": "Tomatoes need staking this week",
+     "category": "Garden",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "tomato"
+    ]
+   }
+  },
+  {
+   "id": "move-week",
+   "notebook": [
+    {
+     "content": "Signed the lease on the new flat",
+     "category": "Home",
+     "tags": []
+    },
+    {
+     "content": "Movers booked for the 30th",
+     "category": "Home",
+     "tags": []
+    },
+    {
+     "content": "Change address with the bank",
+     "category": "Admin",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "lease"
+    ]
+   }
+  }
+ ]
+}

@@ -38,7 +38,7 @@ from memorymap.search import search_manager
 # external use (tools.MAX_LIST_LIMIT, tools._require_note, ...), and an
 # explicit list is what lets ruff (and a reader) tell a real name from a
 # typo instead of flagging all ~220 uses below as "may be undefined".
-from . import _common, contracts
+from . import _common, contracts, verify
 from ._common import (  # noqa: F401
     DEFAULT_CONTEXT_TOKENS,
     DEFAULT_LIST_LIMIT,
@@ -4947,7 +4947,7 @@ def execute_tool(
     # change: a claim that did not hold goes back as an error, so neither the
     # model nor the skill verifier reports it as done.
     if isinstance(result, dict) and "error" not in result:
-        broken = contracts.postcondition(session, name, args, result)
+        broken = verify.check(session, name, args, result)
         if broken:
             logging.getLogger("memorymap.tools").warning("tool %s: %s", safe_value(name, 40), safe_value(broken, 200))
             return {"error": broken}

@@ -1,0 +1,57 @@
+{
+ "skill": "Create a study plan",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "portuguese",
+   "notebook": [
+    {
+     "content": "I know some Spanish already",
+     "category": "Learning",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "reminders_added_min": 1
+   },
+   "inputs": {
+    "goal": "basic Portuguese",
+    "deadline": "the Lisbon trip in May"
+   }
+  },
+  {
+   "id": "driving-theory",
+   "notebook": [
+    {
+     "content": "Theory test booked",
+     "category": "Learning",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "reminders_added_min": 1
+   },
+   "inputs": {
+    "goal": "the driving theory test",
+    "deadline": "the end of next month"
+   }
+  },
+  {
+   "id": "statistics",
+   "notebook": [
+    {
+     "content": "Module 3 is hypothesis testing",
+     "category": "Learning",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "reminders_added_min": 1
+   },
+   "inputs": {
+    "goal": "the statistics exam",
+    "deadline": "in six weeks"
+   }
+  }
+ ]
+}

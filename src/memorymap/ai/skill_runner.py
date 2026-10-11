@@ -868,6 +868,17 @@ class _RunState:
     out_of_budget: str = ""
 
 
+def _count_step() -> None:
+    """Charge one step attempt to the run's budget (Phase E, decision 3)."""
+    spend = run_budget.current()
+    if spend is not None:
+        spend.count_step()
+
+
+def _usage(spend: run_budget.RunBudget | None) -> dict | None:
+    return spend.usage() if spend is not None else None
+
+
 def _run_one_step(setup: _RunSetup, run: _RunState, index: int) -> Iterator[dict]:
     """One step of a run: its attempts, its contract, and what to do next.
 
@@ -883,6 +894,7 @@ def _run_one_step(setup: _RunSetup, run: _RunState, index: int) -> Iterator[dict
     each one's comment says why it is where it is.
     """
     step = run.steps[index]
+    _count_step()
     # Whether the way this step ended is worth re-planning at all, and the
     # one sentence saying what went wrong, the material `_replan_step`
     # gives the model, and the reason the `replanned` event carries.
@@ -1498,6 +1510,7 @@ def _run_skill(
             "verification": checked.as_event(),
             "undo_available": all(change.get("undo") for change in changes),
             "state": state,
+            "budget": _usage(budget),
         }
         return
 
@@ -1603,6 +1616,9 @@ def _run_skill(
         # follow-up question, Phase C's run view: can talk about "those notes"
         # with the same precision the steps did.
         "state": run.known,
+        # What the run spent against each cap (Phase E, decision 3), so a
+        # budget stop names the cap it met and a finished run its headroom.
+        "budget": _usage(budget),
     }
 
 

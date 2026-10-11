@@ -1,0 +1,55 @@
+{
+ "skill": "Daily review",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "dentist",
+   "notebook": [
+    {
+     "content": "Call the dentist tomorrow at 3pm to move the appointment",
+     "category": "Health",
+     "tags": []
+    },
+    {
+     "content": "Lovely walk by the river",
+     "category": "Personal",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "reminders_added_min": 1
+   }
+  },
+  {
+   "id": "bill",
+   "notebook": [
+    {
+     "content": "Pay the gas bill on Friday morning",
+     "category": "Admin",
+     "tags": []
+    },
+    {
+     "content": "Thinking about learning Portuguese",
+     "category": "Personal",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "reminders_added_min": 1
+   }
+  },
+  {
+   "id": "sam",
+   "notebook": [
+    {
+     "content": "Ring Sam on Monday at 10am about the offsite",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "reminders_added_min": 1
+   }
+  }
+ ]
+}

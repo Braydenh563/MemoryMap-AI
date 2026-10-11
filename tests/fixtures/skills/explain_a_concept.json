@@ -1,0 +1,63 @@
+{
+ "skill": "Explain a concept",
+ "small_class": true,
+ "cases": [
+  {
+   "id": "compound-interest",
+   "notebook": [
+    {
+     "content": "Opened a savings account at 4%",
+     "category": "Money",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "interest"
+    ]
+   },
+   "inputs": {
+    "concept": "compound interest"
+   }
+  },
+  {
+   "id": "photosynthesis",
+   "notebook": [
+    {
+     "content": "The tomatoes do better in the sunny bed",
+     "category": "Garden",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "light"
+    ]
+   },
+   "inputs": {
+    "concept": "photosynthesis"
+   }
+  },
+  {
+   "id": "inflation",
+   "notebook": [
+    {
+     "content": "Grocery bill went up again this month",
+     "category": "Money",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "price"
+    ]
+   },
+   "inputs": {
+    "concept": "inflation"
+   }
+  }
+ ]
+}

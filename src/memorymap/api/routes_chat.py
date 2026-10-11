@@ -2449,10 +2449,8 @@ def _agent_events(req: _StreamRequest, prepared: dict, tools_provider) -> Iterat
             #: The step count goes with it: the token allowance is per
             #: step, and a nine-step skill held to one step's worth is how
             #: a correct run came to stop after three of them.
-            budget=run_budget.from_settings(
-                deps.get_config(),
-                steps=len(req.skill["skill"].get("steps") or []) or 1,
-            ),
+            #: And the skill's own declared caps on top (Phase E, decision 3).
+            budget=run_budget.for_skill(deps.get_config(), req.skill["skill"]),
             **shared,
         )
     else:

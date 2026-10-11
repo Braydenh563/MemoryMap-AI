@@ -1,0 +1,101 @@
+{
+ "skill": "Clean up my tags",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "recipe-plural",
+   "notebook": [
+    {
+     "content": "Lentil soup: onions, carrots, red lentils",
+     "category": "Cooking",
+     "tags": [
+      "recipe"
+     ]
+    },
+    {
+     "content": "Banana bread with walnuts",
+     "category": "Cooking",
+     "tags": [
+      "recipes"
+     ]
+    },
+    {
+     "content": "Pancakes for Sunday",
+     "category": "Cooking",
+     "tags": [
+      "recipe"
+     ]
+    }
+   ],
+   "expect": {
+    "tags_merged": [
+     [
+      "recipe",
+      "recipes"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "todo-spellings",
+   "notebook": [
+    {
+     "content": "Finish the slides",
+     "category": "Work",
+     "tags": [
+      "todo"
+     ]
+    },
+    {
+     "content": "Email the venue",
+     "category": "Work",
+     "tags": [
+      "to-do"
+     ]
+    },
+    {
+     "content": "Pay the gas bill",
+     "category": "Admin",
+     "tags": [
+      "todo"
+     ]
+    }
+   ],
+   "expect": {
+    "tags_merged": [
+     [
+      "todo",
+      "to-do"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "book-books",
+   "notebook": [
+    {
+     "content": "Started The Left Hand of Darkness",
+     "category": "Reading",
+     "tags": [
+      "book"
+     ]
+    },
+    {
+     "content": "Finished Piranesi, loved the house",
+     "category": "Reading",
+     "tags": [
+      "books"
+     ]
+    }
+   ],
+   "expect": {
+    "tags_merged": [
+     [
+      "book",
+      "books"
+     ]
+    ]
+   }
+  }
+ ]
+}

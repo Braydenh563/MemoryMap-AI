@@ -1,0 +1,66 @@
+{
+ "skill": "Draft an email",
+ "small_class": true,
+ "cases": [
+  {
+   "id": "landlord",
+   "notebook": [
+    {
+     "content": "The boiler has been broken since Monday",
+     "category": "Home",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "boiler"
+    ]
+   },
+   "inputs": {
+    "to": "my landlord",
+    "about": "the boiler"
+   }
+  },
+  {
+   "id": "venue",
+   "notebook": [
+    {
+     "content": "Offsite venue: the barn holds 40 people",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "barn"
+    ]
+   },
+   "inputs": {
+    "to": "the venue",
+    "about": "the barn booking"
+   }
+  },
+  {
+   "id": "teacher",
+   "notebook": [
+    {
+     "content": "Parents' evening is on the 12th",
+     "category": "Family",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "parents"
+    ]
+   },
+   "inputs": {
+    "to": "the teacher",
+    "about": "parents' evening"
+   }
+  }
+ ]
+}

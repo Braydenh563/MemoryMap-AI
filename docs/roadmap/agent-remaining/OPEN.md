@@ -333,6 +333,13 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the skills54 agent (Brief 54, merged 2026-10-11)
+
+Full list: [archive/agent-remaining/skills54-1011.md](../archive/agent-remaining/skills54-1011.md).
+- No real model here: `skill_rates.json` ships empty, the small-class gate, time to first step and `DEFAULT_CALLS_PER_STEP` are unmeasured.
+- A held-back skill is still runnable through the agent's `run_skill` tool; the label is only in the picker and Settings.
+- The run's budget usage is on the result event but not drawn in chat-agent.js's result box.
+
 ## Left by the settings52 agent (Brief 52, merged 2026-10-11)
 
 Detail: [settings52-1011.md](../archive/agent-remaining/settings52-1011.md).

@@ -80,6 +80,18 @@ DEFAULT_SECONDS = 0
 #: is the failure mode that matters. Roughly one small round.
 ASSUMED_ROUND_TOKENS = 500
 
+#: Tool calls one step may make, multiplied by the steps like the tokens
+#: (AGENT_SKILLS_REFORM Phase E, decision 3). A step has at most
+#: `skill_runner.STEP_EARNED_ROUNDS` rounds, each with a call or two, plus six
+#: pages of a list, and a large model batches several calls a round; 40 sits above that, so only a run that is looping on calls
+#: meets it. A skill may declare a lower cap (`skills.BUDGET_CAPS`).
+DEFAULT_CALLS_PER_STEP = 40
+
+#: The caps a skill may declare, and the most it may declare for each, so a
+#: skill file cannot buy itself an unbounded run by writing a large number.
+#: `steps` counts step attempts (a retried or re-planned step counts again).
+CAP_LIMITS = {"tokens": 200_000, "seconds": 7_200, "tool_calls": 400, "steps": 30}
+
 
 @dataclass
 class RunBudget:
@@ -95,8 +107,14 @@ class RunBudget:
     #: one of them, so the run's own allowance is the product: see the note on
     #: the defaults above. One for an ordinary turn, which has no steps.
     steps: int = 1
+    #: Caps a skill declared on top of the settings; 0 is none. `tool_calls`
+    #: is for the whole run, `max_steps` counts step attempts.
+    tool_calls: int = 0
+    max_steps: int = 0
     spent_tokens: int = 0
     rounds: int = 0
+    calls: int = 0
+    steps_run: int = 0
     started_at: float = field(default_factory=time.monotonic)
     stopped: str = ""
 
@@ -110,6 +128,33 @@ class RunBudget:
                 if isinstance(value, int) and value > 0:
                     used += value
         self.spent_tokens += used or ASSUMED_ROUND_TOKENS
+
+    def count_call(self) -> None:
+        """Count one tool call the harness ran inside this run."""
+        self.calls += 1
+
+    def count_step(self) -> None:
+        """Count one step attempt, a retry or a re-plan included."""
+        self.steps_run += 1
+
+    def call_allowance(self) -> int:
+        """The run's tool-call cap: the declared one, else a step's worth per step."""
+        return self.tool_calls or DEFAULT_CALLS_PER_STEP * max(1, self.steps)
+
+    def usage(self) -> dict:
+        """What the run spent against each cap, for the result event (0 cap: none)."""
+        return {
+            "steps": self.steps_run,
+            "tool_calls": self.calls,
+            "tokens": self.spent_tokens,
+            "seconds": round(self.elapsed(), 1),
+            "caps": {
+                "steps": self.max_steps,
+                "tool_calls": self.call_allowance(),
+                "tokens": self.allowance(),
+                "seconds": int(self.seconds),
+            },
+        }
 
     def elapsed(self) -> float:
         return time.monotonic() - self.started_at
@@ -134,6 +179,9 @@ class RunBudget:
         """
         if self.stopped:
             return self.stopped
+        self.stopped = self._over_count()
+        if self.stopped:
+            return self.stopped
         allowed = self.allowance()
         if allowed and self.spent_tokens >= allowed:
             self.stopped = (
@@ -148,6 +196,25 @@ class RunBudget:
                 "under Tools, Run budget."
             )
         return self.stopped
+
+
+    def _over_count(self) -> str:
+        """The sentence for a run over its tool-call or step cap, else ""."""
+        #: Over, not at: a run may make its cap's last call and still read the
+        #: result; the check is between rounds, so it overshoots by one round.
+        if self.calls > self.call_allowance():
+            return (
+                f"this run reached its cap of {self.call_allowance()} tool calls. "
+                "Its changes so far are kept and can be undone; Resume picks up "
+                "from here."
+            )
+        if self.max_steps and self.steps_run > self.max_steps:
+            return (
+                f"this run reached its cap of {self.max_steps} step attempts. "
+                "Its changes so far are kept and can be undone; Resume picks up "
+                "from here."
+            )
+        return ""
 
 
 _current: ContextVar[RunBudget | None] = ContextVar("memorymap_run_budget", default=None)
@@ -224,3 +291,29 @@ def from_settings(config, steps: int = 1) -> RunBudget:
         seconds=float(_number("run_budget_seconds", float(DEFAULT_SECONDS))),
         steps=max(1, int(steps)),
     )
+
+
+def _tighter(setting: float, declared: int) -> float:
+    """The stricter of two caps where 0 means none."""
+    if not declared:
+        return setting
+    return min(setting, declared) if setting else declared
+
+
+def for_skill(config, skill: dict) -> RunBudget:
+    """The settings' budget, tightened by the caps `skill` declares.
+
+    A skill's cap can only lower what Settings allows, never raise it: the
+    person's setting is the ceiling, the skill's author knows its normal size.
+    The token cap is for the whole run, so it is divided back to a step's
+    worth before it meets the per-step setting.
+    """
+    steps = max(1, len(skill.get("steps") or []))
+    spend = from_settings(config, steps=steps)
+    caps = skill.get("budget") or {}
+    if caps.get("tokens"):
+        spend.tokens = int(_tighter(spend.tokens, max(1, int(caps["tokens"]) // steps)))
+    spend.seconds = float(_tighter(spend.seconds, int(caps.get("seconds") or 0)))
+    spend.tool_calls = int(caps.get("tool_calls") or 0)
+    spend.max_steps = int(caps.get("steps") or 0)
+    return spend

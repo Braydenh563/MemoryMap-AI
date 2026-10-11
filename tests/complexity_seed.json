@@ -99,7 +99,7 @@
  "src/memorymap/ai/skill_runner.py::_run_skill": 37,
  "src/memorymap/ai/skill_runner.py::verify": 18,
  "src/memorymap/ai/skills.py::_one_step_spec": 16,
- "src/memorymap/ai/skills.py::normalise": 33,
+ "src/memorymap/ai/skills.py::normalise": 32,
  "src/memorymap/ai/skills.py::verify_spec": 19,
  "src/memorymap/ai/source_check.py::unbacked_claims": 18,
  "src/memorymap/ai/taxonomy.py::_analyze_topics": 25,

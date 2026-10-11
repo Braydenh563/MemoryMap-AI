@@ -9064,16 +9064,16 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/recent` | DELETE | `forget_recent_question` | src/memorymap/api/routes_chat.py:170 |
 | `/recent` | GET | `recent_questions` | src/memorymap/api/routes_chat.py:164 |
 | `/recordings` | GET | `list_recordings` | src/memorymap/api/routes_recordings.py:78 |
-| `/recordings` | POST | `create_recording` | src/memorymap/api/routes_recordings.py:106 |
-| `/recordings/recover` | POST | `recover_recordings` | src/memorymap/api/routes_recordings.py:98 |
-| `/recordings/{recording_id}` | DELETE | `bin_recording` | src/memorymap/api/routes_recordings.py:195 |
-| `/recordings/{recording_id}` | GET | `read_recording` | src/memorymap/api/routes_recordings.py:175 |
-| `/recordings/{recording_id}` | PATCH | `update_recording` | src/memorymap/api/routes_recordings.py:180 |
-| `/recordings/{recording_id}/chunk` | POST | `append_chunk` | src/memorymap/api/routes_recordings.py:129 |
-| `/recordings/{recording_id}/finish` | POST | `finish_recording` | src/memorymap/api/routes_recordings.py:157 |
-| `/recordings/{recording_id}/purge` | POST | `purge_recording` | src/memorymap/api/routes_recordings.py:214 |
-| `/recordings/{recording_id}/restore` | POST | `restore_recording` | src/memorymap/api/routes_recordings.py:205 |
-| `/recordings/{recording_id}/transcribe` | POST | `transcribe_recording` | src/memorymap/api/routes_recordings.py:225 |
+| `/recordings` | POST | `create_recording` | src/memorymap/api/routes_recordings.py:108 |
+| `/recordings/recover` | POST | `recover_recordings` | src/memorymap/api/routes_recordings.py:100 |
+| `/recordings/{recording_id}` | DELETE | `bin_recording` | src/memorymap/api/routes_recordings.py:197 |
+| `/recordings/{recording_id}` | GET | `read_recording` | src/memorymap/api/routes_recordings.py:177 |
+| `/recordings/{recording_id}` | PATCH | `update_recording` | src/memorymap/api/routes_recordings.py:182 |
+| `/recordings/{recording_id}/chunk` | POST | `append_chunk` | src/memorymap/api/routes_recordings.py:131 |
+| `/recordings/{recording_id}/finish` | POST | `finish_recording` | src/memorymap/api/routes_recordings.py:159 |
+| `/recordings/{recording_id}/purge` | POST | `purge_recording` | src/memorymap/api/routes_recordings.py:216 |
+| `/recordings/{recording_id}/restore` | POST | `restore_recording` | src/memorymap/api/routes_recordings.py:207 |
+| `/recordings/{recording_id}/transcribe` | POST | `transcribe_recording` | src/memorymap/api/routes_recordings.py:227 |
 | `/recover` | POST | `recover` | src/memorymap/api/routes_auth.py:1350 |
 | `/recovery-key` | POST | `make_recovery_key` | src/memorymap/api/routes_auth.py:1273 |
 | `/recovery-key/save` | POST | `save_recovery_key` | src/memorymap/api/routes_auth.py:1320 |
@@ -9625,29 +9625,29 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_Answer` | src/memorymap/ai/composer.py:1278 |
 | `_Meaning` | src/memorymap/ai/composer.py:1169 |
 | `_WORDED_PHRASES` | src/memorymap/ai/composer.py:2760 |
-| `_absent` | src/memorymap/ai/composer.py:3646 |
+| `_absent` | src/memorymap/ai/composer.py:3648 |
 | `_alternatives` | src/memorymap/ai/composer.py:602 |
-| `_answer_turn` | src/memorymap/ai/composer.py:3766 |
-| `_as_typed` | src/memorymap/ai/composer.py:3656 |
+| `_answer_turn` | src/memorymap/ai/composer.py:3768 |
+| `_as_typed` | src/memorymap/ai/composer.py:3658 |
 | `_asked_span` | src/memorymap/ai/composer.py:2184 |
 | `_body` | src/memorymap/ai/composer.py:2321 |
-| `_brief_text` | src/memorymap/ai/composer.py:4045 |
+| `_brief_text` | src/memorymap/ai/composer.py:4047 |
 | `_broad_pool` | src/memorymap/ai/composer.py:2300 |
 | `_build_synonyms` | src/memorymap/ai/composer.py:593 |
 | `_clarify` | src/memorymap/ai/composer.py:2838 |
 | `_clusters` | src/memorymap/ai/composer.py:1921 |
 | `_compare` | src/memorymap/ai/composer.py:2114 |
-| `_compose` | src/memorymap/ai/composer.py:3775 |
+| `_compose` | src/memorymap/ai/composer.py:3777 |
 | `_confirmed_lead` | src/memorymap/ai/composer.py:2218 |
 | `_count_word` | src/memorymap/ai/composer.py:1532 |
 | `_cue` | src/memorymap/ai/composer.py:999 |
-| `_did_you_mean` | src/memorymap/ai/composer.py:3638 |
+| `_did_you_mean` | src/memorymap/ai/composer.py:3640 |
 | `_disagreement` | src/memorymap/ai/composer.py:2046 |
 | `_disagreements` | src/memorymap/ai/composer.py:2054 |
 | `_distinct_ids` | src/memorymap/ai/composer.py:888 |
 | `_due` | src/memorymap/ai/composer.py:1518 |
 | `_earlier` | src/memorymap/ai/composer.py:2026 |
-| `_filtered` | src/memorymap/ai/composer.py:3621 |
+| `_filtered` | src/memorymap/ai/composer.py:3623 |
 | `_fit_terms` | src/memorymap/ai/composer.py:2898 |
 | `_follow_one` | src/memorymap/ai/composer.py:2585 |
 | `_fusable` | src/memorymap/ai/composer.py:1697 |
@@ -9670,22 +9670,22 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_named_notes` | src/memorymap/ai/composer.py:2531 |
 | `_newest` | src/memorymap/ai/composer.py:2394 |
 | `_next_questions` | src/memorymap/ai/composer.py:2422 |
-| `_nothing` | src/memorymap/ai/composer.py:3662 |
+| `_nothing` | src/memorymap/ai/composer.py:3664 |
 | `_one_syllable_cvc` | src/memorymap/ai/composer.py:523 |
 | `_opening` | src/memorymap/ai/composer.py:1805 |
 | `_others` | src/memorymap/ai/composer.py:1945 |
 | `_overview_answer` | src/memorymap/ai/composer.py:3386 |
-| `_overview_bullets` | src/memorymap/ai/composer.py:3507 |
-| `_overview_groups` | src/memorymap/ai/composer.py:3491 |
-| `_overview_lead` | src/memorymap/ai/composer.py:3468 |
-| `_overview_line` | src/memorymap/ai/composer.py:3523 |
-| `_overview_links` | src/memorymap/ai/composer.py:3559 |
-| `_overview_list` | src/memorymap/ai/composer.py:3544 |
-| `_overview_name_chip` | src/memorymap/ai/composer.py:3585 |
-| `_overview_next` | src/memorymap/ai/composer.py:3571 |
-| `_overview_over_broad` | src/memorymap/ai/composer.py:3442 |
+| `_overview_bullets` | src/memorymap/ai/composer.py:3509 |
+| `_overview_groups` | src/memorymap/ai/composer.py:3493 |
+| `_overview_lead` | src/memorymap/ai/composer.py:3470 |
+| `_overview_line` | src/memorymap/ai/composer.py:3525 |
+| `_overview_links` | src/memorymap/ai/composer.py:3561 |
+| `_overview_list` | src/memorymap/ai/composer.py:3546 |
+| `_overview_name_chip` | src/memorymap/ai/composer.py:3587 |
+| `_overview_next` | src/memorymap/ai/composer.py:3573 |
+| `_overview_over_broad` | src/memorymap/ai/composer.py:3444 |
 | `_overview_subject` | src/memorymap/ai/composer.py:3426 |
-| `_overview_tag_chip` | src/memorymap/ai/composer.py:3597 |
+| `_overview_tag_chip` | src/memorymap/ai/composer.py:3599 |
 | `_pick` | src/memorymap/ai/composer.py:1547 |
 | `_picture_run` | src/memorymap/ai/composer.py:1669 |
 | `_picture_said` | src/memorymap/ai/composer.py:1641 |
@@ -9693,10 +9693,10 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_picture_units` | src/memorymap/ai/composer.py:865 |
 | `_quoted_lines` | src/memorymap/ai/composer.py:1661 |
 | `_quotes` | src/memorymap/ai/composer.py:1603 |
-| `_raw` | src/memorymap/ai/composer.py:3945 |
+| `_raw` | src/memorymap/ai/composer.py:3947 |
 | `_readings` | src/memorymap/ai/composer.py:2877 |
 | `_recall` | src/memorymap/ai/composer.py:3353 |
-| `_recall_next` | src/memorymap/ai/composer.py:3609 |
+| `_recall_next` | src/memorymap/ai/composer.py:3611 |
 | `_relation` | src/memorymap/ai/composer.py:1904 |
 | `_respell` | src/memorymap/ai/composer.py:458 |
 | `_result` | src/memorymap/ai/composer.py:3319 |
@@ -9706,10 +9706,10 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_score` | src/memorymap/ai/composer.py:1021 |
 | `_sentence_case` | src/memorymap/ai/composer.py:1707 |
 | `_span` | src/memorymap/ai/composer.py:1852 |
-| `_span_of` | src/memorymap/ai/composer.py:3455 |
+| `_span_of` | src/memorymap/ai/composer.py:3457 |
 | `_standing` | src/memorymap/ai/composer.py:2572 |
 | `_stem` | src/memorymap/ai/composer.py:533 |
-| `_subject_stems` | src/memorymap/ai/composer.py:3436 |
+| `_subject_stems` | src/memorymap/ai/composer.py:3438 |
 | `_summary` | src/memorymap/ai/composer.py:2287 |
 | `_templates_in` | src/memorymap/ai/composer.py:2750 |
 | `_time_phrase` | src/memorymap/ai/composer.py:3198 |
@@ -9724,11 +9724,11 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_words` | src/memorymap/ai/composer.py:616 |
 | `_written` | src/memorymap/ai/composer.py:763 |
 | `_yes_no_wrapped` | src/memorymap/ai/composer.py:487 |
-| `brief` | src/memorymap/ai/composer.py:3951 |
+| `brief` | src/memorymap/ai/composer.py:3953 |
 | `centrality` | src/memorymap/ai/composer.py:1226 |
 | `classify` | src/memorymap/ai/composer.py:492 |
 | `compare_sides` | src/memorymap/ai/composer.py:660 |
-| `compose` | src/memorymap/ai/composer.py:3687 |
+| `compose` | src/memorymap/ai/composer.py:3689 |
 | `disagree` | src/memorymap/ai/composer.py:1257 |
 | `follow_on` | src/memorymap/ai/composer.py:2542 |
 | `help_line` | src/memorymap/ai/composer.py:3285 |
@@ -12410,18 +12410,18 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `RecordingFinish` | src/memorymap/api/routes_recordings.py:48 |
 | `RecordingPatch` | src/memorymap/api/routes_recordings.py:54 |
 | `_get` | src/memorymap/api/routes_recordings.py:60 |
-| `append_chunk` | src/memorymap/api/routes_recordings.py:130 |
-| `bin_recording` | src/memorymap/api/routes_recordings.py:196 |
-| `create_recording` | src/memorymap/api/routes_recordings.py:107 |
-| `finish_recording` | src/memorymap/api/routes_recordings.py:158 |
+| `append_chunk` | src/memorymap/api/routes_recordings.py:132 |
+| `bin_recording` | src/memorymap/api/routes_recordings.py:198 |
+| `create_recording` | src/memorymap/api/routes_recordings.py:109 |
+| `finish_recording` | src/memorymap/api/routes_recordings.py:160 |
 | `list_recordings` | src/memorymap/api/routes_recordings.py:79 |
-| `purge_recording` | src/memorymap/api/routes_recordings.py:215 |
-| `read_recording` | src/memorymap/api/routes_recordings.py:176 |
-| `recording_audio` | src/memorymap/api/routes_recordings.py:253 |
-| `recover_recordings` | src/memorymap/api/routes_recordings.py:99 |
-| `restore_recording` | src/memorymap/api/routes_recordings.py:206 |
-| `transcribe_recording` | src/memorymap/api/routes_recordings.py:226 |
-| `update_recording` | src/memorymap/api/routes_recordings.py:181 |
+| `purge_recording` | src/memorymap/api/routes_recordings.py:217 |
+| `read_recording` | src/memorymap/api/routes_recordings.py:178 |
+| `recording_audio` | src/memorymap/api/routes_recordings.py:255 |
+| `recover_recordings` | src/memorymap/api/routes_recordings.py:101 |
+| `restore_recording` | src/memorymap/api/routes_recordings.py:208 |
+| `transcribe_recording` | src/memorymap/api/routes_recordings.py:228 |
+| `update_recording` | src/memorymap/api/routes_recordings.py:183 |
 
 ### src/memorymap/api/routes_relations.py (10)
 

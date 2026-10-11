@@ -80,11 +80,13 @@ def list_recordings(
     response: Response,
     limit: int = Query(default=RECORDINGS_PAGE_SIZE, ge=1, le=RECORDINGS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> dict:
     """Newest first, a page at a time (`X-Total-Count` is the whole library),
     after finishing any a closed tab left open (row 5): `recovered` lists
     those, once."""
+    offset = paging.start(cursor, offset)
     recovered = recordings.recover_stale(session)
     query = session.query(Recording).filter(Recording.state == "saved")
     total = query.count()

@@ -3425,10 +3425,12 @@ def _month(out: _Answer, when: date) -> str:
 
 def _overview_subject(question: str, today: date) -> str | None:
     """The topic a question asks about as a whole, when nothing else in it
-    (a time, a tag, a sum, a recall) answers it first."""
+    (a time, a tag, a sum, a recall, an insight) answers it first: "any
+    patterns in my golf notes" has the "<topic> notes" frame, but it asks for
+    the measurement, which the insight path says."""
     subject = composer_overview.topic(question)
     p = plan(question, today) if subject else None
-    if p is None or p.window or p.constraints or p.kind in ("utility", "recall"):
+    if p is None or p.window or p.constraints or p.kind in ("utility", "recall", "insight"):
         return None
     return subject
 

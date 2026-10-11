@@ -4,7 +4,11 @@ carried in the request's history, and the route's retry."""
 
 from __future__ import annotations
 
-from memorymap.ai import composer
+from datetime import datetime, time
+
+from memorymap.ai import composer, recognise
+from memorymap.core import deps
+from memorymap.core.config import user_now
 from memorymap.entry import manager
 from tests import _composer_eval
 from tests.test_composer_route_688 import _ask
@@ -43,13 +47,15 @@ def test_the_dialogue_is_read_from_the_history():
     assert "dentist" in talk.topic_stack
 
 
-def _seed(session) -> None:
+def _seed(session, on_day=None) -> None:
     for content in (
         "# Gym log\n\nI went to the gym on Monday and did squats. I like the morning sessions best.",
         "# Running\n\nI ran 5 km on Saturday in 28 minutes. The new shoes helped on the hills.",
         "# Gym plan\n\nI plan to go three times a week. Decided to go with the strength programme.",
     ):
-        manager.create_entry(session, content)
+        entry = manager.create_entry(session, content)
+        if on_day is not None:
+            entry.created_at = datetime.combine(on_day, time(10))
     session.commit()
 
 
@@ -66,7 +72,10 @@ def test_try_again_on_the_route_rewords_and_keeps_the_lead(client, session):
 
 
 def test_a_correction_on_the_route_answers_from_the_note_it_names(client, session):
-    _seed(session)
+    # "on Saturday" is the last Saturday, so the notes are dated then: seeded
+    # "now" they are found only when the suite happens to run on that day.
+    saturday = recognise.question_day("on Saturday", user_now(deps.get_config()).date())[0]
+    _seed(session, on_day=saturday)
     first = _ask(client, "what did I do on Saturday", **ASK)
     history = [{"question": "what did I do on Saturday", "answer": first["text"]}]
     fixed = _ask(client, "no, the gym one", history=history, **ASK)

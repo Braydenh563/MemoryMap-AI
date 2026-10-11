@@ -116,10 +116,16 @@ def _matches_any(text: str, patterns: tuple[str, ...]) -> bool:
 
 
 #: How to use the app, asked with a note word in it ("how do i export my
-#: notes", "why is the chat so slow"): the Guide's, never a notes search
-#: (the Chromium after-run, 2026-10-11).
+#: notes", "why is the chat so slow", "how do i tag a note", "how do i make a
+#: mind map"): the Guide's, never a notes search (the Chromium after-run,
+#: 2026-10-11; the bug sweep, 2026-10-12).
 _APP_FIRST = re.compile(
     r"^how (?:do|can|would|should) i (?:export|import|back ?up|sync|install|print|restore|encrypt)\b"
+    r"|^how (?:do|can|would|should) i tag\b"
+    r"|^how (?:do|can|would|should) i (?:un)?(?:pin|link|star|rename|delete|archive|restore|merge|duplicate|favou?rite|colou?r) "
+    r"(?:(?:a|an|the|my|this|some|two) )?(?:\w+ )?notes?\b(?! (?:about|on|for|from|with|that|called))"
+    r"|^how (?:do|can|would|should) i (?:add|set|make|create|use|remove|delete|edit|rename|merge|draw|start|open) "
+    r"(?:\w+ ){0,2}(?:tags?|mind ?maps?|white ?boards?|reminders?)\b(?! (?:about|on|for|from|with|that|in|called))"
     r"|^why (?:is|does) (?:the )?(?:app|chat|search|graph|atlas|tessellate|this|it) (?:so |really |very )?(?:slow|laggy|sluggish|lag)\b"
 )
 

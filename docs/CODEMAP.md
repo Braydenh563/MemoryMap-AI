@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5875, frontend ids 2489, CSS sections 494, backend routes 604, backend modules 5387, test files 1208, tests 10810, plan headings 956.
+Counts: frontend functions 5875, frontend ids 2489, CSS sections 494, backend routes 604, backend modules 5387, test files 1209, tests 10812, plan headings 956.
 
 ## Frontend functions (5875)
 
@@ -11306,7 +11306,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/memorymap/ai/help_topics_more.py:2425 |
+| `_act_topic` | src/memorymap/ai/help_topics_more.py:2426 |
 
 ### src/memorymap/ai/inbox.py (7)
 
@@ -11356,12 +11356,12 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_about_app_first` | src/memorymap/ai/intent.py:127 |
+| `_about_app_first` | src/memorymap/ai/intent.py:133 |
 | `_matches_any` | src/memorymap/ai/intent.py:111 |
 | `_normalise` | src/memorymap/ai/intent.py:102 |
-| `classify` | src/memorymap/ai/intent.py:133 |
-| `is_mash` | src/memorymap/ai/intent.py:184 |
-| `needs_retrieval` | src/memorymap/ai/intent.py:190 |
+| `classify` | src/memorymap/ai/intent.py:139 |
+| `is_mash` | src/memorymap/ai/intent.py:190 |
+| `needs_retrieval` | src/memorymap/ai/intent.py:196 |
 
 ### src/memorymap/ai/janitor.py (27)
 
@@ -17106,7 +17106,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (10810)
+## Tests (10812)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17635,6 +17635,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_install_doc_setup_file.py | 1 |
 | tests/test_instance_lock.py | 27 |
 | tests/test_intent.py | 2 |
+| tests/test_intent_howto_app.py | 2 |
 | tests/test_iphone_1011.py | 5 |
 | tests/test_janitor_knn.py | 8 |
 | tests/test_janitor_short.py | 5 |

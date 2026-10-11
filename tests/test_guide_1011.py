@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import composer, help_chat  # noqa: F401  # composer registers the help line
+from memorymap.ai import composer, help_chat, reading  # noqa: F401  # composer registers the help line; reading sets the act reader ("how do i pin a note")
 
 GOLD = json.loads((Path(__file__).parent / "fixtures" / "composer" / "guide_1011.json").read_text(encoding="utf-8"))["questions"]
 FLOOR = 1.0

@@ -1375,6 +1375,7 @@ def _prepare(
     #: truth below), which means the phrasing is natural and the numbers cannot
     #: be invented: and with the model stopped the computed sentence is
     #: already a complete answer on its own.
+    meaning_loading = False
     stats = notebook_stats.answer(question, session) if detected == intent.NOTES and as_of is None else None
     if detected == intent.UTILITY:
         #: **Worked out, like a count** (CHAT_PLAN decision 41): a sum, a
@@ -1407,6 +1408,7 @@ def _prepare(
     elif intent.needs_retrieval(detected) and not (attached_notes_only and attached):
         #: Searched with the person's own abbreviations spelt out ("what's
         #: due in CC" also finds the notes that say Cloud Computing, B7).
+        meaning_loading = _meaning_loading()
         found = search_manager.retrieve_detailed(
             session, glossary.expand(question, _glossary(session)), deps.get_embeddings(), limit=5
         )
@@ -1587,6 +1589,10 @@ def _prepare(
             if stats is not None
             else None
         ),
+        #: The search model was still loading, so this one read words only
+        #: (`search_manager.query_vector`): said in Why, and when nothing
+        #: matched, said with the answer.
+        "meaning_loading": meaning_loading,
         "raw_results": [
             _to_out(session, entry).model_copy(update={"content": as_of_then[entry.id].text})
             if entry.id in as_of_then
@@ -1944,6 +1950,19 @@ def _composer_voice() -> str:
     """The composer's own register for the same choice: it has two, so
     Playful joins with Natural's words and Plain with Professional's."""
     return {"playful": "natural", "plain": "professional"}.get(_answer_voice(), _answer_voice())
+
+
+def _meaning_loading() -> bool:
+    """Whether a search now would read words only, the search model not
+    loaded yet (the owner's 27 s first question, 2026-10-11)."""
+    try:
+        embeddings = deps.get_embeddings()
+        cold = getattr(embeddings, "loads_cold", None)
+        from memorymap.ai import embeddings as embedding_service
+
+        return bool(callable(cold) and cold()) or (embedding_service.warmup_running() and not embeddings.is_ready())
+    except Exception:  # noqa: BLE001  # no backend is a state, not an error
+        return False
 
 
 def _composer_embed():  # noqa: ANN202
@@ -2361,7 +2380,10 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             if web:
                 yield from _web_events(*web)
                 return
-        yield {"type": "answer", "delta": result["text"]}
+        text = result["text"]
+        if not result["grounding"] and prepared.get("meaning_loading"):
+            text += "\n\n" + composer_digest.PHRASES["meaning_loading"]
+        yield {"type": "answer", "delta": text}
         if result["grounding"]:
             yield {
                 "type": "grounding",
@@ -3104,6 +3126,7 @@ def _why(req, prepared, grounding, composing, will_answer, tools_only, ollama_ru
         model=("Atlas's tools" if tools_only else req.model_manager.chat_model()) if will_answer else None,
         shape=shape,
         context=will_answer and ollama_running and _asks_capability(req, prepared),
+        loading=bool(prepared.get("meaning_loading")),
         marks=marks,
     )
 

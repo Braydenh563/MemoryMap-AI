@@ -21,7 +21,9 @@ def _ask(question: str = Q1, **kw) -> dict:
 
 def test_one_line_volunteers_the_plan_gone_quiet():
     result = _ask(insight="one")
-    assert "no later note picks up this plan: Going to try 25 minutes on, 5 off" in result["text"]
+    #: Said once, in the study plan's own line (the owner, 2026-10-11).
+    assert "try 25 minutes on, 5 off, though no later note says how that went" in result["text"]
+    assert result["insights"][0]["in_answer"] is True
     assert len(result["insights"]) == 1 and result["insights"][0]["rule"] == "drift"
 
 
@@ -84,5 +86,5 @@ def test_through_the_route_the_line_and_its_row_arrive(client, session):
         events = [json.loads(line) for line in response.iter_lines() if line.strip()]
     text = "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
     grounding = next(e for e in events if e.get("type") == "grounding")
-    assert "no later note picks up this plan" in text
+    assert "no later note says how that went" in text
     assert [row["rule"] for row in grounding["insights"]] == ["drift"]

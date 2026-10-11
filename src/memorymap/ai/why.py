@@ -31,7 +31,7 @@ SEARCHES = {
     "keyword": "by keywords",
     "recent": "newest first",
     "dated": "by the date asked about",
-    "category": "the category named",
+    "category": "in the category the question names",
     "outside_range": "by subject, outside the time asked about",
 }
 
@@ -68,6 +68,7 @@ def lines(
     model: str | None = None,
     shape: str | None = None,
     context: bool = False,
+    loading: bool = False,
     marks: dict[str, float],
 ) -> list[dict]:
     """`[{"at": seconds, "text": words}]`, oldest first. `marks` holds the
@@ -86,11 +87,14 @@ def lines(
     if retrieval:
         how = SEARCHES.get(str(mode or "").rsplit("+", 1)[-1].rsplit("_recent", 1)[0], "")
         where = "Read only the notes you pointed it at" if scoped else "Searched your notes"
+        #: The first question after a launch reads words while the search
+        #: model loads behind it, rather than waiting for it (27 s, measured).
+        later = "; the search by meaning was still loading, so it read words only" if loading else ""
         if matched:
             found = f"{matched} {'note' if matched == 1 else 'notes'} matched"
-            say("searched", f"{where}{f' {how}' if how and not scoped else ''}: {found}.")
+            say("searched", f"{where}{f' {how}' if how and not scoped else ''}: {found}{later}.")
         else:
-            say("searched", f"{where}: nothing matched.")
+            say("searched", f"{where}: nothing matched{later}.")
     kind = (shape or "").split(":", 1)[-1]
     if composed:
         say("answered", "Atlas wrote it from your notes, with no model: every line comes from a note it cites.")

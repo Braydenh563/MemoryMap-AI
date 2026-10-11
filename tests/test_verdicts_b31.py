@@ -65,12 +65,12 @@ def test_a_wrong_fact_is_not_quoted_next_turn_and_delete_undoes_it(client, sessi
 def test_a_pinned_line_is_said_as_theirs_and_beats_the_inference(client, session):
     _seed(session)
     before = _ask(client, Q1, **BODY)
-    assert "no later note picks up this plan" in before["text"]
+    assert "no later note says how that went" in before["text"]
     made = _mark(client, "pinned", _row(before, "25 minutes"))
     assert made.status_code == 201
     after = _ask(client, Q1, **BODY)
     assert after["text"].count("(you pinned this as true, ") == 1
-    assert "no later note picks up this plan" not in after["text"]
+    assert "no later note says how that went" not in after["text"]
 
 
 def test_a_sentence_the_note_no_longer_holds_is_refused(client, session):

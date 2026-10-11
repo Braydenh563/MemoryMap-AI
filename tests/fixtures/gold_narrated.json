@@ -7,15 +7,86 @@
    "name": "same week",
    "today": "2026-07-17",
    "gold": "You start a new semester of uni next week, and you have mentioned you plan to study the classes of \"Intro to Psychology\" and \"Data Structures\". You also stated how you will be attending classes on Tuesdays and Thursdays each week.",
-   "says": ["next week", "Intro to Psychology", "Data Structures", "Tuesdays and Thursdays", "each week"],
-   "never": ["the week of", "went back", "**"]
+   "says": [
+    "next week",
+    "Intro to Psychology",
+    "Data Structures",
+    "Tuesdays and Thursdays",
+    "each week"
+   ],
+   "never": [
+    "the week of",
+    "went back",
+    "**"
+   ]
   },
   {
    "name": "months later",
    "today": "2026-10-11",
    "gold": "You went back to uni the week of 20 July, and you mentioned you're doing Intro to Psychology and Data Structures this semester, with classes on Tuesdays and Thursdays.",
-   "says": ["went back to uni the week of 20 July", "Intro to Psychology", "Data Structures", "Tuesdays and Thursdays"],
-   "never": ["next week", "**", "your this semester note"]
+   "says": [
+    "went back to uni the week of 20 July",
+    "Intro to Psychology",
+    "Data Structures",
+    "Tuesdays and Thursdays"
+   ],
+   "never": [
+    "next week",
+    "**",
+    "your this semester note"
+   ]
   }
+ ],
+ "paragraphs_about": "The owner, 2026-10-11, on the same answer: \"it didnt do the understanding and rewrite for the rest of the response, only the first paragraph and note\". Every note with a heading of its own (a lecture, a lab, a plan) is a paragraph of prose that understands it, its verbs varied; a relative time is named as a day (\"before next week\" written 22 July is before 27 July; \"a week later\" says its day); the open plan is said once, in its own paragraph.",
+ "paragraphs": [
+  {
+   "note": "uni2",
+   "gold": "In your first psych lecture, on 22 July, you learned that memory is reconstructive rather than a recording, and you set yourself chapters 1 to 3 of the Myers textbook to read before 27 July.",
+   "says": [
+    "first psych lecture",
+    "on 22 July",
+    "reconstructive rather than a recording",
+    "chapters 1 to 3 of the Myers textbook",
+    "before 27 July"
+   ],
+   "never": [
+    "Psych lecture 1:",
+    "**",
+    "next week",
+    "the week of 29 July"
+   ]
+  },
+  {
+   "note": "uni3",
+   "gold": "Your study plan has the library on Wednesday afternoons and flashcards on the bus, and you meant to try 25 minutes on, 5 off, though no later note says how that went.",
+   "says": [
+    "Your study plan has the library on Wednesday afternoons",
+    "flashcards on the bus",
+    "25 minutes on, 5 off",
+    "no later note says how that went"
+   ],
+   "never": [
+    "Study plan:",
+    "**"
+   ]
+  },
+  {
+   "note": "uni4",
+   "gold": "At the Data Structures lab on 4 August you got linked lists working, though you were still shaky on big O.",
+   "says": [
+    "At the Data Structures lab on 4 August",
+    "you got linked lists working",
+    "though you were still shaky on big O"
+   ],
+   "never": [
+    "Data Structures lab:",
+    "a week later,",
+    "**"
+   ]
+  }
+ ],
+ "said_once": [
+  "25 minutes on, 5 off",
+  "no later note"
  ]
 }

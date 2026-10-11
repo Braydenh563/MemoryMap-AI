@@ -40,7 +40,7 @@ from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 
-from memorymap.ai import composer, glossary, realise, verdicts
+from memorymap.ai import composer, composer_tables, glossary, realise, verdicts
 from memorymap.ai import when as when_words
 
 #: The connecting words, one table (decision 72: a voice swaps this, never
@@ -96,6 +96,15 @@ _BASE = {
     #: from today, then its facts in one flowing sentence, never label lines.
     "told": ("you mentioned", "you said", "you noted"),
     "told_future": ("You'll have {np}.", "That means {np}."),
+    #: A note's own heading said as prose (the owner, 2026-10-11: "it didnt
+    #: do the understanding and rewrite for the rest of the response"): one
+    #: wording a paragraph, turned by the line, so no two read alike.
+    "learned": ("you learned that", "you took away that", "you heard that"),
+    "noted": ("you noted", "you wrote down", "you jotted down"),
+    "set_task": ("you gave yourself {obj} to {verb}", "you set yourself {obj} to {verb}"),
+    "meant": ("you meant to", "you planned to", "you set out to"),
+    "drift_woven": "though no later note says how that went",
+    "meaning_loading": "The search by meaning is still loading, so this read your words only; ask again in a few seconds.",
     "landed": ("{opening}, and you're {landed}.", "{opening}. For now you're {landed}."),
     "open_count": ("{opening}, with {left} still open.", "{opening}, and {left} still to settle."),
     "stale": (
@@ -410,6 +419,9 @@ class Fact:
     label: str
     body: str
     action: str = ""
+    #: The label is the note's own heading ("Psych lecture 1: ..."), which
+    #: the answer says as prose, never as a label line (the owner, 2026-10-11).
+    heading: bool = False
 
 
 @dataclass
@@ -541,7 +553,14 @@ def _pin(text: str, written: date) -> str:
         if unit == "weekend":
             saturday = written + timedelta(days=(5 - written.weekday()) % 7 + 7 * step)
             return f"{pre}the weekend of {_day(saturday, today)}"
-        return f"{pre}the week of {_day(written + timedelta(days=7 * step), today)}"
+        #: The week the app's one resolver means (`when.span`, Monday first,
+        #: as the Mentions chip draws it); "before next week" is before its
+        #: Monday, a day the person can check (the owner, 2026-10-11).
+        found = when_words.span(f"{m.group('which').lower()} week", written, "future")
+        monday = found[0] if found else written + timedelta(days=7 * step)
+        if pre.strip().lower() in ("before", "by", "until"):
+            return f"{pre}{_day(monday, today)}"
+        return f"{pre}the week of {_day(monday, today)}"
 
     text = _PIN.sub(said, text)
     #: "Trimmed my first bowl today", written 2 September, is "on 2
@@ -655,7 +674,7 @@ def _facts(view: composer.NoteView, names: set[str], subject: set[str] | None = 
             if said and pinned and piece is pieces[-1][0]:
                 said = PHRASES["pinned"].format(said=said.rstrip("."), day=verdicts.day_words(pinned))
             if said:
-                out.append(Fact(view, s, cue, said, _tidy(action, view.written) if piece is pieces[0][0] else ""))
+                out.append(Fact(view, s, cue, said, _tidy(action, view.written) if piece is pieces[0][0] else "", heading=bool(cue and ((own and head and cue == label) or cue == note_label))))
     return out
 
 
@@ -726,6 +745,7 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
     the line carries its first note for its one citation mark."""
     groups: dict[str, list[Fact]] = {}
     spans: dict[str, set[int]] = {}
+    days: set[str] = set()
     for f in facts:
         spans.setdefault(f.label, set()).add(f.view.id)
     for f in facts:
@@ -736,6 +756,7 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
             #: Facts with no label of their own, or one label over several
             #: notes ("Gym: ..." twice), read best by their day.
             label = _day(f.view.written, by_day)
+            days.add(label)
         groups.setdefault(label or PHRASES["also"], []).append(f)
     shown = 0
     before: date | None = None
@@ -751,10 +772,23 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
         #: between them, said as a clause, when they are days apart.
         #: Only before a clause of the person's own ("you tried ..."): "a
         #: week later, tram 28, pasteis de Belem" joins nothing.
-        if weave and i and before and written and (written - before).days >= 2 and re.match(r"you\b|you're\b|your\b", line_body):
-            said = _vary("gap").format(gap=_gap((written - before).days)) + line_body
+        heading = weave and all(f.heading and f.label == label for f in held)
+        mine = re.match(r"you\b|you're\b|your\b", line_body)
+        if weave and label in days and mine:
+            #: A day's line is said as that day, not under it (the owner,
+            #: 2026-10-11: no label lines), the time since the last one first.
+            gap = (written - before).days if i and before and written else 0
+            lead = _vary("gap").format(gap=_gap(gap)) + f"on {label}, " if gap >= 2 else f"on {label}, "
+            heading, line_body = True, lead[0].upper() + lead[1:] + line_body
+            said = line_body + _relate(line_body, by_day)
+        elif heading:
+            line_body = _prose(label, held, bodies, i, by_day) + (pins[-1] if pins else "")
+            said = line_body + _relate(line_body, by_day)
+        elif weave and i and before and written and (written - before).days >= 2 and mine:
+            #: "A week later" names its day too (the owner, 2026-10-11).
+            said = _vary("gap").format(gap=_gap((written - before).days)) + f"on {_day(written, by_day or written)}, " + line_body
         before = written or before
-        (out.lines if i < limit else out.more).append(f"**{label}:** {said}.")
+        (out.lines if i < limit else out.more).append(f"{said}." if heading else f"**{label}:** {said}.")
         row = _row(line_body, held[0])
         #: Every sentence the line was made from (B31, B32): a verdict on
         #: the line is a verdict on each of them.
@@ -767,6 +801,91 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
 
 
 _PINNED = re.compile(r" \(you pinned this as true, [^)]+\)")
+
+#: What a note's heading names, and how a paragraph opens on it (the owner,
+#: 2026-10-11: "In your first psych lecture you learned that ...").
+_HEARD = re.compile(r"\b(lecture|class|seminar|talk|tutorial|lesson|workshop|webinar|podcast|reading|course)\b", re.I)
+_DID = re.compile(r"\b(lab|practical|session|workout|training|game|match|meeting|appointment|trip|visit|shift|run|ride|swim)\b", re.I)
+_PLANNED = re.compile(r"\b(plan|routine|schedule|goals?|budget|timetable|system)\b", re.I)
+_ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth")
+#: A note-to-self ("Read chapters 1 to 3 before next week"), said as the
+#: task the person set: what to do, and to what.
+_TASK = re.compile(r"^(read|watch|finish|review|revise|redo|practise|practice|learn|write|do|study|listen to)\s+(.+?)(\s+(?:before|by|until|for|on)\s+.+)?$", re.I)
+_DOING = re.compile(r"^(?:ask|call|email|text|book|buy|order|check|remember to|pay|send|bring|look up|try|go|get|sort|plan|start)\b", re.I)
+_PLACE_NOUN = re.compile(r"^(library|gym|pool|office|park|bus|train|cafe|range|studio|lab|track|beach)\b", re.I)
+
+
+def _pick(key: str, i: int) -> str:
+    """One wording of `key`, turned by the paragraph so neighbours differ."""
+    said = VOICES.get(_VOICE.get(), {}).get(key) or _BASE[key]
+    return said[(_SEED.get() + _TURN.get() + i) % len(said)] if isinstance(said, tuple) else said
+
+
+def _heading_said(label: str) -> str:
+    """"Psych lecture 1" as "first psych lecture"; "Data Structures lab" kept
+    in its own capitals where they are a name."""
+    numbered = re.match(r"^(.*?\S)\s+(\d{1,2})$", label.strip())
+    if numbered and 1 <= int(numbered.group(2)) <= len(_ORDINALS):
+        return f"{_ORDINALS[int(numbered.group(2)) - 1]} {_lower_first(numbered.group(1), _NAMES.get())}"
+    return _lower_first(label.strip(), _NAMES.get())
+
+
+def _past(body: str) -> str:
+    """A note's present said from later: "you're still shaky" was then."""
+    body = re.sub(r"\byou're\b", "you were", body)
+    body = re.sub(r"\byou are\b", "you were", body)
+    return re.sub(r"\byou were going to\b", "you planned to", body)
+
+
+def _clause(body: str, frame: str, i: int, first: bool) -> str:
+    """One fact as a clause of the paragraph: a statement heard is what was
+    learned, a note-to-self is the task set, a plain noun is what the plan
+    has, and the person's own "you ..." stays theirs."""
+    body = re.sub(r", not (a|an|the) ", r" rather than \1 ", body)
+    if body.lower().startswith("still "):
+        return f"you were {body}"
+    if re.match(r"(?:you|your)\b", body, re.I):
+        return _past(body)
+    if body.lower().startswith("going to "):
+        return f"{_pick('meant', i)} {body[9:]}"
+    task = _TASK.match(body)
+    if task:
+        verb, obj, when = task.group(1).lower(), task.group(2), task.group(3) or ""
+        return _pick("set_task", i).format(obj=obj, verb=verb) + when
+    if _DOING.match(body):
+        return f"{_pick('meant', i)} {body[0].lower() + body[1:]}"
+    if frame == "heard":
+        return f"{_pick('learned', i)} {body}"
+    if frame in ("planned", "noted"):
+        items = [("the " + p if _PLACE_NOUN.match(p) else p) for p in re.split(r",\s*(?:and\s+)?", body) if p]
+        return ("has " if first else "it has ") + realise.join_items(items)
+    return f"{_pick('noted', i)} {body}"
+
+
+def _prose(label: str, held: list, bodies: list[str], i: int, today: date | None) -> str:
+    """A heading-labelled line said as a paragraph that understands its note
+    (the owner, 2026-10-11): "In your first psych lecture you learned that
+    memory is reconstructive rather than a recording, and you gave yourself
+    chapters 1 to 3 of the Myers textbook to read before 27 July"."""
+    named = _heading_said(label)
+    written = held[0].view.written
+    on = f" on {_day(written, today or written)}" if written else ""
+    if _PLANNED.search(label):
+        frame, opening = "planned", f"Your {named}"
+    elif _DID.search(label):
+        frame, opening = "did", f"At the {named}{on}"
+    elif _HEARD.search(label):
+        frame, opening = "heard", f"In your {named}" + (f", on {_day(written, today or written)}," if written else "")
+    else:
+        frame, opening = "noted", f"Your {named} note"
+    clauses = [_clause(b, frame, i + n, n == 0) for n, b in enumerate(bodies)]
+    if frame in ("planned", "noted") and re.match(r"you\b", clauses[0]):
+        #: The person's own doing needs no heading: its day says when.
+        opening = f"On {_day(written, today or written)}," if written else f"In your {named} note,"
+    line = f"{opening} {clauses[0]}"
+    for clause in clauses[1:]:
+        line += (", though " if clause.startswith("you were still") else ", and ") + clause
+    return line[0].upper() + line[1:]
 
 
 #: The joins inside a line (INBOX 870): "; still shaky on big O" reads as
@@ -854,7 +973,10 @@ def _missing(members: list[composer.NoteView]) -> str:
 def _offer(facts: list[Fact]) -> dict | None:
     """One thing to do next, from the notes' own to-dos: the one with a day
     first ("ask the tutor on Thursday"), then something still to book."""
-    actions = [f.action for f in facts if f.action]
+    #: A day in a to-do is the note's day ("ask the tutor on Thursday",
+    #: written 4 August, was 6 August): one gone by is not offered for this
+    #: Thursday (the owner, 2026-10-11: relative time resolved everywhere).
+    actions = [_asked_about(_still_ahead(f.action, f.view.written), f.body) for f in facts if f.action]
     actions.sort(key=lambda a: not re.search(r"\b(mon|tues|wednes|thurs|fri|satur|sun)day\b|\btomorrow\b", a, re.I))
     if not actions:
         for f in facts:
@@ -866,6 +988,36 @@ def _offer(facts: list[Fact]) -> dict | None:
     action = realise.shift_person(actions[0])
     action = action[0].lower() + action[1:]
     return {"kind": "reminder", "label": PHRASES["remind"].format(action=action), "text": action[0].upper() + action[1:]}
+
+
+_ON_DAY = re.compile(r"\s+on\s+((?:mon|tues|wednes|thurs|fri|satur|sun)day)\b", re.I)
+
+
+def _still_ahead(action: str, written: date | None) -> str:
+    """`action` without its day when that day, read from the day the note
+    was written, has gone by."""
+    m = _ON_DAY.search(action)
+    today = _TODAY.get()
+    if not m or not written or not today:
+        return action
+    found = when_words.span(m.group(1).lower(), written, "future")
+    if found and found[0] < today:
+        return (action[: m.start()] + action[m.end():]).strip()
+    return action
+
+
+_STUCK = re.compile(r"\b(?:shaky|stuck|confused|unsure|lost) (?:on|with|about) ([^,;.]+)", re.I)
+
+
+def _asked_about(action: str, body: str) -> str:
+    """"ask the tutor", from a line "still shaky on big O", is "ask the
+    tutor about big O": what to ask is in the note beside it."""
+    stuck = _STUCK.search(body)
+    if not stuck or not re.match(r"ask\b", action, re.I) or " about " in action:
+        return action
+    m = _ON_DAY.search(action)
+    at = m.start() if m else len(action)
+    return f"{action[:at]} about {stuck.group(1).strip()}{action[at:]}"
 
 
 def _count(n: int, noun: str = "note") -> str:
@@ -1133,6 +1285,19 @@ def _single(out: _Out, kind: str, question: str, members, facts, today: date) ->
         extra = [c for c in clauses if c is not main]
         rest = [Fact(lead.view, lead.sentence, "Also that week", _tidy(_second_person(c), lead.view.written).lstrip("you spent ").strip(), "") for c in extra]
         rest += [f for f in facts if f is not lead and f.view.id == lead.view.id]
+    elif lead.heading and (_HEARD.search(lead.label) or _DID.search(lead.label) or _PLANNED.search(lead.label)):
+        #: The note's heading said as prose, its other sentences in the same
+        #: paragraph (the owner, 2026-10-11), one mark for all of them.
+        rest = [f for f in rest if f.view.id == lead.view.id]
+        along = [f for f in rest if f.heading and f.label == lead.label][:2]
+        rest = [f for f in rest if f not in along]
+        held = [lead, *along]
+        line = _prose(lead.label, held, [_lower_first(f.body, _NAMES.get()) for f in held], 0, today)
+        out.lines.append(line + ".")
+        row = _row(line, lead)
+        if along:
+            row["parts"] = [{"note_id": f.view.note.get("source_id", f.view.id), "source": f.sentence.text, "start": f.sentence.start, "end": f.sentence.end} for f in held]
+        out.rows.append(row)
     else:
         _say_fact(out, lead, today, question)
         rest = [f for f in rest if f.view.id == lead.view.id]
@@ -1373,6 +1538,7 @@ def answer(
         out.closing.insert(0, PHRASES["tie"].format(topic=topic, category=other, count=_count(len(others))))
         out.next.append(PHRASES["tie_chip"].format(topic=topic, category=other))
     if kind in ("overview", "likes") and not tie:
+        _confirmed_first(out, asked, members, learned)
         _volunteer(out, asked, members, notes, today, insight, learned)
     out.offer = out.offer or _offer(facts) or _kind_offer(kind, asked, members, facts, today, out)
     return _result(out, kind, asked)
@@ -1419,15 +1585,68 @@ def _volunteer(out: _Out, asked: str, members, notes: list[dict], today: date, l
             continue
         #: Novelty: "you have written about uni 4 times" after "You have
         #: four notes about uni" says nothing new.
-        if item.rule in ("recurrence", "streak") and realise.count_word(len(members)) in said:
+        #: Except a hobby forming: the count is old news, the hobby is not.
+        hobby = item.slots.get("hedge") == composer_tables.INSIGHT_HEDGES["hobby"]
+        if item.rule in ("recurrence", "streak") and not hobby and realise.count_word(len(members)) in said:
             continue
         relevance = len(set(item.note_ids) & ids) / len(item.note_ids)
         if relevance >= insight_bar(learned):
             scored.append((relevance, item))
     scored.sort(key=lambda pair: -pair[0])
     for _, item in scored[: 1 if level == "one" else 3]:
-        out.closing.insert(0, item.text)
-        out.insights.append(insights.as_row(item, learned))
+        row = insights.as_row(item, learned)
+        if row["confirmed"]:
+            #: The person's word, said as theirs, once (and first when it is
+            #: about the subject asked, `_confirmed_first`).
+            if row["text"] not in out.lines:
+                out.closing.insert(0, row["text"])
+            out.insights.append(row)
+            continue
+        if item.rule == "drift" and _weave_drift(out, str(item.slots.get("plan") or "")):
+            #: Said once, in the line that already tells the plan (the owner,
+            #: 2026-10-11); the row under the answer only asks if it is right.
+            row["in_answer"] = True
+        elif item.rule == "recurrence" and realise.count_word(len(members)) in said:
+            #: The count is the opening's; what is new is the hedge.
+            hedge = str(item.slots.get("hedge") or "")
+            out.closing.insert(0, hedge[:1].upper() + hedge[1:] + ".")
+            row["in_answer"] = True
+        else:
+            out.closing.insert(0, item.text)
+        out.insights.append(row)
+
+
+def _confirmed_first(out: _Out, asked: str, members, learned) -> None:  # noqa: ANN001
+    """A subject the person confirmed an insight on opens with their word,
+    as a fact (decision 60, as `composer._confirmed_lead` does)."""
+    confirmed = getattr(learned, "subjects", None)
+    if not callable(confirmed):
+        return
+    from memorymap.ai import insights
+
+    about = {insights._stems(_topic(asked, members)), *(insights._stems(t) for t in _subject(asked))}
+    for subject, line in confirmed().items():
+        if subject in about:
+            out.lines.insert(0, line)
+            return
+
+
+def _weave_drift(out: _Out, plan: str) -> bool:
+    """A plan no later note picks up, said as a clause of the line that
+    tells the plan. False when no line tells it."""
+    words = re.findall(r"[a-z0-9]+", re.sub(r"^(?:i'?m |i am )?going to ", "", plan.lower()))
+    if len(words) < 3:
+        return False
+    tail = r"\W+".join(words[-4:])
+    for i, line in enumerate(out.lines):
+        if i and re.search(tail, line.lower()) and not line.startswith("**"):
+            out.lines[i] = line.rstrip(".") + ", " + PHRASES["drift_woven"] + "."
+            #: The line's mark goes at its end, so its row says all of it.
+            for row in out.rows:
+                if row.get("sentence") and line.rstrip(".").endswith(row["sentence"]):
+                    row["sentence"] = out.lines[i].rstrip(".")
+            return True
+    return False
 
 
 def _this(out: _Out, views: list, names: set[str], today: date, asked: str) -> dict | None:
@@ -1611,7 +1830,10 @@ def _more(out: _Out) -> dict | None:
     if not out.more:
         return None
     labels = [m.group(1) for line in out.more if (m := re.match(r"\*\*(.+?):\*\*", line))]
-    return {"labels": labels, "label": PHRASES["more_show"].format(count=realise.count_word(len(out.more))), "lines": list(out.more)}
+    #: A line said as prose has no label (the owner, 2026-10-11): the page
+    #: finds every folded line by the words it opens with.
+    starts = [" ".join(re.sub(r"\*\*", "", line).split()[:5]) for line in out.more]
+    return {"labels": labels, "starts": starts, "label": PHRASES["more_show"].format(count=realise.count_word(len(out.more))), "lines": list(out.more)}
 
 
 def _result(out: _Out, kind: str, question: str) -> dict:

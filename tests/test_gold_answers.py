@@ -64,8 +64,10 @@ def test_the_owners_question_opens_with_the_count_and_the_span():
     #: "next week" said from today; tests/test_narrate_1011.py has the rest.
     assert lines[1].startswith("You went back to uni the week of 20 July") and "classes on Tuesdays and Thursdays" in lines[1]
     assert "Nothing yet on assessments or due dates." in lines
-    assert lines[-1] == "Remind you to ask the tutor on Thursday?"
-    assert result["offer"] == {"kind": "reminder", "label": lines[-1], "text": "Ask the tutor on Thursday"}
+    #: The note's Thursday (6 August) has gone by: the offer drops the day
+    #: and says what to ask, from the line beside it (the owner, 2026-10-11).
+    assert lines[-1] == "Remind you to ask the tutor about big O?"
+    assert result["offer"] == {"kind": "reminder", "label": lines[-1], "text": "Ask the tutor about big O"}
 
 
 def test_the_joke_is_never_a_fact_about_the_person():
@@ -80,9 +82,10 @@ def test_the_joke_is_never_a_fact_about_the_person():
 
 def test_one_citation_row_a_line_and_each_names_its_note():
     result = composer_digest.answer("What have I saved about courses & study?", NOTES, today=TODAY)
-    #: A labelled line, or a note told as one sentence (test_narrate_1011.py).
-    labelled = [line for line in result["text"].split("\n\n") if line.startswith(("**", "You went back"))]
-    assert len(result["grounding"]) == len(labelled)
+    #: Every paragraph that tells a note, labelled or prose (the owner,
+    #: 2026-10-11), has its one row, in order.
+    labelled = [line for line in result["text"].split("\n\n")[1:] if any(r["sentence"] in line for r in result["grounding"])]
+    assert len(result["grounding"]) == len(labelled) == 4
     for row, line in zip(result["grounding"], labelled):
         assert row["sentence"] in line
         assert row["note_id"] in {KEYS[k] for k in ("uni1", "uni2", "uni3", "uni4")}
@@ -158,15 +161,17 @@ def test_the_answer_names_its_shape_for_the_page(question, shape):
 
 
 @pytest.mark.parametrize(("text", "said"), [
-    ("Gym three times this week", "Gym three times the week of 17 July"),
-    ("Uni starts back next week", "Uni starts back the week of 24 July"),
+    ("Gym three times this week", "Gym three times the week of 13 July"),
+    ("Uni starts back next week", "Uni starts back the week of 20 July"),
     ("Cleaned the garage last weekend", "Cleaned the garage the weekend of 11 July"),
     ("Ship it on the 14th of next month", "Ship it on 14 August"),
     ("Spent more this month", "Spent more in July"),
-    ("Pay it before next week", "Pay it before the week of 24 July"),
+    ("Pay it before next week", "Pay it before 20 July"),
 ])
 def test_a_relative_time_is_pinned_to_the_day_it_meant(text, said):
-    """CHAT_PLAN B3: "this week" written 17 July becomes "the week of 17 July"."""
+    """CHAT_PLAN B3: "this week" written 17 July becomes "the week of 13 July",
+    its Monday, as the Mentions chip's resolver (`when.span`) has it; "before
+    next week" is before that Monday, a day (the owner, 2026-10-11)."""
     from datetime import date
 
     assert composer_digest._tidy(text, date(2026, 7, 17)) == said
@@ -229,7 +234,11 @@ def test_a_long_overview_is_short_with_the_rest_behind_more():
     labels, so the page folds them behind one "Show five more"."""
     result = composer_digest.answer("what have I saved about pottery?", _pottery(), today=TODAY)
     more = result["support"]["more"]
-    assert more["label"] == "Show five more" and len(more["labels"]) == 5
+    #: Found by the words each opens with: a day's line is prose now (the
+    #: owner, 2026-10-11), a labelled one keeps its label too.
+    assert more["label"] == "Show five more" and len(more["starts"]) == 5
+    for start in more["starts"]:
+        assert start in result["text"].replace("**", "")
     for label in more["labels"]:
         assert f"**{label}:**" in result["text"]
     assert len(result["grounding"]) == 10, "every line, shown or folded, keeps its mark"

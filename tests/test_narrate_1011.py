@@ -48,3 +48,38 @@ def test_in_the_whole_notebook_the_note_is_one_flowing_line():
     text = composer_digest.answer(FIXTURE["question"], NOTES, today=TODAY)["text"]
     assert "You went back to uni the week of 20 July, and you" in text
     assert "**This semester:**" not in text and "**Your week:** classes" not in text
+
+
+ALL = composer_digest.answer(FIXTURE["question"], NOTES, today=TODAY)
+
+
+@pytest.mark.parametrize("para", FIXTURE["paragraphs"], ids=lambda p: p["note"])
+def test_every_paragraph_is_prose_that_understands_its_note(para):
+    """The owner, 2026-10-11: "it didnt do the understanding and rewrite for
+    the rest of the response, only the first paragraph and note"."""
+    text = ALL["text"]
+    line = next((p for p in text.split("\n\n") if para["says"][0] in p), "")
+    assert line, (para["says"][0], text)
+    for words in para["says"]:
+        assert words in line, (words, line)
+    for words in para["never"]:
+        assert words not in line, (words, line)
+    assert _gold.similarity(line, para["gold"]) >= 0.8, line
+    #: Its mark still covers the note it tells.
+    assert any(r["note_id"] == KEYS[para["note"]] for r in ALL["grounding"])
+
+
+def test_no_heading_label_lines_and_varied_openings():
+    paragraphs = ALL["text"].split("\n\n")[1:]
+    assert not [p for p in paragraphs if p.startswith("**")], paragraphs
+    openings = [" ".join(p.split()[:2]) for p in paragraphs]
+    assert len(openings) == len(set(openings)), openings
+
+
+def test_the_open_plan_is_said_once_in_prose():
+    text = ALL["text"]
+    for words in FIXTURE["said_once"]:
+        assert text.count(words) == 1, (words, text)
+    drift = [i for i in ALL["insights"] if i["rule"] == "drift"]
+    assert drift and drift[0]["in_answer"] is True
+    assert "It may be still open" not in text

@@ -1973,7 +1973,7 @@ async function sendChatMessage(preset, opts = {}) {
         //: (CHAT_PLAN decision 60), under the answer, one row each.
         for (const insight of event.insights || []) {
           if (insight.confirmed) continue;
-          const line = insightLine(insight, `Pattern: ${insight.short}.`, (row, verdict, result) => {
+          const line = insightLine(insight, insight.in_answer ? (insight.rule === "drift" ? "Is that open plan right?" : "Is that pattern right?") : `Pattern: ${insight.short}.`, (row, verdict, result) => {
             row.textContent = verdict === "confirmed" ? `Confirmed: ${result.line}` : "Not right: it will not be shown again.";
           }, "muted");
           groundingHolder.appendChild(line);

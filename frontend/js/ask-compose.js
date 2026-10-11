@@ -385,11 +385,16 @@ function digestShape(answerEl, shape) {
 //: `support.more.labels`), so the marks inside them keep their numbers.
 //: Pressed, they show and the first of them takes focus.
 function digestMore(answerEl, more) {
-  if (!answerEl || !more || !Array.isArray(more.labels) || !more.labels.length) return;
-  const wanted = new Set(more.labels.map((l) => `${l}:`));
+  if (!answerEl || !more) return;
+  const wanted = new Set((more.labels || []).map((l) => `${l}:`));
+  //: A line said as prose has no bold label: found by the words it opens with.
+  const starts = (more.starts || []).filter(Boolean);
+  if (!wanted.size && !starts.length) return;
   const folded = [...answerEl.querySelectorAll(":scope > p")].filter((p) => {
     const lead = p.firstElementChild;
-    return lead && lead.tagName === "STRONG" && p.firstChild === lead && wanted.has(lead.textContent.trim());
+    if (lead && lead.tagName === "STRONG" && p.firstChild === lead && wanted.has(lead.textContent.trim())) return true;
+    const said = p.textContent.replace(/\s+/g, " ").trim();
+    return starts.some((start) => said.startsWith(start));
   });
   if (!folded.length) return;
   const button = document.createElement("button");

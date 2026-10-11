@@ -405,6 +405,8 @@ share of each against your own notebook.
 | Document | What it answers |
 | --- | --- |
 | [INSTALL](docs/INSTALL.md) | The Windows installer, the launcher, manual setup, updating and uninstalling |
+| [DOCKER](docs/DOCKER.md) | Running Tessellate in Docker: compose, volumes, ports, a model server on the host |
+| [MCP](docs/MCP.md) | The MCP server: tools, resources, client config, security |
 | [MODELS](docs/MODELS.md) | Which model suits your machine, and using a server other than Ollama |
 | [PRIVACY](docs/PRIVACY.md) | What touches the network, private-note encryption, sessions |
 | [TROUBLESHOOTING](docs/TROUBLESHOOTING.md) | Common problems and their fixes |

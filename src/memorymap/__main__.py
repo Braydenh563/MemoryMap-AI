@@ -1159,7 +1159,7 @@ def _pythonw_path() -> Path | None:
     return candidate if candidate.is_file() else None
 
 
-def _spawn_desktop(hidden: bool):
+def _spawn_desktop(hidden: bool, restart_after: int | None = None):
     """Start a fresh `memorymap --desktop` process in the given console
     mode, independent of whatever process/window is calling this, the one
     spawn primitive `_maybe_relaunch_hidden` (startup), the tray's live
@@ -1167,9 +1167,13 @@ def _spawn_desktop(hidden: bool):
     `/system/console-mode`) all share, so the three call sites can't drift
     into three slightly different flag combinations. Returns the `Popen`,
     or None if this isn't win32 or (for hidden) no pythonw.exe was found.
+
+    `restart_after` is this process's pid when it is about to exit: the new
+    process waits for it to be gone before anything else (`--restart-after`).
     """
     if sys.platform != "win32":
         return None
+    after = ["--restart-after", str(restart_after)] if restart_after else []
     try:
         import subprocess
 
@@ -1181,7 +1185,7 @@ def _spawn_desktop(hidden: bool):
             DETACHED_PROCESS = 0x00000008
             CREATE_NEW_PROCESS_GROUP = 0x00000200
             return subprocess.Popen(
-                [sys.executable, "--desktop"],
+                [sys.executable, "--desktop", *after],
                 creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
                 close_fds=True,
                 cwd=os.getcwd(),
@@ -1205,7 +1209,7 @@ def _spawn_desktop(hidden: bool):
             CREATE_NO_WINDOW = 0x08000000
             DETACHED_PROCESS = 0x00000008
             return subprocess.Popen(
-                [str(pythonw), "-m", "memorymap", "--desktop", "--hidden-relaunch"],
+                [str(pythonw), "-m", "memorymap", "--desktop", "--hidden-relaunch", *after],
                 creationflags=CREATE_NO_WINDOW | DETACHED_PROCESS,
                 close_fds=True,
                 cwd=os.getcwd(),
@@ -1217,7 +1221,7 @@ def _spawn_desktop(hidden: bool):
         # offer it.
         CREATE_NEW_CONSOLE = 0x00000010
         return subprocess.Popen(
-            [sys.executable, "-m", "memorymap", "--desktop"],
+            [sys.executable, "-m", "memorymap", "--desktop", *after],
             creationflags=CREATE_NEW_CONSOLE,
             close_fds=True,
             cwd=os.getcwd(),
@@ -1237,12 +1241,104 @@ def restart_in_console_mode(hidden: bool) -> bool:
     Windows refused the spawn) leaves the running app running rather than
     killing it for nothing.
     """
-    process = _spawn_desktop(hidden)
+    process = _spawn_desktop(hidden, restart_after=os.getpid())
     if process is None:
         return False
     _stop_background_work()
     os._exit(0)
     return True  # unreachable: os._exit() never returns; keeps every path explicit
+
+
+#: Arguments a relaunch never carries over: a restart is not a repair, and
+#: the pid to wait for is this process's own, added fresh.
+_NOT_CARRIED = ("--reinstall", "--hidden-relaunch")
+
+
+def _relaunch_argv() -> list[str]:
+    """This launch's command line, for a fresh copy of it."""
+    rest: list[str] = []
+    skip = False
+    for arg in sys.argv[1:]:
+        if skip:
+            skip = False
+            continue
+        if arg == "--restart-after":
+            skip = True
+            continue
+        if arg in _NOT_CARRIED or arg.startswith("--restart-after="):
+            continue
+        rest.append(arg)
+    head = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, "-m", "memorymap"]
+    return [*head, *rest, "--restart-after", str(os.getpid())]
+
+
+def _spawn_detached(argv: list[str]):  # noqa: ANN202  # a Popen, or None
+    """Start `argv` free of this process, which is about to exit.
+
+    Windows: the packaged app detached (it has no console); a source launch
+    in a console of its own, as `start.bat` gave it. Elsewhere: a session of
+    its own, so the terminal closing does not end it, with its output in the
+    data folder's `restart.log` rather than a terminal it no longer owns.
+    """
+    import subprocess
+
+    try:
+        if sys.platform == "win32":
+            if getattr(sys, "frozen", False):
+                flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            else:
+                flags = 0x00000010  # CREATE_NEW_CONSOLE
+            return subprocess.Popen(argv, creationflags=flags, close_fds=True, cwd=os.getcwd())  # noqa: S603
+        from memorymap.core.config import resolved_data_dir
+
+        log_path = Path(resolved_data_dir()) / "restart.log"
+        with open(log_path, "ab") as log:
+            return subprocess.Popen(  # noqa: S603
+                argv, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                start_new_session=True, close_fds=True, cwd=os.getcwd(),
+            )
+    except OSError as exc:
+        logger.warning("couldn't start a new copy to restart into: %s", exc)
+        return None
+
+
+def restart_app() -> bool:
+    """Settings' Restart, in every way the app runs (INBOX 872).
+
+    It used to work only in the desktop app on Windows, and there it raced:
+    the new process started while this one still answered, read the notebook
+    as open, handed off to it and closed, and then this one exited, so the
+    restart ended with nothing running or a long wait. Now the new process is
+    told this pid (`--restart-after`) and waits for it to be gone first.
+    The desktop app on Windows keeps its console choice; every other launch
+    (browser or desktop, any system, source or packaged) restarts as it was
+    started. False when no new copy could be started: this one keeps running.
+    """
+    if os.getenv("MEMORYMAP_DESKTOP") == "1" and sys.platform == "win32":
+        from memorymap.core.config import ConfigManager
+
+        show = bool(ConfigManager().get_preference("show_console_on_startup", True))
+        return restart_in_console_mode(not show)
+    if _spawn_detached(_relaunch_argv()) is None:
+        return False
+    _stop_background_work()
+    os._exit(0)
+    return True  # unreachable: os._exit() never returns
+
+
+def _wait_for_exit(pid: int, timeout: float = 30.0) -> bool:
+    """Wait for the process this one replaces to be gone (its port and the
+    notebook's lock with it). True when it went; after `timeout` the launch
+    carries on and the single-instance check decides, as it always did."""
+    from memorymap.core import instance_lock
+
+    deadline = time.monotonic() + timeout
+    while instance_lock.pid_alive(pid):
+        if time.monotonic() > deadline:
+            logger.warning("the copy being restarted (pid %s) is still running", pid)
+            return False
+        time.sleep(0.1)
+    return True
 
 
 def _maybe_relaunch_hidden(show_on_startup: bool, already_relaunched: bool):
@@ -2256,6 +2352,7 @@ def _start_tray(
         # MemoryMap AI", the argv carries --reinstall, and restarting with it
         # cleared the window's saved sign-in and theme a second time.
         argv = [argv[0], *(arg for arg in argv[1:] if arg != "--reinstall")]
+        argv = [*argv, "--restart-after", str(os.getpid())]
         _stop_background_work()
         icon.stop()
         window.destroy()
@@ -2596,7 +2693,14 @@ def main() -> None:
     # Internal: the Windows installer's optional-packages page (installer.iss)
     # runs this after copying the app, with the ids the person ticked.
     parser.add_argument("--install-extras", metavar="IDS", help=argparse.SUPPRESS)
+    # Internal: a restart's new copy, told the pid it replaces (`restart_app`).
+    parser.add_argument("--restart-after", type=int, metavar="PID", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.restart_after:
+        _wait_for_exit(args.restart_after)
+    #: Settings' Restart can only restart a copy this launcher started (not a
+    #: bare `uvicorn --factory`, not the tests): this says it was.
+    os.environ["MEMORYMAP_LAUNCHED"] = "1"
     _splash_status("Loading MemoryMap AI...")
     from memorymap.core import extras
 

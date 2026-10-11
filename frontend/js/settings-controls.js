@@ -114,6 +114,8 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
   }
 });
 
+$("account-lan-restart")?.addEventListener("click", () => restartMemoryMap({ confirm: false }));
+
 $("account-lan-download")?.addEventListener("click", () => {
   window.location.assign("/auth/lan-certificate.pem");
 });
@@ -1503,12 +1505,37 @@ async function restartMemoryMap({ confirm = true } = {}) {
     const result = await apiJson("/system/restart", { method: "POST" });
     if (result.restarting) {
       toast("Restarting…");
+      waitForRestart();
     } else {
       toast("Restart isn't available in this build, close and reopen MemoryMap by hand.", "info");
     }
   } catch (error) {
     toast(error.message || "Couldn't restart.", true);
   }
+}
+
+//: The page waits out a restart and reloads onto the new copy (INBOX 872):
+//: in a browser tab nothing else would, and the old page sat on a dead
+//: server. It must see the server go away first, so a refused restart
+//: (the old copy still answering after 20 s) is said rather than reloaded.
+async function waitForRestart() {
+  const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const started = Date.now();
+  let wentAway = false;
+  while (Date.now() - started < 90000) {
+    await pause(600);
+    try {
+      await apiJson("/auth/status", { silent: true });
+      if (wentAway) {
+        window.location.reload();
+        return;
+      }
+      if (Date.now() - started > 20000) break;
+    } catch {
+      wentAway = true;
+    }
+  }
+  toast(wentAway ? "The app hasn't come back yet. Start it again by hand." : "The app didn't restart. Close and reopen it by hand.", true);
 }
 
 // ---- from wiring.js (search-boot-1005): findDuplicates ----
@@ -2009,6 +2036,7 @@ function renderLanState(state) {
   line.classList.toggle("hidden", !words);
   if (words) setLabel(line, `${icon} ${words}`);
   renderLanTrust(state);
+  $("account-lan-restart")?.classList.toggle("hidden", !state.restart_required);
   //: The certificate the network is served with (core/lancert.py), shown
   //: while the switch is on so a phone's one-time warning can be checked.
   const cert = $("account-lan-cert");

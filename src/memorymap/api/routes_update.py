@@ -41,7 +41,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from memorymap.core import egress
@@ -412,9 +412,14 @@ class _ChoiceBody(BaseModel):
 
 
 @router.post("/choice")
-def update_choice(body: _ChoiceBody) -> dict:
-    """The app's one-time question, answered (update-dialogs.js)."""
+def update_choice(body: _ChoiceBody, request: Request) -> dict:
+    """The app's one-time question, answered (update-dialogs.js). Yes turns
+    on reaching GitHub and installing what it finds: this computer's call,
+    so another device may only answer no."""
     from memorymap.core import deps
+
+    if body.check:
+        this_computer_only(request)
 
     config = deps.get_config()
     record_update_choice(config, body.check)

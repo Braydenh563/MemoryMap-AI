@@ -291,7 +291,7 @@
            theme button is how you reach for light mode and get a password
            prompt instead. -->
       <button id="lock-btn" class="ghost small icon-only hidden" title="Lock the app" aria-label="Lock the app"><i class="ph ph-lock" aria-hidden="true"></i></button>
-      <button id="quit-btn" class="ghost small icon-only" title="Quit MemoryMap: stops the app and its server"
+      <button id="quit-btn" data-this-computer="hide" class="ghost small icon-only" title="Quit MemoryMap: stops the app and its server"
         aria-label="Quit MemoryMap"><i class="ph ph-power" aria-hidden="true"></i></button>
       </span>
     </div>
@@ -9320,7 +9320,7 @@ Link to another note with [[its first few words]]."></textarea>
                   your own port.
                 </p>
               </div>
-              <div class="row">
+              <div class="row" data-this-computer>
                 <select id="llm-provider-select" aria-label="Which AI backend to use" title="Which AI backend to use">
                   <option value="ollama">Ollama</option>
                   <option value="openai">LM Studio / llama.cpp / Jan / vLLM</option>
@@ -9333,7 +9333,7 @@ Link to another note with [[its first few words]]."></textarea>
               <p class="muted" id="llm-provider-note">
                 Leave the address blank for the server's usual port.
               </p>
-              <label class="setting-check" id="local-only-wrap">
+              <label class="setting-check" id="local-only-wrap" data-this-computer>
                 <input type="checkbox" id="local-only-ai" checked>
                 <span>
                   Keep Atlas on this machine
@@ -9677,7 +9677,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Hide models too big for this computer</span>
               </label>
               <div id="suggested-list" class="model-groups"></div>
-              <div id="custom-download" class="custom-download">
+              <div id="custom-download" class="custom-download" data-this-computer>
                 <h4>Download another model</h4>
                 <p class="muted">An Ollama name such as qwen2.5:3b, or a Hugging Face GGUF link.</p>
                 <div class="row">
@@ -9721,7 +9721,7 @@ Link to another note with [[its first few words]]."></textarea>
                  wasn't running: including the built-in option, which needs
                  no Ollama at all. So the one setting you could always change
                  was the one you could never reach (user-reported). -->
-            <div id="search-engine-config" class="settings-group">
+            <div id="search-engine-config" class="settings-group" data-this-computer>
               <div class="row help-head">
                 <h3>Search engine</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
@@ -11390,7 +11390,7 @@ Link to another note with [[its first few words]]."></textarea>
                search by meaning. The only way to turn one on used to be a
                terminal and a README, which for a local-first app is the same
                as not having the feature at all. -->
-          <section class="settings-section hidden" id="settings-extras">
+          <section class="settings-section hidden" id="settings-extras" data-this-computer>
             <div class="fold-help-wrap">
               <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
                 data-help-for="packages-help" aria-controls="packages-help" aria-expanded="false"
@@ -11896,7 +11896,7 @@ Link to another note with [[its first few words]]."></textarea>
             <p id="search-provider-status" class="status" role="status"></p>
             </div>
 
-            <div class="settings-group">
+            <div class="settings-group" data-this-computer>
             <div class="row help-head">
               <h3>Your SearXNG instance</h3>
               <button type="button" class="icon-only ghost small graph-help-toggle"
@@ -11927,7 +11927,7 @@ Link to another note with [[its first few words]]."></textarea>
                 one it runs for you listens on <code>127.0.0.1</code> only.
               </p>
             </div>
-            <div class="searxng-host">
+            <div class="searxng-host" data-this-computer>
               <div class="row space-between">
                 <span class="row help-head">
                   <strong>Let MemoryMap run SearXNG</strong>
@@ -12318,7 +12318,7 @@ Link to another note with [[its first few words]]."></textarea>
                   port free.
                 </p>
               </div>
-              <button id="app-quit" class="ghost small"><i class="ph ph-power ph-lead" aria-hidden="true"></i> Quit the app</button>
+              <button id="app-quit" data-this-computer="hide" class="ghost small"><i class="ph ph-power ph-lead" aria-hidden="true"></i> Quit the app</button>
             </div>
           </section>
 
@@ -12498,7 +12498,7 @@ Link to another note with [[its first few words]]."></textarea>
                   notebook.
                 </p>
               </div>
-              <div class="row">
+              <div class="row" data-this-computer>
                 <input id="restore-bundle-file" aria-label="Choose a full backup to restore" title="Choose a full backup to restore" type="file" accept=".zip,.mmenc" class="hidden">
                 <button id="restore-bundle" class="ghost small" type="button"><i class="ph ph-file-arrow-up ph-lead" aria-hidden="true"></i> Restore from a file</button>
                 <label for="restore-bundle-password" class="muted">Password, if sealed</label>
@@ -12529,7 +12529,7 @@ Link to another note with [[its first few words]]."></textarea>
               <p id="import-md-status" class="status" role="status"></p>
               
               <h3>Import from a folder path</h3>
-              <div class="row settings-row-spaced">
+              <div class="row settings-row-spaced" data-this-computer>
                 <input id="import-dir-path" aria-label="Folder path to import" type="text" class="import-dir-path-input" placeholder="C:\path\to\Obsidian\vault">
                 <button id="import-dir" class="small ghost">Import from path</button>
               </div>
@@ -13670,7 +13670,7 @@ Link to another note with [[its first few words]]."></textarea>
                    toggle lines and buttons the same as the semantic
                    buttons or the attached image". -->
               <h4 class="setting-subhead">Finding new versions</h4>
-              <label class="check-row">
+              <label class="check-row" data-this-computer>
                 <input type="checkbox" id="pref-update-check">
                 <span>Check GitHub for a newer version</span>
               </label>
@@ -13694,7 +13694,7 @@ Link to another note with [[its first few words]]."></textarea>
                    it, the popup mentions it) without ever wanting this app
                    to run an installer by itself. -->
               <h4 class="setting-subhead">Installing them</h4>
-              <label class="check-row">
+              <label class="check-row" data-this-computer>
                 <input type="checkbox" id="pref-auto-update">
                 <span>Update automatically when a new version is found</span>
               </label>
@@ -13720,7 +13720,7 @@ Link to another note with [[its first few words]]."></textarea>
                    this week". The label is that choice, the line under it is
                    the consequence, and the branch names live in the '?'
                    where the people who want them can find them. -->
-              <label class="check-row">
+              <label class="check-row" data-this-computer>
                 <input type="checkbox" id="pref-update-channel-main">
                 <span>Follow the newest changes instead of finished releases</span>
               </label>
@@ -13764,7 +13764,7 @@ Link to another note with [[its first few words]]."></textarea>
                    switch, a button, a status line, in which nothing said
                    which button acted on which switch. Reported as the About
                    tab's "elements are all squished together". -->
-              <div class="row button-row setting-dependent" id="update-version-row">
+              <div class="row button-row setting-dependent" id="update-version-row" data-this-computer>
                 <button id="update-show-versions" class="ghost small" type="button">Choose a specific version…</button>
                 <select id="update-version-select" class="small-select hidden" aria-label="Choose a release to install"></select>
                 <button id="update-install-version" class="ghost small hidden" type="button">Install this version</button>
@@ -14423,7 +14423,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="meeting-done" class="meeting-done hidden">
         <p id="meeting-done-lines" class="meeting-done-lines"></p>
         <div class="row">
-          <button id="meeting-done-open" type="button"><i class="ph ph-arrow-square-out ph-lead" aria-hidden="true"></i> Open</button>
+          <button id="meeting-done-open" class="ghost" type="button"><i class="ph ph-arrow-square-out ph-lead" aria-hidden="true"></i> Open</button>
           <button id="meeting-done-again" type="button" class="ghost"><i class="ph ph-record ph-lead" aria-hidden="true"></i> Record another</button>
         </div>
       </div>

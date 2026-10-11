@@ -2026,9 +2026,11 @@ async function quitApp() {
   }
   try {
     await apiJson("/shutdown", { method: "POST" });
-  } catch {
+  } catch (error) {
     // The server may drop the connection as it goes. That is the request
-    // succeeding, not failing, so it is not worth an error toast.
+    // succeeding, not failing, so it is not worth an error toast. A refusal
+    // is not: another device is told why, and the app goes on running.
+    if (error?.status === 403) return toast(error.message, true);
   }
   document.body.innerHTML =
     '<div class="farewell">' +

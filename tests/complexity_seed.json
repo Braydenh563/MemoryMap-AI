@@ -183,7 +183,6 @@
  "src/memorymap/api/routes_mentions.py::link_mention": 21,
  "src/memorymap/api/routes_models.py::status": 17,
  "src/memorymap/api/routes_settings.py::_import_directory_files": 26,
- "src/memorymap/api/routes_settings.py::update_preferences": 17,
  "src/memorymap/api/routes_spaces.py::delete_space": 28,
  "src/memorymap/api/routes_tasks.py::collect": 71,
  "src/memorymap/api/routes_timeline.py::timeline": 41,

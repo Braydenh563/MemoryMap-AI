@@ -866,6 +866,7 @@ function setMeetingState(state) {
   const review = state === "review";
   $("meeting-transcript").classList.toggle("hidden", !review);
   $("meeting-save-row").classList.toggle("hidden", !review);
+  stagePrimary("meeting-save", "meeting-done-open", state === "done");
   stagePrimary("meeting-record", "meeting-save", review);
   syncRecordingDock();
 }

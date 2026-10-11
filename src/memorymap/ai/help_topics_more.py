@@ -2062,7 +2062,11 @@ MORE_TOPICS.extend([
             "firewall must let the app in. The phone reads and writes the same "
             "notebook; nothing goes through the internet, so the computer has to be on. "
             "Nothing installs on the phone: it is only a browser window, and search, "
-            "the models and the notes all run and stay on this computer."
+            "the models and the notes all run and stay on this computer. A phone "
+            "never makes this computer act: installing, downloading a model, "
+            "restoring a backup, quitting, opening a folder and the settings that "
+            "point this computer elsewhere say Not available on this device, and "
+            "an export downloads to the phone itself."
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },

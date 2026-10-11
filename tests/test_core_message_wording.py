@@ -297,6 +297,8 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_auth.py", "problem"): "_new_password_problem in routes_auth.py, one fixed sentence",
     ("routes_auth.py", "detail"): "the new-device gate in routes_auth.py picks one of two fixed sentences",
     ("this_computer.py", "REFUSAL"): "a constant in this_computer.py, one fixed sentence",
+    ("routes_settings.py", "REFUSAL"): "api/this_computer.py REFUSAL, one fixed sentence",
+    ("routes_auth.py", "NO_PASSWORD_ELSEWHERE"): "one fixed sentence in routes_auth.py",
     ("routes_bench.py", "BUSY"): "a constant in routes_bench.py, checked below",
     ("routes_bench.py", "NOT_RUNNING"): "a constant in routes_bench.py, checked below",
     ("routes_bench.py", "NO_MODELS"): "a constant in routes_bench.py, checked below",

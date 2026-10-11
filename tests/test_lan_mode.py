@@ -510,6 +510,9 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         )
         assert status == 403
         assert here.call("POST", "/import/directory", {"path": "/etc"}, owner)[0] == 400
+        # The phone is not the desktop app, whatever this computer is.
+        assert lan.call("GET", "/health")[1]["this_computer"] is False
+        assert "max-age" in dict(lan.call("GET", "/health")[2]).get("strict-transport-security", "")
 
         # The web reader refuses this machine and the local network, and the
         # receipt shows nothing was connected to.

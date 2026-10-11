@@ -199,3 +199,38 @@ def test_the_session_token_is_no_longer_put_in_the_notification():
     sw = (ROOT / "frontend" / "sw.js").read_text(encoding="utf-8")
     assert "X-Auth-Token" not in sw[sw.index("async function actOnReminder") : sw.index("async function openReminders")]
     assert "/notification-act" in sw
+
+
+# --- a restart (Brief 101b) ---------------------------------------------------------
+
+
+def test_a_notification_s_buttons_survive_a_restart(locked_notebook):
+    """The key was invented per process, so any restart (an update, a crash,
+    the desktop app closed and opened) ended the buttons of every notification
+    still on screen. It is kept in the data folder now."""
+    owner, stranger, reminder, _ = locked_notebook
+    token = owner.post(f"/reminders/{reminder['id']}/notification-token").json()["token"]
+    reminder_token.forget_process()  # what a new process starts with
+    answered = _act(stranger, reminder["id"], token, "done")
+    assert answered.status_code == 200, answered.text
+
+
+def test_locking_after_a_restart_still_ends_a_notification_s_buttons(locked_notebook):
+    owner, stranger, reminder, _ = locked_notebook
+    token = owner.post(f"/reminders/{reminder['id']}/notification-token").json()["token"]
+    reminder_token.forget_process()
+    owner.post("/auth/lock")
+    reminder_token.forget_process()  # and another restart: the lock holds
+    assert _act(stranger, reminder["id"], token).status_code == 401
+
+
+def test_the_key_file_is_owner_only_and_a_damaged_one_is_replaced(tmp_path):
+    token = reminder_token.mint(5, data_dir=tmp_path)["token"]
+    path = tmp_path / reminder_token.KEY_FILE
+    assert path.stat().st_mode & 0o077 == 0
+    reminder_token.forget_process()
+    assert reminder_token.verify(token, 5, "done", data_dir=tmp_path)
+    path.write_text("not hex", encoding="ascii")
+    reminder_token.forget_process()
+    assert not reminder_token.verify(token, 5, "done", data_dir=tmp_path)
+    assert reminder_token.verify(reminder_token.mint(5, data_dir=tmp_path)["token"], 5, "done", data_dir=tmp_path)

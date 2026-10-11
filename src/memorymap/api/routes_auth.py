@@ -572,7 +572,7 @@ def end_every_session() -> int:
     restored vault row could never unwrap again.
     """
     ended = len(_active_tokens)
-    reminder_token.rotate()
+    reminder_token.rotate(get_config().data_dir)
     _active_tokens.clear()
     _media_tickets.clear()
     _owner_seen.clear()
@@ -954,7 +954,7 @@ def lock(
         return {"locked": True}
     _active_tokens.pop(x_auth_token or "", None)
     #: A notification left on screen must not act on a notebook that is locked.
-    reminder_token.rotate()
+    reminder_token.rotate(get_config().data_dir)
     _forget_dead_tickets()
     _revoke_media(request, response)
     vault.revoke([x_auth_token or ""])

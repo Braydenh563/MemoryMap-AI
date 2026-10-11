@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5658, frontend ids 2423, CSS sections 490, backend routes 563, backend modules 4769, test files 1087, tests 9949, plan headings 996.
+Counts: frontend functions 5659, frontend ids 2423, CSS sections 490, backend routes 564, backend modules 4779, test files 1088, tests 9954, plan headings 996.
 
-## Frontend functions (5658)
+## Frontend functions (5659)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -4769,7 +4769,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `semanticOnboardingOffer` | frontend/js/semantic-notice.js:109 |
 | `semanticSetAutoInstall` | frontend/js/semantic-notice.js:29 |
 
-### frontend/js/settings-controls.js (40)
+### frontend/js/settings-controls.js (41)
 
 | Name | File:line |
 |---|---|
@@ -4787,18 +4787,18 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `deleteProfile` | frontend/js/settings-controls.js:1775 |
 | `exportFullBackup` | frontend/js/settings-controls.js:1763 |
 | `findDuplicates` | frontend/js/settings-controls.js:1544 |
-| `lanCall` | frontend/js/settings-controls.js:2131 |
-| `lanEmptyRow` | frontend/js/settings-controls.js:2124 |
-| `lanListRow` | frontend/js/settings-controls.js:2110 |
+| `lanCall` | frontend/js/settings-controls.js:2170 |
+| `lanEmptyRow` | frontend/js/settings-controls.js:2163 |
+| `lanListRow` | frontend/js/settings-controls.js:2149 |
 | `mergeDuplicateGroup` | frontend/js/settings-controls.js:1665 |
 | `mergeNamedPrompts` | frontend/js/settings-controls.js:1788 |
-| `pickJsonFile` | frontend/js/settings-controls.js:2245 |
+| `pickJsonFile` | frontend/js/settings-controls.js:2284 |
 | `refreshSearxngHost` | frontend/js/settings-controls.js:1011 |
 | `renderDuplicateGroups` | frontend/js/settings-controls.js:1607 |
-| `renderLanAccess` | frontend/js/settings-controls.js:2235 |
-| `renderLanAddresses` | frontend/js/settings-controls.js:2062 |
+| `renderLanAccess` | frontend/js/settings-controls.js:2274 |
+| `renderLanAddresses` | frontend/js/settings-controls.js:2097 |
 | `renderLanState` | frontend/js/settings-controls.js:2015 |
-| `renderLanTrust` | frontend/js/settings-controls.js:2140 |
+| `renderLanTrust` | frontend/js/settings-controls.js:2179 |
 | `renderMcpSnippet` | frontend/js/settings-controls.js:1991 |
 | `renderStatusBarSettings` | frontend/js/settings-controls.js:1935 |
 | `resetAllFeatureModels` | frontend/js/settings-controls.js:1294 |
@@ -4809,9 +4809,10 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `saveModelContextWindow` | frontend/js/settings-controls.js:1164 |
 | `saveRunBudget` | frontend/js/settings-controls.js:1425 |
 | `saveWebSearchSettings` | frontend/js/settings-controls.js:1462 |
-| `setLanOption` | frontend/js/settings-controls.js:2190 |
-| `textToInputs` | frontend/js/settings-controls.js:2267 |
-| `textToSteps` | frontend/js/settings-controls.js:2260 |
+| `setLanOption` | frontend/js/settings-controls.js:2229 |
+| `showLanQr` | frontend/js/settings-controls.js:2064 |
+| `textToInputs` | frontend/js/settings-controls.js:2306 |
+| `textToSteps` | frontend/js/settings-controls.js:2299 |
 | `waitForRestart` | frontend/js/settings-controls.js:1521 |
 
 ### frontend/js/settings-data.js (44)
@@ -9340,7 +9341,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/graph-lazy.css | 157 |
 | frontend/css/help-chat-lazy.css | 32 |
 | frontend/css/icon-picker.css | 101 |
-| frontend/css/lan-lazy.css | 56 |
+| frontend/css/lan-lazy.css | 75 |
 | frontend/css/library-lazy.css | 6012 |
 | frontend/css/manual-lazy.css | 139 |
 | frontend/css/meetings-lazy.css | 477 |
@@ -9355,7 +9356,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/usage-lazy.css | 34 |
 | frontend/css/utilities-lazy.css | 116 |
 
-## Backend routes (563)
+## Backend routes (564)
 
 `@router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, sorted by path. The line is the decorator's.
 
@@ -9596,6 +9597,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/lan-networks/allow` | POST | `allow_this_network` | src/memorymap/api/routes_auth.py:1033 |
 | `/lan-networks/{key}` | DELETE | `forget_network` | src/memorymap/api/routes_auth.py:1049 |
 | `/lan-options` | POST | `set_lan_option` | src/memorymap/api/routes_auth.py:1057 |
+| `/lan-qr.svg` | GET | `lan_qr` | src/memorymap/api/routes_privacy.py:124 |
 | `/lan-watch` | GET | `lan_watch` | src/memorymap/api/routes_auth.py:1113 |
 | `/latest` | GET | `latest` | src/memorymap/api/routes_night.py:84 |
 | `/library` | GET | `library` | src/memorymap/api/routes_library.py:1076 |
@@ -9925,7 +9927,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4769)
+## Backend modules (4779)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -13283,12 +13285,13 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `run_facts` | src/memorymap/api/routes_night.py:93 |
 | `run_now` | src/memorymap/api/routes_night.py:51 |
 
-### src/memorymap/api/routes_privacy.py (3)
+### src/memorymap/api/routes_privacy.py (4)
 
 | Name | File:line |
 |---|---|
 | `_label` | src/memorymap/api/routes_privacy.py:83 |
 | `_model_server` | src/memorymap/api/routes_privacy.py:52 |
+| `lan_qr` | src/memorymap/api/routes_privacy.py:125 |
 | `receipt` | src/memorymap/api/routes_privacy.py:96 |
 
 ### src/memorymap/api/routes_properties.py (13)
@@ -14956,6 +14959,20 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `pin_url` | src/memorymap/core/privacy_http.py:79 |
 | `strip_tracking` | src/memorymap/core/privacy_http.py:55 |
 
+### src/memorymap/core/qrsvg.py (9)
+
+| Name | File:line |
+|---|---|
+| `_Matrix` | src/memorymap/core/qrsvg.py:78 |
+| `_alignment_positions` | src/memorymap/core/qrsvg.py:70 |
+| `_data_codewords` | src/memorymap/core/qrsvg.py:36 |
+| `_gf_mul` | src/memorymap/core/qrsvg.py:40 |
+| `_raw_modules` | src/memorymap/core/qrsvg.py:25 |
+| `_rs_divisor` | src/memorymap/core/qrsvg.py:48 |
+| `_rs_remainder` | src/memorymap/core/qrsvg.py:60 |
+| `encode` | src/memorymap/core/qrsvg.py:216 |
+| `svg` | src/memorymap/core/qrsvg.py:285 |
+
 ### src/memorymap/core/quit_hook.py (2)
 
 | Name | File:line |
@@ -16013,7 +16030,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9949)
+## Tests (9954)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16790,6 +16807,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_providers.py | 70 |
 | tests/test_pwa_shell.py | 25 |
 | tests/test_qa_1005_polish.py | 10 |
+| tests/test_qrsvg.py | 5 |
 | tests/test_quadratic_scans.py | 6 |
 | tests/test_query_plans.py | 2 |
 | tests/test_query_rollups_kg7.py | 4 |

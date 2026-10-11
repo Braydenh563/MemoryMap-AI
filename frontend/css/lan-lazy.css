@@ -35,6 +35,25 @@
     font-size: var(--text-lg);
   }
 }
+/* The address as a QR code (`showLanQr`): black on white whatever the
+   theme, since a camera reads dark on light; the server's SVG carries its
+   own white quiet zone. */
+.lan-qr {
+  margin: var(--space-2) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.lan-qr img {
+  width: 11rem;
+  aspect-ratio: 1;
+  border-radius: var(--radius-inner);
+  image-rendering: pixelated;
+}
+.lan-qr figcaption {
+  flex: 1 1 10rem;
+}
 .lan-address-more {
   margin-top: var(--space-2);
 }

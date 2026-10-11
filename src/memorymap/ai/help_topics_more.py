@@ -2048,7 +2048,7 @@ MORE_TOPICS.extend([
             "Your phone opens this computer's notebook over your own network: turn "
             "on Allow other devices on this network (Settings, Account & security, "
             "Other devices), then open the large address it shows (Copy is beside "
-            "it; Other addresses folds the rest) on the phone and sign in with your "
+            "it, and QR code shows a code the phone's camera opens; Other addresses folds the rest) on the phone and sign in with your "
             "password. On an iPhone, press Install the certificate on the lock "
             "screen, then, in the iPhone's own Settings app, General, VPN and Device "
             "Management to install it and About, Certificate Trust Settings to trust it; its ? has the "

@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Other devices: QR code beside the address in Settings, Account & security and on the privacy receipt shows a code the phone's camera opens, so the address need not be typed. It is drawn on this computer (no service, no download) and only for an address the notebook itself shows.
 - Phone: a note changed on one device shows on the other within seconds. The notes list asks every 15 seconds while it is on screen, and at once when you come back to it, which notes changed and redraws only those; a note open as a page on the phone takes the new text, and a note you are editing keeps yours (Save still offers Keep mine or Take theirs).
 - Phone: after the computer chooses Allow for a new phone, the phone's lock screen opens by itself. It waits up to three minutes, saying so on the button, and stops if you change the password field.
 - Help: the Guide's phone answer says an iPhone's browser needs Local Network on and a VPN or ad-blocking app (AdGuard's local VPN) paused when the phone cannot connect.

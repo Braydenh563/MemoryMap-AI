@@ -2054,6 +2054,41 @@ function renderLanState(state) {
   }
 }
 
+//: **The address as a QR code** (WORLD_CLASS_PLAN "Placed from Brief 40" fix
+//: 2): typing `https://192.168.x.y:8443` on a phone is the step people get
+//: wrong, and a phone's camera opens a QR code. Drawn by the server
+//: (`GET /privacy/lan-qr.svg`, core/qrsvg.py, only for an address it shows),
+//: fetched with the session header and shown from a blob. Which address is
+//: open is kept, so a repaint of the block (a state refresh) draws it again.
+let lanQrShown = "";
+async function showLanQr(holder, address, button, open) {
+  holder.querySelector(".lan-qr")?.remove();
+  button.setAttribute("aria-expanded", String(open));
+  lanQrShown = open ? address : "";
+  if (!open) return;
+  let blob;
+  try {
+    blob = await (await api(`/privacy/lan-qr.svg?address=${encodeURIComponent(address)}`, { silent: true })).blob();
+  } catch (error) {
+    toast(`Couldn't draw the QR code: ${error.message}`, true);
+    button.setAttribute("aria-expanded", "false");
+    lanQrShown = "";
+    return;
+  }
+  if (!button.isConnected || button.getAttribute("aria-expanded") !== "true") return;
+  const figure = document.createElement("figure");
+  figure.className = "lan-qr";
+  const img = document.createElement("img");
+  img.src = URL.createObjectURL(blob);
+  img.alt = `QR code for ${address}`;
+  img.addEventListener("load", () => URL.revokeObjectURL(img.src), { once: true });
+  const caption = document.createElement("figcaption");
+  caption.className = "muted text-sm";
+  caption.textContent = "Point the phone's camera at it to open this address.";
+  figure.append(img, caption);
+  holder.querySelector(".lan-address-main")?.after(figure);
+}
+
 //: **Where a phone opens the notebook** (INBOX 867): one address, the one on
 //: the network's own interface, large and monospaced with Copy, and the rest
 //: folded under "Other addresses" (IPv6 last, virtual adapters already left
@@ -2073,8 +2108,12 @@ function renderLanAddresses(holder, state) {
   value.className = "lan-address";
   value.textContent = first;
   const copy = smallButton("ph:copy Copy", "Copy this address", () => copyToClipboard(first, copy));
-  main.append(value, copy);
+  const qr = smallButton("ph:qr-code QR code", "Show a QR code the phone's camera opens", () =>
+    showLanQr(holder, first, qr, qr.getAttribute("aria-expanded") !== "true"));
+  qr.setAttribute("aria-expanded", "false");
+  main.append(value, copy, qr);
   holder.appendChild(main);
+  if (lanQrShown === first) showLanQr(holder, first, qr, true);
   if (!rest.length) return;
   const toggle = document.createElement("button");
   toggle.type = "button";

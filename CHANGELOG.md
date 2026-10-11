@@ -8,6 +8,7 @@ below). Versioning is `0.x` while the app stabilises.
 ## [Unreleased]
 
 - Themes: nine more accents (coral, gold, forest, navy, cyan, berry, olive, copper, lavender), and every accent's button text now reads at 4.5:1 or better in both modes (7 of 30 were under it in dark). A custom accent is toned per mode, and a pick that would read under 4.5:1 is refused with the nearest shade that passes, one press to use it.
+- Themes: Parchment and Ember in dark read a little brighter in muted text and a little softer in accent tints, so a selected row's grey words and an accent label pass 4.5:1. Every look now measures 0 low-contrast surfaces in light and dark (was 151 across eight looks).
 - Themes: two new looks, Midnight and Rosewood; the muted text and inner surfaces of Ember, Parchment, Mono, Plum, Sage, Ocean and Lagoon are retoned for contrast.
 - Background art: four lighter styles (dusk, ripples, fireflies, rain), and the style list is now a row of cards, lightest first, each with a preview and its measured cost (Light, Medium or Heavy, and the milliseconds a frame). Constellation draws fewer stars so no style passes 2ms a frame.
 - Themes: Classic and Quiet utilitarian are pinned by a test (their palettes, cards and presets), so the theme work cannot change them.

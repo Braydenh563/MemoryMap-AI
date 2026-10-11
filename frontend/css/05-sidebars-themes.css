@@ -3238,9 +3238,9 @@ button.outline-twist:focus-visible {
   --modal-bg: rgba(34, 28, 19, 0.97);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #efe6d4;
-  --muted: #b3a691;
+  --muted: #bbae99;
   --accent: #e0b458;
-  --accent-soft: rgba(224, 180, 88, 0.18);
+  --accent-soft: rgba(224, 180, 88, 0.13);
   --border: rgba(238, 224, 196, 0.12);
   --chip-bg: rgba(238, 224, 196, 0.09);
 }
@@ -3395,9 +3395,9 @@ button.outline-twist:focus-visible {
   --modal-bg: rgba(32, 22, 18, 0.97);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #f4e3d8;
-  --muted: #b89d8f;
+  --muted: #bea395;
   --accent: #f5924f;
-  --accent-soft: rgba(245, 146, 79, 0.18);
+  --accent-soft: rgba(245, 146, 79, 0.15);
   --border: rgba(246, 220, 204, 0.12);
   --chip-bg: rgba(246, 220, 204, 0.08);
 }

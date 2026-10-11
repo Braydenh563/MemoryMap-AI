@@ -28,9 +28,9 @@ const {boot} = require('./lib.js');
         drawn: (opaque / (px.length / 4)).toFixed(2), w: Math.round(b.width), h: Math.round(b.height),
         overflow: c.scrollWidth > c.clientWidth + 1};
     });
-    return {cards, gridW: Math.round(grid.getBoundingClientRect().width)};
+    return {cards, gridW: Math.round(grid.getBoundingClientRect().width), pageX: document.documentElement.scrollWidth - document.documentElement.clientWidth};
   });
-  console.log('grid width', r.gridW, 'cards', r.cards.length);
+  console.log('grid width', r.gridW, 'cards', r.cards.length, 'page x-overflow', r.pageX);
   for (const c of r.cards) console.log(c.style, c.chip, `drawn ${c.drawn}`, `${c.w}x${c.h}`, c.overflow ? 'OVERFLOW' : '', '|', c.note);
   await page.click('#bg-art-style [data-bg-style="rain"]');
   await page.waitForTimeout(800);

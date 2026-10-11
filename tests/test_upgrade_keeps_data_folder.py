@@ -30,16 +30,16 @@ def _config_module():
 def test_the_frozen_windows_app_keeps_the_memorymap_ai_folder(tmp_path, monkeypatch):
     config = _config_module()
     appdata = tmp_path / "Roaming"
-    (appdata / "MemoryMap AI").mkdir(parents=True)
-    (appdata / "MemoryMap AI" / "memorymap.db").write_bytes(b"")
+    (appdata / "MemoryMap AI").mkdir(parents=True)  # brand: keep
+    (appdata / "MemoryMap AI" / "memorymap.db").write_bytes(b"")  # brand: keep
     monkeypatch.setenv("APPDATA", str(appdata))
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "platform", "win32")
-    assert Path(config._default_data_dir()) == appdata / "MemoryMap AI"
+    assert Path(config._default_data_dir()) == appdata / "MemoryMap AI"  # brand: keep
 
 
 def test_the_installer_looks_in_the_same_folder():
     root = Path(__file__).resolve().parents[1]
     iss = (root / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
-    assert "MemoryMap AI" in iss  # the program folder and (before the rename) the data folder
+    assert "MemoryMap AI" in iss  # the program folder and (before the rename) the data folder  # brand: keep
     assert "DefaultDirName={autopf}\\" in iss

@@ -531,26 +531,26 @@ def split_run_on(word: str, known=()) -> tuple[str, str] | None:  # noqa: ANN001
 _WARMED = {"started": False}
 
 
-def warm_in_background(delay: float = 5.0) -> None:
-    """Build the word lists, the speller's index and the spelling pairs in a
-    daemon thread, once per process, a few seconds after start: the first
-    question and the first search then do not pay about a second for them."""
+def warm_in_background() -> None:
+    """Build the word lists, the speller's index and the spelling pairs on
+    the job pool's batch lane (`core/jobs.py`, the flaw-class lint: no new
+    threads), once per process: the first question and the first search
+    then do not pay about a second for them."""
     if _WARMED["started"]:
         return
     _WARMED["started"] = True
-    import threading
-    import time
+    from memorymap.core import jobs
 
-    def run() -> None:
-        time.sleep(delay)
-        try:
-            _index()
-            _recognised()
-            _common()
-            variants.pairs()
-        except Exception:  # noqa: BLE001  # a warm-up that fails leaves the first use to build them
-            import logging
+    jobs.enqueue("warm", _warm, name="warm the spelling lists", dedupe_key="spelling-warm")
 
-            logging.getLogger(__name__).debug("spelling warm-up failed; the first question builds the lists", exc_info=True)
 
-    threading.Thread(target=run, name="spelling-warmup", daemon=True).start()
+def _warm() -> None:
+    try:
+        _index()
+        _recognised()
+        _common()
+        variants.pairs()
+    except Exception:  # noqa: BLE001  # a warm-up that fails leaves the first use to build them
+        import logging
+
+        logging.getLogger(__name__).debug("spelling warm-up failed; the first question builds the lists", exc_info=True)

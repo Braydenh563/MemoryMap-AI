@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from memorymap.ai import offers, reading
+from memorymap.ai import offers, personal, reading
 from memorymap.core.database import utcnow
 from memorymap.core.deps import get_session
 
@@ -41,12 +41,16 @@ def read_text(
     surface: str = Query("", max_length=32),
     birthday: str = Query("", max_length=10),
     now: str = Query("", max_length=40),
+    session: Session = Depends(get_session),
 ) -> dict:
     """The `Reading` of `q` on the person's own clock (`tz_offset_minutes`,
     as `/reminders/parse` takes it), as JSON. `now` (ISO 8601 with an offset)
     fixes the clock for a sweep that measures against a fixture date; one
-    that does not parse, or has no offset, is ignored."""
+    that does not parse, or has no offset, is ignored. "My birthday" is the
+    one the notes give when none is sent."""
     clock = _clock(tz_offset_minutes, now)
+    if not birthday and "birthday" in q.lower():
+        birthday = personal.birthday(personal.notes_of(session), clock.replace(tzinfo=None)) or ""
     context = {key: value for key, value in (("locale", locale), ("surface", surface), ("birthday", birthday)) if value}
     return reading.read(q, now=clock, context=context).json()
 

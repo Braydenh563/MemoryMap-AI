@@ -196,7 +196,7 @@ def _tag_untagged(session: Session, **_: object) -> tuple[str, dict | None]:
     if not steps:
         return f"{realise.count_noun(len(bare), 'note').capitalize()} without a tag, and none has a word that matches a tag you use.", None
     label = f"Tag {realise.count_noun(len(steps), 'untagged note')} with tags you already use"
-    return f"{label}. Confirm to do it.{left}", commands._card(label, steps, items=items)
+    return commands._confirm(label) + left, commands._card(label, steps, items=items)
 
 
 def _vectors(entries: list[Entry]) -> dict[int, dict[str, float]]:
@@ -243,7 +243,7 @@ def _link_related(session: Session, **_: object) -> tuple[str, dict | None]:
     steps = [{"name": "link_notes", "arguments": {"note_id": a.id, "other_note_id": b.id}} for _, a, b in chosen]
     items = [f"#{a.id} {commands._title(a)} and #{b.id} {commands._title(b)}" for _, a, b in chosen]
     label = f"Link {realise.count_noun(len(chosen), 'pair')} of notes that share the most words"
-    return f"{label}. Confirm to do it.", commands._card(label, steps, items=items)
+    return commands._confirm(label), commands._card(label, steps, items=items)
 
 
 def _today_note(session: Session, now: datetime) -> Entry | None:
@@ -269,7 +269,7 @@ def _append_today(session: Session, *, slots: dict, now: datetime, **_: object) 
         steps = [{"name": "edit_note", "arguments": {"note_id": entry.id, "content": (entry.content or "").rstrip() + "\n\n" + words}}]
         label = f"Add “{said}” to the end of today's note"
         items = [f"#{entry.id} {commands._title(entry)}"]
-    return f"{label}. Confirm to do it.", commands._card(label, steps, items=items)
+    return commands._confirm(label), commands._card(label, steps, items=items)
 
 
 _HANDLERS = {

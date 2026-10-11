@@ -145,7 +145,7 @@ def classify(message: str) -> str:
 
     from memorymap.ai import commands
 
-    act = commands.read(message, datetime.now())
+    act = commands.read_typed(message, datetime.now())
     if act and act["intent"] != "summarise":
         return ACT
 

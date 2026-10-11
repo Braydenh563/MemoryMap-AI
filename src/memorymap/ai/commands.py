@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from collections import deque
 from datetime import datetime
 
 from sqlalchemy import select
@@ -82,7 +83,7 @@ _MAX_NOTES = 50
 
 _POLITE = ("please ", "can you ", "could you ", "would you ", "will you ", "i want to ",
            "i'd like to ", "i would like to ", "let's ", "lets ", "ok ", "okay ")
-_TRAILING = (" please", " for me", " thanks", " thank you")
+_TRAILING = (" please", " pls", " plz", " for me", " thanks", " thank you", " ty", " thx")
 _ASKING = re.compile(r"^(?:what|who|where|when|how|why|which|whether|if|of|out)\b", re.IGNORECASE)
 
 
@@ -197,7 +198,8 @@ def _reminder(text: str, now: datetime) -> dict | None:
         low = text.lower()
     head = None
     for word in ("remind me", "set me a reminder", "set a reminder", "make a reminder",
-                 "add a reminder", "create a reminder", "new reminder", "reminder"):
+                 "add a reminder", "create a reminder", "new reminder", "reminder",
+                 "don't let me forget", "dont let me forget", "do not let me forget"):
         if low == word or low.startswith(word + " ") or low.startswith(word + ":"):
             head = word
             break
@@ -207,7 +209,7 @@ def _reminder(text: str, now: datetime) -> dict | None:
     if head == "remind me" and _ASKING.match(rest):
         return None
     about = rest.lower().startswith("about ")
-    for lead in ("to ", "about ", "that ", "for "):
+    for lead in ("to ", "2 ", "about ", "that ", "for "):
         if rest.lower().startswith(lead):
             rest = rest[len(lead):]
             break
@@ -249,6 +251,9 @@ def _tag(text: str) -> dict | None:
             found = _target(target)
             if found and _tags(tags):
                 return {"intent": "tag", **found, "tags": _tags(tags)}
+        named = _note_then_tags(body)
+        if named:
+            return named
         for these in sorted(_THESE, key=len, reverse=True):
             if body.lower().startswith(these + " "):
                 tags = _tags(body[len(these):])
@@ -264,6 +269,16 @@ def _tag(text: str) -> dict | None:
                 if found and _tags(tags):
                     return {"intent": "tag", **found, "tags": _tags(tags)}
     return None
+
+
+def _note_then_tags(body: str) -> dict | None:
+    """"tag the dentist note health": the note, then the tags, no "with"."""
+    cut = body.lower().rfind(" note ")
+    if cut <= 0:
+        return None
+    found = _one_target(body[: cut + len(" note")].strip())
+    tags = _tags(body[cut + len(" note "):])
+    return {"intent": "tag", **found, "tags": tags} if found and tags else None
 
 
 _BIN_WORDS = {"bin", "the bin", "trash", "the trash", "recycle bin", "the recycle bin"}
@@ -298,7 +313,7 @@ _NOTE_HEADS_NEW = (
     ("note to self", False), ("new note", True), ("quick note", True), ("make a note", False),
     ("take a note", False), ("save a note", False), ("add a note", False), ("create a note", False),
     ("write a note", False), ("jot down", False), ("write down", False), ("note down", False),
-    ("note", True),
+    ("save this", True), ("creat a note", False), ("make note", False), ("note", True),
 )
 
 
@@ -429,7 +444,7 @@ def _one_target(text: str) -> dict | None:
 
 def _delete(text: str) -> dict | None:
     low = text.lower()
-    verb = next((v for v in ("delete ", "remove ", "bin ", "trash ", "throw away ") if low.startswith(v)), None)
+    verb = next((v for v in ("delete ", "remove ", "bin ", "trash ", "throw away ", "get rid of ") if low.startswith(v)), None)
     if verb is None:
         return None
     rest = text[len(verb):].strip()
@@ -511,10 +526,25 @@ def _summarise(text: str) -> dict | None:
     low = text.lower()
     for head in ("summarise ", "summarize ", "sum up ", "give me a summary of "):
         if low.startswith(head):
-            found = _target(text[len(head):].strip())
+            rest = text[len(head):].strip()
+            found = _target(rest)
             if found and found.get("about"):
                 return {"intent": "summarise", "about": found["about"]}
+            whole = re.match(r"(?:all )?(?:of )?(?:my |the )?notes\b(?: (?:from|for|in) )?(.*)$", rest, re.I)
+            if whole:
+                #: "summarise my notes from this week": the notes of a while.
+                return {"intent": "summarise", "about": whole.group(1).strip() or "notes"}
     return None
+
+
+def read_typed(text: str, now: datetime) -> dict | None:
+    """`read` of the sentence as the speller puts it right ("remnd me to pay
+    rent on friday", "delte my old wifi note"), else as typed: the owner's
+    typos are part of the gold (`fixtures/composer/tasks_1011.json`)."""
+    from memorymap.ai import question_noise
+
+    fixed = question_noise.repair(question_noise.tidy(text or ""))
+    return (read(fixed, now) if fixed and fixed != text else None) or read(text, now)
 
 
 def read(text: str, now: datetime) -> dict | None:
@@ -815,7 +845,7 @@ def plan(session: Session, parsed: dict, note_ids: list[int] | None = None) -> d
         if not ok:
             return {"line": summarise_done([], skipped)}
         return {
-            "line": f"{label}. Confirm to do it." + (f" {not_done(skipped)}" if skipped else ""),
+            "line": _confirm(label) + (f" {not_done(skipped)}" if skipped else ""),
             "card": _card(label, steps, skipped, items),
         }
     if intent in ("delete", "pin", "unpin", "rename", "append", "link", "unlink"):
@@ -828,12 +858,53 @@ def plan(session: Session, parsed: dict, note_ids: list[int] | None = None) -> d
         tags = " ".join(f"#{t}" for t in parsed["tags"])
         label = f"Take {tags} off {len(ok)} note{'' if len(ok) == 1 else 's'} {which}"
         steps = [{"name": "tag_note", "arguments": {"note_ids": [e.id for e in ok], "remove": parsed["tags"]}}]
-        return {"line": f"{label}. Confirm to do it.", "card": _card(label, steps, skipped, [f"#{e.id} {_title(e)}" for e in ok])}
+        return {"line": _confirm(label), "card": _card(label, steps, skipped, [f"#{e.id} {_title(e)}" for e in ok])}
     if intent == "navigate":
         return {"line": f"Opening {parsed['surface']}.", "navigate": parsed["surface"]}
     if intent in READ_INTENTS:
         return _plan_read(session, parsed)
     raise ValueError(intent)
+
+
+def _voice() -> str:
+    """The composer's voice, the `composer_voice` preference (decision 72)."""
+    try:
+        from memorymap.core import deps
+
+        value = deps.get_config().get_preference("composer_voice", "natural")
+    except Exception:  # noqa: BLE001  # no preference is the default voice
+        return "natural"
+    return "professional" if value in ("professional", "plain") else "natural"
+
+
+def _confirm(label: str) -> str:
+    """"Move the note “Gym plan” to the bin. Confirm to do it.", one of eight."""
+    from memorymap.ai import composer_replies
+
+    return _said(composer_replies.act_line(composer_replies.CONFIRM, _voice(), tuple(_LAST), label=label))
+
+
+def ask_when(said: str) -> str:
+    """"When should I remind you to call the dentist?", one of four."""
+    from memorymap.ai import composer_replies
+
+    return _said(composer_replies.act_line(composer_replies.ASK_WHEN, _voice(), tuple(_LAST), said=said.rstrip(".")))
+
+
+def _which_note(about: str) -> str:
+    from memorymap.ai import composer_replies
+
+    return _said(composer_replies.act_line(composer_replies.WHICH_NOTE, _voice(), tuple(_LAST), about=about))
+
+
+#: The last act lines said in this process, so the next opens unlike them
+#: (`phrasing.choose`); an act's line is not in the chat history it reads.
+_LAST: deque[str] = deque(maxlen=3)
+
+
+def _said(line: str) -> str:
+    _LAST.append(line)
+    return line
 
 
 def _resolve_one(session: Session, about: str | None, note_ids: list[int] | None, these: bool) -> tuple[object | None, str]:
@@ -846,7 +917,7 @@ def _resolve_one(session: Session, about: str | None, note_ids: list[int] | None
         return None, "Which note do you mean? Attach it with the paperclip, or name it, like: delete the boiler note."
     found = _notes_about(session, about or "", single=False)
     if not found:
-        return None, f"I found no note about “{about}”. Which note do you mean?"
+        return None, _which_note(about or "")
     if len(found) > 1:
         titled = [e for e in found if _title(e).lower().startswith((about or "").lower())]
         if len(titled) == 1:
@@ -893,7 +964,7 @@ def _plan_one(session: Session, parsed: dict, note_ids: list[int] | None) -> dic
         label = f"{'Link' if intent == 'link' else 'Unlink'} {name} {'and' if intent == 'link' else 'from'} “{_title(other)}”"
     card = _card(label, steps, skipped, [f"#{entry.id} {_title(entry)}"])
     if intent in CONFIRM_INTENTS:
-        return {"line": f"{label}. Confirm to do it.", "card": card}
+        return {"line": _confirm(label), "card": card}
     return {"line": label, "card": card, "run": True}
 
 

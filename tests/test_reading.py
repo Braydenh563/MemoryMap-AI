@@ -122,3 +122,19 @@ def test_the_quick_add_sweeps_misses():
     assert palette.slots["text"] == "Dentist" and palette.slots["due_at"].hour == 9
     asked = reading.read("review budget friday", now=now, context={"surface": "reminder"})
     assert asked.band == "unsure" and asked.question == "What time on Friday 16 October?"
+
+
+def test_my_birthday_is_the_one_the_notes_give(client, session):
+    """OPEN-ledger row 459: no setting holds a birthday, so "on my birthday"
+    reads the one a note gives; a month alone is no day."""
+    from memorymap.ai import personal
+    from memorymap.entry import manager
+
+    assert personal.birthday([{"id": 1, "content": "My birthday is 3 December."}], NOW) == "2000-12-03"
+    assert personal.birthday([{"id": 1, "content": "My birthday is in March."}], NOW) is None
+    manager.create_entry(session, "# About me\n\nMy birthday is on 20 November.")
+    session.commit()
+    token = client.post("/auth/setup", json={"password": "first-pass"}).json()["token"]
+    got = client.get("/read", params={"q": "call Sam on my birthday", "surface": "reminder", "now": "2026-10-07T10:00:00+00:00"},
+                     headers={"X-Auth-Token": token}).json()
+    assert got["slots"]["due_at"].startswith("2026-11-20"), got

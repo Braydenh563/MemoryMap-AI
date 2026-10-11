@@ -31,7 +31,7 @@ from sqlalchemy import or_, select
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, capability, composer, composer_digest, find_it, glossary, phrasing, verdicts, vocative, why
+from memorymap.ai import budget as run_budget, capability, composer, composer_digest, find_it, glossary, personal, phrasing, verdicts, vocative, why
 from memorymap.ai import (
     acts,
     agent,
@@ -2274,6 +2274,11 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
     to wait for. It arrives before a local model would have finished loading,
     and it arrives at all when no model is running. None when the stream
     goes on to compose or generate."""
+    #: "do you have feelings", "who made you": about Atlas, in its voice
+    #: (the owner, 2026-10-11: "personal questions or any other random").
+    itself = personal.about_me(req.question or "") if _app_answers(req, ollama_running) else None
+    if itself:
+        return [{"type": "answer", "delta": itself}]
     if _asks_capability(req, prepared) and _app_answers(req, ollama_running):
         return [{"type": "answer", "delta": _capability_answer(req, ollama_running)}]
     if req.address is not None and req.address.call and _app_answers(req, ollama_running):
@@ -2425,7 +2430,12 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: same way as the first turn (B8); "tell me more", "shorter" and a
         #: correction lean on the turn before and keep the composer's.
         restated = follow is not None and follow.kind in composer._RESTATES
-        if (not follow or restated) and not str(prepared.get("search_mode") or "").endswith("recent"):
+        today = user_now(deps.get_config()).date()
+        #: "where do I live", "what's my sister's name", "what do you know
+        #: about me": what the notebook says of its writer (`ai/personal.py`),
+        #: read from every note, not only the ones the search found.
+        digest = None if follow else personal.answer(req.question, lambda: personal.notes_of(req.session), today)
+        if digest is None and (not follow or restated) and not str(prepared.get("search_mode") or "").endswith("recent"):
             try:
                 digest = composer_digest.answer(
                 follow.question if restated else req.question, prepared["notes"], today=user_now(deps.get_config()).date(),
@@ -2463,6 +2473,10 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 yield from _web_events(*web)
                 return
         text = result["text"]
+        if not result["grounding"] and not follow and personal.general(req.question or ""):
+            #: "what's the capital of France": the world, not the notes, and
+            #: said so rather than "nothing in your notes about capital".
+            text = personal.general_reply(_web_allowed(req))
         if not result["grounding"] and prepared.get("meaning_loading"):
             text += "\n\n" + composer_digest.PHRASES["meaning_loading"]
         yield {"type": "answer", "delta": text}
@@ -2616,6 +2630,13 @@ def _act_events(req: _StreamRequest, prepared: dict) -> Iterator[dict]:
         return
     if parsed is None:
         yield {"type": "answer", "delta": acts.capability_line()}
+        return
+    if parsed["intent"] == "reminder" and not parsed.get("time_given"):
+        #: Asked once, never guessed as tomorrow at 9 (decision 50); the
+        #: reply's time fills it (`reading._follow_slot`).
+        from memorymap.ai import commands
+
+        yield {"type": "answer", "delta": commands.ask_when(parsed.get("said") or parsed["text"])}
         return
     planned = acts.preview(req.session, parsed, req.body.note_ids)
     card = planned.get("card")

@@ -450,6 +450,9 @@ def follow(text: str, turns: list[dict] | None, now: datetime) -> tuple[str, str
     if not turns or not raw:
         return None
     low = raw.lower().rstrip("?.")
+    slot = _follow_slot(raw, turns[-1], now)
+    if slot:
+        return slot, "slot"
     if re.match(_AGAIN, low):
         return str(turns[-1]["text"]), "again"
     if re.search(_OTHER, low):
@@ -459,6 +462,23 @@ def follow(text: str, turns: list[dict] | None, now: datetime) -> tuple[str, str
         return _follow_pronoun(raw, pronoun, turns, now)
     same = re.match(_SAME_FOR, low) or re.match(_TOO, low)
     return _follow_same(raw[same.start("x"):same.end("x")], turns, now) if same else None
+
+
+def _follow_slot(raw: str, turn: dict, now: datetime) -> str | None:
+    """"Friday at 3" after "remind me to call the dentist", which was asked
+    for its time (decision 50): the reminder with the time said, when the
+    reply is a time and nothing else."""
+    from memorymap.ai import commands
+
+    before = str(turn["text"])
+    waiting = commands.read(before, now)
+    if not waiting or waiting["intent"] != "reminder" or waiting.get("time_given"):
+        return None
+    joined = f"{before} {raw}"
+    filled = commands.read_typed(joined, now)
+    if filled and filled.get("time_given") and filled.get("said") == waiting.get("said"):
+        return joined
+    return None
 
 
 def _follow_other(raw: str, low: str, turns: list[dict], now: datetime) -> tuple[str, str] | None:

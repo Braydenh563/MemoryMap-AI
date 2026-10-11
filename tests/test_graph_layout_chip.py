@@ -23,7 +23,7 @@ def test_the_dock_chip_is_hidden_under_force_and_opens_the_layout_choice():
     body = body[: body.index("\n}\n")]
     assert 'layoutKind !== "force"' in body and 'classList.toggle("hidden", !named)' in body
     assert "setGraphOptionsOpen(true)" in body and "openGraphControlsSheet(chip)" in body
-    assert 'getElementById("graph-layout")' in body and ".focus()" in body
+    assert 'focusSelect(document.getElementById("graph-layout"))' in body
     # Both renderers' stats line call it, so neither leaves a stale chip.
     assert "graphSyncLayoutChip(layoutKind);" in CANVAS
     assert "graphSyncLayoutChip(layoutKind);" in (ROOT / "frontend" / "js" / "graph.js").read_text(encoding="utf-8")

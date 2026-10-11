@@ -622,7 +622,7 @@ def budget_caps(raw) -> dict:
     if not raw:
         return {}
     if not isinstance(raw, dict):
-        raise SkillError("A skill's budget is a set of caps, such as tool_calls: 20.")
+        raise SkillError("A skill's budget is a set of caps, such as at most 20 tool calls.")
     caps = {}
     for key, value in raw.items():
         ceiling = CAP_LIMITS.get(key)

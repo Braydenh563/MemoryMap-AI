@@ -3518,12 +3518,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 |---|---|
 | `firstStepButton` | frontend/js/first-run.js:27 |
 | `firstStepName` | frontend/js/first-run.js:52 |
-| `firstStepsCard` | frontend/js/first-run.js:127 |
-| `firstStepsDoor` | frontend/js/first-run.js:116 |
-| `firstStepsHide` | frontend/js/first-run.js:122 |
+| `firstStepsCard` | frontend/js/first-run.js:129 |
+| `firstStepsDoor` | frontend/js/first-run.js:118 |
+| `firstStepsHide` | frontend/js/first-run.js:124 |
 | `firstStepsSample` | frontend/js/first-run.js:87 |
 | `firstStepsState` | frontend/js/first-run.js:12 |
-| `renderFirstSteps` | frontend/js/first-run.js:184 |
+| `renderFirstSteps` | frontend/js/first-run.js:186 |
 
 ### frontend/js/graph-canvas.js (128)
 

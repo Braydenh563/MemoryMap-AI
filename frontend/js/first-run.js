@@ -89,16 +89,17 @@ async function firstStepsSample(host, add, event) {
   //: press says it is working and cannot be pressed twice.
   const button = event?.currentTarget;
   if (button) {
-    button.disabled = true;
-    button.setAttribute("aria-busy", "true");
-    setLabel(button, add ? "ph:spinner Adding the sample notes" : "ph:spinner Removing the sample notes");
+    setBusy(button, true, add ? "Adding the sample notes" : "Removing the sample notes");
   }
+  let ids = [];
   try {
     if (add) {
       const made = await apiJson("/help/sample-notebook", { method: "POST" });
+      ids = made.ids || [];
       toast(`Added ${made.created} sample notes. Try asking "where is the spare key?"`);
     } else {
       const gone = await apiJson("/help/sample-notebook", { method: "DELETE" });
+      ids = gone.ids || [];
       //: In the bin, so the bin's Restore is the undo (rule 1.9: no new undo).
       toast(`Moved ${gone.binned} sample notes to the bin.`);
     }
@@ -107,7 +108,8 @@ async function firstStepsSample(host, add, event) {
     renderFirstSteps(host);
     return;
   }
-  await loadEntries();
+  //: The eight notes it touched, and the categories it made or emptied.
+  await Promise.all([refreshEntries(ids), loadCategories()]);
   renderFirstSteps(host);
 }
 

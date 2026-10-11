@@ -4294,9 +4294,207 @@ function renderGraphPopupInfo(entry) {
 //: icons with no words anywhere, nothing is the odd one out, and the state
 //: the words carried (Favourite vs Favourited, Trace vs Trace to) is in the
 //: tooltip and in `aria-pressed`.
+//: **On a phone the same nine actions are two words and a menu.** Reported
+//: (INBOX 883, 884): "the buttons at the bottom of a note popup panel ...
+//: all wrap onto like 3 different rows when on phone", and "i have no clue
+//: what the buttons do as I cant hover over them and see a tooltip". Nine
+//: bare icons are readable with a pointer (the tooltip says what each is) and
+//: unreadable under a finger. Below 600, or on any device that cannot hover,
+//: the row is Open and Link as labelled buttons (the note's two most-used
+//: moves, the words in the button) and a ⋯ (`kebabMenu`) holding the rest as
+//: labelled rows, so every action has a visible name and the strip is one
+//: line. The list of actions is built once (`graphPopupActionList`) and drawn
+//: either way, so the two shapes cannot disagree about what a note can do.
+const GRAPH_POPUP_COMPACT = "(max-width: 599.98px), (hover: none)";
+
+function graphPopupActionList(entry) {
+  const tracingFrom = Boolean(traceFromNode);
+  const list = [
+    {
+      key: "open",
+      group: "read",
+      icon: "note-pencil",
+      word: "Open",
+      title: "Open this note in the Notes tab",
+      primary: true,
+      run: () => {
+        const id = entry.id;
+        closeGraphPopup();
+        flashEntry(id);
+      },
+    },
+    {
+      key: "similar",
+      group: "read",
+      icon: "approximate-equals",
+      word: "Similar notes",
+      title: "Highlight notes that mean something similar",
+      run: async () => {
+        const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
+        if (!related.length) {
+          toast("No similar notes found.");
+          return;
+        }
+        // Reuse the existing highlight pass by searching for these ids.
+        graphHighlightIds = new Set(related.map((r) => r.id).concat(entry.id));
+        applyGraphHighlight();
+        closeGraphPopup();
+        toast(`Highlighted ${related.length} similar note${related.length === 1 ? "" : "s"}.`);
+      },
+    },
+    // Two clicks, the same shape as Link: this note becomes one end of the
+    // trace, and the next one you pick becomes the other. The tooltip says
+    // which end it will be, because a button that does two different things
+    // without saying which is a button you have to try to understand.
+    {
+      key: "trace",
+      group: "read",
+      icon: "path",
+      word: tracingFrom ? "Trace to here" : "Trace from here",
+      title: tracingFrom
+        ? "Trace to here: find how this note connects to the one you started from"
+        : "Trace from here: start tracing a path from this note",
+      run: () => {
+        closeGraphPopup();
+        setTraceEnd(tracingFrom ? "to" : "from", entry.id);
+        if (!tracingFrom) toast("Now pick the other note, use Trace to here.");
+      },
+    },
+    {
+      key: "grow",
+      group: "shape",
+      icon: "plant",
+      word: "Grow a linked note",
+      title: "Grow: add a new note linked to this one",
+      run: (event) => openGraphNewNote(event, entry.id),
+    },
+  ];
+  if (graphFocusModeId !== entry.id) {
+    list.push({
+      key: "focus",
+      group: "shape",
+      icon: "target",
+      word: "Focus on this note",
+      title: "Focus: isolate this note's neighbourhood",
+      run: () => {
+        graphFocusModeId = entry.id;
+        recordTabVisit("graph", `focus:${entry.id}`);
+        $("graph-focus-clear")?.classList.remove("hidden");
+        closeGraphPopup();
+        renderGraph();
+        toast("Focus Mode active. Showing local neighborhood.");
+      },
+    });
+  }
+  list.push(
+    {
+      key: "link",
+      group: "shape",
+      icon: "link",
+      word: "Link",
+      title: "Link: start linking this note to another",
+      run: () => {
+        closeGraphPopup();
+        beginOrCompleteLink(entry);
+        toast("Now click another note on the map to link them.");
+      },
+    },
+    {
+      key: "remind",
+      group: "shape",
+      icon: "alarm",
+      word: "Remind me",
+      title: "Remind me about this note",
+      run: () => {
+        closeGraphPopup();
+        switchTab("reminders");
+        $("reminder-text").value = `Follow up: ${stripFrontmatter(entry.content).trim().slice(0, 60)}`;
+        setDue(defaultDueValue()); // keeps the visible date/time fields in step
+        $("reminder-text").focus();
+      },
+    },
+    {
+      key: "favourite",
+      group: "keep",
+      icon: "star",
+      word: entry.pinned ? "Remove from Favourites" : "Add to Favourites",
+      title: entry.pinned ? "Remove from Favourites" : "Add to Favourites",
+      pressed: Boolean(entry.pinned),
+      run: async () => {
+        await apiJson(`/entries/${entry.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ pinned: !entry.pinned }),
+        }).catch((e) => toast(e.message, true));
+        toast(entry.pinned ? "Removed from Favourites." : "Added to Favourites.");
+        closeGraphPopup();
+        await loadEntries().catch(() => {});
+        renderGraph();
+      },
+    },
+    {
+      key: "bin",
+      group: "keep",
+      icon: "trash",
+      word: "Move to the bin",
+      title: "Move this note to the bin",
+      danger: true,
+      run: async () => {
+        if (!(await confirmDialog("Move this note to the bin?"))) return;
+        await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
+          toast(e.message, true)
+        );
+        closeGraphPopup();
+        await refreshEntries([entry.id]).catch(() => {});
+        renderGraph();
+        toastAction("Moved to the bin.", "Undo", async () => {
+          await api(`/entries/${entry.id}/restore`, { method: "POST" });
+          await refreshEntries([entry.id]);
+          renderGraph();
+          toast("Note restored.");
+        }, { also: GO_TO_BIN });
+      },
+    }
+  );
+  return list;
+}
+
+let graphPopupActionsEntry = null; // the note the row was last drawn for
+
 function renderGraphPopupActions(entry) {
+  graphPopupActionsEntry = entry;
   const box = $("graph-popup-actions");
   box.replaceChildren();
+  const list = graphPopupActionList(entry);
+  const compact = window.matchMedia(GRAPH_POPUP_COMPACT).matches;
+  box.classList.toggle("is-compact", compact);
+  if (compact) {
+    //: Open and Link are the two the words are spent on; the rest are the ⋯.
+    //: Open stays the one filled control (the ramp's "the action this surface
+    //: is for"), Link is tonal.
+    const shown = new Set(["open", "link"]);
+    const row = document.createElement("div");
+    row.className = "graph-popup-tool-group graph-popup-tool-shown";
+    for (const a of list.filter((x) => shown.has(x.key))) {
+      const b = smallButton(`ph:${a.icon} ${a.key === "open" ? "Open" : "Link"}`, a.title, (event) => a.run(event), !a.primary);
+      if (a.primary) b.classList.add("graph-popup-tool-primary");
+      row.appendChild(b);
+    }
+    const rest = list.filter((x) => !shown.has(x.key));
+    row.appendChild(
+      kebabMenu(
+        rest.map((a) => ({
+          label: `ph:${a.icon} ${a.word}`,
+          title: a.title,
+          run: () => a.run(null),
+          danger: a.danger,
+          group: a.group,
+        })),
+        "More note actions"
+      )
+    );
+    box.appendChild(row);
+    return;
+  }
 
   const group = (name) => {
     const el = document.createElement("div");
@@ -4304,143 +4502,40 @@ function renderGraphPopupActions(entry) {
     box.appendChild(el);
     return el;
   };
-  const read = group("read");
-  const shape = group("shape");
-  const keep = group("keep");
-
-  // read ---------------------------------------------------------------
-  //: The filled one. `smallButton(..., ghost=false)` is the accent recipe;
-  //: it stays square because `smallButton` adds `.icon-only` for a label
-  //: that is a glyph and nothing else.
-  const open = smallButton(
-    "ph:note-pencil",
-    "Open this note in the Notes tab",
-    () => {
-      const id = entry.id;
-      closeGraphPopup();
-      flashEntry(id);
-    },
-    false
-  );
-  //: The class, not just the absence of `.ghost`: a late rule paints every
-  //: `.icon-only:not(.ghost)` button tonal (07-whiteboard-misc.css, "a
-  //: control inside a grouped strip does not need its own ground"), so
-  //: leaving Open non-ghost made it *look* exactly like its eight
-  //: neighbours. Measured on the running panel, which is the only way that
-  //: was ever going to show up: the markup said one filled button and the
-  //: pixels said none.
-  open.classList.add("graph-popup-tool-primary");
-  read.appendChild(open);
-  read.appendChild(
-    smallButton("ph:approximate-equals", "Highlight notes that mean something similar", async () => {
-      const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
-      if (!related.length) {
-        toast("No similar notes found.");
-        return;
-      }
-      // Reuse the existing highlight pass by searching for these ids.
-      graphHighlightIds = new Set(related.map((r) => r.id).concat(entry.id));
-      applyGraphHighlight();
-      closeGraphPopup();
-      toast(`Highlighted ${related.length} similar note${related.length === 1 ? "" : "s"}.`);
-    })
-  );
-  // Two clicks, the same shape as Link: this note becomes one end of the
-  // trace, and the next one you pick becomes the other. The tooltip says
-  // which end it will be, because a button that does two different things
-  // without saying which is a button you have to try to understand.
-  const tracingFrom = Boolean(traceFromNode);
-  read.appendChild(
-    smallButton(
-      "ph:path",
-      tracingFrom
-        ? "Trace to here: find how this note connects to the one you started from"
-        : "Trace from here: start tracing a path from this note",
-      () => {
-        closeGraphPopup();
-        setTraceEnd(tracingFrom ? "to" : "from", entry.id);
-        if (!tracingFrom) toast("Now pick the other note, use Trace to here.");
-      }
-    )
-  );
-
-  // shape --------------------------------------------------------------
-  shape.appendChild(
-    smallButton("ph:plant", "Grow: add a new note linked to this one", (event) =>
-      openGraphNewNote(event, entry.id)
-    )
-  );
-  if (graphFocusModeId !== entry.id) {
-    shape.appendChild(
-      smallButton("ph:target", "Focus: isolate this note's neighbourhood", () => {
-        graphFocusModeId = entry.id;
-        recordTabVisit("graph", `focus:${entry.id}`);
-        $("graph-focus-clear")?.classList.remove("hidden");
-        closeGraphPopup();
-        renderGraph();
-        toast("Focus Mode active. Showing local neighborhood.");
-      })
-    );
-  }
-  shape.appendChild(
-    smallButton("ph:link", "Link: start linking this note to another", () => {
-      closeGraphPopup();
-      beginOrCompleteLink(entry);
-      toast("Now click another note on the map to link them.");
-    })
-  );
-  shape.appendChild(
-    smallButton("ph:alarm", "Remind me about this note", () => {
-      closeGraphPopup();
-      switchTab("reminders");
-      $("reminder-text").value = `Follow up: ${stripFrontmatter(entry.content).trim().slice(0, 60)}`;
-      setDue(defaultDueValue()); // keeps the visible date/time fields in step
-      $("reminder-text").focus();
-    })
-  );
-
-  // keep ---------------------------------------------------------------
-  //: One glyph in both states, coloured when it is on, the note cards'
-  //: own rule, and for the reason `favouriteButton` (note-cards.js) records: the
-  //: "off" version used a *different icon*, and one of those was missing
-  //: from the font and drew nothing at all.
-  const favourite = smallButton(
-    "ph:star",
-    entry.pinned ? "Remove from Favourites" : "Add to Favourites",
-    async () => {
-      await apiJson(`/entries/${entry.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ pinned: !entry.pinned }),
-      }).catch((e) => toast(e.message, true));
-      toast(entry.pinned ? "Removed from Favourites." : "Added to Favourites.");
-      closeGraphPopup();
-      await loadEntries().catch(() => {});
-      renderGraph();
+  const groups = { read: group("read"), shape: group("shape"), keep: group("keep") };
+  for (const a of list) {
+    const b = smallButton(`ph:${a.icon}`, a.title, (event) => a.run(event), !a.primary);
+    if (a.primary) {
+      //: The class, not just the absence of `.ghost`: a late rule paints every
+      //: `.icon-only:not(.ghost)` button tonal (07-whiteboard-misc.css, "a
+      //: control inside a grouped strip does not need its own ground"), so
+      //: leaving Open non-ghost made it *look* exactly like its eight
+      //: neighbours. Measured on the running panel: the markup said one filled
+      //: button and the pixels said none.
+      b.classList.add("graph-popup-tool-primary");
     }
-  );
-  favourite.classList.toggle("is-favourite", Boolean(entry.pinned));
-  favourite.setAttribute("aria-pressed", String(Boolean(entry.pinned)));
-  keep.appendChild(favourite);
-  const bin = smallButton("ph:trash", "Move this note to the bin", async () => {
-    if (!(await confirmDialog("Move this note to the bin?"))) return;
-    await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
-      toast(e.message, true)
-    );
-    closeGraphPopup();
-    await refreshEntries([entry.id]).catch(() => {});
-    renderGraph();
-    toastAction("Moved to the bin.", "Undo", async () => {
-      await api(`/entries/${entry.id}/restore`, { method: "POST" });
-      await refreshEntries([entry.id]);
-      renderGraph();
-      toast("Note restored.");
-    }, { also: GO_TO_BIN });
+    if (a.key === "favourite") {
+      //: One glyph in both states, coloured when it is on, the note cards'
+      //: own rule (`favouriteButton`, note-cards.js).
+      b.classList.toggle("is-favourite", a.pressed);
+      b.setAttribute("aria-pressed", String(a.pressed));
+    }
+    //: Set apart by a gap of its own inside the keep group rather than by a
+    //: fourth divider: three groups is the structure.
+    if (a.key === "bin") b.classList.add("graph-popup-tool-bin");
+    groups[a.group].appendChild(b);
+  }
+}
+
+//: A rotation or a window resize can cross the compact line with a panel
+//: open; redraw the row so it is never the wrong shape for the width.
+try {
+  window.matchMedia(GRAPH_POPUP_COMPACT).addEventListener("change", () => {
+    const open = graphPopupId !== null && !$("graph-popup").classList.contains("hidden");
+    if (open && graphPopupActionsEntry) renderGraphPopupActions(graphPopupActionsEntry);
   });
-  //: Set apart by a gap of its own inside the keep group rather than by a
-  //: fourth divider: three groups is the structure, and a hairline whose
-  //: only job is to isolate one button would read as a fourth.
-  bin.classList.add("graph-popup-tool-bin");
-  keep.appendChild(bin);
+} catch (e) {
+  /* matchMedia is absent in some test shells; the row is drawn on open. */
 }
 
 function closeGraphPopup() {

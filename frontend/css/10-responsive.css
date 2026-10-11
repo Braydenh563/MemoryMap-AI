@@ -2486,6 +2486,12 @@ header#top-bar[data-scrolled="1"],
   .tab-page:has(.note-edit-surface) > .dock-fab {
     display: none;
   }
+  /* The same for the graph's node panel and its new-note panel: the fab sits
+     at z-index 44, above the panel's 40, and floated over the sheet's own
+     bottom-right control (the ⋯ in the action row, INBOX 883). */
+  .tab-page:has(#graph-popup:not(.hidden), #graph-new:not(.hidden)) > .dock-fab {
+    display: none;
+  }
   /* An icon picker since INBOX 599: its square, not a stretched field. */
   .dock[data-dock-name="library-skills"] .select-shell:has(> #skills-sort) {
     flex: 0 0 auto;

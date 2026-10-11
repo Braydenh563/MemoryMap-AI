@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4616, test files 1062, tests 9742, plan headings 995.
+Counts: frontend functions 5512, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4616, test files 1063, tests 9746, plan headings 995.
 
-## Frontend functions (5511)
+## Frontend functions (5512)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -3733,93 +3733,94 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `tuning` | frontend/js/graph-worker.js:382 |
 | `warmLayout` | frontend/js/graph-worker.js:210 |
 
-### frontend/js/graph.js (115)
+### frontend/js/graph.js (116)
 
 | Name | File:line |
 |---|---|
 | `applyGraphHighlight` | frontend/js/graph.js:3472 |
 | `arcPath` | frontend/js/graph.js:454 |
 | `askLinkDetails` | frontend/js/graph.js:1353 |
-| `clearGraphKeyboardFocus` | frontend/js/graph.js:4459 |
+| `clearGraphKeyboardFocus` | frontend/js/graph.js:4554 |
 | `clearTrace` | frontend/js/graph.js:821 |
 | `closeGraphLinkPeek` | frontend/js/graph.js:3722 |
-| `closeGraphNewNote` | frontend/js/graph.js:4544 |
-| `closeGraphPopup` | frontend/js/graph.js:4446 |
+| `closeGraphNewNote` | frontend/js/graph.js:4639 |
+| `closeGraphPopup` | frontend/js/graph.js:4541 |
 | `drawTrace` | frontend/js/graph.js:1202 |
-| `exportGraphPng` | frontend/js/graph.js:4677 |
+| `exportGraphPng` | frontend/js/graph.js:4772 |
 | `fillTracePickers` | frontend/js/graph.js:629 |
 | `fitGraphToView` | frontend/js/graph.js:3374 |
 | `focusGraphNode` | frontend/js/graph.js:3138 |
 | `frameTree` | frontend/js/graph.js:473 |
-| `graphApplySettings` | frontend/js/graph.js:5869 |
-| `graphApplyView` | frontend/js/graph.js:5401 |
+| `graphApplySettings` | frontend/js/graph.js:5964 |
+| `graphApplyView` | frontend/js/graph.js:5496 |
 | `graphCalmScheme` | frontend/js/graph.js:1749 |
-| `graphCaptureSettings` | frontend/js/graph.js:5838 |
-| `graphCaptureView` | frontend/js/graph.js:5347 |
+| `graphCaptureSettings` | frontend/js/graph.js:5933 |
+| `graphCaptureView` | frontend/js/graph.js:5442 |
 | `graphCategoryScale` | frontend/js/graph.js:1759 |
-| `graphCloseOtherMenus` | frontend/js/graph.js:5605 |
+| `graphCloseOtherMenus` | frontend/js/graph.js:5700 |
 | `graphColourMode` | frontend/js/graph.js:1568 |
-| `graphControlsSheetParts` | frontend/js/graph.js:5944 |
+| `graphControlsSheetParts` | frontend/js/graph.js:6039 |
 | `graphEndpoint` | frontend/js/graph.js:1793 |
 | `graphFill` | frontend/js/graph.js:1819 |
 | `graphFitFrame` | frontend/js/graph.js:3351 |
 | `graphGroupColour` | frontend/js/graph.js:1599 |
 | `graphGroupNode` | frontend/js/graph.js:212 |
 | `graphGroups` | frontend/js/graph.js:1584 |
-| `graphInlineComputedStyle` | frontend/js/graph.js:4623 |
+| `graphInlineComputedStyle` | frontend/js/graph.js:4718 |
 | `graphLayout` | frontend/js/graph.js:133 |
 | `graphLayoutIsComputed` | frontend/js/graph.js:157 |
 | `graphLinkKind` | frontend/js/graph.js:3729 |
 | `graphLocalQuery` | frontend/js/graph.js:1784 |
-| `graphMinimapCanShow` | frontend/js/graph.js:4839 |
-| `graphMinimapChildren` | frontend/js/graph.js:4868 |
-| `graphMinimapEdgePairs` | frontend/js/graph.js:4780 |
-| `graphMinimapFinite` | frontend/js/graph.js:5048 |
-| `graphMinimapFrame` | frontend/js/graph.js:5062 |
-| `graphMinimapPaint` | frontend/js/graph.js:4894 |
-| `graphMinimapQueuePaint` | frontend/js/graph.js:4846 |
-| `graphMinimapSet` | frontend/js/graph.js:4887 |
-| `graphMinimapShown` | frontend/js/graph.js:4817 |
+| `graphMinimapCanShow` | frontend/js/graph.js:4934 |
+| `graphMinimapChildren` | frontend/js/graph.js:4963 |
+| `graphMinimapEdgePairs` | frontend/js/graph.js:4875 |
+| `graphMinimapFinite` | frontend/js/graph.js:5143 |
+| `graphMinimapFrame` | frontend/js/graph.js:5157 |
+| `graphMinimapPaint` | frontend/js/graph.js:4989 |
+| `graphMinimapQueuePaint` | frontend/js/graph.js:4941 |
+| `graphMinimapSet` | frontend/js/graph.js:4982 |
+| `graphMinimapShown` | frontend/js/graph.js:4912 |
 | `graphNeighbourInDirection` | frontend/js/graph.js:3117 |
 | `graphNodeById` | frontend/js/graph.js:3110 |
 | `graphNodeLabel` | frontend/js/graph.js:3835 |
 | `graphNodeRadius` | frontend/js/graph.js:101 |
 | `graphNodeScreenPoint` | frontend/js/graph.js:3162 |
 | `graphNodeUnder` | frontend/js/graph.js:1314 |
+| `graphPopupActionList` | frontend/js/graph.js:4310 |
 | `graphPopupFileCard` | frontend/js/graph.js:4015 |
 | `graphPopupMediaRefs` | frontend/js/graph.js:3992 |
 | `graphQueryMatch` | frontend/js/graph.js:3465 |
-| `graphRasterizeSvg` | frontend/js/graph.js:4634 |
+| `graphRasterizeSvg` | frontend/js/graph.js:4729 |
 | `graphReadPhrase` | frontend/js/graph.js:3450 |
 | `graphRemoveLink` | frontend/js/graph.js:3677 |
 | `graphRenderGroups` | frontend/js/graph.js:1621 |
 | `graphRenderer` | frontend/js/graph.js:1730 |
-| `graphResetToDefaults` | frontend/js/graph.js:5901 |
+| `graphResetToDefaults` | frontend/js/graph.js:5996 |
 | `graphResolveGroups` | frontend/js/graph.js:1606 |
-| `graphRestoreSwitches` | frontend/js/graph.js:5538 |
-| `graphSaveCurrentView` | frontend/js/graph.js:5391 |
-| `graphSavedViews` | frontend/js/graph.js:5338 |
+| `graphRestoreSwitches` | frontend/js/graph.js:5633 |
+| `graphSaveCurrentView` | frontend/js/graph.js:5486 |
+| `graphSavedViews` | frontend/js/graph.js:5433 |
 | `graphSetGroups` | frontend/js/graph.js:1593 |
-| `graphSettingsEqual` | frontend/js/graph.js:5858 |
+| `graphSettingsEqual` | frontend/js/graph.js:5953 |
 | `graphShowNote` | frontend/js/graph.js:4126 |
 | `graphSizeMode` | frontend/js/graph.js:1531 |
 | `graphSizeRadius` | frontend/js/graph.js:1536 |
 | `graphSyncFocusChip` | frontend/js/graph.js:1693 |
-| `graphSyncSimilarityRow` | frontend/js/graph.js:5742 |
+| `graphSyncSimilarityRow` | frontend/js/graph.js:5837 |
 | `graphTopicFor` | frontend/js/graph.js:4182 |
-| `graphZoomBy` | frontend/js/graph.js:5619 |
+| `graphZoomBy` | frontend/js/graph.js:5714 |
 | `hierarchyPath` | frontend/js/graph.js:436 |
-| `initGraphDockHeightToken` | frontend/js/graph.js:5149 |
+| `initGraphDockHeightToken` | frontend/js/graph.js:5244 |
 | `initGraphGroups` | frontend/js/graph.js:1655 |
 | `initGraphKeyboard` | frontend/js/graph.js:3180 |
-| `initGraphMinimap` | frontend/js/graph.js:5167 |
-| `initGraphViews` | frontend/js/graph.js:5495 |
+| `initGraphMinimap` | frontend/js/graph.js:5262 |
+| `initGraphViews` | frontend/js/graph.js:5590 |
 | `layoutHierarchy` | frontend/js/graph.js:306 |
 | `linkByDrop` | frontend/js/graph.js:1462 |
-| `openGraphControlsSheet` | frontend/js/graph.js:5960 |
+| `openGraphControlsSheet` | frontend/js/graph.js:6055 |
 | `openGraphLinkPanel` | frontend/js/graph.js:3850 |
 | `openGraphLinkPeek` | frontend/js/graph.js:3737 |
-| `openGraphNewNote` | frontend/js/graph.js:4513 |
+| `openGraphNewNote` | frontend/js/graph.js:4608 |
 | `openGraphPopup` | frontend/js/graph.js:3585 |
 | `pickTraceEnd` | frontend/js/graph.js:705 |
 | `placeGraphPopup` | frontend/js/graph.js:4074 |
@@ -3827,20 +3828,20 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `radialFlip` | frontend/js/graph.js:268 |
 | `radialRings` | frontend/js/graph.js:277 |
 | `renderGraph` | frontend/js/graph.js:1767 |
-| `renderGraphPopupActions` | frontend/js/graph.js:4297 |
+| `renderGraphPopupActions` | frontend/js/graph.js:4463 |
 | `renderGraphPopupHeader` | frontend/js/graph.js:3552 |
 | `renderGraphPopupInfo` | frontend/js/graph.js:4247 |
 | `renderGraphPopupMedia` | frontend/js/graph.js:4019 |
 | `renderGraphPopupProps` | frontend/js/graph.js:4219 |
 | `renderGraphPopupTopic` | frontend/js/graph.js:4157 |
 | `renderGraphSvg` | frontend/js/graph.js:1842 |
-| `renderGraphViews` | frontend/js/graph.js:5465 |
+| `renderGraphViews` | frontend/js/graph.js:5560 |
 | `renderTraceReadout` | frontend/js/graph.js:1017 |
 | `renderTraceState` | frontend/js/graph.js:733 |
 | `replyLoops` | frontend/js/graph.js:297 |
 | `runTrace` | frontend/js/graph.js:847 |
-| `saveGraphNewNote` | frontend/js/graph.js:4549 |
-| `saveGraphPopup` | frontend/js/graph.js:4474 |
+| `saveGraphNewNote` | frontend/js/graph.js:4644 |
+| `saveGraphPopup` | frontend/js/graph.js:4569 |
 | `selectTraceRoute` | frontend/js/graph.js:916 |
 | `setGraphPhysicsEnabled` | frontend/js/graph.js:165 |
 | `setTraceEnd` | frontend/js/graph.js:790 |
@@ -3849,7 +3850,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `showTraceMessage` | frontend/js/graph.js:813 |
 | `storyPrompt` | frontend/js/graph.js:1004 |
 | `syncGraphPopupSave` | frontend/js/graph.js:3666 |
-| `toggleGraphFullscreen` | frontend/js/graph.js:5634 |
+| `toggleGraphFullscreen` | frontend/js/graph.js:5729 |
 | `traceLabel` | frontend/js/graph.js:726 |
 | `tracePath` | frontend/js/graph.js:1172 |
 
@@ -8652,11 +8653,11 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Ember: warm oranges over a dim ground. Best in the evening. | frontend/css/05-sidebars-themes.css:3365 |
 | Files as a reading list | frontend/css/library-lazy.css:1204 |
 | Files sub-tab: rows, not cards | frontend/css/library-lazy.css:1231 |
-| Find anything | frontend/css/07-whiteboard-misc.css:10774 |
+| Find anything | frontend/css/07-whiteboard-misc.css:10792 |
 | Find anything, de-vibecoded | frontend/css/08-consistency.css:3731 |
 | Find anything: group heads read as heads | frontend/css/08-consistency.css:4907 |
 | GLASS THAT DOES NOT COST WHAT IT USED TO | frontend/css/03-dashboard-widgets.css:798 |
-| GRIPS AT A CONSTANT SIZE ON SCREEN | frontend/css/07-whiteboard-misc.css:10701 |
+| GRIPS AT A CONSTANT SIZE ON SCREEN | frontend/css/07-whiteboard-misc.css:10719 |
 | Graph options: one section-head style | frontend/css/08-consistency.css:4498 |
 | Help & guide: the topics box and the "Ask the guide" box are two | frontend/css/08-consistency.css:1810 |
 | INBOX 68: the board and map previews | frontend/css/10-responsive.css:352 |
@@ -8859,7 +8860,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | empty states that sit where they should | frontend/css/08-consistency.css:4374 |
 | entry actions + links (Phase 4) | frontend/css/01-forms-settings.css:2131 |
 | entry lists | frontend/css/01-forms-settings.css:1398 |
-| every control in a dock takes the touch floor | frontend/css/07-whiteboard-misc.css:10478 |
+| every control in a dock takes the touch floor | frontend/css/07-whiteboard-misc.css:10496 |
 | every menu scrolls down, never sideways, and never runs off the page | frontend/css/07-whiteboard-misc.css:7741 |
 | fields answer the pointer too | frontend/css/07-whiteboard-misc.css:3568 |
 | filter help (the list inside `#search-help-hint`, a `.help-body`) | frontend/css/05-sidebars-themes.css:643 |
@@ -8957,7 +8958,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the HUD: a momentary readout, not a notification | frontend/css/07-whiteboard-misc.css:7597 |
 | the Library (§4, §36F) | frontend/css/00-tokens-shell.css:1767 |
 | the Library on a phone (BACKLOG §116.1 item 3) | frontend/css/07-whiteboard-misc.css:9179 |
-| the Library tab's floating action is not the whiteboard's | frontend/css/07-whiteboard-misc.css:10678 |
+| the Library tab's floating action is not the whiteboard's | frontend/css/07-whiteboard-misc.css:10696 |
 | the Library's Activity rows (library.js, `library-${item.kind}`) | frontend/css/library-lazy.css:2353 |
 | the Library, de-vibecoded (the owner: "devibecode all the ui") | frontend/css/08-consistency.css:2958 |
 | the Library, second pass: cards in reading order, one anatomy | frontend/css/08-consistency.css:3808 |
@@ -8965,7 +8966,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the Skills dropdown | frontend/css/04-chat-dock-appearance.css:1196 |
 | the Sources panel | frontend/css/02-chat-graph.css:4839 |
 | the accessible card: the title opens it (INBOX 433) | frontend/css/08-consistency.css:3018 |
-| the agent activity panel: nothing scrolls sideways, nothing folds onto | frontend/css/07-whiteboard-misc.css:10526 |
+| the agent activity panel: nothing scrolls sideways, nothing folds onto | frontend/css/07-whiteboard-misc.css:10544 |
 | the agent's run, as a timeline | frontend/css/02-chat-graph.css:581 |
 | the app emblem, reused across the UI | frontend/css/03-dashboard-widgets.css:3332 |
 | the app's one help popover | frontend/css/03-dashboard-widgets.css:4294 |
@@ -8980,7 +8981,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the board's bar takes the floor of the whole touch band, not just 600 | frontend/css/10-responsive.css:2074 |
 | the boot splash: one progress indicator, not two | frontend/css/08-consistency.css:4361 |
 | the bottom docks | frontend/css/07-whiteboard-misc.css:9733 |
-| the chat dock follows its own width (INBOX 694) | frontend/css/10-responsive.css:2509 |
+| the chat dock follows its own width (INBOX 694) | frontend/css/10-responsive.css:2515 |
 | the chat page fills its height (§36A) | frontend/css/06-timeline-dialogs.css:1324 |
 | the chat sidebar on a phone | frontend/css/02-chat-graph.css:5355 |
 | the chat toolbar, grouped (§36B) | frontend/css/06-timeline-dialogs.css:1443 |
@@ -8992,9 +8993,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the connections rail (WORLD_CLASS_PLAN D2; `renderNotesRail`) | frontend/css/04-chat-dock-appearance.css:323 |
 | the context bar (WHITEBOARD_PLAN.md Phase 2, decision 2) | frontend/css/07-whiteboard-misc.css:7083 |
 | the dashboard and the labels, de-vibecoded | frontend/css/08-consistency.css:3073 |
-| the dashboard's greeting banner, on a phone | frontend/css/07-whiteboard-misc.css:10421 |
-| the dashboard's quick actions stop wrapping | frontend/css/07-whiteboard-misc.css:10376 |
-| the dashboard's three densities | frontend/css/07-whiteboard-misc.css:11121 |
+| the dashboard's greeting banner, on a phone | frontend/css/07-whiteboard-misc.css:10439 |
+| the dashboard's quick actions stop wrapping | frontend/css/07-whiteboard-misc.css:10394 |
+| the dashboard's three densities | frontend/css/07-whiteboard-misc.css:11139 |
 | the day-one dashboard | frontend/css/05-sidebars-themes.css:3768 |
 | the desk's own rows (WORLD_CLASS_PLAN D16) | frontend/css/04-chat-dock-appearance.css:3524 |
 | the dock (UI_MODERNISATION_PLAN.md Phase 8) | frontend/css/07-whiteboard-misc.css:9227 |
@@ -9040,10 +9041,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the overview strip | frontend/css/00-tokens-shell.css:1829 |
 | the page scrollers scroll on the compositor | frontend/css/08-consistency.css:4392 |
 | the page shell (§35L) | frontend/css/00-tokens-shell.css:3560 |
-| the palette on a touch screen (INBOX 464) | frontend/css/10-responsive.css:2495 |
+| the palette on a touch screen (INBOX 464) | frontend/css/10-responsive.css:2501 |
 | the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5787 |
 | the picker itself | frontend/css/05-sidebars-themes.css:3651 |
-| the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10270 |
+| the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10288 |
 | the quick-nav chord's guide | frontend/css/10-responsive.css:418 |
 | the reader: one scroller, the page set as prose | frontend/css/03-dashboard-widgets.css:1652 |
 | the reply head on Ask's answer, the draft and the guide (INBOX 471) | frontend/css/08-consistency.css:9593 |
@@ -9052,7 +9053,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the scroll container (§36A) | frontend/css/00-tokens-shell.css:1093 |
 | the selection tick in Rows (INBOX 426 z, image 91) | frontend/css/08-consistency.css:9098 |
 | the selection tick, in the app's own language | frontend/css/07-whiteboard-misc.css:4197 |
-| the settings jump list | frontend/css/07-whiteboard-misc.css:10440 |
+| the settings jump list | frontend/css/07-whiteboard-misc.css:10458 |
 | the settings sheet takes the touch floor | frontend/css/01-forms-settings.css:5392 |
 | the sketch pad's bar: a dock (INBOX 839) | frontend/css/02-chat-graph.css:1699 |
 | the spine | frontend/css/00-tokens-shell.css:2197 |
@@ -9069,7 +9070,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the switch's hit target (MODERNISATION_AUDIT.md Brief 8) | frontend/css/07-whiteboard-misc.css:7917 |
 | the tab strip is centred on the window, not on whatever is left of it | frontend/css/07-whiteboard-misc.css:7640 |
 | the timeline, de-vibecoded | frontend/css/08-consistency.css:3165 |
-| the tool rail (WHITEBOARD_PLAN.md Phase 1, decision 1) | frontend/css/07-whiteboard-misc.css:10596 |
+| the tool rail (WHITEBOARD_PLAN.md Phase 1, decision 1) | frontend/css/07-whiteboard-misc.css:10614 |
 | the tools panel, sorted into what each group of icons does | frontend/css/06-timeline-dialogs.css:2697 |
 | the touch floor, for the two surfaces the dock rule cannot reach | frontend/css/03-dashboard-widgets.css:4715 |
 | the trace strip | frontend/css/04-chat-dock-appearance.css:1 |
@@ -9078,7 +9079,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the web-search engine picker | frontend/css/04-chat-dock-appearance.css:2576 |
 | the whiteboard top bar and the documents editor join the families | frontend/css/07-whiteboard-misc.css:7845 |
 | the whiteboard's panels are one surface each | frontend/css/07-whiteboard-misc.css:3481 |
-| the whiteboard's tools become a bottom strip | frontend/css/07-whiteboard-misc.css:10336 |
+| the whiteboard's tools become a bottom strip | frontend/css/07-whiteboard-misc.css:10354 |
 | the writing room | frontend/css/04-chat-dock-appearance.css:3377 |
 | tools & features browser | frontend/css/03-dashboard-widgets.css:2221 |
 | top bar polish | frontend/css/05-sidebars-themes.css:4267 |
@@ -9107,10 +9108,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/04-chat-dock-appearance.css | 6510 |
 | frontend/css/05-sidebars-themes.css | 6150 |
 | frontend/css/06-timeline-dialogs.css | 3743 |
-| frontend/css/07-whiteboard-misc.css | 11986 |
+| frontend/css/07-whiteboard-misc.css | 12004 |
 | frontend/css/08-consistency.css | 10618 |
 | frontend/css/09-editor.css | 1389 |
-| frontend/css/10-responsive.css | 2616 |
+| frontend/css/10-responsive.css | 2622 |
 | frontend/css/ask-compose-lazy.css | 33 |
 | frontend/css/atlas-lazy.css | 52 |
 | frontend/css/captions-lazy.css | 78 |
@@ -15602,7 +15603,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9742)
+## Tests (9746)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16013,6 +16014,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_graph_parity_514.py | 9 |
 | tests/test_graph_paths.py | 34 |
 | tests/test_graph_payload_cache.py | 8 |
+| tests/test_graph_popup_phone.py | 4 |
 | tests/test_graph_settles.py | 3 |
 | tests/test_graph_similarity.py | 7 |
 | tests/test_graph_slim.py | 3 |

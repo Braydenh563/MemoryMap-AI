@@ -87,6 +87,13 @@ test("an edit left unsaved in the form survives a reload and can be reopened", a
 // so the order is certain, not a matter of load.
 // Twice: once with the tags slow to come, once with the list's own file
 // (tag-suggest.js, loaded on the first focus) slow to come.
+// The page's service worker answers its own scripts from the shell cache, and
+// `page.route` never sees a request a service worker answered: the list's file
+// was not held at all, the tags were fetched before the spec's wait began, and
+// the spec waited for a response that had already come. Blocked here, the
+// holds are real again.
+test.describe("held answers", () => {
+  test.use({ serviceWorkers: "block" });
 for (const [slow, url] of [["the tags arrive", /\/tags(\?|$)/], ["the list's code arrives", /tag-suggest\.js/]]) test(`a tag typed and entered before ${slow} does not open the list over Save`, async ({ page }) => {
   await openApp(page);
   const id = await captureNote(page, `Tag race ${Date.now()}: call the plumber about the boiler`);
@@ -103,13 +110,16 @@ for (const [slow, url] of [["the tags arrive", /\/tags(\?|$)/], ["the list's cod
   await page.keyboard.insertText("plumbing");
   await page.keyboard.press("Enter");
   await expect(row.locator(".note-edit-tags")).toContainText("plumbing");
+  // Listening before the release, so a quick answer is not missed.
+  const answered = page.waitForResponse(/\/tags(\?|$)/);
   release();
-  await page.waitForResponse(/\/tags(\?|$)/);
+  await answered;
   // The list's own work after the answer is one render; give it that frame.
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await expect(page.locator(".tag-suggest:not(.hidden)")).toHaveCount(0);
   await row.locator("button", { hasText: "Save changes" }).click();
   await expect.poll(async () => (await api(page, `/entries/${id}`)).tags).toEqual(["plumbing"]);
+});
 });
 
 // And the guard above keeps the list itself: a press in an empty tags field,

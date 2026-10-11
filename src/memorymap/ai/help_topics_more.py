@@ -1386,7 +1386,7 @@ MORE_TOPICS.extend(
                 "adds only the joining words and the counts and dates it measured, "
                 "names two notes that may disagree, and says which of your words "
                 "none of the notes found mention. It never answers yes or no for "
-                "you. In Ask the chip over the answer reads Your notes, no AI; in "
+                "you. In Ask the chip over the answer reads From your notes; in "
                 "Chat the reply's head reads Atlas, from your notes (Atlas and the "
                 "model's name when a model wrote it). The "
                 "choice is kept on this device; with no model running it is the "

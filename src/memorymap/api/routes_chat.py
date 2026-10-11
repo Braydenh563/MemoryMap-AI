@@ -1193,7 +1193,7 @@ OVERVIEW_LIMIT = 24
 PICTURE_MATCHES = 3
 
 
-def _widened(session: Session, question: str, entries: list) -> list:
+def _widened(session: Session, question: str, entries: list, scope: str = "") -> list:
     """The retrieved notes, plus the notes whose pictures match the question
     (keyword search reads a note's words, not its pictures' readings: "what
     did I note about binary search trees" missed the lecture slide), plus,
@@ -1208,6 +1208,11 @@ def _widened(session: Session, question: str, entries: list) -> list:
     seen = {entry.id for entry in entries}
     out = list(entries)
     for entry in extra:
+        #: A question scoped to a category ("my notes in Health") keeps its
+        #: answer there: "notes in Health" reads as a topic too, and its word
+        #: "notes" matched an Ideas note.
+        if scope and manager.category_name_for(session, entry) != scope:
+            continue
         if entry.id not in seen and not entry.is_deleted and not entry.is_private:
             seen.add(entry.id)
             out.append(entry)
@@ -1336,7 +1341,7 @@ def _prepare(
             session, question, deps.get_embeddings(), limit=5
         )
         entries, mode = found.entries, found.mode
-        entries = _widened(session, question, entries)
+        entries = _widened(session, question, entries, scope=found.category)
         # Which of these are here because they are *connected* to a match
         # rather than because they matched. The user asked about one thing and
         # is being shown notes about another; without saying why, the panel

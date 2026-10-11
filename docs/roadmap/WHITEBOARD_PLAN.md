@@ -1627,3 +1627,23 @@ INBOX 825, the owner, verbatim: "also idk why that show less button is there, al
 3. Images and files in a card scale with the card's width: images keep their ratio up to the card's width, and a file chip is one line that truncates its name.
 4. A double-click on a card's resize handle fits the card to its content (the same gesture as a frame's fit, INBOX 821).
 Gate: 0 cards with a stray Show more or Show less on the owner-shaped fixture at 1440 and 390; any width from 120 to 1200 units is reachable by drag. Owner: the cards agent (Sonnet, queued after mapfix).
+
+## Placed from INBOX, 2026-10-11 (ends, edge arrows, guides while drawing; canvasdepth3)
+
+- INBOX 826, the owner 2026-10-11, verbatim (screenshots: a selected note card with no edge arrows; the Start and End menus): "I still feel like the whiteboard, mindmap,a nd text editor are missing a lot of features that other applications have. what happened to those edge triangle arrows?? can there be more arrow options on the links and lines?? can there be a custom memorymapai unique arrow design as well??" and "also dragging out shapes and boxes on the whiteboard doesnt have the alignment lines and assist"
+
+Measured from the code: the edge arrows (`wbCloneSource`, whiteboard.js) show for a shape or a text box only; a note card (`kind === "node"`) and every mind map return null, so the card in the screenshot had none and nothing said why. The ends are 9 plain and 6 entity-relationship (index.html, `wb-cap-*`). Guides run on move and resize, not while a new shape is dragged out.
+
+Decisions made:
+- E1. A note card gets the edge arrows. Its arrow makes a new empty note card joined by a link (copying a note's text would duplicate a note); a shape or text box still copies. The arrow's title says which.
+- E2. Ends added: outlined triangle, concave (stealth) arrow, dot, cross, half arrow, double arrow; and an end size (small, medium, large) beside each end menu. Every end draws the same in export.
+- E3. One signature end, "MemoryMap": an open chevron with the brand mark's node dot at its tip, drawn from the mark's own geometry; it sits first under a "MemoryMap" group, and the default end stays Open arrow.
+- E4. Dragging out a new shape, text box or frame shows the move guides, snaps the moving corner to them, and shows the size ("120 x 80") beside the cursor, as Figma and draw.io do; Alt draws without snapping, as a move does.
+- E5. The feature-depth gap is re-audited for the board, the map and the document editor together (tldraw, Excalidraw, draw.io, Miro, XMind, MindNode, Notion, Google Docs, Word), ranked by how often a person meets each gap, and the top five per surface built, one commit and test each; the rest stay here as rows.
+
+Rows (owner: canvasdepth3, Opus, next free slot after transparency):
+- C1. Decision E1, with help: the arrow's title, the Guide topic and the manual path.
+- C2. Decision E2: the six ends and the end size, in the Start and End menus, the map's link menu and the export.
+- C3. Decision E3: the signature end, three candidates measured at 1x and 2x, one taken.
+- C4. Decision E4: guides, corner snap and the size readout while drawing.
+- C5. Decision E5: the audit table here, then its top five per surface.

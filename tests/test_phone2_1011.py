@@ -126,3 +126,26 @@ def test_every_item_drag_refuses_a_second_finger_and_a_second_finger_cancels_the
     listener = listener[: listener.index("const midPanClass")]
     assert "wbCancelGesture()" in listener
     assert "stopImmediatePropagation" in listener, "d3-drag's per-touch listeners would starve the zoom"
+
+
+# --- 889: the OCR reading on a phone -------------------------------------------
+
+
+def test_files_reading_actions_wrap_instead_of_running_off_the_row():
+    """ocrphone.js at 390, Files tab with a reading open: Copy text and Open reading
+    were told neither to wrap nor shrink, ran to x=427 and the library view scrolled
+    50px sideways (scrollWidth 414 against 364). After: 364 against 364."""
+    css = _read("css/library-lazy.css")
+    rule = re.search(r"\n\.library-file-reading-actions \{(.*?)\n\}", css, re.S)
+    assert rule
+    body = rule.group(1)
+    assert "flex-wrap: wrap" in body and "min-width: 0" in body
+    assert "flex: 0 0 auto" not in body
+
+
+def test_ocr_source_chip_ellipsises_on_a_phone():
+    """Before: the chip's words wrapped to three lines inside a 32px box (scrollHeight
+    43 in 32); the ellipsis has to sit on the text span of an inline flex chip."""
+    css = _read("css/library-lazy.css")
+    assert re.search(r"\.sheet-card-page \.ocr-source \{[^}]*white-space: nowrap", css)
+    assert re.search(r"\.sheet-card-page \.ocr-source > \.ph-text \{[^}]*text-overflow: ellipsis", css)

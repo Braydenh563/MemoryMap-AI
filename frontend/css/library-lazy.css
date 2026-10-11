@@ -1325,11 +1325,23 @@
    on the facts line it would drop it four pixels below the numbers it sits
    beside. */
 /* Copy and Open reading are one group at the right end of the facts line. */
+/* **It wraps, and it may shrink** (INBOX 889: "when opening the extracted text
+   dropdown there is text overlay causing horizontal scroll"). Measured at 390
+   in the Files tab with a reading open (`scratchpad/ui-sweeps/ocrphone.js`):
+   the text column beside the thumbnail is 170px, the pair is two buttons of
+   about 100 and 120px that were told neither to wrap nor to shrink, so the row
+   ran to x=427 on a 390 screen and the library view scrolled 50px sideways
+   (scrollWidth 414 against 364). Wrapping puts Open reading under Copy text
+   when there is no room beside it; `min-width: 0` lets the group itself give
+   way inside the facts line's own wrap. */
 .library-file-reading-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .library-file-summary-meta {
@@ -3375,6 +3387,30 @@ button.ghost.doc-template-choice.wb-template-choice {
 
   .sheet-card-page .ocr-headline .dialog-head-title {
     flex: none;
+  }
+
+  /* The reading's source chip is one line and gives way with an ellipsis: at
+     390 it wrapped to three ("Sections from / the reading / . a vision / model")
+     and stood 76px tall in a head whose other controls are 44px, pushing the
+     title off its centre line (`scratchpad/ui-sweeps/ocrphone.js`). The same
+     sentence is the line under the page, so nothing is lost. */
+  .sheet-card-page .ocr-source {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The chip is an inline flex box (icon, then `.ph-text`), so the ellipsis
+     has to be on the text span: on the chip it ellipsises nothing, and the
+     span ran past the chip's edge (right=324 in a 320 screen). */
+  .sheet-card-page .ocr-source > .ph-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .sheet-card-page .ocr-page-label {

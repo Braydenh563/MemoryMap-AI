@@ -602,6 +602,20 @@ def _mindmap_made(result: dict, args: dict) -> Said:
     return f"Made the mind map {link(result.get('title') or args.get('title') or 'Untitled', at)}" + (f", starting from “{args['root_text']}”." if args.get("root_text") else "."), "", _chips(("Open the map", at))
 
 
+def _map_from_note(result: dict, args: dict) -> Said:
+    at = board_at(result.get("board_id"))
+    nodes = int(result.get("nodes") or 0)
+    return f"Made the mind map {link(result.get('title') or 'Untitled', at)} from the note, {count_noun(nodes, 'idea')}.", "", _chips(("Open the map", at))
+
+
+def _moved(result: dict, args: dict) -> Said:
+    moved = int(result.get("moved") or 0)
+    where = f"the category “{result['category']}”" if result.get("category") else f"the space “{result.get('space') or 'you named'}”"
+    if not moved:
+        return f"Those notes are already in {where}.", "", _chips(("Open your notes", NOTES))
+    return f"Moved {count_noun(moved, 'note')} to {where}.", "", _chips(("Open your notes", NOTES))
+
+
 def _map_node(result: dict, args: dict) -> Said:
     at = board_at(result.get("board_id") or args.get("board_id"))
     return f"Added “{result.get('text') or args.get('text') or 'an idea'}” to {link('the map', at)}.", "", _chips(("Open the map", at))
@@ -719,7 +733,7 @@ SAYERS: dict[str, Callable[[dict, dict], Said]] = {
     "link_notes": _linked, "unlink_notes": _linked, "audit_link_reasons": _audit,
     "create_category": _category, "rename_category": _category, "merge_categories": _category, "delete_category": _category,
     "rename_tag": _tag, "delete_tag": _tag, "create_document": _created_document, "delete_document": _deleted_document,
-    "create_mindmap": _mindmap_made, "add_map_node": _map_node, "link_map_nodes": _map_link,
+    "create_mindmap": _mindmap_made, "map_from_note": _map_from_note, "move_notes": _moved, "add_map_node": _map_node, "link_map_nodes": _map_link,
     "add_whiteboard_card": _board_card, "add_whiteboard_link": _board_write("Linked the two cards"),
     "add_board_shape": _board_write("Drew the shape"), "edit_board_item": _board_write("Changed it"),
     "move_board_item": _board_write("Moved it"), "delete_board_item": _board_write("Took it off the board"),

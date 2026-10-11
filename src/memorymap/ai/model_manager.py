@@ -900,13 +900,17 @@ def start_reindex(db: DatabaseManager, embeddings: Embedder) -> bool:
     return True
 
 
+#: The running app's own db, embedder and model client, filled in by
+#: `core/deps.py` when it loads (this module cannot import deps: deps imports
+#: it, and the import-cycle lint counts a function-body import too).
+APP_GETTERS: dict = {}
+
+
 def _is_app_pair(db: object, embeddings: object) -> bool:
     """True when `db` and `embeddings` are the running app's own, the only
     ones a durable job can find again by name after a restart."""
-    from memorymap.core import deps
-
     try:
-        return db is deps.get_db() and embeddings is deps.get_embeddings()
+        return db is APP_GETTERS["db"]() and embeddings is APP_GETTERS["embeddings"]()
     except Exception:  # noqa: BLE001  # no app state: a script or a test
         return False
 
@@ -915,14 +919,12 @@ def reindex_notebook() -> None:
     """The durable re-index (Brief 9, `jobstore.HANDLERS["reindex"]`): the
     app's notebook and embedder, looked up when it runs. A row resumed at
     launch has no registry entry yet, so it makes one for the panel."""
-    from memorymap.core import deps
-
     global _reindex_job
     with _lock:
         if _reindex_job is None or _reindex_job.status != "running":
             _reindex_job = Job(kind="reindex")
         job = _reindex_job
-    _run_reindex(deps.get_db(), deps.get_embeddings(), job)
+    _run_reindex(APP_GETTERS["db"](), APP_GETTERS["embeddings"](), job)
 
 
 def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
@@ -1063,10 +1065,8 @@ def start_pull(client: OllamaClient, name: str) -> bool:
 
 
 def _is_app_client(client: object) -> bool:
-    from memorymap.core import deps
-
     try:
-        return client is deps.get_ollama()
+        return client is APP_GETTERS["ollama"]()
     except Exception:  # noqa: BLE001  # no app state: a script or a test
         return False
 
@@ -1074,13 +1074,11 @@ def _is_app_client(client: object) -> bool:
 def pull_model(name: str) -> None:
     """The durable pull (Brief 9, `jobstore.HANDLERS["pull"]`): the app's
     own model client, looked up when it runs."""
-    from memorymap.core import deps
-
     with _lock:
         job = _pull_jobs.get(name)
         if job is None or job.status != "running":
             job = _pull_jobs[name] = Job(kind="pull", name=name)
-    _run_pull(deps.get_ollama(), name, job)
+    _run_pull(APP_GETTERS["ollama"](), name, job)
 
 
 def _run_pull(client: OllamaClient, name: str, job: Job) -> None:

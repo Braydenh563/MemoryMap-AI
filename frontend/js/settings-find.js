@@ -807,7 +807,7 @@ function renderCredits() {
   fold.dataset.wired = "1";
   const draw = () => {
     if (!fold.open || creditsLoad) return;
-    creditsLoad = fetch("/credits.json")
+    creditsLoad = api("/credits.json", { silent: true })
       .then((answer) => (answer.ok ? answer.json() : Promise.reject(new Error(String(answer.status)))))
       .then((data) => {
         const parts = [];

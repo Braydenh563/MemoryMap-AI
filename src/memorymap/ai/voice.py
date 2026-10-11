@@ -62,12 +62,15 @@ def options_from(config) -> dict:  # noqa: ANN001  # a ConfigManager
     return options
 
 
+#: `core/deps.peek_config`, set by deps when it loads (deps imports this
+#: module's neighbours, so importing it here would be a cycle).
+CONFIG_PEEK = lambda: None  # noqa: E731
+
+
 def _options() -> dict:
     """The running app's options; none outside it (a script, a bare test).
     `peek_config`, never `get_config`: that one makes a data folder."""
-    from memorymap.core import deps
-
-    config = deps.peek_config()
+    config = CONFIG_PEEK()
     return options_from(config) if config is not None else {}
 
 

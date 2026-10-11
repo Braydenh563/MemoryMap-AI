@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import reminder_parser, when
 from memorymap.ai.act_registry import CONFIRM_INTENTS
+from memorymap.ai.filed_name import filed_listing
 
 #: The verbs of the grammar (decision 38), as said in `Command.verb`.
 VERBS = ("remind", "tag", "untag", "file", "rename", "pin", "unpin", "link", "unlink", "delete", "create", "add", "summarise", "find", "open")
@@ -350,9 +351,7 @@ def _find(text: str) -> dict | None:
             #: route, not a find about "all my" (the routing gold, 2026-10-11).
             return None
         if intent == "find" and head in _LIST_HEADS:
-            from memorymap.ai import reading
-
-            filed = reading.filed_listing(text)
+            filed = filed_listing(text)
             if filed:
                 #: "list my work notes": the Work notes, or the notes tagged
                 #: work, when the notebook has either (ledger row 442).

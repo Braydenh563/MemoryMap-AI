@@ -68,7 +68,6 @@ search/searxng_manager.py::_run_streaming::thread::1
     #: that must outlive any one request), and a recording's transcription,
     #: which is also listed in the activity panel (api/routes_recordings.py).
     """
-api/routes_recordings.py::start_transcription::thread::1
 core/lanlive.py::Listener.start::executor::1
 core/lanlive.py::Listener.start::task::1
 core/lanlive.py::supervise::executor::1

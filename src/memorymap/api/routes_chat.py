@@ -1012,6 +1012,9 @@ def _attached_boards(session: Session, board_ids: list[int]) -> list[dict]:
     return found
 
 
+starter_acts.ATTACHED_BOARDS = _attached_boards
+
+
 def _outline_into(nodes: list[dict], depth: int, out: list[str]) -> None:
     """The tree as indented text, two spaces per level, one node per line.
 

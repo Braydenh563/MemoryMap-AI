@@ -2248,6 +2248,39 @@
      "label": "ph:trash Deleted the document “Launch checklist”"
     }
    }
+  ],
+  "map_from_note": [
+   {
+    "args": {
+     "note_id": 3
+    },
+    "result": {
+     "board_id": 9,
+     "title": "Trip plan",
+     "nodes": 6,
+     "label": "ph:tree-structure Made the mind map “Trip plan” from the note"
+    }
+   }
+  ],
+  "move_notes": [
+   {
+    "args": {
+     "ids": [
+      1,
+      2
+     ],
+     "category": "Travel"
+    },
+    "result": {
+     "moved": 2,
+     "category": "Travel",
+     "ids": [
+      1,
+      2
+     ],
+     "label": "ph:folder Moved 2 notes to “Travel”"
+    }
+   }
   ]
  }
 }

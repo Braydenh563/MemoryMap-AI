@@ -15,16 +15,17 @@ def _kinds(client):
 
 def test_a_deleted_fact_comes_back_and_the_lesson_goes(ai_client, fake_ollama):
     fact = _derive(ai_client, fake_ollama)
+    fact_id = fact['id']
     ai_client.delete(f"/learned/{fact['id']}")
     assert "delete_fact" in _kinds(ai_client)
     assert ai_client.get(f"/learned/{fact['id']}").status_code == 404
 
-    back = ai_client.post(f"/learned/{fact['id']}/restore")
+    back = ai_client.post(f"/learned/{fact_id}/restore")
     assert back.status_code == 200, back.text
     assert back.json()["text"] == fact["text"]
     assert "delete_fact" not in _kinds(ai_client)
     #: A fact that is not deleted cannot be "restored".
-    reply_1 = ai_client.post(f"/learned/{fact['id']}/restore")
+    reply_1 = ai_client.post(f"/learned/{fact_id}/restore")
     assert reply_1.status_code == 404
 
 

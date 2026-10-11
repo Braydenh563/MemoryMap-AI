@@ -185,11 +185,14 @@ def _open_note(session: Session, *, note_ids: list[int], document_ids: list[int]
     return _outline_answer(title, text), None
 
 
+#: `routes_chat._attached_boards`, set by routes_chat when it loads (it
+#: imports this module, so importing it here would be a cycle).
+ATTACHED_BOARDS = lambda session, ids: []  # noqa: E731
+
+
 def _open_board(session: Session, *, board_ids: list[int] = (), note_ids: list[int] = (), **_: object) -> tuple[str, None]:
     """The open board or map's topics, from the outline Chat attaches."""
-    from memorymap.api.routes_chat import _attached_boards
-
-    found = _attached_boards(session, list(board_ids or note_ids)[:1])
+    found = ATTACHED_BOARDS(session, list(board_ids or note_ids)[:1])
     if not found:
         return "No board or map is open. Open one and tick “Use the open board”.", None
     head, _, outline = found[0]["content"].partition("\n\n")

@@ -297,55 +297,8 @@ Two smaller things worth recording so nobody re-derives them:
 
 ### Adopted this session
 
-Each of these was re-implemented from scratch. What odysseus supplied was the
-*idea* and, more valuably, the failure mode it had already hit.
+Built; the list moved whole to HISTORY.md, "Moved from the plans, 2026-10-11 (ANALYSIS size cap)".
 
-- **A provider layer split by dialect, not by product (§6).** Odysseus's
-  `_detect_provider` matches on hostname rather than substring, and falls back
-  to "OpenAI-compatible" for everything unknown: which is right, because that
-  is what the long tail implements. The lesson taken: build the *dialect*, and
-  LM Studio, llama.cpp, Jan and vLLM all arrive together.
-
-- **`loaded_context_length` beats `max_context_length`.** Odysseus reads both
-  and prefers the loaded one. MemoryMap's plan for §6 named only the latter; a
-  128k model *loaded* at 4k would have had its prompt budgeted at 128k and
-  quietly lost its system prompt. This one measurement changed the design.
-
-- **"Known" is a separate fact from "known value".** Odysseus carries a
-  `known` flag beside every context length, because a fallback 128k is not
-  proof a model holds 128k, and a budget scaled off an unproven number is worse
-  than a conservative one. MemoryMap's version of this is `context_length`
-  returning `None` and callers falling back rather than a made-up default
-  propagating.
-
-- **Multi-field catalog probing.** Every OpenAI-compatible server spells the
-  window differently: `max_context_length`, `max_model_len`, `context_length`,
-  nested `meta.n_ctx`. Odysseus reads all of them. So does
-  `provider.context_from_catalog_entry` now.
-
-- **Never auto-pick an embedding model as a chat model.** Odysseus's
-  `_first_chat_model` exists because an OpenAI-style `/models` list routinely
-  puts `text-embedding-ada-002` first and "use the first one" silently picks
-  something that cannot hold a conversation. Re-implemented as
-  `provider.first_chat_model`.
-
-- **Model specs and context usage surfaced in the chat.** Odysseus reports
-  `context_percent`, `usage_source: real|estimated`, and per-model metadata on
-  every turn. This was the single most transferable *product* idea in the repo,
-  and MemoryMap already had every piece needed for it. The message metadata
-  line now says how full the window got, and marks an estimate as an estimate.
-
-- **Read the capability list.** Odysseus tracks what each model supports rather
-  than assuming. MemoryMap now reads Ollama's `capabilities` from `/api/show`,
-  and it immediately caught a bug in the brand-new quick preset, which would
-  have sent `think: false` to models that reject it.
-
-- **SSRF hardening on a user-supplied backend URL.** Odysseus's `url_safety.py`
-  makes exactly the right call for a local-first app: do *not* blanket-block
-  private addresses, because pointing at a local server is the entire use case
-  - block the link-local metadata range instead. Re-implemented as
-  `security.check_backend_url`, plus a warning MemoryMap needs and odysseus
-  does not, because MemoryMap promises the notes never leave the machine.
 
 ---
 
@@ -2630,49 +2583,7 @@ than trusting the read.
 
 ## The night's merges reviewed line by line, 2026-09-21
 
-Seventeen merges sit between PR 150's base and its head, 151 files and
-21,091 insertions, and three of them came from worktrees cut 176, 231 and
-250 commits back and were resolved by hand. That is the shape CLAUDE.md
-section 6 is written about, so the head was read against its four questions
-before any more work landed on it. The verdict is clean, and the point of
-recording it is that a clean review is a fact the next session should not
-have to buy twice.
-
-**A feature that never ran once.** Eighty-one functions were added to
-`frontend/js/*.js` and twenty-three defs to `src/`, and every one of them has a
-call site. The three that answer to nothing but a decorator are routes, and
-each is reachable: `/entries/reference-counts` from `ensureReferenceCounts`,
-`/drafts/compose/stream` from `streamDraft`, and `/drafts/compose` from the
-tests that speak this feature's shape, which is what its docstring says it
-is kept for.
-
-**A guard removed while the shape around it was kept.** Every deleted
-`pointerType !== "touch"` line in the diff, and there are six, was deleted
-into `wireLongPress`, which keeps the same guard once instead of six times.
-The SQL `LIKE` escaping that looked dropped in `_list_skills` was
-reformatted around a new `*extra` argument with `like_escape` and
-`LIKE_ESCAPE` both intact.
-
-**A working thing rewritten into a riskier thing.** The writing desk is the
-one real rewrite, and its new streaming path holds up: `streamDraft` carries
-a partial line across chunk boundaries rather than splitting each chunk on
-its own, skips an unparseable frame instead of throwing out of a
-half-written draft, sends `X-Auth-Token`, and sends the lock screen up on a
-401. The empty `title` on every entry in `_sources` is not a loss: an entry
-in this app has no title column, and `drafter` writes a bare `[1]` when the
-title is empty, which is the intended shape.
-
-**What the fake transport cannot see.** `_accumulate_tool_calls` is correct
-for concurrent calls: index-keyed buckets, id, name and arguments folded
-separately, replayed in index order with `call_<index>` as the id of last
-resort. Its one latent flaw is the default in `fragment.get("index", 0)`,
-which is INBOX 285.
-
-Chat history is trimmed today: `agent.build_messages`' `budget` cuts the
-notes and the history to what the window holds. So odysseus's compaction
-idea, which is still the owner's to decide, is a refinement of a guard that
-exists rather than a missing one, and nothing is silently overflowing while
-the decision waits.
+Clean verdict; the review moved whole to HISTORY.md, "Moved from the plans, 2026-10-11 (ANALYSIS size cap)".
 
 ## Twenty-four repositories read for MemoryMap, 2026-09-21
 
@@ -4485,3 +4396,105 @@ Size is S (under a day), M (a day or two). Each row is placed in
   classification.
 - Their ROADMAP asks "do integrations even work", so no feature of theirs is
   credited as working, only as designed.
+
+## Vendor candidates, 2026-10-11
+
+Brief 87 step 1 (INBOX 833): the owner asked whether the text-to-speech voice
+and dictation can be improved with something vendored, and what else could be
+taken in for the editor, whiteboard, mind map, search, filing and datasets.
+Research only; nothing here was installed, built or run. Licence checks are the
+root `LICENSE` file of each repository, fetched 2026-10-11; sizes and CPU
+figures are the projects' own statements and are marked "claimed" where no
+file was downloaded.
+
+**Licence rule applied** (the constraint at the top of this file): code under
+MIT, ISC, BSD, Apache-2.0 or GPL-3.0 may come into this AGPL-3.0 project with
+its notices kept. Apache-2.0 is one-way compatible with GPL-3.0 and so with
+AGPL-3.0. EPL-2.0 is not, unless the project grants a GPL secondary licence.
+Creative Commons share-alike data and non-commercial licences are refused.
+Model weights and voices carry their own licence, separate from the engine's,
+and are read per file.
+
+**What the repo does today** (grep, 2026-10-11):
+
+| Surface | Today |
+| --- | --- |
+| Dictation | `toggleDictation` (`frontend/js/media.js:630`) records the whole clip with `getUserMedia({ audio: true })` (no noise-suppression constraint), uploads it on the second press; `ai/voice.py:87` calls `model.transcribe(path)` with no `vad_filter`, no `language`, no `initial_prompt`, model `base`. The Extra is `faster-whisper` (`core/extras.py:401`). |
+| Captions | `ai/captions.py` talks to an optional external `whisper-server` (whisper.cpp dialect) at `MEMORYMAP_CAPTIONS_URL`; `frontend/js/captions.js:142` opens the mic the same way. No installer fetches the helper. |
+| Read aloud | The browser's `speechSynthesis` (`media.js:702`, `documents-prose.js:1010`), local voices only. No downloadable voice, no Extra. |
+| Search | SQLite FTS5 (`search/engine.py`), BM25 sentence scoring (`ai/composer.py`), embeddings through `sentence-transformers` (`core/embedmodels.py`; torch is forbidden, so semantic search is an opt-in Extra). |
+| Editor | CodeMirror 6 vendored (`frontend/vendor/codemirror`), emmet, js-beautify, Harper (grammar, WASM), a hand-written Mermaid subset (`documents.js:8977`), a hand-written maths renderer (decision: no KaTeX, `documents.js:6979`). |
+| Whiteboard and map | Own canvas code (`whiteboard*.js`, `whiteboard-map.js`); `d3` v7 vendored (its `tree()` is the map layout per MINDMAP_PLAN 3.1). Freehand is one quadratic curve through points; no sketchy style found. |
+| Vendoring pattern | `frontend/vendor/<name>/` holds the committed built output plus `LICENSE`, `package.json`, `entry.js` and `build.sh`; no bundler runs at runtime. |
+
+### Table
+
+Columns: Fits = fits AGPL; CPU is for a 2020-class laptop core and claimed
+unless stated.
+
+| # | Candidate | Improves | Licence, Fits | Size | Offline | CPU cost | Replaces today | Recommendation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Silero VAD (`snakers4/silero-vad`) | Dictation, captions: trims silence, stops Whisper hallucinating on pauses, auto-stop on silence | MIT (LICENSE read). Fits. Some mirrors show a CC BY-NC badge; the upstream file is MIT | About 2 MB ONNX | Yes | Under 1 ms per 30 ms chunk, one thread (claimed) | Nothing: no VAD today. `faster-whisper` already bundles the Silero ONNX, so `vad_filter=True` at `ai/voice.py:87` needs no new vendoring | **Take, first.** One argument for the server path (verify the installed `faster-whisper` has it); `@ricky0123/vad-web` (ISC) only if the page needs live auto-stop |
+| 2 | Piper, `OHF-Voice/piper1-gpl` | TTS voice: natural neural read-aloud, an audio overview | Engine GPL-3.0 (COPYING read); the MIT `rhasspy/piper` is archived. Fits (GPL into AGPL). Each voice has its own MODEL_CARD licence, read per voice | Voices roughly 20 MB (low) to 110 MB (high), about 60 MB for medium (claimed from Piper's voice list, not downloaded) | Yes after the voice download | Faster than real time on one core (claimed) | `speechSynthesis` in `media.js:702` and `documents-prose.js:1010` | **Take** as an Extra (`core/extras.py`) plus `/voice/speak`; keep `speechSynthesis` as the zero-download fallback. Records the correction already made above (repository moved, GPL) |
+| 3 | Kokoro-82M through `thewh1teagle/kokoro-onnx` | TTS voice: the best quality per size of the open options | Weights Apache-2.0 (hub card); `hexgrad/kokoro`, `hexgrad/misaki` Apache-2.0; `kokoro-onnx` MIT. Fits. Its phonemiser pulls espeak-ng (GPL-3.0), which also fits | 88 MB int8, 310 MB fp32 (claimed) | Yes after download | About real time on CPU at int8; fp32 slower (a Pixel 8a measured RTF 1.8, claimed) | Same as Piper. **Corrects the note above**, which said the ONNX route "nobody ships": `kokoro-onnx` is that route, `onnxruntime` plus numpy, no torch | **Take as the second voice** after Piper, once `onnxruntime` is an Extra for embeddings too; a listening pair against Piper settles the default |
+| 4 | sherpa-onnx (`k2-fsa`) | One runtime for ASR (streaming and offline), TTS (Piper and Matcha voices), Silero VAD, speech enhancement (GTCRN) | Apache-2.0 (LICENSE read). Fits. Per-model licences vary | Library not stated; models 20 MB to 1 GB | Yes; has WebAssembly builds | Streaming Zipformer models of 14M to 20M parameters run on a Cortex A7 (claimed) | Would replace both `faster-whisper` and the external caption helper | **Leave for now, revisit.** It is the tidy single dependency, but it replaces working code; take it only if rows 1 to 3 land and the Extras list is too long |
+| 5 | whisper.cpp (`ggml-org/whisper.cpp`) | Live captions, faster dictation, quantised models | MIT (LICENSE read). Fits | tiny 75 MB, base 142 MB, small 466 MB; q5_1 base 57 MiB (hub card) | Yes | `stream` example runs live; the repo measured 0.72 s for a 5 s window on tiny.en with `audio_ctx` cut | The captions helper, which is already designed around its server dialect | **Already adopted by design** (`ai/captions.py`). The gap is delivery: an Extra that fetches the binary and a model, as the module's docstring says. Take that step |
+| 6 | Moonshine (`moonshine-ai/moonshine`) | Streaming English dictation with very low latency on small CPUs | Code and default models MIT; legacy non-English models under a non-commercial community licence (LICENSE read). Fits for English | Its page says "tiny 1MB models" with no other sizes (confirm the real file sizes) | Yes | Built for live streaming (no figure) | Nothing; an alternative to row 5 | **Leave, measure later.** Needs a word-error comparison against `base` Whisper on the 20 fixture clips of Brief 87 step 2 |
+| 7 | RNNoise (`xiph/rnnoise`) | Noise suppression on the mic before Whisper | BSD-3-Clause (COPYING read). Fits | Weights well under 1 MB (not downloaded) | Yes | Light; designed for real-time voice calls | The mic opens with no constraints | **Skip as a vendor.** First turn on the browser's own `noiseSuppression`, `echoCancellation` and `autoGainControl` constraints at `media.js:644`, `captions.js:142` and `meetings.js:723`: free, no download. Revisit RNNoise only if a clip pair measures a gap |
+| 8 | DeepFilterNet (`Rikorose/DeepFilterNet`) | Higher-quality denoise than RNNoise, for recorded meetings | Dual MIT or Apache-2.0 (README read). Fits | Not stated on its page; a pre-built `deep-filter` binary exists | Yes | Real-time version exists; no figure on the page | Nothing | **Leave.** A binary to fetch and ship across three operating systems for a gain nobody has measured on this app's recordings; a post-process option on meeting audio later |
+| 9 | Browser audio constraints (not a vendor) | Dictation, captions, meetings: denoise, echo and level for free | Platform feature | 0 | Yes | Native | `getUserMedia({ audio: true })` | **Take with row 1**; it is the cheapest dictation win and needs one listening pair to prove |
+| 10 | faster-whisper settings (already a dependency) | Dictation accuracy: `language`, `initial_prompt` from note vocabulary, `beam_size`, model `small` | MIT. Fits | `base` about 140 MB, `small` about 460 MB (same weights as row 5) | Yes | `small` roughly 3x `base` | `model.transcribe(path)` with defaults | **Take** with row 1; the model choice is a Settings row, measured on the fixture clips |
+| 11 | perfect-freehand (`steveruizok`) | Whiteboard ink: pressure-style variable-width strokes that look like pen, not a thin line | MIT (read). Fits | A few KB | Yes | Per stroke, negligible | One quadratic curve through points (`whiteboard.js` freehand) | **Take.** Smallest cost for the most visible whiteboard polish; vendor under `frontend/vendor/perfect-freehand/` |
+| 12 | rough.js (`rough-stuff/rough`) | Whiteboard: a "sketchy" hand-drawn shape style, also for mind-map nodes | MIT (read). Fits | Under 100 KB minified (claimed) | Yes | Per shape; cache the paths | No sketch style found | **Take as an optional style** per board; vendor with its LICENSE; draw once to an offscreen path |
+| 13 | Excalifont and Virgil hand fonts (Excalidraw), `excalidraw/excalidraw` | Whiteboard text that matches the sketchy style | App is MIT (read); the fonts are SIL OFL-1.1 (confirm per font file). Fonts as separate files fit | Tens of KB per font file | Yes | None | Whatever text fonts the board offers | **Take with row 12**, after reading each font's own licence file. Do not take the Excalidraw app itself (React, bundler, MIT but a rewrite) |
+| 14 | tldraw | Whiteboard | Its own licence ("tldraw license", LICENSE.md read), not an open-source licence | n/a | n/a | n/a | n/a | **Refuse.** Not usable here whatever the quality |
+| 15 | rbush or flatbush (`mourner`) | Whiteboard: hit-testing and marquee over thousands of items (`whiteboard.js:5715` comment calls the marquee quadratic) | MIT (read). Fits | About 6 KB | Yes | Logarithmic queries | Linear scans | **Leave until measured.** Build a 5,000-item board; take it only if marquee or hover costs over 16 ms |
+| 16 | dagre (`dagrejs/dagre`) | Flowchart auto-layout (Mermaid import, board "tidy" for non-trees) | MIT (read). Fits | About 280 KB min (claimed) | Yes | Fine to a few hundred nodes | `mermaidFlowLayout` hand layout (`documents.js:9076`) | **Leave.** Take only if a measured crossing count on the Mermaid fixtures says the hand layout is poor |
+| 17 | ELK.js (`kieler/elkjs`) | Best layered layout | EPL-2.0 (read). Not compatible with AGPL unless a GPL secondary licence is granted | Large (WASM-like JS) | Yes | Heavy | Same as row 16 | **Refuse** on licence; dagre is the fallback |
+| 18 | markmap (`markmap/markmap`) | Mind map: outline text to a laid-out map | MIT (read). Fits | Lib plus view, with d3 already vendored | Yes | Light | `d3.tree()` in MINDMAP_PLAN 3.1 | **Leave for the code, read for ideas** (fold state, outline round trip). The map already has more than markmap draws |
+| 19 | MiniSearch (`lucaong/minisearch`) | Search boxes: prefix and fuzzy suggestions in the page (Brief 86) | MIT (read). Fits | About 30 KB min (claimed) | Yes | Index of a few thousand titles builds in milliseconds | Nothing; the recents list has no completion | **Leave.** Brief 86 needs prefix match over recents, titles, tags and categories: a sorted array does it; take MiniSearch only if fuzzy typo tolerance is added |
+| 20 | model2vec, `minishlab/potion-base-8M` and `potion-retrieval-32M` | Search and filing: embeddings with no torch | Code MIT (read); both models MIT (hub cards). Fits | 7.6M and 32.3M parameters; roughly 30 MB and 125 MB at fp32 (derived, not downloaded) | Yes | Static lookup tables: orders of magnitude faster than a transformer | `sentence-transformers` MiniLM or bge-small, which torch makes unusable in the default install | **Take, high.** Semantic search with numpy and the tokenizers wheel would be on by default instead of an opt-in Extra; check the retrieval score against `bge-small` on the repo's search fixtures first |
+| 21 | chrono-node (`wanasit/chrono`) | Reminders, filing by date: "next Tuesday at 3" | MIT (read). Fits | About 200 KB min (claimed) | Yes | Light | `ai/reminder_parser.py` (Python); this is JS | **Leave.** Wrong language for the server parser; compare fixtures only if the parser misses real phrasings |
+| 22 | GLiNER (`urchade/GLiNER`) | Filing: zero-shot named entities and labels from a list of categories | Apache-2.0 (read). Fits | ONNX exports of the small models are tens to hundreds of MB (claimed) | Yes | Moderate; per-note, background | `ai/entities.py`, `ai/taxonomy.py` heuristics | **Leave, backlog.** Revisit after row 20 gives an `onnxruntime` Extra |
+| 23 | lingua-py (`pemistahl/lingua-py`) | Filing, OCR and dictation: language of a note or clip | Apache-2.0 (read). Fits | Large with all languages, small with a subset | Yes | Light | Nothing (Whisper detects its own) | **Leave.** No surface asks for it |
+| 24 | Unicode CLDR emoji annotations | Editor: `:heart` shortcodes find more, in more words | Unicode licence (permissive; confirm on the file) | A few hundred KB as JSON | Yes | None | `DOC_EMOJI_SOURCE` (`documents-prose.js:1374`), a hand table | **Take if coverage is short.** Measure how many common names the table misses first |
+| 25 | WordNet (Princeton) | Editor: define and synonym lookup on a selection | WordNet licence, permissive (confirm text) | About 10 MB raw, less trimmed | Yes | Lookup | Nothing | **Backlog.** A small utility the owner might notice; not before rows 1 to 3 and 11 |
+| 26 | ProseMirror or Tiptap | Editor: rich-text structure | MIT (read). Fits | Hundreds of KB, needs `build.sh`-style bundling | Yes | Moderate | CodeMirror 6 markdown editor | **Refuse as a swap.** A rewrite of the documents surface for features CodeMirror can add one at a time |
+
+Left on earlier decisions, no row: Mermaid (hand subset, size and CSP), KaTeX
+(`documents.js:6979`), Yjs (no CRDT, WORLD_CLASS_PLAN 635).
+
+### Top five, ranked
+
+Scored on (impact on what the owner reported) x (licence clean) x (size and
+install cost) x (effort), each judgement stated.
+
+1. **Silero VAD through `faster-whisper`, plus the browser noise constraints
+   and `language`/`initial_prompt`/`small` settings (rows 1, 9, 10).** No new
+   download, one call site (`ai/voice.py:87`) and three `getUserMedia` calls.
+   The likeliest cause of poor dictation is Whisper being fed silence and
+   hum, not the model. Step 2's 20 fixture clips measure word error before
+   and after.
+2. **Piper (row 2).** The largest audible step up from `speechSynthesis`, GPL-3.0
+   fits, small voices, CPU-only, one Extra. Choose voices per MODEL_CARD.
+3. **Kokoro-82M via `kokoro-onnx` (row 3).** Better voice than Piper at 88 MB
+   int8 with no torch; second because it needs `onnxruntime` and a phonemiser
+   chain. The listening pair decides which is the default.
+4. **perfect-freehand and rough.js with the Excalidraw hand fonts (rows 11 to
+   13).** Under 100 KB together, MIT and OFL, and the whiteboard's ink and
+   shapes change from "diagram tool" to "pen on paper", the polish the owner
+   says is missing. Pair with WHITEBOARD_PLAN E5's small-things list.
+5. **model2vec `potion` models (row 20).** Moves semantic search from an
+   opt-in Extra to the default with numpy only. Highest uncertainty of the
+   five (retrieval quality is unmeasured against `bge-small`), so it ranks
+   last.
+
+### Not verified, stated plainly
+
+- Nothing was downloaded, installed or run. Every size, speed and quality
+  figure is the project's or hub's claim; "derived" means arithmetic on
+  parameter counts, not a measurement.
+- Piper voice sizes and per-voice licences (not fetched), the OFL status of
+  each Excalidraw font file, the Unicode and WordNet licence texts, and
+  whether the installed `faster-whisper` is new enough to bundle Silero VAD
+  were not checked and must be before step 2 or 3 starts.

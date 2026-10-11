@@ -48519,3 +48519,105 @@ WHITEBOARD_PLAN "canvasdepth, ranked".
   not overlapping, each holding its own two shapes, two joined connectors, one
   Undo to an empty board; `wbdrawio.js` 11/11 still. Tests:
   `tests/test_wb_drawio_import.py`.
+
+## Moved from the plans, 2026-10-11 (ANALYSIS size cap)
+
+Two finished blocks of ANALYSIS.md, moved whole at Brief 87 step 1 so the file stays under its cap (standing order 10). Section 33's adopted list, then the 2026-09-21 merge review.
+
+#### Adopted this session (section 33)
+
+Each of these was re-implemented from scratch. What odysseus supplied was the
+*idea* and, more valuably, the failure mode it had already hit.
+
+- **A provider layer split by dialect, not by product (§6).** Odysseus's
+  `_detect_provider` matches on hostname rather than substring, and falls back
+  to "OpenAI-compatible" for everything unknown: which is right, because that
+  is what the long tail implements. The lesson taken: build the *dialect*, and
+  LM Studio, llama.cpp, Jan and vLLM all arrive together.
+
+- **`loaded_context_length` beats `max_context_length`.** Odysseus reads both
+  and prefers the loaded one. MemoryMap's plan for §6 named only the latter; a
+  128k model *loaded* at 4k would have had its prompt budgeted at 128k and
+  quietly lost its system prompt. This one measurement changed the design.
+
+- **"Known" is a separate fact from "known value".** Odysseus carries a
+  `known` flag beside every context length, because a fallback 128k is not
+  proof a model holds 128k, and a budget scaled off an unproven number is worse
+  than a conservative one. MemoryMap's version of this is `context_length`
+  returning `None` and callers falling back rather than a made-up default
+  propagating.
+
+- **Multi-field catalog probing.** Every OpenAI-compatible server spells the
+  window differently: `max_context_length`, `max_model_len`, `context_length`,
+  nested `meta.n_ctx`. Odysseus reads all of them. So does
+  `provider.context_from_catalog_entry` now.
+
+- **Never auto-pick an embedding model as a chat model.** Odysseus's
+  `_first_chat_model` exists because an OpenAI-style `/models` list routinely
+  puts `text-embedding-ada-002` first and "use the first one" silently picks
+  something that cannot hold a conversation. Re-implemented as
+  `provider.first_chat_model`.
+
+- **Model specs and context usage surfaced in the chat.** Odysseus reports
+  `context_percent`, `usage_source: real|estimated`, and per-model metadata on
+  every turn. This was the single most transferable *product* idea in the repo,
+  and MemoryMap already had every piece needed for it. The message metadata
+  line now says how full the window got, and marks an estimate as an estimate.
+
+- **Read the capability list.** Odysseus tracks what each model supports rather
+  than assuming. MemoryMap now reads Ollama's `capabilities` from `/api/show`,
+  and it immediately caught a bug in the brand-new quick preset, which would
+  have sent `think: false` to models that reject it.
+
+- **SSRF hardening on a user-supplied backend URL.** Odysseus's `url_safety.py`
+  makes exactly the right call for a local-first app: do *not* blanket-block
+  private addresses, because pointing at a local server is the entire use case
+  - block the link-local metadata range instead. Re-implemented as
+  `security.check_backend_url`, plus a warning MemoryMap needs and odysseus
+  does not, because MemoryMap promises the notes never leave the machine.
+
+#### The night's merges reviewed line by line, 2026-09-21
+
+Seventeen merges sit between PR 150's base and its head, 151 files and
+21,091 insertions, and three of them came from worktrees cut 176, 231 and
+250 commits back and were resolved by hand. That is the shape CLAUDE.md
+section 6 is written about, so the head was read against its four questions
+before any more work landed on it. The verdict is clean, and the point of
+recording it is that a clean review is a fact the next session should not
+have to buy twice.
+
+**A feature that never ran once.** Eighty-one functions were added to
+`frontend/js/*.js` and twenty-three defs to `src/`, and every one of them has a
+call site. The three that answer to nothing but a decorator are routes, and
+each is reachable: `/entries/reference-counts` from `ensureReferenceCounts`,
+`/drafts/compose/stream` from `streamDraft`, and `/drafts/compose` from the
+tests that speak this feature's shape, which is what its docstring says it
+is kept for.
+
+**A guard removed while the shape around it was kept.** Every deleted
+`pointerType !== "touch"` line in the diff, and there are six, was deleted
+into `wireLongPress`, which keeps the same guard once instead of six times.
+The SQL `LIKE` escaping that looked dropped in `_list_skills` was
+reformatted around a new `*extra` argument with `like_escape` and
+`LIKE_ESCAPE` both intact.
+
+**A working thing rewritten into a riskier thing.** The writing desk is the
+one real rewrite, and its new streaming path holds up: `streamDraft` carries
+a partial line across chunk boundaries rather than splitting each chunk on
+its own, skips an unparseable frame instead of throwing out of a
+half-written draft, sends `X-Auth-Token`, and sends the lock screen up on a
+401. The empty `title` on every entry in `_sources` is not a loss: an entry
+in this app has no title column, and `drafter` writes a bare `[1]` when the
+title is empty, which is the intended shape.
+
+**What the fake transport cannot see.** `_accumulate_tool_calls` is correct
+for concurrent calls: index-keyed buckets, id, name and arguments folded
+separately, replayed in index order with `call_<index>` as the id of last
+resort. Its one latent flaw is the default in `fragment.get("index", 0)`,
+which is INBOX 285.
+
+Chat history is trimmed today: `agent.build_messages`' `budget` cuts the
+notes and the history to what the window holds. So odysseus's compaction
+idea, which is still the owner's to decide, is a refinement of a guard that
+exists rather than a missing one, and nothing is silently overflowing while
+the decision waits.

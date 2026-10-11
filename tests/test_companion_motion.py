@@ -1709,3 +1709,14 @@ def test_atlas_changes_face_on_its_own_and_on_more_events() -> None:
     js = ROOT / "frontend" / "js"
     assert 'atlasOn(hits.length ? "found" : "nothing")' in (js / "search.js").read_text(encoding="utf-8")
     assert 'atlasOn("done")' in (js / "shell-reminders.js").read_text(encoding="utf-8")
+
+
+def test_the_companion_steps_off_a_dock_more_menu():
+    """The owner, 2026-10-11, over Notes' Reload / Manage tags menu: "the
+    companion still covers some parts of the ui and doesnt move out of the
+    way". A dock's "more" menu is an open `<details>`, which the popup list
+    missed (measured: the figure now ends clear of the open menu's box)."""
+    js = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
+    popups = re.search(r"const NMB_POPUPS = \"(.*)\";", js).group(1)
+    assert 'details[open][class*=\\"menu\\"] > :not(summary)' in popups
+    assert '[role=\\"menu\\"]:not(.hidden)' in popups

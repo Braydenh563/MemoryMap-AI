@@ -1714,12 +1714,6 @@ header#top-bar[data-scrolled="1"],
     flex: 0 0 auto;
   }
 }
-@media (max-width: 599.98px) {
-  #tab-library .library-card-preview {
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-  }
-}
 /* A ⋯ menu as an action sheet below 600 (`openKebabSheet`, app.js): the menu
    is moved into the sheet's card and sheds the popover it is elsewhere; its
    rows take the card's width at the band's 44px floor, and its hairlines
@@ -2052,24 +2046,6 @@ header#top-bar[data-scrolled="1"],
     min-height: var(--target-min);
     min-width: var(--target-min);
   }
-  /* The sheet gives the sections room to be a palette rather than a strip:
-     they stack, and each section's row wraps instead of running off the
-     side. The 42-control inventory this rail started as is exactly what a
-     sheet is for. */
-  .wb-tools-palette #wb-tool-group {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-3);
-    overflow: visible;
-  }
-  .wb-tools-palette .wb-tool-section-row {
-    flex-wrap: wrap;
-  }
-  .wb-tools-palette :is(button, summary, .wb-shape-toggle) {
-    min-height: var(--target-min);
-    min-width: var(--target-min);
-  }
 }
 /* --- the board's bar takes the floor of the whole touch band, not just 600 --
    It was written in the 600 band with Phase 11 item 7, and the band above it
@@ -2148,12 +2124,6 @@ header#top-bar[data-scrolled="1"],
   /* Find, over the reading: a 343x20 box at this width, the one control in
      the reader that is neither in the head nor in the toolbar. */
   .sheet-card-page .ocr-find-input {
-    min-height: var(--target-min);
-  }
-  /* The rail's own tabs, which are 13x25 at this width: they only appear when
-     the rail does, and the rail is hidden here, but the switch above it is
-     not, and a tab you cannot hit is a list you cannot change. */
-  .sheet-card-page .ocr-rail-tab {
     min-height: var(--target-min);
   }
   /* The reading's actions are in the thumb bar now (`ocrPhonePage`), so the
@@ -2329,12 +2299,6 @@ header#top-bar[data-scrolled="1"],
      name and the pane pads as the card does: the line is at 199. */
   #doc-panes.reading > #doc-preview {
     padding: var(--space-6);
-  }
-  #doc-preview > .doc-preview-title {
-    display: none;
-  }
-  #doc-preview > .doc-preview-title + * {
-    margin-top: 0;
   }
 }
 /* And on a touch-first tablet, the keyboard help too: the same Ctrl chords,

@@ -1083,36 +1083,14 @@ summary > .ph-lead,
   white-space: nowrap;
   box-shadow: none;
 }
-.skill-card .skill-card-facts > :is(.chip, button).skill-fact > .ph-lead {
-  margin-inline-end: 0;
-}
-.skill-card .skill-card-facts > button.skill-fact-toggle {
-  cursor: pointer;
-}
 /* The caret says which way it will go, by turning, never by colour alone. */
 .skill-card .skill-fact-toggle > .ph-trail {
   margin-inline-start: 0;
   transition: rotate var(--ui-fast) var(--ease-out);
 }
-.skill-card .skill-fact-toggle[aria-expanded="true"] > .ph-trail {
-  rotate: 180deg;
-}
 .skill-card .skill-card-facts > button.skill-fact-toggle:is(:hover, :focus-visible, [aria-expanded="true"]) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
-}
-/* The facts row's hit target on a touch screen: the box keeps the row's
-   height and a transparent band above and below it takes the press, so the
-   row is not three 44px slabs beside two 24px chips. */
-@media (pointer: coarse) {
-  .skill-card .skill-card-facts > button.skill-fact-toggle {
-    position: relative;
-  }
-  .skill-card .skill-card-facts > button.skill-fact-toggle::after {
-    content: "";
-    position: absolute;
-    inset: calc((var(--skill-fact-h) - var(--target-min)) / 2) 0;
-  }
 }
 /* What a toggle opens: the card's full width, under the row. The panel adds
    no box of its own; the list inside is the steps' bordered panel or the
@@ -1125,9 +1103,6 @@ summary > .ph-lead,
 .skill-fact-list-tools {
   align-items: center;
   padding: 0;
-}
-.skill-fact-list-tools > li {
-  display: flex;
 }
 .skill-fact-list-tools .skill-tool-token {
   display: inline-flex;
@@ -1154,12 +1129,6 @@ summary > .ph-lead,
 .skill-card > .skill-card-desc,
 .skill-card > .skill-card-when {
   margin: 0;
-}
-/* Its menu beside Run is Run's height, not the 28px of a lone icon; never
-   under the touch floor, which is the larger of the two on a phone. */
-.skill-card-footer .skill-card-more > button {
-  min-width: max(var(--control-h-lg), var(--target-min));
-  min-height: max(var(--control-h-lg), var(--target-min));
 }
 /* The card's own "Built-in" marker is the same fact the persona list states,
    so it says it the same way. `--accent-soft` is this app's *selected* tone
@@ -2390,50 +2359,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   #graph-concept-maps .dock-link-label {
     display: none;
   }
-}
-/* **The fold on a picture card is a chip, not a bar** (INBOX 118: the
-   full-width tinted disclosure "is the heaviest element on the card").
-   The decision it is bent around is not being remade: a `<summary>` rests
-   with a ground and a hairline (`summary:not(.icon-only):not(.icon-button)`,
-   07-whiteboard-misc.css) because "a disclosure that looks like a line of
-   text is a control nobody finds", and that holds here too. What the owner
-   is looking at is not the ground, it is the *span* of it. Measured at 1440
-   dark on a 180.3px tile: the bar ran 159.1px by 32.8px, so a control
-   holding one folded-away reading covered the full width of the card at the
-   weight of a filled button, directly under a 12px description, and it was
-   the first thing the eye landed on in a gallery of twenty.
-   Sized to its words instead, and one step down the type scale so it sits
-   below the prose it belongs to rather than over it. `max-width: 100%` and
-   no `nowrap`: past the card's width the label wraps rather than clipping,
-   which is what a 390px card does not need and a narrow tile might.
-   (0,3,1) against that rule's (0,2,1), and later in the cascade, so it wins
-   on specificity rather than on file order alone. Images only: the fold on a
-   Files row heads a full-width row and stays a full-width bar. */
-.library-image-card-fold > summary:not(.icon-only):not(.icon-button) {
-  width: fit-content;
-  max-width: 100%;
-  font-size: var(--text-xs);
-  /* The chip tier of ground rather than the button tier, which is both half
-     of what made it read as heavy and the only way the label passes AA here.
-     Sampled from the rendered pixels (`scratchpad/pngpixel.py`, not a
-     composite guess, since every surface under this one is translucent over
-     the page's art): on dark the label painted rgb(168,176,189) on a
-     rgb(74,80,93) ground, 3.70:1 at 11.2px against the 4.5 it owes. The same
-     text on `--chip-bg` measures 5.10:1, and light was already 5.71:1 and
-     goes up. The hover fill is untouched, so the control still answers the
-     pointer with the app's own ghost tone.
-     The *edge* carries what the fill gives up. With the ground this quiet the
-     hairline is most of what says "control", and a quieter ground is also a
-     quieter border, since a border paints over its own element's fill:
-     measured off the pixels, the chip's edge against the card fell to 2.48:1
-     in dark on the way down to `--chip-bg`, under the 3:1 a control's
-     boundary owes. One step up the same ladder of tokens puts it at 3.30:1
-     dark and 2.19:1 light, against 3.2 and 1.97 before any of this: better in
-     both themes without putting the slab back. Light stays under 3:1 because
-     every tonal control in this app does there; that is the button ramp's
-     business, not this card's. */
-  background: var(--chip-bg);
-  border-color: var(--ghost-btn-border-hover);
 }
 /* ---------------------------------------------------------------------------
    8. A panel head is identity, one fact, then the actions, and it does not
@@ -3805,40 +3730,8 @@ body .chip.item-label,
      the lock screen's one action gets a finger's floor like every other. */
   min-height: var(--target-min);
 }
-/* --- the Library, second pass: cards in reading order, one anatomy ----------
-   docs/roadmap/agent-remaining/pass2.md, findings 1 to 4, measured at 1440 in
-   Quiet on a seeded notebook.
-   1. The cards are dealt into columns in order (library.js
-      `libraryColumnCount`): the grid is a row of `.library-col`s, each a
-      column of cards with the grid's own gap, and the incremental
-      renderer's sentinel takes a line of its own under them, or it would
-      sit at the top of the row and ask for the next chunk forever.
-   2. The picture on a card bleeds to the card's three top edges. Two rules
-      had disagreed: one bled it with a negative margin, a later one set its
-      width to 100%, and together they drew it 48px narrower than the card,
-      flush left, with a hole on the right.
-   3. A category is the note meta row's: a dot in the category's colour and
-      the name in ink. An unset one is left out (library.js). */
-#library-grid.library-columns {
-  columns: unset;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  row-gap: 0;
-}
-#library-grid.library-columns > .library-col {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
 #library-grid.library-columns > .library-col > .library-card {
   margin-bottom: 0;
-}
-#library-grid.library-columns > .list-window-sentinel {
-  flex: 0 0 100%;
-  list-style: none;
 }
 .library-grid:not(.library-list) .library-card > .library-card-thumb {
   width: calc(100% + var(--space-6) * 2);
@@ -3863,15 +3756,6 @@ body .chip.item-label,
   height: 0.5em;
   border-radius: var(--radius-pill);
   background: var(--category-dot);
-}
-/* 4. A board or map card put its kind icon on a row of its own above the
-      title, a 20px line that said nothing the picture under it does not.
-      The icon leads the title, as it does on every other card. */
-.library-grid:not(.library-list) .library-board-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: baseline;
-  column-gap: var(--space-3);
 }
 .library-grid:not(.library-list) .library-board-card > .library-card-top {
   padding-right: 0;
@@ -3935,12 +3819,6 @@ body .chip.item-label,
     grid-row: 1;
     justify-self: center;
   }
-  .bookmark-row > .bookmark-main {
-    grid-column: 2;
-  }
-  .bookmark-row > .bookmark-actions {
-    grid-column: 3;
-  }
   :is(.doc-list-top, .bookmark-row) > .doc-list-tick,
   .library-image-tile > .library-tile-tick {
     opacity: 0;
@@ -3970,15 +3848,6 @@ body .chip.item-label,
   margin: 0 0 var(--space-4);
   font-size: var(--text-sm);
 }
-/* 9. A link's mark was the tinted accent square, the metric-card tell the
-      first pass took off the chat list and the dashboard. In the flat looks
-      it is the glyph in muted ink, and a row's pin and menu arrive with the
-      pointer as every other Library row's menu does (the mark already says
-      which links are pinned). */
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .bookmark-mark {
-  background: transparent;
-  color: var(--muted);
-}
 @media (hover: hover) {
   .bookmark-row > .bookmark-actions {
     opacity: 0;
@@ -4007,16 +3876,6 @@ body .chip.item-label,
   font-size: var(--text-lg);
   font-weight: 600;
 }
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-image-tile .chip.library-read-badge {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  font-size: var(--text-sm);
-  font-weight: 400;
-}
-.library-file-rows .library-image-reading > summary {
-  width: fit-content;
-}
 /* --- a Files row's facts line, one register (INBOX 421 f) -------------------
    The owner: "this ui needs a bit more modern and ui refinement and the
    second row elements arent aligned and dont really match". Measured at 1440
@@ -4030,17 +3889,6 @@ body .chip.item-label,
   column-gap: 0;
   font-size: var(--text-sm);
   line-height: 1.5;
-}
-.library-file-rows .library-image-tile > .library-file-facts :is(.library-file-meta, .library-read-strip, .library-read-badge, .library-image-usage, .library-image-usage > .muted) {
-  font-size: inherit;
-  line-height: inherit;
-}
-/* Each group's own gap is the space after its dot: the dot is a flex item
-   of the group it opens, so the group's gap already stands between the two,
-   and a symmetric margin put 15px after the dot against 8px before it. */
-.library-file-rows .library-image-tile > .library-file-facts > :is(.library-read-strip, .library-image-usage) {
-  padding-top: 0;
-  column-gap: var(--space-2);
 }
 .library-file-rows .library-image-tile > .library-file-facts > * + *::before {
   content: "\00b7";
@@ -4431,14 +4279,6 @@ body .chip.item-label,
   .skill-card
 ) {
   transition: none;
-}
-/* 19. A Files row's name was muted ink (rgb 102, 100, 95 measured), the
-       colour of the facts under it, so the row had no title; and the name
-       started at x 178 while its facts and its fold started at 191, three
-       left edges in one column. The name is ink, and the column's three
-       blocks share one inset. */
-.library-file-rows .library-image-tile > figcaption {
-  color: var(--ink);
 }
 .library-file-rows .library-image-tile > :is(figcaption, .library-file-facts, .library-image-fields) {
   padding-inline-start: var(--space-2);
@@ -8696,12 +8536,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .wb-export-overlay .seg.wb-export-seg > button:not(.active):not(:disabled):is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
 }
-.wb-export-overlay .seg.wb-export-seg > button.active {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  box-shadow: inset 0 0 0 1px var(--accent);
-  color: var(--ink);
-}
 /* The same fault in every icon-only button, smaller. Measured by
    scratchpad/ui-sweeps/inkcentre.js (each button photographed at 4x with its
    glyph painted red): 46 distinct icon buttons at 1440, their boxes centred
@@ -9072,28 +8906,6 @@ input[type="file"]:active::file-selector-button {
    out when they fill. */
 #settings-modal .settings-section .prefs-save-row:not(:has(> :not(.hidden):not(:empty))) {
   margin-top: 0;
-}
-/* --- Library Activity, one line per record (INBOX 426 z, images 89, 90) -----
-   when, what, the detail, on three tracks that are the same on every row.
-   In Rows the generic list tracks applied as well: the meta's
-   `margin-left: auto` (there to push a row's date to its right edge) sat
-   on the time, which is drawn first here, so on every row without a detail
-   the time and the title slid across to the right, x 1227 against 173 on
-   the row above. The time keeps its 7rem at the start in both views, the
-   title a fixed track, and the detail takes the rest. */
-@media (min-width: 600px) {
-  .library-grid .library-card.library-activity > .library-card-meta {
-    order: -1;
-    flex: 0 0 7rem;
-    margin-left: 0;
-    justify-content: flex-start;
-  }
-  /* No room kept for a tick: a record of the past has none to offer. */
-  .library-grid .library-card.library-activity > .library-card-top {
-    flex: 0 0 16rem;
-    min-width: 0;
-    padding-right: 0;
-  }
 }
 /* --- the selection tick in Rows (INBOX 426 z, image 91) ---------------------
    The tick's corner (top right, one ⋯ in from the edge) is the grid card's

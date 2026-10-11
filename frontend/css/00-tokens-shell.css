@@ -2870,9 +2870,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 0.7;
   transition: transform var(--ui-base) var(--ease-out);
 }
-.library-image-reading[open] > summary::before {
-  transform: rotate(90deg);
-}
 .library-image-reading:not([open]) > .library-image-reading-body {
   display: none;
 }

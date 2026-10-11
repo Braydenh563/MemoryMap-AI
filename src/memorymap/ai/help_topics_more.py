@@ -577,7 +577,11 @@ MORE_TOPICS: list[dict] = [
             "Settings, Account & security. Signing in: ask for a password when "
             "the app opens (private notes and other devices always ask). Other "
             "devices: let a phone or computer on your network open the app, "
-            "always with your password, over https on port 8443. The first "
+            "always with your password, over https on port 8443, and only on "
+            "networks you allowed (Allow on this network, or Allow on any network). "
+            "Ask before a new device signs in holds one until you Allow; "
+            "Allowed devices and Allowed networks have Remove. Loosening "
+            "needs your password. The first "
             "visit warns that the certificate is not trusted: compare its "
             "SHA-256 fingerprint with the one under the switch before you "
             "continue, and Regenerate certificate makes a new one. Under the fingerprint are the names the certificate carries and when it expires; Trust this certificate on your phone downloads it, and its ? says how to install it on iPhone and Android. If this computer's address changes, the app makes a new certificate at the next start. Change your password or PIN (private "
@@ -2008,15 +2012,20 @@ MORE_TOPICS.extend([
     {
         "id": "phone",
         "keywords": ("phone", "on my phone", "mobile", "iphone", "android", "tablet", "ipad", "use it on my phone",
-                     "open it on my phone"),
+                     "open it on my phone", "public wifi", "public network", "allow a device", "new device"),
         "body": (
             "Your phone opens this computer's notebook over your own network: turn "
             "on Allow other devices on this network (Settings, Account & security, "
-            "Other devices), then open the address it shows on the phone (https, "
-            "port 8443) and sign in with your password. The first visit warns that "
-            "the certificate is not trusted: compare the fingerprint shown under the "
-            "switch, or use Trust this certificate on your phone, whose ? has the "
-            "iPhone and Android steps. Typing the address without https still "
+            "Other devices), then open the large address it shows (Copy is beside "
+            "it; Other addresses folds the rest) on the phone and sign in with your "
+            "password. On an iPhone, press Install the certificate on the lock "
+            "screen, then Settings, General, VPN and Device Management to install "
+            "it and About, Certificate Trust Settings to trust it; its ? has the "
+            "steps. The phone's first sign-in waits until you choose Allow on this "
+            "computer (a notice with Allow and Deny); allowed devices are listed "
+            "with Remove. On a network you have not allowed (a cafe, an airport) "
+            "nothing can reach the notebook until you choose Allow on this network. "
+            "Typing the address without https still "
             "works: the app sends the phone on to https. If the phone cannot connect, "
             "both must be on the same Wi-Fi (not a guest one) and this computer's "
             "firewall must let the app in. The phone reads and writes the same "

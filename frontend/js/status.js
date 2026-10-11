@@ -899,6 +899,10 @@ async function checkDueReminders() {
 let reminderWatchStarted = false;
 function startReminderWatch() {
   checkDueReminders();
+  //: Other devices asking to sign in, and a network nobody allowed (INBOX
+  //: 867): lan-watch.js, lazy, starts itself once; it stops at once when
+  //: LAN mode is off.
+  lazyScript("/js/lan-watch.js");
   if (reminderWatchStarted) return;
   reminderWatchStarted = true;
   setInterval(checkDueReminders, REMINDER_POLL_MS);

@@ -165,9 +165,16 @@ async function renderPrivacyReceipt() {
   ].filter(Boolean).join(" · ");
 
   const listening = receipt.listening || {};
+  //: A short sentence, then the address block Settings, Other devices draws
+  //: (INBOX 867: the run-on list of four addresses was hard to read).
   $("privacy-listening").textContent = listening.other_devices
-    ? `Other devices on your network can open it, with the password: ${(listening.addresses || []).join(", ") || listening.host}.`
-    : "Only this computer. Nothing on your network can reach it.";
+    ? "Other devices on your network can open it, with your password, at:"
+    : listening.held
+      ? "Only this computer for now: other devices are kept out on this network."
+      : "Only this computer. Nothing on your network can reach it.";
+  const where = $("privacy-lan-addresses");
+  if (typeof renderLanAddresses === "function") renderLanAddresses(where, listening.other_devices ? listening : {});
+  else where?.classList.add("hidden");
 
   const switches = $("privacy-switches");
   switches.replaceChildren();

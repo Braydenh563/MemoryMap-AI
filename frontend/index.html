@@ -336,6 +336,39 @@
            (account-recovery.js, lazy). -->
       <button id="lock-forgot" type="button" class="link-button lock-forgot">Forgot your password?</button>
       <p id="lock-error" class="status error" role="alert"></p>
+      <!-- INBOX 867, "I use an Apple phone": over the network the lock card
+           offers the certificate, so the phone trusts this address once and
+           never warns again. A plain link (iOS installs a profile only from
+           a navigation); shown by CSS when the page did not arrive on this
+           computer (`data-lan`, set as app.py serves the page). -->
+      <div class="lock-lan-cert">
+        <a id="lock-lan-cert" class="link-button lock-forgot" href="/auth/lan-certificate.pem">Install the certificate</a>
+        <button type="button" class="icon-only ghost small graph-help-toggle"
+          data-help-for="lock-lan-cert-help" aria-controls="lock-lan-cert-help" aria-expanded="false"
+          title="How to trust this notebook on a phone" aria-label="How to trust this notebook on a phone">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+        <div class="help-body hidden" id="lock-lan-cert-help" role="dialog" aria-label="How to trust this notebook on a phone">
+          <p>
+            Do this once per phone, so this address is trusted and never warns again.
+          </p>
+          <p>
+            iPhone: press Install the certificate in Safari and choose Allow.
+            Then Settings, General, VPN and Device Management, MemoryMap,
+            Install. Then Settings, General, About, Certificate Trust
+            Settings, and switch it on.
+          </p>
+          <p>
+            Android: open the downloaded file from the phone's Settings,
+            Security, Encryption and credentials, Install a certificate, CA
+            certificate.
+          </p>
+          <p>
+            The first time this phone signs in, the computer the notebook is
+            on asks whether to let it in: choose Allow there.
+          </p>
+        </div>
+      </div>
     </div>
     <!-- **Forgot your password?** (INBOX 663; the owner: "it needs to be
          robust and secure"). The lock card's twin, shown in its place: one
@@ -12786,6 +12819,21 @@ Link to another note with [[its first few words]]."></textarea>
                   Turning it on asks for your current password, and resetting
                   the password turns it off.
                 </p>
+                <p>
+                  On a network you have not allowed, such as a cafe or an
+                  airport, nothing can reach the notebook: turning this on
+                  remembers the network you are on (by its router, read on
+                  this computer), and anywhere else Settings and the bell
+                  offer Allow on this network. A network Windows calls public
+                  always asks. Allow on any network stops asking.
+                </p>
+                <p>
+                  The first time a phone or computer signs in, it waits until
+                  you choose Allow on this computer; allowed devices are
+                  listed here with Remove, which also signs them out. Devices
+                  outside your own network (a forwarded port) are never let
+                  in. Loosening any of these asks for your password.
+                </p>
               </div>
               <label class="setting-check">
                 <input type="checkbox" id="account-allow-lan">
@@ -12795,6 +12843,43 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </label>
               <p id="account-lan-state" class="notice hidden" role="status"></p>
+              <!-- INBOX 867: on a network nobody allowed, the LAN port stays
+                   closed (core/lantrust.py) and this says so, with the one
+                   action that opens it (password-gated). -->
+              <div id="account-lan-held" class="hidden">
+                <p id="account-lan-held-text" class="notice notice-warn flush" role="status"></p>
+                <div class="row button-row">
+                  <button id="account-lan-allow-here" class="ghost small" type="button">Allow on this network</button>
+                </div>
+              </div>
+              <!-- The address a phone types, one large line with Copy, the
+                   rest folded (renderLanAddresses, settings-controls.js; the
+                   privacy receipt draws the same block). -->
+              <div id="account-lan-addresses" class="lan-addresses hidden"></div>
+              <div id="account-lan-trust" class="hidden">
+                <label class="setting-check">
+                  <input type="checkbox" id="account-lan-ask" checked>
+                  <span>
+                    Ask before a new device signs in
+                    <small class="muted">A phone's first sign-in waits until you choose Allow on this computer.</small>
+                  </span>
+                </label>
+                <label class="setting-check">
+                  <input type="checkbox" id="account-lan-any">
+                  <span>
+                    Allow on any network
+                    <small class="muted">Off, other devices get in only on networks you allowed.</small>
+                  </span>
+                </label>
+                <div id="account-lan-pending-wrap" class="hidden">
+                  <h4 class="setting-subhead">Waiting to sign in</h4>
+                  <ul id="account-lan-pending" class="entry-list"></ul>
+                </div>
+                <h4 class="setting-subhead">Allowed devices</h4>
+                <ul id="account-lan-devices" class="entry-list"></ul>
+                <h4 class="setting-subhead">Allowed networks</h4>
+                <ul id="account-lan-networks" class="entry-list"></ul>
+              </div>
               <!-- The certificate LAN mode serves (core/lancert.py; SEC-08, the
                    owner's "Yes, self-signed HTTPS"): its fingerprint, to
                    compare with a phone's one-time warning, and a way to make
@@ -12821,8 +12906,10 @@ Link to another note with [[its first few words]]."></textarea>
                     certificate on your phone to download the certificate.
                   </p>
                   <p>
-                    iPhone: open the downloaded file, choose Allow, then
-                    Settings, Profile Downloaded, Install. Then Settings,
+                    iPhone: open the address in Safari, press Install the
+                    certificate on the lock screen (or the button here once
+                    signed in), and choose Allow. Then Settings, General, VPN
+                    and Device Management, MemoryMap, Install. Then Settings,
                     General, About, Certificate Trust Settings, and switch the
                     certificate on for full trust.
                   </p>
@@ -13065,6 +13152,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Who can open this app</h3>
               <p id="privacy-listening"></p>
+              <div id="privacy-lan-addresses" class="lan-addresses hidden"></div>
             </div>
 
             <div class="settings-group">

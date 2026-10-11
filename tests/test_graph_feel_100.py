@@ -322,3 +322,36 @@ def test_a_dropped_note_settles_where_it_was_put_and_is_free_at_rest():
 def _node_args(script: str, *args: str) -> dict:
     out = subprocess.run(["node", "-e", script, *args], capture_output=True, text=True, check=True, timeout=60).stdout
     return json.loads(out)
+
+
+CSS_GRAPH = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+CSS_LAZY = (ROOT / "frontend" / "css" / "graph-lazy.css").read_text(encoding="utf-8")
+
+
+def test_the_constellation_keeps_its_room_and_fades_in_once():
+    # Measured on a reload (scratchpad/g100 load.js ART=1): the holder sat at
+    # 0px for 2.8s, then took 220px and full opacity in one frame. Now 220px
+    # from the first frame and a fade with no pop.
+    assert ".art-holder {\n  min-block-size: 220px;\n}" in CSS_GRAPH
+    assert "const height = 220;" in (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    assert ".art-holder:empty {" in CSS_GRAPH
+    start = CSS_GRAPH.index("@starting-style {\n  .art-holder:not(:has(> .art-veil)) > canvas:not(.art-veil) {\n    opacity: 0;")
+    tail = CSS_GRAPH[start : start + 900]
+    assert "@media (prefers-reduced-motion: reduce)" in tail
+    assert ':root[data-motion="reduced"] .art-holder > canvas:not(.art-veil) {\n  transition: none;' in tail
+
+
+def test_the_first_map_waits_on_a_soft_placeholder_and_cuts_with_less_motion():
+    render = _fn("renderGraphCanvas")
+    assert render.index("if (!s.shown) gcArriving(s, true);") < render.index("await apiJson(endpoint)")
+    failed = render[render.index("  if (!data) {") :]
+    assert failed.index("gcArriving(s, false);") < failed.index("surfaceFailed(")
+    assert "if (!data.nodes.length) gcArriving(s, false);" in render
+    reveal = _fn("gcReveal")
+    assert "gcArriving(s, false);" in reveal
+    assert 'gcStill() ? "none" : "opacity calc(var(--ui-slow) * 2) var(--ease-out)"' in reveal
+    arriving = _fn("gcArriving")
+    assert 'box.classList.remove("graph-arriving"), 6000' in arriving
+    assert "#graph-box.graph-arriving::after {\n  opacity: 1;" in CSS_LAZY
+    assert "@keyframes graph-arriving" in CSS_LAZY
+    assert ':root[data-motion="reduced"] #graph-box::after {\n  transition: none;\n  animation: none;' in CSS_LAZY

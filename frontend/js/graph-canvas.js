@@ -4689,6 +4689,7 @@ async function renderGraphCanvas(s = gcTab) {
     : false;
   graphSyncFocusChip();
   void wantEntities, wantDocuments, wantMaps;
+  if (!s.shown) gcArriving(s, true);
   const endpoint = graphEndpoint();
   //: A failed read is not an empty graph. Reported class of bug: the map
   //: drew "Nothing to map yet" over a notebook full of linked notes because
@@ -4696,6 +4697,7 @@ async function renderGraphCanvas(s = gcTab) {
   //: See `surfaceFailed` in navigation.js.
   const data = await apiJson(endpoint).then(graphFill).catch(() => null);
   if (!data) {
+    gcArriving(s, false);
     surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
     //: And the overview goes with the map it summarises, exactly as it does
     //: when there is nothing to map.
@@ -4717,6 +4719,7 @@ async function renderGraphCanvas(s = gcTab) {
 
   gcReadTokens(s);
   gcShowEmpty(data.nodes.length === 0);
+  if (!data.nodes.length) gcArriving(s, false);
   //: The minimap goes with the map, here as in `renderGraphSvg`: an overview
   //: of nothing is a grey rectangle in a corner. Reported against this
   //: renderer, which is the default, so the SVG one's copy of this line alone
@@ -5731,10 +5734,30 @@ async function gcRelinkPairs(pairs) {
 //: The map arrives over two `--ui-slow` (Brief 100): over `--ui-fast` it was
 //: one frame on a busy machine, which read as the graph simply appearing.
 //: The token is 0 with interface animations off, so that case cuts.
+//: **A soft placeholder while the first map is on its way** (Brief 100, the
+//: owner: "it kinda just appears after the page loads"). Measured on a first
+//: open (scratchpad/g100 load.js FIRST=1): the tab's skeleton went and the
+//: card stood empty for 430 to 730ms while /graph, the worker and its
+//: warm-up ran, then the map arrived. The box breathes a faint glow from the
+//: render's start until the canvas reveals (`gcReveal`), an empty or failed
+//: read, or 6s, whichever is first; the glow fades as the map fades in
+//: (graph-lazy.css).
+function gcArriving(s, on) {
+  const box = document.getElementById(s.boxId);
+  if (!box) return;
+  box.classList.toggle("graph-arriving", on);
+  clearTimeout(s.arrivingTimer);
+  if (on) s.arrivingTimer = setTimeout(() => box.classList.remove("graph-arriving"), 6000);
+}
+
 function gcReveal(s) {
   s.shown = true;
+  gcArriving(s, false);
   if (s.canvas && s.canvas.style.opacity === "0") {
-    s.canvas.style.transition = "opacity calc(var(--ui-slow) * 2) var(--ease-out)";
+    //: Cut, not faded, for a reader who asked for less motion (Brief 100:
+    //: "reduced motion keeps everything instant"); the token alone follows
+    //: Interface animations, which play under the system hint.
+    s.canvas.style.transition = gcStill() ? "none" : "opacity calc(var(--ui-slow) * 2) var(--ease-out)";
     s.canvas.style.opacity = "";
   }
 }

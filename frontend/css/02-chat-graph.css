@@ -2392,6 +2392,45 @@ kbd {
   display: block;
   border-radius: var(--radius-lg);
 }
+/* **The sky keeps its room and arrives over a fade** (Brief 100, the owner:
+   "it kinda just appears after the page loads"). Measured on a reload
+   (scratchpad/g100 load.js): the holder sat empty at 0px for 2.8s while p5
+   and the stats came, then took 220px and full opacity in one frame,
+   pushing the dashboard down (DESIGN.md motion: "a script-drawn mark its
+   room"). It now holds the sketch's own height (`startArt`, 220) as the
+   skeleton's soft ground, and a first sky fades in over it. A theme
+   change's sky mounts under the old one's veil, which does that fade, so
+   the starting style asks for no veil. */
+.art-holder {
+  min-block-size: 220px;
+}
+.art-holder:empty {
+  background: linear-gradient(100deg, transparent 25%, color-mix(in srgb, var(--ink) 7%, transparent) 50%, transparent 75%) var(--card);
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+.art-holder > canvas:not(.art-veil) {
+  transition: opacity calc(var(--ui-slow) * 2) var(--ease-out);
+}
+@starting-style {
+  .art-holder:not(:has(> .art-veil)) > canvas:not(.art-veil) {
+    opacity: 0;
+  }
+}
+/* Less motion asked for, by the system or the app: the sky is cut in, as
+   the sketch itself holds still (`startArt`). */
+@media (prefers-reduced-motion: reduce) {
+  .art-holder > canvas:not(.art-veil) {
+    transition: none;
+  }
+  /* The wait keeps its ground, without the sheen. */
+  .art-holder:empty {
+    animation: none;
+  }
+}
+:root[data-motion="reduced"] .art-holder > canvas:not(.art-veil) {
+  transition: none;
+}
 /* The old sky over the new one for a theme change, fading out (dashboard.js,
    refreshArtForTheme). Three times `--ui-slow`, which is 0 with interface
    animations off, so that case is instant. */

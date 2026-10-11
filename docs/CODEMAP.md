@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5517, frontend ids 2370, CSS sections 489, backend routes 553, backend modules 4605, test files 1061, tests 9734, plan headings 992.
+Counts: frontend functions 5518, frontend ids 2370, CSS sections 489, backend routes 553, backend modules 4605, test files 1061, tests 9736, plan headings 992.
 
-## Frontend functions (5517)
+## Frontend functions (5518)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -3541,11 +3541,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `firstStepsState` | frontend/js/first-run.js:12 |
 | `renderFirstSteps` | frontend/js/first-run.js:186 |
 
-### frontend/js/graph-canvas.js (138)
+### frontend/js/graph-canvas.js (139)
 
 | Name | File:line |
 |---|---|
 | `gcArmTouchLasso` | frontend/js/graph-canvas.js:3695 |
+| `gcArriving` | frontend/js/graph-canvas.js:5745 |
 | `gcArrows` | frontend/js/graph-canvas.js:806 |
 | `gcAutoFitDone` | frontend/js/graph-canvas.js:180 |
 | `gcBalanceFit` | frontend/js/graph-canvas.js:1514 |
@@ -3597,7 +3598,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `gcLabelText` | frontend/js/graph-canvas.js:3073 |
 | `gcLabelWidth` | frontend/js/graph-canvas.js:3031 |
 | `gcLabelZoom` | frontend/js/graph-canvas.js:794 |
-| `gcLegendEdgeKey` | frontend/js/graph-canvas.js:5205 |
+| `gcLegendEdgeKey` | frontend/js/graph-canvas.js:5208 |
 | `gcLineGrid` | frontend/js/graph-canvas.js:608 |
 | `gcLinkKindHidden` | frontend/js/graph-canvas.js:1209 |
 | `gcLinkSpark` | frontend/js/graph-canvas.js:2788 |
@@ -3623,17 +3624,17 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `gcRadius` | frontend/js/graph-canvas.js:248 |
 | `gcReadTokens` | frontend/js/graph-canvas.js:300 |
 | `gcRefitForPanels` | frontend/js/graph-canvas.js:1619 |
-| `gcRelinkPairs` | frontend/js/graph-canvas.js:5722 |
+| `gcRelinkPairs` | frontend/js/graph-canvas.js:5725 |
 | `gcRenameTopicInline` | frontend/js/graph-canvas.js:1393 |
 | `gcRenderFilterChips` | frontend/js/graph-canvas.js:1230 |
 | `gcRequestDraw` | frontend/js/graph-canvas.js:1889 |
 | `gcRequestMinimapFrame` | frontend/js/graph-canvas.js:1910 |
 | `gcReshuffle` | frontend/js/graph-canvas.js:4183 |
 | `gcResize` | frontend/js/graph-canvas.js:885 |
-| `gcReveal` | frontend/js/graph-canvas.js:5734 |
-| `gcRuleDomain` | frontend/js/graph-canvas.js:5010 |
-| `gcRuleKey` | frontend/js/graph-canvas.js:4992 |
-| `gcRuleScale` | frontend/js/graph-canvas.js:5016 |
+| `gcReveal` | frontend/js/graph-canvas.js:5753 |
+| `gcRuleDomain` | frontend/js/graph-canvas.js:5013 |
+| `gcRuleKey` | frontend/js/graph-canvas.js:4995 |
+| `gcRuleScale` | frontend/js/graph-canvas.js:5019 |
 | `gcSavePositions` | frontend/js/graph-canvas.js:4487 |
 | `gcSaveTopicName` | frontend/js/graph-canvas.js:1370 |
 | `gcSeedBesideNeighbours` | frontend/js/graph-canvas.js:4634 |
@@ -3661,7 +3662,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `gcTopicMembers` | frontend/js/graph-canvas.js:1473 |
 | `gcTreeIndex` | frontend/js/graph-canvas.js:3131 |
 | `gcTweenFromPrior` | frontend/js/graph-canvas.js:1633 |
-| `gcUnlinkPairs` | frontend/js/graph-canvas.js:5715 |
+| `gcUnlinkPairs` | frontend/js/graph-canvas.js:5718 |
 | `gcVisibleAtTime` | frontend/js/graph-canvas.js:1966 |
 | `gcWireInteraction` | frontend/js/graph-canvas.js:3211 |
 | `gcWireLasso` | frontend/js/graph-canvas.js:3710 |
@@ -3671,18 +3672,18 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `gcWorldFor` | frontend/js/graph-canvas.js:4531 |
 | `gcWorldPoint` | frontend/js/graph-canvas.js:3155 |
 | `gcWriteUnresolved` | frontend/js/graph-canvas.js:4114 |
-| `graphPaneColour` | frontend/js/graph-canvas.js:5507 |
-| `graphPaneDocumentNote` | frontend/js/graph-canvas.js:5643 |
-| `graphPaneEnsure` | frontend/js/graph-canvas.js:5485 |
-| `graphPaneFollow` | frontend/js/graph-canvas.js:5597 |
-| `graphPaneWire` | frontend/js/graph-canvas.js:5652 |
-| `graphRenderLegend` | frontend/js/graph-canvas.js:5033 |
-| `graphRenderStats` | frontend/js/graph-canvas.js:5245 |
-| `graphSyncLayoutChip` | frontend/js/graph-canvas.js:5285 |
-| `graphSyncTimeSlider` | frontend/js/graph-canvas.js:5312 |
-| `graphWireTimePlay` | frontend/js/graph-canvas.js:5351 |
+| `graphPaneColour` | frontend/js/graph-canvas.js:5510 |
+| `graphPaneDocumentNote` | frontend/js/graph-canvas.js:5646 |
+| `graphPaneEnsure` | frontend/js/graph-canvas.js:5488 |
+| `graphPaneFollow` | frontend/js/graph-canvas.js:5600 |
+| `graphPaneWire` | frontend/js/graph-canvas.js:5655 |
+| `graphRenderLegend` | frontend/js/graph-canvas.js:5036 |
+| `graphRenderStats` | frontend/js/graph-canvas.js:5248 |
+| `graphSyncLayoutChip` | frontend/js/graph-canvas.js:5288 |
+| `graphSyncTimeSlider` | frontend/js/graph-canvas.js:5315 |
+| `graphWireTimePlay` | frontend/js/graph-canvas.js:5354 |
 | `renderGraphCanvas` | frontend/js/graph-canvas.js:4665 |
-| `renderGraphPane` | frontend/js/graph-canvas.js:5513 |
+| `renderGraphPane` | frontend/js/graph-canvas.js:5516 |
 
 ### frontend/js/graph-worker.js (51)
 
@@ -8604,7 +8605,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Section | File:line |
 |---|---|
 | "Tools it can use": the row, measured against a normal one | frontend/css/03-dashboard-widgets.css:4642 |
-| "how are these connected?" | frontend/css/02-chat-graph.css:4366 |
+| "how are these connected?" | frontend/css/02-chat-graph.css:4405 |
 | 08-consistency.css - one recipe per repeated shape | frontend/css/08-consistency.css:1 |
 | 1. One menu row | frontend/css/08-consistency.css:24 |
 | 1. touch targets, one step, one block | frontend/css/07-whiteboard-misc.css:9667 |
@@ -8762,9 +8763,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Wave I: skeletons, focus, reduced motion | frontend/css/02-chat-graph.css:2225 |
 | Wave J: accent presets + appearance picker | frontend/css/05-sidebars-themes.css:1 |
 | Wave J: generative art + note tools + undo toast | frontend/css/02-chat-graph.css:2381 |
-| Wave K: empty states, mobile tap targets, high-contrast | frontend/css/02-chat-graph.css:2710 |
-| Wave L: skip link, action menus, contrast + type polish | frontend/css/02-chat-graph.css:2830 |
-| Wave M: graph filters, thumbnails, lightbox, batch bar | frontend/css/02-chat-graph.css:3287 |
+| Wave K: empty states, mobile tap targets, high-contrast | frontend/css/02-chat-graph.css:2749 |
+| Wave L: skip link, action menus, contrast + type polish | frontend/css/02-chat-graph.css:2869 |
+| Wave M: graph filters, thumbnails, lightbox, batch bar | frontend/css/02-chat-graph.css:3326 |
 | Wave N: improve-writing, link suggestions, tasks | frontend/css/03-dashboard-widgets.css:1 |
 | Wave O: AI Tools toggles | frontend/css/03-dashboard-widgets.css:970 |
 | Wave O: brand logo + a more present background | frontend/css/03-dashboard-widgets.css:556 |
@@ -8804,7 +8805,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | a settings row where nothing squashes anything else | frontend/css/07-whiteboard-misc.css:4081 |
 | a sheet (DESIGN.md's recipe index, "A sheet") | frontend/css/10-responsive.css:769 |
 | a sticker (MINDMAP_PLAN decision 44, INBOX 642) | frontend/css/library-lazy.css:2569 |
-| a stored file that is no longer stored | frontend/css/02-chat-graph.css:4749 |
+| a stored file that is no longer stored | frontend/css/02-chat-graph.css:4788 |
 | a traced path (§9) | frontend/css/02-chat-graph.css:1243 |
 | a turn that is still working says so, for as long as it is | frontend/css/03-dashboard-widgets.css:4356 |
 | a zone that cannot shrink says so, instead of spilling | frontend/css/10-responsive.css:1022 |
@@ -8866,7 +8867,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | forms | frontend/css/01-forms-settings.css:221 |
 | glass reaches the floating chrome that sat outside it | frontend/css/08-consistency.css:2713 |
 | glass restraint (UI_MODERNISATION_PLAN.md, Phase 3) | frontend/css/07-whiteboard-misc.css:7811 |
-| graph minimap | frontend/css/02-chat-graph.css:4216 |
+| graph minimap | frontend/css/02-chat-graph.css:4255 |
 | graph polish | frontend/css/03-dashboard-widgets.css:3704 |
 | graph: depth, halos and legible labels | frontend/css/04-chat-dock-appearance.css:1554 |
 | graph: physics sliders + node popup | frontend/css/04-chat-dock-appearance.css:1597 |
@@ -8901,7 +8902,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | notes page polish | frontend/css/03-dashboard-widgets.css:2476 |
 | nothing interactive is bare text | frontend/css/07-whiteboard-misc.css:3904 |
 | notifications | frontend/css/08-consistency.css:3754 |
-| numbered citations inside an answer | frontend/css/02-chat-graph.css:4428 |
+| numbered citations inside an answer | frontend/css/02-chat-graph.css:4467 |
 | one control height per Library header row | frontend/css/07-whiteboard-misc.css:5272 |
 | one gap under every card heading | frontend/css/01-forms-settings.css:4734 |
 | one line of facts: a note's meta row | frontend/css/08-consistency.css:2745 |
@@ -8913,7 +8914,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | page margins (Appearance > Page Margins) | frontend/css/07-whiteboard-misc.css:2665 |
 | previews on the Library's document and board cards | frontend/css/library-lazy.css:648 |
 | radio groups as choices, not as a list of dots (§35L) | frontend/css/06-timeline-dialogs.css:1235 |
-| reading a scan against its own pages | frontend/css/02-chat-graph.css:3472 |
+| reading a scan against its own pages | frontend/css/02-chat-graph.css:3511 |
 | rebindable shortcuts | frontend/css/05-sidebars-themes.css:697 |
 | reminders page polish | frontend/css/03-dashboard-widgets.css:3096 |
 | reminders, de-vibecoded | frontend/css/08-consistency.css:3182 |
@@ -8960,7 +8961,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the Library, second pass: cards in reading order, one anatomy | frontend/css/08-consistency.css:3808 |
 | the OCR rail's own switch | frontend/css/07-whiteboard-misc.css:6581 |
 | the Skills dropdown | frontend/css/04-chat-dock-appearance.css:1179 |
-| the Sources panel | frontend/css/02-chat-graph.css:4931 |
+| the Sources panel | frontend/css/02-chat-graph.css:4970 |
 | the accessible card: the title opens it (INBOX 433) | frontend/css/08-consistency.css:3018 |
 | the agent activity panel: nothing scrolls sideways, nothing folds onto | frontend/css/07-whiteboard-misc.css:10526 |
 | the agent's run, as a timeline | frontend/css/02-chat-graph.css:581 |
@@ -8979,9 +8980,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the bottom docks | frontend/css/07-whiteboard-misc.css:9733 |
 | the chat dock follows its own width (INBOX 694) | frontend/css/10-responsive.css:2509 |
 | the chat page fills its height (§36A) | frontend/css/06-timeline-dialogs.css:1324 |
-| the chat sidebar on a phone | frontend/css/02-chat-graph.css:5447 |
+| the chat sidebar on a phone | frontend/css/02-chat-graph.css:5486 |
 | the chat toolbar, grouped (§36B) | frontend/css/06-timeline-dialogs.css:1443 |
-| the citation peek (INBOX 80) | frontend/css/02-chat-graph.css:4490 |
+| the citation peek (INBOX 80) | frontend/css/02-chat-graph.css:4529 |
 | the code editor: gutter + monospace | frontend/css/04-chat-dock-appearance.css:4429 |
 | the code panel, one compact header and a padded body (the owner, | frontend/css/library-lazy.css:4041 |
 | the composer dock (asked for directly) | frontend/css/04-chat-dock-appearance.css:940 |
@@ -9020,10 +9021,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the help popover is a popover, not a page (INBOX 206) | frontend/css/08-consistency.css:2584 |
 | the in-app confirm dialog (§35F) | frontend/css/06-timeline-dialogs.css:1108 |
 | the lightbox on a phone (INBOX 430) | frontend/css/10-responsive.css:2195 |
-| the live action line | frontend/css/02-chat-graph.css:4780 |
+| the live action line | frontend/css/02-chat-graph.css:4819 |
 | the lock screen | frontend/css/08-consistency.css:3790 |
 | the log console (§1) | frontend/css/06-timeline-dialogs.css:727 |
-| the map is the tab, and its controls float over it | frontend/css/02-chat-graph.css:5471 |
+| the map is the tab, and its controls float over it | frontend/css/02-chat-graph.css:5510 |
 | the mind map's outline and markers (MINDMAP_PLAN decisions 33, 34) | frontend/css/library-lazy.css:2126 |
 | the node edit strip (MINDMAP_PLAN.md §12.1 item 2) | frontend/css/07-whiteboard-misc.css:8529 |
 | the node radial (MINDMAP_PLAN.md §12.1 item 3) | frontend/css/07-whiteboard-misc.css:8794 |
@@ -9058,7 +9059,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the status bar from 820 to 959: one item fewer | frontend/css/10-responsive.css:1148 |
 | the status bar on a small phone | frontend/css/00-tokens-shell.css:3443 |
 | the status line and the recent searches | frontend/css/03-dashboard-widgets.css:1406 |
-| the step group (Perplexity's "Finished N steps") | frontend/css/02-chat-graph.css:4853 |
+| the step group (Perplexity's "Finished N steps") | frontend/css/02-chat-graph.css:4892 |
 | the strip's three doors (MINDMAP_PLAN.md §13b) | frontend/css/07-whiteboard-misc.css:8624 |
 | the strips that appear only when they apply | frontend/css/00-tokens-shell.css:1844 |
 | the structural blocks (INBOX 421 b) | frontend/css/05-sidebars-themes.css:1383 |
@@ -9087,7 +9088,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | what it learned (WORLD_CLASS_PLAN I9) | frontend/css/01-forms-settings.css:5450 |
 | what the AI remembers (ROADMAP §39B) | frontend/css/07-whiteboard-misc.css:1933 |
 | what the agent found, as things you can open | frontend/css/07-whiteboard-misc.css:5231 |
-| what the answering model is | frontend/css/02-chat-graph.css:5279 |
+| what the answering model is | frontend/css/02-chat-graph.css:5318 |
 | what the phone block assumed, and the sheet undoes | frontend/css/07-whiteboard-misc.css:10007 |
 | whiteboard fixes (§41) | frontend/css/07-whiteboard-misc.css:2060 |
 | whiteboard objects: images and text boxes, neither tied to a note | frontend/css/07-whiteboard-misc.css:1 |
@@ -9099,7 +9100,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |---|---|
 | frontend/css/00-tokens-shell.css | 4259 |
 | frontend/css/01-forms-settings.css | 6069 |
-| frontend/css/02-chat-graph.css | 5875 |
+| frontend/css/02-chat-graph.css | 5914 |
 | frontend/css/03-dashboard-widgets.css | 5173 |
 | frontend/css/04-chat-dock-appearance.css | 6493 |
 | frontend/css/05-sidebars-themes.css | 6150 |
@@ -9112,7 +9113,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/atlas-lazy.css | 52 |
 | frontend/css/captions-lazy.css | 78 |
 | frontend/css/first-run-lazy.css | 39 |
-| frontend/css/graph-lazy.css | 119 |
+| frontend/css/graph-lazy.css | 157 |
 | frontend/css/help-chat-lazy.css | 32 |
 | frontend/css/icon-picker.css | 101 |
 | frontend/css/library-lazy.css | 5177 |
@@ -15583,7 +15584,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9734)
+## Tests (9736)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -15977,7 +15978,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_graph_colour_rules.py | 7 |
 | tests/test_graph_empty_filtered.py | 4 |
 | tests/test_graph_encoded_off_loop.py | 2 |
-| tests/test_graph_feel_100.py | 12 |
+| tests/test_graph_feel_100.py | 14 |
 | tests/test_graph_feel_775.py | 13 |
 | tests/test_graph_first_frame.py | 5 |
 | tests/test_graph_fit_balance.py | 7 |

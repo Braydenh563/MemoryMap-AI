@@ -1037,8 +1037,8 @@ HELP_TOPICS.extend(
                 "guide: Start the tour for all of it, or a part's row, its name over "
                 "what it covers, to start there and carry on to the "
                 "next; Back and Next move through it, and Finish ends it whenever you "
-                "like. The search box at the top of Settings, Help keeps only the "
-                "topics that hold every word you type, with the words marked; Esc "
+                "like. The search box under Welcome and tours in Settings, Help keeps "
+                "only the topics that hold every word you type, with the words marked; Esc "
                 "clears it."
             ),
             "badge": {"label": "Help", "section": "help"},

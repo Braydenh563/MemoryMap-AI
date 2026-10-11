@@ -47,7 +47,7 @@ def test_every_term_of_the_query_must_match() -> None:
     assert _node('helpMatches([], "anything")') is True
 
 
-def test_the_field_is_the_search_field_recipe_at_the_top_of_help() -> None:
+def test_the_field_is_the_search_field_recipe_under_the_welcome_and_tours() -> None:
     pane = HTML[HTML.index('id="settings-help"') :]
     pane = pane[: pane.index('id="settings-about"')]
     field = re.search(r'<div class="search-field[ "][^>]*>(.*?)</div>', pane, re.S)
@@ -55,7 +55,9 @@ def test_the_field_is_the_search_field_recipe_at_the_top_of_help() -> None:
     assert 'class="ph ph-magnifying-glass search-field-icon"' in field.group(1)
     assert 'id="help-search"' in field.group(1) and "search-field-input" in field.group(1)
     assert 'aria-label="Search help"' in field.group(1)
-    assert pane.index("help-search") < pane.index("tour-replay"), "the field is the first thing"
+    # INBOX 871: under the Welcome and tours group, above the topics it filters
+    # (so the keyboard's Tab order follows the picture).
+    assert pane.index("tour-replay") < pane.index('id="help-search"') < pane.index('id="help-topics"')
     assert 'id="help-empty"' in pane and "Nothing in Help matches" in pane
     assert 'id="help-search-status"' in pane and 'aria-live="polite"' in pane
 

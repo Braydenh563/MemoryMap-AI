@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Settings, Help: the search box and its count sit under Welcome and tours, above the topics they filter.
 - Chat: every message shows when it was written, muted at the end of its line (the time today, "Yesterday 14:05", the weekday within a week, the date after that, the full date and time on hover), in your locale; the server stamps each message as it is saved, and a chat saved before this shows none. The chat list reads its time from the last message.
 - Other devices: a phone can now trust the notebook for good. The certificate is a small authority made on this computer, limited to your own network, signing the server certificate (an address change no longer asks the phone again); Trust this certificate on your phone downloads it without a sign-in error; and an address typed without https is sent on to https instead of failing.
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), a missing apostrophe is read ("doesn follow"), and a stray semicolon inside a word or two words run together are put right ("natura;l", "thenthe"); the Guide, the clock and the other utilities read the repaired question.

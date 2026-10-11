@@ -48346,6 +48346,11 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      muted at the end of each message's line with the full date on hover, and
      the chat list reads its time from the last message (Brief 103).
 
+871. **The owner, 2026-10-11, verbatim.** "the help search bar should be below
+     the welcome tour section at the top of the help dropdowns". Fixed: Settings,
+     Help's search field and its count sit directly under the Welcome and tours
+     group, above the topics they filter; the Tab order follows.
+
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 
 INBOX 797, the owner: "I feel like the mindmap and whiteboard are still
